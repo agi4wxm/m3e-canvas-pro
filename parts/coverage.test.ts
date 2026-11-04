@@ -5,7 +5,8 @@ import { partBySlug } from "./registry";
 /* docs/组件盘点.md says which part answers for each component of each source. This keeps it true: every
  * part it names has to exist, so removing or renaming one fails here until the list says where it went. */
 
-const doc = readFileSync(new URL("../docs/组件盘点.md", import.meta.url), "utf8");
+/* git may check it out with CRLF on Windows */
+const doc = readFileSync(new URL("../docs/组件盘点.md", import.meta.url), "utf8").replaceAll("\r\n", "\n");
 const rows = doc.split("\n").filter((l) => l.startsWith("| ") && !l.startsWith("| ---"));
 /** the column that holds parts: the second, or the third in the three-column table of the other sources */
 const named = (row: string, index: number) => [...row.split(" | ")[index].matchAll(/`([a-z][a-z0-9-]*)`/g)].map((m) => m[1]);
