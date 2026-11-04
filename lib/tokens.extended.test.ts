@@ -7,12 +7,11 @@
  *  - isExpanded boundary at 840 dp
  *  - uniformRadii: simple all-corners-equal constructor
  *  - carryItemSize: a part's width and height props across screen sizes
- *  - connectSpecOf returns connect metadata; canJoin is true only when same axis + family
  *  - actionSlotsOf returns the places a part can send a tap from
  *  - linkUrlOf only hands back addresses a browser may follow, and completes a bare host
  *  - normalizeTheme fills in defaults
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { partBySlug, reader } from "../parts/registry";
 import {
   PHONE_W,
@@ -40,8 +39,6 @@ import {
   frameRect,
   frameRadius,
   carryItemSize,
-  connectSpecOf,
-  canJoin,
   actionSlotsOf,
   normalizeTheme,
   makeItem,
@@ -188,44 +185,6 @@ describe("carryItemSize", () => {
   it("a part with no measure of its own does not auto-resize", () => {
     const label = part("label", { text: "Hello" });
     expect(carryItemSize(label, from, to)).toBe(label);
-  });
-});
-
-describe("connectSpecOf / canJoin", () => {
-  /* no part declares a connect spec yet; these tests hold the rule, so they declare one for themselves */
-  beforeAll(() => {
-    partBySlug("button")!.connect = { axis: "x", family: "button" };
-    partBySlug("icon-button")!.connect = { axis: "x", family: "button" };
-    partBySlug("item")!.connect = { axis: "y", family: "list" };
-  });
-
-  afterAll(() => {
-    for (const slug of ["button", "icon-button", "item"]) delete partBySlug(slug)!.connect;
-  });
-
-  it("buttons share family 'button' on x axis -> joinable", () => {
-    const a = part("button");
-    const b = part("icon-button");
-    expect(canJoin(a, b)).toBe(true);
-    expect(connectSpecOf(a)?.axis).toBe("x");
-    expect(connectSpecOf(a)?.family).toBe("button");
-  });
-
-  it("button + list item are NOT joinable (different family)", () => {
-    expect(canJoin(part("button"), part("item"))).toBe(false);
-  });
-
-  it("list items share family 'list' on y axis -> joinable vertically", () => {
-    const a = part("item");
-    const b = part("item");
-    expect(canJoin(a, b)).toBe(true);
-    expect(connectSpecOf(a)?.axis).toBe("y");
-  });
-
-  it("parts with no connect spec return undefined and don't join", () => {
-    const a = part("separator");
-    expect(connectSpecOf(a)).toBeUndefined();
-    expect(canJoin(a, a)).toBe(false);
   });
 });
 

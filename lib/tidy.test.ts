@@ -1,6 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { partBySlug } from "../parts/registry";
 import { carryFrame, minFrameLength, pinOf, stretchFrame, tidyFrame } from "./tidy";
 import { DESKTOP_H, DESKTOP_W, Frame, Group, Item, PHONE_H, PHONE_MARGIN, PHONE_W, frameLengthOf, frameOfGroup, frameRect, groupBounds, isPhoneFrame, makeItem, sizeOf } from "./tokens";
 
@@ -15,21 +14,7 @@ const BUTTON = sizeOf(part("button", "button"), {});
 const BAR_H = sizeOf(part("app-bar", "bar"), {}).h;
 const NAV_H = sizeOf(part("navigation-bar", "nav"), {}).h;
 
-/* No part declares `connect` yet; these specs hold Tidy's join rule for the tests that use it. */
-const declareJoins = () => {
-  beforeAll(() => {
-    partBySlug("button")!.connect = { axis: "x", family: "button" };
-    partBySlug("item")!.connect = { axis: "y", family: "list" };
-  });
-  afterAll(() => {
-    delete partBySlug("button")!.connect;
-    delete partBySlug("item")!.connect;
-  });
-};
-
 describe("tidyFrame", () => {
-  declareJoins();
-
   it("snaps the app bar to the top edge and the navigation bar to the bottom", () => {
     const groups = [grp("g-bar", 40, 300, [part("app-bar", "bar")]), grp("g-nav", 40, 100, [part("navigation-bar", "nav")])];
     const out = tidyFrame(groups, frame, frames, {});
@@ -42,25 +27,6 @@ describe("tidyFrame", () => {
   it("moves a FAB to the bottom-right corner, one margin in", () => {
     const out = tidyFrame([grp("g-fab", 40, 100, [part("fab", "fab")])], frame, frames, {});
     expect([out![0].x, out![0].y]).toEqual([PHONE_W - PHONE_MARGIN - FAB.w, PHONE_H - PHONE_MARGIN - FAB.h]);
-  });
-
-  it("joins neighbouring buttons into one connected run in reading order", () => {
-    const out = tidyFrame([grp("g1", 16, 300, [part("button", "b1")]), grp("g2", 16 + BUTTON.w + 6, 300, [part("button", "b2")])], frame, frames, {});
-    expect(out).toHaveLength(1);
-    expect(out![0].items.map((it) => it.id)).toEqual(["b1", "b2"]);
-  });
-
-  it("joins buttons dropped onto each other, in reading order", () => {
-    const out = tidyFrame([grp("g1", 150, 300, [part("button", "b1")]), grp("g2", 100, 304, [part("button", "b2")])], frame, frames, {});
-    expect(out).toHaveLength(1);
-    expect(out![0].items.map((it) => it.id)).toEqual(["b2", "b1"]);
-  });
-
-  it("joins neighbouring list items into one connected column", () => {
-    const out = tidyFrame([grp("g1", 16, 100, [part("item", "l1")]), grp("g2", 16, 180, [part("item", "l2")])], frame, frames, {});
-    expect(out).toHaveLength(1);
-    expect(out![0].axis).toBe("y");
-    expect(out![0].items.map((it) => it.id)).toEqual(["l1", "l2"]);
   });
 
   it("returns null for a frame that is already tidy", () => {
@@ -142,15 +108,13 @@ describe("tidyFrame placement", () => {
 });
 
 describe("tidyFrame with locked groups", () => {
-  declareJoins();
-
-  /* a locked run of two list items, with a lone list item close enough above it to fuse when unlocked */
+  /* a locked run of two list items, with a lone list item close above it */
   const lockedRun = (): Group => ({ ...grp("g-lock", 16, 500, [part("item", "l1"), part("item", "l2")]), axis: "y", locked: true });
   const neighbour = (): Group => grp("g-nb", 16, 412, [part("item", "n1")]);
   const buttons = (): Group => grp("g-btns", 100, 60, [part("button", "b1"), part("button", "b2")]);
   const find = (out: Group[], id: string) => out.find((g) => g.id === id)!;
 
-  it("keeps a locked group at its exact position, never merging it into a run", () => {
+  it("keeps a locked group at its exact position", () => {
     const run = lockedRun();
     const out = tidyFrame([run, neighbour(), buttons()], frame, frames, {})!;
     expect(find(out, "g-lock")).toEqual(run);
@@ -163,13 +127,6 @@ describe("tidyFrame with locked groups", () => {
     /* and tidying really did move them */
     expect(find(mixed, "g-btns")).not.toEqual(buttons());
     expect(find(mixed, "g-nb")).not.toEqual(neighbour());
-  });
-
-  it("merges the same runs when the group is not locked", () => {
-    const out = tidyFrame([{ ...lockedRun(), locked: undefined }, neighbour(), buttons()], frame, frames, {})!;
-    const lists = out.filter((g) => g.items.some((it) => it.component === "item"));
-    expect(lists).toHaveLength(1);
-    expect(lists[0].items.map((it) => it.id).sort()).toEqual(["l1", "l2", "n1"]);
   });
 
   it("yields no change when every group on the screen is locked", () => {
@@ -212,7 +169,8 @@ describe("tidyFrame with locked groups", () => {
   });
 
   it("flows the rows around a locked section in the body", () => {
-    const fixed = { ...grp("g-fixed", 16, 200, [part("card", "c0")]), locked: true };
+    /* close enough under the head of the body that only the first row fits above it */
+    const fixed = { ...grp("g-fixed", 16, 100, [part("card", "c0")]), locked: true };
     const above = grp("g-a", 60, 40, [part("item", "l1")]);
     const below = grp("g-b", 60, 600, [part("item", "l2")]);
     const out = tidyFrame([fixed, above, below], frame, frames, {})!;

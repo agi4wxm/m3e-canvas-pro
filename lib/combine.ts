@@ -1,6 +1,5 @@
 import { partBySlug, reader } from "../parts/registry";
 import type { ListItem } from "../parts/types";
-import { JOIN_GAP_X, JOIN_GAP_Y } from "./tidy";
 import { Frame, Group, Item, groupBounds, groupsInFrame } from "./tokens";
 
 /* Buttons that sit side by side, or on top of each other, are one button group in M3E: they share
@@ -10,6 +9,9 @@ import { Frame, Group, Item, groupBounds, groupsInFrame } from "./tokens";
 type Rect = { l: number; t: number; r: number; b: number };
 type Cand = { g: Group; it: Item; bb: Rect; size: string; variant: string };
 
+/** the farthest two buttons may be apart and still be joined: side by side, and stacked */
+const JOIN_GAP_X = 24;
+const JOIN_GAP_Y = 48;
 /** M3 connects up to five buttons in a group */
 const MAX_RUN = 5;
 

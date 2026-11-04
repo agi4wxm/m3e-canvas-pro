@@ -14,7 +14,7 @@ import { renderNode } from "./render";
 import { loadWidgets } from "./widgets/load";
 import { WIDGET_SOURCES } from "./widgets/sources";
 
-/* The contract every part keeps (docs/组件包接入规范.md), checked for all of them: a new part is
+/* The contract every part keeps (docs/组件规范.md), checked for all of them: a new part is
  * covered the moment it is in PARTS, with no test of its own to write. */
 
 beforeAll(async () => {

@@ -1,27 +1,24 @@
-import { Frame, Group, Item, PHONE_MARGIN, RAIL_COLLAPSED_W, railExpansionSide, railWidth, canJoin, carryItemSize, connectSpecOf, frameOfGroup, frameRect, frameSizeOf, frameLengthOf, groupBounds, layoutOf, isExpanded } from "./tokens";
+import { Frame, Group, Item, PHONE_MARGIN, RAIL_COLLAPSED_W, railExpansionSide, railWidth, carryItemSize, frameOfGroup, frameRect, frameSizeOf, frameLengthOf, groupBounds, layoutOf, isExpanded } from "./tokens";
 import { fullWidth, roleOf } from "../parts/role";
 
 /* Rule-based layout for one screen. Nothing here is guessed by a model.
  *
- * 1. Parts of one connectable family (see `PartDef.connect`) that sit next to each
- *    other, or on top of each other, fuse into a connected run, the same way the
- *    magnetic drop does.
- * 2. Bars stick to the edges they belong to (app bar and tabs at the top, the
+ * 1. Bars stick to the edges they belong to (app bar and tabs at the top, the
  *    navigation bar at the bottom, toolbars and snackbars hovering above it,
  *    a bottom sheet on the bottom edge), a FAB takes the bottom-right corner,
  *    a dialog is centered.
- * 3. Everything else is stacked between the bars on the 16dp layout margins, from
+ * 2. Everything else is stacked between the bars on the 16dp layout margins, from
  *    the top unless the screen asks for the body centered, at the bottom or spread. Rows,
  *    hand-made groups and intentional overlaps (a badge on an icon, parts on a
- *    container) are kept as one unit, and a part keeps the side it was on. A run
+ *    container) are kept as one unit, and a part keeps the side it was on. A group
  *    nearly as wide as the content sits on the margin; a text with a switch,
  *    checkbox or radio beside it spans the row, the control on the right.
  *
- * 4. Inside one unit (parts on a container, a hand-made group) edges that are almost
+ * 3. Inside one unit (parts on a container, a hand-made group) edges that are almost
  *    aligned snap to the common line. This only acts on differences a hand would
  *    call a slip, never on a gap someone clearly meant.
  *
- * Only positions change and runs are joined; sizes, order and contents stay. */
+ * Only positions change; sizes, order and contents stay. */
 
 /** the farthest two edges may be apart and still count as meant to line up */
 const SNAP = 6;
@@ -34,12 +31,6 @@ const ROW_GAP = 16;
 const TIGHT_GAP = 8;
 /** horizontal distance between parts packed into one row */
 const ROW_ITEM_GAP = 8;
-/** the farthest two parts of one family may be apart and still be joined: side by side, and stacked */
-export const JOIN_GAP_X = 24;
-export const JOIN_GAP_Y = 48;
-/** parts of one family the author kept apart stay clearly apart, beyond the joining distance */
-const APART_GAP_X = JOIN_GAP_X + 8;
-const APART_GAP_Y = JOIN_GAP_Y + 8;
 
 /** one movable unit: a group plus everything nested inside or overlapping it */
 type Unit = { ids: string[]; bb: Rect; /** the family rows of one kind tighten against */ family: string; /** the first part, for family and role checks */ probe: Item };
@@ -52,59 +43,7 @@ const union = (a: Rect, b: Rect): Rect => ({ l: Math.min(a.l, b.l), t: Math.min(
 /** how much of the smaller extent two spans share, 0..1 */
 const share = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / Math.max(1, Math.min(a1 - a0, b1 - b0));
 
-/* ---------- 1. join runs ---------- */
-
-/** whether the whole run is one connectable family, so a neighbour can join it */
-const runFamily = (g: Group): { axis: "x" | "y"; probe: Item } | null => {
-  if (g.free) return null;
-  const spec = connectSpecOf(g.items[0]);
-  if (!spec) return null;
-  if (!g.items.every((it) => canJoin(g.items[0], it))) return null;
-  return { axis: spec.axis, probe: g.items[0] };
-};
-
-/** Neighbouring runs of one family fuse into a single run, in reading order. */
-function joinRuns(groups: Group[], widths: Record<string, number>): Group[] {
-  const out = [...groups];
-  for (;;) {
-    let joined = false;
-    const bounds = new Map(out.map((g) => [g.id, groupBounds(g, widths)]));
-    outer: for (let i = 0; i < out.length; i++) {
-      const a = out[i];
-      const fa = runFamily(a);
-      if (!fa) continue;
-      for (let j = 0; j < out.length; j++) {
-        if (i === j) continue;
-        const b = out[j];
-        const fb = runFamily(b);
-        if (!fb || fa.axis !== fb.axis || !canJoin(fa.probe, fb.probe)) continue;
-        const ra = bounds.get(a.id)!;
-        const rb = bounds.get(b.id)!;
-        /* b must come right after a along the axis, and line up across it; parts dropped onto
-         * each other count as neighbours too, read from the one that starts first */
-        const gap = fa.axis === "x" ? rb.l - ra.r : rb.t - ra.b;
-        if (gap > (fa.axis === "x" ? JOIN_GAP_X : JOIN_GAP_Y)) continue;
-        const ahead = fa.axis === "x" ? ra.l < rb.l || (ra.l === rb.l && i < j) : ra.t < rb.t || (ra.t === rb.t && i < j);
-        if (gap < -2 && !ahead) continue;
-        const lined = fa.axis === "x" ? share(ra.t, ra.b, rb.t, rb.b) : share(ra.l, ra.r, rb.l, rb.r);
-        if (lined < 0.5) continue;
-        /* nothing else may sit between them */
-        const between: Rect = fa.axis === "x" ? { l: ra.r, t: Math.min(ra.t, rb.t), r: rb.l, b: Math.max(ra.b, rb.b) } : { l: Math.min(ra.l, rb.l), t: ra.b, r: Math.max(ra.r, rb.r), b: rb.t };
-        if (out.some((o) => o !== a && o !== b && overlap(bounds.get(o.id)!, between))) continue;
-        const merged: Group = { ...a, axis: fa.axis, items: [...a.items, ...b.items] };
-        /* the run keeps the later layer so the joined parts still draw above whatever they were over */
-        const at = Math.max(i, j);
-        out.splice(at, 1, merged);
-        out.splice(Math.min(i, j), 1);
-        joined = true;
-        break outer;
-      }
-    }
-    if (!joined) return out;
-  }
-}
-
-/* ---------- 2 and 3. place ---------- */
+/* ---------- place ---------- */
 
 const area = (r: Rect) => Math.max(0, r.r - r.l) * Math.max(0, r.b - r.t);
 
@@ -187,8 +126,6 @@ function align(bb: Rect, fr: Rect): "left" | "center" | "right" | "fill" {
 /** the gap above a row, from what came before it */
 function gapBefore(prev: Unit[] | null, row: Unit[]): number {
   if (!prev) return 0;
-  /* two stacked runs of one family were left separate on purpose: keep them beyond the joining distance */
-  if (prev.length === 1 && row.length === 1 && canJoin(prev[0].probe, row[0].probe) && connectSpecOf(prev[0].probe)?.axis === "y") return APART_GAP_Y;
   const pu = prev.length === 1 ? prev[0] : null;
   const ku = row.length === 1 ? row[0] : null;
   if (pu && role(pu) === "label") return TIGHT_GAP;
@@ -454,10 +391,9 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   const mineIds = new Set(groups.filter((g) => frameOfGroup(g, frames, widths)?.id === frame.id).map((g) => g.id));
   if (!mineIds.size) return null;
 
-  /* joining rewrites the list; the other screens' groups keep their slots.
-   * Locked groups are finished sections: they never join, cluster or move, but they
-   * keep the room they stand in, so the rest is laid out around them. */
-  const before = groups.filter((g) => mineIds.has(g.id) && !g.locked);
+  /* Locked groups are finished sections: they never cluster or move, but they keep the room
+   * they stand in, so the rest is laid out around them. */
+  const mine = groups.filter((g) => mineIds.has(g.id) && !g.locked);
   const fixed = clusters(groups.filter((g) => mineIds.has(g.id) && !!g.locked), widths);
   const fixedRails = fixed.filter(isRail);
   const fixedTops = fixed.filter(isTop);
@@ -465,8 +401,6 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   const fixedFabs = fixed.filter(isFab);
   /* the bands of body height a locked section takes, which the rows flow around */
   const bands = fixed.filter((u) => !isAnchored(u)).map((u) => u.bb).sort((a, b) => a.t - b.t);
-  const mine = joinRuns(before, widths);
-  const joined = mine.length !== before.length;
 
   const units = clusters(mine, widths);
   const target = new Map<Unit, { l: number; t: number }>();
@@ -586,8 +520,7 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
     } else {
       const ws = row.map((u) => u.bb.r - u.bb.l);
       const total = ws.reduce((s, w) => s + w, 0);
-      /* neighbours of one family that were not joined were kept apart on purpose */
-      const gaps = row.slice(1).map((u, i) => (canJoin(row[i].probe, u.probe) ? APART_GAP_X : ROW_ITEM_GAP));
+      const gaps = row.slice(1).map(() => ROW_ITEM_GAP);
       const minPacked = total + gaps.reduce((s, g) => s + g, 0);
       const span = row[row.length - 1].bb.r - row[0].bb.l;
       const spread = span >= inner * 0.7 && minPacked <= inner;
@@ -610,7 +543,7 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
     const dy = Math.round(to.t - u.bb.t);
     for (const id of u.ids) shift.set(id, { dx, dy });
   }
-  let moved = joined;
+  let moved = false;
   const placed = new Map(
     mine.map((g) => {
       const s = shift.get(g.id);
@@ -622,26 +555,6 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   );
   for (const u of units) if (snapEdges(u, placed, widths)) moved = true;
   if (!moved) return null;
-  /* keep canvas order: a joined run takes the slot of its last original member */
-  const survivorOf = new Map<string, Group>();
-  for (const m of mine) for (const it of m.items) survivorOf.set(it.id, m);
-  const lastSlot = new Map<string, number>();
-  groups.forEach((g, i) => {
-    if (mineIds.has(g.id) && !g.locked) lastSlot.set(survivorOf.get(g.items[0].id)!.id, i);
-  });
-  const out: Group[] = [];
-  groups.forEach((g, i) => {
-    if (!mineIds.has(g.id)) {
-      out.push(g);
-      return;
-    }
-    /* a locked group keeps its position and its slot untouched */
-    if (g.locked) {
-      out.push(g);
-      return;
-    }
-    const m = survivorOf.get(g.items[0].id)!;
-    if (lastSlot.get(m.id) === i) out.push(placed.get(m.id)!);
-  });
-  return out;
+  /* a locked group, and another screen's, keeps its position and its slot untouched */
+  return groups.map((g) => placed.get(g.id) ?? g);
 }

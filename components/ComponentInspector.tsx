@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Frame, Item, NavTab, PHONE_W, Palette, actionSlotsOf, defaultTabRows, defaultTabs, frameSizeOf } from "@/lib/tokens";
+import { Frame, Item, NavTab, PHONE_W, Palette, actionSlotsOf, defaultTabRows, defaultTabs, frameSizeOf, listRowsPatch } from "@/lib/tokens";
 import { t, useLang, type Lang } from "@/lib/i18n";
 import { partBySlug, reader } from "@/parts/registry";
 import { choiceLabelOf, labelOf, nameOf } from "@/parts/labels";
@@ -30,7 +30,7 @@ const tableOf = (text: string): TableData => {
   return { columns: cells(head), rows: rest.filter((l) => l.trim()).map(cells) };
 };
 
-function PropRow({ def, value, onChange, item, p, frameW, lang }: { def: PropDef; value: unknown; onChange: (v: unknown) => void; item: Item; p: Palette; frameW: number; lang: Lang }) {
+function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def: PropDef; value: unknown; onChange: (v: unknown) => void; onRows: (rows: ListItem[], order: number[]) => void; item: Item; p: Palette; frameW: number; lang: Lang }) {
   const labelText = labelOf(def, lang);
   const label = <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant, padding: "0 4px 6px" }}>{labelText}</div>;
   switch (def.kind) {
@@ -116,10 +116,10 @@ function PropRow({ def, value, onChange, item, p, frameW, lang }: { def: PropDef
             spare={bar ? defaultTabs() : defaultTabRows()}
             icons={icons}
             fields={def.fields?.map((f) => ({ key: f.key, label: labelOf(f, lang), options: f.options.map((o) => ({ key: typeof o === "string" ? o : o.value, label: choiceLabelOf(o, lang) })) }))}
-            onChange={(tabs) => {
+            onChange={(tabs, order) => {
               const next = fromRows(tabs, icons);
               if (next.length < (def.min ?? 1) || next.length > (def.max ?? 12)) return;
-              onChange(next);
+              onRows(next, order);
             }}
             p={p}
           />
@@ -142,7 +142,7 @@ export function ComponentProps({ item, palette: p, onChange, frame }: { item: It
       {def.props
         .filter((d) => !d.when || d.when(values))
         .map((d) => (
-          <PropRow key={d.key} def={d} value={read(d)} onChange={(v) => set(d.key, v)} item={item} p={p} frameW={frame ? frameSizeOf(frame).w : PHONE_W} lang={lang} />
+          <PropRow key={d.key} def={d} value={read(d)} onChange={(v) => set(d.key, v)} onRows={(rows, order) => onChange(listRowsPatch(item, d.key, rows, order))} item={item} p={p} frameW={frame ? frameSizeOf(frame).w : PHONE_W} lang={lang} />
         ))}
       {def.slug === "fab" && !!values.s("label") && !!values.s("icon") && <Toggle on={!!item.collapseOnScroll} onChange={(collapseOnScroll) => onChange({ collapseOnScroll: collapseOnScroll || undefined })} label={t("fabScrollSwitch", lang)} p={p} />}
     </div>

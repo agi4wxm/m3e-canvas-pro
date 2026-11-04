@@ -29,7 +29,7 @@ print(APP + "#docz=" + base64.urlsafe_b64encode(raw).decode().rstrip("="))
 
 The link is long. That is expected; it carries the whole design and nothing is stored anywhere. Keep the document under about 100 KB, and point at pictures by their web address rather than embedding them.
 
-Rough placement is fine. The person presses **Tidy**: bars snap to the edges, neighbours fuse into connected runs, and the rest stacks on 16dp margins. Spend your effort on the right parts, sensible words, and the navigation between screens.
+Rough placement is fine. The person presses **Tidy**: bars snap to the edges, and the rest stacks on 16dp margins. Spend your effort on the right parts, sensible words, and the navigation between screens.
 
 ## The document
 
@@ -66,7 +66,7 @@ A phone screen is **412 × 892**; a desktop screen is **1280 × 800** (set `w` a
 
 ### Parts (`groups`)
 
-Every part sits in a **group**: one part, or a **connected run** of parts drawn as a unit, such as buttons side by side (`"axis": "x"`) or list rows stacked (`"axis": "y"`). Coordinates are **canvas coordinates**, so add the screen's `x` and `y`. Later groups draw on top of earlier ones. A part that lies wholly inside a container (`container`, `window`, `dock`, …) belongs to it, and moves with it.
+Every part sits in a **group**: one part, or several parts laid out along the group's axis (`"axis": "x"` side by side, `"axis": "y"` stacked) that move as a unit. Buttons that belong together are one `button-group`, and list rows are one `item` with several rows, not a group of parts. Coordinates are **canvas coordinates**, so add the screen's `x` and `y`. Later groups draw on top of earlier ones. A part that lies wholly inside a container (`container`, `window`, `dock`, …) belongs to it, and moves with it.
 
 Every part has the same shape: an `id`, `"kind": "component"`, the part's name in `component`, and the values you set in `props`. A prop you leave out takes the part's default. `label` is `""`, `icon` is `null` and `variant` is `"filled"` on every part.
 

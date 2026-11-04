@@ -660,7 +660,8 @@ export function EntryList({
   bounds: { min: number; max: number };
   /** where a row the author adds comes from */
   spare: NavTab[];
-  onChange: (tabs: NavTab[]) => void;
+  /** the rows as they now are; `order` holds, for each, the index it had (-1 for a new one) */
+  onChange: (tabs: NavTab[], order: number[]) => void;
   p: Palette;
   /** each entry has an icon */
   icons?: boolean;
@@ -683,7 +684,8 @@ export function EntryList({
   if (keys.current.names.length > tabs.length) keys.current.names.length = tabs.length;
   const names = keys.current.names;
   const picked = pick === null ? -1 : names.indexOf(pick);
-  const set = (i: number, patch: Partial<NavTab>) => onChange(tabs.map((t, j) => (j === i ? { ...t, ...patch } : t)));
+  const same = tabs.map((_, j) => j);
+  const set = (i: number, patch: Partial<NavTab>) => onChange(tabs.map((t, j) => (j === i ? { ...t, ...patch } : t)), same);
   const onBin = (e: { clientX: number; clientY: number }) => {
     const r = bin.current?.getBoundingClientRect();
     return !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top - 8 && e.clientY <= r.bottom + 8;
@@ -698,7 +700,7 @@ export function EntryList({
         onReorder={(next: string[]) => {
           const order = next.map((k) => names.indexOf(k));
           keys.current.names = next;
-          onChange(order.map((j) => ({ ...tabs[j] })));
+          onChange(order.map((j) => ({ ...tabs[j] })), order);
         }}
         style={{ display: "flex", flexDirection: "column", gap: 6, padding: 0, margin: 0 }}
       >
@@ -722,7 +724,7 @@ export function EntryList({
               if (drop) {
                 if (pick === names[i]) setPick(null);
                 keys.current.names = names.filter((_, j) => j !== i);
-                onChange(tabs.filter((_, j) => j !== i));
+                onChange(tabs.filter((_, j) => j !== i), same.filter((j) => j !== i));
               }
             }}
             p={p}
@@ -738,7 +740,7 @@ export function EntryList({
           disabled={!canAdd && dragging === null}
           onClick={() => {
             if (!canAdd) return;
-            onChange([...tabs, { ...spare[tabs.length % spare.length] }]);
+            onChange([...tabs, { ...spare[tabs.length % spare.length] }], [...same, -1]);
           }}
           className="m3-press"
           style={{

@@ -9,15 +9,11 @@
  *    in their canonical slots; floating rows flow down on the layout margin
  *  - tidyFrame returns null when the screen is already tidy
  *  - tidyFrame shifts the parts so they don't overlap a bar at the top, etc.
- *  - Tidy assigns an axis to joined runs
- *  - Two near-neighbour buttons fuse; two beyond JOIN_GAP_X stay separate rows
- *  - Three list items stacked vertically with the right gap join into one run
- *  - Groups of different families do not join
+ *  - Neighbouring parts stay the separate groups they are
  *  - carryFrame: phone <-> desktop conversion swaps a stand-alone navigation bar with a rail
  *  - carryFrame: a rail placed on the right stays on the right
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { partBySlug } from "../parts/registry";
+import { describe, expect, it } from "vitest";
 import {
   tidyFrame,
   pullInto,
@@ -122,14 +118,6 @@ describe("barSlotOf", () => {
 });
 
 describe("tidyFrame", () => {
-  /* No part declares `connect` yet; this spec holds Tidy's join rule for the tests below. */
-  beforeAll(() => {
-    partBySlug("button")!.connect = { axis: "x", family: "button" };
-  });
-  afterAll(() => {
-    delete partBySlug("button")!.connect;
-  });
-
   it("returns null when no groups belong to the frame", () => {
     expect(tidyFrame([], phoneFrame, [phoneFrame], widths)).toBeNull();
   });
@@ -139,25 +127,12 @@ describe("tidyFrame", () => {
     expect(tidyFrame([group("g1", 0, 0, [topBar("t")])], f, [f], widths)).toBeNull();
   });
 
-  it("leaves two buttons apart when the gap between them exceeds the join distance", () => {
+  it("leaves neighbouring buttons as the separate groups they are", () => {
     const f = phoneFrame;
-    // A 24dp gap joins (see lib/tidy.test.ts); at 60dp the buttons stay two rows.
-    const apart = [group("g1", 16, 300, [btn("a")]), group("g2", 16 + BUTTON_W + 60, 300, [btn("b")])];
+    const apart = [group("g1", 16, 300, [btn("a")]), group("g2", 16 + BUTTON_W + 6, 300, [btn("b")])];
     const out = tidyFrame(apart, f, [f], widths) ?? apart;
     expect(out).toHaveLength(2);
     expect(out.flatMap((g) => g.items.map((it) => it.id)).sort()).toEqual(["a", "b"]);
-  });
-
-  it("fuses two close buttons in a row into one connected run", () => {
-    const f = phoneFrame;
-    const g1 = group("g1", 100, 100, [btn("a")]);
-    // Same row, dropped onto the same spot: gap <= JOIN_GAP_X, so joinRuns
-    // must fuse them into one group holding both ids.
-    const g2 = group("g2", 100, 100, [btn("b")]);
-    const out = tidyFrame([g1, g2], f, [f], widths);
-    expect(out).not.toBeNull();
-    const merged = out!.find((g) => g.items.some((i) => i.id === "a") && g.items.some((i) => i.id === "b"));
-    expect(merged).toBeDefined();
   });
 
   it("anchors a top app bar to the top of the screen", () => {

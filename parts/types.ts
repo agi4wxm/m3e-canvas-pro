@@ -90,8 +90,6 @@ export type PartDef = {
   /** the size it takes on the canvas until it has been measured */
   w: number;
   h: number;
-  /** parts of one family fuse into a connected run along this axis when they meet */
-  connect?: { axis: "x" | "y"; family: string };
   props: PropDef[];
   /** the part can take a fill role, a text role and custom corners: the panel offers them, and
    *  they are painted onto the node(s) named by `target` (the tree's root when left out).

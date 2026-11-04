@@ -369,6 +369,14 @@ input.m3-number {
 }
 
 
+/* A part draws its overlays inside its own Contained box, a stacking context of its own, so an open
+ * one is only as high as the part. While an overlay is open or on its way out, its part stands above
+ * the others in its group, and its group above the others on the screen. */
+[data-preview-group]:has([data-contained] :is([data-slot$="-popup"], [data-slot$="-content"], [data-slot$="-view"]):is([data-open], [data-ending-style])),
+[data-live-part]:has([data-contained] :is([data-slot$="-popup"], [data-slot$="-content"], [data-slot$="-view"]):is([data-open], [data-ending-style])) {
+  z-index: 1;
+}
+
 /* a `fit` Contained box is a virtual viewport the overlay floats in; the part is the overlay
  * itself, so the scrim that would paint the viewport is not drawn */
 [data-fit] [data-slot$="-overlay"] {

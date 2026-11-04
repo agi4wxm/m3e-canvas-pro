@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { flushSync } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion, useSpring } from "motion/react";
 import { toPng } from "html-to-image";
 import { buildPrompt, effectivePrompt } from "@/lib/prompt";
@@ -19,9 +18,7 @@ import {
   draftGradient,
   explodeGroup,
   BEZEL,
-  canJoin,
   clamp,
-  connectSpecOf,
   Doc,
   Frame,
   Place,
@@ -44,7 +41,6 @@ import {
   heldBy,
   underWhatItHolds,
   layoutOf,
-  lerp,
   makeItem,
   DEFAULT_THEME,
   Theme,
@@ -57,12 +53,9 @@ import {
   PHONE_H,
   PHONE_MARGIN,
   PHONE_W,
-  PULL_EXP,
   SETTLE_CSS_VARS,
   SETTLE_MS,
   sizeOf,
-  SNAP_CROSS,
-  SNAP_MAIN,
   Transition,
   TRANSITIONS,
   uid,
@@ -145,7 +138,6 @@ const DOC_LOCK = "m3e:doc:editor";
 const UI_KEY = "m3e:ui";
 
 type View = { x: number; y: number; z: number };
-type Snap = { groupId: string; index: number; pull: number };
 
 /** alignment guide: the snapped position plus the line to draw */
 type Guide = { x?: number; y?: number; gx?: number; gy?: number };
@@ -168,8 +160,6 @@ type DragState = {
   active: boolean;
   fromPalette: boolean;
   overBin: boolean;
-  snap: Snap | null;
-  settling: boolean;
   /** let go where it cannot land: the ghost shrinks away before the state is cleared */
   vanishing: boolean;
 };
@@ -464,7 +454,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const measureEls = useRef<Map<string, HTMLElement>>(new Map());
   const dragRef = useRef<DragState | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
-  const pendingRef = useRef<{ timer: number; commit: () => void } | null>(null);
   const groupsRef = useRef(groups);
   groupsRef.current = groups;
   const framesRef = useRef(frames);
@@ -1070,52 +1059,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     return () => el.removeEventListener("wheel", onWheel);
   }, [setZoomAt]);
 
-  /* ---------- rest positions and the magnet ---------- */
-  const restPos = useCallback(
-    (g: Group, k: number, sz: { w: number; h: number }) =>
-      g.axis === "x"
-        ? { left: k === 0 ? g.x - sz.w - GAP : g.x + prefixOf(g, k), top: g.y }
-        : { left: g.x, top: k === 0 ? g.y - sz.h - GAP : g.y + prefixOf(g, k) },
-    [prefixOf],
-  );
-
-  /** Nearest slot inside the magnetic field with an attraction that ramps
-   *  from 0 at the edge to 1 on target. A part only fuses with its own kind. */
-  const findSnap = useCallback(
-    (item: Item, left: number, top: number): Snap | null => {
-      const spec = connectSpecOf(item);
-      if (!spec) return null;
-      let best: Snap | null = null;
-      let bestD = 1;
-      for (const g of groupsRef.current) {
-        /* a locked run is finished: nothing joins it, so it never moves to make room */
-        if (g.free || g.locked || g.axis !== spec.axis || !g.items[0] || !canJoin(g.items[0], item))
-          continue;
-        const sz = sizeRef(item);
-        /* across the run, the part and the band it would join are lined up by their middles:
-         * a small part carried onto a tall run should still find it, and it takes the run's
-         * size as it lands anyway */
-        const band = g.items.reduce((m, it) => Math.max(m, spec.axis === "x" ? sizeRef(it).h : sizeRef(it).w), 0);
-        for (let k = 0; k <= g.items.length; k++) {
-          const r = restPos(g, k, sz);
-          const dx = left - r.left;
-          const dy = top - r.top;
-          const mid = spec.axis === "x" ? top + sz.h / 2 - (g.y + band / 2) : left + sz.w / 2 - (g.x + band / 2);
-          const nMain = (spec.axis === "x" ? dx : dy) / SNAP_MAIN;
-          const nCross = mid / SNAP_CROSS;
-          if (Math.abs(nMain) >= 1 || Math.abs(nCross) >= 1) continue;
-          const d = Math.hypot(nMain, nCross);
-          if (d < bestD) {
-            bestD = d;
-            best = { groupId: g.id, index: k, pull: Math.pow(1 - d, PULL_EXP) };
-          }
-        }
-      }
-      return best;
-    },
-    [restPos, sizeRef],
-  );
-
   const sx = useSpring(0, CARRY);
   const sy = useSpring(0, CARRY);
 
@@ -1187,15 +1130,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   );
 
   /* ---------- pointer: parts ---------- */
-  const flushPending = useCallback(() => {
-    const pend = pendingRef.current;
-    if (!pend) return;
-    clearTimeout(pend.timer);
-    pendingRef.current = null;
-    pend.commit();
-  }, []);
-  useEffect(() => () => flushPending(), [flushPending]);
-
   const startPan = (clientX: number, clientY: number) => {
     const g: Gesture = {
       kind: "pan",
@@ -1211,7 +1145,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   /* a drop that adds or deletes nothing: the ghost fades and shrinks where it was let go, so the
    * cancel is seen rather than the part simply blinking out */
   const vanishDrag = (d: DragState) => {
-    setDrag({ ...d, vanishing: true, overBin: false, snap: null, guide: null });
+    setDrag({ ...d, vanishing: true, overBin: false, guide: null });
     window.setTimeout(() => setDrag((cur) => (cur?.vanishing ? null : cur)), VANISH_MS);
   };
   const onItemPointerDown = (
@@ -1229,7 +1163,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    flushPending();
     if (g.free) {
       setSelectedIds((cur) => (e.shiftKey ? [...cur.filter((x) => !g.items.some((it) => it.id === x)), ...g.items.map((it) => it.id)] : g.items.map((it) => it.id)));
       setSelectedFrameId(null);
@@ -1281,8 +1214,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       active: false,
       fromPalette: false,
       overBin: false,
-      snap: null,
-      settling: false,
       vanishing: false,
       guide: null,
     };
@@ -1314,7 +1245,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       id: uid(),
       x: isBar && slot ? Math.round(slot.x) : settle("x", rawX),
       y: settle("y", rawY),
-      axis: connectSpecOf(item)?.axis ?? "x",
+      axis: "x",
       items: [placedItem],
     };
     const pulled = targetFrame ? pullInto(landed, targetFrame, widthsRef.current) : landed;
@@ -1326,7 +1257,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    flushPending();
     const item = makeItem("component", slug);
     const pt = toWorld(e.clientX, e.clientY);
     const sz = sizeOf(item, widthsRef.current);
@@ -1347,8 +1277,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       active: true,
       fromPalette: true,
       overBin: false,
-      snap: null,
-      settling: false,
       vanishing: false,
       guide: null,
     };
@@ -1408,7 +1336,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    flushPending();
     const spec = sizeDragSpec(item, side);
     widthDragRef.current = {
       id: item.id,
@@ -1519,15 +1446,13 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           return;
         }
         d.active = true;
-        d.snap = null;
         const id = d.item.id;
-        /* the run keeps the hole the part came out of: it closes only once the part is carried
-         * out of reach, rather than snapping shut the moment the drag begins */
+        /* the group keeps the hole the part came out of until the part has moved on, rather than
+         * snapping shut the moment the drag begins */
         const from = groupsRef.current.find((x) => !x.free && x.items.length > 1 && x.items.some((it) => it.id === id));
         if (from) {
           const index = from.items.findIndex((it) => it.id === id);
           const sz = sizeRef(d.item);
-          d.snap = { groupId: from.id, index, pull: 1 };
           holdGap(from.id, index, sz.w, sz.h, true);
         }
         snapshot();
@@ -1562,18 +1487,9 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
 
       /* a part being added from the palette has nothing to delete yet; dropping it back there just cancels */
       d.overBin = !d.fromPalette && inBin(e.clientX);
-      /* a palette part only lands where the pointer is released inside the canvas, so it must
-       * not join a run (nor hold a gap open) while the pointer is still over the palette */
-      const outside = d.fromPalette && !inCanvas(e.clientX, e.clientY);
-      d.snap =
-        d.overBin || ctrlHeld || outside
-          ? null
-          : findSnap(d.item, pt.x - d.offX, pt.y - d.offY);
-      const now = sizeRef(d.item);
-      if (d.snap) holdGap(d.snap.groupId, d.snap.index, now.w, now.h);
-      else closeGap();
+      closeGap();
       d.guide =
-        d.overBin || d.snap || ctrlHeld
+        d.overBin || ctrlHeld
           ? null
           : findGuide(d.item, pt.x - d.offX, pt.y - d.offY);
       setDrag({ ...d });
@@ -1589,51 +1505,14 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         return;
       }
 
+      closeGap();
       const loose = ctrlHeld || e.ctrlKey || e.metaKey;
 
       const item = d.item;
-      const sz = sizeRef(item);
 
       if (d.overBin) {
         setSelectedIds((cur) => cur.filter((x) => x !== item.id));
         vanishDrag(d);
-        return;
-      }
-
-      if (!loose && d.snap) {
-        const t = d.snap;
-        setDrag({ ...d, snap: { ...t, pull: 1 }, settling: true });
-        const commit = () => {
-          /* the run's own position takes the new first part's width in one step: the hole it was
-           * holding open is handed straight to the part, with nothing sliding */
-          if (t.index === 0) instantRef.current.add(t.groupId);
-          if (gapTimer.current) clearTimeout(gapTimer.current);
-          setGap(null);
-          setGroups((prev) => {
-            if (prev.some((g) => g.items.some((it) => it.id === item.id)))
-              return prev;
-            return prev.map((g) => {
-              if (g.id !== t.groupId) return g;
-              const front = t.index === 0;
-              return {
-                ...g,
-                x: front && g.axis === "x" ? g.x - sz.w - GAP : g.x,
-                y: front && g.axis === "y" ? g.y - sz.h - GAP : g.y,
-                items: [
-                  ...g.items.slice(0, t.index),
-                  item,
-                  ...g.items.slice(t.index),
-                ],
-              };
-            });
-          });
-          setDrag(null);
-        };
-        const timer = window.setTimeout(() => {
-          pendingRef.current = null;
-          commit();
-        }, SETTLE_MS);
-        pendingRef.current = { timer, commit };
         return;
       }
 
@@ -1666,10 +1545,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const d = dragRef.current;
       if (!d) return;
       ctrlHeld = held;
-      if (held) {
-        d.snap = null;
-        d.guide = null;
-      }
+      if (held) d.guide = null;
       setDrag({ ...d });
     };
     const onCtrlDown = (e: KeyboardEvent) => onCtrl(e, true);
@@ -1695,18 +1571,9 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (!drag?.active) return;
     const cursorL = drag.px - drag.offX;
     const cursorT = drag.py - drag.offY;
-    if (drag.snap) {
-      const g = groupsRef.current.find((x) => x.id === drag.snap!.groupId);
-      if (g) {
-        const r = restPos(g, drag.snap.index, sizeRef(drag.item));
-        sx.set(lerp(cursorL, r.left, drag.snap.pull));
-        sy.set(lerp(cursorT, r.top, drag.snap.pull));
-        return;
-      }
-    }
     sx.set(drag.guide?.x ?? cursorL);
     sy.set(drag.guide?.y ?? cursorT);
-  }, [drag, restPos, sizeRef, sx, sy]);
+  }, [drag, sx, sy]);
 
   /* ---------- pointer: canvas (pan / marquee) ---------- */
   const itemRects = useCallback(() => {
@@ -2066,7 +1933,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       }
       for (const it of picked) {
         const r = rects.get(it.id);
-        if (r) out.push({ id: g.id, x: r.l, y: r.t, axis: connectSpecOf(it)?.axis ?? "x", items: [structuredClone(it)] });
+        if (r) out.push({ id: g.id, x: r.l, y: r.t, axis: "x", items: [structuredClone(it)] });
       }
     }
     return out;
@@ -2519,9 +2386,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
    *  nudged down when that spot is already taken; over empty canvas it stays at the centre of
    *  the view, so the new part is always in sight */
   const addPart = (slug: string) => {
-    /* a snapped drop still settling is committed and rendered first, so the undo step taken
-     * below sees it and the free-spot search counts it */
-    if (pendingRef.current) flushSync(flushPending);
     const r = canvasRect();
     const v = viewRef.current;
     const item = makeItem("component", slug);
@@ -3224,17 +3088,14 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     gapRef.current = next;
     setGapOut(next);
   }, []);
-  /** the run keeps the hole open while the part is in reach, and closes it once it is not */
+  /** the group keeps the hole a part came out of open, and closes it once the part has moved on */
   const holdGap = useCallback(
     (gid: string, index: number, w: number, h: number, from = false) => {
       if (gapTimer.current) {
         clearTimeout(gapTimer.current);
         gapTimer.current = null;
       }
-      /* a part that came out of this run keeps its hole at full size for as long as it is in
-       * reach, however the magnet is pulling; a part arriving from elsewhere opens one as it
-       * comes, so the run can be seen making room */
-      setGap({ gid, index, w, h, open: true, from: from || (gapRef.current?.gid === gid && gapRef.current.index === index && gapRef.current.from) });
+      setGap({ gid, index, w, h, open: true, from });
     },
     [setGap],
   );
@@ -3402,9 +3263,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, locked: !g.locked } : g)));
   };
 
-  /** The parts of one group in a new order: reading order for a connected run, back to
-   *  front for a free group. Inside a free group a hidden run keeps its slots, handed out
-   *  again in the new order, so reordering a list really moves its rows. */
+  /** The parts of one group in a new order: reading order for a group laid out along its axis,
+   *  back to front for a free group. */
   const reorderGroupItems = (groupId: string, order: string[]) => {
     const g = groupsRef.current.find((x) => x.id === groupId);
     if (!g || g.locked) return;
@@ -3413,21 +3273,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (items.length !== g.items.length || new Set(order).size !== order.length) return;
     layerSnapshot("layers:items:" + groupId);
     instantRef.current.add(groupId);
-    if (!g.free) {
-      setGroups((gs) => gs.map((x) => (x.id === groupId ? { ...x, items } : x)));
-      return;
-    }
-    const rank = new Map(items.map((it, i) => [it.id, i]));
-    const pos = { ...(g.pos ?? {}) };
-    for (const run of explodeGroup(g, widthsRef.current)) {
-      if (run.items.length < 2) continue;
-      const slots = run.items.map((it) => pos[it.id] ?? { x: 0, y: 0 });
-      const members = [...run.items].sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
-      members.forEach((it, i) => {
-        pos[it.id] = slots[i];
-      });
-    }
-    setGroups((gs) => gs.map((x) => (x.id === groupId ? { ...x, items, pos } : x)));
+    setGroups((gs) => gs.map((x) => (x.id === groupId ? { ...x, items } : x)));
   };
 
   const renderGroup = (g: Group, ox: number, oy: number, screen?: { w: number; h: number }) => {

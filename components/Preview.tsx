@@ -127,7 +127,7 @@ function LivePart({ item, widths, screen, onTap, onSlot, easeWidth }: { item: It
     e.preventDefault();
   };
   return (
-    <div onClick={onTap || onSlot ? click : undefined} style={{ position: "relative", display: "flex", flex: "0 0 auto", width: easeWidth ? "max-content" : size.w, height: size.h }}>
+    <div data-live-part onClick={onTap || onSlot ? click : undefined} style={{ position: "relative", display: "flex", flex: "0 0 auto", width: easeWidth ? "max-content" : size.w, height: size.h }}>
       <PartView item={item} live screen={screen} />
     </div>
   );

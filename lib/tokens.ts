@@ -3,16 +3,12 @@ import { Contrast, schemeFromSeed } from "./color";
 import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
+import type { ListItem } from "../parts/types";
 
 /* ---------- geometry ---------- */
-export const GAP = 3; // connected group spacing
+export const GAP = 3; // spacing between the parts of one group
 export const R_INNER = 8; // inner corner of a connected run of cells (M3 small)
 
-/** magnetic field size, along the run and across it */
-export const SNAP_MAIN = 44;
-export const SNAP_CROSS = 24;
-/** how sharply the pull ramps up (higher = gentler at the edge) */
-export const PULL_EXP = 2.2;
 /** ms allowed for the landing animation before the item is committed */
 export const SETTLE_MS = 340;
 /** the same time and curve, as the CSS custom properties the stylesheet eases with */
@@ -503,11 +499,47 @@ export function actionSlotsOf(it: Item): IconSlot[] {
   return def.slots(reader(def, it.props)).map((s) => ({ key: s.key, label: s.label, value: s.icon ?? null }));
 }
 
+/** the patch that gives a list prop new rows. `order` holds, for each new row, the index it had
+ *  (-1 for a new one). Where the part's `tab:N` slots are this list's rows, a row's tap target and
+ *  the part's chosen entry go with the row, and the target of a removed row goes with it. */
+export function listRowsPatch(it: Item, key: string, rows: ListItem[], order: number[]): Partial<Item> {
+  const patch: Partial<Item> = { props: { ...it.props, [key]: rows } };
+  const def = partBySlug(it.component);
+  if (!def?.slots) return patch;
+  const tabSlots = (list: ListItem[]) => def.slots!(reader(def, { ...it.props, [key]: list })).filter((s) => s.key.startsWith("tab:")).length;
+  const was = reader(def, it.props).list(key);
+  /* the slots are this list's rows when they come and go with them */
+  if (tabSlots([...was, { label: "" }]) === tabSlots(was)) return patch;
+  /* a slot past the rows (a menu's destructive entry) only keeps its distance from their end */
+  const to = (j: number) => (j >= was.length ? j + rows.length - was.length : order.indexOf(j));
+  if (it.actions) {
+    const actions: NonNullable<Item["actions"]> = {};
+    for (const [slot, action] of Object.entries(it.actions)) {
+      const m = /^tab:(\d+)$/.exec(slot);
+      const at = m ? to(Number(m[1])) : 0;
+      if (at >= 0) actions[m ? `tab:${at}` : slot] = action;
+    }
+    patch.actions = Object.keys(actions).length ? actions : undefined;
+  }
+  const select = def.props.find((d) => d.key === def.selectKey);
+  if (select?.kind === "number") {
+    const sel = reader(def, it.props).n(select.key);
+    if (sel >= 0 && sel < was.length) {
+      /* a removed entry leaves the choice on the one that takes its place */
+      const at = order.indexOf(sel);
+      const next = at >= 0 ? at : Math.min(sel, Math.max(0, rows.length - 1));
+      /* a choice the author never made stays unmade until its row moves */
+      if (next !== sel) patch.props![select.key] = next;
+    }
+  }
+  return patch;
+}
+
 /** a free group down to one part is just that part again */
 export function collapseFree(g: Group, widths: Record<string, number>): Group {
   if (!g.free || g.items.length !== 1) return g;
   const pl = layoutOf(g, widths)[0];
-  return { id: g.id, x: pl.x, y: pl.y, axis: connectSpecOf(g.items[0])?.axis ?? "x", items: g.items };
+  return { id: g.id, x: pl.x, y: pl.y, axis: "x", items: g.items };
 }
 
 /** every navigation an item carries: its own action plus per-slot ones */
@@ -726,44 +758,15 @@ export function underWhatItHolds(groups: Group[], id: string, widths: Record<str
   return out;
 }
 
-/** A free group written as the runs it holds: parts of one family that still sit
- *  one GAP apart along their axis stay a connected run, everything else is a run
- *  of one. Layout logic, the prompt and ungrouping all see the same runs, in the
- *  group's own order (later = drawn on top), which is what the layers panel edits. */
+/** A free group written as the parts it holds, each a group of its own. Layout logic, the prompt
+ *  and ungrouping all see them in the group's own order (later = drawn on top), which is what the
+ *  layers panel edits. */
 export function explodeGroup(g: Group, widths: Record<string, number>): Group[] {
   if (!g.free) return [g];
-  const placed = [...layoutOf(g, widths)].sort((a, b) => a.y - b.y || a.x - b.x);
-  const rank = new Map(g.items.map((it, i) => [it.id, i]));
-  const used = new Set<string>();
-  const out: Group[] = [];
-  const near = (a: number, b: number) => Math.abs(a - b) <= 3;
-  for (const start of placed) {
-    if (used.has(start.item.id)) continue;
-    used.add(start.item.id);
-    const run = [start];
-    const axis = connectSpecOf(start.item)?.axis ?? "x";
-    let last = start;
-    for (;;) {
-      const next = placed.find(
-        (q) =>
-          !used.has(q.item.id) &&
-          canJoin(last.item, q.item) &&
-          (axis === "x" ? near(q.y, last.y) && near(q.x, last.x + last.w + GAP) : near(q.x, last.x) && near(q.y, last.y + last.h + GAP)),
-      );
-      if (!next) break;
-      used.add(next.item.id);
-      run.push(next);
-      last = next;
-    }
-    /* named after the member the group lists first, so the name survives a reorder */
-    const anchor = run.reduce((a, b) => ((rank.get(a.item.id) ?? 0) <= (rank.get(b.item.id) ?? 0) ? a : b));
-    out.push({ id: `${g.id}:${anchor.item.id}`, x: start.x, y: start.y, axis, items: run.map((r) => r.item) });
-  }
-  const first = (r: Group) => Math.min(...r.items.map((it) => rank.get(it.id) ?? 0));
-  return out.sort((a, b) => first(a) - first(b));
+  return layoutOf(g, widths).map((pl) => ({ id: `${g.id}:${pl.item.id}`, x: pl.x, y: pl.y, axis: "x" as const, items: [pl.item] }));
 }
 
-/** a run belongs to the frame that contains its centre */
+/** a group belongs to the frame that contains its centre */
 export function frameOfGroup(g: Group, frames: Frame[], widths: Record<string, number>): Frame | undefined {
   const bb = groupBounds(g, widths);
   const cx = (bb.l + bb.r) / 2;
@@ -836,15 +839,6 @@ export function sizeOf(it: Item, widths: Record<string, number>) {
   const railHeight = roleOf(it) === "rail" && def ? reader(def, it.props).n("height") : undefined;
   return { w: widths[it.id] ?? def?.w ?? 120, h: railHeight ?? widths[`${it.id}:h`] ?? def?.h ?? 40 };
 }
-
-/** what a part fuses into a run with, when its definition says it does */
-export const connectSpecOf = (it: Item) => partBySlug(it.component)?.connect;
-/** two parts fuse when they share an axis and a family */
-export const canJoin = (a: Item, b: Item) => {
-  const sa = connectSpecOf(a);
-  const sb = connectSpecOf(b);
-  return !!sa && !!sb && sa.axis === sb.axis && sa.family === sb.family;
-};
 
 /** a place inside a part that a tap can be sent from */
 export type IconSlot = { key: string; label: string; value: string | null };

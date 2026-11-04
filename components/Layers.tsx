@@ -13,10 +13,10 @@ import { Lang, t, useLang } from "@/lib/i18n";
  * nothing stretches. Only the drag itself moves.
  *
  * The panel is a tree with two kinds of level. A z level lists what is drawn on
- * top of what, front first: the runs of a screen, and the runs hidden inside a
- * free group. A run level lists the parts of one connected run in reading order
- * (left to right, top to bottom). Every level is reordered by dragging the
- * handle; the page turns the new order back into a group. */
+ * top of what, front first: the groups of a screen, and the parts of a free group.
+ * A group level lists the parts of one group in reading order (left to right, top
+ * to bottom). Every level is reordered by dragging the handle; the page turns the
+ * new order back into a group. */
 
 /** a part is called by the first text it shows, then by its type */
 function nameOf(it: Item, lang: Lang) {
@@ -154,7 +154,7 @@ function Level({ values, onReorder, children }: { values: string[]; onReorder: (
   );
 }
 
-/** the parts of one connected run, in reading order */
+/** the parts of one group, in reading order */
 function RunParts({
   run,
   p,
@@ -195,7 +195,7 @@ function RunParts({
 }
 
 /** The z-order of one screen, top layer first, reordered by dragging the handles.
- *  A connected run opens to its parts in reading order; a free group opens to the
+ *  A group opens to its parts in reading order; a free group opens to the
  *  runs it holds, front first, and each of those opens in turn. */
 export function LayersPanel({
   p,
@@ -225,7 +225,7 @@ export function LayersPanel({
   onReorder: (topFirst: string[]) => void;
   /** flips a group's lock from its row's lock icon */
   onToggleLock: (groupId: string) => void;
-  /** a group's parts in a new order: back to front for a free group, reading order for a run */
+  /** a group's parts in a new order: back to front for a free group, reading order for any other */
   onReorderItems: (groupId: string, ids: string[]) => void;
   /** a drag on any level starting or ending, so the page can record one undo step for the whole drag */
   onDragging: (dragging: boolean) => void;
@@ -242,7 +242,7 @@ export function LayersPanel({
       else next.add(id);
       return next;
     });
-  /** the runs hidden in a free group, front first, and the flat back-to-front list they make */
+  /** the parts of a free group, front first, and the flat back-to-front list they make */
   const freeRuns = (g: Group) => [...explodeGroup(g, widths)].reverse();
   const flatten = (runsTopFirst: Group[]) => [...runsTopFirst].reverse().flatMap((r) => r.items.map((it) => it.id));
 
@@ -256,10 +256,7 @@ export function LayersPanel({
     const reorderRuns = (next: string[]) => onReorderItems(g.id, flatten(next.map((id) => byId.get(id)).filter((r): r is Group => !!r)));
     return (
       <Level values={runIds} onReorder={reorderRuns}>
-        {runs.map((r) => {
-          const many = r.items.length > 1;
-          const open = many && openIds.has(r.id);
-          return (
+        {runs.map((r) => (
             <Row
               key={r.id}
               id={r.id}
@@ -269,30 +266,9 @@ export function LayersPanel({
               label={runLabel(r, lang)}
               on={r.items.some((it) => sel.has(it.id))}
               onSelect={(add) => onSelect(r.items.map((it) => it.id), add)}
-              open={many ? open : undefined}
-              onToggle={many ? () => toggle(r.id) : undefined}
               onDragging={onDragging}
-            >
-              <RunParts
-                run={r}
-                p={p}
-                depth={depth + 1}
-                sel={sel}
-                onSelect={onSelect}
-                onDragging={onDragging}
-                onReorder={(order) => {
-                  /* the run's members take each other's places in the list; every other part keeps its own */
-                  const members = new Set(r.items.map((it) => it.id));
-                  let k = 0;
-                  onReorderItems(
-                    g.id,
-                    g.items.map((it) => (members.has(it.id) ? order[k++] : it.id)),
-                  );
-                }}
-              />
-            </Row>
-          );
-        })}
+            />
+        ))}
       </Level>
     );
   };

@@ -89,7 +89,7 @@ function promptGroupsForScroll(groups: Group[], scrollable: boolean): Group[] {
   }));
 }
 
-/* ================= connected runs ================= */
+/* ================= groups of several parts ================= */
 
 function groupText(g: Group, lang: Lang): string {
   if (g.items.length === 1) return componentText(g.items[0], lang);
