@@ -18,7 +18,7 @@ export const selection: PartDef[] = [
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 140, min: 52, max: 520, step: 4, unit: "px", when: (p) => !!p.s("label") },
     ],
-    /* a labeled switch spreads its words and its track to the row's ends like the old sketch */
+    /* a labeled switch spreads its words and its track to the row's ends */
     tree: (p) =>
       h(
         "Label",
@@ -72,6 +72,7 @@ export const selection: PartDef[] = [
       { key: "error", label: "Error", kind: "bool", default: false },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
     ],
+    selectKey: "selected",
     tree: (p) => {
       const items = p.list("items");
       return h(
@@ -133,6 +134,7 @@ export const selection: PartDef[] = [
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 224, min: 120, max: 520, step: 4, unit: "px" },
     ],
+    selectKey: "selected",
     open: { box: (p) => ({ w: Math.max(p.n("width"), 200) + 16, h: 56 + 4 + p.list("items").length * 44 + 16 }) },
     tree: (p) => {
       const items = p.list("items");
@@ -171,6 +173,7 @@ export const selection: PartDef[] = [
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 224, min: 120, max: 520, step: 4, unit: "px" },
     ],
+    selectKey: "selected",
     tree: (p) => {
       const items = p.list("items");
       /* the box a fill and corners land on: the component splits its class and its style between two elements */
@@ -207,6 +210,7 @@ export const selection: PartDef[] = [
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 256, min: 120, max: 520, step: 4, unit: "px" },
     ],
+    selectKey: "selected",
     open: { box: (p) => ({ w: Math.max(p.n("width"), 200), h: 56 + 8 + Math.min(p.list("items").length, 6) * 44 + 16 }) },
     tree: (p) => {
       const items = p.list("items");

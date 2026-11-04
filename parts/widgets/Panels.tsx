@@ -5,8 +5,7 @@ import { Button } from "@/components/m3e/button";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 
-/* The game panels of 17722797729/m3e-canvas game-ui (MIT), each holding the state its fork keeps in
- * Preview.tsx. A rarity's color is the author's data, not a theme role, so it is written as given. */
+/* The game panels, after 17722797729/m3e-canvas game-ui (MIT), each holding its own state. A rarity's color is the author's data, not a theme role, so it is written as given. */
 
 const HEX = /^#[0-9a-f]{3,8}$/i;
 

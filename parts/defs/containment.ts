@@ -1,4 +1,4 @@
-import { h, ic, type PNode } from "../node";
+import { h, ic, listSlots, type PNode } from "../node";
 import { around, type P, type PartDef } from "../types";
 
 const BUTTON_VARIANTS = ["filled", "tonal", "elevated", "outlined", "text"];
@@ -146,7 +146,7 @@ export const containment: PartDef[] = [
       { key: "trailingText", label: "Trailing text", labels: { ja: "末尾のテキスト", zh: "末尾文字", ko: "끝 텍스트" }, kind: "text", default: "2.4.1", when: (p) => p.s("trailing") === "text" },
       { key: "width", label: "Width", kind: "number", default: 280, min: 160, max: 520, step: 4, unit: "px" },
     ],
-    slots: (p) => p.list("items").map((it, i) => ({ key: `tab:${i}`, label: it.label || `${i + 1}`, icon: it.icon })),
+    slots: (p) => listSlots(p.list("items")),
     tree: (p) => {
       const trailing = p.s("trailing");
       const end =
@@ -202,6 +202,8 @@ export const containment: PartDef[] = [
     // a basic dialog is only its card: the box is a screen the card floats in, and the part
     // stands where the card lands (fit). A full-screen one fills a screen of its own size.
     open: { box: (p) => (p.s("style") === "fullscreen" ? { w: p.n("width"), h: p.n("height") } : { w: 560, h: 400 }), trigger: "hide", fit: true },
+    /* a dialog's point is what its two buttons each do: "Delete?" has one answer that deletes */
+    slots: (p) => [...(p.s("style") === "basic" && p.s("dismiss") ? [{ key: "dismiss", label: p.s("dismiss") }] : []), ...(p.s("confirm") ? [{ key: "confirm", label: p.s("confirm") }] : [])],
     tree: (p) => {
       const trigger = h("DialogTrigger", { render: h("Button", { variant: "tonal" }) }, "Open dialog");
       if (p.s("style") === "fullscreen") {
@@ -217,7 +219,7 @@ export const containment: PartDef[] = [
               { divider: true },
               h("DialogClose", { render: h("Button", { variant: "text", size: "icon", "aria-label": "Close" }) }, ic("close")),
               h("DialogTitle", null, p.s("title")),
-              p.s("confirm") && h("DialogClose", { render: h("Button", { variant: "text" }) }, p.s("confirm")),
+              p.s("confirm") && h("DialogClose", { render: h("Button", { variant: "text" }), "data-tap": "confirm" }, p.s("confirm")),
             ),
             h("DialogBody", null, p.s("description") && h("DialogDescription", null, p.s("description"))),
           ),
@@ -236,8 +238,8 @@ export const containment: PartDef[] = [
             h(
               "DialogFooter",
               { stacked: p.b("stacked") || undefined },
-              p.s("dismiss") && h("DialogClose", { render: h("Button", { variant: "text" }) }, p.s("dismiss")),
-              p.s("confirm") && h("DialogClose", { render: h("Button", { variant: "text" }) }, p.s("confirm")),
+              p.s("dismiss") && h("DialogClose", { render: h("Button", { variant: "text" }), "data-tap": "dismiss" }, p.s("dismiss")),
+              p.s("confirm") && h("DialogClose", { render: h("Button", { variant: "text" }), "data-tap": "confirm" }, p.s("confirm")),
             ),
         ),
       );
@@ -261,6 +263,7 @@ export const containment: PartDef[] = [
       { key: "size", label: "Size", kind: "enum", default: "default", options: ["default", "sm"] },
     ],
     open: { box: () => ({ w: 560, h: 360 }), trigger: "hide", fit: true },
+    slots: (p) => [...(p.s("cancel") ? [{ key: "dismiss", label: p.s("cancel") }] : []), ...(p.s("action") ? [{ key: "confirm", label: p.s("action") }] : [])],
     tree: (p) =>
       h(
         "AlertDialog",
@@ -276,7 +279,7 @@ export const containment: PartDef[] = [
             h("AlertDialogTitle", null, p.s("title")),
             p.s("description") && h("AlertDialogDescription", null, p.s("description")),
           ),
-          h("AlertDialogFooter", null, p.s("cancel") && h("AlertDialogCancel", null, p.s("cancel")), p.s("action") && h("AlertDialogAction", null, p.s("action"))),
+          h("AlertDialogFooter", null, p.s("cancel") && h("AlertDialogCancel", { "data-tap": "dismiss" }, p.s("cancel")), p.s("action") && h("AlertDialogAction", { "data-tap": "confirm" }, p.s("action"))),
         ),
       ),
   },

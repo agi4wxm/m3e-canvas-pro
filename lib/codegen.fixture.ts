@@ -10,7 +10,7 @@ export function allPartsDoc(): Doc {
     x: 16,
     y: 24 + i * 120,
     axis: "x",
-    items: [{ ...makeItem("component", slug), id: `i-${slug}` }],
+    items: [{ ...makeItem(slug), id: `i-${slug}` }],
   }));
   return {
     groups,
@@ -27,13 +27,13 @@ export function allPartsDoc(): Doc {
 
 /** A long screen exercises the scrolling scaffold and the folding FAB. */
 export function scrollingDoc(): Doc {
-  const nav = { ...makeItem("component", "navigation-bar"), id: "nav" };
+  const nav = { ...makeItem("navigation-bar"), id: "nav" };
   return {
     ...allPartsDoc(), title: "Scrolling", frames: [{ id: "long", name: "Long", x: 0, y: 0, length: PHONE_H * 2 }],
     groups: [
-      { id: "top", x: 0, y: 0, axis: "x", items: [{ ...makeItem("component", "app-bar"), id: "top" }] },
-      { id: "body", x: 16, y: 1200, axis: "x", items: [{ ...makeItem("component", "button"), id: "body", props: { label: "Below the fold" } }] },
-      { id: "fab", x: 200, y: PHONE_H * 2 - 180, axis: "x", items: [{ ...makeItem("component", "fab"), id: "fab", props: { label: "Create", icon: "add" }, collapseOnScroll: true }] },
+      { id: "top", x: 0, y: 0, axis: "x", items: [{ ...makeItem("app-bar"), id: "top" }] },
+      { id: "body", x: 16, y: 1200, axis: "x", items: [{ ...makeItem("button"), id: "body", props: { label: "Below the fold" } }] },
+      { id: "fab", x: 200, y: PHONE_H * 2 - 180, axis: "x", items: [{ ...makeItem("fab"), id: "fab", props: { label: "Create", icon: "add" }, collapseOnScroll: true }] },
       { id: "nav", x: 0, y: PHONE_H * 2 - sizeOf(nav, {}).h, axis: "x", items: [nav] },
     ],
   };

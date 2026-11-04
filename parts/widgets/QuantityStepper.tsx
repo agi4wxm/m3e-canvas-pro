@@ -4,9 +4,9 @@ import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { WidgetIcon } from "./WidgetIcon";
 
-/* The quantity row of 17722797729/m3e-canvas game-ui (MIT): a minus, the number, a plus, on a filled
- * field of 56dp (ValueRow and the stepper's look in its M3Node.tsx). Other forks use the name
- * `stepper` for a row of numbered steps, which is why this part is not simply called that. */
+/* A quantity row, after 17722797729/m3e-canvas game-ui (MIT): a minus, the number, a plus, on a filled
+ * field of 56dp. `stepper` usually names a row of numbered steps, which is why this part is not
+ * simply called that. */
 
 export function QuantityStepper({ value = 1, min = 0, max = 99, width = 200, className, style }: { value?: number; min?: number; max?: number; width?: number } & Look) {
   const [count, setCount] = useState(value);

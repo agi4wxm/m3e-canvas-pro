@@ -57,10 +57,13 @@ Ported into parts/defs and parts/widgets, each under the MIT License:
   greycode/m3e-canvas                 the chart kinds' scope, the iOS parts' scope
   JetSquirrel/gpui-kit-canvas         the desktop parts' scope, the containers' scope
 
+flutter_shadcn_kit and Miuix gave the idea for some of the parts in parts/widgets (Inputs, Content,
+Motion). No code comes from them, so neither is included or derived from.
+
 Material Symbols (Google) - Apache License 2.0, via Iconify
   The bundled icon glyphs (components/m3e/icon-data*.ts).
 
-Roboto Flex and JetBrains Mono - SIL Open Font License 1.1, via Fontsource
+Roboto Flex - SIL Open Font License 1.1, via Fontsource
 
 Recharts - MIT License. Installed as a package.
 

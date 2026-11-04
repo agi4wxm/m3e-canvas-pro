@@ -7,7 +7,7 @@ import type { Choice, Labels, PartDef, PartLang, PropDef } from "./types";
  * `defaults` on a single entry; the tables below are only the fallback. */
 
 /** the part's name in the palette and the panels, by slug */
-export const PART_NAMES: Record<string, Labels> = {
+const PART_NAMES: Record<string, Labels> = {
   // actions
   button: { ja: "ボタン", zh: "按钮", ko: "버튼" },
   fab: { ja: "フローティングボタン", zh: "悬浮按钮", ko: "플로팅 버튼" },
@@ -98,7 +98,7 @@ export const PART_NAMES: Record<string, Labels> = {
 };
 
 /** prop labels and enum option labels shared across parts, by their English text */
-export const COMMON_LABELS: Record<string, Labels> = {
+const COMMON_LABELS: Record<string, Labels> = {
   // prop labels
   Width: { ja: "幅", zh: "宽度", ko: "너비" },
   Height: { ja: "高さ", zh: "高度", ko: "높이" },
@@ -579,6 +579,9 @@ export function nameOf(def: Pick<PartDef, "slug" | "name" | "labels">, lang: Par
 }
 
 /** what an enum choice is called, in the editor's language; a bare string is a code value and stays */
+/** what an option stores */
+export const choiceValueOf = (c: Choice): string => (typeof c === "string" ? c : c.value);
+
 export function choiceLabelOf(c: Choice, lang: PartLang): string {
   if (typeof c === "string") return COMMON_LABELS[c]?.[lang] ?? c;
   return c.labels?.[lang] ?? COMMON_LABELS[c.label]?.[lang] ?? c.label;

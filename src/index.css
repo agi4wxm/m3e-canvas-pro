@@ -156,9 +156,17 @@ input.m3-number {
   appearance: textfield;
 }
 
+/* in the preview, what a layout holds moves over when a part beside it appears or goes */
+.m3-preview-group[data-in-flow] {
+  transition:
+    left 200ms cubic-bezier(0.2, 0, 0, 1),
+    top 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .m3-press,
   .m3-tile,
+  .m3-preview-group[data-in-flow],
   .m3e-boot {
     transition: none;
   }

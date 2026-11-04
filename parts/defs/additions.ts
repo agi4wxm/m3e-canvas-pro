@@ -1,9 +1,9 @@
 import { FLOW_PROPS } from "../flow";
-import { h, ic } from "../node";
+import { h, ic, listSlots } from "../node";
 import type { ListItem, P, PartDef, TableData } from "../types";
 
-/* The parts that complete the set: what the source libraries and forks have that nothing else here
- * covered (docs/组件盘点.md says which source each answers). Each is drawn on shadcn M3E components and
+/* The parts that complete the set: what the source libraries have that nothing else here covered
+ * (docs/组件盘点.md says which source each answers). Each is drawn on shadcn M3E components and
  * theme roles, or a widget that is. */
 
 const WIDTH = (value: number, min = 120, max = 1280): Extract<PartDef["props"][number], { kind: "number" }> => ({ key: "width", label: "Width", kind: "number", default: value, min, max, step: 4, unit: "px" });
@@ -232,6 +232,7 @@ export const additions: PartDef[] = [
       { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中项", ko: "선택" }, kind: "number", default: 0, min: 0, max: 23, step: 1 },
       WIDTH(320, 120, 800),
     ],
+    selectKey: "selected",
     tree: (p) => h("ItemPicker", { items: p.list("items").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}) })), columns: Math.round(p.n("columns")), selected: Math.round(p.n("selected")), width: px(p) }),
   },
   {
@@ -302,7 +303,7 @@ export const additions: PartDef[] = [
       { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中项", ko: "선택" }, kind: "number", default: 0, min: 0, max: 4, step: 1 },
       WIDTH(320, 200, 800),
     ],
-    slots: (p) => p.list("items").map((it, i) => ({ key: `tab:${i}`, label: it.label || `${i + 1}`, icon: it.icon })),
+    slots: (p) => listSlots(p.list("items")),
     selectKey: "selected",
     tree: (p) =>
       h(

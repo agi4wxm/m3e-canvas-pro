@@ -14,7 +14,7 @@ export type ListItem = { label: string; icon?: string; variant?: string; width?:
 
 /** a per-row choice of a `list` prop: one more column beside the icon and the words
  *  (a button group's per-row variant, say) */
-export type ListField = { key: "variant" | "width"; label: string; options: Choice[] };
+type ListField = { key: "variant" | "width"; label: string; options: Choice[] };
 
 /** One editable prop of a part. The panel builds its controls from these, and `tree` reads the values back. */
 export type PropDef = {
@@ -104,9 +104,13 @@ export type PartDef = {
   /** The container can lay out what it holds (parts/flow.ts): it carries the props for it, `grid` when it
    *  is always a grid, and `inset` for what it draws around the room it lays out in (a tab bar, a title). */
   flow?: { grid?: boolean; inset?: (p: P) => Partial<{ t: number; r: number; b: number; l: number }> };
-  /** the prop that remembers which entry is chosen; a tap moves it in the preview, and the
-   *  destination bars that share their entries share the choice across screens too */
+  /** The number prop that remembers which row of the part's list is chosen. It goes with its row
+   *  when the rows are edited. Where the rows are `slots`, a tap moves it in the preview, and the
+   *  destination bars that share their entries share the choice across screens too. */
   selectKey?: string;
+  /** A container with tabs: each thing it holds belongs to one (`Group.pane`), and only the chosen
+   *  tab's show. The tabs are its `slots`, the chosen one its `selectKey`. */
+  panes?: boolean;
   /** the JSX the part stands for */
   tree: (p: P) => PNode;
   /** what the canvas draws instead of `tree`, for a part whose open look is not `tree` made to start open */

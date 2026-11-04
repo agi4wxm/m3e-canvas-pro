@@ -1,8 +1,7 @@
 import { h } from "../node";
 import type { PartDef } from "../types";
 
-/* Small controls the shadcn M3E set does not have. What they do follows the forks that have them
- * (rating in MoonApp and the GPUI canvas); the code is written here, not copied from them. */
+/* Small controls the shadcn M3E set does not have. */
 
 /** a link only leaves for the web: a saved `javascript:` address must not run */
 const safeHref = (url: string) => (/^https?:\/\//i.test(url) ? url : "#");

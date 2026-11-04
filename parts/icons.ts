@@ -61,7 +61,7 @@ export function ensureIcons(names: Iterable<string>) {
 }
 
 /** the icon names a tree uses: `<Icon name>` and the `icon`-like string props */
-export function iconNamesIn(node: PNode, into = new Set<string>()): Set<string> {
+function iconNamesIn(node: PNode, into = new Set<string>()): Set<string> {
   const visit = (v: PValue): void => {
     if (isRaw(v)) return;
     if (isNode(v)) iconNamesIn(v, into);

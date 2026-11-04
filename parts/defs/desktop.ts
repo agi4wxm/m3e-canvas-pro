@@ -1,9 +1,8 @@
 import { h, ic } from "../node";
 import type { PartDef } from "../types";
 
-/* The desktop chrome of JetSquirrel/gpui-kit-canvas (MIT): what a window has around its content, and
- * the small desktop controls shadcn M3E has no counterpart for. Written here on M3E's roles; the
- * Rust library that fork targets is not involved. */
+/* The desktop chrome, after JetSquirrel/gpui-kit-canvas (MIT): what a window has around its content,
+ * and the small desktop controls shadcn M3E has no counterpart for. Written here on M3E's roles. */
 
 export const desktop: PartDef[] = [
   {
@@ -68,11 +67,12 @@ export const desktop: PartDef[] = [
     w: 260,
     h: 140,
     props: [
-      /* two leading spaces make a row one level deeper, the way the GPUI canvas writes them */
+      /* two leading spaces make a row one level deeper */
       { key: "items", label: "Rows", labels: { ja: "行", zh: "行", ko: "행" }, kind: "list", icons: true, default: [{ label: "src", icon: "folder_open" }, { label: "  main.rs", icon: "draft" }, { label: "  ui", icon: "folder" }, { label: "Cargo.toml", icon: "draft" }], min: 1, max: 20 },
       { key: "selected", label: "Selected row", labels: { ja: "選択中の行", zh: "选中的行", ko: "선택한 행" }, kind: "number", default: 0, min: 0, max: 19, step: 1 },
       { key: "width", label: "Width", kind: "number", default: 260, min: 120, max: 640, step: 4, unit: "px" },
     ],
+    selectKey: "selected",
     tree: (p) =>
       h(
         "div",

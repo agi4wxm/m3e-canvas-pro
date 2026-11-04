@@ -1,4 +1,4 @@
-import { h, ic, type PNode } from "../node";
+import { h, ic, listSlots, type PNode } from "../node";
 import type { ListItem, PartDef } from "../types";
 
 const TONES = [
@@ -123,7 +123,7 @@ export const content: PartDef[] = [
       { key: "width", label: "Width", kind: "number", default: 320, min: 160, max: 640, step: 4, unit: "px" },
       { key: "height", label: "Slide height", kind: "number", default: 200, min: 80, max: 400, step: 4, unit: "px" },
     ],
-    slots: (p) => p.list("slides").map((s, i) => ({ key: `tab:${i}`, label: s.label || `${i + 1}` })),
+    slots: (p) => listSlots(p.list("slides")),
     tree: (p) => {
       const vertical = p.s("orientation") === "vertical";
       const gap = px(p.n("gap"));
@@ -177,7 +177,7 @@ export const content: PartDef[] = [
       { key: "height", label: "Height", kind: "number", default: 180, min: 100, max: 320, step: 4, unit: "px" },
       { key: "width", label: "Width", kind: "number", default: 420, min: 240, max: 800, step: 4, unit: "px" },
     ],
-    slots: (p) => p.list("slides").map((s, i) => ({ key: `tab:${i}`, label: s.label || `${i + 1}` })),
+    slots: (p) => listSlots(p.list("slides")),
     tree: (p) =>
       h(
         "ExpressiveCarousel",

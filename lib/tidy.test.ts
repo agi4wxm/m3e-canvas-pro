@@ -7,7 +7,7 @@ const frame: Frame = { id: "f1", name: "Home", x: 0, y: 0 };
 const frames = [frame];
 
 const grp = (id: string, x: number, y: number, items: Item[]): Group => ({ id, x, y, axis: "x", items });
-const part = (slug: string, id: string, props: Record<string, unknown> = {}): Item => ({ ...makeItem("component", slug), id, props });
+const part = (slug: string, id: string, props: Record<string, unknown> = {}): Item => ({ ...makeItem(slug), id, props });
 
 const FAB = sizeOf(part("fab", "fab"), {});
 const BUTTON = sizeOf(part("button", "button"), {});

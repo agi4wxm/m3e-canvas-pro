@@ -18,17 +18,7 @@ function useFrame(cb: (ts: number) => void) {
 
 /* ---------- loading indicator (shape morph) ---------- */
 
-export function LoadingIndicator({
-  size,
-  color,
-  contained,
-  containerColor,
-}: {
-  size: number;
-  color: string;
-  contained?: boolean;
-  containerColor?: string;
-}) {
+export function LoadingIndicator({ size, color }: { size: number; color: string }) {
   const pathRef = useRef<SVGPathElement>(null);
   const anim = useRef<LoadingAnimator | null>(null);
   if (!anim.current) anim.current = new LoadingAnimator();
@@ -53,7 +43,6 @@ export function LoadingIndicator({
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: "block" }}>
-      {contained && <circle cx={c} cy={c} r={c} fill={containerColor ?? "rgba(0,0,0,0.08)"} />}
       <path ref={pathRef} fill={color} />
     </svg>
   );

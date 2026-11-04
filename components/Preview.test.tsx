@@ -43,7 +43,7 @@ vi.mock("@/lib/i18n", async () => ({ ...await import("../lib/i18n"), useLang: ()
 vi.mock("./Icon", () => ({ Icon: "icon" }));
 vi.mock("./PartView", () => ({ PartView: "part-view" }));
 
-const part = (slug: string, id: string, props: Record<string, unknown> = {}): Item => ({ ...makeItem("component", slug), id, props });
+const part = (slug: string, id: string, props: Record<string, unknown> = {}): Item => ({ ...makeItem(slug), id, props });
 const doc: Doc = {
   frame: "phone", paletteKey: "purple", title: "", brief: "",
   frames: [{ id: "first", name: "First", x: 0, y: 0, w: 1280, h: 800 }, { id: "next", name: "Next", x: 1400, y: 0, w: 1280, h: 800 }],

@@ -24,7 +24,7 @@ const doc = (patch: Partial<Doc> = {}): Doc => ({
     { id: "f2", name: "Home", x: 500, y: 0 },
     { id: "f3", name: "", x: 1000, y: 0 },
   ],
-  groups: [{ id: "g", x: 16, y: 100, axis: "x", items: [{ ...makeItem("component", "button"), id: "b", props: { label: "Open" } }] }],
+  groups: [{ id: "g", x: 16, y: 100, axis: "x", items: [{ ...makeItem("button"), id: "b", props: { label: "Open" } }] }],
   ...patch,
 });
 

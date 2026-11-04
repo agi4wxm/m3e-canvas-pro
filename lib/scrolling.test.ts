@@ -22,7 +22,7 @@ describe("long screens with real components", () => {
   it("extends a real rail and keeps its identity and destinations", () => {
     const doc = scrollingDoc();
     const f = doc.frames[0];
-    const rail: Item = { ...makeItem("component", "navigation-rail"), id: "rail", props: { height: PHONE_H, items: [{ label: "Inbox", icon: "inbox" }] } };
+    const rail: Item = { ...makeItem("navigation-rail"), id: "rail", props: { height: PHONE_H, items: [{ label: "Inbox", icon: "inbox" }] } };
     const g: Group = { id: "rail", x: 0, y: 0, axis: "y", items: [rail] };
     const out = stretchFrame([g], f, PHONE_H * 3, [f], {});
     expect(out.groups[0].items[0].props?.height).toBe(PHONE_H * 3);

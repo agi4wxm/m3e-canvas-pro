@@ -1,4 +1,4 @@
-import { Doc, VARIANTS, isPlace, isTextToken } from "./tokens";
+import { Condition, Doc, DocVar, Effect, Group, Item, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -13,7 +13,6 @@ const validItem = (item: unknown) =>
   (item.collapseOnScroll === undefined || typeof item.collapseOnScroll === "boolean") &&
   (item.textColor === undefined || isTextToken(item.textColor)) &&
   typeof item.id === "string" &&
-  typeof item.kind === "string" &&
   item.kind === "component" &&
   typeof item.component === "string" &&
   typeof item.label === "string" &&
@@ -44,6 +43,98 @@ const validFrame = (frame: unknown) =>
   (frame.note === undefined || typeof frame.note === "string") &&
   (frame.place === undefined || isPlace(frame.place)) &&
   (frame.length === undefined || (Number.isFinite(frame.length) && (frame.length as number) > 0));
+
+/* Behaviour is cleaned rather than checked: one effect of a wrong shape, from a file edited by hand,
+ * is dropped and the rest of the file opens. Nothing here rejects a document. */
+
+const isValue = (v: unknown): v is VarValue => typeof v === "string" || typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v));
+
+function cleanCondition(c: unknown): Condition | undefined {
+  if (!isRecord(c)) return undefined;
+  if (typeof c.filled === "string") return { filled: c.filled };
+  if (typeof c.var === "string" && (c.op === "eq" || c.op === "neq") && isValue(c.value)) return { var: c.var, op: c.op, value: c.value };
+  return undefined;
+}
+
+function cleanEffect(e: unknown): Effect | undefined {
+  if (!isRecord(e)) return undefined;
+  switch (e.do) {
+    case "show":
+    case "hide":
+    case "toggle":
+    case "open":
+    case "close":
+      return typeof e.part === "string" ? { do: e.do, part: e.part } : undefined;
+    case "setVar":
+      return typeof e.var === "string" && isValue(e.value) ? { do: "setVar", var: e.var, value: e.value } : undefined;
+    case "toggleVar":
+      return typeof e.var === "string" ? { do: "toggleVar", var: e.var } : undefined;
+    case "addVar":
+      return typeof e.var === "string" && typeof e.by === "number" && Number.isFinite(e.by) ? { do: "addVar", var: e.var, by: e.by } : undefined;
+    case "setProp":
+      return typeof e.part === "string" && typeof e.prop === "string" && isValue(e.value) ? { do: "setProp", part: e.part, prop: e.prop, value: e.value } : undefined;
+    case "snackbar":
+      return typeof e.message === "string" ? { do: "snackbar", message: e.message } : undefined;
+    default:
+      return undefined;
+  }
+}
+
+/** the fields named are the new ones: a field that is not of its type goes, and the rest stays as it came */
+function cleaned<T extends Record<string, unknown>>(value: T, fields: Record<string, (v: unknown) => unknown>): T {
+  const out: Record<string, unknown> = { ...value };
+  for (const [key, clean] of Object.entries(fields)) {
+    if (out[key] === undefined) continue;
+    const v = clean(out[key]);
+    if (v === undefined) delete out[key];
+    else out[key] = v;
+  }
+  return out as T;
+}
+
+const cleanEffects = (list: unknown) => (Array.isArray(list) ? list.map(cleanEffect).filter((e) => e !== undefined) : undefined);
+const cleanBody = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects }) : undefined);
+const cleanAction = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, when: cleanCondition, else: cleanBody }) : undefined);
+
+const cleanActions = (map: unknown) => {
+  if (!isRecord(map)) return undefined;
+  return Object.fromEntries(Object.entries(map).flatMap(([slot, a]) => {
+    const action = cleanAction(a);
+    return action ? [[slot, action]] : [];
+  }));
+};
+
+const cleanBind = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, id]) => typeof id === "string")) : undefined);
+
+function cleanVar(v: unknown): DocVar | undefined {
+  if (!isRecord(v) || typeof v.id !== "string" || (v.type !== "text" && v.type !== "number" && v.type !== "bool")) return undefined;
+  const fallback = v.type === "text" ? "" : v.type === "number" ? 0 : false;
+  /* a start value of another type keeps the variable and loses the value */
+  const value = typeof v.value === typeof fallback && isValue(v.value) ? v.value : fallback;
+  return { id: v.id, name: typeof v.name === "string" ? v.name : "", type: v.type, value };
+}
+
+const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind }) as unknown as Item;
+
+const cleanGroup = (g: Group) =>
+  ({
+    ...cleaned(g as unknown as Record<string, unknown>, {
+      name: (v) => (typeof v === "string" ? v : undefined),
+      hidden: (v) => (typeof v === "boolean" ? v : undefined),
+      showWhen: cleanCondition,
+      pane: (v) => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : undefined),
+    }),
+    items: g.items.map(cleanItem),
+  }) as unknown as Group;
+
+/** a document with what is wrong in its behaviour taken out; it always comes back whole */
+export function cleanBehavior(doc: Doc): Doc {
+  const out: Doc = { ...doc, groups: doc.groups.map(cleanGroup) };
+  if (out.vars === undefined) return out;
+  if (Array.isArray(out.vars)) out.vars = out.vars.map(cleanVar).filter((v) => v !== undefined);
+  else delete out.vars;
+  return out;
+}
 
 /** whether a parsed file has the shape of a document the editor can open */
 export const isProject = (value: unknown): value is Doc =>
@@ -77,7 +168,7 @@ export function openProject(value: unknown): Doc | null {
   }
   if (!isRecord(doc)) return null;
   for (let v = version; v < PROJECT_VERSION; v++) doc = MIGRATIONS[v]?.(doc as Record<string, unknown>) ?? doc;
-  return isProject(doc) ? doc : null;
+  return isProject(doc) ? cleanBehavior(doc) : null;
 }
 
 /** the file name a project is saved under: m3e-canvas, followed by the app's name when it has one */

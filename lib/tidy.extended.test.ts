@@ -41,7 +41,7 @@ import {
 const phoneFrame: Frame = { id: "f1", name: "Phone", x: 0, y: 0 };
 const widths: Record<string, number> = {};
 
-const comp = (id: string, slug: string, props: Record<string, unknown> = {}): Item => ({ ...makeItem("component", slug), id, props });
+const comp = (id: string, slug: string, props: Record<string, unknown> = {}): Item => ({ ...makeItem(slug), id, props });
 const tabRows = (tabs: number) => Array.from({ length: tabs }, (_, i) => ({ icon: "home", label: `T${i}` }));
 
 const btn = (id: string, label = "B"): Item => comp(id, "button", { label });
@@ -313,8 +313,8 @@ describe("expandable rail layout", () => {
 
 // smoke: makeItem usage from tokens works in this file's context
 describe("integration with makeItem", () => {
-  it("makeItem('component', 'button') yields an Item tidy can place", () => {
-    const it = makeItem("component", "button");
+  it("makeItem('button') yields an Item tidy can place", () => {
+    const it = makeItem("button");
     const g = group("g", 100, 100, [it]);
     const out = tidyFrame([g], phoneFrame, [phoneFrame], widths)!;
     expect(out).toHaveLength(1);

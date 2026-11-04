@@ -23,15 +23,10 @@ describe("isProject", () => {
     expect(value).toEqual(before);
   });
 
-  it("accepts legacy minimal documents without supplying defaults", () => {
-    const legacy = { groups: [], frames: [{ id: "f", name: "Home", x: 0, y: 0 }] };
-    expect(isProject(legacy)).toBe(true);
-    expect(legacy).not.toHaveProperty("platform");
-    expect(legacy.frames[0]).not.toHaveProperty("w");
-  });
-
-  it.each([undefined, "android", "web"])("accepts platform %s", (platform) => {
-    expect(isProject({ ...doc(), platform })).toBe(true);
+  it("accepts a minimal document without supplying defaults", () => {
+    const minimal = { groups: [], frames: [{ id: "f", name: "Home", x: 0, y: 0 }] };
+    expect(isProject(minimal)).toBe(true);
+    expect(minimal.frames[0]).not.toHaveProperty("w");
   });
 
   it.each([null, undefined, true, 42, "{}", [], {}, { groups: [] }, { frames: [] },
@@ -179,9 +174,9 @@ describe("readProject", () => {
     await expect(readProject(new File([JSON.stringify(value)], "sketch.txt", { type: "text/plain" }))).resolves.toEqual(value);
   });
 
-  it("preserves a legacy file and unknown fields for the editor's migration step", async () => {
-    const legacy = { groups: [], frames: [], futureField: { keep: true } };
-    await expect(readProject(new File([JSON.stringify(legacy)], "old.json"))).resolves.toEqual(legacy);
+  it("keeps fields it does not know", async () => {
+    const value = { groups: [], frames: [], futureField: { keep: true } };
+    await expect(readProject(new File([JSON.stringify(value)], "sketch.json"))).resolves.toEqual(value);
   });
 
   it.each(["", "{", "null", "[]", '{"groups":[],"frames":{}}'])("returns null for invalid file contents %j", async (text) => {

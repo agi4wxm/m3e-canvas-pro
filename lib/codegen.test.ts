@@ -9,7 +9,7 @@ import { PARTS } from "../parts/registry";
 beforeAll(() => setGlobalLang("en"));
 
 const one = (slug: string, props: Record<string, unknown> = {}): Doc => ({
-  groups: [{ id: "g", x: 16, y: 100, axis: "x", items: [{ ...makeItem("component", slug), id: "i", props }] }],
+  groups: [{ id: "g", x: 16, y: 100, axis: "x", items: [{ ...makeItem(slug), id: "i", props }] }],
   frames: [{ id: "f", name: "Home", x: 0, y: 0 }],
   paletteKey: "purple",
   frame: "phone",
@@ -78,8 +78,8 @@ describe("buildCode", () => {
   it("prints a component's appearance as fixed classes and a picked image as a placeholder", () => {
     const doc = one("button");
     doc.groups[0].items = [
-      { ...makeItem("component", "card"), id: "c", fill: "primaryContainer", corners: { tl: 24, tr: 24, bl: 24, br: 24 } },
-      { ...makeItem("component", "avatar"), id: "a", props: { image: "data:image/webp;base64,AAAA" } },
+      { ...makeItem("card"), id: "c", fill: "primaryContainer", corners: { tl: 24, tr: 24, bl: 24, br: 24 } },
+      { ...makeItem("avatar"), id: "a", props: { image: "data:image/webp;base64,AAAA" } },
     ];
     const { code } = buildCode(doc, {});
     expect(code).toContain('className="bg-primary-container text-on-primary-container"');

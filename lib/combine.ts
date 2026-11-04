@@ -1,13 +1,12 @@
 import { partBySlug, reader } from "../parts/registry";
 import type { ListItem } from "../parts/types";
 import { flowHostAt } from "./flow";
-import { Frame, Group, Item, groupBounds, groupsInFrame, listRowsPatch } from "./tokens";
+import { Frame, Group, Item, Rect, groupBounds, groupsInFrame, listRowsPatch, unionRect } from "./tokens";
 
 /* Buttons that sit side by side, or on top of each other, are one button group in M3E: they share
- * a container and connect. A real Button is a part of its own, so Tidy leaves them be and this is
- * the explicit step that joins them. */
+ * a container and connect. A real Button is a part of its own, so Tidy leaves them be; they join
+ * here, when one is let go against another or when the author asks for a whole screen. */
 
-type Rect = { l: number; t: number; r: number; b: number };
 type Cand = { g: Group; it: Item; bb: Rect; size: string; variant: string };
 
 /** the farthest two buttons may be apart and still be joined: side by side, and stacked */
@@ -82,7 +81,7 @@ function mergeRun(run: Cand[], axis: "x" | "y"): Group {
     ...(Object.keys(actions).length ? { actions } : {}),
     ...(note ? { note } : {}),
   };
-  const bb = run.reduce((u, c) => ({ l: Math.min(u.l, c.bb.l), t: Math.min(u.t, c.bb.t), r: Math.max(u.r, c.bb.r), b: Math.max(u.b, c.bb.b) }), first.bb);
+  const bb = unionRect(run.map((c) => c.bb));
   return { id: first.g.id, x: bb.l, y: bb.t, axis: "x", items: [item] };
 }
 
@@ -142,9 +141,7 @@ export function joinDropped(groups: Group[], id: string, widths: Record<string, 
   const button = partBySlug("button")!;
   const row = partBySlug("button-group")!;
   const g = groups.find((x) => x.id === id)!;
-  const bb = rectOf(g, widths);
-  const to = rectOf(join.to, widths);
-  const box = { l: Math.min(bb.l, to.l), t: Math.min(bb.t, to.t), r: Math.max(bb.r, to.r), b: Math.max(bb.b, to.b) };
+  const box = unionRect([rectOf(g, widths), rectOf(join.to, widths)]);
   const cand = (x: Group): Cand => {
     const p = reader(button, x.items[0].props);
     return { g: x, it: x.items[0], bb: rectOf(x, widths), size: p.s("size"), variant: p.s("variant") };

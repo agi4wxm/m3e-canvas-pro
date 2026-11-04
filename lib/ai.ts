@@ -2,7 +2,7 @@ import { Doc, Frame, Group, Item, frameOfGroup } from "./tokens";
 import { partBySlug } from "../parts/registry";
 import { labelOfPart } from "../parts/resize";
 import { buildPrompt } from "./prompt";
-import { isProject } from "./project";
+import { cleanBehavior, isProject } from "./project";
 import { Lang } from "./i18n";
 
 /* Optional AI helpers. The browser talks to the model provider directly with the
@@ -151,10 +151,9 @@ const itemsOnFrame = (doc: Doc, frame: Frame, widths: Record<string, number>): I
   doc.groups.filter((g: Group) => frameOfGroup(g, doc.frames, widths)?.id === frame.id).flatMap((g) => g.items);
 
 const describeItem = (it: Item) => {
-  const bits = [`id=${it.id}`, `part=${it.component ?? it.kind}`];
+  const bits = [`id=${it.id}`, `part=${it.component}`];
   const words = labelOfPart(partBySlug(it.component), it.props);
   if (hasText(words)) bits.push(`says=${JSON.stringify(words)}`);
-  if (it.icon) bits.push(`icon=${it.icon}`);
   if (it.action) bits.push(`tap=${it.action.to}`);
   if (hasText(it.note)) bits.push(`current_note=${JSON.stringify(it.note)}`);
   return bits.join(" ");
@@ -249,6 +248,6 @@ export async function draftDesign(s: AiSettings, guide: string, idea: string, la
   const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple."].join("\n");
   const j = parseJsonObject(await complete(s, system, user, signal, 12000));
   if (!isProject(j)) throw new Error("json");
-  return j;
+  return cleanBehavior(j);
 }
 

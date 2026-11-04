@@ -64,7 +64,7 @@ const palette: Palette = {
 
 const phoneFrame: Frame = { id: "f1", name: "Home", x: 0, y: 0 };
 
-const part = (slug: string, id: string, props: Record<string, unknown> = {}, extra: Partial<Item> = {}): Item => ({ ...makeItem("component", slug), id, props, ...extra });
+const part = (slug: string, id: string, props: Record<string, unknown> = {}, extra: Partial<Item> = {}): Item => ({ ...makeItem(slug), id, props, ...extra });
 
 function baseDoc(overrides: Partial<Doc> = {}): Doc {
   return {
@@ -367,7 +367,7 @@ describe("effectivePrompt", () => {
 
 describe("integration with makeItem", () => {
   it("buildPrompt accepts a Doc with items made by makeItem", () => {
-    const item = makeItem("component", "button");
+    const item = makeItem("button");
     const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [item] }] });
     const out = buildPrompt(doc, widths, undefined, "en");
     expect(out.length).toBeGreaterThan(200);

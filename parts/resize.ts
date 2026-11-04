@@ -1,3 +1,4 @@
+import { choiceValueOf } from "./labels";
 import { reader } from "./registry";
 import type { Choice, PartDef, PropDef, PropValues } from "./types";
 
@@ -15,7 +16,7 @@ export type PartAxis =
   | ({ kind: "number" } & Pick<NumberDef, "key" | "min" | "max" | "step" | "default">)
   | { kind: "enum"; key: string; min: number; max: number; /** the dp each option stands for */ dps: number[]; values: string[]; default: string };
 
-export type ResizeAxes = { width?: PartAxis; height?: PartAxis; size?: PartAxis };
+type ResizeAxes = { width?: PartAxis; height?: PartAxis; size?: PartAxis };
 
 /** the dp figure an enum option stands for, out of its label ("XS · 32") or a numeric value */
 export const dpOf = (o: Choice): number | undefined => {
@@ -28,7 +29,7 @@ const axisOf = (d: PropDef): PartAxis | undefined => {
   if (d.kind === "enum" && d.key === "size" && d.options.length > 1) {
     const dps = d.options.map(dpOf);
     if (dps.every((v): v is number => v !== undefined))
-      return { kind: "enum", key: d.key, min: Math.min(...(dps as number[])), max: Math.max(...(dps as number[])), dps: dps as number[], values: d.options.map((o) => (typeof o === "string" ? o : o.value)), default: d.default };
+      return { kind: "enum", key: d.key, min: Math.min(...(dps as number[])), max: Math.max(...(dps as number[])), dps: dps as number[], values: d.options.map(choiceValueOf), default: d.default };
   }
   return undefined;
 };
@@ -73,12 +74,6 @@ export function axisStep(a: PartAxis, values: PropValues | undefined, dir: 1 | -
   const cur = axisValue(a, values);
   const i = a.dps.reduce((best, dp, j) => (Math.abs(dp - cur) < Math.abs(a.dps[best] - cur) ? j : best), 0) + dir;
   return i < 0 || i >= a.values.length ? undefined : a.values[i];
-}
-
-/** the current value of a number prop: the author's, kept inside the prop's bounds, or its default */
-export function numberValue(d: NumberDef, values: PropValues | undefined): number {
-  const v = values?.[d.key];
-  return typeof v === "number" && Number.isFinite(v) ? Math.min(d.max, Math.max(d.min, v)) : d.default;
 }
 
 /** text a part carries beside its main words: these name it only when nothing else does */

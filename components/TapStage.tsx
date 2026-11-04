@@ -370,7 +370,7 @@ export function LinkStage({
       </div>
       <Field
         value={typed}
-        onChange={(url) => onChange({ to: LINK_TARGET, transition: action?.transition ?? "none", url })}
+        onChange={(url) => onChange({ ...action, to: LINK_TARGET, transition: action?.transition ?? "none", url })}
         placeholder="https://example.com"
         icon="link"
         p={p}

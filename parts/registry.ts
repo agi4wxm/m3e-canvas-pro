@@ -20,7 +20,7 @@ import { mobile } from "./defs/mobile";
 import type { ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
 import { applyAppearance, type Appearance } from "./appearance";
 import { h, mapNodes, type PNode } from "./node";
-import { COMMON_TEXT, defaultTextOf, listTextOf } from "./labels";
+import { COMMON_TEXT, choiceValueOf, defaultTextOf, listTextOf } from "./labels";
 import { getLang, type Lang } from "../lib/i18n";
 
 /** the palette's sections, by what a part is for */
@@ -42,7 +42,7 @@ function read(def: PropDef, values: PropValues | undefined): unknown {
     case "icon":
       return typeof v === "string" ? v : def.default;
     case "enum":
-      return typeof v === "string" && def.options.some((o) => (typeof o === "string" ? o : o.value) === v) ? v : def.default;
+      return typeof v === "string" && def.options.some((o) => choiceValueOf(o) === v) ? v : def.default;
     case "bool":
       return typeof v === "boolean" ? v : def.default;
     case "image":
@@ -176,7 +176,7 @@ export function withoutPickedImages(def: PartDef, values: PropValues, swap?: str
 const seedKey = (s: string): string | undefined => Object.keys(COMMON_TEXT).find((k) => k === s || Object.values(COMMON_TEXT[k]).includes(s));
 
 /** a text value that still holds a seed — in any language — becomes the seed of `lang`;
- *  a value the author wrote stays. Same bargain as `translateDefaultText`. */
+ *  a value the author wrote stays. */
 function translateSeed(value: string, d: Extract<PropDef, { kind: "text" }>, lang: Lang): string {
   if (value === d.default || Object.values(d.defaults ?? {}).includes(value)) return defaultTextOf(d, lang);
   const key = seedKey(value);

@@ -2,6 +2,7 @@ import { appearanceOf } from "../parts/appearance";
 import { partBySlug, reader, treeOf, withoutPickedImages } from "../parts/registry";
 import { flowClasses } from "../parts/flow";
 import { flowOfItem } from "./flow";
+import { INPUT_PROP } from "./interact";
 import { labelOfPart } from "../parts/resize";
 import { nameOf } from "../parts/labels";
 import { roleOf } from "../parts/role";
@@ -10,8 +11,15 @@ import { Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
 import {
   Place,
   Action,
+  ActionBody,
   BACK_TARGET,
+  Condition,
+  DocVar,
+  Effect,
   LINK_TARGET,
+  VarType,
+  VarValue,
+  heldBy,
   linkUrlOf,
   Doc,
   FONTS,
@@ -19,11 +27,11 @@ import {
   Group,
   Item,
   Palette,
+  Rect,
   SWIPE_DIRS,
   Theme,
-  Variant,
+  unionRect,
   explodeGroup,
-  frameOfGroup,
   frameOfPart,
   frameLengthOf,
   frameRect,
@@ -36,13 +44,6 @@ import {
   paletteOf,
   actionSlotsOf,
 } from "./tokens";
-
-const VARIANT_TEXT: Record<Lang, Record<Variant, string>> = {
-  ja: { filled: "塗りつぶし", tonal: "トーナル", elevated: "エレベーテッド", outlined: "アウトライン", text: "テキスト" },
-  en: { filled: "filled", tonal: "tonal", elevated: "elevated", outlined: "outlined", text: "text" },
-  zh: { filled: "填充", tonal: "色调", elevated: "浮起", outlined: "描边", text: "文字" },
-  ko: { filled: "채움", tonal: "토널", elevated: "돌출", outlined: "윤곽선", text: "텍스트" },
-};
 
 const hasText = (s?: string | null) => !!s && s.trim().length > 0;
 
@@ -71,18 +72,17 @@ function fabScrollText(it: Item, lang: Lang): string {
 }
 
 /** a part that is a shadcn M3E component is described by the code it stands for */
-function componentText(it: Item, lang: Lang): string {
+function componentText(it: Item, lang: Lang, name?: string): string {
   const def = partBySlug(it.component);
   if (!def) return it.label || "component";
-  /* a pack's part is not shadcn M3E: the code quoted below says what it is */
-  const lead = def.slug.includes("/") ? nameOf(def, lang) : { ja: `shadcn M3E の ${nameOf(def, lang)}`, en: `the shadcn M3E ${nameOf(def, lang)}`, zh: `shadcn M3E 的 ${nameOf(def, lang)}`, ko: `shadcn M3E의 ${nameOf(def, lang)}` }[lang];
-  const called = labelOfPart(def, it.props);
+  const lead = { ja: `shadcn M3E の ${nameOf(def, lang)}`, en: `the shadcn M3E ${nameOf(def, lang)}`, zh: `shadcn M3E 的 ${nameOf(def, lang)}`, ko: `shadcn M3E의 ${nameOf(def, lang)}` }[lang];
+  const called = name?.trim() || labelOfPart(def, it.props);
   /* a picked image's data is the sketch's own: the prompt sees the placeholder the code prints */
   const props = withoutPickedImages(def, it.props ?? {}, "/placeholder.svg");
   const flow = flowOfItem(it);
   /* the classes say how it lays out what is nested in it, in every language */
   const layout = flow ? ` + auto layout \`${flowClasses(flow)}\`` : "";
-  return `${lead}${called ? ` "${called}"` : ""}: \`${inlineNode(treeOf(def, props, appearanceOf(it)))}\`${layout}${fabScrollText(it, lang)}`;
+  return `${lead}${called ? ` ${quote(lang)(called)}` : ""}: \`${inlineNode(treeOf(def, props, appearanceOf(it)))}\`${layout}${fabScrollText(it, lang)}`;
 }
 
 /** A collapse-on-scroll FAB only has that behavior on a screen whose body actually scrolls. */
@@ -97,32 +97,15 @@ function promptGroupsForScroll(groups: Group[], scrollable: boolean): Group[] {
 /* ================= groups of several parts ================= */
 
 function groupText(g: Group, lang: Lang): string {
-  if (g.items.length === 1) return componentText(g.items[0], lang);
-  const q = quote(lang);
-  const vt = VARIANT_TEXT[lang];
-  const same = g.items.every((it) => it.variant === g.items[0].variant);
-  if (lang === "ja") {
-    const names = same
-      ? g.items.map((it) => q(it.label || "ラベルなし")).join("")
-      : g.items.map((it) => `${q(it.label || "ラベルなし")}(${vt[it.variant]})`).join("");
-    return `${names}の${g.items.length}つのボタンが横に連結したボタングループ${same ? `（${vt[g.items[0].variant]}）` : ""}`;
-  }
-  if (lang === "zh") {
-    const names = same
-      ? g.items.map((it) => q(it.label || "无标签")).join("")
-      : g.items.map((it) => `${q(it.label || "无标签")}(${vt[it.variant]})`).join("");
-    return `由${names}这 ${g.items.length} 个按钮横向相连组成的按钮组${same ? `（${vt[g.items[0].variant]}）` : ""}`;
-  }
-  if (lang === "ko") {
-    const names = same
-      ? g.items.map((it) => q(it.label || "레이블 없음")).join(", ")
-      : g.items.map((it) => `${q(it.label || "레이블 없음")}(${vt[it.variant]})`).join(", ");
-    return `${names} 버튼 ${g.items.length}개를 가로로 연결한 버튼 그룹${same ? `(${vt[g.items[0].variant]})` : ""}`;
-  }
-  const names = same
-    ? g.items.map((it) => q(it.label || "unlabeled")).join(", ")
-    : g.items.map((it) => `${q(it.label || "unlabeled")} (${vt[it.variant]})`).join(", ");
-  return `a connected button group of ${g.items.length}${same ? ` ${vt[g.items[0].variant]}` : ""} buttons: ${names}`;
+  if (g.items.length === 1) return componentText(g.items[0], lang, g.name);
+  /* parts of any kind can run together, so each says what it is */
+  const parts = g.items.map((it) => componentText(it, lang)).join(lang === "ja" || lang === "zh" ? "；" : "; ");
+  const n = g.items.length;
+  const across = g.axis === "x";
+  if (lang === "ja") return `${across ? "横一列" : "縦一列"}に並ぶ ${n} 個: ${parts}`;
+  if (lang === "zh") return `${across ? "横向排成一行" : "纵向排成一列"}的 ${n} 个组件：${parts}`;
+  if (lang === "ko") return `${across ? "가로로" : "세로로"} 나란히 놓인 ${n}개: ${parts}`;
+  return `a ${across ? "row" : "stack"} of ${n}: ${parts}`;
 }
 
 /** short name for a run when it is referred to again (as a container or a neighbour) */
@@ -130,8 +113,14 @@ function groupName(g: Group, lang: Lang): string {
   const it = g.items[0];
   const noun = nounOf(it, lang);
   const q = quote(lang);
-  if (g.items.length > 1) return lang === "en" ? `the ${noun} group` : lang === "zh" ? `${noun}组` : lang === "ko" ? `${noun} 그룹` : `${noun}のグループ`;
-  const called = leadTextOf(it);
+  if (g.items.length > 1) {
+    const across = g.axis === "x";
+    const word = { ja: across ? "横の並び" : "縦の並び", en: across ? "row" : "stack", zh: across ? "横排" : "竖排", ko: across ? "가로 줄" : "세로 줄" }[lang];
+    /* the part's name only says what the run is when the whole run is that part */
+    if (g.items.some((x) => x.component !== it.component)) return lang === "en" ? `the ${word}` : word;
+    return lang === "en" ? `the ${noun} ${word}` : lang === "ja" ? `${noun}の${word}` : lang === "ko" ? `${noun} ${word}` : `${noun}${word}`;
+  }
+  const called = g.name?.trim() || leadTextOf(it);
   if (hasText(called)) return lang === "en" ? `the ${q(called)} ${noun}` : `${q(called)}${lang === "ko" ? " " : ""}${noun}`;
   return lang === "en" ? `the ${noun}` : noun;
 }
@@ -176,6 +165,8 @@ function slotName(it: Item, slot: string, lang: Lang): string {
     return `the${named ? ` ${s?.label}` : ""} icon button on the ${slot === "icon2" ? "right" : "left"}`;
   }
   const label = s?.label ? q(s.label) : slot.startsWith("tab:") ? `#${Number(slot.slice(4)) + 1}` : slot;
+  /* the two answers of a dialog are buttons */
+  if (slot === "dismiss" || slot === "confirm") return { ja: `${label}ボタン`, en: `the ${label} button`, zh: `${label}按钮`, ko: `${label} 버튼` }[lang];
   /* an entry of a menu is picked from it; a destination on a bar is somewhere to go */
   const menu = MENU_PARTS.has(it.component ?? "");
   if (lang === "ja") return `${label}の${menu ? "メニュー項目" : "項目"}`;
@@ -184,21 +175,196 @@ function slotName(it: Item, slot: string, lang: Lang): string {
   return `the ${label} ${menu ? "menu item" : "destination"}`;
 }
 
-function notes(g: Group, frames: Frame[], lang: Lang): string[] {
+/* ---- what a tap does beyond where it goes, and what the screen starts without ---- */
+
+type Scope = { frames: Frame[]; groups: Group[]; vars?: DocVar[]; widths: Record<string, number> };
+
+const nameOfItem = (g: Group | undefined, it: Item, lang: Lang) => {
+  const noun = nounOf(it, lang);
+  const called = (g?.items.length === 1 && g.name?.trim()) || leadTextOf(it);
+  if (!hasText(called)) return lang === "en" ? `the ${noun}` : noun;
+  return lang === "en" ? `the ${quote(lang)(called)} ${noun}` : `${quote(lang)(called)}${lang === "ko" ? " " : ""}${noun}`;
+};
+
+function partRef(id: string, s: Scope, lang: Lang): string | null {
+  const g = s.groups.find((x) => x.items.some((it) => it.id === id));
+  const it = g?.items.find((x) => x.id === id);
+  return it ? nameOfItem(g, it, lang) : null;
+}
+
+const varRef = (id: string, s: Scope) => {
+  const v = s.vars?.find((x) => x.id === id);
+  return v ? v.name || v.id : null;
+};
+
+const valueText = (v: VarValue, lang: Lang) => (typeof v === "string" ? quote(lang)(v) : String(v));
+
+function effectText(e: Effect, s: Scope, lang: Lang): string | null {
+  const part = "part" in e ? partRef(e.part, s, lang) : null;
+  const name = "var" in e ? varRef(e.var, s) : null;
+  if ("part" in e ? !part : "var" in e && !name) return null;
+  const say: Record<Lang, () => string> = {
+    ja: () => {
+      switch (e.do) {
+        case "show": return `${part}を表示する`;
+        case "hide": return `${part}を隠す`;
+        case "toggle": return `${part}の表示と非表示を切り替える`;
+        case "open": return `${part}を開く`;
+        case "close": return `${part}を閉じる`;
+        case "setVar": return `変数 ${name} を ${valueText(e.value, lang)} にする`;
+        case "toggleVar": return `変数 ${name} を反転する`;
+        case "addVar": return `変数 ${name} に ${e.by} を足す`;
+        case "setProp": return `${part}の ${e.prop} を ${valueText(e.value, lang)} にする`;
+        case "snackbar": return `${qj(e.message)}とスナックバーで知らせる`;
+      }
+    },
+    en: () => {
+      switch (e.do) {
+        case "show": return `shows ${part}`;
+        case "hide": return `hides ${part}`;
+        case "toggle": return `shows or hides ${part}`;
+        case "open": return `opens ${part}`;
+        case "close": return `closes ${part}`;
+        case "setVar": return `sets variable ${name} to ${valueText(e.value, lang)}`;
+        case "toggleVar": return `flips variable ${name}`;
+        case "addVar": return `adds ${e.by} to variable ${name}`;
+        case "setProp": return `sets ${e.prop} of ${part} to ${valueText(e.value, lang)}`;
+        case "snackbar": return `shows a snackbar saying ${qe(e.message)}`;
+      }
+    },
+    zh: () => {
+      switch (e.do) {
+        case "show": return `显示${part}`;
+        case "hide": return `隐藏${part}`;
+        case "toggle": return `切换${part}的显示与隐藏`;
+        case "open": return `打开${part}`;
+        case "close": return `关闭${part}`;
+        case "setVar": return `把变量 ${name} 设为 ${valueText(e.value, lang)}`;
+        case "toggleVar": return `翻转变量 ${name}`;
+        case "addVar": return `给变量 ${name} 加 ${e.by}`;
+        case "setProp": return `把${part}的 ${e.prop} 设为 ${valueText(e.value, lang)}`;
+        case "snackbar": return `用 Snackbar 提示${qz(e.message)}`;
+      }
+    },
+    ko: () => {
+      switch (e.do) {
+        case "show": return `${part} 표시`;
+        case "hide": return `${part} 숨기기`;
+        case "toggle": return `${part} 표시 전환`;
+        case "open": return `${part} 열기`;
+        case "close": return `${part} 닫기`;
+        case "setVar": return `변수 ${name}을(를) ${valueText(e.value, lang)}(으)로 설정`;
+        case "toggleVar": return `변수 ${name} 반전`;
+        case "addVar": return `변수 ${name}에 ${e.by} 더하기`;
+        case "setProp": return `${part}의 ${e.prop}을(를) ${valueText(e.value, lang)}(으)로 설정`;
+        case "snackbar": return `스낵바로 ${qe(e.message)} 표시`;
+      }
+    },
+  };
+  return say[lang]();
+}
+
+function conditionText(c: Condition, s: Scope, lang: Lang): string | null {
+  if ("filled" in c) {
+    const part = partRef(c.filled, s, lang);
+    if (!part) return null;
+    return { ja: `${part}に入力があるとき`, en: `if ${part} is filled in`, zh: `当${part}已填写时`, ko: `${part}에 입력이 있을 때` }[lang];
+  }
+  const name = varRef(c.var, s);
+  if (!name) return null;
+  const v = valueText(c.value, lang);
+  return c.op === "neq"
+    ? { ja: `変数 ${name} が ${v} でないとき`, en: `if variable ${name} is not ${v}`, zh: `当变量 ${name} 不等于 ${v} 时`, ko: `변수 ${name}이(가) ${v}이(가) 아닐 때` }[lang]
+    : { ja: `変数 ${name} が ${v} のとき`, en: `if variable ${name} is ${v}`, zh: `当变量 ${name} 等于 ${v} 时`, ko: `변수 ${name}이(가) ${v}일 때` }[lang];
+}
+
+const THEN: Record<Lang, string> = { ja: "、続けて", en: ", then ", zh: "，然后", ko: ", 이어서 " };
+
+/** the steps of a tap in the order they run: its effects, then where it goes */
+function bodyText(a: ActionBody, s: Scope, lang: Lang): string | null {
+  const steps = [...(a.effects ?? []).map((e) => effectText(e, s, lang)), actionText(a, s.frames, lang)].filter((x): x is string => !!x);
+  return steps.length ? steps.join(THEN[lang]) : null;
+}
+
+/** a whole tap, with the condition it runs on and what runs when that fails; a plain one reads as it always did */
+function tapText(a: Action, s: Scope, lang: Lang): string | null {
+  const body = bodyText(a, s, lang);
+  const when = a.when ? conditionText(a.when, s, lang) : null;
+  if (!when) return body;
+  const other = a.else ? bodyText(a.else, s, lang) : null;
+  const yes = body ?? { ja: "何もしない", en: "does nothing", zh: "不执行任何操作", ko: "아무 동작도 하지 않음" }[lang];
+  const no = other ?? { ja: "何もしない", en: "does nothing", zh: "不执行任何操作", ko: "아무 동작도 하지 않음" }[lang];
+  return { ja: `${when}は${yes}。そうでないときは${no}`, en: `${when}, ${yes}; otherwise ${no}`, zh: `${when}${yes}，否则${no}`, ko: `${when} ${yes}, 그렇지 않으면 ${no}` }[lang];
+}
+
+/** that a part starts hidden, shows on a condition, belongs to a tab or follows a variable */
+function stateNotes(g: Group, s: Scope, lang: Lang): string[] {
   const out: string[] = [];
+  const first = g.items[0];
+  const name = nameOfItem(g, first, lang);
+  const cap = lang === "en" ? name[0].toUpperCase() + name.slice(1) : name;
+  if (g.hidden) out.push({ ja: `${cap}は最初は表示せず、場所も取らない。`, en: `${cap} starts hidden and takes no room until shown.`, zh: `${cap}初始隐藏，显示前不占位置。`, ko: `${cap}은(는) 처음에는 숨겨져 있고 표시되기 전에는 자리를 차지하지 않는다.` }[lang]);
+  const when = g.showWhen ? conditionText(g.showWhen, s, lang) : null;
+  if (when) out.push({ ja: `${cap}は${when}だけ表示する。`, en: `${cap} is shown only ${when}.`, zh: `${cap}仅${when}显示。`, ko: `${cap}은(는) ${when}만 표시한다.` }[lang]);
+  if (g.pane !== undefined) {
+    const dock = s.groups.find((o) => partBySlug(o.items[0].component)?.panes && (g.inFlow === o.id || heldBy(o, s.groups, s.widths).some((x) => x.id === g.id)));
+    const def = dock && partBySlug(dock.items[0].component);
+    const tab = def?.slots?.(reader(def, dock!.items[0].props))[g.pane]?.label;
+    if (dock && tab) {
+      const host = nameOfItem(dock, dock.items[0], lang);
+      out.push({ ja: `${cap}は${host}の${qj(tab)}タブの中身で、そのタブを選んでいるときだけ表示する。`, en: `${cap} is the content of the ${qe(tab)} tab of ${host}, shown only while that tab is chosen.`, zh: `${cap}是${host}的${qz(tab)}标签页内容，仅在选中该标签页时显示。`, ko: `${cap}은(는) ${host}의 ${qe(tab)} 탭 내용이며 그 탭을 선택했을 때만 표시한다.` }[lang]);
+    }
+  }
+  for (const it of g.items) {
+    for (const [prop, id] of Object.entries(it.bind ?? {})) {
+      const v = varRef(id, s);
+      if (!v) continue;
+      const who = nameOfItem(g, it, lang);
+      const whoCap = lang === "en" ? who[0].toUpperCase() + who.slice(1) : who;
+      /* an input also writes back as the visitor changes it */
+      const writes = INPUT_PROP[it.component ?? ""] === prop;
+      out.push(
+        writes
+          ? { ja: `${whoCap}の ${prop} は変数 ${v} と連動し、変更すると変数に書き込む。`, en: `${whoCap}'s ${prop} follows variable ${v} and writes to it as it changes.`, zh: `${whoCap}的 ${prop} 与变量 ${v} 同步，修改时写回变量。`, ko: `${whoCap}의 ${prop}은(는) 변수 ${v}와(과) 연동되며 변경하면 변수에 기록한다.` }[lang]
+          : { ja: `${whoCap}の ${prop} は変数 ${v} の値を表示する。`, en: `${whoCap}'s ${prop} shows variable ${v}.`, zh: `${whoCap}的 ${prop} 显示变量 ${v} 的值。`, ko: `${whoCap}의 ${prop}은(는) 변수 ${v}의 값을 표시한다.` }[lang],
+      );
+    }
+  }
+  return out;
+}
+
+/** the app's state, named once at the head of the behaviour it is used in */
+function varsLine(vars: DocVar[] | undefined, lang: Lang): string | null {
+  if (!vars?.length) return null;
+  const kind: Record<VarType, Record<Lang, string>> = {
+    text: { ja: "テキスト", en: "text", zh: "文本", ko: "텍스트" },
+    number: { ja: "数値", en: "number", zh: "数字", ko: "숫자" },
+    bool: { ja: "真偽値", en: "boolean", zh: "布尔值", ko: "불리언" },
+  };
+  const list = vars.map((v) => {
+    const value = valueText(v.value, lang);
+    return { ja: `${v.name || v.id}（${kind[v.type].ja}、初期値 ${value}）`, en: `${v.name || v.id} (${kind[v.type].en}, starts at ${value})`, zh: `${v.name || v.id}（${kind[v.type].zh}，初始值 ${value}）`, ko: `${v.name || v.id}(${kind[v.type].ko}, 초기값 ${value})` }[lang];
+  });
+  const sep = lang === "en" || lang === "ko" ? ", " : "、";
+  return { ja: `アプリの状態として次の変数を持つ: ${list.join(sep)}。`, en: `The app keeps this state in variables: ${list.join(sep)}.`, zh: `应用用以下变量保存状态：${list.join(sep)}。`, ko: `앱은 다음 변수로 상태를 보관한다: ${list.join(sep)}.` }[lang];
+}
+
+function notes(g: Group, scope: Scope, lang: Lang): string[] {
+  const out: string[] = stateNotes(g, scope, lang);
+  const frames = scope.frames;
   const q = quote(lang);
   for (const it of g.items) {
     const noun = nounOf(it, lang);
-    const called = leadTextOf(it);
+    const called = (g.items.length === 1 && g.name?.trim()) || leadTextOf(it);
     const name = hasText(called) ? (lang === "en" ? `The ${q(called)} ${noun}` : `${q(called)}${lang === "ko" ? " " : ""}${noun}`) : lang === "en" ? `The ${noun}` : noun;
     const parts: string[] = [];
     if (it.action) {
-      const a = actionText(it.action, frames, lang);
-      if (a) parts.push(lang === "ja" ? `タップすると${a}` : lang === "zh" ? `点击后${a}` : lang === "ko" ? `탭하면 ${a}` : `${a} when tapped`);
+      const a = tapText(it.action, scope, lang);
+      if (a) parts.push(lang === "ja" ? `タップすると${a}` : lang === "zh" ? `点击后${a}` : lang === "ko" ? `탭하면 ${a}` : it.action.when ? `when tapped, ${a}` : `${a} when tapped`);
     }
     for (const [slot, action] of Object.entries(it.actions ?? {})) {
       if (!action) continue;
-      const a = actionText(action, frames, lang);
+      const a = tapText(action, scope, lang);
       if (!a) continue;
       const s = slotName(it, slot, lang);
       if (lang === "en") out.push(`Tapping ${s} of ${name.replace(/^The /, "the ")} ${a}.`);
@@ -211,22 +377,28 @@ function notes(g: Group, frames: Frame[], lang: Lang): string[] {
       const icon = rd.s("onIcon");
       const on = rd.s("onLabel");
       const label = on && on !== rd.s("label") ? on : undefined;
+      /* only a button has a look of its own for when it is on */
+      const look = def?.props.some((d) => d.key === "onLook") && rd.s("onLook") !== "same" ? rd.s("onLook") : undefined;
       const changes: string[] = [];
       if (lang === "ja") {
         if (label) changes.push(`ラベルが${qj(label)}に変わる`);
         if (icon) changes.push(`アイコンが ${icon} に変わる`);
+        if (look) changes.push(`スタイルが ${look} に変わる`);
         parts.push(`タップするたびにオン／オフが切り替わるトグルボタンにする${changes.length ? `（オンのときは${changes.join("、")}）` : ""}`);
       } else if (lang === "zh") {
         if (label) changes.push(`文字变为${qz(label)}`);
         if (icon) changes.push(`图标变为 ${icon}`);
+        if (look) changes.push(`样式变为 ${look}`);
         parts.push(`做成每次点击都切换开/关状态的切换按钮${changes.length ? `（开启时${changes.join("、")}）` : ""}`);
       } else if (lang === "ko") {
         if (label) changes.push(`변경할 레이블: ${qe(label)}`);
         if (icon) changes.push(`변경할 아이콘: ${icon}`);
+        if (look) changes.push(`변경할 스타일: ${look}`);
         parts.push(`탭할 때마다 켜짐/꺼짐이 전환되는 토글 버튼으로 만든다${changes.length ? `(켜졌을 때 ${changes.join(", ")})` : ""}`);
       } else {
         if (label) changes.push(`the label becomes ${qe(label)}`);
         if (icon) changes.push(`the icon becomes ${icon}`);
+        if (look) changes.push(`the variant becomes ${look}`);
         parts.push(`is a toggle button that flips on / off with every tap${changes.length ? ` (when on, ${changes.join(" and ")})` : ""}`);
       }
     }
@@ -261,7 +433,6 @@ function swipeNotes(f: Frame, frames: Frame[], lang: Lang): string[] {
 
 /* ================= layout: rows and layers ================= */
 
-type Rect = { l: number; t: number; r: number; b: number };
 type LNode = { g: Group; bb: Rect; children: LNode[] };
 
 const area = (r: Rect) => Math.max(0, r.r - r.l) * Math.max(0, r.b - r.t);
@@ -370,24 +541,23 @@ function rowText(row: LNode[], where: string, lang: Lang, within: Rect): string 
   return `${where}, in one row from left to right: ${descs.join(", ")} (keep them on the same line, vertically centered; never stack or wrap them${stretch}).`;
 }
 
-/** families whose side-by-side rows can read as one grid */
-const gridFamily = (it: Item) => `c:${it.component}`;
-const GRID_FAMILIES = new Set(["c:card"]);
+/** parts whose side-by-side rows can read as one grid */
+const GRID_PARTS = new Set(["card"]);
 /** the farthest two column edges or cell widths may be apart and still count as one grid */
 const GRID_SNAP = 6;
 
 type Grid = { rows: LNode[][]; cols: number; colGap: number; rowGap: number };
 
-/** Rows starting at `from` that line up as a grid: single cards of one family,
+/** Rows starting at `from` that line up as a grid: single cards of one kind,
  *  at least two rows of at least two cells, every row with the same column count
  *  except a shorter last one, columns sharing their left edges and all cells one width.
  *  Anything with parts on top of it is left to the row-by-row description. */
 function gridAt(rows: LNode[][], from: number): Grid | null {
   const first = rows[from];
   if (first.length < 2) return null;
-  const family = gridFamily(first[0].g.items[0]);
-  if (!GRID_FAMILIES.has(family)) return null;
-  const cell = (n: LNode) => n.g.items.length === 1 && gridFamily(n.g.items[0]) === family && !n.children.length;
+  const slug = first[0].g.items[0].component;
+  if (!slug || !GRID_PARTS.has(slug)) return null;
+  const cell = (n: LNode) => n.g.items.length === 1 && n.g.items[0].component === slug && !n.children.length;
   const width = first[0].bb.r - first[0].bb.l;
   const fits = (row: LNode[]) =>
     row.length <= first.length &&
@@ -429,23 +599,13 @@ function gridText(grid: Grid, where: string, lang: Lang): string {
 function describeNodes(lines: string[], nodes: LNode[], within: Rect | null, widths: Record<string, number>, lang: Lang, depth: number, phone: boolean) {
   const rows = rowsOf(nodes);
   const pad = "  ".repeat(depth);
-  const box: Rect = within ?? {
-    l: Math.min(...nodes.map((n) => n.bb.l)),
-    t: Math.min(...nodes.map((n) => n.bb.t)),
-    r: Math.max(...nodes.map((n) => n.bb.r)),
-    b: Math.max(...nodes.map((n) => n.bb.b)),
-  };
+  const box: Rect = within ?? unionRect(nodes.map((n) => n.bb));
   for (let i = 0; i < rows.length; i++) {
     /* rows that line up as a grid are written once, as the grid, in place of each row */
     const grid = gridAt(rows, i);
     const row = grid ? grid.rows.flat() : rows[i];
     const first = row[0];
-    const rowRect: Rect = {
-      l: Math.min(...row.map((n) => n.bb.l)),
-      t: Math.min(...row.map((n) => n.bb.t)),
-      r: Math.max(...row.map((n) => n.bb.r)),
-      b: Math.max(...row.map((n) => n.bb.b)),
-    };
+    const rowRect = unionRect(row.map((n) => n.bb));
     let where: string;
     if (within) where = zone(rowRect, box, lang, phone);
     else where = lang === "ja" ? (i === 0 ? "まず" : "その下に") : lang === "zh" ? (i === 0 ? "首先" : "其下方") : lang === "ko" ? (i === 0 ? "먼저" : "그 아래에") : i === 0 ? "First" : "Below that";
@@ -469,14 +629,27 @@ function describeNodes(lines: string[], nodes: LNode[], within: Rect | null, wid
       line = lang === "ja" ? `${line.replace(/。$/, "")}（${o}の上に一部重ねて前面に描画）。` : lang === "zh" ? `${line.replace(/。$/, "")}（部分覆盖在${o}之上，绘制在前面）。` : lang === "ko" ? `${line.replace(/\.$/, "")}(${o} 위에 일부 겹쳐 앞쪽에 그림).` : `${line.replace(/\.$/, "")} (partly overlapping ${o}, drawn on top).`;
     }
     lines.push(`${pad}- ${line}`);
-    for (const n of row) {
-      if (!n.children.length) continue;
-      const name = groupName(n.g, lang);
-      lines.push(
-        `${pad}  - ${lang === "ja" ? `${name}の中には次を重ねて配置します（ボックス側を背景にし、以下はその前面に載せる。位置はボックス内での相対位置）:` : lang === "zh" ? `${name}内部叠放以下内容（以容器为背景，下列组件绘制在其前面，位置为容器内的相对位置）：` : lang === "ko" ? `${name} 안에 다음 항목을 겹쳐 배치합니다(컨테이너를 배경으로 하고 다음 부품은 그 앞에 배치하며, 위치는 컨테이너 내부 기준):` : `Inside ${name}, layered on top of it (the container is the background; positions are relative to it):`}`,
-      );
-      describeNodes(lines, n.children, n.bb, widths, lang, depth + 2, false);
+    for (const n of row) describeHeld(lines, n, widths, lang, depth);
+  }
+}
+
+/** What a part holds, under its line. What its auto layout places is nested in order, since the
+ *  classes on the container say where it goes; what merely lies on it is placed by position. */
+function describeHeld(lines: string[], n: LNode, widths: Record<string, number>, lang: Lang, depth: number) {
+  const pad = "  ".repeat(depth);
+  const name = groupName(n.g, lang);
+  const flowed = n.children.filter((c) => c.g.inFlow === n.g.id);
+  const placed = n.children.filter((c) => c.g.inFlow !== n.g.id);
+  if (flowed.length) {
+    lines.push(`${pad}  - ${lang === "ja" ? `${name}の自動レイアウトの中に、次の順で入れ子にします:` : lang === "zh" ? `${name}的自动布局内依次嵌套：` : lang === "ko" ? `${name}의 자동 레이아웃 안에 다음 순서로 중첩합니다:` : `Nested in the auto layout of ${name}, in this order:`}`);
+    for (const c of flowed) {
+      lines.push(`${pad}    - ${groupText(c.g, lang)}${lang === "ja" || lang === "zh" ? "。" : "."}`);
+      describeHeld(lines, c, widths, lang, depth + 2);
     }
+  }
+  if (placed.length) {
+    lines.push(`${pad}  - ${lang === "ja" ? `${name}の中には次を重ねて配置します（ボックス側を背景にし、以下はその前面に載せる。位置はボックス内での相対位置）:` : lang === "zh" ? `${name}内部叠放以下内容（以容器为背景，下列组件绘制在其前面，位置为容器内的相对位置）：` : lang === "ko" ? `${name} 안에 다음 항목을 겹쳐 배치합니다(컨테이너를 배경으로 하고 다음 부품은 그 앞에 배치하며, 위치는 컨테이너 내부 기준):` : `Inside ${name}, layered on top of it (the container is the background; positions are relative to it):`}`);
+    describeNodes(lines, placed, n.bb, widths, lang, depth + 2, false);
   }
 }
 
@@ -487,7 +660,7 @@ function describeScreen(lines: string[], groups: Group[], frameRect: Rect | null
   /* a navigation rail runs the full height, so it is written first, on its own; the
    * rest of the screen is then read beside it in rows as usual */
   const rails = groups.filter((g) => g.items.length === 1 && roleOf(g.items[0]) === "rail");
-  for (const g of rails) lines.push(`- ${RAIL_LEAD[lang]}${componentText(g.items[0], lang)}${lang === "ja" || lang === "zh" ? "。" : "."}`);
+  for (const g of rails) lines.push(`- ${RAIL_LEAD[lang]}${componentText(g.items[0], lang, g.name)}${lang === "ja" || lang === "zh" ? "。" : "."}`);
   const rest = rails.length ? groups.filter((g) => !rails.includes(g)) : groups;
   if (!rest.length) return;
   const roots = layoutTree(rest, widths);
@@ -558,8 +731,8 @@ const THEME_NOTES: Record<Lang, { shape: Record<Theme["shape"], string>; emphasi
     emphasized: "見出し・ボタンラベル・タブは M3 Expressive の emphasized タイポグラフィ（headlineMediumEmphasized などの太めのウェイト）を使う。",
     plainType: "タイポグラフィは M3 の標準ウェイト。",
     motion: {
-      standard: "モーションは MotionScheme.standard()。画面遷移や状態変化は弾まない滑らかな動きにする。",
-      expressive: "モーションは MotionScheme.expressive()。画面遷移や状態変化には軽く弾むスプリングを使う。",
+      standard: "モーションは M3ThemeProvider の defaultTheme で motion: \"standard\" にする。画面遷移や状態変化は弾まない滑らかな動きにする。",
+      expressive: "モーションは M3ThemeProvider の defaultTheme で motion: \"expressive\" にする。画面遷移や状態変化には軽く弾むスプリングを使う。",
     },
   },
   en: {
@@ -571,8 +744,8 @@ const THEME_NOTES: Record<Lang, { shape: Record<Theme["shape"], string>; emphasi
     emphasized: "Headlines, button labels and tabs use the M3 Expressive emphasized typography (the heavier headlineMediumEmphasized and similar styles).",
     plainType: "Typography uses the standard M3 weights.",
     motion: {
-      standard: "Motion uses MotionScheme.standard(): smooth transitions and state changes with no bounce.",
-      expressive: "Motion uses MotionScheme.expressive(): a light spring bounce on transitions and state changes.",
+      standard: "Set motion: \"standard\" in the defaultTheme of M3ThemeProvider: smooth transitions and state changes with no bounce.",
+      expressive: "Set motion: \"expressive\" in the defaultTheme of M3ThemeProvider: a light spring bounce on transitions and state changes.",
     },
   },
   zh: {
@@ -584,8 +757,8 @@ const THEME_NOTES: Record<Lang, { shape: Record<Theme["shape"], string>; emphasi
     emphasized: "标题、按钮文字和标签页使用 M3 Expressive 的 emphasized 字体样式（headlineMediumEmphasized 等更粗的字重）。",
     plainType: "排版使用 M3 的标准字重。",
     motion: {
-      standard: "动效使用 MotionScheme.standard()：屏幕过渡和状态变化平滑、不回弹。",
-      expressive: "动效使用 MotionScheme.expressive()：屏幕过渡和状态变化带轻微回弹的弹簧效果。",
+      standard: "在 M3ThemeProvider 的 defaultTheme 中设置 motion: \"standard\"：屏幕过渡和状态变化平滑、不回弹。",
+      expressive: "在 M3ThemeProvider 的 defaultTheme 中设置 motion: \"expressive\"：屏幕过渡和状态变化带轻微回弹的弹簧效果。",
     },
   },
   ko: {
@@ -597,8 +770,8 @@ const THEME_NOTES: Record<Lang, { shape: Record<Theme["shape"], string>; emphasi
     emphasized: "제목, 버튼 레이블, 탭은 더 굵은 headlineMediumEmphasized 등 M3 Expressive 강조 글꼴 스타일을 사용한다.",
     plainType: "M3 표준 글자 굵기를 사용한다.",
     motion: {
-      standard: "모션은 MotionScheme.standard()를 사용한다. 화면 전환과 상태 변화는 튀지 않고 부드럽게 처리한다.",
-      expressive: "모션은 MotionScheme.expressive()를 사용한다. 화면 전환과 상태 변화에 가볍게 튀는 스프링 효과를 적용한다.",
+      standard: "M3ThemeProvider의 defaultTheme에 motion: \"standard\"를 설정한다. 화면 전환과 상태 변화는 튀지 않고 부드럽게 처리한다.",
+      expressive: "M3ThemeProvider의 defaultTheme에 motion: \"expressive\"를 설정한다. 화면 전환과 상태 변화에 가볍게 튀는 스프링 효과를 적용한다.",
     },
   },
 };
@@ -621,8 +794,9 @@ const GENERAL: Record<Lang, string[]> = {
     "コンポーネントは導入済みの shadcn M3E（@m3e レジストリ。`@/components/m3e/*` から import）を使い、ライブラリにある部品を独自に作り直さない。",
     "色は必ず上のカラースキームのロール名（primary、surfaceContainer など）で参照し、ハードコードした色を使わない。",
     "余白は画面端 16dp、部品同士は 8〜16dp を基本にし、タイポグラフィは M3 の型（titleLarge、bodyMedium など）を使う。",
-    "「横一列に並べる」と書いた部品は必ず 1 つの Row（横並びコンテナ）に入れて同じ行に置き、縦に積んだり次の行に折り返したりしない。行の高さは一番高い部品に合わせ、他は縦中央に揃える。",
-    "「〜の中に重ねて配置」と書いた部品は、その容器（ボックスやカード）を背景にした Box の上に重ねて描く。重なりは意図したものなので、レイアウトの都合で分離したり順序を変えたりしない。前後関係は記述の順（後に書いたものが前面）に従う。",
+    "「横一列に並べる」と書いた部品は必ず 1 つの flex コンテナ（flex-row）に入れて同じ行に置き、縦に積んだり次の行に折り返したりしない。行の高さは一番高い部品に合わせ、他は縦中央に揃える。",
+    "「〜の中に重ねて配置」と書いた部品は、その容器（ボックスやカード）を position: relative にして、その上に絶対配置で重ねて描く。重なりは意図したものなので、レイアウトの都合で分離したり順序を変えたりしない。前後関係は記述の順（後に書いたものが前面）に従う。",
+    "「自動レイアウトの中に入れ子」と書いた部品は、その容器の flex または grid の子要素として書かれた順に並べ、絶対配置にしない。",
     "タップできる部品にはリップルと軽い縮小のフィードバックを付ける。「戻る」は入ったときの遷移を逆再生し、システムの戻る操作（戻るジェスチャー・戻るボタン）でも同じ動きにする。",
     "アイコンは Material Symbols Rounded を使う。",
   ],
@@ -634,8 +808,9 @@ const GENERAL: Record<Lang, string[]> = {
     "Use the already-installed shadcn M3E components (the @m3e registry, imported from `@/components/m3e/*`); do not recreate parts the library provides.",
     "Always reference colors through the scheme roles above (primary, surfaceContainer, …) instead of hard-coded values.",
     "Keep 16dp screen margins and 8–16dp between parts, and use the M3 type styles (titleLarge, bodyMedium, …).",
-    "Parts described as \"in one row\" must share a single Row (horizontal container) on the same line; never stack them vertically or wrap them. The row is as tall as its tallest part and the others are vertically centered in it.",
-    "Parts described as \"layered inside\" a container are drawn on top of that container (a Box with the container as its background). The overlap is intentional: do not separate or reorder them for layout reasons. Later items in the description are drawn in front of earlier ones.",
+    "Parts described as \"in one row\" must share a single flex container (flex-row) on the same line; never stack them vertically or wrap them. The row is as tall as its tallest part and the others are vertically centered in it.",
+    "Parts described as \"layered\" on a container are drawn on top of that container (position: relative on it, absolute positioning inside it). The overlap is intentional: do not separate or reorder them for layout reasons. Later items in the description are drawn in front of earlier ones.",
+    "Parts described as \"nested in the auto layout\" of a container are its flex or grid children, in the order written; do not position them absolutely.",
     "Give every tappable part ripple plus a slight press-scale. \"Back\" plays the entry transition in reverse, and the system back gesture / button must do the same.",
     "Use Material Symbols Rounded for icons.",
   ],
@@ -647,8 +822,9 @@ const GENERAL: Record<Lang, string[]> = {
     "组件使用已安装的 shadcn M3E（@m3e 注册表，从 `@/components/m3e/*` 导入），库里已有的组件不要自行重做。",
     "颜色必须通过上面配色方案的角色名（primary、surfaceContainer 等）引用，不要写死颜色值。",
     "屏幕边缘留 16dp，组件之间 8〜16dp，排版使用 M3 的字体样式（titleLarge、bodyMedium 等）。",
-    "写明“横向排成一行”的组件必须放进同一个 Row（横向容器）并在同一行显示，不要竖着堆叠或换行。行高以最高的组件为准，其余组件垂直居中。",
-    "写明“内部叠放”的组件要绘制在该容器（容器框或卡片）之上（以容器为背景的 Box）。这种叠放是有意为之，不要因布局原因拆开或调整顺序。前后关系按描述顺序，后写的在前面。",
+    "写明“横向排成一行”的组件必须放进同一个 flex 容器（flex-row）并在同一行显示，不要竖着堆叠或换行。行高以最高的组件为准，其余组件垂直居中。",
+    "写明“内部叠放”的组件要绘制在该容器（容器框或卡片）之上（容器设 position: relative，组件在其内部绝对定位）。这种叠放是有意为之，不要因布局原因拆开或调整顺序。前后关系按描述顺序，后写的在前面。",
+    "写明“自动布局内依次嵌套”的组件是该容器的 flex 或 grid 子元素，按书写顺序排列，不要绝对定位。",
     "可点击的组件加涟漪和轻微缩放反馈。“返回”反向播放进入时的过渡动画，系统返回手势／返回键也要做同样的效果。",
     "图标使用 Material Symbols Rounded。",
   ],
@@ -660,8 +836,9 @@ const GENERAL: Record<Lang, string[]> = {
     "이미 설치된 shadcn M3E(@m3e 레지스트리, `@/components/m3e/*`에서 import)의 컴포넌트를 사용하고 라이브러리에 있는 부품을 다시 만들지 않는다.",
     "색상은 하드코딩하지 말고 위 색상 구성의 역할 이름(primary, surfaceContainer 등)으로 참조한다.",
     "화면 가장자리는 16dp, 부품 사이는 8~16dp를 기본으로 하고 M3 글꼴 스타일(titleLarge, bodyMedium 등)을 사용한다.",
-    "'한 행에 배치'한 부품은 하나의 Row(가로 컨테이너)에서 같은 줄에 두고 세로로 쌓거나 줄 바꿈하지 않는다. 행 높이는 가장 높은 부품에 맞추고 나머지는 세로 중앙 정렬한다.",
-    "'내부에 겹쳐 배치'한 부품은 해당 컨테이너(상자 또는 카드)를 배경으로 하는 Box 위에 그린다. 이 겹침은 의도된 것이므로 분리하거나 순서를 바꾸지 않으며 나중에 설명된 항목을 앞에 그린다.",
+    "'한 행에 배치'한 부품은 하나의 flex 컨테이너(flex-row)에서 같은 줄에 두고 세로로 쌓거나 줄 바꿈하지 않는다. 행 높이는 가장 높은 부품에 맞추고 나머지는 세로 중앙 정렬한다.",
+    "'내부에 겹쳐 배치'한 부품은 해당 컨테이너(상자 또는 카드)를 position: relative로 하고 그 안에 절대 위치로 겹쳐 그린다. 이 겹침은 의도된 것이므로 분리하거나 순서를 바꾸지 않으며 나중에 설명된 항목을 앞에 그린다.",
+    "'자동 레이아웃 안에 중첩'한 부품은 해당 컨테이너의 flex 또는 grid 자식으로 쓰인 순서대로 놓고 절대 위치로 배치하지 않는다.",
     "탭 가능한 부품에는 리플과 약한 축소 피드백을 준다. '뒤로'는 진입 전환을 반대로 재생하고 시스템 뒤로 제스처나 버튼도 같은 동작을 수행한다.",
     "아이콘은 Material Symbols Rounded를 사용한다.",
   ],
@@ -826,14 +1003,13 @@ const PH = {
 };
 
 /** The lines an author may add to the general guidance with one tap: each is a short choice in
- *  the panel and one sentence in the prompt. The deliverable is on unless it is turned off, so
- *  a sketch saved before the choices existed reads the same. */
-export type PromptOption = "deliverable" | "tests" | "darkMode" | "languages" | "offline";
-export const PROMPT_OPTIONS: PromptOption[] = ["deliverable", "tests", "darkMode", "languages", "offline"];
+ *  the panel and one sentence in the prompt. The deliverable is on unless it is turned off. */
+type PromptOption = "deliverable" | "tests" | "darkMode" | "languages" | "offline";
+const PROMPT_OPTIONS: PromptOption[] = ["deliverable", "tests", "darkMode", "languages", "offline"];
 export const DEFAULT_PROMPT_OPTIONS: PromptOption[] = ["deliverable"];
 export const isPromptOption = (v: unknown): v is PromptOption => PROMPT_OPTIONS.includes(v as PromptOption);
 export const promptOptionsOf = (doc: Pick<Doc, "promptOptions">): PromptOption[] => (doc.promptOptions ? doc.promptOptions.filter(isPromptOption) : DEFAULT_PROMPT_OPTIONS);
-export const PROMPT_OPTION_TEXT: Record<Lang, Record<PromptOption, { label: string; icon: string; line: string }>> = {
+const PROMPT_OPTION_TEXT: Record<Lang, Record<PromptOption, { label: string; icon: string; line: string }>> = {
   ja: {
     deliverable: { label: "検証不要・成果物のみ", icon: "package_2", line: "ブラウザでの動作検証は不要。実装が終わったら production build を実行し、その出力を成果物として提供する。" },
     tests: { label: "テストを書く", icon: "science", line: "主要なロジックにユニットテストを書き、すべて通る状態で提出する。" },
@@ -967,7 +1143,9 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
     describeScreen(lines, promptGroupsForScroll(groups, false), null, widths, lang);
   }
 
-  const behavior = [...groups.flatMap((g) => notes(g, allFrames, lang)), ...frames.flatMap((f) => swipeNotes(f, allFrames, lang))];
+  const scope: Scope = { frames: allFrames, groups: doc.groups, vars: doc.vars, widths };
+  const state = varsLine(doc.vars, lang);
+  const behavior = [...(state ? [state] : []), ...groups.flatMap((g) => notes(g, scope, lang)), ...frames.flatMap((f) => swipeNotes(f, allFrames, lang))];
   if (behavior.length) {
     lines.push("");
     lines.push(ph.hBehavior);

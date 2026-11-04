@@ -1,12 +1,17 @@
-/* Writes the catalog of parts into public/agent.md, between its markers. Run with bun. */
+/* Writes the catalogs of parts and screen templates into public/agent.md, between their markers. Run with bun. */
 import { readFileSync, writeFileSync } from "node:fs";
 import { partCatalog } from "../parts/catalog";
+import { templateCatalog } from "../parts/templates";
 
 const file = new URL("../public/agent.md", import.meta.url);
-const guide = readFileSync(file, "utf8");
-const begin = "<!-- parts:begin -->";
-const end = "<!-- parts:end -->";
-const a = guide.indexOf(begin);
-const b = guide.indexOf(end);
-if (a < 0 || b < 0) throw new Error("public/agent.md has lost its markers");
-writeFileSync(file, `${guide.slice(0, a + begin.length)}\n\n${partCatalog()}\n\n${guide.slice(b)}`);
+
+function between(guide: string, name: string, body: string): string {
+  const begin = `<!-- ${name}:begin -->`;
+  const end = `<!-- ${name}:end -->`;
+  const a = guide.indexOf(begin);
+  const b = guide.indexOf(end);
+  if (a < 0 || b < 0) throw new Error("public/agent.md has lost its markers");
+  return `${guide.slice(0, a + begin.length)}\n\n${body}\n\n${guide.slice(b)}`;
+}
+
+writeFileSync(file, between(between(readFileSync(file, "utf8"), "parts", partCatalog()), "templates", templateCatalog()));

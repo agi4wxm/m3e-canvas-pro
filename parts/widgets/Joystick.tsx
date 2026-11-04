@@ -2,10 +2,9 @@ import { useRef, useState } from "react";
 import type { Look } from "./look";
 import { cn } from "@/lib/m3e/cn";
 
-/* The movement pad of 17722797729/m3e-canvas game-ui (MIT): the geometry is the fork's
- * (joystickKnob, joystickAngle, JOYSTICK_TRAVEL in its lib/tokens.ts). In the fork the drag lives
- * in Preview.tsx and the drawing in M3Node.tsx; here the component holds both, so the editor needs
- * no branch for it. The canvas draws parts inert, so a press there still selects the part. */
+/* The movement pad; its geometry comes from 17722797729/m3e-canvas game-ui (MIT). The component holds
+ * both the drag and the drawing, so the editor needs no branch for it. The canvas draws parts inert,
+ * so a press there still selects the part. */
 
 /** how far the knob travels from the middle, as a share of the pad's side */
 const TRAVEL = 0.32;

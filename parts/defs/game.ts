@@ -1,8 +1,8 @@
 import { h, ic } from "../node";
 import type { ListItem, P, PartDef, TableData } from "../types";
 
-/* The game parts of 17722797729/m3e-canvas game-ui (MIT). In the fork one part reaches into seven
- * source files; here the whole of it is a definition below and a component file beside this one. */
+/* The game parts, after 17722797729/m3e-canvas game-ui (MIT): a definition below and a widget in
+ * parts/widgets for each. */
 
 const PRIZES: ListItem[] = [
   { label: "First prize", icon: "trophy" },
@@ -73,6 +73,7 @@ export const game: PartDef[] = [
       { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中项", ko: "선택" }, kind: "number", default: 0, min: 0, max: 11, step: 1 },
       { key: "width", label: "Width", kind: "number", default: 120, min: 80, max: 320, step: 4, unit: "px" },
     ],
+    selectKey: "selected",
     tree: (p) => h("SideTabs", { items: p.list("items").map((x) => ({ label: x.label })), selected: Math.round(p.n("selected")), width: Math.round(p.n("width")) }),
   },
   {

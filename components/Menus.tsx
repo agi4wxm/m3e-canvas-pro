@@ -1,9 +1,9 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Palette } from "@/lib/tokens";
 import { LANGS, Lang, t, useLang } from "@/lib/i18n";
-import { IconBtn } from "./ui";
+import { IconBtn, useDismiss } from "./ui";
 import { Icon } from "./Icon";
 
 const EASE = [0.2, 0, 0, 1] as const;
@@ -26,19 +26,7 @@ export function Popover({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("pointerdown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDismiss(open, () => setOpen(false), [ref]);
   const anchor: React.CSSProperties =
     side === "down"
       ? { top: size + 8, right: 0, transformOrigin: "top right" }

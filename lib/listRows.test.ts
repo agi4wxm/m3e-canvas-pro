@@ -12,7 +12,7 @@ import { Action, Item, listRowsPatch, makeItem } from "./tokens";
 
 const to = (id: string): Action => ({ to: id, transition: "slide" });
 const rows = (...labels: string[]) => labels.map((label) => ({ label }));
-const part = (slug: string, props: Record<string, unknown>, actions?: Item["actions"]): Item => ({ ...makeItem("component", slug), id: "p", props, actions });
+const part = (slug: string, props: Record<string, unknown>, actions?: Item["actions"]): Item => ({ ...makeItem(slug), id: "p", props, actions });
 const bar = (selected?: number) =>
   part("navigation-bar", { items: rows("A", "B", "C"), ...(selected === undefined ? {} : { selected }) }, { "tab:0": to("a"), "tab:2": to("c") });
 
@@ -56,6 +56,35 @@ describe("listRowsPatch on remove", () => {
     expect(listRowsPatch(bar(2), "items", rows("B", "C"), [1, 2]).props?.selected).toBe(1);
     expect(listRowsPatch(bar(1), "items", rows("A", "C"), [0, 2]).props?.selected).toBe(1);
     expect(listRowsPatch(bar(2), "items", rows("A", "B"), [0, 1]).props?.selected).toBe(1);
+  });
+});
+
+describe("listRowsPatch on a part with no slots", () => {
+  const radio = (selected?: number) => part("radio-group", { items: rows("A", "B", "C"), ...(selected === undefined ? {} : { selected }) });
+
+  it("moves the selection with its row", () => {
+    expect(listRowsPatch(radio(2), "items", rows("C", "A", "B"), [2, 0, 1]).props?.selected).toBe(0);
+    expect(listRowsPatch(radio(0), "items", rows("B", "A", "C"), [1, 0, 2]).props?.selected).toBe(1);
+  });
+
+  it("keeps it on what takes a removed row's place", () => {
+    expect(listRowsPatch(radio(1), "items", rows("A", "C"), [0, 2]).props?.selected).toBe(1);
+    expect(listRowsPatch(radio(2), "items", rows("A", "B"), [0, 1]).props?.selected).toBe(1);
+  });
+
+  it("follows the part's default when the author never set one", () => {
+    expect(listRowsPatch(radio(), "items", rows("B", "A", "C"), [1, 0, 2]).props?.selected).toBe(0);
+    expect(listRowsPatch(radio(), "items", rows("C", "B", "A"), [2, 1, 0]).props).not.toHaveProperty("selected");
+  });
+
+  it("leaves a part that has chosen nothing with nothing chosen", () => {
+    const select = part("select", { items: rows("A", "B"), selected: -1 });
+    expect(listRowsPatch(select, "items", rows("B", "A"), [1, 0]).props?.selected).toBe(-1);
+  });
+
+  it("never touches the actions", () => {
+    const item = part("radio-group", { items: rows("A", "B") }, { "tab:0": to("a") });
+    expect(listRowsPatch(item, "items", rows("B", "A"), [1, 0])).not.toHaveProperty("actions");
   });
 });
 

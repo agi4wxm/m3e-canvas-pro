@@ -1,7 +1,7 @@
 import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import type { FlowValues } from "../parts/flow";
-import { Group, Item, groupBounds, heldBy, holdsParts, liesInside, makeItem } from "./tokens";
+import { Group, Item, groupBounds, heldBy, holdsParts, liesInside, makeItem, unionRect } from "./tokens";
 
 /* Auto layout on the canvas. Parts stay where the document says they are, so everything else (the
  * preview, the guides, the layers) keeps working; a container with a layout rewrites those places.
@@ -39,6 +39,77 @@ export function flowOfItem(it: Item): Flow | null {
     rows: def.flow.grid ? Math.max(1, Math.round(p.n("rows"))) : undefined,
     inset: { t: 0, r: 0, b: 0, l: 0, ...def.flow.inset?.(p) },
   };
+}
+
+/** the tab a container with tabs is showing, and how many it has; null for any other part */
+function panesOf(it: Item): { shown: number; count: number } | null {
+  const def = partBySlug(it.component);
+  if (!def?.panes || !def.selectKey || !def.slots) return null;
+  const p = reader(def, it.props);
+  const count = def.slots(p).length;
+  return { count, shown: Math.max(0, Math.min(count - 1, Math.round(p.n(def.selectKey)))) };
+}
+
+/** a part's tab under a host, kept to the tabs there are: removing a tab must not lose its content */
+const paneIn = (g: Group, panes: { count: number }) => Math.max(0, Math.min(panes.count - 1, g.pane ?? 0));
+
+/** what its dock's chosen tab is not showing, and what those parts hold in turn */
+export function outOfPane(groups: Group[], widths: Widths): Set<string> {
+  const out = new Set<string>();
+  for (const host of groups) {
+    const panes = holdsParts(host) ? panesOf(host.items[0]) : null;
+    if (!panes) continue;
+    const held = heldBy(host, groups, widths);
+    /* only what the dock holds directly has a tab; the rest goes with what it stands in */
+    const nested = new Set(held.flatMap((g) => heldBy(g, groups, widths).map((x) => x.id)));
+    for (const g of held) {
+      if (nested.has(g.id) || paneIn(g, panes) === panes.shown) continue;
+      out.add(g.id);
+      for (const inner of heldBy(g, groups, widths)) out.add(inner.id);
+    }
+  }
+  return out;
+}
+
+/** A part let go takes the tab showing on the dock it landed on, and gives it up anywhere else. */
+function settlePane(groups: Group[], id: string, widths: Widths): Group[] {
+  const g = groups.find((x) => x.id === id);
+  if (!g) return groups;
+  const b = groupBounds(g, widths);
+  const cx = (b.l + b.r) / 2;
+  const cy = (b.t + b.b) / 2;
+  const inside = flowDescendants(id, groups);
+  const off = outOfPane(groups, widths);
+  let holder: Group | undefined;
+  for (let i = groups.length - 1; i >= 0 && !holder; i--) {
+    const o = groups[i];
+    if (o.id === id || inside.has(o.id) || off.has(o.id) || !holdsParts(o)) continue;
+    const s = ownSize(o, widths);
+    if (cx >= o.x && cx <= o.x + s.w && cy >= o.y && cy <= o.y + s.h) holder = o;
+  }
+  const shown = holder ? panesOf(holder.items[0])?.shown : undefined;
+  if (g.pane === shown) return groups;
+  const { pane: _was, ...rest } = g;
+  const next: Group = shown === undefined ? rest : { ...rest, pane: shown };
+  return groups.map((x) => (x === g ? next : x));
+}
+
+/** The tabs of a dock put in a new order: `order` holds, for each new tab, the index it had (-1 for
+ *  a new one). What the dock holds stays with its tab; what stood on a removed tab moves to the one
+ *  taking its place, rather than being lost with it. */
+export function panesAfterReorder(groups: Group[], hostId: string, order: number[], widths: Widths): Group[] {
+  const host = groups.find((g) => g.id === hostId);
+  if (!host || !panesOf(host.items[0])) return groups;
+  const held = heldBy(host, groups, widths);
+  const nested = new Set(held.flatMap((g) => heldBy(g, groups, widths).map((x) => x.id)));
+  const direct = new Set(held.filter((g) => !nested.has(g.id)).map((g) => g.id));
+  return groups.map((g) => {
+    if (!direct.has(g.id)) return g;
+    const was = g.pane ?? 0;
+    const at = order.indexOf(was);
+    const pane = at >= 0 ? at : Math.min(was, Math.max(0, order.length - 1));
+    return pane === was ? g : { ...g, pane };
+  });
 }
 
 /** a part's own measure when it says it itself (a container), else what was measured */
@@ -104,7 +175,9 @@ function membership(groups: Group[], widths: Widths): Group[] {
     }
     if (!near || !flowing.has(near.id)) return g;
     joined.add(near.id);
-    return { ...g, inFlow: near.id };
+    /* added by a tap, it goes on the tab that is showing */
+    const panes = panesOf(near.items[0]);
+    return { ...g, inFlow: near.id, ...(panes ? { pane: panes.shown } : {}) };
   });
   return [...joined].reduce((gs, id) => sortKids(gs, id, flowing.get(id)!), out);
 }
@@ -125,7 +198,11 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
   const sizeOf = (id: string) => sizes.get(id) ?? ownSize(work.get(id)!, widths);
   const kidsOf = new Map<string, Group[]>();
   for (const g of groups) {
-    if (g.inFlow && flows.has(g.inFlow) && !g.locked && g.inFlow !== g.id) kidsOf.set(g.inFlow, [...(kidsOf.get(g.inFlow) ?? []), g]);
+    if (!g.inFlow || !flows.has(g.inFlow) || g.locked || g.inFlow === g.id) continue;
+    /* another tab's content takes no room here; it is laid out when its tab is chosen */
+    const panes = panesOf(work.get(g.inFlow)!.items[0]);
+    if (panes && paneIn(g, panes) !== panes.shown) continue;
+    kidsOf.set(g.inFlow, [...(kidsOf.get(g.inFlow) ?? []), g]);
   }
 
   /** a measure of a part, where the part has a number for it */
@@ -332,9 +409,10 @@ export function flowHostAt(groups: Group[], id: string, widths: Widths): Group |
   const cx = (b.l + b.r) / 2;
   const cy = (b.t + b.b) / 2;
   const inside = flowDescendants(id, groups);
+  const off = outOfPane(groups, widths);
   for (let i = groups.length - 1; i >= 0; i--) {
     const o = groups[i];
-    if (o.id === id || o.locked || inside.has(o.id) || !flowOf(o)) continue;
+    if (o.id === id || o.locked || inside.has(o.id) || off.has(o.id) || !flowOf(o)) continue;
     const s = ownSize(o, widths);
     if (cx >= o.x && cx <= o.x + s.w && cy >= o.y && cy <= o.y + s.h) return o;
   }
@@ -344,6 +422,10 @@ export function flowHostAt(groups: Group[], id: string, widths: Widths): Group |
 /** A part let go joins the layout it was let go in, at the place it was let go, and leaves the one it
  *  was carried out of. It is drawn over the container it is in, with whatever it holds. */
 export function settleInFlow(groups: Group[], id: string, widths: Widths): Group[] {
+  return settlePane(joinFlow(groups, id, widths), id, widths);
+}
+
+function joinFlow(groups: Group[], id: string, widths: Widths): Group[] {
   const g = groups.find((x) => x.id === id);
   if (!g) return groups;
   const host = flowHostAt(groups, id, widths);
@@ -364,21 +446,61 @@ export function settleInFlow(groups: Group[], id: string, widths: Widths): Group
   return out.every((x, i) => x === groups[i]) ? groups : out;
 }
 
+/** One step forward (1) or back (-1) in what is drawn over what, among the parts on the same level of
+ *  the same screen: a unit passes a whole neighbour and takes along what it holds, so that a container
+ *  never ends up over its own contents. In a layout the order is also the place, so there it moves one
+ *  along the run. A locked unit stays. */
+export function stepLayers(groups: Group[], ids: Set<string>, dir: 1 | -1, widths: Widths, screenOf: (g: Group) => string | undefined): Group[] {
+  const parent = new Map<string, string | undefined>();
+  groups.forEach((g, i) => {
+    if (g.inFlow) return void parent.set(g.id, g.inFlow);
+    let near: string | undefined;
+    let area = Infinity;
+    for (let j = 0; j < i; j++) {
+      if (!holdsParts(groups[j])) continue;
+      const b = groupBounds(groups[j], widths);
+      const size = (b.r - b.l) * (b.b - b.t);
+      if (size < area && liesInside(g, b, widths)) {
+        near = groups[j].id;
+        area = size;
+      }
+    }
+    parent.set(g.id, near);
+  });
+  const blockOf = (id: string, into = new Set<string>()) => {
+    into.add(id);
+    for (const g of groups) if (parent.get(g.id) === id && !into.has(g.id)) blockOf(g.id, into);
+    return into;
+  };
+  const movers = groups.filter((g) => ids.has(g.id) && !g.locked);
+  let out = groups;
+  /* the one furthest along goes first, so that neighbours stepping together keep their order */
+  for (const g of dir === 1 ? [...movers].reverse() : movers) {
+    const level = out.filter((o) => parent.get(o.id) === parent.get(g.id) && screenOf(o) === screenOf(g));
+    const other = level[level.findIndex((o) => o.id === g.id) + dir];
+    if (!other || ids.has(other.id)) continue;
+    const mine = blockOf(g.id);
+    const theirs = blockOf(other.id);
+    const rest = out.filter((o) => !mine.has(o.id));
+    const edge = rest.map((o) => theirs.has(o.id));
+    rest.splice(dir === 1 ? edge.lastIndexOf(true) + 1 : edge.indexOf(true), 0, ...out.filter((o) => mine.has(o.id)));
+    out = rest;
+  }
+  return out.every((g, i) => g === groups[i]) ? groups : out;
+}
+
 /** The selection, in a new container that lays it out the way it already stands: a row if it runs
  *  across, a column if it runs down. Hugging its contents, it changes nothing until asked to. */
 export function wrapInFlow(groups: Group[], ids: Set<string>, id: string, widths: Widths): { groups: Group[]; itemId: string } | null {
   const units = groups.filter((g) => ids.has(g.id) && !g.locked);
   if (!units.length) return null;
   const b = units.map((g) => groupBounds(g, widths));
-  const l = Math.min(...b.map((x) => x.l));
-  const t = Math.min(...b.map((x) => x.t));
-  const r = Math.max(...b.map((x) => x.r));
-  const bt = Math.max(...b.map((x) => x.b));
+  const { l, t, r, b: bt } = unionRect(b);
   const across = units.length < 2 || r - l >= bt - t;
   const sorted = [...b].sort((x, y) => (across ? x.l - y.l : x.t - y.t));
   const spaces = sorted.slice(1).map((x, i) => (across ? x.l - sorted[i].r : x.t - sorted[i].b));
   const gap = spaces.length ? Math.min(96, Math.max(0, Math.round(spaces.reduce((n, s) => n + s, 0) / spaces.length / 4) * 4)) : 8;
-  const item: Item = { ...makeItem("component", "container"), props: { layout: across ? "row" : "column", gap, padX: 0, padY: 0, label: "", fill: "none", border: "none", hugWidth: true, hugHeight: true, width: Math.round(r - l), height: Math.round(bt - t) } };
+  const item: Item = { ...makeItem("container"), props: { layout: across ? "row" : "column", gap, padX: 0, padY: 0, label: "", fill: "none", border: "none", hugWidth: true, hugHeight: true, width: Math.round(r - l), height: Math.round(bt - t) } };
   const host: Group = { id, x: l, y: t, axis: "x", items: [item] };
   const first = groups.findIndex((g) => ids.has(g.id));
   const out = groups.map((g) => (ids.has(g.id) && !g.locked ? { ...g, inFlow: id } : g));

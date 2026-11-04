@@ -17,6 +17,7 @@ import {
   frameLengthOf,
   canCollapseFab,
   groupBounds,
+  unionRect,
   layoutOf,
   paletteOf,
   sizeOf,
@@ -30,15 +31,15 @@ import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { inlineNode, itemOfFile, namesIn } from "../parts/print";
 import { flowClasses } from "../parts/flow";
 import { mapNodes, type PNode, type PValue } from "../parts/node";
-import { flowOf, type Flow } from "./flow";
+import { flowOf, outOfPane, type Flow } from "./flow";
 import { appearanceOf } from "../parts/appearance";
 import { partBySlug, treeOf, withoutPickedImages } from "../parts/registry";
 import { fullWidth, roleOf } from "../parts/role";
 import { pinOf } from "./tidy";
 
-export const REGISTRY_URL = "https://shadcn-m3e.crystaworld.dev/r/{name}.json";
+const REGISTRY_URL = "https://shadcn-m3e.crystaworld.dev/r/{name}.json";
 
-export type CodeResult = {
+type CodeResult = {
   /** the TSX source: the imports, then one component per screen */
   code: string;
   /** the command that adds every component the code uses */
@@ -249,20 +250,18 @@ export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?
   let frames = doc.frame === "phone" ? doc.frames : [];
   const loose = frames.length === 0;
   if (loose && doc.groups.length) {
-    const b = doc.groups.map((g) => groupBounds(g, widths));
-    const l = Math.min(...b.map((x) => x.l));
-    const t = Math.min(...b.map((x) => x.t));
-    const r = Math.max(...b.map((x) => x.r));
-    const bt = Math.max(...b.map((x) => x.b));
+    const { l, t, r, b: bt } = unionRect(doc.groups.map((g) => groupBounds(g, widths)));
     frames = [{ id: "canvas", name: doc.title || "Screen", x: l, y: t, w: Math.max(PHONE_W, Math.round(r - l)), h: Math.max(PHONE_H / 2, Math.round(bt - t)) }];
   }
   const shown = onlyFrameId ? frames.filter((f) => f.id === onlyFrameId) : frames;
 
   const taken = new Set<string>();
+  /* a dock prints the content of the tab that is chosen; the rest stays in the sketch */
+  const offTab = outOfPane(doc.groups, widths);
   const screens = shown.map((frame, i) => {
     /* a layout reads its parts in the order of the document, the rest go down the screen */
     const all = doc.groups
-      .filter((g) => loose || frameOfPart(g, doc.groups, frames, widths)?.id === frame.id)
+      .filter((g) => (loose || frameOfPart(g, doc.groups, frames, widths)?.id === frame.id) && !offTab.has(g.id))
       .flatMap((g) => (g.free ? explodeGroup(g, widths) : [g]));
     const runs = [...all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { w, h } = frameSizeOf(frame);

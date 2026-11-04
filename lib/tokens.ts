@@ -32,7 +32,7 @@ export const isExpanded = (w: number) => w >= EXPANDED_W;
 /** M3 Expressive navigation rail: narrow, collapsed and expanded widths */
 export const RAIL_W = 80;
 export const RAIL_COLLAPSED_W = 96;
-export const RAIL_EXPANDED_W = 220;
+const RAIL_EXPANDED_W = 220;
 export const railWidth = (it: Item) => (it.props?.expanded ? RAIL_EXPANDED_W : it.props?.narrow ? RAIL_W : RAIL_COLLAPSED_W);
 /** Runtime-only expansion edge: copied by item edits, never included in JSON. */
 export const railExpansionSide = Symbol("railExpansionSide");
@@ -47,6 +47,15 @@ export const BEZEL = 10;
 export const FRAME_LABEL_H = 44;
 /** horizontal distance between newly added frames */
 export const FRAME_GAP = 120;
+
+export type Rect = { l: number; t: number; r: number; b: number };
+/** the smallest box around all of these */
+export const unionRect = (rects: Rect[]): Rect => ({
+  l: Math.min(...rects.map((x) => x.l)),
+  t: Math.min(...rects.map((x) => x.t)),
+  r: Math.max(...rects.map((x) => x.r)),
+  b: Math.max(...rects.map((x) => x.b)),
+});
 
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -366,10 +375,7 @@ export const draftGradient = (p: Palette) =>
  *  other contrast levels are generated from the same seed. */
 export function paletteOf(key: string, custom?: Palette | null, theme?: Theme): Palette {
   const base = (key === "custom" && custom) || PALETTES.find((p) => p.key === key) || PALETTES[0];
-  if (!theme || (!theme.dark && theme.contrast === "standard")) {
-    /* Saved custom schemes may predate the secondary role. */
-    return base.secondary ? base : { ...base, secondary: schemeFromSeed(base.seed ?? base.primary).secondary };
-  }
+  if (!theme || (!theme.dark && theme.contrast === "standard")) return base;
   const seed = base.seed ?? base.primary;
   /* a preset's hue and chroma are deliberate (Mono is nearly grey), so they are kept as they are */
   return { ...schemeFromSeed(seed, base.label, { dark: theme.dark, contrast: theme.contrast, keepChroma: base.key !== "custom" }), key: base.key };
@@ -386,19 +392,16 @@ export const VARIANTS: { key: Variant; label: string }[] = [
   { key: "text", label: "Text" },
 ];
 
-/* ---------- component kinds ---------- */
-/** every part on the canvas is a shadcn M3E component: `Item.component` names it, `Item.props` configures it */
-export type Kind = "component";
-
 export type Axis = "x" | "y";
 
 /* ---------- screen data ---------- */
 /** one row of a list a part's panel edits */
 export type NavTab = { icon: string; label: string; variant?: string; width?: string; image?: string };
 
+/** every part on the canvas is a shadcn M3E component: `component` names it, `props` configures it */
 export type Item = {
   id: string;
-  kind: Kind;
+  kind: "component";
   label: string;
   icon: string | null;
   variant: Variant;
@@ -424,6 +427,8 @@ export type Item = {
   action?: Action;
   /** per-slot tap navigation, by the keys its `PartDef.slots` names */
   actions?: Record<string, Action>;
+  /** which of the part's props follow a variable in the preview: prop key to `DocVar.id` */
+  bind?: Record<string, string>;
   /** the rail remembers which edge it expanded from */
   [railExpansionSide]?: "left" | "right";
 };
@@ -434,8 +439,11 @@ export const BACK_TARGET = "back";
 /** target id that opens a web page in the browser instead of a screen */
 export const LINK_TARGET = "link";
 
+/** target id of an action that goes nowhere and only runs its effects */
+export const STAY_TARGET = "none";
+
 /** the address a link action opens, once it is one a browser may follow; a bare host is read as https */
-export function linkUrlOf(a: Action | undefined): string | null {
+export function linkUrlOf(a: ActionBody | undefined): string | null {
   const raw = a?.url?.trim();
   if (!raw) return null;
   try {
@@ -476,7 +484,36 @@ export const SLIDE_SPEC: Partial<Record<Transition, { axis: "x" | "y"; enter: nu
 };
 
 export type Transition = "slide" | "slideLeft" | "slideUp" | "slideDown" | "fade" | "expand" | "none";
-export type Action = { to: string; transition: Transition; /** the address a `LINK_TARGET` action opens */ url?: string };
+/** what a tap does once it has been decided to do it: its effects in order, then where it goes */
+export type ActionBody = { to: string; transition: Transition; /** the address a `LINK_TARGET` action opens */ url?: string; effects?: Effect[] };
+/** A tap. Without `when` it always runs; with one it runs when that holds, and `else` runs when it
+ *  does not. Printed code reads this too, so it stays plain data. */
+export type Action = ActionBody & { when?: Condition; else?: ActionBody };
+
+/** what a variable can hold */
+export type VarValue = string | number | boolean;
+export type VarType = "text" | "number" | "bool";
+export type DocVar = { id: string; name: string; type: VarType; value: VarValue };
+
+/** a test on the preview's state: a variable against a value, or a form field (by item id) that has something in it */
+export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string };
+
+/** one step of a tap. `part` is an item id, the name that survives grouping and regrouping. */
+export type Effect =
+  | { do: "show" | "hide" | "toggle" | "open" | "close"; part: string }
+  | { do: "setVar"; var: string; value: VarValue }
+  | { do: "toggleVar"; var: string }
+  /** a counter has to count: "set" alone can only ever land on one number */
+  | { do: "addVar"; var: string; by: number }
+  | { do: "setProp"; part: string; prop: string; value: VarValue }
+  | { do: "snackbar"; message: string };
+
+/** the action left when its screen is deleted: its effects go on, staying put; with none it is gone */
+export function actionWithoutScreen(a: Action, screen: string): Action | undefined {
+  const other = a.else?.to === screen ? { ...a.else, to: STAY_TARGET, transition: "none" as const } : a.else;
+  if (a.to !== screen) return other === a.else ? a : { ...a, else: other };
+  return a.effects?.length || a.when ? { ...a, to: STAY_TARGET, transition: "none", else: other } : undefined;
+}
 
 /** a FAB that shows both an icon and a label may fold to the icon while the body scrolls */
 export function canCollapseFab(it: Item): boolean {
@@ -504,14 +541,27 @@ export function actionSlotsOf(it: Item): IconSlot[] {
 }
 
 /** the patch that gives a list prop new rows. `order` holds, for each new row, the index it had
- *  (-1 for a new one). Where the part's `tab:N` slots are this list's rows, a row's tap target and
- *  the part's chosen entry go with the row, and the target of a removed row goes with it. */
+ *  (-1 for a new one). The part's chosen entry goes with its row. Where the part's `tab:N` slots
+ *  are this list's rows, so does a row's tap target, and the target of a removed row goes with it. */
 export function listRowsPatch(it: Item, key: string, rows: ListItem[], order: number[]): Partial<Item> {
   const patch: Partial<Item> = { props: { ...it.props, [key]: rows } };
   const def = partBySlug(it.component);
-  if (!def?.slots) return patch;
-  const tabSlots = (list: ListItem[]) => def.slots!(reader(def, { ...it.props, [key]: list })).filter((s) => s.key.startsWith("tab:")).length;
+  if (!def) return patch;
   const was = reader(def, it.props).list(key);
+  const select = def.props.find((d) => d.key === def.selectKey);
+  /* a part's choice counts the rows of its first list */
+  if (select?.kind === "number" && def.props.find((d) => d.kind === "list")?.key === key) {
+    const sel = reader(def, it.props).n(select.key);
+    if (sel >= 0 && sel < was.length) {
+      /* a removed entry leaves the choice on the one that takes its place */
+      const at = order.indexOf(sel);
+      const next = at >= 0 ? at : Math.min(sel, Math.max(0, rows.length - 1));
+      /* a choice the author never made stays unmade until its row moves */
+      if (next !== sel) patch.props![select.key] = next;
+    }
+  }
+  if (!def.slots) return patch;
+  const tabSlots = (list: ListItem[]) => def.slots!(reader(def, { ...it.props, [key]: list })).filter((s) => s.key.startsWith("tab:")).length;
   /* the slots are this list's rows when they come and go with them */
   if (tabSlots([...was, { label: "" }]) === tabSlots(was)) return patch;
   /* a slot past the rows (a menu's destructive entry) only keeps its distance from their end */
@@ -525,17 +575,6 @@ export function listRowsPatch(it: Item, key: string, rows: ListItem[], order: nu
     }
     patch.actions = Object.keys(actions).length ? actions : undefined;
   }
-  const select = def.props.find((d) => d.key === def.selectKey);
-  if (select?.kind === "number") {
-    const sel = reader(def, it.props).n(select.key);
-    if (sel >= 0 && sel < was.length) {
-      /* a removed entry leaves the choice on the one that takes its place */
-      const at = order.indexOf(sel);
-      const next = at >= 0 ? at : Math.min(sel, Math.max(0, rows.length - 1));
-      /* a choice the author never made stays unmade until its row moves */
-      if (next !== sel) patch.props![select.key] = next;
-    }
-  }
   return patch;
 }
 
@@ -543,8 +582,17 @@ export function listRowsPatch(it: Item, key: string, rows: ListItem[], order: nu
 export function collapseFree(g: Group, widths: Record<string, number>): Group {
   if (!g.free || g.items.length !== 1) return g;
   const pl = layoutOf(g, widths)[0];
-  return { id: g.id, x: pl.x, y: pl.y, axis: "x", items: g.items, ...(g.inFlow ? { inFlow: g.inFlow } : {}) };
+  return { id: g.id, x: pl.x, y: pl.y, axis: "x", items: g.items, ...placeOf(g) };
 }
+
+/** what a group says about where it belongs and when it shows, carried over when it is rebuilt */
+const placeOf = (g: Group): Partial<Group> => ({
+  ...(g.inFlow ? { inFlow: g.inFlow } : {}),
+  ...(g.name ? { name: g.name } : {}),
+  ...(g.hidden ? { hidden: true } : {}),
+  ...(g.showWhen ? { showWhen: g.showWhen } : {}),
+  ...(g.pane !== undefined ? { pane: g.pane } : {}),
+});
 
 /** every navigation an item carries: its own action plus per-slot ones */
 export function actionsOf(it: Item): { slot: string; action: Action }[] {
@@ -616,7 +664,7 @@ export type Frame = {
   name: string;
   x: number;
   y: number;
-  /** dimensions are optional so documents saved before desktop frames remain phone-sized */
+  /** a phone screen leaves its size out */
   w?: number;
   h?: number;
   bg?: ColorToken;
@@ -699,7 +747,7 @@ export function carryItemSize(it: Item, from: { w: number; h: number }, to: { w:
   return changed ? { ...it, props } : it;
 }
 
-export type Placed = { item: Item; index: number; x: number; y: number; w: number; h: number };
+type Placed = { item: Item; index: number; x: number; y: number; w: number; h: number };
 
 /** where each part of a run sits in world space: a connected run lays its parts
  *  out along its axis, a free group keeps the offsets it was grouped with */
@@ -774,7 +822,7 @@ export function underWhatItHolds(groups: Group[], id: string, widths: Record<str
  *  layers panel edits. */
 export function explodeGroup(g: Group, widths: Record<string, number>): Group[] {
   if (!g.free) return [g];
-  return layoutOf(g, widths).map((pl) => ({ id: `${g.id}:${pl.item.id}`, x: pl.x, y: pl.y, axis: "x" as const, items: [pl.item], ...(g.inFlow ? { inFlow: g.inFlow } : {}) }));
+  return layoutOf(g, widths).map((pl) => ({ id: `${g.id}:${pl.item.id}`, x: pl.x, y: pl.y, axis: "x" as const, items: [pl.item], ...placeOf(g) }));
 }
 
 /** the screen a group belongs to, going by the container that lays it out: what overflows that
@@ -818,6 +866,14 @@ export type Group = {
   pos?: Record<string, { x: number; y: number }>;
   /** the group of the container whose auto layout places this one (lib/flow.ts) */
   inFlow?: string;
+  /** what the author calls it; the layers and the prompt use it over the words the part shows */
+  name?: string;
+  /** hidden at the start of the preview, drawn dimmed on the canvas */
+  hidden?: boolean;
+  /** in the preview, shown only while this holds */
+  showWhen?: Condition;
+  /** the tab of the dock it was dropped in */
+  pane?: number;
 };
 
 export type FrameMode = "blank" | "phone";
@@ -839,6 +895,8 @@ export type Doc = {
   promptOptions?: string[];
   /** shape, type, motion and the light / dark and contrast switches */
   theme?: Theme;
+  /** the prototype's state, live during the preview only; `value` is what each starts at */
+  vars?: DocVar[];
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));
@@ -846,9 +904,9 @@ export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...
 /** the rows a list prop without destinations gets when the author adds one */
 export const defaultTabRows = (): NavTab[] => TAB_LABELS[getLang()].map((label) => ({ icon: "", label }));
 
-export function makeItem(kind: Kind, slug?: string): Item {
+export function makeItem(slug?: string): Item {
   const def = partBySlug(slug);
-  return { id: uid(), kind, label: def?.name ?? "", icon: null, variant: "filled", component: slug, props: {} };
+  return { id: uid(), kind: "component", label: def?.name ?? "", icon: null, variant: "filled", component: slug, props: {} };
 }
 
 /** the icon a part is shown with in the palette and the layers */
@@ -868,4 +926,4 @@ export function sizeOf(it: Item, widths: Record<string, number>) {
 }
 
 /** a place inside a part that a tap can be sent from */
-export type IconSlot = { key: string; label: string; value: string | null };
+type IconSlot = { key: string; label: string; value: string | null };

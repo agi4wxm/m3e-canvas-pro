@@ -1,5 +1,5 @@
-import { h, ic, raw, wrap } from "../node";
-import type { ListItem, P, PartDef, PartSlot, PropDef } from "../types";
+import { h, ic, listSlots, raw, wrap } from "../node";
+import type { P, PartDef, PropDef } from "../types";
 
 const VARIANTS = ["filled", "tonal", "elevated", "outlined", "text"];
 const SIZES = [
@@ -9,9 +9,6 @@ const SIZES = [
   { value: "lg", label: "L · 96" },
   { value: "xl", label: "XL · 136" },
 ];
-
-/** every entry of a list prop is a place a tap can be sent from: `tab:0`, `tab:1`, … */
-const listSlots = (items: ListItem[]): PartSlot[] => items.map((it, i) => ({ key: `tab:${i}`, label: it.label || `${i + 1}`, icon: it.icon }));
 
 /** the props a tappable "toggle" button carries: marked as a toggle, plus what it looks like on */
 const TOGGLE_PROPS: PropDef[] = [
@@ -162,6 +159,7 @@ export const actions: PartDef[] = [
       { key: "variant", label: "Variant", kind: "enum", default: "flat", options: ["flat", "elevated"] },
       { key: "size", label: "Size", kind: "enum", default: "default", options: [{ value: "default", label: "32" }, { value: "md", label: "40" }, { value: "lg", label: "56" }] },
     ],
+    selectKey: "selected",
     slots: (p) => listSlots(p.list("items")),
     tree: (p) => {
       const variant = p.s("variant") === "elevated" ? "elevated" : undefined;

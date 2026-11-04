@@ -1,4 +1,4 @@
-import { Group, groupBounds, heldBy } from "./tokens";
+import { Group, groupBounds, heldBy, unionRect } from "./tokens";
 
 /* Lining selected parts up against each other, as opposed to placing them in the screen. Each group
  * moves as a whole, a container with what it holds, and a locked group is what the others line up to. */
@@ -37,11 +37,7 @@ export function alignParts(groups: Group[], ids: Set<string>, how: AlignHow, wid
   const boxes = units.map((g) => groupBounds(g, widths));
   /* a locked group cannot come to the others, so they go to it */
   const fixed = units.flatMap((g, i) => (g.locked ? [boxes[i]] : []));
-  const by = fixed.length ? fixed : boxes;
-  const l = Math.min(...by.map((b) => b.l));
-  const t = Math.min(...by.map((b) => b.t));
-  const r = Math.max(...by.map((b) => b.r));
-  const bt = Math.max(...by.map((b) => b.b));
+  const { l, t, r, b: bt } = unionRect(fixed.length ? fixed : boxes);
   const deltas = new Map<string, { dx: number; dy: number }>();
   units.forEach((g, i) => {
     if (g.locked) return;

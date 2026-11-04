@@ -39,7 +39,7 @@ const norm = (p) => p.replaceAll("\\", "/")
  * <Icon> only (other elements have their own `name`, e.g. form fields).
  * Also the strings in `name={open ? "x" : "y"}`.
  */
-export function iconAttrs(src) {
+function iconAttrs(src) {
   const out = []
   const scan = (text, attr) => {
     for (const m of text.matchAll(new RegExp(`\\b${attr}="([a-z0-9_]+)"`, "g")))

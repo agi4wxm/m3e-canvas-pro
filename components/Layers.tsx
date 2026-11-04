@@ -2,11 +2,11 @@
 import { labelOfPart } from "@/parts/resize";
 import { partBySlug } from "@/parts/registry";
 import { nameOf as partNameOf } from "@/parts/labels";
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Reorder, useDragControls } from "motion/react";
 import { Frame, Group, Item, Palette, explodeGroup, isPhoneFrame, paletteIconOf } from "@/lib/tokens";
 import { Icon } from "./Icon";
-import { Select } from "./ui";
+import { Field, Select } from "./ui";
 import { Lang, t, useLang } from "@/lib/i18n";
 
 /* Rows never animate their size: opening a row only adds rows under it, so
@@ -29,9 +29,65 @@ function typeOf(it: Item, lang: Lang) {
   return (def && partNameOf(def, lang)) || it.label;
 }
 
+/** the author's name for a group, or what its parts make it */
 function runLabel(g: Group, lang: Lang) {
+  const named = g.name?.trim();
+  if (named) return named;
   const first = g.items[0];
   return g.free ? `${t("group", lang)} × ${g.items.length}` : g.items.length > 1 ? `${typeOf(first, lang)} × ${g.items.length}` : nameOf(first, lang);
+}
+
+/** what a search can find a group by: its name, and the name and type of each of its parts */
+function searchWords(g: Group, lang: Lang): string[] {
+  return [
+    runLabel(g, lang),
+    ...g.items.flatMap((it) => {
+      const def = partBySlug(it.component);
+      return [nameOf(it, lang), typeOf(it, lang), def?.name ?? "", it.component ?? ""];
+    }),
+  ];
+}
+
+/** The field a row's name is edited in: Enter or leaving it keeps the words, Escape keeps the old ones.
+ *  An emptied name gives the group back the name its parts make it. */
+function RenameField({ p, value, onDone }: { p: Palette; value: string; onDone: (next: string | null) => void }) {
+  const lang = useLang();
+  const [text, setText] = useState(value);
+  const ref = useRef<HTMLInputElement>(null);
+  /* Escape ends the edit and the blur that follows must not undo that */
+  const done = useRef(false);
+  const finish = (next: string | null) => {
+    if (done.current) return;
+    done.current = true;
+    onDone(next);
+  };
+  const keep = useRef(() => {});
+  keep.current = () => finish(text);
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+    /* the canvas keeps the focus where it is when pressed, so a press there is no blur */
+    const press = (e: PointerEvent) => {
+      if (e.target !== ref.current) keep.current();
+    };
+    window.addEventListener("pointerdown", press, true);
+    return () => window.removeEventListener("pointerdown", press, true);
+  }, []);
+  return (
+    <input
+      ref={ref}
+      value={text}
+      aria-label={t("layerName", lang)}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => finish(text)}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") finish(text);
+        if (e.key === "Escape") finish(null);
+      }}
+      style={{ flex: 1, minWidth: 0, height: 28, boxSizing: "border-box", padding: "0 8px", border: `1.5px solid ${p.primary}`, borderRadius: 8, outline: "none", background: p.surface, color: p.onSurface, font: "inherit", fontSize: 12 }}
+    />
+  );
 }
 
 function Row({
@@ -46,6 +102,13 @@ function Row({
   onToggle,
   locked,
   onLock,
+  hidden,
+  onHide,
+  renaming,
+  renameFrom,
+  onRenameStart,
+  onRenameDone,
+  still,
   onDragging,
   children,
 }: {
@@ -63,6 +126,18 @@ function Row({
   locked?: boolean;
   /** flips the group's lock; set only on a whole group's row */
   onLock?: () => void;
+  /** the group starts the preview hidden */
+  hidden?: boolean;
+  /** flips that; set only on a whole group's row */
+  onHide?: () => void;
+  /** the row's name is being edited, starting from `renameFrom` */
+  renaming?: boolean;
+  renameFrom?: string;
+  /** set on a row whose name can be edited */
+  onRenameStart?: () => void;
+  onRenameDone?: (next: string | null) => void;
+  /** the list is filtered: its order is not all there, so it cannot be dragged */
+  still?: boolean;
   onDragging: (dragging: boolean) => void;
   children?: ReactNode;
 }) {
@@ -87,33 +162,59 @@ function Row({
       >
         <span
           onPointerDown={(e) => {
+            if (still) return;
             e.preventDefault();
             controls.start(e);
           }}
-          style={{ cursor: "grab", color: p.outline, display: "grid", placeItems: "center", width: depth === 0 ? 24 : 20, height: h, touchAction: "none" }}
+          style={{ cursor: still ? "default" : "grab", color: still ? p.outlineVariant : p.outline, display: "grid", placeItems: "center", width: depth === 0 ? 24 : 20, height: h, touchAction: "none" }}
         >
           <Icon name="drag_indicator" size={18} />
         </span>
-        <button
-          onClick={(e) => onSelect(e.shiftKey)}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            height: h,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            border: "none",
-            background: "transparent",
-            color: "inherit",
-            cursor: "pointer",
-            padding: 0,
-            textAlign: "left",
-          }}
-        >
-          <span style={{ display: "inline-flex", gap: 2, color: on ? p.onSecondaryContainer : p.primary }}>{icon}</span>
-          <span style={{ fontSize: 12, fontWeight: depth === 0 ? 600 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-        </button>
+        {renaming ? (
+          <RenameField p={p} value={renameFrom ?? label} onDone={(next) => onRenameDone?.(next)} />
+        ) : (
+          <button
+            onClick={(e) => onSelect(e.shiftKey)}
+            onDoubleClick={onRenameStart}
+            onKeyDown={(e) => {
+              if (e.key !== "F2" || !onRenameStart) return;
+              e.preventDefault();
+              e.stopPropagation();
+              onRenameStart();
+            }}
+            title={onRenameStart ? t("renameLayer", lang) : undefined}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              height: h,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              border: "none",
+              background: "transparent",
+              color: "inherit",
+              cursor: "pointer",
+              padding: 0,
+              textAlign: "left",
+              opacity: hidden ? 0.55 : 1,
+            }}
+          >
+            <span style={{ display: "inline-flex", gap: 2, color: on ? p.onSecondaryContainer : p.primary }}>{icon}</span>
+            <span style={{ fontSize: 12, fontWeight: depth === 0 ? 600 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+          </button>
+        )}
+        {onHide && (
+          <button
+            onClick={onHide}
+            title={t(hidden ? "showLayer" : "hideLayer", lang)}
+            aria-label={t(hidden ? "showLayer" : "hideLayer", lang)}
+            aria-pressed={!!hidden}
+            className="m3-press"
+            style={{ width: 28, height: 28, borderRadius: 14, border: "none", background: "transparent", color: hidden ? (on ? p.onSecondaryContainer : p.primary) : p.outline, cursor: "pointer", padding: 0, display: "grid", placeItems: "center", flex: "0 0 auto" }}
+          >
+            <Icon name={hidden ? "visibility_off" : "visibility"} size={20} fill={hidden} />
+          </button>
+        )}
         {onLock && (
           <button
             onClick={onLock}
@@ -208,6 +309,8 @@ export function LayersPanel({
   onSelect,
   onReorder,
   onToggleLock,
+  onToggleHidden,
+  onRename,
   onReorderItems,
   onDragging,
 }: {
@@ -225,15 +328,39 @@ export function LayersPanel({
   onReorder: (topFirst: string[]) => void;
   /** flips a group's lock from its row's lock icon */
   onToggleLock: (groupId: string) => void;
+  /** flips whether a group starts the preview hidden, from its row's eye */
+  onToggleHidden: (groupId: string) => void;
+  /** a group's name, or "" to give it up */
+  onRename: (groupId: string, name: string) => void;
   /** a group's parts in a new order: back to front for a free group, reading order for any other */
   onReorderItems: (groupId: string, ids: string[]) => void;
   /** a drag on any level starting or ending, so the page can record one undo step for the whole drag */
   onDragging: (dragging: boolean) => void;
 }) {
   const lang = useLang();
-  const topFirst = useMemo(() => [...groups].reverse(), [groups]);
+  const [q, setQ] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const query = q.trim().toLowerCase();
+  const allTopFirst = useMemo(() => [...groups].reverse(), [groups]);
+  const topFirst = useMemo(() => (query ? allTopFirst.filter((g) => searchWords(g, lang).some((w) => w.toLowerCase().includes(query))) : allTopFirst), [allTopFirst, query, lang]);
   const ids = topFirst.map((g) => g.id);
   const sel = new Set(selectedIds);
+  /* F2 names the selected group, wherever the focus is short of a field being typed in */
+  const f2 = useRef<(e: KeyboardEvent) => void>(() => {});
+  f2.current = (e) => {
+    if (e.key !== "F2") return;
+    const to = e.target as HTMLElement | null;
+    if (to && (to.tagName === "INPUT" || to.tagName === "TEXTAREA" || to.isContentEditable)) return;
+    const g = topFirst.find((x) => x.items.some((it) => sel.has(it.id)));
+    if (!g) return;
+    e.preventDefault();
+    setRenamingId(g.id);
+  };
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => f2.current(e);
+    window.addEventListener("keydown", on);
+    return () => window.removeEventListener("keydown", on);
+  }, []);
   const [openIds, setOpenIds] = useState<Set<string>>(() => new Set());
   const toggle = (id: string) =>
     setOpenIds((cur) => {
@@ -287,14 +414,18 @@ export function LayersPanel({
           />
         </div>
       )}
+      <div style={{ padding: "12px 12px 0", flex: "0 0 auto" }}>
+        <Field value={q} onChange={setQ} placeholder={t("search", lang)} p={p} icon="search" height={40} />
+      </div>
       <div className="no-scrollbar" style={{ flex: 1, overflowY: "auto", padding: "8px 10px 12px" }}>
         {topFirst.length === 0 ? (
-          <div style={{ padding: 24, textAlign: "center", color: p.outline, fontSize: 12 }}>
-            <Icon name="layers_clear" size={32} />
-            <div style={{ marginTop: 8 }}>{t("noLayers", lang)}</div>
+          <div role={query ? "status" : undefined} style={{ padding: 24, textAlign: "center", color: p.outline, fontSize: 12 }}>
+            <Icon name={query ? "search_off" : "layers_clear"} size={32} />
+            <div style={{ marginTop: 8 }}>{t(query ? "noLayerMatch" : "noLayers", lang)}</div>
           </div>
         ) : (
-          <Level values={ids} onReorder={onReorder}>
+          /* a filtered list is not the whole order: reordering it would throw the rest out of place */
+          <Level values={ids} onReorder={query ? () => {} : onReorder}>
             {topFirst.map((g) => {
               const canOpen = g.free || g.items.length > 1;
               const open = canOpen && openIds.has(g.id);
@@ -312,6 +443,17 @@ export function LayersPanel({
                   onToggle={canOpen ? () => toggle(g.id) : undefined}
                   locked={g.locked}
                   onLock={() => onToggleLock(g.id)}
+                  hidden={g.hidden}
+                  onHide={() => onToggleHidden(g.id)}
+                  renaming={renamingId === g.id}
+                  renameFrom={g.name ?? runLabel(g, lang)}
+                  onRenameStart={() => setRenamingId(g.id)}
+                  onRenameDone={(next) => {
+                    setRenamingId(null);
+                    /* a name left as what the parts already make it is no name */
+                    if (next !== null && next.trim() !== (g.name ?? runLabel(g, lang))) onRename(g.id, next.trim());
+                  }}
+                  still={!!query}
                   onDragging={onDragging}
                 >
                   {groupBody(g, 1)}

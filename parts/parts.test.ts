@@ -8,7 +8,8 @@ import { h, ic, raw } from "./node";
 import { WIDGET_SOURCES } from "./widgets/sources";
 import { loadWidgets } from "./widgets/load";
 import { existsSync } from "node:fs";
-import { importLines, itemsOf, namesIn, printNode } from "./print";
+import { choiceValueOf } from "./labels";
+import { inlineNode, namesIn } from "./print";
 import { renderNode } from "./render";
 import { PARTS, defaultValues, partBySlug, treeOf, viewOf } from "./registry";
 import { setGlobalLang } from "../lib/i18n";
@@ -18,7 +19,7 @@ import { setGlobalLang } from "../lib/i18n";
 beforeAll(async () => {
   vi.stubGlobal("window", { innerWidth: 1280, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) });
   setGlobalLang("en");
-  /* a static render cannot wait for a pack's components to be fetched */
+  /* a static render cannot wait for a widget to be fetched */
   await loadWidgets();
 });
 
@@ -31,7 +32,7 @@ describe("the part registry", () => {
   it("keeps every default inside what its prop allows", () => {
     for (const d of PARTS)
       for (const p of d.props) {
-        if (p.kind === "enum") expect(p.options.map((o) => (typeof o === "string" ? o : o.value)), `${d.slug}.${p.key}`).toContain(p.default);
+        if (p.kind === "enum") expect(p.options.map(choiceValueOf), `${d.slug}.${p.key}`).toContain(p.default);
         if (p.kind === "number") expect(p.default >= p.min && p.default <= p.max, `${d.slug}.${p.key}`).toBe(true);
       }
   });
@@ -65,44 +66,25 @@ describe("components", () => {
   });
 });
 
-describe("printNode", () => {
+describe("inlineNode", () => {
   it("prints a short element on one line", () => {
-    expect(printNode(treeOf(partBySlug("button")!)).join("\n")).toBe(`<Button variant="filled" size="sm">Button</Button>`);
+    expect(inlineNode(treeOf(partBySlug("button")!))).toBe(`<Button variant="filled" size="sm">Button</Button>`);
   });
 
   it("prints an icon inside a button and drops undefined and false props", () => {
     const tree = h("Button", { variant: "tonal", shape: undefined, disabled: false }, ic("add"), "Add");
-    expect(printNode(tree)).toEqual([`<Button variant="tonal" disabled={false}><Icon name="add" />Add</Button>`]);
-  });
-
-  it("breaks a long element into one attribute and one child per line", () => {
-    const lines = printNode(treeOf(partBySlug("app-bar")!, { title: "A rather long title for a bar", subtitle: "and a subtitle to go with it" }));
-    expect(lines[0]).toBe("<AppBar");
-    expect(lines.at(-1)).toBe("/>");
-    expect(lines.some((l) => l.startsWith('  title="A rather long title for a bar"'))).toBe(true);
+    expect(inlineNode(tree)).toBe(`<Button variant="tonal" disabled={false}><Icon name="add" />Add</Button>`);
   });
 
   it("escapes braces and angles in text and prints values as expressions", () => {
-    expect(printNode(h("p", null, "a < b {c}"))).toEqual([`<p>{"a < b {c}"}</p>`]);
-    expect(printNode(h("Slider", { defaultValue: [50], items: [{ value: "a", label: "A" }] }))).toEqual([`<Slider defaultValue={[50]} items={[{ value: "a", label: "A" }]} />`]);
+    expect(inlineNode(h("p", null, "a < b {c}"))).toBe(`<p>{"a < b {c}"}</p>`);
+    expect(inlineNode(h("Slider", { defaultValue: [50], items: [{ value: "a", label: "A" }] }))).toBe(`<Slider defaultValue={[50]} items={[{ value: "a", label: "A" }]} />`);
   });
 
   it("prints raw code as it is and counts what it uses", () => {
     const node = h("Button", { onClick: raw(`() => toast("Saved")`, "toast") }, "Save");
-    expect(printNode(node)).toEqual([`<Button onClick={() => toast("Saved")}>Save</Button>`]);
+    expect(inlineNode(node)).toBe(`<Button onClick={() => toast("Saved")}>Save</Button>`);
     expect([...namesIn(node)]).toEqual(["Button", "toast"]);
-  });
-});
-
-describe("imports", () => {
-  it("prints one import per file, sorted, and the registry items to add", () => {
-    const names = new Set(["Icon", "Button", "FilterChip", "Chip"]);
-    expect(importLines(names)).toEqual([
-      `import { Button } from "@/components/m3e/button"`,
-      `import { Chip, FilterChip } from "@/components/m3e/chip"`,
-      `import { Icon } from "@/components/m3e/icon"`,
-    ]);
-    expect(itemsOf(names)).toEqual(["button", "chip", "icon"]);
   });
 });
 
@@ -127,7 +109,7 @@ describe("the canvas view of a part", () => {
     const dialog = partBySlug("dialog")!;
     expect(viewOf(dialog).type).toBe("Contained");
     expect(treeOf(dialog).type).toBe("Dialog");
-    expect(printNode(treeOf(dialog)).join("\n")).not.toContain("defaultOpen");
+    expect(inlineNode(treeOf(dialog))).not.toContain("defaultOpen");
     expect(partBySlug("button")).toBeTruthy();
     expect(viewOf(partBySlug("button")!).type).toBe("Button");
   });

@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { alignParts, distributeParts } from "./align";
 import { buildCode } from "./codegen";
 import { joinDropped } from "./combine";
-import { arrangeFlows, flowHostAt, settleInFlow, wrapInFlow } from "./flow";
+import { arrangeFlows, flowHostAt, settleInFlow, stepLayers, wrapInFlow } from "./flow";
 import { makeItem, type Doc, type Group, heldBy } from "./tokens";
 
-const part = (slug: string, id: string, props: Record<string, unknown> = {}) => ({ ...makeItem("component", slug), id, props });
+const part = (slug: string, id: string, props: Record<string, unknown> = {}) => ({ ...makeItem(slug), id, props });
 const box = (id: string, x: number, y: number, inFlow?: string): Group => ({ id, x, y, axis: "x", inFlow, items: [part("button", `i-${id}`, { label: id })] });
 const host = (id: string, props: Record<string, unknown>, x = 0, y = 0, slug = "container"): Group => ({ id, x, y, axis: "x", items: [part(slug, `i-${id}`, { width: 400, height: 300, padX: 10, padY: 20, gap: 8, ...props })] });
 /** each part measured at 100 by 40 */
@@ -117,6 +117,43 @@ describe("auto layout", () => {
     expect(at(locked, "a")).toEqual([50, 50]);
     const loop = [{ ...host("p", { layout: "row" }), inFlow: "q" }, { ...host("q", { layout: "row" }), inFlow: "p" }];
     expect(() => run(loop)).not.toThrow();
+  });
+});
+
+describe("stepping forward and back", () => {
+  const screen = () => "s";
+  const order = (gs: Group[]) => gs.map((g) => g.id).join(" ");
+  const free = (id: string, y: number) => box(id, 0, y);
+
+  it("passes one neighbour, and stops at the end", () => {
+    const gs = [free("a", 0), free("b", 100), free("c", 200)];
+    expect(order(stepLayers(gs, new Set(["a"]), 1, widths(gs), screen))).toBe("b a c");
+    expect(order(stepLayers(gs, new Set(["c"]), -1, widths(gs), screen))).toBe("a c b");
+    expect(stepLayers(gs, new Set(["c"]), 1, widths(gs), screen)).toBe(gs);
+  });
+
+  it("keeps neighbours that step together in their order", () => {
+    const gs = [free("a", 0), free("b", 100), free("c", 200)];
+    expect(order(stepLayers(gs, new Set(["a", "b"]), 1, widths(gs), screen))).toBe("c a b");
+    expect(stepLayers(gs, new Set(["a", "c"]), 1, widths(gs), screen)).not.toBe(gs);
+  });
+
+  it("takes what a container holds along, and never over its own contents", () => {
+    const gs = [host("h", { layout: "column" }), box("in1", 0, 0, "h"), box("in2", 0, 50, "h"), free("x", 900)];
+    expect(order(stepLayers(gs, new Set(["h"]), 1, widths(gs), screen))).toBe("x h in1 in2");
+  });
+
+  it("moves a part along its run, not out of its layout", () => {
+    const gs = [host("h", { layout: "column" }), box("in1", 0, 0, "h"), box("in2", 0, 50, "h"), free("x", 900)];
+    expect(order(stepLayers(gs, new Set(["in1"]), 1, widths(gs), screen))).toBe("h in2 in1 x");
+    expect(stepLayers(gs, new Set(["in2"]), 1, widths(gs), screen)).toBe(gs);
+  });
+
+  it("leaves a locked part, and parts on another screen, alone", () => {
+    const gs = [{ ...free("a", 0), locked: true }, free("b", 100)];
+    expect(stepLayers(gs, new Set(["a"]), 1, widths(gs), screen)).toBe(gs);
+    const two = [free("a", 0), free("b", 100)];
+    expect(stepLayers(two, new Set(["a"]), 1, widths(two), (g) => g.id)).toBe(two);
   });
 });
 

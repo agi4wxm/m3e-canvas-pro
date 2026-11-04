@@ -5,8 +5,11 @@ import { AnimatePresence, animate, motion, useMotionValue, useTransform, useIsPr
 import type { TargetAndTransition, Variants } from "motion/react";
 import {
   Action,
+  ActionBody,
   BACK_TARGET,
   LINK_TARGET,
+  STAY_TARGET,
+  VarValue,
   linkUrlOf,
   BEZEL,
   Doc,
@@ -29,14 +32,18 @@ import {
   groupsInFrame,
   isPhoneFrame,
   normalizeTheme,
+  paletteOf,
   sizeOf,
 } from "@/lib/tokens";
 import { Icon } from "./Icon";
 import { PartView } from "./PartView";
-import { partBySlug } from "@/parts/registry";
+import { partBySlug, reader } from "@/parts/registry";
+import { PartThemeContext, usePartTheme } from "@/parts/theme";
+import { roleOf } from "@/parts/role";
 import { actionSlotsOf } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
+import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, isOverlayPart, liveGroups, startState, writeField } from "@/lib/interact";
 
 const EASE = [0.2, 0, 0, 1] as const;
 const SLIDE_MS = 0.42;
@@ -115,20 +122,112 @@ const screenVariants: Variants = {
  * every other screen */
 const NAV_PARTS = new Set(["navigation-bar", "navigation-rail", "tabs"]);
 
+/** the buttons inside an overlay that dismiss it, whichever overlay it is */
+const CLOSERS = '[data-slot$="-close"], [data-slot="alert-dialog-cancel"], [data-slot="alert-dialog-action"]';
+
+/** what an input part holds right now, read off the page: a base-ui control keeps its value to itself,
+ *  so the page is the one place every kind of input can be asked the same way */
+function readInput(root: HTMLElement, it: Item): VarValue | undefined {
+  const def = partBySlug(it.component);
+  switch (it.component) {
+    case "input":
+    case "text-field":
+    case "textarea":
+      return root.querySelector<HTMLInputElement | HTMLTextAreaElement>("input, textarea")?.value;
+    case "switch":
+      return root.querySelector('[role="switch"]')?.getAttribute("aria-checked") === "true";
+    case "checkbox":
+      return root.querySelector('[role="checkbox"]')?.getAttribute("aria-checked") === "true";
+    case "slider": {
+      const v = Number(root.querySelector<HTMLInputElement>('input[type="range"]')?.value);
+      return Number.isFinite(v) ? v : undefined;
+    }
+    case "radio-group":
+      return [...root.querySelectorAll('[role="radio"]')].findIndex((r) => r.getAttribute("aria-checked") === "true");
+    case "select": {
+      const text = root.querySelector('[data-slot="select-value"]')?.textContent?.trim();
+      return def ? reader(def, it.props).list("items").findIndex((row) => row.label === text) : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
 /** A real shadcn M3E component in the preview: it works. A press lands where it was aimed --
  *  on a place the part marked `data-tap` (a destination, a menu item) it fires that slot's
- *  action; anywhere else it is the part's own tap. */
-function LivePart({ item, widths, screen, onTap, onSlot, easeWidth }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; easeWidth?: boolean }) {
+ *  action; anywhere else it is the part's own tap. An input says what it now holds, a button
+ *  inside an overlay that dismisses it closes it. */
+function LivePart({ item, widths, screen, onTap, onSlot, easeWidth, onField, onClose, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; easeWidth?: boolean; onField?: (value: VarValue) => void; onClose?: () => void; held?: boolean }) {
   const size = sizeOf(item, widths);
+  const input = !!INPUT_PROP[item.component ?? ""];
   const click = (e: React.MouseEvent<HTMLDivElement>) => {
-    const slot = (e.target as Element).closest?.("[data-tap]")?.getAttribute("data-tap");
+    const target = e.target as Element;
+    const slot = target.closest?.("[data-tap]")?.getAttribute("data-tap");
     if (slot != null) onSlot?.(slot);
     else onTap?.();
-    e.preventDefault();
+    /* a menu an effect holds open has no way to close itself: any press on it ends it */
+    if (held || target.closest?.(CLOSERS)) onClose?.();
+    /* a press on a labelled input is how it changes: stopping it would freeze the control */
+    if ((onTap || onSlot) && !input) e.preventDefault();
   };
+  const box = useRef<HTMLDivElement>(null);
+  const live = useRef({ item, onField });
+  live.current = { item, onField };
+  /* the value this input last reported, told apart from one a button put in its variable: an input
+   * is uncontrolled, so that one only reaches it by drawing it afresh */
+  const key = INPUT_PROP[item.component ?? ""];
+  const value = key ? item.props?.[key] : undefined;
+  const own = useRef(value);
+  const seen = useRef(value);
+  const redraw = useRef(0);
+  if (value !== seen.current) {
+    seen.current = value;
+    if (value !== own.current) {
+      own.current = value;
+      redraw.current++;
+    }
+  }
+  const slug = item.component;
+  useEffect(() => {
+    const root = box.current;
+    if (!root || !input) return;
+    const sync = () => {
+      const now = readInput(root, live.current.item);
+      if (now === undefined) return;
+      own.current = now;
+      live.current.onField?.(now);
+    };
+    /* typing is an event; a slider's thumb, a switch and a chosen row show only on the page */
+    const watch = new MutationObserver(sync);
+    watch.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["aria-checked", "aria-valuenow"] });
+    root.addEventListener("input", sync);
+    root.addEventListener("change", sync);
+    return () => {
+      watch.disconnect();
+      root.removeEventListener("input", sync);
+      root.removeEventListener("change", sync);
+    };
+  }, [input, slug]);
   return (
-    <div data-live-part onClick={onTap || onSlot ? click : undefined} style={{ position: "relative", display: "flex", flex: "0 0 auto", width: easeWidth ? "max-content" : size.w, height: size.h }}>
-      <PartView item={item} live screen={screen} />
+    <div
+      ref={box}
+      data-live-part
+      data-part={item.id}
+      onClick={onTap || onSlot || onClose ? click : undefined}
+      /* a tap on the whole part is a button for the keyboard too; what is focusable inside it answers for itself, its click reaching `click` */
+      role={onTap ? "button" : undefined}
+      tabIndex={onTap ? 0 : undefined}
+      onKeyDown={
+        onTap
+          ? (e) => {
+              if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+              e.preventDefault();
+              onTap();
+            }
+          : undefined
+      }
+      style={{ position: "relative", display: "flex", flex: "0 0 auto", width: easeWidth ? "max-content" : size.w, height: size.h }}>
+      <PartView key={`${redraw.current}:${held ? 1 : 0}`} item={item} live screen={screen} held={held} />
     </div>
   );
 }
@@ -142,6 +241,10 @@ function Screen({
   onAction,
   values,
   onValue,
+  opened,
+  onField,
+  onCloseOverlay,
+  onScrim,
 }: {
   active?: boolean;
   frame: Frame;
@@ -151,6 +254,11 @@ function Screen({
   onAction: (a: Action) => void;
   values: Record<string, number>;
   onValue: (id: string, v: number) => void;
+  /** the overlays an effect holds open, by item id */
+  opened: Record<string, boolean>;
+  onField: (it: Item, value: VarValue) => void;
+  onCloseOverlay: (id: string) => void;
+  onScrim: () => void;
 }) {
   /* a folding FAB folds on the way down and stays folded until the body scrolls back up */
   const [fabFolded, setFabFolded] = useState(false);
@@ -174,6 +282,12 @@ function Screen({
       if (pin) pins.set(g.id, pin === "head" ? 0 : length - viewH);
     }
   }
+  /* what an effect opened floats over the screen: it stands on the glass, over a scrim, not on the body */
+  const isOpen = (g: Group) => g.items.some((it) => opened[it.id]);
+  const openGroups = groups.filter(isOpen);
+  if (scrolls) for (const g of openGroups) if (!pins.has(g.id)) pins.set(g.id, 0);
+  /* a menu dims nothing; a tap outside it still has to land on something that closes it */
+  const dims = openGroups.some((g) => g.items.some((it) => opened[it.id] && partBySlug(it.component)?.open?.trigger === "hide"));
   const lift = (g: Group) => pins.get(g.id) ?? 0;
   const hasFoldingFab = groups.some((g) => g.items.some((it) => canCollapseFab(it) && it.collapseOnScroll));
   const onBodyScroll = (e: { currentTarget: { scrollTop: number } }) => {
@@ -222,18 +336,22 @@ function Screen({
       tabIndex={-1}
       style={{ position: "absolute", inset: 0, background: p[frame.bg ?? "surface"], overflow: "hidden", outline: "none" }}
     >
+      {openGroups.length > 0 && <div data-preview-scrim aria-hidden onClick={onScrim} style={{ position: "absolute", inset: 0, zIndex: 1, background: dims ? "rgba(0,0,0,0.32)" : "transparent" }} />}
       {inBody(groups.map((g) => (
         <div
           key={g.id}
           className="m3-preview-group"
           data-preview-group={g.id}
+          /* a part making room for one that appeared eases over; the rest of the time nothing moves */
+          data-in-flow={g.inFlow ? "" : undefined}
           style={
             g.free
-              ? { position: "absolute", left: g.x - frame.x, top: g.y - frame.y - lift(g) }
+              ? { position: "absolute", left: g.x - frame.x, top: g.y - frame.y - lift(g), zIndex: isOpen(g) ? 2 : undefined }
               : {
                   position: "absolute",
                   left: g.x - frame.x,
                   top: g.y - frame.y - lift(g),
+                  zIndex: isOpen(g) ? 2 : undefined,
                   display: "flex",
                   flexDirection: g.axis === "x" ? "row" : "column",
                   alignItems: g.axis === "x" ? "center" : "stretch",
@@ -277,9 +395,14 @@ function Screen({
                 item={shown}
                 widths={widths}
                 screen={frameSizeOf(frame)}
+                onField={INPUT_PROP[it.component ?? ""] ? (v) => onField(it, v) : undefined}
+                /* an overlay with its own trigger opens by itself; only one an effect opened is held */
+                held={!!opened[it.id] && !!def?.open && def.open.trigger !== "hide"}
+                onClose={isOverlayPart(it) ? () => onCloseOverlay(it.id) : undefined}
                 onTap={tap}
                 onSlot={
-                  slotActions || selectKey || def?.slug === "navigation-rail"
+                  /* a part whose rows are no slots works on its own: a press here would only cancel it */
+                  slotActions || (selectKey && def?.slots) || def?.slug === "navigation-rail"
                     ? (slot) => {
                         /* the menu button on a rail flips it open and shut */
                         if (slot === "rail") {
@@ -291,8 +414,10 @@ function Screen({
                            screen, that screen's bar shows the destination its author chose, or the
                            tapped one when the author chose none */
                         if (selectKey && slot.startsWith("tab:")) {
-                          onValue(navKey || it.id, a ? -1 : Number(slot.slice(4)));
-                          if (a && navKey) onValue(`${navKey}:opened:${a.to}`, Number(slot.slice(4)));
+                          /* a tab that only runs effects opens nothing, so it still lights up */
+                          const opens = a && a.to !== STAY_TARGET;
+                          onValue(navKey || it.id, opens ? -1 : Number(slot.slice(4)));
+                          if (opens && navKey) onValue(`${navKey}:opened:${a.to}`, Number(slot.slice(4)));
                         }
                         if (a) onAction(a);
                       }
@@ -329,10 +454,19 @@ function Screen({
 /** the screen being pulled in by a swipe, and the slide it arrives with */
 type Peek = { frameId: string; t: Transition };
 
+/** how long a snackbar stands, M3's short duration */
+const SNACK_MS = 4000;
+
+/** the parts inside it are drawn in the mode the preview's own switch is on */
+function PreviewTheme({ dark, children }: { dark: boolean; children: React.ReactNode }) {
+  const theme = usePartTheme();
+  return <PartThemeContext.Provider value={theme.dark === dark ? theme : { ...theme, dark }}>{children}</PartThemeContext.Provider>;
+}
+
 export function Preview({
   doc,
   widths,
-  palette: p,
+  palette,
   startId,
   onClose,
 }: {
@@ -351,6 +485,18 @@ export function Preview({
   const [scale, setScale] = useState(1);
   const [values, setValues] = useState<Record<string, number>>({});
   const [peek, setPeek] = useState<Peek | null>(null);
+  /* the prototype's state starts over each time the preview opens, and is never written to the document */
+  const [state, setStateNow] = useState<PreviewState>(() => startState(doc.vars));
+  const stateRef = useRef(state);
+  /* a tap reads what the one before it just wrote, whether or not React has drawn it yet */
+  const setState = useCallback((next: PreviewState) => {
+    if (next === stateRef.current) return;
+    stateRef.current = next;
+    setStateNow(next);
+  }, []);
+  /* a look at the other mode, for this preview only */
+  const [dark, setDark] = useState(theme.dark);
+  const p = dark === theme.dark ? palette : paletteOf(doc.paletteKey, doc.customPalette, { ...theme, dark });
   const stackRef = useRef(stack);
   stackRef.current = stack;
   const peekRef = useRef(peek);
@@ -444,8 +590,7 @@ export function Preview({
   }, [spring, sameSize]);
 
   const go = useCallback(
-    (a: Action) => {
-      if (swiped.current) return;
+    (a: ActionBody) => {
       if (a.to === BACK_TARGET) {
         back();
         return;
@@ -464,6 +609,28 @@ export function Preview({
     },
     [frames, back, spring, sameSize],
   );
+
+  /* A tap: its condition picks what runs, its effects run in order, and then it goes where it goes. */
+  const fire = useCallback(
+    (a: Action) => {
+      if (swiped.current) return;
+      const body = chooseBranch(a, stateRef.current, doc);
+      if (!body) return;
+      setState(applyEffects(stateRef.current, body.effects, doc));
+      /* an effect has just said which tab is chosen: an earlier tap on the tabs no longer speaks for it */
+      const told = (body.effects ?? []).flatMap((e) => (e.do === "setProp" ? [e.part] : []));
+      if (told.length) setValues((m) => ({ ...m, ...Object.fromEntries(told.map((id) => [id, -1])) }));
+      go(body);
+    },
+    [doc, go, setState],
+  );
+
+  const snack = state.snack;
+  useEffect(() => {
+    if (!snack) return;
+    const id = window.setTimeout(() => setState({ ...stateRef.current, snack: null }), SNACK_MS);
+    return () => window.clearTimeout(id);
+  }, [snack, setState]);
 
   const [picker, setPicker] = useState(false);
   useEffect(() => {
@@ -484,7 +651,19 @@ export function Preview({
   const [opener] = useState(() => (typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null)));
   useEffect(() => () => { if (opener?.isConnected && !opener.closest("[inert]")) opener.focus(); }, [opener]);
 
-  const groupsFor = useCallback((f: Frame) => groupsInFrame(doc.groups, f, frames, widths), [doc.groups, frames, widths]);
+  /* a screen's parts as they are right now. The tab a visitor chose goes in first, since which parts
+   * the dock shows and how they are laid out both follow from it. */
+  const groupsFor = useCallback(
+    (f: Frame) => {
+      const tabbed = groupsInFrame(doc.groups, f, frames, widths).map((g) => {
+        const it = g.items[0];
+        const def = g.items.length === 1 ? partBySlug(it.component) : undefined;
+        return def?.panes && def.selectKey && values[it.id] >= 0 ? { ...g, items: [{ ...it, props: { ...it.props, [def.selectKey]: values[it.id] } }] } : g;
+      });
+      return liveGroups(tabbed, state, doc, widths);
+    },
+    [doc, frames, widths, values, state],
+  );
   const groups = useMemo(() => (current ? groupsFor(current) : []), [current, groupsFor]);
   const peekGroups = useMemo(() => (peekFrame ? groupsFor(peekFrame) : []), [peekFrame, groupsFor]);
 
@@ -620,10 +799,16 @@ export function Preview({
   const screenProps = {
     widths,
     p,
-    onAction: go,
+    onAction: fire,
     values,
     onValue: (id: string, v: number) => setValues((m) => ({ ...m, [id]: v })),
+    opened: state.opened,
+    onField: (it: Item, value: VarValue) => setState(writeField(stateRef.current, it, value, doc)),
+    onCloseOverlay: (id: string) => setState(applyEffects(stateRef.current, [{ do: "close", part: id }], doc)),
+    onScrim: () => setState(closeOpened(stateRef.current, doc)),
   };
+  /* a snackbar sits over the content, above a bar at the foot of the screen */
+  const footH = Math.max(0, ...groups.filter((g) => g.items.length === 1 && roleOf(g.items[0]) === "bottom").map((g) => sizeOf(g.items[0], widths).h));
 
   const barBtn: React.CSSProperties = {
     height: 40,
@@ -645,6 +830,7 @@ export function Preview({
   const label: React.CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 };
 
   return (
+    <PreviewTheme dark={dark}>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -743,6 +929,22 @@ export function Preview({
                 <Screen {...screenProps} active={false} frame={peekFrame} groups={peekGroups} />
               </motion.div>
             )}
+            <AnimatePresence>
+              {snack && (
+                <motion.div
+                  key={snack.id}
+                  role="status"
+                  data-preview-snackbar
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.16, ease: EASE }}
+                  style={{ position: "absolute", left: 16, right: 16, bottom: 16 + footH, zIndex: 3, padding: "14px 16px", borderRadius: 4, background: p.inverseSurface, color: p.inverseOnSurface, fontSize: 14, lineHeight: "20px", boxShadow: "0 3px 8px rgba(0,0,0,0.24)" }}
+                >
+                  {snack.message}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </motion.div>
       </div>
@@ -867,6 +1069,17 @@ export function Preview({
               )}
             </AnimatePresence>
           </div>
+          <button
+            onClick={() => setDark((d) => !d)}
+            title={t(dark ? "light" : "dark", lang)}
+            aria-label={t(dark ? "light" : "dark", lang)}
+            className="m3-press"
+            /* the phone's bar has room for the mark, not the word */
+            style={{ ...barBtn, color: p.onSurfaceVariant, padding: wide ? barBtn.padding : "0 10px" }}
+          >
+            <Icon name={dark ? "light_mode" : "dark_mode"} size={20} />
+            {wide && <span style={label}>{t(dark ? "light" : "dark", lang)}</span>}
+          </button>
           <button onClick={onClose} title={t("close", lang)} className="m3-press" style={{ ...barBtn, color: p.onSurfaceVariant }}>
             <Icon name="close" size={20} />
             <span style={label}>{t("closeBtn", lang)}</span>
@@ -874,5 +1087,6 @@ export function Preview({
         </div>
       </div>
     </motion.div>
+    </PreviewTheme>
   );
 }

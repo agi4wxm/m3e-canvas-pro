@@ -122,8 +122,7 @@
   --font-sans:
     "Roboto Flex Variable", Roboto, "Noto Sans JP", system-ui, sans-serif;
   --font-heading: var(--font-sans);
-  --font-mono:
-    "JetBrains Mono Variable", ui-monospace, "Cascadia Code", monospace;
+  --font-mono: ui-monospace, "Cascadia Code", monospace;
 
   /* shadcn semantic colors */
   --color-background: var(--background);

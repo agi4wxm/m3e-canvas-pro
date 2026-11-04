@@ -173,9 +173,9 @@ describe("shareLink and readShareHash", () => {
     await expect(readShareHash(`#other=1&${hash.slice(1)}&last=2`)).resolves.toEqual(doc());
   });
 
-  it("accepts a legacy document without adding defaults", async () => {
-    const legacy = { groups: [], frames: [] };
-    await expect(readShareHash(plainHash(legacy))).resolves.toEqual(legacy);
+  it("accepts a minimal document without adding defaults", async () => {
+    const minimal = { groups: [], frames: [] };
+    await expect(readShareHash(plainHash(minimal))).resolves.toEqual(minimal);
   });
 
   it("prefers a nonempty compressed document to a plain document", async () => {

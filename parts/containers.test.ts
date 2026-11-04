@@ -3,8 +3,8 @@ import { buildPrompt } from "../lib/prompt";
 import { groupBounds, heldBy, holdsParts, makeItem, underWhatItHolds, type Doc, type Group } from "../lib/tokens";
 import { PARTS } from "./registry";
 
-const panel = (id: string, x: number, y: number, width = 300, height = 200): Group => ({ id, x, y, axis: "x", items: [{ ...makeItem("component", "container"), id: `i-${id}`, props: { width, height } }] });
-const part = (id: string, x: number, y: number): Group => ({ id, x, y, axis: "x", items: [{ ...makeItem("component", "button"), id: `i-${id}` }] });
+const panel = (id: string, x: number, y: number, width = 300, height = 200): Group => ({ id, x, y, axis: "x", items: [{ ...makeItem("container"), id: `i-${id}`, props: { width, height } }] });
+const part = (id: string, x: number, y: number): Group => ({ id, x, y, axis: "x", items: [{ ...makeItem("button"), id: `i-${id}` }] });
 const ids = (groups: Group[]) => groups.map((g) => g.id);
 /** what the canvas has measured: a part is as big as it draws, and it draws at its props */
 const measured = (...groups: Group[]) => Object.fromEntries(groups.flatMap((g) => g.items.flatMap((it) => [[it.id, Number(it.props?.width)], [`${it.id}:h`, Number(it.props?.height)]])));
@@ -54,6 +54,20 @@ describe("a container", () => {
 
   it("reads as a container in the prompt", () => {
     const doc = { groups: [panel("p", 16, 100), part("in", 32, 120)], frames: [{ id: "f", name: "Home", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "", brief: "" } as unknown as Doc;
-    expect(buildPrompt(doc, {}, undefined, "en")).toMatch(/layered inside/i);
+    expect(buildPrompt(doc, {}, undefined, "en")).toMatch(/Inside the .*layered on top of it/);
+  });
+
+  it("reads what its auto layout places as nested, in order, with no words for where", () => {
+    const host: Group = { id: "h", x: 16, y: 100, axis: "x", items: [{ ...makeItem("container"), id: "i-h", props: { layout: "column", width: 300, height: 200 } }] };
+    const kid = (id: string, y: number, label: string): Group => ({ id, x: 32, y, axis: "x", inFlow: "h", items: [{ ...makeItem("button"), id: `i-${id}`, props: { label } }] });
+    const doc = { groups: [host, kid("a", 160, "First"), kid("b", 120, "Second")], frames: [{ id: "f", name: "Home", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "", brief: "" } as unknown as Doc;
+    const layout = buildPrompt(doc, {}, undefined, "en").split("## Layout")[1].split("## ")[0];
+    expect(layout).toMatch(/Nested in the auto layout of the .*, in this order:/);
+    expect(layout).not.toContain("layered");
+    expect(layout.split("in this order:")[1]).not.toMatch(/Near the|In the middle/);
+    /* the document's order, though the second stands higher on the canvas */
+    const lines = layout.split("\n").filter((l) => l.includes("<Button"));
+    expect(lines.map((l) => /"(First|Second)"/.exec(l)?.[1])).toEqual(["First", "Second"]);
+    expect(lines.every((l) => /^ {4}- /.test(l))).toBe(true);
   });
 });

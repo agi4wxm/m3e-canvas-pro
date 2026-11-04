@@ -3,7 +3,7 @@ import type { PartRole } from "./types";
 
 /** the smallest slice of an `Item` a role is read off: a component's slug and prop values
  *  (a floating toolbar is a `floatingBottom`, a docked one a `bottom`). */
-export type RoleOf = { component?: string; props?: Record<string, unknown> };
+type RoleOf = { component?: string; props?: Record<string, unknown> };
 
 /** What a part does on a screen, for Tidy and the prompt: where it is pinned and how it is
  *  described. A part answers from its `PartDef.role`; the parts that belong in the body rows

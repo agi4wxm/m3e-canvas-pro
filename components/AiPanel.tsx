@@ -3,7 +3,6 @@ import { useRef } from "react";
 import { Palette } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
 import { AiSettings, PROVIDERS, Provider, providerSpec } from "@/lib/ai";
-import { Icon } from "./Icon";
 
 /** the message shown for a failed request, mapped from the error codes lib/ai throws */
 export function aiErrorText(e: unknown, lang: ReturnType<typeof useLang>): string {
@@ -17,47 +16,6 @@ export function aiErrorText(e: unknown, lang: ReturnType<typeof useLang>): strin
 }
 
 export type AiActionKey = "behavior" | "describe";
-
-/** The button that asks the model to write the field above it; spins while it works. */
-export function AiWriteBtn({ p, busy, disabled, onClick, onCancel, label, title }: { p: Palette; busy: boolean; disabled?: boolean; onClick: () => void; onCancel: () => void; label: string; title: string }) {
-  const lang = useLang();
-  const shown = busy ? t("cancel", lang) : title;
-  return (
-    <button
-      onClick={busy ? onCancel : onClick}
-      disabled={disabled}
-      title={shown}
-      aria-label={shown}
-      className="m3-press"
-      style={{
-        height: 40,
-        padding: "0 16px 0 12px",
-        borderRadius: 20,
-        border: "none",
-        background: disabled ? p.surfaceContainerHighest : p.primary,
-        color: disabled ? p.onSurfaceVariant : p.onPrimary,
-        fontSize: 13,
-        fontWeight: 600,
-        cursor: disabled ? "default" : "pointer",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        flex: "0 0 auto",
-        opacity: disabled ? 0.6 : 1,
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span className={busy ? "m3-spin" : undefined} style={{ display: "inline-flex" }}>
-        <Icon name={busy ? "progress_activity" : "auto_awesome"} size={20} />
-      </span>
-      {/* both labels are laid out so the button keeps one width while it flips */}
-      <span style={{ display: "grid" }}>
-        <span style={{ gridArea: "1 / 1", visibility: busy ? "hidden" : "visible" }}>{label}</span>
-        <span style={{ gridArea: "1 / 1", visibility: busy ? "visible" : "hidden", textAlign: "center" }}>{t("cancel", lang)}</span>
-      </span>
-    </button>
-  );
-}
 
 const BASE = import.meta.env.VITE_BASE_PATH ?? "";
 

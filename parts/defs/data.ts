@@ -1,10 +1,9 @@
 import { h, type PNode } from "../node";
 import type { P, PartDef, TableData } from "../types";
 
-/* The dashboard parts of Skufu/m3e-canvas feat/dashboard-kit (MIT), and the chart kinds of
- * greycode/m3e-canvas (MIT). Those forks draw from values made up from the title; here every part
- * draws the author's own rows, with the shadcn M3E Table and Recharts. No component of its own, so
- * no `load`. */
+/* The dashboard parts, after Skufu/m3e-canvas feat/dashboard-kit (MIT), and the chart kinds, after
+ * greycode/m3e-canvas (MIT). Every part draws the author's own rows, with the shadcn M3E Table and
+ * Recharts. No component of its own, so no `load`. */
 
 const COLUMNS = ["Invoice", "Status", "Amount"];
 const ROWS = [

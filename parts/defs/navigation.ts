@@ -1,5 +1,5 @@
-import { h, ic, type PNode } from "../node";
-import type { ListItem, P, PartDef, PartSlot } from "../types";
+import { h, ic, listSlots, type PNode } from "../node";
+import type { P, PartDef } from "../types";
 
 const DESTINATIONS = [
   { label: "Home", icon: "home" },
@@ -7,9 +7,6 @@ const DESTINATIONS = [
   { label: "Saved", icon: "favorite" },
   { label: "Settings", icon: "settings" },
 ];
-
-/** every entry of a list prop is a place a tap can be sent from: `tab:0`, `tab:1`, … */
-const listSlots = (items: ListItem[]): PartSlot[] => items.map((it, i) => ({ key: `tab:${i}`, label: it.label || `${i + 1}`, icon: it.icon }));
 
 /** the search bar or view; `open` draws a view with its results showing */
 function searchTree(p: P, open: boolean): PNode {

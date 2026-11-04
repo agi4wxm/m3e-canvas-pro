@@ -1,3 +1,4 @@
+import { choiceValueOf } from "./labels";
 import { CATEGORIES, PARTS } from "./registry";
 import type { PropDef } from "./types";
 
@@ -5,14 +6,12 @@ import type { PropDef } from "./types";
  * this between its markers (`bun run gen:agent` writes it, parts/catalog.test.ts keeps it in step), so
  * a new part reaches the agent the moment it is in PARTS. */
 
-const choice = (c: Extract<PropDef, { kind: "enum" }>["options"][number]) => (typeof c === "string" ? c : c.value);
-
 function propOf(d: PropDef): string {
   switch (d.kind) {
     case "text":
       return `\`${d.key}\` text`;
     case "enum":
-      return `\`${d.key}\` ${d.options.map(choice).join(" / ")}`;
+      return `\`${d.key}\` ${d.options.map(choiceValueOf).join(" / ")}`;
     case "bool":
       return `\`${d.key}\` true / false`;
     case "number":

@@ -1,13 +1,12 @@
 import { FLOW_PROPS, GRID_PROPS } from "../flow";
-import { h, ic } from "../node";
+import { h, ic, listSlots } from "../node";
 import type { P, PartDef, PropDef } from "../types";
 
 /* Containers: the ground other parts are put on. Dropped wholly inside one, a part moves with it,
  * and the prompt reads it as nested; see `heldBy` in lib/tokens.ts. What they hold is placed by hand,
- * or by the auto layout most of them offer (parts/flow.ts). Their looks come from the forks that have them (MIT): container, stack and gridView from the
- * media and layout placeholders, groupBox, panel and dock from JetSquirrel/gpui-kit-canvas,
- * supportingPane from the desktop layouts fork. Drawn from scratch on M3E's roles. The split view of
- * those forks is the shadcn M3E Resizable, which holds parts too. */
+ * or by the auto layout most of them offer (parts/flow.ts). The set follows JetSquirrel/gpui-kit-canvas
+ * (MIT); each is drawn from scratch on M3E's roles. A split view is the shadcn M3E Resizable, which
+ * holds parts too. */
 
 const WIDTH = (value: number): PropDef => ({ key: "width", label: "Width", kind: "number", default: value, min: 40, max: 2400, step: 4, unit: "px" });
 const HEIGHT = (value: number): PropDef => ({ key: "height", label: "Height", kind: "number", default: value, min: 40, max: 2400, step: 4, unit: "px" });
@@ -21,6 +20,16 @@ function container(slug: string, name: string, labels: NonNullable<PartDef["labe
   /* a plain container paints itself from its own props, the others take the part's look */
   return { slug, name, labels, category: "Layout", icon, w, h: hh, holds: true, flow, ...(slug === "container" ? {} : { appearance: { radius: 12 } }), props: [...props, ...(flow?.grid ? GRID_PROPS : flow ? FLOW_PROPS : []), WIDTH(w), HEIGHT(hh)], tree };
 }
+
+/** a container whose rows are tabs, each with content of its own. It flows from the start: what is
+ *  dropped on a tab stacks up under the bar instead of landing in a heap to be placed by hand. */
+const tabbed = (d: PartDef): PartDef => ({
+  ...d,
+  panes: true,
+  selectKey: "selected",
+  slots: (p) => listSlots(p.list("items")),
+  props: d.props.map((x) => (x.key === "layout" ? ({ ...x, default: "column" } as PropDef) : x)),
+});
 
 const FILLS = ["none", "surface", "surface-container-low", "surface-container", "surface-container-high", "surface-container-highest", "primary-container", "secondary-container", "tertiary-container"];
 const BORDER: Record<string, string> = { none: "", solid: "border border-outline-variant", dashed: "border border-dashed border-outline-variant" };
@@ -92,31 +101,33 @@ export const containers: PartDef[] = [
     },
     { grid: true, inset: (p) => (p.s("label") || p.s("note") ? { t: 28 } : {}) },
   ),
-  container(
-    "dock",
-    "Dock",
-    { ja: "ドック", zh: "停靠面板", ko: "도크" },
-    "tab",
-    640,
-    360,
-    [
-      { key: "items", label: "Tabs", labels: { ja: "タブ", zh: "标签", ko: "탭" }, kind: "list", default: [{ label: "Overview" }, { label: "Activity" }, { label: "Settings" }], min: 1, max: 12 },
-      { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中项", ko: "선택" }, kind: "number", default: 0, min: 0, max: 11, step: 1 },
-    ],
-    (p) => {
-      const selected = Math.round(p.n("selected"));
-      return h(
-        "div",
-        { "data-slot": "layout-dock", className: "bg-surface flex flex-col overflow-hidden rounded-lg", style: box(p) },
-        h(
+  tabbed(
+    container(
+      "dock",
+      "Dock",
+      { ja: "ドック", zh: "停靠面板", ko: "도크" },
+      "tab",
+      640,
+      360,
+      [
+        { key: "items", label: "Tabs", labels: { ja: "タブ", zh: "标签", ko: "탭" }, kind: "list", default: [{ label: "Overview" }, { label: "Activity" }, { label: "Settings" }], min: 1, max: 12 },
+        { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中项", ko: "선택" }, kind: "number", default: 0, min: 0, max: 11, step: 1 },
+      ],
+      (p) => {
+        const selected = Math.round(p.n("selected"));
+        return h(
           "div",
-          { className: "bg-surface-container border-outline-variant flex h-10 shrink-0 items-stretch overflow-hidden border-b" },
-          ...p.list("items").map((tab, i) => h("div", { "data-active": i === selected ? "true" : undefined, className: `text-label-large flex shrink-0 items-center gap-2 border-b-2 px-3 ${i === selected ? "border-primary bg-surface text-on-surface" : "text-on-surface-variant border-transparent"}` }, tab.label, ic("close", { className: "size-3" }))),
-        ),
-        h("div", { "data-flow": "body", className: "min-h-0 flex-1" }),
-      );
-    },
-    { inset: () => ({ t: 40 }) },
+          { "data-slot": "layout-dock", className: "bg-surface flex flex-col overflow-hidden rounded-lg", style: box(p) },
+          h(
+            "div",
+            { className: "bg-surface-container border-outline-variant flex h-10 shrink-0 items-stretch overflow-hidden border-b" },
+            ...p.list("items").map((tab, i) => h("Button", { variant: "text", "data-tap": `tab:${i}`, "data-active": i === selected ? "true" : undefined, className: `text-label-large h-full shrink-0 rounded-none border-0 border-b-2 px-3 ${i === selected ? "border-primary bg-surface text-on-surface" : "text-on-surface-variant border-transparent"}` }, tab.label)),
+          ),
+          h("div", { "data-flow": "body", className: "min-h-0 flex-1" }),
+        );
+      },
+      { inset: () => ({ t: 40 }) },
+    ),
   ),
   container(
     "supporting-pane",

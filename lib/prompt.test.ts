@@ -22,15 +22,15 @@ const PLATFORM_LINE: Record<Lang, string> = {
   ko: "브라우저에서 실행되는 웹 앱으로 구현한다. UI는 shadcn M3E(@m3e 레지스트리의 shadcn 컴포넌트)로 만든다. 이미 설치되어 있으므로 이 컴포넌트를 import해서 사용하고 다시 만들지 않는다.",
 };
 
-const part = (slug: string, id: string, props: Record<string, unknown> = {}, extra: Partial<Item> = {}): Item => ({ ...makeItem("component", slug), id, props, ...extra });
+const part = (slug: string, id: string, props: Record<string, unknown> = {}, extra: Partial<Item> = {}): Item => ({ ...makeItem(slug), id, props, ...extra });
 
 /* One phone screen with an app bar, a run of two buttons (one with a tap action) and a
- * navigation bar. A run names its parts by `Item.label`. The module-level language is set
- * first so the default destinations follow the test. */
+ * navigation bar. The module-level language is set first so the default destinations follow
+ * the test. */
 function fixture(): Doc {
   const bar = part("app-bar", "bar", { title: "Home" });
-  const save = part("button", "save", { label: "Save" }, { label: "Save", action: { to: BACK_TARGET, transition: "fade" } });
-  const cancel = part("button", "cancel", { label: "Cancel", variant: "text" }, { label: "Cancel", variant: "text" });
+  const save = part("button", "save", { label: "Save" }, { action: { to: BACK_TARGET, transition: "fade" } });
+  const cancel = part("button", "cancel", { label: "Cancel", variant: "text" });
   const nav = part("navigation-bar", "nav", { items: defaultTabs() });
   return {
     groups: [
@@ -225,6 +225,36 @@ describe("buildPrompt structure", () => {
     const prompt = buildPrompt(doc, {}, undefined, "ja");
     expect(headings(prompt)).toEqual(SECTIONS.ja);
     expect(prompt).toContain("「Save」");
+  });
+});
+
+describe("buildPrompt wording", () => {
+  afterEach(() => setGlobalLang("ja"));
+  const onScreen = (groups: Doc["groups"]): Doc => ({ ...fixture(), groups });
+
+  it("writes a run of parts as a row or a stack, each part as itself", () => {
+    const run = [part("chip", "c", { items: [{ label: "Tag" }] }), part("button", "b", { label: "Go", variant: "tonal" })];
+    const across = buildPrompt(onScreen([{ id: "g", x: 16, y: 100, axis: "x", items: run }]), {}, undefined, "en");
+    expect(across).toContain("a row of 2:");
+    expect(across).toContain(`variant="tonal"`);
+    expect(across).toContain("Chip");
+    expect(across).not.toContain("button group");
+    expect(buildPrompt(onScreen([{ id: "g", x: 16, y: 100, axis: "y", items: run }]), {}, undefined, "en")).toContain("a stack of 2:");
+  });
+
+  it("says what a toggle button changes to when on", () => {
+    const toggle = (props: Record<string, unknown>) => buildPrompt(onScreen([{ id: "g", x: 16, y: 100, axis: "x", items: [part("button", "b", { label: "Follow", toggle: true, ...props })] }]), {}, undefined, "en");
+    expect(toggle({ onLook: "tonal" })).toContain("the variant becomes tonal");
+    expect(toggle({})).not.toContain("the variant becomes");
+  });
+
+  it.each(LANGS)("speaks of the web, not of Compose, in %s", (lang) => {
+    for (const motion of ["standard", "expressive"] as const) {
+      const prompt = buildPrompt({ ...fixture(), theme: { ...DEFAULT_THEME, motion } }, {}, undefined, lang);
+      expect(prompt).toContain(`motion: "${motion}"`);
+      expect(prompt).toContain("M3ThemeProvider");
+      expect(prompt).not.toMatch(/MotionScheme|\bRow\b|\bBox\b/);
+    }
   });
 });
 

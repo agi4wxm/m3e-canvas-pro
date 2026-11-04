@@ -4,8 +4,8 @@ import { barSlotOf, bodyRect, carryFrame, railSide, tidyFrame } from "./tidy";
 import { Frame, Group, Item, RAIL_COLLAPSED_W, makeItem, railExpansionSide, railWidth } from "./tokens";
 
 const frame: Frame = { id: "f", name: "Desktop", x: 20, y: 40, w: 1280, h: 800 };
-const rail: Item = { ...makeItem("component", "navigation-rail"), id: "rail", props: { expanded: false, height: 800 } };
-const bar: Item = { ...makeItem("component", "app-bar"), id: "bar", props: { width: 1184 } };
+const rail: Item = { ...makeItem("navigation-rail"), id: "rail", props: { expanded: false, height: 800 } };
+const bar: Item = { ...makeItem("app-bar"), id: "bar", props: { width: 1184 } };
 const group = (id: string, x: number, items: Item[]): Group => ({ id, x, y: 40, axis: "x", items });
 const stage = (right = false): Group[] => [group("rail-group", right ? 1204 : 20, [rail]), group("bar-group", right ? 20 : 116, [bar])];
 const barWith = (width: number, id = "bar"): Item => ({ ...bar, id, props: { width } });
@@ -107,7 +107,7 @@ describe("updateRail", () => {
     [true, false, 220],
   ] as const)("finds a rail after a bottom bar when carrying a frame (expanded=%s narrow=%s)", (expanded, narrow, layoutWidth) => {
     const original = [
-      group("bottom", 20, [{ ...makeItem("component", "navigation-bar"), id: "bottom-bar", props: { width: 1280 } }]),
+      group("bottom", 20, [{ ...makeItem("navigation-bar"), id: "bottom-bar", props: { width: 1280 } }]),
       group("other-rail", 20, [{ ...rail, props: { ...rail.props, expanded, narrow } }]),
       group("body", 20 + layoutWidth, [barWith(1280 - layoutWidth)]),
     ];

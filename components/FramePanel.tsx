@@ -27,6 +27,7 @@ import {
 } from "./ui";
 import { AiHooks, FrameSizePicker } from "./Inspector";
 import { AiIconBtn, Num, PartTabs, Tab } from "./PartPanel";
+import { VariablesSection } from "./EffectsPanel";
 import { COLOR_TOKEN_TEXT, t, useLang } from "@/lib/i18n";
 import { maxFrameLength } from "@/lib/tidy";
 
@@ -166,6 +167,7 @@ export function FrameInspector({
   onPreview,
   prompt,
   onSaveImage,
+  onSaveAllImages,
   tidy,
   onTidy,
   onPlace,
@@ -186,6 +188,8 @@ export function FrameInspector({
   /** the prompt for this one screen, copied from the export row */
   prompt: string;
   onSaveImage: () => Promise<void>;
+  /** saves every screen, one file each; set when there is more than one */
+  onSaveAllImages?: () => Promise<void>;
   /** what the tidy button offers: tidy the screen, undo the last tidy, or nothing (already tidy) */
   tidy: TidyState;
   onTidy: () => void;
@@ -387,6 +391,7 @@ export function FrameInspector({
             }
           />
         </Section>
+        <VariablesSection p={p} />
       </div>
       <Section
         id="frame-export"
@@ -419,6 +424,25 @@ export function FrameInspector({
             saving,
           )}
         </ButtonRun>
+        {onSaveAllImages && (
+          <div style={{ marginTop: 8 }}>
+            <ButtonRun>
+              {actionBtn(
+                "collections",
+                saving ? t("saving", lang) : t("saveAllImages", lang),
+                async () => {
+                  setSaving(true);
+                  try {
+                    await onSaveAllImages();
+                  } finally {
+                    setSaving(false);
+                  }
+                },
+                saving,
+              )}
+            </ButtonRun>
+          </div>
+        )}
       </Section>
     </PanelShell>
   );

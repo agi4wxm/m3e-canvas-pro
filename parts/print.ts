@@ -3,7 +3,6 @@ import { FILE_OF } from "./files.generated";
 import { isNode, isRaw, isWrap, type PNode, type PValue } from "./node";
 import { WIDGET_SOURCES } from "./widgets/sources";
 
-const WIDTH = 80;
 const str = (s: string) => JSON.stringify(s);
 
 /** text as a JSX child: plain when it can be, an expression when it holds a brace or an angle */
@@ -47,26 +46,6 @@ export function inlineNode(node: PNode): string {
   return `<${open}>${node.children.map((c) => (typeof c === "string" ? text(c) : inlineNode(c))).join("")}</${node.type}>`;
 }
 
-/** a node as JSX lines: on one line when it fits, otherwise one attribute and one child per line */
-export function printNode(node: PNode, depth = 0): string[] {
-  const pad = "  ".repeat(depth);
-  const one = pad + inlineNode(node);
-  if (one.length <= WIDTH) return [one];
-  const a = attrs(node);
-  const lines: string[] = [];
-  const kids = node.children ?? [];
-  if (a.length) {
-    lines.push(`${pad}<${node.type}`);
-    for (const x of a) lines.push(`${pad}  ${x}`);
-    lines.push(`${pad}${kids.length ? ">" : "/>"}`);
-  } else lines.push(`${pad}<${node.type}${kids.length ? ">" : " />"}`);
-  if (kids.length) {
-    for (const c of kids) lines.push(...(typeof c === "string" ? [`${pad}  ${text(c)}`] : printNode(c, depth + 1)));
-    lines.push(`${pad}</${node.type}>`);
-  }
-  return lines;
-}
-
 /** the names a node (and everything inside it, props included) uses, in order of first use */
 export function namesIn(node: PNode, into = new Set<string>()): Set<string> {
   const visit = (v: PValue): void => {
@@ -82,23 +61,5 @@ export function namesIn(node: PNode, into = new Set<string>()): Set<string> {
   return into;
 }
 
-/** the import lines for a set of names: one per file, names sorted, files sorted */
-export function importLines(names: Iterable<string>): string[] {
-  const bySource = new Map<string, string[]>();
-  for (const n of names) {
-    const source = WIDGET_SOURCES[n] ?? EXTERNAL[n] ?? (FILE_OF[n] ? `@/components/m3e/${FILE_OF[n]}` : undefined);
-    if (source) bySource.set(source, [...(bySource.get(source) ?? []), n]);
-  }
-  return [...bySource.entries()]
-    .toSorted(([a], [b]) => a.localeCompare(b))
-    .map(([source, list]) => `import { ${list.toSorted((a, b) => a.localeCompare(b)).join(", ")} } from "${source}"`);
-}
-
-/** the npm packages the names come from, outside the registry (a chart needs `recharts`) */
-export const packagesOf = (names: Iterable<string>) => [...new Set([...names].map((n) => EXTERNAL[n]).filter((m): m is string => !!m))].toSorted();
-
 /** the registry item a module file belongs to: every file is an item of its own */
 export const itemOfFile = (file: string) => file;
-
-/** the registry items a set of names comes from (for `npx shadcn add`) */
-export const itemsOf = (names: Iterable<string>) => [...new Set([...names].map((n) => FILE_OF[n]).filter((f): f is string => !!f).map(itemOfFile))].toSorted();

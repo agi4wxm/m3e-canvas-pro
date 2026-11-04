@@ -56,7 +56,7 @@ describe("joystick", () => {
 
 describe("printed code", () => {
   it("builds a whole screen that mixes shadcn M3E and widgets", () => {
-    const items = ["button", "table", "joystick"].map((s) => makeItem("component", s));
+    const items = ["button", "table", "joystick"].map((s) => makeItem(s));
     const { code } = buildCode(docOf(items), {});
     expect(code).toContain(`from "@/components/m3e/button"`);
     expect(code).toContain(`from "@/components/widgets/Joystick"`);
@@ -69,24 +69,24 @@ describe("printed code", () => {
 describe("the file format", () => {
   it("still opens a sketch holding every part, unchanged", () => {
     expect(PARTS.length).toBeGreaterThan(0);
-    const doc = json(docOf(PARTS.map((d) => makeItem("component", d.slug))));
+    const doc = json(docOf(PARTS.map((d) => makeItem(d.slug))));
     expect(openProject(doc)).toEqual(doc);
   });
 
   it("opens a document with no envelope, which is what every older version saved", () => {
-    const doc = json(docOf([makeItem("component", "button")]));
+    const doc = json(docOf([makeItem("button")]));
     expect(openProject(doc)).toEqual(doc);
   });
 
   it("opens the file it saves", () => {
-    const doc = docOf([makeItem("component", "joystick"), makeItem("component", "button"), makeItem("component", "future-thing")]);
+    const doc = docOf([makeItem("joystick"), makeItem("button"), makeItem("future-thing")]);
     const file = json(projectFile(doc));
     expect(file).toMatchObject({ format: PROJECT_FORMAT, version: PROJECT_VERSION });
     expect(openProject(file)).toEqual(json(doc));
   });
 
   it("opens the first version of its own envelope, and refuses another editor's", () => {
-    const doc = json(docOf([makeItem("component", "button")]));
+    const doc = json(docOf([makeItem("button")]));
     expect(openProject({ format: "m3e-project", version: 1, document: doc })).toEqual(doc);
     expect(openProject({ format: "web-canvas-project", version: 1, doc })).toBeNull();
   });
@@ -97,7 +97,7 @@ describe("the file format", () => {
   });
 
   it("refuses a file from a later version rather than half understanding it", () => {
-    expect(openProject({ format: PROJECT_FORMAT, version: PROJECT_VERSION + 1, document: json(docOf([makeItem("component", "button")])) })).toBeNull();
+    expect(openProject({ format: PROJECT_FORMAT, version: PROJECT_VERSION + 1, document: json(docOf([makeItem("button")])) })).toBeNull();
   });
 
   it("refuses an envelope with nothing in it", () => {
@@ -110,13 +110,13 @@ describe("what is not this editor's", () => {
   const part = (kind: string, id: unknown = "x") => ({ id, kind, component: "button", label: "L", icon: null, variant: "filled" }) as unknown as Item;
 
   it("refuses a file with a kind it does not have", () => {
-    expect(openProject(json(docOf([makeItem("component", "button"), part("noSuchPart")])))).toBeNull();
+    expect(openProject(json(docOf([makeItem("button"), part("noSuchPart")])))).toBeNull();
     expect(openProject(json(docOf([part("")])))).toBeNull();
     expect(openProject(json(docOf([part("component", 7)])))).toBeNull();
   });
 
   it("keeps a part whose definition is not here, to say so when it draws", () => {
-    const item = makeItem("component", "future-thing");
+    const item = makeItem("future-thing");
     expect(openProject(json(docOf([item])))!.groups[0].items[0]).toEqual(json(item));
   });
 });

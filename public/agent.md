@@ -81,7 +81,15 @@ Fields any part may carry beside `props`:
 
 - `note`: what the part does, in your words. It goes into the prompt verbatim, so say what happens on tap, what is saved, what is validated.
 - `action`: `{ "to": "<frame id>" | "back", "transition": "slide" | "slideLeft" | "slideUp" | "slideDown" | "fade" | "expand" | "none" }`, the screen a tap opens.
-- `actions`: the same per place inside a part that has several, such as `"tab:2"` for the third row of a bar, list or menu.
+- `actions`: the same per place inside a part that has several, such as `"tab:2"` for the third row of a bar, list or menu, or `"dismiss"` and `"confirm"` for the two buttons of a dialog.
+- In an action, `"to": "none"` goes nowhere, and these are optional: `effects`, steps run in order before it goes; `when`, a condition it runs on; `else`, `{ "to", "transition", "effects" }` run when the condition fails.
+- An effect is one of `{ "do": "show" | "hide" | "toggle" | "open" | "close", "part": "<item id>" }`, `{ "do": "setVar", "var": "<variable id>", "value": … }`, `{ "do": "toggleVar", "var" }`, `{ "do": "addVar", "var", "by": 1 }`, `{ "do": "setProp", "part", "prop": "<prop key>", "value": … }`, `{ "do": "snackbar", "message": "…" }`.
+- A condition is `{ "var": "<variable id>", "op": "eq" | "neq", "value": … }` or `{ "filled": "<item id of an input>" }`.
+- `bind`: `{ "<prop key>": "<variable id>" }`, the props that follow a variable. An input (`input`, `text-field`, `textarea`, `switch`, `checkbox`, `slider`, `select`, `radio-group`) also writes to the variable its value prop is bound to.
+
+Fields a group may carry: `hidden: true` starts it hidden, with no hole left in an auto layout; `showWhen`, a condition, shows it only while that holds; `pane`, a number, is the tab of the `dock` it stands on.
+
+Variables sit on the document: `"vars": [ { "id": "count", "name": "count", "type": "text" | "number" | "bool", "value": 0 } ]`. They live while the prototype runs and start over each time.
 
 Icons are Material Symbols names (`home`, `search`, `add`, `favorite`, `settings`, `arrow_back`, `more_vert`, `edit`, `delete`, `share`, `restaurant`, `photo_camera`, …).
 
@@ -341,6 +349,43 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `joystick` | Joystick | `size` 64–320; `angle` 0–360; `autoCenter` true / false |
 
 <!-- parts:end -->
+
+### Screen templates
+
+The editor's Templates tab adds these as new screens, in auto layout. A document cannot name them; if one fits, say so to the person.
+
+<!-- templates:begin -->
+
+- `auth-flow`: Auth flow, phone, 3 linked screens
+- `shop-flow`: Shop flow, phone, 5 linked screens
+- `login`: Log in, phone
+- `sign-up`: Sign up, phone
+- `onboarding`: Onboarding, phone
+- `product-list`: Product list, phone
+- `product-detail`: Product detail, phone
+- `cart`: Cart, phone
+- `checkout`: Checkout, phone
+- `order-success`: Order success, phone
+- `home-feed`: Home feed, phone
+- `profile`: Profile, phone
+- `chat-list`: Chat list, phone
+- `chat-thread`: Chat thread, phone
+- `notifications`: Notifications, phone
+- `search-results`: Search results, phone
+- `article-detail`: Article, phone
+- `pricing`: Pricing, phone
+- `calendar`: Calendar, phone
+- `music-player`: Music player, phone
+- `map-route`: Map and route, phone
+- `wallet`: Wallet, phone
+- `settings`: Settings, phone
+- `form`: Form, phone
+- `empty-state`: Empty state, phone
+- `dashboard`: Dashboard, desktop
+- `admin-table`: Admin table, desktop
+- `landing-page`: Landing page, desktop
+
+<!-- templates:end -->
 
 ## Keep it simple
 

@@ -9,7 +9,7 @@
 import type { Palette } from "./tokens";
 
 export type Lab = { L: number; a: number; b: number };
-export type Lch = { L: number; C: number; h: number };
+type Lch = { L: number; C: number; h: number };
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
@@ -184,17 +184,4 @@ export function onColorFor(hex: string): string {
 }
 
 export const isHex = (v: string) => /^#[0-9a-f]{6}$/i.test(v.trim());
-
-/** WCAG relative luminance of an opaque sRGB color, 0 (black) to 1 (white) */
-export function luminance(hex: string): number {
-  const [r, g, b] = (hexToRgb(hex) ?? [0, 0, 0]).map(lin);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-/** WCAG relative luminance contrast for two opaque sRGB colors. */
-export function contrastRatio(a: string, b: string): number {
-  const x = luminance(a);
-  const y = luminance(b);
-  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-}
 

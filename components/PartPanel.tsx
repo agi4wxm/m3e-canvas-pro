@@ -12,6 +12,7 @@ import {
   NavTab,
   Palette,
   Radii,
+  STAY_TARGET,
   TEXT_TOKENS,
   TextToken,
   uniformRadii,
@@ -26,9 +27,10 @@ import { Lang } from "@/lib/i18n";
 import { Icon } from "./Icon";
 import { IconPicker } from "./IconPicker";
 import { segmentedFits } from "@/lib/choices";
-import { Field, IconBtn, ImageRow, RUN_CELL, Section, Segmented, Select, SelectOption, Slider, Toggle } from "./ui";
+import { Field, IconBtn, ImageRow, RUN_CELL, Section, Segmented, Select, SelectOption, Slider, Toggle, useDismiss } from "./ui";
 import { AiHooks } from "./Inspector";
 import { LinkStage, TapStage } from "./TapStage";
+import { ActionExtras, tidiedAction } from "./EffectsPanel";
 import { partBySlug } from "@/parts/registry";
 import { COLOR_TOKEN_TEXT, TEXT_TOKEN_TEXT, t, useLang } from "@/lib/i18n";
 import type { AlignHow } from "@/lib/align";
@@ -60,7 +62,7 @@ function AlignGlyph({ c, r, color }: { c: Col; r: Row3; color: string }) {
 }
 
 /** how tall the row of tabs is; the panel keeps that much room for it above what scrolls */
-export const TABS_H = 48;
+const TABS_H = 48;
 
 /** Two M3 primary tabs with the underline indicator. The panel under them is one of two, named
  *  by the tab that opens it, and the arrow keys move between the two. */
@@ -208,25 +210,9 @@ export function PartMenu({
     box.current?.querySelector<HTMLElement>("button")?.focus();
   };
   useEffect(() => {
-    if (!open) return;
-    menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-    const onDown = (e: PointerEvent) => {
-      if (!box.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        setOpen(false);
-        box.current?.querySelector<HTMLElement>("button")?.focus();
-      }
-    };
-    window.addEventListener("pointerdown", onDown, true);
-    window.addEventListener("keydown", onKey, true);
-    return () => {
-      window.removeEventListener("pointerdown", onDown, true);
-      window.removeEventListener("keydown", onKey, true);
-    };
+    if (open) menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
   }, [open]);
+  useDismiss(open, (by) => (by === "escape" ? close() : setOpen(false)), [box]);
   /* the arrow keys walk the entries, Home and End jump to either end */
   const onMenuKey = (e: React.KeyboardEvent) => {
     const items = Array.from(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
@@ -362,7 +348,7 @@ export function PartHeader({
 }
 
 /** what a tap can be sent to: nothing, the screen it came from, a web page, or another screen */
-export function actionOptionsOf(item: Item, frame: Frame | null, frames: Frame[], lang: Lang): SelectOption[] {
+function actionOptionsOf(item: Item, frame: Frame | null, frames: Frame[], lang: Lang): SelectOption[] {
   return [
     { key: "none", label: t("none", lang), icon: "block" },
     /* a part that can flip (its def carries the `toggle` prop) swaps looks rather than going anywhere */
@@ -438,30 +424,38 @@ export function TriggerSection({
     onChange({ actions: Object.keys(actions).length ? actions : undefined });
   };
   const isLink = action?.to === LINK_TARGET;
+  /* where a tap goes is one choice among what it does: changing it leaves its effects and condition be */
   const pick = (k: string) => {
+    const stays = action ? tidiedAction({ ...action, to: STAY_TARGET, transition: "none" }) : undefined;
     if (toggleable && k === "toggle") {
-      onChange({ props: { ...item.props, toggle: true }, action: undefined });
+      onChange({ props: { ...item.props, toggle: true }, action: stays });
       return;
     }
     /* choosing a destination leaves a flip part's toggle off */
     if (toggleable && item.props?.toggle) onChange({ props: { ...item.props, toggle: false } });
     if (k === LINK_TARGET) {
-      set({ to: LINK_TARGET, transition: "none", url: action?.url });
+      set({ ...action, to: LINK_TARGET, transition: "none", url: action?.url });
       return;
     }
-    const transition = action && action.to !== LINK_TARGET ? action.transition : "slide";
-    set(k === "none" ? undefined : { to: k, transition });
+    if (k === "none") {
+      set(stays);
+      return;
+    }
+    const transition = action && action.to !== LINK_TARGET && action.to !== STAY_TARGET ? action.transition : "slide";
+    set({ ...action, to: k, transition });
   };
+  const options = actionOptionsOf(item, frame, allFrames, lang);
   return (
     <Section id="part-action" icon="ads_click" title={t("tapTo", lang)} p={p}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {head}
-        <Select options={actionOptionsOf(item, frame, allFrames, lang)} value={toggles ? "toggle" : (action?.to ?? "none")} onChange={pick} p={p} label={t("tapTo", lang)} />
+        <Select options={options} value={toggles ? "toggle" : (action?.to ?? "none")} onChange={pick} p={p} label={t("tapTo", lang)} />
         {isLink ? (
           <LinkStage self={frame} selfRect={selfRect} action={action} onChange={set} p={p} />
         ) : (
           <TapStage frames={allFrames} self={frame} selfRect={selfRect} action={action} onChange={set} p={p} />
         )}
+        <ActionExtras action={action} onChange={set} navOptions={options.filter((o) => o.key !== "toggle")} p={p} />
       </div>
     </Section>
   );
@@ -476,6 +470,7 @@ export function NoteSection({ item, ai, onChange, p }: { item: Item; ai: AiHooks
         value={item.note ?? ""}
         onChange={(note) => onChange({ note })}
         placeholder={t("whenPressedExample", lang)}
+        label={t("partSpec", lang)}
         p={p}
         multiline
         grow
@@ -630,13 +625,11 @@ export function AppearanceCorners({ item, seed, onChange, p }: { item: Item; see
   );
 }
 
-/** The width presets as one connected run: the width the part takes on its own, then the three
- *  widths a screen is built from. The four names carry the meaning, so the cells stay plain
- *  words; a part that has no width of its own is offered the three. */
-export function WidthRun({ value, onChange, frameW, p, auto = true }: { value: number | undefined; onChange: (size: number | undefined) => void; frameW: number; p: Palette; auto?: boolean }) {
+/** The widths a screen is built from, as one connected run. The names carry the meaning, so the
+ *  cells stay plain words. */
+function WidthRun({ value, onChange, frameW, p }: { value: number | undefined; onChange: (size: number | undefined) => void; frameW: number; p: Palette }) {
   const lang = useLang();
-  const cells: { key: string; size?: number; label: string }[] = [
-    ...(auto ? [{ key: "auto", label: t("autoWidth", lang) }] : []),
+  const cells: { key: string; size: number; label: string }[] = [
     { key: "half", size: halfWidth(frameW), label: t("halfWidth", lang) },
     { key: "content", size: contentWidth(frameW), label: t("contentWidth", lang) },
     { key: "screen", size: frameW, label: t("screenWidth", lang) },
@@ -644,7 +637,7 @@ export function WidthRun({ value, onChange, frameW, p, auto = true }: { value: n
   return (
     <Segmented<string>
       /* the cell carries the word; hovering says the dp it comes to on this screen */
-      options={cells.map((c) => ({ key: c.key, label: c.label, title: c.size ? `${c.size}dp` : c.label, style: RUN_CELL }))}
+      options={cells.map((c) => ({ key: c.key, label: c.label, title: `${c.size}dp`, style: RUN_CELL }))}
       value={cells.find((c) => c.size === value)?.key ?? ""}
       onChange={(k) => onChange(cells.find((c) => c.key === k)?.size)}
       p={p}
@@ -655,18 +648,18 @@ export function WidthRun({ value, onChange, frameW, p, auto = true }: { value: n
 }
 
 /** the width of a part on the slider, with the run of a screen's widths under it */
-export function WidthRows({ value, min, max, step = 4, frameW, onChange, p, auto = false }: { value: number; min: number; max: number; step?: number; frameW: number; onChange: (size: number | undefined) => void; p: Palette; auto?: boolean }) {
+export function WidthRows({ value, min, max, step = 4, frameW, onChange, p }: { value: number; min: number; max: number; step?: number; frameW: number; onChange: (size: number | undefined) => void; p: Palette }) {
   const lang = useLang();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <Slider icon="width" title={t("width", lang)} value={value} min={Math.min(min, value)} max={Math.max(frameW, max)} step={step} onChange={(v) => onChange(v)} p={p} />
-      <WidthRun value={value} onChange={onChange} frameW={frameW} p={p} auto={auto} />
+      <WidthRun value={value} onChange={onChange} frameW={frameW} p={p} />
     </div>
   );
 }
 
 /** a cell that shows an icon and opens the picker for it; empty, it offers to add one */
-export function IconCell({ icon, faint, open, title, onClick, p }: { icon: string | null; faint?: boolean; open: boolean; title: string; onClick: () => void; p: Palette }) {
+function IconCell({ icon, open, title, onClick, p }: { icon: string | null; open: boolean; title: string; onClick: () => void; p: Palette }) {
   return (
     <button
       onClick={onClick}
@@ -681,7 +674,7 @@ export function IconCell({ icon, faint, open, title, onClick, p }: { icon: strin
         borderRadius: 22,
         border: icon || open ? "none" : `1.5px dashed ${p.outline}`,
         background: open ? p.primary : icon ? p.surfaceContainerHigh : "transparent",
-        color: open ? p.onPrimary : icon ? (faint ? p.outline : p.onSurface) : p.outline,
+        color: open ? p.onPrimary : icon ? p.onSurface : p.outline,
         cursor: "pointer",
         display: "grid",
         placeItems: "center",
@@ -693,18 +686,18 @@ export function IconCell({ icon, faint, open, title, onClick, p }: { icon: strin
 }
 
 /** The icons a part carries at its two ends -- or the one it carries -- each a cell that opens
- *  the picker in place. A part whose words sit between them shows the field there too. */
-export function IconRow({ slots, onPick, children, p }: { slots: { key: string; value: string | null; title: string; extras?: { icon: string; title: string }[] }[]; onPick: (key: string, icon: string | null) => void; children?: React.ReactNode; p: Palette }) {
+ *  the picker in place. */
+export function IconRow({ slots, onPick, p }: { slots: { key: string; value: string | null; title: string }[]; onPick: (key: string, icon: string | null) => void; p: Palette }) {
   const [open, setOpen] = useState<string | null>(null);
   const picked = slots.find((s) => s.key === open) ?? null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         {slots[0] && <IconCell icon={slots[0].value} open={open === slots[0].key} title={slots[0].title} onClick={() => setOpen(open === slots[0].key ? null : slots[0].key)} p={p} />}
-        {children ? <div style={{ flex: 1, minWidth: 0 }}>{children}</div> : <span style={{ flex: 1 }} />}
+        <span style={{ flex: 1 }} />
         {slots[1] && <IconCell icon={slots[1].value} open={open === slots[1].key} title={slots[1].title} onClick={() => setOpen(open === slots[1].key ? null : slots[1].key)} p={p} />}
       </div>
-      {picked && <IconPicker value={picked.value} onChange={(icon) => onPick(picked.key, icon)} onClose={() => setOpen(null)} palette={p} extras={picked.extras} />}
+      {picked && <IconPicker value={picked.value} onChange={(icon) => onPick(picked.key, icon)} onClose={() => setOpen(null)} palette={p} />}
     </div>
   );
 }
@@ -764,16 +757,31 @@ export function EntryList({
   };
   const canAdd = tabs.length < bounds.max;
   const canRemove = tabs.length > bounds.min;
+  const reorder = (next: string[]) => {
+    const order = next.map((k) => names.indexOf(k));
+    keys.current.names = next;
+    onChange(order.map((j) => ({ ...tabs[j] })), order);
+  };
+  const remove = (i: number) => {
+    if (pick === names[i]) setPick(null);
+    keys.current.names = names.filter((_, j) => j !== i);
+    onChange(tabs.filter((_, j) => j !== i), same.filter((j) => j !== i));
+  };
+  /* after a key moved or removed a row, focus stays with it or goes to the row that takes its
+   * place, so a second Delete does not reach the part itself */
+  const list = useRef<HTMLUListElement | null>(null);
+  const focusHandle = (i: number) =>
+    requestAnimationFrame(() => {
+      const handles = list.current?.querySelectorAll<HTMLElement>("[data-entry-handle]");
+      handles?.[Math.min(i, handles.length - 1)]?.focus();
+    });
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <Reorder.Group
+        ref={list}
         axis="y"
         values={names}
-        onReorder={(next: string[]) => {
-          const order = next.map((k) => names.indexOf(k));
-          keys.current.names = next;
-          onChange(order.map((j) => ({ ...tabs[j] })), order);
-        }}
+        onReorder={reorder}
         style={{ display: "flex", flexDirection: "column", gap: 6, padding: 0, margin: 0 }}
       >
         {tabs.map((tab, i) => (
@@ -794,11 +802,20 @@ export function EntryList({
               const drop = canRemove && onBin(e);
               setDragging(null);
               setOverBin(false);
-              if (drop) {
-                if (pick === names[i]) setPick(null);
-                keys.current.names = names.filter((_, j) => j !== i);
-                onChange(tabs.filter((_, j) => j !== i), same.filter((j) => j !== i));
-              }
+              if (drop) remove(i);
+            }}
+            onMove={(d) => {
+              const at = i + d;
+              if (at < 0 || at >= names.length) return;
+              const next = [...names];
+              [next[i], next[at]] = [next[at], next[i]];
+              reorder(next);
+              focusHandle(at);
+            }}
+            onRemove={() => {
+              if (!canRemove) return;
+              remove(i);
+              focusHandle(i);
             }}
             p={p}
           />
@@ -854,6 +871,8 @@ function EntryRow({
   onDragStart,
   onDrag,
   onDragEnd,
+  onMove,
+  onRemove,
   p,
 }: {
   id: string;
@@ -868,15 +887,30 @@ function EntryRow({
   onDragStart: () => void;
   onDrag: (e: { clientX: number; clientY: number }) => void;
   onDragEnd: (e: { clientX: number; clientY: number }) => void;
+  onMove: (by: 1 | -1) => void;
+  onRemove: () => void;
   p: Palette;
 }) {
   const lang = useLang();
   const controls = useDragControls();
   const handle = (
     <span
+      data-entry-handle
+      role="button"
+      tabIndex={0}
+      aria-label={t("reorder", lang)}
+      aria-keyshortcuts="ArrowUp ArrowDown Delete"
       onPointerDown={(e) => {
         e.preventDefault();
         controls.start(e);
+      }}
+      onKeyDown={(e) => {
+        const act = e.key === "ArrowUp" ? () => onMove(-1) : e.key === "ArrowDown" ? () => onMove(1) : e.key === "Delete" || e.key === "Backspace" ? onRemove : null;
+        if (!act) return;
+        /* the key is the row's own: the canvas shortcuts behind the panel do not hear it */
+        e.preventDefault();
+        e.stopPropagation();
+        act();
       }}
       title={t("reorder", lang)}
       style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 38, cursor: "grab", touchAction: "none" }}

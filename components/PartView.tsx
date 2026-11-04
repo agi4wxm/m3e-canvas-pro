@@ -28,11 +28,11 @@ function MissingPart({ item }: { item: Item }) {
 /** A part drawn as the real shadcn M3E component it stands for. On the canvas it is inert: a press
  *  belongs to the part (to select and drag it), not to the button inside it. In the preview
  *  (`live`) it works. */
-export function PartView({ item, live = false, screen }: { item: Item; live?: boolean; /** the frame the part is on: an open overlay's box is no larger than it */ screen?: Screen }) {
+export function PartView({ item, live = false, screen, held = false }: { item: Item; live?: boolean; /** the frame the part is on: an open overlay's box is no larger than it */ screen?: Screen; /** in the preview, an effect has opened this menu or popover: it is drawn open as on the canvas, and still works */ held?: boolean }) {
   const def = partBySlug(item.component);
   /* a prop left at its default shows the default of the editor's language */
   const lang = useLang();
-  const tree = useMemo(() => (def ? viewOf(def, item.props, appearanceOf(item), screen, live) : null), [def, item.props, item.fill, item.textColor, item.corners, screen?.w, screen?.h, live, lang]);
+  const tree = useMemo(() => (def ? viewOf(def, item.props, appearanceOf(item), screen, live && !held) : null), [def, item.props, item.fill, item.textColor, item.corners, screen?.w, screen?.h, live, held, lang]);
   /* the icon component is memoized: icons that arrive after the first draw show only in a fresh tree */
   const icons = useIcons(tree ?? NOTHING);
   if (!tree) return <MissingPart item={item} />;
@@ -41,7 +41,7 @@ export function PartView({ item, live = false, screen }: { item: Item; live?: bo
       {/* an inline box inside the part's block would sit on the strut's baseline, ~a line's
        *  leading low; top-aligned, the part's content starts at the part's own top */}
       <div key={icons} inert={!live} style={{ display: "inline-flex", verticalAlign: "top", pointerEvents: live ? undefined : "none" }}>
-        {/* a pack's component is fetched when first drawn: its guessed size holds the place */}
+        {/* a widget is fetched when first drawn: its guessed size holds the place */}
         <Suspense fallback={<div style={{ width: def?.w, height: def?.h }} />}>{renderNode(tree)}</Suspense>
       </div>
     </PartSurface>

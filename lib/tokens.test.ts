@@ -4,7 +4,7 @@ import { partBySlug, treeOf } from "../parts/registry";
 import { DEFAULT_THEME, makeItem, normalizeTheme, railWidth, sizeOf, type Item } from "./tokens";
 
 describe("navigation rail geometry", () => {
-  const rail = (props: Record<string, unknown> = {}): Item => ({ ...makeItem("component", "navigation-rail"), props });
+  const rail = (props: Record<string, unknown> = {}): Item => ({ ...makeItem("navigation-rail"), props });
 
   it("creates expressive collapsed rails, and narrow ones when asked", () => {
     const fresh = rail();

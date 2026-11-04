@@ -149,7 +149,7 @@ function CopyButton({ copied, onClick, p, code = false }: { copied: boolean; onC
 }
 
 /** a few lines of text in a rounded box, fading at the top and the bottom as they scroll past */
-function FadeArea({ value, onChange, placeholder, p, rows = 5 }: { value: string; onChange: (v: string) => void; placeholder: string; p: Palette; rows?: number }) {
+function FadeArea({ value, onChange, placeholder, p }: { value: string; onChange: (v: string) => void; placeholder: string; p: Palette }) {
   const fade = (top: boolean): React.CSSProperties => ({
     position: "absolute",
     left: 0,
@@ -167,7 +167,7 @@ function FadeArea({ value, onChange, placeholder, p, rows = 5 }: { value: string
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        rows={rows}
+        rows={5}
         style={{ display: "block", width: "100%", border: "none", background: "transparent", color: p.onSurface, fontSize: 14, lineHeight: 1.6, fontFamily: "inherit", padding: "14px 16px", resize: "none", outline: "none", boxSizing: "border-box" }}
       />
       <div style={fade(true)} />

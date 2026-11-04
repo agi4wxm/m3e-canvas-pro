@@ -13,6 +13,8 @@ import { buildPrompt, effectivePrompt } from "@/lib/prompt";
 import {
   Action,
   actionsOf,
+  actionWithoutScreen,
+  DocVar,
   Axis,
   BACK_TARGET,
   draftGradient,
@@ -60,6 +62,7 @@ import {
   Transition,
   TRANSITIONS,
   uid,
+  unionRect,
   fitHeight,
 } from "@/lib/tokens";
 import { Icon } from "@/components/Icon";
@@ -72,6 +75,7 @@ import { FrameInspector } from "@/components/FramePanel";
 import { Preview } from "@/components/Preview";
 import { Logo } from "@/components/Logo";
 import { PartsPalette } from "@/components/PartsPalette";
+import { TemplatesPanel } from "@/components/TemplatesPanel";
 import { PromptPanel } from "@/components/PromptPanel";
 import { GitHubLink, Mode, Toolbar } from "@/components/Toolbar";
 import { LangMenu } from "@/components/Menus";
@@ -81,7 +85,9 @@ import { AiSettings, DEFAULT_AI, hasKey, isSecureUrl, loadAiSettings, proposeBeh
 import { barSlotOf, bodyRect, carryFrame, holdsEdgeBar, maxFrameLength, minFrameLength, stretchFrame, pullInto, tidyFrame } from "@/lib/tidy";
 import { combineButtons, joinDropped, joinTargetOf } from "@/lib/combine";
 import { alignParts, distributeParts, type AlignHow } from "@/lib/align";
-import { arrangeFlows, flowHostAt, flowOf, settleInFlow, wrapInFlow } from "@/lib/flow";
+import { arrangeFlows, flowHostAt, flowOf, outOfPane, panesAfterReorder, settleInFlow, stepLayers, wrapInFlow } from "@/lib/flow";
+import { retarget } from "@/lib/interact";
+import { Behavior, BehaviorContext } from "@/components/EffectsPanel";
 import { updateRail } from "@/lib/rail";
 import { isProject, readProject, saveProject } from "@/lib/project";
 import { hasShareHash, readShareHash } from "@/lib/share";
@@ -93,6 +99,7 @@ import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
 import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
 import { PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
 import { partBySlug, translateComponentProps } from "@/parts/registry";
+import { instantiate, templateBySlug } from "@/parts/templates";
 import { COMMON_TEXT } from "@/parts/labels";
 import { FIT_OVERLAY, REMEASURE } from "@/parts/contained";
 import { axisStep, axisValue, axisWrite, resizeOf, type PartAxis } from "@/parts/resize";
@@ -220,6 +227,9 @@ function translateSnapshot(snap: Snapshot, lang: Lang): Snapshot {
 
 const SEED_FRAMES: Frame[] = [{ id: "seedF1", name: "Home", x: 0, y: 0 }];
 
+/** how a part hidden at the start of the preview is drawn on the canvas */
+const HIDDEN_DIM = 0.4;
+
 /** The browser's own copy skips `openProject`: anything but a part cannot be drawn. */
 const drawableGroups = (groups: Group[]): Group[] => groups.map((g) => ({ ...g, items: g.items.filter((it) => (it.kind as string) === "component") })).filter((g) => g.items.length > 0);
 
@@ -235,7 +245,10 @@ function rekeyed(g: Group, dx: number, dy: number): Group {
 /** Copies of several units: one laid out by another among them follows its copy; one whose container
  *  stays behind joins that container, next to the original. */
 function rekeyedAll(units: Group[], dx: number, dy: number, sameScreen = true): Group[] {
-  const copies = units.map((u) => rekeyed(u, dx, dy));
+  /* what a copied part reaches for follows the copy, when that was copied too */
+  const made = units.map((u) => rekeyed(u, dx, dy));
+  const ids = new Map(units.flatMap((u, i) => u.items.map((it, j) => [it.id, made[i].items[j].id] as const)));
+  const copies = made.map((c) => retarget(c, ids));
   const fresh = new Map(units.map((u, i) => [u.id, copies[i].id]));
   return copies.map((c) => {
     if (!c.inFlow) return c;
@@ -266,8 +279,11 @@ function copiedIds(copies: Group[], primaryAt: number): string[] {
 /* shown when an edit is refused because the group is locked */
 const lockedGroupMsg = () => t("lockedGroup", getLang());
 
+/** the browser refusing a save for want of room, by the names browsers give it */
+const isStorageFull = (err: unknown) => err instanceof DOMException && (err.name === "QuotaExceededError" || err.name === "NS_ERROR_DOM_QUOTA_REACHED");
+
 /** a part that is a shadcn M3E component, with the values the author would have set */
-const partOf = (slug: string, props: Record<string, unknown>, id: string): Item => ({ ...makeItem("component", slug), id, props });
+const partOf = (slug: string, props: Record<string, unknown>, id: string): Item => ({ ...makeItem(slug), id, props });
 
 /* The starter sketch: an app bar, a pair of buttons, three list items, a FAB and a navigation bar, all
  * of them the real components. Parts are as tall as they measure, so the rows sit apart on their own. */
@@ -348,10 +364,11 @@ function ThinkingRing({ p, frame }: { p: Palette; frame: Frame }) {
   );
 }
 
-type LeftTab = "parts" | "layers" | "color" | "shape" | "type" | "motion" | "ai";
-/** the left rail: parts and layers, then the four theme axes of the whole design */
-const LEFT_TABS: { key: LeftTab; icon: string; title: "parts" | "layers" | "colors" | "shape" | "typography" | "motion" | "ai" }[] = [
+type LeftTab = "parts" | "templates" | "layers" | "color" | "shape" | "type" | "motion" | "ai";
+/** the left rail: parts, templates and layers, then the four theme axes of the whole design */
+const LEFT_TABS: { key: LeftTab; icon: string; title: "parts" | "screenTemplates" | "layers" | "colors" | "shape" | "typography" | "motion" | "ai" }[] = [
   { key: "parts", icon: "add_box", title: "parts" },
+  { key: "templates", icon: "dashboard_customize", title: "screenTemplates" },
   { key: "layers", icon: "layers", title: "layers" },
   { key: "color", icon: "palette", title: "colors" },
   { key: "shape", icon: "rounded_corner", title: "shape" },
@@ -402,6 +419,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const [brief, setBrief] = useState("");
   const [promptEdit, setPromptEdit] = useState<string | undefined>(undefined);
   const [promptOptions, setPromptOptions] = useState<string[] | undefined>(undefined);
+  const [vars, setVars] = useState<DocVar[] | undefined>(undefined);
   /** the prompt's full-screen cover is up: the panel's own band steps aside while it is */
   const [promptCoverUp, setPromptCoverUp] = useState(false);
   /** the author's explicit target; null follows the screens (web once a desktop screen exists) */
@@ -649,8 +667,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (Array.isArray(doc.frames)) setFrames(doc.frames);
     if (typeof doc.paletteKey === "string" && doc.paletteKey) setPaletteKey(doc.paletteKey);
     else if (reset) setPaletteKey("purple");
-    /* normalize once so a scheme saved before the secondary role gets it and keeps it on re-save */
-    if (doc.customPalette && typeof doc.customPalette.primary === "string") setCustomPalette(paletteOf("custom", doc.customPalette));
+    if (doc.customPalette && typeof doc.customPalette.primary === "string") setCustomPalette(doc.customPalette);
     else if (reset) setCustomPalette(null);
     if (typeof doc.dynamicColor === "boolean") setDynamicColor(doc.dynamicColor);
     else if (reset) setDynamicColor(false);
@@ -664,6 +681,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     else if (reset) setPromptEdit(undefined);
     if (Array.isArray(doc.promptOptions)) setPromptOptions(doc.promptOptions);
     else if (reset) setPromptOptions(undefined);
+    if (Array.isArray(doc.vars)) setVars(doc.vars);
+    else if (reset) setVars(undefined);
   };
 
   useEffect(() => {
@@ -789,15 +808,23 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     return () => mq.removeEventListener("change", apply);
   }, []);
 
+  const saveFullToldRef = useRef(false);
   useEffect(() => {
     if (!loadedRef.current || editAccess !== "editable") return;
     try {
       localStorage.setItem(
         DOC_KEY,
-        JSON.stringify({ groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette: customPalette ?? undefined, dynamicColor, theme }),
+        JSON.stringify({ groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette: customPalette ?? undefined, dynamicColor, theme, vars }),
       );
-    } catch {}
-  }, [editAccess, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme]);
+      saveFullToldRef.current = false;
+    } catch (err) {
+      /* the author keeps working; said once, since every later change would fail the same way */
+      if (isStorageFull(err) && !saveFullToldRef.current) {
+        saveFullToldRef.current = true;
+        showToast(t("saveFull", getLang()), 9000, "warning");
+      }
+    }
+  }, [editAccess, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme, vars]);
 
   useEffect(() => {
     if (!loadedRef.current) return;
@@ -1283,7 +1310,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    const item = makeItem("component", slug);
+    const item = makeItem(slug);
     const pt = toWorld(e.clientX, e.clientY);
     const sz = sizeOf(item, widthsRef.current);
     const offX = Math.min(sz.w / 2, 90);
@@ -1611,7 +1638,10 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const itemRects = useCallback(() => {
     const out: { id: string; l: number; t: number; r: number; b: number }[] =
       [];
+    /* a part on a dock's other tab is not on the canvas to be swept up or pointed at */
+    const off = outOfPane(groupsRef.current, widthsRef.current);
     for (const g of groupsRef.current) {
+      if (off.has(g.id)) continue;
       for (const pl of layoutOf(g, widthsRef.current)) {
         out.push({ id: pl.item.id, l: pl.x, t: pl.y, r: pl.x + pl.w, b: pl.y + pl.h });
       }
@@ -2178,8 +2208,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       }
     });
     if (picked.length < 2) return;
-    const l = Math.min(...picked.map((it) => rects.get(it.id)!.l));
-    const t = Math.min(...picked.map((it) => rects.get(it.id)!.t));
+    const { l, t } = unionRect(picked.map((it) => rects.get(it.id)!));
     const pos: Record<string, { x: number; y: number }> = {};
     for (const it of picked) pos[it.id] = { x: rects.get(it.id)!.l - l, y: rects.get(it.id)!.t - t };
     const ng: Group = { id: uid(), x: l, y: t, axis: "x", items: picked, free: true, pos };
@@ -2470,10 +2499,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     let x = 0;
     let y = 0;
     if (gs.length) {
-      const bbs = gs.map((g) => groupBounds(g, widthsRef.current));
-      const l = Math.min(...bbs.map((b) => b.l));
-      const t = Math.min(...bbs.map((b) => b.t));
-      const r = Math.max(...bbs.map((b) => b.r));
+      const { l, t, r } = unionRect(gs.map((g) => groupBounds(g, widthsRef.current)));
       x = Math.round(Math.max(l - 24, r - PHONE_W + 24 > l ? l : l - 24));
       y = Math.round(t - 72);
       x = Math.min(x, l);
@@ -2493,7 +2519,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const addPart = (slug: string) => {
     const r = canvasRect();
     const v = viewRef.current;
-    const item = makeItem("component", slug);
+    const item = makeItem(slug);
     const sz = sizeOf(item, widthsRef.current);
     const cx = ((r?.width ?? 0) / 2 - v.x) / v.z;
     const cy = ((r?.height ?? 0) / 2 - v.y) / v.z;
@@ -2562,6 +2588,29 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         z,
       });
     }
+  };
+
+  /** Adds a template's screens beside the existing ones, in the words of the editor's language, and
+   *  selects the first. On a blank canvas it brings the screens back: they are what it adds. */
+  const addTemplate = (slug: string) => {
+    const template = templateBySlug(slug);
+    if (!template) return;
+    snapshot();
+    if (frameRef.current !== "phone") {
+      setFrame("phone");
+      frameRef.current = "phone";
+      ensureFrame();
+    }
+    const fs = framesRef.current;
+    const added = instantiate(template, getLang(), { x: nextFrameX(), y: fs[0]?.y ?? 0 }, fs.map((f) => f.name));
+    tidyRef.current = null;
+    setFrames((cur) => [...cur, ...added.frames]);
+    setGroups((cur) => [...cur, ...added.groups]);
+    setSelectedIds([]);
+    setSelectedLinkId(null);
+    setSelectedFrameId(added.frames[0].id);
+    setRightTab("edit");
+    glideToFrame(added.frames[0]);
   };
 
   const patchFrame = (id: string, patch: Partial<Frame>) => {
@@ -2837,9 +2886,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
             ...g,
             items: g.items.map((it) => {
               const next = { ...it };
-              if (next.action?.to === id) next.action = undefined;
+              if (next.action) next.action = actionWithoutScreen(next.action, id);
               if (next.actions) {
-                const actions = Object.fromEntries(Object.entries(next.actions).filter(([, a]) => a.to !== id));
+                const actions = Object.fromEntries(Object.entries(next.actions).flatMap(([slot, a]) => {
+                  const kept = actionWithoutScreen(a, id);
+                  return kept ? [[slot, kept]] : [];
+                }));
                 next.actions = Object.keys(actions).length ? actions : undefined;
               }
               return next;
@@ -2870,6 +2922,22 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   };
   const duplicateFrameRef = useRef(duplicateFrame);
   duplicateFrameRef.current = duplicateFrame;
+  /** Ctrl+A: set where the screen the layers list is worked out */
+  const selectAllRef = useRef(() => {});
+
+  /** One step forward or back for what is selected, with whatever it holds. */
+  const stepSelectedLayers = (dir: 1 | -1) => {
+    const ids = new Set(selectedIds);
+    const units = new Set(groupsRef.current.filter((g) => g.items.some((it) => ids.has(it.id))).map((g) => g.id));
+    const all = groupsRef.current;
+    const next = stepLayers(all, units, dir, widthsRef.current, (g) => frameOfPart(g, all, framesRef.current, widthsRef.current)?.id);
+    if (next === all) return;
+    snapshotFor("layer-step:" + selectedIds.join(","));
+    next.forEach((g, i) => {
+      if (g !== all[i]) instantRef.current.add(g.id);
+    });
+    setGroups(next);
+  };
 
   /** The screen is re-rendered offscreen at 1:1 with static parts, so the
    *  canvas zoom, selection outlines and in-flight animations never leak into the PNG. */
@@ -2890,9 +2958,18 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     }
   };
 
+  /** One file per screen, one after another: there is one export layer, and browsers drop downloads
+   *  that start in the same instant. */
+  const saveAllFrameImages = async () => {
+    for (const f of framesRef.current) {
+      await saveFrameImage(f);
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  };
+
   /** the runs of one screen drawn with plain divs: the export layer */
   const renderExport = (f: Frame) => {
-    const gs = groups.filter((g) => frameOfPart(g, groups, frames, widths)?.id === f.id);
+    const gs = groups.filter((g) => frameOfPart(g, groups, frames, widths)?.id === f.id && !offTab.has(g.id));
     const { w } = frameSizeOf(f);
     const h = frameLengthOf(f);
     return (
@@ -3074,6 +3151,19 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         pasteClipboard();
         return;
       }
+      if (mod && e.key.toLowerCase() === "x") {
+        /* the same bargain as copy: highlighted text is the browser's to cut */
+        if (selectedIds.length === 0 || window.getSelection()?.toString()) return;
+        e.preventDefault();
+        copySelected();
+        deleteSelected();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        selectAllRef.current();
+        return;
+      }
       if (mod && e.key.toLowerCase() === "g") {
         e.preventDefault();
         if (e.shiftKey) ungroupSelected();
@@ -3115,6 +3205,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         return;
       }
       if (mod) return;
+      if (e.key === "]" || e.key === "[") {
+        if (selectedIds.length === 0) return;
+        e.preventDefault();
+        stepSelectedLayers(e.key === "]" ? 1 : -1);
+        return;
+      }
       if (e.key === "v" || e.key === "V") setMode("select");
       if (e.key === "h" || e.key === "H") setMode("hand");
       if (e.key === "=" || e.key === "+") setZoomAt(viewRef.current.z * 1.2);
@@ -3196,8 +3292,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   }, [setGap]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const doc: Doc = useMemo(
-    () => ({ groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette: customPalette ?? undefined, dynamicColor, theme }),
-    [groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme],
+    () => ({ groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette: customPalette ?? undefined, dynamicColor, theme, vars }),
+    [groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme, vars],
   );
   /** the same document, for callbacks that were created on an earlier render */
   const docRef = useRef(doc);
@@ -3280,9 +3376,35 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   };
   const removeLink = (linkId: string) => {
     snapshot();
-    patchLink(linkId, () => undefined);
+    /* the arrow is where it goes; what else the tap does stays */
+    patchLink(linkId, (a) => actionWithoutScreen(a, a.to));
     setSelectedLinkId(null);
   };
+
+  /** what a dock's other tabs hold: the canvas draws only the tab that is showing */
+  const offTab = useMemo(() => outOfPane(groups, widths), [groups, widths]);
+  /** what the preview starts without, with what those parts hold: drawn dimmed, so it can still be selected */
+  const startsHidden = useMemo(() => new Set(groups.filter((g) => g.hidden).flatMap((g) => [g.id, ...heldBy(g, groups, widths).map((x) => x.id)])), [groups, widths]);
+
+  /** what the panels that edit behaviour need of the document */
+  const behavior = useMemo<Behavior>(() => {
+    const group = primaryId ? (groups.find((g) => g.items.some((it) => it.id === primaryId)) ?? null) : null;
+    const screen = group ? frameOfPart(group, groups, frames, widths) : undefined;
+    return {
+      vars: vars ?? [],
+      setVars: (next) => setVars(next.length ? next : undefined),
+      groups: group ? groups.filter((g) => frameOfPart(g, groups, frames, widths)?.id === screen?.id) : [],
+      group,
+      patchGroup: (patch) => {
+        if (!group) return;
+        snapshotFor(`${group.id}:${Object.keys(patch).join(",")}`);
+        setGroups((gs) => gs.map((g) => (g.id === group.id ? { ...g, ...patch } : g)));
+      },
+      reorderPanes: (order) => {
+        if (group) setGroups((gs) => panesAfterReorder(gs, group.id, order, widthsRef.current));
+      },
+    };
+  }, [vars, primaryId, groups, frames, widths, snapshotFor]);
 
   /** which frame each run sits on (phone mode only) */
   const frameOf = useMemo(() => {
@@ -3324,6 +3446,13 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     () => (layersFrame ? groups.filter((g) => frameOf.get(g.id) === layersFrame.id) : []),
     [groups, frameOf, layersFrame],
   );
+  /* the current screen is the one the layers list; a blank canvas has only the one place */
+  selectAllRef.current = () => {
+    const on = frame === "phone" ? layerGroups : groups;
+    setSelectedIds(on.flatMap((g) => g.items.map((it) => it.id)));
+    setSelectedFrameId(null);
+    setSelectedLinkId(null);
+  };
   /** A drag in the layers panel is one undo step: the snapshot is taken when it starts,
    *  and the reorders it fires along the way record nothing more. */
   const layerDragRef = useRef(false);
@@ -3351,6 +3480,32 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, locked: !g.locked } : g)));
   };
 
+  /** flips whether a group starts the preview hidden, from its row's eye in the Layers panel */
+  const toggleGroupHidden = (id: string) => {
+    snapshot();
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== id) return g;
+        if (!g.hidden) return { ...g, hidden: true };
+        const { hidden: _shown, ...rest } = g;
+        return rest;
+      }),
+    );
+  };
+
+  /** names a group from its row in the Layers panel; no words give up the name */
+  const renameGroup = (id: string, name: string) => {
+    snapshot();
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== id) return g;
+        if (name) return { ...g, name };
+        const { name: _gone, ...rest } = g;
+        return rest;
+      }),
+    );
+  };
+
   /** The parts of one group in a new order: reading order for a group laid out along its axis,
    *  back to front for a free group. */
   const reorderGroupItems = (groupId: string, order: string[]) => {
@@ -3375,7 +3530,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           animate={{ x: g.x - ox, y: g.y - oy }}
           transition={instantG ? INSTANT : OPEN}
           /* keep any selection lift inside the group, so canvas-wide layer order is preserved */
-          style={{ position: "absolute", left: 0, top: 0, zIndex: drawnOpen(g) ? 1 : undefined, isolation: "isolate" }}
+          style={{ position: "absolute", left: 0, top: 0, zIndex: drawnOpen(g) ? 1 : undefined, isolation: "isolate", opacity: startsHidden.has(g.id) ? HIDDEN_DIM : undefined }}
         >
           {layoutOf(g, widths).map((pl) => (
             <div key={pl.item.id} style={{ position: "absolute", left: pl.x - g.x, top: pl.y - g.y }}>
@@ -3450,6 +3605,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         transition={instant ? INSTANT : hole ? GAP_TWEEN : OPEN}
         style={{
           zIndex: drawnOpen(g) ? 1 : undefined,
+          opacity: startsHidden.has(g.id) ? HIDDEN_DIM : undefined,
           position: "absolute",
           left: 0,
           top: 0,
@@ -3549,6 +3705,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   return (
     <LangContext.Provider value={lang}>
     <PartThemeContext.Provider value={partTheme}>
+    <BehaviorContext.Provider value={behavior}>
       <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
       <div
         className={`app-root${revealing ? " m3e-reveal" : ""}`}
@@ -3691,7 +3848,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
               )}
               <div style={{ height: 6 }} />
               {LEFT_TABS.map((tab, i) => (
-                <div key={tab.key} style={{ marginTop: i === 2 || i === 6 ? 10 : 0 }}>
+                <div key={tab.key} style={{ marginTop: tab.key === "color" || tab.key === "ai" ? 10 : 0 }}>
                   <IconBtn
                     icon={tab.icon}
                     p={p}
@@ -3749,6 +3906,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                     onPartPointerDown={onPartPointerDown}
                     onPartActivate={addPart}
                   />
+                ) : leftTab === "templates" ? (
+                  <TemplatesPanel p={p} onAdd={addTemplate} />
                 ) : leftTab === "color" ? (
                   <ColorPanel
                     p={p}
@@ -3792,6 +3951,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                     }}
                     onReorder={reorderLayers}
                     onToggleLock={toggleGroupLock}
+                    onToggleHidden={toggleGroupHidden}
+                    onRename={renameGroup}
                     onReorderItems={reorderGroupItems}
                     onDragging={onLayerDragging}
                   />
@@ -3933,7 +4094,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                           }}
                         >
                           {groups
-                            .filter((g) => frameOf.get(g.id) === f.id)
+                            .filter((g) => frameOf.get(g.id) === f.id && !offTab.has(g.id))
                             .map((g) => renderGroup(g, f.x, f.y, frameSizeOf(f)))}
                           {/* where the device ends on a screen that runs further: below it, the body scrolls */}
                           {h > fold && (
@@ -3980,7 +4141,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                 })}
 
               {groups
-                .filter((g) => !frameOf.has(g.id))
+                .filter((g) => !frameOf.has(g.id) && !offTab.has(g.id))
                 .map((g) => renderGroup(g, 0, 0))}
 
               {/* a lone button shows a handle on each of its four edges, and a lone icon button
@@ -4462,6 +4623,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   onPreview={() => openPreview(selectedFrame.id)}
                   prompt={buildPrompt(doc, widths, selectedFrame.id, lang)}
                   onSaveImage={() => saveFrameImage(selectedFrame)}
+                  onSaveAllImages={frames.length > 1 ? saveAllFrameImages : undefined}
                   tidy={tidyState ?? "done"}
                   onTidy={() => tidy(selectedFrame)}
                   onPlace={(pl) => setPlace(selectedFrame, pl)}
@@ -4644,6 +4806,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
             </div>
         </div>
       )}
+    </BehaviorContext.Provider>
     </PartThemeContext.Provider>
     </LangContext.Provider>
   );

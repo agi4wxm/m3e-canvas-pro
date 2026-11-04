@@ -59,6 +59,7 @@ function ColorField({ value, onChange, p, label }: { value: string; onChange: (h
       <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: p.onSurface, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
       <input
         value={text}
+        aria-label={`${label} (hex)`}
         onChange={(e) => {
           setText(e.target.value);
           if (isHex(e.target.value)) onChange(e.target.value.toUpperCase());

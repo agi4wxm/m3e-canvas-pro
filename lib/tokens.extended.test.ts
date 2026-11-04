@@ -49,7 +49,7 @@ import {
   Item,
 } from "./tokens";
 
-const part = (slug: string, props?: Record<string, unknown>): Item => ({ ...makeItem("component", slug), ...(props ? { props } : {}) });
+const part = (slug: string, props?: Record<string, unknown>): Item => ({ ...makeItem(slug), ...(props ? { props } : {}) });
 
 describe("constants", () => {
   it("key M3 dimensions match Material defaults", () => {
@@ -245,7 +245,7 @@ describe("normalizeTheme", () => {
 
 describe("makeItem", () => {
   it("produces a sane default Item per part", () => {
-    const btn = makeItem("component", "button");
+    const btn = makeItem("button");
     expect(btn.kind).toBe("component");
     expect(btn.component).toBe("button");
     expect(btn.id).toMatch(/^[0-9a-z]{8}$/);
@@ -253,7 +253,7 @@ describe("makeItem", () => {
   });
 
   it("a navigation bar comes with default destinations", () => {
-    const nav = makeItem("component", "navigation-bar");
+    const nav = makeItem("navigation-bar");
     const rows = reader(partBySlug("navigation-bar")!, nav.props).list("items");
     expect(rows).toBeDefined();
     expect(rows.length).toBeGreaterThan(0);

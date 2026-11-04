@@ -122,6 +122,7 @@ export const mobile: PartDef[] = [
       { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中项", ko: "선택" }, kind: "number", default: 2, min: 0, max: 19, step: 1 },
       { key: "width", label: "Width", kind: "number", default: 380, min: 120, max: 640, step: 4, unit: "px" },
     ],
+    selectKey: "selected",
     tree: (p) => {
       const selected = Math.round(p.n("selected"));
       return h(

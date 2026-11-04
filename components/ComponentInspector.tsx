@@ -1,12 +1,13 @@
 
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { Frame, Item, NavTab, PHONE_W, Palette, actionSlotsOf, defaultTabRows, defaultTabs, frameSizeOf, listRowsPatch } from "@/lib/tokens";
 import { t, useLang, type Lang } from "@/lib/i18n";
 import { partBySlug, reader } from "@/parts/registry";
-import { choiceLabelOf, labelOf, nameOf } from "@/parts/labels";
+import { choiceLabelOf, choiceValueOf, labelOf, nameOf } from "@/parts/labels";
 import { dpOf } from "@/parts/resize";
-import type { ListItem, PropDef, TableData } from "@/parts/types";
+import type { Choice, ListItem, PropDef, TableData } from "@/parts/types";
 import { AiHooks } from "./Inspector";
+import { BehaviorContext, BindRow, VisibilitySection } from "./EffectsPanel";
 import { AlignBox, AppearanceCorners, EntryList, FillRun, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, PositionRow, SlotStrip, Tab, TextRun, TriggerSection, WidthRows } from "./PartPanel";
 import { segmentedFits } from "@/lib/choices";
 import { Field, ImageRow, NamedSizes, PanelShell, Section, Segmented, Select, Slider, Toggle } from "./ui";
@@ -15,7 +16,7 @@ import { Field, ImageRow, NamedSizes, PanelShell, Section, Segmented, Select, Sl
  * definitions: text, choices, switches, numbers, icons and lists, each drawn with the controls
  * the other panels use, and written back into `item.props`. */
 
-const choices = (def: Extract<PropDef, { kind: "enum" }>, lang: Lang) => def.options.map((o) => ({ key: typeof o === "string" ? o : o.value, label: choiceLabelOf(o, lang) }));
+const choices = (options: Choice[], lang: Lang) => options.map((o) => ({ key: choiceValueOf(o), label: choiceLabelOf(o, lang) }));
 
 /** a list prop is edited as the rows the entry list knows: a label, and an icon when the part has them */
 const toRows = (list: ListItem[]): NavTab[] => list.map((x) => ({ icon: x.icon ?? "", label: x.label, variant: x.variant, width: x.width, image: x.image }));
@@ -38,11 +39,11 @@ function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def:
       return (
         <div>
           {label}
-          <Field value={String(value ?? "")} onChange={onChange} placeholder={labelText} p={p} multiline={def.multiline} rows={3} height={44} />
+          <Field value={String(value ?? "")} onChange={onChange} placeholder={labelText} label={labelText} p={p} multiline={def.multiline} rows={3} height={44} />
         </div>
       );
     case "enum": {
-      const options = choices(def, lang);
+      const options = choices(def.options, lang);
       /* a size of named steps carries its dp in the label and is a row of presets */
       const dps = def.key === "size" ? def.options.map(dpOf) : [];
       if (dps.length > 1 && dps.every((v): v is number => v !== undefined)) {
@@ -98,13 +99,13 @@ function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def:
       return (
         <div>
           {label}
-          <Field value={tableText(value as TableData)} onChange={(text) => onChange(tableOf(text))} placeholder={labelText} p={p} multiline rows={6} height={44} />
+          <Field value={tableText(value as TableData)} onChange={(text) => onChange(tableOf(text))} placeholder={labelText} label={labelText} p={p} multiline rows={6} height={44} />
         </div>
       );
     case "list": {
       const list = (value as ListItem[]) ?? [];
       const icons = def.icons === true;
-      /* destinations stay within a bar's bounds and add more destinations; any other list adds tabs */
+      /* a bar adds more destinations; any other list adds tabs */
       const bar = icons && (def.min ?? 0) >= 3;
       return (
         <div>
@@ -112,16 +113,12 @@ function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def:
           <EntryList
             id={item.id}
             tabs={toRows(list)}
-            bounds={bar ? { min: 3, max: 5 } : { min: 1, max: 12 }}
+            bounds={{ min: def.min ?? 1, max: def.max ?? 12 }}
             spare={bar ? defaultTabs() : defaultTabRows()}
             icons={icons}
             images={def.images === true}
-            fields={def.fields?.map((f) => ({ key: f.key, label: labelOf(f, lang), options: f.options.map((o) => ({ key: typeof o === "string" ? o : o.value, label: choiceLabelOf(o, lang) })) }))}
-            onChange={(tabs, order) => {
-              const next = fromRows(tabs, icons);
-              if (next.length < (def.min ?? 1) || next.length > (def.max ?? 12)) return;
-              onRows(next, order);
-            }}
+            fields={def.fields?.map((f) => ({ key: f.key, label: labelOf(f, lang), options: choices(f.options, lang) }))}
+            onChange={(tabs, order) => onRows(fromRows(tabs, icons), order)}
             p={p}
           />
         </div>
@@ -133,18 +130,43 @@ function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def:
 /** the controls of a part's props, one per prop the part shows in this state */
 export function ComponentProps({ item, palette: p, onChange, frame }: { item: Item; palette: Palette; onChange: (patch: Partial<Item>) => void; frame?: Frame | null }) {
   const lang = useLang();
+  const behavior = useContext(BehaviorContext);
   const def = partBySlug(item.component);
   if (!def) return null;
   const values = reader(def, item.props);
   const read = (d: PropDef) => (d.kind === "text" || d.kind === "icon" || d.kind === "enum" || d.kind === "image" ? values.s(d.key) : d.kind === "bool" ? values.b(d.key) : d.kind === "number" ? values.n(d.key) : d.kind === "table" ? values.table(d.key) : values.list(d.key));
   const set = (key: string, v: unknown) => onChange({ props: { ...item.props, [key]: v } });
+  const tabs = def.panes ? def.slots?.(values) : undefined;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {def.props
         .filter((d) => !d.when || d.when(values))
-        .map((d) => (
-          <PropRow key={d.key} def={d} value={read(d)} onChange={(v) => set(d.key, v)} onRows={(rows, order) => onChange(listRowsPatch(item, d.key, rows, order))} item={item} p={p} frameW={frame ? frameSizeOf(frame).w : PHONE_W} lang={lang} />
-        ))}
+        .map((d) =>
+          /* the tab being worked on is what the canvas shows and what a drop lands on: it is chosen by name */
+          tabs && d.key === def.selectKey ? (
+            <div key={d.key}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant, padding: "0 4px 6px" }}>{labelOf(d, lang)}</div>
+              <Select options={tabs.map((s, i) => ({ key: String(i), label: s.label }))} value={String(values.n(d.key))} onChange={(k) => set(d.key, Number(k))} p={p} label={labelOf(d, lang)} />
+            </div>
+          ) : (
+            <BindRow key={d.key} def={d} item={item} onChange={onChange} p={p}>
+              <PropRow
+                def={d}
+                value={read(d)}
+                onChange={(v) => set(d.key, v)}
+                onRows={(rows, order) => {
+                  onChange(listRowsPatch(item, d.key, rows, order));
+                  /* what stands on a tab goes with the tab */
+                  if (tabs) behavior.reorderPanes(order);
+                }}
+                item={item}
+                p={p}
+                frameW={frame ? frameSizeOf(frame).w : PHONE_W}
+                lang={lang}
+              />
+            </BindRow>
+          ),
+        )}
       {def.slug === "fab" && !!values.s("label") && !!values.s("icon") && <Toggle on={!!item.collapseOnScroll} onChange={(collapseOnScroll) => onChange({ collapseOnScroll: collapseOnScroll || undefined })} label={t("fabScrollSwitch", lang)} p={p} />}
     </div>
   );
@@ -233,6 +255,7 @@ export function ComponentInspector({
           ) : (
             <TriggerSection item={item} frame={frame} allFrames={allFrames} selfRect={selfRect} onChange={onChange} p={p} />
           )}
+          <VisibilitySection p={p} />
           <NoteSection item={item} ai={ai} onChange={onChange} p={p} />
         </div>
       )}

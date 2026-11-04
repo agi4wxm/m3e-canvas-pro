@@ -108,7 +108,7 @@ const isControl = (u: Unit) => role(u) === "control";
  * stack tighter than the row gap */
 const isListLike = (u: Unit) => role(u) === "listLike" || role(u) === "control";
 const isAnchored = (u: Unit) => isRail(u) || isTop(u) || isBottomBar(u) || isFloatingBottom(u) || isFab(u) || isOverlay(u);
-export const holdsFixedPart = (g: Group) => ["rail", "top", "bottom", "floatingBottom", "fab", "overlay"].includes(roleOf(g.items[0]) ?? "");
+const holdsFixedPart = (g: Group) => ["rail", "top", "bottom", "floatingBottom", "fab", "overlay"].includes(roleOf(g.items[0]) ?? "");
 
 /** where a unit sits horizontally, so tidying keeps a right-aligned part on the right.
  *  Judged from the edges, so a part already on the margin reads the same way after tidying. */
@@ -221,7 +221,7 @@ const railAtHead = (g: Group, frame: Frame, widths: Record<string, number>) =>
 /** a rail from the head of the screen down to the foot of the device or of the whole screen: it
  *  runs the length of the screen, and a change of length takes it along. A rail the author drew to
  *  some other height keeps it. */
-export const spansScreen = (g: Group, frame: Frame, widths: Record<string, number>) => {
+const spansScreen = (g: Group, frame: Frame, widths: Record<string, number>) => {
   if (!railAtHead(g, frame, widths)) return false;
   const b = groupBounds(g, widths).b - frame.y;
   return Math.abs(b - frameSizeOf(frame).h) <= 1 || Math.abs(b - frameLengthOf(frame)) <= 1;

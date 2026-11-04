@@ -2,6 +2,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Palette } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
+import { useDismiss } from "./ui";
 
 type IconMeta = { n: string; p: number; t: string };
 
@@ -23,15 +24,11 @@ export function IconPicker({
   onChange,
   onClose,
   palette,
-  extras = [],
 }: {
   value: string | null;
   onChange: (icon: string | null) => void;
   onClose: () => void;
   palette: Palette;
-  /** choices that are not icons but stand where one would -- a switch at the end of a list
-   *  item -- drawn beside "no icon" in the same dashed frame */
-  extras?: { icon: string; title: string }[];
 }) {
   const lang = useLang();
   const [icons, setIcons] = useState<IconMeta[] | null>(cache);
@@ -46,16 +43,7 @@ export function IconPicker({
   const refEl = useRef<HTMLSpanElement>(null);
   const probeEls = useRef<Map<string, HTMLElement>>(new Map());
 
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      // Dismiss the picker without clearing the editor's selection.
-      e.stopPropagation();
-      onClose();
-    };
-    document.addEventListener("keydown", key, true);
-    return () => document.removeEventListener("keydown", key, true);
-  }, [onClose]);
+  useDismiss(true, onClose);
 
   useEffect(() => {
     if (cache) return;
@@ -267,31 +255,6 @@ export function IconPicker({
               </svg>
             </button>
           )}
-          {!q &&
-            extras.map((x) => (
-              <button
-                key={x.icon}
-                title={x.title}
-                aria-label={x.title}
-                aria-pressed={value === x.icon}
-                onClick={() => onChange(x.icon)}
-                style={{
-                  aspectRatio: "1",
-                  minWidth: 0,
-                  display: "grid",
-                  placeItems: "center",
-                  borderRadius: 12,
-                  border: `1.5px dashed ${value === x.icon ? "transparent" : palette.outline}`,
-                  background: value === x.icon ? palette.primary : "transparent",
-                  color: value === x.icon ? palette.onPrimary : palette.onSurfaceVariant,
-                  cursor: "pointer",
-                }}
-              >
-                <span className="msr" style={{ fontSize: 22 }}>
-                  {x.icon}
-                </span>
-              </button>
-            ))}
           {visible.map((i, idx) => (
             <button
               key={i.n}

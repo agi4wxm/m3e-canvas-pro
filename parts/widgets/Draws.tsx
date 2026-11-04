@@ -5,8 +5,7 @@ import { Button } from "@/components/m3e/button";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 
-/* The prize machines of 17722797729/m3e-canvas game-ui (MIT): the same draw, six ways to watch it.
- * In the fork the draw lives in Preview.tsx and each drawing in M3Node.tsx; here each is whole.
+/* The prize machines, after 17722797729/m3e-canvas game-ui (MIT): the same draw, six ways to watch it.
  * `result` forces the outcome (a prototype often has to show one particular path); -1 draws at
  * random. Nothing here is a real lottery: the odds are even and nothing is stored. */
 

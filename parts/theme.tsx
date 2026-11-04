@@ -12,7 +12,7 @@ export type PartTheme = {
   shape: number;
 };
 
-export const DEFAULT_PART_THEME: PartTheme = { seed: "#6750A4", dark: false, contrast: "standard", shape: 1 };
+const DEFAULT_PART_THEME: PartTheme = { seed: "#6750A4", dark: false, contrast: "standard", shape: 1 };
 export const PartThemeContext = createContext<PartTheme>(DEFAULT_PART_THEME);
 export const usePartTheme = () => useContext(PartThemeContext);
 
@@ -20,7 +20,7 @@ const SCOPE = "m3-part-scope";
 
 /** The variant a seed's scheme is built with. `baseline` is M3's static purple whatever the seed,
  *  so any other seed needs a variant that reads it; codegen prints the same choice. */
-export const variantOfSeed = (seed: string) => (seed.toUpperCase() === BASELINE_SEED ? "baseline" : "tonalSpot");
+const variantOfSeed = (seed: string) => (seed.toUpperCase() === BASELINE_SEED ? "baseline" : "tonalSpot");
 
 /** The scheme's CSS variables for every part. Rendered once. */
 export function PartThemeStyle({ seed, contrast }: Pick<PartTheme, "seed" | "contrast">) {

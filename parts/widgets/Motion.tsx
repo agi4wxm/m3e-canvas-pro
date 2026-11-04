@@ -10,7 +10,7 @@ import { WidgetIcon } from "./WidgetIcon";
 /* What moves over time or under a finger. On the canvas a part is a drawing, so nothing here runs
  * under `inert`; and it holds still when the system asks for reduced motion. After flutter_shadcn_kit's
  * number ticker, overflow marquee and refresh trigger, the web components' slide group and swipe reveal,
- * Android's chronometer, and the audio player forks ask for. */
+ * and Android's chronometer. */
 
 const still = (el: Element | null) => !!el?.closest("[inert]") || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 

@@ -6,6 +6,32 @@ import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react
 import { t, useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
 
+/** Closes what is open: on Escape, which goes no further (the editor also clears its selection on
+ *  it), and, given what counts as inside, on a press anywhere else. Both are heard on their way down,
+ *  so nothing on the page can stop a press from closing it. */
+export function useDismiss(active: boolean, close: (by: "escape" | "press") => void, inside?: React.RefObject<HTMLElement | null>[]) {
+  const latest = useRef({ close, inside });
+  latest.current = { close, inside };
+  useEffect(() => {
+    if (!active) return;
+    const onDown = (e: PointerEvent) => {
+      const { close, inside } = latest.current;
+      if (inside && !inside.some((r) => r.current?.contains(e.target as Node))) close("press");
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      latest.current.close("escape");
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, [active]);
+}
+
 /** the row of tabs and the clear gap under it, and the band a panel with no tabs fades its top with */
 const PANEL_TABS_H = 48;
 const PANEL_TABS_GAP = 16;
@@ -311,7 +337,7 @@ export function IconBtn({
   );
 }
 
-export type SegOption<K extends string> = {
+type SegOption<K extends string> = {
   key: K;
   icon?: string;
   label?: string;
@@ -513,25 +539,8 @@ export function Select({
     if (!open || !placed) return;
     /* focus goes to the chosen entry, so the arrow keys start from where the list does */
     (list.current?.querySelector('[aria-selected="true"]') as HTMLElement | null)?.focus();
-    const onDown = (e: PointerEvent) => {
-      const target = e.target as Node;
-      if (box.current?.contains(target) || list.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        setOpen(false);
-        trigger.current?.focus();
-      }
-    };
-    window.addEventListener("pointerdown", onDown, true);
-    window.addEventListener("keydown", onKey, true);
-    return () => {
-      window.removeEventListener("pointerdown", onDown, true);
-      window.removeEventListener("keydown", onKey, true);
-    };
   }, [open, placed]);
+  useDismiss(open && placed, (by) => (by === "escape" ? close() : setOpen(false)), [box, list]);
   /* the arrow keys walk the entries, Home and End jump to either end */
   const onListKey = (e: React.KeyboardEvent) => {
     const items = Array.from(list.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? []);
@@ -653,16 +662,14 @@ export function Select({
 
 /** how wide the band is that a field wears while a model writes into it */
 const RING = 3;
-/** the room a control standing inside a field takes */
-const LEAD_W = 32;
 
 export function Field({
   value,
   onChange,
   placeholder,
+  label,
   p,
   icon,
-  leading,
   multiline,
   rows = 3,
   grow,
@@ -676,10 +683,10 @@ export function Field({
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  /** what the field is for, for a screen reader; the placeholder when left out */
+  label?: string;
   p: Palette;
   icon?: string;
-  /** a control standing inside the field after its mark, the words starting after it */
-  leading?: React.ReactNode;
   multiline?: boolean;
   rows?: number;
   /** a control that joins the clear button in a run pinned over the bottom right of a multiline
@@ -842,8 +849,8 @@ export function Field({
    * button takes a column of its own at the trailing edge */
   const pinned = !!(multiline && action);
   const padRight = !pinned && filled ? 40 : 14;
-  /* the words start after the mark, and after whatever stands beside it */
-  const padLeft = (icon ? 42 : 14) + (leading ? LEAD_W : 0);
+  /* the words start after the mark */
+  const padLeft = icon ? 42 : 14;
   /* as tall as the fade, so the line being typed always sits clear of it */
   const padBottom = pinned ? 40 : 12;
   /* one cell of the pinned run: a faint plate behind the button, rounded on the outer side only */
@@ -946,9 +953,6 @@ export function Field({
           <Icon name={icon} size={20} />
         </span>
       )}
-      {leading && (
-        <span style={{ position: "absolute", left: icon ? 36 : 6, top: (height - LEAD_W) / 2, width: LEAD_W, height: LEAD_W, display: "grid", placeItems: "center", zIndex: 1 }}>{leading}</span>
-      )}
       {multiline ? (
         <textarea
           ref={areaRef}
@@ -958,6 +962,7 @@ export function Field({
           onChange={(e) => onChange(grow ? e.target.value.replace(/[\r\n]+/g, " ") : e.target.value)}
           onKeyDown={grow ? (e) => { if (e.key === "Enter") e.preventDefault(); } : undefined}
           placeholder={placeholder}
+          aria-label={label ?? placeholder}
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
           onFocus={() => {
@@ -978,6 +983,7 @@ export function Field({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          aria-label={label ?? placeholder}
           aria-invalid={invalid || undefined}
           aria-describedby={describedBy}
           style={{ ...base, height, position: "relative" }}
@@ -1013,10 +1019,8 @@ export function Field({
 
 /** Slider with a typed-in number beside it. The slider moves in `step`s; the
  *  field accepts any whole number and is clamped to min..max when it commits. */
-/** A rectangle whose top or bottom corners are rounded: the corner-radius slider icons. */
 export function Slider({
   icon = "tune",
-  iconNode,
   value,
   min,
   max,
@@ -1027,8 +1031,6 @@ export function Slider({
   title,
 }: {
   icon?: string;
-  /** custom glyph shown instead of the Material Symbol */
-  iconNode?: React.ReactNode;
   value: number;
   min: number;
   max: number;
@@ -1102,7 +1104,7 @@ export function Slider({
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       <span title={title} style={{ color: p.onSurfaceVariant, lineHeight: 1, flex: "0 0 auto", display: "inline-flex" }}>
-        {iconNode ?? <Icon name={icon} size={20} />}
+        <Icon name={icon} size={20} />
       </span>
       <input
         type="range"
@@ -1217,7 +1219,7 @@ export function NamedSizes({
 /** the longest side a picked picture is kept at: enough for a sketch, small enough to save */
 const MAX_IMAGE_PX = 1200;
 
-export function readImage(file: File): Promise<string> {
+function readImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -1245,7 +1247,7 @@ export function readImage(file: File): Promise<string> {
 
 /** A text field for a web address: what is typed stays in the box, and only a complete
  *  http(s) address (or an emptied box) reaches the part. */
-export function UrlField({ value, onChange, placeholder, p }: { value: string; onChange: (src: string | undefined) => void; placeholder: string; p: Palette }) {
+function UrlField({ value, onChange, placeholder, p }: { value: string; onChange: (src: string | undefined) => void; placeholder: string; p: Palette }) {
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
   return (
@@ -1385,19 +1387,14 @@ export function Section({
   title,
   p,
   children,
-  right,
   defaultOpen = true,
-  onToggle,
 }: {
   id: string;
   icon: string;
   title: string;
   p: Palette;
   children: React.ReactNode;
-  right?: React.ReactNode;
   defaultOpen?: boolean;
-  /** called after the user opens or collapses the section by hand */
-  onToggle?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   useEffect(() => {
@@ -1412,7 +1409,6 @@ export function Section({
       localStorage.setItem(`m3e:sec:${id}`, next ? "1" : "0");
     } catch {}
     setOpen(next);
-    onToggle?.(next);
   };
   return (
     <div style={{ marginBottom: 10 }}>
@@ -1442,7 +1438,6 @@ export function Section({
           <span style={{ flex: 1 }}>{title}</span>
           <Icon name={open ? "expand_less" : "expand_more"} size={18} />
         </button>
-        {right}
       </div>
       {open && <div style={{ padding: "6px 4px 14px" }}>{children}</div>}
     </div>
@@ -1457,8 +1452,6 @@ export function Tile({
   onClick,
   starred,
   onStar,
-  active,
-  compact,
 }: {
   icon: string;
   label: string;
@@ -1467,8 +1460,6 @@ export function Tile({
   onClick?: () => void;
   starred?: boolean;
   onStar?: () => void;
-  active?: boolean;
-  compact?: boolean;
 }) {
   const lang = useLang();
   return (
@@ -1495,29 +1486,29 @@ export function Tile({
           font: "inherit",
           outlineColor: p.primary,
           display: "flex",
-          flexDirection: compact ? "row" : "column",
+          flexDirection: "column",
           alignItems: "center",
-          justifyContent: compact ? "flex-start" : "center",
-          gap: compact ? 10 : 6,
-          padding: compact ? "8px 12px" : "12px 6px 10px",
+          justifyContent: "center",
+          gap: 6,
+          padding: "12px 6px 10px",
           borderRadius: 16,
-          background: active ? p.secondaryContainer : p.surfaceContainerLow,
-          color: active ? p.onSecondaryContainer : p.onSurface,
+          background: p.surfaceContainerLow,
+          color: p.onSurface,
           cursor: onPointerDown ? "grab" : "pointer",
           userSelect: "none",
           touchAction: "none",
-          minHeight: compact ? 40 : 72,
+          minHeight: 72,
           boxSizing: "border-box",
         }}
       >
-        <Icon name={icon} size={compact ? 20 : 26} color={active ? p.onSecondaryContainer : p.primary} />
+        <Icon name={icon} size={26} color={p.primary} />
         <span
           style={{
             fontSize: 11,
             fontWeight: 500,
             lineHeight: 1.2,
             textAlign: "center",
-            color: active ? p.onSecondaryContainer : p.onSurfaceVariant,
+            color: p.onSurfaceVariant,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -1562,7 +1553,6 @@ export function Tile({
   );
 }
 
-/** M3 basic dialog for a destructive confirmation. */
 /** A run of buttons fused like the canvas's connected buttons: round outside, small corners where they meet. */
 export function ButtonRun({ children }: { children: React.ReactNode }) {
   return <div className="m3-run" style={{ display: "flex", gap: 3 }}>{children}</div>;
@@ -1594,25 +1584,7 @@ export function TidyButton({
   const label = state === "undo" ? t("tidyUndo", lang) : state === "done" ? t("tidyDone", lang) : t("tidy", lang);
   const [menu, setMenu] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  /* the menu closes on a tap anywhere else or on Escape */
-  useEffect(() => {
-    if (!menu) return;
-    const away = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setMenu(false);
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      /* the editor also clears its selection on Escape; closing the menu is enough here */
-      e.stopPropagation();
-      setMenu(false);
-    };
-    document.addEventListener("pointerdown", away, true);
-    document.addEventListener("keydown", key, true);
-    return () => {
-      document.removeEventListener("pointerdown", away, true);
-      document.removeEventListener("keydown", key, true);
-    };
-  }, [menu]);
+  useDismiss(menu, () => setMenu(false), [ref]);
   const split = !!onPlace;
   const current = place ?? "top";
   const placeLabel = (k: Place) => t(k === "top" ? "placeTop" : k === "center" ? "placeCenter" : k === "bottom" ? "placeBottom" : "placeSpread", lang);
@@ -1730,6 +1702,7 @@ export function TidyButton({
   );
 }
 
+/** M3 basic dialog for a destructive confirmation. */
 export function ConfirmDialog({
   open,
   title,

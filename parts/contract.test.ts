@@ -120,7 +120,7 @@ describe("every part", () => {
 
   it("survives a save and an open with its values", () => {
     for (const d of PARTS) {
-      const item = { ...makeItem("component", d.slug), props: defaultValues(d) };
+      const item = { ...makeItem(d.slug), props: defaultValues(d) };
       const doc = { groups: [{ id: "g", x: 0, y: 0, axis: "x", items: [item] }], frames: [{ id: "f", name: "F", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "", brief: "" } as Doc;
       const back = JSON.parse(JSON.stringify(doc));
       expect(isProject(back), d.slug).toBe(true);

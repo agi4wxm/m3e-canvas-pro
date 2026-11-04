@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Doc, Palette } from "@/lib/tokens";
 import { shareLink } from "@/lib/share";
 import { Icon } from "./Icon";
+import { useDismiss } from "./ui";
 import { t, useLang } from "@/lib/i18n";
 
 const BASE = import.meta.env.VITE_BASE_PATH ?? "";
@@ -81,22 +82,12 @@ export function ShareDialog({
     const id = setTimeout(() => setCopied(null), copied === "ask" ? 4000 : 1400);
     return () => clearTimeout(id);
   }, [copied]);
-  /* a fresh dialog starts without a "copied" mark; kept apart from the key handler, whose
-     onClose changes identity on every render of the page */
+  /* a fresh dialog starts without a "copied" mark */
   useEffect(() => {
     if (open) setCopied(null);
   }, [open]);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onClose]);
+  /* a press outside lands on the scrim, which closes it on its own */
+  useDismiss(open, onClose);
 
   const copyAsk = async () => {
     const text = t("askAiText", lang).replace("{url}", guideUrl()).replace("{idea}", idea.trim() || t("askAiIdeaFallback", lang));
@@ -192,6 +183,7 @@ export function ShareDialog({
               value={idea}
               onChange={(e) => onIdea(e.target.value)}
               placeholder={t("askAiIdea", lang)}
+              aria-label={t("askAiIdea", lang)}
               rows={4}
               autoFocus
               spellCheck={false}

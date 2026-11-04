@@ -1,4 +1,4 @@
-import { h, ic } from "../node";
+import { h, ic, listSlots } from "../node";
 import type { Labels, ListItem, P, PartDef, PartSlot, PropDef, TableData } from "../types";
 
 /* The parts whole kinds of app are built from and nothing else here could say: a shop's cards and
@@ -131,7 +131,6 @@ const rowsOf = (p: P, key = "data") => p.table(key).rows;
 const words = (items: ListItem[]) => items.map((x) => x.label);
 const withIcons = (items: ListItem[]) => items.map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}) }));
 const rowSlots = (rows: string[][], column = 0): PartSlot[] => rows.map((r, i) => ({ key: `tab:${i}`, label: r[column] || `${i + 1}` }));
-const itemSlots = (items: ListItem[]): PartSlot[] => items.map((it, i) => ({ key: `tab:${i}`, label: it.label || `${i + 1}`, icon: it.icon }));
 const slot = (key: string, label: string, ...on: boolean[]): PartSlot[] => (on.every(Boolean) ? [{ key, label }] : []);
 
 export const app: PartDef[] = [
@@ -246,7 +245,7 @@ export const app: PartDef[] = [
       text("done", "When pressed", "", ""),
       WIDTH(412, 240, 1280),
     ],
-    slots: (p) => [...itemSlots(p.list("icons")), ...slot("action", p.s("action") || "Action", !!p.s("action"))],
+    slots: (p) => [...listSlots(p.list("icons")), ...slot("action", p.s("action") || "Action", !!p.s("action"))],
     tree: (p) => h("CheckoutBar", { label: p.s("label"), amount: p.s("amount"), note: p.s("note"), icons: withIcons(p.list("icons")), action: p.s("action"), done: p.s("done"), width: px(p) }),
   },
 
@@ -269,7 +268,7 @@ export const app: PartDef[] = [
       flag("hidden", "Hide the amount", false),
       WIDTH(380, 240, 800),
     ],
-    slots: (p) => itemSlots(p.list("actions")),
+    slots: (p) => listSlots(p.list("actions")),
     tree: (p) => h("BalanceCard", { title: p.s("title"), amount: p.s("amount"), change: p.s("change"), actions: withIcons(p.list("actions")), hidden: p.b("hidden"), width: px(p) }),
   },
   {
@@ -348,7 +347,7 @@ export const app: PartDef[] = [
       flag("following", "Following", false),
       WIDTH(380, 240, 800),
     ],
-    slots: (p) => [...itemSlots(p.list("stats")), ...slot("action", p.s("action") || "Action", !!p.s("action"))],
+    slots: (p) => [...listSlots(p.list("stats")), ...slot("action", p.s("action") || "Action", !!p.s("action"))],
     tree: (p) => h("ProfileHeader", { cover: p.s("cover"), showCover: p.b("showCover"), avatar: p.s("avatar"), name: p.s("name"), bio: p.s("bio"), stats: words(p.list("stats")), action: p.s("action"), done: p.s("done"), following: p.b("following"), width: px(p) }),
   },
   {
@@ -496,7 +495,7 @@ export const app: PartDef[] = [
     w: 380,
     h: 96,
     props: [list("items", "Items", [{ label: "Your story" }, { label: "Ada" }, { label: "Grace" }, { label: "Alan" }, { label: "Katherine" }, { label: "Linus" }], 30), flag("add", "Add button first", true), WIDTH(380, 160, 1280)],
-    slots: (p) => itemSlots(p.list("items")),
+    slots: (p) => listSlots(p.list("items")),
     tree: (p) => h("StoryRow", { items: words(p.list("items")), add: p.b("add"), width: px(p) }),
   },
   {
@@ -932,7 +931,7 @@ export const app: PartDef[] = [
       text("badge", "Mark words", "New", "新"),
       WIDTH(380, 160, 960),
     ],
-    slots: (p) => itemSlots(p.list("items")),
+    slots: (p) => listSlots(p.list("items")),
     tree: (p) => h("IconGrid", { items: p.list("items").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}), ...(x.variant ? { mark: x.variant } : {}) })), columns: px(p, "columns"), badge: p.s("badge"), width: px(p) }),
   },
   {
@@ -1009,7 +1008,7 @@ export const app: PartDef[] = [
     w: 380,
     h: 40,
     props: [icon("icon", "Icon", "campaign"), list("items", "Notices", [{ label: "Free delivery on orders over $50 this week." }, { label: "Maintenance on Sunday from 02:00 to 04:00." }, { label: "New: pay with your phone at checkout." }], 12), num("seconds", "Seconds each", 3, 1, 30), flag("closable", "Close button", true), WIDTH(380, 160, 1280)],
-    slots: (p) => itemSlots(p.list("items")),
+    slots: (p) => listSlots(p.list("items")),
     tree: (p) => h("NoticeBar", { icon: p.s("icon"), items: words(p.list("items")), seconds: px(p, "seconds"), closable: p.b("closable"), width: px(p) }),
   },
 

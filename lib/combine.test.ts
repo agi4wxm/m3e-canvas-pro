@@ -21,7 +21,7 @@ const frame: Frame = { id: "f", name: "Home", x: 0, y: 0 };
 /** every button is 96 x 40 until it is measured */
 const widths: Record<string, number> = {};
 
-const button = (id: string, props: Record<string, unknown> = {}, patch: Partial<Item> = {}): Item => ({ ...makeItem("component", "button"), id, props, ...patch });
+const button = (id: string, props: Record<string, unknown> = {}, patch: Partial<Item> = {}): Item => ({ ...makeItem("button"), id, props, ...patch });
 const at = (id: string, x: number, y: number, it: Item, extra: Partial<Group> = {}): Group => ({ id, x, y, axis: "x", items: [it], ...extra });
 
 describe("combineButtons", () => {
@@ -74,7 +74,7 @@ describe("combineButtons", () => {
   });
 
   it("does not reach across a part that stands between two buttons", () => {
-    const groups = [at("g1", 16, 100, button("a")), at("g3", 114, 100, makeItem("component", "separator")), at("g2", 120, 100, button("b"))];
+    const groups = [at("g1", 16, 100, button("a")), at("g3", 114, 100, makeItem("separator")), at("g2", 120, 100, button("b"))];
     expect(combineButtons(groups, frame, [frame], widths)).toBeNull();
   });
 

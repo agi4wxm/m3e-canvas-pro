@@ -1,10 +1,21 @@
 import { describe, it, expect } from "vitest";
 
 import { DEFAULT_THEME, PALETTES, Palette, paletteOf } from "./tokens";
-import { contrastRatio, hexToRgb, isHex, onColorFor, rgbToHex, rgbToLab, schemeFromSeed } from "./color";
+import { hexToRgb, isHex, onColorFor, rgbToHex, rgbToLab, schemeFromSeed } from "./color";
 
 /** perceptual lightness of a hex color, for readable-contrast assertions */
 const toneOf = (hex: string) => rgbToLab(...hexToRgb(hex)!).L;
+
+/** WCAG contrast of two opaque sRGB colors; nothing but these assertions needs it */
+const contrastRatio = (a: string, b: string) => {
+  const luminance = (hex: string) => {
+    const [r, g, b] = hexToRgb(hex)!.map((c) => (c / 255 <= 0.04045 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const x = luminance(a);
+  const y = luminance(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+};
 
 describe("isHex", () => {
   it("accepts a six-digit hex color with a leading #", () => {
@@ -96,15 +107,8 @@ describe("secondary palette role", () => {
     }
   });
 
-  it("fills old custom palettes without changing their existing colors", () => {
-    const { secondary: _secondary, ...saved } = { ...PALETTES[0], key: "custom" };
-    const before = structuredClone(saved);
-    const p = paletteOf("custom", saved as Palette);
-    expect(isHex(p.secondary)).toBe(true);
-    const { secondary: _generated, ...rest } = p;
-    expect(rest).toEqual(before);
-    expect(saved).toEqual(before);
-    const custom = { ...p, secondary: "#123456" };
+  it("leaves a custom scheme's own secondary alone", () => {
+    const custom: Palette = { ...PALETTES[0], key: "custom", secondary: "#123456" };
     expect(paletteOf("custom", custom)).toBe(custom);
   });
 });
