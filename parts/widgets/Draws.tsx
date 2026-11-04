@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/m3e/button";
+import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 
 /* The prize machines of 17722797729/m3e-canvas game-ui (MIT): the same draw, six ways to watch it.
@@ -56,8 +58,6 @@ function Result({ prize }: { prize?: Prize }) {
   );
 }
 
-const go = "bg-primary text-on-primary text-label-large rounded-full px-4 py-2 disabled:opacity-60";
-
 export function Wheel({ prizes = [], label = "", result = -1, size = 220 }: DrawProps) {
   const { phase, won, start, prize } = useDraw(prizes, result);
   const sweep = 360 / Math.max(1, prizes.length);
@@ -75,9 +75,9 @@ export function Wheel({ prizes = [], label = "", result = -1, size = 220 }: Draw
           ))}
         </div>
         <span className="border-t-primary absolute -top-1 left-1/2 -translate-x-1/2 border-x-8 border-t-12 border-x-transparent" />
-        <button type="button" className={`${go} absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2`} disabled={phase === "running"} onClick={start}>
+        <Button variant="filled" size="xs" className="absolute! top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" disabled={phase === "running"} onClick={start}>
           {label}
-        </button>
+        </Button>
       </div>
       <Result prize={prize} />
     </div>
@@ -97,9 +97,9 @@ export function GridWheel({ prizes = [], label = "", result = -1, size = 240 }: 
         {Array.from({ length: 9 }, (_, cell) => {
           if (cell === 4)
             return (
-              <button key={cell} type="button" className={`${go} rounded-md px-1`} disabled={phase === "running"} onClick={start}>
+              <Button key={cell} variant="filled" size="xs" className="h-full! w-full rounded-md! px-1" disabled={phase === "running"} onClick={start}>
                 {label}
-              </button>
+              </Button>
             );
           const at = RING.indexOf(cell);
           const p = shown[at];
@@ -126,9 +126,9 @@ export function Gacha({ prizes = [], label = "", result = -1, size = 170 }: Draw
           <span key={i} className={`aspect-square rounded-full ${["bg-primary-container", "bg-secondary-container", "bg-tertiary-container"][i % 3]}`} />
         ))}
       </div>
-      <button type="button" className={go} disabled={phase === "running"} onClick={start}>
+      <Button variant="filled" size="xs" disabled={phase === "running"} onClick={start}>
         {label}
-      </button>
+      </Button>
       <Result prize={prize} />
     </div>
   );
@@ -149,9 +149,9 @@ export function SlotMachine({ prizes = [], label = "", result = -1, size = 280 }
           );
         })}
       </div>
-      <button type="button" className={go} disabled={phase === "running"} onClick={start}>
+      <Button variant="filled" size="xs" disabled={phase === "running"} onClick={start}>
         {label}
-      </button>
+      </Button>
       <Result prize={prize} />
     </div>
   );
@@ -165,9 +165,9 @@ export function MoneyTree({ prizes = [], label = "", result = -1, size = 190 }: 
       <div className="text-primary" style={{ transform: `rotate(${sway}deg)`, transformOrigin: "bottom center" }}>
         <WidgetIcon name="park" className="size-24" />
       </div>
-      <button type="button" className={go} disabled={phase === "running"} onClick={start}>
+      <Button variant="filled" size="xs" disabled={phase === "running"} onClick={start}>
         {label}
-      </button>
+      </Button>
       <Result prize={prize} />
     </div>
   );
@@ -181,9 +181,8 @@ export function EggSmash({ prizes = [], label = "", result = -1, size = 260 }: D
       {label && <div className="text-title-small text-on-surface">{label}</div>}
       <div className="flex w-full justify-around">
         {[0, 1, 2].map((egg) => (
-          <button
+          <Tap
             key={egg}
-            type="button"
             aria-label={`${label} ${egg + 1}`}
             disabled={phase !== "idle"}
             className={`h-20 w-16 rounded-[50%_50%_50%_50%/60%_60%_40%_40%] ${chosen === egg && phase !== "idle" ? "bg-outline-variant" : "bg-tertiary-container"}`}

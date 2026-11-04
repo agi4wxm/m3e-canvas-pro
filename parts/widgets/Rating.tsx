@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Tap } from "./Tap";
 
 /* A row of stars. Marked up as radio buttons so a keyboard and a screen reader can use it. */
 export function Rating({ value = 0, count = 5, readOnly = false }: { value?: number; count?: number; readOnly?: boolean }) {
@@ -8,9 +9,8 @@ export function Rating({ value = 0, count = 5, readOnly = false }: { value?: num
       {Array.from({ length: count }, (_, i) => {
         const on = i < score;
         return (
-          <button
+          <Tap
             key={i}
-            type="button"
             role="radio"
             aria-checked={i + 1 === score}
             aria-label={`${i + 1}`}
@@ -19,7 +19,7 @@ export function Rating({ value = 0, count = 5, readOnly = false }: { value?: num
             onClick={() => setScore(i + 1)}
           >
             ★
-          </button>
+          </Tap>
         );
       })}
     </div>

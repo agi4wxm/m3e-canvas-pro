@@ -8,6 +8,7 @@ import { navigation } from "./defs/navigation";
 import { pickers } from "./defs/pickers";
 import { selection } from "./defs/selection";
 import { textInputs } from "./defs/text-inputs";
+import { additions } from "./defs/additions";
 import { containers } from "./defs/containers";
 import { controls } from "./defs/controls";
 import { data } from "./defs/data";
@@ -25,7 +26,7 @@ import { getLang, type Lang } from "../lib/i18n";
 export const CATEGORIES = ["Actions", "Text inputs", "Selection", "Navigation", "Overlays", "Feedback", "Layout", "Data", "Media", "Chat", "Game"] as const;
 export type PartCategory = (typeof CATEGORIES)[number];
 
-export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile];
+export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions];
 
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);

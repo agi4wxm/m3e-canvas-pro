@@ -140,9 +140,9 @@ export const containment: PartDef[] = [
       { key: "description", label: "Supporting text", kind: "text", default: "12 new messages" },
       { key: "variant", label: "Variant", kind: "enum", default: "default", options: ["default", "outline", "muted", "segmented"] },
       { key: "size", label: "Size", kind: "enum", default: "default", options: ["default", "sm", "xs"] },
-      { key: "trailing", label: "Trailing", kind: "enum", default: "none", options: ["none", "icon", "switch", "text"] },
+      { key: "trailing", label: "Trailing", kind: "enum", default: "none", options: ["none", "icon", "switch", "checkbox", "radio", "slider", "text"] },
       { key: "trailingIcon", label: "Trailing icon", kind: "icon", default: "chevron_right", when: (p) => p.s("trailing") === "icon" },
-      { key: "checked", label: "Switch on", kind: "bool", default: false, when: (p) => p.s("trailing") === "switch" },
+      { key: "checked", label: "Switch on", kind: "bool", default: false, when: (p) => ["switch", "checkbox", "radio"].includes(p.s("trailing")) },
       { key: "trailingText", label: "Trailing text", labels: { ja: "末尾のテキスト", zh: "末尾文字", ko: "끝 텍스트" }, kind: "text", default: "2.4.1", when: (p) => p.s("trailing") === "text" },
       { key: "width", label: "Width", kind: "number", default: 280, min: 160, max: 520, step: 4, unit: "px" },
     ],
@@ -152,7 +152,13 @@ export const containment: PartDef[] = [
       const end =
         trailing === "switch"
           ? h("ItemActions", null, h("Switch", { defaultChecked: p.b("checked") || undefined }))
-          : trailing === "icon" && p.s("trailingIcon")
+          : trailing === "checkbox"
+            ? h("ItemActions", null, h("Checkbox", { defaultChecked: p.b("checked") || undefined }))
+            : trailing === "radio"
+              ? h("ItemActions", null, h("RadioGroup", { defaultValue: p.b("checked") ? "on" : undefined }, h("RadioGroupItem", { value: "on" })))
+              : trailing === "slider"
+                ? h("ItemActions", { className: "w-32" }, h("Slider", { defaultValue: [50] }))
+                : trailing === "icon" && p.s("trailingIcon")
             ? h("ItemActions", null, h("Button", { variant: "text", size: "icon", "aria-label": "Open" }, ic(p.s("trailingIcon"))))
             : trailing === "text" && p.s("trailingText")
               ? h("ItemActions", null, h("span", { className: "text-body-medium text-on-surface-variant" }, p.s("trailingText")))

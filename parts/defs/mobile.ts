@@ -47,7 +47,7 @@ export const mobile: PartDef[] = [
       { key: "label", label: "Label", kind: "text", default: "Continue", defaults: { zh: "继续" } },
       { key: "width", label: "Width", kind: "number", default: 380, min: 120, max: 800, step: 4, unit: "px" },
     ],
-    tree: (p) => h("button", { type: "button", "data-slot": "brand-button", className: "bg-inverse-surface text-inverse-on-surface text-label-large h-12 rounded-lg", style: { width: Math.round(p.n("width")) } }, p.s("label")),
+    tree: (p) => h("Button", { variant: "filled", "data-slot": "brand-button", className: "bg-inverse-surface text-inverse-on-surface", style: { width: Math.round(p.n("width")) } }, p.s("label")),
   },
   {
     slug: "action-sheet",
@@ -72,9 +72,9 @@ export const mobile: PartDef[] = [
           "div",
           { className: "bg-surface-container-high divide-outline-variant flex flex-col divide-y overflow-hidden rounded-2xl" },
           h("div", { className: "p-3 text-center" }, h("div", { className: "text-label-large text-on-surface" }, p.s("title")), p.s("message") && h("div", { className: "text-body-small text-on-surface-variant" }, p.s("message"))),
-          ...p.list("actions").map((a) => h("button", { type: "button", className: "text-body-large text-primary py-3" }, a.label)),
+          ...p.list("actions").map((a) => h("Button", { variant: "text", className: "w-full rounded-none" }, a.label)),
         ),
-        p.s("cancel") && h("button", { type: "button", className: "bg-surface-container-high text-label-large text-primary rounded-2xl py-3" }, p.s("cancel")),
+        p.s("cancel") && h("Button", { variant: "tonal", className: "w-full" }, p.s("cancel")),
       ),
   },
   {
@@ -99,7 +99,7 @@ export const mobile: PartDef[] = [
         h("div", { className: "text-title-large text-on-surface" }, p.s("title")),
         p.s("description") && h("div", { className: "text-body-medium text-on-surface-variant" }, p.s("description")),
         ...p.list("plans").map((plan) => h("div", { className: "border-outline-variant text-body-large text-on-surface rounded-xl border p-3" }, plan.label)),
-        p.s("action") && h("button", { type: "button", className: "bg-primary text-on-primary text-label-large rounded-full py-2" }, p.s("action")),
+        p.s("action") && h("Button", { variant: "filled", className: "w-full" }, p.s("action")),
       ),
   },
   {

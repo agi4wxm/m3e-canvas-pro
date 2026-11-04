@@ -38,6 +38,7 @@ export const containers: PartDef[] = [
       { key: "fill", label: "Fill", labels: { ja: "塗り", zh: "填充", ko: "채우기" }, kind: "enum", default: "surface-container-low", options: FILLS },
       { key: "border", label: "Border", labels: { ja: "枠線", zh: "边框", ko: "테두리" }, kind: "enum", default: "dashed", options: Object.keys(BORDER) },
       { key: "radius", label: "Corner", labels: { ja: "角丸", zh: "圆角", ko: "모서리" }, kind: "number", default: 12, min: 0, max: 48, step: 2, unit: "px" },
+        { key: "blur", label: "Background blur", labels: { ja: "背景のぼかし", zh: "背景模糊", ko: "배경 흐림" }, kind: "number", default: 0, min: 0, max: 40, step: 1, unit: "px" },
     ],
     (p) =>
       h(
@@ -45,7 +46,7 @@ export const containers: PartDef[] = [
         {
           "data-slot": "layout-container",
           className: `flex flex-col gap-1 overflow-hidden p-4 ${p.s("place") === "start" ? "items-start justify-start" : "items-center justify-center"} ${BORDER[p.s("border")] ?? ""}`,
-          style: { ...box(p), borderRadius: Math.round(p.n("radius")), background: p.s("fill") === "none" ? undefined : `var(--md-sys-color-${p.s("fill")})` },
+          style: { ...box(p), borderRadius: Math.round(p.n("radius")), background: p.s("fill") === "none" ? undefined : `var(--md-sys-color-${p.s("fill")})`, backdropFilter: p.n("blur") > 0 ? `blur(${Math.round(p.n("blur"))}px)` : undefined },
         },
         p.s("label") && h("div", { className: `truncate ${p.s("place") === "start" ? "text-title-small text-on-surface" : "text-label-large text-on-surface-variant"}` }, p.s("label")),
         p.s("note") && h("div", { className: "text-body-small text-on-surface-variant truncate" }, p.s("note")),

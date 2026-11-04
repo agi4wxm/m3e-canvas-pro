@@ -102,6 +102,27 @@ describe("every part", () => {
   });
 });
 
+describe("one way of writing a part", () => {
+  const widgets = sourceFiles("widgets");
+  const defs = sourceFiles("defs");
+
+  it("presses through Button or Tap, never a bare control", () => {
+    for (const { name, text } of widgets) {
+      if (name !== "Tap.tsx") expect(text, name).not.toMatch(/<button\b/);
+      /* a file picker and a color well have no M3E counterpart: the browser's own is the control */
+      if (name !== "ColorField.tsx" && name !== "Inputs.tsx") expect(text, name).not.toMatch(/<(input|select|textarea)\b/);
+    }
+    for (const { name, text } of defs) expect(text, name).not.toMatch(/h\("(button|input|select|textarea)"/);
+  });
+
+  it("colors by theme role, so a theme reaches every part", () => {
+    /* words over a photo: its scrim and ink are the one place no theme role can answer for */
+    const overPhoto = (text: string) => text.replace(/const SCRIM = \{[\s\S]*?\} as const;/, "").replace(/const (ink|body) = bg \? \(src \? "text-white[^\n]*/g, "");
+    for (const { name, text } of [...widgets, ...defs]) expect(overPhoto(text), name).not.toMatch(/\b(text|bg|border|fill|stroke)-(white|black|gray|red|green|blue|yellow|slate|zinc|neutral|stone)\b|\b(text|bg|border)-\[#/);
+    for (const { name, text } of widgets) if (!["ColorField.tsx", "Inputs.tsx"].includes(name)) expect(text, name).not.toMatch(/#[0-9a-fA-F]{6}\b/);
+  });
+});
+
 describe("the widgets", () => {
   it("are all used by a part", () => {
     const used = new Set(PARTS.flatMap((d) => [...componentsIn(treeOf(d, defaultValues(d)))]));

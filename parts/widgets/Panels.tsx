@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/m3e/button";
+import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 
 /* The game panels of 17722797729/m3e-canvas game-ui (MIT), each holding the state its fork keeps in
@@ -11,9 +13,9 @@ export function SideTabs({ items = [], selected = 0, width = 120 }: { items?: { 
   return (
     <div data-slot="side-tabs" data-selected={on} role="tablist" aria-orientation="vertical" className="bg-surface-container flex flex-col gap-1 rounded-xl p-1" style={{ width }}>
       {items.map((t, i) => (
-        <button key={i} type="button" role="tab" aria-selected={i === on} className={`text-label-large truncate rounded-lg px-3 py-2 text-left ${i === on ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant"}`} onClick={() => setOn(i)}>
+        <Tap key={i} role="tab" aria-selected={i === on} className={`text-label-large truncate rounded-lg px-3 py-2 text-left ${i === on ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant"}`} onClick={() => setOn(i)}>
           {t.label}
-        </button>
+        </Tap>
       ))}
     </div>
   );
@@ -24,9 +26,9 @@ export function Inventory({ columns = 5, rows = 4, filled = 7, width = 380 }: { 
   return (
     <div data-slot="inventory" data-selected={on} className="bg-surface-container grid gap-2 rounded-2xl p-3" style={{ width, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
       {Array.from({ length: columns * rows }, (_, i) => (
-        <button key={i} type="button" aria-label={`${i + 1}`} aria-pressed={i === on} className={`flex aspect-square items-center justify-center rounded-lg ${i === on ? "bg-primary-container text-on-primary-container" : "bg-surface-container-low text-on-surface-variant"}`} onClick={() => setOn(i)}>
+        <Tap key={i} aria-label={`${i + 1}`} aria-pressed={i === on} className={`flex aspect-square items-center justify-center rounded-lg ${i === on ? "bg-primary-container text-on-primary-container" : "bg-surface-container-low text-on-surface-variant"}`} onClick={() => setOn(i)}>
           {i < filled && <WidgetIcon name="inventory_2" className="size-5" />}
-        </button>
+        </Tap>
       ))}
     </div>
   );
@@ -40,7 +42,7 @@ export function ItemCell({ icon = "", count = "", name = "", rarity = "", rarity
         {badge && <span className="bg-error text-on-error text-label-small absolute -top-1 -right-1 rounded-full px-1">{badge}</span>}
         {count && <span className="text-label-small text-on-surface absolute right-1 bottom-0">{count}</span>}
         {rarity && (
-          <span className="text-label-small absolute top-0 left-0 rounded-br-md rounded-tl-lg px-1 text-white" style={{ background: HEX.test(rarityColor) ? rarityColor : "var(--md-sys-color-outline)" }}>
+          <span className="text-label-small absolute top-0 left-0 rounded-br-md rounded-tl-lg px-1 text-on-primary" style={{ background: HEX.test(rarityColor) ? rarityColor : "var(--md-sys-color-outline)" }}>
             {rarity}
           </span>
         )}
@@ -55,9 +57,9 @@ export function TaskBar({ title = "", action = "", done = "", width = 380 }: { t
   return (
     <div data-slot="task-bar" data-claimed={claimed} className="bg-surface-container-low flex items-center gap-3 rounded-2xl p-3" style={{ width }}>
       <div className="text-body-medium text-on-surface min-w-0 flex-1 truncate">{title}</div>
-      <button type="button" disabled={claimed} className={`text-label-large shrink-0 rounded-full px-4 py-2 ${claimed ? "bg-surface-container-highest text-on-surface-variant" : "bg-primary text-on-primary"}`} onClick={() => setClaimed(true)}>
+      <Button variant={claimed ? "tonal" : "filled"} size="xs" disabled={claimed} className="shrink-0" onClick={() => setClaimed(true)}>
         {claimed ? done : action}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -71,11 +73,11 @@ export function RewardTrack({ rewards = [], value = 0, max = 60, action = "", wi
         {rewards.map((r, i) => {
           const ready = value >= r.at && !claimed.includes(i);
           return (
-            <button key={i} type="button" disabled={!ready} data-ready={ready || undefined} className={`text-label-small flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg p-2 ${ready ? "bg-primary-container text-on-primary-container" : "bg-surface-container text-on-surface-variant"}`} onClick={() => setClaimed((c) => [...c, i])}>
+            <Tap key={i} disabled={!ready} data-ready={ready || undefined} className={`text-label-small flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg p-2 ${ready ? "bg-primary-container text-on-primary-container" : "bg-surface-container text-on-surface-variant"}`} onClick={() => setClaimed((c) => [...c, i])}>
               {r.icon && <WidgetIcon name={claimed.includes(i) ? "check" : r.icon} className="size-5" />}
               <span className="truncate">{r.label}</span>
               {ready && action && <span className="truncate">{action}</span>}
-            </button>
+            </Tap>
           );
         })}
       </div>
@@ -102,9 +104,9 @@ export function CheckIn({ title = "", days = 30, signed = 3, width = 300 }: { ti
         {Array.from({ length: days }, (_, i) => {
           const today = i === count;
           return (
-            <button key={i} type="button" disabled={!today} aria-current={today ? "date" : undefined} className={`text-label-small flex aspect-square items-center justify-center rounded-full ${i < count ? "bg-primary text-on-primary" : today ? "border-primary text-primary border-2" : "text-on-surface-variant"}`} onClick={() => setCount((c) => c + 1)}>
+            <Tap key={i} disabled={!today} aria-current={today ? "date" : undefined} className={`text-label-small flex aspect-square items-center justify-center rounded-full ${i < count ? "bg-primary text-on-primary" : today ? "border-primary text-primary border-2" : "text-on-surface-variant"}`} onClick={() => setCount((c) => c + 1)}>
               {i < count ? <WidgetIcon name="check" className="size-3" /> : i + 1}
-            </button>
+            </Tap>
           );
         })}
       </div>
@@ -129,9 +131,9 @@ export function FunctionButton({ icon = "", label = "", timer = 0, unit = "minut
   const clock = left >= 3600 ? `${pad(Math.floor(left / 3600))}:${pad(Math.floor(left / 60) % 60)}:${pad(left % 60)}` : `${pad(Math.floor(left / 60))}:${pad(left % 60)}`;
   return (
     <div ref={ref} data-slot="function-button" data-left={left} className="inline-flex flex-col items-center gap-0.5" style={{ width: size + 24 }}>
-      <button type="button" aria-label={label} className="bg-secondary-container text-on-secondary-container flex items-center justify-center rounded-full" style={{ width: size, height: size }}>
+      <Tap aria-label={label} className="bg-secondary-container text-on-secondary-container flex items-center justify-center rounded-full" style={{ width: size, height: size }}>
         {icon && <WidgetIcon name={icon} className="size-6" />}
-      </button>
+      </Tap>
       <span className="text-label-small text-on-surface w-full truncate text-center">{label}</span>
       {start > 0 && <span className="text-label-small text-on-surface-variant">{clock}</span>}
     </div>
