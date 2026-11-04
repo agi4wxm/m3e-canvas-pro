@@ -5,7 +5,7 @@ import { ensureIcons, useIconVersion } from "../icons";
 /* An icon a pack's component only knows at run time (a prize's, say). The editor fetches the icons
  * it finds in a part's tree; these are not in it, so this asks for them itself. The icon component
  * is memoized: an icon that arrives after the first draw shows only in a fresh one. */
-export function PackIcon({ name, className }: { name: string; className?: string }) {
+export function WidgetIcon({ name, className }: { name: string; className?: string }) {
   const version = useIconVersion();
   useEffect(() => ensureIcons([name]), [name]);
   return <Icon key={version} name={name} className={className} />;

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { openProject } from "../../lib/project";
-import { buildPrompt } from "../../lib/prompt";
-import { groupBounds, heldBy, holdsParts, makeItem, sizeOf, underWhatItHolds, type Doc, type Group, type Item } from "../../lib/tokens";
-import { PARTS } from "../registry";
+import { openProject } from "../lib/project";
+import { buildPrompt } from "../lib/prompt";
+import { groupBounds, heldBy, holdsParts, makeItem, sizeOf, underWhatItHolds, type Doc, type Group, type Item } from "../lib/tokens";
+import { PARTS } from "./registry";
 
-const panel = (id: string, x: number, y: number, width = 300, height = 200): Group => ({ id, x, y, axis: "x", items: [{ ...makeItem("component", "layout/container"), id: `i-${id}`, props: { width, height } }] });
+const panel = (id: string, x: number, y: number, width = 300, height = 200): Group => ({ id, x, y, axis: "x", items: [{ ...makeItem("component", "container"), id: `i-${id}`, props: { width, height } }] });
 const part = (id: string, x: number, y: number): Group => ({ id, x, y, axis: "x", items: [{ ...makeItem("button"), id: `i-${id}` }] });
 const ids = (groups: Group[]) => groups.map((g) => g.id);
 /** what the canvas has measured: a part is as big as it draws, and it draws at its props */
@@ -16,9 +16,9 @@ describe("a container", () => {
     expect(groupBounds(p, measured(p))).toEqual({ l: 10, t: 20, r: 310, b: 220 });
   });
 
-  it("every container in the pack holds, and nothing else does", () => {
+  it("the containers hold, and nothing else does", () => {
     const holding = PARTS.filter((d) => d.holds).map((d) => d.slug);
-    expect(holding.toSorted()).toEqual(["layout/container", "layout/dock", "layout/grid-view", "layout/stack", "layout/supporting-pane", "resizable"]);
+    expect(holding.toSorted()).toEqual(["container", "dock", "grid-view", "resizable", "stack", "supporting-pane"]);
   });
 
   it("holds what lies wholly inside it and over it", () => {

@@ -210,15 +210,6 @@ input.m3-number {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* m3e.css gives every element a 1ms transition here, which makes every property of a default
-     `transition-property: all` element animate. Ant Design places a popup by setting its left to 0
-     and measuring at once; mid-transition it reads the old place and the popup lands off-screen. */
-  .ant-select-dropdown,
-  .ant-dropdown,
-  .ant-tooltip,
-  .ant-popover {
-    transition-duration: 0s !important;
-  }
   .m3-press,
   .m3-tile,
   .m3-size-ease,

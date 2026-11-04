@@ -5,8 +5,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { COMPONENTS, FILE_OF } from "./components";
 import { EXTERNAL } from "./externals";
 import { h, ic, raw } from "./node";
-import { PACK_SOURCES } from "./packs";
-import { preloadPacks } from "./packs/load";
+import { WIDGET_SOURCES } from "./widgets/sources";
+import { loadWidgets } from "./widgets/load";
 import { existsSync } from "node:fs";
 import { importLines, itemsOf, namesIn, printNode } from "./print";
 import { renderNode } from "./render";
@@ -19,7 +19,7 @@ beforeAll(async () => {
   vi.stubGlobal("window", { innerWidth: 1280, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) });
   setGlobalLang("en");
   /* a static render cannot wait for a pack's components to be fetched */
-  await preloadPacks();
+  await loadWidgets();
 });
 
 describe("the part registry", () => {
@@ -44,7 +44,7 @@ describe("the part registry", () => {
 
   it("names only components that exist", () => {
     for (const d of PARTS)
-      for (const name of namesIn(treeOf(d, defaultValues(d)))) expect(FILE_OF[name] ?? EXTERNAL[name] ?? PACK_SOURCES[name], `${d.slug}: ${name}`).toBeTruthy();
+      for (const name of namesIn(treeOf(d, defaultValues(d)))) expect(FILE_OF[name] ?? EXTERNAL[name] ?? WIDGET_SOURCES[name], `${d.slug}: ${name}`).toBeTruthy();
   });
 
   it("draws every part with its real components", () => {

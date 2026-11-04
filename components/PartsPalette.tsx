@@ -20,17 +20,14 @@ const CATEGORY_ICON: Record<PartCategory, string> = {
   Media: "image",
   Chat: "forum",
   Game: "sports_esports",
-  "Ant Design": "widgets",
 };
 
 const CATEGORY_TEXT = {
-  ja: { Actions: "操作", "Text inputs": "テキスト入力", Selection: "選択", Navigation: "ナビゲーション", Overlays: "オーバーレイ", Feedback: "フィードバック", Layout: "レイアウト", Data: "リストとデータ", Media: "メディアと図形", Chat: "チャット", Game: "ゲーム", "Ant Design": "Ant Design" },
-  zh: { Actions: "操作", "Text inputs": "文本输入", Selection: "选择", Navigation: "导航", Overlays: "弹出层", Feedback: "反馈", Layout: "布局容器", Data: "列表与数据", Media: "媒体与图形", Chat: "聊天", Game: "游戏", "Ant Design": "Ant Design" },
-  ko: { Actions: "동작", "Text inputs": "텍스트 입력", Selection: "선택", Navigation: "내비게이션", Overlays: "오버레이", Feedback: "피드백", Layout: "레이아웃", Data: "목록과 데이터", Media: "미디어와 도형", Chat: "채팅", Game: "게임", "Ant Design": "Ant Design" },
+  ja: { Actions: "操作", "Text inputs": "テキスト入力", Selection: "選択", Navigation: "ナビゲーション", Overlays: "オーバーレイ", Feedback: "フィードバック", Layout: "レイアウト", Data: "リストとデータ", Media: "メディアと図形", Chat: "チャット", Game: "ゲーム" },
+  zh: { Actions: "操作", "Text inputs": "文本输入", Selection: "选择", Navigation: "导航", Overlays: "弹出层", Feedback: "反馈", Layout: "布局容器", Data: "列表与数据", Media: "媒体与图形", Chat: "聊天", Game: "游戏" },
+  ko: { Actions: "동작", "Text inputs": "텍스트 입력", Selection: "선택", Navigation: "내비게이션", Overlays: "오버레이", Feedback: "피드백", Layout: "레이아웃", Data: "목록과 데이터", Media: "미디어와 도형", Chat: "채팅", Game: "게임" },
 } satisfies Record<string, Record<PartCategory, string>>;
 
-/* another design system's versions of what the sections above already have: there when wanted */
-const FOLDED: PartCategory[] = ["Ant Design"];
 
 export function PartsPalette({
   palette: p,
@@ -106,7 +103,7 @@ export function PartsPalette({
             const inCategory = PARTS.filter((d) => d.category === c);
             if (inCategory.length === 0) return null;
             return (
-              <Section key={c} id={`cat:${c}`} icon={CATEGORY_ICON[c]} title={lang === "en" ? c : CATEGORY_TEXT[lang][c]} p={p} defaultOpen={!FOLDED.includes(c)}>
+              <Section key={c} id={`cat:${c}`} icon={CATEGORY_ICON[c]} title={lang === "en" ? c : CATEGORY_TEXT[lang][c]} p={p}>
                 <div style={grid}>{inCategory.map((d) => tile(d.slug))}</div>
               </Section>
             );

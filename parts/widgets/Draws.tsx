@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { PackIcon } from "../PackIcon";
+import { WidgetIcon } from "./WidgetIcon";
 
 /* The prize machines of 17722797729/m3e-canvas game-ui (MIT): the same draw, six ways to watch it.
  * In the fork the draw lives in Preview.tsx and each drawing in M3Node.tsx; here each is whole.
@@ -48,7 +48,7 @@ function Result({ prize }: { prize?: Prize }) {
     <div data-slot="draw-result" aria-live="polite" className="text-label-large text-on-surface flex h-6 items-center justify-center gap-1">
       {prize && (
         <>
-          {prize.icon && <PackIcon name={prize.icon} className="size-4" />}
+          {prize.icon && <WidgetIcon name={prize.icon} className="size-4" />}
           {prize.label}
         </>
       )}
@@ -70,7 +70,7 @@ export function Wheel({ prizes = [], label = "", result = -1, size = 220 }: Draw
         <div className="border-outline-variant relative size-full rounded-full border" style={{ background: `conic-gradient(${stops})`, transform: `rotate(${turn}deg)`, transition: reduced() ? "none" : `transform ${SPIN_MS}ms cubic-bezier(0.2, 0, 0, 1)` }}>
           {prizes.map((p, i) => (
             <span key={i} className="text-on-surface absolute top-1/2 left-1/2 flex items-center justify-center" style={{ transform: `translate(-50%, -50%) rotate(${(i + 0.5) * sweep}deg) translateY(${-size * 0.36}px)` }}>
-              {p.icon ? <PackIcon name={p.icon} className="size-5" /> : <span className="text-label-small">{p.label}</span>}
+              {p.icon ? <WidgetIcon name={p.icon} className="size-5" /> : <span className="text-label-small">{p.label}</span>}
             </span>
           ))}
         </div>
@@ -105,7 +105,7 @@ export function GridWheel({ prizes = [], label = "", result = -1, size = 240 }: 
           const p = shown[at];
           return (
             <div key={cell} data-lit={at === lit || undefined} className={`text-label-small flex flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md text-center ${at === lit ? "bg-primary-container text-on-primary-container" : "bg-surface-container text-on-surface"}`}>
-              {p?.icon && <PackIcon name={p.icon} className="size-5" />}
+              {p?.icon && <WidgetIcon name={p.icon} className="size-5" />}
               <span className="truncate">{p?.label}</span>
             </div>
           );
@@ -144,7 +144,7 @@ export function SlotMachine({ prizes = [], label = "", result = -1, size = 280 }
           const p = at(reel);
           return (
             <div key={reel} className="bg-surface text-on-surface text-label-small flex h-16 flex-1 flex-col items-center justify-center overflow-hidden rounded-md">
-              {p?.icon ? <PackIcon name={p.icon} className="size-7" /> : p?.label}
+              {p?.icon ? <WidgetIcon name={p.icon} className="size-7" /> : p?.label}
             </div>
           );
         })}
@@ -163,7 +163,7 @@ export function MoneyTree({ prizes = [], label = "", result = -1, size = 190 }: 
   return (
     <div data-slot="money-tree" data-phase={phase} data-result={prize?.label} className="inline-flex flex-col items-center gap-2" style={{ width: size }}>
       <div className="text-primary" style={{ transform: `rotate(${sway}deg)`, transformOrigin: "bottom center" }}>
-        <PackIcon name="park" className="size-24" />
+        <WidgetIcon name="park" className="size-24" />
       </div>
       <button type="button" className={go} disabled={phase === "running"} onClick={start}>
         {label}

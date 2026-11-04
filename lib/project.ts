@@ -1,5 +1,4 @@
 import { CAROUSEL_LAYOUTS, DATE_LAYOUTS, Doc, KIND_ORDER, Kind, TIME_LAYOUTS, VARIANTS, isCardAlign, isCardImagePos, isPlace, isTextToken, isTrackThickness } from "./tokens";
-import { packOfSlug } from "../parts/packs";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on; the same migrations that run on a saved
@@ -82,7 +81,7 @@ export const isProject = (value: unknown): value is Doc =>
 
 /* ---------- the file format ---------- */
 
-/** Version 2 adds `packs` to the envelope. A document with no envelope is what older versions saved. */
+/** A document may also come bare, with no envelope, from a link or a hand-written file. */
 export const PROJECT_FORMAT = "m3e-project";
 export const PROJECT_VERSION = 2;
 
@@ -90,12 +89,8 @@ export const PROJECT_VERSION = 2;
  *  step here under the version it comes from. Each must leave a field it does not know alone. */
 const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string, unknown>> = {};
 
-/** the pack each part of a document needs and the version it was saved with */
-export const packsOfDoc = (doc: Doc): Record<string, string> =>
-  Object.fromEntries(doc.groups.flatMap((g) => g.items.map((it) => packOfSlug(it.component))).filter((p) => !!p).map((p) => [p.id, p.version]));
-
 /** the file a document is saved as */
-export const projectFile = (doc: Doc) => ({ format: PROJECT_FORMAT, version: PROJECT_VERSION, packs: packsOfDoc(doc), document: doc });
+export const projectFile = (doc: Doc) => ({ format: PROJECT_FORMAT, version: PROJECT_VERSION, document: doc });
 
 /** The one way in for a document that comes from outside: a file or a link. Takes it out of its
  *  envelope, brings it up to this version, and returns it only if it then has the shape the editor

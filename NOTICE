@@ -49,13 +49,12 @@ shadcn/ui - MIT License
   https://github.com/shadcn-ui/ui
   The component APIs the M3E components restyle.
 
-Ported into the component packs in parts/packs, each under the MIT License:
+Ported into parts/defs and parts/widgets, each under the MIT License:
 
   17722797729/m3e-canvas (game-ui)    the joystick's geometry, the quantity stepper's look,
                                       the prize machines' and game panels' behavior
   Skufu/m3e-canvas (feat/dashboard-kit)  the dashboard parts' scope
   greycode/m3e-canvas                 the chart kinds' scope, the iOS parts' scope
-  HK-hub/design-canvas                Ant Design parts' scope
   JetSquirrel/gpui-kit-canvas         the desktop parts' scope, the containers' scope
 
 Material Symbols (Google) - Apache License 2.0, via Iconify
@@ -63,7 +62,7 @@ Material Symbols (Google) - Apache License 2.0, via Iconify
 
 Roboto Flex and JetBrains Mono - SIL Open Font License 1.1, via Fontsource
 
-Ant Design - MIT License. Recharts - MIT License. Installed as packages.
+Recharts - MIT License. Installed as a package.
 
 Material Design is a trademark of Google LLC. This project is not affiliated with
-or endorsed by Google, shadcn/ui or Ant Group.
+or endorsed by Google or shadcn/ui.

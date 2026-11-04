@@ -8,8 +8,8 @@ import { Contained } from "./contained";
 import { SnackbarPreview } from "./snackbar";
 import { EXTERNAL } from "./externals";
 import { FILE_OF } from "./files.generated";
-import { PACKS } from "./packs";
-import { packComponent } from "./packs/load";
+import { WIDGET_SOURCES } from "./widgets/sources";
+import { widget } from "./widgets/load";
 
 export { FILE_OF };
 
@@ -24,5 +24,5 @@ for (const [name, file] of Object.entries(FILE_OF)) {
 COMPONENTS.Contained = Contained as AnyComponent;
 COMPONENTS.SnackbarPreview = SnackbarPreview as AnyComponent;
 for (const name of Object.keys(EXTERNAL)) COMPONENTS[name] = (recharts as unknown as Record<string, AnyComponent>)[name];
-/* the components of the packs, fetched when first drawn (parts/packs/load.tsx) */
-for (const pack of PACKS) for (const name of Object.keys(pack.sources)) COMPONENTS[name] = packComponent(pack, name);
+/* this project's own, fetched when first drawn */
+for (const name of Object.keys(WIDGET_SOURCES)) COMPONENTS[name] = widget(name);

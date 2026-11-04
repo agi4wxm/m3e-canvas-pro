@@ -1,7 +1,7 @@
 import { EXTERNAL } from "./externals";
 import { FILE_OF } from "./files.generated";
 import { isNode, isRaw, isWrap, type PNode, type PValue } from "./node";
-import { PACK_SOURCES } from "./packs";
+import { WIDGET_SOURCES } from "./widgets/sources";
 
 const WIDTH = 80;
 const str = (s: string) => JSON.stringify(s);
@@ -76,7 +76,7 @@ export function namesIn(node: PNode, into = new Set<string>()): Set<string> {
     else if (Array.isArray(v)) v.forEach(visit);
     else if (typeof v === "object" && v !== null) Object.values(v).forEach(visit);
   };
-  if (node.type in FILE_OF || node.type in EXTERNAL || node.type in PACK_SOURCES) into.add(node.type);
+  if (node.type in FILE_OF || node.type in EXTERNAL || node.type in WIDGET_SOURCES) into.add(node.type);
   Object.values(node.props ?? {}).forEach(visit);
   for (const c of node.children ?? []) if (typeof c !== "string") namesIn(c, into);
   return into;
@@ -86,9 +86,8 @@ export function namesIn(node: PNode, into = new Set<string>()): Set<string> {
 export function importLines(names: Iterable<string>): string[] {
   const bySource = new Map<string, string[]>();
   for (const n of names) {
-    const pack = PACK_SOURCES[n];
-    const source = pack?.from ?? EXTERNAL[n] ?? (FILE_OF[n] ? `@/components/m3e/${FILE_OF[n]}` : undefined);
-    if (source) bySource.set(source, [...(bySource.get(source) ?? []), pack?.export ? `${pack.export} as ${n}` : n]);
+    const source = WIDGET_SOURCES[n] ?? EXTERNAL[n] ?? (FILE_OF[n] ? `@/components/m3e/${FILE_OF[n]}` : undefined);
+    if (source) bySource.set(source, [...(bySource.get(source) ?? []), n]);
   }
   return [...bySource.entries()]
     .toSorted(([a], [b]) => a.localeCompare(b))
@@ -96,7 +95,7 @@ export function importLines(names: Iterable<string>): string[] {
 }
 
 /** the npm packages the names come from, outside the registry (a chart needs `recharts`) */
-export const packagesOf = (names: Iterable<string>) => [...new Set([...names].map((n) => EXTERNAL[n] ?? PACK_SOURCES[n]?.from).filter((m): m is string => !!m && !m.startsWith("@/")))].toSorted();
+export const packagesOf = (names: Iterable<string>) => [...new Set([...names].map((n) => EXTERNAL[n]).filter((m): m is string => !!m))].toSorted();
 
 /** the registry item a module file belongs to: every file is an item of its own */
 export const itemOfFile = (file: string) => file;
