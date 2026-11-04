@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { openProject } from "./project";
 import { alignParts, distributeParts } from "./align";
 import { buildCode } from "./codegen";
 import { joinDropped } from "./combine";
@@ -251,6 +253,22 @@ describe("a button let go against a button", () => {
     expect(joinDropped(big, "b", widths(big))).toBeNull();
     const toggle = [box("a", 0, 0), { ...box("b", 104, 0), items: [part("button", "i-b", { label: "b", toggle: true })] }];
     expect(joinDropped(toggle, "b", widths(toggle))).toBeNull();
+  });
+});
+
+describe("the guide an AI agent writes from", () => {
+  it("gives an auto layout example that opens, arranges and prints as it says", () => {
+    const guide = readFileSync(new URL("../public/agent.md", import.meta.url), "utf8").replaceAll("\r\n", "\n");
+    const block = /#### Auto layout[\s\S]*?```json\n([\s\S]*?)```/.exec(guide)![1];
+    const groups = block.trim().split("\n").map((line) => JSON.parse(line) as Group);
+    const opened = openProject({ groups, frames: [{ id: "f", name: "Home", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "", brief: "" });
+    expect(opened).not.toBeNull();
+    const measures = { t: 280, "t:h": 56, s: 96, "s:h": 40 };
+    const out = arrangeFlows(opened!.groups, measures);
+    /* stretched across the room inside its padding, the second under the first */
+    expect(out.find((g) => g.id === "a")).toMatchObject({ x: 16, y: 80 });
+    expect(out.find((g) => g.id === "b")!.y).toBe(80 + 56 + 12);
+    expect(buildCode({ ...opened!, groups: out }, measures).code).toMatch(/flex flex-col gap-\[12px\]/);
   });
 });
 

@@ -3,6 +3,7 @@ import { isNode, isRaw, isWrap, mapNodes, raw, type PNode, type PValue } from ".
 import { EXPR_NODE, namesIn, printValue } from "../parts/print";
 import { OVERLAY_ROOTS, partBySlug, reader, treeOf, withoutPickedImages } from "../parts/registry";
 import type { PartDef, PropDef } from "../parts/types";
+import { type Row, CURRENT_TOKEN, fillCurrent, firstRows, markCurrent } from "./collections";
 import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
 import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, actionsOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
 
@@ -29,6 +30,8 @@ export type RuntimeSpec = {
   hidden: string[];
   /** overlays that start open */
   opened: string[];
+  /** what `{{current.field}}` reads until a row has been tapped */
+  current: Row;
 };
 
 type Options = {
@@ -73,6 +76,9 @@ function linear(xs: number[], ys: number[], expr: string): string | null {
 }
 
 const inTemplate = (s: string) => s.replace(/[\\`]/g, "\\$&").replace(/\$\{/g, "\\${");
+
+/** the code that reads one field of the row last tapped; a field it does not have reads as nothing */
+const currentField = (field: string) => `${/^[A-Za-z_$][\w$]*$/.test(field) ? `current.${field}` : `current[${json(field)}]`} ?? ""`;
 
 /** words that differ only in one number that follows the value: `tab-${value + 1}`, `${value}%` */
 function templated(xs: number[], words: string[], expr: string): string | null {
@@ -264,11 +270,16 @@ export class Behaviour {
   /** the docks whose tabs have to work: ids of what they hold, at any depth */
   private readonly inLiveDock = new Set<string>();
   private readonly usedParts = new Set<string>();
+  /** something in the document reads the row last tapped, so a tap on a row has to say which it was */
+  private readonly readsCurrent: boolean;
+  /** the row the part being printed was drawn for */
+  private rowNow: Row | undefined;
 
   constructor(doc: Doc, widths: Record<string, number>, o: Options) {
     this.doc = doc;
     this.live = o.live;
     this.image = o.image;
+    this.readsCurrent = JSON.stringify(doc.groups).includes("{{current.");
     const screenKeys = new Set<string>();
     o.shown.forEach((f, i) => this.screens.set(f.id, camel(f.name, `screen${i + 1}`, screenKeys)));
     for (const [i, v] of (Array.isArray(doc.vars) ? doc.vars : []).entries()) this.vars.set(v.id, { key: camel(v.name, `var${i + 1}`, this.varKeys), type: v.type, start: v.value });
@@ -346,7 +357,19 @@ export class Behaviour {
         if (this.usedParts.has(k) && this.heldByState(it, g) && standingOf(partBySlug(it.component)) === "stands" && !g.hidden) opened.push(k);
       }
     }
-    return { screens, vars: [...this.vars.values(), ...this.inputs.values()], parts: [...this.usedParts], hidden, opened };
+    return { screens, vars: [...this.vars.values(), ...this.inputs.values()], parts: [...this.usedParts], hidden, opened, current: firstRows(this.doc.collections ?? []) };
+  }
+
+  /** Words that may read the row last tapped, as code. On a part drawn for a row the tap itself says
+   *  which row that is, and it is known here: the app's own `current` is still the last tap's until the
+   *  next draw. */
+  private wordsCode(text: string, uses: Uses): string {
+    const words = this.rowNow ? fillCurrent(text, this.rowNow) : text;
+    const pieces = words.split(CURRENT_TOKEN);
+    if (pieces.length === 1) return json(words);
+    uses.app.add("current");
+    /* split with a group: every odd piece is a field */
+    return `\`${pieces.map((piece, i) => (i % 2 ? `\${${currentField(piece)}}` : inTemplate(piece))).join("")}\``;
   }
 
   /* ---------- names ---------- */
@@ -413,7 +436,16 @@ export class Behaviour {
 
   /* ---------- conditions and effects ---------- */
 
-  condition(c: Condition, uses: Uses): string {
+  /** a condition on a field of the row a part was drawn for is settled here, row by row */
+  private onRow(c: Condition, row: Row | undefined): boolean | undefined {
+    if ("filled" in c || !c.var.startsWith("row.") || !row) return undefined;
+    const same = String(row[c.var.slice(4)]) === String(c.value);
+    return c.op === "neq" ? !same : same;
+  }
+
+  condition(c: Condition, uses: Uses, row: Row | undefined = this.rowNow): string {
+    const known = this.onRow(c, row);
+    if (known !== undefined) return String(known);
     if ("filled" in c) {
       const it = this.owner.get(c.filled)?.items.find((x) => x.id === c.filled);
       const v = it && this.inputVar(it);
@@ -459,7 +491,7 @@ export class Behaviour {
       case "setVar": {
         const v = this.vars.get(e.var);
         const value = v && coerce(e.value, v.type);
-        return v && value !== null && value !== undefined ? call("setVar", json(v.key), json(value)) : null;
+        return v && value !== null && value !== undefined ? call("setVar", json(v.key), typeof value === "string" ? this.wordsCode(value, uses) : json(value)) : null;
       }
       case "toggleVar": {
         const v = this.vars.get(e.var);
@@ -472,7 +504,7 @@ export class Behaviour {
       case "setProp":
         return this.setProp(e, uses, call);
       case "snackbar":
-        return call("snackbar", json(e.message));
+        return call("snackbar", this.wordsCode(e.message, uses));
       default:
         /* a kind this version does not know, from a file saved by a later one */
         return null;
@@ -496,7 +528,7 @@ export class Behaviour {
       return call("selectTab", json(this.barKey(it, def)), Number(e.value) || 0);
     }
     const value = d.kind === "number" ? Number(e.value) || 0 : d.kind === "bool" ? coerce(e.value, "bool") : String(e.value);
-    return call("setProp", this.part(it.id), json(e.prop), json(value));
+    return call("setProp", this.part(it.id), json(e.prop), typeof value === "string" ? this.wordsCode(value, uses) : json(value));
   }
 
   /** where it goes, after its effects */
@@ -506,7 +538,12 @@ export class Behaviour {
       return "back()";
     }
     if (b.to === LINK_TARGET) {
-      const href = linkUrlOf(b);
+      /* an address read off the row last tapped can only be known at run time */
+      if (b.url?.includes("{{current.") && !this.rowNow) {
+        uses.app.add("openLink");
+        return `openLink(${this.wordsCode(b.url.trim(), uses)})`;
+      }
+      const href = linkUrlOf(this.rowNow ? fillCurrent(b, this.rowNow) : b);
       if (!href) return null;
       uses.app.add("openLink");
       return `openLink(${json(href)})`;
@@ -525,10 +562,18 @@ export class Behaviour {
   }
 
   private statements(a: Action, uses: Uses): string[] {
-    const body = this.bodyStatements(a, uses);
-    if (!a.when) return body;
+    /* the screen this opens may read the row the tap came from */
+    const picked = (list: string[]) => {
+      if (!list.length || !this.rowNow || !this.readsCurrent) return list;
+      uses.app.add("pickRow");
+      return [`pickRow(${json(this.rowNow)})`, ...list];
+    };
+    const settled = a.when && this.onRow(a.when, this.rowNow);
+    if (settled === false) return a.else ? picked(this.bodyStatements(a.else, uses)) : [];
+    const body = picked(this.bodyStatements(a, uses));
+    if (!a.when || settled) return body;
     const cond = this.condition(a.when, uses);
-    const other = a.else ? this.bodyStatements(a.else, uses) : [];
+    const other = a.else ? picked(this.bodyStatements(a.else, uses)) : [];
     if (!body.length && !other.length) return [];
     if (!body.length) return [`if (!(${cond})) { ${other.join("; ")} }`];
     return [`if (${cond}) { ${body.join("; ")} }${other.length ? ` else { ${other.join("; ")} }` : ""}`];
@@ -587,7 +632,13 @@ export class Behaviour {
   /** the tree with what is only known at run time as expressions in it */
   private liveTree(it: Item, def: PartDef, uses: Uses, keepTap: boolean): PNode {
     const look = appearanceOf(it);
-    const base = withoutPickedImages(def, it.props ?? {}, this.image);
+    /* the row last tapped is only known at run time: its fields go through the tree as words do */
+    const fields = new Map<string, string>();
+    const base = markCurrent(withoutPickedImages(def, it.props ?? {}, this.image), (field) => {
+      fields.set(`current.${field}`, currentField(field));
+      uses.app.add("current");
+      return markOf(`current.${field}`);
+    });
     const plan = this.plan(it, def, uses);
     const words = plan.filter((x) => x.d.kind === "text");
     const drawn = plan.filter((x) => x.d.kind !== "text");
@@ -603,7 +654,7 @@ export class Behaviour {
       return foldNodes(samples.map((s) => draw({ ...vals, [head.d.key]: s }, tail)), { expr: head.expr, samples, keepTap });
     };
     const tree = draw(values, drawn);
-    return words.length ? unmarkNode(tree, new Map(words.map((x) => [x.d.key, x.expr]))) : tree;
+    return words.length || fields.size ? unmarkNode(tree, new Map([...fields, ...words.map((x) => [x.d.key, x.expr] as const)])) : tree;
   }
 
   /** an input reads its variable and writes back to it */
@@ -645,6 +696,7 @@ export class Behaviour {
   printPart(it: Item, uses: Uses, insideTap: boolean): { tree: PNode; keepTap: boolean; wrap: (source: string) => string } {
     const def = partBySlug(it.component)!;
     const g = this.owner.get(it.id);
+    this.rowNow = it.row;
     const onPress = it.action ? this.handler(this.statements(it.action, uses)) : null;
     const selecting = this.selecting(it, def);
     const slots: Record<string, PValue> = {};
@@ -672,6 +724,7 @@ export class Behaviour {
       const code = this.handler(this.statements(a, uses));
       if (code) slots[slot] = raw(code);
     }
+    this.rowNow = undefined;
     if (this.railToggles(it, def)) {
       const start = reader(def, it.props).b("expanded");
       uses.app.add("setProp").add("prop");
@@ -729,7 +782,11 @@ export class Behaviour {
       uses.app.add("visible");
       out.push(`visible(${this.part(g.items[0].id)})`);
     }
-    if (g.showWhen) out.push(this.condition(g.showWhen, uses));
+    if (g.showWhen) {
+      const holds = this.condition(g.showWhen, uses, g.items[0]?.row);
+      /* settled for this row: nothing left to ask */
+      if (holds !== "true") out.push(holds);
+    }
     const pane = this.panes.get(g.id);
     const def = pane && partBySlug(pane.host.component);
     if (pane && def?.selectKey) {

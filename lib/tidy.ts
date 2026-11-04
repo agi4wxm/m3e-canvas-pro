@@ -1,4 +1,6 @@
-import { Frame, Group, Item, PHONE_MARGIN, RAIL_COLLAPSED_W, railExpansionSide, railWidth, carryItemSize, frameOfGroup, frameRect, frameSizeOf, frameLengthOf, groupBounds, layoutOf, isExpanded } from "./tokens";
+import { Frame, Group, Item, PHONE_MARGIN, RAIL_COLLAPSED_W, railExpansionSide, railWidth, carryItemSize, frameOfGroup, frameRect, frameSizeOf, frameLengthOf, groupBounds, layoutOf, isExpanded, safeAreaOf } from "./tokens";
+import { partBySlug } from "../parts/registry";
+import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { fullWidth, roleOf } from "../parts/role";
 
 /* Rule-based layout for one screen. Nothing here is guessed by a model.
@@ -169,7 +171,8 @@ export function carryFrame(groups: Group[], frame: Frame, to: Frame, frames: Fra
   const mine = groups.filter((g) => owner.get(g.id) === frame.id);
   const isNavBar = (it: Item) => it.component === "navigation-bar";
   const isNavRail = (it: Item) => it.component === "navigation-rail";
-  const navGroup = mine.find((g) => g.items.length === 1 && (isNavBar(g.items[0]) || isNavRail(g.items[0])));
+  /* a bar a layout holds stays what it is: a column has no room for a rail, and takes the bar to the new width itself */
+  const navGroup = mine.find((g) => !g.inFlow && g.items.length === 1 && (isNavBar(g.items[0]) || isNavRail(g.items[0])));
   const swapNav = (g: Group, it: Item): Item => {
     if (g !== navGroup) return it;
     if (expanded && isNavBar(it)) return { ...it, component: "navigation-rail", props: { items: it.props?.items, selected: it.props?.selected, height: toLength.h } };
@@ -200,18 +203,36 @@ export function carryFrame(groups: Group[], frame: Frame, to: Frame, frames: Fra
     const byLength = carryItemSize(it, fromLength, toLength);
     return byLength !== it ? byLength : carryItemSize(it, from, after);
   };
+  /* a layout as tall as the screen is the screen's: left at the old height, a bar at its foot would
+   * stand in the middle of a taller screen, or off the end of a shorter one */
+  const carryLayoutHeight = (it: Item): Item => {
+    const def = partBySlug(it.component);
+    const ax = def?.holds ? resizeOf(def, it.props)?.height : undefined;
+    return ax && axisValue(ax, it.props) === fromLength.h ? { ...it, props: { ...it.props, [ax.key]: axisWrite(ax, toLength.h) } } : it;
+  };
+  /* what was measured is of the old size: what has just been given a new one goes by that until it is
+   * drawn, or a layout the size of the screen would seem to fit inside it, and be moved */
+  const measures = { ...widths };
+  const remember = (it: Item) => {
+    const ax = resizeOf(partBySlug(it.component), it.props);
+    if (ax?.width) measures[it.id] = axisValue(ax.width, it.props);
+    if (ax?.height) measures[`${it.id}:h`] = axisValue(ax.height, it.props);
+  };
   const resized = groups.map((g) => {
     const o = owner.get(g.id);
     if (o === frame.id) {
       const toRail = g === navGroup && expanded;
-      const items = g.items.map((it) => swapNav(g, spansScreen(g, frame, widths) ? carryRail(it) : carryItemSize(it, toRail ? from : fromBody, toRail ? after : toBody)));
+      const items = g.items.map((it) => swapNav(g, carryLayoutHeight(spansScreen(g, frame, widths) ? carryRail(it) : carryItemSize(it, toRail ? from : fromBody, toRail ? after : toBody))));
+      items.forEach((it, i) => {
+        if (it !== g.items[i]) remember(it);
+      });
       const x = toRail ? (side === "right" ? to.x + after.w - railWidth(items[0]) : to.x) : g.x + afterSlots.left - beforeSlots.left;
-      return pullInto({ ...g, x, items }, to, widths);
+      return pullInto({ ...g, x, items }, to, measures);
     }
     const dx = o ? moved.get(o) : undefined;
     return dx ? { ...g, x: g.x + dx } : g;
   });
-  return { frames: nextFrames, groups: tidyFrame(resized, to, nextFrames, widths) ?? resized };
+  return { frames: nextFrames, groups: tidyFrame(resized, to, nextFrames, measures) ?? resized };
 }
 
 /** a rail standing on its own from the head of the screen */
@@ -375,9 +396,10 @@ export function bodyRect(groups: Group[], frame: Frame, frames: Frame[], widths:
   const rails = units.filter(isRail);
   const leftRails = rails.filter((u) => !onRight(u)).reduce((sum, u) => sum + railWidth(u.probe), 0);
   const rightRails = rails.filter(onRight).reduce((sum, u) => sum + railWidth(u.probe), 0);
-  let top = screen.t;
+  const safe = safeAreaOf(frame);
+  let top = screen.t + safe.t;
   for (const u of units.filter(isTop)) top += u.bb.b - u.bb.t;
-  let bottom = screen.b;
+  let bottom = screen.b - safe.b;
   for (const u of units.filter(isBottomBar)) bottom -= u.bb.b - u.bb.t;
   for (const u of units.filter(isFloatingBottom)) bottom -= PHONE_MARGIN + (u.bb.b - u.bb.t);
   /* a crowded short screen must not turn the box inside out */
@@ -427,13 +449,14 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   const fr: Rect = { ...screen, l: screen.l + leftWidth, r: screen.r - rightWidth };
   const frameW = fr.r - fr.l;
 
-  /* locked bars keep their place too; the others stack beyond them */
-  let top = Math.max(fr.t, ...fixedTops.map((u) => u.bb.b));
+  /* locked bars keep their place too; the others stack beyond them, and inside the device's own bars */
+  const safe = safeAreaOf(frame);
+  let top = Math.max(fr.t + safe.t, ...fixedTops.map((u) => u.bb.b));
   for (const u of units.filter(isTop).sort((a, b) => a.bb.t - b.bb.t)) {
     target.set(u, { l: fr.l, t: top });
     top += u.bb.b - u.bb.t;
   }
-  let bottom = Math.min(fr.b, ...fixedBottoms.map((u) => u.bb.t));
+  let bottom = Math.min(fr.b - safe.b, ...fixedBottoms.map((u) => u.bb.t));
   for (const u of units.filter(isBottomBar).sort((a, b) => b.bb.t - a.bb.t)) {
     bottom -= u.bb.b - u.bb.t;
     target.set(u, { l: fr.l + Math.max(0, Math.round((frameW - (u.bb.r - u.bb.l)) / 2)), t: bottom });

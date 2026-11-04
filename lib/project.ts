@@ -142,7 +142,13 @@ const cleanGroup = (g: Group) =>
     items: g.items.map(cleanItem),
   }) as unknown as Group;
 
-const cleanFrame = (f: Frame) => cleaned(f as unknown as Record<string, unknown>, { variantOf: (v) => (typeof v === "string" && v !== f.id ? v : undefined) }) as unknown as Frame;
+const cleanFrame = (f: Frame) =>
+  cleaned(f as unknown as Record<string, unknown>, {
+    variantOf: (v) => (typeof v === "string" && v !== f.id ? v : undefined),
+    deviceBars: (v) => (typeof v === "boolean" ? v : undefined),
+    backgroundImage: (v) => (typeof v === "string" && v ? v : undefined),
+    backgroundOpacity: (v) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined),
+  }) as unknown as Frame;
 
 /** one definition, or nothing when it has no id to be called by. Its groups go through the same checks as a screen's. */
 function cleanComponent(c: unknown): ComponentDef | undefined {

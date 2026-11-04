@@ -17,6 +17,7 @@ import {
   frameLengthOf,
   canCollapseFab,
   groupBounds,
+  ownerIdOf,
   unionRect,
   layoutOf,
   paletteOf,
@@ -63,7 +64,8 @@ const RUNTIME = "@/runtime";
 const GATE_OPEN = "";
 const GATE_END = "";
 const GATE_CLOSE = "";
-const gated = (gates: string[], source: string) => (gates.length ? `${GATE_OPEN}{${gates.join(" && ")} && (${GATE_END}${source}${GATE_CLOSE}` : source);
+/* a part settled as never showing (on a row it is not for, say) is not printed at all */
+const gated = (gates: string[], source: string) => (gates.includes("false") ? "" : gates.length ? `${GATE_OPEN}{${gates.join(" && ")} && (${GATE_END}${source}${GATE_CLOSE}` : source);
 
 class Ctx {
   imports: Imports = new Map();
@@ -71,7 +73,11 @@ class Ctx {
   usesToast = false;
   /** what this screen takes from the runtime */
   uses: Uses = { app: new Set(), press: false };
-  constructor(readonly b: Behaviour) {}
+  constructor(
+    readonly b: Behaviour,
+    readonly frame: Frame,
+    readonly widths: Record<string, number>,
+  ) {}
   /** the modules the code imports from, with the names it takes from each */
   use(...names: string[]) {
     for (const n of names) {
@@ -104,6 +110,7 @@ function fluid(tree: PNode, keys: ("width" | "height")[]): PNode {
 /** The JSX of a run laid out by a container: nested, the way the browser will lay it out. The classes
  *  of the layout go on the node the container keeps for it, or on its root. */
 function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new Set<string>(), insideTap = false): string {
+  if (parent && run.expandedFrom !== undefined) return instanceJsx(run, c, all, inside);
   const it = run.items[0];
   const def = partBySlug(it.component);
   const flow = run.items.length === 1 ? flowOf(run) : null;
@@ -148,15 +155,36 @@ function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new S
   return part.wrap(inlineNode(placed, part.keepTap).replace(HOLE, () => held));
 }
 
+/** What an instance standing in a layout comes to: a box of its size in the layout's flow, its parts
+ *  placed inside the box. They move with it when the flow does, as when something before it goes. */
+function instanceJsx(run: Group, c: Ctx, all: Group[], inside: Set<string>): string {
+  const within = new Set(inside).add(run.id);
+  const kids = all.filter((g) => g.id.startsWith(`${run.id}/`)).sort((a, b) => a.y - b.y || a.x - b.x);
+  const { width, height } = (run.items[0].props ?? {}) as { width?: number; height?: number };
+  const body = screenBody({ ...c.frame, x: run.x, y: run.y }, kids, c, c.widths, all, false, false, run.id, within);
+  return `<div className="relative shrink-0" style={{ width: ${Math.round(width ?? 0)}, height: ${Math.round(height ?? 0)} }}>${body.join("")}</div>`;
+}
+
+/** the instance a run's parts are printed inside: the nearest around it that a layout places */
+function flowedInstanceOf(id: string, all: Map<string, Group>, hosts: Set<string>): string | undefined {
+  for (let at = ownerIdOf(id); at; at = ownerIdOf(at)) {
+    const g = all.get(at);
+    if (g?.expandedFrom !== undefined && g.inFlow && hosts.has(g.inFlow)) return at;
+  }
+  return undefined;
+}
+
 /** the pieces of a screen, each run placed where the sketch has it */
-function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, number>, all: Group[], pinEdges = true, foldOnScroll = false): string[] {
+function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, number>, all: Group[], pinEdges = true, foldOnScroll = false, scope?: string, inside: Set<string> = new Set()): string[] {
   const { h } = frameSizeOf(frame);
   const out: string[] = [];
   const hosts = new Set(all.filter((r) => flowOf(r)).map((r) => r.id));
+  const byId = new Map(all.map((g) => [g.id, g]));
   for (const run of runs) {
     /* what a layout holds is printed inside it */
     if (run.inFlow && hosts.has(run.inFlow) && !run.locked) continue;
-    const gates = c.b.gates(run, new Set(), c.uses);
+    if (flowedInstanceOf(run.id, byId, hosts) !== scope) continue;
+    const gates = c.b.gates(run, inside, c.uses);
     const float = c.b.floats(run) ? " z-10" : "";
     if (hosts.has(run.id)) {
       out.push(gated(gates, `<div className=${str(`absolute left-[${Math.round(run.x - frame.x)}px] top-[${Math.round(run.y - frame.y)}px]`)}>${flowJsx(run, c, all)}</div>`));
@@ -349,7 +377,7 @@ export function buildScreens(source: Doc, widths: Record<string, number>, o: Bui
   const offTab = new Set([...outOfPane(doc.groups, widths)].filter((id) => !b.keepsOffTab(id)));
   let usesToast = false;
   const screens = shown.map((frame, i): ScreenCode => {
-    const c = new Ctx(b);
+    const c = new Ctx(b, frame, widths);
     /* a layout reads its parts in the order of the document, the rest go down the screen */
     const all = doc.groups
       .filter((g) => (loose || frameOfPart(g, doc.groups, frames, widths)?.id === frame.id) && !offTab.has(g.id))

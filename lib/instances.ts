@@ -1,6 +1,6 @@
 import { partBySlug } from "../parts/registry";
 import { expandRepeats, measuresFor } from "./collections";
-import { arrangeFlows, ownSize } from "./flow";
+import { arrangeFlows, outOfPane, ownSize } from "./flow";
 import { type Collection, type ComponentDef, type Doc, type Group, type Item, type VarValue, heldBy, makeItem, retarget, uid, unionRect } from "./tokens";
 import type { PropDef } from "../parts/types";
 
@@ -103,8 +103,11 @@ function expandOne(g: Group, ctx: Context, stack: string[]): Group[] {
   /* a second pass settles a hugging layout inside a layout */
   kids = arrangeFlows(kids, measures);
   if (!kids.length) return [wrapperOf(g, def.name, def.w, def.h)];
-  const r = Math.max(...kids.map((k) => k.x + ownSize(k, measures).w));
-  const b = Math.max(...kids.map((k) => k.y + ownSize(k, measures).h));
+  /* what stands on a dock's other tab is still where it was last laid out, which says nothing of the size */
+  const off = outOfPane(kids, measures);
+  const seen = kids.filter((k) => !off.has(k.id));
+  const r = Math.max(...seen.map((k) => k.x + ownSize(k, measures).w));
+  const b = Math.max(...seen.map((k) => k.y + ownSize(k, measures).h));
   return [wrapperOf(g, def.name, r - g.x, b - g.y), ...kids];
 }
 
@@ -125,11 +128,7 @@ export function makeComponent(groups: Group[], chosenIds: Set<string>, name: str
   const members = new Set(units.map((g) => g.id));
   for (const g of units) for (const held of heldBy(g, groups, widths)) members.add(held.id);
   const chosen = groups.filter((g) => members.has(g.id));
-  const box = (g: Group) => {
-    const s = ownSize(g, widths);
-    return { l: g.x, t: g.y, r: g.x + s.w, b: g.y + s.h };
-  };
-  const { l, t, r, b } = unionRect(chosen.map(box));
+  const { l, t, r, b } = shownBounds(chosen, groups, widths);
   const def: ComponentDef = {
     id,
     name,
@@ -144,16 +143,33 @@ export function makeComponent(groups: Group[], chosenIds: Set<string>, name: str
   const first = chosen.find((g) => g.inFlow && !members.has(g.inFlow));
   const instance: Group = { ...standIn(def, l, t), ...(first ? { inFlow: first.inFlow, ...(first.pane !== undefined ? { pane: first.pane } : {}) } : {}) };
   const at = groups.findIndex((g) => members.has(g.id));
-  const out = groups.filter((g) => !members.has(g.id));
+  /* what the rest of the screen reaches for goes on working: those parts are the instance's now */
+  const moved = new Map(chosen.flatMap((g) => g.items.map((it) => [it.id, `${instance.id}/${it.id}`] as const)));
+  const out = groups.filter((g) => !members.has(g.id)).map((g) => retarget(g, moved));
   out.splice(at, 0, instance);
   return { groups: out, def, instance };
+}
+
+/** the box around the groups given, leaving out what stands on a dock's other tab: that is still where it was last laid out */
+function shownBounds(chosen: Group[], all: Group[], widths: Widths) {
+  const off = outOfPane(all, widths);
+  const seen = chosen.filter((g) => !off.has(g.id));
+  return unionRect((seen.length ? seen : chosen).map((g) => {
+    const s = ownSize(g, widths);
+    return { l: g.x, t: g.y, r: g.x + s.w, b: g.y + s.h };
+  }));
 }
 
 /** One instance as plain parts of its own, one level down: an instance nested in it stays one. It keeps
  *  its slot, its visibility and its lock through its one top-level part where it has just one, or
  *  through a plain container where it has several and something to keep. */
-function detachedParts(g: Group, def: ComponentDef): Group[] {
-  const parts = placedCopy(def, g.x, g.y, g.overrides, uid, uid);
+function detachedParts(g: Group, def: ComponentDef, newIds?: Map<string, string>): Group[] {
+  const named = (id: string) => {
+    const fresh = uid();
+    newIds?.set(`${g.id}/${id}`, fresh);
+    return fresh;
+  };
+  const parts = placedCopy(def, g.x, g.y, g.overrides, uid, named);
   const kept = { ...(g.inFlow ? { inFlow: g.inFlow } : {}), ...(g.pane !== undefined ? { pane: g.pane } : {}), ...(g.hidden ? { hidden: true } : {}), ...(g.showWhen ? { showWhen: g.showWhen } : {}), ...(g.locked ? { locked: true } : {}), ...(g.name ? { name: g.name } : {}) };
   const top = parts.filter((p) => !p.inFlow);
   if (top.length === 1) return parts.map((p) => (p === top[0] ? { ...p, ...kept } : p));
@@ -166,14 +182,21 @@ export function detachInstance(groups: Group[], id: string, components: Componen
   const g = groups.find((x) => x.id === id);
   const def = g && components?.find((c) => c.id === g.instanceOf);
   if (!g || !def) return groups;
-  return groups.flatMap((x) => (x.id === id ? detachedParts(x, def) : [x]));
+  const newIds = new Map<string, string>();
+  const parts = detachedParts(g, def, newIds);
+  /* what reached for a part inside it follows that part out */
+  return groups.flatMap((x) => (x.id === id ? parts : [retarget(x, newIds)]));
 }
 
 /** a definition gone: what its instances showed stays, as plain parts, on the screens and in the other definitions */
 export function removeComponent(groups: Group[], components: ComponentDef[], id: string): { groups: Group[]; components: ComponentDef[] } {
   const def = components.find((c) => c.id === id);
   if (!def) return { groups, components };
-  const inGroups = (list: Group[]) => list.flatMap((g) => (g.instanceOf === id ? detachedParts(g, def) : [g]));
+  const newIds = new Map<string, string>();
+  const inGroups = (list: Group[]) => {
+    const made = list.map((g) => (g.instanceOf === id ? detachedParts(g, def, newIds) : g));
+    return made.flatMap((g) => (Array.isArray(g) ? g : [retarget(g, newIds)]));
+  };
   return { groups: inGroups(groups), components: components.filter((c) => c.id !== id).map((c) => (usesOf(c).includes(id) ? { ...c, groups: inGroups(c.groups) } : c)) };
 }
 
@@ -211,11 +234,7 @@ export function withOverride(overrides: Group["overrides"], key: string, value: 
 /** the definition as the parts on its editing screen now stand: put back on its own top left */
 export function definitionFrom(def: ComponentDef, groups: Group[], widths: Widths): ComponentDef {
   if (!groups.length) return { ...def, groups: [] };
-  const bounds = groups.map((g) => {
-    const s = ownSize(g, widths);
-    return { l: g.x, t: g.y, r: g.x + s.w, b: g.y + s.h };
-  });
-  const { l, t, r, b } = unionRect(bounds);
+  const { l, t, r, b } = shownBounds(groups, groups, widths);
   return { ...def, w: Math.round(r - l), h: Math.round(b - t), groups: groups.map((g) => ({ ...g, x: g.x - l, y: g.y - t })) };
 }
 
@@ -237,8 +256,16 @@ export function rekeyedAll(units: Group[], dx: number, dy: number, sameScreen = 
   /* what a copied part reaches for follows the copy, when that was copied too */
   const made = units.map((u) => rekeyed(u, dx, dy));
   const ids = new Map(units.flatMap((u, i) => u.items.map((it, j) => [it.id, made[i].items[j].id] as const)));
-  const copies = made.map((c) => retarget(c, ids));
-  const fresh = new Map(units.map((u, i) => [u.id, copies[i].id]));
+  const fresh = new Map(units.map((u, i) => [u.id, made[i].id]));
+  /* a part inside an instance goes by the instance's id, and follows its copy too */
+  const follows = (id: string) => {
+    const known = ids.get(id);
+    if (known) return known;
+    const at = id.indexOf("/");
+    const instance = at > 0 ? fresh.get(id.slice(0, at)) : undefined;
+    return instance ? `${instance}${id.slice(at)}` : id;
+  };
+  const copies = made.map((c) => retarget(c, follows));
   return copies.map((c) => {
     if (!c.inFlow) return c;
     if (fresh.has(c.inFlow)) return { ...c, inFlow: fresh.get(c.inFlow) };

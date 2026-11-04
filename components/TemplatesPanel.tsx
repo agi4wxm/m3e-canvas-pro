@@ -57,7 +57,7 @@ function planOf(template: Template): Plan {
   return plan;
 }
 
-function Tile({ template, p, lang, onAdd }: { template: Template; p: Palette; lang: Lang; onAdd: (slug: string) => void }) {
+function Tile({ template, p, lang, onAdd, blocked }: { template: Template; p: Palette; lang: Lang; onAdd: (slug: string) => void; blocked?: boolean }) {
   const plan = planOf(template);
   const name = lang === "en" ? template.name : template.labels[lang];
   const flow = plan.screens > 1;
@@ -68,9 +68,10 @@ function Tile({ template, p, lang, onAdd }: { template: Template; p: Palette; la
       className="m3-tile-face"
       data-template={template.slug}
       onClick={() => onAdd(template.slug)}
-      title={`${how}: ${name}`}
+      disabled={blocked}
+      title={blocked ? t("tplInDefinition", lang) : `${how}: ${name}`}
       aria-label={`${how}: ${name}`}
-      style={{ margin: 0, border: "none", font: "inherit", outlineColor: p.primary, minWidth: 0, display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: 16, background: p.surfaceContainerLow, color: p.onSurface, cursor: "pointer", textAlign: "left", boxSizing: "border-box" }}
+      style={{ margin: 0, border: "none", font: "inherit", outlineColor: p.primary, minWidth: 0, display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: 16, background: p.surfaceContainerLow, color: p.onSurface, cursor: blocked ? "default" : "pointer", opacity: blocked ? 0.5 : undefined, textAlign: "left", boxSizing: "border-box" }}
     >
       <svg viewBox={`0 0 ${plan.w} ${plan.h}`} preserveAspectRatio="xMidYMin meet" aria-hidden style={{ width: "100%", height: 120, display: "block", borderRadius: 10, background: p.surfaceContainer }}>
         <rect width={plan.w} height={plan.h} rx={plan.w / 14} fill={p.surface} />
@@ -84,7 +85,7 @@ function Tile({ template, p, lang, onAdd }: { template: Template; p: Palette; la
   );
 }
 
-export function TemplatesPanel({ p, onAdd }: { p: Palette; onAdd: (slug: string) => void }) {
+export function TemplatesPanel({ p, onAdd, blocked }: { p: Palette; onAdd: (slug: string) => void; /** a definition is open: a template adds screens, and there are none to add to */ blocked?: boolean }) {
   const lang = useLang();
   const [q, setQ] = useState("");
   const filtered = useMemo(() => {
@@ -93,7 +94,7 @@ export function TemplatesPanel({ p, onAdd }: { p: Palette; onAdd: (slug: string)
     return TEMPLATES.filter((d) => [d.name, d.slug, ...Object.values(d.labels), t(CATEGORY[d.category].title, lang)].some((x) => x.toLowerCase().includes(s)));
   }, [q, lang]);
   const grid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))", gap: 6 };
-  const tile = (d: Template) => <Tile key={d.slug} template={d} p={p} lang={lang} onAdd={onAdd} />;
+  const tile = (d: Template) => <Tile key={d.slug} template={d} p={p} lang={lang} onAdd={onAdd} blocked={blocked} />;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
       <div style={{ padding: "12px 12px 8px" }}>
@@ -112,7 +113,7 @@ export function TemplatesPanel({ p, onAdd }: { p: Palette; onAdd: (slug: string)
           </div>
         ) : (
           <>
-            <div style={{ fontSize: 12, lineHeight: "16px", color: p.onSurfaceVariant, padding: "0 6px 8px" }}>{t("tplHint", lang)}</div>
+            <div data-template-hint style={{ fontSize: 12, lineHeight: "16px", color: p.onSurfaceVariant, padding: "0 6px 8px" }}>{t(blocked ? "tplInDefinition" : "tplHint", lang)}</div>
             {TEMPLATE_CATEGORIES.map((c) => (
               <Section key={c} id={`tpl:${c}`} icon={CATEGORY[c].icon} title={t(CATEGORY[c].title, lang)} p={p}>
                 <div style={grid}>{TEMPLATES.filter((d) => d.category === c).map(tile)}</div>

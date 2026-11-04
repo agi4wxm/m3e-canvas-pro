@@ -63,6 +63,8 @@ A phone screen is **412 × 892**; a desktop screen is **1280 × 800** (set `w` a
 - `bg` (optional): background, one of `surface | surfaceContainerLow | surfaceContainer | surfaceContainerHigh | surfaceContainerHighest | primaryContainer | secondaryContainer | tertiaryContainer | primary | inverseSurface`.
 - `swipe` (optional): screens reached by swiping `left | right | up | down`.
 - `place` (optional): where the body rows sit between the bars when the screen is tidied: `top` (default) | `center` | `bottom` | `spread`.
+- `w`, `h` (optional): the screen's size. Left out it is a phone, 412 by 892; a tablet is 834 by 1194 and a desktop 1280 by 800.
+- `deviceBars` (optional): `true` draws the device's status bar and keeps parts clear of it.
 - `variantOf` (optional): the id of the screen this one is another size of. Keep the same `name`, put it beside the original with the size in `w` and `h`, and lay its parts out for that size. Each size has parts of its own; the preview's width switch moves between them and navigation lands on the matching size.
 
 ### Parts (`groups`)
@@ -87,8 +89,22 @@ Fields any part may carry beside `props`:
 - An effect is one of `{ "do": "show" | "hide" | "toggle" | "open" | "close", "part": "<item id>" }`, `{ "do": "setVar", "var": "<variable id>", "value": … }`, `{ "do": "toggleVar", "var" }`, `{ "do": "addVar", "var", "by": 1 }`, `{ "do": "setProp", "part", "prop": "<prop key>", "value": … }`, `{ "do": "snackbar", "message": "…" }`.
 - A condition is `{ "var": "<variable id>", "op": "eq" | "neq", "value": … }` or `{ "filled": "<item id of an input>" }`.
 - `bind`: `{ "<prop key>": "<variable id>" }`, the props that follow a variable. An input (`input`, `text-field`, `textarea`, `switch`, `checkbox`, `slider`, `select`, `radio-group`) also writes to the variable its value prop is bound to.
+- `fill`: a background role, the same names as a screen's `bg`. `textColor`: `onSurface | onSurfaceVariant | primary | secondary | onPrimaryContainer | onSecondaryContainer | onTertiaryContainer | inverseOnSurface`. `corners`: `{ "tl": 16, "tr": 16, "br": 16, "bl": 16 }`. What is inside follows a fill by itself, so set `textColor` only to differ.
+- `flowFill: true`: in an auto layout, the part takes the room left along the run.
 
-Fields a group may carry: `hidden: true` starts it hidden, with no hole left in an auto layout; `showWhen`, a condition, shows it only while that holds; `pane`, a number, is the tab of the `dock` it stands on.
+Fields a group may carry: `name`, what the layers and the prompt call it; `hidden: true` starts it hidden, with no hole left in an auto layout; `showWhen`, a condition, shows it only while that holds; `pane`, a number, is the tab of the `dock` it stands on; `inFlow`, see below.
+
+#### Auto layout
+
+Prefer this to placing parts one by one: it stays tidy when text changes, and the code comes out as nested flex and grid. `container`, `dock`, `supporting-pane`, `window` and `custom` take `"layout": "row" | "column" | "grid"` in `props`, with `gap`, `padX`, `padY`, `align` (`start | center | end | stretch`), `justify` (`start | center | end | between`), `wrap` (a row), `columns` (a grid), `hugWidth` and `hugHeight`, which size the container to its contents. `grid-view` is always a grid.
+
+Each part in it names it by group id with `inFlow`, in the order the parts come in the document. The editor works out their `x` and `y`, so any values do; the container must come before them. A container may stand in another.
+
+```json
+{ "id": "col", "x": 0, "y": 64, "axis": "x", "items": [ { "id": "c", "kind": "component", "component": "container", "label": "", "icon": null, "variant": "filled", "props": { "layout": "column", "gap": 12, "padX": 16, "padY": 16, "align": "stretch", "fill": "none", "border": "none", "width": 412, "height": 400 } } ] }
+{ "id": "a", "x": 0, "y": 0, "axis": "x", "inFlow": "col", "items": [ { "id": "t", "kind": "component", "component": "text-field", "label": "", "icon": null, "variant": "filled", "props": { "label": "Email" } } ] }
+{ "id": "b", "x": 0, "y": 0, "axis": "x", "inFlow": "col", "items": [ { "id": "s", "kind": "component", "component": "button", "label": "", "icon": null, "variant": "filled", "props": { "label": "Sign in" } } ] }
+```
 
 Variables sit on the document: `"vars": [ { "id": "count", "name": "count", "type": "text" | "number" | "bool", "value": 0 } ]`. They live while the prototype runs and start over each time.
 

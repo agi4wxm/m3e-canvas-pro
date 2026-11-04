@@ -66,7 +66,10 @@ import {
   uid,
   unionRect,
   fitHeight,
+  takesDeviceBars,
+  TRACE_OPACITY,
 } from "@/lib/tokens";
+import { DeviceBars } from "@/components/DeviceBars";
 import { Icon } from "@/components/Icon";
 import { ComponentNode, StaticPart } from "@/components/ComponentNode";
 import { PartView } from "@/components/PartView";
@@ -87,12 +90,12 @@ import { AiSettings, DEFAULT_AI, hasKey, isSecureUrl, loadAiSettings, proposeBeh
 import { barSlotOf, bodyRect, carryFrame, holdsEdgeBar, maxFrameLength, minFrameLength, stretchFrame, pullInto, tidyFrame } from "@/lib/tidy";
 import { combineButtons, joinDropped, joinTargetOf } from "@/lib/combine";
 import { alignParts, distributeParts, type AlignHow } from "@/lib/align";
-import { flowHostAt, flowOf, outOfPane, panesAfterReorder, settleInFlow, stepLayers, wrapInFlow } from "@/lib/flow";
+import { flowHostAt, flowOf, outOfPane, panesAfterReorder, settleInFlow, showingGroups, stepLayers, wrapInFlow } from "@/lib/flow";
 import { canNest, definitionFrom, detachInstance, expandInstances, makeComponent, rekeyedAll, removeComponent, standIn } from "@/lib/instances";
 import { canvasView, expandDoc, type CanvasView, type DrawnPart } from "@/lib/expand";
 import { repeatAround } from "@/lib/collections";
-import { createVariant, familyOf, framesWithout, missingSizes } from "@/lib/variants";
-import { ComponentsPanel, DataPanel, sizeWord } from "@/components/ReusePanels";
+import { actionToSibling, createVariant, familyOf, framesWithout, missingSizes } from "@/lib/variants";
+import { ComponentsPanel, DataPanel, InstanceInspector, sizeWord } from "@/components/ReusePanels";
 import { Behavior, BehaviorContext } from "@/components/EffectsPanel";
 import { updateRail } from "@/lib/rail";
 import { isProject, readProject, saveProject } from "@/lib/project";
@@ -558,6 +561,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const snapshot = useCallback((withMeta = false) => {
     lastPatchRef.current = { key: "", at: 0 };
     setQuickUndo(false);
+    /* a whole document going is a step of the document's history, even from inside a definition, whose own ends with it */
+    const open = defEditRef.current;
+    if (withMeta && open) {
+      pastRef.current = open.past;
+      open.future.length = 0;
+    }
     pastRef.current.push(current(withMeta));
     if (pastRef.current.length > HISTORY_MAX) pastRef.current.shift();
     futureRef.current = [];
@@ -596,8 +605,10 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
 
   /** the current step as a snapshot; `withMeta` when the step being crossed replaced the whole document */
   const current = (withMeta: boolean): Snapshot => {
-    const { groups: _g, frames: _f, ...meta } = docRef.current;
-    return { groups: groupsRef.current, frames: framesRef.current, components: componentsRef.current, collections: collectionsRef.current, meta: withMeta ? meta : undefined };
+    const { groups, frames, ...meta } = docRef.current;
+    /* the document's own screens, and the definition as far as it got, not the screen it is being edited on */
+    if (withMeta) return { groups, frames, components: meta.components, collections: meta.collections, meta };
+    return { groups: groupsRef.current, frames: framesRef.current, components: componentsRef.current, collections: collectionsRef.current };
   };
 
   const undo = useCallback(() => {
@@ -1025,7 +1036,13 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     const top = mobile ? 96 : 84; // keep the floating toolbar clear of the frame
     const bottom = mobile ? 96 : pad;
     if (mobile) {
-      // a phone zooms to the screen's width and starts at its top; the rest scrolls
+      // a phone zooms to the width of the first screen and starts at its top; the rest are a pan away.
+      // Fitting them all would leave each a stamp, with the first cut off at the edge
+      const first = frameRef.current === "phone" ? fs[0] : undefined;
+      if (first) {
+        x0 = first.x - BEZEL;
+        x1 = frameRect(first).r + BEZEL;
+      }
       const z = clamp((r.width - pad * 2) / (x1 - x0), MIN_Z, MAX_Z);
       setView({ x: (r.width - (x1 - x0) * z) / 2 - x0 * z, y: top - y0 * z, z });
       return;
@@ -1788,13 +1805,15 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const lastView = useRef<CanvasView>({ groups, drawn: new Map(), shown: new Map(), extra: [] });
   const canvas = useMemo(() => (carrying ? lastView.current : canvasView({ groups, components, collections }, widths)), [carrying, groups, components, collections, widths]);
   lastView.current = canvas;
+  /* the part being carried, not where it is: the drag changes with every move of the pointer */
+  const dragItem = drag?.item;
   const allItems = useMemo(() => {
     const map = new Map<string, Item>();
     for (const g of groups) for (const it of g.items) map.set(it.id, canvas.shown.get(it.id) ?? it);
     for (const { item } of canvas.extra) map.set(item.id, item);
-    if (drag) map.set(drag.item.id, drag.item);
+    if (dragItem) map.set(dragItem.id, dragItem);
     return [...map.values()];
-  }, [groups, drag, canvas]);
+  }, [groups, dragItem, canvas]);
   useEffect(() => {
     if (carrying) return;
     const next = canvas.groups;
@@ -2322,7 +2341,9 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (!s) return;
     const was = componentsRef.current?.find((c) => c.id === s.id);
     const done = was && definitionFrom(was, groupsRef.current, widthsRef.current);
-    const changed = !!was && !!done && JSON.stringify(done.groups) !== JSON.stringify(was.groups);
+    /* its name, or the data, may have changed from the tabs while it was open, as much as its parts */
+    const rest = (list: ComponentDef[] | undefined) => JSON.stringify(list?.map((c) => (c.id === s.id ? { id: c.id, name: c.name } : c)));
+    const changed = !!was && !!done && (JSON.stringify(done.groups) !== JSON.stringify(was.groups) || rest(componentsRef.current) !== rest(s.before.components) || JSON.stringify(collectionsRef.current) !== JSON.stringify(s.before.collections));
     if (done) setComponents((cs) => cs?.map((c) => (c.id === s.id ? done : c)));
     setGroups(s.main.groups);
     setFrames(s.main.frames);
@@ -2361,11 +2382,10 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   /** a definition gone: its instances, on the screens and in other definitions, become the parts they showed */
   const deleteComponent = (id: string) => {
     const all = componentsRef.current ?? [];
-    if (defEditRef.current?.id === id) return;
+    /* the screens wait outside a definition's history: this could not be taken back from in there. The panel says so */
+    if (defEditRef.current) return;
     snapshot();
     const out = removeComponent(groupsRef.current, all, id);
-    const open = defEditRef.current;
-    if (open) setDefEdit({ ...open, main: { ...open.main, groups: removeComponent(open.main.groups, all, id).groups } });
     setGroups(out.groups);
     setComponents(out.components.length ? out.components : undefined);
     setSelectedIds((cur) => cur.filter((x) => out.groups.some((g) => g.items.some((it) => it.id === x))));
@@ -3122,24 +3142,27 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           .filter((g) => frameOfPart(g, groupsRef.current, framesRef.current, widthsRef.current)?.id === id)
           .map((g) => g.id),
       );
+      /* where another size of it is left, a way to it goes there instead of going altogether */
+      const sibling = familyOf(framesRef.current, id).find((f) => f.id !== id)?.id;
       setFrames((fs) =>
         framesWithout(fs, id)
           .map((f) => {
             if (!f.swipe) return f;
-            const swipe = Object.fromEntries(Object.entries(f.swipe).filter(([, to]) => to !== id));
+            const swipe = Object.fromEntries(Object.entries(f.swipe).flatMap(([dir, to]) => (to !== id ? [[dir, to]] : sibling ? [[dir, sibling]] : [])));
             return { ...f, swipe: Object.keys(swipe).length ? swipe : undefined };
           }),
       );
+      const kept = (a: Action) => (sibling ? actionToSibling(a, id, sibling) : actionWithoutScreen(a, id));
       /* what a part or a definition's part said about that screen */
       const withoutLinks = (g: Group): Group => ({
         ...g,
         items: g.items.map((it) => {
           const next = { ...it };
-          if (next.action) next.action = actionWithoutScreen(next.action, id);
+          if (next.action) next.action = kept(next.action);
           if (next.actions) {
             const actions = Object.fromEntries(Object.entries(next.actions).flatMap(([slot, a]) => {
-              const kept = actionWithoutScreen(a, id);
-              return kept ? [[slot, kept]] : [];
+              const stays = kept(a);
+              return stays ? [[slot, stays]] : [];
             }));
             next.actions = Object.keys(actions).length ? actions : undefined;
           }
@@ -3716,10 +3739,18 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const frameOf = useMemo(() => {
     const m = new Map<string, string>();
     if (frame !== "phone") return m;
-    for (const g of groups) {
-      const f = frameOfGroup(g, frames, widths);
-      if (f) m.set(g.id, f.id);
-    }
+    /* a part goes with the layout that holds it: what overflows, or stands on a dock's other tab where it
+     * was last laid out, is still on that screen. One walk for each part, so a large document stays quick */
+    const byId = new Map(groups.map((g) => [g.id, g]));
+    const screenOf = (g: Group, depth = 0): string | undefined => {
+      const known = m.get(g.id);
+      if (known !== undefined) return known;
+      const host = g.inFlow ? byId.get(g.inFlow) : undefined;
+      const id = host && host !== g && depth < 32 ? screenOf(host, depth + 1) : frameOfGroup(g, frames, widths)?.id;
+      if (id) m.set(g.id, id);
+      return id;
+    };
+    for (const g of groups) screenOf(g);
     return m;
   }, [groups, frames, frame, widths]);
 
@@ -3742,6 +3773,24 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     return m;
   }, [groups, frameOf, frames, canvas]);
 
+  /* the same elements while nothing in them changes, so that a drag does not attach every ref again on each move */
+  const measuringLayer = useMemo(
+    () =>
+      allItems.map((it) => (
+        <div
+          key={it.id}
+          ref={(el) => {
+            if (el) measureEls.current.set(it.id, el);
+            else measureEls.current.delete(it.id);
+          }}
+          style={{ display: "inline-flex", boxSizing: "border-box" }}
+        >
+          <PartView item={it} screen={screenByItem.get(it.id)} />
+        </div>
+      )),
+    [allItems, screenByItem],
+  );
+
   /** the screen whose layers the panel lists: the selection's, else the chosen one */
   const layersFrame = useMemo(() => {
     if (frame !== "phone") return null;
@@ -3760,7 +3809,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   /* the current screen is the one the layers list; a blank canvas has only the one place */
   selectAllRef.current = () => {
     const on = frame === "phone" ? layerGroups : groups;
-    setSelectedIds(on.flatMap((g) => g.items.map((it) => it.id)));
+    /* what stands on a dock's other tab is not on the canvas: a delete must not reach what cannot be seen */
+    setSelectedIds(on.filter((g) => !offTab.has(g.id)).flatMap((g) => g.items.map((it) => it.id)));
     setSelectedFrameId(null);
     setSelectedLinkId(null);
   };
@@ -4061,18 +4111,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
             fontFamily: fontFamilyOf(theme.font, lang),
           }}
         >
-          {allItems.map((it) => (
-            <div
-              key={it.id}
-              ref={(el) => {
-                if (el) measureEls.current.set(it.id, el);
-                else measureEls.current.delete(it.id);
-              }}
-              style={{ display: "inline-flex", boxSizing: "border-box" }}
-            >
-              <PartView item={it} screen={screenByItem.get(it.id)} />
-            </div>
-          ))}
+          {measuringLayer}
         </div>
 
         {exportFrame && (
@@ -4241,7 +4280,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                     onPartActivate={addPart}
                   />
                 ) : leftTab === "templates" ? (
-                  <TemplatesPanel p={p} onAdd={addTemplate} />
+                  <TemplatesPanel p={p} onAdd={addTemplate} blocked={!!defEdit} />
                 ) : leftTab === "components" ? (
                   <ComponentsPanel
                     p={p}
@@ -4301,6 +4340,13 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                     selectedIds={selectedIds}
                     onSelect={(ids, add) => {
                       setSelectedIds((cur) => (add ? [...cur.filter((x) => !ids.includes(x)), ...ids] : ids));
+                      /* picked on a dock's other tab: the dock comes round to it, or there would be no ring and nothing to work on */
+                      const picked = new Set(groupsRef.current.filter((g) => g.items.some((it) => ids.includes(it.id))).map((g) => g.id));
+                      const showing = showingGroups(groupsRef.current, picked, widthsRef.current);
+                      if (showing !== groupsRef.current) {
+                        snapshot();
+                        setGroups(showing);
+                      }
                       setSelectedFrameId(null);
                       setSelectedLinkId(null);
                       setRightTab("edit");
@@ -4458,9 +4504,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                             transition: lengthDragId === f.id ? undefined : SIZE_TRANSITION,
                           }}
                         >
+                          {/* a mockup to trace lies under everything, and takes no pointer */}
+                          {f.backgroundImage && <img data-trace-image alt="" src={f.backgroundImage} draggable={false} style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "auto", opacity: f.backgroundOpacity ?? TRACE_OPACITY, pointerEvents: "none" }} />}
                           {groups
                             .filter((g) => frameOf.get(g.id) === f.id && !offTab.has(g.id))
                             .map((g) => renderGroup(g, f.x, f.y, frameSizeOf(f)))}
+                          {f.deviceBars && takesDeviceBars(f) && <DeviceBars p={p} bg={f.bg ?? "surface"} height={fold} zIndex={3} />}
                           {/* where the device ends on a screen that runs further: below it, the body scrolls */}
                           {h > fold && (
                             <div aria-hidden style={{ position: "absolute", left: 0, right: 0, top: fold, borderTop: `2px dashed ${p.outline}`, opacity: 0.6, pointerEvents: "none", zIndex: 2 }} />
@@ -4767,6 +4816,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
               if (groupsRef.current.length || framesRef.current.length) setConfirmClear(true);
             }}
             onAddFrame={addFrame}
+            addFrameBlocked={!!defEdit}
             onPreview={() => openPreview()}
             tidy={selectedIds.length > 1 ? undefined : tidyState ?? undefined}
             onTidy={tidyTarget ? () => tidy(tidyTarget) : undefined}
@@ -4851,17 +4901,39 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           <AnimatePresence>
             {isMobile && sheet === "edit" && selected && (
               <BottomSheet key="edit" p={p} onClose={() => setSheet(null)}>
-                <MobileInspector
-                  item={selected}
-                  palette={p}
-                  onChange={patchSelected}
-                  onDelete={() => {
-                    deleteSelected();
-                    setSheet(null);
-                  }}
-                  onDuplicate={duplicateSelected}
-                  onClose={() => setSheet(null)}
-                />
+                {selectedInstance ? (
+                  /* an instance is what its definition comes to: the empty container standing in for it has nothing to edit.
+                     A definition is only opened on a desktop, so this leaves that way out */
+                  <InstanceInspector
+                    group={selectedInstance.group}
+                    def={selectedInstance.def}
+                    components={selectedInstance.components}
+                    onDetach={selectedInstance.onDetach}
+                    onOverrides={selectedInstance.onOverrides}
+                    palette={p}
+                    locked={selectedLocked}
+                    inFlow={selectedInFlow}
+                    onToggleLock={toggleLockSelected}
+                    onDuplicate={duplicateSelected}
+                    onDelete={() => {
+                      deleteSelected();
+                      setSheet(null);
+                    }}
+                    selectionKey={selectedIds.join(" ")}
+                  />
+                ) : (
+                  <MobileInspector
+                    item={selected}
+                    palette={p}
+                    onChange={patchSelected}
+                    onDelete={() => {
+                      deleteSelected();
+                      setSheet(null);
+                    }}
+                    onDuplicate={duplicateSelected}
+                    onClose={() => setSheet(null)}
+                  />
+                )}
               </BottomSheet>
             )}
             {isMobile && sheet === "settings" && (
@@ -5001,7 +5073,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   onDelete={() => deleteFrame(selectedFrame.id)}
                   onDuplicate={() => duplicateFrame(selectedFrame.id)}
                   onPreview={() => openPreview(selectedFrame.id)}
-                  prompt={buildPrompt(doc, widths, selectedFrame.id, lang)}
+                  prompt={() => buildPrompt(doc, widths, selectedFrame.id, lang)}
                   onSaveImage={() => saveFrameImage(selectedFrame)}
                   onSaveAllImages={frames.length > 1 ? saveAllFrameImages : undefined}
                   tidy={tidyState ?? "done"}

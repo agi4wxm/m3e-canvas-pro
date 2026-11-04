@@ -683,7 +683,24 @@ export type Frame = {
   length?: number;
   /** the screen this one is another size of (lib/variants.ts); each keeps a layout of its own */
   variantOf?: string;
+  /** Shows the device's status bar and gesture bar in the editor and the preview, and Tidy keeps
+   *  between them. A phone or a tablet only (`takesDeviceBars`). The real device has its own: never printed in code. */
+  deviceBars?: boolean;
+  /** a picture to trace, under the parts in the editor only: not in the preview, a saved image or printed code */
+  backgroundImage?: string;
+  /** how much of that picture shows, 0 to 1 */
+  backgroundOpacity?: number;
 };
+
+/** how much of `backgroundImage` shows when the author has said nothing */
+export const TRACE_OPACITY = 0.5;
+
+/** the bar for the home gesture at the foot of a phone or a tablet */
+export const GESTURE_BAR_H = 24;
+/** a screen that stands on a device with bars of its own: a desktop window has none */
+export const takesDeviceBars = (f: Frame) => frameSizeOf(f).w < DESKTOP_W;
+/** what the device's bars take off the top and the foot of a screen */
+export const safeAreaOf = (f: Frame) => (f.deviceBars && takesDeviceBars(f) ? { t: STATUS_BAR_H, b: GESTURE_BAR_H } : { t: 0, b: 0 });
 
 /** how Tidy stacks the body of a screen: from the top, centered, against the bottom bar, or spread out */
 export type Place = "top" | "center" | "bottom" | "spread";
@@ -788,8 +805,8 @@ export function groupBounds(g: Group, widths: Record<string, number>) {
 }
 
 /** a tap's reach, for copies: what a copied part points at follows the copy when that was copied too */
-export function retarget(g: Group, ids: Map<string, string>): Group {
-  const part = (id: string) => ids.get(id) ?? id;
+export function retarget(g: Group, ids: Map<string, string> | ((id: string) => string)): Group {
+  const part = typeof ids === "function" ? ids : (id: string) => ids.get(id) ?? id;
   const when = (c: Condition | undefined): Condition | undefined => (c && "filled" in c ? { filled: part(c.filled) } : c);
   const effects = (list: Effect[] | undefined) => list?.map((e) => ("part" in e ? { ...e, part: part(e.part) } : e));
   const body = <T extends ActionBody>(a: T): T => ({ ...a, ...(a.effects ? { effects: effects(a.effects) } : {}) });

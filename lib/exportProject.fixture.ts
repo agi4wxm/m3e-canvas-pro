@@ -1,7 +1,8 @@
 import { PARTS, partBySlug } from "../parts/registry";
 import { instantiate, templateBySlug } from "../parts/templates";
 import { defaultMeasures } from "../parts/templates/kit";
-import { FRAME_GAP, PHONE_H, PHONE_W, makeItem, type Action, type Doc, type Frame, type Group, type Item } from "./tokens";
+import { FRAME_GAP, PHONE_H, PHONE_W, makeItem, type Action, type ComponentDef, type Doc, type Frame, type Group, type Item } from "./tokens";
+import { createVariant } from "./variants";
 
 /* A document that uses everything a tap can do, with the shop flow behind a menu screen: what the
  * export is tested on, in vitest for its files and in scripts/check-export.ts in a real browser. */
@@ -150,6 +151,91 @@ export function proofDoc(): { doc: Doc; widths: Record<string, number> } {
     ],
   };
   return { doc, widths: defaultMeasures(groups) };
+}
+
+/** Everything a document can reuse, in one project: rows drawn from data, a row's tap read back on another
+ *  screen, instances loose and in a layout, one hidden, one nested in another, a definition holding a dock
+ *  and a repeat, and another size of a screen. What scripts/check-export.ts taps through. */
+export function reuseDoc(): { doc: Doc; widths: Record<string, number> } {
+  const HOME = "r-home";
+  const DETAIL = "r-detail";
+  const INSTANCES = "r-instances";
+  const DOCKED = "r-docked";
+  const x = (i: number) => i * (PHONE_W + FRAME_GAP);
+  const go = (to: string): Action => ({ to, transition: "slide" });
+  const box = (id: string, gx: number, gy: number, props: Record<string, unknown>, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", ...more, items: [part(`${id}-part`, "container", { label: "", fill: "none", border: "none", radius: 0, padX: 0, padY: 0, gap: 8, hugHeight: true, hugWidth: true, width: 380, height: 80, ...props })] });
+  const inside = (id: string, host: string, item: Item, more: Partial<Group> = {}): Group => ({ id, x: 0, y: 0, axis: "x", inFlow: host, items: [item], ...more });
+  const plain = (id: string, gx: number, gy: number, item: Item, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", items: [item], ...more });
+  const instance = (id: string, of: string, gx: number, gy: number, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", instanceOf: of, ...more, items: [part(`${id}-part`, "container", { label: "", fill: "none", border: "none", radius: 0, width: 200, height: 100 })] });
+  const sized = (id: string, name: string, groups: Group[]): ComponentDef => ({ id, name, w: 240, h: 160, groups });
+
+  const promo = sized("c-promo", "Promo", [
+    box("p-col", 0, 0, { layout: "column" }),
+    inside("p-title", "p-col", text("p-title-t", "Promo")),
+    inside("p-more", "p-col", button("p-more-b", "Reveal promo", stay([{ do: "toggle", part: "p-secret-t" }]))),
+    inside("p-secret", "p-col", text("p-secret-t", "Promo secret"), { hidden: true }),
+    inside("p-rename", "p-col", button("p-rename-b", "Rename promo", stay([{ do: "setProp", part: "p-title-t", prop: "text", value: "Promo renamed" }]))),
+  ]);
+  /* tokens in a definition are filled by the row it is repeated for */
+  const tag = sized("c-tag", "Tag", [box("t-row", 0, 0, { layout: "row", align: "center" }), inside("t-name", "t-row", text("t-name-t", "Tag {{name}}")), inside("t-pick", "t-row", button("t-pick-b", "Pick {{name}}", go(DETAIL)))]);
+  const tabs = sized("c-tabs", "Tabs", [
+    plain("d-dock", 0, 0, part("d-dock-p", "dock", { items: [{ label: "One" }, { label: "Two" }], width: 360, height: 220 })),
+    inside("d-a", "d-dock", text("d-a-t", "Pane one"), { pane: 0 }),
+    inside("d-b", "d-dock", button("d-b-b", "Pane two", stay([{ do: "snackbar", message: "Pressed pane" }])), { pane: 1 }),
+  ]);
+  const outer = sized("c-outer", "Outer", [plain("o-t", 0, 0, text("o-t-t", "Outer words")), instance("o-i", "c-promo", 0, 40, { overrides: { "p-title-t/text": "Nested title" } })]);
+  /* a definition with its own repeat: drawn out wherever it is placed */
+  const list = sized("c-list", "List", [box("l-col", 0, 0, { layout: "column" }, { repeat: { collection: "products" } }), inside("l-row", "l-col", text("l-row-t", "Listed {{name}}"))]);
+
+  const narrow = (item: Item, width: number): Item => ({ ...item, props: { ...item.props, width } });
+  const home = [
+    box("home-col", 16, 40, { layout: "column" }, { repeat: { collection: "products" } }),
+    box("home-row", 0, 0, { layout: "row", align: "center" }, { inFlow: "home-col" }),
+    inside("home-name", "home-row", narrow(text("home-name-t", "{{name}}"), 48)),
+    inside("home-price", "home-row", narrow(text("home-price-t", "{{price}}$"), 28)),
+    inside("home-open", "home-row", narrow(button("home-open-b", "Open {{name}}", go(DETAIL)), 110)),
+    inside("home-say", "home-row", narrow(button("home-say-b", "Say {{name}}", { ...STAY, when: { var: "row.name", op: "eq", value: "Pear" }, effects: [{ do: "snackbar", message: "Pear only" }], else: { ...STAY, effects: [{ do: "snackbar", message: "Not pear {{name}}" }] } }), 110)),
+    inside("home-plum", "home-row", narrow(text("home-plum-t", "Plum tag"), 48), { showWhen: { var: "row.name", op: "eq", value: "Plum" } }),
+    plain("home-go", 16, 300, button("home-go-b", "To instances", go(INSTANCES))),
+    box("tags", 16, 360, { layout: "column" }, { repeat: { collection: "products", limit: 2 } }),
+    instance("tag-i", "c-tag", 0, 0, { inFlow: "tags" }),
+  ];
+  const detail = [plain("det-a", x(1) + 16, 40, text("det-a-t", "You chose {{current.name}}")), plain("det-b", x(1) + 16, 80, text("det-b-t", "{{current.price}} dollars")), plain("det-say", x(1) + 16, 120, button("det-say-b", "Say chosen", stay([{ do: "snackbar", message: "Said {{current.name}}" }]))), plain("det-back", x(1) + 16, 180, button("det-back-b", "Go back", { to: "back", transition: "slide" }))];
+  const instances = [
+    instance("i-a", "c-promo", x(2) + 16, 40),
+    box("inst-col", x(2) + 16, 260, { layout: "column" }),
+    inside("inst-before", "inst-col", text("inst-before-t", "Before instance")),
+    instance("i-b", "c-promo", 0, 0, { inFlow: "inst-col", overrides: { "p-more-b/label": "Reveal second", "p-title-t/text": "Second" } }),
+    inside("inst-after", "inst-col", text("inst-after-t", "After instance")),
+    instance("i-c", "c-promo", x(2) + 216, 40, { hidden: true, overrides: { "p-title-t/text": "Third" } }),
+    plain("show-c", x(2) + 216, 700, button("show-c-b", "Toggle third", stay([{ do: "toggle", part: "i-c-part" }]))),
+    plain("hide-before", x(2) + 16, 700, button("hide-before-b", "Toggle before", stay([{ do: "toggle", part: "inst-before-t" }]))),
+    plain("to-docked", x(2) + 16, 760, button("to-docked-b", "To docked", go(DOCKED))),
+  ];
+  const docked = [instance("i-d", "c-tabs", x(3) + 16, 40), instance("i-n", "c-outer", x(3) + 16, 300, { overrides: { "o-i/p-rename-b/label": "Deep rename" } }), instance("i-l", "c-list", x(3) + 16, 560), plain("to-big", x(3) + 16, 760, button("to-big-b", "To tablet", go("r-big")))];
+
+  const frames: Frame[] = [
+    { id: HOME, name: "Reuse home", x: 0, y: 0 },
+    { id: DETAIL, name: "Detail", x: x(1), y: 0 },
+    { id: INSTANCES, name: "Instances", x: x(2), y: 0 },
+    { id: DOCKED, name: "Docked", x: x(3), y: 0 },
+  ];
+  const components = [promo, tag, tabs, outer, list];
+  const groups = [...home, ...detail, ...instances, ...docked];
+  const widths = defaultMeasures([...groups, ...components.flatMap((c) => c.groups)]);
+  const made = createVariant(groups, frames, HOME, "tablet", widths, "r-big");
+  if (!made) throw new Error("no tablet of the home screen");
+  const doc: Doc = {
+    groups: made.groups,
+    frames: made.frames,
+    components,
+    collections: [{ id: "products", name: "Products", fields: ["name", "price"], rows: [["Apple", "1"], ["Pear", "2"], ["Plum", "3"]] }],
+    paletteKey: "purple",
+    frame: "phone",
+    title: "Reuse app",
+    brief: "",
+  };
+  return { doc, widths: defaultMeasures([...made.groups, ...components.flatMap((c) => c.groups)]) };
 }
 
 /** One screen per part whose chosen entry a tap moves, and one per overlay an effect opens, each with

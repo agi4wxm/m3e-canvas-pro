@@ -71,6 +71,38 @@ export function outOfPane(groups: Group[], widths: Widths): Set<string> {
   return out;
 }
 
+/** The docks brought round to the tabs the parts given stand on, the outermost dock first: what is
+ *  picked out in the layers has to be on the canvas to be worked on. The same array when all of it is
+ *  showing already. */
+export function showingGroups(source: Group[], ids: Set<string>, widths: Widths): Group[] {
+  let groups = source;
+  /* one dock a pass, since a dock on a tab of another only counts once that tab is showing */
+  for (let pass = 0; pass < 8; pass++) {
+    const off = outOfPane(groups, widths);
+    if (![...ids].some((id) => off.has(id))) break;
+    const next = groups.find((host) => {
+      const panes = holdsParts(host) ? panesOf(host.items[0]) : null;
+      return panes && offTabHolding(host, panes, groups, ids, widths) !== null;
+    });
+    if (!next) break;
+    const it = next.items[0];
+    const pane = offTabHolding(next, panesOf(it)!, groups, ids, widths)!;
+    groups = groups.map((g) => (g === next ? { ...g, items: [{ ...it, props: { ...it.props, [partBySlug(it.component)!.selectKey!]: pane } }] } : g));
+  }
+  return groups;
+}
+
+/** the tab of a dock, other than the one showing, that holds one of the parts given */
+function offTabHolding(host: Group, panes: { shown: number; count: number }, groups: Group[], ids: Set<string>, widths: Widths): number | null {
+  const held = heldBy(host, groups, widths);
+  const nested = new Set(held.flatMap((g) => heldBy(g, groups, widths).map((x) => x.id)));
+  for (const g of held) {
+    if (nested.has(g.id) || paneIn(g, panes) === panes.shown) continue;
+    if (ids.has(g.id) || heldBy(g, groups, widths).some((x) => ids.has(x.id))) return paneIn(g, panes);
+  }
+  return null;
+}
+
 /** A part let go takes the tab showing on the dock it landed on, and gives it up anywhere else. */
 function settlePane(groups: Group[], id: string, widths: Widths): Group[] {
   const g = groups.find((x) => x.id === id);

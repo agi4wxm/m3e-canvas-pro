@@ -179,6 +179,10 @@ function EffectRow({ effect, index, onChange, onRemove, onUp, p }: { effect: Eff
   const partSelect = (only?: (it: Item) => boolean) => {
     if (!("part" in effect)) return null;
     const options = partOptions(b.groups, lang, only);
+    /* A part that has since become part of a component: it stays on offer under the instance's name, or
+       the list would seem to say the first part when the tap goes on reaching this one. */
+    const inside = effect.part.includes("/") ? b.groups.find((g) => effect.part.startsWith(`${g.id}/`)) : undefined;
+    if (inside) options.unshift({ key: effect.part, label: partName(inside, inside.items[0], lang), icon: "widgets" });
     if (!options.length) return <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("noParts", lang)}</div>;
     return (
       <Select

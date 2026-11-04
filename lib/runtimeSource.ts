@@ -22,6 +22,8 @@ const START_SCREEN: ScreenId = ${JSON.stringify(spec.screens[0])}
 const START_VARS: Vars = {${spec.vars.map((v) => ` ${v.key}: ${JSON.stringify(v.start)}`).join(",")}${spec.vars.length ? " " : ""}}
 const START_HIDDEN: Partial<Record<PartId, boolean>> = ${flags(spec.hidden)}
 const START_OPEN: Partial<Record<PartId, boolean>> = ${flags(spec.opened)}
+/** what a screen reads as the row last tapped until one has been */
+const START_CURRENT: Record<string, string> = ${JSON.stringify(spec.current)}
 /** how long a snackbar stands: Material's short duration */
 const SNACK_MS = 4000
 
@@ -40,6 +42,8 @@ type State = {
   /** the destination that opened a screen, for a bar there that says nothing itself */
   opener: Record<string, number>
   snack: { id: number; message: string } | null
+  /** the row a list's part was last tapped on */
+  current: Record<string, string>
 }
 
 const START: State = {
@@ -52,6 +56,7 @@ const START: State = {
   tabs: {},
   opener: {},
   snack: null,
+  current: START_CURRENT,
 }
 
 export type App = {
@@ -84,6 +89,8 @@ export type App = {
   leaveTab: (bar: PartId, index: number, opens?: ScreenId) => void
   snack: State["snack"]
   snackbar: (message: string) => void
+  current: State["current"]
+  pickRow: (row: State["current"]) => void
   /** whether an input holds something: words, a tick, a choice */
   hasValue: (value: Value) => boolean
   asBool: (value: Value) => boolean
@@ -140,6 +147,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }),
       snack: state.snack,
       snackbar: (message) => setState((s) => ({ ...s, snack: { id: (s.snack?.id ?? 0) + 1, message } })),
+      current: state.current,
+      pickRow: (row) => setState((s) => ({ ...s, current: row })),
       hasValue,
       asBool,
     }

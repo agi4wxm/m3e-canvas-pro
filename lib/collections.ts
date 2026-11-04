@@ -53,6 +53,13 @@ export const fillText = (text: string, row: Row) => (text.includes("{{") ? text.
 export const fillCurrent = <T>(value: T, current: Row | undefined): T =>
   fillDeep(value, (text) => (text.includes("{{current.") ? text.replace(TOKEN, (whole, key: string) => (key.startsWith("current.") ? (current?.[key.slice(8)] ?? "") : whole)) : text));
 
+/** `{{current.field}}` with its field caught, for code that has to read it at run time */
+export const CURRENT_TOKEN = /\{\{\s*current\.([^{}]+?)\s*\}\}/;
+
+/** a value with each `{{current.field}}` in it written as `mark` says, the same object where there is none */
+export const markCurrent = <T>(value: T, mark: (field: string) => string): T =>
+  fillDeep(value, (text) => (text.includes("{{current.") ? text.replace(new RegExp(CURRENT_TOKEN, "g"), (_, field: string) => mark(field)) : text));
+
 /** a part as one row draws it; a tap on it will run with these fields */
 function fillItem(it: Item, row: Row): Item {
   const fill = (text: string) => fillText(text, row);

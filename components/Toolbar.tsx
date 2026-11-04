@@ -72,6 +72,7 @@ export function Toolbar({
   onRedo,
   onClear,
   onAddFrame,
+  addFrameBlocked,
   onPreview,
   rightInset,
   mobile,
@@ -106,6 +107,8 @@ export function Toolbar({
   onRedo: () => void;
   onClear: () => void;
   onAddFrame: () => void;
+  /** a definition is open: its screen is all there is until it is done */
+  addFrameBlocked?: boolean;
   onPreview: () => void;
   /** width of the open right panel, so the zoom pill slides out of its way */
   rightInset: number;
@@ -137,6 +140,8 @@ export function Toolbar({
   const lang = useLang();
   if (mobile) {
     const S = 42;
+    /* below this the pill runs past the edge of the phone with its word in it */
+    const narrow = typeof window !== "undefined" && window.innerWidth < 360;
     return (
       <div
         style={{
@@ -156,14 +161,15 @@ export function Toolbar({
           <IconBtn icon="redo" p={p} onClick={onRedo} disabled={!canRedo} title={t("redo", lang)} size={S} />
           <IconBtn icon="translate" p={p} onClick={onLangSheet} title={t("language", lang)} size={S} />
           <IconBtn icon="palette" p={p} onClick={onSettings} title={t("settings", lang)} size={S} />
-          <GitHubLink p={p} size={S} />
+          <IconBtn icon="play_arrow" p={p} onClick={onPreview} title={t("preview", lang)} size={S} fill />
           <button
             onClick={onPrompt}
             title={t("copyPrompt", lang)}
+            aria-label={t("copyPrompt", lang)}
             className="m3-press"
             style={{
               height: S,
-              padding: "0 14px 0 10px",
+              padding: narrow ? "0 10px" : "0 14px 0 10px",
               borderRadius: S / 2,
               border: "none",
               background: p.primary,
@@ -178,7 +184,7 @@ export function Toolbar({
             }}
           >
             <Icon name="auto_awesome" size={22} />
-            {t("prompt", lang)}
+            {!narrow && t("prompt", lang)}
           </button>
         </Pill>
       </div>
@@ -364,7 +370,8 @@ export function Toolbar({
               icon="add_to_photos"
               p={p}
               onClick={onAddFrame}
-              title={t("addFrame", lang)}
+              disabled={addFrameBlocked}
+              title={t(addFrameBlocked ? "addFrameInDefinition" : "addFrame", lang)}
               size={40}
             />
           )}

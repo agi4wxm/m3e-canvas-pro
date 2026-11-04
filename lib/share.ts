@@ -1,4 +1,4 @@
-import { Doc, Group, Item } from "./tokens";
+import { Doc, Frame, Group, Item } from "./tokens";
 import { openProject } from "./project";
 import { partBySlug, withoutPickedImages } from "../parts/registry";
 
@@ -22,10 +22,17 @@ const shareableGroup = (g: Group): Group => {
   return { ...g, items: g.items.map(shareableItem), ...(overrides ? { overrides } : {}) };
 };
 
+/** a screen a link can carry: a picture to trace that is a picked file's data goes, as a part's does */
+const shareableFrame = ({ noteHistory: _h, ...f }: Frame): Frame => {
+  if (!f.backgroundImage?.startsWith("data:")) return f;
+  const { backgroundImage: _picked, backgroundOpacity: _shown, ...rest } = f;
+  return rest;
+};
+
 export function shareable(doc: Doc): Doc {
   return {
     ...doc,
-    frames: doc.frames.map(({ noteHistory: _h, ...f }) => f),
+    frames: doc.frames.map(shareableFrame),
     groups: doc.groups.map(shareableGroup),
     ...(doc.components ? { components: doc.components.map((c) => ({ ...c, groups: c.groups.map(shareableGroup) })) } : {}),
   };

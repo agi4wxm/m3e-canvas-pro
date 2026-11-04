@@ -1,6 +1,6 @@
 import { carryFrame } from "./tidy";
 import { rekeyedAll } from "./instances";
-import { DESKTOP_W, FRAME_GAP, type Frame, type FramePreset, type Group, PHONE_W, TABLET_W, framePresetOf, framePresetPatch, frameOfPart, frameRect, frameSizeOf, uid } from "./tokens";
+import { type Action, type ActionBody, DESKTOP_W, FRAME_GAP, type Frame, type FramePreset, type Group, PHONE_W, TABLET_W, framePresetOf, framePresetPatch, frameOfPart, frameRect, frameSizeOf, uid } from "./tokens";
 
 /* Responsive variants: sibling screens that are sizes of one screen. Each is a layout of its own, so
  * editing one leaves the others as they are. All they share is the link, which the preview follows
@@ -84,7 +84,9 @@ export function createVariant(groups: Group[], frames: Frame[], frameId: string,
       if (widths[`${it.id}:h`] !== undefined) measures[`${to}:h`] = widths[`${it.id}:h`];
     }),
   );
-  const copy: Frame = { ...f, id, x, variantOf: rootOf(frames, f).id };
+  /* a mockup to trace is a picture of one size */
+  const { backgroundImage: _traced, backgroundOpacity: _shown, ...plain } = f;
+  const copy: Frame = { ...plain, id, x, variantOf: rootOf(frames, f).id };
   const at = frames.indexOf(anchor);
   const placed = frames.map((o) => (shifted.has(o.id) ? { ...o, x: o.x + room } : o));
   placed.splice(at + 1, 0, copy);
@@ -93,6 +95,13 @@ export function createVariant(groups: Group[], frames: Frame[], frameId: string,
   const to = sized.length !== undefined && sized.length <= frameSizeOf(sized).h ? { ...sized, length: undefined } : sized;
   const carried = carryFrame([...moved, ...copies], copy, to, placed, measures);
   return { groups: carried.groups, frames: carried.frames, id };
+}
+
+/** a tap's way to a screen that is going, sent on to another size of it instead */
+export function actionToSibling(a: Action, gone: string, sibling: string): Action {
+  const body = <T extends ActionBody>(b: T): T => (b.to === gone ? { ...b, to: sibling } : b);
+  const out = body(a);
+  return a.else ? { ...out, else: body(a.else) } : out;
 }
 
 /** The screens without one of them. A family keeps together when its root goes: the next of them takes over. */

@@ -158,8 +158,9 @@ export function conditionHolds(c: Condition | undefined, s: PreviewState, doc: S
 
 /** the part of an action this state runs: itself, its `else`, or nothing when it has no `else` */
 export function chooseBranch(a: Action, s: PreviewState, doc: Scope): ActionBody | null {
-  if (conditionHolds(a.when, s, doc)) return a;
-  return a.else ?? null;
+  const body = conditionHolds(a.when, s, doc) ? a : a.else;
+  /* what it says or sets may read the row this tap came from */
+  return body ? fillCurrent(body, s.current) : null;
 }
 
 function applyEffect(s: PreviewState, e: Effect, doc: Scope): PreviewState {
@@ -239,7 +240,8 @@ export function writeField(s: PreviewState, it: Item, value: VarValue, doc: Scop
 export function goneIds(groups: Group[], s: PreviewState, doc: Scope, widths: Widths): Set<string> {
   const gone = outOfPane(groups, widths);
   for (const g of groups) {
-    if (!isHidden(s, g) && conditionHolds(g.showWhen, s, doc)) continue;
+    /* a part drawn for a row can ask about that row: its fields are `row.field` for it, always */
+    if (!isHidden(s, g) && conditionHolds(g.showWhen, inRow(s, g.items[0]?.row), doc)) continue;
     gone.add(g.id);
     for (const held of heldBy(g, groups, widths)) gone.add(held.id);
   }

@@ -10,6 +10,8 @@ import {
   frameSizeOf,
   isPhoneFrame,
   onToken,
+  takesDeviceBars,
+  TRACE_OPACITY,
 } from "@/lib/tokens";
 import { popHistory } from "@/lib/ai";
 import { Icon } from "./Icon";
@@ -17,6 +19,7 @@ import {
   ButtonRun,
   Field,
   IconBtn,
+  ImageRow,
   NamedSizes,
   PanelShell,
   Section,
@@ -24,6 +27,7 @@ import {
   Slider,
   TidyButton,
   TidyState,
+  Toggle,
 } from "./ui";
 import { AiHooks, FrameSizePicker } from "./Inspector";
 import { AiIconBtn, Num, PartTabs, Tab } from "./PartPanel";
@@ -187,8 +191,9 @@ export function FrameInspector({
   onDelete: () => void;
   onDuplicate: () => void;
   onPreview: () => void;
-  /** the prompt for this one screen, copied from the export row */
-  prompt: string;
+  /** The prompt for this one screen, copied from the export row. Worked out when it is asked for: the
+   *  panel draws on every move of a drag, and the prompt takes the whole document to write. */
+  prompt: () => string;
   onSaveImage: () => Promise<void>;
   /** saves every screen, one file each; set when there is more than one */
   onSaveAllImages?: () => Promise<void>;
@@ -307,6 +312,32 @@ export function FrameInspector({
             p={p}
           />
         </Section>
+        {takesDeviceBars(frame) && (
+          <Section id="frame-device" icon="signal_cellular_alt" title={t("deviceBars", lang)} p={p}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <Toggle on={!!frame.deviceBars} onChange={(on) => onChange({ deviceBars: on || undefined })} p={p} label={t("deviceBars", lang)} grow />
+              <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px", textWrap: "pretty" }}>{t("deviceBarsHint", lang)}</div>
+            </div>
+          </Section>
+        )}
+        <Section id="frame-trace" icon="image" title={t("traceImage", lang)} p={p}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <ImageRow value={frame.backgroundImage} onChange={(backgroundImage) => onChange({ backgroundImage, ...(backgroundImage ? {} : { backgroundOpacity: undefined }) })} p={p} />
+            {frame.backgroundImage && (
+              <Slider
+                icon="opacity"
+                title={t("traceOpacity", lang)}
+                value={Math.round((frame.backgroundOpacity ?? TRACE_OPACITY) * 100)}
+                min={5}
+                max={100}
+                step={5}
+                onChange={(v) => onChange({ backgroundOpacity: v / 100 })}
+                p={p}
+              />
+            )}
+            <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px", textWrap: "pretty" }}>{t("traceImageHint", lang)}</div>
+          </div>
+        </Section>
         <Section id="frame-length" icon="swap_vert" title={t("scrolling", lang)} p={p}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <Slider
@@ -410,7 +441,7 @@ export function FrameInspector({
             copied ? t("copied", lang) : t("prompt", lang),
             async () => {
               try {
-                await navigator.clipboard.writeText(prompt);
+                await navigator.clipboard.writeText(prompt());
                 setCopied(true);
               } catch {}
             },

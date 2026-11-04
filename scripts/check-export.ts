@@ -13,7 +13,7 @@ import { dirname, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { unzipSync } from "fflate";
 import { allPartsDoc } from "../lib/codegen.fixture";
-import { COUNTER, proofDoc, sweepDoc } from "../lib/exportProject.fixture";
+import { COUNTER, proofDoc, reuseDoc, sweepDoc } from "../lib/exportProject.fixture";
 import { buildProject, zipProject, type ExportOptions } from "../lib/exportProject";
 import { setGlobalLang } from "../lib/i18n";
 import { makeItem, type Doc } from "../lib/tokens";
@@ -21,7 +21,7 @@ import { partBySlug } from "../parts/registry";
 
 const WORK = process.argv[2];
 const ONLY = process.argv[3];
-if (!WORK) throw new Error("usage: bun scripts/check-export.ts <empty work folder> [proof|one|parts|sweep|<a saved .zip>]");
+if (!WORK) throw new Error("usage: bun scripts/check-export.ts <empty work folder> [reuse|proof|one|parts|sweep|<a saved .zip>]");
 mkdirSync(WORK, { recursive: true });
 const fs0 = statfsSync(WORK);
 if ((fs0.bavail * fs0.bsize) / 2 ** 30 < 2) throw new Error("under 2GB free: stopping");
@@ -99,6 +99,9 @@ function serve(root: string, port: number) {
 }
 
 type Page = Awaited<ReturnType<typeof edgeAt>>;
+
+/** the element that shows exactly these words, the innermost one */
+const FIND_TEXT = `const find=(t)=>[...document.querySelectorAll('[data-screen] *')].filter(e=>e.textContent.trim()===t&&e.getBoundingClientRect().width>0).sort((a,b)=>a.querySelectorAll('*').length-b.querySelectorAll('*').length)[0];`;
 
 /** headless Edge over CDP, with real mouse and keys: its profile stays in the work folder and goes with it */
 async function edgeAt(name: string, url: string) {
@@ -213,6 +216,11 @@ async function edgeAt(name: string, url: string) {
       await send("Page.navigate", { url });
       await waitFor(`document.querySelector('[data-screen]')`, "the app");
       await sleep(400);
+    },
+    /** the window this wide, the way a person resizing it or holding another device would have it */
+    width: async (w: number) => {
+      await send("Emulation.setDeviceMetricsOverride", { width: w, height: 1000, deviceScaleFactor: 1, mobile: false });
+      await sleep(250);
     },
     shot: async (file: string) => writeFileSync(join(WORK, file), Buffer.from((await send<{ data: string }>("Page.captureScreenshot", { format: "png" })).data, "base64")),
     close: async () => {
@@ -453,9 +461,110 @@ async function dockFlow(p: Page) {
   ok(await p.sees("Three"), "dock: its bar stays");
 }
 
+/* ---------- what is drawn out of a definition or a collection ---------- */
+
+async function reuseFlow(p: Page) {
+  const above = (a: string, b: string) => p.ev<boolean>(`${FIND_TEXT}const x=find(${JSON.stringify(a)}),y=find(${JSON.stringify(b)});return !!x&&!!y&&x.getBoundingClientRect().bottom<=y.getBoundingClientRect().top+1`);
+  const count = (t: string) => p.ev<number>(`return [...document.querySelectorAll('[data-screen] *')].filter(e=>e.children.length===0&&e.textContent.trim()===${JSON.stringify(t)}&&e.getBoundingClientRect().width>0).length`);
+  const raw = () => p.ev<string>(`return (document.querySelector('[data-screen]').innerText.match(/\\{\\{[^}]*\\}\\}/)||[''])[0]`);
+  await p.width(420);
+  await p.reload();
+  ok(await p.at("reuseHome"), "repeat: starts on the first screen");
+  /* every row is drawn, with its own words */
+  for (const name of ["Apple", "Pear", "Plum"]) ok(await p.sees(name), `repeat: a row for ${name}`);
+  ok((await p.sees("Say Pear")) && !(await p.sees("Say {{name}}")), "repeat: a row's button has its row's words");
+  ok(await above("Apple", "Pear"), "repeat: rows stand one under another");
+  ok(!(await raw()), `repeat: no token left on the screen (${await raw()})`);
+  ok((await count("Plum tag")) === 1, "repeat: a part shown only for one row shows on that row alone");
+  /* a condition on the row a tap came from */
+  await p.tap("Say Pear");
+  await sleep(150);
+  ok(await p.sees("Pear only"), "row.field: a condition reads the row of the tap");
+  await p.tap("Say Apple");
+  await sleep(150);
+  ok(await p.sees("Not pear Apple"), "row.field: the other branch, with its row's words");
+  /* an instance as a row */
+  ok((await count("Tag Apple")) === 1 && (await count("Tag Pear")) === 1, "repeat of an instance: each row draws it, with its row's words");
+  ok(!(await count("Tag Plum")), "repeat: its limit holds");
+  ok(await above("Tag Apple", "Tag Pear"), "repeat of an instance: rows stand one under another");
+  /* {{current.x}}: the last row tapped, read on another screen */
+  await p.tap("Open Pear");
+  ok(await p.at("detail"), "current: a row's button opens the next screen");
+  ok(await p.sees("You chose Pear"), "current: reads the row that was tapped");
+  ok(await p.sees("2 dollars"), "current: every field of it");
+  await p.tap("Say chosen");
+  await sleep(150);
+  ok(await p.sees("Said Pear"), "current: an effect's words read it too");
+  await p.tap("Go back");
+  ok(await p.at("reuseHome"), "current: back");
+  await p.tap("Pick Apple");
+  ok(await p.at("detail"), "current: a button in an instance in a row goes on too");
+  ok(await p.sees("You chose Apple"), "current: and reads that row");
+  await p.tap("Go back");
+  ok(await p.at("reuseHome"), "current: back again");
+  /* instances */
+  await p.tap("To instances");
+  ok(await p.at("instances"), "instances: reached");
+  ok((await count("Promo")) === 1 && (await count("Second")) === 1, "instance: overrides reach this one and not the other");
+  ok(!(await count("Third")), "instance: hidden at the start, with all it holds");
+  ok(!(await count("Promo secret")), "definition: a part hidden in it starts hidden");
+  await p.tap("Reveal promo");
+  await sleep(150);
+  ok((await count("Promo secret")) === 1, "definition: an effect inside it reaches this instance alone");
+  await p.tap("Rename promo");
+  await sleep(150);
+  ok((await count("Promo renamed")) === 1 && (await count("Second")) === 1, "definition: setProp inside it reaches this instance alone");
+  ok(await above("Before instance", "Second"), "instance in a layout: what comes before it stands above it");
+  ok(await above("Second", "Reveal second"), "instance in a layout: its parts keep their order");
+  ok(await above("Reveal second", "After instance"), "instance in a layout: what comes after it stands below it");
+  await p.tap("Reveal second");
+  await sleep(150);
+  ok((await count("Promo secret")) === 2, "instance in a layout: its own effect runs");
+  ok(await above("Reveal second", "After instance"), "instance in a layout: its parts stay inside its slot when one shows");
+  /* the layout moves it, and what it holds has to go with it */
+  const topOf = (t: string) => p.ev<number>(`${FIND_TEXT}return find(${JSON.stringify(t)}).getBoundingClientRect().top`);
+  const was = await topOf("Second");
+  await p.tap("Toggle before");
+  await sleep(150);
+  ok((await topOf("Second")) < was, "instance in a layout: its parts go with it when what stands before it goes");
+  await p.tap("Toggle before");
+  await sleep(150);
+  await p.tap("Toggle third");
+  await sleep(150);
+  ok((await count("Third")) === 1, "instance: a toggle on it brings it all up");
+  await p.tap("Toggle third");
+  await sleep(150);
+  ok(!(await count("Third")), "instance: and takes it all away");
+  /* a dock in a definition, an instance in an instance, a repeat in a definition */
+  await p.tap("To docked");
+  ok(await p.at("docked"), "docked: reached");
+  ok((await p.sees("Pane one")) && !(await p.sees("Pane two")), "dock in a definition: shows the chosen tab's content only");
+  await p.tap("Two");
+  await sleep(150);
+  ok(!(await p.sees("Pane one")) && (await p.sees("Pane two")), "dock in a definition: a tab brings its content up");
+  await p.tap("Pane two");
+  await sleep(150);
+  ok(await p.sees("Pressed pane"), "dock in a definition: what stands on a tab works");
+  ok(await p.sees("Outer words"), "nested: the outer definition's own part");
+  ok(await p.sees("Nested title"), "nested: the inner instance with the outer's overrides");
+  ok(await p.sees("Deep rename"), "nested: an override passed down from the screen");
+  for (const name of ["Listed Apple", "Listed Pear", "Listed Plum"]) ok(await p.sees(name), `repeat in a definition: ${name}`);
+  /* another size of a screen is a screen of its own, its rows and all */
+  await p.tap("To tablet");
+  ok(await p.at("reuseHome"), "variant: a way to another size shows the size this window is");
+  await p.width(900);
+  ok(await p.at("reuseHome2"), "variant: a wider window shows the tablet size");
+  ok(await p.sees("Open Plum"), "variant: its rows are drawn");
+  await p.shot("export-shot-reuse.png");
+  ok(!(await raw()), "variant: no token left on the screen");
+  await p.width(420);
+  ok(await p.at("reuseHome"), "variant: a narrower window comes back to the phone size");
+  await p.width(1200);
+}
+
 /* ---------- the runs ---------- */
 
-const FLOWS = [shopFlow, formFlow, counterFlow, inputsFlow, dockFlow, barsFlow, longFlow];
+const FLOWS =[shopFlow, formFlow, counterFlow, inputsFlow, dockFlow, barsFlow, longFlow];
 
 async function driveAll(page: Page, name: string) {
   for (const flow of FLOWS) {
@@ -552,6 +661,26 @@ async function allParts() {
   }
 }
 
+/** instances, rows drawn from data and the sizes of a screen, in a project of their own */
+async function reuse() {
+  const { doc, widths } = reuseDoc();
+  const dist = await assemble("reuse", doc, widths);
+  if (!dist) return;
+  const server = await serve(dist, 4197);
+  const page = await edgeAt("reuse", "http://127.0.0.1:4197/");
+  try {
+    await reuseFlow(page);
+    ok(!page.errors.length, `reuse, the build: nothing went wrong on the page${page.errors.length ? `:\n  ${[...new Set(page.errors)].slice(0, 30).join("\n  ")}` : ""}`);
+  } finally {
+    await page.close();
+    server.close();
+  }
+  await underDev(join(WORK, "reuse"), 4198, "reuse-dev", async (dev) => {
+    await reuseFlow(dev);
+    ok(!dev.errors.length, `reuse, the dev server: nothing went wrong on the page${dev.errors.length ? `:\n  ${[...new Set(dev.errors)].slice(0, 30).join("\n  ")}` : ""}`);
+  });
+}
+
 /** every kind of part that a tap moves or an effect opens */
 async function sweep() {
   const { doc, widths, pickers, overlays } = sweepDoc();
@@ -626,6 +755,7 @@ async function savedZip(path: string) {
 
 if (ONLY?.endsWith(".zip")) await savedZip(ONLY);
 if (ONLY === "sweep") await sweep();
+if (!ONLY || ONLY === "reuse") await reuse();
 if (!ONLY || ONLY === "proof") await proof();
 if (!ONLY || ONLY === "one") await oneScreen();
 if (!ONLY || ONLY === "parts") await allParts();

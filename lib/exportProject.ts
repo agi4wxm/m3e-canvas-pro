@@ -1,3 +1,4 @@
+import { familiesOf } from "./variants";
 import { strToU8, zipSync } from "fflate";
 import { buildScreens, importLines, type ScreenCode } from "./codegen";
 import { getLang, type Lang } from "./i18n";
@@ -168,7 +169,35 @@ async function fromIconify(ids: string[]): Promise<IconData> {
 
 /* ---------- the files written for this document ---------- */
 
-function appSource(screens: ScreenCode[], motion: string, usesToast: boolean): string {
+/** the screens that are sizes of one screen, each with its whole family */
+function sizesSource(families: string[][]): string {
+  if (!families.length) return "";
+  const rows = families.flatMap((family) => family.map((key) => `  ${key}: ${JSON.stringify(family)},`)).join("\n");
+  return `
+/** the sizes of one screen: the window picks among them, the way the preview's width switch does */
+const SIZES: Partial<Record<ScreenId, ScreenId[]>> = {
+${rows}
+}
+
+/** the device a window of this width is; the family's nearest size to it stands in */
+const deviceWidth = (wide: number) => (wide < 600 ? 412 : wide < 1100 ? 834 : 1280)
+
+function useSized(asked: ScreenId): ScreenId {
+  const [wide, setWide] = useState(() => window.innerWidth)
+  useLayoutEffect(() => {
+    const measure = () => setWide(window.innerWidth)
+    window.addEventListener("resize", measure)
+    return () => window.removeEventListener("resize", measure)
+  }, [])
+  const family = SIZES[asked]
+  if (!family) return asked
+  const want = deviceWidth(wide)
+  return family.reduce((best, s) => (Math.abs(SCREENS[s].width - want) < Math.abs(SCREENS[best].width - want) ? s : best))
+}
+`;
+}
+
+function appSource(screens: ScreenCode[], motion: string, usesToast: boolean, families: string[][]): string {
   const imports = screens.map((s) => `import { ${s.component} } from "./screens/${s.component}"`).join("\n");
   const table = screens.map((s) => `  ${s.key}: { Screen: ${s.component}, width: ${s.width}, height: ${s.height}, foot: ${Math.round(s.foot)} },`).join("\n");
   return `import { useEffect, useLayoutEffect, useRef, useState, type ComponentType } from "react"
@@ -181,6 +210,7 @@ const SCREENS: Record<ScreenId, { Screen: ComponentType; width: number; height: 
 ${table}
 }
 
+${sizesSource(families)}
 /** the theme's motion scheme: springs for expressive, eased tweens for standard */
 const SPRINGS = ${motion === "expressive"}
 const EASE = [0.2, 0, 0, 1] as const
@@ -256,7 +286,7 @@ function useFit(width: number, height: number) {
 }
 
 export function App() {
-  const { screen, move, snack } = useApp()
+  ${families.length ? "const { screen: asked, move, snack } = useApp()\n  const screen = useSized(asked)" : "const { screen, move, snack } = useApp()"}
   const shown = SCREENS[screen]
   const fit = useFit(shown.width, shown.height)
   /* overlays open inside the screen, not over the whole window: the transform makes their \`fixed\` lay out in it */
@@ -534,7 +564,11 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
   for (const [data, path] of images) files[`public${path}`] = dataToBytes(data);
 
   const theme = normalizeTheme(doc.theme);
-  const appSrc = appSource(screens, theme.motion, usesToast);
+  const keyOf = new Map(screens.map((s) => [s.id, s.key]));
+  const families = familiesOf(doc.frames)
+    .map((family) => family.flatMap((f) => keyOf.get(f.id) ?? []))
+    .filter((family) => family.length > 1);
+  const appSrc = appSource(screens, theme.motion, usesToast, families);
   const themeSrc = themeSource(doc, name);
   files["src/App.tsx"] = appSrc;
   files["src/main.tsx"] = MAIN;

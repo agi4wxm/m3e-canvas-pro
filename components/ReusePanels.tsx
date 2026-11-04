@@ -89,25 +89,29 @@ export function ComponentsPanel({
       <div style={hintStyle(p)}>{t(components.length ? "componentHint" : "noComponents", lang)}</div>
       {components.map((def) => (
         <div key={def.id} data-component={def.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: 16, background: p.surfaceContainerLow }}>
-          <button
-            type="button"
+          {/* a button in the look of the thing, not a <button>: what it draws has real buttons in it, and a button may not hold a button */}
+          <div
+            role="button"
+            tabIndex={0}
             data-component-tile={def.id}
             aria-label={`${def.name}: ${t("componentHint", lang)}`}
             onPointerDown={(e) => onPointerDown(e, def.id)}
-            /* a click made with a pointer is the drag's business; one from the keyboard has no pointer */
-            onClick={(e) => {
-              if (e.detail === 0) onActivate(def.id);
+            /* a click made with a pointer is the drag's business; this is the one from the keyboard */
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              onActivate(def.id);
             }}
             className="m3-tile-face"
-            style={{ display: "block", width: "100%", padding: 0, border: "none", background: "transparent", cursor: "grab", touchAction: "none", font: "inherit" }}
+            style={{ display: "block", width: "100%", cursor: "grab", touchAction: "none" }}
           >
             <ComponentThumb def={def} components={components} p={p} />
-          </button>
+          </div>
           <Field value={def.name} onChange={(name) => onRename(def.id, name)} placeholder={t("componentName", lang)} label={t("componentName", lang)} p={p} height={40} />
           <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 2px 0 6px" }}>
             <span style={{ flex: 1, fontSize: 12, color: p.onSurfaceVariant }}>{t("componentUses", lang).replace("{n}", String(uses[def.id] ?? 0))}</span>
             <IconBtn icon="edit" p={p} size={36} on={editingId === def.id} onClick={() => onEdit(def.id)} title={t("editComponent", lang)} />
-            <IconBtn icon="delete" p={p} size={36} danger disabled={editingId === def.id} onClick={() => onDelete(def.id)} title={t("deleteComponent", lang)} />
+            <IconBtn icon="delete" p={p} size={36} danger disabled={!!editingId} onClick={() => onDelete(def.id)} title={t(editingId ? "deleteComponentBusy" : "deleteComponent", lang)} />
           </div>
         </div>
       ))}
@@ -167,7 +171,8 @@ export function InstanceInspector({
   onToggleLock?: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
-  onEdit: () => void;
+  /** opens the definition; a phone has no way to edit one */
+  onEdit?: () => void;
   onDetach: () => void;
   onOverrides: (overrides: Group["overrides"]) => void;
   onPlace?: PlaceFn;
@@ -189,10 +194,12 @@ export function InstanceInspector({
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 4px 14px" }}>
-        <button onClick={onEdit} data-instance-edit className="m3-press" style={wideBtn(p, true)}>
-          <Icon name="edit" size={20} />
-          {t("editComponent", lang)}
-        </button>
+        {onEdit && (
+          <button onClick={onEdit} data-instance-edit className="m3-press" style={wideBtn(p, true)}>
+            <Icon name="edit" size={20} />
+            {t("editComponent", lang)}
+          </button>
+        )}
         <button onClick={onDetach} data-instance-detach className="m3-press" style={wideBtn(p)}>
           <Icon name="link_off" size={20} />
           {t("detachInstance", lang)}

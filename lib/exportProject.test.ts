@@ -41,6 +41,24 @@ function checkClosed(files: ProjectFiles) {
   }
 }
 
+describe("sizes of one screen", () => {
+  const twoSizes = (): Doc => ({ groups: [], frames: [{ id: "p", name: "Home", x: 0, y: 0 }, { id: "d", name: "Home", x: 500, y: 0, w: 1280, h: 800, variantOf: "p" }, { id: "o", name: "Other", x: 1900, y: 0 }], paletteKey: "purple", frame: "phone", title: "T", brief: "" });
+
+  it("lets the window choose among them, and only them", async () => {
+    const { files } = await buildProject(twoSizes(), {}, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    const app = textOf(files, "src/App.tsx");
+    expect(app).toContain("useSized(asked)");
+    const table = /const SIZES[^=]*= \{([\s\S]*?)\n\}/.exec(app)![1];
+    expect(table.trim().split("\n")).toHaveLength(2);
+  });
+
+  it("adds nothing to a document without any", async () => {
+    const { doc, widths } = proofDoc();
+    const { files } = await buildProject(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    expect(textOf(files, "src/App.tsx")).not.toContain("useSized");
+  });
+});
+
 describe("the project of a real document", () => {
   it("holds the files it has to, and only the sources its screens reach", async () => {
     const { doc, widths } = proofDoc();

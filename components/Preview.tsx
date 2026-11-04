@@ -36,7 +36,9 @@ import {
   normalizeTheme,
   paletteOf,
   sizeOf,
+  takesDeviceBars,
 } from "@/lib/tokens";
+import { DeviceBars } from "./DeviceBars";
 import { Icon } from "./Icon";
 import { PartView } from "./PartView";
 import { partBySlug, reader } from "@/parts/registry";
@@ -52,6 +54,8 @@ const EASE = [0.2, 0, 0, 1] as const;
 const SLIDE_MS = 0.42;
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
 const WIDE_CONTROL_SPACE = 220;
+/** the strip the controls take along the bottom of a phone */
+const PHONE_BAR_H = 56;
 
 type Anim = { t: Transition; back: boolean; /** the expressive motion scheme: springs instead of eased tweens */ spring?: boolean };
 
@@ -453,6 +457,7 @@ function Screen({
           })}
         </div>
       )))}
+      {frame.deviceBars && takesDeviceBars(frame) && <DeviceBars p={p} bg={frame.bg ?? "surface"} height={viewH} zIndex={3} />}
     </div>
   );
 }
@@ -555,22 +560,25 @@ export function Preview({
   const screenW = useTransform(shellW, (v) => v - BEZEL * 2);
   const screenH = useTransform(shellH, (v) => v - BEZEL * 2);
   const shellRadius = useTransform(screenRadius, (v) => v + BEZEL);
-  /* the stage is sized for the largest screen in the document, so the scale never
-   * changes while a swipe crosses sizes or a screen is opened from the picker */
-  const maxOuterW = Math.max(outerW, ...frames.map((f) => frameSizeOf(f).w + BEZEL * 2));
-  const maxOuterH = Math.max(outerH, ...frames.map((f) => frameSizeOf(f).h + BEZEL * 2));
+  /* on a wide window the controls stand in a column at the right edge, clear of the phone;
+   * on a phone they stay along the bottom, where the frame fills the width anyway */
+  const [wide, setWide] = useState(() => typeof window !== "undefined" && window.innerWidth >= 720);
+  /* the stage is sized for the largest screen in the document, so the scale never changes while a
+   * swipe crosses sizes or a screen is opened from the picker. On a phone the screen on show fills the
+   * window instead: a desktop size elsewhere in the document would leave it the size of a stamp */
+  const onStage = wide || !current ? frames : [current];
+  const maxOuterW = Math.max(outerW, ...onStage.map((f) => frameSizeOf(f).w + BEZEL * 2));
+  const maxOuterH = Math.max(outerH, ...onStage.map((f) => frameSizeOf(f).h + BEZEL * 2));
   const shellLeft = useTransform(shellW, (v) => ((maxOuterW - v) * scale) / 2);
   const shellTop = useTransform(shellH, (v) => ((maxOuterH - v) * scale) / 2);
 
-  /* on a wide window the controls stand in a column at the right edge, clear of the phone;
-   * on a phone they stay along the bottom, where the frame fills the width anyway */
-  const [wide, setWide] = useState(false);
   useEffect(() => {
     const fit = () => {
       const isWide = window.innerWidth >= 720;
       setWide(isWide);
       setScale(
-        Math.min(1.4, (window.innerHeight - 32) / maxOuterH, (window.innerWidth - (isWide ? WIDE_CONTROL_SPACE + 16 : 16)) / maxOuterW),
+        /* along the bottom, the controls take a strip of the height */
+        Math.min(1.4, (window.innerHeight - 32 - (isWide ? 0 : PHONE_BAR_H)) / maxOuterH, (window.innerWidth - (isWide ? WIDE_CONTROL_SPACE + 16 : 16)) / maxOuterW),
       );
     };
     fit();
@@ -842,7 +850,11 @@ export function Preview({
     /* the column has a fixed width, so labels are cut with an ellipsis instead of widening it */
     width: wide ? "100%" : undefined,
     minWidth: 0,
+    /* along a phone's bottom it is the screen's name that gives way, not the buttons beside it */
+    flexShrink: wide ? undefined : 0,
   };
+  /* along a phone's bottom there is room for the marks, not the words: the title says them */
+  const markOnly: React.CSSProperties = wide ? {} : { padding: "0 10px" };
   const label: React.CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 };
 
   return (
@@ -868,7 +880,7 @@ export function Preview({
           width: maxOuterW * scale,
           height: maxOuterH * scale,
           position: "relative",
-          marginBottom: wide ? 0 : 56,
+          marginBottom: wide ? 0 : PHONE_BAR_H,
         }}
       >
         <motion.div
@@ -991,17 +1003,19 @@ export function Preview({
             onClick={back}
             disabled={stack.length < 2}
             title={t("back", lang)}
+            aria-label={t("back", lang)}
             className="m3-press"
             style={{
               ...barBtn,
+              ...markOnly,
               color: stack.length < 2 ? p.outlineVariant : p.onSurfaceVariant,
               cursor: stack.length < 2 ? "default" : "pointer",
             }}
           >
             <Icon name="arrow_back" size={20} />
-            <span style={label}>{t("back", lang)}</span>
+            {wide && <span style={label}>{t("back", lang)}</span>}
           </button>
-          <div ref={pickerRef} style={{ position: "relative", minWidth: 0 }}>
+          <div ref={pickerRef} style={{ position: "relative", minWidth: 0, flex: wide ? undefined : "0 1 auto" }}>
             <button
               ref={pickerButton}
               onClick={() => setPicker((v) => !v)}
@@ -1012,10 +1026,12 @@ export function Preview({
                 ...barBtn,
                 background: p.secondaryContainer,
                 color: p.onSecondaryContainer,
+                width: "100%",
                 maxWidth: wide ? undefined : 200,
+                padding: wide ? barBtn.padding : "0 8px 0 12px",
               }}
             >
-              <Icon name={phone ? "smartphone" : "desktop_windows"} size={20} />
+              {wide && <Icon name={phone ? "smartphone" : "desktop_windows"} size={20} />}
               <span style={{ ...label, flex: wide ? 1 : undefined, textAlign: "left" }}>{current.name || t("screen", lang)}</span>
               <Icon name={wide ? (picker ? "chevron_right" : "chevron_left") : picker ? "expand_more" : "expand_less"} size={18} />
             </button>
@@ -1031,6 +1047,7 @@ export function Preview({
                     position: "absolute",
                     ...(wide ? { right: "calc(100% + 14px)", bottom: 0 } : { bottom: 48, left: "50%" }),
                     minWidth: 160,
+                    maxWidth: "calc(100vw - 24px)",
                     maxHeight: "50vh",
                     overflowY: "auto",
                     padding: 6,
@@ -1092,14 +1109,13 @@ export function Preview({
             title={t(dark ? "light" : "dark", lang)}
             aria-label={t(dark ? "light" : "dark", lang)}
             className="m3-press"
-            /* the phone's bar has room for the mark, not the word */
-            style={{ ...barBtn, color: p.onSurfaceVariant, padding: wide ? barBtn.padding : "0 10px" }}
+            style={{ ...barBtn, ...markOnly, color: p.onSurfaceVariant }}
           >
             <Icon name={dark ? "light_mode" : "dark_mode"} size={20} />
             {wide && <span style={label}>{t(dark ? "light" : "dark", lang)}</span>}
           </button>
           {hasSizes && (
-            <div role="radiogroup" aria-label={t("previewWidth", lang)} data-preview-width style={{ display: "flex", gap: 2, justifyContent: "center" }}>
+            <div role="radiogroup" aria-label={t("previewWidth", lang)} data-preview-width style={{ display: "flex", gap: 2, justifyContent: "center", flexShrink: 0 }}>
               {PRESETS.map((preset) => {
                 const on = framePresetOf(current) === preset;
                 const word = t(preset === "phone" ? "phoneFrame" : preset === "tablet" ? "tabletFrame" : "desktopFrame", lang);
@@ -1116,7 +1132,7 @@ export function Preview({
                       setDevice(preset);
                     }}
                     className="m3-press"
-                    style={{ ...barBtn, width: 44, padding: 0, justifyContent: "center", background: on ? p.secondaryContainer : "transparent", color: on ? p.onSecondaryContainer : p.onSurfaceVariant }}
+                    style={{ ...barBtn, width: wide ? 44 : 36, padding: 0, justifyContent: "center", background: on ? p.secondaryContainer : "transparent", color: on ? p.onSecondaryContainer : p.onSurfaceVariant }}
                   >
                     <Icon name={preset === "phone" ? "smartphone" : preset === "tablet" ? "tablet" : "desktop_windows"} size={20} />
                   </button>
@@ -1124,9 +1140,9 @@ export function Preview({
               })}
             </div>
           )}
-          <button onClick={onClose} title={t("close", lang)} className="m3-press" style={{ ...barBtn, color: p.onSurfaceVariant }}>
+          <button onClick={onClose} title={t("close", lang)} aria-label={t("close", lang)} className="m3-press" style={{ ...barBtn, ...markOnly, color: p.onSurfaceVariant }}>
             <Icon name="close" size={20} />
-            <span style={label}>{t("closeBtn", lang)}</span>
+            {wide && <span style={label}>{t("closeBtn", lang)}</span>}
           </button>
         </div>
       </div>
