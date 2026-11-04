@@ -31,9 +31,10 @@ import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { inlineNode, itemOfFile, namesIn } from "../parts/print";
 import { flowClasses } from "../parts/flow";
 import { mapNodes, type PNode, type PValue } from "../parts/node";
+import { expandDoc } from "./expand";
 import { flowOf, outOfPane, type Flow } from "./flow";
-import { appearanceOf } from "../parts/appearance";
-import { partBySlug, treeOf, withoutPickedImages } from "../parts/registry";
+import { Behaviour, type RuntimeSpec, type Uses } from "./printBehaviour";
+import { partBySlug } from "../parts/registry";
 import { fullWidth, roleOf } from "../parts/role";
 import { pinOf } from "./tidy";
 
@@ -46,7 +47,7 @@ type CodeResult = {
   install: string;
 };
 
-type Imports = Map<string, Set<string>>;
+export type Imports = Map<string, Set<string>>;
 
 /** a color token as the Tailwind role utility the shadcn M3E styles define */
 const role = (t: ColorToken | string) => t.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
@@ -55,10 +56,22 @@ const str = (s: string) => JSON.stringify(s);
 
 /** the path the code gives a picture the sketch holds as data: the file's own contents stay in the sketch */
 const PLACEHOLDER_IMAGE = "/placeholder.svg";
+const RUNTIME = "@/runtime";
+
+/* A condition printed around JSX is one line of its own with the JSX indented under it, which `pretty`
+ * can only do if it can tell these apart from a brace in the text of a part. */
+const GATE_OPEN = "";
+const GATE_END = "";
+const GATE_CLOSE = "";
+const gated = (gates: string[], source: string) => (gates.length ? `${GATE_OPEN}{${gates.join(" && ")} && (${GATE_END}${source}${GATE_CLOSE}` : source);
+
 class Ctx {
   imports: Imports = new Map();
   /** `<Toaster />` has to be rendered once for a toast to show */
   usesToast = false;
+  /** what this screen takes from the runtime */
+  uses: Uses = { app: new Set(), press: false };
+  constructor(readonly b: Behaviour) {}
   /** the modules the code imports from, with the names it takes from each */
   use(...names: string[]) {
     for (const n of names) {
@@ -74,13 +87,11 @@ class Ctx {
 }
 
 /** the JSX of one part */
-function jsx(it: Item, c: Ctx): string {
-  const def = partBySlug(it.component);
-  if (!def) return `{/* unknown component ${it.component ?? ""} */}`;
-  /* a picked image lives in the sketch as data; the code stands in a path for it */
-  const tree = treeOf(def, withoutPickedImages(def, it.props ?? {}, PLACEHOLDER_IMAGE), appearanceOf(it));
+function jsx(it: Item, c: Ctx, insideTap = false): string {
+  if (!partBySlug(it.component)) return `{/* unknown component ${it.component ?? ""} */}`;
+  const { tree, keepTap, wrap } = c.b.printPart(it, c.uses, insideTap);
   c.use(...namesIn(tree));
-  return inlineNode(tree);
+  return wrap(inlineNode(tree, keepTap));
 }
 
 /** a part that takes the room its layout gives it, not a number of pixels */
@@ -92,23 +103,27 @@ function fluid(tree: PNode, keys: ("width" | "height")[]): PNode {
 
 /** The JSX of a run laid out by a container: nested, the way the browser will lay it out. The classes
  *  of the layout go on the node the container keeps for it, or on its root. */
-function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow): string {
+function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new Set<string>(), insideTap = false): string {
   const it = run.items[0];
   const def = partBySlug(it.component);
   const flow = run.items.length === 1 ? flowOf(run) : null;
-  if (!def || (!flow && !parent)) return run.items.map((x) => jsx(x, c)).join("");
+  if (!def || (!flow && !parent)) return run.items.map((x) => jsx(x, c, insideTap)).join("");
   if (!flow) {
     const crossKey = parent!.dir === "column" ? "width" : "height";
     const mainKey = crossKey === "width" ? "height" : "width";
     const keys = [...(parent!.align === "stretch" ? [crossKey] : []), ...(it.flowFill ? [mainKey] : [])] as ("width" | "height")[];
-    if (run.items.length !== 1) return `<div className="flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]">${run.items.map((x) => jsx(x, c)).join("")}</div>`;
-    const tree = fluid(treeOf(def, withoutPickedImages(def, it.props ?? {}, PLACEHOLDER_IMAGE), appearanceOf(it)), keys);
+    if (run.items.length !== 1) return `<div className="flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]">${run.items.map((x) => jsx(x, c, insideTap)).join("")}</div>`;
+    const part = c.b.printPart(it, c.uses, insideTap);
+    const tree = fluid(part.tree, keys);
     c.use(...namesIn(tree));
-    const source = inlineNode(tree);
+    const source = part.wrap(inlineNode(tree, part.keepTap));
     return it.flowFill ? `<div className=${str(parent!.dir === "column" ? "min-h-0 flex-1" : "min-w-0 flex-1")}>${source}</div>` : source;
   }
   const kids = all.filter((g) => g.inFlow === run.id && !g.locked);
-  let tree = treeOf(def, withoutPickedImages(def, it.props ?? {}, PLACEHOLDER_IMAGE), appearanceOf(it));
+  const part = c.b.printPart(it, c.uses, insideTap);
+  const tapped = insideTap || !!it.action || !!Object.keys(it.actions ?? {}).length;
+  const within = new Set(inside).add(run.id);
+  let tree = part.tree;
   /* a layout in a layout takes the room the outer one gives it too */
   if (parent) {
     const cross = parent.dir === "column" ? "width" : "height";
@@ -128,9 +143,9 @@ function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow): string {
     return { ...n, props: { ...clean, className }, children: [HOLE] };
   });
   c.use(...namesIn(placed));
-  const inside = kids.map((k) => flowJsx(k, c, all, flow)).join("");
+  const held = kids.map((k) => gated(c.b.gates(k, within, c.uses), flowJsx(k, c, all, flow, within, tapped))).join("");
   /* a function: a `$` in a part's words is not a replacement pattern */
-  return inlineNode(placed).replace(HOLE, () => inside);
+  return part.wrap(inlineNode(placed, part.keepTap).replace(HOLE, () => held));
 }
 
 /** the pieces of a screen, each run placed where the sketch has it */
@@ -141,8 +156,10 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
   for (const run of runs) {
     /* what a layout holds is printed inside it */
     if (run.inFlow && hosts.has(run.inFlow) && !run.locked) continue;
+    const gates = c.b.gates(run, new Set(), c.uses);
+    const float = c.b.floats(run) ? " z-10" : "";
     if (hosts.has(run.id)) {
-      out.push(`<div className=${str(`absolute left-[${Math.round(run.x - frame.x)}px] top-[${Math.round(run.y - frame.y)}px]`)}>${flowJsx(run, c, all)}</div>`);
+      out.push(gated(gates, `<div className=${str(`absolute left-[${Math.round(run.x - frame.x)}px] top-[${Math.round(run.y - frame.y)}px]`)}>${flowJsx(run, c, all)}</div>`));
       continue;
     }
     const first = run.items[0];
@@ -161,12 +178,12 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
       const bottom = pinEdges && r === "bottom" && top + sizeOf(first, widths).h > h - 1;
       const pinnedTop = pinEdges && r === "top" && top <= STATUS_BAR_H;
       const anchor = bottom ? "bottom-0" : pinnedTop ? "top-0" : `top-[${top}px]`;
-      out.push(`<div className="absolute inset-x-0 ${anchor}">${body[0]}</div>`);
+      out.push(gated(gates, `<div className="absolute inset-x-0 ${anchor}${float}">${body[0]}</div>`));
       continue;
     }
-    const pos = `absolute left-[${left}px] top-[${top}px]`;
-    if (body.length === 1) out.push(`<div className=${str(pos)}>${body[0]}</div>`);
-    else out.push(`<div className=${str(`${pos} flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]`)}>${body.join("")}</div>`);
+    const pos = `absolute left-[${left}px] top-[${top}px]${float}`;
+    if (body.length === 1) out.push(gated(gates, `<div className=${str(pos)}>${body[0]}</div>`));
+    else out.push(gated(gates, `<div className=${str(`${pos} flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]`)}>${body.join("")}</div>`));
   }
   return out;
 }
@@ -189,6 +206,17 @@ function tokenize(s: string): string[] {
   const out: string[] = [];
   let i = 0;
   while (i < s.length) {
+    if (s[i] === GATE_OPEN) {
+      const end = s.indexOf(GATE_END, i);
+      out.push(s.slice(i, end));
+      i = end + 1;
+      continue;
+    }
+    if (s[i] === GATE_CLOSE) {
+      out.push(GATE_CLOSE);
+      i++;
+      continue;
+    }
     const tag = s[i] === "<";
     let j = tag ? i + 1 : i;
     let depth = 0;
@@ -202,7 +230,7 @@ function tokenize(s: string): string[] {
       else if (ch === "{") depth++;
       else if (ch === "}") depth--;
       else if (tag && ch === ">" && depth === 0) break;
-      else if (!tag && ch === "<" && depth === 0) {
+      else if (!tag && (ch === "<" || ch === GATE_OPEN || ch === GATE_CLOSE) && depth === 0) {
         j--;
         break;
       }
@@ -213,39 +241,99 @@ function tokenize(s: string): string[] {
   return out;
 }
 
+/** how long a tag may run before its attributes go one to a line */
+const LONG_TAG = 120;
+
+/** a tag split at the spaces outside its quotes and braces */
+function wrapTag(t: string, at: string): string {
+  if (at.length + t.length <= LONG_TAG) return at + t;
+  const pieces: string[] = [];
+  let depth = 0;
+  let quote = "";
+  let from = 0;
+  for (let j = 0; j < t.length; j++) {
+    const ch = t[j];
+    if (quote) {
+      if (ch === "\\") j++;
+      else if (ch === quote) quote = "";
+    } else if (ch === '"' || ch === "'" || ch === "`") quote = ch;
+    else if (ch === "{") depth++;
+    else if (ch === "}") depth--;
+    else if (ch === " " && depth === 0) {
+      pieces.push(t.slice(from, j));
+      from = j + 1;
+    }
+  }
+  pieces.push(t.slice(from));
+  if (pieces.length < 2) return at + t;
+  const end = t.endsWith("/>") ? "/>" : ">";
+  const last = pieces[pieces.length - 1].slice(0, -end.length).trim();
+  return [at + pieces[0], ...pieces.slice(1, -1).map((p) => `${at}  ${p}`), ...(last ? [`${at}  ${last}`] : []), at + end].join("\n");
+}
+
 /** one element per line, indented by nesting; an element holding only text, or one self-closing child, stays on one line */
 function pretty(source: string, depth: number): string {
   const pad = (d: number) => "  ".repeat(d);
   const tokens = tokenize(source);
   const lines: string[] = [];
   let d = depth;
+  const plain = (x: string | undefined) => x !== undefined && x[0] !== GATE_OPEN && x !== GATE_CLOSE;
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
-    if (t.startsWith("</")) {
+    if (t[0] === GATE_OPEN) {
+      lines.push(pad(d) + t.slice(1));
+      d++;
+    } else if (t === GATE_CLOSE) {
+      d--;
+      lines.push(`${pad(d)})}`);
+    } else if (t.startsWith("</")) {
       d--;
       lines.push(pad(d) + t);
     } else if (t.startsWith("<")) {
       const self = t.endsWith("/>");
       const next = tokens[i + 1];
       const after = tokens[i + 2];
-      const inline = !self && next !== undefined && after?.startsWith("</") && (!next.startsWith("<") || next.endsWith("/>"));
-      if (inline) {
+      const inline = !self && plain(next) && after?.startsWith("</") && (!next.startsWith("<") || next.endsWith("/>"));
+      if (inline && d * 2 + t.length + next.length + after.length <= LONG_TAG) {
         lines.push(pad(d) + t + next + after);
         i += 2;
         continue;
       }
-      lines.push(pad(d) + t);
+      lines.push(wrapTag(t, pad(d)));
       if (!self) d++;
     } else if (t.trim()) lines.push(pad(d) + t.trim());
   }
   return lines.join("\n");
 }
 
-export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?: string): CodeResult {
-  const c = new Ctx();
-  const palette = paletteOf(doc.paletteKey, doc.customPalette, doc.theme);
-  const seed = palette.seed ?? palette.primary;
+/** one screen as code, with what its own file needs */
+export type ScreenCode = {
+  id: string;
+  /** the name `go("…")` knows it by */
+  key: string;
+  component: string;
+  width: number;
+  height: number;
+  /** the height of the bar at its foot: a snackbar stands above it */
+  foot: number;
+  source: string;
+  imports: Imports;
+};
 
+type BuildOptions = {
+  onlyFrameId?: string;
+  /** a whole app: parts behave as they do in the preview even with no action of their own */
+  live?: boolean;
+  /** the path for a picture held as data */
+  image?: (data: string) => string;
+};
+
+export const importLines = (imports: Imports) => [...imports.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([source, set]) => `import { ${[...set].sort((a, b) => a.localeCompare(b)).join(", ")} } from "${source}"`);
+
+export function buildScreens(source: Doc, widths: Record<string, number>, o: BuildOptions = {}): { screens: ScreenCode[]; runtime: RuntimeSpec; usesToast: boolean } {
+  /* printed code is expanded: instances and repeated rows come out as plain parts */
+  const doc = expandDoc(source, widths);
+  const { onlyFrameId } = o;
   /* a sketch with no screens is one open canvas: its parts' own bounds make the screen */
   let frames = doc.frame === "phone" ? doc.frames : [];
   const loose = frames.length === 0;
@@ -255,10 +343,13 @@ export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?
   }
   const shown = onlyFrameId ? frames.filter((f) => f.id === onlyFrameId) : frames;
 
+  const b = new Behaviour(doc, widths, { live: !!o.live, shown, image: o.image ?? PLACEHOLDER_IMAGE });
   const taken = new Set<string>();
-  /* a dock prints the content of the tab that is chosen; the rest stays in the sketch */
-  const offTab = outOfPane(doc.groups, widths);
-  const screens = shown.map((frame, i) => {
+  /* a dock whose tabs do nothing prints the content of the tab that is chosen; the rest stays in the sketch */
+  const offTab = new Set([...outOfPane(doc.groups, widths)].filter((id) => !b.keepsOffTab(id)));
+  let usesToast = false;
+  const screens = shown.map((frame, i): ScreenCode => {
+    const c = new Ctx(b);
     /* a layout reads its parts in the order of the document, the rest go down the screen */
     const all = doc.groups
       .filter((g) => (loose || frameOfPart(g, doc.groups, frames, widths)?.id === frame.id) && !offTab.has(g.id))
@@ -283,13 +374,32 @@ export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?
     const open = `<div className=${str(`relative overflow-hidden ${bg} w-[${w}px] h-[${h}px]`)}>`;
     const inner = [open, ...body, "</div>"].join("");
     if (folds) c.imports.set("react", new Set(["useRef", "useState"]));
+    const fromApp = c.uses.app.size ? `  const { ${[...c.uses.app].sort().join(", ")} } = useApp()\n` : "";
+    if (c.uses.app.size || c.uses.press) c.imports.set(RUNTIME, new Set([...(c.uses.app.size ? ["useApp"] : []), ...(c.uses.press ? ["Pressable"] : [])]));
     const state = folds ? "  const [fabFolded, setFabFolded] = useState(false)\n  const lastScrollTop = useRef(0)\n" : "";
-    return `export function ${name}() {\n${state}  return (\n${pretty(inner, 2)}\n  )\n}`;
+    usesToast ||= c.usesToast;
+    return {
+      id: frame.id,
+      key: b.screenKey(frame.id) ?? `screen${i + 1}`,
+      component: name,
+      width: w,
+      height: h,
+      foot: Math.max(0, ...runs.filter((g) => g.items.length === 1 && roleOf(g.items[0]) === "bottom").map((g) => sizeOf(g.items[0], widths).h)),
+      source: `export function ${name}() {\n${fromApp}${state}  return (\n${pretty(inner, 2)}\n  )\n}`,
+      imports: c.imports,
+    };
   });
+  return { screens, runtime: b.spec(screens.map((s) => s.key)), usesToast };
+}
 
-  const lines: string[] = [];
-  const names = [...c.imports.entries()].sort(([a], [b]) => a.localeCompare(b));
-  for (const [source, set] of names) lines.push(`import { ${[...set].sort((a, b) => a.localeCompare(b)).join(", ")} } from "${source}"`);
+export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?: string): CodeResult {
+  const palette = paletteOf(doc.paletteKey, doc.customPalette, doc.theme);
+  const seed = palette.seed ?? palette.primary;
+  const { screens, usesToast } = buildScreens(doc, widths, { onlyFrameId });
+  const imports: Imports = new Map();
+  for (const s of screens) for (const [source, set] of s.imports) imports.set(source, new Set([...(imports.get(source) ?? []), ...set]));
+  const lines = importLines(imports);
+  const names = [...imports.entries()].sort(([a], [b]) => a.localeCompare(b));
 
   const registry = "@/components/m3e/";
   const packages = names.map(([source]) => source).filter((source) => !source.startsWith("@/") && source !== "react");
@@ -304,8 +414,10 @@ export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?
     `// 2. ${install}`,
     `// 3. Wrap your app once:  <M3eProvider theme={{ defaultTheme: { source: { primary: ${str(seed)} }${seed.toUpperCase() === "#6750A4" ? "" : `, variant: "tonalSpot"`}${doc.theme && doc.theme.contrast !== "standard" ? `, contrast: ${str(doc.theme.contrast)}` : ""} } }}>…</M3eProvider>`,
     ...(packages.length ? [`// 4. bun add ${packages.join(" ")}`] : []),
-    ...(c.usesToast ? [`// ${packages.length ? 5 : 4}. Render <Toaster /> (from @/components/m3e/sonner) once, so snackbars show.`] : []),
+    ...(usesToast ? [`// ${packages.length ? 5 : 4}. Render <Toaster /> (from @/components/m3e/sonner) once, so snackbars show.`] : []),
+    /* the screens' taps run on it; it is written for this document, so it comes with the project */
+    ...(imports.has(RUNTIME) ? ["// useApp and Pressable are in src/runtime.tsx: Download project writes it, with everything else this code needs."] : []),
   ];
-  const code = [...header, "", ...lines, ...(lines.length ? [""] : []), screens.join("\n\n"), ""].join("\n");
+  const code = [...header, "", ...lines, ...(lines.length ? [""] : []), screens.map((s) => s.source).join("\n\n"), ""].join("\n");
   return { code, install };
 }

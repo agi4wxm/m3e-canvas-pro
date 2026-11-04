@@ -67,5 +67,8 @@ Roboto Flex - SIL Open Font License 1.1, via Fontsource
 
 Recharts - MIT License. Installed as a package.
 
+fflate (101arrowz) - MIT License. Installed as a package; it zips an exported project.
+  https://github.com/101arrowz/fflate
+
 Material Design is a trademark of Google LLC. This project is not affiliated with
 or endorsed by Google or shadcn/ui.

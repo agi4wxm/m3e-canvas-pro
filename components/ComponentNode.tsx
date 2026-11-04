@@ -15,7 +15,9 @@ export function ComponentNode({
   instant,
   interactive = true,
   onPointerDown,
+  onDoubleClick,
   screen,
+  children,
 }: {
   item: Item;
   palette: Palette;
@@ -26,8 +28,11 @@ export function ComponentNode({
   instant?: boolean;
   interactive?: boolean;
   onPointerDown?: (e: React.PointerEvent) => void;
+  onDoubleClick?: () => void;
   /** the frame the part is on: an open overlay's box is no larger than it */
   screen?: Screen;
+  /** drawn on the part and moving with it: what an instance or a repeat comes to. It takes no pointer: a press lands on the part. */
+  children?: React.ReactNode;
 }) {
   const size = sizeOf(item, widths);
   return (
@@ -35,7 +40,9 @@ export function ComponentNode({
       data-node={item.id}
       data-kind={item.kind}
       onPointerDown={onPointerDown}
+      onDoubleClick={onDoubleClick}
       style={{
+        position: children ? "relative" : undefined,
         width: size.w,
         height: size.h,
         boxSizing: "border-box",
@@ -51,6 +58,7 @@ export function ComponentNode({
       }}
     >
       <PartView item={item} screen={screen} />
+      {children}
     </div>
   );
 }

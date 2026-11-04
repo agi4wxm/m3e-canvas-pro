@@ -14,6 +14,7 @@ import {
   BEZEL,
   Doc,
   Frame,
+  FramePreset,
   GAP,
   Group,
   PHONE_H,
@@ -26,6 +27,7 @@ import {
   Transition,
   fontFamilyOf,
   frameLengthOf,
+  framePresetOf,
   canCollapseFab,
   frameRadius,
   frameSizeOf,
@@ -43,7 +45,8 @@ import { roleOf } from "@/parts/role";
 import { actionSlotsOf } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
-import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, isOverlayPart, liveGroups, startState, writeField } from "@/lib/interact";
+import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, startState, writeField } from "@/lib/interact";
+import { PRESETS, variantFor } from "@/lib/variants";
 
 const EASE = [0.2, 0, 0, 1] as const;
 const SLIDE_MS = 0.42;
@@ -163,7 +166,8 @@ function LivePart({ item, widths, screen, onTap, onSlot, easeWidth, onField, onC
   const click = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as Element;
     const slot = target.closest?.("[data-tap]")?.getAttribute("data-tap");
-    if (slot != null) onSlot?.(slot);
+    /* a place that answers to nothing of its own (a row of a list item with one action on the whole part) is still a press on the part */
+    if (slot != null && onSlot) onSlot(slot);
     else onTap?.();
     /* a menu an effect holds open has no way to close itself: any press on it ends it */
     if (held || target.closest?.(CLOSERS)) onClose?.();
@@ -251,7 +255,8 @@ function Screen({
   groups: Group[];
   widths: Record<string, number>;
   p: Palette;
-  onAction: (a: Action) => void;
+  /** a tap; `row` is the row of a repeat the part was drawn for */
+  onAction: (a: Action, row?: Item["row"]) => void;
   values: Record<string, number>;
   onValue: (id: string, v: number) => void;
   /** the overlays an effect holds open, by item id */
@@ -366,7 +371,7 @@ function Screen({
             /* The right edge stays authored while downward scrolling hides the label. */
             const foldable = scrolls && canCollapseFab(it) && !!it.collapseOnScroll;
             if (foldable && fabFolded) shown = { ...shown, props: { ...shown.props, collapsed: true } };
-            const tap = act ? () => onAction(act) : undefined;
+            const tap = act ? () => onAction(act, it.row) : undefined;
             const slotActions = it.actions;
             /* a part says which prop is its chosen entry (`selectKey`): a tap moves it. Destination
              *  bars share the choice across screens */
@@ -419,7 +424,8 @@ function Screen({
                           onValue(navKey || it.id, opens ? -1 : Number(slot.slice(4)));
                           if (opens && navKey) onValue(`${navKey}:opened:${a.to}`, Number(slot.slice(4)));
                         }
-                        if (a) onAction(a);
+                        if (a) onAction(a, it.row);
+                        else tap?.();
                       }
                     : undefined
                 }
@@ -486,7 +492,13 @@ export function Preview({
   const [values, setValues] = useState<Record<string, number>>({});
   const [peek, setPeek] = useState<Peek | null>(null);
   /* the prototype's state starts over each time the preview opens, and is never written to the document */
-  const [state, setStateNow] = useState<PreviewState>(() => startState(doc.vars));
+  const [state, setStateNow] = useState<PreviewState>(() => startState(doc.vars, doc.collections));
+  /* the width the visitor switched to; until then each screen shows at its own size */
+  const [device, setDevice] = useState<FramePreset | null>(null);
+  /** the sibling of a screen at the width chosen: navigation keeps naming the screen it was written for */
+  const shownId = useCallback((id: string) => (device ? (variantFor(frames, id, device)?.id ?? id) : id), [device, frames]);
+  /* every size of a screen is laid out on its own, so the switch is only there when there is something to switch to */
+  const hasSizes = frames.some((f) => f.variantOf);
   const stateRef = useRef(state);
   /* a tap reads what the one before it just wrote, whether or not React has drawn it yet */
   const setState = useCallback((next: PreviewState) => {
@@ -504,7 +516,7 @@ export function Preview({
   const swiped = useRef(false);
 
   const top = stack[stack.length - 1];
-  const current = frames.find((f) => f.id === top?.id) ?? frames[0];
+  const current = frames.find((f) => f.id === (top ? shownId(top.id) : undefined)) ?? frames[0];
   const peekFrame = peek ? frames.find((f) => f.id === peek.frameId) : undefined;
   const { w: frameW, h: frameH } = current ? frameSizeOf(current) : { w: PHONE_W, h: PHONE_H };
   const phone = current ? isPhoneFrame(current) : true;
@@ -570,14 +582,14 @@ export function Preview({
    * other; screens of different sizes cross-fade while the shell changes size */
   const sameSize = useCallback(
     (fromId: string, toId: string) => {
-      const a = frames.find((f) => f.id === fromId);
-      const b = frames.find((f) => f.id === toId);
+      const a = frames.find((f) => f.id === shownId(fromId));
+      const b = frames.find((f) => f.id === shownId(toId));
       if (!a || !b) return true;
       const sa = frameSizeOf(a);
       const sb = frameSizeOf(b);
       return sa.w === sb.w && sa.h === sb.h;
     },
-    [frames],
+    [frames, shownId],
   );
 
   const back = useCallback(() => {
@@ -612,11 +624,13 @@ export function Preview({
 
   /* A tap: its condition picks what runs, its effects run in order, and then it goes where it goes. */
   const fire = useCallback(
-    (a: Action) => {
+    (a: Action, row?: Item["row"]) => {
       if (swiped.current) return;
-      const body = chooseBranch(a, stateRef.current, doc);
+      /* a tap from a repeated part reads its row's fields as `row.field`, and only for this tap */
+      const scoped = inRow(stateRef.current, row);
+      const body = chooseBranch(a, scoped, doc);
       if (!body) return;
-      setState(applyEffects(stateRef.current, body.effects, doc));
+      setState(leftRow(applyEffects(scoped, body.effects, doc), row));
       /* an effect has just said which tab is chosen: an earlier tap on the tabs no longer speaks for it */
       const told = (body.effects ?? []).flatMap((e) => (e.do === "setProp" ? [e.part] : []));
       if (told.length) setValues((m) => ({ ...m, ...Object.fromEntries(told.map((id) => [id, -1])) }));
@@ -708,9 +722,11 @@ export function Preview({
         if (Math.hypot(dx, dy) < 8) return;
         const dir: SwipeDir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up";
         const s = stackRef.current;
-        const cur = frames.find((f) => f.id === s[s.length - 1]?.id);
+        const on = s[s.length - 1]?.id;
+        const cur = frames.find((f) => f.id === (on ? shownId(on) : undefined));
         if (!cur) return;
-        const to = cur.swipe?.[dir];
+        const swipedTo = cur.swipe?.[dir];
+        const to = swipedTo ? shownId(swipedTo) : undefined;
         const spec = SWIPE_DIRS.find((d) => d.key === dir)!;
         /* only swipes the author set up move screens; nothing is inferred. A finger dragging up or
          * down a body that scrolls is scrolling it; a mouse scrolls with its wheel, so it still swipes */
@@ -773,7 +789,7 @@ export function Preview({
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
     };
-  }, [frames, scale, prog, axisMV, enterMV, exitMV]);
+  }, [frames, scale, prog, axisMV, enterMV, exitMV, shownId]);
 
   const pickerRef = useRef<HTMLDivElement>(null);
   const pickerButton = useRef<HTMLButtonElement>(null);
@@ -1037,6 +1053,8 @@ export function Preview({
                         onClick={() => {
                           setPicker(false);
                           if (on) return;
+                          /* a screen picked by hand is shown as it is, whichever width was on */
+                          setDevice(null);
                           setAnim({ t: "fade", back: false, spring });
                           setStack([{ id: f.id, t: "fade" }]);
                         }}
@@ -1080,6 +1098,32 @@ export function Preview({
             <Icon name={dark ? "light_mode" : "dark_mode"} size={20} />
             {wide && <span style={label}>{t(dark ? "light" : "dark", lang)}</span>}
           </button>
+          {hasSizes && (
+            <div role="radiogroup" aria-label={t("previewWidth", lang)} data-preview-width style={{ display: "flex", gap: 2, justifyContent: "center" }}>
+              {PRESETS.map((preset) => {
+                const on = framePresetOf(current) === preset;
+                const word = t(preset === "phone" ? "phoneFrame" : preset === "tablet" ? "tabletFrame" : "desktopFrame", lang);
+                return (
+                  <button
+                    key={preset}
+                    role="radio"
+                    aria-checked={on}
+                    aria-label={word}
+                    title={word}
+                    data-preview-size={preset}
+                    onClick={() => {
+                      setAnim({ t: "fade", back: false, spring });
+                      setDevice(preset);
+                    }}
+                    className="m3-press"
+                    style={{ ...barBtn, width: 44, padding: 0, justifyContent: "center", background: on ? p.secondaryContainer : "transparent", color: on ? p.onSecondaryContainer : p.onSurfaceVariant }}
+                  >
+                    <Icon name={preset === "phone" ? "smartphone" : preset === "tablet" ? "tablet" : "desktop_windows"} size={20} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <button onClick={onClose} title={t("close", lang)} className="m3-press" style={{ ...barBtn, color: p.onSurfaceVariant }}>
             <Icon name="close" size={20} />
             <span style={label}>{t("closeBtn", lang)}</span>

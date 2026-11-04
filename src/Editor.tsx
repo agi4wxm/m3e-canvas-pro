@@ -14,6 +14,8 @@ import {
   Action,
   actionsOf,
   actionWithoutScreen,
+  Collection,
+  ComponentDef,
   DocVar,
   Axis,
   BACK_TARGET,
@@ -85,8 +87,12 @@ import { AiSettings, DEFAULT_AI, hasKey, isSecureUrl, loadAiSettings, proposeBeh
 import { barSlotOf, bodyRect, carryFrame, holdsEdgeBar, maxFrameLength, minFrameLength, stretchFrame, pullInto, tidyFrame } from "@/lib/tidy";
 import { combineButtons, joinDropped, joinTargetOf } from "@/lib/combine";
 import { alignParts, distributeParts, type AlignHow } from "@/lib/align";
-import { arrangeFlows, flowHostAt, flowOf, outOfPane, panesAfterReorder, settleInFlow, stepLayers, wrapInFlow } from "@/lib/flow";
-import { retarget } from "@/lib/interact";
+import { flowHostAt, flowOf, outOfPane, panesAfterReorder, settleInFlow, stepLayers, wrapInFlow } from "@/lib/flow";
+import { canNest, definitionFrom, detachInstance, expandInstances, makeComponent, rekeyedAll, removeComponent, standIn } from "@/lib/instances";
+import { canvasView, expandDoc, type CanvasView, type DrawnPart } from "@/lib/expand";
+import { repeatAround } from "@/lib/collections";
+import { createVariant, familyOf, framesWithout, missingSizes } from "@/lib/variants";
+import { ComponentsPanel, DataPanel, sizeWord } from "@/components/ReusePanels";
 import { Behavior, BehaviorContext } from "@/components/EffectsPanel";
 import { updateRail } from "@/lib/rail";
 import { isProject, readProject, saveProject } from "@/lib/project";
@@ -172,6 +178,8 @@ type DragState = {
   overBin: boolean;
   /** let go where it cannot land: the ghost shrinks away before the state is cleared */
   vanishing: boolean;
+  /** what is carried from the Components tab: it lands as an instance of this definition */
+  instance?: string;
 };
 
 type Gesture =
@@ -198,8 +206,19 @@ type Gesture =
 
 /** everything in a document apart from its screens and parts */
 type DocMeta = Omit<Doc, "groups" | "frames">;
-/** an undo step: the screens and parts, plus the rest of the document for steps that replaced it all */
-type Snapshot = { groups: Group[]; frames: Frame[]; meta?: DocMeta };
+/** an undo step: the screens, parts, definitions and data, plus the rest of the document for steps that replaced it all */
+type Snapshot = { groups: Group[]; frames: Frame[]; components?: ComponentDef[]; collections?: Collection[]; meta?: DocMeta };
+
+/** How far the parts of a definition stand from the corner of the screen they are edited on, and how
+ *  much room that screen leaves around them. The definition itself goes back on its own top left. */
+const DEF_INSET = 40;
+const DEF_ROOM = 240;
+/** a repeated row other than the template, on the canvas */
+const ROW_DIM = 0.5;
+
+/** A definition open for editing. It is edited as the one screen of the canvas, with every tool the
+ *  canvas has; the document's own screens and history wait here until it is done. */
+type DefEdit = { id: string; main: { groups: Group[]; frames: Frame[]; mode: FrameMode }; past: Snapshot[]; future: Snapshot[]; before: Snapshot; view: View; returnTo: string[] };
 
 /** a part drawn open (a dialog, a menu) floats over the parts around it, whichever was added later */
 const drawnOpen = (g: Group) => g.items.some((it) => !!partBySlug(it.component)?.open);
@@ -213,6 +232,7 @@ const SIZE_TRANSITION = `width ${SETTLE_MS}ms cubic-bezier(0.2, 0, 0, 1), height
 
 function translateSnapshot(snap: Snapshot, lang: Lang): Snapshot {
   return {
+    ...snap,
     groups: snap.groups.map((group) => ({
       ...group,
       items: group.items.map((item) => ({
@@ -233,33 +253,6 @@ const HIDDEN_DIM = 0.4;
 /** The browser's own copy skips `openProject`: anything but a part cannot be drawn. */
 const drawableGroups = (groups: Group[]): Group[] => groups.map((g) => ({ ...g, items: g.items.filter((it) => (it.kind as string) === "component") })).filter((g) => g.items.length > 0);
 
-/** A copy of a unit under fresh ids, moved by (dx, dy). */
-function rekeyed(g: Group, dx: number, dy: number): Group {
-  const idMap = new Map(g.items.map((it) => [it.id, uid()]));
-  const pos: Record<string, { x: number; y: number }> | undefined = g.pos ? {} : undefined;
-  if (pos) for (const it of g.items) pos[idMap.get(it.id)!] = g.pos?.[it.id] ?? { x: 0, y: 0 };
-  const items = g.items.map((it): Item => ({ ...structuredClone(it), id: idMap.get(it.id)! }));
-  return { ...structuredClone(g), id: uid(), x: g.x + dx, y: g.y + dy, pos, items };
-}
-
-/** Copies of several units: one laid out by another among them follows its copy; one whose container
- *  stays behind joins that container, next to the original. */
-function rekeyedAll(units: Group[], dx: number, dy: number, sameScreen = true): Group[] {
-  /* what a copied part reaches for follows the copy, when that was copied too */
-  const made = units.map((u) => rekeyed(u, dx, dy));
-  const ids = new Map(units.flatMap((u, i) => u.items.map((it, j) => [it.id, made[i].items[j].id] as const)));
-  const copies = made.map((c) => retarget(c, ids));
-  const fresh = new Map(units.map((u, i) => [u.id, copies[i].id]));
-  return copies.map((c) => {
-    if (!c.inFlow) return c;
-    if (fresh.has(c.inFlow)) return { ...c, inFlow: fresh.get(c.inFlow) };
-    if (sameScreen) return c;
-    /* its container stayed behind on another screen: it does not reach across for it */
-    const { inFlow: _left, ...rest } = c;
-    return rest;
-  });
-}
-
 /** the units with what each holds, each once: a container is copied whole */
 const withHeld = (units: Group[], groups: Group[], widths: Record<string, number>) => {
   const whole = new Map<string, Group>();
@@ -278,6 +271,7 @@ function copiedIds(copies: Group[], primaryAt: number): string[] {
 /** Seed ids are deterministic so server and client render the same markup. */
 /* shown when an edit is refused because the group is locked */
 const lockedGroupMsg = () => t("lockedGroup", getLang());
+const groupRefusedMsg = () => t("groupInstanceRefused", getLang());
 
 /** the browser refusing a save for want of room, by the names browsers give it */
 const isStorageFull = (err: unknown) => err instanceof DOMException && (err.name === "QuotaExceededError" || err.name === "NS_ERROR_DOM_QUOTA_REACHED");
@@ -364,11 +358,13 @@ function ThinkingRing({ p, frame }: { p: Palette; frame: Frame }) {
   );
 }
 
-type LeftTab = "parts" | "templates" | "layers" | "color" | "shape" | "type" | "motion" | "ai";
-/** the left rail: parts, templates and layers, then the four theme axes of the whole design */
-const LEFT_TABS: { key: LeftTab; icon: string; title: "parts" | "screenTemplates" | "layers" | "colors" | "shape" | "typography" | "motion" | "ai" }[] = [
+type LeftTab = "parts" | "templates" | "components" | "data" | "layers" | "color" | "shape" | "type" | "motion" | "ai";
+/** the left rail: parts, templates, what the design reuses and layers, then the four theme axes of the whole design */
+const LEFT_TABS: { key: LeftTab; icon: string; title: "parts" | "screenTemplates" | "components" | "data" | "layers" | "colors" | "shape" | "typography" | "motion" | "ai" }[] = [
   { key: "parts", icon: "add_box", title: "parts" },
   { key: "templates", icon: "dashboard_customize", title: "screenTemplates" },
+  { key: "components", icon: "widgets", title: "components" },
+  { key: "data", icon: "table_chart", title: "data" },
   { key: "layers", icon: "layers", title: "layers" },
   { key: "color", icon: "palette", title: "colors" },
   { key: "shape", icon: "rounded_corner", title: "shape" },
@@ -406,6 +402,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     }
     setGroups(translated.groups);
     setFrames(translated.frames);
+    /* a definition's seed words follow the language as a part's do */
+    setComponents((cs) => cs?.map((c) => ({ ...c, groups: translateSnapshot({ groups: c.groups, frames: [] }, next).groups })));
     pastRef.current = pastRef.current.map((snap) => translateSnapshot(snap, next));
     futureRef.current = futureRef.current.map((snap) => translateSnapshot(snap, next));
   };
@@ -420,6 +418,15 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const [promptEdit, setPromptEdit] = useState<string | undefined>(undefined);
   const [promptOptions, setPromptOptions] = useState<string[] | undefined>(undefined);
   const [vars, setVars] = useState<DocVar[] | undefined>(undefined);
+  const [components, setComponents] = useState<ComponentDef[] | undefined>(undefined);
+  const [collections, setCollections] = useState<Collection[] | undefined>(undefined);
+  /** the definition open for editing, if one is: then `groups` and `frames` are its screen, not the document's */
+  const [defEdit, setDefEditNow] = useState<DefEdit | null>(null);
+  const defEditRef = useRef<DefEdit | null>(null);
+  const setDefEdit = (next: DefEdit | null) => {
+    defEditRef.current = next;
+    setDefEditNow(next);
+  };
   /** the prompt's full-screen cover is up: the panel's own band steps aside while it is */
   const [promptCoverUp, setPromptCoverUp] = useState(false);
   /** the author's explicit target; null follows the screens (web once a desktop screen exists) */
@@ -502,6 +509,10 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   groupsRef.current = groups;
   const framesRef = useRef(frames);
   framesRef.current = frames;
+  const componentsRef = useRef(components);
+  componentsRef.current = components;
+  const collectionsRef = useRef(collections);
+  collectionsRef.current = collections;
   const widthsRef = useRef(widths);
   widthsRef.current = widths;
   const viewRef = useRef(view);
@@ -577,6 +588,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     } else {
       setGroups(snap.groups);
       setFrames(snap.frames);
+      setComponents(snap.components);
+      setCollections(snap.collections);
     }
     bumpHistory((v) => v + 1);
   };
@@ -584,7 +597,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   /** the current step as a snapshot; `withMeta` when the step being crossed replaced the whole document */
   const current = (withMeta: boolean): Snapshot => {
     const { groups: _g, frames: _f, ...meta } = docRef.current;
-    return { groups: groupsRef.current, frames: framesRef.current, meta: withMeta ? meta : undefined };
+    return { groups: groupsRef.current, frames: framesRef.current, components: componentsRef.current, collections: collectionsRef.current, meta: withMeta ? meta : undefined };
   };
 
   const undo = useCallback(() => {
@@ -661,9 +674,19 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         viewBeforePreview.current = null;
       }
     }
+    /* a whole document arriving ends the editing of a definition of the one it replaces */
+    if (defEditRef.current) {
+      pastRef.current = defEditRef.current.past;
+      futureRef.current = defEditRef.current.future;
+      setDefEdit(null);
+    }
     if (Array.isArray(doc.groups)) {
       setGroups(drawableGroups(doc.groups));
     }
+    if (Array.isArray(doc.components)) setComponents(doc.components);
+    else if (reset) setComponents(undefined);
+    if (Array.isArray(doc.collections)) setCollections(doc.collections);
+    else if (reset) setCollections(undefined);
     if (Array.isArray(doc.frames)) setFrames(doc.frames);
     if (typeof doc.paletteKey === "string" && doc.paletteKey) setPaletteKey(doc.paletteKey);
     else if (reset) setPaletteKey("purple");
@@ -812,10 +835,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   useEffect(() => {
     if (!loadedRef.current || editAccess !== "editable") return;
     try {
-      localStorage.setItem(
-        DOC_KEY,
-        JSON.stringify({ groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette: customPalette ?? undefined, dynamicColor, theme, vars }),
-      );
+      /* the document, even while a definition is open: a reload then finds its screens, and the definition as far as it got */
+      localStorage.setItem(DOC_KEY, JSON.stringify(docRef.current));
       saveFullToldRef.current = false;
     } catch (err) {
       /* the author keeps working; said once, since every later change would fail the same way */
@@ -824,7 +845,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         showToast(t("saveFull", getLang()), 9000, "warning");
       }
     }
-  }, [editAccess, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme, vars]);
+  }, [editAccess, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme, vars, components, collections, defEdit]);
 
   useEffect(() => {
     if (!loadedRef.current) return;
@@ -859,13 +880,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   ]);
 
   /* ---------- measurement ---------- */
-  const allItems = useMemo(() => {
-    const map = new Map<string, Item>();
-    for (const g of groups) for (const it of g.items) map.set(it.id, it);
-    if (drag) map.set(drag.item.id, drag.item);
-    return [...map.values()];
-  }, [groups, drag]);
-
   /* an overlay mounts after the render that made its box; it says so, and this render measures it */
   const [, setRemeasure] = useState(0);
   useEffect(() => {
@@ -1216,7 +1230,9 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    if (g.free) {
+    /* an instance moves in place, as one unit, like a hand-made group: the copy that follows a
+       pointer is for parts that are nothing but their item */
+    if (g.free || g.instanceOf) {
       setSelectedIds((cur) => (e.shiftKey ? [...cur.filter((x) => !g.items.some((it) => it.id === x)), ...g.items.map((it) => it.id)] : g.items.map((it) => it.id)));
       setSelectedFrameId(null);
       setSelectedLinkId(null);
@@ -1333,6 +1349,24 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       vanishing: false,
       guide: null,
     };
+    dragRef.current = d;
+    setDrag({ ...d });
+  };
+
+  /** A definition picked up from the Components tab: it is carried like a part from the palette, and lands as an instance. */
+  const onComponentPointerDown = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0) return;
+    const def = componentsRef.current?.find((c) => c.id === id);
+    if (!def) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const item = standIn(def, 0, 0).items[0];
+    const pt = toWorld(e.clientX, e.clientY);
+    const offX = Math.min(def.w / 2, 90);
+    const offY = Math.min(def.h / 2, 40);
+    sx.jump(pt.x - offX);
+    sy.jump(pt.y - offY);
+    const d: DragState = { item, offX, offY, startX: pt.x, startY: pt.y, px: pt.x, py: pt.y, active: true, fromPalette: true, overBin: false, vanishing: false, guide: null, instance: id };
     dragRef.current = d;
     setDrag({ ...d });
   };
@@ -1574,6 +1608,18 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
        * preview happened to overlap the canvas. */
       if (d.fromPalette && !inCanvas(e.clientX, e.clientY)) {
         setSelectedIds((cur) => cur.filter((x) => x !== item.id));
+        /* a component's tile pressed and let go without moving is a click: it adds one where the view is looking */
+        if (d.instance && Math.hypot(d.px - d.startX, d.py - d.startY) * viewRef.current.z < 5) {
+          setDrag(null);
+          addInstanceRef.current(d.instance);
+          return;
+        }
+        vanishDrag(d);
+        return;
+      }
+      /* a definition does not go inside itself: refused here, before anything is added */
+      if (d.instance && !canNest(componentsRef.current, defEditRef.current?.id ?? null, d.instance)) {
+        showToast(t("nestRefused", getLang()));
         vanishDrag(d);
         return;
       }
@@ -1582,8 +1628,10 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const rawY = loose ? d.py - d.offY : d.guide?.y ?? d.py - d.offY;
       if (d.fromPalette) snapshot();
       /* Ctrl keeps the pixel the cursor chose and a guide holds its whole-pixel position */
-      const ng = landNewPart(item, rawX, rawY, (axis) => loose || (axis === "x" ? d.guide?.gx : d.guide?.gy) !== undefined);
-      const joined = loose ? null : joinDropped([...groupsRef.current.filter((g) => !g.items.some((it) => it.id === item.id)), ng], ng.id, widthsRef.current);
+      const landed = landNewPart(item, rawX, rawY, (axis) => loose || (axis === "x" ? d.guide?.gx : d.guide?.gy) !== undefined);
+      const ng: Group = d.instance ? { ...landed, instanceOf: d.instance } : landed;
+      if (d.instance) setSelectedIds([item.id]);
+      const joined = loose || d.instance ? null : joinDropped([...groupsRef.current.filter((g) => !g.items.some((it) => it.id === item.id)), ng], ng.id, widthsRef.current);
       if (joined) {
         setGroups(joined.groups);
         setSelectedIds([joined.itemId]);
@@ -1687,7 +1735,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   /** grab a phone frame by its bezel or label: it carries everything on it;
    *  on a phone the screen stays put and a tap on it just clears the selection */
   const onFramePointerDown = (e: React.PointerEvent, f: Frame) => {
-    if (mobileRef.current) {
+    /* the screen a definition is edited on is only the ground it stands on: it is not moved or chosen */
+    if (mobileRef.current || defEditRef.current) {
       e.preventDefault();
       e.stopPropagation();
       clearSelection();
@@ -1733,9 +1782,22 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
    * something is being carried, which is what lets a part be dragged out of its row or across it,
    * and it is part of whatever change caused it, so it never makes an undo step of its own. */
   const carrying = isGesturing || !!drag;
+  /* What instances and repeats come to, and the layout of the document with them in it. It is worked
+   * out while nothing is being carried; what it draws is relative to the group it stands on, so a
+   * carried group takes its share along with no need to work anything out meanwhile. */
+  const lastView = useRef<CanvasView>({ groups, drawn: new Map(), shown: new Map(), extra: [] });
+  const canvas = useMemo(() => (carrying ? lastView.current : canvasView({ groups, components, collections }, widths)), [carrying, groups, components, collections, widths]);
+  lastView.current = canvas;
+  const allItems = useMemo(() => {
+    const map = new Map<string, Item>();
+    for (const g of groups) for (const it of g.items) map.set(it.id, canvas.shown.get(it.id) ?? it);
+    for (const { item } of canvas.extra) map.set(item.id, item);
+    if (drag) map.set(drag.item.id, drag.item);
+    return [...map.values()];
+  }, [groups, drag, canvas]);
   useEffect(() => {
     if (carrying) return;
-    const next = arrangeFlows(groups, widths);
+    const next = canvas.groups;
     if (next === groups) return;
     next.forEach((g, i) => {
       if (g !== groups[i]) instantRef.current.add(g.id);
@@ -1744,7 +1806,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (tidyRef.current?.after === groups) tidyRef.current = { ...tidyRef.current, after: next };
     if (lengthRun.current?.to.groups === groups) lengthRun.current = { ...lengthRun.current, to: { ...lengthRun.current.to, groups: next } };
     setGroups(next);
-  }, [groups, widths, carrying]);
+  }, [groups, canvas, carrying]);
   useEffect(() => {
     if (!isGesturing) return;
     const move = (e: PointerEvent) => {
@@ -2059,6 +2121,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const pasteClipboard = useCallback(() => {
     const clip = clipboardRef.current;
     if (!clip) return;
+    /* pasted into a definition, an instance must not put that definition inside itself */
+    const host = defEditRef.current?.id ?? null;
+    if (clip.groups.some((g) => g.instanceOf && !canNest(componentsRef.current, host, g.instanceOf))) {
+      showToast(t("nestRefused", getLang()));
+      return;
+    }
     const fs = framesRef.current;
     /* the screen to paste into: the selected screen, else the selection's, else the source */
     let target = selectedFrameId ? fs.find((f) => f.id === selectedFrameId) : undefined;
@@ -2188,6 +2256,135 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setSelectedIds([made.itemId]);
   }, [selectedIds, snapshot]);
 
+  /** the selected parts, with what they hold, as a new definition and an instance of it in their place */
+  const makeComponentOfSelection = useCallback(() => {
+    const ids = new Set(selectedIds);
+    const chosen = new Set(groupsRef.current.filter((g) => g.items.some((it) => ids.has(it.id))).map((g) => g.id));
+    const name = t("componentDefaultName", getLang()).replace("{n}", String((componentsRef.current?.length ?? 0) + 1));
+    const made = makeComponent(groupsRef.current, chosen, name, widthsRef.current);
+    if (!made) {
+      showToast(lockedGroupMsg());
+      return;
+    }
+    snapshot();
+    setComponents((cs) => [...(cs ?? []), made.def]);
+    setGroups(made.groups);
+    setSelectedIds([made.instance.items[0].id]);
+    setLeftTab("components");
+    setLeftOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds, snapshot]);
+
+  /** Opens a definition as the one screen of the canvas. The document's screens and its history wait
+   *  until it is done; while it is open every tool works on it as on any screen. */
+  const editDefinition = (id: string) => {
+    const def = componentsRef.current?.find((c) => c.id === id);
+    if (!def || mobileRef.current) return;
+    const open = defEditRef.current;
+    if (open?.id === id) return;
+    if (open) finishDefinitionRef.current();
+    pending.current = () => {
+      const f: Frame = { id: `def:${id}`, name: def.name, x: 0, y: 0, w: Math.max(def.w + DEF_ROOM, PHONE_W), h: Math.max(def.h + DEF_ROOM, 480) };
+      setDefEdit({
+        id,
+        main: { groups: groupsRef.current, frames: framesRef.current, mode: frameRef.current },
+        past: pastRef.current,
+        future: futureRef.current,
+        before: current(false),
+        view: viewRef.current,
+        returnTo: selectedIds,
+      });
+      pastRef.current = [];
+      futureRef.current = [];
+      bumpHistory((v) => v + 1);
+      tidyRef.current = null;
+      setGroups(def.groups.map((g) => ({ ...g, x: g.x + DEF_INSET, y: g.y + DEF_INSET })));
+      setFrames([f]);
+      if (frameRef.current !== "phone") {
+        setFrame("phone");
+        frameRef.current = "phone";
+      }
+      setSelectedIds([]);
+      setSelectedFrameId(null);
+      setSelectedLinkId(null);
+    };
+    /* out of the definition open now, the refs say so only after the next draw */
+    if (open) return;
+    pending.current();
+    pending.current = null;
+  };
+  /** the definition to open once the one open now has closed */
+  const pending = useRef<(() => void) | null>(null);
+
+  /** Closes the definition being edited: the document comes back, with its instances following. One undo takes it all back. */
+  const finishDefinition = () => {
+    const s = defEditRef.current;
+    if (!s) return;
+    const was = componentsRef.current?.find((c) => c.id === s.id);
+    const done = was && definitionFrom(was, groupsRef.current, widthsRef.current);
+    const changed = !!was && !!done && JSON.stringify(done.groups) !== JSON.stringify(was.groups);
+    if (done) setComponents((cs) => cs?.map((c) => (c.id === s.id ? done : c)));
+    setGroups(s.main.groups);
+    setFrames(s.main.frames);
+    setFrame(s.main.mode);
+    frameRef.current = s.main.mode;
+    setView(s.view);
+    pastRef.current = changed ? [...s.past, s.before] : s.past;
+    futureRef.current = changed ? [] : s.future;
+    bumpHistory((v) => v + 1);
+    tidyRef.current = null;
+    setSelectedIds(s.returnTo);
+    setSelectedFrameId(null);
+    setDefEdit(null);
+  };
+  const finishDefinitionRef = useRef(finishDefinition);
+  finishDefinitionRef.current = finishDefinition;
+  /* one definition left for another: this one opens now the draw has brought the document back */
+  useEffect(() => {
+    if (defEdit || !pending.current) return;
+    const open = pending.current;
+    pending.current = null;
+    open();
+  }, [defEdit]);
+  /* the screen of a definition is brought into view when it opens */
+  useEffect(() => {
+    if (defEdit) requestAnimationFrame(() => fitRef.current());
+  }, [defEdit?.id]);
+
+  /** the definition's name, from the tab or the bar over its screen */
+  const renameComponent = (id: string, name: string) => {
+    snapshotFor(`component:${id}:name`);
+    setComponents((cs) => cs?.map((c) => (c.id === id ? { ...c, name } : c)));
+    setGroups((gs) => gs.map((g) => (g.instanceOf === id ? { ...g, items: g.items.map((it) => ({ ...it, label: name })) } : g)));
+  };
+
+  /** a definition gone: its instances, on the screens and in other definitions, become the parts they showed */
+  const deleteComponent = (id: string) => {
+    const all = componentsRef.current ?? [];
+    if (defEditRef.current?.id === id) return;
+    snapshot();
+    const out = removeComponent(groupsRef.current, all, id);
+    const open = defEditRef.current;
+    if (open) setDefEdit({ ...open, main: { ...open.main, groups: removeComponent(open.main.groups, all, id).groups } });
+    setGroups(out.groups);
+    setComponents(out.components.length ? out.components : undefined);
+    setSelectedIds((cur) => cur.filter((x) => out.groups.some((g) => g.items.some((it) => it.id === x))));
+  };
+
+  /** one instance, back to plain parts */
+  const detachGroup = (id: string) => {
+    snapshot();
+    setGroups(detachInstance(groupsRef.current, id, componentsRef.current));
+    setSelectedIds([]);
+  };
+
+  /** how many instances each definition has, on the screens and in the other definitions */
+  const componentUses = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const g of [...(defEdit?.main.groups ?? groups), ...(components ?? []).flatMap((c) => c.groups)]) if (g.instanceOf) out[g.instanceOf] = (out[g.instanceOf] ?? 0) + 1;
+    return out;
+  }, [defEdit, groups, components]);
+
   /** Pull the selected parts out of their runs into one free group that keeps
    *  their positions. It takes the layer slot of the topmost run involved. */
   const groupSelected = useCallback(() => {
@@ -2196,6 +2393,11 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     /* regrouping would carry a locked group's parts into an unlocked group */
     if (groupsRef.current.some((g) => g.locked && g.items.some((it) => ids.has(it.id)))) {
       showToast(lockedGroupMsg());
+      return;
+    }
+    /* a group keeps items and nothing else of the groups they came from: an instance or a repeat would be lost in it */
+    if (groupsRef.current.some((g) => (g.instanceOf || g.repeat) && g.items.some((it) => ids.has(it.id)))) {
+      showToast(groupRefusedMsg());
       return;
     }
     const rects = new Map(itemRects().map((r) => [r.id, r]));
@@ -2309,6 +2511,13 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
 
   const clearAll = () => {
     setConfirmClear(false);
+    /* with a definition open, clearing empties the definition; its screen stays what it is edited on */
+    if (defEditRef.current) {
+      snapshot();
+      setGroups([]);
+      setSelectedIds([]);
+      return;
+    }
     if (groupsRef.current.length === 0 && framesRef.current.length === 0)
       return;
     setDraftBefore(null);
@@ -2457,6 +2666,33 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     return { x: b.l, y: b.t, w: b.r - b.l, h: b.b - b.t };
   }, [primaryId, groups, widths]);
 
+  /** the selection is one instance: what its panel needs */
+  const selectedInstance = useMemo(() => {
+    if (selectedIds.length !== 1 || !primaryId) return null;
+    const group = groups.find((g) => g.instanceOf && g.items[0]?.id === primaryId);
+    const def = group && components?.find((c) => c.id === group.instanceOf);
+    if (!group || !def || !components) return null;
+    return {
+      group,
+      def,
+      components,
+      onEdit: () => editDefinition(def.id),
+      onDetach: () => detachGroup(group.id),
+      onOverrides: (overrides: Group["overrides"]) => {
+        snapshotFor(`overrides:${group.id}`);
+        setGroups((gs) =>
+          gs.map((g) => {
+            if (g.id !== group.id) return g;
+            const { overrides: _was, ...rest } = g;
+            return overrides ? { ...rest, overrides } : rest;
+          }),
+        );
+      },
+    };
+    // the panel's handlers read the refs; only what it shows matters here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds, primaryId, groups, components]);
+
   /** a container's auto layout places the selected part, so its place is not the author's to set */
   const selectedInFlow = useMemo(() => {
     const g = primaryId ? groups.find((x) => x.items.some((it) => it.id === primaryId)) : undefined;
@@ -2480,12 +2716,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
 
   /** the screen the tidy button works on: the selected one, or the one under the selected part */
   const tidyTarget = useMemo((): Frame | null => {
-    if (frame !== "phone" || isMobile) return null;
+    if (frame !== "phone" || isMobile || defEdit) return null;
     if (selectedFrame) return selectedFrame;
     if (!primaryId) return null;
     const g = groups.find((g) => g.items.some((it) => it.id === primaryId));
     return g ? (frameOfGroup(g, frames, widths) ?? null) : null;
-  }, [frame, isMobile, selectedFrame, primaryId, groups, frames, widths]);
+  }, [frame, isMobile, defEdit, selectedFrame, primaryId, groups, frames, widths]);
 
   const nextFrameX = () =>
     framesRef.current.length
@@ -2516,11 +2752,11 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
    *  the view is looking, landing as a drop there would. Over a screen it is kept inside it and
    *  nudged down when that spot is already taken; over empty canvas it stays at the centre of
    *  the view, so the new part is always in sight */
-  const addPart = (slug: string) => {
+  const addPart = (slug: string, instance?: ComponentDef) => {
     const r = canvasRect();
     const v = viewRef.current;
-    const item = makeItem(slug);
-    const sz = sizeOf(item, widthsRef.current);
+    const item = instance ? standIn(instance, 0, 0).items[0] : makeItem(slug);
+    const sz = instance ? { w: instance.w, h: instance.h } : sizeOf(item, widthsRef.current);
     const cx = ((r?.width ?? 0) / 2 - v.x) / v.z;
     const cy = ((r?.height ?? 0) / 2 - v.y) / v.z;
     /* screens are hidden on a blank canvas; the phone shows one screen at a time, so its plus
@@ -2547,7 +2783,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       while (taken(y) && y + sz.h * 2 < f.y + h && tries++ < 12) y += sz.h + 12;
     }
     snapshot();
-    const ng = landNewPart(item, x, y, () => false);
+    const landed = landNewPart(item, x, y, () => false);
+    const ng: Group = instance ? { ...landed, instanceOf: instance.id } : landed;
     setGroups((gs) => underWhatItHolds([...gs, ng], ng.id, widthsRef.current));
     setSelectedIds([item.id]);
     setSelectedFrameId(null);
@@ -2555,8 +2792,21 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setSheet(null);
   };
 
+  /** a definition added without a drag, where the view is looking */
+  const addInstance = (id: string) => {
+    const def = componentsRef.current?.find((c) => c.id === id);
+    if (!def) return;
+    if (!canNest(componentsRef.current, defEditRef.current?.id ?? null, id)) {
+      showToast(t("nestRefused", getLang()));
+      return;
+    }
+    addPart("container", def);
+  };
+  const addInstanceRef = useRef(addInstance);
+  addInstanceRef.current = addInstance;
+
   const changeFrame = (f: FrameMode) => {
-    if (f === frame) return;
+    if (f === frame || defEditRef.current) return;
     snapshot();
     setFrame(f);
     frameRef.current = f;
@@ -2567,6 +2817,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   };
 
   const addFrame = () => {
+    if (defEditRef.current) return;
     snapshot();
     const base = framesRef.current[0];
     const f: Frame = {
@@ -2594,7 +2845,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
    *  selects the first. On a blank canvas it brings the screens back: they are what it adds. */
   const addTemplate = (slug: string) => {
     const template = templateBySlug(slug);
-    if (!template) return;
+    if (!template || defEditRef.current) return;
     snapshot();
     if (frameRef.current !== "phone") {
       setFrame("phone");
@@ -2864,6 +3115,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   /** a screen takes everything on it along, and links into it are dropped */
   const deleteFrame = useCallback(
     (id: string) => {
+      if (defEditRef.current) return;
       snapshot();
       const gone = new Set(
         groupsRef.current
@@ -2871,33 +3123,31 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           .map((g) => g.id),
       );
       setFrames((fs) =>
-        fs
-          .filter((f) => f.id !== id)
+        framesWithout(fs, id)
           .map((f) => {
             if (!f.swipe) return f;
             const swipe = Object.fromEntries(Object.entries(f.swipe).filter(([, to]) => to !== id));
             return { ...f, swipe: Object.keys(swipe).length ? swipe : undefined };
           }),
       );
-      setGroups((gs) =>
-        gs
-          .filter((g) => !gone.has(g.id))
-          .map((g) => ({
-            ...g,
-            items: g.items.map((it) => {
-              const next = { ...it };
-              if (next.action) next.action = actionWithoutScreen(next.action, id);
-              if (next.actions) {
-                const actions = Object.fromEntries(Object.entries(next.actions).flatMap(([slot, a]) => {
-                  const kept = actionWithoutScreen(a, id);
-                  return kept ? [[slot, kept]] : [];
-                }));
-                next.actions = Object.keys(actions).length ? actions : undefined;
-              }
-              return next;
-            }),
-          })),
-      );
+      /* what a part or a definition's part said about that screen */
+      const withoutLinks = (g: Group): Group => ({
+        ...g,
+        items: g.items.map((it) => {
+          const next = { ...it };
+          if (next.action) next.action = actionWithoutScreen(next.action, id);
+          if (next.actions) {
+            const actions = Object.fromEntries(Object.entries(next.actions).flatMap(([slot, a]) => {
+              const kept = actionWithoutScreen(a, id);
+              return kept ? [[slot, kept]] : [];
+            }));
+            next.actions = Object.keys(actions).length ? actions : undefined;
+          }
+          return next;
+        }),
+      });
+      setGroups((gs) => gs.filter((g) => !gone.has(g.id)).map(withoutLinks));
+      setComponents((cs) => cs?.map((c) => ({ ...c, groups: c.groups.map(withoutLinks) })));
       setSelectedFrameId(null);
       setSelectedIds((cur) => cur.filter((x) => !groupsRef.current.some((g) => gone.has(g.id) && g.items.some((it) => it.id === x))));
     },
@@ -2906,10 +3156,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
 
   const duplicateFrame = (id: string) => {
     const f = framesRef.current.find((x) => x.id === id);
-    if (!f) return;
+    if (!f || defEditRef.current) return;
     snapshot();
+    /* a copy is a screen of its own, not one more size of this one */
+    const { variantOf: _size, ...own } = f;
     const nf: Frame = {
-      ...f,
+      ...own,
       id: uid(),
       name: `${f.name}${t("copySuffix")}`,
       x: nextFrameX(),
@@ -2919,6 +3171,21 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setFrames((fs) => [...fs, nf]);
     setGroups((gs) => [...gs, ...copies]);
     setSelectedFrameId(nf.id);
+  };
+
+  /** another size of a screen, beside it: a copy carried to the new size, one undo step */
+  const createVariantOf = (id: string, preset: FramePreset) => {
+    const made = createVariant(groupsRef.current, framesRef.current, id, preset, widthsRef.current);
+    if (!made) return;
+    snapshot();
+    tidyRef.current = null;
+    retidyRef.current = made.id;
+    setFrames(made.frames);
+    setGroups(made.groups);
+    setSelectedIds([]);
+    setSelectedFrameId(made.id);
+    const f = made.frames.find((x) => x.id === made.id);
+    if (f) glideToFrame(f);
   };
   const duplicateFrameRef = useRef(duplicateFrame);
   duplicateFrameRef.current = duplicateFrame;
@@ -2969,7 +3236,9 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
 
   /** the runs of one screen drawn with plain divs: the export layer */
   const renderExport = (f: Frame) => {
-    const gs = groups.filter((g) => frameOfPart(g, groups, frames, widths)?.id === f.id && !offTab.has(g.id));
+    const all = expandDoc(doc, widths).groups;
+    const off = outOfPane(all, widths);
+    const gs = all.filter((g) => frameOfPart(g, all, frames, widths)?.id === f.id && !off.has(g.id));
     const { w } = frameSizeOf(f);
     const h = frameLengthOf(f);
     return (
@@ -3186,6 +3455,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         return;
       }
       if (e.key === "Escape") {
+        /* with nothing left to let go of, Escape leaves the definition being edited */
+        if (!selectedIds.length && defEditRef.current) finishDefinitionRef.current();
         setSelectedIds([]);
         setSelectedFrameId(null);
         setSelectedLinkId(null);
@@ -3291,10 +3562,29 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     gapTimer.current = setTimeout(() => setGap(null), SETTLE_MS + 40);
   }, [setGap]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const doc: Doc = useMemo(
-    () => ({ groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette: customPalette ?? undefined, dynamicColor, theme, vars }),
-    [groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme, vars],
-  );
+  /* The document is its own screens and parts even while a definition is open: that definition is
+   * what stands on the editing screen, as far as it has got. */
+  const doc: Doc = useMemo(() => {
+    const defs = defEdit ? components?.map((c) => (c.id === defEdit.id ? definitionFrom(c, groups, widths) : c)) : components;
+    return {
+      groups: defEdit ? defEdit.main.groups : groups,
+      frames: defEdit ? defEdit.main.frames : frames,
+      paletteKey,
+      frame: defEdit ? defEdit.main.mode : frame,
+      title,
+      brief,
+      promptEdit,
+      promptOptions,
+      customPalette: customPalette ?? undefined,
+      dynamicColor,
+      theme,
+      vars,
+      components: defs?.length ? defs : undefined,
+      collections: collections?.length ? collections : undefined,
+    };
+  }, [defEdit, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme, vars, components, collections, widths]);
+  /** what the preview plays: everything drawn out. With a definition open, that definition alone. */
+  const previewDoc = useMemo(() => (previewId === null ? doc : expandDoc(defEdit ? { ...doc, groups, frames } : doc, widths)), [previewId, doc, defEdit, groups, frames, widths]);
   /** the same document, for callbacks that were created on an earlier render */
   const docRef = useRef(doc);
   docRef.current = doc;
@@ -3390,6 +3680,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const behavior = useMemo<Behavior>(() => {
     const group = primaryId ? (groups.find((g) => g.items.some((it) => it.id === primaryId)) ?? null) : null;
     const screen = group ? frameOfPart(group, groups, frames, widths) : undefined;
+    const around = group?.inFlow ? groups.find((g) => g.id === group.inFlow) : undefined;
+    const repeatHost = !group ? null : flowOf(group) ? group : around && flowOf(around) && groups.find((g) => g.inFlow === around.id) === group ? around : null;
     return {
       vars: vars ?? [],
       setVars: (next) => setVars(next.length ? next : undefined),
@@ -3403,8 +3695,22 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       reorderPanes: (order) => {
         if (group) setGroups((gs) => panesAfterReorder(gs, group.id, order, widthsRef.current));
       },
+      collections,
+      rowFields: group ? collections?.find((c) => c.id === repeatAround(groups, group, widths)?.repeat?.collection)?.fields : undefined,
+      repeatHost: repeatHost,
+      patchRepeat: (repeat) => {
+        if (!repeatHost) return;
+        snapshotFor(`${repeatHost.id}:repeat`);
+        setGroups((gs) =>
+          gs.map((g) => {
+            if (g.id !== repeatHost.id) return g;
+            const { repeat: _was, ...rest } = g;
+            return repeat ? { ...rest, repeat } : rest;
+          }),
+        );
+      },
     };
-  }, [vars, primaryId, groups, frames, widths, snapshotFor]);
+  }, [vars, primaryId, groups, frames, widths, snapshotFor, collections]);
 
   /** which frame each run sits on (phone mode only) */
   const frameOf = useMemo(() => {
@@ -3428,8 +3734,13 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const s = frameSizeOf(f);
       for (const it of g.items) m.set(it.id, s);
     }
+    /* what an instance or a row draws is on the screen of the group it stands on */
+    for (const { item, owner } of canvas.extra) {
+      const f = frames.find((x) => x.id === frameOf.get(owner));
+      if (f) m.set(item.id, frameSizeOf(f));
+    }
     return m;
-  }, [groups, frameOf, frames]);
+  }, [groups, frameOf, frames, canvas]);
 
   /** the screen whose layers the panel lists: the selection's, else the chosen one */
   const layersFrame = useMemo(() => {
@@ -3519,6 +3830,18 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setGroups((gs) => gs.map((x) => (x.id === groupId ? { ...x, items } : x)));
   };
 
+  /** what an instance or a repeat draws on a group: it rides along with it and takes no pointer */
+  const drawnParts = (parts: DrawnPart[] | undefined, screen?: { w: number; h: number }) =>
+    parts?.length ? (
+      <div aria-hidden style={{ position: "absolute", left: 0, top: 0, width: 0, height: 0, pointerEvents: "none" }}>
+        {parts.map((part) => (
+          <div key={part.item.id} data-drawn={part.item.id} data-drawn-dim={part.dim ? "" : undefined} style={{ position: "absolute", left: part.dx, top: part.dy, width: "max-content", opacity: part.dim ? ROW_DIM : undefined }}>
+            <PartView item={part.item} screen={screen} />
+          </div>
+        ))}
+      </div>
+    ) : undefined;
+
   const renderGroup = (g: Group, ox: number, oy: number, screen?: { w: number; h: number }) => {
     if (g.free) {
       const instantG = instantRef.current.has(g.id);
@@ -3535,7 +3858,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           {layoutOf(g, widths).map((pl) => (
             <div key={pl.item.id} style={{ position: "absolute", left: pl.x - g.x, top: pl.y - g.y }}>
               <ComponentNode
-                item={pl.item}
+                item={canvas.shown.get(pl.item.id) ?? pl.item}
                 palette={p}
                 widths={widths}
                 pressed={false}
@@ -3653,7 +3976,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           return (
             <ComponentNode
               key={c.item.id}
-              item={c.item}
+              item={canvas.shown.get(c.item.id) ?? c.item}
               palette={p}
               widths={widths}
               pressed={pressedId === c.item.id}
@@ -3661,8 +3984,11 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
               instant={widthDragId === c.item.id}
               interactive={!handMode}
               onPointerDown={(e) => onItemPointerDown(e, g, c.index, c.item)}
+              onDoubleClick={g.instanceOf ? () => g.instanceOf && editDefinition(g.instanceOf) : undefined}
               screen={screen}
-            />
+            >
+              {drawnParts(canvas.drawn.get(g.id), screen)}
+            </ComponentNode>
           );
         })}
       </motion.div>
@@ -3798,7 +4124,15 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                 }
           }
         >
-          <ComponentNode item={drag.item} palette={p} widths={widths} dragging />
+          <ComponentNode item={drag.item} palette={p} widths={widths} dragging>
+            {drag.instance &&
+              drawnParts(
+                expandInstances({ groups: [{ id: "carried", x: 0, y: 0, axis: "x", instanceOf: drag.instance, items: [drag.item] }], components, collections })
+                  .slice(1)
+                  .flatMap((g) => layoutOf(g, widths))
+                  .map((pl) => ({ item: pl.item, dx: pl.x, dy: pl.y, dim: false })),
+              )}
+          </ComponentNode>
         </motion.div>
       )}
               </div>
@@ -3908,6 +4242,27 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   />
                 ) : leftTab === "templates" ? (
                   <TemplatesPanel p={p} onAdd={addTemplate} />
+                ) : leftTab === "components" ? (
+                  <ComponentsPanel
+                    p={p}
+                    components={components ?? []}
+                    uses={componentUses}
+                    editingId={defEdit?.id ?? null}
+                    onPointerDown={onComponentPointerDown}
+                    onActivate={addInstance}
+                    onEdit={editDefinition}
+                    onRename={renameComponent}
+                    onDelete={deleteComponent}
+                  />
+                ) : leftTab === "data" ? (
+                  <DataPanel
+                    p={p}
+                    collections={collections ?? []}
+                    onChange={(next) => {
+                      snapshotFor("collections");
+                      setCollections(next.length ? next : undefined);
+                    }}
+                  />
                 ) : leftTab === "color" ? (
                   <ColorPanel
                     p={p}
@@ -3941,6 +4296,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                       if (f) glideToFrame(f);
                     }}
                     groups={layerGroups}
+                    components={components}
                     widths={widths}
                     selectedIds={selectedIds}
                     onSelect={(ids, add) => {
@@ -4023,6 +4379,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   const { w, h: fold } = frameSizeOf(f);
                   const h = frameLengthOf(f);
                   const radius = frameRadius(f);
+                  const sizes = defEdit ? 1 : familyOf(frames, f.id).length;
                   return (
                     <div
                       key={f.id}
@@ -4053,10 +4410,18 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                           fontFamily: uiFontFamily(lang),
                         }}
                       >
-                        <div onPointerDown={(e) => e.stopPropagation()}>
-                          <FrameSizePicker frame={f} onChange={(preset) => setFramePreset(f.id, preset)} palette={p} compact />
-                        </div>
-                        {f.name || t("screen", lang)}
+                        {!defEdit && (
+                          <div onPointerDown={(e) => e.stopPropagation()}>
+                            <FrameSizePicker frame={f} onChange={(preset) => setFramePreset(f.id, preset)} palette={p} compact />
+                          </div>
+                        )}
+                        {defEdit ? (components?.find((c) => c.id === defEdit.id)?.name ?? f.name) : f.name || t("screen", lang)}
+                        {/* sizes of one screen share a name, so each says which size it is */}
+                        {sizes > 1 && (
+                          <span data-variant-label style={{ padding: "2px 10px", borderRadius: 12, background: p.secondaryContainer, color: p.onSecondaryContainer, fontSize: 14, fontWeight: 600 }}>
+                            {sizeWord(f, lang)}
+                          </span>
+                        )}
                       </div>
                       <div
                         onPointerDown={(e) => onFramePointerDown(e, f)}
@@ -4148,7 +4513,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   four points around its circle: dragging one changes the part's size in place,
                   and whatever sits opposite stays where it is */}
               {!handMode && !drag && selectedIds.length === 1 && selected && !!componentAxes(selected) && (() => {
-                const g = groups.find((x) => x.items.length === 1 && !x.free && !x.locked && x.items[0].id === selected.id);
+                /* an instance is as big as what its definition comes to: there is nothing to pull */
+                const g = groups.find((x) => x.items.length === 1 && !x.free && !x.locked && !x.instanceOf && x.items[0].id === selected.id);
                 if (!g) return null;
                 const b = groupBounds(g, widths);
                 /* the same offset the group is drawn with while its left or top edge is being dragged */
@@ -4368,6 +4734,20 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   </linearGradient>
                 </defs>
               </svg>
+            </div>
+          )}
+          {defEdit && (
+            <div
+              data-definition-bar
+              style={{ position: "absolute", left: "50%", bottom: 24, transform: "translateX(-50%)", zIndex: 45, display: "flex", alignItems: "center", gap: 12, padding: "8px 8px 8px 20px", borderRadius: 28, background: p.surface, boxShadow: "0 4px 18px rgba(0,0,0,0.14)", color: p.onSurface, whiteSpace: "nowrap" }}
+            >
+              <Icon name="widgets" size={20} color={p.primary} />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>
+                {t("editingComponent", lang)}: {components?.find((c) => c.id === defEdit.id)?.name}
+              </span>
+              <button onClick={finishDefinition} data-definition-done className="m3-press" style={{ height: 40, padding: "0 20px", borderRadius: 20, border: "none", background: p.primary, color: p.onPrimary, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                {t("doneEditing", lang)}
+              </button>
             </div>
           )}
           <Toolbar
@@ -4632,6 +5012,16 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   minLength={selectedMinLength}
                   onLength={(length) => setFrameLength(selectedFrame.id, length)}
                   ai={{ ready: aiReady, reason: aiReason, busy: aiBusy && aiFrameId === selectedFrame.id, onRun: () => runAi("describe", selectedFrame), onCancel: cancelAi }}
+                  variants={{
+                    family: familyOf(frames, selectedFrame.id),
+                    missing: missingSizes(frames, selectedFrame.id),
+                    onCreate: (preset) => createVariantOf(selectedFrame.id, preset),
+                    onJump: (id) => {
+                      setSelectedFrameId(id);
+                      const f = frames.find((x) => x.id === id);
+                      if (f) glideToFrame(f);
+                    },
+                  }}
                 />
               ) : rightTab === "edit" ? (
                 <Inspector
@@ -4667,6 +5057,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   onAutoLayout={autoLayoutSelected}
                   inFlow={selectedInFlow}
                   onMoveTo={selectedInFlow ? undefined : moveSelectedTo}
+                  onMakeComponent={makeComponentOfSelection}
+                  instance={selectedInstance}
                 />
               ) : (
                 <PromptPanel
@@ -4714,6 +5106,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         <ShareDialog
           p={p}
           doc={doc}
+          widths={widths}
           aiReady={aiReady}
           idea={ideaText}
           onIdea={setIdeaText}
@@ -4742,7 +5135,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         {previewId !== null && frames.length > 0 && (
           <Preview
             key="preview"
-            doc={doc}
+            doc={previewDoc}
             widths={widths}
             palette={p}
             startId={previewId}

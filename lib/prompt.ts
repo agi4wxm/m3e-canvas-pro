@@ -1,7 +1,9 @@
 import { appearanceOf } from "../parts/appearance";
 import { partBySlug, reader, treeOf, withoutPickedImages } from "../parts/registry";
 import { flowClasses } from "../parts/flow";
+import { describeRepeats } from "./collections";
 import { flowOfItem } from "./flow";
+import { expandInstances } from "./instances";
 import { INPUT_PROP } from "./interact";
 import { labelOfPart } from "../parts/resize";
 import { nameOf } from "../parts/labels";
@@ -34,10 +36,12 @@ import {
   explodeGroup,
   frameOfPart,
   frameLengthOf,
+  framePresetOf,
   frameRect,
   frameSizeOf,
   groupBounds,
   isPhoneFrame,
+  ownerIdOf,
   scrollsOf,
   canCollapseFab,
   normalizeTheme,
@@ -96,7 +100,16 @@ function promptGroupsForScroll(groups: Group[], scrollable: boolean): Group[] {
 
 /* ================= groups of several parts ================= */
 
+/** what is left where an instance was: the parts it comes to are written under it */
+const INSTANCE_TEXT: Record<Lang, (name: string) => string> = {
+  ja: (n) => `コンポーネント${qj(n)}のインスタンス`,
+  en: (n) => `an instance of the component ${qe(n)}`,
+  zh: (n) => `组件${qz(n)}的实例`,
+  ko: (n) => `컴포넌트 ${qe(n)}의 인스턴스`,
+};
+
 function groupText(g: Group, lang: Lang): string {
+  if (g.expandedFrom) return INSTANCE_TEXT[lang](g.name?.trim() || g.expandedFrom);
   if (g.items.length === 1) return componentText(g.items[0], lang, g.name);
   /* parts of any kind can run together, so each says what it is */
   const parts = g.items.map((it) => componentText(it, lang)).join(lang === "ja" || lang === "zh" ? "；" : "; ");
@@ -110,6 +123,7 @@ function groupText(g: Group, lang: Lang): string {
 
 /** short name for a run when it is referred to again (as a container or a neighbour) */
 function groupName(g: Group, lang: Lang): string {
+  if (g.expandedFrom) return INSTANCE_TEXT[lang](g.name?.trim() || g.expandedFrom);
   const it = g.items[0];
   const noun = nounOf(it, lang);
   const q = quote(lang);
@@ -180,6 +194,7 @@ function slotName(it: Item, slot: string, lang: Lang): string {
 type Scope = { frames: Frame[]; groups: Group[]; vars?: DocVar[]; widths: Record<string, number> };
 
 const nameOfItem = (g: Group | undefined, it: Item, lang: Lang) => {
+  if (g?.expandedFrom) return INSTANCE_TEXT[lang](g.name?.trim() || g.expandedFrom);
   const noun = nounOf(it, lang);
   const called = (g?.items.length === 1 && g.name?.trim()) || leadTextOf(it);
   if (!hasText(called)) return lang === "en" ? `the ${noun}` : noun;
@@ -193,6 +208,8 @@ function partRef(id: string, s: Scope, lang: Lang): string | null {
 }
 
 const varRef = (id: string, s: Scope) => {
+  /* the row a repeated part was tapped in, read-only */
+  if (id.startsWith("row.")) return id;
   const v = s.vars?.find((x) => x.id === id);
   return v ? v.name || v.id : null;
 };
@@ -447,7 +464,8 @@ function layoutTree(groups: Group[], widths: Record<string, number>): LNode[] {
   const roots: LNode[] = [];
   nodes.forEach((n, i) => {
     /* what a layout holds is nested in it, overflowing or not */
-    let parent: LNode | null = n.g.inFlow ? (nodes.find((c) => c.g.id === n.g.inFlow) ?? null) : null;
+    const owner = n.g.inFlow ?? ownerIdOf(n.g.id);
+    let parent: LNode | null = owner ? (nodes.find((c) => c.g.id === owner) ?? null) : null;
     let best: LNode | null = null;
     for (let j = 0; j < i && !parent; j++) {
       const c = nodes[j];
@@ -633,6 +651,30 @@ function describeNodes(lines: string[], nodes: LNode[], within: Rect | null, wid
   }
 }
 
+type Rows = NonNullable<Group["rowsOf"]>;
+const ROWS_TEXT: Record<Lang, (r: Rows) => string> = {
+  ja: (r) => `${qj(r.name)}の 1 件につき 1 行、${r.rows} 行（項目: ${r.fields.join("、")}）。テンプレート: `,
+  en: (r) => `one row per item of ${qe(r.name)}, ${r.rows} rows (fields: ${r.fields.join(", ")}), template: `,
+  zh: (r) => `${qz(r.name)}的每一项一行，共 ${r.rows} 行（字段：${r.fields.join("、")}），模板：`,
+  ko: (r) => `${qe(r.name)}의 항목마다 한 행, ${r.rows}행(필드: ${r.fields.join(", ")}), 템플릿: `,
+};
+
+/** what the tokens in a template and in another screen read, said once under the behaviour */
+const ROW_NOTE: Record<Lang, string> = {
+  ja: "テンプレート内の {{項目名}} はその行の値を表示する。行をタップすると、その行が現在の行になり、別の画面の {{current.項目名}} はその行の値を表示する。条件の row.項目名 はタップされた行の値で、読み取り専用。",
+  en: "{{field}} in a template shows that row's value. Tapping a row makes it the current row: {{current.field}} on another screen shows its value, and row.field in a condition reads it, read-only.",
+  zh: "模板中的 {{字段名}} 显示该行的值。点击某行后它成为当前行：其他屏幕上的 {{current.字段名}} 显示它的值，条件中的 row.字段名 读取它，只读。",
+  ko: "템플릿의 {{필드}}는 그 행의 값을 표시한다. 행을 탭하면 현재 행이 되어 다른 화면의 {{current.필드}}가 그 값을 표시하고, 조건의 row.필드는 그 값을 읽는다(읽기 전용).",
+};
+
+/** a screen that is another size of one written before it */
+const VARIANT_TEXT: Record<Lang, (name: string) => string> = {
+  ja: (n) => `この画面は${n}画面と同じ画面の別サイズです。`,
+  en: (n) => `This is the same screen as ${n} at another size.`,
+  zh: (n) => `这是与${n}屏幕相同的屏幕，只是尺寸不同。`,
+  ko: (n) => `이 화면은 ${n} 화면과 같은 화면의 다른 크기입니다.`,
+};
+
 /** What a part holds, under its line. What its auto layout places is nested in order, since the
  *  classes on the container say where it goes; what merely lies on it is placed by position. */
 function describeHeld(lines: string[], n: LNode, widths: Record<string, number>, lang: Lang, depth: number) {
@@ -642,10 +684,12 @@ function describeHeld(lines: string[], n: LNode, widths: Record<string, number>,
   const placed = n.children.filter((c) => c.g.inFlow !== n.g.id);
   if (flowed.length) {
     lines.push(`${pad}  - ${lang === "ja" ? `${name}の自動レイアウトの中に、次の順で入れ子にします:` : lang === "zh" ? `${name}的自动布局内依次嵌套：` : lang === "ko" ? `${name}의 자동 레이아웃 안에 다음 순서로 중첩합니다:` : `Nested in the auto layout of ${name}, in this order:`}`);
-    for (const c of flowed) {
-      lines.push(`${pad}    - ${groupText(c.g, lang)}${lang === "ja" || lang === "zh" ? "。" : "."}`);
+    flowed.forEach((c, i) => {
+      /* the rows are not written out: the first child stands for all of them */
+      const rows = i === 0 ? n.g.rowsOf : undefined;
+      lines.push(`${pad}    - ${rows ? ROWS_TEXT[lang](rows) : ""}${groupText(c.g, lang)}${lang === "ja" || lang === "zh" ? "。" : "."}`);
       describeHeld(lines, c, widths, lang, depth + 2);
-    }
+    });
   }
   if (placed.length) {
     lines.push(`${pad}  - ${lang === "ja" ? `${name}の中には次を重ねて配置します（ボックス側を背景にし、以下はその前面に載せる。位置はボックス内での相対位置）:` : lang === "zh" ? `${name}内部叠放以下内容（以容器为背景，下列组件绘制在其前面，位置为容器内的相对位置）：` : lang === "ko" ? `${name} 안에 다음 항목을 겹쳐 배치합니다(컨테이너를 배경으로 하고 다음 부품은 그 앞에 배치하며, 위치는 컨테이너 내부 기준):` : `Inside ${name}, layered on top of it (the container is the background; positions are relative to it):`}`);
@@ -857,7 +901,7 @@ const viewportOf = (frames: Frame[], phone: boolean): Viewport => {
 const sizeLabel = (f: Frame, vp: Viewport, lang: Lang): string | undefined => {
   if (vp !== "mixed") return undefined;
   const { w, h } = frameSizeOf(f);
-  const kind = isPhoneFrame(f) ? { ja: "スマホ", en: "phone", zh: "手机", ko: "휴대전화" } : { ja: "デスクトップ", en: "desktop", zh: "桌面", ko: "데스크톱" };
+  const kind = isPhoneFrame(f) ? { ja: "スマホ", en: "phone", zh: "手机", ko: "휴대전화" } : framePresetOf(f) === "tablet" ? { ja: "タブレット", en: "tablet", zh: "平板", ko: "태블릿" } : { ja: "デスクトップ", en: "desktop", zh: "桌面", ko: "데스크톱" };
   return `${kind[lang]} ${w}×${h}`;
 };
 
@@ -1068,7 +1112,9 @@ export function promptMarks(text: string, frames: Frame[], lang: Lang = getLang(
   return out;
 }
 
-export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameId?: string, lang: Lang = getLang()): string {
+export function buildPrompt(source: Doc, widths: Record<string, number>, onlyFrameId?: string, lang: Lang = getLang()): string {
+  /* instances are written out, each saying what it is an instance of; repeats are not drawn out, the first child stands for its rows */
+  const doc: Doc = { ...source, groups: describeRepeats(expandInstances(source, widths, { rows: false }), source.collections) };
   const th = normalizeTheme(doc.theme);
   const pal = paletteOf(doc.paletteKey, doc.customPalette, th);
   const phone = doc.frame === "phone";
@@ -1129,6 +1175,8 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
       if (i > 0 || frames.length > 1) lines.push("");
       if (hasText(f.note)) lines.push(lang === "ja" || lang === "zh" ? `${trimEnd(f.note!)}。` : `${trimEnd(f.note!)}.`);
       lines.push(ph.screenHead(q(f.name || ph.screen), f.bg && f.bg !== "surface" ? f.bg : undefined, gs.length > 0, sizeLabel(f, viewport, lang)));
+      const sizeOfScreen = f.variantOf ? allFrames.find((x) => x.id === f.variantOf) : undefined;
+      if (sizeOfScreen) lines.push(VARIANT_TEXT[lang](q(sizeOfScreen.name || ph.screen)));
       if (gs.length > 0 && f.place && f.place !== "top") lines.push(ph.placement(f.place));
       if (gs.length > 0 && scrollsOf(f)) lines.push(ph.scrolls(frameLengthOf(f), frameSizeOf(f).h));
       describeScreen(lines, promptGroupsForScroll(gs, scrollsOf(f)), frameRect(f), widths, lang);
@@ -1145,7 +1193,7 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
 
   const scope: Scope = { frames: allFrames, groups: doc.groups, vars: doc.vars, widths };
   const state = varsLine(doc.vars, lang);
-  const behavior = [...(state ? [state] : []), ...groups.flatMap((g) => notes(g, scope, lang)), ...frames.flatMap((f) => swipeNotes(f, allFrames, lang))];
+  const behavior = [...(state ? [state] : []), ...(doc.groups.some((g) => g.rowsOf) ? [ROW_NOTE[lang]] : []), ...groups.flatMap((g) => notes(g, scope, lang)), ...frames.flatMap((f) => swipeNotes(f, allFrames, lang))];
   if (behavior.length) {
     lines.push("");
     lines.push(ph.hBehavior);

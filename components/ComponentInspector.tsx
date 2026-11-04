@@ -7,9 +7,12 @@ import { choiceLabelOf, choiceValueOf, labelOf, nameOf } from "@/parts/labels";
 import { dpOf } from "@/parts/resize";
 import type { Choice, ListItem, PropDef, TableData } from "@/parts/types";
 import { AiHooks } from "./Inspector";
+import { Icon } from "./Icon";
 import { BehaviorContext, BindRow, VisibilitySection } from "./EffectsPanel";
 import { AlignBox, AppearanceCorners, EntryList, FillRun, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, PositionRow, SlotStrip, Tab, TextRun, TriggerSection, WidthRows } from "./PartPanel";
 import { segmentedFits } from "@/lib/choices";
+import { tableOf, tableText } from "@/lib/collections";
+import { RepeatSection } from "./ReusePanels";
 import { Field, ImageRow, NamedSizes, PanelShell, Section, Segmented, Select, Slider, Toggle } from "./ui";
 
 /* The panel of a part that is a real shadcn M3E component. It is built from the part's own prop
@@ -22,14 +25,6 @@ const choices = (options: Choice[], lang: Lang) => options.map((o) => ({ key: ch
 const toRows = (list: ListItem[]): NavTab[] => list.map((x) => ({ icon: x.icon ?? "", label: x.label, variant: x.variant, width: x.width, image: x.image }));
 const fromRows = (rows: NavTab[], icons: boolean): ListItem[] =>
   rows.map((x) => ({ label: x.label, ...(icons && x.icon ? { icon: x.icon } : {}), ...(x.variant ? { variant: x.variant } : {}), ...(x.width ? { width: x.width } : {}), ...(x.image ? { image: x.image } : {}) }));
-
-/** a table prop is edited as text: the column names on the first line, one row per line, cells split by `,` */
-const tableText = (t: TableData) => [t.columns, ...t.rows].map((r) => r.join(", ")).join("\n");
-const tableOf = (text: string): TableData => {
-  const [head = "", ...rest] = text.split("\n");
-  const cells = (line: string) => line.split(",").map((c) => c.trim());
-  return { columns: cells(head), rows: rest.filter((l) => l.trim()).map(cells) };
-};
 
 function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def: PropDef; value: unknown; onChange: (v: unknown) => void; onRows: (rows: ListItem[], order: number[]) => void; item: Item; p: Palette; frameW: number; lang: Lang }) {
   const labelText = labelOf(def, lang);
@@ -187,6 +182,7 @@ export function ComponentInspector({
   allFrames,
   inFlow,
   onMoveTo,
+  onMakeComponent,
 }: {
   ai: AiHooks;
   item: Item;
@@ -204,6 +200,8 @@ export function ComponentInspector({
   inFlow?: boolean;
   /** puts the part at a place on its screen */
   onMoveTo?: (x: number, y: number) => void;
+  /** turns this part into a reusable component */
+  onMakeComponent?: () => void;
 }) {
   const lang = useLang();
   const [tab, setTab] = useState<Tab>("design");
@@ -235,6 +233,7 @@ export function ComponentInspector({
               </div>
             </Section>
           )}
+          <RepeatSection p={p} />
           {inFlow && (
             <Section id="part-in-flow" icon="view_agenda" title={t("inAutoLayout", lang)} p={p}>
               <Toggle on={!!item.flowFill} onChange={(flowFill) => onChange({ flowFill: flowFill || undefined })} label={t("flowFill", lang)} p={p} grow />
@@ -245,6 +244,14 @@ export function ComponentInspector({
               <AlignBox key={item.id} onPlace={onPlace} p={p} />
               {onMoveTo && selfRect && <PositionRow x={Math.round(selfRect.x - (frame?.x ?? 0))} y={Math.round(selfRect.y - (frame?.y ?? 0))} onMove={(x, y) => onMoveTo(x + (frame?.x ?? 0), y + (frame?.y ?? 0))} p={p} />}
             </Section>
+          )}
+          {onMakeComponent && !locked && (
+            <div style={{ padding: "0 4px 14px" }}>
+              <button onClick={onMakeComponent} data-make-component className="m3-press" style={{ height: 44, borderRadius: 22, border: "none", background: p.secondaryContainer, color: p.onSecondaryContainer, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}>
+                <Icon name="widgets" size={20} />
+                {t("makeComponent", lang)}
+              </button>
+            </div>
           )}
         </div>
       )}

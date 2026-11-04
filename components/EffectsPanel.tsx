@@ -1,6 +1,6 @@
 
 import { createContext, useContext, useState } from "react";
-import { Action, ActionBody, BACK_TARGET, Condition, DocVar, Effect, Group, Item, LINK_TARGET, Palette, STAY_TARGET, VarType, VarValue, paletteIconOf, uid } from "@/lib/tokens";
+import { Action, ActionBody, BACK_TARGET, Collection, Condition, DocVar, Effect, Group, Item, LINK_TARGET, Palette, STAY_TARGET, VarType, VarValue, paletteIconOf, uid } from "@/lib/tokens";
 import { INPUT_PROP, isOverlayPart } from "@/lib/interact";
 import { t, useLang, type Lang, type UIKey } from "@/lib/i18n";
 import { partBySlug } from "@/parts/registry";
@@ -25,6 +25,14 @@ export type Behavior = {
   patchGroup: (patch: Partial<Group>) => void;
   /** the selected dock's tabs moved or went: `order` holds the index each now had */
   reorderPanes: (order: number[]) => void;
+  /** the data a repeat can draw from */
+  collections?: Collection[];
+  /** the fields of the row the selected part is repeated for: a condition can read them, as `row.field` */
+  rowFields?: string[];
+  /** The layout the selected part can repeat through: its own, or the one it is the first child of,
+   *  since a column hugging its only child can hardly be pressed on the canvas. */
+  repeatHost?: Group | null;
+  patchRepeat?: (repeat: Group["repeat"]) => void;
 };
 
 export const BehaviorContext = createContext<Behavior>({ vars: [], setVars: () => {}, groups: [], group: null, patchGroup: () => {}, reorderPanes: () => {} });
@@ -34,6 +42,8 @@ const NEW_VAR = "__new";
 /** a part is called what the layers panel calls it */
 function partName(g: Group, it: Item, lang: Lang): string {
   const def = partBySlug(it.component);
+  /* an instance goes by its definition: its item is only an empty container standing in for it */
+  if (g.instanceOf && !g.name) return it.label;
   return (g.items.length === 1 && g.name) || labelOfPart(def, it.props) || (def && nameOf(def, lang)) || it.label;
 }
 
@@ -50,16 +60,20 @@ function addVar(b: Behavior, type: VarType, name: string): DocVar {
 
 const nextVarName = (vars: DocVar[]) => `var${vars.length + 1}`;
 
-function VarSelect({ value, onPick, p, type = "number" }: { value: string; onPick: (v: DocVar) => void; p: Palette; /** the type a variable made from here takes */ type?: VarType }) {
+/** the variables a condition can read: the document's, and the fields of the row it runs in, which nothing can write */
+const readableVars = (b: Behavior): DocVar[] => [...b.vars, ...(b.rowFields ?? []).map((f): DocVar => ({ id: `row.${f}`, name: `row.${f}`, type: "text", value: "" }))];
+
+function VarSelect({ value, onPick, p, type = "number", reading }: { value: string; onPick: (v: DocVar) => void; p: Palette; /** the type a variable made from here takes */ type?: VarType; /** only read, so a row's fields are on offer too */ reading?: boolean }) {
   const lang = useLang();
   const b = useContext(BehaviorContext);
-  const options: SelectOption[] = [...b.vars.map((v) => ({ key: v.id, label: v.name || v.id, icon: "data_object" })), { key: NEW_VAR, label: t("newVariable", lang), icon: "add" }];
+  const vars = reading ? readableVars(b) : b.vars;
+  const options: SelectOption[] = [...vars.map((v) => ({ key: v.id, label: v.name || v.id, icon: "data_object" })), { key: NEW_VAR, label: t("newVariable", lang), icon: "add" }];
   return (
     <Select
       options={options}
       value={value}
       onChange={(k) => {
-        const v = k === NEW_VAR ? addVar(b, type, nextVarName(b.vars)) : b.vars.find((x) => x.id === k);
+        const v = k === NEW_VAR ? addVar(b, type, nextVarName(b.vars)) : vars.find((x) => x.id === k);
         if (v) onPick(v);
       }}
       p={p}
@@ -286,7 +300,7 @@ function ConditionEditor({ value, onChange, p }: { value: Condition; onChange: (
   const b = useContext(BehaviorContext);
   const fields = partOptions(b.groups, lang, isInput);
   const onField = "filled" in value;
-  const v = !onField ? b.vars.find((x) => x.id === value.var) : undefined;
+  const v = !onField ? readableVars(b).find((x) => x.id === value.var) : undefined;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 8, borderRadius: 12, background: p.surfaceContainerLow }}>
       <Segmented<string>
@@ -301,7 +315,7 @@ function ConditionEditor({ value, onChange, p }: { value: Condition; onChange: (
         fields.length ? <Select options={fields} value={value.filled} onChange={(filled) => onChange({ filled })} p={p} label={t("condFilled", lang)} /> : <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("noParts", lang)}</div>
       ) : (
         <>
-          <VarSelect value={value.var} onPick={(x) => onChange({ ...value, var: x.id, value: x.value })} p={p} />
+          <VarSelect reading value={value.var} onPick={(x) => onChange({ ...value, var: x.id, value: x.value })} p={p} />
           <Segmented<string> options={[{ key: "eq", label: t("condIs", lang) }, { key: "neq", label: t("condIsNot", lang) }]} value={value.op} onChange={(op) => onChange({ ...value, op: op as "eq" | "neq" })} p={p} height={36} label={t("onlyWhen", lang)} />
           {v && <ValueField type={v.type} value={value.value} onChange={(x) => onChange({ ...value, value: x })} p={p} />}
         </>

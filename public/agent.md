@@ -63,6 +63,7 @@ A phone screen is **412 × 892**; a desktop screen is **1280 × 800** (set `w` a
 - `bg` (optional): background, one of `surface | surfaceContainerLow | surfaceContainer | surfaceContainerHigh | surfaceContainerHighest | primaryContainer | secondaryContainer | tertiaryContainer | primary | inverseSurface`.
 - `swipe` (optional): screens reached by swiping `left | right | up | down`.
 - `place` (optional): where the body rows sit between the bars when the screen is tidied: `top` (default) | `center` | `bottom` | `spread`.
+- `variantOf` (optional): the id of the screen this one is another size of. Keep the same `name`, put it beside the original with the size in `w` and `h`, and lay its parts out for that size. Each size has parts of its own; the preview's width switch moves between them and navigation lands on the matching size.
 
 ### Parts (`groups`)
 
@@ -90,6 +91,18 @@ Fields any part may carry beside `props`:
 Fields a group may carry: `hidden: true` starts it hidden, with no hole left in an auto layout; `showWhen`, a condition, shows it only while that holds; `pane`, a number, is the tab of the `dock` it stands on.
 
 Variables sit on the document: `"vars": [ { "id": "count", "name": "count", "type": "text" | "number" | "bool", "value": 0 } ]`. They live while the prototype runs and start over each time.
+
+#### Reusing parts (optional)
+
+**Components.** `"components": [ { "id": "card", "name": "Card", "w": 380, "h": 180, "groups": [ … ] } ]` on the document holds definitions: ordinary groups, placed relative to the definition's own top left. An instance is a group that names one, with `items` left empty: the editor gives it the single item that stands in for it.
+
+```json
+{ "id": "c1", "x": 16, "y": 120, "axis": "x", "instanceOf": "card", "overrides": { "title1/title": "Tomato soup", "photo1/src": "https://example.com/soup.jpg" }, "items": [] }
+```
+
+`overrides` is keyed `itemId/propKey`, by the ids inside the definition, and may change text, icon, image and bool props. Changing a definition changes every instance. An instance is as big as its definition comes to. It may stand in an auto layout through `inFlow`, and a definition may use auto layout and hold instances of other definitions, but never one of itself: such a loop draws nothing.
+
+**Data.** `"collections": [ { "id": "posts", "name": "Posts", "fields": ["title", "body"], "rows": [["First", "…"], ["Second", "…"]] } ]` on the document holds rows. A layout container (one with auto layout) may carry `"repeat": { "collection": "posts", "limit": 10 }`: its first child, and whatever that holds, is drawn once per row. Write `{{title}}` in its words to show a field. A tap on a row runs with that row as the current one: a detail screen can show `{{current.title}}`, and a condition can read `{ "var": "row.title", "op": "eq", "value": "First" }`. Give the container `hugHeight: true` so that it grows with its rows.
 
 Icons are Material Symbols names (`home`, `search`, `add`, `favorite`, `settings`, `arrow_back`, `more_vert`, `edit`, `delete`, `share`, `restaurant`, `photo_camera`, …).
 

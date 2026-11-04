@@ -24,6 +24,7 @@ bun run dev
 | `bun run test` | 运行测试 |
 | `bun run gen:parts` | 重新生成组件索引 |
 | `bun run gen:agent` | 把组件清单写进 `public/agent.md` |
+| `bun run check:export <空文件夹>` | 生成项目，真的安装、构建，再用无头 Edge 点一遍 |
 
 在 Windows 上，项目路径要尽量短。依赖目录层级很深，放在超长路径下安装可能失败。
 

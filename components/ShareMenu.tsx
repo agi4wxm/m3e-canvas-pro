@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Doc, Palette } from "@/lib/tokens";
 import { shareLink } from "@/lib/share";
+import { DownloadProject } from "./DownloadProject";
 import { Icon } from "./Icon";
 import { useDismiss } from "./ui";
 import { t, useLang } from "@/lib/i18n";
@@ -54,6 +55,7 @@ const Beta = ({ p }: { p: Palette }) => (
 export function ShareDialog({
   p,
   doc,
+  widths,
   aiReady,
   idea,
   onIdea,
@@ -64,6 +66,7 @@ export function ShareDialog({
 }: {
   p: Palette;
   doc: Doc;
+  widths: Record<string, number>;
   aiReady: boolean;
   /** what to build, kept by the page so a failed draft does not lose it */
   idea: string;
@@ -221,7 +224,8 @@ export function ShareDialog({
                   : pill("key", t("aiSetup", lang), onSetupAi, { primary: true, corners: "right", title: t("aiSetupTitle", lang) })}
               </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+              <DownloadProject doc={doc} widths={widths} p={p} stacked={false} />
               <button
                 onClick={onClose}
                 title={t("closeBtn", lang)}

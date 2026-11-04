@@ -1,7 +1,7 @@
 import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import type { FlowValues } from "../parts/flow";
-import { Group, Item, groupBounds, heldBy, holdsParts, liesInside, makeItem, unionRect } from "./tokens";
+import { Group, Item, groupBounds, heldBy, holdsParts, liesInside, makeItem, ownerIdOf, unionRect } from "./tokens";
 
 /* Auto layout on the canvas. Parts stay where the document says they are, so everything else (the
  * preview, the guides, the layers) keeps working; a container with a layout rewrites those places.
@@ -112,19 +112,19 @@ export function panesAfterReorder(groups: Group[], hostId: string, order: number
   });
 }
 
-/** a part's own measure when it says it itself (a container), else what was measured */
-function ownSize(g: Group, widths: Widths): Size {
+/** a part's own measure when it says it itself (a container, an instance), else what was measured */
+export function ownSize(g: Group, widths: Widths): Size {
   const b = groupBounds(g, widths);
   const size = { w: b.r - b.l, h: b.b - b.t };
   if (g.items.length !== 1) return size;
   const it = g.items[0];
   const ax = resizeOf(partBySlug(it.component), it.props);
-  if (!holdsParts(g) || !ax) return size;
+  if (!(holdsParts(g) || g.instanceOf) || !ax) return size;
   return { w: ax.width ? axisValue(ax.width, it.props) : size.w, h: ax.height ? axisValue(ax.height, it.props) : size.h };
 }
 
 /** a part has been drawn and measured, or says its measure itself */
-const measured = (g: Group, widths: Widths) => holdsParts(g) || g.items.every((it) => widths[it.id] !== undefined);
+const measured = (g: Group, widths: Widths) => holdsParts(g) || !!g.instanceOf || g.items.every((it) => widths[it.id] !== undefined);
 
 /** the order a layout reads parts in, from where they stand */
 function readingOrder(f: Flow): (a: Group, b: Group) => number {
@@ -160,7 +160,8 @@ function membership(groups: Group[], widths: Widths): Group[] {
       const { inFlow: _gone, ...rest } = g;
       return rest;
     }
-    if (!flowing.size || g.locked || !measured(g, widths)) return g;
+    /* what an instance or a repeated row expanded to belongs to it, wherever it happens to lie */
+    if (!flowing.size || g.locked || !measured(g, widths) || ownerIdOf(g.id) !== undefined) return g;
     let near: Group | null = null;
     let area = Infinity;
     for (let j = 0; j < i; j++) {
@@ -208,7 +209,8 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
   /** a measure of a part, where the part has a number for it */
   const setAxis = (id: string, axis: "width" | "height", v: number) => {
     const g = work.get(id)!;
-    if (g.items.length !== 1) return;
+    /* an instance is as big as what its definition comes to; a layout places it but does not size it */
+    if (g.items.length !== 1 || g.instanceOf || g.expandedFrom) return;
     const it = g.items[0];
     const ax = resizeOf(partBySlug(it.component), it.props)?.[axis];
     if (!ax || ax.kind !== "number") return;

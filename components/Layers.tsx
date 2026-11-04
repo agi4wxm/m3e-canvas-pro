@@ -4,8 +4,10 @@ import { partBySlug } from "@/parts/registry";
 import { nameOf as partNameOf } from "@/parts/labels";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Reorder, useDragControls } from "motion/react";
-import { Frame, Group, Item, Palette, explodeGroup, isPhoneFrame, paletteIconOf } from "@/lib/tokens";
+import { ComponentDef, Frame, Group, Item, Palette, explodeGroup, framePresetOf, isPhoneFrame, paletteIconOf } from "@/lib/tokens";
+import { familiesOf, familyOf } from "@/lib/variants";
 import { Icon } from "./Icon";
+import { sizeWord } from "./ReusePanels";
 import { Field, Select } from "./ui";
 import { Lang, t, useLang } from "@/lib/i18n";
 
@@ -29,18 +31,19 @@ function typeOf(it: Item, lang: Lang) {
   return (def && partNameOf(def, lang)) || it.label;
 }
 
-/** the author's name for a group, or what its parts make it */
-function runLabel(g: Group, lang: Lang) {
+/** the author's name for a group, or what its parts make it; an instance goes by its definition */
+function runLabel(g: Group, lang: Lang, components?: ComponentDef[]) {
   const named = g.name?.trim();
   if (named) return named;
   const first = g.items[0];
+  if (g.instanceOf) return components?.find((c) => c.id === g.instanceOf)?.name || first.label;
   return g.free ? `${t("group", lang)} × ${g.items.length}` : g.items.length > 1 ? `${typeOf(first, lang)} × ${g.items.length}` : nameOf(first, lang);
 }
 
 /** what a search can find a group by: its name, and the name and type of each of its parts */
-function searchWords(g: Group, lang: Lang): string[] {
+function searchWords(g: Group, lang: Lang, components?: ComponentDef[]): string[] {
   return [
-    runLabel(g, lang),
+    runLabel(g, lang, components),
     ...g.items.flatMap((it) => {
       const def = partBySlug(it.component);
       return [nameOf(it, lang), typeOf(it, lang), def?.name ?? "", it.component ?? ""];
@@ -304,6 +307,7 @@ export function LayersPanel({
   frameId,
   onFrame,
   groups,
+  components,
   widths,
   selectedIds,
   onSelect,
@@ -320,6 +324,8 @@ export function LayersPanel({
   onFrame: (id: string) => void;
   /** the runs on the chosen frame, in canvas order (bottom first) */
   groups: Group[];
+  /** what an instance on the screen is an instance of */
+  components?: ComponentDef[];
   widths: Record<string, number>;
   selectedIds: string[];
   /** `add` is set when Shift was held, to extend the selection */
@@ -342,7 +348,10 @@ export function LayersPanel({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const query = q.trim().toLowerCase();
   const allTopFirst = useMemo(() => [...groups].reverse(), [groups]);
-  const topFirst = useMemo(() => (query ? allTopFirst.filter((g) => searchWords(g, lang).some((w) => w.toLowerCase().includes(query))) : allTopFirst), [allTopFirst, query, lang]);
+  const topFirst = useMemo(() => (query ? allTopFirst.filter((g) => searchWords(g, lang, components).some((w) => w.toLowerCase().includes(query))) : allTopFirst), [allTopFirst, query, lang, components]);
+  /* sizes of one screen stand together under its name; a family of one is just the screen */
+  const families = useMemo(() => familiesOf(frames), [frames]);
+  const family = useMemo(() => (frameId ? familyOf(frames, frameId) : []), [frames, frameId]);
   const ids = topFirst.map((g) => g.id);
   const sel = new Set(selectedIds);
   /* F2 names the selected group, wherever the focus is short of a field being typed in */
@@ -406,12 +415,28 @@ export function LayersPanel({
         /* the screen whose layers are listed, picked from a dropdown the way a tap's target is */
         <div style={{ padding: "12px 12px 4px", flex: "0 0 auto" }}>
           <Select
-            options={frames.map((f) => ({ key: f.id, label: f.name || t("screen", lang), icon: isPhoneFrame(f) ? "smartphone" : "desktop_windows" }))}
+            options={families.flatMap((list) =>
+              list.map((f, i) => ({
+                key: f.id,
+                label: list.length > 1 ? `${i ? "↳ " : ""}${f.name || t("screen", lang)} · ${sizeWord(f, lang)}` : f.name || t("screen", lang),
+                icon: isPhoneFrame(f) ? "smartphone" : framePresetOf(f) === "tablet" ? "tablet" : "desktop_windows",
+              })),
+            )}
             value={frameId && frames.some((f) => f.id === frameId) ? frameId : frames[0].id}
             onChange={onFrame}
             p={p}
             label={t("screens", lang)}
           />
+          {family.length > 1 && (
+            <div data-layer-sizes style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
+              {family.map((f) => (
+                <button key={f.id} onClick={() => onFrame(f.id)} aria-current={f.id === frameId || undefined} className="m3-press" style={{ height: 32, padding: "0 10px 0 6px", borderRadius: 16, border: "none", background: f.id === frameId ? p.secondaryContainer : p.surfaceContainerLow, color: f.id === frameId ? p.onSecondaryContainer : p.onSurfaceVariant, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <Icon name={isPhoneFrame(f) ? "smartphone" : framePresetOf(f) === "tablet" ? "tablet" : "desktop_windows"} size={16} />
+                  {sizeWord(f, lang)}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <div style={{ padding: "12px 12px 0", flex: "0 0 auto" }}>
@@ -435,8 +460,8 @@ export function LayersPanel({
                   id={g.id}
                   p={p}
                   depth={0}
-                  icon={g.free ? <Icon name="group_work" size={18} /> : g.items.slice(0, 3).map((it, k) => <Icon key={k} name={paletteIconOf(it)} size={18} />)}
-                  label={runLabel(g, lang)}
+                  icon={g.free ? <Icon name="group_work" size={18} /> : g.instanceOf ? <Icon name="widgets" size={18} /> : g.items.slice(0, 3).map((it, k) => <Icon key={k} name={paletteIconOf(it)} size={18} />)}
+                  label={runLabel(g, lang, components)}
                   on={g.items.some((it) => sel.has(it.id))}
                   onSelect={(add) => onSelect(g.items.map((it) => it.id), add)}
                   open={canOpen ? open : undefined}
@@ -446,12 +471,12 @@ export function LayersPanel({
                   hidden={g.hidden}
                   onHide={() => onToggleHidden(g.id)}
                   renaming={renamingId === g.id}
-                  renameFrom={g.name ?? runLabel(g, lang)}
+                  renameFrom={g.name ?? runLabel(g, lang, components)}
                   onRenameStart={() => setRenamingId(g.id)}
                   onRenameDone={(next) => {
                     setRenamingId(null);
                     /* a name left as what the parts already make it is no name */
-                    if (next !== null && next.trim() !== (g.name ?? runLabel(g, lang))) onRename(g.id, next.trim());
+                    if (next !== null && next.trim() !== (g.name ?? runLabel(g, lang, components))) onRename(g.id, next.trim());
                   }}
                   still={!!query}
                   onDragging={onDragging}

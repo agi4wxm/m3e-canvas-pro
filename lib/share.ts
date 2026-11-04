@@ -1,4 +1,4 @@
-import { Doc, Item } from "./tokens";
+import { Doc, Group, Item } from "./tokens";
 import { openProject } from "./project";
 import { partBySlug, withoutPickedImages } from "../parts/registry";
 
@@ -16,11 +16,18 @@ function shareableItem({ noteHistory: _h, ...out }: Item): Item {
   return def && out.props ? { ...out, props: withoutPickedImages(def, out.props) } : out;
 }
 
+/** a group a link can carry: what an instance overrides with a picked file goes the way the file's own prop does */
+const shareableGroup = (g: Group): Group => {
+  const overrides = g.overrides && Object.fromEntries(Object.entries(g.overrides).filter(([, v]) => !(typeof v === "string" && v.startsWith("data:"))));
+  return { ...g, items: g.items.map(shareableItem), ...(overrides ? { overrides } : {}) };
+};
+
 export function shareable(doc: Doc): Doc {
   return {
     ...doc,
     frames: doc.frames.map(({ noteHistory: _h, ...f }) => f),
-    groups: doc.groups.map((g) => ({ ...g, items: g.items.map(shareableItem) })),
+    groups: doc.groups.map(shareableGroup),
+    ...(doc.components ? { components: doc.components.map((c) => ({ ...c, groups: c.groups.map(shareableGroup) })) } : {}),
   };
 }
 

@@ -329,11 +329,19 @@ describe("a dock's tabs", () => {
     expect(gone.slice(1).map((g) => g.pane)).toEqual([0, 1, 1]);
   });
 
-  it("prints only the chosen tab", () => {
+  it("prints each tab's content under its tab", () => {
     const doc = { groups: [group("dock", 0, 0, part("dock", "i-dock", { selected: 1, width: 300, height: 300 })), { ...kid("a", 0, 40), items: [part("button", "i-a", { label: "OnFirstTab" })] }, { ...kid("b", 1, 40), items: [part("button", "i-b", { label: "OnSecondTab" })] }], frames: [{ id: "f", name: "F", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "", brief: "" } as Doc;
     const { code } = buildCode(doc, sizes);
-    expect(code).toContain("OnSecondTab");
-    expect(code).not.toContain("OnFirstTab");
+    expect(code).toMatch(/\{tab\("dock", 1\) === 0 && \(\s+<Button[^>]*>OnFirstTab/);
+    expect(code).toMatch(/\{tab\("dock", 1\) === 1 && \(\s+<Button[^>]*>OnSecondTab/);
+    expect(code).toContain(`data-tap="tab:1"`);
+  });
+
+  it("leaves a dock with nothing to switch between alone", () => {
+    const doc = { groups: [group("dock", 0, 0, part("dock", "i-dock", { selected: 0, width: 300, height: 300 })), { ...kid("a", 0, 40), items: [part("button", "i-a", { label: "OnFirstTab" })] }], frames: [{ id: "f", name: "F", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "", brief: "" } as Doc;
+    const { code } = buildCode(doc, sizes);
+    expect(code).toContain("OnFirstTab");
+    expect(code).not.toContain("useApp");
     expect(code).not.toContain("data-tap");
   });
 });

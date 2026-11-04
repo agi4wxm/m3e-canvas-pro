@@ -1,7 +1,9 @@
 
 import {
+  ComponentDef,
   Frame,
   FramePreset,
+  Group,
   Item,
   Palette,
   TRANSITIONS,
@@ -9,6 +11,7 @@ import {
   framePresetOf,
 } from "@/lib/tokens";
 import { ComponentInspector } from "./ComponentInspector";
+import { InstanceInspector } from "./ReusePanels";
 import { AlignBox, LineUp, PartMenu, PlaceFn } from "./PartPanel";
 import type { AlignHow } from "@/lib/align";
 import { Icon } from "./Icon";
@@ -79,6 +82,7 @@ function GroupPanel({
   onAlign,
   onDistribute,
   onAutoLayout,
+  onMakeComponent,
 }: {
   p: Palette;
   count: number;
@@ -95,6 +99,7 @@ function GroupPanel({
   onAlign?: (how: AlignHow) => void;
   onDistribute?: (axis: "x" | "y", gap?: number) => void;
   onAutoLayout?: () => void;
+  onMakeComponent?: () => void;
 }) {
   const lang = useLang();
   const title = grouped ? t("group", lang) : lang === "en" ? `${count} ${t("selectedParts", lang)}` : `${count}${t("selectedParts", lang)}`;
@@ -124,6 +129,17 @@ function GroupPanel({
       )}
       {/* the header already names the group, so the button that makes or breaks it stands under the sections without a title of its own */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 4px" }}>
+        {onMakeComponent && !locked && (
+          <button
+            onClick={onMakeComponent}
+            data-make-component
+            className="m3-press"
+            style={{ height: 44, borderRadius: 22, border: "none", background: p.primaryContainer, color: p.onPrimaryContainer, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}
+          >
+            <Icon name="widgets" size={20} />
+            {t("makeComponent", lang)}
+          </button>
+        )}
         {onAutoLayout && !grouped && (
           <button
             onClick={onAutoLayout}
@@ -187,6 +203,8 @@ export function Inspector({
   onAutoLayout,
   inFlow,
   onMoveTo,
+  onMakeComponent,
+  instance,
 }: {
   /** the AI button beside the behavior field */
   ai: AiHooks;
@@ -226,7 +244,14 @@ export function Inspector({
   inFlow?: boolean;
   /** puts the selected part at a place on its screen */
   onMoveTo?: (x: number, y: number) => void;
+  /** turns what is selected into a reusable component */
+  onMakeComponent?: () => void;
+  /** the selection is one instance of a component, which has a panel of its own */
+  instance?: { group: Group; def: ComponentDef; components: ComponentDef[]; onEdit: () => void; onDetach: () => void; onOverrides: (overrides: Group["overrides"]) => void } | null;
 }) {
+  if (item && instance) {
+    return <InstanceInspector {...instance} palette={p} locked={!!locked} inFlow={!!inFlow} onToggleLock={onToggleLock} onDuplicate={onDuplicate} onDelete={onDelete} onPlace={onPlace} selectionKey={selectionKey ?? ""} />;
+  }
   if (!item) {
     if (multi > 1) {
       return (
@@ -246,6 +271,7 @@ export function Inspector({
           onAlign={onAlign}
           onDistribute={onDistribute}
           onAutoLayout={onAutoLayout}
+          onMakeComponent={onMakeComponent}
         />
       );
     }
@@ -281,6 +307,7 @@ export function Inspector({
       allFrames={allFrames ?? frames}
       inFlow={inFlow}
       onMoveTo={onMoveTo}
+      onMakeComponent={onMakeComponent}
     />
   );
 }

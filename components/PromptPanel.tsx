@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildCode } from "@/lib/codegen";
 import { PromptMark, buildPrompt, promptMarks } from "@/lib/prompt";
 import { Doc, Palette } from "@/lib/tokens";
+import { DownloadProject } from "./DownloadProject";
 import { Icon } from "./Icon";
 import { Field, IconBtn, Segmented } from "./ui";
 import { t, useLang } from "@/lib/i18n";
@@ -495,6 +496,7 @@ export function PromptPanel({
             }
           />
         )}
+        {mode === "code" && <DownloadProject doc={doc} widths={widths} p={p} />}
       </div>
       {cover !== "off" && (
         <div

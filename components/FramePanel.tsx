@@ -28,6 +28,7 @@ import {
 import { AiHooks, FrameSizePicker } from "./Inspector";
 import { AiIconBtn, Num, PartTabs, Tab } from "./PartPanel";
 import { VariablesSection } from "./EffectsPanel";
+import { VariantSection } from "./ReusePanels";
 import { COLOR_TOKEN_TEXT, t, useLang } from "@/lib/i18n";
 import { maxFrameLength } from "@/lib/tidy";
 
@@ -178,6 +179,7 @@ export function FrameInspector({
   ai,
   onSize,
   onResize,
+  variants,
 }: {
   frame: Frame;
   palette: Palette;
@@ -206,6 +208,8 @@ export function FrameInspector({
   onSize: (preset: FramePreset) => void;
   /** the screen at a size of the author's own */
   onResize: (w: number, h: number) => void;
+  /** this screen's other sizes, and the making of more */
+  variants?: { family: Frame[]; missing: FramePreset[]; onCreate: (preset: FramePreset) => void; onJump: (id: string) => void };
 }) {
   const lang = useLang();
   const [copied, setCopied] = useState(false);
@@ -295,6 +299,7 @@ export function FrameInspector({
             <Num value={frameSizeOf(frame).h} min={200} max={3840} title="H" lazy onChange={(h) => onResize(frameSizeOf(frame).w, h)} p={p} />
           </div>
         </Section>
+        {variants && <VariantSection p={p} frame={frame} {...variants} />}
         <Section id="frame-style" icon="palette" title={t("style", lang)} p={p}>
           <ScreenFillRun
             value={frame.bg ?? "surface"}

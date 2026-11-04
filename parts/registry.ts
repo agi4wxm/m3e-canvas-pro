@@ -83,7 +83,7 @@ export const treeOf = (def: PartDef, values?: PropValues, appearance?: Appearanc
   applyAppearance(def.tree(reader(def, values)), appearance, def.appearance?.target);
 
 /** the components that open something: while the part is drawn open they are held open (a click on the canvas must not dismiss them), and are not modal */
-const OVERLAY_ROOTS = new Set(["Dialog", "AlertDialog", "Sheet", "SideSheet", "Drawer", "Popover", "HoverCard", "Tooltip", "DropdownMenu", "ContextMenu", "Select", "Combobox"]);
+export const OVERLAY_ROOTS = new Set(["Dialog", "AlertDialog", "Sheet", "SideSheet", "Drawer", "Popover", "HoverCard", "Tooltip", "DropdownMenu", "ContextMenu", "Select", "Combobox"]);
 
 const hasTrigger = (n: PNode) => !!n.children?.some((c) => typeof c !== "string" && c.type === "NavigationMenuTrigger");
 
@@ -147,23 +147,25 @@ const picked = (v: unknown): v is string => typeof v === "string" && v.startsWit
 /** The values with every picture that is a picked file's data (an image prop, or a row of a list
  *  that takes pictures) swapped for `swap`, or dropped without one: a shared link has no room for
  *  them and printed code should not carry them. A web address stays. */
-export function withoutPickedImages(def: PartDef, values: PropValues, swap?: string): PropValues {
+export function withoutPickedImages(def: PartDef, values: PropValues, swap?: string | ((data: string) => string)): PropValues {
   let out = values;
   const put = (key: string, v: unknown) => {
     if (out === values) out = { ...values };
     if (v === undefined) delete out[key];
     else out[key] = v;
   };
+  const swapped = (data: string) => (typeof swap === "function" ? swap(data) : swap);
   for (const d of def.props) {
     const v = values[d.key];
-    if (d.kind === "image" && picked(v)) put(d.key, swap);
+    if (d.kind === "image" && picked(v)) put(d.key, swapped(v));
     if (d.kind === "list" && d.images && Array.isArray(v) && v.some((row) => picked((row as ListItem | null)?.image)))
       put(
         d.key,
         v.map((row: ListItem) => {
           if (!picked(row?.image)) return row;
-          const { image: _gone, ...rest } = row;
-          return swap ? { ...rest, image: swap } : rest;
+          const { image, ...rest } = row;
+          const path = swapped(image!);
+          return path ? { ...rest, image: path } : rest;
         }),
       );
   }

@@ -429,6 +429,9 @@ export type Item = {
   actions?: Record<string, Action>;
   /** which of the part's props follow a variable in the preview: prop key to `DocVar.id` */
   bind?: Record<string, string>;
+  /** Runtime only, never saved: the fields of the row this copy was drawn for (lib/collections.ts).
+   *  A tap on it runs with them as `row.field`. */
+  row?: Record<string, string>;
   /** the rail remembers which edge it expanded from */
   [railExpansionSide]?: "left" | "right";
 };
@@ -678,6 +681,8 @@ export type Frame = {
   place?: Place;
   /** how far the screen runs when it is longer than the device: its body scrolls under the bars */
   length?: number;
+  /** the screen this one is another size of (lib/variants.ts); each keeps a layout of its own */
+  variantOf?: string;
 };
 
 /** how Tidy stacks the body of a screen: from the top, centered, against the bottom bar, or spread out */
@@ -782,8 +787,34 @@ export function groupBounds(g: Group, widths: Record<string, number>) {
   return { l, t, r, b };
 }
 
-/** a part that can hold others, standing alone */
-export const holdsParts = (g: Group) => !g.free && g.items.length === 1 && !!partBySlug(g.items[0].component)?.holds;
+/** a tap's reach, for copies: what a copied part points at follows the copy when that was copied too */
+export function retarget(g: Group, ids: Map<string, string>): Group {
+  const part = (id: string) => ids.get(id) ?? id;
+  const when = (c: Condition | undefined): Condition | undefined => (c && "filled" in c ? { filled: part(c.filled) } : c);
+  const effects = (list: Effect[] | undefined) => list?.map((e) => ("part" in e ? { ...e, part: part(e.part) } : e));
+  const body = <T extends ActionBody>(a: T): T => ({ ...a, ...(a.effects ? { effects: effects(a.effects) } : {}) });
+  const action = (a: Action): Action => ({ ...body(a), ...(a.when ? { when: when(a.when) } : {}), ...(a.else ? { else: body(a.else) } : {}) });
+  return {
+    ...g,
+    ...(g.showWhen ? { showWhen: when(g.showWhen) } : {}),
+    items: g.items.map((it) => ({
+      ...it,
+      ...(it.action ? { action: action(it.action) } : {}),
+      ...(it.actions ? { actions: Object.fromEntries(Object.entries(it.actions).map(([k, a]) => [k, action(a)])) } : {}),
+    })),
+  };
+}
+
+/** a part that can hold others, standing alone. An instance is drawn from its definition and holds
+ *  nothing of the document's, though the item standing in for it is a container. */
+export const holdsParts = (g: Group) => !g.free && !g.instanceOf && g.items.length === 1 && !!partBySlug(g.items[0].component)?.holds;
+
+/** The group an expanded id belongs to: `inst/g` to the instance `inst`, `inst/inner/g` to the nested
+ *  `inst/inner`, and `host#2/g` (a repeated row) to the host. A plain id belongs to nobody. */
+export const ownerIdOf = (id: string): string | undefined => {
+  const at = id.lastIndexOf("/");
+  return at < 0 ? undefined : id.slice(0, at).replace(/#\d+$/, "");
+};
 
 export const liesInside = (g: Group, outer: ReturnType<typeof groupBounds>, widths: Record<string, number>) => {
   const b = groupBounds(g, widths);
@@ -799,9 +830,12 @@ export function heldBy(container: Group, groups: Group[], widths: Record<string,
   if (!holdsParts(container)) return [];
   const at = groups.findIndex((g) => g.id === container.id);
   const outer = groupBounds(container, widths);
-  const held = new Set(groups.filter((g, i) => g.id !== container.id && !g.locked && (g.inFlow === container.id || (i > at && liesInside(g, outer, widths)))));
-  /* what a layout holds is its own even where it overflows, at any depth */
-  for (const g of held) for (const o of groups) if (o.inFlow === g.id && !o.locked) held.add(o);
+  /* lying inside counts only among parts of the same expansion: the rows of a repeat start out stacked
+   * on one another until they are placed, and one must not take the next along */
+  const scopeOf = (id: string) => id.slice(0, Math.max(0, id.lastIndexOf("/")));
+  const held = new Set(groups.filter((g, i) => g.id !== container.id && !g.locked && (g.inFlow === container.id || ownerIdOf(g.id) === container.id || (i > at && scopeOf(g.id) === scopeOf(container.id) && liesInside(g, outer, widths)))));
+  /* what a layout or an expansion holds is its own even where it overflows, at any depth */
+  for (const g of held) for (const o of groups) if ((o.inFlow === g.id || ownerIdOf(o.id) === g.id) && !o.locked) held.add(o);
   return groups.filter((g) => held.has(g));
 }
 
@@ -830,8 +864,10 @@ export function explodeGroup(g: Group, widths: Record<string, number>): Group[] 
 export function frameOfPart(g: Group, groups: Group[], frames: Frame[], widths: Record<string, number>): Frame | undefined {
   let at = g;
   const seen = new Set([g.id]);
-  while (at.inFlow) {
-    const host = groups.find((x) => x.id === at.inFlow);
+  for (;;) {
+    const next = at.inFlow ?? ownerIdOf(at.id);
+    if (!next) break;
+    const host = groups.find((x) => x.id === next);
     if (!host || seen.has(host.id)) break;
     seen.add(host.id);
     at = host;
@@ -874,7 +910,25 @@ export type Group = {
   showWhen?: Condition;
   /** the tab of the dock it was dropped in */
   pane?: number;
+  /** An instance of a reusable component (lib/instances.ts): the group is one unit on the canvas and
+   *  `items` holds a single empty container standing in for it, so that moving, selecting and
+   *  measuring it work as for any part. What it shows comes from the definition. */
+  instanceOf?: string;
+  /** what this instance changes of its definition, by `itemId/propKey` */
+  overrides?: Record<string, VarValue>;
+  /** on a layout container: its first child is drawn once per row of a collection (lib/collections.ts) */
+  repeat?: { collection: string; limit?: number };
+  /** Runtime only, never saved: this is the container left where an instance was, and what it is an instance of. */
+  expandedFrom?: string;
+  /** Runtime only, never saved: the prompt's words for a `repeat`. */
+  rowsOf?: { name: string; rows: number; fields: string[] };
 };
+
+/** a reusable component: its parts, placed relative to its own top left, and how big they come to */
+export type ComponentDef = { id: string; name: string; groups: Group[]; w: number; h: number };
+
+/** rows of data a layout can repeat its first child over */
+export type Collection = { id: string; name: string; fields: string[]; rows: string[][] };
 
 export type FrameMode = "blank" | "phone";
 
@@ -897,6 +951,10 @@ export type Doc = {
   theme?: Theme;
   /** the prototype's state, live during the preview only; `value` is what each starts at */
   vars?: DocVar[];
+  /** reusable components; `Group.instanceOf` names one */
+  components?: ComponentDef[];
+  /** the data repeated layouts draw from; `Group.repeat` names one */
+  collections?: Collection[];
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));

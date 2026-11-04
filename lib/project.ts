@@ -1,4 +1,5 @@
-import { Condition, Doc, DocVar, Effect, Group, Item, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { standIn } from "./instances";
+import { Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -29,7 +30,8 @@ const validGroup = (group: unknown) =>
   (group.axis === "x" || group.axis === "y") &&
   (group.locked === undefined || typeof group.locked === "boolean") &&
   Array.isArray(group.items) &&
-  group.items.length > 0 &&
+  /* an instance may come without the item standing in for it; `cleanInstance` gives it one */
+  (group.items.length > 0 || group.instanceOf !== undefined) &&
   group.items.every(validItem);
 
 const validFrame = (frame: unknown) =>
@@ -114,7 +116,15 @@ function cleanVar(v: unknown): DocVar | undefined {
   return { id: v.id, name: typeof v.name === "string" ? v.name : "", type: v.type, value };
 }
 
-const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind }) as unknown as Item;
+const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, row: () => undefined }) as unknown as Item;
+
+const cleanOverrides = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => isValue(v))) : undefined);
+
+function cleanRepeat(r: unknown) {
+  if (!isRecord(r) || typeof r.collection !== "string") return undefined;
+  /* a limit of the wrong kind goes, and the repeat stays */
+  return { collection: r.collection, ...(typeof r.limit === "number" && Number.isInteger(r.limit) && r.limit >= 0 ? { limit: r.limit } : {}) };
+}
 
 const cleanGroup = (g: Group) =>
   ({
@@ -123,13 +133,61 @@ const cleanGroup = (g: Group) =>
       hidden: (v) => (typeof v === "boolean" ? v : undefined),
       showWhen: cleanCondition,
       pane: (v) => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : undefined),
+      instanceOf: (v) => (typeof v === "string" ? v : undefined),
+      overrides: cleanOverrides,
+      repeat: cleanRepeat,
+      expandedFrom: () => undefined,
+      rowsOf: () => undefined,
     }),
     items: g.items.map(cleanItem),
   }) as unknown as Group;
 
+const cleanFrame = (f: Frame) => cleaned(f as unknown as Record<string, unknown>, { variantOf: (v) => (typeof v === "string" && v !== f.id ? v : undefined) }) as unknown as Frame;
+
+/** one definition, or nothing when it has no id to be called by. Its groups go through the same checks as a screen's. */
+function cleanComponent(c: unknown): ComponentDef | undefined {
+  if (!isRecord(c) || typeof c.id !== "string") return undefined;
+  const groups = Array.isArray(c.groups) ? c.groups.filter(validGroup).map((g) => cleanGroup(g as Group)) : [];
+  const size = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 40);
+  return { id: c.id, name: typeof c.name === "string" ? c.name : "", groups, w: size(c.w), h: size(c.h) };
+}
+
+/** one collection, or nothing when it has no id. A cell of another kind is read as words where it can be; a row that is no row goes. */
+function cleanCollection(c: unknown): Collection | undefined {
+  if (!isRecord(c) || typeof c.id !== "string") return undefined;
+  const cell = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : "");
+  const fields = Array.isArray(c.fields) ? c.fields.filter((f): f is string => typeof f === "string") : [];
+  const rows = Array.isArray(c.rows) ? c.rows.filter(Array.isArray).map((r: unknown[]) => r.map(cell)) : [];
+  return { id: c.id, name: typeof c.name === "string" ? c.name : "", fields, rows };
+}
+
+/** An instance has a definition to draw from and one item standing in for it, whatever the file said.
+ *  One of nothing known loses the link, and goes altogether if nothing else is left of it. */
+function cleanInstance(g: Group, components: ComponentDef[] | undefined): Group | undefined {
+  if (g.instanceOf === undefined) return g;
+  const def = components?.find((c) => c.id === g.instanceOf);
+  if (!def) {
+    const { instanceOf: _gone, overrides: _too, ...rest } = g;
+    return rest.items.length ? rest : undefined;
+  }
+  const made = standIn(def, g.x, g.y, g.id);
+  return { ...g, items: [{ ...made.items[0], id: g.items[0]?.id ?? made.items[0].id }] };
+}
+
 /** a document with what is wrong in its behaviour taken out; it always comes back whole */
 export function cleanBehavior(doc: Doc): Doc {
-  const out: Doc = { ...doc, groups: doc.groups.map(cleanGroup) };
+  const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: doc.groups.map(cleanGroup) };
+  if (out.components !== undefined) {
+    if (Array.isArray(out.components)) out.components = out.components.map(cleanComponent).filter((c) => c !== undefined);
+    else delete out.components;
+  }
+  if (out.collections !== undefined) {
+    if (Array.isArray(out.collections)) out.collections = out.collections.map(cleanCollection).filter((c) => c !== undefined);
+    else delete out.collections;
+  }
+  const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
+  out.groups = instances(out.groups);
+  if (out.components) out.components = out.components.map((c) => ({ ...c, groups: instances(c.groups) }));
   if (out.vars === undefined) return out;
   if (Array.isArray(out.vars)) out.vars = out.vars.map(cleanVar).filter((v) => v !== undefined);
   else delete out.vars;

@@ -1,7 +1,10 @@
 import { partBySlug, reader } from "../parts/registry";
 import { arrangeFlows, outOfPane } from "./flow";
-import type { Action, ActionBody, Condition, Doc, DocVar, Effect, Group, Item, VarValue } from "./tokens";
+import { type Row, fillCurrent, firstRows, rowVars } from "./collections";
+import type { Action, ActionBody, Collection, Condition, Doc, DocVar, Effect, Group, Item, VarValue } from "./tokens";
 import { heldBy } from "./tokens";
+
+export { retarget } from "./tokens";
 
 /* What a tap does beyond going somewhere, as plain functions over a state object: the preview holds
  * the state and calls these, and nothing here touches the document or the page. A reference to a part
@@ -22,6 +25,9 @@ export type PreviewState = {
   /** what the visitor entered into each input, by item id: it outlives the screen it was typed on */
   fields: Record<string, VarValue>;
   snack: { id: number; message: string } | null;
+  /** The row the last tap on a repeated part came from: what `{{current.field}}` reads. Until a row
+   *  has been tapped, the first row of the data, so a detail screen opened directly is not blank. */
+  current?: Row;
 };
 
 /** the prop of an input the visitor changes by using it */
@@ -50,14 +56,25 @@ export function isOverlayPart(it: Item): boolean {
   return def.category === "Overlays" || /menu|drawer/.test(def.slug);
 }
 
-export const startState = (vars: DocVar[] | undefined): PreviewState => ({
+export const startState = (vars: DocVar[] | undefined, collections?: Collection[]): PreviewState => ({
   vars: Object.fromEntries((Array.isArray(vars) ? vars : []).map((v) => [v.id, v.value])),
   hidden: {},
   props: {},
   opened: {},
   fields: {},
   snack: null,
+  ...(collections?.length ? { current: firstRows(collections) } : {}),
 });
+
+/** The state a tap from a repeated part runs in: its row is the current one, and its fields can be
+ *  read as `row.field` for the length of the tap. Nothing can write them, since no document variable
+ *  has that id, and `leftRow` takes them away again. */
+export const inRow = (s: PreviewState, row: Row | undefined): PreviewState => (row ? { ...s, current: row, vars: { ...s.vars, ...rowVars(row) } } : s);
+export const leftRow = (s: PreviewState, row: Row | undefined): PreviewState => {
+  if (!row) return s;
+  const gone = rowVars(row);
+  return { ...s, vars: Object.fromEntries(Object.entries(s.vars).filter(([id]) => !(id in gone))) };
+};
 
 const asNumber = (v: VarValue): number | null => {
   if (typeof v === "boolean") return v ? 1 : 0;
@@ -101,8 +118,11 @@ function boundValue(it: Item, key: string, v: VarValue): VarValue | undefined {
   return String(v);
 }
 
-/** the part as it is right now: what effects changed, what the visitor entered, what variables say */
-export function liveItem(it: Item, s: PreviewState): Item {
+/** the part as it is right now: what effects changed, what the visitor entered, what variables say,
+ *  and what the row last tapped fills in */
+export function liveItem(source: Item, s: PreviewState): Item {
+  const props = fillCurrent(source.props, s.current);
+  const it = props === source.props ? source : { ...source, props };
   const key = INPUT_PROP[it.component ?? ""];
   const changed = s.props[it.id];
   const field = key !== undefined ? s.fields[it.id] : undefined;
@@ -236,20 +256,3 @@ export function liveGroups(groups: Group[], s: PreviewState, doc: Scope, widths:
   return arrangeFlows(gone.size ? live.filter((g) => !gone.has(g.id)) : live, widths);
 }
 
-/** a tap's reach, for copies: what a copied part points at follows the copy when that was copied too */
-export function retarget(g: Group, ids: Map<string, string>): Group {
-  const part = (id: string) => ids.get(id) ?? id;
-  const when = (c: Condition | undefined): Condition | undefined => (c && "filled" in c ? { filled: part(c.filled) } : c);
-  const effects = (list: Effect[] | undefined) => list?.map((e) => ("part" in e ? { ...e, part: part(e.part) } : e));
-  const body = <T extends ActionBody>(a: T): T => ({ ...a, ...(a.effects ? { effects: effects(a.effects) } : {}) });
-  const action = (a: Action): Action => ({ ...body(a), ...(a.when ? { when: when(a.when) } : {}), ...(a.else ? { else: body(a.else) } : {}) });
-  return {
-    ...g,
-    ...(g.showWhen ? { showWhen: when(g.showWhen) } : {}),
-    items: g.items.map((it) => ({
-      ...it,
-      ...(it.action ? { action: action(it.action) } : {}),
-      ...(it.actions ? { actions: Object.fromEntries(Object.entries(it.actions).map(([k, a]) => [k, action(a)])) } : {}),
-    })),
-  };
-}
