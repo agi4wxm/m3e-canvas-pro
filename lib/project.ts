@@ -1,31 +1,16 @@
-import { CAROUSEL_LAYOUTS, DATE_LAYOUTS, Doc, TIME_LAYOUTS, VARIANTS, isCardAlign, isCardImagePos, isPlace, isTextToken, isTrackThickness } from "./tokens";
+import { Doc, VARIANTS, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
- * the shape the editor relies on; the same migrations that run on a saved
- * document then bring an older file up to date. */
+ * the shape the editor relies on. */
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
-const validTabs = (tabs: unknown) =>
-  tabs === undefined || (Array.isArray(tabs) && tabs.every((tab) => isRecord(tab) && typeof tab.label === "string" && (typeof tab.icon === "string" || tab.icon === null || tab.icon === undefined) && (tab.src === undefined || typeof tab.src === "string")));
-
 const validCorners = (c: unknown) => c === undefined || (isRecord(c) && ["tl", "tr", "bl", "br"].every((k) => Number.isFinite(c[k])));
-
-/** the layouts a carousel and the two pickers may be saved with */
-const LAYOUTS = new Set<string>([...CAROUSEL_LAYOUTS, ...DATE_LAYOUTS, ...TIME_LAYOUTS].map((l) => l.key));
-const optionalNumber = (v: unknown) => v === undefined || Number.isFinite(v);
 
 const validItem = (item: unknown) =>
   isRecord(item) &&
   validCorners(item.corners) &&
-  (item.railExpanded === undefined || typeof item.railExpanded === "boolean") &&
-  (item.railModal === undefined || typeof item.railModal === "boolean") &&
   (item.collapseOnScroll === undefined || typeof item.collapseOnScroll === "boolean") &&
-  (item.trackThickness === undefined || isTrackThickness(item.trackThickness)) &&
-  (item.imagePos === undefined || isCardImagePos(item.imagePos)) &&
-  (item.imageSize === undefined || (Number.isFinite(item.imageSize) && (item.imageSize as number) > 0)) &&
-  (item.contentAlign === undefined || isCardAlign(item.contentAlign)) &&
-  (item.textAlign === undefined || isCardAlign(item.textAlign)) &&
   (item.textColor === undefined || isTextToken(item.textColor)) &&
   typeof item.id === "string" &&
   typeof item.kind === "string" &&
@@ -34,19 +19,8 @@ const validItem = (item: unknown) =>
   typeof item.label === "string" &&
   (typeof item.icon === "string" || item.icon === null) &&
   VARIANTS.some((variant) => variant.key === item.variant) &&
-  (item.supporting === undefined || typeof item.supporting === "string") &&
-  (item.selected === undefined || Number.isFinite(item.selected)) &&
   (item.note === undefined || typeof item.note === "string") &&
-  (item.layout === undefined || (typeof item.layout === "string" && LAYOUTS.has(item.layout))) &&
-  optionalNumber(item.count) &&
-  (item.component === undefined || typeof item.component === "string") &&
-  (item.props === undefined || isRecord(item.props)) &&
-  optionalNumber(item.size) &&
-  optionalNumber(item.size2) &&
-  optionalNumber(item.radiusTop) &&
-  optionalNumber(item.radiusBottom) &&
-  optionalNumber(item.value) &&
-  validTabs(item.tabs);
+  (item.props === undefined || isRecord(item.props));
 
 const validGroup = (group: unknown) =>
   isRecord(group) &&
@@ -71,12 +45,9 @@ const validFrame = (frame: unknown) =>
   (frame.place === undefined || isPlace(frame.place)) &&
   (frame.length === undefined || (Number.isFinite(frame.length) && (frame.length as number) > 0));
 
-/** sketches saved before the prompt was web-only carry the target they picked; it is read and ignored */
-const isLegacyPlatform = (v: unknown) => v === "android" || v === "web";
-
 /** whether a parsed file has the shape of a document the editor can open */
 export const isProject = (value: unknown): value is Doc =>
-  isRecord(value) && Array.isArray(value.groups) && Array.isArray(value.frames) && value.groups.every(validGroup) && value.frames.every(validFrame) && (value.platform === undefined || isLegacyPlatform(value.platform)) && (value.promptOptions === undefined || (Array.isArray(value.promptOptions) && value.promptOptions.every((o) => typeof o === "string")));
+  isRecord(value) && Array.isArray(value.groups) && Array.isArray(value.frames) && value.groups.every(validGroup) && value.frames.every(validFrame) && (value.promptOptions === undefined || (Array.isArray(value.promptOptions) && value.promptOptions.every((o) => typeof o === "string")));
 
 /* ---------- the file format ---------- */
 

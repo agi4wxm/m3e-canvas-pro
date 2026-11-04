@@ -71,7 +71,7 @@ export type Screen = { w: number; h: number };
 export type PartSlot = { key: string; label: string; icon?: string };
 
 /** the part's place on a screen: a bar pinned to an edge, a corner FAB, a centered overlay.
- *  Tidy pins it and the prompt describes it by this, the same role a legacy kind plays. */
+ *  Tidy pins it and the prompt describes it by this. */
 export type PartRole = "top" | "bottom" | "floatingBottom" | "fab" | "overlay" | "rail" | "label" | "control" | "listLike" | "fullWidth";
 
 export type PartDef = {
@@ -90,6 +90,8 @@ export type PartDef = {
   /** the size it takes on the canvas until it has been measured */
   w: number;
   h: number;
+  /** parts of one family fuse into a connected run along this axis when they meet */
+  connect?: { axis: "x" | "y"; family: string };
   props: PropDef[];
   /** the part can take a fill role, a text role and custom corners: the panel offers them, and
    *  they are painted onto the node(s) named by `target` (the tree's root when left out).

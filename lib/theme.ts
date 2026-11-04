@@ -1,12 +1,6 @@
 
-import { createContext, useContext } from "react";
-import { DEFAULT_THEME, FONTS, FontKey, LANG_FONT, Theme } from "./tokens";
+import { FONTS, FontKey, LANG_FONT } from "./tokens";
 import type { Lang } from "./i18n";
-
-/** The document theme, read by parts that render differently under it
- *  (emphasized type, motion scheme). Shape goes through the tokens helpers. */
-export const ThemeContext = createContext<Theme>(DEFAULT_THEME);
-export const useTheme = () => useContext(ThemeContext);
 
 // A preloaded stylesheet is not necessarily ready. Every caller waits for the
 // same request, including the editor callback that remeasures a newly chosen face.

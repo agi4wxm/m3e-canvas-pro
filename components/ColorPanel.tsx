@@ -4,7 +4,7 @@ import { CONTRASTS, Contrast, PALETTES, Palette, Theme } from "@/lib/tokens";
 import { isHex, onColorFor, schemeFromSeed } from "@/lib/color";
 import { t, useLang } from "@/lib/i18n";
 import { Section, Segmented } from "./ui";
-import { Icon } from "./M3Node";
+import { Icon } from "./Icon";
 
 /** roles the author can override by hand; their "on" color follows automatically */
 type Role = Exclude<keyof Palette, "seed">;

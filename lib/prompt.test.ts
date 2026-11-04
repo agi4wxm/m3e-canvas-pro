@@ -8,10 +8,10 @@ const LANGS: Lang[] = ["ja", "en", "zh", "ko"];
 
 /* Section headings in the order buildPrompt must emit them. */
 const SECTIONS: Record<Lang, string[]> = {
-  ja: ["## カラー", "## 形・文字・動き", "## 画面構成", "## 振る舞いと画面遷移", "## 各部品のスタイル", "## 全体の指針"],
-  en: ["## Colors", "## Shape, type and motion", "## Layout", "## Behavior and navigation", "## Component styles", "## General guidance"],
-  zh: ["## 配色", "## 形状、字体与动效", "## 屏幕结构", "## 行为与屏幕跳转", "## 各组件的样式", "## 整体原则"],
-  ko: ["## 색상", "## 모양, 글꼴 및 모션", "## 화면 구성", "## 동작 및 화면 전환", "## 부품별 스타일", "## 전체 지침"],
+  ja: ["## カラー", "## 形・文字・動き", "## 画面構成", "## 振る舞いと画面遷移", "## 全体の指針"],
+  en: ["## Colors", "## Shape, type and motion", "## Layout", "## Behavior and navigation", "## General guidance"],
+  zh: ["## 配色", "## 形状、字体与动效", "## 屏幕结构", "## 行为与屏幕跳转", "## 整体原则"],
+  ko: ["## 색상", "## 모양, 글꼴 및 모션", "## 화면 구성", "## 동작 및 화면 전환", "## 전체 지침"],
 };
 
 /* The prompt always targets the web, with shadcn M3E already installed. */
@@ -22,19 +22,21 @@ const PLATFORM_LINE: Record<Lang, string> = {
   ko: "브라우저에서 실행되는 웹 앱으로 구현한다. UI는 shadcn M3E(@m3e 레지스트리의 shadcn 컴포넌트)로 만든다. 이미 설치되어 있으므로 이 컴포넌트를 import해서 사용하고 다시 만들지 않는다.",
 };
 
-/* One phone screen with a top app bar, a connected pair of buttons (one with a
- * tap action) and a navigation bar. makeItem / defaultTabs fill in the defaults;
- * module-level language is set first so those defaults follow the test. */
-function fixture(extraItems: Item[] = []): Doc {
-  const bar: Item = { ...makeItem("topAppBar"), id: "bar", label: "Home" };
-  const save: Item = { ...makeItem("button"), id: "save", label: "Save", action: { to: BACK_TARGET, transition: "fade" } };
-  const cancel: Item = { ...makeItem("button"), id: "cancel", label: "Cancel", variant: "text" };
-  const nav: Item = { ...makeItem("bottomNav"), id: "nav", tabs: defaultTabs() };
+const part = (slug: string, id: string, props: Record<string, unknown> = {}, extra: Partial<Item> = {}): Item => ({ ...makeItem("component", slug), id, props, ...extra });
+
+/* One phone screen with an app bar, a run of two buttons (one with a tap action) and a
+ * navigation bar. A run names its parts by `Item.label`. The module-level language is set
+ * first so the default destinations follow the test. */
+function fixture(): Doc {
+  const bar = part("app-bar", "bar", { title: "Home" });
+  const save = part("button", "save", { label: "Save" }, { label: "Save", action: { to: BACK_TARGET, transition: "fade" } });
+  const cancel = part("button", "cancel", { label: "Cancel", variant: "text" }, { label: "Cancel", variant: "text" });
+  const nav = part("navigation-bar", "nav", { items: defaultTabs() });
   return {
     groups: [
-      { id: "g-bar", x: 16, y: 24, axis: "x", items: [bar] },
-      { id: "g-row", x: 16, y: 400, axis: "x", items: [save, cancel, ...extraItems] },
-      { id: "g-nav", x: 16, y: 812, axis: "x", items: [nav] },
+      { id: "g-bar", x: 0, y: 24, axis: "x", items: [bar] },
+      { id: "g-row", x: 16, y: 400, axis: "x", items: [save, cancel] },
+      { id: "g-nav", x: 0, y: 812, axis: "x", items: [nav] },
     ],
     frames: [{ id: "f-home", name: "Home", x: 0, y: 0 }],
     paletteKey: "purple",
@@ -46,20 +48,15 @@ function fixture(extraItems: Item[] = []): Doc {
 
 /* Set the module-level language for the fixture helpers, then build explicitly
  * in that language — nothing is left to ambient state. */
-function build(lang: Lang, extraItems: Item[] = []) {
+function build(lang: Lang) {
   setGlobalLang(lang);
-  return buildPrompt(fixture(extraItems), {}, undefined, lang);
+  return buildPrompt(fixture(), {}, undefined, lang);
 }
 
 const lines = (prompt: string) => prompt.split("\n");
 const headings = (prompt: string) => lines(prompt).filter((l) => l.startsWith("## "));
-/* bullet lines between the style heading and the closing guidance heading */
-function styleBullets(prompt: string, lang: Lang) {
-  const ls = lines(prompt);
-  const style = ls.indexOf(SECTIONS[lang][4]);
-  const general = ls.indexOf(SECTIONS[lang][5]);
-  return ls.slice(style + 1, general).filter((l) => l.startsWith("- "));
-}
+/* the layout and behavior sections: everything between the layout heading and the closing guidance */
+const layoutOf = (prompt: string, lang: Lang) => prompt.slice(prompt.indexOf(SECTIONS[lang][2]), prompt.indexOf(SECTIONS[lang][4]));
 
 const QUOTED: Record<Lang, { label: string; others: string[] }> = {
   ja: { label: "「Save」", others: ['"Save"', "“Save”"] },
@@ -71,20 +68,15 @@ const QUOTED: Record<Lang, { label: string; others: string[] }> = {
 describe("progress track thickness", () => {
   afterEach(() => setGlobalLang("ja"));
 
-  it.each(LANGS)("describes the selected thickness, including the legacy default, in %s", (lang) => {
-    const label = { ja: "トラックの太さ", en: "track thickness", zh: "轨道粗细", ko: "트랙 두께" }[lang];
-    for (const kind of ["linearProgress", "circularProgress"] as const) {
-      for (const trackThickness of [undefined, 4, 6, 8] as const) {
+  it.each(LANGS)("describes the selected thickness, including the default, in %s", (lang) => {
+    for (const slug of ["progress", "circular-progress"]) {
+      for (const thickness of [undefined, 4, 6, 8]) {
         const doc = fixture();
-        doc.groups = [{ id: "progress", x: 16, y: 100, axis: "x", items: [
-          { ...makeItem(kind), wavy: true, trackThickness },
-        ] }];
-        const prompt = buildPrompt(doc, {}, undefined, lang);
-        const layout = prompt.slice(prompt.indexOf(SECTIONS[lang][2]), prompt.indexOf(SECTIONS[lang][4]));
-        const thicknessText = (value: number) => lang === "en" ? `${value}dp ${label}` : `${label} ${value}dp`;
-        /* only a non-default thickness is spelled out; 4dp is what the style note already states */
-        if (trackThickness && trackThickness !== 4) expect(layout).toContain(thicknessText(trackThickness));
-        else expect(layout).not.toContain(label);
+        doc.groups = [{ id: "progress", x: 16, y: 100, axis: "x", items: [part(slug, "p", { variant: "wavy", thickness })] }];
+        const layout = layoutOf(buildPrompt(doc, {}, undefined, lang), lang);
+        /* only a non-default thickness is spelled out */
+        if (thickness && thickness !== 4) expect(layout).toContain(`thickness={${thickness}}`);
+        else expect(layout).not.toContain("thickness");
       }
     }
   });
@@ -93,64 +85,60 @@ describe("progress track thickness", () => {
 describe("card image placement", () => {
   afterEach(() => setGlobalLang("ja"));
 
-  /* the phrase the layout section must carry for each placement */
-  const PLACEMENT: Record<Lang, Record<string, string>> = {
-    ja: { top: "上部に", bottom: "下部に", leading: "先頭側（全高）に", trailing: "末尾側（全高）に", background: "背景全面に" },
-    en: { top: "on top", bottom: "along the bottom", leading: "filling the leading side", trailing: "filling the trailing side", background: "as a full-bleed background" },
-    zh: { top: "顶部是", bottom: "底部是", leading: "左侧（全高）是", trailing: "右侧（全高）是", background: "整张卡片的背景是" },
-    ko: { top: "위쪽에", bottom: "아래쪽에", leading: "앞쪽(전체 높이)에", trailing: "뒤쪽(전체 높이)에", background: "배경 전체에" },
+  /* the code the layout section must carry for each placement */
+  const PLACEMENT: Record<string, string> = {
+    top: "paddingTop: 0",
+    bottom: "paddingBottom: 0",
+    leading: "flex-row",
+    trailing: "flex-row",
+    background: 'className="absolute inset-0"',
   };
-  const SIZED: Record<Lang, { top: string; side: string }> = {
-    ja: { top: "（高さ 96dp）", side: "（幅 96dp）" },
-    en: { top: "(96dp tall)", side: "(96dp wide)" },
-    zh: { top: "（高 96dp）", side: "（宽 96dp）" },
-    ko: { top: "(높이 96dp)", side: "(너비 96dp)" },
-  };
-  /* the screen-layout section alone — the card's own style note also names the placements —
-   * for a card standing in its own group so its full sentence is written out */
-  function cardLayout(lang: Lang, patch: Partial<Item>) {
+  /* a card standing in its own group, so its whole code is written out */
+  function cardLayout(lang: Lang, props: Record<string, unknown>, extra: Partial<Item> = {}) {
     setGlobalLang(lang);
     const doc = fixture();
-    doc.groups = [{ id: "g-card", x: 16, y: 100, axis: "x", items: [{ ...makeItem("card"), ...patch }] }];
-    const prompt = buildPrompt(doc, {}, undefined, lang);
-    return prompt.slice(prompt.indexOf(SECTIONS[lang][2]), prompt.indexOf(SECTIONS[lang][4]));
+    doc.groups = [{ id: "g-card", x: 16, y: 100, axis: "x", items: [part("card", "card", props, extra)] }];
+    return layoutOf(buildPrompt(doc, {}, undefined, lang), lang);
   }
 
   it.each(LANGS)("says where the image area sits, treating no placement as the top, in %s", (lang) => {
-    for (const pos of [undefined, "top", "leading", "trailing", "background"] as const) {
-      expect(cardLayout(lang, { imagePos: pos }), `${lang} ${pos}`).toContain(PLACEMENT[lang][pos ?? "top"]);
+    for (const pos of [undefined, "top", "bottom", "leading", "trailing", "background"]) {
+      expect(cardLayout(lang, { imagePos: pos }), `${lang} ${pos}`).toContain(PLACEMENT[pos ?? "top"]);
     }
+    /* a side column is told apart by which side of the words it is written on */
+    const media = "-my-(--card-spacing)";
+    const leading = cardLayout(lang, { imagePos: "leading" });
+    expect(leading.indexOf(media)).toBeLessThan(leading.indexOf("<CardHeader"));
+    const trailing = cardLayout(lang, { imagePos: "trailing" });
+    expect(trailing.indexOf(media)).toBeGreaterThan(trailing.indexOf("<CardHeader"));
   });
 
   it.each(LANGS)("spells out a sized image area but keeps a background image unsized in %s", (lang) => {
-    expect(cardLayout(lang, { imageSize: 96 })).toContain(SIZED[lang].top);
-    expect(cardLayout(lang, { imagePos: "leading", imageSize: 96 })).toContain(SIZED[lang].side);
-    const background = cardLayout(lang, { imagePos: "background", imageSize: 96 });
-    expect(background).not.toContain(SIZED[lang].top);
-    expect(background).not.toContain(SIZED[lang].side);
+    expect(cardLayout(lang, { imageSize: 120 })).toContain("height: 120");
+    expect(cardLayout(lang, { imagePos: "leading", imageSize: 120 })).toContain("width: 120");
+    const background = cardLayout(lang, { imagePos: "background", imageSize: 120 });
+    expect(background).not.toContain("height: 120");
+    expect(background).not.toContain("width: 120");
   });
 
   it.each(LANGS)("mentions a text position or color only when it differs from the automatic one in %s", (lang) => {
-    const color: Record<Lang, string> = { ja: "文字色 primary", en: "text in primary", zh: "文字颜色 primary", ko: "텍스트 색상 primary" };
-    const bottom: Record<Lang, string> = { ja: "文字は下寄せ", en: "text aligned to the bottom", zh: "文字底部对齐", ko: "텍스트 아래 정렬" };
-    expect(cardLayout(lang, {})).not.toContain(color[lang]);
-    expect(cardLayout(lang, { textColor: "primary" })).toContain(color[lang]);
-    expect(cardLayout(lang, { contentAlign: "end" })).toContain(bottom[lang]);
-    expect(cardLayout(lang, { imagePos: "background", contentAlign: "end" })).not.toContain(bottom[lang]);
-    const centred: Record<Lang, string> = { ja: "文字は中央揃え", en: "text centred", zh: "文字居中", ko: "텍스트 가운데 정렬" };
-    expect(cardLayout(lang, { textAlign: "start" })).not.toContain(centred[lang]);
-    expect(cardLayout(lang, { textAlign: "center" })).toContain(centred[lang]);
+    expect(cardLayout(lang, {})).not.toContain("text-primary");
+    expect(cardLayout(lang, {}, { textColor: "primary" })).toContain("text-primary");
+    expect(cardLayout(lang, {})).not.toContain("justify-end");
+    expect(cardLayout(lang, { contentAlign: "end" })).toContain("justify-end");
+    expect(cardLayout(lang, { textAlign: "start" })).not.toContain("text-center");
+    expect(cardLayout(lang, { textAlign: "center" })).toContain("text-center");
   });
 
   it.each(LANGS)("states a card's corners once they are changed in %s", (lang) => {
-    expect(cardLayout(lang, { radiusTop: 8 })).toMatch(/8 ?dp/);
-    expect(cardLayout(lang, { corners: { tl: 0, tr: 20, bl: 20, br: 0 } })).toMatch(/20 ?dp/);
-    // the reported image size is the drawn one, clamped to the card, not the stored number
-    expect(cardLayout(lang, { imageSize: 999, size2: 200 })).not.toContain("999");
+    expect(cardLayout(lang, {}, { corners: { tl: 0, tr: 20, bl: 20, br: 0 } })).toMatch(/20px/);
+    // the reported image size is the drawn one, clamped to the part, not the stored number
+    expect(cardLayout(lang, { imageSize: 999 })).not.toContain("999");
   });
 
   it.each(LANGS)("stays silent about the image area when it is turned off in %s", (lang) => {
-    expect(cardLayout(lang, { noImage: true, imagePos: "background" })).not.toContain(PLACEMENT[lang].background);
+    const off = cardLayout(lang, { imagePos: "none" });
+    for (const code of [...Object.values(PLACEMENT), '<Icon name="image"']) expect(off).not.toContain(code);
   });
 });
 
@@ -172,87 +160,33 @@ describe("buildPrompt color output", () => {
 describe("navigation rail expansion", () => {
   afterEach(() => setGlobalLang("ja"));
 
-  it.each(LANGS)("exports imported mixed-group modal rails as collapsed standard rails in %s", (lang) => {
+  const LEAD: Record<Lang, string> = { ja: "- 左端に", en: "- Along the left edge: ", zh: "- 左缘：", ko: "- 왼쪽 가장자리에 " };
+  /* the rail's own tag: what it says about itself, apart from the rows and buttons inside */
+  const railTag = (layout: string) => layout.match(/<NavigationRail [^>]*>/)![0];
+  const railLayout = (lang: Lang, props: Record<string, unknown>) => {
     const doc = fixture();
-    doc.groups = [{ id: "mixed", x: 16, y: 24, axis: "x", free: true,
-      items: [{ ...makeItem("navRail"), railExpanded: true, railModal: true }, makeItem("button")],
-    }];
-    const before = structuredClone(doc);
-    const prompt = buildPrompt(doc, {}, undefined, lang);
-    const layout = prompt.slice(prompt.indexOf(SECTIONS[lang][2]), prompt.indexOf(SECTIONS[lang][4]));
-    expect(layout).toMatch(/NavigationRail[,、，]/);
-    expect(layout).toContain("96dp");
-    expect(layout).not.toContain("220dp");
-    expect(doc).toEqual(before);
-  });
+    doc.groups = [{ id: "rail", x: 0, y: 0, axis: "x", items: [part("navigation-rail", "rail", props)] }];
+    return layoutOf(buildPrompt(doc, {}, undefined, lang), lang);
+  };
 
   it.each(LANGS)("exports only the selected rail state and presentation in %s", (lang) => {
-    const expandedText = { ja: "展開状態", en: "NavigationRail, expanded,", zh: "展开状态", ko: "펼친 상태" }[lang];
-    const collapsedText = { ja: "折りたたみ状態", en: "NavigationRail, collapsed,", zh: "折叠状态", ko: "접힌 상태" }[lang];
-    const modalText = { ja: "モーダル型：展開時", en: "modal overlay:", zh: "模态覆盖：", ko: "모달 오버레이:" }[lang];
-    const nonModalText = { ja: "非モーダル型：現在", en: "non-modal layout:", zh: "非模态布局：", ko: "비모달 레이아웃:" }[lang];
-    {
-      for (const railExpanded of [false, true]) {
-        for (const railModal of [false, true]) {
-          const doc = fixture();
-          doc.groups = [{ id: "rail", x: 0, y: 0, axis: "x", items: [
-            { ...makeItem("navRail"), railExpanded, railModal, selected: 1, tabs: [{ icon: "home", label: "Home" }, { icon: "star", label: "Saved" }] },
-          ] }];
-          const prompt = buildPrompt(doc, {}, undefined, lang);
-          if (lang === "ja") {
-            expect(prompt).not.toContain("スクラム");
-            expect(prompt).toContain("スクリム");
-          }
-          const layout = prompt.slice(prompt.indexOf(SECTIONS[lang][2]), prompt.indexOf(SECTIONS[lang][4]));
-          expect(layout).toContain(railExpanded ? expandedText : collapsedText);
-          expect(layout).not.toContain(railExpanded ? collapsedText : expandedText);
-          expect(layout).toContain(railModal ? modalText : nonModalText);
-          expect(layout).not.toContain(railModal ? nonModalText : modalText);
-          expect(layout).toContain(`${railExpanded ? 220 : 96}dp`);
-          expect(layout).toContain("NavigationRail");
-          expect(layout).toContain({ ja: "「Saved」が選択状態", en: '"Saved" is selected', zh: "“Saved”为选中状态", ko: '"Saved" 선택됨' }[lang]);
-          const styles = styleBullets(prompt, lang).join("\n");
-          expect(styles).toContain("220dp");
-          expect(styles).toContain("96dp");
-          expect(styles).not.toMatch(/\bsurface\b/);
-          expect(styles).toMatch(/\bsecondary\b/);
-          expect(styles).toContain("surfaceContainer");
-          expect(styles).toContain("onSecondaryContainer");
-          expect(styles).toContain("4.5:1");
-          expect(styles).toContain("onSurface");
-          expect(styles).not.toContain("80dp");
-        }
+    for (const expanded of [false, true]) {
+      for (const modal of [false, true]) {
+        const layout = railLayout(lang, { expanded, modal: expanded && modal, selected: 1, items: [{ icon: "home", label: "Home" }, { icon: "star", label: "Saved" }] });
+        expect(layout).toContain(LEAD[lang]);
+        const tag = railTag(layout);
+        expect(tag.includes(" expanded")).toBe(expanded);
+        expect(tag.includes(" modal")).toBe(expanded && modal);
+        expect(layout).toContain('label="Saved" active');
+        expect(layout).not.toContain('label="Home" active');
       }
     }
   });
 
-  it.each(LANGS)("retains legacy rail output and handles mixed generations in %s", (lang) => {
-    const doc = fixture();
-    doc.groups = [{ id: "legacy", x: 0, y: 0, axis: "x", items: [
-      { ...makeItem("navRail"), railExpanded: undefined, railModal: undefined },
-    ] }];
-    const legacy = buildPrompt(doc, {}, undefined, lang);
-    expect(legacy).not.toMatch(/NavigationRail[,、，]/);
-    expect(styleBullets(legacy, lang).join("\n")).toContain("80dp");
-    expect(styleBullets(legacy, lang).join("\n")).not.toContain("220dp");
-    doc.groups.push({ id: "expanded", x: 200, y: 0, axis: "x", items: [{ ...makeItem("navRail"), railExpanded: true }] });
-    const styles = styleBullets(buildPrompt(doc, {}, undefined, lang), lang).join("\n");
-    expect(styles).toContain("80dp");
-    expect(styles).toContain("220dp");
-  });
-
-  it.each(LANGS)("treats a modal-only setting as a collapsed expressive rail in %s", (lang) => {
-    const doc = fixture();
-    doc.groups = [{ id: "modal", x: 0, y: 0, axis: "x", items: [
-      { ...makeItem("navRail"), railExpanded: undefined, railModal: true },
-    ] }];
-    const prompt = buildPrompt(doc, {}, undefined, lang);
-    const layout = prompt.slice(prompt.indexOf(SECTIONS[lang][2]), prompt.indexOf(SECTIONS[lang][4]));
-    expect(layout).toMatch(/NavigationRail[,、，]/);
-    expect(layout).toContain("96dp");
-    expect(layout).not.toContain("220dp");
-    expect(styleBullets(prompt, lang).join("\n")).toContain("220dp");
-    expect(styleBullets(prompt, lang).join("\n")).not.toContain("80dp");
+  it.each(LANGS)("treats a modal-only setting as a collapsed rail in %s", (lang) => {
+    const tag = railTag(railLayout(lang, { modal: true }));
+    expect(tag).not.toContain(" expanded");
+    expect(tag).not.toContain(" modal");
   });
 });
 
@@ -268,18 +202,14 @@ describe("buildPrompt structure", () => {
   });
 
   it.each(LANGS)("never mentions Android or Compose in %s", (lang) => {
-    const rail = { ...makeItem("navRail"), railExpanded: true, railModal: true };
-    const sheet = makeItem("bottomSheet");
-    const carousel = makeItem("carousel");
-    const doc = { ...fixture([rail, sheet, carousel]), dynamicColor: true };
+    /* `fab: false`: the rail's own button is labeled "Compose", the verb rather than the toolkit */
+    const rail = part("navigation-rail", "rail", { expanded: true, modal: true, fab: false });
+    const sheet = part("sheet", "sheet");
+    const carousel = part("carousel", "carousel");
+    const doc = { ...fixture(), dynamicColor: true };
+    doc.groups = [...doc.groups, ...[rail, sheet, carousel].map((it, i) => ({ id: `g${i}`, x: 0, y: i * 100, axis: "x" as const, items: [it] }))];
     const prompt = buildPrompt(doc, {}, undefined, lang);
     expect(prompt).not.toMatch(/Android|Compose|Jetpack|APK|Room|DataStore|Material Web/);
-  });
-
-  it.each(LANGS)("writes one style note per part kind in use in %s", (lang) => {
-    expect(styleBullets(build(lang), lang)).toHaveLength(3); // topAppBar, button, bottomNav
-    const chip: Item = { ...makeItem("chip"), id: "chip" };
-    expect(styleBullets(build(lang, [chip]), lang)).toHaveLength(4);
   });
 
   it.each(LANGS)("quotes labels with %s punctuation", (lang) => {
@@ -299,15 +229,15 @@ describe("buildPrompt structure", () => {
 });
 
 /* The placeholder parts state their box, and a dropdown names its options and initial value.
- * Each sits in its own group: a run of mixed kinds would be described as a button group. */
+ * Each sits in its own group, so its whole code is written out. */
 describe("buildPrompt for the camera, map and dropdown parts", () => {
   afterEach(() => setGlobalLang("ja"));
 
   const NOUN: Record<Lang, [camera: string, map: string]> = {
-    ja: ["カメラプレビュー", "地図"],
-    en: ["camera preview", "map"],
-    zh: ["相机预览", "地图"],
-    ko: ["카메라 미리보기", "지도"],
+    ja: ["カメラプレースホルダー", "地図プレースホルダー"],
+    en: ["Camera placeholder", "Map placeholder"],
+    zh: ["相机占位", "地图占位"],
+    ko: ["카메라 자리표시자", "지도 자리표시자"],
   };
 
   function screen(lang: Lang, items: Item[]) {
@@ -323,69 +253,41 @@ describe("buildPrompt for the camera, map and dropdown parts", () => {
     return buildPrompt(doc, {}, undefined, lang);
   }
 
-  it.each(LANGS)("writes the camera and map boxes as width × height in %s", (lang) => {
-    const camera: Item = { ...makeItem("camera"), id: "cam" };
-    const map: Item = { ...makeItem("map"), id: "map", size: 200, size2: 120 };
-    const prompt = screen(lang, [camera, map]);
-    expect(prompt).toContain("380×507dp");
+  it.each(LANGS)("writes the camera and map boxes as width and height in %s", (lang) => {
+    const prompt = screen(lang, [part("camera", "cam"), part("map", "map", { width: 200, height: 120 })]);
+    expect(prompt).toContain("width: 360, height: 480");
     expect(prompt).toContain(NOUN[lang][0]);
-    expect(prompt).toContain("200×120dp");
+    expect(prompt).toContain("width: 200, height: 120");
     expect(prompt).toContain(NOUN[lang][1]);
-    expect(styleBullets(prompt, lang)).toHaveLength(2);
   });
 
   it.each(LANGS)("lists a dropdown's options and names the initial value in %s", (lang) => {
-    const select: Item = { ...makeItem("select"), id: "sel", label: "Size", tabs: [{ icon: "", label: "Espresso" }, { icon: "", label: "Latte" }], selected: 1 };
-    const withValue = screen(lang, [select]);
+    const props = { label: "Size", items: [{ label: "Espresso" }, { label: "Latte" }] };
+    const withValue = screen(lang, [part("select", "sel", { ...props, selected: 1 })]);
     for (const word of ["Size", "Espresso", "Latte"]) expect(withValue).toContain(word);
-    /* the initial value is named a second time, after the option list */
-    expect(withValue.indexOf("Latte")).not.toBe(withValue.lastIndexOf("Latte"));
-    const noValue = screen(lang, [{ ...select, selected: undefined }]);
-    expect(noValue.indexOf("Latte")).toBe(noValue.lastIndexOf("Latte"));
+    expect(withValue).toContain('defaultValue="Latte"');
+    const noValue = screen(lang, [part("select", "sel", { ...props, selected: -1 })]);
+    expect(noValue).toContain("Latte");
+    expect(noValue).not.toContain("defaultValue");
   });
 });
 
 describe("scrollable tab rows in the prompt", () => {
-  const withTabs = (n: number): Item => ({ ...makeItem("tabs"), id: "tabs", tabs: Array.from({ length: n }, (_, i) => ({ label: `Tab ${i + 1}`, icon: "" })) });
+  const withTabs = (n: number) => part("tabs", "tabs", { items: Array.from({ length: n }, (_, i) => ({ label: `Tab ${i + 1}`, icon: "" })) });
   const doc = (n: number): Doc => ({
     title: "T", brief: "", paletteKey: "purple", frame: "phone",
     frames: [{ id: "f", name: "Home", x: 0, y: 0 }],
     groups: [{ id: "g", x: 0, y: 100, axis: "x", items: [withTabs(n)] }],
   });
-  const marker: Record<Lang, string> = { ja: "横にスクロールするタブ", en: "horizontally scrolling tab row", zh: "可横向滚动", ko: "가로로 스크롤되는 탭" };
+  const marker = "overflow-x-auto";
 
   it.each(LANGS)("says a row of seven tabs scrolls in %s, and a row of five does not", (lang) => {
-    expect(buildPrompt(doc(7), {}, undefined, lang)).toContain(marker[lang]);
-    expect(buildPrompt(doc(5), {}, undefined, lang)).not.toContain(marker[lang]);
+    expect(buildPrompt(doc(7), {}, undefined, lang)).toContain(marker);
+    expect(buildPrompt(doc(5), {}, undefined, lang)).not.toContain(marker);
   });
 });
 
-describe("bottom sheet", () => {
-  afterEach(() => setGlobalLang("ja"));
-
-  it.each(LANGS)("describes a sheet with its handle, background and top corners in %s", (lang) => {
-    const doc = fixture();
-    doc.groups = [{ id: "sheet", x: 0, y: 500, axis: "x", items: [{ ...makeItem("bottomSheet"), radiusTop: 16 }] }];
-    const prompt = buildPrompt(doc, {}, undefined, lang);
-    const words = {
-      ja: ["ボトムシート（上部にドラッグハンドル", "上の角丸 16dp"],
-      en: ["bottom sheet with a drag handle at the top", "16dp top corners", "modal bottom sheets"],
-      zh: ["底部面板（顶部带拖动条", "上方圆角 16dp"],
-      ko: ["하단 시트(위쪽 드래그 핸들 포함", "위 모서리 16dp"],
-    }[lang];
-    for (const w of words) expect(prompt).toContain(w);
-  });
-
-  it.each(LANGS)("keeps a box a plain container in %s", (lang) => {
-    const doc = fixture();
-    doc.groups = [{ id: "box", x: 0, y: 500, axis: "x", items: [makeItem("box")] }];
-    const prompt = buildPrompt(doc, {}, undefined, lang);
-    expect(prompt).not.toContain("ModalBottomSheet");
-    expect(prompt).not.toContain("modal bottom sheets");
-  });
-});
-
-describe("cards and images laid out as a grid", () => {
+describe("cards laid out as a grid", () => {
   afterEach(() => setGlobalLang("ja"));
 
   const GRID: Record<Lang, (cols: number) => string> = {
@@ -396,8 +298,8 @@ describe("cards and images laid out as a grid", () => {
   };
   const ONE_ROW: Record<Lang, string> = { ja: "横一列に並べます", en: "in one row from left to right", zh: "横向排成一行", ko: "한 행에 다음 항목을 배치합니다" };
 
-  /* cells of `w` wide cards (or images) at the given column and row offsets inside a phone screen */
-  function layout(lang: Lang, cells: { x: number; y: number; kind?: Item["kind"]; w?: number }[]) {
+  /* cells of `w` wide cards (or another part) at the given column and row offsets inside a phone screen */
+  function layout(lang: Lang, cells: { x: number; y: number; slug?: string; w?: number }[]) {
     setGlobalLang(lang);
     const doc = fixture();
     doc.groups = cells.map((c, i) => ({
@@ -405,13 +307,13 @@ describe("cards and images laid out as a grid", () => {
       x: c.x,
       y: c.y,
       axis: "x" as const,
-      items: [{ ...makeItem(c.kind ?? "card"), id: `c${i}`, label: `Cell ${i + 1}`, size: c.w ?? 182, size2: 200 }],
+      items: [part(c.slug ?? "card", `c${i}`, { title: `Cell ${i + 1}` })],
     }));
-    const prompt = buildPrompt(doc, {}, undefined, lang);
-    return prompt.slice(prompt.indexOf(SECTIONS[lang][2]), prompt.indexOf(SECTIONS[lang][4]));
+    const widths = Object.fromEntries(cells.flatMap((c, i) => [[`c${i}`, c.w ?? 182], [`c${i}:h`, 200]]));
+    return layoutOf(buildPrompt(doc, widths, undefined, lang), lang);
   }
-  const square = (cols: number, count: number, kind?: Item["kind"]) =>
-    Array.from({ length: count }, (_, i) => ({ x: 16 + (i % cols) * 198, y: 100 + Math.floor(i / cols) * 216, kind }));
+  const square = (cols: number, count: number) =>
+    Array.from({ length: count }, (_, i) => ({ x: 16 + (i % cols) * 198, y: 100 + Math.floor(i / cols) * 216 }));
 
   it.each(LANGS)("writes aligned rows of cards as one grid with its gaps, every cell in reading order, in %s", (lang) => {
     const text = layout(lang, square(2, 4));
@@ -430,13 +332,9 @@ describe("cards and images laid out as a grid", () => {
     expect(text).not.toContain(ONE_ROW[lang]);
   });
 
-  it.each(LANGS)("reads images the same way in %s", (lang) => {
-    expect(layout(lang, square(2, 4, "image"))).toContain(GRID[lang](2));
-  });
-
-  it.each(LANGS)("leaves a single row, mixed kinds and cells off the columns as rows in %s", (lang) => {
+  it.each(LANGS)("leaves a single row, mixed parts and cells off the columns as rows in %s", (lang) => {
     expect(layout(lang, square(2, 2))).not.toContain(GRID[lang](2));
-    const mixed = square(2, 4).map((c, i) => (i === 3 ? { ...c, kind: "image" as const } : c));
+    const mixed = square(2, 4).map((c, i) => (i === 3 ? { ...c, slug: "image" } : c));
     expect(layout(lang, mixed)).toContain(ONE_ROW[lang]);
     const shifted = square(2, 4).map((c, i) => (i === 2 ? { ...c, x: c.x + 40 } : c));
     expect(layout(lang, shifted)).not.toContain(GRID[lang](2));

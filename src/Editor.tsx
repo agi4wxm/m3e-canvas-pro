@@ -16,34 +16,8 @@ import {
   actionsOf,
   Axis,
   BACK_TARGET,
-  baseRadii,
   draftGradient,
-  BUTTON_H_MAX,
-  BUTTON_H_MIN,
-  CHIP_H_MAX,
-  CHIP_H_MIN,
-  FAB_H_MAX,
-  FAB_H_MIN,
-  isFab,
-  isProgress,
-  isMeasured,
-  fabOpen,
-  hasMenu,
-  menuOpen,
-  splitMenuRisesAt,
-  menuUp,
-  opensMenu,
-  splitOpens,
-  hasPickerFields,
-  migrateCarousel,
-  migrateFabMenu,
-  migratePicker,
-  isSheetBox,
-  migrateSheetBox,
-  buttonHeightOf,
   explodeGroup,
-  freeRadii,
-  radiiOfRuns,
   BEZEL,
   canJoin,
   clamp,
@@ -62,15 +36,10 @@ import {
   frameSizeOf,
   frameLengthOf,
   carryItemSize,
-  matchRunSize,
-  runSizePatch,
   GAP,
   Group,
   groupBounds,
   Item,
-  Kind,
-  KIND_ORDER,
-  KIND_SPEC,
   collapseFree,
   heldBy,
   underWhatItHolds,
@@ -82,9 +51,6 @@ import {
   fontFamilyOf,
   uiFontFamily,
   normalizeTheme,
-  setGlobalShape,
-  MEASURED,
-  NAV_BAR_H,
   Palette,
   paletteOf,
   seedOf,
@@ -92,23 +58,19 @@ import {
   PHONE_MARGIN,
   PHONE_W,
   PULL_EXP,
-  Radii,
   SETTLE_CSS_VARS,
   SETTLE_MS,
   sizeOf,
-  toggleIcon,
   SNAP_CROSS,
   SNAP_MAIN,
   Transition,
   TRANSITIONS,
   uid,
-  uniformRadii,
   fitHeight,
-  railExpansionSide,
-  CONTENT_W,
-  contentWidth,
 } from "@/lib/tokens";
-import { Icon, M3Node, M3Static, MeasuredContent } from "@/components/M3Node";
+import { Icon } from "@/components/Icon";
+import { ComponentNode, StaticPart } from "@/components/ComponentNode";
+import { PartView } from "@/components/PartView";
 import { CORNER_GAIN, CORNERS, HandleSide, SizeHandles } from "@/components/SizeHandles";
 import { LayersPanel } from "@/components/Layers";
 import { FrameSizePicker, Inspector } from "@/components/Inspector";
@@ -124,8 +86,7 @@ import { TidyState, PANEL_FADE_H } from "@/components/ui";
 import { AiSettings, DEFAULT_AI, hasKey, isSecureUrl, loadAiSettings, proposeBehavior, proposeDescription, pushHistory, saveAiSettings } from "@/lib/ai";
 import { barSlotOf, bodyRect, carryFrame, holdsEdgeBar, maxFrameLength, minFrameLength, stretchFrame, pullInto, tidyFrame } from "@/lib/tidy";
 import { combineButtons } from "@/lib/combine";
-import { LOST_TEXT, canMigrate, migrateLegacy, revertPatch, type Migration } from "@/lib/migrate";
-import { constrainModalRails, modalRailOf, updateRail } from "@/lib/rail";
+import { updateRail } from "@/lib/rail";
 import { isProject, readProject, saveProject } from "@/lib/project";
 import { hasShareHash, readShareHash } from "@/lib/share";
 import { LoadingIndicator } from "@/components/Loading";
@@ -133,7 +94,7 @@ import { draftDesign } from "@/lib/ai";
 import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
-import { ThemeContext, ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
+import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
 import { PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
 import { partBySlug, translateComponentProps } from "@/parts/registry";
 import { COMMON_TEXT } from "@/parts/labels";
@@ -142,7 +103,7 @@ import { axisStep, axisValue, axisWrite, resizeOf, type PartAxis } from "@/parts
 import { fullWidth, roleOf } from "@/parts/role";
 import { BottomSheet, MobileActionBar, MobileInspector, MobileLang, MobileSettings } from "@/components/Mobile";
 import { ConfirmDialog, IconBtn, Segmented } from "@/components/ui";
-import { Lang, LangContext, SEED_TEXT, getLang, setGlobalLang, t, translateDefaultFrameName, translateDefaultText } from "@/lib/i18n";
+import { Lang, LangContext, SEED_TEXT, getLang, setGlobalLang, t, translateDefaultFrameName } from "@/lib/i18n";
 
 /** the screens while a model drafts: primary, tertiary and primary container, drifting */
 const BASE_PATH = import.meta.env.VITE_BASE_PATH ?? "";
@@ -197,12 +158,6 @@ const FRAME_MARGIN = PHONE_MARGIN;
 
 type DragState = {
   item: Item;
-  /** the part as it was picked up, before any run it hovered lent it its size */
-  base: Item;
-  /** where the part was held when it was picked up; the magnet is worked out from these, so a
-   *  run lending the part its size never moves the search out from under itself */
-  baseOffX: number;
-  baseOffY: number;
   guide: Guide | null;
   offX: number;
   offY: number;
@@ -246,29 +201,12 @@ type DocMeta = Omit<Doc, "groups" | "frames">;
 /** an undo step: the screens and parts, plus the rest of the document for steps that replaced it all */
 type Snapshot = { groups: Group[]; frames: Frame[]; meta?: DocMeta };
 
-/** The parts a lone one of can be resized on the canvas itself: the controls that carry a size,
- *  and the indicators, whose width is the thing an author reaches for most. */
-const HANDLED = new Set<Kind>([
-  "button", "iconButton", "chip", "splitButton", "fab", "extendedFab",
-  "linearProgress", "circularProgress", "loadingIndicator", "slider", "carousel",
-  "card", "box", "bottomSheet", "image", "camera", "map", "listItem", "searchBar", "textField", "select", "switch", "divider",
-  "topAppBar", "bottomNav", "tabs", "navRail",
-]);
-/** parts held by the four points around them: a circle's diameter, a label's height */
-const ROUND = new Set<Kind>(["iconButton", "chip", "splitButton", "fab", "extendedFab", "circularProgress", "loadingIndicator"]);
-/** the button family: sized on the button scale rather than by the bounds their kind is given */
-const BUTTON_LIKE = new Set<Kind>(["button", "iconButton", "chip", "splitButton", "fab", "extendedFab"]);
-/** these are held by their two ends; they have no height of their own to pull on */
-const WIDE = new Set<Kind>(["linearProgress", "slider", "listItem", "searchBar", "textField", "select", "switch", "divider", "topAppBar", "bottomNav", "tabs"]);
-/** the handles of a real component: pulled by whichever measures its props have */
 /** a part drawn open (a dialog, a menu) floats over the parts around it, whichever was added later */
-const drawnOpen = (g: Group) => g.items.some((it) => it.kind === "component" && !!partBySlug(it.component)?.open);
-const componentAxes = (it: Item) => (it.kind === "component" ? resizeOf(partBySlug(it.component), it.props) : null);
+const drawnOpen = (g: Group) => g.items.some((it) => !!partBySlug(it.component)?.open);
+/** the handles of a part: pulled by whichever measures its props have */
+const componentAxes = (it: Item) => resizeOf(partBySlug(it.component), it.props);
 const BAR_SIDES = ["left", "right"] as const;
-/** a carousel runs the width of the screen, a rail the height of it: only the other measure is pulled on */
-const TALL = new Set<Kind>(["carousel", "navRail"]);
 const TALL_SIDES = ["top", "bottom"] as const;
-/** parts with one measure whichever side is pulled; none today, a picture has two */
 
 /** a screen changing size eases the way a settling part does */
 const SIZE_TRANSITION = `width ${SETTLE_MS}ms cubic-bezier(0.2, 0, 0, 1), height ${SETTLE_MS}ms cubic-bezier(0.2, 0, 0, 1), border-radius ${SETTLE_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
@@ -279,11 +217,8 @@ function translateSnapshot(snap: Snapshot, lang: Lang): Snapshot {
       ...group,
       items: group.items.map((item) => ({
         ...item,
-        label: translateDefaultText(item.label, item.kind, "label", lang),
-        ...(item.supporting !== undefined && { supporting: translateDefaultText(item.supporting, item.kind, "supporting", lang) }),
-        ...(item.tabs && { tabs: item.tabs.map((tab) => ({ ...tab, label: translateDefaultText(tab.label, item.kind, "tab", lang) })) }),
-        /* a real component keeps its seed text in `props`; reseed it the way the label is */
-        ...(item.kind === "component" && { props: translateComponentProps(item.component, item.props, lang) }),
+        /* a part keeps its seed text in `props` */
+        props: translateComponentProps(item.component, item.props, lang),
       })),
     })),
     frames: snap.frames.map((frame) => ({ ...frame, name: translateDefaultFrameName(frame.name, lang) })),
@@ -293,24 +228,14 @@ function translateSnapshot(snap: Snapshot, lang: Lang): Snapshot {
 const SEED_FRAMES: Frame[] = [{ id: "seedF1", name: "Home", x: 0, y: 0 }];
 
 /** The browser's own copy skips `openProject`: anything but a part cannot be drawn. */
-const drawableGroups = (groups: Group[]): Group[] => groups.map((g) => ({ ...g, items: g.items.filter((it) => it.kind === "component") })).filter((g) => g.items.length > 0);
+const drawableGroups = (groups: Group[]): Group[] => groups.map((g) => ({ ...g, items: g.items.filter((it) => (it.kind as string) === "component") })).filter((g) => g.items.length > 0);
 
-/** A copy of a unit under fresh ids, moved by (dx, dy). A copied modal rail starts collapsed
- *  and standard: a screen shows one modal rail, and the copy sits inward of the edge the
- *  original remembered. */
+/** A copy of a unit under fresh ids, moved by (dx, dy). */
 function rekeyed(g: Group, dx: number, dy: number): Group {
   const idMap = new Map(g.items.map((it) => [it.id, uid()]));
   const pos: Record<string, { x: number; y: number }> | undefined = g.pos ? {} : undefined;
   if (pos) for (const it of g.items) pos[idMap.get(it.id)!] = g.pos?.[it.id] ?? { x: 0, y: 0 };
-  const items = g.items.map((it) => {
-    const copy: Item = { ...structuredClone(it), id: idMap.get(it.id)! };
-    if (copy.kind === "navRail" && copy.railModal) {
-      copy.railModal = false;
-      copy.railExpanded = false;
-      delete copy[railExpansionSide];
-    }
-    return copy;
-  });
+  const items = g.items.map((it): Item => ({ ...structuredClone(it), id: idMap.get(it.id)! }));
   return { ...structuredClone(g), id: uid(), x: g.x + dx, y: g.y + dy, pos, items };
 }
 
@@ -425,11 +350,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   /* ---------- document ---------- */
   const [lang, setLang] = useState<Lang>(initialLang);
   const [editAccess, setEditAccess] = useState<"checking" | "editable" | "readonly">("checking");
-  const [groups, setGroupState] = useState<Group[]>(() => seed(initialLang));
-  /* Enforce the standalone-modal rule for imports, grouping, undo and all edits. */
-  const setGroups = useCallback((next: Group[] | ((prev: Group[]) => Group[])) => {
-    setGroupState((prev) => constrainModalRails(typeof next === "function" ? next(prev) : next));
-  }, []);
+  const [groups, setGroups] = useState<Group[]>(() => seed(initialLang));
   const [frames, setFrames] = useState<Frame[]>(() => [{ ...SEED_FRAMES[0], name: t("home", initialLang) }]);
   const [paletteKey, setPaletteKey] = useState("purple");
   const [customPalette, setCustomPalette] = useState<Palette | null>(null);
@@ -533,7 +454,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
 
   const p = useMemo(() => paletteOf(paletteKey, customPalette, theme), [paletteKey, customPalette, theme]);
   /* corner helpers read the shape scale outside React; keep it current before anything renders */
-  setGlobalShape(theme.shape);
   /* the shadcn M3E components are drawn in the same scheme the code asks for: the sketch's seed color */
   const partTheme = useMemo<PartTheme>(
     () => ({ seed: seedOf(paletteKey, customPalette), dark: theme.dark, contrast: theme.contrast, shape: theme.shape === "square" ? 0.35 : theme.shape === "full" ? 1.6 : 1 }),
@@ -708,7 +628,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         viewBeforePreview.current = null;
       }
     }
-    const frames = Array.isArray(doc.frames) ? doc.frames : framesRef.current;
     if (Array.isArray(doc.groups)) {
       setGroups(drawableGroups(doc.groups));
     }
@@ -897,7 +816,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     lang,
   ]);
 
-  /* ---------- measurement (text-sized kinds) ---------- */
+  /* ---------- measurement ---------- */
   const allItems = useMemo(() => {
     const map = new Map<string, Item>();
     for (const g of groups) for (const it of g.items) map.set(it.id, it);
@@ -905,10 +824,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     return [...map.values()];
   }, [groups, drag]);
 
-  /** a FAB whose size the author just changed, and the corner it is to keep. A part as wide as
-   *  its own label is only measured after it is drawn, so the corner is put right once the
-   *  measuring pass knows how wide it came out. */
-  const fabAnchor = useRef<{ id: string; right: number; bottom: number } | null>(null);
   /* an overlay mounts after the render that made its box; it says so, and this render measures it */
   const [, setRemeasure] = useState(0);
   useEffect(() => {
@@ -933,8 +848,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       }
       const box = (ov ?? el).getBoundingClientRect();
       next[id] = Math.ceil(box.width);
-      /* a real component has a height of its own to measure too */
-      if (el.dataset.kind === "component") next[`${id}:h`] = Math.ceil(box.height);
+      next[`${id}:h`] = Math.ceil(box.height);
     });
     const keys = Object.keys(next);
     const changed =
@@ -966,21 +880,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       }
     }
     if (moved) setGroups(laid);
-    const anchor = fabAnchor.current;
-    if (!anchor) return;
-    const g = groupsRef.current.find((x) => x.items.some((it) => it.id === anchor.id));
-    const item = g?.items.find((it) => it.id === anchor.id);
-    if (!g || !item) {
-      fabAnchor.current = null;
-      return;
-    }
-    const sz = sizeOf(item, next);
-    const dx = anchor.right - (g.x + sz.w);
-    const dy = anchor.bottom - (g.y + sz.h);
-    fabAnchor.current = null;
-    if (!dx && !dy) return;
-    instantRef.current.add(g.id);
-    setGroups((prev) => prev.map((x) => (x.id === g.id ? { ...x, x: x.x + dx, y: x.y + dy } : x)));
   });
 
   useEffect(() => {
@@ -1309,27 +1208,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setGesture(g);
   };
 
-  /** where the finger is inside the part being carried: the copy that follows the pointer is
-   *  drawn lit at that point, so the light of the press is not lost when the drag begins */
-  const [dragLit, setDragLit] = useState<{ x: number; y: number; at: number } | null>(null);
-  /** the part that has just landed, and where the press was on it: it takes the light over,
-   *  already grown, and lets it go out in place */
-  const [landed, setLanded] = useState<{ id: string; x: number; y: number } | null>(null);
-  const landTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (landTimer.current) clearTimeout(landTimer.current); }, []);
   /* a drop that adds or deletes nothing: the ghost fades and shrinks where it was let go, so the
    * cancel is seen rather than the part simply blinking out */
   const vanishDrag = (d: DragState) => {
     setDrag({ ...d, vanishing: true, overBin: false, snap: null, guide: null });
     window.setTimeout(() => setDrag((cur) => (cur?.vanishing ? null : cur)), VANISH_MS);
   };
-  const lightLands = (id: string, x: number, y: number) => {
-    setLanded({ id, x, y });
-    if (landTimer.current) clearTimeout(landTimer.current);
-    /* long enough to be drawn: taking it away again is what makes it fade */
-    landTimer.current = setTimeout(() => setLanded(null), 50);
-  };
-
   const onItemPointerDown = (
     e: React.PointerEvent,
     g: Group,
@@ -1386,14 +1270,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     /* a locked group's part stays selectable, but dragging it does nothing */
     if (g.locked) return;
     setPressedId(item.id);
-    /* the moment of the press travels with it, so the light carries on rather than starting over
-       when the part is handed to the copy that follows the pointer */
-    setDragLit({ x: pt.x - left, y: pt.y - top, at: performance.now() });
     const d: DragState = {
       item,
-      base: item,
-      baseOffX: pt.x - left,
-      baseOffY: pt.y - top,
       offX: pt.x - left,
       offY: pt.y - top,
       startX: pt.x,
@@ -1458,12 +1336,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     sy.jump(pt.y - offY);
     setSelectedIds([item.id]);
     setRightTab("edit");
-    setDragLit({ x: offX, y: offY, at: performance.now() });
     const d: DragState = {
       item,
-      base: item,
-      baseOffX: offX,
-      baseOffY: offY,
       offX,
       offY,
       startX: pt.x,
@@ -1484,22 +1358,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
 
   /** the in-flight size drag on a lone button's edge handle */
   const [widthDragId, setWidthDragId] = useState<string | null>(null);
-  /** a size drag from the panel's slider is in flight: the part follows the slider with no easing */
-  const [sizeEditId, setSizeEditId] = useState<string | null>(null);
-  const sizeEditTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (sizeEditTimer.current) clearTimeout(sizeEditTimer.current); }, []);
-  const lastSizeEdit = useRef<{ id: string; t: number } | null>(null);
-  const markSizeEdit = (id: string) => {
-    const now = performance.now();
-    const prev = lastSizeEdit.current;
-    lastSizeEdit.current = { id, t: now };
-    /* one tap on a preset is a size to grow into; a stream of them is a drag, and a drag
-     * must land where the pointer is rather than trail an easing behind it */
-    if (!prev || prev.id !== id || now - prev.t > 150) return;
-    setSizeEditId(id);
-    if (sizeEditTimer.current) clearTimeout(sizeEditTimer.current);
-    sizeEditTimer.current = setTimeout(() => setSizeEditId(null), 400);
-  };
   /** how far the group under a left- or top-edge drag is drawn from where it sits, so the opposite
    *  edge stays put. It rides on the same commit as the new size, which keeps the two in step; the
    *  group's own position only moves once the drag ends. */
@@ -1510,11 +1368,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     side: HandleSide;
     vertical: boolean;
     round: boolean;
-    tall: boolean;
-    /** the part must stay at least as wide as it is tall */
-    grows: boolean;
-    /** the prop a real component's handle writes */
-    key?: string;
+    /** the measure this handle pulls */
+    axis?: PartAxis;
     startX: number;
     startY: number;
     start0: number;
@@ -1524,73 +1379,27 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     max: number;
     /** the undo step for this drag has been taken: it is taken at the first change */
     taken: boolean;
-    /** a square picture: either side pulls its one measure */
   } | null>(null);
-  /** What a handle on this side of the part changes, and how far it may be pulled: the measure
-   *  it holds, and the bounds that measure has for this kind on this screen. A drag and a key
-   *  press read the same answer. */
-  const sizeDragSpec = (item: Item, side: HandleSide, f: Frame | null) => {
+  /** What a handle on this side of the part changes, and how far it may be pulled: the prop it
+   *  holds, and the bounds of that prop. A drag and a key press read the same answer. */
+  const sizeDragSpec = (item: Item, side: HandleSide) => {
     const vertical = side === "top" || side === "bottom";
     /* a circle is pulled by a point on it: the drag reads along the diagonal and the one
      * measure it has -- its diameter -- follows, so it stays round the whole way */
     const round = CORNERS.includes(side);
     const ax = componentAxes(item);
-    if (ax) {
-      /* a real component is pulled on the prop of its own: the size when it has only that */
-      const d = round ? ax.size : vertical ? ax.height : ax.width;
-      const startV = d ? axisValue(d, item.props) : 0;
-      return { vertical, round, tall: false, grows: false, startV, min: d?.min ?? startV, max: d?.max ?? startV, key: d?.key, axis: d };
-    }
-    /* an extended FAB, a chip and a split button are as wide as their label makes them:
-     * their one measure is height */
-    const tall = item.kind === "extendedFab" || item.kind === "chip" || item.kind === "splitButton";
-    const box = sizeOf(item, widthsRef.current);
-    const startV = vertical || tall ? box.h : box.w;
-    /* any part outside the button family is sized the way its panel sizes it: between the
-     * bounds its kind is given, and a part as wide as the screen it sits on at most */
-    const gauge = !BUTTON_LIKE.has(item.kind);
-    /* across, the part's own measure; down, the second one it may have */
-    const gaugeSpec = vertical ? KIND_SPEC[item.kind].size2 : KIND_SPEC[item.kind].size;
-    /* only a button must stay at least as wide as it is tall: it is a circle at its narrowest */
-    const grows = item.kind === "button";
-    const { w: screenW, h: screenH } = f ? frameSizeOf(f) : { w: PHONE_W, h: PHONE_H };
-    /* a bound written as the phone's size means the screen's, whatever screen this is */
-    const onScreen = (v: number | undefined, fallback: number) => (v === undefined ? fallback : v === PHONE_W ? screenW : v === PHONE_H ? screenH : v === CONTENT_W ? contentWidth(screenW) : v);
-    return {
-      vertical,
-      round,
-      tall,
-      grows,
-      startV,
-      /* a button is a circle at its narrowest, so its height says how narrow it may be drawn; a
-       * kind handled without a spec for this measure is simply not pulled */
-      min: gauge ? (gaugeSpec?.min ?? startV) : isFab(item.kind) ? (tall ? KIND_SPEC.extendedFab.h : FAB_H_MIN) : item.kind === "chip" ? CHIP_H_MIN : vertical || round ? BUTTON_H_MIN : buttonHeightOf(item),
-      max: gauge
-        ? Math.max(startV, onScreen(gaugeSpec?.max, startV))
-        : isFab(item.kind)
-          ? FAB_H_MAX
-          : item.kind === "chip"
-            ? CHIP_H_MAX
-            : vertical || round
-              ? BUTTON_H_MAX
-              : screenW,
-    };
+    const axis = ax ? (round ? ax.size : vertical ? ax.height : ax.width) : undefined;
+    const startV = axis ? axisValue(axis, item.props) : 0;
+    return { vertical, round, startV, min: axis?.min ?? startV, max: axis?.max ?? startV, axis };
   };
-  /** the patch a new measure is: the height for a part held top and bottom or as wide as its
-   *  label, the width or diameter for the rest; a button set narrower than it is tall grows */
-  const sizePatch = (item: Item, d: { vertical: boolean; tall: boolean; grows: boolean; key?: string; axis?: PartAxis }, v: number): Partial<Item> =>
-    item.kind === "component" ? (d.axis ? { props: { ...item.props, [d.axis.key]: axisWrite(d.axis, v) } } : {}) : d.vertical || d.tall ? { size2: v, ...(d.grows && item.size && item.size < v ? { size: v } : {}) } : { size: v };
+  /** the patch a new measure is */
+  const sizePatch = (item: Item, d: { axis?: PartAxis }, v: number): Partial<Item> => (d.axis ? { props: { ...item.props, [d.axis.key]: axisWrite(d.axis, v) } } : {});
   /** a handle pulled by the keyboard: one step out or in, kept the way a panel change is */
-  const nudgeSize = (g: Group, item: Item, side: HandleSide, dir: 1 | -1) => {
-    const d = sizeDragSpec(item, side, frameOfGroup(g, framesRef.current, widthsRef.current) ?? null);
-    if (d.axis) {
-      const next = axisStep(d.axis, item.props, dir);
-      if (next !== undefined) patchSelected({ props: { ...item.props, [d.axis.key]: next } });
-      return;
-    }
-    const v = clamp(Math.round(d.startV / 4) * 4 + dir * 4, d.min, d.max);
-    if (v === d.startV) return;
-    patchSelected(sizePatch(item, d, v));
+  const nudgeSize = (item: Item, side: HandleSide, dir: 1 | -1) => {
+    const d = sizeDragSpec(item, side);
+    if (!d.axis) return;
+    const next = axisStep(d.axis, item.props, dir);
+    if (next !== undefined) patchSelected({ props: { ...item.props, [d.axis.key]: next } });
   };
   /* a drag that outlives the editor leaves nothing listening behind it */
   const widthDragEnd = useRef<(() => void) | null>(null);
@@ -1600,8 +1409,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     e.preventDefault();
     e.stopPropagation();
     flushPending();
-    const f = frameOfGroup(g, framesRef.current, widthsRef.current);
-    const spec = sizeDragSpec(item, side, f ?? null);
+    const spec = sizeDragSpec(item, side);
     widthDragRef.current = {
       id: item.id,
       gid: g.id,
@@ -1644,9 +1452,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const back = d.startV - v;
       if (d.side === "left") setWidthShift({ gid: d.gid, dx: back, dy: 0 });
       if (d.side === "top") setWidthShift({ gid: d.gid, dx: 0, dy: back });
-      /* a part as wide as its label makes it grows only in height, so its left side stays put */
       if (d.round && d.side !== "br") {
-        setWidthShift({ gid: d.gid, dx: !d.tall && (d.side === "tl" || d.side === "bl") ? back : 0, dy: d.side === "tl" || d.side === "tr" ? back : 0 });
+        setWidthShift({ gid: d.gid, dx: d.side === "tl" || d.side === "bl" ? back : 0, dy: d.side === "tl" || d.side === "tr" ? back : 0 });
       }
       setGroups((prev) =>
         prev.map((gr) =>
@@ -1665,7 +1472,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       /* the drawn offset becomes the group's real position, in one step and with no easing */
       if (d && d.v !== d.startV && d.side !== "right" && d.side !== "bottom" && d.side !== "br") {
         const shift = d.startV - d.v;
-        const movesX = !d.tall && (d.side === "left" || d.side === "tl" || d.side === "bl");
+        const movesX = d.side === "left" || d.side === "tl" || d.side === "bl";
         const movesY = d.side === "top" || d.side === "tl" || d.side === "tr";
         instantRef.current.add(d.gid);
         setGroups((prev) =>
@@ -1761,16 +1568,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       d.snap =
         d.overBin || ctrlHeld || outside
           ? null
-          : findSnap(d.base, pt.x - d.baseOffX, pt.y - d.baseOffY);
-      /* the run that is standing still sets the size: the part in flight takes it while it is
-       * held over the run, and has its own back the moment it is carried away again */
-      const host = d.snap ? groupsRef.current.find((g) => g.id === d.snap!.groupId)?.items[0] : undefined;
-      d.item = host ? matchRunSize(d.base, host) : d.base;
-      /* a part that grew or shrank keeps the same spot under the finger */
-      const was = sizeRef(d.base);
+          : findSnap(d.item, pt.x - d.offX, pt.y - d.offY);
       const now = sizeRef(d.item);
-      d.offX = was.w ? (d.baseOffX * now.w) / was.w : d.baseOffX;
-      d.offY = was.h ? (d.baseOffY * now.h) / was.h : d.baseOffY;
       if (d.snap) holdGap(d.snap.groupId, d.snap.index, now.w, now.h);
       else closeGap();
       d.guide =
@@ -1784,8 +1583,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const d = dragRef.current;
       dragRef.current = null;
       setPressedId(null);
-      /* the finger is off: whatever is holding the light lets it go out */
-      setDragLit(null);
       if (!d) return;
       if (!d.active) {
         setDrag(null);
@@ -1830,7 +1627,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
               };
             });
           });
-          lightLands(item.id, d.offX, d.offY);
           setDrag(null);
         };
         const timer = window.setTimeout(() => {
@@ -1860,7 +1656,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           ? prev
           : underWhatItHolds([...prev, ng], ng.id, widthsRef.current),
       );
-      lightLands(item.id, d.offX, d.offY);
       setDrag(null);
     };
 
@@ -2162,45 +1957,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (!selected && sheet === "edit") setSheet(null);
   }, [selected, sheet]);
 
-  /** Resizing a lone part keeps whatever it was lined up with on the frame:
-   *  its centre on the centre line, or its far edge on the margin or screen edge.
-   *  Otherwise the near (left / top) edge stays put, as the sliders always did. */
-  const resizeShift = (g: Group, before: Item, after: Item) => {
-    const none = { dx: 0, dy: 0 };
-    if (g.items.length !== 1) return none;
-    /* a FAB is the part in the corner of a screen: it grows and shrinks out of that corner,
-     * whatever the corner happens to be, rather than out of its top left */
-    if (roleOf(before) === "fab" || roleOf(after) === "fab") {
-      const a = sizeOf(before, widthsRef.current);
-      const b = sizeOf(after, widthsRef.current);
-      /* the corner to keep, put right again once a part as wide as its label has been measured */
-      fabAnchor.current = { id: before.id, right: g.x + a.w, bottom: g.y + a.h };
-      const measured = MEASURED.includes(after.kind);
-      return { dx: measured ? 0 : a.w - b.w, dy: a.h - b.h };
-    }
-    if (frameRef.current !== "phone") return none;
-    const f = frameOfGroup(g, framesRef.current, widthsRef.current);
-    if (!f) return none;
-    const { w: frameW, h: deviceH } = frameSizeOf(f);
-    const frameH = frameLengthOf(f);
-    const a = sizeOf(before, widthsRef.current);
-    const b = sizeOf(after, widthsRef.current);
-    const shift = (pos: number, len: number, next: number, f0: number, fLen: number, foot = true) => {
-      const d = next - len;
-      if (d === 0) return 0;
-      const near = (v: number, target: number) => Math.abs(v - target) <= 1;
-      if (near(pos + len / 2, f0 + fLen / 2)) return -Math.round(d / 2);
-      if (foot && (near(pos + len, f0 + fLen - FRAME_MARGIN) || near(pos + len, f0 + fLen))) return -d;
-      return 0;
-    };
-    return {
-      dx: shift(g.x, a.w, b.w, f.x, frameW),
-      /* on a screen that runs further, a part keeps to its foot, or to the middle of the device;
-       * the foot of the device is no edge there, since the body runs on past it */
-      dy: shift(g.y, a.h, b.h, f.y, frameH) || (frameH > deviceH ? shift(g.y, a.h, b.h, f.y, deviceH, false) : 0),
-    };
-  };
-
   const patchSelected = (patch: Partial<Item>) => {
     if (!primaryId) return;
     const id = primaryId;
@@ -2210,35 +1966,15 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       showToast(lockedGroupMsg());
       return;
     }
-    /* the shift is worked out here, once, from the groups as they stand: the updater below may
-     * be run more than once and must not be the one to remember a FAB's corner */
-    const home = groupsRef.current.find((g) => g.items.some((it) => it.id === id));
-    const was = home?.items.find((it) => it.id === id);
-    /* a rail state change resizes it too, so it counts as a resize for the reflow below;
-     * a real rail keeps that state in its `expanded`/`narrow` props */
+    const was = groupsRef.current.flatMap((g) => g.items).find((it) => it.id === id);
+    /* a rail's state resizes it, and the body beside it follows */
     const railProps =
       was?.component === "navigation-rail" &&
       "props" in patch &&
       (patch.props?.expanded !== was.props?.expanded || patch.props?.narrow !== was.props?.narrow);
-    const resizes = "size" in patch || "size2" in patch || "railExpanded" in patch || "railModal" in patch || !!railProps;
     snapshotFor(id + ":" + Object.keys(patch).join(","));
-    if ("size" in patch || "size2" in patch) markSizeEdit(id);
-    const shift = resizes && home && was ? resizeShift(home, was, { ...was, ...patch }) : { dx: 0, dy: 0 };
-    if (shift.dx || shift.dy) instantRef.current.add(home!.id);
     setGroups((prev) =>
-      "railExpanded" in patch || "railModal" in patch || railProps ? updateRail(prev, framesRef.current, widthsRef.current, id, patch) : prev.map((g) => {
-        const idx = g.items.findIndex((it) => it.id === id);
-        if (idx < 0) return g;
-        const next = { ...g.items[idx], ...patch };
-        const { dx, dy } = g.id === home?.id ? shift : { dx: 0, dy: 0 };
-        return {
-          ...g,
-          x: g.x + dx,
-          y: g.y + dy,
-          /* the parts of one run share a height; each keeps its own width */
-          items: g.free ? g.items.map((it, i) => (i === idx ? next : it)) : runSizePatch(g.items, id, patch),
-        };
-      }),
+      railProps ? updateRail(prev, framesRef.current, widthsRef.current, id, patch) : prev.map((g) => (g.items.some((it) => it.id === id) ? { ...g, items: g.items.map((it) => (it.id === id ? { ...it, ...patch } : it)) } : g)),
     );
     if (dragRef.current?.item.id === id) {
       dragRef.current.item = { ...dragRef.current.item, ...patch };
@@ -2727,21 +2463,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     () => (selectedFrame ? minFrameLength(groups, selectedFrame, frames, widths) : 0),
     [groups, selectedFrame, frames, widths],
   );
-  /** the selected toggle button is drawn in its "on" look while the panel edits that look */
-  const [showOnId, setShowOnId] = useState<string | null>(null);
-  /** the FAB whose menu the panel is showing open: it is open while its trigger tab is */
-  const [menuId, setMenuId] = useState<string | null>(null);
-  useEffect(() => {
-    setShowOnId(null);
-    setMenuId(null);
-  }, [primaryId]);
-  const onShowOn = useCallback((on: boolean) => setShowOnId(on ? primaryId : null), [primaryId]);
-  const onShowMenu = useCallback((on: boolean) => setMenuId(on ? primaryId : null), [primaryId]);
-  const onLook = (it: Item): Item => {
-    /* a FAB and a split button show their menu while the panel is on the tab that sets it up */
-    if (it.id === menuId && opensMenu(it)) return { ...it, [fabOpen]: true };
-    return it.id === showOnId && it.toggle ? { ...it, label: it.toggle.label ?? it.label, icon: toggleIcon(it), variant: it.toggle.variant ?? it.variant } : it;
-  };
   const selectedRect = useMemo(() => {
     if (!primaryId) return null;
     const g = groups.find((g) => g.items.some((it) => it.id === primaryId));
@@ -3021,42 +2742,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setSelectedIds([]);
   };
 
-  /** an old part waiting for the author to accept what its conversion loses */
-  const [pendingMigrate, setPendingMigrate] = useState<{ id: string; m: Migration } | null>(null);
-
-  /** replaces one part with the change a conversion (or a revert) is, in one undo step, and moves the
-   *  part down or up by what the new drawing takes or gives back */
-  const convertPart = (id: string, patch: Partial<Item>, dy: number) => {
-    if (groupsRef.current.some((g) => g.locked && g.items.some((it) => it.id === id))) {
-      showToast(lockedGroupMsg());
-      return;
-    }
-    snapshot();
-    setGroups((prev) =>
-      prev.map((g) => {
-        const idx = g.items.findIndex((it) => it.id === id);
-        if (idx < 0) return g;
-        const items = g.items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
-        if (!dy) return { ...g, items };
-        if (g.free) return { ...g, items, pos: { ...g.pos, [id]: { x: g.pos?.[id]?.x ?? 0, y: (g.pos?.[id]?.y ?? 0) + dy } } };
-        return g.items.length === 1 ? { ...g, items, y: g.y + dy } : { ...g, items };
-      }),
-    );
-  };
-
-  /** turns the selected old part into its component, once the author has seen what it cannot carry */
-  const migrateSelected = () => {
-    const m = selected ? migrateLegacy(selected) : null;
-    if (!selected || !m) return;
-    if (m.lost.length) setPendingMigrate({ id: selected.id, m });
-    else convertPart(selected.id, m.patch, m.dy);
-  };
-
-  const revertSelected = () => {
-    const back = selected ? revertPatch(selected) : null;
-    if (selected && back) convertPart(selected.id, back.patch, back.dy);
-  };
-
   /** sets where Tidy puts a screen's body, then tidies it that way */
   const setPlace = (f: Frame, place: Place) => {
     const next: Frame = { ...f, place: place === "top" ? undefined : place };
@@ -3224,7 +2909,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           items: g.items.map((it) => ({
             ...it,
             id: idMap.get(it.id)!,
-            tabs: it.tabs?.map((t) => ({ ...t })),
           })),
         };
       });
@@ -3272,18 +2956,11 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       >
         {gs.map((g) =>
           g.free ? (
-            ((corners) =>
             layoutOf(g, widths).map((pl) => (
-              <div key={pl.item.id} style={{ position: "absolute", left: pl.x - f.x, top: pl.y - f.y, zIndex: modalRailOf(g) ? 2 : undefined }}>
-                <M3Static
-                  item={pl.item}
-                  palette={p}
-                  radii={corners.get(pl.item.id)}
-                  style={MEASURED.includes(pl.item.kind) ? undefined : { width: pl.w, height: pl.h }}
-                  screen={{ w, h }}
-                />
+              <div key={pl.item.id} style={{ position: "absolute", left: pl.x - f.x, top: pl.y - f.y }}>
+                <StaticPart item={pl.item} screen={{ w, h }} />
               </div>
-            )))(freeRadii(g, widths))
+            ))
           ) : (
           <div
             key={g.id}
@@ -3291,38 +2968,17 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
               position: "absolute",
               left: g.x - f.x,
               top: g.y - f.y,
-              zIndex: modalRailOf(g) ? 2 : undefined,
               display: "flex",
               flexDirection: g.axis === "x" ? "row" : "column",
               alignItems: g.axis === "x" ? "center" : "stretch",
               gap: GAP,
             }}
           >
-            {g.items.map((it, i) => {
-              const conn = connectSpecOf(it);
-              const n = g.items.length;
-              const radii =
-                conn && n > 1
-                  ? runRadii(g.axis, i === 0, i === n - 1, false, false, 0, conn.outer, conn.inner)
-                  : conn
-                    ? uniformRadii(conn.outer)
-                    : baseRadii(it);
-              return (
-                <M3Static
-                  key={it.id}
-                  item={it}
-                  palette={p}
-                  radii={radii}
-                  style={MEASURED.includes(it.kind) ? undefined : { width: sizeOf(it, widths).w, height: sizeOf(it, widths).h }}
-                  screen={{ w, h }}
-                />
-              );
-            })}
+            {g.items.map((it) => (
+              <StaticPart key={it.id} item={it} screen={{ w, h }} />
+            ))}
           </div>
           ),
-        )}
-        {gs.some((g) => modalRailOf(g)) && (
-          <div aria-hidden style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.32)", pointerEvents: "none", zIndex: 1 }} />
         )}
       </div>
     );
@@ -3679,24 +3335,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setSelectedLinkId(null);
   };
 
-  const runRadii = (
-    axis: Axis,
-    first: boolean,
-    last: boolean,
-    prevPh: boolean,
-    nextPh: boolean,
-    pull: number,
-    outer: number,
-    inner: number,
-  ): Radii => {
-    const soft = lerp(outer, inner, pull);
-    const s = first ? outer : prevPh ? soft : inner;
-    const e = last ? outer : nextPh ? soft : inner;
-    return axis === "x"
-      ? { tl: s, bl: s, tr: e, br: e }
-      : { tl: s, tr: s, bl: e, br: e };
-  };
-
   /** which frame each run sits on (phone mode only) */
   const frameOf = useMemo(() => {
     const m = new Map<string, string>();
@@ -3793,19 +3431,9 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   };
 
   const renderGroup = (g: Group, ox: number, oy: number, screen?: { w: number; h: number }) => {
-    const modalRail = modalRailOf(g);
     if (g.free) {
       const instantG = instantRef.current.has(g.id);
       const allOn = g.items.every((it) => selectedSet.has(it.id));
-      /* explode once: the runs feed both the corner radii and the lift gate below */
-      const runs = explodeGroup(g, widths);
-      const corners = radiiOfRuns(runs);
-      /* hidden runs are connected too: only their members may lift above siblings when selected */
-      const runIds = new Set(
-        runs
-          .filter((r) => r.items.length > 1)
-          .flatMap((r) => r.items.map((it) => it.id)),
-      );
       return (
         <motion.div
           key={g.id}
@@ -3813,19 +3441,16 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           animate={{ x: g.x - ox, y: g.y - oy }}
           transition={instantG ? INSTANT : OPEN}
           /* keep any selection lift inside the group, so canvas-wide layer order is preserved */
-          style={{ position: "absolute", left: 0, top: 0, zIndex: modalRail ? 2 : drawnOpen(g) ? 1 : undefined, isolation: "isolate" }}
+          style={{ position: "absolute", left: 0, top: 0, zIndex: drawnOpen(g) ? 1 : undefined, isolation: "isolate" }}
         >
           {layoutOf(g, widths).map((pl) => (
             <div key={pl.item.id} style={{ position: "absolute", left: pl.x - g.x, top: pl.y - g.y }}>
-              <M3Node
+              <ComponentNode
                 item={pl.item}
                 palette={p}
                 widths={widths}
-                radii={corners.get(pl.item.id)}
                 pressed={false}
-                ripple={!handMode}
                 selected={selectedSet.has(pl.item.id)}
-                inRun={runIds.has(pl.item.id)}
                 interactive={!handMode}
                 onPointerDown={(e) => onItemPointerDown(e, g, pl.index, pl.item)}
                 screen={screen}
@@ -3850,9 +3475,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         </motion.div>
       );
     }
-    const snap = drag?.active && drag.snap?.groupId === g.id ? drag.snap : null;
     const hole = gapOut?.gid === g.id ? gapOut : null;
-    const pull = snap?.pull ?? 0;
     /* while the part is in reach the hole follows the magnet with no easing of its own, so the
      * run it sits in never wobbles; the closing is eased, and the run's own offset with it */
     /* a hole is either wanted or not: it opens and closes on one curve rather than tracking the
@@ -3863,7 +3486,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
      * What it costs the run is its width plus the run's spacing, and a closed hole costs nothing:
      * it has already taken that spacing off its own margin. */
     const front = hole && hole.index === 0 ? -(phMain + (hole.open ? GAP : 0)) : 0;
-    const conn = g.items[0] ? connectSpecOf(g.items[0]) : undefined;
 
     type Cell = { ph: true } | { ph: false; item: Item; index: number };
     const cells: Cell[] = [];
@@ -3872,27 +3494,16 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       if (i < g.items.length)
         cells.push({ ph: false, item: g.items[i], index: i });
     }
-    const m = cells.length;
     const instant = instantRef.current.has(g.id);
     /* A FAB sits in the corner of a screen, and that is the corner it grows out of: the run is
      * drawn hanging from its own bottom right, so a box changing size moves its top and its left
      * and nothing else. Nothing has to be kept in step, because nothing else moves. */
-    /* the corner is the button's own, menu or no menu: the entries rise out of it and the
-     * button itself never moves */
     const corner = g.items.length === 1 && roleOf(g.items[0]) === "fab" ? sizeOf(g.items[0], widths) : null;
-    /* a split button's menu drops below the button or rises above it, whichever its screen has
-     * room for; a rising one hangs the run from its own bottom, so the button never moves */
-    const menuPart = g.items.length === 1 && g.items[0].id === menuId && splitOpens(g.items[0]) ? g.items[0] : null;
-    const rises = !!menuPart && splitMenuRisesAt(menuPart, g.y, frameOfGroup(g, framesRef.current, widths) ?? null);
     /* The corner is held by the run's own translate rather than by the offset it is animated to.
      * Both halves of it -- the size in pixels and the box's own 100% -- are then settled by the
      * browser in the frame React hands them over in, so a size being dragged cannot leave the
      * drawn box a step behind the offset and make it shiver. */
-    const hang = corner
-      ? `calc(${corner.w}px - 100%) calc(${corner.h}px - 100%)`
-      : rises && menuPart
-        ? `0 calc(${sizeOf(menuPart, widths).h}px - 100%)`
-        : undefined;
+    const hang = corner ? `calc(${corner.w}px - 100%) calc(${corner.h}px - 100%)` : undefined;
 
     return (
       <motion.div
@@ -3904,7 +3515,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         }}
         transition={instant ? INSTANT : hole ? GAP_TWEEN : OPEN}
         style={{
-          zIndex: modalRail ? 2 : drawnOpen(g) ? 1 : undefined,
+          zIndex: drawnOpen(g) ? 1 : undefined,
           position: "absolute",
           left: 0,
           top: 0,
@@ -3920,7 +3531,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           isolation: "isolate",
         }}
       >
-        {cells.map((c, r) => {
+        {cells.map((c) => {
           if (c.ph) {
             /* the hole is moved by the same clock the run's own offset is, and on the same
              * curve: a frame where one has moved and the other has not is a frame where the
@@ -3949,34 +3560,15 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
               />
             );
           }
-          const ic = connectSpecOf(c.item);
-          const radii =
-            conn && ic
-              ? runRadii(
-                  g.axis,
-                  r === 0,
-                  r === m - 1,
-                  r > 0 && cells[r - 1].ph,
-                  r < m - 1 && cells[r + 1].ph,
-                  pull,
-                  ic.outer,
-                  ic.inner,
-                )
-              : baseRadii(c.item);
           return (
-            <M3Node
+            <ComponentNode
               key={c.item.id}
-              item={menuPart && c.item.id === menuPart.id ? { ...onLook(c.item), [menuUp]: rises } : onLook(c.item)}
+              item={c.item}
               palette={p}
               widths={widths}
-              radii={radii}
               pressed={pressedId === c.item.id}
-              /* a press lights the part up from inside, the way it does in the preview */
-              ripple={!handMode}
-              lit={landed && landed.id === c.item.id ? { x: landed.x, y: landed.y, grown: true } : null}
               selected={selectedSet.has(c.item.id)}
-              inRun={g.items.length > 1}
-              instant={widthDragId === c.item.id || sizeEditId === c.item.id}
+              instant={widthDragId === c.item.id}
               interactive={!handMode}
               onPointerDown={(e) => onItemPointerDown(e, g, c.index, c.item)}
               screen={screen}
@@ -4016,11 +3608,10 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
 
   return (
     <LangContext.Provider value={lang}>
-    <ThemeContext.Provider value={theme}>
     <PartThemeContext.Provider value={partTheme}>
       <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
       <div
-        className={`app-root${revealing ? " m3e-reveal" : ""}${widthDragId || sizeEditId ? " m3-size-now" : ""}`}
+        className={`app-root${revealing ? " m3e-reveal" : ""}`}
         /* the preview sits outside this tree and owns the keyboard while it is up */
         inert={editAccess !== "editable" || previewId !== null}
         aria-hidden={editAccess !== "editable" || previewId !== null}
@@ -4038,7 +3629,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         {/* hidden measuring layer for text-sized kinds */}
         <div
           aria-hidden
-          className="m3-measure"
           style={{
             position: "fixed",
             left: -99999,
@@ -4048,32 +3638,18 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
             fontFamily: fontFamilyOf(theme.font, lang),
           }}
         >
-          {allItems
-            .map(onLook)
-            .filter((it) => isMeasured(it))
-            .map((it) => (
-              <div
-                key={it.id}
-                data-kind={it.kind}
-                ref={(el) => {
-                  if (el) measureEls.current.set(it.id, el);
-                  else measureEls.current.delete(it.id);
-                }}
-                style={{
-                  display: "inline-flex",
-                  boxSizing: "border-box",
-                  border:
-                    it.variant === "outlined" &&
-                    (it.kind === "button" ||
-                      it.kind === "chip" ||
-                      it.kind === "extendedFab")
-                      ? "1px solid transparent"
-                      : "none",
-                }}
-              >
-                <MeasuredContent item={it} p={p} screen={screenByItem.get(it.id)} />
-              </div>
-            ))}
+          {allItems.map((it) => (
+            <div
+              key={it.id}
+              ref={(el) => {
+                if (el) measureEls.current.set(it.id, el);
+                else measureEls.current.delete(it.id);
+              }}
+              style={{ display: "inline-flex", boxSizing: "border-box" }}
+            >
+              <PartView item={it} screen={screenByItem.get(it.id)} />
+            </div>
+          ))}
         </div>
 
         {exportFrame && (
@@ -4125,32 +3701,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                 }
           }
         >
-          <M3Node
-            item={drag.item}
-            palette={p}
-            widths={widths}
-            lit={dragLit}
-            dragging
-            radii={(() => {
-              const conn = connectSpecOf(drag.item);
-              if (!conn || !drag.snap) return baseRadii(drag.item);
-              const g = groupsRef.current.find(
-                (x) => x.id === drag.snap!.groupId,
-              );
-              const mm = (g?.items.length ?? 0) + 1;
-              const k = drag.snap.index;
-              return runRadii(
-                conn.axis,
-                k === 0,
-                k === mm - 1,
-                k > 0,
-                k < mm - 1,
-                drag.snap.pull,
-                conn.outer,
-                conn.inner,
-              );
-            })()}
-          />
+          <ComponentNode item={drag.item} palette={p} widths={widths} dragging />
         </motion.div>
       )}
               </div>
@@ -4444,9 +3995,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                           {groups
                             .filter((g) => frameOf.get(g.id) === f.id)
                             .map((g) => renderGroup(g, f.x, f.y, frameSizeOf(f)))}
-                          {groups.some((g) => frameOf.get(g.id) === f.id && modalRailOf(g)) && (
-                            <div aria-hidden style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.32)", pointerEvents: "none", zIndex: 1 }} />
-                          )}
                           {/* where the device ends on a screen that runs further: below it, the body scrolls */}
                           {h > fold && (
                             <div aria-hidden style={{ position: "absolute", left: 0, right: 0, top: fold, borderTop: `2px dashed ${p.outline}`, opacity: 0.6, pointerEvents: "none", zIndex: 2 }} />
@@ -4498,8 +4046,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
               {/* a lone button shows a handle on each of its four edges, and a lone icon button
                   four points around its circle: dragging one changes the part's size in place,
                   and whatever sits opposite stays where it is */}
-              {/* a FAB showing its menu is being edited as a menu, not sized as a button */}
-              {!handMode && !drag && selectedIds.length === 1 && selected && selected.id !== menuId && (HANDLED.has(selected.kind) || !!componentAxes(selected)) && (() => {
+              {!handMode && !drag && selectedIds.length === 1 && selected && !!componentAxes(selected) && (() => {
                 const g = groups.find((x) => x.items.length === 1 && !x.free && !x.locked && x.items[0].id === selected.id);
                 if (!g) return null;
                 const b = groupBounds(g, widths);
@@ -4511,23 +4058,20 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                     /* the handles belong to this one part: another part picked gets its own, in
                      * place, rather than these flying across the canvas to it */
                     key={selected.id}
-                    /* one measure, so the part is held by the points around it rather than by
-                     * its edges: a circle's diameter, a label's height */
-                    round={ROUND.has(selected.kind) || (!!componentAxes(selected) && !componentAxes(selected)?.width && !componentAxes(selected)?.height)}
-                    /* a bar and a slider have a width and nothing else: they are held by their two
-                     * ends; a carousel is the other way about and is held by its top and bottom */
+                    /* one measure, so the part is held by the points around it rather than by its edges */
+                    round={!componentAxes(selected)?.width && !componentAxes(selected)?.height}
+                    /* a bar has a width and nothing else: it is held by its two ends; one with only a
+                     * height by its top and bottom; a part with both by all four edges */
                     sides={(() => {
                       const ax = componentAxes(selected);
-                      if (ax) return ax.width && !ax.height ? BAR_SIDES : ax.height && !ax.width ? TALL_SIDES : undefined;
-                      return WIDE.has(selected.kind) ? BAR_SIDES : TALL.has(selected.kind) ? TALL_SIDES : undefined;
+                      return ax?.width && !ax.height ? BAR_SIDES : ax?.height && !ax.width ? TALL_SIDES : undefined;
                     })()}
-                    /* a part with a height of its own is held by all four edges; one whose height follows its kind by its two ends */
                     box={{ l: b.l + sx, t: b.t + sy, r: b.r + sx, b: b.b + sy }}
                     z={view.z}
-                    instant={widthDragId === selected.id || sizeEditId === selected.id}
+                    instant={widthDragId === selected.id}
                     p={p}
                     onDown={(e, side) => onWidthHandleDown(e, g, selected, side)}
-                    onNudge={(side, dir) => nudgeSize(g, selected, side, dir)}
+                    onNudge={(side, dir) => nudgeSize(selected, side, dir)}
                   />
                 );
               })()}
@@ -4799,8 +4343,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                 <MobileInspector
                   item={selected}
                   palette={p}
-                  onMigrate={canMigrate(selected) ? migrateSelected : undefined}
-                  onRevert={selected.legacy ? revertSelected : undefined}
                   onChange={patchSelected}
                   onDelete={() => {
                     deleteSelected();
@@ -4970,23 +4512,17 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                     onCancel: cancelAi,
                   }}
                   item={selectedIds.length > 1 ? null : selected}
-                  railStandalone={groups.some((g) => g.items.length === 1 && g.items[0].id === selected?.id)}
                   frame={selectedPartFrame}
                   palette={p}
                   frames={frame === "phone" ? frames : []}
                   onChange={patchSelected}
-                  onMigrate={selected && canMigrate(selected) ? migrateSelected : undefined}
-                  onRevert={selected?.legacy ? revertSelected : undefined}
                   onDelete={deleteSelected}
                   onDuplicate={duplicateSelected}
                   locked={selectedLocked}
                   onToggleLock={toggleLockSelected}
                   onPlace={selectionPlaceable ? placeSelected : undefined}
-                  widths={widths}
                   selfRect={selectedRect}
                   allFrames={frames}
-                  onShowOn={onShowOn}
-                  onShowMenu={onShowMenu}
                   multi={selectedIds.length}
                   grouped={!!selectedGroup}
                   selectionWhole={selectionWhole}
@@ -5053,19 +4589,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           }}
         />
 
-
-        <ConfirmDialog
-          open={pendingMigrate !== null}
-          icon="upgrade"
-          title={t("migrate", lang)}
-          body={[t("migrateLost", lang), ...(pendingMigrate?.m.lost ?? []).map((k) => `・${t(LOST_TEXT[k], lang)}`)].join("\n")}
-          p={p}
-          onCancel={() => setPendingMigrate(null)}
-          onConfirm={() => {
-            if (pendingMigrate) convertPart(pendingMigrate.id, pendingMigrate.m.patch, pendingMigrate.m.dy);
-            setPendingMigrate(null);
-          }}
-        />
 
         <ConfirmDialog
           open={confirmClear}
@@ -5146,7 +4669,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         </div>
       )}
     </PartThemeContext.Provider>
-    </ThemeContext.Provider>
     </LangContext.Provider>
   );
 }

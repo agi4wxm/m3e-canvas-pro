@@ -1,11 +1,10 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { COLOR_TOKENS, ColorToken, PLACES, Palette, Place, R_INNER, SETTLE_MS, clamp, draftGradient } from "@/lib/tokens";
+import { PLACES, Palette, Place, R_INNER, SETTLE_MS, clamp, draftGradient } from "@/lib/tokens";
 import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react";
-import { COLOR_TOKEN_TEXT, t, useLang } from "@/lib/i18n";
-import { Icon } from "./M3Node";
-import { MigrateNotice } from "./MigrateNotice";
+import { t, useLang } from "@/lib/i18n";
+import { Icon } from "./Icon";
 
 /** the row of tabs and the clear gap under it, and the band a panel with no tabs fades its top with */
 const PANEL_TABS_H = 48;
@@ -73,7 +72,6 @@ export function PanelShell({
           /* under a row of tabs the content starts below them; with none, it starts under the fade's thick part */
           style={{ padding: `${tabs ? PANEL_TABS_H + PANEL_TABS_GAP : PANEL_FADE_H / 2}px 12px 20px`, overflowY: "auto", height: "100%" }}
         >
-          <MigrateNotice p={p} />
           {children}
         </div>
         {/* the tabs keep their place while the rest scrolls under them, and the panel's own colour
@@ -1016,26 +1014,6 @@ export function Field({
 /** Slider with a typed-in number beside it. The slider moves in `step`s; the
  *  field accepts any whole number and is clamped to min..max when it commits. */
 /** A rectangle whose top or bottom corners are rounded: the corner-radius slider icons. */
-/** a pair of corners on one side, or a single corner */
-export function CornerIcon({ side, size = 20 }: { side: "top" | "bottom" | "left" | "right" | "tl" | "tr" | "bl" | "br"; size?: number }) {
-  const PATHS: Record<typeof side, string> = {
-    top: "M4 17 V9 a5 5 0 0 1 5 -5 h6 a5 5 0 0 1 5 5 v8",
-    bottom: "M4 3 v8 a5 5 0 0 0 5 5 h6 a5 5 0 0 0 5 -5 v-8",
-    left: "M17 4 H9 a5 5 0 0 0 -5 5 v6 a5 5 0 0 0 5 5 h8",
-    right: "M7 4 h8 a5 5 0 0 1 5 5 v6 a5 5 0 0 1 -5 5 h-8",
-    tl: "M5 20 V11 a6 6 0 0 1 6 -6 H20",
-    tr: "M4 5 H13 a6 6 0 0 1 6 6 V20",
-    bl: "M5 4 V13 a6 6 0 0 0 6 6 H20",
-    br: "M20 4 V13 a6 6 0 0 1 -6 6 H4",
-  };
-  const d = PATHS[side];
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
-      <path d={d} />
-    </svg>
-  );
-}
-
 export function Slider({
   icon = "tune",
   iconNode,
@@ -1233,65 +1211,6 @@ export function NamedSizes({
       label={label ?? t("size", lang)}
       tight
     />
-  );
-}
-
-/** Quick picks for a size: the values the frame is built from (screen width,
- *  content width, half a row) or a component's standard sizes. */
-export function SizePresets({
-  values,
-  value,
-  min,
-  max,
-  onChange,
-  p,
-  labelOf,
-}: {
-  values: number[];
-  value: number;
-  min: number;
-  max: number;
-  onChange: (v: number) => void;
-  p: Palette;
-  /** optional hover text for a value, e.g. "Screen width" for 412 */
-  labelOf?: (v: number) => string | undefined;
-}) {
-  const shown = values.filter((v) => v >= min && v <= max);
-  if (shown.length === 0) return null;
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, paddingLeft: 30 }}>
-      {shown.map((v) => {
-        const on = v === value;
-        const label = labelOf?.(v);
-        return (
-          <button
-            key={v}
-            onClick={() => onChange(v)}
-            title={label}
-            aria-label={label ? `${label}: ${v}` : String(v)}
-            aria-pressed={on}
-            className="m3-press"
-            style={{
-              height: 28,
-              padding: "0 10px",
-              borderRadius: 14,
-              border: on ? "1px solid transparent" : `1px solid ${p.outlineVariant}`,
-              background: on ? p.secondaryContainer : "transparent",
-              color: on ? p.onSecondaryContainer : p.onSurfaceVariant,
-              fontSize: 12,
-              fontWeight: 600,
-              fontVariantNumeric: "tabular-nums",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
-            {v}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -1639,74 +1558,6 @@ export function Tile({
           <Icon name="star" size={16} fill={starred} />
         </button>
       )}
-    </div>
-  );
-}
-
-/** palette-role swatches; the dot shows the real color of the current theme */
-/** One 30dp color disc; the selected one wears the primary ring */
-function TokenDisc({ color, label, on, onClick, p, icon, iconColor }: { color: string; label: string; on: boolean; onClick: () => void; p: Palette; icon?: string; iconColor?: string }) {
-  return (
-    <button
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      aria-pressed={on}
-      className="m3-press"
-      style={{
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        border: `1px solid ${p.outlineVariant}`,
-        padding: 0,
-        cursor: "pointer",
-        background: color,
-        color: iconColor,
-        display: "grid",
-        placeItems: "center",
-        outline: on ? `2px solid ${p.primary}` : "2px solid transparent",
-        outlineOffset: 2,
-      }}
-    >
-      {icon && <Icon name={icon} size={16} />}
-    </button>
-  );
-}
-
-export function TokenChips({
-  value,
-  onChange,
-  p,
-  none,
-  noneOn,
-  onNone,
-  noneColor,
-  noneTextColor,
-  noneIcon = "block",
-  noneLabel,
-}: {
-  value: ColorToken;
-  onChange: (t: ColorToken) => void;
-  p: Palette;
-  /** offer a "no background" chip */
-  none?: boolean;
-  noneOn?: boolean;
-  onNone?: () => void;
-  /** a fallback option may represent a real computed color rather than transparency */
-  noneColor?: string;
-  noneTextColor?: string;
-  noneIcon?: string;
-  noneLabel?: string;
-}) {
-  const lang = useLang();
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-      {none && (
-        <TokenDisc color={noneColor ?? "transparent"} label={noneLabel ?? t("noBackground", lang)} on={!!noneOn} onClick={() => onNone?.()} p={p} icon={noneIcon} iconColor={noneTextColor ?? p.onSurfaceVariant} />
-      )}
-      {COLOR_TOKENS.map((tk) => (
-        <TokenDisc key={tk.key} color={p[tk.key]} label={lang === "en" ? tk.label : COLOR_TOKEN_TEXT[lang][tk.key]} on={!noneOn && tk.key === value} onClick={() => onChange(tk.key)} p={p} />
-      ))}
     </div>
   );
 }

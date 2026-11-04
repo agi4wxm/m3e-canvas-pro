@@ -18,7 +18,7 @@ function MissingPart({ item }: { item: Item }) {
   return (
     <div
       data-missing-part={name}
-      style={{ width: item.size ?? 160, height: item.size2 ?? 56, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", padding: 8, overflow: "hidden", border: "1px dashed #B3261E", borderRadius: 8, color: "#B3261E", fontSize: 12, textAlign: "center" }}
+      style={{ width: 160, height: 56, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", padding: 8, overflow: "hidden", border: "1px dashed #B3261E", borderRadius: 8, color: "#B3261E", fontSize: 12, textAlign: "center" }}
     >
       Unknown part {name}
     </div>

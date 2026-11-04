@@ -6,7 +6,7 @@
  *  - the group keeps each label, icon and tap, and its look is the one most buttons share
  *  - a button that differs from the rest keeps its own variant as a row of the group
  *  - buttons stacked on top of each other join as a vertical group
- *  - far-apart, differently sized, toggle, locked, free and legacy buttons stay as they are
+ *  - far-apart, differently sized, toggle, locked and free buttons stay as they are
  *  - a part between two buttons keeps them apart
  */
 import { beforeAll, describe, expect, it } from "vitest";
@@ -60,7 +60,7 @@ describe("combineButtons", () => {
     expect(it.props?.orientation).toBe("vertical");
   });
 
-  it("leaves distant, differently sized, toggle, locked, free and legacy buttons alone", () => {
+  it("leaves distant, differently sized, toggle, locked and free buttons alone", () => {
     const far = [at("g1", 16, 100, button("a")), at("g2", 300, 100, button("b"))];
     expect(combineButtons(far, frame, [frame], widths)).toBeNull();
     const sizes = [at("g1", 16, 100, button("a", { size: "sm" })), at("g2", 120, 100, button("b", { size: "md" }))];
@@ -71,12 +71,10 @@ describe("combineButtons", () => {
     expect(combineButtons(locked, frame, [frame], widths)).toBeNull();
     const free = [at("g1", 16, 100, button("a"), { free: true }), at("g2", 120, 100, button("b"))];
     expect(combineButtons(free, frame, [frame], widths)).toBeNull();
-    const legacy = [at("g1", 16, 100, makeItem("button")), at("g2", 120, 100, makeItem("button"))];
-    expect(combineButtons(legacy, frame, [frame], widths)).toBeNull();
   });
 
   it("does not reach across a part that stands between two buttons", () => {
-    const groups = [at("g1", 16, 100, button("a")), at("g3", 114, 100, makeItem("divider")), at("g2", 120, 100, button("b"))];
+    const groups = [at("g1", 16, 100, button("a")), at("g3", 114, 100, makeItem("component", "separator")), at("g2", 120, 100, button("b"))];
     expect(combineButtons(groups, frame, [frame], widths)).toBeNull();
   });
 

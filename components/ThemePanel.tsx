@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { FONTS, Palette, SHAPES, ShapeScale, Theme } from "@/lib/tokens";
 import { ensureFontLoaded } from "@/lib/theme";
 import { Lang, t, useLang } from "@/lib/i18n";
-import { Icon } from "./M3Node";
+import { Icon } from "./Icon";
 import { Toggle } from "./ui";
 
 const shapeLabel = (k: ShapeScale, lang: Lang) => (k === "square" ? t("shapeSquare", lang) : k === "full" ? t("shapeFull", lang) : t("shapeRounded", lang));

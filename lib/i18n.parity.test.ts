@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  COLOR_TOKEN_TEXT, FAB_MENU_TABS, KIND_TEXT, KO, LANGS, NAV_TABS, SEED_TEXT,
+  COLOR_TOKEN_TEXT, KO, LANGS, NAV_TABS, SEED_TEXT,
   SWIPE_TEXT, TAB_LABELS, TRANSITION_TEXT, UI, t, type UIKey,
 } from "./i18n";
-import { KIND_ORDER, LANG_FONT, SWIPE_DIRS, TRANSITIONS } from "./tokens";
+import { LANG_FONT, SWIPE_DIRS, TRANSITIONS } from "./tokens";
 
 const ui: Record<UIKey, Record<string, string>> = UI;
 const ko: Record<UIKey, string> = KO;
@@ -22,7 +22,7 @@ function nonemptyStrings(value: unknown, path: string): void {
 }
 
 // Include nested optional fields and array indices: losing one translated label
-// or supporting sentence must fail even when the outer kind keys still match.
+// or supporting sentence must fail even when the outer keys still match.
 function leafPaths(value: unknown, prefix = ""): string[] {
   if (value !== null && typeof value === "object") {
     return Object.entries(value).flatMap(([key, child]) => leafPaths(child, `${prefix}.${key}`)).sort();
@@ -62,7 +62,7 @@ describe("UI dictionary parity", () => {
   });
 });
 
-const dictionaries = { KIND_TEXT, SEED_TEXT, TAB_LABELS, FAB_MENU_TABS, NAV_TABS, TRANSITION_TEXT, SWIPE_TEXT };
+const dictionaries = { SEED_TEXT, TAB_LABELS, NAV_TABS, TRANSITION_TEXT, SWIPE_TEXT };
 for (const [name, table] of Object.entries(dictionaries)) {
   describe(`${name} parity`, () => {
     it("covers exactly the offered languages", () => {
@@ -77,8 +77,7 @@ for (const [name, table] of Object.entries(dictionaries)) {
 }
 
 describe("dictionary coverage of editor tokens", () => {
-  it.each(LANGS)("covers every kind, transition and swipe in $key", ({ key: lang }) => {
-    expect(sortedKeys(KIND_TEXT[lang])).toEqual([...KIND_ORDER].sort());
+  it.each(LANGS)("covers every transition and swipe in $key", ({ key: lang }) => {
     expect(sortedKeys(TRANSITION_TEXT[lang])).toEqual(TRANSITIONS.map(({ key }) => key).sort());
     expect(sortedKeys(SWIPE_TEXT[lang])).toEqual(SWIPE_DIRS.map(({ key }) => key).sort());
   });
@@ -91,10 +90,8 @@ describe("dictionary coverage of editor tokens", () => {
     }
   });
 
-  it("keeps navigation and FAB icons aligned by translation index", () => {
-    for (const table of [NAV_TABS, FAB_MENU_TABS]) {
-      for (const lang of languages) expect(table[lang].map(({ icon }) => icon), lang).toEqual(table.en.map(({ icon }) => icon));
-    }
+  it("keeps navigation icons aligned by translation index", () => {
+    for (const lang of languages) expect(NAV_TABS[lang].map(({ icon }) => icon), lang).toEqual(NAV_TABS.en.map(({ icon }) => icon));
   });
 });
 

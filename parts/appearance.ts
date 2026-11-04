@@ -2,8 +2,7 @@ import type { ColorToken, Item, Radii, TextToken } from "../lib/tokens";
 import { mapNodes, type PNode } from "./node";
 
 /* A part's look, set beside its props: the fill role it paints itself with, the role its text
- * reads in, and its four corner radii. They live on the item (like a legacy part's own fill and
- * corners) and are painted onto the part's tree as a fixed class map plus `style.borderRadius`,
+ * reads in, and its four corner radii. They live on the item and are painted onto the part's tree as a fixed class map plus `style.borderRadius`,
  * so the canvas drawing and the printed code carry the same appearance. */
 
 export type Appearance = { fill?: ColorToken; text?: TextToken; corners?: Radii };

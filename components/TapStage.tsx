@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Action, BACK_TARGET, Frame, LINK_TARGET, Palette, Transition, frameSizeOf, linkHostOf, linkUrlOf } from "@/lib/tokens";
-import { Icon } from "./M3Node";
+import { Icon } from "./Icon";
 import { TransitionPicker } from "./Inspector";
 import { Field } from "./ui";
 import { t, useLang } from "@/lib/i18n";

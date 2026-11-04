@@ -154,11 +154,8 @@ const describeItem = (it: Item) => {
   const bits = [`id=${it.id}`, `part=${it.component ?? it.kind}`];
   const words = labelOfPart(partBySlug(it.component), it.props);
   if (hasText(words)) bits.push(`says=${JSON.stringify(words)}`);
-  if (hasText(it.supporting)) bits.push(`supporting=${JSON.stringify(it.supporting)}`);
   if (it.icon) bits.push(`icon=${it.icon}`);
-  if (it.tabs?.length) bits.push(`items=${JSON.stringify(it.tabs.map((t) => t.label || t.icon))}`);
   if (it.action) bits.push(`tap=${it.action.to}`);
-  if (it.toggle) bits.push("toggle");
   if (hasText(it.note)) bits.push(`current_note=${JSON.stringify(it.note)}`);
   return bits.join(" ");
 };

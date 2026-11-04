@@ -108,34 +108,6 @@ body {
   opacity: 1;
 }
 
-/* a button that changes M3 size grows into the new one: the box, the padding it keeps
-   around its content and the type and icon inside it all travel together, over the same
-   340ms the canvas uses to settle a part. The hidden measuring copy carries the class too,
-   so a button with no set width reports its width as it eases. */
-.m3-size-ease,
-.m3-size-ease .msr {
-  /* the time and the curve are the editor's own (SETTLE_MS in lib/tokens.ts), set on the root */
-  transition: padding var(--m3-settle, 340ms) var(--m3-ease, cubic-bezier(0.2, 0, 0, 1)),
-    gap var(--m3-settle, 340ms) var(--m3-ease, cubic-bezier(0.2, 0, 0, 1)),
-    font-size var(--m3-settle, 340ms) var(--m3-ease, cubic-bezier(0.2, 0, 0, 1)),
-    height var(--m3-settle, 340ms) var(--m3-ease, cubic-bezier(0.2, 0, 0, 1)),
-    /* a segment that changes shape -- a split button's arrow while its menu is open -- rounds
-       off over the shorter time a corner takes rather than the time a size does */
-    border-radius 220ms var(--m3-ease, cubic-bezier(0.2, 0, 0, 1));
-}
-/* while an edge or a slider is being dragged the part follows the pointer instead; a part that
-   is told to land at once (data-size-now) does the same on its own */
-.m3-size-now .m3-size-ease,
-.m3-size-now .m3-size-ease .msr,
-[data-size-now] .m3-size-ease,
-[data-size-now] .m3-size-ease .msr,
-/* the hidden copy the editor measures reports the size that was asked for, at once:
-   the layout around the part is built from it, and only the drawn part eases */
-.m3-measure .m3-size-ease,
-.m3-measure .m3-size-ease .msr {
-  transition: none;
-}
-
 /* range input, themed per palette via CSS vars */
 input[type="range"].m3-range {
   -webkit-appearance: none;
@@ -184,36 +156,9 @@ input.m3-number {
   appearance: textfield;
 }
 
-/* Only geometry affected by the current rail action shares its transition. */
-[data-rail-animate="group"],
-[data-rail-animate="item"] > [data-node],
-[data-rail-animate="item"] .m3-rail-geometry,
-[data-rail-animate="item"] .m3-rail-hit {
-  transition: none !important;
-}
-[data-rail-motion="true"] [data-rail-animate="group"] {
-  transition: left 240ms cubic-bezier(0.32, 0.72, 0, 1), top 240ms cubic-bezier(0.32, 0.72, 0, 1) !important;
-}
-[data-rail-motion="true"] [data-rail-animate="item"] > [data-node] {
-  transition: width 240ms cubic-bezier(0.32, 0.72, 0, 1), height 240ms cubic-bezier(0.32, 0.72, 0, 1) !important;
-}
-[data-rail-motion="true"] [data-rail-animate="item"] .m3-rail-geometry,
-[data-rail-motion="true"] [data-rail-animate="item"] .m3-rail-hit {
-  transition: left 240ms cubic-bezier(0.32, 0.72, 0, 1), top 240ms cubic-bezier(0.32, 0.72, 0, 1), width 240ms cubic-bezier(0.32, 0.72, 0, 1), height 240ms cubic-bezier(0.32, 0.72, 0, 1), transform 240ms cubic-bezier(0.32, 0.72, 0, 1), border-radius 240ms cubic-bezier(0.32, 0.72, 0, 1), background 160ms, color 160ms !important;
-}
-.m3-rail-hit:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: -2px;
-}
-.m3-rail-hit:active {
-  transform: scale(0.97);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .m3-press,
   .m3-tile,
-  .m3-size-ease,
-  .m3-size-ease .msr,
   .m3e-boot {
     transition: none;
   }

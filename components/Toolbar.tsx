@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { FrameMode, Palette, Place } from "@/lib/tokens";
 import { IconBtn, Segmented, TidyButton, TidyState } from "./ui";
 import { ShareButton } from "./ShareMenu";
-import { Icon } from "./M3Node";
+import { Icon } from "./Icon";
 import { Popover } from "./Menus";
 import { t, useLang } from "@/lib/i18n";
 

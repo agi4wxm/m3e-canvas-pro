@@ -3,8 +3,8 @@ import { Item, Palette, sizeOf } from "@/lib/tokens";
 import type { Screen } from "@/parts/types";
 import { PartView } from "./PartView";
 
-/** A part that is a real shadcn M3E component: the canvas gives it the box it measured, a ring
- *  when selected, and the pointer, and leaves everything else to the component. */
+/** A part on the canvas: the canvas gives it the box it measured, a ring when selected, and the
+ *  pointer, and leaves everything else to the component. */
 export function ComponentNode({
   item,
   palette,
@@ -50,6 +50,15 @@ export function ComponentNode({
         transition: instant ? "outline-color 120ms" : "outline-color 120ms, transform 160ms cubic-bezier(0.2, 0, 0, 1)",
       }}
     >
+      <PartView item={item} screen={screen} />
+    </div>
+  );
+}
+
+/** Plain rendering of a part; used where frames must be deterministic. */
+export function StaticPart({ item, screen }: { item: Item; screen?: Screen }) {
+  return (
+    <div style={{ display: "inline-flex", flex: "0 0 auto" }}>
       <PartView item={item} screen={screen} />
     </div>
   );

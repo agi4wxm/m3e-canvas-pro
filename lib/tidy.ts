@@ -1,11 +1,11 @@
-import { CONTENT_W, Frame, Group, Item, KIND_SPEC, Kind, PHONE_MARGIN, RAIL_COLLAPSED_W, railExpansionSide, railWidth, railLayoutWidth, canJoin, isPhoneFrame, scaleR, carryItemSize, connectSpecOf, frameOfGroup, frameRect, frameSizeOf, frameLengthOf, groupBounds, layoutOf, isExpanded } from "./tokens";
+import { Frame, Group, Item, PHONE_MARGIN, RAIL_COLLAPSED_W, railExpansionSide, railWidth, canJoin, carryItemSize, connectSpecOf, frameOfGroup, frameRect, frameSizeOf, frameLengthOf, groupBounds, layoutOf, isExpanded } from "./tokens";
 import { fullWidth, roleOf } from "../parts/role";
 
 /* Rule-based layout for one screen. Nothing here is guessed by a model.
  *
- * 1. Parts of one connectable family that sit next to each other, or on top of
- *    each other, fuse into a connected run, the same way the magnetic drop does:
- *    list items stacked in a column, buttons or icon buttons side by side in a row.
+ * 1. Parts of one connectable family (see `PartDef.connect`) that sit next to each
+ *    other, or on top of each other, fuse into a connected run, the same way the
+ *    magnetic drop does.
  * 2. Bars stick to the edges they belong to (app bar and tabs at the top, the
  *    navigation bar at the bottom, toolbars and snackbars hovering above it,
  *    a bottom sheet on the bottom edge), a FAB takes the bottom-right corner,
@@ -13,22 +13,18 @@ import { fullWidth, roleOf } from "../parts/role";
  * 3. Everything else is stacked between the bars on the 16dp layout margins, from
  *    the top unless the screen asks for the body centered, at the bottom or spread. Rows,
  *    hand-made groups and intentional overlaps (a badge on an icon, parts on a
- *    box) are kept as one unit, and a part keeps the side it was on. A run
+ *    container) are kept as one unit, and a part keeps the side it was on. A run
  *    nearly as wide as the content sits on the margin; a text with a switch,
  *    checkbox or radio beside it spans the row, the control on the right.
  *
- * 4. Inside one unit (parts on a box, a hand-made group) edges that are almost
- *    aligned snap to the common line; across the screen, boxes whose corners are
- *    almost the same radius become the same, and likewise cards. Both only act on
- *    differences a hand would call a slip, never on a gap someone clearly meant.
+ * 4. Inside one unit (parts on a container, a hand-made group) edges that are almost
+ *    aligned snap to the common line. This only acts on differences a hand would
+ *    call a slip, never on a gap someone clearly meant.
  *
- * Only positions change and runs are joined; sizes, order and contents stay,
- * apart from a corner radius evened out by rule 4. */
+ * Only positions change and runs are joined; sizes, order and contents stay. */
 
 /** the farthest two edges may be apart and still count as meant to line up */
 const SNAP = 6;
-/** the farthest two corner radii may be apart and still count as meant to match */
-const RADIUS_SNAP = 4;
 
 type Rect = { l: number; t: number; r: number; b: number };
 
@@ -45,14 +41,11 @@ export const JOIN_GAP_Y = 48;
 const APART_GAP_X = JOIN_GAP_X + 8;
 const APART_GAP_Y = JOIN_GAP_Y + 8;
 
-const LIST_KINDS = new Set(["listItem", "textField", "select", "checkbox", "radio", "switch", "chip", "divider", "card"]);
-
 /** one movable unit: a group plus everything nested inside or overlapping it */
-type Unit = { ids: string[]; bb: Rect; kind: Kind; checked?: boolean; /** the family rows of one kind tighten against */ family: string; /** the first part, for family and role checks */ probe: Item };
+type Unit = { ids: string[]; bb: Rect; /** the family rows of one kind tighten against */ family: string; /** the first part, for family and role checks */ probe: Item };
 
-/** the family a part belongs to: its kind, or the component it is — two of a kind stack tight.
- *  A separator is the divider it stands for, so old and new parts still tighten against it. */
-const familyOf = (it: Item) => (it.kind === "component" ? (it.component === "separator" ? "divider" : `c:${it.component}`) : it.kind);
+/** the family a part belongs to: the component it is — two of a kind stack tight */
+const familyOf = (it: Item) => (it.component === "separator" ? "divider" : `c:${it.component}`);
 
 const overlap = (a: Rect, b: Rect) => Math.min(a.r, b.r) > Math.max(a.l, b.l) && Math.min(a.b, b.b) > Math.max(a.t, b.t);
 const union = (a: Rect, b: Rect): Rect => ({ l: Math.min(a.l, b.l), t: Math.min(a.t, b.t), r: Math.max(a.r, b.r), b: Math.max(a.b, b.b) });
@@ -118,7 +111,7 @@ const area = (r: Rect) => Math.max(0, r.r - r.l) * Math.max(0, r.b - r.t);
 /** Groups that touch each other stay together, so a badge on an icon or parts on a box move as one.
  *  Bars, FABs and dialogs never join a cluster: they have their own place and are often drawn over content. */
 function clusters(groups: Group[], widths: Record<string, number>): Unit[] {
-  const units: Unit[] = groups.map((g) => ({ ids: [g.id], bb: groupBounds(g, widths), kind: g.items[0].kind, checked: g.items[0].checked, family: familyOf(g.items[0]), probe: g.items[0] }));
+  const units: Unit[] = groups.map((g) => ({ ids: [g.id], bb: groupBounds(g, widths), family: familyOf(g.items[0]), probe: g.items[0] }));
   for (;;) {
     let merged = false;
     outer: for (let i = 0; i < units.length; i++) {
@@ -200,7 +193,7 @@ function gapBefore(prev: Unit[] | null, row: Unit[]): number {
   const ku = row.length === 1 ? row[0] : null;
   if (pu && role(pu) === "label") return TIGHT_GAP;
   if (pu && (pu.family === "divider" || ku?.family === "divider")) return TIGHT_GAP;
-  if (pu && ku && pu.family === ku.family && (LIST_KINDS.has(ku.family) || isListLike(ku))) return TIGHT_GAP;
+  if (pu && ku && pu.family === ku.family && isListLike(ku)) return TIGHT_GAP;
   return ROW_GAP;
 }
 
@@ -237,22 +230,15 @@ export function carryFrame(groups: Group[], frame: Frame, to: Frame, frames: Fra
    * inside a hand-made group is part of that group's drawing. Other standalone rails keep their kind. */
   const expanded = isExpanded(after.w);
   const mine = groups.filter((g) => owner.get(g.id) === frame.id);
-  /* the pair that swaps: the legacy kinds and the components standing in for them */
-  const isNavBar = (it: Item) => it.kind === "bottomNav" || it.component === "navigation-bar";
-  const isNavRail = (it: Item) => it.kind === "navRail" || it.component === "navigation-rail";
+  const isNavBar = (it: Item) => it.component === "navigation-bar";
+  const isNavRail = (it: Item) => it.component === "navigation-rail";
   const navGroup = mine.find((g) => g.items.length === 1 && (isNavBar(g.items[0]) || isNavRail(g.items[0])));
   const swapNav = (g: Group, it: Item): Item => {
     if (g !== navGroup) return it;
-    if (expanded && isNavBar(it)) {
-      if (it.kind === "component")
-        return { ...it, component: "navigation-rail", props: { items: it.props?.items, selected: it.props?.selected, height: toLength.h } };
-      return { ...it, kind: "navRail", railExpanded: false, size: undefined, size2: toLength.h, radiusTop: it.radiusBottom, radiusBottom: it.radiusTop };
-    }
+    if (expanded && isNavBar(it)) return { ...it, component: "navigation-rail", props: { items: it.props?.items, selected: it.props?.selected, height: toLength.h } };
     if (!expanded && isNavRail(it)) {
-      if (it.kind === "component")
-        return { ...it, component: "navigation-bar", props: { items: it.props?.items, selected: it.props?.selected, width: after.w } };
-      const { railExpanded: _expanded, railModal: _modal, [railExpansionSide]: _side, ...bar } = it;
-      return { ...bar, kind: "bottomNav", size: after.w, size2: undefined, radiusTop: it.radiusBottom, radiusBottom: it.radiusTop };
+      const { [railExpansionSide]: _side, ...bar } = it;
+      return { ...bar, component: "navigation-bar", props: { items: it.props?.items, selected: it.props?.selected, width: after.w } };
     }
     return it;
   };
@@ -262,7 +248,7 @@ export function carryFrame(groups: Group[], frame: Frame, to: Frame, frames: Fra
     if (g.items.length !== 1) return slot;
     const item = swap ? swapNav(g, g.items[0]) : g.items[0];
     if (!isNavRail(item)) return slot;
-    const w = railLayoutWidth(item);
+    const w = railWidth(item);
     const right = isNavRail(g.items[0]) && railSide(g, frame, widths) === "right";
     return { total: slot.total + w, left: slot.left + (right ? 0 : w) };
   }, { total: 0, left: 0 });
@@ -339,7 +325,7 @@ export function stretchFrame(groups: Group[], frame: Frame, length: number, fram
       if (owner === frame.id && spansScreen(g, frame, widths)) {
         const item = g.items[0];
         const height = frameLengthOf(to) - (bb.t - fr.t);
-        return { ...g, items: [item.kind === "component" ? { ...item, props: { ...item.props, height } } : { ...item, size2: height }] };
+        return { ...g, items: [{ ...item, props: { ...item.props, height } }] };
       }
       /* a loose part is judged by its middle, the way a screen takes parts in */
       const moves = owner ? below.has(owner) || (owner === frame.id && atFoot(g, bb, fr)) : (bb.t + bb.b) / 2 >= fr.b && across(bb);
@@ -376,7 +362,7 @@ export function railSide(g: Group, frame: Frame, widths: Record<string, number>)
   const placed = g.items.length === 1 ? layoutOf(g, widths)[0] : undefined;
   const bb = placed ? { l: placed.x, r: placed.x + placed.w } : groupBounds(g, widths);
   const side = item[railExpansionSide];
-  const expandedItem = item.kind === "component" ? item.props?.expanded === true : item.railExpanded;
+  const expandedItem = item.props?.expanded === true;
   if (g.items.length === 1 && expandedItem && side) {
     const middle = side === "right" ? bb.r - RAIL_COLLAPSED_W / 2 : bb.l + RAIL_COLLAPSED_W / 2;
     return middle > (fr.l + fr.r) / 2 ? "right" : "left";
@@ -388,8 +374,8 @@ export function railSide(g: Group, frame: Frame, widths: Record<string, number>)
 export function barSlotOf(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>): { x: number; w: number } {
   const { w } = frameSizeOf(frame);
   const rails = groups.filter((g) => frameOfGroup(g, frames, widths)?.id === frame.id && g.items.length === 1 && roleOf(g.items[0]) === "rail");
-  const left = rails.filter((g) => railSide(g, frame, widths) === "left").reduce((sum, g) => sum + railLayoutWidth(g.items[0]), 0);
-  return { x: frame.x + left, w: w - rails.reduce((sum, g) => sum + railLayoutWidth(g.items[0]), 0) };
+  const left = rails.filter((g) => railSide(g, frame, widths) === "left").reduce((sum, g) => sum + railWidth(g.items[0]), 0);
+  return { x: frame.x + left, w: w - rails.reduce((sum, g) => sum + railWidth(g.items[0]), 0) };
 }
 
 /** The value most of a set share, within `tol`: the biggest cluster wins; `prefer` breaks a tie, else the first seen. */
@@ -439,33 +425,6 @@ function snapEdges(unit: Unit, groups: Map<string, Group>, widths: Record<string
   return moved;
 }
 
-/** Boxes on the screen whose corner radii almost agree take the common radius, and so do
- *  cards, each kind among its own. A card still on the shape scale is not touched: writing a
- *  radius into it would cut it loose from the Shape control. */
-function evenCorners(groups: Map<string, Group>): boolean {
-  const boxes: { g: Group; it: Item; r: number }[] = [];
-  const cards: { g: Group; it: Item; r: number }[] = [];
-  for (const g of groups.values())
-    for (const it of g.items) {
-      if (it.kind === "card" && !it.corners && it.radiusTop !== undefined) cards.push({ g, it, r: it.radiusTop });
-      else if (it.kind === "box" && !it.corners && (it.radiusTop ?? 0) === (it.radiusBottom ?? 0)) boxes.push({ g, it, r: it.radiusTop ?? 0 });
-    }
-  let changed = false;
-  const even = (list: typeof boxes, prefer: number) => {
-    const common = commonValue(list.map((b) => b.r), RADIUS_SNAP, prefer);
-    if (common === null) return;
-    for (const { g, it, r } of list) {
-      if (r === common || Math.abs(r - common) > RADIUS_SNAP) continue;
-      const cur = groups.get(g.id)!;
-      groups.set(g.id, { ...cur, items: cur.items.map((x) => (x.id === it.id ? (x.kind === "card" ? { ...x, radiusTop: common } : { ...x, radiusTop: common, radiusBottom: common }) : x)) });
-      changed = true;
-    }
-  };
-  even(boxes, 28);
-  even(cards, scaleR(KIND_SPEC.card.radius));
-  return changed;
-}
-
 /** The tidied groups of the document, or null when `frame` is already tidy. */
 /** The area Tidy fills with body rows: inside the layout margins, beside the rails, between
  *  the top bars and the bottom bars. Aligning a part on the screen uses the same box, so
@@ -477,8 +436,8 @@ export function bodyRect(groups: Group[], frame: Frame, frames: Frame[], widths:
   const units = clusters(mine, widths);
   const onRight = (u: Unit) => railSide(mine.find((g) => g.id === u.ids[0])!, frame, widths) === "right";
   const rails = units.filter(isRail);
-  const leftRails = rails.filter((u) => !onRight(u)).reduce((sum, u) => sum + railLayoutWidth(u.probe), 0);
-  const rightRails = rails.filter(onRight).reduce((sum, u) => sum + railLayoutWidth(u.probe), 0);
+  const leftRails = rails.filter((u) => !onRight(u)).reduce((sum, u) => sum + railWidth(u.probe), 0);
+  const rightRails = rails.filter(onRight).reduce((sum, u) => sum + railWidth(u.probe), 0);
   let top = screen.t;
   for (const u of units.filter(isTop)) top += u.bb.b - u.bb.t;
   let bottom = screen.b;
@@ -506,27 +465,8 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   const fixedFabs = fixed.filter(isFab);
   /* the bands of body height a locked section takes, which the rows flow around */
   const bands = fixed.filter((u) => !isAnchored(u)).map((u) => u.bb).sort((a, b) => a.t - b.t);
-  /* a labelled switch standing on its own on a phone screen reads as a settings row: it takes
-   * the content width, label left, switch right. One on a box, in a group or on a desktop
-   * screen keeps its size. */
-  let widened = false;
-  const alone = (g: Group) => {
-    const r = groupBounds(g, widths);
-    /* nothing on it, and nothing beside it on the same row, which would have to share the width */
-    return ![...before, ...groups.filter((o) => mineIds.has(o.id) && o.locked)].some((o) => {
-      if (o === g) return false;
-      const ob = groupBounds(o, widths);
-      return overlap(ob, r) || share(r.t, r.b, ob.t, ob.b) > 0.5;
-    });
-  };
-  const spanned = before.map((g) => {
-    const it = g.items[0];
-    if (!isPhoneFrame(frame) || g.items.length !== 1 || it.kind !== "switch" || !it.label.trim() || it.size || !alone(g)) return g;
-    widened = true;
-    return { ...g, items: [{ ...it, size: CONTENT_W }] };
-  });
-  const mine = joinRuns(spanned, widths);
-  const joined = mine.length !== before.length || widened;
+  const mine = joinRuns(before, widths);
+  const joined = mine.length !== before.length;
 
   const units = clusters(mine, widths);
   const target = new Map<Unit, { l: number; t: number }>();
@@ -534,22 +474,20 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   /* a navigation rail stands on the edge it is nearer to, left or right (a second one beside it);
    * the rest of the screen is the body between them */
   const onRight = (u: Unit) => railSide(groups.find((g) => g.id === u.ids[0]) ?? mine.find((g) => g.id === u.ids[0])!, frame, widths) === "right";
-  const slotLeft = (u: Unit) => onRight(u) ? u.bb.r - railLayoutWidth(u.probe) : u.bb.l;
+  const slotLeft = (u: Unit) => onRight(u) ? u.bb.r - railWidth(u.probe) : u.bb.l;
   const rails = units.filter(isRail).sort((a, b) => slotLeft(a) - slotLeft(b) || a.bb.t - b.bb.t);
   const leftRails = rails.filter((u) => !onRight(u));
   const rightRails = rails.filter(onRight).reverse();
   /* locked rails keep their place; the others line up outside them */
   let leftWidth = Math.max(0, ...fixedRails.filter((u) => !onRight(u)).map((u) => u.bb.r - screen.l));
   let rightWidth = Math.max(0, ...fixedRails.filter(onRight).map((u) => screen.r - u.bb.l));
-  /* Only the modal rail overhangs its reserved slot; neighbours keep their layout positions. */
   leftRails.forEach((u) => {
     target.set(u, { l: screen.l + leftWidth, t: screen.t });
-    leftWidth += railLayoutWidth(u.probe);
+    leftWidth += railWidth(u.probe);
   });
   rightRails.forEach((u) => {
-    /* A modal rail overlays the body, but its visible outer edge stays on the screen. */
     target.set(u, { l: screen.r - rightWidth - railWidth(u.probe), t: screen.t });
-    rightWidth += railLayoutWidth(u.probe);
+    rightWidth += railWidth(u.probe);
   });
   const fr: Rect = { ...screen, l: screen.l + leftWidth, r: screen.r - rightWidth };
   const frameW = fr.r - fr.l;
@@ -683,7 +621,6 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
     }),
   );
   for (const u of units) if (snapEdges(u, placed, widths)) moved = true;
-  if (evenCorners(placed)) moved = true;
   if (!moved) return null;
   /* keep canvas order: a joined run takes the slot of its last original member */
   const survivorOf = new Map<string, Group>();

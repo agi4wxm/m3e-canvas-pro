@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Palette } from "@/lib/tokens";
 import { CATEGORIES, PARTS, partBySlug, type PartCategory } from "@/parts/registry";
 import { nameOf } from "@/parts/labels";
-import { Icon } from "./M3Node";
+import { Icon } from "./Icon";
 import { t, useLang } from "@/lib/i18n";
 import { Field, Section, Tile } from "./ui";
 

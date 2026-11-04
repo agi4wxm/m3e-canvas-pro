@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Frame, Item, NavTab, PHONE_W, Palette, actionSlotsOf, frameSizeOf } from "@/lib/tokens";
+import { Frame, Item, NavTab, PHONE_W, Palette, actionSlotsOf, defaultTabRows, defaultTabs, frameSizeOf } from "@/lib/tokens";
 import { t, useLang, type Lang } from "@/lib/i18n";
 import { partBySlug, reader } from "@/parts/registry";
 import { choiceLabelOf, labelOf, nameOf } from "@/parts/labels";
@@ -104,19 +104,20 @@ function PropRow({ def, value, onChange, item, p, frameW, lang }: { def: PropDef
     case "list": {
       const list = (value as ListItem[]) ?? [];
       const icons = def.icons === true;
-      /* the entry list takes its bounds and its spare rows from the kind: a bar's, or a tab row's */
-      const like: Item["kind"] = icons && (def.min ?? 0) >= 3 ? "bottomNav" : "tabs";
-      const rows: Item = { ...item, kind: like, tabs: toRows(list) };
+      /* destinations stay within a bar's bounds and add more destinations; any other list adds tabs */
+      const bar = icons && (def.min ?? 0) >= 3;
       return (
         <div>
           {label}
           <EntryList
-            item={rows}
+            id={item.id}
+            tabs={toRows(list)}
+            bounds={bar ? { min: 3, max: 5 } : { min: 1, max: 12 }}
+            spare={bar ? defaultTabs() : defaultTabRows()}
             icons={icons}
             fields={def.fields?.map((f) => ({ key: f.key, label: labelOf(f, lang), options: f.options.map((o) => ({ key: typeof o === "string" ? o : o.value, label: choiceLabelOf(o, lang) })) }))}
-            onChange={(patch) => {
-              if (!patch.tabs) return;
-              const next = fromRows(patch.tabs, icons);
+            onChange={(tabs) => {
+              const next = fromRows(tabs, icons);
               if (next.length < (def.min ?? 1) || next.length > (def.max ?? 12)) return;
               onChange(next);
             }}
@@ -188,7 +189,7 @@ export function ComponentInspector({
       p={p}
       locked={!!locked}
       onUnlock={onToggleLock}
-      head={<PartHeader kind={item.kind} title={nameOf(def, lang)} icon={def.icon} p={p} locked={!!locked} onDuplicate={onDuplicate} onToggleLock={onToggleLock} onDelete={onDelete} />}
+      head={<PartHeader title={nameOf(def, lang)} icon={def.icon} p={p} locked={!!locked} onDuplicate={onDuplicate} onToggleLock={onToggleLock} onDelete={onDelete} />}
       tabs={<PartTabs value={tab} onChange={setTab} p={p} />}
     >
       {tab === "design" && (

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 import { DEFAULT_THEME, PALETTES, Palette, paletteOf } from "./tokens";
-import { contrastRatio, hexToRgb, isHex, onColorFor, railSelectedLabelColor, rgbToHex, rgbToLab, schemeFromSeed } from "./color";
+import { contrastRatio, hexToRgb, isHex, onColorFor, rgbToHex, rgbToLab, schemeFromSeed } from "./color";
 
 /** perceptual lightness of a hex color, for readable-contrast assertions */
 const toneOf = (hex: string) => rgbToLab(...hexToRgb(hex)!).L;
@@ -49,17 +49,18 @@ describe("schemeFromSeed", () => {
       const p = schemeFromSeed(seed, "Custom", { dark, contrast });
       expect(isHex(p.secondary)).toBe(true);
       expect(Math.abs(toneOf(p.secondary) - toneOf(p.surfaceContainer))).toBeGreaterThan(45);
-      for (const expanded of [false, true]) {
-        const background = expanded ? p.secondaryContainer : p.surfaceContainer;
-        expect(contrastRatio(railSelectedLabelColor(p, expanded), background)).toBeGreaterThanOrEqual(4.5);
+      /* a label reads either in the secondary role or in the on-color of what it sits on */
+      for (const [background, onBackground] of [[p.surfaceContainer, p.onSurface], [p.secondaryContainer, p.onSecondaryContainer]]) {
+        expect(Math.max(contrastRatio(p.secondary, background), contrastRatio(onBackground, background))).toBeGreaterThanOrEqual(4.5);
       }
       if (contrast === "standard") {
-        expect(railSelectedLabelColor(p, false)).toBe(p.secondary);
-        expect(railSelectedLabelColor(p, true)).toBe(p.secondary);
+        expect(contrastRatio(p.secondary, p.surfaceContainer)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(p.secondary, p.secondaryContainer)).toBeGreaterThanOrEqual(4.5);
       }
       if (contrast === "high") {
-        expect(railSelectedLabelColor(p, false)).toBe(p.secondary);
-        expect(railSelectedLabelColor(p, true)).toBe(p.onSecondaryContainer);
+        expect(contrastRatio(p.secondary, p.surfaceContainer)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(p.secondary, p.secondaryContainer)).toBeLessThan(4.5);
+        expect(contrastRatio(p.onSecondaryContainer, p.secondaryContainer)).toBeGreaterThanOrEqual(4.5);
       }
     }
     expect(toneOf(schemeFromSeed(seed, "Custom", { dark }).secondary)).toBeCloseTo(dark ? 80 : 40, 0);

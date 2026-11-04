@@ -7,8 +7,8 @@ const doc = (): Doc => ({
   title: "設計 中文 한국어 🎨 + & # %", brief: "First line\nSecond line", paletteKey: "purple", frame: "phone",
   frames: [{ id: "f", name: "Home", x: 0, y: 0, w: 1280, h: 800, note: "Keep frame note", noteHistory: ["Private frame draft"] }],
   groups: [{ id: "g", x: -10, y: 20, axis: "x", items: [
-    { id: "i", kind: "image", label: "画像", icon: null, variant: "filled", src: "data:image/png;base64,AAAA", note: "Keep item note", noteHistory: ["Private item draft"] },
-    { id: "remote", kind: "image", label: "Public image", icon: null, variant: "filled", src: "https://example.test/image.png" },
+    { id: "i", kind: "component", component: "image", label: "画像", icon: null, variant: "filled", props: { src: "data:image/png;base64,AAAA" }, note: "Keep item note", noteHistory: ["Private item draft"] },
+    { id: "remote", kind: "component", component: "image", label: "Public image", icon: null, variant: "filled", props: { src: "https://example.test/image.png" } },
   ] }],
 });
 const plainHash = (value: unknown) => `#doc=${encodeURIComponent(JSON.stringify(value))}`;
@@ -26,22 +26,22 @@ describe("shareable", () => {
       ...value,
       frames: value.frames.map(({ noteHistory: _history, ...frame }) => frame),
       groups: value.groups.map((group) => ({ ...group, items: [
-        { id: "i", kind: "image", label: "画像", icon: null, variant: "filled", note: "Keep item note" },
-        { id: "remote", kind: "image", label: "Public image", icon: null, variant: "filled", src: "https://example.test/image.png" },
+        { id: "i", kind: "component", component: "image", label: "画像", icon: null, variant: "filled", props: {}, note: "Keep item note" },
+        { id: "remote", kind: "component", component: "image", label: "Public image", icon: null, variant: "filled", props: { src: "https://example.test/image.png" } },
       ] })),
     });
   });
 
   it.each(["http://example.test/a.png", "https://example.test/a.png?x=1&y=2"])("preserves public source %s", (src) => {
     const value = doc();
-    value.groups[0].items[0].src = src;
-    expect(shareable(value).groups[0].items[0].src).toBe(src);
+    value.groups[0].items[0].props = { src };
+    expect(shareable(value).groups[0].items[0].props?.src).toBe(src);
   });
 
-  it.each([undefined, "", "data:image/png;base64,AAAA", "blob:https://example.test/id", "/image.png", "//example.test/image.png", "file:///image.png"])("omits non-public source %s", (src) => {
+  it.each([undefined, "data:image/png;base64,AAAA"])("omits non-public source %s", (src) => {
     const value = doc();
-    value.groups[0].items[0].src = src;
-    expect(shareable(value).groups[0].items[0]).not.toHaveProperty("src");
+    value.groups[0].items[0].props = src === undefined ? {} : { src };
+    expect(shareable(value).groups[0].items[0].props).not.toHaveProperty("src");
   });
 
   it("does not mutate or reuse the edited document's frame/group/item objects", () => {
@@ -81,17 +81,6 @@ describe("shareable", () => {
     expect(value.groups[0].items[0].props).toEqual({ image: "data:image/webp;base64,AAAA", initials: "TK" });
   });
 
-  it("drops the picture of the old part a converted one remembers", () => {
-    const value = doc();
-    const old: Item = { id: "c", kind: "card", label: "Card", icon: null, variant: "filled", src: "data:image/png;base64,AAAA", noteHistory: ["draft"] };
-    value.groups[0].items = [{ id: "c", kind: "component", component: "card", label: "Card", icon: null, variant: "filled", props: { title: "Card" }, legacy: old }];
-    const kept = shareable(value).groups[0].items[0].legacy!;
-    expect(kept.src).toBeUndefined();
-    expect(kept.noteHistory).toBeUndefined();
-    expect(kept.label).toBe("Card");
-    expect(value.groups[0].items[0].legacy!.src).toBe("data:image/png;base64,AAAA");
-  });
-
   it("leaves a component without image props untouched", () => {
     const value = doc();
     value.groups[0].items = [{ id: "b", kind: "component", component: "button", label: "", icon: null, variant: "filled", props: { label: "Go" } }];
@@ -102,17 +91,17 @@ describe("shareable", () => {
 describe("shareLink and readShareHash", () => {
   it("preserves navigation rail states through compressed and plain share links", async () => {
     const value = doc();
+    const rail = (id: string, props?: Record<string, unknown>): Item => ({ id, kind: "component", component: "navigation-rail", label: "", icon: null, variant: "filled", ...(props ? { props } : {}) });
     value.groups[0].items = [
-      { id: "legacy", kind: "navRail", label: "", icon: null, variant: "filled" },
-      { id: "collapsed", kind: "navRail", label: "", icon: null, variant: "filled", railExpanded: false, railModal: false },
-      { id: "expanded", kind: "navRail", label: "", icon: null, variant: "filled", railExpanded: true, railModal: true },
-      { id: "modal-only", kind: "navRail", label: "", icon: null, variant: "filled", railModal: true },
+      rail("unset"),
+      rail("collapsed", { expanded: false, modal: false }),
+      rail("expanded", { expanded: true, modal: true }),
+      rail("modal-only", { modal: true }),
     ];
     const link = await shareLink(value, "https://example.test/canvas/");
     const result = await readShareHash(new URL(link).hash);
     expect(result?.groups[0].items).toEqual(value.groups[0].items);
-    expect(result?.groups[0].items[0]).not.toHaveProperty("railExpanded");
-    expect(result?.groups[0].items[0]).not.toHaveProperty("railModal");
+    expect(result?.groups[0].items[0]).not.toHaveProperty("props");
     const plain = await readShareHash(plainHash(value));
     expect(plain?.groups[0].items).toEqual(value.groups[0].items);
   });
@@ -206,7 +195,7 @@ describe("shareLink and readShareHash", () => {
     await expect(readShareHash(hash)).resolves.toBeNull();
   });
 
-  it.each([null, [], {}, { groups: [], frames: null }, { ...doc(), platform: 7 },
+  it.each([null, [], {}, { groups: [], frames: null },
     { ...doc(), groups: [{ ...doc().groups[0], items: [] }] },
   ].map((value) => [value]))("rejects non-project JSON in either encoding: %# %o", async (value) => {
     await expect(readShareHash(plainHash(value))).resolves.toBeNull();

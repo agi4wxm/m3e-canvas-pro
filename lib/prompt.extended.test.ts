@@ -5,11 +5,11 @@
  *  - buildPrompt picks the right language strings (ja / en / zh)
  *  - the prompt includes intro, target, platform, sketch header
  *  - the color section lists every required Palette role
- *  - the layout section names every item by its kind-specific text
+ *  - the layout section names every part and writes out its code
  *  - Japanese / Chinese quotes are used per language
  *  - bothModes emits BOTH light and dark palette sections
  *  - dynamicColor flag changes the prompt text
- *  - the prompt targets the web with shadcn M3E and uses the browser style notes
+ *  - the prompt targets the web with shadcn M3E
  *  - effectivePrompt returns the author's edit when present, buildPrompt otherwise
  *  - onlyFrameId restricts output to one screen
  *  - empty doc still produces a valid prompt (freeform / empty message)
@@ -22,10 +22,8 @@ import { Lang } from "./i18n";
 import {
   Doc,
   Frame,
-  Group,
   Item,
   Palette,
-  PHONE_W,
   PHONE_H,
   makeItem,
   LINK_TARGET,
@@ -65,6 +63,8 @@ const palette: Palette = {
 };
 
 const phoneFrame: Frame = { id: "f1", name: "Home", x: 0, y: 0 };
+
+const part = (slug: string, id: string, props: Record<string, unknown> = {}, extra: Partial<Item> = {}): Item => ({ ...makeItem("component", slug), id, props, ...extra });
 
 function baseDoc(overrides: Partial<Doc> = {}): Doc {
   return {
@@ -163,33 +163,34 @@ describe("buildPrompt — palette section", () => {
 });
 
 describe("buildPrompt — items are named in language", () => {
-  it("an English button is described as 'a ... button \"Click\"'", () => {
-    const item: Item = { id: "b1", kind: "button", label: "Click", icon: null, variant: "filled" };
+  it("an English button is named and written out as the code it stands for", () => {
+    const item = part("button", "b1", { label: "Click" });
     const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [item] }] });
     const out = buildPrompt(doc, widths, undefined, "en");
-    expect(out).toContain(`"Click"`);
-    expect(out).toMatch(/a filled button/);
+    expect(out).toContain(`the shadcn M3E Button "Click"`);
+    expect(out).toContain(`<Button variant="filled"`);
   });
 
-  it("a Japanese button is described with 「ラベル」 quotes", () => {
-    const item: Item = { id: "b1", kind: "button", label: "クリック", icon: null, variant: "filled" };
+  /* a part's line quotes its code; the behavior notes are what quote its label in the language */
+  it("a Japanese button is noted with 「ラベル」 quotes", () => {
+    const item = part("button", "b1", { label: "クリック" }, { note: "保存する" });
     const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [item] }] });
     const out = buildPrompt(doc, widths, undefined, "ja");
     expect(out).toContain("「クリック」");
   });
 
-  it("a Chinese list item uses “…” quotes and Chinese text", () => {
-    const item: Item = { id: "l1", kind: "listItem", label: "项目", icon: "person", icon2: "chevron_right", variant: "filled" };
+  it("a Chinese list item is noted with “…” quotes and Chinese text", () => {
+    const item = part("item", "l1", { items: [{ label: "项目", icon: "person" }] }, { note: "打开详情" });
     const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "y", items: [item] }] });
     const out = buildPrompt(doc, widths, undefined, "zh");
     expect(out).toContain("“项目”");
   });
 
-  it("empty / whitespace label falls back to 'no label' phrasing in English", () => {
-    const item: Item = { id: "b1", kind: "button", label: "   ", icon: null, variant: "filled" };
+  it("empty / whitespace label falls back to the part's bare name in English", () => {
+    const item = part("button", "b1", { label: "   " });
     const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [item] }] });
     const out = buildPrompt(doc, widths, undefined, "en");
-    expect(out).toContain("with no label");
+    expect(out).toContain("the shadcn M3E Button: `");
   });
 });
 
@@ -202,22 +203,22 @@ describe("extended FAB scroll-collapse prompt", () => {
   };
 
   it.each(["ja", "en", "zh", "ko"] as Lang[])("describes the enabled scroll transform in %s", (lang) => {
-    const fab: Item = { ...makeItem("extendedFab"), id: "fab", label: "Add", icon: "add", collapseOnScroll: true };
+    const fab = part("fab", "fab", { label: "Add", icon: "add" }, { collapseOnScroll: true });
     expect(buildPrompt(baseDoc({ frames: [{ ...phoneFrame, length: PHONE_H * 2 }], groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [fab] }] }), widths, undefined, lang)).toContain(BEHAVIOR[lang]);
   });
 
   it.each(["ja", "en", "zh", "ko"] as Lang[])("does not describe the transform when the screen does not scroll in %s", (lang) => {
-    const fab: Item = { ...makeItem("extendedFab"), id: "fab", label: "Add", icon: "add", collapseOnScroll: true };
+    const fab = part("fab", "fab", { label: "Add", icon: "add" }, { collapseOnScroll: true });
     expect(buildPrompt(baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [fab] }] }), widths, undefined, lang)).not.toContain(BEHAVIOR[lang]);
   });
 
   it.each(["ja", "en", "zh", "ko"] as Lang[])("does not describe the transform without an icon to fold into in %s", (lang) => {
-    const fab: Item = { ...makeItem("extendedFab"), id: "fab", label: "Add", icon: null, collapseOnScroll: true };
+    const fab = part("fab", "fab", { label: "Add", icon: "" }, { collapseOnScroll: true });
     expect(buildPrompt(baseDoc({ frames: [{ ...phoneFrame, length: PHONE_H * 2 }], groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [fab] }] }), widths, undefined, lang)).not.toContain(BEHAVIOR[lang]);
   });
 
   it.each(["ja", "en", "zh", "ko"] as Lang[])("does not describe the transform when disabled in %s", (lang) => {
-    const fab: Item = { ...makeItem("extendedFab"), id: "fab", label: "Add", icon: "add", collapseOnScroll: false };
+    const fab = part("fab", "fab", { label: "Add", icon: "add" }, { collapseOnScroll: false });
     expect(buildPrompt(baseDoc({ frames: [{ ...phoneFrame, length: PHONE_H * 2 }], groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [fab] }] }), widths, undefined, lang)).not.toContain(BEHAVIOR[lang]);
   });
 });
@@ -231,45 +232,70 @@ describe("buildPrompt — web with shadcn M3E", () => {
     expect(out).not.toMatch(/Android|Compose|Jetpack|APK/);
   });
 
-  it("emits the browser style notes for the bars", () => {
-    // STYLE_NOTES_WEB.en only covers topAppBar/bottomNav, so use a top app bar
-    // and assert its actual note text.
-    const item: Item = { id: "t1", kind: "topAppBar", label: "Title", icon: null, variant: "filled" };
-    const doc = baseDoc({
-      groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [item] }],
-    });
-    const out = buildPrompt(doc, widths, undefined, "en");
-    expect(out).toContain("Top app bar: 64dp tall on surface");
+});
+
+describe("buildPrompt — a part's shape and its entries are in its code", () => {
+  const screen = (item: Item) => baseDoc({ groups: [{ id: "g", x: 16, y: 100, axis: "x", items: [item] }] });
+
+  it("a carousel names its layout and its cards", () => {
+    const slides = [{ label: "One" }, { label: "Two" }, { label: "Three" }];
+    const out = buildPrompt(screen(part("expressive-carousel", "c", { variant: "hero", slides })), widths, undefined, "en");
+    expect(out).toContain(`variant="hero"`);
+    for (const { label } of slides) expect(out).toContain(label);
+  });
+
+  it("a FAB menu says so, with the entries it raises", () => {
+    const items = [{ label: "Note", icon: "edit" }, { label: "Voice", icon: "mic" }];
+    const out = buildPrompt(screen(part("fab-menu", "f", { items })), widths, undefined, "en");
+    expect(out).toContain("<FabMenu");
+    expect(out).toContain("Note");
+    expect(out).toContain("Voice");
+    expect(out).toContain("edit");
+    expect(out).toContain("mic");
+  });
+
+  it("a progress indicator still says which shape it is", () => {
+    const bar = buildPrompt(screen(part("progress", "p", { variant: "wavy", value: 40 })), widths, undefined, "en");
+    expect(bar).toContain(`<Progress value={40} variant="wavy"`);
+    const ring = buildPrompt(screen(part("circular-progress", "r", { indeterminate: true, thickness: 8 })), widths, undefined, "en");
+    expect(ring).toContain("<CircularProgress");
+    expect(ring).toContain("thickness={8}");
+    expect(ring).not.toMatch(/<CircularProgress[^>]*value=/);
+  });
+
+  it("an app bar names its size", () => {
+    expect(buildPrompt(screen(part("app-bar", "b", { title: "Inbox", size: "medium" })), widths, undefined, "en")).toContain(`size="medium"`);
+    expect(buildPrompt(screen(part("app-bar", "b", { title: "Inbox" })), widths, undefined, "en")).not.toContain(`size="medium"`);
   });
 });
 
 describe("buildPrompt — behavior / actions", () => {
   it("an item with action.to='back' generates a 'go back' note", () => {
-    const item: Item = { id: "b1", kind: "button", label: "Back", icon: null, variant: "filled", action: { to: "back", transition: "none" } };
+    const item = part("button", "b1", { label: "Back" }, { action: { to: "back", transition: "none" } });
     const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [item] }] });
     const out = buildPrompt(doc, widths, undefined, "en");
     expect(out).toMatch(/go back|previous screen/i);
   });
 
   it("a button with a link action names the address it opens, and says nothing without one", () => {
-    const linked: Item = { id: "b1", kind: "button", label: "Docs", icon: null, variant: "filled", action: { to: LINK_TARGET, transition: "none", url: "example.com/docs" } };
+    const linked = part("button", "b1", { label: "Docs" }, { action: { to: LINK_TARGET, transition: "none", url: "example.com/docs" } });
     const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [linked] }] });
     expect(buildPrompt(doc, widths, undefined, "en")).toContain("opens https://example.com/docs in a new browser tab");
     const blank = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [{ ...linked, action: { to: LINK_TARGET, transition: "none" } }] }] });
     expect(buildPrompt(blank, widths, undefined, "en")).not.toMatch(/browser tab/);
   });
 
-  it("a button that was given a height says so, with the M3 size it lands on", () => {
-    const tall: Item = { id: "b1", kind: "button", label: "Start", icon: null, variant: "filled", size2: 96 };
+  it("a button that was given a size says so, by the M3 size it lands on", () => {
+    const tall = part("button", "b1", { label: "Start", size: "lg" });
     const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [tall] }] });
-    expect(buildPrompt(doc, widths, undefined, "en")).toContain("(96dp tall / M3 L)");
-    const plain = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [{ ...tall, size2: undefined }] }] });
-    expect(buildPrompt(plain, widths, undefined, "en")).not.toMatch(/\(\d+dp tall/);
+    expect(buildPrompt(doc, widths, undefined, "en")).toContain(`size="lg"`);
+    const plain = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [{ ...tall, props: { label: "Start" } }] }] });
+    expect(buildPrompt(plain, widths, undefined, "en")).not.toContain(`size="lg"`);
   });
 
   it("an item with action.to=<frameId> generates an 'opens the ... screen' note", () => {
     const target: Frame = { id: "f2", name: "Settings", x: 600, y: 0 };
-    const item: Item = { id: "b1", kind: "button", label: "Open", icon: null, variant: "filled", action: { to: "f2", transition: "slide" } };
+    const item = part("button", "b1", { label: "Open" }, { action: { to: "f2", transition: "slide" } });
     const doc = baseDoc({ frames: [phoneFrame, target], groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [item] }] });
     const out = buildPrompt(doc, widths, undefined, "en");
     expect(out).toContain(`"Settings"`);
@@ -290,8 +316,8 @@ describe("buildPrompt — empty document", () => {
 describe("buildPrompt — onlyFrameId", () => {
   it("restricts output to the named frame only", () => {
     const f2: Frame = { id: "f2", name: "Other", x: 600, y: 0 };
-    const item1: Item = { id: "a", kind: "button", label: "OnlyHome", icon: null, variant: "filled" };
-    const item2: Item = { id: "b", kind: "button", label: "OnlyOther", icon: null, variant: "filled" };
+    const item1 = part("button", "a", { label: "OnlyHome" });
+    const item2 = part("button", "b", { label: "OnlyOther" });
     const doc = baseDoc({
       frames: [phoneFrame, f2],
       groups: [
@@ -314,8 +340,8 @@ describe("buildPrompt — multi-screen doc", () => {
     const doc = baseDoc({
       frames: [phoneFrame, f2],
       groups: [
-        { id: "g1", x: 100, y: 100, axis: "x", items: [{ id: "a", kind: "button", label: "B1", icon: null, variant: "filled" }] },
-        { id: "g2", x: 700, y: 100, axis: "x", items: [{ id: "b", kind: "button", label: "B2", icon: null, variant: "filled" }] },
+        { id: "g1", x: 100, y: 100, axis: "x", items: [part("button", "a", { label: "B1" })] },
+        { id: "g2", x: 700, y: 100, axis: "x", items: [part("button", "b", { label: "B2" })] },
       ],
     });
     const out = buildPrompt(doc, widths, undefined, "en");
@@ -338,19 +364,10 @@ describe("effectivePrompt", () => {
   });
 });
 
-describe("buildPrompt — style notes", () => {
-  it("button usage adds the button style note", () => {
-    const item: Item = { id: "b1", kind: "button", label: "Go", icon: null, variant: "filled" };
-    const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [item] }] });
-    const out = buildPrompt(doc, widths, undefined, "en");
-    // The button style note begins with "button:" in the en STYLE_NOTES map
-    expect(out).toContain("Buttons:");
-  });
-});
 
 describe("integration with makeItem", () => {
   it("buildPrompt accepts a Doc with items made by makeItem", () => {
-    const item = makeItem("button");
+    const item = makeItem("component", "button");
     const doc = baseDoc({ groups: [{ id: "g", x: 100, y: 100, axis: "x", items: [item] }] });
     const out = buildPrompt(doc, widths, undefined, "en");
     expect(out.length).toBeGreaterThan(200);

@@ -1,6 +1,6 @@
 import { isValidElement, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PALETTES, PHONE_H, makeItem, sizeOf, type Doc, type Group, type Item, type Kind } from "../lib/tokens";
+import { PALETTES, PHONE_H, makeItem, sizeOf, type Doc, type Group, type Item } from "../lib/tokens";
 import { Preview } from "./Preview";
 
 const hooks = vi.hoisted(() => ({
@@ -38,19 +38,18 @@ vi.mock("motion/react", () => ({
   useTransform: () => 0,
 }));
 vi.mock("@/lib/tokens", () => import("../lib/tokens"));
-vi.mock("@/lib/rail", () => import("../lib/rail"));
-vi.mock("@/lib/railView", () => import("../lib/railView"));
 vi.mock("@/lib/tidy", () => import("../lib/tidy"));
 vi.mock("@/lib/i18n", async () => ({ ...await import("../lib/i18n"), useLang: () => "en" }));
-vi.mock("./M3Node", () => ({ M3Node: "node", Icon: "icon" }));
-vi.mock("./ui", () => ({ IconBtn: "button" }));
+vi.mock("./Icon", () => ({ Icon: "icon" }));
+vi.mock("./PartView", () => ({ PartView: "part-view" }));
 
+const part = (slug: string, id: string, props: Record<string, unknown> = {}): Item => ({ ...makeItem("component", slug), id, props });
 const doc: Doc = {
   frame: "phone", paletteKey: "purple", title: "", brief: "",
   frames: [{ id: "first", name: "First", x: 0, y: 0, w: 1280, h: 800 }, { id: "next", name: "Next", x: 1400, y: 0, w: 1280, h: 800 }],
   groups: [0, 1400].map((x, i) => ({
     id: `group-${i}`, x, y: 0, axis: "y",
-    items: [{ id: `rail-${i}`, kind: "navRail", label: "", icon: "menu", variant: "filled", railExpanded: true, railModal: true }],
+    items: [part("navigation-rail", `rail-${i}`, { expanded: true })],
   })),
 };
 type Element = ReactElement<Record<string, unknown>>;
@@ -89,13 +88,11 @@ function runEffects() {
   return () => cleanups.forEach((cleanup) => cleanup?.());
 }
 
-describe("preview screen modal lifecycle", () => {
-  const previous = { isConnected: true, closest: vi.fn(), focus: vi.fn() };
-  const toggle = { closest: () => ({}), focus: vi.fn(() => { documentState.activeElement = toggle; }) };
+describe("preview screen lifecycle", () => {
+  const previous = { closest: vi.fn(), focus: vi.fn() };
   const body = { closest: () => null };
-  const documentState = { activeElement: previous as typeof previous | typeof toggle | typeof body | null, body };
-  let previousInside = true;
-  const host = { querySelector: vi.fn(() => toggle), contains: (element: unknown) => element === toggle || (element === previous && previousInside), focus: vi.fn() };
+  const documentState = { activeElement: previous as typeof previous | typeof body | null, body };
+  const host = { focus: vi.fn() };
   const addEventListener = vi.fn();
   const removeEventListener = vi.fn();
   const attach = (tree: Element) => { (tree.props.ref as { current: unknown }).current = host; };
@@ -107,8 +104,6 @@ describe("preview screen modal lifecycle", () => {
     hooks.effects = [];
     hooks.present = true;
     hooks.peek = false;
-    previous.isConnected = true;
-    previousInside = true;
     previous.closest.mockReturnValue(null);
     documentState.activeElement = previous;
     vi.stubGlobal("document", documentState);
@@ -116,15 +111,13 @@ describe("preview screen modal lifecycle", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("keeps the peek screen inert and free of modal side effects", () => {
+  it("keeps the peek screen inert and free of side effects", () => {
     const element = screenElement(true);
     expect(element.props.active).toBe(false);
     const tree = renderScreen(element);
     attach(tree);
     const cleanup = runEffects();
     expect(tree.props).toMatchObject({ inert: true, "aria-hidden": true, role: "group", "aria-label": "Next" });
-    expect(tree.props["aria-modal"]).toBeUndefined();
-    expect(toggle.focus).not.toHaveBeenCalled();
     expect(host.focus).not.toHaveBeenCalled();
     expect(addEventListener).not.toHaveBeenCalled();
     cleanup();
@@ -142,69 +135,36 @@ describe("preview screen modal lifecycle", () => {
     runEffects();
     expect(tree.props).toMatchObject({ tabIndex: -1, role: "group", "aria-label": "First" });
     expect(host.focus).toHaveBeenCalledOnce();
-    expect(toggle.focus).not.toHaveBeenCalled();
   });
 
-  it("focuses and registers keyboard handling while the screen is active", () => {
-    const element = screenElement();
-    const tree = renderScreen(element);
-    attach(tree);
-    const cleanup = runEffects();
-    expect(tree.props).toMatchObject({ inert: false, role: "dialog", "aria-modal": true });
-    expect(toggle.focus).toHaveBeenCalledOnce();
-    expect(addEventListener).toHaveBeenCalledWith("keydown", expect.any(Function), true);
-    cleanup();
-    expect(removeEventListener).toHaveBeenCalledWith("keydown", addEventListener.mock.calls[0][1], true);
-  });
-
-  it("deactivates a mounted modal without reclaiming focus when it exits", () => {
+  it("goes inert without reclaiming focus when it exits", () => {
+    documentState.activeElement = null;
     const element = screenElement();
     attach(renderScreen(element));
     const cleanup = runEffects();
-    expect(toggle.focus).toHaveBeenCalledOnce();
-    expect(addEventListener).toHaveBeenCalledWith("keydown", expect.any(Function), true);
-    const listener = addEventListener.mock.calls[0][1];
+    expect(host.focus).toHaveBeenCalledOnce();
     vi.clearAllMocks();
 
     hooks.present = false;
     const exiting = renderScreen(element);
     expect(exiting.props).toMatchObject({ inert: true, "aria-hidden": true, role: "group" });
-    expect(exiting.props["aria-modal"]).toBeUndefined();
     cleanup();
-    expect(previous.focus).not.toHaveBeenCalled();
-    expect(removeEventListener).toHaveBeenCalledWith("keydown", listener, true);
     const cleanupExiting = runEffects();
-    expect(toggle.focus).not.toHaveBeenCalled();
-    expect(addEventListener).not.toHaveBeenCalled();
+    expect(host.focus).not.toHaveBeenCalled();
     cleanupExiting();
-    expect(previous.focus).not.toHaveBeenCalled();
-  });
-
-  it.each(["connected", "outside", "inert", "disconnected"])("restores a %s previous target only when safe on modal dismissal", (status) => {
-    const element = screenElement();
-    attach(renderScreen(element));
-    const cleanup = runEffects();
-    previous.isConnected = status !== "disconnected";
-    previousInside = status !== "outside";
-    previous.closest.mockReturnValue(status === "inert" ? {} : null);
-    renderScreen({ ...element, props: { ...element.props, groups: [] } });
-    cleanup();
-    expect(previous.focus).toHaveBeenCalledTimes(status === "connected" ? 1 : 0);
-    // an unusable previous target hands the keyboard to the screen itself, never to the body
-    expect(host.focus).toHaveBeenCalledTimes(status === "connected" ? 0 : 1);
+    expect(host.focus).not.toHaveBeenCalled();
   });
 });
 
 describe("preview of a screen longer than the device", () => {
-  const part = (kind: Kind, id: string): Item => ({ ...makeItem(kind), id });
-  const navH = sizeOf(part("bottomNav", "nav"), {}).h;
+  const navH = sizeOf(part("navigation-bar", "nav"), {}).h;
   const groups: Group[] = [
-    { id: "bar", x: 0, y: 0, axis: "x", items: [part("topAppBar", "bar")] },
-    { id: "row", x: 16, y: 1200, axis: "y", items: [part("listItem", "row")] },
+    { id: "bar", x: 0, y: 0, axis: "x", items: [part("app-bar", "bar")] },
+    { id: "row", x: 16, y: 1200, axis: "y", items: [part("item", "row")] },
     { id: "head-fab", x: 300, y: 300, axis: "x", items: [part("fab", "head-fab")] },
     { id: "mid-fab", x: 300, y: 850, axis: "x", items: [part("fab", "mid-fab")] },
     { id: "foot-fab", x: 300, y: 1200, axis: "x", items: [part("fab", "foot-fab")] },
-    { id: "nav", x: 0, y: PHONE_H * 2 - navH, axis: "x", items: [part("bottomNav", "nav")] },
+    { id: "nav", x: 0, y: PHONE_H * 2 - navH, axis: "x", items: [part("navigation-bar", "nav")] },
   ];
   const render = (length?: number) => {
     const element = screenElement();
@@ -212,8 +172,6 @@ describe("preview of a screen longer than the device", () => {
   };
   const tops = (node: unknown) =>
     Object.fromEntries(elements(node).filter((e) => e.props["data-preview-group"]).map((e) => [e.props["data-preview-group"], (e.props.style as { top: number }).top]));
-  const panY = (node: unknown) =>
-    Object.fromEntries(elements(node).filter((e) => typeof e.type === "function" && "item" in e.props).map((e) => [(e.props.item as Item).id, e.props.panY]));
 
   beforeEach(() => {
     hooks.refs = [];
@@ -237,36 +195,31 @@ describe("preview of a screen longer than the device", () => {
     });
   });
 
-  it("leaves a drag up or down on the body to the scroll, and keeps the bars for swipes", () => {
-    expect(panY(render(PHONE_H * 2))).toEqual({ bar: false, row: true, "head-fab": false, "mid-fab": true, "foot-fab": false, nav: false });
-  });
-
   it("draws a screen the device holds as before", () => {
     const tree = render();
     expect(elements(tree).some((e) => e.props["data-scroll-body"])).toBe(false);
     expect(tops(tree)).toMatchObject({ row: 1200, nav: PHONE_H * 2 - navH });
-    expect(Object.values(panY(tree)).every((v) => v === false)).toBe(true);
   });
 });
 
 describe("a label-bearing FAB that folds while the screen scrolls", () => {
-  const part = (kind: Kind, id: string): Item => ({ ...makeItem(kind), id });
-  const ext = (id: string, extra: Partial<Item> = {}): Item => ({ ...makeItem("extendedFab"), id, size2: 56, icon: "add", label: "Create", ...extra });
-  const navH = sizeOf(part("bottomNav", "nav"), {}).h;
+  const ext = (id: string, extra: Partial<Item> = {}): Item => ({ ...part("fab", id, { icon: "add", label: "Create" }), ...extra });
+  const navH = sizeOf(part("navigation-bar", "nav"), {}).h;
   const groups: Group[] = [
     /* the bar is anchored to the head, so it stays put while the body scrolls */
-    { id: "bar", x: 0, y: 0, axis: "x", items: [part("topAppBar", "bar"), ext("bar-fab", { collapseOnScroll: true })] },
+    { id: "bar", x: 0, y: 0, axis: "x", items: [part("app-bar", "bar"), ext("bar-fab", { collapseOnScroll: true })] },
     { id: "fab", x: 200, y: 850, axis: "x", items: [ext("fab", { collapseOnScroll: true })] },
     { id: "keep", x: 200, y: 500, axis: "x", items: [ext("keep")] },
-    { id: "nav", x: 0, y: PHONE_H * 2 - navH, axis: "x", items: [part("bottomNav", "nav")] },
+    { id: "nav", x: 0, y: PHONE_H * 2 - navH, axis: "x", items: [part("navigation-bar", "nav")] },
   ];
   const long = { id: "long", name: "Long", x: 0, y: 0, length: PHONE_H * 2 };
   const treeOf = (element: Element, fresh: boolean) => renderScreen({ ...element, props: { ...element.props, frame: long, groups } }, fresh);
-  const kinds = (node: unknown) =>
+  /* whether each part on the screen is drawn folded */
+  const foldedParts = (node: unknown) =>
     Object.fromEntries(
       elements(node)
         .filter((e) => typeof e.type === "function" && "item" in e.props)
-        .map((e) => [(e.props.item as Item).id, (e.props.item as Item).kind]),
+        .map((e) => [(e.props.item as Item).id, (e.props.item as Item).props?.collapsed === true]),
     );
   const scrollBody = (node: unknown, scrollTop: number) => {
     const body = elements(node).find((e) => e.props["data-scroll-body"]);
@@ -288,28 +241,31 @@ describe("a label-bearing FAB that folds while the screen scrolls", () => {
   it("folds when the body scrolls down, stays folded at rest, and unfolds when it scrolls up", () => {
     const element = screenElement();
     let tree = treeOf(element, true);
-    const extended = { bar: "topAppBar", "bar-fab": "extendedFab", fab: "extendedFab", keep: "extendedFab", nav: "bottomNav" };
-    const folded = { ...extended, "bar-fab": "fab", fab: "fab" };
-    expect(kinds(tree)).toEqual(extended);
+    const extended = { bar: false, "bar-fab": false, fab: false, keep: false, nav: false };
+    const folded = { ...extended, "bar-fab": true, fab: true };
+    expect(foldedParts(tree)).toEqual(extended);
     /* even the first small movement down folds both a pinned and a body-riding FAB */
     scrollBody(tree, 1);
     tree = treeOf(element, false);
-    expect(kinds(tree)).toEqual(folded);
+    expect(foldedParts(tree)).toEqual(folded);
     scrollBody(tree, 240);
     vi.runAllTimers();
     tree = treeOf(element, false);
-    expect(kinds(tree)).toEqual(folded);
+    expect(foldedParts(tree)).toEqual(folded);
     /* any movement back up unfolds, without reaching the top */
     scrollBody(tree, 200);
     tree = treeOf(element, false);
-    expect(kinds(tree)).toEqual(extended);
+    expect(foldedParts(tree)).toEqual(extended);
     scrollBody(tree, 220);
     tree = treeOf(element, false);
-    expect(kinds(tree)).toEqual(folded);
+    expect(foldedParts(tree)).toEqual(folded);
   });
 
   it("keeps the button's right edge in a stable, right-aligned slot", () => {
-    const tree = treeOf(screenElement(), true);
+    /* the width the extended FAB measures at */
+    const widths = { "bar-fab": 128, fab: 128 };
+    const base = screenElement();
+    const tree = renderScreen({ ...base, props: { ...base.props, frame: long, groups, widths } });
     const anchors: Record<string, unknown> = {};
     for (const element of elements(tree)) {
       const child = element.props.children;
@@ -327,20 +283,19 @@ describe("a label-bearing FAB that folds while the screen scrolls", () => {
     const element = screenElement();
     const tree = renderScreen({ ...element, props: { ...element.props, frame: { id: "long", name: "Long", x: 0, y: 0 }, groups } });
     expect(elements(tree).some((e) => e.props["data-scroll-body"])).toBe(false);
-    expect(kinds(tree).fab).toBe("extendedFab");
+    expect(foldedParts(tree).fab).toBe(false);
   });
 
   it("derives collapsed props for real FABs without changing the authored document", () => {
-    const realGroups = groups.map((g) => ({ ...g, items: g.items.map((it): Item => it.kind === "extendedFab" ? { ...it, kind: "component", component: "fab", props: { label: it.label, icon: it.icon ?? "" } } : it) }));
     const base = screenElement();
-    const element = { ...base, props: { ...base.props, frame: long, groups: realGroups } };
+    const element = { ...base, props: { ...base.props, frame: long, groups } };
     let tree = renderScreen(element, true);
-    const realFab = (node: unknown) => elements(node).map((e) => e.props.item as Item | undefined).find((it) => it?.kind === "component" && it.id === "fab");
+    const realFab = (node: unknown) => elements(node).map((e) => e.props.item as Item | undefined).find((it) => it?.component === "fab" && it.id === "fab");
     expect(realFab(tree)?.props?.collapsed).not.toBe(true);
     scrollBody(tree, 100);
     tree = renderScreen(element, false);
     expect(realFab(tree)?.props?.collapsed).toBe(true);
-    expect(realGroups.find((g) => g.id === "fab")!.items[0].props?.collapsed).toBeUndefined();
+    expect(groups.find((g) => g.id === "fab")!.items[0].props?.collapsed).toBeUndefined();
     scrollBody(tree, 50);
     tree = renderScreen(element, false);
     expect(realFab(tree)?.props?.collapsed).not.toBe(true);

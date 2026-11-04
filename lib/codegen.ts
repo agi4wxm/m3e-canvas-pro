@@ -1,26 +1,16 @@
 /* Turns a sketch into code: one React component per screen, built from the real
  * shadcn M3E components (https://shadcn-m3e.crystaworld.dev), not a picture of them.
  *
- * Each part kind maps to the component that is closest to it. The layout is the
- * sketch's own: every run of parts is placed absolutely inside a box the size of its
- * screen, so what comes out is a faithful starting point rather than finished,
- * responsive code. Parts that only exist as a picture on the canvas (a map, a camera
- * view, an image) come out as labelled placeholders.
- *
- * The part -> component table follows the docs of shadcn M3E: component names, props
- * and their allowed values are the ones in packages/m3e of that repository. */
+ * Every part prints its own tree. The layout is the sketch's own: every run of parts is
+ * placed absolutely inside a box the size of its screen, so what comes out is a faithful
+ * starting point rather than finished, responsive code. */
 import {
   Doc,
   Frame,
   Group,
   Item,
-  Kind,
   PHONE_H,
   PHONE_W,
-  buttonHeightOf,
-  buttonSizeKeyOf,
-  carouselCountOf,
-  carouselLayoutOf,
   explodeGroup,
   frameOfGroup,
   frameSizeOf,
@@ -30,13 +20,9 @@ import {
   layoutOf,
   paletteOf,
   sizeOf,
-  topBarHeightOf,
   GAP,
   STATUS_BAR_H,
-  MENU_TARGET,
-  TOP_BAR_SIZES,
   type ColorToken,
-  type Variant,
 } from "./tokens";
 import { EXTERNAL } from "../parts/externals";
 import { FILE_OF } from "../parts/files.generated";
@@ -58,72 +44,6 @@ export type CodeResult = {
 
 type Imports = Map<string, Set<string>>;
 
-/** the file a component lives in, in the shadcn M3E registry (also its item name) */
-const FILE: Record<string, string> = {
-  Icon: "icon",
-  Button: "button",
-  Fab: "fab",
-  ExtendedFab: "fab",
-  FabMenu: "fab-menu",
-  FabMenuTrigger: "fab-menu",
-  FabMenuContent: "fab-menu",
-  FabMenuItem: "fab-menu",
-  SplitButton: "split-button",
-  Chip: "chip",
-  FilterChip: "chip",
-  AppBar: "app-bar",
-  NavigationBar: "navigation",
-  NavigationBarItem: "navigation",
-  NavigationRail: "navigation",
-  NavigationRailItem: "navigation",
-  FloatingToolbar: "toolbar",
-  Tabs: "tabs",
-  TabsList: "tabs",
-  TabsTrigger: "tabs",
-  SearchBar: "search",
-  Card: "card",
-  CardHeader: "card",
-  CardTitle: "card",
-  CardDescription: "card",
-  CardContent: "card",
-  Item: "item",
-  ItemMedia: "item",
-  ItemContent: "item",
-  ItemTitle: "item",
-  ItemDescription: "item",
-  ItemActions: "item",
-  ItemGroup: "item",
-  Dialog: "dialog",
-  DialogTrigger: "dialog",
-  DialogContent: "dialog",
-  DialogHeader: "dialog",
-  DialogTitle: "dialog",
-  DialogDescription: "dialog",
-  DialogFooter: "dialog",
-  DialogClose: "dialog",
-  toast: "sonner",
-  TextField: "text-field",
-  Select: "select",
-  SelectTrigger: "select",
-  SelectValue: "select",
-  SelectContent: "select",
-  SelectItem: "select",
-  Switch: "switch",
-  Checkbox: "checkbox",
-  RadioGroup: "radio-group",
-  RadioGroupItem: "radio-group",
-  Label: "label",
-  Slider: "slider",
-  Separator: "separator",
-  Progress: "progress",
-  CircularProgress: "circular-progress",
-  LoadingIndicator: "loading-indicator",
-  ExpressiveCarousel: "expressive-carousel",
-  CarouselSlide: "expressive-carousel",
-  DatePicker: "date-picker",
-  TimePicker: "time-picker",
-};
-
 /** a color token as the Tailwind role utility the shadcn M3E styles define */
 const role = (t: ColorToken | string) => t.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 
@@ -131,40 +51,15 @@ const str = (s: string) => JSON.stringify(s);
 
 /** the path the code gives a picture the sketch holds as data: the file's own contents stay in the sketch */
 const PLACEHOLDER_IMAGE = "/placeholder.svg";
-/** text as a JSX child: plain when it can be, an expression when it holds a brace or an angle */
-const txt = (s: string) => (/[{}<>]|^\s|\s$/.test(s) ? `{${str(s)}}` : s);
-const icon = (name: string | null | undefined, extra = "") => (name ? `<Icon name=${str(name)}${extra} />` : "");
-/** an `icon` prop that takes an element, left out when the part has no icon */
-const iconProp = (name: string | null | undefined) => (name ? ` icon={${icon(name)}}` : "");
-
-/** the five named button sizes, as the shadcn M3E sizes of a button */
-const BUTTON_SIZE = { xs: "xs", s: "sm", m: "md", l: "lg", xl: "xl" } as const;
-const ICON_BUTTON_SIZE = { xs: "icon-xs", s: "icon-sm", m: "icon-md", l: "icon-lg", xl: "icon-xl" } as const;
-
-/** the named size nearest to a height */
-function nearestSize(h: number): keyof typeof BUTTON_SIZE {
-  const steps = [
-    ["xs", 32],
-    ["s", 40],
-    ["m", 56],
-    ["l", 96],
-    ["xl", 136],
-  ] as const;
-  const exact = buttonSizeKeyOf(h);
-  if (exact) return exact;
-  return steps.reduce((best, s) => (Math.abs(s[1] - h) < Math.abs(best[1] - h) ? s : best))[0];
-}
-
-const buttonVariant = (v: Variant) => str(v);
-
 class Ctx {
   imports: Imports = new Map();
-  /** `<Toaster />` has to be rendered once for a snackbar to show */
+  /** `<Toaster />` has to be rendered once for a toast to show */
   usesToast = false;
   /** the modules the code imports from, with the names it takes from each */
   use(...names: string[]) {
     for (const n of names) {
-      const file = FILE[n] ?? FILE_OF[n];
+      if (n === "toast") this.usesToast = true;
+      const file = FILE_OF[n];
       const source = WIDGET_SOURCES[n] ?? EXTERNAL[n] ?? (file ? `@/components/m3e/${file}` : undefined);
       if (!source) continue;
       const set = this.imports.get(source) ?? new Set<string>();
@@ -174,209 +69,17 @@ class Ctx {
   }
 }
 
-/** a width the author set, as a class; undefined when the part sizes itself */
-const widthClass = (n: number | undefined) => (n ? `w-[${Math.round(n)}px]` : "");
-const cls = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ");
-
-/** the JSX of one part; `widths` are the measured widths of the parts that size themselves */
-function jsx(it: Item, c: Ctx, widths: Record<string, number>): string {
-  const label = it.label ?? "";
-  const w = (n?: number) => {
-    const k = widthClass(n);
-    return k ? ` className=${str(k)}` : "";
-  };
-  switch (it.kind) {
-    case "button": {
-      const h = buttonHeightOf(it);
-      c.use("Button");
-      if (!label && it.icon) {
-        c.use("Icon");
-        return `<Button variant=${buttonVariant(it.variant)} size=${str(ICON_BUTTON_SIZE[nearestSize(h)])} aria-label="Button">${icon(it.icon)}</Button>`;
-      }
-      if (it.icon) c.use("Icon");
-      return `<Button variant=${buttonVariant(it.variant)} size=${str(BUTTON_SIZE[nearestSize(h)])}${w(it.size)}>${icon(it.icon)}${txt(label)}</Button>`;
-    }
-    case "iconButton": {
-      c.use("Button", "Icon");
-      return `<Button variant=${buttonVariant(it.variant)} size=${str(ICON_BUTTON_SIZE[nearestSize(it.size ?? 56)])} aria-label=${str(label || it.icon || "Button")}>${icon(it.icon)}</Button>`;
-    }
-    case "fab":
-    case "fabMenu":
-    case "extendedFab": {
-      const tabs = it.tabs ?? [];
-      const color = it.variant === "tonal" ? ` color="secondary-container"` : "";
-      if ((it.kind === "fabMenu" || (it.kind === "fab" && it.action?.to === MENU_TARGET)) && tabs.length) {
-        c.use("FabMenu", "FabMenuTrigger", "FabMenuContent", "FabMenuItem", "Icon");
-        const items = tabs.map((t) => `<FabMenuItem${iconProp(t.icon)}>${txt(t.label)}</FabMenuItem>`).join("");
-        return `<FabMenu><FabMenuContent>${items}</FabMenuContent><FabMenuTrigger /></FabMenu>`;
-      }
-      if (it.kind === "extendedFab") {
-        c.use("ExtendedFab", "Icon");
-        return `<ExtendedFab${color}${iconProp(it.icon)}>${txt(label)}</ExtendedFab>`;
-      }
-      c.use("Fab", "Icon");
-      const n = it.size ?? 56;
-      const size = n <= 40 ? ` size="sm"` : n <= 56 ? "" : n <= 80 ? ` size="md"` : ` size="lg"`;
-      return `<Fab${size}${color} aria-label=${str(label || it.icon || "Action")}>${icon(it.icon)}</Fab>`;
-    }
-    case "splitButton": {
-      c.use("SplitButton", "Icon");
-      return `<SplitButton variant=${buttonVariant(it.variant)} size=${str(BUTTON_SIZE[nearestSize(buttonHeightOf(it))])}>${icon(it.icon, " size={20}")}${txt(label)}</SplitButton>`;
-    }
-    case "chip": {
-      const variant = it.variant === "elevated" ? ` variant="elevated"` : "";
-      if (it.checked !== undefined) {
-        c.use("FilterChip");
-        return `<FilterChip${variant}${it.checked ? " defaultPressed" : ""}${it.icon ? ` icon=${str(it.icon)}` : ""}>${txt(label)}</FilterChip>`;
-      }
-      c.use("Chip");
-      return `<Chip${variant}${it.icon ? ` icon=${str(it.icon)}` : ""}>${txt(label)}</Chip>`;
-    }
-    case "topAppBar": {
-      c.use("AppBar", "Button", "Icon");
-      const h = topBarHeightOf(it);
-      const size = h >= TOP_BAR_SIZES[2].h ? "large" : h >= TOP_BAR_SIZES[1].h ? "medium" : "small";
-      const slot = (name: string | null | undefined, aria: string) => (name ? `<Button variant="text" size="icon" aria-label=${str(aria)}>${icon(name)}</Button>` : "");
-      const lead = slot(it.icon, "Navigate");
-      const trail = slot(it.icon2, "Action");
-      return `<AppBar size=${str(size)} title=${str(label)}${lead ? ` leading={${lead}}` : ""}${trail ? ` trailing={${trail}}` : ""} />`;
-    }
-    case "bottomNav":
-    case "navRail": {
-      const tabs = it.tabs ?? [];
-      const sel = it.selected ?? 0;
-      if (it.kind === "bottomNav") {
-        c.use("NavigationBar", "NavigationBarItem");
-        const items = tabs.map((t, i) => `<NavigationBarItem icon=${str(t.icon)} label=${str(t.label)}${i === sel ? " active" : ""} />`);
-        return `<NavigationBar>${items.join("")}</NavigationBar>`;
-      }
-      c.use("NavigationRail", "NavigationRailItem");
-      const items = tabs.map((t, i) => `<NavigationRailItem icon=${str(t.icon)} label=${str(t.label)}${i === sel ? " active" : ""} />`);
-      return `<NavigationRail${it.railExpanded ? " expanded" : ""}>${items.join("")}</NavigationRail>`;
-    }
-    case "searchBar":
-      c.use("SearchBar", "Icon");
-      return `<SearchBar placeholder=${str(label)} leading={${icon(it.icon || "search")}}${it.icon2 ? ` trailing={${icon(it.icon2)}}` : ""} />`;
-    case "card": {
-      c.use("Card", "CardHeader", "CardTitle");
-      const variant = it.variant === "elevated" ? "elevated" : it.variant === "outlined" ? "outlined" : "filled";
-      const image = it.noImage ? "" : `<div className=${str(cls("bg-surface-container-highest", it.imageSize ? `h-[${Math.round(it.imageSize)}px]` : "h-40"))} />`;
-      const desc = it.supporting ? (c.use("CardDescription"), `<CardDescription>${txt(it.supporting)}</CardDescription>`) : "";
-      return `<Card variant=${str(variant)}>${image}<CardHeader><CardTitle>${txt(label)}</CardTitle>${desc}</CardHeader></Card>`;
-    }
-    case "listItem": {
-      c.use("Item", "ItemContent", "ItemTitle");
-      const media = it.icon ? (c.use("ItemMedia", "Icon"), `<ItemMedia variant="icon">${icon(it.icon)}</ItemMedia>`) : "";
-      const desc = it.supporting ? (c.use("ItemDescription"), `<ItemDescription>${txt(it.supporting)}</ItemDescription>`) : "";
-      const sw = it.switch ? (c.use("ItemActions", "Switch"), `<ItemActions><Switch${it.checked ? " defaultChecked" : ""} /></ItemActions>`) : "";
-      return `<Item>${media}<ItemContent><ItemTitle>${txt(label)}</ItemTitle>${desc}</ItemContent>${sw}</Item>`;
-    }
-    case "dialog": {
-      c.use("Dialog", "DialogTrigger", "DialogContent", "DialogHeader", "DialogTitle", "DialogFooter", "DialogClose", "Button");
-      const desc = it.supporting ? (c.use("DialogDescription"), `<DialogDescription>${txt(it.supporting)}</DialogDescription>`) : "";
-      return `<Dialog><DialogTrigger render={<Button variant="tonal" />}>${txt(label || "Open dialog")}</DialogTrigger><DialogContent showCloseButton={false}><DialogHeader><DialogTitle>${txt(label)}</DialogTitle>${desc}</DialogHeader><DialogFooter><DialogClose render={<Button variant="text" />}>Close</DialogClose></DialogFooter></DialogContent></Dialog>`;
-    }
-    case "snackbar": {
-      c.use("Button", "toast");
-      c.usesToast = true;
-      const action = it.supporting ? `, { action: { label: ${str(it.supporting)}, onClick: () => {} } }` : "";
-      return `<Button variant="tonal" onClick={() => toast(${str(label)}${action})}>Show snackbar</Button>`;
-    }
-    case "textField":
-      c.use("TextField");
-      return `<TextField variant=${str(it.variant === "filled" ? "filled" : "outlined")} label=${str(label)}${it.supporting ? ` supportingText=${str(it.supporting)}` : ""}${it.icon ? ` leadingIcon={${(c.use("Icon"), icon(it.icon))}}` : ""} />`;
-    case "select": {
-      c.use("Select", "SelectTrigger", "SelectValue", "SelectContent", "SelectItem");
-      const options = (it.tabs ?? []).map((t, i) => ({ value: `option-${i + 1}`, label: t.label }));
-      const items = options.map((o) => `<SelectItem value=${str(o.value)}>${txt(o.label)}</SelectItem>`).join("");
-      return `<Select defaultValue=${str(options[0]?.value ?? "")} items={${JSON.stringify(options)}}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>${items}</SelectContent></Select>`;
-    }
-    case "switch":
-      c.use("Switch", "Label");
-      return `<Label><Switch${it.checked ? " defaultChecked" : ""} />${txt(label)}</Label>`;
-    case "checkbox":
-      c.use("Checkbox", "Label");
-      return `<Label><Checkbox${it.checked ? " defaultChecked" : ""} />${txt(label)}</Label>`;
-    case "radio":
-      c.use("RadioGroup", "RadioGroupItem", "Label");
-      return `<RadioGroup${it.checked ? ` defaultValue="a"` : ""}><Label><RadioGroupItem value="a" />${txt(label)}</Label></RadioGroup>`;
-    case "slider":
-      c.use("Slider");
-      return `<Slider defaultValue={[${Math.round(it.value ?? 50)}]} />`;
-    case "text": {
-      const n = it.size ?? 16;
-      const scale = n >= 45 ? "display-small" : n >= 28 ? "headline-medium" : n >= 22 ? "title-large" : "body-large";
-      return `<p className=${str(`text-${scale}${it.bold ? "-emphasized" : ""} text-on-surface`)}>${txt(label)}</p>`;
-    }
-    case "image":
-    case "camera":
-    case "map": {
-      c.use("Icon");
-      const sz = sizeOf(it, widths);
-      const glyph = it.kind === "image" ? "image" : it.kind === "camera" ? "photo_camera" : "map";
-      return `<div className=${str(`grid w-[${Math.round(sz.w)}px] h-[${Math.round(sz.h)}px] place-items-center rounded-lg bg-surface-container-highest text-on-surface-variant`)}>${icon(glyph, " size={32}")}</div>`;
-    }
-    case "divider":
-      c.use("Separator");
-      return `<Separator />`;
-    case "loadingIndicator":
-      c.use("LoadingIndicator");
-      return `<LoadingIndicator${it.contained ? ` variant="contained"` : ""}${it.size ? ` size={${Math.round(it.size)}}` : ""} />`;
-    case "linearProgress":
-      c.use("Progress");
-      return `<Progress value={${it.value === undefined ? "null" : Math.round(it.value)}}${it.wavy ? ` variant="wavy"` : ""} />`;
-    case "circularProgress":
-      c.use("CircularProgress");
-      return `<CircularProgress value={${it.value === undefined ? "null" : Math.round(it.value)}}${it.wavy ? ` variant="wavy"` : ""}${it.size ? ` size={${Math.round(it.size)}}` : ""} />`;
-    case "toolbar": {
-      c.use("FloatingToolbar", "Button", "Icon");
-      const buttons = (it.tabs ?? []).map((t, i) => `<Button variant="text" size="icon" aria-label=${str(t.label || t.icon || `Action ${i + 1}`)}>${icon(t.icon)}</Button>`);
-      return `<FloatingToolbar>${buttons.join("")}</FloatingToolbar>`;
-    }
-    case "tabs": {
-      c.use("Tabs", "TabsList", "TabsTrigger");
-      const tabs = it.tabs ?? [];
-      const triggers = tabs.map((t, i) => `<TabsTrigger value=${str(`tab-${i + 1}`)}>${txt(t.label)}</TabsTrigger>`);
-      return `<Tabs defaultValue=${str(`tab-${(it.selected ?? 0) + 1}`)}><TabsList variant="primary">${triggers.join("")}</TabsList></Tabs>`;
-    }
-    case "carousel": {
-      c.use("ExpressiveCarousel", "CarouselSlide");
-      const layout = carouselLayoutOf(it);
-      const variant = layout === "uncontained" ? "uncontained" : layout === "multiBrowse" ? "multi-browse" : "hero";
-      const slides = Array.from({ length: carouselCountOf(it) }, (_, i) => `<CarouselSlide className="bg-primary-container">${(it.tabs?.[i]?.label ?? "") || i + 1}</CarouselSlide>`);
-      return `<ExpressiveCarousel variant=${str(variant)}>${slides.join("")}</ExpressiveCarousel>`;
-    }
-    case "datePicker":
-      c.use("DatePicker");
-      return `<DatePicker label=${str(label || "Date")} />`;
-    case "timePicker":
-      c.use("TimePicker");
-      return `<TimePicker />`;
-    case "box":
-    case "bottomSheet": {
-      const sz = sizeOf(it, widths);
-      const r = it.kind === "bottomSheet" ? `rounded-t-[${it.radiusTop ?? 28}px]` : `rounded-[${it.radiusTop ?? 28}px_${it.radiusTop ?? 28}px_${it.radiusBottom ?? 28}px_${it.radiusBottom ?? 28}px]`;
-      return `<div className=${str(`w-[${Math.round(sz.w)}px] h-[${Math.round(sz.h)}px] ${r} bg-${role(it.fill ?? "surfaceContainerHigh")}`)} />`;
-    }
-    case "component": {
-      const def = partBySlug(it.component);
-      if (!def) return `{/* unknown component ${it.component ?? ""} */}`;
-      /* a picked image lives in the sketch as data; the code stands in a path for it */
-      const props = { ...it.props };
-      for (const k of imageKeys(def)) if (typeof props[k] === "string" && (props[k] as string).startsWith("data:")) props[k] = PLACEHOLDER_IMAGE;
-      const tree = treeOf(def, props, appearanceOf(it));
-      c.use(...namesIn(tree));
-      return inlineNode(tree);
-    }
-    default: {
-      const never: never = it.kind;
-      return `{/* ${String(never)} */}`;
-    }
-  }
+/** the JSX of one part */
+function jsx(it: Item, c: Ctx): string {
+  const def = partBySlug(it.component);
+  if (!def) return `{/* unknown component ${it.component ?? ""} */}`;
+  /* a picked image lives in the sketch as data; the code stands in a path for it */
+  const props = { ...it.props };
+  for (const k of imageKeys(def)) if (typeof props[k] === "string" && (props[k] as string).startsWith("data:")) props[k] = PLACEHOLDER_IMAGE;
+  const tree = treeOf(def, props, appearanceOf(it));
+  c.use(...namesIn(tree));
+  return inlineNode(tree);
 }
-
-/** parts that are as wide as the box they sit in, so the box needs a width of its own */
-const FILLS: Kind[] = ["slider", "divider", "linearProgress", "select", "textField", "tabs", "card", "listItem"];
 
 /** the pieces of a screen, each run placed where the sketch has it */
 function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, number>, pinEdges = true, foldOnScroll = false): string[] {
@@ -388,7 +91,7 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
     const top = Math.round(at.y - frame.y);
     const left = Math.round(at.x - frame.x);
     const body = run.items.map((it) => {
-      const source = jsx(it, c, widths);
+      const source = jsx(it, c);
       if (!foldOnScroll || !it.collapseOnScroll || !canCollapseFab(it)) return source;
       const fab = source.replace(/ collapsed(?:=\{[^}]*\}|="[^"]*")?/g, "").replace("<ExtendedFab", `<ExtendedFab collapsed={fabFolded${it.props?.collapsed === true ? " || true" : ""}}`);
       return `<div className="flex justify-end" style={{ width: ${Math.round(sizeOf(it, widths).w)} }}>${fab}</div>`;
@@ -403,12 +106,8 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
       continue;
     }
     const pos = `absolute left-[${left}px] top-[${top}px]`;
-    const width = run.items.some((it) => FILLS.includes(it.kind)) ? ` w-[${Math.round(sizeOf(first, widths).w)}px]` : "";
-    if (body.length === 1) out.push(`<div className=${str(pos + width)}>${body[0]}</div>`);
-    else if (run.items.every((it) => it.kind === "listItem")) {
-      c.use("ItemGroup");
-      out.push(`<div className=${str(pos + width)}><ItemGroup>${body.join("")}</ItemGroup></div>`);
-    } else out.push(`<div className=${str(`${pos} flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]`)}>${body.join("")}</div>`);
+    if (body.length === 1) out.push(`<div className=${str(pos)}>${body[0]}</div>`);
+    else out.push(`<div className=${str(`${pos} flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]`)}>${body.join("")}</div>`);
   }
   return out;
 }
@@ -516,7 +215,7 @@ export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?
     if (scrolls) {
       const pinned = runs.filter((run) => pinOf(run, frame, widths));
       const flowing = runs.filter((run) => !pinOf(run, frame, widths));
-      const fixed = pinned.map((run) => ({ ...run, y: run.y - (pinOf(run, frame, widths) === "foot" ? length - h : 0), items: run.items.map((item) => roleOf(item) === "rail" ? item.kind === "component" ? { ...item, props: { ...item.props, height: h } } : { ...item, size2: h } : item) }));
+      const fixed = pinned.map((run) => ({ ...run, y: run.y - (pinOf(run, frame, widths) === "foot" ? length - h : 0), items: run.items.map((item) => roleOf(item) === "rail" ? { ...item, props: { ...item.props, height: h } } : item) }));
       const content = screenBody(frame, flowing, c, widths, false, folds);
       const overlays = screenBody(frame, fixed, c, widths, true, folds);
       const scrollHandler = folds ? ' onScroll={(event) => { const top = event.currentTarget.scrollTop; if (top !== lastScrollTop.current) setFabFolded(top > lastScrollTop.current); lastScrollTop.current = top }}' : "";

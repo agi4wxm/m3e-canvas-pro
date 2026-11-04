@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildCode } from "@/lib/codegen";
 import { PromptMark, buildPrompt, promptMarks } from "@/lib/prompt";
 import { Doc, Palette } from "@/lib/tokens";
-import { Icon } from "./M3Node";
+import { Icon } from "./Icon";
 import { Field, IconBtn, Segmented } from "./ui";
 import { t, useLang } from "@/lib/i18n";
 

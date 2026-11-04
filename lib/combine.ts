@@ -4,8 +4,8 @@ import { JOIN_GAP_X, JOIN_GAP_Y } from "./tidy";
 import { Frame, Group, Item, groupBounds, groupsInFrame } from "./tokens";
 
 /* Buttons that sit side by side, or on top of each other, are one button group in M3E: they share
- * a container and connect. The old canvas fused such neighbours into a run on its own; a real
- * Button is a part of its own, so Tidy leaves them be and this is the explicit step that joins them. */
+ * a container and connect. A real Button is a part of its own, so Tidy leaves them be and this is
+ * the explicit step that joins them. */
 
 type Rect = { l: number; t: number; r: number; b: number };
 type Cand = { g: Group; it: Item; bb: Rect; size: string; variant: string };
@@ -93,7 +93,7 @@ export function combineButtons(groups: Group[], frame: Frame, frames: Frame[], w
   const cands: Cand[] = [];
   for (const g of mine) {
     const it = g.items[0];
-    if (g.locked || g.free || g.items.length !== 1 || it.kind !== "component" || it.component !== "button") continue;
+    if (g.locked || g.free || g.items.length !== 1 || it.component !== "button") continue;
     const p = reader(button, it.props);
     if (p.b("toggle")) continue;
     cands.push({ g, it, bb: groupBounds(g, widths), size: p.s("size"), variant: p.s("variant") });

@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Palette } from "@/lib/tokens";
 import { LANGS, Lang, t, useLang } from "@/lib/i18n";
 import { IconBtn } from "./ui";
-import { Icon } from "./M3Node";
+import { Icon } from "./Icon";
 
 const EASE = [0.2, 0, 0, 1] as const;
 

@@ -3,10 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { buildCode } from "../lib/codegen";
 import { PROJECT_FORMAT, PROJECT_VERSION, openProject, projectFile } from "../lib/project";
-import { KIND_ORDER, makeItem, type Doc, type Group, type Item } from "../lib/tokens";
+import { makeItem, type Doc, type Group, type Item } from "../lib/tokens";
 import { setGlobalLang } from "../lib/i18n";
-import { importLines, namesIn, packagesOf, printNode } from "./print";
-import { partBySlug, treeOf } from "./registry";
+import { PARTS, partBySlug, treeOf } from "./registry";
 import { renderNode } from "./render";
 import { loadWidgets } from "./widgets/load";
 
@@ -68,15 +67,14 @@ describe("printed code", () => {
 });
 
 describe("the file format", () => {
-  it("still opens a sketch holding every original kind, unchanged", () => {
-    const kinds = KIND_ORDER.filter((k) => k !== "component");
-    expect(kinds.length).toBe(36);
-    const doc = json(docOf(kinds.map((k) => makeItem(k))));
+  it("still opens a sketch holding every part, unchanged", () => {
+    expect(PARTS.length).toBeGreaterThan(0);
+    const doc = json(docOf(PARTS.map((d) => makeItem("component", d.slug))));
     expect(openProject(doc)).toEqual(doc);
   });
 
   it("opens a document with no envelope, which is what every older version saved", () => {
-    const doc = json(docOf([makeItem("button")]));
+    const doc = json(docOf([makeItem("component", "button")]));
     expect(openProject(doc)).toEqual(doc);
   });
 
@@ -88,7 +86,7 @@ describe("the file format", () => {
   });
 
   it("opens the first version of its own envelope, and refuses another editor's", () => {
-    const doc = json(docOf([makeItem("button")]));
+    const doc = json(docOf([makeItem("component", "button")]));
     expect(openProject({ format: "m3e-project", version: 1, document: doc })).toEqual(doc);
     expect(openProject({ format: "web-canvas-project", version: 1, doc })).toBeNull();
   });
@@ -99,7 +97,7 @@ describe("the file format", () => {
   });
 
   it("refuses a file from a later version rather than half understanding it", () => {
-    expect(openProject({ format: PROJECT_FORMAT, version: PROJECT_VERSION + 1, document: json(docOf([makeItem("button")])) })).toBeNull();
+    expect(openProject({ format: PROJECT_FORMAT, version: PROJECT_VERSION + 1, document: json(docOf([makeItem("component", "button")])) })).toBeNull();
   });
 
   it("refuses an envelope with nothing in it", () => {
@@ -109,12 +107,12 @@ describe("the file format", () => {
 });
 
 describe("what is not this editor's", () => {
-  const part = (kind: string, id: unknown = "x") => ({ id, kind, label: "L", icon: null, variant: "filled" }) as unknown as Item;
+  const part = (kind: string, id: unknown = "x") => ({ id, kind, component: "button", label: "L", icon: null, variant: "filled" }) as unknown as Item;
 
   it("refuses a file with a kind it does not have", () => {
-    expect(openProject(json(docOf([makeItem("button"), part("noSuchPart")])))).toBeNull();
+    expect(openProject(json(docOf([makeItem("component", "button"), part("noSuchPart")])))).toBeNull();
     expect(openProject(json(docOf([part("")])))).toBeNull();
-    expect(openProject(json(docOf([part("button", 7)])))).toBeNull();
+    expect(openProject(json(docOf([part("component", 7)])))).toBeNull();
   });
 
   it("keeps a part whose definition is not here, to say so when it draws", () => {

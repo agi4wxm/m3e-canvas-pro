@@ -13,10 +13,11 @@
  *  - Two near-neighbour buttons fuse; two beyond JOIN_GAP_X stay separate rows
  *  - Three list items stacked vertically with the right gap join into one run
  *  - Groups of different families do not join
- *  - carryFrame: phone <-> desktop conversion swaps a stand-alone bottomNav with a navRail
- *  - carryFrame: a navRail placed on the right stays on the right
+ *  - carryFrame: phone <-> desktop conversion swaps a stand-alone navigation bar with a rail
+ *  - carryFrame: a rail placed on the right stays on the right
  */
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { partBySlug } from "../parts/registry";
 import {
   tidyFrame,
   pullInto,
@@ -33,28 +34,29 @@ import {
   PHONE_H,
   DESKTOP_W,
   DESKTOP_H,
-  NAV_BAR_H,
   PHONE_MARGIN,
+  RAIL_COLLAPSED_W,
   fitHeight,
   makeItem,
+  railWidth,
+  sizeOf,
 } from "./tokens";
 
 const phoneFrame: Frame = { id: "f1", name: "Phone", x: 0, y: 0 };
 const widths: Record<string, number> = {};
 
-const btn = (id: string, label = "B"): Item => ({ id, kind: "button", label, icon: null, variant: "filled" });
-const iconBtn = (id: string): Item => ({ id, kind: "iconButton", label: "", icon: "favorite", variant: "tonal" });
-const topBar = (id: string): Item => ({ id, kind: "topAppBar", label: "Title", icon: "menu", icon2: "search", variant: "filled" });
-const listItem = (id: string, label = "Item"): Item => ({ id, kind: "listItem", label, icon: "person", icon2: "chevron_right", variant: "filled" });
-const navBar = (id: string, tabs = 3): Item => {
-  const t: Item = { id, kind: "bottomNav", label: "", icon: null, variant: "filled", tabs: Array.from({ length: tabs }, (_, i) => ({ icon: "home", label: `T${i}` })) };
-  return t;
-};
-const navRail = (id: string, tabs = 3): Item => {
-  const t: Item = { id, kind: "navRail", label: "", icon: null, variant: "filled", tabs: Array.from({ length: tabs }, (_, i) => ({ icon: "home", label: `T${i}` })) };
-  return t;
-};
-const fab = (id: string): Item => ({ id, kind: "fab", label: "", icon: "add", variant: "filled" });
+const comp = (id: string, slug: string, props: Record<string, unknown> = {}): Item => ({ ...makeItem("component", slug), id, props });
+const tabRows = (tabs: number) => Array.from({ length: tabs }, (_, i) => ({ icon: "home", label: `T${i}` }));
+
+const btn = (id: string, label = "B"): Item => comp(id, "button", { label });
+const topBar = (id: string, width?: number): Item => comp(id, "app-bar", width === undefined ? {} : { width });
+const navBar = (id: string, tabs = 3): Item => comp(id, "navigation-bar", { items: tabRows(tabs) });
+const railPart = (id: string, tabs = 3, props: Record<string, unknown> = {}): Item => comp(id, "navigation-rail", { items: tabRows(tabs), ...props });
+const fab = (id: string): Item => comp(id, "fab", { icon: "add" });
+
+const BUTTON_W = sizeOf(btn("a"), widths).w;
+const NAV_H = sizeOf(navBar("n"), widths).h;
+const FAB = sizeOf(fab("f"), widths);
 
 const group = (id: string, x: number, y: number, items: Item[], axis: "x" | "y" = "x", free = false): Group => ({
   id,
@@ -76,8 +78,7 @@ describe("pullInto", () => {
     const out = pullInto(g, phoneFrame, widths);
     expect(out).not.toBe(g);
     expect(out.x).toBeLessThan(g.x);
-    // The group's right edge (x + ~128dp button width) should now fit in PHONE_W
-    const BUTTON_W = 128;
+    // The group's right edge should now fit in PHONE_W
     expect(out.x + BUTTON_W).toBeLessThanOrEqual(PHONE_W + 1);
   });
 
@@ -96,12 +97,12 @@ describe("pullInto", () => {
 
 describe("railSide", () => {
   it("returns 'left' when the rail's centre is left of the frame centre", () => {
-    const r = group("r", 0, 0, [navRail("nr")]);
+    const r = group("r", 0, 0, [railPart("nr")]);
     expect(railSide(r, phoneFrame, widths)).toBe("left");
   });
 
   it("returns 'right' when the rail's centre is right of the frame centre", () => {
-    const r = group("r", PHONE_W - 80, 0, [navRail("nr")]);
+    const r = group("r", PHONE_W - RAIL_COLLAPSED_W, 0, [railPart("nr")]);
     expect(railSide(r, phoneFrame, widths)).toBe("right");
   });
 });
@@ -112,14 +113,23 @@ describe("barSlotOf", () => {
   });
 
   it("skips a left rail's width", () => {
-    const railG = group("r", 0, 0, [navRail("nr")]);
+    const item = railPart("nr");
+    const railG = group("r", 0, 0, [item]);
     const slot = barSlotOf([railG], phoneFrame, [phoneFrame], widths);
-    expect(slot.x).toBe(80);
-    expect(slot.w).toBe(PHONE_W - 80);
+    expect(slot.x).toBe(railWidth(item));
+    expect(slot.w).toBe(PHONE_W - railWidth(item));
   });
 });
 
 describe("tidyFrame", () => {
+  /* No part declares `connect` yet; this spec holds Tidy's join rule for the tests below. */
+  beforeAll(() => {
+    partBySlug("button")!.connect = { axis: "x", family: "button" };
+  });
+  afterAll(() => {
+    delete partBySlug("button")!.connect;
+  });
+
   it("returns null when no groups belong to the frame", () => {
     expect(tidyFrame([], phoneFrame, [phoneFrame], widths)).toBeNull();
   });
@@ -132,7 +142,7 @@ describe("tidyFrame", () => {
   it("leaves two buttons apart when the gap between them exceeds the join distance", () => {
     const f = phoneFrame;
     // A 24dp gap joins (see lib/tidy.test.ts); at 60dp the buttons stay two rows.
-    const apart = [group("g1", 16, 300, [btn("a")]), group("g2", 16 + 128 + 60, 300, [btn("b")])];
+    const apart = [group("g1", 16, 300, [btn("a")]), group("g2", 16 + BUTTON_W + 60, 300, [btn("b")])];
     const out = tidyFrame(apart, f, [f], widths) ?? apart;
     expect(out).toHaveLength(2);
     expect(out.flatMap((g) => g.items.map((it) => it.id)).sort()).toEqual(["a", "b"]);
@@ -154,25 +164,25 @@ describe("tidyFrame", () => {
     const f = phoneFrame;
     const g = group("g1", 0, 500, [topBar("t")]); // placed mid-screen
     const out = tidyFrame([g], f, [f], widths)!;
-    const tidied = out.find((x) => x.items[0].kind === "topAppBar")!;
+    const tidied = out.find((x) => x.items[0].component === "app-bar")!;
     expect(tidied.y).toBe(0);
     expect(tidied.x).toBe(0);
   });
 
-  it("anchors a bottomNav to the bottom of the screen", () => {
+  it("anchors a navigation bar to the bottom of the screen", () => {
     const f = phoneFrame;
     const g = group("g1", 100, 100, [navBar("bn")]); // placed near top
     const out = tidyFrame([g], f, [f], widths)!;
-    const nav = out.find((x) => x.items[0].kind === "bottomNav")!;
-    expect([nav.x, nav.y]).toEqual([0, PHONE_H - (80 + NAV_BAR_H)]);
+    const nav = out.find((x) => x.items[0].component === "navigation-bar")!;
+    expect([nav.x, nav.y]).toEqual([0, PHONE_H - NAV_H]);
   });
 
   it("places a FAB at the bottom-right corner of the body", () => {
     const f = phoneFrame;
     const g = group("g1", 0, 0, [fab("f")]);
     const out = tidyFrame([g], f, [f], widths)!;
-    const f0 = out.find((x) => x.items[0].kind === "fab")!;
-    expect([f0.x, f0.y]).toEqual([PHONE_W - PHONE_MARGIN - 56, PHONE_H - PHONE_MARGIN - 56]);
+    const f0 = out.find((x) => x.items[0].component === "fab")!;
+    expect([f0.x, f0.y]).toEqual([PHONE_W - PHONE_MARGIN - FAB.w, PHONE_H - PHONE_MARGIN - FAB.h]);
   });
 
   it("stacks loose rows on the layout margin from the top down", () => {
@@ -196,26 +206,26 @@ describe("carryFrame", () => {
     expect(res.frames[1].w).toBe(300);
     expect(res.frames[1].h).toBe(500);
     expect(res.groups).toHaveLength(1);
-    expect(res.groups[0].items[0].kind).toBe("topAppBar");
+    expect(res.groups[0].items[0].component).toBe("app-bar");
   });
 
-  it("expands a phone to desktop: a stand-alone bottomNav becomes a navRail", () => {
+  it("expands a phone to desktop: a stand-alone navigation bar becomes a rail", () => {
     const desk: Frame = { id: "d", name: "D", x: 400, y: 0, w: DESKTOP_W, h: DESKTOP_H };
     const bn = group("bn", 0, 800, [navBar("bn", 3)]);
     const res = carryFrame([bn], phoneFrame, desk, [phoneFrame, desk], widths);
-    const movedNav = res.groups.find((g) => g.items[0].kind === "navRail" || g.items[0].kind === "bottomNav");
+    const movedNav = res.groups.find((g) => g.items[0].component === "navigation-rail" || g.items[0].component === "navigation-bar");
     expect(movedNav).toBeDefined();
     // After expansion, the rail (not bar) should be present somewhere in the doc
-    const hasRail = res.groups.some((g) => g.items[0].kind === "navRail");
+    const hasRail = res.groups.some((g) => g.items[0].component === "navigation-rail");
     expect(hasRail).toBe(true);
   });
 
-  it("shrinks desktop to phone: a stand-alone navRail becomes a bottomNav", () => {
+  it("shrinks desktop to phone: a stand-alone rail becomes a navigation bar", () => {
     const desk: Frame = { id: "d", name: "D", x: 0, y: 0, w: DESKTOP_W, h: DESKTOP_H };
     const phone: Frame = { id: "p", name: "P", x: 0, y: 0 };
-    const r = group("r", 0, 0, [navRail("nr", 3)]);
+    const r = group("r", 0, 0, [railPart("nr", 3)]);
     const res = carryFrame([r], desk, phone, [desk, phone], widths);
-    const hasBar = res.groups.some((g) => g.items[0].kind === "bottomNav");
+    const hasBar = res.groups.some((g) => g.items[0].component === "navigation-bar");
     expect(hasBar).toBe(true);
   });
 });
@@ -234,96 +244,102 @@ describe("tidy idempotence", () => {
 });
 
 describe("expandable rail layout", () => {
-  it.each(["left", "right"] as const)("packs multiple modal layout slots on the %s edge", (side) => {
+  const EXPANDED = { expanded: true };
+
+  it.each(["left", "right"] as const)("packs multiple expanded rails on the %s edge", (side) => {
     const screen: Frame = { id: "multi", name: "Desktop", x: 20, y: 40, w: 1280, h: 800 };
     const rails = [0, 1].map((i) => group(`rail-${i}`, side === "left" ? 30 + i * 230 : 820 + i * 230, 48, [
-      { ...navRail(`r-${i}`), railExpanded: true, railModal: true, size2: 800 },
+      railPart(`r-${i}`, 3, { ...EXPANDED, height: 800 }),
     ]));
-    const bar = group("top", side === "left" ? 212 : 20, 48, [{ ...topBar("top-item"), size: 1088 }]);
-    const out = tidyFrame([...rails, bar], screen, [screen], widths)!;
+    const barX = side === "left" ? 460 : 20;
+    const bar = group("top", barX, 48, [topBar("top-item", 840)]);
+    const measured = { "r-0": 220, "r-1": 220, "top-item": 840 };
+    const out = tidyFrame([...rails, bar], screen, [screen], measured)!;
     const first = out.find((g) => g.id === "rail-0")!;
     const second = out.find((g) => g.id === "rail-1")!;
-    expect(second.x - first.x).toBe(96);
+    expect(second.x - first.x).toBe(220);
     expect(side === "left" ? first.x : second.x + 220).toBe(side === "left" ? 20 : 1300);
-    expect(out.find((g) => g.id === "top")?.x).toBe(side === "left" ? 212 : 20);
-    expect(barSlotOf(out, screen, [screen], widths)).toEqual({ x: side === "left" ? 212 : 20, w: 1088 });
-    expect(tidyFrame(out, screen, [screen], widths)).toBeNull();
+    expect(out.find((g) => g.id === "top")?.x).toBe(barX);
+    expect(barSlotOf(out, screen, [screen], measured)).toEqual({ x: barX, w: 840 });
+    expect(tidyFrame(out, screen, [screen], measured)).toBeNull();
   });
 
   const desk: Frame = { id: "wide", name: "Desktop", x: 40, y: 20, w: DESKTOP_W, h: DESKTOP_H };
 
   it.each([
-    [undefined, undefined, 80, 80],
-    [false, false, 96, 96],
-    [true, false, 220, 220],
-    [false, true, 96, 96],
-    [true, true, 220, 96],
-  ] as const)("uses the rail's layout width for expanded=%s modal=%s", (railExpanded, railModal, visualWidth, layoutWidth) => {
+    [undefined, true, 80],
+    [false, false, 96],
+    [true, false, 220],
+  ] as const)("uses the rail's layout width for expanded=%s narrow=%s", (expanded, narrow, width) => {
     for (const side of ["left", "right"] as const) {
-      const x = side === "left" ? desk.x + 4 : desk.x + DESKTOP_W - visualWidth - 4;
-      const rail = group("rail", x, desk.y + 8, [{ ...navRail("r"), railExpanded, railModal, size2: DESKTOP_H }]);
-      const slot = barSlotOf([rail], desk, [desk], widths);
-      expect(slot).toEqual({ x: desk.x + (side === "left" ? layoutWidth : 0), w: DESKTOP_W - layoutWidth });
-      const body = bodyRect([rail], desk, [desk], widths);
+      const x = side === "left" ? desk.x + 4 : desk.x + DESKTOP_W - width - 4;
+      const rail = group("rail", x, desk.y + 8, [railPart("r", 3, { expanded, narrow, height: DESKTOP_H })]);
+      const slot = barSlotOf([rail], desk, [desk], { r: width });
+      expect(slot).toEqual({ x: desk.x + (side === "left" ? width : 0), w: DESKTOP_W - width });
+      const measured = { r: width, b: slot.w };
+      const body = bodyRect([rail], desk, [desk], measured);
       expect([body.l, body.r]).toEqual([slot.x + PHONE_MARGIN, slot.x + slot.w - PHONE_MARGIN]);
-      const bar = group("bar", desk.x + 300, desk.y + 60, [{ ...topBar("b"), size: slot.w }]);
-      const out = tidyFrame([rail, bar], desk, [desk], widths)!;
-      expect(out.find((g) => g.id === "rail")?.x).toBe(side === "left" ? desk.x : desk.x + DESKTOP_W - visualWidth);
+      const bar = group("bar", desk.x + 300, desk.y + 60, [topBar("b", slot.w)]);
+      const out = tidyFrame([rail, bar], desk, [desk], measured)!;
+      expect(out.find((g) => g.id === "rail")?.x).toBe(side === "left" ? desk.x : desk.x + DESKTOP_W - width);
       expect(out.find((g) => g.id === "bar")?.x).toBe(slot.x);
-      expect(tidyFrame(out, desk, [desk], widths)).toBeNull();
+      expect(tidyFrame(out, desk, [desk], measured)).toBeNull();
     }
   });
 
   it("sums mixed rail widths on both edges", () => {
     const rails = [
-      group("left-wide", desk.x, desk.y, [{ ...navRail("l1"), railExpanded: true }]),
-      group("left-compact", desk.x + 230, desk.y, [{ ...navRail("l2"), railExpanded: false }]),
-      group("right-modal", desk.x + DESKTOP_W - 220, desk.y, [{ ...navRail("r"), railExpanded: true, railModal: true }]),
+      group("left-wide", desk.x, desk.y, [railPart("l1", 3, EXPANDED)]),
+      group("left-compact", desk.x + 230, desk.y, [railPart("l2", 3, { expanded: false })]),
+      group("right-wide", desk.x + DESKTOP_W - 220, desk.y, [railPart("r", 3, EXPANDED)]),
     ];
-    expect(barSlotOf(rails, desk, [desk], widths)).toEqual({ x: desk.x + 316, w: DESKTOP_W - 412 });
-    const body = bodyRect(rails, desk, [desk], widths);
-    expect([body.l, body.r]).toEqual([desk.x + 316 + PHONE_MARGIN, desk.x + DESKTOP_W - 96 - PHONE_MARGIN]);
-    const out = tidyFrame(rails, desk, [desk], widths)!;
+    const measured = { l1: 220, l2: 96, r: 220 };
+    expect(barSlotOf(rails, desk, [desk], measured)).toEqual({ x: desk.x + 316, w: DESKTOP_W - 536 });
+    const body = bodyRect(rails, desk, [desk], measured);
+    expect([body.l, body.r]).toEqual([desk.x + 316 + PHONE_MARGIN, desk.x + DESKTOP_W - 220 - PHONE_MARGIN]);
+    const out = tidyFrame(rails, desk, [desk], measured)!;
     expect(out.find((g) => g.id === "left-compact")?.x).toBe(desk.x + 220);
-    expect(out.find((g) => g.id === "right-modal")?.x).toBe(desk.x + DESKTOP_W - 220);
+    expect(out.find((g) => g.id === "right-wide")?.x).toBe(desk.x + DESKTOP_W - 220);
   });
 
-  it.each([false, true])("carries expanded rails and body-spanning bars when modal=%s", (railModal) => {
+  it("carries expanded rails and body-spanning bars", () => {
     for (const side of ["left", "right"] as const) {
-      const layoutWidth = railModal ? 96 : 220;
-      const rail = group("rail", side === "left" ? desk.x : desk.x + DESKTOP_W - 220, desk.y, [{ ...navRail("r"), railExpanded: true, railModal, size2: DESKTOP_H }]);
-      const bar = group("bar", desk.x + (side === "left" ? layoutWidth : 0), desk.y, [{ ...topBar("b"), size: DESKTOP_W - layoutWidth }]);
+      const layoutWidth = 220;
+      const rail = group("rail", side === "left" ? desk.x : desk.x + DESKTOP_W - 220, desk.y, [railPart("r", 3, { ...EXPANDED, height: DESKTOP_H })]);
+      const bar = group("bar", desk.x + (side === "left" ? layoutWidth : 0), desk.y, [topBar("b", DESKTOP_W - layoutWidth)]);
       const larger = { ...desk, w: 1440, h: 900 };
-      const out = carryFrame([rail, bar], desk, larger, [desk], widths).groups;
+      const out = carryFrame([rail, bar], desk, larger, [desk], { r: 220 }).groups;
       const movedRail = out.find((g) => g.id === "rail")!;
       const movedBar = out.find((g) => g.id === "bar")!;
       expect(movedRail.x).toBe(side === "left" ? desk.x : desk.x + 1440 - 220);
-      expect(movedRail.items[0].size2).toBe(900);
+      expect(movedRail.items[0].props?.height).toBe(900);
       expect(movedBar.x).toBe(desk.x + (side === "left" ? layoutWidth : 0));
-      expect(movedBar.items[0].size).toBe(1440 - layoutWidth);
+      expect(movedBar.items[0].props?.width).toBe(1440 - layoutWidth);
     }
   });
 
-  it.each([false, true])("creates a collapsed expressive rail after a phone round trip when modal=%s", (railModal) => {
-    const layoutWidth = railModal ? 96 : 220;
-    const rail = group("rail", desk.x, desk.y, [{ ...navRail("r"), railExpanded: true, railModal, size2: DESKTOP_H }]);
-    const bar = group("bar", desk.x + layoutWidth, desk.y, [{ ...topBar("b"), size: DESKTOP_W - layoutWidth }]);
+  it("creates a collapsed expressive rail after a phone round trip", () => {
+    const layoutWidth = 220;
+    const rail = group("rail", desk.x, desk.y, [railPart("r", 3, { ...EXPANDED, height: DESKTOP_H })]);
+    const bar = group("bar", desk.x + layoutWidth, desk.y, [topBar("b", DESKTOP_W - layoutWidth)]);
     const phone = { ...desk, w: PHONE_W, h: PHONE_H };
-    const compact = carryFrame([rail, bar], desk, phone, [desk], widths).groups;
-    expect(compact.find((g) => g.id === "rail")?.items[0].kind).toBe("bottomNav");
-    expect(compact.find((g) => g.id === "bar")?.items[0].size).toBe(PHONE_W);
+    const compact = carryFrame([rail, bar], desk, phone, [desk], { r: 220 }).groups;
+    expect(compact.find((g) => g.id === "rail")?.items[0].component).toBe("navigation-bar");
+    expect(compact.find((g) => g.id === "bar")?.items[0].props?.width).toBe(PHONE_W);
     const restored = carryFrame(compact, phone, desk, [phone], widths).groups;
-    expect(restored.find((g) => g.id === "rail")?.items[0]).toMatchObject({ kind: "navRail", railExpanded: false });
-    expect(restored.find((g) => g.id === "rail")?.items[0]).not.toHaveProperty("railModal");
-    expect(restored.find((g) => g.id === "bar")?.items[0].size).toBe(DESKTOP_W - 96);
-    expect(restored.find((g) => g.id === "bar")?.x).toBe(desk.x + 96);
+    const back = restored.find((g) => g.id === "rail")!.items[0];
+    expect(back.component).toBe("navigation-rail");
+    expect(back.props).not.toHaveProperty("expanded");
+    expect(railWidth(back)).toBe(RAIL_COLLAPSED_W);
+    expect(restored.find((g) => g.id === "bar")?.items[0].props?.width).toBe(DESKTOP_W - RAIL_COLLAPSED_W);
+    expect(restored.find((g) => g.id === "bar")?.x).toBe(desk.x + RAIL_COLLAPSED_W);
   });
 });
 
 // smoke: makeItem usage from tokens works in this file's context
 describe("integration with makeItem", () => {
-  it("makeItem('button') yields an Item tidy can place", () => {
-    const it = makeItem("button");
+  it("makeItem('component', 'button') yields an Item tidy can place", () => {
+    const it = makeItem("component", "button");
     const g = group("g", 100, 100, [it]);
     const out = tidyFrame([g], phoneFrame, [phoneFrame], widths)!;
     expect(out).toHaveLength(1);
@@ -332,8 +348,6 @@ describe("integration with makeItem", () => {
 });
 
 /* ---------- real component parts, placed by their role ---------- */
-
-const comp = (id: string, slug: string, props: Record<string, unknown> = {}): Item => ({ ...makeItem("component", slug), id, props });
 
 describe("component parts (role-driven)", () => {
   it("pins a navigation-bar component to the bottom of the screen", () => {

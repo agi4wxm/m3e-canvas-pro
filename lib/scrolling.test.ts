@@ -1,22 +1,16 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { scrollingDoc } from "./codegen.fixture";
 import { buildCode } from "./codegen";
-import { migrateLegacy, revertPatch } from "./migrate";
 import { setGlobalLang } from "./i18n";
 import { buildPrompt } from "./prompt";
 import { pinOf, stretchFrame, carryFrame } from "./tidy";
 import { canCollapseFab, makeItem, PHONE_H, type Group, type Item } from "./tokens";
 
 beforeAll(() => setGlobalLang("en"));
-const converted = () => {
-  const doc = scrollingDoc();
-  doc.groups = doc.groups.map((g) => ({ ...g, items: g.items.map((it) => ({ ...it, ...migrateLegacy(it)?.patch })) }));
-  return doc;
-};
 
 describe("long screens with real components", () => {
   it("pins a real navigation bar at the foot and leaves body content scrollable", () => {
-    const doc = converted();
+    const doc = scrollingDoc();
     const f = doc.frames[0];
     expect(pinOf(doc.groups.find((g) => g.id === "nav")!, f, {})).toBe("foot");
     expect(pinOf(doc.groups.find((g) => g.id === "body")!, f, {})).toBeNull();
@@ -26,7 +20,7 @@ describe("long screens with real components", () => {
   });
 
   it("extends a real rail and keeps its identity and destinations", () => {
-    const doc = converted();
+    const doc = scrollingDoc();
     const f = doc.frames[0];
     const rail: Item = { ...makeItem("component", "navigation-rail"), id: "rail", props: { height: PHONE_H, items: [{ label: "Inbox", icon: "inbox" }] } };
     const g: Group = { id: "rail", x: 0, y: 0, axis: "y", items: [rail] };
@@ -38,22 +32,20 @@ describe("long screens with real components", () => {
     expect(carried.groups[0].items[0].component).toBe("navigation-rail");
   });
 
-  it("keeps the scroll option through conversion and reverting", () => {
-    const old = scrollingDoc().groups.find((g) => g.id === "fab")!.items[0];
-    const item = { ...old, ...migrateLegacy(old)!.patch };
+  it("keeps the scroll option on a real FAB", () => {
+    const item = scrollingDoc().groups.find((g) => g.id === "fab")!.items[0];
     expect(canCollapseFab(item)).toBe(true);
     expect(item.collapseOnScroll).toBe(true);
-    expect(revertPatch(item)!.patch.collapseOnScroll).toBe(true);
   });
 
-  it.each([false, true])("exports working scroll and folding state (converted: %s)", (real) => {
-    const doc = real ? converted() : scrollingDoc();
+  it("exports working scroll and folding state", () => {
+    const doc = scrollingDoc();
     const { code } = buildCode(doc, {});
     expect(code).toContain('overflow-y-auto');
-    expect(code).toContain('height: 1784');
+    expect(code).toContain(`height: ${PHONE_H * 2}`);
     expect(code).toContain('collapsed={fabFolded}');
     expect(code).toContain('setFabFolded(top > lastScrollTop.current)');
-    expect(code).toContain(real ? 'top-[788px]' : 'bottom-0');
+    expect(code).toContain('bottom-0');
     expect(code).not.toContain('undefined');
     const prompt = buildPrompt(doc, {}, undefined, "en");
     expect(prompt).toContain('scrolls down');

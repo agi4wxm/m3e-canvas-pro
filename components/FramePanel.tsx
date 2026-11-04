@@ -12,7 +12,7 @@ import {
   onToken,
 } from "@/lib/tokens";
 import { popHistory } from "@/lib/ai";
-import { Icon } from "./M3Node";
+import { Icon } from "./Icon";
 import {
   ButtonRun,
   Field,

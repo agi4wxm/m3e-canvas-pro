@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Doc, Palette } from "@/lib/tokens";
 import { shareLink } from "@/lib/share";
-import { Icon } from "./M3Node";
+import { Icon } from "./Icon";
 import { t, useLang } from "@/lib/i18n";
 
 const BASE = import.meta.env.VITE_BASE_PATH ?? "";

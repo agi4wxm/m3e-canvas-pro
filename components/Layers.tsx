@@ -4,10 +4,10 @@ import { partBySlug } from "@/parts/registry";
 import { nameOf as partNameOf } from "@/parts/labels";
 import { ReactNode, useMemo, useState } from "react";
 import { Reorder, useDragControls } from "motion/react";
-import { Frame, Group, Item, KIND_SPEC, Palette, explodeGroup, isPhoneFrame, paletteIconOf } from "@/lib/tokens";
-import { Icon } from "./M3Node";
+import { Frame, Group, Item, Palette, explodeGroup, isPhoneFrame, paletteIconOf } from "@/lib/tokens";
+import { Icon } from "./Icon";
 import { Select } from "./ui";
-import { Lang, KIND_TEXT, t, useLang } from "@/lib/i18n";
+import { Lang, t, useLang } from "@/lib/i18n";
 
 /* Rows never animate their size: opening a row only adds rows under it, so
  * nothing stretches. Only the drag itself moves.
@@ -18,21 +18,20 @@ import { Lang, KIND_TEXT, t, useLang } from "@/lib/i18n";
  * (left to right, top to bottom). Every level is reordered by dragging the
  * handle; the page turns the new order back into a group. */
 
+/** a part is called by the first text it shows, then by its type */
 function nameOf(it: Item, lang: Lang) {
-  if (it.kind === "component") {
-    const def = partBySlug(it.component);
-    /* a real component is called by the first text it shows, then by its type */
-    return labelOfPart(def, it.props) || (def && partNameOf(def, lang)) || it.label;
-  }
-  const spec = KIND_SPEC[it.kind];
-  const noun = KIND_TEXT[lang][it.kind]?.noun ?? spec.label;
-  return it.label.trim() || (it.kind === "iconButton" || it.kind === "fab" ? (it.icon ?? noun) : noun);
+  const def = partBySlug(it.component);
+  return labelOfPart(def, it.props) || (def && partNameOf(def, lang)) || it.label;
+}
+
+function typeOf(it: Item, lang: Lang) {
+  const def = partBySlug(it.component);
+  return (def && partNameOf(def, lang)) || it.label;
 }
 
 function runLabel(g: Group, lang: Lang) {
   const first = g.items[0];
-  const noun = KIND_TEXT[lang][first.kind]?.noun ?? KIND_SPEC[first.kind].label;
-  return g.free ? `${t("group", lang)} × ${g.items.length}` : g.items.length > 1 ? `${noun} × ${g.items.length}` : nameOf(first, lang);
+  return g.free ? `${t("group", lang)} × ${g.items.length}` : g.items.length > 1 ? `${typeOf(first, lang)} × ${g.items.length}` : nameOf(first, lang);
 }
 
 function Row({

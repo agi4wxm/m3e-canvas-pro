@@ -1,139 +1,18 @@
 
-import { useState } from "react";
 import {
-  Action,
-  BACK_TARGET,
-  CONTENT_W,
   Frame,
   FramePreset,
   Item,
-  PHONE_W,
-  Kind,
   Palette,
   TRANSITIONS,
   Transition,
-  VARIANTS,
-  Variant,
-  isFab,
-  contentWidth,
   framePresetOf,
-  halfWidth,
-  isPhoneFrame,
-  variantStyle,
 } from "@/lib/tokens";
-import { ButtonInspector } from "./ButtonInspector";
 import { ComponentInspector } from "./ComponentInspector";
-import { PartInspector } from "./PartInspector";
-import { MigrateContext } from "./MigrateNotice";
 import { AlignBox, PartMenu, PlaceFn } from "./PartPanel";
-import { Icon } from "./M3Node";
+import { Icon } from "./Icon";
 import { PanelShell, Section, Segmented } from "./ui";
 import { TRANSITION_TEXT, t, useLang } from "@/lib/i18n";
-
-export function variantsOf(kind: Kind): { key: Variant; label: string }[] {
-  const variants = VARIANTS.map((v) => ({ ...v, label: t(v.key) }));
-  switch (kind) {
-    case "card":
-      return [
-        { key: "tonal", label: t("filled") },
-        { key: "elevated", label: t("elevated") },
-        { key: "outlined", label: t("outlined") },
-      ];
-    case "textField":
-    case "select":
-      return [
-        { key: "outlined", label: t("outlined") },
-        { key: "filled", label: t("filled") },
-      ];
-    case "searchBar":
-      return [
-        { key: "filled", label: t("filled") },
-        { key: "outlined", label: t("outlined") },
-      ];
-    case "chip":
-      return [
-        { key: "outlined", label: t("outlined") },
-        { key: "tonal", label: t("elevated") },
-      ];
-    case "fab":
-    case "extendedFab":
-    case "fabMenu":
-      return variants.filter((v) => v.key !== "text" && v.key !== "elevated" && v.key !== "outlined");
-    case "splitButton":
-      return variants.filter((v) => v.key !== "text");
-    case "toolbar":
-      return [
-        { key: "tonal", label: t("standard") },
-        { key: "filled", label: t("vibrant") },
-      ];
-    case "iconButton":
-      return variants.filter((v) => v.key !== "elevated" && v.key !== "text").concat({
-        key: "text",
-        label: t("standard"),
-      });
-    default:
-      return variants;
-  }
-}
-
-export function VariantSwatch({
-  v,
-  label,
-  p,
-  on,
-  onClick,
-  small,
-}: {
-  v: Variant;
-  label: string;
-  p: Palette;
-  on: boolean;
-  onClick: () => void;
-  small?: boolean;
-}) {
-  const st = variantStyle(v, p);
-  const h = small ? 32 : 40;
-  return (
-    <button
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      aria-pressed={on}
-      className="m3-press"
-      style={{
-        height: h,
-        borderRadius: h / 2,
-        cursor: "pointer",
-        fontSize: small ? 11 : 12,
-        fontWeight: 600,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 4,
-        padding: small ? "0 10px" : "0 12px",
-        ...st,
-        boxShadow: v === "elevated" ? "0 1px 3px rgba(0,0,0,0.2)" : "none",
-        outline: on ? `2px solid ${p.primary}` : "2px solid transparent",
-        outlineOffset: 2,
-      }}
-    >
-      {on && <Icon name="check" size={small ? 14 : 16} />}
-      {label}
-    </button>
-  );
-}
-
-/** hover text for a width preset derived from the selected frame */
-export const widthPresetLabel = (v: number, frameWidth = PHONE_W): string | undefined =>
-  v === frameWidth
-    ? t("screenWidth")
-    : v === contentWidth(frameWidth)
-      ? t("contentWidth")
-      : v === halfWidth(frameWidth)
-        ? t("halfWidth")
-        : frameWidth !== PHONE_W && v === CONTENT_W
-          ? t("columnWidth")
-          : undefined;
 
 export function FrameSizePicker({
   frame,
@@ -162,61 +41,6 @@ export function FrameSizePicker({
   );
 }
 
-function FrameChips({
-  frames,
-  value,
-  onChange,
-  p,
-  back,
-  small,
-}: {
-  frames: Frame[];
-  value: string | null;
-  onChange: (id: string | null) => void;
-  p: Palette;
-  /** offer "go back" as a target */
-  back?: boolean;
-  small?: boolean;
-}) {
-  const lang = useLang();
-  const h = small ? 32 : 36;
-  const chip = (id: string | null, label: string, icon: string) => {
-    const on = value === id;
-    return (
-      <button
-        key={id ?? "none"}
-        onClick={() => onChange(id)}
-        className="m3-press"
-        style={{
-          height: h,
-          padding: "0 12px 0 8px",
-          borderRadius: h / 2,
-          border: "none",
-          background: on ? p.primary : p.surfaceContainerHigh,
-          color: on ? p.onPrimary : p.onSurfaceVariant,
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: "pointer",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          maxWidth: "100%",
-        }}
-      >
-        <Icon name={icon} size={18} />
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-      </button>
-    );
-  };
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-      {chip(null, t("none", lang), "block")}
-      {back && chip(BACK_TARGET, t("goBack", lang), "arrow_back")}
-      {frames.map((f) => chip(f.id, f.name || t("screen", lang), isPhoneFrame(f) ? "smartphone" : "desktop_windows"))}
-    </div>
-  );
-}
-
 export function TransitionPicker({ value, onChange, p }: { value: Transition; onChange: (t: Transition) => void; p: Palette }) {
   const lang = useLang();
   return (
@@ -227,34 +51,6 @@ export function TransitionPicker({ value, onChange, p }: { value: Transition; on
       p={p}
       height={34}
     />
-  );
-}
-
-/** target frame (or back) plus the transition, for one tap target */
-export function ActionEditor({
-  frames,
-  action,
-  onChange,
-  p,
-}: {
-  frames: Frame[];
-  action: Action | undefined;
-  onChange: (a: Action | undefined) => void;
-  p: Palette;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <FrameChips
-        frames={frames}
-        value={action?.to ?? null}
-        onChange={(to) => onChange(to ? { to, transition: action?.transition ?? "slide" } : undefined)}
-        p={p}
-        back
-      />
-      {action && action.to !== BACK_TARGET && (
-        <TransitionPicker value={action.transition} onChange={(transition) => onChange({ ...action, transition })} p={p} />
-      )}
-    </div>
   );
 }
 
@@ -356,17 +152,11 @@ export function Inspector({
   grouped,
   selectionWhole,
   selectionKey,
-  railStandalone = false,
   onGroup,
   onUngroup,
-  widths,
   onPlace,
   selfRect,
   allFrames,
-  onShowOn,
-  onShowMenu,
-  onMigrate,
-  onRevert,
 }: {
   /** the AI button beside the behavior field */
   ai: AiHooks;
@@ -388,29 +178,15 @@ export function Inspector({
   selectionWhole?: boolean;
   /** the selected ids, joined: tells one multi-selection from the next */
   selectionKey?: string;
-  /** Modal expansion is available only when this rail owns its group. */
-  railStandalone?: boolean;
   onGroup?: () => void;
   onUngroup?: () => void;
-  /** measured widths of the parts that size themselves to their text */
-  widths?: Record<string, number>;
   /** puts the selection at one of nine spots in its screen's body, clear of the parts already there */
   onPlace?: (col: "left" | "centerH" | "right", row: "top" | "centerV" | "bottom") => void;
   /** where the selected part sits on the canvas, for the tap map */
   selfRect?: { x: number; y: number; w: number; h: number } | null;
   /** every screen on the canvas, whatever the frame mode; the tap map draws them all */
   allFrames?: Frame[];
-  /** the canvas should draw the selected toggle button in its "on" look */
-  onShowOn?: (on: boolean) => void;
-  /** asks the canvas to show a FAB's menu open while it is being set up */
-  onShowMenu?: (open: boolean) => void;
-  /** turns the selected old hand-drawn part into the component that stands for it */
-  onMigrate?: () => void;
-  /** puts a converted part back as the old one it was */
-  onRevert?: () => void;
 }) {
-  const lang = useLang();
-
   if (!item) {
     if (multi > 1) {
       return (
@@ -446,37 +222,8 @@ export function Inspector({
     );
   }
 
-  /* a shadcn M3E component is edited through its own props */
-  if (item.kind === "component") {
-    return (
-      <MigrateContext.Provider value={{ onRevert }}>
-      <ComponentInspector
-        ai={ai}
-        item={item}
-        palette={p}
-        frame={frame ?? null}
-        onChange={onChange}
-        onDelete={onDelete}
-        onDuplicate={onDuplicate}
-        locked={locked}
-        onToggleLock={onToggleLock}
-        onPlace={onPlace}
-        selfRect={selfRect ?? null}
-        allFrames={allFrames ?? frames}
-      />
-      </MigrateContext.Provider>
-    );
-  }
-
-  /* the parts a tap sends somewhere and that fuse into a run are edited in the button's panel */
-  if (item.kind === "button" || item.kind === "iconButton" || item.kind === "chip" || item.kind === "splitButton" || isFab(item.kind)) {
-    return <MigrateContext.Provider value={{ onMigrate }}><ButtonInspector ai={ai} item={item} palette={p} frame={frame ?? null} onChange={onChange} onDelete={onDelete} onDuplicate={onDuplicate} locked={locked} onToggleLock={onToggleLock} onPlace={onPlace} measured={widths?.[item.id]} selfRect={selfRect ?? null} allFrames={allFrames ?? frames} onShowOn={onShowOn} onShowMenu={onShowMenu} /></MigrateContext.Provider>;
-  }
-
-  /* everything else shares one panel, built from the button's own */
   return (
-    <MigrateContext.Provider value={{ onMigrate }}>
-    <PartInspector
+    <ComponentInspector
       ai={ai}
       item={item}
       palette={p}
@@ -489,9 +236,6 @@ export function Inspector({
       onPlace={onPlace}
       selfRect={selfRect ?? null}
       allFrames={allFrames ?? frames}
-      measured={widths?.[item.id]}
-      railStandalone={railStandalone}
     />
-    </MigrateContext.Provider>
   );
 }
