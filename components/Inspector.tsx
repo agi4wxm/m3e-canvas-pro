@@ -9,7 +9,8 @@ import {
   framePresetOf,
 } from "@/lib/tokens";
 import { ComponentInspector } from "./ComponentInspector";
-import { AlignBox, PartMenu, PlaceFn } from "./PartPanel";
+import { AlignBox, LineUp, PartMenu, PlaceFn } from "./PartPanel";
+import type { AlignHow } from "@/lib/align";
 import { Icon } from "./Icon";
 import { PanelShell, Section, Segmented } from "./ui";
 import { TRANSITION_TEXT, t, useLang } from "@/lib/i18n";
@@ -27,13 +28,16 @@ export function FrameSizePicker({
 }) {
   const lang = useLang();
   return (
-    <Segmented<FramePreset>
+    <Segmented<FramePreset | "custom">
       options={[
         { key: "phone", icon: "smartphone", label: compact ? undefined : t("phoneFrame", lang), title: t("phoneFrame", lang) },
+        { key: "tablet", icon: "tablet", label: compact ? undefined : t("tabletFrame", lang), title: t("tabletFrame", lang) },
         { key: "desktop", icon: "desktop_windows", label: compact ? undefined : t("desktopFrame", lang), title: t("desktopFrame", lang) },
       ]}
       value={framePresetOf(frame)}
-      onChange={onChange}
+      onChange={(preset) => {
+        if (preset !== "custom") onChange(preset);
+      }}
       p={p}
       height={compact ? 36 : 40}
       grow={!compact}
@@ -72,6 +76,9 @@ function GroupPanel({
   onUngroup,
   onPlace,
   selectionKey,
+  onAlign,
+  onDistribute,
+  onAutoLayout,
 }: {
   p: Palette;
   count: number;
@@ -85,6 +92,9 @@ function GroupPanel({
   onPlace?: PlaceFn;
   /** names the selection, so the spot picked for one is not shown lit for the next */
   selectionKey: string;
+  onAlign?: (how: AlignHow) => void;
+  onDistribute?: (axis: "x" | "y", gap?: number) => void;
+  onAutoLayout?: () => void;
 }) {
   const lang = useLang();
   const title = grouped ? t("group", lang) : lang === "en" ? `${count} ${t("selectedParts", lang)}` : `${count}${t("selectedParts", lang)}`;
@@ -102,6 +112,11 @@ function GroupPanel({
         </div>
       }
     >
+      {onAlign && onDistribute && !grouped && (
+        <Section id="group-line-up" icon="align_horizontal_left" title={t("lineUp", lang)} p={p}>
+          <LineUp key={selectionKey} onAlign={onAlign} onDistribute={onDistribute} p={p} />
+        </Section>
+      )}
       {onPlace && (
         <Section id="group-align" icon="grid_on" title={t("align", lang)} p={p}>
           <AlignBox key={selectionKey} onPlace={onPlace} p={p} />
@@ -109,6 +124,16 @@ function GroupPanel({
       )}
       {/* the header already names the group, so the button that makes or breaks it stands under the sections without a title of its own */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 4px" }}>
+        {onAutoLayout && !grouped && (
+          <button
+            onClick={onAutoLayout}
+            className="m3-press"
+            style={{ height: 44, borderRadius: 22, border: "none", background: p.primaryContainer, color: p.onPrimaryContainer, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}
+          >
+            <Icon name="view_agenda" size={20} />
+            {t("addAutoLayout", lang)}
+          </button>
+        )}
         <button
           onClick={toggle}
           className="m3-press"
@@ -157,6 +182,11 @@ export function Inspector({
   onPlace,
   selfRect,
   allFrames,
+  onAlign,
+  onDistribute,
+  onAutoLayout,
+  inFlow,
+  onMoveTo,
 }: {
   /** the AI button beside the behavior field */
   ai: AiHooks;
@@ -186,6 +216,16 @@ export function Inspector({
   selfRect?: { x: number; y: number; w: number; h: number } | null;
   /** every screen on the canvas, whatever the frame mode; the tap map draws them all */
   allFrames?: Frame[];
+  /** lines the selected parts up against each other */
+  onAlign?: (how: AlignHow) => void;
+  /** spreads the selected parts out evenly, or by an exact gap */
+  onDistribute?: (axis: "x" | "y", gap?: number) => void;
+  /** puts the selected parts in a new container that lays them out */
+  onAutoLayout?: () => void;
+  /** the selected part is placed by a container's auto layout */
+  inFlow?: boolean;
+  /** puts the selected part at a place on its screen */
+  onMoveTo?: (x: number, y: number) => void;
 }) {
   if (!item) {
     if (multi > 1) {
@@ -203,6 +243,9 @@ export function Inspector({
           onUngroup={onUngroup}
           onPlace={onPlace}
           selectionKey={selectionKey ?? ""}
+          onAlign={onAlign}
+          onDistribute={onDistribute}
+          onAutoLayout={onAutoLayout}
         />
       );
     }
@@ -236,6 +279,8 @@ export function Inspector({
       onPlace={onPlace}
       selfRect={selfRect ?? null}
       allFrames={allFrames ?? frames}
+      inFlow={inFlow}
+      onMoveTo={onMoveTo}
     />
   );
 }

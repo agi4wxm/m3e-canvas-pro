@@ -26,11 +26,15 @@ import { Lang } from "@/lib/i18n";
 import { Icon } from "./Icon";
 import { IconPicker } from "./IconPicker";
 import { segmentedFits } from "@/lib/choices";
-import { Field, IconBtn, RUN_CELL, Section, Segmented, Select, SelectOption, Slider, Toggle } from "./ui";
+import { Field, IconBtn, ImageRow, RUN_CELL, Section, Segmented, Select, SelectOption, Slider, Toggle } from "./ui";
 import { AiHooks } from "./Inspector";
 import { LinkStage, TapStage } from "./TapStage";
 import { partBySlug } from "@/parts/registry";
 import { COLOR_TOKEN_TEXT, TEXT_TOKEN_TEXT, t, useLang } from "@/lib/i18n";
+import type { AlignHow } from "@/lib/align";
+
+/** past this a corner reads as fully round on any part */
+const CORNER_MAX = 64;
 
 /* The chrome every part's panel wears: the title row with its menu, the two tabs, the grid that
  * lines a part up, the field the model writes into, and the tap action with its stage. A part
@@ -541,22 +545,87 @@ export function TextRun({ value, onChange, p }: { value?: TextToken; onChange: (
   );
 }
 
-/** The four corners of a component part. They hold the component's own radius until the toggle
- *  turns editing on; then each corner is its own, seeded from `seed`, set on a drawing of the part. */
+/** Selected parts lined up against each other: to an edge or a centre of what they cover, or spread
+ *  out evenly, or with an exact space between them. */
+export function LineUp({ onAlign, onDistribute, p }: { onAlign: (how: AlignHow) => void; onDistribute: (axis: "x" | "y", gap?: number) => void; p: Palette }) {
+  const lang = useLang();
+  const [gap, setGap] = useState(16);
+  const cells: { how: AlignHow; icon: string; title: "lineLeft" | "lineCenterH" | "lineRight" | "lineTop" | "lineCenterV" | "lineBottom" }[] = [
+    { how: "left", icon: "align_horizontal_left", title: "lineLeft" },
+    { how: "centerH", icon: "align_horizontal_center", title: "lineCenterH" },
+    { how: "right", icon: "align_horizontal_right", title: "lineRight" },
+    { how: "top", icon: "align_vertical_top", title: "lineTop" },
+    { how: "centerV", icon: "align_vertical_center", title: "lineCenterV" },
+    { how: "bottom", icon: "align_vertical_bottom", title: "lineBottom" },
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 4 }}>
+        {cells.map((c) => (
+          <IconBtn key={c.how} icon={c.icon} p={p} size={36} onClick={() => onAlign(c.how)} title={t(c.title, lang)} />
+        ))}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <IconBtn icon="horizontal_distribute" p={p} size={36} onClick={() => onDistribute("x")} title={t("distributeH", lang)} />
+        <IconBtn icon="vertical_distribute" p={p} size={36} onClick={() => onDistribute("y")} title={t("distributeV", lang)} />
+        <span style={{ flex: 1 }} />
+        <span style={{ fontSize: 12, color: p.onSurfaceVariant }}>{t("exactGap", lang)}</span>
+        <Num value={gap} min={0} max={400} title={t("exactGap", lang)} onChange={setGap} p={p} />
+        <IconBtn icon="arrow_range" p={p} size={36} onClick={() => onDistribute("x", gap)} title={t("gapAcross", lang)} />
+        <IconBtn icon="height" p={p} size={36} onClick={() => onDistribute("y", gap)} title={t("gapDown", lang)} />
+      </div>
+    </div>
+  );
+}
+
+/** where a part stands on its screen, in numbers */
+export function PositionRow({ x, y, onMove, p }: { x: number; y: number; onMove: (x: number, y: number) => void; p: Palette }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>X</span>
+      <Num value={x} min={-9999} max={9999} title="X" lazy onChange={(v) => onMove(v, y)} p={p} />
+      <span style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>Y</span>
+      <Num value={y} min={-9999} max={9999} title="Y" lazy onChange={(v) => onMove(x, v)} p={p} />
+    </div>
+  );
+}
+
+/** The corners of a part: one slider for all four, and each on its own on a drawing of the part.
+ *  They hold the component's own radius (`seed`) until the author moves one; the row under the
+ *  slider gives that own radius back. */
 export function AppearanceCorners({ item, seed, onChange, p }: { item: Item; seed: number; onChange: (patch: Partial<Item>) => void; p: Palette }) {
   const lang = useLang();
   const corners = item.corners;
+  const even = !corners || (corners.tl === corners.tr && corners.tr === corners.br && corners.br === corners.bl);
+  const [each, setEach] = useState(!even);
+  const shown = corners ? (even ? corners.tl : Math.round((corners.tl + corners.tr + corners.br + corners.bl) / 4)) : Math.min(seed, CORNER_MAX);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <Slider icon="rounded_corner" title={t("corners", lang)} value={shown} min={0} max={CORNER_MAX} step={1} onChange={(v) => onChange({ corners: uniformRadii(v) })} p={p} />
       <Toggle
-        on={!!corners}
-        onChange={(on) => onChange({ corners: on ? uniformRadii(seed) : undefined })}
+        on={each}
+        onChange={(on) => {
+          setEach(on);
+          if (on && !corners) onChange({ corners: uniformRadii(shown) });
+          if (!on && corners) onChange({ corners: uniformRadii(shown) });
+        }}
         p={p}
-        icon="rounded_corner"
         label={t("cornersEach", lang)}
         grow
       />
-      {corners && <CornerStage item={item} corners={corners} max={48} onChange={(c) => onChange({ corners: c })} p={p} />}
+      {each && corners && <CornerStage item={item} corners={corners} max={CORNER_MAX} onChange={(c) => onChange({ corners: c })} p={p} />}
+      {corners && (
+        <button
+          className="m3-press"
+          onClick={() => {
+            setEach(false);
+            onChange({ corners: undefined });
+          }}
+          style={{ height: 36, borderRadius: 18, border: `1px solid ${p.outlineVariant}`, background: "transparent", color: p.onSurfaceVariant, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+        >
+          {t("cornersReset", lang)}
+        </button>
+      )}
     </div>
   );
 }
@@ -652,6 +721,7 @@ export function EntryList({
   onChange,
   p,
   icons = true,
+  images = false,
   fields,
 }: {
   /** the part the rows belong to: another part starts the row names over */
@@ -665,6 +735,8 @@ export function EntryList({
   p: Palette;
   /** each entry has an icon */
   icons?: boolean;
+  /** each entry has a picture of its own, under its words (a carousel's slide) */
+  images?: boolean;
   /** one more choice per row, as a small run under its words (a button group's per-row variant) */
   fields?: { key: string; label: string; options: { key: string; label: string }[] }[];
 }) {
@@ -713,6 +785,7 @@ export function EntryList({
             open={pick === names[i]}
             onPick={() => setPick(pick === names[i] ? null : names[i])}
             onLabel={(label) => set(i, { label })}
+            onImage={images ? (image) => set(i, { image }) : undefined}
             fields={fields}
             onField={(key, v) => set(i, { [key]: v } as Partial<NavTab>)}
             onDragStart={() => setDragging(i)}
@@ -775,6 +848,7 @@ function EntryRow({
   open,
   onPick,
   onLabel,
+  onImage,
   fields,
   onField,
   onDragStart,
@@ -788,6 +862,7 @@ function EntryRow({
   open: boolean;
   onPick: () => void;
   onLabel: (v: string) => void;
+  onImage?: (v: string | undefined) => void;
   fields?: { key: string; label: string; options: { key: string; label: string }[] }[];
   onField?: (key: string, v: string) => void;
   onDragStart: () => void;
@@ -825,6 +900,7 @@ function EntryRow({
       </div>
       {icons && <IconCell icon={tab.icon || null} open={open} title={t("changeIcon", lang)} onClick={onPick} p={p} />}
       </div>
+      {onImage && <ImageRow value={tab.image} onChange={onImage} p={p} />}
       {fields?.map((f) => {
         const value = (tab[f.key as keyof NavTab] as string | undefined) || f.options[0]?.key || "";
         /* a button's own variant is six style names; they do not fit one row, so that
@@ -856,7 +932,7 @@ function EntryRow({
 
 /** a whole number typed into a small box: it follows the field while the number is in range
  *  and settles when the field is left, the way the slider's own number does */
-function Num({ value, min, max, title, onChange, p }: { value: number; min: number; max: number; title: string; onChange: (v: number) => void; p: Palette }) {
+export function Num({ value, min, max, title, onChange, p, lazy }: { value: number; min: number; max: number; title: string; onChange: (v: number) => void; p: Palette; /** only once the number is finished: for what is costly to change, or wrong halfway through */ lazy?: boolean }) {
   const [text, setText] = useState(String(value));
   const [editing, setEditing] = useState(false);
   useEffect(() => {
@@ -864,7 +940,7 @@ function Num({ value, min, max, title, onChange, p }: { value: number; min: numb
   }, [value, editing]);
   const commit = () => {
     const n = Math.round(Number(text));
-    if (Number.isFinite(n) && text.trim() !== "") onChange(Math.max(min, Math.min(max, n)));
+    if (Number.isFinite(n) && text.trim() !== "" && Math.max(min, Math.min(max, n)) !== value) onChange(Math.max(min, Math.min(max, n)));
     setEditing(false);
     setText(String(value));
   };
@@ -884,6 +960,7 @@ function Num({ value, min, max, title, onChange, p }: { value: number; min: numb
       }}
       onChange={(e) => {
         setText(e.target.value);
+        if (lazy) return;
         const n = Math.round(Number(e.target.value));
         if (e.target.value.trim() !== "" && Number.isFinite(n) && n >= min && n <= max) onChange(n);
       }}

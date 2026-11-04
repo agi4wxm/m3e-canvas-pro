@@ -369,7 +369,7 @@ function snapEdges(unit: Unit, groups: Map<string, Group>, widths: Record<string
 export function bodyRect(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>, except: Set<string> = new Set()): Rect {
   const screen = frameRect(frame);
   /* `except` names groups being moved: a bar that is itself being aligned must not shape the body */
-  const mine = groups.filter((g) => !except.has(g.id) && frameOfGroup(g, frames, widths)?.id === frame.id);
+  const mine = groups.filter((g) => !except.has(g.id) && !g.inFlow && frameOfGroup(g, frames, widths)?.id === frame.id);
   const units = clusters(mine, widths);
   const onRight = (u: Unit) => railSide(mine.find((g) => g.id === u.ids[0])!, frame, widths) === "right";
   const rails = units.filter(isRail);
@@ -388,7 +388,8 @@ export function bodyRect(groups: Group[], frame: Frame, frames: Frame[], widths:
 
 export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>): Group[] | null {
   const screen: Rect = frameRect(frame);
-  const mineIds = new Set(groups.filter((g) => frameOfGroup(g, frames, widths)?.id === frame.id).map((g) => g.id));
+  /* what a container lays out goes where the container is, not into the screen's rows */
+  const mineIds = new Set(groups.filter((g) => !g.inFlow && frameOfGroup(g, frames, widths)?.id === frame.id).map((g) => g.id));
   if (!mineIds.size) return null;
 
   /* Locked groups are finished sections: they never cluster or move, but they keep the room

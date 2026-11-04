@@ -1,6 +1,6 @@
 import { Doc, Item } from "./tokens";
 import { openProject } from "./project";
-import { imageKeys, partBySlug } from "../parts/registry";
+import { partBySlug, withoutPickedImages } from "../parts/registry";
 
 /* A design travels in a link: the document as JSON, deflated and base64url-encoded
  * after `#docz=`, or plain JSON after `#doc=` for tools that cannot compress. The
@@ -13,11 +13,7 @@ export const DOCZ_PARAM = "docz";
  *  (a web address stays), and the AI rewrite history */
 function shareableItem({ noteHistory: _h, ...out }: Item): Item {
   const def = out.props ? partBySlug(out.component) : undefined;
-  const keys = def ? imageKeys(def) : [];
-  if (!keys.length || !keys.some((k) => typeof out.props![k] === "string" && (out.props![k] as string).startsWith("data:"))) return out;
-  const props = { ...out.props };
-  for (const k of keys) if (typeof props[k] === "string" && (props[k] as string).startsWith("data:")) delete props[k];
-  return { ...out, props };
+  return def && out.props ? { ...out, props: withoutPickedImages(def, out.props) } : out;
 }
 
 export function shareable(doc: Doc): Doc {

@@ -9,7 +9,8 @@ import { COMPONENTS } from "./components";
 import { EXTERNAL } from "./externals";
 import { FILE_OF } from "./files.generated";
 import { isNode, type PNode, type PValue } from "./node";
-import { CATEGORIES, PARTS, defaultValues, partBySlug, treeOf } from "./registry";
+import { applyAppearance } from "./appearance";
+import { CATEGORIES, PARTS, defaultValues, partBySlug, reader, treeOf } from "./registry";
 import { renderNode } from "./render";
 import { loadWidgets } from "./widgets/load";
 import { WIDGET_SOURCES } from "./widgets/sources";
@@ -66,7 +67,7 @@ describe("every part", () => {
   it("is plain data: its definition loads no React", () => {
     for (const { name, text } of sourceFiles("defs")) {
       const imports = [...text.matchAll(/^import (?!type )[^;]*from "([^"]+)"/gm)].map((m) => m[1]);
-      for (const from of imports) expect(from, `defs/${name} imports ${from}`).toMatch(/^\.\.\/(node|labels|types)$/);
+      for (const from of imports) expect(from, `defs/${name} imports ${from}`).toMatch(/^\.\.\/(node|labels|types|flow)$/);
     }
   });
 
@@ -89,6 +90,32 @@ describe("every part", () => {
     for (const d of PARTS)
       for (const p of d.props)
         for (const wrong of WRONG) expect(() => draw(d.slug, { [p.key]: wrong }), `${d.slug}.${p.key} = ${JSON.stringify(wrong)}`).not.toThrow();
+    /* every prop of every part ten times over: its time grows with the catalog */
+  }, 30000);
+
+  it("takes a fill, a text color and corners, unless it has no surface of its own to paint", () => {
+    /* a progress mark and a skeleton read through their own motion; a snackbar is the toast library's,
+     * on the theme's inverse role; the rest paint themselves from their own props */
+    const noSurface = new Set(["progress", "circular-progress", "loading-indicator", "spinner", "skeleton", "sonner", "icon", "container", "shape", "image"]);
+    const look = { fill: "tertiaryContainer", corners: { tl: 3, tr: 3, br: 3, bl: 3 } } as const;
+    const painted = (n: PNode): boolean => String(n.props?.className ?? "").includes("bg-tertiary-container") && /3px/.test(String((n.props?.style as { borderRadius?: string } | undefined)?.borderRadius)) ? true : (n.children ?? []).some((c) => typeof c !== "string" && painted(c));
+    for (const d of PARTS) {
+      if (noSurface.has(d.slug)) expect(d.appearance, `${d.slug} is listed as having no surface`).toBeUndefined();
+      else {
+        expect(d.appearance, `${d.slug} has no appearance`).toBeTruthy();
+        const tree = (d.view ?? d.tree)(reader(d, defaultValues(d)));
+        expect(painted(applyAppearance(tree, look, d.appearance?.target)), `${d.slug}: nothing in its tree is what it paints`).toBe(true);
+      }
+    }
+  });
+
+  it("carries that look through a widget to what it draws", () => {
+    for (const d of PARTS) {
+      if (!d.appearance || !(treeOf(d, defaultValues(d)).type in WIDGET_SOURCES)) continue;
+      const out = renderToStaticMarkup(createElement("div", null, renderNode(treeOf(d, defaultValues(d), { fill: "tertiaryContainer", corners: { tl: 3, tr: 3, br: 3, bl: 3 } }))));
+      expect(out, d.slug).toContain("bg-tertiary-container");
+      expect(out, d.slug).toContain("border-radius:3px");
+    }
   });
 
   it("survives a save and an open with its values", () => {

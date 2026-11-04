@@ -1,4 +1,6 @@
 import { useRef, useState } from "react";
+import type { Look } from "./look";
+import { cn } from "@/lib/m3e/cn";
 
 /* The movement pad of 17722797729/m3e-canvas game-ui (MIT): the geometry is the fork's
  * (joystickKnob, joystickAngle, JOYSTICK_TRAVEL in its lib/tokens.ts). In the fork the drag lives
@@ -19,7 +21,7 @@ const angleOf = (dx: number, dy: number) => {
   return Math.round(((deg % 360) + 360) % 360);
 };
 
-export function Joystick({ size = 132, angle = 0, autoCenter = true }: { size?: number; angle?: number; autoCenter?: boolean }) {
+export function Joystick({ size = 132, angle = 0, autoCenter = true, className, style }: { size?: number; angle?: number; autoCenter?: boolean } & Look) {
   const ref = useRef<HTMLDivElement>(null);
   /* null: nobody has moved it, so it shows the angle it was given */
   const [held, setHeld] = useState<number | null>(null);
@@ -49,8 +51,8 @@ export function Joystick({ size = 132, angle = 0, autoCenter = true }: { size?: 
       aria-valuemax={360}
       aria-valuenow={shown}
       tabIndex={0}
-      className="bg-surface-container-high relative rounded-full"
-      style={{ width: size, height: size, touchAction: "none" }}
+      className={cn("bg-surface-container-high relative rounded-full", className)}
+      style={{ width: size, height: size, touchAction: "none", ...style }}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);
         setDragging(true);

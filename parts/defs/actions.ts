@@ -26,6 +26,16 @@ const TOGGLE_PROPS: PropDef[] = [
 const TOGGLE_VARIANT: Record<string, string | undefined> = { filled: "filled", tonal: "tonal", elevated: "elevated", outlined: "outline", text: undefined };
 const TOGGLE_SIZE: Record<string, string> = { xs: "xs", sm: "sm", md: "md", lg: "lg", xl: "lg" };
 
+/** the look a toggle button changes to when on, in place of the on-look its own variant has */
+const ON_LOOK: Record<string, string | undefined> = {
+  same: undefined,
+  filled: "data-pressed:border-transparent data-pressed:bg-primary data-pressed:text-on-primary",
+  tonal: "data-pressed:border-transparent data-pressed:bg-secondary-container data-pressed:text-on-secondary-container",
+  elevated: "data-pressed:border-transparent data-pressed:bg-surface-container-low data-pressed:text-primary data-pressed:shadow-elevation-1",
+  outlined: "data-pressed:border data-pressed:border-outline-variant data-pressed:bg-transparent data-pressed:text-on-surface-variant",
+  text: "data-pressed:border-transparent data-pressed:bg-transparent data-pressed:text-primary",
+};
+
 /** the button part's tree: a `Button` normally, a `Toggle` when it flips on tap */
 function buttonTree(p: P) {
   const label = p.s("label");
@@ -46,6 +56,7 @@ function buttonTree(p: P) {
         variant: TOGGLE_VARIANT[p.s("variant")],
         size: TOGGLE_SIZE[p.s("size")] ?? "sm",
         shape: p.s("shape") === "square" ? "square" : undefined,
+        className: ON_LOOK[p.s("onLook")],
         disabled: p.b("disabled") || undefined,
         selectedIcon: onIcon ? ic(onIcon, { fill: "auto" }) : onLabel && icon ? ic(icon, { fill: "auto" }) : undefined,
         selectedLabel: onLabel || (onIcon && label ? label : undefined),
@@ -74,6 +85,7 @@ function buttonTree(p: P) {
 export const actions: PartDef[] = [
   {
     slug: "button",
+    appearance: { radius: 20 },
     name: "Button",
     category: "Actions",
     icon: "touch_app",
@@ -89,11 +101,13 @@ export const actions: PartDef[] = [
       { key: "iconWidth", label: "Width", kind: "enum", default: "default", options: ["default", "narrow", "wide"], when: (p) => !p.s("label") && !!p.s("icon") },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
       ...TOGGLE_PROPS,
+      { key: "onLook", label: "Variant when on", labels: { ja: "オンのときのスタイル", zh: "开启时的样式", ko: "켜졌을 때 스타일" }, kind: "enum", default: "same", options: Object.keys(ON_LOOK), when: (p: P) => p.b("toggle") },
     ],
     tree: (p) => buttonTree(p),
   },
   {
     slug: "fab",
+    appearance: { radius: 16 },
     name: "FAB",
     category: "Actions",
     icon: "add_circle",
@@ -134,6 +148,7 @@ export const actions: PartDef[] = [
   },
   {
     slug: "chip",
+    appearance: { target: ["Chip", "FilterChip", "InputChip"], radius: 8 },
     name: "Chip",
     category: "Actions",
     icon: "label",
@@ -166,6 +181,7 @@ export const actions: PartDef[] = [
   },
   {
     slug: "toggle",
+    appearance: { radius: 20 },
     name: "Toggle",
     category: "Actions",
     icon: "toggle_on",
@@ -200,6 +216,7 @@ export const actions: PartDef[] = [
   },
   {
     slug: "toggle-group",
+    appearance: { target: "ToggleGroupItem", radius: 20 },
     name: "Toggle group",
     category: "Actions",
     icon: "view_column",
@@ -222,7 +239,8 @@ export const actions: PartDef[] = [
         "ToggleGroup",
         {
           spacing: p.b("connected") ? 0 : undefined,
-          variant: p.s("variant") === "default" ? undefined : p.s("variant"),
+          /* connected, the standard look is the filled one, by a rule a part's fill cannot override */
+          variant: p.s("variant") !== "default" ? p.s("variant") : p.b("connected") ? "filled" : undefined,
           size: p.s("size") === "default" ? undefined : p.s("size"),
           multiple: p.b("multiple") || undefined,
           defaultValue: items.length ? [value(items[Math.min(p.n("selected"), items.length - 1)], Math.min(p.n("selected"), items.length - 1))] : undefined,
@@ -233,6 +251,7 @@ export const actions: PartDef[] = [
   },
   {
     slug: "button-group",
+    appearance: { target: "Button", radius: 20 },
     name: "Button group",
     category: "Actions",
     icon: "splitscreen",
@@ -286,6 +305,7 @@ export const actions: PartDef[] = [
   },
   {
     slug: "split-button",
+    appearance: { target: "SplitButton", radius: 20 },
     name: "Split button",
     category: "Actions",
     icon: "arrow_drop_down_circle",
@@ -326,6 +346,7 @@ export const actions: PartDef[] = [
   },
   {
     slug: "fab-menu",
+    appearance: { target: "FabMenuTrigger", radius: 16 },
     name: "FAB menu",
     category: "Actions",
     icon: "menu_open",

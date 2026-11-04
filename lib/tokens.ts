@@ -21,6 +21,8 @@ export const SIZE_HANDLE_Z = 55;
 export const PHONE_W = 412;
 export const PHONE_H = 892;
 export const PHONE_R = 40;
+export const TABLET_W = 834;
+export const TABLET_H = 1194;
 export const DESKTOP_W = 1280;
 export const DESKTOP_H = 800;
 export const DESKTOP_R = 28;
@@ -392,7 +394,7 @@ export type Axis = "x" | "y";
 
 /* ---------- screen data ---------- */
 /** one row of a list a part's panel edits */
-export type NavTab = { icon: string; label: string; variant?: string; width?: string };
+export type NavTab = { icon: string; label: string; variant?: string; width?: string; image?: string };
 
 export type Item = {
   id: string;
@@ -416,6 +418,8 @@ export type Item = {
   textColor?: TextToken;
   /** each corner on its own, painted over the part's own radius */
   corners?: Radii;
+  /** in a container's auto layout, it takes what room is left along the run */
+  flowFill?: boolean;
   /** tap navigation to another frame */
   action?: Action;
   /** per-slot tap navigation, by the keys its `PartDef.slots` names */
@@ -539,7 +543,7 @@ export function listRowsPatch(it: Item, key: string, rows: ListItem[], order: nu
 export function collapseFree(g: Group, widths: Record<string, number>): Group {
   if (!g.free || g.items.length !== 1) return g;
   const pl = layoutOf(g, widths)[0];
-  return { id: g.id, x: pl.x, y: pl.y, axis: "x", items: g.items };
+  return { id: g.id, x: pl.x, y: pl.y, axis: "x", items: g.items, ...(g.inFlow ? { inFlow: g.inFlow } : {}) };
 }
 
 /** every navigation an item carries: its own action plus per-slot ones */
@@ -638,15 +642,19 @@ export const PLACES: { key: Place; icon: string }[] = [
 ];
 export const isPlace = (v: unknown): v is Place => v === "top" || v === "center" || v === "bottom" || v === "spread";
 
-export type FramePreset = "phone" | "desktop";
+export type FramePreset = "phone" | "tablet" | "desktop";
 export const frameSizeOf = (f: Frame) => ({ w: f.w ?? PHONE_W, h: f.h ?? PHONE_H });
 export const isPhoneFrame = (f: Frame) => {
   const { w, h } = frameSizeOf(f);
   return w === PHONE_W && h === PHONE_H;
 };
-export const framePresetOf = (f: Frame): FramePreset => (isPhoneFrame(f) ? "phone" : "desktop");
+/** the named device a screen is the size of; any other size is the author's own */
+export const framePresetOf = (f: Frame): FramePreset | "custom" => {
+  const { w, h } = frameSizeOf(f);
+  return isPhoneFrame(f) ? "phone" : w === TABLET_W && h === TABLET_H ? "tablet" : w === DESKTOP_W && h === DESKTOP_H ? "desktop" : "custom";
+};
 export const framePresetPatch = (preset: FramePreset): Pick<Frame, "w" | "h"> =>
-  preset === "desktop" ? { w: DESKTOP_W, h: DESKTOP_H } : { w: undefined, h: undefined };
+  preset === "desktop" ? { w: DESKTOP_W, h: DESKTOP_H } : preset === "tablet" ? { w: TABLET_W, h: TABLET_H } : { w: undefined, h: undefined };
 /** the device a screen is drawn for is `frameSizeOf`; the screen itself may run further down,
  *  and everything laid out on it -- what it holds, where Tidy puts its bars -- goes by this */
 export const frameLengthOf = (f: Frame) => Math.max(f.length ?? 0, frameSizeOf(f).h);
@@ -729,7 +737,7 @@ export function groupBounds(g: Group, widths: Record<string, number>) {
 /** a part that can hold others, standing alone */
 export const holdsParts = (g: Group) => !g.free && g.items.length === 1 && !!partBySlug(g.items[0].component)?.holds;
 
-const liesInside = (g: Group, outer: ReturnType<typeof groupBounds>, widths: Record<string, number>) => {
+export const liesInside = (g: Group, outer: ReturnType<typeof groupBounds>, widths: Record<string, number>) => {
   const b = groupBounds(g, widths);
   const tol = 2;
   return b.l >= outer.l - tol && b.t >= outer.t - tol && b.r <= outer.r + tol && b.b <= outer.b + tol && (b.r - b.l) * (b.b - b.t) < (outer.r - outer.l) * (outer.b - outer.t);
@@ -743,7 +751,10 @@ export function heldBy(container: Group, groups: Group[], widths: Record<string,
   if (!holdsParts(container)) return [];
   const at = groups.findIndex((g) => g.id === container.id);
   const outer = groupBounds(container, widths);
-  return groups.slice(at + 1).filter((g) => !g.locked && liesInside(g, outer, widths));
+  const held = new Set(groups.filter((g, i) => g.id !== container.id && !g.locked && (g.inFlow === container.id || (i > at && liesInside(g, outer, widths)))));
+  /* what a layout holds is its own even where it overflows, at any depth */
+  for (const g of held) for (const o of groups) if (o.inFlow === g.id && !o.locked) held.add(o);
+  return groups.filter((g) => held.has(g));
 }
 
 /** A container put down over parts already there would hide them: it goes behind the first of them. */
@@ -763,7 +774,21 @@ export function underWhatItHolds(groups: Group[], id: string, widths: Record<str
  *  layers panel edits. */
 export function explodeGroup(g: Group, widths: Record<string, number>): Group[] {
   if (!g.free) return [g];
-  return layoutOf(g, widths).map((pl) => ({ id: `${g.id}:${pl.item.id}`, x: pl.x, y: pl.y, axis: "x" as const, items: [pl.item] }));
+  return layoutOf(g, widths).map((pl) => ({ id: `${g.id}:${pl.item.id}`, x: pl.x, y: pl.y, axis: "x" as const, items: [pl.item], ...(g.inFlow ? { inFlow: g.inFlow } : {}) }));
+}
+
+/** the screen a group belongs to, going by the container that lays it out: what overflows that
+ *  container is still on its screen */
+export function frameOfPart(g: Group, groups: Group[], frames: Frame[], widths: Record<string, number>): Frame | undefined {
+  let at = g;
+  const seen = new Set([g.id]);
+  while (at.inFlow) {
+    const host = groups.find((x) => x.id === at.inFlow);
+    if (!host || seen.has(host.id)) break;
+    seen.add(host.id);
+    at = host;
+  }
+  return frameOfGroup(at, frames, widths);
 }
 
 /** a group belongs to the frame that contains its centre */
@@ -778,7 +803,7 @@ export function frameOfGroup(g: Group, frames: Frame[], widths: Record<string, n
 }
 
 export const groupsInFrame = (groups: Group[], f: Frame, frames: Frame[], widths: Record<string, number>) =>
-  groups.filter((g) => frameOfGroup(g, frames, widths)?.id === f.id);
+  groups.filter((g) => frameOfPart(g, groups, frames, widths)?.id === f.id);
 
 export type Group = {
   id: string;
@@ -791,6 +816,8 @@ export type Group = {
   /** a hand-made group: parts keep their own offsets (in `pos`) and move as one layer */
   free?: boolean;
   pos?: Record<string, { x: number; y: number }>;
+  /** the group of the container whose auto layout places this one (lib/flow.ts) */
+  inFlow?: string;
 };
 
 export type FrameMode = "blank" | "phone";

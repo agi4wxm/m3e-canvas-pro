@@ -1,11 +1,26 @@
-import { h, ic } from "../node";
-import type { PartDef } from "../types";
+import { h, ic, type PNode } from "../node";
+import type { ListItem, PartDef } from "../types";
 
 const TONES = [
   "bg-primary-container text-on-primary-container",
   "bg-secondary-container text-on-secondary-container",
   "bg-tertiary-container text-on-tertiary-container",
 ];
+
+const SLIDES: ListItem[] = [{ label: "Sunrise" }, { label: "Forest" }, { label: "Ocean" }, { label: "Desert" }, { label: "Glacier" }, { label: "Canyon" }];
+
+/* words over a photo: no theme role can answer for what the photo is */
+const SCRIM = { caption: "bg-gradient-to-t from-black/60 to-transparent text-white" } as const;
+
+const pictureOf = (s: ListItem) => (typeof s.image === "string" ? s.image : "");
+
+/** what a slide shows: its picture with its words over it, or its words alone */
+function slideFace(s: ListItem): (PNode | string)[] {
+  const src = pictureOf(s);
+  if (!src) return [s.label];
+  const picture = h("img", { src, alt: s.label, className: "absolute inset-0 size-full object-cover" });
+  return s.label ? [picture, h("span", { className: `absolute inset-x-0 bottom-0 block truncate p-3 text-title-medium ${SCRIM.caption}` }, s.label)] : [picture];
+}
 
 /** the Material shape library, in the order of the docs page */
 const SHAPES = [
@@ -66,6 +81,7 @@ export const content: PartDef[] = [
   },
   {
     slug: "avatar",
+    appearance: { target: "AvatarFallback", radius: 999 },
     name: "Avatar",
     category: "Media",
     icon: "account_circle",
@@ -99,21 +115,19 @@ export const content: PartDef[] = [
     w: 320,
     h: 200,
     props: [
-      { key: "count", label: "Slides", kind: "number", default: 5, min: 2, max: 8, step: 1 },
+      { key: "slides", label: "Slides", kind: "list", images: true, default: SLIDES.slice(0, 5), min: 2, max: 8 },
       { key: "arrows", label: "Arrows", kind: "bool", default: true },
       { key: "orientation", label: "Orientation", kind: "enum", default: "horizontal", options: ["horizontal", "vertical"] },
       { key: "itemWidth", label: "Slide width (0: full)", kind: "number", default: 0, min: 0, max: 480, step: 4, unit: "px" },
       { key: "gap", label: "Gap", kind: "number", default: 16, min: 0, max: 32, step: 2, unit: "px" },
-      { key: "image", label: "Image", kind: "image" },
       { key: "width", label: "Width", kind: "number", default: 320, min: 160, max: 640, step: 4, unit: "px" },
       { key: "height", label: "Slide height", kind: "number", default: 200, min: 80, max: 400, step: 4, unit: "px" },
     ],
-    slots: (p) => Array.from({ length: px(p.n("count")) }, (_, i) => ({ key: `tab:${i}`, label: `${i + 1}` })),
+    slots: (p) => p.list("slides").map((s, i) => ({ key: `tab:${i}`, label: s.label || `${i + 1}` })),
     tree: (p) => {
       const vertical = p.s("orientation") === "vertical";
       const gap = px(p.n("gap"));
       const slideW = px(p.n("itemWidth"));
-      const src = p.s("image");
       const pad = vertical ? { paddingTop: gap } : { paddingLeft: gap };
       return h(
         "Carousel",
@@ -121,14 +135,14 @@ export const content: PartDef[] = [
         h(
           "CarouselContent",
           { style: vertical ? { marginTop: -gap } : { marginLeft: -gap } },
-          ...Array.from({ length: px(p.n("count")) }, (_, i) =>
+          ...p.list("slides").map((s, i) =>
             h(
               "CarouselItem",
               { style: { ...pad, ...(slideW > 0 ? { flexBasis: slideW } : {}) } },
               h(
                 "div",
-                { className: `flex items-center justify-center overflow-hidden rounded-2xl text-headline-large ${src ? "bg-surface-container-highest" : TONES[i % 3]}`, style: { height: px(p.n("height")) }, "data-tap": `tab:${i}` },
-                src ? h("img", { src, alt: `Slide ${i + 1}`, className: "size-full object-cover" }) : String(i + 1),
+                { className: `relative flex items-center justify-center overflow-hidden rounded-2xl text-title-large ${pictureOf(s) ? "bg-surface-container-highest" : TONES[i % 3]}`, style: { height: px(p.n("height")) }, "data-tap": `tab:${i}` },
+                ...slideFace(s),
               ),
             ),
           ),
@@ -153,7 +167,8 @@ export const content: PartDef[] = [
         key: "slides",
         label: "Slides",
         kind: "list",
-        default: [{ label: "Sunrise" }, { label: "Forest" }, { label: "Ocean" }, { label: "Desert" }, { label: "Glacier" }, { label: "Canyon" }],
+        images: true,
+        default: SLIDES,
         min: 3,
         max: 8,
       },
@@ -167,11 +182,12 @@ export const content: PartDef[] = [
       h(
         "ExpressiveCarousel",
         { variant: p.s("variant"), itemWidth: p.s("variant") === "full-screen" ? undefined : px(p.n("itemWidth")), gap: px(p.n("gap")), height: px(p.n("height")), style: { width: px(p.n("width")) } },
-        ...p.list("slides").map((s, i) => h("CarouselSlide", { className: TONES[i % 3], "data-tap": `tab:${i}` }, h("span", { className: "text-title-large" }, s.label))),
+        ...p.list("slides").map((s, i) => h("CarouselSlide", { className: `relative overflow-hidden text-title-large ${pictureOf(s) ? "" : TONES[i % 3]}`, "data-tap": `tab:${i}` }, ...slideFace(s))),
       ),
   },
   {
     slug: "kbd",
+    appearance: { target: "Kbd", radius: 4 },
     name: "Kbd",
     category: "Media",
     icon: "keyboard",
@@ -189,6 +205,7 @@ export const content: PartDef[] = [
   },
   {
     slug: "aspect-ratio",
+    appearance: { radius: 8 },
     name: "Aspect ratio",
     category: "Layout",
     icon: "aspect_ratio",

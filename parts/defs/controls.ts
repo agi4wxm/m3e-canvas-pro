@@ -10,6 +10,7 @@ const safeHref = (url: string) => (/^https?:\/\//i.test(url) ? url : "#");
 export const controls: PartDef[] = [
   {
     slug: "form",
+    appearance: { radius: 12 },
     name: "Form",
     labels: { ja: "フォーム", zh: "表单", ko: "양식" },
     category: "Text inputs",
@@ -31,6 +32,7 @@ export const controls: PartDef[] = [
   },
   {
     slug: "rating",
+    appearance: { radius: 8 },
     name: "Rating",
     labels: { ja: "評価", zh: "评分", ko: "평점" },
     category: "Selection",
@@ -46,6 +48,7 @@ export const controls: PartDef[] = [
   },
   {
     slug: "color-field",
+    appearance: { radius: 12 },
     name: "Color field",
     labels: { ja: "カラー選択", zh: "颜色选择", ko: "색상 선택" },
     category: "Selection",
@@ -60,6 +63,7 @@ export const controls: PartDef[] = [
   },
   {
     slug: "link",
+    appearance: { radius: 4 },
     name: "Link",
     labels: { ja: "リンク", zh: "链接", ko: "링크" },
     category: "Actions",

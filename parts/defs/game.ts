@@ -20,6 +20,7 @@ const REWARDS: TableData = { columns: ["At", "Label", "Icon"], rows: [["10", "4 
 function drawDef(slug: string, component: string, name: string, labels: PartDef["labels"], icon: string, side: number, height: number, buttonDefault: string): PartDef {
   return {
     slug,
+    appearance: { radius: 16 },
     name,
     labels,
     category: "Game",
@@ -45,6 +46,7 @@ export const game: PartDef[] = [
   drawDef("egg-smash", "EggSmash", "Egg smash", { ja: "卵割り", zh: "砸金蛋", ko: "알 깨기" }, "egg", 260, 130, "Pick an egg"),
   {
     slug: "asset-pill",
+    appearance: { radius: 999 },
     name: "Asset pill",
     labels: { ja: "資産表示", zh: "资源胶囊", ko: "자원 표시" },
     category: "Game",
@@ -59,6 +61,7 @@ export const game: PartDef[] = [
   },
   {
     slug: "side-tabs",
+    appearance: { radius: 12 },
     name: "Side tabs",
     labels: { ja: "サイドタブ", zh: "侧边标签", ko: "측면 탭" },
     category: "Navigation",
@@ -74,6 +77,7 @@ export const game: PartDef[] = [
   },
   {
     slug: "inventory",
+    appearance: { radius: 16 },
     name: "Inventory",
     labels: { ja: "インベントリ", zh: "背包", ko: "인벤토리" },
     category: "Game",
@@ -90,6 +94,7 @@ export const game: PartDef[] = [
   },
   {
     slug: "item-cell",
+    appearance: { radius: 8 },
     name: "Item cell",
     labels: { ja: "アイテムマス", zh: "物品格", ko: "아이템 칸" },
     category: "Game",
@@ -109,6 +114,7 @@ export const game: PartDef[] = [
   },
   {
     slug: "task-row",
+    appearance: { radius: 16 },
     name: "Task row",
     labels: { ja: "タスク行", zh: "任务条", ko: "작업 행" },
     category: "Game",
@@ -125,6 +131,7 @@ export const game: PartDef[] = [
   },
   {
     slug: "reward-track",
+    appearance: { radius: 16 },
     name: "Reward track",
     labels: { ja: "報酬トラック", zh: "奖励进度", ko: "보상 트랙" },
     category: "Game",
@@ -142,6 +149,7 @@ export const game: PartDef[] = [
   },
   {
     slug: "check-in",
+    appearance: { radius: 16 },
     name: "Daily check-in",
     labels: { ja: "デイリーチェックイン", zh: "每日签到", ko: "출석 체크" },
     category: "Game",
@@ -158,6 +166,7 @@ export const game: PartDef[] = [
   },
   {
     slug: "function-button",
+    appearance: { radius: 12 },
     name: "Function button",
     labels: { ja: "機能ボタン", zh: "功能按钮", ko: "기능 버튼" },
     category: "Actions",
@@ -175,6 +184,7 @@ export const game: PartDef[] = [
   },
   {
     slug: "joystick",
+    appearance: { radius: 999 },
     name: "Joystick",
     labels: { ja: "方向ホイール", zh: "方向轮盘", ko: "방향 휠" },
     category: "Game",
@@ -190,6 +200,7 @@ export const game: PartDef[] = [
   },
   {
     slug: "quantity-stepper",
+    appearance: { radius: 999 },
     name: "Quantity stepper",
     labels: { ja: "数量ステッパー", zh: "数量加减器", ko: "수량 스테퍼" },
     category: "Selection",

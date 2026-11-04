@@ -16,6 +16,7 @@ const menuSlots = (items: ListItem[]) => items.map((it, i) => ({ key: `tab:${i}`
 export const menus: PartDef[] = [
   {
     slug: "dropdown-menu",
+    appearance: { target: "DropdownMenuContent", radius: 4 },
     name: "Dropdown menu",
     category: "Navigation",
     icon: "arrow_drop_down",
@@ -46,6 +47,7 @@ export const menus: PartDef[] = [
   },
   {
     slug: "context-menu",
+    appearance: { target: "ContextMenuContent", radius: 4 },
     name: "Context menu",
     category: "Navigation",
     icon: "ads_click",
@@ -88,6 +90,7 @@ export const menus: PartDef[] = [
   },
   {
     slug: "menubar",
+    appearance: { target: ["Menubar", "MenubarContent"], radius: 4 },
     name: "Menubar",
     category: "Navigation",
     icon: "menu",

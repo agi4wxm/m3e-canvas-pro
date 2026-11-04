@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import type { Look } from "./look";
+import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
@@ -58,14 +60,14 @@ function Result({ prize }: { prize?: Prize }) {
   );
 }
 
-export function Wheel({ prizes = [], label = "", result = -1, size = 220 }: DrawProps) {
+export function Wheel({ prizes = [], label = "", result = -1, size = 220, className, style }: DrawProps & Look) {
   const { phase, won, start, prize } = useDraw(prizes, result);
   const sweep = 360 / Math.max(1, prizes.length);
   const stops = prizes.map((_, i) => `var(--md-sys-color-${i % 2 ? "surface-container-high" : "surface-container-low"}) ${i * sweep}deg ${(i + 1) * sweep}deg`).join(", ");
   /* several full turns, ending with the winner's wedge under the pointer at the top */
   const turn = won < 0 ? 0 : 360 * 5 - (won + 0.5) * sweep;
   return (
-    <div data-slot="wheel" data-phase={phase} data-result={prize?.label} className="inline-flex flex-col items-center gap-1" style={{ width: size }}>
+    <div data-slot="wheel" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-1", className)} style={{ width: size, ...style }}>
       <div className="relative" style={{ width: size, height: size }}>
         <div className="border-outline-variant relative size-full rounded-full border" style={{ background: `conic-gradient(${stops})`, transform: `rotate(${turn}deg)`, transition: reduced() ? "none" : `transform ${SPIN_MS}ms cubic-bezier(0.2, 0, 0, 1)` }}>
           {prizes.map((p, i) => (
@@ -87,12 +89,12 @@ export function Wheel({ prizes = [], label = "", result = -1, size = 220 }: Draw
 /** the eight cells around the middle, in the order the light walks round them */
 const RING = [0, 1, 2, 5, 8, 7, 6, 3];
 
-export function GridWheel({ prizes = [], label = "", result = -1, size = 240 }: DrawProps) {
+export function GridWheel({ prizes = [], label = "", result = -1, size = 240, className, style }: DrawProps & Look) {
   const { phase, won, tick, start, prize } = useDraw(prizes, result);
   const shown = prizes.slice(0, 8);
   const lit = phase === "running" ? tick % Math.max(1, shown.length) : phase === "done" ? won % Math.max(1, shown.length) : -1;
   return (
-    <div data-slot="grid-wheel" data-phase={phase} data-result={prize?.label} className="inline-flex flex-col gap-1" style={{ width: size }}>
+    <div data-slot="grid-wheel" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col gap-1", className)} style={{ width: size, ...style }}>
       <div className="grid grid-cols-3 gap-1" style={{ height: size }}>
         {Array.from({ length: 9 }, (_, cell) => {
           if (cell === 4)
@@ -116,11 +118,11 @@ export function GridWheel({ prizes = [], label = "", result = -1, size = 240 }: 
   );
 }
 
-export function Gacha({ prizes = [], label = "", result = -1, size = 170 }: DrawProps) {
+export function Gacha({ prizes = [], label = "", result = -1, size = 170, className, style }: DrawProps & Look) {
   const { phase, tick, start, prize } = useDraw(prizes, result);
   const shake = phase === "running" ? (tick % 2 ? -3 : 3) : 0;
   return (
-    <div data-slot="gacha" data-phase={phase} data-result={prize?.label} className="inline-flex flex-col items-center gap-2" style={{ width: size }}>
+    <div data-slot="gacha" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>
       <div className="bg-surface-container-high grid aspect-square w-full grid-cols-4 content-center gap-1 rounded-full p-5" style={{ transform: `translateX(${shake}px)` }}>
         {Array.from({ length: 12 }, (_, i) => (
           <span key={i} className={`aspect-square rounded-full ${["bg-primary-container", "bg-secondary-container", "bg-tertiary-container"][i % 3]}`} />
@@ -134,11 +136,11 @@ export function Gacha({ prizes = [], label = "", result = -1, size = 170 }: Draw
   );
 }
 
-export function SlotMachine({ prizes = [], label = "", result = -1, size = 280 }: DrawProps) {
+export function SlotMachine({ prizes = [], label = "", result = -1, size = 280, className, style }: DrawProps & Look) {
   const { phase, won, tick, start, prize } = useDraw(prizes, result);
   const at = (reel: number) => (phase === "running" ? prizes[(tick + reel * 2) % Math.max(1, prizes.length)] : phase === "done" ? prizes[won] : prizes[reel % Math.max(1, prizes.length)]);
   return (
-    <div data-slot="slot-machine" data-phase={phase} data-result={prize?.label} className="inline-flex flex-col items-center gap-2" style={{ width: size }}>
+    <div data-slot="slot-machine" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>
       <div className="bg-surface-container-high flex w-full gap-2 rounded-xl p-3">
         {[0, 1, 2].map((reel) => {
           const p = at(reel);
@@ -157,11 +159,11 @@ export function SlotMachine({ prizes = [], label = "", result = -1, size = 280 }
   );
 }
 
-export function MoneyTree({ prizes = [], label = "", result = -1, size = 190 }: DrawProps) {
+export function MoneyTree({ prizes = [], label = "", result = -1, size = 190, className, style }: DrawProps & Look) {
   const { phase, tick, start, prize } = useDraw(prizes, result);
   const sway = phase === "running" ? (tick % 2 ? -6 : 6) : 0;
   return (
-    <div data-slot="money-tree" data-phase={phase} data-result={prize?.label} className="inline-flex flex-col items-center gap-2" style={{ width: size }}>
+    <div data-slot="money-tree" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>
       <div className="text-primary" style={{ transform: `rotate(${sway}deg)`, transformOrigin: "bottom center" }}>
         <WidgetIcon name="park" className="size-24" />
       </div>
@@ -173,11 +175,11 @@ export function MoneyTree({ prizes = [], label = "", result = -1, size = 190 }: 
   );
 }
 
-export function EggSmash({ prizes = [], label = "", result = -1, size = 260 }: DrawProps) {
+export function EggSmash({ prizes = [], label = "", result = -1, size = 260, className, style }: DrawProps & Look) {
   const { phase, start, prize } = useDraw(prizes, result);
   const [chosen, setChosen] = useState(-1);
   return (
-    <div data-slot="egg-smash" data-phase={phase} data-result={prize?.label} className="inline-flex flex-col items-center gap-2" style={{ width: size }}>
+    <div data-slot="egg-smash" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>
       {label && <div className="text-title-small text-on-surface">{label}</div>}
       <div className="flex w-full justify-around">
         {[0, 1, 2].map((egg) => (

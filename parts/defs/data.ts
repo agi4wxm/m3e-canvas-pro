@@ -72,6 +72,7 @@ function chartTree(p: P): PNode {
 export const data: PartDef[] = [
   {
     slug: "chart",
+    appearance: { radius: 12 },
     name: "Chart",
     labels: { ja: "グラフ", zh: "图表", ko: "차트" },
     category: "Data",
@@ -90,6 +91,7 @@ export const data: PartDef[] = [
   },
   {
     slug: "scatter-plot",
+    appearance: { radius: 12 },
     name: "Scatter plot",
     labels: { ja: "散布図", zh: "散点图", ko: "산점도" },
     category: "Data",
@@ -123,6 +125,7 @@ export const data: PartDef[] = [
   },
   {
     slug: "heatmap",
+    appearance: { radius: 12 },
     name: "Heatmap",
     labels: { ja: "ヒートマップ", zh: "热力图", ko: "히트맵" },
     category: "Data",
@@ -151,6 +154,7 @@ export const data: PartDef[] = [
   },
   {
     slug: "gauge",
+    appearance: { radius: 12 },
     name: "Gauge",
     labels: { ja: "ゲージ", zh: "仪表", ko: "게이지" },
     category: "Data",
@@ -174,6 +178,7 @@ export const data: PartDef[] = [
   },
   {
     slug: "filter-bar",
+    appearance: { radius: 12 },
     name: "Filter bar",
     labels: { ja: "フィルターバー", zh: "筛选栏", ko: "필터 바" },
     category: "Data",
@@ -195,6 +200,7 @@ export const data: PartDef[] = [
   },
   {
     slug: "description-list",
+    appearance: { radius: 12 },
     name: "Description list",
     labels: { ja: "説明リスト", zh: "描述列表", ko: "설명 목록" },
     category: "Data",
@@ -214,6 +220,7 @@ export const data: PartDef[] = [
   },
   {
     slug: "stat-card",
+    appearance: { radius: 12 },
     name: "Stat card",
     labels: { ja: "KPI カード", zh: "统计卡片", ko: "통계 카드" },
     category: "Data",
@@ -240,6 +247,7 @@ export const data: PartDef[] = [
   },
   {
     slug: "table",
+    appearance: { radius: 12 },
     name: "Table",
     labels: { ja: "テーブル", zh: "表格", ko: "표" },
     category: "Data",

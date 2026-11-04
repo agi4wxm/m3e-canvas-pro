@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import type { Look } from "./look";
+import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { Chip } from "@/components/m3e/chip";
 import { LoadingIndicator } from "@/components/m3e/loading-indicator";
@@ -19,7 +21,7 @@ const clock = (seconds: number) => {
   return s >= 3600 ? `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}` : `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
 };
 
-export function NumberTicker({ value = 0, prefix = "", suffix = "", size = "headline" }: { value?: number; prefix?: string; suffix?: string; size?: string }) {
+export function NumberTicker({ value = 0, prefix = "", suffix = "", size = "headline", className, style }: { value?: number; prefix?: string; suffix?: string; size?: string } & Look) {
   const ref = useRef<HTMLSpanElement>(null);
   const [shown, setShown] = useState(value);
   useEffect(() => {
@@ -34,9 +36,9 @@ export function NumberTicker({ value = 0, prefix = "", suffix = "", size = "head
     frame = requestAnimationFrame(run);
     return () => cancelAnimationFrame(frame);
   }, [value]);
-  const style = size === "display" ? "text-display-small" : size === "title" ? "text-title-large" : "text-headline-medium";
+  const scale = size === "display" ? "text-display-small" : size === "title" ? "text-title-large" : "text-headline-medium";
   return (
-    <span ref={ref} data-slot="number-ticker" data-value={shown} className={`${style} text-on-surface inline-block tabular-nums`}>
+    <span ref={ref} data-slot="number-ticker" data-value={shown} className={cn(`${scale} text-on-surface inline-block tabular-nums`, className)} style={style}>
       {prefix}
       {shown.toLocaleString()}
       {suffix}
@@ -44,7 +46,7 @@ export function NumberTicker({ value = 0, prefix = "", suffix = "", size = "head
   );
 }
 
-export function Marquee({ text = "", seconds = 12, width = 320 }: { text?: string; seconds?: number; width?: number }) {
+export function Marquee({ text = "", seconds = 12, width = 320, className, style }: { text?: string; seconds?: number; width?: number } & Look) {
   const box = useRef<HTMLDivElement>(null);
   const line = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -54,7 +56,7 @@ export function Marquee({ text = "", seconds = 12, width = 320 }: { text?: strin
     return () => run.cancel();
   }, [seconds, text]);
   return (
-    <div ref={box} data-slot="marquee" className="text-body-medium text-on-surface overflow-hidden whitespace-nowrap" style={{ width }}>
+    <div ref={box} data-slot="marquee" className={cn("text-body-medium text-on-surface overflow-hidden whitespace-nowrap", className)} style={{ width, ...style }}>
       <span ref={line} className="inline-block">
         <span className="pr-8">{text}</span>
         <span className="pr-8" aria-hidden>{text}</span>
@@ -63,7 +65,7 @@ export function Marquee({ text = "", seconds = 12, width = 320 }: { text?: strin
   );
 }
 
-export function Timer({ seconds = 60, countdown = true, width = 200 }: { seconds?: number; countdown?: boolean; width?: number }) {
+export function Timer({ seconds = 60, countdown = true, width = 200, className, style }: { seconds?: number; countdown?: boolean; width?: number } & Look) {
   const [left, setLeft] = useState(countdown ? seconds : 0);
   const [running, setRunning] = useState(false);
   useEffect(() => {
@@ -75,7 +77,7 @@ export function Timer({ seconds = 60, countdown = true, width = 200 }: { seconds
     if (countdown && left === 0) setRunning(false);
   }, [countdown, left]);
   return (
-    <div data-slot="timer" data-left={left} data-running={running || undefined} className="bg-surface-container-low flex items-center justify-between gap-2 rounded-2xl p-3" style={{ width }}>
+    <div data-slot="timer" data-left={left} data-running={running || undefined} className={cn("bg-surface-container-low flex items-center justify-between gap-2 rounded-2xl p-3", className)} style={{ width, ...style }}>
       <span className="text-title-large text-on-surface tabular-nums">{clock(left)}</span>
       <span className="flex gap-1">
         <Button variant="tonal" size="icon-sm" aria-label={running ? "Pause" : "Start"} onClick={() => setRunning((r) => !r)}>
@@ -99,7 +101,7 @@ export function Timer({ seconds = 60, countdown = true, width = 200 }: { seconds
 
 const PULL = 64;
 
-export function PullToRefresh({ hint = "", width = 360, height = 200 }: { hint?: string; width?: number; height?: number }) {
+export function PullToRefresh({ hint = "", width = 360, height = 200, className, style }: { hint?: string; width?: number; height?: number } & Look) {
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const from = useRef<number | null>(null);
@@ -120,8 +122,8 @@ export function PullToRefresh({ hint = "", width = 360, height = 200 }: { hint?:
     <div
       data-slot="pull-to-refresh"
       data-phase={refreshing ? "refreshing" : pull > 0 ? "pulling" : "idle"}
-      className="bg-surface-container-low relative flex touch-none flex-col items-center overflow-hidden rounded-xl"
-      style={{ width, height }}
+      className={cn("bg-surface-container-low relative flex touch-none flex-col items-center overflow-hidden rounded-xl", className)}
+      style={{ width, height, ...style }}
       onPointerDown={(e) => {
         if (refreshing) return;
         from.current = e.clientY;
@@ -139,11 +141,11 @@ export function PullToRefresh({ hint = "", width = 360, height = 200 }: { hint?:
   );
 }
 
-export function SlideGroup({ items = [], width = 320 }: { items?: string[]; width?: number }) {
+export function SlideGroup({ items = [], width = 320, className, style }: { items?: string[]; width?: number } & Look) {
   const row = useRef<HTMLDivElement>(null);
   const by = (dx: number) => row.current?.scrollBy({ left: dx, behavior: "smooth" });
   return (
-    <div data-slot="slide-group" className="flex items-center gap-1" style={{ width }}>
+    <div data-slot="slide-group" className={cn("flex items-center gap-1", className)} style={{ width, ...style }}>
       <Button variant="text" size="icon-sm" aria-label="Previous" onClick={() => by(-160)}>
         <WidgetIcon name="chevron_left" />
       </Button>
@@ -163,7 +165,7 @@ export function SlideGroup({ items = [], width = 320 }: { items?: string[]; widt
 
 const REVEAL = 88;
 
-export function SwipeRow({ title = "", note = "", action = "", width = 360 }: { title?: string; note?: string; action?: string; width?: number }) {
+export function SwipeRow({ title = "", note = "", action = "", width = 360, className, style }: { title?: string; note?: string; action?: string; width?: number } & Look) {
   const [dx, setDx] = useState(0);
   const from = useRef<{ x: number; dx: number } | null>(null);
   const [done, setDone] = useState(false);
@@ -174,14 +176,15 @@ export function SwipeRow({ title = "", note = "", action = "", width = 360 }: { 
   };
   if (done) return <div data-slot="swipe-row" data-done="true" style={{ width }} />;
   return (
-    <div data-slot="swipe-row" data-open={dx === -REVEAL || undefined} className="bg-error-container relative overflow-hidden rounded-xl" style={{ width }}>
+    /* the fill belongs on the face that moves: what shows under it is the action's own */
+    <div data-slot="swipe-row" data-open={dx === -REVEAL || undefined} className="bg-error-container relative overflow-hidden rounded-xl" style={{ width, ...style }}>
       <div className="absolute inset-y-0 right-0 flex items-center justify-center" style={{ width: REVEAL }}>
         <Button variant="text" size="xs" className="text-on-error-container" onClick={() => setDone(true)}>
           {action}
         </Button>
       </div>
       <div
-        className="bg-surface-container-low relative flex touch-pan-y flex-col gap-0.5 p-3"
+        className={cn("bg-surface-container-low relative flex touch-pan-y flex-col gap-0.5 p-3", className)}
         style={{ transform: `translateX(${dx}px)` }}
         onPointerDown={(e) => {
           from.current = { x: e.clientX, dx };
@@ -200,7 +203,7 @@ export function SwipeRow({ title = "", note = "", action = "", width = 360 }: { 
 
 const webAddress = (url: string) => (/^https?:\/\//i.test(url) ? url : "");
 
-export function AudioPlayer({ title = "", artist = "", src = "", seconds = 180, width = 360 }: { title?: string; artist?: string; src?: string; seconds?: number; width?: number }) {
+export function AudioPlayer({ title = "", artist = "", src = "", seconds = 180, width = 360, className, style }: { title?: string; artist?: string; src?: string; seconds?: number; width?: number } & Look) {
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [at, setAt] = useState(0);
@@ -217,7 +220,7 @@ export function AudioPlayer({ title = "", artist = "", src = "", seconds = 180, 
     setPlaying((p) => !p);
   };
   return (
-    <div data-slot="audio-player" data-playing={playing || undefined} className="bg-surface-container-low flex items-center gap-3 rounded-2xl p-3" style={{ width }}>
+    <div data-slot="audio-player" data-playing={playing || undefined} className={cn("bg-surface-container-low flex items-center gap-3 rounded-2xl p-3", className)} style={{ width, ...style }}>
       <Button variant="filled" size="icon" aria-label={playing ? "Pause" : "Play"} className="shrink-0" onClick={toggle}>
         <WidgetIcon name={playing ? "pause" : "play_arrow"} />
       </Button>

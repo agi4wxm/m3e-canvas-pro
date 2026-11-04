@@ -4,6 +4,7 @@ import type { PartDef } from "../types";
 export const selection: PartDef[] = [
   {
     slug: "switch",
+    appearance: { radius: 8 },
     name: "Switch",
     category: "Selection",
     icon: "toggle_on",
@@ -28,6 +29,7 @@ export const selection: PartDef[] = [
   },
   {
     slug: "checkbox",
+    appearance: { radius: 8 },
     name: "Checkbox",
     category: "Selection",
     icon: "check_box",
@@ -56,6 +58,7 @@ export const selection: PartDef[] = [
   },
   {
     slug: "radio-group",
+    appearance: { radius: 8 },
     name: "Radio group",
     category: "Selection",
     icon: "radio_button_checked",
@@ -84,6 +87,7 @@ export const selection: PartDef[] = [
   },
   {
     slug: "slider",
+    appearance: { radius: 8 },
     name: "Slider",
     category: "Selection",
     icon: "tune",
@@ -111,6 +115,7 @@ export const selection: PartDef[] = [
   },
   {
     slug: "select",
+    appearance: { target: "SelectTrigger", radius: 4 },
     name: "Select",
     category: "Selection",
     icon: "arrow_drop_down_circle",
@@ -152,6 +157,7 @@ export const selection: PartDef[] = [
   },
   {
     slug: "native-select",
+    appearance: { radius: 4 },
     name: "Native select",
     category: "Selection",
     icon: "list",
@@ -167,20 +173,26 @@ export const selection: PartDef[] = [
     ],
     tree: (p) => {
       const items = p.list("items");
+      /* the box a fill and corners land on: the component splits its class and its style between two elements */
       return h(
-        "NativeSelect",
-        {
-          size: p.s("size") === "sm" ? "sm" : undefined,
-          defaultValue: items[Math.min(p.n("selected"), items.length - 1)]?.label,
-          disabled: p.b("disabled") || undefined,
-          style: { width: Math.round(p.n("width")) },
-        },
-        ...items.map((it) => h("NativeSelectOption", { value: it.label }, it.label)),
+        "div",
+        { className: "w-fit" },
+        h(
+          "NativeSelect",
+          {
+            size: p.s("size") === "sm" ? "sm" : undefined,
+            defaultValue: items[Math.min(p.n("selected"), items.length - 1)]?.label,
+            disabled: p.b("disabled") || undefined,
+            style: { width: Math.round(p.n("width")) },
+          },
+          ...items.map((it) => h("NativeSelectOption", { value: it.label }, it.label)),
+        ),
       );
     },
   },
   {
     slug: "combobox",
+    appearance: { radius: 4 },
     name: "Combobox",
     category: "Selection",
     icon: "manage_search",

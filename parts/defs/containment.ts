@@ -177,6 +177,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "dialog",
+    appearance: { target: "DialogContent", radius: 28 },
     name: "Dialog",
     category: "Overlays",
     icon: "web_asset",
@@ -244,6 +245,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "alert-dialog",
+    appearance: { target: "AlertDialogContent", radius: 28 },
     name: "Alert dialog",
     category: "Overlays",
     icon: "report",
@@ -364,6 +366,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "popover",
+    appearance: { target: "PopoverContent", radius: 16 },
     name: "Popover",
     category: "Overlays",
     icon: "comment",
@@ -391,6 +394,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "hover-card",
+    appearance: { target: "HoverCardContent", radius: 16 },
     name: "Hover card",
     category: "Overlays",
     icon: "ads_click",
@@ -419,6 +423,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "accordion",
+    appearance: { target: "AccordionItem", radius: 12 },
     name: "Accordion",
     category: "Layout",
     icon: "expand_circle_down",
@@ -447,6 +452,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "collapsible",
+    appearance: { radius: 12 },
     name: "Collapsible",
     category: "Layout",
     icon: "unfold_less",
@@ -469,6 +475,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "separator",
+    appearance: { radius: 0 },
     name: "Separator",
     category: "Layout",
     icon: "horizontal_rule",
@@ -494,6 +501,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "scroll-area",
+    appearance: { radius: 6 },
     name: "Scroll area",
     category: "Layout",
     icon: "swap_vert",
@@ -520,6 +528,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "resizable",
+    appearance: { radius: 8 },
     name: "Resizable",
     category: "Layout",
     icon: "vertical_split",

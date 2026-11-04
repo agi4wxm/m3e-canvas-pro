@@ -1,4 +1,6 @@
 import { useRef, useState } from "react";
+import type { Look } from "./look";
+import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { FilterChip, InputChip } from "@/components/m3e/chip";
 import { Input } from "@/components/m3e/input";
@@ -11,7 +13,7 @@ import { WidgetIcon } from "./WidgetIcon";
 
 const HEX = /^#[0-9a-f]{3,8}$/i;
 
-export function TagInput({ items = [], placeholder = "", width = 320 }: { items?: string[]; placeholder?: string; width?: number }) {
+export function TagInput({ items = [], placeholder = "", width = 320, className, style }: { items?: string[]; placeholder?: string; width?: number } & Look) {
   const [tags, setTags] = useState(items);
   const [draft, setDraft] = useState("");
   const add = () => {
@@ -20,7 +22,7 @@ export function TagInput({ items = [], placeholder = "", width = 320 }: { items?
     setDraft("");
   };
   return (
-    <div data-slot="tag-input" data-count={tags.length} className="bg-surface-container-highest flex flex-col gap-2 rounded-xl p-2" style={{ width }}>
+    <div data-slot="tag-input" data-count={tags.length} className={cn("bg-surface-container-highest flex flex-col gap-2 rounded-xl p-2", className)} style={{ width, ...style }}>
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {tags.map((tag) => (
@@ -44,7 +46,7 @@ export function TagInput({ items = [], placeholder = "", width = 320 }: { items?
   );
 }
 
-export function FileUpload({ title = "", hint = "", action = "", multiple = true, accept = "", width = 360 }: { title?: string; hint?: string; action?: string; multiple?: boolean; accept?: string; width?: number }) {
+export function FileUpload({ title = "", hint = "", action = "", multiple = true, accept = "", width = 360, className, style }: { title?: string; hint?: string; action?: string; multiple?: boolean; accept?: string; width?: number } & Look) {
   const input = useRef<HTMLInputElement>(null);
   const [names, setNames] = useState<string[]>([]);
   const [over, setOver] = useState(false);
@@ -56,8 +58,8 @@ export function FileUpload({ title = "", hint = "", action = "", multiple = true
       data-slot="file-upload"
       data-over={over || undefined}
       data-count={names.length}
-      className={`flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center ${over ? "border-primary bg-primary-container" : "border-outline-variant bg-surface-container-low"}`}
-      style={{ width }}
+      className={cn(`flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center ${over ? "border-primary bg-primary-container" : "border-outline-variant bg-surface-container-low"}`, className)}
+      style={{ width, ...style }}
       onDragOver={(e) => {
         e.preventDefault();
         setOver(true);
@@ -83,10 +85,10 @@ export function FileUpload({ title = "", hint = "", action = "", multiple = true
   );
 }
 
-export function ItemPicker({ items = [], columns = 4, selected = 0, width = 320 }: { items?: { label: string; icon?: string }[]; columns?: number; selected?: number; width?: number }) {
+export function ItemPicker({ items = [], columns = 4, selected = 0, width = 320, className, style }: { items?: { label: string; icon?: string }[]; columns?: number; selected?: number; width?: number } & Look) {
   const [on, setOn] = useState(selected);
   return (
-    <div data-slot="item-picker" data-selected={on} role="radiogroup" className="grid gap-2" style={{ width, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+    <div data-slot="item-picker" data-selected={on} role="radiogroup" className={cn("grid gap-2", className)} style={{ width, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, ...style }}>
       {items.map((it, i) => (
         <Tap key={i} role="radio" aria-checked={i === on} className={`text-label-small flex flex-col items-center gap-1 rounded-xl p-2 ${i === on ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-low text-on-surface-variant"}`} onClick={() => setOn(i)}>
           {it.icon && <WidgetIcon name={it.icon} className="size-6" />}
@@ -97,10 +99,10 @@ export function ItemPicker({ items = [], columns = 4, selected = 0, width = 320 
   );
 }
 
-export function MultiSelect({ items = [], selected = [], width = 320 }: { items?: string[]; selected?: number[]; width?: number }) {
+export function MultiSelect({ items = [], selected = [], width = 320, className, style }: { items?: string[]; selected?: number[]; width?: number } & Look) {
   const [on, setOn] = useState<number[]>(selected);
   return (
-    <div data-slot="multi-select" data-selected={on.join(",")} className="flex flex-wrap gap-2" style={{ width }}>
+    <div data-slot="multi-select" data-selected={on.join(",")} className={cn("flex flex-wrap gap-2", className)} style={{ width, ...style }}>
       {items.map((label, i) => (
         <FilterChip key={i} pressed={on.includes(i)} onPressedChange={(next: boolean) => setOn((cur) => (next ? [...cur, i] : cur.filter((x) => x !== i)))}>
           {label}
@@ -110,11 +112,11 @@ export function MultiSelect({ items = [], selected = [], width = 320 }: { items?
   );
 }
 
-export function ColorPalette({ colors = [], selected = 0, width = 320 }: { colors?: string[]; selected?: number; width?: number }) {
+export function ColorPalette({ colors = [], selected = 0, width = 320, className, style }: { colors?: string[]; selected?: number; width?: number } & Look) {
   const shown = colors.filter((c) => HEX.test(c));
   const [on, setOn] = useState(selected);
   return (
-    <div data-slot="color-palette" data-selected={shown[on] ?? ""} role="radiogroup" className="flex flex-wrap gap-2" style={{ width }}>
+    <div data-slot="color-palette" data-selected={shown[on] ?? ""} role="radiogroup" className={cn("flex flex-wrap gap-2", className)} style={{ width, ...style }}>
       {shown.map((color, i) => (
         <Tap key={`${color}-${i}`} role="radio" aria-checked={i === on} aria-label={color} className={`flex size-10 items-center justify-center rounded-full ${i === on ? "border-on-surface border-2" : "border-outline-variant border"}`} style={{ background: color }} onClick={() => setOn(i)}>
           {i === on && <WidgetIcon name="check" className="text-on-primary size-5" />}
@@ -124,12 +126,12 @@ export function ColorPalette({ colors = [], selected = 0, width = 320 }: { color
   );
 }
 
-export function NumberPicker({ value = 5, min = 0, max = 10, step = 1, unit = "", width = 96 }: { value?: number; min?: number; max?: number; step?: number; unit?: string; width?: number }) {
+export function NumberPicker({ value = 5, min = 0, max = 10, step = 1, unit = "", width = 96, className, style }: { value?: number; min?: number; max?: number; step?: number; unit?: string; width?: number } & Look) {
   const [n, setN] = useState(Math.min(max, Math.max(min, value)));
   const next = n + step;
   const previous = n - step;
   return (
-    <div data-slot="number-picker" data-value={n} className="inline-flex flex-col items-center gap-1" style={{ width }}>
+    <div data-slot="number-picker" data-value={n} className={cn("inline-flex flex-col items-center gap-1", className)} style={{ width, ...style }}>
       <Button variant="text" size="icon-sm" aria-label="Increase" disabled={next > max} onClick={() => setN(next)}>
         <WidgetIcon name="keyboard_arrow_up" />
       </Button>

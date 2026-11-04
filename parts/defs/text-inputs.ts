@@ -4,6 +4,7 @@ import type { PartDef } from "../types";
 export const textInputs: PartDef[] = [
   {
     slug: "text-field",
+    appearance: { target: "TextField", radius: 4 },
     name: "Text field",
     category: "Text inputs",
     icon: "text_fields",
@@ -40,6 +41,7 @@ export const textInputs: PartDef[] = [
   },
   {
     slug: "input",
+    appearance: { radius: 4 },
     name: "Input",
     category: "Text inputs",
     icon: "edit_note",
@@ -70,6 +72,7 @@ export const textInputs: PartDef[] = [
   },
   {
     slug: "textarea",
+    appearance: { radius: 4 },
     name: "Textarea",
     category: "Text inputs",
     icon: "notes",
@@ -98,6 +101,7 @@ export const textInputs: PartDef[] = [
   },
   {
     slug: "input-group",
+    appearance: { radius: 4 },
     name: "Input group",
     category: "Text inputs",
     icon: "input",
@@ -130,6 +134,7 @@ export const textInputs: PartDef[] = [
   },
   {
     slug: "input-otp",
+    appearance: { target: "InputOTPSlot", radius: 8 },
     name: "Input OTP",
     category: "Text inputs",
     icon: "pin",
@@ -156,6 +161,7 @@ export const textInputs: PartDef[] = [
   },
   {
     slug: "field",
+    appearance: { target: "Input", radius: 4 },
     name: "Field",
     category: "Text inputs",
     icon: "list_alt",
@@ -197,6 +203,7 @@ export const textInputs: PartDef[] = [
   },
   {
     slug: "label",
+    appearance: { radius: 8 },
     name: "Label",
     category: "Text inputs",
     icon: "sell",

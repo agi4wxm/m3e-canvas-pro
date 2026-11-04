@@ -1,5 +1,7 @@
 import { appearanceOf } from "../parts/appearance";
-import { imageKeys, partBySlug, reader, treeOf } from "../parts/registry";
+import { partBySlug, reader, treeOf, withoutPickedImages } from "../parts/registry";
+import { flowClasses } from "../parts/flow";
+import { flowOfItem } from "./flow";
 import { labelOfPart } from "../parts/resize";
 import { nameOf } from "../parts/labels";
 import { roleOf } from "../parts/role";
@@ -22,6 +24,7 @@ import {
   Variant,
   explodeGroup,
   frameOfGroup,
+  frameOfPart,
   frameLengthOf,
   frameRect,
   frameSizeOf,
@@ -75,9 +78,11 @@ function componentText(it: Item, lang: Lang): string {
   const lead = def.slug.includes("/") ? nameOf(def, lang) : { ja: `shadcn M3E の ${nameOf(def, lang)}`, en: `the shadcn M3E ${nameOf(def, lang)}`, zh: `shadcn M3E 的 ${nameOf(def, lang)}`, ko: `shadcn M3E의 ${nameOf(def, lang)}` }[lang];
   const called = labelOfPart(def, it.props);
   /* a picked image's data is the sketch's own: the prompt sees the placeholder the code prints */
-  const props = { ...it.props };
-  for (const k of imageKeys(def)) if (typeof props[k] === "string" && (props[k] as string).startsWith("data:")) props[k] = "/placeholder.svg";
-  return `${lead}${called ? ` "${called}"` : ""}: \`${inlineNode(treeOf(def, props, appearanceOf(it)))}\`${fabScrollText(it, lang)}`;
+  const props = withoutPickedImages(def, it.props ?? {}, "/placeholder.svg");
+  const flow = flowOfItem(it);
+  /* the classes say how it lays out what is nested in it, in every language */
+  const layout = flow ? ` + auto layout \`${flowClasses(flow)}\`` : "";
+  return `${lead}${called ? ` "${called}"` : ""}: \`${inlineNode(treeOf(def, props, appearanceOf(it)))}\`${layout}${fabScrollText(it, lang)}`;
 }
 
 /** A collapse-on-scroll FAB only has that behavior on a screen whose body actually scrolls. */
@@ -270,13 +275,16 @@ function layoutTree(groups: Group[], widths: Record<string, number>): LNode[] {
   const nodes: LNode[] = groups.map((g) => ({ g, bb: groupBounds(g, widths), children: [] }));
   const roots: LNode[] = [];
   nodes.forEach((n, i) => {
-    let parent: LNode | null = null;
-    for (let j = 0; j < i; j++) {
+    /* what a layout holds is nested in it, overflowing or not */
+    let parent: LNode | null = n.g.inFlow ? (nodes.find((c) => c.g.id === n.g.inFlow) ?? null) : null;
+    let best: LNode | null = null;
+    for (let j = 0; j < i && !parent; j++) {
       const c = nodes[j];
       /* the screen's own bars are never containers: what sits on them is on top of them */
       if (c.g.items[0].component === "app-bar" || c.g.items[0].component === "navigation-bar") continue;
-      if (contains(c.bb, n.bb) && area(c.bb) > area(n.bb) && (!parent || area(c.bb) < area(parent.bb))) parent = c;
+      if (contains(c.bb, n.bb) && area(c.bb) > area(n.bb) && (!best || area(c.bb) < area(best.bb))) best = c;
     }
+    parent ??= best;
     (parent ? parent.children : roots).push(n);
   });
   return roots;
@@ -895,7 +903,7 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
   /* canvas order is the layer order; rows are worked out per screen. A hand-made
    * group is written part by part, since it exists only to move things together. */
   const groups = doc.groups
-    .filter((g) => !only || frameOfGroup(g, allFrames, widths)?.id === only.id)
+    .filter((g) => !only || frameOfPart(g, doc.groups, allFrames, widths)?.id === only.id)
     .flatMap((g) => explodeGroup(g, widths));
   const lines: string[] = [];
   const q = quote(lang);
@@ -904,7 +912,7 @@ export function buildPrompt(doc: Doc, widths: Record<string, number>, onlyFrameI
   const byFrame = new Map<string, Group[]>();
   const loose: Group[] = [];
   for (const g of groups) {
-    const f = frameOfGroup(g, allFrames, widths);
+    const f = frameOfPart(g, doc.groups, allFrames, widths);
     if (f && frames.some((x) => x.id === f.id)) byFrame.set(f.id, [...(byFrame.get(f.id) ?? []), g]);
     else if (!f) loose.push(g);
   }

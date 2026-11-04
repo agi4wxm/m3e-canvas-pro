@@ -7,6 +7,7 @@ const BUTTON_VARIANTS = ["filled", "tonal", "elevated", "outlined", "text"];
 export const communication: PartDef[] = [
   {
     slug: "badge",
+    appearance: { radius: 8 },
     name: "Badge",
     category: "Feedback",
     icon: "notifications",
@@ -204,6 +205,7 @@ export const communication: PartDef[] = [
   },
   {
     slug: "tooltip",
+    appearance: { target: "TooltipContent", radius: 4 },
     name: "Tooltip",
     category: "Overlays",
     icon: "chat",

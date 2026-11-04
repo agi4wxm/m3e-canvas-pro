@@ -8,6 +8,7 @@ import type { PartDef } from "../types";
 export const mobile: PartDef[] = [
   {
     slug: "page-dots",
+    appearance: { radius: 999 },
     name: "Page dots",
     labels: { ja: "ページドット", zh: "页面圆点", ko: "페이지 점" },
     category: "Navigation",
@@ -22,6 +23,7 @@ export const mobile: PartDef[] = [
   },
   {
     slug: "photo-grid",
+    appearance: { radius: 8 },
     name: "Photo grid",
     labels: { ja: "写真グリッド", zh: "照片网格", ko: "사진 격자" },
     category: "Media",
@@ -37,6 +39,7 @@ export const mobile: PartDef[] = [
   },
   {
     slug: "brand-button",
+    appearance: { radius: 20 },
     name: "Sign-in or pay button",
     labels: { ja: "サインイン・支払いボタン", zh: "登录或支付按钮", ko: "로그인·결제 버튼" },
     category: "Actions",
@@ -51,6 +54,7 @@ export const mobile: PartDef[] = [
   },
   {
     slug: "action-sheet",
+    appearance: { radius: 16 },
     name: "Action sheet",
     labels: { ja: "アクションシート", zh: "操作表", ko: "작업 시트" },
     category: "Overlays",
@@ -79,6 +83,7 @@ export const mobile: PartDef[] = [
   },
   {
     slug: "subscription",
+    appearance: { radius: 16 },
     name: "Subscription plans",
     labels: { ja: "サブスクリプション", zh: "订阅方案", ko: "구독 요금제" },
     category: "Data",
@@ -104,6 +109,7 @@ export const mobile: PartDef[] = [
   },
   {
     slug: "wheel-picker",
+    appearance: { radius: 12 },
     name: "Wheel picker",
     labels: { ja: "ホイールピッカー", zh: "滚轮选择器", ko: "휠 선택기" },
     category: "Selection",

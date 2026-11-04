@@ -10,7 +10,7 @@ export type Labels = Partial<Record<PartLang, string>>;
 export type Choice = string | { value: string; label: string; labels?: Labels };
 
 /** one row of a `list` prop: a tab, a menu entry, a destination */
-export type ListItem = { label: string; icon?: string; variant?: string; width?: string };
+export type ListItem = { label: string; icon?: string; variant?: string; width?: string; image?: string };
 
 /** a per-row choice of a `list` prop: one more column beside the icon and the words
  *  (a button group's per-row variant, say) */
@@ -43,9 +43,9 @@ export type PropDef = {
   | { kind: "icon"; default: string }
   /** an image the author picks or links: a `data:` URL or an http(s) address; "" is none */
   | { kind: "image"; default?: string }
-  /** rows the author adds and removes; `icons` gives each row an icon as well,
-   *  `fields` one more choice per row */
-  | { kind: "list"; default: ListItem[]; min?: number; max?: number; icons?: boolean; fields?: ListField[] }
+  /** rows the author adds and removes; `icons` gives each row an icon as well, `images` a
+   *  picture, `fields` one more choice per row */
+  | { kind: "list"; default: ListItem[]; min?: number; max?: number; icons?: boolean; images?: boolean; fields?: ListField[] }
   /** rows of cells under named columns: the data a table or a chart shows */
   | { kind: "table"; default: TableData }
 );
@@ -101,6 +101,9 @@ export type PartDef = {
   /** A container: what lies wholly inside it moves with it, the way a screen carries its parts.
    *  It keeps no list of them; see `heldBy`. */
   holds?: boolean;
+  /** The container can lay out what it holds (parts/flow.ts): it carries the props for it, `grid` when it
+   *  is always a grid, and `inset` for what it draws around the room it lays out in (a tab bar, a title). */
+  flow?: { grid?: boolean; inset?: (p: P) => Partial<{ t: number; r: number; b: number; l: number }> };
   /** the prop that remembers which entry is chosen; a tap moves it in the preview, and the
    *  destination bars that share their entries share the choice across screens too */
   selectKey?: string;

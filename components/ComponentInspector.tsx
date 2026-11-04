@@ -7,7 +7,7 @@ import { choiceLabelOf, labelOf, nameOf } from "@/parts/labels";
 import { dpOf } from "@/parts/resize";
 import type { ListItem, PropDef, TableData } from "@/parts/types";
 import { AiHooks } from "./Inspector";
-import { AlignBox, AppearanceCorners, EntryList, FillRun, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, SlotStrip, Tab, TextRun, TriggerSection, WidthRows } from "./PartPanel";
+import { AlignBox, AppearanceCorners, EntryList, FillRun, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, PositionRow, SlotStrip, Tab, TextRun, TriggerSection, WidthRows } from "./PartPanel";
 import { segmentedFits } from "@/lib/choices";
 import { Field, ImageRow, NamedSizes, PanelShell, Section, Segmented, Select, Slider, Toggle } from "./ui";
 
@@ -18,9 +18,9 @@ import { Field, ImageRow, NamedSizes, PanelShell, Section, Segmented, Select, Sl
 const choices = (def: Extract<PropDef, { kind: "enum" }>, lang: Lang) => def.options.map((o) => ({ key: typeof o === "string" ? o : o.value, label: choiceLabelOf(o, lang) }));
 
 /** a list prop is edited as the rows the entry list knows: a label, and an icon when the part has them */
-const toRows = (list: ListItem[]): NavTab[] => list.map((x) => ({ icon: x.icon ?? "", label: x.label, variant: x.variant, width: x.width }));
+const toRows = (list: ListItem[]): NavTab[] => list.map((x) => ({ icon: x.icon ?? "", label: x.label, variant: x.variant, width: x.width, image: x.image }));
 const fromRows = (rows: NavTab[], icons: boolean): ListItem[] =>
-  rows.map((x) => ({ label: x.label, ...(icons && x.icon ? { icon: x.icon } : {}), ...(x.variant ? { variant: x.variant } : {}), ...(x.width ? { width: x.width } : {}) }));
+  rows.map((x) => ({ label: x.label, ...(icons && x.icon ? { icon: x.icon } : {}), ...(x.variant ? { variant: x.variant } : {}), ...(x.width ? { width: x.width } : {}), ...(x.image ? { image: x.image } : {}) }));
 
 /** a table prop is edited as text: the column names on the first line, one row per line, cells split by `,` */
 const tableText = (t: TableData) => [t.columns, ...t.rows].map((r) => r.join(", ")).join("\n");
@@ -115,6 +115,7 @@ function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def:
             bounds={bar ? { min: 3, max: 5 } : { min: 1, max: 12 }}
             spare={bar ? defaultTabs() : defaultTabRows()}
             icons={icons}
+            images={def.images === true}
             fields={def.fields?.map((f) => ({ key: f.key, label: labelOf(f, lang), options: f.options.map((o) => ({ key: typeof o === "string" ? o : o.value, label: choiceLabelOf(o, lang) })) }))}
             onChange={(tabs, order) => {
               const next = fromRows(tabs, icons);
@@ -162,6 +163,8 @@ export function ComponentInspector({
   onPlace,
   selfRect,
   allFrames,
+  inFlow,
+  onMoveTo,
 }: {
   ai: AiHooks;
   item: Item;
@@ -175,6 +178,10 @@ export function ComponentInspector({
   onPlace?: PlaceFn;
   selfRect: { x: number; y: number; w: number; h: number } | null;
   allFrames: Frame[];
+  /** a container's auto layout places this part */
+  inFlow?: boolean;
+  /** puts the part at a place on its screen */
+  onMoveTo?: (x: number, y: number) => void;
 }) {
   const lang = useLang();
   const [tab, setTab] = useState<Tab>("design");
@@ -202,13 +209,19 @@ export function ComponentInspector({
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />
                 <TextRun value={item.textColor} onChange={(textColor) => onChange({ textColor })} p={p} />
-                <AppearanceCorners item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />
+                <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />
               </div>
             </Section>
           )}
-          {onPlace && (
+          {inFlow && (
+            <Section id="part-in-flow" icon="view_agenda" title={t("inAutoLayout", lang)} p={p}>
+              <Toggle on={!!item.flowFill} onChange={(flowFill) => onChange({ flowFill: flowFill || undefined })} label={t("flowFill", lang)} p={p} grow />
+            </Section>
+          )}
+          {onPlace && !inFlow && (
             <Section id="part-align" icon="grid_on" title={t("align", lang)} p={p}>
               <AlignBox key={item.id} onPlace={onPlace} p={p} />
+              {onMoveTo && selfRect && <PositionRow x={Math.round(selfRect.x - (frame?.x ?? 0))} y={Math.round(selfRect.y - (frame?.y ?? 0))} onMove={(x, y) => onMoveTo(x + (frame?.x ?? 0), y + (frame?.y ?? 0))} p={p} />}
             </Section>
           )}
         </div>

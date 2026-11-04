@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from "react";
+import type { Look } from "./look";
+import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { WidgetIcon } from "./WidgetIcon";
 
@@ -6,7 +8,7 @@ import { WidgetIcon } from "./WidgetIcon";
  * flutter_shadcn_kit's code snippet, markdown and sortable. No HTML passes through: what a saved file
  * holds is shown as words. */
 
-export function CodeBlock({ code = "", language = "", width = 420 }: { code?: string; language?: string; width?: number }) {
+export function CodeBlock({ code = "", language = "", width = 420, className, style }: { code?: string; language?: string; width?: number } & Look) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -18,7 +20,7 @@ export function CodeBlock({ code = "", language = "", width = 420 }: { code?: st
     }
   };
   return (
-    <div data-slot="code-block" data-copied={copied || undefined} className="bg-surface-container-highest overflow-hidden rounded-xl" style={{ width }}>
+    <div data-slot="code-block" data-copied={copied || undefined} className={cn("bg-surface-container-highest overflow-hidden rounded-xl", className)} style={{ width, ...style }}>
       <div className="text-label-medium text-on-surface-variant flex h-10 items-center justify-between pr-1 pl-4">
         <span>{language}</span>
         <Button variant="text" size="icon-sm" aria-label="Copy" onClick={copy}>
@@ -39,7 +41,7 @@ function inline(line: string): ReactNode[] {
   });
 }
 
-export function Markdown({ text = "", width = 420 }: { text?: string; width?: number }) {
+export function Markdown({ text = "", width = 420, className, style }: { text?: string; width?: number } & Look) {
   const blocks: ReactNode[] = [];
   const lines = text.split("\n");
   for (let i = 0; i < lines.length; i++) {
@@ -65,13 +67,13 @@ export function Markdown({ text = "", width = 420 }: { text?: string; width?: nu
     }
   }
   return (
-    <div data-slot="markdown" className="text-body-medium text-on-surface flex flex-col gap-2" style={{ width }}>
+    <div data-slot="markdown" className={cn("text-body-medium text-on-surface flex flex-col gap-2", className)} style={{ width, ...style }}>
       {blocks}
     </div>
   );
 }
 
-export function SortableList({ items = [], width = 320 }: { items?: string[]; width?: number }) {
+export function SortableList({ items = [], width = 320, className, style }: { items?: string[]; width?: number } & Look) {
   const [order, setOrder] = useState(items);
   const [dragged, setDragged] = useState(-1);
   const moveTo = (to: number) => {
@@ -85,7 +87,7 @@ export function SortableList({ items = [], width = 320 }: { items?: string[]; wi
     setDragged(to);
   };
   return (
-    <div data-slot="sortable-list" data-order={order.join("|")} role="list" className="flex flex-col gap-1" style={{ width }}>
+    <div data-slot="sortable-list" data-order={order.join("|")} role="list" className={cn("flex flex-col gap-1", className)} style={{ width, ...style }}>
       {order.map((row, i) => (
         <div
           key={row}

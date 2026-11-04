@@ -28,6 +28,7 @@ function searchTree(p: P, open: boolean): PNode {
 export const navigation: PartDef[] = [
   {
     slug: "navigation-bar",
+    appearance: { radius: 0 },
     name: "Navigation bar",
     category: "Navigation",
     icon: "bottom_navigation",
@@ -62,6 +63,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "app-bar",
+    appearance: { radius: 0 },
     name: "App bar",
     category: "Navigation",
     icon: "web_asset",
@@ -103,6 +105,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "tabs",
+    appearance: { target: "TabsList", radius: 0 },
     name: "Tabs",
     category: "Navigation",
     icon: "tab",
@@ -141,6 +144,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "navigation-rail",
+    appearance: { radius: 0 },
     name: "Navigation rail",
     category: "Navigation",
     icon: "view_sidebar",
@@ -178,6 +182,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "toolbar",
+    appearance: { radius: 28 },
     name: "Toolbar",
     category: "Navigation",
     icon: "build",
@@ -224,6 +229,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "breadcrumb",
+    appearance: { radius: 8 },
     name: "Breadcrumb",
     category: "Navigation",
     icon: "chevron_right",
@@ -252,6 +258,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "pagination",
+    appearance: { radius: 8 },
     name: "Pagination",
     category: "Navigation",
     icon: "more_horiz",
@@ -291,6 +298,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "navigation-menu",
+    appearance: { radius: 8 },
     name: "Navigation menu",
     category: "Navigation",
     icon: "menu_book",
@@ -327,6 +335,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "sidebar",
+    appearance: { target: "Sidebar", radius: 16 },
     name: "Sidebar",
     category: "Navigation",
     icon: "left_panel_open",
@@ -391,6 +400,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "search",
+    appearance: { target: "SearchView", radius: 28 },
     name: "Search",
     category: "Navigation",
     icon: "search",
@@ -426,6 +436,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "command",
+    appearance: { radius: 12 },
     name: "Command",
     category: "Navigation",
     icon: "keyboard_command_key",

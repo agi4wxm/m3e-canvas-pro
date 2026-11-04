@@ -11,6 +11,7 @@ const variantOf = (v: string) => (v === "default" ? undefined : v);
 export const chat: PartDef[] = [
   {
     slug: "message",
+    appearance: { target: "Bubble", radius: 16 },
     name: "Message",
     category: "Chat",
     icon: "forum",
@@ -47,6 +48,7 @@ export const chat: PartDef[] = [
   },
   {
     slug: "bubble",
+    appearance: { target: "Bubble", radius: 16 },
     name: "Bubble",
     category: "Chat",
     icon: "chat_bubble",
@@ -73,6 +75,7 @@ export const chat: PartDef[] = [
   },
   {
     slug: "marker",
+    appearance: { radius: 8 },
     name: "Marker",
     category: "Chat",
     icon: "bookmark",
@@ -94,6 +97,7 @@ export const chat: PartDef[] = [
   },
   {
     slug: "attachment",
+    appearance: { radius: 12 },
     name: "Attachment",
     category: "Chat",
     icon: "attach_file",
@@ -123,6 +127,7 @@ export const chat: PartDef[] = [
   },
   {
     slug: "message-scroller",
+    appearance: { target: "Bubble", radius: 16 },
     name: "Message scroller",
     category: "Chat",
     icon: "vertical_align_bottom",
@@ -183,6 +188,7 @@ export const chat: PartDef[] = [
   },
   {
     slug: "questionnaire",
+    appearance: { radius: 16 },
     name: "Questionnaire",
     category: "Chat",
     icon: "quiz",

@@ -26,7 +26,7 @@ import {
   TidyState,
 } from "./ui";
 import { AiHooks, FrameSizePicker } from "./Inspector";
-import { AiIconBtn, PartTabs, Tab } from "./PartPanel";
+import { AiIconBtn, Num, PartTabs, Tab } from "./PartPanel";
 import { COLOR_TOKEN_TEXT, t, useLang } from "@/lib/i18n";
 import { maxFrameLength } from "@/lib/tidy";
 
@@ -175,6 +175,7 @@ export function FrameInspector({
   onLength,
   ai,
   onSize,
+  onResize,
 }: {
   frame: Frame;
   palette: Palette;
@@ -199,6 +200,8 @@ export function FrameInspector({
   onLength: (length: number) => void;
   ai: AiHooks;
   onSize: (preset: FramePreset) => void;
+  /** the screen at a size of the author's own */
+  onResize: (w: number, h: number) => void;
 }) {
   const lang = useLang();
   const [copied, setCopied] = useState(false);
@@ -277,6 +280,15 @@ export function FrameInspector({
                 p={p}
               />
             </div>
+          </div>
+        </Section>
+        <Section id="frame-size" icon="aspect_ratio" title={t("screenSize", lang)} p={p}>
+          {/* any device: the three above are only the common ones */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>W</span>
+            <Num value={frameSizeOf(frame).w} min={200} max={3840} title="W" lazy onChange={(w) => onResize(w, frameSizeOf(frame).h)} p={p} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>H</span>
+            <Num value={frameSizeOf(frame).h} min={200} max={3840} title="H" lazy onChange={(h) => onResize(frameSizeOf(frame).w, h)} p={p} />
           </div>
         </Section>
         <Section id="frame-style" icon="palette" title={t("style", lang)} p={p}>

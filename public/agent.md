@@ -95,7 +95,7 @@ These are all the parts there are; a `component` that is not here shows as an un
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `button` | Button | `label` text; `icon` icon; `variant` filled / tonal / elevated / outlined / text; `size` xs / sm / md / lg / xl; `shape` round / square; `width` 48–640; `iconWidth` default / narrow / wide; `disabled` true / false; `toggle` true / false; `onIcon` icon; `onLabel` text |
+| `button` | Button | `label` text; `icon` icon; `variant` filled / tonal / elevated / outlined / text; `size` xs / sm / md / lg / xl; `shape` round / square; `width` 48–640; `iconWidth` default / narrow / wide; `disabled` true / false; `toggle` true / false; `onIcon` icon; `onLabel` text; `onLook` same / filled / tonal / elevated / outlined / text |
 | `fab` | FAB | `icon` icon; `label` text; `size` sm / default / md / lg; `color` primary-container / secondary-container / tertiary-container / primary / secondary / tertiary / surface; `lowered` true / false; `collapsed` true / false; `toggle` true / false; `onIcon` icon; `onLabel` text |
 | `chip` | Chip | `items` rows of `{ "label", "icon" }`; `kind` assist / filter / input; `selected` -1–7; `variant` flat / elevated; `size` default / md / lg |
 | `toggle` | Toggle | `icon` icon; `label` text; `variant` default / filled / tonal / outline / elevated; `size` xs / sm / default / md / lg; `shape` round / square; `pressed` true / false; `disabled` true / false |
@@ -107,6 +107,7 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `function-button` | Function button | `label` text; `icon` icon; `timer` 0–999; `unit` second / minute / hour; `size` 32–120 |
 | `brand-button` | Sign-in or pay button | `label` text; `width` 120–800 |
 | `icon-button` | Icon button | `icon` icon; `label` text; `variant` filled / tonal / elevated / outlined / text; `size` xs / sm / default / md / lg / xl; `disabled` true / false |
+| `checkout-bar` | Checkout bar | `label` text; `amount` text; `note` text; `icons` rows of `{ "label", "icon" }`; `action` text; `done` text; `width` 240–1280 |
 
 #### Text inputs
 
@@ -124,6 +125,10 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `tag-input` | Tag input | `items` rows of `{ "label" }`; `placeholder` text; `width` 160–1280 |
 | `phone-input` | Phone number | `code` text; `placeholder` text; `width` 160–640 |
 | `file-upload` | File upload | `title` text; `hint` text; `action` text; `multiple` true / false; `accept` text; `width` 200–800 |
+| `auth-form` | Sign-in form | `mode` sign-in / sign-up; `title` text; `subtitle` text; `upTitle` text; `nameLabel` text; `emailLabel` text; `passwordLabel` text; `confirmLabel` text; `remember` text; `forgot` text; `action` text; `upAction` text; `toUp` text; `toIn` text; `others` rows of `{ "label" }`; `minLength` 1–32; `badEmail` text; `badPassword` text; `badConfirm` text; `success` text; `width` 240–640 |
+| `number-pad` | Number pad | `mode` amount / pin / phone; `prefix` text; `length` 1–20; `action` text; `done` text; `width` 200–480 |
+| `signature-pad` | Signature pad | `hint` text; `clear` text; `action` text; `done` text; `height` 80–480; `width` 200–800 |
+| `rich-text-editor` | Rich text editor | `text` text; `placeholder` text; `counter` true / false; `height` 80–800; `width` 280–1280 |
 
 #### Selection
 
@@ -147,6 +152,7 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `multi-select` | Multiple choice | `items` rows of `{ "label" }`; `selected` text; `width` 120–800 |
 | `color-palette` | Color palette | `colors` text; `selected` 0–63; `width` 120–800 |
 | `number-picker` | Number picker | `value` -100000–100000; `min` -100000–100000; `max` -100000–100000; `step` 1–1000; `unit` text; `width` 56–240 |
+| `transfer-list` | Transfer list | `items` rows of `{ "label" }`; `chosen` text; `from` text; `to` text; `width` 280–960; `height` 120–800 |
 
 #### Navigation
 
@@ -176,6 +182,9 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `mini-program-header` | Mini program header | `title` text; `back` true / false; `width` 240–1280 |
 | `toc` | Table of contents | `title` text; `items` rows of `{ "label" }`; `selected` 0–39; `width` 120–480 |
 | `slide-group` | Slide group | `items` rows of `{ "label" }`; `width` 160–1280 |
+| `icon-grid` | Icon grid | `items` rows of `{ "label", "icon" }`; `columns` 1–8; `badge` text; `width` 160–960 |
+| `section-header` | Section header | `title` text; `subtitle` text; `action` text; `width` 120–1280 |
+| `onboarding` | Onboarding | `data` `{ "columns": ["Icon", "Title", "Text"], "rows": [[…]] }`; `skip` text; `next` text; `done` text; `width` 240–800; `height` 280–1200 |
 
 #### Overlays
 
@@ -209,6 +218,8 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `typing-indicator` | Typing indicator | `label` text |
 | `number-ticker` | Number ticker | `value` -1000000000–1000000000; `prefix` text; `suffix` text; `size` title / headline / display |
 | `timer` | Timer | `seconds` 1–86400; `countdown` true / false; `width` 160–480 |
+| `banner` | Banner | `icon` icon; `text` text; `action` text; `secondary` text; `closable` true / false; `width` 200–1280 |
+| `notice-bar` | Notice bar | `icon` icon; `items` rows of `{ "label" }`; `seconds` 1–30; `closable` true / false; `width` 160–1280 |
 
 #### Layout
 
@@ -221,13 +232,14 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `scroll-area` | Scroll area | `scrollbars` vertical / horizontal / both; `label` text; `count` 1–100; `width` 120–560; `height` 80–480 |
 | `resizable` | Resizable | `orientation` horizontal / vertical; `first` text; `second` text; `split` 10–90; `handle` true / false; `width` 160–2400; `height` 80–2400 |
 | `aspect-ratio` | Aspect ratio | `ratio` 16:9 / 4:3 / 1:1 / 3:4 / 21:9; `label` text; `width` 120–640 |
-| `container` | Container | `label` text; `note` text; `place` center / start; `fill` none / surface / surface-container-low / surface-container / surface-container-high / surface-container-highest / primary-container / secondary-container / tertiary-container; `border` none / solid / dashed; `radius` 0–48; `blur` 0–40; `width` 40–2400; `height` 40–2400 |
+| `container` | Container | `label` text; `note` text; `place` center / start; `fill` none / surface / surface-container-low / surface-container / surface-container-high / surface-container-highest / primary-container / secondary-container / tertiary-container; `border` none / solid / dashed; `radius` 0–48; `blur` 0–40; `layout` free / row / column / grid; `gap` 0–96; `padX` 0–96; `padY` 0–96; `align` start / center / end / stretch; `justify` start / center / end / between; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false; `width` 40–2400; `height` 40–2400 |
 | `stack` | Stack | `label` text; `note` text; `width` 40–2400; `height` 40–2400 |
-| `grid-view` | Grid | `label` text; `note` text; `columns` 1–12; `rows` 1–12; `width` 40–2400; `height` 40–2400 |
-| `dock` | Dock | `items` rows of `{ "label" }`; `selected` 0–11; `width` 40–2400; `height` 40–2400 |
-| `supporting-pane` | Supporting pane | `label` text; `note` text; `icon` icon; `width` 40–2400; `height` 40–2400 |
-| `custom` | Custom component | `name` text; `description` text; `width` 40–2400; `height` 40–2400 |
-| `window` | Window | `title` text; `controls` mac / windows / none; `width` 200–2400; `height` 120–2400 |
+| `grid-view` | Grid | `label` text; `note` text; `columns` 1–12; `rows` 1–12; `gap` 0–96; `padX` 0–96; `padY` 0–96; `align` start / center / end / stretch; `width` 40–2400; `height` 40–2400 |
+| `dock` | Dock | `items` rows of `{ "label" }`; `selected` 0–11; `layout` free / row / column / grid; `gap` 0–96; `padX` 0–96; `padY` 0–96; `align` start / center / end / stretch; `justify` start / center / end / between; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false; `width` 40–2400; `height` 40–2400 |
+| `supporting-pane` | Supporting pane | `label` text; `note` text; `icon` icon; `layout` free / row / column / grid; `gap` 0–96; `padX` 0–96; `padY` 0–96; `align` start / center / end / stretch; `justify` start / center / end / between; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false; `width` 40–2400; `height` 40–2400 |
+| `custom` | Custom component | `name` text; `description` text; `layout` free / row / column / grid; `gap` 0–96; `padX` 0–96; `padY` 0–96; `align` start / center / end / stretch; `justify` start / center / end / between; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false; `width` 40–2400; `height` 40–2400 |
+| `window` | Window | `title` text; `controls` mac / windows / none; `layout` free / row / column / grid; `gap` 0–96; `padX` 0–96; `padY` 0–96; `align` start / center / end / stretch; `justify` start / center / end / between; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false; `width` 200–2400; `height` 120–2400 |
+| `spacer` | Spacer | `height` 4–800; `width` 4–1920 |
 
 #### Data
 
@@ -251,6 +263,25 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `file-diff` | File diff | `file` text; `diff` text; `width` 200–1280 |
 | `sortable-list` | Sortable list | `items` rows of `{ "label" }`; `width` 160–800 |
 | `swipe-row` | Swipe row | `title` text; `note` text; `action` text; `width` 160–800 |
+| `product-card` | Product card | `image` https address; `title` text; `subtitle` text; `price` text; `original` text; `badge` text; `rating` 0–5; `action` text; `done` text; `layout` vertical / horizontal; `liked` true / false; `width` 140–640 |
+| `price-tag` | Price | `currency` text; `amount` text; `original` text; `discount` text; `size` small / medium / large |
+| `cart-list` | Shopping cart | `data` `{ "columns": ["Name", "Variant", "Price", "Quantity"], "rows": [[…]] }`; `currency` text; `selectAll` text; `total` text; `action` text; `empty` text; `width` 280–800 |
+| `coupon` | Coupon | `amount` text; `condition` text; `title` text; `expiry` text; `action` text; `done` text; `width` 260–640 |
+| `balance-card` | Balance card | `title` text; `amount` text; `change` text; `actions` rows of `{ "label", "icon" }`; `hidden` true / false; `width` 240–800 |
+| `transaction-list` | Transactions | `data` `{ "columns": ["Name", "Detail", "Amount"], "rows": [[…]] }`; `filters` rows of `{ "label" }`; `width` 240–800 |
+| `route-card` | Route card | `icon` icon; `from` text; `fromTime` text; `to` text; `toTime` text; `duration` text; `note` text; `price` text; `action` text; `done` text; `width` 240–800 |
+| `profile-header` | Profile header | `cover` https address; `showCover` true / false; `avatar` https address; `name` text; `bio` text; `stats` rows of `{ "label" }`; `action` text; `done` text; `following` true / false; `width` 240–800 |
+| `post-card` | Post | `author` text; `time` text; `text` text; `image` https address; `showImage` true / false; `likes` 0–1000000; `comments` 0–1000000; `shares` 0–1000000; `width` 240–800 |
+| `leaderboard` | Leaderboard | `title` text; `data` `{ "columns": ["Name", "Score", "Change"], "rows": [[…]] }`; `faces` true / false; `selected` -1–99; `width` 240–800 |
+| `notification-list` | Notifications | `title` text; `data` `{ "columns": ["Title", "Body", "Time", "Icon"], "rows": [[…]] }`; `unread` 0–99; `markAll` text; `width` 240–800 |
+| `file-list` | Files | `data` `{ "columns": ["Name", "Size", "Date"], "rows": [[…]] }`; `removable` true / false; `selected` -1–99; `width` 240–800 |
+| `settings-group` | Settings group | `title` text; `data` `{ "columns": ["Icon", "Label", "Control", "Value"], "rows": [[…]] }`; `width` 240–800 |
+| `sparkline` | Sparkline | `title` text; `value` text; `trend` text; `values` text; `kind` line / area / bar; `height` 16–240; `width` 96–640 |
+| `bar-list` | Bar list | `title` text; `data` `{ "columns": ["Label", "Value"], "rows": [[…]] }`; `sorted` true / false; `selected` -1–99; `width` 200–800 |
+| `data-table` | Data table | `title` text; `data` `{ "columns": ["Order", "Customer", "Status", "Total"], "rows": [[…]] }`; `search` text; `selectable` true / false; `pageSize` 1–100; `width` 280–1600 |
+| `kanban` | Kanban board | `data` `{ "columns": ["To do", "In progress", "Done"], "rows": [[…]] }`; `add` text; `width` 240–1920 |
+| `agenda` | Event calendar | `year` 1900–2200; `month` 1–12; `day` 1–31; `data` `{ "columns": ["Date", "Time", "Title"], "rows": [[…]] }`; `weekStart` sunday / monday; `empty` text; `width` 260–800 |
+| `todo-list` | To-do list | `title` text; `items` rows of `{ "label" }`; `placeholder` text; `width` 200–800 |
 
 #### Media
 
@@ -258,7 +289,7 @@ These are all the parts there are; a `component` that is not here shows as an un
 |---|---|---|
 | `icon` | Icon | `name` icon; `size` 16–96; `filled` true / false; `color` default / primary / secondary / tertiary / error |
 | `avatar` | Avatar | `initials` text; `size` sm / default / lg; `image` https address; `count` 1–5 |
-| `carousel` | Carousel (Embla) | `count` 2–8; `arrows` true / false; `orientation` horizontal / vertical; `itemWidth` 0–480; `gap` 0–32; `image` https address; `width` 160–640; `height` 80–400 |
+| `carousel` | Carousel (Embla) | `slides` rows of `{ "label" }`; `arrows` true / false; `orientation` horizontal / vertical; `itemWidth` 0–480; `gap` 0–32; `width` 160–640; `height` 80–400 |
 | `expressive-carousel` | Expressive carousel | `variant` multi-browse / hero / uncontained / full-screen; `slides` rows of `{ "label" }`; `itemWidth` 120–400; `gap` 0–24; `height` 100–320; `width` 240–800 |
 | `kbd` | Kbd | `keys` rows of `{ "label" }`; `caption` text |
 | `shape` | Shape | `name` 4-leaf-clover / 4-sided-cookie / 6-sided-cookie / 7-sided-cookie / 8-leaf-clover / 9-sided-cookie / 12-sided-cookie / burst / oval / pentagon / pill / soft-burst / sunny / very-sunny / bun / boom / arch / arrow / diamond / fan / flower / gem / ghost-ish / heart / hexagon / pixel-circle / pixel-triangle / puffy / puffy-diamond / semicircle / slanted / soft-boom / square / circle / triangle; `color` primary / secondary / tertiary / primary-container / secondary-container / tertiary-container / surface-container / surface-container-high / outline / error; `width` 8–800; `height` 8–800 |
@@ -272,6 +303,8 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `image` | Image | `src` https address; `alt` text; `fit` cover / contain; `radius` 0–120; `width` 24–1600; `height` 24–1600 |
 | `audio-player` | Audio player | `title` text; `artist` text; `src` text; `seconds` 1–36000; `width` 200–800 |
 | `marquee` | Marquee | `text` text; `seconds` 2–120; `width` 80–1600 |
+| `playlist` | Playlist or lessons | `title` text; `data` `{ "columns": ["Title", "Detail", "Length", "State"], "rows": [[…]] }`; `selected` -1–99; `width` 240–800 |
+| `qr-code` | QR code | `text` text; `level` L / M / Q / H; `caption` text; `copy` text; `copied` text; `tooLong` text; `size` 64–640 |
 
 #### Chat
 
@@ -283,6 +316,11 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `attachment` | Attachment | `title` text; `description` text; `icon` icon; `state` done / idle / uploading / processing / error; `size` default / sm / xs; `orientation` horizontal / vertical; `remove` true / false |
 | `message-scroller` | Message scroller | `messages` rows of `{ "label" }`; `button` true / false; `width` 240–640; `height` 160–480 |
 | `questionnaire` | Questionnaire | `question` text; `description` text; `choices` rows of `{ "label" }`; `multiple` true / false; `steps` 1–3; `width` 240–640 |
+| `conversation-list` | Conversations | `data` `{ "columns": ["Name", "Last message", "Time", "Unread"], "rows": [[…]] }`; `selected` -1–99; `width` 240–800 |
+| `contact-list` | Contacts | `data` `{ "columns": ["Name", "Note"], "rows": [[…]] }`; `search` text; `grouped` true / false; `trailing` follow / call / message / none; `action` text; `done` text; `width` 240–800 |
+| `comment-list` | Comments | `data` `{ "columns": ["Name", "Time", "Comment", "Likes"], "rows": [[…]] }`; `you` text; `now` text; `reply` text; `placeholder` text; `width` 240–800 |
+| `story-row` | Stories | `items` rows of `{ "label" }`; `add` true / false; `width` 160–1280 |
+| `chat-composer` | Message composer | `placeholder` text; `attach` true / false; `emoji` true / false; `width` 200–1280 |
 
 #### Game
 

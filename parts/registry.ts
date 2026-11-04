@@ -9,6 +9,7 @@ import { pickers } from "./defs/pickers";
 import { selection } from "./defs/selection";
 import { textInputs } from "./defs/text-inputs";
 import { additions } from "./defs/additions";
+import { app } from "./defs/app";
 import { containers } from "./defs/containers";
 import { controls } from "./defs/controls";
 import { data } from "./defs/data";
@@ -26,7 +27,7 @@ import { getLang, type Lang } from "../lib/i18n";
 export const CATEGORIES = ["Actions", "Text inputs", "Selection", "Navigation", "Overlays", "Feedback", "Layout", "Data", "Media", "Chat", "Game"] as const;
 export type PartCategory = (typeof CATEGORIES)[number];
 
-export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions];
+export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app];
 
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);
@@ -141,9 +142,33 @@ export function viewOf(def: PartDef, values?: PropValues, appearance?: Appearanc
 /** the default value of every prop */
 export const defaultValues = (def: PartDef): PropValues => Object.fromEntries(def.props.map((d) => [d.key, d.default]));
 
-/** the keys of a part's `image` props: the ones a data URL can hide in, which a shared link
- *  drops and the printed code swaps for a placeholder */
-export const imageKeys = (def: PartDef): string[] => def.props.filter((d) => d.kind === "image").map((d) => d.key);
+const picked = (v: unknown): v is string => typeof v === "string" && v.startsWith("data:");
+
+/** The values with every picture that is a picked file's data (an image prop, or a row of a list
+ *  that takes pictures) swapped for `swap`, or dropped without one: a shared link has no room for
+ *  them and printed code should not carry them. A web address stays. */
+export function withoutPickedImages(def: PartDef, values: PropValues, swap?: string): PropValues {
+  let out = values;
+  const put = (key: string, v: unknown) => {
+    if (out === values) out = { ...values };
+    if (v === undefined) delete out[key];
+    else out[key] = v;
+  };
+  for (const d of def.props) {
+    const v = values[d.key];
+    if (d.kind === "image" && picked(v)) put(d.key, swap);
+    if (d.kind === "list" && d.images && Array.isArray(v) && v.some((row) => picked((row as ListItem | null)?.image)))
+      put(
+        d.key,
+        v.map((row: ListItem) => {
+          if (!picked(row?.image)) return row;
+          const { image: _gone, ...rest } = row;
+          return swap ? { ...rest, image: swap } : rest;
+        }),
+      );
+  }
+  return out;
+}
 
 /* -- language ----------------------------------------------------------------- */
 

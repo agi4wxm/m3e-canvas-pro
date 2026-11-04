@@ -12,6 +12,8 @@ const FILES: Record<string, string[]> = {
   Inputs: ["TagInput", "FileUpload", "ItemPicker", "MultiSelect", "ColorPalette", "NumberPicker"],
   Content: ["CodeBlock", "Markdown", "SortableList"],
   Motion: ["NumberTicker", "Marquee", "Timer", "PullToRefresh", "SlideGroup", "SwipeRow", "AudioPlayer"],
+  AppParts: ["ProductCard", "CartList", "Coupon", "CheckoutBar", "BalanceCard", "TransactionList", "RouteCard", "ProfileHeader", "PostCard", "ConversationList", "ContactList", "CommentList", "StoryRow", "NotificationList", "FileList", "SettingsGroup", "Playlist", "Leaderboard", "BarList", "Sparkline", "IconGrid", "Banner", "NoticeBar"],
+  AppTools: ["DataTable", "Kanban", "Agenda", "TodoList", "TransferList", "AuthForm", "NumberPad", "SignaturePad", "RichTextEditor", "ChatComposer", "Onboarding", "QrCode"],
 };
 
 /** where printed code imports each widget from */

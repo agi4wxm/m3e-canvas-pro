@@ -4,6 +4,7 @@ import type { PartDef } from "../types";
 export const pickers: PartDef[] = [
   {
     slug: "calendar",
+    appearance: { radius: 16 },
     name: "Calendar",
     category: "Selection",
     icon: "calendar_month",
@@ -25,6 +26,7 @@ export const pickers: PartDef[] = [
   },
   {
     slug: "date-picker",
+    appearance: { target: ["DatePicker", "Calendar"], radius: 16 },
     name: "Date picker",
     category: "Selection",
     icon: "edit_calendar",
@@ -71,6 +73,7 @@ export const pickers: PartDef[] = [
   },
   {
     slug: "time-picker",
+    appearance: { radius: 28 },
     name: "Time picker",
     category: "Selection",
     icon: "schedule",

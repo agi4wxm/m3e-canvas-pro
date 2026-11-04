@@ -12,6 +12,7 @@ const frame = "bg-surface-container-high flex flex-col items-center justify-cent
 export const media: PartDef[] = [
   {
     slug: "video",
+    appearance: { radius: 12 },
     name: "Video",
     labels: { ja: "動画", zh: "视频", ko: "동영상" },
     category: "Media",
@@ -39,6 +40,7 @@ export const media: PartDef[] = [
   },
   {
     slug: "web-view",
+    appearance: { radius: 12 },
     name: "Web page",
     labels: { ja: "Web ページ", zh: "网页", ko: "웹 페이지" },
     category: "Media",
@@ -61,6 +63,7 @@ export const media: PartDef[] = [
   },
   {
     slug: "animation",
+    appearance: { radius: 12 },
     name: "Animation placeholder",
     labels: { ja: "アニメーションプレースホルダー", zh: "动画占位", ko: "애니메이션 자리표시자" },
     category: "Media",
@@ -78,6 +81,7 @@ export const media: PartDef[] = [
   },
   {
     slug: "camera",
+    appearance: { radius: 12 },
     name: "Camera placeholder",
     labels: { ja: "カメラプレースホルダー", zh: "相机占位", ko: "카메라 자리표시자" },
     category: "Media",
@@ -98,6 +102,7 @@ export const media: PartDef[] = [
   },
   {
     slug: "map",
+    appearance: { radius: 12 },
     name: "Map placeholder",
     labels: { ja: "地図プレースホルダー", zh: "地图占位", ko: "지도 자리표시자" },
     category: "Media",

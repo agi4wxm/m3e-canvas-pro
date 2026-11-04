@@ -1,3 +1,4 @@
+import { FLOW_PROPS } from "../flow";
 import { h, ic } from "../node";
 import type { ListItem, P, PartDef, TableData } from "../types";
 
@@ -44,6 +45,7 @@ export const additions: PartDef[] = [
   /* ---------- the plainest things on a screen ---------- */
   {
     slug: "text",
+    appearance: { radius: 4 },
     name: "Text",
     labels: { ja: "テキスト", zh: "文本", ko: "텍스트" },
     category: "Media",
@@ -85,6 +87,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "icon-button",
+    appearance: { radius: 20 },
     name: "Icon button",
     labels: { ja: "アイコンボタン", zh: "图标按钮", ko: "아이콘 버튼" },
     category: "Actions",
@@ -102,6 +105,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "custom",
+    appearance: { radius: 12 },
     name: "Custom component",
     labels: { ja: "カスタムコンポーネント", zh: "自定义组件", ko: "사용자 정의 구성 요소" },
     category: "Layout",
@@ -109,9 +113,11 @@ export const additions: PartDef[] = [
     w: 320,
     h: 160,
     holds: true,
+    flow: { inset: (p) => ({ t: p.s("description") ? 56 : 32 }) },
     props: [
       { key: "name", label: "Name", labels: { ja: "名前", zh: "名称", ko: "이름" }, kind: "text", default: "Custom component", defaults: { zh: "自定义组件" } },
       { key: "description", label: "What it does", labels: { ja: "何をするか", zh: "它做什么", ko: "하는 일" }, kind: "text", default: "Describe what goes here.", defaults: { zh: "说明这里放什么。" }, multiline: true },
+      ...FLOW_PROPS,
       WIDTH(320, 40, 2400),
       { key: "height", label: "Height", kind: "number", default: 160, min: 40, max: 2400, step: 4, unit: "px" },
     ],
@@ -125,6 +131,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "window",
+    appearance: { radius: 12 },
     name: "Window",
     labels: { ja: "ウィンドウ", zh: "窗口", ko: "창" },
     category: "Layout",
@@ -132,9 +139,11 @@ export const additions: PartDef[] = [
     w: 640,
     h: 400,
     holds: true,
+    flow: { inset: () => ({ t: 36 }) },
     props: [
       { key: "title", label: "Title", kind: "text", default: "Window", defaults: { zh: "窗口" } },
       { key: "controls", label: "Window controls", labels: { ja: "ウィンドウ操作", zh: "窗口按钮", ko: "창 버튼" }, kind: "enum", default: "mac", options: ["mac", "windows", "none"] },
+      ...FLOW_PROPS,
       WIDTH(640, 200, 2400),
       { key: "height", label: "Height", kind: "number", default: 400, min: 120, max: 2400, step: 4, unit: "px" },
     ],
@@ -151,7 +160,7 @@ export const additions: PartDef[] = [
           h("div", { className: `text-label-large text-on-surface flex-1 truncate ${controls === "mac" ? "text-center" : ""}` }, p.s("title")),
           controls === "windows" && h("div", { className: "text-on-surface-variant flex gap-3" }, ic("remove", { className: "size-4" }), ic("crop_square", { className: "size-4" }), ic("close", { className: "size-4" })),
         ),
-        h("div", { className: "min-h-0 flex-1" }),
+        h("div", { "data-flow": "body", className: "min-h-0 flex-1" }),
       );
     },
   },
@@ -159,6 +168,7 @@ export const additions: PartDef[] = [
   /* ---------- picking and entering ---------- */
   {
     slug: "tag-input",
+    appearance: { radius: 12 },
     name: "Tag input",
     labels: { ja: "タグ入力", zh: "标签输入", ko: "태그 입력" },
     category: "Text inputs",
@@ -174,6 +184,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "phone-input",
+    appearance: { radius: 4 },
     name: "Phone number",
     labels: { ja: "電話番号", zh: "手机号输入", ko: "전화번호" },
     category: "Text inputs",
@@ -189,6 +200,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "file-upload",
+    appearance: { radius: 16 },
     name: "File upload",
     labels: { ja: "ファイルアップロード", zh: "文件上传", ko: "파일 업로드" },
     category: "Text inputs",
@@ -207,6 +219,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "item-picker",
+    appearance: { radius: 12 },
     name: "Item picker",
     labels: { ja: "アイテムピッカー", zh: "图标选择", ko: "항목 선택" },
     category: "Selection",
@@ -223,6 +236,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "multi-select",
+    appearance: { radius: 12 },
     name: "Multiple choice",
     labels: { ja: "複数選択", zh: "多选", ko: "다중 선택" },
     category: "Selection",
@@ -238,6 +252,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "color-palette",
+    appearance: { radius: 12 },
     name: "Color palette",
     labels: { ja: "カラーパレット", zh: "调色板", ko: "색상 팔레트" },
     category: "Selection",
@@ -253,6 +268,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "number-picker",
+    appearance: { radius: 12 },
     name: "Number picker",
     labels: { ja: "数値ピッカー", zh: "数字选择器", ko: "숫자 선택기" },
     category: "Selection",
@@ -273,6 +289,7 @@ export const additions: PartDef[] = [
   /* ---------- getting around ---------- */
   {
     slug: "floating-nav",
+    appearance: { radius: 999 },
     name: "Floating navigation",
     labels: { ja: "フローティングナビ", zh: "悬浮导航栏", ko: "플로팅 내비게이션" },
     category: "Navigation",
@@ -296,6 +313,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "cascading-menu",
+    appearance: { target: ["DropdownMenuContent", "DropdownMenuSubContent"], radius: 4 },
     name: "Cascading menu",
     labels: { ja: "カスケードメニュー", zh: "级联菜单", ko: "계단식 메뉴" },
     category: "Navigation",
@@ -324,6 +342,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "mini-program-header",
+    appearance: { radius: 0 },
     name: "Mini program header",
     labels: { ja: "ミニプログラムヘッダー", zh: "小程序导航栏", ko: "미니 프로그램 헤더" },
     category: "Navigation",
@@ -347,6 +366,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "toc",
+    appearance: { radius: 12 },
     name: "Table of contents",
     labels: { ja: "目次", zh: "目录", ko: "목차" },
     category: "Navigation",
@@ -371,6 +391,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "slide-group",
+    appearance: { radius: 12 },
     name: "Slide group",
     labels: { ja: "スライドグループ", zh: "横向滑动组", ko: "슬라이드 그룹" },
     category: "Navigation",
@@ -387,6 +408,7 @@ export const additions: PartDef[] = [
   /* ---------- saying what is going on ---------- */
   {
     slug: "pull-to-refresh",
+    appearance: { radius: 12 },
     name: "Pull to refresh",
     labels: { ja: "引っ張って更新", zh: "下拉刷新", ko: "당겨서 새로고침" },
     category: "Feedback",
@@ -402,6 +424,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "typing-indicator",
+    appearance: { radius: 12 },
     name: "Typing indicator",
     labels: { ja: "入力中インジケーター", zh: "正在输入", ko: "입력 중 표시" },
     category: "Feedback",
@@ -419,6 +442,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "number-ticker",
+    appearance: { radius: 8 },
     name: "Number ticker",
     labels: { ja: "数値カウンター", zh: "数字滚动", ko: "숫자 카운터" },
     category: "Feedback",
@@ -435,6 +459,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "timer",
+    appearance: { radius: 16 },
     name: "Timer",
     labels: { ja: "タイマー", zh: "计时器", ko: "타이머" },
     category: "Feedback",
@@ -452,6 +477,7 @@ export const additions: PartDef[] = [
   /* ---------- rows and records ---------- */
   {
     slug: "timeline",
+    appearance: { radius: 12 },
     name: "Timeline",
     labels: { ja: "タイムライン", zh: "时间线", ko: "타임라인" },
     category: "Data",
@@ -482,6 +508,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "tracker",
+    appearance: { radius: 12 },
     name: "Status tracker",
     labels: { ja: "ステータストラッカー", zh: "状态条", ko: "상태 트래커" },
     category: "Data",
@@ -503,6 +530,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "code-block",
+    appearance: { radius: 12 },
     name: "Code block",
     labels: { ja: "コードブロック", zh: "代码块", ko: "코드 블록" },
     category: "Data",
@@ -518,6 +546,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "markdown",
+    appearance: { radius: 12 },
     name: "Markdown",
     labels: { ja: "マークダウン", zh: "Markdown 文档", ko: "마크다운" },
     category: "Data",
@@ -532,6 +561,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "file-diff",
+    appearance: { radius: 12 },
     name: "File diff",
     labels: { ja: "ファイル差分", zh: "文件差异", ko: "파일 차이" },
     category: "Data",
@@ -553,6 +583,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "sortable-list",
+    appearance: { radius: 12 },
     name: "Sortable list",
     labels: { ja: "並べ替えリスト", zh: "可排序列表", ko: "정렬 가능한 목록" },
     category: "Data",
@@ -567,6 +598,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "swipe-row",
+    appearance: { radius: 12 },
     name: "Swipe row",
     labels: { ja: "スワイプ行", zh: "左滑操作行", ko: "스와이프 행" },
     category: "Data",
@@ -585,6 +617,7 @@ export const additions: PartDef[] = [
   /* ---------- sound and movement ---------- */
   {
     slug: "audio-player",
+    appearance: { radius: 16 },
     name: "Audio player",
     labels: { ja: "オーディオプレーヤー", zh: "音频播放器", ko: "오디오 플레이어" },
     category: "Media",
@@ -602,6 +635,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "marquee",
+    appearance: { radius: 4 },
     name: "Marquee",
     labels: { ja: "マーキー", zh: "跑马灯", ko: "마키" },
     category: "Media",

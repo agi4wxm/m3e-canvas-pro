@@ -8,6 +8,7 @@ import type { PartDef } from "../types";
 export const desktop: PartDef[] = [
   {
     slug: "title-bar",
+    appearance: { radius: 0 },
     name: "Title bar",
     labels: { ja: "タイトルバー", zh: "标题栏", ko: "제목 표시줄" },
     category: "Navigation",
@@ -34,6 +35,7 @@ export const desktop: PartDef[] = [
   },
   {
     slug: "status-bar",
+    appearance: { radius: 0 },
     name: "Status bar",
     labels: { ja: "ステータスバー", zh: "状态栏", ko: "상태 표시줄" },
     category: "Navigation",
@@ -58,6 +60,7 @@ export const desktop: PartDef[] = [
   },
   {
     slug: "tree",
+    appearance: { radius: 12 },
     name: "Tree",
     labels: { ja: "ツリー", zh: "树形列表", ko: "트리" },
     category: "Data",
@@ -88,6 +91,7 @@ export const desktop: PartDef[] = [
   },
   {
     slug: "steps",
+    appearance: { radius: 12 },
     name: "Steps",
     labels: { ja: "ステップ", zh: "步骤条", ko: "단계" },
     category: "Navigation",
@@ -117,6 +121,7 @@ export const desktop: PartDef[] = [
   },
   {
     slug: "copy-row",
+    appearance: { radius: 6 },
     name: "Copy row",
     labels: { ja: "コピー行", zh: "复制行", ko: "복사 행" },
     category: "Text inputs",
@@ -131,6 +136,7 @@ export const desktop: PartDef[] = [
   },
   {
     slug: "shimmer-text",
+    appearance: { radius: 4 },
     name: "Shimmer text",
     labels: { ja: "シマーテキスト", zh: "闪烁文字", ko: "반짝이는 텍스트" },
     category: "Feedback",

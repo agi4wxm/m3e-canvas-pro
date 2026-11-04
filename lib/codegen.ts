@@ -2,8 +2,8 @@
  * shadcn M3E components (https://shadcn-m3e.crystaworld.dev), not a picture of them.
  *
  * Every part prints its own tree. The layout is the sketch's own: every run of parts is
- * placed absolutely inside a box the size of its screen, so what comes out is a faithful
- * starting point rather than finished, responsive code. */
+ * placed absolutely inside a box the size of its screen, except what a container's auto layout
+ * holds, which is nested in that container in real flex and grid. */
 import {
   Doc,
   Frame,
@@ -12,7 +12,7 @@ import {
   PHONE_H,
   PHONE_W,
   explodeGroup,
-  frameOfGroup,
+  frameOfPart,
   frameSizeOf,
   frameLengthOf,
   canCollapseFab,
@@ -28,8 +28,11 @@ import { EXTERNAL } from "../parts/externals";
 import { FILE_OF } from "../parts/files.generated";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { inlineNode, itemOfFile, namesIn } from "../parts/print";
+import { flowClasses } from "../parts/flow";
+import { mapNodes, type PNode, type PValue } from "../parts/node";
+import { flowOf, type Flow } from "./flow";
 import { appearanceOf } from "../parts/appearance";
-import { imageKeys, partBySlug, treeOf } from "../parts/registry";
+import { partBySlug, treeOf, withoutPickedImages } from "../parts/registry";
 import { fullWidth, roleOf } from "../parts/role";
 import { pinOf } from "./tidy";
 
@@ -74,18 +77,73 @@ function jsx(it: Item, c: Ctx): string {
   const def = partBySlug(it.component);
   if (!def) return `{/* unknown component ${it.component ?? ""} */}`;
   /* a picked image lives in the sketch as data; the code stands in a path for it */
-  const props = { ...it.props };
-  for (const k of imageKeys(def)) if (typeof props[k] === "string" && (props[k] as string).startsWith("data:")) props[k] = PLACEHOLDER_IMAGE;
-  const tree = treeOf(def, props, appearanceOf(it));
+  const tree = treeOf(def, withoutPickedImages(def, it.props ?? {}, PLACEHOLDER_IMAGE), appearanceOf(it));
   c.use(...namesIn(tree));
   return inlineNode(tree);
 }
 
+/** a part that takes the room its layout gives it, not a number of pixels */
+function fluid(tree: PNode, keys: ("width" | "height")[]): PNode {
+  const style = { ...((tree.props?.style as Record<string, PValue> | undefined) ?? {}) };
+  for (const k of keys) if (k in style) style[k] = "100%";
+  return { ...tree, props: { ...tree.props, style } };
+}
+
+/** The JSX of a run laid out by a container: nested, the way the browser will lay it out. The classes
+ *  of the layout go on the node the container keeps for it, or on its root. */
+function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow): string {
+  const it = run.items[0];
+  const def = partBySlug(it.component);
+  const flow = run.items.length === 1 ? flowOf(run) : null;
+  if (!def || (!flow && !parent)) return run.items.map((x) => jsx(x, c)).join("");
+  if (!flow) {
+    const crossKey = parent!.dir === "column" ? "width" : "height";
+    const mainKey = crossKey === "width" ? "height" : "width";
+    const keys = [...(parent!.align === "stretch" ? [crossKey] : []), ...(it.flowFill ? [mainKey] : [])] as ("width" | "height")[];
+    if (run.items.length !== 1) return `<div className="flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]">${run.items.map((x) => jsx(x, c)).join("")}</div>`;
+    const tree = fluid(treeOf(def, withoutPickedImages(def, it.props ?? {}, PLACEHOLDER_IMAGE), appearanceOf(it)), keys);
+    c.use(...namesIn(tree));
+    const source = inlineNode(tree);
+    return it.flowFill ? `<div className=${str(parent!.dir === "column" ? "min-h-0 flex-1" : "min-w-0 flex-1")}>${source}</div>` : source;
+  }
+  const kids = all.filter((g) => g.inFlow === run.id && !g.locked);
+  let tree = treeOf(def, withoutPickedImages(def, it.props ?? {}, PLACEHOLDER_IMAGE), appearanceOf(it));
+  /* a layout in a layout takes the room the outer one gives it too */
+  if (parent) {
+    const cross = parent.dir === "column" ? "width" : "height";
+    const main = cross === "width" ? "height" : "width";
+    tree = fluid(tree, [...(parent.align === "stretch" ? [cross] : []), ...(it.flowFill ? [main] : [])] as ("width" | "height")[]);
+  }
+  const fit = [...(flow.hugW ? ["width"] : []), ...(flow.hugH ? ["height"] : [])];
+  const style = Object.fromEntries(Object.entries((tree.props?.style as Record<string, PValue> | undefined) ?? {}).filter(([k]) => !fit.includes(k)));
+  tree = { ...tree, props: { ...tree.props, style } };
+  const marked = (n: PNode): boolean => !!n.props?.["data-flow"] || !!n.children?.some((x) => typeof x !== "string" && marked(x));
+  const host = marked(tree) ? (n: PNode) => !!n.props?.["data-flow"] : (n: PNode) => n === tree;
+  const HOLE = "@@flow@@";
+  const placed = mapNodes(tree, (n) => {
+    const clean = n.props?.["data-flow"] ? Object.fromEntries(Object.entries(n.props).filter(([k]) => k !== "data-flow")) : n.props;
+    if (!host(n)) return { ...n, props: clean };
+    const className = [typeof clean?.className === "string" ? clean.className : "", flowClasses(flow)].filter(Boolean).join(" ");
+    return { ...n, props: { ...clean, className }, children: [HOLE] };
+  });
+  c.use(...namesIn(placed));
+  const inside = kids.map((k) => flowJsx(k, c, all, flow)).join("");
+  /* a function: a `$` in a part's words is not a replacement pattern */
+  return inlineNode(placed).replace(HOLE, () => inside);
+}
+
 /** the pieces of a screen, each run placed where the sketch has it */
-function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, number>, pinEdges = true, foldOnScroll = false): string[] {
+function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, number>, all: Group[], pinEdges = true, foldOnScroll = false): string[] {
   const { h } = frameSizeOf(frame);
   const out: string[] = [];
+  const hosts = new Set(all.filter((r) => flowOf(r)).map((r) => r.id));
   for (const run of runs) {
+    /* what a layout holds is printed inside it */
+    if (run.inFlow && hosts.has(run.inFlow) && !run.locked) continue;
+    if (hosts.has(run.id)) {
+      out.push(`<div className=${str(`absolute left-[${Math.round(run.x - frame.x)}px] top-[${Math.round(run.y - frame.y)}px]`)}>${flowJsx(run, c, all)}</div>`);
+      continue;
+    }
     const first = run.items[0];
     const at = layoutOf(run, widths)[0];
     const top = Math.round(at.y - frame.y);
@@ -202,10 +260,11 @@ export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?
 
   const taken = new Set<string>();
   const screens = shown.map((frame, i) => {
-    const runs = doc.groups
-      .filter((g) => loose || frameOfGroup(g, frames, widths)?.id === frame.id)
-      .flatMap((g) => (g.free ? explodeGroup(g, widths) : [g]))
-      .sort((a, b) => a.y - b.y || a.x - b.x);
+    /* a layout reads its parts in the order of the document, the rest go down the screen */
+    const all = doc.groups
+      .filter((g) => loose || frameOfPart(g, doc.groups, frames, widths)?.id === frame.id)
+      .flatMap((g) => (g.free ? explodeGroup(g, widths) : [g]));
+    const runs = [...all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { w, h } = frameSizeOf(frame);
     const length = frameLengthOf(frame);
     const scrolls = length > h;
@@ -216,11 +275,11 @@ export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?
       const pinned = runs.filter((run) => pinOf(run, frame, widths));
       const flowing = runs.filter((run) => !pinOf(run, frame, widths));
       const fixed = pinned.map((run) => ({ ...run, y: run.y - (pinOf(run, frame, widths) === "foot" ? length - h : 0), items: run.items.map((item) => roleOf(item) === "rail" ? { ...item, props: { ...item.props, height: h } } : item) }));
-      const content = screenBody(frame, flowing, c, widths, false, folds);
-      const overlays = screenBody(frame, fixed, c, widths, true, folds);
+      const content = screenBody(frame, flowing, c, widths, all, false, folds);
+      const overlays = screenBody(frame, fixed, c, widths, all, true, folds);
       const scrollHandler = folds ? ' onScroll={(event) => { const top = event.currentTarget.scrollTop; if (top !== lastScrollTop.current) setFabFolded(top > lastScrollTop.current); lastScrollTop.current = top }}' : "";
       body = [`<div role="region" aria-label=${str(`${frame.name || "Screen"} content`)} tabIndex={0} className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain"${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></div>`, ...overlays];
-    } else body = screenBody(frame, runs, c, widths);
+    } else body = screenBody(frame, runs, c, widths, all);
     const bg = frame.bg ? `bg-${role(frame.bg)}` : "bg-surface";
     const open = `<div className=${str(`relative overflow-hidden ${bg} w-[${w}px] h-[${h}px]`)}>`;
     const inner = [open, ...body, "</div>"].join("");

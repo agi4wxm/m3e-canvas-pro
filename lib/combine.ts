@@ -1,6 +1,7 @@
 import { partBySlug, reader } from "../parts/registry";
 import type { ListItem } from "../parts/types";
-import { Frame, Group, Item, groupBounds, groupsInFrame } from "./tokens";
+import { flowHostAt } from "./flow";
+import { Frame, Group, Item, groupBounds, groupsInFrame, listRowsPatch } from "./tokens";
 
 /* Buttons that sit side by side, or on top of each other, are one button group in M3E: they share
  * a container and connect. A real Button is a part of its own, so Tidy leaves them be and this is
@@ -85,6 +86,94 @@ function mergeRun(run: Cand[], axis: "x" | "y"): Group {
   return { id: first.g.id, x: bb.l, y: bb.t, axis: "x", items: [item] };
 }
 
+/** how near a dropped button has to be to join: closer than the gap two separate buttons keep */
+const TOUCH_GAP = 12;
+
+type Join = { to: Group; axis: "x" | "y"; before: boolean };
+
+/** what a lone button may be put together with: another lone button of its size, or a button group
+ *  of its size with room and running the way the two meet */
+function joinOf(groups: Group[], id: string, widths: Record<string, number>): Join | null {
+  const button = partBySlug("button");
+  const row = partBySlug("button-group");
+  const g = groups.find((x) => x.id === id);
+  /* inside a layout, buttons are moved past each other to reorder them */
+  if (!button || !row || !g || g.locked || g.free || g.inFlow || g.items.length !== 1 || g.items[0].component !== "button") return null;
+  const mine = reader(button, g.items[0].props);
+  /* let go in a layout, it goes into that layout */
+  if (mine.b("toggle") || flowHostAt(groups, id, widths)) return null;
+  const bb = rectOf(g, widths);
+  let best: (Join & { gap: number }) | null = null;
+  for (const o of groups) {
+    if (o.id === id || o.locked || o.free || o.inFlow || o.items.length !== 1) continue;
+    const it = o.items[0];
+    const isButton = it.component === "button" && !reader(button, it.props).b("toggle") && reader(button, it.props).s("size") === mine.s("size");
+    const p = it.component === "button-group" ? reader(row, it.props) : null;
+    if (!isButton && !(p && p.s("size") === mine.s("size") && p.list("items").length < MAX_RUN)) continue;
+    const to = rectOf(o, widths);
+    for (const axis of ["x", "y"] as const) {
+      if (p && (p.s("orientation") === "vertical") !== (axis === "y")) continue;
+      if ((axis === "x" ? share(bb.t, bb.b, to.t, to.b) : share(bb.l, bb.r, to.l, to.r)) < 0.5) continue;
+      const before = axis === "x" ? bb.l + bb.r < to.l + to.r : bb.t + bb.b < to.t + to.b;
+      const gap = axis === "x" ? (before ? to.l - bb.r : bb.l - to.r) : before ? to.t - bb.b : bb.t - to.b;
+      const size = axis === "x" ? bb.r - bb.l : bb.b - bb.t;
+      /* dropped up against it, or over its near half */
+      if (gap > TOUCH_GAP || gap < -size * 0.75) continue;
+      if (!best || gap < best.gap) best = { to: o, axis, before, gap };
+    }
+  }
+  return best;
+}
+
+const rectOf = (g: Group, widths: Record<string, number>): Rect => groupBounds(g, widths);
+
+/** where a button being carried would join, to show it before it is let go */
+export function joinTargetOf(groups: Group[], id: string, widths: Record<string, number>): Rect | null {
+  const join = joinOf(groups, id, widths);
+  return join ? rectOf(join.to, widths) : null;
+}
+
+/** A lone button let go against another button, or against a button group, is one button group with
+ *  it. Returns the groups as they then are and the id of the part it became, or null when it touches
+ *  nothing it can join. */
+export function joinDropped(groups: Group[], id: string, widths: Record<string, number>): { groups: Group[]; itemId: string } | null {
+  const join = joinOf(groups, id, widths);
+  if (!join) return null;
+  const button = partBySlug("button")!;
+  const row = partBySlug("button-group")!;
+  const g = groups.find((x) => x.id === id)!;
+  const bb = rectOf(g, widths);
+  const to = rectOf(join.to, widths);
+  const box = { l: Math.min(bb.l, to.l), t: Math.min(bb.t, to.t), r: Math.max(bb.r, to.r), b: Math.max(bb.b, to.b) };
+  const cand = (x: Group): Cand => {
+    const p = reader(button, x.items[0].props);
+    return { g: x, it: x.items[0], bb: rectOf(x, widths), size: p.s("size"), variant: p.s("variant") };
+  };
+  const target = join.to.items[0];
+  let joined: Group;
+  if (target.component === "button") {
+    joined = mergeRun(join.before ? [cand(g), cand(join.to)] : [cand(join.to), cand(g)], join.axis);
+  } else {
+    const p = reader(row, target.props);
+    const rows = p.list("items");
+    const added = cand(g);
+    const { label, icon, variant } = { label: reader(button, added.it.props).s("label"), icon: reader(button, added.it.props).s("icon"), variant: added.variant };
+    const entry: ListItem = { label, ...(icon ? { icon } : {}), ...(variant !== p.s("buttonVariant") ? { variant } : {}) };
+    const order = join.before ? [-1, ...rows.map((_, i) => i)] : [...rows.map((_, i) => i), -1];
+    const next = join.before ? [entry, ...rows] : [...rows, entry];
+    const patch = listRowsPatch(target, "items", next, order);
+    const at = join.before ? 0 : rows.length;
+    const actions = added.it.action ? { ...(patch.actions ?? target.actions), [`tab:${at}`]: added.it.action } : patch.actions;
+    const note = [target.note, added.it.note].filter(Boolean).join("\n");
+    joined = { ...join.to, items: [{ ...target, ...patch, ...(actions ? { actions } : {}), ...(note ? { note } : {}) }] };
+  }
+  const placed: Group = { ...joined, x: box.l, y: box.t };
+  return {
+    groups: groups.filter((x) => x.id !== (joined.id === g.id ? join.to.id : g.id)).map((x) => (x.id === joined.id ? placed : x)),
+    itemId: placed.items[0].id,
+  };
+}
+
 /** The groups with every run of neighbouring buttons on this screen made one button group, or
  *  null when there is none. Toggle buttons, locked and hand-made groups and buttons of different
  *  sizes are left as they are. */
@@ -95,7 +184,7 @@ export function combineButtons(groups: Group[], frame: Frame, frames: Frame[], w
   const cands: Cand[] = [];
   for (const g of mine) {
     const it = g.items[0];
-    if (g.locked || g.free || g.items.length !== 1 || it.component !== "button") continue;
+    if (g.locked || g.free || g.inFlow || g.items.length !== 1 || it.component !== "button") continue;
     const p = reader(button, it.props);
     if (p.b("toggle")) continue;
     cands.push({ g, it, bb: groupBounds(g, widths), size: p.s("size"), variant: p.s("variant") });

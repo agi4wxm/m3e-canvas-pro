@@ -127,7 +127,7 @@ export function MobileInspector({
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
           <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />
           <TextRun value={item.textColor} onChange={(textColor) => onChange({ textColor })} p={p} />
-          <AppearanceCorners item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />
+          <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />
         </div>
       )}
       <div style={{ marginTop: 14 }}>
