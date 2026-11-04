@@ -1,0 +1,77 @@
+import { useRef, useState } from "react";
+
+/* The movement pad of 17722797729/m3e-canvas game-ui (MIT): the geometry is the fork's
+ * (joystickKnob, joystickAngle, JOYSTICK_TRAVEL in its lib/tokens.ts). In the fork the drag lives
+ * in Preview.tsx and the drawing in M3Node.tsx; here the component holds both, so the editor needs
+ * no branch for it. The canvas draws parts inert, so a press there still selects the part. */
+
+/** how far the knob travels from the middle, as a share of the pad's side */
+const TRAVEL = 0.32;
+
+const knobAt = (angle: number, size: number) => {
+  const r = Math.max(8, Math.round(size * TRAVEL));
+  const rad = ((angle - 90) * Math.PI) / 180;
+  return { dx: Math.round(Math.cos(rad) * r), dy: Math.round(Math.sin(rad) * r) };
+};
+
+const angleOf = (dx: number, dy: number) => {
+  const deg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+  return Math.round(((deg % 360) + 360) % 360);
+};
+
+export function Joystick({ size = 132, angle = 0, autoCenter = true }: { size?: number; angle?: number; autoCenter?: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  /* null: nobody has moved it, so it shows the angle it was given */
+  const [held, setHeld] = useState<number | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const shown = held ?? angle;
+  const out = shown > 0 || dragging;
+  const knob = out ? knobAt(shown, size) : { dx: 0, dy: 0 };
+  const side = Math.max(24, Math.round(size * 0.34));
+
+  const move = (e: React.PointerEvent) => {
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    const dx = e.clientX - (r.left + r.width / 2);
+    const dy = e.clientY - (r.top + r.height / 2);
+    /* the middle is not a direction: a finger there is worth nothing rather than a random angle */
+    setHeld(Math.hypot(dx, dy) < Math.min(r.width, r.height) * TRAVEL * 0.22 ? 0 : angleOf(dx, dy));
+  };
+
+  return (
+    <div
+      ref={ref}
+      data-slot="joystick"
+      data-angle={shown}
+      role="slider"
+      aria-label="Joystick"
+      aria-valuemin={0}
+      aria-valuemax={360}
+      aria-valuenow={shown}
+      tabIndex={0}
+      className="bg-surface-container-high relative rounded-full"
+      style={{ width: size, height: size, touchAction: "none" }}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        setDragging(true);
+        move(e);
+      }}
+      onPointerMove={(e) => dragging && move(e)}
+      onPointerUp={() => {
+        setDragging(false);
+        if (autoCenter) setHeld(0);
+      }}
+      onPointerCancel={() => {
+        setDragging(false);
+        if (autoCenter) setHeld(0);
+      }}
+    >
+      <span className="bg-outline-variant absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" />
+      <span
+        data-joystick-knob=""
+        className={`absolute rounded-full shadow-elevation-1 ${out ? "bg-primary" : "bg-primary-container"}`}
+        style={{ width: side, height: side, left: `calc(50% + ${knob.dx}px)`, top: `calc(50% + ${knob.dy}px)`, marginLeft: -side / 2, marginTop: -side / 2 }}
+      />
+    </div>
+  );
+}

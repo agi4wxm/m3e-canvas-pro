@@ -1,0 +1,23 @@
+# dependencies
+/node_modules
+
+# testing
+/coverage
+
+# production
+/dist
+
+# generated while building
+/.tanstack
+.wrangler/
+*.tsbuildinfo
+
+# misc
+.DS_Store
+Thumbs.db
+*.pem
+*.log
+
+# env files
+.env*
+!.env.example

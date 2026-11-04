@@ -1,0 +1,23 @@
+# Deployed from the repository root:
+#   bunx wrangler deploy
+#   bunx wrangler preview
+# `vp build` emits dist/ beforehand; paths here are relative to this file.
+name = "m3e-canvas"
+compatibility_date = "2026-10-01"
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+
+# Wrangler requires this block even without Preview-specific settings.
+[previews]
