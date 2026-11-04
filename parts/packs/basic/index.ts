@@ -45,10 +45,6 @@ export const basic: PartPack = {
     ellipse: { slug: "shape", props: (it) => ellipse(it.size, it.size2, it.fill) },
     line: { slug: "separator", props: (it) => line(it.size, it.size2, it.fill) },
   },
-  retired: {
-    "basic/ellipse": { slug: "shape", props: (o) => ellipse(o.width, o.height, o.fill) },
-    "basic/line": { slug: "separator", props: (o) => line(o.length, o.thickness, o.fill) },
-  },
   defs: [
     {
       slug: "basic/form",

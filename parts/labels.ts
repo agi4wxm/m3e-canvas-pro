@@ -54,8 +54,6 @@ export const PART_NAMES: Record<string, Labels> = {
   avatar: { ja: "アバター", zh: "头像", ko: "아바타" },
   carousel: { ja: "カルーセル", zh: "轮播", ko: "캐러셀" },
   "expressive-carousel": { ja: "エクスプレッシブカルーセル", zh: "表现力轮播", ko: "표현형 캐러셀" },
-  table: { ja: "テーブル", zh: "表格", ko: "표" },
-  chart: { ja: "チャート", zh: "图表", ko: "차트" },
   kbd: { ja: "キー", zh: "按键", ko: "키" },
   "aspect-ratio": { ja: "アスペクト比", zh: "宽高比", ko: "가로세로비" },
   empty: { ja: "空の状態", zh: "空状态", ko: "빈 상태" },
@@ -97,7 +95,6 @@ export const PART_NAMES: Record<string, Labels> = {
   field: { ja: "フィールド", zh: "字段", ko: "필드" },
   label: { ja: "ラベル", zh: "标签", ko: "라벨" },
   // theming
-  "theme-provider": { ja: "テーマプロバイダー", zh: "主题提供器", ko: "테마 프로바이더" },
 };
 
 /** prop labels and enum option labels shared across parts, by their English text */

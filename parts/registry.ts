@@ -8,7 +8,6 @@ import { navigation } from "./defs/navigation";
 import { pickers } from "./defs/pickers";
 import { selection } from "./defs/selection";
 import { textInputs } from "./defs/text-inputs";
-import { theming } from "./defs/theming";
 import { PACK_DEFS } from "./packs";
 import type { ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
 import { applyAppearance, type Appearance } from "./appearance";
@@ -21,7 +20,7 @@ import { getLang, type Lang } from "../lib/i18n";
 export const CATEGORIES = ["Actions", "Text inputs", "Selection", "Navigation", "Overlays", "Feedback", "Layout", "Data", "Media", "Chat", "Game", "Ant Design"] as const;
 export type PartCategory = (typeof CATEGORIES)[number];
 
-export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...theming, ...PACK_DEFS];
+export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...PACK_DEFS];
 
 /** what the palette offers */
 export const OFFERED_PARTS = PARTS.filter((d) => !d.hidden);

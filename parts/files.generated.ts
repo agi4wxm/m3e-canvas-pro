@@ -218,7 +218,6 @@ export const FILE_OF: Record<string, string> = {
   "KbdGroup": "kbd",
   "Label": "label",
   "LoadingIndicator": "loading-indicator",
-  "M3ThemeScope": "m3-theme-scope",
   "Marker": "marker",
   "MarkerContent": "marker",
   "MarkerIcon": "marker",

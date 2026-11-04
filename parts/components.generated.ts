@@ -40,7 +40,6 @@ import * as m_item from "@/components/m3e/item";
 import * as m_kbd from "@/components/m3e/kbd";
 import * as m_label from "@/components/m3e/label";
 import * as m_loadingIndicator from "@/components/m3e/loading-indicator";
-import * as m_m3ThemeScope from "@/components/m3e/m3-theme-scope";
 import * as m_marker from "@/components/m3e/marker";
 import * as m_menubar from "@/components/m3e/menubar";
 import * as m_message from "@/components/m3e/message";
@@ -123,7 +122,6 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   "kbd": m_kbd,
   "label": m_label,
   "loading-indicator": m_loadingIndicator,
-  "m3-theme-scope": m_m3ThemeScope,
   "marker": m_marker,
   "menubar": m_menubar,
   "message": m_message,

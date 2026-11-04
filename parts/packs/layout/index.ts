@@ -1,6 +1,6 @@
 import { h, ic } from "../../node";
 import type { P, PartDef, PropDef } from "../../types";
-import { defined, kept, materialIcon, num, rows, text } from "../legacy";
+import { defined, materialIcon, num, rows, text } from "../legacy";
 import type { PartPack } from "../types";
 
 /* Containers: the ground other parts are put on. Dropped wholly inside one, a part moves with it,
@@ -36,18 +36,6 @@ export const layout: PartPack = {
   id: "layout",
   version: "0.1.0",
   sources: {},
-  retired: {
-    "layout/group-box": { slug: "layout/container", props: (o) => defined({ ...GROUP_BOX, label: kept(o, "label"), note: kept(o, "note") ?? "", width: num(o, "width"), height: num(o, "height") }) },
-    "layout/panel": { slug: "layout/container", props: (o) => defined({ ...PANEL, fill: kept(o, "fill"), radius: num(o, "radius"), width: num(o, "width"), height: num(o, "height") }) },
-    "layout/resizable": {
-      slug: "resizable",
-      props: (o) => {
-        const split = num(o, "split");
-        const after = o.side === "right" || o.side === "bottom";
-        return defined({ orientation: o.side === "top" || o.side === "bottom" ? "vertical" : "horizontal", first: "", second: "", split: split === undefined ? undefined : after ? 100 - split : split, width: num(o, "width"), height: num(o, "height") });
-      },
-    },
-  },
   legacyKinds: {
     container: { slug: "layout/container", props: (it) => defined({ label: text(it, "label") ?? "", ...sized(it) }) },
     stack: { slug: "layout/stack", props: (it) => defined({ label: text(it, "label") ?? "", note: text(it, "supporting") ?? "", ...sized(it) }) },

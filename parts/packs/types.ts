@@ -24,6 +24,7 @@ export type PartPack = {
   load?: () => Promise<Record<string, unknown>>;
   /** A fork's kind, what it opens as. May be a part of any pack or none: a pack names what it takes over. */
   legacyKinds?: Record<string, DialectKind>;
-  /** Parts that were merged into another, by their old slug. `props` here reads the old part's props. */
+  /** Parts merged into another, by their old slug, for IDs that files outside this repository can hold
+   *  (the upstream's). `props` here reads the old part's props. */
   retired?: Record<string, DialectKind>;
 };

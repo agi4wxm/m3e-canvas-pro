@@ -1,6 +1,6 @@
 import { h, ic } from "../../node";
 import type { ListItem, P, PartDef, TableData } from "../../types";
-import { defined, kept, materialIcon, num, rows, text } from "../legacy";
+import { defined, materialIcon, num, rows, text } from "../legacy";
 import type { LegacyKind, PartPack } from "../types";
 
 /* The game parts of 17722797729/m3e-canvas game-ui (MIT). In the fork one part reaches into seven
@@ -65,10 +65,6 @@ export const game: PartPack = {
     FunctionButton: { from: "@/components/packs/game/Panels" },
   },
   load: () => import("./parts"),
-  retired: {
-    "game/slider-input": { slug: "slider", props: (o) => defined({ label: kept(o, "label"), value: num(o, "value"), width: num(o, "width") }) },
-    "game/confirm-box": { slug: "alert-dialog", props: (o) => defined({ title: kept(o, "title"), description: kept(o, "message"), action: kept(o, "confirm"), cancel: kept(o, "cancel") }) },
-  },
   legacyKinds: {
     /* a quantity row here and in the iOS fork; the GPUI canvas's row of steps is told apart by its dialect first */
     stepper: { slug: "game/quantity-stepper", props: (item) => (typeof item.value === "number" ? { value: item.value } : {}) },

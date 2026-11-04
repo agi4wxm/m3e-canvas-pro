@@ -135,31 +135,21 @@ describe("a file made before parts were merged", () => {
     expect(it2.props).toMatchObject({ width: 500, height: 200, data: { columns: ["Month", "Desktop"], rows: [["Jan", "186"], ["Feb", "305"], ["Mar", "237"]] } });
   });
 
-  it("turns the plain boxes into one container with their settings", () => {
-    expect(open("layout/group-box", { label: "G", width: 200, height: 100 })).toMatchObject({ component: "layout/container", props: { label: "G", place: "start", fill: "none", border: "solid", width: 200 } });
-    expect(open("layout/panel", { fill: "primary-container", radius: 4 })).toMatchObject({ component: "layout/container", props: { label: "", fill: "primary-container", border: "none", radius: 4 } });
-  });
-
-  it("finds the share of the pane a split view fixed", () => {
-    expect(open("layout/resizable", { side: "right", split: 30 })).toMatchObject({ component: "resizable", props: { orientation: "horizontal", split: 70, first: "" } });
-    expect(open("layout/resizable", { side: "top", split: 30 })).toMatchObject({ component: "resizable", props: { orientation: "vertical", split: 30 } });
-  });
-
-  it("opens a shape and a line as the parts that took them over", () => {
-    expect(open("basic/ellipse", { width: 120, height: 60, fill: "tertiaryContainer" })).toMatchObject({ component: "shape", props: { name: "circle", color: "tertiary-container", width: 120, height: 60 } });
-    expect(open("basic/line", { length: 100, thickness: 3, fill: "outline" })).toMatchObject({ component: "separator", props: { length: 100, thickness: 3, color: "outline" } });
+  it("reads a shape's one size as its width and height", () => {
     expect(open("shape", { name: "heart", size: 64 }).props).toEqual({ name: "heart", width: 64, height: 64 });
+    const current = { name: "heart", width: 10, height: 20 };
+    expect(open("shape", current).props).toEqual(current);
   });
 
-  it("keeps the words of the rest, an author's blank included", () => {
-    expect(open("game/confirm-box", { title: "T", message: "M", confirm: "C", cancel: "" })).toMatchObject({ component: "alert-dialog", props: { title: "T", description: "M", action: "C", cancel: "" } });
-    expect(open("game/slider-input", { label: "L", value: 9, width: 300 })).toMatchObject({ component: "slider", props: { label: "L", value: 9, width: 300 } });
-    expect(open("ios/labeled-row", { label: "V", value: "1.0" })).toMatchObject({ component: "item", props: { items: [{ label: "V" }], trailing: "text", trailingText: "1.0", description: "" } });
-    expect(open("ios/section-text", { text: "S", style: "footer" })).toMatchObject({ kind: "text", label: "S", size: 12 });
+  it("keeps what else the part had", () => {
+    expect(open("table", { rows: 1 }, { note: "n", action: { to: "f", transition: "fade" } })).toMatchObject({ note: "n", action: { to: "f", transition: "fade" } });
   });
 
-  it("keeps what else the part had, and opens the same the second time", () => {
-    const it2 = open("game/confirm-box", { title: "T" }, { note: "n", action: { to: "f", transition: "fade" } });
-    expect(it2).toMatchObject({ note: "n", action: { to: "f", transition: "fade" } });
+  it("leaves a part nothing stands for as it is: a stand-in, with everything it held", () => {
+    for (const slug of ["layout/panel", "game/confirm-box", "theme-provider"]) {
+      const it2 = open(slug, { title: "T", width: 200 });
+      expect(it2.component).toBe(slug);
+      expect(it2.props).toEqual({ title: "T", width: 200 });
+    }
   });
 });

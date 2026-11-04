@@ -1,5 +1,5 @@
 import { h, ic } from "../../node";
-import { defined, kept, num, rows, text } from "../legacy";
+import { defined, num, rows, text } from "../legacy";
 import type { PartPack } from "../types";
 
 /* What iOS screens have and Material does not, after greycode/m3e-canvas (MIT). Drawn on M3E's roles
@@ -16,10 +16,6 @@ export const ios: PartPack = {
   id: "ios",
   version: "0.1.0",
   sources: {},
-  retired: {
-    "ios/labeled-row": { slug: "item", props: (o) => labeledRow(kept(o, "label"), kept(o, "value"), num(o, "width")) },
-    "ios/section-text": { kind: "text", fields: (o) => sectionText(kept(o, "text"), kept(o, "style")) },
-  },
   legacyKinds: {
     labeledContent: { slug: "item", props: (it) => labeledRow(text(it, "label"), text(it, "supporting"), num(it, "size")) },
     sectionHeader: { kind: "text", fields: (it) => sectionText(text(it, "label"), "header") },

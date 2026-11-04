@@ -98,11 +98,8 @@ export function importLines(names: Iterable<string>): string[] {
 /** the npm packages the names come from, outside the registry (a chart needs `recharts`) */
 export const packagesOf = (names: Iterable<string>) => [...new Set([...names].map((n) => EXTERNAL[n] ?? PACK_SOURCES[n]?.from).filter((m): m is string => !!m && !m.startsWith("@/")))].toSorted();
 
-/** files that are not an item of their own: the theme files are grouped in the one item `theme` */
-const ITEM_OF_FILE: Record<string, string> = { "m3-theme-scope": "theme" };
-
-/** the registry item a module file belongs to */
-export const itemOfFile = (file: string) => ITEM_OF_FILE[file] ?? file;
+/** the registry item a module file belongs to: every file is an item of its own */
+export const itemOfFile = (file: string) => file;
 
 /** the registry items a set of names comes from (for `npx shadcn add`) */
 export const itemsOf = (names: Iterable<string>) => [...new Set([...names].map((n) => FILE_OF[n]).filter((f): f is string => !!f).map(itemOfFile))].toSorted();
