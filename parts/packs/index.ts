@@ -5,7 +5,8 @@ import { dashboard } from "./dashboard";
 import { desktop } from "./desktop";
 import { game } from "./game";
 import { ios } from "./ios";
-import { ANT_COMPONENTS, CORE_LEGACY_KINDS, DIALECT_KINDS, dialectOf, type DialectKind } from "./legacy";
+import { ANT_COMPONENTS, CORE_LEGACY_KINDS, DIALECT_KINDS, PROP_UPGRADES, dialectOf, type DialectKind } from "./legacy";
+export { PROP_UPGRADES };
 import { layout } from "./layout";
 import { media } from "./media";
 import type { LegacyKind, PackSource, PartPack } from "./types";
@@ -15,8 +16,9 @@ import type { LegacyKind, PackSource, PartPack } from "./types";
 export const PACKS: PartPack[] = [basic, layout, media, dashboard, desktop, game, ios, antd];
 
 export const PACK_DEFS: PartDef[] = PACKS.flatMap((p) => p.defs);
-export const PACK_CATEGORIES = PACKS.map((p) => p.category);
 export const PACK_SOURCES: Record<string, PackSource> = Object.assign({}, ...PACKS.map((p) => p.sources));
+/** parts merged into others: what a saved one opens as */
+export const RETIRED_PARTS: Record<string, DialectKind> = Object.assign({}, ...PACKS.map((p) => p.retired ?? {}));
 
 /** What a part saved in another fork's words opens as, if anything stands for it. Its dialect comes
  *  first: the same name can mean something else there. */

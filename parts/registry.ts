@@ -9,19 +9,22 @@ import { pickers } from "./defs/pickers";
 import { selection } from "./defs/selection";
 import { textInputs } from "./defs/text-inputs";
 import { theming } from "./defs/theming";
-import { PACK_CATEGORIES, PACK_DEFS } from "./packs";
+import { PACK_DEFS } from "./packs";
 import type { ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
 import { applyAppearance, type Appearance } from "./appearance";
 import { h, mapNodes, type PNode } from "./node";
 import { COMMON_TEXT, defaultTextOf, listTextOf } from "./labels";
 import { getLang, type Lang } from "../lib/i18n";
 
-/** the docs' categories, in the docs' order (the palette lists them the same way) */
-export const CATEGORIES = ["Actions", "Selection", "Text inputs", "Communication", "Containment", "Navigation", "Menus", "Pickers", "Content", "Chat", "Theming"] as const;
+/** The palette's sections, by what a part is for, whichever pack it came in. Code is filed by where
+ *  it came from (parts/packs/<id>), a person looks for what they need: the two are separate. */
+export const CATEGORIES = ["Actions", "Text inputs", "Selection", "Navigation", "Overlays", "Feedback", "Layout", "Data", "Media", "Chat", "Game", "Ant Design"] as const;
 export type PartCategory = (typeof CATEGORIES)[number];
-export { PACK_CATEGORIES };
 
 export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...theming, ...PACK_DEFS];
+
+/** what the palette offers */
+export const OFFERED_PARTS = PARTS.filter((d) => !d.hidden);
 
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);

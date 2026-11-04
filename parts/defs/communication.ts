@@ -8,7 +8,7 @@ export const communication: PartDef[] = [
   {
     slug: "badge",
     name: "Badge",
-    category: "Communication",
+    category: "Feedback",
     icon: "notifications",
     w: 72,
     h: 24,
@@ -33,7 +33,7 @@ export const communication: PartDef[] = [
   {
     slug: "progress",
     name: "Progress",
-    category: "Communication",
+    category: "Feedback",
     icon: "linear_scale",
     w: 280,
     h: 4,
@@ -66,7 +66,7 @@ export const communication: PartDef[] = [
   {
     slug: "circular-progress",
     name: "Circular progress",
-    category: "Communication",
+    category: "Feedback",
     icon: "progress_activity",
     w: 40,
     h: 40,
@@ -88,7 +88,7 @@ export const communication: PartDef[] = [
   {
     slug: "loading-indicator",
     name: "Loading indicator",
-    category: "Communication",
+    category: "Feedback",
     icon: "hourglass_top",
     w: 48,
     h: 48,
@@ -107,7 +107,7 @@ export const communication: PartDef[] = [
   {
     slug: "spinner",
     name: "Spinner",
-    category: "Communication",
+    category: "Feedback",
     icon: "sync",
     w: 20,
     h: 20,
@@ -137,7 +137,7 @@ export const communication: PartDef[] = [
   {
     slug: "skeleton",
     name: "Skeleton",
-    category: "Communication",
+    category: "Feedback",
     icon: "hourglass_empty",
     w: 280,
     h: 48,
@@ -179,7 +179,7 @@ export const communication: PartDef[] = [
   {
     slug: "sonner",
     name: "Snackbar",
-    category: "Communication",
+    category: "Feedback",
     icon: "chat_bubble",
     role: "floatingBottom",
     w: 120,
@@ -205,7 +205,7 @@ export const communication: PartDef[] = [
   {
     slug: "tooltip",
     name: "Tooltip",
-    category: "Communication",
+    category: "Overlays",
     icon: "chat",
     w: 96,
     h: 40,
@@ -227,7 +227,7 @@ export const communication: PartDef[] = [
   {
     slug: "alert",
     name: "Alert",
-    category: "Communication",
+    category: "Feedback",
     icon: "warning",
     role: "listLike",
     appearance: { radius: 16 },

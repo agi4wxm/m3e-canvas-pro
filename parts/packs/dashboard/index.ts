@@ -1,5 +1,5 @@
 import { h, type PNode } from "../../node";
-import { defined, num, rows as entriesOf, tableOf, text } from "../legacy";
+import { defined, kept, num, rows as entriesOf, tableOf, text } from "../legacy";
 import type { P, PartDef, TableData } from "../../types";
 import type { LegacyKind, PartPack } from "../types";
 
@@ -13,6 +13,15 @@ const ROWS = [
   ["INV-001", "Paid", "$250.00"],
   ["INV-002", "Pending", "$150.00"],
   ["INV-003", "Unpaid", "$350.00"],
+];
+
+const INVOICES = [
+  ["INV001", "Paid", "$250.00", "Jan 4"],
+  ["INV002", "Pending", "$150.00", "Jan 9"],
+  ["INV003", "Unpaid", "$350.00", "Jan 15"],
+  ["INV004", "Paid", "$450.00", "Jan 21"],
+  ["INV005", "Paid", "$550.00", "Jan 28"],
+  ["INV006", "Pending", "$200.00", "Feb 2"],
 ];
 
 const CHART_TYPES = ["bar", "line", "area", "stacked-bar", "pie"] as const;
@@ -94,8 +103,41 @@ const chartKind = (type: (typeof CHART_TYPES)[number], stacked = false): LegacyK
 export const dashboard: PartPack = {
   id: "dashboard",
   version: "0.1.0",
-  category: { key: "Dashboard", icon: "dashboard", labels: { ja: "ダッシュボード", zh: "仪表盘", ko: "대시보드" } },
   sources: {},
+  retired: {
+    /* the shadcn M3E table drew sample invoices under the author's column names, the last column being the amount */
+    table: {
+      slug: "dashboard/data-table",
+      props: (o) => {
+        const names = Array.isArray(o.columns) ? o.columns.map((c: { label?: unknown }) => String(c?.label ?? "")) : COLUMNS;
+        const count = typeof o.rows === "number" ? o.rows : 3;
+        return defined({
+          title: "",
+          caption: kept(o, "caption") ?? "Recent invoices",
+          selected: typeof o.selected === "number" ? o.selected : undefined,
+          alignLast: true,
+          width: typeof o.width === "number" ? o.width : undefined,
+          data: { columns: names, rows: INVOICES.slice(0, count).map((row) => names.map((_, c) => (c === names.length - 1 ? row[2] : [row[0], row[1], row[3]][c] ?? ""))) },
+        });
+      },
+    },
+    /* its months and one or two series are the chart's own sample, cut to what it showed */
+    chart: {
+      slug: "dashboard/chart",
+      props: (o) => {
+        const months = typeof o.bars === "number" ? o.bars : 4;
+        const both = o.series !== 1;
+        return defined({
+          type: "bar",
+          title: "",
+          subtitle: "",
+          width: typeof o.width === "number" ? o.width : undefined,
+          height: typeof o.height === "number" ? o.height : undefined,
+          data: { columns: both ? MONTHLY.columns : MONTHLY.columns.slice(0, 2), rows: MONTHLY.rows.slice(0, months).map((r) => (both ? r : r.slice(0, 2))) },
+        });
+      },
+    },
+  },
   legacyKinds: {
     /* the card's figure is in `supporting`: the fork has no trend */
     statCard: { slug: "dashboard/stat-card", props: (it) => defined({ title: text(it, "label"), value: text(it, "supporting"), trend: "", width: num(it, "size") }) },
@@ -130,7 +172,7 @@ export const dashboard: PartPack = {
       slug: "dashboard/chart",
       name: "Chart",
       labels: { ja: "グラフ", zh: "图表", ko: "차트" },
-      category: "Dashboard",
+      category: "Data",
       icon: "bar_chart",
       w: 420,
       h: 280,
@@ -148,7 +190,7 @@ export const dashboard: PartPack = {
       slug: "dashboard/scatter",
       name: "Scatter plot",
       labels: { ja: "散布図", zh: "散点图", ko: "산점도" },
-      category: "Dashboard",
+      category: "Data",
       icon: "scatter_plot",
       w: 320,
       h: 240,
@@ -181,7 +223,7 @@ export const dashboard: PartPack = {
       slug: "dashboard/heatmap",
       name: "Heatmap",
       labels: { ja: "ヒートマップ", zh: "热力图", ko: "히트맵" },
-      category: "Dashboard",
+      category: "Data",
       icon: "grid_on",
       w: 320,
       h: 200,
@@ -209,7 +251,7 @@ export const dashboard: PartPack = {
       slug: "dashboard/gauge",
       name: "Gauge",
       labels: { ja: "ゲージ", zh: "仪表", ko: "게이지" },
-      category: "Dashboard",
+      category: "Data",
       icon: "speed",
       w: 160,
       h: 112,
@@ -232,7 +274,7 @@ export const dashboard: PartPack = {
       slug: "dashboard/filter-bar",
       name: "Filter bar",
       labels: { ja: "フィルターバー", zh: "筛选栏", ko: "필터 바" },
-      category: "Dashboard",
+      category: "Data",
       icon: "filter_list",
       w: 420,
       h: 56,
@@ -253,7 +295,7 @@ export const dashboard: PartPack = {
       slug: "dashboard/description-list",
       name: "Description list",
       labels: { ja: "説明リスト", zh: "描述列表", ko: "설명 목록" },
-      category: "Dashboard",
+      category: "Data",
       icon: "view_list",
       w: 320,
       h: 120,
@@ -272,7 +314,7 @@ export const dashboard: PartPack = {
       slug: "dashboard/stat-card",
       name: "Stat card",
       labels: { ja: "KPI カード", zh: "统计卡片", ko: "통계 카드" },
-      category: "Dashboard",
+      category: "Data",
       icon: "monitoring",
       w: 190,
       h: 120,
@@ -296,19 +338,23 @@ export const dashboard: PartPack = {
     },
     {
       slug: "dashboard/data-table",
-      name: "Data table",
-      labels: { ja: "データテーブル", zh: "数据表格", ko: "데이터 표" },
-      category: "Dashboard",
+      name: "Table",
+      labels: { ja: "テーブル", zh: "表格", ko: "표" },
+      category: "Data",
       icon: "table_chart",
       w: 420,
       h: 200,
       props: [
         { key: "title", label: "Title", labels: { zh: "标题" }, kind: "text", default: "Invoices", defaults: { zh: "发票列表" } },
         { key: "data", label: "Data", labels: { ja: "データ", zh: "数据", ko: "데이터" }, kind: "table", default: { columns: COLUMNS, rows: ROWS } },
-        { key: "width", label: "Width", kind: "number", default: 420, min: 240, max: 960, step: 4, unit: "px" },
+        { key: "caption", label: "Caption", labels: { ja: "キャプション", zh: "说明文字", ko: "캡션" }, kind: "text", default: "" },
+        { key: "selected", label: "Selected row (0 for none)", kind: "number", default: 0, min: 0, max: 100, step: 1 },
+        { key: "alignLast", label: "Right-align the last column", labels: { ja: "最後の列を右揃え", zh: "最后一列右对齐", ko: "마지막 열 오른쪽 정렬" }, kind: "bool", default: false },
+        { key: "width", label: "Width", kind: "number", default: 420, min: 200, max: 960, step: 4, unit: "px" },
       ],
       tree: (p) => {
         const { columns, rows } = p.table("data");
+        const align = (c: number) => (p.b("alignLast") && c === columns.length - 1 ? "text-right" : undefined);
         return h(
           "div",
           { style: { width: Math.round(p.n("width")) } },
@@ -316,8 +362,9 @@ export const dashboard: PartPack = {
           h(
             "Table",
             null,
-            h("TableHeader", null, h("TableRow", null, ...columns.map((c) => h("TableHead", null, c)))),
-            h("TableBody", null, ...rows.map((row) => h("TableRow", null, ...columns.map((_, i) => h("TableCell", null, row[i] ?? ""))))),
+            p.s("caption") && h("TableCaption", null, p.s("caption")),
+            h("TableHeader", null, h("TableRow", null, ...columns.map((c, i) => h("TableHead", { className: align(i) }, c)))),
+            h("TableBody", null, ...rows.map((row, r) => h("TableRow", { "data-state": p.n("selected") === r + 1 ? "selected" : undefined }, ...columns.map((_, i) => h("TableCell", { className: align(i) }, row[i] ?? ""))))),
           ),
         );
       },

@@ -137,26 +137,3 @@ export function FunctionButton({ icon = "", label = "", timer = 0, unit = "minut
     </div>
   );
 }
-
-export function ConfirmBox({ title = "", message = "", confirm = "", cancel = "", width = 320 }: { title?: string; message?: string; confirm?: string; cancel?: string; width?: number }) {
-  const [closed, setClosed] = useState(false);
-  if (closed) return <div data-slot="confirm-box" data-closed="true" style={{ width }} />;
-  return (
-    <div data-slot="confirm-box" className="bg-surface-container-high flex flex-col gap-3 rounded-3xl p-5" style={{ width }}>
-      {title && <div className="text-title-medium text-on-surface">{title}</div>}
-      {message && <div className="text-body-medium text-on-surface-variant">{message}</div>}
-      <div className="flex justify-end gap-2">
-        {cancel && (
-          <button type="button" className="text-label-large text-primary rounded-full px-3 py-2" onClick={() => setClosed(true)}>
-            {cancel}
-          </button>
-        )}
-        {confirm && (
-          <button type="button" className="bg-primary text-on-primary text-label-large rounded-full px-4 py-2" onClick={() => setClosed(true)}>
-            {confirm}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}

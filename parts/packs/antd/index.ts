@@ -13,7 +13,6 @@ const keyed = (items: { label: string }[]) => items.map((x, i) => ({ key: String
 export const antd: PartPack = {
   id: "antd",
   version: "0.1.0",
-  category: { key: "Ant Design", icon: "widgets", labels: {} },
   sources: {
     AntButton: { from: "antd", export: "Button" },
     AntSelect: { from: "antd", export: "Select" },

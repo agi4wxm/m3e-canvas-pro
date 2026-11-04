@@ -17,7 +17,7 @@ export const menus: PartDef[] = [
   {
     slug: "dropdown-menu",
     name: "Dropdown menu",
-    category: "Menus",
+    category: "Navigation",
     icon: "arrow_drop_down",
     w: 120,
     h: 40,
@@ -47,7 +47,7 @@ export const menus: PartDef[] = [
   {
     slug: "context-menu",
     name: "Context menu",
-    category: "Menus",
+    category: "Navigation",
     icon: "ads_click",
     w: 256,
     h: 128,
@@ -89,7 +89,7 @@ export const menus: PartDef[] = [
   {
     slug: "menubar",
     name: "Menubar",
-    category: "Menus",
+    category: "Navigation",
     icon: "menu",
     w: 220,
     h: 48,

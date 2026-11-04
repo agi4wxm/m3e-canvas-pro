@@ -1,32 +1,36 @@
 
 import { useMemo, useState } from "react";
 import { Palette } from "@/lib/tokens";
-import { CATEGORIES, PACK_CATEGORIES, PARTS, partBySlug, type PartCategory } from "@/parts/registry";
+import { CATEGORIES, OFFERED_PARTS, partBySlug, type PartCategory } from "@/parts/registry";
 import { nameOf } from "@/parts/labels";
 import { Icon } from "./M3Node";
 import { t, useLang } from "@/lib/i18n";
 import { Field, Section, Tile } from "./ui";
 
-/* The palette lists the shadcn M3E components, in the docs' categories and under the docs' names. */
+/* The palette lists every part by what it is for, under the names it has in the docs where it has any. */
 const CATEGORY_ICON: Record<PartCategory, string> = {
   Actions: "touch_app",
-  Selection: "toggle_on",
   "Text inputs": "text_fields",
-  Communication: "campaign",
-  Containment: "web_asset",
+  Selection: "toggle_on",
   Navigation: "explore",
-  Menus: "menu",
-  Pickers: "calendar_month",
-  Content: "notes",
+  Overlays: "web_asset",
+  Feedback: "campaign",
+  Layout: "dashboard",
+  Data: "bar_chart",
+  Media: "image",
   Chat: "forum",
-  Theming: "palette",
+  Game: "sports_esports",
+  "Ant Design": "widgets",
 };
 
 const CATEGORY_TEXT = {
-  ja: { Actions: "操作", Selection: "選択", "Text inputs": "テキスト入力", Communication: "通知・状態", Containment: "コンテナ", Navigation: "ナビゲーション", Menus: "メニュー", Pickers: "ピッカー", Content: "コンテンツ", Chat: "チャット", Theming: "テーマ" },
-  zh: { Actions: "操作", Selection: "选择", "Text inputs": "文本输入", Communication: "通知与状态", Containment: "容器", Navigation: "导航", Menus: "菜单", Pickers: "选择器", Content: "内容", Chat: "聊天", Theming: "主题" },
-  ko: { Actions: "동작", Selection: "선택", "Text inputs": "텍스트 입력", Communication: "알림 및 상태", Containment: "컨테이너", Navigation: "내비게이션", Menus: "메뉴", Pickers: "선택기", Content: "콘텐츠", Chat: "채팅", Theming: "테마" },
+  ja: { Actions: "操作", "Text inputs": "テキスト入力", Selection: "選択", Navigation: "ナビゲーション", Overlays: "オーバーレイ", Feedback: "フィードバック", Layout: "レイアウト", Data: "リストとデータ", Media: "メディアと図形", Chat: "チャット", Game: "ゲーム", "Ant Design": "Ant Design" },
+  zh: { Actions: "操作", "Text inputs": "文本输入", Selection: "选择", Navigation: "导航", Overlays: "弹出层", Feedback: "反馈", Layout: "布局容器", Data: "列表与数据", Media: "媒体与图形", Chat: "聊天", Game: "游戏", "Ant Design": "Ant Design" },
+  ko: { Actions: "동작", "Text inputs": "텍스트 입력", Selection: "선택", Navigation: "내비게이션", Overlays: "오버레이", Feedback: "피드백", Layout: "레이아웃", Data: "목록과 데이터", Media: "미디어와 도형", Chat: "채팅", Game: "게임", "Ant Design": "Ant Design" },
 } satisfies Record<string, Record<PartCategory, string>>;
+
+/* another design system's versions of what the sections above already have: there when wanted */
+const FOLDED: PartCategory[] = ["Ant Design"];
 
 export function PartsPalette({
   palette: p,
@@ -48,8 +52,8 @@ export function PartsPalette({
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return PARTS;
-    return PARTS.filter((d) => d.name.toLowerCase().includes(s) || nameOf(d, lang).toLowerCase().includes(s) || d.slug.includes(s));
+    if (!s) return OFFERED_PARTS;
+    return OFFERED_PARTS.filter((d) => d.name.toLowerCase().includes(s) || nameOf(d, lang).toLowerCase().includes(s) || d.slug.includes(s));
   }, [q, lang]);
 
   const tile = (slug: string) => {
@@ -99,21 +103,15 @@ export function PartsPalette({
           </div>
         ) : (
           CATEGORIES.map((c) => {
-            const inCategory = PARTS.filter((d) => d.category === c);
+            const inCategory = OFFERED_PARTS.filter((d) => d.category === c);
             if (inCategory.length === 0) return null;
             return (
-              <Section key={c} id={`cat:${c}`} icon={CATEGORY_ICON[c]} title={lang === "en" ? c : CATEGORY_TEXT[lang][c]} p={p}>
+              <Section key={c} id={`cat:${c}`} icon={CATEGORY_ICON[c]} title={lang === "en" ? c : CATEGORY_TEXT[lang][c]} p={p} defaultOpen={!FOLDED.includes(c)}>
                 <div style={grid}>{inCategory.map((d) => tile(d.slug))}</div>
               </Section>
             );
           })
         )}
-        {!q &&
-          PACK_CATEGORIES.map((c) => (
-            <Section key={c.key} id={`cat:${c.key}`} icon={c.icon} title={(lang !== "en" && c.labels[lang]) || c.key} p={p}>
-              <div style={grid}>{PARTS.filter((d) => d.category === c.key).map((d) => tile(d.slug))}</div>
-            </Section>
-          ))}
       </div>
 
     </div>

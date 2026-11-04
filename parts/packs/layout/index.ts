@@ -1,13 +1,14 @@
 import { h, ic } from "../../node";
 import type { P, PartDef, PropDef } from "../../types";
-import { defined, materialIcon, num, rows, text } from "../legacy";
+import { defined, kept, materialIcon, num, rows, text } from "../legacy";
 import type { PartPack } from "../types";
 
 /* Containers: the ground other parts are put on. Dropped wholly inside one, a part moves with it,
  * and the prompt reads it as nested; see `heldBy` in lib/tokens.ts. What they hold is laid out by
  * hand. Their looks come from the forks that have them (MIT): container, stack and gridView from the
- * media and layout placeholders, groupBox, panel, dock and resizable from JetSquirrel/gpui-kit-canvas,
- * supportingPane from the desktop layouts fork. Drawn from scratch on M3E's roles. */
+ * media and layout placeholders, groupBox, panel and dock from JetSquirrel/gpui-kit-canvas,
+ * supportingPane from the desktop layouts fork. Drawn from scratch on M3E's roles. The split view of
+ * those forks is the shadcn M3E Resizable, which holds parts too. */
 
 const WIDTH = (value: number): PropDef => ({ key: "width", label: "Width", kind: "number", default: value, min: 40, max: 2400, step: 4, unit: "px" });
 const HEIGHT = (value: number): PropDef => ({ key: "height", label: "Height", kind: "number", default: value, min: 40, max: 2400, step: 4, unit: "px" });
@@ -18,32 +19,71 @@ const box = (p: P) => ({ width: Math.round(p.n("width")), height: Math.round(p.n
 
 /** every container has a size of its own, both ways, and holds */
 function container(slug: string, name: string, labels: NonNullable<PartDef["labels"]>, icon: string, w: number, hh: number, props: PropDef[], tree: PartDef["tree"]): PartDef {
-  return { slug: `layout/${slug}`, name, labels, category: "Containers", icon, w, h: hh, holds: true, props: [...props, WIDTH(w), HEIGHT(hh)], tree };
+  return { slug: `layout/${slug}`, name, labels, category: "Layout", icon, w, h: hh, holds: true, props: [...props, WIDTH(w), HEIGHT(hh)], tree };
 }
 
 /** the fork's measures: `size` across and `size2` down, each left out when it has the default */
 const sized = (it: Record<string, unknown>) => ({ width: num(it, "size"), height: num(it, "size2") });
 
-const FILLS = ["surface", "surface-container-low", "surface-container", "surface-container-high", "surface-container-highest", "primary-container", "secondary-container", "tertiary-container"];
+const FILLS = ["none", "surface", "surface-container-low", "surface-container", "surface-container-high", "surface-container-highest", "primary-container", "secondary-container", "tertiary-container"];
+const BORDER: Record<string, string> = { none: "", solid: "border border-outline-variant", dashed: "border border-dashed border-outline-variant" };
+
+/* The three kinds of plain box the forks have are one part, in three settings. */
+const GROUP_BOX = { fill: "none", border: "solid", place: "start", radius: 8 };
+const PANEL = { label: "", note: "", fill: "surface-container", border: "none" };
 
 export const layout: PartPack = {
   id: "layout",
   version: "0.1.0",
-  category: { key: "Containers", icon: "dashboard", labels: { ja: "コンテナ", zh: "容器", ko: "컨테이너" } },
   sources: {},
+  retired: {
+    "layout/group-box": { slug: "layout/container", props: (o) => defined({ ...GROUP_BOX, label: kept(o, "label"), note: kept(o, "note") ?? "", width: num(o, "width"), height: num(o, "height") }) },
+    "layout/panel": { slug: "layout/container", props: (o) => defined({ ...PANEL, fill: kept(o, "fill"), radius: num(o, "radius"), width: num(o, "width"), height: num(o, "height") }) },
+    "layout/resizable": {
+      slug: "resizable",
+      props: (o) => {
+        const split = num(o, "split");
+        const after = o.side === "right" || o.side === "bottom";
+        return defined({ orientation: o.side === "top" || o.side === "bottom" ? "vertical" : "horizontal", first: "", second: "", split: split === undefined ? undefined : after ? 100 - split : split, width: num(o, "width"), height: num(o, "height") });
+      },
+    },
+  },
   legacyKinds: {
     container: { slug: "layout/container", props: (it) => defined({ label: text(it, "label") ?? "", ...sized(it) }) },
     stack: { slug: "layout/stack", props: (it) => defined({ label: text(it, "label") ?? "", note: text(it, "supporting") ?? "", ...sized(it) }) },
     gridView: { slug: "layout/grid-view", props: (it) => defined({ label: text(it, "label") ?? "", note: text(it, "supporting") ?? "", ...sized(it) }) },
-    groupBox: { slug: "layout/group-box", props: (it) => defined({ label: text(it, "label") ?? "", note: text(it, "supporting") ?? "", ...sized(it) }) },
-    panel: { slug: "layout/panel", props: (it) => defined({ radius: num(it, "radiusTop"), ...sized(it) }) },
+    groupBox: { slug: "layout/container", props: (it) => defined({ ...GROUP_BOX, label: text(it, "label") ?? "", note: text(it, "supporting") ?? "", ...sized(it) }) },
+    panel: { slug: "layout/container", props: (it) => defined({ ...PANEL, radius: num(it, "radiusTop"), ...sized(it) }) },
     dock: { slug: "layout/dock", props: (it) => defined({ items: rows(it), selected: num(it, "value"), ...sized(it) }) },
-    resizable: { slug: "layout/resizable", props: (it) => defined({ side: text(it, "side"), split: num(it, "value"), ...sized(it) }) },
     supportingPane: { slug: "layout/supporting-pane", props: (it) => defined({ label: text(it, "label") ?? "", note: text(it, "supporting") ?? "", icon: materialIcon(it.icon), ...sized(it) }) },
   },
   defs: [
-    container("container", "Container", { ja: "コンテナ", zh: "容器", ko: "컨테이너" }, "crop_square", 380, 200, [LABEL("Container", "容器")], (p) =>
-      h("div", { "data-slot": "layout-container", className: "bg-surface-container-low border-outline-variant text-label-large text-on-surface-variant flex items-center justify-center overflow-hidden rounded-xl border border-dashed p-4", style: box(p) }, p.s("label")),
+    container(
+      "container",
+      "Container",
+      { ja: "コンテナ", zh: "容器", ko: "컨테이너" },
+      "crop_square",
+      380,
+      200,
+      [
+        LABEL("Container", "容器"),
+        NOTE("", ""),
+        { key: "place", label: "Label place", labels: { ja: "ラベルの位置", zh: "标题位置", ko: "라벨 위치" }, kind: "enum", default: "center", options: ["center", "start"] },
+        { key: "fill", label: "Fill", labels: { ja: "塗り", zh: "填充", ko: "채우기" }, kind: "enum", default: "surface-container-low", options: FILLS },
+        { key: "border", label: "Border", labels: { ja: "枠線", zh: "边框", ko: "테두리" }, kind: "enum", default: "dashed", options: Object.keys(BORDER) },
+        { key: "radius", label: "Corner", labels: { ja: "角丸", zh: "圆角", ko: "모서리" }, kind: "number", default: 12, min: 0, max: 48, step: 2, unit: "px" },
+      ],
+      (p) =>
+        h(
+          "div",
+          {
+            "data-slot": "layout-container",
+            className: `flex flex-col gap-1 overflow-hidden p-4 ${p.s("place") === "start" ? "items-start justify-start" : "items-center justify-center"} ${BORDER[p.s("border")] ?? ""}`,
+            style: { ...box(p), borderRadius: Math.round(p.n("radius")), background: p.s("fill") === "none" ? undefined : `var(--md-sys-color-${p.s("fill")})` },
+          },
+          p.s("label") && h("div", { className: `truncate ${p.s("place") === "start" ? "text-title-small text-on-surface" : "text-label-large text-on-surface-variant"}` }, p.s("label")),
+          p.s("note") && h("div", { className: "text-body-small text-on-surface-variant truncate" }, p.s("note")),
+        ),
     ),
     container("stack", "Stack", { ja: "スタック", zh: "层叠", ko: "스택" }, "layers", 380, 200, [LABEL("Stack", "层叠"), NOTE("Layers, one over another", "一层叠着一层")], (p) =>
       h(
@@ -78,22 +118,6 @@ export const layout: PartPack = {
         );
       },
     ),
-    container("group-box", "Group box", { ja: "グループボックス", zh: "分组框", ko: "그룹 상자" }, "select_all", 320, 160, [LABEL("Group", "分组"), NOTE("", "")], (p) =>
-      h("div", { "data-slot": "layout-group-box", className: "border-outline-variant flex flex-col gap-1 overflow-hidden rounded-lg border p-3", style: box(p) }, h("div", { className: "text-title-small text-on-surface truncate" }, p.s("label")), p.s("note") && h("div", { className: "text-body-small text-on-surface-variant truncate" }, p.s("note"))),
-    ),
-    container(
-      "panel",
-      "Panel",
-      { ja: "パネル", zh: "面板", ko: "패널" },
-      "rectangle",
-      320,
-      200,
-      [
-        { key: "fill", label: "Fill", labels: { ja: "塗り", zh: "填充", ko: "채우기" }, kind: "enum", default: "surface-container", options: FILLS },
-        { key: "radius", label: "Corner", labels: { ja: "角丸", zh: "圆角", ko: "모서리" }, kind: "number", default: 12, min: 0, max: 48, step: 2, unit: "px" },
-      ],
-      (p) => h("div", { "data-slot": "layout-panel", style: { ...box(p), borderRadius: Math.round(p.n("radius")), background: `var(--md-sys-color-${FILLS.includes(p.s("fill")) ? p.s("fill") : "surface-container"})` } }),
-    ),
     container(
       "dock",
       "Dock",
@@ -117,26 +141,6 @@ export const layout: PartPack = {
           ),
           h("div", { className: "min-h-0 flex-1" }),
         );
-      },
-    ),
-    container(
-      "resizable",
-      "Split view",
-      { ja: "分割ビュー", zh: "分栏", ko: "분할 보기" },
-      "splitscreen_left",
-      640,
-      320,
-      [
-        { key: "side", label: "Fixed pane", labels: { ja: "固定側", zh: "固定的一侧", ko: "고정 쪽" }, kind: "enum", default: "left", options: ["left", "right", "top", "bottom"] },
-        { key: "split", label: "Pane share", labels: { ja: "比率", zh: "占比", ko: "비율" }, kind: "number", default: 30, min: 10, max: 90, step: 1, unit: "%" },
-      ],
-      (p) => {
-        const across = p.s("side") !== "top" && p.s("side") !== "bottom";
-        const first = p.s("side") === "left" || p.s("side") === "top";
-        const pane = h("div", { className: "bg-surface-container shrink-0", style: { [across ? "width" : "height"]: `${Math.round(p.n("split"))}%` } });
-        const rest = h("div", { className: "bg-surface min-h-0 min-w-0 flex-1" });
-        const handle = h("div", { className: `bg-outline-variant relative shrink-0 ${across ? "w-px" : "h-px"}` }, h("span", { className: `bg-on-surface-variant absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ${across ? "h-6 w-1" : "h-1 w-6"}` }));
-        return h("div", { "data-slot": "layout-resizable", className: `flex overflow-hidden rounded-lg ${across ? "flex-row" : "flex-col"}`, style: box(p) }, first ? pane : rest, handle, first ? rest : pane);
       },
     ),
     container(

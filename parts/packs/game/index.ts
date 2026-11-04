@@ -1,6 +1,6 @@
 import { h, ic } from "../../node";
 import type { ListItem, P, PartDef, TableData } from "../../types";
-import { defined, materialIcon, num, rows, text } from "../legacy";
+import { defined, kept, materialIcon, num, rows, text } from "../legacy";
 import type { LegacyKind, PartPack } from "../types";
 
 /* The game parts of 17722797729/m3e-canvas game-ui (MIT). In the fork one part reaches into seven
@@ -47,7 +47,6 @@ const drawKind = (slug: string): LegacyKind => ({ slug, props: (it) => defined({
 export const game: PartPack = {
   id: "game",
   version: "0.1.0",
-  category: { key: "Game", icon: "sports_esports", labels: { ja: "ゲーム", zh: "游戏", ko: "게임" } },
   sources: {
     Joystick: { from: "@/components/packs/game/Joystick" },
     QuantityStepper: { from: "@/components/packs/game/QuantityStepper" },
@@ -64,9 +63,12 @@ export const game: PartPack = {
     RewardTrack: { from: "@/components/packs/game/Panels" },
     CheckIn: { from: "@/components/packs/game/Panels" },
     FunctionButton: { from: "@/components/packs/game/Panels" },
-    ConfirmBox: { from: "@/components/packs/game/Panels" },
   },
   load: () => import("./parts"),
+  retired: {
+    "game/slider-input": { slug: "slider", props: (o) => defined({ label: kept(o, "label"), value: num(o, "value"), width: num(o, "width") }) },
+    "game/confirm-box": { slug: "alert-dialog", props: (o) => defined({ title: kept(o, "title"), description: kept(o, "message"), action: kept(o, "confirm"), cancel: kept(o, "cancel") }) },
+  },
   legacyKinds: {
     /* a quantity row here and in the iOS fork; the GPUI canvas's row of steps is told apart by its dialect first */
     stepper: { slug: "game/quantity-stepper", props: (item) => (typeof item.value === "number" ? { value: item.value } : {}) },
@@ -79,7 +81,7 @@ export const game: PartPack = {
     /* the GPUI canvas's date grid is told apart by its dialect first; what is left is a daily check-in */
     calendar: { slug: "game/check-in", props: (it) => defined({ title: text(it, "label"), signed: num(it, "value"), width: num(it, "size") }) },
     assetPill: { slug: "game/asset-pill", props: (it) => defined({ value: text(it, "label"), icon: materialIcon(it.icon) }) },
-    sliderInput: { slug: "game/slider-input", props: (it) => defined({ label: text(it, "label"), value: num(it, "value"), width: num(it, "size") }) },
+    sliderInput: { slug: "slider", props: (it) => defined({ label: text(it, "label"), value: num(it, "value"), width: num(it, "size") }) },
     sideTabs: { slug: "game/side-tabs", props: (it) => defined({ items: rows(it), selected: num(it, "selected") }) },
     invGrid: {
       slug: "game/inventory",
@@ -108,7 +110,7 @@ export const game: PartPack = {
         }),
     },
     fnButton: { slug: "game/function-button", props: (it) => defined({ label: text(it, "label"), icon: materialIcon(it.icon), timer: it.timer === true ? num(it, "timerValue") : 0, unit: text(it, "timerUnit"), size: num(it, "size") }) },
-    confirmBox: { slug: "game/confirm-box", props: (it) => defined({ title: text(it, "label"), message: text(it, "supporting"), confirm: text(it, "label2"), cancel: text(it, "label3"), width: num(it, "size") }) },
+    confirmBox: { slug: "alert-dialog", props: (it) => defined({ title: text(it, "label"), description: text(it, "supporting"), action: text(it, "label2"), cancel: text(it, "label3") }) },
     joystick: {
       slug: "game/joystick",
       props: (item) => ({
@@ -140,25 +142,10 @@ export const game: PartPack = {
       tree: (p) => h("div", { "data-slot": "asset-pill", className: "bg-surface-container-high text-label-large text-on-surface inline-flex h-8 items-center gap-1 rounded-full px-3" }, p.s("icon") && ic(p.s("icon"), { className: "size-4" }), p.s("value")),
     },
     {
-      slug: "game/slider-input",
-      name: "Labeled slider",
-      labels: { ja: "ラベル付きスライダー", zh: "带标题的滑块", ko: "라벨 슬라이더" },
-      category: "Game",
-      icon: "tune",
-      w: 380,
-      h: 56,
-      props: [
-        { key: "label", label: "Label", kind: "text", default: "Volume", defaults: { zh: "音量" } },
-        { key: "value", label: "Value", labels: { ja: "値", zh: "数值", ko: "값" }, kind: "number", default: 50, min: 0, max: 100, step: 1 },
-        { key: "width", label: "Width", kind: "number", default: 380, min: 160, max: 800, step: 4, unit: "px" },
-      ],
-      tree: (p) => h("div", { "data-slot": "slider-input", className: "flex items-center gap-3", style: { width: Math.round(p.n("width")) } }, p.s("label") && h("span", { className: "text-label-large text-on-surface shrink-0" }, p.s("label")), h("div", { className: "min-w-0 flex-1" }, h("Slider", { defaultValue: [p.n("value")] }))),
-    },
-    {
       slug: "game/side-tabs",
       name: "Side tabs",
       labels: { ja: "サイドタブ", zh: "侧边标签", ko: "측면 탭" },
-      category: "Game",
+      category: "Navigation",
       icon: "side_navigation",
       w: 120,
       h: 220,
@@ -257,7 +244,7 @@ export const game: PartPack = {
       slug: "game/function-button",
       name: "Function button",
       labels: { ja: "機能ボタン", zh: "功能按钮", ko: "기능 버튼" },
-      category: "Game",
+      category: "Actions",
       icon: "bolt",
       w: 74,
       h: 96,
@@ -269,23 +256,6 @@ export const game: PartPack = {
         { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "number", default: 50, min: 32, max: 120, step: 2, unit: "px" },
       ],
       tree: (p) => h("FunctionButton", { label: p.s("label"), icon: p.s("icon"), timer: Math.round(p.n("timer")), unit: p.s("unit"), size: Math.round(p.n("size")) }),
-    },
-    {
-      slug: "game/confirm-box",
-      name: "Confirm box",
-      labels: { ja: "確認ボックス", zh: "确认框", ko: "확인 상자" },
-      category: "Game",
-      icon: "help_center",
-      w: 320,
-      h: 160,
-      props: [
-        { key: "title", label: "Title", kind: "text", default: "Notice", defaults: { zh: "提示" } },
-        { key: "message", label: "Message", labels: { ja: "メッセージ", zh: "内容", ko: "메시지" }, kind: "text", default: "Do you want to continue?", defaults: { zh: "要继续吗？" } },
-        { key: "confirm", label: "Confirm", labels: { ja: "確認", zh: "确认按钮", ko: "확인" }, kind: "text", default: "OK", defaults: { zh: "确认" } },
-        { key: "cancel", label: "Cancel", labels: { ja: "キャンセル", zh: "取消按钮", ko: "취소" }, kind: "text", default: "Cancel", defaults: { zh: "取消" } },
-        { key: "width", label: "Width", kind: "number", default: 320, min: 200, max: 640, step: 4, unit: "px" },
-      ],
-      tree: (p) => h("ConfirmBox", { title: p.s("title"), message: p.s("message"), confirm: p.s("confirm"), cancel: p.s("cancel"), width: Math.round(p.n("width")) }),
     },
     {
       slug: "game/joystick",
@@ -306,7 +276,7 @@ export const game: PartPack = {
       slug: "game/quantity-stepper",
       name: "Quantity stepper",
       labels: { ja: "数量ステッパー", zh: "数量加减器", ko: "수량 스테퍼" },
-      category: "Game",
+      category: "Selection",
       icon: "exposure",
       w: 200,
       h: 56,

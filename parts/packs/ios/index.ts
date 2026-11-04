@@ -1,20 +1,29 @@
 import { h, ic } from "../../node";
-import { defined, num, rows, text } from "../legacy";
+import { defined, kept, num, rows, text } from "../legacy";
 import type { PartPack } from "../types";
 
 /* What iOS screens have and Material does not, after greycode/m3e-canvas (MIT). Drawn on M3E's roles
  * like everything else: this says what the part is on a screen, it does not imitate Apple's look,
  * and a brand button carries no logo. Kinds a shadcn M3E part stands for are in legacy.ts. */
 
+/** a row with its value at the far end, which is a list row with trailing text */
+const labeledRow = (label: string | undefined, value: string | undefined, width: number | undefined) =>
+  defined({ items: label ? [{ label }] : undefined, description: "", trailing: "text", trailingText: value ?? "", width });
+/** the words over and under a list section: text, in the sizes they have */
+const sectionText = (label: string | undefined, style: string | undefined) => (style === "footer" ? { label: label ?? "", size: 12 } : { label: label ?? "", size: 14, bold: true });
+
 export const ios: PartPack = {
   id: "ios",
   version: "0.1.0",
-  category: { key: "iOS", icon: "mobile", labels: {} },
   sources: {},
+  retired: {
+    "ios/labeled-row": { slug: "item", props: (o) => labeledRow(kept(o, "label"), kept(o, "value"), num(o, "width")) },
+    "ios/section-text": { kind: "text", fields: (o) => sectionText(kept(o, "text"), kept(o, "style")) },
+  },
   legacyKinds: {
-    labeledContent: { slug: "ios/labeled-row", props: (it) => defined({ label: text(it, "label"), value: text(it, "supporting"), width: num(it, "size") }) },
-    sectionHeader: { slug: "ios/section-text", props: (it) => defined({ text: text(it, "label"), style: "header", width: num(it, "size") }) },
-    sectionFooter: { slug: "ios/section-text", props: (it) => defined({ text: text(it, "label"), style: "footer", width: num(it, "size") }) },
+    labeledContent: { slug: "item", props: (it) => labeledRow(text(it, "label"), text(it, "supporting"), num(it, "size")) },
+    sectionHeader: { kind: "text", fields: (it) => sectionText(text(it, "label"), "header") },
+    sectionFooter: { kind: "text", fields: (it) => sectionText(text(it, "label"), "footer") },
     pageControl: { slug: "ios/page-dots", props: (it) => defined({ count: rows(it)?.length, current: num(it, "selected") }) },
     photoGrid: { slug: "ios/photo-grid", props: (it) => defined({ width: num(it, "size") }) },
     applePayButton: { slug: "ios/brand-button", props: (it) => defined({ label: text(it, "label"), width: num(it, "size") }) },
@@ -25,40 +34,10 @@ export const ios: PartPack = {
   },
   defs: [
     {
-      slug: "ios/labeled-row",
-      name: "Labeled row",
-      labels: { ja: "ラベル付き行", zh: "标签行", ko: "라벨 행" },
-      category: "iOS",
-      icon: "view_agenda",
-      w: 380,
-      h: 44,
-      props: [
-        { key: "label", label: "Label", kind: "text", default: "Version", defaults: { zh: "版本" } },
-        { key: "value", label: "Value", labels: { ja: "値", zh: "内容", ko: "값" }, kind: "text", default: "2.4.1" },
-        { key: "width", label: "Width", kind: "number", default: 380, min: 160, max: 800, step: 4, unit: "px" },
-      ],
-      tree: (p) => h("div", { "data-slot": "labeled-row", className: "bg-surface-container-low flex h-11 items-center justify-between gap-3 rounded-lg px-4", style: { width: Math.round(p.n("width")) } }, h("span", { className: "text-body-large text-on-surface truncate" }, p.s("label")), h("span", { className: "text-body-large text-on-surface-variant truncate" }, p.s("value"))),
-    },
-    {
-      slug: "ios/section-text",
-      name: "Section text",
-      labels: { ja: "セクション文字", zh: "分组说明", ko: "섹션 텍스트" },
-      category: "iOS",
-      icon: "title",
-      w: 380,
-      h: 24,
-      props: [
-        { key: "text", label: "Text", labels: { ja: "テキスト", zh: "文字", ko: "텍스트" }, kind: "text", default: "General", defaults: { zh: "通用" } },
-        { key: "style", label: "Style", labels: { ja: "種類", zh: "样式", ko: "유형" }, kind: "enum", default: "header", options: ["header", "footer"] },
-        { key: "width", label: "Width", kind: "number", default: 380, min: 120, max: 800, step: 4, unit: "px" },
-      ],
-      tree: (p) => h("div", { "data-slot": "section-text", className: `px-4 ${p.s("style") === "header" ? "text-label-large text-on-surface-variant" : "text-body-small text-on-surface-variant"}`, style: { width: Math.round(p.n("width")) } }, p.s("text")),
-    },
-    {
       slug: "ios/page-dots",
       name: "Page dots",
       labels: { ja: "ページドット", zh: "页面圆点", ko: "페이지 점" },
-      category: "iOS",
+      category: "Navigation",
       icon: "more_horiz",
       w: 96,
       h: 24,
@@ -72,7 +51,7 @@ export const ios: PartPack = {
       slug: "ios/photo-grid",
       name: "Photo grid",
       labels: { ja: "写真グリッド", zh: "照片网格", ko: "사진 격자" },
-      category: "iOS",
+      category: "Media",
       icon: "photo_library",
       w: 380,
       h: 250,
@@ -87,7 +66,7 @@ export const ios: PartPack = {
       slug: "ios/brand-button",
       name: "Sign-in or pay button",
       labels: { ja: "サインイン・支払いボタン", zh: "登录或支付按钮", ko: "로그인·결제 버튼" },
-      category: "iOS",
+      category: "Actions",
       icon: "payments",
       w: 380,
       h: 48,
@@ -101,7 +80,7 @@ export const ios: PartPack = {
       slug: "ios/action-sheet",
       name: "Action sheet",
       labels: { ja: "アクションシート", zh: "操作表", ko: "작업 시트" },
-      category: "iOS",
+      category: "Overlays",
       icon: "vertical_split",
       w: 380,
       h: 200,
@@ -129,7 +108,7 @@ export const ios: PartPack = {
       slug: "ios/subscription",
       name: "Subscription plans",
       labels: { ja: "サブスクリプション", zh: "订阅方案", ko: "구독 요금제" },
-      category: "iOS",
+      category: "Data",
       icon: "workspace_premium",
       w: 380,
       h: 240,
@@ -154,7 +133,7 @@ export const ios: PartPack = {
       slug: "ios/wheel-picker",
       name: "Wheel picker",
       labels: { ja: "ホイールピッカー", zh: "滚轮选择器", ko: "휠 선택기" },
-      category: "iOS",
+      category: "Selection",
       icon: "unfold_more",
       w: 380,
       h: 160,

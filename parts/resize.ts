@@ -82,7 +82,7 @@ export function numberValue(d: NumberDef, values: PropValues | undefined): numbe
 }
 
 /** text a part carries beside its main words: these name it only when nothing else does */
-const ASIDE = new Set(["description", "subtitle", "supporting", "placeholder", "caption", "message"]);
+const ASIDE = new Set(["description", "subtitle", "supporting", "placeholder", "caption", "message", "note", "trailingText"]);
 
 const short = (text: string) => (text.length > 24 ? `${text.slice(0, 23)}…` : text);
 

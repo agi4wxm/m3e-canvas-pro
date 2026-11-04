@@ -5,7 +5,7 @@ export const pickers: PartDef[] = [
   {
     slug: "calendar",
     name: "Calendar",
-    category: "Pickers",
+    category: "Selection",
     icon: "calendar_month",
     w: 304,
     h: 340,
@@ -26,7 +26,7 @@ export const pickers: PartDef[] = [
   {
     slug: "date-picker",
     name: "Date picker",
-    category: "Pickers",
+    category: "Selection",
     icon: "edit_calendar",
     w: 256,
     h: 56,
@@ -72,7 +72,7 @@ export const pickers: PartDef[] = [
   {
     slug: "time-picker",
     name: "Time picker",
-    category: "Pickers",
+    category: "Selection",
     icon: "schedule",
     w: 328,
     h: 520,

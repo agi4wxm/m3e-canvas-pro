@@ -11,7 +11,6 @@ const frame = "bg-surface-container-high flex flex-col items-center justify-cent
 export const media: PartPack = {
   id: "media",
   version: "0.1.0",
-  category: { key: "Media", icon: "perm_media", labels: { ja: "メディア", zh: "媒体", ko: "미디어" } },
   sources: {},
   legacyKinds: {
     videoPlayer: { slug: "media/video-placeholder", props: (it) => defined({ title: text(it, "label"), time: text(it, "supporting"), width: num(it, "size") }) },

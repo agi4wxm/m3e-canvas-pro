@@ -90,17 +90,19 @@ export const selection: PartDef[] = [
     w: 280,
     h: 44,
     props: [
+      { key: "label", label: "Label", kind: "text", default: "" },
       { key: "value", label: "Value", kind: "number", default: 40, min: 0, max: 100, step: 1 },
       { key: "range", label: "Range", kind: "bool", default: false },
       { key: "end", label: "Range end", kind: "number", default: 70, min: 0, max: 100, step: 1 },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
-      { key: "width", label: "Width", kind: "number", default: 280, min: 120, max: 520, step: 4, unit: "px" },
+      { key: "width", label: "Width", kind: "number", default: 280, min: 120, max: 800, step: 4, unit: "px" },
     ],
     // the slider keeps its own --slider-gap in `style`, so the width goes on a wrapper
     tree: (p) =>
       h(
         "div",
-        { style: { width: Math.round(p.n("width")) } },
+        { className: p.s("label") ? "flex items-center gap-3" : undefined, style: { width: Math.round(p.n("width")) } },
+        p.s("label") && h("span", { className: "text-label-large text-on-surface shrink-0" }, p.s("label")),
         h("Slider", {
           defaultValue: p.b("range") ? [Math.min(p.n("value"), p.n("end")), Math.max(p.n("value"), p.n("end"))] : [p.n("value")],
           disabled: p.b("disabled") || undefined,

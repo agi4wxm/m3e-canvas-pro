@@ -1,5 +1,7 @@
 import type { ListItem, PropValues, TableData } from "../types";
-import type { LegacyKind } from "./types";
+import type { DialectKind, LegacyKind } from "./types";
+
+export type { DialectKind };
 
 /* Reading parts as forks saved them. The shapes here come from fixtures/fork-items.json, which is
  * what each fork's own makeItem builds; a field a fork leaves out falls back to the part's default. */
@@ -8,6 +10,9 @@ type Saved = Record<string, unknown>;
 
 export const text = (item: Saved, key: string) => (typeof item[key] === "string" && item[key] ? (item[key] as string) : undefined);
 export const num = (item: Saved, key: string) => (typeof item[key] === "number" && Number.isFinite(item[key]) ? (item[key] as number) : undefined);
+
+/** a text prop as it was saved, empty or not: an author's blank stays blank */
+export const kept = (item: Saved, key: string) => (typeof item[key] === "string" ? (item[key] as string) : undefined);
 
 /** the props with the ones a fork did not have left out */
 export const defined = (props: PropValues): PropValues => Object.fromEntries(Object.entries(props).filter(([, v]) => v !== undefined));
@@ -63,9 +68,6 @@ export function tableOf(item: Saved): TableData | undefined {
 }
 
 /* ---------- dialects ---------- */
-
-/** What a dialect's part opens as: a part, or a kind the editor has itself (text and pictures). */
-export type DialectKind = LegacyKind | { kind: string; fields: (item: Saved) => Record<string, unknown> };
 
 /** the variants only the GPUI canvas saves */
 const GPUI_VARIANTS = new Set(["default", "ghost", "outline", "danger", "success", "primary", "secondary", "warning", "info"]);
@@ -207,7 +209,7 @@ const SWIFTUI: Record<string, DialectKind> = {
   link: { slug: "basic/link", props: (it) => defined({ label: text(it, "label"), href: text(it, "supporting") }) },
   contentUnavailable: { slug: "empty", props: (it) => defined({ title: text(it, "label"), description: text(it, "supporting"), icon: iconOf(it) }) },
   disclosure: { slug: "collapsible", props: (it) => defined({ trigger: text(it, "label"), content: text(it, "supporting"), open: bool(it, "checked"), width: w(it) }) },
-  labeledContent: { slug: "ios/labeled-row", props: (it) => defined({ label: text(it, "label"), value: text(it, "supporting"), width: w(it) }) },
+  labeledContent: { slug: "item", props: (it) => { const label = text(it, "label"); return defined({ items: label ? [{ label }] : undefined, description: "", trailing: "text", trailingText: text(it, "supporting") ?? "", width: w(it) }); } },
   chart: { slug: "dashboard/chart", props: (it) => defined({ type: it.variant === "line" ? "line" : "bar", title: text(it, "label") ?? "", subtitle: text(it, "supporting") ?? "", width: w(it), height: num(it, "h") }) },
   text: { kind: "text", fields: (it) => defined({ label: text(it, "label") ?? "", size: 16 }) },
   image: { kind: "image", fields: (it) => defined({ size: w(it), size2: num(it, "h") }) },
@@ -241,6 +243,8 @@ export const ANT_COMPONENTS: Record<string, LegacyKind> = {
 /* Kinds a shadcn M3E part already stands for. A name that means two things is settled by dialectOf
  * first; what is left of `calendar` (the game fork's daily check-in) is not one of these. */
 export const CORE_LEGACY_KINDS: Record<string, LegacyKind> = {
+  /* GPUI's split: the share is the pane on `side`, and the M3E part's is always the first */
+  resizable: { slug: "resizable", props: (it) => { const v = num(it, "value"); const after = it.side === "right" || it.side === "bottom"; return defined({ orientation: it.side === "top" || it.side === "bottom" ? "vertical" : "horizontal", first: "", second: "", split: v === undefined ? undefined : after ? 100 - v : v, width: num(it, "size"), height: num(it, "size2") }); } },
   progressBar: { slug: "progress", props: (it) => defined({ value: num(it, "value"), width: num(it, "size") }) },
   disclosure: { slug: "collapsible", props: (it) => defined({ trigger: text(it, "label"), content: text(it, "supporting"), open: typeof it.checked === "boolean" ? it.checked : undefined, width: num(it, "size") }) },
   secureField: { slug: "input", props: (it) => defined({ placeholder: text(it, "label"), type: "password", width: num(it, "size") }) },
@@ -316,4 +320,14 @@ export const CORE_LEGACY_KINDS: Record<string, LegacyKind> = {
   separator: { slug: "separator", props: (it) => defined({ length: num(it, "size") }) },
   combobox: { slug: "combobox", props: (it) => defined({ placeholder: text(it, "label"), items: rows(it) }) },
   collapsible: { slug: "collapsible", props: (it) => defined({ trigger: text(it, "label"), content: text(it, "supporting"), open: typeof it.checked === "boolean" ? it.checked : undefined, width: num(it, "size") }) },
+};
+
+/** Props a part changed the shape of, read when a saved one opens. Safe to run again. */
+export const PROP_UPGRADES: Partial<Record<string, (props: PropValues) => PropValues>> = {
+  /* the shape had one `size`; an ellipse needs two */
+  shape: (props) => {
+    if (props.size === undefined) return props;
+    const { size, ...rest } = props;
+    return typeof size === "number" && rest.width === undefined ? { ...rest, width: size, height: size } : rest;
+  },
 };

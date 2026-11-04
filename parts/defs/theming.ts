@@ -11,7 +11,9 @@ export const theming: PartDef[] = [
   {
     slug: "theme-provider",
     name: "Theme provider",
-    category: "Theming",
+    category: "Layout",
+    /* the sketch's theme is set in the theme panel: this stays for the files that have one */
+    hidden: true,
     icon: "palette",
     w: 320,
     h: 200,

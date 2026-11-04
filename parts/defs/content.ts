@@ -28,7 +28,11 @@ const SHAPE_COLORS: Record<string, string | undefined> = {
   secondary: "bg-secondary",
   tertiary: "bg-tertiary",
   "primary-container": "bg-primary-container",
+  "secondary-container": "bg-secondary-container",
   "tertiary-container": "bg-tertiary-container",
+  "surface-container": "bg-surface-container",
+  "surface-container-high": "bg-surface-container-high",
+  outline: "bg-outline",
   error: "bg-error",
 };
 
@@ -36,26 +40,13 @@ const RATIOS: Record<string, number> = { "16:9": 16 / 9, "4:3": 4 / 3, "1:1": 1,
 
 const INITIALS = ["A", "B", "C", "D", "E"];
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-const DESKTOP = [186, 305, 237, 73, 209, 214];
-const MOBILE = [80, 200, 120, 190, 130, 140];
-
-const INVOICES = [
-  ["INV001", "Paid", "$250.00", "Jan 4"],
-  ["INV002", "Pending", "$150.00", "Jan 9"],
-  ["INV003", "Unpaid", "$350.00", "Jan 15"],
-  ["INV004", "Paid", "$450.00", "Jan 21"],
-  ["INV005", "Paid", "$550.00", "Jan 28"],
-  ["INV006", "Pending", "$200.00", "Feb 2"],
-];
-
 const px = (n: number) => Math.round(n);
 
 export const content: PartDef[] = [
   {
     slug: "icon",
     name: "Icon",
-    category: "Content",
+    category: "Media",
     icon: "emoji_symbols",
     w: 24,
     h: 24,
@@ -76,7 +67,7 @@ export const content: PartDef[] = [
   {
     slug: "avatar",
     name: "Avatar",
-    category: "Content",
+    category: "Media",
     icon: "account_circle",
     w: 40,
     h: 40,
@@ -100,7 +91,7 @@ export const content: PartDef[] = [
   {
     slug: "carousel",
     name: "Carousel (Embla)",
-    category: "Content",
+    category: "Media",
     icon: "view_carousel",
     role: "fullWidth",
     /* the slides are the tree's only divs: the fill and corners land on each of them */
@@ -150,7 +141,7 @@ export const content: PartDef[] = [
   {
     slug: "expressive-carousel",
     name: "Expressive carousel",
-    category: "Content",
+    category: "Media",
     icon: "view_carousel",
     role: "fullWidth",
     appearance: { target: "CarouselSlide", radius: 28 },
@@ -180,95 +171,9 @@ export const content: PartDef[] = [
       ),
   },
   {
-    slug: "table",
-    name: "Table",
-    category: "Content",
-    icon: "table",
-    w: 420,
-    h: 160,
-    props: [
-      {
-        key: "columns",
-        label: "Columns",
-        kind: "list",
-        default: [{ label: "Invoice" }, { label: "Status" }, { label: "Amount" }],
-        min: 2,
-        max: 4,
-      },
-      { key: "rows", label: "Rows", kind: "number", default: 3, min: 1, max: 6, step: 1 },
-      { key: "selected", label: "Selected row (0 for none)", kind: "number", default: 0, min: 0, max: 6, step: 1 },
-      { key: "caption", label: "Caption", kind: "text", default: "Recent invoices" },
-      { key: "width", label: "Width", kind: "number", default: 420, min: 200, max: 800, step: 4, unit: "px" },
-    ],
-    tree: (p) => {
-      const columns = p.list("columns");
-      const last = columns.length - 1;
-      // the last column holds the amounts of the sample data, so it is right-aligned like the docs demo
-      const align = (c: number) => (c === last ? "text-right" : undefined);
-      return h(
-        "div",
-        { style: { width: px(p.n("width")) } },
-        h(
-          "Table",
-          null,
-          p.s("caption") && h("TableCaption", null, p.s("caption")),
-          h("TableHeader", null, h("TableRow", null, ...columns.map((c, i) => h("TableHead", { className: align(i) }, c.label)))),
-          h(
-            "TableBody",
-            null,
-            ...INVOICES.slice(0, px(p.n("rows"))).map((row, r) =>
-              h(
-                "TableRow",
-                { "data-state": p.n("selected") === r + 1 ? "selected" : undefined },
-                ...columns.map((_, c) => h("TableCell", { className: align(c) }, c === last ? row[2] : [row[0], row[1], row[3]][c])),
-              ),
-            ),
-          ),
-        ),
-      );
-    },
-  },
-  {
-    slug: "chart",
-    name: "Chart",
-    category: "Content",
-    icon: "bar_chart",
-    w: 420,
-    h: 224,
-    props: [
-      { key: "bars", label: "Months", kind: "number", default: 4, min: 3, max: 6, step: 1 },
-      { key: "series", label: "Series", kind: "number", default: 2, min: 1, max: 2, step: 1 },
-      { key: "width", label: "Width", kind: "number", default: 420, min: 200, max: 800, step: 4, unit: "px" },
-      { key: "height", label: "Height", kind: "number", default: 224, min: 120, max: 400, step: 4, unit: "px" },
-    ],
-    tree: (p) => {
-      const months = MONTHS.slice(0, px(p.n("bars")));
-      const data = months.map((month, i) => ({ month, desktop: DESKTOP[i], mobile: MOBILE[i] }));
-      return h(
-        "ChartContainer",
-        {
-          config: {
-            desktop: { label: "Desktop", color: "var(--chart-1)" },
-            mobile: { label: "Mobile", color: "var(--chart-2)" },
-          },
-          style: { width: px(p.n("width")), height: px(p.n("height")) },
-        },
-        h(
-          "BarChart",
-          { data },
-          h("CartesianGrid", { vertical: false }),
-          h("XAxis", { dataKey: "month", tickLine: false, axisLine: false }),
-          h("ChartTooltip", { content: h("ChartTooltipContent") }),
-          h("Bar", { dataKey: "desktop", fill: "var(--color-desktop)", radius: 4 }),
-          p.n("series") > 1 && h("Bar", { dataKey: "mobile", fill: "var(--color-mobile)", radius: 4 }),
-        ),
-      );
-    },
-  },
-  {
     slug: "kbd",
     name: "Kbd",
-    category: "Content",
+    category: "Media",
     icon: "keyboard",
     w: 80,
     h: 24,
@@ -285,7 +190,7 @@ export const content: PartDef[] = [
   {
     slug: "aspect-ratio",
     name: "Aspect ratio",
-    category: "Content",
+    category: "Layout",
     icon: "aspect_ratio",
     w: 288,
     h: 162,
@@ -308,7 +213,7 @@ export const content: PartDef[] = [
   {
     slug: "empty",
     name: "Empty",
-    category: "Content",
+    category: "Feedback",
     icon: "inbox",
     appearance: { radius: 16 },
     w: 360,
@@ -338,20 +243,21 @@ export const content: PartDef[] = [
   {
     slug: "shape",
     name: "Shape",
-    category: "Content",
+    category: "Media",
     icon: "interests",
     w: 96,
     h: 96,
     props: [
       { key: "name", label: "Shape", kind: "enum", default: "sunny", options: SHAPES },
       { key: "color", label: "Color", kind: "enum", default: "primary", options: Object.keys(SHAPE_COLORS) },
-      { key: "size", label: "Size", kind: "number", default: 96, min: 24, max: 240, step: 4, unit: "px" },
+      { key: "width", label: "Width", kind: "number", default: 96, min: 8, max: 800, step: 4, unit: "px" },
+      { key: "height", label: "Height", kind: "number", default: 96, min: 8, max: 800, step: 4, unit: "px" },
     ],
     tree: (p) =>
       h("Shape", {
         name: p.s("name"),
         className: SHAPE_COLORS[p.s("color")],
-        style: { width: px(p.n("size")), height: px(p.n("size")) },
+        style: { width: px(p.n("width")), height: px(p.n("height")) },
       }),
   },
 ];

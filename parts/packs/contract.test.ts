@@ -9,7 +9,7 @@ import { COMPONENTS } from "../components";
 import { EXTERNAL } from "../externals";
 import { FILE_OF } from "../files.generated";
 import { isNode, type PNode, type PValue } from "../node";
-import { CATEGORIES, defaultValues, partBySlug, treeOf } from "../registry";
+import { CATEGORIES, OFFERED_PARTS, PARTS, defaultValues, partBySlug, treeOf } from "../registry";
 import { renderNode } from "../render";
 import { PACKS, isDrawnKind } from "./index";
 import { ANT_COMPONENTS, CORE_LEGACY_KINDS, DIALECT_KINDS } from "./legacy";
@@ -44,10 +44,8 @@ const WRONG = [null, 7, "nope", true, [], {}, [{}], { columns: "x", rows: 1 }, {
 const dir = new URL("./", import.meta.url);
 
 describe("the list of packs", () => {
-  it("gives each pack an id and a palette section of its own", () => {
+  it("gives each pack an id of its own", () => {
     expect(new Set(PACKS.map((p) => p.id)).size).toBe(PACKS.length);
-    expect(new Set(PACKS.map((p) => p.category.key)).size).toBe(PACKS.length);
-    for (const p of PACKS) expect(CATEGORIES as readonly string[]).not.toContain(p.category.key);
   });
 
   it("does not let two packs claim one component name or one saved kind", () => {
@@ -104,6 +102,40 @@ describe("the kinds shadcn M3E parts stand for", () => {
   });
 });
 
+describe("the palette", () => {
+  it("files every part it offers under a section, each by what the part is for", () => {
+    for (const d of OFFERED_PARTS) expect(CATEGORIES as readonly string[], d.slug).toContain(d.category);
+    for (const c of CATEGORIES) expect(OFFERED_PARTS.filter((d) => d.category === c).length, c).toBeGreaterThan(0);
+  });
+
+  it("offers each thing once: no two parts by the same name in one section", () => {
+    for (const c of CATEGORIES) {
+      const names = OFFERED_PARTS.filter((d) => d.category === c).map((d) => d.name);
+      expect(new Set(names).size, c).toBe(names.length);
+    }
+  });
+});
+
+describe("the parts merged into others", () => {
+  const retired = PACKS.flatMap((p) => Object.entries(p.retired ?? {}));
+
+  it("no longer exist, and each became something that does", () => {
+    const old = { title: "T", message: "M", confirm: "C", cancel: "N", label: "L", value: "V", text: "X", width: 200, height: 100, length: 80, thickness: 2, fill: "primary", columns: [{ label: "A" }, { label: "B" }], rows: 2, caption: "C", selected: 1, bars: 3, series: 1, style: "footer", radius: 8, note: "N", split: 30, side: "left" };
+    expect(retired.length).toBeGreaterThan(0);
+    for (const [slug, now] of retired) {
+      expect(PARTS.map((d) => d.slug), slug).not.toContain(slug);
+      if (!isDrawnKind(now)) {
+        expect(KIND_ORDER as readonly string[], slug).toContain(now.kind);
+        continue;
+      }
+      const def = partBySlug(now.slug);
+      expect(def, `${slug} -> ${now.slug}`).toBeTruthy();
+      const keys = new Set(def!.props.map((p) => p.key));
+      for (const key of Object.keys(now.props(old))) expect(keys.has(key), `${slug} writes ${key}`).toBe(true);
+    }
+  });
+});
+
 describe.each(PACKS.map((p) => [p.id, p] as const))("pack %s", (id, pack) => {
   it("has a version", () => {
     expect(pack.version).toMatch(/^\d+\.\d+\.\d+$/);
@@ -115,11 +147,8 @@ describe.each(PACKS.map((p) => [p.id, p] as const))("pack %s", (id, pack) => {
     for (const from of imports) expect(from, `${id}/index.ts imports ${from}`).toMatch(/^(\.\.\/\.\.\/(node|labels)|\.\.\/legacy)$/);
   });
 
-  it("names its parts under its id, and files them under its section", () => {
-    for (const d of pack.defs) {
-      expect(d.slug).toMatch(new RegExp(`^${id}/[a-z][a-z0-9-]*$`));
-      expect(d.category).toBe(pack.category.key);
-    }
+  it("names its parts under its id", () => {
+    for (const d of pack.defs) expect(d.slug).toMatch(new RegExp(`^${id}/[a-z][a-z0-9-]*$`));
   });
 
   it("draws every component its parts name with something that exists", () => {
@@ -183,7 +212,11 @@ describe.each(PACKS.map((p) => [p.id, p] as const))("pack %s", (id, pack) => {
   it("takes over only kinds the editor does not have, and only with props the part has", () => {
     for (const [kind, legacy] of Object.entries(pack.legacyKinds ?? {})) {
       expect(KIND_ORDER as readonly string[]).not.toContain(kind);
-      const def = pack.defs.find((d) => d.slug === legacy.slug);
+      if (!isDrawnKind(legacy)) {
+        expect(KIND_ORDER as readonly string[], `${kind} -> ${legacy.kind}`).toContain(legacy.kind);
+        continue;
+      }
+      const def = partBySlug(legacy.slug);
       expect(def, `${kind} -> ${legacy.slug}`).toBeTruthy();
       const props = legacy.props({ kind, id: "x", label: "L", size: 100, value: 1, tabs: [{ label: "A" }] });
       const keys = new Set(def!.props.map((p) => p.key));

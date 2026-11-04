@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { openProject } from "../../lib/project";
 import { buildPrompt } from "../../lib/prompt";
 import { groupBounds, heldBy, holdsParts, makeItem, sizeOf, underWhatItHolds, type Doc, type Group, type Item } from "../../lib/tokens";
-import { PACK_DEFS } from "./index";
+import { PARTS } from "../registry";
 
-const panel = (id: string, x: number, y: number, width = 300, height = 200): Group => ({ id, x, y, axis: "x", items: [{ ...makeItem("component", "layout/panel"), id: `i-${id}`, props: { width, height } }] });
+const panel = (id: string, x: number, y: number, width = 300, height = 200): Group => ({ id, x, y, axis: "x", items: [{ ...makeItem("component", "layout/container"), id: `i-${id}`, props: { width, height } }] });
 const part = (id: string, x: number, y: number): Group => ({ id, x, y, axis: "x", items: [{ ...makeItem("button"), id: `i-${id}` }] });
 const ids = (groups: Group[]) => groups.map((g) => g.id);
 /** what the canvas has measured: a part is as big as it draws, and it draws at its props */
@@ -17,9 +17,8 @@ describe("a container", () => {
   });
 
   it("every container in the pack holds, and nothing else does", () => {
-    const holding = PACK_DEFS.filter((d) => d.holds).map((d) => d.slug);
-    expect(holding).toHaveLength(8);
-    expect(holding.every((s) => s.startsWith("layout/"))).toBe(true);
+    const holding = PARTS.filter((d) => d.holds).map((d) => d.slug);
+    expect(holding.toSorted()).toEqual(["layout/container", "layout/dock", "layout/grid-view", "layout/stack", "layout/supporting-pane", "resizable"]);
   });
 
   it("holds what lies wholly inside it and over it", () => {
@@ -80,7 +79,7 @@ describe("a file whose parts nest", () => {
     expect(doc.groups.map((g) => g.items[0].id)).toEqual(["box", "box2", "deep"]);
     expect(at(doc, "box2")).toEqual({ x: 110, y: 70 });
     expect(at(doc, "deep")).toEqual({ x: 115, y: 76 });
-    expect(doc.groups[0].items[0].component).toBe("layout/panel");
+    expect(doc.groups[0].items[0].component).toBe("layout/container");
     expect(ids(heldBy(doc.groups[0], doc.groups, measured(...doc.groups.slice(0, 2))))).toContain(doc.groups[2].id);
   });
 
@@ -115,5 +114,52 @@ describe("a file whose parts nest", () => {
 
   it("still refuses a nested part that is no part", () => {
     expect(openProject(file([{ id: "g1", x: 0, y: 0, axis: "x", items: [makeItem("box")], children: [{ id: "g2", x: 0, y: 0, axis: "x", items: [{ id: 7, kind: "x" }] }] }]))).toBeNull();
+  });
+});
+
+describe("a file made before parts were merged", () => {
+  const open = (component: string, props: Record<string, unknown>, extra: Record<string, unknown> = {}) => {
+    const item = { id: "a", kind: "component", label: "", icon: null, variant: "filled", component, props, ...extra };
+    return (openProject(JSON.parse(JSON.stringify({ groups: [{ id: "g", x: 0, y: 0, axis: "x", items: [item] }], frames: [{ id: "f", name: "H", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "", brief: "" }))) as Doc).groups[0].items[0] as Item;
+  };
+
+  it("keeps a table's columns, rows, selection, caption and width", () => {
+    const it2 = open("table", { columns: [{ label: "A" }, { label: "B" }], rows: 2, selected: 1, caption: "C", width: 300 });
+    expect(it2.component).toBe("dashboard/data-table");
+    expect(it2.props).toMatchObject({ caption: "C", selected: 1, alignLast: true, width: 300, data: { columns: ["A", "B"], rows: [["INV001", "$250.00"], ["INV002", "$150.00"]] } });
+  });
+
+  it("keeps a chart's months, series and size", () => {
+    const it2 = open("chart", { bars: 3, series: 1, width: 500, height: 200 });
+    expect(it2.component).toBe("dashboard/chart");
+    expect(it2.props).toMatchObject({ width: 500, height: 200, data: { columns: ["Month", "Desktop"], rows: [["Jan", "186"], ["Feb", "305"], ["Mar", "237"]] } });
+  });
+
+  it("turns the plain boxes into one container with their settings", () => {
+    expect(open("layout/group-box", { label: "G", width: 200, height: 100 })).toMatchObject({ component: "layout/container", props: { label: "G", place: "start", fill: "none", border: "solid", width: 200 } });
+    expect(open("layout/panel", { fill: "primary-container", radius: 4 })).toMatchObject({ component: "layout/container", props: { label: "", fill: "primary-container", border: "none", radius: 4 } });
+  });
+
+  it("finds the share of the pane a split view fixed", () => {
+    expect(open("layout/resizable", { side: "right", split: 30 })).toMatchObject({ component: "resizable", props: { orientation: "horizontal", split: 70, first: "" } });
+    expect(open("layout/resizable", { side: "top", split: 30 })).toMatchObject({ component: "resizable", props: { orientation: "vertical", split: 30 } });
+  });
+
+  it("opens a shape and a line as the parts that took them over", () => {
+    expect(open("basic/ellipse", { width: 120, height: 60, fill: "tertiaryContainer" })).toMatchObject({ component: "shape", props: { name: "circle", color: "tertiary-container", width: 120, height: 60 } });
+    expect(open("basic/line", { length: 100, thickness: 3, fill: "outline" })).toMatchObject({ component: "separator", props: { length: 100, thickness: 3, color: "outline" } });
+    expect(open("shape", { name: "heart", size: 64 }).props).toEqual({ name: "heart", width: 64, height: 64 });
+  });
+
+  it("keeps the words of the rest, an author's blank included", () => {
+    expect(open("game/confirm-box", { title: "T", message: "M", confirm: "C", cancel: "" })).toMatchObject({ component: "alert-dialog", props: { title: "T", description: "M", action: "C", cancel: "" } });
+    expect(open("game/slider-input", { label: "L", value: 9, width: 300 })).toMatchObject({ component: "slider", props: { label: "L", value: 9, width: 300 } });
+    expect(open("ios/labeled-row", { label: "V", value: "1.0" })).toMatchObject({ component: "item", props: { items: [{ label: "V" }], trailing: "text", trailingText: "1.0", description: "" } });
+    expect(open("ios/section-text", { text: "S", style: "footer" })).toMatchObject({ kind: "text", label: "S", size: 12 });
+  });
+
+  it("keeps what else the part had, and opens the same the second time", () => {
+    const it2 = open("game/confirm-box", { title: "T" }, { note: "n", action: { to: "f", transition: "fade" } });
+    expect(it2).toMatchObject({ note: "n", action: { to: "f", transition: "fade" } });
   });
 });

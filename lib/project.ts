@@ -1,6 +1,6 @@
 import { CAROUSEL_LAYOUTS, DATE_LAYOUTS, Doc, GAP, Item, KIND_ORDER, Kind, TIME_LAYOUTS, VARIANTS, framePresetPatch, isCardAlign, isCardImagePos, isPlace, isTextToken, isTrackThickness, sizeOf } from "./tokens";
 import { schemeFromSeed } from "./color";
-import { foreignKindOf, isDrawnKind, packOfSlug } from "../parts/packs";
+import { PROP_UPGRADES, RETIRED_PARTS, foreignKindOf, isDrawnKind, packOfSlug } from "../parts/packs";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on; the same migrations that run on a saved
@@ -100,14 +100,31 @@ function actionsOfForeign(foreign: Record<string, unknown>) {
   return { ...(action ? { action } : {}), ...(actions ? { actions } : {}) };
 }
 
-export function adoptForeignItem(item: unknown): unknown {
-  if (!isRecord(item) || typeof item.id !== "string" || typeof item.kind !== "string" || !item.kind) return item;
+/** A part merged into another opens as what it became, and keeps everything else it has: its place
+ *  in the flow, its note, what it was adopted from. A part whose props changed shape is read anew. */
+function currentPart(item: Record<string, unknown>): Record<string, unknown> {
+  if (item.kind !== "component" || typeof item.component !== "string") return item;
+  const props = isRecord(item.props) ? item.props : {};
+  const retired = RETIRED_PARTS[item.component];
+  if (retired) {
+    if (isDrawnKind(retired)) return { ...item, component: retired.slug, props: retired.props(props) };
+    const { component: _component, props: _props, ...rest } = item;
+    return { ...rest, kind: retired.kind, ...retired.fields(props) };
+  }
+  const upgraded = isRecord(item.props) ? PROP_UPGRADES[item.component]?.(item.props) : undefined;
+  return upgraded && upgraded !== item.props ? { ...item, props: upgraded } : item;
+}
+
+export function adoptForeignItem(raw: unknown): unknown {
+  if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.kind !== "string" || !raw.kind) return raw;
+  const item = currentPart(raw);
   const standIn = item.kind === "component" && typeof item.component === "string" && item.component.startsWith(FOREIGN_PREFIX) && isRecord(item.foreign);
   /* A kind of the same name from another dialect (GPUI's button has variant "default", Miuix's fab
      has no label): the name is ours but the part is not. A bad value in a field we do read is still
      a broken file, and `isProject` refuses it. */
-  const otherDialect = item.kind !== "component" && KINDS.has(item.kind) && (typeof item.label !== "string" || !VARIANTS.some((v) => v.key === item.variant));
-  if (KINDS.has(item.kind) && !standIn && !otherDialect) return item;
+  const native = KINDS.has(String(item.kind));
+  const otherDialect = item.kind !== "component" && native && (typeof item.label !== "string" || !VARIANTS.some((v) => v.key === item.variant));
+  if (native && !standIn && !otherDialect) return item;
   const foreign = (standIn ? item.foreign : item) as Record<string, unknown>;
   const kind = String(foreign.kind);
   const known = foreignKindOf(foreign);

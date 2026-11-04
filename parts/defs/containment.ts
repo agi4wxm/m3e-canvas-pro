@@ -72,11 +72,23 @@ function cardTree(p: P): PNode {
   );
 }
 
+/** a line in a color of its own; the default is the separator's */
+const LINE_COLORS: Record<string, string | undefined> = {
+  default: undefined,
+  primary: "bg-primary rounded-full",
+  "primary-container": "bg-primary-container rounded-full",
+  "secondary-container": "bg-secondary-container rounded-full",
+  "tertiary-container": "bg-tertiary-container rounded-full",
+  "surface-container": "bg-surface-container rounded-full",
+  "surface-container-high": "bg-surface-container-high rounded-full",
+  outline: "bg-outline rounded-full",
+};
+
 export const containment: PartDef[] = [
   {
     slug: "card",
     name: "Card",
-    category: "Containment",
+    category: "Layout",
     icon: "credit_card",
     role: "listLike",
     appearance: { radius: 12 },
@@ -116,7 +128,7 @@ export const containment: PartDef[] = [
   {
     slug: "item",
     name: "List item",
-    category: "Containment",
+    category: "Data",
     icon: "list_alt",
     role: "listLike",
     /* the paint goes on each row, not the group they share */
@@ -128,9 +140,10 @@ export const containment: PartDef[] = [
       { key: "description", label: "Supporting text", kind: "text", default: "12 new messages" },
       { key: "variant", label: "Variant", kind: "enum", default: "default", options: ["default", "outline", "muted", "segmented"] },
       { key: "size", label: "Size", kind: "enum", default: "default", options: ["default", "sm", "xs"] },
-      { key: "trailing", label: "Trailing", kind: "enum", default: "none", options: ["none", "icon", "switch"] },
+      { key: "trailing", label: "Trailing", kind: "enum", default: "none", options: ["none", "icon", "switch", "text"] },
       { key: "trailingIcon", label: "Trailing icon", kind: "icon", default: "chevron_right", when: (p) => p.s("trailing") === "icon" },
       { key: "checked", label: "Switch on", kind: "bool", default: false, when: (p) => p.s("trailing") === "switch" },
+      { key: "trailingText", label: "Trailing text", labels: { ja: "末尾のテキスト", zh: "末尾文字", ko: "끝 텍스트" }, kind: "text", default: "2.4.1", when: (p) => p.s("trailing") === "text" },
       { key: "width", label: "Width", kind: "number", default: 280, min: 160, max: 520, step: 4, unit: "px" },
     ],
     slots: (p) => p.list("items").map((it, i) => ({ key: `tab:${i}`, label: it.label || `${i + 1}`, icon: it.icon })),
@@ -141,7 +154,9 @@ export const containment: PartDef[] = [
           ? h("ItemActions", null, h("Switch", { defaultChecked: p.b("checked") || undefined }))
           : trailing === "icon" && p.s("trailingIcon")
             ? h("ItemActions", null, h("Button", { variant: "text", size: "icon", "aria-label": "Open" }, ic(p.s("trailingIcon"))))
-            : null;
+            : trailing === "text" && p.s("trailingText")
+              ? h("ItemActions", null, h("span", { className: "text-body-medium text-on-surface-variant" }, p.s("trailingText")))
+              : null;
       const row = (it: { label: string; icon?: string }, i: number) =>
         h(
           "Item",
@@ -157,7 +172,7 @@ export const containment: PartDef[] = [
   {
     slug: "dialog",
     name: "Dialog",
-    category: "Containment",
+    category: "Overlays",
     icon: "web_asset",
     role: "overlay",
     w: 360,
@@ -224,7 +239,7 @@ export const containment: PartDef[] = [
   {
     slug: "alert-dialog",
     name: "Alert dialog",
-    category: "Containment",
+    category: "Overlays",
     icon: "report",
     role: "overlay",
     w: 320,
@@ -260,7 +275,7 @@ export const containment: PartDef[] = [
   {
     slug: "sheet",
     name: "Sheet",
-    category: "Containment",
+    category: "Overlays",
     icon: "side_navigation",
     role: "overlay",
     w: 300,
@@ -291,7 +306,7 @@ export const containment: PartDef[] = [
   {
     slug: "side-sheet",
     name: "Side sheet",
-    category: "Containment",
+    category: "Overlays",
     icon: "right_panel_open",
     w: 640,
     h: 320,
@@ -314,7 +329,7 @@ export const containment: PartDef[] = [
   {
     slug: "drawer",
     name: "Drawer",
-    category: "Containment",
+    category: "Overlays",
     icon: "vertical_align_bottom",
     role: "bottom",
     w: 412,
@@ -344,7 +359,7 @@ export const containment: PartDef[] = [
   {
     slug: "popover",
     name: "Popover",
-    category: "Containment",
+    category: "Overlays",
     icon: "comment",
     w: 120,
     h: 40,
@@ -371,7 +386,7 @@ export const containment: PartDef[] = [
   {
     slug: "hover-card",
     name: "Hover card",
-    category: "Containment",
+    category: "Overlays",
     icon: "ads_click",
     w: 72,
     h: 24,
@@ -399,7 +414,7 @@ export const containment: PartDef[] = [
   {
     slug: "accordion",
     name: "Accordion",
-    category: "Containment",
+    category: "Layout",
     icon: "expand_circle_down",
     w: 360,
     h: 220,
@@ -427,7 +442,7 @@ export const containment: PartDef[] = [
   {
     slug: "collapsible",
     name: "Collapsible",
-    category: "Containment",
+    category: "Layout",
     icon: "unfold_less",
     w: 256,
     h: 112,
@@ -449,15 +464,16 @@ export const containment: PartDef[] = [
   {
     slug: "separator",
     name: "Separator",
-    category: "Containment",
+    category: "Layout",
     icon: "horizontal_rule",
     role: "listLike",
     w: 280,
     h: 1,
     props: [
       { key: "orientation", label: "Orientation", kind: "enum", default: "horizontal", options: ["horizontal", "vertical"] },
-      { key: "length", label: "Length", kind: "number", default: 280, min: 16, max: 640, step: 4, unit: "px" },
-      { key: "thickness", label: "Thickness", kind: "number", default: 1, min: 1, max: 8, step: 1, unit: "px" },
+      { key: "length", label: "Length", kind: "number", default: 280, min: 8, max: 1600, step: 4, unit: "px" },
+      { key: "thickness", label: "Thickness", kind: "number", default: 1, min: 1, max: 64, step: 1, unit: "px" },
+      { key: "color", label: "Color", kind: "enum", default: "default", options: Object.keys(LINE_COLORS) },
     ],
     tree: (p) => {
       const vertical = p.s("orientation") === "vertical";
@@ -465,6 +481,7 @@ export const containment: PartDef[] = [
       const thickness = Math.round(p.n("thickness"));
       return h("Separator", {
         orientation: vertical ? "vertical" : undefined,
+        className: LINE_COLORS[p.s("color")],
         style: { ...(vertical ? { height: length } : { width: length }), ...(thickness === 1 ? {} : vertical ? { width: thickness } : { height: thickness }) },
       });
     },
@@ -472,7 +489,7 @@ export const containment: PartDef[] = [
   {
     slug: "scroll-area",
     name: "Scroll area",
-    category: "Containment",
+    category: "Layout",
     icon: "swap_vert",
     w: 256,
     h: 192,
@@ -498,8 +515,9 @@ export const containment: PartDef[] = [
   {
     slug: "resizable",
     name: "Resizable",
-    category: "Containment",
+    category: "Layout",
     icon: "vertical_split",
+    holds: true,
     w: 400,
     h: 160,
     props: [
@@ -508,8 +526,8 @@ export const containment: PartDef[] = [
       { key: "second", label: "Second panel", kind: "text", default: "Right" },
       { key: "split", label: "First panel size", kind: "number", default: 40, min: 10, max: 90, step: 5, unit: "%" },
       { key: "handle", label: "Grip on the handle", kind: "bool", default: true },
-      { key: "width", label: "Width", kind: "number", default: 400, min: 160, max: 640, step: 4, unit: "px" },
-      { key: "height", label: "Height", kind: "number", default: 160, min: 80, max: 400, step: 4, unit: "px" },
+      { key: "width", label: "Width", kind: "number", default: 400, min: 160, max: 2400, step: 4, unit: "px" },
+      { key: "height", label: "Height", kind: "number", default: 160, min: 80, max: 2400, step: 4, unit: "px" },
     ],
     tree: (p) => {
       const split = Math.round(p.n("split"));

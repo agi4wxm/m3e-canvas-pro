@@ -1,24 +1,26 @@
 import { h } from "../../node";
 import { defined, num, text } from "../legacy";
-import type { PartPack } from "../types";
+import type { LegacyKind, PartPack } from "../types";
 
-/* Small controls and shapes the shadcn M3E set does not have. What they do follows the forks that
- * have them (rating in MoonApp and the GPUI canvas, shapes in Endijuan33/m3e-canvas); the code is
- * written here, not copied from them. */
+/* Small controls the shadcn M3E set does not have. What they do follows the forks that have them
+ * (rating in MoonApp and the GPUI canvas); the code is written here, not copied from them. The
+ * ellipse and the line of Endijuan33/m3e-canvas are the Shape and the Separator now. */
 
-const FILL: Record<string, string> = {
-  primary: "bg-primary",
-  primaryContainer: "bg-primary-container",
-  secondaryContainer: "bg-secondary-container",
-  tertiaryContainer: "bg-tertiary-container",
-  surfaceContainer: "bg-surface-container",
-  surfaceContainerHigh: "bg-surface-container-high",
-  outline: "bg-outline",
+/** a fork's fill, by the name the shape and the separator give that color */
+const COLOR: Record<string, string> = {
+  primary: "primary",
+  primaryContainer: "primary-container",
+  secondaryContainer: "secondary-container",
+  tertiaryContainer: "tertiary-container",
+  surfaceContainer: "surface-container",
+  surfaceContainerHigh: "surface-container-high",
+  outline: "outline",
 };
-const FILLS = Object.keys(FILL);
 
-/** the fill a fork saved, if it is one of the roles offered here */
-const fillOf = (item: Record<string, unknown>) => (typeof item.fill === "string" && FILLS.includes(item.fill) ? item.fill : undefined);
+const ellipse = (width: unknown, height: unknown, fill: unknown): ReturnType<LegacyKind["props"]> =>
+  defined({ name: "circle", color: COLOR[String(fill)] ?? "secondary-container", width: typeof width === "number" ? width : undefined, height: typeof height === "number" ? height : undefined });
+const line = (length: unknown, thickness: unknown, fill: unknown): ReturnType<LegacyKind["props"]> =>
+  defined({ color: COLOR[String(fill)] ?? "primary", length: typeof length === "number" ? length : undefined, thickness: typeof thickness === "number" ? thickness : undefined });
 
 /** a link only leaves for the web: a saved `javascript:` address must not run */
 const safeHref = (url: string) => (/^https?:\/\//i.test(url) ? url : "#");
@@ -26,7 +28,6 @@ const safeHref = (url: string) => (/^https?:\/\//i.test(url) ? url : "#");
 export const basic: PartPack = {
   id: "basic",
   version: "0.1.0",
-  category: { key: "Basic", icon: "extension", labels: { ja: "基本", zh: "基础", ko: "기본" } },
   sources: {
     Rating: { from: "@/components/packs/basic/Rating" },
     ColorField: { from: "@/components/packs/basic/ColorField" },
@@ -41,15 +42,19 @@ export const basic: PartPack = {
       props: (it) => { const label = text(it, "label"); return label?.startsWith("#") ? { value: label } : defined({ label }); },
     },
     link: { slug: "basic/link", props: (it) => defined({ label: text(it, "label"), href: text(it, "supporting") }) },
-    ellipse: { slug: "basic/ellipse", props: (it) => defined({ width: num(it, "size"), height: num(it, "size2"), fill: fillOf(it) }) },
-    line: { slug: "basic/line", props: (it) => defined({ length: num(it, "size"), thickness: num(it, "size2"), fill: fillOf(it) }) },
+    ellipse: { slug: "shape", props: (it) => ellipse(it.size, it.size2, it.fill) },
+    line: { slug: "separator", props: (it) => line(it.size, it.size2, it.fill) },
+  },
+  retired: {
+    "basic/ellipse": { slug: "shape", props: (o) => ellipse(o.width, o.height, o.fill) },
+    "basic/line": { slug: "separator", props: (o) => line(o.length, o.thickness, o.fill) },
   },
   defs: [
     {
       slug: "basic/form",
       name: "Form",
       labels: { ja: "フォーム", zh: "表单", ko: "양식" },
-      category: "Basic",
+      category: "Text inputs",
       icon: "dynamic_form",
       w: 360,
       h: 240,
@@ -70,7 +75,7 @@ export const basic: PartPack = {
       slug: "basic/rating",
       name: "Rating",
       labels: { ja: "評価", zh: "评分", ko: "평점" },
-      category: "Basic",
+      category: "Selection",
       icon: "star_rate",
       w: 160,
       h: 32,
@@ -85,7 +90,7 @@ export const basic: PartPack = {
       slug: "basic/color-field",
       name: "Color field",
       labels: { ja: "カラー選択", zh: "颜色选择", ko: "색상 선택" },
-      category: "Basic",
+      category: "Selection",
       icon: "colorize",
       w: 220,
       h: 56,
@@ -99,7 +104,7 @@ export const basic: PartPack = {
       slug: "basic/link",
       name: "Link",
       labels: { ja: "リンク", zh: "链接", ko: "링크" },
-      category: "Basic",
+      category: "Actions",
       icon: "link",
       w: 120,
       h: 24,
@@ -108,36 +113,6 @@ export const basic: PartPack = {
         { key: "href", label: "Address", labels: { ja: "アドレス", zh: "地址", ko: "주소" }, kind: "text", default: "https://example.com" },
       ],
       tree: (p) => h("a", { href: safeHref(p.s("href")), target: "_blank", rel: "noreferrer", className: "text-label-large text-primary underline" }, p.s("label")),
-    },
-    {
-      slug: "basic/ellipse",
-      name: "Ellipse",
-      labels: { ja: "楕円", zh: "椭圆", ko: "타원" },
-      category: "Basic",
-      icon: "circle",
-      w: 96,
-      h: 96,
-      props: [
-        { key: "width", label: "Width", kind: "number", default: 96, min: 8, max: 800, step: 4, unit: "px" },
-        { key: "height", label: "Height", kind: "number", default: 96, min: 8, max: 800, step: 4, unit: "px" },
-        { key: "fill", label: "Fill", labels: { ja: "塗り", zh: "填充", ko: "채우기" }, kind: "enum", default: "secondaryContainer", options: FILLS },
-      ],
-      tree: (p) => h("div", { "data-slot": "ellipse", className: `rounded-full ${FILL[p.s("fill")]}`, style: { width: Math.round(p.n("width")), height: Math.round(p.n("height")) } }),
-    },
-    {
-      slug: "basic/line",
-      name: "Line",
-      labels: { ja: "線", zh: "线条", ko: "선" },
-      category: "Basic",
-      icon: "horizontal_rule",
-      w: 128,
-      h: 4,
-      props: [
-        { key: "length", label: "Length", labels: { ja: "長さ", zh: "长度", ko: "길이" }, kind: "number", default: 128, min: 8, max: 1600, step: 4, unit: "px" },
-        { key: "thickness", label: "Thickness", labels: { ja: "太さ", zh: "粗细", ko: "두께" }, kind: "number", default: 4, min: 1, max: 64, step: 1, unit: "px" },
-        { key: "fill", label: "Fill", labels: { ja: "塗り", zh: "填充", ko: "채우기" }, kind: "enum", default: "primary", options: FILLS },
-      ],
-      tree: (p) => h("div", { "data-slot": "line", className: `rounded-full ${FILL[p.s("fill")]}`, style: { width: Math.round(p.n("length")), height: Math.round(p.n("thickness")) } }),
     },
   ],
 };
