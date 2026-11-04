@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
     "gen:parts": "node scripts/gen-parts-components.mjs",
+    "gen:agent": "bun scripts/gen-agent.ts",
     "gen:icons": "node scripts/icons.mjs --src components/m3e --dir components/m3e",
     "check:icons": "node scripts/icons.mjs --check --src components/m3e --dir components/m3e",
     "gen:tokens": "bun scripts/gen-tokens.ts"

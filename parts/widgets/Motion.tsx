@@ -147,7 +147,7 @@ export function SlideGroup({ items = [], width = 320 }: { items?: string[]; widt
       <Button variant="text" size="icon-sm" aria-label="Previous" onClick={() => by(-160)}>
         <WidgetIcon name="chevron_left" />
       </Button>
-      <div ref={row as RefObject<HTMLDivElement>} className="no-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto">
+      <div ref={row as RefObject<HTMLDivElement>} className="flex min-w-0 flex-1 gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         {items.map((label, i) => (
           <Chip key={i} className="shrink-0">
             {label}

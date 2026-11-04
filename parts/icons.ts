@@ -10,6 +10,8 @@ import { isNode, isRaw, type PNode, type PValue } from "./node";
 
 const API = "https://api.iconify.design/material-symbols.json";
 const asked = new Set<string>();
+/** the icons Iconify has sent so far */
+const arrived = new Set<string>();
 let version = 0;
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -28,7 +30,9 @@ async function flush() {
     try {
       const res = await fetch(`${API}?icons=${chunk.join(",")}`);
       if (!res.ok) continue;
-      registerIcons(await res.json());
+      const data = await res.json();
+      registerIcons(data);
+      for (const id of [...Object.keys(data.icons ?? {}), ...Object.keys(data.aliases ?? {})]) arrived.add(id);
       version++;
       listeners.forEach((l) => l());
     } catch {
@@ -85,9 +89,19 @@ export function useIconVersion() {
   );
 }
 
-/** fetch the icons of a tree, and say when more have arrived */
+/** Fetch the icons of a tree, and say how many of them have arrived. PartView draws afresh when this
+ *  changes, which is only for this tree's own icons: another part's arriving must not reset this one's
+ *  state, and a widget's run-time icons are drawn by WidgetIcon, which sees to itself. */
 export function useIcons(node: PNode) {
   const names = [...iconNamesIn(node)].join(",");
   useEffect(() => ensureIcons(names ? names.split(",") : []), [names]);
-  return useIconVersion();
+  const count = () => (names ? names.split(",").filter((name) => ids(name).some((id) => arrived.has(id))).length : 0);
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    count,
+    () => 0,
+  );
 }

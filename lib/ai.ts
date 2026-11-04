@@ -1,4 +1,6 @@
 import { Doc, Frame, Group, Item, frameOfGroup } from "./tokens";
+import { partBySlug } from "../parts/registry";
+import { labelOfPart } from "../parts/resize";
 import { buildPrompt } from "./prompt";
 import { isProject } from "./project";
 import { Lang } from "./i18n";
@@ -149,8 +151,9 @@ const itemsOnFrame = (doc: Doc, frame: Frame, widths: Record<string, number>): I
   doc.groups.filter((g: Group) => frameOfGroup(g, doc.frames, widths)?.id === frame.id).flatMap((g) => g.items);
 
 const describeItem = (it: Item) => {
-  const bits = [`id=${it.id}`, `kind=${it.kind}`];
-  if (hasText(it.label)) bits.push(`label=${JSON.stringify(it.label)}`);
+  const bits = [`id=${it.id}`, `part=${it.component ?? it.kind}`];
+  const words = labelOfPart(partBySlug(it.component), it.props);
+  if (hasText(words)) bits.push(`says=${JSON.stringify(words)}`);
   if (hasText(it.supporting)) bits.push(`supporting=${JSON.stringify(it.supporting)}`);
   if (it.icon) bits.push(`icon=${it.icon}`);
   if (it.tabs?.length) bits.push(`items=${JSON.stringify(it.tabs.map((t) => t.label || t.icon))}`);
