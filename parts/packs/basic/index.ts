@@ -1,26 +1,8 @@
 import { h } from "../../node";
-import { defined, num, text } from "../legacy";
-import type { LegacyKind, PartPack } from "../types";
+import type { PartPack } from "../types";
 
 /* Small controls the shadcn M3E set does not have. What they do follows the forks that have them
- * (rating in MoonApp and the GPUI canvas); the code is written here, not copied from them. The
- * ellipse and the line of Endijuan33/m3e-canvas are the Shape and the Separator now. */
-
-/** a fork's fill, by the name the shape and the separator give that color */
-const COLOR: Record<string, string> = {
-  primary: "primary",
-  primaryContainer: "primary-container",
-  secondaryContainer: "secondary-container",
-  tertiaryContainer: "tertiary-container",
-  surfaceContainer: "surface-container",
-  surfaceContainerHigh: "surface-container-high",
-  outline: "outline",
-};
-
-const ellipse = (width: unknown, height: unknown, fill: unknown): ReturnType<LegacyKind["props"]> =>
-  defined({ name: "circle", color: COLOR[String(fill)] ?? "secondary-container", width: typeof width === "number" ? width : undefined, height: typeof height === "number" ? height : undefined });
-const line = (length: unknown, thickness: unknown, fill: unknown): ReturnType<LegacyKind["props"]> =>
-  defined({ color: COLOR[String(fill)] ?? "primary", length: typeof length === "number" ? length : undefined, thickness: typeof thickness === "number" ? thickness : undefined });
+ * (rating in MoonApp and the GPUI canvas); the code is written here, not copied from them. */
 
 /** a link only leaves for the web: a saved `javascript:` address must not run */
 const safeHref = (url: string) => (/^https?:\/\//i.test(url) ? url : "#");
@@ -33,18 +15,6 @@ export const basic: PartPack = {
     ColorField: { from: "@/components/packs/basic/ColorField" },
   },
   load: () => import("./parts"),
-  legacyKinds: {
-    /* MoonApp saves the score in `selected`, GPUI in `value` */
-    rating: { slug: "basic/rating", props: (it) => defined({ value: num(it, "value") ?? num(it, "selected"), count: num(it, "count") }) },
-    colorPicker: {
-      slug: "basic/color-field",
-      /* GPUI's label is the color itself, the others' a caption */
-      props: (it) => { const label = text(it, "label"); return label?.startsWith("#") ? { value: label } : defined({ label }); },
-    },
-    link: { slug: "basic/link", props: (it) => defined({ label: text(it, "label"), href: text(it, "supporting") }) },
-    ellipse: { slug: "shape", props: (it) => ellipse(it.size, it.size2, it.fill) },
-    line: { slug: "separator", props: (it) => line(it.size, it.size2, it.fill) },
-  },
   defs: [
     {
       slug: "basic/form",

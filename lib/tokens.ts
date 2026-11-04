@@ -1723,10 +1723,6 @@ export type Item = {
   props?: Record<string, unknown>;
   /** kind "component": the hand-drawn part this was converted from, kept whole so the conversion can be undone */
   legacy?: Item;
-  /** kind "component": the part as a fork saved it, under a kind this editor does not have; kept
-   *  whole and written back, so nothing is lost when the file goes back to where it came from.
-   *  Not `legacy`: that one can be reverted to, and this kind cannot be drawn. */
-  foreign?: Record<string, unknown>;
   /** runtime-only: the editor is showing this FAB's menu open. Never written to JSON. */
   [fabOpen]?: boolean;
   /** runtime-only: the menu rises out of the part's top rather than dropping below it. */

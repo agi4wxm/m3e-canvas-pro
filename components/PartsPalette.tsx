@@ -1,7 +1,7 @@
 
 import { useMemo, useState } from "react";
 import { Palette } from "@/lib/tokens";
-import { CATEGORIES, OFFERED_PARTS, partBySlug, type PartCategory } from "@/parts/registry";
+import { CATEGORIES, PARTS, partBySlug, type PartCategory } from "@/parts/registry";
 import { nameOf } from "@/parts/labels";
 import { Icon } from "./M3Node";
 import { t, useLang } from "@/lib/i18n";
@@ -52,8 +52,8 @@ export function PartsPalette({
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return OFFERED_PARTS;
-    return OFFERED_PARTS.filter((d) => d.name.toLowerCase().includes(s) || nameOf(d, lang).toLowerCase().includes(s) || d.slug.includes(s));
+    if (!s) return PARTS;
+    return PARTS.filter((d) => d.name.toLowerCase().includes(s) || nameOf(d, lang).toLowerCase().includes(s) || d.slug.includes(s));
   }, [q, lang]);
 
   const tile = (slug: string) => {
@@ -103,7 +103,7 @@ export function PartsPalette({
           </div>
         ) : (
           CATEGORIES.map((c) => {
-            const inCategory = OFFERED_PARTS.filter((d) => d.category === c);
+            const inCategory = PARTS.filter((d) => d.category === c);
             if (inCategory.length === 0) return null;
             return (
               <Section key={c} id={`cat:${c}`} icon={CATEGORY_ICON[c]} title={lang === "en" ? c : CATEGORY_TEXT[lang][c]} p={p} defaultOpen={!FOLDED.includes(c)}>

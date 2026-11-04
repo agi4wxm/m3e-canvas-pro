@@ -1,6 +1,6 @@
 # M3E Canvas Pro
 
-在浏览器里用现成组件拖拽拼出可交互的 UI 原型。基于 [m3e-canvas](https://github.com/lnkiai/m3e-canvas) 和 [shadcn M3E](https://github.com/Crysta1221/shadcn-m3e)，用统一的组件包整合了各分支的扩展组件。
+在浏览器里用现成组件拖拽拼出可交互的 UI 原型。基于 [m3e-canvas](https://github.com/lnkiai/m3e-canvas) 和 [shadcn M3E](https://github.com/Crysta1221/shadcn-m3e)，用统一的组件包整合了各分支的扩展组件。这是一个重构后的独立项目，只打开自己保存的文件，不兼容其他分支的文件格式。
 
 ## 启动
 
@@ -40,7 +40,6 @@ parts/defs/    M3 组件的定义
 parts/packs/   扩展组件包
 public/        静态资源
 scripts/       生成脚本
-fixtures/      测试用的真实存档样本
 docs/          接入规范和进度
 ```
 
@@ -62,10 +61,6 @@ docs/          接入规范和进度
 | `antd` | Ant Design 按钮、输入框、下拉选择、表单、卡片、表格、标签页、菜单、面包屑、分页、弹窗、分割线 |
 
 新增组件请看 [组件包接入规范](docs/组件包接入规范.md)，当前进度见 [组件接入进度](docs/组件接入进度.md)。
-
-## 打开其他分支的文件
-
-项目文件和分享链接可以打开 m3e-canvas 各分支保存的内容，包括 GPUI、Miuix 和 SwiftUI 画布的格式。能识别的组件会转成对应组件，暂时没有对应的会显示占位，原始数据都保留在文件里。
 
 ## 许可证
 

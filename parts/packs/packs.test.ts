@@ -2,9 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { buildCode } from "../../lib/codegen";
-import { FOREIGN_PREFIX, PROJECT_FORMAT, PROJECT_VERSION, adoptForeignItem, openProject, packsOfDoc, projectFile, unknownDocFields } from "../../lib/project";
-import { revertPatch } from "../../lib/migrate";
-import { shareable } from "../../lib/share";
+import { PROJECT_FORMAT, PROJECT_VERSION, openProject, packsOfDoc, projectFile } from "../../lib/project";
 import { KIND_ORDER, makeItem, type Doc, type Group, type Item } from "../../lib/tokens";
 import { setGlobalLang } from "../../lib/i18n";
 import { importLines, namesIn, packagesOf, printNode } from "../print";
@@ -32,8 +30,6 @@ const docOf = (items: Item[]): Doc =>
 
 const json = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 const html = (slug: string, props?: Record<string, unknown>) => renderToStaticMarkup(createElement("div", null, renderNode(treeOf(partBySlug(slug)!, props))));
-const forkItem = (kind: string, extra: Record<string, unknown> = {}) => ({ id: "x", kind, label: "L", icon: null, variant: "filled", ...extra }) as unknown as Item;
-const first = (doc: Doc | null) => doc!.groups[0].items[0];
 
 describe("dashboard/data-table", () => {
   it("draws the author's own rows", () => {
@@ -106,10 +102,15 @@ describe("the file format", () => {
     expect(packsOfDoc(doc)).toEqual({ game: "0.1.0" });
   });
 
-  it("opens the envelopes two forks write", () => {
+  it("opens the first version of its own envelope, and refuses another editor's", () => {
     const doc = json(docOf([makeItem("button")]));
     expect(openProject({ format: "m3e-project", version: 1, document: doc })).toEqual(doc);
-    expect(openProject({ format: "web-canvas-project", version: 1, doc })).toEqual(doc);
+    expect(openProject({ format: "web-canvas-project", version: 1, doc })).toBeNull();
+  });
+
+  it("refuses a project in another editor's shape", () => {
+    expect(openProject({ version: 3, title: "M", screens: [{ id: "s", items: [] }] })).toBeNull();
+    expect(openProject({ title: "S", screens: [], parts: [] })).toBeNull();
   });
 
   it("refuses a file from a later version rather than half understanding it", () => {
@@ -120,70 +121,19 @@ describe("the file format", () => {
     expect(openProject({ format: PROJECT_FORMAT, version: 1 })).toBeNull();
   });
 
-  it("opens a fork's own target, and keeps it", () => {
-    const doc = openProject({ ...json(docOf([makeItem("button")])), platform: "ios" }) as Doc & { foreignPlatform?: string; platform?: string };
-    expect(doc.foreignPlatform).toBe("ios");
-    expect(doc.platform).toBeUndefined();
-  });
-
-  it("carries the fields it does not know through to the next save", () => {
-    const doc = { ...json(docOf([makeItem("button")])), customParts: [{ id: 1 }], designSystem: "antd" };
-    expect(unknownDocFields(openProject(doc)!)).toEqual({ customParts: [{ id: 1 }], designSystem: "antd" });
-  });
 });
 
-describe("parts nothing here can draw", () => {
-  it("opens a fork's joystick and table as the pack's parts and keeps the originals", () => {
-    const joystick = forkItem("joystick", { id: "j", size: 180, value: 45, joystickReturn: false });
-    const table = forkItem("dataTable", { id: "t", label: "Orders", size: 380, tabs: [{ icon: "", label: "Id" }, { icon: "", label: "Total" }] });
-    const doc = openProject(json(docOf([joystick, table])))!;
-    const [j, t] = doc.groups.map((g) => g.items[0]);
-    expect(j).toMatchObject({ id: "j", kind: "component", component: "game/joystick", props: { size: 180, angle: 45, autoCenter: false } });
-    expect(t).toMatchObject({ kind: "component", component: "dashboard/data-table", props: { title: "Orders", width: 380, data: { columns: ["Id", "Total"] } } });
-    expect(j.foreign).toEqual(json(joystick));
+describe("what is not this editor's", () => {
+  const part = (kind: string, id: unknown = "x") => ({ id, kind, label: "L", icon: null, variant: "filled" }) as unknown as Item;
+
+  it("refuses a file with a kind it does not have", () => {
+    expect(openProject(json(docOf([makeItem("button"), part("noSuchPart")])))).toBeNull();
+    expect(openProject(json(docOf([part("")])))).toBeNull();
+    expect(openProject(json(docOf([part("button", 7)])))).toBeNull();
   });
 
-  it("keeps the badge every older version threw away", () => {
-    expect(first(openProject(json(docOf([forkItem("badge", { label: "New" })]))))).toMatchObject({ component: "badge", props: { label: "New" } });
-  });
-
-  it("no longer costs the whole file: a kind nobody knows becomes a stand-in of its size", () => {
-    const unknown = forkItem("noSuchPart", { size: 170, size2: 210, prizes: [{ a: 1 }] });
-    const doc = openProject(json(docOf([makeItem("button"), unknown])))!;
-    expect(doc.groups[0].items[0].kind).toBe("button");
-    const standIn = doc.groups[1].items[0];
-    expect(standIn).toMatchObject({ id: "x", kind: "component", component: `${FOREIGN_PREFIX}noSuchPart`, size: 170, size2: 210, label: "L" });
-    expect(standIn.foreign).toEqual(json(unknown));
-    expect(partBySlug(standIn.component)).toBeUndefined();
-  });
-
-  it("gives the part back when its file comes round again", () => {
-    const standIn = adoptForeignItem(json(forkItem("noSuchPart", { prizes: [1] }))) as Item;
-    expect(adoptForeignItem(standIn)).toBe(standIn);
-    /* the same stand-in, opened by a version whose pack knows this kind */
-    const later = { ...standIn, component: `${FOREIGN_PREFIX}joystick`, foreign: { ...standIn.foreign, kind: "joystick", value: 90 } };
-    expect(adoptForeignItem(later)).toMatchObject({ component: "game/joystick", props: { angle: 90 } });
-  });
-
-  it("does not offer to revert to a kind that cannot be drawn", () => {
-    expect(revertPatch(adoptForeignItem(json(forkItem("joystick"))) as Item)).toBeNull();
-  });
-
-  it("leaves a part this editor knows exactly as it was", () => {
-    const button = makeItem("button");
-    expect(adoptForeignItem(button)).toBe(button);
-    const part = makeItem("component", "future/thing");
-    expect(adoptForeignItem(part)).toBe(part);
-  });
-
-  it("still refuses what is not a part at all", () => {
-    expect(openProject(json(docOf([forkItem("")])))).toBeNull();
-    expect(openProject(json(docOf([{ ...forkItem("noSuchPart"), id: 7 } as unknown as Item])))).toBeNull();
-  });
-
-  it("keeps a fork's part out of a link's weight", () => {
-    const item = adoptForeignItem(json(forkItem("noSuchPart", { src: "data:image/png;base64,AAAA" }))) as Item;
-    expect(shareable(docOf([item])).groups[0].items[0].foreign!.src).toBeUndefined();
-    expect(item.foreign!.src).toBe("data:image/png;base64,AAAA");
+  it("keeps a part whose definition is not here, to say so when it draws", () => {
+    const item = makeItem("component", "future/thing");
+    expect(openProject(json(docOf([item])))!.groups[0].items[0]).toEqual(json(item));
   });
 });

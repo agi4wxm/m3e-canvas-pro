@@ -12,10 +12,9 @@ import type { PNode } from "@/parts/node";
 
 const NOTHING: PNode = { type: "span" };
 
-/** A part nothing here can draw (its pack is not installed, or a fork's own kind). It keeps the
- *  size it was saved with, so the screen around it does not shift, and says what it stands for. */
+/** A part no definition stands for. It says which one, rather than leaving a hole or a crash. */
 function MissingPart({ item }: { item: Item }) {
-  const name = typeof item.foreign?.kind === "string" ? item.foreign.kind : item.component;
+  const name = item.component;
   return (
     <div
       data-missing-part={name}

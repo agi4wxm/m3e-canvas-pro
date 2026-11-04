@@ -1,5 +1,4 @@
 import { h, ic } from "../../node";
-import { defined, num, text } from "../legacy";
 import type { PartPack } from "../types";
 
 /* Stand-ins for what a prototype shows but does not play: a video, a web page, an animation. They
@@ -12,13 +11,6 @@ export const media: PartPack = {
   id: "media",
   version: "0.1.0",
   sources: {},
-  legacyKinds: {
-    videoPlayer: { slug: "media/video-placeholder", props: (it) => defined({ title: text(it, "label"), time: text(it, "supporting"), width: num(it, "size") }) },
-    video: { slug: "media/video-placeholder", props: (it) => defined({ title: text(it, "label"), width: num(it, "size") }) },
-    /* the fork keeps the address in `label` and a caption in `supporting` */
-    webView: { slug: "media/web-placeholder", props: (it) => defined({ address: text(it, "label"), width: num(it, "size") }) },
-    lottie: { slug: "media/animation-placeholder", props: (it) => defined({ file: text(it, "label"), size: num(it, "size") }) },
-  },
   defs: [
     {
       slug: "media/video-placeholder",

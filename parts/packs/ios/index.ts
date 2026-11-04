@@ -1,33 +1,14 @@
 import { h, ic } from "../../node";
-import { defined, num, rows, text } from "../legacy";
 import type { PartPack } from "../types";
 
 /* What iOS screens have and Material does not, after greycode/m3e-canvas (MIT). Drawn on M3E's roles
  * like everything else: this says what the part is on a screen, it does not imitate Apple's look,
- * and a brand button carries no logo. Kinds a shadcn M3E part stands for are in legacy.ts. */
-
-/** a row with its value at the far end, which is a list row with trailing text */
-const labeledRow = (label: string | undefined, value: string | undefined, width: number | undefined) =>
-  defined({ items: label ? [{ label }] : undefined, description: "", trailing: "text", trailingText: value ?? "", width });
-/** the words over and under a list section: text, in the sizes they have */
-const sectionText = (label: string | undefined, style: string | undefined) => (style === "footer" ? { label: label ?? "", size: 12 } : { label: label ?? "", size: 14, bold: true });
+ * and a brand button carries no logo. */
 
 export const ios: PartPack = {
   id: "ios",
   version: "0.1.0",
   sources: {},
-  legacyKinds: {
-    labeledContent: { slug: "item", props: (it) => labeledRow(text(it, "label"), text(it, "supporting"), num(it, "size")) },
-    sectionHeader: { kind: "text", fields: (it) => sectionText(text(it, "label"), "header") },
-    sectionFooter: { kind: "text", fields: (it) => sectionText(text(it, "label"), "footer") },
-    pageControl: { slug: "ios/page-dots", props: (it) => defined({ count: rows(it)?.length, current: num(it, "selected") }) },
-    photoGrid: { slug: "ios/photo-grid", props: (it) => defined({ width: num(it, "size") }) },
-    applePayButton: { slug: "ios/brand-button", props: (it) => defined({ label: text(it, "label"), width: num(it, "size") }) },
-    signInWithApple: { slug: "ios/brand-button", props: (it) => defined({ label: text(it, "label"), width: num(it, "size") }) },
-    actionSheet: { slug: "ios/action-sheet", props: (it) => defined({ title: text(it, "label"), message: text(it, "supporting"), actions: rows(it), width: num(it, "size") }) },
-    subscriptionStore: { slug: "ios/subscription", props: (it) => defined({ title: text(it, "label"), description: text(it, "supporting"), plans: rows(it), width: num(it, "size") }) },
-    wheelPicker: { slug: "ios/wheel-picker", props: (it) => defined({ label: text(it, "label"), items: rows(it), selected: num(it, "selected"), width: num(it, "size") }) },
-  },
   defs: [
     {
       slug: "ios/page-dots",

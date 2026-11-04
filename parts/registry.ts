@@ -22,9 +22,6 @@ export type PartCategory = (typeof CATEGORIES)[number];
 
 export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...PACK_DEFS];
 
-/** what the palette offers */
-export const OFFERED_PARTS = PARTS.filter((d) => !d.hidden);
-
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);
 

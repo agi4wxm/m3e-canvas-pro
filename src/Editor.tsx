@@ -126,7 +126,7 @@ import { barSlotOf, bodyRect, carryFrame, holdsEdgeBar, maxFrameLength, minFrame
 import { combineButtons } from "@/lib/combine";
 import { LOST_TEXT, canMigrate, migrateLegacy, revertPatch, type Migration } from "@/lib/migrate";
 import { constrainModalRails, modalRailOf, updateRail } from "@/lib/rail";
-import { adoptForeignItem, isProject, readProject, saveProject, unknownDocFields } from "@/lib/project";
+import { isProject, readProject, saveProject } from "@/lib/project";
 import { hasShareHash, readShareHash } from "@/lib/share";
 import { LoadingIndicator } from "@/components/Loading";
 import { draftDesign } from "@/lib/ai";
@@ -296,10 +296,8 @@ const SEED_FRAMES: Frame[] = [{ id: "seedF1", name: "Home", x: 0, y: 0 }];
  *  bar flush with the old 80dp bottom; keep it on the bottom edge. */
 function migrateGroups(groups: Group[], frames: Frame[]): Group[] {
   const oldNavH = KIND_SPEC.bottomNav.h - NAV_BAR_H;
-  /* every way a document comes in passes here (the browser's own copy skips `openProject`). A part
-     nothing here can draw stays in the sketch as a stand-in: dropping it would be saved straight
-     back, and opening a file without a pack would lose the author's work. */
-  const kept = groups.map((g) => ({ ...g, items: g.items.map((it) => adoptForeignItem(it) as Item) })).filter((g) => g.items.length > 0);
+  /* the browser's own copy skips `openProject`: a part of no kind this editor has cannot be drawn */
+  const kept = groups.map((g) => ({ ...g, items: g.items.filter((it) => !!KIND_SPEC[it.kind]) })).filter((g) => g.items.length > 0);
   /* a menu used to be a part of its own; now it is something a FAB is asked to open */
   let out = kept.map((g) => (g.items.some((it) => it.kind === "fabMenu") ? { ...g, items: g.items.map(migrateFabMenu) } : g));
   /* a carousel used to be one box with one caption and one destination; now every card has its own */
@@ -465,8 +463,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setGroupState((prev) => constrainModalRails(typeof next === "function" ? next(prev) : next));
   }, []);
   const [frames, setFrames] = useState<Frame[]>(() => [{ ...SEED_FRAMES[0], name: t("home", initialLang) }]);
-  /** what the opened document holds that this editor has no use for: saved back out as it came */
-  const [unknownFields, setUnknownFields] = useState<Record<string, unknown>>({});
   const [paletteKey, setPaletteKey] = useState("purple");
   const [customPalette, setCustomPalette] = useState<Palette | null>(null);
   const [dynamicColor, setDynamicColor] = useState(false);
@@ -747,7 +743,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     const frames = Array.isArray(doc.frames) ? doc.frames : framesRef.current;
     if (Array.isArray(doc.groups)) {
       setGroups(migrateGroups(doc.groups, frames));
-      setUnknownFields(unknownDocFields(doc));
     }
     if (Array.isArray(doc.frames)) setFrames(doc.frames);
     if (typeof doc.paletteKey === "string" && doc.paletteKey) setPaletteKey(doc.paletteKey);
@@ -897,10 +892,10 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     try {
       localStorage.setItem(
         DOC_KEY,
-        JSON.stringify({ ...unknownFields, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette: customPalette ?? undefined, dynamicColor, theme }),
+        JSON.stringify({ groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette: customPalette ?? undefined, dynamicColor, theme }),
       );
     } catch {}
-  }, [editAccess, unknownFields, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme]);
+  }, [editAccess, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme]);
 
   useEffect(() => {
     if (!loadedRef.current) return;
@@ -3628,8 +3623,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   }, [setGap]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const doc: Doc = useMemo(
-    () => ({ ...unknownFields, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette: customPalette ?? undefined, dynamicColor, theme }),
-    [unknownFields, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme],
+    () => ({ groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette: customPalette ?? undefined, dynamicColor, theme }),
+    [groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme],
   );
   /** the same document, for callbacks that were created on an earlier render */
   const docRef = useRef(doc);

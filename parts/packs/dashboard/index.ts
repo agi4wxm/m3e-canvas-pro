@@ -1,7 +1,6 @@
 import { h, type PNode } from "../../node";
-import { defined, kept, num, rows as entriesOf, tableOf, text } from "../legacy";
 import type { P, PartDef, TableData } from "../../types";
-import type { LegacyKind, PartPack } from "../types";
+import type { PartPack } from "../types";
 
 /* The dashboard parts of Skufu/m3e-canvas feat/dashboard-kit (MIT), and the chart kinds of
  * greycode/m3e-canvas (MIT). Those forks draw from values made up from the title; here every part
@@ -13,15 +12,6 @@ const ROWS = [
   ["INV-001", "Paid", "$250.00"],
   ["INV-002", "Pending", "$150.00"],
   ["INV-003", "Unpaid", "$350.00"],
-];
-
-const INVOICES = [
-  ["INV001", "Paid", "$250.00", "Jan 4"],
-  ["INV002", "Pending", "$150.00", "Jan 9"],
-  ["INV003", "Unpaid", "$350.00", "Jan 15"],
-  ["INV004", "Paid", "$450.00", "Jan 21"],
-  ["INV005", "Paid", "$550.00", "Jan 28"],
-  ["INV006", "Pending", "$200.00", "Feb 2"],
 ];
 
 const CHART_TYPES = ["bar", "line", "area", "stacked-bar", "pie"] as const;
@@ -80,93 +70,10 @@ function chartTree(p: P): PNode {
   );
 }
 
-const SAMPLE = [42, 58, 35, 71, 49, 63, 54, 38, 66, 47, 59, 44];
-
-/** A chart kind of a fork. None of them saved any values, only the names along the axis, so these
- *  come across with those names and placeholder values for the author to replace. */
-const chartKind = (type: (typeof CHART_TYPES)[number], stacked = false): LegacyKind => ({
-  slug: "dashboard/chart",
-  props: (it) => {
-    const names = entriesOf(it)?.map((r) => r.label);
-    const series = stacked ? ["A", "B"] : [text(it, "label") ?? "Value"];
-    return defined({
-      type,
-      title: text(it, "label") ?? "",
-      subtitle: text(it, "supporting") ?? "",
-      width: num(it, "size"),
-      height: num(it, "size2"),
-      data: names ? { columns: ["", ...series], rows: names.map((name, i) => [name, ...series.map((_, s) => String(SAMPLE[(i + s * 3) % SAMPLE.length]))]) } : undefined,
-    });
-  },
-});
-
 export const dashboard: PartPack = {
   id: "dashboard",
   version: "0.1.0",
   sources: {},
-  retired: {
-    /* the shadcn M3E table drew sample invoices under the author's column names, the last column being the amount */
-    table: {
-      slug: "dashboard/data-table",
-      props: (o) => {
-        const names = Array.isArray(o.columns) ? o.columns.map((c: { label?: unknown }) => String(c?.label ?? "")) : COLUMNS;
-        const count = typeof o.rows === "number" ? o.rows : 3;
-        return defined({
-          title: "",
-          caption: kept(o, "caption") ?? "Recent invoices",
-          selected: typeof o.selected === "number" ? o.selected : undefined,
-          alignLast: true,
-          width: typeof o.width === "number" ? o.width : undefined,
-          data: { columns: names, rows: INVOICES.slice(0, count).map((row) => names.map((_, c) => (c === names.length - 1 ? row[2] : [row[0], row[1], row[3]][c] ?? ""))) },
-        });
-      },
-    },
-    /* its months and one or two series are the chart's own sample, cut to what it showed */
-    chart: {
-      slug: "dashboard/chart",
-      props: (o) => {
-        const months = typeof o.bars === "number" ? o.bars : 4;
-        const both = o.series !== 1;
-        return defined({
-          type: "bar",
-          title: "",
-          subtitle: "",
-          width: typeof o.width === "number" ? o.width : undefined,
-          height: typeof o.height === "number" ? o.height : undefined,
-          data: { columns: both ? MONTHLY.columns : MONTHLY.columns.slice(0, 2), rows: MONTHLY.rows.slice(0, months).map((r) => (both ? r : r.slice(0, 2))) },
-        });
-      },
-    },
-  },
-  legacyKinds: {
-    /* the card's figure is in `supporting`: the fork has no trend */
-    statCard: { slug: "dashboard/stat-card", props: (it) => defined({ title: text(it, "label"), value: text(it, "supporting"), trend: "", width: num(it, "size") }) },
-    dataTable: { slug: "dashboard/data-table", props: (it) => defined({ title: text(it, "label") ?? "", data: tableOf(it), width: num(it, "size") }) },
-    /* 表格原型's own kind: a fill and a size, and its rows live in the editor it came with */
-    table: { slug: "dashboard/data-table", props: (it) => defined({ title: "", width: num(it, "size") }) },
-    filterBar: { slug: "dashboard/filter-bar", props: (it) => defined({ placeholder: text(it, "label"), filters: entriesOf(it), width: num(it, "size") }) },
-    barChart: chartKind("bar"),
-    lineChart: chartKind("line"),
-    areaChart: chartKind("area"),
-    pieChart: chartKind("pie"),
-    stackedBarChart: chartKind("stacked-bar", true),
-    chart: chartKind("bar"),
-    /* no values saved here either: the part's sample points stand in */
-    scatterChart: { slug: "dashboard/scatter", props: (it) => defined({ title: text(it, "label") ?? "", subtitle: text(it, "supporting") ?? "", width: num(it, "size") }) },
-    heatmapChart: {
-      slug: "dashboard/heatmap",
-      props: (it) => {
-        const columns = entriesOf(it)?.map((r) => r.label);
-        return defined({ title: text(it, "label") ?? "", subtitle: text(it, "supporting") ?? "", width: num(it, "size"), data: columns ? { columns, rows: [0, 1, 2, 3].map((r) => columns.map((_, c) => String(SAMPLE[(r * columns.length + c) % SAMPLE.length]))) } : undefined });
-      },
-    },
-    gauge: { slug: "dashboard/gauge", props: (it) => defined({ label: text(it, "label"), value: num(it, "value") }) },
-    descriptionList: {
-      slug: "dashboard/description-list",
-      /* one `name<TAB>value` per row */
-      props: (it) => { const r = entriesOf(it)?.map((e) => e.label.split("\t")); return defined({ data: r ? { columns: ["Name", "Value"], rows: r } : undefined, width: num(it, "size") }); },
-    },
-  },
   defs: [
     {
       slug: "dashboard/chart",

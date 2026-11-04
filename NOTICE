@@ -58,12 +58,6 @@ Ported into the component packs in parts/packs, each under the MIT License:
   HK-hub/design-canvas                Ant Design parts' scope
   JetSquirrel/gpui-kit-canvas         the desktop parts' scope, the containers' scope
 
-jason2be/SwiftUI-Canvas: only the shape of its project files is read, to open them;
-none of its code is here.
-
-fixtures/fork-items.json is built by running the lib/tokens.ts of those forks and
-others (see the fork names inside it), to test opening what they save.
-
 Material Symbols (Google) - Apache License 2.0, via Iconify
   The bundled icon glyphs (components/m3e/icon-data*.ts).
 

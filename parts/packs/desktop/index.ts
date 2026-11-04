@@ -3,7 +3,7 @@ import type { PartPack } from "../types";
 
 /* The desktop chrome of JetSquirrel/gpui-kit-canvas (MIT): what a window has around its content, and
  * the small desktop controls shadcn M3E has no counterpart for. Written here on M3E's roles; the
- * Rust library that fork targets is not involved. The forks' kinds come in through DIALECT_KINDS. */
+ * Rust library that fork targets is not involved. */
 
 export const desktop: PartPack = {
   id: "desktop",
@@ -144,26 +144,6 @@ export const desktop: PartPack = {
       h: 24,
       props: [{ key: "text", label: "Text", labels: { ja: "テキスト", zh: "文字", ko: "텍스트" }, kind: "text", default: "Thinking…", defaults: { zh: "思考中…" } }],
       tree: (p) => h("span", { "data-slot": "shimmer", className: "text-body-medium text-on-surface-variant animate-pulse" }, p.s("text")),
-    },
-    {
-      slug: "desktop/scrollbar",
-      name: "Scrollbar",
-      labels: { ja: "スクロールバー", zh: "滚动条", ko: "스크롤바" },
-      category: "Layout",
-      /* a bar with nothing to scroll: kept so the files that have one still draw it, not offered */
-      hidden: true,
-      icon: "unfold_more",
-      w: 8,
-      h: 200,
-      props: [
-        { key: "length", label: "Length", labels: { ja: "長さ", zh: "长度", ko: "길이" }, kind: "number", default: 200, min: 40, max: 1200, step: 4, unit: "px" },
-        { key: "position", label: "Position", labels: { ja: "位置", zh: "位置", ko: "위치" }, kind: "number", default: 20, min: 0, max: 100, step: 1, unit: "%" },
-      ],
-      tree: (p) => {
-        const length = Math.round(p.n("length"));
-        const thumb = Math.round(length * 0.25);
-        return h("div", { "data-slot": "scrollbar", className: "bg-surface-container-high relative w-2 rounded-full", style: { height: length } }, h("div", { className: "bg-outline absolute inset-x-0 rounded-full", style: { height: thumb, top: Math.round(((length - thumb) * p.n("position")) / 100) } }));
-      },
     },
   ],
 };

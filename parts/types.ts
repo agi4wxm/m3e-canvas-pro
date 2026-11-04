@@ -101,8 +101,6 @@ export type PartDef = {
   /** A container: what lies wholly inside it moves with it, the way a screen carries its parts.
    *  It keeps no list of them; see `heldBy`. */
   holds?: boolean;
-  /** Not offered in the palette: kept so a file that has one still draws it. */
-  hidden?: boolean;
   /** the prop that remembers which entry is chosen; a tap moves it in the preview, and the
    *  destination bars that share their entries share the choice across screens too */
   selectKey?: string;

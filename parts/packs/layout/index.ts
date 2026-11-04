@@ -1,6 +1,5 @@
 import { h, ic } from "../../node";
 import type { P, PartDef, PropDef } from "../../types";
-import { defined, materialIcon, num, rows, text } from "../legacy";
 import type { PartPack } from "../types";
 
 /* Containers: the ground other parts are put on. Dropped wholly inside one, a part moves with it,
@@ -22,29 +21,13 @@ function container(slug: string, name: string, labels: NonNullable<PartDef["labe
   return { slug: `layout/${slug}`, name, labels, category: "Layout", icon, w, h: hh, holds: true, props: [...props, WIDTH(w), HEIGHT(hh)], tree };
 }
 
-/** the fork's measures: `size` across and `size2` down, each left out when it has the default */
-const sized = (it: Record<string, unknown>) => ({ width: num(it, "size"), height: num(it, "size2") });
-
 const FILLS = ["none", "surface", "surface-container-low", "surface-container", "surface-container-high", "surface-container-highest", "primary-container", "secondary-container", "tertiary-container"];
 const BORDER: Record<string, string> = { none: "", solid: "border border-outline-variant", dashed: "border border-dashed border-outline-variant" };
-
-/* The three kinds of plain box the forks have are one part, in three settings. */
-const GROUP_BOX = { fill: "none", border: "solid", place: "start", radius: 8 };
-const PANEL = { label: "", note: "", fill: "surface-container", border: "none" };
 
 export const layout: PartPack = {
   id: "layout",
   version: "0.1.0",
   sources: {},
-  legacyKinds: {
-    container: { slug: "layout/container", props: (it) => defined({ label: text(it, "label") ?? "", ...sized(it) }) },
-    stack: { slug: "layout/stack", props: (it) => defined({ label: text(it, "label") ?? "", note: text(it, "supporting") ?? "", ...sized(it) }) },
-    gridView: { slug: "layout/grid-view", props: (it) => defined({ label: text(it, "label") ?? "", note: text(it, "supporting") ?? "", ...sized(it) }) },
-    groupBox: { slug: "layout/container", props: (it) => defined({ ...GROUP_BOX, label: text(it, "label") ?? "", note: text(it, "supporting") ?? "", ...sized(it) }) },
-    panel: { slug: "layout/container", props: (it) => defined({ ...PANEL, radius: num(it, "radiusTop"), ...sized(it) }) },
-    dock: { slug: "layout/dock", props: (it) => defined({ items: rows(it), selected: num(it, "value"), ...sized(it) }) },
-    supportingPane: { slug: "layout/supporting-pane", props: (it) => defined({ label: text(it, "label") ?? "", note: text(it, "supporting") ?? "", icon: materialIcon(it.icon), ...sized(it) }) },
-  },
   defs: [
     container(
       "container",

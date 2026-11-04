@@ -1,7 +1,6 @@
 import { h, ic } from "../../node";
 import type { ListItem, P, PartDef, TableData } from "../../types";
-import { defined, materialIcon, num, rows, text } from "../legacy";
-import type { LegacyKind, PartPack } from "../types";
+import type { PartPack } from "../types";
 
 /* The game parts of 17722797729/m3e-canvas game-ui (MIT). In the fork one part reaches into seven
  * source files; here the whole of it is a definition below and a component file beside this one. */
@@ -17,10 +16,6 @@ const PRIZES: ListItem[] = [
   { label: "Coins", icon: "paid" },
 ];
 const REWARDS: TableData = { columns: ["At", "Label", "Icon"], rows: [["10", "4 h", "redeem"], ["20", "8 h", "savings"], ["30", "50", "inventory_2"], ["60", "1", "workspace_premium"]] };
-
-/** a fork's prizes: label and icon, which is a list's row as it is */
-const prizesOf = (it: Record<string, unknown>): ListItem[] | undefined =>
-  Array.isArray(it.prizes) && it.prizes.length ? it.prizes.map((p: { label?: unknown; icon?: unknown }) => { const icon = materialIcon(p?.icon); return { label: String(p?.label ?? ""), ...(icon ? { icon } : {}) }; }) : undefined;
 
 /** one machine of the six: they differ in what they draw, not in what they hold */
 function drawDef(slug: string, component: string, name: string, labels: PartDef["labels"], icon: string, side: number, height: number, buttonDefault: string): PartDef {
@@ -41,8 +36,6 @@ function drawDef(slug: string, component: string, name: string, labels: PartDef[
     tree: (p: P) => h(component, { prizes: p.list("prizes").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}) })), label: p.s("label"), result: Math.round(p.n("result")), size: Math.round(p.n("size")) }),
   };
 }
-
-const drawKind = (slug: string): LegacyKind => ({ slug, props: (it) => defined({ label: text(it, "label"), prizes: prizesOf(it), size: num(it, "size") }) });
 
 export const game: PartPack = {
   id: "game",
@@ -65,57 +58,6 @@ export const game: PartPack = {
     FunctionButton: { from: "@/components/packs/game/Panels" },
   },
   load: () => import("./parts"),
-  legacyKinds: {
-    /* a quantity row here and in the iOS fork; the GPUI canvas's row of steps is told apart by its dialect first */
-    stepper: { slug: "game/quantity-stepper", props: (item) => (typeof item.value === "number" ? { value: item.value } : {}) },
-    wheel: drawKind("game/wheel"),
-    gridWheel: drawKind("game/grid-wheel"),
-    gacha: drawKind("game/gacha"),
-    slot: drawKind("game/slot-machine"),
-    moneyTree: drawKind("game/money-tree"),
-    eggSmash: drawKind("game/egg-smash"),
-    /* the GPUI canvas's date grid is told apart by its dialect first; what is left is a daily check-in */
-    calendar: { slug: "game/check-in", props: (it) => defined({ title: text(it, "label"), signed: num(it, "value"), width: num(it, "size") }) },
-    assetPill: { slug: "game/asset-pill", props: (it) => defined({ value: text(it, "label"), icon: materialIcon(it.icon) }) },
-    sliderInput: { slug: "slider", props: (it) => defined({ label: text(it, "label"), value: num(it, "value"), width: num(it, "size") }) },
-    sideTabs: { slug: "game/side-tabs", props: (it) => defined({ items: rows(it), selected: num(it, "selected") }) },
-    invGrid: {
-      slug: "game/inventory",
-      /* the cells a fork saved say how many columns and rows it had */
-      props: (it) => {
-        const cells = Array.isArray(it.children) ? (it.children as { cellCol?: unknown; cellRow?: unknown }[]) : [];
-        const most = (key: "cellCol" | "cellRow") => Math.max(0, ...cells.map((c) => (typeof c[key] === "number" ? (c[key] as number) : 0))) + 1;
-        /* the fork's cells are empty boxes: its items are the author's, and not in the saved part */
-        return defined({ columns: cells.length ? most("cellCol") : undefined, rows: cells.length ? most("cellRow") : undefined, filled: 0, width: num(it, "size") });
-      },
-    },
-    itemCell: {
-      slug: "game/item-cell",
-      props: (it) => defined({ icon: materialIcon(it.icon), name: text(it, "label"), count: text(it, "supporting"), rarity: it.badge2 === true ? text(it, "badge2Text") : "", rarityColor: text(it, "badge2Color"), badge: it.badge === true ? text(it, "badgeText") : "", size: num(it, "size") }),
-    },
-    taskBar: { slug: "game/task-bar", props: (it) => defined({ title: text(it, "label"), action: text(it, "label2"), width: num(it, "size") }) },
-    rewardTrack: {
-      slug: "game/reward-track",
-      props: (it) =>
-        defined({
-          data: Array.isArray(it.rewards) ? { columns: REWARDS.columns, rows: (it.rewards as { at?: unknown; label?: unknown; icon?: unknown }[]).map((r) => [String(r.at ?? 0), String(r.label ?? ""), materialIcon(r.icon) ?? ""]) } : undefined,
-          value: num(it, "value"),
-          max: num(it, "max"),
-          action: text(it, "label"),
-          width: num(it, "size"),
-        }),
-    },
-    fnButton: { slug: "game/function-button", props: (it) => defined({ label: text(it, "label"), icon: materialIcon(it.icon), timer: it.timer === true ? num(it, "timerValue") : 0, unit: text(it, "timerUnit"), size: num(it, "size") }) },
-    confirmBox: { slug: "alert-dialog", props: (it) => defined({ title: text(it, "label"), description: text(it, "supporting"), action: text(it, "label2"), cancel: text(it, "label3") }) },
-    joystick: {
-      slug: "game/joystick",
-      props: (item) => ({
-        ...(typeof item.size === "number" ? { size: item.size } : {}),
-        ...(typeof item.value === "number" ? { angle: item.value } : {}),
-        ...(typeof item.joystickReturn === "boolean" ? { autoCenter: item.joystickReturn } : {}),
-      }),
-    },
-  },
   defs: [
     drawDef("game/wheel", "Wheel", "Prize wheel", { ja: "ルーレット", zh: "转盘", ko: "룰렛" }, "donut_large", 220, 252, "Spin"),
     drawDef("game/grid-wheel", "GridWheel", "Grid draw", { ja: "グリッド抽選", zh: "九宫格抽奖", ko: "격자 추첨" }, "grid_view", 240, 272, "Draw"),
