@@ -41,6 +41,16 @@ function checkClosed(files: ProjectFiles) {
   }
 }
 
+describe("a checkout with CRLF line endings", () => {
+  it("exports the same files", async () => {
+    const { doc, widths } = proofDoc();
+    const lf = await buildProject(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    const crlf = await buildProject(doc, widths, { read: async (path) => (await fromDisk(path)).replaceAll("\r\n", "\n").replaceAll("\n", "\r\n"), fetchIcons: noNetwork, lang: "en" });
+    expect(Object.keys(crlf.files).sort()).toEqual(Object.keys(lf.files).sort());
+    expect(crlf.files["src/App.tsx"]).toBe(lf.files["src/App.tsx"]);
+  });
+});
+
 describe("sizes of one screen", () => {
   const twoSizes = (): Doc => ({ groups: [], frames: [{ id: "p", name: "Home", x: 0, y: 0 }, { id: "d", name: "Home", x: 500, y: 0, w: 1280, h: 800, variantOf: "p" }, { id: "o", name: "Other", x: 1900, y: 0 }], paletteKey: "purple", frame: "phone", title: "T", brief: "" });
 

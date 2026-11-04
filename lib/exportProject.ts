@@ -536,7 +536,9 @@ function versionsFrom(pkg: { dependencies?: Record<string, string>; devDependenc
 const sorted = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
 
 export async function buildProject(doc: Doc, widths: Record<string, number>, o: ExportOptions = {}): Promise<Project> {
-  const read = o.read ?? (await import("./exportSources")).readSource;
+  const readAny = o.read ?? (await import("./exportSources")).readSource;
+  /* a checkout on Windows may have every source in CRLF; what is written is the same either way */
+  const read = async (path: string) => (await readAny(path)).replaceAll("\r\n", "\n");
   const lang = o.lang ?? getLang();
   const name = projectName(doc);
   const warnings: string[] = [];
