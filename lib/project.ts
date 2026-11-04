@@ -174,6 +174,43 @@ function fromMiuixProject(value: Record<string, unknown>): Record<string, unknow
   };
 }
 
+/** A SwiftUI canvas project: screens with no parts of their own and one list of parts, each naming
+ *  its screen (none: it lies on the board). It is told from Miuix by that list, and its parts speak
+ *  no other way the adoption could recognize, so each is marked. An iPhone is 393 by 852; the look
+ *  it was given (shape, font, an accent by preset name) stays in `swiftUITheme`, unread. There was
+ *  no way to run that fork here: this follows its types, not a file it wrote. */
+function fromSwiftUIProject(value: Record<string, unknown>): Record<string, unknown> | null {
+  const { screens, parts } = value;
+  if (!Array.isArray(screens) || !Array.isArray(parts) || !screens.every(isRecord) || !parts.every(isRecord)) return null;
+  const theme = isRecord(value.theme) ? value.theme : {};
+  const seed = typeof theme.accent === "string" && /^#[0-9a-f]{6}$/i.test(theme.accent) ? theme.accent : undefined;
+  const at = new Map(screens.map((s: Record<string, unknown>) => [s.id, s]));
+  const { screens: _screens, parts: _parts, theme: _theme, version: _version, ...rest } = value;
+  return {
+    ...rest,
+    title: typeof value.title === "string" ? value.title : "",
+    brief: typeof value.brief === "string" ? value.brief : "",
+    frame: "phone",
+    paletteKey: seed ? "custom" : "purple",
+    ...(seed ? { customPalette: schemeFromSeed(seed, "SwiftUI") } : {}),
+    theme: { dark: theme.scheme === "dark" },
+    swiftUITheme: theme,
+    frames: screens.map((s: Record<string, unknown>) => ({ id: s.id, name: s.name, x: s.x, y: s.y, w: 393, h: 852, ...(typeof s.note === "string" ? { note: s.note } : {}) })),
+    groups: parts.map((part: Record<string, unknown>) => {
+      const screen = at.get(part.screen);
+      const link = isRecord(part.link) ? part.link : undefined;
+      const options = Array.isArray(part.options) ? part.options : undefined;
+      const item = {
+        ...part,
+        dialect: "swiftui",
+        ...(options ? { tabs: options.map((o) => (isRecord(o) ? { ...o, ...(typeof o.target === "string" ? { to: o.target } : {}) } : o)) } : {}),
+        ...(typeof link?.target === "string" ? { to: link.target, transition: link.transition } : {}),
+      };
+      return { id: `g-${String(part.id)}`, x: Number(screen?.x ?? 0) + Number(part.x ?? 0), y: Number(screen?.y ?? 0) + Number(part.y ?? 0), axis: "x", items: [item] };
+    }),
+  };
+}
+
 /** The one way in for a document that comes from outside: a file or a link. Takes it out of its
  *  envelope, brings it up to this version, adopts the parts this editor does not know, and returns
  *  it only if it then has the shape the editor relies on. A file from a later version is refused
@@ -190,7 +227,7 @@ export function openProject(value: unknown): Doc | null {
   }
   if (!isRecord(doc)) return null;
   if (Array.isArray(doc.screens) && !Array.isArray(doc.groups)) {
-    doc = fromMiuixProject(doc);
+    doc = Array.isArray(doc.parts) ? fromSwiftUIProject(doc) : fromMiuixProject(doc);
     if (!doc) return null;
     version = PROJECT_VERSION;
   }

@@ -12,7 +12,7 @@ import { isNode, type PNode, type PValue } from "../node";
 import { CATEGORIES, defaultValues, partBySlug, treeOf } from "../registry";
 import { renderNode } from "../render";
 import { PACKS, isDrawnKind } from "./index";
-import { CORE_LEGACY_KINDS, DIALECT_KINDS } from "./legacy";
+import { ANT_COMPONENTS, CORE_LEGACY_KINDS, DIALECT_KINDS } from "./legacy";
 import { preloadPacks } from "./load";
 
 /* The contract every pack keeps (文档/组件包接入规范.md), checked for every pack in PACKS: a new
@@ -72,6 +72,16 @@ describe("the kinds shadcn M3E parts stand for", () => {
       const props = legacy.props({ kind, id: "x", label: "L", supporting: "S", size: 100, size2: 50, value: 1, selected: 1, checked: true, side: "left", tabs: [{ label: "A" }] });
       const keys = new Set(def!.props.map((p) => p.key));
       for (const key of Object.keys(props)) expect(keys.has(key), `${kind} writes ${key}`).toBe(true);
+    }
+  });
+
+  it("from the Ant Design fork write only what its parts have", () => {
+    const props = { label: "L", type: "default", size: "middle", danger: true, disabled: true, placeholder: "P", value: "V", allowClear: true, options: "A", fields: "A", layout: "vertical", submitText: "S", showSubmit: true, title: "T", extra: "E", body: "B", bordered: true, hoverable: true, columns: "A|a", rows: 2, pagination: true, items: "A", activeKey: 0, selectedKey: 0, mode: "inline", separator: "/", total: 9, pageSize: 3, current: 1, content: "C", okText: "O", cancelText: "N", open: true, text: "X", dashed: true };
+    for (const [component, known] of Object.entries(ANT_COMPONENTS)) {
+      const def = partBySlug(known.slug);
+      expect(def, `${component} -> ${known.slug}`).toBeTruthy();
+      const keys = new Set(def!.props.map((p) => p.key));
+      for (const key of Object.keys(known.props({ kind: "dsComponent", id: "x", size: 300, component, props }))) expect(keys.has(key), `${component} writes ${key}`).toBe(true);
     }
   });
 

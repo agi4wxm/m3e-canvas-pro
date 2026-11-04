@@ -148,17 +148,17 @@ describe("parts nothing here can draw", () => {
   });
 
   it("no longer costs the whole file: a kind nobody knows becomes a stand-in of its size", () => {
-    const gacha = forkItem("gacha", { size: 170, size2: 210, prizes: [{ a: 1 }] });
-    const doc = openProject(json(docOf([makeItem("button"), gacha])))!;
+    const unknown = forkItem("noSuchPart", { size: 170, size2: 210, prizes: [{ a: 1 }] });
+    const doc = openProject(json(docOf([makeItem("button"), unknown])))!;
     expect(doc.groups[0].items[0].kind).toBe("button");
     const standIn = doc.groups[1].items[0];
-    expect(standIn).toMatchObject({ id: "x", kind: "component", component: `${FOREIGN_PREFIX}gacha`, size: 170, size2: 210, label: "L" });
-    expect(standIn.foreign).toEqual(json(gacha));
+    expect(standIn).toMatchObject({ id: "x", kind: "component", component: `${FOREIGN_PREFIX}noSuchPart`, size: 170, size2: 210, label: "L" });
+    expect(standIn.foreign).toEqual(json(unknown));
     expect(partBySlug(standIn.component)).toBeUndefined();
   });
 
   it("gives the part back when its file comes round again", () => {
-    const standIn = adoptForeignItem(json(forkItem("gacha", { prizes: [1] }))) as Item;
+    const standIn = adoptForeignItem(json(forkItem("noSuchPart", { prizes: [1] }))) as Item;
     expect(adoptForeignItem(standIn)).toBe(standIn);
     /* the same stand-in, opened by a version whose pack knows this kind */
     const later = { ...standIn, component: `${FOREIGN_PREFIX}joystick`, foreign: { ...standIn.foreign, kind: "joystick", value: 90 } };
@@ -178,11 +178,11 @@ describe("parts nothing here can draw", () => {
 
   it("still refuses what is not a part at all", () => {
     expect(openProject(json(docOf([forkItem("")])))).toBeNull();
-    expect(openProject(json(docOf([{ ...forkItem("gacha"), id: 7 } as unknown as Item])))).toBeNull();
+    expect(openProject(json(docOf([{ ...forkItem("noSuchPart"), id: 7 } as unknown as Item])))).toBeNull();
   });
 
   it("keeps a fork's part out of a link's weight", () => {
-    const item = adoptForeignItem(json(forkItem("gacha", { src: "data:image/png;base64,AAAA" }))) as Item;
+    const item = adoptForeignItem(json(forkItem("noSuchPart", { src: "data:image/png;base64,AAAA" }))) as Item;
     expect(shareable(docOf([item])).groups[0].items[0].foreign!.src).toBeUndefined();
     expect(item.foreign!.src).toBe("data:image/png;base64,AAAA");
   });

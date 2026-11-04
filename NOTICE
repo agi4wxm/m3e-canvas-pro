@@ -51,11 +51,15 @@ shadcn/ui - MIT License
 
 Ported into the component packs in parts/packs, each under the MIT License:
 
-  17722797729/m3e-canvas (game-ui)    the joystick's geometry, the quantity stepper's look
+  17722797729/m3e-canvas (game-ui)    the joystick's geometry, the quantity stepper's look,
+                                      the prize machines' and game panels' behavior
   Skufu/m3e-canvas (feat/dashboard-kit)  the dashboard parts' scope
-  greycode/m3e-canvas                 the chart kinds' scope
+  greycode/m3e-canvas                 the chart kinds' scope, the iOS parts' scope
   HK-hub/design-canvas                Ant Design parts' scope
   JetSquirrel/gpui-kit-canvas         the desktop parts' scope
+
+jason2be/SwiftUI-Canvas: only the shape of its project files is read, to open them;
+none of its code is here.
 
 fixtures/fork-items.json is built by running the lib/tokens.ts of those forks and
 others (see the fork names inside it), to test opening what they save.
