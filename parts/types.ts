@@ -98,6 +98,9 @@ export type PartDef = {
   /** the places inside the part a tap can be sent from, for the panel's slot strip and the
    *  preview's `data-tap` delegation */
   slots?: (p: P) => PartSlot[];
+  /** A container: what lies wholly inside it moves with it, the way a screen carries its parts.
+   *  It keeps no list of them; see `heldBy`. */
+  holds?: boolean;
   /** the prop that remembers which entry is chosen; a tap moves it in the preview, and the
    *  destination bars that share their entries share the choice across screens too */
   selectKey?: string;

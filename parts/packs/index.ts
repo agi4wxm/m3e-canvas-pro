@@ -6,12 +6,13 @@ import { desktop } from "./desktop";
 import { game } from "./game";
 import { ios } from "./ios";
 import { ANT_COMPONENTS, CORE_LEGACY_KINDS, DIALECT_KINDS, dialectOf, type DialectKind } from "./legacy";
+import { layout } from "./layout";
 import { media } from "./media";
 import type { LegacyKind, PackSource, PartPack } from "./types";
 
 /* Every pack, in palette order. This list is the one place a pack is registered: the registry, the
  * palette, the printed code, project files and the loading of its components all read from it. */
-export const PACKS: PartPack[] = [basic, media, dashboard, desktop, game, ios, antd];
+export const PACKS: PartPack[] = [basic, layout, media, dashboard, desktop, game, ios, antd];
 
 export const PACK_DEFS: PartDef[] = PACKS.flatMap((p) => p.defs);
 export const PACK_CATEGORIES = PACKS.map((p) => p.category);

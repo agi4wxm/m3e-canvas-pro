@@ -1,4 +1,4 @@
-import { CAROUSEL_LAYOUTS, DATE_LAYOUTS, Doc, KIND_ORDER, Kind, TIME_LAYOUTS, VARIANTS, framePresetPatch, isCardAlign, isCardImagePos, isPlace, isTextToken, isTrackThickness } from "./tokens";
+import { CAROUSEL_LAYOUTS, DATE_LAYOUTS, Doc, GAP, Item, KIND_ORDER, Kind, TIME_LAYOUTS, VARIANTS, framePresetPatch, isCardAlign, isCardImagePos, isPlace, isTextToken, isTrackThickness, sizeOf } from "./tokens";
 import { schemeFromSeed } from "./color";
 import { foreignKindOf, isDrawnKind, packOfSlug } from "../parts/packs";
 
@@ -120,6 +120,51 @@ export function adoptForeignItem(item: unknown): unknown {
   return { ...base, component: `${FOREIGN_PREFIX}${kind}`, props: {}, ...(typeof w === "number" ? { size: w } : {}), ...(typeof h === "number" ? { size2: h } : {}) };
 }
 
+/** a part that draws its own `children`: the game fork's inventory draws them as its cells */
+const DRAWS_ITS_CHILDREN = new Set(["invGrid"]);
+
+/** Two forks nest. GPUI groups hold groups (`children`, placed from the group's corner), and the
+ *  game fork's parts hold parts (`children`, placed from the part's corner). Here what a container
+ *  holds is what lies inside it and over it (`heldBy`), so each comes out to the top level at the
+ *  place it was drawn, right after the thing it was in. Nothing keeps a `children` afterwards, so
+ *  a file saved from here does not spread twice. */
+function spreadNested(value: Record<string, unknown>) {
+  if (!Array.isArray(value.groups)) return value;
+  const out: unknown[] = [];
+  const visit = (g: unknown, ox: number, oy: number) => {
+    if (!isRecord(g) || !Array.isArray(g.items)) return void out.push(g);
+    const { children, ...group } = g;
+    const x = ox + (Number(g.x) || 0);
+    const y = oy + (Number(g.y) || 0);
+    const inside: [unknown, number, number][] = [];
+    let along = 0;
+    const items = g.items.map((item: unknown) => {
+      if (!isRecord(item)) return item;
+      const pos = isRecord(g.pos) && isRecord(g.pos[String(item.id)]) ? (g.pos[String(item.id)] as Record<string, unknown>) : undefined;
+      const at = g.free ? { x: x + (Number(pos?.x) || 0), y: y + (Number(pos?.y) || 0) } : g.axis === "y" ? { x, y: y + along } : { x: x + along, y };
+      /* a part that is no part at all has no size: the check further on refuses the file */
+      const adopted = adoptForeignItem(item);
+      if (isRecord(adopted) && KINDS.has(String(adopted.kind))) {
+        const size = sizeOf(adopted as unknown as Item, {});
+        along += (g.axis === "y" ? size.h : size.w) + GAP;
+      }
+      if (!Array.isArray(item.children) || DRAWS_ITS_CHILDREN.has(String(item.kind))) return item;
+      for (const child of item.children) {
+        if (!isRecord(child)) continue;
+        const { x: cx, y: cy, ...part } = child;
+        inside.push([{ id: `g-${String(child.id)}`, x: cx, y: cy, axis: "x", items: [part] }, at.x, at.y]);
+      }
+      const { children: _children, ...rest } = item;
+      return rest;
+    });
+    out.push({ ...group, x, y, items });
+    for (const [child, cx, cy] of inside) visit(child, cx, cy);
+    if (Array.isArray(children)) for (const child of children) visit(child, x, y);
+  };
+  for (const g of value.groups) visit(g, 0, 0);
+  return { ...value, groups: out };
+}
+
 const adoptItems = (value: Record<string, unknown>) =>
   Array.isArray(value.groups) ? { ...value, groups: value.groups.map((g) => (isRecord(g) && Array.isArray(g.items) ? { ...g, items: g.items.map(adoptForeignItem) } : g)) } : value;
 
@@ -232,7 +277,7 @@ export function openProject(value: unknown): Doc | null {
     version = PROJECT_VERSION;
   }
   for (let v = version; v < PROJECT_VERSION; v++) doc = MIGRATIONS[v]?.(doc as Record<string, unknown>) ?? doc;
-  let next = adoptItems(doc as Record<string, unknown>);
+  let next = adoptItems(spreadNested(doc as Record<string, unknown>));
   /* a fork's own target (iOS): the editor reads none, and one it does not know is no reason to refuse the file */
   if (typeof next.platform === "string" && !isLegacyPlatform(next.platform)) {
     const { platform, ...rest } = next;

@@ -72,6 +72,8 @@ import {
   KIND_ORDER,
   KIND_SPEC,
   collapseFree,
+  heldBy,
+  underWhatItHolds,
   layoutOf,
   lerp,
   makeItem,
@@ -237,7 +239,7 @@ type Gesture =
       groups: { id: string; x: number; y: number }[];
       moved: boolean;
     }
-  | { kind: "group"; id: string; sx: number; sy: number; gx: number; gy: number; moved: boolean; overBin: boolean; guide?: Guide | null };
+  | { kind: "group"; id: string; sx: number; sy: number; gx: number; gy: number; moved: boolean; overBin: boolean; guide?: Guide | null; carry?: { id: string; x: number; y: number }[] };
 
 /** everything in a document apart from its screens and parts */
 type DocMeta = Omit<Doc, "groups" | "frames">;
@@ -1393,6 +1395,19 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       setGesture(gg);
       return;
     }
+    /* a container with something on it moves with what it holds, all in place, not as a copy
+       following the pointer; an empty one is a part like any other */
+    const held = g.locked ? [] : heldBy(g, groupsRef.current, widthsRef.current);
+    if (held.length) {
+      setSelectedIds((cur) => (e.shiftKey ? [...cur.filter((x) => x !== item.id), item.id] : [item.id]));
+      setSelectedFrameId(null);
+      setSelectedLinkId(null);
+      setRightTab("edit");
+      const gg: Gesture = { kind: "group", id: g.id, sx: e.clientX, sy: e.clientY, gx: g.x, gy: g.y, moved: false, overBin: false, carry: held.map((x) => ({ id: x.id, x: x.x, y: x.y })) };
+      gestureRef.current = gg;
+      setGesture(gg);
+      return;
+    }
     const pt = toWorld(e.clientX, e.clientY);
     const off = prefixOf(g, index);
     const left = g.axis === "x" ? g.x + off : g.x;
@@ -1880,7 +1895,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       setGroups((prev) =>
         prev.some((g) => g.items.some((it) => it.id === item.id))
           ? prev
-          : [...prev, ng],
+          : underWhatItHolds([...prev, ng], ng.id, widthsRef.current),
       );
       lightLands(item.id, d.offX, d.offY);
       setDrag(null);
@@ -2058,7 +2073,10 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         const moved = { ...gr, x: g.gx + dx, y: g.gy + dy };
         const loose = e.ctrlKey || e.metaKey;
         const b = groupBounds(moved, widthsRef.current);
-        const guide = loose || g.overBin ? null : guideFor(b.l, b.t, { w: b.r - b.l, h: b.b - b.t }, new Set(gr.items.map((it) => it.id)));
+        const carried = new Map((g.carry ?? []).map((o) => [o.id, o]));
+        /* what travels with it is no neighbour to line up with */
+        const own = [gr, ...groupsRef.current.filter((x) => carried.has(x.id))].flatMap((x) => x.items.map((it) => it.id));
+        const guide = loose || g.overBin ? null : guideFor(b.l, b.t, { w: b.r - b.l, h: b.b - b.t }, new Set(own));
         g.guide = guide;
         setGesture({ ...g });
         const f = frameOfGroup(moved, framesRef.current, widthsRef.current);
@@ -2069,7 +2087,14 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
               x: guide?.x !== undefined ? Math.round(moved.x + guide.x - b.l) : onGrid(moved.x, f?.x ?? 0),
               y: guide?.y !== undefined ? Math.round(moved.y + guide.y - b.t) : onGrid(moved.y, f?.y ?? 0),
             };
-        setGroups((gs) => gs.map((x) => (x.id === g.id ? placed : x)));
+        for (const id of carried.keys()) instantRef.current.add(id);
+        setGroups((gs) =>
+          gs.map((x) => {
+            if (x.id === g.id) return placed;
+            const o = carried.get(x.id);
+            return o ? { ...x, x: o.x + placed.x - g.gx, y: o.y + placed.y - g.gy } : x;
+          }),
+        );
         return;
       }
       if (g.kind === "frame") {
@@ -2126,8 +2151,11 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       setGesture(null);
       // a group dragged onto the parts panel is deleted, like a single part
       if (g?.kind === "group" && g.moved && inBin(e.clientX)) {
-        setGroups((gs) => gs.filter((x) => x.id !== g.id));
+        const gone = new Set([g.id, ...(g.carry ?? []).map((o) => o.id)]);
+        setGroups((gs) => gs.filter((x) => !gone.has(x.id)));
         setSelectedIds([]);
+      } else if (g?.kind === "group" && g.moved && g.carry) {
+        setGroups((gs) => underWhatItHolds(gs, g.id, widthsRef.current));
       }
     };
     window.addEventListener("pointermove", move);
@@ -2579,6 +2607,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const moving = new Set(
         groupsRef.current
           .filter((g) => !g.locked && g.items.some((it) => ids.has(it.id)))
+          /* a container takes what it holds along */
+          .flatMap((g) => [g, ...heldBy(g, groupsRef.current, widthsRef.current)])
           .map((g) => g.id),
       );
       if (moving.size === 0) return;
@@ -2839,7 +2869,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     }
     snapshot();
     const ng = landNewPart(item, x, y, () => false);
-    setGroups((gs) => [...gs, ng]);
+    setGroups((gs) => underWhatItHolds([...gs, ng], ng.id, widthsRef.current));
     setSelectedIds([item.id]);
     setSelectedFrameId(null);
     setRightTab("edit");

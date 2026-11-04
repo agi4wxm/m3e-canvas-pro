@@ -56,7 +56,7 @@ Ported into the component packs in parts/packs, each under the MIT License:
   Skufu/m3e-canvas (feat/dashboard-kit)  the dashboard parts' scope
   greycode/m3e-canvas                 the chart kinds' scope, the iOS parts' scope
   HK-hub/design-canvas                Ant Design parts' scope
-  JetSquirrel/gpui-kit-canvas         the desktop parts' scope
+  JetSquirrel/gpui-kit-canvas         the desktop parts' scope, the containers' scope
 
 jason2be/SwiftUI-Canvas: only the shape of its project files is read, to open them;
 none of its code is here.

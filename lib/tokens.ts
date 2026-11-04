@@ -2326,6 +2326,38 @@ export function groupBounds(g: Group, widths: Record<string, number>) {
   return { l, t, r, b };
 }
 
+/** a part that can hold others, standing alone */
+export const holdsParts = (g: Group) => !g.free && g.items.length === 1 && g.items[0].kind === "component" && !!partBySlug(g.items[0].component)?.holds;
+
+const liesInside = (g: Group, outer: ReturnType<typeof groupBounds>, widths: Record<string, number>) => {
+  const b = groupBounds(g, widths);
+  const tol = 2;
+  return b.l >= outer.l - tol && b.t >= outer.t - tol && b.r <= outer.r + tol && b.b <= outer.b + tol && (b.r - b.l) * (b.b - b.t) < (outer.r - outer.l) * (outer.b - outer.t);
+};
+
+/** What a container holds, by the rule the prompt reads a layout with (`layoutTree`) and a screen
+ *  carries its parts by: whatever lies wholly inside it and is drawn over it. There is no list to
+ *  keep in step, so dragging a part out is all it takes to take it out. What it holds nests by the
+ *  same rule, and so comes along. A locked group stays where it is. */
+export function heldBy(container: Group, groups: Group[], widths: Record<string, number>): Group[] {
+  if (!holdsParts(container)) return [];
+  const at = groups.findIndex((g) => g.id === container.id);
+  const outer = groupBounds(container, widths);
+  return groups.slice(at + 1).filter((g) => !g.locked && liesInside(g, outer, widths));
+}
+
+/** A container put down over parts already there would hide them: it goes behind the first of them. */
+export function underWhatItHolds(groups: Group[], id: string, widths: Record<string, number>): Group[] {
+  const at = groups.findIndex((g) => g.id === id);
+  if (at < 0 || !holdsParts(groups[at])) return groups;
+  const outer = groupBounds(groups[at], widths);
+  const first = groups.findIndex((g, i) => i < at && liesInside(g, outer, widths));
+  if (first < 0) return groups;
+  const out = groups.filter((g) => g.id !== id);
+  out.splice(first, 0, groups[at]);
+  return out;
+}
+
 /** A free group written as the runs it holds: parts of one family that still sit
  *  one GAP apart along their axis stay a connected run, everything else is a run
  *  of one. Layout logic, the prompt and ungrouping all see the same runs, in the
