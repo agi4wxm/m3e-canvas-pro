@@ -18,17 +18,133 @@ import { game } from "./defs/game";
 import { media } from "./defs/media";
 import { mobile } from "./defs/mobile";
 import { more } from "./defs/more";
-import type { ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
+import { atoms } from "./defs/atoms";
+import { SPLITS } from "./defs/splits";
+import type { Labels, ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
 import { applyAppearance, type Appearance } from "./appearance";
 import { h, mapNodes, type PNode } from "./node";
 import { COMMON_TEXT, choiceValueOf, defaultTextOf, listTextOf } from "./labels";
 import { getLang, type Lang } from "../lib/i18n";
 
-/** the palette's sections, by what a part is for */
-export const CATEGORIES = ["Actions", "Text inputs", "Selection", "Navigation", "Overlays", "Feedback", "Layout", "Data", "Media", "Chat", "Game"] as const;
+/* ---------- what a part is for, and what it is made of ----------
+ * Parts come in two tiers. An atom cannot be split any further: a box, a line of text, an icon, a
+ * bare field, a button. A composite is made of atoms: a search bar, a list row, a card. The palette
+ * shows the tiers apart, each in sections by what the part is for. Other code reads the sections
+ * from here and never names one itself. */
+
+/** the palette's sections, in the order it shows them: the atoms first */
+export const CATEGORIES = [
+  "Basics",
+  "Controls",
+  "Indicators",
+  "Actions",
+  "Forms",
+  "Pickers",
+  "Navigation",
+  "Menus & search",
+  "Overlays",
+  "Feedback",
+  "Layout",
+  "Lists",
+  "Data & charts",
+  "Commerce",
+  "Social & chat",
+  "AI",
+  "Media",
+  "Game",
+  "Desktop",
+] as const;
 export type PartCategory = (typeof CATEGORIES)[number];
 
-export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more];
+/** an atom cannot be split; a composite is built of atoms */
+export type PartTier = "atom" | "composite";
+export const TIERS: PartTier[] = ["atom", "composite"];
+
+export const CATEGORY_TIER: Record<PartCategory, PartTier> = {
+  Basics: "atom",
+  Controls: "atom",
+  Indicators: "atom",
+  Actions: "composite",
+  Forms: "composite",
+  Pickers: "composite",
+  Navigation: "composite",
+  "Menus & search": "composite",
+  Overlays: "composite",
+  Feedback: "composite",
+  Layout: "composite",
+  Lists: "composite",
+  "Data & charts": "composite",
+  Commerce: "composite",
+  "Social & chat": "composite",
+  AI: "composite",
+  Media: "composite",
+  Game: "composite",
+  Desktop: "composite",
+};
+
+/** the tier a part (or anything filed under a section, a kit too) belongs to */
+export const tierOf = (d: { category: string }): PartTier => CATEGORY_TIER[d.category as PartCategory] ?? "composite";
+
+/** the sections of one tier, in order */
+export const categoriesOf = (tier: PartTier): PartCategory[] => CATEGORIES.filter((c) => CATEGORY_TIER[c] === tier);
+
+/** what each section is called: `en` is what the docs and the AI guide call it */
+export const CATEGORY_TEXT: Record<PartCategory, Required<Labels>> = {
+  Basics: { en: "Basics", zh: "基础", ja: "基本", ko: "기본" },
+  Controls: { en: "Controls", zh: "控件", ja: "コントロール", ko: "컨트롤" },
+  Indicators: { en: "Indicators", zh: "指示", ja: "インジケーター", ko: "표시" },
+  Actions: { en: "Actions", zh: "操作", ja: "操作", ko: "동작" },
+  Forms: { en: "Forms", zh: "表单", ja: "フォーム", ko: "양식" },
+  Pickers: { en: "Pickers", zh: "选择器", ja: "ピッカー", ko: "선택기" },
+  Navigation: { en: "Bars & navigation", zh: "栏与导航", ja: "バーとナビゲーション", ko: "바와 내비게이션" },
+  "Menus & search": { en: "Menus & search", zh: "菜单与搜索", ja: "メニューと検索", ko: "메뉴와 검색" },
+  Overlays: { en: "Overlays", zh: "弹出层", ja: "オーバーレイ", ko: "오버레이" },
+  Feedback: { en: "Feedback", zh: "反馈", ja: "フィードバック", ko: "피드백" },
+  Layout: { en: "Layout", zh: "布局容器", ja: "レイアウト", ko: "레이아웃" },
+  Lists: { en: "Lists", zh: "列表", ja: "リスト", ko: "목록" },
+  "Data & charts": { en: "Data & charts", zh: "数据与图表", ja: "データとグラフ", ko: "데이터와 차트" },
+  Commerce: { en: "Commerce", zh: "电商与支付", ja: "コマース", ko: "커머스" },
+  "Social & chat": { en: "Social & chat", zh: "社交与聊天", ja: "ソーシャルとチャット", ko: "소셜과 채팅" },
+  AI: { en: "AI", zh: "AI 对话", ja: "AI チャット", ko: "AI 대화" },
+  Media: { en: "Media", zh: "媒体", ja: "メディア", ko: "미디어" },
+  Game: { en: "Game", zh: "游戏", ja: "ゲーム", ko: "게임" },
+  Desktop: { en: "Desktop", zh: "桌面软件", ja: "デスクトップ", ko: "데스크톱" },
+};
+
+/** the icon a section is shown with */
+export const CATEGORY_ICON: Record<PartCategory, string> = {
+  Basics: "category",
+  Controls: "toggle_on",
+  Indicators: "radio_button_checked",
+  Actions: "touch_app",
+  Forms: "edit_note",
+  Pickers: "event",
+  Navigation: "explore",
+  "Menus & search": "search",
+  Overlays: "web_asset",
+  Feedback: "campaign",
+  Layout: "dashboard",
+  Lists: "list",
+  "Data & charts": "bar_chart",
+  Commerce: "shopping_bag",
+  "Social & chat": "forum",
+  AI: "auto_awesome",
+  Media: "image",
+  Game: "sports_esports",
+  Desktop: "desktop_windows",
+};
+
+export const TIER_TEXT: Record<PartTier, Required<Labels>> = {
+  atom: { en: "Atoms", zh: "原子组件", ja: "アトム", ko: "원자 구성 요소" },
+  composite: { en: "Composites", zh: "组合组件", ja: "コンポジット", ko: "조합 구성 요소" },
+};
+
+export const categoryName = (c: PartCategory, lang: Lang) => CATEGORY_TEXT[c][lang];
+
+/* the composites that split are handed their trees of atoms here, where the two meet */
+export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((d) =>
+  SPLITS[d.slug] && !d.atoms ? { ...d, atoms: SPLITS[d.slug] } : d,
+);
 
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);

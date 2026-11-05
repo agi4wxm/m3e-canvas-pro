@@ -204,7 +204,7 @@ export const game: PartDef[] = [
     appearance: { radius: 999 },
     name: "Quantity stepper",
     labels: { ja: "数量ステッパー", zh: "数量加减器", ko: "수량 스테퍼" },
-    category: "Selection",
+    category: "Forms",
     icon: "exposure",
     w: 200,
     h: 56,

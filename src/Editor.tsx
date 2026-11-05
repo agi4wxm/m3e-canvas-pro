@@ -122,6 +122,9 @@ import { useIconFamily } from "@/parts/icons";
 import { StyleGate, StylePanel } from "@/components/StylePanel";
 import { partBySlug, reader, translateComponentProps } from "@/parts/registry";
 import { instantiate, templateBySlug } from "@/parts/templates";
+import { kitBySlug, kitOfKey } from "@/parts/kits";
+import { defaultMeasures } from "@/parts/templates/kit";
+import { kitGroups, kitLookOf, landTree, moveTo, roomOn, splitIntoAtoms, treeSize } from "@/lib/kits";
 import { COMMON_TEXT } from "@/parts/labels";
 import { FIT_OVERLAY, REMEASURE } from "@/parts/contained";
 import { axisStep, axisValue, axisWrite, resizeOf, type PartAxis } from "@/parts/resize";
@@ -203,6 +206,9 @@ type DragState = {
   vanishing: boolean;
   /** what is carried from the Components tab: it lands as an instance of this definition */
   instance?: string;
+  /** A kit carried from the palette: `item` is its outermost box, and these are all its groups with
+   *  that box's top left at 0,0, and the sizes they were laid out by. It lands as all of them. */
+  kit?: { slug: string; variant?: string; groups: Group[]; measures: Record<string, number> };
 };
 
 type Gesture =
@@ -801,7 +807,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         if (typeof ui.rightOpen === "boolean") setRightOpen(ui.rightOpen);
         if (ui.leftW) setLeftW(Math.max(RAIL_W + 244, ui.leftW));
         if (ui.rightW) setRightW(ui.rightW);
-        if (Array.isArray(ui.favorites)) setFavorites(ui.favorites.filter((f: unknown): f is string => typeof f === "string" && !!partBySlug(f)));
+        if (Array.isArray(ui.favorites)) setFavorites(ui.favorites.filter((f: unknown): f is string => typeof f === "string" && (!!partBySlug(f) || !!kitOfKey(f))));
         if (ui.mode) setMode(ui.mode);
         if (ui.showAllLinks === true) setShowAllLinks(true);
       } else {
@@ -1473,6 +1479,95 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setDrag({ ...d });
   };
 
+  /** A kit's groups for the document as it is: in the variant asked for or the one its style calls for,
+   *  in the editor's language, no wider than a phone's content. */
+  const buildKit = (slug: string, variant: string | undefined, maxWidth: number | undefined) => {
+    const kit = kitBySlug(slug);
+    return kit ? kitGroups(kit, kitLookOf(themeRef.current), getLang(), { variant, maxWidth }) : null;
+  };
+
+  /** A kit picked up from the palette: carried like a part, drawn whole, and let go as its atoms. */
+  const onKitPointerDown = (e: React.PointerEvent, slug: string, variant?: string) => {
+    if (e.button !== 0 || defEditRef.current) return;
+    const groups = buildKit(slug, variant, roomOn(framesRef.current[0]));
+    if (!groups?.length) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const item = groups[0].items[0];
+    const size = treeSize(groups);
+    const pt = toWorld(e.clientX, e.clientY);
+    const offX = Math.min(size.w / 2, 90);
+    const offY = Math.min(size.h / 2, 40);
+    sx.jump(pt.x - offX);
+    sy.jump(pt.y - offY);
+    const d: DragState = { item, offX, offY, startX: pt.x, startY: pt.y, px: pt.x, py: pt.y, active: true, fromPalette: true, overBin: false, vanishing: false, guide: null, kit: { slug, variant, groups, measures: defaultMeasures(groups) } };
+    dragRef.current = d;
+    setDrag({ ...d });
+  };
+
+  /** A kit's groups put down with their top left near (x, y): inside the screen under them, brought to
+   *  its width, taken into the layout they were let go in. Selected as one: the outermost box. One undo step. */
+  const landKit = (kit: NonNullable<DragState["kit"]>, x: number, y: number) => {
+    const size = treeSize(kit.groups);
+    const under = framesRef.current.find((f) => {
+      const r = frameRect(f);
+      return x + size.w / 2 >= r.l && x + size.w / 2 <= r.r && y + size.h / 2 >= r.t && y + size.h / 2 <= r.b;
+    });
+    /* a kit carried onto a screen of another width is laid out again for that one */
+    const fresh = under && roomOn(under) !== roomOn(framesRef.current[0]) ? buildKit(kit.slug, kit.variant, roomOn(under)) : null;
+    const { groups: landed } = landTree(fresh ?? kit.groups, x, y, framesRef.current);
+    if (!landed.length) return;
+    snapshot();
+    const root = landed[0];
+    setGroups((prev) => settleInFlow([...prev, ...landed], root.id, { ...widthsRef.current, ...defaultMeasures(landed) }));
+    setSelectedIds([root.items[0].id]);
+    setSelectedFrameId(null);
+    setRightTab("edit");
+    setSheet(null);
+  };
+
+  /** A kit chosen without a drag: it lands where the view is looking, as a part does, on the screen in view and below what
+   *  already stands at that spot. */
+  const addKit = (slug: string, variant?: string) => {
+    if (defEditRef.current) return;
+    const r = canvasRect();
+    const v = viewRef.current;
+    const cx = ((r?.width ?? 0) / 2 - v.x) / v.z;
+    const cy = ((r?.height ?? 0) / 2 - v.y) / v.z;
+    const f = frameRef.current !== "phone" ? undefined : (framesRef.current.find((fr) => {
+      const b = frameRect(fr);
+      return cx >= b.l && cx <= b.r && cy >= b.t && cy <= b.b;
+    }) ?? (mobileRef.current ? framesRef.current[0] : undefined));
+    const groups = buildKit(slug, variant, roomOn(f ?? framesRef.current[0]));
+    if (!groups?.length) return;
+    const sz = treeSize(groups);
+    let x = cx - sz.w / 2;
+    let y = cy - sz.h / 2;
+    if (f) {
+      const h = frameLengthOf(f);
+      const taken = (yy: number) => itemRects().some((o) => o.l < x + sz.w && o.r > x && o.t < yy + sz.h && o.b > yy);
+      x = clamp(x, f.x + FRAME_MARGIN, Math.max(f.x + FRAME_MARGIN, f.x + frameSizeOf(f).w - FRAME_MARGIN - sz.w));
+      y = clamp(y, f.y + FRAME_MARGIN, Math.max(f.y + FRAME_MARGIN, f.y + h - FRAME_MARGIN - sz.h));
+      let tries = 0;
+      while (taken(y) && y + sz.h * 2 < f.y + h && tries++ < 12) y += Math.min(sz.h, 120) + 12;
+    }
+    landKit({ slug, variant, groups: moveTo(groups, { x: 0, y: 0 }), measures: defaultMeasures(groups) }, x, y);
+  };
+  const addKitRef = useRef(addKit);
+  addKitRef.current = addKit;
+
+  /** the selected composite, replaced where it stands by the atoms it is made of. One undo step. */
+  const splitSelected = () => {
+    const id = selectedIds[0];
+    if (!id) return;
+    const out = splitIntoAtoms(groupsRef.current, id, getLang(), widthsRef.current);
+    if (!out) return;
+    snapshot();
+    setGroups(out.groups);
+    setSelectedIds([out.rootItemId]);
+    showToast(t("splitDone", getLang()));
+  };
+
   /** the in-flight size drag on a lone button's edge handle */
   const [widthDragId, setWidthDragId] = useState<string | null>(null);
   /** how far the group under a left- or top-edge drag is drawn from where it sits, so the opposite
@@ -1678,7 +1773,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       d.overBin = !d.fromPalette && inBin(e.clientX);
       closeGap();
       d.guide =
-        d.overBin || ctrlHeld
+        d.overBin || ctrlHeld || d.kit
           ? null
           : findGuide(d.item, pt.x - d.offX, pt.y - d.offY);
       setDrag({ ...d });
@@ -1716,6 +1811,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           addInstanceRef.current(d.instance);
           return;
         }
+        /* so is a kit's */
+        if (d.kit && Math.hypot(d.px - d.startX, d.py - d.startY) * viewRef.current.z < 5) {
+          setDrag(null);
+          addKitRef.current(d.kit.slug, d.kit.variant);
+          return;
+        }
         vanishDrag(d);
         return;
       }
@@ -1723,6 +1824,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       if (d.instance && !canNest(componentsRef.current, defEditRef.current?.id ?? null, d.instance)) {
         showToast(t("nestRefused", getLang()));
         vanishDrag(d);
+        return;
+      }
+      /* a kit lands as the tree of atoms it is, on the screen under it */
+      if (d.kit) {
+        landKit(d.kit, d.px - d.offX, d.py - d.offY);
+        setDrag(null);
         return;
       }
       /* a Ctrl drop lands where the cursor is, untouched by any guide hold */
@@ -4443,7 +4550,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                 }
           }
         >
-          <ComponentNode item={drag.item} palette={p} widths={widths} dragging>
+          <ComponentNode item={drag.item} palette={p} widths={drag.kit ? { ...widths, ...drag.kit.measures } : widths} dragging>
+            {drag.kit && drawnParts(drag.kit.groups.slice(1).flatMap((g) => layoutOf(g, drag.kit!.measures)).map((pl) => ({ item: pl.item, dx: pl.x, dy: pl.y, dim: false })))}
             {drag.instance &&
               drawnParts(
                 expandInstances({ groups: [{ id: "carried", x: 0, y: 0, axis: "x", instanceOf: drag.instance, items: [drag.item] }], components, collections })
@@ -4565,6 +4673,9 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                     }
                     onPartPointerDown={onPartPointerDown}
                     onPartActivate={addPart}
+                    onKitPointerDown={onKitPointerDown}
+                    onKitActivate={addKit}
+                    kitLook={kitLookOf(theme)}
                   />
                 ) : leftTab === "templates" ? (
                   <TemplatesPanel p={p} onAdd={addTemplate} blocked={!!defEdit} />
@@ -5430,6 +5541,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   inFlow={selectedInFlow}
                   onMoveTo={selectedInFlow ? undefined : moveSelectedTo}
                   onMakeComponent={makeComponentOfSelection}
+                  onSplit={splitSelected}
                   instance={selectedInstance}
                 />
               ) : (

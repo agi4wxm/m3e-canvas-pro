@@ -919,6 +919,14 @@ const GENERAL: Record<Lang, string[]> = {
   ],
 };
 
+/** what a box is, for a sketch that is composed of them */
+const BOX_NOTE: Record<Lang, string> = {
+  ja: "Box（`data-slot=\"box\"`）は見た目のない入れ子の枠で、Figma のオートレイアウトのフレームにあたる。中身は書かれた順の flex の子要素として組み、`data-surface` の役割（card、field、bar、chip など）はそのスタイルでその面がどう見えるかを表す。ライブラリに同じ部品があっても、Box で組まれた形をそのまま再現する。",
+  en: "A Box (`data-slot=\"box\"`) is a nested frame with no look of its own, like an auto-layout frame in Figma. Build it as a div whose contents are its flex children in the order written; its `data-surface` role (card, field, bar, chip…) says which surface of the style it wears. Reproduce a composition made of boxes as composed, even where the library has a part of the same kind.",
+  zh: "Box（`data-slot=\"box\"`）是没有自身外观的嵌套框，相当于 Figma 的自动布局框架。把它写成 div，里面的内容按书写顺序作为它的 flex 子元素；`data-surface` 的角色（card、field、bar、chip 等）表示它在当前风格下是哪种表面。用 Box 组合出来的结构要照原样实现，即使组件库里有同类组件也一样。",
+  ko: "Box(`data-slot=\"box\"`)는 자체 모양이 없는 중첩 프레임으로 Figma의 자동 레이아웃 프레임에 해당한다. div로 만들고 내용은 쓰인 순서대로 flex 자식으로 둔다. `data-surface` 역할(card, field, bar, chip 등)은 해당 스타일에서 어떤 표면인지를 나타낸다. Box로 구성된 구조는 라이브러리에 같은 종류의 부품이 있어도 구성된 그대로 재현한다.",
+};
+
 /* ---------- fixed phrases ---------- */
 
 /** what the screens are drawn for: phones only, desktops only, both, or no screens at all */
@@ -1234,6 +1242,8 @@ export function buildPrompt(source: Doc, widths: Record<string, number>, onlyFra
   lines.push("");
   lines.push(ph.hGeneral);
   for (const s of GENERAL[lang]) lines.push(`- ${s}`);
+  /* a sketch composed of boxes says how the boxes are meant, once */
+  if (doc.groups.some((g) => g.items.some((it) => it.component === "box"))) lines.push(`- ${BOX_NOTE[lang]}`);
   /* the author's own choices come last, in the order they are offered */
   const chosen = promptOptionsOf(doc);
   for (const key of PROMPT_OPTIONS) {

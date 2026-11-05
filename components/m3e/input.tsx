@@ -7,6 +7,7 @@ import { cn } from "@/lib/m3e/cn"
  * M3 text field container.
  *  outlined: 1dp outline, 2dp primary outline on focus, extra-small corners
  *  filled:   surface-container-highest with an active-indicator underline
+ *  plain:    no container, no padding: a bare entry for a box that is the field (a prompt box)
  * The 2dp focus stroke is an inset shadow, so nothing shifts on focus.
  */
 const inputVariants = cva(
@@ -18,12 +19,15 @@ const inputVariants = cva(
           "rounded-xs border border-outline bg-transparent hover:border-on-surface focus-visible:border-primary focus-visible:shadow-[inset_0_0_0_1px_var(--md-sys-color-primary)] disabled:border-on-surface/12 aria-invalid:border-error aria-invalid:focus-visible:shadow-[inset_0_0_0_1px_var(--md-sys-color-error)]",
         filled:
           "rounded-t-xs border-0 border-b border-on-surface-variant bg-surface-container-highest hover:bg-[color-mix(in_srgb,var(--md-sys-color-on-surface)_8%,var(--md-sys-color-surface-container-highest))] focus-visible:border-primary focus-visible:shadow-[inset_0_-1px_0_0_var(--md-sys-color-primary)] disabled:border-on-surface/38 disabled:bg-on-surface/4 aria-invalid:border-error",
+        plain: "rounded-none border-0 bg-transparent shadow-none",
       },
       size: {
         default: "h-14 px-4 py-2",
         sm: "h-10 px-3 py-1 text-body-medium",
       },
     },
+    /* plain has no box to pad: it is as tall as its line */
+    compoundVariants: [{ variant: "plain", className: "h-6 p-0" }],
     defaultVariants: { variant: "outlined", size: "default" },
   }
 )

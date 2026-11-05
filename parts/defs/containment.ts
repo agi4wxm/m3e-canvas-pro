@@ -138,7 +138,7 @@ export const containment: PartDef[] = [
   {
     slug: "item",
     name: "List item",
-    category: "Data",
+    category: "Lists",
     icon: "list_alt",
     role: "listLike",
     /* the paint goes on each row, not the group they share */
@@ -493,7 +493,7 @@ export const containment: PartDef[] = [
     slug: "separator",
     appearance: { radius: 0 },
     name: "Separator",
-    category: "Layout",
+    category: "Basics",
     icon: "horizontal_rule",
     role: "listLike",
     w: 280,
@@ -546,7 +546,7 @@ export const containment: PartDef[] = [
     slug: "resizable",
     appearance: { radius: 8 },
     name: "Resizable",
-    category: "Layout",
+    category: "Desktop",
     icon: "vertical_split",
     holds: true,
     w: 400,

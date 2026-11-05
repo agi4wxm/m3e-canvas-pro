@@ -1,8 +1,8 @@
 import { arrangeFlows } from "../../lib/flow";
 import type { Lang } from "../../lib/i18n";
 import { MATERIAL_METRICS, fillRest, lengthToHold, tidyFrame } from "../../lib/tidy";
-import { BACK_TARGET, DESKTOP_H, DESKTOP_W, FRAME_GAP, PHONE_H, PHONE_W, TABLET_H, TABLET_W, makeItem, uid, type Action, type ColorToken, type Frame, type Group, type Item, type Place, type Transition } from "../../lib/tokens";
-import { partBySlug } from "../registry";
+import { BACK_TARGET, DESKTOP_H, DESKTOP_W, FRAME_GAP, PHONE_H, PHONE_W, TABLET_H, TABLET_W, makeItem, uid, type Action, type ColorToken, type Frame, type Group, type Item, type ItemLook, type Place, type Radii, type TextToken, type Transition } from "../../lib/tokens";
+import { partBySlug, reader } from "../registry";
 import { axisValue, axisWrite, resizeOf } from "../resize";
 import { fullWidth, roleOf } from "../role";
 
@@ -27,9 +27,26 @@ export const back = (): Link => ({ to: BACK_TARGET, transition: "slide" });
  *  with both it spans between them */
 export type Anchor = { l?: number; r?: number; t?: number; b?: number };
 
-/** one part in the tree, with what it holds */
-export type Node = { slug: string; props: Props; name?: Say; fill?: boolean; action?: Link; actions?: Record<string, Link | undefined>; note?: Say; at?: Anchor; screenMain?: boolean; kids?: Node[] };
-type Extra = Pick<Node, "name" | "fill" | "action" | "actions" | "note" | "at" | "screenMain">;
+/** One part in the tree, with what it holds. `fill: true` (or `grow`) has it take the room left along
+ *  its layout's run; a fill role instead paints it, as `textColor`, `corners` and `look` do: the same
+ *  look a person gives a part in the panel. */
+export type Node = {
+  slug: string;
+  props: Props;
+  name?: Say;
+  fill?: boolean | ColorToken;
+  grow?: boolean;
+  textColor?: TextToken;
+  corners?: Radii;
+  look?: ItemLook;
+  action?: Link;
+  actions?: Record<string, Link | undefined>;
+  note?: Say;
+  at?: Anchor;
+  screenMain?: boolean;
+  kids?: Node[];
+};
+type Extra = Pick<Node, "name" | "fill" | "grow" | "textColor" | "corners" | "look" | "action" | "actions" | "note" | "at" | "screenMain">;
 
 export const part = (slug: string, props: Props = {}, extra: Extra = {}): Node => ({ slug, props, ...extra });
 
@@ -115,7 +132,11 @@ export function seedGroups(seed: ScreenSeed): SeedGroup[] {
       ...fresh,
       id: `${id}-part`,
       props: node.props,
-      ...(node.fill ? { flowFill: true } : {}),
+      ...(node.fill === true || node.grow ? { flowFill: true } : {}),
+      ...(typeof node.fill === "string" ? { fill: node.fill } : {}),
+      ...(node.textColor ? { textColor: node.textColor } : {}),
+      ...(node.corners ? { corners: node.corners } : {}),
+      ...(node.look ? { look: node.look } : {}),
       ...(node.action ? { action: node.action } : {}),
       ...(Object.keys(actions).length ? { actions } : {}),
       ...(node.note ? { note: node.note } : {}),
@@ -145,8 +166,10 @@ export function defaultMeasures(groups: Group[]): Record<string, number> {
       const def = partBySlug(it.component);
       if (!def) continue;
       const ax = resizeOf(def, it.props);
-      out[it.id] = (ax?.width && axisValue(ax.width, it.props)) || def.w;
-      out[`${it.id}:h`] = (ax?.height && axisValue(ax.height, it.props)) || def.h;
+      /* what hugs its words has no number to say; it makes a guess of its own, from its words and its size */
+      const guess = def.guess?.(reader(def, it.props));
+      out[it.id] = guess?.w || (ax?.width && axisValue(ax.width, it.props)) || def.w;
+      out[`${it.id}:h`] = guess?.h || (ax?.height && axisValue(ax.height, it.props)) || def.h;
     }
   return out;
 }

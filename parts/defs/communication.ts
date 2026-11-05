@@ -9,7 +9,7 @@ export const communication: PartDef[] = [
     slug: "badge",
     appearance: { radius: 8 },
     name: "Badge",
-    category: "Feedback",
+    category: "Indicators",
     icon: "notifications",
     w: 72,
     h: 24,
@@ -34,7 +34,7 @@ export const communication: PartDef[] = [
   {
     slug: "progress",
     name: "Progress",
-    category: "Feedback",
+    category: "Indicators",
     icon: "linear_scale",
     w: 280,
     h: 4,
@@ -67,7 +67,7 @@ export const communication: PartDef[] = [
   {
     slug: "circular-progress",
     name: "Circular progress",
-    category: "Feedback",
+    category: "Indicators",
     icon: "progress_activity",
     w: 40,
     h: 40,
@@ -89,7 +89,7 @@ export const communication: PartDef[] = [
   {
     slug: "loading-indicator",
     name: "Loading indicator",
-    category: "Feedback",
+    category: "Indicators",
     icon: "hourglass_top",
     w: 48,
     h: 48,
@@ -108,7 +108,7 @@ export const communication: PartDef[] = [
   {
     slug: "spinner",
     name: "Spinner",
-    category: "Feedback",
+    category: "Indicators",
     icon: "sync",
     w: 20,
     h: 20,
@@ -138,7 +138,7 @@ export const communication: PartDef[] = [
   {
     slug: "skeleton",
     name: "Skeleton",
-    category: "Feedback",
+    category: "Indicators",
     icon: "hourglass_empty",
     w: 280,
     h: 48,

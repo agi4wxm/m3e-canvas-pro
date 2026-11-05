@@ -2,6 +2,8 @@ import { h, ic, listSlots, raw, wrap } from "../node";
 import type { P, PartDef, PropDef } from "../types";
 
 const VARIANTS = ["filled", "tonal", "elevated", "outlined", "text"];
+/** the height of each named size, for a guess before the button is drawn */
+const SIZE_DP: Record<string, number> = { xs: 32, sm: 40, md: 56, lg: 96, xl: 136 };
 const SIZES = [
   { value: "xs", label: "XS · 32" },
   { value: "sm", label: "S · 40" },
@@ -38,6 +40,8 @@ function buttonTree(p: P) {
   const label = p.s("label");
   const icon = p.s("icon");
   const iconOnly = !label && !!icon;
+  /* a model picker's chevron, an arrow after "Next": an icon after the words */
+  const trailing = label ? p.s("trailingIcon") : "";
   /* a labeled button takes a set width like any other part; an icon-only one takes the
    *  button's own narrow/wide instead of a number of pixels */
   const width = !iconOnly
@@ -62,6 +66,7 @@ function buttonTree(p: P) {
       },
       icon && ic(icon, { fill: "auto" }),
       label,
+      trailing && ic(trailing, { fill: "auto", "data-icon": "inline-end" }),
     );
   }
   return h(
@@ -76,6 +81,7 @@ function buttonTree(p: P) {
     },
     icon && ic(icon),
     label,
+    trailing && ic(trailing, { "data-icon": "inline-end" }),
   );
 }
 
@@ -84,15 +90,16 @@ export const actions: PartDef[] = [
     slug: "button",
     appearance: { radius: 20 },
     name: "Button",
-    category: "Actions",
+    category: "Controls",
     icon: "touch_app",
     w: 96,
     h: 40,
     props: [
       { key: "label", label: "Label", kind: "text", default: "Button" },
       { key: "icon", label: "Icon", kind: "icon", default: "" },
-      { key: "variant", label: "Variant", kind: "enum", default: "filled", options: VARIANTS },
+      { key: "variant", label: "Variant", kind: "enum", default: "filled", options: [...VARIANTS, "ghost"] },
       { key: "size", label: "Size", kind: "enum", default: "sm", options: SIZES },
+      { key: "trailingIcon", label: "Trailing icon", kind: "icon", default: "", when: (p) => !!p.s("label") },
       { key: "shape", label: "Shape", kind: "enum", default: "round", options: ["round", "square"] },
       { key: "width", label: "Width", kind: "number", default: 96, min: 48, max: 640, step: 4, unit: "px", when: (p) => !!p.s("label") },
       { key: "iconWidth", label: "Width", kind: "enum", default: "default", options: ["default", "narrow", "wide"], when: (p) => !p.s("label") && !!p.s("icon") },
@@ -101,6 +108,7 @@ export const actions: PartDef[] = [
       { key: "onLook", label: "Variant when on", labels: { ja: "オンのときのスタイル", zh: "开启时的样式", ko: "켜졌을 때 스타일" }, kind: "enum", default: "same", options: Object.keys(ON_LOOK), when: (p: P) => p.b("toggle") },
     ],
     tree: (p) => buttonTree(p),
+    guess: (p) => ({ h: SIZE_DP[p.s("size")] ?? 40 }),
   },
   {
     slug: "fab",
@@ -147,7 +155,7 @@ export const actions: PartDef[] = [
     slug: "chip",
     appearance: { target: ["Chip", "FilterChip", "InputChip"], radius: 8 },
     name: "Chip",
-    category: "Actions",
+    category: "Controls",
     icon: "label",
     role: "listLike",
     w: 80,
@@ -181,7 +189,7 @@ export const actions: PartDef[] = [
     slug: "toggle",
     appearance: { radius: 20 },
     name: "Toggle",
-    category: "Actions",
+    category: "Controls",
     icon: "toggle_on",
     w: 40,
     h: 40,

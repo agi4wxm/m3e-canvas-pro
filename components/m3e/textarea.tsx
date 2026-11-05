@@ -15,7 +15,8 @@ function Textarea({
       data-slot="textarea"
       className={cn(
         inputVariants({ variant }),
-        "flex field-sizing-content h-auto min-h-24 resize-none px-4 py-4",
+        "flex field-sizing-content h-auto resize-none",
+        variant === "plain" ? "min-h-6 p-0" : "min-h-24 px-4 py-4",
         className
       )}
       {...props}
