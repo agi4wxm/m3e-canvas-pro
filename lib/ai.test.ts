@@ -190,6 +190,23 @@ describe("generateImage", () => {
     expect(JSON.parse(init.body)).toEqual({ model: "gpt-image-2.6-sunburst", prompt: "a forest", n: 1, size: "1024x1536", quality: "medium", output_format: "jpeg" });
   });
 
+  it("asks for a GIF with its frames, smaller, and hands back a GIF", async () => {
+    const fetchMock = answer({ data: [{ b64_json: "R0lGODlh" }] });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await generateImage({ ...base, imageKey: "k" }, "rain", { w: 412, h: 892 }, undefined, { frames: 12, ms: 150 });
+    expect(out).toBe("data:image/gif;base64,R0lGODlh");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ model: "gpt-image-2.6-sunburst", prompt: "rain", n: 1, size: "512x768", quality: "medium", output_format: "gif", frame_count: 12, frame_duration_ms: 150 });
+  });
+
+  it("paints a still with a model that cannot animate", async () => {
+    const fetchMock = answer({ data: [{ b64_json: "iVBORw" }] });
+    vi.stubGlobal("fetch", fetchMock);
+    await generateImage({ ...base, imageProvider: "gemini", imageKey: "g" }, "rain", { w: 412, h: 892 }, undefined, { frames: 9, ms: 200 });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.size).toBe("1024x1536");
+    expect(body).not.toHaveProperty("frame_count");
+  });
+
   it("asks Gemini the way its OpenAI-style route needs", async () => {
     const fetchMock = answer({ data: [{ b64_json: "iVBORw" }] });
     vi.stubGlobal("fetch", fetchMock);
@@ -225,6 +242,10 @@ describe("scenes in a draft", () => {
     expect(scenesToPaint(doc.groups).map((i) => i.id)).toEqual(["s"]);
     expect(scenesToPaint([{ ...doc.groups[1], items: [{ ...scene, props: { prompt: "x", image: "data:image/png;base64,a" } }] }])).toEqual([]);
     expect(scenesToPaint([{ ...doc.groups[1], items: [{ ...scene, props: { prompt: " " } }] }])).toEqual([]);
+  });
+  it("asks an animation for a loop that holds its view", () => {
+    expect(scenePrompt("rain", "ink", true)).toContain("seamless loop");
+    expect(scenePrompt("rain", "ink")).not.toContain("loop");
   });
   it("asks for the style, the words, and no interface in the picture", () => {
     const words = scenePrompt("a forest at dawn.", "watercolour");

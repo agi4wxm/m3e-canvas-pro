@@ -124,6 +124,14 @@ describe("the project of a real document", () => {
     expect(Object.keys(files)).toContain("src/components/widgets/Scene.tsx");
   });
 
+  it("writes an animated scene out as a real .gif", async () => {
+    const gif = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    const doc = { groups: [{ id: "g", x: 0, y: 0, axis: "x", items: [{ ...makeItem("scene"), id: "s", props: { image: gif, motion: "animated" } }] }], frames: [{ id: "f", name: "Home", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "T", brief: "" } as Doc;
+    const { files } = await buildProject(doc, {}, { read: fromDisk, fetchIcons: noNetwork });
+    expect(Object.keys(files).some((k) => k.endsWith(".gif"))).toBe(true);
+    expect(Object.values(files).some((f) => typeof f === "string" && f.includes("R0lGODlh"))).toBe(false);
+  });
+
   it("carries the theme the document was drawn in", async () => {
     const { doc, widths } = proofDoc();
     const { files } = await buildProject({ ...doc, paletteKey: "custom", customPalette: { ...({} as NonNullable<Doc["customPalette"]>), seed: "#336699", primary: "#336699" } }, widths, { read: fromDisk, fetchIcons: noNetwork });

@@ -347,7 +347,7 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `marquee` | Marquee | `text` text; `seconds` 2–120; `width` 80–1600 |
 | `playlist` | Playlist or lessons | `title` text; `data` `{ "columns": ["Title", "Detail", "Length", "State"], "rows": [[…]] }`; `selected` -1–99; `width` 240–800 |
 | `qr-code` | QR code | `text` text; `level` L / M / Q / H; `caption` text; `copy` text; `copied` text; `tooLong` text; `size` 64–640 |
-| `scene` | Scene | `prompt` text; `style` text; `image` https address; `scrim` none / top / bottom / both / full; `hotspots` `{ "columns": ["Label", "x", "y", "w", "h"], "rows": [[…]] }`; `icon` icon; `height` 120–2400; `width` 120–1600 |
+| `scene` | Scene | `prompt` text; `style` text; `motion` still / animated; `frames` 2–64; `frameMs` 20–2000; `image` https address; `scrim` none / top / bottom / both / full; `hotspots` `{ "columns": ["Label", "x", "y", "w", "h"], "rows": [[…]] }`; `icon` icon; `height` 120–2400; `width` 120–1600 |
 | `image-viewer` | Image viewer | `images` rows of `{ "label" }`; `height` 120–720; `thumbnails` true / false; `width` 160–960 |
 | `image-cropper` | Image cropper | `image` https address; `aspect` free / 1:1 / 4:3 / 3:4 / 16:9; `action` text; `reset` text; `doneText` text; `height` 120–960; `width` 200–960 |
 
@@ -440,8 +440,9 @@ For a game or an immersive screen, the picture and the interface are separate th
 - The scene is one `scene` part filling the screen (`x` and `y` of the screen, `width` 412, `height` 892 on a phone), first among the screen's groups. Its `prompt` says what the picture shows, in a sentence or two, and its `style` says how it is drawn. Give every scene of an app the same `style`, word for word, so the pictures belong together. An image model paints it; do not set `image`.
 - Never ask the picture for anything the player reads or presses: no text, buttons, bars or menus in the `prompt`. Those are real parts standing on the scene (`stat-bar`, `skill-button`, `dialogue-box`, `button`, `game-result`…), as ordinary groups after it.
 - What the player taps in the picture itself (a door, a chest) is a row of `hotspots`: `label`, then `x`, `y`, `w`, `h` in percent of the scene. Its action is in `actions` as `"tab:0"`, `"tab:1"`… Leave the area in the `prompt` so the thing is really there: "a wooden chest in the lower left".
+- `motion`: `animated` paints a looping GIF instead of a still, for a scene where gentle movement adds something (candlelight, rain, water). It is smaller and costs more, so leave the rest `still`. `frames` and `frameMs` set its length.
 - `scrim` darkens part of the picture so what stands on it can be read: `top`, `bottom`, `both` or `full`. Words with no surface of their own (`text`, `stat-bar`…) should stand where it is dark; for long text, use a part with a surface such as `dialogue-box` or `card`.
-- Leave scenes out of ordinary app screens. A scene is a still picture: nothing in it moves.
+- Leave scenes out of ordinary app screens. A scene never reacts to the player: a `still` does not move, and an `animated` one only repeats its loop.
 
 ## Keep it simple
 

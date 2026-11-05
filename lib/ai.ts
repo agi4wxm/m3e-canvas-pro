@@ -157,22 +157,29 @@ const imageKeyOf = (s: AiSettings) => s.imageKey?.trim() || (s.provider === (s.i
 export const hasImageKey = (s: AiSettings) => !!imageKeyOf(s) || isLocal(s.imageBaseUrl ?? "");
 
 /** which file a base64 picture is, by how it starts */
-const mimeOf = (b64: string) => (b64.startsWith("/9j/") ? "image/jpeg" : b64.startsWith("UklGR") ? "image/webp" : "image/png");
+const mimeOf = (b64: string) => (b64.startsWith("/9j/") ? "image/jpeg" : b64.startsWith("UklGR") ? "image/webp" : b64.startsWith("R0lGOD") ? "image/gif" : "image/png");
+
+/** an animation's frames: how many, and how long each stands */
+export type Animated = { frames: number; ms: number };
 
 /** One picture from the provider's OpenAI-style endpoint, as a data address. Tall or wide by the box it is for. */
-export async function generateImage(s: AiSettings, prompt: string, box: { w: number; h: number }, signal?: AbortSignal): Promise<string> {
+export async function generateImage(s: AiSettings, prompt: string, box: { w: number; h: number }, signal?: AbortSignal, animated?: Animated): Promise<string> {
   const spec = imageSpec(s.imageProvider);
   const base = trimSlash(s.imageBaseUrl?.trim() || spec.baseUrl);
   const model = s.imageModel?.trim() || spec.model;
   if (!isSecureUrl(base)) throw new Error("insecure");
-  const size = box.h > box.w * 1.15 ? "1024x1536" : box.w > box.h * 1.15 ? "1536x1024" : "1024x1024";
+  const tall = box.h > box.w * 1.15;
+  const wide = box.w > box.h * 1.15;
+  /* only OpenAI's models animate; every frame counts against a request's pixels, so an animation's are smaller */
+  const moving = animated && s.imageProvider !== "gemini" ? animated : undefined;
+  const size = moving ? (tall ? "512x768" : wide ? "768x512" : "640x640") : tall ? "1024x1536" : wide ? "1536x1024" : "1024x1024";
   const key = imageKeyOf(s);
   const res = await fetch(`${base}/images/generations`, {
     method: "POST",
     signal,
     headers: { "content-type": "application/json", ...(key ? { authorization: `Bearer ${key}` } : {}) },
     /* OpenAI's models always answer in base64 and refuse the old switch; Gemini needs it. A JPEG at medium quality keeps a scene small. */
-    body: JSON.stringify({ model, prompt, n: 1, size, ...(s.imageProvider === "gemini" ? { response_format: "b64_json" } : { quality: "medium", output_format: "jpeg" }) }),
+    body: JSON.stringify({ model, prompt, n: 1, size, ...(s.imageProvider === "gemini" ? { response_format: "b64_json" } : moving ? { quality: "medium", output_format: "gif", frame_count: moving.frames, frame_duration_ms: moving.ms } : { quality: "medium", output_format: "jpeg" }) }),
   });
   if (!res.ok) throw new Error(await readError(res));
   const first = (await res.json())?.data?.[0];
@@ -182,7 +189,8 @@ export async function generateImage(s: AiSettings, prompt: string, box: { w: num
 }
 
 /** what is asked of the picture: the words of the scene, its style, and that the interface is not part of it */
-export const scenePrompt = (prompt: string, style: string) => [style.trim(), prompt.trim(), "No text, letters, logos, buttons or user interface anywhere in the picture."].filter(Boolean).join(". ").replace(/\.\.+/g, ".");
+export const scenePrompt = (prompt: string, style: string, animated = false) =>
+  [style.trim(), prompt.trim(), animated ? "A seamless loop: the view and the composition hold still, and only small things move gently, like flames, water, leaves or dust." : "", "No text, letters, logos, buttons or user interface anywhere in the picture."].filter(Boolean).join(". ").replace(/\.\.+/g, ".").replace(/。\./g, "。");
 
 /** the scenes in a document with words to paint and no picture yet */
 export function scenesToPaint(groups: Group[]): Item[] {

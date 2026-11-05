@@ -85,6 +85,8 @@ export const ZH_CHOICES: Record<string, string> = {
   "stacked-bar": "堆叠柱状图",
   pie: "饼图",
   radar: "雷达图",
+  still: "静止",
+  animated: "动图（GIF）",
   free: "自由",
   mark: "轮流落子",
   select: "选择格子",

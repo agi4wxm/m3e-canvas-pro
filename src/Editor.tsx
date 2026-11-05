@@ -2703,7 +2703,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         setPaintingScene(id);
         if (scenes.length > 1) showToast(t("scenesPainting", lang).replace("{n}", String(i + 1)).replace("{all}", String(scenes.length)), 60000, "auto_awesome");
         const p = reader(def, item.props);
-        const image = await generateImage(aiSettings, scenePrompt(p.s("prompt"), p.s("style")), { w: p.n("width"), h: p.n("height") }, ac.signal);
+        const moving = p.s("motion") === "animated";
+        const image = await generateImage(aiSettings, scenePrompt(p.s("prompt"), p.s("style"), moving), { w: p.n("width"), h: p.n("height") }, ac.signal, moving ? { frames: Math.round(p.n("frames")), ms: Math.round(p.n("frameMs")) } : undefined);
         if (ac.signal.aborted) return;
         setGroups((gs) => gs.map((g) => (g.items.some((it) => it.id === id) ? { ...g, items: g.items.map((it) => (it.id === id ? { ...it, props: { ...it.props, image } } : it)) } : g)));
         painted++;
@@ -3810,7 +3811,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         const item = sceneItem(id);
         if (!def || !item) return;
         const p = reader(def, item.props);
-        void navigator.clipboard.writeText(scenePrompt(p.s("prompt"), p.s("style"))).then(() => showToast(t("copied", lang), 1400, "check"));
+        void navigator.clipboard.writeText(scenePrompt(p.s("prompt"), p.s("style"), p.s("motion") === "animated")).then(() => showToast(t("copied", lang), 1400, "check"));
       },
       reorderPanes: (order) => {
         if (group) setGroups((gs) => panesAfterReorder(gs, group.id, order, widthsRef.current));
