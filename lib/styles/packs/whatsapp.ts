@@ -1,13 +1,13 @@
 import { CHIPS, MENUS, role } from "../recipes/shared";
 
 const FIELDS = `:is([data-slot=input],[data-slot=select-trigger],[data-slot=textarea],[data-slot=native-select],[data-slot=input-group],[data-slot=phone-input],[data-surface=field],[data-slot=text-field-box])`;
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /* from memory of its web app's palette; the 2024 redesign from a press report */
 export default definePack({
   key: "whatsapp",
-  name: say("WhatsApp", "WhatsApp", "WhatsApp", "WhatsApp"),
-  hint: say("聊天：中性底色、绿色点缀、浅绿气泡、胶囊指示", "Chat: neutral ground, green accents, pale green bubbles", "チャット：緑のアクセント", "채팅: 초록 포인트"),
+  name: zhEnJaKo("WhatsApp", "WhatsApp", "WhatsApp", "WhatsApp"),
+  hint: zhEnJaKo("聊天：中性底色、绿色点缀、浅绿气泡、胶囊指示", "Chat: neutral ground, green accents, pale green bubbles", "チャット：緑のアクセント", "채팅: 초록 포인트"),
   refs: ["WhatsApp"],
   basis: "memory",
   group: "app",

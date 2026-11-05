@@ -1,5 +1,5 @@
 import { BUTTONS, PRESSES } from "../recipes/shared";
-import { definePack, roles, say, CHUNKY_RAMP } from "../types";
+import { definePack, roles, zhEnJaKo, CHUNKY_RAMP } from "../types";
 
 /* the background and board read off Block Blast's store screenshots: the most downloaded game of 2025 */
 
@@ -126,8 +126,8 @@ const CSS = `
 
 export default definePack({
   key: "blocks",
-  name: say("方块解谜", "Block puzzle", "ブロックパズル", "블록 퍼즐"),
-  hint: say("像 Block Blast：宝蓝底、深蓝棋盘、金色皇冠、紫色飘带", "Like Block Blast: royal blue ground, navy board, gold crown, purple ribbon", "Block Blast のような青地と金", "Block Blast 같은 파란 바탕과 금색"),
+  name: zhEnJaKo("方块解谜", "Block puzzle", "ブロックパズル", "블록 퍼즐"),
+  hint: zhEnJaKo("像 Block Blast：宝蓝底、深蓝棋盘、金色皇冠、紫色飘带", "Like Block Blast: royal blue ground, navy board, gold crown, purple ribbon", "Block Blast のような青地と金", "Block Blast 같은 파란 바탕과 금색"),
   refs: ["Block Blast"],
   basis: "sampled",
   group: "mobileGame",

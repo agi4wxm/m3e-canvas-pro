@@ -1,5 +1,5 @@
 import { BUTTONS, NOT_INVERSE, PRESSES } from "../recipes/shared";
-import { definePack, roles, say, CHUNKY_RAMP } from "../types";
+import { definePack, roles, zhEnJaKo, CHUNKY_RAMP } from "../types";
 
 /* button, rim and bar colors read off Royal Match's store screenshots; Clash Royale's from Interface In Game */
 
@@ -140,8 +140,8 @@ const CSS = `
 
 export default definePack({
   key: "casual",
-  name: say("消除休闲", "Casual match-3", "カジュアルパズル", "캐주얼 퍼즐"),
-  hint: say("像 Royal Match、Candy Crush、皇室战争：光泽按钮、厚金边、白字描边", "Like Royal Match, Candy Crush, Clash Royale: glossy buttons, thick gold rims, outlined white words", "Royal Match や Candy Crush のように光沢と金の縁", "Royal Match, Candy Crush처럼 광택과 금테"),
+  name: zhEnJaKo("消除休闲", "Casual match-3", "カジュアルパズル", "캐주얼 퍼즐"),
+  hint: zhEnJaKo("像 Royal Match、Candy Crush、皇室战争：光泽按钮、厚金边、白字描边", "Like Royal Match, Candy Crush, Clash Royale: glossy buttons, thick gold rims, outlined white words", "Royal Match や Candy Crush のように光沢と金の縁", "Royal Match, Candy Crush처럼 광택과 금테"),
   refs: ["Royal Match", "Candy Crush", "Monopoly GO", "Clash Royale", "Coin Master"],
   basis: "sampled",
   group: "mobileGame",

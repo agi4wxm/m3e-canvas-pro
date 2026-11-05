@@ -1,12 +1,12 @@
-import { BODIES, LABELS, TITLES, definePack, roles, say } from "../types";
+import { BODIES, LABELS, TITLES, definePack, roles, zhEnJaKo } from "../types";
 
 /* Claude.ai as it looks in its web and phone apps: warm ivory, near-black words, one terracotta accent, titles in a
  * serif. The colors are from memory of the app and screenshots of it, not from a published palette; its own faces
  * are not free, so a free serif and a geometric sans stand in for them. */
 export default definePack({
   key: "claude",
-  name: say("Claude", "Claude", "Claude", "Claude"),
-  hint: say("AI 助手：暖象牙色底、近黑文字、陶土橙点缀、衬线标题、柔和圆角卡片", "AI assistant: warm ivory, near-black words, a terracotta accent, serif titles, soft rounded cards", "AI アシスタント：温かいアイボリーとテラコッタ、明朝の見出し", "AI 도우미: 따뜻한 아이보리와 테라코타, 세리프 제목"),
+  name: zhEnJaKo("Claude", "Claude", "Claude", "Claude"),
+  hint: zhEnJaKo("AI 助手：暖象牙色底、近黑文字、陶土橙点缀、衬线标题、柔和圆角卡片", "AI assistant: warm ivory, near-black words, a terracotta accent, serif titles, soft rounded cards", "AI アシスタント：温かいアイボリーとテラコッタ、明朝の見出し", "AI 도우미: 따뜻한 아이보리와 테라코타, 세리프 제목"),
   refs: ["Claude"],
   basis: "observed",
   group: "app",

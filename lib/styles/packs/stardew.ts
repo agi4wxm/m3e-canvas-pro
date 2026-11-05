@@ -1,5 +1,5 @@
 import { MENU_ITEMS, PANELS, ROWS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /** what is chosen, hovered or open, by whatever attribute the part says it with */
 const LIT = `:is([aria-selected=true],[aria-current=true],[aria-current=page],[data-active]:not([data-active=false]),[data-highlighted],[data-popup-open],[class~="bg-secondary-container"],:hover,:focus-visible)`;
@@ -16,8 +16,8 @@ const PICKED = "#D8402A";
 /* the dialog frame and panel read off Stardew Valley's Steam screenshots */
 export default definePack({
   key: "stardew",
-  name: say("星露谷物语", "Stardew Valley", "Stardew Valley", "Stardew Valley"),
-  hint: say("像素农场：木框、橙褐羊皮纸面板、深棕像素字、卷轴名牌", "Pixel farm: wooden frames, orange-tan parchment panels, dark brown pixel type", "ピクセル農場：木枠と羊皮紙", "픽셀 농장: 나무 테와 양피지"),
+  name: zhEnJaKo("星露谷物语", "Stardew Valley", "Stardew Valley", "Stardew Valley"),
+  hint: zhEnJaKo("像素农场：木框、橙褐羊皮纸面板、深棕像素字、卷轴名牌", "Pixel farm: wooden frames, orange-tan parchment panels, dark brown pixel type", "ピクセル農場：木枠と羊皮紙", "픽셀 농장: 나무 테와 양피지"),
   refs: ["Stardew Valley", "Terraria"],
   basis: "sampled",
   group: "pcGame",

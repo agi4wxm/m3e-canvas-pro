@@ -1,5 +1,5 @@
 import { BUTTON, BUTTONS, MENU_ITEMS, PANELS, ROWS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /** what is chosen, hovered or open, by whatever attribute the part says it with */
 const LIT = `:is([aria-selected=true],[aria-current=true],[aria-current=page],[data-active]:not([data-active=false]),[data-highlighted],[data-popup-open],[class~="bg-secondary-container"],:hover,:focus-visible)`;
@@ -16,8 +16,8 @@ const LEAN = "transform:skewX(-12deg)";
 /* looked at in Marvel Rivals' menus on Interface In Game: white panels, navy strips, yellow, slants */
 export default definePack({
   key: "rivals",
-  name: say("漫威争锋", "Marvel Rivals", "Marvel Rivals", "Marvel Rivals"),
-  hint: say("漫画英雄：白面板粗墨线、海军蓝条、亮黄选中、斜切和粗斜体大写", "Comic hero: white panels in thick ink lines, navy strips, bright yellow, slants and bold italic capitals", "コミック調：太い線の白いパネルと黄色、斜めの形", "코믹풍: 굵은 선의 흰 패널과 노랑, 기울인 형태"),
+  name: zhEnJaKo("漫威争锋", "Marvel Rivals", "Marvel Rivals", "Marvel Rivals"),
+  hint: zhEnJaKo("漫画英雄：白面板粗墨线、海军蓝条、亮黄选中、斜切和粗斜体大写", "Comic hero: white panels in thick ink lines, navy strips, bright yellow, slants and bold italic capitals", "コミック調：太い線の白いパネルと黄色、斜めの形", "코믹풍: 굵은 선의 흰 패널과 노랑, 기울인 형태"),
   refs: ["Marvel Rivals"],
   basis: "observed",
   group: "pcGame",

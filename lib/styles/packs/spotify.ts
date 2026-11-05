@@ -1,10 +1,10 @@
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /* its dark palette from third-party breakdowns; Spotify's own brand page could not be read */
 export default definePack({
   key: "spotify",
-  name: say("Spotify", "Spotify", "Spotify", "Spotify"),
-  hint: say("音乐流媒体：近黑底、荧光绿胶囊按钮、方形封面", "Music streaming: near black, bright green capsules, square covers", "音楽配信：黒地に緑のカプセル", "음악 스트리밍: 검정 바탕에 초록"),
+  name: zhEnJaKo("Spotify", "Spotify", "Spotify", "Spotify"),
+  hint: zhEnJaKo("音乐流媒体：近黑底、荧光绿胶囊按钮、方形封面", "Music streaming: near black, bright green capsules, square covers", "音楽配信：黒地に緑のカプセル", "음악 스트리밍: 검정 바탕에 초록"),
   refs: ["Spotify"],
   basis: "observed",
   group: "app",

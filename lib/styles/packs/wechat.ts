@@ -1,5 +1,5 @@
 import { DATA_PANELS, ROWS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /** the lists that are a group of rows of their own: WeUI draws each as white cells from edge to edge */
 const GROUPS = `:is([data-slot=settings-group],[data-slot=file-list],[data-slot=notification-list])`;
@@ -8,8 +8,8 @@ const FIELDS = `:is([data-slot=input],[data-slot=select-trigger],[data-slot=text
 /* WeChat's own WeUI 2.6: its colors, 8px buttons, 56px rows */
 export default definePack({
   key: "wechat",
-  name: say("微信", "WeChat", "WeChat", "WeChat"),
-  hint: say("超级应用：灰底白列表、细分隔线、只用一种绿", "Super app: grey ground, white lists, hairlines, one green", "スーパーアプリ：灰地に白のリスト", "슈퍼앱: 회색 바탕에 흰 목록"),
+  name: zhEnJaKo("微信", "WeChat", "WeChat", "WeChat"),
+  hint: zhEnJaKo("超级应用：灰底白列表、细分隔线、只用一种绿", "Super app: grey ground, white lists, hairlines, one green", "スーパーアプリ：灰地に白のリスト", "슈퍼앱: 회색 바탕에 흰 목록"),
   refs: ["WeChat"],
   basis: "official",
   group: "app",

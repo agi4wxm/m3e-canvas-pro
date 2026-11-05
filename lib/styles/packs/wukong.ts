@@ -1,5 +1,5 @@
 import { MENU_ITEMS, MENU_SEPARATORS, PANELS, ROWS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, SERIF_RAMP } from "../types";
+import { definePack, roles, zhEnJaKo, SERIF_RAMP } from "../types";
 
 /** what is chosen, hovered or open, by whatever attribute the part says it with */
 const LIT = `:is([aria-selected=true],[aria-current=true],[aria-current=page],[data-active]:not([data-active=false]),[data-highlighted],[data-popup-open],[class~="bg-secondary-container"],:hover,:focus-visible)`;
@@ -28,8 +28,8 @@ const WINDOWS = `:is([data-slot=tooltip-content],[data-slot=snackbar],[data-slot
 /* looked at in Black Myth's menus on Interface In Game */
 export default definePack({
   key: "wukong",
-  name: say("黑神话：悟空", "Black Myth: Wukong", "黒神話：悟空", "검은 신화: 오공"),
-  hint: say("国风暗黑：纯黑底、漆黑面板配铜线、选中项是边缘虚化的米白色带、朱红印章点缀", "Chinese dark fantasy: pure black, lacquer panels with bronze lines, a pale band with faded edges on the selected row, vermilion seals", "国風ダーク：黒地と淡い帯、朱の印", "동양풍 다크: 검정 바탕과 옅은 띠, 붉은 낙관"),
+  name: zhEnJaKo("黑神话：悟空", "Black Myth: Wukong", "黒神話：悟空", "검은 신화: 오공"),
+  hint: zhEnJaKo("国风暗黑：纯黑底、漆黑面板配铜线、选中项是边缘虚化的米白色带、朱红印章点缀", "Chinese dark fantasy: pure black, lacquer panels with bronze lines, a pale band with faded edges on the selected row, vermilion seals", "国風ダーク：黒地と淡い帯、朱の印", "동양풍 다크: 검정 바탕과 옅은 띠, 붉은 낙관"),
   refs: ["Black Myth: Wukong"],
   basis: "observed",
   group: "pcGame",

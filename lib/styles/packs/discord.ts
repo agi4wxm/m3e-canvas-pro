@@ -1,5 +1,5 @@
 import { mix, role } from "../recipes/shared";
-import { BODIES, LABELS, TITLES, definePack, roles, say } from "../types";
+import { BODIES, LABELS, TITLES, definePack, roles, zhEnJaKo } from "../types";
 import { menubar, palette, picked, short, sidebar, toolbar, tree, windowsCaption } from "./desk";
 
 /* blurple from Discord's brand page; the dark greys from third-party palettes. What gives it away beyond the colors:
@@ -17,8 +17,8 @@ const RAIL = "[data-slot=navigation-rail]";
 
 export default definePack({
   key: "discord",
-  name: say("Discord", "Discord", "Discord", "Discord"),
-  hint: say("玩家聊天：深灰分层、蓝紫主色、实心图标", "Gamer chat: layered dark greys, blurple, solid icons", "ゲーマーのチャット：濃い灰と青紫", "게이머 채팅: 짙은 회색과 파랑보라"),
+  name: zhEnJaKo("Discord", "Discord", "Discord", "Discord"),
+  hint: zhEnJaKo("玩家聊天：深灰分层、蓝紫主色、实心图标", "Gamer chat: layered dark greys, blurple, solid icons", "ゲーマーのチャット：濃い灰と青紫", "게이머 채팅: 짙은 회색과 파랑보라"),
   refs: ["Discord"],
   basis: "official",
   group: "desktop",

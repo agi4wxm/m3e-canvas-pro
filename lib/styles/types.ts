@@ -6,7 +6,9 @@ import type { Recipes } from "./recipes";
 
 export type StyleText = { zh: string; en: string; ja: string; ko: string };
 export const styleTextOf = (t: StyleText, lang: string) => t[lang as keyof StyleText] ?? t.en;
-export const say = (zh: string, en: string, ja: string, ko: string): StyleText => ({ zh, en, ja, ko });
+/** a style's words in four languages, Chinese first: zh, en, ja, ko. (The kits' `say` in parts/templates/kit.ts takes
+ *  English first; the name says the order so the two are not taken for each other.) */
+export const zhEnJaKo = (zh: string, en: string, ja: string, ko: string): StyleText => ({ zh, en, ja, ko });
 
 /** the color roles a style names; the ones a scheme has beyond these follow from them */
 export type StyleRoles = Omit<Palette, "key" | "label" | "seed" | "error" | "onError" | "errorContainer" | "onErrorContainer"> & {

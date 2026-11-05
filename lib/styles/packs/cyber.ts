@@ -1,5 +1,5 @@
 import { BUTTONS, MENU_ITEMS, PANELS, ROWS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /** what is chosen, hovered or open, by whatever attribute the part says it with */
 const LIT = `:is([aria-selected=true],[aria-current=true],[aria-current=page],[data-active]:not([data-active=false]),[data-highlighted],[data-popup-open],[class~="bg-secondary-container"],:hover,:focus-visible)`;
@@ -21,8 +21,8 @@ const ROUND = `[data-slot=egg-smash-item],[data-slot=gacha-dot],[data-slot=gacha
 /* its character screen read off a Steam store screenshot: dark crimson panels, red words, cyan accents, one corner cut */
 export default definePack({
   key: "cyber",
-  name: say("赛博朋克 2077", "Cyberpunk 2077", "サイバーパンク 2077", "사이버펑크 2077"),
-  hint: say("暗红面板、红色大写字、青色选中、黄色标记、切角、扫描线", "Dark crimson panels, red capitals, cyan for what is chosen, yellow marks, cut corners, scan lines", "暗い赤のパネルと赤い文字、シアンの選択、黄色の印", "짙은 빨강 패널과 빨간 글자, 청록 선택, 노란 표시"),
+  name: zhEnJaKo("赛博朋克 2077", "Cyberpunk 2077", "サイバーパンク 2077", "사이버펑크 2077"),
+  hint: zhEnJaKo("暗红面板、红色大写字、青色选中、黄色标记、切角、扫描线", "Dark crimson panels, red capitals, cyan for what is chosen, yellow marks, cut corners, scan lines", "暗い赤のパネルと赤い文字、シアンの選択、黄色の印", "짙은 빨강 패널과 빨간 글자, 청록 선택, 노란 표시"),
   refs: ["Cyberpunk 2077"],
   basis: "sampled",
   group: "pcGame",

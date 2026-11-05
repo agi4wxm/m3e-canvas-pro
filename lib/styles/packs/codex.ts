@@ -1,12 +1,12 @@
-import { BODIES, LABELS, TITLES, definePack, roles, say } from "../types";
+import { BODIES, LABELS, TITLES, definePack, roles, zhEnJaKo } from "../types";
 
 /* OpenAI's Codex, in the web app and the command line: neutral black and white, thin lines, compact rows, monospace
  * where the words are code (keys, diffs, branch names). From memory of its screens; its own faces are not free, so Inter and
  * JetBrains Mono stand in for them. */
 export default definePack({
   key: "codex",
-  name: say("Codex", "Codex", "Codex", "Codex"),
-  hint: say("编程助手：中性黑白、细边框、紧凑任务列表、等宽字点缀", "Coding agent: neutral black and white, thin lines, a compact task list, monospace accents", "コーディングエージェント：白黒と細線、等幅の差し色", "코딩 에이전트: 흑백과 가는 선, 고정폭 글꼴"),
+  name: zhEnJaKo("Codex", "Codex", "Codex", "Codex"),
+  hint: zhEnJaKo("编程助手：中性黑白、细边框、紧凑任务列表、等宽字点缀", "Coding agent: neutral black and white, thin lines, a compact task list, monospace accents", "コーディングエージェント：白黒と細線、等幅の差し色", "코딩 에이전트: 흑백과 가는 선, 고정폭 글꼴"),
   refs: ["Codex"],
   basis: "memory",
   group: "app",

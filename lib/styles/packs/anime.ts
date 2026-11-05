@@ -1,5 +1,5 @@
 import { BUTTONS, MENUS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /* looked at in Genshin's and Star Rail's menus on Interface In Game; the cream and slate are common knowledge among players */
 
@@ -137,8 +137,8 @@ const CSS = `
 
 export default definePack({
   key: "anime",
-  name: say("原神 / 星穹铁道", "Genshin / Star Rail", "原神 / スターレイル", "원신 / 스타레일"),
-  hint: say("二次元开放世界：石板蓝半透明面板、米白胶囊按钮、淡金细线", "Anime open world: translucent slate panels, cream capsules, pale gold lines", "スレート色のパネルとクリーム色のカプセル", "슬레이트 패널과 크림색 캡슐"),
+  name: zhEnJaKo("原神 / 星穹铁道", "Genshin / Star Rail", "原神 / スターレイル", "원신 / 스타레일"),
+  hint: zhEnJaKo("二次元开放世界：石板蓝半透明面板、米白胶囊按钮、淡金细线", "Anime open world: translucent slate panels, cream capsules, pale gold lines", "スレート色のパネルとクリーム色のカプセル", "슬레이트 패널과 크림색 캡슐"),
   refs: ["Genshin Impact", "Honkai: Star Rail"],
   basis: "observed",
   group: "mobileGame",

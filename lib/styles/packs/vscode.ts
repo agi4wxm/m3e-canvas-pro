@@ -1,5 +1,5 @@
 import { mix, role } from "../recipes/shared";
-import { BODIES, LABELS, TITLES, definePack, roles, say } from "../types";
+import { BODIES, LABELS, TITLES, definePack, roles, zhEnJaKo } from "../types";
 import { menubar, palette, picked, short, sidebar, toolbar, tree } from "./desk";
 
 /* the Dark Modern and Light Modern theme files in VS Code's own repository. What gives it away beyond the charcoal: the
@@ -20,8 +20,8 @@ const MENU_ROWS = ":is([data-slot=dropdown-menu-item],[data-slot=context-menu-it
 
 export default definePack({
   key: "vscode",
-  name: say("VS Code", "VS Code", "VS Code", "VS Code"),
-  hint: say("开发工具：炭灰面板、灰线、单一蓝色、方正紧凑", "Developer tool: charcoal panels, grey lines, one blue, square and dense", "開発ツール：炭色のパネル", "개발 도구: 숯색 패널"),
+  name: zhEnJaKo("VS Code", "VS Code", "VS Code", "VS Code"),
+  hint: zhEnJaKo("开发工具：炭灰面板、灰线、单一蓝色、方正紧凑", "Developer tool: charcoal panels, grey lines, one blue, square and dense", "開発ツール：炭色のパネル", "개발 도구: 숯색 패널"),
   refs: ["VS Code", "Cursor"],
   basis: "official",
   group: "desktop",

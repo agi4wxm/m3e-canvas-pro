@@ -1,5 +1,5 @@
 import { MENU_ITEMS, MENU_SEPARATORS, ROWS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, SERIF_RAMP } from "../types";
+import { definePack, roles, zhEnJaKo, SERIF_RAMP } from "../types";
 
 /** what is chosen, hovered or open, by whatever attribute the part says it with */
 const LIT = `:is([aria-selected=true],[aria-current=true],[aria-current=page],[data-active]:not([data-active=false]),[data-highlighted],[data-popup-open],[class~="bg-secondary-container"],:hover,:focus-visible)`;
@@ -21,8 +21,8 @@ const SLOTS = `:is([data-slot=inventory-cell],[data-slot=item-cell-frame],[data-
 /* looked at in Elden Ring's menus on Interface In Game */
 export default definePack({
   key: "souls",
-  name: say("艾尔登法环", "Elden Ring", "Elden Ring", "Elden Ring"),
-  hint: say("魂系：近黑褐底、衬线体、纯文字菜单、选中时淡出的暗金光带", "Souls-like: near-black brown, serif type, text-only menus, a fading dark-gold band on the selected row", "ソウルライク：文字だけのメニューと暗い金", "소울라이크: 글자만 있는 메뉴와 어두운 금색"),
+  name: zhEnJaKo("艾尔登法环", "Elden Ring", "Elden Ring", "Elden Ring"),
+  hint: zhEnJaKo("魂系：近黑褐底、衬线体、纯文字菜单、选中时淡出的暗金光带", "Souls-like: near-black brown, serif type, text-only menus, a fading dark-gold band on the selected row", "ソウルライク：文字だけのメニューと暗い金", "소울라이크: 글자만 있는 메뉴와 어두운 금색"),
   refs: ["Elden Ring", "Baldur's Gate 3"],
   basis: "observed",
   group: "pcGame",

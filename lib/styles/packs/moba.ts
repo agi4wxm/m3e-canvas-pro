@@ -1,5 +1,5 @@
 import { BUTTON, HEADINGS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /* Wild Rift's menus looked at on Interface In Game; Honor of Kings' store shots share its blue and gold. Its own lobby could not be reached */
 
@@ -143,8 +143,8 @@ ${HEADINGS}{background-image:${GILT}}
 
 export default definePack({
   key: "moba",
-  name: say("MOBA 竞技", "MOBA", "MOBA", "MOBA"),
-  hint: say("像王者荣耀、英雄联盟手游：深海军蓝、金色细框、菱形和金色光晕", "Like Honor of Kings, Wild Rift: deep navy, thin gold frames, diamonds and gold glow", "Honor of Kings のような紺と金", "Honor of Kings 같은 남색과 금색"),
+  name: zhEnJaKo("MOBA 竞技", "MOBA", "MOBA", "MOBA"),
+  hint: zhEnJaKo("像王者荣耀、英雄联盟手游：深海军蓝、金色细框、菱形和金色光晕", "Like Honor of Kings, Wild Rift: deep navy, thin gold frames, diamonds and gold glow", "Honor of Kings のような紺と金", "Honor of Kings 같은 남색과 금색"),
   refs: ["Honor of Kings", "League of Legends: Wild Rift"],
   basis: "observed",
   group: "mobileGame",

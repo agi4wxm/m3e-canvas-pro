@@ -1,5 +1,5 @@
 import { BUTTONS, PRESSES, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /* the HUD navy and pale blue read off Whiteout Survival's store screenshots; Last War's bars look the same */
 
@@ -140,8 +140,8 @@ const CSS = `
 
 export default definePack({
   key: "survival",
-  name: say("冰雪策略", "Survival strategy", "サバイバル戦略", "생존 전략"),
-  hint: say("像寒霜启示录、Last War：深蓝信息条、冰白画面、橙色主按钮", "Like Whiteout Survival, Last War: navy HUD strips, icy white, orange main buttons", "Whiteout Survival のような紺と氷の白", "Whiteout Survival 같은 남색과 얼음빛"),
+  name: zhEnJaKo("冰雪策略", "Survival strategy", "サバイバル戦略", "생존 전략"),
+  hint: zhEnJaKo("像寒霜启示录、Last War：深蓝信息条、冰白画面、橙色主按钮", "Like Whiteout Survival, Last War: navy HUD strips, icy white, orange main buttons", "Whiteout Survival のような紺と氷の白", "Whiteout Survival 같은 남색과 얼음빛"),
   refs: ["Whiteout Survival", "Last War", "Kingshot"],
   basis: "sampled",
   group: "mobileGame",

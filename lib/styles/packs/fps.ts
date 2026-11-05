@@ -1,5 +1,5 @@
 import { BUTTON, MENU_ITEMS, ROWS, TONED, mix, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /** what is chosen, hovered or open, by whatever attribute the part says it with */
 const LIT = `:is([aria-selected=true],[aria-current=true],[aria-current=page],[data-active]:not([data-active=false]),[data-highlighted],[data-popup-open],[class~="bg-secondary-container"],:hover,:focus-visible)`;
@@ -11,8 +11,8 @@ const SLOTS = `:is([data-slot=inventory-cell],[data-slot=item-cell-frame],[data-
 /* Apex's and Valorant's menus looked at on Interface In Game; Valorant's red and off-white as it publishes them */
 export default definePack({
   key: "fps",
-  name: say("战术射击", "Tactical shooter", "タクティカル FPS", "전술 슈팅"),
-  hint: say("像 Apex、Valorant：深蓝黑底、Valorant 红、米白选中、扁平直角和细线、窄体大写", "Like Apex, Valorant: blue-black, Valorant red, off-white selection, flat square shapes and thin lines, condensed capitals", "Apex や Valorant のように赤と米白、平たい四角と細線", "Apex, Valorant처럼 빨강과 미색, 납작한 사각형과 가는 선"),
+  name: zhEnJaKo("战术射击", "Tactical shooter", "タクティカル FPS", "전술 슈팅"),
+  hint: zhEnJaKo("像 Apex、Valorant：深蓝黑底、Valorant 红、米白选中、扁平直角和细线、窄体大写", "Like Apex, Valorant: blue-black, Valorant red, off-white selection, flat square shapes and thin lines, condensed capitals", "Apex や Valorant のように赤と米白、平たい四角と細線", "Apex, Valorant처럼 빨강과 미색, 납작한 사각형과 가는 선"),
   refs: ["Apex Legends", "VALORANT", "PUBG", "Counter-Strike 2"],
   basis: "observed",
   group: "pcGame",
