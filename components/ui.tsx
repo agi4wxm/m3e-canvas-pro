@@ -100,23 +100,21 @@ export function PanelShell({
         >
           {children}
         </div>
-        {/* the tabs keep their place while the rest scrolls under them, and the panel's own colour
-            is drawn behind them, thinning out to nothing by where the row ends: what passes up
-            behind the two words dissolves into the panel rather than being cut off against a rule */}
+        {/* the tabs keep their place while the rest scrolls under them, on the panel's own colour with a
+            hairline beneath: what scrolls up passes under the row instead of showing through the two words.
+            With no tabs, the panel's colour only thins out over the top of what scrolls */}
         <div
+          data-panel-tabs={tabs ? "" : undefined}
           style={{
             position: "absolute",
             top: 0,
             left: 0,
             right: 0,
-            /* the panel's colour reaches exactly as far as the rule used to, and thins out
-               across the two words on its way there */
             height: tabs ? PANEL_TABS_H : PANEL_FADE_H,
             /* the tabs ride above the lock's blur: they are what stays usable while it is on */
             zIndex: tabs ? 4 : 2,
-            background: tabs
-              ? `linear-gradient(to bottom, ${p.surface} 0%, ${p.surface} 24%, ${p.surface}00 100%)`
-              : `linear-gradient(to bottom, ${p.surface}, ${p.surface}00)`,
+            background: tabs ? p.surface : `linear-gradient(to bottom, ${p.surface}, ${p.surface}00)`,
+            boxShadow: tabs ? `inset 0 -1px 0 ${p.outlineVariant}` : undefined,
             pointerEvents: tabs ? undefined : "none",
           }}
         >
@@ -1496,7 +1494,8 @@ export function Tile({
           color: p.onSurface,
           cursor: onPointerDown ? "grab" : "pointer",
           userSelect: "none",
-          touchAction: "none",
+          /* only a tile that is carried keeps the finger to itself; one that is tapped lets a list scroll */
+          touchAction: onPointerDown ? "none" : undefined,
           minHeight: 72,
           boxSizing: "border-box",
         }}

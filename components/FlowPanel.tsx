@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Item, Palette, FlowAlign, FlowSizing } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
 import { partBySlug } from "@/parts/registry";
@@ -56,8 +57,50 @@ function AlignGrid({ dir, justify, align, onPick, p }: { dir: "row" | "column"; 
   );
 }
 
-/** The container's own auto layout: direction, alignment, gaps, padding and whether it hugs what it holds. */
-export function FlowControl({ item, onChange, p }: { item: Item; onChange: (patch: Partial<Item>) => void; p: Palette }) {
+/** A limit that may be left unset: empty, with a dash, until a number is written; emptied, it is unset again. */
+function LimitField({ word, value, title, onChange, p }: { word: string; value: number | undefined; title: string; onChange: (v: number | undefined) => void; p: Palette }) {
+  const [text, setText] = useState(value === undefined ? "" : String(value));
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    if (!editing) setText(value === undefined ? "" : String(value));
+  }, [value, editing]);
+  const commit = () => {
+    setEditing(false);
+    const n = Math.round(Number(text));
+    if (text.trim() === "" || !Number.isFinite(n) || n <= 0) return onChange(undefined);
+    onChange(Math.min(2400, n));
+  };
+  return (
+    <label title={title} style={{ display: "inline-flex", alignItems: "center", gap: 4, height: 32, padding: "0 4px 0 8px", borderRadius: 8, background: p.surfaceContainerHigh, color: p.onSurfaceVariant }}>
+      <span style={{ fontSize: 11, fontWeight: 600, minWidth: 12 }}>{word}</span>
+      <input
+        inputMode="numeric"
+        aria-label={title}
+        value={text}
+        placeholder="—"
+        onFocus={(e) => {
+          setEditing(true);
+          e.currentTarget.select();
+        }}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            setText(value === undefined ? "" : String(value));
+            setEditing(false);
+          }
+        }}
+        className="m3-number"
+        style={{ width: 48, height: 28, padding: "0 6px", borderRadius: 8, border: "none", background: p.surfaceContainerHigh, color: p.onSurface, fontSize: 12, fontWeight: 600, textAlign: "center", fontVariantNumeric: "tabular-nums", fontFamily: "inherit", outline: editing ? `2px solid ${p.primary}` : "none", outlineOffset: -1, boxSizing: "border-box" }}
+      />
+    </label>
+  );
+}
+
+/** The container's own auto layout: direction, alignment, gaps, padding and whether it hugs what it holds. Standing in a
+ *  layout itself, how it is sized is said once, with that layout's sizing (`FlowItemControl`), so `sizing` is off here. */
+export function FlowControl({ item, onChange, p, sizing = true }: { item: Item; onChange: (patch: Partial<Item>) => void; p: Palette; sizing?: boolean }) {
   const lang = useLang();
   const def = partBySlug(item.component);
   if (!def?.flow) return null;
@@ -66,7 +109,8 @@ export function FlowControl({ item, onChange, p }: { item: Item; onChange: (patc
   const drop = (keys: string[], patch: Props = {}) => onChange({ props: { ...Object.fromEntries(Object.entries(props).filter(([k]) => !keys.includes(k))), ...patch } });
   const grid = !!def.flow.grid;
   const f = flowOfItem(item);
-  const dir = grid ? "grid" : ((props.layout as string) ?? "free");
+  /* what the part says, defaults and all: a box lays out in a column before any layout is written on it */
+  const dir = f ? f.dir : grid ? "grid" : "free";
   const on = !!f;
   const has = (key: string) => def.props.some((d) => d.key === key);
   const sides = ["padTop", "padRight", "padBottom", "padLeft"] as const;
@@ -163,7 +207,7 @@ export function FlowControl({ item, onChange, p }: { item: Item; onChange: (patc
               />
             </div>
           </div>
-          {(has("hugWidth") || has("hugHeight")) && (
+          {sizing && (has("hugWidth") || has("hugHeight")) && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {(["w", "h"] as const).map((axis) => {
                 const key = axis === "w" ? "hugWidth" : "hugHeight";
@@ -205,15 +249,19 @@ export function FlowItemControl({ item, parent, onChange, p }: { item: Item; par
   const c = childLayoutOf(item);
   /* a part that lays out its own contents can take their size */
   const hugs = !!flowOfItem(item);
+  const def = partBySlug(item.component);
   const main = parent.dir === "column" ? "h" : "w";
   const setSize = (axis: "w" | "h", v: FlowSizing) => {
     const flowSize = { ...c.size, [axis]: v };
+    /* a layout's own hugging is the same choice: kept in step, it still holds once the part is taken out of this one */
+    const hugKey = axis === "w" ? "hugWidth" : "hugHeight";
+    const own = hugs && v !== "fill" && def?.props.some((d) => d.key === hugKey) ? { props: { ...item.props, [hugKey]: v === "hug" } } : {};
     /* the run's axis said by `flowFill` before is said here now */
-    onChange({ flowSize, ...(axis === main && item.flowFill ? { flowFill: undefined } : {}) });
+    onChange({ flowSize, ...own, ...(axis === main && item.flowFill ? { flowFill: undefined } : {}) });
   };
-  const setLimit = (which: "flowMin" | "flowMax", axis: "w" | "h", v: number) => {
+  const setLimit = (which: "flowMin" | "flowMax", axis: "w" | "h", v: number | undefined) => {
     const cur = { ...(c[which === "flowMin" ? "min" : "max"]) };
-    if (v > 0) cur[axis] = v;
+    if (v && v > 0) cur[axis] = v;
     else delete cur[axis];
     onChange({ [which]: Object.keys(cur).length ? cur : undefined });
   };
@@ -246,8 +294,8 @@ export function FlowItemControl({ item, parent, onChange, p }: { item: Item; par
                 </div>
                 {limited && (
                   <div style={{ display: "flex", gap: 6, paddingLeft: 52 }} title={t("flowLimitHint", lang)}>
-                    <Field word={t("flowMin", lang)} value={c.min[axis] ?? 0} min={0} max={2400} title={`${t("flowMin", lang)} · ${t("flowLimitHint", lang)}`} onChange={(v) => setLimit("flowMin", axis, v)} p={p} />
-                    <Field word={t("flowMax", lang)} value={c.max[axis] ?? 0} min={0} max={2400} title={`${t("flowMax", lang)} · ${t("flowLimitHint", lang)}`} onChange={(v) => setLimit("flowMax", axis, v)} p={p} />
+                    <LimitField word={t("flowMin", lang)} value={c.min[axis]} title={`${t("flowMin", lang)} · ${t("flowLimitHint", lang)}`} onChange={(v) => setLimit("flowMin", axis, v)} p={p} />
+                    <LimitField word={t("flowMax", lang)} value={c.max[axis]} title={`${t("flowMax", lang)} · ${t("flowLimitHint", lang)}`} onChange={(v) => setLimit("flowMax", axis, v)} p={p} />
                   </div>
                 )}
               </div>

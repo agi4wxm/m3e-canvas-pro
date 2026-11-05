@@ -9,6 +9,11 @@ import { t, useLang } from "@/lib/i18n";
 
 export type Mode = "select" | "hand";
 
+/** what a notice offers to do about what it says (take a change back) */
+export type NoteAction = { label: string; run: () => void };
+/** a short message shown for a moment, with an action when there is something to do about it */
+export type Note = { text: string; icon: string; action?: NoteAction };
+
 const REPO_URL = "https://github.com/Crysta1221/shadcn-m3e";
 
 export function GitHubLink({ p, size = 40 }: { p: Palette; size?: number }) {
@@ -96,6 +101,7 @@ export function Toolbar({
   onDraftUndo,
   onDraftSave,
   quickUndo,
+  onAddParts,
 }: {
   p: Palette;
   mode: Mode;
@@ -134,7 +140,7 @@ export function Toolbar({
   place?: Place;
   onPlace?: (place: Place) => void;
   /** a short message shown beside the tidy button for a moment */
-  note?: { text: string; icon: string } | null;
+  note?: Note | null;
   onSaveProject?: () => void;
   onOpenProject?: () => void;
   /** opens the "ask an AI" dialog from the left end of the zoom row */
@@ -147,12 +153,14 @@ export function Toolbar({
   onDraftSave?: () => void;
   /** after a kept draft: the header's undo, shown beside the opener so the previous design stays a tap away */
   quickUndo?: boolean;
+  /** phone: opens the parts, atoms and composites, to add one */
+  onAddParts?: () => void;
 }) {
   const lang = useLang();
   if (mobile) {
-    const S = 42;
+    const S = 40;
     /* below this the pill runs past the edge of the phone with its word in it */
-    const narrow = typeof window !== "undefined" && window.innerWidth < 360;
+    const narrow = typeof window !== "undefined" && window.innerWidth < 388;
     return (
       <div
         style={{
@@ -168,6 +176,12 @@ export function Toolbar({
         }}
       >
         <Pill p={p}>
+          {/* adding is up here with the other tools, where it covers nothing on the screen below */}
+          {onAddParts && (
+            <button onClick={onAddParts} data-add-parts title={t("addParts", lang)} aria-label={t("addParts", lang)} className="m3-press" style={{ width: S, height: S, borderRadius: S / 2, border: "none", background: p.primaryContainer, color: p.onPrimaryContainer, cursor: "pointer", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
+              <Icon name="add" size={24} />
+            </button>
+          )}
           <IconBtn icon="undo" p={p} onClick={onUndo} disabled={!canUndo} title={t("undo", lang)} size={S} />
           <IconBtn icon="redo" p={p} onClick={onRedo} disabled={!canRedo} title={t("redo", lang)} size={S} />
           <IconBtn icon="translate" p={p} onClick={onLangSheet} title={t("language", lang)} size={S} />
@@ -227,7 +241,7 @@ export function Toolbar({
               transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
               style={{
                 height: 40,
-                padding: "0 16px",
+                padding: note.action ? "0 4px 0 16px" : "0 16px",
                 borderRadius: 20,
                 background: p.inverseSurface,
                 color: p.inverseOnSurface,
@@ -238,11 +252,17 @@ export function Toolbar({
                 gap: 8,
                 whiteSpace: "nowrap",
                 boxShadow: "0 2px 10px rgba(0,0,0,0.10)",
-                pointerEvents: "none",
+                /* a notice with something to do takes the pointer; one with nothing lets it through to the canvas */
+                pointerEvents: note.action ? "auto" : "none",
               }}
             >
               <Icon name={note.icon} size={18} />
               {note.text}
+              {note.action && (
+                <button onClick={note.action.run} data-note-action className="m3-press" style={{ height: 32, padding: "0 12px", borderRadius: 16, border: "none", background: "transparent", color: p.inversePrimary, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  {note.action.label}
+                </button>
+              )}
             </motion.div>
             )}
           </AnimatePresence>

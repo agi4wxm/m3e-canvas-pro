@@ -212,3 +212,82 @@ export function measureBetween(a: Rect, b: Rect): GuideGap[] {
   }
   return out;
 }
+
+/* ---------- a drop into an auto layout ---------- */
+
+/** how an auto layout runs its parts, as far as where a new one goes */
+export type RunOf = { dir: "row" | "column" | "grid"; wrap: boolean; gap: number };
+
+/** Two parts whose tops are this close stand on one line of a wrapping row or a grid, as the layout reads them. */
+const SAME_LINE = 16;
+
+/** whether `a` comes before `b` in the order a layout reads its parts (lib/flow.ts), by their top-left corners */
+function readsBefore(a: { x: number; y: number }, b: { x: number; y: number }, run: RunOf): boolean {
+  if (run.dir === "row" && !run.wrap) return a.x <= b.x;
+  if (run.dir === "column") return a.y <= b.y;
+  return Math.abs(a.y - b.y) < SAME_LINE ? a.x <= b.x : a.y < b.y;
+}
+
+/** Where a part let go in an auto layout goes, as Figma shows it: its place among the parts already there (`kids`, in the
+ *  layout's order), found by its top-left corner `at` the way the layout itself orders them, and a short line across the
+ *  run at that place. `room` is the layout's inside, where a first part goes. No distances: the layout spaces it. */
+export function insertionMark(kids: Rect[], at: { x: number; y: number }, run: RunOf, room: Rect): { index: number; line: GuideLine } {
+  const index = kids.filter((k) => readsBefore({ x: k.l, y: k.t }, at, run)).length;
+  const prev = kids[index - 1];
+  const next = kids[index];
+  const half = Math.max(2, run.gap / 2);
+  const across = (rs: Rect[], axis: "x" | "y") => (axis === "x" ? { from: Math.min(...rs.map((r) => r.t)), to: Math.max(...rs.map((r) => r.b)) } : { from: Math.min(...rs.map((r) => r.l)), to: Math.max(...rs.map((r) => r.r)) });
+  /* across a column the line lies flat; along a row, or a line of a grid, it stands */
+  if (run.dir === "column") {
+    if (!kids.length) return { index, line: { axis: "y", at: room.t, from: room.l, to: room.r } };
+    const y = prev && next ? (prev.b + next.t) / 2 : prev ? prev.b + half : next.t - half;
+    return { index, line: { axis: "y", at: y, ...across(kids, "y") } };
+  }
+  if (!kids.length) return { index, line: { axis: "x", at: room.l, from: room.t, to: room.b } };
+  if (run.dir === "row" && !run.wrap) {
+    const x = prev && next ? (prev.r + next.l) / 2 : prev ? prev.r + half : next.l - half;
+    return { index, line: { axis: "x", at: x, ...across(kids, "x") } };
+  }
+  /* a wrapping row or a grid: between two on one line, else at the end of the line it joins or the start of the next */
+  if (prev && next && Math.abs(prev.t - next.t) < SAME_LINE) return { index, line: { axis: "x", at: (prev.r + next.l) / 2, ...across([prev, next], "x") } };
+  const own = prev && (!next || Math.abs(prev.t - at.y) < SAME_LINE) ? prev : undefined;
+  if (own) return { index, line: { axis: "x", at: own.r + half, from: own.t, to: own.b } };
+  return { index, line: { axis: "x", at: next.l - half, from: next.t, to: next.b } };
+}
+
+/* ---------- where a distance's number is written ---------- */
+
+/** Where the number of a measured gap goes, so it does not sit on another part's words: the middle of its line where that
+ *  is clear, else further along the line, else beside it. `size` is the label's, in canvas units; a rect around the
+ *  whole line (the box being measured inside) is no obstacle. */
+export function labelSpot(g: GuideGap, size: { w: number; h: number }, avoid: Rect[]): { x: number; y: number } {
+  const along = g.axis === "x";
+  const line: Rect = along ? { l: g.from, r: g.to, t: g.at, b: g.at } : { l: g.at, r: g.at, t: g.from, b: g.to };
+  const blocks = avoid.filter((r) => !(r.l <= line.l && r.r >= line.r && r.t <= line.t && r.b >= line.b));
+  const blockAt = (p: { x: number; y: number }) => {
+    const box = { l: p.x - size.w / 2, r: p.x + size.w / 2, t: p.y - size.h / 2, b: p.y + size.h / 2 };
+    return blocks.find((r) => r.l < box.r && r.r > box.l && r.t < box.b && r.b > box.t);
+  };
+  const point = (f: number) => (along ? { x: g.from + (g.to - g.from) * f, y: g.at } : { x: g.at, y: g.from + (g.to - g.from) * f });
+  for (const f of [0.5, 0.35, 0.65, 0.2, 0.8]) {
+    const p = point(f);
+    if (!blockAt(p)) return p;
+  }
+  /* nowhere on the line: beside its middle, just past what covers it, on the nearer side */
+  const mid = point(0.5);
+  const past = (dir: -1 | 1) => {
+    let p = mid;
+    for (let i = 0; i < 8; i++) {
+      const r = blockAt(p);
+      if (!r) return p;
+      p = along ? { x: p.x, y: dir < 0 ? r.t - size.h / 2 - 2 : r.b + size.h / 2 + 2 } : { x: dir < 0 ? r.l - size.w / 2 - 2 : r.r + size.w / 2 + 2, y: p.y };
+    }
+    return null;
+  };
+  const away = (p: { x: number; y: number } | null) => (p ? Math.abs(p.x - mid.x) + Math.abs(p.y - mid.y) : Infinity);
+  const [a, b] = [past(-1), past(1)];
+  return (away(a) <= away(b) ? a : b) ?? mid;
+}
+
+/** every part a drag can line up with, on every screen: what the numbers it writes keep clear of */
+export const targetRects = (t: GuideTargets): Rect[] => [...t.rects.flat(), ...t.loose.rects];

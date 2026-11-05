@@ -1,5 +1,5 @@
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/m3e/button";
 import { Switch } from "@/components/m3e/switch";
 import { themeCss } from "@/lib/m3e/color";
@@ -41,9 +41,32 @@ const ICON_LABELS: Record<IconFamily, { zh: string; en: string; ja: string; ko: 
   emoji: { zh: "彩色图标", en: "Color emoji", ja: "カラー絵文字", ko: "컬러 이모지" },
 };
 
-/** the two controls that say the most about a style, drawn in it */
+/** a style's faces, fetched the first time its card is seen, pointed at or picked: never all of them at once */
+const loadFaces = (pack: StylePack, lang: Lang) => {
+  ensureFontLoaded(pack.font, undefined, lang);
+  if (pack.display) ensureFontLoaded(pack.display, undefined, lang);
+};
+
+/** the two controls that say the most about a style, drawn in it; its faces come once it scrolls into view */
 function Sample({ pack, lang }: { pack: StylePack; lang: Lang }) {
   const selector = `[data-style-sample="${pack.key}"]`;
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") return loadFaces(pack, lang);
+    const io = new IntersectionObserver(
+      (seen) => {
+        if (!seen.some((e) => e.isIntersecting)) return;
+        loadFaces(pack, lang);
+        io.disconnect();
+      },
+      /* a little before it shows, so the face is there by the time it does */
+      { rootMargin: "160px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [pack, lang]);
   const css = useMemo(() => {
     const dark = pack.mode === "dark";
     const at = { scope: `${selector}${selector}`, dark: `.dark${selector}${selector}` };
@@ -54,6 +77,7 @@ function Sample({ pack, lang }: { pack: StylePack; lang: Lang }) {
   }, [pack, selector, lang]);
   return (
     <div
+      ref={ref}
       inert
       aria-hidden
       data-style-sample={pack.key}
@@ -76,13 +100,15 @@ function Sample({ pack, lang }: { pack: StylePack; lang: Lang }) {
   );
 }
 
-function StyleCard({ on, name, refs, hint, onClick, p, children }: { on: boolean; name: string; refs?: string; hint: string; onClick: () => void; p: Palette; children: React.ReactNode }) {
+function StyleCard({ on, name, refs, hint, onClick, onHover, p, children }: { on: boolean; name: string; refs?: string; hint: string; onClick: () => void; /** pointed at: what it would need is fetched */ onHover?: () => void; p: Palette; children: React.ReactNode }) {
   return (
     /* a card, not a button: what it shows are real controls, and a button cannot hold a button */
     <div
       role="button"
       tabIndex={0}
       onClick={onClick}
+      onPointerEnter={onHover}
+      onFocus={onHover}
       onKeyDown={(e) => {
         if (e.key !== "Enter" && e.key !== " ") return;
         e.preventDefault();
@@ -220,12 +246,6 @@ export function StylePanel({
   onRules: (on: boolean) => void;
 }) {
   const lang = useLang();
-  useEffect(() => {
-    for (const s of STYLE_PACKS) {
-      ensureFontLoaded(s.font, undefined, lang);
-      if (s.display) ensureFontLoaded(s.display, undefined, lang);
-    }
-  }, [lang]);
   const strict = isStrict(theme);
   const recipes = recipesOf(theme);
   const ux = uxOf(theme);
@@ -238,7 +258,7 @@ export function StylePanel({
     onChange({ recipes: Object.keys(next).length ? next : undefined });
   };
   const card = (s: StylePack) => (
-    <StyleCard key={s.key} on={theme.style === s.key} name={styleTextOf(s.name, lang)} refs={s.refs.length === 1 && s.refs[0] === s.name.en ? undefined : s.refs.slice(0, 2).join(" · ")} hint={styleTextOf(s.hint, lang)} onClick={() => onPick(s.key)} p={p}>
+    <StyleCard key={s.key} on={theme.style === s.key} name={styleTextOf(s.name, lang)} refs={s.refs.length === 1 && s.refs[0] === s.name.en ? undefined : s.refs.slice(0, 2).join(" · ")} hint={styleTextOf(s.hint, lang)} onClick={() => (loadFaces(s, lang), onPick(s.key))} onHover={() => loadFaces(s, lang)} p={p}>
       <Sample pack={s} lang={lang} />
     </StyleCard>
   );

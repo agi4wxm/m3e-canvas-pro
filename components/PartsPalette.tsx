@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Palette } from "@/lib/tokens";
 import { CATEGORY_ICON, CATEGORY_TEXT, PARTS, categoriesOf, partBySlug, type PartCategory, type PartTier } from "@/parts/registry";
 import { KITS, kitKey, kitOfKey, pickVariant, type KitDef, type KitLook } from "@/parts/kits";
-import { nameOf } from "@/parts/labels";
+import { nameIn, nameOf } from "@/parts/labels";
+import { searchTerms } from "@/parts/keywords";
 import type { PartDef } from "@/parts/types";
 import { Icon } from "./Icon";
 import { LANGS, t, useLang, type Lang } from "@/lib/i18n";
@@ -10,18 +11,21 @@ import { Field, Section, Segmented, Tile, useDismiss } from "./ui";
 
 /* The palette lists every part by what it is for, under the names it has in the docs where it has any.
  * Two tiers: the atoms everything is composed of, and the composites, ready-made. A kit stands among
- * the composites of its kind, marked as one that lands as atoms; its variants open from the tile. */
+ * the composites of its kind, marked as made of atoms; its variants open from that mark. A sealed composite
+ * that can be split into atoms says so too. */
 
 const TIER_KEY = "m3e:palette-tier";
 
-/** the small mark at a kit tile's corner */
-const MARK: React.CSSProperties = { position: "absolute", top: 6, left: 6, height: 16, padding: "0 5px", borderRadius: 6, fontSize: 9, fontWeight: 700, lineHeight: "16px", fontFamily: "inherit" };
+/** the small mark at a tile's corner */
+const MARK: React.CSSProperties = { position: "absolute", top: 6, left: 6, height: 16, padding: "0 5px", borderRadius: 6, fontSize: 9, fontWeight: 700, lineHeight: "16px", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 2 };
 
-const kitName = (k: KitDef, lang: Lang) => (lang === "en" ? k.name : (k.labels[lang] ?? k.name));
+/** what a section is called in every language, so a search for "表单" or "Forms" finds what is in it */
+const categoryWords = (c: string) => Object.values(CATEGORY_TEXT[c as PartCategory] ?? {});
 
-/** every word a part or a kit is known by, in every language, to search them all at once */
-const wordsOfPart = (d: PartDef) => [d.slug, d.name, ...LANGS.map((l) => nameOf(d, l.key))].join("\n").toLowerCase();
-const wordsOfKit = (k: KitDef) => [k.slug, k.name, ...Object.values(k.labels), ...k.variants.flatMap((v) => [v.name, ...Object.values(v.labels)])].join("\n").toLowerCase();
+/** every word a part or a kit is known by, in every language, with its slug's words and its section's names */
+const wordsOfPart = (d: PartDef) => [d.slug, d.slug.replace(/-/g, " "), d.name, ...LANGS.map((l) => nameOf(d, l.key)), ...categoryWords(d.category)].join("\n").toLowerCase();
+const wordsOfKit = (k: KitDef) => [k.slug, k.slug.replace(/-/g, " "), k.name, ...Object.values(k.labels), ...k.variants.flatMap((v) => [v.name, ...Object.values(v.labels)]), ...categoryWords(k.category)].join("\n").toLowerCase();
+const WORDS = new Map<string, string>([...PARTS.map((d) => [d.slug, wordsOfPart(d)] as const), ...KITS.map((k) => [kitKey(k.slug), wordsOfKit(k)] as const)]);
 
 export function PartsPalette({
   palette: p,
@@ -37,11 +41,12 @@ export function PartsPalette({
   /** the starred parts' slugs, and the starred kits' `kit:` keys */
   favorites: string[];
   onToggleFavorite: (key: string) => void;
-  onPartPointerDown: (e: React.PointerEvent, slug: string) => void;
+  /** a part picked up to be carried onto the canvas; without it (the phone's sheet) a tap adds it */
+  onPartPointerDown?: (e: React.PointerEvent, slug: string) => void;
   /** a tile chosen with the keyboard or a screen reader adds its part without a drag */
   onPartActivate: (slug: string) => void;
   /** a kit picked up: it is carried like a part and lands as its tree of atoms */
-  onKitPointerDown: (e: React.PointerEvent, slug: string, variant?: string) => void;
+  onKitPointerDown?: (e: React.PointerEvent, slug: string, variant?: string) => void;
   onKitActivate: (slug: string, variant?: string) => void;
   /** what the document's style is like: it picks the variant a kit lands as */
   kitLook: KitLook;
@@ -63,9 +68,15 @@ export function PartsPalette({
   };
 
   const found = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return null;
-    return { parts: PARTS.filter((d) => wordsOfPart(d).includes(s)), kits: KITS.filter((k) => wordsOfKit(k).includes(s)) };
+    const terms = searchTerms(q);
+    if (!terms.length) return null;
+    /* what is called what was typed comes first, then what is called something it means */
+    const rank = (key: string) => {
+      const words = WORDS.get(key) ?? "";
+      return words.includes(terms[0]) ? 0 : terms.some((w) => words.includes(w)) ? 1 : 2;
+    };
+    const keep = <T,>(list: T[], key: (x: T) => string) => list.map((x) => ({ x, r: rank(key(x)) })).filter((e) => e.r < 2).sort((a, b) => a.r - b.r).map((e) => e.x);
+    return { parts: keep(PARTS, (d) => d.slug), kits: keep(KITS, (k) => kitKey(k.slug)) };
   }, [q]);
 
   const grid: React.CSSProperties = {
@@ -77,17 +88,28 @@ export function PartsPalette({
   const partTile = (slug: string) => {
     const d = partBySlug(slug);
     if (!d) return null;
-    return (
+    const tile = (
       <Tile
         key={slug}
         icon={d.icon}
         label={nameOf(d, lang)}
         p={p}
-        onPointerDown={(e) => onPartPointerDown(e, slug)}
+        onPointerDown={onPartPointerDown && ((e) => onPartPointerDown(e, slug))}
         onClick={() => onPartActivate(slug)}
         starred={favorites.includes(slug)}
         onStar={() => onToggleFavorite(slug)}
       />
+    );
+    /* a sealed composite that splits into atoms in the inspector says so at its corner */
+    if (!d.atoms) return tile;
+    return (
+      <div key={slug} data-part-splits={slug} style={{ position: "relative" }}>
+        {tile}
+        <span title={t("splitMarkHint", lang)} style={{ ...MARK, background: p.surfaceContainerHighest, color: p.onSurfaceVariant, pointerEvents: "none" }}>
+          <Icon name="call_split" size={10} />
+          {t("splitMark", lang)}
+        </span>
+      </div>
     );
   };
 
@@ -100,7 +122,7 @@ export function PartsPalette({
       look={kitLook}
       starred={favorites.includes(kitKey(k.slug))}
       onStar={() => onToggleFavorite(kitKey(k.slug))}
-      onPointerDown={(e, variant) => onKitPointerDown(e, k.slug, variant)}
+      onPointerDown={onKitPointerDown && ((e, variant) => onKitPointerDown(e, k.slug, variant))}
       onActivate={(variant) => onKitActivate(k.slug, variant)}
     />
   );
@@ -184,7 +206,8 @@ function KitTile({
   look: KitLook;
   starred: boolean;
   onStar: () => void;
-  onPointerDown: (e: React.PointerEvent, variant?: string) => void;
+  /** absent where a tap adds it (the phone's sheet) */
+  onPointerDown?: (e: React.PointerEvent, variant?: string) => void;
   onActivate: (variant?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -202,8 +225,8 @@ function KitTile({
   const many = kit.variants.length > 1;
   return (
     <div ref={box} data-kit={kit.slug} style={{ position: "relative" }}>
-      <Tile icon={kit.icon} label={kitName(kit, lang)} p={p} onPointerDown={(e) => onPointerDown(e)} onClick={() => onActivate()} starred={starred} onStar={onStar} />
-      {/* the mark that it lands as atoms; with variants to choose from, it is also what opens them */}
+      <Tile icon={kit.icon} label={nameIn(kit, lang)} p={p} onPointerDown={onPointerDown && ((e) => onPointerDown(e))} onClick={() => onActivate()} starred={starred} onStar={onStar} />
+      {/* the mark that it is made of atoms; with variants to choose from, it is also what opens them */}
       {many ? (
         <button
           type="button"
@@ -217,13 +240,15 @@ function KitTile({
             e.stopPropagation();
             toggle();
           }}
-          style={{ ...MARK, display: "inline-flex", alignItems: "center", gap: 1, paddingRight: 2, border: "none", cursor: "pointer", outlineColor: p.primary, background: open ? p.primary : p.secondaryContainer, color: open ? p.onPrimary : p.onSecondaryContainer }}
+          style={{ ...MARK, gap: 1, paddingRight: 2, border: "none", cursor: "pointer", outlineColor: p.primary, background: open ? p.primary : p.secondaryContainer, color: open ? p.onPrimary : p.onSecondaryContainer }}
         >
+          <Icon name="stacks" size={10} />
           {t("kitMark", lang)}
           <Icon name="expand_more" size={12} />
         </button>
       ) : (
         <span aria-hidden title={t("kitMarkHint", lang)} style={{ ...MARK, background: p.secondaryContainer, color: p.onSecondaryContainer, pointerEvents: "none" }}>
+          <Icon name="stacks" size={10} />
           {t("kitMark", lang)}
         </span>
       )}
@@ -241,20 +266,23 @@ function KitTile({
               role="menuitem"
               className="m3-press"
               data-kit-variant={v.key}
-              onPointerDown={(e) => {
-                setOpen(false);
-                onPointerDown(e, v.key);
-              }}
+              onPointerDown={
+                onPointerDown &&
+                ((e) => {
+                  setOpen(false);
+                  onPointerDown(e, v.key);
+                })
+              }
               onClick={(e) => {
                 /* a press has already been handled; only a click without a pointer adds it here */
-                if (e.detail === 0) {
+                if (e.detail === 0 || !onPointerDown) {
                   setOpen(false);
                   onActivate(v.key);
                 }
               }}
-              style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 36, padding: "6px 8px", border: "none", borderRadius: 10, background: v.key === suited.key ? p.secondaryContainer : "transparent", color: v.key === suited.key ? p.onSecondaryContainer : p.onSurface, font: "inherit", fontSize: 13, textAlign: "left", cursor: "grab", touchAction: "none" }}
+              style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 36, padding: "6px 8px", border: "none", borderRadius: 10, background: v.key === suited.key ? p.secondaryContainer : "transparent", color: v.key === suited.key ? p.onSecondaryContainer : p.onSurface, font: "inherit", fontSize: 13, textAlign: "left", cursor: onPointerDown ? "grab" : "pointer", touchAction: onPointerDown ? "none" : undefined }}
             >
-              <span style={{ flex: 1 }}>{lang === "en" ? v.name : (v.labels[lang] ?? v.name)}</span>
+              <span style={{ flex: 1 }}>{nameIn(v, lang)}</span>
               {v.key === suited.key && v.suits && <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.8 }}>{t("kitSuits", lang)}</span>}
             </button>
           ))}

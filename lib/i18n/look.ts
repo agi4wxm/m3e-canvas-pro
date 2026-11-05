@@ -64,6 +64,7 @@ export const LOOK_UI = {
   lkShadowBlur: { ja: "ぼかし", en: "Blur", zh: "模糊" },
   lkShadowSpread: { ja: "広がり", en: "Spread", zh: "扩展" },
   lkInset: { ja: "内側の影", en: "Inner shadow", zh: "内阴影" },
+  lkInsetShort: { ja: "内側の影", en: "Inner", zh: "内阴影" },
   lkFromStyle: { ja: "スタイルのまま", en: "From the style", zh: "跟随风格" },
   lkNoShadow: { ja: "影なし", en: "No shadow", zh: "无阴影" },
   lkElevation: { ja: "高さ", en: "Elevation", zh: "高度" },
@@ -122,7 +123,6 @@ export const LOOK_UI = {
   lkTextShadows: { ja: "文字の影", en: "Text shadows", zh: "文字阴影" },
   lkTextStroke: { ja: "文字の縁取り", en: "Text outline", zh: "文字描边" },
   lkTextGradient: { ja: "文字のグラデーション", en: "Gradient text", zh: "渐变文字" },
-  lkTextOwn: { ja: "部品のまま", en: "The part's own", zh: "跟随组件" },
   /* texture */
   lkTextureNone: { ja: "なし", en: "None", zh: "无" },
   lkTexture_noise: { ja: "ノイズ", en: "Noise", zh: "噪点" },
@@ -215,6 +215,7 @@ export const LOOK_KO: Record<keyof typeof LOOK_UI, string> = {
   lkShadowBlur: "흐림",
   lkShadowSpread: "퍼짐",
   lkInset: "안쪽 그림자",
+  lkInsetShort: "안쪽",
   lkFromStyle: "스타일 따르기",
   lkNoShadow: "그림자 없음",
   lkElevation: "높이",
@@ -269,7 +270,6 @@ export const LOOK_KO: Record<keyof typeof LOOK_UI, string> = {
   lkTextShadows: "글자 그림자",
   lkTextStroke: "글자 테두리",
   lkTextGradient: "그라데이션 글자",
-  lkTextOwn: "부품 그대로",
   lkTextureNone: "없음",
   lkTexture_noise: "노이즈",
   lkTexture_paper: "종이",
@@ -306,3 +306,65 @@ export const LOOK_KO: Record<keyof typeof LOOK_UI, string> = {
   lkPreset_goldFrame: "금색 테두리",
   lkPreset_paper: "종이",
 };
+
+/* ---------- what each color role is called ---------- */
+
+type RoleLang = "ja" | "zh" | "ko";
+
+/** The three accents, each with the same nine roles: the words for the accent, and how each role is said of it. */
+const ACCENTS: Record<"primary" | "secondary" | "tertiary", Record<RoleLang, string>> = {
+  primary: { zh: "主色", ja: "プライマリ", ko: "기본색" },
+  secondary: { zh: "次色", ja: "セカンダリ", ko: "보조색" },
+  tertiary: { zh: "第三色", ja: "ターシャリ", ko: "세 번째 색" },
+};
+const ACCENT_ROLES: Record<string, Record<RoleLang, (a: string) => string>> = {
+  "": { zh: (a) => a, ja: (a) => a, ko: (a) => a },
+  "on-": { zh: (a) => `${a}上`, ja: (a) => `${a}上`, ko: (a) => `${a} 위` },
+  "-container": { zh: (a) => `${a}容器`, ja: (a) => `${a}コンテナ`, ko: (a) => `${a} 컨테이너` },
+  "on--container": { zh: (a) => `${a}容器上`, ja: (a) => `${a}コンテナ上`, ko: (a) => `${a} 컨테이너 위` },
+  "-fixed": { zh: (a) => `${a}固定`, ja: (a) => `${a}固定`, ko: (a) => `${a} 고정` },
+  "-fixed-dim": { zh: (a) => `${a}固定（暗）`, ja: (a) => `${a}固定（暗）`, ko: (a) => `${a} 고정(어둡게)` },
+  "on--fixed": { zh: (a) => `${a}固定上`, ja: (a) => `${a}固定上`, ko: (a) => `${a} 고정 위` },
+  "on--fixed-variant": { zh: (a) => `${a}固定上（弱）`, ja: (a) => `${a}固定上（弱）`, ko: (a) => `${a} 고정 위(약하게)` },
+};
+
+/** the roles that are not one of the three accents */
+const OTHER_ROLES: Record<string, Record<RoleLang, string>> = {
+  "inverse-primary": { zh: "反色主色", ja: "反転プライマリ", ko: "반전 기본색" },
+  error: { zh: "错误色", ja: "エラー", ko: "오류 색" },
+  "on-error": { zh: "错误色上", ja: "エラー上", ko: "오류 색 위" },
+  "error-container": { zh: "错误色容器", ja: "エラーコンテナ", ko: "오류 컨테이너" },
+  "on-error-container": { zh: "错误色容器上", ja: "エラーコンテナ上", ko: "오류 컨테이너 위" },
+  background: { zh: "背景", ja: "背景", ko: "배경" },
+  "on-background": { zh: "背景上", ja: "背景上", ko: "배경 위" },
+  surface: { zh: "表面", ja: "サーフェス", ko: "표면" },
+  "on-surface": { zh: "表面上", ja: "サーフェス上", ko: "표면 위" },
+  "surface-variant": { zh: "表面变体", ja: "サーフェスバリアント", ko: "표면 변형" },
+  "on-surface-variant": { zh: "表面上（弱）", ja: "サーフェス上（弱）", ko: "표면 위(약하게)" },
+  "surface-dim": { zh: "表面（暗）", ja: "サーフェス（暗）", ko: "표면(어둡게)" },
+  "surface-bright": { zh: "表面（亮）", ja: "サーフェス（明）", ko: "표면(밝게)" },
+  "surface-container-lowest": { zh: "最低层容器", ja: "コンテナ（最低）", ko: "가장 낮은 컨테이너" },
+  "surface-container-low": { zh: "低层容器", ja: "コンテナ（低）", ko: "낮은 컨테이너" },
+  "surface-container": { zh: "容器", ja: "コンテナ", ko: "컨테이너" },
+  "surface-container-high": { zh: "高层容器", ja: "コンテナ（高）", ko: "높은 컨테이너" },
+  "surface-container-highest": { zh: "最高层容器", ja: "コンテナ（最高）", ko: "가장 높은 컨테이너" },
+  "inverse-surface": { zh: "反色表面", ja: "反転サーフェス", ko: "반전 표면" },
+  "inverse-on-surface": { zh: "反色表面上", ja: "反転サーフェス上", ko: "반전 표면 위" },
+  "surface-tint": { zh: "表面着色", ja: "サーフェスの色味", ko: "표면 틴트" },
+  outline: { zh: "轮廓线", ja: "アウトライン", ko: "윤곽선" },
+  "outline-variant": { zh: "轮廓线（弱）", ja: "アウトライン（弱）", ko: "윤곽선(약하게)" },
+  shadow: { zh: "阴影色", ja: "影", ko: "그림자" },
+  scrim: { zh: "遮罩", ja: "スクリム", ko: "스크림" },
+};
+
+/** A color role (`on-primary-container`) as the editor says it in a language; in English, its own words. A name that is
+ *  no role comes back as it is. */
+export function roleName(role: string, lang: RoleLang | "en"): string {
+  if (lang === "en") return role.charAt(0).toUpperCase() + role.slice(1).replace(/-/g, " ");
+  const other = OTHER_ROLES[role];
+  if (other) return other[lang];
+  const m = /^(on-)?(primary|secondary|tertiary)(-container|-fixed-dim|-fixed-variant|-fixed)?$/.exec(role);
+  /* the key says the role's shape: "on-" in front, and what follows the accent */
+  const say = m ? ACCENT_ROLES[`${m[1] ?? ""}${m[3] ?? ""}`] : undefined;
+  return m && say ? say[lang](ACCENTS[m[2] as keyof typeof ACCENTS][lang]) : role;
+}

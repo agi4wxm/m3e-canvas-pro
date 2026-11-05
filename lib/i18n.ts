@@ -4,6 +4,7 @@ import { KITS_KO, KITS_UI } from "./i18n/kits";
 import { LAYOUT_KO, LAYOUT_UI } from "./i18n/layout";
 import { LOOK_KO, LOOK_UI } from "./i18n/look";
 import { STYLES_KO, STYLES_UI } from "./i18n/styles";
+import { EDITOR_KO, EDITOR_UI } from "./i18n/editor";
 
 export type Lang = "ja" | "en" | "zh" | "ko";
 export const LANGS: { key: Lang; label: string }[] = [
@@ -214,7 +215,6 @@ export const UI = {
   exactGap: { ja: "間隔", en: "Gap", zh: "固定间距" },
   gapAcross: { ja: "この間隔で横に並べる", en: "Set this gap across", zh: "按此间距横向排列" },
   gapDown: { ja: "この間隔で縦に並べる", en: "Set this gap down", zh: "按此间距纵向排列" },
-  addAutoLayout: { ja: "自動レイアウトにする", en: "Add auto layout", zh: "添加自动布局" },
   inAutoLayout: { ja: "自動レイアウト内", en: "In auto layout", zh: "在自动布局中" },
   flowFill: { ja: "残りの幅や高さを埋める", en: "Fill the room left", zh: "占满剩余空间" },
   corners: { ja: "角丸", en: "Corners", zh: "圆角" },
@@ -304,7 +304,6 @@ export const UI = {
   desktopFrame: { ja: "デスクトップ", en: "Desktop", zh: "桌面" },
   // mobile
   mobileNote: { ja: "フル機能は PC のブラウザで使えます", en: "Full features on a desktop browser", zh: "完整功能请在电脑浏览器中使用" },
-  addButton: { ja: "ボタンを追加", en: "Add button", zh: "添加按钮" },
   done: { ja: "完了", en: "Done", zh: "完成" },
   theme: { ja: "テーマ", en: "Theme", zh: "主题" },
   settings: { ja: "テーマと設定", en: "Theme and settings", zh: "主题与设置" },
@@ -317,7 +316,6 @@ export const UI = {
   styleRulesOff: { ja: "規則を解除しました。下の設定は自由に変えられ、自動レイアウトは止まります。", en: "The rules are off. Everything below is yours to change, and the screens stay where you put things.", zh: "已解除约束：下面的设置可以随意改，部件也不再自动排版。" },
   styleGate: { ja: "これはいまのスタイルが決めています。", en: "The current style decides this.", zh: "这一项由当前风格的规范决定。" },
   styleUnlock: { ja: "規則を解除", en: "Turn the rules off", zh: "解除约束" },
-  styleDecidesLook: { ja: "色はスタイルの色から選べます。角丸や影などはスタイルが決めます。", en: "Colors come from the style's own. Corners, shadows and the like are the style's to decide.", zh: "颜色只能从这个风格的配色里选，圆角、阴影等由风格决定。" },
   styleDecidesPlace: { ja: "位置はスタイルのレイアウト規則で決まります。ドラッグすると順番や並びが変わり、その場で整います。", en: "The style's layout rules place this. Drag it to change its order or the row it is in, and everything settles.", zh: "位置由风格的排版规则决定。拖动可以调整顺序和所在的行，放下后会自动对齐。" },
   specFont: { ja: "書体", en: "Type", zh: "字体" },
   specColors: { ja: "色", en: "Colors", zh: "配色" },
@@ -337,20 +335,8 @@ export const UI = {
   styleGap: { ja: "行の間隔", en: "Between rows", zh: "区块间距" },
   styleTight: { ja: "同じ種類の間隔", en: "Between rows of a kind", zh: "同类间距" },
   styleRelayout: { ja: "この設定で組み直す", en: "Lay the screens out again", zh: "按这些设置重新排版" },
-  lookTitle: { ja: "そのほかの見た目", en: "More looks", zh: "更多外观" },
-  lookBorder: { ja: "枠線の太さ", en: "Border", zh: "边框粗细" },
-  lookShadow: { ja: "影", en: "Shadow", zh: "阴影" },
-  lookShadowOwn: { ja: "スタイルのまま", en: "From the style", zh: "跟随风格" },
-  lookShadowNone: { ja: "なし", en: "None", zh: "无" },
-  lookShadowSoft: { ja: "やわらかい", en: "Soft", zh: "柔和" },
-  lookShadowDeep: { ja: "深い", en: "Deep", zh: "深" },
-  lookShadowHard: { ja: "硬い", en: "Hard", zh: "硬边" },
-  lookShadowGlow: { ja: "発光", en: "Glow", zh: "发光" },
   lookOpacity: { ja: "不透明度", en: "Opacity", zh: "不透明度" },
-  lookGlass: { ja: "すりガラス", en: "Frosted glass", zh: "毛玻璃" },
   lookRotate: { ja: "回転", en: "Rotation", zh: "旋转" },
-  lookGradient: { ja: "グラデーションの色", en: "Fades into", zh: "渐变到" },
-  lookGradientAngle: { ja: "グラデーションの角度", en: "Fade angle", zh: "渐变角度" },
   lookFont: { ja: "書体", en: "Typeface", zh: "字体" },
   lookFontOwn: { ja: "本文のまま", en: "As the body", zh: "跟随正文" },
   lookFontDisplay: { ja: "見出しの書体", en: "The headings' face", zh: "标题字体" },
@@ -428,7 +414,6 @@ export const UI = {
   addVariable: { ja: "変数を追加", en: "Add variable", zh: "添加变量" },
   variableName: { ja: "変数名", en: "Variable name", zh: "变量名" },
   variableType: { ja: "変数の型", en: "Variable type", zh: "变量类型" },
-  variableStart: { ja: "初期値", en: "Starts at", zh: "初始值" },
   varText: { ja: "テキスト", en: "Text", zh: "文本" },
   varNumber: { ja: "数値", en: "Number", zh: "数字" },
   varBool: { ja: "真偽", en: "True/false", zh: "布尔" },
@@ -571,13 +556,14 @@ export const UI = {
   ...LOOK_UI,
   ...LAYOUT_UI,
   ...STYLES_UI,
+  ...EDITOR_UI,
 } as const satisfies Record<string, Str>;
 
 export type UIKey = keyof typeof UI;
 
 /** exported for the parity tests only; read strings through t() */
 export const KO: Record<UIKey, string> = {
-  phoneFrame: "휴대전화", desktopFrame: "데스크톱", tabletFrame: "태블릿", screenSize: "화면 크기", buttonsJoined: "버튼 그룹으로 합쳤습니다", lineUp: "정렬과 분배", lineLeft: "왼쪽 정렬", lineCenterH: "가로 가운데 정렬", lineRight: "오른쪽 정렬", lineTop: "위쪽 정렬", lineCenterV: "세로 가운데 정렬", lineBottom: "아래쪽 정렬", distributeH: "가로로 균등 배치", distributeV: "세로로 균등 배치", exactGap: "간격", gapAcross: "이 간격으로 가로 배치", gapDown: "이 간격으로 세로 배치", addAutoLayout: "자동 레이아웃 추가", inAutoLayout: "자동 레이아웃 안", flowFill: "남은 공간 채우기",corners: "모서리", cornersReset: "원래 모서리로 되돌리기", cornersEach: "모서리별로 지정", cornerTl: "왼쪽 위", cornerTr: "오른쪽 위", cornerBl: "왼쪽 아래", cornerBr: "오른쪽 아래",
+  phoneFrame: "휴대전화", desktopFrame: "데스크톱", tabletFrame: "태블릿", screenSize: "화면 크기", buttonsJoined: "버튼 그룹으로 합쳤습니다", lineUp: "정렬과 분배", lineLeft: "왼쪽 정렬", lineCenterH: "가로 가운데 정렬", lineRight: "오른쪽 정렬", lineTop: "위쪽 정렬", lineCenterV: "세로 가운데 정렬", lineBottom: "아래쪽 정렬", distributeH: "가로로 균등 배치", distributeV: "세로로 균등 배치", exactGap: "간격", gapAcross: "이 간격으로 가로 배치", gapDown: "이 간격으로 세로 배치", inAutoLayout: "자동 레이아웃 안", flowFill: "남은 공간 채우기",corners: "모서리", cornersReset: "원래 모서리로 되돌리기", cornersEach: "모서리별로 지정", cornerTl: "왼쪽 위", cornerTr: "오른쪽 위", cornerBl: "왼쪽 아래", cornerBr: "오른쪽 아래",
   codeTab: "코드", fullscreen: "전체 화면으로 편집", exitFullscreen: "전체 화면 닫기", outline: "구성", screenLook: "화면 색상", scrolling: "스크롤", screenLength: "화면 길이",
   screenTemplates: "템플릿", tplHint: "클릭하면 이 화면 하나를 다른 화면 옆에 추가합니다. 흐름은 이미 연결된 여러 화면을 추가합니다.", tplAddOne: "이 화면 하나 추가", tplAddFlow: "연결된 화면 {n}개 추가", tplLinked: "연결된 화면 {n}개", tplNoMatch: "일치하는 템플릿이 없습니다",
   tplFlow: "흐름 (여러 화면)", tplAuth: "로그인과 온보딩", tplShop: "쇼핑", tplSocial: "사람과 메시지", tplContent: "콘텐츠", tplTools: "설정과 양식", tplGame: "게임", phoneModel: "휴대폰 기종", phoneModelHint: "이 문서의 모든 휴대폰 화면에 적용됩니다.", phoneModelOwn: "사용자 지정", tplDesktop: "데스크톱",
@@ -626,10 +612,10 @@ export const KO: Record<UIKey, string> = {
   downloadProject: "프로젝트 다운로드", downloadProjectTitle: "설치해서 실행할 수 있는 프로젝트를 zip으로 저장합니다", downloadScope: "다운로드할 화면", downloadAllScreens: "모든 화면", downloadWorking: "만드는 중… {done} / {total}개 파일", downloadDone: "프로젝트를 저장했습니다.", downloadPartial: "다만 다음 항목이 빠져 있습니다:", downloadFailed: "프로젝트를 만들 수 없습니다:",
   copyPrompt: "프롬프트 복사", copyCode: "코드 복사", back: "뒤로", close: "닫기", cancel: "취소", ok: "확인",
   home: "홈", screenN: "화면", copySuffix: " 복사본", mobileNote: "전체 기능은 데스크톱 브라우저에서 사용할 수 있습니다",
-  styleLayout: "레이아웃", styleSpec: "이 스타일의 규칙", styleRules: "규칙 따르기", styleRulesOn: "글꼴, 색, 모양, 컨트롤, 레이아웃이 모두 규칙을 따릅니다. 직접 수정해도 AI도 벗어날 수 없고 화면은 자동으로 배치됩니다.", styleRulesOff: "규칙을 해제했습니다. 아래 설정을 자유롭게 바꿀 수 있고 자동 배치는 멈춥니다.", styleGate: "이 항목은 현재 스타일이 정합니다.", styleUnlock: "규칙 해제", styleDecidesLook: "색은 스타일의 색에서 고릅니다. 모서리와 그림자 등은 스타일이 정합니다.", styleDecidesPlace: "위치는 스타일의 레이아웃 규칙이 정합니다. 드래그하면 순서나 줄이 바뀌고 바로 정렬됩니다.", specFont: "글꼴", specColors: "색", specControls: "모양", specLayout: "레이아웃", styleNav: "내비게이션 위치", styleNavKeep: "지금 그대로", styleNavBottom: "아래", styleNavRail: "왼쪽 열", styleNavTop: "위쪽 탭", stylePlace: "본문 위치", stylePlaceTop: "위에서부터", stylePlaceCenter: "가운데", stylePlaceBottom: "아래로", stylePlaceSpread: "고르게", styleMargin: "좌우 여백", styleGap: "행 간격", styleTight: "같은 종류 간격", styleRelayout: "이 설정으로 다시 배치",
-  lookTitle: "기타 모양", lookBorder: "테두리 두께", lookShadow: "그림자", lookShadowOwn: "스타일 따르기", lookShadowNone: "없음", lookShadowSoft: "부드럽게", lookShadowDeep: "깊게", lookShadowHard: "단단하게", lookShadowGlow: "발광", lookOpacity: "불투명도", lookGlass: "반투명 유리", lookRotate: "회전", lookGradient: "그라데이션 색", lookGradientAngle: "그라데이션 각도", lookFont: "글꼴", lookFontOwn: "본문 따르기", lookFontDisplay: "제목 글꼴", lookFontMono: "고정폭", lookReset: "원래 모양으로 되돌리기",
+  styleLayout: "레이아웃", styleSpec: "이 스타일의 규칙", styleRules: "규칙 따르기", styleRulesOn: "글꼴, 색, 모양, 컨트롤, 레이아웃이 모두 규칙을 따릅니다. 직접 수정해도 AI도 벗어날 수 없고 화면은 자동으로 배치됩니다.", styleRulesOff: "규칙을 해제했습니다. 아래 설정을 자유롭게 바꿀 수 있고 자동 배치는 멈춥니다.", styleGate: "이 항목은 현재 스타일이 정합니다.", styleUnlock: "규칙 해제", styleDecidesPlace: "위치는 스타일의 레이아웃 규칙이 정합니다. 드래그하면 순서나 줄이 바뀌고 바로 정렬됩니다.", specFont: "글꼴", specColors: "색", specControls: "모양", specLayout: "레이아웃", styleNav: "내비게이션 위치", styleNavKeep: "지금 그대로", styleNavBottom: "아래", styleNavRail: "왼쪽 열", styleNavTop: "위쪽 탭", stylePlace: "본문 위치", stylePlaceTop: "위에서부터", stylePlaceCenter: "가운데", stylePlaceBottom: "아래로", stylePlaceSpread: "고르게", styleMargin: "좌우 여백", styleGap: "행 간격", styleTight: "같은 종류 간격", styleRelayout: "이 설정으로 다시 배치",
+  lookOpacity: "불투명도", lookRotate: "회전", lookFont: "글꼴", lookFontOwn: "본문 따르기", lookFontDisplay: "제목 글꼴", lookFontMono: "고정폭", lookReset: "원래 모양으로 되돌리기",
   displayFont: "제목 글꼴", styleOwnColors: "지금 색상은 스타일의 색상입니다. 여기서 고르면 색상만 바뀝니다.", styleTab: "스타일", styleApps: "휴대폰 앱", styleDesktop: "데스크톱 소프트웨어", styleMobileGames: "모바일 게임", stylePcGames: "PC 게임", styleControls: "컨트롤 구성", styleIcons: "아이콘", styleButton: "버튼", styleUseColors: "스타일 색상으로 되돌리기", styleResetControls: "스타일 컨트롤로 되돌리기", shapeNone: "직각", shapeSoft: "작은 모서리",
-  addButton: "버튼 추가", done: "완료", theme: "테마", settings: "테마 및 설정", shape: "모양", typography: "글꼴", motion: "모션",
+  done: "완료", theme: "테마", settings: "테마 및 설정", shape: "모양", typography: "글꼴", motion: "모션",
   brightness: "밝기", light: "라이트", dark: "다크", contrast: "대비", bothModes: "둘 다", contrastStandard: "표준", contrastMedium: "중간", contrastHigh: "높음",
   design: "디자인", trigger: "트리거", partSpec: "이 부품의 사양", addFrameHint: "화면을 추가하면 여기서 이동을 설정할 수 있습니다",
   toggleTitle: "전환", whenPressedExample: "예: 저장하고 목록으로 돌아가기", resizeWidth: "드래그하여 너비 변경", resizeHeight: "드래그하여 높이 변경",
@@ -640,7 +626,7 @@ export const KO: Record<UIKey, string> = {
   effSetProp: "속성 변경", effSnackbar: "스낵바 표시", effectKind: "효과 종류", effectPart: "대상 부품", effectProp: "속성", effectValue: "값", effectBy: "더할 값",
   effectMessage: "메시지", effectUp: "앞으로 이동", effectRemove: "제거", noParts: "이 화면에 해당 부품이 없습니다",
   onlyWhen: "조건부", condVar: "변수", condField: "입력란", condIs: "같음", condIsNot: "같지 않음", condFilled: "입력된 입력란", otherwise: "그렇지 않으면",
-  variables: "변수", variablesHint: "미리보기 중에만 바뀌며 다시 열면 처음 값으로 돌아갑니다.", addVariable: "변수 추가", variableName: "변수 이름", variableType: "변수 유형", variableStart: "초기값",
+  variables: "변수", variablesHint: "미리보기 중에만 바뀌며 다시 열면 처음 값으로 돌아갑니다.", addVariable: "변수 추가", variableName: "변수 이름", variableType: "변수 유형", 
   varText: "텍스트", varNumber: "숫자", varBool: "참/거짓", varTrue: "참", varFalse: "거짓", newVariable: "새 변수", bindVariable: "변수에 연결", noVariable: "연결 안 함",
   visibility: "표시", hiddenAtStart: "처음에는 숨김", showOnlyWhen: "조건을 만족할 때만 표시",
   reorder: "순서 변경", 
@@ -663,6 +649,7 @@ export const KO: Record<UIKey, string> = {
   ...LOOK_KO,
   ...LAYOUT_KO,
   ...STYLES_KO,
+  ...EDITOR_KO,
 };
 
 export const t = (key: UIKey, lang: Lang = current): string => (lang === "ko" ? KO[key] : UI[key][lang]);
