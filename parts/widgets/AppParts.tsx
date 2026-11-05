@@ -600,7 +600,7 @@ export function StoryRow({ items = [], add = true, width = 380, className, style
         const viewed = seen.includes(i);
         return (
           <Tap key={i} data-tap={`tab:${i}`} className="text-label-small flex w-16 shrink-0 flex-col items-center gap-1.5 rounded-md p-1" onClick={() => own || setSeen((all) => (viewed ? all : [...all, i]))}>
-            <span className={cn("relative flex rounded-full p-0.5 ring-2", own ? "ring-transparent" : viewed ? "ring-outline-variant" : "ring-primary")}>
+            <span data-slot="story-row-ring" data-seen={viewed || undefined} data-own={own || undefined} className={cn("relative flex rounded-full p-0.5 ring-2", own ? "ring-transparent" : viewed ? "ring-outline-variant" : "ring-primary")}>
               <Face name={name} />
               {own && (
                 <span className="bg-primary text-on-primary absolute -right-0.5 -bottom-0.5 flex size-4 items-center justify-center rounded-full">

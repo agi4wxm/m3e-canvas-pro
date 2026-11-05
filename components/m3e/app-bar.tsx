@@ -1,6 +1,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/m3e/cn"
+import { Icon } from "@/components/m3e/icon"
 
 /*
  * M3 Expressive top app bars (Compose AppBar* tokens):
@@ -77,6 +78,12 @@ function AppBar({
         )}
       >
         {title}
+        {/* a composition hook: a caret after a small bar's title, for a style whose title opens a menu (a model picker) */}
+        {small && (
+          <span data-slot="app-bar-caret" aria-hidden className="hidden">
+            <Icon name="keyboard_arrow_down" />
+          </span>
+        )}
       </h1>
       {subtitle && (
         <p

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LangContext, setGlobalLang, type Lang } from "@/lib/i18n";
 import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
+import { kitLookOf } from "@/lib/kits";
 import { STYLE_GROUPS, STYLE_PACKS, screenBackground, styleOf, styleTextOf } from "@/lib/styles";
 import { DEFAULT_THEME, PHONE_H, PHONE_W, fontFamilyOf, makeItem, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Group, type Item, type Palette, type Theme } from "@/lib/tokens";
 import { useIconFamily } from "@/parts/icons";
@@ -53,12 +54,12 @@ const SAMPLES: Record<string, { label: string; props: Record<string, unknown> }[
 };
 
 /** a kit as its file exports it: only what drawing it needs (parts/kits defines the rest) */
-type KitLike = { slug: string; name: string; labels?: Partial<Record<Lang, string>>; category: string; variants: { key: string; name: string; labels?: Partial<Record<Lang, string>>; build: () => Node }[] };
+type KitLike = { slug: string; name: string; labels?: Partial<Record<Lang, string>>; category: string; variants: { key: string; name: string; labels?: Partial<Record<Lang, string>>; build: (look?: ReturnType<typeof kitLookOf>) => Node }[] };
 const isKit = (v: unknown): v is KitLike => typeof v === "object" && v !== null && typeof (v as KitLike).slug === "string" && Array.isArray((v as KitLike).variants) && (v as KitLike).variants.every((x) => typeof x?.build === "function");
 
 /* The hook for kits: any file under parts/kits that exports a kit, or a list of them, is drawn here. Nothing to
  * register; with no such files the gallery is the parts alone. */
-const KIT_MODULES = import.meta.glob("/parts/kits/*.ts", { eager: true }) as Record<string, Record<string, unknown>>;
+const KIT_MODULES = import.meta.glob(["/parts/kits/*.ts", "!/parts/kits/*.test.ts"], { eager: true }) as Record<string, Record<string, unknown>>;
 const KITS: KitLike[] = Object.entries(KIT_MODULES)
   .filter(([path]) => !/\.test\.ts$/.test(path))
   .flatMap(([, mod]) => Object.values(mod).flatMap((v) => (Array.isArray(v) ? v.filter(isKit) : isKit(v) ? [v] : [])))
@@ -139,13 +140,13 @@ function PartCell({ def, props, label, p, theme, lang, settled }: { def: PartDef
 function KitCell({ kit, variant, p, theme, lang }: { kit: KitLike; variant: KitLike["variants"][number]; p: Palette; theme: Theme; lang: Lang }) {
   const groups = useMemo<Group[]>(() => {
     try {
-      const seeded = seedGroups({ id: `kit-${kit.slug}-${variant.key}`, name: { en: "", zh: "", ja: "", ko: "" }, frame: "phone", roots: [variant.build()] });
+      const seeded = seedGroups({ id: `kit-${kit.slug}-${variant.key}`, name: { en: "", zh: "", ja: "", ko: "" }, frame: "phone", roots: [variant.build(kitLookOf(theme))] });
       const local = seeded.map((g) => ({ ...g, name: undefined, items: g.items.map((it) => ({ ...it, props: inLang(it.props, lang), note: undefined })) })) as unknown as Group[];
       return arranged(local);
     } catch {
       return [];
     }
-  }, [kit.slug, variant, lang]);
+  }, [kit.slug, variant, lang, theme]);
   const m = defaultMeasures(groups);
   const x0 = Math.min(0, ...groups.map((g) => g.x));
   const y0 = Math.min(0, ...groups.map((g) => g.y));

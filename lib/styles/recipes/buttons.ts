@@ -6,7 +6,7 @@ import { BUTTON, BUTTONS, FAB, FADED, OUTLINED, PRESSES, SHEEN, TONED, mix, role
 export const BUTTON_CSS: RecipeCss<Recipes["button"]> = {
   m3: "",
   flat: `${BUTTONS}{box-shadow:none}
-${TONED}{border:1px solid var(--st-toned-line)}`,
+${TONED}:not([data-variant=outlined],[data-variant=outline]){border:1px solid var(--st-toned-line)}`,
   hard: `${BUTTONS}{border:var(--st-edge) solid var(--st-rim-dark);box-shadow:inset 0 0 0 2px var(--st-rim),3px 3px 0 var(--st-rim-dark)}
 ${PRESSES}{translate:2px 2px;box-shadow:inset 0 0 0 2px var(--st-rim),1px 1px 0 var(--st-rim-dark)}`,
   chamfer: `${BUTTONS}{border-radius:0;clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);box-shadow:none}`,
