@@ -37,6 +37,9 @@ export type KitLook = {
   room?: number;
 };
 
+/** whether there is room for a wide composition: the room where it is added, or else what the style is for */
+export const isWide = (l: KitLook) => (l.room ?? (l.group === "desktop" || l.group === "pcGame" ? 640 : 380)) >= 560;
+
 /** the look of a document with no style: Material's */
 export const MATERIAL_LOOK: KitLook = { group: "app", field: "m3", bar: "m3", button: "m3", list: "m3", surface: "m3", toggle: "m3", compact: false, dark: false, margin: 16, gap: 16, tight: 8 };
 

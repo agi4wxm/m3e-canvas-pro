@@ -7,7 +7,7 @@ import { listKits } from "./lists";
 import { searchKits } from "./search";
 import type { KitDef, KitLook, KitVariant } from "./types";
 
-export { MATERIAL_LOOK, type KitDef, type KitLook, type KitVariant } from "./types";
+export { MATERIAL_LOOK, isWide, type KitDef, type KitLook, type KitVariant } from "./types";
 
 /* Every kit, by the section it is shown in. A kit's slug is its own, apart from every part's: a
  * favorite of the palette keeps it as `kit:<slug>`. */

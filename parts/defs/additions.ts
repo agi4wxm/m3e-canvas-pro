@@ -103,6 +103,7 @@ export const additions: PartDef[] = [
       return h("div", { "data-slot": "text", className, style: auto ? undefined : { width: px(p) } }, p.s("text"));
     },
     guess: textGuess,
+    seed: { fit: "auto" },
   },
   {
     slug: "image",

@@ -2,8 +2,10 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { KITS, kitBySlug } from "../parts/kits";
 import { defaultMeasures } from "../parts/templates/kit";
 import { partBySlug } from "../parts/registry";
+import { withoutSampleWords } from "./ai";
 import { arrangeFlows } from "./flow";
 import { setGlobalLang } from "./i18n";
+import { isProject } from "./project";
 import { kitGroups, kitLookOf, landTree, roomOn, splitIntoAtoms, treeSize } from "./kits";
 import { DEFAULT_THEME, frameRect, makeItem, type Frame, type Group } from "./tokens";
 
@@ -103,6 +105,17 @@ describe("a kit added", () => {
     const desktop: Frame = { id: "d", name: "D", x: 0, y: 0, w: 1280, h: 800 };
     expect(treeSize(kitGroups(kitBySlug("codex-prompt")!, desk, "en", { screen: phone })).w).toBe(380);
     expect(treeSize(kitGroups(kitBySlug("codex-prompt")!, look, "en", { screen: desktop })).w).toBe(640);
+  });
+});
+
+describe("a document of atoms", () => {
+  it("is an ordinary document: it saves, opens, and comes through a model's cleaning", () => {
+    const groups = [...kitGroups(kitBySlug("codex-prompt")!, look, "en", { screen: phone }), { id: "v", x: 0, y: 0, axis: "x" as const, items: [{ ...makeItem("svg"), props: { mode: "markup", markup: '<svg viewBox="0 0 4 4"><path d="M0 0h4v4z" onclick="x()"/></svg>' } }] }];
+    const doc = JSON.parse(JSON.stringify({ groups, frames: [phone], paletteKey: "purple", frame: "phone", title: "", brief: "" }));
+    expect(isProject(doc)).toBe(true);
+    const clean = withoutSampleWords(doc);
+    expect(clean.groups.map((g: Group) => g.items[0].component)).toEqual(groups.map((g) => g.items[0].component));
+    expect(clean.groups.find((g: Group) => g.id === "v")?.items[0].props?.markup).toContain("<path");
   });
 });
 

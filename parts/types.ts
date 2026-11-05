@@ -122,6 +122,10 @@ export type PartDef = {
    *  (a line of text that hugs its words, an icon button of a named size). Only a guess: the canvas
    *  measures it as soon as it is drawn. */
   guess?: (p: P) => { w?: number; h?: number };
+  /** What a part starts with when a person adds it from the palette, over its defaults: a line of text
+   *  added by hand hugs its words, as one does in a design tool, while one a template or a model
+   *  writes keeps the default it always had. */
+  seed?: PropValues;
   /** what the canvas draws instead of `tree`, for a part whose open look is not `tree` made to start open */
   view?: (p: P, screen?: Screen) => PNode;
   /** A part that opens something (a dialog, a menu, a popover) is drawn open on the canvas, inside

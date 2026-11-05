@@ -1,6 +1,6 @@
 import { atom, button, hbox, para, text, vbox } from "../atoms";
 import { say, type Node } from "../templates/kit";
-import type { KitDef } from "./types";
+import { isWide, type KitDef } from "./types";
 
 /* A sign-in form as atoms: a heading, fields that take the column's width, the main action as wide
  * as they are, and the way to the other form. On desktop software it stands on a card. */
@@ -44,14 +44,14 @@ const login: KitDef = {
       key: "email",
       name: "Email and password",
       labels: { zh: "邮箱和密码", ja: "メールとパスワード", ko: "이메일과 비밀번호" },
-      suits: (l) => l.group !== "desktop",
+      suits: (l) => !isWide(l),
       build: () => vbox({ width: 380, hugWidth: false, padX: 0, padY: 0, gap: 12 }, emailForm(), { name: say("Sign-in form", "登录表单", "サインインフォーム", "로그인 양식") }),
     },
     {
       key: "card",
       name: "On a card",
       labels: { zh: "卡片上", ja: "カードの上", ko: "카드 위" },
-      suits: (l) => l.group === "desktop",
+      suits: isWide,
       build: () => vbox({ surface: "card", width: 400, hugWidth: false, padX: 32, padY: 32, gap: 12 }, emailForm(), { name: say("Sign-in form", "登录表单", "サインインフォーム", "로그인 양식") }),
     },
     {

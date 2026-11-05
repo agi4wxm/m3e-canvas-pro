@@ -139,6 +139,19 @@ describe("every kit", () => {
   });
 });
 
+describe("what a part starts with from the palette", () => {
+  it("is props it has, with values it takes", () => {
+    const seeded = PARTS.filter((d) => d.seed);
+    expect(seeded.map((d) => d.slug)).toContain("text");
+    for (const d of seeded)
+      for (const [key, value] of Object.entries(d.seed!)) {
+        const p = d.props.find((x) => x.key === key);
+        expect(p, `${d.slug}.${key}`).toBeTruthy();
+        expect(wrongValue(p!, value), `${d.slug}.${key}`).toBe("");
+      }
+  });
+});
+
 describe("the composites that split", () => {
   const splits = PARTS.filter((d) => d.atoms);
 

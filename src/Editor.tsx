@@ -308,6 +308,13 @@ const isStorageFull = (err: unknown) => err instanceof DOMException && (err.name
 /** a part that is a shadcn M3E component, with the values the author would have set */
 const partOf = (slug: string, props: Record<string, unknown>, id: string): Item => ({ ...makeItem(slug), id, props });
 
+/** a part a person adds from the palette, with what such a part starts with (`PartDef.seed`) */
+const freshPart = (slug: string): Item => {
+  const seed = partBySlug(slug)?.seed;
+  const item = makeItem(slug);
+  return seed ? { ...item, props: { ...seed } } : item;
+};
+
 /* The starter sketch: an app bar, a pair of buttons, three list items, a FAB and a navigation bar, all
  * of them the real components. Parts are as tall as they measure, so the rows sit apart on their own. */
 const seed = (lang: Lang = getLang()): Group[] => {
@@ -1434,7 +1441,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    const item = makeItem(slug);
+    const item = freshPart(slug);
     const pt = toWorld(e.clientX, e.clientY);
     const sz = sizeOf(item, widthsRef.current);
     const offX = Math.min(sz.w / 2, 90);
@@ -3115,7 +3122,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const addPart = (slug: string, instance?: ComponentDef) => {
     const r = canvasRect();
     const v = viewRef.current;
-    const item = instance ? standIn(instance, 0, 0).items[0] : makeItem(slug);
+    const item = instance ? standIn(instance, 0, 0).items[0] : freshPart(slug);
     const sz = instance ? { w: instance.w, h: instance.h } : sizeOf(item, widthsRef.current);
     const cx = ((r?.width ?? 0) / 2 - v.x) / v.z;
     const cy = ((r?.height ?? 0) / 2 - v.y) / v.z;

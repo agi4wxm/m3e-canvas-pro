@@ -1,6 +1,6 @@
 import { area, button, entry, hbox, iconButton, round, vbox } from "../atoms";
 import { say, type Node } from "../templates/kit";
-import { MATERIAL_LOOK, type KitDef, type KitLook } from "./types";
+import { MATERIAL_LOOK, isWide, type KitDef, type KitLook } from "./types";
 
 /* The boxes people type a prompt into. Each is one card: a bare entry that grows with the words,
  * over a row of small controls (attach, tools, the model, send). They are compositions modeled on
@@ -98,7 +98,7 @@ const codex: KitDef = {
       key: "phone",
       name: "Phone, stacked",
       labels: { zh: "手机竖排", ja: "スマホ・縦並び", ko: "휴대폰·세로" },
-      suits: (l) => (l.room ?? (l.group === "desktop" || l.group === "pcGame" ? 640 : 380)) < 560,
+      suits: (l) => !isWide(l),
       build: (look = MATERIAL_LOOK) =>
         darkened(
           vbox({ surface: "panel", width: W, hugWidth: false, padX: 16, padY: 16, gap: 12 }, [area(say("Ask Codex anything…", "问 Codex 任何问题…", "Codex に何でも聞く…", "Codex에게 무엇이든 물어보세요…"), { rows: 2 }), ...codexFoot(false)], {
@@ -112,7 +112,7 @@ const codex: KitDef = {
       key: "wide",
       name: "Desktop, one row",
       labels: { zh: "桌面单行", ja: "デスクトップ・一行", ko: "데스크톱·한 줄" },
-      suits: (l) => (l.room ?? (l.group === "desktop" || l.group === "pcGame" ? 640 : 380)) >= 560,
+      suits: isWide,
       build: (look = MATERIAL_LOOK) =>
         darkened(
           vbox({ surface: "panel", width: 640, hugWidth: false, padX: 16, padY: 16, gap: 16 }, [area(say("Describe a task", "描述一个任务", "タスクを説明", "작업을 설명하세요"), { rows: 2 }), ...codexFoot(true)], {
@@ -137,7 +137,7 @@ const chatgpt: KitDef = {
       key: "pill",
       name: "One line",
       labels: { zh: "单行胶囊", ja: "一行", ko: "한 줄" },
-      suits: (l) => l.group !== "desktop",
+      suits: (l) => !isWide(l),
       build: () =>
         hbox(
           { surface: "field", width: W, hugWidth: false, padX: 6, padY: 6, gap: 4 },
@@ -149,7 +149,7 @@ const chatgpt: KitDef = {
       key: "box",
       name: "Two rows",
       labels: { zh: "两行", ja: "二行", ko: "두 줄" },
-      suits: (l) => l.group === "desktop",
+      suits: isWide,
       build: () =>
         vbox(
           { surface: "field", width: 560, hugWidth: false, padX: 12, padY: 12, gap: 8 },
