@@ -119,6 +119,9 @@ export const atoms: PartDef[] = [
       { key: "width", label: "Width", kind: "number", default: 160, min: 0, max: 2400, step: 4, unit: "px" },
       { key: "height", label: "Height", kind: "number", default: 96, min: 0, max: 2400, step: 4, unit: "px" },
     ],
+    /* one added by hand starts as a panel, so there is something to see and drop into; one in a
+     *  composition is whatever surface it is given, and none unless it is */
+    seed: { surface: "panel" },
     /* no words and no frame of its own: what it holds is its content, its surface is its look */
     tree: (p) => h("div", { "data-slot": "box", "data-surface": p.s("surface"), className: SURFACES[p.s("surface")] || undefined, style: { width: px(p, "width"), height: px(p, "height") } }),
   },
