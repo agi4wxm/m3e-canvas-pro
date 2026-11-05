@@ -123,12 +123,14 @@ function SearchView({
   const sm = size === "sm" && !full
   const header = (
     <div
+      data-slot="search-header"
       className={cn(
         "flex items-center gap-1 px-1",
         full ? "h-18" : sm ? "h-11" : "h-14"
       )}
     >
       <span
+        data-slot="search-leading"
         className={cn(
           "flex shrink-0 items-center justify-center text-on-surface",
           sm ? "size-10" : "size-12"
@@ -154,6 +156,7 @@ function SearchView({
       </span>
       <input
         ref={input}
+        data-slot="search-input"
         role="combobox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
@@ -212,7 +215,7 @@ function SearchView({
         }}
         className="h-full min-w-0 flex-1 bg-transparent text-body-large text-on-surface caret-primary outline-none placeholder:text-on-surface-variant [&::-webkit-search-cancel-button]:hidden"
       />
-      <div className="flex shrink-0 items-center gap-1 pr-1 text-on-surface-variant">
+      <div data-slot="search-trailing" className="flex shrink-0 items-center gap-1 pr-1 text-on-surface-variant">
         {value && (
           <span
             className={cn(
@@ -349,10 +352,11 @@ function SearchBar({
       {...props}
     >
       <Ripple />
-      <span className="flex size-12 shrink-0 items-center justify-center text-on-surface">
+      <span data-slot="search-bar-leading" className="flex size-12 shrink-0 items-center justify-center text-on-surface">
         {leading ?? <Icon name="search" />}
       </span>
       <span
+        data-slot="search-bar-text"
         className={cn(
           "min-w-0 flex-1 truncate",
           children ? "text-on-surface" : "text-on-surface-variant"
@@ -361,7 +365,7 @@ function SearchBar({
         {children ?? placeholder}
       </span>
       {trailing && (
-        <span className="flex shrink-0 items-center gap-1 pr-1 text-on-surface-variant">
+        <span data-slot="search-bar-trailing" className="flex shrink-0 items-center gap-1 pr-1 text-on-surface-variant">
           {trailing && (
             <span className="flex h-12 min-w-12 items-center justify-center">
               {trailing}

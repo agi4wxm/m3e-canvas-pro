@@ -74,11 +74,11 @@ export const mobile: PartDef[] = [
         { "data-slot": "action-sheet", className: "flex flex-col gap-2", style: { width: Math.round(p.n("width")) } },
         h(
           "div",
-          { className: "bg-surface-container-high divide-outline-variant flex flex-col divide-y overflow-hidden rounded-2xl" },
-          h("div", { className: "p-3 text-center" }, h("div", { className: "text-label-large text-on-surface" }, p.s("title")), p.s("message") && h("div", { className: "text-body-small text-on-surface-variant" }, p.s("message"))),
-          ...p.list("actions").map((a) => h("Button", { variant: "text", className: "w-full rounded-none" }, a.label)),
+          { "data-slot": "action-sheet-group", className: "bg-surface-container-high divide-outline-variant flex flex-col divide-y overflow-hidden rounded-2xl" },
+          h("div", { "data-slot": "action-sheet-header", className: "p-3 text-center" }, h("div", { "data-slot": "action-sheet-title", className: "text-label-large text-on-surface" }, p.s("title")), p.s("message") && h("div", { "data-slot": "action-sheet-message", className: "text-body-small text-on-surface-variant" }, p.s("message"))),
+          ...p.list("actions").map((a) => h("Button", { variant: "text", "data-slot": "action-sheet-action", className: "w-full rounded-none" }, a.label)),
         ),
-        p.s("cancel") && h("Button", { variant: "tonal", className: "w-full" }, p.s("cancel")),
+        p.s("cancel") && h("Button", { variant: "tonal", "data-slot": "action-sheet-cancel", className: "w-full" }, p.s("cancel")),
       ),
   },
   {
@@ -101,10 +101,10 @@ export const mobile: PartDef[] = [
       h(
         "div",
         { "data-slot": "subscription", className: "bg-surface-container-low flex flex-col gap-2 rounded-2xl p-4", style: { width: Math.round(p.n("width")) } },
-        h("div", { className: "text-title-large text-on-surface" }, p.s("title")),
-        p.s("description") && h("div", { className: "text-body-medium text-on-surface-variant" }, p.s("description")),
-        ...p.list("plans").map((plan) => h("div", { className: "border-outline-variant text-body-large text-on-surface rounded-xl border p-3" }, plan.label)),
-        p.s("action") && h("Button", { variant: "filled", className: "w-full" }, p.s("action")),
+        h("div", { "data-slot": "subscription-title", className: "text-title-large text-on-surface" }, p.s("title")),
+        p.s("description") && h("div", { "data-slot": "subscription-description", className: "text-body-medium text-on-surface-variant" }, p.s("description")),
+        ...p.list("plans").map((plan) => h("div", { "data-slot": "subscription-plan", className: "border-outline-variant text-body-large text-on-surface rounded-xl border p-3" }, plan.label)),
+        p.s("action") && h("Button", { variant: "filled", "data-slot": "subscription-action", className: "w-full" }, p.s("action")),
       ),
   },
   {

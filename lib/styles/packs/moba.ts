@@ -1,0 +1,31 @@
+import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+
+/* Wild Rift's menus looked at on Interface In Game; Honor of Kings' store shots share its blue and gold. Its own lobby could not be reached */
+export default definePack({
+  key: "moba",
+  name: say("MOBA 竞技", "MOBA", "MOBA", "MOBA"),
+  hint: say("像王者荣耀、英雄联盟手游：深海军蓝、金色细框、菱形和金色光晕", "Like Honor of Kings, Wild Rift: deep navy, thin gold frames, diamonds and gold glow", "Honor of Kings のような紺と金", "Honor of Kings 같은 남색과 금색"),
+  refs: ["Honor of Kings", "League of Legends: Wild Rift"],
+  basis: "observed",
+  group: "mobileGame",
+  seed: "#C8AA6E",
+  mode: "dark",
+  light: roles({ p: ["#0848B8", "#FFFFFF"], pc: ["#D6E4FF", "#06265F"], s: ["#7A5C14", "#FFFFFF"], sc: ["#F8F2D8", "#3A2C05"], t: ["#7A5C14", "#FFFFFF"], tc: ["#F8F2D8", "#3A2C05"], bg: ["#F2F6FF", "#FFFFFF", "#FFFFFF", "#E8EFFC", "#DCE6F8"], text: ["#0B1E3F", "#3F5275"], line: ["#5A76A8", "#C8D6EE"] }),
+  dark: roles({ p: ["#C8AA6E", "#1A1408"], pc: ["#463714", "#F0E6D2"], s: ["#0AC8B9", "#00201D"], sc: ["#1E2328", "#F0E6D2"], t: ["#F0C75E", "#1A1408"], tc: ["#0A3A45", "#CDFAFA"], bg: ["#0A1428", "#0A1F3A", "#0F2540", "#15304F", "#1C3A5E"], text: ["#F0E6D2", "#C8C2B0"], line: ["#785A28", "#2A3F5A"] }),
+  shape: "square",
+  font: "inter",
+  display: "cinzel",
+  icons: "game",
+  motion: "standard",
+  control: "extra-small",
+  pill: "follow",
+  capsLabels: true,
+  screenDark: "radial-gradient(120% 70% at 50% 0%, rgb(10 90 150 / 0.28), transparent 65%)",
+  tokens: { rim: "#C8AA6E", rimDark: "#785A28", tabOn: "#C8AA6E", navOn: "#F0E6D2", toggleOn: "#C8AA6E" },
+  recipes: { button: "frame", surface: "hairline", tabs: "glow", toggle: "block", slider: "block", nav: "goldglow", field: "line", bar: "line", meter: "thin", feedback: "flash", list: "tile", dialog: "plain", avatar: "framed", card: "framed", segmented: "block", appbar: "compact", search: "underline", progress: "thin", row: "bullet", divider: "ornament", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", icon: "emboss", text: "gilded", scroll: "thin" },
+  art: "high fantasy splash art, luminous magic, deep blue and gold, dramatic heroes in dynamic poses",
+  ux: { margin: 16, gap: 12, tight: 6, nav: "bottom" },
+  layout: { zh: "人物立绘占一侧，另一侧是深蓝列表；底部标签选中时金光从下往上泛起；到处是金色细线和菱形。", en: "A hero portrait on one side, a navy list on the other; bottom tabs whose chosen one glows gold from below; thin gold lines and diamonds throughout." },
+  type: { ...TITLES([20, 26, 700, 0.5], [16, 22, 600, 0], [14, 20, 600, 0]), ...BODIES([14, 20, 400, 0], [13, 18, 400, 0], [12, 16, 400, 0]), ...LABELS([14, 18, 700, 0], [12, 16, 600, 0], [11, 14, 600, 0]) },
+  css: "",
+});

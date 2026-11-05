@@ -60,22 +60,22 @@ export function ProductCard({ image = "", title = "", subtitle = "", price = "",
   const across = layout === "horizontal";
   return (
     <div data-slot="product-card" data-liked={heart || undefined} data-added={added || undefined} className={cn("bg-surface-container-low text-on-surface relative flex overflow-hidden rounded-xl", across ? "flex-row" : "flex-col", className)} style={{ width, ...style }}>
-      <Tap data-tap="open" aria-label={title} className={cn("flex shrink-0", across ? "w-28 self-stretch" : "aspect-square w-full")}>
+      <Tap data-tap="open" data-slot="product-card-media" aria-label={title} className={cn("flex shrink-0", across ? "w-28 self-stretch" : "aspect-square w-full")}>
         <Picture src={image} alt={title} className="size-full" />
       </Tap>
-      {badge && <span className="bg-error text-on-error text-label-small absolute top-2 left-2 rounded-full px-2 py-0.5">{badge}</span>}
-      <div className="flex min-w-0 flex-1 flex-col gap-1 p-3">
-        <div className="text-title-small line-clamp-2">{title}</div>
-        {subtitle && <div className={`text-body-small truncate ${Soft}`}>{subtitle}</div>}
+      {badge && <span data-slot="product-card-tag" className="bg-error text-on-error text-label-small absolute top-2 left-2 rounded-full px-2 py-0.5">{badge}</span>}
+      <div data-slot="product-card-body" className="flex min-w-0 flex-1 flex-col gap-1 p-3">
+        <div data-slot="product-card-title" className="text-title-small line-clamp-2">{title}</div>
+        {subtitle && <div data-slot="product-card-subtitle" className={`text-body-small truncate ${Soft}`}>{subtitle}</div>}
         {rating > 0 && (
-          <div className="text-label-medium flex items-center gap-0.5">
+          <div data-slot="product-card-rating" className="text-label-medium flex items-center gap-0.5">
             <Glyph name="star" filled className="text-tertiary size-4" />
             {rating.toFixed(1)}
           </div>
         )}
         <div className="flex items-center gap-1">
-          <span className="text-title-medium text-primary">{price}</span>
-          {original && <span className={`text-body-small line-through ${Soft}`}>{original}</span>}
+          <span data-slot="product-card-price" className="text-title-medium text-primary">{price}</span>
+          {original && <span data-slot="product-card-original" className={`text-body-small line-through ${Soft}`}>{original}</span>}
           <Button
             variant="text"
             size="icon-sm"
@@ -111,16 +111,16 @@ export function CartList({ rows = [], currency = "", selectAll = "", total = "",
     <div data-slot="cart-list" data-total={sum.toFixed(2)} data-count={lines.length} className={cn("bg-surface-container-low text-on-surface flex flex-col overflow-hidden rounded-xl", className)} style={{ width, ...style }}>
       {lines.length === 0 && <div className={`text-body-medium p-6 text-center ${Soft}`}>{empty}</div>}
       {lines.map((l) => (
-        <div key={l.id} data-line={l.id} className="flex items-center gap-3 p-3">
+        <div key={l.id} data-line={l.id} data-slot="cart-row" className="flex items-center gap-3 p-3">
           <span onClick={stop} className="flex">
             <Checkbox aria-label={l.name} checked={l.on} onCheckedChange={(on: boolean) => edit(l.id, { on })} />
           </span>
           <Picture alt={l.name} className="size-16 shrink-0 rounded-md" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <div className="text-body-medium truncate">{l.name}</div>
-            {l.spec && <div className={`text-body-small truncate ${Soft}`}>{l.spec}</div>}
+            <div data-slot="cart-row-title" className="text-body-medium truncate">{l.name}</div>
+            {l.spec && <div data-slot="cart-row-subtitle" className={`text-body-small truncate ${Soft}`}>{l.spec}</div>}
             <div className="flex items-center justify-between gap-1" onClick={stop}>
-              <span className="text-title-small text-primary">
+              <span data-slot="cart-row-price" className="text-title-small text-primary">
                 {currency}
                 {l.price.toFixed(2)}
               </span>
@@ -140,7 +140,7 @@ export function CartList({ rows = [], currency = "", selectAll = "", total = "",
           </div>
         </div>
       ))}
-      <div className="bg-surface-container flex items-center gap-3 p-3">
+      <div data-slot="cart-list-footer" className="bg-surface-container flex items-center gap-3 p-3">
         <label className="text-label-large flex items-center gap-2" onClick={stop}>
           <Checkbox checked={lines.length > 0 && picked.length === lines.length} disabled={!lines.length} onCheckedChange={(on: boolean) => setLines((all) => all.map((l) => ({ ...l, on })))} />
           {selectAll}
@@ -170,14 +170,14 @@ export function Coupon({ amount = "", condition = "", title = "", expiry = "", a
   const bite = (y: string) => `radial-gradient(circle 8px at ${STUB}px ${y}, transparent 7.5px, black 8px)`;
   return (
     <div data-slot="coupon" data-claimed={claimed || undefined} className={cn("bg-primary-container text-on-primary-container flex min-h-24 rounded-lg", className)} style={{ width, maskImage: `${bite("0")}, ${bite("100%")}`, maskComposite: "intersect", WebkitMaskComposite: "source-in", ...style }}>
-      <div className="flex shrink-0 flex-col items-center justify-center gap-0.5 p-2 text-center" style={{ width: STUB }}>
-        <span className="text-headline-small">{amount}</span>
-        {condition && <span className={`text-label-small ${Soft}`}>{condition}</span>}
+      <div data-slot="coupon-stub" className="flex shrink-0 flex-col items-center justify-center gap-0.5 p-2 text-center" style={{ width: STUB }}>
+        <span data-slot="coupon-value" className="text-headline-small">{amount}</span>
+        {condition && <span data-slot="coupon-condition" className={`text-label-small ${Soft}`}>{condition}</span>}
       </div>
-      <div className="flex min-w-0 flex-1 items-center gap-2 border-l border-dashed border-current p-3">
+      <div data-slot="coupon-body" className="flex min-w-0 flex-1 items-center gap-2 border-l border-dashed border-current p-3">
         <div className="min-w-0 flex-1">
-          <div className="text-title-small line-clamp-2">{title}</div>
-          {expiry && <div className={`text-body-small truncate ${Soft}`}>{expiry}</div>}
+          <div data-slot="coupon-title" className="text-title-small line-clamp-2">{title}</div>
+          {expiry && <div data-slot="coupon-meta" className={`text-body-small truncate ${Soft}`}>{expiry}</div>}
         </div>
         {action && (
           <Button variant={claimed ? "tonal" : "filled"} size="xs" data-tap="action" disabled={claimed} className="shrink-0" onClick={() => setClaimed(true)}>
@@ -206,9 +206,9 @@ export function CheckoutBar({ label = "", amount = "", note = "", icons = [], ac
       <div className="ml-auto min-w-0 text-right">
         <div className="flex items-baseline justify-end gap-1">
           {label && <span className={`text-label-medium ${Soft}`}>{label}</span>}
-          <span className="text-title-large text-primary tabular-nums">{amount}</span>
+          <span data-slot="checkout-bar-price" className="text-title-large text-primary tabular-nums">{amount}</span>
         </div>
-        {note && <div className={`text-label-small truncate ${Soft}`}>{note}</div>}
+        {note && <div data-slot="checkout-bar-meta" className={`text-label-small truncate ${Soft}`}>{note}</div>}
       </div>
       {action && (
         <Button variant={placed ? "tonal" : "filled"} size="sm" data-tap="action" className="shrink-0" onClick={() => done && setPlaced((p) => !p)}>
@@ -225,8 +225,8 @@ export function BalanceCard({ title = "", amount = "", change = "", actions = []
   const [masked, setMasked] = useSeeded(hidden);
   return (
     <div data-slot="balance-card" data-masked={masked || undefined} className={cn("bg-primary-container text-on-primary-container flex flex-col gap-3 rounded-xl p-4", className)} style={{ width, ...style }}>
-      <div className="flex items-center gap-1">
-        <span className="text-label-large">{title}</span>
+      <div data-slot="balance-card-header" className="flex items-center gap-1">
+        <span data-slot="balance-card-title" className="text-label-large">{title}</span>
         <Button
           variant="text"
           size="icon-xs"
@@ -242,14 +242,14 @@ export function BalanceCard({ title = "", amount = "", change = "", actions = []
         </Button>
       </div>
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className="text-display-small tabular-nums">{masked ? "••••••" : amount}</span>
-        {change && <span className="text-label-large">{masked ? "••" : change}</span>}
+        <span data-slot="balance-card-value" className="text-display-small tabular-nums">{masked ? "••••••" : amount}</span>
+        {change && <span data-slot="balance-card-meta" className="text-label-large">{masked ? "••" : change}</span>}
       </div>
       {actions.length > 0 && (
         <div className="flex gap-1">
           {actions.map((a, i) => (
-            <Tap key={i} data-tap={`tab:${i}`} className="text-label-medium flex min-w-0 flex-1 flex-col items-center gap-1 rounded-lg p-2">
-              <span className="flex size-10 items-center justify-center rounded-full bg-current/10">{a.icon && <WidgetIcon name={a.icon} className="size-5" />}</span>
+            <Tap key={i} data-tap={`tab:${i}`} data-slot="balance-card-action" className="text-label-medium flex min-w-0 flex-1 flex-col items-center gap-1 rounded-lg p-2">
+              <span data-slot="balance-card-glyph" className="flex size-10 items-center justify-center rounded-full bg-current/10">{a.icon && <WidgetIcon name={a.icon} className="size-5" />}</span>
               <span className="w-full truncate">{a.label}</span>
             </Tap>
           ))}
@@ -277,15 +277,15 @@ export function TransactionList({ rows = [], filters = [], width = 380, classNam
       {shown.map(({ r, i }) => {
         const income = amountOf(r[2]) > 0;
         return (
-          <Tap key={i} data-tap={`tab:${i}`} className="flex w-full items-center gap-3 rounded-lg p-2 text-left">
-            <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", income ? "bg-primary-container text-on-primary-container" : "bg-surface-container-high text-on-surface-variant")}>
+          <Tap key={i} data-tap={`tab:${i}`} data-slot="transaction-row" className="flex w-full items-center gap-3 rounded-lg p-2 text-left">
+            <span data-slot="transaction-row-glyph" className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", income ? "bg-primary-container text-on-primary-container" : "bg-surface-container-high text-on-surface-variant")}>
               <WidgetIcon name={income ? "south_west" : "north_east"} className="size-5" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-body-large truncate">{r[0] ?? ""}</span>
-              {r[1] && <span className={`text-body-small truncate ${Soft}`}>{r[1]}</span>}
+              <span data-slot="transaction-row-title" className="text-body-large truncate">{r[0] ?? ""}</span>
+              {r[1] && <span data-slot="transaction-row-subtitle" className={`text-body-small truncate ${Soft}`}>{r[1]}</span>}
             </span>
-            <span className={cn("text-title-small shrink-0 tabular-nums", income && "text-primary")}>{r[2] ?? ""}</span>
+            <span data-slot="transaction-row-value" className={cn("text-title-small shrink-0 tabular-nums", income && "text-primary")}>{r[2] ?? ""}</span>
           </Tap>
         );
       })}
@@ -322,8 +322,8 @@ export function RouteCard({ icon = "", from = "", fromTime = "", to = "", toTime
       </div>
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
-          {price && <div className="text-title-medium text-primary tabular-nums">{price}</div>}
-          {note && <div className={`text-body-small truncate ${Soft}`}>{note}</div>}
+          {price && <div data-slot="route-card-price" className="text-title-medium text-primary tabular-nums">{price}</div>}
+          {note && <div data-slot="route-card-meta" className={`text-body-small truncate ${Soft}`}>{note}</div>}
         </div>
         {action && (
           <Button variant={booked ? "tonal" : "filled"} size="sm" data-tap="action" className="shrink-0" onClick={() => done && setBooked((b) => !b)}>
@@ -341,7 +341,11 @@ export function ProfileHeader({ cover = "", showCover = true, avatar = "", name 
   const [on, setOn] = useSeeded(following);
   return (
     <div data-slot="profile-header" data-following={on || undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col overflow-hidden rounded-xl", className)} style={{ width, ...style }}>
-      {showCover && <Picture src={cover} alt="" className="h-28 w-full" />}
+      {showCover && (
+        <span data-slot="profile-header-media" className="flex">
+          <Picture src={cover} alt="" className="h-28 w-full" />
+        </span>
+      )}
       <div className="flex flex-col gap-3 p-4">
         <div className={cn("flex items-end justify-between gap-3", showCover && "-mt-11")}>
           <span className="ring-surface-container-low rounded-full ring-4">
@@ -354,16 +358,16 @@ export function ProfileHeader({ cover = "", showCover = true, avatar = "", name 
           )}
         </div>
         <div>
-          <div className="text-title-large">{name}</div>
-          {bio && <div className={`text-body-medium ${Soft}`}>{bio}</div>}
+          <div data-slot="profile-header-title" className="text-title-large">{name}</div>
+          {bio && <div data-slot="profile-header-subtitle" className={`text-body-medium ${Soft}`}>{bio}</div>}
         </div>
         {stats.length > 0 && (
           <div className="flex gap-1">
             {stats.map((s, i) => {
               const gap = s.indexOf(" ");
               return (
-                <Tap key={i} data-tap={`tab:${i}`} className="flex min-w-0 flex-1 flex-col items-center rounded-md py-1">
-                  <span className="text-title-medium">{gap > 0 ? s.slice(0, gap) : s}</span>
+                <Tap key={i} data-tap={`tab:${i}`} data-slot="profile-header-stat" className="flex min-w-0 flex-1 flex-col items-center rounded-md py-1">
+                  <span data-slot="profile-header-value" className="text-title-medium">{gap > 0 ? s.slice(0, gap) : s}</span>
                   {gap > 0 && <span className={`text-label-small w-full truncate ${Soft}`}>{s.slice(gap + 1)}</span>}
                 </Tap>
               );
@@ -399,16 +403,20 @@ export function PostCard({ author = "", time = "", text = "", image = "", showIm
   const [kept, setKept] = useState(false);
   return (
     <div data-slot="post-card" data-liked={liked || undefined} data-kept={kept || undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-3 rounded-xl p-4", className)} style={{ width, ...style }}>
-      <Tap data-tap="author" className="flex items-center gap-3 self-start rounded-md text-left">
+      <Tap data-tap="author" data-slot="post-card-header" className="flex items-center gap-3 self-start rounded-md text-left">
         <Face name={author} />
         <span className="flex min-w-0 flex-col">
-          <span className="text-title-small truncate">{author}</span>
-          {time && <span className={`text-body-small truncate ${Soft}`}>{time}</span>}
+          <span data-slot="post-card-title" className="text-title-small truncate">{author}</span>
+          {time && <span data-slot="post-card-meta" className={`text-body-small truncate ${Soft}`}>{time}</span>}
         </span>
       </Tap>
-      {text && <div className="text-body-medium whitespace-pre-wrap">{text}</div>}
-      {showImage && <Picture src={image} alt="" className="h-44 w-full rounded-lg" />}
-      <div className="flex items-center gap-1">
+      {text && <div data-slot="post-card-description" className="text-body-medium whitespace-pre-wrap">{text}</div>}
+      {showImage && (
+        <span data-slot="post-card-media" className="flex">
+          <Picture src={image} alt="" className="h-44 w-full rounded-lg" />
+        </span>
+      )}
+      <div data-slot="post-card-actions" className="flex items-center gap-1">
         <Tally icon="favorite" label="Like" count={likes + (liked ? 1 : 0)} on={liked} onPress={() => setLiked((l) => !l)} />
         <Tally icon="chat_bubble" label="Comment" count={comments} tap="comment" />
         <Tally icon="share" label="Share" count={shares} tap="share" />
@@ -442,6 +450,7 @@ export function ConversationList({ rows = [], selected = -1, width = 380, classN
             key={i}
             data-tap={`tab:${i}`}
             aria-current={i === on || undefined}
+            data-slot="conversation-row"
             className={cn("flex w-full items-center gap-3 rounded-lg p-2 text-left", i === on && "bg-secondary-container text-on-secondary-container")}
             onClick={() => {
               setOn(i);
@@ -450,12 +459,12 @@ export function ConversationList({ rows = [], selected = -1, width = 380, classN
           >
             <Face name={r[0] ?? ""} />
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className={cn("text-body-large truncate", unread > 0 && "font-medium")}>{r[0] ?? ""}</span>
-              <span className={`text-body-small truncate ${Soft}`}>{r[1] ?? ""}</span>
+              <span data-slot="conversation-row-title" className={cn("text-body-large truncate", unread > 0 && "font-medium")}>{r[0] ?? ""}</span>
+              <span data-slot="conversation-row-subtitle" className={`text-body-small truncate ${Soft}`}>{r[1] ?? ""}</span>
             </span>
             <span className="flex shrink-0 flex-col items-end gap-1">
-              <span className={`text-label-small ${Soft}`}>{r[2] ?? ""}</span>
-              {unread > 0 && <span className="bg-primary text-on-primary text-label-small flex h-4 min-w-4 items-center justify-center rounded-full px-1">{unread}</span>}
+              <span data-slot="conversation-row-meta" className={`text-label-small ${Soft}`}>{r[2] ?? ""}</span>
+              {unread > 0 && <span data-slot="conversation-row-badge" className="bg-primary text-on-primary text-label-small flex h-4 min-w-4 items-center justify-center rounded-full px-1">{unread}</span>}
             </span>
           </Tap>
         );
@@ -483,13 +492,13 @@ export function ContactList({ rows = [], search = "", grouped = true, trailing =
         const on = followed.includes(c.i);
         return (
           <div key={c.i}>
-            {grouped && (k === 0 || lettersOf(ordered[k - 1].name).slice(0, 1) !== letter) && <div className={`text-label-medium px-2 pt-2 pb-1 ${Soft}`}>{letter}</div>}
-            <div className="flex items-center gap-1">
+            {grouped && (k === 0 || lettersOf(ordered[k - 1].name).slice(0, 1) !== letter) && <div data-slot="contact-list-header" className={`text-label-medium px-2 pt-2 pb-1 ${Soft}`}>{letter}</div>}
+            <div data-slot="contact-row" className="flex items-center gap-1">
               <Tap data-tap={`tab:${c.i}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 text-left">
                 <Face name={c.name} />
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-body-large truncate">{c.name}</span>
-                  {c.note && <span className={`text-body-small truncate ${Soft}`}>{c.note}</span>}
+                  <span data-slot="contact-row-title" className="text-body-large truncate">{c.name}</span>
+                  {c.note && <span data-slot="contact-row-subtitle" className={`text-body-small truncate ${Soft}`}>{c.note}</span>}
                 </span>
               </Tap>
               {icon && (
@@ -615,9 +624,9 @@ export function NotificationList({ title = "", rows = [], unread = 0, markAll = 
   return (
     <div data-slot="notification-list" data-unread={waiting.length} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-1 rounded-xl p-2", className)} style={{ width, ...style }}>
       {(title || markAll) && (
-        <div className="flex min-h-10 items-center gap-2 pl-2">
-          <span className="text-title-medium truncate">{title}</span>
-          {waiting.length > 0 && <span className="bg-error text-on-error text-label-small flex h-4 min-w-4 items-center justify-center rounded-full px-1">{waiting.length}</span>}
+        <div data-slot="notification-list-header" className="flex min-h-10 items-center gap-2 pl-2">
+          <span data-slot="notification-list-title" className="text-title-medium truncate">{title}</span>
+          {waiting.length > 0 && <span data-slot="notification-list-badge" className="bg-error text-on-error text-label-small flex h-4 min-w-4 items-center justify-center rounded-full px-1">{waiting.length}</span>}
           {markAll && (
             <Button
               variant="text"
@@ -637,18 +646,18 @@ export function NotificationList({ title = "", rows = [], unread = 0, markAll = 
       {rows.map((r, i) => {
         const fresh = waiting.includes(i);
         return (
-          <Tap key={i} data-tap={`tab:${i}`} data-unread={fresh || undefined} className={cn("flex w-full items-start gap-3 rounded-lg p-2 text-left", fresh && "bg-surface-container-high")} onClick={() => setWaiting((all) => all.filter((x) => x !== i))}>
-            <span className="bg-secondary-container text-on-secondary-container flex size-10 shrink-0 items-center justify-center rounded-full">
+          <Tap key={i} data-tap={`tab:${i}`} data-slot="notification-row" data-unread={fresh || undefined} className={cn("flex w-full items-start gap-3 rounded-lg p-2 text-left", fresh && "bg-surface-container-high")} onClick={() => setWaiting((all) => all.filter((x) => x !== i))}>
+            <span data-slot="notification-row-glyph" className="bg-secondary-container text-on-secondary-container flex size-10 shrink-0 items-center justify-center rounded-full">
               <WidgetIcon name={r[3] || "notifications"} className="size-5" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="flex items-baseline gap-2">
-                <span className={cn("text-body-large min-w-0 flex-1 truncate", fresh && "font-medium")}>{r[0] ?? ""}</span>
-                <span className={`text-label-small shrink-0 ${Soft}`}>{r[2] ?? ""}</span>
+                <span data-slot="notification-row-title" className={cn("text-body-large min-w-0 flex-1 truncate", fresh && "font-medium")}>{r[0] ?? ""}</span>
+                <span data-slot="notification-row-meta" className={`text-label-small shrink-0 ${Soft}`}>{r[2] ?? ""}</span>
               </span>
-              <span className={`text-body-small line-clamp-2 ${Soft}`}>{r[1] ?? ""}</span>
+              <span data-slot="notification-row-subtitle" className={`text-body-small line-clamp-2 ${Soft}`}>{r[1] ?? ""}</span>
             </span>
-            {fresh && <span className="bg-primary mt-2 size-2 shrink-0 rounded-full" />}
+            {fresh && <span data-slot="notification-row-indicator" className="bg-primary mt-2 size-2 shrink-0 rounded-full" />}
           </Tap>
         );
       })}
@@ -671,12 +680,14 @@ export function FileList({ rows = [], selected = -1, removable = true, width = 3
     <div data-slot="file-list" data-selected={on} data-count={rows.length - gone.length} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-0.5 rounded-xl p-2", className)} style={{ width, ...style }}>
       {rows.map((r, i) =>
         gone.includes(i) ? null : (
-          <div key={i} className={cn("flex items-center gap-1 rounded-lg", i === on && "bg-secondary-container text-on-secondary-container")}>
+          <div key={i} data-slot="file-row" className={cn("flex items-center gap-1 rounded-lg", i === on && "bg-secondary-container text-on-secondary-container")}>
             <Tap data-tap={`tab:${i}`} aria-current={i === on || undefined} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 text-left" onClick={() => setOn(i)}>
-              <WidgetIcon name={fileIcon(r[0] ?? "")} className="size-6 shrink-0" />
+              <span data-slot="file-row-glyph" className="flex shrink-0">
+                <WidgetIcon name={fileIcon(r[0] ?? "")} className="size-6 shrink-0" />
+              </span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-body-large truncate">{r[0] ?? ""}</span>
-                <span className={`text-body-small truncate ${Soft}`}>{[r[1], r[2]].filter(Boolean).join(" · ")}</span>
+                <span data-slot="file-row-title" className="text-body-large truncate">{r[0] ?? ""}</span>
+                <span data-slot="file-row-meta" className={`text-body-small truncate ${Soft}`}>{[r[1], r[2]].filter(Boolean).join(" · ")}</span>
               </span>
             </Tap>
             {removable && (
@@ -707,34 +718,42 @@ export function SettingsGroup({ title = "", rows = [], width = 380, className, s
   const flip = (i: number) => setStates((all) => all.map((v, k) => (k === i ? !v : v)));
   return (
     <div data-slot="settings-group" data-on={states.flatMap((v, i) => (v ? [i] : [])).join(",")} className={cn("bg-surface-container-low text-on-surface flex flex-col rounded-xl p-2", className)} style={{ width, ...style }}>
-      {title && <div className={`text-label-large px-2 py-1 ${Soft}`}>{title}</div>}
+      {title && <div data-slot="settings-group-title" className={`text-label-large px-2 py-1 ${Soft}`}>{title}</div>}
       {rows.map((r, i) => {
         const [icon, label, control, value] = [r[0] ?? "", r[1] ?? "", r[2] ?? "arrow", r[3] ?? ""];
         const head = (
           <>
-            {icon && <WidgetIcon name={icon} className="size-6 shrink-0" />}
-            <span className="text-body-large min-w-0 flex-1 truncate text-left">{label}</span>
+            {icon && (
+              <span data-slot="settings-row-glyph" className="flex shrink-0">
+                <WidgetIcon name={icon} className="size-6 shrink-0" />
+              </span>
+            )}
+            <span data-slot="settings-row-title" className="text-body-large min-w-0 flex-1 truncate text-left">{label}</span>
           </>
         );
         if (control === "switch")
           return (
-            <div key={i} className="flex min-h-12 items-center gap-3 rounded-lg px-2 py-1" onClick={stop}>
+            <div key={i} data-slot="settings-row" className="flex min-h-12 items-center gap-3 rounded-lg px-2 py-1" onClick={stop}>
               {head}
               <Switch aria-label={label} checked={states[i] ?? false} onCheckedChange={() => flip(i)} />
             </div>
           );
         if (control === "check")
           return (
-            <Tap key={i} role="checkbox" aria-checked={states[i] ?? false} className="flex min-h-12 w-full items-center gap-3 rounded-lg px-2 py-1" onClick={(e) => (stop(e), flip(i))}>
+            <Tap key={i} role="checkbox" aria-checked={states[i] ?? false} data-slot="settings-row" className="flex min-h-12 w-full items-center gap-3 rounded-lg px-2 py-1" onClick={(e) => (stop(e), flip(i))}>
               {head}
               {states[i] && <WidgetIcon name="check" className="text-primary size-6" />}
             </Tap>
           );
         return (
-          <Tap key={i} data-tap={`tab:${i}`} className="flex min-h-12 w-full items-center gap-3 rounded-lg px-2 py-1">
+          <Tap key={i} data-tap={`tab:${i}`} data-slot="settings-row" className="flex min-h-12 w-full items-center gap-3 rounded-lg px-2 py-1">
             {head}
-            {value && <span className={`text-body-medium truncate ${Soft}`}>{value}</span>}
-            {control !== "value" && <WidgetIcon name="chevron_right" className={`size-5 shrink-0 ${Soft}`} />}
+            {value && <span data-slot="settings-row-value" className={`text-body-medium truncate ${Soft}`}>{value}</span>}
+            {control !== "value" && (
+              <span data-slot="settings-row-chevron" className="flex shrink-0">
+                <WidgetIcon name="chevron_right" className={`size-5 shrink-0 ${Soft}`} />
+              </span>
+            )}
           </Tap>
         );
       })}
@@ -749,9 +768,9 @@ export function Playlist({ title = "", rows = [], selected = 0, width = 380, cla
   return (
     <div data-slot="playlist" data-selected={on} data-playing={playing || undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-0.5 rounded-xl p-2", className)} style={{ width, ...style }}>
       {title && (
-        <div className="flex items-baseline justify-between gap-2 px-2 py-1">
-          <span className="text-title-medium truncate">{title}</span>
-          {done > 0 && <span className={`text-label-medium shrink-0 ${Soft}`}>{done} / {rows.length}</span>}
+        <div data-slot="playlist-header" className="flex items-baseline justify-between gap-2 px-2 py-1">
+          <span data-slot="playlist-title" className="text-title-medium truncate">{title}</span>
+          {done > 0 && <span data-slot="playlist-meta" className={`text-label-medium shrink-0 ${Soft}`}>{done} / {rows.length}</span>}
         </div>
       )}
       {rows.map((r, i) => {
@@ -773,10 +792,10 @@ export function Playlist({ title = "", rows = [], selected = 0, width = 380, cla
               {locked ? <WidgetIcon name="lock" className="size-5" /> : current ? <WidgetIcon name={playing ? "pause" : "play_arrow"} className="size-6" /> : r[3] === "done" ? <WidgetIcon name="check" className="text-primary size-5" /> : i + 1}
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-body-large truncate">{r[0] ?? ""}</span>
-              {r[1] && <span className={`text-body-small truncate ${Soft}`}>{r[1]}</span>}
+              <span data-slot="playlist-row-title" className="text-body-large truncate">{r[0] ?? ""}</span>
+              {r[1] && <span data-slot="playlist-row-subtitle" className={`text-body-small truncate ${Soft}`}>{r[1]}</span>}
             </span>
-            <span className={`text-label-medium shrink-0 tabular-nums ${Soft}`}>{r[2] ?? ""}</span>
+            <span data-slot="playlist-row-meta" className={`text-label-medium shrink-0 tabular-nums ${Soft}`}>{r[2] ?? ""}</span>
           </Tap>
         );
       })}
@@ -898,14 +917,14 @@ export function IconGrid({ items = [], columns = 4, badge = "", width = 380, cla
   return (
     <div data-slot="icon-grid" data-opened={opened.join(",")} className={cn("bg-surface-container-low text-on-surface grid gap-1 rounded-xl p-2", className)} style={{ width, gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`, ...style }}>
       {items.map((it, i) => {
-        const mark: ReactNode = opened.includes(i) ? null : it.mark === "dot" ? <span className="bg-error absolute top-1 right-1 size-2 rounded-full" /> : it.mark === "new" && badge ? <span className="bg-error text-on-error text-label-small absolute -top-0.5 -right-1 rounded-full px-1">{badge}</span> : null;
+        const mark: ReactNode = opened.includes(i) ? null : it.mark === "dot" ? <span data-slot="icon-grid-dot" className="bg-error absolute top-1 right-1 size-2 rounded-full" /> : it.mark === "new" && badge ? <span data-slot="icon-grid-badge" className="bg-error text-on-error text-label-small absolute -top-0.5 -right-1 rounded-full px-1">{badge}</span> : null;
         return (
-          <Tap key={i} data-tap={`tab:${i}`} className="text-label-medium flex min-w-0 flex-col items-center gap-1 rounded-lg p-2" onClick={() => setOpened((all) => (all.includes(i) ? all : [...all, i]))}>
-            <span className="bg-secondary-container text-on-secondary-container relative flex size-12 items-center justify-center rounded-lg">
+          <Tap key={i} data-tap={`tab:${i}`} data-slot="icon-grid-cell" className="text-label-medium flex min-w-0 flex-col items-center gap-1 rounded-lg p-2" onClick={() => setOpened((all) => (all.includes(i) ? all : [...all, i]))}>
+            <span data-slot="icon-grid-glyph" className="bg-secondary-container text-on-secondary-container relative flex size-12 items-center justify-center rounded-lg">
               {it.icon && <WidgetIcon name={it.icon} className="size-6" />}
               {mark}
             </span>
-            <span className="w-full truncate text-center">{it.label}</span>
+            <span data-slot="icon-grid-label" className="w-full truncate text-center">{it.label}</span>
           </Tap>
         );
       })}

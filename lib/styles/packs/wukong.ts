@@ -1,0 +1,30 @@
+import { definePack, roles, say, SERIF_RAMP } from "../types";
+
+/* looked at in Black Myth's menus on Interface In Game */
+export default definePack({
+  key: "wukong",
+  name: say("黑神话：悟空", "Black Myth: Wukong", "黒神話：悟空", "검은 신화: 오공"),
+  hint: say("国风暗黑：纯黑底、衬线字、选中项是边缘虚化的米白色带", "Chinese dark fantasy: pure black, serif type, a pale band with faded edges on the selected row", "国風ダーク：黒地と淡い帯", "동양풍 다크: 검정 바탕과 옅은 띠"),
+  refs: ["Black Myth: Wukong"],
+  basis: "observed",
+  group: "pcGame",
+  seed: "#A8A090",
+  mode: "dark",
+  light: roles({ p: ["#1A1814", "#F2EDE0"], pc: ["#E9E3D3", "#1A1814"], s: ["#5A5448", "#FFFFFF"], sc: ["#E9E3D3", "#1A1814"], t: ["#A63D1C", "#FFFFFF"], tc: ["#F5D9CC", "#3D1A0E"], bg: ["#F2EDE0", "#FAF7EF", "#F7F3E8", "#E9E3D3", "#DED7C4"], text: ["#1A1814", "#4F4A3F"], line: ["#7A7364", "#CFC8B5"] }),
+  dark: roles({ p: ["#E8E2D2", "#0A0A0A"], pc: ["#2A261D", "#E8E2D2"], s: ["#A8A090", "#0A0A0A"], sc: ["#1A1814", "#E8E2D2"], t: ["#E0693A", "#1F0A02"], tc: ["#3D1A0E", "#FFD9C7"], bg: ["#0A0A0A", "#121110", "#161513", "#1E1C19", "#26231F"], text: ["#E8E2D2", "#A8A090"], line: ["#6E675A", "#2E2B26"] }),
+  shape: "none",
+  font: "garamond",
+  display: "brush",
+  icons: "game",
+  motion: "standard",
+  control: "extra-small",
+  pill: "follow",
+  screenDark: "radial-gradient(90% 70% at 70% 45%, rgb(120 80 30 / 0.22), transparent 70%)",
+  tokens: { rim: "#6E675A", rimDark: "#2E2B26", tabOn: "#E8E2D2", navOn: "#E8E2D2", toggleOn: "#E8E2D2" },
+  recipes: { button: "band", surface: "plain", tabs: "band", toggle: "block", slider: "thin", nav: "plain", field: "line", bar: "plain", meter: "thin", feedback: "dim", list: "plain", dialog: "plain", segmented: "underline", appbar: "compact", search: "underline", input: "underline", progress: "thin", divider: "fade", menu: "plain", sheet: "panel", tooltip: "dark", fab: "flat", badge: "square", scroll: "hidden" },
+  art: "Chinese mythological dark fantasy, ancient temples in misty mountains, autumn gold and ember light, photorealistic and cinematic",
+  ux: { margin: 24, gap: 8, tight: 0, nav: "top" },
+  layout: { zh: "纯黑底，左上角淡淡的大号书法字；顶部一行文字标签，选中项是米白色带；左边文字列表，右边留白或插画；右下角按键提示。", en: "Pure black with a large faint calligraphic character at the upper left; a line of text tabs on top with the chosen one a pale band; a text list at the left, emptiness or a picture at the right; key hints at the lower right." },
+  type: SERIF_RAMP(24),
+  css: "",
+});

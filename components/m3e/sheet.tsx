@@ -61,6 +61,8 @@ function SheetContent({
         )}
         {...props}
       >
+        {/* a composition hook: the grabber a style may show on a sheet that rises from the foot */}
+        <div data-slot="sheet-handle" aria-hidden className="hidden" />
         {children}
         {showCloseButton && (
           <SheetPrimitive.Close

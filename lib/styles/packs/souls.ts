@@ -1,0 +1,31 @@
+import { definePack, roles, say, SERIF_RAMP } from "../types";
+
+/* looked at in Elden Ring's menus on Interface In Game */
+export default definePack({
+  key: "souls",
+  name: say("艾尔登法环", "Elden Ring", "Elden Ring", "Elden Ring"),
+  hint: say("魂系：近黑褐底、衬线体、纯文字菜单、选中时淡出的暗金光带", "Souls-like: near-black brown, serif type, text-only menus, a fading dark-gold band on the selected row", "ソウルライク：文字だけのメニューと暗い金", "소울라이크: 글자만 있는 메뉴와 어두운 금색"),
+  refs: ["Elden Ring", "Baldur's Gate 3"],
+  basis: "observed",
+  group: "pcGame",
+  seed: "#C8AA6E",
+  mode: "dark",
+  light: roles({ p: ["#6E5210", "#FFF6DD"], pc: ["#EBD193", "#332400"], s: ["#5E5540", "#FFFFFF"], sc: ["#E4D9BE", "#2A1C0C"], t: ["#8E2A1E", "#FFFFFF"], tc: ["#F2CFC6", "#3D1510"], bg: ["#F2EAD6", "#F8F2E2", "#F4EDDB", "#E9DFC6", "#E0D4B6"], text: ["#2A1C0C", "#57482F"], line: ["#7A6A45", "#C9BB97"] }),
+  dark: roles({ p: ["#C8AA6E", "#17130B"], pc: ["#3A3020", "#E6DCC3"], s: ["#A89F8A", "#14120C"], sc: ["#2A2519", "#E6DCC3"], t: ["#D85A4A", "#1A0502"], tc: ["#3D1510", "#FFD6CF"], bg: ["#0E0D0A", "#17150F", "#1C1A13", "#24211A", "#2C2820"], text: ["#E6DCC3", "#A89F8A"], line: ["#7A6A45", "#3A3324"] }),
+  shape: "none",
+  font: "garamond",
+  display: "cinzel",
+  icons: "game",
+  motion: "standard",
+  control: "extra-small",
+  pill: "follow",
+  screenDark: "radial-gradient(120% 90% at 50% 40%, transparent 35%, rgb(0 0 0 / 0.6) 100%)",
+  screen: "radial-gradient(120% 90% at 50% 40%, transparent 50%, rgb(90 60 20 / 0.22) 100%)",
+  tokens: { rim: "#7A6A45", rimDark: "#3A3324", tabOn: "#C8AA6E", navOn: "#C8AA6E", toggleOn: "#C8AA6E" },
+  recipes: { button: "text", surface: "hairline", tabs: "fade", toggle: "block", slider: "thin", nav: "plain", field: "line", bar: "plain", meter: "thin", feedback: "dim", list: "plain", dialog: "plain", avatar: "framed", segmented: "underline", appbar: "compact", search: "underline", input: "underline", progress: "thin", divider: "fade", menu: "plain", sheet: "panel", tooltip: "rim", fab: "flat", badge: "square", text: "caps", scroll: "thin" },
+  art: "dark gothic fantasy painting, ruined cathedrals in fog, muted gold light, desaturated, a golden tree on the horizon",
+  ux: { margin: 24, gap: 8, tight: 0, nav: "rail" },
+  layout: { zh: "几乎全黑：左边一列文字菜单，选中行从左向右淡出暗金光带；数据小而密地排成几列；底部一行按键提示。", en: "Nearly black: a column of words at the left whose chosen row is lit by a dark-gold band fading to the right; small dense columns of figures; a line of key hints along the foot." },
+  type: SERIF_RAMP(20),
+  css: "",
+});

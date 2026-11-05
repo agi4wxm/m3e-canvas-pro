@@ -362,8 +362,8 @@ export const additions: PartDef[] = [
         "div",
         { "data-slot": "mini-program-header", className: "bg-surface text-on-surface relative flex h-14 items-center justify-between px-2", style: { width: px(p) } },
         p.b("back") ? h("Button", { variant: "text", size: "icon", "aria-label": p.say("Back") }, ic("arrow_back")) : h("span"),
-        h("div", { className: "text-title-medium absolute inset-x-24 truncate text-center" }, p.s("title")),
-        h("div", { className: "border-outline-variant flex h-8 items-center gap-2 rounded-full border px-2" }, ic("more_horiz", { className: "size-5" }), h("span", { className: "bg-outline-variant h-4 w-px" }), ic("radio_button_checked", { className: "size-5" })),
+        h("div", { "data-slot": "mini-program-header-title", className: "text-title-medium absolute inset-x-24 truncate text-center" }, p.s("title")),
+        h("div", { "data-slot": "mini-program-header-capsule", className: "border-outline-variant flex h-8 items-center gap-2 rounded-full border px-2" }, ic("more_horiz", { className: "size-5" }), h("span", { className: "bg-outline-variant h-4 w-px" }), ic("radio_button_checked", { className: "size-5" })),
       ),
   },
   {

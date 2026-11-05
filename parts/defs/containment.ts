@@ -38,10 +38,10 @@ function cardTree(p: P): PNode {
     pos === "none"
       ? null
       : bg
-        ? h("div", { className: "absolute inset-0" }, inner)
+        ? h("div", { "data-slot": "card-media", className: "absolute inset-0" }, inner)
         : side
-          ? h("div", { className: "shrink-0 self-stretch overflow-hidden -my-(--card-spacing)", style: { width: extent } }, inner)
-          : h("div", { className: "w-full shrink-0 overflow-hidden", style: { height: extent } }, inner);
+          ? h("div", { "data-slot": "card-media", className: "shrink-0 self-stretch overflow-hidden -my-(--card-spacing)", style: { width: extent } }, inner)
+          : h("div", { "data-slot": "card-media", className: "w-full shrink-0 overflow-hidden", style: { height: extent } }, inner);
   /* over a photo the words need a scrim; over the placeholder they take the container's on-color */
   const ink = bg ? (src ? "text-white" : "text-on-primary-container") : undefined;
   const body = bg ? (src ? "text-white/80" : "text-on-primary-container/80") : undefined;
@@ -174,8 +174,10 @@ export const containment: PartDef[] = [
                 : trailing === "icon" && p.s("trailingIcon")
             ? h("ItemActions", null, h("Button", { variant: "text", size: "icon", "aria-label": p.say("Open") }, ic(p.s("trailingIcon"))))
             : trailing === "text" && p.s("trailingText")
-              ? h("ItemActions", null, h("span", { className: "text-body-medium text-on-surface-variant" }, p.s("trailingText")))
+              ? h("ItemActions", null, h("span", { "data-slot": "item-value", className: "text-body-medium text-on-surface-variant" }, p.s("trailingText")))
               : null;
+      /* a composition hook: the chevron a row that leads somewhere ends in, hidden unless a style shows it */
+      const chevron = trailing === "none" || trailing === "text" ? h("span", { "data-slot": "item-chevron", "aria-hidden": true, className: "hidden" }, ic("chevron_right")) : null;
       const row = (it: { label: string; icon?: string }, i: number) =>
         h(
           "Item",
@@ -183,6 +185,7 @@ export const containment: PartDef[] = [
           it.icon && h("ItemMedia", { variant: "icon", className: disc || undefined }, ic(it.icon)),
           h("ItemContent", null, h("ItemTitle", null, it.label), p.s("description") && h("ItemDescription", null, p.s("description"))),
           end,
+          chevron,
         );
       const rows = p.list("items").map(row);
       return h("div", { style: { width: Math.round(p.n("width")) } }, rows.length === 1 ? rows[0] : h("ItemGroup", null, ...rows));

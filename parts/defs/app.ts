@@ -178,9 +178,9 @@ export const app: PartDef[] = [
       return h(
         "div",
         { "data-slot": "price-tag", className: "text-primary inline-flex flex-wrap items-baseline gap-1 rounded-sm" },
-        h("span", { className: "inline-flex items-baseline tabular-nums" }, h("span", { className: "text-label-large" }, p.s("currency")), h("span", { className: big }, whole), cents !== undefined && h("span", { className: "text-title-small" }, `.${cents}`)),
-        p.s("original") && h("span", { className: "text-body-small text-on-surface-variant line-through" }, p.s("original")),
-        p.s("discount") && h("span", { className: "bg-error text-on-error text-label-small rounded-full px-1.5 py-0.5" }, p.s("discount")),
+        h("span", { "data-slot": "price-tag-value", className: "inline-flex items-baseline tabular-nums" }, h("span", { className: "text-label-large" }, p.s("currency")), h("span", { className: big }, whole), cents !== undefined && h("span", { className: "text-title-small" }, `.${cents}`)),
+        p.s("original") && h("span", { "data-slot": "price-tag-original", className: "text-body-small text-on-surface-variant line-through" }, p.s("original")),
+        p.s("discount") && h("span", { "data-slot": "price-tag-tag", className: "bg-error text-on-error text-label-small rounded-full px-1.5 py-0.5" }, p.s("discount")),
       );
     },
   },
@@ -950,8 +950,8 @@ export const app: PartDef[] = [
       h(
         "div",
         { "data-slot": "section-header", className: "text-on-surface flex min-h-10 items-center gap-2", style: { width: px(p) } },
-        h("div", { className: "min-w-0 flex-1" }, h("div", { className: "text-title-medium truncate" }, p.s("title")), p.s("subtitle") && h("div", { className: "text-body-small truncate opacity-70" }, p.s("subtitle"))),
-        p.s("action") && h("Button", { variant: "text", size: "xs", className: "shrink-0", "data-tap": "action" }, p.s("action"), ic("chevron_right")),
+        h("div", { className: "min-w-0 flex-1" }, h("div", { "data-slot": "section-header-title", className: "text-title-medium truncate" }, p.s("title")), p.s("subtitle") && h("div", { "data-slot": "section-header-subtitle", className: "text-body-small truncate opacity-70" }, p.s("subtitle"))),
+        p.s("action") && h("Button", { variant: "text", size: "xs", className: "shrink-0", "data-tap": "action", "data-slot": "section-header-action" }, p.s("action"), ic("chevron_right")),
       ),
   },
   {

@@ -1,0 +1,31 @@
+import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+
+/* looked at in Marvel Rivals' menus on Interface In Game: white panels, navy strips, yellow, slants */
+export default definePack({
+  key: "rivals",
+  name: say("漫威争锋", "Marvel Rivals", "Marvel Rivals", "Marvel Rivals"),
+  hint: say("漫画英雄：白面板、海军蓝条、亮黄选中、斜切和粗斜体大写", "Comic hero: white panels, navy strips, bright yellow, slants and bold italic capitals", "コミック調：白いパネルと黄色、斜めの形", "코믹풍: 흰 패널과 노랑, 기울인 형태"),
+  refs: ["Marvel Rivals"],
+  basis: "observed",
+  group: "pcGame",
+  seed: "#4B3FC8",
+  mode: "light",
+  light: roles({ p: ["#FFD60A", "#15193A"], pc: ["#E6E9F8", "#15193A"], s: ["#4B3FC8", "#FFFFFF"], sc: ["#15193A", "#FFFFFF"], t: ["#4B3FC8", "#FFFFFF"], tc: ["#E2DFFF", "#1E1866"], bg: ["#E9ECF8", "#FFFFFF", "#FFFFFF", "#F3F5FC", "#DDE1F2"], text: ["#15193A", "#4A5070"], line: ["#7A80A0", "#C9CEE6"] }),
+  dark: roles({ p: ["#FFD60A", "#15193A"], pc: ["#30365C", "#E6E9F8"], s: ["#A89FFF", "#15193A"], sc: ["#30365C", "#FFFFFF"], t: ["#A89FFF", "#15193A"], tc: ["#2A2566", "#E2DFFF"], bg: ["#0F1224", "#181C36", "#1E2340", "#272C4E", "#30365C"], text: ["#FFFFFF", "#C9CEEA"], line: ["#7A80A0", "#30365C"] }),
+  shape: "none",
+  font: "barlow",
+  display: "barlow",
+  icons: "remix",
+  motion: "expressive",
+  control: "extra-small",
+  pill: "follow",
+  capsLabels: true,
+  screen: "linear-gradient(115deg, transparent 58%, rgb(75 63 200 / 0.16) 58%, rgb(75 63 200 / 0.16) 80%, transparent 80%)",
+  tokens: { barBg: "#15193A", onBar: "#FFFFFF", rim: "#FFD60A", tabOn: "#FFD60A", navOn: "#4B3FC8", toggleOn: "#FFD60A", primaryText: "#4B3FC8" },
+  recipes: { button: "slant", surface: "plain", tabs: "slant", toggle: "block", slider: "block", nav: "topline", field: "boxed", bar: "hud", meter: "block", feedback: "flash", list: "tile", dialog: "plain", chip: "tag", card: "flat", segmented: "block", appbar: "compact", search: "boxed", progress: "track", divider: "bold", menu: "compact", sheet: "panel", tooltip: "light", fab: "flat", badge: "square", text: "italic", scroll: "block" },
+  art: "bold comic-book hero poster, halftone dots, dynamic diagonals, saturated purple and yellow",
+  ux: { margin: 16, gap: 12, tight: 6, nav: "top" },
+  layout: { zh: "顶部窄导航选中项亮黄；一边是人物立绘和斜切色块，另一边是白面板；标题是粗斜体大写；胜利画面是一道斜向黄光。", en: "A slim navigation on top with the chosen item bright yellow; a hero and slanted color blocks on one side, white panels on the other; bold italic capital titles; a slanted yellow streak on victory." },
+  type: { ...TITLES([28, 30, 800, 0], [20, 24, 700, 0], [17, 20, 700, 0]), ...BODIES([16, 20, 500, 0], [15, 19, 500, 0], [13, 16, 500, 0]), ...LABELS([18, 22, 800, 0.5], [14, 18, 700, 0.5], [12, 14, 700, 0.5]) },
+  css: "",
+});

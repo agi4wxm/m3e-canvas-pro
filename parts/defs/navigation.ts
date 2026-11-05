@@ -9,17 +9,25 @@ const DESTINATIONS = [
 ];
 
 /** the search bar or view; `open` draws a view with its results showing */
+/** the leading icons that go back, which a style may label with where they lead */
+const BACK_ICONS = ["arrow_back", "arrow_back_ios", "arrow_back_ios_new", "chevron_left"];
+
 function searchTree(p: P, open: boolean): PNode {
   const leading = p.s("leading") ? ic(p.s("leading")) : undefined;
   const trailing = p.s("trailing") ? ic(p.s("trailing"), { "data-tap": "icon" }) : undefined;
   const style = { width: Math.round(p.n("width")) };
   const outlined = p.s("style") === "outlined" || undefined;
-  if (p.s("kind") === "bar") return h("SearchBar", { placeholder: p.s("placeholder") || undefined, leading, trailing, outlined, style });
-  return h(
-    "SearchView",
-    { placeholder: p.s("placeholder") || undefined, leading, trailing, outlined, size: p.s("size") === "sm" ? "sm" : undefined, style, open: open || undefined },
-    ...p.list("results").map((r, i) => h("SearchResult", { icon: r.icon || undefined, "data-tap": `tab:${i}` }, r.label)),
-  );
+  /* a composition hook: a Cancel beside the field, hidden unless a style shows it (iOS) */
+  const cancel = h("span", { "data-slot": "search-cancel", className: "hidden" }, p.say("Cancel"));
+  const field =
+    p.s("kind") === "bar"
+      ? h("SearchBar", { placeholder: p.s("placeholder") || undefined, leading, trailing, outlined, className: "min-w-0 flex-1" })
+      : h(
+          "SearchView",
+          { placeholder: p.s("placeholder") || undefined, leading, trailing, outlined, size: p.s("size") === "sm" ? "sm" : undefined, className: "min-w-0 flex-1", open: open || undefined },
+          ...p.list("results").map((r, i) => h("SearchResult", { icon: r.icon || undefined, "data-tap": `tab:${i}` }, r.label)),
+        );
+  return h("div", { "data-slot": "search", className: "flex items-start gap-3", style }, field, cancel);
 }
 
 export const navigation: PartDef[] = [
@@ -96,6 +104,8 @@ export const navigation: PartDef[] = [
         trailing: one && two ? h("span", { className: "flex items-center" }, one, two) : (one ?? two),
         centered: p.b("centered") || undefined,
         scrolled: p.b("scrolled") || undefined,
+        /* a back arrow can say where it leads, where a style shows that */
+        backLabel: BACK_ICONS.includes(p.s("leading")) ? p.say("Back") : undefined,
         style: { width: Math.round(p.n("width")) },
       });
     },

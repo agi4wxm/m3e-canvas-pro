@@ -1,0 +1,33 @@
+import { definePack, roles, say, CHUNKY_RAMP } from "../types";
+
+/* button, rim and bar colors read off Royal Match's store screenshots; Clash Royale's from Interface In Game */
+export default definePack({
+  key: "casual",
+  name: say("消除休闲", "Casual match-3", "カジュアルパズル", "캐주얼 퍼즐"),
+  hint: say("像 Royal Match、Candy Crush、皇室战争：光泽按钮、厚金边、白字描边", "Like Royal Match, Candy Crush, Clash Royale: glossy buttons, thick gold rims, outlined white words", "Royal Match や Candy Crush のように光沢と金の縁", "Royal Match, Candy Crush처럼 광택과 금테"),
+  refs: ["Royal Match", "Candy Crush", "Monopoly GO", "Clash Royale", "Coin Master"],
+  basis: "sampled",
+  group: "mobileGame",
+  seed: "#3E9B14",
+  mode: "light",
+  light: roles({ p: ["#3E9B14", "#FFFFFF"], pc: ["#D8F5B8", "#1E5200"], s: ["#2177D0", "#FFFFFF"], sc: ["#F59E0B", "#FFFFFF"], t: ["#C76A00", "#FFFFFF"], tc: ["#FFF4D6", "#5A3A05"], bg: ["#BFE6FF", "#FFF8E7", "#FFF4D6", "#FBE9BE", "#F5DFA8"], text: ["#3A2208", "#5E4019"], line: ["#8A5A1E", "#D9A94A"] }),
+  dark: roles({ p: ["#3E9B14", "#FFFFFF"], pc: ["#1E5200", "#D8F5B8"], s: ["#6FB4F2", "#04203F"], sc: ["#F59E0B", "#FFFFFF"], t: ["#FFC933", "#2B1D00"], tc: ["#4A3A1E", "#FFF4D6"], bg: ["#12305F", "#1C3F78", "#1C3F78", "#264D8F", "#2C568F"], text: ["#FFFFFF", "#D6E4FF"], line: ["#7C9CD1", "#3A5C9C"] }),
+  loud: ["primary", "secondaryContainer", "tertiary"],
+  shape: "full",
+  font: "lilita",
+  display: "lilita",
+  icons: "emoji",
+  motion: "expressive",
+  control: "large",
+  pill: "round",
+  edge: 3,
+  screen: "linear-gradient(#7CC8FF, #D6F0FF)",
+  screenDark: "linear-gradient(#0E2A5A, #1C3F78)",
+  tokens: { rim: "#FFC933", rimDark: "#8A4B00", stroke: "#4A2A00", navBg: "#1763B8", navActive: "#4DA3F0", barBg: "#1763B8", onBar: "#FFFFFF", toggleOn: "#3E9B14", primaryText: "#2E7A0E", primaryTextDark: "#8FE05A" },
+  recipes: { button: "gloss", surface: "chunk", tabs: "boxed", toggle: "chunky", slider: "block", nav: "gamebar", field: "hard", bar: "hud", meter: "jelly", feedback: "press", list: "tile", dialog: "game", card: "framed", segmented: "block", appbar: "center", search: "filled", progress: "jelly", divider: "fade", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", icon: "emboss", text: "outlined", scroll: "hidden" },
+  art: "bright cartoon 3D render, saturated candy colors, glossy shiny objects, soft rounded shapes, a kingdom or toy-box world",
+  ux: { margin: 12, gap: 12, tight: 8, nav: "bottom" },
+  layout: { zh: "顶部一排奶油色胶囊显示金币、生命、星星；中间整屏场景图；两个大光泽按钮贴在底部标签栏上方；底栏选中项抬高变亮。", en: "A row of cream capsules for coins, lives and stars on top; a full-screen scene in the middle; two big glossy buttons just above the bottom bar, whose chosen tab rises and brightens." },
+  type: CHUNKY_RAMP,
+  css: "",
+});
