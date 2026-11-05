@@ -64,6 +64,22 @@ export const isMobileGame = (l: KitLook) => l.group === "mobileGame";
 export const rule = (length = W, down = false, fill: Node["fill"] = "surfaceContainerHighest"): Node =>
   box({ layout: "row", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: down ? 1 : length, height: down ? length : 1 }, [], { fill, name: say("Divider", "分隔线", "区切り線", "구분선") });
 
+/** how a look groups the rows of a list: on a rounded card on a grey ground (an iPhone's, and a game's tiles), on a
+ *  card running edge to edge (WeChat's cells, desktop lists parted by hairlines), or bare (Material's) */
+export const groupingOf = (l: KitLook): "inset" | "flush" | "bare" => (l.list === "inset" || l.list === "tile" ? "inset" : l.list === "flush" || l.list === "hairline" ? "flush" : "bare");
+
+/** a hairline between two rows that starts where their words do, as grouped lists draw it */
+export const insetRule = (left: number): Node =>
+  hbox({ gap: 0, padX: 0, padY: 0, hugWidth: false, width: W }, [box({ layout: "row", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: left, height: 1 }, []), { ...rule(100), grow: true }], { name: say("Divider", "分隔线", "区切り線", "구분선") });
+
+/** Rows as one section of a list, the way the look groups them: a card box holding them, parted by hairlines from
+ *  `textAt` (where the rows' words start), so a style dresses the section as its own; bare rows where the look
+ *  sets them on the page. `how` forces a grouping. */
+export function section(rows: Node[], look: KitLook, textAt: number, width = W, how = groupingOf(look)): Node {
+  if (how === "bare") return vbox({ width, hugWidth: false, gap: 0 }, rows);
+  return vbox({ surface: "card", width, hugWidth: false, padX: 0, padY: 0, gap: 0 }, rows.flatMap((r, i) => (i ? [insetRule(textAt), r] : [r])), { corners: round(how === "inset" ? 12 : 0) });
+}
+
 /** a short bar a sheet is dragged by, centered */
 export const grabber = (w = 36, h = 5): Node => hbox({ justify: "center", hugWidth: false, width: W }, [box({ layout: "row", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: w, height: h }, [], { fill: "surfaceContainerHighest", corners: round(h / 2) })]);
 

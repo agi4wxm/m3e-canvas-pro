@@ -21,9 +21,10 @@ import { PartView } from "./PartView";
  * It reads the registry, so a part added later is in it without a word here; a part whose look depends on a prop
  * (a back arrow, a large title) gets a few more cells from SAMPLES. Kits, the composites that exist only as trees of
  * atoms, are drawn in every variant as the editor adds and lays them out, the one the style picks marked with a star;
- * `kits=1` shows the kits alone; `splits=1` each composite that splits beside the atoms it splits into. */
+ * `kits=1` shows the kits alone (`chosen=1`: only the variant the style picks); `splits=1` each composite that splits
+ * beside the atoms it splits into. */
 
-export type GallerySearch = { style?: string; dark?: string; category?: string; lang?: string; part?: string; kits?: string; splits?: string };
+export type GallerySearch = { style?: string; dark?: string; category?: string; lang?: string; part?: string; kits?: string; splits?: string; chosen?: string };
 
 /** more cells for the parts whose composition a style changes with a prop: what the default alone would not show */
 const SAMPLES: Record<string, { label: string; props: Record<string, unknown> }[]> = {
@@ -322,7 +323,7 @@ export function Gallery({ search }: { search: GallerySearch }) {
                     .filter((k) => k.category === c)
                     .flatMap((k) => {
                       const chosen = pickVariant(k, look).key;
-                      return k.variants.map((v) => <KitCell key={`${k.slug}-${v.key}`} kit={k} variant={v} look={look} chosen={v.key === chosen} p={p} theme={theme} lang={lang} settled={settled} />);
+                      return k.variants.filter((v) => search.chosen !== "1" || v.key === chosen).map((v) => <KitCell key={`${k.slug}-${v.key}`} kit={k} variant={v} look={look} chosen={v.key === chosen} p={p} theme={theme} lang={lang} settled={settled} />);
                     })}
                 </div>
               </section>

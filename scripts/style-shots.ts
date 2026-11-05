@@ -4,6 +4,7 @@
  *   bun run dev -- --port 3105            (in another shell; this script starts nothing)
  *   bun scripts/style-shots.ts --base http://localhost:3105 --out shots [--style ios,wechat] [--dark] [--both]
  *                              [--category Navigation,Lists] [--lang zh] [--part app-bar,item] [--width 1280] [--tile 1400]
+ *                              [--kits] [--chosen] [--splits]
  *
  * Without --style it takes every style and plain Material ("android"). --dark draws them in dark mode, --both in each
  * mode; without either a style is drawn in the mode it opens with. Pictures land in <out>/<style>[-dark]/<section>.png
@@ -33,6 +34,8 @@ const modes: (string | undefined)[] = flag("both") ? ["0", "1"] : flag("dark") ?
 const categories = list("category");
 const lang = option("lang", "zh");
 const part = option("part");
+/* the kits alone (--kits), only the variant each style picks (--chosen), or each composite beside its atoms (--splits) */
+const kitsOnly: Record<string, string> = { ...(flag("kits") || flag("chosen") ? { kits: "1" } : {}), ...(flag("chosen") ? { chosen: "1" } : {}), ...(flag("splits") ? { splits: "1" } : {}) };
 const width = Number(option("width", "1280"));
 /* a section taller than this is also cut into pieces of this height, <section>-1.png and on: an image much taller
    than it is wide is shrunk past reading when it is looked at whole. 0 keeps every section in one piece. */
@@ -71,7 +74,7 @@ try {
   page.on("pageerror", (e) => console.warn(`  page error: ${e.message}`));
   for (const style of styles)
     for (const dark of modes) {
-      const query = new URLSearchParams({ ...(style === "android" ? {} : { style }), ...(dark ? { dark } : {}), lang: lang ?? "zh", ...(part ? { part } : {}) });
+      const query = new URLSearchParams({ ...(style === "android" ? {} : { style }), ...(dark ? { dark } : {}), lang: lang ?? "zh", ...(part ? { part } : {}), ...kitsOnly });
       const name = `${safe(style)}${dark === "1" ? "-dark" : dark === "0" ? "-light" : ""}`;
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`${base}/gallery?${query}`, { waitUntil: "networkidle" });

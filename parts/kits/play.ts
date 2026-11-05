@@ -232,7 +232,9 @@ const dialogue = kit(
 const node = (n: number, state: "done" | "here" | "locked", got = 3): Node => {
   const disc = state === "locked"
     ? box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 48, height: 48, hugWidth: false, hugHeight: false }, [icon("lock_person", { size: 20, filled: true, color: "muted" })], { corners: round(24) })
-    : box({ surface: "button", layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 48, height: 48, hugWidth: false, hugHeight: false }, [text(String(n), "heading", { bold: true, color: "on-primary" })], { corners: round(24), ...(state === "here" ? { look: LIP } : {}) });
+    : /* a disc of the primary color rather than a button surface: a style that draws its buttons as bare words would
+       * leave the number on nothing */
+      box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 48, height: 48, hugWidth: false, hugHeight: false }, [text(String(n), "heading", { bold: true, color: "on-primary" })], { fill: "primary", corners: round(24), ...(state === "here" ? { look: LIP } : {}) });
   return vbox({ gap: 4, align: "center" }, [state === "here" ? box({ layout: "row", padX: 4, padY: 4 }, [disc], { corners: round(28), look: { stroke: { width: 3, color: "primary" } } }) : box({ layout: "row", padX: 4, padY: 4 }, [disc]), stars(state === "done" ? got : 0, 3, 12, 1)]);
 };
 /** the road between two levels, at the height of their discs */

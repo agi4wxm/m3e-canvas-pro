@@ -1,6 +1,6 @@
 import { atom, avatar, box, button, hbox, icon, iconButton, image, para, round, text, vbox } from "../atoms";
 import { say, type Node, type Say } from "../templates/kit";
-import { T, W, disc, isDense, isIosLike, kit, lines, muted, rule, tag, tile, variant } from "./shared";
+import { SCREEN, T, W, disc, isDense, isIosLike, kit, lines, muted, rule, section, tag, tile, variant } from "./shared";
 import type { KitDef, KitLook } from "./types";
 
 /* Rows of lists, as atoms: what leads (an avatar, a tile), two lines of words that take the rest and stop at an
@@ -257,29 +257,36 @@ const insetGroup = kit(
       "inset",
       "Rounded card on grey",
       ["灰底圆角卡片", "グレー地の角丸カード", "회색 바탕 둥근 카드"],
-      () =>
+      (look) =>
         vbox({ width: W, hugWidth: false, gap: 6 }, [
           hbox({ padX: 16 }, [muted(GROUP, "caption", {}, { look: { text: { case: "upper", letterSpacing: 0.4 } } })]),
-          vbox(
-            { surface: "card", padX: 0, padY: 0, gap: 0 },
-            SETTINGS.flatMap(([name, label, value, fill], i) => [...(i ? [rule()] : []), hbox({ padX: 16, padY: 10, gap: 12 }, [tile(name, fill, 30, 18, 7), para(label, "body", { maxLines: 1 }, { grow: true }), muted(value), icon("chevron_right", { size: 20, color: "muted" })])]),
-            { corners: round(12) },
+          /* the hairlines start at the words, past the 30 px tile: 16 + 30 + 12 */
+          section(
+            SETTINGS.map(([name, label, value, fill]) => hbox({ padX: 16, padY: 10, gap: 12 }, [tile(name, fill, 30, 18, 7), para(label, "body", { maxLines: 1 }, { grow: true }), muted(value), icon("chevron_right", { size: 20, color: "muted" })])),
+            look,
+            58,
+            W,
+            "inset",
           ),
           hbox({ padX: 16 }, [para(NOTE, "caption", { color: "muted" }, { grow: true })]),
         ]),
-      { suits: (l) => l.list === "inset" },
+      /* grouped on a card where the style groups lists, and where a game sets its rows on tiles */
+      { suits: (l) => l.list === "inset" || l.list === "tile" },
     ),
     variant(
       "flush",
       "Edge to edge",
       ["通栏", "端から端まで", "가장자리까지"],
-      () =>
-        vbox(
-          { width: W, hugWidth: false, gap: 0 },
-          SETTINGS.flatMap(([name, label, value], i) => [...(i ? [rule()] : []), hbox({ padX: 16, padY: 14, gap: 12 }, [icon(name, { color: "default", filled: true }), para(label, "lead", { maxLines: 1 }, { grow: true }), muted(value), icon("chevron_right", { size: 20, color: "muted" })])]),
-          { fill: "surface" },
+      /* cells 56 px high across the screen, the hairlines from the words: 16 + 24 + 12 */
+      (look) =>
+        section(
+          SETTINGS.map(([name, label, value]) => hbox({ padX: 16, padY: 16, gap: 12 }, [icon(name, { color: "default", filled: true }), para(label, "lead", { maxLines: 1 }, { grow: true }), muted(value), icon("chevron_right", { size: 20, color: "muted" })])),
+          look,
+          52,
+          SCREEN,
+          "flush",
         ),
-      { suits: (l) => l.list === "flush" || l.list === "hairline" },
+      { span: "screen", suits: (l) => l.list === "flush" || l.list === "hairline" },
     ),
   ],
 );

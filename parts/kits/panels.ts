@@ -188,7 +188,7 @@ const post = kit(
         ]),
       { suits: (l) => l.list === "plain" && l.card === "flat" },
     ),
-    variant("thread", "Thread post", ["串文帖子", "スレッド投稿", "스레드 게시물"], () =>
+    variant("thread", "Avatar in its own column", ["头像单独一栏", "アバターを左列に", "아바타 왼쪽 열"], () =>
       hbox({ width: W, hugWidth: false, padX: 0, padY: 12, gap: 12, align: "start" }, [
         avatar("MC"),
         vbox({ gap: 6, hugWidth: false, width: 200 }, [
@@ -198,6 +198,8 @@ const post = kit(
           hbox({ justify: "between" }, [["chat_bubble", "12"], ["repeat", "4"], ["favorite", "38"], ["bar_chart", "1.2k"]].map(([g, n]) => hbox({ gap: 4 }, [icon(g, { size: 18, color: "muted", filled: g === "repeat" }), muted(n, "caption")]))),
         ], { grow: true }),
       ]),
+      /* microblogs, and a messenger's moments with its square avatars */
+      { suits: (l) => l.avatar === "square" },
     ),
   ],
 );

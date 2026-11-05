@@ -150,14 +150,16 @@ describe("every kit", () => {
     expect(pickVariant(search, MATERIAL_LOOK, "nope").key).toBe("material");
   });
 
-  it("is dark on a light page where its product is, and follows a dark one", () => {
+  it("follows the page's mode, so a document that changes mode keeps it readable", () => {
+    /* a box painted in a fixed inverse would turn white on a dark page; the Codex box is a panel of the page's
+     * mode and only its main action takes the inverse color, which reads in either */
     const codex = kitBySlug("codex-prompt")!;
-    expect(codex.variants[0].build(MATERIAL_LOOK).fill).toBe("inverseSurface");
-    expect(codex.variants[0].build({ ...MATERIAL_LOOK, dark: true }).fill).toBeUndefined();
-    /* its main action is the light pill on the dark box either way */
-    const code = (dark: boolean) => walk(codex.variants[0].build({ ...MATERIAL_LOOK, dark })).find(({ node }) => node.slug === "button" && node.props.variant === "filled")!.node;
-    expect(code(false).fill).toBe("surface");
-    expect(code(true).fill).toBe("inverseSurface");
+    for (const dark of [false, true]) {
+      const tree = codex.variants[0].build({ ...MATERIAL_LOOK, dark });
+      expect(tree.fill).toBeUndefined();
+      expect(tree.props.surface).toBe("panel");
+      expect(walk(tree).find(({ node }) => node.slug === "button" && node.props.variant === "filled")!.node.fill).toBe("inverseSurface");
+    }
   });
 
   it("puts a setting's icon on a colored tile only in grouped inset lists", () => {

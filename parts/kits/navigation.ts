@@ -286,7 +286,8 @@ const tabStrip = kit(
         hbox(
           { surface: "bar", width: 640, hugWidth: false, padX: 0, padY: 0, gap: 0, align: "start" },
           FILES.flatMap((f, i) => [
-            vbox({ gap: 0, padX: 0, padY: 0 }, [box({ layout: "row", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: 8, height: 2 }, [], i === 0 ? { fill: "primary" } : {}), hbox({ padX: 12, padY: 8, gap: 6 }, [icon("description", { size: 16, color: i === 0 ? "primary" : "muted" }), text(f, "caption", { color: i === 0 ? "default" : "muted" }), icon("close", { size: 16, color: i === 0 ? "default" : "muted" })])], i === 0 ? { fill: "surface" } : {}),
+            /* a tab of a set width, so the line along the top of the open one runs its whole width */
+            vbox({ gap: 0, padX: 0, padY: 0, hugWidth: false, width: 148 }, [box({ layout: "row", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: 8, height: 2 }, [], i === 0 ? { fill: "primary" } : {}), hbox({ padX: 12, padY: 8, gap: 6 }, [icon("description", { size: 16, color: i === 0 ? "primary" : "muted" }), para(f, "caption", { maxLines: 1, color: i === 0 ? "default" : "muted" }, { grow: true }), icon("close", { size: 16, color: i === 0 ? "default" : "muted" })])], i === 0 ? { fill: "surface" } : {}),
             rule(34, true),
           ]),
         ),
@@ -299,7 +300,7 @@ const tabStrip = kit(
 const LIGHTS = '<svg viewBox="0 0 52 12"><circle cx="6" cy="6" r="6" fill="#ff5f57"/><circle cx="26" cy="6" r="6" fill="#febc2e"/><circle cx="46" cy="6" r="6" fill="#28c840"/></svg>';
 const lights = (): Node => atom("svg", { mode: "markup", markup: LIGHTS, width: 52, height: 12, label: say("Close, minimize, zoom", "关闭、最小化、缩放", "閉じる・しまう・拡大", "닫기, 최소화, 확대") });
 /** a Windows caption button: a 46 × 32 hit area around a 16 px glyph */
-const caption = (name: string): Node => box({ layout: "row", align: "center", justify: "center", padX: 15, padY: 8 }, [icon(name, { size: 16, filled: true })]);
+const caption = (name: string, filled = true): Node => box({ layout: "row", align: "center", justify: "center", padX: 15, padY: 8 }, [icon(name, { size: 16, filled })]);
 const WINDOW = say("Notes — Untitled", "笔记 — 未命名", "メモ — 無題", "메모 — 제목 없음");
 
 const titleBar = kit(
@@ -314,7 +315,7 @@ const titleBar = kit(
       "buttons",
       "Caption buttons at the right",
       ["右侧窗口按钮", "右にキャプションボタン", "오른쪽 창 버튼"],
-      () => hbox({ surface: "bar", width: 640, hugWidth: false, padX: 0, padY: 0, gap: 0 }, [hbox({ padX: 12, padY: 8, gap: 8 }, [icon("edit_note", { size: 16, color: "primary" }), text(WINDOW, "caption")]), push(), caption("remove"), caption("square"), caption("close")]),
+      () => hbox({ surface: "bar", width: 640, hugWidth: false, padX: 0, padY: 0, gap: 0 }, [hbox({ padX: 12, padY: 8, gap: 8 }, [icon("edit_note", { size: 16, color: "primary" }), text(WINDOW, "caption")]), push(), caption("remove"), caption("square", false), caption("close")]),
       { suits: (l) => l.caption === "buttons" },
     ),
     variant(

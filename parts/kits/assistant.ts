@@ -308,7 +308,7 @@ const greeting = kit(
       ["标记、问候和按钮", "マークとあいさつ", "마크와 인사"],
       () =>
         vbox({ width: W, hugWidth: false, gap: 20, align: "center" }, [
-          hbox({ gap: 10 }, [svg("sparkle", { width: 32, height: 32, color: "tertiary" }), text(say("Good evening, Alex", "晚上好，Alex", "こんばんは、Alex さん", "좋은 저녁이에요, Alex"), "headline", {}, { look: { font: "display" } })]),
+          hbox({ gap: 10 }, [svg("sparkle", { width: 32, height: 32, color: "primary" }), text(say("Good evening, Alex", "晚上好，Alex", "こんばんは、Alex さん", "좋은 저녁이에요, Alex"), "headline", {}, { look: { font: "display" } })]),
           hbox({ gap: 8, wrap: true, justify: "center", width: W, hugWidth: false, align: "start" }, [button(say("Write", "写作", "書く", "글쓰기"), { variant: "outlined", size: "xs", icon: "edit" }), button(say("Learn", "学习", "学ぶ", "배우기"), { variant: "outlined", size: "xs", icon: "school" }), button(say("Code", "编程", "コード", "코드"), { variant: "outlined", size: "xs", icon: "code" })]),
         ]),
       { suits: (l) => l.group === "app" && l.surface === "line" },

@@ -18,6 +18,7 @@ export const Route = createFileRoute("/gallery")({
     part: text(s.part),
     kits: text(s.kits),
     splits: text(s.splits),
+    chosen: text(s.chosen),
   }),
   component: Page,
 })
