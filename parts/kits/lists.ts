@@ -36,7 +36,7 @@ const listRow: KitDef = {
       labels: { zh: "头像·两行·时间", ja: "アバター・二行・時刻", ko: "아바타·두 줄·시간" },
       build: () =>
         row(
-          [avatar("MC", { size: "lg" }), lines(say("Mia Carter", "林小雨", "佐藤 葵", "김하늘"), say("See you at the station at six.", "六点车站见。", "6時に駅で会おう。", "6시에 역에서 봐요.")), vbox({ gap: 4, align: "end" }, [text("9:41", "caption", { color: "muted" }), atom("badge", { kind: "label", label: "2" })])],
+          [avatar("MC"), lines(say("Mia Carter", "林小雨", "佐藤 葵", "김하늘"), say("See you at the station at six.", "六点车站见。", "6時に駅で会おう。", "6시에 역에서 봐요.")), vbox({ gap: 4, align: "end" }, [text("9:41", "caption", { color: "muted" }), atom("badge", { kind: "label", label: "2" })])],
           say("Conversation row", "会话行", "会話の行", "대화 행"),
         ),
     },
@@ -44,7 +44,7 @@ const listRow: KitDef = {
       key: "switch",
       name: "Icon, two lines, switch",
       labels: { zh: "图标·两行·开关", ja: "アイコン・二行・スイッチ", ko: "아이콘·두 줄·스위치" },
-      build: () => row([icon("wifi", { color: "muted" }), lines(say("Wi-Fi", "无线网络", "Wi-Fi", "Wi-Fi"), say("Home network", "家庭网络", "自宅のネットワーク", "집 네트워크")), atom("switch", { label: "", checked: true })], say("Switch row", "开关行", "スイッチの行", "스위치 행")),
+      build: () => row([icon("wifi", { color: "muted", filled: true }), lines(say("Wi-Fi", "无线网络", "Wi-Fi", "Wi-Fi"), say("Home network", "家庭网络", "自宅のネットワーク", "집 네트워크")), atom("switch", { label: "", checked: true })], say("Switch row", "开关行", "スイッチの行", "스위치 행")),
     },
     {
       key: "value",

@@ -12,7 +12,8 @@ function Textarea({
   Pick<VariantProps<typeof inputVariants>, "variant">) {
   return (
     <textarea
-      data-slot="textarea"
+      /* a plain one is bare inside a box that is its field: what dresses a field is not for it */
+      data-slot={variant === "plain" ? "plain-textarea" : "textarea"}
       className={cn(
         inputVariants({ variant }),
         "flex field-sizing-content h-auto resize-none",

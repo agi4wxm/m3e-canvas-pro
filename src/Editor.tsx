@@ -124,7 +124,7 @@ import { partBySlug, reader, translateComponentProps } from "@/parts/registry";
 import { instantiate, templateBySlug } from "@/parts/templates";
 import { kitBySlug, kitOfKey } from "@/parts/kits";
 import { defaultMeasures } from "@/parts/templates/kit";
-import { kitGroups, kitLookOf, landTree, moveTo, roomOn, splitIntoAtoms, treeSize } from "@/lib/kits";
+import { kitGroups, kitLookOf, landTree, moveTo, spansScreen, splitIntoAtoms, treeSize } from "@/lib/kits";
 import { COMMON_TEXT } from "@/parts/labels";
 import { FIT_OVERLAY, REMEASURE } from "@/parts/contained";
 import { axisStep, axisValue, axisWrite, resizeOf, type PartAxis } from "@/parts/resize";
@@ -1481,15 +1481,15 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
 
   /** A kit's groups for the document as it is: in the variant asked for or the one its style calls for,
    *  in the editor's language, no wider than a phone's content. */
-  const buildKit = (slug: string, variant: string | undefined, maxWidth: number | undefined) => {
+  const buildKit = (slug: string, variant: string | undefined, screen: Frame | undefined) => {
     const kit = kitBySlug(slug);
-    return kit ? kitGroups(kit, kitLookOf(themeRef.current), getLang(), { variant, maxWidth }) : null;
+    return kit ? kitGroups(kit, kitLookOf(themeRef.current), getLang(), { variant, screen }) : null;
   };
 
   /** A kit picked up from the palette: carried like a part, drawn whole, and let go as its atoms. */
   const onKitPointerDown = (e: React.PointerEvent, slug: string, variant?: string) => {
     if (e.button !== 0 || defEditRef.current) return;
-    const groups = buildKit(slug, variant, roomOn(framesRef.current[0]));
+    const groups = buildKit(slug, variant, framesRef.current[0]);
     if (!groups?.length) return;
     e.preventDefault();
     e.stopPropagation();
@@ -1514,8 +1514,11 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       return x + size.w / 2 >= r.l && x + size.w / 2 <= r.r && y + size.h / 2 >= r.t && y + size.h / 2 <= r.b;
     });
     /* a kit carried onto a screen of another width is laid out again for that one */
-    const fresh = under && roomOn(under) !== roomOn(framesRef.current[0]) ? buildKit(kit.slug, kit.variant, roomOn(under)) : null;
-    const { groups: landed } = landTree(fresh ?? kit.groups, x, y, framesRef.current);
+    const first = framesRef.current[0];
+    const fresh = under && first && frameSizeOf(under).w !== frameSizeOf(first).w ? buildKit(kit.slug, kit.variant, under) : null;
+    const def = kitBySlug(kit.slug);
+    const edge = !!def && spansScreen(def, kitLookOf(themeRef.current), kit.variant);
+    const { groups: landed } = landTree(fresh ?? kit.groups, x, y, framesRef.current, edge);
     if (!landed.length) return;
     snapshot();
     const root = landed[0];
@@ -1538,7 +1541,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const b = frameRect(fr);
       return cx >= b.l && cx <= b.r && cy >= b.t && cy <= b.b;
     }) ?? (mobileRef.current ? framesRef.current[0] : undefined));
-    const groups = buildKit(slug, variant, roomOn(f ?? framesRef.current[0]));
+    const groups = buildKit(slug, variant, f ?? framesRef.current[0]);
     if (!groups?.length) return;
     const sz = treeSize(groups);
     let x = cx - sz.w / 2;

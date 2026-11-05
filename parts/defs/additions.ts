@@ -143,8 +143,9 @@ export const additions: PartDef[] = [
       { key: "variant", label: "Variant", kind: "enum", default: "text", options: ["filled", "tonal", "elevated", "outlined", "text", "ghost"] },
       { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "enum", default: "default", options: Object.keys(ICON_BUTTON_SIZES) },
       { key: "disabled", label: "Disabled", labels: { zh: "禁用" }, kind: "bool", default: false },
+      { key: "iconFill", label: "Filled icon", labels: { ja: "塗りのアイコン", zh: "实心图标", ko: "채운 아이콘" }, kind: "bool", default: false },
     ],
-    tree: (p) => h("Button", { variant: p.s("variant"), size: ICON_BUTTON_SIZES[p.s("size")], "aria-label": p.s("label"), disabled: p.b("disabled") || undefined }, p.s("icon") ? ic(p.s("icon")) : null),
+    tree: (p) => h("Button", { variant: p.s("variant"), size: ICON_BUTTON_SIZES[p.s("size")], "aria-label": p.s("label"), disabled: p.b("disabled") || undefined }, p.s("icon") ? ic(p.s("icon"), p.b("iconFill") ? { fill: true } : undefined) : null),
     guess: (p) => {
       const side = ICON_BUTTON_DP[p.s("size")] ?? 40;
       return { w: side, h: side };

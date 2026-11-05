@@ -63,11 +63,15 @@ describe("a kit added", () => {
   });
 
   it("is brought down to the width of a smaller phone, and what it holds follows", () => {
-    const groups = kitGroups(kitBySlug("claude-prompt")!, look, "en", { maxWidth: roomOn(small) });
+    const groups = kitGroups(kitBySlug("claude-prompt")!, look, "en", { screen: small });
     expect(treeSize(groups).w).toBe(328);
     const m = defaultMeasures(groups);
     for (const g of groups.slice(1)) expect(g.x + m[g.items[0].id]).toBeLessThanOrEqual(groups[0].x + 328 + 1);
     expect(roomOn({ id: "d", name: "D", x: 0, y: 0, w: 1280, h: 800 })).toBeUndefined();
+    /* a bar spans the screen it is for, edge to edge */
+    const bar = kitGroups(kitBySlug("top-app-bar")!, look, "en", { screen: small });
+    expect(treeSize(bar).w).toBe(360);
+    expect(landTree(bar, small.x + 30, small.y + 100, [small], true).groups[0].x).toBe(small.x);
   });
 
   it("lands inside the screen it is let go on, on its grid, and off any screen where it is let go", () => {
@@ -95,6 +99,10 @@ describe("a kit added", () => {
     const groups = kitGroups(kitBySlug("search-bar")!, desk, "en");
     expect(groups.some((g) => g.items[0].component === "kbd")).toBe(true);
     expect(kitLookOf({ ...DEFAULT_THEME, dark: true }).dark).toBe(true);
+    /* and the room there is: the one-row box is for a wide screen, whatever the style */
+    const desktop: Frame = { id: "d", name: "D", x: 0, y: 0, w: 1280, h: 800 };
+    expect(treeSize(kitGroups(kitBySlug("codex-prompt")!, desk, "en", { screen: phone })).w).toBe(380);
+    expect(treeSize(kitGroups(kitBySlug("codex-prompt")!, look, "en", { screen: desktop })).w).toBe(640);
   });
 });
 
@@ -119,6 +127,7 @@ describe("a composite split into atoms", () => {
     expect(root.y).toBe(64);
     expect(root.inFlow).toBe("host");
     expect(root.name).toBe("Dinner");
+    expect(splitIntoAtoms(groups.map((g) => (g.id === "c" ? { ...g, name: undefined } : g)), "card-item", "en")!.groups[2].name).toBe("Card");
     expect(root.items[0]).toMatchObject({ id: "card-item", component: "box", action: { to: "detail" }, fill: "primaryContainer" });
     expect(root.items[0].props?.width).toBe(300);
     /* what was before and after it still is */

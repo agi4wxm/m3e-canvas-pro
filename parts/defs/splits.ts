@@ -52,7 +52,7 @@ export const SPLITS: Record<string, (p: P) => Node> = {
     const trailing = p.s("trailing");
     const end =
       trailing === "icon" && p.s("trailingIcon")
-        ? iconButton(p.s("trailingIcon"), p.say("Open"), { variant: "ghost" })
+        ? iconButton(p.s("trailingIcon"), p.say("Open"), { variant: "text" })
         : trailing === "switch"
           ? atom("switch", { label: "", checked: p.b("checked") })
           : trailing === "checkbox"
@@ -65,10 +65,12 @@ export const SPLITS: Record<string, (p: P) => Node> = {
                   ? text(p.s("trailingText"), "body", { color: "muted" })
                   : null;
     const disc = p.s("iconFill") !== "none";
-    const pad = p.s("size") === "xs" ? 6 : p.s("size") === "sm" ? 8 : 12;
+    const pad = p.s("size") === "xs" || p.s("size") === "sm" ? 8 : 10;
+    /* a plain row keeps to the screen's margins, as the part's own does; one with a surface keeps its words off its edge */
+    const flush = p.s("variant") === "default";
     const rows = p.list("items").map((it) =>
       hbox(
-        { surface: p.s("variant") === "outline" ? "chip" : p.s("variant") === "muted" ? "panel" : "none", padX: 16, padY: pad, gap: 16 },
+        { surface: p.s("variant") === "outline" ? "chip" : p.s("variant") === "muted" ? "panel" : "none", padX: flush ? 0 : 16, padY: pad, gap: 12 },
         some(it.icon && (disc ? box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 8, padY: 8 }, [icon(it.icon)], { corners: round(20) }) : icon(it.icon, { color: "muted" })), lines(it.label, p.s("description")), end),
       ),
     );
@@ -126,7 +128,7 @@ export const SPLITS: Record<string, (p: P) => Node> = {
       some(
         p.b("attach") && iconButton("add_circle", "Attach", { variant: "ghost", size: "sm" }),
         hbox({ surface: "field", padX: 16, padY: 8, gap: 8, hugWidth: false, width: 160 }, [entry(p.s("placeholder"))], { grow: true, corners: round(20) }),
-        p.b("emoji") && iconButton("mood", "Emoji", { variant: "ghost", size: "sm" }),
+        p.b("emoji") && iconButton("sentiment_satisfied", "Emoji", { variant: "ghost", size: "sm" }),
         iconButton("send", p.say("Send"), { variant: "filled", size: "sm" }),
       ),
     ),

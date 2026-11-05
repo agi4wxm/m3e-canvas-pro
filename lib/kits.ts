@@ -1,6 +1,7 @@
 import { settleSizes } from "../parts/atoms";
 import { arranged, defaultMeasures, inLang, seedGroups, type Node, type ScreenSeed } from "../parts/templates/kit";
 import { pickVariant, type KitDef, type KitLook } from "../parts/kits";
+import { nameOf } from "../parts/labels";
 import { partBySlug, reader } from "../parts/registry";
 import type { Lang } from "./i18n";
 import { recipesOf, styleOf, uxOf } from "./styles";
@@ -92,15 +93,24 @@ export function treeSize(groups: Group[]): { w: number; h: number } {
 /** the width a kit is brought down to on a screen: a phone's content width; any larger screen leaves it as composed */
 export const roomOn = (frame: Frame | undefined): number | undefined => (frame && isPhoneFrame(frame) ? frameSizeOf(frame).w - PHONE_MARGIN * 2 : undefined);
 
-/** A kit as groups to add, in the variant asked for or the one that suits the look. */
-export function kitGroups(kit: KitDef, look: KitLook, lang: Lang, opts: { variant?: string; at?: At; maxWidth?: number } = {}): Group[] {
-  const variant = pickVariant(kit, look, opts.variant);
-  return treeGroups(variant.build(look), lang, opts.at, opts.maxWidth);
+/** whether a kit, in the variant it would be added as, runs from one edge of the screen to the other */
+export const spansScreen = (kit: KitDef, look: KitLook, variant?: string) => pickVariant(kit, look, variant).span === "screen";
+
+/** A kit as groups to add, in the variant asked for or the one that suits the look. On a phone (`screen`)
+ *  it is brought down to the content width, or one that spans the screen is made as wide as it. */
+export function kitGroups(kit: KitDef, look: KitLook, lang: Lang, opts: { variant?: string; at?: At; screen?: Frame } = {}): Group[] {
+  /* what suits is also a matter of the room there is: a one-row composition is not for a phone */
+  const room = opts.screen ? (roomOn(opts.screen) ?? frameSizeOf(opts.screen).w) : undefined;
+  const variant = pickVariant(kit, room === undefined ? look : { ...look, room }, opts.variant);
+  const root = variant.build(look);
+  if (variant.span === "screen" && opts.screen) return treeGroups({ ...root, props: { ...root.props, width: frameSizeOf(opts.screen).w } }, lang, opts.at);
+  return treeGroups(root, lang, opts.at, roomOn(opts.screen));
 }
 
 /** The place a tree lands with its top left near (x, y): on the screen under its middle, inside that
- *  screen's margins where it fits, on the screen's 4dp grid. Off any screen it stays where it is. */
-export function landTree(groups: Group[], x: number, y: number, frames: Frame[]): { groups: Group[]; frame?: Frame } {
+ *  screen's margins where it fits, on the screen's 4dp grid. One that spans the screen (`edge`) stands
+ *  against its left edge. Off any screen it stays where it is. */
+export function landTree(groups: Group[], x: number, y: number, frames: Frame[], edge = false): { groups: Group[]; frame?: Frame } {
   const { w, h } = treeSize(groups);
   const cx = x + w / 2;
   const cy = y + h / 2;
@@ -112,8 +122,8 @@ export function landTree(groups: Group[], x: number, y: number, frames: Frame[])
   const r = frameRect(frame);
   const margin = Math.min(PHONE_MARGIN, Math.max(0, (r.r - r.l - w) / 2));
   const fit = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-  const nx = fit(x, r.l + margin, Math.max(r.l + margin, r.r - margin - w));
-  const ny = fit(y, r.t + margin, Math.max(r.t + margin, r.b - margin - h));
+  const nx = edge ? r.l : fit(x, r.l + margin, Math.max(r.l + margin, r.r - margin - w));
+  const ny = fit(y, r.t + (edge ? 0 : margin), Math.max(r.t + (edge ? 0 : margin), r.b - (edge ? 0 : margin) - h));
   const grid = (v: number, origin: number) => origin + Math.round((v - origin) / 4) * 4;
   return { groups: moveTo(groups, { x: grid(nx, r.l), y: grid(ny, r.t) }), frame };
 }
@@ -125,10 +135,10 @@ export const canSplit = (it: Item | undefined) => !!it && !!partBySlug(it.compon
 
 /** What is kept of the part a split replaces: where it stands, what it is called, what a tap on it
  *  does, how it is painted, and what it was said to be. */
-function carried(g: Group, it: Item, root: Group, width: number | undefined): Group {
+function carried(g: Group, it: Item, root: Group, width: number | undefined, title: string): Group {
   const rootItem = root.items[0];
   const { x: _x, y: _y, id: _id, items: _items, ...own } = root;
-  const keep = { inFlow: g.inFlow, pane: g.pane, hidden: g.hidden, showWhen: g.showWhen, locked: g.locked, name: g.name ?? root.name };
+  const keep = { inFlow: g.inFlow, pane: g.pane, hidden: g.hidden, showWhen: g.showWhen, locked: g.locked, name: g.name ?? root.name ?? title };
   const defined = Object.fromEntries(Object.entries(keep).filter(([, v]) => v !== undefined));
   const props = typeof width === "number" && typeof rootItem.props?.width === "number" ? { ...rootItem.props, width } : rootItem.props;
   return {
@@ -167,7 +177,8 @@ export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widt
   const tree = def.atoms(reader(def, it.props)) as Node;
   const made = treeGroups(tree, lang, { x: g.x, y: g.y });
   const measured = widths[it.id];
-  const root = carried(g, it, made[0], measured !== undefined ? Math.round(measured) : undefined);
+  /* the box is called what the part was, so it can still be found by that in the layers */
+  const root = carried(g, it, made[0], measured !== undefined ? Math.round(measured) : undefined, nameOf(def, lang));
   const inside = made.slice(1).map((x) => (x.inFlow === made[0].id ? { ...x, inFlow: g.id } : x));
   /* laid out again from the part's own corner, at its own width; the layout it stands in, if any, is not
    * among these, so it is set aside meanwhile rather than let go */

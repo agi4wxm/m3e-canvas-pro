@@ -242,7 +242,7 @@ They cannot be split. Compose them in `box`es to build anything the composites d
 | `textarea` | Textarea | `placeholder` text; `value` text; `variant` outlined / filled / plain; `rows` 1–10; `autoGrow` true / false; `error` true / false; `disabled` true / false; `width` 120–1280 |
 | `rating` | Rating | `value` 0–10; `count` 1–10; `readOnly` true / false |
 | `link` | Link | `label` text; `href` text |
-| `icon-button` | Icon button | `icon` icon; `label` text; `variant` filled / tonal / elevated / outlined / text / ghost; `size` xs / sm / default / md / lg / xl; `disabled` true / false |
+| `icon-button` | Icon button | `icon` icon; `label` text; `variant` filled / tonal / elevated / outlined / text / ghost; `size` xs / sm / default / md / lg / xl; `disabled` true / false; `iconFill` true / false |
 
 ##### Indicators
 

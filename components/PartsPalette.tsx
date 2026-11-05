@@ -14,6 +14,9 @@ import { Field, Section, Segmented, Tile, useDismiss } from "./ui";
 
 const TIER_KEY = "m3e:palette-tier";
 
+/** the small mark at a kit tile's corner */
+const MARK: React.CSSProperties = { position: "absolute", top: 6, left: 6, height: 16, padding: "0 5px", borderRadius: 6, fontSize: 9, fontWeight: 700, lineHeight: "16px", fontFamily: "inherit" };
+
 const kitName = (k: KitDef, lang: Lang) => (lang === "en" ? k.name : (k.labels[lang] ?? k.name));
 
 /** every word a part or a kit is known by, in every language, to search them all at once */
@@ -200,30 +203,29 @@ function KitTile({
   return (
     <div ref={box} data-kit={kit.slug} style={{ position: "relative" }}>
       <Tile icon={kit.icon} label={kitName(kit, lang)} p={p} onPointerDown={(e) => onPointerDown(e)} onClick={() => onActivate()} starred={starred} onStar={onStar} />
-      <span
-        aria-hidden
-        title={t("kitMarkHint", lang)}
-        style={{ position: "absolute", top: 6, left: 6, padding: "1px 5px", borderRadius: 6, background: p.secondaryContainer, color: p.onSecondaryContainer, fontSize: 9, fontWeight: 700, lineHeight: "14px", pointerEvents: "none" }}
-      >
-        {t("kitMark", lang)}
-      </span>
-      {many && (
+      {/* the mark that it lands as atoms; with variants to choose from, it is also what opens them */}
+      {many ? (
         <button
           type="button"
           className="m3-press"
           aria-haspopup="menu"
           aria-expanded={open}
-          aria-label={t("kitOpenVariants", lang)}
-          title={t("kitOpenVariants", lang)}
+          aria-label={`${t("kitMarkHint", lang)}. ${t("kitOpenVariants", lang)}`}
+          title={`${t("kitMarkHint", lang)}\n${t("kitOpenVariants", lang)}`}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
             toggle();
           }}
-          style={{ position: "absolute", right: 4, bottom: 4, width: 22, height: 22, borderRadius: 11, border: "none", background: open ? p.secondaryContainer : "transparent", color: p.onSurfaceVariant, display: "grid", placeItems: "center", cursor: "pointer", outlineColor: p.primary }}
+          style={{ ...MARK, display: "inline-flex", alignItems: "center", gap: 1, paddingRight: 2, border: "none", cursor: "pointer", outlineColor: p.primary, background: open ? p.primary : p.secondaryContainer, color: open ? p.onPrimary : p.onSecondaryContainer }}
         >
-          <Icon name="expand_more" size={16} />
+          {t("kitMark", lang)}
+          <Icon name="expand_more" size={12} />
         </button>
+      ) : (
+        <span aria-hidden title={t("kitMarkHint", lang)} style={{ ...MARK, background: p.secondaryContainer, color: p.onSecondaryContainer, pointerEvents: "none" }}>
+          {t("kitMark", lang)}
+        </span>
       )}
       {open && (
         <div

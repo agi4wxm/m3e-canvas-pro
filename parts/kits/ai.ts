@@ -25,7 +25,7 @@ const T = {
 const claudeFoot = (home: boolean): Node =>
   hbox({ justify: "between", gap: 8 }, [
     hbox({ gap: 8 }, [tool("add", T.attach), tool("tune", T.tools), ...(home ? [tool("schedule", T.think)] : [])]),
-    hbox({ gap: 6 }, [button(T.model, { variant: "ghost", size: "xs", trailingIcon: "keyboard_arrow_down" }), iconButton("arrow_upward", T.send, { variant: "filled", size: "xs" }, { corners: round(10) })]),
+    hbox({ gap: 6 }, [button(T.model, { variant: "ghost", size: "xs", trailingIcon: "keyboard_arrow_down" }), iconButton("arrow_upward", T.send, { variant: "filled", size: "xs", iconFill: true }, { corners: round(10) })]),
   ]);
 
 const claude: KitDef = {
@@ -75,7 +75,7 @@ function darkened(node: Node, look: KitLook): Node {
 const codexFoot = (wide: boolean): Node[] => {
   const pickers = hbox({ gap: 6 }, [
     button(say("my-app", "my-app", "my-app", "my-app"), { variant: "outlined", size: "xs", icon: "book_2", trailingIcon: "keyboard_arrow_down" }),
-    button(say("main", "main", "main", "main"), { variant: "outlined", size: "xs", icon: "fork_right", trailingIcon: "keyboard_arrow_down" }),
+    button(say("main", "main", "main", "main"), { variant: "outlined", size: "xs", icon: "account_tree", trailingIcon: "keyboard_arrow_down" }),
   ]);
   const actions = hbox({ gap: 6 }, [
     iconButton("mic", T.dictate, { variant: "ghost", size: "xs" }),
@@ -98,7 +98,7 @@ const codex: KitDef = {
       key: "phone",
       name: "Phone, stacked",
       labels: { zh: "手机竖排", ja: "スマホ・縦並び", ko: "휴대폰·세로" },
-      suits: (l) => l.group !== "desktop" && l.group !== "pcGame",
+      suits: (l) => (l.room ?? (l.group === "desktop" || l.group === "pcGame" ? 640 : 380)) < 560,
       build: (look = MATERIAL_LOOK) =>
         darkened(
           vbox({ surface: "panel", width: W, hugWidth: false, padX: 16, padY: 16, gap: 12 }, [area(say("Ask Codex anything…", "问 Codex 任何问题…", "Codex に何でも聞く…", "Codex에게 무엇이든 물어보세요…"), { rows: 2 }), ...codexFoot(false)], {
@@ -112,7 +112,7 @@ const codex: KitDef = {
       key: "wide",
       name: "Desktop, one row",
       labels: { zh: "桌面单行", ja: "デスクトップ・一行", ko: "데스크톱·한 줄" },
-      suits: (l) => l.group === "desktop" || l.group === "pcGame",
+      suits: (l) => (l.room ?? (l.group === "desktop" || l.group === "pcGame" ? 640 : 380)) >= 560,
       build: (look = MATERIAL_LOOK) =>
         darkened(
           vbox({ surface: "panel", width: 640, hugWidth: false, padX: 16, padY: 16, gap: 16 }, [area(say("Describe a task", "描述一个任务", "タスクを説明", "작업을 설명하세요"), { rows: 2 }), ...codexFoot(true)], {
@@ -141,7 +141,7 @@ const chatgpt: KitDef = {
       build: () =>
         hbox(
           { surface: "field", width: W, hugWidth: false, padX: 6, padY: 6, gap: 4 },
-          [iconButton("add", T.attach, { variant: "ghost", size: "sm" }), entry(say("Ask anything", "有问题，尽管问", "何でも聞いてください", "무엇이든 물어보세요")), iconButton("mic", T.dictate, { variant: "ghost", size: "sm" }), iconButton("graphic_eq", T.voice, { variant: "filled", size: "sm" })],
+          [iconButton("add", T.attach, { variant: "ghost", size: "sm" }), entry(say("Ask anything", "有问题，尽管问", "何でも聞いてください", "무엇이든 물어보세요")), iconButton("mic", T.dictate, { variant: "ghost", size: "sm" }), iconButton("graphic_eq", T.voice, { variant: "filled", size: "sm", iconFill: true })],
           { name: say("Composer", "输入栏", "入力欄", "입력창"), corners: round(28) },
         ),
     },
@@ -156,8 +156,8 @@ const chatgpt: KitDef = {
           [
             area(say("Ask anything", "有问题，尽管问", "何でも聞いてください", "무엇이든 물어보세요"), { rows: 1 }, {}),
             hbox({ justify: "between", gap: 8 }, [
-              hbox({ gap: 4 }, [iconButton("add", T.attach, { variant: "ghost", size: "sm" }), button(T.tools, { variant: "ghost", size: "xs", icon: "page_info" })]),
-              hbox({ gap: 4 }, [iconButton("mic", T.dictate, { variant: "ghost", size: "sm" }), iconButton("graphic_eq", T.voice, { variant: "filled", size: "sm" })]),
+              hbox({ gap: 4 }, [iconButton("add", T.attach, { variant: "ghost", size: "sm" }), button(T.tools, { variant: "ghost", size: "xs", icon: "tune" })]),
+              hbox({ gap: 4 }, [iconButton("mic", T.dictate, { variant: "ghost", size: "sm" }), iconButton("graphic_eq", T.voice, { variant: "filled", size: "sm", iconFill: true })]),
             ]),
           ],
           { name: say("Composer", "输入栏", "入力欄", "입력창"), corners: round(28) },

@@ -33,6 +33,8 @@ export type KitLook = {
   margin: number;
   gap: number;
   tight: number;
+  /** the width there is where the kit is added (a phone's content width), when that is known */
+  room?: number;
 };
 
 /** the look of a document with no style: Material's */
@@ -48,6 +50,8 @@ export type KitVariant = {
   build: (look?: KitLook) => Node;
   /** the looks this composition is the one for; a kit added without a choice takes the first that suits */
   suits?: (look: KitLook) => boolean;
+  /** it runs from one edge of the screen to the other (a bar): on a screen it is as wide as the screen */
+  span?: "screen";
 };
 
 export type KitDef = {

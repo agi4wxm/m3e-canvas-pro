@@ -7,7 +7,8 @@ import { cn } from "@/lib/m3e/cn"
  * M3 text field container.
  *  outlined: 1dp outline, 2dp primary outline on focus, extra-small corners
  *  filled:   surface-container-highest with an active-indicator underline
- *  plain:    no container, no padding: a bare entry for a box that is the field (a prompt box)
+ *  plain:    no container, no padding: a bare entry for a box that is the field (a prompt box).
+ *            Its slot is its own, so what dresses a field dresses the box around it, not it.
  * The 2dp focus stroke is an inset shadow, so nothing shifts on focus.
  */
 const inputVariants = cva(
@@ -43,7 +44,7 @@ function Input({
   return (
     <InputPrimitive
       type={type}
-      data-slot="input"
+      data-slot={variant === "plain" ? "plain-input" : "input"}
       className={cn(inputVariants({ variant, size }), className)}
       {...props}
     />

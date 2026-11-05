@@ -28,6 +28,7 @@ const appBar: KitDef = {
       name: "Title at the start",
       labels: { zh: "标题靠左", ja: "タイトル左寄せ", ko: "제목 왼쪽" },
       suits: (l) => l.bar !== "center",
+      span: "screen",
       build: () =>
         hbox({ surface: "bar", width: W, hugWidth: false, padX: 4, padY: 8, gap: 4 }, [iconButton("arrow_back", BACK), para(TITLE, "title", { maxLines: 1 }, { grow: true }), iconButton("search", SEARCH), iconButton("more_vert", MORE)], { name: NAME }),
     },
@@ -36,10 +37,11 @@ const appBar: KitDef = {
       name: "Title centered",
       labels: { zh: "标题居中", ja: "タイトル中央", ko: "제목 가운데" },
       suits: (l) => l.bar === "center",
+      span: "screen",
       build: () =>
         hbox(
           { surface: "bar", width: W, hugWidth: false, padX: 8, padY: 8, gap: 8 },
-          [side("start", [button(BACK, { variant: "ghost", size: "sm", icon: "arrow_back_ios_new" })]), text(TITLE, "heading", { bold: true }), side("end", [iconButton("more_horiz", MORE)])],
+          [side("start", [button(BACK, { variant: "text", size: "sm", icon: "chevron_left" })]), text(TITLE, "heading", { bold: true }), side("end", [iconButton("more_horiz", MORE)])],
           { name: NAME },
         ),
     },
@@ -47,6 +49,7 @@ const appBar: KitDef = {
       key: "large",
       name: "Large title",
       labels: { zh: "大标题", ja: "大きなタイトル", ko: "큰 제목" },
+      span: "screen",
       build: () =>
         vbox(
           { surface: "bar", width: W, hugWidth: false, padX: 16, padY: 8, gap: 4 },
