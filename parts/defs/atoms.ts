@@ -78,7 +78,7 @@ function svgTree(p: P): PNode {
   const own = { "data-slot": "svg", role: "img", "aria-label": p.s("label") || undefined, className: INK[p.s("color")] || undefined, width: px(p, "width"), height: px(p, "height"), preserveAspectRatio: p.b("stretch") ? "none" : undefined };
   const stroke = (w: number) => ({ fill: "none", stroke: "currentColor", strokeWidth: w, strokeLinecap: "round", strokeLinejoin: "round" });
   if (mode === "markup") {
-    const clean = sanitizeSvg(p.s("markup"));
+    const clean = sanitizeSvg(p.s("markup"), p.scope);
     if (clean) return h("svg", { ...clean.attrs, fill: clean.attrs.fill ?? "currentColor", ...own, viewBox: clean.viewBox }, ...clean.children);
   }
   if (mode === "path") {
