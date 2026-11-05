@@ -1,10 +1,10 @@
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /* the second most downloaded app of 2025; its colors from memory */
 export default definePack({
   key: "chatgpt",
-  name: say("ChatGPT", "ChatGPT", "ChatGPT", "ChatGPT"),
-  hint: say("AI 助手：黑白灰、大圆角输入框、圆形发送按钮", "AI assistant: black, white and grey, a large rounded composer", "AI アシスタント：白黒と大きな入力欄", "AI 도우미: 흑백과 큰 입력창"),
+  name: zhEnJaKo("ChatGPT", "ChatGPT", "ChatGPT", "ChatGPT"),
+  hint: zhEnJaKo("AI 助手：黑白灰、大圆角输入框、圆形发送按钮", "AI assistant: black, white and grey, a large rounded composer", "AI アシスタント：白黒と大きな入力欄", "AI 도우미: 흑백과 큰 입력창"),
   refs: ["ChatGPT"],
   basis: "memory",
   group: "app",

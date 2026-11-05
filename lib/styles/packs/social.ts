@@ -1,10 +1,10 @@
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /* Instagram's blue from memory; its layout from common knowledge of the app */
 export default definePack({
   key: "social",
-  name: say("Instagram", "Instagram", "Instagram", "Instagram"),
-  hint: say("图片社交：黑白极简、底栏只有图标、细分隔线", "Photo social: black and white, an icon-only bar, hairlines", "写真 SNS：白黒とアイコンのみのバー", "사진 SNS: 흑백과 아이콘만 있는 바"),
+  name: zhEnJaKo("Instagram", "Instagram", "Instagram", "Instagram"),
+  hint: zhEnJaKo("图片社交：黑白极简、底栏只有图标、细分隔线", "Photo social: black and white, an icon-only bar, hairlines", "写真 SNS：白黒とアイコンのみのバー", "사진 SNS: 흑백과 아이콘만 있는 바"),
   refs: ["Instagram", "Threads"],
   basis: "memory",
   group: "app",

@@ -1,5 +1,5 @@
 import type { Recipes } from "./catalog";
-import { BUTTON, BUTTONS, FAB, FADED, OUTLINED, PRESSES, SHEEN, TONED, mix, role, type RecipeCss } from "./shared";
+import { BUTTON, BUTTONS, FAB, FADED, NOT_INVERSE, OUTLINED, PRESSES, SHEEN, TONED, mix, role, type RecipeCss } from "./shared";
 
 /* Buttons, floating buttons, and what a press looks like. */
 
@@ -16,14 +16,16 @@ ${PRESSES}{translate:0 1px;box-shadow:inset 0 2px 4px rgb(0 0 0/.45)}`,
   glass: `${BUTTONS}{-webkit-backdrop-filter:blur(14px) saturate(1.5);backdrop-filter:blur(14px) saturate(1.5);border:1px solid rgb(255 255 255/.28);box-shadow:0 4px 16px rgb(0 0 0/.18),inset 0 1px 0 rgb(255 255 255/.3)}
 ${TONED}{background-color:${mix("surface-container-high", 45)}}`,
   /* Royal Match and Clash Royale: a gradient over the fill, a gold rim, a dark outer line, a lip below, white words with an outline */
-  gloss: `${BUTTONS}{border:3px solid var(--st-rim);background-image:${SHEEN};box-shadow:0 0 0 2px var(--st-rim-dark),0 4px 0 2px var(--st-rim-dark),inset 0 2px 0 rgb(255 255 255/.55);color:#fff;${OUTLINED("var(--st-stroke)")};font-family:var(--st-display,inherit);font-weight:400}
+  gloss: `${BUTTONS}{border:3px solid var(--st-rim);background-image:${SHEEN};box-shadow:0 0 0 2px var(--st-rim-dark),0 4px 0 2px var(--st-rim-dark),inset 0 2px 0 rgb(255 255 255/.55);${OUTLINED("var(--st-stroke)")};font-family:var(--st-display,inherit);font-weight:400}
+:is(${BUTTONS})${NOT_INVERSE}{color:#fff}
 ${PRESSES}{translate:0 3px;box-shadow:0 0 0 2px var(--st-rim-dark),0 1px 0 2px var(--st-rim-dark),inset 0 2px 0 rgb(255 255 255/.3)}
 :is(${FAB}){background-color:${role("primary")}}`,
   /* Block Blast: flat, with a darker lip */
   lip: `${BUTTONS}{box-shadow:0 4px 0 ${mix("primary", 60, "black")};font-weight:600}
 ${PRESSES}{translate:0 3px;box-shadow:0 1px 0 ${mix("primary", 60, "black")}}`,
   /* Elden Ring: no box at all; the words stand between two hairlines that fade out, on a faint glow */
-  text: `${BUTTONS}{background-color:transparent;color:${role("on-surface")};border:0;border-block:1px solid;border-image:linear-gradient(90deg,transparent,${mix("primary", 70)},transparent) 1;background-image:radial-gradient(70% 100% at 50% 50%,${mix("primary", 16)},transparent);box-shadow:none;border-radius:0}
+  text: `:is(${BUTTONS})${NOT_INVERSE}{background-color:transparent;color:${role("on-surface")}}
+${BUTTONS}{border:0;border-block:1px solid;border-image:linear-gradient(90deg,transparent,${mix("primary", 70)},transparent) 1;background-image:radial-gradient(70% 100% at 50% 50%,${mix("primary", 16)},transparent);box-shadow:none;border-radius:0}
 ${TONED}{border-image:none;border-color:transparent;background-image:none;color:${role("on-surface-variant")}}`,
   /* Black Myth: a pale band with faded ends and dark words; anything lesser is words alone */
   band: `${BUTTONS}{border:0;border-radius:0;box-shadow:none;${FADED}}

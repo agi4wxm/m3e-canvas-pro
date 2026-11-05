@@ -1,5 +1,5 @@
 import { mix, role } from "../recipes/shared";
-import { definePack, roles, say } from "../types";
+import { definePack, roles, zhEnJaKo } from "../types";
 import { menubar, palette, picked, short, sidebar, toolbar, tree } from "./desk";
 
 /* Ant Design's seed tokens and Ant Design Mobile's theme file. What gives it away beyond the blue: 32px controls with
@@ -21,8 +21,8 @@ const DEFAULT_BUTTONS = "[data-button]:is([data-variant=tonal],[data-variant=sec
 
 export default definePack({
   key: "antd",
-  name: say("支付宝 / 钉钉", "Ant Design", "Ant Design", "Ant Design"),
-  hint: say("Ant Design：灰底白卡片、科技蓝、中后台和国内企业软件", "Ant Design: white cards on pale grey, tech blue, Chinese business software", "Ant Design：業務ソフトの定番", "Ant Design: 업무용 소프트웨어"),
+  name: zhEnJaKo("支付宝 / 钉钉", "Ant Design", "Ant Design", "Ant Design"),
+  hint: zhEnJaKo("Ant Design：灰底白卡片、科技蓝、中后台和国内企业软件", "Ant Design: white cards on pale grey, tech blue, Chinese business software", "Ant Design：業務ソフトの定番", "Ant Design: 업무용 소프트웨어"),
   refs: ["Alipay", "DingTalk", "Feishu", "Ant Design"],
   basis: "official",
   group: "desktop",

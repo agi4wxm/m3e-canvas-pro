@@ -1,5 +1,5 @@
 import { UNPAINTED, mix, role } from "../recipes/shared";
-import { BODIES, LABELS, TITLES, definePack, roles, say } from "../types";
+import { BODIES, LABELS, TITLES, definePack, roles, zhEnJaKo } from "../types";
 import { firm, menubar, palette, picked, short, sidebar, toolbar, tree } from "./desk";
 
 /* secondary sources for its text and sidebar colors; it publishes none. What gives it away beyond the warm white: almost
@@ -19,8 +19,8 @@ const FIELDS = ":is([data-slot=input],[data-slot=textarea],[data-slot=select-tri
 
 export default definePack({
   key: "notion",
-  name: say("Notion", "Notion", "Notion", "Notion"),
-  hint: say("文档工具：暖白、柔灰、细线、几乎没有颜色", "Document tool: warm white, soft grey, hairlines, almost no color", "文書ツール：温かい白と細線", "문서 도구: 따뜻한 흰색과 가는 선"),
+  name: zhEnJaKo("Notion", "Notion", "Notion", "Notion"),
+  hint: zhEnJaKo("文档工具：暖白、柔灰、细线、几乎没有颜色", "Document tool: warm white, soft grey, hairlines, almost no color", "文書ツール：温かい白と細線", "문서 도구: 따뜻한 흰색과 가는 선"),
   refs: ["Notion"],
   basis: "observed",
   group: "desktop",

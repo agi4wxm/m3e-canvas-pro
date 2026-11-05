@@ -1,11 +1,11 @@
 import { DATA_PANELS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /* Temu's orange from a third-party breakdown; Taobao's from memory; the layout from its screenshots */
 export default definePack({
   key: "shop",
-  name: say("淘宝 / Temu", "Taobao / Temu", "Taobao / Temu", "Taobao / Temu"),
-  hint: say("电商：灰底白卡片、橙色胶囊按钮、红色价格", "Marketplace: white tiles on grey, orange capsules, red prices", "EC：灰地に白いカードと橙のボタン", "커머스: 회색 바탕에 흰 카드와 주황 버튼"),
+  name: zhEnJaKo("淘宝 / Temu", "Taobao / Temu", "Taobao / Temu", "Taobao / Temu"),
+  hint: zhEnJaKo("电商：灰底白卡片、橙色胶囊按钮、红色价格", "Marketplace: white tiles on grey, orange capsules, red prices", "EC：灰地に白いカードと橙のボタン", "커머스: 회색 바탕에 흰 카드와 주황 버튼"),
   refs: ["Taobao", "Temu", "Shein"],
   basis: "memory",
   group: "app",

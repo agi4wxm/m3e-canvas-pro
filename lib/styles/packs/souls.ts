@@ -1,5 +1,5 @@
 import { MENU_ITEMS, MENU_SEPARATORS, ROWS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, SERIF_RAMP } from "../types";
+import { definePack, roles, zhEnJaKo, SERIF_RAMP } from "../types";
 
 /** what is chosen, hovered or open, by whatever attribute the part says it with */
 const LIT = `:is([aria-selected=true],[aria-current=true],[aria-current=page],[data-active]:not([data-active=false]),[data-highlighted],[data-popup-open],[class~="bg-secondary-container"],:hover,:focus-visible)`;
@@ -17,15 +17,12 @@ const CORNERS = (c: string, n = 10) =>
 const WINDOWS = `:is([data-slot=tooltip-content],[data-slot=dialog-content],[data-slot=alert-dialog-content],[data-slot=popover-content],[data-slot=hover-card-content],[data-slot=snackbar],[data-slot=toast])`;
 /** the places a game keeps one thing each */
 const SLOTS = `:is([data-slot=inventory-cell],[data-slot=item-cell-frame],[data-slot=reward-track-cell],[data-slot=grid-wheel-cell],[data-slot=slot-machine-cell])`;
-/** the weight of one id, which every element matches: it lifts a rule over the panel recipe, whose selector is long, without
- *  naming anything about how a part is built */
-const FIRM = ":not(#_)";
 
 /* looked at in Elden Ring's menus on Interface In Game */
 export default definePack({
   key: "souls",
-  name: say("艾尔登法环", "Elden Ring", "Elden Ring", "Elden Ring"),
-  hint: say("魂系：近黑褐底、衬线体、纯文字菜单、选中时淡出的暗金光带", "Souls-like: near-black brown, serif type, text-only menus, a fading dark-gold band on the selected row", "ソウルライク：文字だけのメニューと暗い金", "소울라이크: 글자만 있는 메뉴와 어두운 금색"),
+  name: zhEnJaKo("艾尔登法环", "Elden Ring", "Elden Ring", "Elden Ring"),
+  hint: zhEnJaKo("魂系：近黑褐底、衬线体、纯文字菜单、选中时淡出的暗金光带", "Souls-like: near-black brown, serif type, text-only menus, a fading dark-gold band on the selected row", "ソウルライク：文字だけのメニューと暗い金", "소울라이크: 글자만 있는 메뉴와 어두운 금색"),
   refs: ["Elden Ring", "Baldur's Gate 3"],
   basis: "observed",
   group: "pcGame",
@@ -50,15 +47,15 @@ export default definePack({
   type: SERIF_RAMP(20),
   /* Everything is a frame of two gold hairlines on near-black; the chosen line of any list is the band of light the
      game draws; switches, checks and sliders are hairlines with a small gold mark, never filled shapes. */
-  css: `:is([data-slot=card],[data-slot=sheet-content],[data-surface=card],[data-surface=panel])${FIRM}{outline-color:${GOLD(30)}}
-${WINDOWS}${FIRM}{background-color:${mix("surface-container-low", 94)};color:${role("on-surface")};border:1px solid var(--st-rim);border-radius:0;outline:1px solid ${GOLD(30)};outline-offset:3px;${CORNERS(role("primary"))};box-shadow:0 10px 40px rgb(0 0 0/.6)}
+  css: `:is([data-slot=card],[data-slot=sheet-content],[data-surface=card],[data-surface=panel]){outline-color:${GOLD(30)}}
+${WINDOWS}{background-color:${mix("surface-container-low", 94)};color:${role("on-surface")};border:1px solid var(--st-rim);border-radius:0;outline:1px solid ${GOLD(30)};outline-offset:3px;${CORNERS(role("primary"))};box-shadow:0 10px 40px rgb(0 0 0/.6)}
 [data-slot=tooltip-content]{padding:8px 12px;outline-offset:2px}
 :is([data-slot=dialog-title],[data-slot=alert-dialog-title]){font-family:var(--st-display,inherit);text-transform:uppercase;letter-spacing:.08em;color:${role("on-surface")}}
 :is([data-slot=dialog-footer],[data-slot=alert-dialog-footer]){padding-top:12px;background-image:linear-gradient(90deg,transparent,var(--st-rim),transparent);background-size:100% 1px;background-repeat:no-repeat}
 [data-slot=snackbar-action]{color:${role("primary")}}
 ${LINES}{border-radius:0}
-${LINES}${LIT}${FIRM}{${BAND};border-color:transparent;outline:0;box-shadow:none}
-:is([data-slot=tabs-trigger][data-active],[data-slot=toggle-group-item][data-pressed],[data-slot=pagination-link][data-active=true])${FIRM}{${BAND};border-color:transparent}
+${LINES}${LIT}{${BAND};border-color:transparent;outline:0;box-shadow:none}
+:is([data-slot=tabs-trigger][data-active],[data-slot=toggle-group-item][data-pressed],[data-slot=pagination-link][data-active=true]){${BAND};border-color:transparent}
 [data-slot=side-tabs]{gap:0}
 :is(${MENU_SEPARATORS}){background-color:transparent;background-image:linear-gradient(90deg,transparent,var(--st-rim),transparent)}
 [data-slot=switch]{border:1px solid var(--st-rim);background-color:transparent;border-radius:0}
@@ -77,8 +74,8 @@ ${LINES}${LIT}${FIRM}{${BAND};border-color:transparent;outline:0;box-shadow:none
 [data-slot=table-header] [data-slot=table-row]{border-bottom:0;background-image:${HAIR};background-size:100% 1px;background-position:0 100%;background-repeat:no-repeat}
 [data-slot=table-row]{border-bottom-color:${GOLD(12)}}
 :is([data-slot=settings-group-title],[data-slot=sidebar-group-label],[data-slot=check-in-title]){font-family:var(--st-display,inherit);letter-spacing:.08em}
-${SLOTS}${FIRM}{border-radius:0;box-shadow:inset 0 0 0 1px ${GOLD(26)};background-image:radial-gradient(80% 80% at 50% 40%,${GOLD(8)},transparent)}
-${SLOTS}:is([aria-pressed=true],[data-lit])${FIRM}{background-color:${role("surface-container-high")};box-shadow:inset 0 0 0 1px ${role("primary")},0 0 12px ${GOLD(40)};color:${role("primary")}}
+${SLOTS}{border-radius:0;box-shadow:inset 0 0 0 1px ${GOLD(26)};background-image:radial-gradient(80% 80% at 50% 40%,${GOLD(8)},transparent)}
+${SLOTS}:is([aria-pressed=true],[data-lit]){background-color:${role("surface-container-high")};box-shadow:inset 0 0 0 1px ${role("primary")},0 0 12px ${GOLD(40)};color:${role("primary")}}
 :is([data-slot=level-map-cell],[data-slot=game-board-cell],[data-slot=skill-button-face]){border-radius:0}
 [data-slot=skill-button-face]{box-shadow:inset 0 0 0 1px var(--st-rim),0 0 0 3px ${role("surface")},0 0 0 4px ${GOLD(30)}}
 [data-slot=game-board-cell]{box-shadow:inset 0 0 0 1px ${GOLD(22)}}`,

@@ -1,5 +1,5 @@
 import { BUTTONS, MENU_ITEMS, PANELS, ROWS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /** what is chosen, hovered or open, by whatever attribute the part says it with */
 const LIT = `:is([aria-selected=true],[aria-current=true],[aria-current=page],[data-active]:not([data-active=false]),[data-highlighted],[data-popup-open],[class~="bg-secondary-container"],:hover,:focus-visible)`;
@@ -15,17 +15,14 @@ const YELLOW = role("tertiary");
 const RED_LINE = mix("primary", 55);
 /** the places a game keeps one thing each */
 const SLOTS = `:is([data-slot=inventory-cell],[data-slot=item-cell-frame],[data-slot=reward-track-cell],[data-slot=grid-wheel-cell],[data-slot=slot-machine-cell])`;
-/** the weight of one id, which every element matches: it lifts a rule over the panel recipe, whose selector is long, without
- *  naming anything about how a part is built */
-const FIRM = ":not(#_)";
 /** what is drawn round on purpose, an egg or a ball, and what is too small to lose a corner: a key, a face */
 const ROUND = `[data-slot=egg-smash-item],[data-slot=gacha-dot],[data-slot=gacha-media],[data-slot=wheel-track],[data-slot=kbd],[data-slot=avatar],[data-slot=avatar-fallback]`;
 
 /* its character screen read off a Steam store screenshot: dark crimson panels, red words, cyan accents, one corner cut */
 export default definePack({
   key: "cyber",
-  name: say("赛博朋克 2077", "Cyberpunk 2077", "サイバーパンク 2077", "사이버펑크 2077"),
-  hint: say("暗红面板、红色大写字、青色选中、黄色标记、切角、扫描线", "Dark crimson panels, red capitals, cyan for what is chosen, yellow marks, cut corners, scan lines", "暗い赤のパネルと赤い文字、シアンの選択、黄色の印", "짙은 빨강 패널과 빨간 글자, 청록 선택, 노란 표시"),
+  name: zhEnJaKo("赛博朋克 2077", "Cyberpunk 2077", "サイバーパンク 2077", "사이버펑크 2077"),
+  hint: zhEnJaKo("暗红面板、红色大写字、青色选中、黄色标记、切角、扫描线", "Dark crimson panels, red capitals, cyan for what is chosen, yellow marks, cut corners, scan lines", "暗い赤のパネルと赤い文字、シアンの選択、黄色の印", "짙은 빨강 패널과 빨간 글자, 청록 선택, 노란 표시"),
   refs: ["Cyberpunk 2077"],
   basis: "sampled",
   group: "pcGame",
@@ -50,7 +47,7 @@ export default definePack({
   /* Every panel is a thin red frame with its lower right corner cut, a short yellow mark on its top edge and scan lines
      across it; what is chosen turns cyan with a bar at its left; figures are set in a monospaced face; counts and
      marks are the yellow of the game's tags. */
-  css: `:is(${PANELS}):not(${ROUND}){border-radius:0;border:1px solid ${RED_LINE};${CUT(14)};background-origin:border-box;background-image:${CUT_LINE(RED_LINE)},linear-gradient(${YELLOW},${YELLOW}),repeating-linear-gradient(0deg,${mix("primary", 5)} 0 1px,transparent 1px 3px);background-size:14px 14px,24px 2px,auto;background-position:100% 100%,0 0,0 0;background-repeat:no-repeat,no-repeat,repeat;box-shadow:none}
+  css: `:is(${PANELS}):where(:not(${ROUND})){border-radius:0;border:1px solid ${RED_LINE};${CUT(14)};background-origin:border-box;background-image:${CUT_LINE(RED_LINE)},linear-gradient(${YELLOW},${YELLOW}),repeating-linear-gradient(0deg,${mix("primary", 5)} 0 1px,transparent 1px 3px);background-size:14px 14px,24px 2px,auto;background-position:100% 100%,0 0,0 0;background-repeat:no-repeat,no-repeat,repeat;box-shadow:none}
 ${BUTTONS}{background-origin:border-box;background-image:${CUT_LINE(role("primary"))};background-size:9px 9px;background-position:100% 100%;background-repeat:no-repeat}
 [data-slot=button-group] [data-button]{background-image:none;clip-path:none}
 :is([data-slot=tooltip-content],[data-slot=switch],[data-slot=skill-button-face]){${CUT(7)};background-image:${CUT_LINE(RED_LINE)};background-size:7px 7px;background-position:100% 100%;background-repeat:no-repeat;background-origin:border-box}
@@ -58,9 +55,9 @@ ${BUTTONS}{background-origin:border-box;background-image:${CUT_LINE(role("primar
 [data-slot=snackbar-action]{color:${CYAN}}
 [data-slot=item]{border-color:${mix("primary", 35)}}
 ${LINES}{border-radius:0}
-${LINES}${LIT}${FIRM}{background-color:${mix("secondary", 10)};background-image:none;border-color:transparent;clip-path:none;box-shadow:inset 3px 0 0 ${CYAN};color:${CYAN}}
+${LINES}${LIT}{background-color:${mix("secondary", 10)};background-image:none;border-color:transparent;clip-path:none;box-shadow:inset 3px 0 0 ${CYAN};color:${CYAN}}
 ${LINES}${LIT} :is([data-slot$="-title"],[data-slot$="-subtitle"],[data-slot=item-description],[data-slot=icon]){color:inherit}
-:is([data-slot=toggle-group-item][data-pressed],[data-slot=pagination-link][data-active=true])${FIRM}{background-color:${mix("secondary", 12)};color:${CYAN};border-color:${CYAN}}
+:is([data-slot=toggle-group-item][data-pressed],[data-slot=pagination-link][data-active=true]){background-color:${mix("secondary", 12)};color:${CYAN};border-color:${CYAN}}
 :is([data-slot$="-value"],[data-slot$="-price"],[data-slot=kbd],[data-slot=timer-value],[data-slot=number-ticker],[data-slot=progress-value]){font-family:${MONO};letter-spacing:0;font-variant-numeric:tabular-nums}
 :is([data-slot$="-value"],[data-slot=timer-value]){color:${CYAN}}
 :is([data-slot=settings-group-title],[data-slot=sidebar-group-label],[data-slot=check-in-title],[data-slot=table-head]){color:${CYAN};text-transform:uppercase;letter-spacing:.12em;font-size:var(--text-label-medium)}
@@ -68,9 +65,9 @@ ${LINES}${LIT} :is([data-slot$="-title"],[data-slot$="-subtitle"],[data-slot=ite
 :is([data-slot=badge],[data-slot=notification-badge],[data-slot$="-badge"]){background-color:${YELLOW};color:${role("on-tertiary")};border-radius:0;font-family:${MONO}}
 [data-slot=checkbox]{border-radius:0}
 [data-slot=app-bar]{box-shadow:0 4px 0 -3px ${CYAN}}
-:is(${SLOTS},[data-slot=level-map-cell],[data-slot=game-board-cell])${FIRM}{${CUT(8)};background-image:${CUT_LINE(RED_LINE)};background-size:8px 8px;background-position:100% 100%;background-repeat:no-repeat;background-origin:border-box}
-${SLOTS}${FIRM}{border:0;border-radius:0;background-color:${mix("primary", 6)};box-shadow:inset 0 0 0 1px ${mix("primary", 40)}}
-${SLOTS}:is([aria-pressed=true],[data-lit])${FIRM}{background-color:${mix("secondary", 10)};color:${CYAN};box-shadow:inset 0 0 0 1px ${CYAN},0 0 10px ${mix("secondary", 45)}}
+:is(${SLOTS},[data-slot=level-map-cell],[data-slot=game-board-cell]){${CUT(8)};background-image:${CUT_LINE(RED_LINE)};background-size:8px 8px;background-position:100% 100%;background-repeat:no-repeat;background-origin:border-box}
+${SLOTS}{border:0;border-radius:0;background-color:${mix("primary", 6)};box-shadow:inset 0 0 0 1px ${mix("primary", 40)}}
+${SLOTS}:is([aria-pressed=true],[data-lit]){background-color:${mix("secondary", 10)};color:${CYAN};box-shadow:inset 0 0 0 1px ${CYAN},0 0 10px ${mix("secondary", 45)}}
 :is([data-slot=level-map-cell],[data-slot=game-board-cell]){border-radius:0}
 [data-slot=level-map-cell][data-current]{background-color:${YELLOW};color:${role("on-tertiary")};--tw-ring-color:${mix("tertiary", 30)}}`,
 });

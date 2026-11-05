@@ -1,11 +1,11 @@
 import { mix, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /* #FE2C55 and #25F4EE from third-party breakdowns of its brand; the black feed from its screenshots */
 export default definePack({
   key: "shortvideo",
-  name: say("抖音 / TikTok", "TikTok", "TikTok", "TikTok"),
-  hint: say("短视频：纯黑底、红色主色、青色点缀、文字标签", "Short video: pure black, red accent, cyan touches, text tabs", "ショート動画：黒地に赤", "숏폼 영상: 검정 바탕에 빨강"),
+  name: zhEnJaKo("抖音 / TikTok", "TikTok", "TikTok", "TikTok"),
+  hint: zhEnJaKo("短视频：纯黑底、红色主色、青色点缀、文字标签", "Short video: pure black, red accent, cyan touches, text tabs", "ショート動画：黒地に赤", "숏폼 영상: 검정 바탕에 빨강"),
   refs: ["TikTok", "Douyin"],
   basis: "observed",
   group: "app",

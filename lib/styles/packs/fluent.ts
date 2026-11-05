@@ -1,5 +1,5 @@
 import { mix, role } from "../recipes/shared";
-import { BODIES, LABELS, TITLES, definePack, roles, say } from "../types";
+import { BODIES, LABELS, TITLES, definePack, roles, zhEnJaKo } from "../types";
 import { menubar, palette, picked, short, sidebar, toolbar, tree, windowsCaption } from "./desk";
 
 /* Microsoft's Fluent 2 tokens and Windows geometry doc: 4px controls, 8px dialogs and flyouts, 32px controls, a 40x20
@@ -22,8 +22,8 @@ const FLYOUT_ROWS = ":is([data-slot=dropdown-menu-item],[data-slot=context-menu-
 
 export default definePack({
   key: "fluent",
-  name: say("Windows 11 / Office", "Windows 11 / Office", "Windows 11 / Office", "Windows 11 / Office"),
-  hint: say("Fluent：小圆角、细边框、紧凑、微软蓝", "Fluent: small corners, hairlines, compact, Microsoft blue", "Fluent：小さな角丸と細線", "Fluent: 작은 모서리와 가는 선"),
+  name: zhEnJaKo("Windows 11 / Office", "Windows 11 / Office", "Windows 11 / Office", "Windows 11 / Office"),
+  hint: zhEnJaKo("Fluent：小圆角、细边框、紧凑、微软蓝", "Fluent: small corners, hairlines, compact, Microsoft blue", "Fluent：小さな角丸と細線", "Fluent: 작은 모서리와 가는 선"),
   refs: ["Windows 11", "Microsoft 365", "Teams", "Edge"],
   basis: "official",
   group: "desktop",

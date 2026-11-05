@@ -92,7 +92,24 @@ export const APP_SCOPE: StyleSelectors = { scope: ":root:root", dark: ":root:roo
 
 type StyleInput = Styled & { fontFamily?: string; displayFamily?: string };
 
-/** The whole look of a theme as CSS, or "" when it adds nothing to Material. */
+/** The whole look of a theme as CSS, or "" when it adds nothing to Material. What it writes, in this order:
+ *
+ *  1. the variables, in the scope: the style's own (`--st-*`), its type ramp, and its colors in light, then in dark;
+ *  2. the size of words no part sets a size for;
+ *  3. inside the scope, the rules, each later one built on those before it:
+ *     - what every part starts from: `.rounded`, the corners of the media a style runs to the edge, the corners of
+ *       controls (cornerCss), the accent color words are set in, desktop software's shorter controls;
+ *     - the recipes, in recipes/index.ts's ORDER: buttons, then the panels (the surface recipe, which dresses every
+ *       panel), then what is more particular than a panel (a card, a sheet, a tooltip), then tabs, controls,
+ *       navigation, fields, bars, gauges, lists and their rows, menus, dialogs, pickers and the small marks;
+ *     - the surface roles of the box an author builds with (BOX_CSS), the display face, the italic headings, the
+ *       heading recipe, the capital labels;
+ *     - last, the pack's own `css`;
+ *  4. what is drawn behind an exported screen.
+ *
+ *  A rule later in the list wins over one before it only while it weighs as much, so the lists recipes and packs
+ *  select by (recipes/shared.ts) each weigh one attribute, and what only narrows one down goes in `:where()`.
+ *  styles.test.ts holds them to it, and holds every rule to no id's weight. */
 export function styleCss(t: StyleInput, at: StyleSelectors = CANVAS_SCOPE): string {
   const pack = styleOf(t.style);
   const squared = t.shape === "square" || t.shape === "none" || t.shape === "soft";
@@ -134,8 +151,9 @@ export function styleCss(t: StyleInput, at: StyleSelectors = CANVAS_SCOPE): stri
     /* a picture's corner comes from the theme by a variable, on the picture itself */
     bleed.includes("image") ? `[data-slot=image]{--md-sys-shape-corner-medium:0px}` : "",
     cornerCss(control, pill),
-    /* a color made for filling a button is not always one words can be read in */
-    colors && (tk.primaryText || tk.primaryTextDark) ? `.text-primary:not([data-slot=app-bar] *){color:var(--st-primary-text)}` : "",
+    /* a color made for filling a button is not always one words can be read in. What it leaves out weighs nothing, so
+       a recipe or the pack that sets such words in a color of its own wins over it by coming later */
+    colors && (tk.primaryText || tk.primaryTextDark) ? `.text-primary:where(:not([data-slot=app-bar] *)){color:var(--st-primary-text)}` : "",
     pack?.compact ? COMPACT_CSS : "",
     ...recipeRules(recipes),
     pack ? BOX_CSS : "",

@@ -1,5 +1,5 @@
 import { DATA_PANELS, mix, role } from "../recipes/shared";
-import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+import { definePack, roles, zhEnJaKo, TITLES, BODIES, LABELS } from "../types";
 
 /** iOS's tertiary system fill: a grey that reads on the grey ground and on a white group alike */
 const FILL = mix("outline", 20);
@@ -9,8 +9,8 @@ const FIELDS = `:is([data-slot=input],[data-slot=select-trigger],[data-slot=text
 /* Apple's system colors and control sizes: capsule buttons, a translucent tab bar with a hairline, inset groups */
 export default definePack({
   key: "ios",
-  name: say("iOS", "iOS", "iOS", "iOS"),
-  hint: say("iPhone 系统和苹果应用：胶囊按钮、半透明标签栏、圆角分组列表", "iPhone and Apple's apps: capsule buttons, a translucent tab bar, inset grouped lists", "iPhone とアップルのアプリ", "iPhone과 애플 앱"),
+  name: zhEnJaKo("iOS", "iOS", "iOS", "iOS"),
+  hint: zhEnJaKo("iPhone 系统和苹果应用：胶囊按钮、半透明标签栏、圆角分组列表", "iPhone and Apple's apps: capsule buttons, a translucent tab bar, inset grouped lists", "iPhone とアップルのアプリ", "iPhone과 애플 앱"),
   refs: ["iOS 26", "Apple apps"],
   basis: "official",
   group: "app",

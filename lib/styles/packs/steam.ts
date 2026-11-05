@@ -1,5 +1,5 @@
 import { mix, role } from "../recipes/shared";
-import { definePack, roles, say } from "../types";
+import { definePack, roles, zhEnJaKo } from "../types";
 import { menubar, palette, picked, short, sidebar, toolbar, tree, windowsCaption } from "./desk";
 
 /* third-party palettes of its store and client; Valve publishes none. What gives it away beyond the navy: flat buttons
@@ -20,8 +20,8 @@ const TONED = "[data-button]:is([data-variant=tonal],[data-variant=secondary],[d
 
 export default definePack({
   key: "steam",
-  name: say("Steam", "Steam", "Steam", "Steam"),
-  hint: say("游戏平台：深海军蓝、钢蓝面板、天蓝点缀", "Game store: deep navy, steel-blue panels, sky-blue accents", "ゲームストア：濃紺と空色", "게임 스토어: 짙은 남색과 하늘색"),
+  name: zhEnJaKo("Steam", "Steam", "Steam", "Steam"),
+  hint: zhEnJaKo("游戏平台：深海军蓝、钢蓝面板、天蓝点缀", "Game store: deep navy, steel-blue panels, sky-blue accents", "ゲームストア：濃紺と空色", "게임 스토어: 짙은 남색과 하늘색"),
   refs: ["Steam"],
   basis: "observed",
   group: "desktop",
