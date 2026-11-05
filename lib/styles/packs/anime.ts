@@ -1,4 +1,4 @@
-import { BUTTONS, mix, role } from "../recipes/shared";
+import { BUTTONS, MENUS, mix, role } from "../recipes/shared";
 import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
 
 /* looked at in Genshin's and Star Rail's menus on Interface In Game; the cream and slate are common knowledge among players */
@@ -35,7 +35,7 @@ const CSS = `
 :is([data-slot=dialog-content],[data-slot=alert-dialog-content],[data-slot=sheet-content],[data-slot=popover-content],[data-slot=card])${W}{${panel}}
 :is([data-slot=dialog-content],[data-slot=alert-dialog-content])${W}{border-radius:14px}
 :is([data-slot=dialog-title],[data-slot=alert-dialog-title]){padding-bottom:10px;background-image:linear-gradient(90deg,transparent,${mix("primary-container", 80)} 25%,${mix("primary-container", 80)} 75%,transparent);background-size:100% 1px;background-position:bottom;background-repeat:no-repeat;letter-spacing:.06em}
-:is([data-slot=dropdown-menu-content],[data-slot=select-content],[data-slot=context-menu-content],[data-slot=menubar-content])${W}{${panel};border-radius:10px}
+:is(${MENUS})${W}{${panel};border-radius:10px}
 :is([data-slot=text-field-box],[data-slot=input],[data-slot=select-trigger],[data-slot=textarea],[data-slot=native-select],[data-slot=input-group],[data-surface=field]){border-radius:8px;background-color:${mix("surface-container-lowest", 70)};box-shadow:inset 0 0 0 1px ${mix("on-surface", 16)}}
 [data-slot=tooltip-content]{${frame};background-color:${mix("surface-container-low", 94)};border-radius:6px}
 [data-slot=snackbar]${W}{background-color:transparent;background-image:linear-gradient(90deg,transparent,rgb(0 0 0/.62) 18%,rgb(0 0 0/.62) 82%,transparent);border:0;border-radius:0;box-shadow:none;color:#ECE5D8;justify-content:center;text-align:center}
@@ -157,7 +157,7 @@ export default definePack({
   pill: "round",
   screenDark: "radial-gradient(120% 80% at 50% 0%, rgb(90 110 170 / 0.35), transparent 60%), radial-gradient(100% 60% at 50% 100%, rgb(211 188 142 / 0.12), transparent 60%)",
   tokens: { rim: "#D3BC8E", toggleOn: "#D3BC8E", tabOn: "#D3BC8E" },
-  recipes: { button: "ring", surface: "gilt", tabs: "segmented", toggle: "ios", slider: "thin", nav: "plain", field: "soft", bar: "plain", meter: "thin", feedback: "dim", list: "tile", dialog: "plain", dialogue: "band", segmented: "capsules", appbar: "compact", search: "pill", progress: "thin", divider: "ornament", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", scroll: "thin" },
+  recipes: { button: "ring", picker: "rim", surface: "gilt", tabs: "segmented", toggle: "ios", slider: "thin", nav: "plain", field: "soft", bar: "plain", meter: "thin", feedback: "dim", list: "tile", dialog: "plain", dialogue: "band", segmented: "capsules", appbar: "compact", search: "pill", progress: "thin", divider: "ornament", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", scroll: "thin" },
   art: "anime open-world concept painting, soft cel shading, luminous fantasy sky, gentle blue and gold light",
   ux: { margin: 16, gap: 12, tight: 6, nav: "rail" },
   layout: { zh: "左侧一列分类，选中项是米白胶囊；中间是物品格子；右侧是详情卡和底部的胶囊按钮；右上角圆形关闭。", en: "A column of categories at the left with the chosen one a cream capsule; a grid of items in the middle; a detail card at the right with capsule buttons at its foot; a round close at the upper right." },

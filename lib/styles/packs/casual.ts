@@ -162,7 +162,7 @@ export default definePack({
   screen: "linear-gradient(#7CC8FF, #D6F0FF)",
   screenDark: "linear-gradient(#0E2A5A, #1C3F78)",
   tokens: { rim: "#FFC933", rimDark: "#8A4B00", stroke: "#4A2A00", navBg: "#1763B8", navActive: "#4DA3F0", barBg: "#1763B8", onBar: "#FFFFFF", toggleOn: "#3E9B14", primaryText: "#2E7A0E", primaryTextDark: "#8FE05A" },
-  recipes: { button: "gloss", surface: "chunk", tabs: "boxed", toggle: "chunky", slider: "block", nav: "gamebar", field: "hard", bar: "hud", meter: "jelly", feedback: "press", list: "tile", dialog: "game", card: "framed", segmented: "block", appbar: "center", search: "filled", progress: "jelly", divider: "fade", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", icon: "emboss", text: "outlined", scroll: "hidden" },
+  recipes: { button: "gloss", picker: "rim", surface: "chunk", tabs: "boxed", toggle: "chunky", slider: "block", nav: "gamebar", field: "hard", bar: "hud", meter: "jelly", feedback: "press", list: "tile", dialog: "game", card: "framed", segmented: "block", appbar: "center", search: "filled", progress: "jelly", divider: "fade", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", icon: "emboss", text: "outlined", scroll: "hidden" },
   art: "bright cartoon 3D render, saturated candy colors, glossy shiny objects, soft rounded shapes, a kingdom or toy-box world",
   ux: { margin: 12, gap: 12, tight: 8, nav: "bottom" },
   layout: { zh: "顶部一排奶油色胶囊显示金币、生命、星星；中间整屏场景图；两个大光泽按钮贴在底部标签栏上方；底栏选中项抬高变亮。", en: "A row of cream capsules for coins, lives and stars on top; a full-screen scene in the middle; two big glossy buttons just above the bottom bar, whose chosen tab rises and brightens." },

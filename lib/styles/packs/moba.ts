@@ -165,7 +165,7 @@ export default definePack({
   capsLabels: true,
   screenDark: "radial-gradient(120% 70% at 50% 0%, rgb(10 90 150 / 0.28), transparent 65%)",
   tokens: { rim: "#C8AA6E", rimDark: "#785A28", tabOn: "#C8AA6E", navOn: "#F0E6D2", toggleOn: "#C8AA6E" },
-  recipes: { button: "frame", surface: "hairline", tabs: "glow", toggle: "block", slider: "block", nav: "goldglow", field: "line", bar: "line", meter: "thin", feedback: "flash", list: "tile", dialog: "plain", avatar: "framed", card: "framed", segmented: "block", appbar: "compact", search: "underline", progress: "thin", row: "bullet", divider: "ornament", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", icon: "emboss", text: "gilded", scroll: "thin" },
+  recipes: { button: "frame", picker: "rim", surface: "hairline", tabs: "glow", toggle: "block", slider: "block", nav: "goldglow", field: "line", bar: "line", meter: "thin", feedback: "flash", list: "tile", dialog: "plain", avatar: "framed", card: "framed", segmented: "block", appbar: "compact", search: "underline", progress: "thin", row: "bullet", divider: "ornament", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", icon: "emboss", text: "gilded", scroll: "thin" },
   art: "high fantasy splash art, luminous magic, deep blue and gold, dramatic heroes in dynamic poses",
   ux: { margin: 16, gap: 12, tight: 6, nav: "bottom" },
   layout: { zh: "人物立绘占一侧，另一侧是深蓝列表；底部标签选中时金光从下往上泛起；到处是金色细线和菱形。", en: "A hero portrait on one side, a navy list on the other; bottom tabs whose chosen one glows gold from below; thin gold lines and diamonds throughout." },

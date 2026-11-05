@@ -163,7 +163,7 @@ export default definePack({
   screen: "linear-gradient(#EAF2FA, #D5E2EF)",
   screenDark: "linear-gradient(#141D33, #1E2A44)",
   tokens: { rim: "#8FA3C4", rimDark: "#2B3A57", stroke: "#1E2A44", navBg: "#303F6B", navActive: "#4C6AA6", barBg: "#303344", onBar: "#FFFFFF", toggleOn: "#3FA34D", primaryText: "#A85600", primaryTextDark: "#FFB454" },
-  recipes: { button: "gloss", surface: "steel", tabs: "boxed", toggle: "chunky", slider: "block", nav: "gamebar", field: "hard", bar: "hud", meter: "block", feedback: "press", list: "tile", dialog: "game", avatar: "framed", card: "framed", segmented: "block", appbar: "center", search: "filled", progress: "jelly", divider: "fade", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", icon: "emboss", scroll: "hidden" },
+  recipes: { button: "gloss", picker: "rim", surface: "steel", tabs: "boxed", toggle: "chunky", slider: "block", nav: "gamebar", field: "hard", bar: "hud", meter: "block", feedback: "press", list: "tile", dialog: "game", avatar: "framed", card: "framed", segmented: "block", appbar: "center", search: "filled", progress: "jelly", divider: "fade", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", icon: "emboss", scroll: "hidden" },
   art: "stylized semi-realistic strategy game art, frozen wasteland, snow and warm firelight, blue-grey palette with orange highlights",
   ux: { margin: 8, gap: 8, tight: 6, nav: "bottom" },
   layout: { zh: "顶部左边头像和战力，右边一排资源数字；屏幕边缘挂满圆形功能图标；底部一排深蓝入口；操作卡片从下方升起。", en: "An avatar and power at the upper left, a row of resource figures at the right; round feature icons along the edges; a navy row of entries at the foot; action cards rising from below." },

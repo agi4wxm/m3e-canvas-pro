@@ -145,7 +145,7 @@ export default definePack({
   control: "large",
   pill: "round",
   tokens: { navOn: "#FFD23F", toggleOn: "#46D160", tabOn: "#FFD23F" },
-  recipes: { button: "lip", surface: "plain", tabs: "segmented", toggle: "ios", slider: "thin", nav: "plain", field: "soft", bar: "plain", meter: "jelly", feedback: "press", list: "tile", dialog: "game", card: "flat", segmented: "capsules", appbar: "center", search: "filled", progress: "jelly", divider: "fade", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", icon: "emboss", text: "outlined", scroll: "hidden" },
+  recipes: { button: "lip", picker: "rim", surface: "plain", tabs: "segmented", toggle: "ios", slider: "thin", nav: "plain", field: "soft", bar: "plain", meter: "jelly", feedback: "press", list: "tile", dialog: "game", card: "flat", segmented: "capsules", appbar: "center", search: "filled", progress: "jelly", divider: "fade", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", icon: "emboss", text: "outlined", scroll: "hidden" },
   art: "flat vibrant illustration of glowing gem-like blocks, bold shapes, saturated colors on deep blue",
   ux: { margin: 16, gap: 16, tight: 8, nav: "keep", place: "top" },
   layout: { zh: "几乎没有菜单：左上皇冠和最高分，右上设置，中间大分数，下面是深蓝棋盘和待放方块。", en: "Almost no menus: a crown and best score at the upper left, settings at the upper right, a big score in the middle, the navy board and the pieces below it." },
