@@ -142,13 +142,13 @@ const actionSheet = kit(
   ["选项面板", "選択肢シート", "옵션 시트"],
   "Overlays",
   "list",
-  "a sheet of choices: Material's bottom sheet with a handle and rows of an icon and words; an iPhone's rounded group of centered choices parted by hairlines, the destructive one in red, with Cancel in a group of its own under it; or WeChat's edge-to-edge rows with a grey gap before Cancel",
+  "a sheet of choices pinned to the bottom of the screen: Material's bottom sheet with a handle and rows of an icon and words; an iPhone's rounded group of centered choices parted by hairlines, the destructive one in red, with Cancel in a group of its own under it; or WeChat's edge-to-edge rows with a grey gap before Cancel",
   [
     variant(
       "material",
       "Bottom sheet list",
       ["底部面板列表", "ボトムシートのリスト", "하단 시트 목록"],
-      () => vbox({ surface: "sheet", width: SCREEN, hugWidth: false, padX: 0, padY: 8, gap: 0 }, [hbox({ justify: "center", padY: 8, hugWidth: false, width: SCREEN }, [grabber(32, 4)]), ...OPTIONS.map(([name, label]) => hbox({ padX: 24, padY: 14, gap: 16 }, [icon(name, { color: "muted" }), text(label, "lead")]))]),
+      () => vbox({ surface: "sheet", pin: "bottom", width: SCREEN, hugWidth: false, padX: 0, padY: 8, gap: 0 }, [hbox({ justify: "center", padY: 8, hugWidth: false, width: SCREEN }, [grabber(32, 4)]), ...OPTIONS.map(([name, label]) => hbox({ padX: 24, padY: 14, gap: 16 }, [icon(name, { color: "muted" }), text(label, "lead")]))]),
       { span: "screen" },
     ),
     variant(
@@ -156,7 +156,7 @@ const actionSheet = kit(
       "Grouped, Cancel apart",
       ["分组，取消单独", "グループ・キャンセル別", "묶음·취소 분리"],
       () =>
-        vbox({ width: W, hugWidth: false, gap: 8 }, [
+        vbox({ pin: "floatingBottom", width: W, hugWidth: false, gap: 8 }, [
           vbox({ surface: "overlay", padX: 0, padY: 0, gap: 0 }, [hbox({ justify: "center", padY: 14 }, [muted(say("Change profile photo", "更换头像", "プロフィール写真を変更", "프로필 사진 변경"), "caption")]), ...OPTIONS.slice(0, 2).flatMap(([, label]) => [rule(), line(label)]), rule(), line(DELETE, "error")], { corners: round(14) }),
           vbox({ surface: "overlay", padX: 0, padY: 0, gap: 0 }, [line(T.cancel, "primary", true)], { corners: round(14) }),
         ]),
@@ -167,7 +167,7 @@ const actionSheet = kit(
       "Edge to edge, gap before Cancel",
       ["通栏，取消前留空", "端まで・キャンセル前に余白", "가장자리·취소 앞 간격"],
       () =>
-        vbox({ surface: "sheet", width: SCREEN, hugWidth: false, padX: 0, padY: 0, gap: 0 }, [
+        vbox({ surface: "sheet", pin: "bottom", width: SCREEN, hugWidth: false, padX: 0, padY: 0, gap: 0 }, [
           ...OPTIONS.slice(0, 2).flatMap(([, label], i) => [...(i ? [rule(SCREEN)] : []), line(label, "default")]),
           rule(SCREEN),
           line(DELETE, "error"),

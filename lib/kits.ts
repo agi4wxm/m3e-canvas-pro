@@ -4,13 +4,15 @@ import { kitBySlug, pickVariant, type KitDef, type KitLook, type KitVariant } fr
 import { nameOf } from "../parts/labels";
 import { partBySlug, reader } from "../parts/registry";
 import { resizeOf } from "../parts/resize";
+import { fullWidth, roleOf } from "../parts/role";
 import { SPLIT_TAPS, nodesOf } from "../parts/defs/splits";
 import type { P, PartDef } from "../parts/types";
 import { childLayoutFields } from "./flow";
 import type { Lang } from "./i18n";
 import { conformGroups } from "./styleRules";
 import { recipesOf, styleOf, uxOf } from "./styles";
-import { PHONE_MARGIN, frameOfPart, frameRect, frameSizeOf, groupBounds, isPhoneFrame, uid, type Action, type ActionBody, type ComponentDef, type Condition, type Frame, type Group, type Item, type KitMark, type Theme } from "./tokens";
+import { barSlotOf } from "./tidy";
+import { PHONE_MARGIN, frameOfGroup, frameOfPart, frameRect, frameSizeOf, groupBounds, isPhoneFrame, safeAreaOf, uid, type Action, type ActionBody, type ComponentDef, type Condition, type Frame, type Group, type Item, type KitMark, type Theme } from "./tokens";
 
 /* Trees of atoms on the canvas: a kit added from the palette, a composite split into what it is
  * made of. Both come down to the same thing: the tree flattened into groups, outermost first, each
@@ -146,10 +148,65 @@ export function kitGroups(kit: KitDef, look: KitLook, lang: Lang, opts: KitOpts 
   return composed(kit, look, lang, opts).groups;
 }
 
+/** What is on the canvas where a tree lands: the parts it may stand beside, as they measure, and the margin the
+ *  style keeps (what floats at the foot keeps it from the bar below). */
+export type Landing = { groups: Group[]; widths: Record<string, number>; margin?: number };
+
+/** how far apart two bars may stand and still be one stack along an edge */
+const STACKED = 4;
+
+/** A tree whose outermost box is pinned to an edge of `frame` (a kit's top bar, tab bar, buy bar or sheet), put on
+ *  that edge as a bar dropped there goes: beside the rails, inside the device's own bars, past the bars already
+ *  stacked on that edge, and as wide as the room between the rails when it spans the screen. Null when it is not
+ *  pinned. */
+function onEdge(groups: Group[], frame: Frame, frames: Frame[], on: Landing): Group[] | null {
+  const top = groups[0]?.items[0];
+  const role = top && roleOf(top);
+  if (role !== "top" && role !== "bottom" && role !== "floatingBottom") return null;
+  const slot = barSlotOf(on.groups, frame, frames, on.widths);
+  const width = top.props?.width;
+  /* a bar spans the room the rails leave it; what it holds is laid out again for that width */
+  const sized = fullWidth(top) && typeof width === "number" && width !== slot.w ? arranged([{ ...groups[0], items: [{ ...top, props: { ...top.props, width: slot.w } }] }, ...groups.slice(1)]) : groups;
+  const { w, h } = treeSize(sized);
+  const r = frameRect(frame);
+  const safe = safeAreaOf(frame);
+  const bars = on.groups.filter((g) => !g.inFlow && g.items.length === 1 && frameOfGroup(g, frames, on.widths)?.id === frame.id);
+  const boundsOf = (roles: string[]) => bars.filter((g) => roles.includes(roleOf(g.items[0]) ?? "")).map((g) => groupBounds(g, on.widths));
+  const x = Math.round(slot.x + Math.max(0, (slot.w - w) / 2));
+  if (role === "top") {
+    /* below the bars that already stand one under another from the head of the screen */
+    let head = r.t + safe.t;
+    const tops = boundsOf(["top"]);
+    for (let more = true; more; ) {
+      more = false;
+      for (const b of tops)
+        if (b.t <= head + STACKED && b.b > head) {
+          head = b.b;
+          more = true;
+        }
+    }
+    return moveTo(sized, { x, y: Math.round(head) });
+  }
+  /* above the bars that already stand one over another from the foot */
+  let foot = r.b - safe.b;
+  const feet = boundsOf(["bottom", "floatingBottom"]);
+  const gap = role === "floatingBottom" ? (on.margin ?? PHONE_MARGIN) : 0;
+  for (let more = true; more; ) {
+    more = false;
+    for (const b of feet)
+      if (b.b >= foot - (on.margin ?? PHONE_MARGIN) - STACKED && b.t < foot) {
+        foot = b.t;
+        more = true;
+      }
+  }
+  return moveTo(sized, { x, y: Math.round(foot - gap - h) });
+}
+
 /** The place a tree lands with its top left near (x, y): on the screen under its middle, inside that
  *  screen's margins where it fits, on the screen's 4dp grid. One that spans the screen (`edge`) stands
- *  against its left edge. Off any screen it stays where it is. */
-export function landTree(groups: Group[], x: number, y: number, frames: Frame[], edge = false): { groups: Group[]; frame?: Frame } {
+ *  against its left edge, and one whose outermost box is pinned to an edge goes to that edge (`on` says
+ *  what stands there already). Off any screen it stays where it is. */
+export function landTree(groups: Group[], x: number, y: number, frames: Frame[], edge = false, on: Landing = { groups: [], widths: {} }): { groups: Group[]; frame?: Frame } {
   const { w, h } = treeSize(groups);
   const cx = x + w / 2;
   const cy = y + h / 2;
@@ -158,6 +215,8 @@ export function landTree(groups: Group[], x: number, y: number, frames: Frame[],
     return cx >= r.l && cx <= r.r && cy >= r.t && cy <= r.b;
   });
   if (!frame) return { groups: moveTo(groups, { x: Math.round(x), y: Math.round(y) }) };
+  const pinned = onEdge(groups, frame, frames, on);
+  if (pinned) return { groups: pinned, frame };
   const r = frameRect(frame);
   const margin = Math.min(PHONE_MARGIN, Math.max(0, (r.r - r.l - w) / 2));
   const fit = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -307,6 +366,8 @@ function measureKeys(it: Item): Set<string> {
 
 /** what the outermost box asks of the layout it stands in: its own, not the kit's */
 const LAYOUT_ASKS = new Set(["flowFill", "flowSize", "alignSelf", "flowAbsolute", "flowMin", "flowMax", "flowSpan"]);
+/** where the outermost box stands on its screen (a bar pinned to an edge): its place, not what the kit says */
+const PLACE_PROPS = new Set(["pin"]);
 
 /** a value with every object's keys in order and what is undefined left out, so equal content writes equal text */
 function stable(v: unknown): unknown {
@@ -356,11 +417,12 @@ export function kitTree(groups: Group[], rootId: string): Group[] {
 
 /** What one group of a kit says: its parts, their props, paint and notes, and for one inside the box what it is called
  *  and whether it shows. Not its ids, where it stands or how big it is drawn, nor its taps (they are carried). The
- *  outermost box's place, name, lock and visibility are its own and go with it, as do the taps on it. */
+ *  outermost box's place (on the canvas, and the edge it is pinned to), name, lock and visibility are its own and go
+ *  with it, as do the taps on it. */
 function said(g: Group, root: boolean, depth: number): unknown {
   const items = g.items.map((it) => {
     const sizes = measureKeys(it);
-    const props = Object.fromEntries(Object.entries(it.props ?? {}).filter(([k]) => !sizes.has(k)));
+    const props = Object.fromEntries(Object.entries(it.props ?? {}).filter(([k]) => !sizes.has(k) && !(root && PLACE_PROPS.has(k))));
     const { id: _id, props: _props, action: _tap, actions: _taps, row: _row, noteHistory: _was, ...rest } = it;
     const own = root ? Object.fromEntries(Object.entries(rest).filter(([k]) => k !== "note" && !LAYOUT_ASKS.has(k))) : rest;
     return { ...own, props };
@@ -492,6 +554,14 @@ function recomposeOne(groups: Group[], root: Group, c: Recompose): Group[] {
     /* a box made wider or narrower than its composition keeps that measure */
     if (typeof v === "number" && typeof props[key] === "number" && v !== was?.items[0]?.props?.[key]) props[key] = v;
   }
+  /* the edge it is pinned to is the composition's while nobody has said otherwise: a bar that floats in one look may
+   * be docked in another. One pinned by hand, or unpinned (a kit added before boxes were pinned has no pin), stays so */
+  for (const key of PLACE_PROPS) {
+    const v = it.props?.[key];
+    if (v === was?.items[0]?.props?.[key]) continue;
+    if (v === undefined) delete props[key];
+    else props[key] = v;
+  }
   const keep = { pane: root.pane, hidden: root.hidden, showWhen: root.showWhen, locked: root.locked };
   const name = root.name !== undefined && root.name !== was?.name ? root.name : top.name;
   const { x: _x, y: _y, id: _id, items: _items, kit: _kit, name: _name, ...own } = top;
@@ -519,17 +589,33 @@ function recomposeOne(groups: Group[], root: Group, c: Recompose): Group[] {
     const placed = g.inFlow === top.id ? { ...g, inFlow: root.id } : g;
     return tap ? { ...placed, items: [{ ...placed.items[0], ...tap }] } : placed;
   });
-  /* laid out again from the box's corner; the layout it stands in is not among these, so it is set aside meanwhile */
-  const laid = moveTo(arranged([box, ...kids]), { x: root.x, y: root.y }).map((g, i) => (i === 0 && root.inFlow ? { ...g, inFlow: root.inFlow } : g));
+  /* laid out again from the box's corner; the layout it stands in is not among these, so it is set aside meanwhile.
+   * A bar pinned to the foot of its screen keeps its foot there, however tall the new composition comes out */
+  const fresh = arranged([box, ...kids]);
+  const wasH = c.widths[`${it.id}:h`] ?? treeSize(tree).h;
+  const atFoot = !root.inFlow && FOOT_ROLES.has(roleOf(box.items[0]) ?? "");
+  /* one floating at the foot keeps its middle; one that comes to span the screen where it floated stands where a bar does */
+  const wasW = c.widths[it.id] ?? treeSize(tree).w;
+  const x =
+    root.inFlow || !roleOf(box.items[0])
+      ? root.x
+      : roleOf(box.items[0]) === "floatingBottom"
+        ? root.x + Math.round((wasW - treeSize(fresh).w) / 2)
+        : fullWidth(box.items[0]) && !fullWidth(it) && screen && c.frames
+          ? barSlotOf(groups, screen, c.frames, c.widths).x
+          : root.x;
+  const laid = moveTo(fresh, { x, y: atFoot ? root.y + Math.round(wasH - treeSize(fresh).h) : root.y }).map((g, i) => (i === 0 && root.inFlow ? { ...g, inFlow: root.inFlow } : g));
   laid[0] = { ...laid[0], kit: { slug: kit.slug, variant: made.variant.key, auto: mark.auto, sig: kitSig(laid, root.id, c.to) } };
   /* in the place the box had, among the others, and in the order things are drawn */
   const gone = new Set(tree.map((g) => g.id));
   const at = groups.indexOf(root);
   const placed = [...groups.slice(0, at).filter((g) => !gone.has(g.id)), ...laid, ...groups.slice(at + 1).filter((g) => !gone.has(g.id))];
   /* what stood under it on its screen moves with its foot, so a taller composition does not come to cover it */
-  const wasH = c.widths[`${it.id}:h`] ?? treeSize(tree).h;
-  return root.inFlow ? placed : makeRoom(placed, new Set(laid.map((g) => g.id)), root, wasH, treeSize(laid).h - wasH, c, screen);
+  return root.inFlow || atFoot ? placed : makeRoom(placed, new Set(laid.map((g) => g.id)), root, wasH, treeSize(laid).h - wasH, c, screen);
 }
+
+/** the roles of what stands at the foot of a screen */
+const FOOT_ROLES = new Set(["bottom", "floatingBottom"]);
 
 /** What stands under a kit on its screen, moved by as much as the kit grew or shrank: a composition that comes out
  *  taller would otherwise cover what was below it, and a layout box would take it in. Only what stands free below the

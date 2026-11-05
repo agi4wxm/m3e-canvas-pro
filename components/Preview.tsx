@@ -297,6 +297,17 @@ function Screen({
       const pin = pinOf(g, frame, widths);
       if (pin) pins.set(g.id, pin === "head" ? 0 : length - viewH);
     }
+    /* what a pinned layout lays out stays put with it: a kit's bar is a box and the parts in it */
+    const byId = new Map(groups.map((g) => [g.id, g]));
+    const heldPin = (g: Group | undefined, depth = 0): number | undefined => {
+      if (!g?.inFlow || depth > 32) return undefined;
+      return pins.get(g.inFlow) ?? heldPin(byId.get(g.inFlow), depth + 1);
+    };
+    for (const g of groups) {
+      if (pins.has(g.id)) continue;
+      const lift = heldPin(g);
+      if (lift !== undefined) pins.set(g.id, lift);
+    }
   }
   /* what an effect opened floats over the screen: it stands on the glass, over a scrim, not on the body */
   const isOpen = (g: Group) => g.items.some((it) => opened[it.id]);

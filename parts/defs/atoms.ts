@@ -1,7 +1,7 @@
 import { FLOW_PROPS } from "../flow";
 import { h, type PNode } from "../node";
 import { SVG_PRESETS, SVG_PRESET_KEYS, cleanPath, sanitizeSvg } from "../svg";
-import type { P, PartDef, PropDef } from "../types";
+import type { P, PartDef, PartRole, PropDef } from "../types";
 
 /* The atoms nothing else covered: the box everything is composed in, a vector drawing, a single
  * radio button and a status dot. A box is a frame with auto layout and no words of its own; what it
@@ -50,6 +50,18 @@ const SURFACE_CHOICES = [
   { value: "overlay", label: "Overlay" },
   { value: "well", label: "Well" },
 ].map((c) => ({ ...c, labels: SURFACE_WORDS[c.value] }));
+
+/** Where a box stands on its screen: among the body's rows (the default), or pinned to an edge as a bar is. A pinned
+ *  box plays the bar's role there (a kit's tab bar, buy bar, chat input or sheet): Tidy and the style's layout keep it
+ *  on that edge, inside the device's own bars and as wide as the screen, and the code fixes it there. */
+const PIN_ROLE: Record<string, PartRole | undefined> = { top: "top", bottom: "bottom", floatingBottom: "floatingBottom" };
+
+const PIN_CHOICES = [
+  { value: "none", label: "In the body", labels: { ja: "本文の中", zh: "随正文排列", ko: "본문 안" } },
+  { value: "top", label: "Pinned to the top", labels: { ja: "上端に固定", zh: "固定在顶部", ko: "위쪽에 고정" } },
+  { value: "bottom", label: "Pinned to the bottom", labels: { ja: "下端に固定", zh: "固定在底部", ko: "아래쪽에 고정" } },
+  { value: "floatingBottom", label: "Floating at the bottom", labels: { ja: "下部に浮かせる", zh: "悬浮在底部", ko: "아래쪽에 떠 있음" } },
+];
 
 /* the box's own defaults over the shared auto layout: on from the start, close-set, hugging */
 const BOX_FLOW: Record<string, string | number | boolean> = { layout: "column", gap: 8, padX: 12, padY: 12, hugWidth: true, hugHeight: true };
@@ -113,8 +125,11 @@ export const atoms: PartDef[] = [
     holds: true,
     flow: {},
     appearance: { radius: 12 },
+    /* a bar by where it is pinned; one among the rows has no role of its own */
+    role: (p) => PIN_ROLE[p.s("pin")],
     props: [
       { key: "surface", label: "Surface", labels: { ja: "面の役割", zh: "表面角色", ko: "표면 역할" }, kind: "enum", default: "none", options: SURFACE_CHOICES },
+      { key: "pin", label: "On the screen", labels: { ja: "画面での位置", zh: "在屏幕上", ko: "화면에서" }, kind: "enum", default: "none", options: PIN_CHOICES, screen: true },
       ...boxFlow,
       { key: "width", label: "Width", kind: "number", default: 160, min: 0, max: 2400, step: 4, unit: "px" },
       { key: "height", label: "Height", kind: "number", default: 96, min: 0, max: 2400, step: 4, unit: "px" },
