@@ -38,7 +38,7 @@ export default definePack({
   compact: true,
   screenDark: "linear-gradient(#171A21 0, #1B2838 140px)",
   tokens: { barBg: "#171A21", onBar: "#C7D5E0", rim: "#2A475E", toggleOn: "#1A9FFF" },
-  recipes: { button: "flat", surface: "plain", tabs: "boxed", toggle: "ios", slider: "thin", nav: "plain", field: "soft", bar: "hud", meter: "thin", feedback: "dim", list: "hairline", dialog: "modal", chip: "tag", card: "flat", segmented: "boxed", appbar: "compact", search: "boxed", input: "filled", progress: "thin", row: "dense", menu: "compact", sheet: "panel", tooltip: "dark", fab: "flat", badge: "square", scroll: "block" },
+  recipes: { picker: "boxed", button: "flat", surface: "plain", tabs: "boxed", toggle: "ios", slider: "thin", nav: "plain", field: "soft", bar: "hud", meter: "thin", feedback: "dim", list: "hairline", dialog: "modal", chip: "tag", card: "flat", segmented: "boxed", appbar: "compact", search: "boxed", input: "filled", progress: "thin", row: "dense", menu: "compact", sheet: "panel", tooltip: "dark", fab: "flat", badge: "square", scroll: "block" },
   art: "dark game library, deep navy panels, cool blue glow, cover art lined up",
   ux: { margin: 12, gap: 8, tight: 4, nav: "top" },
   layout: { zh: "深色顶部导航，下面是大幅封面和成排的游戏卡片，列表里是缩略图、名字和绿色价格标签。", en: "A dark navigation along the top, a large cover below it and rows of game cards; lists of a thumbnail, a name and a green price tag." },

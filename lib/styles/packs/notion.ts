@@ -36,7 +36,7 @@ export default definePack({
   control: "medium",
   pill: "round",
   tokens: { toggleOn: "#2383E2", tabOn: "var(--md-sys-color-on-surface)" },
-  recipes: { button: "flat", surface: "line", tabs: "underline", toggle: "ios", slider: "thin", nav: "plain", field: "boxed", bar: "line", meter: "thin", feedback: "dim", list: "plain", dialog: "modal", chip: "tag", card: "outlined", segmented: "underline", appbar: "large", search: "filled", input: "boxed", progress: "thin", row: "dense", divider: "hairline", menu: "compact", sheet: "panel", tooltip: "dark", fab: "flat", badge: "square", icon: "muted", scroll: "thin" },
+  recipes: { picker: "boxed", button: "flat", surface: "line", tabs: "underline", toggle: "ios", slider: "thin", nav: "plain", field: "boxed", bar: "line", meter: "thin", feedback: "dim", list: "plain", dialog: "modal", chip: "tag", card: "outlined", segmented: "underline", appbar: "large", search: "filled", input: "boxed", progress: "thin", row: "dense", divider: "hairline", menu: "compact", sheet: "panel", tooltip: "dark", fab: "flat", badge: "square", icon: "muted", scroll: "thin" },
   art: "quiet paper-like workspace, warm off-white, soft grey lines, hand-drawn doodle spot illustrations",
   ux: { margin: 20, gap: 12, tight: 0, nav: "keep" },
   layout: { zh: "像一页纸：大标题在左上，正文宽松，页面元素不加框，靠缩进和留白分层，几乎没有颜色。", en: "Like a page of paper: a large title at the upper left, roomy text, elements without boxes, layered by indent and white space, almost no color." },

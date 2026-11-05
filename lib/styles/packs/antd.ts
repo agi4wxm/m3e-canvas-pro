@@ -39,7 +39,7 @@ export default definePack({
   pill: "round",
   compact: true,
   tokens: { toggleOn: "#1677FF", tonedLine: "#D9D9D9" },
-  recipes: { button: "flat", surface: "line", tabs: "underline", toggle: "ios", slider: "thin", nav: "plain", field: "ring", bar: "line", meter: "thin", feedback: "dim", list: "hairline", dialog: "modal", chip: "tag", card: "headed", segmented: "boxed", appbar: "center", search: "filled", input: "boxed", progress: "track", row: "arrow", menu: "compact", sheet: "weui", tooltip: "dark", fab: "round", badge: "pill", scroll: "thin" },
+  recipes: { picker: "boxed", button: "flat", surface: "line", tabs: "underline", toggle: "ios", slider: "thin", nav: "plain", field: "ring", bar: "line", meter: "thin", feedback: "dim", list: "hairline", dialog: "modal", chip: "tag", card: "headed", segmented: "boxed", appbar: "center", search: "filled", input: "boxed", progress: "track", row: "arrow", menu: "compact", sheet: "weui", tooltip: "dark", fab: "round", badge: "pill", scroll: "thin" },
   art: "clean enterprise dashboard, white cards on pale grey, confident blue accent, tidy tables",
   ux: { margin: 16, gap: 16, tight: 8, nav: "keep" },
   layout: { zh: "宽屏时左侧菜单、顶部面包屑，灰底上放白色卡片，卡片里是数据表格和表单；手机上是灰底白卡片加四个底部标签。", en: "A menu on the left and breadcrumbs on top when wide, white cards on grey holding tables and forms; on a phone, white cards on grey with four bottom tabs." },
