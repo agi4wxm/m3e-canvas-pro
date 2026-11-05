@@ -53,13 +53,13 @@ const chatInput = kit(
   ["聊天输入栏", "チャット入力バー", "채팅 입력 바"],
   "Social & chat",
   "keyboard",
-  "a bar box across the screen: a rounded field box with a bare entry and a filled send button; a messenger's voice button, a plain field, emoji and plus buttons; or a field holding emoji, entry, attach and camera with a round mic button after it",
+  "a bar box pinned to the bottom of the screen: a rounded field box with a bare entry and a filled send button; a messenger's voice button, a plain field, emoji and plus buttons; or a field holding emoji, entry, attach and camera with a round mic button after it",
   [
     variant(
       "simple",
       "Field and send",
       ["输入框与发送", "入力欄と送信", "입력란과 보내기"],
-      () => hbox({ surface: "bar", width: SCREEN, hugWidth: false, padX: 12, padY: 8, gap: 8 }, [hbox({ surface: "field", padX: 16, padY: 6, gap: 8, hugWidth: false, width: 200 }, [entry(MESSAGE)], { grow: true, corners: round(20) }), iconButton("send", T.send, { variant: "filled", size: "sm" })]),
+      () => hbox({ surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 12, padY: 8, gap: 8 }, [hbox({ surface: "field", padX: 16, padY: 6, gap: 8, hugWidth: false, width: 200 }, [entry(MESSAGE)], { grow: true, corners: round(20) }), iconButton("send", T.send, { variant: "filled", size: "sm" })]),
       { span: "screen" },
     ),
     variant(
@@ -67,7 +67,7 @@ const chatInput = kit(
       "Voice, field, emoji, plus",
       ["语音·输入·表情·加号", "音声・入力・絵文字・追加", "음성·입력·이모지·더하기"],
       () =>
-        hbox({ surface: "bar", width: SCREEN, hugWidth: false, padX: 8, padY: 8, gap: 8 }, [
+        hbox({ surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 8, padY: 8, gap: 8 }, [
           iconButton("graphic_eq", T.voice, { variant: "outlined", size: "xs", iconFill: true }),
           hbox({ surface: "field", padX: 10, padY: 4, gap: 0, hugWidth: false, width: 200 }, [entry("")], { grow: true, corners: round(6) }),
           iconButton("sentiment_satisfied", T.emoji, { variant: "outlined", size: "xs" }),
@@ -80,7 +80,7 @@ const chatInput = kit(
       "Field with tools, round mic",
       ["带工具的输入框，圆形麦克风", "ツール付き入力欄と丸いマイク", "도구 입력란과 둥근 마이크"],
       () =>
-        hbox({ surface: "bar", width: SCREEN, hugWidth: false, padX: 8, padY: 8, gap: 6 }, [
+        hbox({ surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 8, padY: 8, gap: 6 }, [
           hbox({ surface: "field", padX: 4, padY: 2, gap: 0, hugWidth: false, width: 200 }, [iconButton("mood", T.emoji, { size: "xs" }), entry(MESSAGE), iconButton("attach_file", T.attach, { size: "xs" }), iconButton("photo_camera", say("Camera", "相机", "カメラ", "카메라"), { size: "xs" })], { grow: true, corners: round(24) }),
           iconButton("mic", T.voice, { variant: "filled", size: "sm" }),
         ]),

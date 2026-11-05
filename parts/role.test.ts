@@ -56,3 +56,25 @@ describe("fullWidth", () => {
     expect(fullWidth({ component: "card" })).toBe(false);
   });
 });
+
+describe("a box pinned to an edge", () => {
+  it("plays the bar's role on that edge, read off its pin", () => {
+    expect(roleOf({ component: "box", props: { pin: "top" } })).toBe("top");
+    expect(roleOf({ component: "box", props: { pin: "bottom" } })).toBe("bottom");
+    expect(roleOf({ component: "box", props: { pin: "floatingBottom" } })).toBe("floatingBottom");
+  });
+
+  it("has no role in the body, which is where a box without a pin stands (every box before there were pins)", () => {
+    expect(roleOf({ component: "box" })).toBeUndefined();
+    expect(roleOf({ component: "box", props: { surface: "bar", width: 412 } })).toBeUndefined();
+    expect(roleOf({ component: "box", props: { pin: "none" } })).toBeUndefined();
+    expect(roleOf({ component: "box", props: { pin: "sideways" } })).toBeUndefined();
+  });
+
+  it("spans the screen pinned to the top or the bottom, and keeps its own width floating", () => {
+    expect(fullWidth({ component: "box", props: { pin: "top" } })).toBe(true);
+    expect(fullWidth({ component: "box", props: { pin: "bottom" } })).toBe(true);
+    expect(fullWidth({ component: "box", props: { pin: "floatingBottom" } })).toBe(false);
+    expect(fullWidth({ component: "box", props: { pin: "none" } })).toBe(false);
+  });
+});

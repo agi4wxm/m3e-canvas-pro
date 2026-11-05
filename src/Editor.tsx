@@ -1578,7 +1578,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     const fresh = under && first && frameSizeOf(under).w !== frameSizeOf(first).w ? buildKit(kit.slug, kit.variant, under) : null;
     const def = kitBySlug(kit.slug);
     const edge = !!def && spansScreen(def, kitLookOf(themeRef.current), kit.variant);
-    const { groups: landed } = landTree(fresh ?? kit.groups, x, y, framesRef.current, edge);
+    /* a bar (a box pinned to an edge) goes straight to its edge, beside the rails and past the bars already there */
+    const { groups: landed } = landTree(fresh ?? kit.groups, x, y, framesRef.current, edge, { groups: groupsRef.current, widths: widthsRef.current, margin: metricsOf(themeRef.current).margin });
     if (!landed.length) return;
     snapshot();
     const root = landed[0];
@@ -5588,6 +5589,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   <MobileInspector
                     item={selected}
                     palette={p}
+                    inFlow={selectedInFlow}
                     onChange={patchSelected}
                     onDelete={() => {
                       deleteSelected();

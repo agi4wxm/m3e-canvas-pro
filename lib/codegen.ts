@@ -184,13 +184,13 @@ function itemClasses(run: Group, parent: Flow, origin: { x: number; y: number })
 
 /** The JSX of a run laid out by a container: nested, the way the browser will lay it out. The classes
  *  of the layout go on the node the container keeps for it, or on its root. */
-function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new Set<string>(), insideTap = false, origin = { x: 0, y: 0 }): string {
+function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new Set<string>(), insideTap = false, origin = { x: 0, y: 0 }, /** the axes the screen gives a layout standing on it (a bar spans it) */ spans: ("width" | "height")[] = []): string {
   if (parent && run.expandedFrom !== undefined) return instanceJsx(run, c, all, inside);
   const it = run.items[0];
   const def = partBySlug(it.component);
   const flow = run.items.length === 1 ? flowOf(run) : null;
   if (!def || (!flow && !parent)) return run.items.map((x) => jsx(x, c, insideTap)).join("");
-  const asked = parent ? itemClasses(run, parent, origin) : { classes: "", fill: [] as ("width" | "height")[] };
+  const asked = parent ? itemClasses(run, parent, origin) : { classes: "", fill: spans };
   /* the box around a part says what the layout asks of it; with nothing to say, there is no box */
   const boxed = (source: string) => (asked.classes ? `<div className=${str(asked.classes)}>${source}</div>` : source);
   if (!flow) {
@@ -272,11 +272,23 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
     if (flowedInstanceOf(run.id, byId, hosts) !== scope) continue;
     const gates = c.b.gates(run, inside, c.uses);
     const float = c.b.floats(run) ? " z-10" : "";
+    const first = run.items[0];
+    /* a bar stays pinned to the top or the bottom of the screen; one standing anywhere else stays where it is */
+    const anchorOf = (top: number) => {
+      const r = roleOf(first);
+      const bottom = pinEdges && r === "bottom" && top + sizeOf(first, widths).h > h - 1;
+      const pinnedTop = pinEdges && r === "top" && top <= STATUS_BAR_H;
+      return bottom ? "bottom-0" : pinnedTop ? "top-0" : `top-[${top}px]`;
+    };
     if (hosts.has(run.id)) {
+      /* a box pinned as a bar (a kit's tab bar) spans the screen at its edge, and lays out what it holds across it */
+      if (run.items.length === 1 && fullWidth(first)) {
+        out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(Math.round(run.y - frame.y))}${float}">${flowJsx(run, c, all, undefined, undefined, undefined, undefined, ["width"])}</div>`));
+        continue;
+      }
       out.push(gated(gates, `<div className=${str(`absolute left-[${Math.round(run.x - frame.x)}px] top-[${Math.round(run.y - frame.y)}px]`)}>${flowJsx(run, c, all)}</div>`));
       continue;
     }
-    const first = run.items[0];
     const at = layoutOf(run, widths)[0];
     const top = Math.round(at.y - frame.y);
     const left = Math.round(at.x - frame.x);
@@ -288,11 +300,7 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
     });
     /* a part that spans the screen keeps to its edges; the bars stay pinned to the top or the bottom */
     if (run.items.length === 1 && fullWidth(first)) {
-      const r = roleOf(first);
-      const bottom = pinEdges && r === "bottom" && top + sizeOf(first, widths).h > h - 1;
-      const pinnedTop = pinEdges && r === "top" && top <= STATUS_BAR_H;
-      const anchor = bottom ? "bottom-0" : pinnedTop ? "top-0" : `top-[${top}px]`;
-      out.push(gated(gates, `<div className="absolute inset-x-0 ${anchor}${float}">${body[0]}</div>`));
+      out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(top)}${float}">${body[0]}</div>`));
       continue;
     }
     const pos = `absolute left-[${left}px] top-[${top}px]${float}`;

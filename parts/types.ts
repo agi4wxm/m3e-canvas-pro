@@ -24,6 +24,9 @@ export type PropDef = {
   labels?: Labels;
   /** the prop only exists when this holds for the current values (a basic dialog's icon, a full-screen one's size) */
   when?: (p: P) => boolean;
+  /** the prop is about where the part stands on its screen (a box pinned to an edge as a bar): it means nothing while
+   *  a layout places the part, and the panel leaves it out then */
+  screen?: boolean;
 } & (
   | { kind: "text"; default: string; multiline?: boolean; /** the seed in each language; `default` stays English */ defaults?: Labels }
   | { kind: "enum"; default: string; options: Choice[] }
@@ -77,7 +80,7 @@ export type Screen = { w: number; h: number };
 export type PartSlot = { key: string; label: string; icon?: string };
 
 /** the part's place on a screen: a bar pinned to an edge, a corner FAB, a centered overlay.
- *  Tidy pins it and the prompt describes it by this. */
+ *  Tidy pins it and the prompt describes it by this. A box takes `top`, `bottom` or `floatingBottom` from its `pin`. */
 export type PartRole = "top" | "bottom" | "floatingBottom" | "fab" | "overlay" | "rail" | "label" | "control" | "listLike" | "fullWidth" | "backdrop";
 
 export type PartDef = {

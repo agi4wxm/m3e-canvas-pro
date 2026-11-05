@@ -1,7 +1,7 @@
 import { atom, avatar, box, button, hbox, icon, iconButton, image, para, round, svg, text, vbox } from "../atoms";
 import { say, type Node, type Say } from "../templates/kit";
 import { presetOf } from "../../lib/look";
-import { SCREEN, T, W, kit, muted, push, rule, stars, tag, variant } from "./shared";
+import { SCREEN, T, W, kit, muted, rule, stars, tag, variant } from "./shared";
 import type { KitDef, KitLook } from "./types";
 
 /* Game screens as atoms: the bar of resources along the top, rewards and quests, the shop, a skill with its
@@ -26,17 +26,18 @@ const hud = kit(
   ["游戏顶部信息栏", "ゲームの上部 HUD", "게임 상단 HUD"],
   "Game",
   "sports_esports",
-  "a row across the top of a game screen: a framed avatar, the level tag and name over an experience bar, then resource pills (a coin or gem mark, the amount, a filled plus); on frosted glass; or a PC game's thin bar of the chapter, the resources without pluses and settings",
+  "a row pinned to the top of a game screen: a framed avatar, the level tag and name over an experience bar, then resource pills (a coin or gem mark, the amount, a filled plus); on frosted glass; or a PC game's thin bar of the chapter, the resources without pluses and settings",
   [
     variant(
       "mobile",
       "Avatar and resources",
       ["头像与资源", "アバターとリソース", "아바타와 자원"],
       () =>
-        hbox({ width: SCREEN, hugWidth: false, padX: 8, padY: 8, gap: 8 }, [
+        /* the name and its bar take what the resources leave, so a wider face cuts the name short rather than push
+         * the last pill off the screen */
+        hbox({ pin: "top", width: SCREEN, hugWidth: false, padX: 8, padY: 8, gap: 8 }, [
           box({ surface: "chip", layout: "row", padX: 2, padY: 2 }, [avatar("AS")], { corners: round(12), look: { stroke: { width: 2, color: "tertiary" } } }),
-          vbox({ gap: 4, hugWidth: false, width: 104 }, [hbox({ gap: 4 }, [tag("42", "default"), text(say("Aster", "星辰", "アスター", "아스터"), "label", { bold: true })]), atom("progress", { value: 64, thickness: 6 })]),
-          push(),
+          vbox({ gap: 4, hugWidth: false, width: 104 }, [hbox({ gap: 4 }, [tag("42", "default"), para(say("Aster", "星辰", "アスター", "아스터"), "label", { bold: true, maxLines: 1 }, { grow: true })]), atom("progress", { value: 64, thickness: 6 })], { grow: true }),
           resource(coin(), "12,480"),
           resource(gem(), "860", false),
         ]),
@@ -47,7 +48,7 @@ const hud = kit(
       "On frosted glass",
       ["毛玻璃底", "すりガラスの上", "반투명 유리"],
       () =>
-        hbox({ surface: "bar", width: SCREEN, hugWidth: false, padX: 12, padY: 8, gap: 8 }, [iconButton("arrow_back", T.back, { variant: "tonal", size: "xs" }), text(say("Shop", "商店", "ショップ", "상점"), "heading", { bold: true }), push(), resource(icon("bolt", { size: 20, filled: true, color: "secondary" }), "86/120", false), resource(coin(), "12,480", false)], { look: presetOf("glass") }),
+        hbox({ surface: "bar", pin: "top", width: SCREEN, hugWidth: false, padX: 12, padY: 8, gap: 8 }, [iconButton("arrow_back", T.back, { variant: "tonal", size: "xs" }), para(say("Shop", "商店", "ショップ", "상점"), "heading", { bold: true, maxLines: 1 }, { grow: true }), resource(icon("bolt", { size: 20, filled: true, color: "secondary" }), "86/120", false), resource(coin(), "12,480", false)], { look: presetOf("glass") }),
       { span: "screen" },
     ),
     variant(
@@ -55,10 +56,9 @@ const hud = kit(
       "PC, thin",
       ["端游细条", "PC・細い", "PC·얇게"],
       () =>
-        hbox({ surface: "bar", width: 960, hugWidth: false, padX: 16, padY: 6, gap: 16 }, [
+        hbox({ surface: "bar", pin: "top", width: 960, hugWidth: false, padX: 16, padY: 6, gap: 16 }, [
           icon("shield", { size: 20, filled: true, color: "tertiary" }),
-          text(say("Chapter 3 · The Ashen Vale", "第三章 · 灰烬山谷", "第 3 章 · 灰の谷", "3장 · 잿빛 골짜기"), "label", { bold: true }),
-          push(),
+          para(say("Chapter 3 · The Ashen Vale", "第三章 · 灰烬山谷", "第 3 章 · 灰の谷", "3장 · 잿빛 골짜기"), "label", { bold: true, maxLines: 1 }, { grow: true }),
           hbox({ gap: 6 }, [coin(18), text("12,480", "label")]),
           hbox({ gap: 6 }, [gem(16), text("860", "label")]),
           iconButton("settings", T.settings, { size: "xs" }),

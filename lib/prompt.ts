@@ -76,6 +76,32 @@ function fabScrollText(it: Item, lang: Lang): string {
   return "; when the body scrolls down, it collapses toward the right into an icon-only standard FAB (right edge fixed) and stays collapsed after scrolling stops; scrolling up expands it back to the extended FAB";
 }
 
+/** Where a box pinned as a bar stands (a kit's top bar, tab bar, buy bar or sheet): the edge it is fixed to. The real
+ *  bars say it by what they are; a box only says it by its `pin`. */
+const PIN_TEXT: Record<Lang, Record<string, string>> = {
+  ja: {
+    top: "。画面の上端（ステータスバーの下）に画面幅いっぱいのバーとして固定し、本文をスクロールしても動かない",
+    bottom: "。画面の下端（ホームインジケーターの上）に画面幅いっぱいのバーとして固定し、本文をスクロールしても動かない",
+    floatingBottom: "。画面の下部に左右中央で浮かせて固定し、本文をスクロールしても動かない",
+  },
+  zh: {
+    top: "。作为与屏幕同宽的栏固定在屏幕顶部（状态栏下方），正文滚动时保持不动",
+    bottom: "。作为与屏幕同宽的栏固定在屏幕底部（主屏指示条上方），正文滚动时保持不动",
+    floatingBottom: "。水平居中悬浮固定在屏幕底部，正文滚动时保持不动",
+  },
+  ko: {
+    top: ". 화면 위쪽 가장자리(상태 표시줄 아래)에 화면 너비의 바로 고정하며, 본문을 스크롤해도 움직이지 않는다",
+    bottom: ". 화면 아래쪽 가장자리(홈 인디케이터 위)에 화면 너비의 바로 고정하며, 본문을 스크롤해도 움직이지 않는다",
+    floatingBottom: ". 화면 아래쪽에 가로 가운데로 떠 있게 고정하며, 본문을 스크롤해도 움직이지 않는다",
+  },
+  en: {
+    top: "; a bar fixed to the top edge of the screen (below the status bar), as wide as the screen, staying put while the body scrolls",
+    bottom: "; a bar fixed to the bottom edge of the screen (above the home indicator), as wide as the screen, staying put while the body scrolls",
+    floatingBottom: "; floating over the bottom of the screen, centered, staying put while the body scrolls",
+  },
+};
+const pinText = (it: Item, lang: Lang): string => (it.component === "box" ? (PIN_TEXT[lang][roleOf(it) ?? ""] ?? "") : "");
+
 /** a part that is a shadcn M3E component is described by the code it stands for */
 function componentText(it: Item, lang: Lang, name?: string): string {
   const def = partBySlug(it.component);
@@ -111,7 +137,8 @@ const INSTANCE_TEXT: Record<Lang, (name: string) => string> = {
 
 function groupText(g: Group, lang: Lang): string {
   if (g.expandedFrom) return INSTANCE_TEXT[lang](g.name?.trim() || g.expandedFrom);
-  if (g.items.length === 1) return componentText(g.items[0], lang, g.name);
+  /* a box a layout places stands where the layout puts it, pinned or not */
+  if (g.items.length === 1) return `${componentText(g.items[0], lang, g.name)}${g.inFlow ? "" : pinText(g.items[0], lang)}`;
   /* parts of any kind can run together, so each says what it is */
   const parts = g.items.map((it) => componentText(it, lang)).join(lang === "ja" || lang === "zh" ? "；" : "; ");
   const n = g.items.length;

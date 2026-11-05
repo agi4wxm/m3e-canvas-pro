@@ -1,6 +1,6 @@
 import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
-import { roleOf } from "../parts/role";
+import { fullWidth, roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
 import { isStrict, recipesOf, uxOf, type StyleUX } from "./styles";
 import { fillRest, fitLength, isScreenLayout, MATERIAL_METRICS, tidyFrame, type LayoutMetrics } from "./tidy";
@@ -103,15 +103,23 @@ function layoutScreen(state: Result, frame: Frame, measures: Record<string, numb
     measures[it.id] = to;
     return axisValue(ax, it.props) === to ? it : { ...it, props: { ...it.props, [ax.key]: axisWrite(ax, to) } };
   };
+  /** a bar as wide as the body: a box pinned as one stops hugging what it holds, or its width would be only a number */
+  const span = (it: Item): Item => {
+    const wide = resize(it, bodyW);
+    return wide.component === "box" && wide.props?.hugWidth !== false ? { ...wide, props: { ...wide.props, hugWidth: false } } : wide;
+  };
 
-  /* 2. bars span the body, a list a style runs edge to edge spans it too, and the rest keeps its share of it */
+  /* 2. bars span the body, a list a style runs edge to edge spans it too, and the rest keeps its share of it. A kit's bar
+   * (a box pinned to an edge) spans it as the navigation bar does, and stays the box it is: only the real navigation
+   * parts turned into another kind above */
   groups = groups.map((g) => {
     if (!free(g) || g.items.length !== 1) return g;
     const it = g.items[0];
     const r = roleOf(it);
-    if (r === "top" || (r === "bottom" && isBar(it))) return { ...g, items: [resize(it, bodyW)] };
-    /* what floats at the foot may not reach past the body it floats over */
-    if (r === "floatingBottom" && (widthOf(it) ?? 0) > inner) return { ...g, items: [resize(it, inner)] };
+    if (r === "top" || (r === "bottom" && fullWidth(it))) return { ...g, items: [span(it)] };
+    /* what floats at the foot may not reach past the body it floats over; a box that is as wide as what it holds (a
+     * kit's floating capsule) cannot be made narrower by a number, and Tidy centers it as wide as it is */
+    if (r === "floatingBottom" && (widthOf(it) ?? 0) > inner && !(it.component === "box" && it.props?.hugWidth !== false)) return { ...g, items: [resize(it, inner)] };
     if (!composed && bodyParts.some((b) => b.id === g.id)) {
       if (m.flush?.(it)) return { ...g, items: [resize(it, bodyW)] };
       const cur = widthOf(it);

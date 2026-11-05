@@ -152,11 +152,11 @@ const modelPicker = kit(
   ["模型选择", "モデル選択", "모델 선택"],
   "AI",
   "expand_circle_down",
-  "a ghost button with a sparkle and a down chevron; a bar with the picker centered between a menu and a new-chat button; or a menu panel of rows, each a name over a line, the chosen one checked",
+  "a ghost button with a sparkle and a down chevron; a bar pinned to the top with the picker centered between a menu and a new-chat button; or a menu panel of rows, each a name over a line, the chosen one checked",
   [
     variant("button", "A button", ["按钮", "ボタン", "버튼"], () => hbox({ gap: 0 }, [button(MODELS[1][0], { variant: "ghost", size: "sm", icon: "auto_awesome", trailingIcon: "keyboard_arrow_down" })])),
     variant("bar", "Centered in a bar", ["栏中居中", "バーの中央", "바 가운데"], () =>
-      hbox({ surface: "bar", width: 412, hugWidth: false, padX: 4, padY: 8, gap: 0 }, [
+      hbox({ surface: "bar", pin: "top", width: 412, hugWidth: false, padX: 4, padY: 8, gap: 0 }, [
         hbox({ justify: "start", gap: 0, hugWidth: false, width: 100 }, [iconButton("menu", say("Menu", "菜单", "メニュー", "메뉴"))], { grow: true }),
         button(ASSISTANT, { variant: "ghost", size: "sm", trailingIcon: "chevron_right" }),
         hbox({ justify: "end", gap: 0, hugWidth: false, width: 100 }, [iconButton("edit_square", say("New chat", "新对话", "新しいチャット", "새 채팅"))], { grow: true }),

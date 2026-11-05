@@ -7,7 +7,8 @@ import type { KitDef } from "./types";
 /* Bars and navigation as atoms. Each product puts the same things in its own order: Material's bottom bar marks the
  * chosen tab with a pill behind its icon, an iPhone's tints it, a game raises it on a tile; a Windows window has its
  * caption buttons at the right where a Mac has traffic lights at the left. Which one a look gets comes from its
- * recipes, never its name. */
+ * recipes, never its name. A bar of the screen is a box pinned to the edge it belongs to (`pin`), so Tidy and the
+ * style's layout keep it there instead of taking it into the body. */
 
 const TABS: [string, Say][] = [
   ["home", say("Home", "首页", "ホーム", "홈")],
@@ -27,7 +28,7 @@ const tabBar = kit(
   ["底部标签栏", "ボトムタブバー", "하단 탭 바"],
   "Navigation",
   "bottom_navigation",
-  "a bar box of equal tab columns, each an icon over its name: the chosen one on a pill (Material), tinted (iOS, icons only where the style shows no names), in a floating capsule, or raised on a tile with a lip (games)",
+  "a bar box pinned to the bottom of the screen, of equal tab columns, each an icon over its name: the chosen one on a pill (Material), tinted (iOS, icons only where the style shows no names), in a floating capsule (floating at the bottom), or raised on a tile with a lip (games)",
   [
     variant(
       "pill",
@@ -35,7 +36,7 @@ const tabBar = kit(
       ["图标背后胶囊", "アイコンの背後にピル", "아이콘 뒤 알약"],
       () =>
         hbox(
-          { surface: "bar", width: SCREEN, hugWidth: false, padX: 8, padY: 12, gap: 8, align: "start" },
+          { surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 8, padY: 12, gap: 8, align: "start" },
           TABS.map(([name, label], i) =>
             tabItem([
               box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 64, height: 32, hugWidth: false, hugHeight: false }, [icon(name, { filled: i === 0, color: i === 0 ? "default" : "muted" })], i === 0 ? { fill: "secondaryContainer", corners: round(16) } : {}),
@@ -51,7 +52,7 @@ const tabBar = kit(
       ["着色图标", "色付きアイコン", "색 아이콘"],
       (l) =>
         hbox(
-          { surface: "bar", width: SCREEN, hugWidth: false, padX: 8, padY: l.nav === "icononly" ? 12 : 6, gap: 0, align: "start" },
+          { surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 8, padY: l.nav === "icononly" ? 12 : 6, gap: 0, align: "start" },
           TABS.map(([name, label], i) => tabItem([icon(name, { size: 26, filled: true, color: i === 0 ? "primary" : "muted" }), ...(l.nav === "icononly" ? [] : [text(label, "tiny", { bold: i === 0, color: i === 0 ? "primary" : "muted" })])], 2)),
         ),
       { span: "screen", suits: (l) => l.nav === "plain" || l.nav === "icononly" || l.nav === "topline" },
@@ -60,17 +61,16 @@ const tabBar = kit(
       "floating",
       "Floating capsule",
       ["悬浮胶囊", "浮かぶカプセル", "떠 있는 캡슐"],
+      /* the capsule is the bar: it floats centered over the foot of the screen, the style's margin above it */
       () =>
-        hbox({ width: SCREEN, hugWidth: false, padX: 16, padY: 8, justify: "center" }, [
-          hbox(
-            { surface: "overlay", padX: 4, padY: 4, gap: 0 },
-            TABS.map(([name, label], i) =>
-              vbox({ align: "center", gap: 0, padX: 0, padY: 6, hugWidth: false, width: 76 }, [icon(name, { size: 24, filled: true, color: i === 0 ? "primary" : "default" }), text(label, "tiny", { bold: true, color: i === 0 ? "primary" : "default" })], i === 0 ? { fill: "surfaceContainerHighest", corners: round(26) } : {}),
-            ),
-            { corners: round(32) },
+        hbox(
+          { surface: "overlay", pin: "floatingBottom", padX: 4, padY: 4, gap: 0 },
+          TABS.map(([name, label], i) =>
+            vbox({ align: "center", gap: 0, padX: 0, padY: 6, hugWidth: false, width: 76 }, [icon(name, { size: 24, filled: true, color: i === 0 ? "primary" : "default" }), text(label, "tiny", { bold: true, color: i === 0 ? "primary" : "default" })], i === 0 ? { fill: "surfaceContainerHighest", corners: round(26) } : {}),
           ),
-        ]),
-      { span: "screen", suits: (l) => l.nav === "floating" },
+          { corners: round(32) },
+        ),
+      { suits: (l) => l.nav === "floating" },
     ),
     variant(
       "game",
@@ -78,7 +78,7 @@ const tabBar = kit(
       ["游戏凸起方块", "ゲームのタイル", "게임 타일"],
       () =>
         hbox(
-          { surface: "panel", width: SCREEN, hugWidth: false, padX: 8, padY: 8, gap: 6, align: "end" },
+          { surface: "panel", pin: "bottom", width: SCREEN, hugWidth: false, padX: 8, padY: 8, gap: 6, align: "end" },
           TABS.map(([name, label], i) =>
             i === 0
               ? vbox({ surface: "button", align: "center", gap: 2, padY: 10, hugWidth: false, width: 80 }, [icon(name, { size: 30, filled: true, color: "on-primary" }), text(label, "caption", { bold: true, color: "on-primary" })], { grow: true, corners: round(14), look: LIP })
@@ -98,14 +98,14 @@ const segmented = kit(
   ["分段标题栏", "セグメントヘッダー", "세그먼트 헤더"],
   "Navigation",
   "tab",
-  "a bar box holding the ways to view a screen: Material tabs (equal columns, the chosen one with a short line under it, a hairline below), an iOS segmented control (a grey track, the chosen segment on a raised white pill), or a row of capsule buttons",
+  "a bar box pinned to the top, holding the ways to view a screen: Material tabs (equal columns, the chosen one with a short line under it, a hairline below), an iOS segmented control (a grey track, the chosen segment on a raised white pill), or a row of capsule buttons",
   [
     variant(
       "tabs",
       "Tabs with an underline",
       ["下划线标签", "下線タブ", "밑줄 탭"],
       () =>
-        vbox({ surface: "bar", width: SCREEN, hugWidth: false, padX: 0, padY: 0, gap: 0 }, [
+        vbox({ surface: "bar", pin: "top", width: SCREEN, hugWidth: false, padX: 0, padY: 0, gap: 0 }, [
           hbox(
             { gap: 0, align: "start" },
             SEGMENTS.map((label, i) =>
@@ -121,7 +121,7 @@ const segmented = kit(
       "Segmented control",
       ["分段控件", "セグメントコントロール", "세그먼트 컨트롤"],
       () =>
-        hbox({ surface: "bar", width: SCREEN, hugWidth: false, padX: 16, padY: 8 }, [
+        hbox({ surface: "bar", pin: "top", width: SCREEN, hugWidth: false, padX: 16, padY: 8 }, [
           hbox(
             { padX: 2, padY: 2, gap: 0, hugWidth: false, width: 380 },
             SEGMENTS.map((label, i) => hbox({ justify: "center", padX: 8, padY: 6, hugWidth: false, width: 100 }, [text(label, "label", { bold: i === 0 })], { grow: true, ...(i === 0 ? { fill: "surface" as const, corners: round(7), look: { elevation: 1 as const } } : {}) })),
@@ -134,7 +134,7 @@ const segmented = kit(
       "capsules",
       "Capsule buttons",
       ["胶囊按钮", "カプセルボタン", "캡슐 버튼"],
-      () => hbox({ surface: "bar", width: SCREEN, hugWidth: false, padX: 16, padY: 8, gap: 8 }, SEGMENTS.map((label, i) => button(label, { variant: i === 0 ? "filled" : "tonal", size: "xs" }))),
+      () => hbox({ surface: "bar", pin: "top", width: SCREEN, hugWidth: false, padX: 16, padY: 8, gap: 8 }, SEGMENTS.map((label, i) => button(label, { variant: i === 0 ? "filled" : "tonal", size: "xs" }))),
       { span: "screen", suits: (l) => l.segmented === "capsules" || l.tabs === "pill" || l.tabs === "short" },
     ),
   ],
@@ -146,10 +146,10 @@ const toolbar = kit(
   ["工具栏组合", "ツールバー行", "툴바 행"],
   "Navigation",
   "tune",
-  "a floating rounded overlay box of icon buttons beside a larger tonal action (Material); a bar spanning the screen with its icon buttons spread out (iOS); or a desktop command bar of small labeled buttons parted by upright hairlines",
+  "a floating rounded overlay box of icon buttons beside a larger tonal action, floating at the bottom (Material); a bar pinned to the bottom with its icon buttons spread out (iOS); or a desktop command bar of small labeled buttons parted by upright hairlines",
   [
     variant("floating", "Floating, with an action", ["悬浮，带主操作", "浮かぶ・アクション付き", "떠 있음·동작 포함"], () =>
-      hbox({ gap: 8 }, [
+      hbox({ pin: "floatingBottom", gap: 8 }, [
         hbox({ surface: "overlay", padX: 8, padY: 8, gap: 4 }, [iconButton("undo", say("Undo", "撤销", "元に戻す", "실행 취소")), iconButton("redo", say("Redo", "重做", "やり直す", "다시 실행")), iconButton("crop", say("Crop", "裁剪", "切り抜き", "자르기"), { iconFill: true }), iconButton("tune", say("Adjust", "调整", "調整", "조정")), iconButton("share", T.share)], { corners: round(28) }),
         iconButton("check", T.done, { variant: "tonal", size: "md" }, { corners: round(16) }),
       ]),
@@ -159,7 +159,7 @@ const toolbar = kit(
       "Docked across",
       ["贴底通栏", "下部に固定", "하단 고정"],
       () =>
-        hbox({ surface: "bar", width: SCREEN, hugWidth: false, padX: 16, padY: 8, justify: "between" }, [iconButton("share", T.share), iconButton("favorite", T.like), iconButton("info", say("Info", "信息", "情報", "정보")), iconButton("delete", T.remove)]),
+        hbox({ surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 16, padY: 8, justify: "between" }, [iconButton("share", T.share), iconButton("favorite", T.like), iconButton("info", say("Info", "信息", "情報", "정보")), iconButton("delete", T.remove)]),
       { span: "screen", suits: isIosLike },
     ),
     variant(
@@ -309,13 +309,13 @@ const titleBar = kit(
   ["窗口标题栏", "ウィンドウのタイトルバー", "창 제목 표시줄"],
   "Desktop",
   "web_asset",
-  "a bar box across a window: an app icon and the title at the left and minimize / maximize / close caption buttons at the right (Windows); or the three traffic lights at the left with the title centered between two equal sides (Mac), or with a sidebar toggle and toolbar buttons",
+  "a bar box pinned to the top of a window: an app icon and the title at the left and minimize / maximize / close caption buttons at the right (Windows); or the three traffic lights at the left with the title centered between two equal sides (Mac), or with a sidebar toggle and toolbar buttons",
   [
     variant(
       "buttons",
       "Caption buttons at the right",
       ["右侧窗口按钮", "右にキャプションボタン", "오른쪽 창 버튼"],
-      () => hbox({ surface: "bar", width: 640, hugWidth: false, padX: 0, padY: 0, gap: 0 }, [hbox({ padX: 12, padY: 8, gap: 8 }, [icon("edit_note", { size: 16, color: "primary" }), text(WINDOW, "caption")]), push(), caption("remove"), caption("square", false), caption("close")]),
+      () => hbox({ surface: "bar", pin: "top", width: 640, hugWidth: false, padX: 0, padY: 0, gap: 0 }, [hbox({ padX: 12, padY: 8, gap: 8 }, [icon("edit_note", { size: 16, color: "primary" }), para(WINDOW, "caption", { maxLines: 1 }, { grow: true })], { grow: true }), caption("remove"), caption("square", false), caption("close")]),
       { suits: (l) => l.caption === "buttons" },
     ),
     variant(
@@ -323,7 +323,7 @@ const titleBar = kit(
       "Traffic lights, title centered",
       ["红绿灯，标题居中", "信号ボタン・中央タイトル", "신호등·가운데 제목"],
       () =>
-        hbox({ surface: "bar", width: 640, hugWidth: false, padX: 12, padY: 10, gap: 8 }, [
+        hbox({ surface: "bar", pin: "top", width: 640, hugWidth: false, padX: 12, padY: 10, gap: 8 }, [
           hbox({ gap: 0, hugWidth: false, width: 100 }, [lights()], { grow: true }),
           text(WINDOW, "caption", { bold: true }),
           hbox({ gap: 0, hugWidth: false, width: 100, hugHeight: false, height: 12, justify: "end" }, [], { grow: true }),
@@ -331,7 +331,7 @@ const titleBar = kit(
       { suits: (l) => l.caption === "lights" },
     ),
     variant("toolbar", "Traffic lights and a toolbar", ["红绿灯与工具栏", "信号ボタンとツールバー", "신호등과 도구 모음"], () =>
-      hbox({ surface: "bar", width: 640, hugWidth: false, padX: 12, padY: 6, gap: 8 }, [lights(), iconButton("view_sidebar", say("Sidebar", "侧边栏", "サイドバー", "사이드바"), { size: "xs" }), text(say("Notes", "笔记", "メモ", "메모"), "label", { bold: true }), push(), iconButton("search", T.search, { size: "xs" }), iconButton("share", T.share, { size: "xs" }), iconButton("more_horiz", T.more, { size: "xs" })]),
+      hbox({ surface: "bar", pin: "top", width: 640, hugWidth: false, padX: 12, padY: 6, gap: 8 }, [lights(), iconButton("view_sidebar", say("Sidebar", "侧边栏", "サイドバー", "사이드바"), { size: "xs" }), para(say("Notes", "笔记", "メモ", "메모"), "label", { bold: true, maxLines: 1 }, { grow: true }), iconButton("search", T.search, { size: "xs" }), iconButton("share", T.share, { size: "xs" }), iconButton("more_horiz", T.more, { size: "xs" })]),
     ),
   ],
 );
@@ -345,13 +345,13 @@ const statusRow = kit(
   ["状态栏", "ステータス行", "상태 행"],
   "Desktop",
   "info",
-  "a thin row of small icon-and-words items: an editor's status bar on the primary color (branch, sync, problems at the left; cursor, encoding, language at the right); a phone's (the time, then signal, Wi-Fi and battery); or a game's chip of ping, frame rate and battery",
+  "a thin row of small icon-and-words items: an editor's status bar pinned to the bottom on the primary color (branch, sync, problems at the left; cursor, encoding, language at the right); a phone's pinned to the top (the time, then signal, Wi-Fi and battery); or a game's chip of ping, frame rate and battery",
   [
     variant(
       "phone",
       "Phone status bar",
       ["手机状态栏", "スマホのステータスバー", "휴대폰 상태 표시줄"],
-      () => hbox({ width: SCREEN, hugWidth: false, padX: 24, padY: 12, justify: "between" }, [text("9:41", "label", { bold: true }), hbox({ gap: 6 }, [icon("signal_cellular_alt", { size: 18, filled: true }), icon("wifi", { size: 18, filled: true }), icon("battery_full", { size: 18, filled: true })])]),
+      () => hbox({ pin: "top", width: SCREEN, hugWidth: false, padX: 24, padY: 12, justify: "between" }, [text("9:41", "label", { bold: true }), hbox({ gap: 6 }, [icon("signal_cellular_alt", { size: 18, filled: true }), icon("wifi", { size: 18, filled: true }), icon("battery_full", { size: 18, filled: true })])]),
       { span: "screen" },
     ),
     variant(
@@ -359,7 +359,8 @@ const statusRow = kit(
       "Editor status bar",
       ["编辑器状态栏", "エディタのステータスバー", "편집기 상태 표시줄"],
       () =>
-        hbox({ width: 640, hugWidth: false, padX: 8, padY: 3, gap: 14 }, [status("account_tree", "main"), status("sync", ""), status("cancel", "0"), status("warning", "2"), push(), status("", say("Ln 12, Col 8", "行 12，列 8", "12 行、8 列", "줄 12, 열 8")), status("", say("UTF-8", "UTF-8", "UTF-8", "UTF-8")), status("", say("TypeScript", "TypeScript", "TypeScript", "TypeScript"))], { fill: "primary" }),
+        /* the cursor's place takes the room between the two ends, and is the first to be cut short on a narrow screen */
+        hbox({ pin: "bottom", width: 640, hugWidth: false, padX: 8, padY: 3, gap: 14 }, [status("account_tree", "main"), status("sync", ""), status("cancel", "0"), status("warning", "2"), para(say("Ln 12, Col 8", "行 12，列 8", "12 行、8 列", "줄 12, 열 8"), "caption", { color: "on-primary", align: "end", maxLines: 1 }, { grow: true }), status("", say("UTF-8", "UTF-8", "UTF-8", "UTF-8")), status("", say("TypeScript", "TypeScript", "TypeScript", "TypeScript"))], { fill: "primary" }),
       { suits: isDense },
     ),
     variant(

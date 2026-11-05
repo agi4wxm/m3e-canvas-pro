@@ -101,6 +101,7 @@ function Row({ icon, label, p, children }: { icon: string; label: string; p: Pal
 export function MobileInspector({
   item,
   palette: p,
+  inFlow,
   onChange,
   onDelete,
   onDuplicate,
@@ -108,6 +109,8 @@ export function MobileInspector({
 }: {
   item: Item;
   palette: Palette;
+  /** a layout places the part */
+  inFlow?: boolean;
   onChange: (patch: Partial<Item>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -127,7 +130,7 @@ export function MobileInspector({
         <IconBtn icon="delete" p={p} danger onClick={onDelete} title={t("delete", lang)} size={44} />
         <IconBtn icon="check" p={p} on onClick={onClose} title={t("done", lang)} size={44} />
       </div>
-      <ComponentProps item={item} palette={p} onChange={onChange} />
+      <ComponentProps item={item} palette={p} onChange={onChange} inFlow={inFlow} />
       {def?.appearance && (
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
           <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />

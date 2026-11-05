@@ -79,13 +79,13 @@ const buyBar = kit(
   ["购买栏", "購入バー", "구매 바"],
   "Commerce",
   "shopping_cart_checkout",
-  "a bar box at the foot of the screen: the total (a muted word over the sum) and a filled checkout button at the end; a shop's product bar (store and cart icons over words, then Add to cart and Buy now side by side); or a cart's bar with a select-all check, the total in red and a checkout button with the count",
+  "a bar box pinned to the foot of the screen: the total (a muted word over the sum) and a filled checkout button at the end; a shop's product bar (store and cart icons over words, then Add to cart and Buy now side by side); or a cart's bar with a select-all check, the total in red and a checkout button with the count",
   [
     variant(
       "total",
       "Total and checkout",
       ["合计与结算", "合計と購入", "합계와 결제"],
-      (l) => hbox({ surface: "bar", width: SCREEN, hugWidth: false, padX: 16, padY: 10, gap: 12 }, [vbox({ gap: 0 }, [muted(say("Total", "合计", "合計", "합계"), "caption"), text(TOTAL, "title", { bold: true, color: priceColor(l) })]), push(), button(say("Checkout", "去结算", "購入手続きへ", "결제하기"), { variant: "filled", size: "md" })]),
+      (l) => hbox({ surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 16, padY: 10, gap: 12 }, [vbox({ gap: 0 }, [muted(say("Total", "合计", "合計", "합계"), "caption"), text(TOTAL, "title", { bold: true, color: priceColor(l) })]), push(), button(say("Checkout", "去结算", "購入手続きへ", "결제하기"), { variant: "filled", size: "md" })]),
       { span: "screen" },
     ),
     variant(
@@ -93,7 +93,7 @@ const buyBar = kit(
       "Add to cart and Buy now",
       ["加入购物车和立即购买", "カートに入れる・今すぐ購入", "장바구니·바로 구매"],
       () =>
-        hbox({ surface: "bar", width: SCREEN, hugWidth: false, padX: 8, padY: 8, gap: 4 }, [barIcon("storefront", say("Store", "店铺", "ショップ", "상점")), barIcon("shopping_cart", say("Cart", "购物车", "カート", "장바구니")), push(), button(say("Add to cart", "加入购物车", "カートに入れる", "장바구니 담기"), { variant: "tonal", size: "sm" }), button(say("Buy now", "立即购买", "今すぐ購入", "바로 구매"), { variant: "filled", size: "sm" })]),
+        hbox({ surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 8, padY: 8, gap: 4 }, [barIcon("storefront", say("Store", "店铺", "ショップ", "상점")), barIcon("shopping_cart", say("Cart", "购物车", "カート", "장바구니")), push(), button(say("Add to cart", "加入购物车", "カートに入れる", "장바구니 담기"), { variant: "tonal", size: "sm" }), button(say("Buy now", "立即购买", "今すぐ購入", "바로 구매"), { variant: "filled", size: "sm" })]),
       { span: "screen", suits: shopLike },
     ),
     variant(
@@ -101,7 +101,7 @@ const buyBar = kit(
       "Select all and checkout",
       ["全选与结算", "すべて選択と購入", "전체 선택과 결제"],
       (l) =>
-        hbox({ surface: "bar", width: SCREEN, hugWidth: false, padX: 16, padY: 10, gap: 8 }, [atom("checkbox", { label: say("All", "全选", "すべて", "전체"), checked: true }), push(), muted(say("Total:", "合计：", "合計：", "합계:")), text(TOTAL, "heading", { bold: true, color: priceColor(l) }), button(say("Checkout (2)", "结算(2)", "購入 (2)", "결제 (2)"), { variant: "filled", size: "sm" })]),
+        hbox({ surface: "bar", pin: "bottom", width: SCREEN, hugWidth: false, padX: 16, padY: 10, gap: 8 }, [atom("checkbox", { label: say("All", "全选", "すべて", "전체"), checked: true }), para(say("Total:", "合计：", "合計：", "합계:"), "body", { color: "muted", align: "end", maxLines: 1 }, { grow: true }), text(TOTAL, "heading", { bold: true, color: priceColor(l) }), button(say("Checkout (2)", "结算(2)", "購入 (2)", "결제 (2)"), { variant: "filled", size: "sm" })]),
       { span: "screen" },
     ),
   ],

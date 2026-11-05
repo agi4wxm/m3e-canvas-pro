@@ -150,7 +150,7 @@ function ScenePaint({ item, values, p }: { item: Item; values: ReturnType<typeof
 }
 
 /** the controls of a part's props, one per prop the part shows in this state */
-export function ComponentProps({ item, palette: p, onChange, frame, layoutApart }: { item: Item; palette: Palette; onChange: (patch: Partial<Item>) => void; frame?: Frame | null; /** the panel shows auto layout in a section of its own */ layoutApart?: boolean }) {
+export function ComponentProps({ item, palette: p, onChange, frame, layoutApart, inFlow }: { item: Item; palette: Palette; onChange: (patch: Partial<Item>) => void; frame?: Frame | null; /** the panel shows auto layout in a section of its own */ layoutApart?: boolean; /** a layout places the part: where it would stand on the screen is not its to say */ inFlow?: boolean }) {
   const lang = useLang();
   const behavior = useContext(BehaviorContext);
   const strict = useContext(StyleRulesContext);
@@ -166,8 +166,8 @@ export function ComponentProps({ item, palette: p, onChange, frame, layoutApart 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {def.props
-        /* auto layout has a control of its own (components/FlowPanel.tsx) */
-        .filter((d) => (!d.when || d.when(values)) && !(strict && styleOwnsProp(def.slug, d.key)) && !(def.flow && FLOW_KEYS.has(d.key)))
+        /* auto layout has a control of its own (components/FlowPanel.tsx); a part a layout places has no place of its own on the screen */
+        .filter((d) => (!d.when || d.when(values)) && !(strict && styleOwnsProp(def.slug, d.key)) && !(def.flow && FLOW_KEYS.has(d.key)) && !(inFlow && d.screen))
         .map((d) =>
           /* the row a part has chosen is picked by its name, not by counting: a dock's tab is also what the canvas shows and what a drop lands on */
           d.key === def.selectKey && d.kind === "number" && rowsToPick ? (
@@ -271,7 +271,7 @@ export function ComponentInspector({
       {tab === "design" && (
         <div role="tabpanel" id="part-panel-design" aria-labelledby="part-tab-design">
           <Section id="part-props" icon="tune" title={t("style", lang)} p={p}>
-            <ComponentProps item={item} palette={p} onChange={onChange} frame={frame} layoutApart />
+            <ComponentProps item={item} palette={p} onChange={onChange} frame={frame} layoutApart inFlow={inFlow} />
           </Section>
           {def.appearance && (
             <Section id="part-appearance" icon="format_paint" title={t("appearance", lang)} p={p}>
