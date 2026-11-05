@@ -237,6 +237,19 @@ describe("suggest auto layout", () => {
     expect(made.groups.filter((g) => g.inFlow === "card").map((g) => g.id)).toEqual(["a", "b"]);
   });
 
+  it("keeps sections apart: parts close together are a column of their own inside the one that spaces the sections", () => {
+    n = 0;
+    const gs = [at4("a", "button", 16, 0), at4("b", "button", 16, 56), at4("c", "button", 16, 200)];
+    const w = { a: 100, "a:h": 40, b: 100, "b:h": 40, c: 100, "c:h": 40 };
+    const made = suggestAutoLayout(gs, new Set(["a", "b", "c"]), w, newId)!;
+    const outer = made.groups.find((g) => g.id.startsWith("box") && !g.inFlow)!;
+    const inner = made.groups.find((g) => g.inFlow === outer.id && g.id.startsWith("box"))!;
+    expect(outer.items[0].props).toMatchObject({ layout: "column", gap: 104 });
+    expect(inner.items[0].props).toMatchObject({ layout: "column", gap: 16 });
+    expect(made.groups.filter((g) => g.inFlow === inner.id).map((g) => g.id)).toEqual(["a", "b"]);
+    expect(made.groups.find((g) => g.id === "c")!.inFlow).toBe(outer.id);
+  });
+
   it("has nothing to say about one part alone", () => {
     const gs = [at4("a", "button", 0, 0)];
     expect(suggestAutoLayout(gs, new Set(["a"]), { a: 100, "a:h": 40 }, newId)).toBeNull();

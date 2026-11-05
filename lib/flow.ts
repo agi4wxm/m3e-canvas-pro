@@ -768,10 +768,19 @@ function suggest(s: Shape, snap: (g: number) => number, newId: () => string): st
   if (s.kind === "stack") {
     const kids = [...s.kids].sort((a, b) => boundsOf(a).t - boundsOf(b).t);
     const rects = kids.map(boundsOf);
-    const gap = snap(median(rects.slice(1).map((r, i) => Math.max(0, r.t - rects[i].b))));
+    const gaps = rects.slice(1).map((r, i) => Math.max(0, r.t - rects[i].b));
+    const runs = runsOf(gaps);
     /* a row that keeps its ends apart takes the column's width, as Figma's "fill container" */
-    const inner = kids.map((k) => suggest(k, snap, newId)).map((k) => (typeof k !== "string" && k.props.justify === "between" ? { ...k, size: { w: "fill" as const } } : k));
-    return { id: newId(), rect, props: { layout: "column", gap, align: alignIntent(rects, "x") }, kids: inner };
+    const filled = (k: string | Suggested) => (typeof k !== "string" && k.props.justify === "between" ? { ...k, size: { w: "fill" as const } } : k);
+    const column = (members: number[], gap: number): Suggested => {
+      const rs = members.map((i) => rects[i]);
+      return { id: newId(), rect: union(rs), props: { layout: "column", gap, align: alignIntent(rs, "x") }, kids: members.map((i) => filled(suggest(kids[i], snap, newId))) };
+    };
+    if (runs.length === 1) return column(runs[0], snap(median(gaps)));
+    /* sections well apart: a column of them, each section a column of its own with its own gap */
+    const sections = runs.map((run) => (run.length === 1 ? filled(suggest(kids[run[0]], snap, newId)) : column(run, snap(median(run.slice(1).map((i) => gaps[i - 1]))))));
+    const between = snap(median(runs.slice(1).map((run) => gaps[run[0] - 1])));
+    return { id: newId(), rect, props: { layout: "column", gap: between, align: alignIntent(runs.map((run) => union(run.map((i) => rects[i]))), "x") }, kids: sections };
   }
   const kids = [...s.kids].sort((a, b) => boundsOf(a).l - boundsOf(b).l);
   const rects = kids.map(boundsOf);

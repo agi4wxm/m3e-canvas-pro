@@ -297,22 +297,33 @@ function stackBlock(kids: Shape[], o: ArrangeOptions): Block {
   const sorted = [...kids].sort((a, b) => boundsOf(a).t - boundsOf(b).t);
   const rects = sorted.map(boundsOf);
   const blocks = sorted.map((k) => blockOf(k, o));
-  const gap = o.snap(median(gapsAlong(rects, "y")));
+  const steps = stackGaps(rects, o.snap);
   const intent = alignIntent(rects, "x");
   const width = Math.max(...blocks.map((b) => b.w));
-  const height = blocks.reduce((n, b) => n + b.h, 0) + gap * (blocks.length - 1);
+  const height = blocks.reduce((n, b) => n + b.h, 0) + steps.reduce((n, g) => n + g, 0);
   return {
     w: width,
     h: height,
     base: blocks[0].base,
     place: (l, t, out) => {
       let y = t;
-      for (const b of blocks) {
+      blocks.forEach((b, i) => {
         b.place(l + offsetIn(width, b.w, intent), y, out);
-        y += b.h + gap;
-      }
+        y += b.h + (steps[i] ?? 0);
+      });
     },
   };
+}
+
+/** The gaps down a stack: one gap inside each run of it, and one between its runs, where a gap far wider than the
+ *  narrowest marks a new section (a header and its list, then a grid well below). Each from the scale. */
+export function stackGaps(rects: Rect[], snap: (gap: number) => number): number[] {
+  const gaps = gapsAlong(rects, "y");
+  const runs = runsOf(gaps);
+  const inside = runs.map((run) => snap(median(run.slice(1).map((i) => gaps[i - 1]))));
+  const between = snap(median(runs.slice(1).map((run) => gaps[run[0] - 1])));
+  const runOf = runs.flatMap((run, j) => run.map(() => j));
+  return gaps.map((_, i) => (runOf[i] === runOf[i + 1] ? inside[runOf[i]] : between));
 }
 
 /** The vertical place of each block in a row, by the line the row's members come closest to sharing. */

@@ -149,7 +149,7 @@ function ScenePaint({ item, values, p }: { item: Item; values: ReturnType<typeof
 }
 
 /** the controls of a part's props, one per prop the part shows in this state */
-export function ComponentProps({ item, palette: p, onChange, frame }: { item: Item; palette: Palette; onChange: (patch: Partial<Item>) => void; frame?: Frame | null }) {
+export function ComponentProps({ item, palette: p, onChange, frame, layoutApart }: { item: Item; palette: Palette; onChange: (patch: Partial<Item>) => void; frame?: Frame | null; /** the panel shows auto layout in a section of its own */ layoutApart?: boolean }) {
   const lang = useLang();
   const behavior = useContext(BehaviorContext);
   const strict = useContext(StyleRulesContext);
@@ -202,6 +202,7 @@ export function ComponentProps({ item, palette: p, onChange, frame }: { item: It
           ),
         )}
       {def.slug === "scene" && <ScenePaint item={item} values={values} p={p} />}
+      {def.flow && !layoutApart && <FlowControl item={item} onChange={onChange} p={p} />}
       {def.slug === "fab" && !!values.s("label") && !!values.s("icon") && <Toggle on={!!item.collapseOnScroll} onChange={(collapseOnScroll) => onChange({ collapseOnScroll: collapseOnScroll || undefined })} label={t("fabScrollSwitch", lang)} p={p} />}
     </div>
   );
@@ -266,7 +267,7 @@ export function ComponentInspector({
       {tab === "design" && (
         <div role="tabpanel" id="part-panel-design" aria-labelledby="part-tab-design">
           <Section id="part-props" icon="tune" title={t("style", lang)} p={p}>
-            <ComponentProps item={item} palette={p} onChange={onChange} frame={frame} />
+            <ComponentProps item={item} palette={p} onChange={onChange} frame={frame} layoutApart />
           </Section>
           {def.appearance && (
             <Section id="part-appearance" icon="format_paint" title={t("appearance", lang)} p={p}>

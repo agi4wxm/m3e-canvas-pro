@@ -4496,15 +4496,6 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const joinHint = carriedGroups && joinTargetOf(carriedGroups.groups, carriedGroups.id, widths);
   const flowHint = carriedGroups && !joinHint ? flowHostAt(carriedGroups.groups, carriedGroups.id, widths) : null;
   const flowHintBox = flowHint && groupBounds(flowHint, widths);
-  const visibleWorld = (() => {
-    const r = canvasRef.current?.getBoundingClientRect();
-    return {
-      l: -view.x / view.z,
-      t: -view.y / view.z,
-      w: (r?.width ?? 0) / view.z,
-      h: (r?.height ?? 0) / view.z,
-    };
-  })();
 
   return (
     <LangContext.Provider value={lang}>

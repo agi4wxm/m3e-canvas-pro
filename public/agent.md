@@ -136,12 +136,13 @@ Fields any part may carry beside `props`:
 - `bind`: `{ "<prop key>": "<variable id>" }`, the props that follow a variable. An input (`input`, `text-field`, `textarea`, `switch`, `checkbox`, `slider`, `select`, `radio-group`) also writes to the variable its value prop is bound to.
 - `fill`: a background role, the same names as a screen's `bg`. `textColor`: `onSurface | onSurfaceVariant | primary | secondary | onPrimaryContainer | onSecondaryContainer | onTertiaryContainer | inverseOnSurface`. What is inside follows a fill by itself, so set `textColor` only to differ.
 - `flowFill: true`: in an auto layout, the part takes the room left along the run.
+- In an auto layout, also: `flowSize: { "w": "fixed" | "hug" | "fill", "h": … }` sizes the part on each axis (`hug` only for a container with a layout of its own); `alignSelf: "start" | "center" | "end" | "stretch" | "baseline"` overrides the container's `align` for this part; `flowAbsolute: true` leaves it where it is put, over the layout (a badge on a card); `flowMin` / `flowMax: { "w", "h" }` bound what the layout makes it; `flowSpan: 2` takes two columns of a grid.
 
 Fields a group may carry: `name`, what the layers and the prompt call it; `hidden: true` starts it hidden, with no hole left in an auto layout; `showWhen`, a condition, shows it only while that holds; `pane`, a number, is the tab of the `dock` it stands on; `inFlow`, see below.
 
 #### Auto layout
 
-Prefer this to placing parts one by one: it stays tidy when text changes, and the code comes out as nested flex and grid. `container`, `dock`, `supporting-pane`, `window` and `custom` take `"layout": "row" | "column" | "grid"` in `props`, with `gap`, `padX`, `padY`, `align` (`start | center | end | stretch`), `justify` (`start | center | end | between`), `wrap` (a row), `columns` (a grid), `hugWidth` and `hugHeight`, which size the container to its contents. `grid-view` is always a grid.
+Prefer this to placing parts one by one: it stays tidy when text changes, and the code comes out as nested flex and grid. `container`, `dock`, `supporting-pane`, `window` and `custom` take `"layout": "row" | "column" | "grid"` in `props`, with `gap`, `padX`, `padY`, `align` (`start | center | end | stretch | baseline`), `justify` (`start | center | end | between | around | evenly`), `wrap` (a row), `columns` (a grid), `hugWidth` and `hugHeight`, which size the container to its contents. `gapY` is the gap between the lines of a wrapping row or the rows of a grid, and `padTop`, `padRight`, `padBottom`, `padLeft` pad one side; left out, `gap`, `padX` and `padY` say them. `grid-view` is always a grid.
 
 Each part in it names it by group id with `inFlow`, in the order the parts come in the document. The editor works out their `x` and `y`, so any values do; the container must come before them. A container may stand in another.
 
