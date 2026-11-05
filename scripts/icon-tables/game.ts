@@ -167,7 +167,6 @@ export default {
   "water-drop": "water-drop",
   "wb-sunny": "sun",
   whatshot: "flame",
-  wifi: "wifi-router",
   work: "backpack",
   "workspace-premium": "laurel-crown",
 } satisfies IconTable;

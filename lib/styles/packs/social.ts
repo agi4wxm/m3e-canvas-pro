@@ -20,10 +20,29 @@ export default definePack({
   control: "small",
   pill: "round",
   tokens: { navOn: "var(--md-sys-color-on-surface)", tabOn: "var(--md-sys-color-on-surface)", toggleOn: "#0095F6", primaryText: "#00376B" },
-  recipes: { button: "flat", surface: "plain", tabs: "underline", toggle: "ios", slider: "thin", nav: "icononly", field: "soft", bar: "line", meter: "thin", feedback: "dim", list: "plain", dialog: "alert", card: "flat", segmented: "capsules", search: "filled", input: "filled", progress: "thin", row: "arrow", divider: "hairline", menu: "ios", sheet: "grabber", tooltip: "dark", fab: "round", badge: "pill", scroll: "hidden" },
+  recipes: { button: "flat", surface: "plain", tabs: "underline", toggle: "ios", slider: "thin", nav: "icononly", field: "soft", bar: "center", appbar: "center", meter: "thin", feedback: "dim", list: "plain", dialog: "alert", card: "flat", segmented: "capsules", search: "filled", input: "filled", progress: "thin", row: "arrow", divider: "hairline", menu: "ios", sheet: "grabber", tooltip: "dark", fab: "round", badge: "pill", scroll: "hidden" },
   art: "candid bright lifestyle photograph, natural color, square or vertical crop",
   ux: { margin: 16, gap: 12, tight: 0, nav: "bottom", bleed: ["image", "video"] },
   layout: { zh: "内容从边到边，图片通栏，几乎不用卡片和分隔；颜色只给主按钮；底栏只有图标没有文字。", en: "Content edge to edge with full-width pictures, hardly any cards or lines; color only on the main action; a bottom bar of icons with no words." },
-  type: { ...TITLES([20, 24, 700, 0], [16, 20, 600, 0], [14, 18, 600, 0]), ...BODIES([14, 18, 400, 0], [14, 18, 400, 0], [12, 16, 400, 0]), ...LABELS([14, 18, 600, 0], [12, 16, 600, 0], [11, 13, 500, 0]) },
-  css: "",
+  type: { "display-small": [32, 40, 700, -0.4], "headline-medium": [28, 34, 700, -0.2], "headline-small": [24, 30, 700, 0], ...TITLES([20, 24, 700, 0], [16, 20, 600, 0], [14, 18, 600, 0]), ...BODIES([14, 18, 400, 0], [14, 18, 400, 0], [12, 16, 400, 0]), ...LABELS([14, 18, 600, 0], [12, 16, 600, 0], [11, 13, 500, 0]) },
+  /* A story not yet seen has the gradient ring, a seen one a grey hairline. A post runs edge to edge with no corners:
+     its header, the picture, the row of outline icons, then the caption. Icons are black, never the accent; the blue is
+     for Follow and links, the grey capsule for Edit profile. */
+  css: `[data-slot=app-bar][data-size=small] [data-slot=app-bar-title]{font-size:16px;line-height:22px;font-weight:700}
+[data-button]:not([data-size^=icon]){font-weight:600}
+[data-slot=story-row-ring]:not([data-seen],[data-own]){box-shadow:none;padding:2px;border:2px solid transparent;background:linear-gradient(var(--md-sys-color-surface),var(--md-sys-color-surface)) padding-box,linear-gradient(45deg,#FEDA75,#FA7E1E 28%,#D62976 58%,#962FBF 82%,#4F5BD5) border-box}
+[data-slot=story-row-ring][data-seen]{box-shadow:none;padding:3px;border:1px solid var(--md-sys-color-outline-variant)}
+[data-slot=post-card]:is([data-slot]){border-radius:0;background-color:var(--md-sys-color-surface);padding-inline:0;gap:10px}
+:is([data-slot=post-card-header],[data-slot=post-card-description],[data-slot=post-card-actions]){margin-inline:12px}
+[data-slot=post-card-media]{order:1;--md-sys-shape-corner-large:0px}
+[data-slot=post-card-actions]{order:2}
+[data-slot=post-card-description]{order:3}
+[data-slot=avatar-fallback][class~="bg-primary-container"]{background-color:var(--md-sys-color-surface-container-highest);color:var(--md-sys-color-on-surface-variant)}
+:is([data-slot=fab],[data-slot=extended-fab],[data-slot=fab-menu-trigger])[class~="bg-primary-container"]{background-color:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary)}
+[data-button][data-size^=icon][class~="text-primary"]{color:var(--md-sys-color-on-surface)}
+[data-slot=chat-composer]{border-top:0;background-color:transparent}
+[data-slot=chat-composer-field] :is([data-slot=input],[data-slot=textarea]){border-radius:999px}
+[data-slot=sidebar-menu-button]{height:48px;border-radius:8px;padding-inline:12px;gap:16px;font-size:16px;font-weight:400;color:var(--md-sys-color-on-surface)}
+[data-slot=sidebar-menu-button] [data-slot=icon]{color:var(--md-sys-color-on-surface)}
+[data-slot=sidebar-menu-button][data-active]{background-color:transparent;font-weight:700}`,
 });

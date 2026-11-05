@@ -1,7 +1,7 @@
 import { BODIES, LABELS, TITLES, definePack, roles, say } from "../types";
 
 /* OpenAI's Codex, in the web app and the command line: neutral black and white, thin lines, compact rows, monospace
- * for the headings and the figures that are code. From memory of its screens; its own faces are not free, so Inter and
+ * where the words are code (keys, diffs, branch names). From memory of its screens; its own faces are not free, so Inter and
  * JetBrains Mono stand in for them. */
 export default definePack({
   key: "codex",
@@ -16,10 +16,9 @@ export default definePack({
   dark: roles({ p: ["#F2F2F2", "#0D0D0D"], pc: ["#2A2A2A", "#ECECEC"], s: ["#A3A3A3", "#0D0D0D"], sc: ["#262626", "#ECECEC"], t: ["#3FB950", "#04210E"], tc: ["#0F2E1A", "#C6F2D3"], bg: ["#0D0D0D", "#141414", "#171717", "#212121", "#2A2A2A"], text: ["#ECECEC", "#A3A3A3"], line: ["#7A7A7A", "#2A2A2A"] }),
   shape: "rounded",
   font: "inter",
-  display: "mono",
   icons: "lucide",
   motion: "standard",
-  control: "small",
+  control: "pill",
   pill: "round",
   compact: true,
   tokens: { navOn: "var(--md-sys-color-on-surface)", tabOn: "var(--md-sys-color-on-surface)", toggleOn: "#3FB950" },
@@ -31,9 +30,19 @@ export default definePack({
     en: "A large prompt box on top to describe a task, with repository and branch pickers beside it; below, a compact task list, each row a title, the repository and monospace diff counts (green added, red removed), parted by hairlines; a task opens to a log at the left and the diff at the right.",
   },
   type: { "headline-large": [32, 40, 600, -0.5], "headline-medium": [26, 32, 600, -0.4], "headline-small": [20, 28, 600, -0.2], ...TITLES([16, 22, 600, 0], [14, 20, 600, 0], [13, 18, 600, 0]), ...BODIES([14, 20, 400, 0], [13, 18, 400, 0], [12, 16, 400, 0]), ...LABELS([13, 18, 500, 0], [12, 16, 500, 0], [11, 14, 500, 0]) },
-  /* what is code is set as code: keys, counts, tags, the figures at a row's end */
-  css: `:is([data-slot=badge],[data-slot=kbd],[data-slot=code-block],[data-slot=file-diff],[data-slot$="-meta"],[data-slot$="-value"]){font-family:var(--st-display,ui-monospace,monospace)}
+  /* Only what is code is set as code: keys, code, diffs. The rest is the sans of ChatGPT, whose web app Codex lives in:
+     capsule buttons, a grey bubble for what the person wrote and plain text for the agent's answer. */
+  css: `:is([data-slot=kbd],[data-slot=code-block],[data-slot=file-diff]){font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 [data-slot=chat-composer]{border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--md-sys-shape-corner-large);background-color:var(--md-sys-color-surface-container-low)}
 [data-slot=chat-composer-field] :is([data-slot=input],[data-slot=textarea]){border:0;background-color:transparent;box-shadow:none}
-[data-slot=chat-composer-send]{border-radius:999px}`,
+[data-slot=chat-composer-send]{border-radius:999px}
+:is([data-slot=fab],[data-slot=extended-fab],[data-slot=fab-menu-trigger])[class~="bg-primary-container"]{background-color:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary)}
+:is([data-slot=fab],[data-slot=fab-menu-trigger],[data-slot=extended-fab]){border-radius:999px}
+[data-slot=sidebar-menu-button]{height:32px;border-radius:8px;padding-inline:8px;gap:8px;font-size:13px;color:var(--md-sys-color-on-surface-variant)}
+[data-slot=sidebar-menu-button] [data-slot=icon]{width:16px;height:16px}
+[data-slot=sidebar-menu-button][data-active]{background-color:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface)}
+[data-slot=bubble]:is([data-variant=default],[data-variant=secondary],[data-variant=muted],[data-variant=tinted]) [data-slot=bubble-content]{background-color:var(--md-sys-color-surface-container-high);color:var(--md-sys-color-on-surface);border-radius:18px}
+[data-slot=message][data-align=start] [data-slot=message-avatar]{display:none}
+[data-slot=message][data-align=start] [data-slot=bubble]{max-width:100%}
+[data-slot=message][data-align=start] [data-slot=bubble-content]{background-color:transparent;padding:0;border-radius:0}`,
 });

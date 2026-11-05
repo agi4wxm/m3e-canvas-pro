@@ -64,9 +64,9 @@ const CSS = `
 [data-slot=level-map]${W}{${panel}}
 [data-slot=level-map-line]{stroke:${mix("on-surface", 18)};stroke-width:2px}
 [data-slot=level-map-line][data-done]{stroke:${GOLD}}
-[data-slot=level-map-node]${W}{background-color:${role("surface-container")};color:${role("secondary")};box-shadow:inset 0 0 0 1px ${GOLD},0 0 0 3px ${mix("surface-container-low", 90)},0 0 0 4px ${mix("primary-container", 35)};outline:0;font-weight:600}
-[data-slot=level-map-node][data-state=current]${W}{background-color:${role("primary")};color:${role("on-primary")};box-shadow:inset 0 0 0 2px ${role("primary")},inset 0 0 0 3px ${mix("on-primary", 25)},0 0 0 4px ${mix("primary-container", 45)},0 0 16px 4px rgb(245 192 74/.45)}
-[data-slot=level-map-node][data-state=locked]${W}{background-color:${mix("surface-container-low", 80)};color:${role("on-surface-variant")};box-shadow:inset 0 0 0 1px ${mix("on-surface", 18)}}
+[data-slot=level-map-cell]${W}{background-color:${role("surface-container")};color:${role("secondary")};box-shadow:inset 0 0 0 1px ${GOLD},0 0 0 3px ${mix("surface-container-low", 90)},0 0 0 4px ${mix("primary-container", 35)};outline:0;font-weight:600}
+[data-slot=level-map-cell][data-current]${W}{background-color:${role("primary")};color:${role("on-primary")};box-shadow:inset 0 0 0 2px ${role("primary")},inset 0 0 0 3px ${mix("on-primary", 25)},0 0 0 4px ${mix("primary-container", 45)},0 0 16px 4px rgb(245 192 74/.45)}
+[data-slot=level-map-cell][data-locked]${W}{background-color:${mix("surface-container-low", 80)};color:${role("on-surface-variant")};box-shadow:inset 0 0 0 1px ${mix("on-surface", 18)}}
 [data-slot=level-map-stars]{color:${role("tertiary")}}
 
 [data-slot=reward-track-cell]${W}{${PURPLE};color:#3B4255;font-weight:600}
@@ -112,21 +112,21 @@ const CSS = `
 [data-slot=game-board-cell][data-mark]${W}{background-color:${mix("primary-container", 16)};text-shadow:0 0 10px rgb(245 192 74/.6)}
 [data-slot=game-board-cell][aria-pressed=true]${W}{background-color:${role("primary")};color:${role("on-primary")}}
 
-[data-slot=wheel-disc]${W}{--md-sys-color-surface-container-high:#2A3042;--md-sys-color-surface-container-low:#3B4255;border:1px solid ${GOLD};box-shadow:0 0 0 5px rgb(20 24 36/.85),0 0 0 6px ${mix("primary-container", 60)},0 0 24px rgb(245 192 74/.25)}
+[data-slot=wheel-track]${W}{--md-sys-color-surface-container-high:#2A3042;--md-sys-color-surface-container-low:#3B4255;border:1px solid ${GOLD};box-shadow:0 0 0 5px rgb(20 24 36/.85),0 0 0 6px ${mix("primary-container", 60)},0 0 24px rgb(245 192 74/.25)}
 [data-slot=wheel-label]{color:#ECE5D8}
-[data-slot=wheel-pointer]{top:-10px;z-index:2;border-top-color:${GOLD};filter:drop-shadow(0 0 4px rgb(245 192 74/.6))}
+[data-slot=wheel-indicator]{top:-10px;z-index:2;border-top-color:${GOLD};filter:drop-shadow(0 0 4px rgb(245 192 74/.6))}
 [data-slot=grid-wheel-cell]${W}{${PURPLE};color:#3B4255}
 [data-slot=grid-wheel-cell] [data-slot=icon]{color:#fff}
 [data-slot=grid-wheel-cell][data-lit]${W}{${GOLDEN};box-shadow:0 0 0 1.5px #F5C04A,0 0 14px rgb(245 192 74/.7)}
-[data-slot=gacha-globe]${W}{background-color:#1B1E3A;background-image:radial-gradient(circle at 50% 45%,rgb(160 120 230/.55),rgb(60 70 150/.35) 45%,transparent 70%),radial-gradient(circle at 30% 25%,rgb(255 255 255/.5) 0 2%,transparent 3%),radial-gradient(circle at 70% 65%,rgb(255 255 255/.4) 0 1.5%,transparent 2.5%);box-shadow:inset 0 0 0 1px ${GOLD},0 0 0 6px rgb(20 24 36/.8),0 0 0 7px ${mix("primary-container", 50)},0 0 30px rgb(160 120 230/.35)}
-[data-slot=gacha-ball]{border-radius:30% 30% 50% 30%;rotate:45deg;scale:.62}
-[data-slot=gacha-ball][class~="bg-primary-container"]{background-color:#F5C04A;box-shadow:0 0 8px #F5C04A}
-[data-slot=gacha-ball][class~="bg-secondary-container"]{background-color:#B48EEA;box-shadow:0 0 8px #B48EEA}
-[data-slot=gacha-ball][class~="bg-tertiary-container"]{background-color:#7FB6F0;box-shadow:0 0 8px #7FB6F0}
-[data-slot=slot-machine-frame]${W}{${panel}}
-[data-slot=slot-machine-reel]{background-color:${mix("on-surface", 5)};box-shadow:inset 0 0 0 1px ${mix("primary-container", 40)};color:${role("on-surface")}}
-[data-slot=egg-smash-egg]${W}{background-color:#8E7CC3;background-image:radial-gradient(40% 30% at 36% 28%,rgb(255 255 255/.7),rgb(255 255 255/0)),radial-gradient(80% 80% at 60% 75%,rgb(40 30 90/.5),transparent 70%);box-shadow:inset 0 0 0 1px ${GOLD},0 0 14px rgb(160 120 230/.4)}
-[data-slot=egg-smash-egg][data-state=broken]${W}{background-color:${role("surface-container")};background-image:none;box-shadow:inset 0 0 0 1px ${mix("on-surface", 18)}}
+[data-slot=gacha-media]${W}{background-color:#1B1E3A;background-image:radial-gradient(circle at 50% 45%,rgb(160 120 230/.55),rgb(60 70 150/.35) 45%,transparent 70%),radial-gradient(circle at 30% 25%,rgb(255 255 255/.5) 0 2%,transparent 3%),radial-gradient(circle at 70% 65%,rgb(255 255 255/.4) 0 1.5%,transparent 2.5%);box-shadow:inset 0 0 0 1px ${GOLD},0 0 0 6px rgb(20 24 36/.8),0 0 0 7px ${mix("primary-container", 50)},0 0 30px rgb(160 120 230/.35)}
+[data-slot=gacha-dot]{border-radius:30% 30% 50% 30%;rotate:45deg;scale:.62}
+[data-slot=gacha-dot][class~="bg-primary-container"]{background-color:#F5C04A;box-shadow:0 0 8px #F5C04A}
+[data-slot=gacha-dot][class~="bg-secondary-container"]{background-color:#B48EEA;box-shadow:0 0 8px #B48EEA}
+[data-slot=gacha-dot][class~="bg-tertiary-container"]{background-color:#7FB6F0;box-shadow:0 0 8px #7FB6F0}
+[data-slot=slot-machine-track]${W}{${panel}}
+[data-slot=slot-machine-cell]{background-color:${mix("on-surface", 5)};box-shadow:inset 0 0 0 1px ${mix("primary-container", 40)};color:${role("on-surface")}}
+[data-slot=egg-smash-item]${W}{background-color:#8E7CC3;background-image:radial-gradient(40% 30% at 36% 28%,rgb(255 255 255/.7),rgb(255 255 255/0)),radial-gradient(80% 80% at 60% 75%,rgb(40 30 90/.5),transparent 70%);box-shadow:inset 0 0 0 1px ${GOLD},0 0 14px rgb(160 120 230/.4)}
+[data-slot=egg-smash-item][data-state=broken]${W}{background-color:${role("surface-container")};background-image:none;box-shadow:inset 0 0 0 1px ${mix("on-surface", 18)}}
 [data-slot=draw-result]{color:${role("secondary")}}
 [data-slot=joystick]${W}{background-color:rgb(255 255 255/.06);border:2px solid rgb(255 255 255/.45);box-shadow:none;outline:0}
 [data-slot=joystick-handle]{background-color:rgb(255 255 255/.75);box-shadow:0 0 10px rgb(255 255 255/.3)}

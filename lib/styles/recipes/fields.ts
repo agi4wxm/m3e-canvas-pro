@@ -12,7 +12,8 @@ const inside = (box: string, focus: string, radius = "var(--st-control-r)") => `
 [data-slot=text-field] :is(input,textarea){padding-top:22px;padding-bottom:6px}
 [data-slot=text-field][data-variant=outlined]:focus-within label,[data-slot=text-field][data-variant=outlined]:has(:is(input,textarea):not(:placeholder-shown)) label{translate:0 7px}
 ${BARE}{border-radius:${radius};${box}}
-${BARE}:focus-within{${focus}}`;
+${BARE}:focus-within{${focus}}
+[data-slot=textarea]{border-radius:min(${radius},20px)}`;
 
 export const FIELD_CSS: RecipeCss<Recipes["field"]> = {
   m3: "",
@@ -35,12 +36,14 @@ export const INPUT_CSS: RecipeCss<Recipes["input"]> = {
   boxed: `${BARE}{border:1px solid ${role("outline-variant")};border-radius:var(--md-sys-shape-corner-extra-small);background-color:${role("surface-container-low")};box-shadow:none}
 ${BARE}:focus-within{border-color:${role("primary")};box-shadow:0 0 0 1px ${role("primary")}}`,
   filled: `${BARE}{border:0;border-radius:var(--st-control-r);background-color:${role("surface-container-highest")};box-shadow:none}
+[data-slot=textarea]{border-radius:min(var(--st-control-r),16px)}
 ${BARE}:focus-within{box-shadow:0 0 0 2px ${mix("primary", 60)}}`,
   underline: `${BARE}{border:0;border-bottom:1px solid ${role("outline")};border-radius:0;background-color:transparent;box-shadow:none}
 ${BARE}:focus-within{border-bottom:2px solid ${role("primary")}}`,
   /* no chrome at all: the words and the caret, for an input set inside a box that is already the field */
   plain: `${BARE}{border:0;border-radius:0;background-color:transparent;box-shadow:none;padding-inline:0}`,
   pill: `${BARE}{border:1px solid ${role("outline-variant")};border-radius:999px;background-color:${role("surface-container-low")};box-shadow:none}
+[data-slot=textarea]{border-radius:20px}
 ${BARE}:focus-within{border-color:${role("outline")}}`,
 };
 

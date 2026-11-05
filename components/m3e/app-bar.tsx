@@ -1,6 +1,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/m3e/cn"
+import { Icon } from "@/components/m3e/icon"
 
 /*
  * M3 Expressive top app bars (Compose AppBar* tokens):
@@ -77,6 +78,12 @@ function AppBar({
         )}
       >
         {title}
+        {/* a composition hook: a caret after a small bar's title, for a style whose title opens a menu (a model picker) */}
+        {small && (
+          <span data-slot="app-bar-caret" aria-hidden className="hidden">
+            <Icon name="keyboard_arrow_down" />
+          </span>
+        )}
       </h1>
       {subtitle && (
         <p
@@ -106,7 +113,7 @@ function AppBar({
     >
       <div data-slot="app-bar-row" className="flex h-16 items-center gap-1 px-1">
         {leading && (
-          <div data-slot="app-bar-leading" className="flex shrink-0 items-center text-on-surface [&_[data-slot=button]]:text-on-surface">
+          <div data-slot="app-bar-leading" className="flex shrink-0 items-center text-on-surface [&_[data-button]]:text-on-surface">
             {leading}
             {/* a composition hook: hidden unless a style shows it */}
             {backLabel && (
@@ -130,7 +137,7 @@ function AppBar({
         )}
         {!small && <div className="flex-1" />}
         {trailing && (
-          <div data-slot="app-bar-trailing" className="flex shrink-0 items-center text-on-surface-variant [&_[data-slot=button]]:text-on-surface-variant">
+          <div data-slot="app-bar-trailing" className="flex shrink-0 items-center text-on-surface-variant [&_[data-button]]:text-on-surface-variant">
             {trailing}
           </div>
         )}

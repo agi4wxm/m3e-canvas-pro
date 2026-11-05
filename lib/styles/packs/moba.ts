@@ -68,9 +68,9 @@ const CSS = `
 [data-slot=level-map]${W}{${plate(12)}}
 [data-slot=level-map-line]{stroke:#2A3F5A;stroke-width:2px}
 [data-slot=level-map-line][data-done]{stroke:${GOLD}}
-[data-slot=level-map-node]${W}{${diamond(GOLD, "#0F2540")};color:#F0E6D2;font-weight:700}
-[data-slot=level-map-node][data-state=current]${W}{width:58px;height:58px;${diamond("#FFF3D0", GOLD)};color:#1A1408}
-[data-slot=level-map-node][data-state=locked]${W}{${diamond("#2A3F5A", "#0A1428")};color:#5B6B80}
+[data-slot=level-map-cell]${W}{${diamond(GOLD, "#0F2540")};color:#F0E6D2;font-weight:700}
+[data-slot=level-map-cell][data-current]${W}{width:58px;height:58px;${diamond("#FFF3D0", GOLD)};color:#1A1408}
+[data-slot=level-map-cell][data-locked]${W}{${diamond("#2A3F5A", "#0A1428")};color:#5B6B80}
 [data-slot=level-map-stars]{color:${role("tertiary")}}
 
 [data-slot=reward-track-cell]${W}{${cut(6, mix("primary", 55), NAVY_FILL)};color:${role("on-surface-variant")}}
@@ -111,29 +111,29 @@ const CSS = `
 [data-slot=game-result-cell] [data-slot=icon]{color:${role("primary")}}
 
 [data-slot=game-board]${W}{${plate(12)}}
-[data-slot=game-board-status]{color:${role("primary")};text-transform:uppercase;letter-spacing:.08em}
+[data-slot=game-board-title]{color:${role("primary")};text-transform:uppercase;letter-spacing:.08em}
 [data-slot=game-board-cell]${W}{border-radius:0;background-color:rgb(10 20 40/.7);box-shadow:inset 0 0 0 1px #2A3F5A;color:${GOLD}}
 [data-slot=game-board-cell][data-mark]${W}{box-shadow:inset 0 0 0 1px ${GOLD},inset 0 0 14px rgb(200 170 110/.3);text-shadow:0 0 8px rgb(200 170 110/.7)}
 [data-slot=game-board-cell][data-mark=O]${W}{color:#0AC8B9;box-shadow:inset 0 0 0 1px #0AC8B9,inset 0 0 14px rgb(10 200 185/.3);text-shadow:0 0 8px rgb(10 200 185/.7)}
 [data-slot=game-board-cell][aria-pressed=true]${W}{background-color:${GOLD};color:#1A1408}
 
-[data-slot=wheel-disc]${W}{--md-sys-color-surface-container-high:#0F2540;--md-sys-color-surface-container-low:#1C3A5E;border-radius:50%;border:2px solid ${GOLD};box-shadow:0 0 0 3px #0A1428,0 0 0 4px ${DEEP},0 0 20px rgb(200 170 110/.3),inset 0 0 20px rgb(0 0 0/.5)}
+[data-slot=wheel-track]${W}{--md-sys-color-surface-container-high:#0F2540;--md-sys-color-surface-container-low:#1C3A5E;border-radius:50%;border:2px solid ${GOLD};box-shadow:0 0 0 3px #0A1428,0 0 0 4px ${DEEP},0 0 20px rgb(200 170 110/.3),inset 0 0 20px rgb(0 0 0/.5)}
 [data-slot=wheel-label]{color:${GOLD}}
-[data-slot=wheel-pointer]{top:-10px;z-index:2;border-top-color:${GOLD};filter:drop-shadow(0 0 4px rgb(200 170 110/.8))}
+[data-slot=wheel-indicator]{top:-10px;z-index:2;border-top-color:${GOLD};filter:drop-shadow(0 0 4px rgb(200 170 110/.8))}
 [data-slot=wheel-stage] [data-button]${W}{width:64px;height:64px;padding:0;${diamond("#FFF3D0", GOLD)};color:#1A1408}
 [data-slot=grid-wheel-cell]${W}{${cut(5, mix("outline", 80), NAVY_FILL)};color:${role("on-surface-variant")}}
 [data-slot=grid-wheel-cell] [data-slot=icon]{color:${role("primary")}}
 [data-slot=grid-wheel-cell][data-lit]${W}{${cut(5, "#FFF3D0", `radial-gradient(circle,rgb(200 170 110/.55),transparent 75%),${BLUE_FILL}`)};color:#F0E6D2}
-[data-slot=gacha-globe]${W}{border-radius:50%;background-color:#0A1F3A;background-image:radial-gradient(circle at 50% 45%,rgb(10 200 185/.35),rgb(10 90 150/.25) 50%,transparent 72%);box-shadow:inset 0 0 0 1px ${GOLD},0 0 0 4px #0A1428,0 0 0 5px ${DEEP},0 0 26px rgb(10 200 185/.3)}
-[data-slot=gacha-ball]{border-radius:0;rotate:45deg;scale:.6}
-[data-slot=gacha-ball][class~="bg-primary-container"]{background-color:${GOLD};box-shadow:0 0 8px ${GOLD}}
-[data-slot=gacha-ball][class~="bg-secondary-container"]{background-color:#0AC8B9;box-shadow:0 0 8px #0AC8B9}
-[data-slot=gacha-ball][class~="bg-tertiary-container"]{background-color:#9A6AE0;box-shadow:0 0 8px #9A6AE0}
-[data-slot=slot-machine-frame]${W}{${plate(10)}}
-[data-slot=slot-machine-reel]{border-radius:0;background-color:rgb(10 20 40/.8);box-shadow:inset 0 0 0 1px #2A3F5A,inset 0 10px 12px -8px rgb(0 0 0/.8),inset 0 -10px 12px -8px rgb(0 0 0/.8);color:${GOLD}}
+[data-slot=gacha-media]${W}{border-radius:50%;background-color:#0A1F3A;background-image:radial-gradient(circle at 50% 45%,rgb(10 200 185/.35),rgb(10 90 150/.25) 50%,transparent 72%);box-shadow:inset 0 0 0 1px ${GOLD},0 0 0 4px #0A1428,0 0 0 5px ${DEEP},0 0 26px rgb(10 200 185/.3)}
+[data-slot=gacha-dot]{border-radius:0;rotate:45deg;scale:.6}
+[data-slot=gacha-dot][class~="bg-primary-container"]{background-color:${GOLD};box-shadow:0 0 8px ${GOLD}}
+[data-slot=gacha-dot][class~="bg-secondary-container"]{background-color:#0AC8B9;box-shadow:0 0 8px #0AC8B9}
+[data-slot=gacha-dot][class~="bg-tertiary-container"]{background-color:#9A6AE0;box-shadow:0 0 8px #9A6AE0}
+[data-slot=slot-machine-track]${W}{${plate(10)}}
+[data-slot=slot-machine-cell]{border-radius:0;background-color:rgb(10 20 40/.8);box-shadow:inset 0 0 0 1px #2A3F5A,inset 0 10px 12px -8px rgb(0 0 0/.8),inset 0 -10px 12px -8px rgb(0 0 0/.8);color:${GOLD}}
 [data-slot=egg-smash-title]{${GILT_WORDS};font-family:var(--st-display,inherit);letter-spacing:.06em}
-[data-slot=egg-smash-egg]${W}{background-color:#0B3A55;background-image:radial-gradient(40% 30% at 36% 28%,rgb(205 250 250/.55),transparent),radial-gradient(80% 70% at 55% 75%,rgb(10 200 185/.35),transparent 70%);box-shadow:inset 0 0 0 1px ${GOLD},0 0 14px rgb(10 200 185/.3)}
-[data-slot=egg-smash-egg][data-state=broken]${W}{background-color:#15304F;background-image:none;box-shadow:inset 0 0 0 1px #2A3F5A}
+[data-slot=egg-smash-item]${W}{background-color:#0B3A55;background-image:radial-gradient(40% 30% at 36% 28%,rgb(205 250 250/.55),transparent),radial-gradient(80% 70% at 55% 75%,rgb(10 200 185/.35),transparent 70%);box-shadow:inset 0 0 0 1px ${GOLD},0 0 14px rgb(10 200 185/.3)}
+[data-slot=egg-smash-item][data-state=broken]${W}{background-color:#15304F;background-image:none;box-shadow:inset 0 0 0 1px #2A3F5A}
 [data-slot=draw-result]{color:${role("primary")};text-transform:uppercase;letter-spacing:.06em}
 [data-slot=joystick]${W}{border-radius:50%;background-color:rgb(10 20 40/.5);background-image:radial-gradient(circle,transparent 58%,rgb(200 170 110/.25) 59% 60%,transparent 61%);box-shadow:inset 0 0 0 1.5px ${GOLD},0 0 0 3px rgb(10 20 40/.6);outline:0}
 [data-slot=joystick-handle]{${disc("radial-gradient(circle at 50% 30%,#2A6A9A,#0A1F3A 72%)")}}

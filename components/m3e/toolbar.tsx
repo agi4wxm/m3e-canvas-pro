@@ -19,7 +19,7 @@ import { cn } from "@/lib/m3e/cn"
 const CONTENT =
   // buttons and toggles inherit the toolbar content color, and their selected
   // state reads from the container
-  "[&_[data-slot=button]]:bg-transparent [&_[data-slot=toggle]]:bg-transparent"
+  "[&_[data-button]]:bg-transparent [&_[data-slot=toggle]]:bg-transparent"
 
 const toolbarItems = (element: HTMLDivElement) =>
   Array.from(
@@ -124,9 +124,9 @@ const floatingToolbarVariants = cva(
     variants: {
       variant: {
         standard:
-          "bg-surface-container text-on-surface-variant [&_[data-slot=button]]:text-on-surface-variant [&_[data-slot=toggle]]:text-on-surface-variant [&_[data-slot=toggle][data-pressed]]:bg-secondary-container [&_[data-slot=toggle][data-pressed]]:text-on-secondary-container",
+          "bg-surface-container text-on-surface-variant [&_[data-button]]:text-on-surface-variant [&_[data-slot=toggle]]:text-on-surface-variant [&_[data-slot=toggle][data-pressed]]:bg-secondary-container [&_[data-slot=toggle][data-pressed]]:text-on-secondary-container",
         vibrant:
-          "bg-primary-container text-on-primary-container [&_[data-slot=button]]:text-on-primary-container [&_[data-slot=toggle]]:text-on-primary-container [&_[data-slot=toggle][data-pressed]]:bg-surface-container [&_[data-slot=toggle][data-pressed]]:text-on-surface",
+          "bg-primary-container text-on-primary-container [&_[data-button]]:text-on-primary-container [&_[data-slot=toggle]]:text-on-primary-container [&_[data-slot=toggle][data-pressed]]:bg-surface-container [&_[data-slot=toggle][data-pressed]]:text-on-surface",
       },
       orientation: {
         horizontal: "h-16",
@@ -168,7 +168,7 @@ function DockedToolbar({ className, ...props }: React.ComponentProps<"div">) {
       role="toolbar"
       data-slot="docked-toolbar"
       className={cn(
-        "flex h-16 w-full items-center justify-between gap-1 bg-surface-container px-4 text-on-surface-variant [&_[data-slot=button]]:text-on-surface-variant",
+        "flex h-16 w-full items-center justify-between gap-1 bg-surface-container px-4 text-on-surface-variant [&_[data-button]]:text-on-surface-variant",
         className
       )}
       {...props}

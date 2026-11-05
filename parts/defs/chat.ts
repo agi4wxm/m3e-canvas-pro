@@ -41,6 +41,8 @@ export const chat: PartDef[] = [
             p.s("header") && h("MessageHeader", null, p.s("header")),
             h("Bubble", { variant: variantOf(p.s("variant")), align: align === "end" ? "end" : undefined }, h("BubbleContent", null, p.s("text"))),
             p.s("footer") && h("MessageFooter", null, p.s("footer")),
+            /* a composition hook: the row of small actions under an answer (copy, retry, rate), for a style whose answers carry one */
+            align !== "end" && h("span", { "data-slot": "message-actions", "aria-hidden": true, className: "hidden" }, ic("content_copy"), ic("refresh"), ic("thumb_up"), ic("thumb_down")),
           ),
         ),
       );

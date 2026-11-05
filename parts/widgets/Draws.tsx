@@ -68,14 +68,14 @@ export function Wheel({ prizes = [], label = "", result = -1, size = 220, classN
   return (
     <div data-slot="wheel" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-1", className)} style={{ width: size, ...style }}>
       <div data-slot="wheel-stage" className="relative" style={{ width: size, height: size }}>
-        <div data-slot="wheel-disc" className="border-outline-variant relative size-full rounded-full border" style={{ background: `conic-gradient(${stops})`, transform: `rotate(${turn}deg)`, transition: reduced() ? "none" : `transform ${SPIN_MS}ms cubic-bezier(0.2, 0, 0, 1)` }}>
+        <div data-slot="wheel-track" className="border-outline-variant relative size-full rounded-full border" style={{ background: `conic-gradient(${stops})`, transform: `rotate(${turn}deg)`, transition: reduced() ? "none" : `transform ${SPIN_MS}ms cubic-bezier(0.2, 0, 0, 1)` }}>
           {prizes.map((p, i) => (
             <span key={i} data-slot="wheel-label" className="text-on-surface absolute top-1/2 left-1/2 flex items-center justify-center" style={{ transform: `translate(-50%, -50%) rotate(${(i + 0.5) * sweep}deg) translateY(${-size * 0.36}px)` }}>
               {p.icon ? <WidgetIcon name={p.icon} className="size-5" /> : <span className="text-label-small">{p.label}</span>}
             </span>
           ))}
         </div>
-        <span data-slot="wheel-pointer" className="border-t-primary absolute -top-1 left-1/2 -translate-x-1/2 border-x-8 border-t-12 border-x-transparent" />
+        <span data-slot="wheel-indicator" className="border-t-primary absolute -top-1 left-1/2 -translate-x-1/2 border-x-8 border-t-12 border-x-transparent" />
         <Button variant="filled" size="xs" className="absolute! top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" disabled={phase === "running"} onClick={start}>
           {label}
         </Button>
@@ -122,9 +122,9 @@ export function Gacha({ prizes = [], label = "", result = -1, size = 170, classN
   const shake = phase === "running" ? (tick % 2 ? -3 : 3) : 0;
   return (
     <div data-slot="gacha" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>
-      <div data-slot="gacha-globe" className="bg-surface-container-high grid aspect-square w-full grid-cols-4 content-center gap-1 rounded-full p-5" style={{ transform: `translateX(${shake}px)` }}>
+      <div data-slot="gacha-media" className="bg-surface-container-high grid aspect-square w-full grid-cols-4 content-center gap-1 rounded-full p-5" style={{ transform: `translateX(${shake}px)` }}>
         {Array.from({ length: 12 }, (_, i) => (
-          <span key={i} data-slot="gacha-ball" className={`aspect-square rounded-full ${["bg-primary-container", "bg-secondary-container", "bg-tertiary-container"][i % 3]}`} />
+          <span key={i} data-slot="gacha-dot" className={`aspect-square rounded-full ${["bg-primary-container", "bg-secondary-container", "bg-tertiary-container"][i % 3]}`} />
         ))}
       </div>
       <Button variant="filled" size="xs" disabled={phase === "running"} onClick={start}>
@@ -140,11 +140,11 @@ export function SlotMachine({ prizes = [], label = "", result = -1, size = 280, 
   const at = (reel: number) => (phase === "running" ? prizes[(tick + reel * 2) % Math.max(1, prizes.length)] : phase === "done" ? prizes[won] : prizes[reel % Math.max(1, prizes.length)]);
   return (
     <div data-slot="slot-machine" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>
-      <div data-slot="slot-machine-frame" className="bg-surface-container-high flex w-full gap-2 rounded-xl p-3">
+      <div data-slot="slot-machine-track" className="bg-surface-container-high flex w-full gap-2 rounded-xl p-3">
         {[0, 1, 2].map((reel) => {
           const p = at(reel);
           return (
-            <div key={reel} data-slot="slot-machine-reel" className="bg-surface text-on-surface text-label-small flex h-16 flex-1 flex-col items-center justify-center overflow-hidden rounded-md">
+            <div key={reel} data-slot="slot-machine-cell" className="bg-surface text-on-surface text-label-small flex h-16 flex-1 flex-col items-center justify-center overflow-hidden rounded-md">
               {p?.icon ? <WidgetIcon name={p.icon} className="size-7" /> : p?.label}
             </div>
           );
@@ -180,11 +180,11 @@ export function EggSmash({ prizes = [], label = "", result = -1, size = 260, cla
   return (
     <div data-slot="egg-smash" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>
       {label && <div data-slot="egg-smash-title" className="text-title-small text-on-surface">{label}</div>}
-      <div data-slot="egg-smash-row" className="flex w-full justify-around">
+      <div className="flex w-full justify-around">
         {[0, 1, 2].map((egg) => (
           <Tap
             key={egg}
-            data-slot="egg-smash-egg"
+            data-slot="egg-smash-item"
             data-state={chosen === egg && phase !== "idle" ? "broken" : undefined}
             aria-label={`${label} ${egg + 1}`}
             disabled={phase !== "idle"}
