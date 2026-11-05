@@ -86,7 +86,8 @@ import { GitHubLink, Mode, Toolbar } from "@/components/Toolbar";
 import { LangMenu } from "@/components/Menus";
 import { AiActionKey, AiPanel, aiErrorText } from "@/components/AiPanel";
 import { TidyState, PANEL_FADE_H } from "@/components/ui";
-import { AiSettings, DEFAULT_AI, hasKey, isSecureUrl, loadAiSettings, proposeBehavior, proposeDescription, pushHistory, saveAiSettings } from "@/lib/ai";
+import { AiSettings, DEFAULT_AI, generateImage, hasImageKey, hasKey, imageSpec, isSecureUrl, loadAiSettings, proposeBehavior, proposeDescription, pushHistory, saveAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
+import { assetRefsIn, getAssets, pruneAssets, putAssets, restoreAssets, stripAssets } from "@/lib/assets";
 import { barSlotOf, bodyRect, carryFrame, holdsEdgeBar, maxFrameLength, minFrameLength, stretchFrame, pullInto, tidyFrame } from "@/lib/tidy";
 import { combineButtons, joinDropped, joinTargetOf } from "@/lib/combine";
 import { alignParts, distributeParts, type AlignHow } from "@/lib/align";
@@ -102,14 +103,14 @@ import { isProject, readProject, saveProject } from "@/lib/project";
 import { hasShareHash, readShareHash } from "@/lib/share";
 import { LoadingIndicator } from "@/components/Loading";
 import { draftDesign } from "@/lib/ai";
-import { pushApart } from "@/lib/settle";
+import { onScreenAsBackdrop, pushApart } from "@/lib/settle";
 import { isNavPart, mergeLinks, routeLink, shownLinks, type LinkLine, type Route } from "@/lib/links";
 import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
 import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
 import { PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
-import { partBySlug, translateComponentProps } from "@/parts/registry";
+import { partBySlug, reader, translateComponentProps } from "@/parts/registry";
 import { instantiate, templateBySlug } from "@/parts/templates";
 import { COMMON_TEXT } from "@/parts/labels";
 import { FIT_OVERLAY, REMEASURE } from "@/parts/contained";
@@ -152,6 +153,13 @@ const MAX_Z = 3;
 const GLIDE_TOP = 84;
 const GLIDE_PAD = 40;
 const HISTORY_MAX = 100;
+/** writes a document down, its large pictures kept apart (lib/assets.ts) */
+function saveDocAt(key: string, doc: unknown) {
+  const { doc: light, found } = stripAssets(doc);
+  if (found.size) void putAssets(found).catch(() => {});
+  localStorage.setItem(key, JSON.stringify(light));
+}
+
 const DOC_KEY = "m3e:doc";
 /** the design a draft or a link replaced, until the author keeps or undoes it */
 const BEFORE_KEY = "m3e:doc:before";
@@ -477,6 +485,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const [favorites, setFavorites] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
+  const selectedFrameIdRef = useRef(selectedFrameId);
+  selectedFrameIdRef.current = selectedFrameId;
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [showAllLinks, setShowAllLinks] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -739,6 +749,20 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         if (isProject(value)) setDraftBefore(value);
         else localStorage.removeItem(BEFORE_KEY);
       }
+      /* the large pictures wait in the browser's asset store: the document comes back whole a moment later */
+      const refs = new Set([...assetRefsIn(d ? JSON.parse(d) : null), ...assetRefsIn(before ? JSON.parse(before) : null)]);
+      void getAssets(refs)
+        .catch(() => new Map<string, string>())
+        .then((found) => {
+          if (refs.size) {
+            setGroups((gs) => restoreAssets(gs, found));
+            setFrames((fs) => restoreAssets(fs, found));
+            setComponents((cs) => restoreAssets(cs, found));
+            setDraftBefore((b) => (b ? restoreAssets(b, found) : b));
+          }
+          return pruneAssets(refs);
+        })
+        .catch(() => {});
       const u = localStorage.getItem(UI_KEY);
       if (u) {
         const ui = JSON.parse(u);
@@ -851,7 +875,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (!loadedRef.current || editAccess !== "editable") return;
     try {
       /* the document, even while a definition is open: a reload then finds its screens, and the definition as far as it got */
-      localStorage.setItem(DOC_KEY, JSON.stringify(docRef.current));
+      saveDocAt(DOC_KEY, docRef.current);
       saveFullToldRef.current = false;
     } catch (err) {
       /* the author keeps working; said once, since every later change would fail the same way */
@@ -1659,6 +1683,10 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         setGroups(joined.groups);
         setSelectedIds([joined.itemId]);
         showToast(t("buttonsJoined", getLang()));
+      } else if (roleOf(item) === "backdrop") {
+        /* a scene dropped on a screen is that screen's picture */
+        const placed = onScreenAsBackdrop(ng, undefined, framesRef.current, d.px, d.py);
+        setGroups((prev) => (prev.some((g) => g.items.some((it) => it.id === item.id)) ? prev.map((g) => (g.id === ng.id ? placed : g)) : [placed, ...prev]));
       } else
         setGroups((prev) =>
           prev.some((g) => g.items.some((it) => it.id === item.id))
@@ -2630,7 +2658,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     importDoc(next);
     setDraftBefore(before);
     try {
-      localStorage.setItem(BEFORE_KEY, JSON.stringify(before));
+      saveDocAt(BEFORE_KEY, before);
     } catch {}
   };
 
@@ -2651,6 +2679,43 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     return () => clearTimeout(id);
   }, [widths]);
 
+  /* ---------- a scene's picture ---------- */
+  const [paintingScene, setPaintingScene] = useState<string | null>(null);
+  const paintAbort = useRef<AbortController | null>(null);
+  const canPaint = hasImageKey(aiSettings) && isSecureUrl(aiSettings.imageBaseUrl?.trim() || imageSpec(aiSettings.imageProvider).baseUrl);
+  const sceneItem = (id: string) => groupsRef.current.flatMap((g) => g.items).find((it) => it.id === id && it.component === "scene");
+  /** paints scenes one at a time, each showing as soon as it is done; what was painted stays if a later one fails */
+  const paintScenes = async (scenes: Item[]) => {
+    if (!scenes.length) return;
+    if (!canPaint) {
+      showToast(t("scenesWaiting", lang).replace("{n}", String(scenes.length)), 6000);
+      return;
+    }
+    paintAbort.current?.abort();
+    const ac = new AbortController();
+    paintAbort.current = ac;
+    let painted = 0;
+    try {
+      for (const [i, item] of scenes.entries()) {
+        const id = item.id;
+        const def = partBySlug("scene");
+        if (!def) continue;
+        setPaintingScene(id);
+        if (scenes.length > 1) showToast(t("scenesPainting", lang).replace("{n}", String(i + 1)).replace("{all}", String(scenes.length)), 60000, "auto_awesome");
+        const p = reader(def, item.props);
+        const image = await generateImage(aiSettings, scenePrompt(p.s("prompt"), p.s("style")), { w: p.n("width"), h: p.n("height") }, ac.signal);
+        if (ac.signal.aborted) return;
+        setGroups((gs) => gs.map((g) => (g.items.some((it) => it.id === id) ? { ...g, items: g.items.map((it) => (it.id === id ? { ...it, props: { ...it.props, image } } : it)) } : g)));
+        painted++;
+      }
+      showToast(t("scenesPainted", lang).replace("{n}", String(painted)), 2600, "check");
+    } catch (e) {
+      if (!ac.signal.aborted) showToast(aiErrorText(e, lang), 6000, "error");
+    } finally {
+      if (paintAbort.current === ac) setPaintingScene(null);
+    }
+  };
+
   const startDraft = async (idea: string) => {
     setShareOpen(false);
     setDraftBusy(true);
@@ -2663,6 +2728,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const next = await draftDesign(aiSettings, guideRef.current, idea, lang);
       settleDraftRef.current = true;
       arrive(next);
+      void paintScenes(scenesToPaint(next.groups));
     } catch (e) {
       const m = e instanceof Error ? e.message : "";
       showToast(m === "json" ? t("aiErrorJson", lang) : m === "refusal" ? t("aiErrorRefusal", lang) : m === "long" ? t("aiErrorLong", lang) : t("aiError", lang), 3200, "error");
@@ -2681,6 +2747,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   };
   const undoDraft = () => {
     settleDraftRef.current = false;
+    paintAbort.current?.abort();
+    setPaintingScene(null);
     if (draftBefore) {
       setRevealing(true);
       if (revealTimer.current) clearTimeout(revealTimer.current);
@@ -2830,7 +2898,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     snapshot();
     const landed = landNewPart(item, x, y, () => false);
     const ng: Group = instance ? { ...landed, instanceOf: instance.id } : landed;
-    setGroups((gs) => underWhatItHolds([...gs, ng], ng.id, widthsRef.current));
+    if (roleOf(item) === "backdrop") {
+      /* a scene is its screen's picture: it fills the screen in view, or the one selected, behind everything on it */
+      const on = framesRef.current.find((fr) => fr.id === selectedFrameIdRef.current) ?? f;
+      const placed = onScreenAsBackdrop(ng, on, framesRef.current, cx, cy);
+      setGroups((gs) => [placed, ...gs]);
+    } else setGroups((gs) => underWhatItHolds([...gs, ng], ng.id, widthsRef.current));
     setSelectedIds([item.id]);
     setSelectedFrameId(null);
     setRightTab("edit");
@@ -3724,6 +3797,21 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         snapshotFor(`${group.id}:${Object.keys(patch).join(",")}`);
         setGroups((gs) => gs.map((g) => (g.id === group.id ? { ...g, ...patch } : g)));
       },
+      canPaint,
+      paintingScene,
+      paintScene: (id) => {
+        const item = sceneItem(id);
+        if (!item) return;
+        snapshot();
+        void paintScenes([item]);
+      },
+      copyScenePrompt: (id) => {
+        const def = partBySlug("scene");
+        const item = sceneItem(id);
+        if (!def || !item) return;
+        const p = reader(def, item.props);
+        void navigator.clipboard.writeText(scenePrompt(p.s("prompt"), p.s("style"))).then(() => showToast(t("copied", lang), 1400, "check"));
+      },
       reorderPanes: (order) => {
         if (group) setGroups((gs) => panesAfterReorder(gs, group.id, order, widthsRef.current));
       },
@@ -3742,7 +3830,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         );
       },
     };
-  }, [vars, primaryId, groups, frames, widths, snapshotFor, collections]);
+  }, [vars, primaryId, groups, frames, widths, snapshotFor, collections, canPaint, paintingScene, aiSettings, lang]);
 
   /** which frame each run sits on (phone mode only) */
   const frameOf = useMemo(() => {

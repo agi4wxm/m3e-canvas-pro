@@ -3,6 +3,7 @@ export { BalanceCard, Banner, BarList, CartList, CheckoutBar, CommentList, Conta
 export { Agenda, AuthForm, ChatComposer, DataTable, Kanban, NumberPad, Onboarding, QrCode, RichTextEditor, SignaturePad, TodoList, TransferList } from "./AppTools";
 export { FunnelChart, GanttChart, ImageCropper, ImageViewer, RegionPicker, ReviewSummary, SeatMap, VideoCall, VoiceMessage } from "./AppMore";
 export { DialogueBox, GameBoard, LevelMap, SkillButton } from "./GameParts";
+export { Scene } from "./Scene";
 export { ClipboardRow } from "./ClipboardRow";
 export { CodeBlock, Markdown, SortableList } from "./Content";
 export { ColorPalette, FileUpload, ItemPicker, MultiSelect, NumberPicker, TagInput } from "./Inputs";

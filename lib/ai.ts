@@ -17,7 +17,21 @@ export type AiSettings = {
   baseUrl: string;
   model: string;
   key: string;
+  /** who paints a scene: a model that writes cannot, so this is set apart */
+  imageProvider?: ImageProvider;
+  imageBaseUrl?: string;
+  imageModel?: string;
+  imageKey?: string;
 };
+
+export type ImageProvider = "openai" | "gemini";
+
+export const IMAGE_PROVIDERS: { key: ImageProvider; label: string; baseUrl: string; model: string; keysUrl: string }[] = [
+  { key: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-image-2.6-sunburst", keysUrl: "https://platform.openai.com/api-keys" },
+  { key: "gemini", label: "Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-2.5-flash-image", keysUrl: "https://aistudio.google.com/apikey" },
+];
+
+export const imageSpec = (k: ImageProvider | undefined) => IMAGE_PROVIDERS.find((p) => p.key === k) ?? IMAGE_PROVIDERS[0];
 
 export const PROVIDERS: { key: Provider; label: string; baseUrl: string; model: string; keysUrl?: string }[] = [
   { key: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-5.6-luna", keysUrl: "https://platform.openai.com/api-keys" },
@@ -42,6 +56,10 @@ export function loadAiSettings(): AiSettings {
       if (typeof v.baseUrl === "string") s.baseUrl = v.baseUrl;
       if (typeof v.model === "string") s.model = v.model;
       if (typeof v.key === "string") s.key = v.key;
+      if (IMAGE_PROVIDERS.some((p) => p.key === v.imageProvider)) s.imageProvider = v.imageProvider;
+      if (typeof v.imageBaseUrl === "string") s.imageBaseUrl = v.imageBaseUrl;
+      if (typeof v.imageModel === "string") s.imageModel = v.imageModel;
+      if (typeof v.imageKey === "string") s.imageKey = v.imageKey;
     }
   } catch {}
   return s;
@@ -131,6 +149,84 @@ export async function complete(s: AiSettings, system: string, user: string, sign
   if (typeof c === "string") return c;
   if (Array.isArray(c)) return c.map((x: { text?: string }) => x.text ?? "").join("");
   throw new Error("empty");
+}
+
+/** The key that pays for a picture: its own, or the writing model's when both are the same provider. */
+const imageKeyOf = (s: AiSettings) => s.imageKey?.trim() || (s.provider === (s.imageProvider ?? "openai") ? s.key.trim() : "");
+
+export const hasImageKey = (s: AiSettings) => !!imageKeyOf(s) || isLocal(s.imageBaseUrl ?? "");
+
+/** which file a base64 picture is, by how it starts */
+const mimeOf = (b64: string) => (b64.startsWith("/9j/") ? "image/jpeg" : b64.startsWith("UklGR") ? "image/webp" : "image/png");
+
+/** One picture from the provider's OpenAI-style endpoint, as a data address. Tall or wide by the box it is for. */
+export async function generateImage(s: AiSettings, prompt: string, box: { w: number; h: number }, signal?: AbortSignal): Promise<string> {
+  const spec = imageSpec(s.imageProvider);
+  const base = trimSlash(s.imageBaseUrl?.trim() || spec.baseUrl);
+  const model = s.imageModel?.trim() || spec.model;
+  if (!isSecureUrl(base)) throw new Error("insecure");
+  const size = box.h > box.w * 1.15 ? "1024x1536" : box.w > box.h * 1.15 ? "1536x1024" : "1024x1024";
+  const key = imageKeyOf(s);
+  const res = await fetch(`${base}/images/generations`, {
+    method: "POST",
+    signal,
+    headers: { "content-type": "application/json", ...(key ? { authorization: `Bearer ${key}` } : {}) },
+    /* OpenAI's models always answer in base64 and refuse the old switch; Gemini needs it. A JPEG at medium quality keeps a scene small. */
+    body: JSON.stringify({ model, prompt, n: 1, size, ...(s.imageProvider === "gemini" ? { response_format: "b64_json" } : { quality: "medium", output_format: "jpeg" }) }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  const first = (await res.json())?.data?.[0];
+  if (typeof first?.b64_json === "string" && first.b64_json) return `data:${mimeOf(first.b64_json)};base64,${first.b64_json}`;
+  if (typeof first?.url === "string" && /^https:\/\//i.test(first.url)) return first.url;
+  throw new Error("empty");
+}
+
+/** what is asked of the picture: the words of the scene, its style, and that the interface is not part of it */
+export const scenePrompt = (prompt: string, style: string) => [style.trim(), prompt.trim(), "No text, letters, logos, buttons or user interface anywhere in the picture."].filter(Boolean).join(". ").replace(/\.\.+/g, ".");
+
+/** the scenes in a document with words to paint and no picture yet */
+export function scenesToPaint(groups: Group[]): Item[] {
+  return groups.flatMap((g) => g.items).filter((it) => it.component === "scene" && typeof it.props?.prompt === "string" && it.props.prompt.trim() && !it.props.image);
+}
+
+/** A scene draws behind what stands on it, so it comes first in the document whatever order the model wrote. */
+export function scenesFirst(doc: Doc): Doc {
+  const isScene = (g: Group) => g.items.some((it) => it.component === "scene");
+  return { ...doc, groups: [...doc.groups.filter(isScene), ...doc.groups.filter((g) => !isScene(g))] };
+}
+
+/** parts with no surface of their own: their words stand directly on whatever is behind them */
+const BARE_WORDS = new Set(["text", "stat-bar", "skill-button", "section-header", "asset-pill", "marquee", "shimmer-text", "number-ticker", "timer"]);
+
+/** A scene's picture is unknown until it is painted, and most are darker than a page. Words standing bare on
+ *  one are drawn light, over a picture darkened behind them; a part with its own surface keeps its own. */
+export function readableOnScenes(doc: Doc): Doc {
+  const scenes = doc.groups.filter((g) => g.items.some((it) => it.component === "scene"));
+  if (!scenes.length) return doc;
+  const bounds = (g: Group) => {
+    const it = g.items[0];
+    const w = Number(it.props?.width) || partBySlug("scene")!.w;
+    const h = Number(it.props?.height) || partBySlug("scene")!.h;
+    return { l: g.x, t: g.y, r: g.x + w, b: g.y + h };
+  };
+  const onScene = (g: Group) => scenes.find((s) => {
+    const b = bounds(s);
+    return s !== g && g.x >= b.l && g.x < b.r && g.y >= b.t && g.y < b.b;
+  });
+  const needsDark = new Set<string>();
+  const groups = doc.groups.map((g) => {
+    const host = onScene(g);
+    if (!host || !g.items.some((it) => BARE_WORDS.has(it.component ?? ""))) return g;
+    needsDark.add(host.id);
+    return { ...g, items: g.items.map((it) => (BARE_WORDS.has(it.component ?? "") && !it.textColor ? { ...it, textColor: "inverseOnSurface" as const } : it)) };
+  });
+  return {
+    ...doc,
+    groups: groups.map((g) => {
+      if (!needsDark.has(g.id)) return g;
+      return { ...g, items: g.items.map((it) => (it.component === "scene" && (!it.props?.scrim || it.props.scrim === "none") ? { ...it, props: { ...it.props, scrim: "full" } } : it)) };
+    }),
+  };
 }
 
 /** the first JSON object in a reply, with any code fence stripped */
@@ -251,7 +347,7 @@ export async function draftDesign(s: AiSettings, guide: string, idea: string, la
   const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple."].join("\n");
   const j = parseJsonObject(await complete(s, system, user, signal, 12000));
   if (!isProject(j)) throw new Error("json");
-  return withoutSampleWords(cleanBehavior(j));
+  return readableOnScenes(scenesFirst(withoutSampleWords(cleanBehavior(j))));
 }
 
 /** Words a model left out are words the app does not need, but a part left to itself shows its sample

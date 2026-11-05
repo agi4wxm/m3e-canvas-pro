@@ -9,6 +9,10 @@ import type { Labels, ListItem, P, PartDef, PartSlot, PropDef, TableData } from 
 /** what the panel calls this file's own props, by the English label */
 const WORDS: Record<string, Labels> = {
   Pictures: { ja: "画像", zh: "图片", ko: "이미지" },
+  "What the picture shows": { ja: "画像の内容", zh: "画面内容（生图提示词）", ko: "이미지 내용" },
+  "How it is drawn": { ja: "画風", zh: "画风", ko: "화풍" },
+  "Darken for reading": { ja: "文字を読みやすく暗くする", zh: "压暗以便看清文字", ko: "읽기 쉽게 어둡게" },
+  "Places to tap: label, x, y, w, h (%)": { ja: "タップ領域：名前、x、y、幅、高さ（%）", zh: "点击热区：名称、x、y、宽、高（%）", ko: "탭 영역: 이름, x, y, 너비, 높이 (%)" },
   Price: { ja: "価格", zh: "价格", ko: "가격" },
   Currency: { ja: "通貨記号", zh: "货币符号", ko: "통화 기호" },
   "Next button": { ja: "次へボタン", zh: "下一步按钮文字", ko: "다음 버튼" },
@@ -94,8 +98,43 @@ const n = (cell: string | undefined) => Number(cell) || 0;
 
 const BAR_COLORS: Record<string, string> = { error: "bg-error", primary: "bg-primary", secondary: "bg-secondary", tertiary: "bg-tertiary" };
 
+/** a cell as a percent of the scene */
+const percent = (cell: string | undefined) => Math.min(100, Math.max(0, n(cell)));
+
 export const more: PartDef[] = [
   /* ---------- pictures ---------- */
+  {
+    slug: "scene",
+    appearance: { radius: 0 },
+    name: "Scene",
+    labels: { ja: "シーン", zh: "场景", ko: "장면" },
+    category: "Media",
+    icon: "landscape",
+    role: "backdrop",
+    holds: true,
+    w: 412,
+    h: 892,
+    props: [
+      text("prompt", "What the picture shows", "", undefined, true),
+      text("style", "How it is drawn", "", undefined, true),
+      image("image", "Picture"),
+      pick("scrim", "Darken for reading", "none", ["none", "top", "bottom", "both", "full"]),
+      table("hotspots", "Places to tap: label, x, y, w, h (%)", { columns: ["Label", "x", "y", "w", "h"], rows: [] }),
+      icon("icon", "Icon", "landscape"),
+      HEIGHT(892, 120, 2400),
+      WIDTH(412, 120, 1600),
+    ],
+    slots: (p) => p.table("hotspots").rows.map((r, i) => ({ key: `tab:${i}`, label: r[0] || `${i + 1}` })),
+    tree: (p) =>
+      h("Scene", {
+        image: p.s("image"),
+        icon: p.s("icon"),
+        scrim: p.s("scrim"),
+        hotspots: p.table("hotspots").rows.map((r) => ({ label: r[0] ?? "", x: percent(r[1]), y: percent(r[2]), w: percent(r[3]), h: percent(r[4]) })),
+        height: px(p, "height"),
+        width: px(p),
+      }),
+  },
   {
     slug: "image-viewer",
     appearance: { radius: 12 },

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { complete, hasKey, isSecureUrl, withoutSampleWords, type AiSettings, type Provider } from "./ai";
+import { complete, generateImage, hasImageKey, hasKey, isSecureUrl, scenePrompt, scenesFirst, scenesToPaint, readableOnScenes, withoutSampleWords, type AiSettings, type Provider } from "./ai";
 import { makeItem, type Doc } from "./tokens";
 
 const settings = (over: Partial<AiSettings> = {}): AiSettings =>
@@ -171,5 +171,92 @@ describe("withoutSampleWords", () => {
   it("leaves a default that is a setting, not words", () => {
     expect(read(withoutSampleWords(doc({}, "web-view")), "address")).toBeUndefined();
     expect(read(withoutSampleWords(doc({}, "item-cell")), "rarityColor")).toBeUndefined();
+  });
+});
+
+describe("generateImage", () => {
+  const base = { provider: "claude", baseUrl: "https://api.anthropic.com", model: "m", key: "writing-key" } as AiSettings;
+  afterEach(() => vi.unstubAllGlobals());
+  const answer = (body: unknown, status = 200) => vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status }));
+
+  it("asks OpenAI for a small tall JPEG and hands back a picture", async () => {
+    const fetchMock = answer({ data: [{ b64_json: "/9j/AAAA" }] });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await generateImage({ ...base, imageKey: "img-key" }, "a forest", { w: 412, h: 892 });
+    expect(out).toBe("data:image/jpeg;base64,/9j/AAAA");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.openai.com/v1/images/generations");
+    expect(init.headers.authorization).toBe("Bearer img-key");
+    expect(JSON.parse(init.body)).toEqual({ model: "gpt-image-2.6-sunburst", prompt: "a forest", n: 1, size: "1024x1536", quality: "medium", output_format: "jpeg" });
+  });
+
+  it("asks Gemini the way its OpenAI-style route needs", async () => {
+    const fetchMock = answer({ data: [{ b64_json: "iVBORw" }] });
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await generateImage({ ...base, imageProvider: "gemini", imageKey: "g" }, "a sea", { w: 1280, h: 800 });
+    expect(out.startsWith("data:image/png;base64,")).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/openai/images/generations");
+    expect(JSON.parse(init.body)).toEqual({ model: "gemini-2.5-flash-image", prompt: "a sea", n: 1, size: "1536x1024", response_format: "b64_json" });
+  });
+
+  it("says what went wrong, and refuses to send a key over plain http", async () => {
+    vi.stubGlobal("fetch", answer({ error: { message: "no credit" } }, 402));
+    await expect(generateImage({ ...base, imageKey: "k" }, "x", { w: 1, h: 1 })).rejects.toThrow("no credit");
+    vi.stubGlobal("fetch", answer({ data: [] }));
+    await expect(generateImage({ ...base, imageKey: "k" }, "x", { w: 1, h: 1 })).rejects.toThrow("empty");
+    await expect(generateImage({ ...base, imageKey: "k", imageBaseUrl: "http://example.com/v1" }, "x", { w: 1, h: 1 })).rejects.toThrow("insecure");
+  });
+
+  it("shares a key only with the same provider: a Claude key opens nothing at OpenAI", () => {
+    expect(hasImageKey(base)).toBe(false);
+    expect(hasImageKey({ ...base, provider: "openai" })).toBe(true);
+    expect(hasImageKey({ ...base, imageKey: "k" })).toBe(true);
+  });
+});
+
+describe("scenes in a draft", () => {
+  const scene = { ...makeItem("scene"), id: "s", props: { prompt: "a forest" } };
+  const doc = { groups: [{ id: "bar", x: 0, y: 0, axis: "x", items: [{ ...makeItem("stat-bar"), id: "b" }] }, { id: "g", x: 0, y: 0, axis: "x", items: [scene] }], frames: [{ id: "f", name: "F", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "", brief: "" } as Doc;
+  it("puts a scene behind what stands on it", () => {
+    expect(scenesFirst(doc).groups.map((g) => g.id)).toEqual(["g", "bar"]);
+  });
+  it("paints only what has words and no picture", () => {
+    expect(scenesToPaint(doc.groups).map((i) => i.id)).toEqual(["s"]);
+    expect(scenesToPaint([{ ...doc.groups[1], items: [{ ...scene, props: { prompt: "x", image: "data:image/png;base64,a" } }] }])).toEqual([]);
+    expect(scenesToPaint([{ ...doc.groups[1], items: [{ ...scene, props: { prompt: " " } }] }])).toEqual([]);
+  });
+  it("asks for the style, the words, and no interface in the picture", () => {
+    const words = scenePrompt("a forest at dawn.", "watercolour");
+    expect(words).toContain("watercolour. a forest at dawn.");
+    expect(words).toContain("No text");
+    expect(words).not.toContain("..");
+  });
+});
+
+describe("readableOnScenes", () => {
+  const part = (id: string, slug: string, x: number, y: number, props: Record<string, unknown> = {}, extra = {}) => ({ id, x, y, axis: "x", items: [{ ...makeItem(slug), id, props, ...extra }] });
+  const doc = (groups: unknown[]) => ({ groups, frames: [{ id: "f", name: "F", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "", brief: "" }) as Doc;
+  const item = (d: Doc, id: string) => d.groups.find((g) => g.id === id)!.items[0];
+
+  it("draws bare words light, and darkens a picture that had no darkening", () => {
+    const out = readableOnScenes(doc([part("s", "scene", 0, 0), part("hp", "stat-bar", 16, 40)]));
+    expect(item(out, "hp").textColor).toBe("inverseOnSurface");
+    expect(item(out, "s").props?.scrim).toBe("full");
+  });
+  it("keeps the darkening and the colour already chosen", () => {
+    const out = readableOnScenes(doc([part("s", "scene", 0, 0, { scrim: "top" }), part("hp", "stat-bar", 16, 40, {}, { textColor: "primary" })]));
+    expect(item(out, "hp").textColor).toBe("primary");
+    expect(item(out, "s").props?.scrim).toBe("top");
+  });
+  it("leaves parts with their own surface, and parts on another screen, alone", () => {
+    const out = readableOnScenes(doc([part("s", "scene", 0, 0), part("say", "dialogue-box", 16, 600), part("far", "text", 600, 40)]));
+    expect(item(out, "say").textColor).toBeUndefined();
+    expect(item(out, "far").textColor).toBeUndefined();
+    expect(item(out, "s").props?.scrim).toBeUndefined();
+  });
+  it("changes nothing on a document with no scene", () => {
+    const d = doc([part("t", "text", 16, 40)]);
+    expect(readableOnScenes(d)).toBe(d);
   });
 });

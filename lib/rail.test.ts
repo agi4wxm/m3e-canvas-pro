@@ -26,6 +26,20 @@ const setExpanded = (groups: Group[], frames: Frame[], expanded: boolean) => {
   return updateRail(groups, frames, drawn(groups), "rail", { props: { ...item.props, expanded } });
 };
 
+describe("Tidy on a scene", () => {
+  it("leaves the scene where it is and stacks what stands on it", () => {
+    const phone: Frame = { id: "p", name: "P", x: 0, y: 0 };
+    const part = (id: string, slug: string, x: number, y: number): Group => ({ id, x, y, axis: "x", items: [{ ...makeItem(slug), id }] });
+    const groups = [part("scene", "scene", 0, 0), part("bar", "app-bar", 0, 20), part("a", "card", 40, 200), part("b", "button", 40, 500)];
+    const out = tidyFrame(groups, phone, [phone], { scene: 412, "scene:h": 892, bar: 412, "bar:h": 64, a: 380, "a:h": 180, b: 380, "b:h": 40 })!;
+    const at = (id: string) => out.find((g) => g.id === id)!;
+    expect([at("scene").x, at("scene").y]).toEqual([0, 0]);
+    expect(at("bar").y).toBe(0);
+    expect(at("a").x).toBe(16);
+    expect(at("b").y).toBeGreaterThan(at("a").y);
+  });
+});
+
 describe("a menu low on a screen", () => {
   const phone: Frame = { id: "p", name: "Phone", x: 0, y: 0 };
   const other: Frame = { id: "q", name: "Other", x: 0, y: 1000 };

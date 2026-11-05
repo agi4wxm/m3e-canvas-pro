@@ -115,6 +115,15 @@ describe("the project of a real document", () => {
     expect(screen).not.toContain("placeholder.svg");
   });
 
+  it("takes a scene's picture along as a file, and leaves its prompt out of the code", async () => {
+    const doc = { groups: [{ id: "g", x: 0, y: 0, axis: "x", items: [{ ...makeItem("scene"), id: "s", props: { image: PICKED_PNG, prompt: "a secret forest prompt", style: "ink" } }] }], frames: [{ id: "f", name: "Home", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "T", brief: "" } as Doc;
+    const { files } = await buildProject(doc, {}, { read: fromDisk, fetchIcons: noNetwork });
+    expect(Object.values(files).some((f) => typeof f === "string" && f.includes(PICKED_PNG))).toBe(false);
+    expect(Object.keys(files).some((k) => /public\/.*\.(png|jpe?g)$/.test(k) || /assets\/.*\.(png|jpe?g)$/.test(k) || /images?\/.*\.(png|jpe?g)$/.test(k))).toBe(true);
+    expect(Object.values(files).some((f) => typeof f === "string" && f.includes("a secret forest prompt"))).toBe(false);
+    expect(Object.keys(files)).toContain("src/components/widgets/Scene.tsx");
+  });
+
   it("carries the theme the document was drawn in", async () => {
     const { doc, widths } = proofDoc();
     const { files } = await buildProject({ ...doc, paletteKey: "custom", customPalette: { ...({} as NonNullable<Doc["customPalette"]>), seed: "#336699", primary: "#336699" } }, widths, { read: fromDisk, fetchIcons: noNetwork });

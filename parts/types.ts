@@ -74,7 +74,7 @@ export type PartSlot = { key: string; label: string; icon?: string };
 
 /** the part's place on a screen: a bar pinned to an edge, a corner FAB, a centered overlay.
  *  Tidy pins it and the prompt describes it by this. */
-export type PartRole = "top" | "bottom" | "floatingBottom" | "fab" | "overlay" | "rail" | "label" | "control" | "listLike" | "fullWidth";
+export type PartRole = "top" | "bottom" | "floatingBottom" | "fab" | "overlay" | "rail" | "label" | "control" | "listLike" | "fullWidth" | "backdrop";
 
 export type PartDef = {
   /** the docs page of the component: /components/<slug> */

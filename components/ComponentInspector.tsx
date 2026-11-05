@@ -122,6 +122,28 @@ function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def:
   }
 }
 
+/** A scene's picture from its words: generated here, or the words taken to another tool. */
+function ScenePaint({ item, values, p }: { item: Item; values: ReturnType<typeof reader>; p: Palette }) {
+  const lang = useLang();
+  const behavior = useContext(BehaviorContext);
+  const painting = behavior.paintingScene === item.id;
+  const words = values.s("prompt").trim();
+  const button = (active: boolean): React.CSSProperties => ({ height: 44, flex: 1, minWidth: 0, borderRadius: 22, border: "none", background: active ? p.secondaryContainer : p.surfaceContainerHigh, color: active ? p.onSecondaryContainer : p.onSurfaceVariant, fontSize: 13, fontWeight: 600, cursor: active ? "pointer" : "default" });
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button data-paint-scene className="m3-press" disabled={!words || !behavior.canPaint || painting} onClick={() => behavior.paintScene?.(item.id)} style={button(!!words && !!behavior.canPaint && !painting)}>
+          {painting ? `${t(item.props?.image ? "repaintScene" : "paintScene", lang)}…` : t(item.props?.image ? "repaintScene" : "paintScene", lang)}
+        </button>
+        <button data-copy-scene className="m3-press" disabled={!words} onClick={() => behavior.copyScenePrompt?.(item.id)} style={button(!!words)}>
+          {t("copyScenePrompt", lang)}
+        </button>
+      </div>
+      {!behavior.canPaint && <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("sceneNoKey", lang)}</div>}
+    </div>
+  );
+}
+
 /** the controls of a part's props, one per prop the part shows in this state */
 export function ComponentProps({ item, palette: p, onChange, frame }: { item: Item; palette: Palette; onChange: (patch: Partial<Item>) => void; frame?: Frame | null }) {
   const lang = useLang();
@@ -173,6 +195,7 @@ export function ComponentProps({ item, palette: p, onChange, frame }: { item: It
             </BindRow>
           ),
         )}
+      {def.slug === "scene" && <ScenePaint item={item} values={values} p={p} />}
       {def.slug === "fab" && !!values.s("label") && !!values.s("icon") && <Toggle on={!!item.collapseOnScroll} onChange={(collapseOnScroll) => onChange({ collapseOnScroll: collapseOnScroll || undefined })} label={t("fabScrollSwitch", lang)} p={p} />}
     </div>
   );

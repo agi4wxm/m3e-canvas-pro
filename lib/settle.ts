@@ -1,7 +1,7 @@
 import { partBySlug, reader } from "../parts/registry";
 import { roleOf } from "../parts/role";
 import { stretchFrame } from "./tidy";
-import { Frame, Group, frameLengthOf, frameOfGroup, frameSizeOf, groupBounds, heldBy } from "./tokens";
+import { Frame, Group, frameLengthOf, frameOfGroup, frameRect, frameSizeOf, groupBounds, heldBy } from "./tokens";
 
 /* A model writes a screen without seeing it: it has to guess how tall each part comes out, and a low
  * guess lays one part over the next. Once the parts have been measured, the ones that ran into each
@@ -28,7 +28,7 @@ function boxOf(g: Group, widths: Record<string, number>): Box {
   return { l, t, r: l + w, b: t + h };
 }
 
-const BACKDROPS = new Set(["image", "video", "animation", "map", "camera"]);
+const BACKDROPS = new Set(["scene", "image", "video", "animation", "map", "camera"]);
 const isBackdrop = (g: Group, frame: Frame, widths: Record<string, number>) => {
   if (g.items.length !== 1 || !BACKDROPS.has(g.items[0].component ?? "")) return false;
   const bb = groupBounds(g, widths);
@@ -38,6 +38,18 @@ const isBackdrop = (g: Group, frame: Frame, widths: Record<string, number>) => {
 
 const across = (a: Box, b: Box) => Math.min(a.r, b.r) - Math.max(a.l, b.l) > 1;
 const overlaps = (a: Box, b: Box) => across(a, b) && Math.min(a.b, b.b) - Math.max(a.t, b.t) > 1;
+
+/** A scene put on the canvas: it takes the place and the size of the given screen, or of the screen nearest the point. */
+export function onScreenAsBackdrop(g: Group, frame: Frame | undefined, frames: Frame[], x: number, y: number): Group {
+  const distance = (f: Frame) => {
+    const r = frameRect(f);
+    return Math.hypot(Math.max(r.l - x, 0, x - r.r), Math.max(r.t - y, 0, y - r.b));
+  };
+  const on = frame ?? [...frames].sort((a, b) => distance(a) - distance(b))[0];
+  if (!on) return g;
+  const { w, h } = frameSizeOf(on);
+  return { ...g, x: on.x, y: on.y, items: g.items.map((it) => ({ ...it, props: { ...it.props, width: w, height: h } })) };
+}
 
 /** The groups moved so nothing in a screen's body lies over anything else, and the frames with any
  *  screen made long enough to hold what moved; null when nothing was in the way. Parts that show at
@@ -49,7 +61,8 @@ export function pushApart(groups: Group[], frames: Frame[], widths: Record<strin
   let any = false;
   for (const frame of frames) {
     const mine = nextGroups.filter((g) => !g.inFlow && frameOfGroup(g, nextFrames, widths)?.id === frame.id);
-    const heldIds = new Set(mine.flatMap((g) => heldBy(g, nextGroups, widths).map((k) => k.id)));
+    /* what stands on a scene is the screen's own: only a real container takes its parts out of the rows */
+    const heldIds = new Set(mine.filter((g) => !isBackdrop(g, frame, widths)).flatMap((g) => heldBy(g, nextGroups, widths).map((k) => k.id)));
     const taken: Box[] = [];
     const body: Group[] = [];
     let foot = Infinity;
@@ -81,7 +94,7 @@ export function pushApart(groups: Group[], frames: Frame[], widths: Record<strin
     any = true;
     /* what a moved container holds moves with it */
     const heldMoves = new Map<string, number>();
-    for (const h of mine) if (moved.has(h.id)) for (const k of heldBy(h, nextGroups, widths)) heldMoves.set(k.id, moved.get(h.id)!);
+    for (const h of mine) if (moved.has(h.id)) for (const k of heldBy(h, nextGroups, widths)) if (!moved.has(k.id)) heldMoves.set(k.id, moved.get(h.id)!);
     /* What moved past the bar at the foot is more than the screen holds: its body scrolls. The screen
      * is made longer first, while every part is still on it, so the bar goes with the foot and no more moves. */
     if (Number.isFinite(foot) && lowest + GAP > foot) {

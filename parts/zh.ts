@@ -449,6 +449,7 @@ export const ZH_TEXT: Record<string, string> = {
   "Your order left the warehouse.": "你的订单已从仓库发出。",
   "Your story": "你的动态",
   "mm/dd/yyyy": "年/月/日",
+  Scene: "场景",
   "Harbour at dawn": "清晨的港口",
   "Old town": "老城区",
   "Night market": "夜市",

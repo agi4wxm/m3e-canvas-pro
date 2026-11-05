@@ -908,3 +908,9 @@
 [data-flush]:not([class*="bg-"]) {
   padding-inline: 0;
 }
+
+/* where a scene answers a tap: shown while it is being drawn, not in the app */
+[inert] [data-hotspot] {
+  outline: 2px dashed var(--md-sys-color-primary);
+  outline-offset: -2px;
+}

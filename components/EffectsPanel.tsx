@@ -25,6 +25,11 @@ export type Behavior = {
   patchGroup: (patch: Partial<Group>) => void;
   /** the selected dock's tabs moved or went: `order` holds the index each now had */
   reorderPanes: (order: number[]) => void;
+  /** a scene's picture: whether one can be generated here, which is being generated, and the two ways to get one */
+  canPaint?: boolean;
+  paintingScene?: string | null;
+  paintScene?: (itemId: string) => void;
+  copyScenePrompt?: (itemId: string) => void;
   /** the data a repeat can draw from */
   collections?: Collection[];
   /** the fields of the row the selected part is repeated for: a condition can read them, as `row.field` */

@@ -2,7 +2,7 @@
 import { useRef } from "react";
 import { Palette } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
-import { AiSettings, PROVIDERS, Provider, providerSpec } from "@/lib/ai";
+import { AiSettings, IMAGE_PROVIDERS, ImageProvider, PROVIDERS, Provider, imageSpec, providerSpec } from "@/lib/ai";
 
 /** the message shown for a failed request, mapped from the error codes lib/ai throws */
 export function aiErrorText(e: unknown, lang: ReturnType<typeof useLang>): string {
@@ -45,17 +45,17 @@ const Label = ({ children, p, right }: { children: React.ReactNode; p: Palette; 
 );
 
 /** The providers as one connected button group; each segment shows the provider's mark in the button's color. */
-function ProviderGroup({ value, onChange, p }: { value: Provider; onChange: (k: Provider) => void; p: Palette }) {
-  const n = PROVIDERS.length;
+function ProviderGroup<K extends string>({ value, onChange, p, options }: { value: K; onChange: (k: K) => void; p: Palette; options: { key: K; label: string }[] }) {
+  const n = options.length;
   const ref = useRef<HTMLDivElement>(null);
   const move = (from: number, delta: number) => {
     const to = (from + delta + n) % n;
-    onChange(PROVIDERS[to].key);
+    onChange(options[to].key);
     (ref.current?.children[to] as HTMLElement | undefined)?.focus();
   };
   return (
     <div ref={ref} role="radiogroup" style={{ display: "flex", gap: 3 }}>
-      {PROVIDERS.map((pr, i) => {
+      {options.map((pr, i) => {
         const on = pr.key === value;
         const outer = 22;
         const inner = 8;
@@ -121,6 +121,7 @@ function ProviderGroup({ value, onChange, p }: { value: Provider; onChange: (k: 
 export function AiPanel({ p, settings, onSettings }: { p: Palette; settings: AiSettings; onSettings: (s: AiSettings) => void }) {
   const lang = useLang();
   const spec = providerSpec(settings.provider);
+  const image = imageSpec(settings.imageProvider);
   const pick = (k: Provider) => {
     const s = providerSpec(k);
     onSettings({ ...settings, provider: k, baseUrl: s.baseUrl, model: s.model });
@@ -132,7 +133,7 @@ export function AiPanel({ p, settings, onSettings }: { p: Palette; settings: AiS
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <Label p={p}>{t("aiProvider", lang)}</Label>
-            <ProviderGroup value={settings.provider} onChange={pick} p={p} />
+            <ProviderGroup<Provider> value={settings.provider} onChange={pick} p={p} options={PROVIDERS} />
           </div>
           <div>
             <Label p={p}>{t("aiModel", lang)}</Label>
@@ -157,6 +158,32 @@ export function AiPanel({ p, settings, onSettings }: { p: Palette; settings: AiS
             </Label>
             <Input label={t("aiKey", lang)} value={settings.key} onChange={(key) => onSettings({ ...settings, key })} placeholder="sk-…" p={p} type="password" />
             <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, marginTop: 8, padding: "0 4px" }}>{t("aiKeyHint", lang)}</div>
+          </div>
+        </div>
+        <div data-image-settings style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 24 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.4, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("aiImageSettings", lang)}</div>
+          <ProviderGroup<ImageProvider> value={image.key} onChange={(imageProvider) => onSettings({ ...settings, imageProvider, imageBaseUrl: undefined, imageModel: undefined })} p={p} options={IMAGE_PROVIDERS} />
+          <div>
+            <Label p={p}>{t("aiModel", lang)}</Label>
+            <Input label={`${t("aiImageSettings", lang)} ${t("aiModel", lang)}`} value={settings.imageModel ?? image.model} onChange={(imageModel) => onSettings({ ...settings, imageModel })} placeholder={image.model} p={p} />
+          </div>
+          <div>
+            <Label p={p}>{t("aiBaseUrl", lang)}</Label>
+            <Input label={`${t("aiImageSettings", lang)} ${t("aiBaseUrl", lang)}`} value={settings.imageBaseUrl ?? image.baseUrl} onChange={(imageBaseUrl) => onSettings({ ...settings, imageBaseUrl })} placeholder={image.baseUrl} p={p} />
+          </div>
+          <div>
+            <Label
+              p={p}
+              right={
+                <a href={image.keysUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, color: p.primary }}>
+                  {t("aiGetKey", lang)}
+                </a>
+              }
+            >
+              {t("aiKey", lang)}
+            </Label>
+            <Input label={`${t("aiImageSettings", lang)} ${t("aiKey", lang)}`} value={settings.imageKey ?? ""} onChange={(imageKey) => onSettings({ ...settings, imageKey })} placeholder="sk-…" p={p} type="password" />
+            <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, marginTop: 8, padding: "0 4px" }}>{t("aiImageHint", lang)}</div>
           </div>
         </div>
       </div>

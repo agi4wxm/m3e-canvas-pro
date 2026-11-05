@@ -16,6 +16,7 @@ const FILES: Record<string, string[]> = {
   AppTools: ["DataTable", "Kanban", "Agenda", "TodoList", "TransferList", "AuthForm", "NumberPad", "SignaturePad", "RichTextEditor", "ChatComposer", "Onboarding", "QrCode"],
   AppMore: ["ImageViewer", "ImageCropper", "RegionPicker", "SeatMap", "ReviewSummary", "FunnelChart", "GanttChart", "VoiceMessage", "VideoCall"],
   GameParts: ["SkillButton", "LevelMap", "DialogueBox", "GameBoard"],
+  Scene: ["Scene"],
 };
 
 /** where printed code imports each widget from */

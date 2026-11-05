@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pushApart } from "./settle";
+import { onScreenAsBackdrop, pushApart } from "./settle";
 import { Frame, Group, makeItem } from "./tokens";
 
 const frame: Frame = { id: "f", name: "F", x: 0, y: 0 };
@@ -81,6 +81,13 @@ describe("pushApart", () => {
     expect(pushApart(groups, [frame], sizes({ scene: [412, 892], hud: [240, 24], go: [380, 56] }))).toBeNull();
   });
 
+  it("keeps what stands on a scene apart from each other, leaving the scene", () => {
+    const groups = [part("scene", "scene", 0, 0), part("a", "card", 16, 96), part("b", "item", 16, 200)];
+    const out = pushApart(groups, [frame], sizes({ scene: [412, 892], a: [380, 180], b: [380, 100] }))!;
+    expect(yOf(out.groups, "scene")).toBe(0);
+    expect(yOf(out.groups, "b")).toBe(292);
+  });
+
   it("still keeps a small picture and what follows it apart", () => {
     const groups = [part("pic", "image", 16, 96), part("list", "item", 16, 200)];
     const out = pushApart(groups, [frame], sizes({ pic: [380, 200], list: [380, 100] }))!;
@@ -93,5 +100,23 @@ describe("pushApart", () => {
     const out = pushApart(groups, [frame, other], sizes({ a: [380, 180], b: [380, 100], c: [380, 180], d: [380, 100] }))!;
     expect(yOf(out.groups, "b")).toBe(292);
     expect(yOf(out.groups, "d")).toBe(400);
+  });
+});
+
+describe("onScreenAsBackdrop", () => {
+  const scene = part("s", "scene", 700, 400);
+  const a: Frame = { id: "a", name: "A", x: 0, y: 0 };
+  const b: Frame = { id: "b", name: "B", x: 492, y: 0, w: 834, h: 1194 };
+  it("fills the screen it is given", () => {
+    const out = onScreenAsBackdrop(scene, b, [a, b], 0, 0);
+    expect([out.x, out.y]).toEqual([492, 0]);
+    expect(out.items[0].props).toMatchObject({ width: 834, height: 1194 });
+  });
+  it("otherwise goes to the screen nearest the point", () => {
+    expect(onScreenAsBackdrop(scene, undefined, [a, b], 430, 100).x).toBe(0);
+    expect(onScreenAsBackdrop(scene, undefined, [a, b], 470, 100).x).toBe(492);
+  });
+  it("stays put with no screen at all", () => {
+    expect(onScreenAsBackdrop(scene, undefined, [], 0, 0)).toBe(scene);
   });
 });
