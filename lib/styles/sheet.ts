@@ -1,5 +1,5 @@
 import { BOX_CSS, SCREEN_TEXTURE, headingRules, recipeRules, RECIPE_KEYS } from "./recipes";
-import { BUTTON, CHIPS, CORNERED, role } from "./recipes/shared";
+import { BUTTON, CHIPS, CORNERED, HEADING_TYPE, role } from "./recipes/shared";
 import { colorsOf, recipesOf, styleOf, uxOf, type Styled } from "./theme";
 import { ERRORS_DARK, ERRORS_LIGHT, type StylePack, type StyleRoles, type TypeRamp } from "./types";
 
@@ -76,8 +76,8 @@ function cornerCss(control: StylePack["control"], pill: StylePack["pill"]): stri
     .join("\n");
 }
 
-/** the type roles a heading is set in: what the display face reaches */
-const DISPLAY_TYPE = `:is([class*="text-display-"],[class*="text-headline-"],[class~="text-title-large"])`;
+/** the type roles a heading is set in: what the display face reaches, a price or a count set as large left out */
+const DISPLAY_TYPE = HEADING_TYPE;
 
 export type StyleSelectors = {
   /** where the variables are set in light mode, and where the rules start from */

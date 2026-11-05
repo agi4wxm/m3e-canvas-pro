@@ -53,7 +53,7 @@ export const pickers: PartDef[] = [
           : h("DatePicker", { label: p.s("label") || undefined, placeholder: p.s("placeholder") || undefined, className: `w-[${Math.round(p.n("width"))}px]` }),
         h(
           "div",
-          { className: "w-fit rounded-xl bg-surface-container-high p-3 shadow-elevation-3" },
+          { "data-slot": "date-picker-popup", className: "w-fit rounded-xl bg-surface-container-high p-3 shadow-elevation-3" },
           p.s("variant") === "modal" ? h("p", { className: "px-2 pb-2 text-label-large text-on-surface-variant" }, p.s("title")) : null,
           h("Calendar"),
         ),

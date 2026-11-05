@@ -566,7 +566,11 @@ function DatePicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <div ref={anchor} className={cn("w-64", className)}>
+      <div
+        ref={anchor}
+        data-slot="date-picker"
+        className={cn("w-64", className)}
+      >
         <TextField
           label={label}
           placeholder={placeholder}
@@ -586,6 +590,7 @@ function DatePicker({
             <PopoverTrigger
               render={
                 <Button
+                  data-slot="date-picker-trigger"
                   variant="ghost"
                   size="icon"
                   aria-label="Choose date"
@@ -600,6 +605,7 @@ function DatePicker({
       </div>
       <PopoverContent
         anchor={anchor}
+        data-slot="date-picker-popup"
         align="start"
         sideOffset={4}
         className="w-auto gap-0 rounded-xl bg-surface-container-high p-0 shadow-elevation-3"

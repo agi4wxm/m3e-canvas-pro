@@ -7,9 +7,14 @@ const DIALOG = `:is([data-slot=dialog-content],[data-slot=alert-dialog-content])
 const FOOT = `:is([data-slot=dialog-footer],[data-slot=alert-dialog-footer])`;
 const TITLE = `:is([data-slot=dialog-title],[data-slot=alert-dialog-title])`;
 const WORDS = `:is([data-slot=dialog-description],[data-slot=alert-dialog-description])`;
+/** the button that answers yes: the filled one, or the one named as the action */
+const MAIN = `[data-variant=default],[data-variant=filled],[data-slot=dialog-action],[data-slot=alert-dialog-action]`;
+/** the buttons of a split foot are words in halves of it, the main one bolder: a fill does not belong in one half */
 const SPLIT_FOOT = `${DIALOG} ${FOOT}{flex-direction:row;gap:0;margin:8px -16px 0;border-top:1px solid ${role("outline-variant")}}
-${DIALOG} ${FOOT} [data-button]{flex:1;height:44px;border-radius:0}
-${DIALOG} ${FOOT} [data-button]+[data-button]{border-left:1px solid ${role("outline-variant")}}`;
+${DIALOG} ${FOOT} [data-button]{flex:1;height:44px;border-radius:0;border:0;box-shadow:none;background-color:transparent;color:var(--st-primary-text)}
+${DIALOG} ${FOOT} [data-button]+[data-button]{border-left:1px solid ${role("outline-variant")}}
+${DIALOG} ${FOOT} [data-button]:is(${MAIN}){font-weight:600}
+${DIALOG} ${FOOT} [data-button][data-variant=destructive]{color:${role("error")}}`;
 export const DIALOG_CSS: RecipeCss<Recipes["dialog"]> = {
   m3: "",
   /* iOS: a small centered card, its words centered, its buttons split across the foot */
@@ -17,11 +22,13 @@ export const DIALOG_CSS: RecipeCss<Recipes["dialog"]> = {
 ${DIALOG} ${TITLE}{font-size:17px;line-height:22px;font-weight:600}
 ${DIALOG} ${WORDS}{font-size:13px;line-height:18px}
 ${SPLIT_FOOT}`,
-  /* WeUI: the same, a little wider, with room around its words */
-  weui: `${DIALOG}{max-width:320px;min-width:0;padding:24px 16px 0;gap:8px;text-align:center;border-radius:12px}
+  /* WeUI: the same on white, a little wider, with room around its words; the lesser button in black, the main one in
+     the link color */
+  weui: `${DIALOG}{max-width:320px;min-width:0;padding:24px 16px 0;gap:8px;text-align:center;border-radius:12px;background-color:${role("surface-container-low")}}
 ${DIALOG} ${TITLE}{font-size:17px;line-height:24px;font-weight:600}
 ${DIALOG} ${WORDS}{font-size:15px;line-height:22px}
-${SPLIT_FOOT}`,
+${SPLIT_FOOT}
+${DIALOG} ${FOOT} [data-button]:not(${MAIN},[data-variant=destructive]){color:${role("on-surface")}}`,
   /* Fluent, Ant Design, VS Code: left-aligned, smaller, its buttons at the right */
   modal: `${DIALOG}{padding:20px;gap:8px;border-radius:var(--md-sys-shape-corner-large)}
 ${DIALOG} ${TITLE}{font-size:16px;line-height:24px;font-weight:600}

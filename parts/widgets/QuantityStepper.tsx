@@ -15,7 +15,7 @@ export function QuantityStepper({ value = 1, min = 0, max = 99, width = 200, cla
       <Button variant="text" size="icon-md" aria-label="Decrease" disabled={count <= min} onClick={() => setCount((n) => Math.max(min, n - 1))}>
         <WidgetIcon name="remove" />
       </Button>
-      <span className="text-title-medium text-on-surface">{count}</span>
+      <span data-slot="quantity-stepper-value" className="text-title-medium text-on-surface">{count}</span>
       <Button variant="text" size="icon-md" aria-label="Increase" disabled={count >= max} onClick={() => setCount((n) => Math.min(max, n + 1))}>
         <WidgetIcon name="add" />
       </Button>

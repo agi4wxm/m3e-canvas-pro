@@ -174,7 +174,7 @@ describe("what a style writes", () => {
       .flatMap((dir) => readdirSync(new URL(dir, root)).filter((f) => /\.tsx?$/.test(f)).map((f) => readFileSync(new URL(`${dir}/${f}`, root), "utf8")))
       .join("\n");
     const allVariants = RECIPE_KEYS.flatMap((k) => RECIPES[k].map((v) => styleCss({ ...DEFAULT_THEME, recipes: { [k]: v } }))).join("\n");
-    for (const hook of ["item-chevron", "app-bar-back-label", "app-bar-large-title", "search-cancel", "sheet-handle"]) {
+    for (const hook of ["item-chevron", "app-bar-back-label", "app-bar-large-title", "search-cancel", "sheet-handle", "time-picker-wheel"]) {
       /* present but hidden by default, so Material and every style that says nothing of it look as before */
       expect(sources, hook).toMatch(new RegExp(`data-slot"?\\s*[:=]\\s*"${hook}"[^\\n]*\\bhidden\\b`));
       expect(allVariants, hook).toMatch(new RegExp(`(\\[data-slot=${hook}\\]|\\[data-slot\\$="-${hook.split("-").pop()}"\\])[^{]*\\{[^}]*display:(block|inline|inline-flex|flex)`));
@@ -211,6 +211,15 @@ describe("what a style writes", () => {
     expect(css).not.toMatch(/:first-child|:last-child|:nth-|:only-child/);
     expect(css).not.toMatch(/>\s*(\*|div|span|:)/);
     expect(css).not.toMatch(/(^|[\s,(}])(h1|h2|h3|p|span|div|svg|ul|li|button)(?=[\s,{.:\[)])/m);
+  });
+
+  it("dresses headings as headings, and leaves a price, a value or a button set as large alone", () => {
+    const css = styleCss(themed("ios", { strict: false, recipes: { text: "outlined" } }));
+    const rule = css.split("\n").find((l) => l.includes("text-shadow") && l.includes("text-display-"));
+    expect(rule).toBeDefined();
+    for (const left of ['[data-slot$="-price"]', '[data-slot$="-value"]', "[data-button]", '[class~="tabular-nums"]']) expect(rule, left).toContain(left);
+    /* what is named as a heading stays one */
+    expect(rule).toContain("[data-slot=card-title]");
   });
 
   it("is not known to the components: there is one component, and any style can dress it", () => {
