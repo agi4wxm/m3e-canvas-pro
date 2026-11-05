@@ -58,8 +58,11 @@ export function Scene({ image = "", icon = "landscape", scrim = "none", hotspots
       )}
       {SCRIMS[scrim] && <div data-scene-scrim className="pointer-events-none absolute inset-0" style={{ background: SCRIMS[scrim] }} />}
       {hold === "calm" && isAnimation(image) && (
-        <Tap aria-label="Play animation" data-scene-play data-tap="self" className="absolute top-3 right-3 flex size-10 items-center justify-center rounded-full bg-inverse-surface text-inverse-on-surface" onClick={() => setHold("no")}>
-          <WidgetIcon name="play_arrow" className="size-6" />
+        /* what stands on the scene may cover any one spot, so a press anywhere on the picture counts */
+        <Tap aria-label="Play animation" data-scene-play data-tap="self" className="absolute inset-0 flex items-center justify-center" onClick={() => setHold("no")}>
+          <span className="flex size-12 items-center justify-center rounded-full bg-inverse-surface text-inverse-on-surface">
+            <WidgetIcon name="play_arrow" className="size-7" />
+          </span>
         </Tap>
       )}
       {hotspots.map((spot, i) => (
