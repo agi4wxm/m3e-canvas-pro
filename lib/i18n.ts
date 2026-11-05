@@ -337,7 +337,7 @@ export const UI = {
   effToggleVar: { ja: "変数を反転", en: "Flip a variable", zh: "翻转变量" },
   effAddVar: { ja: "変数に足す", en: "Add to a variable", zh: "增加变量" },
   effSetProp: { ja: "プロパティを変更", en: "Change a prop", zh: "修改属性" },
-  effSnackbar: { ja: "スナックバーを表示", en: "Show a snackbar", zh: "显示 Snackbar" },
+  effSnackbar: { ja: "スナックバーを表示", en: "Show a snackbar", zh: "显示提示条" },
   effectKind: { ja: "動作の種類", en: "What it does", zh: "效果类型" },
   effectPart: { ja: "対象の部品", en: "Which part", zh: "目标组件" },
   effectProp: { ja: "プロパティ", en: "Prop", zh: "属性" },
