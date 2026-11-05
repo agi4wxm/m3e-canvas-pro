@@ -429,7 +429,7 @@ export const PALETTES: Palette[] = PRESETS.map((p) => ({ ...p, secondary: scheme
 
 /* ---------- theme: the four expressive axes ---------- */
 export type ShapeScale = "none" | "square" | "soft" | "rounded" | "full";
-export type FontKey = "roboto" | "robotoFlex" | "robotoSerif" | "system" | "apple" | "segoe" | "inter" | "dmsans" | "mrounded" | "fredoka" | "lilita" | "barlow" | "rajdhani" | "pixel" | "garamond" | "cinzel" | "tiktok" | "brush";
+export type FontKey = "roboto" | "robotoFlex" | "robotoSerif" | "system" | "apple" | "segoe" | "inter" | "dmsans" | "mrounded" | "fredoka" | "lilita" | "barlow" | "rajdhani" | "pixel" | "garamond" | "cinzel" | "tiktok" | "brush" | "sourceSerif" | "mono";
 export type MotionScheme = "standard" | "expressive";
 /** which drawing of Material Symbols the icons are, or the pixel set for the names it has */
 /** which drawing of the icons a document uses: Material's own cuts, or a product's set (see components/m3e/icon-family.ts) */
@@ -446,7 +446,7 @@ export type Theme = {
   /** headings and labels take the heavier M3 Expressive "emphasized" styles */
   emphasized: boolean;
   motion: MotionScheme;
-  /** the style the document wears (lib/styles.ts); left out, it is plain Material */
+  /** the style the document wears (lib/styles/); left out, it is plain Material */
   style?: string;
   /** the author picked colors after the style: the palette is theirs, the rest stays the style's */
   ownColors?: boolean;
@@ -545,6 +545,10 @@ export const FONTS: {
   { key: "cinzel", label: "Cinzel", family: "Cinzel, Georgia, serif", google: "Cinzel:wght@400;500;600;700", zh: NOTO_SERIF_SC },
   /* the brush of a Chinese title; its Latin stays carved */
   { key: "brush", label: "Ma Shan Zheng", family: "Cinzel, Georgia, serif", google: "Cinzel:wght@400;500;600;700", zh: BRUSH },
+  /* an editorial serif for headings, where a product sets its titles like a book's */
+  { key: "sourceSerif", label: "Source Serif 4", family: "'Source Serif 4', Georgia, serif", google: "Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700", zh: NOTO_SERIF_SC },
+  /* a coding tool's face, for headings and figures that are read as code */
+  { key: "mono", label: "JetBrains Mono", family: "'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace", google: "JetBrains+Mono:wght@400;500;600;700" },
 ];
 
 /** The Noto Sans face that covers a language's script, spliced in behind the chosen

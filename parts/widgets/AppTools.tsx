@@ -732,11 +732,11 @@ export function ChatComposer({ placeholder = "", attach = true, emoji = true, wi
   return (
     <div ref={box} data-slot="chat-composer" data-sent={sent} className={cn("bg-surface-container text-on-surface flex items-center gap-1 p-2", className)} style={{ width, ...style }}>
       {attach && (
-        <Button variant="text" size="icon-sm" aria-label="Attach" data-tap="attach" className="shrink-0 text-inherit">
+        <Button variant="text" size="icon-sm" aria-label="Attach" data-tap="attach" data-slot="chat-composer-attach" className="shrink-0 text-inherit">
           <WidgetIcon name="add_circle" />
         </Button>
       )}
-      <div className="min-w-0 flex-1" onClick={stop}>
+      <div data-slot="chat-composer-field" className="min-w-0 flex-1" onClick={stop}>
         <Input
           size="sm"
           variant="filled"
@@ -753,11 +753,11 @@ export function ChatComposer({ placeholder = "", attach = true, emoji = true, wi
         />
       </div>
       {emoji && (
-        <Button variant="text" size="icon-sm" aria-label="Emoji" data-tap="emoji" className="shrink-0 text-inherit">
+        <Button variant="text" size="icon-sm" aria-label="Emoji" data-tap="emoji" data-slot="chat-composer-emoji" className="shrink-0 text-inherit">
           <WidgetIcon name="mood" />
         </Button>
       )}
-      <Button variant="filled" size="icon-sm" aria-label="Send" data-tap="send" className="shrink-0" disabled={!draft.trim()} onClick={send}>
+      <Button variant="filled" size="icon-sm" aria-label="Send" data-tap="send" data-slot="chat-composer-send" className="shrink-0" disabled={!draft.trim()} onClick={send}>
         <WidgetIcon name="send" />
       </Button>
     </div>

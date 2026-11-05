@@ -1,0 +1,33 @@
+import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+
+/* the HUD navy and pale blue read off Whiteout Survival's store screenshots; Last War's bars look the same */
+export default definePack({
+  key: "survival",
+  name: say("冰雪策略", "Survival strategy", "サバイバル戦略", "생존 전략"),
+  hint: say("像寒霜启示录、Last War：深蓝信息条、冰白画面、橙色主按钮", "Like Whiteout Survival, Last War: navy HUD strips, icy white, orange main buttons", "Whiteout Survival のような紺と氷の白", "Whiteout Survival 같은 남색과 얼음빛"),
+  refs: ["Whiteout Survival", "Last War", "Kingshot"],
+  basis: "sampled",
+  group: "mobileGame",
+  seed: "#3B5588",
+  mode: "light",
+  light: roles({ p: ["#F08A00", "#FFFFFF"], pc: ["#FFE3B8", "#5A3000"], s: ["#2F86D6", "#FFFFFF"], sc: ["#3B5588", "#FFFFFF"], t: ["#D08A00", "#2B1800"], tc: ["#D7F0FF", "#0A3A5C"], bg: ["#DDE8F4", "#F7FAFD", "#F1F6FB", "#E6EEF7", "#D5E2EF"], text: ["#1E2A44", "#3F5275"], line: ["#6B7FA3", "#B7C7DE"] }),
+  dark: roles({ p: ["#F08A00", "#FFFFFF"], pc: ["#5A3000", "#FFE3B8"], s: ["#6FB8F2", "#04203F"], sc: ["#45629B", "#FFFFFF"], t: ["#FFC94D", "#2B1800"], tc: ["#0A3A5C", "#D7F0FF"], bg: ["#1E2A44", "#2C3E66", "#303F6B", "#354A77", "#3B5588"], text: ["#FFFFFF", "#DCE8F7"], line: ["#8BA3CC", "#4A628F"] }),
+  loud: ["primary", "secondary"],
+  shape: "rounded",
+  font: "barlow",
+  display: "barlow",
+  icons: "emoji",
+  motion: "standard",
+  control: "small",
+  pill: "round",
+  edge: 2,
+  screen: "linear-gradient(#EAF2FA, #D5E2EF)",
+  screenDark: "linear-gradient(#141D33, #1E2A44)",
+  tokens: { rim: "#FFD27A", rimDark: "#7A4300", stroke: "#5A2F00", navBg: "#303F6B", navActive: "#4C6AA6", barBg: "#303344", onBar: "#FFFFFF", toggleOn: "#3FA34D", primaryText: "#A85600", primaryTextDark: "#FFB454" },
+  recipes: { button: "gloss", surface: "steel", tabs: "boxed", toggle: "chunky", slider: "block", nav: "gamebar", field: "hard", bar: "hud", meter: "block", feedback: "press", list: "tile", dialog: "game", avatar: "framed", card: "framed", segmented: "block", appbar: "center", search: "filled", progress: "jelly", divider: "fade", menu: "rim", sheet: "rim", tooltip: "rim", fab: "round", badge: "rim", icon: "emboss", text: "outlined", scroll: "hidden" },
+  art: "stylized semi-realistic strategy game art, frozen wasteland, snow and warm firelight, blue-grey palette with orange highlights",
+  ux: { margin: 8, gap: 8, tight: 6, nav: "bottom" },
+  layout: { zh: "顶部左边头像和战力，右边一排资源数字；屏幕边缘挂满圆形功能图标；底部一排深蓝入口；操作卡片从下方升起。", en: "An avatar and power at the upper left, a row of resource figures at the right; round feature icons along the edges; a navy row of entries at the foot; action cards rising from below." },
+  type: { ...TITLES([22, 26, 700, 0.2], [18, 22, 700, 0.2], [16, 20, 700, 0.2]), ...BODIES([17, 22, 500, 0.2], [15, 20, 500, 0.2], [13, 16, 500, 0.2]), ...LABELS([16, 20, 700, 0.2], [14, 18, 600, 0.2], [12, 14, 600, 0.2]) },
+  css: "",
+});

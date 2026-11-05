@@ -26,9 +26,9 @@ export const desktop: PartDef[] = [
       return h(
         "div",
         { "data-slot": "title-bar", "data-controls": controls, className: "bg-surface-container flex h-9 items-center gap-3 px-3", style: { width: Math.round(p.n("width")) } },
-        controls === "mac" && h("div", { className: "flex gap-2" }, dot, dot, dot),
-        h("div", { className: `text-label-large text-on-surface flex-1 truncate ${controls === "mac" ? "text-center" : ""}` }, p.s("title")),
-        controls === "windows" && h("div", { className: "text-on-surface-variant flex gap-3" }, ic("remove", { className: "size-4" }), ic("crop_square", { className: "size-4" }), ic("close", { className: "size-4" })),
+        controls === "mac" && h("div", { "data-slot": "title-bar-controls", className: "flex gap-2" }, dot, dot, dot),
+        h("div", { "data-slot": "title-bar-title", className: `text-label-large text-on-surface flex-1 truncate ${controls === "mac" ? "text-center" : ""}` }, p.s("title")),
+        controls === "windows" && h("div", { "data-slot": "title-bar-controls", className: "text-on-surface-variant flex gap-3" }, ic("remove", { className: "size-4" }), ic("crop_square", { className: "size-4" }), ic("close", { className: "size-4" })),
       );
     },
   },
@@ -53,8 +53,8 @@ export const desktop: PartDef[] = [
         "div",
         { "data-slot": "status-bar", className: "bg-surface-container text-label-medium text-on-surface-variant flex h-7 items-center gap-2 px-3", style: { width: Math.round(p.n("width")) } },
         p.s("icon") && ic(p.s("icon"), { className: "size-4" }),
-        h("span", { className: "flex-1 truncate" }, p.s("text")),
-        p.s("trailing") && h("span", null, p.s("trailing")),
+        h("span", { "data-slot": "status-bar-label", className: "flex-1 truncate" }, p.s("text")),
+        p.s("trailing") && h("span", { "data-slot": "status-bar-value" }, p.s("trailing")),
       ),
   },
   {

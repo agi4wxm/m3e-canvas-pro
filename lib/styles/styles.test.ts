@@ -1,9 +1,9 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { APP_SCOPE, RECIPES, RECIPE_KEYS, STYLE_GROUPS, STYLE_PACKS, artOf, hasBackdrop, normalizeRecipes, recipesOf, screenBackground, styleCatalog, styleCss, styleOf, stylePalette, stylePatch, styleSeed, type StyleRoles } from "./styles";
-import { DEFAULT_THEME, FONTS, ICON_FAMILIES, SHAPES, fontFamilyOf, langFaceOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Theme } from "./tokens";
+import { APP_SCOPE, RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, variantLabel, STYLE_PACKS, artOf, hasBackdrop, normalizeRecipes, recipesOf, screenBackground, styleCatalog, styleCss, styleOf, stylePalette, stylePatch, styleSeed, type StyleRoles } from ".";
+import { DEFAULT_THEME, FONTS, ICON_FAMILIES, SHAPES, fontFamilyOf, langFaceOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Theme } from "../tokens";
 
-const root = new URL("../", import.meta.url);
+const root = new URL("../../", import.meta.url);
 
 const luminance = (hex: string) => {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
@@ -45,6 +45,12 @@ describe("the styles", () => {
       for (const k of Object.keys(s.recipes) as (keyof typeof RECIPES)[]) expect(RECIPES[k], `${s.key} ${k}`).toContain(s.recipes[k]);
       expect(s.art.length, s.key).toBeGreaterThan(20);
     }
+  });
+
+  it("draw their icons from the product's own set", () => {
+    const families: Record<string, string> = { ios: "sf", shortvideo: "remix", spotify: "phosphor", wechat: "mingcute", shop: "remix", social: "phosphor", whatsapp: "rounded", chatgpt: "lucide", claude: "phosphor", codex: "lucide", fluent: "fluentui", vscode: "codicon", discord: "remix", steam: "tabler", notion: "lucide", antd: "ant", casual: "emoji", blocks: "emoji", survival: "emoji", anime: "game", moba: "game", souls: "game", wukong: "game", cyber: "tabler", rivals: "remix", fps: "tabler", stardew: "pixel" };
+    expect(STYLE_PACKS.map((s) => s.key).sort()).toEqual(Object.keys(families).sort());
+    for (const s of STYLE_PACKS) expect(s.icons, s.key).toBe(families[s.key]);
   });
 
   it("each come from real products people use, in every group", () => {
@@ -156,6 +162,32 @@ describe("what a style writes", () => {
     const slots = new Set([...`${every}\n${allVariants}`.matchAll(/\[data-slot=([a-z0-9-]+)\]/g)].map((m) => m[1]));
     expect(slots.size).toBeGreaterThan(15);
     for (const slot of slots) expect(sources.includes(`"${slot}"`), `no component has the slot ${slot}`).toBe(true);
+    /* a part spoken of in every component by its ending: some component has to name one */
+    const named = [...sources.matchAll(/"([a-z0-9]+(?:-[a-z0-9]+)+)"/g)].map((m) => m[1]);
+    const endings = new Set([...`${every}\n${allVariants}`.matchAll(/\[data-slot\$="-([a-z0-9-]+)"\]/g)].map((m) => m[1]));
+    expect(endings.size).toBeGreaterThan(3);
+    for (const end of endings) expect(named.some((n) => n.endsWith(`-${end}`)), `no component has a slot ending in -${end}`).toBe(true);
+  });
+
+  it("finds the composition hooks hidden in the components, and has a recipe that shows each", () => {
+    const sources = ["components/m3e", "parts/widgets", "parts/defs"]
+      .flatMap((dir) => readdirSync(new URL(dir, root)).filter((f) => /\.tsx?$/.test(f)).map((f) => readFileSync(new URL(`${dir}/${f}`, root), "utf8")))
+      .join("\n");
+    const allVariants = RECIPE_KEYS.flatMap((k) => RECIPES[k].map((v) => styleCss({ ...DEFAULT_THEME, recipes: { [k]: v } }))).join("\n");
+    for (const hook of ["item-chevron", "app-bar-back-label", "app-bar-large-title", "search-cancel", "sheet-handle"]) {
+      /* present but hidden by default, so Material and every style that says nothing of it look as before */
+      expect(sources, hook).toMatch(new RegExp(`data-slot"?\\s*[:=]\\s*"${hook}"[^\\n]*\\bhidden\\b`));
+      expect(allVariants, hook).toMatch(new RegExp(`(\\[data-slot=${hook}\\]|\\[data-slot\\$="-${hook.split("-").pop()}"\\])[^{]*\\{[^}]*display:(block|inline|inline-flex|flex)`));
+    }
+  });
+
+  it("dresses the box an author builds with by the surface role it plays", () => {
+    for (const s of STYLE_PACKS) {
+      const css = styleCss(themed(s.key));
+      for (const surface of ["card", "panel", "sheet", "overlay", "well"]) expect(css, `${s.key} ${surface}`).toContain(`[data-surface=${surface}]`);
+    }
+    /* a field box takes the style's field look where the style has one of its own */
+    expect(styleCss(themed("ios"))).toMatch(/\[data-surface=field\][^{]*\{[^}]*border-radius/);
   });
 
   it("dresses a component by the parts it names, never by how it happens to be built", () => {
@@ -186,6 +218,16 @@ describe("what a style writes", () => {
     expect(css).toMatch(/\.m3-part-scope,\s*\[data-style-sample\]\s*\{\s*--background:/);
   });
 
+  it("names every kind and every variant in the four languages", () => {
+    for (const k of RECIPE_KEYS) {
+      expect(Object.values(RECIPE_LABELS[k]).every(Boolean), k).toBe(true);
+      for (const v of RECIPES[k]) {
+        const label = variantLabel(k, v);
+        expect([label.zh, label.en, label.ja, label.ko].every((s) => s && s !== v), `${k} ${v}`).toBe(true);
+      }
+    }
+  });
+
   it("has CSS for every variant it offers, and each stays balanced", () => {
     for (const k of RECIPE_KEYS)
       for (const v of RECIPES[k]) {
@@ -199,7 +241,7 @@ describe("what a style writes", () => {
 describe("a theme with a style", () => {
   it("is what picking it writes, and picking none undoes it", () => {
     const patch = stylePatch("souls");
-    expect(patch).toMatchObject({ style: "souls", shape: "none", font: "garamond", displayFont: "cinzel", icons: "light", dark: true });
+    expect(patch).toMatchObject({ style: "souls", shape: "none", font: "garamond", displayFont: "cinzel", icons: "game", dark: true });
     expect(stylePatch("")).toMatchObject({ style: undefined, shape: "rounded", font: "roboto", icons: undefined, dark: false });
   });
 
@@ -210,7 +252,7 @@ describe("a theme with a style", () => {
     expect(read.recipes).toEqual({ button: "glow" });
     /* what is not understood falls back to what the style brings */
     expect(read.displayFont).toBe("cinzel");
-    expect(read.icons).toBe("light");
+    expect(read.icons).toBe("game");
     expect(normalizeTheme({ ...DEFAULT_THEME, style: "gone" }).style).toBeUndefined();
     expect(normalizeRecipes("nope")).toBeUndefined();
     expect(normalizeTheme({ ...DEFAULT_THEME, shape: "none" }).shape).toBe("none");
@@ -218,7 +260,7 @@ describe("a theme with a style", () => {
 
   it("needs only its name in a document: a model or a person writes one word and gets the rest", () => {
     const read = normalizeTheme({ style: "cyber" });
-    expect(read).toMatchObject({ style: "cyber", shape: "none", font: "rajdhani", icons: "sharp", dark: true });
+    expect(read).toMatchObject({ style: "cyber", shape: "none", font: "rajdhani", icons: "tabler", dark: true });
     /* off the rules, what the author chose over the style stays */
     expect(normalizeTheme({ style: "cyber", strict: false, dark: false, icons: "rounded" })).toMatchObject({ dark: false, icons: "rounded" });
   });

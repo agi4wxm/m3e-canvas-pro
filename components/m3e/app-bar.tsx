@@ -43,6 +43,8 @@ type AppBarProps = Omit<React.ComponentProps<"header">, "title"> &
     scrolled?: boolean
     /** center the title (small bars) */
     centered?: boolean
+    /** where the back arrow leads, in words: drawn only where a style shows it (iOS's "Back") */
+    backLabel?: React.ReactNode
   }
 
 function AppBar({
@@ -54,6 +56,7 @@ function AppBar({
   trailing,
   scrolled,
   centered,
+  backLabel,
   ...props
 }: AppBarProps) {
   const small = size === "small"
@@ -103,12 +106,19 @@ function AppBar({
     >
       <div data-slot="app-bar-row" className="flex h-16 items-center gap-1 px-1">
         {leading && (
-          <div className="flex shrink-0 items-center text-on-surface [&_[data-slot=button]]:text-on-surface">
+          <div data-slot="app-bar-leading" className="flex shrink-0 items-center text-on-surface [&_[data-slot=button]]:text-on-surface">
             {leading}
+            {/* a composition hook: hidden unless a style shows it */}
+            {backLabel && (
+              <span data-slot="app-bar-back-label" className="hidden">
+                {backLabel}
+              </span>
+            )}
           </div>
         )}
         {small && (
           <div
+            data-slot="app-bar-heading"
             className={cn(
               "min-w-0 flex-1 px-3",
               centered && "text-center",
@@ -120,13 +130,20 @@ function AppBar({
         )}
         {!small && <div className="flex-1" />}
         {trailing && (
-          <div className="flex shrink-0 items-center text-on-surface-variant [&_[data-slot=button]]:text-on-surface-variant">
+          <div data-slot="app-bar-trailing" className="flex shrink-0 items-center text-on-surface-variant [&_[data-slot=button]]:text-on-surface-variant">
             {trailing}
           </div>
         )}
       </div>
+      {/* a composition hook: the title again, large and under the row, for a style that sets it there */}
+      {small && (
+        <div data-slot="app-bar-large-title" className="hidden truncate px-4 pb-2 text-headline-medium">
+          {title}
+        </div>
+      )}
       {!small && (
         <div
+          data-slot="app-bar-title-block"
           className="flex min-w-0 flex-col justify-end px-4 pb-3"
           style={block ? { height: block } : undefined}
         >

@@ -1,0 +1,31 @@
+import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
+
+/* Apex's and Valorant's menus looked at on Interface In Game; red and tan as they appear there */
+export default definePack({
+  key: "fps",
+  name: say("战术射击", "Tactical shooter", "タクティカル FPS", "전술 슈팅"),
+  hint: say("像 Apex、Valorant：深蓝灰底、红色斜切选中、窄体大写", "Like Apex, Valorant: dark blue-grey, red slanted selection, condensed capitals", "Apex や Valorant のように赤い斜めの選択", "Apex, Valorant처럼 빨간 기울임 선택"),
+  refs: ["Apex Legends", "VALORANT", "PUBG", "Counter-Strike 2"],
+  basis: "observed",
+  group: "pcGame",
+  seed: "#DA292A",
+  mode: "dark",
+  light: roles({ p: ["#C62526", "#FFFFFF"], pc: ["#FFDAD6", "#410002"], s: ["#0F1923", "#ECE8E1"], sc: ["#E2DDD3", "#0F1923"], t: ["#0E7A5E", "#FFFFFF"], tc: ["#C7F5E6", "#04241B"], bg: ["#ECE8E1", "#F7F4EE", "#F2EEE7", "#E2DDD3", "#D8D2C6"], text: ["#0F1923", "#3F4A55"], line: ["#6E7782", "#C4BEB2"] }),
+  dark: roles({ p: ["#DA292A", "#FFFFFF"], pc: ["#4A1114", "#FFD6D6"], s: ["#ECE8E1", "#0F1923"], sc: ["#1F2A36", "#ECE8E1"], t: ["#5BD1B0", "#04241B"], tc: ["#103A2F", "#C7F5E6"], bg: ["#0F1923", "#16212D", "#1C2936", "#243340", "#2C3D4C"], text: ["#ECE8E1", "#B5C2CE"], line: ["#6E8296", "#2C3D4C"] }),
+  shape: "none",
+  font: "barlow",
+  display: "barlow",
+  icons: "tabler",
+  motion: "standard",
+  control: "extra-small",
+  pill: "follow",
+  capsLabels: true,
+  screenDark: "radial-gradient(100% 70% at 70% 30%, rgb(60 90 130 / 0.35), transparent 70%)",
+  tokens: { barBg: "#0B131B", onBar: "#ECE8E1", rim: "#DA292A", tabOn: "#DA292A", navOn: "#ECE8E1", toggleOn: "#DA292A", primaryTextDark: "#FF7A7A" },
+  recipes: { button: "flat", surface: "line", tabs: "slant", toggle: "block", slider: "block", nav: "topline", field: "boxed", bar: "hud", meter: "block", feedback: "flash", list: "tile", dialog: "plain", chip: "tag", card: "outlined", segmented: "underline", appbar: "compact", search: "underline", input: "underline", progress: "segment", row: "dense", menu: "compact", sheet: "panel", tooltip: "dark", fab: "flat", badge: "square", text: "caps", scroll: "block" },
+  art: "gritty tactical shooter art, overcast urban map, muted colors, a hot orange rim light",
+  ux: { margin: 16, gap: 8, tight: 4, nav: "top" },
+  layout: { zh: "顶部一行大写导航，选中项是红色平行四边形；人物站在中间；左下角一列匹配按钮和大号准备按钮；右上角货币。", en: "A line of capital navigation on top with the chosen item a red parallelogram; the character standing in the middle; a column of match buttons and a big ready button at the lower left; currency at the upper right." },
+  type: { ...TITLES([26, 30, 700, 0.5], [20, 24, 700, 0.5], [16, 20, 700, 0.5]), ...BODIES([17, 22, 500, 0.2], [15, 20, 500, 0.2], [13, 16, 500, 0.2]), ...LABELS([16, 20, 700, 1], [14, 18, 600, 0.5], [12, 14, 600, 0.5]) },
+  css: "",
+});

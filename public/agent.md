@@ -70,6 +70,8 @@ Each one is modeled on real products. Pick the one nearest to what the person de
 | `social` | Instagram, Threads | Content edge to edge with full-width pictures, hardly any cards or lines; color only on the main action; a bottom bar of icons with no words. |
 | `whatsapp` | WhatsApp | A title and search on top, then chat rows of avatar, name, last line and time; a floating new-chat button at the lower right; four bottom tabs. |
 | `chatgpt` | ChatGPT | Almost no chrome: the conversation in the middle, a large rounded composer with a round send button at the foot, navigation folded into a side drawer. |
+| `claude` | Claude | A roomy warm-ivory page: a centered serif greeting, a large white rounded composer below it (hairline, soft shadow, a terracotta send button), a few capsule suggestions; navigation folded into a sidebar, the conversation set wide and easy to read. |
+| `codex` | Codex | A large prompt box on top to describe a task, with repository and branch pickers beside it; below, a compact task list, each row a title, the repository and monospace diff counts (green added, red removed), parted by hairlines; a task opens to a log at the left and the diff at the right. |
 | `fluent` | Windows 11, Microsoft 365, Teams, Edge | A navigation pane on the left when wide, a command bar on top, compact lists and forms below; short controls, small margins, dense. |
 | `vscode` | VS Code, Cursor | A narrow column of icons at the far left, a tree sidebar beside it, square tabs over the content, a thin status bar along the foot. |
 | `discord` | Discord | A column of round server icons at the far left, a channel list beside it, the stream of messages beside that, a composer at the foot. |

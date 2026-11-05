@@ -160,6 +160,7 @@ function ProgressTrack({
         <div className="flex size-full items-center">
           {fraction > 0 && (
             <div
+              data-slot="progress-fill"
               className="relative h-full shrink-0 overflow-hidden rounded-full transition-[width] duration-(--md-sys-motion-spring-default-effects-duration) ease-effects-default"
               style={{ width: `${fraction * 100}%` }}
             >
@@ -185,6 +186,7 @@ function ProgressTrack({
                 </svg>
               ) : (
                 <div
+                  data-slot="progress-bar"
                   className="absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-full bg-primary"
                   style={{ height: t }}
                 />
@@ -193,13 +195,15 @@ function ProgressTrack({
           )}
           {fraction < 1 && (
             <>
-              {fraction > 0 && <div className="shrink basis-1" />}
+              {fraction > 0 && <div data-slot="progress-gap" className="shrink basis-1" />}
               <div
+                data-slot="progress-rest"
                 className="min-w-0 flex-1 rounded-full bg-secondary-container"
                 style={{ height: t }}
               />
-              <div className="shrink basis-1" />
+              <div data-slot="progress-gap" className="shrink basis-1" />
               <div
+                data-slot="progress-stop"
                 className="shrink-0 rounded-full bg-primary"
                 style={{ width: t, height: t }}
               />

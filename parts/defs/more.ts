@@ -359,9 +359,9 @@ export const more: PartDef[] = [
         "div",
         { "data-slot": "stat-bar", className: "flex items-center gap-2 text-on-surface", style: { width: px(p) } },
         p.s("icon") && ic(p.s("icon"), { className: "size-5 shrink-0" }),
-        p.s("label") && h("span", { className: "text-label-medium shrink-0" }, p.s("label")),
+        p.s("label") && h("span", { "data-slot": "stat-bar-label", className: "text-label-medium shrink-0" }, p.s("label")),
         h("div", { "data-slot": "stat-bar-track", role: "progressbar", "aria-valuenow": Math.round(p.n("value")), "aria-valuemax": Math.round(p.n("max")), className: "bg-surface-container-highest h-3 min-w-0 flex-1 overflow-hidden rounded-full" }, h("div", { "data-slot": "stat-bar-fill", className: `h-full rounded-full ${BAR_COLORS[p.s("color")] ?? "bg-primary"}`, style: { width: `${share}%` } })),
-        p.b("numbers") && h("span", { className: "text-label-small shrink-0 tabular-nums" }, `${Math.round(p.n("value"))}/${Math.round(p.n("max"))}`),
+        p.b("numbers") && h("span", { "data-slot": "stat-bar-value", className: "text-label-small shrink-0 tabular-nums" }, `${Math.round(p.n("value"))}/${Math.round(p.n("max"))}`),
       );
     },
   },
@@ -428,15 +428,15 @@ export const more: PartDef[] = [
         { "data-slot": "character-card", className: "bg-surface-container-low text-on-surface flex flex-col overflow-hidden rounded-2xl", style: { width: px(p) } },
         h(
           "div",
-          { className: "relative h-40" },
+          { "data-slot": "character-card-media", className: "relative h-40" },
           /^(https?:|data:image\/)/i.test(p.s("image")) ? h("img", { src: p.s("image"), alt: "", className: "size-full object-cover" }) : h("div", { className: "from-primary-container to-tertiary-container text-on-primary-container flex size-full items-center justify-center bg-gradient-to-br" }, ic(p.s("icon") || "person", { className: "size-14" })),
-          p.s("rarity") && h("span", { className: "bg-tertiary text-on-tertiary text-label-medium absolute top-2 left-2 rounded-md px-2 py-0.5" }, p.s("rarity")),
-          p.s("level") && h("span", { className: "bg-inverse-surface text-inverse-on-surface text-label-medium absolute top-2 right-2 rounded-md px-2 py-0.5" }, p.s("level")),
+          p.s("rarity") && h("span", { "data-slot": "character-card-tag", className: "bg-tertiary text-on-tertiary text-label-medium absolute top-2 left-2 rounded-md px-2 py-0.5" }, p.s("rarity")),
+          p.s("level") && h("span", { "data-slot": "character-card-level", className: "bg-inverse-surface text-inverse-on-surface text-label-medium absolute top-2 right-2 rounded-md px-2 py-0.5" }, p.s("level")),
         ),
         h(
           "div",
           { className: "flex flex-col gap-2 p-3" },
-          h("div", null, h("div", { className: "text-title-large" }, p.s("name")), p.s("role") && h("div", { className: "text-body-small text-on-surface-variant" }, p.s("role"))),
+          h("div", null, h("div", { "data-slot": "character-card-title", className: "text-title-large" }, p.s("name")), p.s("role") && h("div", { "data-slot": "character-card-subtitle", className: "text-body-small text-on-surface-variant" }, p.s("role"))),
           ...p.table("data").rows.map((r) =>
             h(
               "div",
@@ -474,10 +474,10 @@ export const more: PartDef[] = [
       h(
         "div",
         { "data-slot": "game-result", className: "bg-surface-container-high text-on-surface flex flex-col items-center gap-3 rounded-3xl p-5", style: { width: px(p) } },
-        h("div", { className: "text-headline-small text-center" }, p.s("title")),
-        h("div", { className: "text-tertiary flex gap-1" }, ...[0, 1, 2].map((i) => ic("star", { size: 40, fill: true, className: i < p.n("stars") ? undefined : "opacity-25" }))),
-        h("div", { className: "text-center" }, h("div", { className: "text-label-medium text-on-surface-variant" }, p.s("scoreLabel")), h("div", { className: "text-display-small tabular-nums" }, p.s("score"))),
-        p.list("rewards").length > 0 && h("div", { className: "flex flex-wrap justify-center gap-2" }, ...p.list("rewards").map((r) => h("div", { className: "bg-surface-container-low text-label-medium flex min-w-14 flex-col items-center gap-0.5 rounded-lg p-2" }, r.icon && ic(r.icon, { className: "size-6" }), r.label))),
+        h("div", { "data-slot": "game-result-title", className: "text-headline-small text-center" }, p.s("title")),
+        h("div", { "data-slot": "game-result-stars", className: "text-tertiary flex gap-1" }, ...[0, 1, 2].map((i) => ic("star", { size: 40, fill: true, className: i < p.n("stars") ? undefined : "opacity-25" }))),
+        h("div", { className: "text-center" }, h("div", { "data-slot": "game-result-label", className: "text-label-medium text-on-surface-variant" }, p.s("scoreLabel")), h("div", { "data-slot": "game-result-value", className: "text-display-small tabular-nums" }, p.s("score"))),
+        p.list("rewards").length > 0 && h("div", { "data-slot": "game-result-rewards", className: "flex flex-wrap justify-center gap-2" }, ...p.list("rewards").map((r) => h("div", { "data-slot": "game-result-cell", className: "bg-surface-container-low text-label-medium flex min-w-14 flex-col items-center gap-0.5 rounded-lg p-2" }, r.icon && ic(r.icon, { className: "size-6" }), r.label))),
         h("div", { className: "flex w-full gap-2" }, p.s("retry") && h("Button", { variant: "tonal", className: "min-w-0 flex-1", "data-tap": "retry" }, p.s("retry")), p.s("next") && h("Button", { className: "min-w-0 flex-1", "data-tap": "next" }, p.s("next"))),
       ),
   },

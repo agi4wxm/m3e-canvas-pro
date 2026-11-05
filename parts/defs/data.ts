@@ -240,9 +240,9 @@ export const data: PartDef[] = [
       return h(
         "div",
         { "data-slot": "stat-card", className: "bg-surface-container-low flex flex-col gap-1 rounded-xl p-4", style: { width: Math.round(p.n("width")) } },
-        h("div", { className: "text-label-large text-on-surface-variant" }, p.s("title")),
-        h("div", { className: "text-headline-medium text-on-surface" }, p.s("value")),
-        h("div", { className: `text-label-medium ${color}` }, p.s("trend")),
+        h("div", { "data-slot": "stat-card-title", className: "text-label-large text-on-surface-variant" }, p.s("title")),
+        h("div", { "data-slot": "stat-card-value", className: "text-headline-medium text-on-surface" }, p.s("value")),
+        h("div", { "data-slot": "stat-card-meta", className: `text-label-medium ${color}` }, p.s("trend")),
       );
     },
   },
