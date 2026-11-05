@@ -17,7 +17,7 @@ describe("a container", () => {
 
   it("the containers hold, and nothing else does", () => {
     const holding = PARTS.filter((d) => d.holds).map((d) => d.slug);
-    expect(holding.toSorted()).toEqual(["container", "custom", "dock", "grid-view", "resizable", "scene", "stack", "supporting-pane", "window"]);
+    expect(holding.toSorted()).toEqual(["box", "container", "custom", "dock", "grid-view", "resizable", "scene", "stack", "supporting-pane", "window"]);
   });
 
   it("holds what lies wholly inside it and over it", () => {

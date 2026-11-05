@@ -115,6 +115,17 @@ export type PartDef = {
   panes?: boolean;
   /** the JSX the part stands for */
   tree: (p: P) => PNode;
+  /** A composite that can be split: the same thing as a tree of atoms in nested auto-layout boxes,
+   *  for its current values. The inspector then offers to replace the part with it in place. */
+  atoms?: (p: P) => AtomTree;
+  /** How big the part comes out before it has been drawn, where no width or height prop says so
+   *  (a line of text that hugs its words, an icon button of a named size). Only a guess: the canvas
+   *  measures it as soon as it is drawn. */
+  guess?: (p: P) => { w?: number; h?: number };
+  /** What a part starts with when a person adds it from the palette, over its defaults: a line of text
+   *  added by hand hugs its words, as one does in a design tool, while one a template or a model
+   *  writes keeps the default it always had. */
+  seed?: PropValues;
   /** what the canvas draws instead of `tree`, for a part whose open look is not `tree` made to start open */
   view?: (p: P, screen?: Screen) => PNode;
   /** A part that opens something (a dialog, a menu, a popover) is drawn open on the canvas, inside
@@ -134,6 +145,11 @@ export type PartDef = {
 };
 
 export type PropValues = Record<string, unknown>;
+
+/** A node of a tree of atoms: a part by its id, its props, and the parts its box lays out. The full
+ *  shape (names, looks, taps) is `Node` in parts/templates/kit.ts; this file ships in exported
+ *  projects, so it only says as much as it needs to. */
+export type AtomTree = { slug: string; props: Record<string, unknown>; kids?: AtomTree[] };
 
 /** the box a popup that opens to one side of its trigger is drawn in, with the trigger placed so the popup has room */
 export function around(side: string, popupW: number, popupH: number, triggerW: number, triggerH: number, gap = 8) {

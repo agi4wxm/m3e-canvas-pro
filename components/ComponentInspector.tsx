@@ -220,6 +220,7 @@ export function ComponentInspector({
   inFlow,
   onMoveTo,
   onMakeComponent,
+  onSplit,
 }: {
   ai: AiHooks;
   item: Item;
@@ -239,6 +240,8 @@ export function ComponentInspector({
   onMoveTo?: (x: number, y: number) => void;
   /** turns this part into a reusable component */
   onMakeComponent?: () => void;
+  /** replaces this composite, where it stands, with the atoms it is made of */
+  onSplit?: () => void;
 }) {
   const lang = useLang();
   const strict = useContext(StyleRulesContext);
@@ -293,6 +296,14 @@ export function ComponentInspector({
               <AlignBox key={item.id} onPlace={onPlace} p={p} />
               {onMoveTo && selfRect && <PositionRow x={Math.round(selfRect.x - (frame?.x ?? 0))} y={Math.round(selfRect.y - (frame?.y ?? 0))} onMove={(x, y) => onMoveTo(x + (frame?.x ?? 0), y + (frame?.y ?? 0))} p={p} />}
             </Section>
+          )}
+          {onSplit && def.atoms && !locked && (
+            <div style={{ padding: "0 4px 10px" }}>
+              <button onClick={onSplit} data-split-atoms title={t("splitAtomsHint", lang)} className="m3-press" style={{ height: 44, borderRadius: 22, border: "none", background: p.surfaceContainerHigh, color: p.onSurface, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}>
+                <Icon name="call_split" size={20} />
+                {t("splitAtoms", lang)}
+              </button>
+            </div>
           )}
           {onMakeComponent && !locked && (
             <div style={{ padding: "0 4px 14px" }}>

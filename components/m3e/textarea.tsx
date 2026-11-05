@@ -12,10 +12,12 @@ function Textarea({
   Pick<VariantProps<typeof inputVariants>, "variant">) {
   return (
     <textarea
-      data-slot="textarea"
+      /* a plain one is bare inside a box that is its field: what dresses a field is not for it */
+      data-slot={variant === "plain" ? "plain-textarea" : "textarea"}
       className={cn(
         inputVariants({ variant }),
-        "flex field-sizing-content h-auto min-h-24 resize-none px-4 py-4",
+        "flex field-sizing-content h-auto resize-none",
+        variant === "plain" ? "min-h-6 p-0" : "min-h-24 px-4 py-4",
         className
       )}
       {...props}

@@ -1,10 +1,11 @@
 import { choiceValueOf } from "./labels";
-import { CATEGORIES, PARTS } from "./registry";
+import { CATEGORY_TEXT, TIERS, TIER_TEXT, categoriesOf, PARTS } from "./registry";
 import type { PropDef } from "./types";
 
 /* Every part and what it takes, in words an AI agent can write a document from. public/agent.md holds
  * this between its markers (`bun run gen:agent` writes it, parts/catalog.test.ts keeps it in step), so
- * a new part reaches the agent the moment it is in PARTS. */
+ * a new part reaches the agent the moment it is in PARTS. The parts come in their two tiers: atoms,
+ * which a design composes in boxes, and composites, which are ready-made. */
 
 function propOf(d: PropDef): string {
   switch (d.kind) {
@@ -27,9 +28,18 @@ function propOf(d: PropDef): string {
   }
 }
 
+/** what a tier is, in a line */
+const TIER_NOTE = {
+  atom: "They cannot be split. Compose them in `box`es to build anything the composites do not have.",
+  composite: "Ready-made, each one part. The ones marked *(splits)* can be split into atoms in the editor.",
+};
+
 export function partCatalog(): string {
-  return CATEGORIES.map((category) => {
-    const rows = PARTS.filter((d) => d.category === category).map((d) => `| \`${d.slug}\` | ${d.name} | ${d.props.map(propOf).join("; ").replaceAll("|", "\\|")} |`);
-    return [`#### ${category}`, "", "| component | what it is | props (all optional) |", "|---|---|---|", ...rows].join("\n");
+  return TIERS.map((tier) => {
+    const sections = categoriesOf(tier).map((category) => {
+      const rows = PARTS.filter((d) => d.category === category).map((d) => `| \`${d.slug}\` | ${d.name}${d.atoms ? " *(splits)*" : ""} | ${d.props.map(propOf).join("; ").replaceAll("|", "\\|")} |`);
+      return [`##### ${CATEGORY_TEXT[category].en}`, "", "| component | what it is | props (all optional) |", "|---|---|---|", ...rows].join("\n");
+    });
+    return [`#### ${TIER_TEXT[tier].en}`, "", TIER_NOTE[tier], "", sections.join("\n\n")].join("\n");
   }).join("\n\n");
 }

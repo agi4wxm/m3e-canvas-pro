@@ -204,6 +204,7 @@ export function Inspector({
   inFlow,
   onMoveTo,
   onMakeComponent,
+  onSplit,
   instance,
 }: {
   /** the AI button beside the behavior field */
@@ -246,6 +247,8 @@ export function Inspector({
   onMoveTo?: (x: number, y: number) => void;
   /** turns what is selected into a reusable component */
   onMakeComponent?: () => void;
+  /** replaces the selected composite with the atoms it is made of */
+  onSplit?: () => void;
   /** the selection is one instance of a component, which has a panel of its own */
   instance?: { group: Group; def: ComponentDef; components: ComponentDef[]; onEdit: () => void; onDetach: () => void; onOverrides: (overrides: Group["overrides"]) => void } | null;
 }) {
@@ -308,6 +311,7 @@ export function Inspector({
       inFlow={inFlow}
       onMoveTo={onMoveTo}
       onMakeComponent={onMakeComponent}
+      onSplit={onSplit}
     />
   );
 }

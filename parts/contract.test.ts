@@ -10,7 +10,8 @@ import { EXTERNAL } from "./externals";
 import { FILE_OF } from "./files.generated";
 import { isNode, type PNode, type PValue } from "./node";
 import { applyAppearance } from "./appearance";
-import { CATEGORIES, PARTS, defaultValues, partBySlug, reader, treeOf } from "./registry";
+import { CATEGORIES, CATEGORY_TIER, PARTS, defaultValues, partBySlug, reader, tierOf, treeOf } from "./registry";
+import { KITS } from "./kits";
 import { renderNode } from "./render";
 import { loadWidgets } from "./widgets/load";
 import { WIDGET_SOURCES } from "./widgets/sources";
@@ -50,9 +51,27 @@ describe("the palette", () => {
     for (const c of CATEGORIES) expect(PARTS.filter((d) => d.category === c).length, c).toBeGreaterThan(0);
   });
 
-  it("offers each thing once: no two parts by the same name in one section", () => {
+  it("puts every section in one tier, the atoms first", () => {
+    for (const c of CATEGORIES) expect(["atom", "composite"], c).toContain(CATEGORY_TIER[c]);
+    const tiers = CATEGORIES.map((c) => CATEGORY_TIER[c]);
+    expect(tiers.indexOf("composite")).toBeGreaterThan(0);
+    expect(tiers.slice(tiers.indexOf("composite"))).not.toContain("atom");
+    /* among the atoms only the box holds other parts: anything else that does is made of more than itself */
+    for (const d of PARTS.filter((x) => tierOf(x) === "atom")) expect(!!d.holds && d.slug !== "box", d.slug).toBe(false);
+  });
+
+  it("files every kit under a composite section, beside the parts there", () => {
+    for (const k of KITS) {
+      expect(CATEGORIES as readonly string[], k.slug).toContain(k.category);
+      expect(tierOf(k), k.slug).toBe("composite");
+      expect(partBySlug(k.slug), `${k.slug} takes a part's id`).toBeUndefined();
+    }
+    expect(new Set(KITS.map((k) => k.slug)).size).toBe(KITS.length);
+  });
+
+  it("offers each thing once: no two parts or kits by the same name in one section", () => {
     for (const c of CATEGORIES) {
-      const names = PARTS.filter((d) => d.category === c).map((d) => d.name);
+      const names = [...PARTS.filter((d) => d.category === c).map((d) => d.name), ...KITS.filter((k) => k.category === c).map((k) => k.name)];
       expect(new Set(names).size, c).toBe(names.length);
     }
   });
@@ -67,7 +86,7 @@ describe("every part", () => {
   it("is plain data: its definition loads no React", () => {
     for (const { name, text } of sourceFiles("defs")) {
       const imports = [...text.matchAll(/^import (?!type )[^;]*from "([^"]+)"/gm)].map((m) => m[1]);
-      for (const from of imports) expect(from, `defs/${name} imports ${from}`).toMatch(/^\.\.\/(node|labels|types|flow)$/);
+      for (const from of imports) expect(from, `defs/${name} imports ${from}`).toMatch(/^\.\.\/(node|labels|types|flow|atoms|svg)$/);
     }
   });
 
