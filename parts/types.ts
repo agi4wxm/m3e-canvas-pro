@@ -61,6 +61,10 @@ export type P = {
   table: (key: string) => TableData;
   /** words a part says by itself, in the editor's language */
   say: (words: string) => string;
+  /** a name for the part being drawn, the same wherever it is drawn or printed (from its item's id), or "" when
+   *  the tree is drawn for no item: what a part names inside its own drawing (an SVG's gradients) is kept apart
+   *  from every other part's by it */
+  scope: string;
 };
 
 /** the screen a part is drawn on, when it is on one: the frame's size. Anything a part draws

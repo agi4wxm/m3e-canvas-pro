@@ -149,6 +149,16 @@ export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInpu
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);
 
+/** the fields of a row a tree reads. A row comes from the document, so one that holds anything but words
+ *  there (a node, code to print) is read with those fields left out. */
+const ROW_FIELDS = ["icon", "variant", "width", "image"] as const;
+function rowOf(row: ListItem): ListItem {
+  if (ROW_FIELDS.every((k) => row[k] === undefined || typeof row[k] === "string")) return row;
+  const out: ListItem = { label: row.label };
+  for (const k of ROW_FIELDS) if (typeof row[k] === "string") out[k] = row[k];
+  return out;
+}
+
 /** the values of a prop: the author's, or the part's default when it has none (or the wrong
  *  type). A default the author never touched is seeded in the editor's language. */
 function read(def: PropDef, values: PropValues | undefined): unknown {
@@ -166,10 +176,11 @@ function read(def: PropDef, values: PropValues | undefined): unknown {
       return typeof v === "string" ? v : (def.default ?? "");
     case "number":
       return typeof v === "number" && Number.isFinite(v) ? Math.min(def.max, Math.max(def.min, v)) : def.default;
-    case "list":
-      return Array.isArray(v) && v.every((x) => typeof x === "object" && x !== null && typeof (x as ListItem).label === "string")
-        ? (v as ListItem[])
-        : def.default.map((x) => ({ ...x, label: listTextOf(x.label, getLang()) }));
+    case "list": {
+      if (!Array.isArray(v) || !v.every((x) => typeof x === "object" && x !== null && typeof (x as ListItem).label === "string")) return def.default.map((x) => ({ ...x, label: listTextOf(x.label, getLang()) }));
+      const rows = (v as ListItem[]).map(rowOf);
+      return rows.every((r, i) => r === v[i]) ? v : rows;
+    }
     case "table": {
       const t = v as Partial<TableData> | undefined;
       if (!Array.isArray(t?.columns) || !Array.isArray(t?.rows)) {
@@ -182,7 +193,7 @@ function read(def: PropDef, values: PropValues | undefined): unknown {
 }
 
 /** a reader over the part's prop values, with the defaults filled in */
-export function reader(def: PartDef, values: PropValues | undefined): P {
+export function reader(def: PartDef, values: PropValues | undefined, scope = ""): P {
   const byKey = new Map(def.props.map((d) => [d.key, d]));
   const get = (key: string) => {
     const d = byKey.get(key);
@@ -196,12 +207,13 @@ export function reader(def: PartDef, values: PropValues | undefined): P {
     list: (key) => get(key) as ListItem[],
     table: (key) => get(key) as TableData,
     say: (words) => listTextOf(words, getLang()),
+    scope,
   };
 }
 
 /** the JSX tree of a part with the given prop values, painted with its appearance when it has one */
-export const treeOf = (def: PartDef, values?: PropValues, appearance?: Appearance): PNode =>
-  applyAppearance(def.tree(reader(def, values)), appearance, def.appearance?.target);
+export const treeOf = (def: PartDef, values?: PropValues, appearance?: Appearance, scope?: string): PNode =>
+  applyAppearance(def.tree(reader(def, values, scope)), appearance, def.appearance?.target);
 
 /** the components that open something: while the part is drawn open they are held open (a click on the canvas must not dismiss them), and are not modal */
 export const OVERLAY_ROOTS = new Set(["Dialog", "AlertDialog", "Sheet", "SideSheet", "Drawer", "Popover", "HoverCard", "Tooltip", "DropdownMenu", "ContextMenu", "Select", "Combobox"]);
@@ -246,8 +258,8 @@ const modalOff = (n: PNode): PNode => (OVERLAY_ROOTS.has(n.type) ? { ...n, props
  *  tree stands unopened in the box that keeps its place (the overlay still opens inside the
  *  box, spilling past it). A hidden-trigger overlay has nothing to open it with, so it stays
  *  held open exactly as on the canvas. */
-export function viewOf(def: PartDef, values?: PropValues, appearance?: Appearance, screen?: Screen, live = false): PNode {
-  const p = reader(def, values);
+export function viewOf(def: PartDef, values?: PropValues, appearance?: Appearance, screen?: Screen, live = false, scope?: string): PNode {
+  const p = reader(def, values, scope);
   const open = def.open;
   const selfOpens = live && !!open && open.trigger !== "hide";
   const tree = applyAppearance(def.view && !selfOpens ? def.view(p, screen) : def.tree(p), appearance, def.appearance?.target);

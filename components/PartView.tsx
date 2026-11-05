@@ -1,7 +1,7 @@
 
-import { Suspense, memo, useMemo } from "react";
+import { Component, Suspense, memo, useMemo, type ReactNode } from "react";
 import { Item } from "@/lib/tokens";
-import { useLang } from "@/lib/i18n";
+import { useLang, type Lang } from "@/lib/i18n";
 import { useIcons } from "@/parts/icons";
 import { PartSurface } from "@/parts/theme";
 import { appearanceOf } from "@/parts/appearance";
@@ -26,6 +26,49 @@ function MissingPart({ item }: { item: Item }) {
   );
 }
 
+/** what a part that failed to draw says in its place */
+export const CANT_DRAW: Record<Lang, string> = { en: "Can't draw", zh: "无法绘制", ja: "描画できません", ko: "그릴 수 없음" };
+
+/** A part that threw while it was drawn: a small mark in its place, so the rest of the screen, and the
+ *  editor around it, carry on. */
+export function BrokenPart({ name }: { name?: string }) {
+  const lang = useLang();
+  const words = CANT_DRAW[lang] ?? CANT_DRAW.en;
+  return (
+    <div
+      data-broken-part={name}
+      role="img"
+      aria-label={words}
+      style={{ width: 160, height: 56, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", padding: 8, overflow: "hidden", border: "1px dashed #B3261E", borderRadius: 8, color: "#B3261E", fontSize: 12, textAlign: "center" }}
+    >
+      {words}
+    </div>
+  );
+}
+
+type BoundaryProps = { /** a change of any of these is a new chance to draw */ again: readonly unknown[]; name?: string; children: ReactNode };
+type BoundaryState = { failed: boolean; again: readonly unknown[] };
+
+/** Catches what one part throws while drawing, on the canvas, in the preview and in the gallery: a
+ *  document from a file or a link can hold anything, and one part of it must not take the editor down.
+ *  It tries again as soon as what it draws changes. */
+export class PartBoundary extends Component<BoundaryProps, BoundaryState> {
+  state: BoundaryState = { failed: false, again: this.props.again };
+  static getDerivedStateFromError(): Partial<BoundaryState> {
+    return { failed: true };
+  }
+  static getDerivedStateFromProps(props: BoundaryProps, state: BoundaryState): Partial<BoundaryState> | null {
+    const changed = props.again.length !== state.again.length || props.again.some((v, i) => !Object.is(v, state.again[i]));
+    return changed ? { failed: false, again: props.again } : null;
+  }
+  componentDidCatch(error: unknown) {
+    console.error(`part ${this.props.name ?? ""} could not be drawn`, error);
+  }
+  render() {
+    return this.state.failed ? <BrokenPart name={this.props.name} /> : this.props.children;
+  }
+}
+
 type PartViewProps = { item: Item; live?: boolean; /** the frame the part is on: an open overlay's box is no larger than it */ screen?: Screen; /** in the preview, an effect has opened this menu or popover: it is drawn open as on the canvas, and still works */ held?: boolean };
 
 /** What a tree sets only once, when it is first drawn (`defaultValue`, `defaultChecked`…). A component
@@ -46,7 +89,7 @@ function PartViewBody({ item, live = false, screen, held = false }: PartViewProp
   const def = partBySlug(item.component);
   /* a prop left at its default shows the default of the editor's language */
   const lang = useLang();
-  const tree = useMemo(() => (def ? viewOf(def, item.props, appearanceOf(item), screen, live && !held) : null), [def, item.props, item.fill, item.textColor, item.corners, item.look, screen?.w, screen?.h, live, held, lang]);
+  const tree = useMemo(() => (def ? viewOf(def, item.props, appearanceOf(item), screen, live && !held, item.id) : null), [def, item.props, item.fill, item.textColor, item.corners, item.look, item.id, screen?.w, screen?.h, live, held, lang]);
   /* the icon component is memoized: icons that arrive after the first draw show only in a fresh tree */
   const icons = useIcons(tree ?? NOTHING);
   /* the same elements for the same tree: React then leaves the whole component under them alone */
@@ -74,4 +117,13 @@ function PartViewBody({ item, live = false, screen, held = false }: PartViewProp
 /* The canvas draws every part twice over, on the screen and in the measuring layer, and the editor
  * renders on every pointer move of a drag: a part that has not changed must not be drawn again. A
  * screen is compared by its size, since the canvas works one out afresh each time. */
-export const PartView = memo(PartViewBody, (a, b) => a.item === b.item && a.live === b.live && a.held === b.held && a.screen?.w === b.screen?.w && a.screen?.h === b.screen?.h);
+function GuardedPartView(props: PartViewProps) {
+  const { item, live, held, screen } = props;
+  return (
+    <PartBoundary name={item.component} again={[item, live, held, screen?.w, screen?.h]}>
+      <PartViewBody {...props} />
+    </PartBoundary>
+  );
+}
+
+export const PartView = memo(GuardedPartView, (a, b) => a.item === b.item && a.live === b.live && a.held === b.held && a.screen?.w === b.screen?.w && a.screen?.h === b.screen?.h);

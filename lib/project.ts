@@ -1,6 +1,6 @@
 import { standIn } from "./instances";
 import { cleanLook } from "./look";
-import { COLOR_TOKENS, Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { COLOR_TOKENS, Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -150,10 +150,24 @@ const cleanGroup = (g: Group) =>
 const cleanFrame = (f: Frame) =>
   cleaned(f as unknown as Record<string, unknown>, {
     variantOf: (v) => (typeof v === "string" && v !== f.id ? v : undefined),
+    /* a color role, never a class or a style of the file's own */
+    bg: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined),
     deviceBars: (v) => (typeof v === "boolean" ? v : undefined),
     backgroundImage: (v) => (typeof v === "string" && v ? v : undefined),
     backgroundOpacity: (v) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined),
   }) as unknown as Frame;
+
+/** A scheme of the author's own: colors, and only colors, since every one of them is painted with and printed.
+ *  One with anything else in it is not kept, and the document falls back to a scheme of the editor's. */
+function cleanPalette(p: unknown): Palette | undefined {
+  if (!isRecord(p) || typeof p.primary !== "string") return undefined;
+  for (const [k, v] of Object.entries(p)) {
+    if (k === "key" || k === "label") {
+      if (typeof v !== "string") return undefined;
+    } else if (typeof v !== "string" || !/^#[0-9a-f]{3,8}$/i.test(v)) return undefined;
+  }
+  return p as unknown as Palette;
+}
 
 /** one definition, or nothing when it has no id to be called by. Its groups go through the same checks as a screen's. */
 function cleanComponent(c: unknown): ComponentDef | undefined {
@@ -188,6 +202,11 @@ function cleanInstance(g: Group, components: ComponentDef[] | undefined): Group 
 /** a document with what is wrong in its behaviour taken out; it always comes back whole */
 export function cleanBehavior(doc: Doc): Doc {
   const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: doc.groups.map(cleanGroup) };
+  if (out.customPalette !== undefined) {
+    const palette = cleanPalette(out.customPalette);
+    if (palette) out.customPalette = palette;
+    else delete out.customPalette;
+  }
   if (out.components !== undefined) {
     if (Array.isArray(out.components)) out.components = out.components.map(cleanComponent).filter((c) => c !== undefined);
     else delete out.components;

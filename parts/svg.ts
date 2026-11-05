@@ -6,12 +6,19 @@ import { h, type PNode, type PValue } from "./node";
  * paint them. Everything else is dropped, along with whatever it holds: scripts and styles, event
  * handlers, foreign content, links and pictures from elsewhere. The tree is drawn by React like
  * any other part, never set as HTML, so nothing in the markup runs on the canvas, in the preview or
- * in an exported project. Plain data: no React here. */
+ * in an exported project. Plain data: no React here.
+ *
+ * Markup is also something a shared link carries, so a drawing is held to what a drawing needs: it
+ * is so many elements, so deep; the names it gives its parts are its own (two drawings both calling
+ * a gradient `g` each paint with their own); it points only at parts of itself; and what it reuses
+ * (`use`, a mask, a clip, a pattern) may not multiply into more than a drawing's worth of work. */
 
 /** the elements a drawing keeps; anything else goes with what it holds */
 const ELEMENTS = new Set(["svg", "g", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon", "defs", "linearGradient", "radialGradient", "stop", "clipPath", "mask", "pattern", "symbol", "use"]);
 /** what says nothing to draw but is harmless: dropped, and its words with it */
 const SILENT = new Set(["title", "desc", "metadata"]);
+/** what a reference can point at for nothing: a gradient paints, it never draws anything of its own */
+const GRADIENTS = new Set(["linearGradient", "radialGradient"]);
 
 /** the attributes kept, by their SVG name, with the name React knows them by */
 const ATTRS: Record<string, string> = {
@@ -93,15 +100,36 @@ const STYLE: Record<string, string> = {
   "vector-effect": "vectorEffect",
 };
 
-/** A value that could reach outside the drawing or run something: a link to another document, a
- *  script, an expression, an escape that hides one of these. A reference to a part of the drawing
- *  itself (`url(#shade)`) is fine. */
-function unsafe(value: string): boolean {
-  const v = value.toLowerCase();
-  if (/[\\<>]|javascript:|vbscript:|data:|expression\s*\(|@import|behavior\s*:|-moz-binding/.test(v)) return true;
-  for (const m of v.matchAll(/url\s*\(\s*(['"]?)([^'")]*)\1\s*\)/g)) if (!m[2].trim().startsWith("#")) return true;
-  return false;
+/** the values that may point at a part of the drawing (`url(#shade)`), by React's name: what paints
+ *  (`fill`, `stroke`, which everything inside takes too) and what cuts (`mask`, `clipPath`). Any
+ *  other value that names an address goes. */
+const PAINTS = new Set(["fill", "stroke"]);
+const POINTERS = new Set(["fill", "stroke", "mask", "clipPath"]);
+
+/** the name a drawing gives one of its parts */
+const ID = /^[\w.-]{1,128}$/;
+/** CSS's own whitespace: anything else in a `url()` is part of the address */
+const WS = "[ \\t\\n\\r\\f]*";
+/** a reference to a part of the drawing itself, `url(#shade)`, quoted or not; group 2 is the name */
+const LOCAL_URL = new RegExp(`url\\(${WS}(['"]?)${WS}#([\\w.-]{1,128})${WS}\\1${WS}\\)`, "gi");
+
+/** A value that could reach outside the drawing or run something: a link to another document (any
+ *  `url()` that is not one to a part of the drawing itself, however it is quoted), a picture by any
+ *  other function that loads one, a script, an expression, an escape or a control character that
+ *  could hide one of these. Entities were decoded when the markup was read, so `&quot;` is a quote
+ *  here. */
+export function unsafe(value: string): boolean {
+  if (/[\\<>\u0000-\u0008\u000b\u000e-\u001f\u007f]/.test(value)) return true;
+  /* what is left with every reference to the drawing itself taken out, and every comment, may not name an address */
+  const rest = value
+    .replace(LOCAL_URL, " ")
+    .replace(/\/\*[\s\S]*?(\*\/|$)/g, "")
+    .toLowerCase();
+  return /url\s*\(|image-set\s*\(|image\s*\(|src\s*\(|cross-fade\s*\(|element\s*\(|attr\s*\(|expression\s*\(|@import|javascript:|vbscript:|data:|behavior\s*:|-moz-binding/.test(rest);
 }
+
+/** the names of the parts of the drawing a value points at */
+const pointsAt = (value: string): string[] => [...value.matchAll(LOCAL_URL)].map((m) => m[2]);
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
 const decode = (s: string) =>
@@ -118,13 +146,23 @@ type Tag = { name: string; attrs: [string, string][]; kids: Tag[] };
 /** the longest markup read, and the most elements kept: a drawing, not a document */
 export const MAX_MARKUP = 200_000;
 const MAX_ELEMENTS = 4000;
+/** how deep a drawing nests: what is deeper is dropped, so nothing that walks the tree runs out of stack */
+export const MAX_DEPTH = 64;
+/** how much more than its own elements a drawing may draw by reusing its parts (`use`, masks, clips,
+ *  patterns): past this, the reference that would go over is dropped */
+export const MAX_REUSE = 2000;
+/** how many references deep reuse may go (a `use` of a group holding a masked shape…) */
+const MAX_CHAIN = 8;
 
 /** The elements of a piece of markup, as a tree; text, comments, declarations and anything that
- *  is not a well-formed tag are skipped. Never throws. */
+ *  is not a well-formed tag are skipped, and what lies deeper than `MAX_DEPTH` is read but kept
+ *  nowhere. Never throws, and takes time in proportion to the markup. */
 function parse(markup: string): Tag[] {
   const src = markup.slice(0, MAX_MARKUP);
   const root: Tag = { name: "#root", attrs: [], kids: [] };
   const stack: Tag[] = [root];
+  /** how many of each name are open, so that a closing tag nothing opened costs nothing */
+  const open = new Map<string, number>();
   let count = 0;
   let i = 0;
   while (i < src.length) {
@@ -149,11 +187,13 @@ function parse(markup: string): Tag[] {
       const end = src.indexOf(">", lt);
       const name = src.slice(lt + 2, end < 0 ? src.length : end).trim();
       /* a closing tag closes the nearest open one of its name, and whatever it left open inside */
-      for (let s = stack.length - 1; s > 0; s--)
-        if (stack[s].name === name) {
-          stack.length = s;
-          break;
-        }
+      if (open.get(name))
+        for (let s = stack.length - 1; s > 0; s--)
+          if (stack[s].name === name) {
+            for (const t of stack.slice(s)) open.set(t.name, (open.get(t.name) ?? 1) - 1);
+            stack.length = s;
+            break;
+          }
       i = end < 0 ? src.length : end + 1;
       continue;
     }
@@ -188,8 +228,13 @@ function parse(markup: string): Tag[] {
     i = j;
     if (++count > MAX_ELEMENTS) break;
     const tag: Tag = { name: m[1], attrs, kids: [] };
-    stack[stack.length - 1].kids.push(tag);
-    if (!closed) stack.push(tag);
+    /* past the deepest a drawing goes, an element is still read, so that what closes it is found, but
+     * it hangs from nothing: it and all it holds are dropped */
+    if (stack.length <= MAX_DEPTH) stack[stack.length - 1].kids.push(tag);
+    if (!closed) {
+      stack.push(tag);
+      open.set(tag.name, (open.get(tag.name) ?? 0) + 1);
+    }
   }
   return root.kids;
 }
@@ -203,12 +248,15 @@ function cleanStyle(style: string): Record<string, string> | undefined {
     const name = decl.slice(0, at).trim().toLowerCase();
     const value = decl.slice(at + 1).trim();
     const key = STYLE[name];
-    if (key && value && !unsafe(value) && !/!important/i.test(value)) out[key] = value;
+    if (!key || !value || unsafe(value) || /!important/i.test(value)) continue;
+    if (/url\s*\(/i.test(value) && !PAINTS.has(key)) continue;
+    out[key] = value;
   }
   return Object.keys(out).length ? out : undefined;
 }
 
-/** the attributes of an element that are kept, under React's names */
+/** the attributes of an element that are kept, under React's names. A reference is kept as written
+ *  here; whether what it points at is there, and its own name, are settled with the whole drawing. */
 function cleanAttrs(tag: Tag): Record<string, PValue> {
   const props: Record<string, PValue> = {};
   for (const [raw, value] of tag.attrs) {
@@ -224,21 +272,153 @@ function cleanAttrs(tag: Tag): Record<string, PValue> {
     if (!key) continue;
     if (key === "href") {
       /* only a part of this same drawing, and only from `use` */
-      if (tag.name === "use" && /^#[\w.-]+$/.test(value.trim())) props.href = value.trim();
+      if (tag.name === "use" && /^#[\w.-]{1,128}$/.test(value.trim())) props.href = value.trim();
+      continue;
+    }
+    if (key === "id") {
+      if (ID.test(value.trim())) props.id = value.trim();
       continue;
     }
     if (unsafe(value)) continue;
+    if (/url\s*\(/i.test(value) && !POINTERS.has(key)) continue;
     props[key] = value;
   }
   return props;
 }
 
-function toNode(tag: Tag): PNode | null {
+/** an element on its way to being drawn: kept, cleaned, its references not yet settled */
+type El = { name: string; props: Record<string, PValue>; kids: El[] };
+
+function toEl(tag: Tag): El | null {
   if (!ELEMENTS.has(tag.name)) return null;
-  const kids = tag.kids.flatMap((k) => (SILENT.has(k.name) ? [] : [toNode(k)])).filter((k): k is PNode => k !== null);
-  const props = cleanAttrs(tag);
-  if (tag.name === "use" && !props.href) return null;
-  return h(tag.name, Object.keys(props).length ? props : null, ...kids);
+  const kids = tag.kids.flatMap((k) => (SILENT.has(k.name) ? [] : [toEl(k)])).filter((k): k is El => k !== null);
+  return { name: tag.name, props: cleanAttrs(tag), kids };
+}
+
+/** a short name made of a string, the same every time: what keeps one drawing's names apart from another's */
+function scopeName(s: string): string {
+  let a = 0xdeadbeef;
+  let b = 0x41c6ce57;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    a = Math.imul(a ^ c, 2654435761);
+    b = Math.imul(b ^ c, 1597334677);
+  }
+  a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909);
+  b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
+  return `s${(b >>> 0).toString(36)}${(a >>> 0).toString(36)}`;
+}
+
+/** The references of a drawing settled, in place: each part's name is made the drawing's own, each
+ *  reference to a part that is there points at it under that name, and every other reference goes.
+ *  A reference also goes when it would close a loop, go too many references deep, or make the
+ *  drawing draw more than `MAX_REUSE` elements more than it holds: what a `use`, a mask or a clip
+ *  draws counts once per place it is used, and a pattern once per element that paints with it. */
+function settle(root: El, prefix: string) {
+  const named = new Map<string, El>();
+  const visit = (el: El) => {
+    const id = el.props.id;
+    if (typeof id === "string") {
+      /* the first of a name is the one a reference finds; a second of the same name is no one's */
+      if (named.has(id)) delete el.props.id;
+      else {
+        named.set(id, el);
+        el.props.id = prefix + id;
+      }
+    }
+    el.kids.forEach(visit);
+  };
+  visit(root);
+
+  const weights = new Map<El, number>();
+  const busy = new Set<El>();
+  let chain = 0;
+  let spent = 0;
+  /** what drawing a part once costs, or null when it may not be pointed at from here */
+  const follow = (id: string): number | null => {
+    const target = named.get(id);
+    if (!target) return null;
+    if (GRADIENTS.has(target.name)) return 0;
+    if (busy.has(target) || chain >= MAX_CHAIN) return null;
+    chain++;
+    const w = weigh(target);
+    chain--;
+    return w;
+  };
+  /** what a value's references cost, or null when one of them may not be followed */
+  const cost = (value: PValue): number | null => {
+    if (typeof value !== "string") return 0;
+    let sum = 0;
+    for (const id of pointsAt(value)) {
+      const w = follow(id);
+      if (w === null) return null;
+      sum += w;
+    }
+    return sum;
+  };
+  /** keeps a reference when what it adds still fits, under the drawing's own name for what it points at */
+  const settleValue = (value: PValue, extra: number | null): PValue | undefined => {
+    if (typeof value !== "string" || !/url\s*\(/i.test(value)) return value;
+    if (extra === null || spent + extra > MAX_REUSE) return undefined;
+    spent += extra;
+    return value.replace(LOCAL_URL, (_all, _q, id: string) => `url(#${prefix}${id})`);
+  };
+
+  /** The elements an element draws, its own and what it reuses; its references are settled on the way. */
+  function weigh(el: El): number {
+    const known = weights.get(el);
+    if (known !== undefined) return known;
+    busy.add(el);
+    let base = 1;
+    for (const k of el.kids) base += weigh(k);
+    const props = el.props;
+    const style = props.style as Record<string, PValue> | undefined;
+    /* what is drawn in its place: a `use`'s copy, a mask, a clip */
+    if (typeof props.href === "string") {
+      const w = follow(props.href.slice(1));
+      if (w === null || spent + w > MAX_REUSE) delete props.href;
+      else {
+        spent += w;
+        base += w;
+        props.href = `#${prefix}${props.href.slice(1)}`;
+      }
+    }
+    for (const key of ["mask", "clipPath"]) {
+      if (!(key in props)) continue;
+      const before = spent;
+      const next = settleValue(props[key], cost(props[key]));
+      if (next === undefined) delete props[key];
+      else props[key] = next;
+      base += spent - before;
+    }
+    /* what paints it, and everything inside it that does not say otherwise */
+    let total = base;
+    const paint = (bag: Record<string, PValue>, key: string) => {
+      if (!(key in bag)) return;
+      const per = cost(bag[key]);
+      const before = spent;
+      const next = settleValue(bag[key], per === null ? null : per * base);
+      if (next === undefined) delete bag[key];
+      else bag[key] = next;
+      total += spent - before;
+    };
+    for (const key of PAINTS) {
+      paint(props, key);
+      if (style) paint(style, key);
+    }
+    if (style && !Object.keys(style).length) delete props.style;
+    busy.delete(el);
+    weights.set(el, total);
+    return total;
+  }
+  weigh(root);
+}
+
+function toNode(el: El): PNode | null {
+  /* a `use` whose reference went has nothing to draw */
+  if (el.name === "use" && !el.props.href) return null;
+  const kids = el.kids.map(toNode).filter((k): k is PNode => k !== null);
+  return h(el.name, Object.keys(el.props).length ? el.props : null, ...kids);
 }
 
 /** the size a drawing says it is, from its viewBox or its width and height */
@@ -254,18 +434,32 @@ export type CleanSvg = { viewBox: string; attrs: Record<string, PValue>; childre
 
 /** Pasted markup as what the vector atom draws: the outer `svg`'s viewBox and the paint it sets for
  *  everything in it, and the elements inside, all cleaned. Bare shapes with no `svg` around them
- *  work too. Null when nothing that draws is left. */
-export function sanitizeSvg(markup: string): CleanSvg | null {
-  if (typeof markup !== "string" || !markup.trim()) return null;
-  const top = parse(markup);
-  const outer = top.find((t) => t.name === "svg");
-  const nodes = (outer ? outer.kids : top).flatMap((t) => (SILENT.has(t.name) ? [] : [toNode(t)])).filter((n): n is PNode => n !== null);
-  if (!nodes.length) return null;
-  const own = outer ? cleanAttrs(outer) : {};
-  const viewBox = viewBoxOf(own) ?? "0 0 24 24";
-  /* the outer element is the part's own: its size is the part's; what it paints with passes down */
-  const { viewBox: _vb, width: _w, height: _h, id: _id, preserveAspectRatio: _par, ...attrs } = own;
-  return { viewBox, attrs, children: nodes };
+ *  work too. Null when nothing that draws is left, and never throws.
+ *
+ *  `scope` names the drawing among others on the same page (the part's id): the names its parts are
+ *  given come from it, so the canvas, the preview and printed code all give the same drawing the
+ *  same names, and two drawings never share one. Without it the markup names itself. */
+export function sanitizeSvg(markup: string, scope?: string): CleanSvg | null {
+  try {
+    if (typeof markup !== "string" || !markup.trim()) return null;
+    const top = parse(markup);
+    const outer = top.find((t) => t.name === "svg");
+    const kids = (outer ? outer.kids : top).flatMap((t) => (SILENT.has(t.name) ? [] : [toEl(t)])).filter((n): n is El => n !== null);
+    if (!kids.length) return null;
+    const own = outer ? cleanAttrs(outer) : {};
+    /* the outer element is the part's own: it has no name to be pointed at by */
+    delete own.id;
+    const root: El = { name: "svg", props: own, kids };
+    settle(root, `${scopeName(scope || markup)}-`);
+    const nodes = root.kids.map(toNode).filter((n): n is PNode => n !== null);
+    if (!nodes.length) return null;
+    const viewBox = viewBoxOf(own) ?? "0 0 24 24";
+    /* the outer element's size is the part's; what it paints with passes down */
+    const { viewBox: _vb, width: _w, height: _h, preserveAspectRatio: _par, ...attrs } = root.props;
+    return { viewBox, attrs, children: nodes };
+  } catch {
+    return null;
+  }
 }
 
 /** a path's `d`, if it is only path commands and numbers */

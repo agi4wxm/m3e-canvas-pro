@@ -25,13 +25,14 @@ import {
   sizeOf,
   GAP,
   STATUS_BAR_H,
+  COLOR_TOKENS,
   type ColorToken,
 } from "./tokens";
 import { hasBackdrop } from "./styles";
 import { EXTERNAL } from "../parts/externals";
 import { FILE_OF } from "../parts/files.generated";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
-import { inlineNode, itemOfFile, namesIn } from "../parts/print";
+import { inlineNode, itemOfFile, localUsesIn, namesIn, str } from "../parts/print";
 import { flowClasses } from "../parts/flow";
 import { mapNodes, type PNode, type PValue } from "../parts/node";
 import { expandDoc } from "./expand";
@@ -55,17 +56,44 @@ export type Imports = Map<string, Set<string>>;
 /** a color token as the Tailwind role utility the shadcn M3E styles define */
 const role = (t: ColorToken | string) => t.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 
-const str = (s: string) => JSON.stringify(s);
-
 /** the path the code gives a picture the sketch holds as data: the file's own contents stay in the sketch */
 const PLACEHOLDER_IMAGE = "/placeholder.svg";
 const RUNTIME = "@/runtime";
 
 /* A condition printed around JSX is one line of its own with the JSX indented under it, which `pretty`
- * can only do if it can tell these apart from a brace in the text of a part. */
+ * can only do if it can tell these apart from a brace in the text of a part. These marks, the place a
+ * layout's contents go and the marks lib/printBehaviour.ts passes words through a tree with are all
+ * characters of the printer's own (U+E000 to U+E01F), which a document's words are cleared of before
+ * anything is printed: words can never pass for one of them. */
 const GATE_OPEN = "";
 const GATE_END = "";
 const GATE_CLOSE = "";
+/** where a layout's contents go in the printed layout */
+const HOLE = "\uE013flow\uE013";
+const PRINTER_MARK = /[\uE000-\uE01F]/;
+const PRINTER_MARKS = /[\uE000-\uE01F]/g;
+
+/** every string of a value with the printer's own characters taken out; what holds none comes back as it was */
+function withoutMarks<T>(value: T): T {
+  if (typeof value === "string") return (PRINTER_MARK.test(value) ? value.replace(PRINTER_MARKS, "") : value) as T;
+  if (Array.isArray(value)) {
+    const out = value.map(withoutMarks);
+    return (out.some((v, i) => v !== value[i]) ? out : value) as T;
+  }
+  if (value && typeof value === "object") {
+    let changed = false;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      const key = withoutMarks(k);
+      const next = withoutMarks(v);
+      if (next !== v || key !== k) changed = true;
+      out[key] = next;
+    }
+    return (changed ? out : value) as T;
+  }
+  return value;
+}
+
 /* a part settled as never showing (on a row it is not for, say) is not printed at all */
 const gated = (gates: string[], source: string) => (gates.includes("false") ? "" : gates.length ? `${GATE_OPEN}{${gates.join(" && ")} && (${GATE_END}${source}${GATE_CLOSE}` : source);
 
@@ -80,6 +108,13 @@ class Ctx {
     readonly frame: Frame,
     readonly widths: Record<string, number>,
   ) {}
+  /** the files of this repo's own the screen's code needs over the registry's, with what needs them */
+  local = new Map<string, Set<string>>();
+  /** what a tree printed on this screen takes: its imports, and any value only this repo's copy of a component has */
+  useTree(tree: PNode) {
+    this.use(...namesIn(tree));
+    localUsesIn(tree, this.local);
+  }
   /** the modules the code imports from, with the names it takes from each */
   use(...names: string[]) {
     for (const n of names) {
@@ -94,11 +129,14 @@ class Ctx {
   }
 }
 
+/** what is said of a part no definition stands for: its name as far as it is a name, so nothing it holds can end the comment */
+const unknownName = (name: unknown) => (typeof name === "string" ? name.replace(/[^\w-]+/g, "").slice(0, 60) : "");
+
 /** the JSX of one part */
 function jsx(it: Item, c: Ctx, insideTap = false): string {
-  if (!partBySlug(it.component)) return `{/* unknown component ${it.component ?? ""} */}`;
+  if (!partBySlug(it.component)) return `{/* unknown component${unknownName(it.component) ? ` ${unknownName(it.component)}` : ""} */}`;
   const { tree, keepTap, wrap } = c.b.printPart(it, c.uses, insideTap);
-  c.use(...namesIn(tree));
+  c.useTree(tree);
   return wrap(inlineNode(tree, keepTap));
 }
 
@@ -159,7 +197,7 @@ function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new S
     if (run.items.length !== 1) return boxed(`<div className="flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]">${run.items.map((x) => jsx(x, c, insideTap)).join("")}</div>`);
     const part = c.b.printPart(it, c.uses, insideTap);
     const tree = fluid(part.tree, asked.fill);
-    c.use(...namesIn(tree));
+    c.useTree(tree);
     return boxed(part.wrap(inlineNode(tree, part.keepTap)));
   }
   const kids = all.filter((g) => g.inFlow === run.id && !g.locked);
@@ -168,21 +206,23 @@ function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new S
   const within = new Set(inside).add(run.id);
   /* a layout in a layout takes the room the outer one gives it too */
   let tree = fluid(part.tree, asked.fill);
-  const fit = [...(sizedByContents(run, flow, parent, "w") ? ["width"] : []), ...(sizedByContents(run, flow, parent, "h") ? ["height"] : [])];
+  /* a layout takes the size of what it holds only when it holds something that flows: an empty one, or one whose
+   * parts all stand loose, keeps its own size, as it does on the canvas */
+  const flowing = kids.some((k) => !childLayoutOf(k.items.length === 1 ? k.items[0] : undefined).absolute);
+  const fit = flowing ? [...(sizedByContents(run, flow, parent, "w") ? ["width"] : []), ...(sizedByContents(run, flow, parent, "h") ? ["height"] : [])] : [];
   const style = Object.fromEntries(Object.entries((tree.props?.style as Record<string, PValue> | undefined) ?? {}).filter(([k]) => !fit.includes(k)));
   tree = { ...tree, props: { ...tree.props, style } };
   const marked = (n: PNode): boolean => !!n.props?.["data-flow"] || !!n.children?.some((x) => typeof x !== "string" && marked(x));
   const host = marked(tree) ? (n: PNode) => !!n.props?.["data-flow"] : (n: PNode) => n === tree;
   /* what stands loose in it is placed from the box the layout is drawn in */
   const loose = kids.some((k) => childLayoutOf(k.items.length === 1 ? k.items[0] : undefined).absolute);
-  const HOLE = "@@flow@@";
   const placed = mapNodes(tree, (n) => {
     const clean = n.props?.["data-flow"] ? Object.fromEntries(Object.entries(n.props).filter(([k]) => k !== "data-flow")) : n.props;
     if (!host(n)) return { ...n, props: clean };
     const className = [typeof clean?.className === "string" ? clean.className : "", flowClasses(flow), loose ? "relative" : ""].filter(Boolean).join(" ");
     return { ...n, props: { ...clean, className }, children: [HOLE] };
   });
-  c.use(...namesIn(placed));
+  c.useTree(placed);
   const box = { x: run.x + (marked(tree) ? flow.inset.l : 0), y: run.y + (marked(tree) ? flow.inset.t : 0) };
   const held = kids.map((k) => gated(c.b.gates(k, within, c.uses), flowJsx(k, c, all, flow, within, tapped, box))).join("");
   /* a function: a `$` in a part's words is not a replacement pattern */
@@ -282,6 +322,11 @@ function tokenize(s: string): string[] {
   while (i < s.length) {
     if (s[i] === GATE_OPEN) {
       const end = s.indexOf(GATE_END, i);
+      /* only the printer writes these, always in pairs; a lone one is passed over rather than read forever */
+      if (end < 0) {
+        i++;
+        continue;
+      }
       out.push(s.slice(i, end));
       i = end + 1;
       continue;
@@ -392,6 +437,8 @@ export type ScreenCode = {
   foot: number;
   source: string;
   imports: Imports;
+  /** this repo's own component files the code needs (see `LOCAL_M3E`), with what needs each */
+  local: Map<string, Set<string>>;
 };
 
 type BuildOptions = {
@@ -405,8 +452,9 @@ type BuildOptions = {
 export const importLines = (imports: Imports) => [...imports.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([source, set]) => `import { ${[...set].sort((a, b) => a.localeCompare(b)).join(", ")} } from "${source}"`);
 
 export function buildScreens(source: Doc, widths: Record<string, number>, o: BuildOptions = {}): { screens: ScreenCode[]; runtime: RuntimeSpec; usesToast: boolean } {
-  /* printed code is expanded: instances and repeated rows come out as plain parts */
-  const doc = expandDoc(source, widths);
+  /* printed code is expanded: instances and repeated rows come out as plain parts. Its words are cleared of the
+   * printer's own marks first */
+  const doc = expandDoc(withoutMarks(source), widths);
   const { onlyFrameId } = o;
   /* a sketch with no screens is one open canvas: its parts' own bounds make the screen */
   let frames = doc.frame === "phone" ? doc.frames : [];
@@ -444,7 +492,7 @@ export function buildScreens(source: Doc, widths: Record<string, number>, o: Bui
       const scrollHandler = folds ? ' onScroll={(event) => { const top = event.currentTarget.scrollTop; if (top !== lastScrollTop.current) setFabFolded(top > lastScrollTop.current); lastScrollTop.current = top }}' : "";
       body = [`<div role="region" aria-label=${str(`${frame.name || "Screen"} content`)} tabIndex={0} className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain"${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></div>`, ...overlays];
     } else body = screenBody(frame, runs, c, widths, all);
-    const bg = frame.bg ? `bg-${role(frame.bg)}` : "bg-surface";
+    const bg = frame.bg && COLOR_TOKENS.some((t) => t.key === frame.bg) ? `bg-${role(frame.bg)}` : "bg-surface";
     /* a style may draw something behind its screens (src/style.css) */
     const open = `<div${hasBackdrop(normalizeTheme(doc.theme)) ? " data-backdrop" : ""} className=${str(`relative overflow-hidden ${bg} w-[${w}px] h-[${h}px]`)}>`;
     const inner = [open, ...body, "</div>"].join("");
@@ -462,6 +510,7 @@ export function buildScreens(source: Doc, widths: Record<string, number>, o: Bui
       foot: Math.max(0, ...runs.filter((g) => g.items.length === 1 && roleOf(g.items[0]) === "bottom").map((g) => sizeOf(g.items[0], widths).h)),
       source: `export function ${name}() {\n${fromApp}${state}  return (\n${pretty(inner, 2)}\n  )\n}`,
       imports: c.imports,
+      local: c.local,
     };
   });
   return { screens, runtime: b.spec(screens.map((s) => s.key)), usesToast };
@@ -469,7 +518,9 @@ export function buildScreens(source: Doc, widths: Record<string, number>, o: Bui
 
 export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?: string): CodeResult {
   const palette = paletteOf(doc.paletteKey, doc.customPalette, doc.theme);
-  const seed = palette.seed ?? palette.primary;
+  /* the header is comments: what it says of the document is only ever a color and a word it knows */
+  const seed = [palette.seed, palette.primary].find((c): c is string => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c)) ?? "#6750A4";
+  const contrast = normalizeTheme(doc.theme).contrast;
   const { screens, usesToast } = buildScreens(doc, widths, { onlyFrameId });
   const imports: Imports = new Map();
   for (const s of screens) for (const [source, set] of s.imports) imports.set(source, new Set([...(imports.get(source) ?? []), ...set]));
@@ -482,12 +533,16 @@ export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?
   /* a widget ships with the canvas, not with any registry or package */
   const widgetDir = "@/components/widgets/";
   const copied = names.map(([source]) => source).filter((source) => source.startsWith(widgetDir));
+  /* a value only this repo's copy of a component has: the registry's file would not know it */
+  const local = new Map<string, Set<string>>();
+  for (const s of screens) for (const [file, what] of s.local) local.set(file, new Set([...(local.get(file) ?? []), ...what]));
   const header = [
     "// Generated by M3E Canvas. Components are shadcn M3E (https://shadcn-m3e.crystaworld.dev).",
     ...copied.map((source) => `// Copy parts/widgets/${source.slice(widgetDir.length)}.tsx from the canvas into src/components/widgets/${source.slice(widgetDir.length)}.tsx`),
     `// 1. Register the registry in components.json:  "registries": { "@m3e": ${str(REGISTRY_URL)} }`,
     `// 2. ${install}`,
-    `// 3. Wrap your app once:  <M3eProvider theme={{ defaultTheme: { source: { primary: ${str(seed)} }${seed.toUpperCase() === "#6750A4" ? "" : `, variant: "tonalSpot"`}${doc.theme && doc.theme.contrast !== "standard" ? `, contrast: ${str(doc.theme.contrast)}` : ""} } }}>…</M3eProvider>`,
+    ...[...local.keys()].sort().map((file) => `//    Then copy components/m3e/${file}.tsx from the canvas over src/components/m3e/${file}.tsx: this code uses ${[...local.get(file)!].sort().join(", ")}, which the registry's does not have.`),
+    `// 3. Wrap your app once:  <M3eProvider theme={{ defaultTheme: { source: { primary: ${str(seed)} }${seed.toUpperCase() === "#6750A4" ? "" : `, variant: "tonalSpot"`}${contrast !== "standard" ? `, contrast: ${str(contrast)}` : ""} } }}>…</M3eProvider>`,
     ...(packages.length ? [`// 4. bun add ${packages.join(" ")}`] : []),
     ...(usesToast ? [`// ${packages.length ? 5 : 4}. Render <Toaster /> (from @/components/m3e/sonner) once, so snackbars show.`] : []),
     /* the screens' taps run on it; it is written for this document, so it comes with the project */

@@ -9,6 +9,7 @@ import { APP_SCOPE, recipesOf, styleCss } from "./styles";
 import { elevationCss } from "./look";
 import { iconSubset, setsOf } from "../components/m3e/icon-sets/load";
 import { SOURCES } from "../components/m3e/icon-sets/manifest";
+import { str } from "../parts/print";
 
 /* A document as a project someone can install and run: its screens, the runtime their taps call, its
  * theme, and a copy of only the source files those reach, found by walking their imports. Nothing here
@@ -114,16 +115,21 @@ function hashOf(s: string): string {
   return (h >>> 0).toString(36);
 }
 
+/** a picture's bytes; one whose data cannot be read is an empty file, not a failed export */
 function dataToBytes(data: string): Uint8Array {
   const comma = data.indexOf(",");
   const body = data.slice(comma + 1);
-  if (/;base64$/i.test(data.slice(0, comma))) {
-    const bin = atob(body);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return bytes;
+  try {
+    if (/;base64$/i.test(data.slice(0, comma))) {
+      const bin = atob(body);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+    return strToU8(decodeURIComponent(body));
+  } catch {
+    return new Uint8Array();
   }
-  return strToU8(decodeURIComponent(body));
 }
 
 /* ---------- icons ---------- */
@@ -202,7 +208,7 @@ export async function loadIcons(_family: IconFamily, _names: Iterable<string>): 
 /** the screens that are sizes of one screen, each with its whole family */
 function sizesSource(families: string[][]): string {
   if (!families.length) return "";
-  const rows = families.flatMap((family) => family.map((key) => `  ${key}: ${JSON.stringify(family)},`)).join("\n");
+  const rows = families.flatMap((family) => family.map((key) => `  ${key}: ${str(family)},`)).join("\n");
   return `
 /** the sizes of one screen: the window picks among them, the way the preview's width switch does */
 const SIZES: Partial<Record<ScreenId, ScreenId[]>> = {
@@ -385,7 +391,9 @@ createRoot(document.getElementById("root")!).render(
 
 function themeSource(doc: Doc, name: string): string {
   const theme = normalizeTheme(doc.theme);
-  const seed = seedOf(doc.paletteKey, doc.customPalette, theme);
+  const asked = seedOf(doc.paletteKey, doc.customPalette, theme);
+  /* a color, or M3's own: whatever else a file says is not printed */
+  const seed = typeof asked === "string" && /^#[0-9a-f]{6}$/i.test(asked) ? asked : BASELINE_SEED;
   /* M3's baseline is a fixed purple whatever the seed: any other seed needs a variant that reads it */
   const variant = seed.toUpperCase() === BASELINE_SEED ? "baseline" : "tonalSpot";
   const shapeScale = shapeScaleOf(theme.shape);
@@ -394,21 +402,21 @@ function themeSource(doc: Doc, name: string): string {
   return `import type { ReactNode } from "react"
 import { ColorModeProvider } from "@/components/m3e/color-mode-provider"
 import { M3ThemeProvider, type M3Theme } from "@/components/m3e/m3-theme-provider"
-${icons ? `import { registerIconMap, registerIcons, setIconFamily } from "@/components/m3e/icon"\nimport styleIcons, { map as styleIconMap } from "@/style-icons"\n\nstyleIcons.forEach(registerIcons)\nregisterIconMap(${JSON.stringify(icons)}, styleIconMap)\nsetIconFamily(${JSON.stringify(icons)})\n` : ""}
+${icons ? `import { registerIconMap, registerIcons, setIconFamily } from "@/components/m3e/icon"\nimport styleIcons, { map as styleIconMap } from "@/style-icons"\n\nstyleIcons.forEach(registerIcons)\nregisterIconMap(${str(icons)}, styleIconMap)\nsetIconFamily(${str(icons)})\n` : ""}
 /* The look the document was drawn in. Every color role is generated from the source color,
  * so changing it here is enough; corners and motion follow the other two.${styleCssOf(doc, getLang()) ? " The rest of its style, and the colors it names itself, are in style.css." : ""} */
 const THEME: Partial<M3Theme> = {
-  source: { primary: ${JSON.stringify(seed)} },
-  variant: ${JSON.stringify(variant)},
-  contrast: ${JSON.stringify(theme.contrast)},
-  motion: ${JSON.stringify(theme.motion)},
+  source: { primary: ${str(seed)} },
+  variant: ${str(variant)},
+  contrast: ${str(theme.contrast)},
+  motion: ${str(theme.motion)},
   shapeScale: ${shapeScale},
 }
 
 export function Theme({ children }: { children: ReactNode }) {
   return (
     <M3ThemeProvider persist={false} defaultTheme={THEME}>
-      <ColorModeProvider defaultMode=${JSON.stringify(mode)} storageKey=${JSON.stringify(`${name}:color-mode`)} toggleKey={false}>
+      <ColorModeProvider defaultMode=${str(mode)} storageKey=${str(`${name}:color-mode`)} toggleKey={false}>
         {children}
       </ColorModeProvider>
     </M3ThemeProvider>
@@ -506,7 +514,9 @@ const TSCONFIG = json({
 
 function readmeSource(doc: Doc, screens: ScreenCode[], copied: string[], missing: string[]): string {
   const dirs = [...new Set(copied.map((p) => p.slice(0, p.lastIndexOf("/"))))].sort();
-  return `# ${doc.title || "App"}
+  /* the title is a heading of one line */
+  const title = (doc.title || "").replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim() || "App";
+  return `# ${title}
 
 Exported from M3E Canvas: ${screens.length} ${screens.length === 1 ? "screen" : "screens"}, working as they did in the preview.
 

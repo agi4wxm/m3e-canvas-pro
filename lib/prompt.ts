@@ -87,7 +87,7 @@ function componentText(it: Item, lang: Lang, name?: string): string {
   const flow = flowOfItem(it);
   /* the classes say how it lays out what is nested in it, in every language */
   const layout = flow ? ` + auto layout \`${flowClasses(flow)}\`` : "";
-  return `${lead}${called ? ` ${quote(lang)(called)}` : ""}: \`${inlineNode(treeOf(def, props, appearanceOf(it)))}\`${layout}${fabScrollText(it, lang)}`;
+  return `${lead}${called ? ` ${quote(lang)(called)}` : ""}: \`${inlineNode(treeOf(def, props, appearanceOf(it), it.id))}\`${layout}${fabScrollText(it, lang)}`;
 }
 
 /** A collapse-on-scroll FAB only has that behavior on a screen whose body actually scrolls. */
