@@ -1,9 +1,10 @@
 // bun run gen:icons     write the bundled icon data
 // bun run check:icons   verify it (CI): every used icon exists and is bundled
 //
-// Icons are Material Symbols Rounded from Iconify. Instead of loading them from
-// the Iconify API at runtime, the glyphs the code uses are written to two files
-// and registered with @iconify/react/offline:
+// Icons are Material Symbols Rounded from Iconify. Instead of loading them at
+// runtime, the glyphs the code uses are taken from @iconify-json/material-symbols
+// (a dev dependency, so this works offline), written to two files and registered
+// with @iconify/react/offline:
 //
 //   icon-data.ts      "core": icons used inside the M3E components themselves
 //                     (this file ships with the registry)
@@ -67,7 +68,8 @@ const scan = (inCore) => {
       const p = join(dir, f.name)
       const q = norm(p)
       if (f.isDirectory()) {
-        if (!q.endsWith("components/ui")) walk(p)
+        /* icon-sets holds the families' bundled sets, which gen:icon-sets writes */
+        if (!q.endsWith("components/ui") && !q.endsWith("icon-sets")) walk(p)
         continue
       }
       if (!/\.tsx?$/.test(f.name) || /icon-data/.test(f.name)) continue
@@ -82,7 +84,7 @@ const scan = (inCore) => {
         addTo(logical, m[1], file)
       for (const m of src.matchAll(/\/\/\s*@icons\s+([a-z0-9_ ]+)/g))
         for (const n of m[1].trim().split(/\s+/)) addTo(logical, n, file)
-      for (const m of src.matchAll(/\bsymbol\("([a-z0-9-]+)"\)/g))
+      for (const m of src.matchAll(/\bsymbol\("([a-z0-9-]+)"/g))
         addTo(raw, m[1], file)
     }
   }
@@ -102,34 +104,28 @@ const iconifyNames = ({ logical, raw }) => {
   return out
 }
 
-// --- Iconify ------------------------------------------------------------------
+// --- the glyphs ----------------------------------------------------------------
 
-async function get(url) {
-  for (let attempt = 1; ; attempt++) {
-    try {
-      const res = await fetch(url)
-      if (!res.ok) throw new Error(`Iconify API: ${res.status}`)
-      return await res.json()
-    } catch (e) {
-      if (attempt === 4) throw e
-      await new Promise((r) => setTimeout(r, 1500 * attempt))
-    }
-  }
-}
+const SET = JSON.parse(
+  readFileSync(
+    join(process.cwd(), "node_modules/@iconify-json", PREFIX, "icons.json"),
+    "utf8"
+  )
+)
 
-async function fetchIcons(names) {
+/** the glyphs of these names out of the package, with the parent of each alias */
+function fetchIcons(names) {
   const icons = {}
   const aliases = {}
   const missing = []
-  const list = [...names]
-  for (let i = 0; i < list.length; i += 60) {
-    const chunk = list.slice(i, i + 60)
-    const json = await get(
-      `https://api.iconify.design/${PREFIX}.json?icons=${chunk.join(",")}`
-    )
-    Object.assign(icons, json.icons)
-    Object.assign(aliases, json.aliases)
-    missing.push(...(json.not_found ?? []))
+  for (const name of names) {
+    let at = name
+    while (SET.aliases?.[at]) {
+      aliases[at] = SET.aliases[at]
+      at = SET.aliases[at].parent
+    }
+    if (SET.icons[at]) icons[at] = SET.icons[at]
+    else missing.push(name)
   }
   return { icons, aliases, missing }
 }
@@ -174,7 +170,7 @@ for (const [inCore, out, note] of [
 ]) {
   const names = iconifyNames(scan(inCore))
   if (!inCore) for (const n of iconifyNames(scan(true)).keys()) names.delete(n)
-  const { icons, aliases, missing } = await fetchIcons(names.keys())
+  const { icons, aliases, missing } = fetchIcons(names.keys())
 
   for (const m of missing) {
     failed = true

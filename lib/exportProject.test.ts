@@ -161,7 +161,7 @@ describe("the project of a real document", () => {
     checkClosed(files);
   });
 
-  it("still exports when icons cannot be fetched, and says which", async () => {
+  it("draws its icons offline, out of the bundled sets", async () => {
     const { doc, widths } = proofDoc();
     const { files, warnings } = await buildProject(doc, widths, {
       read: fromDisk,
@@ -169,8 +169,41 @@ describe("the project of a real document", () => {
         throw new Error("offline");
       },
     });
-    expect(warnings[0]).toMatch(/icons not fetched/);
+    expect(warnings).toEqual([]);
+    const data = textOf(files, "src/components/m3e/icon-data.app.ts");
+    for (const id of ["home-outline-rounded", "home-rounded", "inbox-outline-rounded"]) expect(data).toContain(`"${id}"`);
+    /* what the widgets reach of the editor's loader has nothing to load there */
+    expect(textOf(files, "src/components/m3e/icon-sets/load.ts")).not.toContain("import(");
+    expect(Object.keys(files).some((p) => p.includes("icon-sets/data"))).toBe(false);
+  });
+
+  it("still exports when an icon no set bundles cannot be fetched, and says which", async () => {
+    const { doc, widths } = proofDoc();
+    const typed: Doc = { ...doc, groups: [...doc.groups, { id: "g-typed", x: 0, y: 700, axis: "x", items: [{ ...makeItem("button"), id: "typed", props: { label: "Sail", icon: "sailing" } }] }] };
+    const { files, warnings } = await buildProject(typed, widths, {
+      read: fromDisk,
+      fetchIcons: async () => {
+        throw new Error("offline");
+      },
+    });
+    expect(warnings[0]).toMatch(/icons not fetched: sailing/);
     expect(textOf(files, "README.md")).toContain("could not be fetched");
+  });
+
+  it("carries the style's icon family, out of the bundled set", async () => {
+    const { doc, widths } = proofDoc();
+    const { files, warnings } = await buildProject({ ...doc, theme: { ...doc.theme, icons: "sf" } as Doc["theme"] }, widths, { read: fromDisk, fetchIcons: noNetwork });
+    expect(warnings).toEqual([]);
+    const styled = textOf(files, "src/style-icons.ts");
+    /* the screens' home and inbox, and a dialog's close button inside the components */
+    for (const glyph of ['"house"', '"house-fill"', '"tray"', '"xmark"']) expect(styled).toContain(glyph);
+    expect(styled).toContain('"home": [\n    "f7:house",\n    "f7:house-fill"\n  ]');
+    expect(styled).toContain("Framework7 Icons");
+    expect(styled).not.toContain('"gear-alt"');
+    const theme = textOf(files, "src/theme.tsx");
+    expect(theme).toContain('registerIconMap("sf", styleIconMap)');
+    expect(theme).toContain('setIconFamily("sf")');
+    checkClosed(files);
   });
 
   it("builds from every template, closed", async () => {

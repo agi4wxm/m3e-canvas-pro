@@ -1,24 +1,32 @@
 import { Icon, type IconProps } from "@iconify/react/offline"
 
+import { familyGlyph, iconFamily } from "./icon"
 import { warnIfMissing } from "./icon-registry"
 
 /*
  * The Material Symbols Rounded glyphs the components use internally, from the
  * bundled icon data (see icon-registry.ts). They render as <svg>, so container
- * rules such as [&_svg]:size-5 size them.
+ * rules such as [&_svg]:size-5 size them. Under another icon family they take
+ * its outlined drawing of the same name once it has arrived: a dialog's close
+ * button or a menu's chevron is chrome, never filled.
  */
 type SymbolProps = Omit<IconProps, "icon">
 
-function symbol(icon: string) {
+function symbol(icon: string, styled = true) {
   warnIfMissing(`material-symbols:${icon}`)
-  const Component = (props: SymbolProps) => (
-    <Icon
-      icon={`material-symbols:${icon}`}
-      aria-hidden
-      data-icon={icon}
-      {...props}
-    />
-  )
+  const name = icon.replace(/(-outline)?-rounded$/, "")
+  const Component = (props: SymbolProps) => {
+    const own = styled ? familyGlyph(name, false) : undefined
+    return (
+      <Icon
+        icon={own ?? `material-symbols:${icon}`}
+        aria-hidden
+        data-icon={icon}
+        data-family={own ? iconFamily() : undefined}
+        {...props}
+      />
+    )
+  }
   Component.displayName = icon
   return Component
 }
@@ -36,7 +44,8 @@ export const KeyboardArrowDownIcon = symbol("keyboard-arrow-down-rounded")
 export const KeyboardArrowUpIcon = symbol("keyboard-arrow-up-rounded")
 export const MenuIcon = symbol("menu-rounded")
 export const MoreHorizIcon = symbol("more-horiz")
-export const ProgressActivityIcon = symbol("progress-activity")
+/* a spinner turns: it keeps the one glyph drawn to be turned */
+export const ProgressActivityIcon = symbol("progress-activity", false)
 export const RemoveIcon = symbol("remove-rounded")
 export const SearchIcon = symbol("search-rounded")
 export const WarningIcon = symbol("warning-outline-rounded")
