@@ -544,7 +544,7 @@ bun run typecheck
 - \`public/images/\`: the pictures picked in the editor.
 - Copied from the editor, only what these screens use: ${dirs.map((d) => `\`${d}/\``).join(", ")}.
 ${missing.length ? `\n## Before you ship\n\nThese icons could not be fetched when this was exported, so they draw blank: ${missing.join(", ")}. Add their Iconify data to \`src/components/m3e/icon-data.app.ts\`.\n` : ""}
-Icons a widget only knows while running are fetched from Iconify, as they are in the editor. The fonts come from Google Fonts: see \`index.html\`.
+Icons a widget only knows while running are fetched from Iconify, as they are in the editor. The fonts come from Google Fonts, and a face Google does not have (the pixel face with Chinese) from jsDelivr: see \`index.html\`. When the document wears a style, that style's own icon set is bundled in \`src/style-icons.ts\`, so it draws offline.
 
 ## License
 
