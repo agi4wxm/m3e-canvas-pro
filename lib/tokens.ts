@@ -632,6 +632,11 @@ export const VARIANTS: { key: Variant; label: string }[] = [
 
 export type Axis = "x" | "y";
 
+/** how a part in an auto layout is sized on one axis */
+export type FlowSizing = "fixed" | "hug" | "fill";
+/** where a part in an auto layout stands across the run */
+export type FlowAlign = "start" | "center" | "end" | "stretch" | "baseline";
+
 /* ---------- screen data ---------- */
 /** one row of a list a part's panel edits */
 export type NavTab = { icon: string; label: string; variant?: string; width?: string; image?: string };
@@ -663,8 +668,21 @@ export type Item = {
   textColor?: TextToken;
   /** each corner on its own, painted over the part's own radius */
   corners?: Radii;
-  /** in a container's auto layout, it takes what room is left along the run */
+  /** in a container's auto layout, it takes what room is left along the run (the older spelling of `flowSize` fill on the run's axis) */
   flowFill?: boolean;
+  /** in a container's auto layout, how it is sized on each axis: its own measure, its contents' (a container
+   *  with a layout of its own), or the room the layout gives it. Left out, the run's axis follows `flowFill`
+   *  and the other axis follows the container's `align` ("stretch" fills). */
+  flowSize?: { w?: FlowSizing; h?: FlowSizing };
+  /** in a container's auto layout, where it stands across the run, over the container's own `align` */
+  alignSelf?: FlowAlign;
+  /** in a container's auto layout, it is left where it was put, relative to the container, and moves with it */
+  flowAbsolute?: boolean;
+  /** in a container's auto layout, the least and the most it may be made when the layout sizes it */
+  flowMin?: { w?: number; h?: number };
+  flowMax?: { w?: number; h?: number };
+  /** in a grid, how many columns it takes */
+  flowSpan?: number;
   /** tap navigation to another frame */
   action?: Action;
   /** per-slot tap navigation, by the keys its `PartDef.slots` names */

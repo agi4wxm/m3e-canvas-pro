@@ -1,4 +1,5 @@
 import { Group, groupBounds, heldBy, unionRect } from "./tokens";
+import { gapSnapper, gridBlock, linesOf, type Box, type Placed } from "./structure";
 
 /* Lining selected parts up against each other, as opposed to placing them in the screen. Each group
  * moves as a whole, a container with what it holds, and a locked group is what the others line up to. */
@@ -69,5 +70,19 @@ export function distributeParts(groups: Group[], ids: Set<string>, axis: Spread,
     deltas.set(u.g.id, axis === "x" ? { dx: d, dy: 0 } : { dx: 0, dy: d });
     at += size(u.b) + space;
   }
+  return moved(groups, deltas, widths);
+}
+
+/** Figma's Tidy up: the selection as a clean row, column or grid, read off the lines it stands in, with one gap across
+ *  and one down (the gaps it has, on the spacing scale), each part on the edge or centre its row and its column come
+ *  closest to sharing. The top left of the selection stays put; a locked part stays out of it. Null when nothing moves. */
+export function tidyUpParts(groups: Group[], ids: Set<string>, widths: Widths, scale: number[] = [8, 16]): Group[] | null {
+  const units = unitsOf(groups, ids, widths).filter((g) => !g.locked);
+  if (units.length < 2) return null;
+  const boxes: Box[] = units.map((g) => ({ id: g.id, ...groupBounds(g, widths), base: g.items.length === 1 ? widths[`${g.items[0].id}:base`] : undefined }));
+  const at = unionRect(boxes);
+  const out: Placed = new Map();
+  gridBlock(linesOf(boxes), { snap: gapSnapper(scale) }).place(at.l, at.t, out);
+  const deltas = new Map(boxes.map((b) => [b.id, { dx: out.get(b.id)!.l - b.l, dy: out.get(b.id)!.t - b.t }]));
   return moved(groups, deltas, widths);
 }

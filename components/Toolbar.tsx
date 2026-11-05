@@ -83,6 +83,8 @@ export function Toolbar({
   onLangSheet,
   tidy,
   onTidy,
+  onTidyUp,
+  onAutoLayout,
   place,
   onPlace,
   note,
@@ -125,6 +127,10 @@ export function Toolbar({
   /** the tidy button for the screen being worked on; absent when no screen is in play */
   tidy?: TidyState;
   onTidy?: () => void;
+  /** several parts selected: Tidy up arranges them as an even row, column or grid */
+  onTidyUp?: () => void;
+  /** several parts selected: turns them into nested auto layouts */
+  onAutoLayout?: () => void;
   place?: Place;
   onPlace?: (place: Place) => void;
   /** a short message shown beside the tidy button for a moment */
@@ -257,6 +263,24 @@ export function Toolbar({
         {tidy && onTidy && (
           <Pill p={p}>
             <TidyButton state={tidy} onClick={onTidy} p={p} pill place={place} onPlace={onPlace} />
+          </Pill>
+        )}
+        {(onTidyUp || onAutoLayout) && (
+          <Pill p={p}>
+            {onTidyUp && (
+              <button
+                onClick={onTidyUp}
+                data-tidy-up
+                title={t("tidyUpKeys", lang)}
+                aria-label={t("tidyUpKeys", lang)}
+                className="m3-press"
+                style={{ height: 40, padding: "0 16px 0 12px", borderRadius: 20, border: "none", background: p.secondaryContainer, color: p.onSecondaryContainer, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}
+              >
+                <Icon name="grid_on" size={20} />
+                {t("tidyUp", lang)}
+              </button>
+            )}
+            {onAutoLayout && <IconBtn icon="view_quilt" p={p} onClick={onAutoLayout} title={t("suggestLayoutKeys", lang)} size={40} />}
           </Pill>
         )}
         <Pill p={p}>
