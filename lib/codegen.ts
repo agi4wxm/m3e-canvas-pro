@@ -35,7 +35,7 @@ import { inlineNode, itemOfFile, namesIn } from "../parts/print";
 import { flowClasses } from "../parts/flow";
 import { mapNodes, type PNode, type PValue } from "../parts/node";
 import { expandDoc } from "./expand";
-import { flowOf, outOfPane, type Flow } from "./flow";
+import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "./flow";
 import { Behaviour, type RuntimeSpec, type Uses } from "./printBehaviour";
 import { partBySlug } from "../parts/registry";
 import { fullWidth, roleOf } from "../parts/role";
@@ -109,52 +109,96 @@ function fluid(tree: PNode, keys: ("width" | "height")[]): PNode {
   return { ...tree, props: { ...tree.props, style } };
 }
 
+/** What a part in a layout asks of it, in classes on a box around it: to take the room left (`flex-1`), to stand
+ *  elsewhere across the run (`self-*`), to stay where it was put (`absolute`), its least and most measure, the columns
+ *  of a grid it takes. `fill` names the axes it fills, which its own tree then takes as 100%. `origin` is the corner
+ *  of the box the layout is drawn in, which an absolute part is placed from. */
+function itemClasses(run: Group, parent: Flow, origin: { x: number; y: number }): { classes: string; fill: ("width" | "height")[] } {
+  const it = run.items.length === 1 ? run.items[0] : undefined;
+  const c = childLayoutOf(it);
+  if (c.absolute) return { classes: `absolute left-[${Math.round(run.x - origin.x)}px] top-[${Math.round(run.y - origin.y)}px]`, fill: [] };
+  const w = sizingOf(it, parent, "w");
+  const h = sizingOf(it, parent, "h");
+  const out: string[] = [];
+  const fill: ("width" | "height")[] = [...(w === "fill" ? (["width"] as const) : []), ...(h === "fill" ? (["height"] as const) : [])];
+  const selfAlign = c.self && c.self !== "stretch" ? c.self : undefined;
+  if (parent.dir === "grid") {
+    if (c.span > 1) out.push(`col-span-${Math.min(c.span, parent.columns)}`);
+    /* a grid lines its cells up both ways: a part that fills stretches both ways, one that stands elsewhere does too */
+    if (w === "fill" && parent.align !== "stretch") out.push("justify-self-stretch");
+    if (h === "fill") out.push("self-stretch");
+    if (selfAlign) out.push(selfAlign === "baseline" ? "self-baseline justify-self-start" : `${h === "fill" ? "" : `self-${selfAlign} `}${w === "fill" ? "" : `justify-self-${selfAlign}`}`.trim());
+  } else {
+    const main = parent.dir === "row" ? w : h;
+    const cross = parent.dir === "row" ? h : w;
+    if (main === "fill") out.push(parent.dir === "column" ? "min-h-0 flex-1" : "min-w-0 flex-1");
+    const across = c.self ?? parent.align;
+    if (cross === "fill" && across !== "stretch") out.push("self-stretch");
+    else if (cross !== "fill" && across === "stretch") out.push("self-start");
+    else if (selfAlign) out.push(`self-${selfAlign}`);
+  }
+  for (const [axis, key] of [["w", "w"], ["h", "h"]] as const) {
+    if (c.min[axis] !== undefined) out.push(`min-${key}-[${Math.round(c.min[axis]!)}px]`);
+    if (c.max[axis] !== undefined) out.push(`max-${key}-[${Math.round(c.max[axis]!)}px]`);
+  }
+  return { classes: out.filter(Boolean).join(" "), fill };
+}
+
 /** The JSX of a run laid out by a container: nested, the way the browser will lay it out. The classes
  *  of the layout go on the node the container keeps for it, or on its root. */
-function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new Set<string>(), insideTap = false): string {
+function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new Set<string>(), insideTap = false, origin = { x: 0, y: 0 }): string {
   if (parent && run.expandedFrom !== undefined) return instanceJsx(run, c, all, inside);
   const it = run.items[0];
   const def = partBySlug(it.component);
   const flow = run.items.length === 1 ? flowOf(run) : null;
   if (!def || (!flow && !parent)) return run.items.map((x) => jsx(x, c, insideTap)).join("");
+  const asked = parent ? itemClasses(run, parent, origin) : { classes: "", fill: [] as ("width" | "height")[] };
+  /* the box around a part says what the layout asks of it; with nothing to say, there is no box */
+  const boxed = (source: string) => (asked.classes ? `<div className=${str(asked.classes)}>${source}</div>` : source);
   if (!flow) {
-    const crossKey = parent!.dir === "column" ? "width" : "height";
-    const mainKey = crossKey === "width" ? "height" : "width";
-    const keys = [...(parent!.align === "stretch" ? [crossKey] : []), ...(it.flowFill ? [mainKey] : [])] as ("width" | "height")[];
-    if (run.items.length !== 1) return `<div className="flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]">${run.items.map((x) => jsx(x, c, insideTap)).join("")}</div>`;
+    if (run.items.length !== 1) return boxed(`<div className="flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]">${run.items.map((x) => jsx(x, c, insideTap)).join("")}</div>`);
     const part = c.b.printPart(it, c.uses, insideTap);
-    const tree = fluid(part.tree, keys);
+    const tree = fluid(part.tree, asked.fill);
     c.use(...namesIn(tree));
-    const source = part.wrap(inlineNode(tree, part.keepTap));
-    return it.flowFill ? `<div className=${str(parent!.dir === "column" ? "min-h-0 flex-1" : "min-w-0 flex-1")}>${source}</div>` : source;
+    return boxed(part.wrap(inlineNode(tree, part.keepTap)));
   }
   const kids = all.filter((g) => g.inFlow === run.id && !g.locked);
   const part = c.b.printPart(it, c.uses, insideTap);
   const tapped = insideTap || !!it.action || !!Object.keys(it.actions ?? {}).length;
   const within = new Set(inside).add(run.id);
-  let tree = part.tree;
   /* a layout in a layout takes the room the outer one gives it too */
-  if (parent) {
-    const cross = parent.dir === "column" ? "width" : "height";
-    const main = cross === "width" ? "height" : "width";
-    tree = fluid(tree, [...(parent.align === "stretch" ? [cross] : []), ...(it.flowFill ? [main] : [])] as ("width" | "height")[]);
-  }
-  const fit = [...(flow.hugW ? ["width"] : []), ...(flow.hugH ? ["height"] : [])];
+  let tree = fluid(part.tree, asked.fill);
+  const fit = [...(sizedByContents(run, flow, parent, "w") ? ["width"] : []), ...(sizedByContents(run, flow, parent, "h") ? ["height"] : [])];
   const style = Object.fromEntries(Object.entries((tree.props?.style as Record<string, PValue> | undefined) ?? {}).filter(([k]) => !fit.includes(k)));
   tree = { ...tree, props: { ...tree.props, style } };
   const marked = (n: PNode): boolean => !!n.props?.["data-flow"] || !!n.children?.some((x) => typeof x !== "string" && marked(x));
   const host = marked(tree) ? (n: PNode) => !!n.props?.["data-flow"] : (n: PNode) => n === tree;
+  /* what stands loose in it is placed from the box the layout is drawn in */
+  const loose = kids.some((k) => childLayoutOf(k.items.length === 1 ? k.items[0] : undefined).absolute);
   const HOLE = "@@flow@@";
   const placed = mapNodes(tree, (n) => {
     const clean = n.props?.["data-flow"] ? Object.fromEntries(Object.entries(n.props).filter(([k]) => k !== "data-flow")) : n.props;
     if (!host(n)) return { ...n, props: clean };
-    const className = [typeof clean?.className === "string" ? clean.className : "", flowClasses(flow)].filter(Boolean).join(" ");
+    const className = [typeof clean?.className === "string" ? clean.className : "", flowClasses(flow), loose ? "relative" : ""].filter(Boolean).join(" ");
     return { ...n, props: { ...clean, className }, children: [HOLE] };
   });
   c.use(...namesIn(placed));
-  const held = kids.map((k) => gated(c.b.gates(k, within, c.uses), flowJsx(k, c, all, flow, within, tapped))).join("");
+  const box = { x: run.x + (marked(tree) ? flow.inset.l : 0), y: run.y + (marked(tree) ? flow.inset.t : 0) };
+  const held = kids.map((k) => gated(c.b.gates(k, within, c.uses), flowJsx(k, c, all, flow, within, tapped, box))).join("");
   /* a function: a `$` in a part's words is not a replacement pattern */
-  return part.wrap(inlineNode(placed, part.keepTap).replace(HOLE, () => held));
+  return boxed(part.wrap(inlineNode(placed, part.keepTap).replace(HOLE, () => held)));
+}
+
+/** a layout that takes the size of its contents on an axis, all said: its own prop, unless the layout around it fills
+ *  that axis or the part says otherwise */
+function sizedByContents(run: Group, flow: Flow, parent: Flow | undefined, axis: "w" | "h"): boolean {
+  const own = axis === "w" ? flow.hugW : flow.hugH;
+  if (!parent) return own;
+  const it = run.items[0];
+  const s = sizingOf(it, parent, axis);
+  if (s === "fill" && !(axis === "w" ? parent.hugW : parent.hugH)) return false;
+  const set = childLayoutOf(it).size[axis];
+  return set === "hug" ? true : set === "fixed" ? false : own;
 }
 
 /** What an instance standing in a layout comes to: a box of its size in the layout's flow, its parts

@@ -2,6 +2,7 @@ import { Frame, Group, Item, PHONE_MARGIN, RAIL_COLLAPSED_W, railExpansionSide, 
 import { partBySlug } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { fullWidth, roleOf } from "../parts/role";
+import { blockOf, boundsOf, gapSnapper, gridBlock, gridMeasure, leavesOf, median, rowOffsets, rowXs, runsOf, structureOf, type ArrangeOptions, type Box, type Placed, type Shape } from "./structure";
 
 /* Rule-based layout for one screen. Nothing here is guessed by a model.
  *
@@ -43,11 +44,9 @@ export type LayoutMetrics = {
   sitsOn?: boolean;
 };
 export const MATERIAL_METRICS: LayoutMetrics = { margin: PHONE_MARGIN, gap: 16, tight: 8 };
-/** horizontal distance between parts packed into one row */
-const ROW_ITEM_GAP = 8;
 
 /** one movable unit: a group plus everything nested inside or overlapping it */
-type Unit = { ids: string[]; bb: Rect; /** the family rows of one kind tighten against */ family: string; /** the first part, for family and role checks */ probe: Item };
+type Unit = { ids: string[]; bb: Rect; /** the family rows of one kind tighten against */ family: string; /** the first part, for family and role checks */ probe: Item; /** how far below its top its first text baseline sits, for a lone part that has been measured */ base?: number };
 
 /** the family a part belongs to: the component it is — two of a kind stack tight */
 const familyOf = (it: Item) => (it.component === "separator" ? "divider" : `c:${it.component}`);
@@ -64,7 +63,7 @@ const area = (r: Rect) => Math.max(0, r.r - r.l) * Math.max(0, r.b - r.t);
 /** Groups that touch each other stay together, so a badge on an icon or parts on a box move as one.
  *  Bars, FABs and dialogs never join a cluster: they have their own place and are often drawn over content. */
 function clusters(groups: Group[], widths: Record<string, number>, m?: Pick<LayoutMetrics, "together" | "sitsOn">): Unit[] {
-  const units: Unit[] = groups.map((g) => ({ ids: [g.id], bb: groupBounds(g, widths), family: familyOf(g.items[0]), probe: g.items[0] }));
+  const units: Unit[] = groups.map((g) => ({ ids: [g.id], bb: groupBounds(g, widths), family: familyOf(g.items[0]), probe: g.items[0], base: g.items.length === 1 ? widths[`${g.items[0].id}:base`] : undefined }));
   const setOf = m?.together && new Map(m.together.flatMap((set, i) => set.map((id) => [id, i] as const)));
   const middleIn = (a: Rect, b: Rect) => {
     const x = (a.l + a.r) / 2;
@@ -86,7 +85,7 @@ function clusters(groups: Group[], widths: Record<string, number>, m?: Pick<Layo
         if (isAnchored(units[j]) || !touch(units[i], units[j])) continue;
         /* the larger member names the cluster: it is the container, the rest sits on it */
         const big = area(units[i].bb) >= area(units[j].bb) ? units[i] : units[j];
-        units[i] = { ...big, ids: [...units[i].ids, ...units[j].ids], bb: union(units[i].bb, units[j].bb) };
+        units[i] = { ...big, ids: [...units[i].ids, ...units[j].ids], bb: union(units[i].bb, units[j].bb), base: undefined };
         units.splice(j, 1);
         merged = true;
         break outer;
@@ -142,29 +141,6 @@ function settleOnScene(units: Unit[], target: Map<Unit, { l: number; t: number }
 
 /** what a game keeps counted at the head of its screen: its coins and lives, its health */
 const COUNTERS = new Set(["asset-pill", "stat-bar"]);
-
-/** Units whose vertical extents overlap and that sit side by side form one row. */
-function rowsOf(units: Unit[]): Unit[][] {
-  const sorted = [...units].sort((a, b) => a.bb.t - b.bb.t || a.bb.l - b.bb.l);
-  const out: Unit[][] = [];
-  for (const u of sorted) {
-    const row = out[out.length - 1];
-    if (row) {
-      const rt = Math.min(...row.map((r) => r.bb.t));
-      const rb = Math.max(...row.map((r) => r.bb.b));
-      const cy = (u.bb.t + u.bb.b) / 2;
-      const rcy = (rt + rb) / 2;
-      const beside = row.every((r) => r.bb.r <= u.bb.l + 2 || r.bb.l >= u.bb.r - 2);
-      if (beside && ((cy >= rt && cy <= rb) || (rcy >= u.bb.t && rcy <= u.bb.b))) {
-        row.push(u);
-        continue;
-      }
-    }
-    out.push([u]);
-  }
-  for (const r of out) r.sort((a, b) => a.bb.l - b.bb.l);
-  return out;
-}
 
 const role = (u: Unit) => roleOf(u.probe);
 const isRail = (u: Unit) => role(u) === "rail";
@@ -499,7 +475,6 @@ function snapEdges(unit: Unit, groups: Map<string, Group>, widths: Record<string
   return moved;
 }
 
-/** The tidied groups of the document, or null when `frame` is already tidy. */
 /** The area Tidy fills with body rows: inside the layout margins, beside the rails, between
  *  the top bars and the bottom bars. Aligning a part on the screen uses the same box, so
  *  it lands where Tidy would put it and not under a bar. */
@@ -553,6 +528,122 @@ export function fillRest(groups: Group[], frame: Frame, frames: Frame[], widths:
   return groups.map((g) => (g === filler ? { ...g, items: [{ ...it, props: { ...it.props, [axis.key]: axisWrite(axis, height) } }] } : g));
 }
 
+/** How each band of a screen's body is laid out between the margins: how tall it comes out, and where its units go
+ *  once it is given its top.
+ *
+ *  - One part keeps the side it stood on; a wide one, or one on the left, sits on the left margin, and a part that
+ *    spans the screen keeps to its edges.
+ *  - A text with a switch, checkbox or radio beside it spans the row, the control on the right.
+ *  - A row with a wide break in it (a title, then its actions) runs from margin to margin with the break between.
+ *    One spaced across most of the width spreads evenly over it; anything narrower packs with one gap from the scale.
+ *  - A grid gets one gutter across and down; spread across most of the width, it runs from margin to margin.
+ *  - Inside a part of a band (two lines of text beside a picture) the same rules hold, without the margins.
+ *  Each row lines up on the edge, centre or baseline its parts come closest to sharing. */
+function bandLayout(fr: Rect, frameW: number, m: LayoutMetrics, target: Map<Unit, { l: number; t: number }>, unitOf: Map<string, Unit>) {
+  const inner = frameW - m.margin * 2;
+  const left = fr.l + m.margin;
+  const snap = gapSnapper([m.tight, m.gap]);
+  const arrange: ArrangeOptions = { snap };
+  const isFull = (u: Unit) => (fullWidth(u.probe) || !!m.flush?.(u.probe)) && u.bb.r - u.bb.l >= frameW - 1;
+  /** where something this wide starts in the body: on the side it stood, the left margin when it is wide */
+  const startX = (bb: Rect, width: number) => {
+    const a = align(bb, fr, m.margin);
+    return width >= inner * 0.7 || a === "left" || a === "fill" ? left : a === "right" ? fr.r - m.margin - width : fr.l + Math.round((frameW - width) / 2);
+  };
+  const commit = (out: Placed) => {
+    for (const [id, at] of out) target.set(unitOf.get(id)!, at);
+  };
+  return (band: Shape): { h: number; place: (y: number) => void } => {
+    const out: Placed = new Map();
+    if (band.kind === "leaf") {
+      const u = unitOf.get(band.box.id)!;
+      return { h: u.bb.b - u.bb.t, place: (y) => target.set(u, { l: isFull(u) ? fr.l : startX(u.bb, u.bb.r - u.bb.l), t: y }) };
+    }
+    if (band.kind === "grid") {
+      const g = gridMeasure(band.cells);
+      const bb = boundsOf(band);
+      const cells = g.colW.reduce((a, b) => a + b, 0);
+      /* a grid across most of the body fills it, with the gutter that leaves, and the same gutter down */
+      const spread = g.cols > 1 && bb.r - bb.l >= inner * 0.7 && inner - cells >= 4 * (g.cols - 1);
+      const gx = spread ? (inner - cells) / (g.cols - 1) : undefined;
+      const block = gridBlock(band.cells, arrange, gx === undefined ? {} : { gx, gy: snap(gx) });
+      return {
+        h: block.h,
+        place: (y) => {
+          block.place(spread ? left : startX(bb, block.w), y, out);
+          commit(out);
+        },
+      };
+    }
+    if (band.kind === "row") {
+      const kids = [...band.kids].sort((a, b) => boundsOf(a).l - boundsOf(b).l);
+      const rects = kids.map(boundsOf);
+      const units = kids.map((k) => (k.kind === "leaf" ? unitOf.get(k.box.id)! : null));
+      /* a label with its control: the label on the left margin, the control on the right, like a settings row */
+      if (kids.length === 2 && units.every((u) => u) && units.some((u) => isLabel(u!)) && units.some((u) => isControl(u!))) {
+        const label = units.find((u) => isLabel(u!))!;
+        const control = units.find((u) => isControl(u!))!;
+        const rowH = Math.max(label.bb.b - label.bb.t, control.bb.b - control.bb.t);
+        return {
+          h: rowH,
+          place: (y) => {
+            target.set(label, { l: left, t: y + Math.round((rowH - (label.bb.b - label.bb.t)) / 2) });
+            target.set(control, { l: fr.r - m.margin - (control.bb.r - control.bb.l), t: y + Math.round((rowH - (control.bb.b - control.bb.t)) / 2) });
+          },
+        };
+      }
+      const blocks = kids.map((k) => blockOf(k, arrange));
+      const gaps = rects.slice(1).map((r, i) => Math.max(0, r.l - rects[i].r));
+      const runs = runsOf(gaps);
+      const gapIn = runs.map((run) => snap(median(run.slice(1).map((i) => gaps[i - 1]))));
+      const span = rects[rects.length - 1].r - rects[0].l;
+      const total = blocks.reduce((n, b) => n + b.w, 0);
+      const runW = runs.map((run, j) => run.reduce((n, i) => n + blocks[i].w, 0) + gapIn[j] * (run.length - 1));
+      let xs: number[];
+      let x0: number;
+      if (runs.length > 1 && span >= inner * 0.5 && runW.reduce((a, b) => a + b, 0) <= inner) {
+        /* a title and its actions: one end each */
+        xs = rowXs(blocks, runs, gapIn, inner);
+        x0 = left;
+      } else if (runs.length === 1 && span >= inner * 0.7 && total + 8 * (blocks.length - 1) <= inner) {
+        /* a run spaced across most of the body: spread evenly over all of it */
+        xs = rowXs(blocks, runs, gapIn, inner);
+        x0 = left;
+      } else {
+        /* packed: one gap inside each run, the break between runs kept on the scale */
+        const runOf = runs.flatMap((run, j) => run.map(() => j));
+        xs = [];
+        let x = 0;
+        blocks.forEach((b, i) => {
+          if (i > 0) x += runOf[i] === runOf[i - 1] ? gapIn[runOf[i]] : snap(gaps[i - 1]);
+          xs.push(x);
+          x += b.w;
+        });
+        x0 = startX({ l: rects[0].l, t: 0, r: rects[rects.length - 1].r, b: 0 }, x);
+      }
+      const { offsets, h } = rowOffsets(rects, blocks);
+      return {
+        h,
+        place: (y) => {
+          blocks.forEach((b, i) => b.place(x0 + xs[i], y + offsets[i], out));
+          commit(out);
+        },
+      };
+    }
+    /* what only rows by hand could read: arranged as one block, on the side it stood */
+    const block = blockOf(band, arrange);
+    const bb = boundsOf(band);
+    return {
+      h: block.h,
+      place: (y) => {
+        block.place(startX(bb, block.w), y, out);
+        commit(out);
+      },
+    };
+  };
+}
+
+/** The tidied groups of the document, or null when `frame` is already tidy. */
 export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>, m: LayoutMetrics = MATERIAL_METRICS): Group[] | null {
   const screen: Rect = frameRect(frame);
   /* what a container lays out goes where the container is, not into the screen's rows */
@@ -568,7 +659,7 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   const fixedBottoms = fixed.filter((u) => isBottomBar(u) || isFloatingBottom(u));
   const fixedFabs = fixed.filter(isFab);
   /* the bands of body height a locked section takes, which the rows flow around */
-  const bands = fixed.filter((u) => !isAnchored(u)).map((u) => u.bb).sort((a, b) => a.t - b.t);
+  const lockedBands = fixed.filter((u) => !isAnchored(u)).map((u) => u.bb).sort((a, b) => a.t - b.t);
 
   const units = clusters(mine, widths, m);
   const target = new Map<Unit, { l: number; t: number }>();
@@ -630,23 +721,31 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
    * The rows are measured first, then the whole block is placed the way the screen asks:
    * from the top, centered, against the bottom, or spread out with equal gaps. */
   /* unless the author has said where the body gathers, what stands on a picture stays where it was put */
-  const onScene = !frame.place && !bands.length && groups.some((g) => !g.inFlow && roleOf(g.items[0]) === "backdrop" && frameOfGroup(g, frames, widths)?.id === frame.id);
+  const onScene = !frame.place && !lockedBands.length && groups.some((g) => !g.inFlow && roleOf(g.items[0]) === "backdrop" && frameOfGroup(g, frames, widths)?.id === frame.id);
   if (onScene) settleOnScene(units.filter((u) => !target.has(u)), target, { l: fr.l + m.margin, t: top + m.margin, r: fr.r - m.margin, b: bottom - m.margin }, fr.l, frameW, m);
-  const rows = rowsOf(units.filter((u) => !target.has(u)));
+  /* the body's structure, read off where its parts stand: bands one under another, each a part, a row or a grid */
+  const body = units.filter((u) => !target.has(u));
+  const unitOf = new Map(body.map((u) => [u.ids[0], u]));
+  const read = body.length ? structureOf(body.map((u): Box => ({ id: u.ids[0], ...u.bb, kind: u.family, base: u.base }))) : null;
+  const bands: Shape[] = !read ? [] : read.kind === "stack" ? read.kids : [read];
+  const unitsIn = (band: Shape) => leavesOf(band).map((b) => unitOf.get(b.id)!);
+  const layBand = bandLayout(fr, frameW, m, target, unitOf);
   const limit = bottom - m.margin;
   /* a list a style runs edge to edge hangs from the bar above it */
-  const hangs = !!m.flush && !!rows[0]?.length && rows[0].every((u) => m.flush!(u.probe));
+  const hangs = !!m.flush && !!bands[0] && unitsIn(bands[0]).every((u) => m.flush!(u.probe));
   const start = top + (hangs ? 0 : m.margin);
-  const laid: { row: Unit[]; y: number; rowH: number }[] = [];
+  const laid: { row: Unit[]; y: number; rowH: number; place: (y: number) => void }[] = [];
   let y = start;
   let prev: Unit[] | null = null;
-  for (const row of rows) {
+  for (const band of bands) {
+    const row = unitsIn(band);
     y += gapBefore(prev, row, m);
-    const rowH = Math.max(...row.map((u) => u.bb.b - u.bb.t));
+    const lay = layBand(band);
+    const rowH = lay.h;
     /* a row that would land on a locked section goes below it instead */
-    for (const band of bands) if (y < band.b + m.gap && y + rowH > band.t - m.gap) y = band.b + m.gap;
+    for (const locked of lockedBands) if (y < locked.b + m.gap && y + rowH > locked.t - m.gap) y = locked.b + m.gap;
     if (y + rowH > limit) break;
-    laid.push({ row, y, rowH });
+    laid.push({ row, y, rowH, place: lay.place });
     y += rowH;
     prev = row;
   }
@@ -658,58 +757,19 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   const heights = laid.map((r) => r.rowH);
   /* when some rows did not fit they stay where they were, below the block, so the block
    * stays at the top rather than moving down onto them */
-  const fits = laid.length === rows.length;
+  const fits = laid.length === bands.length;
   /* rows flowed around a locked section stay where the flow put them: shifting the block
    * to the center or the bottom would put them back onto it */
-  const spreading = fits && !bands.length && place === "spread" && laid.length > 1;
+  const spreading = fits && !lockedBands.length && place === "spread" && laid.length > 1;
   const even = spreading ? (spare + used - heights.reduce((a, h) => a + h, 0)) / (laid.length + 1) : 0;
-  const offset = !fits || bands.length ? 0 : place === "center" || (place === "spread" && laid.length <= 1) ? Math.round(spare / 2) : place === "bottom" ? spare : 0;
+  const offset = !fits || lockedBands.length ? 0 : place === "center" || (place === "spread" && laid.length <= 1) ? Math.round(spare / 2) : place === "bottom" ? spare : 0;
   let stacked = 0;
-  laid.forEach(({ row, y: rowY, rowH }, index) => {
+  laid.forEach(({ row, y: rowY, rowH, place: put }, index) => {
     /* what a game keeps counted at the head of its screen stays there, whatever gathers below it */
     const counted = offset > 0 && index === 0 && row.every((u) => COUNTERS.has(u.probe.component ?? ""));
     const yy = spreading ? start + Math.round(even * (index + 1)) + stacked : counted ? rowY : rowY + offset;
     stacked += rowH;
-    const inner = frameW - m.margin * 2;
-    /* a part that spans the screen -- a carousel, a bar laid in the flow, a list a style runs edge to edge -- is
-     * edge to edge, and the margin is not its to keep, whatever else shares its line */
-    const isFull = (u: Unit) => (fullWidth(u.probe) || !!m.flush?.(u.probe)) && u.bb.r - u.bb.l >= frameW - 1;
-    for (const u of row) if (isFull(u)) target.set(u, { l: fr.l, t: yy });
-    row = row.filter((u) => !isFull(u));
-    if (row.length === 0) return;
-    if (row.length === 1) {
-      const u = row[0];
-      const w = u.bb.r - u.bb.l;
-      const a = align(u.bb, fr, m.margin);
-      /* a run nearly as wide as the content (a button row, a chip row) sits on the left margin,
-       * so its edge lines up with the cards and lists above and below it */
-      const wide = w >= inner * 0.7;
-      const l = wide || a === "left" ? fr.l + m.margin : a === "right" ? fr.r - m.margin - w : fr.l + Math.round((frameW - w) / 2);
-      target.set(u, { l, t: yy });
-    } else if (row.length === 2 && row.some(isLabel) && row.some(isControl)) {
-      /* a label with its control: the label on the left margin, the control on the right, like a settings row */
-      const label = row.find(isLabel)!;
-      const control = row.find(isControl)!;
-      const cw = control.bb.r - control.bb.l;
-      target.set(label, { l: fr.l + m.margin, t: yy + Math.round((rowH - (label.bb.b - label.bb.t)) / 2) });
-      target.set(control, { l: fr.r - m.margin - cw, t: yy + Math.round((rowH - (control.bb.b - control.bb.t)) / 2) });
-    } else {
-      const ws = row.map((u) => u.bb.r - u.bb.l);
-      const total = ws.reduce((s, w) => s + w, 0);
-      const gaps = row.slice(1).map(() => ROW_ITEM_GAP);
-      const minPacked = total + gaps.reduce((s, g) => s + g, 0);
-      const span = row[row.length - 1].bb.r - row[0].bb.l;
-      const spread = span >= inner * 0.7 && minPacked <= inner;
-      const packed = spread ? inner : minPacked;
-      const extra = spread ? (inner - minPacked) / gaps.length : 0;
-      const a = spread ? "left" : align({ l: row[0].bb.l, t: 0, r: row[row.length - 1].bb.r, b: 0 }, fr, m.margin);
-      let x = a === "right" ? fr.r - m.margin - packed : a === "center" ? fr.l + (frameW - packed) / 2 : fr.l + m.margin;
-      row.forEach((u, i) => {
-        const h = u.bb.b - u.bb.t;
-        target.set(u, { l: Math.round(x), t: yy + Math.round((rowH - h) / 2) });
-        x += ws[i] + (gaps[i] ?? 0) + extra;
-      });
-    }
+    put(yy);
   });
 
   /* apply each unit's shift to every group it holds */

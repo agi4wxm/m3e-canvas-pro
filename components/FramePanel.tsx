@@ -179,6 +179,7 @@ export function FrameInspector({
   tidy,
   onTidy,
   onPlace,
+  onSuggestLayout,
   canCombine,
   onCombine,
   minLength,
@@ -206,6 +207,8 @@ export function FrameInspector({
   onTidy: () => void;
   /** sets where Tidy puts the body of this screen, and tidies */
   onPlace: (place: Place) => void;
+  /** turns the body of the screen into nested auto layouts read off where its parts stand */
+  onSuggestLayout?: () => void;
   /** the screen has buttons side by side that can become one button group */
   canCombine?: boolean;
   onCombine?: () => void;
@@ -387,6 +390,21 @@ export function FrameInspector({
             place={frame.place}
             onPlace={onPlace}
           />
+          {onSuggestLayout && (
+            <>
+              <button
+                onClick={onSuggestLayout}
+                data-suggest-screen
+                title={t("suggestScreenHint", lang)}
+                className="m3-press"
+                style={{ width: "100%", minHeight: 44, marginTop: 8, padding: "8px 16px", borderRadius: 22, border: "none", background: p.surfaceContainerHigh, color: p.onSurface, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+              >
+                <Icon name="view_quilt" size={20} />
+                {t("suggestScreen", lang)}
+              </button>
+              <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "6px 4px 0", textWrap: "pretty" }}>{t("suggestScreenHint", lang)}</div>
+            </>
+          )}
           {canCombine && onCombine && (
             <button
               onClick={onCombine}

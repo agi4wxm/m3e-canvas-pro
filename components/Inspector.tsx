@@ -14,6 +14,7 @@ import { ComponentInspector } from "./ComponentInspector";
 import { InstanceInspector } from "./ReusePanels";
 import { AlignBox, LineUp, PartMenu, PlaceFn } from "./PartPanel";
 import type { AlignHow } from "@/lib/align";
+import type { Flow } from "@/lib/flow";
 import { Icon } from "./Icon";
 import { PanelShell, Section, Segmented } from "./ui";
 import { TRANSITION_TEXT, t, useLang } from "@/lib/i18n";
@@ -82,6 +83,7 @@ function GroupPanel({
   onAlign,
   onDistribute,
   onAutoLayout,
+  onTidyUp,
   onMakeComponent,
 }: {
   p: Palette;
@@ -99,6 +101,8 @@ function GroupPanel({
   onAlign?: (how: AlignHow) => void;
   onDistribute?: (axis: "x" | "y", gap?: number) => void;
   onAutoLayout?: () => void;
+  /** Figma's Tidy up: the selection as an even row, column or grid */
+  onTidyUp?: () => void;
   onMakeComponent?: () => void;
 }) {
   const lang = useLang();
@@ -120,6 +124,18 @@ function GroupPanel({
       {onAlign && onDistribute && !grouped && (
         <Section id="group-line-up" icon="align_horizontal_left" title={t("lineUp", lang)} p={p}>
           <LineUp key={selectionKey} onAlign={onAlign} onDistribute={onDistribute} p={p} />
+          {onTidyUp && (
+            <button
+              onClick={onTidyUp}
+              data-tidy-up
+              title={t("tidyUpKeys", lang)}
+              className="m3-press"
+              style={{ marginTop: 10, height: 40, borderRadius: 20, border: "none", background: p.secondaryContainer, color: p.onSecondaryContainer, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}
+            >
+              <Icon name="grid_on" size={20} />
+              {t("tidyUp", lang)}
+            </button>
+          )}
         </Section>
       )}
       {onPlace && (
@@ -143,11 +159,13 @@ function GroupPanel({
         {onAutoLayout && !grouped && (
           <button
             onClick={onAutoLayout}
+            data-suggest-layout
+            title={t("suggestLayoutKeys", lang)}
             className="m3-press"
             style={{ height: 44, borderRadius: 22, border: "none", background: p.primaryContainer, color: p.onPrimaryContainer, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}
           >
-            <Icon name="view_agenda" size={20} />
-            {t("addAutoLayout", lang)}
+            <Icon name="view_quilt" size={20} />
+            {t("suggestLayout", lang)}
           </button>
         )}
         <button
@@ -201,7 +219,9 @@ export function Inspector({
   onAlign,
   onDistribute,
   onAutoLayout,
+  onTidyUp,
   inFlow,
+  flowParent,
   onMoveTo,
   onMakeComponent,
   instance,
@@ -238,10 +258,14 @@ export function Inspector({
   onAlign?: (how: AlignHow) => void;
   /** spreads the selected parts out evenly, or by an exact gap */
   onDistribute?: (axis: "x" | "y", gap?: number) => void;
-  /** puts the selected parts in a new container that lays them out */
+  /** puts the selected parts in nested containers that lay them out the way they stand */
   onAutoLayout?: () => void;
+  /** arranges the selected parts as an even row, column or grid */
+  onTidyUp?: () => void;
   /** the selected part is placed by a container's auto layout */
   inFlow?: boolean;
+  /** the layout that places it */
+  flowParent?: Flow | null;
   /** puts the selected part at a place on its screen */
   onMoveTo?: (x: number, y: number) => void;
   /** turns what is selected into a reusable component */
@@ -271,6 +295,7 @@ export function Inspector({
           onAlign={onAlign}
           onDistribute={onDistribute}
           onAutoLayout={onAutoLayout}
+          onTidyUp={onTidyUp}
           onMakeComponent={onMakeComponent}
         />
       );
@@ -306,6 +331,7 @@ export function Inspector({
       selfRect={selfRect ?? null}
       allFrames={allFrames ?? frames}
       inFlow={inFlow}
+      flowParent={flowParent}
       onMoveTo={onMoveTo}
       onMakeComponent={onMakeComponent}
     />

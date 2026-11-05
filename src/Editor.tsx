@@ -92,10 +92,12 @@ import { AiActionKey, AiPanel, aiErrorText } from "@/components/AiPanel";
 import { TidyState, PANEL_FADE_H } from "@/components/ui";
 import { AiSettings, DEFAULT_AI, generateImage, hasImageKey, hasKey, imageSpec, isSecureUrl, loadAiSettings, proposeBehavior, proposeDescription, pushHistory, saveAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
 import { assetRefsIn, getAssets, pruneAssets, putAssets, restoreAssets, stripAssets } from "@/lib/assets";
-import { barSlotOf, bodyRect, carryFrame, holdsEdgeBar, maxFrameLength, minFrameLength, stretchFrame, pullInto, tidyFrame } from "@/lib/tidy";
+import { barSlotOf, bodyRect, carryFrame, holdsEdgeBar, isScreenLayout, maxFrameLength, minFrameLength, stretchFrame, pullInto, tidyFrame } from "@/lib/tidy";
 import { combineButtons, joinDropped, joinTargetOf } from "@/lib/combine";
-import { alignParts, distributeParts, type AlignHow } from "@/lib/align";
-import { flowHostAt, flowOf, outOfPane, panesAfterReorder, settleInFlow, showingGroups, stepLayers, wrapInFlow } from "@/lib/flow";
+import { alignParts, distributeParts, tidyUpParts, type AlignHow } from "@/lib/align";
+import { childLayoutOf, flowHostAt, flowOf, outOfPane, panesAfterReorder, settleInFlow, showingGroups, stepLayers, suggestAutoLayout, wrapInFlow } from "@/lib/flow";
+import { guideTargets, measureBetween, snapRect, type GuideGap, type GuideLine, type GuideTargets } from "@/lib/guides";
+import { SmartGuides } from "@/components/SmartGuides";
 import { canNest, definitionFrom, detachInstance, expandInstances, makeComponent, rekeyedAll, removeComponent, standIn } from "@/lib/instances";
 import { canvasView, expandDoc, type CanvasView, type DrawnPart } from "@/lib/expand";
 import { repeatAround } from "@/lib/collections";
@@ -178,9 +180,25 @@ const UI_KEY = "m3e:ui";
 
 type View = { x: number; y: number; z: number };
 
-/** alignment guide: the snapped position plus the line to draw */
-type Guide = { x?: number; y?: number; gx?: number; gy?: number };
+/** Smart guides for what is being carried: where it snaps on each axis (left out where it does not), and what to draw:
+ *  the lines it lines up with, the even gaps it keeps, the distances to its neighbours (lib/guides.ts). */
+type Guide = { x?: number; y?: number; lines: GuideLine[]; gaps: GuideGap[] };
 const GUIDE_PX = 7;
+
+/** How far below the top of a drawn part its first line of text sits. The browser gives the box of that line's glyphs;
+ *  the baseline is taken at four fifths of it, where it falls for the Latin and CJK faces a style uses. Undefined for a
+ *  part with no words. */
+function firstBaseline(el: HTMLElement, top: number): number | undefined {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (!n.textContent?.trim()) continue;
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    const r = range.getClientRects()[0];
+    if (r && r.height > 0) return Math.max(1, Math.round(r.top + r.height * 0.8 - top));
+  }
+  return undefined;
+}
 
 /** Material's 4dp grid: a coordinate rounded to it, measured from the screen's corner */
 const GRID = 4;
@@ -970,6 +988,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const freshFramesRef = useRef<{ ids: string[]; until: number } | null>(null);
   /** screens just put on another phone: what they hold wraps anew, and is only known once it has been drawn at that width */
   const newPhoneRef = useRef<{ ids: string[]; until: number } | null>(null);
+  /** each part's text baseline, with the size it was read at */
+  const baseCache = useRef(new Map<string, { w: number; h: number; base: number | undefined }>());
   useLayoutEffect(() => {
     const next: Record<string, number> = {};
     measureEls.current.forEach((el, id) => {
@@ -980,11 +1000,17 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       if (!ov && el.querySelector("[data-fit]") && widthsRef.current[id] !== undefined) {
         next[id] = widthsRef.current[id];
         next[`${id}:h`] = widthsRef.current[`${id}:h`] ?? next[`${id}:h`];
+        if (widthsRef.current[`${id}:base`] !== undefined) next[`${id}:base`] = widthsRef.current[`${id}:base`];
         return;
       }
       const box = (ov ?? el).getBoundingClientRect();
       next[id] = Math.ceil(box.width);
       next[`${id}:h`] = Math.ceil(box.height);
+      /* where its first line of text sits, for lining parts up on their baselines: read again only when its size moved */
+      const known = baseCache.current.get(id);
+      const base = known && known.w === next[id] && known.h === next[`${id}:h`] ? known.base : firstBaseline(ov ?? el, box.top);
+      baseCache.current.set(id, { w: next[id], h: next[`${id}:h`], base });
+      if (base !== undefined) next[`${id}:base`] = base;
     });
     const keys = Object.keys(next);
     const changed =
@@ -1231,67 +1257,40 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const sx = useSpring(0, CARRY);
   const sy = useSpring(0, CARRY);
 
-  /** Canva-style alignment: edges and centres of neighbours and of the frame
-   *  pull the part gently into line and draw a guide while they do. */
+  /** What a drag can line up with, worked out once when it starts and kept until it ends: every part on the canvas but
+   *  what is carried, and the screens with their margins and middles. A move of the pointer only reads it. */
+  const guideCache = useRef<{ key: string; targets: GuideTargets } | null>(null);
+  const targetsFor = useCallback((skip: Set<string>): GuideTargets => {
+    const key = [...skip].sort().join(" ");
+    if (guideCache.current?.key === key) return guideCache.current.targets;
+    const rects: { l: number; t: number; r: number; b: number }[] = [];
+    /* a part on a dock's other tab is not on the canvas to line up with */
+    const off = outOfPane(groupsRef.current, widthsRef.current);
+    for (const g of groupsRef.current) {
+      if (off.has(g.id)) continue;
+      for (const pl of layoutOf(g, widthsRef.current)) if (!skip.has(pl.item.id)) rects.push({ l: pl.x, t: pl.y, r: pl.x + pl.w, b: pl.y + pl.h });
+    }
+    const margin = metricsOf(themeRef.current).margin ?? FRAME_MARGIN;
+    const screens = frameRef.current === "phone" ? framesRef.current.map((f) => ({ rect: frameRect(f), margin })) : [];
+    const targets = guideTargets(rects, screens);
+    guideCache.current = { key, targets };
+    return targets;
+  }, []);
+  /** a drag is over: what it could line up with is worked out afresh for the next */
+  const endGuides = () => {
+    guideCache.current = null;
+  };
+
+  /** Figma-style smart guides: the edges and centres of the parts on the same screen and of the screen itself, the gaps
+   *  its neighbours keep, pull the part gently into line, and the guides say what it lines up with and how far it is. */
   const guideFor = useCallback(
     (left: number, top: number, sz: { w: number; h: number }, skip: Set<string>): Guide | null => {
       const tol = GUIDE_PX / viewRef.current.z;
-      const xs: number[] = [];
-      const ys: number[] = [];
-      for (const g of groupsRef.current) {
-        for (const pl of layoutOf(g, widthsRef.current)) {
-          if (skip.has(pl.item.id)) continue;
-          xs.push(pl.x, pl.x + pl.w / 2, pl.x + pl.w);
-          ys.push(pl.y, pl.y + pl.h / 2, pl.y + pl.h);
-        }
-      }
-      if (frameRef.current === "phone") {
-        for (const f of framesRef.current) {
-          const { w } = frameSizeOf(f);
-          const h = frameLengthOf(f);
-          xs.push(
-            f.x,
-            f.x + FRAME_MARGIN,
-            f.x + w / 2,
-            f.x + w - FRAME_MARGIN,
-            f.x + w,
-          );
-          ys.push(
-            f.y,
-            f.y + FRAME_MARGIN,
-            f.y + h / 2,
-            f.y + h - FRAME_MARGIN,
-            f.y + h,
-          );
-        }
-      }
-      const mine = (pos: number, len: number) => [
-        pos,
-        pos + len / 2,
-        pos + len,
-      ];
-      let best: Guide = {};
-      let bx = tol;
-      for (const c of xs)
-        for (const m of mine(left, sz.w)) {
-          const d = Math.abs(c - m);
-          if (d < bx) {
-            bx = d;
-            best = { ...best, x: left + (c - m), gx: c };
-          }
-        }
-      let by = tol;
-      for (const c of ys)
-        for (const m of mine(top, sz.h)) {
-          const d = Math.abs(c - m);
-          if (d < by) {
-            by = d;
-            best = { ...best, y: top + (c - m), gy: c };
-          }
-        }
-      return best.x === undefined && best.y === undefined ? null : best;
+      const s = snapRect({ l: left, t: top, r: left + sz.w, b: top + sz.h }, targetsFor(skip), tol);
+      if (!s.snapX && !s.snapY && !s.gaps.length) return null;
+      return { x: s.snapX ? left + s.dx : undefined, y: s.snapY ? top + s.dy : undefined, lines: s.lines, gaps: s.gaps };
     },
-    [],
+    [targetsFor],
   );
   const findGuide = useCallback(
     (item: Item, left: number, top: number): Guide | null => guideFor(left, top, sizeRef(item), new Set([item.id])),
@@ -1479,6 +1478,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
    *  edge stays put. It rides on the same commit as the new size, which keeps the two in step; the
    *  group's own position only moves once the drag ends. */
   const [widthShift, setWidthShift] = useState<{ gid: string; dx: number; dy: number } | null>(null);
+  /** the lines an edge being pulled lines up with */
+  const [resizeGuide, setResizeGuide] = useState<{ lines: GuideLine[]; gaps: GuideGap[] } | null>(null);
   const widthDragRef = useRef<{
     id: string;
     gid: string;
@@ -1494,6 +1495,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     v: number;
     min: number;
     max: number;
+    /** where the part stood when the handle was taken, for the edge it pulls to line up with its neighbours */
+    box0: { l: number; t: number; r: number; b: number };
     /** the undo step for this drag has been taken: it is taken at the first change */
     taken: boolean;
   } | null>(null);
@@ -1526,6 +1529,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     e.preventDefault();
     e.stopPropagation();
     const spec = sizeDragSpec(item, side);
+    const at = layoutOf(g, widthsRef.current).find((pl) => pl.item.id === item.id);
+    endGuides();
     widthDragRef.current = {
       id: item.id,
       gid: g.id,
@@ -1535,6 +1540,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       startY: e.clientY,
       start0: spec.vertical ? e.clientY : e.clientX,
       v: spec.startV,
+      box0: at ? { l: at.x, t: at.y, r: at.x + at.w, b: at.y + at.h } : { l: g.x, t: g.y, r: g.x, b: g.y },
       taken: false,
     };
     setWidthDragId(item.id);
@@ -1553,7 +1559,24 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         const delta = ((d.vertical ? ev.clientY : ev.clientX) - d.start0) / z;
         raw = d.startV + (d.side === "right" || d.side === "bottom" ? delta : -delta);
       }
-      const v = clamp(Math.round(raw / 4) * 4, d.min, d.max);
+      /* the edge being pulled lines up with the edges and centres around it, as a moved part does; Ctrl skips it */
+      let snapped = false;
+      if (!d.round && !(ev.ctrlKey || ev.metaKey)) {
+        const grow = raw - d.startV;
+        const b0 = d.box0;
+        const far = d.side === "right" || d.side === "bottom";
+        const rect = d.side === "right" ? { ...b0, r: b0.r + grow } : d.side === "left" ? { ...b0, l: b0.l - grow } : d.side === "bottom" ? { ...b0, b: b0.b + grow } : { ...b0, t: b0.t - grow };
+        const edge: ("lo" | "hi")[] = [far ? "hi" : "lo"];
+        const s = snapRect(rect, targetsFor(new Set([d.id])), GUIDE_PX / z, d.vertical ? { x: [], y: edge } : { x: edge, y: [] });
+        const by = d.vertical ? s.dy : s.dx;
+        if (d.vertical ? s.snapY : s.snapX) {
+          raw += far ? by : -by;
+          snapped = true;
+          setResizeGuide({ lines: s.lines, gaps: [] });
+        } else setResizeGuide(null);
+      }
+      /* on a guide the edge keeps its whole pixel; off one it settles on the 4dp grid */
+      const v = clamp(snapped ? Math.round(raw) : Math.round(raw / 4) * 4, d.min, d.max);
       if (v === d.v) return;
       /* the undo step is taken at the first change, so a handle merely pressed leaves none */
       if (!d.taken) {
@@ -1596,6 +1619,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         );
       }
       setWidthShift(null);
+      setResizeGuide(null);
+      endGuides();
       widthDragRef.current = null;
       setWidthDragId(null);
       window.removeEventListener("pointermove", move);
@@ -1635,6 +1660,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           return;
         }
         d.active = true;
+        endGuides();
         const id = d.item.id;
         /* the group keeps the hole the part came out of until the part has moved on, rather than
          * snapping shut the moment the drag begins */
@@ -1688,6 +1714,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const d = dragRef.current;
       dragRef.current = null;
       setPressedId(null);
+      endGuides();
       if (!d) return;
       if (!d.active) {
         setDrag(null);
@@ -1730,7 +1757,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const rawY = loose ? d.py - d.offY : d.guide?.y ?? d.py - d.offY;
       if (d.fromPalette) snapshot();
       /* Ctrl keeps the pixel the cursor chose and a guide holds its whole-pixel position */
-      const landed = landNewPart(item, rawX, rawY, (axis) => loose || (axis === "x" ? d.guide?.gx : d.guide?.gy) !== undefined);
+      const landed = landNewPart(item, rawX, rawY, (axis) => loose || (axis === "x" ? d.guide?.x : d.guide?.y) !== undefined);
       const ng: Group = d.instance ? { ...landed, instanceOf: d.instance } : landed;
       if (d.instance) setSelectedIds([item.id]);
       const joined = loose || d.instance ? null : joinDropped([...groupsRef.current.filter((g) => !g.items.some((it) => it.id === item.id)), ng], ng.id, widthsRef.current);
@@ -1802,6 +1829,58 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     }
     return out;
   }, []);
+
+  /** Alt held with something selected, as in Figma: the distances from it to the part under the pointer, or to the
+   *  edges of the screen when the pointer is on nothing else */
+  const [measure, setMeasure] = useState<GuideGap[] | null>(null);
+  useEffect(() => {
+    if (!selectedIds.length || isMobile) return;
+    let alt = false;
+    let last: { x: number; y: number } | null = null;
+    const update = () => {
+      if (!alt || !last || dragRef.current || gestureRef.current) return setMeasure(null);
+      const pt = toWorld(last.x, last.y);
+      const ids = new Set(selectedIds);
+      const rects = itemRects();
+      const mine = rects.filter((r) => ids.has(r.id));
+      if (!mine.length) return setMeasure(null);
+      const a = unionRect(mine);
+      const area = (r: { l: number; t: number; r: number; b: number }) => (r.r - r.l) * (r.b - r.t);
+      const over = rects.filter((r) => !ids.has(r.id) && pt.x >= r.l && pt.x <= r.r && pt.y >= r.t && pt.y <= r.b).sort((x, y) => area(x) - area(y))[0];
+      const screen = framesRef.current.map(frameRect).find((r) => pt.x >= r.l && pt.x <= r.r && pt.y >= r.t && pt.y <= r.b);
+      const b = over ?? screen;
+      setMeasure(b ? measureBetween(a, b) : null);
+    };
+    const onMove = (e: PointerEvent) => {
+      last = { x: e.clientX, y: e.clientY };
+      alt = e.altKey;
+      update();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Alt") return;
+      alt = e.type === "keydown";
+      /* the browser's own use of Alt (its menu bar) would take the focus away from the canvas */
+      if (alt) e.preventDefault();
+      update();
+    };
+    const off = () => {
+      alt = false;
+      setMeasure(null);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    window.addEventListener("blur", off);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      window.removeEventListener("blur", off);
+      setMeasure(null);
+    };
+    // the handlers read live state through refs; a new selection measures from it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds, isMobile]);
 
   const clearSelection = () => {
     setSelectedIds([]);
@@ -1936,6 +2015,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         if (!g.moved) {
           if (Math.hypot(dx, dy) * z < 4) return;
           g.moved = true;
+          endGuides();
           snapshot();
         }
         instantRef.current.add(g.id);
@@ -2024,6 +2104,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const g = gestureRef.current;
       gestureRef.current = null;
       setGesture(null);
+      endGuides();
       // a group dragged onto the parts panel is deleted, like a single part
       if (g?.kind === "group" && g.moved && inBin(e.clientX)) {
         const gone = new Set([g.id, ...(g.carry ?? []).map((o) => o.id)]);
@@ -2354,16 +2435,51 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     [selectedIds, snapshot],
   );
 
-  /** the selected parts in a new container that keeps them in a row or a column as they stand */
+  /** the spacing scale of the document's style: the gaps Tidy up and a suggested layout snap to */
+  const spacingScale = () => {
+    const m = metricsOf(themeRef.current);
+    return [m.tight, m.gap];
+  };
+
+  /** Figma's Tidy up: the selected parts as an even row, column or grid, read off where they stand */
+  const tidyUpSelected = useCallback(() => {
+    const next = tidyUpParts(groupsRef.current, new Set(selectedIds), widthsRef.current, spacingScale());
+    if (!next) return;
+    snapshot();
+    setGroups(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds, snapshot]);
+
+  /** The selected parts in nested containers that keep them the way they stand: rows, columns and grids read off their
+   *  places, as Figma suggests auto layout. A lone container takes the layout itself; a lone part goes in a row. */
   const autoLayoutSelected = useCallback(() => {
     const ids = new Set(selectedIds);
     const groupIds = new Set(groupsRef.current.filter((g) => g.items.some((it) => ids.has(it.id))).map((g) => g.id));
-    const made = wrapInFlow(groupsRef.current, groupIds, uid(), widthsRef.current);
+    const made = suggestAutoLayout(groupsRef.current, groupIds, widthsRef.current, uid, spacingScale()) ?? wrapInFlow(groupsRef.current, groupIds, uid(), widthsRef.current);
     if (!made) return;
     snapshot();
     setGroups(made.groups);
     setSelectedIds([made.itemId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds, snapshot]);
+
+  /** The body of a screen in nested auto layouts: what stands at its edges (bars, a FAB, a dialog, a rail, its picture)
+   *  and what is locked keep their places. */
+  const autoLayoutScreen = (f: Frame) => {
+    const all = groupsRef.current;
+    const pinned = new Set(["top", "bottom", "floatingBottom", "fab", "overlay", "rail", "backdrop"]);
+    const body = all.filter((g) => !g.inFlow && !g.locked && !pinned.has(roleOf(g.items[0]) ?? "") && frameOfGroup(g, framesRef.current, widthsRef.current)?.id === f.id && !isScreenLayout(g, f, widthsRef.current));
+    const made = body.length > 1 ? suggestAutoLayout(all, new Set(body.map((g) => g.id)), widthsRef.current, uid, spacingScale()) : null;
+    if (!made) {
+      showToast(t("suggestNone", getLang()));
+      return;
+    }
+    snapshot();
+    tidyRef.current = null;
+    setGroups(made.groups);
+    setSelectedFrameId(null);
+    setSelectedIds([made.itemId]);
+  };
 
   /** the selected parts, with what they hold, as a new definition and an instance of it in their place */
   const makeComponentOfSelection = useCallback(() => {
@@ -2602,8 +2718,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       /* a locked group stays where it is, even when its parts are selected */
       const moving = new Set(
         groupsRef.current
-          /* a layout places what it holds */
-          .filter((g) => !g.locked && !g.inFlow && g.items.some((it) => ids.has(it.id)))
+          /* a layout places what it holds, all but what stands loose in it */
+          .filter((g) => !g.locked && (!g.inFlow || (g.items.length === 1 && childLayoutOf(g.items[0]).absolute)) && g.items.some((it) => ids.has(it.id)))
           /* a container takes what it holds along */
           .flatMap((g) => [g, ...heldBy(g, groupsRef.current, widthsRef.current)])
           .map((g) => g.id),
@@ -2948,6 +3064,17 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     const g = primaryId ? groups.find((x) => x.items.some((it) => it.id === primaryId)) : undefined;
     const host = g?.inFlow ? groups.find((x) => x.id === g.inFlow) : undefined;
     return !!host && !!flowOf(host);
+  }, [primaryId, groups]);
+  /** the layout that places the selected part, for how it is sized and lined up in it */
+  const selectedFlowParent = useMemo(() => {
+    const g = primaryId ? groups.find((x) => x.items.some((it) => it.id === primaryId)) : undefined;
+    const host = g?.inFlow ? groups.find((x) => x.id === g.inFlow) : undefined;
+    return host ? flowOf(host) : null;
+  }, [primaryId, groups]);
+  /** the selected part stands loose in its layout, where it was put: its place is the author's again */
+  const selectedLoose = useMemo(() => {
+    const it = primaryId ? groups.flatMap((g) => g.items).find((x) => x.id === primaryId) : undefined;
+    return childLayoutOf(it).absolute;
   }, [primaryId, groups]);
 
   /** the selected part put at a place given in numbers */
@@ -3295,6 +3422,16 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     snapshot();
     tidyRef.current = { frameId: f.id, before: groupsRef.current, after };
     setGroups(after);
+  };
+
+  /** what the layout keys do, read by the keyboard handler at the moment a key is pressed */
+  const layoutKeysRef = useRef({ tidyUp: () => {}, tidyScreen: () => {}, autoLayout: () => {} });
+  layoutKeysRef.current = {
+    tidyUp: tidyUpSelected,
+    tidyScreen: () => {
+      if (tidyTarget) tidy(tidyTarget);
+    },
+    autoLayout: autoLayoutSelected,
   };
 
   /** whether the screen in play has buttons side by side that can become one button group */
@@ -3737,6 +3874,19 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         e.preventDefault();
         if (e.shiftKey) ungroupSelected();
         else groupSelected();
+        return;
+      }
+      /* Figma's keys: Ctrl+Alt+T tidies up what is selected, or the screen when one part or none is; Shift+A turns the
+       * selection into auto layout. The code of the key, since Alt changes the letter it types on a Mac */
+      if (mod && e.altKey && e.code === "KeyT") {
+        e.preventDefault();
+        if (selectedIds.length > 1) layoutKeysRef.current.tidyUp();
+        else layoutKeysRef.current.tidyScreen();
+        return;
+      }
+      if (e.shiftKey && !mod && !e.altKey && e.code === "KeyA" && selectedIds.length) {
+        e.preventDefault();
+        layoutKeysRef.current.autoLayout();
         return;
       }
       /* Space presses a control reached with Tab instead of holding the hand tool; a button
@@ -5023,32 +5173,9 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   }}
                 />
               )}
-              {guide?.gx !== undefined && (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: guide.gx,
-                    top: visibleWorld.t,
-                    width: 1.5 / view.z,
-                    height: visibleWorld.h,
-                    background: p.primary,
-                    pointerEvents: "none",
-                  }}
-                />
-              )}
-              {guide?.gy !== undefined && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: guide.gy,
-                    left: visibleWorld.l,
-                    height: 1.5 / view.z,
-                    width: visibleWorld.w,
-                    background: p.primary,
-                    pointerEvents: "none",
-                  }}
-                />
-              )}
+              {guide && <SmartGuides lines={guide.lines} gaps={guide.gaps} z={view.z} p={p} />}
+              {resizeGuide && <SmartGuides lines={resizeGuide.lines} gaps={resizeGuide.gaps} z={view.z} p={p} />}
+              {measure && !guide && <SmartGuides lines={[]} gaps={measure} z={view.z} p={p} />}
 
               {marquee && (
                 <div
@@ -5118,6 +5245,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
             addFrameBlocked={!!defEdit}
             onPreview={() => openPreview()}
             tidy={selectedIds.length > 1 ? undefined : tidyState ?? undefined}
+            onTidyUp={selectedIds.length > 1 ? tidyUpSelected : undefined}
+            onAutoLayout={selectedIds.length > 1 ? autoLayoutSelected : undefined}
             onTidy={tidyTarget ? () => tidy(tidyTarget) : undefined}
             place={tidyTarget?.place}
             onPlace={tidyTarget ? (pl) => setPlace(tidyTarget, pl) : undefined}
@@ -5378,6 +5507,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   onSaveAllImages={frames.length > 1 ? saveAllFrameImages : undefined}
                   tidy={tidyState ?? "done"}
                   onTidy={() => tidy(selectedFrame)}
+                  onSuggestLayout={() => autoLayoutScreen(selectedFrame)}
                   onPlace={(pl) => setPlace(selectedFrame, pl)}
                   canCombine={canCombine && tidyTarget?.id === selectedFrame.id}
                   onCombine={() => combine(selectedFrame)}
@@ -5427,8 +5557,10 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   onAlign={alignSelected}
                   onDistribute={distributeSelected}
                   onAutoLayout={autoLayoutSelected}
+                  onTidyUp={tidyUpSelected}
                   inFlow={selectedInFlow}
-                  onMoveTo={selectedInFlow ? undefined : moveSelectedTo}
+                  flowParent={selectedFlowParent}
+                  onMoveTo={selectedInFlow && !selectedLoose ? undefined : moveSelectedTo}
                   onMakeComponent={makeComponentOfSelection}
                   instance={selectedInstance}
                 />

@@ -14,6 +14,9 @@ import { AlignBox, AppearanceCorners, AppearanceLook, EntryList, FillRun, IconRo
 import { segmentedFits } from "@/lib/choices";
 import { tableOf, tableText } from "@/lib/collections";
 import { RepeatSection } from "./ReusePanels";
+import { FlowControl, FlowItemControl } from "./FlowPanel";
+import { FLOW_KEYS } from "@/parts/flow";
+import type { Flow } from "@/lib/flow";
 import { Field, ImageRow, NamedSizes, PanelShell, Section, Segmented, Select, Slider, Toggle } from "./ui";
 
 /* The panel of a part that is a real shadcn M3E component. It is built from the part's own prop
@@ -162,7 +165,8 @@ export function ComponentProps({ item, palette: p, onChange, frame }: { item: It
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {def.props
-        .filter((d) => (!d.when || d.when(values)) && !(strict && styleOwnsProp(def.slug, d.key)))
+        /* auto layout has a control of its own (components/FlowPanel.tsx) */
+        .filter((d) => (!d.when || d.when(values)) && !(strict && styleOwnsProp(def.slug, d.key)) && !(def.flow && FLOW_KEYS.has(d.key)))
         .map((d) =>
           /* the row a part has chosen is picked by its name, not by counting: a dock's tab is also what the canvas shows and what a drop lands on */
           d.key === def.selectKey && d.kind === "number" && rowsToPick ? (
@@ -217,6 +221,7 @@ export function ComponentInspector({
   selfRect,
   allFrames,
   inFlow,
+  flowParent,
   onMoveTo,
   onMakeComponent,
 }: {
@@ -234,6 +239,8 @@ export function ComponentInspector({
   allFrames: Frame[];
   /** a container's auto layout places this part */
   inFlow?: boolean;
+  /** the layout that places it, for how it is sized and lined up in it */
+  flowParent?: Flow | null;
   /** puts the part at a place on its screen */
   onMoveTo?: (x: number, y: number) => void;
   /** turns this part into a reusable component */
@@ -278,9 +285,14 @@ export function ComponentInspector({
             </Section>
           )}
           <RepeatSection p={p} />
+          {def.flow && (
+            <Section id="part-flow" icon="view_quilt" title={t("layoutSection", lang)} p={p}>
+              <FlowControl item={item} onChange={onChange} p={p} />
+            </Section>
+          )}
           {inFlow && (
             <Section id="part-in-flow" icon="view_agenda" title={t("inAutoLayout", lang)} p={p}>
-              <Toggle on={!!item.flowFill} onChange={(flowFill) => onChange({ flowFill: flowFill || undefined })} label={t("flowFill", lang)} p={p} grow />
+              {flowParent ? <FlowItemControl item={item} parent={flowParent} onChange={onChange} p={p} /> : <Toggle on={!!item.flowFill} onChange={(flowFill) => onChange({ flowFill: flowFill || undefined })} label={t("flowFill", lang)} p={p} grow />}
             </Section>
           )}
           {onPlace && !inFlow && strict && (
