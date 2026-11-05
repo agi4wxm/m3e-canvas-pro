@@ -180,13 +180,77 @@ The kits below are such compositions the person can add from the palette; write 
 - `claude-prompt` (AI): Claude-style prompt box, a card holding a growing plain textarea over a row of attach / tools buttons, a model picker and a square send button. Variants: `home` (home, large); `thread` (in a conversation).
 - `codex-prompt` (AI): Codex-style prompt box, a dark panel with a growing plain textarea, repository and branch pickers, a mic, and Ask / Code buttons. Variants: `phone` (phone, stacked); `wide` (desktop, one row).
 - `chatgpt-composer` (AI): ChatGPT-style composer, a rounded field: attach button, a plain entry that takes the rest, a mic and a round voice / send button; or the same over two rows. Variants: `pill` (one line); `box` (two rows).
+- `ai-reply` (AI): Assistant reply, a column: the answer as words on the page (led by a sparkle mark in Material, under a name on desktop) over a row of ghost icon buttons: copy, regenerate, thumbs up and down, more. Variants: `mark` (led by a mark); `page` (on the page, no bubble); `named` (under a name, small).
+- `user-message` (AI): User message, a row pushed to the end: a rounded panel box holding the person's words, with copy and edit under it; on desktop an avatar and a name instead. Variants: `bubble` (bubble at the end); `picture` (with a picture); `named` (avatar and name).
+- `thinking-block` (AI): Reasoning block, a row saying how long it thought with a chevron that opens it; open, an outlined box with that row over the reasoning in muted words; or a spinner while it is still thinking. Variants: `closed` (closed); `open` (open, in a box); `live` (still thinking).
+- `tool-step` (AI): Tool step, a row: a done mark or a spinner, what the assistant did, a muted detail and a chevron; or an outlined box with a tool tile, its name, a status tag and its output in a well. Variants: `done` (done); `running` (running); `card` (in a box with output).
+- `model-picker` (AI): Model picker, a ghost button with a sparkle and a down chevron; a bar with the picker centered between a menu and a new-chat button; or a menu panel of rows, each a name over a line, the chosen one checked. Variants: `button` (a button); `bar` (centered in a bar); `menu` (a menu of models).
+- `suggestion-chips` (AI): Suggestion chips, a wrapping row of assist chips; a row of outlined buttons each with an icon; or a list of follow-up questions, each a row with a turn-down arrow and a plus, parted by hairlines. Variants: `chips` (chips); `buttons` (buttons with icons); `follow-ups` (follow-up questions).
+- `attachment-chips` (AI): Attachments, a wrapping row of file chips (a colored file-type tile, the name over its type and size, a remove button); a row of picture thumbnails and a well saying how many more; or small chips with a clip icon. Variants: `files` (file chips); `pictures` (pictures); `small` (small chips).
+- `artifact-card` (AI): Code and artifact card, a panel box: a header row with the language and a copy button over the code in a monospace face; an outlined row with a document tile, a title over its kind and an open button; or a card with a preview picture and a download row. Variants: `code` (code block); `document` (document to open); `preview` (with a preview).
+- `citation-chips` (AI): Citations, a line of words followed by small numbered tags; a row of source chips (a globe and the site); or one chip with stacked avatars saying how many sources. Variants: `numbers` (numbered); `sites` (site chips); `stack` (stacked sources).
+- `ai-greeting` (AI): Greeting with starters, an empty conversation: a centered question over a 2-column grid of outlined starter cards (a bold line over a muted one); a mark and a greeting over outlined buttons; or a large gradient hello at the start over a muted question and chips. Variants: `grid` (question and starter cards); `mark` (mark, greeting and buttons); `hello` (large hello).
 - `search-bar` (Menus & search): Search bar, a field box in a row: a search icon, a plain entry that takes the rest, and a mic, an avatar or a shortcut key at the end. Variants: `material` (material, full round); `soft` (small, rounded (ios-like)); `desktop` (desktop, with a shortcut).
 - `top-app-bar` (Navigation): Top app bar, a bar box: the way back, the title (at the start, centered between two equal sides, or large under the bar) and action buttons. Variants: `start` (title at the start); `center` (title centered); `large` (large title).
+- `tab-bar` (Navigation): Bottom tab bar, a bar box of equal tab columns, each an icon over its name: the chosen one on a pill (Material), tinted (iOS, icons only where the style shows no names), in a floating capsule, or raised on a tile with a lip (games). Variants: `pill` (pill behind the icon); `tint` (tinted icons); `floating` (floating capsule); `game` (raised game tiles).
+- `segmented-header` (Navigation): Segmented header, a bar box holding the ways to view a screen: Material tabs (equal columns, the chosen one with a short line under it, a hairline below), an iOS segmented control (a grey track, the chosen segment on a raised white pill), or a row of capsule buttons. Variants: `tabs` (tabs with an underline); `control` (segmented control); `capsules` (capsule buttons).
+- `toolbar-row` (Navigation): Toolbar row, a floating rounded overlay box of icon buttons beside a larger tonal action (Material); a bar spanning the screen with its icon buttons spread out (iOS); or a desktop command bar of small labeled buttons parted by upright hairlines. Variants: `floating` (floating, with an action); `docked` (docked across); `command` (command bar).
+- `breadcrumb-bar` (Navigation): Breadcrumb bar, a row of the way down: a home icon, muted levels parted by chevrons and the current one in bold; on desktop slashes and the page's actions at the far end; on a phone a back button before the last two levels. Variants: `chevrons` (chevrons); `page` (page header with slashes); `back` (back and the last levels).
+- `sidebar-nav` (Navigation): Sidebar navigation, a column of destinations, each a row of an icon, a name that takes the rest and a count: Material's drawer on a sheet with the chosen one on a full pill; a dense desktop list under a small section title; or a rail of icon buttons only, settings at the foot. Variants: `drawer` (drawer); `list` (dense list); `rail` (icon rail).
+- `tab-strip` (Desktop): Tab strip, a bar box of tabs, each a row of a small icon, a title that takes the rest and a close icon: a browser's with the open tab on a lighter rounded tile and a plus after them; or an editor's, the open one lit by a line along its top and parted by upright hairlines. Variants: `browser` (browser tabs); `editor` (editor tabs).
+- `window-title-bar` (Desktop): Window title bar, a bar box across a window: an app icon and the title at the left and minimize / maximize / close caption buttons at the right (Windows); or the three traffic lights at the left with the title centered between two equal sides (Mac), or with a sidebar toggle and toolbar buttons. Variants: `buttons` (caption buttons at the right); `lights` (traffic lights, title centered); `toolbar` (traffic lights and a toolbar).
+- `status-row` (Desktop): Status row, a thin row of small icon-and-words items: an editor's status bar on the primary color (branch, sync, problems at the left; cursor, encoding, language at the right); a phone's (the time, then signal, Wi-Fi and battery); or a game's chip of ping, frame rate and battery. Variants: `phone` (phone status bar); `editor` (editor status bar); `game` (game readout).
 - `list-row` (Lists): List row, a row box: a leading icon or avatar, a column of a title and a supporting line that takes the rest, and a chevron, a switch or a value at the end. Variants: `icon` (icon, two lines, chevron); `avatar` (avatar, two lines, time); `switch` (icon, two lines, switch); `value` (title, value, chevron).
 - `settings-row` (Lists): Settings row, a row box: a setting's icon (on a small colored tile where the style groups lists), its name taking the rest, and a switch or its value and a chevron. Variants: `switch` (with a switch); `value` (with a value).
+- `conversation-row` (Social & chat): Conversation row, a row box: an avatar, then a column taking the rest of a name line (the name, the time at its end) over a message line (the last message cut short, an unread count at its end); denser on desktop. Variants: `material` (avatar, name, message, count); `im` (messenger list); `desk` (dense, selected).
+- `contact-row` (Social & chat): Contact row, a row box: an avatar, a name over a phone number taking the rest, and tonal call and message buttons; a letter heading over plain avatar-and-name rows parted by hairlines (messenger contacts); or a checkbox before the avatar to pick people. Variants: `actions` (with call and message); `index` (under a letter); `pick` (pick people).
+- `notification-row` (Lists): Notification row, a row box: a glyph on a tonal disc, a bold title with the time at its end over two muted lines, and an unread dot; an avatar, who did what and a thumbnail; or a lock-screen card: the app's tile, the sender and the time over the message. Variants: `icon` (icon, title, unread); `social` (someone did something); `card` (lock-screen card).
+- `file-row` (Lists): File row, a row box: a colored file-type tile, the name over its size and date taking the rest, and a more button; a dense desktop row with a date and a size in columns; or an upload with a progress line and a cancel button. Variants: `list` (tile, name, details); `table` (dense, in columns); `upload` (uploading).
+- `transaction-row` (Commerce): Transaction row, a row box: a merchant's glyph on a round tile (or a person's avatar), the name over a category and time taking the rest, and the amount flush right over the card or a status tag. Variants: `spent` (spent); `received` (received); `pending` (pending).
+- `leaderboard-row` (Social & chat): Leaderboard row, a row box: the rank, an avatar, a name over a level taking the rest, and the score in bold; your own row tinted; or the top three's row on a panel with a round medal and a trophy by the score. Variants: `rank` (rank and score); `me` (your own row); `medal` (medal for the top three).
+- `see-all-header` (Lists): Section header with See all, a row: a bold heading at the start and a text button with a chevron at the end; a small muted capitalized heading over an inset group; or a large title over a muted line with a round arrow button. Variants: `text` (heading and a link); `caps` (small capitals); `large` (large title).
+- `inset-group` (Lists): Grouped list, a column of setting rows under a heading: Material's bare rows (an icon, a name over its value) under a heading in the primary color; an iPhone's rounded card on the grey ground (a glyph on a colored tile, the name, the value and a chevron, parted by hairlines) between a capitalized heading and a footnote; or rows running edge to edge with hairlines. Variants: `material` (under a colored heading); `inset` (rounded card on grey); `flush` (edge to edge).
 - `media-card` (Layout): Media card, a card box: a picture, an overline, a title, a few lines that wrap, and a row of actions at the end. Variants: `media` (picture on top); `side` (picture at the side); `text` (words only).
+- `product-tile` (Commerce): Product tile, a card box: a square picture, two lines of the name, and the price in bold with how many sold (and on a shop's tile a free-shipping tag and an add-to-cart button); or the picture at the side of the name, a variant and the price with an add button. Variants: `grid` (in a grid); `shop` (shop tile with a cart); `side` (picture at the side).
+- `plan-card` (Commerce): Plan card, a card box: the plan's name, its price large with the period after it, a muted line, a hairline, features each with a check, and a wide button; the featured one tinted with a tag; or a choice row with a radio, the plan over its price and a saving tag. Variants: `card` (card); `featured` (featured); `option` (a choice row).
+- `profile-summary` (Social & chat): Profile summary, a column: a large avatar, the name and handle, a row of counts and Follow / Message buttons, all centered; the photo-app way with the avatar beside the counts, the name and bio under them and two wide buttons; or a game's panel with a framed avatar, a level tag and an experience bar. Variants: `center` (centered); `photo` (avatar beside the counts); `game` (player card).
+- `stat-tile` (Data & charts): Stat tile, a card box: a muted label, the figure large and a trend (an arrow and a percentage in color, then a muted comparison); a glyph on a disc beside the figure over its label; or the figure with a progress line toward a goal. Variants: `trend` (with a trend); `icon` (with a glyph); `goal` (toward a goal).
+- `feed-post` (Social & chat): Feed post, a feed post: a header row (avatar, name over time, more), the words, a picture and a row of like / comment / share buttons; the photo-app way (a slim header, a square picture, icon actions with save at the end, likes and caption); or a thread post with the avatar in its own column. Variants: `feed` (feed card); `photo` (photo post); `thread` (thread post).
+- `promo-banner` (Commerce): Promo banner, a tinted card: a tag, a bold title, a muted line and a button at the start with a picture at the end; a thin tinted strip with a glyph, one line and a chevron; or a game's loud banner with a starburst, a gold title and a countdown. Variants: `hero` (hero card); `strip` (thin strip); `game` (game event banner).
+- `empty-note` (Feedback): Empty state, a centered column: a glyph in a large round well, a heading, a muted line and a tonal button; just a muted glyph and one line; or a desktop's, set at the start with a primary and an outlined button. Variants: `illustrated` (with a picture); `quiet` (just a line); `desk` (desktop, at the start).
 - `login-form` (Forms): Login form, a column box: a heading and a line, email and password inputs as wide as the column, a forgot-password link, a wide sign-in button and a sign-up link. Variants: `email` (email and password); `card` (on a card); `phone` (phone and code).
+- `labeled-field` (Forms): Labeled field, a column: Material's outlined input with a helper line under it; or a bold label over a field box (a bare entry inside) over a muted helper; or one row with the label in a fixed column and the entry taking the rest. Variants: `outlined` (outlined, with a helper); `inline` (label beside the entry); `stacked` (label over the field).
+- `password-field` (Forms): Password field, a field box: a key glyph, a bare password entry taking the rest and an eye button to show it; with a strength line and a hint under it; or an iPhone form row with the label in its own column. Variants: `field` (field with an eye); `strength` (with its strength); `row` (in a form row).
+- `code-boxes` (Forms): Code boxes, a centered row of six field boxes, one digit each, the next one to fill outlined in the primary color; the same in two groups of three with a dash between; or digits standing on short lines with no boxes. Variants: `boxes` (six boxes); `split` (three and three); `lines` (on lines).
+- `terms-row` (Forms): Terms checkbox row, a row: an unticked checkbox and the agreement with links to the terms and the privacy policy, wrapping; the same as one paragraph; or a line with a switch at its end for updates. Variants: `links` (with links); `paragraph` (one paragraph); `switch` (switch for updates).
+- `form-section` (Forms): Form section, a group of fields: Material's title and muted line over outlined inputs (city and postcode sharing a row); an iPhone's capitalized heading over a rounded card of label-and-entry rows parted by hairlines, with a footnote; or a desktop form with labels right-aligned in a column beside small inputs. Variants: `material` (title and outlined inputs); `inset` (rows on a rounded card); `desk` (desktop, labels at the side).
+- `stepper-row` (Forms): Stepper row, a row: a name over a muted line taking the rest, then outlined round minus and plus buttons around the number; an iPhone's grey minus | plus control after the value; or a compact field box holding minus, the number and plus. Variants: `round` (round buttons); `ios` (minus | plus control); `compact` (compact field).
+- `button-stack` (Forms): Button stack, the buttons that end a form: Material's text and filled buttons at the end of a row; an iPhone's full-width filled button over a plain one; two equal halves (WeChat, games); or small outlined and filled buttons at the end (desktop). Variants: `end` (at the end); `stacked` (full width, stacked); `halves` (two halves); `desk` (small, at the end).
+- `snackbar-toast` (Feedback): Snackbar and toast, a short message on the inverse surface: Material's snackbar (one line, an action, a close); a centered dark square with a glyph over a word (iPhone and WeChat toasts); or a raised card with a glyph, a title over a muted line and an undo button (web toasts). Variants: `snackbar` (snackbar); `toast` (centered toast); `card` (card with an action).
+- `alert-banner` (Feedback): Inline alert, a tinted panel row: a glyph, a bold title over a line; an outlined one with a warning glyph, a review button under the words and a close at the end; or a thin strip across the screen with one line and a fix button. Variants: `tonal` (tinted); `outlined` (outlined, with actions); `strip` (strip across).
+- `dialog-body` (Overlays): Dialog body, an overlay box: Material's left-aligned headline and text over text buttons at the end; an iPhone alert's centered bold title and small message over a hairline and two buttons split by an upright hairline; WeChat's with more room and the confirm in the primary color; or a game's with the title on a colored band and two lipped buttons. Variants: `material` (material); `alert` (centered alert); `weui` (split buttons, roomy); `game` (colored header band).
+- `option-sheet` (Overlays): Option sheet, a sheet of choices: Material's bottom sheet with a handle and rows of an icon and words; an iPhone's rounded group of centered choices parted by hairlines, the destructive one in red, with Cancel in a group of its own under it; or WeChat's edge-to-edge rows with a grey gap before Cancel. Variants: `material` (bottom sheet list); `ios` (grouped, cancel apart); `weui` (edge to edge, gap before cancel).
+- `sheet-header` (Overlays): Sheet header, the top of a sheet: a handle over the title at the start and a tonal close button at the end; an iPhone's grabber over Cancel, a bold centered title and a bold Add; or Material's handle over a title and a muted line. Variants: `close` (title and close); `ios` (cancel, title, add); `material` (handle, title and line).
+- `cart-row` (Commerce): Cart row, a row box: a check, a square picture, then a column taking the rest of the name over two lines, the chosen variant as a tag, and the price with a minus / count / plus stepper at the end; or a simple line of a small picture, the name over the count, the price and a delete button. Variants: `stepper` (with a stepper); `simple` (simple line).
+- `price-summary` (Commerce): Price summary, a column of lines, each a muted name at the start and the sum at the end, then a hairline and the total in bold; or the same on a card with a coupon line (a tag glyph, the coupon, the saving in red and a chevron). Variants: `lines` (lines and a total); `card` (on a card, with a coupon).
+- `buy-bar` (Commerce): Buy bar, a bar box at the foot of the screen: the total (a muted word over the sum) and a filled checkout button at the end; a shop's product bar (store and cart icons over words, then Add to cart and Buy now side by side); or a cart's bar with a select-all check, the total in red and a checkout button with the count. Variants: `total` (total and checkout); `product` (add to cart and buy now); `cart` (select all and checkout).
+- `coupon-ticket` (Commerce): Coupon ticket, a card box split like a ticket: a tinted stub with the saving large over what it is, the conditions over the validity taking the rest, and a small Use button; or a small chip with a tag glyph, the offer and a Get link. Variants: `ticket` (ticket); `chip` (small chip).
+- `chat-bubble` (Social & chat): Chat bubble, a row: a small avatar at the foot of a grey panel bubble with the time under it (coming in), or a primary bubble at the end with the time and read state (going out); in a group the sender's name over the bubble; where avatars are square both sides carry an avatar at the top. Variants: `in` (coming in); `out` (going out); `group` (in a group).
+- `chat-input` (Social & chat): Chat input bar, a bar box across the screen: a rounded field box with a bare entry and a filled send button; a messenger's voice button, a plain field, emoji and plus buttons; or a field holding emoji, entry, attach and camera with a round mic button after it. Variants: `simple` (field and send); `im` (voice, field, emoji, plus); `rich` (field with tools, round mic).
+- `story-rings` (Social & chat): Story rings, a row of columns, each a large avatar inside a colored ring (a round box, a gap of the screen's color, the face) over a short name; your own first with no ring; or with a LIVE tag under the ring. Variants: `rings` (rings); `live` (live now).
 - `resource-pill` (Game): Resource pill, a chip box: a currency icon or vector mark, the amount in bold, and a small filled plus button. Variants: `coins` (coins with a plus); `gems` (gems); `energy` (energy with a cap).
+- `hud-top-bar` (Game): HUD top bar, a row across the top of a game screen: a framed avatar, the level tag and name over an experience bar, then resource pills (a coin or gem mark, the amount, a filled plus); on frosted glass; or a PC game's thin bar of the chapter, the resources without pluses and settings. Variants: `mobile` (avatar and resources); `glass` (on frosted glass); `pc` (pc, thin).
+- `reward-card` (Game): Reward card, a panel box: the reward on a rarity well (gold-framed when rare), its count and name; a day's reward with a claim button on a lip; or a row of small reward wells with their counts. Variants: `item` (one item); `claim` (with a claim button); `row` (a row of rewards).
+- `quest-row` (Game): Quest row, a panel row: the quest's glyph on a tile, its name over a progress bar with the count, and at the end what it pays over a Go button; complete, with a lipped Claim button; or done, muted with a check. Variants: `progress` (in progress); `claim` (ready to claim); `done` (claimed).
+- `shop-item` (Game): Shop item, a panel box: the item on a well, its name and a lipped price button with a coin; on offer with a discount tag and the old price struck through; or a wide bundle row with a burst behind a glyph, the name over what is in it and a price button. Variants: `card` (card); `offer` (on offer); `bundle` (bundle row).
+- `cooldown-skill` (Game): Cooldown skill, a vector skill face (a disc, a track and the arc of the cooldown that has passed, the glyph dimmed until ready) over the seconds left; ready, the ring closed and glowing; or a PC skill bar of four faces over their keys. Variants: `cooldown` (cooling down); `ready` (ready); `bar` (skill bar with keys).
+- `dialogue-panel` (Game): Dialogue panel, a panel row: a portrait picture, then a name plate over the spoken line with a next mark at the end; a band across a wide screen with the name over a short rule and the line centered; or the line over two choice rows, each a speech glyph and words. Variants: `portrait` (portrait and name plate); `band` (band across); `choices` (with choices).
+- `level-path` (Game): Level path, a row of level nodes joined by short roads: done ones (the number on a filled disc over the stars earned), the current one ringed on a lip, and locked ones in a well with a lock; or the same running down a column. Variants: `row` (across); `column` (down).
+- `result-panel` (Game): Result panel, a panel box, centered: the outcome in a game title face, stars (the middle one larger), a row of rewards on wells, and Retry / Next buttons sharing the row; a defeat with no stars and a tip; or a mission summary of stat lines. Variants: `victory` (victory); `defeat` (defeat); `summary` (mission summary).
+- `wish-banner` (Game): Wish banner, a panel box: the key art, a Limited tag with the time left, the banner's name over the featured character, and ×1 / ×10 buttons with their gem prices; or a compact row of art, name over time left, and a Wish button. Variants: `banner` (banner); `compact` (compact row).
+- `audio-row` (Media): Audio player row, a panel row: the cover, the title over the artist taking the rest, a filled play button and next; a full card with a slider, the times at its ends and the transport centered; or a podcast row with the episode's length, two lines of title and a progress line. Variants: `mini` (mini player); `full` (full card); `podcast` (podcast episode).
+- `video-card` (Media): Video card, the picture over a row of the channel's avatar, two lines of title over the channel, views and age, and a more button; a row with the picture at the side and the length as a tag; or a tall short-video tile with two lines and the likes. Variants: `stacked` (picture over details); `row` (picture at the side); `short` (short-video tile).
+- `settings-pane` (Desktop): Settings section, a section of desktop settings: a heading, then rows of two columns (the setting's name over a muted line at the left, its control at the right: a menu button, a switch, a slider) parted by hairlines; or stacked, each name over its line over its control. Variants: `columns` (two columns); `stacked` (stacked).
 
 <!-- kits:end -->
 
@@ -323,16 +387,16 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `navigation-bar` | Navigation bar | `items` rows of `{ "label", "icon" }`; `selected` 0–4; `tall` true / false; `layout` vertical / horizontal; `elevated` true / false; `badge` 0–99; `badgeOn` 1–5; `width` 240–1280 |
+| `navigation-bar` | Navigation bar *(splits)* | `items` rows of `{ "label", "icon" }`; `selected` 0–4; `tall` true / false; `layout` vertical / horizontal; `elevated` true / false; `badge` 0–99; `badgeOn` 1–5; `width` 240–1280 |
 | `app-bar` | App bar *(splits)* | `title` text; `subtitle` text; `size` small / medium / large; `leading` icon; `trailing` icon; `trailing2` icon; `centered` true / false; `scrolled` true / false; `width` 240–1280 |
-| `tabs` | Tabs | `items` rows of `{ "label", "icon" }`; `selected` 0–7; `variant` primary / secondary / segmented; `width` 160–1280 |
+| `tabs` | Tabs *(splits)* | `items` rows of `{ "label", "icon" }`; `selected` 0–7; `variant` primary / secondary / segmented; `width` 160–1280 |
 | `navigation-rail` | Navigation rail | `items` rows of `{ "label", "icon" }`; `selected` 0–6; `expanded` true / false; `narrow` true / false; `modal` true / false; `compact` true / false; `menu` true / false; `fab` true / false; `height` 240–10000 |
-| `toolbar` | Toolbar | `kind` floating / docked; `color` standard / vibrant; `orientation` horizontal / vertical; `items` rows of `{ "label", "icon" }`; `toggles` true / false; `width` 240–1280 |
-| `breadcrumb` | Breadcrumb | `items` rows of `{ "label" }`; `separator` chevron / slash; `collapse` true / false |
+| `toolbar` | Toolbar *(splits)* | `kind` floating / docked; `color` standard / vibrant; `orientation` horizontal / vertical; `items` rows of `{ "label", "icon" }`; `toggles` true / false; `width` 240–1280 |
+| `breadcrumb` | Breadcrumb *(splits)* | `items` rows of `{ "label" }`; `separator` chevron / slash; `collapse` true / false |
 | `pagination` | Pagination | `pages` 1–99; `current` 1–99; `previous` text; `next` text; `width` 240–1280 |
 | `navigation-menu` | Navigation menu | `menus` rows of `{ "label" }`; `pages` rows of `{ "label" }`; `links` rows of `{ "label" }` |
 | `sidebar` | Sidebar | `label` text; `items` rows of `{ "label", "icon" }`; `selected` 0–7; `size` default / sm / lg; `width` 200–400; `height` 200–800 |
-| `steps` | Steps | `items` rows of `{ "label" }`; `current` 0–7; `width` 160–1200 |
+| `steps` | Steps *(splits)* | `items` rows of `{ "label" }`; `current` 0–7; `width` 160–1200 |
 | `side-tabs` | Side tabs | `items` rows of `{ "label" }`; `selected` 0–11; `width` 80–320 |
 | `floating-nav` | Floating navigation | `items` rows of `{ "label", "icon" }`; `selected` 0–4; `width` 200–800 |
 | `mini-program-header` | Mini program header | `title` text; `back` true / false; `width` 240–1280 |
@@ -357,20 +421,20 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | component | what it is | props (all optional) |
 |---|---|---|
 | `tooltip` | Tooltip | `label` text; `variant` filled / tonal / elevated / outlined / text; `text` text; `side` top / right / bottom / left |
-| `dialog` | Dialog | `style` basic / fullscreen; `icon` icon; `title` text; `description` text; `dismiss` text; `confirm` text; `stacked` true / false; `closeButton` true / false; `dialogWidth` 280–560; `width` 280–1280; `height` 320–900 |
-| `alert-dialog` | Alert dialog | `icon` icon; `title` text; `description` text; `cancel` text; `action` text; `size` default / sm |
+| `dialog` | Dialog *(splits)* | `style` basic / fullscreen; `icon` icon; `title` text; `description` text; `dismiss` text; `confirm` text; `stacked` true / false; `closeButton` true / false; `dialogWidth` 280–560; `width` 280–1280; `height` 320–900 |
+| `alert-dialog` | Alert dialog *(splits)* | `icon` icon; `title` text; `description` text; `cancel` text; `action` text; `size` default / sm |
 | `sheet` | Sheet | `side` right / left / bottom / top; `title` text; `description` text; `footer` true / false |
 | `side-sheet` | Side sheet | `title` text; `content` text; `side` right / left; `detached` true / false; `closeButton` true / false; `footer` true / false; `width` 256–400; `height` 200–560 |
 | `drawer` | Drawer | `title` text; `description` text; `close` text; `swipeHandle` true / false; `inline` true / false |
 | `popover` | Popover | `trigger` text; `variant` filled / tonal / elevated / outlined / text; `title` text; `description` text; `side` bottom / top / right / left |
 | `hover-card` | Hover card | `trigger` text; `avatar` text; `title` text; `description` text; `side` bottom / top / right / left |
-| `action-sheet` | Action sheet | `title` text; `message` text; `actions` rows of `{ "label" }`; `cancel` text; `width` 200–640 |
+| `action-sheet` | Action sheet *(splits)* | `title` text; `message` text; `actions` rows of `{ "label" }`; `cancel` text; `width` 200–640 |
 
 ##### Feedback
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `sonner` | Snackbar | `label` text; `variant` filled / tonal / elevated / outlined / text; `message` text; `action` text; `closeButton` true / false |
+| `sonner` | Snackbar *(splits)* | `label` text; `variant` filled / tonal / elevated / outlined / text; `message` text; `action` text; `closeButton` true / false |
 | `alert` | Alert *(splits)* | `variant` default / info / tertiary / destructive; `icon` icon; `title` text; `description` text; `width` 200–640 |
 | `empty` | Empty *(splits)* | `title` text; `description` text; `icon` icon; `action` text; `bordered` true / false; `width` 200–640 |
 | `pull-to-refresh` | Pull to refresh | `hint` text; `width` 160–800; `height` 80–1200 |
@@ -401,14 +465,14 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | component | what it is | props (all optional) |
 |---|---|---|
 | `item` | List item *(splits)* | `items` rows of `{ "label", "icon" }`; `iconFill` none / primary-container / secondary-container / tertiary-container / primary / surface; `description` text; `variant` default / outline / muted / segmented; `size` default / sm / xs; `trailing` none / icon / switch / checkbox / radio / slider / text; `trailingIcon` icon; `checked` true / false; `trailingText` text; `width` 160–520 |
-| `description-list` | Description list | `data` `{ "columns": ["Name", "Value"], "rows": [[…]] }`; `width` 160–960 |
-| `timeline` | Timeline | `data` `{ "columns": ["Time", "Title", "Detail"], "rows": [[…]] }`; `current` 0–100; `width` 160–960 |
+| `description-list` | Description list *(splits)* | `data` `{ "columns": ["Name", "Value"], "rows": [[…]] }`; `width` 160–960 |
+| `timeline` | Timeline *(splits)* | `data` `{ "columns": ["Time", "Title", "Detail"], "rows": [[…]] }`; `current` 0–100; `width` 160–960 |
 | `tracker` | Status tracker | `title` text; `states` text; `width` 120–1280 |
 | `sortable-list` | Sortable list | `items` rows of `{ "label" }`; `width` 160–800 |
 | `swipe-row` | Swipe row | `title` text; `note` text; `action` text; `width` 160–800 |
-| `notification-list` | Notifications | `title` text; `data` `{ "columns": ["Title", "Body", "Time", "Icon"], "rows": [[…]] }`; `unread` 0–99; `markAll` text; `width` 240–800 |
+| `notification-list` | Notifications *(splits)* | `title` text; `data` `{ "columns": ["Title", "Body", "Time", "Icon"], "rows": [[…]] }`; `unread` 0–99; `markAll` text; `width` 240–800 |
 | `file-list` | Files | `data` `{ "columns": ["Name", "Size", "Date"], "rows": [[…]] }`; `removable` true / false; `selected` -1–99; `width` 240–800 |
-| `settings-group` | Settings group | `title` text; `data` `{ "columns": ["Icon", "Label", "Control", "Value"], "rows": [[…]] }`; `width` 240–800 |
+| `settings-group` | Settings group *(splits)* | `title` text; `data` `{ "columns": ["Icon", "Label", "Control", "Value"], "rows": [[…]] }`; `width` 240–800 |
 | `todo-list` | To-do list | `title` text; `items` rows of `{ "label" }`; `placeholder` text; `width` 200–800 |
 
 ##### Data & charts
@@ -427,7 +491,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `data-table` | Data table | `title` text; `data` `{ "columns": ["Order", "Customer", "Status", "Total"], "rows": [[…]] }`; `search` text; `selectable` true / false; `pageSize` 1–100; `width` 280–1600 |
 | `kanban` | Kanban board | `data` `{ "columns": ["To do", "In progress", "Done"], "rows": [[…]] }`; `add` text; `width` 240–1920 |
 | `agenda` | Event calendar | `year` 1900–2200; `month` 1–12; `day` 1–31; `data` `{ "columns": ["Date", "Time", "Title"], "rows": [[…]] }`; `weekStart` sunday / monday; `empty` text; `width` 260–800 |
-| `review-summary` | Review summary | `score` text; `count` text; `values` text; `tags` rows of `{ "label" }`; `action` text; `width` 240–960 |
+| `review-summary` | Review summary *(splits)* | `score` text; `count` text; `values` text; `tags` rows of `{ "label" }`; `action` text; `width` 240–960 |
 | `funnel-chart` | Funnel chart | `title` text; `data` `{ "columns": ["Step", "Value"], "rows": [[…]] }`; `width` 200–960 |
 | `gantt-chart` | Gantt chart | `title` text; `data` `{ "columns": ["Task", "Start", "Length", "Done"], "rows": [[…]] }`; `units` 1–52; `unit` text; `today` -1–52; `width` 240–960 |
 
@@ -435,26 +499,26 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `subscription` | Subscription plans | `title` text; `description` text; `plans` rows of `{ "label" }`; `action` text; `width` 200–640 |
-| `product-card` | Product card | `image` https address; `title` text; `subtitle` text; `price` text; `original` text; `badge` text; `rating` 0–5; `action` text; `done` text; `layout` vertical / horizontal; `liked` true / false; `width` 140–640 |
-| `price-tag` | Price | `currency` text; `amount` text; `original` text; `discount` text; `size` small / medium / large |
+| `subscription` | Subscription plans *(splits)* | `title` text; `description` text; `plans` rows of `{ "label" }`; `action` text; `width` 200–640 |
+| `product-card` | Product card *(splits)* | `image` https address; `title` text; `subtitle` text; `price` text; `original` text; `badge` text; `rating` 0–5; `action` text; `done` text; `layout` vertical / horizontal; `liked` true / false; `width` 140–640 |
+| `price-tag` | Price *(splits)* | `currency` text; `amount` text; `original` text; `discount` text; `size` small / medium / large |
 | `cart-list` | Shopping cart | `data` `{ "columns": ["Name", "Variant", "Price", "Quantity"], "rows": [[…]] }`; `currency` text; `selectAll` text; `total` text; `action` text; `empty` text; `width` 280–800 |
-| `coupon` | Coupon | `amount` text; `condition` text; `title` text; `expiry` text; `action` text; `done` text; `width` 260–640 |
-| `checkout-bar` | Checkout bar | `label` text; `amount` text; `note` text; `icons` rows of `{ "label", "icon" }`; `action` text; `done` text; `width` 240–1280 |
-| `balance-card` | Balance card | `title` text; `amount` text; `change` text; `actions` rows of `{ "label", "icon" }`; `hidden` true / false; `width` 240–800 |
-| `transaction-list` | Transactions | `data` `{ "columns": ["Name", "Detail", "Amount"], "rows": [[…]] }`; `filters` rows of `{ "label" }`; `width` 240–800 |
-| `route-card` | Route card | `icon` icon; `from` text; `fromTime` text; `to` text; `toTime` text; `duration` text; `note` text; `price` text; `action` text; `done` text; `width` 240–800 |
+| `coupon` | Coupon *(splits)* | `amount` text; `condition` text; `title` text; `expiry` text; `action` text; `done` text; `width` 260–640 |
+| `checkout-bar` | Checkout bar *(splits)* | `label` text; `amount` text; `note` text; `icons` rows of `{ "label", "icon" }`; `action` text; `done` text; `width` 240–1280 |
+| `balance-card` | Balance card *(splits)* | `title` text; `amount` text; `change` text; `actions` rows of `{ "label", "icon" }`; `hidden` true / false; `width` 240–800 |
+| `transaction-list` | Transactions *(splits)* | `data` `{ "columns": ["Name", "Detail", "Amount"], "rows": [[…]] }`; `filters` rows of `{ "label" }`; `width` 240–800 |
+| `route-card` | Route card *(splits)* | `icon` icon; `from` text; `fromTime` text; `to` text; `toTime` text; `duration` text; `note` text; `price` text; `action` text; `done` text; `width` 240–800 |
 
 ##### Social & chat
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `profile-header` | Profile header | `cover` https address; `showCover` true / false; `avatar` https address; `name` text; `bio` text; `stats` rows of `{ "label" }`; `action` text; `done` text; `following` true / false; `width` 240–800 |
-| `post-card` | Post | `author` text; `time` text; `text` text; `image` https address; `showImage` true / false; `likes` 0–1000000; `comments` 0–1000000; `shares` 0–1000000; `width` 240–800 |
-| `leaderboard` | Leaderboard | `title` text; `data` `{ "columns": ["Name", "Score", "Change"], "rows": [[…]] }`; `faces` true / false; `selected` -1–99; `width` 240–800 |
-| `conversation-list` | Conversations | `data` `{ "columns": ["Name", "Last message", "Time", "Unread"], "rows": [[…]] }`; `selected` -1–99; `width` 240–800 |
-| `contact-list` | Contacts | `data` `{ "columns": ["Name", "Note"], "rows": [[…]] }`; `search` text; `grouped` true / false; `trailing` follow / call / message / none; `action` text; `done` text; `width` 240–800 |
-| `comment-list` | Comments | `data` `{ "columns": ["Name", "Time", "Comment", "Likes"], "rows": [[…]] }`; `you` text; `now` text; `reply` text; `placeholder` text; `width` 240–800 |
+| `profile-header` | Profile header *(splits)* | `cover` https address; `showCover` true / false; `avatar` https address; `name` text; `bio` text; `stats` rows of `{ "label" }`; `action` text; `done` text; `following` true / false; `width` 240–800 |
+| `post-card` | Post *(splits)* | `author` text; `time` text; `text` text; `image` https address; `showImage` true / false; `likes` 0–1000000; `comments` 0–1000000; `shares` 0–1000000; `width` 240–800 |
+| `leaderboard` | Leaderboard *(splits)* | `title` text; `data` `{ "columns": ["Name", "Score", "Change"], "rows": [[…]] }`; `faces` true / false; `selected` -1–99; `width` 240–800 |
+| `conversation-list` | Conversations *(splits)* | `data` `{ "columns": ["Name", "Last message", "Time", "Unread"], "rows": [[…]] }`; `selected` -1–99; `width` 240–800 |
+| `contact-list` | Contacts *(splits)* | `data` `{ "columns": ["Name", "Note"], "rows": [[…]] }`; `search` text; `grouped` true / false; `trailing` follow / call / message / none; `action` text; `done` text; `width` 240–800 |
+| `comment-list` | Comments *(splits)* | `data` `{ "columns": ["Name", "Time", "Comment", "Likes"], "rows": [[…]] }`; `you` text; `now` text; `reply` text; `placeholder` text; `width` 240–800 |
 | `story-row` | Stories | `items` rows of `{ "label" }`; `add` true / false; `width` 160–1280 |
 | `chat-composer` | Message composer *(splits)* | `placeholder` text; `attach` true / false; `emoji` true / false; `width` 200–1280 |
 | `voice-message` | Voice message | `seconds` 1–600; `mine` true / false; `transcript` text; `transcribe` text; `width` 160–480 |
@@ -464,10 +528,10 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `message` | Message | `text` text; `align` start / end; `variant` default / secondary / muted / tinted / outline / ghost / destructive; `avatar` text; `header` text; `footer` text; `width` 200–640 |
-| `bubble` | Bubble | `text` text; `variant` default / secondary / muted / tinted / outline / ghost / destructive; `align` start / end; `reaction` text; `width` 160–640 |
+| `message` | Message *(splits)* | `text` text; `align` start / end; `variant` default / secondary / muted / tinted / outline / ghost / destructive; `avatar` text; `header` text; `footer` text; `width` 200–640 |
+| `bubble` | Bubble *(splits)* | `text` text; `variant` default / secondary / muted / tinted / outline / ghost / destructive; `align` start / end; `reaction` text; `width` 160–640 |
 | `marker` | Marker | `text` text; `variant` default / separator / border; `icon` icon; `width` 120–640 |
-| `attachment` | Attachment | `title` text; `description` text; `icon` icon; `state` done / idle / uploading / processing / error; `size` default / sm / xs; `orientation` horizontal / vertical; `remove` true / false |
+| `attachment` | Attachment *(splits)* | `title` text; `description` text; `icon` icon; `state` done / idle / uploading / processing / error; `size` default / sm / xs; `orientation` horizontal / vertical; `remove` true / false |
 | `message-scroller` | Message scroller | `messages` rows of `{ "label" }`; `button` true / false; `width` 240–640; `height` 160–480 |
 | `questionnaire` | Questionnaire | `question` text; `description` text; `choices` rows of `{ "label" }`; `multiple` true / false; `steps` 1–3; `width` 240–640 |
 | `shimmer-text` | Shimmer text | `text` text |
@@ -504,17 +568,17 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `egg-smash` | Egg smash | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
 | `asset-pill` | Asset pill *(splits)* | `value` text; `icon` icon |
 | `inventory` | Inventory | `columns` 1–12; `rows` 1–12; `filled` 0–144; `width` 160–800 |
-| `item-cell` | Item cell | `icon` icon; `name` text; `count` text; `rarity` text; `rarityColor` text; `badge` text; `size` 32–160 |
-| `task-row` | Task row | `title` text; `action` text; `done` text; `width` 200–800 |
-| `reward-track` | Reward track | `data` `{ "columns": ["At", "Label", "Icon"], "rows": [[…]] }`; `value` 0–100000; `max` 1–100000; `action` text; `width` 200–800 |
-| `check-in` | Daily check-in | `title` text; `days` 7–31; `signed` 0–31; `width` 200–640 |
+| `item-cell` | Item cell *(splits)* | `icon` icon; `name` text; `count` text; `rarity` text; `rarityColor` text; `badge` text; `size` 32–160 |
+| `task-row` | Task row *(splits)* | `title` text; `action` text; `done` text; `width` 200–800 |
+| `reward-track` | Reward track *(splits)* | `data` `{ "columns": ["At", "Label", "Icon"], "rows": [[…]] }`; `value` 0–100000; `max` 1–100000; `action` text; `width` 200–800 |
+| `check-in` | Daily check-in *(splits)* | `title` text; `days` 7–31; `signed` 0–31; `width` 200–640 |
 | `joystick` | Joystick | `size` 64–320; `angle` 0–360; `autoCenter` true / false |
-| `stat-bar` | Stat bar | `icon` icon; `label` text; `value` 0–1000000; `max` 1–1000000; `color` error / primary / secondary / tertiary; `numbers` true / false; `width` 80–800 |
+| `stat-bar` | Stat bar *(splits)* | `icon` icon; `label` text; `value` 0–1000000; `max` 1–1000000; `color` error / primary / secondary / tertiary; `numbers` true / false; `width` 80–800 |
 | `skill-button` | Skill button | `icon` icon; `label` text; `cooldown` 0–600; `size` 40–160 |
 | `level-map` | Level map | `levels` 1–60; `current` 1–60; `stars` text; `perRow` 2–8; `width` 200–960 |
-| `character-card` | Character card | `image` https address; `icon` icon; `name` text; `role` text; `level` text; `rarity` text; `data` `{ "columns": ["Stat", "Value", "Max"], "rows": [[…]] }`; `action` text; `width` 200–480 |
-| `game-result` | Game result | `title` text; `stars` 0–3; `scoreLabel` text; `score` text; `rewards` rows of `{ "label", "icon" }`; `retry` text; `next` text; `width` 220–520 |
-| `dialogue-box` | Dialogue box | `speaker` text; `icon` icon; `image` https address; `lines` rows of `{ "label" }`; `choices` rows of `{ "label" }`; `next` text; `width` 220–960 |
+| `character-card` | Character card *(splits)* | `image` https address; `icon` icon; `name` text; `role` text; `level` text; `rarity` text; `data` `{ "columns": ["Stat", "Value", "Max"], "rows": [[…]] }`; `action` text; `width` 200–480 |
+| `game-result` | Game result *(splits)* | `title` text; `stars` 0–3; `scoreLabel` text; `score` text; `rewards` rows of `{ "label", "icon" }`; `retry` text; `next` text; `width` 220–520 |
+| `dialogue-box` | Dialogue box *(splits)* | `speaker` text; `icon` icon; `image` https address; `lines` rows of `{ "label" }`; `choices` rows of `{ "label" }`; `next` text; `width` 220–960 |
 | `game-board` | Game board | `mode` mark / select; `rows` 1–20; `columns` 1–20; `cells` text; `marks` text; `need` 2–10; `turnText` text; `winText` text; `drawText` text; `reset` text; `width` 160–720 |
 
 ##### Desktop
@@ -523,8 +587,8 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 |---|---|---|
 | `resizable` | Resizable | `orientation` horizontal / vertical; `first` text; `second` text; `split` 10–90; `handle` true / false; `width` 160–2400; `height` 80–2400 |
 | `menubar` | Menubar | `menus` rows of `{ "label" }`; `items` rows of `{ "label", "icon" }` |
-| `title-bar` | Title bar | `title` text; `controls` mac / windows / none; `width` 240–1920 |
-| `status-bar` | Status bar | `text` text; `icon` icon; `trailing` text; `width` 240–1920 |
+| `title-bar` | Title bar *(splits)* | `title` text; `controls` mac / windows / none; `width` 240–1920 |
+| `status-bar` | Status bar *(splits)* | `text` text; `icon` icon; `trailing` text; `width` 240–1920 |
 | `tree` | Tree | `items` rows of `{ "label", "icon" }`; `selected` 0–19; `width` 120–640 |
 | `window` | Window | `title` text; `controls` mac / windows / none; `layout` free / row / column / grid; `gap` 0–96; `padX` 0–96; `padY` 0–96; `align` start / center / end / stretch; `justify` start / center / end / between; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false; `width` 200–2400; `height` 120–2400 |
 | `code-block` | Code block | `code` text; `language` text; `width` 200–1280 |

@@ -72,7 +72,7 @@ function darkened(node: Node, look: KitLook): Node {
   return { ...ink(node), fill: "inverseSurface" };
 }
 
-const codexFoot = (wide: boolean): Node[] => {
+const codexFoot = (wide: boolean, look: KitLook): Node[] => {
   const pickers = hbox({ gap: 6 }, [
     button(say("my-app", "my-app", "my-app", "my-app"), { variant: "outlined", size: "xs", icon: "book_2", trailingIcon: "keyboard_arrow_down" }),
     button(say("main", "main", "main", "main"), { variant: "outlined", size: "xs", icon: "account_tree", trailingIcon: "keyboard_arrow_down" }),
@@ -80,8 +80,9 @@ const codexFoot = (wide: boolean): Node[] => {
   const actions = hbox({ gap: 6 }, [
     iconButton("mic", T.dictate, { variant: "ghost", size: "xs" }),
     button(say("Ask", "提问", "質問", "질문"), { variant: "outlined", size: "xs" }),
-    /* the main action reads light on the dark box */
-    button(say("Code", "写代码", "コード", "코드"), { variant: "filled", size: "xs" }, { fill: "surface" }),
+    /* the main action is the light pill on the dark box: on a light page the box is the inverse surface and the
+     * button the page's own surface; on a dark page the box is the page's and the button the inverse one */
+    button(say("Code", "写代码", "コード", "코드"), { variant: "filled", size: "xs" }, look.dark ? { fill: "inverseSurface", textColor: "inverseOnSurface" } : { fill: "surface" }),
   ]);
   return wide ? [hbox({ justify: "between", gap: 8 }, [pickers, actions])] : [pickers, hbox({ justify: "end", gap: 6 }, [actions])];
 };
@@ -101,7 +102,7 @@ const codex: KitDef = {
       suits: (l) => !isWide(l),
       build: (look = MATERIAL_LOOK) =>
         darkened(
-          vbox({ surface: "panel", width: W, hugWidth: false, padX: 16, padY: 16, gap: 12 }, [area(say("Ask Codex anything…", "问 Codex 任何问题…", "Codex に何でも聞く…", "Codex에게 무엇이든 물어보세요…"), { rows: 2 }), ...codexFoot(false)], {
+          vbox({ surface: "panel", width: W, hugWidth: false, padX: 16, padY: 16, gap: 12 }, [area(say("Ask Codex anything…", "问 Codex 任何问题…", "Codex に何でも聞く…", "Codex에게 무엇이든 물어보세요…"), { rows: 2 }), ...codexFoot(false, look)], {
             name: say("Prompt box", "输入框", "入力ボックス", "입력창"),
             corners: round(24),
           }),
@@ -115,7 +116,7 @@ const codex: KitDef = {
       suits: isWide,
       build: (look = MATERIAL_LOOK) =>
         darkened(
-          vbox({ surface: "panel", width: 640, hugWidth: false, padX: 16, padY: 16, gap: 16 }, [area(say("Describe a task", "描述一个任务", "タスクを説明", "작업을 설명하세요"), { rows: 2 }), ...codexFoot(true)], {
+          vbox({ surface: "panel", width: 640, hugWidth: false, padX: 16, padY: 16, gap: 16 }, [area(say("Describe a task", "描述一个任务", "タスクを説明", "작업을 설명하세요"), { rows: 2 }), ...codexFoot(true, look)], {
             name: say("Prompt box", "输入框", "入力ボックス", "입력창"),
             corners: round(20),
           }),

@@ -55,9 +55,10 @@ const listRow: KitDef = {
   ],
 };
 
-/** where a setting's icon sits: on a small colored tile where lists are grouped on a grey ground, bare where they are not */
+/** where a setting's icon sits: on a small colored tile where lists are grouped on a grey ground (an iPhone's
+ *  settings), bare where they are not; a switch drawn the iOS way says nothing about the list around it */
 const settingIcon = (name: string, look: KitLook): Node =>
-  look.list === "inset" || look.toggle === "ios" ? box({ surface: "button", layout: "row", align: "center", justify: "center", padX: 4, padY: 4 }, [icon(name, { size: 20, color: "on-primary" })], { corners: { tl: 7, tr: 7, br: 7, bl: 7 } }) : icon(name, { color: "muted" });
+  look.list === "inset" ? box({ surface: "button", layout: "row", align: "center", justify: "center", padX: 4, padY: 4 }, [icon(name, { size: 20, color: "on-primary" })], { corners: { tl: 7, tr: 7, br: 7, bl: 7 } }) : icon(name, { color: "muted" });
 
 const settingsRow: KitDef = {
   slug: "settings-row",

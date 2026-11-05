@@ -1,4 +1,14 @@
 import { ai } from "./ai";
+import { assistantKits } from "./assistant";
+import { navigationKits } from "./navigation";
+import { rowKits } from "./rows";
+import { panelKits } from "./panels";
+import { fieldKits } from "./fields";
+import { overlayKits } from "./overlays";
+import { commerceKits } from "./commerce";
+import { socialKits } from "./social";
+import { playKits } from "./play";
+import { mediaKits } from "./media";
 import { barKits } from "./bars";
 import { cardKits } from "./cards";
 import { formKits } from "./forms";
@@ -12,7 +22,7 @@ export { MATERIAL_LOOK, isWide, type KitDef, type KitLook, type KitVariant } fro
 /* Every kit, by the section it is shown in. A kit's slug is its own, apart from every part's: a
  * favorite of the palette keeps it as `kit:<slug>`. */
 
-export const KITS: KitDef[] = [...ai, ...searchKits, ...barKits, ...listKits, ...cardKits, ...formKits, ...gameKits];
+export const KITS: KitDef[] = [...ai, ...assistantKits, ...searchKits, ...barKits, ...navigationKits, ...listKits, ...rowKits, ...cardKits, ...panelKits, ...formKits, ...fieldKits, ...overlayKits, ...commerceKits, ...socialKits, ...gameKits, ...playKits, ...mediaKits];
 
 const BY_SLUG = new Map(KITS.map((k) => [k.slug, k]));
 export const kitBySlug = (slug: string | undefined): KitDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);

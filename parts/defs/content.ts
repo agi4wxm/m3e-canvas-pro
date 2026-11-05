@@ -108,6 +108,12 @@ export const content: PartDef[] = [
         ...INITIALS.slice(0, px(p.n("count"))).map((l) => h("Avatar", { size }, h("AvatarFallback", null, l))),
       );
     },
+    /* its size names no number a handle could pull, so the room it takes is said here */
+    guess: (p) => {
+      const s = p.s("size") === "sm" ? 32 : p.s("size") === "lg" ? 56 : 40;
+      const n = Math.max(1, Math.min(5, Math.round(p.n("count"))));
+      return { w: n * s - (n - 1) * 8, h: s };
+    },
   },
   {
     slug: "carousel",

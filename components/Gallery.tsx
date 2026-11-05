@@ -7,7 +7,10 @@ import { useIconFamily } from "@/parts/icons";
 import { CATEGORIES, PARTS, reader } from "@/parts/registry";
 import { FIT_OVERLAY, REMEASURE } from "@/parts/contained";
 import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
-import { arranged, defaultMeasures, inLang, seedGroups, type Node } from "@/parts/templates/kit";
+import { defaultMeasures, type Node } from "@/parts/templates/kit";
+import { KITS, pickVariant, type KitDef, type KitLook, type KitVariant } from "@/parts/kits";
+import { kitGroups, kitLookOf, treeGroups } from "@/lib/kits";
+import { arrangeFlows } from "@/lib/flow";
 import type { PartDef } from "@/parts/types";
 import { PartView } from "./PartView";
 
@@ -17,9 +20,10 @@ import { PartView } from "./PartView";
  *
  * It reads the registry, so a part added later is in it without a word here; a part whose look depends on a prop
  * (a back arrow, a large title) gets a few more cells from SAMPLES. Kits, the composites that exist only as trees of
- * atoms, are found by their files (parts/kits/*.ts) and drawn as the canvas would lay them out. */
+ * atoms, are drawn in every variant as the editor adds and lays them out, the one the style picks marked with a star;
+ * `kits=1` shows the kits alone; `splits=1` each composite that splits beside the atoms it splits into. */
 
-export type GallerySearch = { style?: string; dark?: string; category?: string; lang?: string; part?: string };
+export type GallerySearch = { style?: string; dark?: string; category?: string; lang?: string; part?: string; kits?: string; splits?: string };
 
 /** more cells for the parts whose composition a style changes with a prop: what the default alone would not show */
 const SAMPLES: Record<string, { label: string; props: Record<string, unknown> }[]> = {
@@ -52,20 +56,10 @@ const SAMPLES: Record<string, { label: string; props: Record<string, unknown> }[
   sheet: [{ label: "bottom", props: { side: "bottom" } }],
 };
 
-/** a kit as its file exports it: only what drawing it needs (parts/kits defines the rest) */
-type KitLike = { slug: string; name: string; labels?: Partial<Record<Lang, string>>; category: string; variants: { key: string; name: string; labels?: Partial<Record<Lang, string>>; build: () => Node }[] };
-const isKit = (v: unknown): v is KitLike => typeof v === "object" && v !== null && typeof (v as KitLike).slug === "string" && Array.isArray((v as KitLike).variants) && (v as KitLike).variants.every((x) => typeof x?.build === "function");
-
-/* The hook for kits: any file under parts/kits that exports a kit, or a list of them, is drawn here. Nothing to
- * register; with no such files the gallery is the parts alone. */
-const KIT_MODULES = import.meta.glob("/parts/kits/*.ts", { eager: true }) as Record<string, Record<string, unknown>>;
-const KITS: KitLike[] = Object.entries(KIT_MODULES)
-  .filter(([path]) => !/\.test\.ts$/.test(path))
-  .flatMap(([, mod]) => Object.values(mod).flatMap((v) => (Array.isArray(v) ? v.filter(isKit) : isKit(v) ? [v] : [])))
-  .filter((k, i, all) => all.findIndex((x) => x.slug === k.slug) === i);
-
+/* Kits, the composites that exist only as trees of atoms, come from the kit registry and are added the way the editor
+ * adds them (lib/kits.ts `kitGroups`), for the look the style gives: the variant a style would pick is marked. */
 /** the order the sections run in: the registry's categories, then any a part or kit names that the registry does not */
-function sectionsOf(parts: PartDef[], kits: KitLike[]): string[] {
+function sectionsOf(parts: PartDef[], kits: KitDef[]): string[] {
   const named = [...parts.map((d) => d.category), ...kits.map((k) => k.category)];
   return [...CATEGORIES.filter((c) => named.includes(c)), ...[...new Set(named)].filter((c) => !(CATEGORIES as readonly string[]).includes(c))];
 }
@@ -135,28 +129,59 @@ function PartCell({ def, props, label, p, theme, lang, settled }: { def: PartDef
   );
 }
 
-/** one variant of a kit: its tree laid out as a dropped kit is, before anything has been measured */
-function KitCell({ kit, variant, p, theme, lang }: { kit: KitLike; variant: KitLike["variants"][number]; p: Palette; theme: Theme; lang: Lang }) {
-  const groups = useMemo<Group[]>(() => {
-    try {
-      const seeded = seedGroups({ id: `kit-${kit.slug}-${variant.key}`, name: { en: "", zh: "", ja: "", ko: "" }, frame: "phone", roots: [variant.build()] });
-      const local = seeded.map((g) => ({ ...g, name: undefined, items: g.items.map((it) => ({ ...it, props: inLang(it.props, lang), note: undefined })) })) as unknown as Group[];
-      return arranged(local);
-    } catch {
-      return [];
-    }
-  }, [kit.slug, variant, lang]);
-  const m = defaultMeasures(groups);
-  const x0 = Math.min(0, ...groups.map((g) => g.x));
-  const y0 = Math.min(0, ...groups.map((g) => g.y));
-  const w = Math.max(40, ...groups.flatMap((g) => g.items.map((it) => g.x - x0 + (m[it.id] ?? 0))));
-  const h = Math.max(40, ...groups.flatMap((g) => g.items.map((it) => g.y - y0 + (m[`${it.id}:h`] ?? 0))));
+/** A tree of atoms as the editor adds it, then laid out again by what its atoms measure once drawn, as the canvas
+ *  does, until nothing moves. Faces and icons that arrive later have it measured once more. */
+function TreeCell({ added, label, sub, attrs, p, theme, settled }: { added: Group[]; label: string; sub: string; attrs: Record<string, string | undefined>; p: Palette; theme: Theme; settled: boolean }) {
+  const [laid, setLaid] = useState<{ from: Group[]; groups: Group[]; m: Record<string, number>; rounds: number }>({ from: added, groups: added, m: defaultMeasures(added), rounds: 0 });
+  const state = laid.from === added ? laid : { from: added, groups: added, m: defaultMeasures(added), rounds: 0 };
+  const els = useRef(new Map<string, HTMLElement>());
+  const [again, setAgain] = useState(0);
+  useEffect(() => {
+    const more = () => setAgain((n) => n + 1);
+    window.addEventListener(REMEASURE, more);
+    return () => window.removeEventListener(REMEASURE, more);
+  }, []);
+  useLayoutEffect(() => {
+    const m: Record<string, number> = {};
+    for (const g of state.groups)
+      for (const it of g.items) {
+        const r = els.current.get(it.id)?.getBoundingClientRect();
+        if (r) {
+          m[it.id] = Math.ceil(r.width);
+          m[`${it.id}:h`] = Math.ceil(r.height);
+        }
+      }
+    const next = arrangeFlows(state.groups, m);
+    const same = Object.keys(m).every((k) => m[k] === state.m[k]);
+    if (next === state.groups && same && laid.from === added) return;
+    if (state.rounds > 12) return;
+    setLaid({ from: added, groups: next, m, rounds: state.rounds + 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, settled, again]);
+  /* a later measure (a face that arrived) may start the rounds afresh */
+  useEffect(() => setLaid((l) => ({ ...l, rounds: 0 })), [settled, again]);
+  const root = state.groups[0];
+  const x0 = root?.x ?? 0;
+  const y0 = root?.y ?? 0;
+  const own = (it: Item, axis: "w" | "h") => {
+    const v = it.component === "box" ? Number(it.props?.[axis === "w" ? "width" : "height"]) : NaN;
+    return Number.isFinite(v) ? v : (state.m[axis === "w" ? it.id : `${it.id}:h`] ?? 0);
+  };
+  const w = Math.max(40, ...state.groups.flatMap((g) => g.items.map((it) => g.x - x0 + own(it, "w"))));
+  const h = Math.max(40, ...state.groups.flatMap((g) => g.items.map((it) => g.y - y0 + own(it, "h"))));
   return (
-    <Cell label={`${nameIn(kit, lang)} · ${nameIn(variant, lang)}`} sub={`kit ${kit.slug}/${variant.key}`} p={p} theme={theme}>
-      <div data-gallery-kit={`${kit.slug}/${variant.key}`} style={{ position: "relative", width: w, height: h }}>
-        {groups.map((g) =>
+    <Cell label={label} sub={sub} p={p} theme={theme}>
+      <div {...attrs} style={{ position: "relative", width: w, height: h }}>
+        {state.groups.map((g) =>
           g.items.map((it) => (
-            <div key={it.id} style={{ position: "absolute", left: g.x - x0, top: g.y - y0, width: m[it.id], height: m[`${it.id}:h`] }}>
+            <div
+              key={it.id}
+              ref={(el) => {
+                if (el) els.current.set(it.id, el);
+                else els.current.delete(it.id);
+              }}
+              style={{ position: "absolute", left: g.x - x0, top: g.y - y0, display: "inline-flex", boxSizing: "border-box" }}
+            >
               <PartView item={it} screen={{ w: PHONE_W, h: PHONE_H }} />
             </div>
           )),
@@ -164,6 +189,30 @@ function KitCell({ kit, variant, p, theme, lang }: { kit: KitLike; variant: KitL
       </div>
     </Cell>
   );
+}
+
+/** one variant of a kit, added for the style's look; the one the style picks is starred */
+function KitCell({ kit, variant, look, chosen, p, theme, lang, settled }: { kit: KitDef; variant: KitVariant; look: KitLook; chosen: boolean; p: Palette; theme: Theme; lang: Lang; settled: boolean }) {
+  const added = useMemo<Group[]>(() => {
+    try {
+      return kitGroups(kit, look, lang, { variant: variant.key });
+    } catch {
+      return [];
+    }
+  }, [kit, variant.key, look, lang]);
+  return <TreeCell added={added} label={`${nameIn(kit, lang)} · ${nameIn(variant, lang)}${chosen ? " ★" : ""}`} sub={`kit ${kit.slug}/${variant.key}`} attrs={{ "data-gallery-kit": `${kit.slug}/${variant.key}`, "data-gallery-kit-chosen": chosen ? "" : undefined }} p={p} theme={theme} settled={settled} />;
+}
+
+/** what a composite splits into, at its default props: drawn beside the part (`splits=1`) to see that it is the same */
+function SplitCell({ def, p, theme, lang, settled }: { def: PartDef; p: Palette; theme: Theme; lang: Lang; settled: boolean }) {
+  const added = useMemo<Group[]>(() => {
+    try {
+      return treeGroups(def.atoms!(reader(def, makeItem(def.slug).props)) as Node, lang);
+    } catch {
+      return [];
+    }
+  }, [def, lang]);
+  return <TreeCell added={added} label={`${nameIn(def, lang)} · atoms`} sub={`split ${def.slug}`} attrs={{ "data-gallery-split": def.slug }} p={p} theme={theme} settled={settled} />;
 }
 
 const CHROME = { font: "13px/18px Roboto, system-ui, sans-serif", color: "#202124" } as const;
@@ -240,8 +289,11 @@ export function Gallery({ search }: { search: GallerySearch }) {
 
   const settled = useSettled();
   const only = search.part ? new Set(search.part.split(",")) : null;
-  const parts = PARTS.filter((d) => !only || only.has(d.slug));
-  const kits = only ? KITS.filter((k) => only.has(k.slug)) : KITS;
+  /* `splits=1`: each composite that splits beside the atoms it splits into, and nothing else */
+  const splits = search.splits === "1";
+  const parts = search.kits === "1" ? [] : PARTS.filter((d) => (!only || only.has(d.slug)) && (!splits || !!d.atoms));
+  const look = useMemo(() => kitLookOf(theme), [theme]);
+  const kits = splits ? [] : only ? KITS.filter((k) => only.has(k.slug)) : KITS;
   const sections = sectionsOf(PARTS, KITS);
   const shown = sectionsOf(parts, kits).filter((c) => !search.category || c === search.category);
 
@@ -263,11 +315,15 @@ export function Gallery({ search }: { search: GallerySearch }) {
                     .filter((d) => d.category === c)
                     .flatMap((d) => [
                       <PartCell key={d.slug} def={d} p={p} theme={theme} lang={lang} settled={settled} />,
-                      ...(SAMPLES[d.slug] ?? []).map((s) => <PartCell key={`${d.slug}-${s.label}`} def={d} props={s.props} label={s.label} p={p} theme={theme} lang={lang} settled={settled} />),
+                      ...(splits && d.atoms ? [<SplitCell key={`${d.slug}-atoms`} def={d} p={p} theme={theme} lang={lang} settled={settled} />] : []),
+                      ...(splits ? [] : (SAMPLES[d.slug] ?? [])).map((s) => <PartCell key={`${d.slug}-${s.label}`} def={d} props={s.props} label={s.label} p={p} theme={theme} lang={lang} settled={settled} />),
                     ])}
                   {kits
                     .filter((k) => k.category === c)
-                    .flatMap((k) => k.variants.map((v) => <KitCell key={`${k.slug}-${v.key}`} kit={k} variant={v} p={p} theme={theme} lang={lang} />))}
+                    .flatMap((k) => {
+                      const chosen = pickVariant(k, look).key;
+                      return k.variants.map((v) => <KitCell key={`${k.slug}-${v.key}`} kit={k} variant={v} look={look} chosen={v.key === chosen} p={p} theme={theme} lang={lang} settled={settled} />);
+                    })}
                 </div>
               </section>
             ))}

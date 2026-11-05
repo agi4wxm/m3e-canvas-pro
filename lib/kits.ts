@@ -18,20 +18,41 @@ export function kitLookOf(theme: Theme): KitLook {
   const r = recipesOf(theme);
   const ux = uxOf(theme);
   const pack = styleOf(theme.style);
+  const group = pack?.group ?? "app";
   return {
-    group: pack?.group ?? "app",
+    group,
     field: r.field,
     bar: r.bar,
     button: r.button,
     list: r.list,
     surface: r.surface,
     toggle: r.toggle,
+    nav: r.nav,
+    tabs: r.tabs,
+    segmented: r.segmented,
+    dialog: r.dialog,
+    sheet: r.sheet,
+    appbar: r.appbar,
+    row: r.row,
+    card: r.card,
+    avatar: r.avatar,
+    dialogue: r.dialogue,
+    caption: captionOf(theme, group, !!pack),
     compact: !!pack?.compact,
     dark: !!theme.dark,
     margin: ux.margin,
     gap: ux.gap,
     tight: ux.tight,
   };
+}
+
+/** How a desktop window of this look is closed. A Mac's face says a Mac and a Windows face says Windows;
+ *  otherwise a phone product's desktop app is the Mac one people picture, while desktop software, games and
+ *  Material (Android, ChromeOS) put their caption buttons at the right. */
+function captionOf(theme: Theme, group: KitLook["group"], styled: boolean): KitLook["caption"] {
+  if (theme.font === "apple") return "lights";
+  if (theme.font === "segoe") return "buttons";
+  return styled && group === "app" ? "lights" : "buttons";
 }
 
 type At = { x: number; y: number };
