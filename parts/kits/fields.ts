@@ -54,7 +54,7 @@ const password = kit(
   "Password field",
   ["密码输入框", "パスワード入力欄", "비밀번호 입력란"],
   "Forms",
-  "password",
+  "key",
   "a field box: a key glyph, a bare password entry taking the rest and an eye button to show it; with a strength line and a hint under it; or an iPhone form row with the label in its own column",
   [
     variant("field", "Field with an eye", ["带显示按钮", "表示ボタン付き", "표시 버튼"], () =>
@@ -196,7 +196,7 @@ const stepper = kit(
   "Stepper row",
   ["步进器行", "ステッパーの行", "스테퍼 행"],
   "Forms",
-  "exposure",
+  "add_circle",
   "a row: a name over a muted line taking the rest, then outlined round minus and plus buttons around the number; an iPhone's grey minus | plus control after the value; or a compact field box holding minus, the number and plus",
   [
     variant("round", "Round buttons", ["圆形按钮", "丸いボタン", "둥근 버튼"], () =>
@@ -228,7 +228,7 @@ const buttons = kit(
   "Button stack",
   ["按钮组合", "ボタンの並び", "버튼 묶음"],
   "Forms",
-  "smart_button",
+  "buttons_alt",
   "the buttons that end a form: Material's text and filled buttons at the end of a row; an iPhone's full-width filled button over a plain one; two equal halves (WeChat, games); or small outlined and filled buttons at the end (desktop)",
   [
     variant("end", "At the end", ["靠右", "右寄せ", "오른쪽"], () => hbox({ width: W, hugWidth: false, gap: 8, justify: "end" }, [button(T.cancel, { variant: "text" }), button(SAVE, { variant: "filled" })])),

@@ -215,7 +215,7 @@ const sectionHead = kit(
   "Section header with See all",
   ["带“查看全部”的分区标题", "「すべて表示」付き見出し", "‘모두 보기’ 섹션 제목"],
   "Lists",
-  "title",
+  "view_list",
   "a row: a bold heading at the start and a text button with a chevron at the end; a small muted capitalized heading over an inset group; or a large title over a muted line with a round arrow button",
   [
     variant("text", "Heading and a link", ["标题和链接", "見出しとリンク", "제목과 링크"], () =>

@@ -136,7 +136,7 @@ const statTile = kit(
   "Stat tile",
   ["数据卡片", "数値タイル", "통계 타일"],
   "Data & charts",
-  "monitoring",
+  "analytics",
   "a card box: a muted label, the figure large and a trend (an arrow and a percentage in color, then a muted comparison); a glyph on a disc beside the figure over its label; or the figure with a progress line toward a goal",
   [
     variant("trend", "With a trend", ["带趋势", "トレンド付き", "추세 포함"], (l) =>
@@ -164,7 +164,7 @@ const post = kit(
   "Feed post",
   ["动态帖子", "フィード投稿", "피드 게시물"],
   "Social & chat",
-  "dynamic_feed",
+  "feed",
   "a feed post: a header row (avatar, name over time, more), the words, a picture and a row of like / comment / share buttons; the photo-app way (a slim header, a square picture, icon actions with save at the end, likes and caption); or a thread post with the avatar in its own column",
   [
     variant("feed", "Feed card", ["信息流卡片", "フィードカード", "피드 카드"], () =>

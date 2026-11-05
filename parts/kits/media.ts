@@ -16,7 +16,7 @@ const audio = kit(
   "Audio player row",
   ["音频播放行", "オーディオプレーヤーの行", "오디오 플레이어 행"],
   "Media",
-  "music_note",
+  "headphones",
   "a panel row: the cover, the title over the artist taking the rest, a filled play button and next; a full card with a slider, the times at its ends and the transport centered; or a podcast row with the episode's length, two lines of title and a progress line",
   [
     variant("mini", "Mini player", ["迷你播放器", "ミニプレーヤー", "미니 플레이어"], () =>

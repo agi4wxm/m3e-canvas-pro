@@ -77,7 +77,7 @@ const reward = kit(
   "Reward card",
   ["奖励卡片", "報酬カード", "보상 카드"],
   "Game",
-  "redeem",
+  "stars",
   "a panel box: the reward on a rarity well (gold-framed when rare), its count and name; a day's reward with a claim button on a lip; or a row of small reward wells with their counts",
   [
     variant("item", "One item", ["单个物品", "アイテム一つ", "아이템 하나"], () =>
@@ -245,7 +245,7 @@ const path = kit(
   "Level path",
   ["关卡路径", "ステージの道", "레벨 경로"],
   "Game",
-  "route",
+  "linear_scale",
   "a row of level nodes joined by short roads: done ones (the number on a filled disc over the stars earned), the current one ringed on a lip, and locked ones in a well with a lock; or the same running down a column",
   [
     variant("row", "Across", ["横向", "横に", "가로"], () => hbox({ gap: 0, align: "center" }, [node(1, "done"), road(true), node(2, "done", 2), road(true), node(3, "here"), road(false), node(4, "locked"), road(false), node(5, "locked")])),

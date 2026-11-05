@@ -186,7 +186,7 @@ const sheetHead = kit(
   "Sheet header",
   ["面板标题栏", "シートのヘッダー", "시트 머리글"],
   "Overlays",
-  "drag_handle",
+  "bottom_panel_open",
   "the top of a sheet: a handle over the title at the start and a tonal close button at the end; an iPhone's grabber over Cancel, a bold centered title and a bold Add; or Material's handle over a title and a muted line",
   [
     variant("close", "Title and close", ["标题与关闭", "タイトルと閉じる", "제목과 닫기"], () =>
