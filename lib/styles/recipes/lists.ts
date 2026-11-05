@@ -17,7 +17,8 @@ export const LIST_CSS: RecipeCss<Recipes["list"]> = {
   /* iOS: rows closed up into a rounded white group, the lines starting where the words do */
   inset: `${closedRows("52px")}
 ${GROUPS}{background-color:${role("surface-container-low")};border-radius:var(--md-sys-shape-corner-medium);overflow:hidden}
-${ROW}{min-height:44px;padding-block:6px;padding-inline:16px}`,
+${ROW}{min-height:44px;padding-block:6px;padding-inline:16px}
+${ROW}[data-flush]:not(${GROUPS} *){background-color:${role("surface-container-low")};border-radius:var(--md-sys-shape-corner-medium)}`,
   /* WeChat: white rows from edge to edge on the grey ground */
   flush: `${closedRows("16px")}
 ${GROUPS}{background-color:${role("surface-container-low")}}
@@ -84,11 +85,13 @@ export const MENU_CSS: RecipeCss<Recipes["menu"]> = {
   ios: `${MENU}{border-radius:13px;padding:0;background-color:${mix("surface-container-low", 82)};-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8);box-shadow:0 10px 38px rgb(0 0 0/.2);border:0}
 ${ITEM}{border-radius:0;min-height:44px;padding-inline:16px;font-size:17px;border-bottom:.5px solid ${mix("on-surface", 12)}}
 ${ITEM} [data-slot=icon]{order:2;margin-left:auto}
+${ITEM}:is([data-selected],[data-checked]){background-color:transparent;color:${role("on-surface")}}
 :is(${MENU_SEPARATORS}){height:8px;margin:0;background-color:${mix("on-surface", 6)}}`,
   /* Fluent, VS Code, Ant Design: a small panel with a hairline, short rows, the shortcut at the right */
   compact: `${MENU}{border-radius:var(--md-sys-shape-corner-small);padding:4px;border:1px solid ${role("outline-variant")};box-shadow:0 8px 16px rgb(0 0 0/.14)}
 ${ITEM}{min-height:30px;padding:4px 8px;border-radius:var(--md-sys-shape-corner-extra-small);font-size:var(--text-body-medium);gap:8px}
 ${ITEM} [data-slot=icon]{font-size:16px;width:16px;height:16px}
+${ITEM}:is([data-selected],[data-checked]){background-color:${mix("primary", 10)};color:${role("on-surface")};font-weight:600}
 :is(${MENU_SEPARATORS}){height:1px;margin:4px -4px;background-color:${role("outline-variant")}}`,
   /* Elden Ring, Black Myth: no panel to speak of, words on the dark, the hovered one lit */
   plain: `${MENU}{border-radius:0;border:0;box-shadow:none;background-color:${mix("surface", 92)}}

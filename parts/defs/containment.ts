@@ -255,7 +255,7 @@ export const containment: PartDef[] = [
               "DialogFooter",
               { stacked: p.b("stacked") || undefined },
               p.s("dismiss") && h("DialogClose", { render: h("Button", { variant: "text" }), "data-tap": "dismiss" }, p.s("dismiss")),
-              p.s("confirm") && h("DialogClose", { render: h("Button", { variant: "text" }), "data-tap": "confirm" }, p.s("confirm")),
+              p.s("confirm") && h("DialogClose", { render: h("Button", { variant: "text" }), "data-tap": "confirm", "data-slot": "dialog-action" }, p.s("confirm")),
             ),
         ),
       );

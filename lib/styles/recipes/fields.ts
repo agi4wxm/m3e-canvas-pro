@@ -3,7 +3,7 @@ import { mix, role, type RecipeCss } from "./shared";
 
 /* Where words are typed: Material's text field, the bare inputs other components are built from, and search. */
 
-const BARE = `:is([data-slot=input],[data-slot=select-trigger],[data-slot=textarea],[data-slot=native-select],[data-slot=input-group],[data-surface=field])`;
+const BARE = `:is([data-slot=input],[data-slot=select-trigger],[data-slot=textarea],[data-slot=native-select],[data-slot=input-group],[data-slot=phone-input],[data-surface=field])`;
 
 /** the label stays inside the box: with no notch in the outline there is nothing for it to sit in */
 const inside = (box: string, focus: string, radius = "var(--st-control-r)") => `[data-slot=text-field-box]{border-radius:${radius};background-color:transparent;${box}}
@@ -46,6 +46,11 @@ ${BARE}:focus-within{border-color:${role("outline")}}`,
 
 const BOX = `:is([data-slot=search-view],[data-slot=search-bar],[data-slot=sidebar-input],[data-slot=command-input-wrapper])`;
 const HEAD = `[data-slot=search-header]`;
+const DOCKED = `[data-slot=search-view][data-variant=docked]`;
+/** an open search's suggestions drop below its field on a panel of their own: the grey box is the field alone */
+const dropped = (fill: string, radius: string) => `${DOCKED}{background-color:transparent;box-shadow:none;border:0;border-radius:0;overflow:visible}
+${DOCKED} ${HEAD}{background-color:${fill};border-radius:${radius}}
+${DOCKED} [data-slot=search-results]{margin-top:6px;border-top:0;border-radius:${radius};background-color:${role("surface-container-low")}}`;
 /** how search is drawn: Material's floating bar, or the product's own field */
 export const SEARCH_CSS: RecipeCss<Recipes["search"]> = {
   m3: "",
@@ -53,12 +58,14 @@ export const SEARCH_CSS: RecipeCss<Recipes["search"]> = {
   filled: `${BOX}{background-color:${role("surface-container-highest")};box-shadow:none;border:0;border-radius:var(--md-sys-shape-corner-small)}
 ${HEAD},[data-slot=search-bar]{height:36px}
 ${BOX} :is([data-slot=icon],input::placeholder){color:${role("on-surface-variant")}}
-${BOX} input{font-size:15px}`,
+${BOX} input{font-size:15px}
+${dropped(role("surface-container-highest"), "var(--md-sys-shape-corner-small)")}`,
   /* iOS: the same grey box with a Cancel at its right, in the accent color */
   cancel: `${BOX}{background-color:${mix("on-surface", 7)};box-shadow:none;border:0;border-radius:10px}
 ${HEAD},[data-slot=search-bar]{height:36px}
 ${BOX} :is([data-slot=icon],input::placeholder){color:${role("on-surface-variant")}}
 ${BOX} input{font-size:17px}
+${dropped(mix("on-surface", 7), "10px")}
 [data-slot=search-cancel]{display:inline-flex;align-items:center;height:36px;font-size:17px;color:${role("primary")};white-space:nowrap}`,
   /* the web apps: an outlined capsule */
   pill: `${BOX}{background-color:${role("surface-container-low")};box-shadow:none;border:1px solid ${role("outline-variant")};border-radius:999px}

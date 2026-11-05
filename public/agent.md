@@ -62,7 +62,7 @@ Each one is modeled on real products. Pick the one nearest to what the person de
 | `style` | Looks like | How its screens are composed |
 | --- | --- | --- |
 | (left out) | Android, Google's apps | Plain Material 3: a top bar, a body on 16dp margins, a bottom navigation bar. |
-| `ios` | iOS 26, Apple apps | Inset grouped lists on a grey ground with generous gaps between groups; a centered title; a floating capsule tab bar; the main action a full-width capsule near the content. |
+| `ios` | iOS 26, Apple apps | Inset grouped lists on a grey ground with generous gaps between groups; a centered title, the back chevron naming where it leads; a translucent tab bar along the foot; the main action a full-width capsule near the content. |
 | `shortvideo` | TikTok, Douyin | The video fills the whole screen, so draw it as a full-screen scene rather than a video box; text tabs at the top; a column of actions down the right; a caption and a black tab bar over the foot. |
 | `spotify` | Spotify | A row of capsule filters, then titled shelves of square covers; lists without lines; a mini player resting above the tab bar. |
 | `wechat` | WeChat | White lists run edge to edge, grouped by narrow grey bands, with lines starting at the words; rounded-square avatars; a centered title; four bottom tabs. |

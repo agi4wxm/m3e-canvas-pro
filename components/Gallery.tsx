@@ -58,7 +58,8 @@ const isKit = (v: unknown): v is KitLike => typeof v === "object" && v !== null 
 
 /* The hook for kits: any file under parts/kits that exports a kit, or a list of them, is drawn here. Nothing to
  * register; with no such files the gallery is the parts alone. */
-const KIT_MODULES = import.meta.glob("/parts/kits/*.ts", { eager: true }) as Record<string, Record<string, unknown>>;
+/* a test file is left out of the glob itself: importing one runs its hooks, which need the test runner */
+const KIT_MODULES = import.meta.glob(["/parts/kits/*.ts", "!/parts/kits/*.test.ts"], { eager: true }) as Record<string, Record<string, unknown>>;
 const KITS: KitLike[] = Object.entries(KIT_MODULES)
   .filter(([path]) => !/\.test\.ts$/.test(path))
   .flatMap(([, mod]) => Object.values(mod).flatMap((v) => (Array.isArray(v) ? v.filter(isKit) : isKit(v) ? [v] : [])))
