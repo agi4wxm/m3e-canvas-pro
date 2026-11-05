@@ -91,6 +91,7 @@ ${MENU_ROWS}:is([data-highlighted],:focus){background-color:#DCDEDF;color:#3D445
 ${MENU_ROWS}:is([data-highlighted],:focus) [data-slot=icon]{color:#3D4450}`,
     picked,
     short(32),
+    `${MENU_ROWS}[data-selected]{background-color:rgb(255 255 255/.12);color:#DCDEDF}`,
     menubar(28, "2px"),
     `[data-slot=menubar-trigger]{text-transform:uppercase;letter-spacing:.04em;font-size:13px}`,
     toolbar("2px"),

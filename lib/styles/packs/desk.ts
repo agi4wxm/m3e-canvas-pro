@@ -41,7 +41,7 @@ export const short = (h: number) => `:is([data-slot=input],[data-slot=native-sel
 [data-slot=input-group]{height:${h}px;min-height:0}
 [data-slot=input-group-control]{height:100%}
 [data-slot=search-result]{min-height:${h + 4}px;height:auto;padding-block:4px}
-[data-slot=loading-indicator]{color:transparent;background-color:transparent;border:4px solid ${mix("primary", 18)};border-top-color:${role("primary")};scale:.66;animation:spin 1s linear infinite}`;
+${firm("loading-indicator")}{color:transparent;background-color:transparent;border:4px solid ${mix("primary", 18)};border-top-color:${role("primary")};scale:.66;animation:spin 1s linear infinite}`;
 
 /** a command palette: a flyout with a short field on top and short rows under it */
 export const palette = (row: number, r: string) => `[data-slot=command]{background-color:${role("surface-container-low")};border-radius:${r};padding:0}
