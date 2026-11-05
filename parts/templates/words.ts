@@ -4,11 +4,11 @@ import { part, say, type Node, type Say } from "./kit";
  * words on a sign-in form. A bar has the same entries on every screen of a set. */
 
 export const PEOPLE = {
-  ada: say("Ada Lovelace", "林小雨", "佐藤 葵", "김하늘"),
-  grace: say("Grace Hopper", "陈思远", "鈴木 蓮", "이서준"),
-  alan: say("Alan Turing", "王浩然", "高橋 陽", "박지민"),
-  katherine: say("Katherine Johnson", "赵一诺", "田中 結衣", "최유나"),
-  marie: say("Marie Curie", "周子涵", "伊藤 凛", "정민서"),
+  ada: say("Mia Carter", "林小雨", "佐藤 葵", "김하늘"),
+  grace: say("Noah Bennett", "陈思远", "鈴木 蓮", "이서준"),
+  alan: say("Liam Foster", "王浩然", "高橋 陽", "박지민"),
+  katherine: say("Ella Hayes", "赵一诺", "田中 結衣", "최유나"),
+  marie: say("Owen Reed", "周子涵", "伊藤 凛", "정민서"),
 };
 
 export const WORDS = {

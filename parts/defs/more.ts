@@ -456,7 +456,7 @@ export const more: PartDef[] = [
     name: "Game result",
     labels: { ja: "リザルト", zh: "结算页", ko: "결과 화면" },
     category: "Game",
-    icon: "emoji_events",
+    icon: "trophy",
     w: 340,
     h: 380,
     props: [

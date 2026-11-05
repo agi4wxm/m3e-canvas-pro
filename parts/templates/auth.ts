@@ -1,20 +1,36 @@
-import { go, part, row, say, screen, type Node, type Say, type ScreenSeed, type Template } from "./kit";
-import { AUTH_WORDS, homeNav, PEOPLE, WORDS } from "./words";
+import { col, go, part, row, say, screen, txt, type Node, type Say, type ScreenSeed, type Template } from "./kit";
+import { AUTH_WORDS } from "./words";
 
-/* Getting in, and the first screen after it. Each builder takes the links a flow gives it; on its own a
- * screen has none, so that adding one screen never leaves a link to a screen that is not there. */
+/* Getting into an app. Each builder takes the links a flow gives it; on its own a screen has none, so that adding one
+ * screen never leaves a link to a screen that is not there. What comes after signing in is the app's own business, so
+ * no screen here decides what its home looks like. */
 
-type Links = Partial<Record<"submit" | "switch" | "forgot", ReturnType<typeof go>>>;
+type Link = ReturnType<typeof go>;
+type Links = Partial<Record<"submit" | "switch" | "forgot", Link>>;
 
 const authForm = (mode: "sign-in" | "sign-up", links: Links): Node => part("auth-form", { mode, ...AUTH_WORDS }, { actions: links });
 /** where the app's mark goes, above the form */
 const mark = (): Node => row({ justify: "center" }, [part("shape", { name: "sunny", color: "primary", width: 72, height: 72 })]);
+const backBar = (title: Say, link?: Link): Node => part("app-bar", { title, leading: "arrow_back", trailing: "" }, { actions: { icon: link } });
+
+export const splashScreen = (link?: Link): ScreenSeed =>
+  screen({
+    id: "splash",
+    name: say("Splash", "启动页", "スプラッシュ", "스플래시"),
+    place: "center",
+    body: [
+      mark(),
+      txt(say("App name", "应用名称", "アプリ名", "앱 이름"), "headline", { align: "center" }),
+      txt(say("One line on what it does", "一句话介绍这个应用", "何ができるかを一文で", "무엇을 하는 앱인지 한 줄로"), "body", { align: "center", color: "muted" }),
+      row({ justify: "center" }, [part("spinner", { size: "md" }, { action: link })]),
+    ],
+  });
 
 export const loginScreen = (links: Links = {}): ScreenSeed =>
   screen({
     id: "login",
     name: say("Log in", "登录", "ログイン", "로그인"),
-    bodyProps: { justify: "center", padY: 48, gap: 24 },
+    place: "center",
     body: [mark(), authForm("sign-in", links)],
   });
 
@@ -22,43 +38,75 @@ export const signUpScreen = (links: Links = {}): ScreenSeed =>
   screen({
     id: "signup",
     name: say("Sign up", "注册", "新規登録", "회원가입"),
-    bodyProps: { justify: "center", padY: 48, gap: 24 },
-    body: [mark(), authForm("sign-up", links)],
-  });
-
-const POST = (author: Say, time: Say, text: Say, showImage: boolean, likes: number): Node => part("post-card", { author, time, text, showImage, likes, comments: Math.round(likes / 6), shares: Math.round(likes / 20) });
-
-export const homeFeedScreen = (): ScreenSeed =>
-  screen({
-    id: "home",
-    name: WORDS.home,
-    /* a feed runs on: its body scrolls between the bars in the preview */
-    length: 1116,
-    top: [part("app-bar", { title: say("For you", "推荐", "おすすめ", "추천"), leading: "menu", trailing: "notifications" })],
-    bottom: [homeNav(0)],
-    bodyProps: { gap: 12, padY: 8 },
+    place: "center",
     body: [
-      part("story-row", {
-        items: [
-          { label: say("Your story", "我的故事", "あなた", "내 스토리") },
-          { label: say("Ada", "小雨", "葵", "하늘") },
-          { label: say("Grace", "思远", "蓮", "서준") },
-          { label: say("Alan", "浩然", "陽", "지민") },
-          { label: say("Kate", "一诺", "結衣", "유나") },
-          { label: say("Marie", "子涵", "凛", "민서") },
-        ],
-      }),
-      POST(PEOPLE.ada, say("2 hours ago", "2 小时前", "2 時間前", "2시간 전"), say("Morning light over the harbour.", "清晨的海港。", "朝の光に包まれた港。", "아침 햇살이 비치는 항구."), true, 128),
-      POST(PEOPLE.grace, say("5 hours ago", "5 小时前", "5 時間前", "5시간 전"), say("Finished the first draft. Tell me what to cut.", "初稿写完了，看看哪里该删。", "初稿が書けました。削るべき所を教えてください。", "초고를 끝냈어요. 뺄 부분을 알려 주세요."), false, 42),
-      POST(PEOPLE.alan, WORDS.yesterday, say("The new bridge opened today.", "新桥今天通车了。", "新しい橋が今日開通しました。", "새 다리가 오늘 개통했어요."), true, 310),
+      mark(),
+      /* in one layout: the form comes out taller in some styles, and the line stays under it */
+      col({ gap: 12 }, [
+        authForm("sign-up", links),
+        txt(say("By signing up you agree to the terms and the privacy policy.", "注册即表示你同意用户协议和隐私政策。", "登録すると利用規約とプライバシーポリシーに同意したことになります。", "가입하면 이용약관과 개인정보 처리방침에 동의하게 됩니다."), "caption", { align: "center", color: "muted" }),
+      ]),
     ],
   });
 
-export const onboardingScreen = (links: { done?: ReturnType<typeof go>; skip?: ReturnType<typeof go> } = {}): ScreenSeed =>
+export const phoneLoginScreen = (): ScreenSeed =>
+  screen({
+    id: "phone-login",
+    name: say("Phone sign-in", "手机号登录", "電話番号でログイン", "전화번호 로그인"),
+    place: "center",
+    body: [
+      mark(),
+      txt(say("Sign in with your phone", "手机号登录", "電話番号でログイン", "전화번호로 로그인"), "headline", { align: "center" }),
+      part("phone-input", { code: say("+1", "+86", "+81", "+82"), placeholder: say("Phone number", "手机号", "電話番号", "전화번호") }),
+      part("input-group", { placeholder: say("Code", "验证码", "確認コード", "인증번호"), leadingIcon: "", leadingText: "", trailingText: "", button: say("Get code", "获取验证码", "コードを取得", "인증번호 받기") }),
+      /* nobody has agreed to anything before they tick it */
+      part("checkbox", { checked: false, label: say("I agree to the terms and the privacy policy", "我已阅读并同意用户协议和隐私政策", "利用規約とプライバシーポリシーに同意します", "이용약관과 개인정보 처리방침에 동의합니다") }),
+      part("button", { label: say("Sign in", "登录", "ログイン", "로그인"), size: "md" }),
+      part("button", { label: say("Use email instead", "使用邮箱登录", "メールアドレスでログイン", "이메일로 로그인"), variant: "text" }),
+    ],
+  });
+
+export const forgotScreen = (links: { send?: Link; back?: Link } = {}): ScreenSeed =>
+  screen({
+    id: "forgot",
+    name: say("Forgot password", "忘记密码", "パスワードを忘れた", "비밀번호 찾기"),
+    top: [backBar(say("Forgot password", "忘记密码", "パスワードを忘れた", "비밀번호 찾기"), links.back)],
+    body: [
+      txt(say("Enter your email and we will send you a code.", "输入注册时的邮箱，我们会发送验证码。", "登録したメールアドレスに確認コードを送ります。", "가입한 이메일로 인증번호를 보내 드립니다."), "body", { color: "muted" }),
+      part("text-field", { label: say("Email", "邮箱", "メールアドレス", "이메일"), value: "", supporting: "" }),
+      part("button", { label: say("Send code", "发送验证码", "コードを送信", "인증번호 보내기"), size: "md" }, { action: links.send }),
+    ],
+  });
+
+export const verifyScreen = (links: { verify?: Link; back?: Link } = {}): ScreenSeed =>
+  screen({
+    id: "verify",
+    name: say("Verification code", "验证码", "確認コード", "인증번호"),
+    top: [backBar(say("Enter the code", "输入验证码", "コードを入力", "인증번호 입력"), links.back)],
+    body: [
+      txt(say("We sent a 6-digit code to your email.", "6 位验证码已发送到你的邮箱。", "6 桁のコードをメールに送りました。", "6자리 인증번호를 이메일로 보냈습니다."), "body", { color: "muted" }),
+      row({ justify: "center" }, [part("input-otp", { length: 6, group: 3, value: "" })]),
+      part("button", { label: say("Verify", "验证", "確認", "확인"), size: "md" }, { action: links.verify }),
+      part("button", { label: say("Send again", "重新发送", "再送信", "다시 보내기"), variant: "text" }),
+    ],
+  });
+
+export const resetScreen = (links: { done?: Link; back?: Link } = {}): ScreenSeed =>
+  screen({
+    id: "reset",
+    name: say("New password", "设置新密码", "新しいパスワード", "새 비밀번호"),
+    top: [backBar(say("New password", "设置新密码", "新しいパスワード", "새 비밀번호"), links.back)],
+    body: [
+      part("text-field", { label: say("New password", "新密码", "新しいパスワード", "새 비밀번호"), value: "", supporting: say("At least 8 characters", "至少 8 位", "8 文字以上", "8자 이상"), trailingIcon: "visibility" }),
+      part("text-field", { label: say("Confirm password", "确认新密码", "パスワード（確認）", "비밀번호 확인"), value: "", supporting: "", trailingIcon: "visibility" }),
+      part("button", { label: say("Save and sign in", "保存并登录", "保存してログイン", "저장하고 로그인"), size: "md" }, { action: links.done }),
+    ],
+  });
+
+export const onboardingScreen = (links: { done?: Link; skip?: Link } = {}): ScreenSeed =>
   screen({
     id: "onboarding",
     name: say("Onboarding", "引导", "はじめに", "시작하기"),
-    bodyProps: { padY: 48 },
     body: [
       part(
         "onboarding",
@@ -81,7 +129,12 @@ export const onboardingScreen = (links: { done?: ReturnType<typeof go>; skip?: R
   });
 
 export const auth: Template[] = [
+  { slug: "splash", name: "Splash", labels: { ja: "スプラッシュ", zh: "启动页", ko: "스플래시" }, category: "auth", frame: "phone", icon: "rocket_launch", build: () => [splashScreen()] },
+  { slug: "onboarding", name: "Onboarding", labels: { ja: "はじめに", zh: "引导页", ko: "온보딩" }, category: "auth", frame: "phone", icon: "tour", build: () => [onboardingScreen()] },
   { slug: "login", name: "Log in", labels: { ja: "ログイン", zh: "登录", ko: "로그인" }, category: "auth", frame: "phone", icon: "login", build: () => [loginScreen()] },
   { slug: "sign-up", name: "Sign up", labels: { ja: "新規登録", zh: "注册", ko: "회원가입" }, category: "auth", frame: "phone", icon: "person_add", build: () => [signUpScreen()] },
-  { slug: "onboarding", name: "Onboarding", labels: { ja: "はじめに", zh: "引导页", ko: "온보딩" }, category: "auth", frame: "phone", icon: "tour", build: () => [onboardingScreen()] },
+  { slug: "phone-login", name: "Phone sign-in", labels: { ja: "電話番号ログイン", zh: "手机号登录", ko: "전화번호 로그인" }, category: "auth", frame: "phone", icon: "smartphone", build: () => [phoneLoginScreen()] },
+  { slug: "forgot-password", name: "Forgot password", labels: { ja: "パスワード再設定", zh: "忘记密码", ko: "비밀번호 찾기" }, category: "auth", frame: "phone", icon: "lock_reset", build: () => [forgotScreen()] },
+  { slug: "verify-code", name: "Verification code", labels: { ja: "確認コード", zh: "验证码", ko: "인증번호" }, category: "auth", frame: "phone", icon: "pin", build: () => [verifyScreen()] },
+  { slug: "reset-password", name: "New password", labels: { ja: "新しいパスワード", zh: "设置新密码", ko: "새 비밀번호" }, category: "auth", frame: "phone", icon: "password", build: () => [resetScreen()] },
 ];

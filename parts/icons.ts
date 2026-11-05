@@ -119,8 +119,9 @@ export function useIconVersion() {
 export function useIcons(node: PNode) {
   const names = [...iconNamesIn(node)].join(",");
   useEffect(() => ensureIcons(names ? names.split(",") : []), [names]);
-  /* the count of what this family has sent, under the family's name: changing family draws the tree again even if nothing is left to fetch */
-  const count = () => `${family}:${names ? names.split(",").filter((name) => ids(name).some((id) => arrived.has(id) && (family === "rounded" || !id.endsWith("-rounded") || id.startsWith("material-symbols-light:")))).length : 0}`;
+  /* how much of this tree's icons has been sent, under the family's name: changing family draws the tree again even if nothing is left to
+   * fetch. Every drawing counts, the family's own and the one that stands in for it: the solid family's own ids end like the stand-in's */
+  const count = () => `${family}:${names ? names.split(",").reduce((sent, name) => sent + ids(name).filter((id) => arrived.has(id)).length, 0) : 0}`;
   return useSyncExternalStore(
     (l) => {
       listeners.add(l);

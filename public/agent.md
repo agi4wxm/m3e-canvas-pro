@@ -447,33 +447,103 @@ The editor's Templates tab adds these as new screens, in auto layout. A document
 
 <!-- templates:begin -->
 
-- `auth-flow`: Auth flow, phone, 3 linked screens
+- `auth-flow`: Sign-in flow, phone, 5 linked screens
+- `start-flow`: First launch flow, phone, 3 linked screens
 - `shop-flow`: Shop flow, phone, 5 linked screens
+- `game-flow`: Game flow, phone, 5 linked screens
+- `splash`: Splash, phone
+- `onboarding`: Onboarding, phone
 - `login`: Log in, phone
 - `sign-up`: Sign up, phone
-- `onboarding`: Onboarding, phone
+- `phone-login`: Phone sign-in, phone
+- `forgot-password`: Forgot password, phone
+- `verify-code`: Verification code, phone
+- `reset-password`: New password, phone
+- `category-browse`: Categories, phone
 - `product-list`: Product list, phone
 - `product-detail`: Product detail, phone
 - `cart`: Cart, phone
 - `checkout`: Checkout, phone
 - `order-success`: Order success, phone
+- `order-list`: Orders, phone
+- `order-detail`: Order detail, phone
+- `refund-request`: Refund request, phone
+- `write-review`: Write a review, phone
+- `coupon-list`: Coupons, phone
+- `address-list`: Addresses, phone
+- `me-center`: Me, phone
+- `contacts`: Contacts, phone
+- `ai-chat`: AI assistant, phone
+- `short-video`: Short video, phone
 - `home-feed`: Home feed, phone
+- `post-detail`: Post detail, phone
 - `profile`: Profile, phone
 - `chat-list`: Chat list, phone
 - `chat-thread`: Chat thread, phone
+- `group-chat`: Group chat, phone
 - `notifications`: Notifications, phone
+- `search-home`: Search, phone
+- `video-detail`: Video, phone
+- `booking`: Booking, phone
+- `help-center`: Help center, phone
 - `search-results`: Search results, phone
 - `article-detail`: Article, phone
 - `pricing`: Pricing, phone
 - `calendar`: Calendar, phone
+- `event-detail`: Event detail, phone
+- `course-detail`: Course detail, phone
 - `music-player`: Music player, phone
 - `map-route`: Map and route, phone
 - `wallet`: Wallet, phone
+- `error-state`: Error, phone
+- `loading-state`: Loading, phone
+- `permission`: Permission request, phone
+- `feedback`: Feedback, phone
+- `about`: About, phone
 - `settings`: Settings, phone
 - `form`: Form, phone
 - `empty-state`: Empty state, phone
+- `game-title`: Title screen, phone
+- `game-loading`: Loading screen, phone
+- `game-lobby`: Lobby, phone
+- `game-lobby-landscape`: Lobby, landscape, landscape
+- `world-map`: World map, phone
+- `level-select`: Level select, phone
+- `level-start`: Level start, phone
+- `match-found`: Match found, landscape
+- `battle-hud`: Battle, landscape
+- `puzzle-board`: Puzzle board, phone
+- `pause-menu`: Pause menu, phone
+- `victory`: Victory, phone
+- `defeat`: Defeat, phone
+- `story-dialogue`: Story dialogue, phone
+- `game-inventory`: Inventory, phone
+- `game-character`: Character, phone
+- `character-upgrade`: Character upgrade, phone
+- `character-select`: Choose a hero, phone
+- `game-shop`: Game shop, phone
+- `gacha-pull`: Summon, phone
+- `event-wheel`: Lucky wheel, phone
+- `daily-check-in`: Daily check-in, phone
+- `game-quests`: Quests, phone
+- `battle-pass`: Season pass, phone
+- `game-leaderboard`: Leaderboard, phone
+- `game-friends`: Friends, phone
+- `game-guild`: Guild, phone
+- `game-mail`: Mail, phone
+- `game-settings`: Game settings, phone
+- `pc-main-menu`: PC main menu, desktop
+- `pc-hud`: PC in game, desktop
+- `pc-inventory`: PC character and bag, desktop
+- `desktop-login`: Desktop sign-in, desktop
+- `desktop-settings`: Desktop settings, desktop
+- `mail-inbox`: Three-pane inbox, desktop
 - `dashboard`: Dashboard, desktop
 - `admin-table`: Admin table, desktop
+- `file-manager`: File manager, desktop
+- `desktop-chat`: Desktop chat, desktop
+- `kanban-board`: Kanban board, desktop
+- `editor-workspace`: Editor workspace, desktop
 - `landing-page`: Landing page, desktop
 
 <!-- templates:end -->

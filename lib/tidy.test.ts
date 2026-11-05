@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { carryFrame, minFrameLength, pinOf, stretchFrame, tidyFrame } from "./tidy";
-import { DESKTOP_H, DESKTOP_W, Frame, Group, Item, PHONE_H, PHONE_MARGIN, PHONE_W, frameLengthOf, frameOfGroup, frameRect, groupBounds, isPhoneFrame, makeItem, sizeOf } from "./tokens";
+import { carryFrame, fitLength, isScreenLayout, minFrameLength, pinOf, stretchFrame, tidyFrame } from "./tidy";
+import { DESKTOP_H, DESKTOP_W, Frame, Group, Item, PHONE_H, PHONE_MARGIN, PHONE_MODELS, PHONE_W, frameLengthOf, frameOfGroup, frameRect, frameSizeOf, groupBounds, isPhoneFrame, makeItem, phoneFields, phoneModelOf, phoneSizeOf, sizeOf } from "./tokens";
 
 const frame: Frame = { id: "f1", name: "Home", x: 0, y: 0 };
 const frames = [frame];
@@ -13,6 +13,82 @@ const FAB = sizeOf(part("fab", "fab"), {});
 const BUTTON = sizeOf(part("button", "button"), {});
 const BAR_H = sizeOf(part("app-bar", "bar"), {}).h;
 const NAV_H = sizeOf(part("navigation-bar", "nav"), {}).h;
+
+describe("a screen as long as what it holds", () => {
+  const small = { w: 360, h: 780 };
+  const rows = (...ys: number[]) => ys.map((y, i) => grp(`g-${i}`, 16, y, [part("button", `b${i}`, { label: "x", width: 328 })]));
+  const sized = (n: number, h: number): Record<string, number> => ({ nav: 360, "nav:h": 64, ...Object.fromEntries(Array.from({ length: n }, (_, i) => [[`b${i}`, 328], [`b${i}:h`, h]]).flat()) });
+  const nav = (y: number) => grp("g-nav", 0, y, [part("navigation-bar", "nav", { width: 360 })]);
+
+  it("closes up before going shorter: a row left below the new foot would be on no screen", () => {
+    /* grown by a guess that was too high: the last row stands where only the longer screen reaches */
+    const long: Frame = { id: "s", name: "S", x: 0, y: 0, ...small, length: 1100, grownFrom: 780 };
+    const out = fitLength([...rows(80, 300, 520, 740, 980), nav(1036)], long, [long], sized(5, 56));
+    expect(frameLengthOf(out.frame)).toBe(780);
+    expect(out.frame.grownFrom).toBeUndefined();
+    const laid = tidyFrame(out.groups, out.frame, out.frames, sized(5, 56)) ?? out.groups;
+    const foot = laid.find((g) => g.id === "g-nav")!.y;
+    expect(foot).toBe(780 - 64);
+    for (const g of laid.filter((x) => x.id !== "g-nav")) {
+      expect(frameOfGroup(g, out.frames, sized(5, 56))?.id, g.id).toBe("s");
+      expect(g.y + 56, g.id).toBeLessThanOrEqual(foot);
+    }
+  });
+
+  it("grows when what is really there does not fit, and says what it grew from", () => {
+    const short: Frame = { id: "s", name: "S", x: 0, y: 0, ...small };
+    const out = fitLength([...rows(80, 200, 320, 440, 560, 680), nav(716)], short, [short], sized(6, 120));
+    expect(frameLengthOf(out.frame)).toBeGreaterThan(780);
+    expect(out.frame.grownFrom).toBe(780);
+    expect(out.groups.find((g) => g.id === "g-nav")!.y).toBe(frameLengthOf(out.frame) - 64);
+  });
+
+  it("leaves a length someone set, and a screen that already fits", () => {
+    const set: Frame = { id: "s", name: "S", x: 0, y: 0, ...small, length: 1400 };
+    const groups = [...rows(80, 200), nav(1336)];
+    const out = fitLength(groups, set, [set], sized(2, 56));
+    expect(out.frame).toBe(set);
+    expect(out.groups).toBe(groups);
+  });
+
+  it("takes a layout made as big as the screen for the screen, while its measure is still of the last one", () => {
+    const wide: Frame = { id: "s", name: "S", x: 0, y: 0, w: 956, h: 440 };
+    const layout = grp("g-l", 0, 0, [part("container", "l", { width: 956, height: 440, hugHeight: false, hugWidth: false })]);
+    expect(isScreenLayout(layout, wide, { l: 780, "l:h": 360 })).toBe(true);
+    const smaller = grp("g-l", 0, 0, [part("container", "l", { width: 400, height: 440, hugHeight: false, hugWidth: false })]);
+    expect(isScreenLayout(smaller, wide, { l: 956, "l:h": 440 })).toBe(false);
+  });
+});
+
+describe("the phones a document can be drawn for", () => {
+  it("are all phones, each size once, upright", () => {
+    const sizes = PHONE_MODELS.map((m) => `${m.w}x${m.h}`);
+    expect(new Set(sizes).size).toBe(sizes.length);
+    for (const m of PHONE_MODELS) {
+      const f: Frame = { id: m.key, name: m.name, x: 0, y: 0, ...phoneFields(m) };
+      expect(isPhoneFrame(f), m.key).toBe(true);
+      expect(frameSizeOf(f)).toEqual({ w: m.w, h: m.h });
+      expect(m.h, m.key).toBeGreaterThan(m.w);
+    }
+  });
+
+  it("start from the usual one, which a screen need not name", () => {
+    expect(PHONE_MODELS[0]).toMatchObject({ w: PHONE_W, h: PHONE_H });
+    expect(phoneFields(PHONE_MODELS[0])).toEqual({ w: undefined, h: undefined });
+  });
+
+  it("know a screen on its side for the same model, and go by the first upright screen", () => {
+    const model = PHONE_MODELS.find((m) => m.w !== PHONE_W)!;
+    const sideways: Frame = { id: "a", name: "A", x: 0, y: 0, w: model.h, h: model.w };
+    const upright: Frame = { id: "b", name: "B", x: 900, y: 0, w: model.w, h: model.h };
+    expect(phoneModelOf(sideways)?.key).toBe(model.key);
+    expect(phoneSizeOf([sideways])).toEqual({ w: PHONE_W, h: PHONE_H });
+    expect(phoneSizeOf([sideways, upright])).toEqual({ w: model.w, h: model.h });
+    /* a desktop screen says nothing about the phone */
+    expect(phoneSizeOf([{ id: "d", name: "D", x: 0, y: 0, w: DESKTOP_W, h: DESKTOP_H }])).toEqual({ w: PHONE_W, h: PHONE_H });
+    expect(phoneModelOf({ id: "c", name: "C", x: 0, y: 0, w: 333, h: 777 })).toBeUndefined();
+  });
+});
 
 describe("tidyFrame", () => {
   it("snaps the app bar to the top edge and the navigation bar to the bottom", () => {

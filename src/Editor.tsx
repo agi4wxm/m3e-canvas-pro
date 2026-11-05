@@ -33,6 +33,9 @@ import {
   frameOfGroup,
   frameOfPart,
   framePresetPatch,
+  isPhoneFrame,
+  phoneFields,
+  phoneSizeOf,
   frameRadius,
   frameRect,
   frameSizeOf,
@@ -114,7 +117,7 @@ import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from
 import { artOf, isStrict, screenBackground, stylePatch, type StyleUX } from "@/lib/styles";
 import { conformDoc, conformGroups, rulesForModel } from "@/lib/styleRules";
 import { layoutForStyle, metricsOf } from "@/lib/styleLayout";
-import { standingTogether } from "@/lib/tidy";
+import { fillRest, fitLength, lengthToHold, standingTogether } from "@/lib/tidy";
 import { useIconFamily } from "@/parts/icons";
 import { StyleGate, StylePanel } from "@/components/StylePanel";
 import { partBySlug, reader, translateComponentProps } from "@/parts/registry";
@@ -962,7 +965,11 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   }, []);
   /** a screen that changed size and is waiting for its parts' new measures before it is
    *  laid out again — an overlay's size only settles once it has been drawn in its new box */
-  const retidyRef = useRef<string | null>(null);
+  const retidyRef = useRef<string[] | null>(null);
+  /** screens just added from a template: what touches on them does so because of a guess at its size, not by design */
+  const freshFramesRef = useRef<{ ids: string[]; until: number } | null>(null);
+  /** screens just put on another phone: what they hold wraps anew, and is only known once it has been drawn at that width */
+  const newPhoneRef = useRef<{ ids: string[]; until: number } | null>(null);
   useLayoutEffect(() => {
     const next: Record<string, number> = {};
     measureEls.current.forEach((el, id) => {
@@ -988,8 +995,11 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
      * screen holding an overlay whose measured size moved under it — an overlay centers
      * itself, so a size that changed since the last tidy leaves it off center */
     const retidy = new Set<string>();
-    if (retidyRef.current) retidy.add(retidyRef.current);
+    if (retidyRef.current) for (const id of retidyRef.current) retidy.add(id);
     retidyRef.current = null;
+    const fresh = freshFramesRef.current && Date.now() < freshFramesRef.current.until ? freshFramesRef.current.ids : [];
+    const newPhone = newPhoneRef.current && Date.now() < newPhoneRef.current.until ? newPhoneRef.current.ids : [];
+    if (changed) for (const id of [...fresh, ...newPhone]) retidy.add(id);
     if (changed)
       for (const g of groupsRef.current) {
         if (!g.items.some((it) => roleOf(it) === "overlay" && (next[it.id] !== widthsRef.current[it.id] || next[`${it.id}:h`] !== widthsRef.current[`${it.id}:h`]))) continue;
@@ -999,16 +1009,29 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     /* `next` holds the sizes the parts just came out at; the change is instant — after a preset
      * change the screen is still easing to its new size, so the correction is part of the move */
     let laid = groupsRef.current;
+    let laidFrames = framesRef.current;
     let moved = false;
+    /* what a part is about to be given goes beside what the parts came out at, not over it: while a part has not
+     * taken its new size the two differ, and a measure that kept reading as changed would run this again without end */
+    const sizes = { ...next };
     for (const fid of retidy) {
-      const fr = framesRef.current.find((f) => f.id === fid);
-      const tidied = fr ? tidyFrame(laid, fr, framesRef.current, next, metricsOf(themeRef.current)) : null;
-      if (tidied) {
-        laid = tidied;
+      const fr = laidFrames.find((f) => f.id === fid);
+      if (!fr) continue;
+      const m = { ...metricsOf(themeRef.current), ...(fresh.includes(fid) ? { together: [] } : {}) };
+      const filled = fillRest(laid, fr, laidFrames, sizes, m);
+      /* how long such a screen has to be was reckoned from a guess, or from sizes on the other phone: now it is known */
+      const fit = fresh.includes(fid) || newPhone.includes(fid) ? fitLength(filled, fr, laidFrames, sizes, m) : { groups: filled, frames: laidFrames, frame: fr };
+      const tidied = tidyFrame(fit.groups, fit.frame, fit.frames, sizes, m);
+      if (tidied || fit.groups !== laid || fit.frames !== laidFrames) {
+        laid = tidied ?? fit.groups;
+        laidFrames = fit.frames;
         moved = true;
       }
     }
-    if (moved) setGroups(laid);
+    if (moved) {
+      setGroups(laid);
+      if (laidFrames !== framesRef.current) setFrames(laidFrames);
+    }
   });
 
   useEffect(() => {
@@ -1890,7 +1913,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     /* what remembers this very state (Tidy's way back, a length being dragged) is told of the new one */
     if (tidyRef.current?.after === groups) tidyRef.current = { ...tidyRef.current, after: next };
     if (lengthRun.current?.to.groups === groups) lengthRun.current = { ...lengthRun.current, to: { ...lengthRun.current.to, groups: next } };
-    setGroups(next);
+    /* only over the state it was worked out from: a layout just asked for must not be written over by this older one, and it comes back here anyway */
+    setGroups((current) => (current === groups ? next : current));
   }, [groups, canvas, carrying]);
   useEffect(() => {
     if (!isGesturing) return;
@@ -3056,6 +3080,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       name: `${t("screenN")} ${framesRef.current.length + 1}`,
       x: nextFrameX(),
       y: base?.y ?? 0,
+      /* a new screen is the same phone as the others */
+      ...phoneFields(phoneSizeOf(framesRef.current)),
     };
     setFrames((fs) => [...fs, f]);
     setSelectedFrameId(f.id);
@@ -3084,8 +3110,11 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       ensureFrame();
     }
     const fs = framesRef.current;
-    const added = instantiate(template, getLang(), { x: nextFrameX(), y: fs[0]?.y ?? 0 }, fs.map((f) => f.name));
+    const added = instantiate(template, getLang(), { x: nextFrameX(), y: fs[0]?.y ?? 0 }, fs.map((f) => f.name), phoneSizeOf(fs));
     tidyRef.current = null;
+    /* its parts were placed by a guess at their sizes: once they are drawn it is laid out again by what they came to */
+    freshFramesRef.current = { ids: added.frames.map((f) => f.id), until: Date.now() + 4000 };
+    retidyRef.current = added.frames.map((f) => f.id);
     setFrames((cur) => [...cur, ...added.frames]);
     setGroups((cur) => [...cur, ...added.groups]);
     setSelectedIds([]);
@@ -3100,7 +3129,44 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setFrames((fs) => fs.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   };
 
-  const setFramePreset = (id: string, preset: FramePreset) => resizeFrame(id, framePresetPatch(preset));
+  /* a phone chosen for a screen is the phone the document is drawn for */
+  const setFramePreset = (id: string, preset: FramePreset) => resizeFrame(id, preset === "phone" ? phoneFields(phoneSizeOf(framesRef.current)) : framePresetPatch(preset));
+
+  /** every phone screen of the document at the size of one model, each kept upright or on its side. One undo step. */
+  const setPhoneModel = (size: { w: number; h: number }) => {
+    snapshot();
+    tidyRef.current = null;
+    let frames = framesRef.current;
+    let groups = groupsRef.current;
+    const ids: string[] = [];
+    for (const f of framesRef.current) {
+      if (!isPhoneFrame(f)) continue;
+      const was = frames.find((x) => x.id === f.id)!;
+      const sideways = frameSizeOf(was).w > frameSizeOf(was).h;
+      /* a length the last phone called for is not this phone's: only one a person or a template set stays */
+      const sized = { ...was, ...(sideways ? { w: size.h, h: size.w } : phoneFields(size)), ...(was.grownFrom !== undefined ? { length: undefined, grownFrom: undefined } : {}) };
+      /* a screen no longer than its new device does not scroll any more */
+      const fitted = sized.length !== undefined && sized.length <= frameSizeOf(sized).h ? { ...sized, length: undefined } : sized;
+      const before = frameSizeOf(was);
+      const after = frameSizeOf(fitted);
+      if (before.w === after.w && before.h === after.h) continue;
+      /* on a smaller phone what no longer fits makes the screen longer: a part left below its foot would be off the screen */
+      const mine = groups.filter((g) => frameOfGroup(g, frames, widthsRef.current)?.id === f.id);
+      const need = Math.ceil(lengthToHold(mine, fitted, widthsRef.current, metricsOf(themeRef.current)) / 4) * 4;
+      const next = need > frameLengthOf(fitted) ? { ...fitted, length: need, grownFrom: after.h } : fitted;
+      const laid = carryFrame(groups, was, next, frames, widthsRef.current, metricsOf(themeRef.current));
+      frames = laid.frames;
+      groups = laid.groups;
+      ids.push(f.id);
+    }
+    if (!ids.length) return;
+    setEasing(true);
+    window.setTimeout(() => setEasing(false), SETTLE_MS + 40);
+    retidyRef.current = ids;
+    newPhoneRef.current = { ids, until: Date.now() + 4000 };
+    setFrames(frames);
+    setGroups(groups);
+  };
 
   const resizeFrame = (id: string, size: Pick<Frame, "w" | "h">) => {
     const current = framesRef.current.find((f) => f.id === id);
@@ -3122,7 +3188,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     /* overlays drawn open (a dialog's box is the screen it floats in) are laid out here with
      * their old measures; they are re-measured against the new screen size in the measuring
      * pass, and the screen is laid out once more with the sizes that came out */
-    retidyRef.current = id;
+    retidyRef.current = [id];
     setFrames(laid.frames);
     setGroups(laid.groups);
   };
@@ -3413,7 +3479,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (!made) return;
     snapshot();
     tidyRef.current = null;
-    retidyRef.current = made.id;
+    retidyRef.current = [made.id];
     setFrames(made.frames);
     setGroups(made.groups);
     setSelectedIds([]);
@@ -4433,23 +4499,30 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   <Logo size={32} color={p.primary} glyph={p.onPrimary} />
                 </div>
               )}
-              <div style={{ height: 6 }} />
-              {LEFT_TABS.map((tab, i) => (
-                <div key={tab.key} style={{ marginTop: tab.key === "color" || tab.key === "ai" ? 10 : 0 }}>
-                  <IconBtn
-                    icon={tab.icon}
-                    p={p}
-                    on={leftOpen && leftTab === tab.key}
-                    onClick={() => {
-                      setLeftTab(tab.key);
-                      setLeftOpen(true);
-                    }}
-                    title={t(tab.title, lang)}
-                    size={44}
-                  />
-                </div>
-              ))}
-              <div style={{ flex: 1 }} onClick={() => !leftOpen && setLeftOpen(true)} />
+              {/* a short window scrolls the tabs: what stands at the ends of the rail stays in reach */}
+              <div
+                className="no-scrollbar"
+                onClick={(e) => {
+                  if (!leftOpen && e.target === e.currentTarget) setLeftOpen(true);
+                }}
+                style={{ flex: 1, minHeight: 0, width: "100%", overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "6px 0" }}
+              >
+                {LEFT_TABS.map((tab) => (
+                  <div key={tab.key} style={{ flex: "0 0 auto", marginTop: tab.key === "color" || tab.key === "ai" ? 10 : 0 }}>
+                    <IconBtn
+                      icon={tab.icon}
+                      p={p}
+                      on={leftOpen && leftTab === tab.key}
+                      onClick={() => {
+                        setLeftTab(tab.key);
+                        setLeftOpen(true);
+                      }}
+                      title={t(tab.title, lang)}
+                      size={44}
+                    />
+                  </div>
+                ))}
+              </div>
               <LangMenu p={p} onLang={changeLanguage} side="right" size={44} />
               <GitHubLink p={p} size={44} />
             </div>
@@ -5294,6 +5367,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                   frame={selectedFrame}
                   palette={p}
                   onSize={(preset) => setFramePreset(selectedFrame.id, preset)}
+                  onPhoneModel={setPhoneModel}
                   onResize={(w, h) => resizeFrame(selectedFrame.id, { w, h })}
                   onChange={(patch) => patchFrame(selectedFrame.id, patch)}
                   onDelete={() => deleteFrame(selectedFrame.id)}

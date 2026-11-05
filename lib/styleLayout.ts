@@ -2,7 +2,7 @@ import { partBySlug } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import { isStrict, recipesOf, uxOf, type StyleUX } from "./styles";
-import { lengthToHold, MATERIAL_METRICS, stretchFrame, tidyFrame, type LayoutMetrics } from "./tidy";
+import { fillRest, fitLength, isScreenLayout, MATERIAL_METRICS, tidyFrame, type LayoutMetrics } from "./tidy";
 import { frameLengthOf, frameOfGroup, frameRect, frameSizeOf, groupBounds, isExpanded, railWidth, type Frame, type Group, type Item, type Theme } from "./tokens";
 
 /* The third layer of a style: how a screen is laid out. Changing style moves the main navigation to where that product
@@ -47,9 +47,9 @@ const railsWidth = (mine: Group[]) => mine.reduce((sum, g) => sum + (g.items.len
 type Result = { groups: Group[]; frames: Frame[] };
 
 /** One screen laid out the way a style lays them out. */
-function layoutScreen(state: Result, frame: Frame, measures: Record<string, number>, ux: StyleUX, m: LayoutMetrics, pick: boolean): Result {
+function layoutScreen(state: Result, frame: Frame, measures: Record<string, number>, ux: StyleUX, m: LayoutMetrics, asked: StyleUX["place"] | undefined): Result {
   const owner = (g: Group) => frameOfGroup(g, state.frames, measures)?.id === frame.id;
-  const free = (g: Group) => owner(g) && !g.inFlow && !g.locked && roleOf(g.items[0]) !== "backdrop";
+  const free = (g: Group) => owner(g) && !g.inFlow && !g.locked && roleOf(g.items[0]) !== "backdrop" && !isScreenLayout(g, frame, measures);
   /* 1. the navigation goes where the product has it; only the first, and only one standing on its own */
   const fr = frameRect(frame);
   const { w: screenW } = frameSizeOf(frame);
@@ -118,25 +118,28 @@ function layoutScreen(state: Result, frame: Frame, measures: Record<string, numb
     return g;
   });
 
-  /* 3. where the body gathers: a screen keeps its own, until a style is put on the whole document */
-  const place = !pick || ux.place === "top" ? (pick ? undefined : frame.place) : ux.place;
+  /* a desktop template is one layout with a sidebar and a main column: the style's spacing reaches the column */
+  groups = groups.map((g) => {
+    if (!g.screenMain || !owner(g)) return g;
+    const it = g.items[0];
+    const spaced = { padX: ux.margin, padY: ux.margin, gap: ux.gap };
+    return (Object.keys(spaced) as (keyof typeof spaced)[]).every((k) => it.props?.[k] === spaced[k]) ? g : { ...g, items: [{ ...it, props: { ...it.props, ...spaced } }] };
+  });
+
+  /* 3. where the body gathers: a screen keeps its own, unless the author has said for the whole document */
+  const place = asked === undefined ? frame.place : asked === "top" ? undefined : asked;
   const placed: Frame = frame.place === place ? frame : { ...frame, place };
+
+  /* what takes the rest of the screen takes what this style leaves of it */
+  const withPlaced = placed === frame ? state.frames : state.frames.map((f) => (f.id === frame.id ? placed : f));
+  groups = fillRest(groups, placed, withPlaced, measures, m);
 
   /* 4. a style with more room around things may need a longer screen than the last one did, and one that needs less
      gives back what a style took. The length comes first: Tidy leaves what does not fit where it was */
-  const base = placed.grownFrom ?? frameLengthOf(placed);
-  const length = Math.max(base, Math.ceil(lengthToHold(groups.filter(owner), placed, measures, m) / 4) * 4);
-  const grownFrom = length > base ? base : undefined;
-  let frames = placed === frame ? state.frames : state.frames.map((f) => (f.id === frame.id ? placed : f));
-  let next = placed;
-  if (length !== frameLengthOf(placed) || grownFrom !== placed.grownFrom) {
-    const stretched = stretchFrame(groups, placed, length, frames, measures);
-    groups = stretched.groups;
-    frames = stretched.frames.map((f) => (f.id === frame.id ? (next = grownFrom ? { ...f, grownFrom } : f) : f));
-  }
+  const fit = fitLength(groups, placed, withPlaced, measures, m);
 
   /* 5. and the rules of Tidy, with this style's numbers */
-  return { groups: tidyFrame(groups, next, frames, measures, m) ?? groups, frames };
+  return { groups: tidyFrame(fit.groups, fit.frame, fit.frames, measures, m) ?? fit.groups, frames: fit.frames };
 }
 
 /** Every screen laid out the way a theme's style lays them out, or null when nothing would move. */
@@ -148,7 +151,7 @@ export function layoutForStyle(groups: Group[], frames: Frame[], widths: Record<
   let state: Result = { groups, frames };
   for (const f of frames) {
     const live = state.frames.find((x) => x.id === f.id) ?? f;
-    state = layoutScreen(state, live, measures, ux, m, !!opts.pick);
+    state = layoutScreen(state, live, measures, ux, m, opts.pick ? theme.ux?.place : undefined);
   }
   return state.groups === groups && state.frames === frames ? null : state;
 }

@@ -372,13 +372,15 @@ export function stretchFrame(groups: Group[], frame: Frame, length: number, fram
 /** How long a screen has to be for every row of its body to stand between its bars under these metrics;
  *  0 when a locked bar at its foot says how long it is. Tidy leaves a row that does not fit where it was. */
 export function lengthToHold(mine: Group[], frame: Frame, widths: Record<string, number>, m: LayoutMetrics = MATERIAL_METRICS): number {
+  /* what stands on a picture is placed by the screen's edges: it never asks for more screen */
+  if (!frame.place && mine.some((g) => !g.inFlow && roleOf(g.items[0]) === "backdrop")) return 0;
   const long: Frame = { ...frame, length: 100000, place: undefined };
   const laid = tidyFrame(mine, long, [long], widths, m) ?? mine;
   const end = frameRect(long).b;
   let rows = frame.y;
   let foot = end - safeAreaOf(frame).b;
   for (const g of laid) {
-    if (g.inFlow) continue;
+    if (g.inFlow || isScreenLayout(g, frame, widths)) continue;
     const role = roleOf(g.items[0]);
     const bb = groupBounds(g, widths);
     if (role === "bottom" || role === "floatingBottom") {
@@ -387,6 +389,23 @@ export function lengthToHold(mine: Group[], frame: Frame, widths: Record<string,
     } else if (role !== "top" && role !== "rail" && role !== "fab" && role !== "overlay" && role !== "backdrop") rows = Math.max(rows, bb.b);
   }
   return rows - frame.y + m.margin + end - foot;
+}
+
+/** A screen as long as what stands on it asks under these metrics: longer than it was meant to be while the body does
+ *  not fit, and back as soon as it needs less. What a person or a template set stays the least it can be. */
+export function fitLength(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>, m: LayoutMetrics = MATERIAL_METRICS): { groups: Group[]; frames: Frame[]; frame: Frame } {
+  const mine = groups.filter((g) => frameOfGroup(g, frames, widths)?.id === frame.id);
+  const base = frame.grownFrom ?? frameLengthOf(frame);
+  const length = Math.max(base, Math.ceil(lengthToHold(mine, frame, widths, m) / 4) * 4);
+  const grownFrom = length > base ? base : undefined;
+  if (length === frameLengthOf(frame) && grownFrom === frame.grownFrom) return { groups, frames, frame };
+  /* going shorter, what is held closes up first: a row left below the new foot would no longer be on this screen, and nothing would bring it back */
+  const gathered = { ...frame, place: undefined };
+  const closed = length < frameLengthOf(frame) ? (tidyFrame(groups, gathered, frames.map((f) => (f.id === frame.id ? gathered : f)), widths, m) ?? groups) : groups;
+  const stretched = stretchFrame(closed, frame, length, frames, widths);
+  const to = stretched.frames.find((f) => f.id === frame.id)!;
+  const next = grownFrom ? { ...to, grownFrom } : to;
+  return { groups: stretched.groups, frames: stretched.frames.map((f) => (f === to ? next : f)), frame: next };
 }
 
 /** The shortest a screen can be made: the device, or as much as its body needs with what stands at
@@ -505,10 +524,39 @@ export function bodyRect(groups: Group[], frame: Frame, frames: Frame[], widths:
   return { l, t, r: Math.max(l, screen.r - rightRails - m.margin), b: Math.max(t, bottom - m.margin) };
 }
 
+/** A layout as big as its screen, that holds the screen's parts: it is the screen, not something on it. It takes no margin
+ *  and no row of its own. */
+export function isScreenLayout(g: Group, frame: Frame, widths: Record<string, number>): boolean {
+  const it = g.items[0];
+  const def = partBySlug(it.component);
+  if (g.items.length !== 1 || !def?.holds || roleOf(it) === "backdrop") return false;
+  /* how big it was made, where it says: a measure may still be of the last screen, and a layout taken for a row while it lags is moved off its edge for good */
+  const axes = resizeOf(def, it.props);
+  const bb = groupBounds(g, widths);
+  const { w, h } = frameSizeOf(frame);
+  return (axes?.width ? axisValue(axes.width, it.props) : bb.r - bb.l) >= w - 1 && (axes?.height ? axisValue(axes.height, it.props) : bb.b - bb.t) >= h - 1;
+}
+
+/** A part set to take what is left of its screen, at that height: the rest of the rows, the margins and the bars come off
+ *  the length of the screen. The measure given says the new height too, until the part has been drawn at it. */
+export function fillRest(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>, m: LayoutMetrics = MATERIAL_METRICS): Group[] {
+  const mine = groups.filter((g) => !g.inFlow && frameOfGroup(g, frames, widths)?.id === frame.id);
+  const filler = mine.find((g) => g.items.length === 1 && g.items[0].flowFill && roleOf(g.items[0]) === undefined);
+  if (!filler) return groups;
+  const it = filler.items[0];
+  const axis = resizeOf(partBySlug(it.component), it.props)?.height;
+  if (!axis) return groups;
+  const others = lengthToHold(mine, frame, { ...widths, [`${it.id}:h`]: 1 }, m) - 1;
+  const height = Math.max(axis.min, Math.min(axis.max, frameLengthOf(frame) - others));
+  widths[`${it.id}:h`] = height;
+  if (axisValue(axis, it.props) === height) return groups;
+  return groups.map((g) => (g === filler ? { ...g, items: [{ ...it, props: { ...it.props, [axis.key]: axisWrite(axis, height) } }] } : g));
+}
+
 export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>, m: LayoutMetrics = MATERIAL_METRICS): Group[] | null {
   const screen: Rect = frameRect(frame);
   /* what a container lays out goes where the container is, not into the screen's rows */
-  const mineIds = new Set(groups.filter((g) => !g.inFlow && roleOf(g.items[0]) !== "backdrop" && frameOfGroup(g, frames, widths)?.id === frame.id).map((g) => g.id));
+  const mineIds = new Set(groups.filter((g) => !g.inFlow && roleOf(g.items[0]) !== "backdrop" && !isScreenLayout(g, frame, widths) && frameOfGroup(g, frames, widths)?.id === frame.id).map((g) => g.id));
   if (!mineIds.size) return null;
 
   /* Locked groups are finished sections: they never cluster or move, but they keep the room

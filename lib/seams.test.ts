@@ -42,22 +42,21 @@ describe("a template screen", () => {
     return g.x >= r.l && g.x < r.r;
   };
 
-  it("carried to a larger device, its root stays as tall as the screen and its bar stays at the foot", () => {
+  it("carried to a larger device, its bars span the screen and the one at the foot stays there", () => {
     const flow = TEMPLATES.find((t) => t.frame === "phone" && instantiate(t, "en").groups.some((g) => g.items[0].component === "navigation-bar"))!;
     const { frames, groups } = instantiate(flow, "en");
     const m = defaultMeasures(groups);
     const f = frames[0];
     const to: Frame = { ...f, w: TABLET_W, h: TABLET_H };
     const carried = carryFrame(groups, f, to, frames, m);
-    const root = carried.groups.find((g) => !g.inFlow && g.x === f.x)!;
-    expect(root.items[0].props?.height).toBe(TABLET_H);
-    expect(root.items[0].props?.width).toBe(TABLET_W);
+    const top = carried.groups.find((g) => g.items[0].component === "app-bar" && g.x === f.x);
+    if (top) expect(top.items[0].props?.width).toBe(TABLET_W);
     const laid = settle(carried.groups, m);
     const bar = laid.find((g) => g.items[0].component === "navigation-bar" && g.x < f.x + TABLET_W);
     if (bar) expect(groupBounds(bar, m).b).toBeLessThanOrEqual(f.y + TABLET_H + 1);
   });
 
-  it("a bar a layout holds stays a bar when the screen becomes expanded: a column has no use for a rail", () => {
+  it("its navigation becomes what a wide screen has when the screen becomes expanded", () => {
     const flow = TEMPLATES.find((t) => t.frame === "phone" && instantiate(t, "en").groups.some((g) => g.items[0].component === "navigation-bar"))!;
     const { frames, groups } = instantiate(flow, "en");
     const m = defaultMeasures(groups);
@@ -66,11 +65,8 @@ describe("a template screen", () => {
     const big = made.frames.find((x) => x.id === "big")!;
     expect(frameSizeOf(big)).toEqual({ w: DESKTOP_W, h: DESKTOP_H });
     const on = made.groups.filter((g) => g.x >= big.x && g.x < big.x + DESKTOP_W);
-    expect(on.some((g) => g.items[0].component === "navigation-rail" && g.inFlow)).toBe(false);
-    const laid = settle(made.groups, m);
-    const root = laid.find((g) => !g.inFlow && g.x === big.x)!;
-    expect(root.items[0].props?.height).toBe(DESKTOP_H);
-    for (const g of laid.filter((x) => x.inFlow && x.x >= big.x && x.x < big.x + DESKTOP_W && x.items[0].component === "navigation-bar")) expect(groupBounds(g, m).b).toBeLessThanOrEqual(big.y + DESKTOP_H + 1);
+    expect(on.some((g) => g.items[0].component === "navigation-bar")).toBe(false);
+    expect(on.some((g) => g.items[0].component === "navigation-rail")).toBe(true);
   });
 });
 
@@ -79,7 +75,8 @@ describe("a template made into a component", () => {
     const { frames, groups } = instantiate(templateBySlug("shop-flow")!, "en");
     const m = defaultMeasures(groups);
     const f = frames[0];
-    const root = groups.find((g) => !g.inFlow && g.x === f.x)!;
+    /* the products' grid, with the cards it holds */
+    const root = groups.find((g) => !g.inFlow && g.items[0].component === "container" && g.x >= f.x && g.x < f.x + 412)!;
     const made = makeComponent(groups, new Set([root.id]), "Whole", m, "c")!;
     expect(made.def.groups.length).toBeGreaterThan(3);
     const doc: Doc = { groups: made.groups, frames, components: [made.def], paletteKey: "purple", frame: "phone", title: "", brief: "" };

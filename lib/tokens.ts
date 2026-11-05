@@ -832,8 +832,39 @@ export type FramePreset = "phone" | "tablet" | "desktop";
 export const frameSizeOf = (f: Frame) => ({ w: f.w ?? PHONE_W, h: f.h ?? PHONE_H });
 export const isPhoneFrame = (f: Frame) => {
   const { w, h } = frameSizeOf(f);
-  return w === PHONE_W && h === PHONE_H;
+  return Math.min(w, h) < 600;
 };
+
+/** The phones a screen can be the size of, in CSS pixels: what people hold most (StatCounter, 2026) and the current
+ *  flagships. The first is a screen's size when it names none. */
+export const PHONE_MODELS: { key: string; name: string; w: number; h: number }[] = [
+  { key: "android", name: "Android", w: PHONE_W, h: PHONE_H },
+  { key: "iphone-17", name: "iPhone 17 / 16 Pro", w: 402, h: 874 },
+  { key: "iphone-17-pro-max", name: "iPhone 17 Pro Max / 16 Pro Max", w: 440, h: 956 },
+  { key: "iphone-air", name: "iPhone Air", w: 420, h: 912 },
+  { key: "iphone-16", name: "iPhone 16 / 15", w: 393, h: 852 },
+  { key: "iphone-14", name: "iPhone 14 / 13 / 12", w: 390, h: 844 },
+  { key: "iphone-11", name: "iPhone 11 / XR", w: 414, h: 896 },
+  { key: "pixel-10", name: "Pixel 10", w: 412, h: 923 },
+  { key: "android-393", name: "Android", w: 393, h: 873 },
+  { key: "android-360", name: "Android", w: 360, h: 800 },
+  { key: "galaxy-s25", name: "Galaxy S25", w: 360, h: 780 },
+];
+
+/** the model a screen is the size of, turned upright or on its side */
+export const phoneModelOf = (f: Frame) => {
+  const { w, h } = frameSizeOf(f);
+  return PHONE_MODELS.find((m) => (m.w === w && m.h === h) || (m.w === h && m.h === w));
+};
+
+/** the size of phone a document is drawn for: its first upright phone's, so that whatever is added next matches it */
+export const phoneSizeOf = (frames: Frame[]): { w: number; h: number } => {
+  const f = frames.find((x) => isPhoneFrame(x) && frameSizeOf(x).h >= frameSizeOf(x).w);
+  return f ? frameSizeOf(f) : { w: PHONE_W, h: PHONE_H };
+};
+
+/** what a frame says to be that size: the usual phone says nothing */
+export const phoneFields = (size: { w: number; h: number }): Pick<Frame, "w" | "h"> => (size.w === PHONE_W && size.h === PHONE_H ? { w: undefined, h: undefined } : { w: size.w, h: size.h });
 /** the named device a screen is the size of; any other size is the author's own */
 export const framePresetOf = (f: Frame): FramePreset | "custom" => {
   const { w, h } = frameSizeOf(f);
@@ -1033,6 +1064,8 @@ export const groupsInFrame = (groups: Group[], f: Frame, frames: Frame[], widths
   groups.filter((g) => frameOfPart(g, groups, frames, widths)?.id === f.id);
 
 export type Group = {
+  /** the main column of a desktop template: the style's spacing reaches it */
+  screenMain?: boolean;
   id: string;
   x: number;
   y: number;

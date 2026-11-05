@@ -8,7 +8,9 @@ import {
   Place,
   frameLengthOf,
   frameSizeOf,
+  PHONE_MODELS,
   isPhoneFrame,
+  phoneModelOf,
   onToken,
   takesDeviceBars,
   TRACE_OPACITY,
@@ -24,6 +26,7 @@ import {
   PanelShell,
   Section,
   Segmented,
+  Select,
   Slider,
   TidyButton,
   TidyState,
@@ -183,6 +186,7 @@ export function FrameInspector({
   ai,
   onSize,
   onResize,
+  onPhoneModel,
   variants,
 }: {
   frame: Frame;
@@ -213,6 +217,8 @@ export function FrameInspector({
   onSize: (preset: FramePreset) => void;
   /** the screen at a size of the author's own */
   onResize: (w: number, h: number) => void;
+  /** every phone screen of the document at the size of one model */
+  onPhoneModel?: (size: { w: number; h: number }) => void;
   /** this screen's other sizes, and the making of more */
   variants?: { family: Frame[]; missing: FramePreset[]; onCreate: (preset: FramePreset) => void; onJump: (id: string) => void };
 }) {
@@ -296,6 +302,21 @@ export function FrameInspector({
           </div>
         </Section>
         <Section id="frame-size" icon="aspect_ratio" title={t("screenSize", lang)} p={p}>
+          {isPhoneFrame(frame) && onPhoneModel && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+              <Select
+                label={t("phoneModel", lang)}
+                p={p}
+                value={phoneModelOf(frame)?.key ?? ""}
+                options={[...(phoneModelOf(frame) ? [] : [{ key: "", label: t("phoneModelOwn", lang) }]), ...PHONE_MODELS.map((m) => ({ key: m.key, label: `${m.name} · ${m.w}×${m.h}` }))]}
+                onChange={(k) => {
+                  const m = PHONE_MODELS.find((x) => x.key === k);
+                  if (m) onPhoneModel({ w: m.w, h: m.h });
+                }}
+              />
+              <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("phoneModelHint", lang)}</div>
+            </div>
+          )}
           {/* any device: the three above are only the common ones */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>W</span>

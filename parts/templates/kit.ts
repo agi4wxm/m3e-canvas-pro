@@ -1,18 +1,21 @@
 import { arrangeFlows } from "../../lib/flow";
 import type { Lang } from "../../lib/i18n";
-import { BACK_TARGET, DESKTOP_H, DESKTOP_W, FRAME_GAP, PHONE_H, PHONE_W, TABLET_H, TABLET_W, makeItem, uid, type Action, type ColorToken, type Frame, type Group, type Item, type Transition } from "../../lib/tokens";
+import { MATERIAL_METRICS, fillRest, lengthToHold, tidyFrame } from "../../lib/tidy";
+import { BACK_TARGET, DESKTOP_H, DESKTOP_W, FRAME_GAP, PHONE_H, PHONE_W, TABLET_H, TABLET_W, makeItem, uid, type Action, type ColorToken, type Frame, type Group, type Item, type Place, type Transition } from "../../lib/tokens";
 import { partBySlug } from "../registry";
-import { axisValue, resizeOf } from "../resize";
+import { axisValue, axisWrite, resizeOf } from "../resize";
+import { fullWidth, roleOf } from "../role";
 
-/* Screen templates are plain data: a tree of real parts in auto layout containers, flattened into the
- * groups a document holds. The words carry all four languages and are picked when the screen is
- * added, because most parts only have a Chinese seed of their own and tables have none. */
+/* Screen templates are plain data: the parts of a screen in the order they read, standing on the screen as any part does,
+ * so that Tidy and a style's layout reach them like everything else. What belongs together (a row, a grid, a panel) is a
+ * real part in auto layout. The words carry all four languages and are picked when the screen is added, because most parts
+ * only have a Chinese seed of their own and tables have none. */
 
 export type Say = Record<Lang, string>;
 export const say = (en: string, zh: string, ja: string, ko: string): Say => ({ en, zh, ja, ko });
 
-export type TemplateFrame = "phone" | "tablet" | "desktop";
-export type TemplateCategory = "flow" | "auth" | "shop" | "social" | "content" | "tools" | "desktop";
+export type TemplateFrame = "phone" | "landscape" | "tablet" | "desktop";
+export type TemplateCategory = "flow" | "auth" | "shop" | "social" | "content" | "tools" | "game" | "desktop";
 
 type Props = Record<string, unknown>;
 /** where a tap goes: the id of a screen in the same template, or back */
@@ -20,15 +23,18 @@ type Link = { to: string; transition: Transition };
 export const go = (to: string, transition: Transition = "slide"): Link => ({ to, transition });
 export const back = (): Link => ({ to: BACK_TARGET, transition: "slide" });
 
+/** where a part stands on a picture, by its distance from the edges; with neither edge of an axis it is centered on it,
+ *  with both it spans between them */
+export type Anchor = { l?: number; r?: number; t?: number; b?: number };
+
 /** one part in the tree, with what it holds */
-export type Node = { slug: string; props: Props; name?: Say; fill?: boolean; action?: Link; actions?: Record<string, Link | undefined>; note?: Say; kids?: Node[] };
-type Extra = Pick<Node, "name" | "fill" | "action" | "actions" | "note">;
+export type Node = { slug: string; props: Props; name?: Say; fill?: boolean; action?: Link; actions?: Record<string, Link | undefined>; note?: Say; at?: Anchor; screenMain?: boolean; kids?: Node[] };
+type Extra = Pick<Node, "name" | "fill" | "action" | "actions" | "note" | "at" | "screenMain">;
 
 export const part = (slug: string, props: Props = {}, extra: Extra = {}): Node => ({ slug, props, ...extra });
 
 const NAME = {
   screen: say("Screen", "屏幕", "画面", "화면"),
-  body: say("Body", "内容区", "本文", "본문"),
   main: say("Main", "主区域", "メイン", "메인"),
   column: say("Column", "竖排", "縦並び", "세로"),
   row: say("Row", "横排", "横並び", "가로"),
@@ -50,8 +56,8 @@ export const panel = (props: Props, kids: Node[], extra: Extra = {}): Node => co
 
 export const txt = (text: Say | string, style = "body", more: Props = {}, extra: Extra = {}): Node => part("text", { text, style, ...more }, extra);
 
-/** one screen of a template, its positions still to be worked out */
-export type ScreenSeed = { id: string; name: Say; frame: TemplateFrame; length?: number; note?: Say; bg?: ColorToken; root: Node };
+/** one screen of a template: its parts in the order they read */
+export type ScreenSeed = { id: string; name: Say; frame: TemplateFrame; length?: number; note?: Say; bg?: ColorToken; place?: Place; roots: Node[] };
 
 export type Template = {
   slug: string;
@@ -65,38 +71,35 @@ export type Template = {
   build: () => ScreenSeed[];
 };
 
-const SIZE: Record<TemplateFrame, { w: number; h: number }> = { phone: { w: PHONE_W, h: PHONE_H }, tablet: { w: TABLET_W, h: TABLET_H }, desktop: { w: DESKTOP_W, h: DESKTOP_H } };
+type Size = { w: number; h: number };
+const SIZE: Record<Exclude<TemplateFrame, "landscape">, Size> = { phone: { w: PHONE_W, h: PHONE_H }, tablet: { w: TABLET_W, h: TABLET_H }, desktop: { w: DESKTOP_W, h: DESKTOP_H } };
 
-/** the frame fields a template's screen size comes down to: a phone is what a frame is by default */
-const frameFields = (frame: TemplateFrame): Pick<Frame, "w" | "h"> => (frame === "phone" ? {} : SIZE[frame]);
+/** the size of a template's screen, for the phone the document is drawn for */
+const sizeIn = (frame: TemplateFrame, phone: Size): Size => (frame === "phone" ? phone : frame === "landscape" ? { w: phone.h, h: phone.w } : SIZE[frame]);
 
-type Screen = { id: string; name: Say; frame?: TemplateFrame; length?: number; note?: Say; bg?: ColorToken; top?: Node[]; bottom?: Node[]; body: Node[]; bodyProps?: Props };
+/** the frame fields a screen's size comes down to: the usual phone is what a frame is by default */
+const frameFields = ({ w, h }: Size): Pick<Frame, "w" | "h"> => (w === PHONE_W && h === PHONE_H ? {} : { w, h });
 
-/** A screen: a column the size of the device with the bars at its ends and a body that takes what is
- *  left between them. With no bars the body is the whole screen. */
-export function screen({ id, name, frame = "phone", length, note, bg, top = [], bottom = [], body, bodyProps }: Screen): ScreenSeed {
-  const { w, h } = SIZE[frame];
-  const size = { width: w, height: Math.max(length ?? 0, h), hugHeight: false };
-  const inner = { padX: 16, padY: 16, gap: 16, ...bodyProps };
-  const root =
-    top.length || bottom.length
-      ? col({ ...size, gap: 0 }, [...top, col({ ...inner, hugHeight: false }, body, { name: NAME.body, fill: true }), ...bottom], { name: NAME.screen })
-      : col({ ...inner, ...size }, body, { name: NAME.screen });
-  return { id, name, frame, length, note, bg, root };
+type Screen = { id: string; name: Say; frame?: TemplateFrame; length?: number; note?: Say; bg?: ColorToken; place?: Place; scene?: Node; top?: Node[]; body?: Node[]; spots?: Node[]; bottom?: Node[] };
+
+/** A screen: a picture behind it if it has one, the bars at its ends, the rows of its body between them, and what is
+ *  placed on the picture by its edges. Bars and rows stand on the screen itself, so a style reaches them. */
+export function screen({ id, name, frame = "phone", length, note, bg, place, scene, top = [], body = [], spots = [], bottom = [] }: Screen): ScreenSeed {
+  return { id, name, frame, length, note, bg, place, roots: [...(scene ? [scene] : []), ...top, ...body, ...spots, ...bottom] };
 }
 
-/** A desktop screen: what stands at its side, and a main column beside it. */
+/** A desktop screen: what stands at its side, and a main column beside it, in one layout as big as the window. */
 export function deskScreen({ id, name, length, note, side, body, bodyProps }: { id: string; name: Say; length?: number; note?: Say; side?: Node; body: Node[]; bodyProps?: Props }): ScreenSeed {
   const { w, h } = SIZE.desktop;
-  const main = col({ padX: 24, padY: 24, gap: 16, hugHeight: false, ...bodyProps }, body, { name: NAME.main, fill: true });
+  const main = col({ padX: 24, padY: 24, gap: 16, hugHeight: false, ...bodyProps }, body, { name: NAME.main, fill: true, screenMain: true });
   const root = row({ width: w, height: Math.max(length ?? 0, h), gap: 0, align: "stretch", hugHeight: false }, side ? [side, main] : [main], { name: NAME.screen });
-  return { id, name, frame: "desktop", length, note, root };
+  return { id, name, frame: "desktop", length, note, roots: [root] };
 }
 
 /* ---------- from seed to document ---------- */
 
 /** a group as a template keeps it: words still in every language, links still by screen id */
-export type SeedGroup = Omit<Group, "items" | "name"> & { name?: Say; items: (Omit<Item, "note"> & { note?: Say })[] };
+export type SeedGroup = Omit<Group, "items" | "name"> & { name?: Say; at?: Anchor; items: (Omit<Item, "note"> & { note?: Say })[] };
 
 /** The tree flattened into groups, outermost first: the array is the order a layout goes by, and a
  *  container has to be drawn under what it holds. Ids are stable within a build, not across adds. */
@@ -117,10 +120,10 @@ export function seedGroups(seed: ScreenSeed): SeedGroup[] {
       ...(Object.keys(actions).length ? { actions } : {}),
       ...(node.note ? { note: node.note } : {}),
     };
-    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), items: [item] });
+    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), ...(node.at ? { at: node.at } : {}), ...(node.screenMain ? { screenMain: true } : {}), items: [item] });
     for (const kid of node.kids ?? []) visit(kid, id);
   };
-  visit(seed.root);
+  for (const root of seed.roots) visit(root);
   return out;
 }
 
@@ -159,9 +162,63 @@ export function arranged(groups: Group[]): Group[] {
   return at;
 }
 
+const SCREEN_MARGIN = 16;
+
+/** a part as big as a screen calls for: a bar or a picture spans it, a row of the body takes the width between the margins,
+ *  and what a template sized for itself stays that size */
+function sizedOnScreen(g: Group, size: Size, at: Anchor | undefined): Group {
+  const it = g.items[0];
+  const axes = resizeOf(partBySlug(it.component), it.props);
+  const role = roleOf(it);
+  const width = axes?.width;
+  const height = axes?.height;
+  const set = (props: Record<string, unknown>) => ({ ...g, items: [{ ...it, props: { ...it.props, ...props } }] });
+  const fit = (ax: NonNullable<typeof width>, v: number) => ({ [ax.key]: axisWrite(ax, Math.max(ax.min, Math.min(ax.max, v))) });
+  if (role === "backdrop") return set({ ...(width ? fit(width, size.w) : {}), ...(height ? fit(height, size.h) : {}) });
+  if (at) {
+    /* what stands by one edge keeps its size while the screen has room for it, with as much left at the far edge */
+    const room = size.w - (at.l ?? at.r ?? 0) - (at.r ?? at.l ?? 0);
+    const asked = width && it.props?.[width.key];
+    return set({
+      ...(width && at.l !== undefined && at.r !== undefined ? fit(width, size.w - at.l - at.r) : typeof asked === "number" && asked > room ? fit(width!, room) : {}),
+      ...(height && at.t !== undefined && at.b !== undefined ? fit(height, size.h - at.t - at.b) : {}),
+    });
+  }
+  if (!width || it.props?.[width.key] !== undefined) return g;
+  if (role === "top" || role === "bottom" || fullWidth(it)) return set(fit(width, size.w));
+  /* what floats keeps its own size */
+  if (role === "fab" || role === "overlay" || role === "rail" || role === "floatingBottom") return g;
+  return set(fit(width, size.w - SCREEN_MARGIN * 2));
+}
+
+/** where a screen's parts stand before anything has been drawn: the rows one under another, what has an anchor by its edges */
+function standing(groups: Group[], anchors: Map<string, Anchor>, frame: Frame, size: Size): Group[] {
+  const m = defaultMeasures(groups);
+  let y = frame.y;
+  return groups.map((g) => {
+    if (g.inFlow) return g;
+    const it = g.items[0];
+    const w = m[it.id];
+    const h = m[`${it.id}:h`];
+    const at = anchors.get(g.id);
+    if (at) {
+      const x = at.l !== undefined ? at.l : at.r !== undefined ? size.w - at.r - w : (size.w - w) / 2;
+      const top = at.t !== undefined ? at.t : at.b !== undefined ? size.h - at.b - h : (size.h - h) / 2;
+      return { ...g, x: frame.x + Math.round(x), y: frame.y + Math.round(top) };
+    }
+    if (roleOf(it) === "backdrop") return { ...g, x: frame.x, y: frame.y };
+    const here = { ...g, x: frame.x + (w >= size.w - 1 ? 0 : SCREEN_MARGIN), y };
+    y += h + SCREEN_MARGIN;
+    return here;
+  });
+}
+
+/* a screen just built touches nothing by design: what meets here only met by a guess at its size */
+const FRESH = { ...MATERIAL_METRICS, together: [] as string[][] };
+
 /** A template as document data: new ids throughout, the words of `lang`, the screens side by side
- *  from (x, y), each named apart from the names in `taken`. */
-export function instantiate(template: Pick<Template, "build">, lang: Lang, at: { x: number; y: number } = { x: 0, y: 0 }, taken: string[] = []): { frames: Frame[]; groups: Group[] } {
+ *  from (x, y), each named apart from the names in `taken`, for the phone the document is drawn for. */
+export function instantiate(template: Pick<Template, "build">, lang: Lang, at: { x: number; y: number } = { x: 0, y: 0 }, taken: string[] = [], phone: Size = SIZE.phone): { frames: Frame[]; groups: Group[] } {
   const seeds = template.build();
   const frameIds = new Map(seeds.map((s) => [s.id, uid()]));
   const names = new Set(taken);
@@ -173,27 +230,34 @@ export function instantiate(template: Pick<Template, "build">, lang: Lang, at: {
     let name = base;
     for (let n = 2; names.has(name); n++) name = `${base} ${n}`;
     names.add(name);
-    const size = SIZE[seed.frame];
-    frames.push({
+    const size = sizeIn(seed.frame, phone);
+    let frame: Frame = {
       id: frameIds.get(seed.id)!,
       name,
       x,
       y: at.y,
-      ...frameFields(seed.frame),
+      ...frameFields(size),
       ...(seed.length && seed.length > size.h ? { length: seed.length } : {}),
       ...(seed.note ? { note: seed.note[lang] } : {}),
       ...(seed.bg ? { bg: seed.bg } : {}),
-    });
+      ...(seed.place ? { place: seed.place } : {}),
+    };
     const seeded = seedGroups(seed);
     const groupIds = new Map(seeded.map((g) => [g.id, uid()]));
+    const anchors = new Map<string, Anchor>();
     const link = (a: Action): Action => ({ ...a, to: frameIds.get(a.to) ?? a.to });
-    for (const g of seeded) {
-      const { name: groupName, inFlow, items, ...rest } = g;
-      groups.push({
+    /* apart from each other until they are placed: a part let go on a layout is taken in by it */
+    let apart = 0;
+    let mine: Group[] = seeded.map((g) => {
+      const { name: groupName, inFlow, items, at: anchor, ...rest } = g;
+      const id = groupIds.get(g.id)!;
+      if (anchor) anchors.set(id, anchor);
+      if (!inFlow) apart += 8000;
+      const made: Group = {
         ...rest,
-        id: groupIds.get(g.id)!,
-        x: x + g.x,
-        y: at.y + g.y,
+        id,
+        x,
+        y: at.y + apart,
         ...(groupName ? { name: groupName[lang] } : {}),
         ...(inFlow ? { inFlow: groupIds.get(inFlow)! } : {}),
         items: items.map((it) => {
@@ -207,9 +271,23 @@ export function instantiate(template: Pick<Template, "build">, lang: Lang, at: {
             ...(it.actions ? { actions: Object.fromEntries(Object.entries(it.actions).map(([k, a]) => [k, link(a)])) } : {}),
           };
         }),
-      });
+      };
+      return inFlow ? made : sizedOnScreen(made, size, anchor);
+    });
+    mine = arranged(mine);
+    /* on a smaller phone what does not fit makes the screen longer: a part left below its foot would be off the screen */
+    {
+      const placed = standing(mine, anchors, { ...frame, length: 100000 }, size);
+      const need = Math.ceil(lengthToHold(placed, frame, defaultMeasures(placed), FRESH) / 4) * 4;
+      if (need > size.h && !frame.length) frame = { ...frame, length: need, grownFrom: size.h };
     }
+    frames.push(frame);
+    mine = standing(mine, anchors, frame, size);
+    const m = defaultMeasures(mine);
+    mine = fillRest(mine, frame, [frame], m, FRESH);
+    mine = tidyFrame(mine, frame, [frame], m, FRESH) ?? mine;
+    groups.push(...arranged(mine));
     x += size.w + FRAME_GAP;
   }
-  return { frames, groups: arranged(groups) };
+  return { frames, groups };
 }

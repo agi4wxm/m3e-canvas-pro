@@ -5,9 +5,10 @@ import { arrangeFlows } from "../../lib/flow";
 import { buildPrompt } from "../../lib/prompt";
 import { LANGS, type Lang } from "../../lib/i18n";
 import { PROJECT_FORMAT, PROJECT_VERSION, isProject, openProject } from "../../lib/project";
-import { BACK_TARGET, frameRect, type Doc, type Group, type Item } from "../../lib/tokens";
+import { BACK_TARGET, frameRect, PHONE_MODELS, type Doc, type Group, type Item } from "../../lib/tokens";
 import { defaultTextOf, listTextOf } from "../labels";
 import { partBySlug, reader } from "../registry";
+import { lengthToHold } from "../../lib/tidy";
 import { defaultMeasures, inLang, instantiate, seedGroups } from "./kit";
 import { TEMPLATES, templateCatalog } from "./index";
 
@@ -32,12 +33,23 @@ describe.each(TEMPLATES.map((t) => [t.slug, t] as const))("template %s", (_slug,
         }
   });
 
-  it("is real auto layout: one root per screen, everything else inside a layout of the same screen", () => {
+  it("stands on its screen as parts, and what is nested is in a layout of the same screen", () => {
     for (const { groups } of seedsOf(t)) {
       const ids = new Set(groups.map((g) => g.id));
-      expect(groups.filter((g) => !g.inFlow).length).toBe(1);
+      expect(groups.filter((g) => !g.inFlow).length).toBeGreaterThan(0);
       for (const g of groups) if (g.inFlow) expect(ids, g.id).toContain(g.inFlow);
-      for (const g of groups.filter((x) => !x.inFlow)) expect(partBySlug(g.items[0].component)?.flow, g.id).toBeDefined();
+      /* a screen's own bars stand on the screen itself, where a style can move them */
+      for (const g of groups.filter((x) => x.inFlow)) expect(["app-bar", "navigation-bar", "navigation-rail"], `${g.items[0].component} in a layout`).not.toContain(g.items[0].component);
+    }
+  });
+
+  it("fits its device as it comes, and is not longer than it says", () => {
+    const { frames, groups } = instantiate(t, "en");
+    const m = defaultMeasures(groups);
+    for (const f of frames) {
+      if (f.length) continue;
+      const mine = groups.filter((g) => g.x >= f.x && g.x < f.x + (f.w ?? 412));
+      expect(lengthToHold(mine, f, m), `${f.name} needs`).toBeLessThanOrEqual(f.h ?? 892);
     }
   });
 
@@ -94,10 +106,14 @@ describe.each(TEMPLATES.map((t) => [t.slug, t] as const))("template %s", (_slug,
     }
   });
 
-  it("prints as nested layouts, with no unknown component", () => {
+  it("prints with no unknown component", () => {
     const { code } = buildCode(docOf(t, "ko"), defaultMeasures(docOf(t, "ko").groups));
     expect(code).not.toContain("unknown component");
-    expect(code).toContain("flex-col");
+  });
+
+  it("names no product, game or brand: a template is for anyone's", () => {
+    const words = JSON.stringify(t.build().map((s) => s.roots)) + t.name + Object.values(t.labels).join(" ");
+    expect(words).not.toMatch(/WeChat|微信|TikTok|抖音|Instagram|Genshin|原神|Royal Match|Honor of Kings|王者荣耀|Harbour|海港/i);
   });
 
   it("reads in every language", () => {
@@ -151,6 +167,53 @@ describe("the set of templates", () => {
     const called = (d: Doc) => buildPrompt(d, defaultMeasures(d.groups), d.frames[0].id, "en").includes('form "Front door"');
     expect(called(doc)).toBe(false);
     expect(called({ ...doc, groups: doc.groups.map((g) => (g === form ? { ...g, name: "Front door" } : g)) })).toBe(true);
+  });
+
+  it("goes on from the splash when the first launch is added as a flow", () => {
+    const { groups, frames } = instantiate(TEMPLATES.find((t) => t.slug === "start-flow")!, "en");
+    const onboarding = frames.find((f) => f.name === "Onboarding")!;
+    const links = groups.flatMap((g) => g.items.flatMap((it) => (it.action ? [it.action.to] : [])));
+    expect(links).toContain(onboarding.id);
+  });
+
+  it("keeps the login flow to signing in: what comes after is the app's own", () => {
+    const flow = TEMPLATES.find((t) => t.slug === "auth-flow")!;
+    const names = flow.build().map((s) => s.id);
+    expect(names).toEqual(["login", "signup", "forgot", "verify", "reset"]);
+    expect(names).not.toContain("home");
+  });
+
+  it("takes the size of the phone it is added for, screens on their side too", () => {
+    const small = { w: 360, h: 780 };
+    const { frames } = instantiate(TEMPLATES.find((t) => t.slug === "login")!, "en", { x: 0, y: 0 }, [], small);
+    expect(frames[0]).toMatchObject(small);
+    const wide = instantiate(TEMPLATES.find((t) => t.slug === "battle-hud")!, "en", { x: 0, y: 0 }, [], small);
+    expect(wide.frames[0]).toMatchObject({ w: 780, h: 360 });
+    /* the usual phone says nothing, as any frame does */
+    expect(instantiate(TEMPLATES.find((t) => t.slug === "login")!, "en").frames[0].w).toBeUndefined();
+  });
+
+  it("stays on the narrowest phone there is a model for, what stands by one edge too", () => {
+    const narrowest = PHONE_MODELS.reduce((a, b) => (b.w < a.w || (b.w === a.w && b.h < a.h) ? b : a));
+    const size = { w: narrowest.w, h: narrowest.h };
+    for (const t of TEMPLATES) {
+      const { frames, groups } = instantiate(t, "en", { x: 0, y: 0 }, [], size);
+      const m = defaultMeasures(groups);
+      for (const f of frames) {
+        const screen = frameRect(f);
+        const mine = groups.filter((g) => !g.inFlow && g.x >= screen.l && g.x < screen.r);
+        for (const g of mine) {
+          const w = m[g.items[0].id];
+          expect(g.x + w, `${t.slug}: ${g.items[0].component} runs off ${f.name}`).toBeLessThanOrEqual(screen.r + 1);
+        }
+      }
+    }
+  });
+
+  it("covers what games need, whatever the game", () => {
+    const games = TEMPLATES.filter((t) => t.category === "game").map((t) => t.slug);
+    expect(games.length).toBeGreaterThanOrEqual(20);
+    for (const s of ["game-title", "game-lobby", "level-select", "battle-hud", "pause-menu", "victory", "defeat", "game-inventory", "game-shop", "gacha-pull", "daily-check-in", "game-quests", "battle-pass", "game-leaderboard", "game-guild", "pc-main-menu"]) expect(games, s).toContain(s);
   });
 
   it("is named in the guide an AI agent reads (bun run gen:agent)", () => {

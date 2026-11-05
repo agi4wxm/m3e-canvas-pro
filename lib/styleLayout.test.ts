@@ -92,11 +92,35 @@ describe("a style's layout", () => {
     expect(nav.items[0].component).toBe("navigation-rail");
   });
 
-  it("leaves a screen's own place alone, until a style is put on the document", () => {
-    const placed = { ...phone, place: "bottom" as const };
-    expect(layoutForStyle(screen(), [placed], sizes, themed("ios"))?.frames[0].place ?? "bottom").toBe("bottom");
-    expect(layoutForStyle(screen(), [placed], sizes, themed("ios"), { pick: true })!.frames[0].place).toBeUndefined();
+  it("leaves a screen's own place alone, when a style is put on the document too: a centered login stays centered", () => {
+    const placed = { ...phone, place: "center" as const };
+    expect(layoutForStyle(screen(), [placed], sizes, themed("ios"))?.frames[0].place ?? "center").toBe("center");
+    expect(layoutForStyle(screen(), [placed], sizes, themed("ios"), { pick: true })?.frames[0].place ?? "center").toBe("center");
+    /* the author can say it for the whole document */
     expect(layoutForStyle(screen(), [phone], sizes, themed("ios", { strict: false, ux: { place: "center" } }), { pick: true })!.frames[0].place).toBe("center");
+  });
+
+  it("does not take a layout as big as the screen for something on it: it gets no margin, and does not stretch the screen", () => {
+    const groups = [part("root", "container", 0, 0, { layout: "column", width: 412, height: 892 }), { ...part("kid", "button", 16, 100, { label: "K", width: 380 }), inFlow: "g-root" }];
+    const measured = { root: 412, "root:h": 892, kid: 380, "kid:h": 40 };
+    const out = layoutForStyle(groups, [phone], measured, themed("ios"));
+    const after = out ?? { groups, frames: [phone] };
+    expect(after.frames[0].length).toBeUndefined();
+    expect(find(after.groups, "root")).toMatchObject({ x: 0, y: 0 });
+    expect(widthOf(find(after.groups, "root"))).toBe(412);
+  });
+
+  it("gives a part set to take the rest of the screen what this style leaves of it, and no more", () => {
+    const groups = [
+      part("top", "app-bar", 0, 0, { title: "T", width: 412 }),
+      { ...part("map", "map", 16, 100, { width: 380, height: 300 }), items: [{ ...makeItem("map"), id: "map", props: { width: 380, height: 300 }, flowFill: true }] },
+      part("go", "button", 16, 420, { label: "Go", width: 380 }),
+    ];
+    const measured = { top: 412, "top:h": 64, map: 380, "map:h": 300, go: 380, "go:h": 40 };
+    const out = layoutForStyle(groups, [phone], measured, themed("ios"))!;
+    expect(out.frames[0].length).toBeUndefined();
+    /* the bar, the margins, the gap and the button come off the screen */
+    expect(find(out.groups, "map").items[0].props?.height).toBe(892 - 64 - 16 - 24 - 40 - 16);
   });
 
   it("composes a screen on a picture from where its parts stand, not in rows", () => {
@@ -151,6 +175,8 @@ describe("a style's layout", () => {
     expect(back.frames[0].length).toBeUndefined();
     expect(back.frames[0].grownFrom).toBeUndefined();
     expect(find(back.groups, "nav").y).toBe(828);
+    /* nothing it held is left below the foot it went back to */
+    for (const n of [1, 2, 3, 4, 5]) expect(find(back.groups, `card${n}`).y + 40, `card ${n}`).toBeLessThanOrEqual(828);
     /* a screen the author made long stays that long, with nothing to be given back */
     const long: Frame = { ...phone, length: 1400 };
     const kept = layoutForStyle(screen(), [long], sizes, themed("ios"))!;

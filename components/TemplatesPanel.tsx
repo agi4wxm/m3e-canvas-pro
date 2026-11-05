@@ -18,13 +18,14 @@ const CATEGORY: Record<TemplateCategory, { icon: string; title: UIKey }> = {
   social: { icon: "forum", title: "tplSocial" },
   content: { icon: "article", title: "tplContent" },
   tools: { icon: "tune", title: "tplTools" },
+  game: { icon: "sports_esports", title: "tplGame" },
   desktop: { icon: "desktop_windows", title: "tplDesktop" },
 };
 
 type Box = { x: number; y: number; w: number; h: number; ink: keyof Pick<Palette, "primary" | "primaryContainer" | "secondaryContainer" | "surfaceContainerHigh" | "surfaceContainerHighest" | "outlineVariant"> };
 type Plan = { w: number; h: number; boxes: Box[]; screens: number };
 
-const INK_OF: Record<string, Box["ink"]> = { button: "primary", "brand-button": "primary", image: "primaryContainer", map: "primaryContainer", chart: "primaryContainer", "balance-card": "primaryContainer", onboarding: "primaryContainer", icon: "primary", text: "outlineVariant" };
+const INK_OF: Record<string, Box["ink"]> = { scene: "secondaryContainer", button: "primary", "brand-button": "primary", image: "primaryContainer", map: "primaryContainer", chart: "primaryContainer", "balance-card": "primaryContainer", onboarding: "primaryContainer", icon: "primary", text: "outlineVariant" };
 
 const plans = new Map<string, Plan>();
 
@@ -42,7 +43,7 @@ function planOf(template: Template): Plan {
     const def = partBySlug(it.component);
     if (!def) continue;
     let ink: Box["ink"] = INK_OF[def.slug] ?? "surfaceContainerHighest";
-    if (def.holds) {
+    if (def.holds && def.slug !== "scene") {
       /* a bare layout draws nothing of its own */
       const fill = reader(def, it.props).s("fill");
       if (!fill || fill === "none") continue;

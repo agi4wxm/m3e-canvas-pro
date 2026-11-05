@@ -6,6 +6,7 @@ import { useIcons } from "@/parts/icons";
 import { PartSurface } from "@/parts/theme";
 import { appearanceOf } from "@/parts/appearance";
 import { partBySlug, viewOf } from "@/parts/registry";
+import { axisValue, resizeOf } from "@/parts/resize";
 import type { Screen } from "@/parts/types";
 import { renderNode } from "@/parts/render";
 import type { PNode } from "@/parts/node";
@@ -53,13 +54,18 @@ function PartViewBody({ item, live = false, screen, held = false }: PartViewProp
   /* in the preview they stay as they are: what a visitor has changed is the part's own */
   const starting = useMemo(() => (tree && !live ? startingValuesOf(tree) : ""), [tree, live]);
   if (!tree) return <MissingPart item={item} />;
+  /* a part sized for its screen holds that size, not the size parts of its kind usually are: a picture on a screen on its
+   * side would otherwise be measured as an upright phone until it has loaded, and everything on it laid out by that */
+  const axes = resizeOf(def, item.props);
+  const held_w = axes?.width ? axisValue(axes.width, item.props) : def?.w;
+  const held_h = axes?.height ? axisValue(axes.height, item.props) : def?.h;
   return (
     <PartSurface>
       {/* an inline box inside the part's block would sit on the strut's baseline, ~a line's
        *  leading low; top-aligned, the part's content starts at the part's own top */}
       <div key={`${icons}:${starting}`} inert={!live} style={{ display: "inline-flex", verticalAlign: "top", pointerEvents: live ? undefined : "none" }}>
         {/* a widget is fetched when first drawn: its guessed size holds the place */}
-        <Suspense fallback={<div style={{ width: def?.w, height: def?.h }} />}>{drawn}</Suspense>
+        <Suspense fallback={<div style={{ width: held_w, height: held_h }} />}>{drawn}</Suspense>
       </div>
     </PartSurface>
   );
