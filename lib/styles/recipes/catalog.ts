@@ -39,6 +39,7 @@ export const RECIPES = {
   screen: ["m3", "scan", "grid", "dots", "paper", "vignette"],
   scroll: ["m3", "thin", "block", "hidden"],
   feedback: ["m3", "dim", "press", "flash"],
+  picker: ["m3", "ios", "weui", "boxed", "rim"],
 } as const;
 
 export type RecipeKey = keyof typeof RECIPES;
@@ -82,6 +83,7 @@ export const RECIPE_LABELS: Record<RecipeKey, StyleText> = {
   screen: say("屏幕底纹", "Screen texture", "画面の地紋", "화면 질감"),
   scroll: say("滚动条", "Scroll bars", "スクロールバー", "스크롤바"),
   feedback: say("按下反馈", "Press feedback", "押下の反応", "누름 반응"),
+  picker: say("日期和时间", "Dates and times", "日付と時刻", "날짜와 시간"),
 };
 
 /** what each variant is called, whatever kind it builds: a name shared by two kinds means the same idea in both */
@@ -206,4 +208,8 @@ const BY_KIND: Record<string, StyleText> = {
   "menu:plain": say("无框文字", "Words, no panel", "枠なしの文字", "틀 없는 글자"),
   "dialog:plain": say("居中无框", "Centered, square", "中央・角なし", "가운데, 각진"),
   "sheet:rim": say("游戏描边", "Game rim", "ゲームの縁", "게임 테두리"),
+  "picker:ios": say("iOS 式，时间用滚轮", "iOS, the time on a wheel", "iOS 風、時刻はホイール", "iOS, 시간은 휠"),
+  "picker:weui": say("微信式，时间用滚轮", "WeChat, the time on a wheel", "WeChat 風、時刻はホイール", "WeChat, 시간은 휠"),
+  "picker:boxed": say("小方格，时间分栏", "Small square days, time in columns", "小さな四角、時刻は列", "작은 사각, 시간은 열"),
+  "picker:rim": say("游戏描边", "Game rim", "ゲームの縁", "게임 테두리"),
 };

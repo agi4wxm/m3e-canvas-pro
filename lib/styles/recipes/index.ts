@@ -7,6 +7,7 @@ import { METER_CSS, PROGRESS_CSS } from "./gauges";
 import { DIVIDER_CSS, LIST_CSS, MENU_CSS, ROW_CSS, ROW_MARK } from "./lists";
 import { ICON_CSS, SCREEN_TEXTURE, SCROLL_CSS, TEXT_CSS } from "./marks";
 import { APPBAR_CSS, BAR_CSS, NAV_CSS } from "./navigation";
+import { PICKER_CSS } from "./pickers";
 import { BOX_CSS, CARD_CSS, SHEET_CSS, SURFACE_CSS, TOOLTIP_CSS } from "./surfaces";
 import { SEGMENTED_CSS, TABS_CSS } from "./tabs";
 
@@ -47,11 +48,12 @@ export const RECIPE_CSS: { [K in Exclude<RecipeKey, "screen">]: Record<Recipes[K
   scroll: SCROLL_CSS,
   feedback: FEEDBACK_CSS,
   text: TEXT_CSS,
+  picker: PICKER_CSS,
 };
 
 /** The order the recipes are written in. What builds on another comes after it: a card after the panels, the bare
  *  inputs after the text fields, a row after its list, the composition of a bar after its paint. */
-const ORDER: Exclude<RecipeKey, "screen">[] = ["button", "fab", "surface", "card", "sheet", "tooltip", "tabs", "segmented", "toggle", "slider", "nav", "field", "input", "search", "bar", "appbar", "meter", "progress", "list", "row", "divider", "menu", "dialog", "avatar", "chip", "badge", "check", "icon", "dialogue", "scroll", "feedback"];
+const ORDER: Exclude<RecipeKey, "screen">[] = ["button", "fab", "surface", "card", "sheet", "tooltip", "tabs", "segmented", "toggle", "slider", "nav", "field", "input", "search", "bar", "appbar", "meter", "progress", "list", "row", "divider", "menu", "dialog", "picker", "avatar", "chip", "badge", "check", "icon", "dialogue", "scroll", "feedback"];
 
 /** every recipe a theme builds its controls with, as rules; headings come apart, after the faces are named */
 export function recipeRules(r: Recipes): string[] {

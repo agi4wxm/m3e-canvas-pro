@@ -37,7 +37,7 @@ export default definePack({
   pill: "round",
   compact: true,
   tokens: { tabOn: "#0078D4" },
-  recipes: { button: "flat", surface: "line", tabs: "topline", toggle: "outline", slider: "thin", nav: "icononly", field: "boxed", bar: "line", meter: "thin", feedback: "dim", list: "plain", dialog: "modal", chip: "tag", card: "outlined", segmented: "boxed", appbar: "compact", search: "boxed", input: "boxed", progress: "thin", row: "dense", menu: "compact", sheet: "panel", tooltip: "light", fab: "flat", badge: "pill", icon: "muted", scroll: "block" },
+  recipes: { picker: "boxed", button: "flat", surface: "line", tabs: "topline", toggle: "outline", slider: "thin", nav: "icononly", field: "boxed", bar: "line", meter: "thin", feedback: "dim", list: "plain", dialog: "modal", chip: "tag", card: "outlined", segmented: "boxed", appbar: "compact", search: "boxed", input: "boxed", progress: "thin", row: "dense", menu: "compact", sheet: "panel", tooltip: "light", fab: "flat", badge: "pill", icon: "muted", scroll: "block" },
   art: "dark code editor workspace, charcoal panels, thin grey lines, a single blue accent",
   ux: { margin: 12, gap: 8, tight: 0, nav: "rail" },
   layout: { zh: "最左一列窄图标栏，旁边是树形侧栏，中间是方正的标签页和内容，最底下一条细状态栏。", en: "A narrow column of icons at the far left, a tree sidebar beside it, square tabs over the content, a thin status bar along the foot." },

@@ -18,6 +18,7 @@ export function Rating({ value = 0, count = 5, readOnly = false, className, styl
             data-on={on || undefined}
             aria-checked={i + 1 === score}
             aria-label={`${i + 1}`}
+            data-slot="rating-star"
             disabled={readOnly}
             className={`text-title-large size-7 leading-none ${on ? "text-primary" : "text-outline-variant"}`}
             onClick={() => setScore(i + 1)}

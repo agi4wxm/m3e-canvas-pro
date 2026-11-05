@@ -49,7 +49,7 @@ export default definePack({
   pill: "follow",
   screenDark: "radial-gradient(90% 70% at 70% 45%, rgb(120 80 30 / 0.22), transparent 70%)",
   tokens: { rim: "#8C6D3F", rimDark: "#3A2E1E", tabOn: "var(--md-sys-color-primary)", navOn: "var(--md-sys-color-primary)", toggleOn: "var(--md-sys-color-primary)" },
-  recipes: { button: "band", surface: "plain", tabs: "band", toggle: "block", slider: "thin", nav: "plain", field: "line", bar: "plain", meter: "thin", feedback: "dim", list: "plain", dialog: "plain", segmented: "underline", appbar: "compact", search: "underline", input: "underline", progress: "thin", divider: "ornament", menu: "plain", sheet: "panel", tooltip: "dark", fab: "flat", badge: "square", dialogue: "band", scroll: "hidden" },
+  recipes: { picker: "boxed", button: "band", surface: "plain", tabs: "band", toggle: "block", slider: "thin", nav: "plain", field: "line", bar: "plain", meter: "thin", feedback: "dim", list: "plain", dialog: "plain", segmented: "underline", appbar: "compact", search: "underline", input: "underline", progress: "thin", divider: "ornament", menu: "plain", sheet: "panel", tooltip: "dark", fab: "flat", badge: "square", dialogue: "band", scroll: "hidden" },
   art: "Chinese mythological dark fantasy, ancient temples in misty mountains, autumn gold and ember light, photorealistic and cinematic",
   ux: { margin: 24, gap: 8, tight: 0, nav: "top" },
   layout: { zh: "纯黑底，左上角淡淡的大号书法字；顶部一行文字标签，选中项是米白色带；左边文字列表，右边留白或插画；右下角按键提示。", en: "Pure black with a large faint calligraphic character at the upper left; a line of text tabs on top with the chosen one a pale band; a text list at the left, emptiness or a picture at the right; key hints at the lower right." },

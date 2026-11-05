@@ -35,7 +35,7 @@ export default definePack({
   capsLabels: true,
   screenDark: "radial-gradient(100% 70% at 70% 30%, rgb(60 90 130 / 0.35), transparent 70%)",
   tokens: { barBg: "#0B131B", onBar: "#ECE8E1", rim: "#FF4655", tabOn: "#FF4655", navOn: "#ECE8E1", toggleOn: "#FF4655", primaryTextDark: "#FF7A7A" },
-  recipes: { button: "flat", surface: "line", tabs: "slant", toggle: "block", slider: "block", nav: "topline", field: "boxed", bar: "hud", meter: "block", feedback: "flash", list: "tile", dialog: "plain", chip: "tag", card: "outlined", segmented: "underline", appbar: "compact", search: "underline", input: "underline", progress: "segment", row: "dense", menu: "compact", sheet: "panel", tooltip: "dark", fab: "flat", badge: "square", text: "caps", scroll: "block" },
+  recipes: { picker: "boxed", button: "flat", surface: "line", tabs: "slant", toggle: "block", slider: "block", nav: "topline", field: "boxed", bar: "hud", meter: "block", feedback: "flash", list: "tile", dialog: "plain", chip: "tag", card: "outlined", segmented: "underline", appbar: "compact", search: "underline", input: "underline", progress: "segment", row: "dense", menu: "compact", sheet: "panel", tooltip: "dark", fab: "flat", badge: "square", text: "caps", scroll: "block" },
   art: "gritty tactical shooter art, overcast urban map, muted colors, a hot orange rim light",
   ux: { margin: 16, gap: 8, tight: 4, nav: "top" },
   layout: { zh: "顶部一行大写导航，选中项是红色平行四边形；人物站在中间；左下角一列匹配按钮和大号准备按钮；右上角货币。", en: "A line of capital navigation on top with the chosen item a red parallelogram; the character standing in the middle; a column of match buttons and a big ready button at the lower left; currency at the upper right." },

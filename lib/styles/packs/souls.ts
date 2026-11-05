@@ -43,7 +43,7 @@ export default definePack({
   screenDark: "radial-gradient(120% 90% at 50% 40%, transparent 35%, rgb(0 0 0 / 0.6) 100%)",
   screen: "radial-gradient(120% 90% at 50% 40%, transparent 50%, rgb(90 60 20 / 0.22) 100%)",
   tokens: { rim: "#7A6A45", rimDark: "#3A3324", tabOn: "#C8AA6E", navOn: "#C8AA6E", toggleOn: "#C8AA6E" },
-  recipes: { button: "text", surface: "hairline", tabs: "fade", toggle: "block", slider: "thin", nav: "plain", field: "line", bar: "plain", meter: "thin", feedback: "dim", list: "plain", dialog: "plain", avatar: "framed", segmented: "underline", appbar: "compact", search: "underline", input: "underline", progress: "thin", divider: "ornament", menu: "plain", sheet: "panel", tooltip: "rim", fab: "flat", badge: "square", icon: "muted", text: "caps", dialogue: "band", scroll: "thin" },
+  recipes: { picker: "boxed", button: "text", surface: "hairline", tabs: "fade", toggle: "block", slider: "thin", nav: "plain", field: "line", bar: "plain", meter: "thin", feedback: "dim", list: "plain", dialog: "plain", avatar: "framed", segmented: "underline", appbar: "compact", search: "underline", input: "underline", progress: "thin", divider: "ornament", menu: "plain", sheet: "panel", tooltip: "rim", fab: "flat", badge: "square", icon: "muted", text: "caps", dialogue: "band", scroll: "thin" },
   art: "dark gothic fantasy painting, ruined cathedrals in fog, muted gold light, desaturated, a golden tree on the horizon",
   ux: { margin: 24, gap: 8, tight: 0, nav: "rail" },
   layout: { zh: "几乎全黑：左边一列文字菜单，选中行从左向右淡出暗金光带；数据小而密地排成几列；底部一行按键提示。", en: "Nearly black: a column of words at the left whose chosen row is lit by a dark-gold band fading to the right; small dense columns of figures; a line of key hints along the foot." },

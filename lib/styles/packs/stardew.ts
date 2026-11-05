@@ -36,7 +36,7 @@ export default definePack({
   pill: "follow",
   edge: 3,
   tokens: { rim: "#B5641E", rimDark: "#5B2B06", toggleOn: "#3F7A22", navOn: "#4A1C08" },
-  recipes: { button: "hard", surface: "wood", tabs: "boxed", toggle: "block", slider: "block", nav: "block", field: "hard", bar: "line", meter: "block", feedback: "press", list: "tile", dialog: "game", avatar: "framed", dialogue: "portrait", card: "framed", segmented: "block", appbar: "center", search: "boxed", progress: "segment", divider: "bold", menu: "rim", sheet: "rim", tooltip: "rim", fab: "square", badge: "rim", scroll: "block" },
+  recipes: { picker: "rim", button: "hard", surface: "wood", tabs: "boxed", toggle: "block", slider: "block", nav: "block", field: "hard", bar: "line", meter: "block", feedback: "press", list: "tile", dialog: "game", avatar: "framed", dialogue: "portrait", card: "framed", segmented: "block", appbar: "center", search: "boxed", progress: "segment", divider: "bold", menu: "rim", sheet: "rim", tooltip: "rim", fab: "square", badge: "rim", scroll: "block" },
   art: "cozy 16-bit pixel art farming village, warm sunlight, soft greens and oranges, crisp visible pixels and no anti-aliasing",
   ux: { margin: 12, gap: 8, tight: 6, nav: "bottom" },
   layout: { zh: "整屏是场景；对话框贴在下方，左边文字、右边头像和卷轴名牌；底部一排方形物品格当导航。", en: "The scene fills the screen; a dialog sits low on it with words at the left and a portrait with a scroll nameplate at the right; a row of square item slots along the foot serves as navigation." },

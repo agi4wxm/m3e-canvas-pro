@@ -172,7 +172,7 @@ export const data: PartDef[] = [
         "div",
         { "data-slot": "dashboard-gauge", className: "flex w-40 flex-col items-center" },
         h("svg", { viewBox: "0 0 120 66", className: "w-full" }, h("path", { d: arc, fill: "none", strokeWidth: 10, strokeLinecap: "round", className: "stroke-surface-container-highest" }), h("path", { d: arc, fill: "none", strokeWidth: 10, strokeLinecap: "round", pathLength: 100, strokeDasharray: `${Math.round(p.n("value"))} 100`, className: "stroke-primary" })),
-        h("div", { className: "text-title-large text-on-surface" }, `${Math.round(p.n("value"))}%`),
+        h("div", { "data-slot": "dashboard-gauge-value", className: "text-title-large text-on-surface" }, `${Math.round(p.n("value"))}%`),
         p.s("label") && h("div", { className: "text-label-medium text-on-surface-variant" }, p.s("label")),
       );
     },
@@ -268,7 +268,7 @@ export const data: PartDef[] = [
       const align = (c: number) => (p.b("alignLast") && c === columns.length - 1 ? "text-right" : undefined);
       return h(
         "div",
-        { style: { width: Math.round(p.n("width")) } },
+        { "data-slot": "dashboard-table", style: { width: Math.round(p.n("width")) } },
         p.s("title") && h("div", { className: "text-title-medium text-on-surface px-4 py-2" }, p.s("title")),
         h(
           "Table",

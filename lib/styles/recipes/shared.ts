@@ -60,14 +60,23 @@ export const FOOT_BARS = `:is([data-slot=status-bar],[data-slot=checkout-bar],[d
 /** the rows of a list, whichever list draws them */
 export const ROWS = `[data-slot=item],[data-slot=settings-row],[data-slot=conversation-row],[data-slot=contact-row],[data-slot=notification-row],[data-slot=transaction-row],[data-slot=file-row]`;
 
+/** the charts, gauges and tables of a dashboard: drawn on the screen's own ground, set on a card by a style whose
+ *  content stands on cards */
+export const DATA_PANELS = `:is([data-slot=dashboard-chart],[data-slot=dashboard-scatter],[data-slot=dashboard-heatmap],[data-slot=dashboard-gauge],[data-slot=dashboard-table])`;
+
 /** words outlined in a dark color, for white words on a bright button */
 export const OUTLINED = (c: string) => `text-shadow:-1px -1px 0 ${c},1px -1px 0 ${c},-1px 1px 0 ${c},1px 1px 0 ${c},0 2px 0 ${c}`;
 export const SHEEN = `linear-gradient(180deg,rgb(255 255 255/.38) 0%,rgb(255 255 255/.08) 46%,rgb(0 0 0/.06) 54%,rgb(0 0 0/.22) 100%)`;
 /** a band of the color that fades out at both ends */
 export const FADED = `-webkit-mask-image:linear-gradient(90deg,transparent,#000 8px,#000 calc(100% - 8px),transparent);mask-image:linear-gradient(90deg,transparent,#000 8px,#000 calc(100% - 8px),transparent)`;
 
+/** set as large as a heading but not one: a price, a value or a count, a key of a keypad, a star of a rating, the
+ *  words of a button or a big avatar's initials */
+export const NOT_HEADINGS = `[data-slot$="-price"],[data-slot$="-value"],[data-slot$="-star"],[data-key],[class~="tabular-nums"],[data-button],[data-slot=fab],[data-slot=extended-fab],[data-slot=toggle],[data-slot=avatar-fallback],[data-slot=input-otp-slot]`;
+/** the type roles a heading is set in, on what is one */
+export const HEADING_TYPE = `:is([class*="text-display-"],[class*="text-headline-"],[class~="text-title-large"]):not(${NOT_HEADINGS},:is(${NOT_HEADINGS}) *)`;
 /** the headings of a screen: the type roles a heading is set in, and the parts named as one */
-export const HEADINGS = `:is([class*="text-display-"],[class*="text-headline-"],[class~="text-title-large"],[data-slot=app-bar-title],[data-slot=app-bar-large-title],[data-slot=dialog-title],[data-slot=alert-dialog-title],[data-slot=sheet-title],[data-slot=drawer-title],[data-slot=card-title],[data-slot=section-header-title],[data-slot=game-result-title],[data-slot=empty-title])`;
+export const HEADINGS = `:is(${HEADING_TYPE},[data-slot=app-bar-title],[data-slot=app-bar-large-title],[data-slot=dialog-title],[data-slot=alert-dialog-title],[data-slot=sheet-title],[data-slot=drawer-title],[data-slot=card-title],[data-slot=section-header-title],[data-slot=game-result-title],[data-slot=empty-title])`;
 
 /** not filled by its author with an accent: a recipe may tint a surface, never an author's own color */
 export const UNPAINTED = `:not([class~="bg-primary"],[class~="bg-primary-container"],[class~="bg-secondary-container"],[class~="bg-tertiary-container"],[class~="bg-inverse-surface"])`;

@@ -34,7 +34,7 @@ export default definePack({
   pill: "round",
   compact: true,
   tokens: { toggleOn: "#23A55A", primaryText: "#006CE7", primaryTextDark: "#00A8FC" },
-  recipes: { button: "flat", surface: "plain", tabs: "pill", toggle: "ios", slider: "thin", nav: "icononly", field: "soft", bar: "line", meter: "thin", feedback: "dim", list: "plain", dialog: "modal", chip: "pill", card: "flat", segmented: "capsules", appbar: "compact", search: "filled", input: "filled", progress: "thin", row: "dense", menu: "compact", sheet: "grabber", tooltip: "dark", fab: "round", badge: "pill", scroll: "thin" },
+  recipes: { picker: "boxed", button: "flat", surface: "plain", tabs: "pill", toggle: "ios", slider: "thin", nav: "icononly", field: "soft", bar: "line", meter: "thin", feedback: "dim", list: "plain", dialog: "modal", chip: "pill", card: "flat", segmented: "capsules", appbar: "compact", search: "filled", input: "filled", progress: "thin", row: "dense", menu: "compact", sheet: "grabber", tooltip: "dark", fab: "round", badge: "pill", scroll: "thin" },
   art: "dark gaming hub, deep grey panels, bright blurple accents, glowing avatars",
   ux: { margin: 12, gap: 8, tight: 0, nav: "rail" },
   layout: { zh: "最左一列圆形服务器图标，旁边是频道列表，再旁边是消息流，底部一个输入框。", en: "A column of round server icons at the far left, a channel list beside it, the stream of messages beside that, a composer at the foot." },

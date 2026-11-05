@@ -38,7 +38,7 @@ export default definePack({
   capsLabels: true,
   screen: "linear-gradient(115deg, transparent 58%, rgb(75 63 200 / 0.16) 58%, rgb(75 63 200 / 0.16) 80%, transparent 80%)",
   tokens: { barBg: "#15193A", onBar: "#FFFFFF", rim: "#FFD60A", tabOn: "#FFD60A", navOn: "#4B3FC8", toggleOn: "#FFD60A", primaryText: "#4B3FC8" },
-  recipes: { button: "slant", surface: "plain", tabs: "slant", toggle: "block", slider: "block", nav: "topline", field: "boxed", bar: "hud", meter: "block", feedback: "flash", list: "tile", dialog: "game", chip: "tag", card: "flat", segmented: "block", appbar: "compact", search: "boxed", progress: "track", divider: "bold", menu: "compact", sheet: "panel", tooltip: "light", fab: "flat", badge: "square", text: "italic", screen: "dots", scroll: "block" },
+  recipes: { picker: "rim", button: "slant", surface: "plain", tabs: "slant", toggle: "block", slider: "block", nav: "topline", field: "boxed", bar: "hud", meter: "block", feedback: "flash", list: "tile", dialog: "game", chip: "tag", card: "flat", segmented: "block", appbar: "compact", search: "boxed", progress: "track", divider: "bold", menu: "compact", sheet: "panel", tooltip: "light", fab: "flat", badge: "square", text: "italic", screen: "dots", scroll: "block" },
   art: "bold comic-book hero poster, halftone dots, dynamic diagonals, saturated purple and yellow",
   ux: { margin: 16, gap: 12, tight: 6, nav: "top" },
   layout: { zh: "顶部窄导航选中项亮黄；一边是人物立绘和斜切色块，另一边是白面板；标题是粗斜体大写；胜利画面是一道斜向黄光。", en: "A slim navigation on top with the chosen item bright yellow; a hero and slanted color blocks on one side, white panels on the other; bold italic capital titles; a slanted yellow streak on victory." },

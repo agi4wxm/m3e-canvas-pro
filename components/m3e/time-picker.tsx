@@ -23,6 +23,11 @@ type Field = "hours" | "minutes"
 const DIAL = 256
 const HANDLE = 48
 const pad = (n: number) => String(n).padStart(2, "0")
+/** the five values a wheel's column shows, the chosen one in the middle, going round */
+const wheel = (at: number, count: number, first: number) =>
+  [-2, -1, 0, 1, 2].map(
+    (d) => ((((at - first + d) % count) + count) % count) + first
+  )
 
 function polar(angleDeg: number, radius: number) {
   const a = (angleDeg * Math.PI) / 180
@@ -178,13 +183,20 @@ function TimePicker({
       )}
       {...props}
     >
-      <p className="text-label-medium text-on-surface-variant">{title}</p>
+      <p
+        data-slot="time-picker-title"
+        className="text-label-medium text-on-surface-variant"
+      >
+        {title}
+      </p>
 
-      <div className="flex items-start gap-3">
+      <div data-slot="time-picker-header" className="flex items-start gap-3">
         <div className="flex items-center gap-1">
           {mode === "dial" ? (
             <button
               type="button"
+              data-slot="time-picker-segment"
+              data-active={field === "hours" || undefined}
               className={box("hours")}
               aria-label={`Hours: ${pad(shownHours)}`}
               aria-pressed={field === "hours"}
@@ -215,6 +227,7 @@ function TimePicker({
             </div>
           )}
           <span
+            data-slot="time-picker-separator"
             className={cn(
               "w-6 text-center text-on-surface",
               mode === "input"
@@ -227,6 +240,8 @@ function TimePicker({
           {mode === "dial" ? (
             <button
               type="button"
+              data-slot="time-picker-segment"
+              data-active={field === "minutes" || undefined}
               className={box("minutes")}
               aria-label={`Minutes: ${pad(value.minutes)}`}
               aria-pressed={field === "minutes"}
@@ -262,6 +277,7 @@ function TimePicker({
           <div
             role="radiogroup"
             aria-label="AM or PM"
+            data-slot="time-picker-period"
             className={cn(
               "flex w-[52px] flex-col overflow-hidden rounded-sm border border-outline",
               mode === "dial" ? "h-20" : "h-[72px]"
@@ -275,6 +291,8 @@ function TimePicker({
                   role="radio"
                   aria-checked={on}
                   type="button"
+                  data-slot="time-picker-period-item"
+                  data-active={on || undefined}
                   onClick={() => setPeriod(p === "PM")}
                   className={cn(
                     "flex-1 cursor-pointer text-title-medium focus-ring-inset transition-colors motion-effects-fast outline-none",
@@ -295,6 +313,7 @@ function TimePicker({
       {mode === "dial" && (
         <div
           ref={dial}
+          data-slot="time-picker-dial"
           role="slider"
           tabIndex={0}
           aria-label={field === "hours" ? "Hours" : "Minutes"}
@@ -389,8 +408,67 @@ function TimePicker({
         </div>
       )}
 
-      <div className="flex items-center">
+      {/* a composition hook: the time as turning columns (iOS, WeUI, a desktop time panel), hidden unless a style
+          shows it in place of the selectors and the dial. Each value in it can be picked. */}
+      <div data-slot="time-picker-wheel" className="relative hidden">
+        <span data-slot="time-picker-indicator" aria-hidden />
+        <div data-slot="time-picker-column" data-field="hours">
+          {wheel(shownHours, hour24 ? 24 : 12, hour24 ? 0 : 1).map((h, i) => (
+            <button
+              key={i}
+              type="button"
+              data-slot="time-picker-item"
+              data-distance={Math.abs(i - 2)}
+              data-active={i === 2 || undefined}
+              aria-label={`Hours: ${pad(h)}`}
+              onClick={() =>
+                hour24 ? commit({ ...value, hours: h }) : setHour(h)
+              }
+            >
+              {hour24 ? pad(h) : h}
+            </button>
+          ))}
+        </div>
+        <div data-slot="time-picker-column" data-field="minutes">
+          {wheel(value.minutes, 60, 0).map((m, i) => (
+            <button
+              key={i}
+              type="button"
+              data-slot="time-picker-item"
+              data-distance={Math.abs(i - 2)}
+              data-active={i === 2 || undefined}
+              aria-label={`Minutes: ${pad(m)}`}
+              onClick={() => commit({ ...value, minutes: m })}
+            >
+              {pad(m)}
+            </button>
+          ))}
+        </div>
+        {!hour24 && (
+          <div data-slot="time-picker-column" data-field="period">
+            {(pm
+              ? ["", "AM", "PM", "", ""]
+              : ["", "", "AM", "PM", ""]
+            ).map((word, i) => (
+              <button
+                key={i}
+                type="button"
+                data-slot="time-picker-item"
+                data-distance={Math.abs(i - 2)}
+                data-active={i === 2 || undefined}
+                disabled={!word}
+                onClick={() => word && setPeriod(word === "PM")}
+              >
+                {word && say(word)}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div data-slot="time-picker-footer" className="flex items-center">
         <Button
+          data-slot="time-picker-mode"
           variant="text"
           size="icon"
           aria-label={

@@ -9,6 +9,8 @@ import {
 } from "@/components/m3e/symbols"
 import {
   DayPicker,
+  Nav,
+  Weekdays,
   getDefaultClassNames,
   type CustomComponents,
   type DayButton,
@@ -43,6 +45,44 @@ const CalendarChevron: CustomComponents["Chevron"] = ({
     return <ChevronRightIcon className={cn("size-4", className)} {...props} />
   return <ArrowDropDownIcon className={cn("size-4", className)} {...props} />
 }
+
+/* The parts of the month, named so a style can dress each one: its header (the caption and the arrows), the row of
+ * weekday names, each day's cell and its button. They render what DayPicker renders, only named. */
+const CalendarNav: CustomComponents["Nav"] = (props) => (
+  <Nav data-slot="calendar-nav" {...props} />
+)
+const CalendarPrevious: CustomComponents["PreviousMonthButton"] = (props) => (
+  <button data-slot="calendar-previous" {...props} />
+)
+const CalendarNext: CustomComponents["NextMonthButton"] = (props) => (
+  <button data-slot="calendar-next" {...props} />
+)
+const CalendarCaption: CustomComponents["MonthCaption"] = ({
+  calendarMonth: _month,
+  displayIndex: _index,
+  ...props
+}) => <div data-slot="calendar-header" {...props} />
+const CalendarCaptionLabel: CustomComponents["CaptionLabel"] = (props) => (
+  <span data-slot="calendar-title" {...props} />
+)
+const CalendarWeekdays: CustomComponents["Weekdays"] = (props) => (
+  <Weekdays data-slot="calendar-weekdays" {...props} />
+)
+const CalendarWeekday: CustomComponents["Weekday"] = (props) => (
+  <th data-slot="calendar-weekday" {...props} />
+)
+const CalendarDay: CustomComponents["Day"] = ({
+  day: _day,
+  modifiers,
+  ...props
+}) => (
+  <td
+    data-slot="calendar-cell"
+    data-today={modifiers.today || undefined}
+    data-outside={modifiers.outside || undefined}
+    {...props}
+  />
+)
 
 const CalendarWeekNumber: CustomComponents["WeekNumber"] = ({
   children,
@@ -185,6 +225,14 @@ function Calendar({
       }}
       components={{
         Root: CalendarRoot,
+        Nav: CalendarNav,
+        PreviousMonthButton: CalendarPrevious,
+        NextMonthButton: CalendarNext,
+        MonthCaption: CalendarCaption,
+        CaptionLabel: CalendarCaptionLabel,
+        Weekdays: CalendarWeekdays,
+        Weekday: CalendarWeekday,
+        Day: CalendarDay,
         Chevron: CalendarChevron,
         DayButton: dayButton,
         WeekNumber: CalendarWeekNumber,
@@ -213,7 +261,10 @@ function CalendarDayButton({
     <Button
       variant="ghost"
       size="icon"
+      data-slot="calendar-day"
       data-day={day.date.toLocaleDateString(locale?.code)}
+      data-today={modifiers.today || undefined}
+      data-outside={modifiers.outside || undefined}
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&

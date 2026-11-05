@@ -40,7 +40,7 @@ export default definePack({
   compact: true,
   tokens: { tonedLine: "#D1D1D1" },
   screen: "radial-gradient(90% 60% at 80% 0%, rgb(15 108 189 / 0.05), transparent 70%)",
-  recipes: { button: "flat", surface: "line", tabs: "underline", toggle: "outline", slider: "thin", nav: "plain", field: "boxed", bar: "line", meter: "thin", feedback: "dim", list: "hairline", dialog: "modal", chip: "tag", card: "outlined", segmented: "boxed", appbar: "compact", search: "boxed", input: "boxed", progress: "thin", row: "dense", menu: "compact", sheet: "panel", tooltip: "light", fab: "flat", badge: "pill", icon: "muted", scroll: "thin" },
+  recipes: { picker: "boxed", button: "flat", surface: "line", tabs: "underline", toggle: "outline", slider: "thin", nav: "plain", field: "boxed", bar: "line", meter: "thin", feedback: "dim", list: "hairline", dialog: "modal", chip: "tag", card: "outlined", segmented: "boxed", appbar: "compact", search: "boxed", input: "boxed", progress: "thin", row: "dense", menu: "compact", sheet: "panel", tooltip: "light", fab: "flat", badge: "pill", icon: "muted", scroll: "thin" },
   art: "soft translucent layers, gentle blue wallpaper bloom, calm productivity",
   ux: { margin: 16, gap: 12, tight: 0, nav: "keep" },
   layout: { zh: "宽屏时左侧导航窗格，顶部命令栏，内容是紧凑的列表和表单；控件矮、边距小，信息密度高。", en: "A navigation pane on the left when wide, a command bar on top, compact lists and forms below; short controls, small margins, dense." },
