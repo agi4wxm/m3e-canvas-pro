@@ -39,6 +39,7 @@ const CSS = `
 :is([data-slot=text-field-box],[data-slot=input],[data-slot=select-trigger],[data-slot=textarea],[data-slot=native-select],[data-slot=input-group],[data-surface=field]){border-radius:8px;background-color:${mix("surface-container-lowest", 70)};box-shadow:inset 0 0 0 1px ${mix("on-surface", 16)}}
 [data-slot=tooltip-content]{${frame};background-color:${mix("surface-container-low", 94)};border-radius:6px}
 [data-slot=snackbar]${W}{background-color:transparent;background-image:linear-gradient(90deg,transparent,rgb(0 0 0/.62) 18%,rgb(0 0 0/.62) 82%,transparent);border:0;border-radius:0;box-shadow:none;color:#ECE5D8;justify-content:center;text-align:center}
+[data-slot=snackbar-text]{flex:1;text-align:center}
 [data-slot=skeleton]${W}{border:0;outline:0;box-shadow:none}
 
 [data-slot=rating-star]{color:${mix("on-surface", 22)}}
@@ -48,6 +49,10 @@ const CSS = `
 [data-slot=radio-group-item]{border:1.5px solid ${mix("on-surface", 70)}}
 [data-slot=radio-group-indicator]{background-color:${GOLD}}
 :is([data-slot=chip],[data-slot=filter-chip],[data-slot=input-chip])${W}{border:1px solid ${mix("primary-container", 55)};background-color:${mix("surface-container-high", 70)};border-radius:999px}
+[data-slot=filter-chip][data-pressed]${W}{background-color:${role("primary")};color:${role("on-primary")};border-color:${role("primary")}}
+[data-slot=filter-chip][data-pressed] [data-slot=chip-leading]{color:${role("on-primary")}}
+[data-slot=tabs-list] [data-slot=tabs-indicator]{background-color:${role("primary")};box-shadow:inset 0 0 0 2px ${role("primary")},inset 0 0 0 3px ${mix("on-primary", 20)}}
+[data-slot=tabs-trigger][data-active]{color:${role("on-primary")}}
 [data-slot=side-tabs]${W}{background-color:transparent;border:0;outline:0;box-shadow:none}
 [data-slot=side-tabs-item]{border-radius:999px;color:${role("on-surface-variant")}}
 [data-slot=side-tabs-item][data-active]${W}{background-color:${role("primary")};color:${role("on-primary")};box-shadow:inset 0 0 0 2px ${role("primary")},inset 0 0 0 3px ${mix("on-primary", 20)}}

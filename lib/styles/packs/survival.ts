@@ -30,7 +30,7 @@ const CSS = `
 [data-button][data-size^=icon]:is([data-variant=filled],[data-variant=default],[data-variant=tonal],[data-variant=secondary]){${cta("#69B6F7", "#2C74D2", "#123E7A")}}
 [data-slot=dialog-close][data-size^=icon],[data-slot=sheet-close][data-size^=icon]{color:#fff;background-color:#D9372A;border-radius:6px;box-shadow:inset 0 1px 0 rgb(255 255 255/.5),0 0 0 1px #7A1208}
 :is([data-slot=dialog-content],[data-slot=alert-dialog-content],[data-slot=card],[data-slot=sheet-content],[data-slot=drawer-popup],[data-slot=side-sheet-content],[data-slot=action-sheet-group],[data-slot=popover-content],[data-slot=hover-card-content],[data-slot=dropdown-menu-content],[data-slot=select-content],[data-slot=context-menu-content],[data-slot=menubar-content])${W}{${plate};border-radius:8px}
-:is([data-slot$="-card"],[data-slot=dialogue-box])${W}{border-radius:8px}
+:is([data-slot$="-card"],[data-slot=dialogue-box],[data-slot=game-result],[data-slot=inventory],[data-slot=check-in],[data-slot=level-map],[data-slot=game-board])${W}{border-radius:8px}
 [data-slot=sheet-content] [data-slot=sheet-handle]{background-color:#7488AC}
 [data-slot=tooltip-content]{${strip};border:1px solid #0F1A2E;border-radius:4px}
 :is([data-slot=dialog-title],[data-slot=alert-dialog-title]){${strip};box-shadow:inset 0 -2px 0 rgb(0 0 0/.25),0 1px 0 #7488AC;font-size:var(--text-title-large);letter-spacing:.04em}
@@ -45,6 +45,7 @@ const CSS = `
 [data-slot=radio-group-item]{${socket}}
 [data-slot=radio-group-indicator]{background-color:#EE7F00;box-shadow:inset 0 1px 0 rgb(255 255 255/.5)}
 :is([data-slot=chip],[data-slot=filter-chip],[data-slot=input-chip])${W}{border-radius:4px;${socket};color:${role("on-surface")}}
+[data-slot=filter-chip][data-pressed]${W}{${cta("#69B6F7", "#2C74D2", "#123E7A")}}
 [data-slot=slider] [data-slot=slider-track]${W}{height:10px;border-radius:5px;outline:0;${socket}}
 [data-slot=slider-range]{background-image:linear-gradient(180deg,#FFB238,#EE7F00)}
 [data-slot=slider] [data-slot=slider-thumb]{width:22px;height:22px;border-radius:50%;outline:0;background-color:#fff;background-image:linear-gradient(180deg,#fff,#C9D6E6);border:1px solid #2B3A57;box-shadow:0 2px 0 rgb(20 30 50/.4)}
@@ -129,6 +130,8 @@ const CSS = `
 [data-slot=egg-smash-item]${W}{background-color:#FFC22E;background-image:radial-gradient(40% 30% at 36% 28%,rgb(255 255 255/.9),rgb(255 255 255/0)),radial-gradient(90% 80% at 62% 78%,rgb(160 90 0/.5),transparent 70%);box-shadow:0 0 0 2px #8A4B00,0 4px 6px rgb(20 30 50/.3)}
 [data-slot=egg-smash-item][data-state=broken]${W}{background-color:#A9B7CC;background-image:none}
 [data-slot=draw-result]{font-weight:700;color:var(--st-primary-text)}
+[data-slot=dialogue-name]${W}{flex:none;padding:2px 12px;border-radius:3px;${strip}}
+[data-slot=dialogue-portrait]{border-radius:6px;box-shadow:0 0 0 2px #7488AC}
 [data-slot=joystick]${W}{background-color:rgb(36 49 79/.45);border:3px solid rgb(255 255 255/.7);box-shadow:0 0 0 1px rgb(15 26 46/.5),inset 0 3px 8px rgb(0 0 0/.3)}
 [data-slot=joystick-handle]{background-color:#F8FBFE;background-image:linear-gradient(180deg,#fff,#C9D6E6);border:2px solid #2B3A57;box-shadow:0 3px 0 #2B3A57}
 [data-slot=joystick-dot]{display:none}

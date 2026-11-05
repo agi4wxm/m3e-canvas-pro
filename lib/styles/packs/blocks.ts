@@ -38,6 +38,8 @@ const CSS = `
 [data-slot=radio-group-item]{width:22px;height:22px;${well}}
 [data-slot=radio-group-indicator]{width:12px;height:12px;background-color:#FFD23F;box-shadow:inset 0 2px 0 rgb(255 255 255/.5),inset 0 -2px 0 rgb(0 0 0/.2)}
 :is([data-slot=chip],[data-slot=filter-chip],[data-slot=input-chip])${W}{border:0;border-radius:10px;background-color:${NAVY};box-shadow:inset 0 1px 0 rgb(255 255 255/.08)}
+[data-slot=filter-chip][data-pressed]${W}{${piece("#5B74E0")};color:#fff}
+[data-slot=tabs-list] [data-slot=tabs-indicator]{${piece("#5B74E0")}}
 [data-slot=slider] [data-slot=slider-track]${W}{height:12px;border-radius:999px;${well}}
 [data-slot=slider] [data-slot=slider-thumb]{width:24px;height:24px;border-radius:8px;${piece("#FFD23F")}}
 
@@ -116,6 +118,7 @@ const CSS = `
 [data-slot=egg-smash-item]${W}{background-color:#FFD23F;background-image:radial-gradient(40% 30% at 36% 28%,rgb(255 255 255/.85),rgb(255 255 255/0)),radial-gradient(90% 80% at 62% 78%,rgb(176 120 0/.5),transparent 70%);box-shadow:0 5px 0 rgb(0 0 0/.25)}
 [data-slot=egg-smash-item][data-state=broken]${W}{background-color:#3A47A0;background-image:none}
 [data-slot=draw-result]{color:#FFD23F;font-weight:700}
+[data-slot=dialogue-name]{flex:none;padding:2px 14px;${ribbon}}
 [data-slot=joystick]${W}{background-color:rgb(27 31 75/.7);border:3px solid rgb(255 255 255/.25);box-shadow:inset 0 3px 8px rgb(0 0 0/.4)}
 [data-slot=joystick-handle]{border-radius:30%;${piece("#FFD23F")}}
 [data-slot=joystick-dot]{display:none}

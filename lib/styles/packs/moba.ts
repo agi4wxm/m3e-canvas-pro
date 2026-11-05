@@ -1,4 +1,4 @@
-import { BUTTON, mix, role } from "../recipes/shared";
+import { BUTTON, HEADINGS, mix, role } from "../recipes/shared";
 import { definePack, roles, say, TITLES, BODIES, LABELS } from "../types";
 
 /* Wild Rift's menus looked at on Interface In Game; Honor of Kings' store shots share its blue and gold. Its own lobby could not be reached */
@@ -28,7 +28,9 @@ const diamond = (edge: string, fill: string) => {
 };
 /** a disc with a ring of gold and a dark line outside it: the skill buttons, the knob */
 const disc = (fill: string) => `border-radius:50%;background-color:#0A1F3A;background-image:${fill};box-shadow:0 0 0 2px ${GOLD},0 0 0 4px #0A1428,0 0 0 5px ${DEEP},0 4px 10px rgb(0 0 0/.5)`;
-const GILT_WORDS = `background-image:linear-gradient(180deg,#FFF6D8,${GOLD} 60%,${DEEP});-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent`;
+/** gold cast in the tertiary role: pale gold on the navy, a deep bronze on the light scheme, where pale would not read */
+const GILT = `linear-gradient(180deg,color-mix(in srgb,${role("tertiary")} 65%,#fff),${role("tertiary")} 55%,color-mix(in srgb,${role("tertiary")} 70%,#000))`;
+const GILT_WORDS = `background-image:${GILT};-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent`;
 
 const CSS = `
 :is(${BUTTON}):is([data-variant=filled],[data-variant=default]){${cut(7, "#FFF3D0", METAL)};color:#1A1408;font-weight:700}
@@ -37,7 +39,8 @@ const CSS = `
 [data-button][data-size^=icon]:is([data-variant=filled],[data-variant=default],[data-variant=tonal],[data-variant=secondary]){${cut(6, GOLD, BLUE_FILL)};color:#F0E6D2}
 :is([data-slot=dialog-close],[data-slot=sheet-close])[data-size^=icon]{color:${role("primary")}}
 :is([data-slot=dialog-content],[data-slot=alert-dialog-content],[data-slot=sheet-content],[data-slot=popover-content],[data-slot=card])${W}{${plate(14)}}
-:is([data-slot=dialog-title],[data-slot=alert-dialog-title],[data-slot=game-result-title]){padding-inline:36px;background-image:linear-gradient(180deg,#FFF6D8,${GOLD} 60%,${DEEP}),linear-gradient(90deg,transparent,${GOLD}),linear-gradient(90deg,${GOLD},transparent);background-size:100% 100%,28px 1px,28px 1px;background-position:center,left center,right center;background-repeat:no-repeat;-webkit-background-clip:text,border-box,border-box;background-clip:text,border-box,border-box;letter-spacing:.08em}
+${HEADINGS}{background-image:${GILT}}
+:is([data-slot=dialog-title],[data-slot=alert-dialog-title],[data-slot=game-result-title]){padding-inline:36px;background-image:${GILT},linear-gradient(90deg,transparent,${GOLD}),linear-gradient(90deg,${GOLD},transparent);background-size:100% 100%,28px 1px,28px 1px;background-position:center,left center,right center;background-repeat:no-repeat;-webkit-background-clip:text,border-box,border-box;background-clip:text,border-box,border-box;letter-spacing:.08em}
 [data-slot=snackbar]${W}{${cut(8, GOLD, NAVY_FILL)};color:${role("on-surface")}}
 [data-slot=tooltip-content]{${cut(5, GOLD, NAVY_FILL)};color:${role("on-surface")}}
 :is([data-slot=dropdown-menu-content],[data-slot=select-content],[data-slot=context-menu-content],[data-slot=menubar-content])${W}{${plate(8)}}
@@ -50,6 +53,7 @@ const CSS = `
 [data-slot=radio-group-item]{border:1px solid ${GOLD}}
 [data-slot=radio-group-indicator]{background-color:${GOLD};box-shadow:0 0 6px rgb(200 170 110/.7)}
 :is([data-slot=chip],[data-slot=filter-chip],[data-slot=input-chip])${W}{${cut(5, mix("primary", 70), NAVY_FILL)};color:${role("on-surface")}}
+[data-slot=filter-chip][data-pressed]${W}{${cut(5, "#FFF3D0", METAL)};color:#1A1408}
 [data-slot=side-tabs]${W}{${plate(8)}}
 [data-slot=side-tabs-item]{border-radius:0;color:${role("on-surface-variant")}}
 [data-slot=side-tabs-item][data-active]${W}{background-color:transparent;background-image:linear-gradient(90deg,rgb(200 170 110/.32),transparent);box-shadow:inset 3px 0 0 ${GOLD};color:${role("on-surface")}}
