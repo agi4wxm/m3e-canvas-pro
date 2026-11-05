@@ -102,6 +102,7 @@ import { isProject, readProject, saveProject } from "@/lib/project";
 import { hasShareHash, readShareHash } from "@/lib/share";
 import { LoadingIndicator } from "@/components/Loading";
 import { draftDesign } from "@/lib/ai";
+import { pushApart } from "@/lib/settle";
 import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
@@ -2628,6 +2629,23 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     } catch {}
   };
 
+  /* A model guesses how tall its parts come out. Once a new draft's parts have held their measured
+   * sizes for a moment (icons and lazy widgets arrive late), what ran together is moved apart. */
+  const settleDraftRef = useRef(false);
+  useEffect(() => {
+    if (!settleDraftRef.current) return;
+    const id = setTimeout(() => {
+      if (!settleDraftRef.current) return;
+      settleDraftRef.current = false;
+      const out = pushApart(groupsRef.current, framesRef.current, widthsRef.current);
+      if (out) {
+        setGroups(out.groups);
+        setFrames(out.frames);
+      }
+    }, 700);
+    return () => clearTimeout(id);
+  }, [widths]);
+
   const startDraft = async (idea: string) => {
     setShareOpen(false);
     setDraftBusy(true);
@@ -2638,6 +2656,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         guideRef.current = await res.text();
       }
       const next = await draftDesign(aiSettings, guideRef.current, idea, lang);
+      settleDraftRef.current = true;
       arrive(next);
     } catch (e) {
       const m = e instanceof Error ? e.message : "";
@@ -2656,6 +2675,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     } catch {}
   };
   const undoDraft = () => {
+    settleDraftRef.current = false;
     if (draftBefore) {
       setRevealing(true);
       if (revealTimer.current) clearTimeout(revealTimer.current);
