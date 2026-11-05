@@ -7,7 +7,23 @@
  *   pixel    Pixelarticons for the names below, and sharp for the rest
  * An icon that has not arrived, or does not exist in a family, is drawn from Rounded: see `symbolName`.
  */
-export type IconFamily = "rounded" | "filled" | "light" | "sharp" | "pixel"
+export type IconFamily =
+  | "rounded"
+  | "filled"
+  | "light"
+  | "sharp"
+  | "pixel"
+  | "sf"
+  | "fluentui"
+  | "codicon"
+  | "phosphor"
+  | "lucide"
+  | "remix"
+  | "ant"
+  | "tabler"
+  | "mingcute"
+  | "game"
+  | "emoji"
 
 /** Material's name (in Iconify's spelling) to the Pixelarticons glyph that means the same */
 const PIXEL: Record<string, string> = {

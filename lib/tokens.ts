@@ -309,7 +309,8 @@ export type ShapeScale = "none" | "square" | "soft" | "rounded" | "full";
 export type FontKey = "roboto" | "robotoFlex" | "robotoSerif" | "system" | "apple" | "segoe" | "inter" | "dmsans" | "mrounded" | "fredoka" | "lilita" | "barlow" | "rajdhani" | "pixel" | "garamond" | "cinzel" | "tiktok" | "brush";
 export type MotionScheme = "standard" | "expressive";
 /** which drawing of Material Symbols the icons are, or the pixel set for the names it has */
-export type IconFamily = "rounded" | "filled" | "light" | "sharp" | "pixel";
+/** which drawing of the icons a document uses: Material's own cuts, or a product's set (see components/m3e/icon-family.ts) */
+export type IconFamily = "rounded" | "filled" | "light" | "sharp" | "pixel" | "sf" | "fluentui" | "codicon" | "phosphor" | "lucide" | "remix" | "ant" | "tabler" | "mingcute" | "game" | "emoji";
 export type { Contrast };
 
 export type Theme = {
@@ -339,7 +340,7 @@ export type Theme = {
 
 export const DEFAULT_THEME: Theme = { dark: false, bothModes: false, contrast: "standard", shape: "rounded", font: "roboto", emphasized: false, motion: "standard" };
 
-export const ICON_FAMILIES: IconFamily[] = ["rounded", "filled", "light", "sharp", "pixel"];
+export const ICON_FAMILIES: IconFamily[] = ["rounded", "filled", "light", "sharp", "pixel", "sf", "fluentui", "codicon", "phosphor", "lucide", "remix", "ant", "tabler", "mingcute", "game", "emoji"];
 
 /** a stored theme with any missing or unknown field replaced by its default */
 export function normalizeTheme(t: Partial<Theme> | undefined): Theme {

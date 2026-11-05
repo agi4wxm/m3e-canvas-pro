@@ -27,6 +27,17 @@ const ICON_LABELS: Record<IconFamily, { zh: string; en: string; ja: string; ko: 
   light: { zh: "细线", en: "Thin", ja: "細線", ko: "얇은" },
   sharp: { zh: "方正", en: "Sharp", ja: "角ばった", ko: "각진" },
   pixel: { zh: "像素", en: "Pixel", ja: "ピクセル", ko: "픽셀" },
+  sf: { zh: "iOS 线条", en: "iOS line", ja: "iOS の線", ko: "iOS 선" },
+  fluentui: { zh: "Fluent", en: "Fluent", ja: "Fluent", ko: "Fluent" },
+  codicon: { zh: "VS Code", en: "VS Code", ja: "VS Code", ko: "VS Code" },
+  phosphor: { zh: "Phosphor", en: "Phosphor", ja: "Phosphor", ko: "Phosphor" },
+  lucide: { zh: "Lucide", en: "Lucide", ja: "Lucide", ko: "Lucide" },
+  remix: { zh: "Remix", en: "Remix", ja: "Remix", ko: "Remix" },
+  ant: { zh: "Ant Design", en: "Ant Design", ja: "Ant Design", ko: "Ant Design" },
+  tabler: { zh: "Tabler", en: "Tabler", ja: "Tabler", ko: "Tabler" },
+  mingcute: { zh: "MingCute", en: "MingCute", ja: "MingCute", ko: "MingCute" },
+  game: { zh: "游戏图标", en: "Game icons", ja: "ゲームアイコン", ko: "게임 아이콘" },
+  emoji: { zh: "彩色图标", en: "Color emoji", ja: "カラー絵文字", ko: "컬러 이모지" },
 };
 
 /** the two controls that say the most about a style, drawn in it */
