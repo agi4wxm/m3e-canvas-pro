@@ -323,7 +323,7 @@ export type Theme = {
   /** headings and labels take the heavier M3 Expressive "emphasized" styles */
   emphasized: boolean;
   motion: MotionScheme;
-  /** the style the document wears (lib/styles.ts); left out, it is plain Material */
+  /** the style the document wears (lib/styles/); left out, it is plain Material */
   style?: string;
   /** the author picked colors after the style: the palette is theirs, the rest stays the style's */
   ownColors?: boolean;

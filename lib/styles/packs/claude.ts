@@ -32,6 +32,8 @@ export default definePack({
   },
   type: { "headline-large": [36, 44, 400, -0.4], "headline-medium": [30, 38, 400, -0.3], "headline-small": [24, 32, 400, -0.2], ...TITLES([20, 28, 500, -0.1], [16, 24, 500, 0], [14, 20, 500, 0]), ...BODIES([16, 26, 400, 0], [14, 22, 400, 0], [12, 18, 400, 0]), ...LABELS([14, 20, 500, 0], [13, 18, 500, 0], [11, 16, 500, 0.2]) },
   /* the composer is the product's face: a white box with a hairline and a soft shadow, larger corners than the rest */
-  css: `[data-slot=chat-composer]{background-color:var(--md-sys-color-surface-container-low);border:1px solid var(--md-sys-color-outline-variant);border-radius:20px;box-shadow:0 4px 20px rgb(0 0 0/.05)}
+  css: `[data-slot=chat-composer]{background-color:var(--md-sys-color-surface-container-low);border:1px solid var(--md-sys-color-outline-variant);border-radius:20px;box-shadow:0 4px 20px rgb(0 0 0/.05);padding:10px 12px}
+[data-slot=chat-composer-field] :is([data-slot=input],[data-slot=textarea]){border:0;background-color:transparent;box-shadow:none}
+[data-slot=chat-composer-send]{border-radius:var(--md-sys-shape-corner-small);background-color:var(--md-sys-color-primary);color:var(--md-sys-color-on-primary)}
 :is([data-slot=card-title],[data-slot=dialog-title],[data-slot=sheet-title],[data-slot=section-header-title],[data-slot=empty-title]){font-family:var(--st-display,inherit);font-weight:500}`,
 });

@@ -3,7 +3,7 @@ import { useEffect, useMemo } from "react";
 import { Button } from "@/components/m3e/button";
 import { Switch } from "@/components/m3e/switch";
 import { themeCss } from "@/lib/m3e/color";
-import { RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, STYLE_PACKS, VARIANT_LABELS, isStrict, recipesOf, styleCss, styleOf, stylePatch, styleTextOf, uxOf, type RecipeKey, type Recipes, type StylePack, type StyleUX } from "@/lib/styles";
+import { RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, STYLE_PACKS, isStrict, recipesOf, styleCss, styleOf, stylePatch, styleTextOf, uxOf, variantLabel, type RecipeKey, type Recipes, type StylePack, type StyleUX } from "@/lib/styles";
 import { FONTS, ICON_FAMILIES, Palette, Theme, fontFamilyOf, langFaceOf, shapeScaleOf, type FontKey, type IconFamily } from "@/lib/tokens";
 import { ensureFontLoaded } from "@/lib/theme";
 import { Lang, t, useLang } from "@/lib/i18n";
@@ -166,7 +166,7 @@ function StyleSpec({ theme, pack, p, lang }: { theme: Theme; pack: StylePack | u
         </span>
       </SpecRow>
       <SpecRow label={t("specControls", lang)} p={p}>
-        {built.length ? built.map((k) => `${styleTextOf(RECIPE_LABELS[k], lang)}：${styleTextOf(VARIANT_LABELS[recipes[k]], lang)}`).join("；") : "Material 3"}
+        {built.length ? built.map((k) => `${styleTextOf(RECIPE_LABELS[k], lang)}：${styleTextOf(variantLabel(k, recipes[k]), lang)}`).join("；") : "Material 3"}
       </SpecRow>
       <SpecRow label={t("specLayout", lang)} p={p}>
         {t("styleNav", lang)}：{nav}；{t("styleMargin", lang)} {ux.margin}；{t("styleGap", lang)} {ux.gap}；{t("styleTight", lang)} {ux.tight}
@@ -269,6 +269,17 @@ export function StylePanel({
       <Toggle on={strict} onChange={onRules} p={p} label={t("styleRules", lang)} grow />
       <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t(strict ? "styleRulesOn" : "styleRulesOff", lang)}</div>
       {strict && <StyleSpec theme={theme} pack={pack} p={p} lang={lang} />}
+      {/* every part wearing this style, on a page of its own: to see what the style makes of each */}
+      <a
+        href={`${import.meta.env.BASE_URL}gallery?${new URLSearchParams({ ...(theme.style ? { style: theme.style } : {}), dark: theme.dark ? "1" : "0", lang }).toString()}`}
+        target="_blank"
+        rel="noreferrer"
+        className="m3-press"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, height: 36, borderRadius: 12, background: p.surfaceContainerHigh, color: p.onSurface, fontSize: 12, fontWeight: 600, textDecoration: "none" }}
+      >
+        <Icon name="grid_view" size={18} />
+        {t("styleGallery", lang)}
+      </a>
       {!strict && (
         <>
       <Heading p={p}>{t("styleLayout", lang)}</Heading>
@@ -324,7 +335,7 @@ export function StylePanel({
               label={styleTextOf(RECIPE_LABELS[k], lang)}
               p={p}
               value={recipes[k]}
-              options={RECIPES[k].map((v) => ({ key: v, label: styleTextOf(VARIANT_LABELS[v], lang) }))}
+              options={RECIPES[k].map((v) => ({ key: v, label: styleTextOf(variantLabel(k, v), lang) }))}
               onChange={(v) => setRecipe(k, v)}
             />
           </Labeled>

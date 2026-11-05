@@ -24,5 +24,8 @@ export default definePack({
   ux: { margin: 16, gap: 16, tight: 4, nav: "keep" },
   layout: { zh: "几乎没有界面：中间是对话，底部一个大圆角输入框和圆形发送按钮，导航收在侧边抽屉里。", en: "Almost no chrome: the conversation in the middle, a large rounded composer with a round send button at the foot, navigation folded into a side drawer." },
   type: { ...TITLES([18, 26, 600, 0], [16, 24, 600, 0], [14, 20, 600, 0]), ...BODIES([16, 24, 400, 0], [14, 20, 400, 0], [12, 16, 400, 0]), ...LABELS([14, 20, 500, 0], [13, 18, 500, 0], [12, 16, 500, 0]) },
-  css: "",
+  /* the composer is a large rounded box of its own, the field in it bare, the send a round dark button */
+  css: `[data-slot=chat-composer]{background-color:var(--md-sys-color-surface-container-low);border:1px solid var(--md-sys-color-outline-variant);border-radius:28px;box-shadow:0 2px 12px rgb(0 0 0/.06);padding:8px 10px}
+[data-slot=chat-composer-field] :is([data-slot=input],[data-slot=textarea]){border:0;background-color:transparent;box-shadow:none}
+[data-slot=chat-composer-send]{border-radius:999px}`,
 });

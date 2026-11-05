@@ -33,5 +33,7 @@ export default definePack({
   type: { "headline-large": [32, 40, 600, -0.5], "headline-medium": [26, 32, 600, -0.4], "headline-small": [20, 28, 600, -0.2], ...TITLES([16, 22, 600, 0], [14, 20, 600, 0], [13, 18, 600, 0]), ...BODIES([14, 20, 400, 0], [13, 18, 400, 0], [12, 16, 400, 0]), ...LABELS([13, 18, 500, 0], [12, 16, 500, 0], [11, 14, 500, 0]) },
   /* what is code is set as code: keys, counts, tags, the figures at a row's end */
   css: `:is([data-slot=badge],[data-slot=kbd],[data-slot=code-block],[data-slot=file-diff],[data-slot$="-meta"],[data-slot$="-value"]){font-family:var(--st-display,ui-monospace,monospace)}
-[data-slot=chat-composer]{border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--md-sys-shape-corner-large);background-color:var(--md-sys-color-surface-container-low)}`,
+[data-slot=chat-composer]{border:1px solid var(--md-sys-color-outline-variant);border-radius:var(--md-sys-shape-corner-large);background-color:var(--md-sys-color-surface-container-low)}
+[data-slot=chat-composer-field] :is([data-slot=input],[data-slot=textarea]){border:0;background-color:transparent;box-shadow:none}
+[data-slot=chat-composer-send]{border-radius:999px}`,
 });

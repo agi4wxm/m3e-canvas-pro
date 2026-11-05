@@ -56,6 +56,7 @@ type Page = {
   waitForTimeout: (ms: number) => Promise<void>;
   $$: (s: string) => Promise<Handle[]>;
   screenshot: (o: Shot) => Promise<unknown>;
+  setViewportSize: (size: { width: number; height: number }) => Promise<void>;
 };
 type Browser = { newPage: (o: { viewport: { width: number; height: number }; deviceScaleFactor: number }) => Promise<Page>; close: () => Promise<void> };
 
@@ -72,11 +73,18 @@ try {
     for (const dark of modes) {
       const query = new URLSearchParams({ ...(style === "android" ? {} : { style }), ...(dark ? { dark } : {}), lang: lang ?? "zh", ...(part ? { part } : {}) });
       const name = `${safe(style)}${dark === "1" ? "-dark" : dark === "0" ? "-light" : ""}`;
+      await page.setViewportSize({ width, height: 900 });
       await page.goto(`${base}/gallery?${query}`, { waitUntil: "networkidle" });
-      await page.waitForSelector("[data-gallery-category]", { timeout: 30_000 });
+      await page.waitForSelector("[data-gallery-settled]", { timeout: 30_000 });
       /* faces and icon sets arrive after the first draw; let them land and the parts draw again */
       await page.evaluate(() => document.fonts.ready);
       await page.waitForTimeout(1200);
+      /* A menu below the fold flips above its trigger, out of its box, for want of room in the window: the window is
+         made as tall as the page, and what floats is asked to place itself again. */
+      const tall = await page.evaluate(() => document.documentElement.scrollHeight);
+      await page.setViewportSize({ width, height: Math.min(Math.max(900, tall), 30000) });
+      await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+      await page.waitForTimeout(500);
       const dir = join(out, name);
       mkdirSync(dir, { recursive: true });
       const sections = await page.$$("[data-gallery-category]");

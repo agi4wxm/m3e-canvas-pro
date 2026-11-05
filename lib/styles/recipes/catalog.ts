@@ -156,7 +156,7 @@ export const VARIANT_LABELS: Record<string, StyleText> = {
   filled: say("灰底填充", "Filled", "塗りつぶし", "채움"),
   cancel: say("带取消按钮", "With Cancel", "キャンセル付き", "취소 버튼 포함"),
   track: say("粗轨", "Thick track", "太いトラック", "굵은 트랙"),
-  chevron: say("右箭头和图标方块", "Chevrons, icon tiles", "シェブロンとアイコンタイル", "화살표와 아이콘 타일"),
+  chevron: say("右箭头和灰色值", "Chevrons, grey values", "シェブロンと灰色の値", "화살표와 회색 값"),
   arrow: say("浅色右箭头", "Light chevrons", "淡いシェブロン", "옅은 화살표"),
   dense: say("密集", "Dense", "高密度", "촘촘한 행"),
   bullet: say("菱形引导", "Diamond markers", "菱形の印", "마름모 표시"),
@@ -173,7 +173,6 @@ export const VARIANT_LABELS: Record<string, StyleText> = {
   emboss: say("立体阴影", "Embossed", "立体の影", "입체 그림자"),
   caps: say("大写字距", "Capitals, spaced", "大文字と字間", "대문자와 자간"),
   italic: say("粗斜体大写", "Bold italic capitals", "太い斜体の大文字", "굵은 기울임 대문자"),
-  outlinedText: say("白字描边", "Outlined words", "白文字に縁取り", "흰 글자 테두리"),
   gilded: say("鎏金", "Gilded", "金色", "금빛 글자"),
   dot: say("小圆点", "Dot", "小さな点", "작은 점"),
   scan: say("扫描线", "Scan lines", "走査線", "스캔라인"),
@@ -185,6 +184,26 @@ export const VARIANT_LABELS: Record<string, StyleText> = {
 
 /** the name of a variant of a kind: where two kinds share a variant's name but not its idea, the kind's own name wins */
 export function variantLabel(key: RecipeKey, variant: string): StyleText {
-  if (key === "text" && variant === "outlined") return VARIANT_LABELS.outlinedText;
-  return VARIANT_LABELS[variant] ?? say(variant, variant, variant, variant);
+  return BY_KIND[`${key}:${variant}`] ?? VARIANT_LABELS[variant] ?? say(variant, variant, variant, variant);
 }
+
+/** the variants whose shared name says something else in this kind */
+const BY_KIND: Record<string, StyleText> = {
+  "text:outlined": say("白字描边", "Outlined words", "白文字に縁取り", "흰 글자 테두리"),
+  "list:hairline": say("矮行细线", "Short rows, hairlines", "低い行と細線", "낮은 행과 가는 선"),
+  "list:tile": say("每行一块", "A plate per row", "行ごとのプレート", "행마다 판"),
+  "divider:hairline": say("极细线", "Hairline", "極細線", "아주 가는 선"),
+  "icon:tile": say("彩色方块底", "On a colored square", "色付きの四角", "색 사각형 바탕"),
+  "field:ring": say("聚焦光环", "Focus ring", "フォーカスリング", "포커스 링"),
+  "field:line": say("只有下划线", "A line beneath", "下線のみ", "밑줄만"),
+  "tabs:pill": say("胶囊选中", "Chosen in a capsule", "カプセルで選択", "캡슐로 선택"),
+  "badge:pill": say("胶囊计数", "Capsule count", "カプセルの数字", "캡슐 숫자"),
+  "chip:pill": say("胶囊", "Capsule", "カプセル", "캡슐"),
+  "nav:plain": say("细线底栏", "Plain bar with a hairline", "細線のバー", "가는 선 바"),
+  "nav:block": say("方块选中", "Chosen in a block", "ブロックで選択", "블록으로 선택"),
+  "bar:line": say("实底细线", "Filled, with a line", "塗りと線", "채움과 선"),
+  "bar:plain": say("透明", "Transparent", "透明", "투명"),
+  "menu:plain": say("无框文字", "Words, no panel", "枠なしの文字", "틀 없는 글자"),
+  "dialog:plain": say("居中无框", "Centered, square", "中央・角なし", "가운데, 각진"),
+  "sheet:rim": say("游戏描边", "Game rim", "ゲームの縁", "게임 테두리"),
+};

@@ -86,6 +86,6 @@ ${SEG}{border-radius:0;background-color:transparent;color:${role("on-surface-var
 ${SEG_ON}{color:${role("on-surface")};border-bottom-color:var(--st-tab-on);background-color:transparent}`,
   /* the games: square cells with the style's edge */
   block: `${GROUP}{gap:4px}
-${SEG}{border-radius:var(--st-control-r);border:var(--st-edge-thin) solid var(--st-line);background-color:${role("surface-container-high")};color:${role("on-surface")}}
+${SEG}{border-radius:var(--st-control-r);border:var(--st-edge-thin) solid var(--st-line);background-color:${role("surface-container-high")};background-image:none;color:${role("on-surface")};text-shadow:none;box-shadow:0 2px 0 var(--st-line)}
 ${SEG_ON}{background-color:var(--st-tab-on);color:${role("on-primary")}}`,
 };

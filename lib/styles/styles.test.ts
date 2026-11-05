@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { APP_SCOPE, RECIPES, RECIPE_KEYS, STYLE_GROUPS, STYLE_PACKS, artOf, hasBackdrop, normalizeRecipes, recipesOf, screenBackground, styleCatalog, styleCss, styleOf, stylePalette, stylePatch, styleSeed, type StyleRoles } from ".";
+import { APP_SCOPE, RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, variantLabel, STYLE_PACKS, artOf, hasBackdrop, normalizeRecipes, recipesOf, screenBackground, styleCatalog, styleCss, styleOf, stylePalette, stylePatch, styleSeed, type StyleRoles } from ".";
 import { DEFAULT_THEME, FONTS, ICON_FAMILIES, SHAPES, fontFamilyOf, langFaceOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Theme } from "../tokens";
 
 const root = new URL("../../", import.meta.url);
@@ -216,6 +216,16 @@ describe("what a style writes", () => {
   it("reaches what is worked out from the roles, inside a screen too: a chart's colors are not left at the page's", () => {
     const css = readFileSync(new URL("styles/m3e.css", root), "utf8");
     expect(css).toMatch(/\.m3-part-scope,\s*\[data-style-sample\]\s*\{\s*--background:/);
+  });
+
+  it("names every kind and every variant in the four languages", () => {
+    for (const k of RECIPE_KEYS) {
+      expect(Object.values(RECIPE_LABELS[k]).every(Boolean), k).toBe(true);
+      for (const v of RECIPES[k]) {
+        const label = variantLabel(k, v);
+        expect([label.zh, label.en, label.ja, label.ko].every((s) => s && s !== v), `${k} ${v}`).toBe(true);
+      }
+    }
   });
 
   it("has CSS for every variant it offers, and each stays balanced", () => {

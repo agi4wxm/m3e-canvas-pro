@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LangContext, setGlobalLang, type Lang } from "@/lib/i18n";
 import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
 import { STYLE_GROUPS, STYLE_PACKS, screenBackground, styleOf, styleTextOf } from "@/lib/styles";
 import { DEFAULT_THEME, PHONE_H, PHONE_W, fontFamilyOf, makeItem, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Group, type Item, type Palette, type Theme } from "@/lib/tokens";
 import { useIconFamily } from "@/parts/icons";
-import { CATEGORIES, PARTS } from "@/parts/registry";
+import { CATEGORIES, PARTS, reader } from "@/parts/registry";
+import { FIT_OVERLAY, REMEASURE } from "@/parts/contained";
 import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
 import { arranged, defaultMeasures, inLang, seedGroups, type Node } from "@/parts/templates/kit";
 import type { PartDef } from "@/parts/types";
@@ -78,19 +79,57 @@ function Cell({ label, sub, p, theme, children }: { label: string; sub?: string;
         <span style={{ color: "#202124" }}>{label}</span>
         {sub && <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11 }}>{sub}</span>}
       </figcaption>
-      {/* the part stands on its style's screen, as it would on the canvas */}
-      <div style={{ background: screenBackground(p.surface, theme), padding: 16, borderRadius: 12, outline: "1px solid rgb(0 0 0 / 0.08)", width: "fit-content", maxWidth: "100%", overflow: "hidden" }}>{children}</div>
+      {/* the part stands on its style's screen, as it would on the canvas, in the words' color the editor gives the page */}
+      <div style={{ background: screenBackground(p.surface, theme), color: p.onSurface, padding: 16, borderRadius: 12, outline: "1px solid rgb(0 0 0 / 0.08)", width: "fit-content", maxWidth: "100%", overflow: "hidden" }}>{children}</div>
     </figure>
   );
 }
 
+/** The size of the overlay a `fit` part floats in its box, as the canvas measures it: the part is the dialog, not the
+ *  screen-sized box it opens in. Undefined for every other part, which is as large as it draws. */
+function useFitSize(fit: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!fit) return;
+    const measure = () => {
+      const r = ref.current?.querySelector(FIT_OVERLAY)?.getBoundingClientRect();
+      if (r && r.width && r.height) setSize((s) => (s && s.w === Math.round(r.width) && s.h === Math.round(r.height) ? s : { w: Math.round(r.width), h: Math.round(r.height) }));
+    };
+    measure();
+    window.addEventListener(REMEASURE, measure);
+    const late = setTimeout(measure, 800);
+    return () => {
+      window.removeEventListener(REMEASURE, measure);
+      clearTimeout(late);
+    };
+  }, [fit]);
+  return [ref, size] as const;
+}
+
+/** whether the page has stopped moving: faces and icons have arrived, and every cell stands where it will stay */
+function useSettled() {
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    let gone = false;
+    void document.fonts.ready.then(() => setTimeout(() => !gone && setSettled(true), 900));
+    return () => {
+      gone = true;
+    };
+  }, []);
+  return settled;
+}
+
 /** one part, as an item fresh from the palette with these props */
-function PartCell({ def, props, label, p, theme, lang }: { def: PartDef; props?: Record<string, unknown>; label?: string; p: Palette; theme: Theme; lang: Lang }) {
+function PartCell({ def, props, label, p, theme, lang, settled }: { def: PartDef; props?: Record<string, unknown>; label?: string; p: Palette; theme: Theme; lang: Lang; settled: boolean }) {
   const item = useMemo<Item>(() => ({ ...makeItem(def.slug), id: `gallery-${def.slug}-${label ?? "default"}`, props: { ...props } }), [def.slug, props, label]);
+  const [ref, fit] = useFitSize(!!def.open?.fit);
+  /* a menu or a popover places itself once, against where its trigger stands then: it waits for the page to settle */
+  const floats = !!def.open && !def.open.fit;
   return (
     <Cell label={nameIn(def, lang)} sub={label ? `${def.slug} · ${label}` : def.slug} p={p} theme={theme}>
-      <div data-gallery-part={def.slug} data-gallery-sample={label} style={{ position: "relative", minWidth: Math.min(def.w, 420), minHeight: Math.min(def.h, 40) }}>
-        <PartView item={item} screen={{ w: PHONE_W, h: PHONE_H }} />
+      <div ref={ref} data-gallery-part={def.slug} data-gallery-sample={label} style={{ position: "relative", minWidth: Math.min(def.w, 420), minHeight: Math.min(def.h, 40), ...(fit ? { width: fit.w, height: fit.h, overflow: "hidden" } : {}) }}>
+        {floats && !settled ? <div style={{ width: def.open!.box(reader(def, item.props)).w, height: def.open!.box(reader(def, item.props)).h }} /> : <PartView item={item} screen={{ w: PHONE_W, h: PHONE_H }} />}
       </div>
     </Cell>
   );
@@ -193,8 +232,13 @@ export function Gallery({ search }: { search: GallerySearch }) {
     if (theme.displayFont) ensureFontLoaded(theme.displayFont, redraw, lang);
     document.documentElement.lang = lang;
     document.title = `Gallery · ${search.style || "android"}${theme.dark ? " · dark" : ""}`;
+    /* menus and popovers place themselves once, against where their trigger stood then; the cells around them move
+       as faces and icons arrive, so they are asked to place themselves again once the page has settled */
+    const settle = [600, 1500].map((ms) => setTimeout(() => window.dispatchEvent(new Event("resize")), ms));
+    return () => settle.forEach(clearTimeout);
   }, [theme.font, theme.displayFont, lang, search.style, theme.dark]);
 
+  const settled = useSettled();
   const only = search.part ? new Set(search.part.split(",")) : null;
   const parts = PARTS.filter((d) => !only || only.has(d.slug));
   const kits = only ? KITS.filter((k) => only.has(k.slug)) : KITS;
@@ -206,7 +250,7 @@ export function Gallery({ search }: { search: GallerySearch }) {
       <PartThemeContext.Provider value={partTheme}>
         <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
         <PartStyleSheet theme={theme} />
-        <div data-gallery data-gallery-style={search.style || "android"} data-gallery-dark={theme.dark ? "1" : "0"} style={{ minHeight: "100vh", background: "#f8f9fa" }}>
+        <div data-gallery data-gallery-settled={settled ? "" : undefined} data-gallery-style={search.style || "android"} data-gallery-dark={theme.dark ? "1" : "0"} style={{ minHeight: "100vh", background: "#f8f9fa" }}>
           <Chrome search={search} sections={sections} lang={lang} />
           <main style={{ padding: 16, display: "flex", flexDirection: "column", gap: 28, fontFamily: fontFamilyOf(theme.font, lang) }}>
             {shown.map((c) => (
@@ -218,8 +262,8 @@ export function Gallery({ search }: { search: GallerySearch }) {
                   {parts
                     .filter((d) => d.category === c)
                     .flatMap((d) => [
-                      <PartCell key={d.slug} def={d} p={p} theme={theme} lang={lang} />,
-                      ...(SAMPLES[d.slug] ?? []).map((s) => <PartCell key={`${d.slug}-${s.label}`} def={d} props={s.props} label={s.label} p={p} theme={theme} lang={lang} />),
+                      <PartCell key={d.slug} def={d} p={p} theme={theme} lang={lang} settled={settled} />,
+                      ...(SAMPLES[d.slug] ?? []).map((s) => <PartCell key={`${d.slug}-${s.label}`} def={d} props={s.props} label={s.label} p={p} theme={theme} lang={lang} settled={settled} />),
                     ])}
                   {kits
                     .filter((k) => k.category === c)
