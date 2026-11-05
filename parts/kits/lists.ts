@@ -1,7 +1,7 @@
-import { atom, avatar, box, hbox, icon, para, text, vbox } from "../atoms";
+import { atom, avatar, hbox, icon, para, text, vbox } from "../atoms";
 import { say, type Node, type Say } from "../templates/kit";
 import { MATERIAL_LOOK, type KitDef, type KitLook } from "./types";
-import { section } from "./shared";
+import { section, tile } from "./shared";
 
 /* Rows of a list, as atoms: what leads (an icon, an avatar), two lines of words that take the rest
  * of the row and cut off with an ellipsis, and what trails (a chevron, a switch, a value, a time). */
@@ -72,10 +72,11 @@ const listRow: KitDef = {
   ],
 };
 
-/** where a setting's icon sits: on a small colored tile where lists are grouped on a grey ground (an iPhone's
- *  settings), bare where they are not; a switch drawn the iOS way says nothing about the list around it */
-const settingIcon = (name: string, look: KitLook): Node =>
-  look.list === "inset" ? box({ surface: "button", layout: "row", align: "center", justify: "center", padX: 4, padY: 4 }, [icon(name, { size: 20, color: "on-primary" })], { corners: { tl: 7, tr: 7, br: 7, bl: 7 } }) : icon(name, { color: "muted" });
+/** where a setting's icon sits: on a small tile of the primary color where lists are grouped on a grey ground (an
+ *  iPhone's settings), bare where they are not; a switch drawn the iOS way says nothing about the list around it. The
+ *  tile is painted, not a surface a style dresses as a button: one that draws its buttons as bare words would leave the
+ *  white glyph on nothing. */
+const settingIcon = (name: string, look: KitLook): Node => (look.list === "inset" ? tile(name, "primary", 28, 20, 7) : icon(name, { color: "muted" }));
 
 const settingsRow: KitDef = {
   slug: "settings-row",

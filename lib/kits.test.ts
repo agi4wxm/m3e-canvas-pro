@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { KITS, kitBySlug } from "../parts/kits";
+import { KITS, MATERIAL_LOOK, kitBySlug, type KitLook } from "../parts/kits";
 import { defaultMeasures } from "../parts/templates/kit";
 import { PARTS, partBySlug, reader } from "../parts/registry";
 import { withoutSampleWords } from "./ai";
@@ -299,5 +299,85 @@ describe("a split that looks like the part", () => {
     expect(view.at("input").x).toBe(56);
     expect(laid("search", { kind: "bar", width: 360 }).size).toEqual({ w: 360, h: 56 });
     expect(laid("search", { kind: "bar", style: "outlined" }).root.look).toBeUndefined();
+  });
+});
+
+describe("a split composed the way the style composes the part", () => {
+  /* looks written as fields, the way a kit reads them: no style is named */
+  const IPHONE: KitLook = { ...MATERIAL_LOOK, bar: "center", appbar: "ios", list: "inset", row: "chevron", dialog: "alert", sheet: "grabber" };
+  const MESSENGER: KitLook = { ...MATERIAL_LOOK, bar: "center", appbar: "center", list: "flush", row: "arrow", dialog: "weui", sheet: "weui" };
+  const go = (to: string): Action => ({ to, transition: "slide" });
+  const split = (slug: string, props: Record<string, unknown>, look?: KitLook, more: Partial<Item> = {}) => {
+    const g: Group = { id: "g", x: 0, y: 0, axis: "x", items: [{ ...makeItem(slug), id: "i", props, ...more }] };
+    const groups = splitIntoAtoms([g], "i", "en", {}, look)!.groups;
+    const m = defaultMeasures(groups);
+    const box = (x: Group) => ({ x: x.x, y: x.y, w: m[x.items[0].id], h: m[`${x.items[0].id}:h`] });
+    return { groups, size: treeSize(groups), box, find: (pick: (x: Group) => boolean) => groups.filter(pick) };
+  };
+
+  it("reads its traits off the theme, as a kit does", () => {
+    expect(kitLookOf({ ...DEFAULT_THEME, style: "ios" })).toMatchObject({ appbar: "ios", list: "inset", row: "chevron", dialog: "alert" });
+    expect(kitLookOf({ ...DEFAULT_THEME, style: "wechat" })).toMatchObject({ bar: "center", list: "flush", row: "arrow", dialog: "weui" });
+  });
+
+  it("is Material's without a look, the same as with Material's", () => {
+    for (const [slug, props] of [["app-bar", { title: "Inbox" }], ["item", { items: [{ label: "A", icon: "home" }, { label: "B" }] }], ["dialog", {}], ["alert-dialog", {}]] as const) {
+      const plain = split(slug, props).groups.map((g) => g.items[0].component);
+      expect(split(slug, props, MATERIAL_LOOK).groups.map((g) => g.items[0].component), slug).toEqual(plain);
+    }
+  });
+
+  it("centers an app bar's title where the style does, and an iPhone's says where its arrow leads, 44 tall", () => {
+    const props = { title: "Inbox", leading: "arrow_back", trailing: "more_vert", trailing2: "" };
+    const ios = split("app-bar", props, IPHONE, { actions: { icon: go("home"), icon2: go("menu") } });
+    expect(ios.size).toEqual({ w: 412, h: 44 });
+    const title = ios.find((g) => g.items[0].props?.text === "Inbox")[0];
+    const t = ios.box(title);
+    expect(Math.abs(t.x + t.w / 2 - 206)).toBeLessThanOrEqual(2);
+    const back = ios.find((g) => g.items[0].component === "button")[0];
+    expect(back.items[0]).toMatchObject({ props: { label: "Back", icon: "arrow_back" }, action: { to: "home" } });
+    expect(ios.find((g) => g.items[0].action?.to === "menu")[0].items[0].props?.icon).toBe("more_vert");
+    const weui = split("app-bar", props, MESSENGER);
+    expect(weui.size).toEqual({ w: 412, h: 64 });
+    const w = weui.box(weui.find((g) => g.items[0].props?.text === "Inbox")[0]);
+    expect(Math.abs(w.x + w.w / 2 - 206)).toBeLessThanOrEqual(2);
+    /* only an iPhone names the way back */
+    expect(weui.find((g) => g.items[0].component === "button")).toHaveLength(0);
+  });
+
+  it("closes list rows up on a rounded card under an iPhone's look, edge to edge under WeChat's, with their chevrons and their taps", () => {
+    const props = { items: [{ label: "Wi-Fi", icon: "wifi" }, { label: "Bluetooth", icon: "bluetooth" }, { label: "Cellular", icon: "cell_tower" }], description: "" };
+    const ios = split("item", props, IPHONE, { actions: { "tab:1": go("bt") } });
+    const root = ios.groups[0].items[0];
+    expect(root).toMatchObject({ fill: "surfaceContainerLow", corners: { tl: 12, tr: 12, br: 12, bl: 12 } });
+    const rules = ios.find((g) => g.name === "Divider");
+    expect(rules).toHaveLength(2);
+    /* the lines start where the words do */
+    const gap = ios.find((g) => g.inFlow === rules[0].id)[0];
+    expect(ios.box(gap).w).toBe(52);
+    expect(ios.find((g) => g.items[0].props?.name === "chevron_right")).toHaveLength(3);
+    const [row] = ios.find((g) => g.items[0].action?.to === "bt");
+    expect(ios.groups.some((g) => g.items[0].props?.text === "Bluetooth" && ios.groups.find((x) => x.id === g.inFlow)?.inFlow === row.id)).toBe(true);
+    const weui = split("item", props, MESSENGER);
+    expect(weui.groups[0].items[0].fill).toBe("surfaceContainerLow");
+    expect(weui.groups[0].items[0].corners).toBeUndefined();
+    expect(weui.box(weui.find((g) => g.inFlow === weui.find((x) => x.name === "Divider")[0].id)[0]).w).toBe(16);
+    /* a cell is 56 tall */
+    expect(weui.box(weui.groups[1]).h).toBeGreaterThanOrEqual(56);
+    /* Material's rows stay bare, with no chevron */
+    const plain = split("item", props);
+    expect(plain.groups[0].items[0].fill).toBeUndefined();
+    expect(plain.find((g) => g.items[0].props?.name === "chevron_right")).toHaveLength(0);
+  });
+
+  it("draws a dialog as an iPhone's alert or a WeChat dialog: narrow, centered, its buttons halves of the foot", () => {
+    const ios = split("dialog", { title: "Delete?", description: "It cannot be undone.", dismiss: "Cancel", confirm: "Delete" }, IPHONE, { actions: { confirm: go("gone") } });
+    expect(ios.size.w).toBe(280);
+    expect(ios.find((g) => g.items[0].props?.text === "Delete?")[0].items[0].props?.align).toBe("center");
+    const buttons = ios.find((g) => g.items[0].component === "button");
+    expect(buttons.map((b) => b.items[0].props?.label)).toEqual(["Cancel", "Delete"]);
+    expect(buttons.every((b) => b.items[0].flowFill)).toBe(true);
+    expect(ios.find((g) => g.items[0].action?.to === "gone")[0].items[0].props?.label).toBe("Delete");
+    expect(split("alert-dialog", {}, MESSENGER).size.w).toBe(320);
   });
 });

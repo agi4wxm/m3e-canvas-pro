@@ -120,8 +120,10 @@ export type PartDef = {
   /** the JSX the part stands for */
   tree: (p: P) => PNode;
   /** A composite that can be split: the same thing as a tree of atoms in nested auto-layout boxes,
-   *  for its current values. The inspector then offers to replace the part with it in place. */
-  atoms?: (p: P) => AtomTree;
+   *  for its current values. The inspector then offers to replace the part with it in place. It is
+   *  composed the way the document's look composes the part (a `KitLook`, parts/kits/types.ts: this
+   *  file ships in exported projects, so it does not name it); left out, Material's. */
+  atoms?: (p: P, look?: object) => AtomTree;
   /** How big the part comes out before it has been drawn, where no width or height prop says so
    *  (a line of text that hugs its words, an icon button of a named size). Only a guess: the canvas
    *  measures it as soon as it is drawn. */

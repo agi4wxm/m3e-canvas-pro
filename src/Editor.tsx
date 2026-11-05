@@ -128,7 +128,7 @@ import { partBySlug, reader, translateComponentProps } from "@/parts/registry";
 import { instantiate, templateBySlug } from "@/parts/templates";
 import { kitBySlug, kitOfKey } from "@/parts/kits";
 import { defaultMeasures } from "@/parts/templates/kit";
-import { kitGroups, kitLookOf, landTree, moveTo, spansScreen, splitIntoAtoms, treeSize } from "@/lib/kits";
+import { kitGroups, kitLookOf, landTree, moveTo, recomposeKits, resignKits, sameKitLook, spansScreen, splitIntoAtoms, treeSize } from "@/lib/kits";
 import { COMMON_TEXT } from "@/parts/labels";
 import { FIT_OVERLAY, REMEASURE } from "@/parts/contained";
 import { axisStep, axisValue, axisWrite, resizeOf, type PartAxis } from "@/parts/resize";
@@ -279,17 +279,19 @@ const TALL_SIDES = ["top", "bottom"] as const;
 /** a screen changing size eases the way a settling part does */
 const SIZE_TRANSITION = `width ${SETTLE_MS}ms cubic-bezier(0.2, 0, 0, 1), height ${SETTLE_MS}ms cubic-bezier(0.2, 0, 0, 1), border-radius ${SETTLE_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
 
-function translateSnapshot(snap: Snapshot, lang: Lang): Snapshot {
+function translateSnapshot(snap: Snapshot, lang: Lang, theme?: Theme): Snapshot {
+  const groups = snap.groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => ({
+      ...item,
+      /* a part keeps its seed text in `props` */
+      props: translateComponentProps(item.component, item.props, lang),
+    })),
+  }));
   return {
     ...snap,
-    groups: snap.groups.map((group) => ({
-      ...group,
-      items: group.items.map((item) => ({
-        ...item,
-        /* a part keeps its seed text in `props` */
-        props: translateComponentProps(item.component, item.props, lang),
-      })),
-    })),
+    /* words put in another language are no one's change: a kit stays the kit it was added as */
+    groups: resignKits(snap.groups, groups, theme ?? snap.meta?.theme),
     frames: snap.frames.map((frame) => ({ ...frame, name: translateDefaultFrameName(frame.name, lang) })),
   };
 }
@@ -360,9 +362,10 @@ function slotIn(host: Group, groups: Group[], id: string, widths: Record<string,
   return insertionMark(kids, { x: carried.x, y: carried.y }, { dir: f.dir, wrap: f.wrap, gap: f.gap }, room);
 }
 
-/** how many parts a rewrite of the groups touched; it keeps every group and part in its place, so they are compared there */
-const changedItems = (before: Group[], after: Group[]) =>
-  before.reduce((n, g, i) => (after[i] === g ? n : n + g.items.filter((it, j) => after[i]?.items[j] !== it).length), 0);
+/** how many parts a rewrite of the groups touched; it keeps every group and part in its place, so they are compared there.
+ *  With `only`, just the parts given count. */
+const changedItems = (before: Group[], after: Group[], only?: Set<Item>) =>
+  before.reduce((n, g, i) => (after[i] === g ? n : n + g.items.filter((it, j) => after[i]?.items[j] !== it && (!only || only.has(it))).length), 0);
 
 /* The starter sketch: an app bar, a pair of buttons, three list items, a FAB and a navigation bar, all
  * of them the real components. Parts are as tall as they measure, so the rows sit apart on their own. */
@@ -471,10 +474,24 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const [customPalette, setCustomPalette] = useState<Palette | null>(null);
   const [dynamicColor, setDynamicColor] = useState(false);
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
-  /* whatever asks, a theme held to its style stays what the style says */
-  const patchTheme = (patch: Partial<Theme>) => setTheme((t) => normalizeTheme({ ...t, ...patch }));
   const themeRef = useRef(theme);
   themeRef.current = theme;
+  /* Whatever asks, a theme held to its style stays what the style says. A change that composes kits another way (light
+   * and dark, the recipes, the face) composes the kits nobody has changed again, as one undo step with it. */
+  const patchTheme = (patch: Partial<Theme>) => {
+    const from = themeRef.current;
+    const next = normalizeTheme({ ...from, ...patch });
+    /* a second patch before the next render builds on this one */
+    themeRef.current = next;
+    const kits = sameKitLook(from, next) ? null : recomposed(from, next);
+    if (kits) {
+      /* the theme as it was comes back with the kits as they were */
+      snapshot(true);
+      setGroups(kits.groups);
+      setComponents(kits.components);
+    }
+    setTheme(next);
+  };
   /* colors picked after a style are the author's: the style keeps everything else */
   const pickPalette = (key: string) => {
     if (theme.style && isStrict(theme)) return;
@@ -491,21 +508,21 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     setGlobalLang(next);
     initialLangRef.current = next;
     setLang(next);
-    const translated = translateSnapshot({ groups: groupsRef.current, frames: framesRef.current }, next);
+    const translated = translateSnapshot({ groups: groupsRef.current, frames: framesRef.current }, next, themeRef.current);
     const tidy = tidyRef.current;
     if (tidy) {
       tidyRef.current = tidy.after === groupsRef.current ? {
         ...tidy,
-        before: translateSnapshot({ groups: tidy.before, frames: framesRef.current }, next).groups,
+        before: translateSnapshot({ groups: tidy.before, frames: framesRef.current }, next, themeRef.current).groups,
         after: translated.groups,
       } : null;
     }
     setGroups(translated.groups);
     setFrames(translated.frames);
     /* a definition's seed words follow the language as a part's do */
-    setComponents((cs) => cs?.map((c) => ({ ...c, groups: translateSnapshot({ groups: c.groups, frames: [] }, next).groups })));
-    pastRef.current = pastRef.current.map((snap) => translateSnapshot(snap, next));
-    futureRef.current = futureRef.current.map((snap) => translateSnapshot(snap, next));
+    setComponents((cs) => cs?.map((c) => ({ ...c, groups: translateSnapshot({ groups: c.groups, frames: [] }, next, themeRef.current).groups })));
+    pastRef.current = pastRef.current.map((snap) => translateSnapshot(snap, next, themeRef.current));
+    futureRef.current = futureRef.current.map((snap) => translateSnapshot(snap, next, themeRef.current));
   };
   const [isMobile, setIsMobile] = useState(false);
   const [sheet, setSheet] = useState<"edit" | "settings" | "lang" | "add" | null>(null);
@@ -691,6 +708,9 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     lastPatchRef.current = { key: "", at: 0 };
     for (const g of snap.groups) instantRef.current.add(g.id);
     if (snap.meta) {
+      /* a whole document's step crosses a change of style: what was measured was measured in the other one, and a kit
+       * composed again keeps its box's id, so its old size would take in what stands under it */
+      setWidths({});
       applyDoc({ ...snap.meta, groups: snap.groups, frames: snap.frames }, true);
       if (!mobileRef.current) {
         const mode = snap.meta.frame === "blank" ? "blank" : "phone";
@@ -1523,7 +1543,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
    *  in the editor's language, no wider than a phone's content. */
   const buildKit = (slug: string, variant: string | undefined, screen: Frame | undefined) => {
     const kit = kitBySlug(slug);
-    return kit ? kitGroups(kit, kitLookOf(themeRef.current), getLang(), { variant, screen }) : null;
+    return kit ? kitGroups(kit, kitLookOf(themeRef.current), getLang(), { variant, screen, theme: themeRef.current }) : null;
   };
 
   /** A kit picked up from the palette: carried like a part, drawn whole, and let go as its atoms. */
@@ -1633,7 +1653,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const splitSelected = () => {
     const id = selectedIds[0];
     if (!id) return;
-    const out = splitIntoAtoms(groupsRef.current, id, getLang(), widthsRef.current);
+    const out = splitIntoAtoms(groupsRef.current, id, getLang(), widthsRef.current, kitLookOf(themeRef.current));
     if (!out) return;
     snapshot();
     setGroups(out.groups);
@@ -3060,6 +3080,21 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     return () => clearTimeout(id);
   }, [widths]);
 
+  /** The document's kits composed again for a change of theme (lib/kits.ts `recomposeKits`): each one nobody has changed
+   *  takes the composition the new look calls for, where it stands. Null when none changed. A definition open for
+   *  editing has the document's own screens waiting: their kits follow too. */
+  const recomposed = (from: Theme, to: Theme): { groups: Group[]; components?: ComponentDef[] } | null => {
+    const lang = getLang();
+    const open = defEditRef.current;
+    if (open) {
+      const main = recomposeKits({ groups: open.main.groups }, from, to, lang, { frames: open.main.frames, widths: widthsRef.current });
+      if (main.groups !== open.main.groups) setDefEdit({ ...open, main: { ...open.main, groups: main.groups } });
+    }
+    const doc = { groups: groupsRef.current, components: componentsRef.current };
+    const out = recomposeKits(doc, from, to, lang, { frames: framesRef.current, widths: widthsRef.current });
+    return out === doc ? null : out;
+  };
+
   /** Puts a style on the document: its colors, its shapes, and unless the author said not to, its layout. One undo step.
    *  A style is a spec, so what the parts carry against it comes off; the author is told how many parts that touched,
    *  and one tap on the notice takes it all back. */
@@ -3070,10 +3105,14 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     const together = standingTogether(groupsRef.current, framesRef.current, widthsRef.current, metricsOf(themeRef.current));
     relayoutRef.current = startRelayout(together, Date.now());
     const next = normalizeTheme({ ...themeRef.current, ...stylePatch(key) });
-    const groups = conformGroups(groupsRef.current, next);
-    const defs = componentsRef.current;
+    /* the kits nobody has changed are composed the new style's way first, then everything is held to its rules */
+    const kits = recomposed(themeRef.current, next) ?? { groups: groupsRef.current, components: componentsRef.current };
+    const groups = conformGroups(kits.groups, next);
+    const defs = kits.components;
     const components = defs ? conformDoc({ groups: [], components: defs }, next).components : defs;
-    const stripped = changedItems(groupsRef.current, groups) + (defs ?? []).reduce((n, c, i) => n + changedItems(c.groups, components?.[i]?.groups ?? c.groups), 0);
+    /* what the author had on their parts and the rules took off; a kit composed anew had nothing of the author's on it */
+    const had = new Set([...groupsRef.current, ...(componentsRef.current ?? []).flatMap((c) => c.groups)].flatMap((g) => g.items));
+    const stripped = changedItems(kits.groups, groups, had) + (defs ?? []).reduce((n, c, i) => n + changedItems(c.groups, components?.[i]?.groups ?? c.groups, had), 0);
     setTheme(next);
     setGroups(groups);
     setComponents(components);

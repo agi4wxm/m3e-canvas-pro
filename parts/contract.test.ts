@@ -86,7 +86,8 @@ describe("every part", () => {
   it("is plain data: its definition loads no React", () => {
     for (const { name, text } of sourceFiles("defs")) {
       const imports = [...text.matchAll(/^import (?!type )[^;]*from "([^"]+)"/gm)].map((m) => m[1]);
-      for (const from of imports) expect(from, `defs/${name} imports ${from}`).toMatch(/^\.\.\/(node|labels|types|flow|atoms|svg)$/);
+      /* the look's traits (kits/types) are plain functions of a look, so a split composes by the same ones a kit does */
+      for (const from of imports) expect(from, `defs/${name} imports ${from}`).toMatch(/^\.\.\/(node|labels|types|flow|atoms|svg|kits\/types)$/);
     }
   });
 

@@ -1,14 +1,16 @@
 import { settleSizes } from "../parts/atoms";
 import { arranged, defaultMeasures, inLang, seedGroups, type Node, type ScreenSeed } from "../parts/templates/kit";
-import { pickVariant, type KitDef, type KitLook } from "../parts/kits";
+import { kitBySlug, pickVariant, type KitDef, type KitLook, type KitVariant } from "../parts/kits";
 import { nameOf } from "../parts/labels";
 import { partBySlug, reader } from "../parts/registry";
+import { resizeOf } from "../parts/resize";
 import { SPLIT_TAPS, nodesOf } from "../parts/defs/splits";
 import type { P, PartDef } from "../parts/types";
 import { childLayoutFields } from "./flow";
 import type { Lang } from "./i18n";
+import { conformGroups } from "./styleRules";
 import { recipesOf, styleOf, uxOf } from "./styles";
-import { PHONE_MARGIN, frameRect, frameSizeOf, isPhoneFrame, uid, type Action, type Frame, type Group, type Item, type Theme } from "./tokens";
+import { PHONE_MARGIN, frameOfPart, frameRect, frameSizeOf, groupBounds, isPhoneFrame, uid, type Action, type ActionBody, type ComponentDef, type Condition, type Frame, type Group, type Item, type KitMark, type Theme } from "./tokens";
 
 /* Trees of atoms on the canvas: a kit added from the palette, a composite split into what it is
  * made of. Both come down to the same thing: the tree flattened into groups, outermost first, each
@@ -120,15 +122,28 @@ export const roomOn = (frame: Frame | undefined): number | undefined => (frame &
 /** whether a kit, in the variant it would be added as, runs from one edge of the screen to the other */
 export const spansScreen = (kit: KitDef, look: KitLook, variant?: string) => pickVariant(kit, look, variant).span === "screen";
 
-/** A kit as groups to add, in the variant asked for or the one that suits the look. On a phone (`screen`)
- *  it is brought down to the content width, or one that spans the screen is made as wide as it. */
-export function kitGroups(kit: KitDef, look: KitLook, lang: Lang, opts: { variant?: string; at?: At; screen?: Frame } = {}): Group[] {
+type KitOpts = { variant?: string; at?: At; screen?: Frame; theme?: Theme };
+
+/** a kit composed for a look, with the variant it came as */
+function composed(kit: KitDef, look: KitLook, lang: Lang, opts: KitOpts): { groups: Group[]; variant: KitVariant } {
   /* what suits is also a matter of the room there is: a one-row composition is not for a phone */
   const room = opts.screen ? (roomOn(opts.screen) ?? frameSizeOf(opts.screen).w) : undefined;
   const variant = pickVariant(kit, room === undefined ? look : { ...look, room }, opts.variant);
   const root = variant.build(look);
-  if (variant.span === "screen" && opts.screen) return treeGroups({ ...root, props: { ...root.props, width: frameSizeOf(opts.screen).w } }, lang, opts.at);
-  return treeGroups(root, lang, opts.at, roomOn(opts.screen));
+  const groups =
+    variant.span === "screen" && opts.screen ? treeGroups({ ...root, props: { ...root.props, width: frameSizeOf(opts.screen).w } }, lang, opts.at) : treeGroups(root, lang, opts.at, roomOn(opts.screen));
+  if (!groups.length) return { groups, variant };
+  /* the box remembers what it is, and what it said, so a change of style can compose it again */
+  const auto = !(opts.variant && kit.variants.some((v) => v.key === opts.variant));
+  const mark: KitMark = { slug: kit.slug, variant: variant.key, auto, sig: kitSig(groups, groups[0].id, opts.theme) };
+  return { groups: [{ ...groups[0], kit: mark }, ...groups.slice(1)], variant };
+}
+
+/** A kit as groups to add, in the variant asked for or the one that suits the look. On a phone (`screen`)
+ *  it is brought down to the content width, or one that spans the screen is made as wide as it. The outermost
+ *  box is marked with the kit (`Group.kit`), signed as the rules of `theme` leave it. */
+export function kitGroups(kit: KitDef, look: KitLook, lang: Lang, opts: KitOpts = {}): Group[] {
+  return composed(kit, look, lang, opts).groups;
 }
 
 /** The place a tree lands with its top left near (x, y): on the screen under its middle, inside that
@@ -241,9 +256,10 @@ export function splitTaps(def: PartDef, p: P, tree: Node, it: Pick<Item, "action
 
 /** The document with one composite replaced, in place, by the atoms it is made of: the same place on
  *  the screen and in the order things are drawn, as wide as it measured, under its name, with the tap
- *  it had on the outermost box. The outermost box keeps the part's ids, so what selected it or laid it
- *  out still does. Null when the part cannot be split. */
-export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widths: Record<string, number> = {}): { groups: Group[]; rootItemId: string } | null {
+ *  it had on the outermost box, composed as `look` (the document's style) composes the part. The
+ *  outermost box keeps the part's ids, so what selected it or laid it out still does. Null when the
+ *  part cannot be split. */
+export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widths: Record<string, number> = {}, look?: KitLook): { groups: Group[]; rootItemId: string } | null {
   const at = groups.findIndex((g) => g.items.length === 1 && g.items[0].id === itemId && !g.instanceOf && !g.free);
   if (at < 0) return null;
   const g = groups[at];
@@ -251,7 +267,8 @@ export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widt
   const def = partBySlug(it.component);
   if (!def?.atoms) return null;
   const p = reader(def, it.props);
-  const tree = def.atoms(p) as Node;
+  /* composed the way the document's style composes the part: the split looks like the part it replaces */
+  const tree = def.atoms(p, look) as Node;
   /* the taps on its slots and the variables its props follow go to the atoms that now show them; the groups come
    * in the order of the tree, each node before what it holds */
   const taps = splitTaps(def, p, tree, it);
@@ -272,4 +289,329 @@ export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widt
   const { inFlow, ...loose } = root;
   const laid = moveTo(arranged([loose, ...inside]), { x: g.x, y: g.y }).map((x, i) => (i === 0 && inFlow ? { ...x, inFlow } : x));
   return { groups: [...groups.slice(0, at), ...laid, ...groups.slice(at + 1)], rootItemId: it.id };
+}
+
+/* ---------- a kit composed again for another style ---------- */
+
+/* A kit's variant is its composition, chosen for the style the document wore when it was added. When the document
+ * changes style, mode or the recipes it builds by, a kit nobody has touched since is composed again for the new look,
+ * the way a sealed part re-dresses: its outermost box keeps its place, its ids, its name and its taps, and everything
+ * inside it is built anew. A kit a person has changed (a word, a part added or taken out, a color) is theirs and is
+ * left exactly as it is. What a kit said when it was composed is kept as a signature on its box. */
+
+/** what a layout writes on a part: its width and height where it has numbers for them. Being sized is not a change. */
+function measureKeys(it: Item): Set<string> {
+  const ax = resizeOf(partBySlug(it.component), it.props);
+  return new Set([ax?.width, ax?.height].flatMap((a) => (a?.kind === "number" ? [a.key] : [])));
+}
+
+/** what the outermost box asks of the layout it stands in: its own, not the kit's */
+const LAYOUT_ASKS = new Set(["flowFill", "flowSize", "alignSelf", "flowAbsolute", "flowMin", "flowMax", "flowSpan"]);
+
+/** a value with every object's keys in order and what is undefined left out, so equal content writes equal text */
+function stable(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(stable);
+  if (!v || typeof v !== "object") return v;
+  const o = v as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.keys(o)
+      .sort()
+      .filter((k) => o[k] !== undefined)
+      .map((k) => [k, stable(o[k])]),
+  );
+}
+
+/** a short, well-spread hash of a text (cyrb53), in base 36 */
+function hash(s: string): string {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+/** The groups of a kit: its outermost box, then what each box holds, each before what it holds, in the order its
+ *  layout goes by. Whatever stands in its boxes counts, whether the kit put it there or a person did. */
+export function kitTree(groups: Group[], rootId: string): Group[] {
+  const root = groups.find((g) => g.id === rootId);
+  if (!root) return [];
+  const kids = new Map<string, Group[]>();
+  for (const g of groups) if (g.inFlow && g.id !== rootId) kids.set(g.inFlow, [...(kids.get(g.inFlow) ?? []), g]);
+  const out: Group[] = [];
+  const seen = new Set<string>();
+  const visit = (g: Group) => {
+    if (seen.has(g.id)) return;
+    seen.add(g.id);
+    out.push(g);
+    for (const k of kids.get(g.id) ?? []) visit(k);
+  };
+  visit(root);
+  return out;
+}
+
+/** What one group of a kit says: its parts, their props, paint and notes, and for one inside the box what it is called
+ *  and whether it shows. Not its ids, where it stands or how big it is drawn, nor its taps (they are carried). The
+ *  outermost box's place, name, lock and visibility are its own and go with it, as do the taps on it. */
+function said(g: Group, root: boolean, depth: number): unknown {
+  const items = g.items.map((it) => {
+    const sizes = measureKeys(it);
+    const props = Object.fromEntries(Object.entries(it.props ?? {}).filter(([k]) => !sizes.has(k)));
+    const { id: _id, props: _props, action: _tap, actions: _taps, row: _row, noteHistory: _was, ...rest } = it;
+    const own = root ? Object.fromEntries(Object.entries(rest).filter(([k]) => k !== "note" && !LAYOUT_ASKS.has(k))) : rest;
+    return { ...own, props };
+  });
+  const { id: _id, x: _x, y: _y, axis: _axis, items: _items, inFlow: _in, kit: _kit, pos: _pos, expandedFrom: _from, rowsOf: _rows, screenMain: _main, ...fields } = g;
+  return { depth, items, ...(root ? { repeat: fields.repeat } : fields) };
+}
+
+/** The signature of what a kit says (see `said`), everything in its boxes, nested as it is: equal while nobody has
+ *  changed the kit, however it was moved, sized, renumbered or tapped to. Read as the rules of `theme` leave the
+ *  parts (a style held to its rules takes their corners and effects), so a kit those rules have dressed down is
+ *  still the kit it was. */
+export function kitSig(groups: Group[], rootId: string, theme?: Theme): string {
+  const tree = kitTree(groups, rootId);
+  const seen = theme ? conformGroups(tree, theme) : tree;
+  const depth = new Map<string, number>([[rootId, 0]]);
+  const parts = seen.map((g) => {
+    const d = g.id === rootId ? 0 : (depth.get(g.inFlow ?? "") ?? 0) + 1;
+    depth.set(g.id, d);
+    return said(g, g.id === rootId, d);
+  });
+  return hash(JSON.stringify(stable(parts)));
+}
+
+/** whether two themes compose kits alike: the same look, as far as a kit can tell */
+export function sameKitLook(a: Theme, b: Theme): boolean {
+  return JSON.stringify(kitLookOf(a)) === JSON.stringify(kitLookOf(b));
+}
+
+/** every part something reaches for by its id: a tap's effects, a condition on a field, an instance's overrides.
+ *  A part reached for inside an instance goes by `instance/part`; the part's own id is the last of it. */
+function reachedFor(lists: Group[][]): Set<string> {
+  const out = new Set<string>();
+  const last = (path: string) => path.slice(path.lastIndexOf("/") + 1);
+  const test = (c: Condition | undefined) => {
+    if (c && "filled" in c) out.add(last(c.filled));
+  };
+  const body = (b: ActionBody | undefined) => {
+    for (const e of b?.effects ?? []) if ("part" in e) out.add(last(e.part));
+  };
+  const tap = (a: Action | undefined) => {
+    if (!a) return;
+    body(a);
+    test(a.when);
+    body(a.else);
+  };
+  for (const groups of lists)
+    for (const g of groups) {
+      test(g.showWhen);
+      for (const key of Object.keys(g.overrides ?? {})) out.add(last(key.slice(0, key.lastIndexOf("/"))));
+      for (const it of g.items) {
+        tap(it.action);
+        for (const a of Object.values(it.actions ?? {})) tap(a);
+      }
+    }
+  return out;
+}
+
+/** What a part of a kit is known by from one composition to the next: a button by its words or else its glyph,
+ *  a box by the words of everything in it, anything else by the words or the glyph it shows. */
+function knownBy(g: Group, tree: Group[]): string | undefined {
+  const it = g.items[0];
+  if (!it) return undefined;
+  const words = (x: Item, keys: string[]) => keys.map((k) => x.props?.[k]).filter((v): v is string => typeof v === "string" && !!v);
+  if (TAPPABLE.has(it.component ?? "")) {
+    const [w] = words(it, ["label", "icon"]);
+    return w && `tap:${w}`;
+  }
+  if (it.component === "box") {
+    const inside = kitTree(tree, g.id).flatMap((x) => (x.items[0] ? words(x.items[0], [...SHOWN, "icon", "name"]) : []));
+    return inside.length ? `box:${inside.join("\n")}` : undefined;
+  }
+  const [w] = words(it, [...SHOWN, "icon", "name"]);
+  return w && `${it.component}:${w}`;
+}
+
+/** The taps on the parts inside a kit, on the parts of its new composition that are known by the same words or glyph:
+ *  a back button stays the back button, a row the row that says the same. Null when one has nowhere single to go,
+ *  and the kit is then left as it is rather than lose it. */
+function carriedTaps(tree: Group[], made: Group[]): Map<string, Pick<Item, "action" | "actions">> | null {
+  const out = new Map<string, Pick<Item, "action" | "actions">>();
+  const fresh = made.slice(1);
+  for (const g of tree.slice(1)) {
+    const it = g.items[0];
+    if (!it || (!it.action && !Object.keys(it.actions ?? {}).length)) continue;
+    const key = knownBy(g, tree);
+    const to = key ? fresh.filter((x) => knownBy(x, made) === key) : [];
+    if (to.length !== 1 || out.has(to[0].id)) return null;
+    out.set(to[0].id, { ...(it.action ? { action: it.action } : {}), ...(it.actions ? { actions: it.actions } : {}) });
+  }
+  return out;
+}
+
+type Recompose = { from: Theme; to: Theme; fromLook: KitLook; toLook: KitLook; same: boolean; lang: Lang; reached: Set<string>; frames?: Frame[]; widths: Record<string, number> };
+
+/** the kit's box signed again for the theme it is now under */
+function signed(groups: Group[], rootId: string, theme: Theme | undefined): Group[] {
+  const root = groups.find((g) => g.id === rootId);
+  if (!root?.kit) return groups;
+  const sig = kitSig(groups, rootId, theme);
+  return sig === root.kit.sig ? groups : groups.map((g) => (g === root ? { ...g, kit: { ...root.kit!, sig } } : g));
+}
+
+/** one kit composed again where it stands, or `groups` (signed again, where the rules changed) when it is to be left */
+function recomposeOne(groups: Group[], root: Group, c: Recompose): Group[] {
+  const mark = root.kit!;
+  const kit = kitBySlug(mark.slug);
+  const tree = kitTree(groups, root.id);
+  /* changed since it was composed: it is the person's now */
+  if (!kit || kitSig(tree, root.id, c.from) !== mark.sig) return groups;
+  /* the rules of the new theme may dress it down: it is still the kit it was */
+  if (c.same) return signed(groups, root.id, c.to);
+  /* something else reaches for a part inside it by its id: a new composition would leave that reaching for nothing */
+  if (tree.slice(1).some((g) => g.items.some((it) => c.reached.has(it.id)))) return signed(groups, root.id, c.to);
+  const screen = c.frames ? frameOfPart(root, groups, c.frames, c.widths) : undefined;
+  const made = composed(kit, c.toLook, c.lang, { variant: mark.auto ? undefined : mark.variant, screen, theme: c.to });
+  if (!made.groups.length) return groups;
+  /* composed the same for the new look: nothing to do but sign it for the new rules */
+  if (made.variant.key === mark.variant && kitSig(made.groups, made.groups[0].id, c.to) === kitSig(tree, root.id, c.to)) return signed(groups, root.id, c.to);
+  const taps = carriedTaps(tree, made.groups);
+  if (!taps) return signed(groups, root.id, c.to);
+  /* how it was composed, to tell what the person set on its box from what the composition did */
+  const was = composed(kit, c.fromLook, c.lang, { variant: mark.variant, screen }).groups[0];
+  const [top, ...inside] = made.groups;
+  const it = root.items[0];
+  const props: Record<string, unknown> = { ...top.items[0].props };
+  for (const key of ["width", "height"]) {
+    const v = it.props?.[key];
+    /* a box made wider or narrower than its composition keeps that measure */
+    if (typeof v === "number" && typeof props[key] === "number" && v !== was?.items[0]?.props?.[key]) props[key] = v;
+  }
+  const keep = { pane: root.pane, hidden: root.hidden, showWhen: root.showWhen, locked: root.locked };
+  const name = root.name !== undefined && root.name !== was?.name ? root.name : top.name;
+  const { x: _x, y: _y, id: _id, items: _items, kit: _kit, name: _name, ...own } = top;
+  const box: Group = {
+    ...own,
+    ...(Object.fromEntries(Object.entries(keep).filter(([, v]) => v !== undefined)) as Partial<Group>),
+    ...(name !== undefined ? { name } : {}),
+    id: root.id,
+    x: root.x,
+    y: root.y,
+    items: [
+      {
+        ...top.items[0],
+        id: it.id,
+        props,
+        ...(it.action ? { action: it.action } : {}),
+        ...(it.actions ? { actions: it.actions } : {}),
+        ...(it.note ? { note: it.note } : {}),
+        ...childLayoutFields(it),
+      },
+    ],
+  };
+  const kids = inside.map((g) => {
+    const tap = taps.get(g.id);
+    const placed = g.inFlow === top.id ? { ...g, inFlow: root.id } : g;
+    return tap ? { ...placed, items: [{ ...placed.items[0], ...tap }] } : placed;
+  });
+  /* laid out again from the box's corner; the layout it stands in is not among these, so it is set aside meanwhile */
+  const laid = moveTo(arranged([box, ...kids]), { x: root.x, y: root.y }).map((g, i) => (i === 0 && root.inFlow ? { ...g, inFlow: root.inFlow } : g));
+  laid[0] = { ...laid[0], kit: { slug: kit.slug, variant: made.variant.key, auto: mark.auto, sig: kitSig(laid, root.id, c.to) } };
+  /* in the place the box had, among the others, and in the order things are drawn */
+  const gone = new Set(tree.map((g) => g.id));
+  const at = groups.indexOf(root);
+  const placed = [...groups.slice(0, at).filter((g) => !gone.has(g.id)), ...laid, ...groups.slice(at + 1).filter((g) => !gone.has(g.id))];
+  /* what stood under it on its screen moves with its foot, so a taller composition does not come to cover it */
+  const wasH = c.widths[`${it.id}:h`] ?? treeSize(tree).h;
+  return root.inFlow ? placed : makeRoom(placed, new Set(laid.map((g) => g.id)), root, wasH, treeSize(laid).h - wasH, c, screen);
+}
+
+/** What stands under a kit on its screen, moved by as much as the kit grew or shrank: a composition that comes out
+ *  taller would otherwise cover what was below it, and a layout box would take it in. Only what stands free below the
+ *  kit's foot and across its width moves, with whatever it holds; what a layout places is placed by it, and what stands
+ *  at the screen's own foot (a bar) stays there. */
+function makeRoom(groups: Group[], kit: Set<string>, root: Group, wasH: number, dy: number, c: Recompose, screen: Frame | undefined): Group[] {
+  if (Math.abs(dy) < 1) return groups;
+  const foot = root.y + wasH;
+  const w = c.widths[root.items[0].id] ?? (typeof root.items[0].props?.width === "number" ? root.items[0].props.width : 0);
+  const bottom = screen ? frameRect(screen).b : Infinity;
+  const moving = new Set<string>();
+  for (const g of groups) {
+    if (kit.has(g.id) || g.inFlow) continue;
+    const b = groupBounds(g, c.widths);
+    if (b.t < foot - 1 || b.r <= root.x || b.l >= root.x + w || b.b >= bottom - 1) continue;
+    if (screen && c.frames && frameOfPart(g, groups, c.frames, c.widths)?.id !== screen.id) continue;
+    moving.add(g.id);
+  }
+  if (!moving.size) return groups;
+  /* and what they hold, at any depth */
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const g of groups)
+      if (g.inFlow && moving.has(g.inFlow) && !moving.has(g.id)) {
+        moving.add(g.id);
+        grew = true;
+      }
+  }
+  const by = Math.round(dy);
+  return groups.map((g) => (moving.has(g.id) ? { ...g, y: g.y + by } : g));
+}
+
+/** every kit of a list composed again, in turn */
+function recomposeAll(groups: Group[], c: Recompose): Group[] {
+  let out = groups;
+  for (const g of groups) {
+    if (!g.kit) continue;
+    const root = out.find((x) => x.id === g.id);
+    if (root?.kit) out = recomposeOne(out, root, c);
+  }
+  return out;
+}
+
+/** The document's kits composed for a change of theme from `from` to `to`: on every screen and in every definition,
+ *  each kit nobody has changed since it was composed takes the variant the new look calls for (or keeps the one chosen
+ *  for it by hand, while the kit has it) and is built anew in place. One whose look is the same, or that cannot be
+ *  built anew without losing a tap or a part something reaches for, is only signed again for the new rules. The same
+ *  document comes back when nothing changed. */
+export function recomposeKits<D extends { groups: Group[]; components?: ComponentDef[] }>(doc: D, from: Theme, to: Theme, lang: Lang, opts: { frames?: Frame[]; widths?: Record<string, number> } = {}): D {
+  const marked = (gs: Group[]) => gs.some((g) => g.kit);
+  if (!marked(doc.groups) && !doc.components?.some((d) => marked(d.groups))) return doc;
+  const fromLook = kitLookOf(from);
+  const toLook = kitLookOf(to);
+  const c: Recompose = {
+    from,
+    to,
+    fromLook,
+    toLook,
+    same: JSON.stringify(fromLook) === JSON.stringify(toLook),
+    lang,
+    reached: reachedFor([doc.groups, ...(doc.components ?? []).map((d) => d.groups)]),
+    frames: opts.frames,
+    widths: opts.widths ?? {},
+  };
+  const groups = recomposeAll(doc.groups, c);
+  /* a definition has no screen: its kits keep the room they were composed with */
+  const components = doc.components?.map((d) => {
+    const next = recomposeAll(d.groups, { ...c, frames: undefined });
+    return next === d.groups ? d : { ...d, groups: next };
+  });
+  const same = groups === doc.groups && (components ?? []).every((d, i) => d === doc.components?.[i]);
+  return same ? doc : { ...doc, groups, ...(components ? { components } : {}) };
+}
+
+/** The kits of `after`, signed again where in `before` they were still the kits they were added as: what changed
+ *  between the two (words put in another language) was no one's change. */
+export function resignKits(before: Group[], after: Group[], theme?: Theme): Group[] {
+  let out = after;
+  for (const g of after) {
+    if (!g.kit || !before.some((b) => b.id === g.id)) continue;
+    if (kitSig(before, g.id, theme) !== g.kit.sig) continue;
+    out = signed(out, g.id, theme);
+  }
+  return out;
 }

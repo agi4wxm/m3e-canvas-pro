@@ -62,6 +62,27 @@ export type KitLook = {
 /** whether there is room for a wide composition: the room where it is added, or else what the style is for */
 export const isWide = (l: KitLook) => (l.room ?? (l.group === "desktop" || l.group === "pcGame" ? 640 : 380)) >= 560;
 
+/* ---------- traits of a look ---------- */
+
+/* What decides a composition, read only from the look's fields, never from a style by name. They live here, beside
+ * the look, so that a kit (parts/kits) and a split (parts/defs/splits.ts) compose by the same ones. */
+
+export const isGame = (l: KitLook) => l.group === "mobileGame" || l.group === "pcGame";
+export const isDesk = (l: KitLook) => l.group === "desktop";
+/** set close and small: desktop software, and the apps that pack their rows */
+export const isDense = (l: KitLook) => l.compact || l.group === "desktop";
+/** centered titles, grouped lists on a grey ground, alerts with buttons split under a hairline: an iPhone's way */
+export const isIosLike = (l: KitLook) => l.appbar === "ios" || l.list === "inset" || l.dialog === "alert" || l.segmented === "ios";
+/** the WeChat way of dialogs and sheets: a bold centered title, buttons split by hairlines, a gap before Cancel */
+export const isWeui = (l: KitLook) => l.dialog === "weui" || l.sheet === "weui";
+/** a title stands centered between the bar's two sides */
+export const centersTitle = (l: KitLook) => l.bar === "center" || l.appbar === "center" || l.appbar === "ios";
+/** the look plays as a game: chunky frames, resource pills, glossy buttons */
+export const isMobileGame = (l: KitLook) => l.group === "mobileGame";
+/** how a look groups the rows of a list: on a rounded card on a grey ground (an iPhone's, and a game's tiles), on a
+ *  card running edge to edge (WeChat's cells, desktop lists parted by hairlines), or bare (Material's) */
+export const groupingOf = (l: KitLook): "inset" | "flush" | "bare" => (l.list === "inset" || l.list === "tile" ? "inset" : l.list === "flush" || l.list === "hairline" ? "flush" : "bare");
+
 /** the look of a document with no style: Material's */
 export const MATERIAL_LOOK: KitLook = {
   group: "app",

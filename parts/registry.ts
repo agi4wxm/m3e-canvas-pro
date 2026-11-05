@@ -21,6 +21,7 @@ import { more } from "./defs/more";
 import { atoms } from "./defs/atoms";
 import { SPLITS } from "./defs/splits";
 import type { Labels, ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
+import type { KitLook } from "./kits/types";
 import { applyAppearance, type Appearance } from "./appearance";
 import { h, mapNodes, type PNode } from "./node";
 import { COMMON_TEXT, choiceValueOf, defaultTextOf, listTextOf } from "./labels";
@@ -142,9 +143,11 @@ export const TIER_TEXT: Record<PartTier, Required<Labels>> = {
 export const categoryName = (c: PartCategory, lang: Lang) => CATEGORY_TEXT[c][lang];
 
 /* the composites that split are handed their trees of atoms here, where the two meet */
-export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((d) =>
-  SPLITS[d.slug] && !d.atoms ? { ...d, atoms: SPLITS[d.slug] } : d,
-);
+export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((d) => {
+  const split = SPLITS[d.slug] as (typeof SPLITS)[string] | undefined;
+  /* the look a split is handed is the document's KitLook, which PartDef cannot name */
+  return split && !d.atoms ? { ...d, atoms: (p: P, look?: object) => split(p, look as KitLook | undefined) } : d;
+});
 
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);

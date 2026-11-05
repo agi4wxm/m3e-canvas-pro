@@ -235,11 +235,12 @@ function KitCell({ kit, variant, look, chosen, p, theme, lang, settled }: { kit:
 function SplitCell({ def, p, theme, lang, settled }: { def: PartDef; p: Palette; theme: Theme; lang: Lang; settled: boolean }) {
   const added = useMemo<Group[]>(() => {
     try {
-      return treeGroups(def.atoms!(reader(def, makeItem(def.slug).props)) as Node, lang);
+      /* split as the style composes the part, so the two can be compared under it */
+      return treeGroups(def.atoms!(reader(def, makeItem(def.slug).props), kitLookOf(theme)) as Node, lang);
     } catch {
       return [];
     }
-  }, [def, lang]);
+  }, [def, lang, theme]);
   return <TreeCell added={added} label={`${nameOf(def, lang)} · atoms`} sub={`split ${def.slug}`} attrs={{ "data-gallery-split": def.slug }} p={p} theme={theme} settled={settled} />;
 }
 

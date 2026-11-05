@@ -152,18 +152,24 @@ describe("every kit", () => {
 
   it("follows the page's mode, so a document that changes mode keeps it readable", () => {
     /* a box painted in a fixed inverse would turn white on a dark page; the Codex box is a panel of the page's
-     * mode and only its main action takes the inverse color, which reads in either */
+     * mode, and its main action is the style's own filled button */
     const codex = kitBySlug("codex-prompt")!;
     for (const dark of [false, true]) {
       const tree = codex.variants[0].build({ ...MATERIAL_LOOK, dark });
       expect(tree.fill).toBeUndefined();
       expect(tree.props.surface).toBe("panel");
-      expect(walk(tree).find(({ node }) => node.slug === "button" && node.props.variant === "filled")!.node.fill).toBe("inverseSurface");
+      expect(walk(tree).find(({ node }) => node.slug === "button" && node.props.variant === "filled")!.node.fill).toBeUndefined();
     }
   });
 
+  it("paints no button, so a style that draws its buttons as bare words leaves them readable", () => {
+    /* such a style drops a fill painted on a button but keeps its words in the color meant for that fill */
+    const bad = KITS.flatMap((k) => k.variants.flatMap((v) => LOOKS.flatMap((look) => walk(v.build(look)).filter(({ node }) => (node.slug === "button" || node.slug === "icon-button") && node.fill).map(({ node }) => `${k.slug}/${v.key}: ${node.slug}`))));
+    expect([...new Set(bad)]).toEqual([]);
+  });
+
   it("puts a setting's icon on a colored tile only in grouped inset lists", () => {
-    const tiled = (look: KitLook) => walk(kitBySlug("settings-row")!.variants[0].build(look)).some(({ node }) => node.slug === "box" && node.props.surface === "button");
+    const tiled = (look: KitLook) => walk(kitBySlug("settings-row")!.variants[0].build(look)).some(({ node }) => node.slug === "box" && node.fill === "primary");
     expect(tiled({ ...MATERIAL_LOOK, list: "inset" })).toBe(true);
     expect(tiled({ ...MATERIAL_LOOK, toggle: "ios", list: "plain" })).toBe(false);
   });

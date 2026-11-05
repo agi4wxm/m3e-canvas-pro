@@ -1,7 +1,7 @@
 import { atom, box, hbox, icon, text, vbox, round, type Words } from "../atoms";
 import type { PartCategory } from "../registry";
 import { say, type Node } from "../templates/kit";
-import { MATERIAL_LOOK, type KitDef, type KitLook, type KitVariant } from "./types";
+import { MATERIAL_LOOK, groupingOf, type KitDef, type KitLook, type KitVariant } from "./types";
 
 /* What the kits share: the width of a phone's content, the traits of a look that decide a composition, and the
  * words most kits say. A trait reads only the look's fields (lib/kits.ts works them out from the theme), never a
@@ -44,18 +44,8 @@ export function kit(slug: string, name: string, [zh, ja, ko]: Three, category: P
 
 /* ---------- traits of a look ---------- */
 
-export const isGame = (l: KitLook) => l.group === "mobileGame" || l.group === "pcGame";
-export const isDesk = (l: KitLook) => l.group === "desktop";
-/** set close and small: desktop software, and the apps that pack their rows */
-export const isDense = (l: KitLook) => l.compact || l.group === "desktop";
-/** centered titles, grouped lists on a grey ground, alerts with buttons split under a hairline: an iPhone's way */
-export const isIosLike = (l: KitLook) => l.appbar === "ios" || l.list === "inset" || l.dialog === "alert" || l.segmented === "ios";
-/** the WeChat way of dialogs and sheets: a bold centered title, buttons split by hairlines, a gap before Cancel */
-export const isWeui = (l: KitLook) => l.dialog === "weui" || l.sheet === "weui";
-/** a title stands centered between the bar's two sides */
-export const centersTitle = (l: KitLook) => l.bar === "center" || l.appbar === "center" || l.appbar === "ios";
-/** the look plays as a game: chunky frames, resource pills, glossy buttons */
-export const isMobileGame = (l: KitLook) => l.group === "mobileGame";
+/* they live beside the look itself, so a split (parts/defs/splits.ts) composes by the same traits a kit does */
+export { isGame, isDesk, isDense, isIosLike, isWeui, centersTitle, isMobileGame, groupingOf } from "./types";
 
 /* ---------- small pieces ---------- */
 
@@ -63,10 +53,6 @@ export const isMobileGame = (l: KitLook) => l.group === "mobileGame";
  *  separator keeps the length it is given). `down` stands it on end, as tall as `length`, between the parts of a row. */
 export const rule = (length = W, down = false, fill: Node["fill"] = "surfaceContainerHighest"): Node =>
   box({ layout: "row", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: down ? 1 : length, height: down ? length : 1 }, [], { fill, name: say("Divider", "分隔线", "区切り線", "구분선") });
-
-/** how a look groups the rows of a list: on a rounded card on a grey ground (an iPhone's, and a game's tiles), on a
- *  card running edge to edge (WeChat's cells, desktop lists parted by hairlines), or bare (Material's) */
-export const groupingOf = (l: KitLook): "inset" | "flush" | "bare" => (l.list === "inset" || l.list === "tile" ? "inset" : l.list === "flush" || l.list === "hairline" ? "flush" : "bare");
 
 /** a hairline between two rows that starts where their words do, as grouped lists draw it */
 export const insetRule = (left: number): Node =>

@@ -1,9 +1,10 @@
 import { box, button, hbox, iconButton, para, text, vbox } from "../atoms";
 import { say, type Node } from "../templates/kit";
-import type { KitDef } from "./types";
+import { centersTitle, type KitDef } from "./types";
 
 /* A screen's top bar, as atoms. Where the title stands is the composition: at the start beside the
- * way back (Material), centered between two equal sides (iOS, WeChat), or large under the bar. */
+ * way back (Material), centered between two equal sides (iOS, WeChat), or large under the bar (the
+ * styles that set their titles large). The kit follows where the style's own bar puts its title. */
 
 const W = 412;
 const TITLE = say("Title", "标题", "タイトル", "제목");
@@ -27,7 +28,7 @@ const appBar: KitDef = {
       key: "start",
       name: "Title at the start",
       labels: { zh: "标题靠左", ja: "タイトル左寄せ", ko: "제목 왼쪽" },
-      suits: (l) => l.bar !== "center",
+      suits: (l) => !centersTitle(l) && l.appbar !== "large",
       span: "screen",
       build: () =>
         hbox({ surface: "bar", width: W, hugWidth: false, padX: 4, padY: 8, gap: 4 }, [iconButton("arrow_back", BACK), para(TITLE, "title", { maxLines: 1 }, { grow: true }), iconButton("search", SEARCH), iconButton("more_vert", MORE)], { name: NAME }),
@@ -36,7 +37,7 @@ const appBar: KitDef = {
       key: "center",
       name: "Title centered",
       labels: { zh: "标题居中", ja: "タイトル中央", ko: "제목 가운데" },
-      suits: (l) => l.bar === "center",
+      suits: centersTitle,
       span: "screen",
       build: () =>
         hbox(
@@ -49,6 +50,7 @@ const appBar: KitDef = {
       key: "large",
       name: "Large title",
       labels: { zh: "大标题", ja: "大きなタイトル", ko: "큰 제목" },
+      suits: (l) => l.appbar === "large",
       span: "screen",
       build: () =>
         vbox(
