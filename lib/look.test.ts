@@ -1,4 +1,5 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { COLOR_ROLES as SCHEME_ROLES } from "./m3e/color";
 import {
   COLOR_ROLES,
@@ -30,6 +31,8 @@ import {
 import { openProject, projectFile } from "./project";
 import { conformItem, rulesForModel } from "./styleRules";
 import { buildCode } from "./codegen";
+import { buildProject } from "./exportProject";
+import { draftDesign } from "./ai";
 import { setGlobalLang } from "./i18n";
 import { buildPrompt } from "./prompt";
 import { makeItem, normalizeTheme, type Doc, type Item, type ItemLook, type TextToken, type ColorToken } from "./tokens";
@@ -527,5 +530,34 @@ describe("what is said about looks", () => {
     expect(prompt).toContain("linear-gradient(135deg");
     expect(prompt).toContain("--look-elev-N");
     expect(buildPrompt(docWith(undefined), {}, undefined, "en")).not.toContain("--look-elev-N");
+  });
+
+  it("lets a model write looks, and cleans what it writes when it arrives", async () => {
+    const answer = docWith({ fills: [{ type: "solid", color: "url(javascript:alert(1))" }, { type: "solid", color: "primary" }], shadows: [{ x: 0, y: 4, blur: 8, spread: 0, color: "#00000040" }], blend: "evil" });
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ content: [{ type: "text", text: JSON.stringify(answer) }] }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const settings = { provider: "claude" as const, baseUrl: "https://api.anthropic.com", model: "m", key: "k" };
+      const drafted = await draftDesign(settings, "guide", "a game", "en");
+      expect(drafted.groups[0].items[0].look).toEqual({ fills: [{ type: "solid", color: "primary" }], shadows: [{ x: 0, y: 4, blur: 8, spread: 0, color: "#00000040" }] });
+      const asked = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content as string;
+      expect(asked).toContain("`fills`");
+      /* held to a style, it is told the rules instead */
+      await draftDesign(settings, "guide", "a game", "en", undefined, "RULES");
+      const held = JSON.parse(fetchMock.mock.calls[1][1].body).messages[0].content as string;
+      expect(held).toContain("RULES");
+      expect(held).not.toContain("`fills`");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("carries a style's elevation into the exported project", async () => {
+    const doc = { ...docWith({ elevation: 2 }), theme: normalizeTheme({ style: "casual" }) };
+    const fromDisk = (path: string) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+    const noNetwork = async (ids: string[]) => ({ icons: Object.fromEntries(ids.map((id) => [id, { body: "" }])) });
+    const { files } = await buildProject(doc, {}, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    expect(String(files["src/style.css"])).toContain("--look-elev-2:0 0 0 2px var(--st-rim-dark)");
+    expect(Object.values(files).some((f) => typeof f === "string" && f.includes('boxShadow: "var(--look-elev-2, '))).toBe(true);
   });
 });

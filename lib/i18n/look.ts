@@ -110,7 +110,7 @@ export const LOOK_UI = {
   lkTextColor: { ja: "文字の色", en: "Text color", zh: "文字颜色" },
   lkTextSize: { ja: "文字サイズ", en: "Size", zh: "字号" },
   lkTextWeight: { ja: "文字の太さ", en: "Weight", zh: "字重" },
-  lkLetterSpacing: { ja: "字間", en: "Letter spacing", zh: "字间距" },
+  lkLetterSpacing: { ja: "字間", en: "Tracking", zh: "字间距" },
   lkLineHeight: { ja: "行の高さ", en: "Line height", zh: "行高" },
   lkCaseAsIs: { ja: "そのまま", en: "As written", zh: "原样" },
   lkCaseUpper: { ja: "大文字", en: "Uppercase", zh: "大写" },

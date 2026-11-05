@@ -877,6 +877,8 @@ export const LOOK_PRESETS: { key: LookPresetKey; look: ItemLook }[] = [
       fills: [linear(160, ["#ffffff59", 0], ["#ffffff14", 100])],
       stroke: { width: 1, color: "#ffffff66" },
       shadows: [sh(0, 1, 0, 0, "#ffffff59", true), sh(0, 8, 32, 0, "#00000033")],
+      /* the part's own words were for its own fill, which is gone: these follow the mode, dark on light glass */
+      text: { color: "on-surface" },
     },
   },
   { key: "neumorphic", look: { shadows: [sh(6, 6, 14, 0, "#0000002e"), sh(-6, -6, 14, 0, "#ffffffcc")], stroke: { width: 1, color: "#ffffff40" } } },

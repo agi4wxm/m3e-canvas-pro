@@ -274,15 +274,16 @@ function ColorPick({ value, onChange, label, p, clearable }: { value?: ColorRef;
     remember(c);
   };
   const name = !parsed ? t("lkColorNone", lang) : "role" in parsed ? parsed.role : parsed.hex.toUpperCase();
-  const cell = (c: ColorRef, title: string) => {
-    const on = value === c;
+  /* a role from the grid keeps the share already chosen; a color in use comes as it is */
+  const cell = (c: ColorRef, title: string, role = false) => {
+    const on = role ? !!parsed && "role" in parsed && parsed.role === c : value === c;
     return (
       <button
         key={c}
         title={title}
         aria-label={title}
         aria-pressed={on}
-        onClick={() => pick("role" in (parseColor(c) ?? {}) && alpha < 100 ? withAlpha(c, alpha) : c)}
+        onClick={() => pick(role && alpha < 100 ? withAlpha(c, alpha) : c)}
         style={{ width: "100%", aspectRatio: "1", padding: 0, border: "none", borderRadius: 6, cursor: "pointer", background: `linear-gradient(${colorCss(c)}, ${colorCss(c)}), ${CHECKER}`, boxShadow: on ? `0 0 0 2px ${p.surfaceContainerLow}, 0 0 0 4px ${p.primary}` : `inset 0 0 0 1px ${p.outlineVariant}` }}
       />
     );
@@ -309,7 +310,7 @@ function ColorPick({ value, onChange, label, p, clearable }: { value?: ColorRef;
           <Scope>
             <span ref={probe} aria-hidden style={{ display: "none", color: colorCss(value) ?? "transparent" }} />
             <div role="group" aria-label={t("lkColorRoles", lang)} style={{ display: "grid", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gap: 4 }}>
-              {PICK_ROLES.map((r) => cell(r, r))}
+              {PICK_ROLES.map((r) => cell(r, r, true))}
             </div>
           </Scope>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
