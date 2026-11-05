@@ -1,11 +1,24 @@
 /*
  * Which drawing an icon name means. Every family takes the same Material names:
- *   rounded  Material Symbols Rounded, what the components bundle
- *   filled   the same, always solid: the look of Discord, Spotify and most games
- *   light    its thin weight, the nearest thing to the hairline icons of iOS and Windows
- *   sharp    its square-cornered cut
- *   pixel    Pixelarticons for the names below, and sharp for the rest
- * An icon that has not arrived, or does not exist in a family, is drawn from Rounded: see `symbolName`.
+ *   rounded   Material Symbols Rounded, what the components bundle
+ *   filled    the same, always solid: the look of Discord, Spotify and most games
+ *   light     its thin weight, the nearest thing to hairline icons
+ *   sharp     its square-cornered cut
+ *   pixel     Pixelarticons for the names it has, and Sharp for the rest
+ * and the sets that products draw with, each mapped from Material names by hand:
+ *   sf        Framework7 Icons, drawn like SF Symbols (iOS)
+ *   fluentui  Fluent UI System Icons (Windows, Office)
+ *   codicon   Codicons (VS Code)
+ *   phosphor  Phosphor
+ *   lucide    Lucide
+ *   remix     Remix Icon
+ *   ant       Ant Design Icons
+ *   tabler    Tabler Icons
+ *   mingcute  MingCute (WeChat-like)
+ *   game      Game Icons, solid silhouettes
+ *   emoji     Fluent Emoji Flat, in color (it ignores currentColor)
+ * A product family's table arrives with its glyphs (registerIconMap); a name the family lacks, or an
+ * icon that has not arrived, is drawn from Rounded: see `symbolName`.
  */
 export type IconFamily =
   | "rounded"
@@ -25,186 +38,30 @@ export type IconFamily =
   | "game"
   | "emoji"
 
-/** Material's name (in Iconify's spelling) to the Pixelarticons glyph that means the same */
-const PIXEL: Record<string, string> = {
-  home: "home",
-  "arrow-back": "arrow-left",
-  "arrow-forward": "arrow-right",
-  "arrow-upward": "arrow-up",
-  "arrow-downward": "arrow-down",
-  "chevron-left": "chevron-left",
-  "chevron-right": "chevron-right",
-  "expand-more": "chevron-down",
-  "expand-less": "chevron-up",
-  "keyboard-arrow-down": "chevron-down",
-  "keyboard-arrow-up": "chevron-up",
-  "keyboard-arrow-left": "chevron-left",
-  "keyboard-arrow-right": "chevron-right",
-  close: "close",
-  menu: "menu",
-  search: "search",
-  settings: "settings-cog",
-  tune: "sliders",
-  "more-vert": "more-vertical",
-  "more-horiz": "more-horizontal",
-  add: "plus",
-  remove: "minus",
-  check: "check",
-  done: "check",
-  delete: "trash",
-  edit: "pencil",
-  "content-copy": "copy",
-  share: "share",
-  download: "download",
-  upload: "upload",
-  refresh: "refresh",
-  "filter-list": "filter",
-  sort: "sort-vertical",
-  person: "user",
-  group: "users",
-  people: "users",
-  "account-circle": "avatar-circle",
-  "person-add": "user-plus",
-  favorite: "heart",
-  star: "star",
-  bookmark: "bookmark",
-  notifications: "bell",
-  "notifications-off": "bell-off",
-  mail: "mail",
-  email: "mail",
-  chat: "message",
-  "chat-bubble": "message",
-  forum: "comment",
-  send: "send",
-  call: "phone",
-  phone: "phone",
-  "calendar-today": "calendar",
-  "calendar-month": "calendar",
-  schedule: "clock",
-  "access-time": "clock",
-  alarm: "alarm-clock",
-  image: "image",
-  photo: "image",
-  landscape: "image",
-  "photo-camera": "camera",
-  "camera-alt": "camera",
-  videocam: "video",
-  "play-arrow": "play",
-  pause: "pause",
-  stop: "stop",
-  "music-note": "music",
-  mic: "mic",
-  "mic-off": "mic-off",
-  "volume-up": "volume-3",
-  "volume-off": "volume-x",
-  headphones: "headphone",
-  map: "map",
-  place: "map-pin",
-  "location-on": "map-pin",
-  explore: "compass",
-  "my-location": "gps",
-  directions: "directions",
-  lock: "lock",
-  "lock-open": "unlock",
-  visibility: "eye",
-  "visibility-off": "eye-off",
-  key: "key",
-  shield: "shield",
-  security: "shield",
-  "shopping-cart": "shopping-cart",
-  "shopping-bag": "shopping-bag",
-  store: "store",
-  "credit-card": "credit-card",
-  payments: "banknote",
-  "attach-money": "dollar",
-  "account-balance-wallet": "wallet",
-  wallet: "wallet",
-  receipt: "receipt",
-  "card-giftcard": "gift",
-  redeem: "gift",
-  "local-offer": "label",
-  sell: "label",
-  info: "info-box",
-  help: "circle-question",
-  warning: "warning-diamond",
-  error: "square-alert",
-  folder: "folder",
-  description: "file-text",
-  article: "article",
-  link: "link",
-  "attach-file": "attachment",
-  cloud: "cloud",
-  language: "globe",
-  public: "globe",
-  translate: "languages",
-  "dark-mode": "moon",
-  "light-mode": "sun",
-  "wb-sunny": "sun",
-  bolt: "zap",
-  "flash-on": "zap",
-  "local-fire-department": "fire",
-  whatshot: "fire",
-  "emoji-events": "trophy",
-  "military-tech": "trophy",
-  "sports-esports": "gamepad",
-  "videogame-asset": "gamepad",
-  "auto-awesome": "sparkles",
-  diamond: "diamond-gem",
-  "workspace-premium": "crown",
-  "monetization-on": "coins",
-  paid: "coins",
-  toll: "coins",
-  dashboard: "layout",
-  "grid-view": "grid-2x2-2",
-  apps: "grid-3x3",
-  list: "bulletlist",
-  "view-list": "bulletlist",
-  "thumb-up": "thumbs-up",
-  "thumb-down": "thumbs-down",
-  "sentiment-satisfied": "smile",
-  mood: "smile",
-  flag: "flag",
-  book: "book-open",
-  "menu-book": "book-open",
-  school: "teach",
-  work: "briefcase",
-  "directions-car": "car",
-  "local-shipping": "truck",
-  "directions-bus": "bus",
-  "local-cafe": "coffee",
-  pets: "dog",
-  "smart-toy": "robot",
-  terminal: "terminal",
-  code: "code",
-  "qr-code": "qr-code",
-  logout: "logout",
-  login: "login",
-  "open-in-new": "external-link",
-  "power-settings-new": "power",
-  wifi: "wifi",
-  analytics: "analytics",
-  "bar-chart": "chart-bar-big",
-  "show-chart": "chart-line",
-  "trending-up": "trending-up",
-  "inventory-2": "package",
-  backpack: "backpack",
-  swords: "sword",
-  skull: "skull",
-  castle: "castle",
-  bomb: "bomb",
-  "health-and-safety": "potion",
+/** a Material name (Iconify's spelling) to the full ids that draw it, outlined and filled */
+export type IconMap = Record<string, readonly [string, string]>
+
+const maps = new Map<IconFamily, Map<string, readonly [string, string]>>()
+
+/** say which glyphs draw a family's names; more of a family's table can arrive later */
+export function registerIconMap(family: IconFamily, map: IconMap) {
+  let own = maps.get(family)
+  if (!own) maps.set(family, (own = new Map()))
+  for (const [name, ids] of Object.entries(map)) own.set(name, ids)
 }
 
-/** the full Iconify ids of a name in a family, outlined and filled; nothing for the family that is bundled */
+/** the full Iconify ids of a name in a family, outlined then filled; nothing when the family has no drawing of it */
 export function familyIds(family: IconFamily, name: string): string[] {
   const base = name.replaceAll("_", "-")
-  if (family === "filled") return [`material-symbols:${base}-rounded`]
+  const own = maps.get(family)?.get(base)
+  if (own) return [...own]
+  if (family === "filled")
+    return [`material-symbols:${base}-rounded`, `material-symbols:${base}-rounded`]
   if (family === "light")
     return [
       `material-symbols-light:${base}-outline-rounded`,
       `material-symbols-light:${base}-rounded`,
     ]
-  if (family === "pixel" && PIXEL[base]) return [`pixelarticons:${PIXEL[base]}`]
   if (family === "sharp" || family === "pixel")
     return [
       `material-symbols:${base}-outline-sharp`,
@@ -219,6 +76,5 @@ export function familyIcon(
   name: string,
   filled: boolean
 ): string | undefined {
-  const ids = familyIds(family, name)
-  return ids.length > 1 ? ids[filled ? 1 : 0] : ids[0]
+  return familyIds(family, name)[filled ? 1 : 0]
 }

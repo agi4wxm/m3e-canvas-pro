@@ -5,7 +5,7 @@ import {
 
 import { cn } from "@/lib/m3e/cn"
 
-import { familyIcon, type IconFamily } from "./icon-family"
+import { familyIcon, registerIconMap, type IconFamily } from "./icon-family"
 import { isKnownIcon, registerIcons, warnIfMissing } from "./icon-registry"
 
 let family: IconFamily = "rounded"
@@ -15,19 +15,35 @@ export function setIconFamily(next: IconFamily) {
   family = next
 }
 
+/** the family icons are drawn in now */
+export const iconFamily = () => family
+
+/** the family's own drawing of a name, once its glyph has been registered; nothing for Rounded */
+export function familyGlyph(name: string, filled: boolean) {
+  if (family === "rounded") return undefined
+  const styled = familyIcon(family, name, filled)
+  return styled && isKnownIcon(styled) ? styled : undefined
+}
+
 /**
- * Material Symbols Rounded (`material-symbols:*`), from the bundled icon data.
- * Names use Material's ligature spelling ("arrow_back") or Iconify's
- * ("arrow-back"). Unfilled icons are `*-outline-rounded`, filled `*-rounded`.
- * With another family chosen, its drawing of the name once it is registered.
+ * The id that draws a name: the chosen family's glyph once it is registered,
+ * else Material Symbols Rounded (`material-symbols:*`) from the bundled icon
+ * data. Names use Material's ligature spelling ("arrow_back") or Iconify's
+ * ("arrow-back"). Unfilled icons are `*-outline-rounded`, filled `*-rounded`;
+ * a family that draws no filled glyph draws its outlined one both ways.
  */
 export function symbolName(name: string, filled: boolean) {
-  const styled = family === "rounded" ? undefined : familyIcon(family, name, filled)
-  if (styled && isKnownIcon(styled)) return styled
+  return drawing(name, filled).icon
+}
+
+/** the id that draws a name, and the family it comes from (nothing when Rounded draws it) */
+function drawing(name: string, filled: boolean): { icon: string; family?: IconFamily } {
+  const styled = familyGlyph(name, filled)
+  if (styled) return { icon: styled, family }
   const base = name.replaceAll("_", "-")
   const icon = `material-symbols:${base}${filled ? "" : "-outline"}-rounded`
   warnIfMissing(icon)
-  return icon
+  return { icon }
 }
 
 type IconProps = Omit<IconifyIconProps, "icon" | "children" | "fill"> & {
@@ -57,10 +73,14 @@ function Icon({
     height: size,
     ...props,
   }
+  /* data-family names the set a glyph came from, so a style can tune it (an emoji keeps its own colors) */
   if (fill === "auto") {
+    const outline = drawing(name, false)
+    const filled = drawing(name, true)
     return (
       <span
         data-slot="icon"
+        data-family={outline.family}
         className={cn(
           "m3-icon-auto inline-flex shrink-0 items-center justify-center align-middle",
           className
@@ -68,25 +88,29 @@ function Icon({
         style={{ width: size, height: size }}
       >
         <Iconify
-          icon={symbolName(name, false)}
+          icon={outline.icon}
           {...common}
+          data-family={outline.family}
           className="m3-icon-outline"
         />
         <Iconify
-          icon={symbolName(name, true)}
+          icon={filled.icon}
           {...common}
+          data-family={filled.family}
           className="m3-icon-filled"
         />
       </span>
     )
   }
+  const { icon, family: from } = drawing(name, fill)
   return (
     <Iconify
-      icon={symbolName(name, fill)}
+      icon={icon}
       {...common}
+      data-family={from}
       className={cn("inline-block shrink-0 align-middle", className)}
     />
   )
 }
 
-export { Icon, registerIcons, type IconFamily }
+export { Icon, registerIconMap, registerIcons, type IconFamily }

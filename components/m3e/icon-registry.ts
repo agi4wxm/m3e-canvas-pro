@@ -8,6 +8,7 @@ import coreIcons from "./icon-data"
  * icon-data.ts (used inside the M3E components) and icon-data.app.ts (used by
  * your app) by `bun run gen:icons`, and registered here. Nothing is loaded
  * from the Iconify API at runtime, and only these glyphs end up in the bundle.
+ * More can be registered later (an icon family's glyphs, see icon-sets).
  */
 // replaced by the bundler (Vite, Next…), so this is dev-only code
 declare const process: { env: { NODE_ENV?: string } }
@@ -32,10 +33,13 @@ export const isKnownIcon = (icon: string) => known.has(icon)
 
 const warned = new Set<string>()
 
-/** in development, say once when an icon was never bundled */
+/** in development, say once when an icon was never bundled: a moment later, since glyphs that are loaded on demand arrive after the first draw */
 export function warnIfMissing(icon: string) {
   if (process.env.NODE_ENV === "production") return
   if (known.has(icon) || warned.has(icon)) return
   warned.add(icon)
-  console.warn(`[m3e] Icon "${icon}" is not bundled. Run: bun run gen:icons`)
+  setTimeout(() => {
+    if (!known.has(icon))
+      console.warn(`[m3e] Icon "${icon}" is not bundled. Run: bun run gen:icons`)
+  }, 10000)
 }

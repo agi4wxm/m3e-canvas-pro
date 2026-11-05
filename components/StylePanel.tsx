@@ -9,6 +9,7 @@ import { ensureFontLoaded } from "@/lib/theme";
 import { Lang, t, useLang } from "@/lib/i18n";
 import { shapeVars } from "@/parts/theme";
 import { Icon } from "./Icon";
+import { IconFamilyPicker } from "./IconFamilyPicker";
 import { Select, Slider, Toggle } from "./ui";
 
 /* The styles, each shown by real controls wearing it, and then how each kind of control is built, for an
@@ -341,12 +342,12 @@ export function StylePanel({
           </Labeled>
         ))}
         <Labeled label={t("styleIcons", lang)} p={p}>
-          <Select
+          <IconFamilyPicker
             label={t("styleIcons", lang)}
             p={p}
             value={theme.icons ?? "rounded"}
             options={ICON_FAMILIES.map((v) => ({ key: v, label: styleTextOf(ICON_LABELS[v], lang) }))}
-            onChange={(v) => onChange({ icons: v as IconFamily })}
+            onChange={(v) => onChange({ icons: v })}
           />
         </Labeled>
       </div>
