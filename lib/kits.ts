@@ -318,6 +318,9 @@ export function splitTaps(def: PartDef, p: P, tree: Node, it: Pick<Item, "action
  *  it had on the outermost box, composed as `look` (the document's style) composes the part. The
  *  outermost box keeps the part's ids, so what selected it or laid it out still does. Null when the
  *  part cannot be split. */
+/** the pin a split bar's box takes, by the screen role of the part it replaces */
+const SPLIT_PIN: Record<string, string | undefined> = { top: "top", bottom: "bottom", floatingBottom: "floatingBottom" };
+
 export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widths: Record<string, number> = {}, look?: KitLook): { groups: Group[]; rootItemId: string } | null {
   const at = groups.findIndex((g) => g.items.length === 1 && g.items[0].id === itemId && !g.instanceOf && !g.free);
   if (at < 0) return null;
@@ -341,7 +344,11 @@ export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widt
   });
   const measured = widths[it.id];
   /* the box is called what the part was, so it can still be found by that in the layers */
-  const root = carried(g, it, made[0], measured !== undefined ? Math.round(measured) : undefined, nameOf(def, lang));
+  const carriedRoot = carried(g, it, made[0], measured !== undefined ? Math.round(measured) : undefined, nameOf(def, lang));
+  /* a bar keeps its place on the screen: standing on its own (not in a layout), the box it becomes is pinned to the
+   * edge the part belonged to, so a style's layout keeps it there instead of taking it for a row of the body */
+  const pin = !g.inFlow ? SPLIT_PIN[roleOf(it) ?? ""] : undefined;
+  const root = pin && carriedRoot.items[0].component === "box" ? { ...carriedRoot, items: [{ ...carriedRoot.items[0], props: { ...carriedRoot.items[0].props, pin } }] } : carriedRoot;
   const inside = made.slice(1).map((x) => (x.inFlow === made[0].id ? { ...x, inFlow: g.id } : x));
   /* laid out again from the part's own corner, at its own width; the layout it stands in, if any, is not
    * among these, so it is set aside meanwhile rather than let go */

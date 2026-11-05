@@ -279,6 +279,16 @@ describe("a split that looks like the part", () => {
     expect(laid("app-bar", { size: "large", subtitle: "All mail" }).size.h).toBe(152);
   });
 
+  it("pins a split bar to the edge the part belonged to, unless it stands in a layout", () => {
+    const one = (slug: string, inFlow?: string): Group => ({ id: `g-${slug}`, x: 0, y: 0, axis: "x", items: [{ ...makeItem(slug), id: `i-${slug}`, props: { width: 412 } }], ...(inFlow ? { inFlow } : {}) });
+    const pinOf = (g: Group) => splitIntoAtoms([g], g.items[0].id, "en")!.groups[0].items[0].props?.pin;
+    expect(pinOf(one("app-bar"))).toBe("top");
+    expect(pinOf(one("navigation-bar"))).toBe("bottom");
+    /* a row of the body has no edge to keep, and a bar a layout places is the layout's to place */
+    expect(pinOf(one("item"))).toBeUndefined();
+    expect(pinOf(one("app-bar", "host"))).toBeUndefined();
+  });
+
   it("runs a card's media to its edges", () => {
     const card = laid("card", { width: 280, imageSize: 96 });
     const media = card.at("box", 1);
