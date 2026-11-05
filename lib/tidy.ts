@@ -11,11 +11,15 @@ import { blockOf, boundsOf, gapSnapper, gridBlock, gridMeasure, leavesOf, median
  *    a bottom sheet on the bottom edge), a FAB takes the bottom-right corner,
  *    a dialog is centered.
  * 2. Everything else is stacked between the bars on the 16dp layout margins, from
- *    the top unless the screen asks for the body centered, at the bottom or spread. Rows,
- *    hand-made groups and intentional overlaps (a badge on an icon, parts on a
- *    container) are kept as one unit, and a part keeps the side it was on. A group
- *    nearly as wide as the content sits on the margin; a text with a switch,
- *    checkbox or radio beside it spans the row, the control on the right.
+ *    the top unless the screen asks for the body centered, at the bottom or spread.
+ *    Hand-made groups and intentional overlaps (a badge on an icon, parts on a
+ *    container) are kept as one unit. The body is read as a structure first
+ *    (lib/structure.ts: bands cut across it, columns cut down each band, grids of
+ *    like parts), and each band laid out by `bandLayout`: a part keeps the side it
+ *    was on, a group nearly as wide as the content sits on the margin, a text with a
+ *    switch, checkbox or radio beside it spans the row with the control on the right,
+ *    a row with a wide break keeps its ends on the two margins, a grid gets one gutter.
+ *    Gaps inside a band come from the style's spacing scale.
  *
  * 3. Inside one unit (parts on a container, a hand-made group) edges that are almost
  *    aligned snap to the common line. This only acts on differences a hand would
