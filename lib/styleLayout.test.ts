@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { layoutForStyle, metricsOf } from "./styleLayout";
+import { destinationsOf, layoutForStyle, metricsOf } from "./styleLayout";
+import { setGlobalLang } from "./i18n";
 import { standingTogether } from "./tidy";
 import { STYLE_PACKS, stylePatch, uxOf } from "./styles";
 import { DEFAULT_THEME, frameLengthOf, makeItem, normalizeTheme, type Frame, type Group, type Theme } from "./tokens";
@@ -82,6 +83,33 @@ describe("a style's layout", () => {
     /* and from one that keeps whatever there is */
     const kept = find(layoutForStyle(tabs, [phone], sizes, themed("chatgpt"))!.groups, "nav");
     expect(kept.items[0].component).toBe("navigation-bar");
+  });
+
+  it("carries the destinations a bar shows by default, their taps and the chosen one, there and back", () => {
+    setGlobalLang("zh");
+    try {
+      const taps = { "tab:0": { to: "home", transition: "slide" as const }, "tab:3": { to: "settings", transition: "slide" as const } };
+      const seeded = [...screen().filter((g) => g.id !== "g-nav"), { ...part("nav", "navigation-bar", 0, 828, { selected: 3, width: 412 }), items: [{ ...makeItem("navigation-bar"), id: "nav", props: { selected: 3, width: 412 }, actions: taps }] }];
+      const shown = ["首页", "搜索", "已保存", "设置"];
+      const labels = (g: Group) => ((g.items[0].props?.items ?? []) as { label: string }[]).map((x) => x.label);
+      for (const key of ["vscode", "souls", "cyber"]) {
+        const nav = find(laid(key, seeded).groups, "nav");
+        expect(nav.items[0].component, key).not.toBe("navigation-bar");
+        expect(labels(nav), key).toEqual(shown);
+        expect(nav.items[0].props?.selected, key).toBe(3);
+        expect(nav.items[0].actions, key).toEqual(taps);
+      }
+      /* and back: the bar it was, with what it showed */
+      const away = laid("cyber", seeded).groups;
+      const back = find(layoutForStyle(away, [phone], sizes, themed("ios"))!.groups, "nav");
+      expect(back.items[0].component).toBe("navigation-bar");
+      expect(labels(back)).toEqual(shown);
+      expect(back.items[0].props?.selected).toBe(3);
+      expect(back.items[0].actions).toEqual(taps);
+      expect(destinationsOf(back.items[0])).toEqual(destinationsOf(seeded[seeded.length - 1].items[0]));
+    } finally {
+      setGlobalLang("en");
+    }
   });
 
   it("keeps a wide screen from having a phone's bar", () => {

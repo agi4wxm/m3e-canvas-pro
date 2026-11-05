@@ -1,6 +1,7 @@
-import { partBySlug } from "../parts/registry";
+import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
+import type { ListItem } from "../parts/types";
 import { isStrict, recipesOf, uxOf, type StyleUX } from "./styles";
 import { fillRest, fitLength, isScreenLayout, MATERIAL_METRICS, tidyFrame, type LayoutMetrics } from "./tidy";
 import { frameLengthOf, frameOfGroup, frameRect, frameSizeOf, groupBounds, isExpanded, railWidth, type Frame, type Group, type Item, type Theme } from "./tokens";
@@ -23,9 +24,21 @@ const isRail = (it: Item) => it.component === "navigation-rail";
 const isNavTabs = (it: Item) => it.component === "tabs" && it.navTabs === true;
 const isNav = (it: Item) => isBar(it) || isRail(it) || isNavTabs(it);
 
+/** The destinations a navigation part shows and the one chosen, as it shows them: a part that never set them shows its
+ *  own defaults, in the document's language, and another kind of navigation has defaults of its own. What a tap on each
+ *  does is keyed by its place (`tab:0`…) in every kind, so it goes along with the part as it is. */
+export function destinationsOf(it: Item): { items: ListItem[]; selected: number } {
+  const def = partBySlug(it.component);
+  if (!def || !def.props.some((d) => d.key === "items")) return { items: [], selected: 0 };
+  const p = reader(def, it.props);
+  const items = p.list("items").map((x) => ({ ...x }));
+  const selected = def.props.some((d) => d.key === "selected") ? Math.max(0, Math.min(items.length - 1, Math.round(p.n("selected")))) : 0;
+  return { items, selected };
+}
+
 /** the part as the kind of navigation a style wants on this screen; M3 has no bar on a wide window, and neither has anyone else */
 function navAs(it: Item, kind: StyleUX["nav"], frame: Frame): Item {
-  const common = { items: it.props?.items, selected: it.props?.selected };
+  const common = destinationsOf(it);
   const { w } = frameSizeOf(frame);
   const want = kind === "keep" ? (isNavTabs(it) ? "bottom" : null) : kind;
   /* a screen too wide for a bar has a rail in its place, whatever the phone version does */

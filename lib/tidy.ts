@@ -64,7 +64,25 @@ const share = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, Ma
 
 const area = (r: Rect) => Math.max(0, r.r - r.l) * Math.max(0, r.b - r.t);
 
-/** Groups that touch each other stay together, so a badge on an icon or parts on a box move as one.
+/** Whether a part laid over another was put there on purpose: it stands mostly on it (a word on a picture, a part on a
+ *  box), or it is a small thing on one of its corners (a badge on an icon). One that only grazes the other's edge, a
+ *  switch half on a field's border, was a slip, and the two are laid out apart. */
+export function meantToSit(small: Rect, big: Rect): boolean {
+  const shared = Math.max(0, Math.min(small.r, big.r) - Math.max(small.l, big.l)) * Math.max(0, Math.min(small.b, big.b) - Math.max(small.t, big.t));
+  if (shared >= area(small) * 0.6) return true;
+  if (!shared || area(small) * 4 > area(big)) return false;
+  const cx = (small.l + small.r) / 2;
+  const cy = (small.t + small.b) / 2;
+  const reach = Math.max(small.r - small.l, small.b - small.t) / 2 + 2;
+  return [
+    [big.l, big.t],
+    [big.r, big.t],
+    [big.l, big.b],
+    [big.r, big.b],
+  ].some(([x, y]) => Math.hypot(cx - x, cy - y) <= reach);
+}
+
+/** Groups laid over each other on purpose stay together, so a badge on an icon or parts on a box move as one.
  *  Bars, FABs and dialogs never join a cluster: they have their own place and are often drawn over content. */
 function clusters(groups: Group[], widths: Record<string, number>, m?: Pick<LayoutMetrics, "together" | "sitsOn">): Unit[] {
   const units: Unit[] = groups.map((g) => ({ ids: [g.id], bb: groupBounds(g, widths), family: familyOf(g.items[0]), probe: g.items[0], base: g.items.length === 1 ? widths[`${g.items[0].id}:base`] : undefined }));
@@ -77,9 +95,8 @@ function clusters(groups: Group[], widths: Record<string, number>, m?: Pick<Layo
   const touch = (a: Unit, b: Unit) => {
     if (setOf) return setOf.has(a.ids[0]) && setOf.get(a.ids[0]) === setOf.get(b.ids[0]);
     if (!overlap(a.bb, b.bb)) return false;
-    if (!m?.sitsOn) return true;
     const [small, big] = area(a.bb) <= area(b.bb) ? [a.bb, b.bb] : [b.bb, a.bb];
-    return middleIn(small, big);
+    return meantToSit(small, big) && (!m?.sitsOn || middleIn(small, big));
   };
   for (;;) {
     let merged = false;
@@ -178,6 +195,28 @@ function align(bb: Rect, fr: Rect, margin: number): "left" | "center" | "right" 
   if (left && !right) return "left";
   if (right && !left) return "right";
   return "center";
+}
+
+type Side = "left" | "center" | "right";
+
+/** a unit standing exactly on the line its side gives it: on a margin, or in the middle of the screen */
+function exactly(bb: Rect, side: ReturnType<typeof align>, fr: Rect, margin: number): boolean {
+  if (side === "left") return Math.abs(bb.l - (fr.l + margin)) <= 1;
+  if (side === "right") return Math.abs(fr.r - margin - bb.r) <= 1;
+  if (side === "center") return Math.abs(bb.l + bb.r - (fr.l + fr.r)) <= 2;
+  return false;
+}
+
+/** The side a column of a screen leans to: the one more of its narrower bands stand on than on any other, if one is.
+ *  What stands exactly on a side keeps to it; the rest goes this way, so one column does not mix its alignments. */
+function leanOf(rects: Rect[], fr: Rect, margin: number, inner: number): Side | undefined {
+  const votes: Record<Side, number> = { left: 0, center: 0, right: 0 };
+  for (const bb of rects) {
+    const a = align(bb, fr, margin);
+    if (a !== "fill" && bb.r - bb.l < inner * 0.7) votes[a] += 1;
+  }
+  const sides = (["left", "center", "right"] as const).filter((x) => votes[x] > 0).sort((x, y) => votes[y] - votes[x]);
+  return sides.length && (sides.length === 1 || votes[sides[0]] > votes[sides[1]]) ? sides[0] : undefined;
 }
 
 /** the gap above a row, from what came before it */
@@ -455,7 +494,13 @@ function snapEdges(unit: Unit, groups: Map<string, Group>, widths: Record<string
   let moved = false;
   const nudge = (g: Group, dx: number, dy: number) => {
     if (!dx && !dy) return;
-    groups.set(g.id, { ...groups.get(g.id)!, x: groups.get(g.id)!.x + dx, y: groups.get(g.id)!.y + dy });
+    const was = groups.get(g.id)!;
+    const now = { ...was, x: was.x + dx, y: was.y + dy };
+    /* lining a part up is no reason to put it on a neighbour it stood clear of */
+    const at = groupBounds(now, widths);
+    const before = groupBounds(was, widths);
+    if (others.some((o) => o.id !== g.id && overlap(at, groupBounds(groups.get(o.id)!, widths)) && !overlap(before, groupBounds(groups.get(o.id)!, widths)))) return;
+    groups.set(g.id, now);
     moved = true;
   };
   const lefts = commonValue(others.map((g) => rects.get(g.id)!.l), SNAP);
@@ -543,15 +588,17 @@ export function fillRest(groups: Group[], frame: Frame, frames: Frame[], widths:
  *  - A grid gets one gutter across and down; spread across most of the width, it runs from margin to margin.
  *  - Inside a part of a band (two lines of text beside a picture) the same rules hold, without the margins.
  *  Each row lines up on the edge, centre or baseline its parts come closest to sharing. */
-function bandLayout(fr: Rect, frameW: number, m: LayoutMetrics, target: Map<Unit, { l: number; t: number }>, unitOf: Map<string, Unit>) {
+function bandLayout(fr: Rect, frameW: number, m: LayoutMetrics, target: Map<Unit, { l: number; t: number }>, unitOf: Map<string, Unit>, lean?: Side) {
   const inner = frameW - m.margin * 2;
   const left = fr.l + m.margin;
   const snap = gapSnapper([m.tight, m.gap]);
   const arrange: ArrangeOptions = { snap };
   const isFull = (u: Unit) => (fullWidth(u.probe) || !!m.flush?.(u.probe)) && u.bb.r - u.bb.l >= frameW - 1;
-  /** where something this wide starts in the body: on the side it stood, the left margin when it is wide */
+  /** Where something this wide starts in the body: the left margin when it is wide; else on the side it stands on
+   *  exactly, or the side the column leans to, or the side it stood nearest */
   const startX = (bb: Rect, width: number) => {
-    const a = align(bb, fr, m.margin);
+    const own = align(bb, fr, m.margin);
+    const a = own === "fill" || exactly(bb, own, fr, m.margin) ? own : (lean ?? own);
     return width >= inner * 0.7 || a === "left" || a === "fill" ? left : a === "right" ? fr.r - m.margin - width : fr.l + Math.round((frameW - width) / 2);
   };
   const commit = (out: Placed) => {
@@ -568,9 +615,11 @@ function bandLayout(fr: Rect, frameW: number, m: LayoutMetrics, target: Map<Unit
       const bb = boundsOf(band);
       const cells = g.colW.reduce((a, b) => a + b, 0);
       /* a grid across most of the body fills it, with the gutter that leaves, and the same gutter down */
-      const spread = g.cols > 1 && bb.r - bb.l >= inner * 0.7 && inner - cells >= 4 * (g.cols - 1);
+      /* judged on what it spans and on what it would span packed, so that tidying it again judges it the same */
+      const packed = gridBlock(band.cells, arrange);
+      const spread = g.cols > 1 && Math.max(bb.r - bb.l, packed.w) >= inner * 0.7 && inner - cells >= 4 * (g.cols - 1);
       const gx = spread ? (inner - cells) / (g.cols - 1) : undefined;
-      const block = gridBlock(band.cells, arrange, gx === undefined ? {} : { gx, gy: snap(gx) });
+      const block = gx === undefined ? packed : gridBlock(band.cells, arrange, { gx, gy: snap(gx) });
       return {
         h: block.h,
         place: (y) => {
@@ -600,9 +649,12 @@ function bandLayout(fr: Rect, frameW: number, m: LayoutMetrics, target: Map<Unit
       const gaps = rects.slice(1).map((r, i) => Math.max(0, r.l - rects[i].r));
       const runs = runsOf(gaps);
       const gapIn = runs.map((run) => snap(median(run.slice(1).map((i) => gaps[i - 1]))));
-      const span = rects[rects.length - 1].r - rects[0].l;
       const total = blocks.reduce((n, b) => n + b.w, 0);
       const runW = runs.map((run, j) => run.reduce((n, i) => n + blocks[i].w, 0) + gapIn[j] * (run.length - 1));
+      /* what it spans is judged as it stands and as it would stand packed: packing must not leave it wide enough to be
+       * spread the next time, nor spreading narrow enough to be packed */
+      const packedSpan = runW.reduce((a, b) => a + b, 0) + runs.slice(1).reduce((n, run) => n + snap(gaps[run[0] - 1]), 0);
+      const span = Math.max(rects[rects.length - 1].r - rects[0].l, packedSpan);
       let xs: number[];
       let x0: number;
       if (runs.length > 1 && span >= inner * 0.5 && runW.reduce((a, b) => a + b, 0) <= inner) {
@@ -647,8 +699,36 @@ function bandLayout(fr: Rect, frameW: number, m: LayoutMetrics, target: Map<Unit
   };
 }
 
-/** The tidied groups of the document, or null when `frame` is already tidy. */
+/** how many times Tidy reads its own result again before it is done */
+const SETTLE = 4;
+
+/** A band as bands that fit across the body: a row or a grid too wide for it, packed as close as rows go, is what it
+ *  holds one under another, top first. Left as one, it would run off the screen, and what ran off would not be the
+ *  screen's the next time. */
+function oneAcross(band: Shape, inner: number, o: ArrangeOptions): Shape[] {
+  if (band.kind === "grid") {
+    if (gridBlock(band.cells, o).w <= inner) return [band];
+    return band.cells.flatMap((row) => oneAcross(row.length === 1 ? { kind: "leaf", box: row[0] } : { kind: "row", kids: row.map((box) => ({ kind: "leaf", box })) }, inner, o));
+  }
+  if (band.kind !== "row" || band.kids.reduce((n, k) => n + blockOf(k, o).w, 0) + 8 * (band.kids.length - 1) <= inner) return [band];
+  return [...band.kids].sort((a, b) => boundsOf(a).t - boundsOf(b).t || boundsOf(a).l - boundsOf(b).l).flatMap((k) => oneAcross(k, inner, o));
+}
+
+/** The tidied groups of the document, or null when `frame` is already tidy. Tidy is read again on its own result until
+ *  that moves nothing more, so that tidying a tidy screen moves nothing: what a pass left reads differently (a row packed
+ *  wide enough to spread, parts that overlapped by a slip now apart) is settled before anyone sees it. */
 export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>, m: LayoutMetrics = MATERIAL_METRICS): Group[] | null {
+  let at = groups;
+  for (let pass = 0; pass < SETTLE; pass++) {
+    const next = tidyOnce(at, frame, frames, widths, m);
+    if (!next) break;
+    at = next;
+  }
+  return at !== groups && at.some((g, i) => g.x !== groups[i].x || g.y !== groups[i].y) ? at : null;
+}
+
+/** one pass of Tidy over a screen, or null when it would move nothing */
+function tidyOnce(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>, m: LayoutMetrics): Group[] | null {
   const screen: Rect = frameRect(frame);
   /* what a container lays out goes where the container is, not into the screen's rows */
   const mineIds = new Set(groups.filter((g) => !g.inFlow && roleOf(g.items[0]) !== "backdrop" && !isScreenLayout(g, frame, widths) && frameOfGroup(g, frames, widths)?.id === frame.id).map((g) => g.id));
@@ -665,7 +745,13 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   /* the bands of body height a locked section takes, which the rows flow around */
   const lockedBands = fixed.filter((u) => !isAnchored(u)).map((u) => u.bb).sort((a, b) => a.t - b.t);
 
-  const units = clusters(mine, widths, m);
+  /* slips inside a unit are mended first, so that the unit is placed by the bounds it will have: placed by the
+   * bounds it had, it would be placed again the next time */
+  const mended = new Map(mine.map((g) => [g.id, g]));
+  let slipped = false;
+  const found = clusters(mine, widths, m);
+  for (const u of found) if (snapEdges(u, mended, widths)) slipped = true;
+  const units = slipped ? found.map((u) => (u.ids.length < 2 ? u : { ...u, bb: u.ids.map((id) => groupBounds(mended.get(id)!, widths)).reduce(union) })) : found;
   const target = new Map<Unit, { l: number; t: number }>();
 
   /* a navigation rail stands on the edge it is nearer to, left or right (a second one beside it);
@@ -731,9 +817,9 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   const body = units.filter((u) => !target.has(u));
   const unitOf = new Map(body.map((u) => [u.ids[0], u]));
   const read = body.length ? structureOf(body.map((u): Box => ({ id: u.ids[0], ...u.bb, kind: u.family, base: u.base }))) : null;
-  const bands: Shape[] = !read ? [] : read.kind === "stack" ? read.kids : [read];
+  const bands: Shape[] = (!read ? [] : read.kind === "stack" ? read.kids : [read]).flatMap((b) => oneAcross(b, frameW - m.margin * 2, { snap: gapSnapper([m.tight, m.gap]) }));
   const unitsIn = (band: Shape) => leavesOf(band).map((b) => unitOf.get(b.id)!);
-  const layBand = bandLayout(fr, frameW, m, target, unitOf);
+  const layBand = bandLayout(fr, frameW, m, target, unitOf, leanOf(bands.map(boundsOf), fr, m.margin, frameW - m.margin * 2));
   const limit = bottom - m.margin;
   /* a list a style runs edge to edge hangs from the bar above it */
   const hangs = !!m.flush && !!bands[0] && unitsIn(bands[0]).every((u) => m.flush!(u.probe));
@@ -783,17 +869,16 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
     const dy = Math.round(to.t - u.bb.t);
     for (const id of u.ids) shift.set(id, { dx, dy });
   }
-  let moved = false;
+  let moved = slipped;
   const placed = new Map(
     mine.map((g) => {
+      const at = mended.get(g.id)!;
       const s = shift.get(g.id);
-      if (!s || (s.dx === 0 && s.dy === 0)) return [g.id, g] as const;
+      if (!s || (s.dx === 0 && s.dy === 0)) return [g.id, at] as const;
       moved = true;
-      const x = g.x + s.dx;
-      return [g.id, { ...g, x, y: g.y + s.dy }] as const;
+      return [g.id, { ...at, x: at.x + s.dx, y: at.y + s.dy }] as const;
     }),
   );
-  for (const u of units) if (snapEdges(u, placed, widths)) moved = true;
   if (!moved) return null;
   /* a locked group, and another screen's, keeps its position and its slot untouched */
   return groups.map((g) => placed.get(g.id) ?? g);

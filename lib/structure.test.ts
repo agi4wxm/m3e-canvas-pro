@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alignIntent, blockOf, gapSnapper, leavesOf, linesOf, runsOf, structureOf, xyCut, type Box, type Placed, type Shape } from "./structure";
+import { alignIntent, blockOf, gapSnapper, leavesOf, linesOf, rowXs, runsOf, structureOf, xyCut, type Box, type Placed, type Shape } from "./structure";
 
 const box = (id: string, l: number, t: number, w: number, h: number, more: Partial<Box> = {}): Box => ({ id, l, t, r: l + w, b: t + h, ...more });
 /** the shape written as a short string: a stack in [], a row in (), a grid in {} by rows */
@@ -131,5 +131,13 @@ describe("arranging is settled", () => {
     expect([...twice.entries()].sort()).toEqual([...once.entries()].sort());
     /* the icons kept their end: the title row is as wide as it was */
     expect(once.get("i2")!.l + 40).toBe(390);
+  });
+});
+
+describe("a run spread over a width", () => {
+  it("ends where the width does, even where the gap on the scale would be wider", () => {
+    /* a card and a badge spaced 138 apart over 380: on the scale that gap is 140, which would run 2 past the end */
+    const xs = rowXs([{ w: 123 }, { w: 119 }], [[0, 1]], [140], 380);
+    expect(xs[1] + 119).toBe(380);
   });
 });

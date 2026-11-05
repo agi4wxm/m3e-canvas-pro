@@ -1,13 +1,13 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { KITS, kitBySlug } from "../parts/kits";
 import { defaultMeasures } from "../parts/templates/kit";
-import { partBySlug } from "../parts/registry";
+import { PARTS, partBySlug, reader } from "../parts/registry";
 import { withoutSampleWords } from "./ai";
 import { arrangeFlows } from "./flow";
 import { setGlobalLang } from "./i18n";
 import { isProject } from "./project";
 import { kitGroups, kitLookOf, landTree, roomOn, splitIntoAtoms, treeSize } from "./kits";
-import { DEFAULT_THEME, frameRect, makeItem, type Frame, type Group } from "./tokens";
+import { DEFAULT_THEME, frameRect, makeItem, type Action, type Frame, type Group, type Item } from "./tokens";
 
 /* A kit added to a document, and a composite split into atoms: groups that name their box, stand
  * inside it, land on the screen they are let go on, and keep what the part they replace had. */
@@ -164,5 +164,140 @@ describe("a composite split into atoms", () => {
     const groups = card();
     expect(splitIntoAtoms(groups, "bt", "en")).toBeNull();
     expect(splitIntoAtoms(groups, "nope", "en")).toBeNull();
+  });
+});
+
+describe("what a split keeps of the part", () => {
+  const part = (slug: string, id: string, props: Record<string, unknown> = {}, more: Partial<Item> = {}): Item => ({ ...makeItem(slug), id, props, ...more });
+  const go = (to: string): Action => ({ to, transition: "slide" });
+  /** the groups a split comes to, standing in `around` (a layout first) when it is given */
+  const split = (slug: string, props: Record<string, unknown>, more: Partial<Item> = {}, around: Group[] = []) => {
+    const g: Group = { id: "g", x: 0, y: 0, axis: "x", items: [part(slug, "i", props, more)], ...(around.length ? { inFlow: around[0].id } : {}) };
+    return splitIntoAtoms([...around, g], "i", "en", { i: 360 })!.groups;
+  };
+  /** what a group and everything inside it says */
+  const says = (groups: Group[], g: Group) => {
+    const under = new Set([g.id]);
+    for (const x of groups) if (x.inFlow && under.has(x.inFlow)) under.add(x.id);
+    return groups.filter((x) => under.has(x.id)).flatMap((x) => Object.values(x.items[0].props ?? {}).filter((v): v is string => typeof v === "string"));
+  };
+  const tapped = (groups: Group[], to: string) => groups.filter((x) => x.items[0].action?.to === to);
+
+  it("keeps what the part asks of the layout it stands in", () => {
+    const row: Group = { id: "row", x: 0, y: 0, axis: "x", items: [part("box", "i-row", { layout: "row", width: 400, height: 80, hugWidth: false, hugHeight: false })] };
+    const asks = { flowFill: true, flowSize: { w: "fill" as const, h: "hug" as const }, alignSelf: "center" as const, flowMin: { w: 120 }, flowMax: { w: 300, h: 80 }, flowSpan: 2, flowAbsolute: true };
+    const out = split("search", { kind: "bar" }, asks, [row]);
+    const root = out.find((g) => g.id === "g")!;
+    expect(root.inFlow).toBe("row");
+    expect(root.items[0]).toMatchObject(asks);
+  });
+
+  it("puts the variable an entry follows on the entry inside", () => {
+    const out = split("search", { kind: "bar", placeholder: "Find" }, { bind: { value: "q", placeholder: "hint" } });
+    const entry = out.find((g) => g.items[0].component === "input")!;
+    expect(entry.items[0].bind).toEqual({ value: "q", placeholder: "hint" });
+    expect(out.find((g) => g.id === "g")!.items[0].bind).toBeUndefined();
+  });
+
+  it("puts a bound prop on the one atom showing its words, and drops one nothing shows", () => {
+    const out = split("stat-card", { title: "Revenue", value: "$12", trend: "" }, { bind: { value: "money", trend: "nowhere" } });
+    const shown = out.filter((g) => g.items[0].bind);
+    expect(shown).toHaveLength(1);
+    expect(shown[0].items[0]).toMatchObject({ component: "text", props: { text: "$12" }, bind: { text: "money" } });
+  });
+
+  it("puts each slot's tap on the atom that takes it: a search's trailing icon, its suggestions", () => {
+    const out = split("search", { kind: "view", trailing: "mic", results: [{ label: "One" }, { label: "Two" }] }, { actions: { icon: go("voice"), "tab:1": go("two") } });
+    expect(tapped(out, "voice").map((g) => g.items[0].props?.icon)).toEqual(["mic"]);
+    const [row] = tapped(out, "two");
+    expect(says(out, row)).toContain("Two");
+    expect(says(out, row)).not.toContain("One");
+  });
+
+  it("puts an app bar's icon slots on its icon buttons, in order", () => {
+    const out = split("app-bar", { leading: "menu", trailing: "search", trailing2: "more_vert" }, { actions: { icon: go("drawer"), icon2: go("find"), icon3: go("more") } });
+    expect(tapped(out, "drawer")[0].items[0].props?.icon).toBe("menu");
+    expect(tapped(out, "find")[0].items[0].props?.icon).toBe("search");
+    expect(tapped(out, "more")[0].items[0].props?.icon).toBe("more_vert");
+  });
+
+  it("puts a list's or a bar's row taps on its rows, and a dialog's on its buttons", () => {
+    const tabs = split("tabs", { items: [{ label: "A" }, { label: "B" }, { label: "C" }] }, { actions: { "tab:2": go("c") } });
+    expect(says(tabs, tapped(tabs, "c")[0])).toContain("C");
+    const nav = split("navigation-bar", {}, { actions: { "tab:1": go("search") } });
+    expect(says(nav, tapped(nav, "search")[0])).toContain("Search");
+    const rows = split("item", { items: [{ label: "Wi-Fi" }, { label: "Bluetooth" }] }, { actions: { "tab:1": go("bt") } });
+    expect(says(rows, tapped(rows, "bt")[0])).toContain("Bluetooth");
+    const dialog = split("dialog", { dismiss: "Later", confirm: "OK" }, { actions: { confirm: go("ok") } });
+    expect(tapped(dialog, "ok")[0].items[0]).toMatchObject({ component: "button", props: { label: "OK" } });
+  });
+
+  it("finds an atom for every slot of every part that splits, but what the split does not show", () => {
+    const lost: string[] = [];
+    for (const def of PARTS.filter((d) => d.atoms)) {
+      const variants: Record<string, unknown>[] = [{}];
+      for (const d of def.props) {
+        if (d.kind === "enum") for (const o of d.options) variants.push({ [d.key]: typeof o === "string" ? o : o.value });
+        if (d.kind === "bool") variants.push({ [d.key]: true }, { [d.key]: false });
+      }
+      for (const props of variants) {
+        const slots = def.slots?.(reader(def, props)) ?? [];
+        const out = split(def.slug, props, { actions: Object.fromEntries(slots.map((s) => [s.key, go(`to-${s.key}`)])) });
+        for (const s of slots) if (!tapped(out, `to-${s.key}`).length) lost.push(`${def.slug} ${s.key}`);
+      }
+    }
+    /* a notice bar's split shows its first notice, and a dialogue box's choices only show at its last line */
+    expect([...new Set(lost)].sort()).toEqual(["dialogue-box tab:0", "dialogue-box tab:1", "notice-bar tab:1", "notice-bar tab:2"]);
+  });
+});
+
+describe("a split that looks like the part", () => {
+  /** the split of a part, with where each atom stands from the box's corner and how big its guesses make it */
+  const laid = (slug: string, props: Record<string, unknown>) => {
+    const g: Group = { id: "g", x: 0, y: 0, axis: "x", items: [{ ...makeItem(slug), id: "i", props }] };
+    const groups = splitIntoAtoms([g], "i", "en")!.groups;
+    const m = defaultMeasures(groups);
+    const at = (kind: string, n = 0) => {
+      const x = groups.filter((k) => k.items[0].component === kind)[n];
+      return { x: x.x, y: x.y, w: m[x.items[0].id], h: m[`${x.items[0].id}:h`] };
+    };
+    return { size: treeSize(groups), root: groups[0].items[0], at };
+  };
+
+  it("keeps an app bar on the screen's own surface, 64 tall, its title where the part has it", () => {
+    const bar = laid("app-bar", { title: "Inbox", leading: "menu", trailing: "more_vert", trailing2: "" });
+    expect(bar.size).toEqual({ w: 412, h: 64 });
+    expect(bar.root.props?.surface).toBe("none");
+    /* 4 in, a 40 button, 4 between, and the heading's own 12 */
+    expect(bar.at("text").x).toBe(60);
+    expect(bar.at("icon-button", 1).x + 40).toBe(412 - 4);
+    expect(laid("app-bar", { title: "Inbox", leading: "" }).at("text").x).toBe(4 + 16);
+    const scrolled = laid("app-bar", { title: "Inbox", scrolled: true });
+    expect(scrolled.root.props?.surface).toBe("bar");
+    expect(scrolled.root.look?.elevation).toBe(2);
+    expect(laid("app-bar", { size: "medium" }).size.h).toBe(112);
+    expect(laid("app-bar", { size: "large", subtitle: "All mail" }).size.h).toBe(152);
+  });
+
+  it("runs a card's media to its edges", () => {
+    const card = laid("card", { width: 280, imageSize: 96 });
+    const media = card.at("box", 1);
+    expect([media.x, media.y, media.w, media.h]).toEqual([0, 0, 280, 96]);
+    /* the words start the card's spacing below it and in from its side */
+    expect(card.at("text").x).toBe(16);
+    expect(card.at("text").y).toBe(96 + 16);
+    expect(card.root.fill).toBe("surfaceContainerHighest");
+    const foot = laid("card", { width: 280, imageSize: 96, imagePos: "bottom" });
+    expect(foot.at("box", 2).y + 96).toBe(foot.size.h);
+  });
+
+  it("keeps a search view's rows 56 tall under a 56 bar, raised as the part is", () => {
+    const view = laid("search", { kind: "view", width: 360, results: [{ label: "A" }, { label: "B" }, { label: "C" }] });
+    expect(view.size.h).toBe(56 + 1 + 3 * 56);
+    expect(view.root.look?.elevation).toBe(3);
+    expect(view.at("icon").x).toBe(16);
+    expect(view.at("input").x).toBe(56);
+    expect(laid("search", { kind: "bar", width: 360 }).size).toEqual({ w: 360, h: 56 });
+    expect(laid("search", { kind: "bar", style: "outlined" }).root.look).toBeUndefined();
   });
 });

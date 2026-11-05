@@ -1,3 +1,4 @@
+import { childLayoutFields } from "./flow";
 import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { COLOR_TOKENS, Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
@@ -182,7 +183,10 @@ function cleanInstance(g: Group, components: ComponentDef[] | undefined): Group 
     return rest.items.length ? rest : undefined;
   }
   const made = standIn(def, g.x, g.y, g.id);
-  return { ...g, items: [{ ...made.items[0], id: g.items[0]?.id ?? made.items[0].id }] };
+  const was = g.items[0];
+  /* what the instance asks of the layout it stands in, where it goes and what it is said to be are its own, not the definition's */
+  const own = was ? { ...childLayoutFields(was), ...(was.action ? { action: was.action } : {}), ...(typeof was.note === "string" ? { note: was.note } : {}) } : {};
+  return { ...g, items: [{ ...made.items[0], ...own, id: was?.id ?? made.items[0].id }] };
 }
 
 /** a document with what is wrong in its behaviour taken out; it always comes back whole */

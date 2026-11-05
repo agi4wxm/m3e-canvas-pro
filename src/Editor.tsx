@@ -95,7 +95,7 @@ import { assetRefsIn, getAssets, pruneAssets, putAssets, restoreAssets, stripAss
 import { barSlotOf, bodyRect, carryFrame, holdsEdgeBar, isScreenLayout, maxFrameLength, minFrameLength, stretchFrame, pullInto, tidyFrame } from "@/lib/tidy";
 import { combineButtons, joinDropped, joinTargetOf } from "@/lib/combine";
 import { alignParts, distributeParts, tidyUpParts, type AlignHow } from "@/lib/align";
-import { childLayoutOf, flowHostAt, flowOf, outOfPane, panesAfterReorder, settleInFlow, showingGroups, stepLayers, suggestAutoLayout, wrapInFlow } from "@/lib/flow";
+import { childLayoutOf, flowHostAt, flowOf, loosenedCopies, outOfPane, panesAfterReorder, settleInFlow, showingGroups, stepLayers, suggestAutoLayout, wrapInFlow } from "@/lib/flow";
 import { guideTargets, measureBetween, snapRect, type GuideGap, type GuideLine, type GuideTargets } from "@/lib/guides";
 import { SmartGuides } from "@/components/SmartGuides";
 import { canNest, definitionFrom, detachInstance, expandInstances, makeComponent, rekeyedAll, removeComponent, standIn } from "@/lib/instances";
@@ -2454,7 +2454,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       dx += 24;
       dy += 24;
     }
-    const copies = rekeyedAll(clip.groups, dx, dy, !target || target.id === clip.frameId);
+    /* a copy whose layout stayed behind on another screen no longer stands loose in it */
+    const copies = loosenedCopies(rekeyedAll(clip.groups, dx, dy, !target || target.id === clip.frameId));
     snapshot();
     setGroups((prev) => [...prev, ...copies]);
     setSelectedIds(copiedIds(copies.filter((_, i) => clip.top.has(clip.groups[i].id)), clip.primaryAt));
@@ -3721,7 +3722,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       x: nextFrameX(),
     };
     const dx = nf.x - f.x;
-    const copies = rekeyedAll(groupsRef.current.filter((g) => frameOfPart(g, groupsRef.current, framesRef.current, widthsRef.current)?.id === id), dx, 0, false);
+    const copies = loosenedCopies(rekeyedAll(groupsRef.current.filter((g) => frameOfPart(g, groupsRef.current, framesRef.current, widthsRef.current)?.id === id), dx, 0, false));
     setFrames((fs) => [...fs, nf]);
     setGroups((gs) => [...gs, ...copies]);
     setSelectedFrameId(nf.id);
