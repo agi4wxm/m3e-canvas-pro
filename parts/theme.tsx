@@ -1,6 +1,9 @@
 
-import { createContext, useContext, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type CSSProperties, type ReactNode } from "react";
 import { BASELINE_SEED, themeCss } from "@/lib/m3e/color";
+import { styleCss } from "@/lib/styles";
+import { fontFamilyOf, type Theme } from "@/lib/tokens";
+import { getLang } from "@/lib/i18n";
 
 /** the sketch's color scheme, as the shadcn M3E components see it */
 export type PartTheme = {
@@ -28,6 +31,16 @@ export function PartThemeStyle({ seed, contrast }: Pick<PartTheme, "seed" | "con
   /* an overlay drawn open inside its box has no page to dim */
   const overlays = ["dialog", "alert-dialog", "sheet", "drawer"].map((s) => `.${SCOPE} [data-slot="${s}-overlay"]`).join(", ");
   return <style id="m3-part-theme">{`${css}\n${overlays} { display: none; }`}</style>;
+}
+
+/** The document's style, as one stylesheet over the scheme. It comes after it, so what it says of a role wins. */
+export function PartStyleSheet({ theme }: { theme: Theme }) {
+  const lang = getLang();
+  const css = useMemo(
+    () => styleCss({ ...theme, displayFamily: theme.displayFont ? fontFamilyOf(theme.displayFont, lang) : undefined }),
+    [theme, lang],
+  );
+  return css ? <style id="m3-part-style">{css}</style> : null;
 }
 
 /** M3's corner steps at the standard scale (styles/m3e.css) */

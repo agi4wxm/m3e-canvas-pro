@@ -20,12 +20,14 @@ import {
   ownerIdOf,
   unionRect,
   layoutOf,
+  normalizeTheme,
   paletteOf,
   sizeOf,
   GAP,
   STATUS_BAR_H,
   type ColorToken,
 } from "./tokens";
+import { hasBackdrop } from "./styles";
 import { EXTERNAL } from "../parts/externals";
 import { FILE_OF } from "../parts/files.generated";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
@@ -399,7 +401,8 @@ export function buildScreens(source: Doc, widths: Record<string, number>, o: Bui
       body = [`<div role="region" aria-label=${str(`${frame.name || "Screen"} content`)} tabIndex={0} className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain"${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></div>`, ...overlays];
     } else body = screenBody(frame, runs, c, widths, all);
     const bg = frame.bg ? `bg-${role(frame.bg)}` : "bg-surface";
-    const open = `<div className=${str(`relative overflow-hidden ${bg} w-[${w}px] h-[${h}px]`)}>`;
+    /* a style may draw something behind its screens (src/style.css) */
+    const open = `<div${hasBackdrop(normalizeTheme(doc.theme)) ? " data-backdrop" : ""} className=${str(`relative overflow-hidden ${bg} w-[${w}px] h-[${h}px]`)}>`;
     const inner = [open, ...body, "</div>"].join("");
     if (folds) c.imports.set("react", new Set(["useRef", "useState"]));
     const fromApp = c.uses.app.size ? `  const { ${[...c.uses.app].sort().join(", ")} } = useApp()\n` : "";

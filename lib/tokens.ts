@@ -4,6 +4,7 @@ import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
+import { normalizeRecipes, styleOf, stylePalette, stylePatch, styleSeed, type Recipes } from "./styles";
 
 /* ---------- geometry ---------- */
 export const GAP = 3; // spacing between the parts of one group
@@ -63,6 +64,24 @@ export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.ma
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
 export type Radii = { tl: number; tr: number; bl: number; br: number };
+
+/** what one part may look like beyond its fill, its words and its corners; each stands over what the style gives it */
+export type ItemLook = {
+  /** px */
+  borderWidth?: number;
+  borderColor?: TextToken;
+  shadow?: "none" | "soft" | "deep" | "hard" | "glow";
+  /** percent */
+  opacity?: number;
+  /** how much of what lies behind it is blurred through it, in px: frosted glass */
+  glass?: number;
+  /** degrees; it takes no more room for it */
+  rotate?: number;
+  /** the fill fades into this role */
+  gradientTo?: ColorToken;
+  gradientAngle?: number;
+  font?: "display" | "mono";
+};
 export const uniformRadii = (r: number): Radii => ({ tl: r, tr: r, bl: r, br: r });
 
 /* ---------- color ---------- */
@@ -286,9 +305,11 @@ const PRESETS: Omit<Palette, "secondary">[] = [
 export const PALETTES: Palette[] = PRESETS.map((p) => ({ ...p, secondary: schemeFromSeed(p.primary, p.label, { keepChroma: true }).secondary }));
 
 /* ---------- theme: the four expressive axes ---------- */
-export type ShapeScale = "square" | "rounded" | "full";
-export type FontKey = "roboto" | "robotoFlex" | "robotoSerif" | "system";
+export type ShapeScale = "none" | "square" | "rounded" | "full";
+export type FontKey = "roboto" | "robotoFlex" | "robotoSerif" | "system" | "apple" | "segoe" | "inter" | "pixel" | "rajdhani" | "orbitron" | "garamond" | "cinzel";
 export type MotionScheme = "standard" | "expressive";
+/** which drawing of Material Symbols the icons are, or the pixel set for the names it has */
+export type IconFamily = "rounded" | "light" | "sharp" | "pixel";
 export type { Contrast };
 
 export type Theme = {
@@ -301,14 +322,27 @@ export type Theme = {
   /** headings and labels take the heavier M3 Expressive "emphasized" styles */
   emphasized: boolean;
   motion: MotionScheme;
+  /** the style the document wears (lib/styles.ts); left out, it is plain Material */
+  style?: string;
+  /** the author picked colors after the style: the palette is theirs, the rest stays the style's */
+  ownColors?: boolean;
+  /** how each kind of control is built, where it differs from the style */
+  recipes?: Partial<Recipes>;
+  /** headings, when they take another face than `font` */
+  displayFont?: FontKey;
+  icons?: IconFamily;
 };
 
 export const DEFAULT_THEME: Theme = { dark: false, bothModes: false, contrast: "standard", shape: "rounded", font: "roboto", emphasized: false, motion: "standard" };
 
+export const ICON_FAMILIES: IconFamily[] = ["rounded", "light", "sharp", "pixel"];
+
 /** a stored theme with any missing or unknown field replaced by its default */
 export function normalizeTheme(t: Partial<Theme> | undefined): Theme {
-  const d = DEFAULT_THEME;
-  if (!t) return d;
+  if (!t) return DEFAULT_THEME;
+  /* a theme that only names a style (one written by hand, or by a model) gets what the style brings */
+  const d: Theme = styleOf(t.style) ? { ...DEFAULT_THEME, ...stylePatch(t.style!) } : DEFAULT_THEME;
+  const recipes = normalizeRecipes(t.recipes);
   return {
     dark: typeof t.dark === "boolean" ? t.dark : d.dark,
     bothModes: typeof t.bothModes === "boolean" ? t.bothModes : d.bothModes,
@@ -317,20 +351,49 @@ export function normalizeTheme(t: Partial<Theme> | undefined): Theme {
     font: FONTS.some((c) => c.key === t.font) ? (t.font as FontKey) : d.font,
     emphasized: typeof t.emphasized === "boolean" ? t.emphasized : d.emphasized,
     motion: t.motion === "expressive" || t.motion === "standard" ? t.motion : d.motion,
+    ...(styleOf(t.style) ? { style: t.style } : {}),
+    ...(t.ownColors === true ? { ownColors: true } : {}),
+    ...(recipes ? { recipes } : {}),
+    ...(FONTS.some((c) => c.key === t.displayFont) ? { displayFont: t.displayFont } : d.displayFont ? { displayFont: d.displayFont } : {}),
+    ...(ICON_FAMILIES.includes(t.icons as IconFamily) ? { icons: t.icons } : d.icons ? { icons: d.icons } : {}),
   };
 }
 
 export const SHAPES: { key: ShapeScale; label: string; icon: string }[] = [
+  { key: "none", label: "None", icon: "square" },
   { key: "square", label: "Square", icon: "crop_square" },
   { key: "rounded", label: "Rounded", icon: "rounded_corner" },
   { key: "full", label: "Full", icon: "circle" },
 ];
 
-export const FONTS: { key: FontKey; label: string; family: string; /** Google Fonts family to fetch, if any */ google?: string }[] = [
+/** how far the corners are scaled: 1 is M3's own steps */
+export const shapeScaleOf = (s: ShapeScale) => (s === "none" ? 0 : s === "square" ? 0.35 : s === "full" ? 1.6 : 1);
+
+const INTER = "Inter:wght@400;500;600;700";
+const NOTO_SERIF_SC = { family: "'Noto Serif SC'", google: "Noto+Serif+SC:wght@400;500;600;700" };
+
+export const FONTS: {
+  key: FontKey;
+  label: string;
+  family: string;
+  /** Google Fonts family to fetch, if any */
+  google?: string;
+  /** the face that stands in for it in Chinese, when Noto Sans would not suit it */
+  zh?: { family: string; google: string };
+}[] = [
   { key: "roboto", label: "Roboto", family: "Roboto, system-ui, sans-serif" },
   { key: "robotoFlex", label: "Roboto Flex", family: "'Roboto Flex', Roboto, system-ui, sans-serif", google: "Roboto+Flex:wght@400;500;600;700" },
-  { key: "robotoSerif", label: "Roboto Serif", family: "'Roboto Serif', Georgia, serif", google: "Roboto+Serif:wght@400;500;600;700" },
+  { key: "robotoSerif", label: "Roboto Serif", family: "'Roboto Serif', Georgia, serif", google: "Roboto+Serif:wght@400;500;600;700", zh: NOTO_SERIF_SC },
   { key: "system", label: "System", family: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
+  /* what these name is on the device that has it: a face from the system is never copied into a project, and the rest fall back to Inter */
+  { key: "apple", label: "San Francisco", family: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', Inter, system-ui, sans-serif", google: INTER },
+  { key: "segoe", label: "Segoe UI", family: "'Segoe UI Variable', 'Segoe UI', Inter, system-ui, sans-serif", google: INTER },
+  { key: "inter", label: "Inter", family: "Inter, system-ui, sans-serif", google: INTER },
+  { key: "pixel", label: "Pixelify Sans", family: "'Pixelify Sans', 'DotGothic16', monospace", google: "Pixelify+Sans:wght@400;500;600;700&family=DotGothic16" },
+  { key: "rajdhani", label: "Rajdhani", family: "Rajdhani, system-ui, sans-serif", google: "Rajdhani:wght@400;500;600;700" },
+  { key: "orbitron", label: "Orbitron", family: "Orbitron, Rajdhani, system-ui, sans-serif", google: "Orbitron:wght@400;500;600;700" },
+  { key: "garamond", label: "EB Garamond", family: "'EB Garamond', Georgia, serif", google: "EB+Garamond:wght@400;500;600;700", zh: NOTO_SERIF_SC },
+  { key: "cinzel", label: "Cinzel", family: "Cinzel, Georgia, serif", google: "Cinzel:wght@400;500;600;700", zh: NOTO_SERIF_SC },
 ];
 
 /** The Noto Sans face that covers a language's script, spliced in behind the chosen
@@ -342,23 +405,26 @@ export const LANG_FONT: Record<Lang, { family: string; google: string } | null> 
   en: null,
 };
 
-/** a family list with the language's Noto face placed before the generic fallbacks */
-const withLangFont = (family: string, lang?: Lang) => {
-  const extra = lang ? LANG_FONT[lang]?.family : undefined;
+/** the face that carries a language's script behind a chosen one */
+export const langFaceOf = (f: FontKey, lang?: Lang) => (lang === "zh" && FONTS.find((x) => x.key === f)?.zh) || (lang ? LANG_FONT[lang] : null) || null;
+
+/** a family list with the language's own face placed before the generic fallbacks */
+const withLangFont = (family: string, f: FontKey | undefined, lang?: Lang) => {
+  const extra = f ? langFaceOf(f, lang)?.family : lang ? LANG_FONT[lang]?.family : undefined;
   if (!extra) return family;
   const parts = family.split(",").map((s) => s.trim());
-  const at = parts.findIndex((s) => /^(system-ui|-apple-system|Georgia|serif|sans-serif)$/.test(s));
+  const at = parts.findIndex((s) => /^(system-ui|Georgia|serif|sans-serif|monospace)$/.test(s));
   parts.splice(at < 0 ? parts.length : at, 0, extra);
   return parts.join(", ");
 };
 
-/** the chosen face, with the language's Noto face behind it; the system font is left to the device */
+/** the chosen face, with the language's face behind it; the system font is left to the device */
 export const fontFamilyOf = (f: FontKey, lang?: Lang) => {
   const family = FONTS.find((x) => x.key === f)?.family ?? FONTS[0].family;
-  return f === "system" ? family : withLangFont(family, lang);
+  return f === "system" ? family : withLangFont(family, f, lang);
 };
 /** the editor's own font: Roboto, then the language's Noto face */
-export const uiFontFamily = (lang?: Lang) => withLangFont("Roboto, system-ui, sans-serif", lang);
+export const uiFontFamily = (lang?: Lang) => withLangFont("Roboto, system-ui, sans-serif", undefined, lang);
 
 export const CONTRASTS: { key: Contrast; label: string }[] = [
   { key: "standard", label: "Standard" },
@@ -375,9 +441,12 @@ export const draftGradient = (p: Palette) =>
  *  fine-tuned custom scheme are light and standard contrast; dark mode and the
  *  other contrast levels are generated from the same seed. */
 export function paletteOf(key: string, custom?: Palette | null, theme?: Theme): Palette {
+  const styled = stylePalette(theme);
+  if (styled) return styled;
   const base = (key === "custom" && custom) || PALETTES.find((p) => p.key === key) || PALETTES[0];
-  if (!theme || (!theme.dark && theme.contrast === "standard")) return base;
-  const seed = base.seed ?? base.primary;
+  const fromStyle = styleSeed(theme);
+  if (!theme || (!fromStyle && !theme.dark && theme.contrast === "standard")) return base;
+  const seed = fromStyle ?? base.seed ?? base.primary;
   /* a preset's hue and chroma are deliberate (Mono is nearly grey), so they are kept as they are */
   return { ...schemeFromSeed(seed, base.label, { dark: theme.dark, contrast: theme.contrast, keepChroma: base.key !== "custom" }), key: base.key };
 }
@@ -410,6 +479,8 @@ export type Item = {
   component?: string;
   /** the values the author set, over the part's own defaults */
   props?: Record<string, unknown>;
+  /** what it looks like beyond `fill`, `textColor` and `corners` */
+  look?: ItemLook;
   /** free text the author writes about what this part does */
   note?: string;
   /** what `note` said before the AI rewrote it, so the rewrite can be undone */
@@ -999,7 +1070,9 @@ export function makeItem(slug?: string): Item {
 export const paletteIconOf = (it: Item) => partBySlug(it.component)?.icon ?? "widgets";
 
 /** the color a sketch's scheme is generated from: the custom scheme's seed, or the preset's color */
-export function seedOf(key: string, custom?: Palette | null): string {
+export function seedOf(key: string, custom?: Palette | null, theme?: Theme): string {
+  const fromStyle = styleSeed(theme);
+  if (fromStyle) return fromStyle;
   const base = (key === "custom" && custom) || PALETTES.find((p) => p.key === key) || PALETTES[0];
   return base.seed ?? base.primary;
 }

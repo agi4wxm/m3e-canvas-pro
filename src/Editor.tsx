@@ -55,6 +55,7 @@ import {
   Palette,
   paletteOf,
   seedOf,
+  shapeScaleOf,
   PHONE_H,
   PHONE_MARGIN,
   PHONE_W,
@@ -109,7 +110,10 @@ import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
 import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
-import { PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
+import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
+import { artOf, screenBackground } from "@/lib/styles";
+import { useIconFamily } from "@/parts/icons";
+import { StylePanel } from "@/components/StylePanel";
 import { partBySlug, reader, translateComponentProps } from "@/parts/registry";
 import { instantiate, templateBySlug } from "@/parts/templates";
 import { COMMON_TEXT } from "@/parts/labels";
@@ -371,14 +375,15 @@ function ThinkingRing({ p, frame }: { p: Palette; frame: Frame }) {
   );
 }
 
-type LeftTab = "parts" | "templates" | "components" | "data" | "layers" | "color" | "shape" | "type" | "motion" | "ai";
-/** the left rail: parts, templates, what the design reuses and layers, then the four theme axes of the whole design */
-const LEFT_TABS: { key: LeftTab; icon: string; title: "parts" | "screenTemplates" | "components" | "data" | "layers" | "colors" | "shape" | "typography" | "motion" | "ai" }[] = [
+type LeftTab = "parts" | "templates" | "components" | "data" | "layers" | "style" | "color" | "shape" | "type" | "motion" | "ai";
+/** the left rail: parts, templates, what the design reuses and layers, then the look of the whole design: its style, and the four axes under it */
+const LEFT_TABS: { key: LeftTab; icon: string; title: "parts" | "screenTemplates" | "components" | "data" | "layers" | "styleTab" | "colors" | "shape" | "typography" | "motion" | "ai" }[] = [
   { key: "parts", icon: "add_box", title: "parts" },
   { key: "templates", icon: "dashboard_customize", title: "screenTemplates" },
   { key: "components", icon: "widgets", title: "components" },
   { key: "data", icon: "table_chart", title: "data" },
   { key: "layers", icon: "layers", title: "layers" },
+  { key: "style", icon: "style", title: "styleTab" },
   { key: "color", icon: "palette", title: "colors" },
   { key: "shape", icon: "rounded_corner", title: "shape" },
   { key: "type", icon: "text_fields", title: "typography" },
@@ -399,6 +404,15 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const [dynamicColor, setDynamicColor] = useState(false);
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
   const patchTheme = (patch: Partial<Theme>) => setTheme((t) => ({ ...t, ...patch }));
+  /* colors picked after a style are the author's: the style keeps everything else */
+  const pickPalette = (key: string) => {
+    setPaletteKey(key);
+    if (theme.style) patchTheme({ ownColors: true });
+  };
+  const pickCustomPalette = (custom: Palette | null) => {
+    setCustomPalette(custom);
+    if (theme.style) patchTheme({ ownColors: true });
+  };
   const [frame, setFrame] = useState<FrameMode>("phone");
   const changeLanguage = (next: Lang) => {
     setGlobalLang(next);
@@ -513,8 +527,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   /* corner helpers read the shape scale outside React; keep it current before anything renders */
   /* the shadcn M3E components are drawn in the same scheme the code asks for: the sketch's seed color */
   const partTheme = useMemo<PartTheme>(
-    () => ({ seed: seedOf(paletteKey, customPalette), dark: theme.dark, contrast: theme.contrast, shape: theme.shape === "square" ? 0.35 : theme.shape === "full" ? 1.6 : 1 }),
-    [paletteKey, customPalette, theme.dark, theme.contrast, theme.shape],
+    () => ({ seed: seedOf(paletteKey, customPalette, theme), dark: theme.dark, contrast: theme.contrast, shape: shapeScaleOf(theme.shape) }),
+    [paletteKey, customPalette, theme],
   );
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -801,7 +815,12 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   useEffect(() => {
     /* an empty width map makes every measured part read its width again in the new face */
     ensureFontLoaded(theme.font, () => setWidths({}));
-  }, [theme.font]);
+    if (theme.displayFont) ensureFontLoaded(theme.displayFont, () => setWidths({}));
+    /* a style builds its controls to other sizes too */
+    setWidths({});
+  }, [theme.font, theme.displayFont, theme.style, theme.recipes]);
+
+  useIconFamily(theme.icons ?? "rounded");
 
   /* the page background outside the app root follows the scheme, so dark mode has no white edges */
   useEffect(() => {
@@ -2685,7 +2704,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const canPaint = hasImageKey(aiSettings) && isSecureUrl(aiSettings.imageBaseUrl?.trim() || imageSpec(aiSettings.imageProvider).baseUrl);
   const sceneItem = (id: string) => groupsRef.current.flatMap((g) => g.items).find((it) => it.id === id && it.component === "scene");
   /** paints scenes one at a time, each showing as soon as it is done; what was painted stays if a later one fails */
-  const paintScenes = async (scenes: Item[]) => {
+  const paintScenes = async (scenes: Item[], look: Theme = theme) => {
     if (!scenes.length) return;
     if (!canPaint) {
       showToast(t("scenesWaiting", lang).replace("{n}", String(scenes.length)), 6000);
@@ -2704,7 +2723,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         if (scenes.length > 1) showToast(t("scenesPainting", lang).replace("{n}", String(i + 1)).replace("{all}", String(scenes.length)), 60000, "auto_awesome");
         const p = reader(def, item.props);
         const moving = p.s("motion") === "animated";
-        const image = await generateImage(aiSettings, scenePrompt(p.s("prompt"), p.s("style"), moving), { w: p.n("width"), h: p.n("height") }, ac.signal, moving ? { frames: Math.round(p.n("frames")), ms: Math.round(p.n("frameMs")) } : undefined);
+        /* a scene that names no style of its own is painted in the document's */
+        const image = await generateImage(aiSettings, scenePrompt(p.s("prompt"), p.s("style").trim() || artOf(look), moving), { w: p.n("width"), h: p.n("height") }, ac.signal, moving ? { frames: Math.round(p.n("frames")), ms: Math.round(p.n("frameMs")) } : undefined);
         if (ac.signal.aborted) return;
         setGroups((gs) => gs.map((g) => (g.items.some((it) => it.id === id) ? { ...g, items: g.items.map((it) => (it.id === id ? { ...it, props: { ...it.props, image } } : it)) } : g)));
         painted++;
@@ -2729,7 +2749,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       const next = await draftDesign(aiSettings, guideRef.current, idea, lang);
       settleDraftRef.current = true;
       arrive(next);
-      void paintScenes(scenesToPaint(next.groups));
+      void paintScenes(scenesToPaint(next.groups), normalizeTheme(next.theme));
     } catch (e) {
       const m = e instanceof Error ? e.message : "";
       showToast(m === "json" ? t("aiErrorJson", lang) : m === "refusal" ? t("aiErrorRefusal", lang) : m === "long" ? t("aiErrorLong", lang) : t("aiError", lang), 3200, "error");
@@ -3370,7 +3390,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           position: "relative",
           width: w,
           height: h,
-          background: p[f.bg ?? "surface"],
+          background: screenBackground(p[f.bg ?? "surface"], theme),
           overflow: "hidden",
         }}
       >
@@ -3811,7 +3831,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         const item = sceneItem(id);
         if (!def || !item) return;
         const p = reader(def, item.props);
-        void navigator.clipboard.writeText(scenePrompt(p.s("prompt"), p.s("style"), p.s("motion") === "animated")).then(() => showToast(t("copied", lang), 1400, "check"));
+        void navigator.clipboard.writeText(scenePrompt(p.s("prompt"), p.s("style").trim() || artOf(theme), p.s("motion") === "animated")).then(() => showToast(t("copied", lang), 1400, "check"));
       },
       reorderPanes: (order) => {
         if (group) setGroups((gs) => panesAfterReorder(gs, group.id, order, widthsRef.current));
@@ -4181,6 +4201,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     <PartThemeContext.Provider value={partTheme}>
     <BehaviorContext.Provider value={behavior}>
       <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
+      <PartStyleSheet theme={theme} />
       <div
         className={`app-root${revealing ? " m3e-reveal" : ""}`}
         /* the preview sits outside this tree and owns the keyboard while it is up */
@@ -4400,13 +4421,15 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                       setCollections(next.length ? next : undefined);
                     }}
                   />
+                ) : leftTab === "style" ? (
+                  <StylePanel p={p} theme={theme} onChange={patchTheme} />
                 ) : leftTab === "color" ? (
                   <ColorPanel
                     p={p}
                     paletteKey={paletteKey}
-                    onPalette={setPaletteKey}
+                    onPalette={pickPalette}
                     custom={customPalette}
-                    onCustom={setCustomPalette}
+                    onCustom={pickCustomPalette}
                     dynamic={dynamicColor}
                     onDynamic={setDynamicColor}
                     theme={theme}
@@ -4519,7 +4542,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
               {frame === "phone" &&
                 frames.map((f) => {
                   const on = f.id === selectedFrameId;
-                  const bg = p[f.bg ?? "surface"];
+                  const bg = screenBackground(p[f.bg ?? "surface"], theme);
                   const { w, h: fold } = frameSizeOf(f);
                   const h = frameLengthOf(f);
                   const radius = frameRadius(f);
@@ -4577,8 +4600,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                           width: w + BEZEL * 2,
                           height: h + BEZEL * 2,
                           borderRadius: radius + BEZEL,
-                          /* the chosen screen's bezel is painted in the theme's primary; the others stay dark */
-                          backgroundColor: on ? p.primary : p.inverseSurface,
+                          /* the chosen screen's bezel is painted in the theme's primary; the others stay dark, in a dark design too */
+                          backgroundColor: on ? p.primary : theme.dark ? p.surfaceContainerHighest : p.inverseSurface,
                           backgroundImage: draftBusy ? draftGradient(p) : undefined,
                           backgroundSize: draftBusy ? "300% 300%" : undefined,
                           animation: draftBusy ? "m3e-drift 3s ease-in-out infinite" : undefined,
@@ -5038,7 +5061,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
             )}
             {isMobile && sheet === "settings" && (
               <BottomSheet key="settings" p={p} onClose={() => setSheet(null)}>
-                <MobileSettings palette={p} paletteKey={paletteKey} onPalette={setPaletteKey} theme={theme} onTheme={patchTheme} />
+                <MobileSettings palette={p} paletteKey={paletteKey} onPalette={pickPalette} theme={theme} onTheme={patchTheme} />
               </BottomSheet>
             )}
             {isMobile && sheet === "lang" && (

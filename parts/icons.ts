@@ -1,14 +1,17 @@
 
 import { useEffect, useSyncExternalStore } from "react";
+import { setIconFamily, type IconFamily } from "@/components/m3e/icon";
+import { familyIds } from "@/components/m3e/icon-family";
 import { registerIcons } from "@/components/m3e/icon-registry";
 import { isNode, isRaw, type PNode, type PValue } from "./node";
 
 /* The M3E components draw icons from bundled data (only the glyphs their own code uses). A
  * sketch may use any Material Symbol, so the ones the parts name are fetched from Iconify
  * once, registered, and the parts drawn again. The code the canvas prints is unchanged:
- * `bun run gen:icons` bundles them in the project that uses it. */
+ * `bun run gen:icons` bundles them in the project that uses it. A family other than Rounded
+ * is fetched the same way, and the Rounded drawing stands in until it arrives. */
 
-const API = "https://api.iconify.design/material-symbols.json";
+const API = "https://api.iconify.design";
 const asked = new Set<string>();
 /** the icons Iconify has sent so far */
 const arrived = new Set<string>();
@@ -16,29 +19,37 @@ let version = 0;
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setTimeout> | undefined;
 const pending = new Set<string>();
+let family: IconFamily = "rounded";
+/** every name asked for so far: a newly chosen family has to fetch them too */
+const named = new Set<string>();
 
 const ids = (name: string) => {
   const base = name.replaceAll("_", "-");
-  return [`${base}-outline-rounded`, `${base}-rounded`];
+  return [`material-symbols:${base}-outline-rounded`, `material-symbols:${base}-rounded`, ...familyIds(family, name)];
 };
 
-async function flush() {
-  const names = [...pending];
-  pending.clear();
-  for (let i = 0; i < names.length; i += 60) {
-    const chunk = names.slice(i, i + 60);
-    try {
-      const res = await fetch(`${API}?icons=${chunk.join(",")}`);
-      if (!res.ok) continue;
-      const data = await res.json();
-      registerIcons(data);
-      for (const id of [...Object.keys(data.icons ?? {}), ...Object.keys(data.aliases ?? {})]) arrived.add(id);
-      version++;
-      listeners.forEach((l) => l());
-    } catch {
-      // offline: the parts keep drawing the icons that are bundled
-    }
+async function fetchChunk(prefix: string, chunk: string[]) {
+  try {
+    const res = await fetch(`${API}/${prefix}.json?icons=${chunk.join(",")}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    registerIcons(data);
+    for (const id of [...Object.keys(data.icons ?? {}), ...Object.keys(data.aliases ?? {})]) arrived.add(`${prefix}:${id}`);
+    version++;
+    listeners.forEach((l) => l());
+  } catch {
+    // offline: the parts keep drawing the icons that are bundled
   }
+}
+
+async function flush() {
+  const byPrefix = new Map<string, string[]>();
+  for (const id of pending) {
+    const [prefix, name] = id.split(":");
+    byPrefix.set(prefix, [...(byPrefix.get(prefix) ?? []), name]);
+  }
+  pending.clear();
+  for (const [prefix, names] of byPrefix) for (let i = 0; i < names.length; i += 60) await fetchChunk(prefix, names.slice(i, i + 60));
 }
 
 /** ask for the icons a part uses; the ones already asked for are skipped */
@@ -46,6 +57,7 @@ export function ensureIcons(names: Iterable<string>) {
   if (typeof window === "undefined") return;
   for (const name of names) {
     if (!name) continue;
+    named.add(name);
     for (const id of ids(name)) {
       if (asked.has(id)) continue;
       asked.add(id);
@@ -58,6 +70,18 @@ export function ensureIcons(names: Iterable<string>) {
       void flush();
     }, 30);
   }
+}
+
+/** The document's icons take this drawing: whatever has been asked for so far is fetched in it, and drawn again. */
+export function useIconFamily(next: IconFamily) {
+  useEffect(() => {
+    if (next === family) return;
+    family = next;
+    setIconFamily(next);
+    ensureIcons(named);
+    version++;
+    listeners.forEach((l) => l());
+  }, [next]);
 }
 
 /** the icon names a tree uses: `<Icon name>` and the `icon`-like string props */
@@ -95,13 +119,14 @@ export function useIconVersion() {
 export function useIcons(node: PNode) {
   const names = [...iconNamesIn(node)].join(",");
   useEffect(() => ensureIcons(names ? names.split(",") : []), [names]);
-  const count = () => (names ? names.split(",").filter((name) => ids(name).some((id) => arrived.has(id))).length : 0);
+  /* the count of what this family has sent, under the family's name: changing family draws the tree again even if nothing is left to fetch */
+  const count = () => `${family}:${names ? names.split(",").filter((name) => ids(name).some((id) => arrived.has(id) && (family === "rounded" || !id.endsWith("-rounded") || id.startsWith("material-symbols-light:")))).length : 0}`;
   return useSyncExternalStore(
     (l) => {
       listeners.add(l);
       return () => listeners.delete(l);
     },
     count,
-    () => 0,
+    () => "rounded:0",
   );
 }

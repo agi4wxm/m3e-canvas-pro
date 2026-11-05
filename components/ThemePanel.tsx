@@ -1,17 +1,17 @@
 
 import { useState } from "react";
 import { motion } from "motion/react";
-import { FONTS, Palette, SHAPES, ShapeScale, Theme } from "@/lib/tokens";
+import { FONTS, FontKey, Palette, SHAPES, ShapeScale, Theme } from "@/lib/tokens";
 import { ensureFontLoaded } from "@/lib/theme";
 import { Lang, t, useLang } from "@/lib/i18n";
 import { listTextOf } from "@/parts/labels";
 import { Icon } from "./Icon";
-import { Toggle } from "./ui";
+import { Select, Toggle } from "./ui";
 
-const shapeLabel = (k: ShapeScale, lang: Lang) => (k === "square" ? t("shapeSquare", lang) : k === "full" ? t("shapeFull", lang) : t("shapeRounded", lang));
+const shapeLabel = (k: ShapeScale, lang: Lang) => (k === "none" ? t("shapeNone", lang) : k === "square" ? t("shapeSquare", lang) : k === "full" ? t("shapeFull", lang) : t("shapeRounded", lang));
 
 /** the corner radius a 28dp default becomes under each scale, for the option art */
-const previewR = (k: ShapeScale) => (k === "square" ? 6 : k === "full" ? 28 : 16);
+const previewR = (k: ShapeScale) => (k === "none" ? 0 : k === "square" ? 6 : k === "full" ? 28 : 16);
 
 function Hint({ p, children }: { p: Palette; children: React.ReactNode }) {
   return <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{children}</div>;
@@ -144,6 +144,16 @@ export function TypePanel({ p, theme, onChange }: { p: Palette; theme: Theme; on
           );
         })}
       </div>
+
+      {/* a style with a face of its own for headings; the author may pick another */}
+      <div style={{ fontSize: 12, fontWeight: 700, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("displayFont", lang)}</div>
+      <Select
+        label={t("displayFont", lang)}
+        p={p}
+        value={theme.displayFont ?? theme.font}
+        options={FONTS.map((f) => ({ key: f.key, label: listTextOf(f.label, lang) }))}
+        onChange={(k) => onChange({ displayFont: k === theme.font ? undefined : (k as FontKey) })}
+      />
 
       <div style={{ padding: 12, borderRadius: 16, background: p.surfaceContainerLow, display: "flex", flexDirection: "column", gap: 8 }}>
         <Toggle on={theme.emphasized} onChange={(emphasized) => onChange({ emphasized })} p={p} icon="format_bold" label={t("emphasized", lang)} grow />

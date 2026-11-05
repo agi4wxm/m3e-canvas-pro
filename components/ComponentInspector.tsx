@@ -9,7 +9,7 @@ import type { Choice, ListItem, PropDef, TableData } from "@/parts/types";
 import { AiHooks } from "./Inspector";
 import { Icon } from "./Icon";
 import { BehaviorContext, BindRow, VisibilitySection } from "./EffectsPanel";
-import { AlignBox, AppearanceCorners, EntryList, FillRun, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, PositionRow, SlotStrip, Tab, TextRun, TriggerSection, WidthRows } from "./PartPanel";
+import { AlignBox, AppearanceCorners, AppearanceLook, EntryList, FillRun, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, PositionRow, SlotStrip, Tab, TextRun, TriggerSection, WidthRows } from "./PartPanel";
 import { segmentedFits } from "@/lib/choices";
 import { tableOf, tableText } from "@/lib/collections";
 import { RepeatSection } from "./ReusePanels";
@@ -264,6 +264,7 @@ export function ComponentInspector({
                 <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />
                 <TextRun value={item.textColor} onChange={(textColor) => onChange({ textColor })} p={p} />
                 <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />
+                <AppearanceLook key={`${item.id}:look`} item={item} onChange={onChange} p={p} />
               </div>
             </Section>
           )}

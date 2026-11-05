@@ -1,11 +1,11 @@
-import type { ColorToken, Item, Radii, TextToken } from "../lib/tokens";
+import type { ColorToken, Item, ItemLook, Radii, TextToken } from "../lib/tokens";
 import { mapNodes, type PNode } from "./node";
 
 /* A part's look, set beside its props: the fill role it paints itself with, the role its text
  * reads in, and its four corner radii. They live on the item and are painted onto the part's tree as a fixed class map plus `style.borderRadius`,
  * so the canvas drawing and the printed code carry the same appearance. */
 
-export type Appearance = { fill?: ColorToken; text?: TextToken; corners?: Radii };
+export type Appearance = { fill?: ColorToken; text?: TextToken; corners?: Radii; look?: ItemLook };
 
 /** the palette role a fill paints with, and the on-role its text takes over it */
 const FILL_CLASS: Record<ColorToken, [bg: string, on: string]> = {
@@ -19,6 +19,19 @@ const FILL_CLASS: Record<ColorToken, [bg: string, on: string]> = {
   tertiaryContainer: ["bg-tertiary-container", "text-on-tertiary-container"],
   primary: ["bg-primary", "text-on-primary"],
   inverseSurface: ["bg-inverse-surface", "text-inverse-on-surface"],
+};
+
+const FILL_ROLE: Record<ColorToken, string> = {
+  surface: "surface",
+  surfaceContainerLow: "surface-container-low",
+  surfaceContainer: "surface-container",
+  surfaceContainerHigh: "surface-container-high",
+  surfaceContainerHighest: "surface-container-highest",
+  primaryContainer: "primary-container",
+  secondaryContainer: "secondary-container",
+  tertiaryContainer: "tertiary-container",
+  primary: "primary",
+  inverseSurface: "inverse-surface",
 };
 
 const TEXT_CLASS: Record<TextToken, string> = {
@@ -38,8 +51,42 @@ const OWN_FILL = /^bg-(?!gradient|cover|contain|center|no-repeat|clip|origin|fix
 const OWN_TEXT = /^text-(on-|inverse-|primary|secondary|tertiary|error|outline|surface)/;
 
 /** the look an item carries, or nothing when the part keeps its own */
-export function appearanceOf(it: Pick<Item, "fill" | "textColor" | "corners">): Appearance | undefined {
-  return it.fill || it.textColor || it.corners ? { fill: it.fill, text: it.textColor, corners: it.corners } : undefined;
+export function appearanceOf(it: Pick<Item, "fill" | "textColor" | "corners" | "look">): Appearance | undefined {
+  return it.fill || it.textColor || it.corners || it.look ? { fill: it.fill, text: it.textColor, corners: it.corners, ...(it.look ? { look: it.look } : {}) } : undefined;
+}
+
+const roleVar = (name: string) => `var(--md-sys-color-${name})`;
+const mixRole = (name: string, percent: number) => `color-mix(in srgb, ${roleVar(name)} ${percent}%, transparent)`;
+
+/** the shadows a part can be given; a style's own are what it has until then */
+const SHADOW_OF: Record<NonNullable<ItemLook["shadow"]>, string> = {
+  none: "none",
+  soft: "0 2px 12px rgb(0 0 0 / 0.14)",
+  deep: "0 10px 30px rgb(0 0 0 / 0.32)",
+  hard: `4px 4px 0 ${roleVar("outline")}`,
+  glow: `0 0 16px ${mixRole("primary", 70)}`,
+};
+
+const FONT_OF: Record<NonNullable<ItemLook["font"]>, string> = {
+  display: "var(--st-display, inherit)",
+  mono: 'ui-monospace, "Cascadia Code", Consolas, monospace',
+};
+
+/** what a look draws, as the style of the node it paints */
+function lookStyle(l: ItemLook | undefined): Record<string, string | number> {
+  if (!l) return {};
+  const out: Record<string, string | number> = {};
+  if (l.borderWidth) out.border = `${l.borderWidth}px solid ${roleVar(TEXT_ROLE[l.borderColor ?? "onSurfaceVariant"])}`;
+  if (l.shadow) out.boxShadow = SHADOW_OF[l.shadow];
+  if (l.opacity !== undefined && l.opacity < 100) out.opacity = l.opacity / 100;
+  if (l.glass) {
+    out.backdropFilter = `blur(${l.glass}px) saturate(1.5)`;
+    out.WebkitBackdropFilter = `blur(${l.glass}px) saturate(1.5)`;
+  }
+  if (l.rotate) out.rotate = `${l.rotate}deg`;
+  if (l.gradientTo) out.backgroundImage = `linear-gradient(${l.gradientAngle ?? 180}deg, transparent, ${roleVar(FILL_ROLE[l.gradientTo])})`;
+  if (l.font) out.fontFamily = FONT_OF[l.font];
+  return out;
 }
 
 const radiusOf = (c: Radii) => `${c.tl}px ${c.tr}px ${c.br}px ${c.bl}px`;
@@ -87,7 +134,7 @@ export function applyAppearance(tree: PNode, a: Appearance | undefined, target?:
       const kept = (typeof props.className === "string" ? props.className.split(/\s+/) : []).filter((c) => c && !(a.fill && OWN_FILL.test(c)) && !(OWN_TEXT.test(c)));
       props.className = [...kept, ...classes.split(" ")].join(" ");
     }
-    const style = { ...wordRoles(a), ...(a.corners ? { borderRadius: radiusOf(a.corners) } : {}) };
+    const style = { ...wordRoles(a), ...(a.corners ? { borderRadius: radiusOf(a.corners) } : {}), ...lookStyle(a.look) };
     if (Object.keys(style).length) props.style = { ...(typeof props.style === "object" && props.style !== null ? props.style : {}), ...style };
     return { ...n, props };
   };

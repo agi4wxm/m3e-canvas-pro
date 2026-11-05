@@ -27,6 +27,9 @@ export function registerIcons(data: IconifyJSON) {
 registerIcons(coreIcons)
 registerIcons(appIcons)
 
+/** whether an icon has been registered, under its full `prefix:name` */
+export const isKnownIcon = (icon: string) => known.has(icon)
+
 const warned = new Set<string>()
 
 /** in development, say once when an icon was never bundled */

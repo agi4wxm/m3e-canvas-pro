@@ -45,7 +45,7 @@ function PartViewBody({ item, live = false, screen, held = false }: PartViewProp
   const def = partBySlug(item.component);
   /* a prop left at its default shows the default of the editor's language */
   const lang = useLang();
-  const tree = useMemo(() => (def ? viewOf(def, item.props, appearanceOf(item), screen, live && !held) : null), [def, item.props, item.fill, item.textColor, item.corners, screen?.w, screen?.h, live, held, lang]);
+  const tree = useMemo(() => (def ? viewOf(def, item.props, appearanceOf(item), screen, live && !held) : null), [def, item.props, item.fill, item.textColor, item.corners, item.look, screen?.w, screen?.h, live, held, lang]);
   /* the icon component is memoized: icons that arrive after the first draw show only in a fresh tree */
   const icons = useIcons(tree ?? NOTHING);
   /* the same elements for the same tree: React then leaves the whole component under them alone */

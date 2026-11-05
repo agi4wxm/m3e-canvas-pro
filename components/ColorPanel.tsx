@@ -191,6 +191,8 @@ export function ColorPanel({
   const contrastLabel = (c: Contrast) => (c === "high" ? t("contrastHigh", lang) : c === "medium" ? t("contrastMedium", lang) : t("contrastStandard", lang));
   const [tab, setTab] = useState<"templates" | "custom">(paletteKey === "custom" ? "custom" : "templates");
   const [seed, setSeed] = useState(custom?.seed ?? custom?.primary ?? "#6750A4");
+  /* the style names the colors until one is picked here */
+  const fromStyle = !!theme.style && !theme.ownColors;
 
   const applySeed = (hex: string) => {
     setSeed(hex);
@@ -238,10 +240,12 @@ export function ColorPanel({
         height={38}
       />
 
+      {fromStyle && <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "10px 4px 0" }}>{t("styleOwnColors", lang)}</div>}
+
       {tab === "templates" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
           {PALETTES.map((pal) => {
-            const on = pal.key === paletteKey;
+            const on = !fromStyle && pal.key === paletteKey;
             return (
               <button
                 key={pal.key}

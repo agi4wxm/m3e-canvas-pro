@@ -1,10 +1,11 @@
 
 import { motion, useDragControls } from "motion/react";
 import { CONTRASTS, Contrast, FONTS, Item, PALETTES, Palette, SHAPES, ShapeScale, Theme, paletteIconOf } from "@/lib/tokens";
+import { STYLE_PACKS, stylePatch, styleTextOf } from "@/lib/styles";
 import { partBySlug } from "@/parts/registry";
 import { listTextOf, nameOf } from "@/parts/labels";
 import { ComponentProps } from "./ComponentInspector";
-import { AppearanceCorners, FillRun, TextRun } from "./PartPanel";
+import { AppearanceCorners, AppearanceLook, FillRun, TextRun } from "./PartPanel";
 import { ensureFontLoaded } from "@/lib/theme";
 import { LANGS, Lang, t, useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
@@ -128,6 +129,7 @@ export function MobileInspector({
           <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />
           <TextRun value={item.textColor} onChange={(textColor) => onChange({ textColor })} p={p} />
           <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />
+          <AppearanceLook key={`${item.id}:look`} item={item} onChange={onChange} p={p} />
         </div>
       )}
       <div style={{ marginTop: 14 }}>
@@ -193,7 +195,7 @@ export function MobileSettings({
   onTheme: (patch: Partial<Theme>) => void;
 }) {
   const lang = useLang();
-  const shapeLabel = (k: ShapeScale) => (k === "square" ? t("shapeSquare", lang) : k === "full" ? t("shapeFull", lang) : t("shapeRounded", lang));
+  const shapeLabel = (k: ShapeScale) => (k === "none" ? t("shapeNone", lang) : k === "square" ? t("shapeSquare", lang) : k === "full" ? t("shapeFull", lang) : t("shapeRounded", lang));
   return (
     <div>
       <Row icon="brightness_6" label={t("brightness", lang)} p={p}>
@@ -219,6 +221,24 @@ export function MobileSettings({
           p={p}
           height={44}
         />
+      </Row>
+      <Row icon="style" label={t("styleTab", lang)} p={p}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "2px 0" }}>
+          {[{ key: "", label: "Material" }, ...STYLE_PACKS.map((s) => ({ key: s.key, label: styleTextOf(s.name, lang) }))].map((s) => {
+            const on = (theme.style ?? "") === s.key;
+            return (
+              <button
+                key={s.key}
+                onClick={() => onTheme(stylePatch(s.key))}
+                aria-pressed={on}
+                className="m3-press"
+                style={{ height: 44, padding: "0 16px", borderRadius: 22, border: "none", background: on ? p.secondaryContainer : p.surfaceContainerHigh, color: on ? p.onSecondaryContainer : p.onSurface, fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
       </Row>
       <Row icon="palette" label={t("theme", lang)} p={p}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", padding: "2px 0" }}>

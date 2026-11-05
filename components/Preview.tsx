@@ -24,6 +24,7 @@ import {
   SLIDE_SPEC,
   SWIPE_DIRS,
   SwipeDir,
+  Theme,
   Transition,
   fontFamilyOf,
   frameLengthOf,
@@ -45,6 +46,7 @@ import { partBySlug, reader } from "@/parts/registry";
 import { PartThemeContext, usePartTheme } from "@/parts/theme";
 import { roleOf } from "@/parts/role";
 import { actionSlotsOf } from "@/lib/tokens";
+import { screenBackground } from "@/lib/styles";
 import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
 import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, startState, writeField } from "@/lib/interact";
@@ -248,6 +250,7 @@ function Screen({
   groups,
   widths,
   p,
+  styled,
   onAction,
   values,
   onValue,
@@ -261,6 +264,8 @@ function Screen({
   groups: Group[];
   widths: Record<string, number>;
   p: Palette;
+  /** the theme in the mode this preview shows, for what the style draws behind a screen */
+  styled: Theme;
   /** a tap; `row` is the row of a repeat the part was drawn for */
   onAction: (a: Action, row?: Item["row"]) => void;
   values: Record<string, number>;
@@ -345,7 +350,7 @@ function Screen({
       role="group"
       aria-label={frame.name || t("screen", lang)}
       tabIndex={-1}
-      style={{ position: "absolute", inset: 0, background: p[frame.bg ?? "surface"], overflow: "hidden", outline: "none" }}
+      style={{ position: "absolute", inset: 0, background: screenBackground(p[frame.bg ?? "surface"], styled), overflow: "hidden", outline: "none" }}
     >
       {openGroups.length > 0 && <div data-preview-scrim aria-hidden onClick={onScrim} style={{ position: "absolute", inset: 0, zIndex: 1, background: dims ? "rgba(0,0,0,0.32)" : "transparent" }} />}
       {inBody(groups.map((g) => (
@@ -825,6 +830,7 @@ export function Preview({
   const screenProps = {
     widths,
     p,
+    styled: { ...theme, dark },
     onAction: fire,
     values,
     onValue: (id: string, v: number) => setValues((m) => ({ ...m, [id]: v })),
@@ -916,7 +922,7 @@ export function Preview({
               height: screenH,
               borderRadius: screenRadius,
               overflow: "hidden",
-              background: p[current.bg ?? "surface"],
+              background: screenBackground(p[current.bg ?? "surface"], { ...theme, dark }),
               fontFamily: fontFamilyOf(theme.font, lang),
               touchAction: "none",
             }}

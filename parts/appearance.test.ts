@@ -11,6 +11,40 @@ describe("appearanceOf", () => {
   });
 });
 
+describe("a part's look", () => {
+  const box = () => h("div", { className: "bg-surface", style: { width: 100 } });
+
+  it("counts as an appearance on its own", () => {
+    expect(appearanceOf({ look: { opacity: 50 } })).toEqual({ look: { opacity: 50 } });
+  });
+
+  it("draws in roles, so it follows the style and the mode", () => {
+    const out = applyAppearance(box(), { look: { borderWidth: 2, borderColor: "primary", shadow: "glow", gradientTo: "primary", gradientAngle: 90 } });
+    expect(out.props?.style).toMatchObject({
+      width: 100,
+      border: "2px solid var(--md-sys-color-primary)",
+      backgroundImage: "linear-gradient(90deg, transparent, var(--md-sys-color-primary))",
+    });
+    expect(JSON.stringify(out.props?.style)).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+  });
+
+  it("says nothing of what is left at rest", () => {
+    const out = applyAppearance(box(), { look: { opacity: 100, borderWidth: 0, glass: 0, rotate: 0 } });
+    expect(out.props?.style).toEqual({ width: 100 });
+  });
+
+  it("writes what a browser needs for glass, opacity, rotation and a face", () => {
+    const out = applyAppearance(box(), { look: { glass: 12, opacity: 60, rotate: -8, font: "display" } });
+    expect(out.props?.style).toMatchObject({
+      backdropFilter: "blur(12px) saturate(1.5)",
+      WebkitBackdropFilter: "blur(12px) saturate(1.5)",
+      opacity: 0.6,
+      rotate: "-8deg",
+      fontFamily: "var(--st-display, inherit)",
+    });
+  });
+});
+
 describe("applyAppearance", () => {
   const card = () => h("Card", { variant: "filled", style: { width: 280 } }, h("CardHeader", null, "T"));
 

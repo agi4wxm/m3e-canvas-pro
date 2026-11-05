@@ -22,7 +22,7 @@ export function SkillButton({ icon = "bolt", label = "", cooldown = 5, size = 72
   const cooling = left > 0;
   return (
     <div data-slot="skill-button" data-cooling={cooling || undefined} className={cn("inline-flex flex-col items-center gap-1", className)} style={{ width: size, ...style }}>
-      <Tap aria-label={label || icon} disabled={cooling} className="flex items-center justify-center rounded-full bg-primary text-on-primary" style={{ width: size, height: size }} onClick={() => setLeft(cooldown)}>
+      <Tap data-slot="skill-button-face" aria-label={label || icon} disabled={cooling} className="flex items-center justify-center rounded-full bg-primary text-on-primary" style={{ width: size, height: size }} onClick={() => setLeft(cooldown)}>
         <WidgetIcon name={icon} className="size-1/2" />
         {cooling && (
           <span data-cooldown className="absolute inset-0 flex items-center justify-center rounded-full text-title-medium text-inverse-on-surface tabular-nums" style={{ background: `conic-gradient(color-mix(in srgb, var(--md-sys-color-scrim) 65%, transparent) ${(left / Math.max(0.1, cooldown)) * 360}deg, transparent 0deg)` }}>

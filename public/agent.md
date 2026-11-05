@@ -45,7 +45,27 @@ Rough placement is fine. The person presses **Tidy**: bars snap to the edges, an
 }
 ```
 
-`theme` is optional. `contrast`: `standard | medium | high`. `shape`: `square | rounded | full`. `font`: `roboto | robotoFlex | robotoSerif | system`. `motion`: `standard | expressive`. `bothModes: true` asks for light and dark; `dark` picks which one the canvas shows.
+`theme` is optional. `contrast`: `standard | medium | high`. `shape`: `none | square | rounded | full`. `font`: `roboto | robotoFlex | robotoSerif | system | apple | segoe | inter | pixel | rajdhani | orbitron | garamond | cinzel`. `motion`: `standard | expressive`. `bothModes: true` asks for light and dark; `dark` picks which one the canvas shows.
+
+### Style (`theme.style`)
+
+One word dresses the whole document: every part, the screens behind them and the pictures. Name the style that suits the idea and write nothing else in `theme`; the colors, type, corners and icons come with it, and `paletteKey` is ignored while it colors the document.
+
+```jsonc
+"theme": { "style": "cyber" }
+```
+
+| `style` | For |
+| --- | --- |
+| (left out) | Material 3, the components as they come |
+| `ios` | Apple-style apps: segmented controls, centered titles, round thumbs |
+| `fluent` | Windows and office software: hairlines, small corners, restrained color |
+| `glass` | Translucent panels over a gradient: music, media, modern showcases |
+| `pixel` | Retro and indie games: thick borders, hard shadows, block controls |
+| `cyber` | Sci-fi and cyberpunk: neon lines, chamfered buttons, scan lines |
+| `fantasy` | Fantasy and RPG games: gold frames, beveled buttons |
+
+Use the same style for the whole app. `recipes` changes how one kind of control is built, and only when asked: `{ "style": "ios", "recipes": { "tabs": "boxed" } }`. The kinds are `button`, `surface`, `tabs`, `toggle`, `slider`, `nav`, `field`, `bar` and `feedback`.
 
 ### Screens (`frames`)
 
@@ -437,7 +457,7 @@ The editor's Templates tab adds these as new screens, in auto layout. A document
 
 For a game or an immersive screen, the picture and the interface are separate things:
 
-- The scene is one `scene` part filling the screen (`x` and `y` of the screen, `width` 412, `height` 892 on a phone), first among the screen's groups. Its `prompt` says what the picture shows, in a sentence or two, and its `style` says how it is drawn. Give every scene of an app the same `style`, word for word, so the pictures belong together. An image model paints it; do not set `image`.
+- The scene is one `scene` part filling the screen (`x` and `y` of the screen, `width` 412, `height` 892 on a phone), first among the screen's groups. Its `prompt` says what the picture shows, in a sentence or two. With a `theme.style`, leave the scene's own `style` out: the pictures are painted in the document's style. Without one, its `style` says how it is drawn, and every scene of an app has the same `style`, word for word, so the pictures belong together. An image model paints it; do not set `image`.
 - Never ask the picture for anything the player reads or presses: no text, buttons, bars or menus in the `prompt`. Those are real parts standing on the scene (`stat-bar`, `skill-button`, `dialogue-box`, `button`, `game-result`…), as ordinary groups after it.
 - What the player taps in the picture itself (a door, a chest) is a row of `hotspots`: `label`, then `x`, `y`, `w`, `h` in percent of the scene. Its action is in `actions` as `"tab:0"`, `"tab:1"`… Leave the area in the `prompt` so the thing is really there: "a wooden chest in the lower left".
 - `motion`: `animated` paints a looping GIF instead of a still, for a scene where gentle movement adds something (candlelight, rain, water). It is smaller and costs more, so leave the rest `still`. `frames` and `frameMs` set its length.
@@ -449,7 +469,7 @@ For a game or an immersive screen, the picture and the interface are separate th
 - Leave what the app does not need out. An app bar with just a title is normal; not every bar needs a menu and a search icon, not every list row needs a trailing chevron.
 - Do not add parts to fill space. A screen with a bar, a list and a FAB is complete.
 - One idea per screen. If a screen needs a second scroll of parts, it is two screens.
-- Prefer the default look and sizes; the person retunes the theme afterwards.
+- Prefer the default sizes. Say what the app should look like with one `theme.style`, and leave the rest of the look to it; the person retunes it afterwards.
 - A main action on its own gets `"size": "md"` and a width of 380 (the full content width); two side by side get 182 each. Do not scatter small buttons around a screen.
 - Put a main action right under what it acts on, not far below it at the foot of the screen. Only a screen whose content fills it keeps the action at the foot.
 - Put a screen that opens from another next to it in `frames`: a detail screen comes straight after the list that leads to it.

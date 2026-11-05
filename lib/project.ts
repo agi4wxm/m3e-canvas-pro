@@ -8,9 +8,19 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 
 const validCorners = (c: unknown) => c === undefined || (isRecord(c) && ["tl", "tr", "bl", "br"].every((k) => Number.isFinite(c[k])));
 
+const validLook = (l: unknown) =>
+  l === undefined ||
+  (isRecord(l) &&
+    ["borderWidth", "opacity", "glass", "rotate", "gradientAngle"].every((k) => l[k] === undefined || Number.isFinite(l[k])) &&
+    (l.borderColor === undefined || isTextToken(l.borderColor)) &&
+    (l.shadow === undefined || ["none", "soft", "deep", "hard", "glow"].includes(l.shadow as string)) &&
+    (l.font === undefined || l.font === "display" || l.font === "mono") &&
+    (l.gradientTo === undefined || typeof l.gradientTo === "string"));
+
 const validItem = (item: unknown) =>
   isRecord(item) &&
   validCorners(item.corners) &&
+  validLook(item.look) &&
   (item.collapseOnScroll === undefined || typeof item.collapseOnScroll === "boolean") &&
   (item.textColor === undefined || isTextToken(item.textColor)) &&
   typeof item.id === "string" &&

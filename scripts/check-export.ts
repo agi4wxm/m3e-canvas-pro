@@ -16,12 +16,12 @@ import { allPartsDoc } from "../lib/codegen.fixture";
 import { COUNTER, proofDoc, reuseDoc, sweepDoc } from "../lib/exportProject.fixture";
 import { buildProject, zipProject, type ExportOptions } from "../lib/exportProject";
 import { setGlobalLang } from "../lib/i18n";
-import { makeItem, type Doc } from "../lib/tokens";
+import { makeItem, normalizeTheme, type Doc } from "../lib/tokens";
 import { partBySlug } from "../parts/registry";
 
 const WORK = process.argv[2];
 const ONLY = process.argv[3];
-if (!WORK) throw new Error("usage: bun scripts/check-export.ts <empty work folder> [reuse|proof|one|parts|modal|sweep|<a saved .zip>]");
+if (!WORK) throw new Error("usage: bun scripts/check-export.ts <empty work folder> [reuse|proof|one|parts|modal|style|sweep|<a saved .zip>]");
 mkdirSync(WORK, { recursive: true });
 const fs0 = statfsSync(WORK);
 if ((fs0.bavail * fs0.bsize) / 2 ** 30 < 2) throw new Error("under 2GB free: stopping");
@@ -835,6 +835,75 @@ async function modalAndSplit() {
   }
 }
 
+/** an app in a style: what the editor drew is what the built app draws */
+async function styled() {
+  const part = (id: string, slug: string, x: number, y: number, props: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({ id: `g-${id}`, x, y, axis: "x" as const, items: [{ ...makeItem(slug), id, props, ...extra }] });
+  const docOf = (style: string): Doc => ({
+    groups: [
+      part("bar", "app-bar", 0, 0, { title: "Styled", leading: "arrow_back", trailing: "settings" }),
+      part("tabs", "tabs", 16, 72, { items: [{ label: "One" }, { label: "Two" }], width: 380 }),
+      part("tf", "text-field", 16, 134, { label: "Mail", width: 380 }),
+      part("bt", "button", 16, 204, { label: "Onward", size: "md", width: 380 }, { action: { to: "f1", transition: "none" } }),
+      part("sl", "slider", 16, 280, { width: 380 }),
+      part("sw", "item", 16, 340, { items: [{ label: "Sound", icon: "notifications" }], description: "", trailing: "switch", checked: true, width: 380 }),
+      part("nav", "navigation-bar", 0, 828, { items: [{ label: "Home", icon: "home" }, { label: "Me", icon: "person" }], selected: 0 }),
+      part("said", "text", 1016, 40, { text: "Arrived" }),
+    ],
+    frames: [
+      { id: "f0", name: "Home", x: 0, y: 0 },
+      { id: "f1", name: "Next", x: 1000, y: 0 },
+    ],
+    paletteKey: "purple",
+    frame: "phone",
+    title: `Style ${style}`,
+    brief: "",
+    theme: normalizeTheme({ style }),
+  });
+  for (const [style, port, primary, build] of [
+    ["cyber", 4201, "rgb(0, 240, 255)", (b: Record<string, string>) => b.clip.startsWith("polygon")],
+    ["pixel", 4202, "rgb(168, 52, 31)", (b: Record<string, string>) => b.shadow.includes("3px 3px") && b.radius === "0px"],
+    ["ios", 4203, "rgb(0, 113, 227)", (b: Record<string, string>) => b.radius === "12px"],
+  ] as const) {
+    const name = `style-${style}`;
+    const dist = await assemble(name, docOf(style), {});
+    if (!dist) continue;
+    const dir = join(WORK, name);
+    const icons = await readFile(join(dir, "src/style-icons.ts"), "utf8").catch(() => "");
+    ok(icons.includes(style === "pixel" ? "pixelarticons" : style === "ios" ? "material-symbols-light" : "material-symbols"), `${style}: its icons are in the project`);
+    const html = await readFile(join(dir, "index.html"), "utf8");
+    ok(html.includes(style === "cyber" ? "Orbitron" : style === "pixel" ? "Pixelify" : "Inter"), `${style}: its fonts are asked for`);
+    const server = await serve(dist, port);
+    const p = await edgeAt(name, `http://127.0.0.1:${port}/`);
+    try {
+      await p.width(420);
+      await p.reload();
+      const b = await p.read('[data-slot="button"]:not([data-size^="icon"])', "(()=>{const c=getComputedStyle(e);return {clip:c.clipPath,shadow:c.boxShadow,radius:c.borderTopLeftRadius,bg:c.backgroundColor}})()") as unknown as Record<string, string>;
+      ok(b.bg === primary, `${style}: the button wears the style's own color (${b.bg})`);
+      ok(build(b), `${style}: the button is built the style's way (${JSON.stringify(b)})`);
+      if (style === "cyber") {
+        ok(await p.ev<boolean>(`return document.documentElement.classList.contains("dark")`), "cyber: it opens dark");
+        const behind = await p.read("[data-backdrop]", "getComputedStyle(e).backgroundImage") as unknown as string;
+        ok(behind.includes("gradient"), "cyber: the style draws behind the screen");
+        const thumb = await p.read('[data-slot="switch-thumb"]', "getComputedStyle(e).borderTopLeftRadius") as unknown as string;
+        ok(thumb === "0px", `cyber: the switch is square (${thumb})`);
+      }
+      if (style === "ios") {
+        const track = await p.read('[data-slot="switch"]', "getComputedStyle(e).width") as unknown as string;
+        ok(track === "51px", `ios: the switch is the size iOS draws it (${track})`);
+        const indicator = await p.read('[data-slot="nav-indicator"]', "getComputedStyle(e).backgroundColor") as unknown as string;
+        ok(indicator === "rgba(0, 0, 0, 0)", "ios: the navigation bar has no pill");
+      }
+      await p.tap("Onward");
+      ok(await p.at("next"), `${style}: it still goes where it goes`);
+      ok(await p.sees("Arrived"), `${style}: and shows what is there`);
+      ok(!p.errors.length, `${style}: nothing went wrong on the page${p.errors.length ? `:\n  ${[...new Set(p.errors)].slice(0, 20).join("\n  ")}` : ""}`);
+    } finally {
+      await p.close();
+      server.close();
+    }
+  }
+}
+
 /** a zip the editor's own button saved goes the same way as one made here */
 async function savedZip(path: string) {
   const dir = join(WORK, "saved");
@@ -859,6 +928,7 @@ if (!ONLY || ONLY === "proof") await proof();
 if (!ONLY || ONLY === "one") await oneScreen();
 if (!ONLY || ONLY === "parts") await allParts();
 if (!ONLY || ONLY === "modal") await modalAndSplit();
+if (!ONLY || ONLY === "style") await styled();
 if (!ONLY) await sweep();
 
 console.log(`\n${passes} passed, ${failures.length} failed`);

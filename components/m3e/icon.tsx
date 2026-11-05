@@ -5,14 +5,25 @@ import {
 
 import { cn } from "@/lib/m3e/cn"
 
-import { registerIcons, warnIfMissing } from "./icon-registry"
+import { familyIcon, type IconFamily } from "./icon-family"
+import { isKnownIcon, registerIcons, warnIfMissing } from "./icon-registry"
+
+let family: IconFamily = "rounded"
+
+/** which drawing the icons take from now on; what is already on the page keeps its own until it is drawn again */
+export function setIconFamily(next: IconFamily) {
+  family = next
+}
 
 /**
  * Material Symbols Rounded (`material-symbols:*`), from the bundled icon data.
  * Names use Material's ligature spelling ("arrow_back") or Iconify's
  * ("arrow-back"). Unfilled icons are `*-outline-rounded`, filled `*-rounded`.
+ * With another family chosen, its drawing of the name once it is registered.
  */
 export function symbolName(name: string, filled: boolean) {
+  const styled = family === "rounded" ? undefined : familyIcon(family, name, filled)
+  if (styled && isKnownIcon(styled)) return styled
   const base = name.replaceAll("_", "-")
   const icon = `material-symbols:${base}${filled ? "" : "-outline"}-rounded`
   warnIfMissing(icon)
@@ -78,4 +89,4 @@ function Icon({
   )
 }
 
-export { Icon, registerIcons }
+export { Icon, registerIcons, type IconFamily }

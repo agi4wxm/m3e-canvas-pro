@@ -91,6 +91,7 @@ function NavItem({
     >
       <span
         aria-hidden
+        data-slot="nav-indicator"
         className={cn(
           "pointer-events-none absolute inset-0 overflow-hidden rounded-full transition-[background-color] duration-75 ease-out group-hover/nav-item:bg-on-surface/8 group-data-active/nav-item:motion-effects-fast",
           indicatorState,
@@ -115,6 +116,7 @@ function NavItem({
       <span className="relative grid h-8 w-14 place-items-center text-on-surface-variant transition-colors motion-effects-fast group-data-active/nav-item:text-on-secondary-container">
         <span
           aria-hidden
+          data-slot="nav-indicator"
           className={cn(
             "pointer-events-none absolute inset-0 origin-center scale-x-0 overflow-hidden rounded-full bg-secondary-container transition-transform duration-100 ease-out group-data-active/nav-item:scale-x-100 group-data-active/nav-item:motion-spatial-fast",
             indicatorState

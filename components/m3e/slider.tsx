@@ -144,6 +144,7 @@ function SliderContents({
         {/* stop indicator */}
         <span
           aria-hidden
+          data-slot="slider-stop"
           className={cn(
             "pointer-events-none absolute size-1 rounded-full bg-primary group-data-disabled/slider:bg-on-surface/38 group-data-horizontal/slider:inset-e-1.5 group-data-horizontal/slider:top-1/2 group-data-horizontal/slider:-translate-y-1/2 group-data-vertical/slider:top-1.5 group-data-vertical/slider:left-1/2 group-data-vertical/slider:-translate-x-1/2",
             atMax && "hidden"
