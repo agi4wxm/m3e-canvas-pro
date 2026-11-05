@@ -1,6 +1,7 @@
 import * as React from "react"
 import { cn } from "@/lib/m3e/cn"
 
+import { say } from "@/components/m3e/say"
 import { Button } from "@/components/m3e/button"
 import { Icon } from "@/components/m3e/icon"
 
@@ -283,7 +284,7 @@ function TimePicker({
                     p === "AM" && "border-b border-outline"
                   )}
                 >
-                  {p}
+                  {say(p)}
                 </button>
               )
             })}

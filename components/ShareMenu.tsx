@@ -7,6 +7,7 @@ import { DownloadProject } from "./DownloadProject";
 import { Icon } from "./Icon";
 import { useDismiss } from "./ui";
 import { t, useLang } from "@/lib/i18n";
+import { listTextOf } from "@/parts/labels";
 
 const BASE = import.meta.env.VITE_BASE_PATH ?? "";
 
@@ -47,7 +48,7 @@ export function ShareButton({ p, onClick, busy }: { p: Palette; onClick: () => v
 }
 
 const Beta = ({ p }: { p: Palette }) => (
-  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 8, background: p.tertiaryContainer, color: p.onTertiaryContainer, letterSpacing: 0.4 }}>BETA</span>
+  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 8, background: p.tertiaryContainer, color: p.onTertiaryContainer, letterSpacing: 0.4 }}>{listTextOf("BETA", useLang())}</span>
 );
 
 /** Ask an AI (beta): write the idea and have the author's own model draft it, or copy the

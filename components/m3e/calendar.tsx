@@ -15,6 +15,8 @@ import {
   type Locale,
 } from "react-day-picker"
 
+import { zhCN } from "react-day-picker/locale"
+import { pageIsChinese } from "@/components/m3e/say"
 import { Button, buttonVariants } from "@/components/m3e/button"
 
 const CalendarRoot: CustomComponents["Root"] = ({
@@ -67,11 +69,13 @@ function Calendar({
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
 }) {
   const defaultClassNames = getDefaultClassNames()
+  /* the page's language, when no one has said otherwise */
+  const shown = locale ?? (pageIsChinese() ? zhCN : undefined)
   const dayButton: CustomComponents["DayButton"] = React.useCallback(
     (dayProps: Parameters<CustomComponents["DayButton"]>[0]) => (
-      <CalendarDayButton locale={locale} {...dayProps} />
+      <CalendarDayButton locale={shown} {...dayProps} />
     ),
-    [locale]
+    [shown]
   )
 
   return (
@@ -84,10 +88,10 @@ function Calendar({
         className
       )}
       captionLayout={captionLayout}
-      locale={locale}
+      locale={shown}
       formatters={{
         formatMonthDropdown: (date) =>
-          date.toLocaleString(locale?.code, { month: "short" }),
+          date.toLocaleString(shown?.code, { month: "short" }),
         ...formatters,
       }}
       classNames={{

@@ -55,7 +55,10 @@ function read(def: PropDef, values: PropValues | undefined): unknown {
         : def.default.map((x) => ({ ...x, label: listTextOf(x.label, getLang()) }));
     case "table": {
       const t = v as Partial<TableData> | undefined;
-      if (!Array.isArray(t?.columns) || !Array.isArray(t?.rows)) return def.default;
+      if (!Array.isArray(t?.columns) || !Array.isArray(t?.rows)) {
+        const lang = getLang();
+        return { columns: def.default.columns.map((c) => listTextOf(c, lang)), rows: def.default.rows.map((r) => r.map((c) => listTextOf(c, lang))) };
+      }
       return { columns: t.columns.map(String), rows: t.rows.filter(Array.isArray).map((r) => r.map(String)) };
     }
   }
@@ -75,6 +78,7 @@ export function reader(def: PartDef, values: PropValues | undefined): P {
     b: (key) => get(key) as boolean,
     list: (key) => get(key) as ListItem[],
     table: (key) => get(key) as TableData,
+    say: (words) => listTextOf(words, getLang()),
   };
 }
 

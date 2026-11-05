@@ -1,4 +1,5 @@
-import { choiceValueOf } from "./labels";
+import { getLang } from "../lib/i18n";
+import { choiceValueOf, defaultTextOf, listTextOf } from "./labels";
 import { reader } from "./registry";
 import type { Choice, PartDef, PropDef, PropValues } from "./types";
 
@@ -89,7 +90,7 @@ export function labelOfPart(def: PartDef | undefined, values: PropValues | undef
   const textOf = (d: PropDef) => {
     if (d.kind !== "text" || d.multiline) return "";
     const v = values?.[d.key];
-    return (typeof v === "string" ? v : d.default).trim();
+    return (typeof v === "string" ? v : defaultTextOf(d, getLang())).trim();
   };
   for (const d of def.props) {
     const text = ASIDE.has(d.key) ? "" : textOf(d);
@@ -99,7 +100,7 @@ export function labelOfPart(def: PartDef | undefined, values: PropValues | undef
   for (const d of def.props) {
     if (d.kind !== "list") continue;
     const v = values?.[d.key];
-    const first = (Array.isArray(v) && v.length ? (v as { label?: string }[])[0]?.label : d.default[0]?.label)?.trim();
+    const first = (Array.isArray(v) && v.length ? (v as { label?: string }[])[0]?.label : listTextOf(d.default[0]?.label ?? "", getLang()))?.trim();
     if (first) return short(first);
   }
   for (const d of def.props) {

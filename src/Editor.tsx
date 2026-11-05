@@ -871,7 +871,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           rightW,
           favorites,
           mode,
-          lang,
+          pickedLang: lang,
           /* the theme's surfaces, so the shell drawn before the editor loads is already this colour */
           boot: { surface: p.surface, container: p.surfaceContainer, low: p.surfaceContainerLow, high: p.surfaceContainerHigh, primary: p.primary, canvas: frame === "phone" ? p.surfaceContainerLow : "#ffffff" },
         }),

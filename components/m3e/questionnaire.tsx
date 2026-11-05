@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Questionnaire as QuestionnairePrimitive } from "@shadcn/react/questionnaire"
 import { cn } from "@/lib/m3e/cn"
+import { pageIsChinese, say } from "@/components/m3e/say"
 import { CheckIcon } from "@/components/m3e/symbols"
 
 import { buttonVariants, type Button } from "@/components/m3e/button"
@@ -31,6 +32,11 @@ function QuestionnaireProgress({
         "min-h-lh w-fit min-w-[14ch] text-label-medium text-on-surface-variant tabular-nums",
         className
       )}
+      render={
+        pageIsChinese()
+          ? (own, state) => <div {...own}>{own.children && state.total ? `第 ${state.current} 题，共 ${state.total} 题` : (own.children as React.ReactNode)}</div>
+          : undefined
+      }
       {...props}
     />
   )
@@ -231,7 +237,7 @@ function QuestionnairePrevious({
       )}
       {...props}
     >
-      {children ?? "Previous"}
+      {children ?? say("Previous")}
     </QuestionnairePrimitive.Previous>
   )
 }
@@ -256,7 +262,7 @@ function QuestionnaireSkip({
       )}
       {...props}
     >
-      {children ?? "Skip"}
+      {children ?? say("Skip")}
     </QuestionnairePrimitive.Skip>
   )
 }
@@ -281,7 +287,7 @@ function QuestionnaireNext({
       )}
       {...props}
     >
-      {children ?? "Next"}
+      {children ?? say("Next")}
     </QuestionnairePrimitive.Next>
   )
 }
@@ -306,7 +312,7 @@ function QuestionnaireSubmit({
       )}
       {...props}
     >
-      {children ?? "Submit"}
+      {children ?? say("Submit")}
     </QuestionnairePrimitive.Submit>
   )
 }

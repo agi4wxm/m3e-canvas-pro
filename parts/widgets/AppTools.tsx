@@ -1,3 +1,4 @@
+import { pageLocale } from "@/components/m3e/say";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
@@ -234,8 +235,8 @@ export function Kanban({ columns = [], rows = [], add = "", width = 720, classNa
 /* ---------- a month with things in it ---------- */
 
 const pad = (n: number) => String(n).padStart(2, "0");
-const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: "narrow" });
-const MONTH = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "long" });
+const weekdayName = (d: Date) => new Intl.DateTimeFormat(pageLocale(), { weekday: "narrow" }).format(d);
+const monthName = (d: Date) => new Intl.DateTimeFormat(pageLocale(), { year: "numeric", month: "long" }).format(d);
 
 export function Agenda({ year = 2026, month = 1, day = 1, rows = [], weekStart = "sunday", empty = "", width = 360, className, style }: { year?: number; month?: number; day?: number; rows?: string[][]; weekStart?: string; empty?: string; width?: number } & Look) {
   const [view, setView] = useSeeded({ year, month });
@@ -254,11 +255,11 @@ export function Agenda({ year = 2026, month = 1, day = 1, rows = [], weekStart =
     setView({ year: next.getFullYear(), month: next.getMonth() + 1 });
   };
   /* 2023-01-01 was a Sunday: any week would do */
-  const names = Array.from({ length: 7 }, (_, i) => WEEKDAY.format(new Date(2023, 0, 1 + i + shift)));
+  const names = Array.from({ length: 7 }, (_, i) => weekdayName(new Date(2023, 0, 1 + i + shift)));
   return (
     <div data-slot="agenda" data-month={`${view.year}-${pad(view.month)}`} data-day={today} data-events={events.length} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-2 rounded-xl p-3", className)} style={{ width, ...style }}>
       <div className="flex items-center gap-1" onClick={stop}>
-        <span className="text-title-medium flex-1 pl-1">{MONTH.format(first)}</span>
+        <span className="text-title-medium flex-1 pl-1">{monthName(first)}</span>
         <Button variant="text" size="icon-sm" aria-label="Previous month" onClick={() => turn(-1)}>
           <WidgetIcon name="chevron_left" />
         </Button>

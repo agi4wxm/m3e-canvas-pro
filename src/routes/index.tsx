@@ -28,18 +28,12 @@ function Boot({ done }: { done: boolean }) {
 }
 
 function initialLanguage(): Lang {
+  /* the page is in Chinese until someone picks another language */
   try {
     const ui = JSON.parse(localStorage.getItem("m3e:ui") ?? "null")
-    if (isLang(ui?.lang)) return ui.lang
+    if (isLang(ui?.pickedLang)) return ui.pickedLang
   } catch {}
-  const language = (navigator.language ?? "").toLowerCase()
-  return language.startsWith("zh")
-    ? "zh"
-    : language.startsWith("ko")
-      ? "ko"
-      : language.startsWith("ja")
-        ? "ja"
-        : "en"
+  return "zh"
 }
 
 /** how long the overlay takes to fade; matches .m3e-boot in index.css */

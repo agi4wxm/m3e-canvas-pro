@@ -6,6 +6,7 @@ import {
   MoreHorizIcon,
 } from "@/components/m3e/symbols"
 
+import { say } from "@/components/m3e/say"
 import { Button } from "@/components/m3e/button"
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
@@ -68,7 +69,7 @@ function PaginationLink({
 
 function PaginationPrevious({
   className,
-  text = "Previous",
+  text = say("Previous"),
   ...props
 }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
   return (
@@ -86,7 +87,7 @@ function PaginationPrevious({
 
 function PaginationNext({
   className,
-  text = "Next",
+  text = say("Next"),
   ...props
 }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
   return (

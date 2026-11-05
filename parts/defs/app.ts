@@ -371,7 +371,7 @@ export const app: PartDef[] = [
       num("shares", "Shares", 6, 0, 1000000),
       WIDTH(380, 240, 800),
     ],
-    slots: (p) => [...slot("author", p.s("author") || "Author"), ...slot("comment", "Comment"), ...slot("share", "Share")],
+    slots: (p) => [...slot("author", p.s("author") || "Author"), ...slot("comment", p.say("Comment")), ...slot("share", p.say("Share"))],
     tree: (p) => h("PostCard", { author: p.s("author"), time: p.s("time"), text: p.s("text"), image: p.s("image"), showImage: p.b("showImage"), likes: px(p, "likes"), comments: px(p, "comments"), shares: px(p, "shares"), width: px(p) }),
   },
   {
@@ -509,7 +509,7 @@ export const app: PartDef[] = [
     w: 412,
     h: 56,
     props: [text("placeholder", "Placeholder", "Message", "发消息"), flag("attach", "Attach button", true), flag("emoji", "Emoji button", true), WIDTH(412, 200, 1280)],
-    slots: (p) => [...slot("attach", "Attach", p.b("attach")), ...slot("emoji", "Emoji", p.b("emoji")), ...slot("send", "Send")],
+    slots: (p) => [...slot("attach", "Attach", p.b("attach")), ...slot("emoji", "Emoji", p.b("emoji")), ...slot("send", p.say("Send"))],
     tree: (p) => h("ChatComposer", { placeholder: p.s("placeholder"), attach: p.b("attach"), emoji: p.b("emoji"), width: px(p) }),
   },
 

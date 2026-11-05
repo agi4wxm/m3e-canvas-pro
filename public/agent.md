@@ -77,7 +77,7 @@ Every part has the same shape: an `id`, `"kind": "component"`, the part's name i
 { "id": "g1", "x": 0, "y": 0, "axis": "x", "items": [ { "id": "bar", "kind": "component", "component": "app-bar", "label": "", "icon": null, "variant": "filled", "props": { "title": "Recipes" } } ] }
 { "id": "g2", "x": 16, "y": 112, "axis": "y", "items": [ { "id": "r1", "kind": "component", "component": "item", "label": "", "icon": null, "variant": "filled", "props": { "items": [ { "label": "Tomato soup", "icon": "restaurant" } ], "description": "30 min" }, "action": { "to": "detail", "transition": "slide" } } ] }
 { "id": "g3", "x": 340, "y": 716, "axis": "x", "items": [ { "id": "fab", "kind": "component", "component": "fab", "label": "", "icon": null, "variant": "filled", "props": { "icon": "add" }, "note": "Opens the new recipe form." } ] }
-{ "id": "g4", "x": 0, "y": 788, "axis": "x", "items": [ { "id": "nav", "kind": "component", "component": "navigation-bar", "label": "", "icon": null, "variant": "filled", "props": { "items": [ { "icon": "home", "label": "Home" }, { "icon": "search", "label": "Search" }, { "icon": "settings", "label": "Settings" } ], "selected": 0 }, "actions": { "tab:2": { "to": "settings", "transition": "fade" } } } ] }
+{ "id": "g4", "x": 0, "y": 828, "axis": "x", "items": [ { "id": "nav", "kind": "component", "component": "navigation-bar", "label": "", "icon": null, "variant": "filled", "props": { "items": [ { "icon": "home", "label": "Home" }, { "icon": "search", "label": "Search" }, { "icon": "settings", "label": "Settings" } ], "selected": 0 }, "actions": { "tab:2": { "to": "settings", "transition": "fade" } } } ] }
 ```
 
 Fields any part may carry beside `props`:
@@ -423,7 +423,9 @@ The editor's Templates tab adds these as new screens, in auto layout. A document
 - One idea per screen. If a screen needs a second scroll of parts, it is two screens.
 - Prefer the default look and sizes; the person retunes the theme afterwards.
 - A main action on its own gets a width of 380 (the full content width); two side by side get 182 each. Do not scatter small buttons around a screen.
-- A list of similar rows is one `item` with several `items`, not a column of cards.
+- A list of similar rows is one `item` with several `items`, not a column of cards. Its `description` is one line shared by every row, so leave it empty unless all rows say the same; put what differs in each row's `label`.
+- A `navigation-bar` is 64 tall: on a phone it stands at `y` 828, so it meets the bottom of the screen.
+- A prop you leave out shows the part's sample words. Set a text prop to `""` when the part should say nothing there.
 - Grids: put cards or images of one width in rows whose columns share their left edges, each part in its own group (on a phone, two columns of width 182, 16 apart).
 
 ## A good sketch

@@ -85,13 +85,13 @@ export const navigation: PartDef[] = [
     ],
     tree: (p) => {
       const slot = (name: string, aria: string, key: string) => (name ? h("Button", { variant: "text", size: "icon", "aria-label": aria, "data-tap": key }, ic(name)) : undefined);
-      const one = slot(p.s("trailing"), "More", "icon2");
+      const one = slot(p.s("trailing"), p.say("More"), "icon2");
       const two = slot(p.s("trailing2"), "Action", "icon3");
       return h("AppBar", {
         size: p.s("size"),
         title: p.s("title"),
         subtitle: p.s("subtitle") || undefined,
-        leading: slot(p.s("leading"), "Navigate", "icon"),
+        leading: slot(p.s("leading"), p.say("Navigate"), "icon"),
         /* two actions ride as a small row inside the bar's trailing spot */
         trailing: one && two ? h("span", { className: "flex items-center" }, one, two) : (one ?? two),
         centered: p.b("centered") || undefined,
@@ -166,8 +166,8 @@ export const navigation: PartDef[] = [
       const expanded = p.b("expanded");
       /* the menu button expands the rail (M3E's own affordance); `data-tap` lets the preview's
        *  press on it flip the rail too */
-      const menu = p.b("menu") ? h("Button", { variant: "text", size: "icon", "aria-label": expanded ? "Collapse" : "Expand", "data-tap": "rail" }, ic("menu")) : null;
-      const fab = p.b("fab") ? (expanded ? h("ExtendedFab", { icon: ic("edit") }, "Compose") : h("Fab", { "aria-label": "Compose" }, ic("edit"))) : null;
+      const menu = p.b("menu") ? h("Button", { variant: "text", size: "icon", "aria-label": expanded ? p.say("Collapse") : p.say("Expand"), "data-tap": "rail" }, ic("menu")) : null;
+      const fab = p.b("fab") ? (expanded ? h("ExtendedFab", { icon: ic("edit") }, p.say("Compose")) : h("Fab", { "aria-label": p.say("Compose") }, ic("edit"))) : null;
       const header = menu || fab ? h("NavigationRailHeader", null, menu, fab) : null;
       return h(
         "NavigationRail",
@@ -466,7 +466,7 @@ export const navigation: PartDef[] = [
         h(
           "CommandList",
           null,
-          h("CommandEmpty", null, "No results found."),
+          h("CommandEmpty", null, p.say("No results found.")),
           h("CommandGroup", { heading: p.s("heading") || undefined }, ...p.list("items").map((it, i) => h("CommandItem", { "data-tap": `tab:${i}` }, it.icon ? ic(it.icon) : null, it.label))),
         ),
       ),

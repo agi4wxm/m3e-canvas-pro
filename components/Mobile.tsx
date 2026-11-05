@@ -2,7 +2,7 @@
 import { motion, useDragControls } from "motion/react";
 import { CONTRASTS, Contrast, FONTS, Item, PALETTES, Palette, SHAPES, ShapeScale, Theme, paletteIconOf } from "@/lib/tokens";
 import { partBySlug } from "@/parts/registry";
-import { nameOf } from "@/parts/labels";
+import { listTextOf, nameOf } from "@/parts/labels";
 import { ComponentProps } from "./ComponentInspector";
 import { AppearanceCorners, FillRun, TextRun } from "./PartPanel";
 import { ensureFontLoaded } from "@/lib/theme";
@@ -228,8 +228,8 @@ export function MobileSettings({
               <button
                 key={pal.key}
                 onClick={() => onPalette(pal.key)}
-                title={pal.label}
-                aria-label={pal.label}
+                title={listTextOf(pal.label, lang)}
+                aria-label={listTextOf(pal.label, lang)}
                 aria-pressed={on}
                 className="m3-press"
                 style={{
@@ -290,7 +290,7 @@ export function MobileSettings({
                 }}
               >
                 <span style={{ width: 22, display: "inline-flex" }}>{on && <Icon name="check" size={22} />}</span>
-                {f.label}
+                {listTextOf(f.label, lang)}
               </button>
             );
           })}

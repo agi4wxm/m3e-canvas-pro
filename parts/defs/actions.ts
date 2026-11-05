@@ -319,7 +319,7 @@ export const actions: PartDef[] = [
     ],
     open: { box: (p) => ({ w: 220, h: 40 + 8 + p.list("menuItems").length * 44 + 16, ax: "end" }) },
     /* each half answers on its own; with a menu the arrow only opens it, and its rows are the places to tap */
-    slots: (p) => [{ key: "main", label: p.s("label") || "Main", icon: p.s("icon") || undefined }, ...(p.b("menu") ? listSlots(p.list("menuItems")) : [{ key: "more", label: "More", icon: "keyboard_arrow_down" }])],
+    slots: (p) => [{ key: "main", label: p.s("label") || p.say("Main"), icon: p.s("icon") || undefined }, ...(p.b("menu") ? listSlots(p.list("menuItems")) : [{ key: "more", label: p.say("More"), icon: "keyboard_arrow_down" }])],
     tree: (p) => {
       const menu = p.b("menu");
       const items = p.list("menuItems");

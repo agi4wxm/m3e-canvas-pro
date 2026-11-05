@@ -122,7 +122,7 @@ export const chat: PartDef[] = [
         },
         h("AttachmentMedia", null, ic(p.s("icon") || "description")),
         h("AttachmentContent", null, h("AttachmentTitle", null, p.s("title")), p.s("description") && h("AttachmentDescription", null, p.s("description"))),
-        p.b("remove") && h("AttachmentActions", null, h("AttachmentAction", { "aria-label": "Remove" }, ic("close"))),
+        p.b("remove") && h("AttachmentActions", null, h("AttachmentAction", { "aria-label": p.say("Remove") }, ic("close"))),
       ),
   },
   {
@@ -214,10 +214,10 @@ export const chat: PartDef[] = [
           h("QuestionnaireTitle", null, p.s("question")),
           p.s("description") && h("QuestionnaireDescription", null, p.s("description")),
           h("QuestionnaireChoices", null, ...p.list("choices").map((c) => h("QuestionnaireChoice", { value: c.label.toLowerCase().replace(/\s+/g, "-") }, c.label))),
-          h("QuestionnaireError", null, "Choose one to continue."),
+          h("QuestionnaireError", null, p.say("Choose one to continue.")),
         ),
-        steps > 1 && h("QuestionnaireItem", { name: "note" }, h("QuestionnaireTitle", null, "Anything else?"), h("QuestionnaireInput", { placeholder: "Optional" })),
-        steps > 2 && h("QuestionnaireItem", { name: "feedback" }, h("QuestionnaireTitle", null, "How can we improve?"), h("QuestionnaireInput", { placeholder: "Optional" })),
+        steps > 1 && h("QuestionnaireItem", { name: "note" }, h("QuestionnaireTitle", null, p.say("Anything else?")), h("QuestionnaireInput", { placeholder: p.say("Optional") })),
+        steps > 2 && h("QuestionnaireItem", { name: "feedback" }, h("QuestionnaireTitle", null, p.say("How can we improve?")), h("QuestionnaireInput", { placeholder: p.say("Optional") })),
         h("QuestionnaireActions", null, h("QuestionnairePrevious"), h("QuestionnaireSkip"), h("QuestionnaireNext"), h("QuestionnaireSubmit")),
       );
     },

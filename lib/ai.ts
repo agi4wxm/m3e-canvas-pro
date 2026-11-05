@@ -21,7 +21,7 @@ export type AiSettings = {
 
 export const PROVIDERS: { key: Provider; label: string; baseUrl: string; model: string; keysUrl?: string }[] = [
   { key: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-5.6-luna", keysUrl: "https://platform.openai.com/api-keys" },
-  { key: "claude", label: "Claude", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5", keysUrl: "https://console.anthropic.com/settings/keys" },
+  { key: "claude", label: "Claude", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5-5", keysUrl: "https://console.anthropic.com/settings/keys" },
   { key: "gemini", label: "Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.8-flash", keysUrl: "https://aistudio.google.com/apikey" },
   { key: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-v4-flash", keysUrl: "https://platform.deepseek.com/api_keys" },
 ];
@@ -84,6 +84,8 @@ export async function complete(s: AiSettings, system: string, user: string, sign
   if (!model) throw new Error("model");
   if (!isSecureUrl(base)) throw new Error("insecure");
   if (s.provider === "claude") {
+    /* where the model declines, Anthropic's API re-runs the request on one that can answer */
+    const fallback = model === "claude-sonnet-5-5" && base === "https://api.anthropic.com";
     const res = await fetch(`${base}/v1/messages`, {
       method: "POST",
       signal,
@@ -92,8 +94,9 @@ export async function complete(s: AiSettings, system: string, user: string, sign
         "x-api-key": s.key.trim(),
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true",
+        ...(fallback ? { "anthropic-beta": "server-side-fallback-2026-07-01" } : {}),
       },
-      body: JSON.stringify({ model, max_tokens: Math.min(maxTokens, 8192), system, messages: [{ role: "user", content: user }] }),
+      body: JSON.stringify({ model, max_tokens: Math.min(maxTokens, 16000), system, messages: [{ role: "user", content: user }], ...(fallback ? { fallbacks: "default" } : {}) }),
     });
     if (!res.ok) throw new Error(await readError(res));
     const j = await res.json();
@@ -248,6 +251,23 @@ export async function draftDesign(s: AiSettings, guide: string, idea: string, la
   const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple."].join("\n");
   const j = parseJsonObject(await complete(s, system, user, signal, 12000));
   if (!isProject(j)) throw new Error("json");
-  return cleanBehavior(j);
+  return withoutSampleWords(cleanBehavior(j));
+}
+
+/** Words a model left out are words the app does not need, but a part left to itself shows its sample
+ *  text ("12 new messages" under every row of a menu). What it left out stays empty; a default that is
+ *  a setting rather than words (a colour, an address, a list of states) stays. */
+export function withoutSampleWords(doc: Doc): Doc {
+  const clean = (g: Group): Group => ({
+    ...g,
+    items: g.items.map((it) => {
+      const def = partBySlug(it.component);
+      if (!def) return it;
+      const props = { ...it.props };
+      for (const d of def.props) if (d.kind === "text" && props[d.key] === undefined && !/^#|^https?:|,/.test(d.default)) props[d.key] = "";
+      return { ...it, props };
+    }),
+  });
+  return { ...doc, groups: doc.groups.map(clean), ...(doc.components ? { components: doc.components.map((c) => ({ ...c, groups: c.groups.map(clean) })) } : {}) };
 }
 

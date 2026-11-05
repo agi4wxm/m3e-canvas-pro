@@ -3,6 +3,7 @@
 import * as React from "react"
 import type { DateRange, Matcher } from "react-day-picker"
 
+import { pageLocale, say } from "@/components/m3e/say"
 import { Button } from "@/components/m3e/button"
 import { Calendar } from "@/components/m3e/calendar"
 import {
@@ -216,7 +217,7 @@ function PickerBody({
   mode,
   value,
   title,
-  locale,
+  locale = pageLocale(),
   disabled,
   startYear,
   endYear,
@@ -250,10 +251,10 @@ function PickerBody({
   const to = isRange ? range?.to : undefined
 
   const headline = isRange
-    ? `${from ? short(from, locale) : "Start date"} – ${to ? short(to, locale) : "End date"}`
+    ? `${from ? short(from, locale) : say("Start date")} – ${to ? short(to, locale) : say("End date")}`
     : single
       ? short(single, locale, true)
-      : "Enter date"
+      : say("Enter date")
 
   const goInput = () => {
     setTexts([formatDateInput(from), formatDateInput(to)])
@@ -299,7 +300,7 @@ function PickerBody({
         )}
       >
         <DialogTitle className="text-label-large text-on-surface-variant">
-          {title ?? (isRange ? "Select dates" : "Select date")}
+          {title ?? say(isRange ? "Select dates" : "Select date")}
         </DialogTitle>
         <div className="flex items-end justify-between gap-2">
           <p
@@ -408,7 +409,7 @@ function PickerBody({
       ) : (
         <div className="flex flex-col gap-4 px-6 py-6">
           <TextField
-            label={isRange ? "Start date" : "Date"}
+            label={say(isRange ? "Start date" : "Date")}
             placeholder="mm/dd/yyyy"
             supportingText="mm/dd/yyyy"
             inputMode="numeric"
@@ -420,7 +421,7 @@ function PickerBody({
           />
           {isRange && (
             <TextField
-              label="End date"
+              label={say("End date")}
               placeholder="mm/dd/yyyy"
               supportingText="mm/dd/yyyy"
               inputMode="numeric"
@@ -438,7 +439,7 @@ function PickerBody({
       )}
 
       <div className="flex justify-end gap-2 px-6 pt-2 pb-6">
-        <DialogClose render={<Button variant="text" />}>Cancel</DialogClose>
+        <DialogClose render={<Button variant="text" />}>{say("Cancel")}</DialogClose>
         <Button
           variant="text"
           disabled={!complete || backwards}
@@ -538,7 +539,7 @@ function DatePicker({
   value,
   defaultValue,
   onValueChange,
-  label = "Date",
+  label = say("Date"),
   placeholder = "mm/dd/yyyy",
   disabled,
   disabledDates,

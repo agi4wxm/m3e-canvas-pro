@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { FONTS, Palette, SHAPES, ShapeScale, Theme } from "@/lib/tokens";
 import { ensureFontLoaded } from "@/lib/theme";
 import { Lang, t, useLang } from "@/lib/i18n";
+import { listTextOf } from "@/parts/labels";
 import { Icon } from "./Icon";
 import { Toggle } from "./ui";
 
@@ -137,7 +138,7 @@ export function TypePanel({ p, theme, onChange }: { p: Palette; theme: Theme; on
               }}
             >
               <span style={{ fontSize: 24, fontWeight: 600, width: 36, flex: "0 0 auto" }}>Aa</span>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.label}</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{listTextOf(f.label, lang)}</span>
               {on && <Icon name="check" size={20} />}
             </button>
           );

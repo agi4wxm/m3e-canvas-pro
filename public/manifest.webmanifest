@@ -2,7 +2,7 @@
   "id": "./",
   "name": "M3E Canvas",
   "short_name": "M3E Canvas",
-  "description": "Sketch Material 3 Expressive screens in the browser and turn them into vibe-coding prompts.",
+  "description": "在浏览器里拖拽搭建 Material 3 Expressive 界面，预览交互，并生成可运行的项目或提示词。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -1,4 +1,5 @@
 import type { Choice, Labels, PartDef, PartLang, PropDef } from "./types";
+import { ZH_CHOICES, ZH_TEXT } from "./zh";
 
 /* The translations of the parts' own words: what the palette, the panel and the layers call a
  * part, what it calls its props, and the seed text a fresh part carries. `label`/`name`/`default`
@@ -570,7 +571,7 @@ export const COMMON_TEXT: Record<string, Labels> = {
 
 /** the label a prop or a choice shows, in the editor's language */
 export function labelOf(l: { label: string; labels?: Labels }, lang: PartLang): string {
-  return l.labels?.[lang] ?? COMMON_LABELS[l.label]?.[lang] ?? l.label;
+  return l.labels?.[lang] ?? COMMON_LABELS[l.label]?.[lang] ?? (lang === "zh" ? ZH_TEXT[l.label] : undefined) ?? l.label;
 }
 
 /** the part's name, in the editor's language */
@@ -583,14 +584,15 @@ export function nameOf(def: Pick<PartDef, "slug" | "name" | "labels">, lang: Par
 export const choiceValueOf = (c: Choice): string => (typeof c === "string" ? c : c.value);
 
 export function choiceLabelOf(c: Choice, lang: PartLang): string {
-  if (typeof c === "string") return COMMON_LABELS[c]?.[lang] ?? c;
-  return c.labels?.[lang] ?? COMMON_LABELS[c.label]?.[lang] ?? c.label;
+  const zh = (word: string) => (lang === "zh" ? ZH_CHOICES[word] : undefined);
+  if (typeof c === "string") return COMMON_LABELS[c]?.[lang] ?? zh(c) ?? c;
+  return c.labels?.[lang] ?? COMMON_LABELS[c.label]?.[lang] ?? zh(c.label) ?? c.label;
 }
 
 /** the seed a text prop starts with, in the editor's language */
 export function defaultTextOf(d: Extract<PropDef, { kind: "text" }>, lang: PartLang): string {
-  return d.defaults?.[lang] ?? COMMON_TEXT[d.default]?.[lang] ?? d.default;
+  return d.defaults?.[lang] ?? listTextOf(d.default, lang);
 }
 
-/** a list row's seed label, in the editor's language */
-export const listTextOf = (label: string, lang: PartLang): string => COMMON_TEXT[label]?.[lang] ?? label;
+/** a seed of a part's own (a list's row, a table's cell, what it says by itself), in the editor's language */
+export const listTextOf = (label: string, lang: PartLang): string => COMMON_TEXT[label]?.[lang] ?? (lang === "zh" ? ZH_TEXT[label] : undefined) ?? label;

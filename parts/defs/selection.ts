@@ -224,7 +224,7 @@ export const selection: PartDef[] = [
           h(
             "ComboboxContent",
             null,
-            h("ComboboxEmpty", null, "No items found."),
+            h("ComboboxEmpty", null, p.say("No items found.")),
             h("ComboboxList", null, ...items.map((it) => h("ComboboxItem", { value: it.label }, it.label))),
           ),
         ),

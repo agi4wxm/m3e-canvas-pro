@@ -59,6 +59,8 @@ export type P = {
   b: (key: string) => boolean;
   list: (key: string) => ListItem[];
   table: (key: string) => TableData;
+  /** words a part says by itself, in the editor's language */
+  say: (words: string) => string;
 };
 
 /** the screen a part is drawn on, when it is on one: the frame's size. Anything a part draws

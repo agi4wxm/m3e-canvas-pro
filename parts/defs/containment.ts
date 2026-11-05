@@ -172,7 +172,7 @@ export const containment: PartDef[] = [
               : trailing === "slider"
                 ? h("ItemActions", { className: "w-32" }, h("Slider", { defaultValue: [50] }))
                 : trailing === "icon" && p.s("trailingIcon")
-            ? h("ItemActions", null, h("Button", { variant: "text", size: "icon", "aria-label": "Open" }, ic(p.s("trailingIcon"))))
+            ? h("ItemActions", null, h("Button", { variant: "text", size: "icon", "aria-label": p.say("Open") }, ic(p.s("trailingIcon"))))
             : trailing === "text" && p.s("trailingText")
               ? h("ItemActions", null, h("span", { className: "text-body-medium text-on-surface-variant" }, p.s("trailingText")))
               : null;
@@ -218,7 +218,7 @@ export const containment: PartDef[] = [
     /* a dialog's point is what its two buttons each do: "Delete?" has one answer that deletes */
     slots: (p) => [...(p.s("style") === "basic" && p.s("dismiss") ? [{ key: "dismiss", label: p.s("dismiss") }] : []), ...(p.s("confirm") ? [{ key: "confirm", label: p.s("confirm") }] : [])],
     tree: (p) => {
-      const trigger = h("DialogTrigger", { render: h("Button", { variant: "tonal" }) }, "Open dialog");
+      const trigger = h("DialogTrigger", { render: h("Button", { variant: "tonal" }) }, p.say("Open dialog"));
       if (p.s("style") === "fullscreen") {
         return h(
           "Dialog",
@@ -230,7 +230,7 @@ export const containment: PartDef[] = [
             h(
               "DialogTopBar",
               { divider: true },
-              h("DialogClose", { render: h("Button", { variant: "text", size: "icon", "aria-label": "Close" }) }, ic("close")),
+              h("DialogClose", { render: h("Button", { variant: "text", size: "icon", "aria-label": p.say("Close") }) }, ic("close")),
               h("DialogTitle", null, p.s("title")),
               p.s("confirm") && h("DialogClose", { render: h("Button", { variant: "text" }), "data-tap": "confirm" }, p.s("confirm")),
             ),
@@ -281,7 +281,7 @@ export const containment: PartDef[] = [
       h(
         "AlertDialog",
         null,
-        h("AlertDialogTrigger", { render: h("Button", { variant: "outlined" }) }, "Delete account"),
+        h("AlertDialogTrigger", { render: h("Button", { variant: "outlined" }) }, p.say("Delete account")),
         h(
           "AlertDialogContent",
           { size: p.s("size") === "default" ? undefined : p.s("size") },
@@ -318,12 +318,12 @@ export const containment: PartDef[] = [
       h(
         "Sheet",
         null,
-        h("SheetTrigger", { render: h("Button", { variant: "tonal" }) }, "Open sheet"),
+        h("SheetTrigger", { render: h("Button", { variant: "tonal" }) }, p.say("Open sheet")),
         h(
           "SheetContent",
           { side: p.s("side") === "right" ? undefined : p.s("side") },
           h("SheetHeader", null, h("SheetTitle", null, p.s("title")), p.s("description") && h("SheetDescription", null, p.s("description"))),
-          p.b("footer") && h("SheetFooter", null, h("SheetClose", { render: h("Button") }, "Save"), h("SheetClose", { render: h("Button", { variant: "outlined" }) }, "Cancel")),
+          p.b("footer") && h("SheetFooter", null, h("SheetClose", { render: h("Button") }, p.say("Save")), h("SheetClose", { render: h("Button", { variant: "outlined" }) }, p.say("Cancel"))),
         ),
       ),
   },
@@ -371,7 +371,7 @@ export const containment: PartDef[] = [
       h(
         "Drawer",
         { showSwipeHandle: p.b("swipeHandle") || undefined, modal: p.b("inline") ? false : undefined },
-        h("DrawerTrigger", { render: h("Button", { variant: "tonal" }) }, "Open drawer"),
+        h("DrawerTrigger", { render: h("Button", { variant: "tonal" }) }, p.say("Open drawer")),
         h(
           "DrawerContent",
           null,
@@ -588,16 +588,16 @@ const sideSheetTree = (p: P, w: number) => {
     h(
       "div",
       { className: "flex min-w-0 flex-1 flex-col items-start gap-3 p-6" },
-      h("h3", { className: "text-title-medium text-on-surface" }, "Inbox"),
-      h("p", { className: "text-body-medium text-on-surface-variant" }, "The list keeps its place; only its width changes."),
+      h("h3", { className: "text-title-medium text-on-surface" }, p.say("Inbox")),
+      h("p", { className: "text-body-medium text-on-surface-variant" }, p.say("The list keeps its place; only its width changes.")),
     ),
     h(
       "SideSheet",
       { side: p.s("side") === "right" ? undefined : p.s("side"), detached: p.b("detached") || undefined, width: width === 360 ? undefined : width },
       // onClose is a handler the canvas cannot run, so the close button is a child of the header
-      h("SideSheetHeader", { title: p.s("title") }, p.b("closeButton") && h("Button", { variant: "ghost", size: "icon", "aria-label": "Close", className: "text-on-surface-variant" }, ic("close"))),
+      h("SideSheetHeader", { title: p.s("title") }, p.b("closeButton") && h("Button", { variant: "ghost", size: "icon", "aria-label": p.say("Close"), className: "text-on-surface-variant" }, ic("close"))),
       h("SideSheetContent", null, h("p", null, p.s("content"))),
-      p.b("footer") && h("SideSheetFooter", null, h("Button", null, "Apply"), h("Button", { variant: "outlined" }, "Cancel")),
+      p.b("footer") && h("SideSheetFooter", null, h("Button", null, p.say("Apply")), h("Button", { variant: "outlined" }, p.say("Cancel"))),
     ),
   );
 };

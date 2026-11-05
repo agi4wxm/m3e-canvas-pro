@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { CONTRASTS, Contrast, PALETTES, Palette, Theme } from "@/lib/tokens";
 import { isHex, onColorFor, schemeFromSeed } from "@/lib/color";
 import { t, useLang } from "@/lib/i18n";
+import { listTextOf } from "@/parts/labels";
 import { Section, Segmented } from "./ui";
 import { Icon } from "./Icon";
 
@@ -262,7 +263,7 @@ export function ColorPanel({
                 }}
               >
                 <span style={{ width: 28, height: 28, borderRadius: 14, background: `linear-gradient(135deg, ${pal.primary} 50%, ${pal.primaryContainer} 50%)`, flex: "0 0 auto" }} />
-                <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{pal.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{listTextOf(pal.label, lang)}</span>
                 <Swatches pal={pal} p={p} />
               </button>
             );

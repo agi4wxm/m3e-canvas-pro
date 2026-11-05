@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { complete, hasKey, isSecureUrl, type AiSettings, type Provider } from "./ai";
+import { complete, hasKey, isSecureUrl, withoutSampleWords, type AiSettings, type Provider } from "./ai";
+import { makeItem, type Doc } from "./tokens";
 
 const settings = (over: Partial<AiSettings> = {}): AiSettings =>
   ({ provider: "openai", baseUrl: "https://api.example.test", model: "test-model", key: "test-key", ...over });
@@ -132,5 +133,43 @@ describe("hasKey and isSecureUrl", () => {
     expect(isSecureUrl("http://127.0.0.1:8080/v1")).toBe(true);
     expect(isSecureUrl("http://[::1]:8080/v1")).toBe(true);
     expect(isSecureUrl("http://api.example.test/v1")).toBe(false);
+  });
+});
+
+describe("Sonnet 5.5 on Anthropic's own API", () => {
+  const sonnet = { provider: "claude", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5-5", key: "k" } as AiSettings;
+  afterEach(() => vi.unstubAllGlobals());
+  const sent = async (s: AiSettings) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ content: [{ type: "text", text: "ok" }], stop_reason: "end_turn" })));
+    vi.stubGlobal("fetch", fetchMock);
+    await complete(s, "sys", "user", undefined, 12000);
+    return { body: JSON.parse(fetchMock.mock.calls[0][1].body), headers: fetchMock.mock.calls[0][1].headers };
+  };
+  it("asks for the fallback, with room for a whole draft", async () => {
+    const { body, headers } = await sent(sonnet);
+    expect(body).toMatchObject({ fallbacks: "default", max_tokens: 12000 });
+    expect(headers["anthropic-beta"]).toBe("server-side-fallback-2026-07-01");
+  });
+  it("sends no fallback to another model or another address, which would refuse it", async () => {
+    for (const other of [{ ...sonnet, model: "claude-sonnet-5" }, { ...sonnet, baseUrl: "https://proxy.example.com" }]) {
+      const { body, headers } = await sent(other);
+      expect(body).not.toHaveProperty("fallbacks");
+      expect(headers).not.toHaveProperty("anthropic-beta");
+    }
+  });
+});
+
+describe("withoutSampleWords", () => {
+  const doc = (props: Record<string, unknown>, slug = "item") => ({ groups: [{ id: "g", x: 0, y: 0, axis: "x", items: [{ ...makeItem(slug), id: "i", props }] }], frames: [{ id: "f", name: "F", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "", brief: "" }) as Doc;
+  const read = (d: Doc, key: string) => d.groups[0].items[0].props?.[key];
+  it("leaves empty what the model left out, and keeps what it wrote", () => {
+    const out = withoutSampleWords(doc({ items: [{ label: "拿铁" }], trailing: "icon" }));
+    expect(read(out, "description")).toBe("");
+    expect(read(out, "items")).toEqual([{ label: "拿铁" }]);
+    expect(read(withoutSampleWords(doc({ description: "每行一样" })), "description")).toBe("每行一样");
+  });
+  it("leaves a default that is a setting, not words", () => {
+    expect(read(withoutSampleWords(doc({}, "web-view")), "address")).toBeUndefined();
+    expect(read(withoutSampleWords(doc({}, "item-cell")), "rarityColor")).toBeUndefined();
   });
 });
