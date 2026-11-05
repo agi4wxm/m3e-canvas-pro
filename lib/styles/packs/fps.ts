@@ -7,9 +7,6 @@ const LIT = `:is([aria-selected=true],[aria-current=true],[aria-current=page],[d
 const LINES = `:is(${ROWS},[data-slot=side-tabs-item],[data-slot=sidebar-menu-button],[data-slot=navigation-menu-trigger],[data-slot=menubar-trigger],[data-slot=command-item],[data-slot=table-row],${MENU_ITEMS})`;
 /** the places a game keeps one thing each */
 const SLOTS = `:is([data-slot=inventory-cell],[data-slot=item-cell-frame],[data-slot=reward-track-cell],[data-slot=grid-wheel-cell],[data-slot=slot-machine-cell])`;
-/** the weight of one id, which every element matches: it lifts a rule over the panel recipe, whose selector is long, without
- *  naming anything about how a part is built */
-const FIRM = ":not(#_)";
 
 /* Apex's and Valorant's menus looked at on Interface In Game; Valorant's red and off-white as it publishes them */
 export default definePack({
@@ -44,13 +41,13 @@ export default definePack({
      main button stands in a thin frame of its own a few pixels out, every label is spaced capitals. */
   css: `${LINES}{border-radius:0}
 [data-slot=item]{border:0;background-color:${mix("on-surface", 5)}}
-${LINES}${LIT}${FIRM}{background-color:${role("secondary")};color:${role("on-secondary")};box-shadow:inset 3px 0 0 ${role("primary")};border-color:transparent}
+${LINES}${LIT}{background-color:${role("secondary")};color:${role("on-secondary")};box-shadow:inset 3px 0 0 ${role("primary")};border-color:transparent}
 ${LINES}${LIT} :is([data-slot$="-title"],[data-slot$="-subtitle"],[data-slot$="-meta"],[data-slot$="-value"],[data-slot=item-description],[data-slot=icon]){color:inherit}
-:is([data-slot=toggle-group-item][data-pressed],[data-slot=pagination-link][data-active=true])${FIRM}{background-color:${role("secondary")};color:${role("on-secondary")};border-color:transparent}
+:is([data-slot=toggle-group-item][data-pressed],[data-slot=pagination-link][data-active=true]){background-color:${role("secondary")};color:${role("on-secondary")};border-color:transparent}
 ${BUTTON}:is([data-variant=filled],[data-variant=default]){outline:1px solid ${mix("on-surface", 35)};outline-offset:3px}
 ${TONED}{border:1px solid ${mix("on-surface", 28)}}
 [data-button][data-variant=outlined]{border-color:${mix("on-surface", 55)};color:${role("on-surface")}}
-:is([data-slot=dialog-content],[data-slot=alert-dialog-content])${FIRM}{border-top:2px solid ${role("primary")}}
+:is([data-slot=dialog-content],[data-slot=alert-dialog-content]){border-top:2px solid ${role("primary")}}
 :is([data-slot=dialog-title],[data-slot=alert-dialog-title]){text-transform:uppercase;letter-spacing:.06em}
 [data-slot=tooltip-content]{border-radius:0;background-color:${role("surface-container-high")};color:${role("on-surface")};border:1px solid ${mix("on-surface", 18)}}
 [data-slot=snackbar]{background-color:${role("surface-container-high")};color:${role("on-surface")};border-radius:0;border-left:3px solid ${role("primary")}}
@@ -60,7 +57,7 @@ ${TONED}{border:1px solid ${mix("on-surface", 28)}}
 [data-slot=table-row]{border-bottom-color:${mix("on-surface", 8)}}
 :is([data-slot=chip],[data-slot=filter-chip],[data-slot=input-chip]){border-color:${mix("on-surface", 30)}}
 [data-slot=checkbox]{border-radius:0}
-${SLOTS}${FIRM}{border-radius:0;background-image:none;background-color:${mix("on-surface", 4)};border:0;box-shadow:inset 0 0 0 1px ${mix("on-surface", 18)}}
-${SLOTS}:is([aria-pressed=true],[data-lit])${FIRM}{background-color:${mix("on-surface", 10)};color:${role("on-surface")};box-shadow:inset 0 0 0 2px ${role("secondary")}}
+${SLOTS}{border-radius:0;background-image:none;background-color:${mix("on-surface", 4)};border:0;box-shadow:inset 0 0 0 1px ${mix("on-surface", 18)}}
+${SLOTS}:is([aria-pressed=true],[data-lit]){background-color:${mix("on-surface", 10)};color:${role("on-surface")};box-shadow:inset 0 0 0 2px ${role("secondary")}}
 :is([data-slot=level-map-cell],[data-slot=game-board-cell],[data-slot=skill-button-face]){border-radius:0}`,
 });

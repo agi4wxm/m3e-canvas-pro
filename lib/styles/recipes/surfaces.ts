@@ -64,6 +64,8 @@ ${PLAIN_CARD}{background-color:${role("surface-container-low")}}
 ${CARD}{-webkit-backdrop-filter:blur(18px) saturate(1.5);backdrop-filter:blur(18px) saturate(1.5);border:1px solid rgb(255 255 255/.24);box-shadow:0 8px 28px rgb(0 0 0/.16)}`,
 };
 
+/** words in the accent color: the style's own for words where its fill would not read (see sheet.ts) */
+const WORDS = `var(--st-primary-text,${role("primary")})`;
 const SHEETS = `:is([data-slot=sheet-content],[data-slot=drawer-popup],[data-slot=action-sheet-group],[data-slot=side-sheet-content],[data-surface=sheet])`;
 const HANDLE = `[data-slot=sheet-handle]`;
 /** sheets that rise from the foot, and panels that slide from a side */
@@ -74,8 +76,8 @@ export const SHEET_CSS: RecipeCss<Recipes["sheet"]> = {
 [data-slot=sheet-content][data-side=bottom],[data-slot=drawer-popup][data-swipe-direction=down]{border-radius:12px 12px 0 0}
 [data-slot=drawer-swipe-handle]{opacity:.6}
 [data-slot=action-sheet-group]{border-radius:14px;background-color:${mix("surface-container-low", 88)};-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
-[data-slot=action-sheet-action]{color:${role("primary")};font-size:20px;height:56px}
-[data-slot=action-sheet-cancel]{border-radius:14px;height:56px;font-size:20px;font-weight:600;background-color:${role("surface-container-low")};color:${role("primary")};border:0}`,
+[data-slot=action-sheet-action]{color:${WORDS};font-size:20px;height:56px}
+[data-slot=action-sheet-cancel]{border-radius:14px;height:56px;font-size:20px;font-weight:600;background-color:${role("surface-container-low")};color:${WORDS};border:0}`,
   /* WeChat: the actions as full-width rows of words, Cancel parted from them by a band of the grey ground */
   weui: `[data-slot=action-sheet]{gap:0;background-color:${role("surface")};border-radius:12px 12px 0 0;overflow:hidden}
 [data-slot=action-sheet-group]{border-radius:0;background-color:${role("surface-container-low")}}

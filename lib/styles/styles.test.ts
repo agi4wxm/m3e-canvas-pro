@@ -2,6 +2,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { APP_SCOPE, RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, variantLabel, STYLE_PACKS, artOf, hasBackdrop, normalizeRecipes, recipesOf, screenBackground, styleCatalog, styleCss, styleOf, stylePalette, stylePatch, styleSeed, type StyleRoles } from ".";
 import { DEFAULT_THEME, FONTS, ICON_FAMILIES, SHAPES, fontFamilyOf, langFaceOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Theme } from "../tokens";
+import { RECIPE_CSS } from "./recipes";
+import * as shared from "./recipes/shared";
 
 const root = new URL("../../", import.meta.url);
 
@@ -257,6 +259,144 @@ describe("what a style writes", () => {
         if (v !== "m3") expect(css, `${k} ${v}`).not.toBe("");
         expect((css.match(/\{/g) ?? []).length, `${k} ${v}`).toBe((css.match(/\}/g) ?? []).length);
       }
+  });
+});
+
+/* The specificity of a selector, as far as the selectors a style writes go: attributes, classes, ids, types,
+ * pseudo-classes and -elements, and :is/:not/:has (the weight of their heaviest argument) and :where (none). */
+type Weight = [ids: number, classes: number, types: number];
+const heavier = (a: Weight, b: Weight) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+/** a selector list cut at its own commas, not at those inside brackets, parentheses or quotes */
+function selectorsOf(list: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let quote = "";
+  let start = 0;
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i];
+    if (quote) {
+      if (c === quote) quote = "";
+    } else if (c === '"' || c === "'") quote = c;
+    else if (c === "(" || c === "[") depth++;
+    else if (c === ")" || c === "]") depth--;
+    else if (c === "," && depth === 0) {
+      out.push(list.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  out.push(list.slice(start).trim());
+  return out.filter(Boolean);
+}
+/** where the bracket or parenthesis opened at `i` closes */
+function closing(s: string, i: number): number {
+  const open = s[i];
+  const close = open === "(" ? ")" : "]";
+  let depth = 0;
+  let quote = "";
+  for (let j = i; j < s.length; j++) {
+    const c = s[j];
+    if (quote) {
+      if (c === quote) quote = "";
+    } else if (c === '"' || c === "'") quote = c;
+    else if (c === open) depth++;
+    else if (c === close && --depth === 0) return j;
+  }
+  throw new Error(`unbalanced ${open} in ${s}`);
+}
+/** the weight of a selector list as `:is()` gives it: that of its heaviest selector */
+function weightOf(list: string): Weight {
+  return selectorsOf(list)
+    .map(weightOfOne)
+    .reduce<Weight>((m, w) => (heavier(w, m) > 0 ? w : m), [0, 0, 0]);
+}
+function weightOfOne(sel: string): Weight {
+  const w: Weight = [0, 0, 0];
+  const add = (x: Weight) => x.forEach((n, k) => (w[k] += n));
+  const ident = /^-?[_a-zA-Z][-_a-zA-Z0-9]*/;
+  for (let i = 0; i < sel.length; ) {
+    const c = sel[i];
+    if (/[\s>+~*&]/.test(c)) i++;
+    else if (c === "[") {
+      i = closing(sel, i) + 1;
+      w[1]++;
+    } else if (c === "." || c === "#") {
+      const name = sel.slice(i + 1).match(ident)?.[0] ?? "";
+      i += 1 + name.length;
+      w[c === "#" ? 0 : 1]++;
+    } else if (c === ":") {
+      const element = sel[i + 1] === ":";
+      const at = i + (element ? 2 : 1);
+      const name = sel.slice(at).match(ident)?.[0] ?? "";
+      i = at + name.length;
+      let args = "";
+      if (sel[i] === "(") {
+        const end = closing(sel, i);
+        args = sel.slice(i + 1, end);
+        i = end + 1;
+      }
+      if (element || ["before", "after", "first-line", "first-letter"].includes(name)) w[2]++;
+      else if (name === "where") continue;
+      else if (["is", "not", "has", "matches"].includes(name)) add(weightOf(args));
+      else w[1]++;
+    } else {
+      const name = sel.slice(i).match(ident)?.[0];
+      if (!name) throw new Error(`cannot weigh ${sel} at ${i}`);
+      i += name.length;
+      w[2]++;
+    }
+  }
+  return w;
+}
+/** every selector of a stylesheet, the nested ones included */
+const selectorsIn = (css: string) => [...css.matchAll(/(?:^|[{};])\s*([^{};]+?)\s*\{/g)].flatMap((m) => selectorsOf(m[1]));
+
+describe("how the rules of a style are weighed", () => {
+  it("weighs what it is told to", () => {
+    expect(weightOf("[data-slot=card]")).toEqual([0, 1, 0]);
+    expect(weightOf(':is([class~="a"],[class~="b"])[class*="rounded"]:not([aria-hidden],[data-button])')).toEqual([0, 3, 0]);
+    expect(weightOf(":where(.a.b.c),[data-x]")).toEqual([0, 1, 0]);
+    expect(weightOf("[data-a] [data-b]:hover::before")).toEqual([0, 3, 1]);
+    expect(weightOf(":not(#_)")).toEqual([1, 0, 0]);
+    expect(weightOf('[data-slot$="-card"],[data-x="a,b"]')).toEqual([0, 1, 0]);
+  });
+
+  it("weighs every shared list as one named part, so that the order the rules are written in decides between them", () => {
+    /* The surface recipe comes first and dresses every panel; the recipes after it (a card, a sheet, a menu, a dialog)
+       and last the pack's own css are meant to win over it by coming later. That only holds while a list weighs no more
+       than one `[data-slot=…]`: what only narrows a list down (a :not, a class it must also have) goes in :where. */
+    const lists = Object.entries(shared).filter(([k, v]) => /^[A-Z_]+$/.test(k) && typeof v === "string");
+    /* a button and the state or variant it is in: one part more, and meant to be */
+    const twoParts: Record<string, string> = { PRESSES: "a button while pressed", TONED: "a button of one of the lesser variants" };
+    /* not lists of parts: a filter that weighs nothing, and the values of a property */
+    const notLists: Record<string, string> = { UNPAINTED: "a filter, added to a list", NOT_INVERSE: "a filter, added to a list", NOT_HEADINGS: "said only inside :not", SHEEN: "a gradient", FADED: "a mask" };
+    expect(lists.length).toBeGreaterThan(15);
+    for (const [k, v] of lists) {
+      if (k in notLists) continue;
+      expect(weightOf(v as string), `${k} weighs more than one part`).toEqual(k in twoParts ? [0, 2, 0] : [0, 1, 0]);
+    }
+    /* a filter weighs nothing at all */
+    for (const filter of [shared.UNPAINTED, shared.NOT_INVERSE]) expect(weightOf(`[data-slot=card]${filter}`)).toEqual([0, 1, 0]);
+  });
+
+  it("never lifts a rule by the weight of an id: what is meant to win comes later", () => {
+    const every = STYLE_PACKS.map((s) => styleCss(themed(s.key)));
+    every.push(...RECIPE_KEYS.flatMap((k) => RECIPES[k].map((v) => styleCss({ ...DEFAULT_THEME, recipes: { [k]: v } }))));
+    const selectors = new Set(every.flatMap(selectorsIn));
+    expect(selectors.size).toBeGreaterThan(500);
+    for (const sel of selectors) expect(weightOf(sel)[0], `an id's weight in ${sel}`).toBe(0);
+    for (const f of readdirSync(new URL("lib/styles/packs", root))) expect(/:not\(\s*#/.test(readFileSync(new URL(`lib/styles/packs/${f}`, root), "utf8")), `${f} lifts a rule by an id`).toBe(false);
+  });
+
+  it("writes the surface recipe first, the recipes that build on it after it, and the pack's own word last", () => {
+    for (const s of STYLE_PACKS) {
+      if (!s.css) continue;
+      const css = styleCss(themed(s.key));
+      const r = recipesOf(themed(s.key));
+      const surface = RECIPE_CSS.surface[r.surface];
+      const card = RECIPE_CSS.card[r.card];
+      expect(css.lastIndexOf(s.css), s.key).toBeGreaterThan(Math.max(css.indexOf(surface), css.indexOf(card)));
+      if (surface && card) expect(css.indexOf(card), s.key).toBeGreaterThan(css.indexOf(surface));
+    }
   });
 });
 

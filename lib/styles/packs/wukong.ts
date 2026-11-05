@@ -21,9 +21,6 @@ const CLOUD = svg(
 const ACROSS = `:is([data-slot=separator],[data-slot=item-separator],[data-slot=dialog-divider],[data-slot$="-divider"]):not([data-orientation=vertical])`;
 /** the places a game keeps one thing each */
 const SLOTS = `:is([data-slot=inventory-cell],[data-slot=item-cell-frame],[data-slot=reward-track-cell],[data-slot=grid-wheel-cell],[data-slot=slot-machine-cell])`;
-/** the weight of one id, which every element matches: it lifts a rule over the panel recipe, whose selector is long, without
- *  naming anything about how a part is built */
-const FIRM = ":not(#_)";
 /** what is drawn round on purpose, an egg or a ball, which a frame with straight edges would spoil */
 const ROUND = `[data-slot=egg-smash-item],[data-slot=gacha-dot],[data-slot=gacha-media],[data-slot=wheel-track]`;
 const WINDOWS = `:is([data-slot=tooltip-content],[data-slot=snackbar],[data-slot=toast])`;
@@ -56,17 +53,17 @@ export default definePack({
   type: SERIF_RAMP(24),
   /* Panels are black lacquer ruled above and below in bronze; a divider is a bronze line with a cloud at its middle;
      the chosen line of any list is the pale band the game draws; what is on, checked or counted is a vermilion seal. */
-  css: `:is(${PANELS}):not(${ROUND}){background-image:linear-gradient(180deg,${mix("primary", 4)},${mix("surface", 60)});border:0;border-block:1px solid transparent;border-image:${BRONZE_LINE} 1;box-shadow:0 14px 36px rgb(0 0 0/.35)}
-${WINDOWS}${FIRM}{background-color:${mix("surface-container-low", 96)};color:${role("on-surface")};border-radius:0;border:0;border-block:1px solid transparent;border-image:${BRONZE_LINE} 1}
+  css: `:is(${PANELS}):where(:not(${ROUND})){background-image:linear-gradient(180deg,${mix("primary", 4)},${mix("surface", 60)});border:0;border-block:1px solid transparent;border-image:${BRONZE_LINE} 1;box-shadow:0 14px 36px rgb(0 0 0/.35)}
+${WINDOWS}{background-color:${mix("surface-container-low", 96)};color:${role("on-surface")};border-radius:0;border:0;border-block:1px solid transparent;border-image:${BRONZE_LINE} 1}
 [data-slot=snackbar-action]{color:${role("primary")}}
 ${ACROSS}{background-image:linear-gradient(90deg,transparent,var(--st-rim) 22%,var(--st-rim) calc(50% - 26px),transparent calc(50% - 26px) calc(50% + 26px),var(--st-rim) calc(50% + 26px),var(--st-rim) 78%,transparent)}
 ${ACROSS}::after{width:40px;height:14px;rotate:0deg;background:${CLOUD} center/40px 14px no-repeat;box-shadow:none}
 :is([data-slot=dialog-title],[data-slot=alert-dialog-title],[data-slot=sheet-title],[data-slot=empty-title])::before{content:"";display:inline-block;width:.56em;height:.56em;margin-right:.45em;vertical-align:.1em;rotate:-6deg;border-radius:2px;background-color:${SEAL};box-shadow:0 0 0 1px color-mix(in srgb,${SEAL} 40%,transparent)}
 :is([data-slot=settings-group-title],[data-slot=sidebar-group-label],[data-slot=check-in-title]){color:var(--st-rim);font-family:var(--st-display,inherit)}
 ${LINES}{border-radius:0}
-${LINES}${LIT}${FIRM}{${BAND};border-color:transparent;outline:0;box-shadow:none}
+${LINES}${LIT}{${BAND};border-color:transparent;outline:0;box-shadow:none}
 ${LINES}${LIT} :is([data-slot$="-title"],[data-slot$="-subtitle"],[data-slot$="-meta"],[data-slot$="-value"],[data-slot=item-description],[data-slot$="-chevron"],[data-slot=icon]){color:inherit}
-:is([data-slot=toggle-group-item][data-pressed],[data-slot=pagination-link][data-active=true])${FIRM}{${BAND};border-color:transparent}
+:is([data-slot=toggle-group-item][data-pressed],[data-slot=pagination-link][data-active=true]){${BAND};border-color:transparent}
 [data-slot=side-tabs]{gap:0}
 [data-slot=tabs-trigger][data-active]{color:${role("on-primary")}}
 :is(${MENU_SEPARATORS}){background-color:transparent;background-image:linear-gradient(90deg,transparent,var(--st-rim),transparent)}
@@ -85,8 +82,8 @@ ${LINES}${LIT} :is([data-slot$="-title"],[data-slot$="-subtitle"],[data-slot$="-
 [data-slot=table-head]{color:var(--st-rim);font-size:var(--text-label-medium);letter-spacing:.1em}
 [data-slot=table-row]{border-bottom-color:${mix("outline", 30)}}
 [data-slot=stat-bar-track]{outline-color:var(--st-rim)}
-${SLOTS}${FIRM}{border:0;border-radius:0;background-image:none;background-color:${role("surface-container-low")};box-shadow:inset 0 0 0 1px ${mix("outline", 55)}}
-${SLOTS}:is([aria-pressed=true],[data-lit])${FIRM}{background-color:${role("surface-container-high")};color:${role("on-surface")};box-shadow:inset 0 0 0 1px ${role("primary")},0 0 14px rgb(232 226 210/.25)}
+${SLOTS}{border:0;border-radius:0;background-image:none;background-color:${role("surface-container-low")};box-shadow:inset 0 0 0 1px ${mix("outline", 55)}}
+${SLOTS}:is([aria-pressed=true],[data-lit]){background-color:${role("surface-container-high")};color:${role("on-surface")};box-shadow:inset 0 0 0 1px ${role("primary")},0 0 14px rgb(232 226 210/.25)}
 :is([data-slot=level-map-cell],[data-slot=game-board-cell],[data-slot=skill-button-face]){border-radius:0}
 [data-slot=level-map-cell][data-current]{background-color:${SEAL};color:${PAPER};box-shadow:none}
 [data-slot=skill-button-face]{box-shadow:inset 0 0 0 1px var(--st-rim)}`,

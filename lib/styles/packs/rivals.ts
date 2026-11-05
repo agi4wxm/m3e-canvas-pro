@@ -7,9 +7,6 @@ const LIT = `:is([aria-selected=true],[aria-current=true],[aria-current=page],[d
 const LINES = `:is(${ROWS},[data-slot=side-tabs-item],[data-slot=sidebar-menu-button],[data-slot=navigation-menu-trigger],[data-slot=menubar-trigger],[data-slot=command-item],[data-slot=table-row],${MENU_ITEMS})`;
 /** the places a game keeps one thing each */
 const SLOTS = `:is([data-slot=inventory-cell],[data-slot=item-cell-frame],[data-slot=reward-track-cell],[data-slot=grid-wheel-cell],[data-slot=slot-machine-cell])`;
-/** the weight of one id, which every element matches: it lifts a rule over the panel recipe, whose selector is long, without
- *  naming anything about how a part is built */
-const FIRM = ":not(#_)";
 const NAVY = "#15193A";
 const YELLOW = "#FFD60A";
 /** the ink line a comic draws round everything: navy on white, white on the dark */
@@ -54,7 +51,7 @@ ${BUTTON}:active{translate:2px 2px;box-shadow:1px 1px 0 ${INK}}
 :is([data-slot=input],[data-slot=textarea],[data-slot=select-trigger],[data-slot=input-group],[data-slot=text-field-box],[data-slot=search-bar]):focus-within{border-color:${role("secondary")};box-shadow:3px 3px 0 ${YELLOW}}
 ${LINES}{border-radius:0}
 [data-slot=item]{border:0;border-left:4px solid ${INK};background-color:${role("surface-container-low")}}
-${LINES}${LIT}${FIRM}{background-color:transparent;background-image:linear-gradient(105deg,${YELLOW} calc(100% - 22px),transparent calc(100% - 22px));background-repeat:no-repeat;color:${NAVY};border-color:transparent;border-left-color:${NAVY};box-shadow:none}
+${LINES}${LIT}{background-color:transparent;background-image:linear-gradient(105deg,${YELLOW} calc(100% - 22px),transparent calc(100% - 22px));background-repeat:no-repeat;color:${NAVY};border-color:transparent;border-left-color:${NAVY};box-shadow:none}
 ${LINES}${LIT} :is([data-slot$="-title"],[data-slot$="-subtitle"],[data-slot$="-meta"],[data-slot$="-value"],[data-slot=item-description],[data-slot=icon]){color:inherit}
 [data-slot=pagination-link][data-active=true]{background-color:${YELLOW};color:${NAVY};border:2px solid ${INK};${LEAN}}
 :is([data-slot=dialog-title],[data-slot=alert-dialog-title]){background-image:linear-gradient(115deg,transparent 0 14px,${YELLOW} 14px 22px,transparent 22px 28px,${YELLOW} 28px 31px,transparent 31px);font-style:italic;font-weight:800;text-transform:uppercase}
@@ -73,8 +70,8 @@ ${LINES}${LIT} :is([data-slot$="-title"],[data-slot$="-subtitle"],[data-slot$="-
 [data-slot=table-header]{background-color:${NAVY}}
 [data-slot=table-header] [data-slot=table-head]{color:#fff}
 [data-slot=table-row]{border-bottom:2px solid ${mix("on-surface", 14)}}
-${SLOTS}${FIRM}{border-radius:0;border:2px solid ${INK};background-image:none;background-color:${role("surface-container-low")};box-shadow:none}
-${SLOTS}:is([aria-pressed=true],[data-lit])${FIRM}{background-color:${YELLOW};color:${NAVY};box-shadow:3px 3px 0 ${role("secondary")}}
+${SLOTS}{border-radius:0;border:2px solid ${INK};background-image:none;background-color:${role("surface-container-low")};box-shadow:none}
+${SLOTS}:is([aria-pressed=true],[data-lit]){background-color:${YELLOW};color:${NAVY};box-shadow:3px 3px 0 ${role("secondary")}}
 :is([data-slot=level-map-cell],[data-slot=game-board-cell]){border-radius:0;border:2px solid ${INK}}
 [data-slot=level-map-cell]{${LEAN}}`,
 });
