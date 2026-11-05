@@ -101,6 +101,12 @@ describe("a kit added", () => {
     const groups = kitGroups(kitBySlug("search-bar")!, desk, "en");
     expect(groups.some((g) => g.items[0].component === "kbd")).toBe(true);
     expect(kitLookOf({ ...DEFAULT_THEME, dark: true }).dark).toBe(true);
+    /* how a style composes, read from its recipes and its face */
+    expect(kitLookOf({ ...DEFAULT_THEME, style: "ios" })).toMatchObject({ dialog: "alert", list: "inset", nav: "plain", caption: "lights" });
+    expect(kitLookOf({ ...DEFAULT_THEME, style: "wechat" })).toMatchObject({ dialog: "weui", avatar: "square", caption: "lights" });
+    expect(kitLookOf({ ...DEFAULT_THEME, style: "fluent" }).caption).toBe("buttons");
+    expect(kitLookOf({ ...DEFAULT_THEME, style: "notion" }).caption).toBe("buttons");
+    expect(kitLookOf(DEFAULT_THEME)).toMatchObject({ dialog: "m3", nav: "m3", caption: "buttons" });
     /* and the room there is: the one-row box is for a wide screen, whatever the style */
     const desktop: Frame = { id: "d", name: "D", x: 0, y: 0, w: 1280, h: 800 };
     expect(treeSize(kitGroups(kitBySlug("codex-prompt")!, desk, "en", { screen: phone })).w).toBe(380);

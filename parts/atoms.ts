@@ -46,7 +46,8 @@ export const area = (placeholder: Words, more: Props = {}, extra: Extra = {}): N
 
 export const avatar = (initials: Words, more: Props = {}, extra: Extra = {}): Node => atom("avatar", { initials, ...more }, extra);
 
-export const chip = (label: Words, more: Props = {}, extra: Extra = {}): Node => atom("chip", { label, ...more }, extra);
+/** one chip: the chip atom holds a list of them, here just the one */
+export const chip = (label: Words, more: Props = {}, extra: Extra = {}): Node => atom("chip", { items: [{ label }], ...more }, extra);
 
 export const svg = (preset: string, more: Props = {}, extra: Extra = {}): Node => atom("svg", { mode: "preset", preset, ...more }, extra);
 
@@ -67,7 +68,8 @@ export function settleSizes(n: Node, parent?: Node): Node {
     const dir = parent.props.layout;
     const stretched = parent.props.align === "stretch";
     const grows = !!n.grow || n.fill === true;
-    if ((dir === "column" && stretched) || (dir === "row" && grows)) props = { ...props, hugWidth: false };
+    /* a grid's cell gives its width as a stretched column does */
+    if (((dir === "column" || dir === "grid") && stretched) || (dir === "row" && grows)) props = { ...props, hugWidth: false };
     if ((dir === "row" && stretched) || (dir === "column" && grows)) props = { ...props, hugHeight: false };
   }
   const self = props === n.props ? n : { ...n, props };

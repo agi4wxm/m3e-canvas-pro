@@ -1,6 +1,6 @@
 import { area, button, entry, hbox, iconButton, round, vbox } from "../atoms";
 import { say, type Node } from "../templates/kit";
-import { MATERIAL_LOOK, isWide, type KitDef, type KitLook } from "./types";
+import { isWide, type KitDef } from "./types";
 
 /* The boxes people type a prompt into. Each is one card: a bare entry that grows with the words,
  * over a row of small controls (attach, tools, the model, send). They are compositions modeled on
@@ -61,17 +61,9 @@ const claude: KitDef = {
   ],
 };
 
-/** On a light page the Codex box is the dark one it is known for: the box takes the inverse surface
- *  and everything on it the words that read on it. On a dark page it already is. */
-function darkened(node: Node, look: KitLook): Node {
-  if (look.dark) return node;
-  const ink = (n: Node): Node => {
-    const own: Partial<Node> = n.slug === "box" ? {} : n.fill ? { textColor: "onSurface" } : { textColor: "inverseOnSurface" };
-    return { ...n, ...own, kids: n.kids?.map(ink) };
-  };
-  return { ...ink(node), fill: "inverseSurface" };
-}
-
+/* The Codex box follows the page: a panel in the page's own mode, so it reads the same however the document's mode
+ * changes after it is added (an inverted box flips to white in dark mode). What makes it Codex's is its main action:
+ * the one pill in the inverse color, black on a light page and white on a dark one, as the product draws it. */
 const codexFoot = (wide: boolean): Node[] => {
   const pickers = hbox({ gap: 6 }, [
     button(say("my-app", "my-app", "my-app", "my-app"), { variant: "outlined", size: "xs", icon: "book_2", trailingIcon: "keyboard_arrow_down" }),
@@ -80,8 +72,7 @@ const codexFoot = (wide: boolean): Node[] => {
   const actions = hbox({ gap: 6 }, [
     iconButton("mic", T.dictate, { variant: "ghost", size: "xs" }),
     button(say("Ask", "提问", "質問", "질문"), { variant: "outlined", size: "xs" }),
-    /* the main action reads light on the dark box */
-    button(say("Code", "写代码", "コード", "코드"), { variant: "filled", size: "xs" }, { fill: "surface" }),
+    button(say("Code", "写代码", "コード", "코드"), { variant: "filled", size: "xs" }, { fill: "inverseSurface" }),
   ]);
   return wide ? [hbox({ justify: "between", gap: 8 }, [pickers, actions])] : [pickers, hbox({ justify: "end", gap: 6 }, [actions])];
 };
@@ -92,35 +83,29 @@ const codex: KitDef = {
   labels: { zh: "Codex 风格输入框", ja: "Codex 風入力ボックス", ko: "Codex 스타일 입력창" },
   category: "AI",
   icon: "terminal",
-  about: "a dark panel with a growing plain textarea, repository and branch pickers, a mic, and Ask / Code buttons",
+  about: "a panel with a growing plain textarea, repository and branch pickers, a mic, an outlined Ask and a Code button in the inverse color",
   variants: [
     {
       key: "phone",
       name: "Phone, stacked",
       labels: { zh: "手机竖排", ja: "スマホ・縦並び", ko: "휴대폰·세로" },
       suits: (l) => !isWide(l),
-      build: (look = MATERIAL_LOOK) =>
-        darkened(
-          vbox({ surface: "panel", width: W, hugWidth: false, padX: 16, padY: 16, gap: 12 }, [area(say("Ask Codex anything…", "问 Codex 任何问题…", "Codex に何でも聞く…", "Codex에게 무엇이든 물어보세요…"), { rows: 2 }), ...codexFoot(false)], {
-            name: say("Prompt box", "输入框", "入力ボックス", "입력창"),
-            corners: round(24),
-          }),
-          look,
-        ),
+      build: () =>
+        vbox({ surface: "panel", width: W, hugWidth: false, padX: 16, padY: 16, gap: 12 }, [area(say("Ask Codex anything…", "问 Codex 任何问题…", "Codex に何でも聞く…", "Codex에게 무엇이든 물어보세요…"), { rows: 2 }), ...codexFoot(false)], {
+          name: say("Prompt box", "输入框", "入力ボックス", "입력창"),
+          corners: round(24),
+        }),
     },
     {
       key: "wide",
       name: "Desktop, one row",
       labels: { zh: "桌面单行", ja: "デスクトップ・一行", ko: "데스크톱·한 줄" },
       suits: isWide,
-      build: (look = MATERIAL_LOOK) =>
-        darkened(
-          vbox({ surface: "panel", width: 640, hugWidth: false, padX: 16, padY: 16, gap: 16 }, [area(say("Describe a task", "描述一个任务", "タスクを説明", "작업을 설명하세요"), { rows: 2 }), ...codexFoot(true)], {
-            name: say("Prompt box", "输入框", "入力ボックス", "입력창"),
-            corners: round(20),
-          }),
-          look,
-        ),
+      build: () =>
+        vbox({ surface: "panel", width: 640, hugWidth: false, padX: 16, padY: 16, gap: 16 }, [area(say("Describe a task", "描述一个任务", "タスクを説明", "작업을 설명하세요"), { rows: 2 }), ...codexFoot(true)], {
+          name: say("Prompt box", "输入框", "入力ボックス", "입력창"),
+          corners: round(20),
+        }),
     },
   ],
 };

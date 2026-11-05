@@ -18,12 +18,13 @@ beforeAll(() => {
   setGlobalLang("en");
 });
 
-const LOOKS: KitLook[] = [
-  MATERIAL_LOOK,
-  { ...MATERIAL_LOOK, field: "soft", bar: "center", list: "inset", toggle: "ios", dark: true },
-  { ...MATERIAL_LOOK, group: "desktop", field: "boxed", compact: true },
-  { ...MATERIAL_LOOK, group: "pcGame", field: "line", bar: "hud", dark: true },
-];
+/* looks of the kinds the styles come in, written as fields: no style is named */
+const IPHONE: KitLook = { ...MATERIAL_LOOK, field: "soft", bar: "center", appbar: "ios", list: "inset", toggle: "ios", nav: "floating", segmented: "ios", dialog: "alert", sheet: "grabber", row: "chevron", caption: "lights", dark: true };
+const MESSENGER: KitLook = { ...MATERIAL_LOOK, field: "soft", bar: "center", appbar: "center", list: "flush", toggle: "ios", nav: "plain", dialog: "weui", sheet: "weui", avatar: "square", caption: "lights" };
+const DESK: KitLook = { ...MATERIAL_LOOK, group: "desktop", field: "boxed", list: "hairline", toggle: "outline", nav: "icononly", tabs: "topline", dialog: "modal", compact: true };
+const MOBILE_GAME: KitLook = { ...MATERIAL_LOOK, group: "mobileGame", field: "hard", bar: "hud", button: "gloss", list: "tile", nav: "gamebar", dialog: "game", dialogue: "band" };
+const PC_GAME: KitLook = { ...MATERIAL_LOOK, group: "pcGame", field: "line", bar: "hud", list: "tile", nav: "topline", dialog: "plain", dialogue: "portrait", dark: true };
+const LOOKS: KitLook[] = [MATERIAL_LOOK, IPHONE, MESSENGER, DESK, MOBILE_GAME, PC_GAME];
 
 const walk = (n: Node, depth = 0, into: { node: Node; depth: number }[] = []) => {
   into.push({ node: n, depth });
@@ -65,7 +66,11 @@ describe("every kit", () => {
         for (const v of k.variants) expect(v.labels[l], `${k.slug}/${v.key} ${l}`).toBeTruthy();
       }
     }
-    expect(KITS.length).toBeGreaterThanOrEqual(10);
+    expect(KITS.length).toBeGreaterThanOrEqual(55);
+  });
+
+  it("has a variant for a document with no style: Material's", () => {
+    for (const k of KITS) expect(k.variants.some((v) => !v.suits || v.suits(MATERIAL_LOOK)), k.slug).toBe(true);
   });
 
   it("builds a tree of atoms only, in which only boxes hold anything", () => {
@@ -86,7 +91,7 @@ describe("every kit", () => {
   it("sets only props its parts have, each of the right kind and in range, in every language", () => {
     for (const k of KITS)
       for (const v of k.variants)
-        for (const { node } of walk(v.build(MATERIAL_LOOK))) {
+        for (const { node } of LOOKS.flatMap((look) => walk(v.build(look)))) {
           const def = partBySlug(node.slug)!;
           for (const lang of ["en", "zh", "ja", "ko"] as const) {
             const props = inLang(node.props, lang);
@@ -118,14 +123,49 @@ describe("every kit", () => {
     expect(pickVariant(search, { ...MATERIAL_LOOK, group: "desktop", field: "boxed" }).key).toBe("desktop");
     expect(pickVariant(search, MATERIAL_LOOK, "desktop").key).toBe("desktop");
     expect(pickVariant(kitBySlug("top-app-bar")!, { ...MATERIAL_LOOK, bar: "center" }).key).toBe("center");
+    /* each product's own composition, from the look's fields */
+    const picked = (slug: string, look: KitLook) => pickVariant(kitBySlug(slug)!, look).key;
+    expect(picked("dialog-body", MATERIAL_LOOK)).toBe("material");
+    expect(picked("dialog-body", IPHONE)).toBe("alert");
+    expect(picked("dialog-body", MESSENGER)).toBe("weui");
+    expect(picked("dialog-body", MOBILE_GAME)).toBe("game");
+    expect(picked("option-sheet", IPHONE)).toBe("ios");
+    expect(picked("option-sheet", MESSENGER)).toBe("weui");
+    expect(picked("tab-bar", MATERIAL_LOOK)).toBe("pill");
+    expect(picked("tab-bar", IPHONE)).toBe("floating");
+    expect(picked("tab-bar", MESSENGER)).toBe("tint");
+    expect(picked("tab-bar", MOBILE_GAME)).toBe("game");
+    expect(picked("window-title-bar", MATERIAL_LOOK)).toBe("buttons");
+    expect(picked("window-title-bar", IPHONE)).toBe("lights");
+    expect(picked("inset-group", IPHONE)).toBe("inset");
+    expect(picked("inset-group", MESSENGER)).toBe("flush");
+    expect(picked("inset-group", MATERIAL_LOOK)).toBe("material");
+    expect(picked("button-stack", IPHONE)).toBe("stacked");
+    expect(picked("button-stack", MESSENGER)).toBe("halves");
+    expect(picked("button-stack", DESK)).toBe("desk");
+    expect(picked("conversation-row", MESSENGER)).toBe("im");
+    expect(picked("hud-top-bar", PC_GAME)).toBe("pc");
+    expect(picked("dialogue-panel", MOBILE_GAME)).toBe("band");
     /* a key it does not have falls back on the look */
     expect(pickVariant(search, MATERIAL_LOOK, "nope").key).toBe("material");
   });
 
-  it("is dark on a light page where its product is, and follows a dark one", () => {
+  it("follows the page's mode, so a document that changes mode keeps it readable", () => {
+    /* a box painted in a fixed inverse would turn white on a dark page; the Codex box is a panel of the page's
+     * mode and only its main action takes the inverse color, which reads in either */
     const codex = kitBySlug("codex-prompt")!;
-    expect(codex.variants[0].build(MATERIAL_LOOK).fill).toBe("inverseSurface");
-    expect(codex.variants[0].build({ ...MATERIAL_LOOK, dark: true }).fill).toBeUndefined();
+    for (const dark of [false, true]) {
+      const tree = codex.variants[0].build({ ...MATERIAL_LOOK, dark });
+      expect(tree.fill).toBeUndefined();
+      expect(tree.props.surface).toBe("panel");
+      expect(walk(tree).find(({ node }) => node.slug === "button" && node.props.variant === "filled")!.node.fill).toBe("inverseSurface");
+    }
+  });
+
+  it("puts a setting's icon on a colored tile only in grouped inset lists", () => {
+    const tiled = (look: KitLook) => walk(kitBySlug("settings-row")!.variants[0].build(look)).some(({ node }) => node.slug === "box" && node.props.surface === "button");
+    expect(tiled({ ...MATERIAL_LOOK, list: "inset" })).toBe(true);
+    expect(tiled({ ...MATERIAL_LOOK, toggle: "ios", list: "plain" })).toBe(false);
   });
 
   it("is kept by a favorite under a key of its own", () => {
@@ -156,8 +196,53 @@ describe("the composites that split", () => {
   const splits = PARTS.filter((d) => d.atoms);
 
   it("cover the common ones", () => {
-    for (const slug of ["search", "app-bar", "item", "card", "alert", "banner", "notice-bar", "section-header", "stat-card", "asset-pill", "chat-composer", "empty"]) expect(partBySlug(slug)?.atoms, slug).toBeTruthy();
+    const common = ["search", "app-bar", "item", "card", "alert", "banner", "notice-bar", "section-header", "stat-card", "asset-pill", "chat-composer", "empty"];
+    const more = ["navigation-bar", "tabs", "toolbar", "breadcrumb", "steps", "title-bar", "status-bar", "dialog", "alert-dialog", "action-sheet", "sonner", "settings-group", "notification-list", "conversation-list", "contact-list", "comment-list", "transaction-list", "leaderboard", "product-card", "price-tag", "coupon", "checkout-bar", "balance-card", "profile-header", "post-card", "route-card", "subscription", "review-summary", "description-list", "timeline", "message", "bubble", "attachment", "task-row", "item-cell", "character-card", "game-result", "dialogue-box", "stat-bar", "reward-track", "check-in"];
+    for (const slug of [...common, ...more]) expect(partBySlug(slug)?.atoms, slug).toBeTruthy();
     for (const d of splits) expect(tierOf(d), d.slug).toBe("composite");
+    expect(splits.length).toBeGreaterThanOrEqual(common.length + 30);
+  });
+
+  it("keep the part's words", () => {
+    /* what a part shows only after a press, or only to code, is not on it to begin with */
+    const unseen: Record<string, string[]> = {
+      sonner: ["label"],
+      "price-tag": ["amount"],
+      "review-summary": ["values"],
+      "comment-list": ["you", "now"],
+      "product-card": ["done"],
+      coupon: ["done"],
+      "checkout-bar": ["done"],
+      "route-card": ["done"],
+      "profile-header": ["done"],
+      "contact-list": ["done"],
+      "task-row": ["done"],
+      "item-cell": ["rarityColor"],
+      dialog: ["width", "height"],
+      /* a dialogue shows its first line; the rest, and the choices, come with the taps */
+      "dialogue-box": ["lines", "choices"],
+      /* a notice bar scrolls its notices through one line: the split keeps the one showing */
+      "notice-bar": ["items"],
+    };
+    const strings = (v: unknown, into: string[] = []): string[] => {
+      if (typeof v === "string") into.push(v);
+      else if (Array.isArray(v)) v.forEach((x) => strings(x, into));
+      else if (v && typeof v === "object") Object.values(v).forEach((x) => strings(x, into));
+      return into;
+    };
+    for (const d of splits) {
+      const values = defaultValues(d);
+      const p = reader(d, values);
+      const said = walk(d.atoms!(p) as Node).flatMap(({ node }) => strings(node.props)).join("\n");
+      const words = [
+        ...d.props.filter((x) => x.kind === "text" && !(unseen[d.slug] ?? []).includes(x.key) && (!x.when || x.when(p))).map((x) => p.s(x.key)),
+        ...d.props.filter((x) => x.kind === "list" && !(unseen[d.slug] ?? []).includes(x.key)).flatMap((x) => p.list(x.key).map((it) => it.label)),
+        ...d.props.filter((x) => x.kind === "table").flatMap((x) => p.table(x.key).rows.map((r) => r[0] ?? "")),
+      ].filter((w) => w && !/^#/.test(w));
+      /* word by word: a stat of "128 Posts" is a figure over a name */
+      for (const w of words) for (const piece of w.split(/\s+/)) expect(said, `${d.slug}: "${w}"`).toContain(piece);
+      if (d.slug === "dialogue-box") expect(said).toContain(p.list("lines")[0].label);
+    }
   });
 
   it("split into atoms with the props those take, for their defaults and for other values", () => {
@@ -168,6 +253,28 @@ describe("the composites that split", () => {
       card: { imagePos: "leading", action: "Open", textAlign: "center" },
       alert: { variant: "destructive" },
       empty: { bordered: true, action: "" },
+      "navigation-bar": { layout: "horizontal", badge: 3, tall: true, elevated: true },
+      tabs: { variant: "segmented", items: [{ label: "A", icon: "home" }, { label: "B" }] },
+      toolbar: { kind: "docked", toggles: true },
+      breadcrumb: { separator: "slash", collapse: true, items: [{ label: "A" }, { label: "B" }, { label: "C" }, { label: "D" }, { label: "E" }] },
+      "title-bar": { controls: "windows" },
+      dialog: { style: "fullscreen" },
+      "alert-dialog": { size: "sm", icon: "delete" },
+      sonner: { action: "Undo", closeButton: true },
+      "contact-list": { trailing: "call", grouped: false, search: "" },
+      leaderboard: { faces: false, selected: 1 },
+      "product-card": { layout: "horizontal", liked: true, badge: "" },
+      "price-tag": { size: "large", amount: "99" },
+      "balance-card": { hidden: true },
+      "profile-header": { showCover: false, following: true },
+      "post-card": { showImage: false },
+      message: { align: "end", variant: "destructive", header: "Ada", footer: "Read" },
+      bubble: { variant: "ghost", reaction: "👍", align: "end" },
+      attachment: { state: "uploading", orientation: "vertical", remove: true, size: "xs" },
+      "item-cell": { rarity: "SSR", badge: "New" },
+      "stat-bar": { numbers: false, color: "tertiary", label: "" },
+      "check-in": { signed: 0, days: 7 },
+      "dialogue-box": { lines: [{ label: "Only line" }] },
     };
     for (const d of splits)
       for (const values of [defaultValues(d), { ...defaultValues(d), ...others[d.slug] }]) {

@@ -30,6 +30,7 @@ export const communication: PartDef[] = [
           : h("NotificationBadge", { count: Math.round(p.n("count")), className: "absolute -top-1 left-5" });
       return h("span", { className: "relative inline-flex" }, icon, badge);
     },
+    guess: (p) => (p.s("kind") === "label" ? { w: 16 + Math.ceil(p.s("label").length * 7), h: 24 } : { w: 32, h: 32 }),
   },
   {
     slug: "progress",

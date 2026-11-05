@@ -1,6 +1,7 @@
 import { atom, avatar, box, hbox, icon, para, text, vbox } from "../atoms";
 import { say, type Node, type Say } from "../templates/kit";
 import { MATERIAL_LOOK, type KitDef, type KitLook } from "./types";
+import { section } from "./shared";
 
 /* Rows of a list, as atoms: what leads (an icon, an avatar), two lines of words that take the rest
  * of the row and cut off with an ellipsis, and what trails (a chevron, a switch, a value, a time). */
@@ -52,12 +53,29 @@ const listRow: KitDef = {
       labels: { zh: "标题·取值·箭头", ja: "タイトル・値・矢印", ko: "제목·값·화살표" },
       build: () => row([lines(say("Language", "语言", "言語", "언어")), text(say("English", "简体中文", "日本語", "한국어"), "body", { color: "muted" }), chevron()], say("Value row", "取值行", "値の行", "값 행"), 16),
     },
+    {
+      key: "section",
+      name: "Several, as a section",
+      labels: { zh: "多行成组", ja: "複数行のセクション", ko: "여러 행 묶음" },
+      /* grouped the way the style groups a list; the hairlines start at the words, past the 24 px icon */
+      build: (look = MATERIAL_LOOK) =>
+        section(
+          [
+            row([icon("inbox", { color: "muted" }), lines(say("Inbox", "收件箱", "受信トレイ", "받은편지함")), chevron()], say("List row", "列表行", "リスト行", "목록 행")),
+            row([icon("star", { color: "muted" }), lines(say("Starred", "星标", "スター付き", "별표")), chevron()], say("List row", "列表行", "リスト行", "목록 행")),
+            row([icon("send", { color: "muted" }), lines(say("Sent", "已发送", "送信済み", "보낸편지함")), chevron()], say("List row", "列表行", "リスト行", "목록 행")),
+          ],
+          look,
+          56,
+        ),
+    },
   ],
 };
 
-/** where a setting's icon sits: on a small colored tile where lists are grouped on a grey ground, bare where they are not */
+/** where a setting's icon sits: on a small colored tile where lists are grouped on a grey ground (an iPhone's
+ *  settings), bare where they are not; a switch drawn the iOS way says nothing about the list around it */
 const settingIcon = (name: string, look: KitLook): Node =>
-  look.list === "inset" || look.toggle === "ios" ? box({ surface: "button", layout: "row", align: "center", justify: "center", padX: 4, padY: 4 }, [icon(name, { size: 20, color: "on-primary" })], { corners: { tl: 7, tr: 7, br: 7, bl: 7 } }) : icon(name, { color: "muted" });
+  look.list === "inset" ? box({ surface: "button", layout: "row", align: "center", justify: "center", padX: 4, padY: 4 }, [icon(name, { size: 20, color: "on-primary" })], { corners: { tl: 7, tr: 7, br: 7, bl: 7 } }) : icon(name, { color: "muted" });
 
 const settingsRow: KitDef = {
   slug: "settings-row",
@@ -79,6 +97,22 @@ const settingsRow: KitDef = {
       labels: { zh: "带取值", ja: "値付き", ko: "값 포함" },
       build: (look = MATERIAL_LOOK) =>
         row([settingIcon("notifications", look), lines(say("Notifications", "通知", "通知", "알림")), text(say("On", "开启", "オン", "켬"), "body", { color: "muted" }), chevron()], say("Settings row", "设置行", "設定の行", "설정 행"), 14),
+    },
+    {
+      key: "section",
+      name: "Several, as a section",
+      labels: { zh: "多行成组", ja: "複数行のセクション", ko: "여러 행 묶음" },
+      /* grouped the way the style groups a list, the hairlines from the words: past a 28 px tile or a 24 px icon */
+      build: (look = MATERIAL_LOOK) =>
+        section(
+          [
+            row([settingIcon("dark_mode", look), lines(say("Dark mode", "深色模式", "ダークモード", "다크 모드")), atom("switch", { label: "", checked: false })], say("Settings row", "设置行", "設定の行", "설정 행"), 10),
+            row([settingIcon("notifications", look), lines(say("Notifications", "通知", "通知", "알림")), text(say("On", "开启", "オン", "켬"), "body", { color: "muted" }), chevron()], say("Settings row", "设置行", "設定の行", "설정 행"), 14),
+            row([settingIcon("text_fields", look), lines(say("Text size", "字体大小", "文字サイズ", "글자 크기")), text(say("Default", "默认", "標準", "기본"), "body", { color: "muted" }), chevron()], say("Settings row", "设置行", "設定の行", "설정 행"), 14),
+          ],
+          look,
+          16 + (look.list === "inset" ? 28 : 24) + 16,
+        ),
     },
   ],
 };

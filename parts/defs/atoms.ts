@@ -182,7 +182,7 @@ export const atoms: PartDef[] = [
         { defaultValue: p.b("checked") ? "on" : "", disabled: p.b("disabled") || undefined, className: "w-fit" },
         h("Label", null, h("RadioGroupItem", { value: "on", "aria-label": p.s("label") ? undefined : p.say("Option") }), p.s("label")),
       ),
-    guess: (p) => ({ w: 32 + Math.ceil(p.s("label").length * 8), h: 24 }),
+    guess: (p) => (p.s("label") ? { w: 32 + Math.ceil(p.s("label").length * 8), h: 24 } : { w: 20, h: 20 }),
   },
   {
     slug: "dot",

@@ -26,6 +26,28 @@ export type KitLook = {
   surface: string;
   /** how it builds a switch: "m3", "ios", "outline", "block", "chunky" */
   toggle: string;
+  /** how it builds the main navigation: "m3" (an indicator pill), "plain", "floating", "icononly", "gamebar", "goldglow", "topline", "block" */
+  nav: string;
+  /** how it builds tabs: "m3", "underline", "segmented", "pill", "short", "topline", "boxed", "glow", "slant", "band", "fade" */
+  tabs: string;
+  /** how it builds a segmented control: "m3", "ios", "boxed", "capsules", "underline", "block" */
+  segmented: string;
+  /** how it builds a dialog: "m3", "alert" (centered, split buttons under a hairline), "weui", "modal", "game", "plain" */
+  dialog: string;
+  /** how it builds a sheet: "m3", "grabber", "weui", "panel", "rim" */
+  sheet: string;
+  /** how it composes a top bar: "m3", "center", "ios", "large", "compact" */
+  appbar: string;
+  /** what ends a list row: "m3", "chevron", "arrow", "dense", "bullet" */
+  row: string;
+  /** how it composes a card: "m3", "flat", "outlined", "raised", "headed", "paper", "framed", "glass" */
+  card: string;
+  /** how it builds an avatar: "m3" (round), "square", "framed" */
+  avatar: string;
+  /** how it builds a story dialogue: "m3", "portrait", "band" */
+  dialogue: string;
+  /** how a desktop window is closed: traffic lights at the left (a Mac's) or caption buttons at the right */
+  caption: "lights" | "buttons";
   /** desktop software sets its controls closer and smaller */
   compact: boolean;
   dark: boolean;
@@ -41,7 +63,31 @@ export type KitLook = {
 export const isWide = (l: KitLook) => (l.room ?? (l.group === "desktop" || l.group === "pcGame" ? 640 : 380)) >= 560;
 
 /** the look of a document with no style: Material's */
-export const MATERIAL_LOOK: KitLook = { group: "app", field: "m3", bar: "m3", button: "m3", list: "m3", surface: "m3", toggle: "m3", compact: false, dark: false, margin: 16, gap: 16, tight: 8 };
+export const MATERIAL_LOOK: KitLook = {
+  group: "app",
+  field: "m3",
+  bar: "m3",
+  button: "m3",
+  list: "m3",
+  surface: "m3",
+  toggle: "m3",
+  nav: "m3",
+  tabs: "m3",
+  segmented: "m3",
+  dialog: "m3",
+  sheet: "m3",
+  appbar: "m3",
+  row: "m3",
+  card: "m3",
+  avatar: "m3",
+  dialogue: "m3",
+  caption: "buttons",
+  compact: false,
+  dark: false,
+  margin: 16,
+  gap: 16,
+  tight: 8,
+};
 
 export type KitVariant = {
   key: string;

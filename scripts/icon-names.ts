@@ -34,6 +34,10 @@ export function candidatesIn(src: string): Set<string> {
   for (const m of src.matchAll(new RegExp(String.raw`\b${KEY}=\{([^{}]*)\}`, "g"))) strings(m[1]).forEach(add);
   /* `<Icon name="x">`, `<WidgetIcon name={a ? "x" : "y"}>` */
   for (const tag of src.matchAll(/<(?:Widget)?Icon\b[^>]*>/g)) for (const m of tag[0].matchAll(/\bname=(?:"([a-z0-9_]+)"|\{([^{}]*)\})/g)) (m[1] ? [m[1]] : strings(m[2])).forEach(add);
+  /* the kit builders: `icon("x", …)`, `iconButton("x", …)`, and the helpers that hand a name on to them */
+  for (const m of src.matchAll(/\b(?:\w*[iI]con\w*|tile|disc|status|tool)\(\s*"([a-z0-9_]+)"/g)) add(m[1]);
+  /* a def helper's default: `icon("key", "Label", "x")` */
+  for (const m of src.matchAll(/\bicon\(\s*"[a-zA-Z]+"\s*,\s*"[^"]*"\s*,\s*"([a-z0-9_]+)"/g)) add(m[1]);
   /* the printers' `ic("x")`, and `part("icon", { name: "x" })` */
   for (const m of src.matchAll(/\bic\(\s*"([a-z0-9_]+)"/g)) add(m[1]);
   for (const m of src.matchAll(/part\(\s*"icon"\s*,\s*\{[^}]*\bname:\s*"([a-z0-9_]+)"/g)) add(m[1]);

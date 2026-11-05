@@ -26,6 +26,8 @@ export const selection: PartDef[] = [
         p.s("label"),
         h("Switch", { defaultChecked: p.b("checked") || undefined, size: p.s("size") === "sm" ? "sm" : undefined, disabled: p.b("disabled") || undefined }),
       ),
+    /* with no words it is just the track */
+    guess: (p) => (p.s("label") ? {} : p.s("size") === "sm" ? { w: 40, h: 24 } : { w: 52, h: 32 }),
   },
   {
     slug: "checkbox",
@@ -55,6 +57,8 @@ export const selection: PartDef[] = [
         }),
         p.s("label"),
       ),
+    /* a bare box in a composition is only the box; one with words keeps the size parts of its kind are */
+    guess: (p) => (p.s("label") ? {} : { w: 18, h: 18 }),
   },
   {
     slug: "radio-group",

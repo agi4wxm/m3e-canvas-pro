@@ -184,6 +184,11 @@ export const actions: PartDef[] = [
       if (items.length === 1) return chip(items[0], 0);
       return h("div", { className: "flex flex-wrap gap-2" }, ...items.map(chip));
     },
+    guess: (p) => {
+      const items = p.list("items");
+      const w = items.reduce((n, it) => n + 32 + Math.ceil(it.label.length * 7.5) + (it.icon ? 26 : 0), 0) + 8 * Math.max(0, items.length - 1);
+      return { w, h: p.s("size") === "md" ? 40 : p.s("size") === "lg" ? 56 : 32 };
+    },
   },
   {
     slug: "toggle",
