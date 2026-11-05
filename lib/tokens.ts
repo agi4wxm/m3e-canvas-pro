@@ -65,8 +65,110 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 
 export type Radii = { tl: number; tr: number; bl: number; br: number };
 
+/** A color by reference: an M3 role in kebab case (`primary`, `on-surface`, `surface-container-high`), the same role at a
+ *  share of itself (`primary/40`), or a hex (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`). A role follows the style and the
+ *  mode; a hex is the author's own. Nothing else is a color: lib/look.ts reads them and refuses the rest. */
+export type ColorRef = string;
+
+/** one color of a gradient, `at` percent along it */
+export type GradientStop = { color: ColorRef; at: number };
+
+/** One layer of paint over the part's fill. In a list the first paints on top, the way CSS and a layers panel stack them. */
+export type PaintLayer = {
+  type: "solid" | "linear" | "radial" | "conic";
+  /** a solid layer's color */
+  color?: ColorRef;
+  /** a gradient's colors, two or more */
+  stops?: GradientStop[];
+  /** degrees: which way a linear gradient runs, where a conic one starts */
+  angle?: number;
+  /** percent of the box: the centre of a radial or a conic gradient */
+  x?: number;
+  y?: number;
+  /** a radial gradient as a circle rather than the box's own ellipse */
+  circle?: boolean;
+  /** switched off, and kept */
+  hidden?: boolean;
+};
+
+/** a shadow cast by the box, or inside it; on words, `spread` and `inset` mean nothing */
+export type LookShadow = { x: number; y: number; blur: number; spread: number; color: ColorRef; inset?: boolean; hidden?: boolean };
+
+/** a line along the edge that takes no room: it is drawn, not laid out */
+export type LookStroke = {
+  /** px */
+  width: number;
+  color: ColorRef;
+  style?: "solid" | "dashed" | "dotted";
+  /** where the line sits against the edge: inside unless said */
+  position?: "inside" | "center" | "outside";
+  /** each side on its own, px; a solid line only */
+  sides?: { t: number; r: number; b: number; l: number };
+};
+
+export type BlendMode =
+  | "normal"
+  | "multiply"
+  | "screen"
+  | "overlay"
+  | "darken"
+  | "lighten"
+  | "color-dodge"
+  | "color-burn"
+  | "hard-light"
+  | "soft-light"
+  | "difference"
+  | "exclusion"
+  | "hue"
+  | "saturation"
+  | "color"
+  | "luminosity"
+  | "plus-lighter";
+
+/** what the part is passed through once drawn; percent unless said, 100 (0 for the last four) changes nothing */
+export type LookFilter = { brightness?: number; contrast?: number; saturate?: number; /** degrees */ hueRotate?: number; grayscale?: number; sepia?: number; invert?: number };
+
+/** scale in percent, skew in degrees; like `rotate`, none of it takes room */
+export type LookTransform = { scaleX?: number; scaleY?: number; skewX?: number; skewY?: number; flipX?: boolean; flipY?: boolean };
+
+/** how the part's words are drawn, wherever they stand inside it */
+export type LookText = {
+  color?: ColorRef;
+  /** px */
+  size?: number;
+  /** 100 to 900 */
+  weight?: number;
+  /** px, may be less than nothing */
+  letterSpacing?: number;
+  /** percent of the size */
+  lineHeight?: number;
+  case?: "upper" | "lower" | "title";
+  italic?: boolean;
+  decoration?: "underline" | "line-through" | "overline";
+  shadows?: LookShadow[];
+  /** an outline around each letter, outside it */
+  stroke?: { width: number; color: ColorRef };
+  /** the letters painted with a gradient instead of one color */
+  gradient?: PaintLayer;
+};
+
+export type TextureKind = "noise" | "paper" | "dots" | "grid" | "stripes" | "diagonal" | "checker" | "carbon" | "scanlines" | "crosshatch" | "halftone";
+
+/** a small repeating pattern laid over the fill, under the words */
+export type LookTexture = {
+  kind: TextureKind;
+  /** the pattern's ink; the grain of noise and paper takes a hex only, and is dark otherwise */
+  color?: ColorRef;
+  /** percent */
+  opacity?: number;
+  /** px: one tile of it */
+  size?: number;
+  blend?: BlendMode;
+};
+
 /** what one part may look like beyond its fill, its words and its corners; each stands over what the style gives it */
 export type ItemLook = {
+  /* ----- the first look, still read as it always was ----- */
   /** px */
   borderWidth?: number;
   borderColor?: TextToken;
@@ -81,6 +183,27 @@ export type ItemLook = {
   gradientTo?: ColorToken;
   gradientAngle?: number;
   font?: "display" | "mono";
+  /* ----- effects: lib/look.ts draws them ----- */
+  /** the part's own fill taken away, so only the paint layers and what is behind it show: glass, a bare outline */
+  clearFill?: boolean;
+  /** paint over the fill; in place of `gradientTo` when both are given */
+  fills?: PaintLayer[];
+  stroke?: LookStroke;
+  /** in place of `shadow` when both are given; an empty list is no shadow at all */
+  shadows?: LookShadow[];
+  /** the style's own shadow, raised to a level: 0 is flat. The style's surface recipe decides what each level looks like */
+  elevation?: 0 | 1 | 2 | 3 | 4;
+  /** px: the part itself drawn out of focus */
+  blur?: number;
+  /** percent: how much brighter the colors behind frosted glass come through; 150 when left out */
+  glassSaturate?: number;
+  blend?: BlendMode;
+  filter?: LookFilter;
+  transform?: LookTransform;
+  text?: LookText;
+  texture?: LookTexture;
+  /** what reaches past the edge is cut off */
+  clip?: boolean;
 };
 export const uniformRadii = (r: number): Radii => ({ tl: r, tr: r, bl: r, br: r });
 

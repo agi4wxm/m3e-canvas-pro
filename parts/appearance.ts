@@ -1,9 +1,10 @@
 import type { ColorToken, Item, ItemLook, Radii, TextToken } from "../lib/tokens";
-import { mapNodes, type PNode } from "./node";
+import { lookGradientTextStyle, lookStyle, lookTextNodeStyle } from "../lib/look";
+import { mapNodes, type PNode, type PValue } from "./node";
 
-/* A part's look, set beside its props: the fill role it paints itself with, the role its text
- * reads in, and its four corner radii. They live on the item and are painted onto the part's tree as a fixed class map plus `style.borderRadius`,
- * so the canvas drawing and the printed code carry the same appearance. */
+/* A part's look, set beside its props: the fill role it paints itself with, the role its text reads in, its four corner
+ * radii and its effects (lib/look.ts). They live on the item and are painted onto the part's tree as a fixed class map
+ * plus inline style, so the canvas drawing and the printed code carry the same appearance. */
 
 export type Appearance = { fill?: ColorToken; text?: TextToken; corners?: Radii; look?: ItemLook };
 
@@ -19,19 +20,6 @@ const FILL_CLASS: Record<ColorToken, [bg: string, on: string]> = {
   tertiaryContainer: ["bg-tertiary-container", "text-on-tertiary-container"],
   primary: ["bg-primary", "text-on-primary"],
   inverseSurface: ["bg-inverse-surface", "text-inverse-on-surface"],
-};
-
-const FILL_ROLE: Record<ColorToken, string> = {
-  surface: "surface",
-  surfaceContainerLow: "surface-container-low",
-  surfaceContainer: "surface-container",
-  surfaceContainerHigh: "surface-container-high",
-  surfaceContainerHighest: "surface-container-highest",
-  primaryContainer: "primary-container",
-  secondaryContainer: "secondary-container",
-  tertiaryContainer: "tertiary-container",
-  primary: "primary",
-  inverseSurface: "inverse-surface",
 };
 
 const TEXT_CLASS: Record<TextToken, string> = {
@@ -53,40 +41,6 @@ const OWN_TEXT = /^text-(on-|inverse-|primary|secondary|tertiary|error|outline|s
 /** the look an item carries, or nothing when the part keeps its own */
 export function appearanceOf(it: Pick<Item, "fill" | "textColor" | "corners" | "look">): Appearance | undefined {
   return it.fill || it.textColor || it.corners || it.look ? { fill: it.fill, text: it.textColor, corners: it.corners, ...(it.look ? { look: it.look } : {}) } : undefined;
-}
-
-const roleVar = (name: string) => `var(--md-sys-color-${name})`;
-const mixRole = (name: string, percent: number) => `color-mix(in srgb, ${roleVar(name)} ${percent}%, transparent)`;
-
-/** the shadows a part can be given; a style's own are what it has until then */
-const SHADOW_OF: Record<NonNullable<ItemLook["shadow"]>, string> = {
-  none: "none",
-  soft: "0 2px 12px rgb(0 0 0 / 0.14)",
-  deep: "0 10px 30px rgb(0 0 0 / 0.32)",
-  hard: `4px 4px 0 ${roleVar("outline")}`,
-  glow: `0 0 16px ${mixRole("primary", 70)}`,
-};
-
-const FONT_OF: Record<NonNullable<ItemLook["font"]>, string> = {
-  display: "var(--st-display, inherit)",
-  mono: 'ui-monospace, "Cascadia Code", Consolas, monospace',
-};
-
-/** what a look draws, as the style of the node it paints */
-function lookStyle(l: ItemLook | undefined): Record<string, string | number> {
-  if (!l) return {};
-  const out: Record<string, string | number> = {};
-  if (l.borderWidth) out.border = `${l.borderWidth}px solid ${roleVar(TEXT_ROLE[l.borderColor ?? "onSurfaceVariant"])}`;
-  if (l.shadow) out.boxShadow = SHADOW_OF[l.shadow];
-  if (l.opacity !== undefined && l.opacity < 100) out.opacity = l.opacity / 100;
-  if (l.glass) {
-    out.backdropFilter = `blur(${l.glass}px) saturate(1.5)`;
-    out.WebkitBackdropFilter = `blur(${l.glass}px) saturate(1.5)`;
-  }
-  if (l.rotate) out.rotate = `${l.rotate}deg`;
-  if (l.gradientTo) out.backgroundImage = `linear-gradient(${l.gradientAngle ?? 180}deg, transparent, ${roleVar(FILL_ROLE[l.gradientTo])})`;
-  if (l.font) out.fontFamily = FONT_OF[l.font];
-  return out;
 }
 
 const radiusOf = (c: Radii) => `${c.tl}px ${c.tr}px ${c.br}px ${c.bl}px`;
@@ -122,22 +76,61 @@ function wordRoles(a: Appearance): Record<string, string> {
   return out;
 }
 
+type Style = Record<string, PValue>;
+const ownStyle = (props: Record<string, PValue>): Style => (typeof props.style === "object" && props.style !== null && !Array.isArray(props.style) ? (props.style as Style) : {});
+
+const BACKGROUND_REST = { backgroundSize: "auto", backgroundPosition: "0 0", backgroundRepeat: "repeat" } as const;
+
+/** A look's style over what a node already says. A picture the node paints itself stays under the look's paint rather
+ *  than being replaced by it, at the size it had. */
+function over(own: Style, look: Record<string, string | number>): Style {
+  const out: Style = { ...own, ...look };
+  if (typeof own.backgroundImage === "string" && typeof look.backgroundImage === "string") {
+    out.backgroundImage = `${look.backgroundImage}, ${own.backgroundImage}`;
+    for (const k of Object.keys(BACKGROUND_REST) as (keyof typeof BACKGROUND_REST)[])
+      if (typeof look[k] === "string") out[k] = `${look[k]}, ${typeof own[k] === "string" ? own[k] : BACKGROUND_REST[k]}`;
+  }
+  return out;
+}
+
+/** marks a run of words a gradient was put on, so it is never wrapped twice */
+const WORDS = "data-look-text";
+const holdsWords = (n: PNode) => !!n.children?.some((c) => typeof c === "string" && c.trim() !== "");
+
+/** The look's words, set on each node inside the painted one that holds words of its own: a class sets their size and
+ *  weight on them, so what the painted node says would not reach them by inheritance alone. A gradient goes on each run
+ *  of words in a span of its own, which clips it to the letters and leaves every surface its fill. */
+function paintWords(tree: PNode, look: ItemLook): PNode {
+  const own = lookTextNodeStyle(look);
+  const gradient = lookGradientTextStyle(look);
+  const sized = Object.keys(own).length > 0;
+  if (!sized && !gradient) return tree;
+  return mapNodes(tree, (n) => {
+    if (n.props?.[WORDS] || !holdsWords(n)) return n;
+    const props = sized ? { ...(n.props ?? {}), style: { ...ownStyle(n.props ?? {}), ...own } } : n.props;
+    const children = gradient ? n.children!.map((c): PNode | string => (typeof c === "string" && c.trim() !== "" ? { type: "span", props: { [WORDS]: true, style: gradient }, children: [c] } : c)) : n.children;
+    return { ...n, ...(props ? { props } : {}), children };
+  });
+}
+
 /** paint `a` onto the nodes of `tree` whose type is `target` — the root when no target is named */
 export function applyAppearance(tree: PNode, a: Appearance | undefined, target?: string | string[]): PNode {
   if (!a) return tree;
-  const classes = [a.fill ? FILL_CLASS[a.fill][0] : undefined, a.text ? TEXT_CLASS[a.text] : a.fill ? FILL_CLASS[a.fill][1] : undefined]
+  const classes = [a.fill ? FILL_CLASS[a.fill]?.[0] : undefined, a.text ? TEXT_CLASS[a.text] : a.fill ? FILL_CLASS[a.fill]?.[1] : undefined]
     .filter((c): c is string => !!c)
     .join(" ");
+  const look = lookStyle(a.look);
   const paint = (n: PNode): PNode => {
     const props = { ...(n.props ?? {}) };
     if (classes) {
       const kept = (typeof props.className === "string" ? props.className.split(/\s+/) : []).filter((c) => c && !(a.fill && OWN_FILL.test(c)) && !(OWN_TEXT.test(c)));
       props.className = [...kept, ...classes.split(" ")].join(" ");
     }
-    const style = { ...wordRoles(a), ...(a.corners ? { borderRadius: radiusOf(a.corners) } : {}), ...lookStyle(a.look) };
-    if (Object.keys(style).length) props.style = { ...(typeof props.style === "object" && props.style !== null ? props.style : {}), ...style };
-    return { ...n, props };
+    const style = { ...wordRoles(a), ...(a.corners ? { borderRadius: radiusOf(a.corners) } : {}), ...look };
+    if (Object.keys(style).length) props.style = over(ownStyle(props), style);
+    const painted = { ...n, props };
+    return a.look ? paintWords(painted, a.look) : painted;
   };
   const targets = target === undefined ? [] : Array.isArray(target) ? target : [target];
-  return targets.length ? mapNodes(tree, (n) => (targets.includes(n.type) ? paint(n) : n)) : paint(tree);
+  return targets.length ? mapNodes(tree, (n) => (targets.includes(n.type) && !n.props?.[WORDS] ? paint(n) : n)) : paint(tree);
 }

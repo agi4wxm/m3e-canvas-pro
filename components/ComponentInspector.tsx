@@ -10,10 +10,11 @@ import { AiHooks } from "./Inspector";
 import { Icon } from "./Icon";
 import { BehaviorContext, BindRow, StyleRulesContext, VisibilitySection } from "./EffectsPanel";
 import { styleOwnsProp } from "@/lib/styleRules";
-import { AlignBox, AppearanceCorners, AppearanceLook, EntryList, FillRun, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, PositionRow, SlotStrip, Tab, TextRun, TriggerSection, WidthRows } from "./PartPanel";
+import { AlignBox, AppearanceCorners, EntryList, FillRun, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, PositionRow, SlotStrip, Tab, TextRun, TriggerSection, WidthRows } from "./PartPanel";
 import { segmentedFits } from "@/lib/choices";
 import { tableOf, tableText } from "@/lib/collections";
 import { RepeatSection } from "./ReusePanels";
+import { LookPanel } from "./LookPanel";
 import { Field, ImageRow, NamedSizes, PanelShell, Section, Segmented, Select, Slider, Toggle } from "./ui";
 
 /* The panel of a part that is a real shadcn M3E component. It is built from the part's own prop
@@ -266,15 +267,14 @@ export function ComponentInspector({
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />
                 <TextRun value={item.textColor} onChange={(textColor) => onChange({ textColor })} p={p} />
-                {strict ? (
-                  <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("styleDecidesLook", lang)}</div>
-                ) : (
-                  <>
-                    <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />
-                    <AppearanceLook key={`${item.id}:look`} item={item} onChange={onChange} p={p} />
-                  </>
-                )}
+                {/* held to a style, the panel offers only what the rules leave open (lib/styleRules.ts) */}
+                {!strict && <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />}
               </div>
+            </Section>
+          )}
+          {def.appearance && (
+            <Section id="part-effects" icon="auto_awesome" title={t("lkEffects", lang)} p={p}>
+              <LookPanel key={`${item.id}:look`} item={item} onChange={onChange} p={p} strict={strict} />
             </Section>
           )}
           <RepeatSection p={p} />

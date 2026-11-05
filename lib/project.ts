@@ -1,5 +1,6 @@
 import { standIn } from "./instances";
-import { Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { cleanLook } from "./look";
+import { COLOR_TOKENS, Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -8,19 +9,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 
 const validCorners = (c: unknown) => c === undefined || (isRecord(c) && ["tl", "tr", "bl", "br"].every((k) => Number.isFinite(c[k])));
 
-const validLook = (l: unknown) =>
-  l === undefined ||
-  (isRecord(l) &&
-    ["borderWidth", "opacity", "glass", "rotate", "gradientAngle"].every((k) => l[k] === undefined || Number.isFinite(l[k])) &&
-    (l.borderColor === undefined || isTextToken(l.borderColor)) &&
-    (l.shadow === undefined || ["none", "soft", "deep", "hard", "glow"].includes(l.shadow as string)) &&
-    (l.font === undefined || l.font === "display" || l.font === "mono") &&
-    (l.gradientTo === undefined || typeof l.gradientTo === "string"));
+/* A look is cleaned rather than checked (lib/look.ts): what is wrong in it is dropped, a number past its limits is brought
+ * back, and a string that is not a color never reaches a style. A file is not refused for its looks. */
 
 const validItem = (item: unknown) =>
   isRecord(item) &&
   validCorners(item.corners) &&
-  validLook(item.look) &&
   (item.collapseOnScroll === undefined || typeof item.collapseOnScroll === "boolean") &&
   (item.textColor === undefined || isTextToken(item.textColor)) &&
   typeof item.id === "string" &&
@@ -127,7 +121,7 @@ function cleanVar(v: unknown): DocVar | undefined {
   return { id: v.id, name: typeof v.name === "string" ? v.name : "", type: v.type, value };
 }
 
-const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, row: () => undefined }) as unknown as Item;
+const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, look: cleanLook, fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined), row: () => undefined }) as unknown as Item;
 
 const cleanOverrides = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => isValue(v))) : undefined);
 

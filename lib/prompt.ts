@@ -774,6 +774,14 @@ const RULES_NOTE: Record<Lang, (margin: number, gap: number, tight: number) => s
   ko: (m, g, t) => `이 스타일의 규칙을 엄격히 따른다. 임의의 색, 모서리, 그림자, 글꼴을 추가하지 말고 테마의 색 역할만 쓴다. 좌우 여백 ${m}px, 구역 간격 ${g}px, 같은 종류 간격 ${t}px.`,
 };
 
+/** what a coding agent is told when parts carry effects of their own (lib/look.ts): they are drawn as inline styles */
+const LOOK_NOTE: Record<Lang, string> = {
+  ja: "部品のインラインスタイル（塗りの重ね、グラデーション、線、影、ぼかし、フィルター、変形、文字の効果、テクスチャ）はその部品の見た目なので、そのまま再現する。`var(--look-elev-N, …)` はスタイル自身の高さ N の影で、カンマの後ろはスタイルが何も言わないときの値。",
+  en: "A part's inline style (paint layers, gradients, strokes, shadows, blur, filters, transforms, text effects, textures) is its look: reproduce it exactly. `var(--look-elev-N, …)` is the style's own elevation level N; what follows the comma is the value when the style says nothing.",
+  zh: "组件的内联样式（填充叠层、渐变、描边、阴影、模糊、滤镜、变换、文字效果、纹理）就是它的外观，要原样还原。`var(--look-elev-N, …)` 是风格自己的第 N 级高度阴影，逗号后面是风格没有规定时使用的值。",
+  ko: "부품의 인라인 스타일(채우기 겹침, 그라데이션, 선, 그림자, 흐림, 필터, 변형, 글자 효과, 질감)은 그 부품의 모습이므로 그대로 재현한다. `var(--look-elev-N, …)`은 스타일 고유의 높이 N 그림자이고, 쉼표 뒤는 스타일이 정하지 않을 때의 값이다.",
+};
+
 const STYLE_NOTE: Record<Lang, (name: string, hint: string) => string> = {
   ja: (n, h) => `全体のスタイルは「${n}」（${h}）。M3 の既定の見た目のままにせず、コントロールの形までこのスタイルに合わせる。`,
   en: (n, h) => `The whole design wears the ${n} style (${h}). Do not leave the Material defaults: build the controls themselves to match it.`,
@@ -1194,6 +1202,7 @@ export function buildPrompt(source: Doc, widths: Record<string, number>, onlyFra
   lines.push("");
   lines.push(ph.hTheme);
   lines.push(...themeLines(th, lang));
+  if (groups.some((g) => g.items.some((it) => it.look))) lines.push(LOOK_NOTE[lang]);
 
   lines.push("");
   lines.push(ph.hLayout);

@@ -5,7 +5,8 @@ import { getLang, type Lang } from "./i18n";
 import { BASELINE_SEED } from "./m3e/color";
 import { runtimeSource } from "./runtimeSource";
 import { SLIDE_SPEC, faceSheetsOf, fontFamilyOf, normalizeTheme, seedOf, shapeScaleOf, type Doc } from "./tokens";
-import { APP_SCOPE, styleCss } from "./styles";
+import { APP_SCOPE, recipesOf, styleCss } from "./styles";
+import { elevationCss } from "./look";
 import { familyIds } from "../components/m3e/icon-family";
 
 /* A document as a project someone can install and run: its screens, the runtime their taps call, its
@@ -427,7 +428,7 @@ export function Theme({ children }: { children: ReactNode }) {
 /** the document's style as a stylesheet of its own, or "" when it has none */
 function styleCssOf(doc: Doc, lang: Lang): string {
   const theme = normalizeTheme(doc.theme);
-  return styleCss({ ...theme, displayFamily: theme.displayFont ? fontFamilyOf(theme.displayFont, lang) : undefined }, APP_SCOPE);
+  return [styleCss({ ...theme, displayFamily: theme.displayFont ? fontFamilyOf(theme.displayFont, lang) : undefined }, APP_SCOPE), elevationCss(recipesOf(theme).surface, APP_SCOPE)].filter(Boolean).join("\n");
 }
 
 function cssSource(doc: Doc, lang: Lang): string {

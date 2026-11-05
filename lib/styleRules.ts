@@ -1,6 +1,7 @@
 import { partBySlug } from "../parts/registry";
 import { isStrict, styleOf, uxOf, recipesOf, RECIPE_KEYS } from "./styles";
 import { fontFamilyOf, type Doc, type Group, type Item, type Theme } from "./tokens";
+import { STRICT_LOOK_KEYS, strictLook } from "./look";
 
 /* A style is a set of rules: its faces, its colors, its corners, how its controls are built and how its screens are laid
  * out. Held to them, a document says nothing of its own about those. This is the one place that says what a part may still
@@ -9,13 +10,14 @@ import { fontFamilyOf, type Doc, type Group, type Item, type Theme } from "./tok
 /** a part's own prop that a style decides for it */
 export const styleOwnsProp = (slug: string | undefined, key: string): boolean => key === "shape" || key === "radius" || (slug === "scene" && key === "style");
 
-/** a part as the rules allow it: its corners and looks are the style's, its colors only ever name the style's roles.
- *  The same object when there is nothing to take away. */
+/** A part as the rules allow it: its corners are the style's, and of its look only what places it keeps (how much of it
+ *  shows, how it is turned and scaled, a blur, a blend) and a level of the style's own elevation. Its colors only ever
+ *  name the style's roles. The same object when there is nothing to take away. */
 export function conformItem(it: Item): Item {
   const def = partBySlug(it.component);
   const owned = def?.props.filter((d) => styleOwnsProp(it.component, d.key) && it.props?.[d.key] !== undefined) ?? [];
-  const keepLook = it.look?.opacity !== undefined ? { opacity: it.look.opacity } : undefined;
-  const lookChanged = !!it.look && (keepLook ? Object.keys(it.look).length > 1 : true);
+  const keepLook = strictLook(it.look);
+  const lookChanged = !!it.look && (!keepLook || Object.keys(keepLook).length !== Object.keys(it.look).length);
   if (!owned.length && !it.corners && !lookChanged) return it;
   const { corners: _corners, look: _look, ...rest } = it;
   const props = owned.length ? Object.fromEntries(Object.entries(it.props ?? {}).filter(([k]) => !owned.some((d) => d.key === k))) : it.props;
@@ -55,7 +57,7 @@ export function rulesForModel(theme: Theme): string {
     `This document is held to ${name}, and you may not change it.`,
     pack ? `Write "theme": { "style": "${pack.key}" } and nothing else in theme, whatever the idea asks for.` : `Leave "style" out of theme.`,
     `Faces: ${fontFamilyOf(theme.font)}. Colors only by role name. Controls are built as: ${RECIPE_KEYS.filter((k) => recipes[k] !== "m3").map((k) => `${k} ${recipes[k]}`).join(", ") || "Material's own"}.`,
-    `Never set corners, look, a button's shape, an image's radius or a scene's style: the style decides them and they are removed.`,
+    `Never set corners, a button's shape, an image's radius or a scene's style: the style decides them and they are removed. Of \`look\`, only ${STRICT_LOOK_KEYS.map((k) => `\`${k}\``).join(", ")} stay; \`elevation\` (0–4) raises a surface in the style's own shadow, and every other look field is removed.`,
     `Layout: ${ux.margin}px side margins, ${ux.gap}px between sections, ${ux.tight}px between rows of a kind${ux.nav === "keep" ? "" : `, navigation ${ux.nav === "rail" ? "as a rail at the left" : ux.nav === "top" ? "as tabs on top" : "at the bottom"}`}. The screens are laid out by these rules when the document arrives, so put parts in the order they read, in sensible places.`,
     ...(pack ? [`Compose its screens this way: ${pack.layout.en}`] : []),
   ].join("\n");

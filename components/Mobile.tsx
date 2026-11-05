@@ -7,7 +7,8 @@ import { partBySlug } from "@/parts/registry";
 import { listTextOf, nameOf } from "@/parts/labels";
 import { ComponentProps } from "./ComponentInspector";
 import { StyleRulesContext } from "./EffectsPanel";
-import { AppearanceCorners, AppearanceLook, FillRun, TextRun } from "./PartPanel";
+import { AppearanceCorners, FillRun, TextRun } from "./PartPanel";
+import { LookPanel } from "./LookPanel";
 import { ensureFontLoaded } from "@/lib/theme";
 import { LANGS, Lang, t, useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
@@ -132,7 +133,7 @@ export function MobileInspector({
           <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />
           <TextRun value={item.textColor} onChange={(textColor) => onChange({ textColor })} p={p} />
           {!strict && <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />}
-          {!strict && <AppearanceLook key={`${item.id}:look`} item={item} onChange={onChange} p={p} />}
+          <LookPanel key={`${item.id}:look`} item={item} onChange={onChange} p={p} strict={strict} />
         </div>
       )}
       <div style={{ marginTop: 14 }}>
