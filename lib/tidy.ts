@@ -27,10 +27,22 @@ const SNAP = 6;
 
 type Rect = { l: number; t: number; r: number; b: number };
 
-/** vertical distance between stacked rows */
-const ROW_GAP = 16;
-/** a tighter gap after a heading and between list-like rows of one kind */
-const TIGHT_GAP = 8;
+/** how a screen is spaced: a style has its own, and Material's is the default */
+export type LayoutMetrics = {
+  /** between the screen's edge and its body */
+  margin: number;
+  /** vertical distance between stacked rows */
+  gap: number;
+  /** a tighter gap after a heading and between list-like rows of one kind */
+  tight: number;
+  /** a part that runs from edge to edge under this style, whatever its own kind */
+  flush?: (it: Item) => boolean;
+  /** which parts stand on each other, when their sizes have just changed and touching no longer says so */
+  together?: string[][];
+  /** only what stands on another counts as being on it, not what grazes its edge: under a style's rules that is a slip to mend */
+  sitsOn?: boolean;
+};
+export const MATERIAL_METRICS: LayoutMetrics = { margin: PHONE_MARGIN, gap: 16, tight: 8 };
 /** horizontal distance between parts packed into one row */
 const ROW_ITEM_GAP = 8;
 
@@ -51,14 +63,27 @@ const area = (r: Rect) => Math.max(0, r.r - r.l) * Math.max(0, r.b - r.t);
 
 /** Groups that touch each other stay together, so a badge on an icon or parts on a box move as one.
  *  Bars, FABs and dialogs never join a cluster: they have their own place and are often drawn over content. */
-function clusters(groups: Group[], widths: Record<string, number>): Unit[] {
+function clusters(groups: Group[], widths: Record<string, number>, m?: Pick<LayoutMetrics, "together" | "sitsOn">): Unit[] {
   const units: Unit[] = groups.map((g) => ({ ids: [g.id], bb: groupBounds(g, widths), family: familyOf(g.items[0]), probe: g.items[0] }));
+  const setOf = m?.together && new Map(m.together.flatMap((set, i) => set.map((id) => [id, i] as const)));
+  const middleIn = (a: Rect, b: Rect) => {
+    const x = (a.l + a.r) / 2;
+    const y = (a.t + a.b) / 2;
+    return x > b.l && x < b.r && y > b.t && y < b.b;
+  };
+  const touch = (a: Unit, b: Unit) => {
+    if (setOf) return setOf.has(a.ids[0]) && setOf.get(a.ids[0]) === setOf.get(b.ids[0]);
+    if (!overlap(a.bb, b.bb)) return false;
+    if (!m?.sitsOn) return true;
+    const [small, big] = area(a.bb) <= area(b.bb) ? [a.bb, b.bb] : [b.bb, a.bb];
+    return middleIn(small, big);
+  };
   for (;;) {
     let merged = false;
     outer: for (let i = 0; i < units.length; i++) {
       if (isAnchored(units[i])) continue;
       for (let j = i + 1; j < units.length; j++) {
-        if (isAnchored(units[j]) || !overlap(units[i].bb, units[j].bb)) continue;
+        if (isAnchored(units[j]) || !touch(units[i], units[j])) continue;
         /* the larger member names the cluster: it is the container, the rest sits on it */
         const big = area(units[i].bb) >= area(units[j].bb) ? units[i] : units[j];
         units[i] = { ...big, ids: [...units[i].ids, ...units[j].ids], bb: union(units[i].bb, units[j].bb) };
@@ -70,6 +95,53 @@ function clusters(groups: Group[], widths: Record<string, number>): Unit[] {
     if (!merged) return units;
   }
 }
+
+/** Which parts stand on each other as things are now: asked before a change of size, what grows into its neighbour
+ *  after it has not been put on it. */
+export function standingTogether(groups: Group[], frames: Frame[], widths: Record<string, number>, m?: Pick<LayoutMetrics, "sitsOn">): string[][] {
+  return frames.flatMap((f) => {
+    const mine = groups.filter((g) => !g.inFlow && roleOf(g.items[0]) !== "backdrop" && frameOfGroup(g, frames, widths)?.id === f.id);
+    return clusters(mine, widths, m).filter((u) => u.ids.length > 1).map((u) => u.ids);
+  });
+}
+
+/** Where the parts on a picture stand. A screen on a picture is a composition, like a game's HUD, not rows: each part stays
+ *  in the corner or along the edge it was put by, on the style's margins, whole-numbered, and clear of the others. */
+function settleOnScene(units: Unit[], target: Map<Unit, { l: number; t: number }>, box: Rect, left: number, frameW: number, m: LayoutMetrics) {
+  const near = 24;
+  const midX = (box.l + box.r) / 2;
+  const on4 = (v: number) => Math.round(v / 4) * 4;
+  const spots = units.map((u) => {
+    const w = u.bb.r - u.bb.l;
+    const h = u.bb.b - u.bb.t;
+    let l = on4(u.bb.l);
+    let t = on4(u.bb.t);
+    if (fullWidth(u.probe) && w >= frameW - 1) l = left;
+    else if (w >= box.r - box.l - 8 || u.bb.l - box.l <= near) l = box.l;
+    else if (box.r - u.bb.r <= near) l = box.r - w;
+    else if (Math.abs((u.bb.l + u.bb.r) / 2 - midX) <= 12) l = Math.round(midX - w / 2);
+    if (u.bb.t - box.t <= near) t = box.t;
+    else if (box.b - u.bb.b <= near) t = box.b - h;
+    if (!(fullWidth(u.probe) && w >= frameW - 1)) l = Math.max(box.l, Math.min(l, Math.max(box.l, box.r - w)));
+    t = Math.max(box.t, Math.min(t, Math.max(box.t, box.b - h)));
+    return { u, l, t, w, h };
+  });
+  /* the upper half keeps clear downward from the head, the lower half upward from the foot */
+  const midY = (box.t + box.b) / 2;
+  const crosses = (a: { l: number; w: number }, b: { l: number; w: number }) => a.l < b.l + b.w && b.l < a.l + a.w;
+  const upper = spots.filter((s) => s.t + s.h / 2 < midY).sort((a, b) => a.t - b.t);
+  const lower = spots.filter((s) => s.t + s.h / 2 >= midY).sort((a, b) => b.t + b.h - (a.t + a.h));
+  upper.forEach((s, i) => {
+    for (const o of upper.slice(0, i)) if (crosses(s, o) && s.t < o.t + o.h + m.tight && o.t < s.t + s.h) s.t = o.t + o.h + m.tight;
+  });
+  lower.forEach((s, i) => {
+    for (const o of lower.slice(0, i)) if (crosses(s, o) && s.t + s.h > o.t - m.tight && o.t + o.h > s.t) s.t = o.t - m.tight - s.h;
+  });
+  for (const s of spots) target.set(s.u, { l: s.l, t: s.t });
+}
+
+/** what a game keeps counted at the head of its screen: its coins and lives, its health */
+const COUNTERS = new Set(["asset-pill", "stat-bar"]);
 
 /** Units whose vertical extents overlap and that sit side by side form one row. */
 function rowsOf(units: Unit[]): Unit[][] {
@@ -114,26 +186,29 @@ const holdsFixedPart = (g: Group) => ["rail", "top", "bottom", "floatingBottom",
 
 /** where a unit sits horizontally, so tidying keeps a right-aligned part on the right.
  *  Judged from the edges, so a part already on the margin reads the same way after tidying. */
-function align(bb: Rect, fr: Rect): "left" | "center" | "right" | "fill" {
+function align(bb: Rect, fr: Rect, margin: number): "left" | "center" | "right" | "fill" {
   const w = bb.r - bb.l;
-  if (w >= fr.r - fr.l - PHONE_MARGIN * 2 - 8) return "fill";
-  const near = PHONE_MARGIN + 12;
-  const left = bb.l - fr.l <= near;
-  const right = fr.r - bb.r <= near;
+  if (w >= fr.r - fr.l - margin * 2 - 8) return "fill";
+  const near = margin + 12;
+  const gapL = bb.l - fr.l;
+  const gapR = fr.r - bb.r;
+  /* on a wide screen a part well off the margin can still plainly stand to one side */
+  const left = gapL <= near || gapL * 3 < gapR;
+  const right = gapR <= near || gapR * 3 < gapL;
   if (left && !right) return "left";
   if (right && !left) return "right";
   return "center";
 }
 
 /** the gap above a row, from what came before it */
-function gapBefore(prev: Unit[] | null, row: Unit[]): number {
+function gapBefore(prev: Unit[] | null, row: Unit[], m: LayoutMetrics): number {
   if (!prev) return 0;
   const pu = prev.length === 1 ? prev[0] : null;
   const ku = row.length === 1 ? row[0] : null;
-  if (pu && role(pu) === "label") return TIGHT_GAP;
-  if (pu && (pu.family === "divider" || ku?.family === "divider")) return TIGHT_GAP;
-  if (pu && ku && pu.family === ku.family && isListLike(ku)) return TIGHT_GAP;
-  return ROW_GAP;
+  if (pu && role(pu) === "label") return m.tight;
+  if (pu && (pu.family === "divider" || ku?.family === "divider")) return m.tight;
+  if (pu && ku && pu.family === ku.family && isListLike(ku)) return m.tight;
+  return m.gap;
 }
 
 /** A group moved the least distance that puts it inside a screen; an edge-to-edge
@@ -152,7 +227,7 @@ export function pullInto(g: Group, frame: Frame, widths: Record<string, number>)
  *  right move over with their parts so nothing overlaps, the parts of the screen
  *  take the sizes the new screen calls for, anything that fell outside is pulled
  *  back in, and the screen is laid out again by the rules above. */
-export function carryFrame(groups: Group[], frame: Frame, to: Frame, frames: Frame[], widths: Record<string, number>): { frames: Frame[]; groups: Group[] } {
+export function carryFrame(groups: Group[], frame: Frame, to: Frame, frames: Frame[], widths: Record<string, number>, m: LayoutMetrics = MATERIAL_METRICS): { frames: Frame[]; groups: Group[] } {
   const from = frameSizeOf(frame);
   const after = frameSizeOf(to);
   /* the rail runs the whole length of the screen, which may be longer than the device */
@@ -232,7 +307,7 @@ export function carryFrame(groups: Group[], frame: Frame, to: Frame, frames: Fra
     const dx = o ? moved.get(o) : undefined;
     return dx ? { ...g, x: g.x + dx } : g;
   });
-  return { frames: nextFrames, groups: tidyFrame(resized, to, nextFrames, measures) ?? resized };
+  return { frames: nextFrames, groups: tidyFrame(resized, to, nextFrames, measures, m) ?? resized };
 }
 
 /** a rail standing on its own from the head of the screen */
@@ -271,7 +346,9 @@ export function pinOf(g: Group, frame: Frame, widths: Record<string, number>): "
  *  nor takes them in, and the rest stays where the author put it. */
 export function stretchFrame(groups: Group[], frame: Frame, length: number, frames: Frame[], widths: Record<string, number>): { frames: Frame[]; groups: Group[] } {
   const fr = frameRect(frame);
-  const to: Frame = { ...frame, length: length > frameSizeOf(frame).h ? length : undefined };
+  /* whoever sets the length now owns it: no style gives back what it did not take */
+  const { grownFrom: _taken, ...was } = frame;
+  const to: Frame = { ...was, length: length > frameSizeOf(frame).h ? length : undefined };
   const d = frameLengthOf(to) - frameLengthOf(frame);
   const across = (r: Rect) => r.l < fr.r && r.r > fr.l;
   const below = new Set(frames.filter((f) => f.id !== frame.id && frameRect(f).t >= fr.b && across(frameRect(f))).map((f) => f.id));
@@ -290,6 +367,26 @@ export function stretchFrame(groups: Group[], frame: Frame, length: number, fram
       return moves ? { ...g, y: g.y + d } : g;
     }),
   };
+}
+
+/** How long a screen has to be for every row of its body to stand between its bars under these metrics;
+ *  0 when a locked bar at its foot says how long it is. Tidy leaves a row that does not fit where it was. */
+export function lengthToHold(mine: Group[], frame: Frame, widths: Record<string, number>, m: LayoutMetrics = MATERIAL_METRICS): number {
+  const long: Frame = { ...frame, length: 100000, place: undefined };
+  const laid = tidyFrame(mine, long, [long], widths, m) ?? mine;
+  const end = frameRect(long).b;
+  let rows = frame.y;
+  let foot = end - safeAreaOf(frame).b;
+  for (const g of laid) {
+    if (g.inFlow) continue;
+    const role = roleOf(g.items[0]);
+    const bb = groupBounds(g, widths);
+    if (role === "bottom" || role === "floatingBottom") {
+      if (g.locked) return 0;
+      foot = Math.min(foot, bb.t);
+    } else if (role !== "top" && role !== "rail" && role !== "fab" && role !== "overlay" && role !== "backdrop") rows = Math.max(rows, bb.b);
+  }
+  return rows - frame.y + m.margin + end - foot;
 }
 
 /** The shortest a screen can be made: the device, or as much as its body needs with what stands at
@@ -387,7 +484,7 @@ function snapEdges(unit: Unit, groups: Map<string, Group>, widths: Record<string
 /** The area Tidy fills with body rows: inside the layout margins, beside the rails, between
  *  the top bars and the bottom bars. Aligning a part on the screen uses the same box, so
  *  it lands where Tidy would put it and not under a bar. */
-export function bodyRect(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>, except: Set<string> = new Set()): Rect {
+export function bodyRect(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>, except: Set<string> = new Set(), m: LayoutMetrics = MATERIAL_METRICS): Rect {
   const screen = frameRect(frame);
   /* `except` names groups being moved: a bar that is itself being aligned must not shape the body */
   const mine = groups.filter((g) => !except.has(g.id) && !g.inFlow && roleOf(g.items[0]) !== "backdrop" && frameOfGroup(g, frames, widths)?.id === frame.id);
@@ -401,14 +498,14 @@ export function bodyRect(groups: Group[], frame: Frame, frames: Frame[], widths:
   for (const u of units.filter(isTop)) top += u.bb.b - u.bb.t;
   let bottom = screen.b - safe.b;
   for (const u of units.filter(isBottomBar)) bottom -= u.bb.b - u.bb.t;
-  for (const u of units.filter(isFloatingBottom)) bottom -= PHONE_MARGIN + (u.bb.b - u.bb.t);
+  for (const u of units.filter(isFloatingBottom)) bottom -= m.margin + (u.bb.b - u.bb.t);
   /* a crowded short screen must not turn the box inside out */
-  const l = screen.l + leftRails + PHONE_MARGIN;
-  const t = top + PHONE_MARGIN;
-  return { l, t, r: Math.max(l, screen.r - rightRails - PHONE_MARGIN), b: Math.max(t, bottom - PHONE_MARGIN) };
+  const l = screen.l + leftRails + m.margin;
+  const t = top + m.margin;
+  return { l, t, r: Math.max(l, screen.r - rightRails - m.margin), b: Math.max(t, bottom - m.margin) };
 }
 
-export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>): Group[] | null {
+export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths: Record<string, number>, m: LayoutMetrics = MATERIAL_METRICS): Group[] | null {
   const screen: Rect = frameRect(frame);
   /* what a container lays out goes where the container is, not into the screen's rows */
   const mineIds = new Set(groups.filter((g) => !g.inFlow && roleOf(g.items[0]) !== "backdrop" && frameOfGroup(g, frames, widths)?.id === frame.id).map((g) => g.id));
@@ -417,7 +514,7 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   /* Locked groups are finished sections: they never cluster or move, but they keep the room
    * they stand in, so the rest is laid out around them. */
   const mine = groups.filter((g) => mineIds.has(g.id) && !g.locked);
-  const fixed = clusters(groups.filter((g) => mineIds.has(g.id) && !!g.locked), widths);
+  const fixed = clusters(groups.filter((g) => mineIds.has(g.id) && !!g.locked), widths, m);
   const fixedRails = fixed.filter(isRail);
   const fixedTops = fixed.filter(isTop);
   const fixedBottoms = fixed.filter((u) => isBottomBar(u) || isFloatingBottom(u));
@@ -425,7 +522,7 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   /* the bands of body height a locked section takes, which the rows flow around */
   const bands = fixed.filter((u) => !isAnchored(u)).map((u) => u.bb).sort((a, b) => a.t - b.t);
 
-  const units = clusters(mine, widths);
+  const units = clusters(mine, widths, m);
   const target = new Map<Unit, { l: number; t: number }>();
 
   /* a navigation rail stands on the edge it is nearer to, left or right (a second one beside it);
@@ -464,15 +561,15 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   for (const u of units.filter(isFloatingBottom).sort((a, b) => b.bb.t - a.bb.t)) {
     const h = u.bb.b - u.bb.t;
     const w = u.bb.r - u.bb.l;
-    bottom -= PHONE_MARGIN + h;
+    bottom -= m.margin + h;
     target.set(u, { l: fr.l + Math.round((frameW - w) / 2), t: bottom });
   }
   let fabBottom = Math.min(bottom, ...fixedFabs.map((u) => u.bb.t));
   for (const u of units.filter(isFab).sort((a, b) => b.bb.t - a.bb.t)) {
     const h = u.bb.b - u.bb.t;
     const w = u.bb.r - u.bb.l;
-    fabBottom -= PHONE_MARGIN + h;
-    target.set(u, { l: fr.r - PHONE_MARGIN - w, t: fabBottom });
+    fabBottom -= m.margin + h;
+    target.set(u, { l: fr.r - m.margin - w, t: fabBottom });
   }
   /* a dialog is centered on the device: on a screen that runs further, that is its first screenful */
   const viewH = frameSizeOf(frame).h;
@@ -484,17 +581,22 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
    * rows that would not fit are left where they are rather than pushed off the screen.
    * The rows are measured first, then the whole block is placed the way the screen asks:
    * from the top, centered, against the bottom, or spread out with equal gaps. */
+  /* unless the author has said where the body gathers, what stands on a picture stays where it was put */
+  const onScene = !frame.place && !bands.length && groups.some((g) => !g.inFlow && roleOf(g.items[0]) === "backdrop" && frameOfGroup(g, frames, widths)?.id === frame.id);
+  if (onScene) settleOnScene(units.filter((u) => !target.has(u)), target, { l: fr.l + m.margin, t: top + m.margin, r: fr.r - m.margin, b: bottom - m.margin }, fr.l, frameW, m);
   const rows = rowsOf(units.filter((u) => !target.has(u)));
-  const limit = bottom - PHONE_MARGIN;
-  const start = top + PHONE_MARGIN;
+  const limit = bottom - m.margin;
+  /* a list a style runs edge to edge hangs from the bar above it */
+  const hangs = !!m.flush && !!rows[0]?.length && rows[0].every((u) => m.flush!(u.probe));
+  const start = top + (hangs ? 0 : m.margin);
   const laid: { row: Unit[]; y: number; rowH: number }[] = [];
   let y = start;
   let prev: Unit[] | null = null;
   for (const row of rows) {
-    y += gapBefore(prev, row);
+    y += gapBefore(prev, row, m);
     const rowH = Math.max(...row.map((u) => u.bb.b - u.bb.t));
     /* a row that would land on a locked section goes below it instead */
-    for (const band of bands) if (y < band.b + ROW_GAP && y + rowH > band.t - ROW_GAP) y = band.b + ROW_GAP;
+    for (const band of bands) if (y < band.b + m.gap && y + rowH > band.t - m.gap) y = band.b + m.gap;
     if (y + rowH > limit) break;
     laid.push({ row, y, rowH });
     y += rowH;
@@ -516,31 +618,33 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
   const offset = !fits || bands.length ? 0 : place === "center" || (place === "spread" && laid.length <= 1) ? Math.round(spare / 2) : place === "bottom" ? spare : 0;
   let stacked = 0;
   laid.forEach(({ row, y: rowY, rowH }, index) => {
-    const yy = spreading ? start + Math.round(even * (index + 1)) + stacked : rowY + offset;
+    /* what a game keeps counted at the head of its screen stays there, whatever gathers below it */
+    const counted = offset > 0 && index === 0 && row.every((u) => COUNTERS.has(u.probe.component ?? ""));
+    const yy = spreading ? start + Math.round(even * (index + 1)) + stacked : counted ? rowY : rowY + offset;
     stacked += rowH;
-    const inner = frameW - PHONE_MARGIN * 2;
-    /* a part that spans the screen -- a carousel, a bar laid in the flow -- is edge to edge, and
-     * the margin is not its to keep, whatever else shares its line */
-    const isFull = (u: Unit) => fullWidth(u.probe) && u.bb.r - u.bb.l >= frameW - 1;
+    const inner = frameW - m.margin * 2;
+    /* a part that spans the screen -- a carousel, a bar laid in the flow, a list a style runs edge to edge -- is
+     * edge to edge, and the margin is not its to keep, whatever else shares its line */
+    const isFull = (u: Unit) => (fullWidth(u.probe) || !!m.flush?.(u.probe)) && u.bb.r - u.bb.l >= frameW - 1;
     for (const u of row) if (isFull(u)) target.set(u, { l: fr.l, t: yy });
     row = row.filter((u) => !isFull(u));
     if (row.length === 0) return;
     if (row.length === 1) {
       const u = row[0];
       const w = u.bb.r - u.bb.l;
-      const a = align(u.bb, fr);
+      const a = align(u.bb, fr, m.margin);
       /* a run nearly as wide as the content (a button row, a chip row) sits on the left margin,
        * so its edge lines up with the cards and lists above and below it */
       const wide = w >= inner * 0.7;
-      const l = wide || a === "left" ? fr.l + PHONE_MARGIN : a === "right" ? fr.r - PHONE_MARGIN - w : fr.l + Math.round((frameW - w) / 2);
+      const l = wide || a === "left" ? fr.l + m.margin : a === "right" ? fr.r - m.margin - w : fr.l + Math.round((frameW - w) / 2);
       target.set(u, { l, t: yy });
     } else if (row.length === 2 && row.some(isLabel) && row.some(isControl)) {
       /* a label with its control: the label on the left margin, the control on the right, like a settings row */
       const label = row.find(isLabel)!;
       const control = row.find(isControl)!;
       const cw = control.bb.r - control.bb.l;
-      target.set(label, { l: fr.l + PHONE_MARGIN, t: yy + Math.round((rowH - (label.bb.b - label.bb.t)) / 2) });
-      target.set(control, { l: fr.r - PHONE_MARGIN - cw, t: yy + Math.round((rowH - (control.bb.b - control.bb.t)) / 2) });
+      target.set(label, { l: fr.l + m.margin, t: yy + Math.round((rowH - (label.bb.b - label.bb.t)) / 2) });
+      target.set(control, { l: fr.r - m.margin - cw, t: yy + Math.round((rowH - (control.bb.b - control.bb.t)) / 2) });
     } else {
       const ws = row.map((u) => u.bb.r - u.bb.l);
       const total = ws.reduce((s, w) => s + w, 0);
@@ -550,8 +654,8 @@ export function tidyFrame(groups: Group[], frame: Frame, frames: Frame[], widths
       const spread = span >= inner * 0.7 && minPacked <= inner;
       const packed = spread ? inner : minPacked;
       const extra = spread ? (inner - minPacked) / gaps.length : 0;
-      const a = spread ? "left" : align({ l: row[0].bb.l, t: 0, r: row[row.length - 1].bb.r, b: 0 }, fr);
-      let x = a === "right" ? fr.r - PHONE_MARGIN - packed : a === "center" ? fr.l + (frameW - packed) / 2 : fr.l + PHONE_MARGIN;
+      const a = spread ? "left" : align({ l: row[0].bb.l, t: 0, r: row[row.length - 1].bb.r, b: 0 }, fr, m.margin);
+      let x = a === "right" ? fr.r - m.margin - packed : a === "center" ? fr.l + (frameW - packed) / 2 : fr.l + m.margin;
       row.forEach((u, i) => {
         const h = u.bb.b - u.bb.t;
         target.set(u, { l: Math.round(x), t: yy + Math.round((rowH - h) / 2) });

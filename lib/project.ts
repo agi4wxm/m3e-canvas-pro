@@ -54,7 +54,8 @@ const validFrame = (frame: unknown) =>
   (frame.h === undefined || (Number.isFinite(frame.h) && (frame.h as number) > 0)) &&
   (frame.note === undefined || typeof frame.note === "string") &&
   (frame.place === undefined || isPlace(frame.place)) &&
-  (frame.length === undefined || (Number.isFinite(frame.length) && (frame.length as number) > 0));
+  (frame.length === undefined || (Number.isFinite(frame.length) && (frame.length as number) > 0)) &&
+  (frame.grownFrom === undefined || (Number.isFinite(frame.grownFrom) && (frame.grownFrom as number) > 0));
 
 /* Behaviour is cleaned rather than checked: one effect of a wrong shape, from a file edited by hand,
  * is dropped and the rest of the file opens. Nothing here rejects a document. */

@@ -105,21 +105,21 @@ export function DialogueBox({ speaker = "", icon = "person", image = "", lines =
   };
   return (
     <div ref={root} data-slot="dialogue-box" data-line={line} className={cn("flex flex-col gap-2 rounded-2xl border border-outline-variant bg-surface-container-high p-3", className)} style={{ width, ...style }}>
-      <div className="flex items-center gap-2">
-        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-container text-on-primary-container">
+      <div data-slot="dialogue-speaker" className="flex items-center gap-2">
+        <span data-slot="dialogue-portrait" className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-container text-on-primary-container">
           {/^(https?:|data:image\/)/i.test(image) ? <img src={image} alt="" className="size-full object-cover" /> : <WidgetIcon name={icon} className="size-6" />}
         </span>
-        <span className="min-w-0 flex-1 truncate text-title-small text-primary">{speaker}</span>
+        <span data-slot="dialogue-name" className="min-w-0 flex-1 truncate text-title-small text-primary">{speaker}</span>
       </div>
-      <Tap data-dialogue-next className="min-h-16 rounded-md p-1 text-left text-body-large text-on-surface" onClick={press}>
+      <Tap data-slot="dialogue-words" data-dialogue-next className="min-h-16 rounded-md p-1 text-left text-body-large text-on-surface" onClick={press}>
         {shown ? words : words.slice(0, Math.max(0, typed))}
       </Tap>
       {shown && last && choices.length > 0 ? (
-        <div className="flex flex-col gap-1">
+        <div data-slot="dialogue-choices" className="flex flex-col gap-1">
           {choices.map((choice, i) => <Button key={i} variant="tonal" data-tap={`tab:${i}`}>{choice}</Button>)}
         </div>
       ) : (
-        shown && !last && next && <div className="flex items-center justify-end gap-1 text-label-small text-on-surface-variant">{next}<WidgetIcon name="keyboard_arrow_down" className="size-4" /></div>
+        shown && !last && next && <div data-slot="dialogue-next" className="flex items-center justify-end gap-1 text-label-small text-on-surface-variant">{next}<WidgetIcon name="keyboard_arrow_down" className="size-4" /></div>
       )}
     </div>
   );

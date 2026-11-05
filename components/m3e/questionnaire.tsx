@@ -228,6 +228,7 @@ function QuestionnairePrevious({
   return (
     <QuestionnairePrimitive.Previous
       data-slot="questionnaire-previous"
+      data-button=""
       data-size={size}
       data-variant={variant}
       className={cn(
@@ -253,6 +254,7 @@ function QuestionnaireSkip({
   return (
     <QuestionnairePrimitive.Skip
       data-slot="questionnaire-skip"
+      data-button=""
       data-size={size}
       data-variant={variant}
       className={cn(
@@ -278,6 +280,7 @@ function QuestionnaireNext({
   return (
     <QuestionnairePrimitive.Next
       data-slot="questionnaire-next"
+      data-button=""
       data-size={size}
       data-variant={variant}
       className={cn(
@@ -303,6 +306,7 @@ function QuestionnaireSubmit({
   return (
     <QuestionnairePrimitive.Submit
       data-slot="questionnaire-submit"
+      data-button=""
       data-size={size}
       data-variant={variant}
       className={cn(

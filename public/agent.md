@@ -45,27 +45,52 @@ Rough placement is fine. The person presses **Tidy**: bars snap to the edges, an
 }
 ```
 
-`theme` is optional. `contrast`: `standard | medium | high`. `shape`: `none | square | rounded | full`. `font`: `roboto | robotoFlex | robotoSerif | system | apple | segoe | inter | pixel | rajdhani | orbitron | garamond | cinzel`. `motion`: `standard | expressive`. `bothModes: true` asks for light and dark; `dark` picks which one the canvas shows.
+`theme` is optional. `contrast`: `standard | medium | high`. `shape`: `none | square | soft | rounded | full`. `font`: `roboto | robotoFlex | robotoSerif | system | apple | segoe | inter | dmsans | mrounded | fredoka | lilita | barlow | rajdhani | pixel | garamond | cinzel`. `motion`: `standard | expressive`. `bothModes: true` asks for light and dark; `dark` picks which one the canvas shows.
 
 ### Style (`theme.style`)
 
-One word dresses the whole document: every part, the screens behind them and the pictures. Name the style that suits the idea and write nothing else in `theme`; the colors, type, corners and icons come with it, and `paletteKey` is ignored while it colors the document.
+One word dresses the whole document: every part, the screens behind them and the pictures. Name the style that suits the idea and write nothing else in `theme`; the colors, type, corners and icons come with it, and `paletteKey` is ignored while it colors the document. A style is a set of rules the document is held to: what a theme says against them is replaced, and `corners`, `look`, a button's `shape`, an image's `radius` and a scene's `style` are removed from every part when the document arrives. Choose among the things the rules leave open: which parts, their words, and `fill` and `textColor`, which name the style's own colors.
 
 ```jsonc
 "theme": { "style": "cyber" }
 ```
 
-| `style` | For |
-| --- | --- |
-| (left out) | Material 3, the components as they come |
-| `ios` | Apple-style apps: segmented controls, centered titles, round thumbs |
-| `fluent` | Windows and office software: hairlines, small corners, restrained color |
-| `glass` | Translucent panels over a gradient: music, media, modern showcases |
-| `pixel` | Retro and indie games: thick borders, hard shadows, block controls |
-| `cyber` | Sci-fi and cyberpunk: neon lines, chamfered buttons, scan lines |
-| `fantasy` | Fantasy and RPG games: gold frames, beveled buttons |
+Each one is modeled on real products. Pick the one nearest to what the person described; if they name a product, take its style. A style is more than its colors: it also shapes the components and lays the screens out. When the document arrives its screens are laid out by the style's rules (margins, gaps, where the navigation stands), so place parts as the rest of this guide says, in the order you want them, and compose each screen as the table says.
 
-Use the same style for the whole app. `recipes` changes how one kind of control is built, and only when asked: `{ "style": "ios", "recipes": { "tabs": "boxed" } }`. The kinds are `button`, `surface`, `tabs`, `toggle`, `slider`, `nav`, `field`, `bar` and `feedback`.
+<!-- styles:begin -->
+
+| `style` | Looks like | How its screens are composed |
+| --- | --- | --- |
+| (left out) | Android, Google's apps | Plain Material 3: a top bar, a body on 16dp margins, a bottom navigation bar. |
+| `ios` | iOS 26, Apple apps | Inset grouped lists on a grey ground with generous gaps between groups; a centered title; a floating capsule tab bar; the main action a full-width capsule near the content. |
+| `shortvideo` | TikTok, Douyin | The video fills the whole screen, so draw it as a full-screen scene rather than a video box; text tabs at the top; a column of actions down the right; a caption and a black tab bar over the foot. |
+| `spotify` | Spotify | A row of capsule filters, then titled shelves of square covers; lists without lines; a mini player resting above the tab bar. |
+| `wechat` | WeChat | White lists run edge to edge, grouped by narrow grey bands, with lines starting at the words; rounded-square avatars; a centered title; four bottom tabs. |
+| `shop` | Taobao, Temu, Shein | A search box pinned at the top, promo banners, then two columns of product cards with large red prices; five bottom tabs; a fixed buy button at the foot of a product page. |
+| `social` | Instagram, Threads | Content edge to edge with full-width pictures, hardly any cards or lines; color only on the main action; a bottom bar of icons with no words. |
+| `whatsapp` | WhatsApp | A title and search on top, then chat rows of avatar, name, last line and time; a floating new-chat button at the lower right; four bottom tabs. |
+| `chatgpt` | ChatGPT | Almost no chrome: the conversation in the middle, a large rounded composer with a round send button at the foot, navigation folded into a side drawer. |
+| `fluent` | Windows 11, Microsoft 365, Teams, Edge | A navigation pane on the left when wide, a command bar on top, compact lists and forms below; short controls, small margins, dense. |
+| `vscode` | VS Code, Cursor | A narrow column of icons at the far left, a tree sidebar beside it, square tabs over the content, a thin status bar along the foot. |
+| `discord` | Discord | A column of round server icons at the far left, a channel list beside it, the stream of messages beside that, a composer at the foot. |
+| `steam` | Steam | A dark navigation along the top, a large cover below it and rows of game cards; lists of a thumbnail, a name and a green price tag. |
+| `notion` | Notion | Like a page of paper: a large title at the upper left, roomy text, elements without boxes, layered by indent and white space, almost no color. |
+| `antd` | Alipay, DingTalk, Feishu, Ant Design | A menu on the left and breadcrumbs on top when wide, white cards on grey holding tables and forms; on a phone, white cards on grey with four bottom tabs. |
+| `casual` | Royal Match, Candy Crush, Monopoly GO, Clash Royale, Coin Master | A row of cream capsules for coins, lives and stars on top; a full-screen scene in the middle; two big glossy buttons just above the bottom bar, whose chosen tab rises and brightens. |
+| `blocks` | Block Blast | Almost no menus: a crown and best score at the upper left, settings at the upper right, a big score in the middle, the navy board and the pieces below it. |
+| `survival` | Whiteout Survival, Last War, Kingshot | An avatar and power at the upper left, a row of resource figures at the right; round feature icons along the edges; a navy row of entries at the foot; action cards rising from below. |
+| `anime` | Genshin Impact, Honkai: Star Rail | A column of categories at the left with the chosen one a cream capsule; a grid of items in the middle; a detail card at the right with capsule buttons at its foot; a round close at the upper right. |
+| `moba` | Honor of Kings, League of Legends: Wild Rift | A hero portrait on one side, a navy list on the other; bottom tabs whose chosen one glows gold from below; thin gold lines and diamonds throughout. |
+| `souls` | Elden Ring, Baldur's Gate 3 | Nearly black: a column of words at the left whose chosen row is lit by a dark-gold band fading to the right; small dense columns of figures; a line of key hints along the foot. |
+| `wukong` | Black Myth: Wukong | Pure black with a large faint calligraphic character at the upper left; a line of text tabs on top with the chosen one a pale band; a text list at the left, emptiness or a picture at the right; key hints at the lower right. |
+| `cyber` | Cyberpunk 2077 | A title with a cyan underline on top, a column of dark crimson panels with cut corners at the right, each row a capital label and a value; a row of cyan key hints along the foot; small technical text scattered at the edges. |
+| `rivals` | Marvel Rivals | A slim navigation on top with the chosen item bright yellow; a hero and slanted color blocks on one side, white panels on the other; bold italic capital titles; a slanted yellow streak on victory. |
+| `fps` | Apex Legends, VALORANT, PUBG, Counter-Strike 2 | A line of capital navigation on top with the chosen item a red parallelogram; the character standing in the middle; a column of match buttons and a big ready button at the lower left; currency at the upper right. |
+| `stardew` | Stardew Valley, Terraria | The scene fills the screen; a dialog sits low on it with words at the left and a portrait with a scroll nameplate at the right; a row of square item slots along the foot serves as navigation. |
+
+<!-- styles:end -->
+
+Use the same style for the whole app. The screens are laid out by the style's rules when the document arrives: margins, gaps, where the navigation stands, and every row in reading order, so nothing has to be measured. On a screen with a `scene` behind it the parts are a composition rather than rows: each stays in the corner or along the edge you put it by, so place a HUD where it should stand. `recipes` and `ux` only count in a document that has been let off the rules with `"strict": false`, and only when asked: `{ "style": "ios", "strict": false, "recipes": { "tabs": "boxed" }, "ux": { "margin": 24, "nav": "top" } }`. The kinds of `recipes` are `button`, `surface`, `tabs`, `toggle`, `slider`, `nav`, `field`, `bar`, `meter`, `list`, `dialog`, `avatar`, `chip`, `check`, `dialogue` and `feedback`. `ux` holds `margin`, `gap`, `tight`, `nav` (`keep | bottom | rail | top`) and `place` (`top | center | bottom | spread`).
 
 ### Screens (`frames`)
 
@@ -109,7 +134,7 @@ Fields any part may carry beside `props`:
 - An effect is one of `{ "do": "show" | "hide" | "toggle" | "open" | "close", "part": "<item id>" }`, `{ "do": "setVar", "var": "<variable id>", "value": … }`, `{ "do": "toggleVar", "var" }`, `{ "do": "addVar", "var", "by": 1 }`, `{ "do": "setProp", "part", "prop": "<prop key>", "value": … }`, `{ "do": "snackbar", "message": "…" }`.
 - A condition is `{ "var": "<variable id>", "op": "eq" | "neq", "value": … }` or `{ "filled": "<item id of an input>" }`.
 - `bind`: `{ "<prop key>": "<variable id>" }`, the props that follow a variable. An input (`input`, `text-field`, `textarea`, `switch`, `checkbox`, `slider`, `select`, `radio-group`) also writes to the variable its value prop is bound to.
-- `fill`: a background role, the same names as a screen's `bg`. `textColor`: `onSurface | onSurfaceVariant | primary | secondary | onPrimaryContainer | onSecondaryContainer | onTertiaryContainer | inverseOnSurface`. `corners`: `{ "tl": 16, "tr": 16, "br": 16, "bl": 16 }`. What is inside follows a fill by itself, so set `textColor` only to differ.
+- `fill`: a background role, the same names as a screen's `bg`. `textColor`: `onSurface | onSurfaceVariant | primary | secondary | onPrimaryContainer | onSecondaryContainer | onTertiaryContainer | inverseOnSurface`. What is inside follows a fill by itself, so set `textColor` only to differ.
 - `flowFill: true`: in an auto layout, the part takes the room left along the run.
 
 Fields a group may carry: `name`, what the layers and the prompt call it; `hidden: true` starts it hidden, with no hole left in an auto layout; `showWhen`, a condition, shows it only while that holds; `pane`, a number, is the tab of the `dock` it stands on; `inFlow`, see below.

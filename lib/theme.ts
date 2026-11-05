@@ -1,21 +1,22 @@
 
-import { FONTS, FontKey, LANG_FONT } from "./tokens";
+import { FONTS, FontKey, LANG_FONT, langFaceOf, type Face } from "./tokens";
 import type { Lang } from "./i18n";
 
 // A preloaded stylesheet is not necessarily ready. Every caller waits for the
 // same request, including the editor callback that remeasures a newly chosen face.
 const loading = new Map<string, Promise<void>>();
 
-function ensureFaceLoaded(google: string | undefined, family: string, onReady?: () => void) {
+function ensureFaceLoaded(face: Pick<Face, "google" | "css"> | null | undefined, family: string, onReady?: () => void) {
   if (typeof document === "undefined") return;
   const ready = () => document.fonts?.ready.then(() => onReady?.());
+  const google = face?.css ?? (face?.google ? `https://fonts.googleapis.com/css2?family=${face.google}&display=swap` : undefined);
   if (!google) { ready(); return; }
   let request = loading.get(google);
   if (!request) {
     request = new Promise<void>((resolve) => {
       const link = document.createElement("link");
       link.rel = "stylesheet";
-      link.href = `https://fonts.googleapis.com/css2?family=${google}&display=swap`;
+      link.href = google;
       const failed = () => {
         loading.delete(google);
         link.remove();
@@ -39,13 +40,16 @@ function ensureFaceLoaded(google: string | undefined, family: string, onReady?: 
 }
 
 /** Fetch a Google font once; every caller is notified after the face is usable. */
-export function ensureFontLoaded(key: FontKey, onReady?: () => void) {
+export function ensureFontLoaded(key: FontKey, onReady?: () => void, lang?: Lang) {
   const f = FONTS.find((x) => x.key === key);
-  ensureFaceLoaded(f?.google, f?.family ?? "", onReady);
+  ensureFaceLoaded(f, f?.family ?? "", onReady);
+  /* and what stands in for it in the language being written: Chinese words are in that one */
+  const own = key === "system" ? null : langFaceOf(key, lang);
+  if (own) ensureFaceLoaded(own, own.family, onReady);
 }
 
 /** Fetch the Noto Sans face for a language the first time it is used. */
 export function ensureLangFontLoaded(lang: Lang, onReady?: () => void) {
   const f = LANG_FONT[lang];
-  ensureFaceLoaded(f?.google, f?.family ?? "", onReady);
+  ensureFaceLoaded(f, f?.family ?? "", onReady);
 }

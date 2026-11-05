@@ -79,7 +79,8 @@ export const additions: PartDef[] = [
       { key: "height", label: "Height", kind: "number", default: 160, min: 24, max: 1600, step: 4, unit: "px" },
     ],
     tree: (p) => {
-      const style = { width: px(p), height: px(p, "height"), borderRadius: px(p, "radius") };
+      /* left as it comes, its corner is the theme's, which the shape scale and any style reach */
+      const style = { width: px(p), height: px(p, "height"), borderRadius: p.n("radius") === 12 ? "var(--md-sys-shape-corner-medium)" : px(p, "radius") };
       return p.s("src")
         ? h("img", { "data-slot": "image", src: p.s("src"), alt: p.s("alt"), className: FIT[p.s("fit")], style })
         : h("div", { "data-slot": "image", role: "img", "aria-label": p.s("alt") || undefined, className: "bg-surface-container-high text-outline flex items-center justify-center", style }, ic("image", { className: "size-8" }));

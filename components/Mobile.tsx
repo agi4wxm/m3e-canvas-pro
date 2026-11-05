@@ -1,10 +1,12 @@
 
+import { useContext } from "react";
 import { motion, useDragControls } from "motion/react";
 import { CONTRASTS, Contrast, FONTS, Item, PALETTES, Palette, SHAPES, ShapeScale, Theme, paletteIconOf } from "@/lib/tokens";
-import { STYLE_PACKS, stylePatch, styleTextOf } from "@/lib/styles";
+import { STYLE_PACKS, styleTextOf } from "@/lib/styles";
 import { partBySlug } from "@/parts/registry";
 import { listTextOf, nameOf } from "@/parts/labels";
 import { ComponentProps } from "./ComponentInspector";
+import { StyleRulesContext } from "./EffectsPanel";
 import { AppearanceCorners, AppearanceLook, FillRun, TextRun } from "./PartPanel";
 import { ensureFontLoaded } from "@/lib/theme";
 import { LANGS, Lang, t, useLang } from "@/lib/i18n";
@@ -111,6 +113,7 @@ export function MobileInspector({
   onClose: () => void;
 }) {
   const lang = useLang();
+  const strict = useContext(StyleRulesContext);
   const def = partBySlug(item.component);
   return (
     <div>
@@ -128,8 +131,8 @@ export function MobileInspector({
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
           <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />
           <TextRun value={item.textColor} onChange={(textColor) => onChange({ textColor })} p={p} />
-          <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />
-          <AppearanceLook key={`${item.id}:look`} item={item} onChange={onChange} p={p} />
+          {!strict && <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />}
+          {!strict && <AppearanceLook key={`${item.id}:look`} item={item} onChange={onChange} p={p} />}
         </div>
       )}
       <div style={{ marginTop: 14 }}>
@@ -187,15 +190,17 @@ export function MobileSettings({
   onPalette,
   theme,
   onTheme,
+  onStyle,
 }: {
   palette: Palette;
   paletteKey: string;
   onPalette: (key: string) => void;
   theme: Theme;
   onTheme: (patch: Partial<Theme>) => void;
+  onStyle: (key: string) => void;
 }) {
   const lang = useLang();
-  const shapeLabel = (k: ShapeScale) => (k === "none" ? t("shapeNone", lang) : k === "square" ? t("shapeSquare", lang) : k === "full" ? t("shapeFull", lang) : t("shapeRounded", lang));
+  const shapeLabel = (k: ShapeScale) => (k === "none" ? t("shapeNone", lang) : k === "soft" ? t("shapeSoft", lang) : k === "square" ? t("shapeSquare", lang) : k === "full" ? t("shapeFull", lang) : t("shapeRounded", lang));
   return (
     <div>
       <Row icon="brightness_6" label={t("brightness", lang)} p={p}>
@@ -229,7 +234,7 @@ export function MobileSettings({
             return (
               <button
                 key={s.key}
-                onClick={() => onTheme(stylePatch(s.key))}
+                onClick={() => onStyle(s.key)}
                 aria-pressed={on}
                 className="m3-press"
                 style={{ height: 44, padding: "0 16px", borderRadius: 22, border: "none", background: on ? p.secondaryContainer : p.surfaceContainerHigh, color: on ? p.onSecondaryContainer : p.onSurface, fontSize: 14, fontWeight: 600, cursor: "pointer" }}

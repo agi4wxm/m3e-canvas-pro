@@ -79,8 +79,11 @@
 
 /* ---------- shadcn semantic tokens → M3 roles ---------- */
 
+/* a custom property is worked out where it is declared, so these are declared again wherever the roles are */
 :root,
-.dark {
+.dark,
+.m3-part-scope,
+[data-style-sample] {
   --background: var(--md-sys-color-surface);
   --foreground: var(--md-sys-color-on-surface);
   --card: var(--md-sys-color-surface-container-low);
@@ -121,8 +124,8 @@
 @theme inline {
   --font-sans:
     "Roboto Flex Variable", Roboto, "Noto Sans JP", system-ui, sans-serif;
-  --font-heading: var(--font-sans);
-  --font-mono: ui-monospace, "Cascadia Code", monospace;
+  --font-heading: inherit;
+  --font-mono: var(--st-mono, ui-monospace, "Cascadia Code", Consolas, "Noto Sans Mono", monospace);
 
   /* shadcn semantic colors */
   --color-background: var(--background);
@@ -913,4 +916,9 @@
 [inert] [data-hotspot] {
   outline: 2px dashed var(--md-sys-color-primary);
   outline-offset: -2px;
+}
+
+/* a chart's words, which its library would otherwise paint one fixed grey */
+.recharts-text {
+  fill: var(--md-sys-color-on-surface-variant);
 }

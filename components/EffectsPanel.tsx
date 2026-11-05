@@ -40,6 +40,9 @@ export type Behavior = {
   patchRepeat?: (repeat: Group["repeat"]) => void;
 };
 
+/** whether the document is held to its style's rules: then the panels offer only what the rules leave open */
+export const StyleRulesContext = createContext(false);
+
 export const BehaviorContext = createContext<Behavior>({ vars: [], setVars: () => {}, groups: [], group: null, patchGroup: () => {}, reorderPanes: () => {} });
 
 const NEW_VAR = "__new";

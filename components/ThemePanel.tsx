@@ -8,10 +8,10 @@ import { listTextOf } from "@/parts/labels";
 import { Icon } from "./Icon";
 import { Select, Toggle } from "./ui";
 
-const shapeLabel = (k: ShapeScale, lang: Lang) => (k === "none" ? t("shapeNone", lang) : k === "square" ? t("shapeSquare", lang) : k === "full" ? t("shapeFull", lang) : t("shapeRounded", lang));
+const shapeLabel = (k: ShapeScale, lang: Lang) => (k === "none" ? t("shapeNone", lang) : k === "soft" ? t("shapeSoft", lang) : k === "square" ? t("shapeSquare", lang) : k === "full" ? t("shapeFull", lang) : t("shapeRounded", lang));
 
 /** the corner radius a 28dp default becomes under each scale, for the option art */
-const previewR = (k: ShapeScale) => (k === "none" ? 0 : k === "square" ? 6 : k === "full" ? 28 : 16);
+const previewR = (k: ShapeScale) => (k === "none" ? 0 : k === "soft" ? 10 : k === "square" ? 6 : k === "full" ? 28 : 16);
 
 function Hint({ p, children }: { p: Palette; children: React.ReactNode }) {
   return <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{children}</div>;

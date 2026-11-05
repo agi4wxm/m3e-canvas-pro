@@ -17,6 +17,7 @@ import { COUNTER, proofDoc, reuseDoc, sweepDoc } from "../lib/exportProject.fixt
 import { buildProject, zipProject, type ExportOptions } from "../lib/exportProject";
 import { setGlobalLang } from "../lib/i18n";
 import { makeItem, normalizeTheme, type Doc } from "../lib/tokens";
+import { layoutForStyle } from "../lib/styleLayout";
 import { partBySlug } from "../parts/registry";
 
 const WORK = process.argv[2];
@@ -860,18 +861,24 @@ async function styled() {
     theme: normalizeTheme({ style }),
   });
   for (const [style, port, primary, build] of [
-    ["cyber", 4201, "rgb(0, 240, 255)", (b: Record<string, string>) => b.clip.startsWith("polygon")],
-    ["pixel", 4202, "rgb(168, 52, 31)", (b: Record<string, string>) => b.shadow.includes("3px 3px") && b.radius === "0px"],
-    ["ios", 4203, "rgb(0, 113, 227)", (b: Record<string, string>) => b.radius === "12px"],
+    /* a tinted fill and a cut corner */
+    ["cyber", 4201, "color(srgb 1 0.360784 0.341176 / 0.16)", (b: Record<string, string>) => b.clip.startsWith("polygon")],
+    ["stardew", 4202, "rgb(168, 79, 5)", (b: Record<string, string>) => b.shadow.includes("3px 3px") && b.radius === "0px"],
+    ["ios", 4203, "rgb(0, 122, 255)", (b: Record<string, string>) => b.shadow === "none" && parseFloat(b.radius) > 20],
+    /* WeUI's 8px button */
+    ["wechat", 4204, "rgb(7, 193, 96)", (b: Record<string, string>) => b.radius === "8px"],
   ] as const) {
     const name = `style-${style}`;
-    const dist = await assemble(name, docOf(style), {});
+    /* laid out the way the editor does when the style is picked */
+    const plain = docOf(style);
+    const laid = layoutForStyle(plain.groups, plain.frames, {}, plain.theme!);
+    const dist = await assemble(name, { ...plain, groups: laid?.groups ?? plain.groups, frames: laid?.frames ?? plain.frames }, {});
     if (!dist) continue;
     const dir = join(WORK, name);
     const icons = await readFile(join(dir, "src/style-icons.ts"), "utf8").catch(() => "");
-    ok(icons.includes(style === "pixel" ? "pixelarticons" : style === "ios" ? "material-symbols-light" : "material-symbols"), `${style}: its icons are in the project`);
+    ok(icons.includes(style === "stardew" ? "pixelarticons" : style === "cyber" ? "material-symbols" : "material-symbols-light"), `${style}: its icons are in the project`);
     const html = await readFile(join(dir, "index.html"), "utf8");
-    ok(html.includes(style === "cyber" ? "Orbitron" : style === "pixel" ? "Pixelify" : "Inter"), `${style}: its fonts are asked for`);
+    if (style !== "wechat") ok(html.includes(style === "cyber" ? "Rajdhani" : style === "stardew" ? "Pixelify" : "Inter"), `${style}: its fonts are asked for`);
     const server = await serve(dist, port);
     const p = await edgeAt(name, `http://127.0.0.1:${port}/`);
     try {
@@ -880,7 +887,13 @@ async function styled() {
       const b = await p.read('[data-slot="button"]:not([data-size^="icon"])', "(()=>{const c=getComputedStyle(e);return {clip:c.clipPath,shadow:c.boxShadow,radius:c.borderTopLeftRadius,bg:c.backgroundColor}})()") as unknown as Record<string, string>;
       ok(b.bg === primary, `${style}: the button wears the style's own color (${b.bg})`);
       ok(build(b), `${style}: the button is built the style's way (${JSON.stringify(b)})`);
+      if (style === "wechat") {
+        const left = await p.read('[data-slot="item"]', "e.getBoundingClientRect().left") as unknown as number;
+        const edge = await p.read('[data-slot="app-bar"]', "e.getBoundingClientRect().left") as unknown as number;
+        ok(typeof left === "number" && Math.abs(left - edge) < 1, `wechat: its list runs from the edge of the screen (${left}, the bar at ${edge})`);
+      }
       if (style === "cyber") {
+        ok(await p.ev<boolean>(`return !document.querySelector("[data-slot=navigation-bar]") && document.querySelectorAll("[data-slot=tabs]").length === 2`), "cyber: its navigation stands at the head, as tabs");
         ok(await p.ev<boolean>(`return document.documentElement.classList.contains("dark")`), "cyber: it opens dark");
         const behind = await p.read("[data-backdrop]", "getComputedStyle(e).backgroundImage") as unknown as string;
         ok(behind.includes("gradient"), "cyber: the style draws behind the screen");
@@ -892,6 +905,9 @@ async function styled() {
         ok(track === "51px", `ios: the switch is the size iOS draws it (${track})`);
         const indicator = await p.read('[data-slot="nav-indicator"]', "getComputedStyle(e).backgroundColor") as unknown as string;
         ok(indicator === "rgba(0, 0, 0, 0)", "ios: the navigation bar has no pill");
+        const left = await p.read('[data-slot="item"]', "e.getBoundingClientRect().left") as unknown as number;
+        const edge = await p.read('[data-slot="app-bar"]', "e.getBoundingClientRect().left") as unknown as number;
+        ok(typeof left === "number" && left - edge >= 8, `ios: its list keeps a margin (${left}, the bar at ${edge})`);
       }
       await p.tap("Onward");
       ok(await p.at("next"), `${style}: it still goes where it goes`);

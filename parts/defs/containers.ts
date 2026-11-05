@@ -59,7 +59,7 @@ export const containers: PartDef[] = [
         {
           "data-slot": "layout-container",
           className: `${bare ? "" : `flex flex-col gap-1 p-4 ${p.s("place") === "start" ? "items-start justify-start" : "items-center justify-center"}`} overflow-hidden ${BORDER[p.s("border")] ?? ""}`.trim(),
-          style: { ...box(p), borderRadius: Math.round(p.n("radius")), background: p.s("fill") === "none" ? undefined : `var(--md-sys-color-${p.s("fill")})`, backdropFilter: p.n("blur") > 0 ? `blur(${Math.round(p.n("blur"))}px)` : undefined },
+          style: { ...box(p), borderRadius: p.n("radius") === 12 ? "var(--md-sys-shape-corner-medium)" : Math.round(p.n("radius")), background: p.s("fill") === "none" ? undefined : `var(--md-sys-color-${p.s("fill")})`, backdropFilter: p.n("blur") > 0 ? `blur(${Math.round(p.n("blur"))}px)` : undefined },
         },
         !bare && p.s("label") && h("div", { className: `truncate ${p.s("place") === "start" ? "text-title-small text-on-surface" : "text-label-large text-on-surface-variant"}` }, p.s("label")),
         !bare && p.s("note") && h("div", { className: "text-body-small text-on-surface-variant truncate" }, p.s("note")),

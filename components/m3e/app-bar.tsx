@@ -63,6 +63,7 @@ function AppBar({
   const titleText = (
     <>
       <h1
+        data-slot="app-bar-title"
         className={cn(
           "truncate",
           small
@@ -76,6 +77,7 @@ function AppBar({
       </h1>
       {subtitle && (
         <p
+          data-slot="app-bar-subtitle"
           className={cn(
             "truncate text-on-surface-variant",
             small
@@ -99,7 +101,7 @@ function AppBar({
       className={cn(appBarVariants({ size }), className)}
       {...props}
     >
-      <div className="flex h-16 items-center gap-1 px-1">
+      <div data-slot="app-bar-row" className="flex h-16 items-center gap-1 px-1">
         {leading && (
           <div className="flex shrink-0 items-center text-on-surface [&_[data-slot=button]]:text-on-surface">
             {leading}

@@ -360,7 +360,7 @@ export const more: PartDef[] = [
         { "data-slot": "stat-bar", className: "flex items-center gap-2 text-on-surface", style: { width: px(p) } },
         p.s("icon") && ic(p.s("icon"), { className: "size-5 shrink-0" }),
         p.s("label") && h("span", { className: "text-label-medium shrink-0" }, p.s("label")),
-        h("div", { "data-slot": "stat-bar-track", role: "progressbar", "aria-valuenow": Math.round(p.n("value")), "aria-valuemax": Math.round(p.n("max")), className: "bg-surface-container-highest h-3 min-w-0 flex-1 overflow-hidden rounded-full" }, h("div", { className: `h-full rounded-full ${BAR_COLORS[p.s("color")] ?? "bg-primary"}`, style: { width: `${share}%` } })),
+        h("div", { "data-slot": "stat-bar-track", role: "progressbar", "aria-valuenow": Math.round(p.n("value")), "aria-valuemax": Math.round(p.n("max")), className: "bg-surface-container-highest h-3 min-w-0 flex-1 overflow-hidden rounded-full" }, h("div", { "data-slot": "stat-bar-fill", className: `h-full rounded-full ${BAR_COLORS[p.s("color")] ?? "bg-primary"}`, style: { width: `${share}%` } })),
         p.b("numbers") && h("span", { className: "text-label-small shrink-0 tabular-nums" }, `${Math.round(p.n("value"))}/${Math.round(p.n("max"))}`),
       );
     },
@@ -490,6 +490,8 @@ export const more: PartDef[] = [
     icon: "forum",
     w: 380,
     h: 170,
+    /* in every game that has one it floats at the foot of the picture */
+    role: "floatingBottom",
     props: [
       text("speaker", "Speaker", "Old sage", "老贤者"),
       icon("icon", "Icon", "person"),

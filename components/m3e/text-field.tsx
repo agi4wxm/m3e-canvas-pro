@@ -126,6 +126,7 @@ function TextField({
       className={cn("flex w-full flex-col gap-1", containerClassName)}
     >
       <div
+        data-slot="text-field-box"
         className={cn(
           fieldVariants({ variant }),
           multiline && "items-start",
@@ -140,6 +141,7 @@ function TextField({
           // out a <legend>.
           <div
             aria-hidden
+            data-slot="text-field-outline"
             className="pointer-events-none absolute inset-0 flex"
           >
             <span

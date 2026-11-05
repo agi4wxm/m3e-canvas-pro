@@ -4,7 +4,7 @@ import { buildScreens, importLines, type ScreenCode } from "./codegen";
 import { getLang, type Lang } from "./i18n";
 import { BASELINE_SEED } from "./m3e/color";
 import { runtimeSource } from "./runtimeSource";
-import { FONTS, SLIDE_SPEC, fontFamilyOf, langFaceOf, normalizeTheme, seedOf, shapeScaleOf, type Doc } from "./tokens";
+import { SLIDE_SPEC, faceSheetsOf, fontFamilyOf, normalizeTheme, seedOf, shapeScaleOf, type Doc } from "./tokens";
 import { APP_SCOPE, styleCss } from "./styles";
 import { familyIds } from "../components/m3e/icon-family";
 
@@ -460,10 +460,8 @@ body {
 
 function htmlSource(doc: Doc, lang: Lang): string {
   const theme = normalizeTheme(doc.theme);
-  const face = FONTS.find((f) => f.key === theme.font);
-  const display = FONTS.find((f) => f.key === theme.displayFont);
-  const families = [...new Set([theme.font === "roboto" ? "Roboto:wght@400;500;600;700" : face?.google, display?.google, theme.font === "system" ? undefined : langFaceOf(theme.font, lang)?.google, theme.displayFont ? langFaceOf(theme.displayFont, lang)?.google : undefined].filter(Boolean))];
-  const links = families.length ? `\n    <link rel="preconnect" href="https://fonts.googleapis.com" />\n    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />\n    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?${families.map((f) => `family=${f}`).join("&")}&display=swap" />` : "";
+  const { google: families, css: sheets } = faceSheetsOf(theme, lang);
+  const links = (families.length ? `\n    <link rel="preconnect" href="https://fonts.googleapis.com" />\n    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />\n    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?${families.map((f) => `family=${f}`).join("&")}&display=swap" />` : "") + sheets.map((href) => `\n    <link rel="stylesheet" href="${href}" />`).join("");
   const title = (doc.title || "App").replace(/&/g, "&amp;").replace(/</g, "&lt;");
   return `<!doctype html>
 <html lang="${lang}">

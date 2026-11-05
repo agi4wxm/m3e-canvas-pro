@@ -8,7 +8,8 @@ import { dpOf } from "@/parts/resize";
 import type { Choice, ListItem, PropDef, TableData } from "@/parts/types";
 import { AiHooks } from "./Inspector";
 import { Icon } from "./Icon";
-import { BehaviorContext, BindRow, VisibilitySection } from "./EffectsPanel";
+import { BehaviorContext, BindRow, StyleRulesContext, VisibilitySection } from "./EffectsPanel";
+import { styleOwnsProp } from "@/lib/styleRules";
 import { AlignBox, AppearanceCorners, AppearanceLook, EntryList, FillRun, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, PositionRow, SlotStrip, Tab, TextRun, TriggerSection, WidthRows } from "./PartPanel";
 import { segmentedFits } from "@/lib/choices";
 import { tableOf, tableText } from "@/lib/collections";
@@ -148,6 +149,7 @@ function ScenePaint({ item, values, p }: { item: Item; values: ReturnType<typeof
 export function ComponentProps({ item, palette: p, onChange, frame }: { item: Item; palette: Palette; onChange: (patch: Partial<Item>) => void; frame?: Frame | null }) {
   const lang = useLang();
   const behavior = useContext(BehaviorContext);
+  const strict = useContext(StyleRulesContext);
   const def = partBySlug(item.component);
   if (!def) return null;
   const values = reader(def, item.props);
@@ -160,7 +162,7 @@ export function ComponentProps({ item, palette: p, onChange, frame }: { item: It
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {def.props
-        .filter((d) => !d.when || d.when(values))
+        .filter((d) => (!d.when || d.when(values)) && !(strict && styleOwnsProp(def.slug, d.key)))
         .map((d) =>
           /* the row a part has chosen is picked by its name, not by counting: a dock's tab is also what the canvas shows and what a drop lands on */
           d.key === def.selectKey && d.kind === "number" && rowsToPick ? (
@@ -238,6 +240,7 @@ export function ComponentInspector({
   onMakeComponent?: () => void;
 }) {
   const lang = useLang();
+  const strict = useContext(StyleRulesContext);
   const [tab, setTab] = useState<Tab>("design");
   const [slot, setSlot] = useState("");
   const def = partBySlug(item.component);
@@ -263,8 +266,14 @@ export function ComponentInspector({
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />
                 <TextRun value={item.textColor} onChange={(textColor) => onChange({ textColor })} p={p} />
-                <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />
-                <AppearanceLook key={`${item.id}:look`} item={item} onChange={onChange} p={p} />
+                {strict ? (
+                  <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("styleDecidesLook", lang)}</div>
+                ) : (
+                  <>
+                    <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />
+                    <AppearanceLook key={`${item.id}:look`} item={item} onChange={onChange} p={p} />
+                  </>
+                )}
               </div>
             </Section>
           )}
@@ -274,7 +283,12 @@ export function ComponentInspector({
               <Toggle on={!!item.flowFill} onChange={(flowFill) => onChange({ flowFill: flowFill || undefined })} label={t("flowFill", lang)} p={p} grow />
             </Section>
           )}
-          {onPlace && !inFlow && (
+          {onPlace && !inFlow && strict && (
+            <Section id="part-align" icon="grid_on" title={t("align", lang)} p={p}>
+              <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("styleDecidesPlace", lang)}</div>
+            </Section>
+          )}
+          {onPlace && !inFlow && !strict && (
             <Section id="part-align" icon="grid_on" title={t("align", lang)} p={p}>
               <AlignBox key={item.id} onPlace={onPlace} p={p} />
               {onMoveTo && selfRect && <PositionRow x={Math.round(selfRect.x - (frame?.x ?? 0))} y={Math.round(selfRect.y - (frame?.y ?? 0))} onMove={(x, y) => onMoveTo(x + (frame?.x ?? 0), y + (frame?.y ?? 0))} p={p} />}

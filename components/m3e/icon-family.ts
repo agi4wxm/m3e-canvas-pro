@@ -1,12 +1,13 @@
 /*
  * Which drawing an icon name means. Every family takes the same Material names:
  *   rounded  Material Symbols Rounded, what the components bundle
+ *   filled   the same, always solid: the look of Discord, Spotify and most games
  *   light    its thin weight, the nearest thing to the hairline icons of iOS and Windows
  *   sharp    its square-cornered cut
  *   pixel    Pixelarticons for the names below, and sharp for the rest
  * An icon that has not arrived, or does not exist in a family, is drawn from Rounded: see `symbolName`.
  */
-export type IconFamily = "rounded" | "light" | "sharp" | "pixel"
+export type IconFamily = "rounded" | "filled" | "light" | "sharp" | "pixel"
 
 /** Material's name (in Iconify's spelling) to the Pixelarticons glyph that means the same */
 const PIXEL: Record<string, string> = {
@@ -181,6 +182,7 @@ const PIXEL: Record<string, string> = {
 /** the full Iconify ids of a name in a family, outlined and filled; nothing for the family that is bundled */
 export function familyIds(family: IconFamily, name: string): string[] {
   const base = name.replaceAll("_", "-")
+  if (family === "filled") return [`material-symbols:${base}-rounded`]
   if (family === "light")
     return [
       `material-symbols-light:${base}-outline-rounded`,

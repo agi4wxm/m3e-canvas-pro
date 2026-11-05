@@ -98,7 +98,7 @@ import { canvasView, expandDoc, type CanvasView, type DrawnPart } from "@/lib/ex
 import { repeatAround } from "@/lib/collections";
 import { actionToSibling, createVariant, familyOf, framesWithout, missingSizes } from "@/lib/variants";
 import { ComponentsPanel, DataPanel, InstanceInspector, sizeWord } from "@/components/ReusePanels";
-import { Behavior, BehaviorContext } from "@/components/EffectsPanel";
+import { Behavior, BehaviorContext, StyleRulesContext } from "@/components/EffectsPanel";
 import { updateRail } from "@/lib/rail";
 import { isProject, readProject, saveProject } from "@/lib/project";
 import { hasShareHash, readShareHash } from "@/lib/share";
@@ -111,9 +111,12 @@ import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
 import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
 import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
-import { artOf, screenBackground } from "@/lib/styles";
+import { artOf, isStrict, screenBackground, stylePatch, type StyleUX } from "@/lib/styles";
+import { conformDoc, conformGroups, rulesForModel } from "@/lib/styleRules";
+import { layoutForStyle, metricsOf } from "@/lib/styleLayout";
+import { standingTogether } from "@/lib/tidy";
 import { useIconFamily } from "@/parts/icons";
-import { StylePanel } from "@/components/StylePanel";
+import { StyleGate, StylePanel } from "@/components/StylePanel";
 import { partBySlug, reader, translateComponentProps } from "@/parts/registry";
 import { instantiate, templateBySlug } from "@/parts/templates";
 import { COMMON_TEXT } from "@/parts/labels";
@@ -403,13 +406,18 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const [customPalette, setCustomPalette] = useState<Palette | null>(null);
   const [dynamicColor, setDynamicColor] = useState(false);
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
-  const patchTheme = (patch: Partial<Theme>) => setTheme((t) => ({ ...t, ...patch }));
+  /* whatever asks, a theme held to its style stays what the style says */
+  const patchTheme = (patch: Partial<Theme>) => setTheme((t) => normalizeTheme({ ...t, ...patch }));
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
   /* colors picked after a style are the author's: the style keeps everything else */
   const pickPalette = (key: string) => {
+    if (theme.style && isStrict(theme)) return;
     setPaletteKey(key);
     if (theme.style) patchTheme({ ownColors: true });
   };
   const pickCustomPalette = (custom: Palette | null) => {
+    if (theme.style && isStrict(theme)) return;
     setCustomPalette(custom);
     if (theme.style) patchTheme({ ownColors: true });
   };
@@ -503,6 +511,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   selectedFrameIdRef.current = selectedFrameId;
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [showAllLinks, setShowAllLinks] = useState(false);
+  /* picking a style lays the screens out its way too, unless the author asked to keep their own */
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -612,6 +621,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   );
 
   const restore = (snap: Snapshot) => {
+    /* a style's layout still to come would land on what has just been brought back */
+    relayoutRef.current = null;
     lastPatchRef.current = { key: "", at: 0 };
     for (const g of snap.groups) instantRef.current.add(g.id);
     if (snap.meta) {
@@ -718,10 +729,13 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       futureRef.current = defEditRef.current.future;
       setDefEdit(null);
     }
+    relayoutRef.current = null;
+    /* however a document came, a file, a link or a model, it comes under the rules of its theme */
+    const look = doc.theme && typeof doc.theme === "object" ? normalizeTheme(doc.theme) : reset ? normalizeTheme(undefined) : themeRef.current;
     if (Array.isArray(doc.groups)) {
-      setGroups(drawableGroups(doc.groups));
+      setGroups(drawableGroups(conformGroups(doc.groups, look)));
     }
-    if (Array.isArray(doc.components)) setComponents(doc.components);
+    if (Array.isArray(doc.components)) setComponents(conformDoc({ groups: [], components: doc.components }, look).components);
     else if (reset) setComponents(undefined);
     if (Array.isArray(doc.collections)) setCollections(doc.collections);
     else if (reset) setCollections(undefined);
@@ -732,8 +746,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     else if (reset) setCustomPalette(null);
     if (typeof doc.dynamicColor === "boolean") setDynamicColor(doc.dynamicColor);
     else if (reset) setDynamicColor(false);
-    if (doc.theme && typeof doc.theme === "object") setTheme(normalizeTheme(doc.theme));
-    else if (reset) setTheme(normalizeTheme(undefined));
+    if ((doc.theme && typeof doc.theme === "object") || reset) setTheme(look);
     if (typeof doc.title === "string") setTitle(doc.title);
     else if (reset) setTitle("");
     if (typeof doc.brief === "string") setBrief(doc.brief);
@@ -814,11 +827,11 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
 
   useEffect(() => {
     /* an empty width map makes every measured part read its width again in the new face */
-    ensureFontLoaded(theme.font, () => setWidths({}));
-    if (theme.displayFont) ensureFontLoaded(theme.displayFont, () => setWidths({}));
+    ensureFontLoaded(theme.font, () => setWidths({}), lang);
+    if (theme.displayFont) ensureFontLoaded(theme.displayFont, () => setWidths({}), lang);
     /* a style builds its controls to other sizes too */
     setWidths({});
-  }, [theme.font, theme.displayFont, theme.style, theme.recipes]);
+  }, [theme.font, theme.displayFont, theme.style, theme.recipes, lang]);
 
   useIconFamily(theme.icons ?? "rounded");
 
@@ -989,7 +1002,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     let moved = false;
     for (const fid of retidy) {
       const fr = framesRef.current.find((f) => f.id === fid);
-      const tidied = fr ? tidyFrame(laid, fr, framesRef.current, next) : null;
+      const tidied = fr ? tidyFrame(laid, fr, framesRef.current, next, metricsOf(themeRef.current)) : null;
       if (tidied) {
         laid = tidied;
         moved = true;
@@ -2264,7 +2277,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         .reduce((a, o) => ({ l: Math.min(a.l, o.l), t: Math.min(a.t, o.t), r: Math.max(a.r, o.r), b: Math.max(a.b, o.b) }));
       const w = r.r - r.l;
       const h = r.b - r.t;
-      const bb = bodyRect(all, f, framesRef.current, widthsRef.current, unitIds);
+      const bb = bodyRect(all, f, framesRef.current, widthsRef.current, unitIds, metricsOf(themeRef.current));
       const x = col === "left" ? bb.l : col === "right" ? bb.r - w : Math.round((bb.l + bb.r) / 2 - w / 2);
       const y0 = row === "top" ? bb.t : row === "bottom" ? bb.b - h : Math.round((bb.t + bb.b) / 2 - h / 2);
       const others = all
@@ -2684,19 +2697,94 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   /* A model guesses how tall its parts come out. Once a new draft's parts have held their measured
    * sizes for a moment (icons and lazy widgets arrive late), what ran together is moved apart. */
   const settleDraftRef = useRef(false);
+  /* A style is built to other sizes, so the screens are laid out its way once its parts have been measured in it,
+   * and once more when what that resized has been measured too. */
+  const relayoutRef = useRef<{ left: number; until: number; together: string[][] } | null>(null);
   useEffect(() => {
-    if (!settleDraftRef.current) return;
+    if (!settleDraftRef.current && !relayoutRef.current) return;
     const id = setTimeout(() => {
+      const again = relayoutRef.current;
+      if (again) {
+        relayoutRef.current = again.left > 1 && Date.now() < again.until ? { ...again, left: again.left - 1 } : null;
+        const laid = layoutForStyle(groupsRef.current, framesRef.current, widthsRef.current, themeRef.current, { together: again.together, pick: true });
+        if (laid) {
+          setGroups(laid.groups);
+          setFrames(laid.frames);
+        }
+      }
       if (!settleDraftRef.current) return;
       settleDraftRef.current = false;
-      const out = pushApart(groupsRef.current, framesRef.current, widthsRef.current);
-      if (out) {
-        setGroups(out.groups);
-        setFrames(out.frames);
+      /* a draft in a style is laid out that style's way before what ran together is moved apart */
+      const styled = themeRef.current.style || isStrict(themeRef.current) ? layoutForStyle(groupsRef.current, framesRef.current, widthsRef.current, themeRef.current) : null;
+      const out = pushApart(styled?.groups ?? groupsRef.current, styled?.frames ?? framesRef.current, widthsRef.current);
+      if (out || styled) {
+        setGroups(out?.groups ?? styled!.groups);
+        setFrames(out?.frames ?? styled!.frames);
       }
     }, 700);
     return () => clearTimeout(id);
   }, [widths]);
+
+  /** picks a style: its colors, its shapes, and unless the author said not to, its layout. One undo step. */
+  const pickStyle = (key: string) => {
+    snapshot(true);
+    tidyRef.current = null;
+    /* what stands on what is read now: in the style's sizes a part may grow into the next without being put on it */
+    const together = standingTogether(groupsRef.current, framesRef.current, widthsRef.current, metricsOf(themeRef.current));
+    relayoutRef.current = { left: 2, until: Date.now() + 5000, together };
+    const next = normalizeTheme({ ...themeRef.current, ...stylePatch(key) });
+    setTheme(next);
+    setGroups((gs) => conformGroups(gs, next));
+    setComponents((cs) => (cs ? conformDoc({ groups: [], components: cs }, next).components : cs));
+    /* nothing may change size, and then nothing else would set it off */
+    setWidths({});
+  };
+  /** holds the document to its style's rules, or lets it go; coming back is picking the style again. One undo step. */
+  const setRules = (on: boolean) => {
+    if (on) {
+      pickStyle(themeRef.current.style ?? "");
+      return;
+    }
+    snapshot(true);
+    setTheme(normalizeTheme({ ...themeRef.current, strict: false }));
+  };
+
+  /* Held to a style's rules, nothing stays where the rules would not put it. Whatever just changed, a part dropped, added,
+   * removed or resized, or a word that made one wider, the screens are laid out again once it has come to rest, and what
+   * a part carries against the rules comes off. It belongs to the change: an undo takes both back. */
+  const strictNow = isStrict(theme);
+  useEffect(() => {
+    if (!strictNow || drag || gesture || defEdit || previewId !== null) return;
+    const id = setTimeout(() => {
+      if (dragRef.current || gestureRef.current || relayoutRef.current || settleDraftRef.current) return;
+      /* nothing has been measured yet: its sizes are coming, and with them this again */
+      if (!Object.keys(widthsRef.current).length) return;
+      const conformed = conformGroups(groupsRef.current, themeRef.current);
+      const laid = layoutForStyle(conformed, framesRef.current, widthsRef.current, themeRef.current);
+      if (laid) {
+        tidyRef.current = null;
+        setGroups(laid.groups);
+        setFrames(laid.frames);
+      } else if (conformed !== groupsRef.current) setGroups(conformed);
+    }, 150);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [strictNow, theme, groups, frames, widths, drag, gesture, defEdit, previewId]);
+  /** lays every screen out by a theme, as one undo step */
+  const relayout = (look: Theme = theme) => {
+    const laid = layoutForStyle(groupsRef.current, framesRef.current, widthsRef.current, look, { pick: true });
+    if (!laid) return;
+    snapshot();
+    tidyRef.current = null;
+    setGroups(laid.groups);
+    setFrames(laid.frames);
+  };
+  /** one layout setting changed, and the screens follow it */
+  const patchUx = (patch: Partial<StyleUX>) => {
+    const next: Theme = { ...theme, ux: { ...theme.ux, ...patch } };
+    setTheme(next);
+    relayout(next);
+  };
 
   /* ---------- a scene's picture ---------- */
   const [paintingScene, setPaintingScene] = useState<string | null>(null);
@@ -2746,7 +2834,11 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         if (!res.ok) throw new Error("guide");
         guideRef.current = await res.text();
       }
-      const next = await draftDesign(aiSettings, guideRef.current, idea, lang);
+      const held = isStrict(themeRef.current) ? themeRef.current : null;
+      const drafted = await draftDesign(aiSettings, guideRef.current, idea, lang, undefined, held ? rulesForModel(held) : undefined);
+      /* the model was told; what it wrote regardless does not stand. A design from a model is held to rules from then on */
+      const look = normalizeTheme({ ...drafted.theme, ...(held ? { style: held.style } : {}), strict: true });
+      const next = conformDoc({ ...drafted, theme: look }, look);
       settleDraftRef.current = true;
       arrive(next);
       void paintScenes(scenesToPaint(next.groups), normalizeTheme(next.theme));
@@ -3022,7 +3114,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     const frames = framesRef.current;
     /* the screens to the right move over, parts take the sizes the new screen calls for,
      * and the screen is laid out again by the tidy rules */
-    const laid = carryFrame(groupsRef.current, current, next, frames, widthsRef.current);
+    const laid = carryFrame(groupsRef.current, current, next, frames, widthsRef.current, metricsOf(themeRef.current));
     snapshot();
     tidyRef.current = null;
     setEasing(true);
@@ -3121,7 +3213,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     if (!tidyTarget) return null;
     const last = tidyRef.current;
     if (last && last.frameId === tidyTarget.id && last.after === groups) return "undo";
-    return tidyFrame(groups, tidyTarget, frames, widths) ? "tidy" : "done";
+    return tidyFrame(groups, tidyTarget, frames, widths, metricsOf(theme)) ? "tidy" : "done";
   }, [tidyTarget, groups, frames, widths]);
 
   const tidy = (f: Frame) => {
@@ -3132,7 +3224,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       tidyRef.current = null;
       return;
     }
-    const after = tidyFrame(groupsRef.current, f, framesRef.current, widthsRef.current);
+    const after = tidyFrame(groupsRef.current, f, framesRef.current, widthsRef.current, metricsOf(themeRef.current));
     if (!after) return;
     snapshot();
     tidyRef.current = { frameId: f.id, before: groupsRef.current, after };
@@ -3160,7 +3252,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     const frames = framesRef.current.map((o) => (o.id === f.id ? next : o));
     setFrames(frames);
     tidyRef.current = null;
-    const after = tidyFrame(groupsRef.current, next, frames, widthsRef.current);
+    const after = tidyFrame(groupsRef.current, next, frames, widthsRef.current, metricsOf(themeRef.current));
     if (!after) return;
     tidyRef.current = { frameId: f.id, before: groupsRef.current, after };
     setGroups(after);
@@ -4017,6 +4109,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       return (
         <motion.div
           key={g.id}
+          data-group={g.id}
           initial={false}
           animate={{ x: g.x - ox, y: g.y - oy }}
           transition={instantG ? INSTANT : OPEN}
@@ -4088,6 +4181,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     return (
       <motion.div
         key={g.id}
+        data-group={g.id}
         initial={false}
         animate={{
           x: g.x - ox + (g.axis === "x" ? front : 0),
@@ -4200,6 +4294,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     <LangContext.Provider value={lang}>
     <PartThemeContext.Provider value={partTheme}>
     <BehaviorContext.Provider value={behavior}>
+    <StyleRulesContext.Provider value={isStrict(theme)}>
       <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
       <PartStyleSheet theme={theme} />
       <div
@@ -4422,25 +4517,33 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                     }}
                   />
                 ) : leftTab === "style" ? (
-                  <StylePanel p={p} theme={theme} onChange={patchTheme} />
+                  <StylePanel p={p} theme={theme} onChange={patchTheme} onPick={pickStyle} onUx={patchUx} onRelayout={() => relayout()} onRules={setRules} />
                 ) : leftTab === "color" ? (
-                  <ColorPanel
-                    p={p}
-                    paletteKey={paletteKey}
-                    onPalette={pickPalette}
-                    custom={customPalette}
-                    onCustom={pickCustomPalette}
-                    dynamic={dynamicColor}
-                    onDynamic={setDynamicColor}
-                    theme={theme}
-                    onTheme={patchTheme}
-                  />
+                  <StyleGate p={p} theme={theme} what="color" onFree={() => setRules(false)}>
+                    <ColorPanel
+                      p={p}
+                      paletteKey={paletteKey}
+                      onPalette={pickPalette}
+                      custom={customPalette}
+                      onCustom={pickCustomPalette}
+                      dynamic={dynamicColor}
+                      onDynamic={setDynamicColor}
+                      theme={theme}
+                      onTheme={patchTheme}
+                    />
+                  </StyleGate>
                 ) : leftTab === "shape" ? (
-                  <ShapePanel p={p} theme={theme} onChange={patchTheme} />
+                  <StyleGate p={p} theme={theme} what="shape" onFree={() => setRules(false)}>
+                    <ShapePanel p={p} theme={theme} onChange={patchTheme} />
+                  </StyleGate>
                 ) : leftTab === "type" ? (
-                  <TypePanel p={p} theme={theme} onChange={patchTheme} />
+                  <StyleGate p={p} theme={theme} what="type" onFree={() => setRules(false)}>
+                    <TypePanel p={p} theme={theme} onChange={patchTheme} />
+                  </StyleGate>
                 ) : leftTab === "motion" ? (
-                  <MotionPanel p={p} theme={theme} onChange={patchTheme} />
+                  <StyleGate p={p} theme={theme} what="motion" onFree={() => setRules(false)}>
+                    <MotionPanel p={p} theme={theme} onChange={patchTheme} />
+                  </StyleGate>
                 ) : leftTab === "ai" ? (
                   <AiPanel p={p} settings={aiSettings} onSettings={updateAiSettings} />
                 ) : (
@@ -5061,7 +5164,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
             )}
             {isMobile && sheet === "settings" && (
               <BottomSheet key="settings" p={p} onClose={() => setSheet(null)}>
-                <MobileSettings palette={p} paletteKey={paletteKey} onPalette={pickPalette} theme={theme} onTheme={patchTheme} />
+                <MobileSettings palette={p} paletteKey={paletteKey} onPalette={pickPalette} theme={theme} onTheme={patchTheme} onStyle={pickStyle} />
               </BottomSheet>
             )}
             {isMobile && sheet === "lang" && (
@@ -5394,6 +5497,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
             </div>
         </div>
       )}
+    </StyleRulesContext.Provider>
     </BehaviorContext.Provider>
     </PartThemeContext.Provider>
     </LangContext.Provider>

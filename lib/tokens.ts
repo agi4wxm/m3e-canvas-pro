@@ -4,7 +4,7 @@ import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
-import { normalizeRecipes, styleOf, stylePalette, stylePatch, styleSeed, type Recipes } from "./styles";
+import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type Recipes, type StyleUX } from "./styles";
 
 /* ---------- geometry ---------- */
 export const GAP = 3; // spacing between the parts of one group
@@ -305,11 +305,11 @@ const PRESETS: Omit<Palette, "secondary">[] = [
 export const PALETTES: Palette[] = PRESETS.map((p) => ({ ...p, secondary: schemeFromSeed(p.primary, p.label, { keepChroma: true }).secondary }));
 
 /* ---------- theme: the four expressive axes ---------- */
-export type ShapeScale = "none" | "square" | "rounded" | "full";
-export type FontKey = "roboto" | "robotoFlex" | "robotoSerif" | "system" | "apple" | "segoe" | "inter" | "pixel" | "rajdhani" | "orbitron" | "garamond" | "cinzel";
+export type ShapeScale = "none" | "square" | "soft" | "rounded" | "full";
+export type FontKey = "roboto" | "robotoFlex" | "robotoSerif" | "system" | "apple" | "segoe" | "inter" | "dmsans" | "mrounded" | "fredoka" | "lilita" | "barlow" | "rajdhani" | "pixel" | "garamond" | "cinzel" | "tiktok" | "brush";
 export type MotionScheme = "standard" | "expressive";
 /** which drawing of Material Symbols the icons are, or the pixel set for the names it has */
-export type IconFamily = "rounded" | "light" | "sharp" | "pixel";
+export type IconFamily = "rounded" | "filled" | "light" | "sharp" | "pixel";
 export type { Contrast };
 
 export type Theme = {
@@ -331,46 +331,66 @@ export type Theme = {
   /** headings, when they take another face than `font` */
   displayFont?: FontKey;
   icons?: IconFamily;
+  /** how a screen is spaced and where its navigation stands, where it differs from the style */
+  ux?: Partial<StyleUX>;
+  /** whether the document is held to its style's rules (lib/styleRules.ts): left out, it is when it wears one */
+  strict?: boolean;
 };
 
 export const DEFAULT_THEME: Theme = { dark: false, bothModes: false, contrast: "standard", shape: "rounded", font: "roboto", emphasized: false, motion: "standard" };
 
-export const ICON_FAMILIES: IconFamily[] = ["rounded", "light", "sharp", "pixel"];
+export const ICON_FAMILIES: IconFamily[] = ["rounded", "filled", "light", "sharp", "pixel"];
 
 /** a stored theme with any missing or unknown field replaced by its default */
 export function normalizeTheme(t: Partial<Theme> | undefined): Theme {
   if (!t) return DEFAULT_THEME;
+  const pack = styleOf(t.style);
   /* a theme that only names a style (one written by hand, or by a model) gets what the style brings */
-  const d: Theme = styleOf(t.style) ? { ...DEFAULT_THEME, ...stylePatch(t.style!) } : DEFAULT_THEME;
-  const recipes = normalizeRecipes(t.recipes);
+  const d: Theme = pack ? { ...DEFAULT_THEME, ...stylePatch(t.style!) } : DEFAULT_THEME;
+  const strict = typeof t.strict === "boolean" ? t.strict : !!pack;
+  /* held to a style, the theme has no say in what the style decides, whoever wrote it. Android's rules are Material's,
+     and Material leaves the colors and how lively things are to the author */
+  const held: Theme | null = !strict ? null : pack ? d : { ...DEFAULT_THEME, ...stylePatch("") };
+  const recipes = held ? undefined : normalizeRecipes(t.recipes);
+  const ux = held ? undefined : normalizeUx(t.ux);
   return {
     dark: typeof t.dark === "boolean" ? t.dark : d.dark,
     bothModes: typeof t.bothModes === "boolean" ? t.bothModes : d.bothModes,
     contrast: CONTRASTS.some((c) => c.key === t.contrast) ? (t.contrast as Contrast) : d.contrast,
-    shape: SHAPES.some((c) => c.key === t.shape) ? (t.shape as ShapeScale) : d.shape,
-    font: FONTS.some((c) => c.key === t.font) ? (t.font as FontKey) : d.font,
-    emphasized: typeof t.emphasized === "boolean" ? t.emphasized : d.emphasized,
-    motion: t.motion === "expressive" || t.motion === "standard" ? t.motion : d.motion,
-    ...(styleOf(t.style) ? { style: t.style } : {}),
-    ...(t.ownColors === true ? { ownColors: true } : {}),
+    shape: held ? held.shape : SHAPES.some((c) => c.key === t.shape) ? (t.shape as ShapeScale) : d.shape,
+    font: held ? held.font : FONTS.some((c) => c.key === t.font) ? (t.font as FontKey) : d.font,
+    emphasized: held && pack ? false : typeof t.emphasized === "boolean" ? t.emphasized : d.emphasized,
+    motion: held && pack ? held.motion : t.motion === "expressive" || t.motion === "standard" ? t.motion : d.motion,
+    ...(pack ? { style: t.style } : {}),
+    ...(strict !== !!pack ? { strict } : {}),
+    ...(t.ownColors === true && !held ? { ownColors: true } : {}),
     ...(recipes ? { recipes } : {}),
-    ...(FONTS.some((c) => c.key === t.displayFont) ? { displayFont: t.displayFont } : d.displayFont ? { displayFont: d.displayFont } : {}),
-    ...(ICON_FAMILIES.includes(t.icons as IconFamily) ? { icons: t.icons } : d.icons ? { icons: d.icons } : {}),
+    ...(ux ? { ux } : {}),
+    ...(held ? (held.displayFont ? { displayFont: held.displayFont } : {}) : FONTS.some((c) => c.key === t.displayFont) ? { displayFont: t.displayFont } : d.displayFont ? { displayFont: d.displayFont } : {}),
+    ...(held ? (held.icons ? { icons: held.icons } : {}) : ICON_FAMILIES.includes(t.icons as IconFamily) ? { icons: t.icons } : d.icons ? { icons: d.icons } : {}),
   };
 }
 
 export const SHAPES: { key: ShapeScale; label: string; icon: string }[] = [
   { key: "none", label: "None", icon: "square" },
   { key: "square", label: "Square", icon: "crop_square" },
+  { key: "soft", label: "Soft", icon: "crop_din" },
   { key: "rounded", label: "Rounded", icon: "rounded_corner" },
   { key: "full", label: "Full", icon: "circle" },
 ];
 
 /** how far the corners are scaled: 1 is M3's own steps */
-export const shapeScaleOf = (s: ShapeScale) => (s === "none" ? 0 : s === "square" ? 0.35 : s === "full" ? 1.6 : 1);
+export const shapeScaleOf = (s: ShapeScale) => (s === "none" ? 0 : s === "square" ? 0.35 : s === "soft" ? 0.5 : s === "full" ? 1.6 : 1);
 
 const INTER = "Inter:wght@400;500;600;700";
-const NOTO_SERIF_SC = { family: "'Noto Serif SC'", google: "Noto+Serif+SC:wght@400;500;600;700" };
+/** a typeface and where its stylesheet comes from: Google Fonts, or a stylesheet of its own */
+export type Face = { family: string; google?: string; css?: string };
+const NOTO_SERIF_SC: Face = { family: "'Noto Serif SC'", google: "Noto+Serif+SC:wght@400;500;600;700" };
+const KUAILE: Face = { family: "'ZCOOL KuaiLe'", google: "ZCOOL+KuaiLe" };
+const QINGKE: Face = { family: "'ZCOOL QingKe HuangYou'", google: "ZCOOL+QingKe+HuangYou" };
+const BRUSH: Face = { family: "'Ma Shan Zheng'", google: "Ma+Shan+Zheng" };
+/* a pixel face that has Chinese, under the SIL Open Font License; Google Fonts has none */
+const PIXEL_SC: Face = { family: "'Fusion Pixel 12px Proportional SC'", css: "https://cdn.jsdelivr.net/npm/@fontsource/fusion-pixel-12px-proportional-sc@5.3.0/index.css" };
 
 export const FONTS: {
   key: FontKey;
@@ -379,7 +399,7 @@ export const FONTS: {
   /** Google Fonts family to fetch, if any */
   google?: string;
   /** the face that stands in for it in Chinese, when Noto Sans would not suit it */
-  zh?: { family: string; google: string };
+  zh?: Face;
 }[] = [
   { key: "roboto", label: "Roboto", family: "Roboto, system-ui, sans-serif" },
   { key: "robotoFlex", label: "Roboto Flex", family: "'Roboto Flex', Roboto, system-ui, sans-serif", google: "Roboto+Flex:wght@400;500;600;700" },
@@ -389,16 +409,23 @@ export const FONTS: {
   { key: "apple", label: "San Francisco", family: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', Inter, system-ui, sans-serif", google: INTER },
   { key: "segoe", label: "Segoe UI", family: "'Segoe UI Variable', 'Segoe UI', Inter, system-ui, sans-serif", google: INTER },
   { key: "inter", label: "Inter", family: "Inter, system-ui, sans-serif", google: INTER },
-  { key: "pixel", label: "Pixelify Sans", family: "'Pixelify Sans', 'DotGothic16', monospace", google: "Pixelify+Sans:wght@400;500;600;700&family=DotGothic16" },
-  { key: "rajdhani", label: "Rajdhani", family: "Rajdhani, system-ui, sans-serif", google: "Rajdhani:wght@400;500;600;700" },
-  { key: "orbitron", label: "Orbitron", family: "Orbitron, Rajdhani, system-ui, sans-serif", google: "Orbitron:wght@400;500;600;700" },
+  { key: "dmsans", label: "DM Sans", family: "'DM Sans', system-ui, sans-serif", google: "DM+Sans:wght@400;500;600;700" },
+  { key: "tiktok", label: "TikTok Sans", family: "'TikTok Sans', system-ui, sans-serif", google: "TikTok+Sans:wght@400;500;600;700" },
+  { key: "mrounded", label: "M PLUS Rounded", family: "Nunito, 'M PLUS Rounded 1c', system-ui, sans-serif", google: "Nunito:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700" },
+  { key: "fredoka", label: "Fredoka", family: "Fredoka, system-ui, sans-serif", google: "Fredoka:wght@400;500;600;700", zh: KUAILE },
+  { key: "lilita", label: "Lilita One", family: "'Lilita One', 'Baloo 2', system-ui, sans-serif", google: "Lilita+One&family=Baloo+2:wght@500;700", zh: KUAILE },
+  { key: "barlow", label: "Barlow Condensed", family: "'Barlow Condensed', system-ui, sans-serif", google: "Barlow+Condensed:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700;1,800", zh: QINGKE },
+  { key: "rajdhani", label: "Rajdhani", family: "Rajdhani, system-ui, sans-serif", google: "Rajdhani:wght@400;500;600;700", zh: QINGKE },
+  { key: "pixel", label: "Pixelify Sans", family: "'Pixelify Sans', 'DotGothic16', monospace", google: "Pixelify+Sans:wght@400;500;600;700&family=DotGothic16", zh: PIXEL_SC },
   { key: "garamond", label: "EB Garamond", family: "'EB Garamond', Georgia, serif", google: "EB+Garamond:wght@400;500;600;700", zh: NOTO_SERIF_SC },
   { key: "cinzel", label: "Cinzel", family: "Cinzel, Georgia, serif", google: "Cinzel:wght@400;500;600;700", zh: NOTO_SERIF_SC },
+  /* the brush of a Chinese title; its Latin stays carved */
+  { key: "brush", label: "Ma Shan Zheng", family: "Cinzel, Georgia, serif", google: "Cinzel:wght@400;500;600;700", zh: BRUSH },
 ];
 
 /** The Noto Sans face that covers a language's script, spliced in behind the chosen
  *  face so CJK text renders the same on every OS. English needs none. */
-export const LANG_FONT: Record<Lang, { family: string; google: string } | null> = {
+export const LANG_FONT: Record<Lang, Face | null> = {
   ja: { family: "'Noto Sans JP'", google: "Noto+Sans+JP:wght@400;500;600;700" },
   zh: { family: "'Noto Sans SC'", google: "Noto+Sans+SC:wght@400;500;600;700" },
   ko: { family: "'Noto Sans KR'", google: "Noto+Sans+KR:wght@400;500;600;700" },
@@ -413,7 +440,8 @@ const withLangFont = (family: string, f: FontKey | undefined, lang?: Lang) => {
   const extra = f ? langFaceOf(f, lang)?.family : lang ? LANG_FONT[lang]?.family : undefined;
   if (!extra) return family;
   const parts = family.split(",").map((s) => s.trim());
-  const at = parts.findIndex((s) => /^(system-ui|Georgia|serif|sans-serif|monospace)$/.test(s));
+  /* a face with kanji of its own would draw Chinese and Korean words in Japanese forms, so it stands behind their face */
+  const at = parts.findIndex((s) => /^(system-ui|Georgia|serif|sans-serif|monospace)$/.test(s) || (lang !== "ja" && /M PLUS Rounded|DotGothic/.test(s)));
   parts.splice(at < 0 ? parts.length : at, 0, extra);
   return parts.join(", ");
 };
@@ -423,6 +451,18 @@ export const fontFamilyOf = (f: FontKey, lang?: Lang) => {
   const family = FONTS.find((x) => x.key === f)?.family ?? FONTS[0].family;
   return f === "system" ? family : withLangFont(family, f, lang);
 };
+/** every stylesheet a theme's faces come from, in a language: what its pages have to ask for */
+export function faceSheetsOf(theme: Pick<Theme, "font" | "displayFont">, lang?: Lang): { google: string[]; css: string[] } {
+  const faces = [
+    theme.font === "roboto" ? { google: "Roboto:wght@400;500;600;700" } : FONTS.find((f) => f.key === theme.font),
+    FONTS.find((f) => f.key === theme.displayFont),
+    theme.font === "system" ? null : langFaceOf(theme.font, lang),
+    theme.displayFont ? langFaceOf(theme.displayFont, lang) : null,
+  ];
+  const unique = (list: (string | undefined)[]) => [...new Set(list.filter((x): x is string => !!x))];
+  return { google: unique(faces.map((f) => (f as Face | null | undefined)?.google)), css: unique(faces.map((f) => (f as Face | null | undefined)?.css)) };
+}
+
 /** the editor's own font: Roboto, then the language's Noto face */
 export const uiFontFamily = (lang?: Lang) => withLangFont("Roboto, system-ui, sans-serif", undefined, lang);
 
@@ -481,6 +521,8 @@ export type Item = {
   props?: Record<string, unknown>;
   /** what it looks like beyond `fill`, `textColor` and `corners` */
   look?: ItemLook;
+  /** tabs standing in for the navigation bar, because the style has its navigation on top */
+  navTabs?: boolean;
   /** free text the author writes about what this part does */
   note?: string;
   /** what `note` said before the AI rewrote it, so the rewrite can be undone */
@@ -753,6 +795,8 @@ export type Frame = {
   place?: Place;
   /** how far the screen runs when it is longer than the device: its body scrolls under the bars */
   length?: number;
+  /** the length a screen had before a style needed it longer; the next style that needs less gives the rest back */
+  grownFrom?: number;
   /** the screen this one is another size of (lib/variants.ts); each keeps a layout of its own */
   variantOf?: string;
   /** Shows the device's status bar and gesture bar in the editor and the preview, and Tidy keeps

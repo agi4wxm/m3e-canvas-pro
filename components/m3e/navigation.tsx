@@ -132,7 +132,7 @@ function NavItem({
         {badgeNode}
       </span>
       {label != null && (
-        <span className="max-w-full truncate text-label-medium text-on-surface-variant transition-colors motion-effects-fast group-data-active/nav-item:text-label-medium-emphasized group-data-active/nav-item:text-on-surface">
+        <span data-slot="nav-label" className="max-w-full truncate text-label-medium text-on-surface-variant transition-colors motion-effects-fast group-data-active/nav-item:text-label-medium-emphasized group-data-active/nav-item:text-on-surface">
           {label}
         </span>
       )}
@@ -161,6 +161,7 @@ function NavItem({
       },
       {
         ...props,
+        "data-slot": "nav-item",
         "data-active": active || undefined,
       } as React.ComponentProps<"button">
     ),

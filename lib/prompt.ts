@@ -10,7 +10,7 @@ import { nameOf } from "../parts/labels";
 import { roleOf } from "../parts/role";
 import { inlineNode } from "../parts/print";
 import { Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
-import { styleOf, styleTextOf } from "./styles";
+import { isStrict, styleOf, styleTextOf, uxOf } from "./styles";
 import {
   Place,
   Action,
@@ -766,6 +766,14 @@ const FONT_NOTE: Record<Lang, (name: string) => string> = {
   ko: (n) => `사용할 글꼴: ${n}.`,
 };
 
+/** what a coding agent is told when the document is held to its style */
+const RULES_NOTE: Record<Lang, (margin: number, gap: number, tight: number) => string> = {
+  ja: (m, g, t) => `このスタイルの規則を厳守する。独自の色、角丸、影、書体を足さず、色はテーマの役割だけを使う。左右の余白 ${m}px、区画の間隔 ${g}px、同じ種類の間隔 ${t}px。`,
+  en: (m, g, t) => `Hold strictly to this style's rules. Add no colors, corners, shadows or typefaces of your own, and use only the theme's color roles. Side margins ${m}px, ${g}px between sections, ${t}px between rows of a kind.`,
+  zh: (m, g, t) => `严格遵守这个风格的规范。不要自行添加颜色、圆角、阴影或字体，只使用主题的颜色角色。页边距 ${m}px，区块间距 ${g}px，同类间距 ${t}px。`,
+  ko: (m, g, t) => `이 스타일의 규칙을 엄격히 따른다. 임의의 색, 모서리, 그림자, 글꼴을 추가하지 말고 테마의 색 역할만 쓴다. 좌우 여백 ${m}px, 구역 간격 ${g}px, 같은 종류 간격 ${t}px.`,
+};
+
 const STYLE_NOTE: Record<Lang, (name: string, hint: string) => string> = {
   ja: (n, h) => `全体のスタイルは「${n}」（${h}）。M3 の既定の見た目のままにせず、コントロールの形までこのスタイルに合わせる。`,
   en: (n, h) => `The whole design wears the ${n} style (${h}). Do not leave the Material defaults: build the controls themselves to match it.`,
@@ -777,6 +785,7 @@ const THEME_NOTES: Record<Lang, { shape: Record<Theme["shape"], string>; emphasi
   ja: {
     shape: {
       none: "角丸は使わない: M3 の shape スケールを 0 にし、ボタン・カード・入力欄・アバターまですべて直角にする。",
+      soft: "角丸は小さめにする: M3 の shape スケールを半分にする（ボタンと入力欄は約 6dp、カードは約 8dp）。",
       square: "角丸は控えめにする: M3 の shape スケールを全体に小さく取り（ボタン・チップは 8〜12dp、カードや画像は 8dp、ダイアログは 12dp 程度）、ピル型は使わない。",
       rounded: "角丸は M3 Expressive の標準値のまま（ボタンはピル型、カードは 20dp、ダイアログは 28dp）。",
       full: "角丸は最大限に取る: ボタン・チップ・入力欄はピル型、カードや画像は 32dp、ダイアログやシートは 40dp 程度にする。",
@@ -791,6 +800,7 @@ const THEME_NOTES: Record<Lang, { shape: Record<Theme["shape"], string>; emphasi
   en: {
     shape: {
       none: "No rounded corners at all: set the M3 shape scale to 0, so buttons, cards, fields and even avatars are square.",
+      soft: "Small corners: halve the M3 shape scale (about 6dp on buttons and fields, about 8dp on cards).",
       square: "Keep corners modest: shrink the M3 shape scale throughout (buttons and chips 8–12dp, cards and images 8dp, dialogs about 12dp) and avoid pill shapes.",
       rounded: "Corners follow the M3 Expressive defaults (pill buttons, 20dp cards, 28dp dialogs).",
       full: "Push corners to the maximum: pill-shaped buttons, chips and text fields, 32dp cards and images, about 40dp dialogs and sheets.",
@@ -805,6 +815,7 @@ const THEME_NOTES: Record<Lang, { shape: Record<Theme["shape"], string>; emphasi
   zh: {
     shape: {
       none: "完全不用圆角：把 M3 的形状比例设为 0，按钮、卡片、输入框乃至头像都是直角。",
+      soft: "小圆角：把 M3 的形状比例减半（按钮和输入框约 6dp，卡片约 8dp）。",
       square: "圆角保持克制：整体缩小 M3 的形状比例（按钮和标签片 8〜12dp，卡片和图片 8dp，对话框约 12dp），不使用胶囊形。",
       rounded: "圆角沿用 M3 Expressive 的默认值（按钮为胶囊形，卡片 20dp，对话框 28dp）。",
       full: "圆角尽量放大：按钮、标签片和输入框为胶囊形，卡片和图片 32dp，对话框和面板约 40dp。",
@@ -819,6 +830,7 @@ const THEME_NOTES: Record<Lang, { shape: Record<Theme["shape"], string>; emphasi
   ko: {
     shape: {
       none: "둥근 모서리를 쓰지 않는다. M3 모양 배율을 0으로 두어 버튼, 카드, 입력란, 아바타까지 모두 직각으로 한다.",
+      soft: "작은 모서리를 쓴다. M3 모양 배율을 절반으로 한다(버튼과 입력란 약 6dp, 카드 약 8dp).",
       square: "모서리는 절제한다. 전체 M3 모양 배율을 줄이고(버튼과 칩 8~12dp, 카드와 이미지 8dp, 대화상자 약 12dp) 알약 모양은 사용하지 않는다.",
       rounded: "M3 Expressive 기본 모서리를 사용한다(버튼은 알약 모양, 카드 20dp, 대화상자 28dp).",
       full: "모서리를 최대한 둥글게 한다. 버튼, 칩, 입력란은 알약 모양, 카드와 이미지 32dp, 대화상자와 시트는 약 40dp로 한다.",
@@ -839,7 +851,8 @@ function themeLines(th: Theme, lang: Lang): string[] {
   const sp = lang === "en" || lang === "ko" ? " " : "";
   const pack = styleOf(th.style);
   return [
-    ...(pack ? [`- ${STYLE_NOTE[lang](styleTextOf(pack.name, lang), styleTextOf(pack.hint, lang))}`] : []),
+    ...(pack ? [`- ${STYLE_NOTE[lang](styleTextOf(pack.name, lang), styleTextOf(pack.hint, lang))}`, `- ${styleTextOf(pack.layout, lang)}`] : []),
+    ...(isStrict(th) ? [`- ${RULES_NOTE[lang](uxOf(th).margin, uxOf(th).gap, uxOf(th).tight)}`] : []),
     `- ${n.shape[th.shape]}`,
     `- ${FONT_NOTE[lang](fontName)}${sp}${th.emphasized ? n.emphasized : n.plainType}`,
     `- ${n.motion[th.motion]}`,

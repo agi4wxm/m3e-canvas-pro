@@ -3,24 +3,27 @@ import { useEffect, useMemo } from "react";
 import { Button } from "@/components/m3e/button";
 import { Switch } from "@/components/m3e/switch";
 import { themeCss } from "@/lib/m3e/color";
-import { RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_PACKS, VARIANT_LABELS, recipesOf, styleCss, styleOf, stylePatch, styleTextOf, type RecipeKey, type Recipes, type StylePack } from "@/lib/styles";
-import { ICON_FAMILIES, Palette, Theme, fontFamilyOf, shapeScaleOf, type IconFamily } from "@/lib/tokens";
+import { RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, STYLE_PACKS, VARIANT_LABELS, isStrict, recipesOf, styleCss, styleOf, stylePatch, styleTextOf, uxOf, type RecipeKey, type Recipes, type StylePack, type StyleUX } from "@/lib/styles";
+import { FONTS, ICON_FAMILIES, Palette, Theme, fontFamilyOf, langFaceOf, shapeScaleOf, type FontKey, type IconFamily } from "@/lib/tokens";
 import { ensureFontLoaded } from "@/lib/theme";
 import { Lang, t, useLang } from "@/lib/i18n";
 import { shapeVars } from "@/parts/theme";
 import { Icon } from "./Icon";
-import { Select } from "./ui";
+import { Select, Slider, Toggle } from "./ui";
 
 /* The styles, each shown by real controls wearing it, and then how each kind of control is built, for an
  * author who wants one thing different from the style they picked. */
 
 const MATERIAL = {
-  name: { zh: "Material", en: "Material", ja: "Material", ko: "Material" },
-  hint: { zh: "Google 的 Material 3，组件原本的样子", en: "Material 3, as the components come", ja: "Material 3 の標準", ko: "Material 3 기본" },
+  name: { zh: "Android", en: "Android", ja: "Android", ko: "Android" },
+  hint: { zh: "安卓和谷歌应用的 Material 3，组件原本的样子", en: "Material 3, as on Android and in Google's apps", ja: "Android と Google アプリの Material 3", ko: "Android와 Google 앱의 Material 3" },
 };
+
+const GROUP_TEXT = { app: "styleApps", desktop: "styleDesktop", mobileGame: "styleMobileGames", pcGame: "stylePcGames" } as const;
 
 const ICON_LABELS: Record<IconFamily, { zh: string; en: string; ja: string; ko: string }> = {
   rounded: { zh: "圆润", en: "Rounded", ja: "丸み", ko: "둥근" },
+  filled: { zh: "实心", en: "Solid", ja: "塗りつぶし", ko: "채움" },
   light: { zh: "细线", en: "Thin", ja: "細線", ko: "얇은" },
   sharp: { zh: "方正", en: "Sharp", ja: "角ばった", ko: "각진" },
   pixel: { zh: "像素", en: "Pixel", ja: "ピクセル", ko: "픽셀" },
@@ -61,7 +64,7 @@ function Sample({ pack, lang }: { pack: StylePack; lang: Lang }) {
   );
 }
 
-function StyleCard({ on, name, hint, onClick, p, children }: { on: boolean; name: string; hint: string; onClick: () => void; p: Palette; children: React.ReactNode }) {
+function StyleCard({ on, name, refs, hint, onClick, p, children }: { on: boolean; name: string; refs?: string; hint: string; onClick: () => void; p: Palette; children: React.ReactNode }) {
   return (
     /* a card, not a button: what it shows are real controls, and a button cannot hold a button */
     <div
@@ -95,9 +98,11 @@ function StyleCard({ on, name, hint, onClick, p, children }: { on: boolean; name
     >
       {children}
       <span style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 4px", fontSize: 13, fontWeight: 600, minHeight: 20 }}>
-        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+        <span style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>{name}</span>
         {on && <Icon name="check" size={18} />}
       </span>
+      {/* whose look it is, so that it can be recognized */}
+      {refs && <span style={{ padding: "0 4px", fontSize: 11, lineHeight: 1.3, color: on ? p.onSecondaryContainer : p.onSurfaceVariant }}>{refs}</span>}
     </div>
   );
 }
@@ -115,17 +120,103 @@ function Labeled({ label, p, children }: { label: string; p: Palette; children: 
   );
 }
 
+/** a face's name, and the name of what stands in for it in the language being written */
+const faceName = (key: FontKey, lang: Lang) => {
+  const face = FONTS.find((f) => f.key === key);
+  const own = key === "system" ? null : langFaceOf(key, lang);
+  return [face?.label, own?.family.replace(/'/g, "")].filter(Boolean).join(" + ");
+};
+
+function SpecRow({ label, p, children }: { label: string; p: Palette; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "56px minmax(0, 1fr)", gap: 8, fontSize: 12, lineHeight: 1.5, padding: "0 4px", color: p.onSurface }}>
+      <span style={{ color: p.onSurfaceVariant }}>{label}</span>
+      <span style={{ minWidth: 0 }}>{children}</span>
+    </div>
+  );
+}
+
+/** what a document is held to: the same values the rules hold it to, to read */
+function StyleSpec({ theme, pack, p, lang }: { theme: Theme; pack: StylePack | undefined; p: Palette; lang: Lang }) {
+  const recipes = recipesOf(theme);
+  const ux = uxOf(theme);
+  const built = RECIPE_KEYS.filter((k) => recipes[k] !== "m3");
+  const nav = { keep: t("styleNavKeep", lang), bottom: t("styleNavBottom", lang), rail: t("styleNavRail", lang), top: t("styleNavTop", lang) }[ux.nav];
+  return (
+    <div data-style-spec style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 8px", borderRadius: 12, background: p.surfaceContainerLow }}>
+      <SpecRow label={t("specFont", lang)} p={p}>
+        {[faceName(theme.font, lang), theme.displayFont && theme.displayFont !== theme.font ? faceName(theme.displayFont, lang) : ""].filter(Boolean).join(" / ")}
+      </SpecRow>
+      <SpecRow label={t("specColors", lang)} p={p}>
+        <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {[p.primary, p.secondary, p.primaryContainer, p.surface, p.surfaceContainerHigh, p.onSurface, p.outline].map((c, i) => (
+            <span key={i} aria-hidden style={{ width: 16, height: 16, borderRadius: 4, background: c, border: `1px solid ${p.outlineVariant}` }} />
+          ))}
+        </span>
+      </SpecRow>
+      <SpecRow label={t("specControls", lang)} p={p}>
+        {built.length ? built.map((k) => `${styleTextOf(RECIPE_LABELS[k], lang)}：${styleTextOf(VARIANT_LABELS[recipes[k]], lang)}`).join("；") : "Material 3"}
+      </SpecRow>
+      <SpecRow label={t("specLayout", lang)} p={p}>
+        {t("styleNav", lang)}：{nav}；{t("styleMargin", lang)} {ux.margin}；{t("styleGap", lang)} {ux.gap}；{t("styleTight", lang)} {ux.tight}
+        {pack && <div style={{ color: p.onSurfaceVariant, marginTop: 4 }}>{styleTextOf(pack.layout, lang)}</div>}
+      </SpecRow>
+    </div>
+  );
+}
+
+/** A panel for something the style decides: shown as it stands, and not to be changed, unless the author lets the rules go.
+ *  Android's rules leave the colors and how lively things are to the author, as Material does. */
+export function StyleGate({ p, theme, what, onFree, children }: { p: Palette; theme: Theme; what: "color" | "shape" | "type" | "motion"; onFree: () => void; children: React.ReactNode }) {
+  const lang = useLang();
+  const held = isStrict(theme) && (!!theme.style || what === "shape" || what === "type");
+  if (!held) return <>{children}</>;
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <div data-style-gate style={{ margin: "12px 12px 0", padding: "10px 12px", borderRadius: 12, background: p.secondaryContainer, color: p.onSecondaryContainer, fontSize: 12, lineHeight: 1.5, display: "flex", flexDirection: "column", gap: 8 }}>
+        <span>{t("styleGate", lang)}</span>
+        <button onClick={onFree} className="m3-press" style={{ alignSelf: "flex-start", height: 32, padding: "0 12px", borderRadius: 8, border: "none", background: p.surface, color: p.onSurface, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+          {t("styleUnlock", lang)}
+        </button>
+      </div>
+      <div inert style={{ flex: 1, minHeight: 0, overflow: "hidden", opacity: 0.45, pointerEvents: "none" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 const Grid = ({ children }: { children: React.ReactNode }) => <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>{children}</div>;
 
-export function StylePanel({ p, theme, onChange }: { p: Palette; theme: Theme; onChange: (patch: Partial<Theme>) => void }) {
+export function StylePanel({
+  p,
+  theme,
+  onChange,
+  onPick,
+  onUx,
+  onRelayout,
+  onRules,
+}: {
+  p: Palette;
+  theme: Theme;
+  onChange: (patch: Partial<Theme>) => void;
+  /** a style is picked: colors, shapes and layout together */
+  onPick: (key: string) => void;
+  onUx: (patch: Partial<StyleUX>) => void;
+  onRelayout: () => void;
+  /** holds the document to its style's rules, or lets it go */
+  onRules: (on: boolean) => void;
+}) {
   const lang = useLang();
   useEffect(() => {
     for (const s of STYLE_PACKS) {
-      ensureFontLoaded(s.font);
-      if (s.display) ensureFontLoaded(s.display);
+      ensureFontLoaded(s.font, undefined, lang);
+      if (s.display) ensureFontLoaded(s.display, undefined, lang);
     }
-  }, []);
+  }, [lang]);
+  const strict = isStrict(theme);
   const recipes = recipesOf(theme);
+  const ux = uxOf(theme);
   const pack = styleOf(theme.style);
   /* picking the variant a style already has clears the author's change instead of keeping it */
   const setRecipe = (k: RecipeKey, v: string) => {
@@ -135,29 +226,84 @@ export function StylePanel({ p, theme, onChange }: { p: Palette; theme: Theme; o
     onChange({ recipes: Object.keys(next).length ? next : undefined });
   };
   const card = (s: StylePack) => (
-    <StyleCard key={s.key} on={theme.style === s.key} name={styleTextOf(s.name, lang)} hint={styleTextOf(s.hint, lang)} onClick={() => onChange(stylePatch(s.key))} p={p}>
+    <StyleCard key={s.key} on={theme.style === s.key} name={styleTextOf(s.name, lang)} refs={s.refs.length === 1 && s.refs[0] === s.name.en ? undefined : s.refs.slice(0, 2).join(" · ")} hint={styleTextOf(s.hint, lang)} onClick={() => onPick(s.key)} p={p}>
       <Sample pack={s} lang={lang} />
     </StyleCard>
   );
   return (
     <div className="no-scrollbar" style={{ height: "100%", overflowY: "auto", padding: "12px 12px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-      <Heading p={p}>{t("styleApps", lang)}</Heading>
+      <Heading p={p}>{t(GROUP_TEXT.app, lang)}</Heading>
       <Grid>
-        <StyleCard on={!theme.style} name={styleTextOf(MATERIAL.name, lang)} hint={styleTextOf(MATERIAL.hint, lang)} onClick={() => onChange(stylePatch(""))} p={p}>
+        <StyleCard on={!theme.style} name={styleTextOf(MATERIAL.name, lang)} hint={styleTextOf(MATERIAL.hint, lang)} onClick={() => onPick("")} p={p}>
           <div style={{ width: "100%", display: "grid", placeItems: "center", height: 96, borderRadius: 12, background: p.surfaceContainerHigh, color: p.onSurfaceVariant }}>
             <Icon name="widgets" size={28} />
           </div>
         </StyleCard>
         {STYLE_PACKS.filter((s) => s.group === "app").map(card)}
       </Grid>
-      <Heading p={p}>{t("styleGames", lang)}</Heading>
-      <Grid>{STYLE_PACKS.filter((s) => s.group === "game").map(card)}</Grid>
+      {STYLE_GROUPS.filter((g) => g !== "app").map((g) => (
+        <div key={g} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Heading p={p}>{t(GROUP_TEXT[g], lang)}</Heading>
+          <Grid>{STYLE_PACKS.filter((s) => s.group === g).map(card)}</Grid>
+        </div>
+      ))}
 
       {theme.ownColors && pack && (
         <button onClick={() => onChange({ ownColors: undefined })} className="m3-press" style={{ height: 40, borderRadius: 12, border: "none", background: p.surfaceContainerHigh, color: p.onSurface, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
           {t("styleUseColors", lang)}
         </button>
       )}
+
+      <Heading p={p}>{t("styleSpec", lang)}</Heading>
+      <Toggle on={strict} onChange={onRules} p={p} label={t("styleRules", lang)} grow />
+      <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t(strict ? "styleRulesOn" : "styleRulesOff", lang)}</div>
+      {strict && <StyleSpec theme={theme} pack={pack} p={p} lang={lang} />}
+      {!strict && (
+        <>
+      <Heading p={p}>{t("styleLayout", lang)}</Heading>
+      {pack && <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{styleTextOf(pack.layout, lang)}</div>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <Labeled label={t("styleNav", lang)} p={p}>
+          <Select
+            label={t("styleNav", lang)}
+            p={p}
+            value={ux.nav}
+            options={[
+              { key: "keep", label: t("styleNavKeep", lang) },
+              { key: "bottom", label: t("styleNavBottom", lang) },
+              { key: "rail", label: t("styleNavRail", lang) },
+              { key: "top", label: t("styleNavTop", lang) },
+            ]}
+            onChange={(k) => onUx({ nav: k as StyleUX["nav"] })}
+          />
+        </Labeled>
+        <Labeled label={t("stylePlace", lang)} p={p}>
+          <Select
+            label={t("stylePlace", lang)}
+            p={p}
+            value={ux.place ?? "top"}
+            options={[
+              { key: "top", label: t("stylePlaceTop", lang) },
+              { key: "center", label: t("stylePlaceCenter", lang) },
+              { key: "bottom", label: t("stylePlaceBottom", lang) },
+              { key: "spread", label: t("stylePlaceSpread", lang) },
+            ]}
+            onChange={(k) => onUx({ place: k as StyleUX["place"] })}
+          />
+        </Labeled>
+        <Labeled label={t("styleMargin", lang)} p={p}>
+          <Slider icon="width" title={t("styleMargin", lang)} value={ux.margin} min={0} max={40} step={2} onChange={(margin) => onUx({ margin })} p={p} />
+        </Labeled>
+        <Labeled label={t("styleGap", lang)} p={p}>
+          <Slider icon="height" title={t("styleGap", lang)} value={ux.gap} min={0} max={40} step={2} onChange={(gap) => onUx({ gap })} p={p} />
+        </Labeled>
+        <Labeled label={t("styleTight", lang)} p={p}>
+          <Slider icon="density_small" title={t("styleTight", lang)} value={ux.tight} min={0} max={24} step={2} onChange={(tight) => onUx({ tight })} p={p} />
+        </Labeled>
+        <button onClick={onRelayout} className="m3-press" style={{ height: 40, borderRadius: 12, border: "none", background: p.surfaceContainerHigh, color: p.onSurface, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          {t("styleRelayout", lang)}
+        </button>
+      </div>
 
       <Heading p={p}>{t("styleControls", lang)}</Heading>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -186,6 +332,8 @@ export function StylePanel({ p, theme, onChange }: { p: Palette; theme: Theme; o
         <button onClick={() => onChange({ recipes: undefined })} className="m3-press" style={{ height: 40, borderRadius: 12, border: "none", background: p.surfaceContainerHigh, color: p.onSurface, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
           {t("styleResetControls", lang)}
         </button>
+      )}
+        </>
       )}
     </div>
   );
