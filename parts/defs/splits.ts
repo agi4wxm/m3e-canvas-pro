@@ -21,34 +21,62 @@ const lines = (title: string, sub: string, style = "lead"): Node =>
 /** one side of a bar whose title is centered: as wide as the other side */
 const side = (justify: string, kids: Node[]): Node => hbox({ justify, gap: 0, hugWidth: false, width: 80 }, kids, { grow: true });
 
-/** the bar of a search: what leads, the entry taking the rest, what trails */
-const searchBar = (p: P): Node =>
-  hbox({ padX: 16, padY: 4, gap: 12, hugWidth: false, width: px(p) }, some(p.s("leading") && icon(p.s("leading")), entry(p.s("placeholder")), p.s("trailing") && iconButton(p.s("trailing"), p.s("trailing"), { variant: "ghost" })));
+/** The bar of a search as the part draws it: 56 tall, what leads in the middle of a 48 square, the entry taking the
+ *  rest, what trails in another; `sm` is a 44 bar with 40 squares */
+const searchBar = (p: P, sm = false): Node =>
+  hbox(
+    { padLeft: sm ? 12 : 16, padRight: sm ? 4 : 8, padY: 0, gap: sm ? 12 : 16, hugWidth: false, width: px(p), hugHeight: false, height: sm ? 44 : 56 },
+    some(p.s("leading") && icon(p.s("leading")), entry(p.s("placeholder")), p.s("trailing") && iconButton(p.s("trailing"), p.s("trailing"), { variant: "ghost" })),
+  );
+
+/** the paint of a search: raised on the high container, or outlined on the surface */
+const searchSurface = (p: P) => (p.s("style") === "outlined" ? { surface: "chip" } : { surface: "field" });
+const searchLook = (p: P): Pick<Node, "look"> => (p.s("style") === "outlined" ? {} : { look: { elevation: 3 } });
+
+/** an app bar's title and the line under it, the room it is given less the 12 the heading keeps on each side (16 with nothing before it) */
+const barTitle = (p: P, lead: boolean): Node =>
+  vbox({ gap: 0, padLeft: lead ? 12 : 16, padRight: 12, hugWidth: false, width: 160 }, some(para(p.s("title"), "title", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), "label", { color: "muted", maxLines: 1 })), { grow: true });
+
+/** an app bar is the screen's own surface until something scrolls under it; then it is the container, raised */
+const barSurface = (p: P) => (p.b("scrolled") ? { surface: "bar" } : { surface: "none" });
+const barLook = (p: P): Pick<Node, "look"> => (p.b("scrolled") ? { look: { elevation: 2 } } : {});
 
 export const SPLITS: Record<string, (p: P) => Node> = {
   search: (p) => {
-    const outlined = p.s("style") === "outlined";
-    if (p.s("kind") === "bar") return { ...searchBar(p), props: { ...searchBar(p).props, surface: outlined ? "chip" : "field" }, corners: round(28) };
-    /* a view: the bar over the suggestions, in one surface */
+    if (p.s("kind") === "bar") {
+      const bar = searchBar(p);
+      return { ...bar, props: { ...bar.props, ...searchSurface(p) }, corners: round(28), ...searchLook(p) };
+    }
+    /* a view: the bar over the suggestions, in one surface; each suggestion a 56 row */
+    const sm = p.s("size") === "sm";
     return vbox(
-      { surface: outlined ? "chip" : "field", width: px(p), hugWidth: false, padX: 0, padY: 0, gap: 0 },
-      [searchBar(p), line({ length: px(p) }), ...p.list("results").map((r) => hbox({ padX: 16, padY: 12, gap: 16 }, some(r.icon && icon(r.icon, { color: "muted" }), para(r.label, "lead", { maxLines: 1 }, { grow: true }))))],
-      { corners: round(28) },
+      { ...searchSurface(p), width: px(p), hugWidth: false, padX: 0, padY: 0, gap: 0 },
+      [
+        searchBar(p, sm),
+        line({ length: px(p) }),
+        ...p.list("results").map((r) => hbox({ padX: 16, padY: 0, gap: 16, hugWidth: false, width: px(p), hugHeight: false, height: 56 }, some(r.icon && icon(r.icon, { color: "muted" }), para(r.label, "lead", { maxLines: 1 }, { grow: true })))),
+      ],
+      { corners: round(28), ...searchLook(p) },
     );
   },
 
   "app-bar": (p) => {
     const lead = p.s("leading") && iconButton(p.s("leading"), p.say("Navigate"));
-    const actions = some(p.s("trailing") && iconButton(p.s("trailing"), p.say("More")), p.s("trailing2") && iconButton(p.s("trailing2"), "Action"));
+    const actions = some(p.s("trailing") && iconButton(p.s("trailing"), p.say("More"), {}, { textColor: "onSurfaceVariant" }), p.s("trailing2") && iconButton(p.s("trailing2"), "Action", {}, { textColor: "onSurfaceVariant" }));
     const size = p.s("size");
-    if (size === "medium" || size === "large")
-      return vbox({ surface: "bar", width: px(p), hugWidth: false, padX: 4, padY: 8, gap: 8 }, [
-        hbox({ justify: "between", gap: 4 }, [hbox({ gap: 0 }, some(lead)), hbox({ gap: 0 }, actions)]),
-        vbox({ padX: 12, padY: 4, gap: 2 }, some(para(p.s("title"), size === "large" ? "display" : "headline", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), "body", { color: "muted", maxLines: 1 }))),
-      ]);
+    /* the row of icons is 64 tall, 4 in from each end and 4 between */
+    const row = { width: px(p), hugWidth: false, height: 64, hugHeight: false, padX: 4, padY: 0, gap: 4 };
+    if (size === "medium" || size === "large") {
+      /* under the row, the title stands on the foot of a block of its own height, 16 in and 12 up */
+      const block = size === "large" ? (p.s("subtitle") ? 88 : 56) : p.s("subtitle") ? 72 : 48;
+      return vbox({ ...barSurface(p), width: px(p), hugWidth: false, padX: 0, padY: 0, gap: 0 }, [
+        hbox({ ...row, justify: "between" }, [hbox({ gap: 0 }, some(lead)), hbox({ gap: 0 }, actions)]),
+        vbox({ padX: 16, padTop: 0, padBottom: 12, gap: 0, justify: "end", hugWidth: false, width: px(p), hugHeight: false, height: block }, some(para(p.s("title"), size === "large" ? "display" : "headline", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), size === "large" ? "subtitle" : "label", { color: "muted", maxLines: 1 }))),
+      ], barLook(p));
+    }
     if (p.b("centered"))
-      return hbox({ surface: "bar", width: px(p), hugWidth: false, padX: 4, padY: 8, gap: 4 }, [side("start", some(lead)), vbox({ gap: 0, align: "center" }, some(text(p.s("title"), "title"), p.s("subtitle") && text(p.s("subtitle"), "caption", { color: "muted" }))), side("end", actions)]);
-    return hbox({ surface: "bar", width: px(p), hugWidth: false, padX: 4, padY: 8, gap: 4 }, [...some(lead), lines(p.s("title"), p.s("subtitle"), "title"), ...actions]);
+      return hbox({ ...barSurface(p), ...row }, [side("start", some(lead)), vbox({ gap: 0, align: "center", padX: 8 }, some(text(p.s("title"), "title"), p.s("subtitle") && text(p.s("subtitle"), "caption", { color: "muted" }))), side("end", actions)], barLook(p));
+    return hbox({ ...barSurface(p), ...row }, [...some(lead), barTitle(p, !!lead), ...actions], barLook(p));
   },
 
   item: (p) => {
@@ -82,14 +110,37 @@ export const SPLITS: Record<string, (p: P) => Node> = {
 
   card: (p) => {
     const pos = p.s("imagePos");
-    const center = p.s("textAlign") === "center";
-    const words = vbox({ gap: 6, align: "stretch" }, some(para(p.s("title"), "title", center ? { align: "center" } : {}), p.s("description") && para(p.s("description"), "body", { color: "muted", ...(center ? { align: "center" } : {}) })));
-    const action = p.s("action") && hbox({ justify: "end", gap: 8 }, [button(p.s("action"), { variant: "text", size: "xs" })]);
-    const picture = (w?: number) => image({ src: p.s("image"), height: px(p, "imageSize"), ...(w ? { width: w } : {}) });
+    const align = p.s("textAlign");
+    const aligned = align === "start" ? {} : { align };
+    /* the card's spacing, by its density: around its body, between its parts, and in from its sides */
+    const space = p.s("size") === "sm" ? 12 : p.s("size") === "lg" ? 24 : 16;
+    const extent = px(p, "imageSize");
+    const width = px(p);
+    const beside = pos === "leading" || pos === "trailing";
+    const room = beside ? width - extent - space * 3 : width - space * 2;
+    const words = vbox({ gap: 4, align: "stretch", padX: space, hugWidth: false, width: room + space * 2 }, some(para(p.s("title"), "title", aligned), p.s("description") && para(p.s("description"), "body", { color: "muted", ...aligned })));
+    const action = p.s("action") && hbox({ gap: 8, padX: space, justify: align === "center" ? "center" : align === "end" ? "end" : "start" }, [button(p.s("action"), { variant: "text", size: "sm" })]);
+    /* the media runs to the card's edges; with no picture of its own it is the part's gradient with its icon */
+    const media = (w: number | undefined, h: number): Node =>
+      p.s("image")
+        ? image({ src: p.s("image"), height: h, radius: 0, ...(w ? { width: w } : {}) })
+        : box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: w ?? width, height: h }, [icon(p.s("imageIcon") || "image", { size: 34 })], {
+            fill: "primaryContainer",
+            textColor: "onPrimaryContainer",
+            look: { fills: [{ type: "linear", angle: 135, stops: [{ color: "primary-container", at: 0 }, { color: "tertiary-container", at: 100 }] }] },
+          });
     const surface = p.s("variant") === "outlined" ? "chip" : p.s("variant") === "elevated" ? "card" : "panel";
-    if (pos === "leading" || pos === "trailing")
-      return hbox({ surface, width: px(p), hugWidth: false, padX: 12, padY: 12, gap: 12, align: "start" }, pos === "leading" ? [picture(px(p, "imageSize")), vbox({ gap: 8, hugWidth: false, width: 120 }, some(words, action), { grow: true })] : [vbox({ gap: 8, hugWidth: false, width: 120 }, some(words, action), { grow: true }), picture(px(p, "imageSize"))]);
-    return vbox({ surface, width: px(p), hugWidth: false, padX: 16, padY: 16, gap: 12 }, some(pos === "top" && picture(), words, action, pos === "bottom" && picture()));
+    /* a filled card is the highest container, as the part paints it */
+    const paint = p.s("variant") === "filled" ? { fill: "surfaceContainerHighest" as const } : {};
+    if (beside) {
+      /* the media stands the card's height beside the body: as tall as the words and the action come to */
+      const lines = (words: string, perLine: number) => Math.max(1, Math.ceil(words.length / Math.max(1, perLine)));
+      const tall = space * 2 + lines(p.s("title"), room / 11) * 28 + (p.s("description") ? 4 + lines(p.s("description"), room / 7.5) * 20 : 0) + (p.s("action") ? space + 40 : 0);
+      const body = vbox({ padX: 0, padY: space, gap: space, hugWidth: false, width: room + space * 2 }, some(words, action), { grow: true });
+      return hbox({ surface, width, hugWidth: false, padX: 0, padY: 0, gap: space, align: "start" }, pos === "leading" ? [media(extent, tall), body] : [body, media(extent, tall)], paint);
+    }
+    /* the media on top or at the foot takes the card's spacing on that side */
+    return vbox({ surface, width, hugWidth: false, padX: 0, padTop: pos === "top" ? 0 : space, padBottom: pos === "bottom" ? 0 : space, gap: space }, some(pos === "top" && media(undefined, extent), words, action, pos === "bottom" && media(undefined, extent)), paint);
   },
 
   alert: (p) => {
@@ -731,6 +782,94 @@ export const SPLITS: Record<string, (p: P) => Node> = {
       ],
       { fill: "surfaceContainerHigh", corners: round(16) },
     );
+  },
+};
+
+/* ---------- where a split's taps and variables go ---------- */
+
+/** What becomes of the taps on a composite's slots and the variables its props follow, where the shape of its tree
+ *  says it better than the atoms' words do: for a slot, the atom a tap on it lands on now (a row of a list, a tab, a
+ *  button); for a prop, the atom that shows it and the prop it shows it under. Each is handed the tree `SPLITS` made
+ *  from the same props. What is left out here goes to the one button that says the slot's words or shows its icon,
+ *  and a variable to the one atom showing the prop's words (`lib/kits.ts`); what finds no atom is not kept. */
+export type SplitTaps = {
+  slots?: (p: P, tree: Node) => Record<string, Node | undefined>;
+  binds?: (p: P, tree: Node) => Record<string, [Node, string] | undefined>;
+};
+
+/** a tree's nodes, each before what it holds: the order its groups come in */
+export const nodesOf = (n: Node): Node[] => [n, ...(n.kids ?? []).flatMap(nodesOf)];
+const firstOf = (n: Node, slug: string) => nodesOf(n).find((x) => x.slug === slug);
+/** rows as the slots of a list: `tab:0`, `tab:1`… */
+const tabs = (rows: (Node | undefined)[] | undefined) => Object.fromEntries((rows ?? []).map((r, i) => [`tab:${i}`, r]));
+/** the rows of a list panel, after the head rows it puts above them */
+const rowsAfter = (t: Node, head: unknown) => (t.kids ?? []).slice(head ? 1 : 0);
+const entryOf = (t: Node, key: string): [Node, string] | undefined => {
+  const e = firstOf(t, "input");
+  return e ? [e, key] : undefined;
+};
+
+export const SPLIT_TAPS: Record<string, SplitTaps> = {
+  search: {
+    /* the trailing icon is the bar's one button; a view's suggestions come after the bar and its rule */
+    slots: (p, t) => ({ ...(p.s("trailing") ? { icon: firstOf(t, "icon-button") } : {}), ...(p.s("kind") === "view" ? tabs((t.kids ?? []).slice(2)) : {}) }),
+    /* what is typed, and what stands there before, are the entry's */
+    binds: (_p, t) => ({ value: entryOf(t, "value"), placeholder: entryOf(t, "placeholder") }),
+  },
+  "app-bar": {
+    /* its icon buttons, in order: what leads, then what trails */
+    slots: (p, t) => {
+      const buttons = nodesOf(t).filter((x) => x.slug === "icon-button");
+      const keys = [p.s("leading") && "icon", p.s("trailing") && "icon2", p.s("trailing2") && "icon3"].filter((k): k is string => !!k);
+      return Object.fromEntries(keys.map((k, i) => [k, buttons[i]]));
+    },
+  },
+  item: {
+    slots: (_p, t) => tabs(t.kids),
+    /* every row shows the one tick: it follows a variable only where one row shows it */
+    binds: (_p, t) => {
+      const marks = nodesOf(t).filter((x) => x.slug === "switch" || x.slug === "checkbox" || x.slug === "radio");
+      return { checked: marks.length === 1 ? [marks[0], "checked"] : undefined };
+    },
+  },
+  "navigation-bar": { slots: (_p, t) => tabs(t.kids) },
+  tabs: { slots: (p, t) => tabs(p.s("variant") === "segmented" ? t.kids : t.kids?.[0]?.kids) },
+  toolbar: { slots: (_p, t) => tabs(t.kids) },
+  /* only the first notice is split out */
+  "notice-bar": { slots: (_p, t) => ({ "tab:0": firstOf(t, "text") }) },
+  "checkout-bar": { slots: (p, t) => tabs((t.kids ?? []).slice(0, p.list("icons").length)) },
+  "balance-card": { slots: (p, t) => tabs(p.list("actions").length ? t.kids?.[2]?.kids : []) },
+  "profile-header": {
+    slots: (p, t) => {
+      const body = t.kids?.[p.b("showCover") ? 1 : 0];
+      return { ...(p.s("action") ? { action: firstOf(t, "button") } : {}), ...tabs(p.list("stats").length ? body?.kids?.[2]?.kids : []) };
+    },
+  },
+  "post-card": {
+    slots: (_p, t) => {
+      const tallies = t.kids?.[(t.kids?.length ?? 1) - 1]?.kids;
+      return { author: t.kids?.[0], comment: tallies?.[1], share: tallies?.[2] };
+    },
+  },
+  "product-card": { slots: (_p, t) => ({ open: firstOf(t, "image") }) },
+  "settings-group": { slots: (p, t) => tabs(rowsAfter(t, p.s("title"))) },
+  "notification-list": { slots: (p, t) => tabs(rowsAfter(t, p.s("title") || p.s("markAll"))) },
+  "conversation-list": { slots: (_p, t) => tabs(t.kids) },
+  leaderboard: { slots: (p, t) => tabs(rowsAfter(t, p.s("title"))) },
+  "transaction-list": { slots: (p, t) => tabs(rowsAfter(t, p.list("filters").length)) },
+  "contact-list": {
+    /* rows may be sorted under letters: each is found by the name it shows, and its call or message button with it */
+    slots: (p, t) => {
+      const rows = nodesOf(t).filter((x) => x.kids?.some((k) => k.slug === "avatar"));
+      const out: Record<string, Node | undefined> = {};
+      p.table("data").rows.forEach(([name = ""], i) => {
+        const mine = rows.filter((r) => nodesOf(r).some((x) => x.props.text === name));
+        if (!name || mine.length !== 1) return;
+        out[`tab:${i}`] = mine[0];
+        out[`act:${i}`] = mine[0].kids?.find((k) => k.slug === "icon-button");
+      });
+      return out;
+    },
   },
 };
 

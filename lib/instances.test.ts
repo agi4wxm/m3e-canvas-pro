@@ -217,6 +217,22 @@ describe("in a file and on a copy", () => {
     expect(back.groups[0]).toMatchObject({ instanceOf: "c", overrides: { "btn/label": "Buy" } });
   });
 
+  it("keeps what an instance asks of the layout it stands in, its tap and its note, and drops what is of the wrong kind", () => {
+    const own = { flowSize: { w: "fill" as const, h: "hug" as const }, flowFill: true, alignSelf: "end" as const, flowAbsolute: true, flowMin: { w: 80 }, flowMax: { w: 320, h: 200 }, flowSpan: 2 };
+    const host: Group = { id: "host", x: 0, y: 0, axis: "x", items: [{ ...makeItem("box"), id: "host", props: { layout: "grid", columns: 3, width: 412, height: 400 } }] };
+    const placed = standIn(card, 16, 100, "i");
+    const inst: Group = { ...placed, inFlow: "host", items: [{ ...placed.items[0], ...own, action: { to: "f2", transition: "slide" }, note: "Opens the card" }] };
+    const back = openProject(JSON.parse(JSON.stringify(projectFile(doc({ groups: [host, inst] })))))!;
+    const it = back.groups.find((g) => g.id === "i")!.items[0];
+    expect(it).toMatchObject({ ...own, action: { to: "f2" }, note: "Opens the card", component: "container" });
+    /* a file edited by hand: what is not of its kind goes, the rest of the instance stays */
+    const odd = { ...inst, items: [{ ...placed.items[0], flowSize: { w: "wide", h: "fill" }, alignSelf: "sideways", flowMin: { w: -4, h: 10 }, flowSpan: "two", flowAbsolute: "yes" }] };
+    const read = openProject(JSON.parse(JSON.stringify(projectFile(doc({ groups: [host, odd as unknown as Group] })))))!.groups.find((g) => g.id === "i")!.items[0];
+    expect(read.flowSize).toEqual({ h: "fill" });
+    expect(read.flowMin).toEqual({ h: 10 });
+    for (const k of ["alignSelf", "flowSpan", "flowAbsolute"] as const) expect(read[k]).toBeUndefined();
+  });
+
   it("gives an instance written with no items the one it needs", () => {
     const file = { ...d, groups: [{ id: "i", x: 0, y: 0, axis: "x", instanceOf: "c", items: [] }] };
     const back = openProject(JSON.parse(JSON.stringify(file)))!;

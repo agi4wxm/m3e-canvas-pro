@@ -343,10 +343,12 @@ export function rowOffsets(rects: (Rect & { base?: number })[], blocks: { h: num
 /** The x of each block of a row inside `width`: runs packed with one gap each, the runs spread to both ends. */
 export function rowXs(blocks: { w: number }[], runs: number[][], gapIn: number[], width: number): number[] {
   const runW = runs.map((run, j) => run.reduce((n, i) => n + blocks[i].w, 0) + gapIn[j] * (run.length - 1));
-  /* one run spread over the width is every member spaced evenly */
-  if (runs.length === 1 && runs[0].length > 1 && width > runW[0]) {
+  /* one run spread over the width is every member spaced evenly: by what the width leaves of them, even where that is
+   * a little less than its gap on the scale, so that it ends where the width does */
+  const parts = runs.length === 1 ? runs[0].reduce((n, i) => n + blocks[i].w, 0) : 0;
+  if (runs.length === 1 && runs[0].length > 1 && width > parts) {
     const run = runs[0];
-    const each = (width - run.reduce((n, i) => n + blocks[i].w, 0)) / (run.length - 1);
+    const each = (width - parts) / (run.length - 1);
     const xs: number[] = [];
     let x = 0;
     for (const i of run) {

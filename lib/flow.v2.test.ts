@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { flowClasses, type FlowValues } from "../parts/flow";
 import { tidyUpParts } from "./align";
 import { buildCode } from "./codegen";
-import { arrangeFlows, flowOf, settleInFlow, suggestAutoLayout } from "./flow";
+import { arrangeFlows, flowOf, loosenedCopies, settleInFlow, suggestAutoLayout } from "./flow";
 import { makeItem, type Doc, type Group, type Item } from "./tokens";
 
 /* Auto layout v2: what Figma's auto layout does that the first round did not, on the canvas and in the printed code. */
@@ -144,6 +144,29 @@ describe("a part that stays where it was put", () => {
     expect(out.find((g) => g.id === "a")!.inFlow).toBeUndefined();
     expect(out.find((g) => g.id === "a")!.items[0].flowAbsolute).toBeUndefined();
   });
+
+  it("takes its turn in the run of another layout it is carried straight into", () => {
+    const gs = [host("h", { layout: "row" }), host("k", { layout: "column" }, 500, 0), kid("a", "h", { flowAbsolute: true }, 550, 50)];
+    const out = settleInFlow(gs, "a", widths(gs));
+    const a = out.find((g) => g.id === "a")!;
+    expect(a.inFlow).toBe("k");
+    expect(a.items[0].flowAbsolute).toBeUndefined();
+    /* moved about inside the same layout, it stays where it was put */
+    const same = settleInFlow([host("h", { layout: "row" }), kid("a", "h", { flowAbsolute: true }, 50, 50)], "a", widths(gs));
+    expect(same.find((g) => g.id === "a")!.items[0].flowAbsolute).toBe(true);
+  });
+
+  it("takes its turn in the run of a layout it is pasted into and joins by where it lies", () => {
+    /* pasted onto another screen, its layout stayed behind: the copy is its own, and joins the layout it lands in */
+    const pasted = loosenedCopies([{ ...kid("a", undefined, { flowAbsolute: true }, 20, 30) }, kid("b", "h", { flowAbsolute: true })]);
+    expect(pasted[0].items[0].flowAbsolute).toBeUndefined();
+    expect(pasted[1].items[0].flowAbsolute).toBe(true);
+    const joined = run([host("h", { layout: "column" }), kid("a", undefined, { flowAbsolute: true }, 20, 30)]);
+    const a = joined.find((g) => g.id === "a")!;
+    expect(a.inFlow).toBe("h");
+    expect(a.items[0].flowAbsolute).toBeUndefined();
+    expect(at(joined, "a")).toEqual([10, 20]);
+  });
 });
 
 describe("printed code", () => {
@@ -254,6 +277,43 @@ describe("suggest auto layout", () => {
   it("has nothing to say about one part alone", () => {
     const gs = [at4("a", "button", 0, 0)];
     expect(suggestAutoLayout(gs, new Set(["a"]), { a: 100, "a:h": 40 }, newId)).toBeNull();
+  });
+
+  it("pads a container evenly with nothing left of a side it was padded by before, so its contents stay where they stand", () => {
+    n = 0;
+    const host: Group = { id: "h", x: 0, y: 0, axis: "x", items: [part("box", "i-h", { layout: "free", surface: "panel", width: 240, height: 160, hugWidth: false, hugHeight: false, padTop: 8, padLeft: 8, padRight: 8, padBottom: 8, gapY: 40, justify: "between" })] };
+    const gs = [host, at4("a", "button", 60, 40), at4("b", "button", 60, 88)];
+    const w = { "i-h": 240, "i-h:h": 160, a: 120, "a:h": 32, b: 120, "b:h": 32 };
+    const made = suggestAutoLayout(gs, new Set(["h"]), w, newId)!;
+    const props = made.groups.find((g) => g.id === "h")!.items[0].props!;
+    expect(props).toMatchObject({ padX: 60, padY: 40 });
+    for (const k of ["padTop", "padRight", "padBottom", "padLeft", "gapY", "justify"]) expect(props).not.toHaveProperty(k);
+    let laid = made.groups;
+    for (let i = 0; i < 4; i++) laid = arrangeFlows(laid, w);
+    expect(at(laid, "a")).toEqual([60, 40]);
+    expect(at(laid, "b")).toEqual([60, 88]);
+  });
+
+  it("lets a row with its ends apart fill a column only where the rest of the column is as wide as it", () => {
+    n = 0;
+    /* a wide row of two parts over one narrow part: filling the column would squeeze the row to the narrow part */
+    const gs = [at4("l", "button", 16, 0), at4("r", "button", 300, 0), at4("n", "text", 16, 100)];
+    const w = { l: 100, "l:h": 40, r: 100, "r:h": 40, n: 60, "n:h": 20 };
+    const made = suggestAutoLayout(gs, new Set(["l", "r", "n"]), w, newId)!;
+    const row = made.groups.find((g) => g.items[0].props?.justify === "between")!;
+    expect(row.items[0].flowSize).toBeUndefined();
+    let laid = made.groups;
+    for (let i = 0; i < 4; i++) laid = arrangeFlows(laid, w);
+    expect(at(laid, "r")).toEqual([300, 0]);
+  });
+
+  it("makes rows of what would be a grid much wider than it stands, rather than push it off the screen", () => {
+    n = 0;
+    /* like parts in two rows, one of them far wider than the others: equal columns would be as wide as it */
+    const gs = [at4("a", "chip", 144, 364), at4("b", "chip", 268, 359), at4("c", "chip", 165, 486)];
+    const w = { a: 101, "a:h": 29, b: 105, "b:h": 22, c: 156, "c:h": 39 };
+    const made = suggestAutoLayout(gs, new Set(["a", "b", "c"]), w, newId)!;
+    expect(made.groups.some((g) => g.items[0].props?.layout === "grid")).toBe(false);
   });
 
   it("can move to another part in one place: the bare props it builds with", async () => {

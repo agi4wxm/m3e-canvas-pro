@@ -2,7 +2,7 @@ import { appearanceOf } from "../parts/appearance";
 import { partBySlug, reader, treeOf, withoutPickedImages } from "../parts/registry";
 import { flowClasses } from "../parts/flow";
 import { describeRepeats } from "./collections";
-import { flowOfItem } from "./flow";
+import { childLayoutOf, flowOf, flowOfItem, sizingOf, type Flow } from "./flow";
 import { expandInstances } from "./instances";
 import { INPUT_PROP } from "./interact";
 import { labelOfPart } from "../parts/resize";
@@ -676,21 +676,173 @@ const VARIANT_TEXT: Record<Lang, (name: string) => string> = {
   ko: (n) => `이 화면은 ${n} 화면과 같은 화면의 다른 크기입니다.`,
 };
 
+type Axis = "w" | "h";
+type AskWords = {
+  run: (axis: Axis) => string;
+  across: (axis: Axis) => string;
+  own: (axis: Axis) => string;
+  cell: (axis: Axis) => string;
+  hug: (axis: Axis) => string;
+  self: (where: string, dir: string) => string;
+  min: (v: number, axis: Axis) => string;
+  max: (v: number, axis: Axis) => string;
+  span: (n: number) => string;
+  where: Record<string, string>;
+  dir: Record<string, string>;
+  join: string;
+};
+/** the words for what a part in a layout asks of it, beyond what the container's own classes say */
+const ASKS: Record<Lang, AskWords> = {
+  en: {
+    run: (a) => `takes the remaining ${a === "w" ? "width" : "height"}`,
+    across: (a) => `stretches to the full ${a === "w" ? "width" : "height"}`,
+    own: (a) => `keeps its own ${a === "w" ? "width" : "height"} rather than stretching`,
+    cell: (a) => `fills its cell's ${a === "w" ? "width" : "height"}`,
+    hug: (a) => `its ${a === "w" ? "width" : "height"} hugs its contents`,
+    self: (where, dir) => `aligned to the ${where} across the ${dir}`,
+    min: (v, a) => `at least ${v}dp ${a === "w" ? "wide" : "tall"}`,
+    max: (v, a) => `at most ${v}dp ${a === "w" ? "wide" : "tall"}`,
+    span: (n) => `spans ${n} columns`,
+    where: { start: "start", center: "center", end: "end", baseline: "text baseline" },
+    dir: { row: "row", column: "column", grid: "cell" },
+    join: "; ",
+  },
+  zh: {
+    run: (a) => `占满剩余${a === "w" ? "宽度" : "高度"}`,
+    across: (a) => `拉伸到整个${a === "w" ? "宽度" : "高度"}`,
+    own: (a) => `保持自身${a === "w" ? "宽度" : "高度"}，不拉伸`,
+    cell: (a) => `占满单元格的${a === "w" ? "宽度" : "高度"}`,
+    hug: (a) => `${a === "w" ? "宽度" : "高度"}随内容`,
+    self: (where, dir) => `在${dir}的横穿方向${where}`,
+    min: (v, a) => `${a === "w" ? "宽" : "高"}至少 ${v}dp`,
+    max: (v, a) => `${a === "w" ? "宽" : "高"}最多 ${v}dp`,
+    span: (n) => `跨 ${n} 列`,
+    where: { start: "靠起点", center: "居中", end: "靠终点", baseline: "按文字基线对齐" },
+    dir: { row: "横排", column: "竖排", grid: "单元格" },
+    join: "；",
+  },
+  ja: {
+    run: (a) => `残りの${a === "w" ? "幅" : "高さ"}いっぱいに広げる`,
+    across: (a) => `${a === "w" ? "幅" : "高さ"}いっぱいに伸ばす`,
+    own: (a) => `自分の${a === "w" ? "幅" : "高さ"}のまま伸ばさない`,
+    cell: (a) => `セルの${a === "w" ? "幅" : "高さ"}いっぱいに広げる`,
+    hug: (a) => `${a === "w" ? "幅" : "高さ"}は内容に合わせる`,
+    self: (where, dir) => `${dir}の交差方向に${where}`,
+    min: (v, a) => `${a === "w" ? "幅" : "高さ"}は ${v}dp 以上`,
+    max: (v, a) => `${a === "w" ? "幅" : "高さ"}は ${v}dp 以下`,
+    span: (n) => `${n} 列にまたがる`,
+    where: { start: "先頭揃え", center: "中央揃え", end: "末尾揃え", baseline: "ベースライン揃え" },
+    dir: { row: "横並び", column: "縦並び", grid: "セル" },
+    join: "、",
+  },
+  ko: {
+    run: (a) => `남은 ${a === "w" ? "너비" : "높이"}를 채움`,
+    across: (a) => `${a === "w" ? "너비" : "높이"} 전체로 늘림`,
+    own: (a) => `늘이지 않고 자기 ${a === "w" ? "너비" : "높이"} 유지`,
+    cell: (a) => `칸의 ${a === "w" ? "너비" : "높이"}를 채움`,
+    hug: (a) => `${a === "w" ? "너비" : "높이"}는 내용에 맞춤`,
+    self: (where, dir) => `${dir}의 교차 방향으로 ${where}`,
+    min: (v, a) => `${a === "w" ? "너비" : "높이"} 최소 ${v}dp`,
+    max: (v, a) => `${a === "w" ? "너비" : "높이"} 최대 ${v}dp`,
+    span: (n) => `${n}열에 걸침`,
+    where: { start: "시작 정렬", center: "가운데 정렬", end: "끝 정렬", baseline: "기준선 정렬" },
+    dir: { row: "가로 줄", column: "세로 줄", grid: "칸" },
+    join: ", ",
+  },
+};
+
+/** What a part in an auto layout asks of it that the container's classes do not say: taking the room left, standing
+ *  elsewhere across the run, its least and most measure, the columns of a grid it takes. Each comes with the classes
+ *  the printed code puts on the box around it. Empty when it goes by the container. */
+export function childAsks(g: Group, parent: Flow, lang: Lang): string {
+  const it = g.items.length === 1 ? g.items[0] : undefined;
+  if (!it) return "";
+  const c = childLayoutOf(it);
+  const t = ASKS[lang];
+  const out: string[] = [];
+  const say = (words: string, classes: string) => out.push(`${words} (\`${classes}\`)`);
+  const w = sizingOf(it, parent, "w");
+  const h = sizingOf(it, parent, "h");
+  const selfAlign = c.self && c.self !== "stretch" ? c.self : undefined;
+  if (parent.dir === "grid") {
+    const span = Math.min(c.span, parent.columns);
+    if (span > 1) say(t.span(span), `col-span-${span}`);
+    if (w === "fill" && parent.align !== "stretch") say(t.cell("w"), "justify-self-stretch");
+    if (h === "fill") say(t.cell("h"), "self-stretch");
+    if (selfAlign) say(t.self(t.where[selfAlign], t.dir.grid), selfAlign === "baseline" ? "self-baseline" : `self-${selfAlign} justify-self-${selfAlign}`);
+  } else {
+    const mainAxis: Axis = parent.dir === "row" ? "w" : "h";
+    const crossAxis: Axis = mainAxis === "w" ? "h" : "w";
+    const main = mainAxis === "w" ? w : h;
+    const cross = crossAxis === "w" ? w : h;
+    const across = c.self ?? parent.align;
+    if (main === "fill") say(t.run(mainAxis), parent.dir === "column" ? "min-h-0 flex-1" : "min-w-0 flex-1");
+    else if (c.size[mainAxis] === "hug") out.push(t.hug(mainAxis));
+    if (cross === "fill" && across !== "stretch") say(t.across(crossAxis), "self-stretch");
+    else if (cross !== "fill" && across === "stretch") say(t.own(crossAxis), "self-start");
+    else if (selfAlign) say(t.self(t.where[selfAlign], t.dir[parent.dir]), `self-${selfAlign}`);
+    if (cross !== "fill" && c.size[crossAxis] === "hug") out.push(t.hug(crossAxis));
+  }
+  for (const axis of ["w", "h"] as const) {
+    const lo = c.min[axis];
+    const hi = c.max[axis];
+    if (lo !== undefined) say(t.min(Math.round(lo), axis), `min-${axis}-[${Math.round(lo)}px]`);
+    if (hi !== undefined) say(t.max(Math.round(hi), axis), `max-${axis}-[${Math.round(hi)}px]`);
+  }
+  return out.join(t.join);
+}
+
+/** where a part standing loose in a layout is put: from the container's top left, as the printed code places it */
+const LOOSE_TEXT: Record<Lang, { head: (name: string) => string; at: (x: number, y: number) => string }> = {
+  en: {
+    head: (n) => `Layered on top of ${n}, out of its auto layout (they take no place in the run; the container is \`relative\` and each is \`absolute\` at its offset from the container's top left):`,
+    at: (x, y) => `at left ${x}px, top ${y}px (\`absolute left-[${x}px] top-[${y}px]\`)`,
+  },
+  zh: {
+    head: (n) => `${n}之上叠放、不参与其自动布局（不占排布位置；容器为 \`relative\`，各自以 \`absolute\` 定位在相对容器左上角的位置）：`,
+    at: (x, y) => `位于左 ${x}px、上 ${y}px（\`absolute left-[${x}px] top-[${y}px]\`）`,
+  },
+  ja: {
+    head: (n) => `${n}の上に重ね、自動レイアウトから外して配置します（並びの場所を取らない。コンテナは \`relative\`、各要素はコンテナ左上からの位置に \`absolute\` で置く）:`,
+    at: (x, y) => `左 ${x}px・上 ${y}px の位置（\`absolute left-[${x}px] top-[${y}px]\`）`,
+  },
+  ko: {
+    head: (n) => `${n} 위에 겹쳐 자동 레이아웃에서 제외하고 배치합니다(배치 순서에 자리를 차지하지 않음. 컨테이너는 \`relative\`, 각 항목은 컨테이너 왼쪽 위 기준 위치에 \`absolute\`):`,
+    at: (x, y) => `왼쪽 ${x}px, 위 ${y}px 위치(\`absolute left-[${x}px] top-[${y}px]\`)`,
+  },
+};
+
 /** What a part holds, under its line. What its auto layout places is nested in order, since the
- *  classes on the container say where it goes; what merely lies on it is placed by position. */
+ *  classes on the container say where it goes, each with what it asks of the layout; what stands loose
+ *  in the layout is placed from the container's corner; what merely lies on it is placed by position. */
 function describeHeld(lines: string[], n: LNode, widths: Record<string, number>, lang: Lang, depth: number) {
   const pad = "  ".repeat(depth);
   const name = groupName(n.g, lang);
-  const flowed = n.children.filter((c) => c.g.inFlow === n.g.id);
-  const placed = n.children.filter((c) => c.g.inFlow !== n.g.id);
+  const mine = (c: LNode) => c.g.inFlow === n.g.id;
+  const loose = (c: LNode) => c.g.items.length === 1 && childLayoutOf(c.g.items[0]).absolute;
+  const flowed = n.children.filter((c) => mine(c) && !loose(c));
+  const absolute = n.children.filter((c) => mine(c) && loose(c));
+  const placed = n.children.filter((c) => !mine(c));
+  const flow = flowOf(n.g);
+  const end = lang === "ja" || lang === "zh" ? "。" : ".";
   if (flowed.length) {
     lines.push(`${pad}  - ${lang === "ja" ? `${name}の自動レイアウトの中に、次の順で入れ子にします:` : lang === "zh" ? `${name}的自动布局内依次嵌套：` : lang === "ko" ? `${name}의 자동 레이아웃 안에 다음 순서로 중첩합니다:` : `Nested in the auto layout of ${name}, in this order:`}`);
     flowed.forEach((c, i) => {
       /* the rows are not written out: the first child stands for all of them */
       const rows = i === 0 ? n.g.rowsOf : undefined;
-      lines.push(`${pad}    - ${rows ? ROWS_TEXT[lang](rows) : ""}${groupText(c.g, lang)}${lang === "ja" || lang === "zh" ? "。" : "."}`);
+      const asks = flow ? childAsks(c.g, flow, lang) : "";
+      const more = asks ? (lang === "ja" || lang === "zh" ? `（${asks}）` : ` (${asks})`) : "";
+      lines.push(`${pad}    - ${rows ? ROWS_TEXT[lang](rows) : ""}${groupText(c.g, lang)}${more}${end}`);
       describeHeld(lines, c, widths, lang, depth + 2);
     });
+  }
+  if (absolute.length) {
+    lines.push(`${pad}  - ${LOOSE_TEXT[lang].head(name)}`);
+    for (const c of absolute) {
+      const at = LOOSE_TEXT[lang].at(Math.round(c.g.x - n.g.x), Math.round(c.g.y - n.g.y));
+      lines.push(`${pad}    - ${groupText(c.g, lang)}${lang === "ja" || lang === "zh" ? "，" : ", "}${at}${end}`);
+      describeHeld(lines, c, widths, lang, depth + 2);
+    }
   }
   if (placed.length) {
     lines.push(`${pad}  - ${lang === "ja" ? `${name}の中には次を重ねて配置します（ボックス側を背景にし、以下はその前面に載せる。位置はボックス内での相対位置）:` : lang === "zh" ? `${name}内部叠放以下内容（以容器为背景，下列组件绘制在其前面，位置为容器内的相对位置）：` : lang === "ko" ? `${name} 안에 다음 항목을 겹쳐 배치합니다(컨테이너를 배경으로 하고 다음 부품은 그 앞에 배치하며, 위치는 컨테이너 내부 기준):` : `Inside ${name}, layered on top of it (the container is the background; positions are relative to it):`}`);

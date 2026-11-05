@@ -3,9 +3,12 @@ import { arranged, defaultMeasures, inLang, seedGroups, type Node, type ScreenSe
 import { pickVariant, type KitDef, type KitLook } from "../parts/kits";
 import { nameOf } from "../parts/labels";
 import { partBySlug, reader } from "../parts/registry";
+import { SPLIT_TAPS, nodesOf } from "../parts/defs/splits";
+import type { P, PartDef } from "../parts/types";
+import { childLayoutFields } from "./flow";
 import type { Lang } from "./i18n";
 import { recipesOf, styleOf, uxOf } from "./styles";
-import { PHONE_MARGIN, frameRect, frameSizeOf, isPhoneFrame, uid, type Frame, type Group, type Item, type Theme } from "./tokens";
+import { PHONE_MARGIN, frameRect, frameSizeOf, isPhoneFrame, uid, type Action, type Frame, type Group, type Item, type Theme } from "./tokens";
 
 /* Trees of atoms on the canvas: a kit added from the palette, a composite split into what it is
  * made of. Both come down to the same thing: the tree flattened into groups, outermost first, each
@@ -155,7 +158,7 @@ export function landTree(groups: Group[], x: number, y: number, frames: Frame[],
 export const canSplit = (it: Item | undefined) => !!it && !!partBySlug(it.component)?.atoms;
 
 /** What is kept of the part a split replaces: where it stands, what it is called, what a tap on it
- *  does, how it is painted, and what it was said to be. */
+ *  does, how it is painted, what it was said to be, and what it asks of the layout it stands in. */
 function carried(g: Group, it: Item, root: Group, width: number | undefined, title: string): Group {
   const rootItem = root.items[0];
   const { x: _x, y: _y, id: _id, items: _items, ...own } = root;
@@ -179,9 +182,61 @@ function carried(g: Group, it: Item, root: Group, width: number | undefined, tit
         ...(it.textColor ? { textColor: it.textColor } : {}),
         ...(it.corners ? { corners: it.corners } : {}),
         ...(it.look ? { look: it.look } : {}),
+        ...childLayoutFields(it),
       },
     ],
   };
+}
+
+/** atoms a tap is meant for: what a slot's words or icon on one of them say is that slot */
+const TAPPABLE = new Set(["button", "icon-button"]);
+/** the props an atom shows words under */
+const SHOWN = ["text", "label", "placeholder", "value"];
+
+/** the one node of `nodes` that `pick` takes, with what it took; none when no node or several do */
+function onlyOne<T>(nodes: Node[], pick: (n: Node) => T | undefined): [Node, T] | undefined {
+  let found: [Node, T] | undefined;
+  for (const n of nodes) {
+    const v = pick(n);
+    if (v === undefined) continue;
+    if (found) return undefined;
+    found = [n, v];
+  }
+  return found;
+}
+
+/** What a part's slots and variables come to on the atoms of the tree it splits into: each tap of a slot on the atom
+ *  that now takes it, each bound prop on the atom that now shows it. The split's own map says it where it can
+ *  (parts/defs/splits.ts `SPLIT_TAPS`); else a slot goes to the one button saying its words or showing its icon, and a
+ *  variable to the one atom showing the prop's words. What finds no single atom is not kept. The root is never one:
+ *  it keeps the part's own tap. */
+export function splitTaps(def: PartDef, p: P, tree: Node, it: Pick<Item, "actions" | "bind">): { actions: Map<Node, Action>; binds: Map<Node, Record<string, string>> } {
+  const map = SPLIT_TAPS[def.slug];
+  const nodes = nodesOf(tree).slice(1);
+  const inside = new Set(nodes);
+  const actions = new Map<Node, Action>();
+  const binds = new Map<Node, Record<string, string>>();
+  const slots = def.slots?.(p) ?? [];
+  const mapped = map?.slots?.(p, tree) ?? {};
+  for (const [key, action] of Object.entries(it.actions ?? {})) {
+    const slot = slots.find((s) => s.key === key);
+    if (!action || !slot) continue;
+    const said = (n: Node) => (TAPPABLE.has(n.slug) && ((!!slot.label && n.props.label === slot.label) || (!!slot.icon && n.props.icon === slot.icon))) || undefined;
+    const to = key in mapped ? mapped[key] : onlyOne(nodes, said)?.[0];
+    if (to && inside.has(to) && !actions.has(to)) actions.set(to, action);
+  }
+  const named = map?.binds?.(p, tree) ?? {};
+  for (const [key, id] of Object.entries(it.bind ?? {})) {
+    if (typeof id !== "string") continue;
+    const d = def.props.find((x) => x.key === key);
+    /* words shown as they are, or a count shown in words */
+    const words = d?.kind === "text" ? p.s(key) : d?.kind === "number" ? String(Math.round(p.n(key))) : "";
+    const shows = (n: Node) => SHOWN.find((k) => typeof n.props[k] === "string" && n.props[k] === words);
+    const to = key in named ? named[key] : words ? onlyOne(nodes, shows) : undefined;
+    if (!to || !inside.has(to[0])) continue;
+    binds.set(to[0], { ...binds.get(to[0]), [to[1]]: id });
+  }
+  return { actions, binds };
 }
 
 /** The document with one composite replaced, in place, by the atoms it is made of: the same place on
@@ -195,8 +250,19 @@ export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widt
   const it = g.items[0];
   const def = partBySlug(it.component);
   if (!def?.atoms) return null;
-  const tree = def.atoms(reader(def, it.props)) as Node;
-  const made = treeGroups(tree, lang, { x: g.x, y: g.y });
+  const p = reader(def, it.props);
+  const tree = def.atoms(p) as Node;
+  /* the taps on its slots and the variables its props follow go to the atoms that now show them; the groups come
+   * in the order of the tree, each node before what it holds */
+  const taps = splitTaps(def, p, tree, it);
+  const order = nodesOf(tree);
+  const laidOut = treeGroups(tree, lang, { x: g.x, y: g.y });
+  const made = laidOut.map((x, i) => {
+    const node = laidOut.length === order.length ? order[i] : undefined;
+    const action = node && taps.actions.get(node);
+    const bind = node && taps.binds.get(node);
+    return action || bind ? { ...x, items: [{ ...x.items[0], ...(action ? { action } : {}), ...(bind ? { bind } : {}) }] } : x;
+  });
   const measured = widths[it.id];
   /* the box is called what the part was, so it can still be found by that in the layers */
   const root = carried(g, it, made[0], measured !== undefined ? Math.round(measured) : undefined, nameOf(def, lang));
