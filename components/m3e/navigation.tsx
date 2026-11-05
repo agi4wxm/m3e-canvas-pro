@@ -223,20 +223,101 @@ type NavigationRailProps = React.ComponentProps<"nav"> & {
   expanded?: boolean
   /** 80dp instead of 96dp when collapsed */
   narrow?: boolean
-  /** expanded rail floating over content */
+  /** expands over the content instead of beside it, over a scrim: the room it
+   *  takes stays that of the collapsed rail, focus stays inside while it is
+   *  open, and Escape, the scrim or a destination asks to close it */
   modal?: boolean
+  /** a modal rail asks to close */
+  onDismiss?: () => void
   /** 40dp items, for long lists (documentation, settings) */
   compact?: boolean
 }
+
+const FOCUSABLE = "a[href], button:not([disabled]), [tabindex]:not([tabindex='-1'])"
 
 function NavigationRail({
   className,
   expanded,
   narrow,
   modal,
+  onDismiss,
   compact,
+  style,
+  onClick,
   ...props
 }: NavigationRailProps) {
+  const nav = React.useRef<HTMLElement>(null)
+  const scrim = React.useRef<HTMLDivElement>(null)
+  const open = !!modal && !!expanded
+  /* a part drawn inert (on a canvas) shows how it looks, not a scrim over everything else */
+  const [working, setWorking] = React.useState(false)
+  /* a rail along the right edge of its screen opens towards the middle */
+  const [onRight, setOnRight] = React.useState(false)
+  React.useLayoutEffect(() => {
+    const el = nav.current
+    if (!open || !el || el.closest("[inert]")) return
+    setWorking(true)
+    const slot = el.parentElement!
+    let screen = slot.parentElement
+    while (screen && screen !== document.body && getComputedStyle(screen).overflowX === "visible") screen = screen.parentElement
+    const room = (screen ?? document.body).getBoundingClientRect()
+    const at = slot.getBoundingClientRect()
+    setOnRight(at.left + at.width / 2 > room.left + room.width / 2)
+    const before = document.activeElement as HTMLElement | null
+    const places = () => [...el.querySelectorAll<HTMLElement>(FOCUSABLE)]
+    places()[0]?.focus()
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        e.stopPropagation()
+        scrim.current?.click()
+        return
+      }
+      if (e.key !== "Tab") return
+      const list = places()
+      if (!list.length) return
+      const now = document.activeElement
+      const out = !el.contains(now)
+      if (out || (e.shiftKey && now === list[0]) || (!e.shiftKey && now === list[list.length - 1])) {
+        e.preventDefault()
+        list[e.shiftKey && !out ? list.length - 1 : 0].focus()
+      }
+    }
+    document.addEventListener("keydown", key, true)
+    return () => {
+      document.removeEventListener("keydown", key, true)
+      setWorking(false)
+      if (before?.isConnected) before.focus()
+    }
+  }, [open])
+  const drawn = (
+    <nav
+      ref={nav}
+      data-slot="navigation-rail"
+      data-expanded={expanded || undefined}
+      className={cn(
+        "flex h-full shrink-0 scrollbar-thin flex-col gap-1 overflow-x-hidden overflow-y-auto pt-11 pb-4 transition-[width] motion-spatial-default",
+        expanded
+          ? "w-[220px] items-stretch px-4"
+          : narrow
+            ? "w-20 items-center"
+            : "w-24 items-center",
+        open
+          ? cn(onRight ? "rounded-l-lg" : "rounded-r-lg", "bg-surface-container shadow-elevation-2")
+          : "bg-surface",
+        modal && "absolute top-0 z-50",
+        modal && (onRight ? "right-0" : "left-0"),
+        className
+      )}
+      style={style}
+      onClick={(e) => {
+        onClick?.(e)
+        /* choosing a destination is what a modal rail is open for */
+        if (working && (e.target as Element).closest("[data-tap^='tab:']")) scrim.current?.click()
+      }}
+      {...props}
+    />
+  )
   return (
     <NavContext.Provider
       value={{
@@ -245,23 +326,30 @@ function NavigationRail({
         compact,
       }}
     >
-      <nav
-        data-slot="navigation-rail"
-        data-expanded={expanded || undefined}
-        className={cn(
-          "flex h-full shrink-0 scrollbar-thin flex-col gap-1 overflow-x-hidden overflow-y-auto pt-11 pb-4 transition-[width] motion-spatial-default",
-          expanded
-            ? "w-[220px] items-stretch px-4"
-            : narrow
-              ? "w-20 items-center"
-              : "w-24 items-center",
-          modal && expanded
-            ? "rounded-r-lg bg-surface-container shadow-elevation-2"
-            : "bg-surface",
-          className
-        )}
-        {...props}
-      />
+      {modal ? (
+        <div
+          data-slot="navigation-rail-slot"
+          className={cn("relative shrink-0", narrow ? "w-20" : "w-24")}
+          style={{ height: style?.height }}
+        >
+          {open && working && (
+            /* the screen around it clips this to itself; `fixed` would not stay on the screen
+             * while a transform moves it */
+            <div
+              ref={scrim}
+              data-tap="rail"
+              data-slot="navigation-rail-scrim"
+              aria-hidden
+              onClick={onDismiss}
+              className="absolute z-40 bg-black/32 transition-opacity duration-200 starting:opacity-0"
+              style={{ left: "-100vw", top: "-100vh", width: "300vw", height: "300vh" }}
+            />
+          )}
+          {drawn}
+        </div>
+      ) : (
+        drawn
+      )}
     </NavContext.Provider>
   )
 }

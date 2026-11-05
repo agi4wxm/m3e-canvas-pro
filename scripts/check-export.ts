@@ -21,7 +21,7 @@ import { partBySlug } from "../parts/registry";
 
 const WORK = process.argv[2];
 const ONLY = process.argv[3];
-if (!WORK) throw new Error("usage: bun scripts/check-export.ts <empty work folder> [reuse|proof|one|parts|sweep|<a saved .zip>]");
+if (!WORK) throw new Error("usage: bun scripts/check-export.ts <empty work folder> [reuse|proof|one|parts|modal|sweep|<a saved .zip>]");
 mkdirSync(WORK, { recursive: true });
 const fs0 = statfsSync(WORK);
 if ((fs0.bavail * fs0.bsize) / 2 ** 30 < 2) throw new Error("under 2GB free: stopping");
@@ -736,6 +736,105 @@ async function sweep() {
   });
 }
 
+/** a rail that opens over the content, a split button's two halves, a menu with no room below it */
+async function modalAndSplit() {
+  const go = (to: string) => ({ to, transition: "none" as const });
+  const rows = [{ label: "Home", icon: "home" }, { label: "Saved", icon: "star" }, { label: "Search", icon: "search" }];
+  const rail = (id: string, x: number, y = 0) => ({ id: `g-${id}`, x, y, axis: "x" as const, items: [{ ...makeItem("navigation-rail"), id, props: { items: rows, modal: true, fab: false, height: 800 }, actions: { "tab:1": go("f1") } }] });
+  const split = (id: string, y: number, props: Record<string, unknown>, actions: Record<string, ReturnType<typeof go>>) => ({ id: `g-${id}`, x: 150, y, axis: "x" as const, items: [{ ...makeItem("split-button"), id, props: { ...props, icon: "" }, actions }] });
+  const label = (id: string, frameX: number, text: string) => ({ id: `g-${id}`, x: frameX + 150, y: 40, axis: "x" as const, items: [{ ...makeItem("text"), id, props: { text } }] });
+  const doc: Doc = {
+    groups: [
+      rail("r", 0),
+      split("a", 100, { label: "WithMenu" }, { main: go("f2"), "tab:0": go("f3") }),
+      split("b", 200, { label: "Halves", menu: false }, { main: go("f2"), more: go("f4") }),
+      split("c", 840, { label: "Low" }, {}),
+      { id: "g-i", x: 150, y: 300, axis: "x", items: [{ ...makeItem("item"), id: "i", props: { items: [{ label: "Disc row", icon: "inbox" }], iconFill: "tertiary-container", width: 240 } }] },
+      label("l1", 1000, "Saved here"),
+      label("l2", 2000, "Main here"),
+      label("l3", 3000, "Row here"),
+      label("l4", 4000, "More here"),
+      rail("rr", 5000 + 316),
+    ],
+    frames: [
+      { id: "f0", name: "Home", x: 0, y: 0 },
+      { id: "f1", name: "Saved", x: 1000, y: 0 },
+      { id: "f2", name: "Main done", x: 2000, y: 0 },
+      { id: "f3", name: "Row done", x: 3000, y: 0 },
+      { id: "f4", name: "More done", x: 4000, y: 0 },
+      { id: "f5", name: "Right", x: 5000, y: 0 },
+    ],
+    paletteKey: "purple",
+    frame: "phone",
+    title: "Small",
+    brief: "",
+  };
+  const dist = await assemble("modal", doc, {});
+  if (!dist) return;
+  const server = await serve(dist, 4199);
+  const p = await edgeAt("modal", "http://127.0.0.1:4199/");
+  const width = () => p.read('[data-slot="navigation-rail"]', "e.getBoundingClientRect().width");
+  const scrim = () => p.ev<boolean>(`return !!document.querySelector('[data-slot="navigation-rail-scrim"]')`);
+  const inside = () => p.ev<boolean>(`return !!document.activeElement?.closest('[data-slot="navigation-rail"]')`);
+  const leftOf = (s: string) => p.read(s, "e.getBoundingClientRect().left");
+  try {
+    await p.width(420);
+    await p.reload();
+    ok(await p.at("home"), "modal rail: starts on the first screen");
+    ok((await width()) === 96 && !(await scrim()), "modal rail: shut, it is a collapsed rail with no scrim");
+    const before = await leftOf('[data-slot="split-button"]');
+    await p.tapOn('[aria-label="Expand"]');
+    await sleep(600);
+    ok((await width()) === 220, "modal rail: the menu button opens it");
+    ok(await scrim(), "modal rail: over a scrim");
+    ok((await leftOf('[data-slot="split-button"]')) === before, "modal rail: what stands beside it stays where it is");
+    ok(await inside(), "modal rail: takes the focus");
+    for (let i = 0; i < 12; i++) await p.key("Tab", "Tab", 9);
+    ok(await inside(), "modal rail: Tab stays inside");
+    await p.key("Escape", "Escape", 27);
+    await sleep(600);
+    ok((await width()) === 96 && !(await scrim()), "modal rail: Escape shuts it");
+    await p.tapOn('[aria-label="Expand"]');
+    await sleep(600);
+    await p.clickAt(350, 150);
+    await sleep(600);
+    ok((await width()) === 96, "modal rail: a tap on the scrim shuts it");
+    ok((await p.screen()) === "home", "modal rail: and reaches nothing under it");
+    await p.tapOn('[aria-label="Expand"]');
+    await sleep(600);
+    await p.tap("Saved");
+    ok(await p.at("saved"), "modal rail: a destination goes where it goes");
+
+    await p.reload();
+    await p.tapOn('[aria-label="More options"]');
+    await sleep(300);
+    ok(await p.sees("Duplicate"), "split button: the arrow opens the menu");
+    ok((await p.screen()) === "home", "split button: and runs nothing");
+    await p.tap("Duplicate");
+    ok(await p.at("rowDone"), "split button: a row goes its own way");
+    await p.reload();
+    await p.tap("WithMenu");
+    ok(await p.at("mainDone"), "split button: the main half goes its own way");
+    await p.reload();
+    await p.tapOn('[aria-label="More options"]', 1);
+    ok(await p.at("moreDone"), "split button: with no menu, the arrow has its own target");
+
+    await p.reload();
+    await p.tapOn('[aria-label="More options"]', 2);
+    await sleep(400);
+    const flip = await p.ev<{ menu: number; button: number; room: number } | null>(`const m=document.querySelector('[data-slot="dropdown-menu-content"]');const b=[...document.querySelectorAll('[data-slot="split-button"]')][2];if(!m||!b)return null;return {menu:m.getBoundingClientRect().bottom,button:b.getBoundingClientRect().top,room:innerHeight}`);
+    ok(!!flip && flip.menu <= flip.button + 1 && flip.menu <= flip.room, `menu: with no room below it rises above its button (${JSON.stringify(flip)})`);
+    await p.key("Escape", "Escape", 27);
+
+    const disc = await p.read('[data-slot="item-media"]', "({w:e.getBoundingClientRect().width,r:getComputedStyle(e).borderRadius,bg:getComputedStyle(e).backgroundColor})");
+    ok((disc as { w: number }).w === 40 && (disc as { bg: string }).bg !== "rgba(0, 0, 0, 0)", `list item: the icon sits on its disc (${JSON.stringify(disc)})`);
+    ok(!p.errors.length, `modal: nothing went wrong on the page${p.errors.length ? `:\n  ${[...new Set(p.errors)].slice(0, 30).join("\n  ")}` : ""}`);
+  } finally {
+    await p.close();
+    server.close();
+  }
+}
+
 /** a zip the editor's own button saved goes the same way as one made here */
 async function savedZip(path: string) {
   const dir = join(WORK, "saved");
@@ -759,6 +858,7 @@ if (!ONLY || ONLY === "reuse") await reuse();
 if (!ONLY || ONLY === "proof") await proof();
 if (!ONLY || ONLY === "one") await oneScreen();
 if (!ONLY || ONLY === "parts") await allParts();
+if (!ONLY || ONLY === "modal") await modalAndSplit();
 if (!ONLY) await sweep();
 
 console.log(`\n${passes} passed, ${failures.length} failed`);

@@ -84,7 +84,7 @@ Fields any part may carry beside `props`:
 
 - `note`: what the part does, in your words. It goes into the prompt verbatim, so say what happens on tap, what is saved, what is validated.
 - `action`: `{ "to": "<frame id>" | "back", "transition": "slide" | "slideLeft" | "slideUp" | "slideDown" | "fade" | "expand" | "none" }`, the screen a tap opens.
-- `actions`: the same per place inside a part that has several, such as `"tab:2"` for the third row of a bar, list or menu, or `"dismiss"` and `"confirm"` for the two buttons of a dialog.
+- `actions`: the same per place inside a part that has several, such as `"tab:2"` for the third row of a bar, list or menu, `"dismiss"` and `"confirm"` for the two buttons of a dialog, or `"main"` for the main half of a split button and `"more"` for its arrow when it has no menu.
 - In an action, `"to": "none"` goes nowhere, and these are optional: `effects`, steps run in order before it goes; `when`, a condition it runs on; `else`, `{ "to", "transition", "effects" }` run when the condition fails.
 - An effect is one of `{ "do": "show" | "hide" | "toggle" | "open" | "close", "part": "<item id>" }`, `{ "do": "setVar", "var": "<variable id>", "value": … }`, `{ "do": "toggleVar", "var" }`, `{ "do": "addVar", "var", "by": 1 }`, `{ "do": "setProp", "part", "prop": "<prop key>", "value": … }`, `{ "do": "snackbar", "message": "…" }`.
 - A condition is `{ "var": "<variable id>", "op": "eq" | "neq", "value": … }` or `{ "filled": "<item id of an input>" }`.
@@ -282,7 +282,7 @@ These are all the parts there are; a `component` that is not here shows as an un
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `item` | List item | `items` rows of `{ "label", "icon" }`; `description` text; `variant` default / outline / muted / segmented; `size` default / sm / xs; `trailing` none / icon / switch / checkbox / radio / slider / text; `trailingIcon` icon; `checked` true / false; `trailingText` text; `width` 160–520 |
+| `item` | List item | `items` rows of `{ "label", "icon" }`; `iconFill` none / primary-container / secondary-container / tertiary-container / primary / surface; `description` text; `variant` default / outline / muted / segmented; `size` default / sm / xs; `trailing` none / icon / switch / checkbox / radio / slider / text; `trailingIcon` icon; `checked` true / false; `trailingText` text; `width` 160–520 |
 | `chart` | Chart | `type` bar / line / area / stacked-bar / pie; `title` text; `subtitle` text; `data` `{ "columns": ["Month", "Desktop", "Mobile"], "rows": [[…]] }`; `width` 200–1200; `height` 120–600 |
 | `scatter-plot` | Scatter plot | `title` text; `subtitle` text; `data` `{ "columns": ["X", "Y"], "rows": [[…]] }`; `width` 160–960; `height` 96–600 |
 | `heatmap` | Heatmap | `title` text; `subtitle` text; `data` `{ "columns": ["Mon", "Tue", "Wed", "Thu", "Fri"], "rows": [[…]] }`; `width` 160–960 |

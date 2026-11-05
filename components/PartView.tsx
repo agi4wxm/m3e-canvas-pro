@@ -27,6 +27,17 @@ function MissingPart({ item }: { item: Item }) {
 
 type PartViewProps = { item: Item; live?: boolean; /** the frame the part is on: an open overlay's box is no larger than it */ screen?: Screen; /** in the preview, an effect has opened this menu or popover: it is drawn open as on the canvas, and still works */ held?: boolean };
 
+/** What a tree sets only once, when it is first drawn (`defaultValue`, `defaultChecked`…). A component
+ *  ignores a later change to these, so on the canvas, where they are what the author is editing, a change
+ *  has to draw it afresh. */
+export function startingValuesOf(node: PNode | string): string {
+  if (typeof node === "string") return "";
+  const own = Object.entries(node.props ?? {})
+    .filter(([k]) => /^default[A-Z]/.test(k))
+    .map(([k, v]) => `${k}=${JSON.stringify(v)}`);
+  return [...own, ...(node.children ?? []).map(startingValuesOf).filter(Boolean)].join(";");
+}
+
 /** A part drawn as the real shadcn M3E component it stands for. On the canvas it is inert: a press
  *  belongs to the part (to select and drag it), not to the button inside it. In the preview
  *  (`live`) it works. */
@@ -39,12 +50,14 @@ function PartViewBody({ item, live = false, screen, held = false }: PartViewProp
   const icons = useIcons(tree ?? NOTHING);
   /* the same elements for the same tree: React then leaves the whole component under them alone */
   const drawn = useMemo(() => (tree ? renderNode(tree) : null), [tree]);
+  /* in the preview they stay as they are: what a visitor has changed is the part's own */
+  const starting = useMemo(() => (tree && !live ? startingValuesOf(tree) : ""), [tree, live]);
   if (!tree) return <MissingPart item={item} />;
   return (
     <PartSurface>
       {/* an inline box inside the part's block would sit on the strut's baseline, ~a line's
        *  leading low; top-aligned, the part's content starts at the part's own top */}
-      <div key={icons} inert={!live} style={{ display: "inline-flex", verticalAlign: "top", pointerEvents: live ? undefined : "none" }}>
+      <div key={`${icons}:${starting}`} inert={!live} style={{ display: "inline-flex", verticalAlign: "top", pointerEvents: live ? undefined : "none" }}>
         {/* a widget is fetched when first drawn: its guessed size holds the place */}
         <Suspense fallback={<div style={{ width: def?.w, height: def?.h }} />}>{drawn}</Suspense>
       </div>

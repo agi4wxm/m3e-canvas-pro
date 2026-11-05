@@ -143,7 +143,7 @@ describe("projectFileName", () => {
 describe("readProject", () => {
   it.each(["left", "right"])("does not persist the runtime %s expansion edge", async (side) => {
     const authored: Item = { ...item(), component: "navigation-rail",
-      props: { expanded: false, modal: true, height: 800, selected: 1, items: [{ icon: "home", label: "Home" }, { icon: "star", label: "Saved" }] },
+      props: { expanded: false, height: 800, selected: 1, items: [{ icon: "home", label: "Home" }, { icon: "star", label: "Saved" }] },
       note: "Keep my destinations",
     };
     const original = doc();

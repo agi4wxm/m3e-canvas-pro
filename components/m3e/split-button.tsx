@@ -71,6 +71,9 @@ type SplitButtonProps = React.ComponentProps<"div"> &
     /** render the trailing button yourself, e.g. `<DropdownMenuTrigger render={…} />` */
     renderTrailing?: (button: React.ReactElement) => React.ReactElement
     trailingLabel?: string
+    /** which place of the part each half is, for a wrapper that tells a part's places apart */
+    "data-tap-lead"?: string
+    "data-tap-trail"?: string
   }
 
 function SplitButton({
@@ -83,6 +86,8 @@ function SplitButton({
   trailingProps,
   renderTrailing,
   trailingLabel = "More options",
+  "data-tap-lead": tapLead,
+  "data-tap-trail": tapTrail,
   style,
   ...props
 }: SplitButtonProps) {
@@ -93,6 +98,7 @@ function SplitButton({
       variant={variant}
       size={buttonSize}
       aria-label={trailingLabel}
+      data-tap={tapTrail}
       data-open={open || undefined}
       className={cn(
         s.trail,
@@ -127,6 +133,7 @@ function SplitButton({
         variant={variant}
         size={buttonSize}
         onClick={onAction}
+        data-tap={tapLead}
         className={cn(
           s.lead,
           "rounded-l-(--btn-h2) rounded-r-(--split-inner) data-press:rounded-l-(--btn-h2) data-press:rounded-r-(--split-pressed)"

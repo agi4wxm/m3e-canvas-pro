@@ -170,6 +170,8 @@ function LivePart({ item, widths, screen, onTap, onSlot, easeWidth, onField, onC
   const click = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as Element;
     const slot = target.closest?.("[data-tap]")?.getAttribute("data-tap");
+    /* a place that works by itself (the arrow that opens a split button's menu) is no press on the part */
+    if (slot === "self") return;
     /* a place that answers to nothing of its own (a row of a list item with one action on the whole part) is still a press on the part */
     if (slot != null && onSlot) onSlot(slot);
     else onTap?.();

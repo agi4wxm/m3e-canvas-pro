@@ -183,10 +183,10 @@ describe("navigation rail expansion", () => {
     }
   });
 
-  it.each(LANGS)("treats a modal-only setting as a collapsed rail in %s", (lang) => {
+  it.each(LANGS)("keeps a collapsed modal rail modal, for when it opens, in %s", (lang) => {
     const tag = railTag(railLayout(lang, { modal: true }));
     expect(tag).not.toContain(" expanded");
-    expect(tag).not.toContain(" modal");
+    expect(tag).toContain(" modal");
   });
 });
 

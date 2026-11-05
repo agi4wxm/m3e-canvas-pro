@@ -593,7 +593,9 @@ export class Behaviour {
   }
 
   private railToggles(it: Item, def: PartDef): boolean {
-    return def.slug === "navigation-rail" && reader(def, it.props).b("menu") && (this.live || !!Object.keys(it.actions ?? {}).length);
+    const p = reader(def, it.props);
+    /* a modal rail also closes by its scrim, with no menu button */
+    return def.slug === "navigation-rail" && (p.b("menu") || p.b("modal")) && (this.live || !!Object.keys(it.actions ?? {}).length);
   }
 
   /** a dialog's open state belongs to the runtime: its button is on another part, or nowhere */

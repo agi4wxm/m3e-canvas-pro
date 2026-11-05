@@ -33,11 +33,12 @@ function attr(name: string, v: PValue, keepTap: boolean): string | null {
   return `${name}={${printValue(v, keepTap)}}`;
 }
 
-/* `data-tap` is the canvas's own mark for a tappable place inside a part. The printed code keeps it
- *  only on a part whose wrapper tells its places apart by it (see `Pressable` in lib/runtimeSource.ts) */
+/* `data-tap` is the canvas's own mark for a tappable place inside a part (`data-tap-lead` hands it to
+ *  a half of a split button). The printed code keeps it only on a part whose wrapper tells its places
+ *  apart by it (see `Pressable` in lib/runtimeSource.ts) */
 const attrs = (node: PNode, keepTap: boolean) =>
   Object.entries(node.props ?? {})
-    .filter(([k]) => keepTap || k !== "data-tap")
+    .filter(([k]) => keepTap || !k.startsWith("data-tap"))
     .map(([k, v]) => attr(k, v, keepTap))
     .filter((a): a is string => a !== null);
 

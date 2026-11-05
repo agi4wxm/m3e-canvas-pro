@@ -30,10 +30,20 @@ export function PartThemeStyle({ seed, contrast }: Pick<PartTheme, "seed" | "con
   return <style id="m3-part-theme">{`${css}\n${overlays} { display: none; }`}</style>;
 }
 
+/** M3's corner steps at the standard scale (styles/m3e.css) */
+const CORNERS: Record<string, number> = { "extra-small": 4, small: 8, medium: 12, large: 16, "large-increased": 20, "extra-large": 28, "extra-large-increased": 32, "extra-extra-large": 48 };
+
+/** The corners at a shape scale, for a scope smaller than the page. A step is worked out where it is
+ *  declared, on `:root`, so a scale set further down would reach nothing unless the steps come with it. */
+export function shapeVars(scale: number): Record<string, string> {
+  const at = (r: number) => `${Math.round(r * scale * 100) / 100}px`;
+  return { "--md-sys-shape-scale": String(scale), "--radius": at(CORNERS.large), ...Object.fromEntries(Object.entries(CORNERS).map(([k, r]) => [`--md-sys-shape-corner-${k}`, at(r)])) };
+}
+
 /** what a part is drawn inside: the scheme's scope, in dark mode when the sketch is. It adds no box. */
 export function PartSurface({ children }: { children: ReactNode }) {
   const { dark, shape } = usePartTheme();
-  const style = { display: "contents", "--md-sys-shape-scale": shape } as CSSProperties;
+  const style = { display: "contents", ...(shape === 1 ? null : shapeVars(shape)) } as CSSProperties;
   return (
     <div className={dark ? "dark" : undefined} style={{ display: "contents" }}>
       <div className={SCOPE} style={style}>

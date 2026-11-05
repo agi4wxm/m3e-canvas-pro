@@ -33,7 +33,8 @@ export const isExpanded = (w: number) => w >= EXPANDED_W;
 export const RAIL_W = 80;
 export const RAIL_COLLAPSED_W = 96;
 const RAIL_EXPANDED_W = 220;
-export const railWidth = (it: Item) => (it.props?.expanded ? RAIL_EXPANDED_W : it.props?.narrow ? RAIL_W : RAIL_COLLAPSED_W);
+/* a modal rail expands over the content: the room it takes on the screen stays that of the collapsed one */
+export const railWidth = (it: Item) => (it.props?.expanded && !it.props?.modal ? RAIL_EXPANDED_W : it.props?.narrow ? RAIL_W : RAIL_COLLAPSED_W);
 /** Runtime-only expansion edge: copied by item edits, never included in JSON. */
 export const railExpansionSide = Symbol("railExpansionSide");
 /** the status bar above a top app bar */
@@ -895,8 +896,18 @@ export function frameOfPart(g: Group, groups: Group[], frames: Frame[], widths: 
 /** a group belongs to the frame that contains its centre */
 export function frameOfGroup(g: Group, frames: Frame[], widths: Record<string, number>): Frame | undefined {
   const bb = groupBounds(g, widths);
-  const cx = (bb.l + bb.r) / 2;
-  const cy = (bb.t + bb.b) / 2;
+  let cx = (bb.l + bb.r) / 2;
+  let cy = (bb.t + bb.b) / 2;
+  /* a menu is drawn open on the canvas, hanging past its button: where it stands is where its button is,
+   * or one set low on a screen would stop being on that screen and go missing from the preview and the code */
+  const def = g.items.length === 1 ? partBySlug(g.items[0].component) : undefined;
+  if (def?.open && def.open.trigger !== "hide") {
+    const box = def.open.box(reader(def, g.items[0].props));
+    const w = Math.min(def.w, bb.r - bb.l);
+    const h = Math.min(def.h, bb.b - bb.t);
+    cx = box.ax === "end" ? bb.r - w / 2 : box.ax === "center" ? cx : bb.l + w / 2;
+    cy = box.ay === "end" ? bb.b - h / 2 : box.ay === "center" ? cy : bb.t + h / 2;
+  }
   return frames.find((f) => {
     const fr = frameRect(f);
     return cx >= fr.l && cx <= fr.r && cy >= fr.t && cy <= fr.b;

@@ -184,11 +184,15 @@ export function Pressable({ onPress, slots, onTab, onClose, children }: { onPres
     taken.add(event.nativeEvent)
     const target = event.target as Element
     const slot = target.closest("[data-tap]")?.getAttribute("data-tap")
+    /* a place that works by itself (the arrow that opens a split button's menu) is no press on the part */
+    if (slot === "self") return
     if (slot == null) onPress?.()
     else if (slots?.[slot]) slots[slot]()
     else {
       const row = /^tab:(\\d+)$/.exec(slot)
       if (row) onTab?.(Number(row[1]))
+      /* a place with no action of its own is still a press on the part */
+      onPress?.()
     }
     if (target.closest(CLOSERS)) onClose?.()
     /* a press on a labelled input is how it changes; anywhere else a link in the part must not navigate */

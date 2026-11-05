@@ -318,7 +318,8 @@ export const actions: PartDef[] = [
       { key: "menuItems", label: "Menu items", kind: "list", default: [{ label: "Duplicate", icon: "content_copy" }, { label: "Share", icon: "share" }, { label: "Delete", icon: "delete" }], min: 1, max: 6, icons: true },
     ],
     open: { box: (p) => ({ w: 220, h: 40 + 8 + p.list("menuItems").length * 44 + 16, ax: "end" }) },
-    slots: (p) => listSlots(p.list("menuItems")),
+    /* each half answers on its own; with a menu the arrow only opens it, and its rows are the places to tap */
+    slots: (p) => [{ key: "main", label: p.s("label") || "Main", icon: p.s("icon") || undefined }, ...(p.b("menu") ? listSlots(p.list("menuItems")) : [{ key: "more", label: "More", icon: "keyboard_arrow_down" }])],
     tree: (p) => {
       const menu = p.b("menu");
       const items = p.list("menuItems");
@@ -327,6 +328,8 @@ export const actions: PartDef[] = [
         {
           variant: p.s("variant"),
           size: p.s("size") === "sm" ? undefined : p.s("size"),
+          "data-tap-lead": "main",
+          "data-tap-trail": menu ? "self" : "more",
           // the menu trigger is the trailing button itself; the canvas draws the closed state, so the callback is code only
           renderTrailing: menu ? wrap("DropdownMenuTrigger") : undefined,
         },

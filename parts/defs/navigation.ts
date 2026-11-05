@@ -171,7 +171,7 @@ export const navigation: PartDef[] = [
       const header = menu || fab ? h("NavigationRailHeader", null, menu, fab) : null;
       return h(
         "NavigationRail",
-        { expanded: expanded || undefined, narrow: (!expanded && p.b("narrow")) || undefined, modal: (expanded && p.b("modal")) || undefined, compact: p.b("compact") || undefined, style: { height: Math.round(p.n("height")) } },
+        { expanded: expanded || undefined, narrow: ((!expanded || p.b("modal")) && p.b("narrow")) || undefined, modal: p.b("modal") || undefined, compact: p.b("compact") || undefined, style: { height: Math.round(p.n("height")) } },
         header,
         ...p.list("items").map((it, i) => h("NavigationRailItem", { icon: it.icon || "circle", label: it.label, active: i === p.n("selected") || undefined, "data-tap": `tab:${i}` })),
       );

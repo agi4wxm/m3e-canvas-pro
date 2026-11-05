@@ -13,6 +13,16 @@ const SCRIM = {
   end: "bg-gradient-to-t from-black/60 via-black/15 to-transparent",
 } as const;
 
+/** the disc a list row's icon can sit on */
+const ICON_DISCS: Record<string, string> = {
+  none: "",
+  "primary-container": "bg-primary-container text-on-primary-container",
+  "secondary-container": "bg-secondary-container text-on-secondary-container",
+  "tertiary-container": "bg-tertiary-container text-on-tertiary-container",
+  primary: "bg-primary text-on-primary",
+  surface: "bg-surface-container-highest text-on-surface-variant",
+};
+
 /** the card's image area: a band along the top or bottom, a column down a side, or the whole
  *  background behind a scrim. The placeholder is an icon on primary-container. */
 function cardTree(p: P): PNode {
@@ -137,6 +147,7 @@ export const containment: PartDef[] = [
     h: 64,
     props: [
       { key: "items", label: "Rows", kind: "list", default: [{ label: "Inbox", icon: "inbox" }], min: 1, max: 6, icons: true },
+      { key: "iconFill", label: "Icon background", labels: { ja: "アイコンの背景", zh: "图标底色", ko: "아이콘 배경" }, kind: "enum", default: "none", options: Object.keys(ICON_DISCS) },
       { key: "description", label: "Supporting text", kind: "text", default: "12 new messages" },
       { key: "variant", label: "Variant", kind: "enum", default: "default", options: ["default", "outline", "muted", "segmented"] },
       { key: "size", label: "Size", kind: "enum", default: "default", options: ["default", "sm", "xs"] },
@@ -149,6 +160,8 @@ export const containment: PartDef[] = [
     slots: (p) => listSlots(p.list("items")),
     tree: (p) => {
       const trailing = p.s("trailing");
+      const color = ICON_DISCS[p.s("iconFill")];
+      const disc = color ? `size-10 rounded-full group-data-[size=sm]/item:size-8 group-data-[size=xs]/item:size-6 ${color}` : "";
       const end =
         trailing === "switch"
           ? h("ItemActions", null, h("Switch", { defaultChecked: p.b("checked") || undefined }))
@@ -167,7 +180,7 @@ export const containment: PartDef[] = [
         h(
           "Item",
           { variant: p.s("variant") === "default" ? undefined : p.s("variant"), size: p.s("size") === "default" ? undefined : p.s("size"), "data-tap": `tab:${i}` },
-          it.icon && h("ItemMedia", { variant: "icon" }, ic(it.icon)),
+          it.icon && h("ItemMedia", { variant: "icon", className: disc || undefined }, ic(it.icon)),
           h("ItemContent", null, h("ItemTitle", null, it.label), p.s("description") && h("ItemDescription", null, p.s("description"))),
           end,
         );

@@ -132,17 +132,28 @@ export function ComponentProps({ item, palette: p, onChange, frame }: { item: It
   const read = (d: PropDef) => (d.kind === "text" || d.kind === "icon" || d.kind === "enum" || d.kind === "image" ? values.s(d.key) : d.kind === "bool" ? values.b(d.key) : d.kind === "number" ? values.n(d.key) : d.kind === "table" ? values.table(d.key) : values.list(d.key));
   const set = (key: string, v: unknown) => onChange({ props: { ...item.props, [key]: v } });
   const tabs = def.panes ? def.slots?.(values) : undefined;
+  /* a part's choice counts the rows of its first list */
+  const firstList = def.props.find((d) => d.kind === "list");
+  const rowsToPick = tabs?.map((s) => s.label) ?? (firstList ? values.list(firstList.key).map((r) => r.label) : undefined);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {def.props
         .filter((d) => !d.when || d.when(values))
         .map((d) =>
-          /* the tab being worked on is what the canvas shows and what a drop lands on: it is chosen by name */
-          tabs && d.key === def.selectKey ? (
-            <div key={d.key}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant, padding: "0 4px 6px" }}>{labelOf(d, lang)}</div>
-              <Select options={tabs.map((s, i) => ({ key: String(i), label: s.label }))} value={String(values.n(d.key))} onChange={(k) => set(d.key, Number(k))} p={p} label={labelOf(d, lang)} />
-            </div>
+          /* the row a part has chosen is picked by its name, not by counting: a dock's tab is also what the canvas shows and what a drop lands on */
+          d.key === def.selectKey && d.kind === "number" && rowsToPick ? (
+            <BindRow key={d.key} def={d} item={item} onChange={onChange} p={p}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant, padding: "0 4px 6px" }}>{labelOf(d, lang)}</div>
+                <Select
+                  options={[...((d.min ?? 0) < 0 ? [{ key: "-1", label: t("none", lang) }] : []), ...rowsToPick.map((label, i) => ({ key: String(i), label: label || String(i + 1) }))]}
+                  value={String(Math.min(values.n(d.key), rowsToPick.length - 1))}
+                  onChange={(k) => set(d.key, Number(k))}
+                  p={p}
+                  label={labelOf(d, lang)}
+                />
+              </div>
+            </BindRow>
           ) : (
             <BindRow key={d.key} def={d} item={item} onChange={onChange} p={p}>
               <PropRow

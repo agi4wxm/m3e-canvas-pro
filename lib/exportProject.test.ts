@@ -303,6 +303,41 @@ describe("printed behaviour", () => {
     expect(code).toContain(`active={tab("navigationBar", undefined, 0) === 1 || undefined}`);
   });
 
+  it("sends each half of a split button its own way; the arrow of one with a menu only opens it", () => {
+    const withMenu: Item = { ...makeItem("split-button"), id: "s", actions: { main: { to: "cart", transition: "slide" } } };
+    const code = buildCode(single([withMenu]), {}).code;
+    expect(code).toContain(`main: () => go("yourCart")`);
+    expect(code).toContain(`data-tap-lead="main"`);
+    expect(code).toContain(`data-tap-trail="self"`);
+    const noMenu: Item = { ...makeItem("split-button"), id: "s", props: { menu: false }, actions: { main: { to: "cart", transition: "slide" }, more: { to: "back", transition: "slide" } } };
+    const both = buildCode(single([noMenu]), {}).code;
+    expect(both).toContain(`more: () => back()`);
+    expect(both).toContain(`data-tap-trail="more"`);
+    /* with nothing to tell apart, the marks stay out of the code */
+    expect(buildCode(single([{ ...makeItem("split-button"), id: "s" }]), {}).code).not.toContain("data-tap");
+  });
+
+  it("counts a press on a place with no action of its own as a press on the part, in the export as in the preview", () => {
+    const source = readFileSync("lib/runtimeSource.ts", "utf8");
+    expect(source).toMatch(/if \(row\) onTab\?\.\(Number\(row\[1\]\)\)\s+\/\*[^*]*\*\/\s+onPress\?\.\(\)/);
+    expect(source).toContain(`if (slot === "self") return`);
+  });
+
+  it("gives a list row's icon the disc it asks for, and none by default", () => {
+    const plain = buildCode(single([{ ...makeItem("item"), id: "i" }]), {}).code;
+    expect(plain).not.toContain("rounded-full");
+    const disc = buildCode(single([{ ...makeItem("item"), id: "i", props: { iconFill: "tertiary-container" } }]), {}).code;
+    expect(disc).toContain("bg-tertiary-container text-on-tertiary-container");
+    expect(disc).toContain("size-10 rounded-full");
+  });
+
+  it("keeps a modal rail modal while it is shut, and lets its scrim shut it with no menu button", () => {
+    const rail: Item = { ...makeItem("navigation-rail"), id: "r", props: { modal: true, menu: false, expanded: true } };
+    const live = buildCode(single([{ ...rail, actions: { "tab:0": { to: "cart", transition: "slide" } } }]), {}).code;
+    expect(live).toContain(`rail: () => setProp(`);
+    expect(live).toContain(" modal");
+  });
+
   it("gives the bars of the same destinations one choice across screens", () => {
     const items = [{ label: "A", icon: "home" }, { label: "B", icon: "star" }];
     const doc = single([]);

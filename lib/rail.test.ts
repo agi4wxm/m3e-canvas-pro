@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { updateRail } from "./rail";
 import { barSlotOf, bodyRect, carryFrame, railSide, tidyFrame } from "./tidy";
-import { Frame, Group, Item, RAIL_COLLAPSED_W, makeItem, railExpansionSide, railWidth } from "./tokens";
+import { Frame, Group, Item, RAIL_COLLAPSED_W, frameOfGroup, makeItem, railExpansionSide, railWidth } from "./tokens";
 
 const frame: Frame = { id: "f", name: "Desktop", x: 20, y: 40, w: 1280, h: 800 };
 const rail: Item = { ...makeItem("navigation-rail"), id: "rail", props: { expanded: false, height: 800 } };
@@ -26,9 +26,40 @@ const setExpanded = (groups: Group[], frames: Frame[], expanded: boolean) => {
   return updateRail(groups, frames, drawn(groups), "rail", { props: { ...item.props, expanded } });
 };
 
+describe("a menu low on a screen", () => {
+  const phone: Frame = { id: "p", name: "Phone", x: 0, y: 0 };
+  const other: Frame = { id: "q", name: "Other", x: 0, y: 1000 };
+  const at = (slug: string, y: number, measured: { w: number; h: number }) => {
+    const it = { ...makeItem(slug), id: "m" };
+    return frameOfGroup({ id: "g", x: 100, y, axis: "x", items: [it] }, [phone, other], { m: measured.w, "m:h": measured.h });
+  };
+  it("stays on the screen its button is on, though the open menu hangs past it", () => {
+    expect(at("dropdown-menu", 840, { w: 260, h: 400 })?.id).toBe("p");
+    expect(at("split-button", 840, { w: 220, h: 400 })?.id).toBe("p");
+    expect(at("dropdown-menu", 1040, { w: 260, h: 400 })?.id).toBe("q");
+  });
+  it("leaves a dialog, whose box is all there is of it, going by its middle", () => {
+    expect(at("dialog", 840, { w: 360, h: 400 })?.id).toBe("q");
+  });
+});
+
 describe("updateRail", () => {
   const destinations = [{ icon: "home", label: "Home" }];
   const openRail: Item = { ...rail, props: { ...rail.props, expanded: true, modal: true, items: destinations, selected: 0 }, [railExpansionSide]: "right", actions: { "tab:0": { to: "home", transition: "fade" } } };
+
+  it("leaves the body where it is when a modal rail opens: it floats over it", () => {
+    const modal = { ...rail, props: { ...rail.props, modal: true } };
+    const start = [group("rail-group", 20, [modal]), group("bar-group", 116, [bar])];
+    const opened = updateRail(start, [frame], drawn(start), "rail", { props: { ...modal.props, expanded: true } });
+    expect(railWidth(opened[0].items[0])).toBe(RAIL_COLLAPSED_W);
+    expect(opened[1].x).toBe(116);
+    expect(widthOf(opened[1])).toBe(1184);
+    /* along the right edge too */
+    const onRight = [group("rail-group", 1204, [modal]), group("bar-group", 20, [bar])];
+    const openedRight = updateRail(onRight, [frame], drawn(onRight), "rail", { props: { ...modal.props, expanded: true } });
+    expect(openedRight[0].x).toBe(1204);
+    expect(openedRight[1].x).toBe(20);
+  });
 
   it("removes rail-only state when converting to a bottom bar and preserves navigation intent", () => {
     const original = [group("nav", 1080, [openRail])];
