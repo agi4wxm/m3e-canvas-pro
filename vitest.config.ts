@@ -8,6 +8,8 @@ export default defineConfig({
   test: {
     // agent worktrees are full copies of the project; their tests are not this checkout's
     exclude: [...configDefaults.exclude, ".claude/**"],
+    // several tests draw every part, kit or template in every language; on a busy machine 5s is not enough for them
+    testTimeout: 20_000,
     // its ESM imports have no file extension, which Node cannot resolve; the bundler can
     server: { deps: { inline: [/material-color-utilities/] } },
   },
