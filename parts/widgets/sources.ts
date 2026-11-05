@@ -14,6 +14,8 @@ const FILES: Record<string, string[]> = {
   Motion: ["NumberTicker", "Marquee", "Timer", "PullToRefresh", "SlideGroup", "SwipeRow", "AudioPlayer"],
   AppParts: ["ProductCard", "CartList", "Coupon", "CheckoutBar", "BalanceCard", "TransactionList", "RouteCard", "ProfileHeader", "PostCard", "ConversationList", "ContactList", "CommentList", "StoryRow", "NotificationList", "FileList", "SettingsGroup", "Playlist", "Leaderboard", "BarList", "Sparkline", "IconGrid", "Banner", "NoticeBar"],
   AppTools: ["DataTable", "Kanban", "Agenda", "TodoList", "TransferList", "AuthForm", "NumberPad", "SignaturePad", "RichTextEditor", "ChatComposer", "Onboarding", "QrCode"],
+  AppMore: ["ImageViewer", "ImageCropper", "RegionPicker", "SeatMap", "ReviewSummary", "FunnelChart", "GanttChart", "VoiceMessage", "VideoCall"],
+  GameParts: ["SkillButton", "LevelMap", "DialogueBox", "GameBoard"],
 };
 
 /** where printed code imports each widget from */

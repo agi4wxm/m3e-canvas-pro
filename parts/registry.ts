@@ -17,6 +17,7 @@ import { desktop } from "./defs/desktop";
 import { game } from "./defs/game";
 import { media } from "./defs/media";
 import { mobile } from "./defs/mobile";
+import { more } from "./defs/more";
 import type { ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
 import { applyAppearance, type Appearance } from "./appearance";
 import { h, mapNodes, type PNode } from "./node";
@@ -27,7 +28,7 @@ import { getLang, type Lang } from "../lib/i18n";
 export const CATEGORIES = ["Actions", "Text inputs", "Selection", "Navigation", "Overlays", "Feedback", "Layout", "Data", "Media", "Chat", "Game"] as const;
 export type PartCategory = (typeof CATEGORIES)[number];
 
-export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app];
+export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more];
 
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);

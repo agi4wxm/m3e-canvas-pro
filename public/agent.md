@@ -190,6 +190,8 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `color-palette` | Color palette | `colors` text; `selected` 0–63; `width` 120–800 |
 | `number-picker` | Number picker | `value` -100000–100000; `min` -100000–100000; `max` -100000–100000; `step` 1–1000; `unit` text; `width` 56–240 |
 | `transfer-list` | Transfer list | `items` rows of `{ "label" }`; `chosen` text; `from` text; `to` text; `width` 280–960; `height` 120–800 |
+| `region-picker` | Region picker | `label` text; `placeholder` text; `data` `{ "columns": ["Province", "City", "District"], "rows": [[…]] }`; `action` text; `height` 120–480; `width` 240–960 |
+| `seat-map` | Seat map | `rows` 1–20; `columns` 1–20; `aisle` 0–20; `taken` text; `price` 0–100000; `currency` text; `most` 1–20; `screen` text; `pickedText` text; `action` text; `width` 240–960 |
 
 #### Navigation
 
@@ -283,7 +285,7 @@ These are all the parts there are; a `component` that is not here shows as an un
 | component | what it is | props (all optional) |
 |---|---|---|
 | `item` | List item | `items` rows of `{ "label", "icon" }`; `iconFill` none / primary-container / secondary-container / tertiary-container / primary / surface; `description` text; `variant` default / outline / muted / segmented; `size` default / sm / xs; `trailing` none / icon / switch / checkbox / radio / slider / text; `trailingIcon` icon; `checked` true / false; `trailingText` text; `width` 160–520 |
-| `chart` | Chart | `type` bar / line / area / stacked-bar / pie; `title` text; `subtitle` text; `data` `{ "columns": ["Month", "Desktop", "Mobile"], "rows": [[…]] }`; `width` 200–1200; `height` 120–600 |
+| `chart` | Chart | `type` bar / line / area / stacked-bar / pie / radar; `title` text; `subtitle` text; `data` `{ "columns": ["Month", "Desktop", "Mobile"], "rows": [[…]] }`; `width` 200–1200; `height` 120–600 |
 | `scatter-plot` | Scatter plot | `title` text; `subtitle` text; `data` `{ "columns": ["X", "Y"], "rows": [[…]] }`; `width` 160–960; `height` 96–600 |
 | `heatmap` | Heatmap | `title` text; `subtitle` text; `data` `{ "columns": ["Mon", "Tue", "Wed", "Thu", "Fri"], "rows": [[…]] }`; `width` 160–960 |
 | `gauge` | Gauge | `label` text; `value` 0–100 |
@@ -319,6 +321,9 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `kanban` | Kanban board | `data` `{ "columns": ["To do", "In progress", "Done"], "rows": [[…]] }`; `add` text; `width` 240–1920 |
 | `agenda` | Event calendar | `year` 1900–2200; `month` 1–12; `day` 1–31; `data` `{ "columns": ["Date", "Time", "Title"], "rows": [[…]] }`; `weekStart` sunday / monday; `empty` text; `width` 260–800 |
 | `todo-list` | To-do list | `title` text; `items` rows of `{ "label" }`; `placeholder` text; `width` 200–800 |
+| `review-summary` | Review summary | `score` text; `count` text; `values` text; `tags` rows of `{ "label" }`; `action` text; `width` 240–960 |
+| `funnel-chart` | Funnel chart | `title` text; `data` `{ "columns": ["Step", "Value"], "rows": [[…]] }`; `width` 200–960 |
+| `gantt-chart` | Gantt chart | `title` text; `data` `{ "columns": ["Task", "Start", "Length", "Done"], "rows": [[…]] }`; `units` 1–52; `unit` text; `today` -1–52; `width` 240–960 |
 
 #### Media
 
@@ -342,6 +347,8 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `marquee` | Marquee | `text` text; `seconds` 2–120; `width` 80–1600 |
 | `playlist` | Playlist or lessons | `title` text; `data` `{ "columns": ["Title", "Detail", "Length", "State"], "rows": [[…]] }`; `selected` -1–99; `width` 240–800 |
 | `qr-code` | QR code | `text` text; `level` L / M / Q / H; `caption` text; `copy` text; `copied` text; `tooLong` text; `size` 64–640 |
+| `image-viewer` | Image viewer | `images` rows of `{ "label" }`; `height` 120–720; `thumbnails` true / false; `width` 160–960 |
+| `image-cropper` | Image cropper | `image` https address; `aspect` free / 1:1 / 4:3 / 3:4 / 16:9; `action` text; `reset` text; `doneText` text; `height` 120–960; `width` 200–960 |
 
 #### Chat
 
@@ -358,6 +365,8 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `comment-list` | Comments | `data` `{ "columns": ["Name", "Time", "Comment", "Likes"], "rows": [[…]] }`; `you` text; `now` text; `reply` text; `placeholder` text; `width` 240–800 |
 | `story-row` | Stories | `items` rows of `{ "label" }`; `add` true / false; `width` 160–1280 |
 | `chat-composer` | Message composer | `placeholder` text; `attach` true / false; `emoji` true / false; `width` 200–1280 |
+| `voice-message` | Voice message | `seconds` 1–600; `mine` true / false; `transcript` text; `transcribe` text; `width` 160–480 |
+| `video-call` | Video call | `name` text; `connected` true / false; `status` text; `image` https address; `icon` icon; `height` 240–960; `width` 240–960 |
 
 #### Game
 
@@ -376,6 +385,13 @@ These are all the parts there are; a `component` that is not here shows as an un
 | `reward-track` | Reward track | `data` `{ "columns": ["At", "Label", "Icon"], "rows": [[…]] }`; `value` 0–100000; `max` 1–100000; `action` text; `width` 200–800 |
 | `check-in` | Daily check-in | `title` text; `days` 7–31; `signed` 0–31; `width` 200–640 |
 | `joystick` | Joystick | `size` 64–320; `angle` 0–360; `autoCenter` true / false |
+| `stat-bar` | Stat bar | `icon` icon; `label` text; `value` 0–1000000; `max` 1–1000000; `color` error / primary / secondary / tertiary; `numbers` true / false; `width` 80–800 |
+| `skill-button` | Skill button | `icon` icon; `label` text; `cooldown` 0–600; `size` 40–160 |
+| `level-map` | Level map | `levels` 1–60; `current` 1–60; `stars` text; `perRow` 2–8; `width` 200–960 |
+| `character-card` | Character card | `image` https address; `icon` icon; `name` text; `role` text; `level` text; `rarity` text; `data` `{ "columns": ["Stat", "Value", "Max"], "rows": [[…]] }`; `action` text; `width` 200–480 |
+| `game-result` | Game result | `title` text; `stars` 0–3; `scoreLabel` text; `score` text; `rewards` rows of `{ "label", "icon" }`; `retry` text; `next` text; `width` 220–520 |
+| `dialogue-box` | Dialogue box | `speaker` text; `icon` icon; `image` https address; `lines` rows of `{ "label" }`; `choices` rows of `{ "label" }`; `next` text; `width` 220–960 |
+| `game-board` | Game board | `mode` mark / select; `rows` 1–20; `columns` 1–20; `cells` text; `marks` text; `need` 2–10; `turnText` text; `winText` text; `drawText` text; `reset` text; `width` 160–720 |
 
 <!-- parts:end -->
 

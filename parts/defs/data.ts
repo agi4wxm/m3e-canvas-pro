@@ -12,7 +12,7 @@ const ROWS = [
   ["INV-003", "Unpaid", "$350.00"],
 ];
 
-const CHART_TYPES = ["bar", "line", "area", "stacked-bar", "pie"] as const;
+const CHART_TYPES = ["bar", "line", "area", "stacked-bar", "pie", "radar"] as const;
 const MONTHLY: TableData = {
   columns: ["Month", "Desktop", "Mobile"],
   rows: [
@@ -53,6 +53,8 @@ function chartTree(p: P): PNode {
         return h("AreaChart", { data, margin: EDGE_ROOM }, ...axes, ...series.map((_, i) => h("Area", { dataKey: key(i), fill: `var(--color-${key(i)})`, stroke: `var(--color-${key(i)})`, fillOpacity: 0.3 })));
       case "pie":
         return h("PieChart", null, h("ChartTooltip", { content: h("ChartTooltipContent") }), h("Pie", { data, dataKey: key(0), nameKey: "name", innerRadius: "50%" }, ...data.map((_, i) => h("Cell", { fill: chartColor(i) }))));
+      case "radar":
+        return h("RadarChart", { data }, h("PolarGrid"), h("PolarAngleAxis", { dataKey: "name" }), h("ChartTooltip", { content: h("ChartTooltipContent") }), ...series.map((_, i) => h("Radar", { dataKey: key(i), fill: `var(--color-${key(i)})`, stroke: `var(--color-${key(i)})`, fillOpacity: 0.3 })));
       case "stacked-bar":
         return h("BarChart", { data }, ...axes, ...series.map((_, i) => h("Bar", { dataKey: key(i), stackId: "all", fill: `var(--color-${key(i)})` })));
       default:

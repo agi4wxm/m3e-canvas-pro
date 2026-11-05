@@ -11,6 +11,10 @@ export const EXTERNAL: Record<string, string> = {
   LineChart: "recharts",
   Pie: "recharts",
   PieChart: "recharts",
+  RadarChart: "recharts",
+  Radar: "recharts",
+  PolarGrid: "recharts",
+  PolarAngleAxis: "recharts",
   XAxis: "recharts",
   YAxis: "recharts",
 };

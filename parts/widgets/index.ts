@@ -1,6 +1,8 @@
 /* What `load` fetches: every widget in sources.ts. */
 export { BalanceCard, Banner, BarList, CartList, CheckoutBar, CommentList, ContactList, ConversationList, Coupon, FileList, IconGrid, Leaderboard, NoticeBar, NotificationList, Playlist, PostCard, ProductCard, ProfileHeader, RouteCard, SettingsGroup, Sparkline, StoryRow, TransactionList } from "./AppParts";
 export { Agenda, AuthForm, ChatComposer, DataTable, Kanban, NumberPad, Onboarding, QrCode, RichTextEditor, SignaturePad, TodoList, TransferList } from "./AppTools";
+export { FunnelChart, GanttChart, ImageCropper, ImageViewer, RegionPicker, ReviewSummary, SeatMap, VideoCall, VoiceMessage } from "./AppMore";
+export { DialogueBox, GameBoard, LevelMap, SkillButton } from "./GameParts";
 export { ClipboardRow } from "./ClipboardRow";
 export { CodeBlock, Markdown, SortableList } from "./Content";
 export { ColorPalette, FileUpload, ItemPicker, MultiSelect, NumberPicker, TagInput } from "./Inputs";

@@ -76,6 +76,17 @@ describe("pushApart", () => {
     expect(pushApart(groups, [frame], sizes({ menu: [260, 300], list: [380, 200] }))).toBeNull();
   });
 
+  it("leaves what stands on a full-screen scene where it is", () => {
+    const groups = [part("scene", "image", 0, 0), part("hud", "stat-bar", 16, 40), part("go", "button", 16, 700)];
+    expect(pushApart(groups, [frame], sizes({ scene: [412, 892], hud: [240, 24], go: [380, 56] }))).toBeNull();
+  });
+
+  it("still keeps a small picture and what follows it apart", () => {
+    const groups = [part("pic", "image", 16, 96), part("list", "item", 16, 200)];
+    const out = pushApart(groups, [frame], sizes({ pic: [380, 200], list: [380, 100] }))!;
+    expect(yOf(out.groups, "list")).toBe(312);
+  });
+
   it("works each screen on its own", () => {
     const other: Frame = { id: "g", name: "G", x: 492, y: 0 };
     const groups = [part("a", "card", 16, 96), part("b", "item", 16, 200), part("c", "card", 508, 96), part("d", "item", 508, 400)];

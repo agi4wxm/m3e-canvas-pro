@@ -1,7 +1,7 @@
 import { partBySlug, reader } from "../parts/registry";
 import { roleOf } from "../parts/role";
 import { stretchFrame } from "./tidy";
-import { Frame, Group, frameLengthOf, frameOfGroup, groupBounds, heldBy } from "./tokens";
+import { Frame, Group, frameLengthOf, frameOfGroup, frameSizeOf, groupBounds, heldBy } from "./tokens";
 
 /* A model writes a screen without seeing it: it has to guess how tall each part comes out, and a low
  * guess lays one part over the next. Once the parts have been measured, the ones that ran into each
@@ -28,6 +28,14 @@ function boxOf(g: Group, widths: Record<string, number>): Box {
   return { l, t, r: l + w, b: t + h };
 }
 
+const BACKDROPS = new Set(["image", "video", "animation", "map", "camera"]);
+const isBackdrop = (g: Group, frame: Frame, widths: Record<string, number>) => {
+  if (g.items.length !== 1 || !BACKDROPS.has(g.items[0].component ?? "")) return false;
+  const bb = groupBounds(g, widths);
+  const screen = frameSizeOf(frame);
+  return (bb.r - bb.l) * (bb.b - bb.t) >= screen.w * screen.h * 0.6;
+};
+
 const across = (a: Box, b: Box) => Math.min(a.r, b.r) - Math.max(a.l, b.l) > 1;
 const overlaps = (a: Box, b: Box) => across(a, b) && Math.min(a.b, b.b) - Math.max(a.t, b.t) > 1;
 
@@ -47,6 +55,8 @@ export function pushApart(groups: Group[], frames: Frame[], widths: Record<strin
     let foot = Infinity;
     for (const g of mine) {
       if (heldIds.has(g.id)) continue;
+      /* a picture filling most of the screen is its scene: what stands on it is meant to */
+      if (isBackdrop(g, frame, widths)) continue;
       const role = roleOf(g.items[0]) ?? "";
       if (AT_HEAD.has(role)) taken.push(boxOf(g, widths));
       else if (AT_FOOT.has(role)) foot = Math.min(foot, boxOf(g, widths).t);
