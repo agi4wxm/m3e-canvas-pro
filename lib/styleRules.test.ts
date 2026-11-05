@@ -52,10 +52,11 @@ describe("a style's rules", () => {
   });
 
   it("take off what a part carries against them, and leave the rest of it", () => {
-    const worn = part("button", { corners: { tl: 1, tr: 2, br: 3, bl: 4 }, look: { shadow: "deep", rotate: 8, opacity: 50, font: "mono" }, fill: "primary", textColor: "onSurface", note: "keep" }, { label: "Go", shape: "square" });
+    const worn = part("button", { corners: { tl: 1, tr: 2, br: 3, bl: 4 }, look: { shadow: "deep", rotate: 8, opacity: 50, font: "mono", fills: [{ type: "solid", color: "#ff0000" }], stroke: { width: 2, color: "primary" }, text: { size: 30 } }, fill: "primary", textColor: "onSurface", note: "keep" }, { label: "Go", shape: "square" });
     const out = conformItem(worn);
     expect(out.corners).toBeUndefined();
-    expect(out.look).toEqual({ opacity: 50 });
+    /* what places a part stays; its surfaces and words are the style's */
+    expect(out.look).toEqual({ opacity: 50, rotate: 8 });
     expect(out.props).toEqual({ label: "Go" });
     expect(out).toMatchObject({ fill: "primary", textColor: "onSurface", note: "keep" });
   });
