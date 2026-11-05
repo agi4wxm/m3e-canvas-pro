@@ -18,6 +18,8 @@ import { t, useLang } from "@/lib/i18n";
 const FONT = 13;
 const LINE = 1.75;
 const PAD = 14;
+/** the face the code view is set in: every character as wide as the next, so its lines and indents read as written */
+const MONO = 'ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Roboto Mono", monospace';
 /** how far the text's top edge fades into the box around it */
 const FADE = 22;
 /** the room the buttons in the box's corner need under the last line */
@@ -193,6 +195,7 @@ function PromptBox({
   areaRef,
   corner,
   readOnly,
+  code = false,
 }: {
   text: string;
   /** where the text's lines begin, computed once per text */
@@ -208,6 +211,8 @@ function PromptBox({
   /** the buttons in the box's lower corner */
   corner: React.ReactNode;
   readOnly?: boolean;
+  /** source code: set in a fixed-width face, its lines kept whole and scrolled across rather than wrapped */
+  code?: boolean;
 }) {
   const lang = useLang();
   const under = useRef<HTMLDivElement | null>(null);
@@ -244,7 +249,9 @@ function PromptBox({
     return () => ro.disconnect();
   }, []);
   const sync = () => {
-    if (under.current && areaRef.current) under.current.scrollTop = areaRef.current.scrollTop;
+    if (!under.current || !areaRef.current) return;
+    under.current.scrollTop = areaRef.current.scrollTop;
+    under.current.scrollLeft = areaRef.current.scrollLeft;
   };
   /* the lit stretch is scrolled to where it stands in the copy under the text, which knows how
    * the lines wrap; a little room is left above it so its heading is not under the fade */
@@ -261,7 +268,9 @@ function PromptBox({
   const [a, b] = lit >= 0 && lit < marks.length ? rangeOf(starts, marks, lit) : [0, 0];
   /* both layers keep the room a scrollbar takes, so the copy wraps where the text does even
    * when only the text has a scrollbar to show */
-  const type: React.CSSProperties = { fontSize: FONT, lineHeight: LINE, fontFamily: "inherit", whiteSpace: "pre-wrap", wordBreak: "break-word", padding: `${PAD}px ${PAD}px ${FOOT}px`, boxSizing: "border-box", scrollbarGutter: "stable" };
+  const type: React.CSSProperties = code
+    ? { fontSize: FONT - 1, lineHeight: LINE, fontFamily: MONO, whiteSpace: "pre", overflowWrap: "normal", tabSize: 2, padding: `${PAD}px ${PAD}px ${FOOT}px`, boxSizing: "border-box", scrollbarGutter: "stable" }
+    : { fontSize: FONT, lineHeight: LINE, fontFamily: "inherit", whiteSpace: "pre-wrap", wordBreak: "break-word", padding: `${PAD}px ${PAD}px ${FOOT}px`, boxSizing: "border-box", scrollbarGutter: "stable" };
   const fade = (top: boolean): React.CSSProperties => ({
     position: "absolute",
     left: 0,
@@ -285,7 +294,10 @@ function PromptBox({
       </div>
       <textarea
         ref={areaRef}
-        className="no-scrollbar"
+        /* code scrolls across, so its bar is shown; words only ever scroll down */
+        className={code ? undefined : "no-scrollbar"}
+        wrap={code ? "off" : undefined}
+        data-code-view={code ? "" : undefined}
         value={text}
         readOnly={readOnly}
         onChange={(e) => onText(e.target.value)}
@@ -294,8 +306,8 @@ function PromptBox({
         onKeyUp={caret}
         onClick={caret}
         spellCheck={false}
-        aria-label={t("prompt", lang)}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", background: "transparent", color: p.onSurface, resize: "none", outline: "none", cursor: readOnly ? "default" : undefined, ...type }}
+        aria-label={t(code ? "codeTab" : "prompt", lang)}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", background: "transparent", color: p.onSurface, resize: "none", outline: "none", cursor: readOnly ? "default" : undefined, ...(code ? { overflow: "auto", scrollbarWidth: "thin" } : {}), ...type }}
       />
       <div style={fade(true)} />
       <div style={fade(false)} />
@@ -489,6 +501,7 @@ export function PromptPanel({
             p={p}
             areaRef={codeArea}
             readOnly
+            code
             corner={
               <div style={{ display: "flex", width: "100%", justifyContent: "flex-end" }}>
                 <CopyButton copied={copied} onClick={copy} p={p} code />

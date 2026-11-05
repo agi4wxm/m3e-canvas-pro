@@ -17,7 +17,7 @@ import { RepeatSection } from "./ReusePanels";
 import { LookPanel } from "./LookPanel";
 import { FlowControl, FlowItemControl } from "./FlowPanel";
 import { FLOW_KEYS } from "@/parts/flow";
-import type { Flow } from "@/lib/flow";
+import { childLayoutOf, type Flow } from "@/lib/flow";
 import { Field, ImageRow, NamedSizes, PanelShell, Section, Segmented, Select, Slider, Toggle } from "./ui";
 
 /* The panel of a part that is a real shadcn M3E component. It is built from the part's own prop
@@ -291,7 +291,8 @@ export function ComponentInspector({
           <RepeatSection p={p} />
           {def.flow && (
             <Section id="part-flow" icon="view_quilt" title={t("layoutSection", lang)} p={p}>
-              <FlowControl item={item} onChange={onChange} p={p} />
+              {/* standing in a layout, its size is said once, beside fill, under "in auto layout" */}
+              <FlowControl item={item} onChange={onChange} p={p} sizing={!(inFlow && flowParent && !childLayoutOf(item).absolute)} />
             </Section>
           )}
           {inFlow && (

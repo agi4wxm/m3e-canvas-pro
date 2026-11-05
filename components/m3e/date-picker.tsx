@@ -90,7 +90,21 @@ function YearList({
     const selectedYear = ref.current?.querySelector<HTMLElement>(
       "[data-selected-year]"
     )
-    selectedYear?.scrollIntoView({ block: "center" })
+    /* only the list of years scrolls to the chosen one: scrollIntoView would
+       scroll every box around it too, the page included */
+    const viewport = ref.current?.closest<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]'
+    )
+    if (selectedYear && viewport) {
+      const at =
+        selectedYear.getBoundingClientRect().top -
+        viewport.getBoundingClientRect().top +
+        viewport.scrollTop
+      viewport.scrollTop = Math.max(
+        0,
+        at - (viewport.clientHeight - selectedYear.offsetHeight) / 2
+      )
+    }
     selectedYear?.focus({ preventScroll: true })
   }, [])
   const years = Array.from({ length: end - start + 1 }, (_, i) => start + i)

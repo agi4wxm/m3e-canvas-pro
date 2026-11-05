@@ -7,13 +7,11 @@ export const LAYOUT_UI = {
   /* commands */
   tidyUp: { ja: "選択範囲を整列", en: "Tidy up selection", zh: "整理所选" },
   tidyUpKeys: { ja: "選択範囲を整列（Ctrl+Alt+T）", en: "Tidy up selection (Ctrl+Alt+T)", zh: "整理所选（Ctrl+Alt+T）" },
-  tidyKeys: { ja: "画面を整理（Ctrl+Alt+T）", en: "Tidy the screen (Ctrl+Alt+T)", zh: "整理屏幕（Ctrl+Alt+T）" },
   suggestLayout: { ja: "自動レイアウトに変換", en: "Suggest auto layout", zh: "转为自动布局" },
   suggestLayoutKeys: { ja: "自動レイアウトに変換（Shift+A）", en: "Suggest auto layout (Shift+A)", zh: "转为自动布局（Shift+A）" },
   suggestScreen: { ja: "画面全体を自動レイアウトに", en: "Auto layout for the whole screen", zh: "整屏转为自动布局" },
   suggestScreenHint: { ja: "並び方から行・列・グリッドを読み取り、入れ子の自動レイアウトにします。文字が変わっても揃ったままです。", en: "Reads rows, columns and grids from where the parts stand and turns them into nested auto layouts, so they stay aligned when text changes.", zh: "按现在的摆放读出行、列和网格，变成嵌套的自动布局，之后文字变长也保持对齐。" },
   suggestNone: { ja: "自動レイアウトにできるものがありません", en: "Nothing here to lay out", zh: "没有可以转为自动布局的内容" },
-  tidiedUp: { ja: "整列しました", en: "Tidied up", zh: "已整理" },
   /* the container's own layout */
   layoutSection: { ja: "自動レイアウト", en: "Auto layout", zh: "自动布局" },
   dirOff: { ja: "オフ", en: "Off", zh: "关闭" },
@@ -61,13 +59,11 @@ export const LAYOUT_UI = {
 export const LAYOUT_KO: Record<keyof typeof LAYOUT_UI, string> = {
   tidyUp: "선택 항목 정돈",
   tidyUpKeys: "선택 항목 정돈 (Ctrl+Alt+T)",
-  tidyKeys: "화면 정리 (Ctrl+Alt+T)",
   suggestLayout: "자동 레이아웃으로 변환",
   suggestLayoutKeys: "자동 레이아웃으로 변환 (Shift+A)",
   suggestScreen: "화면 전체를 자동 레이아웃으로",
   suggestScreenHint: "부품이 놓인 모양에서 행, 열, 격자를 읽어 중첩된 자동 레이아웃으로 바꿉니다. 글자가 바뀌어도 정렬이 유지됩니다.",
   suggestNone: "자동 레이아웃으로 바꿀 것이 없습니다",
-  tidiedUp: "정돈했습니다",
   layoutSection: "자동 레이아웃",
   dirOff: "끔",
   dirRow: "가로",

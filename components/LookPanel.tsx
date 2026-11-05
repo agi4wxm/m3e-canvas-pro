@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clamp, type BlendMode, type ColorRef, type GradientStop, type Item, type ItemLook, type LookShadow, type LookStroke, type LookText, type LookTexture, type PaintLayer, type Palette, type TextureKind } from "@/lib/tokens";
 import { t, useLang, type UIKey } from "@/lib/i18n";
+import { roleName } from "@/lib/i18n/look";
 import {
   BLEND_MODES,
   ELEVATION_LEVELS,
@@ -22,6 +23,7 @@ import {
   lookStyle,
   paintCss,
   parseColor,
+  strictLook,
   tidyLook,
   tokenRole,
   withAlpha,
@@ -273,7 +275,7 @@ function ColorPick({ value, onChange, label, p, clearable }: { value?: ColorRef;
     onChange(c);
     remember(c);
   };
-  const name = !parsed ? t("lkColorNone", lang) : "role" in parsed ? parsed.role : parsed.hex.toUpperCase();
+  const name = !parsed ? t("lkColorNone", lang) : "role" in parsed ? roleName(parsed.role, lang) : parsed.hex.toUpperCase();
   /* a role from the grid keeps the share already chosen; a color in use comes as it is */
   const cell = (c: ColorRef, title: string, role = false) => {
     const on = role ? !!parsed && "role" in parsed && parsed.role === c : value === c;
@@ -310,7 +312,7 @@ function ColorPick({ value, onChange, label, p, clearable }: { value?: ColorRef;
           <Scope>
             <span ref={probe} aria-hidden style={{ display: "none", color: colorCss(value) ?? "transparent" }} />
             <div role="group" aria-label={t("lkColorRoles", lang)} style={{ display: "grid", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gap: 4 }}>
-              {PICK_ROLES.map((r) => cell(r, r, true))}
+              {PICK_ROLES.map((r) => cell(r, roleName(r, lang), true))}
             </div>
           </Scope>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -487,18 +489,19 @@ function PaintEditor({ layer, onChange, p, types = PAINT_TYPES }: { layer: Paint
 
 /** A row of a list (a paint, a shadow): a picture of it, what it is, and what can be done to it. Pressing the picture
  *  opens it for editing under the row. */
-function ListRow({ lead, title, open, onOpen, hidden, onHide, onUp, onDown, onRemove, extra, p }: { lead: React.ReactNode; title: React.ReactNode; open: boolean; onOpen: () => void; hidden?: boolean; onHide?: () => void; onUp?: () => void; onDown?: () => void; onRemove: () => void; extra?: React.ReactNode; p: Palette }) {
+function ListRow({ lead, title, open, onOpen, hidden, onHide, onUp, onDown, movable, onRemove, extra, p }: { lead: React.ReactNode; title: React.ReactNode; open: boolean; onOpen: () => void; hidden?: boolean; onHide?: () => void; onUp?: () => void; onDown?: () => void; /** in a list of more than one: the moves keep their places, so the first and last rows' buttons line up with the rest */ movable?: boolean; onRemove: () => void; extra?: React.ReactNode; p: Palette }) {
   const lang = useLang();
+  const slot = <span aria-hidden style={{ width: 28, height: 28, flex: "0 0 auto" }} />;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 2, minHeight: 36, borderRadius: 10, background: open ? p.surfaceContainerHigh : "transparent", padding: "0 2px 0 4px" }}>
-      <button onClick={onOpen} aria-expanded={open} aria-label={t("lkEdit", lang)} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, height: 36, padding: 0, border: "none", background: "transparent", color: hidden ? p.outline : p.onSurface, cursor: "pointer", fontSize: 12, textAlign: "left" }}>
+      <button onClick={onOpen} aria-expanded={open} aria-label={t("lkEdit", lang)} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8, minHeight: 36, padding: 0, border: "none", background: "transparent", color: hidden ? p.outline : p.onSurface, cursor: "pointer", fontSize: 12, textAlign: "left" }}>
         {lead}
         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
       </button>
       {extra}
       {onHide && <IconBtn icon={hidden ? "visibility_off" : "visibility"} size={28} p={p} title={t(hidden ? "lkShow" : "lkHide", lang)} onClick={onHide} />}
-      {onUp && <IconBtn icon="arrow_upward" size={28} p={p} title={t("lkMoveUp", lang)} onClick={onUp} />}
-      {onDown && <IconBtn icon="arrow_downward" size={28} p={p} title={t("lkMoveDown", lang)} onClick={onDown} />}
+      {onUp ? <IconBtn icon="arrow_upward" size={28} p={p} title={t("lkMoveUp", lang)} onClick={onUp} /> : movable && slot}
+      {onDown ? <IconBtn icon="arrow_downward" size={28} p={p} title={t("lkMoveDown", lang)} onClick={onDown} /> : movable && slot}
       <IconBtn icon="close" size={28} p={p} title={t("lkRemove", lang)} onClick={onRemove} />
     </div>
   );
@@ -526,6 +529,7 @@ function FillList({ fills, onChange, p }: { fills: PaintLayer[]; onChange: (f: P
             onHide={() => onChange(fills.map((l, j) => (j === i ? { ...l, hidden: !l.hidden || undefined } : l)))}
             onUp={i > 0 ? () => (onChange(swap(fills, i, i - 1)), setOpen(i - 1)) : undefined}
             onDown={i < fills.length - 1 ? () => (onChange(swap(fills, i, i + 1)), setOpen(i + 1)) : undefined}
+            movable={fills.length > 1}
             onRemove={() => (onChange(fills.filter((_, j) => j !== i)), setOpen(null))}
             p={p}
           />
@@ -542,7 +546,22 @@ function FillList({ fills, onChange, p }: { fills: PaintLayer[]; onChange: (f: P
 
 /* ---------- shadows ---------- */
 
-const shadowText = (s: LookShadow, words: boolean) => (words ? `${s.x} ${s.y} ${s.blur}` : `${s.x} ${s.y} ${s.blur} ${s.spread}`);
+/** A shadow in a row of the list: each number with its name, the offset on one line and the softness under it. A spread
+ *  is only written when there is one, so the row stays short; the whole of it is in the tooltip. */
+function ShadowSummary({ s, words, p }: { s: LookShadow; words: boolean; p: Palette }) {
+  const lang = useLang();
+  const line: React.CSSProperties = { display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
+  const blur = `${t("lkShadowBlur", lang)} ${s.blur}`;
+  const spread = words ? "" : `${t("lkShadowSpread", lang)} ${s.spread}`;
+  return (
+    <span data-shadow-summary title={[`X ${s.x}`, `Y ${s.y}`, blur, spread].filter(Boolean).join(" · ")} style={{ display: "flex", flexDirection: "column", fontSize: 11, lineHeight: "14px", minWidth: 0 }}>
+      <span style={line}>
+        X {s.x} · Y {s.y}
+      </span>
+      <span style={{ ...line, color: p.onSurfaceVariant }}>{[blur, !words && s.spread ? spread : ""].filter(Boolean).join(" · ")}</span>
+    </span>
+  );
+}
 
 /** A list of shadows, the box's or the words'. On words a shadow has no spread and is never inside. */
 function ShadowList({ shadows, onChange, words = false, p }: { shadows: LookShadow[]; onChange: (s: LookShadow[]) => void; words?: boolean; p: Palette }) {
@@ -561,18 +580,19 @@ function ShadowList({ shadows, onChange, words = false, p }: { shadows: LookShad
         <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <ListRow
             lead={<Swatch color={s.color} p={p} />}
-            title={<span style={{ fontFamily: MONO, fontSize: 11 }}>{shadowText(s, words)}</span>}
+            title={<ShadowSummary s={s} words={words} p={p} />}
             open={open === i}
             onOpen={() => setOpen(open === i ? null : i)}
             hidden={s.hidden}
             onHide={() => put(i, { hidden: !s.hidden || undefined })}
             onUp={i > 0 ? () => (onChange(swap(shadows, i, i - 1)), setOpen(i - 1)) : undefined}
             onDown={i < shadows.length - 1 ? () => (onChange(swap(shadows, i, i + 1)), setOpen(i + 1)) : undefined}
+            movable={shadows.length > 1}
             onRemove={() => (onChange(shadows.filter((_, j) => j !== i)), setOpen(null))}
             extra={
               !words && (
                 <button onClick={() => put(i, { inset: !s.inset || undefined })} aria-pressed={!!s.inset} title={t("lkInset", lang)} style={{ ...smallBtn(p, !!s.inset), height: 24, padding: "0 8px", fontSize: 11 }}>
-                  {t("lkInside", lang)}
+                  {t("lkInsetShort", lang)}
                 </button>
               )
             }
@@ -724,7 +744,10 @@ export function LookPanel({ item, onChange, p, strict = false }: { item: Item; o
   };
   const paste = () => {
     const worn = readClipboard();
-    if (worn) onChange({ fill: worn.fill, textColor: worn.textColor, corners: worn.corners, look: worn.look });
+    if (!worn) return;
+    /* held to a style, a look copied in free mode brings only what the rules leave open: corners stay the style's */
+    if (strict) onChange({ fill: worn.fill, textColor: worn.textColor, look: strictLook(worn.look) });
+    else onChange({ fill: worn.fill, textColor: worn.textColor, corners: worn.corners, look: tidyLook(worn.look) });
   };
 
   const elevation = (

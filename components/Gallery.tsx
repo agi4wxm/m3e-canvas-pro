@@ -4,7 +4,8 @@ import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
 import { STYLE_GROUPS, STYLE_PACKS, screenBackground, styleOf, styleTextOf } from "@/lib/styles";
 import { DEFAULT_THEME, PHONE_H, PHONE_W, fontFamilyOf, makeItem, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Group, type Item, type Palette, type Theme } from "@/lib/tokens";
 import { useIconFamily } from "@/parts/icons";
-import { CATEGORIES, PARTS, reader } from "@/parts/registry";
+import { CATEGORIES, PARTS, categoryName, reader, type PartCategory } from "@/parts/registry";
+import { nameIn, nameOf } from "@/parts/labels";
 import { FIT_OVERLAY, REMEASURE } from "@/parts/contained";
 import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
 import { defaultMeasures, type Node } from "@/parts/templates/kit";
@@ -65,7 +66,8 @@ function sectionsOf(parts: PartDef[], kits: KitDef[]): string[] {
   return [...CATEGORIES.filter((c) => named.includes(c)), ...[...new Set(named)].filter((c) => !(CATEGORIES as readonly string[]).includes(c))];
 }
 
-const nameIn = (d: { name: string; labels?: Partial<Record<Lang, string>> }, lang: Lang) => (lang === "en" ? d.name : (d.labels?.[lang] ?? d.name));
+/** what a section is called in the language the page is in; a section the registry does not know keeps its key */
+const sectionName = (c: string, lang: Lang) => ((CATEGORIES as readonly string[]).includes(c) ? categoryName(c as PartCategory, lang) : c);
 
 function Cell({ label, sub, p, theme, children }: { label: string; sub?: string; p: Palette; theme: Theme; children: ReactNode }) {
   return (
@@ -115,6 +117,31 @@ function useSettled() {
   return settled;
 }
 
+/** The page stays where the reader has it while it is being drawn. Parts drawn open bring their own scrolling with them
+ *  (a command list scrolls its first row into view as it mounts, wherever on the page it stands), and that must not
+ *  carry the page off to them: until the page has settled, or the reader scrolls, a scroll they did not make is undone. */
+function useHeldScroll(settled: boolean) {
+  useEffect(() => {
+    if (settled) return;
+    let mine = window.scrollY;
+    let reading = false;
+    const read = () => {
+      reading = true;
+    };
+    const onScroll = () => {
+      if (reading) mine = window.scrollY;
+      else if (window.scrollY !== mine) window.scrollTo(window.scrollX, mine);
+    };
+    const kinds = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+    for (const k of kinds) window.addEventListener(k, read, { passive: true, capture: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      for (const k of kinds) window.removeEventListener(k, read, { capture: true });
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [settled]);
+}
+
 /** one part, as an item fresh from the palette with these props */
 function PartCell({ def, props, label, p, theme, lang, settled }: { def: PartDef; props?: Record<string, unknown>; label?: string; p: Palette; theme: Theme; lang: Lang; settled: boolean }) {
   const item = useMemo<Item>(() => ({ ...makeItem(def.slug), id: `gallery-${def.slug}-${label ?? "default"}`, props: { ...props } }), [def.slug, props, label]);
@@ -122,7 +149,7 @@ function PartCell({ def, props, label, p, theme, lang, settled }: { def: PartDef
   /* a menu or a popover places itself once, against where its trigger stands then: it waits for the page to settle */
   const floats = !!def.open && !def.open.fit;
   return (
-    <Cell label={nameIn(def, lang)} sub={label ? `${def.slug} · ${label}` : def.slug} p={p} theme={theme}>
+    <Cell label={nameOf(def, lang)} sub={label ? `${def.slug} · ${label}` : def.slug} p={p} theme={theme}>
       <div ref={ref} data-gallery-part={def.slug} data-gallery-sample={label} style={{ position: "relative", minWidth: Math.min(def.w, 420), minHeight: Math.min(def.h, 40), ...(fit ? { width: fit.w, height: fit.h, overflow: "hidden" } : {}) }}>
         {floats && !settled ? <div style={{ width: def.open!.box(reader(def, item.props)).w, height: def.open!.box(reader(def, item.props)).h }} /> : <PartView item={item} screen={{ w: PHONE_W, h: PHONE_H }} />}
       </div>
@@ -213,7 +240,7 @@ function SplitCell({ def, p, theme, lang, settled }: { def: PartDef; p: Palette;
       return [];
     }
   }, [def, lang]);
-  return <TreeCell added={added} label={`${nameIn(def, lang)} · atoms`} sub={`split ${def.slug}`} attrs={{ "data-gallery-split": def.slug }} p={p} theme={theme} settled={settled} />;
+  return <TreeCell added={added} label={`${nameOf(def, lang)} · atoms`} sub={`split ${def.slug}`} attrs={{ "data-gallery-split": def.slug }} p={p} theme={theme} settled={settled} />;
 }
 
 const CHROME = { font: "13px/18px Roboto, system-ui, sans-serif", color: "#202124" } as const;
@@ -252,8 +279,8 @@ function Chrome({ search, sections, lang }: { search: GallerySearch; sections: s
           all
         </a>
         {sections.map((c) => (
-          <a key={c} href={link(search, { category: c })} style={pill(search.category === c)}>
-            {c}
+          <a key={c} href={link(search, { category: c })} style={pill(search.category === c)} title={c}>
+            {sectionName(c, lang)}
           </a>
         ))}
       </div>
@@ -289,6 +316,7 @@ export function Gallery({ search }: { search: GallerySearch }) {
   }, [theme.font, theme.displayFont, lang, search.style, theme.dark]);
 
   const settled = useSettled();
+  useHeldScroll(settled);
   const only = search.part ? new Set(search.part.split(",")) : null;
   /* `splits=1`: each composite that splits beside the atoms it splits into, and nothing else */
   const splits = search.splits === "1";
@@ -309,7 +337,7 @@ export function Gallery({ search }: { search: GallerySearch }) {
             {shown.map((c) => (
               <section key={c} data-gallery-category={c} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <h2 style={{ ...CHROME, margin: 0, fontSize: 16, fontWeight: 600 }}>
-                  {c} <span style={{ color: "#5f6368", fontWeight: 400 }}>· {pack ? styleTextOf(pack.name, lang) : "Android"}{theme.dark ? " · dark" : ""}</span>
+                  {sectionName(c, lang)} <span style={{ color: "#5f6368", fontWeight: 400 }}>· {pack ? styleTextOf(pack.name, lang) : "Android"}{theme.dark ? " · dark" : ""}</span>
                 </h2>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
                   {parts

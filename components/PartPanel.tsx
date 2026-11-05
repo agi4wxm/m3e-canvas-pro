@@ -80,8 +80,7 @@ export function PartTabs({ value, onChange, p, idPrefix = "part" }: { value: Tab
     (e.currentTarget as HTMLElement).parentElement?.querySelector<HTMLElement>(`#${idPrefix}-tab-${next}`)?.focus();
   };
   return (
-    /* no rule under the row: the panel's own fade is what the two are told apart by, and the
-       chosen tab keeps the line under its own label */
+    /* the hairline under the row is the panel's (PanelShell); the chosen tab keeps the line under its own label */
     <div role="tablist" aria-label={t("edit", lang)} style={{ display: "flex", height: TABS_H }}>
       {tabs.map((tab) => {
         const on = tab.key === value;
