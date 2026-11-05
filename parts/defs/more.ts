@@ -440,10 +440,10 @@ export const more: PartDef[] = [
           ...p.table("data").rows.map((r) =>
             h(
               "div",
-              { className: "flex items-center gap-2" },
+              { "data-slot": "character-card-stat", className: "flex items-center gap-2" },
               h("span", { className: "text-label-medium w-12 shrink-0 truncate" }, r[0] ?? ""),
-              h("div", { className: "bg-surface-container-highest h-2 min-w-0 flex-1 overflow-hidden rounded-full" }, h("div", { className: "bg-primary h-full rounded-full", style: { width: `${Math.min(100, (n(r[1]) / Math.max(1, n(r[2]))) * 100)}%` } })),
-              h("span", { className: "text-label-small w-8 shrink-0 text-right tabular-nums" }, r[1] ?? ""),
+              h("div", { "data-slot": "character-card-track", className: "bg-surface-container-highest h-2 min-w-0 flex-1 overflow-hidden rounded-full" }, h("div", { "data-slot": "character-card-fill", className: "bg-primary h-full rounded-full", style: { width: `${Math.min(100, (n(r[1]) / Math.max(1, n(r[2]))) * 100)}%` } })),
+              h("span", { "data-slot": "character-card-value", className: "text-label-small w-8 shrink-0 text-right tabular-nums" }, r[1] ?? ""),
             ),
           ),
           p.s("action") && h("Button", { "data-tap": "action" }, p.s("action")),
