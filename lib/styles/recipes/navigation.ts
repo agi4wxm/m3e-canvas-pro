@@ -59,9 +59,11 @@ ${FOOT_BARS}{background-color:${mix("surface-container", 88)};border-top:1px sol
 [data-slot=app-bar-title]{text-shadow:0 0 10px ${mix("primary", 60)}}`,
   /* over a video, a picture, or nothing: no bar to speak of */
   plain: `${TOP_BARS}{background-color:transparent}`,
-  /* a game's strip across the top: its own dark fill, its own words, a rim beneath */
+  /* a game's strip across the top: its own dark fill, its own words, a rim beneath. A bar built of boxes keeps a
+     light fill under the rim: its words are parts of their own, drawn apart from it, and cannot take the bar's color */
   hud: `${TOP_BARS}{background-color:var(--st-bar-bg);border-bottom:2px solid var(--st-rim)}
 ${FOOT_BARS}{background-color:var(--st-bar-bg);border-top:2px solid var(--st-rim)}
+[data-slot=box][data-surface=bar]{background-color:${role("surface-container")}}
 [data-slot=app-bar] :is([data-slot=app-bar-title],[data-slot=app-bar-subtitle],[data-slot=app-bar-back-label],[data-button],[data-slot=icon]){color:var(--st-on-bar)}`,
 };
 

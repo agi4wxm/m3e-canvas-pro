@@ -62,8 +62,11 @@ const claude: KitDef = {
 };
 
 /* The Codex box follows the page: a panel in the page's own mode, so it reads the same however the document's mode
- * changes after it is added (an inverted box flips to white in dark mode). What makes it Codex's is its main action:
- * the one pill in the inverse color, black on a light page and white on a dark one, as the product draws it. */
+ * or style changes after it is added (an inverted box flips to white in dark mode). What makes it Codex's is its row:
+ * the repository and branch pickers, a mic, a quiet Ask and one main action. The main action is the style's own filled
+ * button, never a color painted on one: a style that draws its buttons as bare words (a game's) would drop the paint
+ * and keep the words in the color meant for it, and they would not read. Under a near-black style it is the product's
+ * white-on-black pill. */
 const codexFoot = (wide: boolean): Node[] => {
   const pickers = hbox({ gap: 6 }, [
     button(say("my-app", "my-app", "my-app", "my-app"), { variant: "outlined", size: "xs", icon: "book_2", trailingIcon: "keyboard_arrow_down" }),
@@ -72,7 +75,7 @@ const codexFoot = (wide: boolean): Node[] => {
   const actions = hbox({ gap: 6 }, [
     iconButton("mic", T.dictate, { variant: "ghost", size: "xs" }),
     button(say("Ask", "提问", "質問", "질문"), { variant: "outlined", size: "xs" }),
-    button(say("Code", "写代码", "コード", "코드"), { variant: "filled", size: "xs" }, { fill: "inverseSurface" }),
+    button(say("Code", "写代码", "コード", "코드"), { variant: "filled", size: "xs" }),
   ]);
   return wide ? [hbox({ justify: "between", gap: 8 }, [pickers, actions])] : [pickers, hbox({ justify: "end", gap: 6 }, [actions])];
 };
@@ -83,7 +86,7 @@ const codex: KitDef = {
   labels: { zh: "Codex 风格输入框", ja: "Codex 風入力ボックス", ko: "Codex 스타일 입력창" },
   category: "AI",
   icon: "terminal",
-  about: "a panel with a growing plain textarea, repository and branch pickers, a mic, an outlined Ask and a Code button in the inverse color",
+  about: "a panel with a growing plain textarea, repository and branch pickers, a mic, an outlined Ask and a filled Code button",
   variants: [
     {
       key: "phone",

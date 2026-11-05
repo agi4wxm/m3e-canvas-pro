@@ -179,7 +179,7 @@ The kits below are such compositions the person can add from the palette; write 
 <!-- kits:begin -->
 
 - `claude-prompt` (AI): Claude-style prompt box, a card holding a growing plain textarea over a row of attach / tools buttons, a model picker and a square send button. Variants: `home` (home, large); `thread` (in a conversation).
-- `codex-prompt` (AI): Codex-style prompt box, a panel with a growing plain textarea, repository and branch pickers, a mic, an outlined Ask and a Code button in the inverse color. Variants: `phone` (phone, stacked); `wide` (desktop, one row).
+- `codex-prompt` (AI): Codex-style prompt box, a panel with a growing plain textarea, repository and branch pickers, a mic, an outlined Ask and a filled Code button. Variants: `phone` (phone, stacked); `wide` (desktop, one row).
 - `chatgpt-composer` (AI): ChatGPT-style composer, a rounded field: attach button, a plain entry that takes the rest, a mic and a round voice / send button; or the same over two rows. Variants: `pill` (one line); `box` (two rows).
 - `ai-reply` (AI): Assistant reply, a column: the answer as words on the page (led by a sparkle mark in Material, under a name on desktop) over a row of ghost icon buttons: copy, regenerate, thumbs up and down, more. Variants: `mark` (led by a mark); `page` (on the page, no bubble); `named` (under a name, small).
 - `user-message` (AI): User message, a row pushed to the end: a rounded panel box holding the person's words, with copy and edit under it; on desktop an avatar and a name instead. Variants: `bubble` (bubble at the end); `picture` (with a picture); `named` (avatar and name).

@@ -1,4 +1,5 @@
 import { atom, avatar, box, button, entry, hbox, icon, iconButton, image, line, para, round, text, vbox } from "../atoms";
+import { MATERIAL_LOOK, centersTitle, type KitLook } from "../kits/types";
 import type { Node } from "../templates/kit";
 import type { P } from "../types";
 
@@ -6,7 +7,12 @@ import type { P } from "../types";
  * replaces a part with its tree, in place, for its current words and settings. Kept apart from the
  * definitions so a composite's drawing and its split can change on their own; the registry hands
  * each tree to its part as `PartDef.atoms`. Each tree is as wide as the part, and its outermost box
- * keeps the part's look and its tap. */
+ * keeps the part's look and its tap.
+ *
+ * A style composes some parts its own way (an iPhone's bar centers its title and says where its arrow
+ * leads; its list rows close up on a rounded card): a split is handed the document's look and composes
+ * the tree as the style draws the part, by the same traits a kit reads (parts/kits/types.ts), never by
+ * a style's name. Left without one, it is Material's. */
 
 const px = (p: P, key = "width") => Math.round(p.n(key));
 const some = (...nodes: (Node | false | "" | undefined | null)[]): Node[] => nodes.filter((n): n is Node => !!n);
@@ -37,11 +43,66 @@ const searchLook = (p: P): Pick<Node, "look"> => (p.s("style") === "outlined" ? 
 const barTitle = (p: P, lead: boolean): Node =>
   vbox({ gap: 0, padLeft: lead ? 12 : 16, padRight: 12, hugWidth: false, width: 160 }, some(para(p.s("title"), "title", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), "label", { color: "muted", maxLines: 1 })), { grow: true });
 
+/** the arrows that lead back, which an iPhone's bar names with where they go */
+const BACK = ["arrow_back", "arrow_back_ios", "arrow_back_ios_new", "chevron_left"];
+
+/** the hairline between two rows a style groups, from where the rows' words start; named so their taps can tell it from a row */
+const DIVIDER: NonNullable<Node["name"]> = { en: "Divider", zh: "分隔线", ja: "区切り線", ko: "구분선" };
+const between = (width: number, from: number): Node =>
+  hbox({ gap: 0, padX: 0, padY: 0, hugWidth: false, width }, [...(from ? [box({ layout: "row", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: from, height: 1 }, [])] : []), { ...rule(Math.max(1, width - from)), grow: true }], { name: DIVIDER });
+
+/** Rows of a list as the style sets them (its `list` recipe): closed up on a rounded card with lines from the words (an
+ *  iPhone's), on a card from edge to edge (WeChat's cells), closed up with lines across (desktop software), each on a
+ *  plate of its own (the games), or as they come (Material). */
+function listOf(rows: Node[], look: KitLook, width: number, lineFrom: number): Node {
+  const column = { width, hugWidth: false, padX: 0, padY: 0, gap: 0 };
+  const parted = (from: number) => rows.flatMap((r, i) => (i ? [between(width, from), r] : [r]));
+  if (look.list === "inset") return vbox(column, parted(lineFrom), { fill: "surfaceContainerLow", corners: round(12) });
+  if (look.list === "flush") return vbox(column, parted(16), { fill: "surfaceContainerLow" });
+  if (look.list === "hairline") return vbox(column, parted(0));
+  if (look.list === "tile") return vbox({ ...column, gap: 6 }, rows.map((r) => ({ ...r, fill: "surfaceContainer" as const, corners: round(8) })));
+  return vbox(column, rows);
+}
+
+/** how far in and how far from its top and foot a row of a list the style sets stands: rows are 44 on an iPhone's card,
+ *  56 in WeChat's cells, 40 under desktop hairlines; `two` when the row has a supporting line */
+function rowPad(look: KitLook, two: boolean, pad: number): { padX: number; padY: number } {
+  if (look.list === "inset") return { padX: 16, padY: two ? 6 : 10 };
+  if (look.list === "flush") return { padX: 16, padY: two ? 6 : 16 };
+  if (look.list === "hairline") return { padX: 8, padY: two ? 4 : 8 };
+  if (look.list === "tile") return { padX: 12, padY: pad };
+  return { padX: 0, padY: pad };
+}
+
+/** the chevron a row that leads somewhere ends in, where the style shows it (the part carries it hidden) */
+const rowChevron = (look: KitLook): Node | null => (look.row === "chevron" ? icon("chevron_right", { size: 20, color: "muted" }) : look.row === "arrow" ? icon("chevron_right", { size: 16, color: "muted" }) : null);
+
+/** An iPhone's alert or a WeChat dialog, as the style draws a dialog part: a small card, its words centered, its buttons
+ *  the halves of a foot under a hairline (one over another when they are stacked). */
+function alertOf(look: KitLook, title: string, words: string, buttons: string[], stacked: boolean, glyph?: string): Node {
+  const weui = look.dialog === "weui";
+  const w = weui ? 320 : 280;
+  const half = (label: string) => button(label, { variant: "text" }, { grow: !stacked });
+  const foot = stacked
+    ? vbox({ width: w, hugWidth: false, padX: 0, padY: 0, gap: 0 }, buttons.flatMap((b, i) => [...(i ? [rule(w)] : []), hbox({ justify: "center", hugWidth: false, width: w, padX: 0, padY: 2 }, [half(b)])]))
+    : hbox({ width: w, hugWidth: false, padX: 0, padY: 2, gap: 0 }, buttons.flatMap((b, i) => [...(i ? [rule(40, true)] : []), half(b)]));
+  return vbox({ surface: "overlay", width: w, hugWidth: false, padX: 0, padTop: weui ? 24 : 20, padBottom: 0, gap: 0 }, [
+    vbox(
+      { padX: 16, padTop: 0, padBottom: weui ? 24 : 20, gap: weui ? 8 : 6, align: "center", hugWidth: false, width: w },
+      some(glyph && icon(glyph, { color: "secondary" }), para(title, "heading", { align: "center", bold: true, width: w - 32 }), words && para(words, weui ? "body" : "caption", { color: "muted", align: "center", width: w - 32 })),
+    ),
+    ...(buttons.length ? [rule(w), foot] : []),
+  ], { corners: round(weui ? 12 : 14) });
+}
+
+/** a dialog the style draws as an alert: an iPhone's or WeChat's */
+const asAlert = (look: KitLook) => look.dialog === "alert" || look.dialog === "weui";
+
 /** an app bar is the screen's own surface until something scrolls under it; then it is the container, raised */
 const barSurface = (p: P) => (p.b("scrolled") ? { surface: "bar" } : { surface: "none" });
 const barLook = (p: P): Pick<Node, "look"> => (p.b("scrolled") ? { look: { elevation: 2 } } : {});
 
-export const SPLITS: Record<string, (p: P) => Node> = {
+export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
   search: (p) => {
     if (p.s("kind") === "bar") {
       const bar = searchBar(p);
@@ -60,12 +121,18 @@ export const SPLITS: Record<string, (p: P) => Node> = {
     );
   },
 
-  "app-bar": (p) => {
-    const lead = p.s("leading") && iconButton(p.s("leading"), p.say("Navigate"));
-    const actions = some(p.s("trailing") && iconButton(p.s("trailing"), p.say("More"), {}, { textColor: "onSurfaceVariant" }), p.s("trailing2") && iconButton(p.s("trailing2"), "Action", {}, { textColor: "onSurfaceVariant" }));
+  "app-bar": (p, look = MATERIAL_LOOK) => {
+    const leading = p.s("leading");
+    /* an iPhone's bar draws its buttons in the accent color, and its arrow back says where it leads */
+    const ios = look.appbar === "ios";
+    const ink = { textColor: ios ? ("primary" as const) : ("onSurfaceVariant" as const) };
+    const lead = leading && (ios && BACK.includes(leading) ? button(p.say("Back"), { variant: "text", size: "sm", icon: leading }) : iconButton(leading, p.say("Navigate"), {}, ios ? ink : {}));
+    const actions = some(p.s("trailing") && iconButton(p.s("trailing"), p.say("More"), {}, ink), p.s("trailing2") && iconButton(p.s("trailing2"), "Action", {}, ink));
     const size = p.s("size");
-    /* the row of icons is 64 tall, 4 in from each end and 4 between */
-    const row = { width: px(p), hugWidth: false, height: 64, hugHeight: false, padX: 4, padY: 0, gap: 4 };
+    /* the row of icons is 64 tall, 4 in from each end and 4 between; 44 where the style builds its bars an iPhone's way
+       or sets the title large under them, 48 in desktop software */
+    const rowH = look.appbar === "ios" || look.appbar === "large" ? 44 : look.appbar === "compact" ? 48 : 64;
+    const row = { width: px(p), hugWidth: false, height: rowH, hugHeight: false, padX: 4, padY: 0, gap: 4 };
     if (size === "medium" || size === "large") {
       /* under the row, the title stands on the foot of a block of its own height, 16 in and 12 up */
       const block = size === "large" ? (p.s("subtitle") ? 88 : 56) : p.s("subtitle") ? 72 : 48;
@@ -74,12 +141,20 @@ export const SPLITS: Record<string, (p: P) => Node> = {
         vbox({ padX: 16, padTop: 0, padBottom: 12, gap: 0, justify: "end", hugWidth: false, width: px(p), hugHeight: false, height: block }, some(para(p.s("title"), size === "large" ? "display" : "headline", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), size === "large" ? "subtitle" : "label", { color: "muted", maxLines: 1 }))),
       ], barLook(p));
     }
-    if (p.b("centered"))
-      return hbox({ ...barSurface(p), ...row }, [side("start", some(lead)), vbox({ gap: 0, align: "center", padX: 8 }, some(text(p.s("title"), "title"), p.s("subtitle") && text(p.s("subtitle"), "caption", { color: "muted" }))), side("end", actions)], barLook(p));
+    /* a style that sets the title large keeps the row for the buttons and puts the title under it */
+    if (look.appbar === "large")
+      return vbox({ ...barSurface(p), width: px(p), hugWidth: false, padX: 0, padY: 0, gap: 0 }, [
+        hbox({ ...row, justify: "between" }, [hbox({ gap: 0 }, some(lead)), hbox({ gap: 0 }, actions)]),
+        vbox({ padX: 16, padTop: 0, padBottom: 8, gap: 0, hugWidth: false, width: px(p) }, some(para(p.s("title"), "headline", { maxLines: 1 }), p.s("subtitle") && para(p.s("subtitle"), "label", { color: "muted", maxLines: 1 }))),
+      ], barLook(p));
+    /* a style that centers the title sets it smaller and bolder than Material's centered bar does */
+    const styled = centersTitle(look);
+    if (p.b("centered") || styled)
+      return hbox({ ...barSurface(p), ...row }, [side("start", some(lead)), vbox({ gap: 0, align: "center", padX: 8 }, some(text(p.s("title"), styled ? "heading" : "title", styled ? { bold: true } : {}), p.s("subtitle") && text(p.s("subtitle"), "caption", { color: "muted" }))), side("end", actions)], barLook(p));
     return hbox({ ...barSurface(p), ...row }, [...some(lead), barTitle(p, !!lead), ...actions], barLook(p));
   },
 
-  item: (p) => {
+  item: (p, look = MATERIAL_LOOK) => {
     const trailing = p.s("trailing");
     const end =
       trailing === "icon" && p.s("trailingIcon")
@@ -97,15 +172,20 @@ export const SPLITS: Record<string, (p: P) => Node> = {
                   : null;
     const disc = p.s("iconFill") !== "none";
     const pad = p.s("size") === "xs" || p.s("size") === "sm" ? 8 : 10;
-    /* a plain row keeps to the screen's margins, as the part's own does; one with a surface keeps its words off its edge */
+    /* a plain row keeps to the screen's margins, as the part's own does; one with a surface keeps its words off its edge.
+       A plain list is the one a style sets its own way, and a row that leads somewhere ends in its chevron there */
     const flush = p.s("variant") === "default";
+    const set = flush ? rowPad(look, !!p.s("description"), pad) : { padX: 16, padY: pad };
+    const chevron = (trailing === "none" || trailing === "text") && rowChevron(look);
     const rows = p.list("items").map((it) =>
       hbox(
-        { surface: p.s("variant") === "outline" ? "chip" : p.s("variant") === "muted" ? "panel" : "none", padX: flush ? 0 : 16, padY: pad, gap: 12 },
-        some(it.icon && (disc ? box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 8, padY: 8 }, [icon(it.icon)], { corners: round(20) }) : icon(it.icon, { color: "muted" })), lines(it.label, p.s("description")), end),
+        { surface: p.s("variant") === "outline" ? "chip" : p.s("variant") === "muted" ? "panel" : "none", ...set, gap: 12 },
+        some(it.icon && (disc ? box({ surface: "well", layout: "row", align: "center", justify: "center", padX: 8, padY: 8 }, [icon(it.icon)], { corners: round(20) }) : icon(it.icon, { color: "muted" })), lines(it.label, p.s("description")), end, chevron),
       ),
     );
-    return vbox({ width: px(p), hugWidth: false, padX: 0, padY: 0, gap: p.s("variant") === "default" ? 0 : 4 }, rows);
+    /* the lines between grouped rows start where an icon's row has its words */
+    if (flush) return listOf(rows, look, px(p), 52);
+    return vbox({ width: px(p), hugWidth: false, padX: 0, padY: 0, gap: 4 }, rows);
   },
 
   card: (p) => {
@@ -294,7 +374,8 @@ export const SPLITS: Record<string, (p: P) => Node> = {
 
   /* ---------- overlays and feedback ---------- */
 
-  dialog: (p) => {
+  dialog: (p, look = MATERIAL_LOOK) => {
+    if (p.s("style") !== "fullscreen" && asAlert(look)) return alertOf(look, p.s("title"), p.s("description"), [p.s("dismiss"), p.s("confirm")].filter(Boolean), p.b("stacked"), p.s("icon") || undefined);
     if (p.s("style") === "fullscreen")
       return vbox({ surface: "sheet", width: px(p), hugWidth: false, height: px(p, "height"), hugHeight: false, padX: 0, padY: 0, gap: 0 }, [
         hbox({ padX: 12, padY: 8, gap: 8 }, some(iconButton("close", p.say("Close")), para(p.s("title"), "heading", { maxLines: 1 }, { grow: true }), p.s("confirm") && button(p.s("confirm"), { variant: "text" }))),
@@ -311,7 +392,8 @@ export const SPLITS: Record<string, (p: P) => Node> = {
     ], { corners: round(28) });
   },
 
-  "alert-dialog": (p) => {
+  "alert-dialog": (p, look = MATERIAL_LOOK) => {
+    if (asAlert(look)) return alertOf(look, p.s("title"), p.s("description"), [p.s("cancel"), p.s("action")].filter(Boolean), false, p.s("icon") || undefined);
     const small = p.s("size") === "sm";
     const center = small || !!p.s("icon");
     const w = small ? 320 : DIALOG_W;
@@ -817,15 +899,16 @@ export const SPLIT_TAPS: Record<string, SplitTaps> = {
     binds: (_p, t) => ({ value: entryOf(t, "value"), placeholder: entryOf(t, "placeholder") }),
   },
   "app-bar": {
-    /* its icon buttons, in order: what leads, then what trails */
+    /* its buttons, in order: what leads (an iPhone's says where it goes), then what trails */
     slots: (p, t) => {
-      const buttons = nodesOf(t).filter((x) => x.slug === "icon-button");
+      const buttons = nodesOf(t).filter((x) => x.slug === "icon-button" || x.slug === "button");
       const keys = [p.s("leading") && "icon", p.s("trailing") && "icon2", p.s("trailing2") && "icon3"].filter((k): k is string => !!k);
       return Object.fromEntries(keys.map((k, i) => [k, buttons[i]]));
     },
   },
   item: {
-    slots: (_p, t) => tabs(t.kids),
+    /* the rows, past the hairlines a style parts them with */
+    slots: (_p, t) => tabs(t.kids?.filter((k) => k.name !== DIVIDER)),
     /* every row shows the one tick: it follows a variable only where one row shows it */
     binds: (_p, t) => {
       const marks = nodesOf(t).filter((x) => x.slug === "switch" || x.slug === "checkbox" || x.slug === "radio");

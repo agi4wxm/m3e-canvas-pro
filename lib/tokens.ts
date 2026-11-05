@@ -1240,14 +1240,30 @@ export type Group = {
   overrides?: Record<string, VarValue>;
   /** on a layout container: its first child is drawn once per row of a collection (lib/collections.ts) */
   repeat?: { collection: string; limit?: number };
+  /** The outermost box of a kit: which kit it was added as, so that a change of style can compose it again
+   *  while what it holds is still as it was added (lib/kits.ts `recomposeKits`). Nothing prints it. */
+  kit?: KitMark;
   /** Runtime only, never saved: this is the container left where an instance was, and what it is an instance of. */
   expandedFrom?: string;
   /** Runtime only, never saved: the prompt's words for a `repeat`. */
   rowsOf?: { name: string; rows: number; fields: string[] };
 };
 
+/** What a kit's outermost box remembers of how it was added. */
+export type KitMark = {
+  /** the kit, by its slug (parts/kits) */
+  slug: string;
+  /** the variant it is composed as now */
+  variant: string;
+  /** the style chose the variant; one chosen by hand from the palette's menu is kept while the kit has it */
+  auto: boolean;
+  /** what the box and everything in it said when it was composed (lib/kits.ts `kitSig`): while they still say
+   *  it, nobody has changed the kit, and a change of style may compose it again */
+  sig: string;
+};
+
 /** a reusable component: its parts, placed relative to its own top left, and how big they come to */
-export type ComponentDef = { id: string; name: string; groups: Group[]; w: number; h: number };
+export type ComponentDef ={ id: string; name: string; groups: Group[]; w: number; h: number };
 
 /** rows of data a layout can repeat its first child over */
 export type Collection = { id: string; name: string; fields: string[]; rows: string[][] };

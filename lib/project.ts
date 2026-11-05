@@ -126,6 +126,12 @@ const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>
 
 const cleanOverrides = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => isValue(v))) : undefined);
 
+/** what a kit's box remembers, whole or not at all: a mark of another shape only means the kit is left as it is */
+function cleanKit(k: unknown) {
+  if (!isRecord(k) || typeof k.slug !== "string" || typeof k.variant !== "string" || typeof k.auto !== "boolean" || typeof k.sig !== "string") return undefined;
+  return { slug: k.slug, variant: k.variant, auto: k.auto, sig: k.sig };
+}
+
 function cleanRepeat(r: unknown) {
   if (!isRecord(r) || typeof r.collection !== "string") return undefined;
   /* a limit of the wrong kind goes, and the repeat stays */
@@ -142,6 +148,7 @@ const cleanGroup = (g: Group) =>
       instanceOf: (v) => (typeof v === "string" ? v : undefined),
       overrides: cleanOverrides,
       repeat: cleanRepeat,
+      kit: cleanKit,
       expandedFrom: () => undefined,
       rowsOf: () => undefined,
     }),
