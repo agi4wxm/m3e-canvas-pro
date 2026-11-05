@@ -181,6 +181,19 @@ describe("what a style writes", () => {
     }
   });
 
+  it("hides the hooks of desktop chrome, and has a desktop style that shows each", () => {
+    const sources = ["components/m3e", "parts/widgets", "parts/defs"]
+      .flatMap((dir) => readdirSync(new URL(dir, root)).filter((f) => /\.tsx?$/.test(f)).map((f) => readFileSync(new URL(`${dir}/${f}`, root), "utf8")))
+      .join("\n");
+    const desktop = STYLE_PACKS.filter((s) => s.group === "desktop").map((s) => styleCss(themed(s.key))).join("\n");
+    for (const hook of ["title-bar-icon", "title-bar-caption", "tree-twisty", "tabs-close", "steps-check", "steps-tail"]) {
+      expect(sources, hook).toMatch(new RegExp(`data-slot"?\\s*[:=]\\s*"${hook}"[^\\n]*\\bhidden\\b`));
+      expect(desktop, hook).toMatch(new RegExp(`\\[data-slot=${hook}\\][^{]*\\{[^}]*display:(block|inline|inline-flex|flex)`));
+    }
+    /* and Material, which says nothing of them, leaves them hidden */
+    expect(styleCss(DEFAULT_THEME)).not.toMatch(/tree-twisty|tabs-close|title-bar-caption/);
+  });
+
   it("dresses the box an author builds with by the surface role it plays", () => {
     for (const s of STYLE_PACKS) {
       const css = styleCss(themed(s.key));
