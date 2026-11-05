@@ -66,6 +66,8 @@ export function Toolbar({
   zoom,
   onZoom,
   onFit,
+  allLinks,
+  onAllLinks,
   canUndo,
   canRedo,
   onUndo,
@@ -101,6 +103,9 @@ export function Toolbar({
   zoom: number;
   onZoom: (z: number) => void;
   onFit: () => void;
+  /** whether every jump between screens is drawn, or only those about what is selected */
+  allLinks?: boolean;
+  onAllLinks?: () => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -289,6 +294,7 @@ export function Toolbar({
             size={40}
           />
           <IconBtn icon="fit_screen" p={p} onClick={onFit} title={t("fit", lang)} size={40} />
+          {onAllLinks && <IconBtn icon="alt_route" p={p} on={allLinks} onClick={onAllLinks} title={t("allLinks", lang)} size={40} />}
         </Pill>
       </div>
       {onShare && (

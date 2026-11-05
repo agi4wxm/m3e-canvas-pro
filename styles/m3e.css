@@ -897,3 +897,14 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Latin tracking only opens up Chinese text */
+:root:lang(zh) * {
+  letter-spacing: 0;
+}
+
+/* a plain list row keeps to the screen's margins like everything else on it; one painted with a
+ * fill has an edge to keep its words off */
+[data-flush]:not([class*="bg-"]) {
+  padding-inline: 0;
+}

@@ -33,7 +33,7 @@ function cardTree(p: P): PNode {
   const extent = Math.round(p.n("imageSize"));
   const inner = src
     ? h("img", { src, alt: "", className: "size-full object-cover" })
-    : h("div", { className: "grid size-full place-items-center bg-primary-container text-on-primary-container" }, ic(p.s("imageIcon") || "image", { size: 34 }));
+    : h("div", { className: "grid size-full place-items-center bg-gradient-to-br from-primary-container to-tertiary-container text-on-primary-container" }, ic(p.s("imageIcon") || "image", { size: 34 }));
   const media =
     pos === "none"
       ? null
@@ -179,7 +179,7 @@ export const containment: PartDef[] = [
       const row = (it: { label: string; icon?: string }, i: number) =>
         h(
           "Item",
-          { variant: p.s("variant") === "default" ? undefined : p.s("variant"), size: p.s("size") === "default" ? undefined : p.s("size"), "data-tap": `tab:${i}` },
+          { variant: p.s("variant") === "default" ? undefined : p.s("variant"), size: p.s("size") === "default" ? undefined : p.s("size"), "data-flush": p.s("variant") === "default" ? true : undefined, "data-tap": `tab:${i}` },
           it.icon && h("ItemMedia", { variant: "icon", className: disc || undefined }, ic(it.icon)),
           h("ItemContent", null, h("ItemTitle", null, it.label), p.s("description") && h("ItemDescription", null, p.s("description"))),
           end,

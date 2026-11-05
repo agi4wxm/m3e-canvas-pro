@@ -422,7 +422,9 @@ The editor's Templates tab adds these as new screens, in auto layout. A document
 - Do not add parts to fill space. A screen with a bar, a list and a FAB is complete.
 - One idea per screen. If a screen needs a second scroll of parts, it is two screens.
 - Prefer the default look and sizes; the person retunes the theme afterwards.
-- A main action on its own gets a width of 380 (the full content width); two side by side get 182 each. Do not scatter small buttons around a screen.
+- A main action on its own gets `"size": "md"` and a width of 380 (the full content width); two side by side get 182 each. Do not scatter small buttons around a screen.
+- Put a main action right under what it acts on, not far below it at the foot of the screen. Only a screen whose content fills it keeps the action at the foot.
+- Put a screen that opens from another next to it in `frames`: a detail screen comes straight after the list that leads to it.
 - A list of similar rows is one `item` with several `items`, not a column of cards. Its `description` is one line shared by every row, so leave it empty unless all rows say the same; put what differs in each row's `label`.
 - A `navigation-bar` is 64 tall: on a phone it stands at `y` 828, so it meets the bottom of the screen.
 - A prop you leave out shows the part's sample words. Set a text prop to `""` when the part should say nothing there.

@@ -103,6 +103,7 @@ import { hasShareHash, readShareHash } from "@/lib/share";
 import { LoadingIndicator } from "@/components/Loading";
 import { draftDesign } from "@/lib/ai";
 import { pushApart } from "@/lib/settle";
+import { isNavPart, mergeLinks, routeLink, shownLinks, type LinkLine, type Route } from "@/lib/links";
 import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
@@ -477,6 +478,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
+  const [showAllLinks, setShowAllLinks] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -747,6 +749,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         if (ui.rightW) setRightW(ui.rightW);
         if (Array.isArray(ui.favorites)) setFavorites(ui.favorites.filter((f: unknown): f is string => typeof f === "string" && !!partBySlug(f)));
         if (ui.mode) setMode(ui.mode);
+        if (ui.showAllLinks === true) setShowAllLinks(true);
       } else {
         queueMicrotask(() => fitRef.current());
       }
@@ -873,6 +876,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           favorites,
           mode,
           pickedLang: lang,
+          showAllLinks,
           /* the theme's surfaces, so the shell drawn before the editor loads is already this colour */
           boot: { surface: p.surface, container: p.surfaceContainer, low: p.surfaceContainerLow, high: p.surfaceContainerHigh, primary: p.primary, canvas: frame === "phone" ? p.surfaceContainerLow : "#ffffff" },
         }),
@@ -889,6 +893,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     favorites,
     mode,
     lang,
+    showAllLinks,
   ]);
 
   /* ---------- measurement ---------- */
@@ -3636,51 +3641,33 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const links = useMemo(() => {
     if (frame !== "phone") return [];
     const rects = itemRects();
-    const out: {
-      id: string;
-      d: string;
-      mx: number;
-      my: number;
-      tx: number;
-      ty: number;
-      ang: number;
-      t: Transition;
-    }[] = [];
+    const out: (Route & LinkLine & { t: Transition })[] = [];
     for (const g of groups) {
+      const source = frameOfPart(g, groups, frames, widths);
       for (const it of g.items) {
         for (const { slot, action } of actionsOf(it)) {
         if (action.to === BACK_TARGET) continue;
-        const f = frames.find((x) => x.id === action.to);
+        const at = frames.findIndex((x) => x.id === action.to);
         const r = rects.find((x) => x.id === it.id);
-        if (!f || !r) continue;
-        const fr = frameRect(f);
-        const rightward = (fr.l + fr.r) / 2 >= (r.l + r.r) / 2;
-        const sx = rightward ? r.r : r.l;
-        const sy = (r.t + r.b) / 2;
-        const tx = rightward ? fr.l - BEZEL : fr.r + BEZEL;
-        const ty = clamp(sy, fr.t + 40, fr.b - 40);
-        const dx = Math.max(60, Math.abs(tx - sx) * 0.5);
-        const c1x = sx + (rightward ? dx : -dx);
-        const c2x = tx + (rightward ? -dx : dx);
-        const d = `M${sx} ${sy} C${c1x} ${sy} ${c2x} ${ty} ${tx} ${ty}`;
-        // midpoint of the cubic at t = 0.5
-        const mx = 0.125 * sx + 0.375 * c1x + 0.375 * c2x + 0.125 * tx;
-        const my = 0.125 * sy + 0.375 * sy + 0.375 * ty + 0.125 * ty;
+        if (at < 0 || !r) continue;
+        const f = frames[at];
+        const others = frames.filter((x) => x.id !== f.id && x.id !== source?.id).map(frameRect);
         out.push({
+          ...routeLink(r, frameRect(f), others, source ? frameRect(source) : undefined, BEZEL, at * 12),
           id: `${it.id}|${slot}`,
-          d,
-          mx,
-          my,
-          tx,
-          ty,
-          ang: rightward ? 0 : 180,
+          itemId: it.id,
+          to: f.id,
+          fromFrame: source?.id,
+          nav: isNavPart(it.component),
           t: action.transition,
         });
         }
       }
     }
-    return out;
+    return mergeLinks(out);
   }, [groups, frames, frame, itemRects, widths]);
+  /** the lines worth drawing right now: most of a design's are noise until asked for */
+  const visibleLinks = useMemo(() => shownLinks(links, { all: showAllLinks, selectedIds, selectedFrameId, selectedLinkId }), [links, showAllLinks, selectedIds, selectedFrameId, selectedLinkId]);
 
   /** apply a change to the action behind a link id ("itemId|slot") */
   const patchLink = (linkId: string, fn: (a: Action) => Action | undefined) => {
@@ -3703,14 +3690,16 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     );
   };
 
+  /* a line can stand for several rows that open one screen: what is done to it is done to them all */
+  const idsOfLink = (linkId: string) => links.find((l) => l.id === linkId)?.ids ?? [linkId];
   const setLinkTransition = (linkId: string, transition: Transition) => {
     snapshotFor("link:" + linkId);
-    patchLink(linkId, (a) => ({ ...a, transition }));
+    for (const id of idsOfLink(linkId)) patchLink(id, (a) => ({ ...a, transition }));
   };
   const removeLink = (linkId: string) => {
     snapshot();
     /* the arrow is where it goes; what else the tap does stays */
-    patchLink(linkId, (a) => actionWithoutScreen(a, a.to));
+    for (const id of idsOfLink(linkId)) patchLink(id, (a) => actionWithoutScreen(a, a.to));
     setSelectedLinkId(null);
   };
 
@@ -4613,7 +4602,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
               })()}
 
 
-              {links.length > 0 && (
+              {visibleLinks.length > 0 && (
                 <svg
                   style={{
                     position: "absolute",
@@ -4638,7 +4627,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                       <path d="M0 0 L10 5 L0 10 z" fill={p.primary} />
                     </marker>
                   </defs>
-                  {!draftBusy && links.map((l) => {
+                  {!draftBusy && visibleLinks.map((l) => {
                     const on = l.id === selectedLinkId;
                     return (
                       <g key={l.id}>
@@ -4671,7 +4660,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                 </svg>
               )}
 
-              {links
+              {visibleLinks
                 .filter((l) => l.id === selectedLinkId)
                 .map((l) => (
                   <div
@@ -4828,6 +4817,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
             zoom={view.z}
             onZoom={(z) => setZoomAt(z)}
             onFit={fit}
+            allLinks={showAllLinks}
+            onAllLinks={() => setShowAllLinks((on) => !on)}
             canUndo={pastRef.current.length > 0}
             canRedo={futureRef.current.length > 0}
             onUndo={undo}
