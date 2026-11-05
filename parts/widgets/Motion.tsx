@@ -78,7 +78,7 @@ export function Timer({ seconds = 60, countdown = true, width = 200, className, 
   }, [countdown, left]);
   return (
     <div data-slot="timer" data-left={left} data-running={running || undefined} className={cn("bg-surface-container-low flex items-center justify-between gap-2 rounded-2xl p-3", className)} style={{ width, ...style }}>
-      <span className="text-title-large text-on-surface tabular-nums">{clock(left)}</span>
+      <span data-slot="timer-value" className="text-title-large text-on-surface tabular-nums">{clock(left)}</span>
       <span className="flex gap-1">
         <Button variant="tonal" size="icon-sm" aria-label={running ? "Pause" : "Start"} onClick={() => setRunning((r) => !r)}>
           <WidgetIcon name={running ? "pause" : "play_arrow"} />

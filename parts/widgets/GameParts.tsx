@@ -30,7 +30,7 @@ export function SkillButton({ icon = "bolt", label = "", cooldown = 5, size = 72
           </span>
         )}
       </Tap>
-      {label && <span className="w-full truncate text-center text-label-small text-on-surface">{label}</span>}
+      {label && <span data-slot="skill-button-label" className="w-full truncate text-center text-label-small text-on-surface">{label}</span>}
     </div>
   );
 }
@@ -51,7 +51,7 @@ export function LevelMap({ levels = 12, current = 4, stars = "", perRow = 4, wid
   const height = rows * ROW_H;
   return (
     <div data-slot="level-map" data-selected={on} className={cn("relative overflow-hidden rounded-xl bg-surface-container-low", className)} style={{ width, height, ...style }}>
-      <svg aria-hidden className="absolute inset-0 size-full" viewBox={`0 0 100 ${height}`} preserveAspectRatio="none">
+      <svg aria-hidden data-slot="level-map-track" className="absolute inset-0 size-full" viewBox={`0 0 100 ${height}`} preserveAspectRatio="none">
         {Array.from({ length: Math.max(0, levels - 1) }, (_, i) => {
           const a = at(i);
           const b = at(i + 1);
@@ -65,7 +65,7 @@ export function LevelMap({ levels = 12, current = 4, stars = "", perRow = 4, wid
         const here = n === current;
         return (
           <div key={i} className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center" style={{ left: `${p.x}%`, top: p.y }}>
-            <Tap aria-label={`${n}`} aria-pressed={i === on} disabled={locked} data-tap={locked ? undefined : `tab:${i}`} className={cn("flex size-12 items-center justify-center rounded-full text-title-medium", locked ? "bg-surface-container-high text-on-surface-variant" : here ? "bg-primary text-on-primary ring-4 ring-primary/30" : "bg-primary-container text-on-primary-container", i === on && "outline-2 outline-offset-2 outline-primary")} onClick={() => setOn(i)}>
+            <Tap data-slot="level-map-cell" data-current={here || undefined} aria-label={`${n}`} aria-pressed={i === on} disabled={locked} data-tap={locked ? undefined : `tab:${i}`} className={cn("flex size-12 items-center justify-center rounded-full text-title-medium", locked ? "bg-surface-container-high text-on-surface-variant" : here ? "bg-primary text-on-primary ring-4 ring-primary/30" : "bg-primary-container text-on-primary-container", i === on && "outline-2 outline-offset-2 outline-primary")} onClick={() => setOn(i)}>
               {locked ? <WidgetIcon name="lock" className="size-5" /> : n}
             </Tap>
             {!locked && !here && (
@@ -175,10 +175,10 @@ export function GameBoard({ rows = 3, columns = 3, mode = "mark", cells = "", ma
   };
   return (
     <div data-slot="game-board" data-board={board.join(",")} data-winner={winner ?? ""} data-picked={picked.join(",")} className={cn("flex flex-col gap-2 rounded-xl bg-surface-container-low p-3", className)} style={{ width, ...style }}>
-      {status && <div data-board-status className="text-center text-title-small text-on-surface">{status}</div>}
+      {status && <div data-slot="game-board-title" data-board-status className="text-center text-title-small text-on-surface">{status}</div>}
       <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
         {board.map((value, i) => (
-          <Tap key={i} aria-label={`${i + 1}`} aria-pressed={picked.includes(i)} data-cell={i} className={cn("flex aspect-square min-w-0 items-center justify-center rounded-md text-title-large", picked.includes(i) ? "bg-primary text-on-primary" : value ? "bg-primary-container text-on-primary-container" : "bg-surface-container-high text-on-surface")} onClick={() => press(i)}>
+          <Tap key={i} data-slot="game-board-cell" aria-label={`${i + 1}`} aria-pressed={picked.includes(i)} data-cell={i} className={cn("flex aspect-square min-w-0 items-center justify-center rounded-md text-title-large", picked.includes(i) ? "bg-primary text-on-primary" : value ? "bg-primary-container text-on-primary-container" : "bg-surface-container-high text-on-surface")} onClick={() => press(i)}>
             {value}
           </Tap>
         ))}
