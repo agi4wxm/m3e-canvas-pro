@@ -27,7 +27,7 @@ export function Inventory({ columns = 5, rows = 4, filled = 7, width = 380, clas
   return (
     <div data-slot="inventory" data-selected={on} className={cn("bg-surface-container grid gap-2 rounded-2xl p-3", className)} style={{ width, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, ...style }}>
       {Array.from({ length: columns * rows }, (_, i) => (
-        <Tap key={i} aria-label={`${i + 1}`} aria-pressed={i === on} data-slot="inventory-cell" className={`flex aspect-square items-center justify-center rounded-lg ${i === on ? "bg-primary-container text-on-primary-container" : "bg-surface-container-low text-on-surface-variant"}`} onClick={() => setOn(i)}>
+        <Tap key={i} aria-label={`${i + 1}`} aria-pressed={i === on} data-slot="inventory-cell" data-filled={i < filled || undefined} className={`flex aspect-square items-center justify-center rounded-lg ${i === on ? "bg-primary-container text-on-primary-container" : "bg-surface-container-low text-on-surface-variant"}`} onClick={() => setOn(i)}>
           {i < filled && <WidgetIcon name="inventory_2" className="size-5" />}
         </Tap>
       ))}
@@ -87,7 +87,7 @@ export function RewardTrack({ rewards = [], value = 0, max = 60, action = "", wi
       </div>
       <div className="flex justify-between">
         {rewards.map((r, i) => (
-          <span key={i} className="text-label-small text-on-surface-variant flex-1 text-center">
+          <span key={i} data-slot="reward-track-meta" className="text-label-small text-on-surface-variant flex-1 text-center">
             {r.at}
           </span>
         ))}
@@ -105,7 +105,7 @@ export function CheckIn({ title = "", days = 30, signed = 3, width = 300, classN
         {Array.from({ length: days }, (_, i) => {
           const today = i === count;
           return (
-            <Tap key={i} disabled={!today} aria-current={today ? "date" : undefined} data-slot="check-in-cell" className={`text-label-small flex aspect-square items-center justify-center rounded-full ${i < count ? "bg-primary text-on-primary" : today ? "border-primary text-primary border-2" : "text-on-surface-variant"}`} onClick={() => setCount((c) => c + 1)}>
+            <Tap key={i} disabled={!today} aria-current={today ? "date" : undefined} data-slot="check-in-cell" data-state={i < count ? "done" : today ? "today" : undefined} className={`text-label-small flex aspect-square items-center justify-center rounded-full ${i < count ? "bg-primary text-on-primary" : today ? "border-primary text-primary border-2" : "text-on-surface-variant"}`} onClick={() => setCount((c) => c + 1)}>
               {i < count ? <WidgetIcon name="check" className="size-3" /> : i + 1}
             </Tap>
           );

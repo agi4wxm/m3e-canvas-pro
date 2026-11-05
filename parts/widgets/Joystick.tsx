@@ -67,8 +67,9 @@ export function Joystick({ size = 132, angle = 0, autoCenter = true, className, 
         if (autoCenter) setHeld(0);
       }}
     >
-      <span className="bg-outline-variant absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" />
+      <span data-slot="joystick-dot" className="bg-outline-variant absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" />
       <span
+        data-slot="joystick-handle"
         data-joystick-knob=""
         className={`absolute rounded-full shadow-elevation-1 ${out ? "bg-primary" : "bg-primary-container"}`}
         style={{ width: side, height: side, left: `calc(50% + ${knob.dx}px)`, top: `calc(50% + ${knob.dy}px)`, marginLeft: -side / 2, marginTop: -side / 2 }}

@@ -79,7 +79,7 @@ export function Timer({ seconds = 60, countdown = true, width = 200, className, 
   return (
     <div data-slot="timer" data-left={left} data-running={running || undefined} className={cn("bg-surface-container-low flex items-center justify-between gap-2 rounded-2xl p-3", className)} style={{ width, ...style }}>
       <span data-slot="timer-value" className="text-title-large text-on-surface tabular-nums">{clock(left)}</span>
-      <span className="flex gap-1">
+      <span data-slot="timer-actions" className="flex gap-1">
         <Button variant="tonal" size="icon-sm" aria-label={running ? "Pause" : "Start"} onClick={() => setRunning((r) => !r)}>
           <WidgetIcon name={running ? "pause" : "play_arrow"} />
         </Button>
@@ -133,10 +133,10 @@ export function PullToRefresh({ hint = "", width = 360, height = 200, className,
       onPointerUp={release}
       onPointerCancel={release}
     >
-      <div className="flex items-center justify-center overflow-hidden" style={{ height: pull }}>
+      <div data-slot="pull-to-refresh-indicator" className="flex items-center justify-center overflow-hidden" style={{ height: pull }}>
         <LoadingIndicator />
       </div>
-      <div className="text-body-small text-on-surface-variant p-3">{hint}</div>
+      <div data-slot="pull-to-refresh-description" className="text-body-small text-on-surface-variant p-3">{hint}</div>
     </div>
   );
 }
@@ -149,7 +149,7 @@ export function SlideGroup({ items = [], width = 320, className, style }: { item
       <Button variant="text" size="icon-sm" aria-label="Previous" onClick={() => by(-160)}>
         <WidgetIcon name="chevron_left" />
       </Button>
-      <div ref={row as RefObject<HTMLDivElement>} className="flex min-w-0 flex-1 gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+      <div ref={row as RefObject<HTMLDivElement>} data-slot="slide-group-row" className="flex min-w-0 flex-1 gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         {items.map((label, i) => (
           <Chip key={i} className="shrink-0">
             {label}
@@ -178,12 +178,13 @@ export function SwipeRow({ title = "", note = "", action = "", width = 360, clas
   return (
     /* the fill belongs on the face that moves: what shows under it is the action's own */
     <div data-slot="swipe-row" data-open={dx === -REVEAL || undefined} className="bg-error-container relative overflow-hidden rounded-xl" style={{ width, ...style }}>
-      <div className="absolute inset-y-0 right-0 flex items-center justify-center" style={{ width: REVEAL }}>
+      <div data-slot="swipe-row-actions" className="absolute inset-y-0 right-0 flex items-center justify-center" style={{ width: REVEAL }}>
         <Button variant="text" size="xs" className="text-on-error-container" onClick={() => setDone(true)}>
           {action}
         </Button>
       </div>
       <div
+        data-slot="swipe-row-face"
         className={cn("bg-surface-container-low relative flex touch-pan-y flex-col gap-0.5 p-3", className)}
         style={{ transform: `translateX(${dx}px)` }}
         onPointerDown={(e) => {
@@ -194,8 +195,8 @@ export function SwipeRow({ title = "", note = "", action = "", width = 360, clas
         onPointerUp={release}
         onPointerCancel={release}
       >
-        <span className="text-body-large text-on-surface truncate">{title}</span>
-        {note && <span className="text-body-small text-on-surface-variant truncate">{note}</span>}
+        <span data-slot="swipe-row-title" className="text-body-large text-on-surface truncate">{title}</span>
+        {note && <span data-slot="swipe-row-subtitle" className="text-body-small text-on-surface-variant truncate">{note}</span>}
       </div>
     </div>
   );
@@ -225,10 +226,10 @@ export function AudioPlayer({ title = "", artist = "", src = "", seconds = 180, 
         <WidgetIcon name={playing ? "pause" : "play_arrow"} />
       </Button>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="text-body-medium text-on-surface truncate">{title}</div>
-        {artist && <div className="text-body-small text-on-surface-variant truncate">{artist}</div>}
+        <div data-slot="audio-player-title" className="text-body-medium text-on-surface truncate">{title}</div>
+        {artist && <div data-slot="audio-player-subtitle" className="text-body-small text-on-surface-variant truncate">{artist}</div>}
         <Progress value={length ? (at / length) * 100 : 0} />
-        <div className="text-label-small text-on-surface-variant flex justify-between tabular-nums">
+        <div data-slot="audio-player-meta" className="text-label-small text-on-surface-variant flex justify-between tabular-nums">
           <span>{clock(at)}</span>
           <span>{clock(length)}</span>
         </div>

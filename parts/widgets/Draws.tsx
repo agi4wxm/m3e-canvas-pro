@@ -67,10 +67,10 @@ export function Wheel({ prizes = [], label = "", result = -1, size = 220, classN
   const turn = won < 0 ? 0 : 360 * 5 - (won + 0.5) * sweep;
   return (
     <div data-slot="wheel" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-1", className)} style={{ width: size, ...style }}>
-      <div className="relative" style={{ width: size, height: size }}>
+      <div data-slot="wheel-stage" className="relative" style={{ width: size, height: size }}>
         <div data-slot="wheel-track" className="border-outline-variant relative size-full rounded-full border" style={{ background: `conic-gradient(${stops})`, transform: `rotate(${turn}deg)`, transition: reduced() ? "none" : `transform ${SPIN_MS}ms cubic-bezier(0.2, 0, 0, 1)` }}>
           {prizes.map((p, i) => (
-            <span key={i} className="text-on-surface absolute top-1/2 left-1/2 flex items-center justify-center" style={{ transform: `translate(-50%, -50%) rotate(${(i + 0.5) * sweep}deg) translateY(${-size * 0.36}px)` }}>
+            <span key={i} data-slot="wheel-label" className="text-on-surface absolute top-1/2 left-1/2 flex items-center justify-center" style={{ transform: `translate(-50%, -50%) rotate(${(i + 0.5) * sweep}deg) translateY(${-size * 0.36}px)` }}>
               {p.icon ? <WidgetIcon name={p.icon} className="size-5" /> : <span className="text-label-small">{p.label}</span>}
             </span>
           ))}
@@ -94,7 +94,7 @@ export function GridWheel({ prizes = [], label = "", result = -1, size = 240, cl
   const lit = phase === "running" ? tick % Math.max(1, shown.length) : phase === "done" ? won % Math.max(1, shown.length) : -1;
   return (
     <div data-slot="grid-wheel" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col gap-1", className)} style={{ width: size, ...style }}>
-      <div className="grid grid-cols-3 gap-1" style={{ height: size }}>
+      <div data-slot="grid-wheel-grid" className="grid grid-cols-3 gap-1" style={{ height: size }}>
         {Array.from({ length: 9 }, (_, cell) => {
           if (cell === 4)
             return (
@@ -179,12 +179,13 @@ export function EggSmash({ prizes = [], label = "", result = -1, size = 260, cla
   const [chosen, setChosen] = useState(-1);
   return (
     <div data-slot="egg-smash" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>
-      {label && <div className="text-title-small text-on-surface">{label}</div>}
+      {label && <div data-slot="egg-smash-title" className="text-title-small text-on-surface">{label}</div>}
       <div className="flex w-full justify-around">
         {[0, 1, 2].map((egg) => (
           <Tap
             key={egg}
             data-slot="egg-smash-item"
+            data-state={chosen === egg && phase !== "idle" ? "broken" : undefined}
             aria-label={`${label} ${egg + 1}`}
             disabled={phase !== "idle"}
             className={`h-20 w-16 rounded-[50%_50%_50%_50%/60%_60%_40%_40%] ${chosen === egg && phase !== "idle" ? "bg-outline-variant" : "bg-tertiary-container"}`}
