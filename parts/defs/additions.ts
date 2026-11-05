@@ -10,6 +10,20 @@ const WIDTH = (value: number, min = 120, max = 1280): Extract<PartDef["props"][n
 const px = (p: P, key = "width") => Math.round(p.n(key));
 const words = (items: ListItem[]) => items.map((x) => x.label);
 
+/** The title bar's own row (desktop.ts says why it is drawn so): the platform's controls, the title, and the two hooks a
+ *  style may show, an app glyph and, behind the Mac's lights, a Windows app's caption buttons. */
+function windowBar(controls: string, title: string) {
+  const dot = h("span", { className: "bg-outline size-3 rounded-full" });
+  const glyphs = [ic("remove", { className: "size-4" }), ic("crop_square", { className: "size-4" }), ic("close", { className: "size-4" })];
+  return [
+    controls === "mac" && h("div", { "data-slot": "title-bar-controls", className: "flex gap-2" }, dot, dot, dot),
+    h("span", { "data-slot": "title-bar-icon", "aria-hidden": true, className: "hidden" }, ic("web_asset", { className: "size-4" })),
+    h("div", { "data-slot": "title-bar-title", className: `text-label-large text-on-surface flex-1 truncate ${controls === "mac" ? "text-center" : ""}` }, title),
+    controls === "windows" && h("div", { "data-slot": "title-bar-controls", className: "text-on-surface-variant flex gap-3" }, ...glyphs),
+    controls === "mac" && h("div", { "data-slot": "title-bar-caption", "aria-hidden": true, className: "text-on-surface-variant hidden gap-3" }, ...glyphs),
+  ];
+}
+
 const TEXT_STYLES: Record<string, string> = {
   display: "text-display-small",
   headline: "text-headline-small",
@@ -198,17 +212,10 @@ export const additions: PartDef[] = [
     ],
     tree: (p) => {
       const controls = p.s("controls");
-      const dot = h("span", { className: "bg-outline size-3 rounded-full" });
       return h(
         "div",
         { "data-slot": "window", className: "bg-surface border-outline-variant flex flex-col overflow-hidden rounded-xl border", style: { width: px(p), height: px(p, "height") } },
-        h(
-          "div",
-          { className: "bg-surface-container flex h-9 shrink-0 items-center gap-3 px-3" },
-          controls === "mac" && h("div", { className: "flex gap-2" }, dot, dot, dot),
-          h("div", { className: `text-label-large text-on-surface flex-1 truncate ${controls === "mac" ? "text-center" : ""}` }, p.s("title")),
-          controls === "windows" && h("div", { className: "text-on-surface-variant flex gap-3" }, ic("remove", { className: "size-4" }), ic("crop_square", { className: "size-4" }), ic("close", { className: "size-4" })),
-        ),
+        h("div", { "data-slot": "title-bar", "data-controls": controls, className: "bg-surface-container flex h-9 shrink-0 items-center gap-3 px-3" }, ...windowBar(controls, p.s("title"))),
         h("div", { "data-flow": "body", className: "min-h-0 flex-1" }),
       );
     },
@@ -627,8 +634,8 @@ export const additions: PartDef[] = [
       h(
         "div",
         { "data-slot": "file-diff", className: "border-outline-variant overflow-hidden rounded-xl border", style: { width: px(p) } },
-        p.s("file") && h("div", { className: "bg-surface-container text-label-medium text-on-surface px-3 py-2" }, p.s("file")),
-        h("pre", { className: "text-body-small overflow-x-auto font-mono" }, ...p.s("diff").split("\n").map((line) => h("div", { className: `px-3 ${line.startsWith("+") ? "bg-primary-container text-on-primary-container" : line.startsWith("-") ? "bg-error-container text-on-error-container" : "text-on-surface"}` }, line || " "))),
+        p.s("file") && h("div", { "data-slot": "file-diff-header", className: "bg-surface-container text-label-medium text-on-surface px-3 py-2" }, p.s("file")),
+        h("pre", { className: "text-body-small overflow-x-auto font-mono" }, ...p.s("diff").split("\n").map((line) => h("div", { "data-slot": "file-diff-row", "data-kind": line.startsWith("+") ? "added" : line.startsWith("-") ? "removed" : "same", className: `px-3 ${line.startsWith("+") ? "bg-primary-container text-on-primary-container" : line.startsWith("-") ? "bg-error-container text-on-error-container" : "text-on-surface"}` }, line || " "))),
       ),
   },
   {

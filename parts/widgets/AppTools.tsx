@@ -52,8 +52,8 @@ export function DataTable({ title = "", columns = [], rows = [], search = "", se
   return (
     <div data-slot="data-table" data-rows={lines.length} data-page={current} data-picked={picked.join(",")} data-sort={sort ? `${sort.column}:${sort.down ? "down" : "up"}` : undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-2 overflow-hidden rounded-xl p-3", className)} style={{ width, ...style }} onClick={stop}>
       {(title || search) && (
-        <div className="flex flex-wrap items-center gap-2">
-          {title && <div className="text-title-medium min-w-0 flex-1 truncate">{picked.length ? `${title} · ${picked.length}` : title}</div>}
+        <div data-slot="data-table-header" className="flex flex-wrap items-center gap-2">
+          {title && <div data-slot="data-table-title" className="text-title-medium min-w-0 flex-1 truncate">{picked.length ? `${title} · ${picked.length}` : title}</div>}
           {search && (
             <div className="w-48 max-w-full">
               <Input
@@ -106,7 +106,7 @@ export function DataTable({ title = "", columns = [], rows = [], search = "", se
           ))}
         </TableBody>
       </Table>
-      <div className="text-label-medium flex items-center justify-end gap-1">
+      <div data-slot="data-table-footer" className="text-label-medium flex items-center justify-end gap-1">
         <span className={`mr-2 tabular-nums ${Soft}`}>
           {lines.length ? current * pageSize + 1 : 0}–{Math.min(lines.length, (current + 1) * pageSize)} / {lines.length}
         </span>
@@ -158,6 +158,7 @@ export function Kanban({ columns = [], rows = [], add = "", width = 720, classNa
         <div
           key={l}
           data-lane={l}
+          data-slot="kanban-lane"
           className="bg-surface-container flex min-w-44 flex-1 flex-col gap-2 rounded-lg p-2"
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
@@ -166,14 +167,16 @@ export function Kanban({ columns = [], rows = [], add = "", width = 720, classNa
             dragged.current = null;
           }}
         >
-          <div className="flex items-center justify-between gap-2 px-1">
-            <span className="text-title-small truncate">{lane.title}</span>
-            <span className={`text-label-medium tabular-nums ${Soft}`}>{lane.cards.length}</span>
+          <div data-slot="kanban-header" className="flex items-center justify-between gap-2 px-1">
+            <span data-slot="kanban-title" className="text-title-small truncate">{lane.title}</span>
+            <span data-slot="kanban-meta" className={`text-label-medium tabular-nums ${Soft}`}>{lane.cards.length}</span>
           </div>
           {lane.cards.map((card) => (
             <div
               key={card.id}
               data-card={card.id}
+              data-slot="kanban-card"
+              data-active={picked === card.id ? "" : undefined}
               draggable
               className={cn("flex cursor-grab flex-col rounded-md", picked === card.id ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-lowest")}
               onDragStart={(e) => {
@@ -258,8 +261,8 @@ export function Agenda({ year = 2026, month = 1, day = 1, rows = [], weekStart =
   const names = Array.from({ length: 7 }, (_, i) => weekdayName(new Date(2023, 0, 1 + i + shift)));
   return (
     <div data-slot="agenda" data-month={`${view.year}-${pad(view.month)}`} data-day={today} data-events={events.length} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-2 rounded-xl p-3", className)} style={{ width, ...style }}>
-      <div className="flex items-center gap-1" onClick={stop}>
-        <span className="text-title-medium flex-1 pl-1">{monthName(first)}</span>
+      <div data-slot="agenda-header" className="flex items-center gap-1" onClick={stop}>
+        <span data-slot="agenda-title" className="text-title-medium flex-1 pl-1">{monthName(first)}</span>
         <Button variant="text" size="icon-sm" aria-label="Previous month" onClick={() => turn(-1)}>
           <WidgetIcon name="chevron_left" />
         </Button>
@@ -279,7 +282,7 @@ export function Agenda({ year = 2026, month = 1, day = 1, rows = [], weekStart =
         {Array.from({ length: days }, (_, i) => {
           const d = i + 1;
           return (
-            <Tap key={d} aria-pressed={d === today} aria-label={`${prefix}${pad(d)}`} className={cn("text-body-medium flex aspect-square flex-col items-center justify-center rounded-full", d === today && "bg-primary text-on-primary")} onClick={() => setOn(d)}>
+            <Tap key={d} data-slot="agenda-day" aria-pressed={d === today} aria-label={`${prefix}${pad(d)}`} className={cn("text-body-medium flex aspect-square flex-col items-center justify-center rounded-full", d === today && "bg-primary text-on-primary")} onClick={() => setOn(d)}>
               {d}
               <span className={cn("size-1 rounded-full", busy.has(d) ? (d === today ? "bg-on-primary" : "bg-primary") : "bg-transparent")} />
             </Tap>
@@ -289,7 +292,7 @@ export function Agenda({ year = 2026, month = 1, day = 1, rows = [], weekStart =
       <div className="flex flex-col gap-1">
         {events.length === 0 && <div className={`text-body-small py-2 text-center ${Soft}`}>{empty}</div>}
         {events.map(({ r, i }) => (
-          <Tap key={i} data-tap={`tab:${i}`} className="bg-surface-container flex w-full items-center gap-3 rounded-md p-2 text-left">
+          <Tap key={i} data-tap={`tab:${i}`} data-slot="agenda-event" className="bg-surface-container flex w-full items-center gap-3 rounded-md p-2 text-left">
             <span className="text-label-medium shrink-0 tabular-nums">{r[1] ?? ""}</span>
             <span className="text-body-medium min-w-0 flex-1 truncate">{r[2] ?? ""}</span>
           </Tap>

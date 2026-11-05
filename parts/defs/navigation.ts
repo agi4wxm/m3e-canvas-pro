@@ -143,6 +143,8 @@ export const navigation: PartDef[] = [
               { value: `tab-${i + 1}`, className: scroll ? "w-24 flex-none" : undefined, "data-tap": `tab:${i}` },
               it.icon && ic(it.icon, { "data-icon": "inline-start" }),
               it.label,
+              /* an editor's tab closes itself: a hook, hidden unless a style draws it */
+              h("span", { "data-slot": "tabs-close", "aria-hidden": true, className: "hidden" }, ic("close", { className: "size-4" })),
             ),
           ),
         ),

@@ -124,6 +124,7 @@ function SliderContents({
           />
           {/* inactive, after the (last) handle */}
           <span
+            data-slot="slider-rest"
             className={cn(
               "absolute rounded-xs bg-secondary-container group-data-disabled/slider:bg-on-surface/12",
               "group-data-horizontal/slider:inset-y-0 group-data-horizontal/slider:inset-s-[calc(100%+var(--slider-gap))] group-data-horizontal/slider:w-[200vw]",
@@ -133,6 +134,7 @@ function SliderContents({
           {/* inactive, before the first handle of a range */}
           {range && (
             <span
+              data-slot="slider-rest"
               className={cn(
                 "absolute rounded-xs bg-secondary-container group-data-disabled/slider:bg-on-surface/12",
                 "group-data-horizontal/slider:inset-y-0 group-data-horizontal/slider:inset-e-[calc(100%+var(--slider-gap))] group-data-horizontal/slider:w-[200vw]",
