@@ -11,9 +11,9 @@ import { opInput } from "./schema";
 import { tool, ToolFailure, type Tool, type ToolEnv, type ToolGroup } from "./types";
 
 const STYLE_OPS = new Set(["set_theme", "apply_style", "set_custom_styles", "add_custom_style", "set_style_rules", "set_style_layout", "set_palette", "set_custom_palette", "set_dynamic_color"]);
-const DATA_OPS = new Set(["add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop"]);
+const DATA_OPS = new Set(["add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode"]);
 /** what takes away something the author made: a client asks the author first */
-export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "set_custom_styles", "remove_icon"]);
+export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon"]);
 
 const groupOf = (name: string): ToolGroup => (STYLE_OPS.has(name) ? "style" : DATA_OPS.has(name) ? "data" : "edit");
 
@@ -25,7 +25,7 @@ const MORE: Record<string, string> = {
     "Compose with nested boxes the way Figma's auto layout does: a box's props set surface, layout (row, column, grid), gap, padding, align, justify and its size; children are laid out in order. Give ids to the nodes later calls name. Text hugs its words in a row and wraps at the column's width in a column with align stretch. To keep it as a reusable component, follow it with make_component {ids: [root id]}. Returns {itemId: the root, groupId, parts}.",
   add_kit: "Prefer a kit over composing the same by hand. Returns {itemId, groupId}; the kit's root box is itemId.",
   add_screen: "Returns {id}.",
-  set_item: "To change words, icons and other props use set_props; set_item is for fill, textColor, corners, look, note, taps and the auto layout fields.",
+  set_item: "To change words, icons and other props use set_props; set_item is for fill, textColor, corners, look, note, taps, constraints ({h, v}: what a part in a box with no auto layout keeps when the box changes size) and the auto layout fields.",
   set_props: "describe_part (or describe_node) lists a part's props and the values they take.",
   set_layout: "Only a container (a box, or a part that holds parts) has a layout.",
   apply_style: "On a document held to its rules, what the style decides (corners, a button's shape, most looks) is removed from every part.",
@@ -34,6 +34,17 @@ const MORE: Record<string, string> = {
   remove_nodes: "A container's children are not removed with it: remove them too when the whole block should go.",
   set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here.',
   wrap_in_auto_layout: "Returns {itemId}: the new outer box.",
+  add_variant: "Returns {id, set}. Variants are whole components: edit one by its id like any other. An instance picks one with swap_instance.",
+  update_component_set: "The set's id is a variant's `set` (list_components). Renaming a value keeps the variants that had it.",
+  set_variant_values: "Each variant of a set should have a different combination of values.",
+  swap_instance: "To change an instance's variant, swap it to the variant with the values wanted (list_components lists each variant's values).",
+  set_component_prop: "Returns {id}. Text targets are what set_overrides takes as keys; instances then set the words with set_instance_props.",
+  set_instance_props: "Keys may be the property's name. Overrides by hand (set_overrides) still win over a text property.",
+  reset_overrides: "Leaves the instance exactly as its component is.",
+  add_var_collection: "Returns {id, modes}. For light and dark colors: a collection with modes Light and Dark, color variables with a value in each, then update_var_collection {dark: the Dark mode's id} so dark mode shows it.",
+  update_var_collection: "Give every mode that stays its id, or its values go.",
+  set_var_mode: "A screen's own choice wins over the document's; list_data lists the collections and their modes.",
+  bind_prop: "A fill bound to a color variable shows its value in the mode on show; to drive a switch's checked prop by a bool variable, bind it and toggle the variable with set_action.",
   split_into_atoms: "Returns {rootItemId}.",
 };
 

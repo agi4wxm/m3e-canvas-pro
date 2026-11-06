@@ -130,7 +130,7 @@ export function changedIds(prev: CoreState, next: CoreState): string[] {
 const crossesDoc = (prev: CoreState, next: CoreState) => {
   if (prev.doc === next.doc) return false;
   for (const k of new Set([...Object.keys(prev.doc), ...Object.keys(next.doc)])) {
-    if (k === "groups" || k === "frames" || k === "components" || k === "collections") continue;
+    if (k === "groups" || k === "frames" || k === "components" || k === "componentSets" || k === "collections") continue;
     if ((prev.doc as Record<string, unknown>)[k] !== (next.doc as Record<string, unknown>)[k]) return true;
   }
   return false;
@@ -451,8 +451,15 @@ export class DocStore {
     const was = s.doc.components?.find((c) => c.id === editing.id);
     const done = was && definitionFrom(was, s.doc.groups, s.session.widths);
     /* its name, or the data, may have changed from the tabs while it was open, as much as its parts */
-    const rest = (list: ComponentDef[] | undefined) => JSON.stringify(list?.map((c) => (c.id === editing.id ? { id: c.id, name: c.name } : c)));
-    const changed = !!stash && !!was && !!done && (JSON.stringify(done.groups) !== JSON.stringify(was.groups) || rest(s.doc.components) !== rest(stash.before.components) || JSON.stringify(s.doc.collections) !== JSON.stringify(stash.before.collections));
+    const rest = (list: ComponentDef[] | undefined) => JSON.stringify(list?.map((c) => (c.id === editing.id ? { id: c.id, name: c.name, props: c.props, set: c.set, variant: c.variant } : c)));
+    const changed =
+      !!stash &&
+      !!was &&
+      !!done &&
+      (JSON.stringify(done.groups) !== JSON.stringify(was.groups) ||
+        rest(s.doc.components) !== rest(stash.before.components) ||
+        JSON.stringify(s.doc.componentSets) !== JSON.stringify(stash.before.componentSets) ||
+        JSON.stringify(s.doc.collections) !== JSON.stringify(stash.before.collections));
     const components = done ? s.doc.components?.map((c) => (c.id === editing.id ? done : c)) : s.doc.components;
     this.state = {
       ...s,

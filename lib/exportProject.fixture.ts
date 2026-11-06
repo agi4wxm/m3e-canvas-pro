@@ -262,3 +262,65 @@ export function sweepDoc(): { doc: Doc; widths: Record<string, number>; pickers:
   const doc: Doc = { groups, frames, paletteKey: "indigo", frame: "phone", title: "Sweep", brief: "", theme: { dark: true, bothModes: false, contrast: "high", shape: "square", font: "robotoFlex", emphasized: false, motion: "standard" } };
   return { doc, widths: defaultMeasures(groups), pickers, overlays };
 }
+
+/** What the editor builds the way Figma does, in one document: a set of variants with an instance of each, a component's
+ *  properties set on an instance, variables in a light and a dark mode bound to a fill and an opacity (one screen pinned
+ *  to the dark mode, the rest following the app's own), a prototype with an overlay, a hover, a timed interaction and
+ *  their animations, a flow, and a part with constraints in a box with no auto layout. */
+export function systemsDoc(): { doc: Doc; widths: Record<string, number> } {
+  const HOME = "s-home";
+  const DARK = "s-dark";
+  const SHEET = "s-sheet";
+  const x = (i: number) => i * (PHONE_W + FRAME_GAP);
+  const plain = (id: string, gx: number, gy: number, item: Item, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", items: [item], ...more });
+  const variant = (id: string, state: string, label: string): ComponentDef => ({
+    id,
+    name: `State=${state}`,
+    set: "set-button",
+    variant: { State: state },
+    w: 200,
+    h: 96,
+    groups: [plain("cg-b", 0, 0, part("cb", "button", { label, icon: "", variant: state === "Rest" ? "filled" : "tonal", width: 160 })), plain("cg-t", 0, 56, text("ct", "Caption"))],
+    props: [
+      { id: "p-label", name: "Label", type: "text", value: label, targets: ["cb/label"] },
+      { id: "p-caption", name: "Caption", type: "bool", value: true, targets: ["cg-t"] },
+    ],
+  });
+  const components = [variant("c-rest", "Rest", "Rest"), variant("c-down", "Down", "Down")];
+  const instance = (id: string, of: string, gx: number, gy: number, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", instanceOf: of, ...more, items: [part(`${id}-part`, "container", { label: "", fill: "none", border: "none", radius: 0, width: 200, height: 96 })] });
+  const tinted = (id: string, gx: number, gy: number): Group => plain(id, gx, gy, part(`${id}-p`, "box", { surface: "card", layout: "free", width: 200, height: 80 }, { bind: { "@fill": "v-brand", "@opacity": "v-fade" } }));
+  const groups: Group[] = [
+    instance("i-rest", "c-rest", x(0) + 16, 40, { properties: { "p-label": "Buy" } }),
+    instance("i-down", "c-down", x(0) + 16, 150, { properties: { "p-caption": false } }),
+    tinted("tint-home", x(0) + 16, 260),
+    plain("pin", x(0) + 156, 270, part("pin-p", "icon", { name: "star" }, { constraints: { h: "right", v: "center" } })),
+    plain("open", x(0) + 16, 380, button("open-b", "Open sheet", { to: SHEET, transition: "slideUp", overlay: true, motion: { kind: "push", dir: "up", easing: "inOut", ms: 300 } })),
+    plain("hover", x(0) + 16, 440, button("hover-b", "Hover me", { to: DARK, transition: "fade", trigger: { on: "hover" }, motion: { kind: "dissolve", ms: 200 } })),
+    tinted("tint-dark", x(1) + 16, 40),
+    plain("dark-back", x(1) + 16, 160, button("dark-back-b", "Back", { to: "back", transition: "slide" })),
+    plain("sheet-t", x(2) + 16, 40, text("sheet-tt", "A sheet"), {}),
+    plain("sheet-later", x(2) + 16, 100, button("sheet-later-b", "Closes itself", { to: "back", transition: "none", trigger: { on: "delay", ms: 1500 } })),
+  ];
+  const frames: Frame[] = [
+    { id: HOME, name: "Home", x: x(0), y: 0, flow: "Main" },
+    { id: DARK, name: "Dark", x: x(1), y: 0, varModes: { theme: "dark" } },
+    { id: SHEET, name: "Sheet", x: x(2), y: 0, w: 320, h: 240 },
+  ];
+  const doc: Doc = {
+    groups,
+    frames,
+    components,
+    componentSets: [{ id: "set-button", name: "Button", props: [{ name: "State", values: ["Rest", "Down"] }] }],
+    vars: [
+      { id: "v-brand", name: "brand", type: "color", value: "#ffd8e4", collection: "theme", modes: { dark: "#4a2532" } },
+      { id: "v-fade", name: "fade", type: "number", value: 100, collection: "theme", modes: { dark: 70 } },
+      { id: "v-count", name: "count", type: "number", value: 0 },
+    ],
+    varCollections: [{ id: "theme", name: "Theme", modes: [{ id: "light", name: "Light" }, { id: "dark", name: "Dark" }], dark: "dark" }],
+    paletteKey: "purple",
+    frame: "phone",
+    title: "Systems app",
+    brief: "",
+  };
+  return { doc, widths: defaultMeasures([...groups, ...components.flatMap((c) => c.groups)]) };
+}

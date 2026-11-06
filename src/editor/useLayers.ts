@@ -62,7 +62,17 @@ export function useLayers({ store, frame, primaryId, groups, frames, widths, fra
   /** a layer taken to another place in the tree by a drag of its row */
   const moveLayerTo = (id: string, parent: string | null, index: number) => {
     const before = store.get().doc.groups;
-    if (!didOp(moveLayer, { id, parent, index }, { history: "step", label: "Move layer" })) return;
+    /* a row dragged out of a selection of several takes the others along, in the order they stand, one after another */
+    const sel = new Set(store.get().session.selection);
+    const dragged = before.find((g) => g.id === id);
+    const moving = dragged && dragged.items.some((it) => sel.has(it.id)) ? before.filter((g) => g.id !== parent && g.items.some((it) => sel.has(it.id))) : [];
+    if (moving.length > 1) {
+      try {
+        store.transact("Move layers", "user", (tx) => moving.forEach((g, i) => tx.run(moveLayer, { id: g.id, parent, index: index + i })), { history: "step" });
+      } catch {
+        return;
+      }
+    } else if (!didOp(moveLayer, { id, parent, index }, { history: "step", label: "Move layer" })) return;
     for (const g of store.get().doc.groups) if (!before.includes(g)) instantRef.current.add(g.id);
   };
 

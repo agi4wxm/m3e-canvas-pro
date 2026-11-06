@@ -34,7 +34,8 @@ import {
 } from "./ui";
 import { AiHooks, FrameSizePicker } from "./Inspector";
 import { AiIconBtn, Num, PartTabs, Tab } from "./PartPanel";
-import { VariablesSection } from "./EffectsPanel";
+import { ScreenModes } from "./VariablesPanel";
+import { FlowStartSection } from "./Interaction";
 import { VariantSection } from "./ReusePanels";
 import { COLOR_TOKEN_TEXT, t, useLang } from "@/lib/i18n";
 import { maxFrameLength } from "@/lib/tidy";
@@ -189,7 +190,10 @@ export function FrameInspector({
   onResize,
   onPhoneModel,
   variants,
+  flowCount = 0,
 }: {
+  /** how many screens a flow starts at, to name the next one */
+  flowCount?: number;
   frame: Frame;
   palette: Palette;
   onChange: (patch: Partial<Frame>) => void;
@@ -466,7 +470,8 @@ export function FrameInspector({
             }
           />
         </Section>
-        <VariablesSection p={p} />
+        <FlowStartSection frame={frame} flowCount={flowCount} onChange={onChange} p={p} />
+        <ScreenModes frame={frame} p={p} />
       </div>
       <Section
         id="frame-export"

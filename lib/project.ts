@@ -3,7 +3,10 @@ import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
-import { COLOR_TOKENS, Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { fitsType, startValueOf } from "./variables";
+import { cleanMotion, cleanTrigger } from "./prototype";
+import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
+import { COLOR_TOKENS, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -103,8 +106,10 @@ function cleaned<T extends Record<string, unknown>>(value: T, fields: Record<str
 }
 
 const cleanEffects = (list: unknown) => (Array.isArray(list) ? list.map(cleanEffect).filter((e) => e !== undefined) : undefined);
-const cleanBody = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects }) : undefined);
-const cleanAction = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, when: cleanCondition, else: cleanBody }) : undefined);
+/* what a prototype adds to a tap: an overlay, a part to scroll to, a motion, a trigger (lib/prototype.ts) */
+const PROTOTYPE = { overlay: (v: unknown) => (typeof v === "boolean" ? v : undefined), scrollTo: (v: unknown) => (typeof v === "string" ? v : undefined), motion: cleanMotion };
+const cleanBody = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, ...PROTOTYPE }) : undefined);
+const cleanAction = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, when: cleanCondition, else: cleanBody, trigger: cleanTrigger, ...PROTOTYPE }) : undefined);
 
 const cleanActions = (map: unknown) => {
   if (!isRecord(map)) return undefined;
@@ -123,14 +128,42 @@ function onlyOneDark(vars: DocVar[]): DocVar[] {
 }
 
 function cleanVar(v: unknown): DocVar | undefined {
-  if (!isRecord(v) || typeof v.id !== "string" || (v.type !== "text" && v.type !== "number" && v.type !== "bool")) return undefined;
-  const fallback = v.type === "text" ? "" : v.type === "number" ? 0 : false;
+  if (!isRecord(v) || typeof v.id !== "string" || (v.type !== "text" && v.type !== "number" && v.type !== "bool" && v.type !== "color")) return undefined;
+  const type = v.type;
+  const fallback = startValueOf(type);
   /* a start value of another type keeps the variable and loses the value */
-  const value = typeof v.value === typeof fallback && isValue(v.value) ? v.value : fallback;
-  return { id: v.id, name: typeof v.name === "string" ? v.name : "", type: v.type, value, ...(v.drives === "dark" && v.type === "bool" ? { drives: "dark" as const } : {}) };
+  const value = fitsType(v.value, type) ? v.value : fallback;
+  const modes = isRecord(v.modes) ? (Object.fromEntries(Object.entries(v.modes).filter(([, x]) => fitsType(x, type))) as Record<string, VarValue>) : undefined;
+  return {
+    id: v.id,
+    name: typeof v.name === "string" ? v.name : "",
+    type,
+    value,
+    ...(v.drives === "dark" && type === "bool" ? { drives: "dark" as const } : {}),
+    ...(typeof v.collection === "string" ? { collection: v.collection } : {}),
+    ...(modes && Object.keys(modes).length ? { modes } : {}),
+  };
 }
 
-const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, look: cleanLook, fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined), row: () => undefined }) as unknown as Item;
+/** a collection of variables, with modes that each have an id; one of no modes is given one */
+function cleanVarCollection(c: unknown): VarCollection | undefined {
+  if (!isRecord(c) || typeof c.id !== "string") return undefined;
+  const modes = Array.isArray(c.modes) ? c.modes.flatMap((m) => (isRecord(m) && typeof m.id === "string" ? [{ id: m.id, name: typeof m.name === "string" ? m.name : "" }] : [])) : [];
+  if (!modes.length) modes.push({ id: "default", name: "" });
+  return { id: c.id, name: typeof c.name === "string" ? c.name : "", modes, ...(typeof c.dark === "string" && modes.some((m) => m.id === c.dark) ? { dark: c.dark } : {}) };
+}
+
+const cleanModes = (map: unknown) => (isRecord(map) ? (Object.fromEntries(Object.entries(map).filter(([, v]) => typeof v === "string")) as Record<string, string>) : undefined);
+
+/** a part's constraints in a box, whichever of the two are of the right kind */
+function cleanConstraints(v: unknown) {
+  if (!isRecord(v)) return undefined;
+  const h = H_CONSTRAINTS.includes(v.h as never) ? (v.h as (typeof H_CONSTRAINTS)[number]) : undefined;
+  const vv = V_CONSTRAINTS.includes(v.v as never) ? (v.v as (typeof V_CONSTRAINTS)[number]) : undefined;
+  return h || vv ? { ...(h ? { h } : {}), ...(vv ? { v: vv } : {}) } : undefined;
+}
+
+const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, look: cleanLook, fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined), row: () => undefined, constraints: cleanConstraints }) as unknown as Item;
 
 const cleanOverrides = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => isValue(v))) : undefined);
 
@@ -155,6 +188,7 @@ const cleanGroup = (g: Group) =>
       pane: (v) => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : undefined),
       instanceOf: (v) => (typeof v === "string" ? v : undefined),
       overrides: cleanOverrides,
+      properties: cleanOverrides,
       repeat: cleanRepeat,
       kit: cleanKit,
       expandedFrom: () => undefined,
@@ -171,6 +205,8 @@ const cleanFrame = (f: Frame) =>
     deviceBars: (v) => (typeof v === "boolean" ? v : undefined),
     backgroundImage: (v) => (typeof v === "string" && v ? v : undefined),
     backgroundOpacity: (v) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined),
+    varModes: cleanModes,
+    flow: (v) => (typeof v === "string" ? v : undefined),
   }) as unknown as Frame;
 
 /** A scheme of the author's own: colors, and only colors, since every one of them is painted with and printed.
@@ -185,12 +221,42 @@ function cleanPalette(p: unknown): Palette | undefined {
   return p as unknown as Palette;
 }
 
+/** a property of a component, whole or not at all */
+function cleanComponentProp(p: unknown): ComponentProp | undefined {
+  if (!isRecord(p) || typeof p.id !== "string" || (p.type !== "text" && p.type !== "bool" && p.type !== "swap") || !Array.isArray(p.targets)) return undefined;
+  const fallback = p.type === "bool" ? true : "";
+  const value = p.type === "bool" ? (typeof p.value === "boolean" ? p.value : fallback) : typeof p.value === "string" ? p.value : fallback;
+  return { id: p.id, name: typeof p.name === "string" ? p.name : "", type: p.type, value, targets: p.targets.filter((t): t is string => typeof t === "string") };
+}
+
+const cleanStrings = (map: unknown): Record<string, string> | undefined => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => typeof v === "string")) as Record<string, string> : undefined);
+
 /** one definition, or nothing when it has no id to be called by. Its groups go through the same checks as a screen's. */
 function cleanComponent(c: unknown): ComponentDef | undefined {
   if (!isRecord(c) || typeof c.id !== "string") return undefined;
   const groups = Array.isArray(c.groups) ? c.groups.filter(validGroup).map((g) => cleanGroup(g as Group)) : [];
   const size = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 40);
-  return { id: c.id, name: typeof c.name === "string" ? c.name : "", groups, w: size(c.w), h: size(c.h) };
+  const props = Array.isArray(c.props) ? c.props.map(cleanComponentProp).filter((p) => p !== undefined) : [];
+  const variant = cleanStrings(c.variant);
+  return {
+    id: c.id,
+    name: typeof c.name === "string" ? c.name : "",
+    groups,
+    w: size(c.w),
+    h: size(c.h),
+    ...(typeof c.set === "string" ? { set: c.set } : {}),
+    ...(variant ? { variant } : {}),
+    ...(props.length ? { props } : {}),
+  };
+}
+
+/** a set of variants: its properties and their values, as words */
+function cleanComponentSet(c: unknown): ComponentSet | undefined {
+  if (!isRecord(c) || typeof c.id !== "string") return undefined;
+  const props = Array.isArray(c.props)
+    ? c.props.flatMap((p) => (isRecord(p) && typeof p.name === "string" && Array.isArray(p.values) ? [{ name: p.name, values: p.values.filter((v): v is string => typeof v === "string") }] : []))
+    : [];
+  return { id: c.id, name: typeof c.name === "string" ? c.name : "", props };
 }
 
 /** one collection, or nothing when it has no id. A cell of another kind is read as words where it can be; a row that is no row goes. */
@@ -234,6 +300,10 @@ export function cleanBehavior(doc: Doc): Doc {
     if (Array.isArray(out.collections)) out.collections = out.collections.map(cleanCollection).filter((c) => c !== undefined);
     else delete out.collections;
   }
+  if (out.componentSets !== undefined) {
+    if (Array.isArray(out.componentSets)) out.componentSets = out.componentSets.map(cleanComponentSet).filter((c) => c !== undefined);
+    else delete out.componentSets;
+  }
   /* a style of the document's own is validated as any style that comes from outside: what it says that a style may
      not is left out, and one that is no style goes. The theme naming one that is gone wears Material, as it does a
      built-in key this version does not know */
@@ -241,6 +311,15 @@ export function cleanBehavior(doc: Doc): Doc {
     const styles = cleanStyles(out.styles);
     if (styles) out.styles = styles;
     else delete out.styles;
+  }
+  if (out.varCollections !== undefined) {
+    if (Array.isArray(out.varCollections)) out.varCollections = out.varCollections.map(cleanVarCollection).filter((c) => c !== undefined);
+    else delete out.varCollections;
+  }
+  if (out.varModes !== undefined) {
+    const modes = cleanModes(out.varModes);
+    if (modes) out.varModes = modes;
+    else delete out.varModes;
   }
   /* the document's own icons are drawings, held to what the vector atom keeps; one that is not goes */
   if (out.icons !== undefined) {

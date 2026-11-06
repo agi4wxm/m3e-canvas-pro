@@ -1,9 +1,7 @@
 
 import {
-  ComponentDef,
   Frame,
   FramePreset,
-  Group,
   Item,
   Palette,
   TRANSITIONS,
@@ -12,7 +10,7 @@ import {
 } from "@/lib/tokens";
 import { ComponentInspector } from "./ComponentInspector";
 import { InstanceInspector } from "./ReusePanels";
-import { AlignBox, PartMenu, PlaceFn } from "./PartPanel";
+import { AlignBox, PartMenu, PlaceFn, type Tab } from "./PartPanel";
 import { MultiDesign, actionBtn, type Shared } from "./DesignPanel";
 import type { AlignHow } from "@/lib/align";
 import type { Flow } from "@/lib/flow";
@@ -153,7 +151,7 @@ function GroupPanel({
             {t("makeComponent", lang)}
           </button>
         )}
-        {onAutoLayout && !grouped && (
+        {onAutoLayout && (
           <button
             onClick={onAutoLayout}
             data-suggest-layout
@@ -213,6 +211,8 @@ export function Inspector({
   onEach,
   onExport,
   strict,
+  partTab,
+  onPartTab,
 }: {
   /** the AI button beside the behavior field */
   ai: AiHooks;
@@ -267,8 +267,11 @@ export function Inspector({
   onExport?: (scale: number) => void;
   /** the document is held to its style's rules */
   strict?: boolean;
+  /** the tab a part's panel shows, kept by the editor: the canvas offers to connect while it is the Prototype one */
+  partTab?: Tab;
+  onPartTab?: (tab: Tab) => void;
   /** the selection is one instance of a component, which has a panel of its own */
-  instance?: { group: Group; def: ComponentDef; components: ComponentDef[]; onEdit: () => void; onDetach: () => void; onOverrides: (overrides: Group["overrides"]) => void } | null;
+  instance?: Omit<React.ComponentProps<typeof InstanceInspector>, "palette" | "locked" | "inFlow" | "onToggleLock" | "onDuplicate" | "onDelete" | "onPlace" | "selectionKey"> | null;
 }) {
   if (item && instance) {
     return <InstanceInspector {...instance} palette={p} locked={!!locked} inFlow={!!inFlow} onToggleLock={onToggleLock} onDuplicate={onDuplicate} onDelete={onDelete} onPlace={onPlace} selectionKey={selectionKey ?? ""} />;
@@ -334,8 +337,11 @@ export function Inspector({
       flowParent={flowParent}
       onMoveTo={onMoveTo}
       onMakeComponent={onMakeComponent}
+      onAutoLayout={onAutoLayout}
       onSplit={onSplit}
       onExport={onExport}
+      tab={partTab}
+      onTab={onPartTab}
     />
   );
 }

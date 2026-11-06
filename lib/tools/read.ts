@@ -358,14 +358,20 @@ const listComponents = tool<Record<string, never>>({
   name: "list_components",
   group: "read",
   description:
-    "The document's reusable components: id, name, size, the parts in their definition (id:slug \"words\"), the keys an instance overrides them by (overrideKeys: `partId/prop = the definition's value`, switches) and how many instances there are. add_instance places one; set_overrides {id: instance, key, value} changes an instance's words, icons or pictures.",
+    "The document's reusable components: id, name, size, the parts in their definition (id:slug \"words\"), the keys an instance overrides them by (overrideKeys: `partId/prop = the definition's value`, switches), how many instances there are, the set each variant belongs to with its values, and each component's properties. add_instance places one; set_overrides {id: instance, key, value} changes an instance's words, icons or pictures; swap_instance picks another variant; set_instance_props sets its properties.",
   input: obj({}),
   readOnly: true,
   destructive: false,
   run(_a, env) {
     const s = env.store.get();
     const groups = s.editing ? s.editing.main.groups : s.doc.groups;
-    return { result: (s.doc.components ?? []).map((c) => componentOf(s.doc as Doc, c, groups.filter((g) => g.instanceOf === c.id).length)) };
+    return {
+      result: (s.doc.components ?? []).map((c) => ({
+        ...componentOf(s.doc as Doc, c, groups.filter((g) => g.instanceOf === c.id).length),
+        ...(c.set ? { set: c.set, setName: s.doc.componentSets?.find((x) => x.id === c.set)?.name, variant: c.variant } : {}),
+        ...(c.props?.length ? { props: c.props } : {}),
+      })),
+    };
   },
 });
 

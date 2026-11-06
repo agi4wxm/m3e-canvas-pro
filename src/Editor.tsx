@@ -20,6 +20,7 @@ import {
   FrameMode,
   frameOfPart,
   frameRadius,
+  heldBy,
   frameSizeOf,
   frameLengthOf,
   Group,
@@ -45,6 +46,9 @@ import { DeviceBars } from "@/components/DeviceBars";
 import { Icon } from "@/components/Icon";
 import { ComponentNode } from "@/components/ComponentNode";
 import { PartView } from "@/components/PartView";
+import { BoundValues } from "@/components/boundValues";
+import { collectionsOf, varValues } from "@/lib/variables";
+import { holdsFreely } from "@/lib/constraints";
 import { SizeHandles } from "@/components/SizeHandles";
 import { LayersPanel } from "@/components/Layers";
 import { FrameSizePicker, Inspector } from "@/components/Inspector";
@@ -72,6 +76,7 @@ import { expandDoc } from "@/lib/expand";
 import { repeatAround } from "@/lib/collections";
 import { familyOf, missingSizes } from "@/lib/variants";
 import { ComponentsPanel, DataPanel, InstanceInspector, sizeWord } from "@/components/ReusePanels";
+import { VariablesPanel, type VariablesApi } from "@/components/VariablesPanel";
 import { sharedOf } from "@/components/DesignPanel";
 import { Behavior, BehaviorContext, StyleRulesContext } from "@/components/EffectsPanel";
 import { readProject } from "@/lib/project";
@@ -122,6 +127,12 @@ import { useLayers } from "./editor/useLayers";
 import { useCanvasSelect } from "./editor/useCanvasSelect";
 import { itemsUnder, pickTarget, type LayerTree } from "@/lib/layerTree";
 import { useLinks } from "./editor/useLinks";
+import { linkAction, useConnect } from "./editor/useConnect";
+import { useTextEdit } from "./editor/useTextEdit";
+import { menuEntries, useContextMenu } from "./editor/useContextMenu";
+import { ContextMenu } from "@/components/ContextMenu";
+import { TextEditor } from "@/components/TextEditor";
+import { ConnectionBox } from "@/components/Interaction";
 import { useScreenLength } from "./editor/useScreenLength";
 import { useCanvasView } from "./editor/useCanvasView";
 import { useSelection } from "./editor/useSelection";
@@ -453,7 +464,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const { buildKit, landKit, addKit, addKitRef, splitSelected, addPart, addInstance, addPartRef, addInstanceRef } = useAdding({ store, runOp, showToast, selectedIds, selectedFrameId, canvasRect, viewRef, frameRef, framesRef, groupsRef, widthsRef, mobileRef, defEditRef, componentsRef, itemRects, setRightTab, setSheet });
 
   /* a lone part's size handles, pulled or stepped (src/editor/useSizeHandles.ts) */
-  const { widthDragId, widthShift, resizeGuide, onWidthHandleDown, nudgeSize } = useSizeHandles({ snapshot, setGroups, instantRef, viewRef, widthsRef, targetsFor, endGuides, patchSelected: (patch) => patchSelected(patch) });
+  const { widthDragId, widthShift, resizeGuide, onWidthHandleDown, nudgeSize } = useSizeHandles({ snapshot, setGroups, instantRef, viewRef, widthsRef, targetsFor, endGuides, patchSelected: (patch) => patchSelected(patch), groupsRef });
 
   /* ---------- pointer: canvas (pan / marquee) ---------- */
 
@@ -474,7 +485,13 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   }, selectionNow: () => store.get().session.selection });
   /* a part carried: out of its run, or new from the palette, the Components tab or a kit (src/editor/usePartDrag.ts) */
   /* selecting on the canvas by the layers tree: in context, in and out, siblings, the hover outline (src/editor/useCanvasSelect.ts) */
-  const { pickFor, onCanvasDoubleClick, enterChildren, selectParent, selectSibling, onCanvasPointerMove, onCanvasPointerLeave, hoverBox: pickHoverBox } = useCanvasSelect({ store, layersRef, groupsRef, itemRects, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab, busy: () => !!dragRef.current || !!gestureRef.current, mobileRef });
+  const { pickFor, onCanvasDoubleClick, enterChildren, selectParent, selectSibling, onCanvasPointerMove, onCanvasPointerLeave, hoverBox: pickHoverBox } = useCanvasSelect({ store, layersRef, groupsRef, itemRects, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab, busy: () => !!dragRef.current || !!gestureRef.current, mobileRef, onEditText: (id) => startTextEditRef.current(id) });
+  /* words edited where they stand (src/editor/useTextEdit.ts) */
+  const { textEdit, startTextEdit, commitTextEdit, cancelTextEdit } = useTextEdit({ store, runOp, itemRects });
+  const startTextEditRef = useRef(startTextEdit);
+  startTextEditRef.current = startTextEdit;
+  /* the canvas's right-click menu (src/editor/useContextMenu.ts) */
+  const { menuAt, openMenu, closeMenu } = useContextMenu({ store, layersRef, setSelectedIds, setSelectedFrameId });
   const { drag, setDrag, pressedId, setPressedId, sx, sy, onItemPointerDown, onPartPointerDown, onComponentPointerDown, onKitPointerDown } = usePartDrag({
     dragRef,
     gestureRef,
@@ -511,6 +528,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     addInstance: (id) => addInstanceRef.current(id),
     addKit: (slug, variant) => addKitRef.current(slug, variant),
     pickFor,
+    selectionNow: () => store.get().session.selection,
   });
 
   const carrying = gesture !== null || !!drag;
@@ -581,7 +599,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   });
 
   /* a definition opened on the canvas and closed again, and what else is done to components (src/editor/useDefinitions.ts) */
-  const { editDefinition, finishDefinition, finishDefinitionRef, renameComponent, deleteComponent, detachGroup, componentUses } = useDefinitions({ store, runOp, defEdit, groups, components, mobileRef, viewRef, setView, fitRef, frameRef, tidyRef, setSelectedLinkId });
+  const { editDefinition, finishDefinition, finishDefinitionRef, renameComponent, deleteComponent, detachGroup, componentUses, goToMain, fromInstance, componentsApi } = useDefinitions({ store, runOp, defEdit, groups, components, mobileRef, viewRef, setView, fitRef, frameRef, tidyRef, setSelectedLinkId });
 
   const clearAll = () => {
     setConfirmClear(false);
@@ -610,13 +628,18 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
       group,
       def,
       components,
-      onEdit: () => editDefinition(def.id),
+      sets: core.doc.componentSets ?? [],
+      hostId: defEdit?.id ?? null,
+      onEdit: () => goToMain(group.id, def.id),
       onDetach: () => detachGroup(group.id),
       onOverrides: (overrides: Group["overrides"]) => runOp(ops.setOverrides, { id: group.id, overrides: overrides ?? null }, { history: { coalesce: `overrides:${group.id}` } }),
+      onSwap: (component: string) => runOp(ops.swapInstance, { id: group.id, component }, { history: "step" }),
+      onProps: (values: Record<string, string | number | boolean | null>) => runOp(ops.setInstanceProps, { id: group.id, values }, { history: { coalesce: `properties:${group.id}:${Object.keys(values).join(",")}` } }),
+      onReset: () => runOp(ops.resetOverrides, { id: group.id }, { history: "step" }),
     };
     // the panel's handlers read the refs; only what it shows matters here
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, primaryId, groups, components]);
+  }, [selectedIds, primaryId, groups, components, core.doc.componentSets, defEdit]);
 
   /** what the layout keys do, read by the keyboard handler at the moment a key is pressed */
   const layoutKeysRef = useRef({ tidyUp: () => {}, tidyScreen: () => {}, autoLayout: () => {} });
@@ -729,6 +752,29 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   /** what the preview plays: everything drawn out. With a definition open, that definition alone. */
   const previewDoc = useMemo(() => (previewId === null ? doc : expandDoc(defEdit ? { ...doc, groups, frames } : doc, widths)), [previewId, doc, defEdit, groups, frames, widths]);
 
+  /** what the variables panel does, each change one operation and one step back */
+  const variablesApi: VariablesApi = {
+    addCollection: (name, modes) => runOp(ops.addVarCollection, { name, modes }),
+    updateCollection: (id, patch) => runOp(ops.updateVarCollection, { id, ...patch }, { history: { coalesce: `varcollection:${id}:${Object.keys(patch).join(",")}` } }),
+    removeCollection: (id) => runOp(ops.removeVarCollection, { id }),
+    addVar: (v) => runOp(ops.addVar, v),
+    updateVar: (id, patch) => runOp(ops.updateVar, { id, ...patch }, { history: { coalesce: `var:${id}:${Object.keys(patch).join(",")}` } }),
+    removeVar: (id) => runOp(ops.removeVar, { id }),
+    setMode: (collection, mode, screen) => runOp(ops.setVarMode, { collection, mode, ...(screen ? { screen } : {}) }),
+  };
+  /** what the variables are on each screen of the canvas, in the modes it shows (by screen id; "" off the screens) */
+  const screenValues = useMemo(() => {
+    const out = new Map<string, Record<string, string | number | boolean>>();
+    if (!vars?.length) return out;
+    const docMeta = { vars, varCollections: core.doc.varCollections, varModes: core.doc.varModes };
+    out.set("", varValues(docMeta, null, theme.dark));
+    for (const f of frames) out.set(f.id, varValues(docMeta, f, theme.dark));
+    return out;
+  }, [vars, core.doc.varCollections, core.doc.varModes, frames, theme.dark]);
+
+  /* the prototype drawn on the canvas: the handle that connects a part to a screen, and the box that edits a connection (src/editor/useConnect.ts) */
+  const { partTab, setPartTab, noodle, onHandleDown, setLinkActions } = useConnect({ store, runOp, toWorld, framesRef, setSelectedLinkId });
+
   /* the arrows from tappable parts to the screens they open (src/editor/useLinks.ts) */
   const { visibleLinks, setLinkTransition, removeLink } = useLinks({ frame, groups, frames, widths, itemRects, showAllLinks, selectedIds, selectedFrameId, selectedLinkId, setSelectedLinkId, runOp });
 
@@ -772,10 +818,15 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         if (!repeatHost) return;
         runOp(ops.setRepeat, { id: repeatHost.id, repeat: repeat ?? null }, { history: { coalesce: `${repeatHost.id}:repeat` } });
       },
+      varCollections: collectionsOf(core.doc),
+      setVarMode: variablesApi.setMode,
+      alignToParent: group && selectedIds.length === 1 ? (how) => runOp(ops.alignToParent, { id: primaryId!, how }, { history: "step", refused: () => {} }) : undefined,
+      inFreeBox: !!group && groups.some((h) => h.id !== group.id && holdsFreely(h) && heldBy(h, groups, widths).some((x) => x.id === group.id)),
+      bound: screenValues.get(screen?.id ?? "") ?? screenValues.get(""),
     };
     // the panels' handlers read the store; only what they show matters here
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vars, primaryId, groups, frames, widths, snapshotFor, collections, canPaint, paintingScene, aiSettings, lang]);
+  }, [vars, primaryId, groups, frames, widths, snapshotFor, collections, canPaint, paintingScene, aiSettings, lang, core.doc.varCollections, screenValues]);
 
   /* the same elements while nothing in them changes, so that a drag does not attach every ref again on each move */
   const measuringLayer = useMemo(
@@ -1085,6 +1136,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   <ComponentsPanel
                     p={p}
                     components={components ?? []}
+                    sets={core.doc.componentSets}
+                    api={componentsApi}
                     uses={componentUses}
                     editingId={defEdit?.id ?? null}
                     onPointerDown={onComponentPointerDown}
@@ -1093,6 +1146,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                     onRename={renameComponent}
                     onDelete={deleteComponent}
                   />
+                ) : leftTab === "variables" ? (
+                  <VariablesPanel p={p} doc={core.doc} api={variablesApi} />
                 ) : leftTab === "data" ? (
                   <DataPanel
                     p={p}
@@ -1231,6 +1286,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
             onPointerMove={isMobile ? undefined : onCanvasPointerMove}
             onPointerLeave={onCanvasPointerLeave}
             onDoubleClick={isMobile ? undefined : onCanvasDoubleClick}
+            onContextMenu={isMobile ? undefined : openMenu}
             style={{
               position: "absolute",
               inset: isMobile ? 6 : 8,
@@ -1304,6 +1360,13 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                             {sizeWord(f, lang)}
                           </span>
                         )}
+                        {/* a flow of the prototype starts here */}
+                        {typeof f.flow === "string" && !defEdit && (
+                          <span data-flow-badge title={t("prFlowStart", lang)} style={{ display: "inline-flex", alignItems: "center", gap: 2, padding: "2px 10px 2px 4px", borderRadius: 12, background: p.primary, color: p.onPrimary, fontSize: 14, fontWeight: 600 }}>
+                            <Icon name="play_arrow" size={18} />
+                            {f.flow || t("prFlowStart", lang)}
+                          </span>
+                        )}
                       </div>
                       <div
                         onPointerDown={(e) => onFramePointerDown(e, f)}
@@ -1342,9 +1405,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                         >
                           {/* a mockup to trace lies under everything, and takes no pointer */}
                           {f.backgroundImage && <img data-trace-image alt="" src={f.backgroundImage} draggable={false} style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "auto", opacity: f.backgroundOpacity ?? TRACE_OPACITY, pointerEvents: "none" }} />}
-                          {groups
-                            .filter((g) => frameOf.get(g.id) === f.id && !offTab.has(g.id))
-                            .map((g) => renderGroup(g, f.x, f.y, frameSizeOf(f)))}
+                          <BoundValues.Provider value={screenValues.get(f.id) ?? null}>
+                            {groups
+                              .filter((g) => frameOf.get(g.id) === f.id && !offTab.has(g.id))
+                              .map((g) => renderGroup(g, f.x, f.y, frameSizeOf(f)))}
+                          </BoundValues.Provider>
                           {f.deviceBars && takesDeviceBars(f) && <DeviceBars p={p} bg={f.bg ?? "surface"} height={fold} zIndex={3} />}
                           {/* where the device ends on a screen that runs further: below it, the body scrolls */}
                           {h > fold && (
@@ -1390,9 +1455,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   );
                 })}
 
-              {groups
-                .filter((g) => !frameOf.has(g.id) && !offTab.has(g.id))
-                .map((g) => renderGroup(g, 0, 0))}
+              <BoundValues.Provider value={screenValues.get("") ?? null}>
+                {groups
+                  .filter((g) => !frameOf.has(g.id) && !offTab.has(g.id))
+                  .map((g) => renderGroup(g, 0, 0))}
+              </BoundValues.Provider>
 
               {/* a lone button shows a handle on each of its four edges, and a lone icon button
                   four points around its circle: dragging one changes the part's size in place,
@@ -1449,6 +1516,31 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                 />
               )}
 
+              {/* while a part's Prototype tab is open, the handle on its right edge drags out a connection to a screen */}
+              {!handMode && !drag && !gesture && frame === "phone" && partTab === "behavior" && selectedIds.length === 1 && selected && selectedRect && !selectedLocked && (
+                <div
+                  data-connect-handle
+                  role="button"
+                  aria-label={t("prConnect", lang)}
+                  title={t("prConnect", lang)}
+                  onPointerDown={(e) => onHandleDown(e, selected.id, { x: selectedRect.x + selectedRect.w, y: selectedRect.y + selectedRect.h / 2 }, selectedPartFrame?.id)}
+                  style={{ position: "absolute", left: selectedRect.x + selectedRect.w, top: selectedRect.y + selectedRect.h / 2, width: 22, height: 22, transform: `translate(-50%, -50%) scale(${1 / view.z})`, borderRadius: 11, background: p.primary, color: p.onPrimary, border: `2px solid ${p.surface}`, display: "grid", placeItems: "center", cursor: "crosshair", zIndex: 72, boxShadow: "0 2px 6px rgba(0,0,0,0.24)" }}
+                >
+                  <Icon name="add" size={16} />
+                </div>
+              )}
+              {noodle && (
+                <svg aria-hidden data-noodle style={{ position: "absolute", left: 0, top: 0, overflow: "visible", pointerEvents: "none", zIndex: 71 }} width={1} height={1}>
+                  {(() => {
+                    const f = frames.find((x) => x.id === noodle.over);
+                    if (!f) return null;
+                    const r = frameRect(f);
+                    return <rect x={r.l - BEZEL} y={r.t - BEZEL} width={r.r - r.l + BEZEL * 2} height={r.b - r.t + BEZEL * 2} rx={frameRadius(f) + BEZEL} fill="none" stroke={p.primary} strokeWidth={3 / view.z} />;
+                  })()}
+                  <path d={`M${noodle.from.x} ${noodle.from.y} C${noodle.from.x + 80} ${noodle.from.y} ${noodle.to.x - 80} ${noodle.to.y} ${noodle.to.x} ${noodle.to.y}`} fill="none" stroke={p.primary} strokeWidth={2.5 / view.z} />
+                  <circle cx={noodle.to.x} cy={noodle.to.y} r={5 / view.z} fill={p.primary} />
+                </svg>
+              )}
               {visibleLinks.length > 0 && (
                 <svg
                   style={{
@@ -1513,42 +1605,24 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   <div
                     key={l.id}
                     onPointerDown={(e) => e.stopPropagation()}
+                    /* the box edits the connection where it is drawn, the size it would be at 100% */
                     style={{
                       position: "absolute",
                       left: l.mx,
                       top: l.my,
                       transform: `translate(-50%, 14px) scale(${1 / view.z})`,
                       transformOrigin: "50% 0",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      padding: 6,
-                      borderRadius: 26,
-                      background: p.surfaceContainerLow,
-                      boxShadow: "0 4px 16px rgba(0,0,0,0.16)",
                       zIndex: 60,
                     }}
                   >
-                    <Segmented<Transition>
-                      options={TRANSITIONS.map((t) => ({
-                        key: t.key,
-                        icon: t.icon,
-                        title: t.label,
-                      }))}
-                      value={l.t}
-                      onChange={(t) => setLinkTransition(l.id, t)}
-                      p={p}
-                      height={36}
-                      grow={false}
-                    />
-                    <IconBtn
-                      icon="link_off"
-                      p={p}
-                      danger
-                      onClick={() => removeLink(l.id)}
-                      title={t("removeLink", lang)}
-                      size={36}
-                    />
+                    {(() => {
+                      const a = linkAction(groups, l.id);
+                      return a ? (
+                        <ConnectionBox action={a} frames={frames} onChange={(next) => setLinkActions(l.ids, next)} onRemove={() => removeLink(l.id)} p={p} />
+                      ) : (
+                        <Segmented<Transition> options={TRANSITIONS.map((x) => ({ key: x.key, icon: x.icon, title: x.label }))} value={l.t} onChange={(x) => setLinkTransition(l.id, x)} p={p} height={36} grow={false} />
+                      );
+                    })()}
                   </div>
                 ))}
 
@@ -1588,6 +1662,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
               {resizeGuide && <SmartGuides lines={resizeGuide.lines} gaps={resizeGuide.gaps} z={view.z} p={p} />}
               {measure && !guide && <SmartGuides lines={[]} gaps={measure.gaps} z={view.z} p={p} avoid={measure.avoid} />}
 
+              {textEdit && <TextEditor key={textEdit.itemId} edit={textEdit} onCommit={commitTextEdit} onCancel={cancelTextEdit} z={view.z} p={p} />}
               {hoverBox && !carrying && (
                 <div
                   aria-hidden
@@ -1649,8 +1724,9 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
               <span style={{ fontSize: 13, fontWeight: 600 }}>
                 {t("editingComponent", lang)}: {components?.find((c) => c.id === defEdit.id)?.name}
               </span>
-              <button onClick={finishDefinition} data-definition-done className="m3-press" style={{ height: 40, padding: "0 20px", borderRadius: 20, border: "none", background: p.primary, color: p.onPrimary, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                {t("doneEditing", lang)}
+              <button onClick={finishDefinition} data-definition-done data-back-to-instance={fromInstance ? "" : undefined} className="m3-press" style={{ height: 40, padding: "0 20px", borderRadius: 20, border: "none", background: p.primary, color: p.onPrimary, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {fromInstance && <Icon name="undo" size={18} />}
+                {t(fromInstance ? "cpBackToInstance" : "doneEditing", lang)}
               </button>
             </div>
           )}
@@ -1770,8 +1846,12 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                     group={selectedInstance.group}
                     def={selectedInstance.def}
                     components={selectedInstance.components}
+                    sets={selectedInstance.sets}
                     onDetach={selectedInstance.onDetach}
                     onOverrides={selectedInstance.onOverrides}
+                    onSwap={selectedInstance.onSwap}
+                    onProps={selectedInstance.onProps}
+                    onReset={selectedInstance.onReset}
                     palette={p}
                     locked={selectedLocked}
                     inFlow={selectedInFlow}
@@ -1976,6 +2056,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
               {rightTab === "edit" && selectedFrame && !selected ? (
                 <FrameInspector
                   frame={selectedFrame}
+                  flowCount={frames.filter((f) => typeof f.flow === "string").length}
                   palette={p}
                   onSize={(preset) => setFramePreset(selectedFrame.id, preset)}
                   onPhoneModel={setPhoneModel}
@@ -2050,6 +2131,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   onEach={setEachSelected}
                   onExport={selectedPartFrame ? exportSelected : undefined}
                   strict={isStrict(theme)}
+                  partTab={partTab}
+                  onPartTab={setPartTab}
                 />
               ) : (
                 <PromptPanel
@@ -2103,6 +2186,41 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         />
 
         <ShortcutsSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} p={p} />
+
+        <ContextMenu
+          at={menuAt}
+          onClose={closeMenu}
+          p={p}
+          entries={
+            menuAt
+              ? menuEntries(
+                  store,
+                  layersRef.current,
+                  {
+                    copy: copySelected,
+                    paste: pasteClipboard,
+                    canPaste: !!clipboardRef.current,
+                    duplicate: duplicateSelected,
+                    remove: deleteSelected,
+                    order: (to) => runOp(ops.zOrder, { ids: selectedIds, to }, { history: "step" }),
+                    group: groupSelected,
+                    ungroup: ungroupSelected,
+                    grouped: !!selectedGroup,
+                    autoLayout: autoLayoutSelected,
+                    makeComponent: makeComponentOfSelection,
+                    goToMain: selectedInstance?.onEdit,
+                    editText: (id) => void startTextEdit(id),
+                    selectAll: () => selectAllRef.current(),
+                    select: (ids) => {
+                      setSelectedIds(ids);
+                      setSelectedFrameId(null);
+                    },
+                  },
+                  lang,
+                )
+              : []
+          }
+        />
 
         <ConfirmDialog
           open={confirmClear}

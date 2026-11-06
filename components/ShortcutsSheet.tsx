@@ -36,6 +36,8 @@ const GROUPS: { title: UIKey; rows: Row[] }[] = [
       { keys: [MOD, "D"], what: "kbDuplicate" },
       { keys: ["Delete"], what: "kbDelete" },
       { keys: ["F2"], what: "kbRename" },
+      { keys: ["kbDoubleClick"], what: "kbEditText", or: ["Enter"] },
+      { keys: ["kbRightClick"], what: "kbContextMenu" },
       { keys: [MOD, "K"], what: "kbAskAi" },
     ],
   },

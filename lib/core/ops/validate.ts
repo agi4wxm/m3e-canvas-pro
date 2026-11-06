@@ -9,7 +9,9 @@ export type { PartDef };
 import { cleanLook } from "../../look";
 import { styleOwnsProp } from "../../styleRules";
 import { isStrict } from "../../styles";
-import { actionSlotsOf, BACK_TARGET, COLOR_TOKENS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
+import { actionSlotsOf, BACK_TARGET, COLOR_TOKENS, MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, transitionOf, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
+import { cleanMotion, cleanTrigger } from "../../prototype";
+import { H_CONSTRAINTS, V_CONSTRAINTS } from "../../constraints";
 import { OpError } from "../op";
 import { pictureError } from "../images";
 import { docIconId, docIconName, isDocIconName } from "../../docIcons";
@@ -136,6 +138,7 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
   flowMin: (v) => (v === undefined || isWH(v, (x) => typeof x === "number" && Number.isFinite(x) && x >= 0) ? null : "should be {w?, h?} in dp"),
   flowMax: (v) => (v === undefined || isWH(v, (x) => typeof x === "number" && Number.isFinite(x) && x >= 0) ? null : "should be {w?, h?} in dp"),
   flowSpan: (v) => (v === undefined || (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 12) ? null : "should be a whole number of columns from 1 to 12"),
+  constraints: (v) => (v === undefined || (isRecord(v) && Object.keys(v).every((k) => k === "h" || k === "v") && (v.h === undefined || H_CONSTRAINTS.includes(v.h as never)) && (v.v === undefined || V_CONSTRAINTS.includes(v.v as never))) ? null : `should be {h?: ${H_CONSTRAINTS.join("|")}, v?: ${V_CONSTRAINTS.join("|")}}`),
   action: (v, s) => (v === undefined ? null : actionError(v, s)),
   actions: (v, s, it) => {
     if (v === undefined) return null;
@@ -230,6 +233,9 @@ function bodyError(a: unknown, s: CoreState): string | null {
   if (to !== BACK_TARGET && to !== LINK_TARGET && to !== STAY_TARGET && !s.doc.frames.some((f) => f.id === to)) return `there is no screen ${JSON.stringify(to)}`;
   if (a.transition !== undefined && !TRANSITIONS.includes(a.transition as string)) return `transition should be one of ${TRANSITIONS.join(", ")}`;
   if (to === LINK_TARGET && (typeof a.url !== "string" || !/^https?:\/\//i.test(a.url))) return "a link needs an http(s) url";
+  if (a.overlay !== undefined && (typeof a.overlay !== "boolean" || (a.overlay && !s.doc.frames.some((f) => f.id === to)))) return "overlay is true or false, and only a screen opens as an overlay";
+  if (a.scrollTo !== undefined && (typeof a.scrollTo !== "string" || !s.doc.groups.some((g) => g.items.some((it) => it.id === a.scrollTo)))) return `there is no part ${JSON.stringify(a.scrollTo)} to scroll to`;
+  if (a.motion !== undefined && !cleanMotion(a.motion)) return `motion should be {kind: ${MOTION_KINDS.join("|")}, dir: ${MOTION_DIRS.join("|")}, easing: ${MOTION_EASINGS.join("|")}, ms}`;
   if (a.effects !== undefined) {
     if (!Array.isArray(a.effects)) return "effects should be a list";
     for (const [i, e] of a.effects.entries()) {
@@ -244,6 +250,7 @@ export function actionError(a: unknown, s: CoreState): string | null {
   const e = bodyError(a, s);
   if (e) return e;
   const r = a as Record<string, unknown>;
+  if (r.trigger !== undefined && !cleanTrigger(r.trigger)) return 'trigger should be {on: "hover"} or {on: "delay", ms}';
   if (r.when !== undefined) {
     const c = conditionError(r.when, s);
     if (c) return `when: ${c}`;
@@ -256,15 +263,24 @@ export function actionError(a: unknown, s: CoreState): string | null {
 }
 
 /** an action with its transition filled in */
-export const fullAction = (a: Action): Action => ({ ...a, transition: a.transition ?? "slide", ...(a.else ? { else: { ...a.else, transition: (a.else as ActionBody).transition ?? "slide" } } : {}) });
+export const fullAction = (a: Action): Action => {
+  const body = <B extends ActionBody>(b: B): B => ({ ...b, transition: b.transition ?? (b.motion ? transitionOf(b.motion) : "slide") });
+  return { ...body(a), ...(a.else ? { else: body(a.else as ActionBody) } : {}) };
+};
+
+const VALUE_WORDS = { text: "text", number: "a number", bool: "true or false", color: "a color (a role such as primary, or a hex such as #6750a4)" } as const;
 
 export function varError(v: unknown): string | null {
   if (!isRecord(v)) return "a variable should be {id, name, type, value}";
   if (typeof v.name !== "string" || !v.name.trim()) return "a variable needs a name";
-  if (v.type !== "text" && v.type !== "number" && v.type !== "bool") return 'type should be "text", "number" or "bool"';
-  const want = v.type === "text" ? "string" : v.type === "number" ? "number" : "boolean";
-  if (typeof v.value !== want) return `value should be ${v.type === "text" ? "text" : v.type === "number" ? "a number" : "true or false"} for a ${v.type} variable`;
+  if (v.type !== "text" && v.type !== "number" && v.type !== "bool" && v.type !== "color") return 'type should be "text", "number", "bool" or "color"';
+  if (!fitsType(v.value, v.type)) return `value should be ${VALUE_WORDS[v.type]} for a ${v.type} variable`;
+  if (v.modes !== undefined) {
+    if (!isRecord(v.modes)) return "modes should be {mode id: value}";
+    for (const [mode, x] of Object.entries(v.modes)) if (!fitsType(x, v.type)) return `the value in mode ${JSON.stringify(mode)} should be ${VALUE_WORDS[v.type]}`;
+  }
   return null;
 }
 
 export type { Condition, DocVar, Effect };
+import { fitsType } from "../../variables";

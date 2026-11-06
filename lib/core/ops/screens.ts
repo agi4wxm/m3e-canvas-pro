@@ -193,6 +193,21 @@ export const setScreenLength = op<{ id: string; length: number; from?: { frames:
 
 /** A screen gone with everything on it. A way to it from elsewhere goes to another size of it when one is left,
  *  and is dropped when none is. */
+/** a screen a flow of the prototype starts at, under a name; or no longer */
+export const setFlowStart = op<{ screen: string; name: string | null }>({
+  name: "set_flow_start",
+  summary: "Makes a screen a starting point of a flow of the prototype, under a name (the preview offers each flow), or no longer (null).",
+  args: S.obj({ screen: S.str(), name: { type: ["string", "null"], description: "the flow's name" } }, ["screen", "name"]),
+  label: () => "Flow",
+  run(s, a) {
+    const f = frameById(s, a.screen);
+    if (a.name === null && f.flow === undefined) throw new OpError("nothing_to_do", "No flow starts there.");
+    const { flow: _was, ...rest } = f;
+    const next = a.name === null ? rest : { ...rest, flow: a.name };
+    return { state: { ...s, doc: { ...s.doc, frames: s.doc.frames.map((x) => (x.id === f.id ? next : x)) } } };
+  },
+});
+
 export const removeScreen = op<{ id: string }>({
   name: "remove_screen",
   summary: "Removes a screen with everything on it; taps that went to it go to another size of it, or nowhere.",

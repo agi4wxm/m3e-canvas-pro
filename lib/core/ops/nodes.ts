@@ -14,6 +14,7 @@ import { childLayoutOf, flowOf, inRun, loosenedCopies, outOfPane, settleInFlow, 
 import { canNest, rekeyedAll, standIn } from "../../instances";
 import { tidyLook } from "../../look";
 import { updateRail } from "../../rail";
+import { boxWithProps, constrainedIn, holdsFreely, withConstraints } from "../../constraints";
 import { onScreenAsBackdrop } from "../../settle";
 import {
   collapseFree,
@@ -485,7 +486,12 @@ export const setItem = op<{ id: string; patch: Partial<Item> }>({
     /* a look with nothing left in it is no look: the part goes back to having none, not an empty one */
     if ("look" in patch) patch = { ...patch, look: tidyLook(patch.look as Item["look"]) };
     const p = patch as Partial<Item>;
-    const groups = railProps ? updateRail(s.doc.groups, s.doc.frames, ctx.widths, a.id, p) : s.doc.groups.map((g) => (g.items.some((it) => it.id === a.id) ? { ...g, items: g.items.map((it) => (it.id === a.id ? { ...it, ...p } : it)) } : g));
+    let groups = railProps ? updateRail(s.doc.groups, s.doc.frames, ctx.widths, a.id, p) : s.doc.groups.map((g) => (g.items.some((it) => it.id === a.id) ? { ...g, items: g.items.map((it) => (it.id === a.id ? { ...it, ...p } : it)) } : g));
+    /* a box with no auto layout changing size places what it holds by their constraints */
+    if ("props" in p && group.items.length === 1 && holdsFreely(group)) {
+      const bases = constrainedIn(group, s.doc.groups, ctx.widths);
+      if (bases.length) groups = withConstraints(groups, bases, boxWithProps(group, item, ctx.widths), boxWithProps(group, { ...item, ...p }, ctx.widths));
+    }
     const state = withGroups(s, groups);
     return { state: ctx.origin === "user" ? state : laidOut(state, ctx.widths) };
   },

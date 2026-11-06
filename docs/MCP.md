@@ -192,7 +192,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 96 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo` 只在文件模式里有。说明取自工具给模型看的描述。
+共 110 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -242,6 +242,7 @@ npx playwright install chromium
 | `create_screen_variant` | 搭建 |  |  | Makes another size of a screen (tablet, desktop or phone) beside it; each size keeps a layout of its own and the preview switches between them by width. |
 | `set_screen_place` | 搭建 |  |  | Sets where Tidy puts a screen's body between its bars (top, center, bottom, spread), and tidies it that way. |
 | `move_screen` | 搭建 |  |  | Moves a screen, with everything on it, to x, y on the canvas. |
+| `set_flow_start` | 搭建 |  |  | Makes a screen a starting point of a flow of the prototype, under a name (the preview offers each flow), or no longer (null). |
 | `add_part` | 搭建 |  |  | Adds a part (an atom or a composite) to a screen: at a point, into a container's auto layout at a place in its run, or where there is room. |
 | `add_instance` | 搭建 |  |  | Adds an instance of a reusable component: at a point on a screen, into a container's auto layout, or where there is room. |
 | `add_kit` | 搭建 |  |  | Adds a kit: a composite made of atoms in nested auto layouts (search bar, list row, prompt box…), composed the way the style composes it; a bar goes to its edge of the screen. |
@@ -264,6 +265,7 @@ npx playwright install chromium
 | `tidy_screen` | 搭建 |  |  | Tidies a screen: bars pinned, the body read as rows, columns and grids, spaced on the style's spacing scale. |
 | `tidy_up` | 搭建 |  |  | Arranges the given parts as an even row, column or grid read off where they stand, one gap each way; the top left stays. |
 | `align` | 搭建 |  |  | Lines the given parts up against each other: left, centerH, right, top, centerV or bottom. |
+| `align_to_parent` | 搭建 |  |  | Lines one part up against what it stands in: the box with no auto layout that holds it, else its screen (left, centerH, right, top, centerV, bottom). |
 | `distribute` | 搭建 |  |  | Spreads the given parts out evenly along x or y; with gap, exactly that space between them. |
 | `wrap_in_auto_layout` | 搭建 |  |  | Puts the given parts into nested auto layout boxes that keep them where they stand (rows, columns, grids read off their places); one container takes a layout itself. |
 | `auto_layout_screen` | 搭建 |  |  | Turns a screen's body into nested auto layouts; bars, FABs, dialogs, rails, its picture and locked parts keep their places. |
@@ -276,15 +278,27 @@ npx playwright install chromium
 | `remove_component` | 搭建 |  | 是 | Removes a component; its instances, on the screens and in other components, become the plain parts they showed. |
 | `detach_instance` | 搭建 |  |  | Turns an instance back into plain parts of its own. |
 | `set_overrides` | 搭建 |  |  | Sets what an instance changes of its component: one override (key `itemId/propKey`, value; null resets it) or the whole map. |
+| `add_variant` | 搭建 |  |  | Adds a variant to a component: a copy of it (same parts, so overrides carry over) that differs by the values of variant properties such as state=pressed or size=m. |
+| `update_component_set` | 搭建 |  |  | Renames a set of variants, or gives it new variant properties: each {name, values}, with was (its old name) to rename one and renamed ({old value: new value}) to rename values. |
+| `set_variant_values` | 搭建 |  |  | Sets the values a variant has for its set's variant properties (a value the set does not have yet is added). |
+| `swap_instance` | 搭建 |  |  | Makes an instance an instance of another component (another variant of its set, or any component); what it overrides and its property values carry over where the parts and propert… |
+| `set_component_prop` | 搭建 |  |  | Adds (or, by id or name, replaces) a property of a component that its instances set: type "text" (targets: override keys itemId/propKey of the words it sets), "bool" (targets: ids… |
+| `remove_component_prop` | 搭建 |  |  | Removes a property of a component; its instances stop setting it. |
+| `set_instance_props` | 搭建 |  |  | Sets the values an instance gives its component's properties, by property id or name: words for a text property, true/false for a bool one, a component id for a swap one; null goe… |
+| `reset_overrides` | 搭建 |  |  | Takes back everything an instance changes of its component: its overrides and the values it gives its properties. |
 | `add_collection` | 数据与交互 |  |  | Adds a data collection: named fields and rows of text (one cell per field). |
 | `update_collection` | 数据与交互 |  |  | Changes a data collection's name, fields or rows. |
 | `remove_collection` | 数据与交互 |  | 是 | Removes a data collection; layouts that repeated it stop repeating. |
 | `set_repeat` | 数据与交互 |  |  | Makes a container with an auto layout draw its first child once per row of a collection (limit: at most that many rows), or stop (null). |
-| `add_var` | 数据与交互 |  |  | Adds a variable of the prototype (live in the preview only): type text, number or bool, with the value it starts at. |
-| `update_var` | 数据与交互 |  |  | Changes a variable's name, type, starting value, or whether it drives the dark mode (drives: "dark" or null). |
+| `add_var` | 数据与交互 |  |  | Adds a variable: type text, number, bool or color (a role such as primary or a hex), with its value in the first mode of its collection (values: what it is in the other modes, by … |
+| `update_var` | 数据与交互 |  |  | Changes a variable's name, type, value (in the first mode of its collection), its values in the other modes (values, by mode id or name), its collection, or whether it drives the … |
 | `remove_var` | 数据与交互 |  | 是 | Removes a variable; props bound to it are unbound. |
+| `add_var_collection` | 数据与交互 |  |  | Adds a collection of variables with the modes its variables have values in (names such as Light and Dark; one mode when left out). |
+| `update_var_collection` | 数据与交互 |  |  | Renames a collection of variables, gives it its modes (each {id, name}; one without an id is new, one left out is removed with its values, and the first is the one whose values ar… |
+| `remove_var_collection` | 数据与交互 |  | 是 | Removes a collection of variables and every variable in it; what was bound to them is unbound. |
+| `set_var_mode` | 数据与交互 |  |  | Chooses the mode of a variable collection the document shows (or one screen shows, over the document's choice), by mode id or name; null goes back to the default (a screen follows… |
 | `set_action` | 数据与交互 |  |  | Sets what a tap on a part does (or on one of its places: slot "tab:0", "icon"…): {to: screen id \| "back" \| "link" \| "none", transition, url, effects: [{do: show\|hide\|toggle\|… |
-| `bind_prop` | 数据与交互 |  |  | Binds a prop of a part to a variable (the preview shows the variable's value), or unbinds it (var null). |
+| `bind_prop` | 数据与交互 |  |  | Binds a prop of a part to a variable (the preview shows the variable's value), or a field of its design: "@fill", "@text" (the words' color) and "@stroke" take a color variable, "… |
 | `reorder_panes` | 搭建 |  |  | Puts a dock's tabs in a new order; what each tab holds follows it. |
 | `generate_svg` | 生成（需 OPENAI_API_KEY） |  |  | Draws a custom SVG and puts it on the canvas as a vector (svg) part: a new icon, a logo, an illustration, a decoration nothing in the catalog has. |
 | `generate_image` | 生成（需 OPENAI_API_KEY） |  |  | Paints a picture with the image model (about 20–40 s): with `background` and `screen`, it becomes the picture behind that whole screen (its scene, filling the screen under every p… |

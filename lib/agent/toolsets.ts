@@ -19,9 +19,9 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   build: "read the document and build on it (always loaded)",
   layout: "arrange: tidy, align, distribute, group, lock, z-order, wrap in or split out of auto layout",
   screens: "screens and the document: templates, sizes, variants, places, title, brief, clearing",
-  components: "reusable components and their instances",
+  components: "reusable components and their instances: variants, component properties, swapping an instance",
   style: "styles, themes, palettes, looks, custom styles",
-  data: "variables, data collections, repeats, taps and their effects, bindings",
+  data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, bindings",
   generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture; the document's own icons (svg:<id>)",
   reference: "measuring an attached reference picture and comparing a screen with it",
 };
@@ -31,8 +31,11 @@ const BUILD = new Set([
   "get_outline", "list_screens", "find_nodes", "describe_node", "get_selection", "list_parts", "describe_part", "list_kits", "list_icons", "screenshot", "load_tools",
   "apply_ops", "add_screen", "set_screen", "add_part", "add_tree", "add_kit", "set_props", "set_item", "set_group", "set_layout", "remove_nodes", "move_into", "move_node", "duplicate_nodes",
 ]);
-const SCREENS = new Set(["add_template", "list_templates", "remove_screen", "duplicate_screen", "create_screen_variant", "resize_screen", "set_phone_model", "set_screen_length", "set_screen_place", "move_screen", "set_canvas_mode", "set_title", "set_brief", "set_prompt", "clear"]);
-const COMPONENTS = new Set(["make_component", "rename_component", "remove_component", "detach_instance", "set_overrides", "add_instance", "list_components"]);
+const SCREENS = new Set(["set_flow_start", "add_template", "list_templates", "remove_screen", "duplicate_screen", "create_screen_variant", "resize_screen", "set_phone_model", "set_screen_length", "set_screen_place", "move_screen", "set_canvas_mode", "set_title", "set_brief", "set_prompt", "clear"]);
+const COMPONENTS = new Set([
+  "make_component", "rename_component", "remove_component", "detach_instance", "set_overrides", "add_instance", "list_components",
+  "add_variant", "update_component_set", "set_variant_values", "swap_instance", "set_component_prop", "remove_component_prop", "set_instance_props", "reset_overrides",
+]);
 const REFERENCE = new Set(["sample_colors", "compare_to_reference"]);
 const STYLE_READS = new Set(["list_styles", "get_style", "look_reference"]);
 /** the document's own icons go with drawing */
@@ -112,10 +115,10 @@ const CUES: [ToolSet, Cue][] = [
     "components",
     {
       yes: any(
-        /\b(?:reusable|re-?use|instances?|symbols?|(?:master|main) components?|detach\w*|(?:make|turn|save|convert|store|keep)\s+(?:it|this|these|them|that|the \w+)?\s*(?:in)?to\s+(?:a\s+)?(?:reusable\s+)?components?|as\s+(?:a\s+)?(?:reusable\s+)?components?|components? (?:library|definition))\b/,
-        /组件库|可复用|复用|重复使用|实例|(?:存|做|保存|转|变|封装)(?:成|为)(?:一个)?(?:可复用的?)?组件|主组件/,
-        /コンポーネント(?:化|に(?:して|する)|として保存)|再利用|インスタンス|メインコンポーネント/,
-        /컴포넌트로|컴포넌트화|재사용|인스턴스|메인 컴포넌트/,
+        /\b(?:reusable|re-?use|instances?|symbols?|(?:master|main) components?|component (?:variants?|propert(?:y|ies))|variant propert(?:y|ies)|detach\w*|(?:make|turn|save|convert|store|keep)\s+(?:it|this|these|them|that|the \w+)?\s*(?:in)?to\s+(?:a\s+)?(?:reusable\s+)?components?|as\s+(?:a\s+)?(?:reusable\s+)?components?|components? (?:library|definition))\b/,
+        /组件库|可复用|复用|重复使用|实例|组件变体|变体属性|组件属性|(?:存|做|保存|转|变|封装)(?:成|为)(?:一个)?(?:可复用的?)?组件|主组件/,
+        /コンポーネント(?:化|に(?:して|する)|として保存)|再利用|インスタンス|メインコンポーネント|バリアント|コンポーネントプロパティ/,
+        /컴포넌트로|컴포넌트화|재사용|인스턴스|메인 컴포넌트|베리언트|컴포넌트 속성/,
       ),
     },
   ],
