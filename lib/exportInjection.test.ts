@@ -5,7 +5,7 @@ import { proofDoc, systemsDoc } from "./exportProject.fixture";
 import { buildProject, type ProjectFiles } from "./exportProject";
 import { setGlobalLang } from "./i18n";
 import { openProject } from "./project";
-import type { Doc } from "./tokens";
+import { makeItem, type Doc } from "./tokens";
 
 /* An exported project is code someone installs and runs, so a document's words must never come out as code: whatever
  * a field holds, it is printed as a string, a JSX text or a comment's words. Every text field of real documents is
@@ -55,8 +55,7 @@ function codeNames(path: string, text: string): string[] {
   return out;
 }
 
-async function escapesOf(doc: Doc): Promise<string[]> {
-  const opened = openProject(JSON.parse(JSON.stringify(withWords(doc))));
+async function escapesOf(doc: Doc, opened: Doc | null = openProject(JSON.parse(JSON.stringify(withWords(doc))))): Promise<string[]> {
   expect(opened).toBeTruthy();
   const { files } = await buildProject(opened!, {}, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
   const written = Object.entries(files as ProjectFiles).filter(([p, v]) => typeof v === "string" && /\.(ts|tsx)$/.test(p) && !/^src\/(components|lib|styles)\//.test(p)) as [string, string][];
@@ -73,4 +72,48 @@ describe("a document's words in the exported project", () => {
   it("never come out as code in the document of every system (components, variables, prototype)", async () => {
     expect(await escapesOf(systemsDoc().doc)).toEqual([]);
   }, 120_000);
+
+  /* What names something rather than saying it (an id, a mode, an animation's kind, a CSS variable's name) is left
+     alone above. Here every one of those is hostile too, read back from a file and also as the editor's own state may
+     hold it, unchecked: the prototype's moves, triggers, overlays and scroll targets, flows, collections and their
+     modes, variables and their values in each mode, and the CSS variables of bound fields. */
+  it("never come out as code from what the prototype, flows and variables in modes name", async () => {
+    const raw = hostileDoc();
+    expect(await escapesOf(raw, openProject(JSON.parse(JSON.stringify(raw))))).toEqual([]);
+    expect(await escapesOf(raw, raw)).toEqual([]);
+  }, 120_000);
 });
+
+/** a document whose every id, mode, name and value of the prototype and the variables carries words that try to end what they are printed in */
+function hostileDoc(): Doc {
+  const w = (s: string) => `${s}${WORDS}`;
+  const theme = w("c");
+  const [light, dark] = [w("m1"), w("m2")];
+  const look = { fills: [{ type: "solid", color: "#ffffff", cssVar: w("x") }], text: { color: "#000000", cssVar: w("y") }, stroke: { width: 1, color: "#000000", cssVar: w("z") }, vars: { opacity: w("o"), rotate: w("r"), radius: w("q") } };
+  const button = (id: string, action: unknown) => ({ id: w(`g${id}`), x: 16, y: 40 + Number(id) * 60, axis: "x", items: [{ ...makeItem("button"), id: w(id), props: { label: w("Go"), icon: "" }, action }] });
+  return {
+    groups: [
+      button("1", { to: w("f2"), transition: w("slide"), overlay: true, motion: { kind: w("push"), dir: w("up"), easing: w("in"), ms: w("5") }, trigger: { on: "delay", ms: w("9") } }),
+      button("2", { to: w("f2"), transition: "slide", overlay: w("yes"), motion: { kind: "push", dir: w("up"), easing: w("in"), ms: 300 }, trigger: { on: "hover" } }),
+      button("3", { to: "none", transition: "none", scrollTo: w("t"), trigger: { on: w("hover") } }),
+      button("4", { to: "none", transition: "none", effects: [{ do: "setVar", var: w("v1"), value: "#ff0000" }, { do: "setVar", var: w("v2"), value: w("set") }, { do: "toggleVar", var: w("v4") }] }),
+      { id: w("gt"), x: 16, y: 400, axis: "x", items: [{ ...makeItem("text"), id: w("t"), props: { text: w("Hi") }, look, bind: { "@text": w("v1"), "@stroke": w("v1"), "@fill": w("v1"), "@opacity": w("v3"), "@radius": w("v3"), "@rotation": w("v3"), text: w("v2") } }] },
+    ],
+    frames: [
+      { id: w("f1"), name: w("Home"), x: 0, y: 0, flow: w("Main"), varModes: { [theme]: dark } },
+      { id: w("f2"), name: w("Sheet"), x: 600, y: 0, w: 320, h: 240, flow: w("Second") },
+    ],
+    vars: [
+      { id: w("v1"), name: w("brand"), type: "color", value: "#ffffff", collection: theme, modes: { [dark]: "#000000" } },
+      { id: w("v2"), name: w("words"), type: "text", value: w("hello"), collection: theme, modes: { [dark]: w("bye") } },
+      { id: w("v3"), name: w("size"), type: "number", value: 4, collection: theme, modes: { [dark]: 8 } },
+      { id: w("v4"), name: w("night"), type: "bool", value: false, drives: "dark" },
+    ],
+    varCollections: [{ id: theme, name: w("Theme"), modes: [{ id: light, name: w("Light") }, { id: dark, name: w("Dark") }], dark }],
+    varModes: { [theme]: light },
+    paletteKey: "purple",
+    frame: "phone",
+    title: w("Hostile"),
+    brief: "",
+  } as unknown as Doc;
+}

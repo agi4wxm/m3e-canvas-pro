@@ -165,20 +165,23 @@ describe("the project of a real document", () => {
     checkClosed(files);
   });
 
-  it("builds a document with variants, variables in modes and a prototype, closed, its bound fill switched by the dark mode", async () => {
+  it("builds a document with variants, variables in modes and a prototype, closed, its bound fields read off the runtime", async () => {
     const { doc, widths } = systemsDoc();
     const { files, warnings } = await buildProject(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
     checkClosed(files);
     expect(warnings).toEqual([]);
-    const css = textOf(files, "src/style.css");
-    expect(css).toContain("--m3e-v-brand-v-brand: #ffd8e4;");
-    expect(css).toMatch(/\.dark \{\n {2}--m3e-v-brand-v-brand: #4a2532;/);
-    const home = Object.entries(files).find(([p, s]) => p.startsWith("src/screens/") && typeof s === "string" && s.includes("Home"))![1] as string;
+    /* the modes are the runtime's to pick, not a stylesheet's */
+    expect("src/style.css" in files).toBe(false);
+    const runtime = textOf(files, "src/runtime.tsx");
+    expect(runtime).toContain('brand: { collection: "theme", values: { light: "#ffd8e4", dark: "#4a2532" } },');
+    expect(runtime).toContain('dark: { theme: ["dark", "dark"] },');
+    expect(runtime).toContain('brand: { css: "--m3e-v-brand-v-brand", kind: "color" },');
+    const home = textOf(files, "src/screens/HomeScreen.tsx");
     expect(home).toContain("var(--m3e-v-brand-v-brand, #ffd8e4)");
-    /* the screen pinned to the dark mode is drawn in it, with nothing to switch */
-    const dark = Object.entries(files).find(([p, s]) => p.startsWith("src/screens/") && typeof s === "string" && s.includes("function Dark"))![1] as string;
-    expect(dark).toContain("#4a2532");
-    expect(dark).not.toContain("--m3e-v-");
+    /* the screen pinned to the dark mode draws its own values until the runtime says otherwise */
+    expect(textOf(files, "src/screens/DarkScreen.tsx")).toContain("var(--m3e-v-brand-v-brand, #4a2532)");
+    /* the prototype's moves are the editor's own, copied */
+    expect(files["src/lib/screenMotion.ts"]).toBe(await fromDisk("lib/screenMotion.ts"));
   });
 
   it("takes one screen, and a tap to a screen left out goes nowhere", async () => {

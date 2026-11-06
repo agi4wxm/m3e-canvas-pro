@@ -2,10 +2,13 @@
 //
 // The proof an exported project runs. Generates real projects, writes each zip to the work folder,
 // unpacks it, installs it, typechecks and builds it, serves the build and taps through it in headless
-// Edge: the shop flow, a form with a condition, a counter, inputs, a dock, bars, a long screen, under the
-// build and under the dev server, whose React reports what a build keeps quiet. Not part of `bun run test`
-// since it installs everything from the network. Exits non-zero on any failure.
-import { spawn, spawnSync } from "node:child_process";
+// Edge (Playwright's Chromium off Windows): the shop flow, a form with a condition, a counter, inputs, a dock,
+// bars, a long screen, under the build and under the dev server, whose React reports what a build keeps quiet.
+// The systems document's app (a prototype's triggers, overlays and animations, flows, variables in modes bound to
+// design fields) is driven with Playwright. Not part of `bun run test` since it installs everything from the
+// network. Exits non-zero on any failure.
+import { execSync, spawn, spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { mkdirSync, rmSync, statfsSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -29,7 +32,44 @@ const fs0 = statfsSync(WORK);
 if ((fs0.bavail * fs0.bsize) / 2 ** 30 < 2) throw new Error("under 2GB free: stopping");
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+
+type PwPage = {
+  goto(url: string): Promise<unknown>;
+  evaluate<T>(fn: string | ((arg: never) => T), arg?: unknown): Promise<T>;
+  click(selector: string, o?: { position?: { x: number; y: number }; force?: boolean }): Promise<void>;
+  hover(selector: string): Promise<void>;
+  keyboard: { press(key: string): Promise<void> };
+  mouse: { move(x: number, y: number): Promise<void>; click(x: number, y: number): Promise<void> };
+  waitForSelector(selector: string, o?: { state?: "attached" | "detached" | "visible" | "hidden"; timeout?: number }): Promise<unknown>;
+  waitForTimeout(ms: number): Promise<void>;
+  screenshot(o: { path: string }): Promise<unknown>;
+  on(event: "pageerror" | "console", fn: (x: { message?: string; type?: () => string; text?: () => string }) => void): void;
+};
+type PwBrowser = { newContext(o: Record<string, unknown>): Promise<{ newPage(): Promise<PwPage>; close(): Promise<void> }>; close(): Promise<void> };
+type Playwright = { chromium: { launch(o?: Record<string, unknown>): Promise<PwBrowser>; executablePath(): string } };
+
+/** Playwright from the first place it is installed, as e2e/run.ts finds it: it is no dependency of the project */
+function playwright(): Playwright {
+  const require = createRequire(join(ROOT, "package.json"));
+  const tries = [process.env.PLAYWRIGHT_PATH, "playwright", ...(process.env.NODE_PATH ?? "").split(":").filter(Boolean).map((d) => join(d, "playwright"))];
+  try {
+    tries.push(join(execSync("npm root -g", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(), "playwright"));
+  } catch {
+    // no npm
+  }
+  for (const p of tries) {
+    if (!p) continue;
+    try {
+      return require(p) as Playwright;
+    } catch {
+      // the next place
+    }
+  }
+  throw new Error("Playwright was not found: npm i -g playwright && npx playwright install chromium, or set PLAYWRIGHT_PATH");
+}
+
+/* the browser the taps run in over CDP: Edge where the script was first written, Playwright's Chromium elsewhere */
+const EDGE = process.platform === "win32" ? "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" : (process.env.CHECK_EXPORT_BROWSER ?? playwright().chromium.executablePath());
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const failures: string[] = [];
 let passes = 0;
@@ -112,7 +152,7 @@ async function edgeAt(name: string, url: string) {
   rmSync(root, { recursive: true, force: true });
   mkdirSync(tmp, { recursive: true });
   const port = 9350 + Math.floor(Math.random() * 200);
-  const edge = spawn(EDGE, ["--headless=new", "--disable-gpu", "--disable-extensions", "--disable-component-update", "--disable-background-networking", "--window-size=1200,1000", `--user-data-dir=${join(root, "profile")}`, `--remote-debugging-port=${port}`, "--no-first-run", "about:blank"], { stdio: "ignore", env: { ...process.env, TEMP: tmp, TMP: tmp } });
+  const edge = spawn(EDGE, [...(process.platform === "win32" ? [] : ["--no-sandbox"]), "--headless=new", "--disable-gpu", "--disable-extensions", "--disable-component-update", "--disable-background-networking", "--window-size=1200,1000", `--user-data-dir=${join(root, "profile")}`, `--remote-debugging-port=${port}`, "--no-first-run", "about:blank"], { stdio: "ignore", env: { ...process.env, TEMP: tmp, TMP: tmp } });
   let wsUrl: string | undefined;
   for (let i = 0; i < 80 && !wsUrl; i++) {
     try {
@@ -597,7 +637,19 @@ async function proof() {
 
 /** a page on the project's own dev server */
 async function underDev(dir: string, port: number, name: string, drive: (page: Page) => Promise<void>) {
-  const dev = spawn("bun", ["run", "dev", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], { cwd: dir, shell: process.platform === "win32", stdio: "ignore", env: { ...process.env, CI: "1" } });
+  await devServer(dir, port, name, async (url) => {
+    const page = await edgeAt(name, url);
+    try {
+      await drive(page);
+    } finally {
+      await page.close();
+    }
+  });
+}
+
+/** the project's own dev server, up for as long as `use` takes */
+async function devServer(dir: string, port: number, name: string, use: (url: string) => Promise<void>) {
+  const dev = spawn("bun", ["run", "dev", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], { cwd: dir, shell: process.platform === "win32", stdio: "ignore", env: { ...process.env, CI: "1" }, detached: process.platform !== "win32" });
   try {
     let up = false;
     for (let i = 0; i < 120 && !up; i++) {
@@ -609,16 +661,17 @@ async function underDev(dir: string, port: number, name: string, drive: (page: P
       if (!up) await sleep(500);
     }
     ok(up, `${name}: the dev server comes up`);
-    if (!up) return;
-    const page = await edgeAt(name, `http://127.0.0.1:${port}/`);
-    try {
-      await drive(page);
-    } finally {
-      await page.close();
-    }
+    if (up) await use(`http://127.0.0.1:${port}/`);
   } finally {
     if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(dev.pid), "/t", "/f"]);
-    else dev.kill();
+    else {
+      /* `bun run dev` starts vite under it: the whole group goes */
+      try {
+        process.kill(-dev.pid!, "SIGTERM");
+      } catch {
+        dev.kill();
+      }
+    }
   }
 }
 
@@ -924,6 +977,176 @@ async function styled() {
   }
 }
 
+/** Variants and component properties, variables in modes bound to design fields, a prototype's interactions: the app has
+ *  to install, typecheck and build, and then do in a browser what the editor's preview does. Driven with Playwright,
+ *  under the build and under the dev server, and once more with the visitor asking for less motion. */
+async function systems() {
+  const { doc, widths } = systemsDoc();
+  const dist = await assemble("systems", doc, widths);
+  if (!dist) return;
+  const server = await serve(dist, 4205);
+  const browser = await playwright().chromium.launch();
+  try {
+    await systemsFlow(browser, "http://127.0.0.1:4205/", "systems");
+    await devServer(join(WORK, "systems"), 4206, "systems-dev", (url) => systemsFlow(browser, url, "systems, the dev server", false));
+  } finally {
+    await browser.close();
+    server.close();
+  }
+}
+
+/** the app of the systems document, tapped, hovered and waited on */
+async function systemsFlow(browser: PwBrowser, url: string, name: string, shots = true) {
+  const context = await browser.newContext({ viewport: { width: 480, height: 940 }, deviceScaleFactor: 1, colorScheme: "light" });
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  page.on("console", (m) => {
+    if (m.type?.() === "error" && !/googleapis|gstatic|iconify|Failed to load resource/.test(m.text?.() ?? "")) errors.push(m.text?.() ?? "");
+  });
+  const shot = async (file: string) => {
+    if (shots) await page.screenshot({ path: join(WORK, file) });
+  };
+  const screen = () => page.evaluate<string>(`document.querySelector('[data-screen]')?.getAttribute('data-screen') ?? ''`);
+  /* the screen on show once it has settled: the stage names it, and nothing on it moves any more */
+  const at = async (key: string) => {
+    try {
+      await page.waitForSelector(`[data-screen="${key}"]`, { timeout: 5000 });
+    } catch {
+      return false;
+    }
+    await page.waitForTimeout(1100);
+    return (await screen()) === key;
+  };
+  /** what an element's computed style says, by a selector inside the screen on show */
+  const style = (selector: string, prop: string) => page.evaluate<string | null>(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); return e ? getComputedStyle(e)[${JSON.stringify(prop)}] : null })()`);
+  const button = (label: string) => `[data-active] button:text-is(${JSON.stringify(label)})`;
+  const tinted = (page: string) => `[data-page="${page}"] [style*="m3e-v-brand"]`;
+  const accentText = `[data-page="home"] [data-slot="text"][style*="m3e-v-accent"]`;
+  const accentBox = `[data-page="home"] [style*="m3e-v-round"]`;
+  try {
+    /* flows: the first is where the app starts, though another screen comes first; the address asks for another */
+    await page.goto(url);
+    ok(await at("home"), `${name}: starts where the first flow does, not on the first screen`);
+    await page.goto(`${url}?flow=reading`);
+    ok(await at("long"), `${name}: ?flow=reading starts at that flow`);
+
+    /* a part scrolled into view */
+    await page.click(button("Scroll down"));
+    await page.waitForTimeout(1200);
+    const scrolled = await page.evaluate<{ top: number; seen: boolean }>(`(() => { const r = document.querySelector('[data-page="long"] [role="region"]'); const t = document.querySelector('[data-part="bottomLine"]'); const a = r.getBoundingClientRect(), b = t.getBoundingClientRect(); return { top: r.scrollTop, seen: b.top >= a.top && b.bottom <= a.bottom } })()`);
+    ok(scrolled.top > 0 && scrolled.seen, `${name}: scroll-to brings the part into view (${JSON.stringify(scrolled)})`);
+
+    await page.goto(url);
+    await at("home");
+    await shot("systems-home.png");
+    /* variables in modes: the light mode on this screen, the dark one on the screen pinned to it */
+    ok((await style(tinted("home"), "backgroundImage"))?.includes("rgb(255, 216, 228)"), `${name}: a bound fill shows the light mode (${await style(tinted("home"), "backgroundImage")})`);
+    ok((await style(accentText, "color")) === "rgb(21, 101, 192)", `${name}: a bound text color shows the light mode (${await style(accentText, "color")})`);
+    ok((await style(accentBox, "boxShadow"))?.includes("rgb(21, 101, 192)"), `${name}: a bound stroke shows the light mode (${await style(accentBox, "boxShadow")})`);
+    ok((await style(accentBox, "borderTopLeftRadius")) === "8px", `${name}: a bound radius shows the light mode (${await style(accentBox, "borderTopLeftRadius")})`);
+
+    /* a tap that sets a color variable recolours the words and the line bound to it */
+    await page.click(button("Paint red"));
+    await page.waitForTimeout(300);
+    ok((await style(accentText, "color")) === "rgb(198, 40, 40)", `${name}: a tap setting a color variable recolours a bound text (${await style(accentText, "color")})`);
+    ok((await style(accentBox, "boxShadow"))?.includes("rgb(198, 40, 40)"), `${name}: and a bound stroke (${await style(accentBox, "boxShadow")})`);
+
+    /* the variable that drives the dark mode: the app turns dark, and the collections follow it, but what a tap wrote stays */
+    await page.click(`[data-page="home"] [role="switch"]`);
+    await page.waitForTimeout(500);
+    ok(await page.evaluate<boolean>(`document.documentElement.classList.contains("dark")`), `${name}: the switch bound to the dark-mode variable turns the app dark`);
+    ok((await style(tinted("home"), "backgroundImage"))?.includes("rgb(74, 37, 50)"), `${name}: a bound fill follows the dark mode (${await style(tinted("home"), "backgroundImage")})`);
+    ok((await style(tinted("home"), "opacity")) === "0.7", `${name}: a bound opacity follows it (${await style(tinted("home"), "opacity")})`);
+    ok((await style(accentBox, "borderTopLeftRadius")) === "24px" && (await style(accentBox, "rotate")) === "6deg", `${name}: a bound radius and rotation follow it (${await style(accentBox, "borderTopLeftRadius")}, ${await style(accentBox, "rotate")})`);
+    ok((await style(accentText, "color")) === "rgb(198, 40, 40)", `${name}: a variable a tap wrote keeps its value in the dark mode`);
+    await shot("systems-home-dark.png");
+    await page.click(`[data-page="home"] [role="switch"]`);
+    await page.waitForTimeout(500);
+    ok(!(await page.evaluate<boolean>(`document.documentElement.classList.contains("dark")`)) && (await style(tinted("home"), "backgroundImage"))?.includes("rgb(255, 216, 228)"), `${name}: and back to light`);
+
+    /* an overlay: over a backdrop, the screen under it out of use; a tap on the backdrop closes it */
+    await page.click(button("Open sheet"));
+    await page.waitForSelector(`[data-overlay="sheet"]`, { timeout: 3000 });
+    ok(await page.evaluate<boolean>(`document.querySelector('[data-overlay="sheet"] [data-move]')?.getAttribute('data-move') === 'push'`), `${name}: the overlay comes in with its push`);
+    ok(await page.evaluate<boolean>(`!!document.querySelector('[data-page="home"][inert]') && !!document.querySelector('[data-overlay-backdrop]')`), `${name}: over a backdrop, the screen under it out of use`);
+    await page.waitForTimeout(500);
+    await shot("systems-overlay.png");
+    await page.mouse.click(20, 20);
+    await page.waitForSelector(`[data-overlay]`, { state: "detached", timeout: 3000 }).catch(() => undefined);
+    ok(await page.evaluate<boolean>(`!document.querySelector('[data-overlay]') && !document.querySelector('[data-page="home"][inert]')`), `${name}: a tap beside the overlay closes it`);
+    /* what starts after a delay: the sheet's own button goes back, which closes it, 1.5s after it showed */
+    await page.click(button("Open sheet"));
+    await page.waitForSelector(`[data-overlay="sheet"]`, { timeout: 3000 });
+    await page.waitForTimeout(900);
+    ok(await page.evaluate<boolean>(`!!document.querySelector('[data-overlay="sheet"]')`), `${name}: the delay has not run yet at 0.9s`);
+    await page.waitForTimeout(1300);
+    ok(await page.evaluate<boolean>(`!document.querySelector('[data-overlay]')`), `${name}: after its delay the sheet's interaction closes it`);
+    ok((await screen()) === "home", `${name}: and the screen under it is on show again`);
+    /* Escape closes one too */
+    await page.click(button("Open sheet"));
+    await page.waitForSelector(`[data-overlay="sheet"]`, { timeout: 3000 });
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(500);
+    ok(await page.evaluate<boolean>(`!document.querySelector('[data-overlay]')`), `${name}: Escape closes the overlay`);
+
+    /* a push: both screens move, the new one in from the right, the old one out to the left */
+    await page.click(button("Push on"));
+    const moves = await page.evaluate<{ inX: number[]; outX: number[]; kinds: string[] }>(`new Promise((done) => {
+      const inX = [], outX = [], kinds = new Set(), started = performance.now()
+      const read = () => {
+        for (const e of document.querySelectorAll('[data-screen] [data-move]')) {
+          kinds.add(e.getAttribute('data-move'))
+          const m = new DOMMatrix(getComputedStyle(e).transform)
+          const page = e.querySelector(':scope > [data-page]')?.getAttribute('data-page')
+          if (page === 'pushed') inX.push(m.m41)
+          if (page === 'home') outX.push(m.m41)
+        }
+        if (performance.now() - started < 1200) requestAnimationFrame(read)
+        else done({ inX, outX, kinds: [...kinds] })
+      }
+      read()
+    })`);
+    const midIn = moves.inX.filter((x) => x > 5 && x < 407);
+    const midOut = moves.outX.filter((x) => x < -5 && x > -407);
+    ok(moves.kinds.includes("push") && midIn.length > 3 && midOut.length > 3, `${name}: a push moves the new screen in and the old one out (${midIn.length} and ${midOut.length} frames between, ${moves.kinds.join(",")})`);
+    ok(midIn.every((x, i) => i === 0 || x <= midIn[i - 1] + 0.5), `${name}: the new screen comes steadily in`);
+    ok(await at("pushed"), `${name}: and the push arrives`);
+    await page.click(button("Back again"));
+    ok(await at("home"), `${name}: back plays it in reverse`);
+
+    /* the pointer coming over a part starts its interaction */
+    await page.hover(button("Hover me"));
+    ok(await at("dark"), `${name}: hovering a part goes where its hover interaction goes`);
+    ok((await style(tinted("dark"), "backgroundImage"))?.includes("rgb(74, 37, 50)"), `${name}: the screen pinned to the dark mode shows it while the app is light (${await style(tinted("dark"), "backgroundImage")})`);
+    ok((await style(tinted("dark"), "opacity")) === "0.7", `${name}: its bound opacity too`);
+    await shot("systems-dark-screen.png");
+    ok(!errors.length, `${name}: nothing went wrong on the page${errors.length ? `:\n  ${[...new Set(errors)].slice(0, 20).join("\n  ")}` : ""}`);
+  } catch (e) {
+    ok(false, `${name}: threw ${(e as Error).message}`);
+  } finally {
+    await context.close();
+  }
+
+  /* the visitor asks for less motion: a push is there at once, with no frames between */
+  const still = await browser.newContext({ viewport: { width: 480, height: 940 }, deviceScaleFactor: 1, reducedMotion: "reduce" });
+  try {
+    const p = await still.newPage();
+    await p.goto(url);
+    await p.waitForSelector(`[data-screen="home"]`);
+    await p.waitForTimeout(800);
+    await p.click(button("Push on"));
+    const xs = await p.evaluate<number[]>(`new Promise((done) => { const xs = [], t = performance.now(); const read = () => { for (const e of document.querySelectorAll('[data-screen] [data-move]')) if (e.querySelector(':scope > [data-page="pushed"]')) xs.push(new DOMMatrix(getComputedStyle(e).transform).m41); if (performance.now() - t < 700) requestAnimationFrame(read); else done(xs) }; read() })`);
+    /* the screen may stand where it starts for the frame before it is put in place, but never anywhere between */
+    const between = xs.filter((x) => Math.abs(x) > 1 && Math.abs(x) < 411);
+    ok(xs.length > 0 && !between.length && Math.abs(xs[xs.length - 1]) < 1, `${name}: with reduced motion the push jumps, with no frames between (${xs.length} frames, ${between.length} between)`);
+  } catch (e) {
+    ok(false, `${name}, reduced motion: threw ${(e as Error).message}`);
+  } finally {
+    await still.close();
+  }
+}
+
 /** a zip the editor's own button saved goes the same way as one made here */
 async function savedZip(path: string) {
   const dir = join(WORK, "saved");
@@ -949,8 +1172,7 @@ if (!ONLY || ONLY === "one") await oneScreen();
 if (!ONLY || ONLY === "parts") await allParts();
 if (!ONLY || ONLY === "modal") await modalAndSplit();
 if (!ONLY || ONLY === "style") await styled();
-/* variants and component properties, variables in modes bound to design fields, a prototype's interactions: it has to install, typecheck and build */
-if (!ONLY || ONLY === "systems") await assemble("systems", systemsDoc().doc, systemsDoc().widths);
+if (!ONLY || ONLY === "systems") await systems();
 if (!ONLY) await sweep();
 
 console.log(`\n${passes} passed, ${failures.length} failed`);

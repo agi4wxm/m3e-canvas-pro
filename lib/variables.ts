@@ -78,9 +78,9 @@ const asNumber = (v: VarValue | undefined): number | undefined => {
 
 /** The part with the design fields it binds drawn with the values given: a fill, the words' color, a stroke, the
  *  opacity, the corner radius and the rotation. A value of the wrong kind leaves the field as the part has it. With
- *  `cssVar`, a fill names the CSS variable an exported app switches it by (lib/exportProject.ts). The same item comes
- *  back when nothing is bound. */
-export function boundItem(it: Item, values: Record<string, VarValue>, cssVar?: (varId: string) => string | undefined): Item {
+ *  `cssVar`, a field names the CSS variable an exported app paints it with (`--m3e-v-<name>`, set by its runtime), the
+ *  value given standing in until that is defined. The same item comes back when nothing is bound. */
+export function boundItem(it: Item, values: Record<string, VarValue>, cssVar?: (varId: string, field: BindField) => string | undefined): Item {
   if (!bindsFields(it)) return it;
   let look = it.look ? { ...it.look } : {};
   let corners = it.corners;
@@ -89,19 +89,21 @@ export function boundItem(it: Item, values: Record<string, VarValue>, cssVar?: (
     if (!isBindField(key)) continue;
     const v = values[id];
     if (v === undefined) continue;
+    const name = cssVar?.(id, key);
+    const named = name ? { cssVar: name } : {};
     if (BIND_FIELDS[key] === "color") {
       if (!isColorRef(v)) continue;
       changed = true;
-      if (key === "@fill") {
-        const name = cssVar?.(id);
-        look = { ...look, fills: [{ type: "solid", color: v, ...(name ? { cssVar: name } : {}) }] };
-      } else if (key === "@text") look = { ...look, text: { ...look.text, color: v } };
-      else look = { ...look, stroke: { ...(look.stroke ?? { width: 1 }), color: v } };
+      if (key === "@fill") look = { ...look, fills: [{ type: "solid", color: v, ...named }] };
+      else if (key === "@text") look = { ...look, text: { ...look.text, color: v, ...named } };
+      else look = { ...look, stroke: { ...(look.stroke ?? { width: 1 }), color: v, ...named } };
       continue;
     }
     const n = asNumber(v);
     if (n === undefined) continue;
     changed = true;
+    const field = key === "@opacity" ? "opacity" : key === "@rotation" ? "rotate" : "radius";
+    if (name) look = { ...look, vars: { ...look.vars, [field]: name } };
     if (key === "@opacity") look = { ...look, opacity: Math.max(0, Math.min(100, n)) };
     else if (key === "@rotation") look = { ...look, rotate: Math.max(-360, Math.min(360, n)) };
     else corners = uniformRadii(Math.max(0, Math.min(999, n)));
@@ -126,28 +128,4 @@ export function fitsType(value: unknown, type: DocVar["type"]): value is VarValu
   if (type === "text") return typeof value === "string";
   if (type === "number") return typeof value === "number" && Number.isFinite(value);
   return typeof value === "boolean";
-}
-
-/** The color variables an exported app switches by its dark mode: in a collection that names a mode for dark mode,
- *  which the document does not pin to one mode, with another value there. By id, the name of each in CSS. */
-export function darkSwitched(doc: Pick<Doc, "vars" | "varCollections" | "varModes">): Map<string, { name: string; light: VarValue; dark: VarValue }> {
-  const out = new Map<string, { name: string; light: VarValue; dark: VarValue }>();
-  const collections = collectionsOf(doc);
-  for (const v of doc.vars ?? []) {
-    if (v.type !== "color") continue;
-    const c = collections.find((x) => x.id === collectionIdOf(v, collections));
-    if (!c?.dark || doc.varModes?.[c.id]) continue;
-    const light = valueIn(v, modeFor(doc, c, null, false), c);
-    const dark = valueIn(v, modeFor(doc, c, null, true), c);
-    if (light !== dark && isColorRef(light) && isColorRef(dark)) out.set(v.id, { name: cssNameOf(v), light, dark });
-  }
-  return out;
-}
-
-/** the stylesheet that switches those variables with the app's mode, or "" when none does */
-export function darkSwitchedCss(doc: Pick<Doc, "vars" | "varCollections" | "varModes">, scope: { scope: string; dark: string }, colorCss: (ref: unknown) => string | undefined): string {
-  const list = [...darkSwitched(doc).values()];
-  if (!list.length) return "";
-  const block = (sel: string, key: "light" | "dark") => `${sel} {\n${list.map((x) => `  --m3e-v-${x.name}: ${colorCss(x[key])};`).join("\n")}\n}`;
-  return `/* color variables that follow the dark mode */\n${block(scope.scope, "light")}\n${block(scope.dark, "dark")}`;
 }

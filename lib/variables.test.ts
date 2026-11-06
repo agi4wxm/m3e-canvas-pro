@@ -8,7 +8,7 @@ import { counterIds, DocStore, guessMeasurer, OpError, ops, savedDoc, stateOf } 
 import { applyEffects, screenVars, startState } from "./interact";
 import { openProject, projectFile } from "./project";
 import { makeItem, type Doc, type DocVar, type Group, type VarCollection } from "./tokens";
-import { boundItem, collectionsOf, darkSwitched, darkSwitchedCss, DEFAULT_COLLECTION, modeFor, varValues } from "./variables";
+import { boundItem, collectionsOf, DEFAULT_COLLECTION, modeFor, varValues } from "./variables";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -148,21 +148,54 @@ describe("the preview", () => {
 describe("the exported app", () => {
   const box: Group = { id: "g", x: 16, y: 100, axis: "x", items: [{ ...makeItem("box"), id: "box", props: { surface: "card", width: 120, height: 80 }, bind: { "@fill": "brand", "@opacity": "gap" } }] };
 
-  it("prints a bound fill with the CSS variable the dark mode switches, and the stylesheet that switches it", () => {
-    const doc = docOf({ groups: [box] });
-    expect([...darkSwitched(doc).values()].map((x) => x.name)).toEqual(["brand-brand"]);
-    const css = darkSwitchedCss(doc, { scope: ":root", dark: ":root.dark" }, (c) => String(c));
-    expect(css).toContain(":root {\n  --m3e-v-brand-brand: #ffffff;");
-    expect(css).toContain(":root.dark {\n  --m3e-v-brand-brand: #000000;");
-    const { screens } = buildScreens(doc, { box: 120, "box:h": 80 }, { live: true });
-    expect(screens[0].source).toContain("var(--m3e-v-brand-brand, #ffffff)");
-    expect(screens[0].source).toMatch(/opacity: 0\.08/);
+  it("prints every bound field as a read of its variable's CSS variable, the screen's value standing in", () => {
+    const words: Group = { id: "w", x: 16, y: 200, axis: "x", items: [{ ...makeItem("text"), id: "t", props: { text: "Hi" }, look: { stroke: { width: 2, color: "#000000" } }, bind: { "@text": "brand", "@stroke": "brand", "@radius": "gap", "@rotation": "gap" } }] };
+    const doc = docOf({ groups: [box, words] });
+    const { screens, runtime } = buildScreens(doc, { box: 120, "box:h": 80, t: 100, "t:h": 20 }, { live: true });
+    const code = screens[0].source;
+    expect(code).toContain("linear-gradient(var(--m3e-v-brand-brand, #ffffff), var(--m3e-v-brand-brand, #ffffff))");
+    expect(code).toContain('opacity: "clamp(0, var(--m3e-v-gap-gap, 8) / 100, 1)"');
+    expect(code).toContain('color: "var(--m3e-v-brand-brand, #ffffff)"');
+    expect(code).toContain('"--md-sys-color-on-surface": "var(--m3e-v-brand-brand, #ffffff)"');
+    expect(code).toContain("inset 0 0 0 2px var(--m3e-v-brand-brand, #ffffff)");
+    expect(code).toContain('borderRadius: "calc(clamp(0, var(--m3e-v-gap-gap, 8), 999) * 1px)"');
+    expect(code).toContain('rotate: "calc(clamp(-360, var(--m3e-v-gap-gap, 8), 360) * 1deg)"');
+    /* the runtime knows each variable's CSS name and kind, and its value in each mode of a collection with several */
+    expect(runtime.modes?.bound).toEqual([
+      { key: "brand", css: "brand-brand", kind: "color" },
+      { key: "gap", css: "gap-gap", kind: "number" },
+    ]);
+    expect(runtime.modes?.values).toEqual({ brand: { collection: "theme", values: { light: "#ffffff", dark: "#000000" } } });
+    expect(runtime.modes?.screens).toEqual({ home: { theme: ["light", "dark"] } });
+    expect(runtime.modes?.followsDark).toBe(true);
   });
 
-  it("prints a screen's own mode as the value it shows, with nothing to switch", () => {
-    const doc = docOf({ groups: [box], frames: [{ id: "f", name: "Home", x: 0, y: 0, varModes: { theme: "dark" } }] });
-    const { screens } = buildScreens(doc, { box: 120, "box:h": 80 }, { live: true });
+  it("works out a screen's own mode for the runtime, and the document's, light and dark", () => {
+    const frames = [
+      { id: "f", name: "Home", x: 0, y: 0, varModes: { theme: "dark" } },
+      { id: "o", name: "Other", x: 500, y: 0 },
+    ];
+    const pinned = buildScreens(docOf({ groups: [box], frames }), { box: 120, "box:h": 80 }, { live: true }).runtime.modes!;
+    expect(pinned.screens).toEqual({ home: { theme: ["dark", "dark"] }, other: { theme: ["light", "dark"] } });
+    /* still a read of the variable, so a tap that sets it reaches this screen too */
+    expect(buildScreens(docOf({ groups: [box], frames }), { box: 120, "box:h": 80 }, { live: true }).screens[0].source).toContain("var(--m3e-v-brand-brand, #000000)");
+    const documents = buildScreens(docOf({ groups: [box], frames, varModes: { theme: "light" } }), { box: 120, "box:h": 80 }, { live: true }).runtime.modes!;
+    expect(documents.screens.other).toEqual({ theme: ["light", "light"] });
+    expect(documents.followsDark).toBe(false);
+  });
+
+  it("leaves code copied without the runtime with the values themselves", () => {
+    const { screens, runtime } = buildScreens(docOf({ groups: [box] }), { box: 120, "box:h": 80 });
     expect(screens[0].source).not.toContain("--m3e-v-");
-    expect(screens[0].source).toContain("#000000");
+    expect(screens[0].source).toMatch(/opacity: 0\.08/);
+    expect(runtime.modes).toBeUndefined();
+  });
+
+  it("gives two variables whose names come out the same two CSS names", () => {
+    const a: DocVar = { id: "a-b", name: "x", type: "color", value: "#ffffff" };
+    const b: DocVar = { id: "a.b", name: "x", type: "color", value: "#000000" };
+    const two: Group = { id: "g", x: 16, y: 100, axis: "x", items: [{ ...makeItem("box"), id: "box", props: { surface: "card", width: 120, height: 80 }, bind: { "@fill": "a-b", "@stroke": "a.b" } }] };
+    const { runtime } = buildScreens(docOf({ groups: [two], vars: [a, b] }), { box: 120, "box:h": 80 }, { live: true });
+    expect(runtime.modes?.bound.map((x) => x.css)).toEqual(["x-a-b", "x-a-b-2"]);
   });
 });

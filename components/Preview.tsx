@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Item } from "@/lib/tokens";
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, useIsPresent } from "motion/react";
-import type { TargetAndTransition, Variants } from "motion/react";
+import type { Variants } from "motion/react";
 import {
   Action,
   ActionBody,
@@ -53,100 +53,25 @@ import { pinOf } from "@/lib/tidy";
 import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, screenVars, startState, writeField } from "@/lib/interact";
 import { BoundValues } from "./boundValues";
 import { PRESETS, variantFor } from "@/lib/variants";
-import { DIR_OFFSET, EASING_CURVE, flowStarts } from "@/lib/prototype";
+import { flowStarts } from "@/lib/prototype";
+import { EASE, SLIDE_S as SLIDE_MS, screenPoses, type ScreenMove } from "@/lib/screenMotion";
 
-const EASE = [0.2, 0, 0, 1] as const;
-const SLIDE_MS = 0.42;
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
 const WIDE_CONTROL_SPACE = 220;
 /** the strip the controls take along the bottom of a phone */
 const PHONE_BAR_H = 56;
 
-type Anim = { t: Transition; back: boolean; /** the expressive motion scheme: springs instead of eased tweens */ spring?: boolean; /** Figma's animation, over `t` */ m?: Motion };
-
-/** M3 Expressive spatial spring, with a visible overshoot */
-const SPRING = { type: "spring" as const, stiffness: 360, damping: 26, mass: 1 };
 /** how the current screen was reached, so "back" can play it in reverse */
 type Entry = { id: string; t: Transition; m?: Motion };
 
 const pct = (v: number) => `${v * 100}%`;
 
-/** offset along one axis, as a percentage of the screen */
-const off = (axis: "x" | "y", v: number) => (axis === "x" ? { x: pct(v), y: 0 } : { x: 0, y: pct(v) });
-
-type Pose = TargetAndTransition;
-
-/** The poses of one of Figma's animations: at once, a dissolve, or the new screen coming in from a side over the one
- *  there (move in), pushing it out (push), or while it parks a little way off (slide in); backwards, the same undone. */
-function motionPoses(m: Motion, back: boolean): { initial: Pose; animate: Pose; exit: Pose } {
-  const zi = { zIndex: { duration: 0 } };
-  const curve = EASING_CURVE[m.easing ?? "out"];
-  const tr = m.kind === "instant" ? { duration: 0, ...zi } : curve ? { duration: (m.ms ?? 300) / 1000, ease: curve, ...zi } : { ...SPRING, ...zi };
-  const still = { x: 0, y: 0, opacity: 1, scale: 1 };
-  if (m.kind === "instant") return { initial: { ...still, zIndex: 2 }, animate: { ...still, zIndex: 2, transition: tr }, exit: { ...still, zIndex: 1, transition: tr } };
-  if (m.kind === "dissolve") return { initial: { ...still, opacity: 0, zIndex: 2 }, animate: { ...still, zIndex: 2, transition: tr }, exit: { ...still, opacity: 0, zIndex: 1, transition: tr } };
-  const d = DIR_OFFSET[m.dir ?? "left"];
-  const into = off(d.axis, d.from);
-  /* where the screen it covers goes: nowhere, all the way out, or a little way off */
-  const away = m.kind === "move" ? still : m.kind === "push" ? { ...off(d.axis, -d.from), opacity: 1, scale: 1 } : { ...off(d.axis, -0.3 * d.from), opacity: 0.6, scale: 1 };
-  return back
-    ? { initial: { ...away, zIndex: 1 }, animate: { ...still, zIndex: 1, transition: tr }, exit: { ...into, opacity: 1, scale: 1, zIndex: 2, transition: tr } }
-    : { initial: { ...into, opacity: 1, scale: 1, zIndex: 2 }, animate: { ...still, zIndex: 2, transition: tr }, exit: { ...away, zIndex: 1, transition: tr } };
-}
-
-/** enter / leave poses for one screen change; the same spec drives forward and back */
-function poses(c: Anim): { initial: Pose; animate: Pose; exit: Pose } {
-  if (c.m) return motionPoses(c.m, c.back);
-  const zi = { zIndex: { duration: 0 } };
-  const s = SLIDE_SPEC[c.t];
-  if (s) {
-    const tr = c.spring ? { ...SPRING, ...zi } : { duration: SLIDE_MS, ease: EASE, ...zi };
-    return c.back
-      ? {
-          initial: { ...off(s.axis, s.exit), opacity: 0.6, scale: 1, zIndex: 1 },
-          animate: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 1, transition: tr },
-          exit: { ...off(s.axis, s.enter), opacity: 1, scale: 1, zIndex: 2, transition: tr },
-        }
-      : {
-          initial: { ...off(s.axis, s.enter), opacity: 1, scale: 1, zIndex: 2 },
-          animate: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 2, transition: tr },
-          exit: { ...off(s.axis, s.exit), opacity: 0.6, scale: 1, zIndex: 1, transition: tr },
-        };
-  }
-  if (c.t === "fade") {
-    const tr = { duration: 0.3, ease: EASE, ...zi };
-    return {
-      initial: { x: 0, y: 0, opacity: 0, scale: 1, zIndex: 2 },
-      animate: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 2, transition: tr },
-      exit: { x: 0, y: 0, opacity: 0, scale: 1, zIndex: 1, transition: tr },
-    };
-  }
-  if (c.t === "expand") {
-    const tr = c.spring ? { ...SPRING, ...zi } : { duration: 0.36, ease: EASE, ...zi };
-    return c.back
-      ? {
-          initial: { x: 0, y: 0, scale: 0.92, opacity: 0, zIndex: 1 },
-          animate: { x: 0, y: 0, scale: 1, opacity: 1, zIndex: 1, transition: tr },
-          exit: { x: 0, y: 0, scale: 1.06, opacity: 0, zIndex: 2, transition: tr },
-        }
-      : {
-          initial: { x: 0, y: 0, scale: 0.92, opacity: 0, zIndex: 2 },
-          animate: { x: 0, y: 0, scale: 1, opacity: 1, zIndex: 2, transition: tr },
-          exit: { x: 0, y: 0, scale: 1.06, opacity: 0, zIndex: 1, transition: tr },
-        };
-  }
-  const tr = { duration: 0, ...zi };
-  return {
-    initial: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 2 },
-    animate: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 2, transition: tr },
-    exit: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 1, transition: tr },
-  };
-}
-
+/* Each change of screen plays the poses an exported app plays too (lib/screenMotion.ts): Figma's animation where the
+ * action has one, else its older transition, backwards for going back. */
 const screenVariants: Variants = {
-  initial: (c: Anim) => poses(c).initial,
-  animate: (c: Anim) => poses(c).animate,
-  exit: (c: Anim) => poses(c).exit,
+  initial: (c: ScreenMove) => screenPoses(c).initial,
+  animate: (c: ScreenMove) => screenPoses(c).animate,
+  exit: (c: ScreenMove) => screenPoses(c).exit,
 };
 
 /* the destination bars: a tap on their destination is shared with the bar of the same entries on
@@ -561,7 +486,7 @@ export function Preview({
   const [overlay, setOverlay] = useState<Entry | null>(null);
   const overlayRef = useRef(overlay);
   overlayRef.current = overlay;
-  const [anim, setAnim] = useState<Anim>({ t: "none", back: false });
+  const [anim, setAnim] = useState<ScreenMove>({ transition: "none", backwards: false });
   const theme = normalizeTheme(doc.theme);
   const spring = theme.motion === "expressive";
   const [scale, setScale] = useState(1);
@@ -691,7 +616,7 @@ export function Preview({
     const from = s[s.length - 1];
     const to = s[s.length - 2];
     const same = sameSize(from.id, to.id);
-    setAnim({ t: same ? from.t : "fade", back: true, spring, ...(same && from.m ? { m: from.m } : {}) });
+    setAnim({ transition: same ? from.t : "fade", backwards: true, spring, ...(same && from.m ? { motion: from.m } : {}) });
     setStack(s.slice(0, -1));
   }, [spring, sameSize]);
 
@@ -723,7 +648,7 @@ export function Preview({
       const same = sameSize(s[s.length - 1].id, a.to);
       const t = same ? a.transition : "fade";
       const m = same ? a.motion : undefined;
-      setAnim({ t, back: false, spring, ...(m ? { m } : {}) });
+      setAnim({ transition: t, backwards: false, spring, ...(m ? { motion: m } : {}) });
       setStack((cur) => [...cur, { id: a.to, t, ...(m ? { m } : {}) }]);
     },
     [frames, back, spring, sameSize],
@@ -881,7 +806,7 @@ export function Preview({
       const commit = prog.get() > 0.25 || g.vel > 0.0012;
       animate(prog, commit ? 1 : 0, { duration: 0.26, ease: EASE }).then(() => {
         if (commit) {
-          setAnim({ t: "none", back: false, spring });
+          setAnim({ transition: "none", backwards: false, spring });
           setStack((s) => [...s, { id: pk.frameId, t: pk.t }]);
         }
         peekRef.current = null;
@@ -1054,7 +979,7 @@ export function Preview({
                 <motion.div key={`overlay:${overlay.id}`} data-preview-overlay={overlay.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} style={{ position: "absolute", inset: 0, zIndex: 4, display: "grid", placeItems: "center" }}>
                   <div aria-hidden onClick={() => setOverlay(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.32)" }} />
                   <motion.div
-                    custom={{ t: overlay.t, back: false, spring, m: overlay.m } as Anim}
+                    custom={{ transition: overlay.t, backwards: false, spring, motion: overlay.m } satisfies ScreenMove}
                     variants={screenVariants}
                     initial="initial"
                     animate="animate"
@@ -1191,7 +1116,7 @@ export function Preview({
                         setPicker(false);
                         setDevice(null);
                         setOverlay(null);
-                        setAnim({ t: "fade", back: false, spring });
+                        setAnim({ transition: "fade", backwards: false, spring });
                         setStack([{ id: f.id, t: "fade" }]);
                       }}
                       className="m3-press"
@@ -1214,7 +1139,7 @@ export function Preview({
                           /* a screen picked by hand is shown as it is, whichever width was on */
                           setDevice(null);
                           setOverlay(null);
-                          setAnim({ t: "fade", back: false, spring });
+                          setAnim({ transition: "fade", backwards: false, spring });
                           setStack([{ id: f.id, t: "fade" }]);
                         }}
                         className="m3-press"
@@ -1271,7 +1196,7 @@ export function Preview({
                     title={word}
                     data-preview-size={preset}
                     onClick={() => {
-                      setAnim({ t: "fade", back: false, spring });
+                      setAnim({ transition: "fade", backwards: false, spring });
                       setDevice(preset);
                     }}
                     className="m3-press"
