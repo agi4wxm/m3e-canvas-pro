@@ -231,7 +231,7 @@ describe("a button let go against a button", () => {
     const out = joinDropped(gs, "b", widths(gs))!;
     expect(out.groups).toHaveLength(1);
     expect(out.groups[0].items[0].component).toBe("button-group");
-    expect((out.groups[0].items[0].props?.items as { label: string }[]).map((r) => r.label)).toEqual(["a", "b"]);
+    expect((out.groups[0].items[0].props!.items as { label: string }[]).map((r) => r.label)).toEqual(["a", "b"]);
   });
 
   it("joins a group at the end it was let go, its taps following their rows", () => {
@@ -239,7 +239,7 @@ describe("a button let go against a button", () => {
     const gs = [row, box("a", 96, 0)];
     const out = joinDropped(gs, "a", { ...widths(gs), "i-g": 200, "i-g:h": 40 })!;
     const joined = out.groups[0].items[0];
-    expect((joined.props?.items as { label: string }[]).map((r) => r.label)).toEqual(["a", "x", "y"]);
+    expect((joined.props!.items as { label: string }[]).map((r) => r.label)).toEqual(["a", "x", "y"]);
     expect(Object.keys(joined.actions ?? {})).toEqual(["tab:1"]);
     expect(out.groups[0].x).toBe(96);
   });

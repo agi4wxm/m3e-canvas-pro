@@ -2,7 +2,7 @@
 import { useContext } from "react";
 import { motion, useDragControls } from "motion/react";
 import { CONTRASTS, Contrast, FONTS, Item, PALETTES, Palette, SHAPES, ShapeScale, Theme, paletteIconOf } from "@/lib/tokens";
-import { STYLE_PACKS, styleTextOf } from "@/lib/styles";
+import { STYLE_PACKS, customPacks, styleTextOf } from "@/lib/styles";
 import { partBySlug } from "@/parts/registry";
 import { listTextOf, nameOf } from "@/parts/labels";
 import { ComponentProps } from "./ComponentInspector";
@@ -233,7 +233,8 @@ export function MobileSettings({
       </Row>
       <Row icon="style" label={t("styleTab", lang)} p={p}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "2px 0" }}>
-          {[{ key: "", label: "Material" }, ...STYLE_PACKS.map((s) => ({ key: s.key, label: styleTextOf(s.name, lang) }))].map((s) => {
+          {/* the built-in styles, then the document's own */}
+          {[{ key: "", label: "Material" }, ...[...STYLE_PACKS, ...customPacks()].map((s) => ({ key: s.key, label: styleTextOf(s.name, lang) }))].map((s) => {
             const on = (theme.style ?? "") === s.key;
             return (
               <button

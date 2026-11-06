@@ -4,6 +4,7 @@ import { KITS_KO, KITS_UI } from "./i18n/kits";
 import { LAYOUT_KO, LAYOUT_UI } from "./i18n/layout";
 import { LOOK_KO, LOOK_UI } from "./i18n/look";
 import { STYLES_KO, STYLES_UI } from "./i18n/styles";
+import { CUSTOM_STYLES_KO, CUSTOM_STYLES_UI } from "./i18n/customStyles";
 import { EDITOR_KO, EDITOR_UI } from "./i18n/editor";
 
 export type Lang = "ja" | "en" | "zh" | "ko";
@@ -512,6 +513,10 @@ export const UI = {
   aiErrorLong: { ja: "返答が長すぎて途中で切れました。画面を減らして試してください", en: "The reply was cut short. Try fewer screens", zh: "回复过长被截断了。请减少屏幕数量再试" },
   aiErrorModel: { ja: "モデル ID を入力してください", en: "Enter a model ID", zh: "请输入模型 ID" },
   aiErrorInsecure: { ja: "ベース URL は https か localhost にしてください", en: "The base URL must use https or point at localhost", zh: "基础 URL 必须使用 https 或指向 localhost" },
+  aiErrorKey: { ja: "プロバイダがキーを受け付けませんでした。API キーと利用権限を確認してください", en: "The provider refused the key. Check the API key and what it may access", zh: "服务商拒绝了这个密钥。请检查 API 密钥和它的使用权限" },
+  aiErrorNotFound: { ja: "モデルが見つかりません。モデル ID とベース URL を確認してください", en: "The model was not found. Check the model ID and the base URL", zh: "找不到这个模型。请检查模型 ID 和基础 URL" },
+  aiErrorRate: { ja: "リクエストが多すぎるか、利用枠を使い切りました。少し待つか、アカウントの利用枠を確認してください", en: "Too many requests, or the quota is used up. Wait a moment or check the account's quota", zh: "请求过多或额度已用完。请稍后再试，或检查账户额度" },
+  aiErrorDown: { ja: "プロバイダが一時的に応答できません。しばらくしてからもう一度試してください", en: "The provider cannot answer right now. Try again in a while", zh: "服务商暂时无法响应。请稍后再试" },
   aiErrorNetwork: {
     ja: "接続できませんでした。URL、ネットワーク、CORS の設定を確認してください",
     en: "Could not connect. Check the URL, the network and the server's CORS settings",
@@ -556,6 +561,7 @@ export const UI = {
   ...LOOK_UI,
   ...LAYOUT_UI,
   ...STYLES_UI,
+  ...CUSTOM_STYLES_UI,
   ...EDITOR_UI,
 } as const satisfies Record<string, Str>;
 
@@ -642,6 +648,8 @@ export const KO: Record<UIKey, string> = {
   aiSelectScreen: "먼저 화면을 선택하세요", aiNoKey: "AI 탭에 키를 입력하면 사용할 수 있습니다", aiError: "AI 요청에 실패했습니다",
   aiErrorRefusal: "모델이 답변을 거부했습니다", aiErrorJson: "모델의 응답을 읽을 수 없습니다", aiErrorLong: "답변이 너무 길어 중간에 잘렸습니다. 화면 수를 줄여 다시 시도하세요", aiErrorModel: "모델 ID를 입력하세요",
   aiErrorInsecure: "기본 URL은 https를 사용하거나 localhost를 가리켜야 합니다", aiErrorNetwork: "연결할 수 없습니다. URL, 네트워크 및 서버의 CORS 설정을 확인하세요",
+  aiErrorKey: "제공업체가 키를 거부했습니다. API 키와 사용 권한을 확인하세요", aiErrorNotFound: "모델을 찾을 수 없습니다. 모델 ID와 기본 URL을 확인하세요",
+  aiErrorRate: "요청이 너무 많거나 사용 한도를 모두 썼습니다. 잠시 기다리거나 계정의 한도를 확인하세요", aiErrorDown: "제공업체가 지금 응답할 수 없습니다. 잠시 후 다시 시도하세요",
   components: "컴포넌트", makeComponent: "컴포넌트로 만들기", componentDefaultName: "컴포넌트 {n}", noComponents: "부품을 선택하고 컴포넌트로 만들기를 누르면 여기에 표시됩니다.", componentHint: "화면으로 끌어 놓거나 클릭해 추가합니다. 배치한 인스턴스를 두 번 클릭하면 정의를 편집합니다.", componentUses: "인스턴스 {n}개", componentName: "컴포넌트 이름", editComponent: "정의 편집", deleteComponent: "정의 삭제(인스턴스는 일반 부품이 됩니다)", editingComponent: "컴포넌트 편집 중", doneEditing: "완료", detachInstance: "일반 부품으로 분리", instanceOfName: "{name}의 인스턴스", instanceHint: "정의의 변경 사항이 모두 반영되며, 아래에서 바꾼 항목만 이 인스턴스의 값을 유지합니다.", overrides: "이 인스턴스만", resetOverride: "정의 값으로 되돌리기", noOverrides: "인스턴스별로 바꿀 수 있는 항목이 없습니다", nestRefused: "컴포넌트를 자기 자신 안에 넣을 수 없습니다", groupInstanceRefused: "인스턴스는 그룹으로 묶을 수 없습니다. 자동 레이아웃을 쓰거나 먼저 분리하세요",
   data: "데이터", addCollection: "데이터 추가", collectionName: "데이터 이름", collectionDefaultName: "데이터 {n}", collectionTable: "첫 줄은 필드 이름, 이후 한 줄에 한 행, 쉼표(,)로 구분합니다", noCollections: "데이터를 추가한 뒤 레이아웃 컨테이너의 반복에서 선택하면 첫 번째 자식이 행 수만큼 그려집니다.", deleteCollection: "데이터 삭제", repeat: "반복", repeatNone: "반복 안 함", repeatLimit: "최대 행 수", repeatHint: "첫 번째 자식을 행마다 하나씩 그립니다. 문구의 {{field}}는 그 행의 값이 되고, 다른 화면의 {{current.field}}는 탭한 행의 값이 됩니다(field는 필드 이름).", repeatFields: "사용 가능한 필드",
   variants: "크기별 화면", createVariant: "{size} 버전 만들기", variantHint: "이 화면 옆에 다른 크기의 복사본을 만듭니다. 크기마다 레이아웃이 독립적이며 미리보기의 너비 전환으로 이동합니다.", previewWidth: "너비",
@@ -649,6 +657,7 @@ export const KO: Record<UIKey, string> = {
   ...LOOK_KO,
   ...LAYOUT_KO,
   ...STYLES_KO,
+  ...CUSTOM_STYLES_KO,
   ...EDITOR_KO,
 };
 

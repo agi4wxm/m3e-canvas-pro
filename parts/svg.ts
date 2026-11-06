@@ -119,6 +119,7 @@ const LOCAL_URL = new RegExp(`url\\(${WS}(['"]?)${WS}#([\\w.-]{1,128})${WS}\\1${
  *  could hide one of these. Entities were decoded when the markup was read, so `&quot;` is a quote
  *  here. */
 export function unsafe(value: string): boolean {
+  // eslint-disable-next-line no-control-regex -- control characters are exactly what this refuses
   if (/[\\<>\u0000-\u0008\u000b\u000e-\u001f\u007f]/.test(value)) return true;
   /* what is left with every reference to the drawing itself taken out, and every comment, may not name an address */
   const rest = value

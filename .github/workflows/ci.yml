@@ -1,0 +1,38 @@
+# Every push and pull request: install from the lockfile, then the same checks the docs ask for before a commit.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Lint
+        run: bun run lint
+      - name: Generated files are up to date
+        run: |
+          bun run check:icons
+          bun run check:icon-sets
+          bun run check:versions
+      - name: Test
+        run: bun run test
+      - name: Build
+        run: bun run build

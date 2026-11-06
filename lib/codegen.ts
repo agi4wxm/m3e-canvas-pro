@@ -28,7 +28,7 @@ import {
   COLOR_TOKENS,
   type ColorToken,
 } from "./tokens";
-import { hasBackdrop } from "./styles";
+import { hasBackdrop, withDocStyles } from "./styles";
 import { EXTERNAL } from "../parts/externals";
 import { FILE_OF } from "../parts/files.generated";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
@@ -142,7 +142,7 @@ function jsx(it: Item, c: Ctx, insideTap = false): string {
 
 /** a part that takes the room its layout gives it, not a number of pixels */
 function fluid(tree: PNode, keys: ("width" | "height")[]): PNode {
-  const style = { ...((tree.props?.style as Record<string, PValue> | undefined) ?? {}) };
+  const style = { ...(tree.props?.style as Record<string, PValue> | undefined) };
   for (const k of keys) if (k in style) style[k] = "100%";
   return { ...tree, props: { ...tree.props, style } };
 }
@@ -459,7 +459,12 @@ type BuildOptions = {
 
 export const importLines = (imports: Imports) => [...imports.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([source, set]) => `import { ${[...set].sort((a, b) => a.localeCompare(b)).join(", ")} } from "${source}"`);
 
+/** Every screen of a document as a React component, read in the document's own styles (a custom style is resolved from `doc.styles`) */
 export function buildScreens(source: Doc, widths: Record<string, number>, o: BuildOptions = {}): { screens: ScreenCode[]; runtime: RuntimeSpec; usesToast: boolean } {
+  return withDocStyles(source.styles, () => screensOf(source, widths, o));
+}
+
+function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions): { screens: ScreenCode[]; runtime: RuntimeSpec; usesToast: boolean } {
   /* printed code is expanded: instances and repeated rows come out as plain parts. Its words are cleared of the
    * printer's own marks first */
   const doc = expandDoc(withoutMarks(source), widths);
@@ -524,7 +529,12 @@ export function buildScreens(source: Doc, widths: Record<string, number>, o: Bui
   return { screens, runtime: b.spec(screens.map((s) => s.key)), usesToast };
 }
 
+/** the code of a document, or of one of its screens, read in the document's own styles */
 export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?: string): CodeResult {
+  return withDocStyles(doc.styles, () => codeOf(doc, widths, onlyFrameId));
+}
+
+function codeOf(doc: Doc, widths: Record<string, number>, onlyFrameId?: string): CodeResult {
   const palette = paletteOf(doc.paletteKey, doc.customPalette, doc.theme);
   /* the header is comments: what it says of the document is only ever a color and a word it knows */
   const seed = [palette.seed, palette.primary].find((c): c is string => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c)) ?? "#6750A4";

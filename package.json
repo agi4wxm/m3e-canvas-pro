@@ -17,6 +17,7 @@
     "build": "vp build",
     "preview": "vp preview",
     "typecheck": "tsc --noEmit -p .",
+    "lint": "vp lint --deny-warnings",
     "test": "vitest run",
     "test:e2e": "bun e2e/run.ts",
     "gen:parts": "node scripts/gen-parts-components.mjs",
@@ -26,6 +27,8 @@
     "gen:icon-sets": "bun scripts/gen-icon-sets.ts",
     "check:icon-sets": "bun scripts/gen-icon-sets.ts --check",
     "gen:tokens": "bun scripts/gen-tokens.ts",
+    "gen:versions": "bun scripts/gen-versions.ts",
+    "check:versions": "bun scripts/gen-versions.ts --check",
     "check:export": "bun scripts/check-export.ts"
   },
   "dependencies": {

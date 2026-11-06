@@ -7,6 +7,9 @@
  *   recipes/*.ts   how each kind of control can be built, as CSS on named parts, shared by every style
  *   theme.ts       reading a style off a theme
  *   sheet.ts       the stylesheet a theme comes to
+ *   custom.ts      a style as data a document carries (`Doc.styles`): its format, validation and compiling
+ *   css.ts         the CSS a custom style may write, as rules, and the grammar they are held to
+ *   book.ts        which document's custom styles a key is read against
  *
  * Every style here is modeled on products people actually use, chosen from download, revenue and concurrent-player
  * rankings of 2025 and 2026. They take a product's general visual language and none of its assets. `basis` says how
@@ -20,3 +23,7 @@ export { DEFAULT_UX, styleTextOf, type StyleGroup, type StylePack, type StyleRol
 export { RECIPES, RECIPE_KEYS, RECIPE_LABELS, VARIANT_LABELS, variantLabel, type RecipeKey, type Recipes } from "./recipes";
 export { STYLE_GROUPS, STYLE_PACKS, artOf, isStrict, normalizeRecipes, normalizeUx, recipesOf, styleCatalog, styleOf, stylePalette, stylePatch, styleSeed, uxOf } from "./theme";
 export { APP_SCOPE, CANVAS_SCOPE, hasBackdrop, screenBackground, styleCss, type StyleSelectors } from "./sheet";
+export { builtInStyleOf, resolveStyle } from "./theme";
+export { customPackOf, customPacks, docStyles, docStylesRevision, setDocStyles, withDocStyles } from "./book";
+export { CUSTOM_PREFIX, OPTIONAL_ROLE_KEYS, READS, ROLE_KEYS, STYLE_FORMAT, STYLE_VERSION, TOKEN_KEYS, cleanStyles, compileCustomStyle, contrastFloor, contrastProblems, contrastRatio, copyOfStyle, fromPack, hexOf, isCustomKey, newStyleKey, readStyleFile, rolesFromSeed, styleFile, styleFileName, validateCustomStyle, withStyle, type CustomStyle, type StyleFile, type StyleProblem, type Validated } from "./custom";
+export { FUNCTIONS, PROPERTIES, PSEUDOS, checkRule, checkSelector, checkValue, parseCss, rulesCss, rulesFromCss, type CssRule, type Reason } from "./css";

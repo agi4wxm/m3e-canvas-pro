@@ -5,11 +5,13 @@ import { getLang, type Lang } from "./i18n";
 import { BASELINE_SEED } from "./m3e/color";
 import { runtimeSource } from "./runtimeSource";
 import { SLIDE_SPEC, faceSheetsOf, fontFamilyOf, normalizeTheme, seedOf, shapeScaleOf, type Doc } from "./tokens";
-import { APP_SCOPE, recipesOf, styleCss } from "./styles";
+import { APP_SCOPE, recipesOf, styleCss, withDocStyles } from "./styles";
 import { elevationCss } from "./look";
 import { iconSubset, setsOf } from "../components/m3e/icon-sets/load";
 import { SOURCES } from "../components/m3e/icon-sets/manifest";
 import { str } from "../parts/print";
+import { EXPORT_ALWAYS, EXPORT_DEV } from "./exportPackages";
+import { VERSIONS } from "./versions.generated";
 
 /* A document as a project someone can install and run: its screens, the runtime their taps call, its
  * theme, and a copy of only the source files those reach, found by walking their imports. Nothing here
@@ -515,6 +517,7 @@ const TSCONFIG = json({
 function readmeSource(doc: Doc, screens: ScreenCode[], copied: string[], missing: string[]): string {
   const dirs = [...new Set(copied.map((p) => p.slice(0, p.lastIndexOf("/"))))].sort();
   /* the title is a heading of one line */
+  // eslint-disable-next-line no-control-regex -- a title is one line of plain text: control characters and line separators go
   const title = (doc.title || "").replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim() || "App";
   return `# ${title}
 
@@ -565,18 +568,12 @@ Thumbs.db
 /** a package name from a title: letters and digits, else a plain name */
 export const projectName = (doc: Doc) => (doc.title || "").toLowerCase().match(/[a-z0-9]+/g)?.join("-") || "m3e-app";
 
-/** the exact versions this repo builds with: a range in package.json is only what it accepts, the lockfile what it runs */
-function versionsFrom(pkg: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> }, lock: string) {
-  const declared: Record<string, string> = { ...pkg.dependencies, ...pkg.devDependencies };
-  return (name: string): string => {
-    const range = declared[name];
-    /* an alias says exactly what it is */
-    if (range?.startsWith("npm:")) return range;
-    const escaped = name.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
-    const at = new RegExp(`"${escaped}": \\["${escaped}@([^"]+)"`).exec(lock);
-    if (at) return at[1];
-    throw new Error(`no version of ${name} in this repo`);
-  };
+/** The exact version this repo builds with: a range in package.json is only what it accepts, the lockfile what it runs.
+ *  Read off the lockfile when the editor is built (versions.generated.ts), so the editor does not carry the lockfile. */
+function versionOf(name: string): string {
+  const version = VERSIONS[name];
+  if (version) return version;
+  throw new Error(`no version of ${name} in this repo`);
 }
 
 const sorted = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
@@ -598,40 +595,45 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     }
     return images.get(data)!;
   };
-  const { screens, runtime, usesToast } = buildScreens(doc, widths, { onlyFrameId: o.onlyFrameId, live: true, image });
-  if (!screens.length) throw new Error("there is no screen to export");
+  /* Everything that reads the document's style is written first, in one go, with the document's own styles in reach
+     (a custom style is resolved from `doc.styles`): nothing in it waits, so no other document's styles can come between */
+  const { screens, theme } = withDocStyles(doc.styles, () => {
+    const { screens, runtime, usesToast } = buildScreens(doc, widths, { onlyFrameId: o.onlyFrameId, live: true, image });
+    if (!screens.length) throw new Error("there is no screen to export");
 
-  const seen = new Set<string>();
-  for (const s of screens) {
-    /* two screens may not share a file, however their names come out */
-    if (seen.has(s.component)) throw new Error(`two screens are both called ${s.component}`);
-    seen.add(s.component);
-    const lines = importLines(s.imports);
-    files[`src/screens/${s.component}.tsx`] = `${lines.join("\n")}${lines.length ? "\n\n" : ""}${s.source}\n`;
-  }
-  for (const [data, path] of images) files[`public${path}`] = dataToBytes(data);
+    const seen = new Set<string>();
+    for (const s of screens) {
+      /* two screens may not share a file, however their names come out */
+      if (seen.has(s.component)) throw new Error(`two screens are both called ${s.component}`);
+      seen.add(s.component);
+      const lines = importLines(s.imports);
+      files[`src/screens/${s.component}.tsx`] = `${lines.join("\n")}${lines.length ? "\n\n" : ""}${s.source}\n`;
+    }
+    for (const [data, path] of images) files[`public${path}`] = dataToBytes(data);
 
-  const theme = normalizeTheme(doc.theme);
-  const keyOf = new Map(screens.map((s) => [s.id, s.key]));
-  const families = familiesOf(doc.frames)
-    .map((family) => family.flatMap((f) => keyOf.get(f.id) ?? []))
-    .filter((family) => family.length > 1);
-  const appSrc = appSource(screens, theme.motion, usesToast, families);
-  const themeSrc = themeSource(doc, name);
-  files["src/App.tsx"] = appSrc;
-  files["src/main.tsx"] = MAIN;
-  files["src/runtime.tsx"] = runtimeSource(runtime);
-  files["src/theme.tsx"] = themeSrc;
-  files["src/index.css"] = cssSource(doc, lang);
-  const styleSheet = styleCssOf(doc, lang);
-  if (styleSheet) files["src/style.css"] = `/* The document's style. It is not in a layer, so it wins over what the components say about themselves. */\n${styleSheet}\n`;
-  files["index.html"] = htmlSource(doc, lang);
+    const theme = normalizeTheme(doc.theme);
+    const keyOf = new Map(screens.map((s) => [s.id, s.key]));
+    const families = familiesOf(doc.frames)
+      .map((family) => family.flatMap((f) => keyOf.get(f.id) ?? []))
+      .filter((family) => family.length > 1);
+    const appSrc = appSource(screens, theme.motion, usesToast, families);
+    const themeSrc = themeSource(doc, name);
+    files["src/App.tsx"] = appSrc;
+    files["src/main.tsx"] = MAIN;
+    files["src/runtime.tsx"] = runtimeSource(runtime);
+    files["src/theme.tsx"] = themeSrc;
+    files["src/index.css"] = cssSource(doc, lang);
+    const styleSheet = styleCssOf(doc, lang);
+    if (styleSheet) files["src/style.css"] = `/* The document's style. It is not in a layer, so it wins over what the components say about themselves. */\n${styleSheet}\n`;
+    files["index.html"] = htmlSource(doc, lang);
+    return { screens, theme };
+  });
   files["vite.config.ts"] = VITE_CONFIG;
   files["tsconfig.json"] = TSCONFIG;
   files[".gitignore"] = GITIGNORE;
 
   /* the walk starts from what was just written, so it copies what they reach and nothing else */
-  const written = [...Object.keys(files).filter((p) => p.endsWith(".tsx")).map((p) => files[p] as string)];
+  const written = Object.keys(files).filter((p) => p.endsWith(".tsx")).map((p) => files[p] as string);
   const roots = new Set<string>(["@/styles/m3e.css", "@/react-css.d.ts"]);
   const here = new Set(["@/runtime", "@/theme", "@/style-icons"]);
   for (const source of written) for (const spec of importsIn(source)) if (!spec.startsWith(".") && !here.has(spec)) roots.add(spec);
@@ -691,11 +693,10 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     delete files["src/components/m3e/icon-sets/shard.ts"];
   }
 
-  const pkg = JSON.parse(await read("package.json")) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string>; overrides?: Record<string, string>; engines?: Record<string, string> };
-  const versionOf = versionsFrom(pkg, await read("bun.lock"));
-  const deps = new Set([...packages, "react", "react-dom", "motion", "tailwindcss", "tw-animate-css", "shadcn"]);
+  const pkg = JSON.parse(await read("package.json")) as { overrides?: Record<string, string>; engines?: Record<string, string> };
+  const deps = new Set([...packages, ...EXPORT_ALWAYS]);
   /* tailwind is a build tool here, though the stylesheet names it */
-  const dev = ["@tailwindcss/vite", "@types/react", "@types/react-dom", "@vitejs/plugin-react", "tailwindcss", "typescript", "vite", "vite-plus"];
+  const dev = EXPORT_DEV;
   for (const d of dev) deps.delete(d);
   files["package.json"] = `${json({
     name,

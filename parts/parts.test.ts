@@ -2,11 +2,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { COMPONENTS, FILE_OF } from "./components";
+import { COMPONENTS, FILE_OF, loadAllModules } from "./components";
 import { EXTERNAL } from "./externals";
 import { h, ic, raw } from "./node";
 import { WIDGET_SOURCES } from "./widgets/sources";
-import { loadWidgets } from "./widgets/load";
 import { existsSync } from "node:fs";
 import { choiceValueOf } from "./labels";
 import { inlineNode, namesIn } from "./print";
@@ -20,7 +19,7 @@ beforeAll(async () => {
   vi.stubGlobal("window", { innerWidth: 1280, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) });
   setGlobalLang("en");
   /* a static render cannot wait for a widget to be fetched */
-  await loadWidgets();
+  await loadAllModules();
 });
 
 describe("the part registry", () => {
@@ -103,6 +102,17 @@ describe("the canvas view of a part", () => {
       expect(html.length, d.slug).toBeGreaterThan(20);
       expect(html, d.slug).not.toMatch(/undefined|\[object/);
     }
+  });
+
+  it("gives a card's words the card's width, centered or beside a picture, or they stand one character to a line", () => {
+    const card = partBySlug("card")!;
+    const header = (values: Record<string, string>) => {
+      const node = treeOf(card, { ...defaultValues(card), ...values }).children?.find((c) => typeof c !== "string" && c.type === "CardHeader");
+      return typeof node === "object" ? node.props?.className : undefined;
+    };
+    for (const imagePos of ["leading", "trailing"]) expect(header({ imagePos }), imagePos).toBe("min-w-0 flex-1");
+    for (const textAlign of ["start", "center", "end"]) expect(header({ imagePos: "top", textAlign }), textAlign).toBe("self-stretch");
+    expect(header({ imagePos: "background", textAlign: "center" })).toBe("relative self-stretch");
   });
 
   it("puts a part that opens something in a box, and prints it closed", () => {
