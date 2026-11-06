@@ -75,6 +75,7 @@ describe("toYaml", () => {
         "",
       ].join("\n"),
     );
+    expect(toYaml({})).toBe("{}\n");
   });
 });
 

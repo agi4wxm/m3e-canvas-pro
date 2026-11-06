@@ -34,5 +34,6 @@ function lines(v: unknown, pad: string): string[] {
 
 /** a JSON value (an object at the top) as YAML text ending in a newline */
 export function toYaml(value: Record<string, unknown>): string {
-  return `${lines(value, "").join("\n")}\n`;
+  const out = lines(value, "");
+  return out.length ? `${out.join("\n")}\n` : "{}\n";
 }
