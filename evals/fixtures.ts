@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { counterIds, DocStore, guessMeasurer, ops, savedDoc, stateOf, type CoreState, type Tx } from "../lib/core";
 import { setGlobalLang, type Lang } from "../lib/i18n";
+import { overridableParts } from "../lib/instances";
 import { openProject } from "../lib/project";
 import type { Doc } from "../lib/tokens";
 
@@ -39,6 +40,33 @@ function kit(tx: Tx, slug: string, screen: string, words: string[] = [], icons: 
 type Build = (tx: Tx) => void;
 
 /** a document built in one transaction, in a language, wearing a style or Material */
+/** the fruit shop: an app bar on its screen and a product card made a component (its scratch screen taken away) */
+function buildShop(tx: Tx) {
+  tx.run(ops.setTitle, { title: "水果店" });
+  tx.run(ops.addScreen, { id: "shop", name: "商店" });
+  tx.run(ops.addPart, { slug: "app-bar", id: "bar", screen: "shop", at: { x: 0, y: 0 }, props: { title: "今日水果" } });
+  /* the card is built on a screen of its own, made a component, and that screen taken away */
+  tx.run(ops.addScreen, { id: "scratch", name: "草稿" });
+  tx.run(ops.addTree, {
+    screen: "scratch",
+    at: { x: 16, y: 80 },
+    tree: {
+      part: "box",
+      id: "card",
+      name: "商品卡片",
+      props: { surface: "card", layout: "column", gap: 8, padX: 12, padY: 12, hugWidth: false, width: 180 },
+      children: [
+        { part: "image", id: "card-image", props: { width: 156, height: 120 } },
+        { part: "text", id: "card-name", props: { text: "商品名", style: "lead" } },
+        { part: "text", id: "card-price", props: { text: "¥0", color: "primary" } },
+        { part: "button", id: "card-add", props: { label: "加入购物车", size: "sm" } },
+      ],
+    },
+  });
+  tx.run(ops.makeComponentOp, { ids: ["card"], name: "商品卡片", id: "product" });
+  tx.run(ops.removeScreen, { id: "scratch" });
+}
+
 function made(lang: Lang, build: Build): Doc {
   setGlobalLang(lang);
   const store = new DocStore(stateOf({ groups: [], frames: [] }), { ids: counterIds("f"), measurer: guessMeasurer, lang: () => lang });
@@ -153,31 +181,24 @@ export const FIXTURES: Record<string, Fixture> = {
   /** a shop with a product card component and an empty shop screen, in Chinese */
   "shop-zh": {
     lang: "zh",
+    doc: () => made("zh", buildShop),
+  },
+
+  /** the fruit shop with three cards already placed, each with its own fruit and price: a change meant for every
+   *  card has to be made on the component itself */
+  "shop-placed-zh": {
+    lang: "zh",
     doc: () =>
       made("zh", (tx) => {
-        tx.run(ops.setTitle, { title: "水果店" });
-        tx.run(ops.addScreen, { id: "shop", name: "商店" });
-        tx.run(ops.addPart, { slug: "app-bar", id: "bar", screen: "shop", at: { x: 0, y: 0 }, props: { title: "今日水果" } });
-        /* the card is built on a screen of its own, made a component, and that screen taken away */
-        tx.run(ops.addScreen, { id: "scratch", name: "草稿" });
-        tx.run(ops.addTree, {
-          screen: "scratch",
-          at: { x: 16, y: 80 },
-          tree: {
-            part: "box",
-            id: "card",
-            name: "商品卡片",
-            props: { surface: "card", layout: "column", gap: 8, padX: 12, padY: 12, hugWidth: false, width: 180 },
-            children: [
-              { part: "image", id: "card-image", props: { width: 156, height: 120 } },
-              { part: "text", id: "card-name", props: { text: "商品名", style: "lead" } },
-              { part: "text", id: "card-price", props: { text: "¥0", color: "primary" } },
-              { part: "button", id: "card-add", props: { label: "加入购物车", size: "sm" } },
-            ],
-          },
+        buildShop(tx);
+        const def = tx.state.doc.components?.find((c) => c.id === "product");
+        const parts = def ? overridableParts(def, tx.state.doc.components) : [];
+        const path = (itemId: string) => parts.find((p) => p.item.id === itemId)?.path ?? itemId;
+        const fruits: [string, string][] = [["苹果", "¥3"], ["梨", "¥4"], ["李子", "¥5"]];
+        fruits.forEach(([name, price], i) => {
+          const { groupId } = tx.run(ops.addInstance, { component: "product", screen: "shop", groupId: `fruit${i + 1}`, at: { x: 16, y: 88 + i * 268 } });
+          tx.run(ops.setOverrides, { id: groupId, overrides: { [`${path("card-name")}/text`]: name, [`${path("card-price")}/text`]: price } });
         });
-        tx.run(ops.makeComponentOp, { ids: ["card"], name: "商品卡片", id: "product" });
-        tx.run(ops.removeScreen, { id: "scratch" });
       }),
   },
 
