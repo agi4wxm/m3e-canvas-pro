@@ -59,6 +59,7 @@ export const emptySession = (): Session => ({ selection: [], frameId: null, widt
 
 /** the state of a document with nothing selected and nothing measured */
 export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, session: Partial<Session> = {}): CoreState {
+  const icons = cleanDocIcons(doc.icons);
   return {
     doc: {
       groups: doc.groups,
@@ -75,7 +76,7 @@ export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, sess
       ...(doc.vars ? { vars: doc.vars } : {}),
       ...(doc.components ? { components: doc.components } : {}),
       ...(doc.collections ? { collections: doc.collections } : {}),
-      ...(cleanDocIcons(doc.icons) ? { icons: cleanDocIcons(doc.icons) } : {}),
+      ...(icons ? { icons } : {}),
     },
     editing: null,
     session: { ...emptySession(), ...session },
