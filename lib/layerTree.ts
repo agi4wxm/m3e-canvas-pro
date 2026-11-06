@@ -6,7 +6,6 @@
  * The same tree answers what a click on the canvas selects (the outermost layer in the current context, as in Figma),
  * what Enter and Shift+Enter go to, and which sibling Tab steps to. Pure functions of the document and its measures. */
 
-import { partBySlug } from "../parts/registry";
 import { flowOf } from "./flow";
 import { explodeGroup, frameOfPart, groupBounds, holdsParts, liesInside, ownerIdOf, type Frame, type Group, type Item } from "./tokens";
 
@@ -320,12 +319,3 @@ export function itemsUnder(tree: LayerTree, nodeId: string): string[] {
   if (!n) return [];
   return [...n.itemIds, ...n.children.flatMap((c) => itemsUnder(tree, c))];
 }
-
-/** the words a layer is found by: its name and its part's kind */
-export const isContainerNode = (n: LayerNode | undefined) => !!n && (n.kind === "box" || n.kind === "kit" || n.kind === "screen" || n.kind === "group");
-
-/** whether a part is drawn open with its trigger: a select, a menu (lib/flow lays it out by its closed size) */
-export const opensFromTrigger = (it: Item | undefined) => {
-  const def = partBySlug(it?.component);
-  return !!def?.open && def.open.trigger !== "hide";
-};

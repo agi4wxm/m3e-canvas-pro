@@ -287,7 +287,7 @@ export function Toolbar({
           transition: "right 260ms cubic-bezier(0.2, 0, 0, 1)",
           display: "flex",
           /* on a narrow canvas the layout tools stack over the zoom, clear of the AI pill at the other corner */
-          flexDirection: compact ? "column-reverse" : "row",
+          flexDirection: compact ? "column" : "row",
           gap: 10,
           alignItems: compact ? "flex-end" : "center",
         }}
