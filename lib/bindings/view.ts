@@ -8,10 +8,11 @@ import { expandRepeats, measuresFor } from "../collections";
 import { INPUT_PROP } from "../interact";
 import type { Doc, Frame, Group, Item, ItemScope, VarValue } from "../tokens";
 import type { TransportFile } from "../api/transport";
-import { endpointOf, fieldError, formFields, isBlank, typedValue, type FieldSpec } from "./contract";
+import { endpointOf, formFields, type FieldSpec } from "./contract";
+import { formViewOf, readFields, setPath, type FieldEntry, type FormView } from "./form";
 import { evaluate, readKey, type EvalContext, type Scope } from "./expr";
-import { regionState, screenScope, type BindingState, type FormRuntime } from "./runtime";
-import { scopeFor, type BindingContext, type FormView } from "./scope";
+import { regionState, screenScope, type BindingState } from "./runtime";
+import { scopeFor, type BindingContext } from "./scope";
 
 type Widths = Record<string, number>;
 
@@ -54,57 +55,29 @@ export function inputValue(it: Item, fields: Record<string, VarValue>, files?: R
   return raw;
 }
 
-/** a value put at a dotted path of a body */
-function setPath(body: Record<string, unknown>, path: string, v: unknown) {
-  const steps = path.split(".");
-  let at = body;
-  for (const s of steps.slice(0, -1)) {
-    const next = Object.prototype.hasOwnProperty.call(at, s) ? at[s] : undefined;
-    if (!next || typeof next !== "object") Object.defineProperty(at, s, { value: {}, enumerable: true, writable: true, configurable: true });
-    at = at[s] as Record<string, unknown>;
-  }
-  Object.defineProperty(at, steps.at(-1)!, { value: v, enumerable: true, writable: true, configurable: true });
-}
-
 /** A form's inputs read: the body they make (each field as its schema's type has it, the form's `values` added), what
  *  the schema says is wrong with each, and whether a file is among them. */
 export function readForm(o: { form: Group; groups: Group[]; owner: Map<string, string>; doc: Pick<Doc, "api">; fields: Record<string, VarValue>; files?: Record<string, TransportFile[]>; scope: Scope; ctx: EvalContext }): { body: Record<string, unknown>; values: Record<string, unknown>; errors: Record<string, string>; files: boolean; specs: FieldSpec[] } {
   const api = o.doc.api ?? {};
   const e = o.form.form ? endpointOf(api, o.form.form.operationId) : undefined;
   const specs = e ? formFields(api, e) : [];
-  const body: Record<string, unknown> = {};
-  const values: Record<string, unknown> = {};
-  const errors: Record<string, string> = {};
+  const entries: FieldEntry[] = [];
   let hasFiles = false;
   for (const g of o.groups) {
     if (o.owner.get(g.id) !== o.form.id) continue;
     for (const it of g.items) {
       if (!it.field) continue;
-      const spec = specs.find((s) => s.name === it.field);
       const raw = inputValue(it, o.fields, o.files);
-      const v = spec ? typedValue(spec.schema, raw) : raw;
-      values[it.field] = v;
       if (it.component === "file-upload" && raw !== undefined) hasFiles = true;
-      if (!isBlank(v)) setPath(body, it.field, v);
-      if (spec) {
-        const err = fieldError(spec, v, o.ctx.lang);
-        if (err) errors[it.field] = err;
-      }
+      entries.push({ field: it.field, raw, rule: specs.find((s) => s.name === it.field) });
     }
   }
+  const { body, values, errors } = readFields(entries, o.ctx.lang);
   for (const [k, x] of Object.entries(o.form.form?.values ?? {})) {
     const v = evaluate(x, o.scope, o.ctx);
     if (v !== undefined) setPath(body, k, v);
   }
   return { body, values, errors, files: hasFiles, specs };
-}
-
-/** a form as `form.` reads it */
-function formView(read: ReturnType<typeof readForm>, run: FormRuntime | undefined): FormView {
-  /* once a submit was tried, what is wrong shows as it is typed; the server's word on a field stands until it changes */
-  const live = run?.submitted ? read.errors : {};
-  const errors = { ...run?.errors, ...live };
-  return { ...read.values, values: read.values, errors, error: run?.error ?? null, submitting: !!run?.submitting, valid: !Object.keys(read.errors).length, progress: run?.progress ?? null };
 }
 
 /** the effects of a tap, for whether it submits a form */
@@ -138,7 +111,7 @@ export function boundScreen(o: {
   for (const g of o.groups) {
     if (!g.form) continue;
     const read = readForm({ form: g, groups: o.groups, owner, doc: o.doc, fields: o.fields, files: o.files, scope: scopeFor(base, o.vars), ctx: o.ctx });
-    forms[g.id] = formView(read, o.state.forms[g.id]);
+    forms[g.id] = formViewOf(read, o.state.forms[g.id]);
   }
   const ctx: BindingContext = { ...base, forms };
   /* the repeats over data, each element its copy's `item` */

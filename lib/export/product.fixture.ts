@@ -8,6 +8,8 @@ import { fromAsyncApi, fromOpenApi, mergeApi } from "../api";
 import { fillMocks } from "../mocks/fill";
 import { placeholderFile } from "../mocks/files";
 import type { ApiSpec, Doc } from "../tokens";
+import { DocStore, counterIds, guessMeasurer, ops, savedDoc, stateOf } from "../core";
+import type { Lang } from "../i18n";
 
 export const FIXTURE_TYPES = `export type Health = { status: string }
 export type Product = { id: string; name: string; price: number }
@@ -68,4 +70,36 @@ export function shopProductDoc(): { doc: Doc; widths: Record<string, number> } {
   const { doc, widths } = proofDoc();
   const api = shopApi();
   return { doc: { ...doc, api, mocks: shopMocks(api) }, widths };
+}
+
+/** a scenario of the shop's mocks where the server turns a new product's name down, on its field */
+export const NAME_TAKEN = { id: "name-taken", name: "Name taken", ops: { createProduct: { status: 422, body: { type: "about:blank", title: "Unprocessable Content", status: 422, detail: "That name is taken.", errors: [{ pointer: "#/name", detail: "That name is taken" }] } } } };
+
+/** The shop bound to its own contract (lib/api/fixtures/shop.openapi.yaml), built only through operations the way the
+ *  AI and MCP build one: a sign-in screen, a paged product list with pull to refresh and its loading, empty, error and
+ *  forbidden designs, a product's detail by its id in the screen's params, and a form that adds a product (it needs a
+ *  session) checked by the schema and by the server. scripts/check-product.ts exports it and drives the web app. */
+export function boundShopDoc(lang: Lang = "en"): { doc: Doc; widths: Record<string, number> } {
+  const api = shopApi();
+  const mocks = shopMocks(api);
+  const store = new DocStore(stateOf({ groups: [], frames: [], api, mocks: { ...mocks, scenarios: [...(mocks.scenarios ?? []), NAME_TAKEN] } }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => lang });
+  store.transact("Build the shop", "mcp", (tx) => {
+    tx.run(ops.setTitle, { title: "Shop" });
+    tx.run(ops.addScreen, { id: "products", name: "Products" });
+    tx.run(ops.addScreen, { id: "detail", name: "Product" });
+    tx.run(ops.addScreen, { id: "create", name: "New product" });
+    tx.run(ops.addScreen, { id: "login", name: "Sign in" });
+    tx.run(ops.setScreenAuth, { screen: "login", auth: "login" });
+    tx.run(ops.setScreenAuth, { screen: "create", auth: "required" });
+    tx.run(ops.setScreenParams, { screen: "detail", params: [{ name: "productId", type: "string", example: "00000000-0000-4000-8000-000000000000" }] });
+    tx.run(ops.wireScreen, { screen: "detail", operationId: "getProduct" });
+    tx.run(ops.wireScreen, { screen: "products", operationId: "listProducts", detail: "detail", paging: "scroll" });
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    tx.run(ops.makeForm, { screen: "create", operationId: "createProduct", then: { to: "products", transition: "slide", effects: [{ do: "snackbar", message: "Added {{response.name}}" }] } });
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    tx.run(ops.makeForm, { screen: "login", operationId: "login", then: { to: "products", transition: "fade" } });
+    tx.run(ops.addPart, { slug: "button", id: "add", screen: "products", at: { x: 16, y: 820 }, props: { label: "Add product" } });
+    tx.run(ops.setAction, { id: "add", action: { to: "create", transition: "slide" } });
+  });
+  return { doc: savedDoc(store.get()), widths: {} };
 }

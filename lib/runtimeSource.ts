@@ -1,4 +1,5 @@
 import { str } from "../parts/print";
+import { literal } from "./export/code";
 import type { RuntimeSpec } from "./printBehaviour";
 
 /* The text of src/runtime.tsx in an exported project: what the running app remembers and the plain
@@ -97,6 +98,66 @@ function varsOn(s: State, screen: ScreenId, dark: boolean): Vars {
   return out.join("");
 }
 
+/** The variables as expressions read them (`vars.<name>`): by the names the design gave them and by their ids. */
+function exprVarsSource(spec: RuntimeSpec): string {
+  const names = spec.exprs?.vars ?? {};
+  if (!Object.keys(names).length) return "";
+  return `
+/** each variable's names and id, as expressions read it (\`vars.<name>\`) */
+const VAR_NAMES: Partial<Record<keyof Vars, readonly string[]>> = {
+${Object.entries(names).map(([key, n]) => `  ${keyOf(key)}: ${str(n)},`).join("\n")}
+}
+
+/** the variables as expressions read them: by the names the design gave them, and by their ids */
+export function scopeVars(vars: Vars): Record<string, Value> {
+  const out: Record<string, Value> = {}
+  for (const [key, names] of Object.entries(VAR_NAMES) as [keyof Vars, readonly string[]][]) for (const name of names) out[name] = vars[key]
+  return out
+}
+`;
+}
+
+/** what the runtime keeps for the product's bindings: each screen's params, the screens that need a session, the
+ *  sign-in screen */
+function boundSource(spec: RuntimeSpec): string {
+  const b = spec.bound;
+  if (!b) return "";
+  const params = Object.entries(b.params);
+  return `
+/** the params each screen takes (its address carries them), and what each reads when it is opened without one */
+const PARAMS: Partial<Record<ScreenId, readonly ParamSpec[]>> = {
+${params.map(([screen, list]) => `  ${keyOf(screen)}: ${literal(list)},`).join("\n")}
+}
+
+/** the screens that need a session: the sign-in screen comes first, then on to them */
+const NEEDS_SIGN_IN: Partial<Record<ScreenId, true>> = ${flags(b.auth)}
+
+/** the sign-in screen: a refusal for want of a session, and a screen that needs one, go here */
+const SIGN_IN: ScreenId | undefined = ${b.signIn ? str(b.signIn) : "undefined"}
+
+/** where the app goes once signed in: back where it was sent from, or on to the screen that needed the session */
+type Return = { back: true } | { entry: Entry }
+
+/** a screen opened: the sign-in screen first when it needs a session there is none of */
+function opened(s: State, entry: Entry, signedIn: boolean, remember: (to: Return) => void): State {
+  if (SIGN_IN && NEEDS_SIGN_IN[entry.screen] && !signedIn && entry.screen !== SIGN_IN) {
+    remember({ entry })
+    return { ...s, ${when(spec.proto?.overlay, "overlay: null, ")}move: { transition: "fade", backwards: false }, stack: [...s.stack, { screen: SIGN_IN, transition: "fade" }] }
+  }
+  return { ...s, ${when(spec.proto?.overlay, "overlay: null, ")}move: { transition: entry.transition, backwards: false${when(spec.proto, ", motion: entry.motion")} }, stack: [...s.stack, entry] }
+}
+
+/** the params a screen reads: what it was opened with, each as its type has it, else its example */
+export function useScreenParams(): ScreenParams {
+  const page = useContext(ScreenContext)
+  const app = useContext(AppContext)
+  const screen = page?.screen ?? app?.screen
+  const given = page ? page.params : app?.params
+  return useMemo(() => screenParams(screen ? PARAMS[screen] : undefined, given), [screen, given])
+}
+`;
+}
+
 export function runtimeSource(spec: RuntimeSpec): string {
   /* what of the prototype the screens use: an animation, an overlay, a part scrolled to, the pointer, time */
   const p = spec.proto;
@@ -105,10 +166,14 @@ export function runtimeSource(spec: RuntimeSpec): string {
   const flows = spec.flows ?? [];
   /* the screen a part is drawn on, and whether it can be used (src/App.tsx says): what a delay waits for, what is
      scrolled into view, the modes a screen reads */
-  const page = !!p || !!spec.modes;
+  const bd = spec.bound;
+  const page = !!p || !!spec.modes || !!bd;
+  /* the prototype reads its expressions itself, over its variables (the product's screens read theirs in the runtime) */
+  const exprs = !!spec.exprs && !bd;
   /* the dark mode is read where the app follows it: a variable that drives it, or collections with a dark mode */
   const colorMode = !!spec.dark || !!spec.modes?.followsDark;
   const react = ["createContext", "useContext", "useEffect", "useMemo", ...(p?.delay ? ["useRef"] : []), "useState", ...(bound ? ["type CSSProperties"] : []), "type MouseEvent", "type ReactNode"];
+  const varNames = !!Object.keys(spec.exprs?.vars ?? {}).length;
   const firstFlow = flows[0];
   /* With more than one variable, `[name]` is read as any key; with one it is that variable's own, and a value of another
      type for it (a toggle of words) would not typecheck. The value is the runtime's to keep right, so the key is read
@@ -123,11 +188,11 @@ export function runtimeSource(spec: RuntimeSpec): string {
   return `// Generated by M3E Canvas. What the running app remembers: the screen on show and how it got
 // there, the variables, and what taps have shown, hidden, opened or changed.
 import { ${react.join(", ")} } from "react"
-${colorMode ? 'import { useColorMode } from "@/components/m3e/color-mode-provider"\n' : ""}${when(p, 'import type { Motion, Transition } from "@/lib/screenMotion"\n')}
+${colorMode ? 'import { useColorMode } from "@/components/m3e/color-mode-provider"\n' : ""}${when(p, 'import type { Motion, Transition } from "@/lib/screenMotion"\n')}${when(exprs, 'import { holds as holdsExpr } from "@/lib/bindings/expr"\n')}${bd ? `import { screenParams, useRuntime, useSession, type ParamSpec } from ${str(bd.runtime)}\n` : ""}
 export type ScreenId = ${union(spec.screens)}
 export type PartId = ${union(spec.parts)}
 export type Vars = {${spec.vars.map((v) => ` ${v.key}: ${TYPE_OF[v.type]}`).join(";")}${spec.vars.length ? " " : ""}}
-${p ? "export type { Motion, Transition }" : `export type Transition = "slide" | "slideLeft" | "slideUp" | "slideDown" | "fade" | "expand" | "none"`}
+${p ? "export type { Motion, Transition }" : `export type Transition = "slide" | "slideLeft" | "slideUp" | "slideDown" | "fade" | "expand" | "none"`}${when(bd, "\n/** what a screen is opened with: its params by name */\nexport type ScreenParams = Record<string, unknown>")}
 ${
   firstFlow
     ? `
@@ -157,7 +222,7 @@ const START_CURRENT: Record<string, string> = ${str(spec.current)}
 const SNACK_MS = 4000
 
 type Value = string | number | boolean
-type Entry = { screen: ScreenId; transition: Transition${when(p, "; motion?: Motion")} }
+type Entry = { screen: ScreenId; transition: Transition${when(p, "; motion?: Motion")}${when(bd, "; params?: ScreenParams")} }
 type Move = { transition: Transition; backwards: boolean${when(p, "; motion?: Motion")} }
 type State = {
   stack: Entry[]
@@ -174,7 +239,7 @@ ${when(modes, "  /** the variables a tap or an input has written: they keep that
   /** the row a list's part was last tapped on */
   current: Record<string, string>
 }
-${modesSource(spec)}
+${modesSource(spec)}${exprVarsSource(spec)}
 const START: State = {
   stack: [{ screen: START_SCREEN, transition: "none" }],
   move: { transition: "none", backwards: false },
@@ -195,6 +260,17 @@ export type App = {
   go: (screen: ScreenId, transition?: Transition${when(p, ", motion?: Motion")}) => void
   back: () => void
 ${when(
+  bd,
+  `  /** the params the screen on show was opened with */
+  params: ScreenParams | undefined
+  /** opens a screen with params: what it reads as \`params.<name>\` and its address carries */
+  navigate: (screen: ScreenId, params?: ScreenParams, transition?: Transition${when(p, ", motion?: Motion")}) => void
+  /** ends the session (the contract's sign-out is told) */
+  signOut: () => void
+  /** once signed in: back where the app was sent to sign in from, or on to the screen that needed it; whether it went */
+  afterSignIn: () => boolean
+`,
+)}${when(exprs, "  /** whether an expression of the design holds, read over the variables */\n  holds: (expr: string) => boolean\n")}${when(
   p?.overlay,
   `  /** the screen laid over the one on show, if one is: going back, a tap beside it or Escape closes it */
   overlay: Entry | null
@@ -237,9 +313,9 @@ ${when(
   page,
   `
 /** the screen a part is drawn on, and whether it can be used: not on its way out, nor under an overlay (src/App.tsx) */
-export const ScreenContext = createContext<{ screen: ScreenId; active: boolean } | null>(null)
+export const ScreenContext = createContext<{ screen: ScreenId; active: boolean${when(bd, "; params?: ScreenParams")} } | null>(null)
 `,
-)}
+)}${boundSource(spec)}
 const asBool = (value: Value) => (typeof value === "string" ? value !== "" && value !== "false" && value !== "0" : !!value)
 const hasValue = (value: Value) => (typeof value === "string" ? value.trim() !== "" : typeof value === "boolean" ? value : value >= 0)
 ${when(modes, `\n/** the state with a variable written, and marked as written */\nconst wrote = (s: State, name: keyof Vars, value: Value): State => ({ ...s, vars: { ...s.vars, [${key}]: value }, written: { ...s.written, [name]: true } })\n`)}
@@ -261,17 +337,51 @@ ${
       : "  const [state, setState] = useState(START)"
 }
   const screen = state.stack[state.stack.length - 1].screen
-
+${when(
+  bd,
+  `  const runtime = useRuntime()
+  /* the screens read whether there is a session; a guard reads it as it is when a screen is opened */
+  useSession()
+  /* a refusal for want of a session (a 401 no refresh could mend): the sign-in screen, then back once signed in */
+  useEffect(
+    () =>
+      runtime.whenUnauthorized(() =>
+        setState((s) => {
+          if (!SIGN_IN || s.stack[s.stack.length - 1].screen === SIGN_IN) return s
+          runtime.rememberReturn({ back: true })
+          return { ...s, ${when(p?.overlay, "overlay: null, ")}move: { transition: "fade", backwards: false }, stack: [...s.stack, { screen: SIGN_IN, transition: "fade" }] }
+        }),
+      ),
+    [runtime],
+  )
+`,
+)}
   /* every call goes through the state before it: effects of one tap run in order */
   const app = useMemo<App>(() => {
     const prop = ((part: PartId, name: string, start: Value) => state.props[part]?.[name] ?? start) as App["prop"]
-${when(modes, `    /* a screen reads what a tap or an input wrote, else each variable's value in the mode it shows */\n    const shownOn = (on: ScreenId) => varsOn(state, on, ${darkOn})\n`)}    return {
+${when(modes, `    /* a screen reads what a tap or an input wrote, else each variable's value in the mode it shows */\n    const shownOn = (on: ScreenId) => varsOn(state, on, ${darkOn})\n`)}    ${when(bd, "const remember = (to: Return) => runtime.rememberReturn(to)\n    ")}return {
       screen,
       canGoBack: state.stack.length > 1${when(p?.overlay, " || !!state.overlay")},
       move: state.move,
-${
+${when(
+  bd,
+  `      params: state.stack[state.stack.length - 1].params,
+      navigate: (to, params, transition = "slide"${when(p, ", motion")}) => setState((s) => opened(s, { screen: to, transition, ${when(p, "motion, ")}params }, runtime.session.signedIn, remember)),
+      signOut: () => runtime.signOut(),
+      afterSignIn: () => {
+        const to = runtime.takeReturn<Return>()
+        if (!to) return false
+        setState((s) =>
+          "back" in to
+            ? { ...s, move: { transition: "fade", backwards: true }, stack: s.stack.length > 1 ? s.stack.slice(0, -1) : s.stack }
+            : { ...s, move: { transition: "fade", backwards: false }, stack: [...s.stack.slice(0, -1), to.entry] },
+        )
+        return true
+      },
+`,
+)}${when(exprs, '      holds: (expr) => holdsExpr(expr, { vars: ' + (varNames ? "scopeVars(state.vars)" : "{}") + ', now: new Date().toISOString() }, { lang: document.documentElement.lang || "en" }),\n')}${
   p
-    ? `      go: (to, transition = "slide", motion) => setState((s) => ({ ...s, ${overlayGone}move: { transition, backwards: false, motion }, stack: [...s.stack, { screen: to, transition, motion }] })),
+    ? `      go: (to, transition = "slide", motion) => setState((s) => ${bd ? "opened(s, { screen: to, transition, motion }, runtime.session.signedIn, remember)" : `({ ...s, ${overlayGone}move: { transition, backwards: false, motion }, stack: [...s.stack, { screen: to, transition, motion }] })`}),
       /* an overlay is what going back closes first */
       back: () =>
         setState((s) => {
@@ -280,7 +390,7 @@ ${when(p.overlay, "          if (s.overlay) return { ...s, overlay: null }\n")} 
           return { ...s, move: { transition, backwards: true, motion }, stack: s.stack.slice(0, -1) }
         }),
 `
-    : `      go: (to, transition = "slide") => setState((s) => ({ ...s, move: { transition, backwards: false }, stack: [...s.stack, { screen: to, transition }] })),
+    : `      go: (to, transition = "slide") => setState((s) => ${bd ? "opened(s, { screen: to, transition }, runtime.session.signedIn, remember)" : "({ ...s, move: { transition, backwards: false }, stack: [...s.stack, { screen: to, transition }] })"}),
       back: () => setState((s) => (s.stack.length < 2 ? s : { ...s, move: { transition: s.stack[s.stack.length - 1].transition, backwards: true }, stack: s.stack.slice(0, -1) })),
 `
 }${when(
@@ -336,7 +446,7 @@ ${when(modes, "      varsOn: shownOn,\n")}${when(bound, `      varStyle: (on) =>
       hasValue,
       asBool,
     }
-  }, [state, screen${when(modes && !spec.dark && colorMode, ", darkOn")}])
+  }, [state, screen${when(modes && !spec.dark && colorMode, ", darkOn")}${when(bd, ", runtime")}])
 
   const snack = state.snack
   useEffect(() => {

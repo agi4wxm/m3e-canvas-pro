@@ -37,6 +37,12 @@ const M = {
   submit: { en: "Submit", zh: "提交", ja: "送信", ko: "제출" },
   submitFailed: { en: "Couldn't submit. Check the fields and try again.", zh: "提交失败，请检查后重试。", ja: "送信できませんでした。入力内容を確認してください。", ko: "제출하지 못했어요. 입력 내용을 확인하세요." },
   optional: { en: "Optional", zh: "选填", ja: "任意", ko: "선택 사항" },
+  /* what a form says of a failed call when the server gave no explanation of its own (rules.ts `problemMessage`) */
+  signInFirst: { en: "Please sign in and try again.", zh: "请先登录，然后再试一次。", ja: "ログインしてから、もう一度お試しください。", ko: "로그인한 뒤 다시 시도하세요." },
+  conflict: { en: "This changed in the meantime. Reload and try again.", zh: "内容已被改动，请刷新后重试。", ja: "その間に変更されました。再読み込みしてもう一度お試しください。", ko: "그사이에 변경되었어요. 새로고침한 뒤 다시 시도하세요." },
+  tooLarge: { en: "That is too large to send.", zh: "内容太大，无法发送。", ja: "サイズが大きすぎて送信できません。", ko: "너무 커서 보낼 수 없어요." },
+  tooMany: { en: "Too many tries. Wait a moment and try again.", zh: "操作太频繁，请稍后再试。", ja: "操作が多すぎます。少し待ってからもう一度お試しください。", ko: "요청이 너무 많아요. 잠시 후 다시 시도하세요." },
+  serverError: { en: "The server ran into a problem. Try again later.", zh: "服务器出了点问题，请稍后再试。", ja: "サーバーで問題が発生しました。しばらくしてからお試しください。", ko: "서버에 문제가 생겼어요. 잠시 후 다시 시도하세요." },
 } satisfies Record<string, Record<AppLang, string>>;
 
 export type MessageKey = keyof typeof M;

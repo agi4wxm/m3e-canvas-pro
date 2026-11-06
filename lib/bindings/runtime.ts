@@ -8,35 +8,16 @@
 import type { Transport, TransportFile, TransportRequest } from "../api/transport";
 import { paginationOf, type ApiEndpoint, type ApiSpec } from "../api/types";
 import type { DataSource, Doc, Frame, Optimistic } from "../tokens";
-import { authFields, endpointOf, listOf, paramsOf, pointerField, problemOf, requestOf, tokenPlacement, type Problem } from "./contract";
-import { evaluate, readKey, truthy, type EvalContext, type Scope } from "./expr";
+import { authFields, endpointOf, listOf, paramsOf, problemFieldErrors, problemOf, requestOf, tokenPlacement, type Problem } from "./contract";
+import { evaluate, truthy, type EvalContext, type Scope } from "./expr";
 import { appMessage } from "./messages";
+import { idleForm, type FormRun } from "./form";
+import { idleSource, loadFailed, loadSettled, loadStarted, missingList, optimisticChange, pageParams, regionOf, screenParams, sourceView, type SourceState, type SourceView } from "./sources";
 
-export type SourceStatus = "idle" | "loading" | "ready" | "error";
-
-/** one data source of one screen, as far as it has got */
-export type SourceState = {
-  status: SourceStatus;
-  /** what it was last asked with, so entering the screen again with the same keeps it */
-  key?: string;
-  /** the last answer's body; for a paged list, its list field holds every element loaded so far */
-  value?: unknown;
-  /** the list it holds: every page so far, or the body itself when that is the list */
-  items?: unknown[];
-  error?: Problem | null;
-  /** a load (the first, or again) is under way */
-  loading: boolean;
-  loadingMore: boolean;
-  hasMore: boolean;
-  /** the next page's cursor, or how many to skip */
-  next?: string | number | null;
-  total?: number;
-  /** which load is the latest: an answer to an earlier one is dropped */
-  seq: number;
-};
+export { MAX_ITEMS, sourceView, type SourceState, type SourceStatus, type SourceView } from "./sources";
 
 /** a form's submission as far as it has got */
-export type FormRuntime = { errors: Record<string, string>; error: Problem | null; submitting: boolean; submitted: boolean; progress: number | null; response?: unknown };
+export type FormRuntime = FormRun;
 
 /** the session a sign-in started */
 export type Session = { token: string; refreshToken?: string; user?: unknown };
@@ -62,8 +43,6 @@ function signedOut(s: BindingState): BindingState {
 
 export const sourceKey = (frameId: string, name: string) => `${frameId}/${name}`;
 
-const idleSource = (): SourceState => ({ status: "idle", loading: false, loadingMore: false, hasMore: false, seq: 0 });
-
 /** what an answer to a call came to */
 /** what an answer to a call came to; `dropped` when the state was started over while it was out (`reset`) */
 export type CallOutcome = { ok: true; status: number; body: unknown } | { ok: false; status: number; problem: Problem; unauthorized: boolean; dropped?: boolean };
@@ -83,9 +62,6 @@ export type Host = {
 };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
-
-/** the most elements a list may come to across its pages, so a runaway server cannot grow the preview without end */
-export const MAX_ITEMS = 2000;
 
 /** The engine: what the host calls when a screen is entered, a tap calls, a form is submitted. */
 export class BindingEngine {
@@ -245,53 +221,25 @@ export class BindingEngine {
       return;
     }
     const pg = e.pagination ? paginationOf(e.pagination) : undefined;
-    const params = { ...args.params };
-    if (pg && src.pageSize && params[pg.limitParam] === undefined) params[pg.limitParam] = src.pageSize;
-    if (pg && o.more) {
-      if (pg.style === "cursor") params[pg.cursorParam] = was.next;
-      else params[pg.offsetParam] = was.items?.length ?? 0;
-    }
+    const params = { ...args.params, ...pageParams(pg, { more: o.more, was, pageSize: src.pageSize, params: args.params ?? {} }) };
     const seq = was.seq + 1;
     const fresh = was.key !== argKey;
-    this.setSource(key, (s) => (o.more ? { ...s, seq, loadingMore: true } : { ...s, seq, key: argKey, loading: true, loadingMore: false, status: fresh || s.status === "idle" ? "loading" : s.status, ...(fresh ? { value: undefined, items: undefined, error: null, hasMore: false } : {}) }));
+    this.setSource(key, (s) => loadStarted(s, { seq, more: o.more, key: argKey, fresh }));
     const out = await this.call(src.operationId, { ...args, params });
     if ((!out.ok && out.dropped) || (this.host.get().sources[key]?.seq ?? -1) !== seq) return;
     if (!out.ok) {
-      this.setSource(key, (s) => ({ ...s, status: s.value !== undefined && o.more ? s.status : s.value !== undefined && !fresh ? "ready" : "error", loading: false, loadingMore: false, error: out.problem }));
+      this.setSource(key, (s) => loadFailed(s, out.problem, { more: o.more, fresh }));
       return;
     }
     const list = listOf(api, e);
-    const body = out.body;
-    const page = list ? (list.field ? readKey(body, list.field) : body) : undefined;
-    const pageItems = Array.isArray(page) ? page : undefined;
     /* the contract says a list comes back and none did: what the screen would show is not what was promised */
-    if (list && !pageItems && !o.more) {
-      this.setSource(key, (s) => ({ ...s, status: "error", loading: false, loadingMore: false, value: undefined, items: undefined, error: { status: out.status, title: appMessage("failed", this.host.ctx().lang), detail: `The answer of ${src.operationId} holds no list${list.field ? ` at "${list.field}"` : ""}.` } }));
+    const missing = missingList(list, out.body, { more: o.more, operation: src.operationId, status: out.status, title: appMessage("failed", this.host.ctx().lang) });
+    if (missing) {
+      this.setSource(key, (s) => ({ ...s, status: "error", loading: false, loadingMore: false, value: undefined, items: undefined, error: missing }));
       return;
     }
-    this.setSource(key, (s) => {
-      const items = pageItems ? (o.more ? [...(s.items ?? []), ...pageItems] : pageItems).slice(0, MAX_ITEMS) : undefined;
-      let next: string | number | null | undefined;
-      let hasMore = false;
-      let total: number | undefined;
-      if (pg && pageItems) {
-        if (pg.style === "cursor") {
-          const n = readKey(body, pg.nextField);
-          next = typeof n === "string" || typeof n === "number" ? n : null;
-          hasMore = next !== null && next !== "";
-        } else {
-          const t = readKey(body, pg.totalField);
-          total = typeof t === "number" ? t : undefined;
-          const limit = typeof params[pg.limitParam] === "number" ? (params[pg.limitParam] as number) : undefined;
-          hasMore = total !== undefined ? (items?.length ?? 0) < total : limit !== undefined && pageItems.length >= limit;
-          next = items?.length ?? 0;
-        }
-        if ((items?.length ?? 0) >= MAX_ITEMS) hasMore = false;
-      }
-      /* the body as the screen reads it: the list field with every page's elements */
-      const value = list?.field && isRecord(body) && items ? { ...body, [list.field]: items } : list && !list.field && items ? items : body;
-      return { ...s, status: "ready", value, items, error: null, loading: false, loadingMore: false, hasMore, next, ...(total !== undefined ? { total } : {}) };
-    });
+    const limit = pg && typeof params[pg.limitParam] === "number" ? (params[pg.limitParam] as number) : undefined;
+    this.setSource(key, (s) => loadSettled(s, out.body, { list, paging: pg, more: o.more, limit }));
   }
 
   /** The sources of a screen that load as it is entered. One that holds what the same arguments gave is loaded again
@@ -316,18 +264,16 @@ export class BindingEngine {
     const key = sourceKey(frameId, o.source);
     const was = this.host.get().sources[key];
     if (!was?.items || row === undefined) return () => {};
-    const same = (x: unknown) => x === row || (isRecord(x) && isRecord(row) && x.id !== undefined && x.id === row.id);
     const ctx = this.host.ctx();
-    const items = o.remove ? was.items.filter((x) => !same(x)) : was.items.map((x) => (same(x) && isRecord(x) ? { ...x, ...Object.fromEntries(Object.entries(o.patch ?? {}).map(([k, e]) => [k, evaluate(e, { ...scope, item: x }, ctx)])) } : x));
-    const value = isRecord(was.value) ? Object.fromEntries(Object.entries(was.value).map(([k, v]) => [k, v === was.items ? items : v])) : Array.isArray(was.value) ? items : was.value;
-    this.setSource(key, (s) => ({ ...s, items, value: isRecord(was.value) && listField(was) ? { ...was.value, [listField(was)!]: items } : value }));
+    const changed = optimisticChange(was, row, o.remove ? { remove: true } : { patch: (x) => Object.fromEntries(Object.entries(o.patch ?? {}).map(([k, e]) => [k, evaluate(e, { ...scope, item: x }, ctx)])) });
+    this.setSource(key, (s) => ({ ...s, items: changed.items, value: changed.value }));
     return () => this.setSource(key, (s) => ({ ...s, items: was.items, value: was.value }));
   }
 
   /* ---------- forms ---------- */
 
   formState(id: string): FormRuntime {
-    return this.host.get().forms[id] ?? { errors: {}, error: null, submitting: false, submitted: false, progress: null };
+    return this.host.get().forms[id] ?? idleForm();
   }
 
   setForm(id: string, patch: Partial<FormRuntime>) {
@@ -347,75 +293,18 @@ export class BindingEngine {
       this.setForm(formId, { submitting: false, errors: {}, error: null, progress: o.files ? 100 : null, response: out.body });
       return out;
     }
-    const errors: Record<string, string> = {};
     /* the server names what is wrong field by field; what it says of the body lands on the form's fields (a query,
        path or header parameter is no field a person typed: the form's own error says it) */
-    for (const x of out.problem.errors ?? []) {
-      if (x.in && x.in !== "body") continue;
-      const f = pointerField(x.pointer);
-      if (f && !errors[f]) errors[f] = x.detail;
-    }
-    this.setForm(formId, { submitting: false, errors, error: out.problem, progress: null });
+    this.setForm(formId, { submitting: false, errors: problemFieldErrors(out.problem), error: out.problem, progress: null });
     return out;
   }
 }
 
-/** the list field of a source's value, when it is an object holding the list */
-const listField = (s: SourceState): string | undefined => (isRecord(s.value) ? Object.keys(s.value).find((k) => (s.value as Record<string, unknown>)[k] === s.items) : undefined);
-
 /* ---------- what expressions read ---------- */
-
-/** a data source as `data.<name>` reads it */
-export type SourceView = {
-  value: unknown;
-  items: unknown[] | undefined;
-  status: SourceStatus;
-  loading: boolean;
-  loadingMore: boolean;
-  hasMore: boolean;
-  error: Problem | null;
-  empty: boolean;
-  ready: boolean;
-  total?: number;
-};
-
-/** whether what a source holds is nothing to show */
-const isEmptyValue = (v: unknown, items: unknown[] | undefined) => (items ? items.length === 0 : v === null || v === undefined || (Array.isArray(v) && !v.length));
-
-export function sourceView(s: SourceState | undefined): SourceView {
-  const x = s ?? idleSource();
-  return {
-    value: x.value,
-    items: x.items,
-    status: x.status,
-    loading: x.loading,
-    loadingMore: x.loadingMore,
-    hasMore: x.hasMore,
-    error: x.error ?? null,
-    empty: x.status === "ready" && isEmptyValue(x.value, x.items),
-    ready: x.status === "ready",
-    ...(x.total !== undefined ? { total: x.total } : {}),
-  };
-}
-
-/** a param of a screen as its declared type has it */
-function typedParam(v: unknown, type: string | undefined): unknown {
-  if (type === "number") return typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : v;
-  if (type === "boolean") return typeof v === "boolean" ? v : v === "true" ? true : v === "false" ? false : v;
-  return v;
-}
 
 /** The params a screen reads: what it was opened with, and the example of each it was not given (a preview opened
  *  straight on a detail screen is not blank). */
-export function paramsFor(frame: Pick<Frame, "params">, given: Record<string, unknown> | undefined): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const p of frame.params ?? []) {
-    const v = given && Object.prototype.hasOwnProperty.call(given, p.name) ? given[p.name] : p.example;
-    if (v !== undefined) out[p.name] = typedParam(v, p.type);
-  }
-  for (const [k, v] of Object.entries(given ?? {})) if (!(k in out)) out[k] = v;
-  return out;
-}
+export const paramsFor = (frame: Pick<Frame, "params">, given: Record<string, unknown> | undefined): Record<string, unknown> => screenParams(frame.params, given);
 
 /** The scope of a screen: its data, its params, the variables by name (and id), the session, the time. */
 export function screenScope(o: { frame: Frame; state: BindingState; params?: Record<string, unknown>; vars?: Record<string, unknown>; varNames?: { id: string; name: string }[]; now?: number }): Scope {
@@ -434,18 +323,12 @@ export function screenScope(o: { frame: Frame; state: BindingState; params?: Rec
 }
 
 /** The state a region shows for its source: loading until it has something, forbidden or an error when it failed with
- *  nothing to show, empty when it holds nothing (or `emptyWhen` says so), else its content. */
+ *  nothing to show, empty when it holds nothing (or `emptyWhen` says so), else its content (sources.ts `regionOf`). */
 export function regionState(region: { source?: string; emptyWhen?: string }, scope: Scope, load: DataSource["load"] | undefined, ctx?: EvalContext): "ready" | "loading" | "empty" | "error" | "forbidden" {
-  const v = region.source ? (readKey(scope.data, region.source) as SourceView | undefined) : undefined;
-  if (!v) return "ready";
-  if (v.status === "idle") return load === "demand" ? "empty" : "loading";
-  if (v.status === "loading" && v.value === undefined) return "loading";
-  if (v.status === "error" && v.value === undefined) {
-    const st = v.error?.status ?? 0;
-    return st === 401 || st === 403 ? "forbidden" : st === 404 ? "empty" : "error";
-  }
-  if (region.emptyWhen) return truthy(evaluate(region.emptyWhen, scope, ctx)) ? "empty" : "ready";
-  return v.empty ? "empty" : "ready";
+  const data = scope.data && typeof scope.data === "object" ? (scope.data as Record<string, SourceView | undefined>) : {};
+  const v = region.source && Object.prototype.hasOwnProperty.call(data, region.source) ? data[region.source] : undefined;
+  const emptyWhen = region.emptyWhen;
+  return regionOf(v, { load, ...(emptyWhen ? { emptyWhen: () => truthy(evaluate(emptyWhen, scope, ctx)) } : {}) });
 }
 
 export type { TransportFile };

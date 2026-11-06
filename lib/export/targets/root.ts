@@ -6,10 +6,10 @@ import { GENERATED, jsonFile, sortedObject } from "../code";
 import { generated, seeded, type ProductContext, type ProductFiles, type Workspace } from "../types";
 
 /** the folders whose files are all generated: Prettier leaves them alone, AGENTS.md names them */
-export const GENERATED_DIRS = ["**/src/generated/", "apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/public/", "packages/api/", "packages/mocks/"];
+export const GENERATED_DIRS = ["**/src/generated/", "apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/public/", "packages/api/", "packages/mocks/", "packages/app-runtime/"];
 
 /** the editor's copied components: ESLint leaves them alone (they are the editor's code, checked there) */
-const VENDORED = ["apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/src/react-css.d.ts", "packages/mocks/src/engine/"];
+const VENDORED = ["apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/src/react-css.d.ts", "packages/mocks/src/engine/", "packages/app-runtime/src/engine/"];
 
 const ROOT_DEV = ["@eslint/js", "eslint", "eslint-plugin-react-hooks", "eslint-plugin-react-refresh", "globals", "prettier", "typescript", "typescript-eslint"];
 
@@ -36,10 +36,11 @@ export default defineConfig([
     files: ["server/**", "contract-tests/**", "scripts/**", "**/*.mjs", "**/*.config.{js,ts}"],
     languageOptions: { globals: globals.node },
   },
-  /* The app the design makes is checked where it is made (the export's own tests); what are matters of taste in code
-     someone writes is not asked of it here. Custom code gets every rule. */
+  /* The web app's screens, data hooks, client, router and the rest of src/generated pass every rule custom code does.
+     Its shell and runtime (App.tsx, runtime.tsx) are the prototype export's own, checked where it is made (the export's
+     tests): a few rules about how React code is written are not asked of those two. */
   {
-    files: ["apps/web/src/generated/**"],
+    files: ["apps/web/src/generated/App.tsx", "apps/web/src/generated/runtime.tsx"],
     rules: {
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-empty-object-type": "off",

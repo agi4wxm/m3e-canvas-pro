@@ -329,6 +329,14 @@ function Screen({
   /* a menu dims nothing; a tap outside it still has to land on something that closes it */
   const dims = openGroups.some((g) => g.items.some((it) => opened[it.id] && partBySlug(it.component)?.open?.trigger === "hide"));
   const lift = (g: Group) => pins.get(g.id) ?? 0;
+  /* A part that comes into a layout after the screen is up (a form's error, a "load more") shows once what is beside it
+   * has moved over to make room, so it never stands over the part that is still on its way (src/index.css) */
+  const arrived = useRef<{ ids: Set<string> | null; at: Map<string, number> }>({ ids: null, at: new Map() });
+  const now = Date.now();
+  const seen = arrived.current;
+  if (seen.ids) for (const g of groups) if (g.inFlow && !seen.ids.has(g.id)) seen.at.set(g.id, now);
+  seen.ids = new Set(groups.map((g) => g.id));
+  const entering = (g: Group) => now - (seen.at.get(g.id) ?? -Infinity) < 400;
   const hasFoldingFab = groups.some((g) => g.items.some((it) => canCollapseFab(it) && it.collapseOnScroll));
   const onBodyScroll = (e: { currentTarget: { scrollTop: number; scrollHeight?: number; clientHeight?: number } }) => {
     const top = e.currentTarget.scrollTop;
@@ -452,7 +460,7 @@ function Screen({
       {inBody(groups.map((g) => (
         <div
           key={g.id}
-          className="m3-preview-group"
+          className={entering(g) ? "m3-preview-group m3-preview-enter" : "m3-preview-group"}
           data-preview-group={g.id}
           /* a part making room for one that appeared eases over; the rest of the time nothing moves */
           data-in-flow={g.inFlow ? "" : undefined}

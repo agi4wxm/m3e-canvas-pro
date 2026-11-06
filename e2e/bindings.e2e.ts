@@ -9,6 +9,7 @@
 import { join } from "node:path";
 import { setGlobalLang } from "../lib/i18n";
 import { shopDoc } from "../lib/bindings/fixture";
+import { boundShopDoc } from "../lib/export/product.fixture";
 import { defaultScenarios } from "../lib/mocks";
 import type { Doc as FullDoc } from "../lib/tokens";
 import { installFakeShop, type FakeShop } from "./fakeShop";
@@ -168,6 +169,9 @@ export const tests: E2ETest[] = [
       await fieldInput(page, doc, "price", "createProduct").fill("5");
       await submit.click();
       await waitForWords(page, "That name is taken");
+      /* the form's own error comes in once the button has made room for it */
+      await settle(page, 500);
+      check((await words(page)).includes("Couldn't submit. Check the fields and try again."), "the form's error in words for a person, not the status's name");
       await page.screenshot({ path: join(out, "bindings-form-server-error.png") });
       await fieldInput(page, doc, "name", "createProduct").fill("Green tea");
       await submit.click();
@@ -288,6 +292,52 @@ export const tests: E2ETest[] = [
       /* back to the normal scenario: the data again */
       await scenario(page, "");
       await waitUntil(page, (t) => prices(t) >= 5, "the products in the normal scenario");
+      await page.keyboard.press("Escape");
+      await settle(page, 600);
+    },
+  },
+  {
+    name: "bindings: the shop the product check exports, in the preview (shots beside the exported app's)",
+    async run({ page, base, out }) {
+      /* scripts/check-product.ts shop exports this document and screenshots its web app (shots-shop/mocks-*.png):
+         these are the same screens in the editor's preview, on the same mocks, for a look side by side */
+      const doc = boundShopDoc().doc;
+      await openShop(page, base, doc);
+      await preview(page, "products");
+      const shot = async (name: string) => {
+        await settle(page, 700);
+        await onShow(page).screenshot({ path: join(out, `preview-shop-${name}.png`) });
+      };
+      await waitUntil(page, (t) => t.includes("ago"), "the mocks' products");
+      await shot("list");
+      await scenario(page, "new-user");
+      await waitForWords(page, "Nothing here yet");
+      await shot("empty");
+      await scenario(page, "network-error");
+      await waitForWords(page, "Couldn't load");
+      await shot("error");
+      await scenario(page, "");
+      await waitUntil(page, (t) => t.includes("ago"), "the products again");
+      const rows = onShow(page).locator("[data-live-part]").filter({ hasText: /ago/ });
+      await rows.first().click();
+      await waitForScreen(page, "detail");
+      await waitUntil(page, (t) => t.includes("Category"), "the product's detail");
+      await shot("detail");
+      await page.locator('[aria-label="Back"]').first().click();
+      await waitForScreen(page, "products");
+      await onShow(page).locator("[data-live-part]").filter({ hasText: "Add product" }).last().click();
+      await waitForScreen(page, "create");
+      await onShow(page).locator("[data-live-part]").filter({ hasText: "Add a product" }).last().click();
+      await waitUntil(page, (t) => t.startsWith("Required"), "the form's errors");
+      await shot("form-errors");
+      /* signed out, the form that needs a session opens the sign-in screen first */
+      await scenario(page, "signed-out");
+      await page.locator('[aria-label="Back"]').first().click();
+      await waitForScreen(page, "products");
+      await onShow(page).locator("[data-live-part]").filter({ hasText: "Add product" }).last().click();
+      await waitForScreen(page, "login");
+      await shot("sign-in");
+      check(true, "the preview's shots are taken");
       await page.keyboard.press("Escape");
       await settle(page, 600);
     },

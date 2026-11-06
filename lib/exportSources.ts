@@ -8,6 +8,8 @@ const SOURCES = import.meta.glob(
     "/lib/m3e/*.ts",
     "/lib/screenMotion.ts",
     "/lib/mocks/*.ts",
+    "/lib/bindings/{expr,format,messages,rules,sources,form}.ts",
+    "/lib/app/*.ts",
     "/lib/api/types.ts",
     "/lib/api/schema.ts",
     "/lib/api/transport.ts",

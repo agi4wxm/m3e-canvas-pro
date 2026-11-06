@@ -96,6 +96,12 @@ export type MockOptions = Omit<EngineOptions, "scenario"> & {
 
 export type MockTransport = EngineTransport & Transport
 
+/** Whether the mocks' session starts signed in under a scenario: the scenario's word, else the design's sign-in setting,
+ *  else yes. An app answered by the mocks starts its own session the same way (\`auth.signedIn\`, as the preview does). */
+export function startsSignedIn(scenario?: string): boolean {
+  return MOCKS.scenarios?.find((s) => s.id === scenario)?.signedIn ?? MOCKS.auth?.signedIn ?? true
+}
+
 /** A transport that answers from the mocks: no network, no DOM. Within it, what is made is there on the next call. */
 export function createMockTransport(options: MockOptions = {}): MockTransport {
   const { routes = [], ...rest } = options
@@ -311,7 +317,7 @@ describe("the MSW handlers", () => {
 const TSCONFIG = jsonFile({ extends: "../../tsconfig.base.json", compilerOptions: { lib: ["ES2022", "DOM", "DOM.Iterable"], types: [], verbatimModuleSyntax: true }, include: ["src"] });
 
 /** The API section a product's mocks answer: the document's own, else the one the export was given, read back. */
-function specOf(ctx: ProductContext): ApiSpec {
+export function specOf(ctx: ProductContext): ApiSpec {
   if (ctx.doc.api) return ctx.doc.api;
   try {
     return fromOpenApi(ctx.api.openapi).api;

@@ -2,6 +2,7 @@ import { familiesOf } from "./variants";
 import { strToU8, zipSync } from "fflate";
 import { buildScreens, importLines, type ScreenCode } from "./codegen";
 import type { RuntimeSpec } from "./printBehaviour";
+import type { BindPrintOptions } from "./printBindings";
 import { getLang, type Lang } from "./i18n";
 import { BASELINE_SEED } from "./m3e/color";
 import { runtimeSource } from "./runtimeSource";
@@ -34,6 +35,9 @@ export type ExportOptions = {
   fetchIcons?: (ids: string[]) => Promise<IconData>;
   /** how far along: files read so far, of those known so far */
   onProgress?: (done: number, total: number) => void;
+  /** the bindings printed against the product's runtime and client: the product's web app (lib/export/targets/web.ts)
+   *  writes its own api, platform and runtime package beside the screens, which this project does not have */
+  binds?: BindPrintOptions;
 };
 
 export type Project = {
@@ -42,6 +46,8 @@ export type Project = {
   files: ProjectFiles;
   /** what is missing but did not stop the export */
   warnings: string[];
+  /** what the runtime was written for: the screens' keys, and for the product's bindings each screen's params */
+  spec?: RuntimeSpec;
 };
 
 const json = (v: unknown, indent = 2) => JSON.stringify(v, null, indent);
@@ -315,15 +321,16 @@ function Page({ screen }: { screen: ScreenId }) {
   )
 }`;
 
-/** a page that says which screen it is and whether it can be used, for the runtime; the CSS variables of its bound fields */
-const livePage = (bound: boolean) => `/** A screen on its way out, or under an overlay, takes no taps, and what it starts after a delay waits. It tells the parts
- *  in it which screen they are on${bound ? ", and defines the CSS variables its bound design fields read" : ""}. */
-function Page({ screen, covered = false }: { screen: ScreenId; covered?: boolean }) {
+/** a page that says which screen it is and whether it can be used, for the runtime; the CSS variables of its bound fields;
+ *  the params it was opened with */
+const livePage = (bound: boolean, params = false) => `/** A screen on its way out, or under an overlay, takes no taps, and what it starts after a delay waits. It tells the parts
+ *  in it which screen they are on${bound ? ", and defines the CSS variables its bound design fields read" : ""}${params ? ", and the params it was opened with" : ""}. */
+function Page({ screen, covered = false${params ? ", params" : ""} }: { screen: ScreenId; covered?: boolean${params ? "; params?: ScreenParams" : ""} }) {
   const present = useIsPresent()
 ${bound ? "  const { varStyle } = useApp()\n" : ""}  const { Screen } = SCREENS[screen]
   const active = present && !covered
   return (
-    <ScreenContext.Provider value={{ screen, active }}>
+    <ScreenContext.Provider value={{ screen, active${params ? ", params" : ""} }}>
       <div inert={!active} data-page={screen} data-active={active || undefined} className="absolute inset-0"${bound ? " style={varStyle(screen)}" : ""}>
         <Screen />
       </div>
@@ -336,14 +343,15 @@ function appSource(screens: ScreenCode[], motion: string, usesToast: boolean, fa
   const proto = runtime.proto;
   const overlay = !!proto?.overlay;
   const bound = !!runtime.modes?.bound.length;
-  const live = !!proto || !!runtime.modes;
+  const params = !!runtime.bound;
+  const live = !!proto || !!runtime.modes || params;
   const imports = screens.map((s) => `import { ${s.component} } from "./screens/${s.component}"`).join("\n");
   const table = screens.map((s) => `  ${s.key}: { Screen: ${s.component}, width: ${s.width}, height: ${s.height}, foot: ${Math.round(s.foot)}${overlay ? `, radius: ${Math.round(s.radius)}` : ""} },`).join("\n");
-  const fromApp = [families.length ? "screen: asked" : "screen", "move", "snack", ...(overlay ? ["overlay", "closeOverlay"] : []), ...(bound ? ["varStyle"] : [])];
+  const fromApp = [families.length ? "screen: asked" : "screen", "move", "snack", ...(overlay ? ["overlay", "closeOverlay"] : []), ...(bound ? ["varStyle"] : []), ...(params ? ["params"] : [])];
   return `import { useEffect, useLayoutEffect, useRef, useState, type ComponentType } from "react"
 import { AnimatePresence, MotionConfig, motion, useIsPresent, ${proto ? "" : "type TargetAndTransition, "}type Variants } from "motion/react"
 import { PortalContainer } from "@/components/m3e/portal-container"
-${usesToast ? `import { Toaster } from "@/components/m3e/sonner"\n` : ""}${proto ? `import { screenPoses } from "@/lib/screenMotion"\n` : ""}import { ${live ? "ScreenContext, " : ""}useApp, type App as AppState, type ScreenId } from "./runtime"
+${usesToast ? `import { Toaster } from "@/components/m3e/sonner"\n` : ""}${proto ? `import { screenPoses } from "@/lib/screenMotion"\n` : ""}import { ${live ? "ScreenContext, " : ""}useApp, type App as AppState, type ScreenId${params ? ", type ScreenParams" : ""} } from "./runtime"
 ${imports}
 
 const SCREENS: Record<ScreenId, { Screen: ComponentType; width: number; height: number; foot: number${overlay ? "; radius: number" : ""} }> = {
@@ -353,7 +361,7 @@ ${table}
 ${sizesSource(families)}
 ${proto ? sharedPoses(motion) : plainPoses(motion)}
 
-${live ? livePage(bound) : PLAIN_PAGE}
+${live ? livePage(bound, params) : PLAIN_PAGE}
 
 /** as large as the window allows, never larger than the screen was drawn. A screen far taller than the window is read by scrolling the page */
 function useFit(width: number, height: number) {
@@ -408,7 +416,7 @@ export function App() {
             <PortalContainer container={stage}>
               <AnimatePresence initial={false} mode="popLayout" custom={custom}>
                 <motion.div key={screen} custom={custom} variants={VARIANTS} initial="initial" animate="animate" exit="exit" className="absolute inset-0"${proto ? " data-move={custom.motion?.kind ?? custom.transition}" : ""}>
-                  <Page screen={screen}${overlay ? " covered={!!overlay}" : ""} />
+                  <Page screen={screen}${overlay ? " covered={!!overlay}" : ""}${params ? " params={params}" : ""} />
                 </motion.div>
               </AnimatePresence>${
                 overlay
@@ -435,7 +443,7 @@ export function App() {
                       className="relative overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.3)]"
                       style={{ width: SCREENS[laid].width, height: SCREENS[laid].height, borderRadius: SCREENS[laid].radius }}
                     >
-                      <Page screen={laid} />
+                      <Page screen={laid}${params ? " params={overlay.params}" : ""} />
                     </motion.div>
                   </motion.div>
                 )}
@@ -703,7 +711,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
   /* Everything that reads the document's style is written first, in one go, with the document's own styles in reach
      (a custom style is resolved from `doc.styles`): nothing in it waits, so no other document's styles can come between */
   const { screens, theme, runtime } = withDocStyles(doc.styles, () => {
-    const { screens, runtime, usesToast } = buildScreens(doc, widths, { onlyFrameId: o.onlyFrameId, live: true, image });
+    const { screens, runtime, usesToast } = buildScreens(doc, widths, { onlyFrameId: o.onlyFrameId, live: true, image, binds: o.binds });
     if (!screens.length) throw new Error("there is no screen to export");
 
     const seen = new Set<string>();
@@ -713,6 +721,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
       seen.add(s.component);
       const lines = importLines(s.imports);
       files[`src/screens/${s.component}.tsx`] = `${lines.join("\n")}${lines.length ? "\n\n" : ""}${s.source}\n`;
+      if (s.data) files[`src/screens/${s.component}.data.ts`] = s.data;
     }
     for (const [data, path] of images) files[`public${path}`] = dataToBytes(data);
 
@@ -741,8 +750,10 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
   /* the walk starts from what was just written, so it copies what they reach and nothing else */
   const written = Object.keys(files).filter((p) => p.endsWith(".tsx")).map((p) => files[p] as string);
   const roots = new Set<string>(["@/styles/m3e.css", "@/react-css.d.ts"]);
-  const here = new Set(["@/runtime", "@/theme", "@/style-icons", "@/doc-icons"]);
-  for (const source of written) for (const spec of importsIn(source)) if (!spec.startsWith(".") && !here.has(spec)) roots.add(spec);
+  const here = new Set(["@/runtime", "@/theme", "@/style-icons", "@/doc-icons", "@/api", "@/platform", "@/DataScroll"]);
+  /* the product's own packages (its runtime, its client) are its workspaces, not this project's to copy or pin */
+  const own = (spec: string) => !!o.binds && spec.startsWith(`${o.binds.runtime.split("/")[0]}/`);
+  for (const source of written) for (const spec of importsIn(source)) if (!spec.startsWith(".") && !here.has(spec) && !own(spec)) roots.add(spec);
   const { files: copied, packages } = await importClosure([...roots], read, o.onProgress);
   for (const [path, text] of copied) files[projectPath(path)] = text;
 
@@ -819,7 +830,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
   files["README.md"] = readmeSource(doc, screens, [...copied.keys()].map(projectPath), [...missing], runtime);
   files.LICENSE = await read("LICENSE");
   files.NOTICE = `This project was exported from M3E Canvas Pro, whose notice follows. Of the code it names, only the\nfiles in ${[...new Set([...copied.keys()].map((p) => projectPath(p).split("/").slice(0, 3).join("/")))].sort().join(", ")} are copied here.\n\n${await read("NOTICE")}`;
-  return { name, files, warnings };
+  return { name, files, warnings, spec: runtime };
 }
 
 export function zipProject(files: ProjectFiles): Uint8Array {

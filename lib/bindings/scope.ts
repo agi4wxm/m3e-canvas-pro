@@ -5,17 +5,9 @@
 
 import type { Item, VarValue } from "../tokens";
 import type { EvalContext, Scope } from "./expr";
-import type { Problem } from "./contract";
+import type { FormView } from "./form";
 
-/** a form as `form.` reads it: its values by field (also under `values`), their errors, the error of the call */
-export type FormView = Record<string, unknown> & {
-  values: Record<string, unknown>;
-  errors: Record<string, string>;
-  error: Problem | null;
-  submitting: boolean;
-  valid: boolean;
-  progress: number | null;
-};
+export type { FormView } from "./form";
 
 export type BindingContext = {
   /** the screen's own scope: data, params, auth, now */

@@ -28,6 +28,8 @@ export interface TransportRequest {
   /** a JSON value, sent as JSON; multipart form fields as an object whose file fields are `TransportFile`s */
   body?: unknown;
   signal?: AbortSignalLike;
+  /** told how much of the body has gone out, where the platform can say (an upload over XMLHttpRequest, Taro's uploadFile) */
+  onUploadProgress?: (sent: number, total: number) => void;
 }
 
 export interface TransportResponse {

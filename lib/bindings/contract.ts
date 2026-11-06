@@ -5,12 +5,14 @@
 import { bodyOf, endpointParams, followRef, successOf } from "../api";
 import { isRecord, isSchemaObject } from "../api/schema";
 import { authFields, paginationOf, refModel, type ApiEndpoint, type ApiParameter, type ApiSpec, type JsonSchema, type JsonSchemaObject } from "../api/types";
-import { appMessage } from "./messages";
+import { schemaType, titleOf, type FieldKind, type FieldSpec } from "./rules";
+
+export { fieldError, isBlank, pointerField, problemFieldErrors, problemMessage, problemOf, schemaType, statusMessage, titleOf, typedValue, type FieldKind, type FieldRule, type FieldSpec, type Problem } from "./rules";
 
 export const endpointOf = (api: ApiSpec | undefined, operationId: string): ApiEndpoint | undefined => api?.endpoints?.find((e) => e.operationId === operationId);
 
 /** a schema with its top reference followed, and a nullable `anyOf [X, null]` read as X */
-export function resolved(api: ApiSpec, s: JsonSchema | undefined): JsonSchemaObject | undefined {
+export function resolved(api: ApiSpec, s: JsonSchema | undefined, depth = 0): JsonSchemaObject | undefined {
   let x = followRef(api, s);
   for (let i = 0; i < 4 && isSchemaObject(x); i++) {
     const pair = Array.isArray(x.anyOf) ? x.anyOf : Array.isArray(x.oneOf) ? x.oneOf : undefined;
@@ -19,7 +21,26 @@ export function resolved(api: ApiSpec, s: JsonSchema | undefined): JsonSchemaObj
     if (real.length !== 1) break;
     x = followRef(api, real[0] as JsonSchema);
   }
+  if (isSchemaObject(x) && Array.isArray(x.allOf) && depth < 4) return allOfMerged(api, x, depth);
   return isSchemaObject(x) ? x : undefined;
+}
+
+/** A schema made of others (`allOf`: a model and what it adds) as one object: their properties and required fields
+ *  together, the schema's own last, so a field reads the same however the contract composed it. */
+function allOfMerged(api: ApiSpec, x: JsonSchemaObject, depth: number): JsonSchemaObject {
+  const { allOf, ...own } = x;
+  const parts = [...(allOf as JsonSchema[]).slice(0, 16).map((p) => resolved(api, p, depth + 1)), own as JsonSchemaObject];
+  const properties: Record<string, JsonSchema> = {};
+  const required = new Set<string>();
+  let out: JsonSchemaObject = {};
+  for (const p of parts) {
+    if (!p) continue;
+    const { properties: props, required: req, ...rest } = p;
+    out = { ...out, ...rest };
+    if (isRecord(props)) Object.assign(properties, props);
+    if (Array.isArray(req)) for (const r of req) if (typeof r === "string") required.add(r);
+  }
+  return { ...out, ...(Object.keys(properties).length ? { type: out.type ?? "object", properties } : {}), ...(required.size ? { required: [...required] } : {}) };
 }
 
 /** the schema of what an endpoint answers when it goes well */
@@ -29,11 +50,7 @@ export function responseSchema(api: ApiSpec, e: ApiEndpoint): JsonSchemaObject |
   return resolved(api, body?.schema);
 }
 
-const typeOf = (s: JsonSchemaObject | undefined): string | undefined => {
-  if (!s) return undefined;
-  const t = Array.isArray(s.type) ? s.type.find((x) => x !== "null") : s.type;
-  return t ?? (s.properties ? "object" : s.items ? "array" : undefined);
-};
+const typeOf = schemaType;
 
 /** The list an endpoint answers with: the field of its body that holds it (pagination's `items`, the one array field),
  *  or "" when the body is the list; and the schema of one element. Undefined when it answers no list. */
@@ -42,7 +59,13 @@ export function listOf(api: ApiSpec, e: ApiEndpoint): { field: string; item: Jso
   if (!s) return e.pagination ? { field: paginationOf(e.pagination).items, item: undefined } : undefined;
   if (typeOf(s) === "array") return { field: "", item: resolved(api, s.items as JsonSchema) };
   const props = isRecord(s.properties) ? s.properties : {};
-  const field = e.pagination ? paginationOf(e.pagination).items : Object.keys(props).filter((k) => typeOf(resolved(api, props[k] as JsonSchema)) === "array")[0];
+  /* a list of records is what a body holding a list holds (a page of products); a record with a list of words in it (a
+     product's pictures) is one thing */
+  const records = (k: string) => {
+    const arr = resolved(api, props[k] as JsonSchema);
+    return typeOf(arr) === "array" && typeOf(resolved(api, arr!.items as JsonSchema)) === "object";
+  };
+  const field = e.pagination ? paginationOf(e.pagination).items : Object.keys(props).filter(records)[0];
   if (!field) return undefined;
   const arr = resolved(api, props[field] as JsonSchema);
   return { field, item: arr ? resolved(api, arr.items as JsonSchema) : undefined };
@@ -59,30 +82,6 @@ export function requestOf(api: ApiSpec, e: ApiEndpoint): { type: string; schema:
 }
 
 /* ---------- a body as the fields of a form ---------- */
-
-/** what kind of input a field is entered with */
-export type FieldKind = "text" | "email" | "password" | "number" | "integer" | "date" | "datetime" | "url" | "tel" | "textarea" | "select" | "switch" | "file";
-
-/** one field of a form, as its schema says it is entered and checked */
-export type FieldSpec = {
-  /** where it goes in the body: "email", "address.city" */
-  name: string;
-  /** what a person is shown: the schema's title, else the name in words */
-  title: string;
-  description?: string;
-  kind: FieldKind;
-  required: boolean;
-  /** the values a select offers */
-  options?: string[];
-  schema: JsonSchemaObject;
-};
-
-/** a field's name in words: displayName → Display name */
-export const titleOf = (name: string) => {
-  const last = name.split(".").at(-1) ?? name;
-  const words = last.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").trim();
-  return words ? words[0].toUpperCase() + words.slice(1).toLowerCase() : name;
-};
 
 function kindOf(name: string, s: JsonSchemaObject): FieldKind {
   const t = typeOf(s);
@@ -130,107 +129,6 @@ export function formFields(api: ApiSpec, e: ApiEndpoint): FieldSpec[] {
   };
   visit(body, "", new Set(Array.isArray(body.required) ? body.required : []), 0);
   return out;
-}
-
-/* ---------- checking ---------- */
-
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-/** whether a value is nothing a person entered */
-export const isBlank = (v: unknown) => v === undefined || v === null || (typeof v === "string" && v.trim() === "") || (Array.isArray(v) && !v.length);
-
-/** a pattern the schema gives, made once; one that is not a regular expression, or too long to trust, checks nothing */
-function patternOf(p: unknown): RegExp | null {
-  if (typeof p !== "string" || p.length > 500) return null;
-  try {
-    return new RegExp(p, "u");
-  } catch {
-    return null;
-  }
-}
-
-/** What is wrong with a value against its field's schema, in the app's language; null when nothing is. */
-export function fieldError(spec: Pick<FieldSpec, "kind" | "required" | "schema">, value: unknown, lang: string): string | null {
-  const s = spec.schema;
-  if (isBlank(value) || value === false) {
-    if (spec.required && !(spec.kind === "switch" && value === false)) return appMessage("required", lang);
-    return null;
-  }
-  if (spec.kind === "number" || spec.kind === "integer" || typeOf(s) === "number" || typeOf(s) === "integer") {
-    const n = typeof value === "number" ? value : Number(String(value).trim());
-    if (!Number.isFinite(n)) return appMessage("number", lang);
-    if ((spec.kind === "integer" || typeOf(s) === "integer") && !Number.isInteger(n)) return appMessage("integer", lang);
-    if (typeof s.minimum === "number" && n < s.minimum) return appMessage("minimum", lang, s.minimum);
-    if (typeof s.exclusiveMinimum === "number" && n <= s.exclusiveMinimum) return appMessage("minimum", lang, s.exclusiveMinimum);
-    if (typeof s.maximum === "number" && n > s.maximum) return appMessage("maximum", lang, s.maximum);
-    if (typeof s.exclusiveMaximum === "number" && n >= s.exclusiveMaximum) return appMessage("maximum", lang, s.exclusiveMaximum);
-    return null;
-  }
-  if (Array.isArray(s.enum) && s.enum.length && !s.enum.some((x) => String(x) === String(value))) return appMessage("enum", lang);
-  if (typeof value !== "string") return null;
-  const len = [...value].length;
-  if (typeof s.minLength === "number" && len < s.minLength) return appMessage("minLength", lang, s.minLength);
-  if (typeof s.maxLength === "number" && len > s.maxLength) return appMessage("maxLength", lang, s.maxLength);
-  const v = value.trim();
-  if (s.format === "email" && !EMAIL.test(v)) return appMessage("email", lang);
-  if ((s.format === "uri" || s.format === "url") && !/^[a-z][a-z0-9+.-]*:\/\/\S+$/i.test(v)) return appMessage("url", lang);
-  if (s.format === "uuid" && !UUID.test(v)) return appMessage("uuid", lang);
-  if (s.format === "date" && (!DATE.test(v) || !Number.isFinite(Date.parse(v)))) return appMessage("date", lang);
-  if (s.format === "date-time" && !Number.isFinite(Date.parse(v))) return appMessage("dateTime", lang);
-  const re = patternOf(s.pattern);
-  if (re && !re.test(value.slice(0, 10_000))) return appMessage("pattern", lang);
-  return null;
-}
-
-/** a value as the schema's type has it: a number field's words become a number, a boolean's a boolean */
-export function typedValue(s: JsonSchemaObject, v: unknown): unknown {
-  const t = typeOf(s);
-  if ((t === "number" || t === "integer") && typeof v === "string") return v.trim() === "" ? undefined : Number.isFinite(Number(v)) ? Number(v) : v;
-  if (t === "boolean" && typeof v === "string") return v === "true" ? true : v === "false" ? false : v;
-  if (t === "string" && typeof v === "number") return String(v);
-  return v;
-}
-
-/* ---------- errors ---------- */
-
-/** RFC 9457 problem details as the bindings read them: status always, the rest when the server said */
-export type Problem = { status: number; title: string; detail?: string; type?: string; errors?: { pointer?: string; detail: string; in?: "body" | "query" | "path" | "header" }[] };
-
-/** The problem an error answer is: its problem details where the body has them, else what its status says. Status 0
- *  is a call that never reached the server. */
-export function problemOf(status: number, body: unknown, lang: string): Problem {
-  const b = isRecord(body) ? body : {};
-  const errors = Array.isArray(b.errors)
-    ? b.errors
-        .slice(0, 200)
-        .flatMap((x) =>
-          isRecord(x) && typeof x.detail === "string"
-            ? [{ ...(typeof x.pointer === "string" ? { pointer: x.pointer } : {}), detail: x.detail.slice(0, 500), ...(x.in === "body" || x.in === "query" || x.in === "path" || x.in === "header" ? { in: x.in as "body" | "query" | "path" | "header" } : {}) }]
-            : [],
-        )
-    : undefined;
-  const title = typeof b.title === "string" && b.title ? b.title.slice(0, 300) : status === 0 ? appMessage("network", lang) : appMessage("failed", lang);
-  return {
-    status: typeof b.status === "number" && b.status >= 100 && b.status <= 599 ? b.status : status,
-    title,
-    ...(typeof b.detail === "string" ? { detail: b.detail.slice(0, 2000) } : typeof body === "string" && body.trim() && body.length < 500 ? { detail: body } : {}),
-    ...(typeof b.type === "string" ? { type: b.type } : {}),
-    ...(errors?.length ? { errors } : {}),
-  };
-}
-
-/** the field of a form an error's JSON Pointer names: "#/email" or "/address/city" → "email", "address.city" */
-export function pointerField(pointer: string | undefined): string | undefined {
-  if (!pointer) return undefined;
-  const p = pointer.replace(/^#/, "");
-  if (!p.startsWith("/")) return p || undefined;
-  const parts = p
-    .slice(1)
-    .split("/")
-    .map((x) => x.replace(/~1/g, "/").replace(/~0/g, "~"));
-  return parts.filter(Boolean).join(".") || undefined;
 }
 
 /* ---------- sessions ---------- */

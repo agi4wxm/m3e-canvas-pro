@@ -7,6 +7,7 @@ import { type Row, CURRENT_TOKEN, fillCurrent, firstRows, markCurrent } from "./
 import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
 import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn, varValues } from "./variables";
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
+import type { BoundPrint } from "./printBindings";
 import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type Transition, type VarType, type VarValue } from "./tokens";
 
 /* What a tap does and what state a part reads, as source text over the generated runtime
@@ -43,6 +44,19 @@ export type RuntimeSpec = {
   proto?: { overlay: boolean; scroll: boolean; hover: boolean; delay: boolean };
   /** variables with a value in several modes, and the design fields bound to variables */
   modes?: ModesSpec;
+  /** the screens read expressions (lib/bindings/expr.ts): the names and ids `vars.<name>` reads each variable by */
+  exprs?: { vars: Record<string, string[]> };
+  /** the product's bindings: what the runtime keeps for them (lib/printBindings.ts) */
+  bound?: BoundSpec;
+};
+
+/** What the product web app's runtime keeps for the bindings: the params each screen takes, the screens that need a
+ *  session, the sign-in screen, and the runtime package's name. */
+export type BoundSpec = {
+  runtime: string;
+  params: Record<string, { name: string; type?: string; example?: unknown }[]>;
+  auth: string[];
+  signIn?: string;
 };
 
 /** What the runtime keeps of variable modes: the collections with more than one mode, by key; the mode of each a screen
@@ -66,6 +80,9 @@ type Options = {
   shown: Frame[];
   /** the path the code gives a picture the document holds as data */
   image: string | ((data: string) => string);
+  /** the bindings printed against the product's runtime and client (lib/printBindings.ts); left out, the prototype's
+   *  own runtime reads what expressions it can (its variables) and the rest reads as nothing */
+  binds?: BoundPrint;
 };
 
 const json = (v: unknown) => str(v);
@@ -307,6 +324,13 @@ export class Behaviour {
   private readonly boundNames = new Map<string, string>();
   /** what of the prototype has been printed so far */
   private readonly printed = { motion: false, overlay: false, scroll: false, hover: false, delay: false };
+  /** the bindings, printed against the product's runtime */
+  readonly bound?: BoundPrint;
+  private readonly groupById: Map<string, Group>;
+  /** an expression has been printed: the runtime reads them */
+  private readsExprs = false;
+  /** a screen opened with params, or a session asked for */
+  private navigates = false;
 
   constructor(doc: Doc, widths: Record<string, number>, o: Options) {
     this.doc = doc;
@@ -314,6 +338,8 @@ export class Behaviour {
     this.image = o.image;
     this.readsCurrent = JSON.stringify(doc.groups).includes("{{current.");
     this.shown = o.shown;
+    this.bound = o.binds;
+    this.groupById = new Map(doc.groups.map((g) => [g.id, g]));
     const screenKeys = new Set<string>();
     o.shown.forEach((f, i) => this.screens.set(f.id, camel(f.name, `screen${i + 1}`, screenKeys)));
     /* a variable starts at its value in the mode the document shows */
@@ -392,7 +418,21 @@ export class Behaviour {
 
   /** what a dock's tabs have to be able to bring up, so it is printed whichever tab starts chosen */
   keepsOffTab(id: string): boolean {
+    /* every state a region designs is printed, each shown while its data is in that state */
+    if (this.bound && this.groupById.get(id)?.inFlow && this.doc.groups.some((h) => h.states && h.id === this.groupById.get(id)!.inFlow)) return true;
+    if (this.bound && this.regionDescendant(id)) return true;
     return this.inLiveDock.has(id);
+  }
+
+  /** whether a group stands inside a region's design */
+  private regionDescendant(id: string): boolean {
+    let at = this.groupById.get(id);
+    for (let i = 0; at?.inFlow && i < 64; i++) {
+      const host = this.groupById.get(at.inFlow);
+      if (host?.states) return true;
+      at = host;
+    }
+    return false;
   }
 
   /** the CSS variable a variable bound to a design field paints it by, in a whole app (lib/codegen.ts) */
@@ -471,7 +511,34 @@ export class Behaviour {
       ...(flows ? { flows } : {}),
       ...(motion || Object.values(proto).some(Boolean) ? { proto } : {}),
       ...(modes ? { modes } : {}),
+      ...(this.readsExprs || this.bound ? { exprs: { vars: this.varNames() } } : {}),
+      ...(this.bound ? { bound: this.boundSpec() } : {}),
     };
+  }
+
+  /** each variable's key, with the names and the id expressions read it by */
+  private varNames(): Record<string, string[]> {
+    const out: Record<string, string[]> = {};
+    for (const v of Array.isArray(this.doc.vars) ? this.doc.vars : []) {
+      const info = this.vars.get(v.id);
+      if (info) out[info.key] = [...new Set([v.name, v.id].filter((n) => typeof n === "string" && n))];
+    }
+    return out;
+  }
+
+  /** what the product's runtime keeps for the bindings */
+  private boundSpec(): BoundSpec {
+    const params: BoundSpec["params"] = {};
+    const auth: string[] = [];
+    let signIn: string | undefined;
+    for (const f of this.shown) {
+      const key = this.screens.get(f.id);
+      if (!key) continue;
+      if (f.params?.length) params[key] = f.params.map((p) => ({ name: p.name, ...(p.type ? { type: p.type } : {}), ...(p.example !== undefined ? { example: p.example } : {}) }));
+      if (f.auth === "required") auth.push(key);
+      if (f.auth === "login" && !signIn) signIn = key;
+    }
+    return { runtime: this.bound!.o.runtime, params, auth, ...(signIn ? { signIn } : {}) };
   }
 
   /** Words that may read the row last tapped, as code. On a part drawn for a row the tap itself says
@@ -510,6 +577,7 @@ export class Behaviour {
     const key = INPUT_PROP[it.component ?? ""];
     const def = partBySlug(it.component);
     if (key === undefined || !def) return null;
+    if (this.bound?.form && it.field) return null;
     const bound = it.bind?.[key] ? this.vars.get(it.bind[key]) : undefined;
     if (bound) return bound;
     if (this.inputs.has(it.id)) return this.inputs.get(it.id)!;
@@ -560,8 +628,14 @@ export class Behaviour {
   condition(c: Condition, uses: Uses, row: Row | undefined = this.rowNow): string {
     const known = this.onRow(c, row);
     if (known !== undefined) return String(known);
-    /* an expression over the bindings is printed by the export of the bindings; the prototype shows what it guards */
-    if ("expr" in c) return "true";
+    /* an expression: the product reads it in the part's scope; the prototype's runtime reads what it can of it */
+    if ("expr" in c) {
+      if (typeof c.expr !== "string") return "false";
+      if (this.bound) return this.bound.holds(c.expr);
+      this.readsExprs = true;
+      uses.app.add("holds");
+      return `holds(${json(c.expr)})`;
+    }
     if ("filled" in c) {
       const it = this.owner.get(c.filled)?.items.find((x) => x.id === c.filled);
       const v = it && this.inputVar(it);
@@ -585,6 +659,13 @@ export class Behaviour {
       uses.app.add(name);
       return `${name}(${args.join(", ")})`;
     };
+    if (this.bound) {
+      const done = this.bound.effect(e, (body, scope) => this.bound!.within(scope, this.bound!.form, () => this.bodyStatements(body, uses)));
+      if (done !== undefined) {
+        for (const n of this.bound.appNames()) uses.app.add(n);
+        return done;
+      }
+    }
     switch (e.do) {
       case "show":
       case "hide":
@@ -606,6 +687,7 @@ export class Behaviour {
       }
       case "setVar": {
         const v = this.vars.get(e.var);
+        if (v && typeof e.expr === "string" && this.bound) return call("setVar", json(v.key), this.bound.setVarValue(e.expr, v.type));
         const value = v && coerce(e.value, v.type);
         return v && value !== null && value !== undefined ? call("setVar", json(v.key), typeof value === "string" ? this.wordsCode(value, uses) : json(value)) : null;
       }
@@ -620,7 +702,7 @@ export class Behaviour {
       case "setProp":
         return this.setProp(e, uses, call);
       case "snackbar":
-        return call("snackbar", this.wordsCode(e.message, uses));
+        return call("snackbar", (this.bound && this.bound.words(e.message)) || this.wordsCode(e.message, uses));
       default:
         /* a kind this version does not know, from a file saved by a later one */
         return null;
@@ -677,9 +759,17 @@ export class Behaviour {
     const transition = TRANSITIONS.includes(b.transition) ? b.transition : "slide";
     const motion = cleanMotion(b.motion);
     const call = b.overlay === true ? "openOverlay" : "go";
-    uses.app.add(call);
     if (motion) this.printed.motion = true;
     if (call === "openOverlay") this.printed.overlay = true;
+    /* a screen opened with params: what each is read now, as the screen reads them */
+    const given = this.bound && b.params && Object.keys(b.params).length ? b.params : undefined;
+    if (given && call === "go") {
+      uses.app.add("navigate");
+      this.navigates = true;
+      const rest = motion ? [json(transition), printValue(motion)] : transition !== "slide" ? [json(transition)] : [];
+      return [...out, `navigate(${[json(key), this.bound!.navParams(given), ...rest].join(", ")})`];
+    }
+    uses.app.add(call);
     const args = [json(key), ...(motion ? [json(transition), printValue(motion)] : transition !== "slide" ? [json(transition)] : [])];
     return [...out, `${call}(${args.join(", ")})`];
   }
@@ -687,6 +777,12 @@ export class Behaviour {
   private bodyStatements(b: ActionBody, uses: Uses): string[] {
     const effects = (Array.isArray(b.effects) ? b.effects : []).map((e) => this.effect(e, uses)).filter((s): s is string => !!s);
     return [...effects, ...this.nav(b, uses)];
+  }
+
+  /** what a call's or a form's then or catch runs, in the scope given (`answer.with…`), as statements */
+  statementsOf(b: ActionBody, uses: Uses, scope: string): string[] {
+    if (!this.bound) return this.bodyStatements(b, uses);
+    return this.bound.within(scope, this.bound.form, () => this.bodyStatements(b, uses));
   }
 
   private statements(a: Action, uses: Uses): string[] {
@@ -733,12 +829,24 @@ export class Behaviour {
     return standing === "menu" && this.openTargets.has(it.id);
   }
 
-  private plan(it: Item, def: PartDef, uses: Uses): { d: PropDef; expr: string }[] {
-    const out: { d: PropDef; expr: string }[] = [];
+  private plan(it: Item, def: PartDef, uses: Uses): { d: PropDef; expr: string; samples?: VarValue[] }[] {
+    const out: { d: PropDef; expr: string; samples?: VarValue[] }[] = [];
     const inputKey = INPUT_PROP[def.slug];
     const inputVar = this.inputVar(it);
     const p = reader(def, it.props);
+    const fromForm = this.bound ? this.bound.formProps(it, def) : [];
     for (const d of def.props) {
+      const design = d.kind === "text" || d.kind === "image" || d.kind === "icon" ? (it.props?.[d.key] ?? undefined) : d.kind === "number" ? p.n(d.key) : d.kind === "bool" ? p.b(d.key) : d.kind === "enum" ? p.s(d.key) : undefined;
+      const byExpr = this.bound ? this.bound.prop(it, d, d.kind === "text" ? p.s(d.key) : design) : null;
+      if (byExpr !== null && !(d.key === inputKey && this.bound?.form && it.field)) {
+        out.push({ d, expr: byExpr.code, ...(byExpr.samples ? { samples: byExpr.samples } : {}) });
+        continue;
+      }
+      const given = fromForm.find((x) => x.key === d.key);
+      if (given && (d.kind === "bool" || d.kind === "text")) {
+        out.push({ d, expr: given.expr });
+        continue;
+      }
       if (d.kind !== "text" && d.kind !== "number" && d.kind !== "bool" && d.kind !== "enum") continue;
       if (d.key === inputKey && inputVar) continue;
       const bound = it.bind?.[d.key] ? this.vars.get(it.bind[d.key]) : undefined;
@@ -770,15 +878,15 @@ export class Behaviour {
       return markOf(`current.${field}`);
     });
     const plan = this.plan(it, def, uses);
-    const words = plan.filter((x) => x.d.kind === "text");
-    const drawn = plan.filter((x) => x.d.kind !== "text");
+    const words = plan.filter((x) => x.d.kind === "text" || x.d.kind === "image" || x.d.kind === "icon");
+    const drawn = plan.filter((x) => x.d.kind !== "text" && x.d.kind !== "image" && x.d.kind !== "icon");
     const values = { ...base, ...Object.fromEntries(words.map((x) => [x.d.key, markOf(x.d.key)])) };
     /* one prop after another, each drawn every way it can be; past a point the rest stay as they are */
     let room = 64;
     const draw = (vals: Record<string, unknown>, rest: typeof drawn): PNode => {
       const [head, ...tail] = rest;
       if (!head) return treeOf(def, vals, look, it.id);
-      const samples = samplesOf(head.d, def, it);
+      const samples = head.samples ?? samplesOf(head.d, def, it);
       if (samples.length < 2 || samples.length > room) return draw(vals, tail);
       room = Math.floor(room / samples.length);
       return foldNodes(samples.map((s) => draw({ ...vals, [head.d.key]: s }, tail)), { expr: head.expr, samples, keepTap });
@@ -884,6 +992,8 @@ export class Behaviour {
     }
     const inputVar = this.inputVar(it);
     if (inputVar) tree = this.wireInput(tree, it, def, inputVar, uses);
+    const field = this.bound?.wireField(tree, it, def);
+    if (field) tree = field.tree;
     if (g && this.heldByState(it, g)) {
       const key = this.part(it.id);
       uses.app.add("isOpen").add("open").add("close");
@@ -900,7 +1010,8 @@ export class Behaviour {
       });
     }
     if (direct) tree = { ...tree, props: { ...tree.props, onClick: raw(onPress!) } };
-    if (!pressable) return { tree, keepTap: false, wrap: (source) => source };
+    const fieldWrap = field?.wrap ?? ((source: string) => source);
+    if (!pressable) return { tree, keepTap: false, wrap: fieldWrap };
     uses.press = true;
     const attrs = [
       onPress ? `onPress={${onPress}}` : "",
@@ -910,7 +1021,7 @@ export class Behaviour {
       selecting && selfSelecting ? `onTab={(index) => ${(uses.app.add("selectTab"), `selectTab(${json(this.barKey(it, def))}, index)`)}}` : "",
       closes ? `onClose={() => ${(uses.app.add("hide"), `hide(${this.part(g!.items[0].id)})`)}}` : "",
     ].filter(Boolean);
-    return { tree, keepTap: true, wrap: (source) => `<Pressable ${attrs.join(" ")}>${source}</Pressable>` };
+    return { tree, keepTap: true, wrap: (source) => `<Pressable ${attrs.join(" ")}>${fieldWrap(source)}</Pressable>` };
   }
 
   /* ---------- what a part shows under ---------- */
@@ -933,6 +1044,8 @@ export class Behaviour {
       /* settled for this row: nothing left to ask */
       if (holds !== "true") out.push(holds);
     }
+    const region = this.bound?.regionGate(g, g.inFlow ? this.groupById.get(g.inFlow) : undefined);
+    if (region) out.push(region);
     const pane = this.panes.get(g.id);
     const def = pane && partBySlug(pane.host.component);
     if (pane && def?.selectKey) {
