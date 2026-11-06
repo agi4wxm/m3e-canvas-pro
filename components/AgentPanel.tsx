@@ -128,6 +128,14 @@ export function takenWords(x: Taken, lang: ReturnType<typeof useLang>): string {
       return t("apiAskServer", lang).replace("{name}", x.name);
     case "scheme":
       return t("apiAskScheme", lang).replace("{name}", x.name);
+    case "mockScenario":
+      return t("mocksAskScenario", lang).replace("{name}", x.name);
+    case "mockFile":
+      return t("mocksAskFile", lang).replace("{name}", x.name);
+    case "mockRecords":
+      return t("mocksAskRecords", lang).replace("{n}", String(x.n)).replace("{of}", x.of);
+    case "mockScript":
+      return t("mocksAskScript", lang).replace("{name}", x.name);
   }
 }
 

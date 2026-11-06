@@ -8,7 +8,8 @@ const LARGE = 50_000;
 const DB = "m3e-assets";
 const STORE = "assets";
 
-const isLarge = (s: string) => s.length >= LARGE && s.startsWith("data:image/");
+/* a picture, or a file of the mock library (a PDF, a sound, a clip) */
+const isLarge = (s: string) => s.length >= LARGE && /^data:(?:image|audio|video|application)\//.test(s);
 export const isAssetRef = (s: unknown): s is string => typeof s === "string" && s.startsWith(PREFIX);
 
 /** the same picture always gets the same name */
