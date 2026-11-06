@@ -96,9 +96,12 @@ export function Select(props: SelectProps) {
   const { box } = fieldStyle(kit, p.variant ?? "outlined");
   const ios = recipeOf(kit, "menu") === "ios" || recipeOf(kit, "picker") === "ios";
   const value = items[chosen]?.label;
+  /* M3's outlined field carries its label in a notch of its border, as the editor draws it; other fields over it */
+  const notched = !!p.label && (p.variant ?? "outlined") === "outlined" && recipeOf(kit, "field") === "m3";
+  const notch = notched ? <Words text={p.label} lines={1} style={{ position: "absolute", left: 12, top: -8, paddingLeft: 4, paddingRight: 4, ...typeStyle(kit, "body-small"), lineHeight: "16px", backgroundColor: c("surface"), color: c("on-surface-variant") }} /> : null;
   return (
     <View {...tagOf(p.testID)} style={sx({ display: "flex", flexDirection: "column", rowGap: 4, width: Math.round(p.width ?? 224), flexShrink: 0 }, fill)}>
-      {p.label ? <Words text={p.label} style={{ ...typeStyle(kit, "body-small"), color: c("on-surface-variant") }} /> : null}
+      {p.label && !notched ? <Words text={p.label} style={{ ...typeStyle(kit, "body-small"), color: c("on-surface-variant") }} /> : null}
       <Picker
         mode="selector"
         range={items.map((it) => it.label)}
@@ -110,7 +113,8 @@ export function Select(props: SelectProps) {
           tapOf(p, `tab:${i}`)?.();
         }}
       >
-        <View ariaRole="combobox" ariaLabel={p.label || p.placeholder} style={sx(merge({ ...ROW, boxSizing: "border-box", height: p.size === "sm" ? 40 : 56, paddingLeft: 16, paddingRight: 16, columnGap: 8, opacity: p.disabled ? 0.38 : 1 }, box, p.error ? { borderColor: c("error"), boxShadow: `inset 0 0 0 1px ${c("error")}` } : null))}>
+        <View ariaRole="combobox" ariaLabel={p.label || p.placeholder} style={sx(merge({ ...ROW, position: "relative", boxSizing: "border-box", height: p.size === "sm" ? 40 : 56, paddingLeft: 16, paddingRight: 16, columnGap: 8, opacity: p.disabled ? 0.38 : 1 }, box, p.error ? { borderColor: c("error"), boxShadow: `inset 0 0 0 1px ${c("error")}` } : null))}>
+          {notch}
           <Words text={value ?? p.placeholder} lines={1} style={{ flex: 1, ...typeStyle(kit, "body-large"), color: value ? c("on-surface") : c("on-surface-variant") }} />
           <Glyph name={ios ? "unfold_more" : "arrow_drop_down"} size={24} color="on-surface-variant" />
         </View>

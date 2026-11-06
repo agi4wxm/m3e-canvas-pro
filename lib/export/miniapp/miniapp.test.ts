@@ -81,6 +81,9 @@ describe("the shop bound to its contract", () => {
       expect(files[`src/${p}.tsx`], p).toContain("<Root>");
       expect(files[`src/${p}.config.ts`], p).toContain('"navigationStyle":"custom"');
     }
+    /* light, as the design is (the device's mode only for a design drawn in both) */
+    expect(files["src/generated/root.tsx"]).toContain("<ThemeProvider theme={theme} dark={false}>");
+    expect(files["src/app.config.ts"]).not.toContain("darkmode");
     expect(files["src/pages/products/index.config.ts"]).toContain('"enablePullDownRefresh":true');
     expect(files["src/pages/product/index.config.ts"]).not.toContain("enablePullDownRefresh");
     expect(JSON.parse(files["src/generated/warnings.json"])).toEqual([]);
