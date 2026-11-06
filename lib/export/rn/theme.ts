@@ -87,6 +87,7 @@ const EXTRAS: Record<string, Record<string, string | number>> = {
     chipOn: "primary",
     chipOnText: "on-primary",
     navBg: "surface/95",
+    navNoLine: 1,
     navLabelSize: 10,
     fabColor: "primary",
     fieldRadius: 4,

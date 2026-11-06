@@ -128,7 +128,7 @@ export function NavigationBar(props: NavigationBarProps) {
     alignItems: "stretch",
     backgroundColor: extraColor(kit, "navBg") ?? kit.st.navBg ?? c(kit, "surface-container"),
     ...(extraColor(kit, "navLine") ? { borderTopWidth: 0.5, borderTopColor: extraColor(kit, "navLine") } : null),
-    ...(recipe === "plain" && !extraColor(kit, "navLine") ? { borderTopWidth: 0.5, borderTopColor: c(kit, "outline-variant") } : null),
+    ...(recipe === "plain" && !extraColor(kit, "navLine") && !extra(kit, "navNoLine") ? { borderTopWidth: 0.5, borderTopColor: c(kit, "outline-variant") } : null),
     ...(floating ? { borderRadius: 32, marginHorizontal: 16, boxShadow: "0px 4px 16px 0px #00000026" } : null),
     ...(p.elevated ? { boxShadow: "0px 2px 6px 2px #00000026" } : null),
     width: Math.round(p.width ?? 412),

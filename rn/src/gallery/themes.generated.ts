@@ -1274,6 +1274,7 @@ export const THEMES: Record<GalleryStyle, KitTheme> = {
    "chipOn": "primary",
    "chipOnText": "on-primary",
    "navBg": "surface/95",
+   "navNoLine": 1,
    "navLabelSize": 10,
    "fabColor": "primary",
    "fieldRadius": 4,
