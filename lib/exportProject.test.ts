@@ -152,6 +152,19 @@ describe("the project of a real document", () => {
     expect(strFromU8(out["src/runtime.tsx"])).toBe(files["src/runtime.tsx"]);
   });
 
+  it("switches the app's colors with the variable that drives the dark mode", async () => {
+    const { doc, widths } = proofDoc();
+    const dark: Doc = { ...doc, vars: [...(doc.vars ?? []), { id: "v-dark", name: "Dark mode", type: "bool", value: false, drives: "dark" }] };
+    const { files } = await buildProject(dark, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    const runtime = textOf(files, "src/runtime.tsx");
+    expect(runtime).toContain('import { useColorMode } from "@/components/m3e/color-mode-provider"');
+    expect(runtime).toContain('darkMode: colorMode.resolvedMode === "dark"');
+    expect(runtime).toContain('colorMode.setMode(darkOn ? "dark" : "light")');
+    const plain = await buildProject(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    expect(textOf(plain.files, "src/runtime.tsx")).not.toContain("useColorMode");
+    checkClosed(files);
+  });
+
   it("takes one screen, and a tap to a screen left out goes nowhere", async () => {
     const { doc, widths } = proofDoc();
     const { files } = await buildProject(doc, widths, { read: fromDisk, onlyFrameId: FORM, fetchIcons: noNetwork });

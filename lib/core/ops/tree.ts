@@ -93,7 +93,7 @@ function checked(s: CoreState, root: unknown, strict: boolean): Flat[] {
     if (node.name !== undefined && typeof node.name !== "string") throw new OpError("invalid_value", `${path}.name should be text.`, `${path}.name`);
     if (node.grow !== undefined && typeof node.grow !== "boolean") throw new OpError("invalid_value", `${path}.grow should be true or false.`, `${path}.grow`);
     if (strict) {
-      const patch: Record<string, unknown> = { ...(node.props ? { props: node.props } : {}) };
+      const patch: Record<string, unknown> = node.props ? { props: node.props } : {};
       for (const k of ITEM_KEYS) if (node[k] !== undefined && k !== "action" && k !== "bind") patch[k] = node[k];
       try {
         checkItemPatch({ ...freshPart(node.part, false), id: node.id ?? "" }, patch, s);

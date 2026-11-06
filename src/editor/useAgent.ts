@@ -1,25 +1,33 @@
 /* The in-app agent's side of the editor: the conversation, the turn that is running and what it shows as it goes (its
- * plan, each tool, the pictures it took, what it spent), and what the author does with a finished turn: keep it,
- * undo it as one step, or try it again. The turn itself runs in lib/agent (runTurn), on the editor's own store. */
+ * plan, each tool, the pictures it took, what it spent), the pictures the author attaches, and what the author does
+ * with a finished turn: keep it, undo it as one step, or try it again. The turn itself runs in lib/agent (runTurn), on
+ * the editor's own store. lib/agent, lib/llm and lib/tools are loaded the first time a request is sent, so the editor
+ * starts without them. The conversation is kept with its project (agentMemory.ts). */
 
 import { useEffect, useRef, useState } from "react";
-import { createAdapter, emptyUsage, type AgentStop, type Message, type Usage } from "@/lib/llm";
-import { runTurn, type DocDiff, type TurnEvent } from "@/lib/agent";
+import type { Message, Usage } from "@/lib/llm/types";
+import type { AgentStop } from "@/lib/llm/loop";
+import type { DocDiff } from "@/lib/agent/diff";
+import type { TurnEvent } from "@/lib/agent/turn";
+import type { Attachment, Renderer } from "@/lib/tools/types";
 import { hasKey, isSecureUrl, type AiSettings } from "@/lib/ai";
-import { CORE_REGISTRY, type Renderer, type ToolGroup } from "@/lib/tools";
 import { frameOfPart } from "@/lib/tokens";
 import type { DocStore } from "@/lib/core";
 import { aiErrorText } from "@/components/AiPanel";
 import { t, type Lang } from "@/lib/i18n";
+import { loadMemory, saveMemory, type KeptTurn } from "./agentMemory";
+import type { PickedImage } from "./attachImage";
 
 export type LogEntry =
   | { kind: "text"; step: number; text: string }
-  | { kind: "tool"; id: string; name: string; group: ToolGroup | "other"; state: "running" | "ok" | "error"; summary: string; ms?: number }
+  | { kind: "tool"; id: string; name: string; state: "running" | "ok" | "error"; summary: string; ms?: number }
   | { kind: "review"; images: string[] };
 
 export type TurnView = {
   id: string;
   request: string;
+  /** the pictures attached to it, as the author handed them */
+  images?: { id: string; dataUrl: string }[];
   status: "running" | "done" | "stopped" | "error";
   log: LogEntry[];
   reasoning: string;
@@ -39,7 +47,7 @@ export type TurnView = {
   before: number;
 };
 
-const toolGroup = (name: string): ToolGroup | "other" => CORE_REGISTRY.byName(name)?.group ?? (name.startsWith("generate_") ? "generate" : "other");
+const noUsage = (): Usage => ({ input: 0, output: 0, reasoning: 0, cachedInput: 0, cacheWrite: 0 });
 
 export type AgentInputs = {
   store: DocStore;
@@ -48,20 +56,57 @@ export type AgentInputs = {
   renderer: Renderer;
   editable: boolean;
   showToast: (msg: string, ms?: number, icon?: string) => void;
+  /** the project the conversation belongs to, kept with it; null keeps it only while the page is open */
+  project?: string | null;
 };
 
-export function useAgent({ store, settings, lang, renderer, editable, showToast }: AgentInputs) {
+/** a turn as it is kept: what it said and did, without the pictures it looked at */
+const keptOf = (x: TurnView): KeptTurn => {
+  const { shots: _s, log, images, ...rest } = x;
+  return { ...rest, log: log.filter((l) => l.kind !== "review"), ...(images?.length ? { images } : {}), ...(x.status === "running" ? { status: "stopped" } : {}) } as unknown as KeptTurn;
+};
+const viewOf = (k: KeptTurn): TurnView => ({ shots: [], log: [], reasoning: "", usage: noUsage(), ms: 0, drawings: 0, before: 0, status: "done", ...(k as unknown as Partial<TurnView>) }) as TurnView;
+
+export function useAgent({ store, settings, lang, renderer, editable, showToast, project = null }: AgentInputs) {
   const [turns, setTurns] = useState<TurnView[]>([]);
   const [running, setRunning] = useState(false);
   /** the screen the agent last changed, which wears the thinking ring meanwhile */
   const [agentFrameId, setAgentFrameId] = useState<string | null>(null);
   const messages = useRef<Message[]>([]);
+  /** every picture attached in the conversation, by id (ref1, ref2…) */
+  const attachments = useRef<Attachment[]>([]);
+  /** the tool sets the conversation has loaded (lib/agent/toolsets.ts) */
+  const sets = useRef<string[]>([]);
   const abort = useRef<AbortController | null>(null);
   /** the author took the last turn back: the model is told on the next one */
   const undone = useRef(false);
   const runningRef = useRef(false);
 
   const ready = hasKey(settings) && settings.model.trim().length > 0 && isSecureUrl(settings.baseUrl);
+
+  /* the project's conversation comes back with it, and is kept whenever no turn is running */
+  const recalled = useRef<string | null>(null);
+  useEffect(() => {
+    if (!project) return;
+    let gone = false;
+    void loadMemory(project).then((m) => {
+      if (gone) return;
+      if (m && !runningRef.current) {
+        messages.current = m.messages;
+        attachments.current = m.attachments ?? [];
+        sets.current = m.sets ?? [];
+        setTurns(m.turns.map(viewOf));
+      }
+      recalled.current = project;
+    });
+    return () => {
+      gone = true;
+    };
+  }, [project]);
+  useEffect(() => {
+    if (!project || running || recalled.current !== project) return;
+    void saveMemory(project, { messages: messages.current, turns: turns.map(keptOf), sets: sets.current, attachments: attachments.current });
+  }, [turns, running, project]);
 
   /* which screen the agent is working on: the one its last change touched */
   useEffect(
@@ -94,7 +139,7 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast 
         patch(id, (x) => ({ ...x, reasoning: x.reasoning + e.delta }));
         break;
       case "tool_start":
-        patch(id, (x) => ({ ...x, log: [...x.log, { kind: "tool", id: e.id, name: e.name, group: toolGroup(e.name), state: "running", summary: "" }] }));
+        patch(id, (x) => ({ ...x, log: [...x.log, { kind: "tool", id: e.id, name: e.name, state: "running", summary: "" }] }));
         break;
       case "tool_end":
         patch(id, (x) => ({
@@ -112,10 +157,10 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast 
     }
   };
 
-  /** Sends a request to the agent: one turn, streamed into the panel as it goes. */
-  const send = async (request: string) => {
+  /** Sends a request to the agent, with any pictures attached to it: one turn, streamed into the panel as it goes. */
+  const send = async (request: string, pictures: PickedImage[] = []) => {
     const words = request.trim();
-    if (!words || runningRef.current) return;
+    if ((!words && !pictures.length) || runningRef.current) return;
     if (!ready) {
       showToast(t("agentNeedsKey", lang), 4000);
       return;
@@ -127,15 +172,25 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast 
     runningRef.current = true;
     setRunning(true);
     const before = messages.current.length;
-    setTurns((ts) => [...ts, { id, request: words, status: "running", log: [], reasoning: "", shots: [], usage: emptyUsage(), ms: 0, drawings: 0, before }]);
+    const keptAttachments = attachments.current;
+    const images: Attachment[] = pictures.map((p, i) => ({ id: `ref${keptAttachments.length + i + 1}`, dataUrl: p.dataUrl, w: p.w, h: p.h, name: p.name }));
+    const ask = words || t("agentCopyPicture", lang);
+    setTurns((ts) => [...ts, { id, request: ask, ...(images.length ? { images: images.map((a) => ({ id: a.id, dataUrl: a.dataUrl })) } : {}), status: "running", log: [], reasoning: "", shots: [], usage: noUsage(), ms: 0, drawings: 0, before }]);
     const t0 = Date.now();
     try {
+      /* the agent, the providers and the tools come with the first request, not with the editor */
+      const [{ createAdapter }, { runTurn }] = await Promise.all([import("@/lib/llm"), import("@/lib/agent")]);
       const adapter = createAdapter(settings, { effort: settings.effort ?? "medium" });
       const note = undone.current ? "(The author undid your previous turn: the canvas is back to how it was before it.)" : undefined;
       undone.current = false;
+      const all = [...keptAttachments, ...images];
       /* SVG written as code needs only the text model; the image model is used when its key is set */
-      const r = await runTurn({ store, adapter, history: messages.current, request: words, lang, renderer, gen: { settings, adapter }, signal: ac.signal, note, onEvent: onEvent(id) });
+      const r = await runTurn({ store, adapter, history: messages.current, request: ask, images, attachments: all, sets: sets.current as never, lang, renderer, gen: { settings, adapter }, signal: ac.signal, note, onEvent: onEvent(id) });
       messages.current = r.messages;
+      if (r.stop !== "aborted") {
+        attachments.current = all;
+        sets.current = r.sets;
+      }
       const failed = r.stop === "error" || r.stop === "refusal" || r.stop === "max_tokens";
       const error = r.stop === "error" ? aiErrorText(r.error, lang) : r.stop === "refusal" ? t("aiErrorRefusal", lang) : r.stop === "max_tokens" ? t("aiErrorLong", lang) : r.stop === "max_steps" ? t("agentStepLimit", lang) : undefined;
       patch(id, (x) => ({ ...x, status: r.stop === "aborted" ? "stopped" : failed ? "error" : "done", diff: r.diff, usage: r.usage, ms: r.ms, drawings: r.drawings, stop: r.stop, ...(error ? { error } : {}), ...(r.step ? { step: r.step } : {}), rolledBack: r.rolledBack }));
@@ -158,6 +213,8 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast 
     return h.length === x.step.depth && h[h.length - 1] === x.step.label;
   };
 
+  const settle = (id: string, verdict: "kept" | "undone") => patch(id, (y) => ({ ...y, verdict }));
+
   const undoTurn = (id: string) => {
     const x = turns.find((y) => y.id === id);
     if (!x?.step || x.verdict) return;
@@ -167,10 +224,10 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast 
     }
     store.undo();
     undone.current = true;
-    patch(id, (y) => ({ ...y, verdict: "undone" }));
+    settle(id, "undone");
   };
 
-  const keepTurn = (id: string) => patch(id, (y) => ({ ...y, verdict: "kept" }));
+  const keepTurn = (id: string) => settle(id, "kept");
 
   /** the last turn again: what it did taken back, its part of the conversation forgotten */
   const retry = (id: string) => {
@@ -181,16 +238,23 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast 
         showToast(t("agentCannotUndo", lang), 4000);
         return;
       }
-      store.undo();
+      store.undo("user", { forget: true });
     }
     messages.current = messages.current.slice(0, x.before);
+    const pictures = (x.images ?? []).map((im) => {
+      const a = attachments.current.find((y) => y.id === im.id);
+      return { dataUrl: im.dataUrl, w: a?.w ?? 0, h: a?.h ?? 0, name: a?.name ?? im.id };
+    });
+    attachments.current = attachments.current.filter((a) => !(x.images ?? []).some((im) => im.id === a.id));
     setTurns((ts) => ts.filter((y) => y.id !== id));
-    void send(x.request);
+    void send(x.request, pictures);
   };
 
   const reset = () => {
     if (runningRef.current) return;
     messages.current = [];
+    attachments.current = [];
+    sets.current = [];
     undone.current = false;
     setTurns([]);
   };
