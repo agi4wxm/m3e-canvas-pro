@@ -208,7 +208,7 @@ export class EditorBridge {
       return;
     }
     if (c.askTimer) clearTimeout(c.askTimer);
-    /* proven to this tab, the server is now proven to by it: the code is not needed */
+    /* the server holds the secret; this tab now shows it holds it too, which stands in for the code */
     const mac = c.serverChallenge ? await editorProof(ch.rec.secret, c.serverChallenge, c.port).catch(() => "") : "";
     if (c.phase !== "pairing") return;
     if (!mac) {
