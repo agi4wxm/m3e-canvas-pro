@@ -101,6 +101,21 @@ export const tests: E2ETest[] = [
     },
   },
   {
+    name: "the render page the MCP server draws with loads none of the editor",
+    async run({ page, base }) {
+      const scripts: string[] = [];
+      page.on("request", (r) => {
+        if (/\.(?:js|tsx?)(?:\?|$)/.test(r.url())) scripts.push(r.url());
+      });
+      await page.goto(`${base}/render`);
+      await page.waitForSelector('html[data-m3e-render="ready"]', { state: "attached", timeout: 30_000 });
+      await settle(page, 800);
+      const editor = scripts.filter((u) => /\/(?:Editor|AgentPanel|Inspector)[-.]/.test(u));
+      check(editor.length === 0, `the render page loaded the editor: ${editor.join(", ")}`);
+      check(scripts.length > 0, "the render page loaded its own code");
+    },
+  },
+  {
     name: "an MCP client works on a project file headless, its screenshots drawn by the render page",
     async run({ base }) {
       const file = join(mkdtempSync(join(tmpdir(), "m3e-mcp-e2e-")), "m3e-canvas Shop.json");

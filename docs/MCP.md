@@ -143,7 +143,7 @@ npx -y m3e-canvas-mcp --file "m3e-canvas Shop.json"
 
 ### 截图
 
-文件模式的截图用无头 Chromium：服务器在 127.0.0.1 上提供编辑器的构建，打开其中的 `/render` 页面（`src/editor/RenderPage.tsx`），按画布的方式测量组件、排版，再用和“导出图片”相同的代码（`src/editor/render.tsx` 的 `renderExport`）画出屏幕。
+文件模式的截图用无头 Chromium：服务器在 127.0.0.1 上提供编辑器的构建，打开其中的 `/render` 页面（`src/editor/RenderPage.tsx`），按画布的方式测量组件、排版，再用和“导出图片”相同的代码（`src/editor/render.tsx` 的 `renderExport`）画出屏幕。这个页面只加载画屏幕要用的代码，不加载编辑器（编辑器的代码只在首页预取）。
 
 这需要 Playwright 和它的 Chromium，它们不打包在服务器里：
 
