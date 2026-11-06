@@ -11,6 +11,7 @@ import type { ServerChannel, ServerContract, ServerOperation } from "../server/c
 import { exampleFile, Examples } from "../server/examples";
 import { ValidatorSchemas } from "../server/schemas";
 import { generated, type ProductContext, type ProductTarget, type Workspace } from "../types";
+import { takesInput } from "../bindCode";
 import { contractFor, dataCode } from "./server";
 
 const scalar = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : v === null || v === undefined ? "" : JSON.stringify(v));
@@ -60,8 +61,8 @@ function operationCase(s: ServerOperation, ex: Examples, schemas: ValidatorSchem
     method: op.method,
     path: op.path,
     routed: s.url !== null,
-    /* the client's function for it takes an input first when it has path parameters, a JSON body or a query */
-    clientInput: op.params.length > 0 || op.body || op.query,
+    /* the client's function for it takes an input first when it has path parameters, a JSON body or a query (bindCode.takesInput) */
+    clientInput: takesInput(op),
     clientQuery: op.query,
     params,
     query,

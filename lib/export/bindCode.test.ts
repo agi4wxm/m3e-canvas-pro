@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { endpointOf, formFields } from "../bindings/contract";
 import { setGlobalLang } from "../i18n";
-import { answerShape, fieldRule, formRules, holdsCode, isApiEffect, listCode, okStatus, pageSizeOf, paneState, paramPlaces, placeArgs, readCode, readOf, regionOptions } from "./bindCode";
+import { answerShape, clientCallCode, fieldRule, formRules, holdsCode, isApiEffect, listCode, okStatus, pageSizeOf, paneState, paramPlaces, placeArgs, readCode, readOf, regionOptions, takesInput } from "./bindCode";
 import { buildProduct } from "./product";
 import { boundShopDoc, shopApi } from "./product.fixture";
 
@@ -24,6 +24,16 @@ describe("what every front end prints of the bindings", () => {
     expect(pageSizeOf({ pageSize: 20.7 }, true)).toBe(20);
     expect(pageSizeOf({ pageSize: 20 }, false)).toBeUndefined();
     expect(okStatus(ep("createProduct"))).toBe(201);
+    /* the typed client's call takes an input only where the operation has one: GET /me is called with its init alone */
+    const me = { name: "getMe", params: [], body: false, query: false };
+    const list = { name: "listProducts", params: [], body: false, query: true };
+    const one = { name: "getProduct", params: ["productId"], body: false, query: false };
+    expect([me, list, one].map(takesInput)).toEqual([false, true, true]);
+    expect(clientCallCode("api", me, undefined, "{ signal }")).toBe("api.getMe({ signal })");
+    expect(clientCallCode("api", me, undefined, undefined)).toBe("api.getMe()");
+    expect(clientCallCode("api", list, undefined, "{ signal }")).toBe("api.listProducts(undefined, { signal })");
+    expect(clientCallCode("api", list, undefined, undefined)).toBe("api.listProducts()");
+    expect(clientCallCode("api", one, '{ params: { productId: "p1" } }', "init")).toBe('api.getProduct({ params: { productId: "p1" } }, init)');
     expect(okStatus({ ...ep("getProduct"), responses: { "4XX": { description: "no" } } })).toBe(200);
   });
 
@@ -69,6 +79,10 @@ describe("what every front end prints of the bindings", () => {
       expect(code).toContain('.text("item.name")');
       expect(code).toContain('.list("data.products.items")');
     }
+    /* the orders' screen loads who is signed in, an operation that takes no input */
+    expect(text("apps/web/src/generated/screens/OrdersScreen.data.ts")).toContain("load: ({ signal }) => api.getMe({ signal }),");
+    expect(text("apps/miniapp/src/generated/calls.ts")).toContain('"getMe": (_a, _b, i) => api.getMe(i),');
+    expect(text("apps/mobile/src/generated/screens/OrdersScreen.tsx")).toContain('const S2: SourceDef = { name: "me", operationId: "getMe" };');
     expect(mobile).toContain('regionOf(products, { load: "enter" })');
     expect(miniapp).toContain('regionOf(products, { load: "enter" })');
     expect(web).toContain("useRegion(products)");

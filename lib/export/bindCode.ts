@@ -14,6 +14,7 @@
  * Pure: the contract and the design in, data and strings out. Expressions reach code only as escaped strings (`str`). */
 
 import { paginationOf, type ApiEndpoint, type ApiSpec } from "../api/types";
+import type { ApiOperation } from "./api";
 import { formFields, listOf, paramsOf, type FieldRule, type FieldSpec } from "../bindings/contract";
 import { partBySlug } from "../../parts/registry";
 import type { PropDef } from "../../parts/types";
@@ -40,6 +41,17 @@ export function answerShape(api: ApiSpec, e: ApiEndpoint): { list?: { field: str
 
 /** the page size a data source asks for: only of an operation that pages, a whole number of at least one */
 export const pageSizeOf = (src: Pick<DataSource, "pageSize">, paged: boolean): number | undefined => (paged && src.pageSize ? Math.max(1, Math.floor(src.pageSize)) : undefined);
+
+/** Whether the typed client's function for an operation (packages/api `createApi`) takes an input before its init: its
+ *  path parameters, its body or its query. One that takes none (`GET /me`, a sign-out) is called with its init alone. */
+export const takesInput = (op: Pick<ApiOperation, "params" | "body" | "query">): boolean => op.params.length > 0 || !!op.body || !!op.query;
+
+/** A call of the typed client as code, in the shape its function takes: `api.getProduct({ params: … }, { signal })`,
+ *  `api.listProducts(undefined, { signal })` (an input it may leave out), `api.getMe({ signal })` (no input at all). */
+export function clientCallCode(client: string, op: Pick<ApiOperation, "name" | "params" | "body" | "query">, input: string | undefined, init: string | undefined): string {
+  const args = takesInput(op) ? (input !== undefined ? [input, ...(init ? [init] : [])] : init ? ["undefined", init] : []) : init ? [init] : [];
+  return `${client}.${op.name}(${args.join(", ")})`;
+}
 
 /** the status an operation answers with when it goes well: its first 2xx response, else 200 */
 export function okStatus(e: ApiEndpoint): number {

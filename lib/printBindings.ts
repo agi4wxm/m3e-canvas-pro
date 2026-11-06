@@ -9,7 +9,7 @@
  * repeats and its imports. Expressions reach code only as escaped strings (`str`), names only through `identifierOf`. */
 
 import type { ApiOperation } from "./export/api";
-import { answerShape, fieldRule, fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, paramPlaces, placeArgs, readCode, readOf, regionOptions } from "./export/bindCode";
+import { answerShape, clientCallCode, fieldRule, fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, paramPlaces, placeArgs, readCode, readOf, regionOptions } from "./export/bindCode";
 import { endpointOf, formFields, type FieldSpec } from "./bindings/contract";
 import { hasTemplate, parseExpr, type Expr } from "./bindings/expr";
 import { exprOfBind } from "./bindings/scope";
@@ -352,9 +352,8 @@ export class BoundPrint {
       input.push(`body: ${value}${this.castTo(op.bodyType)}`);
     }
     const inits = [...(headers.length ? [`headers: { ${headers.map(([k, x]) => `${propName(k)}: ${$}.text(${str(x)})`).join(", ")} }`] : []), ...(init ? [`...${init}`] : [])];
-    const arg = input.length ? `{ ${input.join(", ")} }` : inits.length ? "undefined" : "";
     const initArg = init && !headers.length ? init : inits.length ? `{ ${inits.join(", ")} }` : "";
-    return `api.${op.name}(${arg}${initArg ? `, ${initArg}` : ""})`;
+    return clientCallCode("api", op, input.length ? `{ ${input.join(", ")} }` : undefined, initArg || undefined);
   }
 
   /** the cast a value needs to be a client type: none to `unknown` or a record, else to the named type, imported */
@@ -586,7 +585,7 @@ export class BoundPrint {
         ...(list ? [`list: { field: ${str(list.field)} }`] : []),
         ...(pg ? [`paging: ${literal(pg)}`] : []),
         ...(pageSize ? [`pageSize: ${pageSize}`] : []),
-        `load: ({ ${pg ? "page, " : ""}signal }) => api.${op.name}(${input.length ? `{ ${input.join(", ")} }` : "undefined"}, { ${init.join(", ")} })`,
+        `load: ({ ${pg ? "page, " : ""}signal }) => ${clientCallCode("api", op, input.length ? `{ ${input.join(", ")} }` : undefined, `{ ${init.join(", ")} }`)}`,
       ];
       const how = [list ? (pg ? `a ${pg.style}-paged list` : "a list") : "one thing", ...(x.src.pageSize && pg ? [`${x.src.pageSize} at a time`] : []), ...(x.src.paging === "scroll" ? ["the next page on scroll"] : x.src.paging === "button" ? ["the next page by a tap"] : []), ...(x.src.pullToRefresh ? ["pull to refresh"] : []), ...(x.src.load === "demand" ? ["loaded only when asked"] : [])];
       parts.push(

@@ -5,6 +5,7 @@ import { rnIconData } from "../rn/icons";
 import { KIT_ICONS } from "../../../miniapp-kit/src/kit/iconNames";
 import { expr, printMiniScreens, type MiniPrintOptions, type MiniScreens } from "./print";
 import { miniThemeOf, themeCss, type MiniTheme } from "./theme";
+import { clientCallCode } from "../bindCode";
 
 /* A document's mini-program as files, for the export to put under apps/miniapp (lib/export/targets/miniapp.ts) and for
  * the kit's own app to build (miniapp-kit/src/printed, scripts/gen-miniapp.ts). One page per screen, each a thin entry
@@ -84,8 +85,8 @@ export function callsModule(api: ApiModel | undefined, o: { apiImport: string; k
         .join(" + ");
       return `  ${str(op.operationId)}: (a, b, i) => api.request({ operationId: ${str(op.operationId)}, method: ${str(op.method)}, path: ${path || '""'}, ${op.query ? `query: pick(a, ${expr(places.query)}), ` : ""}body: b ?? omit(a, ${expr(known)}), ...${init} }),`;
     }
-    const input = parts.length ? `{ ${parts.join(", ")} }` : op.query ? "{}" : "";
-    return `  ${str(op.operationId)}: (${parts.length || op.query ? "a" : "_a"}, ${op.body ? "b" : "_b"}, i) => api.${op.name}(${input}${input ? ", " : ""}${init}),`;
+    const input = parts.length ? `{ ${parts.join(", ")} }` : op.query ? "{}" : undefined;
+    return `  ${str(op.operationId)}: (${parts.length || op.query ? "a" : "_a"}, ${op.body ? "b" : "_b"}, i) => ${clientCallCode("api", op, input, init)},`;
   });
   const usesSeg = lines.some((l) => l.includes("seg("));
   const usesPick = lines.some((l) => l.includes("pick("));
