@@ -246,6 +246,17 @@ describe("add_custom_style and generate_style", () => {
     expect(fresh2.gen.styles.left).toBe(1);
   });
 
+  it("asks for the material drawn with textures, strokes and shadows, in what a custom style may write", () => {
+    const prompt = styleSystemPrompt();
+    for (const w of ["paper", "leather", "neon", "pixel", "repeating-linear-gradient", "radial-gradient", "dashed", "text-shadow", "[data-slot=card]"]) expect(prompt).toContain(w);
+    /* the example it gives for a screen survives validation as written */
+    const screen = /the `screen` field takes gradients too: "([^"]+)"/.exec(prompt)![1];
+    const v = validateCustomStyle({ name: "Ruled", seed: "#2B5D8C", screen, rules: [{ selector: "[data-slot=card]", declarations: { border: "1px dashed var(--md-sys-color-outline)", "box-shadow": "2px 2px 0 #0000001F" } }, { selector: "&", declarations: { "background-image": "radial-gradient(#0000000D 1px, #0000 1px)", "background-size": "4px 4px" } }] });
+    expect(v.style?.screen).toBe(screen);
+    expect(v.style?.rules).toHaveLength(2);
+    expect(GENERATE_TOOLS.find((t) => t.name === "generate_style")!.description).toMatch(/material and its details/);
+  });
+
   it("repairs what reads too faintly by rule", () => {
     const made = validateCustomStyle({ name: "Faint", light: { surface: "#FFFFFF", onSurface: "#EEEEEE", outline: "#FAFAFA" } }).style!;
     const { style, changed } = repairContrast(made);
