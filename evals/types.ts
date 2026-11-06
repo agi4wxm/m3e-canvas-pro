@@ -52,6 +52,8 @@ export type CallRecord = {
   name: string;
   /** the arguments, cut short when long */
   args: unknown;
+  /** the operations of a batch (apply_ops), kept whole when the arguments are cut short */
+  ops?: string[];
   ok: boolean;
   error?: { code: string; message: string };
   summary: string;

@@ -4,6 +4,19 @@
 
 评测跑的就是应用内的智能体：`lib/agent` 的 `runTurn`，同样的系统提示词、工具集、循环、截图自查和“一个回合一步撤销”。区别只在没有编辑器：文档放在 `DocStore` 里，组件尺寸先用各自的估计（`guessMeasurer`），截图用 MCP 文件模式的无头 Chromium（`/render` 页面，`mcp/src/render.ts`），画出来后按实测尺寸重新排版，和编辑器量完尺寸后重排一样。
 
+| 文件 | 作用 |
+| --- | --- |
+| `run.ts` | 命令行：`bun run eval` |
+| `harness.ts` | 跑一个任务：起始文档、无头截图、计量和预算、跑完后截图、对照参考图、撤销检查 |
+| `tasks.ts`、`fixtures.ts` | 任务和它们的起始文档 |
+| `graders.ts` | 确定性的检查和打分 |
+| `judge.ts` | 可选的视觉评分 |
+| `record.ts`、`replay.ts`、`keep-recorded.ts` | 写下和读回一次运行、重新评分、挑几次运行给单元测试 |
+| `report.ts` | `summary.md`、`results.json` 和费用估算 |
+| `refs/`、`make-refs.ts` | 复刻任务用的参考图（自己画的 HTML 渲染成 PNG） |
+| `recorded/` | 单元测试重新评分的几次真实运行 |
+| `baselines/` | 基线和人工分析 |
+
 ## 运行
 
 先准备：
@@ -73,7 +86,7 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 | 检查 | 看什么 |
 | --- | --- |
-| `finished` | 回合自己正常结束；失败的调用后来都被同一个工具的成功调用补上 |
+| `finished` | 回合自己正常结束；改文档的调用失败后，后来都有同一个工具、或含有同一个操作的批量调用成功补上（只读调用失败后放弃不算；绘图次数用完被拒也不算） |
 | `undo` | 一次撤销回到起始文档，重做回到结果 |
 | `budget` | 步数、token、用时都在任务的预算内 |
 | `screen-added`、`has`、`shows` | 加了屏幕；屏幕上有某类组件（组件或组合件的 slug、kit）；屏幕上显示了这些字 |
@@ -84,7 +97,7 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 | `keeps-work` | 没有删掉作者的屏幕和组件（可以排除要改的屏幕） |
 | `even-spacing` | 一屏的行间距差不多、左边缘对齐的种类不超过三种 |
 | `dark-var`、`dark-control`、`counter` | 有 `drives: "dark"` 的布尔变量并有开关绑定或点击切换它；数字变量被显示，加和减的点击都接上了 |
-| `collection`、`repeat`、`tap-detail` | 新数据集合的行数；有容器重复它；重复的行点一下跳到一个显示 `{{current.字段}}` 的屏幕 |
+| `collection`、`repeat`、`tap-detail` | 新数据集合的行数；有容器重复它；重复的行点一下跳到另一个屏幕，那里显示点中的这一行：用 `{{current.字段}}`，或者点击时把行的 `{{字段}}` 写进变量、详情页绑定这些变量 |
 | `component`、`instances` | 新的可复用组件主要由原子和自动布局拼成并含有要求的部件；屏幕上有足够的实例，覆盖里有要求的字 |
 | `custom-style` | 文档穿着一个新的或改过的自定义风格，没有对比度问题；要求暖色时表面色偏暖 |
 | `svg` | 新加的矢量组件有 SVG 代码，能通过 `sanitizeSvg`，放在要求的容器里 |

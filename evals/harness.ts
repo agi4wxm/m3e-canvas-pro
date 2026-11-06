@@ -262,8 +262,10 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
     maxSteps: budget.steps,
     signal: ac.signal,
     onEvent: (e) => {
-      if (e.type === "tool_start") calls.set(e.id, { step: e.step, id: e.id, name: e.name, args: clip(e.args), ok: false, summary: "", ms: 0 });
-      else if (e.type === "tool_end") {
+      if (e.type === "tool_start") {
+        const batch = e.name === "apply_ops" && Array.isArray(e.args?.ops) ? (e.args.ops as { op?: unknown }[]).map((x) => String(x?.op ?? "")) : undefined;
+        calls.set(e.id, { step: e.step, id: e.id, name: e.name, args: clip(e.args), ...(batch ? { ops: batch } : {}), ok: false, summary: "", ms: 0 });
+      } else if (e.type === "tool_end") {
         const c = calls.get(e.id);
         if (c) Object.assign(c, { ok: e.ok, summary: e.summary.slice(0, 300), ms: e.ms });
         keepShots(e.images, `tool-${e.name}`);

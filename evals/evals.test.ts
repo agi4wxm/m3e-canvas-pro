@@ -241,6 +241,7 @@ describe("the harness", () => {
       ["set_props", true],
     ]);
     expect(o.calls[1].error?.code).toBe("not_found");
+    expect(o.calls[0].ops).toEqual(["add_var", "add_part", "bind_prop"]);
     expect(o.undo).toEqual({ steps: 1, restores: true });
     expect(o.usage.input).toBeGreaterThan(0);
     const s = score(task.checks, o);

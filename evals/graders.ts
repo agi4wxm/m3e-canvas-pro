@@ -200,8 +200,8 @@ const READS = new Set(createRegistry({ extra: GENERATE_TOOLS }).tools.filter((t)
 
 /** the operations a call ran: its own name, or the ops of a batch (when its arguments were kept whole) */
 const opsOf = (c: CallRecord): string[] => {
-  const batch = c.name === "apply_ops" && c.args && typeof c.args === "object" ? (c.args as { ops?: { op?: unknown }[] }).ops : undefined;
-  return Array.isArray(batch) ? batch.map((x) => String(x?.op ?? "")) : [c.name];
+  const batch = c.ops ?? (c.name === "apply_ops" && c.args && typeof c.args === "object" ? (c.args as { ops?: { op?: unknown }[] }).ops?.map((x) => String(x?.op ?? "")) : undefined);
+  return Array.isArray(batch) ? batch : [c.name];
 };
 
 /** the turn ended on its own and every change that failed was made after all by a later call (the same tool, or a
