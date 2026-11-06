@@ -40,6 +40,11 @@ export const EXPORT_UI = {
     zh: "{n} 个生成文件被手动改过，没有覆盖，新版本写在旁边的 .m3e-new：",
   },
   exportOrphaned: { ja: "生成しなくなったが変更されていたため残したファイル:", en: "No longer generated, but changed, so left in place:", zh: "不再生成、但被改过，所以留在原处：" },
+  exportCustomOrphans: {
+    ja: "デザインにもう無いもののカスタムコード（どこからも使われず、削除するまで残ります）:",
+    en: "Custom code for what the design no longer has (nothing uses it; it stays until you delete it):",
+    zh: "设计里已经没有的东西的自定义代码（不再被使用，删除之前一直留着）：",
+  },
   exportMerged: { ja: "追加された依存関係を保持した package.json: {n} 件。", en: "package.json files that keep dependencies someone added: {n}.", zh: "保留了新增依赖的 package.json：{n} 个。" },
 } as const satisfies Record<string, Str>;
 
@@ -62,5 +67,6 @@ export const EXPORT_KO: Record<keyof typeof EXPORT_UI, string> = {
   exportReport: "{folder}(으)로 내보냈습니다: {written}개 씀, {unchanged}개 그대로, 사용자 정의 코드 {kept}개 유지, {removed}개 삭제.",
   exportConflicts: "생성 파일 {n}개가 직접 수정되어 덮어쓰지 않았습니다. 새 버전은 옆의 .m3e-new에 있습니다:",
   exportOrphaned: "더 이상 생성되지 않지만 수정되어 그대로 둔 파일:",
+  exportCustomOrphans: "디자인에 더 이상 없는 것의 사용자 정의 코드(아무 데서도 쓰지 않으며, 지울 때까지 남습니다):",
   exportMerged: "추가된 의존성을 유지한 package.json: {n}개.",
 };

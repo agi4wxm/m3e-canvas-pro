@@ -59,6 +59,8 @@ export type Workspace = {
   files: ProductFiles;
   /** one line for the root README's table */
   summary: { zh: string; en: string };
+  /** its section of AGENTS.md (Markdown, starting with a `## ` heading): the rules for writing code in it */
+  agents?: string;
 };
 
 export interface ProductTarget {

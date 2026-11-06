@@ -7,7 +7,7 @@
  * (lib/api's schemaToTs, once there is one); with an empty contract the client has only `request`. */
 
 import type { ApiModel, ApiOperation } from "../api";
-import { GENERATED, jsonCode, jsonFile, propKey, str } from "../code";
+import { GENERATED, jsonCode, jsonFile, str } from "../code";
 import { toYaml } from "../yaml";
 import { generated, type ProductContext, type ProductTarget, type Workspace } from "../types";
 
@@ -149,7 +149,7 @@ export function createFetchTransport(options: FetchTransportOptions): Transport 
 /** the input type of one operation: its path parameters, its body, its query */
 function inputType(op: ApiOperation): string | null {
   const parts: string[] = [];
-  if (op.params.length) parts.push(`params: { ${op.params.map((p) => `readonly ${propKey(p)}: string | number`).join("; ")} }`);
+  if (op.params.length) parts.push(`params: { ${op.params.map((p) => `readonly ${str(p)}: string | number`).join("; ")} }`);
   if (op.body) parts.push(`body: ${op.bodyType}`);
   if (op.query) parts.push("query?: Query");
   return parts.length ? `{ ${parts.join("; ")} }` : null;
