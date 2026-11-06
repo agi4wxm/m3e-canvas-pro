@@ -5,6 +5,7 @@ import { nodeTree, outline } from "./core/query";
 import { layerTree } from "./layerTree";
 import { MAX_NESTING, openProject } from "./project";
 import type { Doc } from "./tokens";
+import { API_LIMITS, apiOutline, apiProblems, schemaToTs, toAsyncApi, toOpenApi } from "./api";
 
 /* Documents made to hurt whoever opens them: a file, a shared link, a model's output or an MCP client's. Each must
  * open and draw in bounded time, whatever it asks for. */
@@ -86,4 +87,24 @@ describe("a document nested very deep", () => {
     const doc = nest(MAX_NESTING + 1);
     expect(doc.groups.filter((g) => g.inFlow === undefined)).toHaveLength(1);
   });
+});
+
+describe("a document whose API asks for too much", () => {
+  it("opens within the API's bounds, and its specs, types and outline come out in bounded time", () => {
+    /* a schema nested thousands deep, models that refer to each other in a ring, a channel address of braces only */
+    let deep: Record<string, unknown> = { type: "string" };
+    for (let i = 0; i < 3000; i++) deep = { type: "array", items: deep };
+    const models = Array.from({ length: 3000 }, (_, i) => ({ name: `M${i}`, schema: { allOf: [{ $ref: `#/components/schemas/M${(i + 1) % 3000}` }], properties: { d: deep } } }));
+    const endpoints = Array.from({ length: 10_000 }, (_, i) => ({ operationId: `op${i % 7}`, method: "get", path: `/x/${"{a}".repeat(50)}/${i}`, responses: { "200": { description: "x", content: { "application/json": { schema: deep } } } } }));
+    const t = performance.now();
+    const doc = openProject({ frames: [], groups: [], paletteKey: "purple", frame: "phone", title: "", brief: "", api: { models, endpoints, channels: [{ id: "c", address: "{".repeat(100_000), messages: [], operations: [] }] } })!;
+    expect(doc.api!.models!.length).toBeLessThanOrEqual(API_LIMITS.models);
+    expect(doc.api!.endpoints!.length).toBeLessThanOrEqual(API_LIMITS.endpoints);
+    apiProblems(doc.api);
+    apiOutline(doc.api);
+    schemaToTs(doc.api);
+    toOpenApi(doc);
+    toAsyncApi(doc);
+    expect(performance.now() - t).toBeLessThan(20_000);
+  }, 60_000);
 });

@@ -3,6 +3,7 @@ import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
+import { cleanApi } from "./api/clean";
 import { fitsType, startValueOf } from "./variables";
 import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
@@ -265,7 +266,7 @@ function cleanCollection(c: unknown): Collection | undefined {
   const cell = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : "");
   const fields = Array.isArray(c.fields) ? c.fields.filter((f): f is string => typeof f === "string") : [];
   const rows = Array.isArray(c.rows) ? c.rows.filter(Array.isArray).map((r: unknown[]) => r.map(cell)) : [];
-  return { id: c.id, name: typeof c.name === "string" ? c.name : "", fields, rows };
+  return { id: c.id, name: typeof c.name === "string" ? c.name : "", fields, rows, ...(typeof c.model === "string" && c.model ? { model: c.model } : {}) };
 }
 
 /** An instance has a definition to draw from and one item standing in for it, whatever the file said.
@@ -357,6 +358,13 @@ export function cleanBehavior(doc: Doc): Doc {
     const icons = cleanDocIcons(out.icons);
     if (icons) out.icons = icons;
     else delete out.icons;
+  }
+  /* the API section is held to its shape and its bounds (lib/api/clean.ts); what is merely wrong in it stays, for the
+     author to see and fix */
+  if (out.api !== undefined) {
+    const api = cleanApi(out.api);
+    if (api) out.api = api;
+    else delete out.api;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);

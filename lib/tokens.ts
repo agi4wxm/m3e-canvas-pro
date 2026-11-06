@@ -6,6 +6,10 @@ import { roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
 import type { Motion, Transition } from "./screenMotion";
 import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleUX } from "./styles";
+import type { ApiSpec } from "./api/types";
+
+/* the API section's model (lib/api): data models, endpoints, auth, channels, servers */
+export type * from "./api/types";
 
 /* ---------- geometry ---------- */
 export const GAP = 3; // spacing between the parts of one group
@@ -1368,8 +1372,9 @@ export type ComponentSet = { id: string; name: string; props: { name: string; va
  *  an instance shows until it says otherwise: the words, on or off, a component id. */
 export type ComponentProp = { id: string; name: string; type: "text" | "bool" | "swap"; value: VarValue; targets: string[] };
 
-/** rows of data a layout can repeat its first child over */
-export type Collection = { id: string; name: string; fields: string[]; rows: string[][] };
+/** Rows of data a layout can repeat its first child over. `model` names a model of the API (`Doc.api.models`) the rows
+ *  are examples of, so mock data can be made from its schema. */
+export type Collection = { id: string; name: string; fields: string[]; rows: string[][]; model?: string };
 
 export type FrameMode = "blank" | "phone";
 
@@ -1407,6 +1412,9 @@ export type Doc = {
   /** icons of the document's own (lib/docIcons.ts): id → sanitized SVG markup, named `svg:<id>` wherever a part takes
    *  an icon name */
   icons?: Record<string, string>;
+  /** the contract with the back end (lib/api, docs/接口.md): data models as JSON Schema, endpoints as OpenAPI 3.1
+   *  operations, auth, realtime channels as AsyncAPI 3.0, servers */
+  api?: ApiSpec;
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));

@@ -89,6 +89,15 @@ describe("tool sets", () => {
     ["로그인 버튼을 누르면 홈 화면으로 이동", ["data"]],
     ["이 카드를 재사용 컴포넌트로 만들어 줘", ["components"]],
     ["버튼을 정렬하고 간격을 맞춰 줘", ["layout"]],
+    ["Add a REST API endpoint that lists products with pagination", ["api"]],
+    ["Import this OpenAPI file and define the data models", ["api"]],
+    ["Add a WebSocket channel for the chat room", ["api"]],
+    ["加一个上传头像的接口，返回用户数据模型", ["api"]],
+    ["给聊天加一个 WebSocket 实时通道", ["api"]],
+    ["商品一覧のエンドポイントを追加して、ページネーションも", ["api"]],
+    ["ログイン用のAPIとトークンの更新を定義して", ["api"]],
+    ["로그인 API를 추가하고 JWT 토큰을 돌려줘", ["api"]],
+    ["채팅방에 실시간 메시지 채널을 추가해 줘", ["api"]],
   ];
   it.each(PHRASES)("%s → build + %j", (request, sets) => {
     expect(setsFor(request)).toEqual(TOOL_SETS.filter((s) => s === "build" || sets.includes(s)));
