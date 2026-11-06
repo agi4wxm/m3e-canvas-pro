@@ -320,4 +320,25 @@ export const tests: E2ETest[] = [
       check((await page.locator('[data-agent-ask="allowed"]').count()) === 1, "the panel says the removal was allowed");
     },
   },
+  {
+    name: "the agent asks before rewriting the author's data too, and names the rows that would go",
+    async run({ page }) {
+      const ADD = { ops: [{ op: "add_collection", args: { id: "fruit", name: "Fruit", fields: ["name"], rows: [["Apple"], ["Pear"], ["Fig"]] } }] };
+      const SHORTEN = { ops: [{ op: "update_collection", args: { id: "fruit", rows: [["Apple"]] } }] };
+      await withAgent(page, [toolTurn("call_1", "apply_ops", ADD, "Adding the list."), textTurn("Added three fruits."), toolTurn("call_2", "apply_ops", SHORTEN, "Tidying."), textTurn("Kept the list as it is."), textTurn("Done.")]);
+      /* what the turn makes itself is its own to change: nothing asked */
+      await ask(page, "add a fruit list");
+      await until(page, async () => (await page.locator('[data-agent-turn="done"]').count()) > 0, "the first turn to finish");
+      equal((await savedDoc(page)).collections?.[0].rows.length, 3, "the list is there");
+      equal(await page.locator("[data-agent-ask]").count(), 0, "nothing was asked");
+      /* the next turn would rewrite the author's rows */
+      await ask(page, "tidy the fruit list");
+      await until(page, async () => (await page.locator('[data-agent-ask="waiting"]').count()) > 0, "the agent to ask");
+      check(((await page.locator('[data-agent-ask="waiting"]').first().textContent()) ?? "").includes("2 of the 3 rows of “Fruit”"), "the ask names the rows");
+      await page.locator("[data-agent-ask-deny]").first().click();
+      await until(page, async () => (await page.locator('[data-agent-turn="done"]').count()) > 1, "the second turn to finish");
+      await settle(page);
+      equal((await savedDoc(page)).collections?.[0].rows.length, 3, "Don't keeps the rows");
+    },
+  },
 ];
