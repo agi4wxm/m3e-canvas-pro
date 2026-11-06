@@ -9,17 +9,18 @@
  * repeats and its imports. Expressions reach code only as escaped strings (`str`), names only through `identifierOf`. */
 
 import type { ApiOperation } from "./export/api";
-import { endpointOf, formFields, listOf, paramsOf, type FieldSpec } from "./bindings/contract";
+import { answerShape, fieldRule, fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, paramPlaces, placeArgs, readCode, readOf, regionOptions } from "./export/bindCode";
+import { endpointOf, formFields, type FieldSpec } from "./bindings/contract";
 import { hasTemplate, parseExpr, type Expr } from "./bindings/expr";
 import { exprOfBind } from "./bindings/scope";
-import { paginationOf, type ApiSpec } from "./api/types";
+import type { ApiSpec } from "./api/types";
 import { partBySlug, reader } from "../parts/registry";
 import type { PartDef, PropDef } from "../parts/types";
 import { mapNodes, raw, type PNode, type PValue } from "../parts/node";
 import { str } from "../parts/print";
 import { identifierOf } from "./export/paths";
 import { literal } from "./export/code";
-import { REGION_STATES, type DataSource, type Doc, type Effect, type FormBinding, type Frame, type Group, type Item, type Optimistic, type VarType } from "./tokens";
+import type { DataSource, Doc, Effect, FormBinding, Frame, Group, Item, Optimistic, VarType } from "./tokens";
 
 /** what the printer is told of the product: where the runtime is, the contract and its client's operations */
 export type BindPrintOptions = {
@@ -89,9 +90,6 @@ const RESERVED = new Set(["$", "scope", "params", "vars", "call", "api", "item",
 
 const pascal = (s: string) => s[0].toUpperCase() + s.slice(1);
 const constName = (s: string) => s.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toUpperCase();
-
-/** the scope keys a schema's checking needs, the rest left out */
-const RULE_KEYS = ["type", "format", "minLength", "maxLength", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "pattern", "enum", "contentMediaType", "contentEncoding"];
 
 /** whether a document's screens use any bindings at all */
 export function usesBindings(doc: Pick<Doc, "frames" | "groups">): boolean {
@@ -225,20 +223,22 @@ export class BoundPrint {
     const b = it.bind?.[d.key];
     const expr = typeof b === "string" ? exprOfBind(b) : null;
     if (expr !== null) {
+      /* the web's components take words, a number, yes or no and a choice from an expression; the rest keep the design */
       const $ = this.use();
-      if (WORDS.has(d.kind)) return { code: `${$}.text(${str(expr)})` };
-      if (d.kind === "number") return { code: `${$}.num(${str(expr)}, ${str(typeof design === "number" ? design : 0)}${Number.isFinite(d.min) ? `, ${d.min}` : ""}${Number.isFinite(d.max) ? `, ${d.max}` : ""})` };
-      if (d.kind === "bool") return { code: `${$}.bool(${str(expr)}, ${design === true})` };
-      if (d.kind === "enum") {
+      const read = readOf(d.kind);
+      if (read === "text" ? !WORDS.has(d.kind) : read !== "num" && read !== "bool" && read !== "pick") return null;
+      if (read === "num" && d.kind === "number") return { code: readCode(read, $, expr, [str(typeof design === "number" ? design : 0), ...(Number.isFinite(d.min) ? [`${d.min}`] : []), ...(Number.isFinite(d.max) ? [`${d.max}`] : [])]) };
+      if (read === "bool") return { code: readCode(read, $, expr, [`${design === true}`]) };
+      if (read === "pick" && d.kind === "enum") {
         const options = d.options.map((o) => (typeof o === "string" ? o : o.value));
         const own = String(design ?? d.default);
         const named = literalsOf(expr).filter((x) => options.includes(x));
         const can = named.length ? [...new Set([...named, own])] : options;
-        return { code: `${$}.pick(${str(expr)}, ${literal(can)}, ${str(own)})`, samples: can };
+        return { code: readCode(read, $, expr, [literal(can), str(own)]), samples: can };
       }
-      return null;
+      return { code: readCode("text", $, expr) };
     }
-    if (d.kind === "text" && typeof design === "string" && hasTemplate(design)) return { code: `${this.use()}.fill(${str(design)})` };
+    if (d.kind === "text" && typeof design === "string" && hasTemplate(design)) return { code: fillCode(this.use(), design) };
     return null;
   }
 
@@ -301,7 +301,7 @@ export class BoundPrint {
 
   /** whether a condition's expression holds, as code */
   holds(expr: string): string {
-    return `${this.use()}.holds(${str(expr)})`;
+    return holdsCode(this.use(), expr);
   }
 
   /** the gate of a region's design: shown while its region is in that state */
@@ -309,8 +309,7 @@ export class BoundPrint {
     if (!host?.states || !this.screen) return null;
     const r = this.s.regions.get(host.id);
     if (!r) return null;
-    const pane = Math.max(0, Math.min(REGION_STATES.length - 1, g.pane ?? 0));
-    return `${r.name} === ${str(REGION_STATES[pane])}`;
+    return `${r.name} === ${str(paneState(g))}`;
   }
 
   /* ---------- repeats ---------- */
@@ -322,7 +321,7 @@ export class BoundPrint {
     const row = this.fresh("row");
     this.s.runtime.add("keyOf");
     this.s.react.add("Fragment");
-    const list = `${outer}.list(${str(data)})${limit !== undefined && Number.isFinite(limit) ? `.slice(0, ${Math.max(0, Math.floor(limit))})` : ""}`;
+    const list = listCode(outer, data, limit);
     return { open: `{${gates.length ? `${gates.join(" && ")} && ` : ""}${list}.map((item, index) => {`, row: `const ${row} = ${outer}.with({ item, index })`, key: `<Fragment key={keyOf(item, index)}>`, close: row };
   }
 
@@ -343,11 +342,8 @@ export class BoundPrint {
     const e = endpointOf(this.o.api, operationId);
     if (!op || !e) return null;
     this.s.api = true;
-    const kinds = new Map(paramsOf(this.o.api, e).map((p) => [p.name, p.in]));
     const pathArgs = op.params.map((p) => `${propName(p)}: ${args[p] !== undefined ? `${$}.path(${str(args[p])})` : `""`}`);
-    const query = Object.entries(args).filter(([k]) => kinds.get(k) === "query");
-    const headers = Object.entries(args).filter(([k]) => kinds.get(k) === "header");
-    const fields = Object.entries(args).filter(([k]) => !kinds.has(k));
+    const { query, headers, fields } = placeArgs(args, paramPlaces(this.o.api, e));
     const input: string[] = [];
     if (op.params.length) input.push(`params: { ${pathArgs.join(", ")} }`);
     if (op.query && query.length) input.push(`query: { ${query.map(([k, x]) => `${propName(k)}: ${$}.arg(${str(x)})`).join(", ")} }`);
@@ -372,6 +368,7 @@ export class BoundPrint {
   /** The statement of an effect that reaches the bindings, or undefined for an effect that is not one of them.
    *  `body` prints a then or catch body in the scope given. */
   effect(e: Effect, body: (b: NonNullable<Extract<Effect, { do: "call" }>["then"]>, scope: string) => string[]): string | null | undefined {
+    if (!isApiEffect(e)) return undefined;
     switch (e.do) {
       case "refresh":
       case "loadMore": {
@@ -443,7 +440,7 @@ export class BoundPrint {
 
   /** words that may hold `{{expressions}}`, as code; null when they hold none */
   words(text: string): string | null {
-    return hasTemplate(text) ? `${this.use()}.fill(${str(text)})` : null;
+    return hasTemplate(text) ? fillCode(this.use(), text) : null;
   }
 
   /** the params a tap gives the screen it opens, as code */
@@ -523,7 +520,7 @@ export class BoundPrint {
     } else if (s.dollar) lines.push(`const $ = useBindings(${scopeArg})`);
     for (const r of s.regions.values()) {
       const src = this.sourceOf(r.source)!;
-      const o = [...(src.src.load === "demand" ? ['load: "demand"'] : []), ...(r.emptyWhen ? [`emptyWhen: () => $.holds(${str(r.emptyWhen)})`] : [])];
+      const o = regionOptions(src.src.load, r.emptyWhen, "$", false);
       lines.push(`const ${r.name} = useRegion(${src.name}${o.length ? `, { ${o.join(", ")} }` : ""})`);
       s.runtime.add("useRegion");
     }
@@ -567,13 +564,11 @@ export class BoundPrint {
       }
       usesApi = true;
       rt.add("useDataSource").add("sourceKey");
-      const kinds = new Map(paramsOf(this.o.api, e).map((p) => [p.name, p.in]));
       const given = x.src.params ?? {};
       const pathArgs = op.params.map((p) => [p, given[p] ?? `params.${p}`] as const);
-      const query = Object.entries(given).filter(([k]) => kinds.get(k) === "query");
-      const headers = Object.entries(given).filter(([k]) => kinds.get(k) === "header");
-      const pg = e.pagination ? paginationOf(e.pagination) : undefined;
-      const list = listOf(this.o.api, e);
+      const { query, headers } = placeArgs(given, paramPlaces(this.o.api, e));
+      const { list, paging: pg } = answerShape(this.o.api, e);
+      const pageSize = pageSizeOf(x.src, !!pg);
       const reads = x.scoped;
       if (reads) bindings = true;
       const lines: string[] = [];
@@ -590,7 +585,7 @@ export class BoundPrint {
         ...(hasQuery ? ["args: query"] : []),
         ...(list ? [`list: { field: ${str(list.field)} }`] : []),
         ...(pg ? [`paging: ${literal(pg)}`] : []),
-        ...(pg && x.src.pageSize ? [`pageSize: ${Math.max(1, Math.floor(x.src.pageSize))}`] : []),
+        ...(pageSize ? [`pageSize: ${pageSize}`] : []),
         `load: ({ ${pg ? "page, " : ""}signal }) => api.${op.name}(${input.length ? `{ ${input.join(", ")} }` : "undefined"}, { ${init.join(", ")} })`,
       ];
       const how = [list ? (pg ? `a ${pg.style}-paged list` : "a list") : "one thing", ...(x.src.pageSize && pg ? [`${x.src.pageSize} at a time`] : []), ...(x.src.paging === "scroll" ? ["the next page on scroll"] : x.src.paging === "button" ? ["the next page by a tap"] : []), ...(x.src.pullToRefresh ? ["pull to refresh"] : []), ...(x.src.load === "demand" ? ["loaded only when asked"] : [])];
@@ -601,9 +596,7 @@ export class BoundPrint {
     for (const f of s.forms.values()) {
       rt.add("FormFields");
       const rows = f.inputs.map((x) => {
-        const spec = f.specs.get(x.field);
-        const rule = spec ? { kind: spec.kind, required: spec.required, schema: Object.fromEntries(RULE_KEYS.filter((k) => spec.schema[k] !== undefined).map((k) => [k, spec.schema[k]])) } : { kind: "text", required: false, schema: {} };
-        return `  ${propName(x.field)}: ${literal(rule)},`;
+        return `  ${propName(x.field)}: ${literal(fieldRule(f.specs.get(x.field)))},`;
       });
       parts.push(`/** the fields of the ${f.form.operationId} form: what the contract's schema asks of each */\nexport const ${f.fields}: FormFields = {\n${rows.join("\n")}\n}`);
     }

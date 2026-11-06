@@ -5,7 +5,6 @@ import {
   GAP,
   PHONE_H,
   PHONE_W,
-  REGION_STATES,
   explodeGroup,
   frameLengthOf,
   frameOfPart,
@@ -44,6 +43,7 @@ import { pinOf } from "../../tidy";
 import { templateOf } from "../../collections";
 import { INPUT_PROP } from "../../interact";
 import { endpointOf, formFields } from "../../bindings/contract";
+import { fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, readCode, readOf, regionOptions } from "../bindCode";
 import { formsOf } from "../../bindings/view";
 import { NATIVE, isNative, kitPropName } from "../../../rn/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../rn/src/kit/parts.generated";
@@ -399,6 +399,11 @@ class ScreenPrinter {
     const to = this.target(b.to);
     const url = to === "link" ? linkUrlOf(b) : null;
     const effects = (b.effects ?? []).flatMap((e): Record<string, unknown>[] => {
+      /* what the API does runs only in an app with its runtime (the exported app, not the kit's test bed) */
+      if (isApiEffect(e) && !this.runtime) {
+        if (e.do === "call") this.warn("binding", "a call to the API runs only in an app with its runtime");
+        return [];
+      }
       switch (e.do) {
         case "show":
         case "hide":
@@ -409,18 +414,8 @@ class ScreenPrinter {
           return g ? [{ do: e.do, part: g }] : [];
         }
         case "call":
-          if (!this.runtime) {
-            this.warn("binding", "a call to the API runs only in an app with its runtime");
-            return [];
-          }
           // eslint-disable-next-line unicorn/no-thenable -- an action body as data, never a function: nothing awaits it
           return [{ ...e, then: this.bodyData(e.then, depth + 1), catch: this.bodyData(e.catch, depth + 1) }];
-        case "refresh":
-        case "loadMore":
-        case "submit":
-        case "signOut":
-          if (!this.runtime) return [];
-          return [e];
         default:
           return [e as unknown as Record<string, unknown>];
       }
@@ -497,7 +492,7 @@ class ScreenPrinter {
 
   /** a condition as code */
   holds(c: Condition): string {
-    if ("expr" in c && this.runtime) return `${this.$}.holds(${str(c.expr)})`;
+    if ("expr" in c && this.runtime) return holdsCode(this.$, c.expr);
     this.uses.app = true;
     return `app.holds(${expr(c)}${this.ctx.item || this.ctx.form ? `, { scope: ${this.$}.scope }` : ""})`;
   }
@@ -556,7 +551,7 @@ class ScreenPrinter {
       let code: string | undefined;
       const ref = it.bind?.[d.key];
       if (typeof ref === "string" && bound.has(d.key)) code = this.boundProp(d, ref, v, it.id);
-      else if (this.runtime && d.kind === "text" && typeof v === "string" && v.includes("{{")) code = `${this.$}.fill(${str(v)})`;
+      else if (this.runtime && d.kind === "text" && typeof v === "string" && v.includes("{{")) code = fillCode(this.$, v);
       const set = this.facts.setProps.get(it.id);
       if (set?.has(d.key) && (typeof v === "string" || typeof v === "number" || typeof v === "boolean")) {
         this.uses.app = true;
@@ -581,22 +576,24 @@ class ScreenPrinter {
       this.warn("binding", "a prop bound to an expression keeps the design's value without the app's runtime", part);
       return undefined;
     }
-    switch (d.kind) {
-      case "bool":
-        return `${this.$}.bool(${str(e)}, ${expr(!!design)})`;
-      case "number":
-        return `${this.$}.num(${str(e)}, ${expr(typeof design === "number" ? design : 0)}, ${expr(d.min)}, ${expr(d.max)})`;
-      case "enum":
-        return `${this.$}.pick(${str(e)}, ${expr(d.options.map((o) => (typeof o === "string" ? o : o.value)))}, ${expr(String(design ?? ""))})`;
-      case "list":
-        this.kit.add("rowsOf");
-        return `rowsOf(${this.$}.ev(${str(e)}), ${expr(design)}, ${expr(d.max ?? 50)})`;
-      case "table":
-        this.warn("binding", "a table bound to an expression keeps the design's rows", part);
-        return undefined;
-      default:
-        return `${this.$}.text(${str(e)})`;
+    const read = readOf(d.kind);
+    if (!read) {
+      this.warn("binding", "a table bound to an expression keeps the design's rows", part);
+      return undefined;
     }
+    /* what follows the expression: the design's value, as the kind of value the prop takes, and its range or choices */
+    const extra =
+      d.kind === "bool"
+        ? [expr(!!design)]
+        : d.kind === "number"
+          ? [expr(typeof design === "number" ? design : 0), expr(d.min), expr(d.max)]
+          : d.kind === "enum"
+            ? [expr(d.options.map((o) => (typeof o === "string" ? o : o.value))), expr(String(design ?? ""))]
+            : d.kind === "list"
+              ? [expr(design), expr(d.max ?? 50)]
+              : [];
+    if (read === "rows") this.kit.add("rowsOf");
+    return readCode(read, this.$, e, extra);
   }
 
   /** An input's wiring: the form field it fills, the variable it is bound to, or what a condition asks of it. What it
@@ -817,20 +814,20 @@ class ScreenPrinter {
       if (run.repeat?.data !== undefined) this.warn("binding", "a list of data draws its first element as the design has it without the app's runtime", run.items[0]?.id);
       return print(kids.filter((k) => !(run.states && (k.pane ?? 0) !== 0)));
     }
-    const pane = (k: Group) => Math.max(0, Math.min(REGION_STATES.length - 1, k.pane ?? 0));
-    const content = run.states ? kids.filter((k) => pane(k) === 0) : kids;
+    const content = run.states ? kids.filter((k) => paneState(k) === "ready") : kids;
     const ready = run.repeat?.data !== undefined ? this.repeat(run, content, flow, box, scrolls) : print(content);
     if (!run.states) return ready;
     const src = run.states.source ? this.sources.get(run.states.source) : undefined;
     if (!src) return ready;
     const v = `r${++this.n.region}`;
-    const emptyWhen = run.states.emptyWhen ? `, emptyWhen: () => ${this.$}.holds(${str(run.states.emptyWhen)})` : "";
+    /* the scope is read only where a condition says when the region is empty */
+    const options = regionOptions(src.def.load, run.states.emptyWhen, run.states.emptyWhen ? this.$ : "", true);
     this.bind.add("regionOf");
-    this.declare(`const ${v} = regionOf(${src.v}, { load: ${str(src.def.load ?? "enter")}${emptyWhen} });`);
+    this.declare(`const ${v} = regionOf(${src.v}, { ${options.join(", ")} });`);
     const branches: [string, J[]][] = [["ready", ready]];
-    for (let i = 1; i < REGION_STATES.length; i++) {
-      const design = kids.filter((k) => pane(k) === i);
-      if (design.length) branches.push([REGION_STATES[i], print(design)]);
+    for (const state of ["loading", "empty", "error", "forbidden"] as const) {
+      const design = kids.filter((k) => paneState(k) === state);
+      if (design.length) branches.push([state, print(design)]);
     }
     return [cases(v, branches)];
   }
@@ -860,11 +857,10 @@ class ScreenPrinter {
         this.ctx = outer;
       }
       const base = this.$;
-      const limit = run.repeat?.limit ? `.slice(0, ${Math.max(0, Math.round(run.repeat.limit))})` : "";
       const name = /^data\.([A-Za-z_$][\w$]*)\./.exec(list)?.[1];
       const src = name ? this.sources.get(name) : undefined;
       const props: [string, string][] = [
-        ["data", `${base}.list(${str(list)})${limit}`],
+        ["data", listCode(base, list, run.repeat?.limit)],
         ["keyOf", "keyOf"],
       ];
       if (scroll) props.push(["scroll", "true"]);
@@ -1034,13 +1030,14 @@ class ScreenPrinter {
   sourceConsts(): string[] {
     return [...this.sources.values()].map((s, i) => {
       const d = s.def;
+      const pageSize = pageSizeOf(d, !!endpointOf(this.doc.api, d.operationId)?.pagination);
       const def = {
         name: d.name,
         operationId: d.operationId,
         ...(d.params && Object.keys(d.params).length ? { params: d.params } : {}),
         ...(d.body ? { body: d.body } : {}),
         ...(d.load === "demand" ? { load: "demand" } : {}),
-        ...(d.pageSize ? { pageSize: d.pageSize } : {}),
+        ...(pageSize ? { pageSize } : {}),
       };
       return `const S${i + 1}: SourceDef = ${expr(def)};`;
     });
