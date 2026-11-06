@@ -101,6 +101,9 @@ export type PaintLayer = {
   circle?: boolean;
   /** switched off, and kept */
   hidden?: boolean;
+  /** A solid layer bound to a color variable in an exported app: the CSS variable (`--m3e-v-<name>`) it is painted with,
+   *  `color` standing in where that is not defined. */
+  cssVar?: string;
 };
 
 /** a shadow cast by the box, or inside it; on words, `spread` and `inset` mean nothing */
@@ -768,10 +771,16 @@ export type Action = ActionBody & { when?: Condition; else?: ActionBody };
 
 /** what a variable can hold */
 export type VarValue = string | number | boolean;
-export type VarType = "text" | "number" | "bool";
+export type VarType = "text" | "number" | "bool" | "color";
 /** `drives: "dark"` makes a bool variable the app's light/dark mode: true is dark. The preview and the exported app
- *  start it at the mode they open in, and setting or toggling it (an effect, a bound switch) switches the theme. */
-export type DocVar = { id: string; name: string; type: VarType; value: VarValue; drives?: "dark" };
+ *  start it at the mode they open in, and setting or toggling it (an effect, a bound switch) switches the theme.
+ *  A color variable holds a color reference (a role or a hex, as `ColorRef`). `value` is its value in the first mode
+ *  of its collection, `modes` what it is in the others (lib/variables.ts). */
+export type DocVar = { id: string; name: string; type: VarType; value: VarValue; drives?: "dark"; collection?: string; modes?: Record<string, VarValue> };
+
+/** A collection of variables and the modes they have values in (light and dark, compact and roomy). `dark` is the mode
+ *  shown while the app is in dark mode, when no screen or document chose one. */
+export type VarCollection = { id: string; name: string; modes: { id: string; name: string }[]; dark?: string };
 
 /** the variable that is the app's dark mode, if one is */
 export const darkVarOf = (vars: DocVar[] | undefined): DocVar | undefined => (Array.isArray(vars) ? vars.find((v) => v.drives === "dark" && v.type === "bool") : undefined);
@@ -970,6 +979,8 @@ export type Frame = {
   backgroundImage?: string;
   /** how much of that picture shows, 0 to 1 */
   backgroundOpacity?: number;
+  /** the mode this screen shows of each variable collection, over the document's choice */
+  varModes?: Record<string, string>;
 };
 
 /** how much of `backgroundImage` shows when the author has said nothing */
@@ -1332,6 +1343,10 @@ export type Doc = {
   theme?: Theme;
   /** the prototype's state, live during the preview only; `value` is what each starts at */
   vars?: DocVar[];
+  /** the collections variables are grouped in, with their modes; a variable that names none is in the default one */
+  varCollections?: VarCollection[];
+  /** the mode the document shows of each collection, by collection id; a screen may choose its own */
+  varModes?: Record<string, string>;
   /** reusable components; `Group.instanceOf` names one */
   components?: ComponentDef[];
   /** components grouped as variants of one another (`ComponentDef.set` names one) */

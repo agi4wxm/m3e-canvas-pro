@@ -1,6 +1,8 @@
 
-import { Component, Suspense, memo, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { Component, Suspense, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { Item } from "@/lib/tokens";
+import { boundItem } from "@/lib/variables";
+import { BoundValues } from "./boundValues";
 import { useLang, type Lang } from "@/lib/i18n";
 import { useIcons } from "@/parts/icons";
 import { PartSurface } from "@/parts/theme";
@@ -107,7 +109,9 @@ export function startingValuesOf(node: PNode | string): string {
 /** A part drawn as the real shadcn M3E component it stands for. On the canvas it is inert: a press
  *  belongs to the part (to select and drag it), not to the button inside it. In the preview
  *  (`live`) it works. */
-function PartViewBody({ item, live = false, screen, held = false }: PartViewProps) {
+function PartViewBody({ item: own, live = false, screen, held = false }: PartViewProps) {
+  const values = useContext(BoundValues);
+  const item = useMemo(() => (values ? boundItem(own, values) : own), [own, values]);
   const def = partBySlug(item.component);
   /* a prop left at its default shows the default of the editor's language */
   const lang = useLang();

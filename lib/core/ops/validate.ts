@@ -231,13 +231,19 @@ export function actionError(a: unknown, s: CoreState): string | null {
 /** an action with its transition filled in */
 export const fullAction = (a: Action): Action => ({ ...a, transition: a.transition ?? "slide", ...(a.else ? { else: { ...a.else, transition: (a.else as ActionBody).transition ?? "slide" } } : {}) });
 
+const VALUE_WORDS = { text: "text", number: "a number", bool: "true or false", color: "a color (a role such as primary, or a hex such as #6750a4)" } as const;
+
 export function varError(v: unknown): string | null {
   if (!isRecord(v)) return "a variable should be {id, name, type, value}";
   if (typeof v.name !== "string" || !v.name.trim()) return "a variable needs a name";
-  if (v.type !== "text" && v.type !== "number" && v.type !== "bool") return 'type should be "text", "number" or "bool"';
-  const want = v.type === "text" ? "string" : v.type === "number" ? "number" : "boolean";
-  if (typeof v.value !== want) return `value should be ${v.type === "text" ? "text" : v.type === "number" ? "a number" : "true or false"} for a ${v.type} variable`;
+  if (v.type !== "text" && v.type !== "number" && v.type !== "bool" && v.type !== "color") return 'type should be "text", "number", "bool" or "color"';
+  if (!fitsType(v.value, v.type)) return `value should be ${VALUE_WORDS[v.type]} for a ${v.type} variable`;
+  if (v.modes !== undefined) {
+    if (!isRecord(v.modes)) return "modes should be {mode id: value}";
+    for (const [mode, x] of Object.entries(v.modes)) if (!fitsType(x, v.type)) return `the value in mode ${JSON.stringify(mode)} should be ${VALUE_WORDS[v.type]}`;
+  }
   return null;
 }
 
 export type { Condition, DocVar, Effect };
+import { fitsType } from "../../variables";

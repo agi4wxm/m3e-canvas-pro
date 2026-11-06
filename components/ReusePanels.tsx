@@ -114,7 +114,7 @@ function PropsEditor({ def, components, api, p }: { def: ComponentDef; component
             <div style={{ flex: 1, minWidth: 0 }}>
               <Field value={prop.name} onChange={(name) => name.trim() && api.setProp(def.id, { ...prop, name })} placeholder={t("cpPropName", lang)} label={t("cpPropName", lang)} p={p} height={36} />
             </div>
-            <IconBtn icon="close" p={p} size={32} onClick={() => api.removeProp(def.id, prop.id)} title={t("cpRemoveProp", lang)} />
+            <IconBtn icon="delete" p={p} size={32} onClick={() => api.removeProp(def.id, prop.id)} title={t("cpRemoveProp", lang)} />
           </div>
           <Select options={options(prop.type)} value={prop.targets[0] ?? ""} onChange={(k) => api.setProp(def.id, { ...prop, targets: [k], ...(prop.type === "swap" ? { value: undefined } : {}) })} p={p} label={t("cpPropTarget", lang)} height={36} />
           {prop.type === "bool" && <Toggle on={prop.value !== false} onChange={(on) => api.setProp(def.id, { ...prop, value: on })} p={p} label={t("cpPropDefault", lang)} grow />}
@@ -225,7 +225,7 @@ function SetPropRow({ name, values, onWrite, onRemove, p }: { name: string; valu
         <div style={{ flex: 1, minWidth: 0 }}>
           <Field value={n} onChange={setN} placeholder={t("cpVariantProp", lang)} label={t("cpVariantProp", lang)} p={p} height={36} />
         </div>
-        {onRemove && <IconBtn icon="close" p={p} size={28} onClick={onRemove} title={t("cpRemoveVariantProp", lang)} />}
+        {onRemove && <IconBtn icon="delete" p={p} size={28} onClick={onRemove} title={t("cpRemoveVariantProp", lang)} />}
       </div>
       <Field value={v} onChange={setV} placeholder={t("cpVariantValues", lang)} label={t("cpVariantValues", lang)} p={p} height={36} />
     </div>

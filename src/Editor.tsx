@@ -45,6 +45,8 @@ import { DeviceBars } from "@/components/DeviceBars";
 import { Icon } from "@/components/Icon";
 import { ComponentNode } from "@/components/ComponentNode";
 import { PartView } from "@/components/PartView";
+import { BoundValues } from "@/components/boundValues";
+import { collectionsOf, varValues } from "@/lib/variables";
 import { SizeHandles } from "@/components/SizeHandles";
 import { LayersPanel } from "@/components/Layers";
 import { FrameSizePicker, Inspector } from "@/components/Inspector";
@@ -72,6 +74,7 @@ import { expandDoc } from "@/lib/expand";
 import { repeatAround } from "@/lib/collections";
 import { familyOf, missingSizes } from "@/lib/variants";
 import { ComponentsPanel, DataPanel, InstanceInspector, sizeWord } from "@/components/ReusePanels";
+import { VariablesPanel, type VariablesApi } from "@/components/VariablesPanel";
 import { sharedOf } from "@/components/DesignPanel";
 import { Behavior, BehaviorContext, StyleRulesContext } from "@/components/EffectsPanel";
 import { readProject } from "@/lib/project";
@@ -734,6 +737,26 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   /** what the preview plays: everything drawn out. With a definition open, that definition alone. */
   const previewDoc = useMemo(() => (previewId === null ? doc : expandDoc(defEdit ? { ...doc, groups, frames } : doc, widths)), [previewId, doc, defEdit, groups, frames, widths]);
 
+  /** what the variables panel does, each change one operation and one step back */
+  const variablesApi: VariablesApi = {
+    addCollection: (name, modes) => runOp(ops.addVarCollection, { name, modes }),
+    updateCollection: (id, patch) => runOp(ops.updateVarCollection, { id, ...patch }, { history: { coalesce: `varcollection:${id}:${Object.keys(patch).join(",")}` } }),
+    removeCollection: (id) => runOp(ops.removeVarCollection, { id }),
+    addVar: (v) => runOp(ops.addVar, v),
+    updateVar: (id, patch) => runOp(ops.updateVar, { id, ...patch }, { history: { coalesce: `var:${id}:${Object.keys(patch).join(",")}` } }),
+    removeVar: (id) => runOp(ops.removeVar, { id }),
+    setMode: (collection, mode, screen) => runOp(ops.setVarMode, { collection, mode, ...(screen ? { screen } : {}) }),
+  };
+  /** what the variables are on each screen of the canvas, in the modes it shows (by screen id; "" off the screens) */
+  const screenValues = useMemo(() => {
+    const out = new Map<string, Record<string, string | number | boolean>>();
+    if (!vars?.length) return out;
+    const docMeta = { vars, varCollections: core.doc.varCollections, varModes: core.doc.varModes };
+    out.set("", varValues(docMeta, null, theme.dark));
+    for (const f of frames) out.set(f.id, varValues(docMeta, f, theme.dark));
+    return out;
+  }, [vars, core.doc.varCollections, core.doc.varModes, frames, theme.dark]);
+
   /* the arrows from tappable parts to the screens they open (src/editor/useLinks.ts) */
   const { visibleLinks, setLinkTransition, removeLink } = useLinks({ frame, groups, frames, widths, itemRects, showAllLinks, selectedIds, selectedFrameId, selectedLinkId, setSelectedLinkId, runOp });
 
@@ -777,10 +800,13 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         if (!repeatHost) return;
         runOp(ops.setRepeat, { id: repeatHost.id, repeat: repeat ?? null }, { history: { coalesce: `${repeatHost.id}:repeat` } });
       },
+      varCollections: collectionsOf(core.doc),
+      setVarMode: variablesApi.setMode,
+      bound: screenValues.get(screen?.id ?? "") ?? screenValues.get(""),
     };
     // the panels' handlers read the store; only what they show matters here
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vars, primaryId, groups, frames, widths, snapshotFor, collections, canPaint, paintingScene, aiSettings, lang]);
+  }, [vars, primaryId, groups, frames, widths, snapshotFor, collections, canPaint, paintingScene, aiSettings, lang, core.doc.varCollections, screenValues]);
 
   /* the same elements while nothing in them changes, so that a drag does not attach every ref again on each move */
   const measuringLayer = useMemo(
@@ -1100,6 +1126,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                     onRename={renameComponent}
                     onDelete={deleteComponent}
                   />
+                ) : leftTab === "variables" ? (
+                  <VariablesPanel p={p} doc={core.doc} api={variablesApi} />
                 ) : leftTab === "data" ? (
                   <DataPanel
                     p={p}
@@ -1349,9 +1377,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                         >
                           {/* a mockup to trace lies under everything, and takes no pointer */}
                           {f.backgroundImage && <img data-trace-image alt="" src={f.backgroundImage} draggable={false} style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "auto", opacity: f.backgroundOpacity ?? TRACE_OPACITY, pointerEvents: "none" }} />}
-                          {groups
-                            .filter((g) => frameOf.get(g.id) === f.id && !offTab.has(g.id))
-                            .map((g) => renderGroup(g, f.x, f.y, frameSizeOf(f)))}
+                          <BoundValues.Provider value={screenValues.get(f.id) ?? null}>
+                            {groups
+                              .filter((g) => frameOf.get(g.id) === f.id && !offTab.has(g.id))
+                              .map((g) => renderGroup(g, f.x, f.y, frameSizeOf(f)))}
+                          </BoundValues.Provider>
                           {f.deviceBars && takesDeviceBars(f) && <DeviceBars p={p} bg={f.bg ?? "surface"} height={fold} zIndex={3} />}
                           {/* where the device ends on a screen that runs further: below it, the body scrolls */}
                           {h > fold && (
@@ -1397,9 +1427,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   );
                 })}
 
-              {groups
-                .filter((g) => !frameOf.has(g.id) && !offTab.has(g.id))
-                .map((g) => renderGroup(g, 0, 0))}
+              <BoundValues.Provider value={screenValues.get("") ?? null}>
+                {groups
+                  .filter((g) => !frameOf.has(g.id) && !offTab.has(g.id))
+                  .map((g) => renderGroup(g, 0, 0))}
+              </BoundValues.Provider>
 
               {/* a lone button shows a handle on each of its four edges, and a lone icon button
                   four points around its circle: dragging one changes the part's size in place,

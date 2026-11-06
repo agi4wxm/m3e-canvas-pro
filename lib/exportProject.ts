@@ -6,7 +6,8 @@ import { BASELINE_SEED } from "./m3e/color";
 import { runtimeSource } from "./runtimeSource";
 import { SLIDE_SPEC, faceSheetsOf, fontFamilyOf, normalizeTheme, seedOf, shapeScaleOf, type Doc } from "./tokens";
 import { APP_SCOPE, recipesOf, styleCss, withDocStyles } from "./styles";
-import { elevationCss } from "./look";
+import { colorCss, elevationCss } from "./look";
+import { darkSwitchedCss } from "./variables";
 import { iconSubset, setsOf } from "../components/m3e/icon-sets/load";
 import { SOURCES } from "../components/m3e/icon-sets/manifest";
 import { str } from "../parts/print";
@@ -430,7 +431,7 @@ export function Theme({ children }: { children: ReactNode }) {
 /** the document's style as a stylesheet of its own, or "" when it has none */
 function styleCssOf(doc: Doc, lang: Lang): string {
   const theme = normalizeTheme(doc.theme);
-  return [styleCss({ ...theme, displayFamily: theme.displayFont ? fontFamilyOf(theme.displayFont, lang) : undefined }, APP_SCOPE), elevationCss(recipesOf(theme).surface, APP_SCOPE)].filter(Boolean).join("\n");
+  return [styleCss({ ...theme, displayFamily: theme.displayFont ? fontFamilyOf(theme.displayFont, lang) : undefined }, APP_SCOPE), elevationCss(recipesOf(theme).surface, APP_SCOPE), darkSwitchedCss(doc, APP_SCOPE, colorCss)].filter(Boolean).join("\n");
 }
 
 function cssSource(doc: Doc, lang: Lang): string {

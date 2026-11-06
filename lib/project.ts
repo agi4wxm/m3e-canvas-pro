@@ -2,7 +2,8 @@ import { childLayoutFields } from "./flow";
 import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
-import { COLOR_TOKENS, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { fitsType, startValueOf } from "./variables";
+import { COLOR_TOKENS, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -122,12 +123,32 @@ function onlyOneDark(vars: DocVar[]): DocVar[] {
 }
 
 function cleanVar(v: unknown): DocVar | undefined {
-  if (!isRecord(v) || typeof v.id !== "string" || (v.type !== "text" && v.type !== "number" && v.type !== "bool")) return undefined;
-  const fallback = v.type === "text" ? "" : v.type === "number" ? 0 : false;
+  if (!isRecord(v) || typeof v.id !== "string" || (v.type !== "text" && v.type !== "number" && v.type !== "bool" && v.type !== "color")) return undefined;
+  const type = v.type;
+  const fallback = startValueOf(type);
   /* a start value of another type keeps the variable and loses the value */
-  const value = typeof v.value === typeof fallback && isValue(v.value) ? v.value : fallback;
-  return { id: v.id, name: typeof v.name === "string" ? v.name : "", type: v.type, value, ...(v.drives === "dark" && v.type === "bool" ? { drives: "dark" as const } : {}) };
+  const value = fitsType(v.value, type) ? v.value : fallback;
+  const modes = isRecord(v.modes) ? (Object.fromEntries(Object.entries(v.modes).filter(([, x]) => fitsType(x, type))) as Record<string, VarValue>) : undefined;
+  return {
+    id: v.id,
+    name: typeof v.name === "string" ? v.name : "",
+    type,
+    value,
+    ...(v.drives === "dark" && type === "bool" ? { drives: "dark" as const } : {}),
+    ...(typeof v.collection === "string" ? { collection: v.collection } : {}),
+    ...(modes && Object.keys(modes).length ? { modes } : {}),
+  };
 }
+
+/** a collection of variables, with modes that each have an id; one of no modes is given one */
+function cleanVarCollection(c: unknown): VarCollection | undefined {
+  if (!isRecord(c) || typeof c.id !== "string") return undefined;
+  const modes = Array.isArray(c.modes) ? c.modes.flatMap((m) => (isRecord(m) && typeof m.id === "string" ? [{ id: m.id, name: typeof m.name === "string" ? m.name : "" }] : [])) : [];
+  if (!modes.length) modes.push({ id: "default", name: "" });
+  return { id: c.id, name: typeof c.name === "string" ? c.name : "", modes, ...(typeof c.dark === "string" && modes.some((m) => m.id === c.dark) ? { dark: c.dark } : {}) };
+}
+
+const cleanModes = (map: unknown) => (isRecord(map) ? (Object.fromEntries(Object.entries(map).filter(([, v]) => typeof v === "string")) as Record<string, string>) : undefined);
 
 const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, look: cleanLook, fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined), row: () => undefined }) as unknown as Item;
 
@@ -171,6 +192,7 @@ const cleanFrame = (f: Frame) =>
     deviceBars: (v) => (typeof v === "boolean" ? v : undefined),
     backgroundImage: (v) => (typeof v === "string" && v ? v : undefined),
     backgroundOpacity: (v) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined),
+    varModes: cleanModes,
   }) as unknown as Frame;
 
 /** A scheme of the author's own: colors, and only colors, since every one of them is painted with and printed.
@@ -275,6 +297,15 @@ export function cleanBehavior(doc: Doc): Doc {
     const styles = cleanStyles(out.styles);
     if (styles) out.styles = styles;
     else delete out.styles;
+  }
+  if (out.varCollections !== undefined) {
+    if (Array.isArray(out.varCollections)) out.varCollections = out.varCollections.map(cleanVarCollection).filter((c) => c !== undefined);
+    else delete out.varCollections;
+  }
+  if (out.varModes !== undefined) {
+    const modes = cleanModes(out.varModes);
+    if (modes) out.varModes = modes;
+    else delete out.varModes;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);

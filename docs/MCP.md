@@ -179,7 +179,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 100 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
+共 104 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -273,11 +273,15 @@ npx playwright install chromium
 | `update_collection` | 数据与交互 |  |  | Changes a data collection's name, fields or rows. |
 | `remove_collection` | 数据与交互 |  | 是 | Removes a data collection; layouts that repeated it stop repeating. |
 | `set_repeat` | 数据与交互 |  |  | Makes a container with an auto layout draw its first child once per row of a collection (limit: at most that many rows), or stop (null). |
-| `add_var` | 数据与交互 |  |  | Adds a variable of the prototype (live in the preview only): type text, number or bool, with the value it starts at. |
-| `update_var` | 数据与交互 |  |  | Changes a variable's name, type, starting value, or whether it drives the dark mode (drives: "dark" or null). |
+| `add_var` | 数据与交互 |  |  | Adds a variable: type text, number, bool or color (a role such as primary or a hex), with its value in the first mode of its collection (values: what it is in the other modes, by … |
+| `update_var` | 数据与交互 |  |  | Changes a variable's name, type, value (in the first mode of its collection), its values in the other modes (values, by mode id or name), its collection, or whether it drives the … |
 | `remove_var` | 数据与交互 |  | 是 | Removes a variable; props bound to it are unbound. |
+| `add_var_collection` | 数据与交互 |  |  | Adds a collection of variables with the modes its variables have values in (names such as Light and Dark; one mode when left out). |
+| `update_var_collection` | 数据与交互 |  |  | Renames a collection of variables, gives it its modes (each {id, name}; one without an id is new, one left out is removed with its values, and the first is the one whose values ar… |
+| `remove_var_collection` | 数据与交互 |  | 是 | Removes a collection of variables and every variable in it; what was bound to them is unbound. |
+| `set_var_mode` | 数据与交互 |  |  | Chooses the mode of a variable collection the document shows (or one screen shows, over the document's choice), by mode id or name; null goes back to the default (a screen follows… |
 | `set_action` | 数据与交互 |  |  | Sets what a tap on a part does (or on one of its places: slot "tab:0", "icon"…): {to: screen id \| "back" \| "link" \| "none", transition, url, effects: [{do: show\|hide\|toggle\|… |
-| `bind_prop` | 数据与交互 |  |  | Binds a prop of a part to a variable (the preview shows the variable's value), or unbinds it (var null). |
+| `bind_prop` | 数据与交互 |  |  | Binds a prop of a part to a variable (the preview shows the variable's value), or a field of its design: "@fill", "@text" (the words' color) and "@stroke" take a color variable, "… |
 | `reorder_panes` | 搭建 |  |  | Puts a dock's tabs in a new order; what each tab holds follows it. |
 | `generate_svg` | 生成（需 OPENAI_API_KEY） |  |  | Draws a custom SVG and puts it on the canvas as a vector (svg) part: a new icon, a logo, an illustration, a decoration nothing in the catalog has. |
 | `generate_image` | 生成（需 OPENAI_API_KEY） |  |  | Paints a picture with the image model (about 20–40 s): with `background` and `screen`, it becomes the picture behind that whole screen (its scene, filling the screen under every p… |

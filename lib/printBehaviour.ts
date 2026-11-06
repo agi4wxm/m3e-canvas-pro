@@ -5,6 +5,7 @@ import { OVERLAY_ROOTS, partBySlug, reader, treeOf, withoutPickedImages } from "
 import type { PartDef, PropDef } from "../parts/types";
 import { type Row, CURRENT_TOKEN, fillCurrent, firstRows, markCurrent } from "./collections";
 import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
+import { varValues } from "./variables";
 import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
 
 /* What a tap does and what state a part reads, as source text over the generated runtime
@@ -284,7 +285,9 @@ export class Behaviour {
     this.readsCurrent = JSON.stringify(doc.groups).includes("{{current.");
     const screenKeys = new Set<string>();
     o.shown.forEach((f, i) => this.screens.set(f.id, camel(f.name, `screen${i + 1}`, screenKeys)));
-    for (const [i, v] of (Array.isArray(doc.vars) ? doc.vars : []).entries()) this.vars.set(v.id, { key: camel(v.name, `var${i + 1}`, this.varKeys), type: v.type, start: v.value });
+    /* a variable starts at its value in the mode the document shows */
+    const starts = varValues(doc);
+    for (const [i, v] of (Array.isArray(doc.vars) ? doc.vars : []).entries()) this.vars.set(v.id, { key: camel(v.name, `var${i + 1}`, this.varKeys), type: v.type, start: starts[v.id] ?? v.value });
     const partNames = new Set<string>();
     for (const g of doc.groups)
       for (const it of g.items) {

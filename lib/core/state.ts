@@ -75,6 +75,8 @@ export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, sess
       ...(doc.components ? { components: doc.components } : {}),
       ...(doc.componentSets ? { componentSets: doc.componentSets } : {}),
       ...(doc.collections ? { collections: doc.collections } : {}),
+      ...(doc.varCollections ? { varCollections: doc.varCollections } : {}),
+      ...(doc.varModes ? { varModes: doc.varModes } : {}),
     },
     editing: null,
     session: { ...emptySession(), ...session },
@@ -104,6 +106,8 @@ export function savedDoc(s: CoreState): Doc {
     collections: doc.collections?.length ? doc.collections : undefined,
     styles: doc.styles?.length ? doc.styles : undefined,
     componentSets: doc.componentSets?.length ? doc.componentSets : undefined,
+    varCollections: doc.varCollections?.length ? doc.varCollections : undefined,
+    varModes: doc.varModes && Object.keys(doc.varModes).length ? doc.varModes : undefined,
   };
 }
 
@@ -180,6 +184,10 @@ function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<strin
   else if (reset) set("promptOptions", undefined);
   if (Array.isArray(doc.vars)) set("vars", doc.vars);
   else if (reset) set("vars", undefined);
+  if (Array.isArray(doc.varCollections)) set("varCollections", doc.varCollections);
+  else if (reset) set("varCollections", undefined);
+  if (doc.varModes && typeof doc.varModes === "object") set("varModes", doc.varModes);
+  else if (reset) set("varModes", undefined);
   return out;
 }
 

@@ -9,9 +9,9 @@ import { opInput } from "./schema";
 import { tool, ToolFailure, type Tool, type ToolEnv, type ToolGroup } from "./types";
 
 const STYLE_OPS = new Set(["set_theme", "apply_style", "set_custom_styles", "add_custom_style", "set_style_rules", "set_style_layout", "set_palette", "set_custom_palette", "set_dynamic_color"]);
-const DATA_OPS = new Set(["add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop"]);
+const DATA_OPS = new Set(["add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode"]);
 /** what takes away something the author made: a client asks the author first */
-export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "set_custom_styles"]);
+export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles"]);
 
 const groupOf = (name: string): ToolGroup => (STYLE_OPS.has(name) ? "style" : DATA_OPS.has(name) ? "data" : "edit");
 
@@ -39,6 +39,10 @@ const MORE: Record<string, string> = {
   set_component_prop: "Returns {id}. Text targets are what set_overrides takes as keys; instances then set the words with set_instance_props.",
   set_instance_props: "Keys may be the property's name. Overrides by hand (set_overrides) still win over a text property.",
   reset_overrides: "Leaves the instance exactly as its component is.",
+  add_var_collection: "Returns {id, modes}. For light and dark colors: a collection with modes Light and Dark, color variables with a value in each, then update_var_collection {dark: the Dark mode's id} so dark mode shows it.",
+  update_var_collection: "Give every mode that stays its id, or its values go.",
+  set_var_mode: "A screen's own choice wins over the document's; list_data lists the collections and their modes.",
+  bind_prop: "A fill bound to a color variable shows its value in the mode on show; to drive a switch's checked prop by a bool variable, bind it and toggle the variable with set_action.",
   split_into_atoms: "Returns {rootItemId}.",
 };
 

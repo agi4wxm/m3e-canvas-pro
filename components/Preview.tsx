@@ -49,7 +49,8 @@ import { actionSlotsOf, darkVarOf } from "@/lib/tokens";
 import { screenBackground } from "@/lib/styles";
 import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
-import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, startState, writeField } from "@/lib/interact";
+import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, screenVars, startState, writeField } from "@/lib/interact";
+import { BoundValues } from "./boundValues";
 import { PRESETS, variantFor } from "@/lib/variants";
 
 const EASE = [0.2, 0, 0, 1] as const;
@@ -258,10 +259,13 @@ function Screen({
   onField,
   onCloseOverlay,
   onScrim,
+  bound,
 }: {
   active?: boolean;
   frame: Frame;
   groups: Group[];
+  /** the variables as this screen shows them, for the design fields parts bind to them */
+  bound: Record<string, VarValue> | null;
   widths: Record<string, number>;
   p: Palette;
   /** the theme in the mode this preview shows, for what the style draws behind a screen */
@@ -364,6 +368,7 @@ function Screen({
       style={{ position: "absolute", inset: 0, background: screenBackground(p[frame.bg ?? "surface"], styled), overflow: "hidden", outline: "none" }}
     >
       {openGroups.length > 0 && <div data-preview-scrim aria-hidden onClick={onScrim} style={{ position: "absolute", inset: 0, zIndex: 1, background: dims ? "rgba(0,0,0,0.32)" : "transparent" }} />}
+      <BoundValues.Provider value={bound}>
       {inBody(groups.map((g) => (
         <div
           key={g.id}
@@ -475,6 +480,7 @@ function Screen({
           })}
         </div>
       )))}
+      </BoundValues.Provider>
       {frame.deviceBars && takesDeviceBars(frame) && <DeviceBars p={p} bg={frame.bg ?? "surface"} height={viewH} zIndex={3} />}
     </div>
   );
@@ -545,6 +551,11 @@ export function Preview({
   const top = stack[stack.length - 1];
   const current = frames.find((f) => f.id === (top ? shownId(top.id) : undefined)) ?? frames[0];
   const peekFrame = peek ? frames.find((f) => f.id === peek.frameId) : undefined;
+  /* what a tap reads, whenever it comes: the screen on show and the mode the preview is in */
+  const frameRef = useRef(current);
+  frameRef.current = current;
+  const darkRef = useRef(dark);
+  darkRef.current = dark;
   const { w: frameW, h: frameH } = current ? frameSizeOf(current) : { w: PHONE_W, h: PHONE_H };
   const phone = current ? isPhoneFrame(current) : true;
   /* every screen sits in the same bezel; only the corners tell a phone from a window */
@@ -656,8 +667,9 @@ export function Preview({
   const fire = useCallback(
     (a: Action, row?: Item["row"]) => {
       if (swiped.current) return;
-      /* a tap from a repeated part reads its row's fields as `row.field`, and only for this tap */
-      const scoped = inRow(stateRef.current, row);
+      /* a tap from a repeated part reads its row's fields as `row.field`, and only for this tap; the variables read as
+         the screen on show has them */
+      const scoped = inRow(screenVars(stateRef.current, doc, frameRef.current, darkRef.current), row);
       const body = chooseBranch(a, scoped, doc);
       if (!body) return;
       setState(leftRow(applyEffects(scoped, body.effects, doc), row));
@@ -704,10 +716,12 @@ export function Preview({
         const def = g.items.length === 1 ? partBySlug(it.component) : undefined;
         return def?.panes && def.selectKey && values[it.id] >= 0 ? { ...g, items: [{ ...it, props: { ...it.props, [def.selectKey]: values[it.id] } }] } : g;
       });
-      return liveGroups(tabbed, state, doc, widths);
+      return liveGroups(tabbed, screenVars(state, doc, f, dark), doc, widths);
     },
-    [doc, frames, widths, values, state],
+    [doc, frames, widths, values, state, dark],
   );
+  /** the variables as a screen shows them, for the design fields bound to them */
+  const boundFor = useCallback((f: Frame | undefined) => (doc.vars?.length && f ? screenVars(state, doc, f, dark).vars : null), [doc, state, dark]);
   const groups = useMemo(() => (current ? groupsFor(current) : []), [current, groupsFor]);
   const peekGroups = useMemo(() => (peekFrame ? groupsFor(peekFrame) : []), [peekFrame, groupsFor]);
 
@@ -962,7 +976,7 @@ export function Preview({
                   exit="exit"
                   style={{ position: "absolute", inset: 0 }}
                 >
-                  <Screen frame={current} groups={groups} {...screenProps} />
+                  <Screen frame={current} groups={groups} {...screenProps} bound={boundFor(current)} />
                 </motion.div>
               </AnimatePresence>
             </motion.div>
@@ -977,7 +991,7 @@ export function Preview({
                   pointerEvents: "none",
                 }}
               >
-                <Screen {...screenProps} active={false} frame={peekFrame} groups={peekGroups} />
+                <Screen {...screenProps} active={false} frame={peekFrame} groups={peekGroups} bound={boundFor(peekFrame)} />
               </motion.div>
             )}
             <AnimatePresence>

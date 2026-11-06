@@ -16,6 +16,8 @@ import { AlignBox, FillRun, LineUp, TextRun, WidthRun, type PlaceFn } from "./Pa
 import { RepeatSection } from "./ReusePanels";
 import { BehaviorContext, StyleRulesContext } from "./EffectsPanel";
 import { Select, Toggle } from "./ui";
+import { BindButton, BoundChip } from "./VariablesPanel";
+import type { BindField } from "@/lib/variables";
 import type { AlignHow } from "@/lib/align";
 
 /* The design tab of the right panel, organised the way Figma's is: the part's own properties (what an instance shows
@@ -114,9 +116,29 @@ function SizeField({ item, def, axis, measured, parent, onChange, p }: { item: I
 
 const blendKey = (b: BlendMode) => `lkBlend_${b.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())}` as UIKey;
 
+/** what a field bound to a variable shows: the variable's value in the mode on show, when it is a number */
+function useBoundNumber(item: Item, field: BindField): number | undefined {
+  const b = useContext(BehaviorContext);
+  const id = item.bind?.[field];
+  const v = id !== undefined ? b.bound?.[id] : undefined;
+  return typeof v === "number" ? v : undefined;
+}
+
+/** a number field with the button that binds it to a variable beside it; bound, it shows the variable's value */
+function BoundNumber({ item, field, onChange, p, children }: { item: Item; field: BindField; onChange: (patch: Partial<Item>) => void; p: Palette; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 2, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+      <BindButton field={field} item={item} onChange={onChange} p={p} />
+    </div>
+  );
+}
+
 /** opacity, corner radius and blend mode: what Figma's appearance row holds */
 function Appearance({ item, def, strict, onChange, p }: { item: Item; def: PartDef; strict: boolean; onChange: (patch: Partial<Item>) => void; p: Palette }) {
   const lang = useLang();
+  const boundOpacity = useBoundNumber(item, "@opacity");
+  const boundRadius = useBoundNumber(item, "@radius");
   const look = item.look ?? {};
   const setLook = (patch: Partial<NonNullable<Item["look"]>>) => onChange({ look: tidyLook({ ...look, ...patch }) });
   const corners = item.corners;
@@ -127,10 +149,14 @@ function Appearance({ item, def, strict, onChange, p }: { item: Item; def: PartD
   return (
     <>
       <div style={grid2}>
-        <NumberField name="opacity" icon="opacity" value={look.opacity ?? 100} min={0} max={100} unit="%" title={t("dzOpacity", lang)} onChange={(v) => setLook({ opacity: v === 100 ? undefined : v })} p={p} />
+        <BoundNumber item={item} field="@opacity" onChange={onChange} p={p}>
+          <NumberField name="opacity" icon="opacity" value={boundOpacity ?? look.opacity ?? 100} disabled={boundOpacity !== undefined} min={0} max={100} unit="%" title={t("dzOpacity", lang)} onChange={(v) => setLook({ opacity: v === 100 ? undefined : v })} p={p} />
+        </BoundNumber>
         {!strict && def.appearance && (
           <div style={{ display: "flex", gap: 4, minWidth: 0 }}>
-            <NumberField name="radius" icon="rounded_corner" value={shown} min={0} max={64} title={t("dzRadius", lang)} onChange={(v) => onChange({ corners: uniformRadii(v) })} p={p} />
+            <BoundNumber item={item} field="@radius" onChange={onChange} p={p}>
+              <NumberField name="radius" icon="rounded_corner" value={boundRadius ?? shown} disabled={boundRadius !== undefined} min={0} max={64} title={t("dzRadius", lang)} onChange={(v) => onChange({ corners: uniformRadii(v) })} p={p} />
+            </BoundNumber>
             <FieldToggle
               icon="crop_free"
               name="radiusEach"
@@ -214,6 +240,7 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
   const group = behavior.group;
   const effects: LookBlockKey[] = strict ? ["shadows", "blur", "distort"] : ["shadows", "blur", "filters", "texture", "distort"];
   const textual = def.slug === "text" || def.category === "Basics" && def.props.some((d) => d.key === "text");
+  const boundRotation = useBoundNumber(item, "@rotation");
   const widthAxis = axes?.width?.kind === "number" ? axes.width : undefined;
 
   return (
@@ -230,7 +257,11 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
           <div style={{ ...grid2, flex: 1, minWidth: 0 }}>
             <NumberField name="x" word="X" value={selfRect ? Math.round(selfRect.x - fx) : undefined} disabled={!onMoveTo || !selfRect || placed} title={placed ? `X · ${t("dzSetByLayout", lang)}` : "X"} onChange={(v) => selfRect && onMoveTo?.(v + fx, selfRect.y)} p={p} />
             <NumberField name="y" word="Y" value={selfRect ? Math.round(selfRect.y - fy) : undefined} disabled={!onMoveTo || !selfRect || placed} title={placed ? `Y · ${t("dzSetByLayout", lang)}` : "Y"} onChange={(v) => selfRect && onMoveTo?.(selfRect.x, v + fy)} p={p} />
-            {def.appearance && <NumberField name="rotation" icon="rotate_right" value={look.rotate ?? 0} min={-180} max={180} unit="°" title={t("dzRotation", lang)} onChange={(v) => setLook({ rotate: v || undefined })} p={p} />}
+            {def.appearance && (
+              <BoundNumber item={item} field="@rotation" onChange={onChange} p={p}>
+                <NumberField name="rotation" icon="rotate_right" value={boundRotation ?? look.rotate ?? 0} disabled={boundRotation !== undefined} min={-180} max={180} unit="°" title={t("dzRotation", lang)} onChange={(v) => setLook({ rotate: v || undefined })} p={p} />
+              </BoundNumber>
+            )}
             {def.appearance && (
               <div style={{ display: "flex", gap: 2 }}>
                 <FieldToggle icon="flip" name="flipX" on={!!tr.flipX} title={t("dzFlipH", lang)} p={p} onClick={() => setTr({ flipX: !tr.flipX || undefined })} />
@@ -285,7 +316,8 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
       )}
 
       {def.appearance && (
-        <DesignSection id="typography" title={t("dzTypography", lang)} p={p} defaultOpen={textual}>
+        <DesignSection id="typography" title={t("dzTypography", lang)} p={p} defaultOpen={textual} actions={<BindButton field="@text" item={item} onChange={onChange} p={p} />}>
+          <BoundChip field="@text" item={item} p={p} />
           <TextRun value={item.textColor} onChange={(textColor) => onChange({ textColor })} p={p} />
           {!strict && <LookPanel key={`${item.id}:text`} item={item} onChange={onChange} p={p} only={["text"]} wrap={(b) => b.body} />}
         </DesignSection>
@@ -300,7 +332,8 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
           strict={strict}
           only={strict ? [] : ["fill"]}
           wrap={(b) => (
-            <DesignSection id="fill" title={t("dzFill", lang)} p={p} actions={b.actions}>
+            <DesignSection id="fill" title={t("dzFill", lang)} p={p} actions={<><BindButton field="@fill" item={item} onChange={onChange} p={p} />{b.actions}</>}>
+              <BoundChip field="@fill" item={item} p={p} />
               <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />
               {b.body}
             </DesignSection>
@@ -308,12 +341,27 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
         />
       )}
       {def.appearance && strict && (
-        <DesignSection id="fill" title={t("dzFill", lang)} p={p}>
+        <DesignSection id="fill" title={t("dzFill", lang)} p={p} actions={<BindButton field="@fill" item={item} onChange={onChange} p={p} />}>
+          <BoundChip field="@fill" item={item} p={p} />
           <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />
         </DesignSection>
       )}
 
-      {def.appearance && !strict && <LookPanel key={`${item.id}:stroke`} item={item} onChange={onChange} p={p} only={["stroke"]} wrap={(b) => <DesignSection id="stroke" title={t("dzStroke", lang)} p={p} actions={b.actions}>{b.on ? b.body : null}</DesignSection>} />}
+      {def.appearance && !strict && (
+        <LookPanel
+          key={`${item.id}:stroke`}
+          item={item}
+          onChange={onChange}
+          p={p}
+          only={["stroke"]}
+          wrap={(b) => (
+            <DesignSection id="stroke" title={t("dzStroke", lang)} p={p} actions={<><BindButton field="@stroke" item={item} onChange={onChange} p={p} />{b.actions}</>}>
+              {item.bind?.["@stroke"] ? <BoundChip field="@stroke" item={item} p={p} /> : null}
+              {b.on ? b.body : null}
+            </DesignSection>
+          )}
+        />
+      )}
 
       {def.appearance && (
         <DesignSection id="effects" title={t("dzEffects", lang)} p={p}>

@@ -1,6 +1,6 @@
 
 import { createContext, useContext, useState } from "react";
-import { Action, ActionBody, BACK_TARGET, Collection, Condition, DocVar, Effect, Group, Item, LINK_TARGET, Palette, STAY_TARGET, VarType, VarValue, paletteIconOf, uid } from "@/lib/tokens";
+import { Action, ActionBody, BACK_TARGET, Collection, Condition, DocVar, Effect, Group, Item, LINK_TARGET, Palette, STAY_TARGET, VarCollection, VarType, VarValue, paletteIconOf, uid } from "@/lib/tokens";
 import { INPUT_PROP, isOverlayPart } from "@/lib/interact";
 import { t, useLang, type Lang, type UIKey } from "@/lib/i18n";
 import { partBySlug } from "@/parts/registry";
@@ -38,6 +38,11 @@ export type Behavior = {
    *  since a column hugging its only child can hardly be pressed on the canvas. */
   repeatHost?: Group | null;
   patchRepeat?: (repeat: Group["repeat"]) => void;
+  /** the collections of variables with their modes, and how a screen (or the document) picks one */
+  varCollections?: VarCollection[];
+  setVarMode?: (collection: string, mode: string | null, screen?: string) => void;
+  /** what each variable is in the modes the selected part's screen shows */
+  bound?: Record<string, VarValue>;
 };
 
 /** whether the document is held to its style's rules: then the panels offer only what the rules leave open */
@@ -401,47 +406,6 @@ export function VisibilitySection({ p }: { p: Palette }) {
         <Toggle on={!!g.hidden} onChange={(hidden) => b.patchGroup({ hidden: hidden || undefined })} p={p} label={t("hiddenAtStart", lang)} grow />
         <Toggle on={!!g.showWhen} onChange={(on) => b.patchGroup({ showWhen: on ? firstCondition(b) : undefined })} p={p} label={t("showOnlyWhen", lang)} grow />
         {g.showWhen && <ConditionEditor value={g.showWhen} onChange={(showWhen) => b.patchGroup({ showWhen })} p={p} />}
-      </div>
-    </Section>
-  );
-}
-
-const TYPES: { key: VarType; text: UIKey }[] = [
-  { key: "text", text: "varText" },
-  { key: "number", text: "varNumber" },
-  { key: "bool", text: "varBool" },
-];
-
-/** the document's variables, in the screen panel */
-export function VariablesSection({ p }: { p: Palette }) {
-  const lang = useLang();
-  const b = useContext(BehaviorContext);
-  const put = (id: string, patch: Partial<DocVar>) => b.setVars(b.vars.map((v) => (v.id === id ? { ...v, ...patch } : v)));
-  return (
-    <Section id="doc-variables" icon="data_object" title={t("variables", lang)} p={p}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {b.vars.map((v) => (
-          <div key={v.id} data-variable={v.name} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 8, borderRadius: 12, background: p.surfaceContainerLow }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <Field value={v.name} onChange={(name) => put(v.id, { name })} placeholder={t("variableName", lang)} p={p} height={40} />
-              </div>
-              <IconBtn icon="close" p={p} size={32} onClick={() => b.setVars(b.vars.filter((x) => x.id !== v.id))} title={t("effectRemove", lang)} />
-            </div>
-            <Segmented<VarType>
-              options={TYPES.map((x) => ({ key: x.key, label: t(x.text, lang) }))}
-              value={v.type}
-              onChange={(type) => put(v.id, { type, value: type === "text" ? "" : type === "number" ? 0 : false })}
-              p={p}
-              height={36}
-              label={t("variableType", lang)}
-            />
-            {/* a start value of another type would read as something else in the preview */}
-            <ValueField type={v.type} value={v.value} onChange={(value) => put(v.id, { value })} p={p} />
-          </div>
-        ))}
-        <AddButton label={t("addVariable", lang)} onClick={() => addVar(b, "number", nextVarName(b.vars))} p={p} />
-        <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px", textWrap: "pretty" }}>{t("variablesHint", lang)}</div>
       </div>
     </Section>
   );

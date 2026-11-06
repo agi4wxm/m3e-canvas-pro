@@ -253,7 +253,7 @@ function cssToHex(css: string): string | undefined {
 
 /** A color: the theme's roles, any hex at any alpha, and the colors already in use on this screen. It opens in place
  *  under its row, so it scrolls with the panel and never covers what it changes. */
-function ColorPick({ value, onChange, label, p, clearable }: { value?: ColorRef; onChange: (c: ColorRef | undefined) => void; label: string; p: Palette; clearable?: boolean }) {
+export function ColorPick({ value, onChange, label, p, clearable }: { value?: ColorRef; onChange: (c: ColorRef | undefined) => void; label: string; p: Palette; clearable?: boolean }) {
   const lang = useLang();
   const behavior = useContext(BehaviorContext);
   const [open, setOpen] = useState(false);

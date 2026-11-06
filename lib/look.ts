@@ -220,6 +220,7 @@ export function cleanPaint(v: unknown): PaintLayer | undefined {
   if (type === "solid") {
     if (!isColorRef(v.color)) return undefined;
     out.color = v.color;
+    if (typeof v.cssVar === "string" && /^[a-z][a-z0-9-]{0,40}$/.test(v.cssVar)) out.cssVar = v.cssVar;
   } else {
     const stops = cleanStops(v.stops);
     if (!stops || stops.length < 2) return undefined;
@@ -252,7 +253,8 @@ export function paintCss(layer: PaintLayer | undefined): string | undefined {
   const l = cleanPaint(layer);
   if (!l || l.hidden) return undefined;
   if (l.type === "solid") {
-    const c = colorCss(l.color)!;
+    const own = colorCss(l.color)!;
+    const c = l.cssVar ? `var(--m3e-v-${l.cssVar}, ${own})` : own;
     return `linear-gradient(${c}, ${c})`;
   }
   const stops = stopsCss(l.stops!);

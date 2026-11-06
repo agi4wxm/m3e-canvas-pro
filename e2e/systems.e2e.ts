@@ -2,7 +2,7 @@
  * them, a fill bound to a color variable whose mode is switched, a prototype connection drawn on the canvas and
  * followed in the preview, a text edited in place, and the canvas's context menu. */
 
-import { check, equal, groupOf, leftTab, pick, savedDoc, select, settle, undo, type E2ETest } from "./lib";
+import { check, clickAdd, equal, groupOf, leftTab, pick, savedDoc, select, settle, undo, type E2ETest } from "./lib";
 
 export const tests: E2ETest[] = [
   {
@@ -48,3 +48,50 @@ export const tests: E2ETest[] = [
     },
   },
 ];
+
+tests.push({
+  name: "variables: a fill bound to a color variable, the mode switched, the preview showing it",
+  async run({ page }) {
+    await leftTab(page, "Variables");
+    await page.locator('button[title="New collection"]').first().click();
+    await settle(page);
+    let doc = await savedDoc(page);
+    const collections = (doc as { varCollections?: { id: string; modes: { id: string; name: string }[] }[] }).varCollections ?? [];
+    const theme = collections[collections.length - 1];
+    equal(theme?.modes.map((m) => m.name), ["Light", "Dark"], "a collection with a light and a dark mode");
+    await page.locator('[data-add-var="color"]').first().click();
+    await settle(page);
+    /* the value in the dark mode, typed as a hex */
+    await page.locator('[data-var-mode="Dark"] [data-color-pick] > button').first().click();
+    await settle(page, 300);
+    await page.locator('[data-var-mode="Dark"] [data-color-pick] input:not([type])').first().fill("#e91e63");
+    await settle(page);
+    doc = await savedDoc(page);
+    const v = (doc.vars as { id: string; name: string; type: string; value: string; modes?: Record<string, string> }[]).find((x) => x.type === "color")!;
+    equal(v.modes?.[theme.modes[1].id], "#e91e63", "the variable's dark value");
+
+    /* a box, its fill bound to the variable */
+    await clickAdd(page, "Box");
+    doc = await savedDoc(page);
+    const box = doc.groups.flatMap((g) => g.items).find((it) => it.component === "box")!;
+    await page.locator('[data-bind-field="@fill"] button').first().click();
+    await settle(page, 300);
+    await page.locator(`[data-bind-to="${v.name}"]`).first().click();
+    await settle(page);
+    doc = await savedDoc(page);
+    equal((doc.groups.flatMap((g) => g.items).find((it) => it.id === box.id) as { bind?: Record<string, string> }).bind, { "@fill": v.id }, "the fill is bound");
+
+    /* the document shows the dark mode; the preview paints the box with the dark value */
+    await leftTab(page, "Variables");
+    await pick(page, "Variable modes of the document", "Dark");
+    equal((await savedDoc(page) as { varModes?: Record<string, string> }).varModes, { [theme.id]: theme.modes[1].id }, "the document's mode");
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("p");
+    await settle(page, 1800);
+    const paint = await page.locator(`[data-preview-group] [data-part="${box.id}"] [data-slot="box"]`).first().evaluateAll((els) => els.map((e) => getComputedStyle(e).backgroundImage));
+    check(paint[0]?.includes("rgb(233, 30, 99)"), `the preview paints the box pink, it paints ${paint[0]}`);
+    await page.keyboard.press("Escape");
+    await settle(page, 800);
+    await leftTab(page, "Parts");
+  },
+});
