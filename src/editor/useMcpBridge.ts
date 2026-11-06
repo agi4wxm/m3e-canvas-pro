@@ -8,7 +8,7 @@ import type { DocStore } from "@/lib/core";
 import type { BridgeView, EditorBridge } from "@/lib/mcp/editorBridge";
 import { ToolFailure, type Renderer } from "@/lib/tools/types";
 import type { Doc, Frame } from "@/lib/tokens";
-import { shotTarget, type Crop } from "./screenShot";
+import { nextFrame, shotTarget, type Crop } from "./screenShot";
 
 const KEY = "m3e:mcp";
 
@@ -50,7 +50,9 @@ function settled(store: DocStore): Promise<void> {
         resolve();
       } else setTimeout(tick, 50);
     };
-    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(tick, 50)));
+    void nextFrame()
+      .then(nextFrame)
+      .then(() => setTimeout(tick, 50));
   });
 }
 

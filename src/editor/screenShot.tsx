@@ -31,7 +31,17 @@ export function ShotLayer({ frame, doc, widths, p, theme, lang, layer }: { frame
   );
 }
 
-const frameDone = () => new Promise((r) => requestAnimationFrame(() => r(null)));
+/** The next frame, or a moment: a tab in the background draws no frames (the author may be looking at their MCP
+ *  client), and a screenshot or a call's result must not wait for them. */
+export const nextFrame = () =>
+  new Promise<void>((resolve) => {
+    const t = setTimeout(resolve, 120);
+    requestAnimationFrame(() => {
+      clearTimeout(t);
+      resolve();
+    });
+  });
+const frameDone = nextFrame;
 
 /** Waits for a layer to be drawn whole: the drawing code of the parts it holds, two frames, the faces. */
 export async function layerDrawn(doc: Doc) {

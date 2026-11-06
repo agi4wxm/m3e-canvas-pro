@@ -13,7 +13,7 @@ import { wrote } from "../tools/ops";
 import { GENERATE_TOOLS } from "../tools/generate";
 import type { GenerateEnv, Renderer, ToolError, ToolOutcome } from "../tools/types";
 import { DEFAULT_AI } from "../ai";
-import { BRIDGE_PORT, BRIDGE_PORTS, BRIDGE_PROTOCOL, parseMsg, type Access, type ClientInfo, type DrawRequest, type DrawResult, type EditorMsg, type ServerMsg } from "./protocol";
+import { BRIDGE_PORT, BRIDGE_PORTS, BRIDGE_PROTOCOL, CONFIRM_MS, parseMsg, type Access, type ClientInfo, type DrawRequest, type DrawResult, type EditorMsg, type ServerMsg } from "./protocol";
 
 type Hello = Extract<ServerMsg, { t: "hello" }>;
 
@@ -79,7 +79,7 @@ export function summarize(name: string, args: unknown): string {
   return !s || s === "{}" ? "" : s.length > 90 ? `${s.slice(0, 89)}…` : s;
 }
 
-type Conn = BridgeConn & { ws: Socket | null; retry: ReturnType<typeof setTimeout> | null; confirmMs: number; resumeTried: boolean; askTimer: ReturnType<typeof setTimeout> | null };
+type Conn = BridgeConn & { ws: Socket | null; retry: ReturnType<typeof setTimeout> | null; confirmMs: number; askTimer: ReturnType<typeof setTimeout> | null };
 type Running = { abort: AbortController; port: number; draws: Map<string, { resolve: (v: DrawResult) => void; reject: (e: ToolError) => void }> };
 
 export class EditorBridge {
@@ -108,7 +108,7 @@ export class EditorBridge {
     };
   };
   private changed() {
-    this.current = { on: this.on, conns: [...this.conns.values()].filter((c) => c.phase !== "closed" || c.server).map(({ ws: _ws, retry: _r, confirmMs: _c, resumeTried: _t, askTimer: _a, ...c }) => c), log: [...this.log], asks: [...this.asks] };
+    this.current = { on: this.on, conns: [...this.conns.values()].filter((c) => c.phase !== "closed" || c.server).map(({ ws: _ws, retry: _r, confirmMs: _c, askTimer: _a, ...c }) => c), log: [...this.log], asks: [...this.asks] };
     for (const fn of this.listeners) fn();
   }
   private now = () => (this.o.now ?? Date.now)();
@@ -131,10 +131,14 @@ export class EditorBridge {
     for (const c of this.conns.values()) {
       if (c.retry) clearTimeout(c.retry);
       if (c.askTimer) clearTimeout(c.askTimer);
-      c.ws?.close(1000, "off");
+      /* let go of the socket first: its closing is not a server lost, to be looked for again */
+      const ws = c.ws;
+      c.ws = null;
+      ws?.close(1000, "off");
     }
     this.conns.clear();
     for (const r of this.running.values()) r.abort.abort();
+    for (const e of this.log) if (e.state === "running" || e.state === "asking") e.state = "error";
     for (const [id, answer] of this.confirms) {
       answer(false);
       this.confirms.delete(id);
@@ -161,10 +165,9 @@ export class EditorBridge {
   private connect(port: number) {
     if (!this.on) return;
     const was = this.conns.get(port);
-    const c: Conn = was ?? { port, phase: "connecting", client: null, ws: null, retry: null, confirmMs: 60_000, resumeTried: false, askTimer: null };
+    const c: Conn = was ?? { port, phase: "connecting", client: null, ws: null, retry: null, confirmMs: CONFIRM_MS, askTimer: null };
     c.phase = was?.server ? "closed" : "connecting";
     c.retry = null;
-    c.resumeTried = false;
     this.conns.set(port, c);
     let ws: Socket;
     try {
