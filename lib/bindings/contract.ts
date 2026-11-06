@@ -7,12 +7,12 @@ import { isRecord, isSchemaObject } from "../api/schema";
 import { authFields, paginationOf, refModel, type ApiEndpoint, type ApiParameter, type ApiSpec, type JsonSchema, type JsonSchemaObject } from "../api/types";
 import { schemaType, titleOf, type FieldKind, type FieldSpec } from "./rules";
 
-export { fieldError, isBlank, pointerField, problemFieldErrors, problemMessage, problemOf, schemaType, titleOf, typedValue, type FieldKind, type FieldRule, type FieldSpec, type Problem } from "./rules";
+export { fieldError, isBlank, pointerField, problemFieldErrors, problemMessage, problemOf, schemaType, statusMessage, titleOf, typedValue, type FieldKind, type FieldRule, type FieldSpec, type Problem } from "./rules";
 
 export const endpointOf = (api: ApiSpec | undefined, operationId: string): ApiEndpoint | undefined => api?.endpoints?.find((e) => e.operationId === operationId);
 
 /** a schema with its top reference followed, and a nullable `anyOf [X, null]` read as X */
-export function resolved(api: ApiSpec, s: JsonSchema | undefined): JsonSchemaObject | undefined {
+export function resolved(api: ApiSpec, s: JsonSchema | undefined, depth = 0): JsonSchemaObject | undefined {
   let x = followRef(api, s);
   for (let i = 0; i < 4 && isSchemaObject(x); i++) {
     const pair = Array.isArray(x.anyOf) ? x.anyOf : Array.isArray(x.oneOf) ? x.oneOf : undefined;
@@ -21,7 +21,26 @@ export function resolved(api: ApiSpec, s: JsonSchema | undefined): JsonSchemaObj
     if (real.length !== 1) break;
     x = followRef(api, real[0] as JsonSchema);
   }
+  if (isSchemaObject(x) && Array.isArray(x.allOf) && depth < 4) return allOfMerged(api, x, depth);
   return isSchemaObject(x) ? x : undefined;
+}
+
+/** A schema made of others (`allOf`: a model and what it adds) as one object: their properties and required fields
+ *  together, the schema's own last, so a field reads the same however the contract composed it. */
+function allOfMerged(api: ApiSpec, x: JsonSchemaObject, depth: number): JsonSchemaObject {
+  const { allOf, ...own } = x;
+  const parts = [...(allOf as JsonSchema[]).slice(0, 16).map((p) => resolved(api, p, depth + 1)), own as JsonSchemaObject];
+  const properties: Record<string, JsonSchema> = {};
+  const required = new Set<string>();
+  let out: JsonSchemaObject = {};
+  for (const p of parts) {
+    if (!p) continue;
+    const { properties: props, required: req, ...rest } = p;
+    out = { ...out, ...rest };
+    if (isRecord(props)) Object.assign(properties, props);
+    if (Array.isArray(req)) for (const r of req) if (typeof r === "string") required.add(r);
+  }
+  return { ...out, ...(Object.keys(properties).length ? { type: out.type ?? "object", properties } : {}), ...(required.size ? { required: [...required] } : {}) };
 }
 
 /** the schema of what an endpoint answers when it goes well */
@@ -40,7 +59,13 @@ export function listOf(api: ApiSpec, e: ApiEndpoint): { field: string; item: Jso
   if (!s) return e.pagination ? { field: paginationOf(e.pagination).items, item: undefined } : undefined;
   if (typeOf(s) === "array") return { field: "", item: resolved(api, s.items as JsonSchema) };
   const props = isRecord(s.properties) ? s.properties : {};
-  const field = e.pagination ? paginationOf(e.pagination).items : Object.keys(props).filter((k) => typeOf(resolved(api, props[k] as JsonSchema)) === "array")[0];
+  /* a list of records is what a body holding a list holds (a page of products); a record with a list of words in it (a
+     product's pictures) is one thing */
+  const records = (k: string) => {
+    const arr = resolved(api, props[k] as JsonSchema);
+    return typeOf(arr) === "array" && typeOf(resolved(api, arr!.items as JsonSchema)) === "object";
+  };
+  const field = e.pagination ? paginationOf(e.pagination).items : Object.keys(props).filter(records)[0];
   if (!field) return undefined;
   const arr = resolved(api, props[field] as JsonSchema);
   return { field, item: arr ? resolved(api, arr.items as JsonSchema) : undefined };

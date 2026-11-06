@@ -146,6 +146,9 @@ export type FormHandle = {
 };
 
 export type FormOptions<T> = {
+  /** what the runtime keeps it by: what is entered in it stays while the app runs, its screen gone and back; one of
+   *  its own for the component's life when left out */
+  id?: string;
   /** the rules of its fields, from the contract's schema */
   fields: Readonly<Record<string, FieldRule>>;
   /** what its fields start with */
@@ -166,7 +169,10 @@ export function useForm<T>(o: FormOptions<T>): FormHandle {
   useEffect(() => {
     latest.current = o;
   });
-  const [controller] = useState(() => new FormController(o.fields as FormFields, { lang: () => runtime.lang, call: (fn) => runtime.call(fn), initial: o.initial }));
+  const epoch = useEpoch();
+  const [own] = useState(() => (o.id ? null : new FormController(o.fields as FormFields, { lang: () => runtime.lang, call: (fn) => runtime.call(fn), initial: o.initial })));
+  /* a form the runtime keeps is asked for again when it starts over (another scenario of the mocks): a fresh one */
+  const controller = useMemo(() => own ?? runtime.form(o.id!, o.fields as FormFields, o.initial), [own, runtime, o.id, epoch]);
   const state: FormState = useSyncExternalStore(controller.store.subscribe, controller.store.get, controller.store.get);
   return useMemo(() => {
     void state;

@@ -5,7 +5,7 @@
 
 export { Runtime, createRuntime, type CallOptions, type RuntimeOptions } from "./runtime";
 export { SessionStore, memoryStorage, sessionOf, sessionTransport, type AuthConfig, type AuthOperation, type Session, type SessionState, type TokenPlacement, type TokenStorage } from "./session";
-export { SourceCache, sourceKey, type LoadInit, type SourceSpec } from "./sources";
+export { SourceCache, sourceKey, type LoadInit, type PageValue, type SourceSpec } from "./sources";
 export { FormController, type CallResult, type FormFields, type FormState, type SendInit } from "./forms";
 export { Bindings, keyOf, type EvalContext, type Scope } from "./scope";
 export { Store, type Listener } from "./store";
@@ -31,7 +31,7 @@ export {
 export { display, evaluate, fillTemplate, holds, parseExpr, truthy, HELPERS } from "../bindings/expr";
 export { formatDate, formatNumber, type FormatContext } from "../bindings/format";
 export { appMessage, APP_MESSAGES, type AppLang, type MessageKey } from "../bindings/messages";
-export { fieldError, isBlank, pointerField, problemFieldErrors, problemMessage, problemOf, typedValue, type FieldKind, type FieldRule, type Problem } from "../bindings/rules";
+export { fieldError, isBlank, pointerField, problemFieldErrors, problemMessage, problemOf, statusMessage, typedValue, type FieldKind, type FieldRule, type Problem } from "../bindings/rules";
 export { MAX_ITEMS, regionOf, screenParams, sourceView, typedParam, type ListAt, type Paging, type ParamSpec, type RegionShows, type SourceState, type SourceStatus, type SourceView } from "../bindings/sources";
 export { formViewOf, readFields, setPath, type FormRun, type FormView } from "../bindings/form";
 export type { AbortSignalLike, HttpMethod, Transport, TransportFile, TransportRequest, TransportResponse } from "../api/transport";

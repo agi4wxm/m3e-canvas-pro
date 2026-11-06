@@ -53,10 +53,36 @@ export function readFields(entries: FieldEntry[], lang: string): { body: Record<
   return { body, values, errors };
 }
 
+/** Values by field with each one of a nested field ("price.amount") also under its parts, so `form.price.amount` and
+ *  `form.errors.price.amount` read it as well as `form.errors["price.amount"]` does; a part that holds a value of its
+ *  own is left as it is. */
+export function nested<T>(flat: Record<string, T>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...flat };
+  for (const [key, v] of Object.entries(flat)) {
+    if (!key.includes(".")) continue;
+    const steps = key.split(".");
+    let at = out;
+    let ok = true;
+    for (const s of steps.slice(0, -1)) {
+      const next = Object.prototype.hasOwnProperty.call(at, s) ? at[s] : undefined;
+      if (next === undefined) Object.defineProperty(at, s, { value: {}, enumerable: true, writable: true, configurable: true });
+      else if (!next || typeof next !== "object" || Array.isArray(next)) {
+        ok = false;
+        break;
+      }
+      at = at[s] as Record<string, unknown>;
+    }
+    const last = steps.at(-1)!;
+    if (ok && !Object.prototype.hasOwnProperty.call(at, last)) Object.defineProperty(at, last, { value: v, enumerable: true, writable: true, configurable: true });
+  }
+  return out;
+}
+
 /** A form as `form.` reads it. Once a submit was tried, what is wrong shows as it is typed; the server's word on a
  *  field stands until the next submit (or, where the host says so, until that field changes). */
 export function formViewOf(read: { values: Record<string, unknown>; errors: Record<string, string> }, run: FormRun | undefined): FormView {
   const live = run?.submitted ? read.errors : {};
   const errors = { ...run?.errors, ...live };
-  return { ...read.values, values: read.values, errors, error: run?.error ?? null, submitting: !!run?.submitting, valid: !Object.keys(read.errors).length, progress: run?.progress ?? null };
+  const values = nested(read.values);
+  return { ...values, values, errors: nested(errors) as Record<string, string>, error: run?.error ?? null, submitting: !!run?.submitting, valid: !Object.keys(read.errors).length, progress: run?.progress ?? null };
 }

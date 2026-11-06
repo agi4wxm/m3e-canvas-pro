@@ -108,8 +108,29 @@ export function typedValue(s: JsonSchemaObject, v: unknown): unknown {
 /** RFC 9457 problem details as the bindings read them: status always, the rest when the server said */
 export type Problem = { status: number; title: string; detail?: string; type?: string; errors?: { pointer?: string; detail: string; in?: "body" | "query" | "path" | "header" }[] };
 
+/** the words HTTP names its statuses by ("Unprocessable Content"): a server's name for the status, not words for a person */
+const REASONS = new Set(
+  ["bad request", "unauthorized", "payment required", "forbidden", "not found", "method not allowed", "not acceptable", "request timeout", "conflict", "gone", "content too large", "payload too large", "request entity too large", "unsupported media type", "unprocessable", "unprocessable content", "unprocessable entity", "too many requests", "internal server error", "server error", "error", "not implemented", "bad gateway", "service unavailable", "gateway timeout"].map((w) => w.replace(/\s+/g, "")),
+);
+const isReason = (title: string) => REASONS.has(title.toLowerCase().replace(/[^a-z]/g, ""));
+
+/** what a failed call is called for a person when the server says nothing of its own, by its status */
+export function statusMessage(status: number, lang: string): string {
+  if (status === 0) return appMessage("network", lang);
+  if (status === 401) return appMessage("signInFirst", lang);
+  if (status === 403) return appMessage("forbiddenDetail", lang);
+  if (status === 404) return appMessage("notFoundDetail", lang);
+  if (status === 409) return appMessage("conflict", lang);
+  if (status === 413) return appMessage("tooLarge", lang);
+  if (status === 400 || status === 422) return appMessage("submitFailed", lang);
+  if (status === 429) return appMessage("tooMany", lang);
+  if (status >= 500) return appMessage("serverError", lang);
+  return appMessage("failed", lang);
+}
+
 /** The problem an error answer is: its problem details where the body has them, else what its status says. Status 0
- *  is a call that never reached the server. */
+ *  is a call that never reached the server. A title that only names the status ("Unprocessable Content") is said in
+ *  the app's language, as a person reads it. */
 export function problemOf(status: number, body: unknown, lang: string): Problem {
   const b = isRecord(body) ? body : {};
   const errors = Array.isArray(b.errors)
@@ -121,7 +142,9 @@ export function problemOf(status: number, body: unknown, lang: string): Problem 
             : [],
         )
     : undefined;
-  const title = typeof b.title === "string" && b.title ? b.title.slice(0, 300) : status === 0 ? appMessage("network", lang) : appMessage("failed", lang);
+  const own = typeof b.title === "string" && b.title.trim() && !isReason(b.title) ? b.title.slice(0, 300) : undefined;
+  const code = typeof b.status === "number" && b.status >= 100 && b.status <= 599 ? b.status : status;
+  const title = own ?? statusMessage(code, lang);
   return {
     status: typeof b.status === "number" && b.status >= 100 && b.status <= 599 ? b.status : status,
     title,
@@ -161,15 +184,5 @@ export function problemFieldErrors(problem: Problem | null | undefined): Record<
 export function problemMessage(problem: Problem | null | undefined, lang: string): string {
   if (!problem) return "";
   if (problem.detail?.trim()) return problem.detail.trim();
-  const st = problem.status;
-  if (st === 0) return appMessage("network", lang);
-  if (st === 401) return appMessage("signInFirst", lang);
-  if (st === 403) return appMessage("forbiddenDetail", lang);
-  if (st === 404) return appMessage("notFoundDetail", lang);
-  if (st === 409) return appMessage("conflict", lang);
-  if (st === 413) return appMessage("tooLarge", lang);
-  if (st === 400 || st === 422) return appMessage("submitFailed", lang);
-  if (st === 429) return appMessage("tooMany", lang);
-  if (st >= 500) return appMessage("serverError", lang);
-  return appMessage("failed", lang);
+  return problem.title && !isReason(problem.title) ? problem.title : statusMessage(problem.status, lang);
 }

@@ -6,7 +6,7 @@
 import type { Transport, TransportRequest } from "../api/transport";
 import { problemOf, type Problem } from "../bindings/rules";
 import type { EvalContext } from "../bindings/expr";
-import type { CallResult } from "./forms";
+import { FormController, type CallResult, type FormFields } from "./forms";
 import { SessionStore, sessionTransport, type AuthConfig, type TokenStorage } from "./session";
 import { SourceCache } from "./sources";
 import { Store } from "./store";
@@ -61,6 +61,8 @@ export class Runtime {
 
   private base: Transport;
   private returnTo: unknown;
+  /** the forms by their id: what is typed in one outlives its screen (a sign-in in between), as in the preview */
+  private readonly forms = new Map<string, FormController>();
   private readonly o: RuntimeOptions;
 
   constructor(o: RuntimeOptions) {
@@ -78,6 +80,15 @@ export class Runtime {
 
   setLang(lang: string) {
     this.language.set(lang);
+  }
+
+  /** Where the app goes when a call is refused for want of a session, from now on (what `onUnauthorized` holds); what
+   *  it gives back stops it, for an effect's cleanup. */
+  whenUnauthorized(go: (request: TransportRequest) => void): () => void {
+    this.onUnauthorized = go;
+    return () => {
+      if (this.onUnauthorized === go) this.onUnauthorized = undefined;
+    };
   }
 
   /** what expressions are evaluated with: the language, the time, the currency */
@@ -100,6 +111,7 @@ export class Runtime {
   /** starts over on the same back end: no data, no session but the presumed one */
   restart(presumed = false) {
     this.returnTo = undefined;
+    this.forms.clear();
     this.sources.clear();
     this.session.reset(presumed);
     this.epoch.set((n) => n + 1);
@@ -109,7 +121,7 @@ export class Runtime {
    *  details, anything thrown on the way (no network) as status 0. */
   errorOf(e: unknown): Problem {
     const status = errorStatus(e);
-    if (status !== undefined && status > 0) return problemOf(status, (e as { body?: unknown }).body, this.lang);
+    if (status !== undefined) return problemOf(status, (e as { body?: unknown }).body, this.lang);
     const detail = e instanceof Error && e.message ? e.message.slice(0, 500) : undefined;
     return { ...problemOf(0, undefined, this.lang), ...(detail ? { detail } : {}) };
   }
@@ -146,6 +158,17 @@ export class Runtime {
     const op = this.o.auth?.logout;
     if (op && this.session.signedIn) void this.transport.request({ operationId: op.operationId, method: op.method, path: op.path }).catch(() => {});
     this.session.signOut();
+  }
+
+  /** The form of this id, made the first time it is asked for: what is entered in it stays while the app runs (the
+   *  screen it is on can go and come back) until the runtime starts over. */
+  form(id: string, fields: FormFields, initial?: Record<string, unknown>): FormController {
+    let f = this.forms.get(id);
+    if (!f) {
+      f = new FormController(fields, { lang: () => this.lang, call: (fn) => this.call(fn), initial });
+      this.forms.set(id, f);
+    }
+    return f;
   }
 
   /** where to go once signed in (a screen a guard or a 401 left), kept for the sign-in screen */
