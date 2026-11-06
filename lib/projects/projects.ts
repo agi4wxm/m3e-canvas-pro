@@ -4,7 +4,7 @@
 
 import { assetRefsIn, stripAssets } from "../assets";
 import type { Doc } from "../tokens";
-import { copyProjectRecords, deleteProjectRecords, listProjects, patchProject, pruneAssets, putNewProject, type ProjectMeta } from "./db";
+import { copyProjectRecords, deleteKv, deleteProjectRecords, listProjects, patchProject, pruneAssets, putNewProject, type ProjectMeta } from "./db";
 
 export type { ProjectMeta } from "./db";
 
@@ -138,9 +138,18 @@ export async function restoreProject(id: string) {
   tellProjectsChanged();
 }
 
-/** forgets a project for good, and the pictures only it used */
+/** the key the agent's conversation with a project is kept under in the kv store (src/editor/agentMemory.ts) */
+export const agentConversationKey = (id: string) => `agent:conversation:${id}`;
+
+/** What a project keeps in the kv store beside its records, forgotten with it. Kept apart from the records' own
+ *  transaction: a key left behind by a failure here is only a little unused data. */
+const projectKvKeys = (id: string) => [agentConversationKey(id)];
+const forgetProjectKv = (id: string) => deleteKv(projectKvKeys(id)).catch(() => {});
+
+/** forgets a project for good, what it kept beside it, and the pictures only it used */
 export async function purgeProject(id: string) {
   await deleteProjectRecords(id);
+  await forgetProjectKv(id);
   await pruneAssets().catch(() => 0);
   tellProjectsChanged();
 }
@@ -148,7 +157,10 @@ export async function purgeProject(id: string) {
 /** Forgets the projects left in the bin longer than their undo lasts (a tab closed before it ran out). */
 export async function purgeTrashed(now = Date.now()) {
   const old = (await listProjects()).filter((m) => m.deleted !== undefined && now - m.deleted > UNDO_DELETE_MS * 2);
-  for (const m of old) await deleteProjectRecords(m.id);
+  for (const m of old) {
+    await deleteProjectRecords(m.id);
+    await forgetProjectKv(m.id);
+  }
   if (old.length) {
     await pruneAssets().catch(() => 0);
     tellProjectsChanged();
