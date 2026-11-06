@@ -11,6 +11,7 @@ import { styleOwnsProp } from "../../styleRules";
 import { isStrict } from "../../styles";
 import { actionSlotsOf, BACK_TARGET, COLOR_TOKENS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
 import { OpError } from "../op";
+import { pictureError } from "../images";
 import { docIconId, docIconName, isDocIconName } from "../../docIcons";
 import type { CoreState } from "../state";
 
@@ -30,12 +31,27 @@ export function propKindText(d: PropDef): string {
     case "number":
       return `a number from ${d.min} to ${d.max}${d.unit ? ` ${d.unit}` : ""}`;
     case "image":
-      return 'an image address (https:, data:image/…) or ""';
+      return 'a picture drawn into the document (a data:image URL; generate_image paints one) or ""';
     case "list":
       return `a list of rows like {"label": "…"${d.icons ? ', "icon": "…"' : ""}${d.images ? ', "image": "…"' : ""}}${d.min !== undefined ? `, at least ${d.min}` : ""}${d.max !== undefined ? `, at most ${d.max}` : ""}`;
     case "table":
       return 'a table {"columns": ["…"], "rows": [["…"]]}';
   }
+}
+
+/** words for sizes models write, by the short ones a part's choices use */
+const SIZE_WORDS: Record<string, string[]> = { sm: ["small", "s"], default: ["medium", "md", "m", "normal", "regular"], lg: ["large", "l", "big"], xs: ["extra-small", "xsmall", "tiny"], xl: ["extra-large", "xlarge", "huge"] };
+
+/** The choice a value nearly is, to name in an error: the same word in another case, a size said the long way ("large"
+ *  for "lg"), or the one choice that starts with it. */
+export function nearestChoice(d: Extract<PropDef, { kind: "enum" }>, v: string): string | undefined {
+  const values = d.options.map(choiceValueOf);
+  const w = v.trim().toLowerCase();
+  const same = values.find((x) => x.toLowerCase() === w);
+  if (same) return same;
+  for (const [short, long] of Object.entries(SIZE_WORDS)) if (long.includes(w) && values.includes(short)) return short;
+  const starts = values.filter((x) => w && (x.toLowerCase().startsWith(w) || w.startsWith(x.toLowerCase())));
+  return starts.length === 1 ? starts[0] : undefined;
 }
 
 /** why a value does not suit a prop, or null when it does */
@@ -45,19 +61,24 @@ export function propValueError(d: PropDef, v: unknown): string | null {
       return typeof v === "string" ? null : "should be text";
     case "icon":
       return typeof v === "string" && (/^[a-z0-9_]*$/.test(v) || isDocIconName(v)) ? null : "should be a Material Symbols icon name in snake_case, or svg:<id>";
-    case "enum":
-      return typeof v === "string" && d.options.some((o) => choiceValueOf(o) === v) ? null : `should be ${propKindText(d)}`;
+    case "enum": {
+      if (typeof v === "string" && d.options.some((o) => choiceValueOf(o) === v)) return null;
+      const near = typeof v === "string" ? nearestChoice(d, v) : undefined;
+      return `should be ${propKindText(d)}${near ? ` ("${near}" is the nearest)` : typeof v !== "string" ? `, not ${typeof v === "number" ? "a number" : typeof v}` : ""}`;
+    }
     case "bool":
       return typeof v === "boolean" ? null : "should be true or false";
     case "number":
       if (typeof v !== "number" || !Number.isFinite(v)) return "should be a number";
       return v < d.min || v > d.max ? `should be from ${d.min} to ${d.max}` : null;
     case "image":
-      return typeof v === "string" && (v === "" || /^(https?:|data:image\/|m3e-asset:)/i.test(v)) ? null : "should be an https: or data:image address";
+      return pictureError(v);
     case "list": {
       if (!Array.isArray(v)) return "should be a list of rows";
       const bad = v.findIndex((r) => !isRecord(r) || typeof r.label !== "string" || Object.entries(r).some(([k, x]) => k !== "label" && typeof x !== "string"));
       if (bad >= 0) return `row ${bad} should be {"label": "…"} with text fields only`;
+      const picture = d.images ? v.findIndex((r) => r.image !== undefined && pictureError(r.image)) : -1;
+      if (picture >= 0) return `row ${picture}: image ${pictureError(v[picture].image)}`;
       if (d.min !== undefined && v.length < d.min) return `should have at least ${d.min} rows`;
       if (d.max !== undefined && v.length > d.max) return `should have at most ${d.max} rows`;
       return null;
@@ -79,7 +100,8 @@ export function checkProps(def: PartDef, props: Record<string, unknown>, s: Core
     const d = def.props.find((x) => x.key === key);
     if (!d) throw new OpError("invalid_value", `${def.slug} has no prop "${key}". Its props are: ${def.props.map((x) => x.key).join(", ")}.`, key);
     const e = propValueError(d, v);
-    if (e) throw new OpError("invalid_value", `${def.slug}.${key} ${e}; it takes ${propKindText(d)}.`, key);
+    /* the error says what the prop takes where that helps (an enum's choices, a range), once */
+    if (e) throw new OpError("invalid_value", `${def.slug}.${key} ${e}.`, key);
     if (d.kind === "icon" && isDocIconName(v) && !s.doc.icons?.[docIconId(v)]) {
       const own = Object.keys(s.doc.icons ?? {}).map(docIconName);
       throw new OpError("invalid_value", `The document has no icon ${v}. ${own.length ? `Its own icons are: ${own.join(", ")}.` : "It has none of its own yet:"} set_icon (or generate_svg with icon) adds one.`, key);

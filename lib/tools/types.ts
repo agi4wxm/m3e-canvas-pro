@@ -12,8 +12,9 @@ export type ToolGroup = "read" | "edit" | "style" | "data" | "generate";
 
 export const TOOL_GROUPS: readonly ToolGroup[] = ["read", "edit", "style", "data", "generate"];
 
-/** what went wrong, in a form a model can act on: a code, what happened, and what to do about it */
-export type ToolErrorCode = OpErrorCode | "unknown_tool" | "unavailable" | "aborted" | "failed";
+/** what went wrong, in a form a model can act on: a code, what happened, and what to do about it; `declined` is the
+ *  author saying no to a call that would take away their work (lib/agent/guard.ts) */
+export type ToolErrorCode = OpErrorCode | "unknown_tool" | "unavailable" | "aborted" | "failed" | "declined";
 export type ToolError = { code: ToolErrorCode; message: string; hint?: string; about?: string };
 
 /** what a call gave back: a JSON-safe result (and pictures, as data URLs), or an error */
@@ -25,8 +26,9 @@ export type ToolReturn = { result: unknown; images?: string[] };
 /** Pictures of what the document looks like. The editor draws a screen offscreen (src/editor/useScreenshots.ts); the
  *  MCP server's file backend will draw it in headless Chromium. */
 export interface Renderer {
-  /** a screen, or one part cut out of its screen, as a PNG data URL; `scale` 1 is one pixel per dp */
-  screenshot(id: string, o?: { scale?: number; signal?: AbortSignal }): Promise<string>;
+  /** a screen, or one part cut out of its screen, as a PNG data URL; `scale` 1 is one pixel per dp. Pictures that
+   *  would not draw are left out of it, and their addresses handed to `onSkipped`. */
+  screenshot(id: string, o?: { scale?: number; signal?: AbortSignal; onSkipped?: (urls: string[]) => void }): Promise<string>;
 }
 
 /** What the generative tools draw with: the author's settings (keys stay in the browser, or in the MCP server's
