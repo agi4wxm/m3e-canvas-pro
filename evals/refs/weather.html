@@ -1,0 +1,66 @@
+<!doctype html>
+<!-- A made-up weather screen drawn for the replication task: original, no product's look or words. evals/make-refs.ts
+     renders it at 412×892 dp, two pixels per dp, the way a phone screenshot comes. -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { width: 412px; height: 892px; font-family: "Inter", "Roboto", "Helvetica Neue", Arial, sans-serif; color: #ffffff; background: linear-gradient(180deg, #1d3b6f 0%, #2f5fa8 55%, #7fb2e5 100%); overflow: hidden; }
+      .top { padding: 72px 24px 0; text-align: center; }
+      .city { font-size: 30px; font-weight: 600; letter-spacing: 0.2px; }
+      .sky { margin-top: 4px; font-size: 16px; color: #d6e4ff; }
+      .temp { margin-top: 8px; font-size: 104px; font-weight: 200; line-height: 1; }
+      .range { margin-top: 8px; font-size: 15px; color: #d6e4ff; }
+      .card { margin: 0 16px; border-radius: 20px; background: rgba(255, 255, 255, 0.16); padding: 14px 16px; }
+      .hourly { margin-top: 36px; }
+      .label { font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #d6e4ff; }
+      .hours { display: flex; justify-content: space-between; margin-top: 12px; }
+      .hour { width: 52px; text-align: center; font-size: 14px; }
+      .dot { width: 22px; height: 22px; border-radius: 50%; background: #ffd166; margin: 10px auto; }
+      .dot.cloud { background: #e8eef8; border-radius: 11px; width: 26px; height: 16px; margin: 13px auto; }
+      .daily { margin-top: 12px; }
+      .day { display: flex; align-items: center; height: 44px; font-size: 16px; border-top: 1px solid rgba(255, 255, 255, 0.18); }
+      .day:first-of-type { border-top: 0; }
+      .name { width: 72px; }
+      .lo { width: 40px; color: #d6e4ff; text-align: right; }
+      .bar { flex: 1; height: 6px; margin: 0 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); position: relative; }
+      .bar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, #8ecbff, #ffc65c); }
+      .hi { width: 40px; }
+      .tabs { position: absolute; left: 0; right: 0; bottom: 0; height: 72px; display: flex; justify-content: space-around; align-items: center; background: rgba(13, 32, 64, 0.55); font-size: 12px; }
+      .tab { text-align: center; color: #b9cdf0; }
+      .tab.on { color: #ffffff; font-weight: 600; }
+      .tab b { display: block; width: 22px; height: 22px; margin: 0 auto 4px; border-radius: 6px; border: 2px solid currentColor; }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <div class="city">Lisbon</div>
+      <div class="sky">Mostly sunny</div>
+      <div class="temp">21°</div>
+      <div class="range">H 24° · L 15°</div>
+    </div>
+    <div class="card hourly">
+      <div class="label">Hourly forecast</div>
+      <div class="hours">
+        <div class="hour">Now<div class="dot"></div>21°</div>
+        <div class="hour">14<div class="dot"></div>23°</div>
+        <div class="hour">15<div class="dot"></div>24°</div>
+        <div class="hour">16<div class="dot cloud"></div>22°</div>
+        <div class="hour">17<div class="dot cloud"></div>20°</div>
+      </div>
+    </div>
+    <div class="card daily">
+      <div class="label">Next days</div>
+      <div class="day"><span class="name">Today</span><span class="lo">15°</span><span class="bar"><i style="left: 20%; right: 25%"></i></span><span class="hi">24°</span></div>
+      <div class="day"><span class="name">Sat</span><span class="lo">14°</span><span class="bar"><i style="left: 10%; right: 35%"></i></span><span class="hi">22°</span></div>
+      <div class="day"><span class="name">Sun</span><span class="lo">16°</span><span class="bar"><i style="left: 30%; right: 15%"></i></span><span class="hi">26°</span></div>
+      <div class="day"><span class="name">Mon</span><span class="lo">13°</span><span class="bar"><i style="left: 5%; right: 45%"></i></span><span class="hi">19°</span></div>
+    </div>
+    <div class="tabs">
+      <div class="tab on"><b></b>Today</div>
+      <div class="tab"><b></b>Radar</div>
+      <div class="tab"><b></b>Places</div>
+    </div>
+  </body>
+</html>

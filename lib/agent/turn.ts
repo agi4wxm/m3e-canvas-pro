@@ -115,7 +115,7 @@ function summaryOf(name: string, o: ToolOutcome): string {
 }
 
 const REVIEW =
-  "Here is how the screens you changed look now. Compare them with the request. If something is wrong (parts overlapping or cut off, uneven spacing, misaligned edges, missing content, words in the wrong language), fix it with the tools now; otherwise answer the author in one or two sentences. A gap under an open select, menu or date picker is how the canvas draws them: leave it.";
+  "Here is how the screens you changed look now. Compare them with the request. If something is wrong (parts overlapping or cut off, uneven spacing, misaligned edges, missing content, words in the wrong language), fix it with the tools now; otherwise answer the author in one or two sentences. An open select, menu or date picker hangs over what is below it on the canvas: that is how the canvas draws them, leave it.";
 
 export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   const t0 = Date.now();

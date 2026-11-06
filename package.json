@@ -20,6 +20,8 @@
     "lint": "vp lint --deny-warnings",
     "test": "vitest run",
     "test:e2e": "bun e2e/run.ts",
+    "eval": "bun evals/run.ts",
+    "eval:refs": "bun evals/make-refs.ts",
     "gen:parts": "node scripts/gen-parts-components.mjs",
     "gen:agent": "bun scripts/gen-agent.ts",
     "gen:icons": "node scripts/icons.mjs --src components/m3e --dir components/m3e",

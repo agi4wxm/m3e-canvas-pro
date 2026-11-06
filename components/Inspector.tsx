@@ -12,7 +12,8 @@ import {
 } from "@/lib/tokens";
 import { ComponentInspector } from "./ComponentInspector";
 import { InstanceInspector } from "./ReusePanels";
-import { AlignBox, LineUp, PartMenu, PlaceFn } from "./PartPanel";
+import { AlignBox, PartMenu, PlaceFn } from "./PartPanel";
+import { MultiDesign, actionBtn, type Shared } from "./DesignPanel";
 import type { AlignHow } from "@/lib/align";
 import type { Flow } from "@/lib/flow";
 import { Icon } from "./Icon";
@@ -85,6 +86,9 @@ function GroupPanel({
   onAutoLayout,
   onTidyUp,
   onMakeComponent,
+  shared,
+  onEach,
+  strict,
 }: {
   p: Palette;
   count: number;
@@ -104,6 +108,10 @@ function GroupPanel({
   /** Figma's Tidy up: the selection as an even row, column or grid */
   onTidyUp?: () => void;
   onMakeComponent?: () => void;
+  /** what the selected parts share, and how one field is set on each */
+  shared?: Shared;
+  onEach?: (field: "x" | "y" | "w" | "h" | "opacity" | "radius", v: number) => void;
+  strict?: boolean;
 }) {
   const lang = useLang();
   const title = grouped ? t("group", lang) : lang === "en" ? `${count} ${t("selectedParts", lang)}` : `${count}${t("selectedParts", lang)}`;
@@ -121,38 +129,27 @@ function GroupPanel({
         </div>
       }
     >
-      {onAlign && onDistribute && !grouped && (
-        <Section id="group-line-up" icon="align_horizontal_left" title={t("lineUp", lang)} p={p}>
-          <LineUp key={selectionKey} onAlign={onAlign} onDistribute={onDistribute} p={p} />
-          {onTidyUp && (
-            <button
-              onClick={onTidyUp}
-              data-tidy-up
-              title={t("tidyUpKeys", lang)}
-              className="m3-press"
-              style={{ marginTop: 10, height: 40, borderRadius: 20, border: "none", background: p.secondaryContainer, color: p.onSecondaryContainer, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}
-            >
-              <Icon name="grid_on" size={20} />
-              {t("tidyUp", lang)}
-            </button>
-          )}
-        </Section>
-      )}
-      {onPlace && (
-        <Section id="group-align" icon="grid_on" title={t("align", lang)} p={p}>
-          <AlignBox key={selectionKey} onPlace={onPlace} p={p} />
-        </Section>
+      {shared && onEach && !grouped ? (
+        <div style={{ margin: "0 -4px 12px" }}>
+          <MultiDesign p={p} shared={shared} onEach={onEach} onAlign={onAlign} onDistribute={onDistribute} onTidyUp={onTidyUp} onPlace={onPlace} selectionKey={selectionKey} strict={!!strict} />
+        </div>
+      ) : (
+        onPlace && (
+          <Section id="group-align" icon="grid_on" title={t("align", lang)} p={p}>
+            <AlignBox key={selectionKey} onPlace={onPlace} p={p} />
+          </Section>
+        )
       )}
       {/* the header already names the group, so the button that makes or breaks it stands under the sections without a title of its own */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 4px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 4px" }}>
         {onMakeComponent && !locked && (
           <button
             onClick={onMakeComponent}
             data-make-component
             className="m3-press"
-            style={{ height: 44, borderRadius: 22, border: "none", background: p.primaryContainer, color: p.onPrimaryContainer, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}
+            style={actionBtn(p)}
           >
-            <Icon name="widgets" size={20} />
+            <Icon name="widgets" size={16} />
             {t("makeComponent", lang)}
           </button>
         )}
@@ -162,32 +159,18 @@ function GroupPanel({
             data-suggest-layout
             title={t("suggestLayoutKeys", lang)}
             className="m3-press"
-            style={{ height: 44, borderRadius: 22, border: "none", background: p.primaryContainer, color: p.onPrimaryContainer, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}
+            style={actionBtn(p)}
           >
-            <Icon name="view_quilt" size={20} />
+            <Icon name="view_quilt" size={16} />
             {t("suggestLayout", lang)}
           </button>
         )}
         <button
           onClick={toggle}
           className="m3-press"
-          style={{
-            height: 44,
-            borderRadius: 22,
-            border: "none",
-            background: p.secondaryContainer,
-            color: p.onSecondaryContainer,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            width: "100%",
-          }}
+          style={actionBtn(p)}
         >
-          <Icon name={grouped ? "ungroup" : "group_work"} size={20} />
+          <Icon name={grouped ? "ungroup" : "group_work"} size={16} />
           {t(grouped ? "ungroup" : "makeGroup", lang)}
         </button>
         <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px", textWrap: "pretty" }}>{t(grouped ? "groupEditNote" : "groupHint", lang)}</div>
@@ -226,6 +209,10 @@ export function Inspector({
   onMakeComponent,
   onSplit,
   instance,
+  shared,
+  onEach,
+  onExport,
+  strict,
 }: {
   /** the AI button beside the behavior field */
   ai: AiHooks;
@@ -273,6 +260,13 @@ export function Inspector({
   onMakeComponent?: () => void;
   /** replaces the selected composite with the atoms it is made of */
   onSplit?: () => void;
+  /** what several selected parts share, and how one field is set on each of them */
+  shared?: Shared;
+  onEach?: (field: "x" | "y" | "w" | "h" | "opacity" | "radius", v: number) => void;
+  /** saves the selected part as a picture */
+  onExport?: (scale: number) => void;
+  /** the document is held to its style's rules */
+  strict?: boolean;
   /** the selection is one instance of a component, which has a panel of its own */
   instance?: { group: Group; def: ComponentDef; components: ComponentDef[]; onEdit: () => void; onDetach: () => void; onOverrides: (overrides: Group["overrides"]) => void } | null;
 }) {
@@ -300,6 +294,9 @@ export function Inspector({
           onAutoLayout={onAutoLayout}
           onTidyUp={onTidyUp}
           onMakeComponent={onMakeComponent}
+          shared={shared}
+          onEach={onEach}
+          strict={strict}
         />
       );
     }
@@ -338,6 +335,7 @@ export function Inspector({
       onMoveTo={onMoveTo}
       onMakeComponent={onMakeComponent}
       onSplit={onSplit}
+      onExport={onExport}
     />
   );
 }

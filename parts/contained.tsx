@@ -1,5 +1,5 @@
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Children, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { PortalContainer } from "@/components/m3e/portal-container";
 
 type Place = "start" | "end" | "center";
@@ -83,6 +83,25 @@ export function Contained({ width, height, ax = "start", ay = "start", fit = fal
       }}
     >
       <PortalContainer container={box}>{children}</PortalContainer>
+    </div>
+  );
+}
+
+/** A part drawn open off its trigger (a select, a menu, a search with its suggestions): it stands at its closed size, which
+ *  the first child gives (the part drawn closed, kept out of sight), and the open drawing, the second child, hangs from
+ *  its top left over whatever comes after it. Auto layout and every measure then go by the closed part, as in use, and a
+ *  form or a composer keeps no hole for a menu that is only open on the canvas. In the preview (`live`) only the trigger
+ *  and the menu it opens take the pointer, not the box the menu opens in. */
+export function Overhang({ live = false, children }: { live?: boolean; children?: ReactNode }) {
+  const [closed, open] = Children.toArray(children);
+  return (
+    <div data-overhang style={{ position: "relative", display: "inline-flex", verticalAlign: "top" }}>
+      <div aria-hidden inert style={{ display: "inline-flex", visibility: "hidden" }}>
+        {closed}
+      </div>
+      <div data-overhang-live={live || undefined} style={{ position: "absolute", left: 0, top: 0, pointerEvents: live ? "none" : undefined }}>
+        {open}
+      </div>
     </div>
   );
 }
