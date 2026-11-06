@@ -112,10 +112,13 @@ jobs:
 
   # The whole-product export (lib/export): a fixture with an API contract exported as a monorepo, then for real npm
   # install, typecheck, lint, build (web and server), test, the contract tests against the built server, the app in
-  # Chromium, and a second export over it that must keep custom code (scripts/check-product.ts).
+  # Chromium, and a second export over it that must keep custom code (scripts/check-product.ts). The shop is a document
+  # with its own contract (auth, paging, uploads, realtime): its server answers 400 / 401 / 501 as problem details, two
+  # handlers written into it pass the contract tests in strict mode, and a contract that grows or shrinks seeds a new
+  # stub or leaves an orphan, never touching the handlers written.
   product:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -135,6 +138,8 @@ jobs:
           echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
       - name: Export a product and check it for real
         run: bun scripts/check-product.ts "${{ runner.temp }}/product"
+      - name: Export the shop (its own contract) and check its server for real
+        run: bun scripts/check-product.ts "${{ runner.temp }}/product" shop
       - name: Logs of what failed
         if: failure()
         uses: actions/upload-artifact@v4

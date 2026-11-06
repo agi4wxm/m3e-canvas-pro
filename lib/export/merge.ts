@@ -14,6 +14,9 @@
  *   seeded file, not on disk                       written (custom code starts from it)
  *   seeded file, on disk                           kept, whatever it holds
  *   generated file the product no longer has       deleted when it is as the last export left it, else left
+ *   seeded file the product no longer has          never deleted: custom code for something the design no longer
+ *                                                  has (the handler of a removed operation), reported at every
+ *                                                  export until someone deletes it
  *   `.m3e-new` of a conflict that is gone          deleted when it is as the export wrote it
  */
 
@@ -100,6 +103,9 @@ export type ExportPlan = {
   removed: string[];
   /** files the export would have deleted but someone changed: left in place */
   orphaned: string[];
+  /** custom code (seeded files) for something the product no longer has, such as the handler of an operation the
+   *  contract lost: never deleted, no longer used, and reported at every export until someone deletes it */
+  customOrphans: string[];
   /** what the plan noticed about the folder */
   notes: string[];
   manifest: Manifest;
@@ -145,7 +151,7 @@ export function planExport({ product, next, disk, texts = {}, previous, generato
     if (path.startsWith(".m3e/")) throw new Error(`refusing to write ${path}: .m3e/ is the manifest's`);
     if (path.endsWith(CONFLICT_SUFFIX)) throw new Error(`refusing to write ${path}: ${CONFLICT_SUFFIX} names the copies of conflicts`);
   }
-  const plan: ExportPlan = { writes: [], deletes: [], unchanged: [], merged: [], kept: [], conflicts: [], removed: [], orphaned: [], notes: [], manifest: { format: MANIFEST_FORMAT, version: 1, generator, product, files: {}, pending: {} } };
+  const plan: ExportPlan = { writes: [], deletes: [], unchanged: [], merged: [], kept: [], conflicts: [], removed: [], orphaned: [], customOrphans: [], notes: [], manifest: { format: MANIFEST_FORMAT, version: 1, generator, product, files: {}, pending: {} } };
   if (previous && previous.product && previous.product !== product) plan.notes.push(`the folder held the export of ${JSON.stringify(previous.product)}`);
   const before = previous?.files ?? {};
   const copies = new Set<string>();
@@ -187,9 +193,15 @@ export function planExport({ product, next, disk, texts = {}, previous, generato
 
   /* what the last export wrote that this one does not: gone when nobody changed it */
   for (const [path, entry] of Object.entries(before).sort(byPath)) {
-    if (path in next || entry.kind !== "generated") continue;
+    if (path in next) continue;
     const there = disk[path];
     if (there === undefined) continue;
+    if (entry.kind === "seeded") {
+      /* custom code stays, and stays in the manifest, so the next export reports it again */
+      plan.customOrphans.push(path);
+      plan.manifest.files[path] = entry;
+      continue;
+    }
     if (there === entry.sha256) {
       plan.deletes.push(path);
       plan.removed.push(path);
@@ -257,7 +269,7 @@ export function mergedPackageJson(disk: string | undefined, generatedText: strin
 }
 
 /** a plan in a few words, for a log or a status line */
-export function planSummary(plan: ExportPlan): { written: number; unchanged: number; merged: number; kept: number; conflicts: number; removed: number; orphaned: number } {
+export function planSummary(plan: ExportPlan): { written: number; unchanged: number; merged: number; kept: number; conflicts: number; removed: number; orphaned: number; customOrphans: number } {
   return {
     written: plan.writes.filter((w) => w.why !== "conflict" && w.why !== "manifest").length,
     unchanged: plan.unchanged.length,
@@ -266,5 +278,6 @@ export function planSummary(plan: ExportPlan): { written: number; unchanged: num
     conflicts: plan.conflicts.length,
     removed: plan.removed.length,
     orphaned: plan.orphaned.length,
+    customOrphans: plan.customOrphans.length,
   };
 }

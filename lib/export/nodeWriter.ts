@@ -88,6 +88,7 @@ export function reportLines(plan: ExportPlan): string[] {
     `${written.length} written, ${plan.unchanged.length} unchanged, ${plan.kept.length} custom kept, ${plan.merged.length} merged, ${plan.conflicts.length} conflicts, ${plan.removed.length} removed`,
     ...plan.conflicts.map((c) => `conflict: ${c.path} was changed since the last export; the new version is in ${c.copy}`),
     ...plan.orphaned.map((p) => `left: ${p} is no longer generated but was changed, so it stays`),
+    ...plan.customOrphans.map((p) => `orphan: ${p} is custom code for something the design no longer has; nothing uses it now, and it stays until you delete it`),
     ...plan.notes.map((n) => `note: ${n}`),
   ];
 }

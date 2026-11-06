@@ -145,23 +145,83 @@ function hostileDoc(): Doc {
 
 /* ---------- the product (lib/export) ---------- */
 
-/** a contract whose every name, path, parameter and example carries words that try to end what they are printed in */
+/** a contract whose every name, path, parameter and example carries words that try to end what they are printed in:
+ *  operations, paths, path and query parameters, models and their properties, security schemes, realtime channels
+ *  and their messages; summaries and descriptions also carry what a comment would read as a directive */
 function hostileApi() {
   const w = (s: string) => `${s}${WORDS}`;
-  const op = (id: string, extra: Record<string, unknown> = {}) => ({ operationId: w(id), summary: w("s"), description: w("d"), responses: { "200": { description: w("ok"), content: { "application/json": { schema: { $ref: `#/components/schemas/${w("X")}` }, example: { [w("k")]: w("v") } } } } }, ...extra });
+  const directive = (s: string) => `@ts-nocheck ${w(s)} eslint-disable`;
+  const X = { $ref: `#/components/schemas/${w("X")}` };
+  const op = (id: string, extra: Record<string, unknown> = {}) => ({
+    operationId: w(id),
+    summary: directive("s"),
+    description: w("d"),
+    security: [{ [w("auth")]: [w("scope")] }],
+    responses: { "200": { description: w("ok"), content: { "application/json": { schema: X, example: { [w("k")]: w("v") } } } }, [w("4XX")]: { description: w("bad") } },
+    ...extra,
+  });
   return {
     openapi: {
       openapi: "3.1.0",
       info: { title: w("T"), version: w("1") },
+      servers: [{ url: w("http://x"), "x-m3e-env": "dev", "x-m3e-realtime": `ws://localhost/${w("rt")}` }],
       paths: {
-        [`/a/{${w("id")}}`]: { get: op("get"), post: op("post", { requestBody: { content: { "application/json": { schema: { type: "object" } } } } }) },
-        [`/b"+markA+"/{x}`]: { delete: op("del"), put: op("put", { parameters: [{ name: w("q"), in: "query" }] }) },
+        [`/a/{${w("id")}}`]: { get: op("get"), post: op("post", { requestBody: { content: { "application/json": { schema: { type: "object", properties: { [w("p")]: { type: "string", pattern: w("(") } }, required: [w("p")] } } } } }) },
+        [`/b"+markA+"/{x}`]: { delete: op("del"), put: op("put", { parameters: [{ name: w("q"), in: "query", schema: { type: "integer", minimum: 1, description: w("q") } }, { name: w("h"), in: "header", required: true }] }) },
+        [`/c/{${w("id")}}/up`]: {
+          post: op("up", {
+            "x-m3e-pagination": { style: "cursor", items: w("items"), nextField: w("next"), cursorParam: w("c"), limitParam: w("l") },
+            requestBody: { content: { [`multipart/form-data`]: { schema: { type: "object", properties: { [w("f")]: { type: "string", format: "binary" } } }, encoding: { [w("f")]: { contentType: w("image/png") } } } } },
+          }),
+        },
         "/ok": { get: op("") },
+        /* paths that keep their words (a path with a space is no path): a parameter, a template, a wildcard */
+        [`/d/{id${ENDINGS[0]}}`]: { post: op("d", { requestBody: { required: true, content: { "application/json": { schema: X } } } }) },
+        [`/e/${ENDINGS[2]}/{x}`]: { get: op("e") },
+        [`/f/${ENDINGS[4]}`]: { get: op("f") },
       },
-      components: { schemas: { [w("X")]: { type: "object", description: w("x") } } },
+      components: {
+        schemas: { [w("X")]: { type: "object", description: w("x"), properties: { [w("prop")]: { type: "string", format: w("fmt"), enum: [w("e")] }, ["__proto__"]: { type: "string" } } } },
+        securitySchemes: { [w("auth")]: { type: "apiKey", in: "header", name: w("X-Key") }, [w("bear")]: { type: "http", scheme: w("bearer") } },
+      },
+    },
+    asyncapi: {
+      asyncapi: "3.0.0",
+      info: { title: w("T"), version: "1" },
+      channels: {
+        [w("ch")]: { address: `/r/{${w("room")}}`, description: directive("c"), messages: { [w("m")]: { payload: { type: "object", properties: { [w("t")]: { type: "string" } }, required: [w("t")] } } } },
+        [w("sse")]: { address: w("/s"), "x-m3e-transport": "sse", messages: { [w("n")]: { payload: X } } },
+      },
+      operations: {
+        [w("o1")]: { action: "send", channel: { $ref: `#/channels/${encodeURIComponent(w("ch")).replace(/~/g, "~0")}` } },
+        [w("o2")]: { action: "receive", channel: { $ref: `#/channels/${encodeURIComponent(w("ch")).replace(/~/g, "~0")}` } },
+      },
     },
     types: "",
   };
+}
+
+/** the markers of a source that stand anywhere but in a string, a template's text or a comment */
+function markersInLiteralsOnly(path: string, text: string): string[] {
+  const ast = parse(text, { sourceType: "module", plugins: ["typescript"] }) as unknown as { comments: { start: number; end: number }[] };
+  const ranges: [number, number][] = ast.comments.map((c) => [c.start, c.end]);
+  const visit = (n: unknown) => {
+    if (Array.isArray(n)) return n.forEach(visit);
+    if (!n || typeof n !== "object") return;
+    const node = n as { type?: string; start?: number; end?: number };
+    if ((node.type === "StringLiteral" || node.type === "TemplateElement" || node.type === "DirectiveLiteral") && node.start !== undefined && node.end !== undefined) ranges.push([node.start, node.end]);
+    for (const [k, v] of Object.entries(n)) if (!["loc", "extra", "comments", "leadingComments", "trailingComments", "innerComments"].includes(k)) visit(v);
+  };
+  visit(ast);
+  const out: string[] = [];
+  /* a marker inside a longer identifier is a name the export made of the words' letters and digits (identifierOf) */
+  for (const m of text.matchAll(/(?<![\w$])mark[A-I](?![\w$])/g)) if (!ranges.some(([a, b]) => m.index! >= a && m.index! < b)) out.push(`${path}: ${m[0]} at ${m.index}`);
+  return out;
+}
+
+/** the comments of a source that carry words of the contract, and every comment that reads as a directive */
+function commentsOf(text: string): { type: string; value: string }[] {
+  return (parse(text, { sourceType: "module", plugins: ["typescript"] }) as unknown as { comments: { type: string; value: string }[] }).comments;
 }
 
 /** the npm names npm accepts */
@@ -200,5 +260,31 @@ describe("a document's and a contract's words in the exported product", () => {
     }
     /* the JSON files read back as JSON */
     for (const p of paths.filter((x) => x.endsWith(".json"))) expect(() => JSON.parse(product.files[p].body as string), p).not.toThrow();
+
+    /* the server and its contract tests: the contract's words reached them (the stubs show the contract in comments) */
+    const backEnd = code.filter((p) => p.startsWith("server/") || p.startsWith("contract-tests/"));
+    expect(backEnd.filter((p) => (product.files[p].body as string).includes("markA")).length).toBeGreaterThan(5);
+    expect(paths.filter((p) => p.startsWith("server/src/handlers/")).length).toBeGreaterThanOrEqual(8);
+    expect(product.warnings.some((x) => x.includes("cannot be routed"))).toBe(true);
+    /* each marker is in a string, a template's text or a comment, never in the code between them */
+    expect(backEnd.flatMap((p) => markersInLiteralsOnly(p.endsWith(".mjs") ? `${p}.js` : p, product.files[p].body as string))).toEqual([]);
+    for (const p of backEnd) {
+      for (const c of commentsOf(product.files[p].body as string)) {
+        /* words of the contract only ever in line comments, and none of those reads as a directive */
+        if (/mark[A-I]|@ts-nocheck/.test(c.value)) {
+          expect(c.type, `${p}: ${c.value}`).toBe("CommentLine");
+          expect(c.value, p).not.toMatch(/^\s*(@ts-|eslint|\/\s*<|global\b|prettier-ignore)/);
+        }
+        /* the only directive the export writes in the back end is its own */
+        if (/^\s*(@ts-|eslint-)/.test(c.value)) expect(c.value.trim(), p).toBe("eslint-disable-next-line @typescript-eslint/no-explicit-any");
+      }
+    }
+    /* the handler files are named by identifiers, and the server routes what it can and says what it cannot */
+    for (const p of paths.filter((x) => x.startsWith("server/src/handlers/"))) expect(p, p).toMatch(/^server\/src\/handlers\/(channels\/)?[A-Za-z][A-Za-z0-9]*\.ts$/);
+    expect(product.warnings.join("\n")).not.toMatch(/undefined|\[object/);
+    /* a key JavaScript would read as the prototype stays a key: such data is parsed, not written as an object literal */
+    expect(product.files["server/src/generated/contract.ts"].body as string).toMatch(/REQUEST_DEFINITIONS: Record<string, unknown> = JSON\.parse\(/);
+    /* the realtime channels came through too, each with its own stub */
+    expect(paths.filter((p) => p.startsWith("server/src/handlers/channels/")).length).toBe(2);
   }, 120_000);
 });
