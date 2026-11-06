@@ -93,6 +93,7 @@ export function SortableList({ items = [], width = 320, className, style }: { it
           key={row}
           role="listitem"
           draggable
+          data-slot="sortable-list-row"
           data-dragging={i === dragged || undefined}
           className={`text-body-medium text-on-surface flex h-12 cursor-grab items-center gap-2 rounded-lg px-2 ${i === dragged ? "bg-secondary-container" : "bg-surface-container-low"}`}
           onDragStart={() => setDragged(i)}
@@ -101,7 +102,7 @@ export function SortableList({ items = [], width = 320, className, style }: { it
           onDragEnd={() => setDragged(-1)}
         >
           <WidgetIcon name="drag_indicator" className="text-on-surface-variant size-5" />
-          <span className="min-w-0 flex-1 truncate">{row}</span>
+          <span data-slot="sortable-list-title" className="min-w-0 flex-1 truncate">{row}</span>
         </div>
       ))}
     </div>

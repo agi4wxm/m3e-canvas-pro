@@ -398,3 +398,60 @@ describe("a screen whose body scrolls", () => {
     expect(prompt(lang, 892)).not.toContain(SCROLLS[lang]);
   });
 });
+
+describe("what each part asks of the auto layout it is in", () => {
+  const doc = (groups: Doc["groups"]): Doc => ({ groups, frames: [{ id: "f", name: "Home", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "T", brief: "" });
+  const row = (): Doc["groups"] => [
+    { id: "row", x: 16, y: 80, axis: "x", items: [part("box", "i-row", { layout: "row", gap: 8, width: 360, height: 100, hugWidth: false, surface: "card" })] },
+    { id: "a", x: 16, y: 92, axis: "x", inFlow: "row", items: [part("button", "i-a", { label: "Fills" }, { flowSize: { w: "fill" }, alignSelf: "end", flowMin: { w: 120 } })] },
+    { id: "b", x: 330, y: 70, axis: "x", inFlow: "row", items: [part("badge", "i-b", { label: "3" }, { flowAbsolute: true })] },
+    { id: "c", x: 200, y: 92, axis: "x", inFlow: "row", items: [part("button", "i-c", { label: "Fixed" })] },
+  ];
+  const widths = { "i-row": 360, "i-row:h": 100, "i-a": 100, "i-a:h": 40, "i-b": 20, "i-b:h": 20, "i-c": 100, "i-c:h": 40, "i-g": 360, "i-g:h": 200, "i-w": 100, "i-w:h": 40, "i-s": 360, "i-s:h": 80, "i-k": 100, "i-k:h": 40 };
+  const said = (lang: Lang, groups = row()) => {
+    setGlobalLang(lang);
+    return lines(buildPrompt(doc(groups), widths, undefined, lang));
+  };
+
+  it("says how a flowed part is sized, aligned and limited, with the classes that do it", () => {
+    const ls = said("en");
+    const fills = ls.find((l) => l.includes('"Fills"'))!;
+    expect(fills).toContain("takes the remaining width (`min-w-0 flex-1`)");
+    expect(fills).toContain("aligned to the end across the row (`self-end`)");
+    expect(fills).toContain("at least 120dp wide (`min-w-[120px]`)");
+    /* a part that goes by the container says nothing more */
+    expect(ls.find((l) => l.includes('"Fixed"'))).toMatch(/<\/Button>`\.$/);
+  });
+
+  it("lists a part standing loose in the layout on top of it, where it stands, not in the run", () => {
+    const ls = said("en");
+    const run = ls.findIndex((l) => l.includes("Nested in the auto layout of"));
+    const loose = ls.findIndex((l) => l.includes("Layered on top of") && l.includes("out of its auto layout"));
+    const badge = ls.findIndex((l) => l.includes("Badge"));
+    expect(loose).toBeGreaterThan(run);
+    expect(badge).toBeGreaterThan(loose);
+    expect(ls[badge]).toContain("at left 314px, top -10px (`absolute left-[314px] top-[-10px]`)");
+    /* the run lists only what takes its turn in it */
+    expect(ls.slice(run, loose).some((l) => l.includes("Badge"))).toBe(false);
+  });
+
+  it.each(LANGS)("says it in every language (%s)", (lang) => {
+    const text = said(lang).join("\n");
+    expect(text).toContain("`min-w-0 flex-1`");
+    expect(text).toContain("`self-end`");
+    expect(text).toContain("`min-w-[120px]`");
+    expect(text).toContain("`absolute left-[314px] top-[-10px]`");
+  });
+
+  it("says a grid part's span and a part that keeps its own height in a stretching row", () => {
+    const groups: Doc["groups"] = [
+      { id: "g", x: 16, y: 80, axis: "x", items: [part("box", "i-g", { layout: "grid", columns: 3, gap: 8, width: 360, height: 200, hugWidth: false, surface: "card" })] },
+      { id: "w", x: 16, y: 92, axis: "x", inFlow: "g", items: [part("button", "i-w", { label: "Wide" }, { flowSpan: 2 })] },
+      { id: "s", x: 16, y: 300, axis: "x", items: [part("box", "i-s", { layout: "row", align: "stretch", gap: 8, width: 360, height: 80, hugWidth: false, surface: "card" })] },
+      { id: "k", x: 16, y: 310, axis: "x", inFlow: "s", items: [part("button", "i-k", { label: "Keep" }, { flowSize: { h: "fixed" } })] },
+    ];
+    const text = said("en", groups).join("\n");
+    expect(text).toContain("spans 2 columns (`col-span-2`)");
+    expect(text).toContain("keeps its own height rather than stretching (`self-start`)");
+  });
+});

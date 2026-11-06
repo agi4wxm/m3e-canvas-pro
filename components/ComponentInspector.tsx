@@ -10,10 +10,14 @@ import { AiHooks } from "./Inspector";
 import { Icon } from "./Icon";
 import { BehaviorContext, BindRow, StyleRulesContext, VisibilitySection } from "./EffectsPanel";
 import { styleOwnsProp } from "@/lib/styleRules";
-import { AlignBox, AppearanceCorners, AppearanceLook, EntryList, FillRun, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, PositionRow, SlotStrip, Tab, TextRun, TriggerSection, WidthRows } from "./PartPanel";
+import { AlignBox, AppearanceCorners, EntryList, FillRun, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, PositionRow, SlotStrip, Tab, TextRun, TriggerSection, WidthRows } from "./PartPanel";
 import { segmentedFits } from "@/lib/choices";
 import { tableOf, tableText } from "@/lib/collections";
 import { RepeatSection } from "./ReusePanels";
+import { LookPanel } from "./LookPanel";
+import { FlowControl, FlowItemControl } from "./FlowPanel";
+import { FLOW_KEYS } from "@/parts/flow";
+import { childLayoutOf, type Flow } from "@/lib/flow";
 import { Field, ImageRow, NamedSizes, PanelShell, Section, Segmented, Select, Slider, Toggle } from "./ui";
 
 /* The panel of a part that is a real shadcn M3E component. It is built from the part's own prop
@@ -146,7 +150,7 @@ function ScenePaint({ item, values, p }: { item: Item; values: ReturnType<typeof
 }
 
 /** the controls of a part's props, one per prop the part shows in this state */
-export function ComponentProps({ item, palette: p, onChange, frame }: { item: Item; palette: Palette; onChange: (patch: Partial<Item>) => void; frame?: Frame | null }) {
+export function ComponentProps({ item, palette: p, onChange, frame, layoutApart, inFlow }: { item: Item; palette: Palette; onChange: (patch: Partial<Item>) => void; frame?: Frame | null; /** the panel shows auto layout in a section of its own */ layoutApart?: boolean; /** a layout places the part: where it would stand on the screen is not its to say */ inFlow?: boolean }) {
   const lang = useLang();
   const behavior = useContext(BehaviorContext);
   const strict = useContext(StyleRulesContext);
@@ -162,7 +166,8 @@ export function ComponentProps({ item, palette: p, onChange, frame }: { item: It
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {def.props
-        .filter((d) => (!d.when || d.when(values)) && !(strict && styleOwnsProp(def.slug, d.key)))
+        /* auto layout has a control of its own (components/FlowPanel.tsx); a part a layout places has no place of its own on the screen */
+        .filter((d) => (!d.when || d.when(values)) && !(strict && styleOwnsProp(def.slug, d.key)) && !(def.flow && FLOW_KEYS.has(d.key)) && !(inFlow && d.screen))
         .map((d) =>
           /* the row a part has chosen is picked by its name, not by counting: a dock's tab is also what the canvas shows and what a drop lands on */
           d.key === def.selectKey && d.kind === "number" && rowsToPick ? (
@@ -198,6 +203,7 @@ export function ComponentProps({ item, palette: p, onChange, frame }: { item: It
           ),
         )}
       {def.slug === "scene" && <ScenePaint item={item} values={values} p={p} />}
+      {def.flow && !layoutApart && <FlowControl item={item} onChange={onChange} p={p} />}
       {def.slug === "fab" && !!values.s("label") && !!values.s("icon") && <Toggle on={!!item.collapseOnScroll} onChange={(collapseOnScroll) => onChange({ collapseOnScroll: collapseOnScroll || undefined })} label={t("fabScrollSwitch", lang)} p={p} />}
     </div>
   );
@@ -217,8 +223,10 @@ export function ComponentInspector({
   selfRect,
   allFrames,
   inFlow,
+  flowParent,
   onMoveTo,
   onMakeComponent,
+  onSplit,
 }: {
   ai: AiHooks;
   item: Item;
@@ -234,10 +242,14 @@ export function ComponentInspector({
   allFrames: Frame[];
   /** a container's auto layout places this part */
   inFlow?: boolean;
+  /** the layout that places it, for how it is sized and lined up in it */
+  flowParent?: Flow | null;
   /** puts the part at a place on its screen */
   onMoveTo?: (x: number, y: number) => void;
   /** turns this part into a reusable component */
   onMakeComponent?: () => void;
+  /** replaces this composite, where it stands, with the atoms it is made of */
+  onSplit?: () => void;
 }) {
   const lang = useLang();
   const strict = useContext(StyleRulesContext);
@@ -259,28 +271,33 @@ export function ComponentInspector({
       {tab === "design" && (
         <div role="tabpanel" id="part-panel-design" aria-labelledby="part-tab-design">
           <Section id="part-props" icon="tune" title={t("style", lang)} p={p}>
-            <ComponentProps item={item} palette={p} onChange={onChange} frame={frame} />
+            <ComponentProps item={item} palette={p} onChange={onChange} frame={frame} layoutApart inFlow={inFlow} />
           </Section>
           {def.appearance && (
             <Section id="part-appearance" icon="format_paint" title={t("appearance", lang)} p={p}>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <FillRun value={item.fill} onChange={(fill) => onChange({ fill })} p={p} clearable />
                 <TextRun value={item.textColor} onChange={(textColor) => onChange({ textColor })} p={p} />
-                {strict ? (
-                  <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("styleDecidesLook", lang)}</div>
-                ) : (
-                  <>
-                    <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />
-                    <AppearanceLook key={`${item.id}:look`} item={item} onChange={onChange} p={p} />
-                  </>
-                )}
+                {/* held to a style, the panel offers only what the rules leave open (lib/styleRules.ts) */}
+                {!strict && <AppearanceCorners key={item.id} item={item} seed={def.appearance.radius ?? 16} onChange={onChange} p={p} />}
               </div>
             </Section>
           )}
+          {def.appearance && (
+            <Section id="part-effects" icon="auto_awesome" title={t("lkEffects", lang)} p={p}>
+              <LookPanel key={`${item.id}:look`} item={item} onChange={onChange} p={p} strict={strict} />
+            </Section>
+          )}
           <RepeatSection p={p} />
+          {def.flow && (
+            <Section id="part-flow" icon="view_quilt" title={t("layoutSection", lang)} p={p}>
+              {/* standing in a layout, its size is said once, beside fill, under "in auto layout" */}
+              <FlowControl item={item} onChange={onChange} p={p} sizing={!(inFlow && flowParent && !childLayoutOf(item).absolute)} />
+            </Section>
+          )}
           {inFlow && (
             <Section id="part-in-flow" icon="view_agenda" title={t("inAutoLayout", lang)} p={p}>
-              <Toggle on={!!item.flowFill} onChange={(flowFill) => onChange({ flowFill: flowFill || undefined })} label={t("flowFill", lang)} p={p} grow />
+              {flowParent ? <FlowItemControl item={item} parent={flowParent} onChange={onChange} p={p} /> : <Toggle on={!!item.flowFill} onChange={(flowFill) => onChange({ flowFill: flowFill || undefined })} label={t("flowFill", lang)} p={p} grow />}
             </Section>
           )}
           {onPlace && !inFlow && strict && (
@@ -293,6 +310,14 @@ export function ComponentInspector({
               <AlignBox key={item.id} onPlace={onPlace} p={p} />
               {onMoveTo && selfRect && <PositionRow x={Math.round(selfRect.x - (frame?.x ?? 0))} y={Math.round(selfRect.y - (frame?.y ?? 0))} onMove={(x, y) => onMoveTo(x + (frame?.x ?? 0), y + (frame?.y ?? 0))} p={p} />}
             </Section>
+          )}
+          {onSplit && def.atoms && !locked && (
+            <div style={{ padding: "0 4px 10px" }}>
+              <button onClick={onSplit} data-split-atoms title={t("splitAtomsHint", lang)} className="m3-press" style={{ height: 44, borderRadius: 22, border: "none", background: p.surfaceContainerHigh, color: p.onSurface, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}>
+                <Icon name="call_split" size={20} />
+                {t("splitAtoms", lang)}
+              </button>
+            </div>
           )}
           {onMakeComponent && !locked && (
             <div style={{ padding: "0 4px 14px" }}>

@@ -4,6 +4,7 @@
 const SOURCES = import.meta.glob(
   [
     "/components/m3e/*.{ts,tsx}",
+    "/components/m3e/icon-sets/*.ts",
     "/lib/m3e/*.ts",
     "/hooks/*.ts",
     "/parts/widgets/*.{ts,tsx}",

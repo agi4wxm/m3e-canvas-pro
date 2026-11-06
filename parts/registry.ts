@@ -18,20 +18,149 @@ import { game } from "./defs/game";
 import { media } from "./defs/media";
 import { mobile } from "./defs/mobile";
 import { more } from "./defs/more";
-import type { ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
+import { atoms } from "./defs/atoms";
+import { SPLITS } from "./defs/splits";
+import type { Labels, ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
+import type { KitLook } from "./kits/types";
 import { applyAppearance, type Appearance } from "./appearance";
 import { h, mapNodes, type PNode } from "./node";
 import { COMMON_TEXT, choiceValueOf, defaultTextOf, listTextOf } from "./labels";
 import { getLang, type Lang } from "../lib/i18n";
 
-/** the palette's sections, by what a part is for */
-export const CATEGORIES = ["Actions", "Text inputs", "Selection", "Navigation", "Overlays", "Feedback", "Layout", "Data", "Media", "Chat", "Game"] as const;
+/* ---------- what a part is for, and what it is made of ----------
+ * Parts come in two tiers. An atom cannot be split any further: a box, a line of text, an icon, a
+ * bare field, a button. A composite is made of atoms: a search bar, a list row, a card. The palette
+ * shows the tiers apart, each in sections by what the part is for. Other code reads the sections
+ * from here and never names one itself. */
+
+/** the palette's sections, in the order it shows them: the atoms first */
+export const CATEGORIES = [
+  "Basics",
+  "Controls",
+  "Indicators",
+  "Actions",
+  "Forms",
+  "Pickers",
+  "Navigation",
+  "Menus & search",
+  "Overlays",
+  "Feedback",
+  "Layout",
+  "Lists",
+  "Data & charts",
+  "Commerce",
+  "Social & chat",
+  "AI",
+  "Media",
+  "Game",
+  "Desktop",
+] as const;
 export type PartCategory = (typeof CATEGORIES)[number];
 
-export const PARTS: PartDef[] = [...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more];
+/** an atom cannot be split; a composite is built of atoms */
+export type PartTier = "atom" | "composite";
+export const TIERS: PartTier[] = ["atom", "composite"];
+
+export const CATEGORY_TIER: Record<PartCategory, PartTier> = {
+  Basics: "atom",
+  Controls: "atom",
+  Indicators: "atom",
+  Actions: "composite",
+  Forms: "composite",
+  Pickers: "composite",
+  Navigation: "composite",
+  "Menus & search": "composite",
+  Overlays: "composite",
+  Feedback: "composite",
+  Layout: "composite",
+  Lists: "composite",
+  "Data & charts": "composite",
+  Commerce: "composite",
+  "Social & chat": "composite",
+  AI: "composite",
+  Media: "composite",
+  Game: "composite",
+  Desktop: "composite",
+};
+
+/** the tier a part (or anything filed under a section, a kit too) belongs to */
+export const tierOf = (d: { category: string }): PartTier => CATEGORY_TIER[d.category as PartCategory] ?? "composite";
+
+/** the sections of one tier, in order */
+export const categoriesOf = (tier: PartTier): PartCategory[] => CATEGORIES.filter((c) => CATEGORY_TIER[c] === tier);
+
+/** what each section is called: `en` is what the docs and the AI guide call it */
+export const CATEGORY_TEXT: Record<PartCategory, Required<Labels>> = {
+  Basics: { en: "Basics", zh: "基础", ja: "基本", ko: "기본" },
+  Controls: { en: "Controls", zh: "控件", ja: "コントロール", ko: "컨트롤" },
+  Indicators: { en: "Indicators", zh: "指示", ja: "インジケーター", ko: "표시" },
+  Actions: { en: "Actions", zh: "操作", ja: "操作", ko: "동작" },
+  Forms: { en: "Forms", zh: "表单", ja: "フォーム", ko: "양식" },
+  Pickers: { en: "Pickers", zh: "选择器", ja: "ピッカー", ko: "선택기" },
+  Navigation: { en: "Bars & navigation", zh: "栏与导航", ja: "バーとナビゲーション", ko: "바와 내비게이션" },
+  "Menus & search": { en: "Menus & search", zh: "菜单与搜索", ja: "メニューと検索", ko: "메뉴와 검색" },
+  Overlays: { en: "Overlays", zh: "弹出层", ja: "オーバーレイ", ko: "오버레이" },
+  Feedback: { en: "Feedback", zh: "反馈", ja: "フィードバック", ko: "피드백" },
+  Layout: { en: "Layout", zh: "布局容器", ja: "レイアウト", ko: "레이아웃" },
+  Lists: { en: "Lists", zh: "列表", ja: "リスト", ko: "목록" },
+  "Data & charts": { en: "Data & charts", zh: "数据与图表", ja: "データとグラフ", ko: "데이터와 차트" },
+  Commerce: { en: "Commerce", zh: "电商与支付", ja: "コマース", ko: "커머스" },
+  "Social & chat": { en: "Social & chat", zh: "社交与聊天", ja: "ソーシャルとチャット", ko: "소셜과 채팅" },
+  AI: { en: "AI", zh: "AI 对话", ja: "AI チャット", ko: "AI 대화" },
+  Media: { en: "Media", zh: "媒体", ja: "メディア", ko: "미디어" },
+  Game: { en: "Game", zh: "游戏", ja: "ゲーム", ko: "게임" },
+  Desktop: { en: "Desktop", zh: "桌面软件", ja: "デスクトップ", ko: "데스크톱" },
+};
+
+/** the icon a section is shown with */
+export const CATEGORY_ICON: Record<PartCategory, string> = {
+  Basics: "category",
+  Controls: "toggle_on",
+  Indicators: "radio_button_checked",
+  Actions: "touch_app",
+  Forms: "edit_note",
+  Pickers: "event",
+  Navigation: "explore",
+  "Menus & search": "search",
+  Overlays: "web_asset",
+  Feedback: "campaign",
+  Layout: "dashboard",
+  Lists: "list",
+  "Data & charts": "bar_chart",
+  Commerce: "shopping_bag",
+  "Social & chat": "forum",
+  AI: "auto_awesome",
+  Media: "image",
+  Game: "sports_esports",
+  Desktop: "desktop_windows",
+};
+
+export const TIER_TEXT: Record<PartTier, Required<Labels>> = {
+  atom: { en: "Atoms", zh: "原子组件", ja: "アトム", ko: "원자 구성 요소" },
+  composite: { en: "Composites", zh: "组合组件", ja: "コンポジット", ko: "조합 구성 요소" },
+};
+
+export const categoryName = (c: PartCategory, lang: Lang) => CATEGORY_TEXT[c][lang];
+
+/* the composites that split are handed their trees of atoms here, where the two meet */
+export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((d) => {
+  const split = SPLITS[d.slug] as (typeof SPLITS)[string] | undefined;
+  /* the look a split is handed is the document's KitLook, which PartDef cannot name */
+  return split && !d.atoms ? { ...d, atoms: (p: P, look?: object) => split(p, look as KitLook | undefined) } : d;
+});
 
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);
+
+/** the fields of a row a tree reads. A row comes from the document, so one that holds anything but words
+ *  there (a node, code to print) is read with those fields left out. */
+const ROW_FIELDS = ["icon", "variant", "width", "image"] as const;
+function rowOf(row: ListItem): ListItem {
+  if (ROW_FIELDS.every((k) => row[k] === undefined || typeof row[k] === "string")) return row;
+  const out: ListItem = { label: row.label };
+  for (const k of ROW_FIELDS) if (typeof row[k] === "string") out[k] = row[k];
+  return out;
+}
 
 /** the values of a prop: the author's, or the part's default when it has none (or the wrong
  *  type). A default the author never touched is seeded in the editor's language. */
@@ -50,10 +179,11 @@ function read(def: PropDef, values: PropValues | undefined): unknown {
       return typeof v === "string" ? v : (def.default ?? "");
     case "number":
       return typeof v === "number" && Number.isFinite(v) ? Math.min(def.max, Math.max(def.min, v)) : def.default;
-    case "list":
-      return Array.isArray(v) && v.every((x) => typeof x === "object" && x !== null && typeof (x as ListItem).label === "string")
-        ? (v as ListItem[])
-        : def.default.map((x) => ({ ...x, label: listTextOf(x.label, getLang()) }));
+    case "list": {
+      if (!Array.isArray(v) || !v.every((x) => typeof x === "object" && x !== null && typeof (x as ListItem).label === "string")) return def.default.map((x) => ({ ...x, label: listTextOf(x.label, getLang()) }));
+      const rows = (v as ListItem[]).map(rowOf);
+      return rows.every((r, i) => r === v[i]) ? v : rows;
+    }
     case "table": {
       const t = v as Partial<TableData> | undefined;
       if (!Array.isArray(t?.columns) || !Array.isArray(t?.rows)) {
@@ -66,7 +196,7 @@ function read(def: PropDef, values: PropValues | undefined): unknown {
 }
 
 /** a reader over the part's prop values, with the defaults filled in */
-export function reader(def: PartDef, values: PropValues | undefined): P {
+export function reader(def: PartDef, values: PropValues | undefined, scope = ""): P {
   const byKey = new Map(def.props.map((d) => [d.key, d]));
   const get = (key: string) => {
     const d = byKey.get(key);
@@ -80,12 +210,13 @@ export function reader(def: PartDef, values: PropValues | undefined): P {
     list: (key) => get(key) as ListItem[],
     table: (key) => get(key) as TableData,
     say: (words) => listTextOf(words, getLang()),
+    scope,
   };
 }
 
 /** the JSX tree of a part with the given prop values, painted with its appearance when it has one */
-export const treeOf = (def: PartDef, values?: PropValues, appearance?: Appearance): PNode =>
-  applyAppearance(def.tree(reader(def, values)), appearance, def.appearance?.target);
+export const treeOf = (def: PartDef, values?: PropValues, appearance?: Appearance, scope?: string): PNode =>
+  applyAppearance(def.tree(reader(def, values, scope)), appearance, def.appearance?.target);
 
 /** the components that open something: while the part is drawn open they are held open (a click on the canvas must not dismiss them), and are not modal */
 export const OVERLAY_ROOTS = new Set(["Dialog", "AlertDialog", "Sheet", "SideSheet", "Drawer", "Popover", "HoverCard", "Tooltip", "DropdownMenu", "ContextMenu", "Select", "Combobox"]);
@@ -130,8 +261,8 @@ const modalOff = (n: PNode): PNode => (OVERLAY_ROOTS.has(n.type) ? { ...n, props
  *  tree stands unopened in the box that keeps its place (the overlay still opens inside the
  *  box, spilling past it). A hidden-trigger overlay has nothing to open it with, so it stays
  *  held open exactly as on the canvas. */
-export function viewOf(def: PartDef, values?: PropValues, appearance?: Appearance, screen?: Screen, live = false): PNode {
-  const p = reader(def, values);
+export function viewOf(def: PartDef, values?: PropValues, appearance?: Appearance, screen?: Screen, live = false, scope?: string): PNode {
+  const p = reader(def, values, scope);
   const open = def.open;
   const selfOpens = live && !!open && open.trigger !== "hide";
   const tree = applyAppearance(def.view && !selfOpens ? def.view(p, screen) : def.tree(p), appearance, def.appearance?.target);

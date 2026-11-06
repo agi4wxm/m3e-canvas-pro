@@ -10,15 +10,34 @@ const WIDTH = (value: number, min = 120, max = 1280): Extract<PartDef["props"][n
 const px = (p: P, key = "width") => Math.round(p.n(key));
 const words = (items: ListItem[]) => items.map((x) => x.label);
 
+/** The title bar's own row (desktop.ts says why it is drawn so): the platform's controls, the title, and the two hooks a
+ *  style may show, an app glyph and, behind the Mac's lights, a Windows app's caption buttons. */
+function windowBar(controls: string, title: string) {
+  const dot = h("span", { className: "bg-outline size-3 rounded-full" });
+  const glyphs = [ic("remove", { className: "size-4" }), ic("crop_square", { className: "size-4" }), ic("close", { className: "size-4" })];
+  return [
+    controls === "mac" && h("div", { "data-slot": "title-bar-controls", className: "flex gap-2" }, dot, dot, dot),
+    h("span", { "data-slot": "title-bar-icon", "aria-hidden": true, className: "hidden" }, ic("web_asset", { className: "size-4" })),
+    h("div", { "data-slot": "title-bar-title", className: `text-label-large text-on-surface flex-1 truncate ${controls === "mac" ? "text-center" : ""}` }, title),
+    controls === "windows" && h("div", { "data-slot": "title-bar-controls", className: "text-on-surface-variant flex gap-3" }, ...glyphs),
+    controls === "mac" && h("div", { "data-slot": "title-bar-caption", "aria-hidden": true, className: "text-on-surface-variant hidden gap-3" }, ...glyphs),
+  ];
+}
+
 const TEXT_STYLES: Record<string, string> = {
   display: "text-display-small",
   headline: "text-headline-small",
   title: "text-title-large",
+  heading: "text-title-medium",
   subtitle: "text-title-small",
+  lead: "text-body-large",
   body: "text-body-medium",
   label: "text-label-large",
   caption: "text-body-small",
+  tiny: "text-label-small",
 };
+/** the size and the line height of each style, for a guess at how much room the words take */
+const TEXT_METRICS: Record<string, [size: number, line: number]> = { display: [36, 44], headline: [24, 32], title: [22, 28], heading: [16, 24], subtitle: [14, 20], lead: [16, 24], body: [14, 20], label: [14, 20], caption: [12, 16], tiny: [11, 16] };
 const TEXT_COLORS: Record<string, string> = {
   default: "text-on-surface",
   muted: "text-on-surface-variant",
@@ -26,11 +45,29 @@ const TEXT_COLORS: Record<string, string> = {
   secondary: "text-secondary",
   tertiary: "text-tertiary",
   error: "text-error",
+  outline: "text-outline",
+  "on-primary": "text-on-primary",
+  inverse: "text-inverse-on-surface",
 };
+/* literal class names: Tailwind only sees what is written out */
+const CLAMP: Record<number, string> = { 1: "line-clamp-1", 2: "line-clamp-2", 3: "line-clamp-3", 4: "line-clamp-4", 5: "line-clamp-5", 6: "line-clamp-6" };
+
+/** how wide a line of words comes out at a size: a full-width character takes the size, any other about half of it */
+const wordsWidth = (line: string, size: number) => [...line].reduce((w, ch) => w + (/[⺀-￯]/.test(ch) ? size : /[A-Z0-9@#%&wm]/.test(ch) ? size * 0.66 : /[\s.,:;'|!il]/.test(ch) ? size * 0.3 : size * 0.54), 0);
+
+/** the room a text part that hugs its words takes before it is drawn: one line per line of words.
+ *  One of a fixed width is as wide as it says, and is measured for its height. */
+function textGuess(p: P) {
+  if (p.s("fit") !== "auto") return {};
+  const [size, line] = TEXT_METRICS[p.s("style")] ?? TEXT_METRICS.body;
+  const lines = p.s("text").split("\n").map((l) => wordsWidth(l, size) * (p.b("bold") ? 1.05 : 1));
+  return { w: Math.ceil(Math.max(8, ...lines)), h: line * lines.length };
+}
 const TEXT_ALIGN: Record<string, string> = { start: "text-left", center: "text-center", end: "text-right" };
 const FIT: Record<string, string> = { cover: "object-cover", contain: "object-contain" };
 const TRACK: Record<string, string> = { ok: "bg-primary", warn: "bg-tertiary", bad: "bg-error", none: "bg-surface-container-highest" };
 const ICON_BUTTON_SIZES: Record<string, string> = { xs: "icon-xs", sm: "icon-sm", default: "icon", md: "icon-md", lg: "icon-lg", xl: "icon-xl" };
+const ICON_BUTTON_DP: Record<string, number> = { xs: 32, sm: 40, default: 40, md: 56, lg: 96, xl: 136 };
 
 const EVENTS: TableData = {
   columns: ["Time", "Title", "Detail"],
@@ -48,7 +85,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 4 },
     name: "Text",
     labels: { ja: "テキスト", zh: "文本", ko: "텍스트" },
-    category: "Media",
+    category: "Basics",
     icon: "title",
     w: 280,
     h: 24,
@@ -58,15 +95,35 @@ export const additions: PartDef[] = [
       { key: "color", label: "Color", kind: "enum", default: "default", options: Object.keys(TEXT_COLORS) },
       { key: "align", label: "Align", labels: { ja: "揃え", zh: "对齐", ko: "정렬" }, kind: "enum", default: "start", options: Object.keys(TEXT_ALIGN) },
       { key: "bold", label: "Bold", labels: { ja: "太字", zh: "粗体", ko: "굵게" }, kind: "bool", default: false },
-      WIDTH(280, 40, 1600),
+      {
+        key: "fit",
+        label: "Sizing",
+        labels: { ja: "幅の決め方", zh: "宽度方式", ko: "너비 방식" },
+        kind: "enum",
+        default: "fixed",
+        options: [
+          { value: "auto", label: "Hug the words", labels: { ja: "文字に合わせる", zh: "随文字", ko: "글자에 맞춤" } },
+          { value: "fixed", label: "Fixed, wraps", labels: { ja: "固定・折り返す", zh: "固定宽度换行", ko: "고정·줄바꿈" } },
+        ],
+      },
+      { ...WIDTH(280, 40, 1600), when: (p: P) => p.s("fit") !== "auto" },
+      { key: "maxLines", label: "Most lines (0: any)", labels: { ja: "最大行数（0: 制限なし）", zh: "最多行数（0：不限）", ko: "최대 줄 수 (0: 제한 없음)" }, kind: "number", default: 0, min: 0, max: 6, step: 1, when: (p: P) => p.s("fit") !== "auto" },
     ],
-    tree: (p) => h("div", { "data-slot": "text", className: `${TEXT_STYLES[p.s("style")]} ${TEXT_COLORS[p.s("color")]} ${TEXT_ALIGN[p.s("align")]} whitespace-pre-wrap ${p.b("bold") ? "font-bold" : ""}`.trim(), style: { width: px(p) } }, p.s("text")),
+    /* hugging its words it is as wide as its longest line, the way a text layer is in a design tool;
+     *  fixed, it wraps in its width, which a stretching column sets for it */
+    tree: (p) => {
+      const auto = p.s("fit") === "auto";
+      const className = [TEXT_STYLES[p.s("style")], TEXT_COLORS[p.s("color")], TEXT_ALIGN[p.s("align")], auto ? "w-max whitespace-pre" : "whitespace-pre-wrap", !auto && CLAMP[Math.round(p.n("maxLines"))], p.b("bold") && "font-bold"].filter(Boolean).join(" ");
+      return h("div", { "data-slot": "text", className, style: auto ? undefined : { width: px(p) } }, p.s("text"));
+    },
+    guess: textGuess,
+    seed: { fit: "auto" },
   },
   {
     slug: "image",
     name: "Image",
     labels: { ja: "画像", zh: "图片", ko: "이미지" },
-    category: "Media",
+    category: "Basics",
     icon: "image",
     w: 240,
     h: 160,
@@ -91,18 +148,23 @@ export const additions: PartDef[] = [
     appearance: { radius: 20 },
     name: "Icon button",
     labels: { ja: "アイコンボタン", zh: "图标按钮", ko: "아이콘 버튼" },
-    category: "Actions",
+    category: "Controls",
     icon: "radio_button_unchecked",
     w: 40,
     h: 40,
     props: [
       { key: "icon", label: "Icon", kind: "icon", default: "favorite" },
       { key: "label", label: "Name for screen readers", labels: { ja: "読み上げ名", zh: "读屏名称", ko: "스크린 리더 이름" }, kind: "text", default: "Favorite", defaults: { zh: "收藏" } },
-      { key: "variant", label: "Variant", kind: "enum", default: "text", options: ["filled", "tonal", "elevated", "outlined", "text"] },
+      { key: "variant", label: "Variant", kind: "enum", default: "text", options: ["filled", "tonal", "elevated", "outlined", "text", "ghost"] },
       { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "enum", default: "default", options: Object.keys(ICON_BUTTON_SIZES) },
       { key: "disabled", label: "Disabled", labels: { zh: "禁用" }, kind: "bool", default: false },
+      { key: "iconFill", label: "Filled icon", labels: { ja: "塗りのアイコン", zh: "实心图标", ko: "채운 아이콘" }, kind: "bool", default: false },
     ],
-    tree: (p) => h("Button", { variant: p.s("variant"), size: ICON_BUTTON_SIZES[p.s("size")], "aria-label": p.s("label"), disabled: p.b("disabled") || undefined }, p.s("icon") ? ic(p.s("icon")) : null),
+    tree: (p) => h("Button", { variant: p.s("variant"), size: ICON_BUTTON_SIZES[p.s("size")], "aria-label": p.s("label"), disabled: p.b("disabled") || undefined }, p.s("icon") ? ic(p.s("icon"), p.b("iconFill") ? { fill: true } : undefined) : null),
+    guess: (p) => {
+      const side = ICON_BUTTON_DP[p.s("size")] ?? 40;
+      return { w: side, h: side };
+    },
   },
   {
     slug: "custom",
@@ -135,7 +197,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Window",
     labels: { ja: "ウィンドウ", zh: "窗口", ko: "창" },
-    category: "Layout",
+    category: "Desktop",
     icon: "web_asset",
     w: 640,
     h: 400,
@@ -150,17 +212,10 @@ export const additions: PartDef[] = [
     ],
     tree: (p) => {
       const controls = p.s("controls");
-      const dot = h("span", { className: "bg-outline size-3 rounded-full" });
       return h(
         "div",
         { "data-slot": "window", className: "bg-surface border-outline-variant flex flex-col overflow-hidden rounded-xl border", style: { width: px(p), height: px(p, "height") } },
-        h(
-          "div",
-          { className: "bg-surface-container flex h-9 shrink-0 items-center gap-3 px-3" },
-          controls === "mac" && h("div", { className: "flex gap-2" }, dot, dot, dot),
-          h("div", { className: `text-label-large text-on-surface flex-1 truncate ${controls === "mac" ? "text-center" : ""}` }, p.s("title")),
-          controls === "windows" && h("div", { className: "text-on-surface-variant flex gap-3" }, ic("remove", { className: "size-4" }), ic("crop_square", { className: "size-4" }), ic("close", { className: "size-4" })),
-        ),
+        h("div", { "data-slot": "title-bar", "data-controls": controls, className: "bg-surface-container flex h-9 shrink-0 items-center gap-3 px-3" }, ...windowBar(controls, p.s("title"))),
         h("div", { "data-flow": "body", className: "min-h-0 flex-1" }),
       );
     },
@@ -172,7 +227,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Tag input",
     labels: { ja: "タグ入力", zh: "标签输入", ko: "태그 입력" },
-    category: "Text inputs",
+    category: "Forms",
     icon: "new_label",
     w: 320,
     h: 104,
@@ -188,7 +243,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 4 },
     name: "Phone number",
     labels: { ja: "電話番号", zh: "手机号输入", ko: "전화번호" },
-    category: "Text inputs",
+    category: "Forms",
     icon: "call",
     w: 320,
     h: 56,
@@ -204,7 +259,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 16 },
     name: "File upload",
     labels: { ja: "ファイルアップロード", zh: "文件上传", ko: "파일 업로드" },
-    category: "Text inputs",
+    category: "Forms",
     icon: "upload_file",
     w: 360,
     h: 176,
@@ -223,7 +278,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Item picker",
     labels: { ja: "アイテムピッカー", zh: "图标选择", ko: "항목 선택" },
-    category: "Selection",
+    category: "Pickers",
     icon: "apps",
     w: 320,
     h: 168,
@@ -241,7 +296,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Multiple choice",
     labels: { ja: "複数選択", zh: "多选", ko: "다중 선택" },
-    category: "Selection",
+    category: "Pickers",
     icon: "checklist",
     w: 320,
     h: 80,
@@ -257,7 +312,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Color palette",
     labels: { ja: "カラーパレット", zh: "调色板", ko: "색상 팔레트" },
-    category: "Selection",
+    category: "Pickers",
     icon: "palette",
     w: 320,
     h: 96,
@@ -273,7 +328,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Number picker",
     labels: { ja: "数値ピッカー", zh: "数字选择器", ko: "숫자 선택기" },
-    category: "Selection",
+    category: "Pickers",
     icon: "pin",
     w: 96,
     h: 200,
@@ -318,7 +373,7 @@ export const additions: PartDef[] = [
     appearance: { target: ["DropdownMenuContent", "DropdownMenuSubContent"], radius: 4 },
     name: "Cascading menu",
     labels: { ja: "カスケードメニュー", zh: "级联菜单", ko: "계단식 메뉴" },
-    category: "Navigation",
+    category: "Menus & search",
     icon: "subdirectory_arrow_right",
     w: 120,
     h: 40,
@@ -362,8 +417,8 @@ export const additions: PartDef[] = [
         "div",
         { "data-slot": "mini-program-header", className: "bg-surface text-on-surface relative flex h-14 items-center justify-between px-2", style: { width: px(p) } },
         p.b("back") ? h("Button", { variant: "text", size: "icon", "aria-label": p.say("Back") }, ic("arrow_back")) : h("span"),
-        h("div", { className: "text-title-medium absolute inset-x-24 truncate text-center" }, p.s("title")),
-        h("div", { className: "border-outline-variant flex h-8 items-center gap-2 rounded-full border px-2" }, ic("more_horiz", { className: "size-5" }), h("span", { className: "bg-outline-variant h-4 w-px" }), ic("radio_button_checked", { className: "size-5" })),
+        h("div", { "data-slot": "mini-program-header-title", className: "text-title-medium absolute inset-x-24 truncate text-center" }, p.s("title")),
+        h("div", { "data-slot": "mini-program-header-capsule", className: "border-outline-variant flex h-8 items-center gap-2 rounded-full border px-2" }, ic("more_horiz", { className: "size-5" }), h("span", { className: "bg-outline-variant h-4 w-px" }), ic("radio_button_checked", { className: "size-5" })),
       ),
   },
   {
@@ -429,7 +484,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Typing indicator",
     labels: { ja: "入力中インジケーター", zh: "正在输入", ko: "입력 중 표시" },
-    category: "Feedback",
+    category: "Indicators",
     icon: "more_horiz",
     w: 72,
     h: 32,
@@ -482,7 +537,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Timeline",
     labels: { ja: "タイムライン", zh: "时间线", ko: "타임라인" },
-    category: "Data",
+    category: "Lists",
     icon: "timeline",
     w: 360,
     h: 220,
@@ -513,7 +568,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Status tracker",
     labels: { ja: "ステータストラッカー", zh: "状态条", ko: "상태 트래커" },
-    category: "Data",
+    category: "Lists",
     icon: "bar_chart_4_bars",
     w: 360,
     h: 64,
@@ -535,7 +590,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Code block",
     labels: { ja: "コードブロック", zh: "代码块", ko: "코드 블록" },
-    category: "Data",
+    category: "Desktop",
     icon: "code",
     w: 420,
     h: 160,
@@ -551,7 +606,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Markdown",
     labels: { ja: "マークダウン", zh: "Markdown 文档", ko: "마크다운" },
-    category: "Data",
+    category: "Data & charts",
     icon: "article",
     w: 420,
     h: 200,
@@ -566,7 +621,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "File diff",
     labels: { ja: "ファイル差分", zh: "文件差异", ko: "파일 차이" },
-    category: "Data",
+    category: "Desktop",
     icon: "difference",
     w: 420,
     h: 160,
@@ -579,8 +634,8 @@ export const additions: PartDef[] = [
       h(
         "div",
         { "data-slot": "file-diff", className: "border-outline-variant overflow-hidden rounded-xl border", style: { width: px(p) } },
-        p.s("file") && h("div", { className: "bg-surface-container text-label-medium text-on-surface px-3 py-2" }, p.s("file")),
-        h("pre", { className: "text-body-small overflow-x-auto font-mono" }, ...p.s("diff").split("\n").map((line) => h("div", { className: `px-3 ${line.startsWith("+") ? "bg-primary-container text-on-primary-container" : line.startsWith("-") ? "bg-error-container text-on-error-container" : "text-on-surface"}` }, line || " "))),
+        p.s("file") && h("div", { "data-slot": "file-diff-header", className: "bg-surface-container text-label-medium text-on-surface px-3 py-2" }, p.s("file")),
+        h("pre", { className: "text-body-small overflow-x-auto font-mono" }, ...p.s("diff").split("\n").map((line) => h("div", { "data-slot": "file-diff-row", "data-kind": line.startsWith("+") ? "added" : line.startsWith("-") ? "removed" : "same", className: `px-3 ${line.startsWith("+") ? "bg-primary-container text-on-primary-container" : line.startsWith("-") ? "bg-error-container text-on-error-container" : "text-on-surface"}` }, line || " "))),
       ),
   },
   {
@@ -588,7 +643,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Sortable list",
     labels: { ja: "並べ替えリスト", zh: "可排序列表", ko: "정렬 가능한 목록" },
-    category: "Data",
+    category: "Lists",
     icon: "drag_indicator",
     w: 320,
     h: 176,
@@ -603,7 +658,7 @@ export const additions: PartDef[] = [
     appearance: { radius: 12 },
     name: "Swipe row",
     labels: { ja: "スワイプ行", zh: "左滑操作行", ko: "스와이프 행" },
-    category: "Data",
+    category: "Lists",
     icon: "swipe_left",
     w: 360,
     h: 64,

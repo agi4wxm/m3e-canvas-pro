@@ -1,6 +1,6 @@
 import { appearanceOf } from "../parts/appearance";
 import { isNode, isRaw, isWrap, mapNodes, raw, type PNode, type PValue } from "../parts/node";
-import { EXPR_NODE, namesIn, printValue } from "../parts/print";
+import { EXPR_NODE, namesIn, printValue, str } from "../parts/print";
 import { OVERLAY_ROOTS, partBySlug, reader, treeOf, withoutPickedImages } from "../parts/registry";
 import type { PartDef, PropDef } from "../parts/types";
 import { type Row, CURRENT_TOKEN, fillCurrent, firstRows, markCurrent } from "./collections";
@@ -43,7 +43,7 @@ type Options = {
   image: string | ((data: string) => string);
 };
 
-const json = (v: unknown) => JSON.stringify(v);
+const json = (v: unknown) => str(v);
 
 /** a key for the code from what the author called something; `fallback` when it holds no latin letters */
 function camel(name: string | undefined, fallback: string, taken: Set<string>): string {
@@ -649,7 +649,7 @@ export class Behaviour {
     let room = 64;
     const draw = (vals: Record<string, unknown>, rest: typeof drawn): PNode => {
       const [head, ...tail] = rest;
-      if (!head) return treeOf(def, vals, look);
+      if (!head) return treeOf(def, vals, look, it.id);
       const samples = samplesOf(head.d, def, it);
       if (samples.length < 2 || samples.length > room) return draw(vals, tail);
       room = Math.floor(room / samples.length);
@@ -734,7 +734,7 @@ export class Behaviour {
       slots.rail = raw(`() => setProp(${key}, "expanded", !prop(${key}, "expanded", ${start}))`);
     }
     const hasSlots = Object.keys(slots).length > 0;
-    const root = treeOf(def, withoutPickedImages(def, it.props ?? {}, this.image), appearanceOf(it));
+    const root = treeOf(def, withoutPickedImages(def, it.props ?? {}, this.image), appearanceOf(it), it.id);
     /* an overlay that only shows and hides has nothing of its own to shut it: its close button says so here */
     const closes = !!g && isOverlayPart(it) && standingOf(def) === "plain" && this.gatedByVisible(g);
     const direct = !!onPress && !hasSlots && !selfSelecting && !closes && !insideTap && CLICKS_ON_ROOT.has(root.type) && !root.props?.onClick;

@@ -1,6 +1,7 @@
-/* Writes the catalogs of parts, screen templates and styles into public/agent.md, between their markers. Run with bun. */
+/* Writes the catalogs of parts, kits, screen templates and styles into public/agent.md, between their markers. Run with bun. */
 import { readFileSync, writeFileSync } from "node:fs";
 import { partCatalog } from "../parts/catalog";
+import { kitCatalog } from "../parts/kits";
 import { templateCatalog } from "../parts/templates";
 import { styleCatalog } from "../lib/styles";
 
@@ -15,4 +16,14 @@ function between(guide: string, name: string, body: string): string {
   return `${guide.slice(0, a + begin.length)}\n\n${body}\n\n${guide.slice(b)}`;
 }
 
-writeFileSync(file, between(between(between(readFileSync(file, "utf8"), "parts", partCatalog()), "templates", templateCatalog()), "styles", styleCatalog()));
+const sections: [string, string][] = [
+  ["parts", partCatalog()],
+  ["kits", kitCatalog()],
+  ["templates", templateCatalog()],
+  ["styles", styleCatalog()],
+];
+
+writeFileSync(
+  file,
+  sections.reduce((guide, [name, body]) => between(guide, name, body), readFileSync(file, "utf8")),
+);

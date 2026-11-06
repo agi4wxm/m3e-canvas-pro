@@ -65,8 +65,110 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 
 export type Radii = { tl: number; tr: number; bl: number; br: number };
 
+/** A color by reference: an M3 role in kebab case (`primary`, `on-surface`, `surface-container-high`), the same role at a
+ *  share of itself (`primary/40`), or a hex (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`). A role follows the style and the
+ *  mode; a hex is the author's own. Nothing else is a color: lib/look.ts reads them and refuses the rest. */
+export type ColorRef = string;
+
+/** one color of a gradient, `at` percent along it */
+export type GradientStop = { color: ColorRef; at: number };
+
+/** One layer of paint over the part's fill. In a list the first paints on top, the way CSS and a layers panel stack them. */
+export type PaintLayer = {
+  type: "solid" | "linear" | "radial" | "conic";
+  /** a solid layer's color */
+  color?: ColorRef;
+  /** a gradient's colors, two or more */
+  stops?: GradientStop[];
+  /** degrees: which way a linear gradient runs, where a conic one starts */
+  angle?: number;
+  /** percent of the box: the centre of a radial or a conic gradient */
+  x?: number;
+  y?: number;
+  /** a radial gradient as a circle rather than the box's own ellipse */
+  circle?: boolean;
+  /** switched off, and kept */
+  hidden?: boolean;
+};
+
+/** a shadow cast by the box, or inside it; on words, `spread` and `inset` mean nothing */
+export type LookShadow = { x: number; y: number; blur: number; spread: number; color: ColorRef; inset?: boolean; hidden?: boolean };
+
+/** a line along the edge that takes no room: it is drawn, not laid out */
+export type LookStroke = {
+  /** px */
+  width: number;
+  color: ColorRef;
+  style?: "solid" | "dashed" | "dotted";
+  /** where the line sits against the edge: inside unless said */
+  position?: "inside" | "center" | "outside";
+  /** each side on its own, px; a solid line only */
+  sides?: { t: number; r: number; b: number; l: number };
+};
+
+export type BlendMode =
+  | "normal"
+  | "multiply"
+  | "screen"
+  | "overlay"
+  | "darken"
+  | "lighten"
+  | "color-dodge"
+  | "color-burn"
+  | "hard-light"
+  | "soft-light"
+  | "difference"
+  | "exclusion"
+  | "hue"
+  | "saturation"
+  | "color"
+  | "luminosity"
+  | "plus-lighter";
+
+/** what the part is passed through once drawn; percent unless said, 100 (0 for the last four) changes nothing */
+export type LookFilter = { brightness?: number; contrast?: number; saturate?: number; /** degrees */ hueRotate?: number; grayscale?: number; sepia?: number; invert?: number };
+
+/** scale in percent, skew in degrees; like `rotate`, none of it takes room */
+export type LookTransform = { scaleX?: number; scaleY?: number; skewX?: number; skewY?: number; flipX?: boolean; flipY?: boolean };
+
+/** how the part's words are drawn, wherever they stand inside it */
+export type LookText = {
+  color?: ColorRef;
+  /** px */
+  size?: number;
+  /** 100 to 900 */
+  weight?: number;
+  /** px, may be less than nothing */
+  letterSpacing?: number;
+  /** percent of the size */
+  lineHeight?: number;
+  case?: "upper" | "lower" | "title";
+  italic?: boolean;
+  decoration?: "underline" | "line-through" | "overline";
+  shadows?: LookShadow[];
+  /** an outline around each letter, outside it */
+  stroke?: { width: number; color: ColorRef };
+  /** the letters painted with a gradient instead of one color */
+  gradient?: PaintLayer;
+};
+
+export type TextureKind = "noise" | "paper" | "dots" | "grid" | "stripes" | "diagonal" | "checker" | "carbon" | "scanlines" | "crosshatch" | "halftone";
+
+/** a small repeating pattern laid over the fill, under the words */
+export type LookTexture = {
+  kind: TextureKind;
+  /** the pattern's ink; the grain of noise and paper takes a hex only, and is dark otherwise */
+  color?: ColorRef;
+  /** percent */
+  opacity?: number;
+  /** px: one tile of it */
+  size?: number;
+  blend?: BlendMode;
+};
+
 /** what one part may look like beyond its fill, its words and its corners; each stands over what the style gives it */
 export type ItemLook = {
+  /* ----- the first look, still read as it always was ----- */
   /** px */
   borderWidth?: number;
   borderColor?: TextToken;
@@ -81,6 +183,27 @@ export type ItemLook = {
   gradientTo?: ColorToken;
   gradientAngle?: number;
   font?: "display" | "mono";
+  /* ----- effects: lib/look.ts draws them ----- */
+  /** the part's own fill taken away, so only the paint layers and what is behind it show: glass, a bare outline */
+  clearFill?: boolean;
+  /** paint over the fill; in place of `gradientTo` when both are given */
+  fills?: PaintLayer[];
+  stroke?: LookStroke;
+  /** in place of `shadow` when both are given; an empty list is no shadow at all */
+  shadows?: LookShadow[];
+  /** the style's own shadow, raised to a level: 0 is flat. The style's surface recipe decides what each level looks like */
+  elevation?: 0 | 1 | 2 | 3 | 4;
+  /** px: the part itself drawn out of focus */
+  blur?: number;
+  /** percent: how much brighter the colors behind frosted glass come through; 150 when left out */
+  glassSaturate?: number;
+  blend?: BlendMode;
+  filter?: LookFilter;
+  transform?: LookTransform;
+  text?: LookText;
+  texture?: LookTexture;
+  /** what reaches past the edge is cut off */
+  clip?: boolean;
 };
 export const uniformRadii = (r: number): Radii => ({ tl: r, tr: r, bl: r, br: r });
 
@@ -306,10 +429,11 @@ export const PALETTES: Palette[] = PRESETS.map((p) => ({ ...p, secondary: scheme
 
 /* ---------- theme: the four expressive axes ---------- */
 export type ShapeScale = "none" | "square" | "soft" | "rounded" | "full";
-export type FontKey = "roboto" | "robotoFlex" | "robotoSerif" | "system" | "apple" | "segoe" | "inter" | "dmsans" | "mrounded" | "fredoka" | "lilita" | "barlow" | "rajdhani" | "pixel" | "garamond" | "cinzel" | "tiktok" | "brush";
+export type FontKey = "roboto" | "robotoFlex" | "robotoSerif" | "system" | "apple" | "segoe" | "inter" | "dmsans" | "mrounded" | "fredoka" | "lilita" | "barlow" | "rajdhani" | "pixel" | "garamond" | "cinzel" | "tiktok" | "brush" | "sourceSerif" | "mono";
 export type MotionScheme = "standard" | "expressive";
 /** which drawing of Material Symbols the icons are, or the pixel set for the names it has */
-export type IconFamily = "rounded" | "filled" | "light" | "sharp" | "pixel";
+/** which drawing of the icons a document uses: Material's own cuts, or a product's set (see components/m3e/icon-family.ts) */
+export type IconFamily = "rounded" | "filled" | "light" | "sharp" | "pixel" | "sf" | "fluentui" | "codicon" | "phosphor" | "lucide" | "remix" | "ant" | "tabler" | "mingcute" | "game" | "emoji";
 export type { Contrast };
 
 export type Theme = {
@@ -322,7 +446,7 @@ export type Theme = {
   /** headings and labels take the heavier M3 Expressive "emphasized" styles */
   emphasized: boolean;
   motion: MotionScheme;
-  /** the style the document wears (lib/styles.ts); left out, it is plain Material */
+  /** the style the document wears (lib/styles/); left out, it is plain Material */
   style?: string;
   /** the author picked colors after the style: the palette is theirs, the rest stays the style's */
   ownColors?: boolean;
@@ -339,7 +463,7 @@ export type Theme = {
 
 export const DEFAULT_THEME: Theme = { dark: false, bothModes: false, contrast: "standard", shape: "rounded", font: "roboto", emphasized: false, motion: "standard" };
 
-export const ICON_FAMILIES: IconFamily[] = ["rounded", "filled", "light", "sharp", "pixel"];
+export const ICON_FAMILIES: IconFamily[] = ["rounded", "filled", "light", "sharp", "pixel", "sf", "fluentui", "codicon", "phosphor", "lucide", "remix", "ant", "tabler", "mingcute", "game", "emoji"];
 
 /** a stored theme with any missing or unknown field replaced by its default */
 export function normalizeTheme(t: Partial<Theme> | undefined): Theme {
@@ -421,6 +545,10 @@ export const FONTS: {
   { key: "cinzel", label: "Cinzel", family: "Cinzel, Georgia, serif", google: "Cinzel:wght@400;500;600;700", zh: NOTO_SERIF_SC },
   /* the brush of a Chinese title; its Latin stays carved */
   { key: "brush", label: "Ma Shan Zheng", family: "Cinzel, Georgia, serif", google: "Cinzel:wght@400;500;600;700", zh: BRUSH },
+  /* an editorial serif for headings, where a product sets its titles like a book's */
+  { key: "sourceSerif", label: "Source Serif 4", family: "'Source Serif 4', Georgia, serif", google: "Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700", zh: NOTO_SERIF_SC },
+  /* a coding tool's face, for headings and figures that are read as code */
+  { key: "mono", label: "JetBrains Mono", family: "'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace", google: "JetBrains+Mono:wght@400;500;600;700" },
 ];
 
 /** The Noto Sans face that covers a language's script, spliced in behind the chosen
@@ -504,6 +632,11 @@ export const VARIANTS: { key: Variant; label: string }[] = [
 
 export type Axis = "x" | "y";
 
+/** how a part in an auto layout is sized on one axis */
+export type FlowSizing = "fixed" | "hug" | "fill";
+/** where a part in an auto layout stands across the run */
+export type FlowAlign = "start" | "center" | "end" | "stretch" | "baseline";
+
 /* ---------- screen data ---------- */
 /** one row of a list a part's panel edits */
 export type NavTab = { icon: string; label: string; variant?: string; width?: string; image?: string };
@@ -535,8 +668,21 @@ export type Item = {
   textColor?: TextToken;
   /** each corner on its own, painted over the part's own radius */
   corners?: Radii;
-  /** in a container's auto layout, it takes what room is left along the run */
+  /** in a container's auto layout, it takes what room is left along the run (the older spelling of `flowSize` fill on the run's axis) */
   flowFill?: boolean;
+  /** in a container's auto layout, how it is sized on each axis: its own measure, its contents' (a container
+   *  with a layout of its own), or the room the layout gives it. Left out, the run's axis follows `flowFill`
+   *  and the other axis follows the container's `align` ("stretch" fills). */
+  flowSize?: { w?: FlowSizing; h?: FlowSizing };
+  /** in a container's auto layout, where it stands across the run, over the container's own `align` */
+  alignSelf?: FlowAlign;
+  /** in a container's auto layout, it is left where it was put, relative to the container, and moves with it */
+  flowAbsolute?: boolean;
+  /** in a container's auto layout, the least and the most it may be made when the layout sizes it */
+  flowMin?: { w?: number; h?: number };
+  flowMax?: { w?: number; h?: number };
+  /** in a grid, how many columns it takes */
+  flowSpan?: number;
   /** tap navigation to another frame */
   action?: Action;
   /** per-slot tap navigation, by the keys its `PartDef.slots` names */
@@ -1094,14 +1240,30 @@ export type Group = {
   overrides?: Record<string, VarValue>;
   /** on a layout container: its first child is drawn once per row of a collection (lib/collections.ts) */
   repeat?: { collection: string; limit?: number };
+  /** The outermost box of a kit: which kit it was added as, so that a change of style can compose it again
+   *  while what it holds is still as it was added (lib/kits.ts `recomposeKits`). Nothing prints it. */
+  kit?: KitMark;
   /** Runtime only, never saved: this is the container left where an instance was, and what it is an instance of. */
   expandedFrom?: string;
   /** Runtime only, never saved: the prompt's words for a `repeat`. */
   rowsOf?: { name: string; rows: number; fields: string[] };
 };
 
+/** What a kit's outermost box remembers of how it was added. */
+export type KitMark = {
+  /** the kit, by its slug (parts/kits) */
+  slug: string;
+  /** the variant it is composed as now */
+  variant: string;
+  /** the style chose the variant; one chosen by hand from the palette's menu is kept while the kit has it */
+  auto: boolean;
+  /** what the box and everything in it said when it was composed (lib/kits.ts `kitSig`): while they still say
+   *  it, nobody has changed the kit, and a change of style may compose it again */
+  sig: string;
+};
+
 /** a reusable component: its parts, placed relative to its own top left, and how big they come to */
-export type ComponentDef = { id: string; name: string; groups: Group[]; w: number; h: number };
+export type ComponentDef ={ id: string; name: string; groups: Group[]; w: number; h: number };
 
 /** rows of data a layout can repeat its first child over */
 export type Collection = { id: string; name: string; fields: string[]; rows: string[][] };

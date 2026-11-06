@@ -16,7 +16,7 @@ const PART_NAMES: Record<string, Labels> = {
   toggle: { ja: "トグル", zh: "切换按钮", ko: "토글" },
   "toggle-group": { ja: "トグルグループ", zh: "切换按钮组", ko: "토글 그룹" },
   "button-group": { ja: "ボタングループ", zh: "按钮组", ko: "버튼 그룹" },
-  "split-button": { ja: "スプリットボタン", zh: "分段按钮", ko: "분할 버튼" },
+  "split-button": { ja: "スプリットボタン", zh: "分体按钮", ko: "분할 버튼" },
   "fab-menu": { ja: "FAB メニュー", zh: "悬浮菜单", ko: "FAB 메뉴" },
   // chat
   message: { ja: "メッセージ", zh: "消息", ko: "메시지" },
@@ -341,6 +341,10 @@ const COMMON_LABELS: Record<string, Labels> = {
   flat: { ja: "フラット", zh: "扁平", ko: "플랫" },
   outline: { ja: "枠線", zh: "描边", ko: "윤곽" },
   ghost: { ja: "ゴースト", zh: "幽灵", ko: "고스트" },
+  heading: { ja: "小見出し", zh: "小标题", ko: "소제목" },
+  lead: { ja: "大きめの本文", zh: "大正文", ko: "큰 본문" },
+  tiny: { ja: "小さな文字", zh: "小字", ko: "작은 글자" },
+  current: { ja: "文字色に従う", zh: "跟随文字色", ko: "글자색 따름" },
   link: { ja: "リンク", zh: "链接", ko: "링크" },
   destructive: { ja: "破壊的", zh: "危险", ko: "파괴적" },
   assist: { ja: "アシスト", zh: "辅助", ko: "어시스트" },
@@ -577,6 +581,12 @@ export function labelOf(l: { label: string; labels?: Labels }, lang: PartLang): 
 /** the part's name, in the editor's language */
 export function nameOf(def: Pick<PartDef, "slug" | "name" | "labels">, lang: PartLang): string {
   return def.labels?.[lang] ?? PART_NAMES[def.slug]?.[lang] ?? def.name;
+}
+
+/** the name of what carries its own words and no slug of a part (a kit, one of its variants): its label in the
+ *  editor's language, else its English name */
+export function nameIn(d: { name: string; labels?: Labels }, lang: PartLang): string {
+  return lang === "en" ? d.name : (d.labels?.[lang] ?? d.name);
 }
 
 /** what an enum choice is called, in the editor's language; a bare string is a code value and stays */

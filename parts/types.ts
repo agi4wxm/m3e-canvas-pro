@@ -24,6 +24,9 @@ export type PropDef = {
   labels?: Labels;
   /** the prop only exists when this holds for the current values (a basic dialog's icon, a full-screen one's size) */
   when?: (p: P) => boolean;
+  /** the prop is about where the part stands on its screen (a box pinned to an edge as a bar): it means nothing while
+   *  a layout places the part, and the panel leaves it out then */
+  screen?: boolean;
 } & (
   | { kind: "text"; default: string; multiline?: boolean; /** the seed in each language; `default` stays English */ defaults?: Labels }
   | { kind: "enum"; default: string; options: Choice[] }
@@ -61,6 +64,10 @@ export type P = {
   table: (key: string) => TableData;
   /** words a part says by itself, in the editor's language */
   say: (words: string) => string;
+  /** a name for the part being drawn, the same wherever it is drawn or printed (from its item's id), or "" when
+   *  the tree is drawn for no item: what a part names inside its own drawing (an SVG's gradients) is kept apart
+   *  from every other part's by it */
+  scope: string;
 };
 
 /** the screen a part is drawn on, when it is on one: the frame's size. Anything a part draws
@@ -73,7 +80,7 @@ export type Screen = { w: number; h: number };
 export type PartSlot = { key: string; label: string; icon?: string };
 
 /** the part's place on a screen: a bar pinned to an edge, a corner FAB, a centered overlay.
- *  Tidy pins it and the prompt describes it by this. */
+ *  Tidy pins it and the prompt describes it by this. A box takes `top`, `bottom` or `floatingBottom` from its `pin`. */
 export type PartRole = "top" | "bottom" | "floatingBottom" | "fab" | "overlay" | "rail" | "label" | "control" | "listLike" | "fullWidth" | "backdrop";
 
 export type PartDef = {
@@ -115,6 +122,19 @@ export type PartDef = {
   panes?: boolean;
   /** the JSX the part stands for */
   tree: (p: P) => PNode;
+  /** A composite that can be split: the same thing as a tree of atoms in nested auto-layout boxes,
+   *  for its current values. The inspector then offers to replace the part with it in place. It is
+   *  composed the way the document's look composes the part (a `KitLook`, parts/kits/types.ts: this
+   *  file ships in exported projects, so it does not name it); left out, Material's. */
+  atoms?: (p: P, look?: object) => AtomTree;
+  /** How big the part comes out before it has been drawn, where no width or height prop says so
+   *  (a line of text that hugs its words, an icon button of a named size). Only a guess: the canvas
+   *  measures it as soon as it is drawn. */
+  guess?: (p: P) => { w?: number; h?: number };
+  /** What a part starts with when a person adds it from the palette, over its defaults: a line of text
+   *  added by hand hugs its words, as one does in a design tool, while one a template or a model
+   *  writes keeps the default it always had. */
+  seed?: PropValues;
   /** what the canvas draws instead of `tree`, for a part whose open look is not `tree` made to start open */
   view?: (p: P, screen?: Screen) => PNode;
   /** A part that opens something (a dialog, a menu, a popover) is drawn open on the canvas, inside
@@ -134,6 +154,11 @@ export type PartDef = {
 };
 
 export type PropValues = Record<string, unknown>;
+
+/** A node of a tree of atoms: a part by its id, its props, and the parts its box lays out. The full
+ *  shape (names, looks, taps) is `Node` in parts/templates/kit.ts; this file ships in exported
+ *  projects, so it only says as much as it needs to. */
+export type AtomTree = { slug: string; props: Record<string, unknown>; kids?: AtomTree[] };
 
 /** the box a popup that opens to one side of its trigger is drawn in, with the trigger placed so the popup has room */
 export function around(side: string, popupW: number, popupH: number, triggerW: number, triggerH: number, gap = 8) {

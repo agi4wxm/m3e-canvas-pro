@@ -1,5 +1,7 @@
+import { childLayoutFields } from "./flow";
 import { standIn } from "./instances";
-import { Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { cleanLook } from "./look";
+import { COLOR_TOKENS, Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -8,19 +10,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 
 const validCorners = (c: unknown) => c === undefined || (isRecord(c) && ["tl", "tr", "bl", "br"].every((k) => Number.isFinite(c[k])));
 
-const validLook = (l: unknown) =>
-  l === undefined ||
-  (isRecord(l) &&
-    ["borderWidth", "opacity", "glass", "rotate", "gradientAngle"].every((k) => l[k] === undefined || Number.isFinite(l[k])) &&
-    (l.borderColor === undefined || isTextToken(l.borderColor)) &&
-    (l.shadow === undefined || ["none", "soft", "deep", "hard", "glow"].includes(l.shadow as string)) &&
-    (l.font === undefined || l.font === "display" || l.font === "mono") &&
-    (l.gradientTo === undefined || typeof l.gradientTo === "string"));
+/* A look is cleaned rather than checked (lib/look.ts): what is wrong in it is dropped, a number past its limits is brought
+ * back, and a string that is not a color never reaches a style. A file is not refused for its looks. */
 
 const validItem = (item: unknown) =>
   isRecord(item) &&
   validCorners(item.corners) &&
-  validLook(item.look) &&
   (item.collapseOnScroll === undefined || typeof item.collapseOnScroll === "boolean") &&
   (item.textColor === undefined || isTextToken(item.textColor)) &&
   typeof item.id === "string" &&
@@ -127,9 +122,15 @@ function cleanVar(v: unknown): DocVar | undefined {
   return { id: v.id, name: typeof v.name === "string" ? v.name : "", type: v.type, value };
 }
 
-const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, row: () => undefined }) as unknown as Item;
+const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, look: cleanLook, fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined), row: () => undefined }) as unknown as Item;
 
 const cleanOverrides = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => isValue(v))) : undefined);
+
+/** what a kit's box remembers, whole or not at all: a mark of another shape only means the kit is left as it is */
+function cleanKit(k: unknown) {
+  if (!isRecord(k) || typeof k.slug !== "string" || typeof k.variant !== "string" || typeof k.auto !== "boolean" || typeof k.sig !== "string") return undefined;
+  return { slug: k.slug, variant: k.variant, auto: k.auto, sig: k.sig };
+}
 
 function cleanRepeat(r: unknown) {
   if (!isRecord(r) || typeof r.collection !== "string") return undefined;
@@ -147,6 +148,7 @@ const cleanGroup = (g: Group) =>
       instanceOf: (v) => (typeof v === "string" ? v : undefined),
       overrides: cleanOverrides,
       repeat: cleanRepeat,
+      kit: cleanKit,
       expandedFrom: () => undefined,
       rowsOf: () => undefined,
     }),
@@ -156,10 +158,24 @@ const cleanGroup = (g: Group) =>
 const cleanFrame = (f: Frame) =>
   cleaned(f as unknown as Record<string, unknown>, {
     variantOf: (v) => (typeof v === "string" && v !== f.id ? v : undefined),
+    /* a color role, never a class or a style of the file's own */
+    bg: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined),
     deviceBars: (v) => (typeof v === "boolean" ? v : undefined),
     backgroundImage: (v) => (typeof v === "string" && v ? v : undefined),
     backgroundOpacity: (v) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined),
   }) as unknown as Frame;
+
+/** A scheme of the author's own: colors, and only colors, since every one of them is painted with and printed.
+ *  One with anything else in it is not kept, and the document falls back to a scheme of the editor's. */
+function cleanPalette(p: unknown): Palette | undefined {
+  if (!isRecord(p) || typeof p.primary !== "string") return undefined;
+  for (const [k, v] of Object.entries(p)) {
+    if (k === "key" || k === "label") {
+      if (typeof v !== "string") return undefined;
+    } else if (typeof v !== "string" || !/^#[0-9a-f]{3,8}$/i.test(v)) return undefined;
+  }
+  return p as unknown as Palette;
+}
 
 /** one definition, or nothing when it has no id to be called by. Its groups go through the same checks as a screen's. */
 function cleanComponent(c: unknown): ComponentDef | undefined {
@@ -188,12 +204,20 @@ function cleanInstance(g: Group, components: ComponentDef[] | undefined): Group 
     return rest.items.length ? rest : undefined;
   }
   const made = standIn(def, g.x, g.y, g.id);
-  return { ...g, items: [{ ...made.items[0], id: g.items[0]?.id ?? made.items[0].id }] };
+  const was = g.items[0];
+  /* what the instance asks of the layout it stands in, where it goes and what it is said to be are its own, not the definition's */
+  const own = was ? { ...childLayoutFields(was), ...(was.action ? { action: was.action } : {}), ...(typeof was.note === "string" ? { note: was.note } : {}) } : {};
+  return { ...g, items: [{ ...made.items[0], ...own, id: was?.id ?? made.items[0].id }] };
 }
 
 /** a document with what is wrong in its behaviour taken out; it always comes back whole */
 export function cleanBehavior(doc: Doc): Doc {
   const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: doc.groups.map(cleanGroup) };
+  if (out.customPalette !== undefined) {
+    const palette = cleanPalette(out.customPalette);
+    if (palette) out.customPalette = palette;
+    else delete out.customPalette;
+  }
   if (out.components !== undefined) {
     if (Array.isArray(out.components)) out.components = out.components.map(cleanComponent).filter((c) => c !== undefined);
     else delete out.components;

@@ -1,7 +1,8 @@
 
 import { createContext, useContext, useMemo, type CSSProperties, type ReactNode } from "react";
 import { BASELINE_SEED, themeCss } from "@/lib/m3e/color";
-import { styleCss } from "@/lib/styles";
+import { CANVAS_SCOPE, recipesOf, styleCss } from "@/lib/styles";
+import { elevationCss } from "@/lib/look";
 import { fontFamilyOf, type Theme } from "@/lib/tokens";
 import { getLang } from "@/lib/i18n";
 
@@ -37,7 +38,8 @@ export function PartThemeStyle({ seed, contrast }: Pick<PartTheme, "seed" | "con
 export function PartStyleSheet({ theme }: { theme: Theme }) {
   const lang = getLang();
   const css = useMemo(
-    () => styleCss({ ...theme, displayFamily: theme.displayFont ? fontFamilyOf(theme.displayFont, lang) : undefined }),
+    /* a part raised to a level of elevation takes the style's own shadow for it */
+    () => [styleCss({ ...theme, displayFamily: theme.displayFont ? fontFamilyOf(theme.displayFont, lang) : undefined }), elevationCss(recipesOf(theme).surface, CANVAS_SCOPE)].filter(Boolean).join("\n"),
     [theme, lang],
   );
   return css ? <style id="m3-part-style">{css}</style> : null;

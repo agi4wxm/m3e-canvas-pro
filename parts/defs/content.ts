@@ -36,6 +36,10 @@ const ICON_COLORS: Record<string, string | undefined> = {
   secondary: "text-secondary",
   tertiary: "text-tertiary",
   error: "text-error",
+  muted: "text-on-surface-variant",
+  "on-surface": "text-on-surface",
+  "on-primary": "text-on-primary",
+  inverse: "text-inverse-on-surface",
 };
 
 const SHAPE_COLORS: Record<string, string | undefined> = {
@@ -61,7 +65,7 @@ export const content: PartDef[] = [
   {
     slug: "icon",
     name: "Icon",
-    category: "Media",
+    category: "Basics",
     icon: "emoji_symbols",
     w: 24,
     h: 24,
@@ -69,8 +73,9 @@ export const content: PartDef[] = [
       { key: "name", label: "Icon", kind: "icon", default: "favorite" },
       { key: "size", label: "Size", kind: "number", default: 24, min: 16, max: 96, step: 4, unit: "px" },
       { key: "filled", label: "Filled", kind: "bool", default: false },
-      { key: "color", label: "Color", kind: "enum", default: "default", options: ["default", "primary", "secondary", "tertiary", "error"] },
+      { key: "color", label: "Color", kind: "enum", default: "default", options: Object.keys(ICON_COLORS) },
     ],
+    guess: (p) => ({ w: px(p.n("size")), h: px(p.n("size")) }),
     tree: (p) =>
       h("Icon", {
         name: p.s("name") || "favorite",
@@ -83,7 +88,7 @@ export const content: PartDef[] = [
     slug: "avatar",
     appearance: { target: "AvatarFallback", radius: 999 },
     name: "Avatar",
-    category: "Media",
+    category: "Indicators",
     icon: "account_circle",
     w: 40,
     h: 40,
@@ -102,6 +107,12 @@ export const content: PartDef[] = [
         null,
         ...INITIALS.slice(0, px(p.n("count"))).map((l) => h("Avatar", { size }, h("AvatarFallback", null, l))),
       );
+    },
+    /* its size names no number a handle could pull, so the room it takes is said here */
+    guess: (p) => {
+      const s = p.s("size") === "sm" ? 32 : p.s("size") === "lg" ? 56 : 40;
+      const n = Math.max(1, Math.min(5, Math.round(p.n("count"))));
+      return { w: n * s - (n - 1) * 8, h: s };
     },
   },
   {
@@ -189,7 +200,7 @@ export const content: PartDef[] = [
     slug: "kbd",
     appearance: { target: "Kbd", radius: 4 },
     name: "Kbd",
-    category: "Media",
+    category: "Indicators",
     icon: "keyboard",
     w: 80,
     h: 24,
@@ -260,7 +271,7 @@ export const content: PartDef[] = [
   {
     slug: "shape",
     name: "Shape",
-    category: "Media",
+    category: "Basics",
     icon: "interests",
     w: 96,
     h: 96,

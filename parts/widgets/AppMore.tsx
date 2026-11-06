@@ -274,7 +274,7 @@ export function ReviewSummary({ score = "", count = "", values = [], tags = [], 
     <div data-slot="review-summary" data-tag={on ?? ""} className={cn("flex flex-col gap-3 rounded-xl bg-surface-container-low p-4", className)} style={{ width, ...style }}>
       <div className="flex items-center gap-4">
         <div className="shrink-0 text-center">
-          <div className="text-display-small text-on-surface">{score}</div>
+          <div data-slot="review-summary-value" className="text-display-small text-on-surface">{score}</div>
           <div className="flex justify-center text-tertiary">{Array.from({ length: 5 }, (_, i) => <WidgetIcon key={i} name="star" className={cn("size-4", i >= stars && "opacity-30")} />)}</div>
           <div className="mt-1 text-label-small text-on-surface-variant">{count}</div>
         </div>

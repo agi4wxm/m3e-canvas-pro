@@ -19,6 +19,7 @@ import { setGlobalLang } from "../lib/i18n";
 import { makeItem, normalizeTheme, type Doc } from "../lib/tokens";
 import { layoutForStyle } from "../lib/styleLayout";
 import { partBySlug } from "../parts/registry";
+import { FAMILIES } from "./icon-tables";
 
 const WORK = process.argv[2];
 const ONLY = process.argv[3];
@@ -875,8 +876,11 @@ async function styled() {
     const dist = await assemble(name, { ...plain, groups: laid?.groups ?? plain.groups, frames: laid?.frames ?? plain.frames }, {});
     if (!dist) continue;
     const dir = join(WORK, name);
+    /* the style's icon family, out of the bundled sets: no network was asked */
+    const family = plain.theme?.icons ?? "rounded";
     const icons = await readFile(join(dir, "src/style-icons.ts"), "utf8").catch(() => "");
-    ok(icons.includes(style === "stardew" ? "pixelarticons" : style === "cyber" ? "material-symbols" : "material-symbols-light"), `${style}: its icons are in the project`);
+    const prefix = family === "rounded" || family === "filled" ? undefined : family === "light" ? "material-symbols-light" : family === "sharp" ? "material-symbols" : FAMILIES[family].prefix;
+    ok(!prefix || icons.includes(`"prefix": "${prefix}"`), `${style}: its ${family} icons are in the project`);
     const html = await readFile(join(dir, "index.html"), "utf8");
     if (style !== "wechat") ok(html.includes(style === "cyber" ? "Rajdhani" : style === "stardew" ? "Pixelify" : "Inter"), `${style}: its fonts are asked for`);
     const server = await serve(dist, port);

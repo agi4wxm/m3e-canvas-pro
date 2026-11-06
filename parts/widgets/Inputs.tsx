@@ -136,7 +136,7 @@ export function NumberPicker({ value = 5, min = 0, max = 10, step = 1, unit = ""
         <WidgetIcon name="keyboard_arrow_up" />
       </Button>
       <span className="text-body-medium text-on-surface-variant h-6">{next <= max ? next : ""}</span>
-      <span className="bg-surface-container-high text-title-large text-on-surface w-full rounded-lg py-1 text-center">
+      <span data-slot="number-picker-value" className="bg-surface-container-high text-title-large text-on-surface w-full rounded-lg py-1 text-center">
         {n}
         {unit && <span className="text-label-medium text-on-surface-variant ml-1">{unit}</span>}
       </span>

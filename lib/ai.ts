@@ -3,6 +3,7 @@ import { partBySlug } from "../parts/registry";
 import { labelOfPart } from "../parts/resize";
 import { buildPrompt } from "./prompt";
 import { cleanBehavior, isProject } from "./project";
+import { lookForModel } from "./look";
 import { Lang } from "./i18n";
 
 /* Optional AI helpers. The browser talks to the model provider directly with the
@@ -352,7 +353,8 @@ export async function draftDesign(s: AiSettings, guide: string, idea: string, la
     "",
     guide,
   ].join("\n");
-  const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple.", ...(rules ? ["", rules] : [])].join("\n");
+  /* a document held to a style is told its rules, which leave looks to the style; any other may be given effects */
+  const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple.", "", rules || lookForModel()].join("\n");
   const j = parseJsonObject(await complete(s, system, user, signal, 12000));
   if (!isProject(j)) throw new Error("json");
   return readableOnScenes(scenesFirst(withoutSampleWords(cleanBehavior(j))));

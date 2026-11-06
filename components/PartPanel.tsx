@@ -11,7 +11,6 @@ import {
   LINK_TARGET,
   NavTab,
   Palette,
-  ItemLook,
   Radii,
   STAY_TARGET,
   TEXT_TOKENS,
@@ -81,8 +80,7 @@ export function PartTabs({ value, onChange, p, idPrefix = "part" }: { value: Tab
     (e.currentTarget as HTMLElement).parentElement?.querySelector<HTMLElement>(`#${idPrefix}-tab-${next}`)?.focus();
   };
   return (
-    /* no rule under the row: the panel's own fade is what the two are told apart by, and the
-       chosen tab keeps the line under its own label */
+    /* the hairline under the row is the panel's (PanelShell); the chosen tab keeps the line under its own label */
     <div role="tablist" aria-label={t("edit", lang)} style={{ display: "flex", height: TABS_H }}>
       {tabs.map((tab) => {
         const on = tab.key === value;
@@ -621,70 +619,6 @@ export function AppearanceCorners({ item, seed, onChange, p }: { item: Item; see
         >
           {t("cornersReset", lang)}
         </button>
-      )}
-    </div>
-  );
-}
-
-/** What a part looks like beyond its fill, its words and its corners. Everything here stands over the style, for
- *  this part alone, and is folded away until it is wanted. */
-export function AppearanceLook({ item, onChange, p }: { item: Item; onChange: (patch: Partial<Item>) => void; p: Palette }) {
-  const lang = useLang();
-  const look = item.look ?? {};
-  const [open, setOpen] = useState(!!item.look);
-  const set = (patch: Partial<ItemLook>) => {
-    const next: ItemLook = { ...look, ...patch };
-    for (const k of Object.keys(next) as (keyof ItemLook)[]) if (next[k] === undefined) delete next[k];
-    onChange({ look: Object.keys(next).length ? next : undefined });
-  };
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <Toggle on={open} onChange={setOpen} p={p} label={t("lookTitle", lang)} grow />
-      {open && (
-        <>
-          <Slider icon="line_weight" title={t("lookBorder", lang)} value={look.borderWidth ?? 0} min={0} max={8} step={1} onChange={(v) => set({ borderWidth: v || undefined })} p={p} />
-          {!!look.borderWidth && <TextRun value={look.borderColor} onChange={(borderColor) => set({ borderColor })} p={p} />}
-          <Select
-            label={t("lookShadow", lang)}
-            p={p}
-            value={look.shadow ?? ""}
-            options={[
-              { key: "", label: `${t("lookShadow", lang)}: ${t("lookShadowOwn", lang)}` },
-              { key: "none", label: t("lookShadowNone", lang) },
-              { key: "soft", label: t("lookShadowSoft", lang) },
-              { key: "deep", label: t("lookShadowDeep", lang) },
-              { key: "hard", label: t("lookShadowHard", lang) },
-              { key: "glow", label: t("lookShadowGlow", lang) },
-            ]}
-            onChange={(k) => set({ shadow: (k || undefined) as ItemLook["shadow"] })}
-          />
-          <Slider icon="opacity" title={t("lookOpacity", lang)} value={look.opacity ?? 100} min={10} max={100} step={5} onChange={(v) => set({ opacity: v === 100 ? undefined : v })} p={p} />
-          <Slider icon="blur_on" title={t("lookGlass", lang)} value={look.glass ?? 0} min={0} max={40} step={2} onChange={(v) => set({ glass: v || undefined })} p={p} />
-          <Slider icon="rotate_right" title={t("lookRotate", lang)} value={look.rotate ?? 0} min={-180} max={180} step={1} onChange={(v) => set({ rotate: v || undefined })} p={p} />
-          <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("lookGradient", lang)}</div>
-          <FillRun value={look.gradientTo} onChange={(gradientTo) => set({ gradientTo })} p={p} clearable />
-          {look.gradientTo && <Slider icon="gradient" title={t("lookGradientAngle", lang)} value={look.gradientAngle ?? 180} min={0} max={360} step={15} onChange={(v) => set({ gradientAngle: v })} p={p} />}
-          <Select
-            label={t("lookFont", lang)}
-            p={p}
-            value={look.font ?? ""}
-            options={[
-              { key: "", label: `${t("lookFont", lang)}: ${t("lookFontOwn", lang)}` },
-              { key: "display", label: t("lookFontDisplay", lang) },
-              { key: "mono", label: t("lookFontMono", lang) },
-            ]}
-            onChange={(k) => set({ font: (k || undefined) as ItemLook["font"] })}
-          />
-          {item.look && (
-            <button
-              className="m3-press"
-              onClick={() => onChange({ look: undefined })}
-              style={{ height: 36, borderRadius: 18, border: `1px solid ${p.outlineVariant}`, background: "transparent", color: p.onSurfaceVariant, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-            >
-              {t("lookReset", lang)}
-            </button>
-          )}
-        </>
       )}
     </div>
   );

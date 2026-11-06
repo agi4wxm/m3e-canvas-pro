@@ -1,0 +1,139 @@
+import type { Node } from "../templates/kit";
+import type { PartCategory } from "../registry";
+import type { Labels } from "../types";
+
+/* A kit is a composite that exists only as a tree of atoms: dropped on the canvas it is boxes, words,
+ * icons and bare fields in nested auto layouts, each one a part the person can change, move or take
+ * out. Its variants are compositions of the same thing (a prompt box on an empty home screen and the
+ * one under a conversation); where the right one depends on the style, a variant says which looks it
+ * suits, and the kit code never names a style. */
+
+/** What the document's style is like, as far as a composition goes: worked out from the theme
+ *  (lib/kits.ts) so that no kit has to know a style by name. Recipe names are the style system's
+ *  own words for how it builds each kind of control. */
+export type KitLook = {
+  /** the kind of product the style is modeled on */
+  group: "app" | "desktop" | "mobileGame" | "pcGame";
+  /** how the style builds a text field: "m3", "soft", "pill", "boxed", "line"… */
+  field: string;
+  /** how it builds a top bar: "m3", "center", "line", "plain", "hud"… */
+  bar: string;
+  /** how it builds a button */
+  button: string;
+  /** how it builds a list: "m3", "inset", "flush", "plain", "hairline", "tile" */
+  list: string;
+  /** how it builds a card or a panel */
+  surface: string;
+  /** how it builds a switch: "m3", "ios", "outline", "block", "chunky" */
+  toggle: string;
+  /** how it builds the main navigation: "m3" (an indicator pill), "plain", "floating", "icononly", "gamebar", "goldglow", "topline", "block" */
+  nav: string;
+  /** how it builds tabs: "m3", "underline", "segmented", "pill", "short", "topline", "boxed", "glow", "slant", "band", "fade" */
+  tabs: string;
+  /** how it builds a segmented control: "m3", "ios", "boxed", "capsules", "underline", "block" */
+  segmented: string;
+  /** how it builds a dialog: "m3", "alert" (centered, split buttons under a hairline), "weui", "modal", "game", "plain" */
+  dialog: string;
+  /** how it builds a sheet: "m3", "grabber", "weui", "panel", "rim" */
+  sheet: string;
+  /** how it composes a top bar: "m3", "center", "ios", "large", "compact" */
+  appbar: string;
+  /** what ends a list row: "m3", "chevron", "arrow", "dense", "bullet" */
+  row: string;
+  /** how it composes a card: "m3", "flat", "outlined", "raised", "headed", "paper", "framed", "glass" */
+  card: string;
+  /** how it builds an avatar: "m3" (round), "square", "framed" */
+  avatar: string;
+  /** how it builds a story dialogue: "m3", "portrait", "band" */
+  dialogue: string;
+  /** how a desktop window is closed: traffic lights at the left (a Mac's) or caption buttons at the right */
+  caption: "lights" | "buttons";
+  /** desktop software sets its controls closer and smaller */
+  compact: boolean;
+  dark: boolean;
+  /** the room the style leaves at a screen's edge, between rows, and between rows of a kind */
+  margin: number;
+  gap: number;
+  tight: number;
+  /** the width there is where the kit is added (a phone's content width), when that is known */
+  room?: number;
+};
+
+/** whether there is room for a wide composition: the room where it is added, or else what the style is for */
+export const isWide = (l: KitLook) => (l.room ?? (l.group === "desktop" || l.group === "pcGame" ? 640 : 380)) >= 560;
+
+/* ---------- traits of a look ---------- */
+
+/* What decides a composition, read only from the look's fields, never from a style by name. They live here, beside
+ * the look, so that a kit (parts/kits) and a split (parts/defs/splits.ts) compose by the same ones. */
+
+export const isGame = (l: KitLook) => l.group === "mobileGame" || l.group === "pcGame";
+export const isDesk = (l: KitLook) => l.group === "desktop";
+/** set close and small: desktop software, and the apps that pack their rows */
+export const isDense = (l: KitLook) => l.compact || l.group === "desktop";
+/** centered titles, grouped lists on a grey ground, alerts with buttons split under a hairline: an iPhone's way */
+export const isIosLike = (l: KitLook) => l.appbar === "ios" || l.list === "inset" || l.dialog === "alert" || l.segmented === "ios";
+/** the WeChat way of dialogs and sheets: a bold centered title, buttons split by hairlines, a gap before Cancel */
+export const isWeui = (l: KitLook) => l.dialog === "weui" || l.sheet === "weui";
+/** a title stands centered between the bar's two sides */
+export const centersTitle = (l: KitLook) => l.bar === "center" || l.appbar === "center" || l.appbar === "ios";
+/** the look plays as a game: chunky frames, resource pills, glossy buttons */
+export const isMobileGame = (l: KitLook) => l.group === "mobileGame";
+/** how a look groups the rows of a list: on a rounded card on a grey ground (an iPhone's, and a game's tiles), on a
+ *  card running edge to edge (WeChat's cells, desktop lists parted by hairlines), or bare (Material's) */
+export const groupingOf = (l: KitLook): "inset" | "flush" | "bare" => (l.list === "inset" || l.list === "tile" ? "inset" : l.list === "flush" || l.list === "hairline" ? "flush" : "bare");
+
+/** the look of a document with no style: Material's */
+export const MATERIAL_LOOK: KitLook = {
+  group: "app",
+  field: "m3",
+  bar: "m3",
+  button: "m3",
+  list: "m3",
+  surface: "m3",
+  toggle: "m3",
+  nav: "m3",
+  tabs: "m3",
+  segmented: "m3",
+  dialog: "m3",
+  sheet: "m3",
+  appbar: "m3",
+  row: "m3",
+  card: "m3",
+  avatar: "m3",
+  dialogue: "m3",
+  caption: "buttons",
+  compact: false,
+  dark: false,
+  margin: 16,
+  gap: 16,
+  tight: 8,
+};
+
+export type KitVariant = {
+  key: string;
+  /** what the variant is called, in English; `labels` in the other languages */
+  name: string;
+  labels: Labels;
+  /** The tree of atoms, with the words in every language. A composition may read the look it is
+   *  added under (a box that is dark on a light page); left out, Material's. */
+  build: (look?: KitLook) => Node;
+  /** the looks this composition is the one for; a kit added without a choice takes the first that suits */
+  suits?: (look: KitLook) => boolean;
+  /** it runs from one edge of the screen to the other (a bar): on a screen it is as wide as the screen */
+  span?: "screen";
+};
+
+export type KitDef = {
+  /** an id of its own, apart from every part's */
+  slug: string;
+  name: string;
+  labels: Labels;
+  /** the composite section it is shown in */
+  category: PartCategory;
+  /** Material Symbols name, for the palette tile */
+  icon: string;
+  /** one line for the AI guide: what it is made of */
+  about: string;
+  variants: KitVariant[];
+};

@@ -1,14 +1,15 @@
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/m3e/button";
 import { Switch } from "@/components/m3e/switch";
 import { themeCss } from "@/lib/m3e/color";
-import { RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, STYLE_PACKS, VARIANT_LABELS, isStrict, recipesOf, styleCss, styleOf, stylePatch, styleTextOf, uxOf, type RecipeKey, type Recipes, type StylePack, type StyleUX } from "@/lib/styles";
+import { RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, STYLE_PACKS, isStrict, recipesOf, styleCss, styleOf, stylePatch, styleTextOf, uxOf, variantLabel, type RecipeKey, type Recipes, type StylePack, type StyleUX } from "@/lib/styles";
 import { FONTS, ICON_FAMILIES, Palette, Theme, fontFamilyOf, langFaceOf, shapeScaleOf, type FontKey, type IconFamily } from "@/lib/tokens";
 import { ensureFontLoaded } from "@/lib/theme";
 import { Lang, t, useLang } from "@/lib/i18n";
 import { shapeVars } from "@/parts/theme";
 import { Icon } from "./Icon";
+import { IconFamilyPicker } from "./IconFamilyPicker";
 import { Select, Slider, Toggle } from "./ui";
 
 /* The styles, each shown by real controls wearing it, and then how each kind of control is built, for an
@@ -27,11 +28,45 @@ const ICON_LABELS: Record<IconFamily, { zh: string; en: string; ja: string; ko: 
   light: { zh: "细线", en: "Thin", ja: "細線", ko: "얇은" },
   sharp: { zh: "方正", en: "Sharp", ja: "角ばった", ko: "각진" },
   pixel: { zh: "像素", en: "Pixel", ja: "ピクセル", ko: "픽셀" },
+  sf: { zh: "iOS 线条", en: "iOS line", ja: "iOS の線", ko: "iOS 선" },
+  fluentui: { zh: "Fluent", en: "Fluent", ja: "Fluent", ko: "Fluent" },
+  codicon: { zh: "VS Code", en: "VS Code", ja: "VS Code", ko: "VS Code" },
+  phosphor: { zh: "Phosphor", en: "Phosphor", ja: "Phosphor", ko: "Phosphor" },
+  lucide: { zh: "Lucide", en: "Lucide", ja: "Lucide", ko: "Lucide" },
+  remix: { zh: "Remix", en: "Remix", ja: "Remix", ko: "Remix" },
+  ant: { zh: "Ant Design", en: "Ant Design", ja: "Ant Design", ko: "Ant Design" },
+  tabler: { zh: "Tabler", en: "Tabler", ja: "Tabler", ko: "Tabler" },
+  mingcute: { zh: "MingCute", en: "MingCute", ja: "MingCute", ko: "MingCute" },
+  game: { zh: "游戏图标", en: "Game icons", ja: "ゲームアイコン", ko: "게임 아이콘" },
+  emoji: { zh: "彩色图标", en: "Color emoji", ja: "カラー絵文字", ko: "컬러 이모지" },
 };
 
-/** the two controls that say the most about a style, drawn in it */
+/** a style's faces, fetched the first time its card is seen, pointed at or picked: never all of them at once */
+const loadFaces = (pack: StylePack, lang: Lang) => {
+  ensureFontLoaded(pack.font, undefined, lang);
+  if (pack.display) ensureFontLoaded(pack.display, undefined, lang);
+};
+
+/** the two controls that say the most about a style, drawn in it; its faces come once it scrolls into view */
 function Sample({ pack, lang }: { pack: StylePack; lang: Lang }) {
   const selector = `[data-style-sample="${pack.key}"]`;
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") return loadFaces(pack, lang);
+    const io = new IntersectionObserver(
+      (seen) => {
+        if (!seen.some((e) => e.isIntersecting)) return;
+        loadFaces(pack, lang);
+        io.disconnect();
+      },
+      /* a little before it shows, so the face is there by the time it does */
+      { rootMargin: "160px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [pack, lang]);
   const css = useMemo(() => {
     const dark = pack.mode === "dark";
     const at = { scope: `${selector}${selector}`, dark: `.dark${selector}${selector}` };
@@ -42,6 +77,7 @@ function Sample({ pack, lang }: { pack: StylePack; lang: Lang }) {
   }, [pack, selector, lang]);
   return (
     <div
+      ref={ref}
       inert
       aria-hidden
       data-style-sample={pack.key}
@@ -64,13 +100,15 @@ function Sample({ pack, lang }: { pack: StylePack; lang: Lang }) {
   );
 }
 
-function StyleCard({ on, name, refs, hint, onClick, p, children }: { on: boolean; name: string; refs?: string; hint: string; onClick: () => void; p: Palette; children: React.ReactNode }) {
+function StyleCard({ on, name, refs, hint, onClick, onHover, p, children }: { on: boolean; name: string; refs?: string; hint: string; onClick: () => void; /** pointed at: what it would need is fetched */ onHover?: () => void; p: Palette; children: React.ReactNode }) {
   return (
     /* a card, not a button: what it shows are real controls, and a button cannot hold a button */
     <div
       role="button"
       tabIndex={0}
       onClick={onClick}
+      onPointerEnter={onHover}
+      onFocus={onHover}
       onKeyDown={(e) => {
         if (e.key !== "Enter" && e.key !== " ") return;
         e.preventDefault();
@@ -155,7 +193,7 @@ function StyleSpec({ theme, pack, p, lang }: { theme: Theme; pack: StylePack | u
         </span>
       </SpecRow>
       <SpecRow label={t("specControls", lang)} p={p}>
-        {built.length ? built.map((k) => `${styleTextOf(RECIPE_LABELS[k], lang)}：${styleTextOf(VARIANT_LABELS[recipes[k]], lang)}`).join("；") : "Material 3"}
+        {built.length ? built.map((k) => `${styleTextOf(RECIPE_LABELS[k], lang)}：${styleTextOf(variantLabel(k, recipes[k]), lang)}`).join("；") : "Material 3"}
       </SpecRow>
       <SpecRow label={t("specLayout", lang)} p={p}>
         {t("styleNav", lang)}：{nav}；{t("styleMargin", lang)} {ux.margin}；{t("styleGap", lang)} {ux.gap}；{t("styleTight", lang)} {ux.tight}
@@ -208,12 +246,6 @@ export function StylePanel({
   onRules: (on: boolean) => void;
 }) {
   const lang = useLang();
-  useEffect(() => {
-    for (const s of STYLE_PACKS) {
-      ensureFontLoaded(s.font, undefined, lang);
-      if (s.display) ensureFontLoaded(s.display, undefined, lang);
-    }
-  }, [lang]);
   const strict = isStrict(theme);
   const recipes = recipesOf(theme);
   const ux = uxOf(theme);
@@ -226,7 +258,7 @@ export function StylePanel({
     onChange({ recipes: Object.keys(next).length ? next : undefined });
   };
   const card = (s: StylePack) => (
-    <StyleCard key={s.key} on={theme.style === s.key} name={styleTextOf(s.name, lang)} refs={s.refs.length === 1 && s.refs[0] === s.name.en ? undefined : s.refs.slice(0, 2).join(" · ")} hint={styleTextOf(s.hint, lang)} onClick={() => onPick(s.key)} p={p}>
+    <StyleCard key={s.key} on={theme.style === s.key} name={styleTextOf(s.name, lang)} refs={s.refs.length === 1 && s.refs[0] === s.name.en ? undefined : s.refs.slice(0, 2).join(" · ")} hint={styleTextOf(s.hint, lang)} onClick={() => (loadFaces(s, lang), onPick(s.key))} onHover={() => loadFaces(s, lang)} p={p}>
       <Sample pack={s} lang={lang} />
     </StyleCard>
   );
@@ -258,6 +290,17 @@ export function StylePanel({
       <Toggle on={strict} onChange={onRules} p={p} label={t("styleRules", lang)} grow />
       <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t(strict ? "styleRulesOn" : "styleRulesOff", lang)}</div>
       {strict && <StyleSpec theme={theme} pack={pack} p={p} lang={lang} />}
+      {/* every part wearing this style, on a page of its own: to see what the style makes of each */}
+      <a
+        href={`${import.meta.env.BASE_URL}gallery?${new URLSearchParams({ ...(theme.style ? { style: theme.style } : {}), dark: theme.dark ? "1" : "0", lang }).toString()}`}
+        target="_blank"
+        rel="noreferrer"
+        className="m3-press"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, height: 36, borderRadius: 12, background: p.surfaceContainerHigh, color: p.onSurface, fontSize: 12, fontWeight: 600, textDecoration: "none" }}
+      >
+        <Icon name="grid_view" size={18} />
+        {t("styleGallery", lang)}
+      </a>
       {!strict && (
         <>
       <Heading p={p}>{t("styleLayout", lang)}</Heading>
@@ -313,18 +356,18 @@ export function StylePanel({
               label={styleTextOf(RECIPE_LABELS[k], lang)}
               p={p}
               value={recipes[k]}
-              options={RECIPES[k].map((v) => ({ key: v, label: styleTextOf(VARIANT_LABELS[v], lang) }))}
+              options={RECIPES[k].map((v) => ({ key: v, label: styleTextOf(variantLabel(k, v), lang) }))}
               onChange={(v) => setRecipe(k, v)}
             />
           </Labeled>
         ))}
         <Labeled label={t("styleIcons", lang)} p={p}>
-          <Select
+          <IconFamilyPicker
             label={t("styleIcons", lang)}
             p={p}
             value={theme.icons ?? "rounded"}
             options={ICON_FAMILIES.map((v) => ({ key: v, label: styleTextOf(ICON_LABELS[v], lang) }))}
-            onChange={(v) => onChange({ icons: v as IconFamily })}
+            onChange={(v) => onChange({ icons: v })}
           />
         </Labeled>
       </div>

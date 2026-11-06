@@ -1,68 +1,79 @@
-
 import { useEffect, useSyncExternalStore } from "react";
-import { setIconFamily, type IconFamily } from "@/components/m3e/icon";
-import { familyIds } from "@/components/m3e/icon-family";
-import { registerIcons } from "@/components/m3e/icon-registry";
+import { familyGlyph, setIconFamily, type IconFamily } from "@/components/m3e/icon";
+import core from "@/components/m3e/icon-data";
+import { isKnownIcon, registerIcons } from "@/components/m3e/icon-registry";
+import { loadIcons } from "@/components/m3e/icon-sets/load";
 import { isNode, isRaw, type PNode, type PValue } from "./node";
 
-/* The M3E components draw icons from bundled data (only the glyphs their own code uses). A
- * sketch may use any Material Symbol, so the ones the parts name are fetched from Iconify
- * once, registered, and the parts drawn again. The code the canvas prints is unchanged:
- * `bun run gen:icons` bundles them in the project that uses it. A family other than Rounded
- * is fetched the same way, and the Rounded drawing stands in until it arrives. */
+/* The M3E components draw icons from bundled data. A sketch may use any Material Symbol, so the ones the
+ * parts name are loaded from the bundled sets (components/m3e/icon-sets): the Rounded glyph, and the
+ * chosen family's own drawing of it, each set in shards fetched the first time a name in them is drawn.
+ * Rounded stands in until the family's glyph arrives, and for a name the family lacks. Only a name no set
+ * bundles (one an author typed) is fetched from Iconify, as a last resort that needs the network. The code
+ * the canvas prints is unchanged: an exported project carries its own glyphs. */
 
 const API = "https://api.iconify.design";
-const asked = new Set<string>();
-/** the icons Iconify has sent so far */
-const arrived = new Set<string>();
 let version = 0;
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setTimeout> | undefined;
 const pending = new Set<string>();
 let family: IconFamily = "rounded";
-/** every name asked for so far: a newly chosen family has to fetch them too */
+/** every name asked for so far: a newly chosen family has to load them too */
 const named = new Set<string>();
+/** `family:name` once loaded, so a name is asked for once per family */
+const asked = new Set<string>();
+/** names asked of Iconify */
+const fetched = new Set<string>();
 
-const ids = (name: string) => {
-  const base = name.replaceAll("_", "-");
-  return [`material-symbols:${base}-outline-rounded`, `material-symbols:${base}-rounded`, ...familyIds(family, name)];
-};
+const base = (name: string) => name.replaceAll("_", "-");
+const rounded = (name: string) => [`material-symbols:${base(name)}-outline-rounded`, `material-symbols:${base(name)}-rounded`];
+/** the glyphs a name is drawn with now, outlined and filled: the family's once they are here, else Rounded's once they are, else none */
+const drawnWith = (name: string) => [false, true].map((filled) => familyGlyph(name, filled) ?? (isKnownIcon(rounded(name)[filled ? 1 : 0]) ? "r" : "")).join("|");
 
-async function fetchChunk(prefix: string, chunk: string[]) {
-  try {
-    const res = await fetch(`${API}/${prefix}.json?icons=${chunk.join(",")}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    registerIcons(data);
-    for (const id of [...Object.keys(data.icons ?? {}), ...Object.keys(data.aliases ?? {})]) arrived.add(`${prefix}:${id}`);
-    version++;
-    listeners.forEach((l) => l());
-  } catch {
-    // offline: the parts keep drawing the icons that are bundled
+/* the names the components draw inside themselves (a dialog's close button, a menu's chevron): they are in
+ * no part's tree, and a family brings its drawing of them too */
+const INNER = [...new Set([...Object.keys(core.icons), ...Object.keys(core.aliases ?? {})].map((n) => n.replace(/(-outline)?-rounded$/, "")))];
+
+function changed() {
+  version++;
+  listeners.forEach((l) => l());
+}
+
+/** the names no bundled set draws, from Iconify; offline they stay blank, as before */
+async function fromIconify(names: string[]) {
+  const glyphs = names.flatMap((n) => rounded(n).map((id) => id.split(":")[1]));
+  for (let i = 0; i < glyphs.length; i += 60) {
+    try {
+      const res = await fetch(`${API}/material-symbols.json?icons=${glyphs.slice(i, i + 60).join(",")}`);
+      if (!res.ok) return;
+      registerIcons(await res.json());
+      changed();
+    } catch {
+      return;
+    }
   }
 }
 
 async function flush() {
-  const byPrefix = new Map<string, string[]>();
-  for (const id of pending) {
-    const [prefix, name] = id.split(":");
-    byPrefix.set(prefix, [...(byPrefix.get(prefix) ?? []), name]);
-  }
+  const names = [...pending];
   pending.clear();
-  for (const [prefix, names] of byPrefix) for (let i = 0; i < names.length; i += 60) await fetchChunk(prefix, names.slice(i, i + 60));
+  const drawn = family;
+  if (await loadIcons(drawn, names)) changed();
+  const missing = names.filter((n) => !fetched.has(n) && !rounded(n).some(isKnownIcon));
+  missing.forEach((n) => fetched.add(n));
+  if (missing.length) await fromIconify(missing);
 }
 
-/** ask for the icons a part uses; the ones already asked for are skipped */
+/** load the icons a part uses, in the current family; the ones already loaded are skipped */
 export function ensureIcons(names: Iterable<string>) {
   if (typeof window === "undefined") return;
   for (const name of names) {
     if (!name) continue;
     named.add(name);
-    for (const id of ids(name)) {
-      if (asked.has(id)) continue;
-      asked.add(id);
-      pending.add(id);
-    }
+    const key = `${family}:${base(name)}`;
+    if (asked.has(key)) continue;
+    asked.add(key);
+    pending.add(name);
   }
   if (pending.size && timer === undefined) {
     timer = setTimeout(() => {
@@ -72,15 +83,22 @@ export function ensureIcons(names: Iterable<string>) {
   }
 }
 
-/** The document's icons take this drawing: whatever has been asked for so far is fetched in it, and drawn again. */
+/** the family whose drawings of INNER have arrived: until they do, a part drawn in it is drawn again when they come */
+let inner: IconFamily = "rounded";
+
+/** The document's icons take this drawing: whatever has been asked for so far is loaded in it, and drawn again. */
 export function useIconFamily(next: IconFamily) {
   useEffect(() => {
     if (next === family) return;
     family = next;
     setIconFamily(next);
     ensureIcons(named);
-    version++;
-    listeners.forEach((l) => l());
+    void loadIcons(next, INNER).then(() => {
+      if (family !== next) return;
+      inner = next;
+      changed();
+    });
+    changed();
   }, [next]);
 }
 
@@ -113,15 +131,15 @@ export function useIconVersion() {
   );
 }
 
-/** Fetch the icons of a tree, and say how many of them have arrived. PartView draws afresh when this
+/** Load the icons of a tree, and say how many of them have arrived. PartView draws afresh when this
  *  changes, which is only for this tree's own icons: another part's arriving must not reset this one's
  *  state, and a widget's run-time icons are drawn by WidgetIcon, which sees to itself. */
 export function useIcons(node: PNode) {
   const names = [...iconNamesIn(node)].join(",");
   useEffect(() => ensureIcons(names ? names.split(",") : []), [names]);
-  /* how much of this tree's icons has been sent, under the family's name: changing family draws the tree again even if nothing is left to
-   * fetch. Every drawing counts, the family's own and the one that stands in for it: the solid family's own ids end like the stand-in's */
-  const count = () => `${family}:${names ? names.split(",").reduce((sent, name) => sent + ids(name).filter((id) => arrived.has(id)).length, 0) : 0}`;
+  /* what this tree's icons are drawn with now, under the family's name: changing family draws the tree again even if nothing is left to
+   * load, and so does a glyph taking another's place (Pixel's own arriving over the Sharp one that stood in for it) */
+  const count = () => `${family}${inner === family ? "" : "~"}:${names ? names.split(",").map(drawnWith).join(",") : ""}`;
   return useSyncExternalStore(
     (l) => {
       listeners.add(l);

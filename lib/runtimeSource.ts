@@ -1,10 +1,11 @@
+import { str } from "../parts/print";
 import type { RuntimeSpec } from "./printBehaviour";
 
 /* The text of src/runtime.tsx in an exported project: what the running app remembers and the plain
  * calls the screens make on it. It says what lib/interact.ts says for the preview, written for someone
  * to read in their own project rather than imported, since the project does not have the editor. */
 
-const union = (names: string[]) => (names.length ? names.map((n) => JSON.stringify(n)).join(" | ") : "never");
+const union = (names: string[]) => (names.length ? names.map((n) => str(n)).join(" | ") : "never");
 const flags = (names: string[]) => `{${names.map((n) => ` ${n}: true`).join(",")}${names.length ? " " : ""}}`;
 const TYPE_OF = { text: "string", number: "number", bool: "boolean" } as const;
 
@@ -18,12 +19,12 @@ export type PartId = ${union(spec.parts)}
 export type Vars = {${spec.vars.map((v) => ` ${v.key}: ${TYPE_OF[v.type]}`).join(";")}${spec.vars.length ? " " : ""}}
 export type Transition = "slide" | "slideLeft" | "slideUp" | "slideDown" | "fade" | "expand" | "none"
 
-const START_SCREEN: ScreenId = ${JSON.stringify(spec.screens[0])}
-const START_VARS: Vars = {${spec.vars.map((v) => ` ${v.key}: ${JSON.stringify(v.start)}`).join(",")}${spec.vars.length ? " " : ""}}
+const START_SCREEN: ScreenId = ${str(spec.screens[0])}
+const START_VARS: Vars = {${spec.vars.map((v) => ` ${v.key}: ${str(v.start)}`).join(",")}${spec.vars.length ? " " : ""}}
 const START_HIDDEN: Partial<Record<PartId, boolean>> = ${flags(spec.hidden)}
 const START_OPEN: Partial<Record<PartId, boolean>> = ${flags(spec.opened)}
 /** what a screen reads as the row last tapped until one has been */
-const START_CURRENT: Record<string, string> = ${JSON.stringify(spec.current)}
+const START_CURRENT: Record<string, string> = ${str(spec.current)}
 /** how long a snackbar stands: Material's short duration */
 const SNACK_MS = 4000
 

@@ -15,9 +15,10 @@ export function roleOf(it: RoleOf): PartRole | undefined {
 }
 
 /** spans the screen edge to edge: the bars and a carousel, whose row is the screen.
- *  A sheet or drawer pinned to the bottom keeps its own width. */
+ *  A sheet or drawer pinned to the bottom keeps its own width; a box pinned there is a bar
+ *  built of atoms (a kit's tab bar, buy bar, chat input or sheet), and spans it. */
 export const fullWidth = (it: RoleOf): boolean => {
   const r = roleOf(it);
   if (r === "top" || r === "fullWidth") return true;
-  return r === "bottom" && it.component === "navigation-bar";
+  return r === "bottom" && (it.component === "navigation-bar" || it.component === "box");
 };

@@ -1,12 +1,17 @@
 import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import type { FlowValues } from "../parts/flow";
-import { Group, Item, groupBounds, heldBy, holdsParts, liesInside, makeItem, ownerIdOf, unionRect } from "./tokens";
+import { Group, Item, groupBounds, heldBy, holdsParts, liesInside, makeItem, ownerIdOf, unionRect, type FlowAlign, type FlowSizing } from "./tokens";
+import { alignIntent, boundsOf, gapSnapper, gridMeasure, median, runsOf, structureOf, union, type Box, type Rect, type Shape } from "./structure";
 
 /* Auto layout on the canvas. Parts stay where the document says they are, so everything else (the
  * preview, the guides, the layers) keeps working; a container with a layout rewrites those places.
  * What belongs to it is named on the part (`Group.inFlow`), because what overflows a container must
- * not fall out of it. Dropping a part in or out is all it takes, and the order is where it was let go. */
+ * not fall out of it. Dropping a part in or out is all it takes, and the order is where it was let go.
+ *
+ * Each part in a layout may say how it is sized on each axis (its own measure, its contents, or the
+ * room it is given), where it stands across the run, the least and most it may be made, how many
+ * columns of a grid it takes, and that it stays where it was put (absolute), as in Figma. */
 
 type Size = { w: number; h: number };
 type Widths = Record<string, number>;
@@ -25,11 +30,21 @@ export function flowOfItem(it: Item): Flow | null {
   const has = (key: string) => def.props.some((d) => d.key === key);
   const dir = def.flow.grid ? "grid" : p.s("layout");
   if (dir !== "row" && dir !== "column" && dir !== "grid") return null;
+  /* a value that is only there when it was set: left out, the linked form says it */
+  const own = (key: string) => {
+    const v = it.props?.[key];
+    return has(key) && typeof v === "number" && Number.isFinite(v) ? Math.round(p.n(key)) : undefined;
+  };
+  const gap = Math.round(p.n("gap"));
+  const padX = Math.round(p.n("padX"));
+  const padY = Math.round(p.n("padY"));
   return {
     dir,
-    gap: Math.round(p.n("gap")),
-    padX: Math.round(p.n("padX")),
-    padY: Math.round(p.n("padY")),
+    gap,
+    gapY: own("gapY") ?? gap,
+    padX,
+    padY,
+    pad: { t: own("padTop") ?? padY, r: own("padRight") ?? padX, b: own("padBottom") ?? padY, l: own("padLeft") ?? padX },
     align: p.s("align"),
     justify: has("justify") ? p.s("justify") : "start",
     wrap: has("wrap") && p.b("wrap"),
@@ -40,6 +55,118 @@ export function flowOfItem(it: Item): Flow | null {
     inset: { t: 0, r: 0, b: 0, l: 0, ...def.flow.inset?.(p) },
   };
 }
+
+/* ---------- a part in a layout ---------- */
+
+const SIZINGS = new Set<FlowSizing>(["fixed", "hug", "fill"]);
+const ALIGNS = new Set<FlowAlign>(["start", "center", "end", "stretch", "baseline"]);
+const isSize = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+
+/** the one part a group in a layout is, when it is one */
+const lone = (g: Group): Item | undefined => (g.items.length === 1 ? g.items[0] : undefined);
+
+/** what a part asks of the layout it is in, read safely: a file edited by hand may say anything */
+export type ChildLayout = {
+  /** set on the part itself, rather than read off the container */
+  size: { w?: FlowSizing; h?: FlowSizing };
+  self?: FlowAlign;
+  absolute: boolean;
+  min: { w?: number; h?: number };
+  max: { w?: number; h?: number };
+  span: number;
+};
+
+export function childLayoutOf(it: Item | undefined): ChildLayout {
+  const size = it?.flowSize && typeof it.flowSize === "object" ? it.flowSize : {};
+  const pick = (v: unknown) => (SIZINGS.has(v as FlowSizing) ? (v as FlowSizing) : undefined);
+  const lim = (o: unknown) => (o && typeof o === "object" ? { w: isSize((o as Size).w) ? (o as Size).w : undefined, h: isSize((o as Size).h) ? (o as Size).h : undefined } : {});
+  const span = it?.flowSpan;
+  return {
+    size: { w: pick(size.w), h: pick(size.h) },
+    self: ALIGNS.has(it?.alignSelf as FlowAlign) ? it!.alignSelf : undefined,
+    absolute: it?.flowAbsolute === true,
+    min: lim(it?.flowMin),
+    max: lim(it?.flowMax),
+    span: typeof span === "number" && Number.isFinite(span) ? Math.max(1, Math.min(12, Math.round(span))) : 1,
+  };
+}
+
+/** What a part asks of the layout it is in, as the fields an item carries, with whatever is not of its kind left out:
+ *  for handing them on to what takes the part's place (a split, an instance read back from a file). */
+export function childLayoutFields(it: Item | undefined): Pick<Item, "flowFill" | "flowSize" | "alignSelf" | "flowAbsolute" | "flowMin" | "flowMax" | "flowSpan"> {
+  const c = childLayoutOf(it);
+  const some = <T extends object>(o: T) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
+  const size = some(c.size);
+  const min = some(c.min);
+  const max = some(c.max);
+  return {
+    ...(it?.flowFill === true ? { flowFill: true } : {}),
+    ...(Object.keys(size).length ? { flowSize: size } : {}),
+    ...(c.self ? { alignSelf: c.self } : {}),
+    ...(c.absolute ? { flowAbsolute: true } : {}),
+    ...(Object.keys(min).length ? { flowMin: min } : {}),
+    ...(Object.keys(max).length ? { flowMax: max } : {}),
+    ...(typeof it?.flowSpan === "number" && Number.isFinite(it.flowSpan) ? { flowSpan: c.span } : {}),
+  };
+}
+
+/** a part's own way of sizing itself on an axis, with no layout around it: its contents when it is a layout that hugs them */
+function ownSizing(it: Item | undefined, axis: "w" | "h"): FlowSizing {
+  const f = it && flowOfItem(it);
+  return f && (axis === "w" ? f.hugW : f.hugH) ? "hug" : "fixed";
+}
+
+/** where a part stands across the run of its layout */
+export const crossAlignOf = (it: Item | undefined, parent: Flow): string => childLayoutOf(it).self ?? parent.align;
+
+/** How a part in a layout is sized on an axis: what it says itself, else, along the run, `flowFill`; across it, the
+ *  container's stretch; and failing those, its own way. In a grid the width is the cell's. */
+export function sizingOf(it: Item | undefined, parent: Flow, axis: "w" | "h"): FlowSizing {
+  const c = childLayoutOf(it);
+  const set = c.size[axis];
+  if (set) return set;
+  const across = c.self ?? parent.align;
+  if (parent.dir === "grid") return axis === "w" && (across === "stretch" || !!it?.flowFill) ? "fill" : axis === "h" && c.self === "stretch" ? "fill" : ownSizing(it, axis);
+  const main = parent.dir === "row" ? "w" : "h";
+  if (axis === main) return it?.flowFill ? "fill" : ownSizing(it, axis);
+  return across === "stretch" ? "fill" : ownSizing(it, axis);
+}
+
+/** a measure kept inside the least and most the part allows */
+export function withinLimits(it: Item | undefined, axis: "w" | "h", v: number): number {
+  const c = childLayoutOf(it);
+  const lo = c.min[axis] ?? 0;
+  const hi = c.max[axis] ?? Infinity;
+  return Math.max(lo, Math.min(Math.max(lo, hi), v));
+}
+
+/** Room shared among parts that fill it, each kept inside its limits: one held back by its limit leaves the rest to the others. */
+export function shareOut(room: number, items: (Item | undefined)[], axis: "w" | "h"): number[] {
+  const out = items.map(() => 0);
+  let left = Math.max(0, room);
+  let open = items.map((_, i) => i);
+  while (open.length) {
+    const each = left / open.length;
+    const held = open.filter((i) => withinLimits(items[i], axis, each) !== each);
+    if (!held.length) {
+      for (const i of open) out[i] = each;
+      break;
+    }
+    for (const i of held) {
+      out[i] = withinLimits(items[i], axis, each);
+      left = Math.max(0, left - out[i]);
+    }
+    open = open.filter((i) => !held.includes(i));
+  }
+  return out;
+}
+
+/** how far below its top a part's first line of text sits; a part with none sits on its foot, as in the browser */
+export const baselineOf = (g: Group, h: number, widths: Widths): number => {
+  const it = lone(g);
+  const base = it ? widths[`${it.id}:base`] : undefined;
+  return typeof base === "number" && Number.isFinite(base) && base > 0 && base <= h ? base : h;
+};
 
 /** the tab a container with tabs is showing, and how many it has; null for any other part */
 function panesOf(it: Item): { shown: number; count: number } | null {
@@ -208,11 +335,46 @@ function membership(groups: Group[], widths: Widths): Group[] {
     }
     if (!near || !flowing.has(near.id)) return g;
     joined.add(near.id);
-    /* added by a tap, it goes on the tab that is showing */
+    /* added by a tap, it goes on the tab that is showing; standing loose was its place in a layout it has left */
     const panes = panesOf(near.items[0]);
-    return { ...g, inFlow: near.id, ...(panes ? { pane: panes.shown } : {}) };
+    return { ...inRun(g), inFlow: near.id, ...(panes ? { pane: panes.shown } : {}) };
   });
   return [...joined].reduce((gs, id) => sortKids(gs, id, flowing.get(id)!), out);
+}
+
+/** the cells a grid puts its parts in, row by row: a part spanning more columns than a row has left starts the next */
+export function gridRows<T>(kids: T[], columns: number, spanOf: (k: T) => number): { k: T; col: number; span: number }[][] {
+  const rows: { k: T; col: number; span: number }[][] = [];
+  let col = 0;
+  for (const k of kids) {
+    const span = Math.max(1, Math.min(columns, spanOf(k)));
+    if (!rows.length || col + span > columns) {
+      rows.push([]);
+      col = 0;
+    }
+    rows[rows.length - 1].push({ k, col, span });
+    col += span;
+  }
+  return rows;
+}
+
+/** where the first part of a run starts and how far apart the parts stand, for what is spare along it */
+export function distribute(justify: string, spare: number, count: number, gap: number): { start: number; step: number } {
+  if (spare <= 0 || count === 0) return { start: 0, step: gap };
+  switch (justify) {
+    case "center":
+      return { start: spare / 2, step: gap };
+    case "end":
+      return { start: spare, step: gap };
+    case "between":
+      return count > 1 ? { start: 0, step: gap + spare / (count - 1) } : { start: 0, step: gap };
+    case "around":
+      return { start: spare / count / 2, step: gap + spare / count };
+    case "evenly":
+      return { start: spare / (count + 1), step: gap + spare / (count + 1) };
+    default:
+      return { start: 0, step: gap };
+  }
 }
 
 /** Everything a layout decides, written back only where it differs: the same array when nothing
@@ -230,15 +392,18 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
   const sizes = new Map<string, Size>();
   const sizeOf = (id: string) => sizes.get(id) ?? ownSize(work.get(id)!, widths);
   const kidsOf = new Map<string, Group[]>();
+  /* what stands where it was put: it takes no place in the run, and goes where its container goes */
+  const looseOf = new Map<string, Group[]>();
   for (const g of groups) {
     if (!g.inFlow || !flows.has(g.inFlow) || g.locked || g.inFlow === g.id) continue;
     /* another tab's content takes no room here; it is laid out when its tab is chosen */
     const panes = panesOf(work.get(g.inFlow)!.items[0]);
     if (panes && paneIn(g, panes) !== panes.shown) continue;
-    kidsOf.set(g.inFlow, [...(kidsOf.get(g.inFlow) ?? []), g]);
+    const into = childLayoutOf(lone(g)).absolute ? looseOf : kidsOf;
+    into.set(g.inFlow, [...(into.get(g.inFlow) ?? []), g]);
   }
 
-  /** a measure of a part, where the part has a number for it */
+  /** a measure of a part, where the part has a number for it, kept to the least and most it allows in its layout */
   const setAxis = (id: string, axis: "width" | "height", v: number) => {
     const g = work.get(id)!;
     /* an instance is as big as what its definition comes to; a layout places it but does not size it */
@@ -246,26 +411,53 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
     const it = g.items[0];
     const ax = resizeOf(partBySlug(it.component), it.props)?.[axis];
     if (!ax || ax.kind !== "number") return;
-    const next = axisWrite(ax, Math.round(v)) as number;
+    const limited = g.inFlow && flows.has(g.inFlow) ? withinLimits(it, axis === "width" ? "w" : "h", v) : v;
+    const next = axisWrite(ax, Math.round(limited)) as number;
     sizes.set(id, { ...sizeOf(id), [axis === "width" ? "w" : "h"]: next });
     if (Math.abs(axisValue(ax, it.props) - next) < 1) return;
     work.set(id, { ...g, items: [{ ...it, props: { ...it.props, [ax.key]: next } }] });
   };
 
   const ordered = (id: string) => (kidsOf.get(id) ?? []).map((g) => work.get(g.id)!);
+  const loose = (id: string) => (looseOf.get(id) ?? []).map((g) => work.get(g.id)!);
+  /** the layout that places a part, when one does */
+  const parentOf = (g: Group) => (g.inFlow && !childLayoutOf(lone(g)).absolute ? flows.get(g.inFlow) : undefined);
 
-  /** the axis its layout decides for a part (stretched across, or filling along the run): hugging its
-   *  own contents on that axis would fight it for good */
-  const givenByParent = (id: string, axis: "width" | "height") => {
+  /** the axis its layout decides for a part (filled, along the run or across it): hugging its own contents on that
+   *  axis would fight it for good. A layout that hugs that axis itself has no room to give. */
+  const givenByParent = (id: string, axis: "w" | "h", depth = 0): boolean => {
     const g = work.get(id)!;
-    const parent = g.inFlow ? flows.get(g.inFlow) : undefined;
-    if (!parent) return false;
-    const fills = g.items.length === 1 && !!g.items[0].flowFill;
-    if (parent.dir === "grid") return axis === "width" && (parent.align === "stretch" || fills) && !parent.hugW;
-    const main = parent.dir === "row" ? "width" : "height";
-    const hugsMain = parent.dir === "row" ? parent.hugW : parent.hugH;
-    const hugsCross = parent.dir === "row" ? parent.hugH : parent.hugW;
-    return axis === main ? fills && !hugsMain : parent.align === "stretch" && !hugsCross;
+    const parent = parentOf(g);
+    if (!parent || depth > 32 || sizingOf(lone(g), parent, axis) !== "fill") return false;
+    if (!hugsOn(g.inFlow!, axis, depth + 1)) return true;
+    /* a layout sized by its contents still gives what fills across it the size the others give it, as Figma's "fill
+     * container" in a hugging frame; along the run, or with nothing else to go by, there is nothing to give */
+    if (axis !== (parent.dir === "row" ? "h" : "w")) return false;
+    return ordered(g.inFlow!).some((k) => k.id !== id && sizingOf(lone(k), parent, axis) !== "fill");
+  };
+  /** whether a container takes the size of its contents on an axis, all said: its own prop, unless its layout fills it
+   *  or the part says otherwise */
+  function hugsOn(id: string, axis: "w" | "h", depth = 0): boolean {
+    const g = work.get(id)!;
+    const f = flows.get(id)!;
+    if (givenByParent(id, axis, depth)) return false;
+    const set = parentOf(g) ? childLayoutOf(lone(g)).size[axis] : undefined;
+    return set === "hug" ? true : set === "fixed" ? false : axis === "w" ? f.hugW : f.hugH;
+  }
+  /** the parts that say how big a layout comes out across: not those it stretches, unless that is all of them */
+  const measuring = (kids: Group[], axis: "w" | "h") => {
+    const own = kids.filter((k) => !givenByParent(k.id, axis));
+    return own.length ? own : kids;
+  };
+
+  /** a line of a row (or a row of a grid): how tall it comes out, and how far each part stands below its top when it
+   *  lines up on the text baseline */
+  const lineLay = (line: Group[], f: Flow) => {
+    const hs = line.map((k) => sizeOf(k.id).h);
+    const bases = line.map((k, i) => (crossAlignOf(lone(k), f) === "baseline" ? baselineOf(k, hs[i], widths) : undefined));
+    const top = Math.max(0, ...bases.map((b) => b ?? 0));
+    const offs = bases.map((b) => (b === undefined ? 0 : top - b));
+    return { h: Math.max(0, ...line.map((_, i) => offs[i] + hs[i])), offs };
   };
 
   const seen = new Set<string>();
@@ -286,41 +478,44 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
     }
     return lines;
   };
+  const spanOf = (k: Group) => childLayoutOf(lone(k)).span;
 
   /* inside first: a container that hugs its contents has to know them */
   const hug = (id: string) => {
     if (seen.has(id)) return;
     seen.add(id);
-    const f0 = flows.get(id)!;
+    const f = flows.get(id)!;
     const kids = ordered(id);
-    for (const k of kids) if (flows.has(k.id)) hug(k.id);
-    const f = { ...f0, hugW: f0.hugW && !givenByParent(id, "width"), hugH: f0.hugH && !givenByParent(id, "height") };
-    if (!kids.length || (!f.hugW && !f.hugH) || !kids.every((k) => measured(k, widths))) return;
+    for (const k of [...kids, ...loose(id)]) if (flows.has(k.id)) hug(k.id);
+    const hugW = hugsOn(id, "w");
+    const hugH = hugsOn(id, "h");
+    if (!kids.length || (!hugW && !hugH) || !kids.every((k) => measured(k, widths))) return;
     const s = kids.map((k) => sizeOf(k.id));
     const gaps = f.gap * (kids.length - 1);
-    const across = f.padX * 2 + f.inset.l + f.inset.r;
-    const down = f.padY * 2 + f.inset.t + f.inset.b;
+    const across = f.pad.l + f.pad.r + f.inset.l + f.inset.r;
+    const down = f.pad.t + f.pad.b + f.inset.t + f.inset.b;
     if (f.dir === "grid") {
-      const rows = Math.ceil(kids.length / f.columns);
-      if (f.hugW) setAxis(id, "width", across + Math.max(...s.map((x) => x.w)) * f.columns + f.gap * (f.columns - 1));
-      if (f.hugH) setAxis(id, "height", down + Math.max(...s.map((x) => x.h)) * rows + f.gap * (rows - 1));
+      const rows = gridRows(kids, f.columns, spanOf);
+      const sizing = new Set(measuring(kids, "w").map((k) => k.id));
+      const cellW = Math.max(...rows.flat().filter((c) => sizing.has(c.k.id)).map((c) => (sizeOf(c.k.id).w - f.gap * (c.span - 1)) / c.span));
+      if (hugW) setAxis(id, "width", across + cellW * f.columns + f.gap * (f.columns - 1));
+      if (hugH) setAxis(id, "height", down + rows.reduce((n, r) => n + lineLay(r.map((c) => c.k), f).h, 0) + f.gapY * (rows.length - 1));
       return;
     }
     if (f.dir === "row") {
-      if (f.hugW) setAxis(id, "width", across + s.reduce((n, x) => n + x.w, 0) + gaps);
-      if (f.hugH) {
-        const lines = f.wrap && !f.hugW ? linesOf(kids, f, sizeOf(id).w - across) : [kids];
-        const tall = lines.map((l) => Math.max(...l.map((k) => sizeOf(k.id).h)));
-        setAxis(id, "height", down + tall.reduce((n, x) => n + x, 0) + f.gap * (lines.length - 1));
+      if (hugW) setAxis(id, "width", across + s.reduce((n, x) => n + x.w, 0) + gaps);
+      if (hugH) {
+        const lines = f.wrap && !hugW ? linesOf(kids, f, sizeOf(id).w - across) : [kids];
+        setAxis(id, "height", down + lines.reduce((n, l) => n + lineLay(measuring(l, "h"), f).h, 0) + f.gapY * (lines.length - 1));
       }
       return;
     }
-    if (f.hugW) setAxis(id, "width", across + Math.max(...s.map((x) => x.w)));
-    if (f.hugH) setAxis(id, "height", down + s.reduce((n, x) => n + x.h, 0) + gaps);
+    if (hugW) setAxis(id, "width", across + Math.max(...measuring(kids, "w").map((k) => sizeOf(k.id).w)));
+    if (hugH) setAxis(id, "height", down + s.reduce((n, x) => n + x.h, 0) + gaps);
   };
   for (const id of flows.keys()) hug(id);
 
-  /** a part put in its place; what a free container holds comes along */
+  /** a part put in its place; what a free container holds comes along, and so does what stands loose in a layout */
   const put = (id: string, x: number, y: number) => {
     const g = work.get(id)!;
     const nx = Math.round(x);
@@ -334,8 +529,8 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
         work.set(held.id, { ...h, x: h.x + dx, y: h.y + dy });
       }
     work.set(id, { ...g, x: nx, y: ny });
+    if (flows.has(id)) for (const a of loose(id)) put(a.id, a.x + dx, a.y + dy);
   };
-  const fills = (k: Group) => k.items.length === 1 && !!k.items[0].flowFill;
 
   const placed = new Set<string>();
   /* outside next: where a container stands, and the room it has, are its children's to go by */
@@ -348,65 +543,81 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
     if (!kids.every((k) => measured(k, widths))) return;
     const host = work.get(id)!;
     const size = sizeOf(id);
-    const left = host.x + f.inset.l + f.padX;
-    const top = host.y + f.inset.t + f.padY;
-    const roomW = Math.max(0, size.w - f.inset.l - f.inset.r - f.padX * 2);
-    const roomH = Math.max(0, size.h - f.inset.t - f.inset.b - f.padY * 2);
-    const crossAt = (room: number, own: number) => (f.align === "center" ? (room - own) / 2 : f.align === "end" ? room - own : 0);
+    const hugW = hugsOn(id, "w");
+    const hugH = hugsOn(id, "h");
+    const left = host.x + f.inset.l + f.pad.l;
+    const top = host.y + f.inset.t + f.pad.t;
+    const roomW = Math.max(0, size.w - f.inset.l - f.inset.r - f.pad.l - f.pad.r);
+    const roomH = Math.max(0, size.h - f.inset.t - f.inset.b - f.pad.t - f.pad.b);
+    const at = (k: Group, room: number, own: number) => {
+      const a = crossAlignOf(lone(k), f);
+      return a === "center" ? (room - own) / 2 : a === "end" ? room - own : 0;
+    };
+    const fills = (k: Group, axis: "w" | "h") => sizingOf(lone(k), f, axis) === "fill";
 
     if (f.dir === "grid") {
       const cellW = (roomW - f.gap * (f.columns - 1)) / f.columns;
       /* a grid that says how many rows it has divides its height among them */
-      const given = f.rows && !f.hugH ? (roomH - f.gap * (f.rows - 1)) / f.rows : 0;
+      const given = f.rows && !hugH ? (roomH - f.gapY * (f.rows - 1)) / f.rows : 0;
       let y = top;
-      for (let i = 0; i < kids.length; i += f.columns) {
-        const row = kids.slice(i, i + f.columns);
-        for (const k of row) if (f.align === "stretch" || fills(k)) setAxis(k.id, "width", cellW);
-        const tall = given || Math.max(...row.map((k) => sizeOf(k.id).h));
-        row.forEach((k, c) => {
-          const s = sizeOf(k.id);
-          put(k.id, left + c * (cellW + f.gap) + crossAt(cellW, s.w), y + (f.align === "center" ? (tall - s.h) / 2 : f.align === "end" ? tall - s.h : 0));
+      for (const row of gridRows(kids, f.columns, spanOf)) {
+        const spanW = (c: { span: number }) => cellW * c.span + f.gap * (c.span - 1);
+        for (const c of row) if (givenByParent(c.k.id, "w")) setAxis(c.k.id, "width", spanW(c));
+        const own = row.filter((c) => !fills(c.k, "h"));
+        const tall = given || Math.max(0, ...(own.length ? own : row).map((c) => sizeOf(c.k.id).h));
+        for (const c of row) if (fills(c.k, "h")) setAxis(c.k.id, "height", tall);
+        const lay = lineLay(row.map((c) => c.k), f);
+        const rowH = given || Math.max(tall, lay.h);
+        row.forEach((c, i) => {
+          const s = sizeOf(c.k.id);
+          const a = crossAlignOf(lone(c.k), f);
+          put(c.k.id, left + c.col * (cellW + f.gap) + at(c.k, spanW(c), s.w), y + (a === "baseline" ? lay.offs[i] : at(c.k, rowH, s.h)));
         });
-        y += tall + f.gap;
+        y += rowH + f.gapY;
       }
     } else if (f.dir === "row") {
       const lines = f.wrap ? linesOf(kids, f, roomW) : kids.length ? [kids] : [];
       let y = top;
       for (const line of lines) {
         const gaps = f.gap * (line.length - 1);
-        const fixed = line.filter((k) => !fills(k)).reduce((n, k) => n + sizeOf(k.id).w, 0);
-        const fillers = line.filter(fills);
-        if (fillers.length && !f.hugW) for (const k of fillers) setAxis(k.id, "width", Math.max(0, (roomW - fixed - gaps) / fillers.length));
-        const lineH = !f.wrap && !f.hugH ? roomH : Math.max(...line.map((k) => sizeOf(k.id).h));
-        if (f.align === "stretch" && !f.hugH) for (const k of line) setAxis(k.id, "height", lineH);
-        const used = line.reduce((n, k) => n + sizeOf(k.id).w, 0) + gaps;
-        const spare = Math.max(0, roomW - used);
-        const between = f.justify === "between" && line.length > 1 ? f.gap + spare / (line.length - 1) : f.gap;
-        let x = left + (f.justify === "center" ? spare / 2 : f.justify === "end" ? spare : 0);
-        for (const k of line) {
-          const s = sizeOf(k.id);
-          put(k.id, x, y + crossAt(lineH, s.h));
-          x += s.w + between;
+        const fillers = line.filter((k) => fills(k, "w"));
+        const fixed = line.filter((k) => !fills(k, "w")).reduce((n, k) => n + sizeOf(k.id).w, 0);
+        if (fillers.length && !hugW) {
+          const shares = shareOut(roomW - fixed - gaps, fillers.map(lone), "w");
+          fillers.forEach((k, i) => setAxis(k.id, "width", shares[i]));
         }
-        y += lineH + f.gap;
+        const lineH = !f.wrap && !hugH ? roomH : lineLay(measuring(line, "h"), f).h;
+        for (const k of line) if (givenByParent(k.id, "h")) setAxis(k.id, "height", lineH);
+        const lay = lineLay(line, f);
+        const used = line.reduce((n, k) => n + sizeOf(k.id).w, 0) + gaps;
+        const { start, step } = distribute(f.justify, Math.max(0, roomW - used), line.length, f.gap);
+        let x = left + start;
+        line.forEach((k, i) => {
+          const s = sizeOf(k.id);
+          put(k.id, x, y + (crossAlignOf(lone(k), f) === "baseline" ? lay.offs[i] : at(k, lineH, s.h)));
+          x += s.w + step;
+        });
+        y += lineH + f.gapY;
       }
     } else {
       const gaps = f.gap * Math.max(0, kids.length - 1);
-      const fixed = kids.filter((k) => !fills(k)).reduce((n, k) => n + sizeOf(k.id).h, 0);
-      const fillers = kids.filter(fills);
-      if (fillers.length && !f.hugH) for (const k of fillers) setAxis(k.id, "height", Math.max(0, (roomH - fixed - gaps) / fillers.length));
-      if (f.align === "stretch" && !f.hugW) for (const k of kids) setAxis(k.id, "width", roomW);
+      const fillers = kids.filter((k) => fills(k, "h"));
+      const fixed = kids.filter((k) => !fills(k, "h")).reduce((n, k) => n + sizeOf(k.id).h, 0);
+      if (fillers.length && !hugH) {
+        const shares = shareOut(roomH - fixed - gaps, fillers.map(lone), "h");
+        fillers.forEach((k, i) => setAxis(k.id, "height", shares[i]));
+      }
+      for (const k of kids) if (givenByParent(k.id, "w")) setAxis(k.id, "width", roomW);
       const used = kids.reduce((n, k) => n + sizeOf(k.id).h, 0) + gaps;
-      const spare = Math.max(0, roomH - used);
-      const between = f.justify === "between" && kids.length > 1 ? f.gap + spare / (kids.length - 1) : f.gap;
-      let y = top + (f.justify === "center" ? spare / 2 : f.justify === "end" ? spare : 0);
+      const { start, step } = distribute(f.justify, Math.max(0, roomH - used), kids.length, f.gap);
+      let y = top + start;
       for (const k of kids) {
         const s = sizeOf(k.id);
-        put(k.id, left + crossAt(roomW, s.w), y);
-        y += s.h + between;
+        put(k.id, left + at(k, roomW, s.w), y);
+        y += s.h + step;
       }
     }
-    for (const k of kids) if (flows.has(k.id)) place(k.id);
+    for (const k of [...kids, ...loose(id)]) if (flows.has(k.id)) place(k.id);
   };
   /* from the outermost: a container in another is placed by it first */
   for (const id of flows.keys()) {
@@ -424,6 +635,24 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
   });
   return out.every((g, i) => g === source[i]) ? source : out;
 }
+
+/** A part that has left the layout it stood loose in: standing where it was put was its place in that layout, and in
+ *  the next (or none) it takes its turn in the run, as in Figma. The same group when it was not loose. */
+export function inRun(g: Group): Group {
+  if (!g.items.some((it) => it.flowAbsolute !== undefined)) return g;
+  return {
+    ...g,
+    items: g.items.map((it) => {
+      if (it.flowAbsolute === undefined) return it;
+      const { flowAbsolute: _loose, ...keep } = it;
+      return keep;
+    }),
+  };
+}
+
+/** Copies whose layout stayed behind: they are their own again, and take their turn in the run of whatever layout
+ *  they join next. */
+export const loosenedCopies = (copies: Group[]): Group[] => copies.map((g) => (g.inFlow === undefined ? inRun(g) : g));
 
 /** what lies inside a part through the layouts, at any depth */
 function flowDescendants(id: string, groups: Group[], into = new Set<string>()): Set<string> {
@@ -466,9 +695,10 @@ function joinFlow(groups: Group[], id: string, widths: Widths): Group[] {
   if (!host) {
     if (g.inFlow === undefined) return groups;
     const { inFlow: _left, ...rest } = g;
-    return groups.map((x) => (x.id === id ? rest : x));
+    return groups.map((x) => (x.id === id ? inRun(rest) : x));
   }
-  const next: Group = g.inFlow === host.id ? g : { ...g, inFlow: host.id };
+  /* carried from one layout straight into another, it takes its turn in the new one's run */
+  const next: Group = g.inFlow === host.id ? g : inRun({ ...g, inFlow: host.id });
   let out = groups.map((x) => (x.id === id ? next : x));
   if (groups.indexOf(g) < groups.indexOf(host)) {
     const block = new Set([id, ...heldBy(g, groups, widths).map((x) => x.id)]);
@@ -540,4 +770,149 @@ export function wrapInFlow(groups: Group[], ids: Set<string>, id: string, widths
   const out = groups.map((g) => (ids.has(g.id) && !g.locked ? { ...g, inFlow: id } : g));
   out.splice(first, 0, host);
   return { groups: sortKids(out, id, flowOf(host)!), itemId: item.id };
+}
+
+/* ---------- suggest auto layout ---------- */
+
+/** The part a suggested layout is built of, and the props that make it bare: no words, no paint, no padding, sizing
+ *  itself to what it holds. Said once here, so the whole suggestion can move to another part (a `box`) in one line. */
+export const LAYOUT_BOX = { slug: "box", bare: { surface: "none", padX: 0, padY: 0, hugWidth: true, hugHeight: true } } as const;
+
+const layoutBox = (props: Record<string, unknown>): Item => ({ ...makeItem(LAYOUT_BOX.slug), props: { ...LAYOUT_BOX.bare, ...props } });
+
+const on4 = (v: number) => Math.max(0, Math.round(v / 4) * 4);
+
+/** One container of a suggestion: what it holds in order (a group id or another container), its props, and how it is
+ *  sized in the container around it. */
+type Suggested = { id: string; rect: Rect; props: Record<string, unknown>; kids: (string | Suggested)[]; size?: Item["flowSize"] };
+
+/** The containers a structure comes to: a stack is a column, a row a row (its runs nested, its ends apart when it has
+ *  a break), a grid a grid. Gaps on the scale, alignment by what the parts already come closest to sharing. */
+function suggest(s: Shape, snap: (g: number) => number, newId: () => string): string | Suggested {
+  if (s.kind === "leaf") return s.box.id;
+  const rect = boundsOf(s);
+  if (s.kind === "grid") {
+    const m = gridMeasure(s.cells);
+    const gx = snap(m.gx);
+    const gy = snap(m.gy);
+    /* a grid's columns are all as wide as its widest cell: where that would make it much wider than it stands, and
+     * push what is beside it off the screen, it is rows one under another */
+    if (Math.max(...m.colW) * m.cols + gx * (m.cols - 1) > rect.r - rect.l + 16)
+      return suggest({ kind: "stack", kids: s.cells.map((row): Shape => (row.length === 1 ? { kind: "leaf", box: row[0] } : { kind: "row", kids: row.map((box) => ({ kind: "leaf", box })) })) }, snap, newId);
+    return { id: newId(), rect, props: { layout: "grid", columns: m.cols, gap: gx, ...(gy !== gx ? { gapY: gy } : {}), align: "start" }, kids: s.cells.flat().map((b) => b.id) };
+  }
+  if (s.kind === "stack") {
+    const kids = [...s.kids].sort((a, b) => boundsOf(a).t - boundsOf(b).t);
+    const rects = kids.map(boundsOf);
+    const gaps = rects.slice(1).map((r, i) => Math.max(0, r.t - rects[i].b));
+    const runs = runsOf(gaps);
+    /* A row that keeps its ends apart takes the column's width, as Figma's "fill container", where the rest of the
+     * column is as wide as it. A column sized by its contents is as wide as what does not fill it: a row wider than
+     * all of that keeps its own width and gives the column its width, rather than be squeezed into what is left. */
+    const filling = (members: (string | Suggested)[], rs: Rect[]) => {
+      const spread = (k: string | Suggested): k is Suggested => typeof k !== "string" && k.props.justify === "between";
+      const others = Math.max(0, ...rs.filter((_, i) => !spread(members[i])).map((r) => r.r - r.l));
+      return members.map((k, i) => (spread(k) && rs[i].r - rs[i].l <= others + 1 ? { ...k, size: { w: "fill" as const } } : k));
+    };
+    const column = (members: number[], gap: number): Suggested => {
+      const rs = members.map((i) => rects[i]);
+      return { id: newId(), rect: union(rs), props: { layout: "column", gap, align: alignIntent(rs, "x") }, kids: filling(members.map((i) => suggest(kids[i], snap, newId)), rs) };
+    };
+    if (runs.length === 1) return column(runs[0], snap(median(gaps)));
+    /* sections well apart: a column of them, each section a column of its own with its own gap */
+    const sections = filling(
+      runs.map((run) => (run.length === 1 ? suggest(kids[run[0]], snap, newId) : column(run, snap(median(run.slice(1).map((i) => gaps[i - 1])))))),
+      runs.map((run) => union(run.map((i) => rects[i]))),
+    );
+    const between = snap(median(runs.slice(1).map((run) => gaps[run[0] - 1])));
+    return { id: newId(), rect, props: { layout: "column", gap: between, align: alignIntent(runs.map((run) => union(run.map((i) => rects[i]))), "x") }, kids: sections };
+  }
+  const kids = [...s.kids].sort((a, b) => boundsOf(a).l - boundsOf(b).l);
+  const rects = kids.map(boundsOf);
+  const gaps = rects.slice(1).map((r, i) => Math.max(0, r.l - rects[i].r));
+  const runs = runsOf(gaps);
+  const align = alignIntent(rects.map((r, i) => ({ ...r, base: kids[i].kind === "leaf" ? (kids[i] as { box: Box }).box.base : undefined })), "y");
+  const spread = runs.length > 1 || (gaps.length > 0 && Math.min(...gaps) >= 32);
+  if (!spread) return { id: newId(), rect, props: { layout: "row", gap: snap(median(gaps)), align }, kids: kids.map((k) => suggest(k, snap, newId)) };
+  /* ends apart: a row as wide as it is now; a run of several packed inside it, spaced evenly when it is all one run */
+  const parts =
+    runs.length === 1
+      ? kids.map((k) => suggest(k, snap, newId))
+      : runs.map((run): string | Suggested => {
+          if (run.length === 1) return suggest(kids[run[0]], snap, newId);
+          return { id: newId(), rect: union(run.map((i) => rects[i])), props: { layout: "row", gap: snap(median(run.slice(1).map((i) => gaps[i - 1]))), align }, kids: run.map((i) => suggest(kids[i], snap, newId)) };
+        });
+  return { id: newId(), rect, props: { layout: "row", gap: 0, align, justify: "between", hugWidth: false }, kids: parts };
+}
+
+/** The selection, or what a container holds, turned into nested auto layouts that keep it the way it stands, as in
+ *  Figma's "Suggest auto layout": rows, columns and grids read off where the parts are, with gaps on the spacing scale.
+ *  `ids` names groups. One container without a layout of its own takes the layout itself, with the padding its
+ *  contents leave. Returns the groups and the item to select, or null when there is nothing to lay out. */
+export function suggestAutoLayout(groups: Group[], ids: Set<string>, widths: Widths, newId: () => string, scale: number[] = [8, 16]): { groups: Group[]; itemId: string } | null {
+  const picked = groups.filter((g) => ids.has(g.id) && !g.locked && !g.inFlow);
+  /* what a selected container holds goes with it, not into the layout beside it */
+  const carried = new Set(picked.flatMap((g) => heldBy(g, groups, widths).map((x) => x.id)));
+  let units = picked.filter((g) => !carried.has(g.id));
+  const snap = gapSnapper(scale);
+  /* a lone container takes the layout itself, for what it holds */
+  const host = units.length === 1 && holdsParts(units[0]) && !flowOf(units[0]) && !!partBySlug(units[0].items[0].component)?.flow ? units[0] : null;
+  if (host) {
+    const held = heldBy(host, groups, widths);
+    const nested = new Set(held.flatMap((g) => heldBy(g, groups, widths).map((x) => x.id)));
+    units = held.filter((g) => !nested.has(g.id) && !g.locked);
+  }
+  if (!units.length || (!host && units.length < 2)) return null;
+  const boxes: Box[] = units.map((g) => ({ id: g.id, ...groupBounds(g, widths), kind: g.items.length === 1 ? g.items[0].component : undefined, base: g.items.length === 1 ? widths[`${g.items[0].id}:base`] : undefined }));
+  const shape = structureOf(boxes);
+  const read = suggest(shape, snap, newId);
+  const top: Suggested = typeof read === "string" ? { id: newId(), rect: boundsOf(shape), props: { layout: "column", gap: 0, align: "start" }, kids: [read] } : read;
+
+  /* the containers, outermost first, each followed by what it holds: the array is the order a layout goes by */
+  const made = new Map<string, Group>();
+  const member = new Map<string, string>();
+  const order: string[] = [];
+  const visit = (node: Suggested, parent?: string) => {
+    const size = { width: Math.round(node.rect.r - node.rect.l), height: Math.round(node.rect.b - node.rect.t) };
+    made.set(node.id, { id: node.id, x: Math.round(node.rect.l), y: Math.round(node.rect.t), axis: "x", items: [{ ...layoutBox({ ...size, ...node.props }), ...(node.size ? { flowSize: node.size } : {}) }], ...(parent ? { inFlow: parent } : {}) });
+    order.push(node.id);
+    for (const k of node.kids) {
+      if (typeof k !== "string") visit(k, node.id);
+      else {
+        member.set(k, node.id);
+        order.push(k);
+      }
+    }
+  };
+  visit(top);
+  let itemId = made.get(top.id)!.items[0].id;
+  if (host) {
+    /* the container keeps its own look and size, and pads its contents as far in as they stand */
+    const b = groupBounds(host, widths);
+    const inside = boundsOf(shape);
+    const it = host.items[0];
+    const inset = flowOfItem({ ...it, props: { ...it.props, layout: "column" } })?.inset ?? { t: 0, r: 0, b: 0, l: 0 };
+    const sides = { padTop: on4(inside.t - b.t - inset.t), padRight: on4(b.r - inside.r - inset.r), padBottom: on4(b.b - inside.b - inset.b), padLeft: on4(inside.l - b.l - inset.l) };
+    const even = sides.padTop === sides.padBottom && sides.padLeft === sides.padRight;
+    const { hugWidth: _w, hugHeight: _h, ...laid } = top.props;
+    made.delete(top.id);
+    order[0] = host.id;
+    for (const [k, v] of member) if (v === top.id) member.set(k, host.id);
+    for (const g of made.values()) if (g.inFlow === top.id) made.set(g.id, { ...g, inFlow: host.id });
+    /* what a layout reads that this one does not set goes: a side or a gap down left from before would win over it */
+    const { padTop: _t, padRight: _r, padBottom: _b, padLeft: _l, gapY: _gy, justify: _j, wrap: _wr, ...kept } = it.props ?? {};
+    made.set(host.id, { ...host, items: [{ ...it, props: { ...kept, ...laid, ...(even ? { padX: sides.padLeft, padY: sides.padTop } : sides) } }] });
+    itemId = it.id;
+  }
+
+  /* each unit keeps what it holds right behind it: a container is drawn under its contents */
+  const blocks = new Map(units.map((g) => [g.id, [g, ...heldBy(g, groups, widths)]] as const));
+  const moving = new Set([...blocks.values()].flat().map((g) => g.id));
+  if (host) moving.add(host.id);
+  /* everything before the first of them stays before it */
+  const first = groups.findIndex((x) => moving.has(x.id));
+  const sequence = order.flatMap((id) => made.get(id) ?? (blocks.get(id) ?? []).map((g) => (g.id === id ? { ...g, inFlow: member.get(id)! } : g)));
+  const out = groups.filter((g) => !moving.has(g.id));
+  out.splice(Math.min(first, out.length), 0, ...sequence);
+  return { groups: out, itemId };
 }
