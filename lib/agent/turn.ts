@@ -44,9 +44,11 @@ export type TurnOptions = {
   lang: Lang;
   renderer?: Renderer;
   /** what the generative tools draw with; left out, the agent cannot draw */
-  gen?: Omit<GenerateEnv, "budget">;
+  gen?: Omit<GenerateEnv, "budget" | "styles">;
   /** how many drawings a turn may make (2 by default) */
   drawings?: number;
+  /** how many styles a turn may have the text model write, revisions included (2 by default) */
+  styles?: number;
   /** how many model calls the turn may make, reviews included (30 by default) */
   maxSteps?: number;
   /** how many times the runner shows the model its changed screens when it did not look itself (1 by default) */
@@ -81,12 +83,12 @@ export type TurnResult = {
 
 /** The system prompt and every tool a turn may load. The prompt names all of them by set whichever are loaded, so it
  *  is the same for the whole conversation. */
-export function agentSetup(o: { canSee: boolean; canDraw: boolean; drawings: number; load?: (sets: ToolSet[]) => ToolSet[] }): { registry: Registry; system: string } {
+export function agentSetup(o: { canSee: boolean; canDraw: boolean; drawings: number; styles?: number; load?: (sets: ToolSet[]) => ToolSet[] }): { registry: Registry; system: string } {
   const extra = [...(o.canDraw ? GENERATE_TOOLS : []), loadTools(o.load ?? ((s) => s))];
   const all = createRegistry({ extra });
   const unseen = new Set(o.canSee ? [] : ["screenshot", "compare_to_reference"]);
   const registry = unseen.size ? createRegistry({ extra, only: all.tools.filter((t) => !unseen.has(t.name)).map((t) => t.name) }) : all;
-  return { registry, system: agentSystem({ guide: `${toolGuide(registry.tools, { list: false })}\n\n${setsGuide(registry.tools)}`, canSee: o.canSee, drawings: o.canDraw ? o.drawings : 0 }) };
+  return { registry, system: agentSystem({ guide: `${toolGuide(registry.tools, { list: false })}\n\n${setsGuide(registry.tools)}`, canSee: o.canSee, drawings: o.canDraw ? o.drawings : 0, styles: o.canDraw ? (o.styles ?? 2) : 0 }) };
 }
 
 /** what a model reads back from a call: the result as text, and any picture */
@@ -144,7 +146,8 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   };
 
   const drawings = o.drawings ?? 2;
-  const gen: GenerateEnv | undefined = o.gen ? { ...o.gen, budget: { left: drawings } } : undefined;
+  const styles = o.styles ?? 2;
+  const gen: GenerateEnv | undefined = o.gen ? { ...o.gen, budget: { left: drawings }, styles: { left: styles, of: styles } } : undefined;
   const images = o.images ?? [];
   const attachments = o.attachments ?? images;
   /* the sets loaded so far, those this request calls for, and those the model loads as it goes */
@@ -154,7 +157,7 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
     for (const x of sets) loaded.add(x);
     return TOOL_SETS.filter((x) => loaded.has(x));
   };
-  const { registry, system } = agentSetup({ canSee: !!o.renderer, canDraw: !!gen, drawings, load });
+  const { registry, system } = agentSetup({ canSee: !!o.renderer, canDraw: !!gen, drawings, styles, load });
   const tools = () => toolDefs(toolsIn(registry.tools, [...loaded]));
   const s = store.get();
   const context = turnContext({ doc: s.doc as never, widths: store.ctx("ai").widths, selection: s.session.selection, frameId: s.session.frameId, lang: o.lang });

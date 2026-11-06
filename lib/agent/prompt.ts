@@ -20,6 +20,8 @@ export type SystemOptions = {
   canSee: boolean;
   /** how many drawings a turn may make with the image or text model; 0 when it cannot draw */
   drawings: number;
+  /** how many styles a turn may have the text model write (generate_style); 0 when it cannot */
+  styles?: number;
 };
 
 export function agentSystem(o: SystemOptions): string {
@@ -48,7 +50,7 @@ export function agentSystem(o: SystemOptions): string {
     "3. Build it: a screen the picture's size in dp if none fits, then add_tree a region at a time (or the whole screen as one tree of boxes), with real words and icons from list_icons; generate_svg for ornaments and logos nothing in the catalog draws, generate_image for photos and backdrops (background: true for the whole screen).",
     "4. Compare with compare_to_reference: look at both pictures side by side, read the cells that differ, list the differences (layout, spacing, sizes, colors, type, corners, shadows) and fix them; at most three rounds.",
     o.drawings > 0
-      ? `- generate_svg draws a custom icon or illustration when nothing in the catalog will do, and generate_image paints a content picture. Each costs a model call and takes up to a minute: at most ${o.drawings} in a turn, and only when the request needs one.`
+      ? `- generate_svg draws a custom icon or illustration when nothing in the catalog will do, and generate_image paints a content picture. Each costs a model call and takes up to a minute: at most ${o.drawings} in a turn, and only when the request needs one.${o.styles ? ` generate_style runs at most ${o.styles} times in a turn, a refine included; after that change the style with add_custom_style.` : ""}`
       : "- You cannot draw pictures this time: use icons, the svg atom's library shapes and the catalog.",
     "- If a call fails, read its error and hint, fix the call and try again: one error is no reason to stop.",
     "- When part of a request cannot be done exactly as asked, do the nearest thing the tools allow and say in your answer what differs. Ask one short question instead of acting only when the request is unclear or would remove much of the author's work.",

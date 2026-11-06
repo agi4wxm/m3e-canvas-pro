@@ -140,6 +140,25 @@ describe("a turn of the agent", () => {
     expect(r.steps).toBe(3);
   });
 
+  it("writes at most two styles in a turn, and tells the model why the third is refused", async () => {
+    const s = store();
+    const writer = scriptedAdapter([{ text: JSON.stringify({ key: "custom:paper", name: "Paper", extends: "notion" }) }, { text: JSON.stringify({ key: "custom:paper", name: "Paper", extends: "notion", light: { primary: "#123456" } }) }]);
+    const adapter = scriptedAdapter([
+      { calls: [call("c1", "generate_style", { description: "paper" })] },
+      { calls: [call("c2", "generate_style", { refine: "custom:paper", feedback: "bluer" })] },
+      { calls: [call("c3", "generate_style", { description: "ink" })] },
+      { text: "Done." },
+    ]);
+    const ends: Extract<TurnEvent, { type: "tool_end" }>[] = [];
+    const r = await runTurn({ store: s, adapter, history: [], request: "generate a warm paper style", lang: "en", gen: { settings: { provider: "openai", baseUrl: "https://api.openai.com/v1", model: "gpt-6.1-sol", key: "k" }, adapter: writer }, onEvent: (e) => e.type === "tool_end" && ends.push(e) });
+    expect(r.stop).toBe("end_turn");
+    expect(ends.map((e) => e.ok), ends.map((e) => e.summary).join(" / ")).toEqual([true, true, false]);
+    expect(ends[2].summary).toContain("No more styles");
+    expect(writer.requests).toHaveLength(2);
+    expect(adapter.requests[0].system).toContain("generate_style runs at most 2 times in a turn");
+    expect(JSON.stringify(adapter.requests[3].messages.at(-1))).toContain("add_custom_style");
+  });
+
   it("gives a turn after the author's own edit a step of its own", async () => {
     const s = store();
     const adapter = scriptedAdapter([

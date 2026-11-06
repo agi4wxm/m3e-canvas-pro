@@ -117,6 +117,15 @@ export const generateStyle = tool<Args>({
     const s = env.store.get();
     const was = a.refine ? s.doc.styles?.find((x) => x.key === a.refine) : undefined;
     if (a.refine && !was) throw new ToolFailure("not_found", `The document has no style ${JSON.stringify(a.refine)}.`, "list_styles gives the document's own styles.");
+    /* each call is a long model call: a turn may make only so many, a revision included */
+    const budget = gen.styles;
+    if (budget && budget.left <= 0)
+      throw new ToolFailure(
+        "refused",
+        `No more styles may be written with the model this turn: ${budget.of} ${budget.of === 1 ? "is" : "are"} allowed, and ${budget.of === 1 ? "it was" : "they were"} used.`,
+        "Change the style already written with add_custom_style (same key; only the fields to change, e.g. a role's color or a recipe), or finish the turn and tell the author what is left: their next request may write another.",
+      );
+    if (budget) budget.left--;
     const t0 = Date.now();
     const ask = [
       was ? `Revise this style (keep its key ${was.key}):\n${JSON.stringify({ ...was, rules: was.rules })}` : "",

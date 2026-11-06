@@ -225,6 +225,27 @@ describe("add_custom_style and generate_style", () => {
     expect(!none.ok && none.error.code).toBe("unavailable");
   });
 
+  it("writes only as many styles as the turn allows, then says what to do instead", async () => {
+    const s = fresh();
+    const adapter = scriptedAdapter([{ text: JSON.stringify({ name: "One", extends: "notion" }) }, { text: JSON.stringify({ name: "One", extends: "notion", light: { primary: "#123456" } }) }]);
+    const env = { origin: "ai" as const, registry: reg, gen: { settings: SETTINGS, adapter, styles: { left: 2, of: 2 } } };
+    const first = ok(await executeTool(s, "generate_style", { description: "one" }, env));
+    ok(await executeTool(s, "generate_style", { refine: String(first.key), feedback: "bluer" }, env));
+    const third = await executeTool(s, "generate_style", { description: "another" }, env);
+    expect(third.ok).toBe(false);
+    if (third.ok) return;
+    expect(third.error.code).toBe("refused");
+    expect(third.error.message).toContain("2 are allowed");
+    expect(third.error.hint).toContain("add_custom_style");
+    /* refused before any model call */
+    expect(adapter.requests).toHaveLength(2);
+    /* a bad call is not counted */
+    const fresh2 = { ...env, gen: { ...env.gen, styles: { left: 1, of: 1 } } };
+    const bad = await executeTool(s, "generate_style", {}, fresh2);
+    expect(!bad.ok && bad.error.code).toBe("bad_args");
+    expect(fresh2.gen.styles.left).toBe(1);
+  });
+
   it("repairs what reads too faintly by rule", () => {
     const made = validateCustomStyle({ name: "Faint", light: { surface: "#FFFFFF", onSurface: "#EEEEEE", outline: "#FAFAFA" } }).style!;
     const { style, changed } = repairContrast(made);
