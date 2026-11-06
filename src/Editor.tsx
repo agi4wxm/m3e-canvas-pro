@@ -2,12 +2,11 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { AnimatePresence, motion, useReducedMotion, useSpring } from "motion/react";
+import { AnimatePresence, motion, useSpring } from "motion/react";
 import { toPng } from "html-to-image";
 import { buildPrompt, effectivePrompt } from "@/lib/prompt";
 import {
@@ -36,7 +35,6 @@ import {
   Item,
   heldBy,
   layoutOf,
-  makeItem,
   Theme,
   fontFamilyOf,
   uiFontFamily,
@@ -45,9 +43,6 @@ import {
   paletteOf,
   seedOf,
   shapeScaleOf,
-  PHONE_H,
-  PHONE_MARGIN,
-  PHONE_W,
   SETTLE_CSS_VARS,
   SETTLE_MS,
   sizeOf,
@@ -80,7 +75,7 @@ import { holdsEdgeBar, maxFrameLength, minFrameLength, tidyFrame } from "@/lib/t
 import { combineButtons, joinTargetOf } from "@/lib/combine";
 import { type AlignHow } from "@/lib/align";
 import { childLayoutOf, flowHostAt, flowOf, outOfPane, showingGroups } from "@/lib/flow";
-import { guideTargets, insertionMark, measureBetween, snapRect, targetRects, type GuideGap, type GuideLine, type GuideTargets, type Rect as GuideRect } from "@/lib/guides";
+import { guideTargets, measureBetween, snapRect, targetRects, type GuideGap, type GuideLine, type GuideTargets, type Rect as GuideRect } from "@/lib/guides";
 import { InsertionMark, SmartGuides } from "@/components/SmartGuides";
 import { canNest, expandInstances, standIn } from "@/lib/instances";
 import { canvasView, expandDoc, type CanvasView, type DrawnPart } from "@/lib/expand";
@@ -104,7 +99,7 @@ import { conformDoc, conformGroups, rulesForModel } from "@/lib/styleRules";
 import { afterPass, relayoutDue, startRelayout, type Relayout } from "@/lib/relayoutClock";
 import { tidyLook } from "@/lib/look";
 import { layoutForStyle, metricsOf } from "@/lib/styleLayout";
-import { fillRest, fitLength, standingTogether } from "@/lib/tidy";
+import { standingTogether } from "@/lib/tidy";
 import { useIconFamily } from "@/parts/icons";
 import { StyleGate, StylePanel } from "@/components/StylePanel";
 import { partBySlug, reader } from "@/parts/registry";
@@ -112,261 +107,57 @@ import { templateBySlug } from "@/parts/templates";
 import { kitOfKey } from "@/parts/kits";
 import { defaultMeasures } from "@/parts/templates/kit";
 import { kitLookOf, moveTo, treeSize } from "@/lib/kits";
-import { COMMON_TEXT } from "@/parts/labels";
-import { FIT_OVERLAY, REMEASURE } from "@/parts/contained";
-import { axisStep, axisValue, axisWrite, resizeOf, type PartAxis } from "@/parts/resize";
+import { axisStep, axisValue, axisWrite, type PartAxis } from "@/parts/resize";
 import { roleOf } from "@/parts/role";
 import { BottomSheet, MobileActionBar, MobileInspector, MobileLang, MobileSettings } from "@/components/Mobile";
 import { ConfirmDialog, IconBtn, Segmented } from "@/components/ui";
-import { Lang, LangContext, SEED_TEXT, getLang, setGlobalLang, t } from "@/lib/i18n";
+import { Lang, LangContext, getLang, setGlobalLang, t } from "@/lib/i18n";
 import { OpError, ops, savedDoc, translateSnapshot, withDoc, withFrames, withGroups, type Op, type TxOptions } from "@/lib/core";
 import { useStore } from "@/lib/core/react";
-import { localPersist, PersistFullError, withAssets, type PersistAdapter, type Stored } from "@/lib/core/persist";
+import { localPersist, type PersistAdapter } from "@/lib/core/persist";
 import { freshPart, freshSize, onGrid } from "@/lib/core/ops/common";
 import { buildKit as buildKitGroups, clipOf, movedGroups, type Clip, type GroupPatch } from "@/lib/core/ops/nodes";
 import { ensureScreen } from "@/lib/core/ops/screens";
 import { editorStore } from "./editor/store";
-
-/** the screens while a model drafts: primary, tertiary and primary container, drifting */
-const BASE_PATH = import.meta.env.VITE_BASE_PATH ?? "";
-
-/** the dragged part's own travel: a little lag reads as weight */
-const CARRY = {
-  type: "spring" as const,
-  stiffness: 620,
-  damping: 38,
-  mass: 0.7,
-};
-/** the gap opening and the run's counter-shift; identical configs so they cancel */
-const OPEN = {
-  type: "spring" as const,
-  stiffness: 700,
-  damping: 42,
-  mass: 0.55,
-};
-const INSTANT = { duration: 0 };
-/** a cancelled part shrinking away: long enough to be seen, short enough not to be waited for */
-const VANISH_MS = 180;
-const VANISH = { duration: VANISH_MS / 1000, ease: [0.3, 0, 0.8, 0.15] as const };
-/** a hole opening or closing: the run's offset travels on the same curve the hole's own width does */
-const GAP_TWEEN = { duration: SETTLE_MS / 1000, ease: [0.2, 0, 0, 1] as const };
-
-/** the icon rail on the left edge of the parts / layers panel */
-const RAIL_W = 52;
-const MIN_Z = 0.25;
-const MAX_Z = 3;
-/** the room a screen keeps from the canvas edges when the camera glides to it: the floating
- *  toolbar's row at the top, a margin elsewhere */
-const GLIDE_TOP = 84;
-const GLIDE_PAD = 40;
-const UI_KEY = "m3e:ui";
-
-type View = { x: number; y: number; z: number };
-
-/** Smart guides for what is being carried: where it snaps on each axis (left out where it does not), and what to draw:
- *  the lines it lines up with, the even gaps it keeps, the distances to its neighbours (lib/guides.ts). */
-type Guide = { x?: number; y?: number; lines: GuideLine[]; gaps: GuideGap[] };
-const GUIDE_PX = 7;
-
-/** How far below the top of a drawn part its first line of text sits. The browser gives the box of that line's glyphs;
- *  the baseline is taken at four fifths of it, where it falls for the Latin and CJK faces a style uses. Undefined for a
- *  part with no words. */
-function firstBaseline(el: HTMLElement, top: number): number | undefined {
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-    if (!n.textContent?.trim()) continue;
-    const range = document.createRange();
-    range.selectNodeContents(n);
-    const r = range.getClientRects()[0];
-    if (r && r.height > 0) return Math.max(1, Math.round(r.top + r.height * 0.8 - top));
-  }
-  return undefined;
-}
-
-const FRAME_MARGIN = PHONE_MARGIN;
-
-type DragState = {
-  item: Item;
-  guide: Guide | null;
-  offX: number;
-  offY: number;
-  startX: number;
-  startY: number;
-  px: number;
-  py: number;
-  active: boolean;
-  fromPalette: boolean;
-  overBin: boolean;
-  /** let go where it cannot land: the ghost shrinks away before the state is cleared */
-  vanishing: boolean;
-  /** what is carried from the Components tab: it lands as an instance of this definition */
-  instance?: string;
-  /** A kit carried from the palette: `item` is its outermost box, and these are all its groups with
-   *  that box's top left at 0,0, and the sizes they were laid out by. It lands as all of them. */
-  kit?: { slug: string; variant?: string; groups: Group[]; measures: Record<string, number> };
-};
-
-type Gesture =
-  | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
-  | {
-      kind: "marquee";
-      x0: number;
-      y0: number;
-      x1: number;
-      y1: number;
-      moved: boolean;
-    }
-  | {
-      kind: "frame";
-      id: string;
-      sx: number;
-      sy: number;
-      fx: number;
-      fy: number;
-      groups: { id: string; x: number; y: number }[];
-      moved: boolean;
-    }
-  | { kind: "group"; id: string; sx: number; sy: number; gx: number; gy: number; moved: boolean; overBin: boolean; guide?: Guide | null; carry?: { id: string; x: number; y: number }[] };
-
-/** a repeated row other than the template, on the canvas */
-const ROW_DIM = 0.5;
-
-/** a part drawn open (a dialog, a menu) floats over the parts around it, whichever was added later */
-const drawnOpen = (g: Group) => g.items.some((it) => !!partBySlug(it.component)?.open);
-/** the handles of a part: pulled by whichever measures its props have */
-const componentAxes = (it: Item) => resizeOf(partBySlug(it.component), it.props);
-const BAR_SIDES = ["left", "right"] as const;
-const TALL_SIDES = ["top", "bottom"] as const;
-
-/** a screen changing size eases the way a settling part does */
-const SIZE_TRANSITION = `width ${SETTLE_MS}ms cubic-bezier(0.2, 0, 0, 1), height ${SETTLE_MS}ms cubic-bezier(0.2, 0, 0, 1), border-radius ${SETTLE_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
-
-const SEED_FRAMES: Frame[] = [{ id: "seedF1", name: "Home", x: 0, y: 0 }];
-
-/** how a part hidden at the start of the preview is drawn on the canvas */
-const HIDDEN_DIM = 0.4;
-
-/** Seed ids are deterministic so server and client render the same markup. */
-/* shown when an edit is refused because the group is locked */
-const lockedGroupMsg = () => t("lockedGroup", getLang());
-const groupRefusedMsg = () => t("groupInstanceRefused", getLang());
-
-/** a part that is a shadcn M3E component, with the values the author would have set */
-const partOf = (slug: string, props: Record<string, unknown>, id: string): Item => ({ ...makeItem(slug), id, props });
-
-/** the id a part carried from the palette goes by while it is carried */
-const CARRIED = "carried";
-
-/** the document with a part being carried standing where it is now, in place of where it was */
-const carriedDrag = (groups: Group[], item: Item, x: number, y: number): Group[] => [...groups.filter((g) => !g.items.some((it) => it.id === item.id)), { id: CARRIED, x, y, axis: "x", items: [item] }];
-
-/** The slot a carried group would take in the auto layout under it, by the order the layout reads its parts, and the line
- *  that marks it there. What stands loose in the layout, or on a tab not showing, has no place in the run. */
-function slotIn(host: Group, groups: Group[], id: string, widths: Record<string, number>) {
-  const f = flowOf(host);
-  const carried = groups.find((g) => g.id === id);
-  if (!f || !carried) return null;
-  const off = outOfPane(groups, widths);
-  const kids = groups.filter((g) => g.inFlow === host.id && g.id !== id && !off.has(g.id) && !(g.items.length === 1 && childLayoutOf(g.items[0]).absolute)).map((g) => groupBounds(g, widths));
-  const b = groupBounds(host, widths);
-  const room = { l: b.l + f.inset.l + f.pad.l, t: b.t + f.inset.t + f.pad.t, r: b.r - f.inset.r - f.pad.r, b: b.b - f.inset.b - f.pad.b };
-  return insertionMark(kids, { x: carried.x, y: carried.y }, { dir: f.dir, wrap: f.wrap, gap: f.gap }, room);
-}
-
-/* The starter sketch: an app bar, a pair of buttons, three list items, a FAB and a navigation bar, all
- * of them the real components. Parts are as tall as they measure, so the rows sit apart on their own. */
-const seed = (lang: Lang = getLang()): Group[] => {
-  /* the parts' own seed words, so a change of language reseeds them the way it does a part added later */
-  const word = (en: string) => (lang === "en" ? en : (COMMON_TEXT[en]?.[lang] ?? en));
-  const text = { favorite: word("Favorite"), share: word("Share"), inbox: word("Inbox"), starred: word("Starred"), archive: word("Archive"), supporting: word("Supporting text") };
-  let n = 0;
-  const sid = () => `seed${++n}`;
-  const content = PHONE_W - PHONE_MARGIN * 2;
-  const bar = partOf("app-bar", { title: text.inbox, width: PHONE_W }, sid());
-  /* the two buttons are one connected pair, the way the first canvas drew them */
-  const pair = partOf(
-    "button-group",
-    { items: [{ label: text.favorite, icon: "star", variant: "filled" }, { label: text.share, icon: "share" }], buttonVariant: "tonal", size: "md" },
-    sid(),
-  );
-  const rows = [text.inbox, text.starred, text.archive].map((label, i) =>
-    partOf("item", { items: [{ label, icon: ["inbox", "star", "archive"][i] }], description: text.supporting, trailing: "icon", width: content }, sid()),
-  );
-  const fab = partOf("fab", { icon: "edit" }, sid());
-  const nav = partOf("navigation-bar", { width: PHONE_W }, sid());
-  const navH = partBySlug("navigation-bar")?.h ?? 64;
-  return [
-    { id: sid(), x: 0, y: 0, axis: "x", items: [bar] },
-    { id: sid(), x: PHONE_MARGIN, y: 88, axis: "x", items: [pair] },
-    ...rows.map((row, i) => ({ id: sid(), x: PHONE_MARGIN, y: 168 + i * 76, axis: "y" as const, items: [row] })),
-    { id: sid(), x: PHONE_W - 56 - PHONE_MARGIN, y: PHONE_H - navH - 56 - PHONE_MARGIN, axis: "x", items: [fab] },
-    { id: sid(), x: 0, y: PHONE_H - navH, axis: "x", items: [nav] },
-  ];
-};
-
-/** The phone version starts with buttons only: that is all it edits. */
-const mobileSeed = (lang: Lang = getLang()): Group[] => {
-  const text = SEED_TEXT[lang];
-  const a = partOf("button", { label: text.favorite, icon: "star", size: "md" }, uid());
-  const b = partOf("button", { label: text.share, icon: "share", variant: "tonal", size: "md" }, uid());
-  const c = partOf("button", { label: text.start, icon: "arrow_forward", size: "md" }, uid());
-  return [
-    { id: uid(), x: PHONE_MARGIN, y: 120, axis: "x", items: [a] },
-    { id: uid(), x: PHONE_MARGIN + 160, y: 120, axis: "x", items: [b] },
-    { id: uid(), x: PHONE_MARGIN, y: 200, axis: "x", items: [c] },
-  ];
-};
-
-/** While the model works on a screen, the scheme's colors drift through its bezel. */
-function ThinkingRing({ p, frame }: { p: Palette; frame: Frame }) {
-  const still = useReducedMotion();
-  const w = frameSizeOf(frame).w + BEZEL * 2;
-  const h = frameLengthOf(frame) + BEZEL * 2;
-  const d = Math.ceil(Math.hypot(w, h)) + 80;
-  const stops = [p.primary, p.tertiaryContainer, p.inversePrimary, p.secondaryContainer, p.primaryContainer, p.primary];
-  return (
-    <motion.div
-      aria-hidden
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.6, ease: [0.2, 0, 0, 1] }}
-      style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
-    >
-      <motion.div
-        animate={still ? undefined : { rotate: 360 }}
-        transition={{ repeat: Infinity, duration: 3.2, ease: "linear" }}
-        style={{
-          position: "absolute",
-          left: "50%",
-          top: "50%",
-          width: d,
-          height: d,
-          marginLeft: -d / 2,
-          marginTop: -d / 2,
-          background: `conic-gradient(from 0deg, ${stops.join(", ")})`,
-          filter: "blur(22px)",
-        }}
-      />
-    </motion.div>
-  );
-}
-
-type LeftTab = "parts" | "templates" | "components" | "data" | "layers" | "style" | "color" | "shape" | "type" | "motion" | "ai";
-/** the left rail: parts, templates, what the design reuses and layers, then the look of the whole design: its style, and the four axes under it */
-const LEFT_TABS: { key: LeftTab; icon: string; title: "parts" | "screenTemplates" | "components" | "data" | "layers" | "styleTab" | "colors" | "shape" | "typography" | "motion" | "ai" }[] = [
-  { key: "parts", icon: "add_box", title: "parts" },
-  { key: "templates", icon: "dashboard_customize", title: "screenTemplates" },
-  { key: "components", icon: "widgets", title: "components" },
-  { key: "data", icon: "table_chart", title: "data" },
-  { key: "layers", icon: "layers", title: "layers" },
-  { key: "style", icon: "style", title: "styleTab" },
-  { key: "color", icon: "palette", title: "colors" },
-  { key: "shape", icon: "rounded_corner", title: "shape" },
-  { key: "type", icon: "text_fields", title: "typography" },
-  { key: "motion", icon: "animation", title: "motion" },
-  { key: "ai", icon: "auto_awesome", title: "ai" },
-];
+import { useViewport } from "./editor/useViewport";
+import { useMeasure } from "./editor/useMeasure";
+import { usePersistence } from "./editor/usePersistence";
+import { useShortcuts } from "./editor/useShortcuts";
+import { mobileSeed, seed, SEED_FRAMES } from "./editor/seed";
+import { ThinkingRing } from "./editor/ThinkingRing";
+import {
+  BAR_SIDES,
+  BASE_PATH,
+  CARRIED,
+  carriedDrag,
+  CARRY,
+  componentAxes,
+  drawnOpen,
+  FRAME_MARGIN,
+  GAP_TWEEN,
+  groupRefusedMsg,
+  GUIDE_PX,
+  HIDDEN_DIM,
+  INSTANT,
+  LEFT_TABS,
+  lockedGroupMsg,
+  MAX_Z,
+  MIN_Z,
+  OPEN,
+  RAIL_W,
+  ROW_DIM,
+  SIZE_TRANSITION,
+  slotIn,
+  TALL_SIDES,
+  UI_KEY,
+  VANISH,
+  VANISH_MS,
+  type DragState,
+  type Gesture,
+  type Guide,
+  type LeftTab,
+  type View,
+} from "./editor/model";
 
 export default function Editor({ initialLang, onReady, persist = localPersist }: { initialLang: Lang; onReady?: () => void; /** where the document is kept between visits (lib/core/persist.ts) */ persist?: PersistAdapter }) {
   const onReadyRef = useRef(onReady);
@@ -385,6 +176,12 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   const selectedIds = core.session.selection;
   const selectedFrameId = core.session.frameId;
   const defEdit = core.editing;
+  /* The document is its own screens and parts even while a definition is open: that definition is
+   * what stands on the editing screen, as far as it has got (lib/core `savedDoc`). */
+  const doc: Doc = useMemo(() => savedDoc(core), [core.doc, core.editing, widths]);
+  /** the same document, for callbacks that were created on an earlier render */
+  const docRef = useRef(doc);
+  docRef.current = doc;
   const themeRef = useRef(theme);
   themeRef.current = theme;
   /** An operation run as one change, a step of the history as it says. What it cannot do is said the way the editor
@@ -473,13 +270,8 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   const guideRef = useRef<string | null>(null);
 
   /* ---------- editor ui ---------- */
-  const [view, setView] = useState<View>({ x: 0, y: 0, z: 1 });
-  /** Keep the server-rendered world hidden until its first fit has completed. */
-  const [viewReady, setViewReady] = useState(false);
   /** screens ease to their new place and size for a moment after one changes size */
   const [easing, setEasing] = useState(false);
-  /** the canvas transform eases while the camera glides to or from a screen */
-  const [cameraEasing, setCameraEasing] = useState(false);
   const [mode, setMode] = useState<Mode>("select");
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [leftOpen, setLeftOpen] = useState(true);
@@ -524,7 +316,6 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     [paletteKey, customPalette, theme],
   );
 
-  const canvasRef = useRef<HTMLDivElement>(null);
   const measureEls = useRef<Map<string, HTMLElement>>(new Map());
   const dragRef = useRef<DragState | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
@@ -538,8 +329,6 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   collectionsRef.current = collections;
   const widthsRef = useRef(widths);
   widthsRef.current = widths;
-  const viewRef = useRef(view);
-  viewRef.current = view;
   const previewIdRef = useRef(previewId);
   previewIdRef.current = previewId;
   const leftOpenRef = useRef(leftOpen);
@@ -550,22 +339,25 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   modeRef.current = mode;
   const spaceRef = useRef(spaceHeld);
   spaceRef.current = spaceHeld;
-  /** focus last moved with Tab, not with a pointer */
-  const tabbedRef = useRef(false);
   const frameRef = useRef(frame);
   frameRef.current = frame;
   const mobileRef = useRef(isMobile);
   mobileRef.current = isMobile;
-  /** active touch points, for pinch zoom */
-  const touchesRef = useRef<Map<number, { x: number; y: number }>>(new Map());
-  const pinchRef = useRef<{
-    d0: number;
-    z0: number;
-    mx: number;
-    my: number;
-    vx: number;
-    vy: number;
-  } | null>(null);
+  /* the camera: pan, zoom, fit, glide; two fingers give up whatever one finger started */
+  const { view, setView, viewRef, viewReady, setViewReady, cameraEasing, canvasRef, canvasRect, inCanvas, toWorld, setZoomAt, fit, fitRef, onTouchCapture, glide, glideToFrame } = useViewport({
+    groupsRef,
+    framesRef,
+    widthsRef,
+    frameRef,
+    mobileRef,
+    onPinch: () => {
+      dragRef.current = null;
+      setDrag(null);
+      setPressedId(null);
+      gestureRef.current = null;
+      setGesture(null);
+    },
+  });
   /** groups that must reposition without animating on the next render */
   const instantRef = useRef<Set<string>>(new Set());
   const loadedRef = useRef(false);
@@ -610,9 +402,6 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   });
 
   /* ---------- persistence ---------- */
-  /* where the document is kept between visits (lib/core/persist.ts): one tab edits, the others wait read-only */
-  useEffect(() => persist.lock(setEditAccess), [persist]);
-
   /** What a whole document arriving does to what was open over the one it replaces. A document can arrive during
    *  the opening glide, before previewId is set: the screen the glide was heading for belongs to the replaced
    *  document, so the pending opening is dropped and the camera returns; an open preview simply closes. */
@@ -629,55 +418,50 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     relayoutRef.current = null;
   };
 
-  useEffect(() => {
-    // React's development double-run would otherwise read back its own first save
-    if (loadedRef.current) return;
-    try {
-      const stored = persist.read() as Stored;
-      const d = stored.doc;
-      if (d) {
-        hadDocRef.current = true;
-        leaveForNewDoc();
-        store.load(d, false);
-        // frame mode is decided by the device (media-query effect), not restored
-      }
-      if (stored.before) setDraftBefore(stored.before);
-      /* the large pictures wait in the browser's asset store: the document comes back whole a moment later */
-      void persist
-        .assets(stored)
-        .then((found) => {
-          if (!found) return;
-          store.update("Pictures", "system", (s) => ({ ...s, doc: { ...s.doc, groups: withAssets(s.doc.groups, found), frames: withAssets(s.doc.frames, found), ...(s.doc.components ? { components: withAssets(s.doc.components, found) } : {}) } }));
-          setDraftBefore((b) => (b ? withAssets(b, found) : b));
-        })
-        .catch(() => {});
-      const u = localStorage.getItem(UI_KEY);
-      if (u) {
-        const ui = JSON.parse(u);
-        if (ui.view) setView(ui.view);
-        if (typeof ui.leftOpen === "boolean") setLeftOpen(ui.leftOpen);
-        if (typeof ui.rightOpen === "boolean") setRightOpen(ui.rightOpen);
-        if (ui.leftW) setLeftW(Math.max(RAIL_W + 244, ui.leftW));
-        if (ui.rightW) setRightW(ui.rightW);
-        if (Array.isArray(ui.favorites)) setFavorites(ui.favorites.filter((f: unknown): f is string => typeof f === "string" && (!!partBySlug(f) || !!kitOfKey(f))));
-        if (ui.mode) setMode(ui.mode);
-        if (ui.showAllLinks === true) setShowAllLinks(true);
-      } else {
-        queueMicrotask(() => fitRef.current());
-      }
-      setGlobalLang(initialLang);
-      initialLangRef.current = initialLang;
-      if (!d) {
-        setGroups(seed(initialLang));
-        setFrames([{ ...SEED_FRAMES[0], name: t("home", initialLang) }]);
-      }
-    } catch {}
-    setAiSettings(loadAiSettings());
-    loadedRef.current = true;
-    /* the document is in state; one frame later it is on screen and the boot overlay may go.
-       Not cancelled on cleanup: the development double-run skips this effect the second time. */
-    requestAnimationFrame(() => onReadyRef.current?.());
-  }, []);
+  /** the editor's own settings as they were left: the camera, the panels, the favourites */
+  const restoreUi = () => {
+    const u = localStorage.getItem(UI_KEY);
+    if (!u) {
+      queueMicrotask(() => fitRef.current());
+      return false;
+    }
+    const ui = JSON.parse(u);
+    if (ui.view) setView(ui.view);
+    if (typeof ui.leftOpen === "boolean") setLeftOpen(ui.leftOpen);
+    if (typeof ui.rightOpen === "boolean") setRightOpen(ui.rightOpen);
+    if (ui.leftW) setLeftW(Math.max(RAIL_W + 244, ui.leftW));
+    if (ui.rightW) setRightW(ui.rightW);
+    if (Array.isArray(ui.favorites)) setFavorites(ui.favorites.filter((f: unknown): f is string => typeof f === "string" && (!!partBySlug(f) || !!kitOfKey(f))));
+    if (ui.mode) setMode(ui.mode);
+    if (ui.showAllLinks === true) setShowAllLinks(true);
+    return true;
+  };
+
+  /* the document saved last comes back, every change of it is written down, one tab edits (lib/core/persist.ts) */
+  usePersistence({
+    store,
+    persist,
+    docRef,
+    docKey: [core.doc, core.editing],
+    editAccess,
+    setEditAccess,
+    setDraftBefore,
+    loadedRef,
+    hadDocRef,
+    initialLang,
+    initialLangRef,
+    leaveForNewDoc,
+    restoreUi,
+    seed: () => ({ groups: seed(initialLang), frames: [{ ...SEED_FRAMES[0], name: t("home", initialLang) }] }),
+    onLoaded: () => {
+      setAiSettings(loadAiSettings());
+      loadedRef.current = true;
+      /* the document is in state; one frame later it is on screen and the boot overlay may go.
+         Not cancelled on cleanup: the development double-run skips this effect the second time. */
+      requestAnimationFrame(() => onReadyRef.current?.());
+    },
+    showToast: (msg, ms, icon) => showToast(msg, ms, icon),
+  });
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -765,26 +549,6 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  const saveFullToldRef = useRef(false);
-  useEffect(() => {
-    if (!loadedRef.current || editAccess !== "editable") return;
-    /* the author keeps working; said once, since every later change would fail the same way */
-    const full = (err: unknown) => {
-      if (err instanceof PersistFullError && !saveFullToldRef.current) {
-        saveFullToldRef.current = true;
-        showToast(t("saveFull", getLang()), 9000, "warning");
-      }
-    };
-    try {
-      /* the document, even while a definition is open: a reload then finds its screens, and the definition as far as it got */
-      const done = persist.write(docRef.current);
-      if (done) done.then(() => (saveFullToldRef.current = false), full);
-      else saveFullToldRef.current = false;
-    } catch (err) {
-      full(err);
-    }
-    /* whatever in the document changed, or the definition opened or closed; not the selection or the measures */
-  }, [editAccess, core.doc, core.editing, persist]);
 
   useEffect(() => {
     if (!loadedRef.current) return;
@@ -821,98 +585,8 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   ]);
 
   /* ---------- measurement ---------- */
-  /* an overlay mounts after the render that made its box; it says so, and this render measures it */
-  const [, setRemeasure] = useState(0);
-  useEffect(() => {
-    const again = () => setRemeasure((n) => n + 1);
-    window.addEventListener(REMEASURE, again);
-    return () => window.removeEventListener(REMEASURE, again);
-  }, []);
-  /** a screen that changed size and is waiting for its parts' new measures before it is
-   *  laid out again — an overlay's size only settles once it has been drawn in its new box */
-  const retidyRef = useRef<string[] | null>(null);
-  /** screens just added from a template: what touches on them does so because of a guess at its size, not by design */
-  const freshFramesRef = useRef<{ ids: string[]; until: number } | null>(null);
-  /** screens just put on another phone: what they hold wraps anew, and is only known once it has been drawn at that width */
-  const newPhoneRef = useRef<{ ids: string[]; until: number } | null>(null);
-  /** each part's text baseline, with the size it was read at */
-  const baseCache = useRef(new Map<string, { w: number; h: number; base: number | undefined }>());
-  useLayoutEffect(() => {
-    const next: Record<string, number> = {};
-    measureEls.current.forEach((el, id) => {
-      /* a part that fits its overlay is the overlay's size, not the box it floats in */
-      const ov = el.querySelector<HTMLElement>(FIT_OVERLAY);
-      /* the overlay mounts through a portal a beat after the box does: until it is there,
-       * the box's own size would be mistaken for the part's, so keep the last known size */
-      if (!ov && el.querySelector("[data-fit]") && widthsRef.current[id] !== undefined) {
-        next[id] = widthsRef.current[id];
-        next[`${id}:h`] = widthsRef.current[`${id}:h`] ?? next[`${id}:h`];
-        if (widthsRef.current[`${id}:base`] !== undefined) next[`${id}:base`] = widthsRef.current[`${id}:base`];
-        return;
-      }
-      const box = (ov ?? el).getBoundingClientRect();
-      next[id] = Math.ceil(box.width);
-      next[`${id}:h`] = Math.ceil(box.height);
-      /* where its first line of text sits, for lining parts up on their baselines: read again only when its size moved */
-      const known = baseCache.current.get(id);
-      const base = known && known.w === next[id] && known.h === next[`${id}:h`] ? known.base : firstBaseline(ov ?? el, box.top);
-      baseCache.current.set(id, { w: next[id], h: next[`${id}:h`], base });
-      if (base !== undefined) next[`${id}:base`] = base;
-    });
-    const keys = Object.keys(next);
-    const changed =
-      keys.length !== Object.keys(widthsRef.current).length ||
-      keys.some((k) => widthsRef.current[k] !== next[k]);
-    if (changed) setWidths(next);
-    /* the screens to lay out again: one whose preset just changed (`retidyRef`), and any
-     * screen holding an overlay whose measured size moved under it — an overlay centers
-     * itself, so a size that changed since the last tidy leaves it off center */
-    const retidy = new Set<string>();
-    if (retidyRef.current) for (const id of retidyRef.current) retidy.add(id);
-    retidyRef.current = null;
-    const fresh = freshFramesRef.current && Date.now() < freshFramesRef.current.until ? freshFramesRef.current.ids : [];
-    const newPhone = newPhoneRef.current && Date.now() < newPhoneRef.current.until ? newPhoneRef.current.ids : [];
-    if (changed) for (const id of [...fresh, ...newPhone]) retidy.add(id);
-    if (changed)
-      for (const g of groupsRef.current) {
-        if (!g.items.some((it) => roleOf(it) === "overlay" && (next[it.id] !== widthsRef.current[it.id] || next[`${it.id}:h`] !== widthsRef.current[`${it.id}:h`]))) continue;
-        const fid = frameOfGroup(g, framesRef.current, next)?.id;
-        if (fid) retidy.add(fid);
-      }
-    /* `next` holds the sizes the parts just came out at; the change is instant — after a preset
-     * change the screen is still easing to its new size, so the correction is part of the move */
-    let laid = groupsRef.current;
-    let laidFrames = framesRef.current;
-    let moved = false;
-    /* what a part is about to be given goes beside what the parts came out at, not over it: while a part has not
-     * taken its new size the two differ, and a measure that kept reading as changed would run this again without end */
-    const sizes = { ...next };
-    for (const fid of retidy) {
-      const fr = laidFrames.find((f) => f.id === fid);
-      if (!fr) continue;
-      const m = { ...metricsOf(themeRef.current), ...(fresh.includes(fid) ? { together: [] } : {}) };
-      const filled = fillRest(laid, fr, laidFrames, sizes, m);
-      /* how long such a screen has to be was reckoned from a guess, or from sizes on the other phone: now it is known */
-      const fit = fresh.includes(fid) || newPhone.includes(fid) ? fitLength(filled, fr, laidFrames, sizes, m) : { groups: filled, frames: laidFrames, frame: fr };
-      const tidied = tidyFrame(fit.groups, fit.frame, fit.frames, sizes, m);
-      if (tidied || fit.groups !== laid || fit.frames !== laidFrames) {
-        laid = tidied ?? fit.groups;
-        laidFrames = fit.frames;
-        moved = true;
-      }
-    }
-    if (moved) {
-      setGroups(laid);
-      if (laidFrames !== framesRef.current) setFrames(laidFrames);
-    }
-  });
-
-  useEffect(() => {
-    const refreshWidths = () => setWidths({});
-    document.fonts?.ready.then(refreshWidths);
-    document.fonts?.addEventListener("loadingdone", refreshWidths);
-    return () => document.fonts?.removeEventListener("loadingdone", refreshWidths);
-  }, []);
+  /* every part measured as drawn; screens whose parts came out another size laid out again by what they came to */
+  const { retidyRef, freshFramesRef, newPhoneRef } = useMeasure({ store, measureEls, groupsRef, framesRef, widthsRef, themeRef });
 
   const sizeRef = useCallback((it: Item) => sizeOf(it, widthsRef.current), []);
   const alongRef = useCallback(
@@ -926,180 +600,10 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   );
 
   /* ---------- coordinates ---------- */
-  const canvasRect = () => canvasRef.current?.getBoundingClientRect();
-  const inCanvas = (clientX: number, clientY: number) => {
-    const r = canvasRect();
-    return !!r && clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
-  };
-  const toWorld = (clientX: number, clientY: number) => {
-    const r = canvasRect();
-    const v = viewRef.current;
-    return {
-      x: (clientX - (r?.left ?? 0) - v.x) / v.z,
-      y: (clientY - (r?.top ?? 0) - v.y) / v.z,
-    };
-  };
   /* only the open left panel accepts a drop for deletion; the narrow rail never does */
   const inBin = (clientX: number) =>
     !mobileRef.current && leftOpenRef.current && clientX >= 0 && clientX <= leftWRef.current;
 
-  const setZoomAt = useCallback((nz: number, cx?: number, cy?: number) => {
-    const r = canvasRect();
-    const v = viewRef.current;
-    const z = clamp(nz, MIN_Z, MAX_Z);
-    const px = cx === undefined ? (r?.width ?? 0) / 2 : cx - (r?.left ?? 0);
-    const py = cy === undefined ? (r?.height ?? 0) / 2 : cy - (r?.top ?? 0);
-    setView({
-      x: px - ((px - v.x) * z) / v.z,
-      y: py - ((py - v.y) * z) / v.z,
-      z,
-    });
-  }, []);
-
-  const fit = useCallback(() => {
-    const r = canvasRect();
-    if (!r) return;
-    const gs = groupsRef.current;
-    let x0 = -BEZEL;
-    let y0 = -BEZEL - FRAME_LABEL_H;
-    let x1 = PHONE_W + BEZEL;
-    let y1 = PHONE_H + BEZEL;
-    const fs = framesRef.current;
-    if (frameRef.current === "phone" && fs.length > 0) {
-      x0 = Math.min(...fs.map((f) => f.x)) - BEZEL;
-      y0 = Math.min(...fs.map((f) => f.y)) - BEZEL - FRAME_LABEL_H;
-      x1 = Math.max(...fs.map((f) => frameRect(f).r)) + BEZEL;
-      y1 = Math.max(...fs.map((f) => frameRect(f).b)) + BEZEL;
-    }
-    if (frameRef.current === "blank") {
-      if (gs.length === 0) {
-        setView({ x: 48, y: 48, z: 1 });
-        return;
-      }
-      x0 = Infinity;
-      y0 = Infinity;
-      x1 = -Infinity;
-      y1 = -Infinity;
-      for (const g of gs) {
-        for (const pl of layoutOf(g, widthsRef.current)) {
-          x0 = Math.min(x0, pl.x);
-          y0 = Math.min(y0, pl.y);
-          x1 = Math.max(x1, pl.x + pl.w);
-          y1 = Math.max(y1, pl.y + pl.h);
-        }
-      }
-    }
-    const mobile = mobileRef.current;
-    const pad = mobile ? 14 : 40;
-    const top = mobile ? 96 : 84; // keep the floating toolbar clear of the frame
-    const bottom = mobile ? 96 : pad;
-    if (mobile) {
-      // a phone zooms to the width of the first screen and starts at its top; the rest are a pan away.
-      // Fitting them all would leave each a stamp, with the first cut off at the edge
-      const first = frameRef.current === "phone" ? fs[0] : undefined;
-      if (first) {
-        x0 = first.x - BEZEL;
-        x1 = frameRect(first).r + BEZEL;
-      }
-      const z = clamp((r.width - pad * 2) / (x1 - x0), MIN_Z, MAX_Z);
-      setView({ x: (r.width - (x1 - x0) * z) / 2 - x0 * z, y: top - y0 * z, z });
-      return;
-    }
-    const z = clamp(
-      Math.min(
-        (r.width - pad * 2) / (x1 - x0),
-        (r.height - top - bottom) / (y1 - y0),
-        1,
-      ),
-      MIN_Z,
-      MAX_Z,
-    );
-    setView({
-      x: (r.width - (x1 - x0) * z) / 2 - x0 * z,
-      y: top + (r.height - top - bottom - (y1 - y0) * z) / 2 - y0 * z,
-      z,
-    });
-  }, []);
-  const fitRef = useRef(fit);
-  fitRef.current = fit;
-
-  /* touch: two fingers pinch-zoom and pan, cancelling whatever one finger started */
-  const onTouchCapture = (e: React.PointerEvent) => {
-    if (e.pointerType !== "touch") return;
-    touchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (touchesRef.current.size === 2) {
-      const [a, b] = [...touchesRef.current.values()];
-      const v = viewRef.current;
-      pinchRef.current = {
-        d0: Math.hypot(a.x - b.x, a.y - b.y),
-        z0: v.z,
-        mx: (a.x + b.x) / 2,
-        my: (a.y + b.y) / 2,
-        vx: v.x,
-        vy: v.y,
-      };
-      dragRef.current = null;
-      setDrag(null);
-      setPressedId(null);
-      gestureRef.current = null;
-      setGesture(null);
-    }
-  };
-  useEffect(() => {
-    const move = (e: PointerEvent) => {
-      if (e.pointerType !== "touch" || !touchesRef.current.has(e.pointerId))
-        return;
-      touchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      const pinch = pinchRef.current;
-      if (!pinch || touchesRef.current.size < 2) return;
-      const [a, b] = [...touchesRef.current.values()];
-      const r = canvasRef.current?.getBoundingClientRect();
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      const z = clamp((pinch.z0 * d) / Math.max(1, pinch.d0), MIN_Z, MAX_Z);
-      const mx = (a.x + b.x) / 2;
-      const my = (a.y + b.y) / 2;
-      const px = pinch.mx - (r?.left ?? 0);
-      const py = pinch.my - (r?.top ?? 0);
-      setView({
-        x: px - ((px - pinch.vx) * z) / pinch.z0 + (mx - pinch.mx),
-        y: py - ((py - pinch.vy) * z) / pinch.z0 + (my - pinch.my),
-        z,
-      });
-    };
-    const up = (e: PointerEvent) => {
-      if (e.pointerType !== "touch") return;
-      touchesRef.current.delete(e.pointerId);
-      if (touchesRef.current.size < 2) pinchRef.current = null;
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
-    };
-  }, []);
-
-  /* wheel: pan, or zoom with ctrl / pinch */
-  useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      if (e.ctrlKey || e.metaKey) {
-        setZoomAt(
-          viewRef.current.z * Math.exp(-e.deltaY * 0.0022),
-          e.clientX,
-          e.clientY,
-        );
-      } else {
-        setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
-      }
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [setZoomAt]);
 
   const sx = useSpring(0, CARRY);
   const sy = useSpring(0, CARRY);
@@ -3144,29 +2648,6 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     if (previewTimer.current !== null) window.clearTimeout(previewTimer.current);
     if (returnTimer.current !== null) window.clearTimeout(returnTimer.current.id);
   }, []);
-  /** the camera glides for a moment: a screen is brought to the center before the
-   *  preview opens over it, and the view returns once the preview closes */
-  const glide = (v: View) => {
-    setCameraEasing(true);
-    setView(v);
-    window.setTimeout(() => setCameraEasing(false), SETTLE_MS + 40);
-  };
-  /** Brings one screen to the middle of the canvas at the zoom it fits in, gliding there. A
-   *  screen already wholly in view is left where it is, so picking it does not move the camera. */
-  const glideToFrame = (f: Frame) => {
-    const r = canvasRect();
-    if (!r) return;
-    const { w } = frameSizeOf(f);
-    const h = frameLengthOf(f);
-    const boxW = w + BEZEL * 2;
-    const boxH = h + BEZEL * 2 + FRAME_LABEL_H;
-    const v = viewRef.current;
-    const left = (f.x - BEZEL) * v.z + v.x;
-    const top = (f.y - BEZEL - FRAME_LABEL_H) * v.z + v.y;
-    if (left >= GLIDE_PAD && top >= GLIDE_TOP && left + boxW * v.z <= r.width - GLIDE_PAD && top + boxH * v.z <= r.height - GLIDE_PAD) return;
-    const z = clamp(Math.min((r.width - GLIDE_PAD * 2) / boxW, (r.height - GLIDE_TOP - GLIDE_PAD) / boxH, v.z), MIN_Z, MAX_Z);
-    glide({ x: (r.width - boxW * z) / 2 - (f.x - BEZEL) * z, y: GLIDE_TOP + (r.height - GLIDE_TOP - GLIDE_PAD - boxH * z) / 2 - (f.y - BEZEL - FRAME_LABEL_H) * z, z });
-  };
   const openPreview = (startId?: string | null) => {
     if (frame !== "phone") {
       changeFrame("phone");
@@ -3224,167 +2705,42 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     if (back) returnTimer.current = { id: window.setTimeout(() => { returnTimer.current = null; glide(back); }, 220), view: back };
   };
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Tab") tabbedRef.current = true;
-      if (editAccess !== "editable") return;
-      const t = e.target as HTMLElement;
-      const typing =
-        t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.isContentEditable);
-      if (typing) return;
-      // dialogs, the preview and the prompt's full-screen cover own the keyboard while they are up
-      if (confirmClear || pendingImport !== null || shareOpen || previewId !== null || promptCoverUp) return;
-      const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-        return;
-      }
-      if (mod && e.key.toLowerCase() === "y") {
-        e.preventDefault();
-        redo();
-        return;
-      }
-      if (mod && e.key.toLowerCase() === "d") {
-        e.preventDefault();
-        if (selectedIds.length === 0 && selectedFrameId) duplicateFrameRef.current(selectedFrameId);
-        else duplicateSelected();
-        return;
-      }
-      if (mod && e.key.toLowerCase() === "c") {
-        /* with nothing selected, or text highlighted somewhere, the browser keeps its own copy */
-        if (selectedIds.length === 0 || window.getSelection()?.toString()) return;
-        e.preventDefault();
-        copySelected();
-        return;
-      }
-      if (mod && e.key.toLowerCase() === "v") {
-        if (!clipboardRef.current) return;
-        e.preventDefault();
-        pasteClipboard();
-        return;
-      }
-      if (mod && e.key.toLowerCase() === "x") {
-        /* the same bargain as copy: highlighted text is the browser's to cut */
-        if (selectedIds.length === 0 || window.getSelection()?.toString()) return;
-        e.preventDefault();
-        copySelected();
-        deleteSelected();
-        return;
-      }
-      if (mod && e.key.toLowerCase() === "a") {
-        e.preventDefault();
-        selectAllRef.current();
-        return;
-      }
-      if (mod && e.key.toLowerCase() === "g") {
-        e.preventDefault();
-        if (e.shiftKey) ungroupSelected();
-        else groupSelected();
-        return;
-      }
-      /* Figma's keys: Ctrl+Alt+T tidies up what is selected, or the screen when one part or none is; Shift+A turns the
-       * selection into auto layout. The code of the key, since Alt changes the letter it types on a Mac */
-      if (mod && e.altKey && e.code === "KeyT") {
-        e.preventDefault();
-        if (selectedIds.length > 1) layoutKeysRef.current.tidyUp();
-        else layoutKeysRef.current.tidyScreen();
-        return;
-      }
-      if (e.shiftKey && !mod && !e.altKey && e.code === "KeyA" && selectedIds.length) {
-        e.preventDefault();
-        layoutKeysRef.current.autoLayout();
-        return;
-      }
-      /* Space presses a control reached with Tab instead of holding the hand tool; a button
-       * clicked with the mouse keeps focus too, and must not be pressed again */
-      if (e.key === " " && tabbedRef.current && t.closest?.("button, [role=button]")) return;
-      if (e.key === " " && !e.repeat) {
-        e.preventDefault();
-        setSpaceHeld(true);
-        return;
-      }
-      if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault();
-        if (selectedIds.length === 0 && selectedFrameId)
-          deleteFrame(selectedFrameId);
-        else deleteSelected();
-        return;
-      }
-      if (e.key === "Escape") {
-        /* with nothing left to let go of, Escape leaves the definition being edited */
-        if (!selectedIds.length && defEditRef.current) finishDefinitionRef.current();
-        setSelectedIds([]);
-        setSelectedFrameId(null);
-        setSelectedLinkId(null);
-        return;
-      }
-      if (e.key === "p" || e.key === "P") {
-        openPreviewRef.current();
-        return;
-      }
-      if (e.key.startsWith("Arrow")) {
-        e.preventDefault();
-        const s = e.shiftKey ? 8 : 1;
-        nudge(
-          e.key === "ArrowLeft" ? -s : e.key === "ArrowRight" ? s : 0,
-          e.key === "ArrowUp" ? -s : e.key === "ArrowDown" ? s : 0,
-        );
-        return;
-      }
-      if (mod) return;
-      if (e.key === "]" || e.key === "[") {
-        if (selectedIds.length === 0) return;
-        e.preventDefault();
-        stepSelectedLayers(e.key === "]" ? 1 : -1);
-        return;
-      }
-      if (e.key === "v" || e.key === "V") setMode("select");
-      if (e.key === "h" || e.key === "H") setMode("hand");
-      if (e.key === "=" || e.key === "+") setZoomAt(viewRef.current.z * 1.2);
-      if (e.key === "-" || e.key === "_") setZoomAt(viewRef.current.z / 1.2);
-      if (e.key === "0") fitRef.current();
-    };
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === " ") setSpaceHeld(false);
-    };
-    const onPointer = () => {
-      tabbedRef.current = false;
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("pointerdown", onPointer, true);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("pointerdown", onPointer, true);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    deleteSelected,
-    duplicateSelected,
-    copySelected,
-    pasteClipboard,
-    groupSelected,
-    ungroupSelected,
-    nudge,
-    redo,
-    undo,
-    setZoomAt,
+  /* the keyboard: undo, clipboard, grouping, layout keys, nudges, tools and zoom (src/editor/useShortcuts.ts) */
+  useShortcuts({
+    editable: editAccess === "editable",
+    blocked: confirmClear || pendingImport !== null || shareOpen || previewId !== null || promptCoverUp,
     selectedIds,
     selectedFrameId,
+    canPaste: () => !!clipboardRef.current,
+    editingDefinition: () => !!defEditRef.current,
+    undo,
+    redo,
+    duplicateSelected,
+    duplicateFrame: (id) => duplicateFrameRef.current(id),
+    copySelected,
+    pasteClipboard,
+    deleteSelected,
     deleteFrame,
-    confirmClear,
-    pendingImport,
-    shareOpen,
-    previewId,
-    promptCoverUp,
-    editAccess,
-  ]);
+    selectAll: () => selectAllRef.current(),
+    groupSelected,
+    ungroupSelected,
+    tidyUp: () => layoutKeysRef.current.tidyUp(),
+    tidyScreen: () => layoutKeysRef.current.tidyScreen(),
+    autoLayout: () => layoutKeysRef.current.autoLayout(),
+    finishDefinition: () => finishDefinitionRef.current(),
+    clearSelection: () => {
+      setSelectedIds([]);
+      setSelectedFrameId(null);
+      setSelectedLinkId(null);
+    },
+    openPreview: () => openPreviewRef.current(),
+    nudge,
+    stepLayers: stepSelectedLayers,
+    setMode,
+    setSpaceHeld,
+    zoom: (dir) => setZoomAt(dir === "in" ? viewRef.current.z * 1.2 : viewRef.current.z / 1.2),
+    fit: () => fitRef.current(),
+  });
   const openPreviewRef = useRef(openPreview);
   openPreviewRef.current = openPreview;
 
@@ -3423,14 +2779,8 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     gapTimer.current = setTimeout(() => setGap(null), SETTLE_MS + 40);
   }, [setGap]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  /* The document is its own screens and parts even while a definition is open: that definition is
-   * what stands on the editing screen, as far as it has got (lib/core `savedDoc`). */
-  const doc: Doc = useMemo(() => savedDoc(core), [core.doc, core.editing, widths]);
   /** what the preview plays: everything drawn out. With a definition open, that definition alone. */
   const previewDoc = useMemo(() => (previewId === null ? doc : expandDoc(defEdit ? { ...doc, groups, frames } : doc, widths)), [previewId, doc, defEdit, groups, frames, widths]);
-  /** the same document, for callbacks that were created on an earlier render */
-  const docRef = useRef(doc);
-  docRef.current = doc;
 
   /** arrows from tappable parts to the frames they open */
   const links = useMemo(() => {
