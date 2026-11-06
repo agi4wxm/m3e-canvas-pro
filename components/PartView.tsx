@@ -1,5 +1,5 @@
 
-import { Component, Suspense, memo, useMemo, type ReactNode } from "react";
+import { Component, Suspense, memo, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { Item } from "@/lib/tokens";
 import { useLang, type Lang } from "@/lib/i18n";
 import { useIcons } from "@/parts/icons";
@@ -9,9 +9,31 @@ import { partBySlug, viewOf } from "@/parts/registry";
 import { axisValue, resizeOf } from "@/parts/resize";
 import type { Screen } from "@/parts/types";
 import { renderNode } from "@/parts/render";
+import { holdModules, loadModules, modulesIn, modulesOf, subscribeModules } from "@/parts/components";
+import { REMEASURE } from "@/parts/contained";
 import type { PNode } from "@/parts/node";
 
 const NOTHING: PNode = { type: "span" };
+const NONE: readonly string[] = [];
+
+/** Whether every module a tree names has arrived (parts/components.ts). What is missing is asked for at once, and the
+ *  part is drawn again when it has come. Asking is idempotent, and asking while drawing saves the frame an effect
+ *  would wait for. */
+export function usePartModules(tree: PNode | null): boolean {
+  const keys = tree ? modulesOf(tree) : NONE;
+  const ready = useSyncExternalStore(subscribeModules, () => modulesIn(keys), () => modulesIn(keys));
+  if (!ready) void loadModules(keys);
+  /* what is on screen is what the next start fetches first */
+  useEffect(() => holdModules(keys), [keys]);
+  return ready;
+}
+
+/** What holds a part's place while its drawing is on its way: an empty box at the size the part is about to be. It is
+ *  marked `data-fit`, which the editor's measure pass reads as "what this part is drawn as has not mounted yet": a part
+ *  measured before keeps its last size rather than taking the stand-in's for a moment, so nothing laid out by it moves. */
+export function PartPlaceholder({ width, height }: { width?: number; height?: number }) {
+  return <div data-part-waiting="" data-fit="" aria-busy="true" style={{ width, height }} />;
+}
 
 /** A part no definition stands for. It says which one, rather than leaving a hole or a crash. */
 function MissingPart({ item }: { item: Item }) {
@@ -92,8 +114,19 @@ function PartViewBody({ item, live = false, screen, held = false }: PartViewProp
   const tree = useMemo(() => (def ? viewOf(def, item.props, appearanceOf(item), screen, live && !held, item.id) : null), [def, item.props, item.fill, item.textColor, item.corners, item.look, item.id, screen?.w, screen?.h, live, held, lang]);
   /* the icon component is memoized: icons that arrive after the first draw show only in a fresh tree */
   const icons = useIcons(tree ?? NOTHING);
+  /* the components it is drawn with are fetched the first time a part needs them */
+  const ready = usePartModules(tree);
   /* the same elements for the same tree: React then leaves the whole component under them alone */
-  const drawn = useMemo(() => (tree ? renderNode(tree) : null), [tree]);
+  const drawn = useMemo(() => (tree && ready ? renderNode(tree) : null), [tree, ready]);
+  /* drawn at last where its stand-in stood: the canvas measured the stand-in, so it measures again */
+  const waited = useRef(false);
+  useLayoutEffect(() => {
+    if (!ready) waited.current = true;
+    else if (waited.current) {
+      waited.current = false;
+      window.dispatchEvent(new Event(REMEASURE));
+    }
+  }, [ready]);
   /* in the preview they stay as they are: what a visitor has changed is the part's own */
   const starting = useMemo(() => (tree && !live ? startingValuesOf(tree) : ""), [tree, live]);
   if (!tree) return <MissingPart item={item} />;
@@ -102,13 +135,15 @@ function PartViewBody({ item, live = false, screen, held = false }: PartViewProp
   const axes = resizeOf(def, item.props);
   const held_w = axes?.width ? axisValue(axes.width, item.props) : def?.w;
   const held_h = axes?.height ? axisValue(axes.height, item.props) : def?.h;
+  const hold = <PartPlaceholder width={held_w} height={held_h} />;
   return (
     <PartSurface>
       {/* an inline box inside the part's block would sit on the strut's baseline, ~a line's
        *  leading low; top-aligned, the part's content starts at the part's own top */}
       <div key={`${icons}:${starting}`} inert={!live} style={{ display: "inline-flex", verticalAlign: "top", pointerEvents: live ? undefined : "none" }}>
-        {/* a widget is fetched when first drawn: its guessed size holds the place */}
-        <Suspense fallback={<div style={{ width: held_w, height: held_h }} />}>{drawn}</Suspense>
+        {/* until its components have come, its guessed size holds the place; the boundary stays for anything inside a
+         *  component that waits on its own */}
+        {ready ? <Suspense fallback={hold}>{drawn}</Suspense> : hold}
       </div>
     </PartSurface>
   );

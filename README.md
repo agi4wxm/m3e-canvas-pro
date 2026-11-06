@@ -39,7 +39,8 @@ bun run dev
 | `bun run typecheck` | 类型检查 |
 | `bun run test` | 运行测试 |
 | `bun run lint` | 代码检查，有警告也算失败 |
-| `bun run gen:parts` | 重新生成组件索引 |
+| `bun run gen:parts` | 重新生成组件索引（每个组件模块一个按需加载的分块） |
+| `bun run gen:versions` | 依赖升级后，按 `package.json` 和 `bun.lock` 重写导出项目用的版本表 `lib/versions.generated.ts`（`check:versions` 只检查，测试也会检查） |
 | `bun run gen:agent` | 把组件清单写进 `public/agent.md` |
 | `bun run gen:icon-sets` | 按图标对照表重新打包各风格的图标集（`check:icon-sets` 只检查） |
 | `bun scripts/style-shots.ts --base <地址> --out <文件夹>` | 把风格画廊按风格、分类截图，用来核对每套风格（先另开 `bun run dev`） |
@@ -59,7 +60,7 @@ lib/styles/    风格：每套一个文件，控件造型按组件家族分模�
 lib/m3e/       组件库的工具代码
 hooks/         组件库的 Hook
 styles/        组件库的样式和设计令牌
-parts/         组件注册表和绘制
+parts/         组件注册表和绘制（组件的绘制代码按需加载，见 parts/components.ts、parts/prefetch.ts）
 parts/defs/    组件定义
 parts/widgets/ 自带组件
 parts/kits/    组合件：由原子组件拼成的输入框、搜索栏、列表行等

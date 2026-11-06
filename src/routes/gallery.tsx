@@ -6,7 +6,10 @@ import type { GallerySearch } from "@/components/Gallery"
  * (`kits=1`: the kits alone, every variant, the one the style picks starred; `splits=1`: each composite that splits
  * beside the atoms it splits into). A custom style: /gallery?style=custom:… with the style as JSON in `custom`, or,
  * without it, from the document the editor keeps in this browser */
-const Gallery = lazy(() => import("@/components/Gallery").then((m) => ({ default: m.Gallery })))
+/* it draws every part there is, so every part's components come before it does: a cell is measured once, at its real size */
+const Gallery = lazy(() =>
+  Promise.all([import("@/components/Gallery"), import("@/parts/components").then((m) => m.loadAllModules())]).then(([m]) => ({ default: m.Gallery })),
+)
 
 const text = (v: unknown) => (typeof v === "string" || typeof v === "number" ? String(v) : undefined)
 /* a custom style in the address comes as JSON, which the router may already have read as an object */

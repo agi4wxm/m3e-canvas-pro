@@ -26,6 +26,8 @@
     "gen:icon-sets": "bun scripts/gen-icon-sets.ts",
     "check:icon-sets": "bun scripts/gen-icon-sets.ts --check",
     "gen:tokens": "bun scripts/gen-tokens.ts",
+    "gen:versions": "bun scripts/gen-versions.ts",
+    "check:versions": "bun scripts/gen-versions.ts --check",
     "check:export": "bun scripts/check-export.ts"
   },
   "dependencies": {

@@ -15,7 +15,6 @@ const SOURCES = import.meta.glob(
     "/styles/*.css",
     "/react-css.d.ts",
     "/package.json",
-    "/bun.lock",
     "/LICENSE",
     "/NOTICE",
     "!**/*.test.*",
