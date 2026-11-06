@@ -1,7 +1,8 @@
 /* The MCP connection in the editor: a button at the foot of the left rail (a dot says it is connected, or that
  * something waits for the author), its panel (the switch, each server found with its client and access, disconnect,
- * the activity log), the pairing and confirmation asks over the page, and the offscreen layer screenshots are taken
- * of. The work itself is src/editor/useMcpBridge.ts and lib/mcp/editorBridge.ts. */
+ * the clients it remembers with a way to forget each, the activity log), the pairing and confirmation asks over the
+ * page (a pairing may be remembered for that client), and the offscreen layer screenshots are taken of. The work
+ * itself is src/editor/useMcpBridge.ts and lib/mcp/editorBridge.ts. */
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -9,7 +10,7 @@ import type { DocStore } from "@/lib/core";
 import { useStore } from "@/lib/core/react";
 import type { Lang } from "@/lib/i18n";
 import { mcpText, type McpKey } from "@/lib/i18n/mcp";
-import type { BridgeAsk, BridgeConn, BridgeEntry } from "@/lib/mcp/editorBridge";
+import type { BridgeAsk, BridgeConn, BridgeEntry, RememberedClient } from "@/lib/mcp/editorBridge";
 import type { ClientInfo } from "@/lib/mcp/protocol";
 import type { Doc, Palette, Theme } from "@/lib/tokens";
 import { capture, layerDrawn, ShotLayer } from "@/src/editor/screenShot";
@@ -53,9 +54,10 @@ function useCountdown(until: number) {
   return Math.max(0, Math.ceil((until - now) / 1000));
 }
 
-function AskCard({ ask, p, lang, onApprove, onDeny, onAnswer }: { ask: BridgeAsk; p: Palette; lang: Lang; onApprove: (port: number, edit: boolean) => void; onDeny: (port: number) => void; onAnswer: (id: string, allow: boolean) => void }) {
+function AskCard({ ask, p, lang, onApprove, onDeny, onAnswer }: { ask: BridgeAsk; p: Palette; lang: Lang; onApprove: (port: number, edit: boolean, remember: boolean) => void; onDeny: (port: number) => void; onAnswer: (id: string, allow: boolean) => void }) {
   const left = useCountdown(ask.kind === "confirm" ? ask.until : 0);
   const name = clientName(ask.client, lang);
+  const [remember, setRemember] = useState(false);
   return (
     <div
       role="alertdialog"
@@ -76,10 +78,19 @@ function AskCard({ ask, p, lang, onApprove, onDeny, onAnswer }: { ask: BridgeAsk
             {mcpText("pairBody", lang)}
             {ask.offered === "read" ? ` ${mcpText("pairReadOnlyOffered", lang)}` : ""}
           </div>
+          {ask.canRemember && (
+            <label data-mcp-remember style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13, lineHeight: 1.4, color: p.onSurface, cursor: "pointer" }}>
+              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} style={{ width: 18, height: 18, margin: "1px 0 0", accentColor: p.primary, flex: "0 0 auto" }} />
+              <span>
+                <span style={{ fontWeight: 600 }}>{mcpText("remember", lang)}</span>
+                <span style={{ display: "block", fontSize: 12, color: p.onSurfaceVariant }}>{mcpText("rememberHint", lang, { client: name })}</span>
+              </span>
+            </label>
+          )}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, flexWrap: "wrap" }}>
             <Btn p={p} label={mcpText("deny", lang)} onClick={() => onDeny(ask.port)} />
-            {ask.offered === "edit" && <Btn p={p} kind="tonal" label={mcpText("allowRead", lang)} onClick={() => onApprove(ask.port, false)} />}
-            <Btn p={p} kind="filled" autoFocus label={ask.offered === "edit" ? mcpText("allowEdit", lang) : mcpText("allowRead", lang)} onClick={() => onApprove(ask.port, ask.offered === "edit")} />
+            {ask.offered === "edit" && <Btn p={p} kind="tonal" label={mcpText("allowRead", lang)} onClick={() => onApprove(ask.port, false, remember)} />}
+            <Btn p={p} kind="filled" autoFocus label={ask.offered === "edit" ? mcpText("allowEdit", lang) : mcpText("allowRead", lang)} onClick={() => onApprove(ask.port, ask.offered === "edit", remember)} />
           </div>
         </>
       ) : (
@@ -112,12 +123,29 @@ function ConnRow({ c, p, lang, onDisconnect }: { c: BridgeConn; p: Palette; lang
         <div style={{ fontSize: 12, color: p.onSurfaceVariant }}>
           {what}
           {c.phase === "paired" && ` · ${mcpText(c.access === "edit" ? "canEdit" : "readOnly", lang)}`}
+          {c.phase === "paired" && c.remembered && ` · ${mcpText("rememberedVia", lang)}`}
           {` · :${c.port}`}
           {c.server ? ` · v${c.server.version}` : ""}
         </div>
         {c.phase === "paired" && c.generate && <div style={{ fontSize: 11, color: p.onSurfaceVariant }}>{mcpText("drawing", lang)}</div>}
       </div>
       {(c.phase === "paired" || c.phase === "pairing") && <IconBtn icon="link_off" p={p} size={32} title={mcpText("disconnect", lang)} onClick={onDisconnect} />}
+    </div>
+  );
+}
+
+function RememberedRow({ r, p, lang, onForget }: { r: RememberedClient; p: Palette; lang: Lang; onForget: () => void }) {
+  const when = new Date(r.used).toLocaleDateString(lang, { month: "short", day: "numeric" });
+  return (
+    <div data-mcp-remembered={r.client.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 4px 6px 12px", borderRadius: 16, background: p.surfaceContainer }}>
+      <Icon name="verified_user" size={18} color={p.onSurfaceVariant} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: p.onSurface, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clientName(r.client, lang)}</div>
+        <div style={{ fontSize: 12, color: p.onSurfaceVariant }}>
+          {mcpText(r.access === "edit" ? "canEdit" : "readOnly", lang)} · {mcpText("usedAt", lang, { when })}
+        </div>
+      </div>
+      <Btn p={p} label={mcpText("forget", lang)} onClick={onForget} />
     </div>
   );
 }
@@ -211,6 +239,14 @@ export function McpConnect({ store, p, theme, lang, enabled, size = 44 }: { stor
                 ) : (
                   view.conns.filter((c) => c.server || c.phase !== "connecting").map((c) => <ConnRow key={c.port} c={c} p={p} lang={lang} onDisconnect={() => bridge?.disconnect(c.port)} />)
                 )}
+                {view.remembered.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: p.onSurfaceVariant, marginTop: 4 }}>{mcpText("remembered", lang)}</div>
+                    {view.remembered.map((r) => (
+                      <RememberedRow key={r.id} r={r} p={p} lang={lang} onForget={() => void bridge?.forget(r.id)} />
+                    ))}
+                  </>
+                )}
                 <div style={{ fontSize: 12, fontWeight: 700, color: p.onSurfaceVariant, marginTop: 4 }}>{mcpText("activity", lang)}</div>
                 {view.log.length === 0 ? <div style={{ fontSize: 12, color: p.onSurfaceVariant }}>{mcpText("noActivity", lang)}</div> : <div>{view.log.slice(0, 30).map((e) => <LogRow key={e.id + e.at} e={e} p={p} lang={lang} />)}</div>}
               </>
@@ -222,7 +258,7 @@ export function McpConnect({ store, p, theme, lang, enabled, size = 44 }: { stor
         createPortal(
           <div ref={asksBox} style={{ position: "fixed", left: 0, right: 0, top: 16, zIndex: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, pointerEvents: "none", fontFamily: "Roboto, system-ui, sans-serif" }}>
             {view.asks.map((a) => (
-              <AskCard key={a.kind === "pair" ? `pair:${a.port}` : a.id} ask={a} p={p} lang={lang} onApprove={(port, edit) => bridge?.approve(port, edit ? "edit" : "read")} onDeny={(port) => bridge?.deny(port)} onAnswer={(id, allow) => bridge?.answer(id, allow)} />
+              <AskCard key={a.kind === "pair" ? `pair:${a.port}` : a.id} ask={a} p={p} lang={lang} onApprove={(port, edit, remember) => bridge?.approve(port, edit ? "edit" : "read", remember)} onDeny={(port) => bridge?.deny(port)} onAnswer={(id, allow) => bridge?.answer(id, allow)} />
             ))}
           </div>,
           document.body,

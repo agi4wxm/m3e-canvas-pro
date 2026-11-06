@@ -4,6 +4,7 @@
  * attached. The screenshots the agent looked at are not kept: the panel shows them while a turn runs. */
 
 import { getKv, putKv } from "@/lib/projects/db";
+import { agentConversationKey } from "@/lib/projects/projects";
 import type { Message } from "@/lib/llm/types";
 import type { Attachment } from "@/lib/tools/types";
 
@@ -12,7 +13,8 @@ export type KeptTurn = Record<string, unknown> & { id: string; request: string }
 
 export type Memory = { version: 1; messages: Message[]; turns: KeptTurn[]; sets: string[]; attachments: Attachment[] };
 
-const keyOf = (project: string) => `agent:conversation:${project}`;
+/* forgotten with the project when it is deleted (lib/projects/projects.ts) */
+const keyOf = agentConversationKey;
 
 export async function loadMemory(project: string): Promise<Memory | null> {
   try {

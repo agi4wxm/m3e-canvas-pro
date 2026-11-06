@@ -12,12 +12,13 @@ import type { CoreState } from "@/lib/core";
 import { canvasView } from "@/lib/expand";
 import { LangContext, setGlobalLang, type Lang } from "@/lib/i18n";
 import { setDocStyles } from "@/lib/styles";
+import { setDocIcons } from "./docIcons";
 import { fontFamilyOf, frameOfGroup, frameSizeOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Doc, type Item } from "@/lib/tokens";
 import { PartView } from "@/components/PartView";
 import { FIT_OVERLAY } from "@/parts/contained";
 import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
 import { firstBaseline } from "./model";
-import { capture, layerDrawn, shotTarget, ShotLayer } from "./screenShot";
+import { capture, layerDrawn, shotTarget, ShotLayer, themeFacesLoaded } from "./screenShot";
 
 type Widths = Record<string, number>;
 export type MeasureJob = { doc: CoreState["doc"]; lang: Lang };
@@ -72,6 +73,7 @@ export function RenderPage() {
   if (doc) {
     setGlobalLang(lang);
     setDocStyles(doc.styles);
+    setDocIcons(doc.icons);
   }
   const p = useMemo(() => paletteOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme), [doc, theme]);
   const partTheme = useMemo<PartTheme>(() => ({ seed: seedOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme), dark: theme.dark, contrast: theme.contrast, shape: shapeScaleOf(theme.shape) }), [doc, theme]);
@@ -84,6 +86,8 @@ export function RenderPage() {
     const next = () => setWork(queue.current.shift() ?? null);
     void (async () => {
       try {
+        /* the theme's faces first: the sizes are measured, and the words drawn, in them, as on the canvas */
+        await themeFacesLoaded(theme, lang);
         await layerDrawn(doc);
         if (gone) return;
         if (work.kind === "measure") {

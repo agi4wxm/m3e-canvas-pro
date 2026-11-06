@@ -105,13 +105,14 @@ bearer_token_env_var = "M3E_MCP_TOKEN"
 | `--port <端口>` | 实时连接的第一个端口（默认 47831，占用时依次试后面三个） |
 | `--origin <来源>` | 编辑器部署在别处时，允许它的来源，例如 `https://canvas.example.com`（可重复；也可用 `M3E_MCP_ORIGINS`，逗号分隔） |
 | `--allow-destructive` | 文件模式：删除、清空等操作不再询问 |
+| `--forget-editors` | 忘记所有“记住这个客户端”的配对（之后都要重新批准），然后照常启动 |
 | `--confirm-timeout <秒>` | 实时模式：破坏性调用等作者点“允许”的时间（默认 60） |
 | `--lang <ja\|en\|zh\|ko>` | 文件模式里新文字（组合件的标签、新屏幕名）用的语言，默认跟系统 |
 | `--app <目录或地址>` | 文件模式截图用的编辑器构建（`dist` 目录），或一个正在运行的编辑器地址 |
 | `--log <文件>` | 日志另存一份 |
 | `--quiet` / `--debug` | 只打印必须看到的（配对码、令牌）/ 打印每次调用 |
 
-环境变量：`OPENAI_API_KEY`（打开 `generate_svg`、`generate_image`）、`OPENAI_BASE_URL`、`M3E_MCP_TEXT_MODEL`、`M3E_MCP_IMAGE_MODEL`、`HTTPS_PROXY` / `NO_PROXY`、`PLAYWRIGHT_PATH`。
+环境变量：`OPENAI_API_KEY`（打开 `generate_svg`、`generate_image`）、`OPENAI_BASE_URL`、`M3E_MCP_TEXT_MODEL`、`M3E_MCP_IMAGE_MODEL`、`HTTPS_PROXY` / `NO_PROXY`、`PLAYWRIGHT_PATH`、`M3E_MCP_CONFIG_DIR`（记住的配对放在哪个文件夹，默认是用户配置目录下的 `m3e-canvas-mcp/`）。
 
 ## 实时模式：连接编辑器
 
@@ -123,7 +124,10 @@ bearer_token_env_var = "M3E_MCP_TOKEN"
    - 截图由编辑器自己画，和“导出图片”完全一样；
    - 删除屏幕、删除组件、清空画布等破坏性调用会弹出确认卡片，60 秒内不点“允许”就拒绝，AI 收到拒绝的原因；
    - 面板里有连接状态、客户端名字、可编辑或只读、最近的调用记录和断开按钮。
-5. 刷新标签页后会自动回到同一个服务器，不用再批准；服务器重启后要重新批准。客户端每次启动服务器（Claude Desktop 重启、Codex 开新会话）都是新的进程和新的配对码，所以要再批准一次。
+5. 刷新标签页后会自动回到同一个服务器，不用再批准。客户端每次启动服务器（Claude Desktop 重启、Codex 开新会话）都是新的进程和新的配对码，默认要再批准一次。
+6. **记住这个客户端**：批准时勾选“记住这个客户端”，以后同一个客户端（按它连接时报的名字，如 `claude-ai`）从同一个编辑器地址启动的服务器会自动连上，权限和这次一样，不再弹出配对码。面板的“记住的客户端”里可以逐个“忘记”，之后又会询问；服务器启动时加 `--forget-editors` 会忘记全部。不勾选时和以前完全一样。
+
+   做法：批准时编辑器生成一个随机密钥交给服务器。编辑器把它存在这个浏览器的 IndexedDB（项目数据库的 `kv`，键 `mcp:trusted`），服务器存在用户配置目录下的 `m3e-canvas-mcp/trusted-editors.json`（Linux `~/.config/`，macOS `~/Library/Application Support/`，Windows `%APPDATA%\`），文件权限 0600、文件夹 0700，发现别人能读时改回 0600 并在日志里提醒。下次服务器在问候里列出它保存的配对编号，编辑器发一个随机挑战，服务器用密钥对“挑战和端口”算 HMAC-SHA256 回答，编辑器核对通过才自动批准；密钥本身不再传输（只有“忘记”时发一次，让服务器删掉它那份）。在编辑器里忘记时如果没有服务器在线，等下一个服务器连上时再通知它删除。180 天没用过的配对自动失效。
 
 一个服务器同时只连一个标签页。同一台电脑上的第二个客户端（比如 Claude Desktop 和 Codex 都开着）会用下一个端口，编辑器会分别询问。
 
@@ -134,16 +138,17 @@ npx -y m3e-canvas-mcp --file "m3e-canvas Shop.json"
 ```
 
 - 读写的格式和编辑器保存的完全相同，都经过 `lib/core/projectFile.ts`（格式见 [项目文件](项目文件.md)）：键排序、一个组件一行，同一份文档总是写出相同的字节，放进版本库时只有真正的改动。打开、校验和迁移经过 `openProject`。服务器只通过 `mcp/src/fileStore.ts` 的 `ProjectFormat` 接口接触格式。
-- 单个文件时图片以 data URL 留在文件里；文件夹（`m3e-project.json`）时较大的图片放在旁边的 `m3e-assets/`，文档里写 `m3e-file:m3e-assets/<哈希>.<扩展名>`。服务器不删除 `m3e-assets/` 里不再用到的图片（编辑器保存文件夹时会清理）。
+- 单个文件时图片以 data URL 留在文件里；文件夹（`m3e-project.json`）时较大的图片放在旁边的 `m3e-assets/`，文档里写 `m3e-file:m3e-assets/<哈希>.<扩展名>`。每次写回后，服务器删掉 `m3e-assets/` 里文档不再用到的图片，但只删它自己写的，或者名字正是内容哈希的（格式自己起的名字）；别人放进去的文件不碰，别的程序一分钟内刚写的图片也先不删（可能是它正在保存的）。撤销把图片带回来时会重新写出。
 - 每次改动成功后立刻写回文件。写入是原子的：先写同目录下的临时文件，再改名覆盖；文件夹里先写图片，再写项目文件。
 - 编辑器绑定了同一个文件时也不会互相覆盖：两边都会在写之前检查文件是否被对方改过。
+- **撤销和重做**：文件模式多两个工具 `undo`、`redo`，撤销或重做这个服务器这次运行里对文件做的修改（一次调用或一批 `apply_ops` 是一步，最多 100 步），每次都立刻写回文件。历史只在内存里：服务器重启后、或者别的程序改过文件被重新读入后从头开始，所以不会撤销别人的修改。没能保存的修改直接丢掉，不能重做。只读会话没有这两个工具；有配对的标签页时（`--live`）改动在编辑器里，由作者在编辑器里撤销。
 - 每次调用前都检查文件：如果别的程序（或编辑器）在这期间保存过它，服务器重新读入，**这次写入被拒绝**并说明原因，不会覆盖别人的修改；AI 重新读大纲后再改。
 - 没有编辑器时，组件的尺寸先用各组件自己的估计（`guessMeasurer`）。截图时会在浏览器里实际测量，之后的排版也用测量值。
 - 破坏性调用：客户端支持 MCP 的 elicitation 时，会请客户端里的人确认；不支持时拒绝，除非用 `--allow-destructive` 启动。
 
 ### 截图
 
-文件模式的截图用无头 Chromium：服务器在 127.0.0.1 上提供编辑器的构建，打开其中的 `/render` 页面（`src/editor/RenderPage.tsx`），按画布的方式测量组件、排版，再用和“导出图片”相同的代码（`src/editor/render.tsx` 的 `renderExport`）画出屏幕。
+文件模式的截图用无头 Chromium：服务器在 127.0.0.1 上提供编辑器的构建，打开其中的 `/render` 页面（`src/editor/RenderPage.tsx`），按画布的方式测量组件、排版，再用和“导出图片”相同的代码（`src/editor/render.tsx` 的 `renderExport`）画出屏幕。这个页面只加载画屏幕要用的代码，不加载编辑器（编辑器的代码只在首页预取）。它先加载文档主题的字体（Google Fonts，需要能联网；连不上时测量和绘制都用系统字体，两者仍然一致），截图只嵌入文字真正用到的字体子集，所以文字和编辑器画布上一样宽。
 
 这需要 Playwright 和它的 Chromium，它们不打包在服务器里：
 
@@ -161,13 +166,14 @@ npx playwright install chromium
 | 只在本机 | 实时连接、HTTP 和截图用的页面都只监听 127.0.0.1 |
 | 只让编辑器连接 | WebSocket 只接受编辑器的来源（本机 3000–3010、4173–4183、5173–5183 端口，或 `--origin` 给的地址），并检查 Host 必须是 127.0.0.1 或 localhost，网页通过 DNS 重绑定也连不上 |
 | 配对 | 服务器每次启动生成一个配对码，打印在日志里；编辑器显示同一个码和客户端名字，作者核对后批准，之前不会运行任何调用 |
+| 记住的客户端 | 只有作者勾选才记住；服务器要用只有本用户能读的文件里的密钥回答一次性的挑战（绑定端口，转发别的服务器的回答没用），编辑器核对后才自动批准；可在面板里随时忘记 |
 | 只读和编辑 | `--read-only` 只提供读取的工具；作者批准时也可以只给只读。服务器和编辑器两边都检查 |
 | 破坏性操作 | 实时模式在编辑器里点“允许”，超时即拒绝；文件模式经客户端确认或 `--allow-destructive` |
 | 密钥 | 生成图形只用服务器自己环境里的 `OPENAI_API_KEY`。密钥不经过 MCP 消息，也不经过和编辑器的连接：实时模式下生成工具在标签页里运行，图由服务器画好后只把结果传回去，而且只为服务器正在等的生成调用作图。日志里不出现密钥 |
 | HTTP | 每个请求都要带令牌（`Authorization: Bearer`），检查 Host 和 Origin |
 | 没有代码执行 | 工具只有注册表里的类型化操作和读取，没有运行任意代码的工具 |
 
-局限：配对码保证编辑器连的是你启动的服务器；本机上的其他程序可以伪造来源连接服务器，冒充编辑器（它们只能收到 AI 的调用，碰不到你的标签页）。本机程序本来就能读写你的文件，这不在防护范围内。
+局限：配对码保证编辑器连的是你启动的服务器；本机上的其他程序可以伪造来源连接服务器，冒充编辑器（它们只能收到 AI 的调用，碰不到你的标签页）。本机程序本来就能读写你的文件（包括记住的配对文件），这不在防护范围内。
 
 ## 工具、资源和提示词
 
@@ -179,7 +185,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 92 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
+共 96 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -209,6 +215,8 @@ npx playwright install chromium
 | `apply_style` | 风格 |  |  | Puts one of the style packs on the document ("" for Android's Material 3), or one of the document's own styles by its custom: key: its colors, shapes, faces, icons and control rec… |
 | `set_custom_styles` | 风格 |  | 是 | Replaces the document's own styles (custom styles, each with a custom: key). |
 | `add_custom_style` | 风格 |  |  | Adds a custom style to the document's own styles, or replaces the one with its key, validated like a style file: roles as #RRGGBB with contrast checked, faces, icon families, shap… |
+| `set_icon` | 搭建 |  |  | Keeps an SVG drawing as one of the document's own icons, named svg:&lt;id>: it then goes wherever a part takes an icon name (an icon atom's name, a button's or a list row's icon, … |
+| `remove_icon` | 搭建 |  | 是 | Takes one of the document's own icons away. |
 | `set_style_rules` | 风格 |  |  | Holds the document to its style's rules (on), or lets its colors, shapes and looks be the author's (off). |
 | `set_style_layout` | 风格 |  |  | Changes one of the style's layout settings, and lays the screens out by it. |
 | `set_palette` | 风格 |  |  | Picks one of the editor's color schemes by key (purple, blue, green…), or "custom" for the document's own. |
@@ -274,6 +282,8 @@ npx playwright install chromium
 | `generate_svg` | 生成（需 OPENAI_API_KEY） |  |  | Draws a custom SVG and puts it on the canvas as a vector (svg) part: a new icon, a logo, an illustration, a decoration nothing in the catalog has. |
 | `generate_image` | 生成（需 OPENAI_API_KEY） |  |  | Paints a picture with the image model (about 20–40 s): with `background` and `screen`, it becomes the picture behind that whole screen (its scene, filling the screen under every p… |
 | `generate_style` | 生成（需 OPENAI_API_KEY） |  |  | Writes a custom style with the text model, from a description ("warm paper notebook: cream paper, ink-blue accents, serif headings") and/or an attached reference picture (ref1…), … |
+| `undo` | 文件模式自带 |  |  | Takes back the last change this server made to the project file (one tool call, or one apply_ops batch) and saves the file. |
+| `redo` | 文件模式自带 |  |  | Makes the last change undo took back again, and saves the file. |
 | `connection_status` | 服务器自带 | 是 |  | Where this server's calls go, whether an editor tab is paired, and the pairing code when none is. |
 
 <!-- tools:end -->
@@ -301,13 +311,15 @@ mcp/src/cli.ts          命令行：参数、stdio 或 HTTP
 mcp/src/setup.ts        按参数组合工具（注册表、有密钥时的生成工具、只读）和后端
 mcp/src/server.ts       MCP 服务器：工具、提示词、资源、订阅
 mcp/src/live.ts         实时后端：127.0.0.1 上的 WebSocket、配对、调用转发、代为作图
+mcp/src/trust.ts        记住的配对：用户配置目录里的 0600 文件、挑战的 HMAC
 mcp/src/file.ts         文件后端：DocStore、写回、冲突、确认
 mcp/src/fileStore.ts    磁盘上的项目文件和文件夹（ProjectFormat 接口接 lib/core/projectFile.ts、原子写入、改动检测）
 mcp/src/render.ts       无头截图：Playwright、提供编辑器构建、/render 页面
 mcp/src/http.ts         Streamable HTTP：令牌、Host 和 Origin 检查、每个会话一个 Server
 mcp/src/generate.ts     服务器环境里的生成配置、走代理的 fetch
 lib/mcp/protocol.ts     服务器和编辑器之间的消息
-lib/mcp/editorBridge.ts 编辑器这一端：查找、配对、在 store 上运行调用、确认、活动记录
+lib/mcp/editorBridge.ts 编辑器这一端：查找、配对、记住的客户端、在 store 上运行调用、确认、活动记录
+lib/mcp/trusted.ts      编辑器记住的客户端（IndexedDB）和核对服务器的回答
 src/editor/useMcpBridge.ts、components/McpPanel.tsx、lib/i18n/mcp.ts   编辑器里的开关、卡片和面板
 src/editor/RenderPage.tsx、src/editor/screenShot.tsx   截图：/render 页面和编辑器共用的离屏绘制
 ```

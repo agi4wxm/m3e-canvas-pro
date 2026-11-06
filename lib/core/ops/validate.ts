@@ -11,6 +11,7 @@ import { styleOwnsProp } from "../../styleRules";
 import { isStrict } from "../../styles";
 import { actionSlotsOf, BACK_TARGET, COLOR_TOKENS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
 import { OpError } from "../op";
+import { docIconId, docIconName, isDocIconName } from "../../docIcons";
 import type { CoreState } from "../state";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -21,7 +22,7 @@ export function propKindText(d: PropDef): string {
     case "text":
       return "text";
     case "icon":
-      return 'a Material Symbols icon name ("" for none)';
+      return 'a Material Symbols icon name, or svg:<id> for one of the document\'s own icons ("" for none)';
     case "enum":
       return `one of ${d.options.map((o) => JSON.stringify(choiceValueOf(o))).join(", ")}`;
     case "bool":
@@ -43,7 +44,7 @@ export function propValueError(d: PropDef, v: unknown): string | null {
     case "text":
       return typeof v === "string" ? null : "should be text";
     case "icon":
-      return typeof v === "string" && /^[a-z0-9_]*$/.test(v) ? null : "should be a Material Symbols icon name in snake_case";
+      return typeof v === "string" && (/^[a-z0-9_]*$/.test(v) || isDocIconName(v)) ? null : "should be a Material Symbols icon name in snake_case, or svg:<id>";
     case "enum":
       return typeof v === "string" && d.options.some((o) => choiceValueOf(o) === v) ? null : `should be ${propKindText(d)}`;
     case "bool":
@@ -79,6 +80,10 @@ export function checkProps(def: PartDef, props: Record<string, unknown>, s: Core
     if (!d) throw new OpError("invalid_value", `${def.slug} has no prop "${key}". Its props are: ${def.props.map((x) => x.key).join(", ")}.`, key);
     const e = propValueError(d, v);
     if (e) throw new OpError("invalid_value", `${def.slug}.${key} ${e}; it takes ${propKindText(d)}.`, key);
+    if (d.kind === "icon" && isDocIconName(v) && !s.doc.icons?.[docIconId(v)]) {
+      const own = Object.keys(s.doc.icons ?? {}).map(docIconName);
+      throw new OpError("invalid_value", `The document has no icon ${v}. ${own.length ? `Its own icons are: ${own.join(", ")}.` : "It has none of its own yet:"} set_icon (or generate_svg with icon) adds one.`, key);
+    }
     if (isStrict(s.doc.theme) && styleOwnsProp(def.slug, key)) throw new OpError("refused", `The document is held to its style, which decides ${def.slug}.${key}.`, key);
   }
 }

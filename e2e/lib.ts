@@ -39,6 +39,7 @@ export type Page = {
   locator(s: string): Locator;
   screenshot(o: { path: string; fullPage?: boolean }): Promise<unknown>;
   on(event: "pageerror", f: (e: Error) => void): void;
+  on(event: "request", f: (r: Request) => void): void;
   /** answers the page's requests to a URL instead of the network: what a model provider says, in tests */
   route(url: string | RegExp, handler: (route: Route, request: Request) => void | Promise<void>): Promise<void>;
   context(): Context;

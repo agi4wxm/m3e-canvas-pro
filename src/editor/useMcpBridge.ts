@@ -15,7 +15,7 @@ const KEY = "m3e:mcp";
 /** a screenshot waiting for the export layer */
 export type ShotJob = { frame: Frame; crop?: Crop; scale: number; resolve: (png: string) => void; reject: (e: unknown) => void };
 
-const OFF: BridgeView = { on: false, conns: [], log: [], asks: [] };
+const OFF: BridgeView = { on: false, conns: [], log: [], asks: [], remembered: [] };
 const nothing = () => () => {};
 
 const readOn = () => {
@@ -69,7 +69,7 @@ export function useMcpBridge({ store, enabled }: { store: DocStore; enabled: boo
       return;
     }
     let gone = false;
-    void import("@/lib/mcp/editorBridge").then(({ EditorBridge }) => {
+    void Promise.all([import("@/lib/mcp/editorBridge"), import("@/lib/mcp/trusted")]).then(([{ EditorBridge }, { browserTrusted }]) => {
       if (gone) return;
       if (!made.current) {
         const renderer: Renderer = {
@@ -82,7 +82,8 @@ export function useMcpBridge({ store, enabled }: { store: DocStore; enabled: boo
               setShot((cur) => cur ?? queue.current.shift() ?? null);
             }),
         };
-        made.current = new EditorBridge({ store, WebSocket: window.WebSocket, storage: tabStorage(), renderer, settle: () => settled(store) });
+        /* clients the author told it to remember are kept in IndexedDB, across reloads and server restarts */
+        made.current = new EditorBridge({ store, WebSocket: window.WebSocket, storage: tabStorage(), renderer, settle: () => settled(store), trusted: browserTrusted() });
         setBridge(made.current);
       }
       made.current.start();

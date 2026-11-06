@@ -3,15 +3,18 @@
  * only when the author approves; calls change the tab's store, each one undo step; read-only access takes the writing
  * tools away; a destructive call nobody confirms is refused; a generative call draws on the server's side. */
 
+import { readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { DocStore, guessMeasurer, ops, savedDoc, stateOf } from "../../lib/core";
 import { setGlobalLang } from "../../lib/i18n";
 import { scriptedAdapter } from "../../lib/llm/testkit";
 import { EditorBridge, type BridgeView } from "../../lib/mcp/editorBridge";
+import { memoryTrusted, type TrustedStore } from "../../lib/mcp/trusted";
 import type { AiSettings } from "../../lib/ai";
 import { ToolListChangedNotificationSchema } from "@modelcontextprotocol/sdk/types.js";
-import { connect, errorOf, textOf } from "./testkit";
+import { connect, errorOf, scratchDir, textOf } from "./testkit";
 import type { LiveBackend } from "./live";
 
 beforeAll(() => setGlobalLang("en"));
@@ -59,18 +62,18 @@ afterEach(async () => {
   cleanup = [];
 });
 
-async function server(o: Parameters<typeof connect>[0] = {}) {
-  const s = await connect({ live: true, port: 0, ports: 1, pairWaitMs: 200, ...o });
+async function server(o: Parameters<typeof connect>[0] = {}, clientName?: string) {
+  const s = await connect({ live: true, port: 0, ports: 1, pairWaitMs: 200, ...o }, undefined, clientName);
   cleanup.push(s.close);
   const live = s.backend as LiveBackend;
   return { ...s, live, port: live.port! };
 }
 
-function tab(port: number, o: { store?: DocStore; storage?: Map<string, string>; origin?: string; sent?: string[] } = {}) {
+function tab(port: number, o: { store?: DocStore; storage?: Map<string, string>; origin?: string; sent?: string[]; trusted?: TrustedStore } = {}) {
   const store = o.store ?? editorStore();
   const kept = o.storage ?? new Map<string, string>();
   const storage = { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => void kept.set(k, v), removeItem: (k: string) => void kept.delete(k) };
-  const bridge = new EditorBridge({ store, WebSocket: tabSocket(o.origin, o.sent) as never, ports: [port], storage, retryMs: 100 });
+  const bridge = new EditorBridge({ store, WebSocket: tabSocket(o.origin, o.sent) as never, ports: [port], storage, retryMs: 100, ...(o.trusted ? { trusted: o.trusted } : {}) });
   const views: BridgeView[] = [];
   bridge.subscribe(() => views.push(bridge.view()));
   bridge.start();
@@ -242,5 +245,129 @@ describe("the live bridge", () => {
     expect(adapter.requests).toHaveLength(1);
     expect(sent.some((m) => m.includes('"t":"draw"'))).toBe(true);
     expect(sent.join("\n")).not.toContain("server-secret-key");
+  });
+});
+
+describe("a client the author told the editor to remember", () => {
+  /** pairs a tab with a server, remembering the client when asked; the tab's store of remembered clients */
+  async function pairOnce(trustDir: string, trusted: TrustedStore, remember: boolean, clientName?: string) {
+    const s = await server({ trustDir }, clientName);
+    const t = tab(s.port, { trusted });
+    await until(() => t.view().asks.some((a) => a.kind === "pair"));
+    expect(t.view().asks[0]).toMatchObject({ kind: "pair", canRemember: true });
+    t.bridge.approve(s.port, "edit", remember);
+    await until(() => t.view().conns[0]?.phase === "paired");
+    return { s, t };
+  }
+
+  it("is approved without asking by the next server of that client, which proves it holds the secret", async () => {
+    const dir = scratchDir();
+    const trusted = memoryTrusted();
+    const first = await pairOnce(dir, trusted, true);
+    await until(() => trusted.all.length === 1);
+    expect(trusted.all[0]).toMatchObject({ client: { name: "test-client" }, access: "edit" });
+    expect(first.t.view().conns[0].remembered).toBe(true);
+    await until(() => first.t.view().remembered.length === 1);
+    expect(JSON.stringify(first.t.view())).not.toContain(trusted.all[0].secret);
+    /* the server's side: a file only the user may read, with the client, origin and access */
+    const file = join(dir, "trusted-editors.json");
+    if (process.platform !== "win32") expect(statSync(file).mode & 0o777).toBe(0o600);
+    expect(JSON.parse(readFileSync(file, "utf8")).editors[0]).toMatchObject({ id: trusted.all[0].id, client: "test-client", origin: EDITOR, access: "edit" });
+    first.t.bridge.stop();
+    await first.s.close();
+
+    /* the client starts a new server: new code, new port, nothing asked */
+    const sent: string[] = [];
+    const s2 = await server({ trustDir: dir });
+    const t2 = tab(s2.port, { trusted, sent });
+    await until(() => t2.view().conns[0]?.phase === "paired");
+    expect(t2.view().asks).toEqual([]);
+    expect(t2.view().conns[0]).toMatchObject({ remembered: true, access: "edit" });
+    expect(sent.some((m) => m.includes('"t":"prove"'))).toBe(true);
+    /* the secret was not sent again */
+    expect(sent.join("\n")).not.toContain(trusted.all[0].secret);
+    expect((await s2.call("list_screens")).isError).toBeFalsy();
+  });
+
+  it("is not remembered unless the author asks, and a server for another client asks again", async () => {
+    const dir = scratchDir();
+    const trusted = memoryTrusted();
+    const once = await pairOnce(dir, trusted, false);
+    expect(trusted.all).toEqual([]);
+    once.t.bridge.stop();
+    await once.s.close();
+    const s2 = await server({ trustDir: dir });
+    const t2 = tab(s2.port, { trusted });
+    await until(() => t2.view().asks.some((a) => a.kind === "pair"));
+
+    /* remembered for one client: another client's server proves nothing and is asked about */
+    const dir2 = scratchDir();
+    const kept = memoryTrusted();
+    const a = await pairOnce(dir2, kept, true, "claude-ai");
+    await until(() => kept.all.length === 1);
+    a.t.bridge.stop();
+    await a.s.close();
+    const other = await server({ trustDir: dir2 }, "codex-mcp-client");
+    const t3 = tab(other.port, { trusted: kept });
+    await until(() => t3.view().asks.some((x) => x.kind === "pair"));
+    expect(t3.view().conns[0].phase).toBe("pairing");
+  });
+
+  it("asks again when the server cannot prove the secret", async () => {
+    const dir = scratchDir();
+    const trusted = memoryTrusted();
+    const once = await pairOnce(dir, trusted, true);
+    await until(() => trusted.all.length === 1);
+    once.t.bridge.stop();
+    await once.s.close();
+    /* the server's file holds another secret for that id (a copy that is not the tab's) */
+    const file = join(dir, "trusted-editors.json");
+    const f = JSON.parse(readFileSync(file, "utf8"));
+    f.editors[0].secret = "ab".repeat(32);
+    (await import("node:fs")).writeFileSync(file, JSON.stringify(f));
+    const s2 = await server({ trustDir: dir });
+    const sent: string[] = [];
+    const t2 = tab(s2.port, { trusted, sent });
+    /* challenged, answered wrong, and asked at once rather than after the wait for a proof */
+    await until(() => t2.view().asks.some((a) => a.kind === "pair"), 1500);
+    expect(sent.some((m) => m.includes('"t":"prove"'))).toBe(true);
+    expect(t2.view().conns[0].phase).toBe("pairing");
+  });
+
+  it("is forgotten from the panel: the tab and the server both let it go, and the next server asks", async () => {
+    const dir = scratchDir();
+    const trusted = memoryTrusted();
+    const once = await pairOnce(dir, trusted, true);
+    await until(() => trusted.all.length === 1);
+    const id = trusted.all[0].id;
+    await once.t.bridge.forget(id);
+    expect(trusted.all).toEqual([]);
+    expect(once.t.view().remembered).toEqual([]);
+    const file = join(dir, "trusted-editors.json");
+    await until(() => JSON.parse(readFileSync(file, "utf8")).editors.length === 0);
+    once.t.bridge.stop();
+    await once.s.close();
+    const s2 = await server({ trustDir: dir });
+    const t2 = tab(s2.port, { trusted });
+    await until(() => t2.view().asks.some((a) => a.kind === "pair"));
+  });
+
+  it("forgotten while no server listens, tells the next one to forget its side", async () => {
+    const dir = scratchDir();
+    const trusted = memoryTrusted();
+    const once = await pairOnce(dir, trusted, true);
+    await until(() => trusted.all.length === 1);
+    once.t.bridge.stop();
+    await once.s.close();
+    const off = new EditorBridge({ store: editorStore(), WebSocket: tabSocket() as never, ports: [], trusted });
+    await off.forget(trusted.all[0].id);
+    expect(trusted.all[0].forgotten).toBe(true);
+    const file = join(dir, "trusted-editors.json");
+    expect(JSON.parse(readFileSync(file, "utf8")).editors).toHaveLength(1);
+    const s2 = await server({ trustDir: dir });
+    const t2 = tab(s2.port, { trusted });
+    await until(() => t2.view().asks.some((a) => a.kind === "pair"));
+    await until(() => JSON.parse(readFileSync(file, "utf8")).editors.length === 0);
+    expect(trusted.all).toEqual([]);
   });
 });

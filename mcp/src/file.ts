@@ -75,6 +75,8 @@ export class FileBackend implements Backend {
     else {
       const doc = await this.file.read();
       if (doc) this.store.load(doc, true);
+      /* the states the session could go back to are not the file's any more: undo starts again from here */
+      this.store.clearHistory();
       this.changes.emit("document");
       return doc ? `${this.o.path} changed on disk and was read again; ids and positions read before may be stale.` : `${this.o.path} was removed from disk; the document stays as it was and the next change writes it anew.`;
     }
@@ -106,13 +108,43 @@ export class FileBackend implements Backend {
         await this.file.write(savedDoc(this.store.get()));
         this.writes++;
       } catch (e) {
-        /* nothing that did not reach the file may stay: the change is taken back */
-        this.store.undo("mcp");
+        /* nothing that did not reach the file may stay: the change is taken back, and not left to be redone */
+        this.store.undo("mcp", { forget: true });
         if (e instanceof FileConflict) return failure("refused", `Not saved: ${e.message} Nothing was written.`, "Call again: the file is read again first. Then redo the change on the document as it is now.");
         return failure("failed", `Not saved: ${e instanceof Error ? e.message : String(e)}`);
       }
       this.changes.emit("document");
       return notice ? { ...outcome, notice } : outcome;
+    });
+  }
+
+  /** Takes back the last change this server made to the file, or makes the last one taken back again, and writes the
+   *  file. The history is this server's session: it starts when the file is opened, and again whenever another
+   *  program changed the file. */
+  history(action: "undo" | "redo"): Promise<CallOutcome> {
+    return this.queue(async () => {
+      let notice: string | null;
+      try {
+        notice = await this.refresh();
+      } catch (e) {
+        return failure("failed", `${this.o.path} cannot be read: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      if (this.o.readOnly) return failure("refused", "This session is read-only.", "Read and screenshot only.");
+      if (notice) return { ...failure("refused", `Not done: ${notice} What this server changed before is no longer its to ${action}.`, "Read the outline again, then make the change you want with the tools."), notice };
+      const label = action === "undo" ? this.store.undo("mcp") : this.store.redo("mcp");
+      if (label === null) return { ok: true, result: { nothing_to_do: action === "undo" ? "There is nothing of this session's to undo." : "There is nothing undone to redo." } };
+      try {
+        await this.file.write(savedDoc(this.store.get()));
+        this.writes++;
+      } catch (e) {
+        /* the file keeps what it had, and so does the session */
+        if (action === "undo") this.store.redo("mcp");
+        else this.store.undo("mcp");
+        if (e instanceof FileConflict) return failure("refused", `Not saved: ${e.message} Nothing was written.`, "Read the outline again: the file is read again first.");
+        return failure("failed", `Not saved: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      this.changes.emit("document");
+      return { ok: true, result: { [action === "undo" ? "undone" : "redone"]: label, canUndo: this.store.canUndo(), canRedo: this.store.canRedo() } };
     });
   }
 

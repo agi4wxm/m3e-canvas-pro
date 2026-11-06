@@ -34,8 +34,10 @@ const loadEditor = () =>
       .catch(() => {}),
   ]).then(([editor]) => editor))
 /* the editor chunk starts downloading as soon as this module runs, alongside
-   the document, instead of waiting for the first client render */
-if (typeof window !== "undefined") void loadEditor()
+   the document, instead of waiting for the first client render; only on the
+   editor's own page: this module is part of every route's start, and the
+   gallery and the render page (MCP screenshots) need none of the editor */
+if (typeof window !== "undefined" && onEditorPage()) void loadEditor()
 
 /** how long the boot screen waits at most for the parts on the canvas to be drawn */
 const PARTS_WAIT_MS = 4000

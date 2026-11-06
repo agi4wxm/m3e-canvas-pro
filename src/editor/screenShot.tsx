@@ -1,15 +1,18 @@
 /* A screen, or one part of it, as a PNG: drawn offscreen at 1:1 with plain parts (`renderExport`, the layer the
- * editor's "export image" draws), then turned into pixels with html-to-image. The in-app agent (useScreenshots.ts)
- * and the live MCP bridge take their screenshots this way inside the editor, and the render page the MCP server loads
- * in headless Chromium does the same, so a picture looks the same whoever took it. */
+ * editor's "export image" draws), then turned into pixels with html-to-image, with the web fonts its words use
+ * embedded (shotFonts.ts: only those faces, a second or so). The in-app agent (useScreenshots.ts) and the live MCP
+ * bridge take their screenshots this way inside the editor, and the render page the MCP server loads in headless
+ * Chromium does the same, so a picture looks the same whoever took it, and its words as they are on the canvas. */
 
 import { toCanvas } from "html-to-image";
 import { describeNode } from "@/lib/core";
 import type { Lang } from "@/lib/i18n";
+import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
 import { fontFamilyOf, frameLengthOf, frameSizeOf, type Doc, type Frame, type Palette, type Theme } from "@/lib/tokens";
 import { loadModules, modulesSettled } from "@/parts/components";
 import { modulesOfDoc } from "@/parts/prefetch";
 import { renderExport } from "./render";
+import { shotFontCss } from "./shotFonts";
 
 export type Crop = { x: number; y: number; w: number; h: number };
 
@@ -43,6 +46,14 @@ export const nextFrame = () =>
   });
 const frameDone = nextFrame;
 
+/** Waits for the faces a theme sets its words in, in a language, to be fetched (at most `ms`): what a page that
+ *  draws a document without the editor around it (the render page) asks for before it measures or draws. */
+export function themeFacesLoaded(theme: Pick<Theme, "font" | "displayFont">, lang: Lang, ms = 6000): Promise<void> {
+  const loads: ((done: () => void) => void)[] = [(done) => ensureLangFontLoaded(lang, done), (done) => ensureFontLoaded(theme.font, done, lang)];
+  if (theme.displayFont) loads.push((done) => ensureFontLoaded(theme.displayFont!, done, lang));
+  return Promise.race([Promise.all(loads.map((load) => new Promise<void>((resolve) => load(resolve)))).then(() => {}), new Promise<void>((resolve) => setTimeout(resolve, ms))]);
+}
+
 /** Waits for a layer to be drawn whole: the drawing code of the parts it holds, two frames, the faces. */
 export async function layerDrawn(doc: Doc) {
   await loadModules(modulesOfDoc(doc)).catch(() => {});
@@ -61,9 +72,8 @@ export async function capture(layer: HTMLElement, frame: Frame, scale = 1, crop?
   const el = layer.querySelector<HTMLElement>(`[data-export="${CSS.escape(frame.id)}"]`) ?? layer;
   const w = frameSizeOf(frame).w;
   const h = maxH ? Math.min(frameLengthOf(frame), maxH) : frameLengthOf(frame);
-  /* the web fonts are not embedded (as in the agent's screenshots, useScreenshots.ts): fetching a face in many files
-     takes seconds a picture, and a model reads the layout, which the fallback faces keep */
-  const canvas = await toCanvas(el, { pixelRatio: scale, width: w, height: h, skipFonts: true });
+  /* the faces its words use, and only those: without them the words fall back to a wider face and get cut short */
+  const canvas = await toCanvas(el, { pixelRatio: scale, width: w, height: h, fontEmbedCSS: await shotFontCss(el) });
   const encode = (c: HTMLCanvasElement) => {
     const png = c.toDataURL("image/png");
     return jpegOver && png.length > jpegOver ? c.toDataURL("image/jpeg", 0.9) : png;

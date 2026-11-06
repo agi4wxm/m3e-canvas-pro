@@ -9,6 +9,7 @@ import { conformDoc, conformGroups } from "../styleRules";
 import { cleanStyles, withDocStyles } from "../styles";
 import { DEFAULT_THEME, normalizeTheme, PHONE_W, type Collection, type ComponentDef, type Doc, type DocVar, type Frame, type FrameMode, type Group, type Palette, type Theme } from "../tokens";
 import { translateDefaultFrameName, type Lang } from "../i18n";
+import { cleanDocIcons } from "../docIcons";
 import { translateComponentProps } from "../../parts/registry";
 
 export type Widths = Record<string, number>;
@@ -58,6 +59,7 @@ export const emptySession = (): Session => ({ selection: [], frameId: null, widt
 
 /** the state of a document with nothing selected and nothing measured */
 export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, session: Partial<Session> = {}): CoreState {
+  const icons = cleanDocIcons(doc.icons);
   return {
     doc: {
       groups: doc.groups,
@@ -74,6 +76,7 @@ export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, sess
       ...(doc.vars ? { vars: doc.vars } : {}),
       ...(doc.components ? { components: doc.components } : {}),
       ...(doc.collections ? { collections: doc.collections } : {}),
+      ...(icons ? { icons } : {}),
     },
     editing: null,
     session: { ...emptySession(), ...session },
@@ -102,6 +105,7 @@ export function savedDoc(s: CoreState): Doc {
     components: defs?.length ? defs : undefined,
     collections: doc.collections?.length ? doc.collections : undefined,
     styles: doc.styles?.length ? doc.styles : undefined,
+    icons: doc.icons && Object.keys(doc.icons).length ? doc.icons : undefined,
   };
 }
 
@@ -176,6 +180,8 @@ function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<strin
   else if (reset) set("promptOptions", undefined);
   if (Array.isArray(doc.vars)) set("vars", doc.vars);
   else if (reset) set("vars", undefined);
+  /* whatever brought them, the document's icons come in as drawings the vector atom would keep */
+  if (doc.icons !== undefined || reset) set("icons", cleanDocIcons(doc.icons));
   return out;
 }
 

@@ -5,12 +5,16 @@
  *
  * Writes are atomic (a temporary file beside it, renamed over it), and a file that changed on disk since it was last
  * read or written is never overwritten: the caller is told, and reads it again. The format writes the same document as
- * the same bytes, so comparing what is on disk with what was last read or written is exact. */
+ * the same bytes, so comparing what is on disk with what was last read or written is exact.
+ *
+ * In a folder, a picture the saved document no longer refers to is taken away from m3e-assets/ after each write, but
+ * only one this server wrote itself, or one whose name is the hash of what it holds (as the format names them): a file
+ * someone put there by hand is never touched, and one another program wrote a moment ago is left for its own save. */
 
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
+import { mkdir, open, readdir, readFile, rename, stat, unlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { FOLDER_ASSET_DIR, FOLDER_MAIN_FILE, fileRefsIn, isAssetPath, readProjectText, serializeProject, type ProjectAssetFile } from "../../lib/core/projectFile";
+import { bytesToBase64, digest, FOLDER_ASSET_DIR, FOLDER_MAIN_FILE, fileRefsIn, isAssetPath, readProjectText, serializeProject, type ProjectAssetFile } from "../../lib/core/projectFile";
 import type { Doc } from "../../lib/tokens";
 
 /** what a project file's bytes hold */
@@ -45,6 +49,11 @@ const exists = (p: string) => stat(p).then(
 /** the file changed on disk since it was last read or written */
 export class FileConflict extends Error {}
 
+/** a picture's file name as the format gives it: its hash and an extension */
+const HASH_NAME = /^([a-z0-9]+)\.(?:png|jpg|webp|gif|avif|svg)$/;
+/** a picture another program wrote this recently may belong to a save of its own still under way */
+export const ASSET_GRACE_MS = 60_000;
+
 /** writes bytes all at once: beside the target first, then over it */
 async function atomicWrite(path: string, data: string | Uint8Array) {
   const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
@@ -65,6 +74,8 @@ async function atomicWrite(path: string, data: string | Uint8Array) {
 
 export class ProjectFileStore {
   private seen: Seen | null = null;
+  /** the pictures this server wrote into m3e-assets/, by file name */
+  private readonly wrote = new Set<string>();
   /** the project file itself (in a folder, its m3e-project.json) and how pictures are kept */
   private main: string;
   layout: "file" | "folder";
@@ -132,9 +143,44 @@ export class ProjectFileStore {
     const dir = dirname(this.main);
     if (this.layout === "folder") await mkdir(dir, { recursive: true });
     if (files.length) await mkdir(join(dir, FOLDER_ASSET_DIR), { recursive: true });
-    for (const f of files) if (!(await exists(join(dir, f.path)))) await atomicWrite(join(dir, f.path), f.bytes);
+    for (const f of files) {
+      if (await exists(join(dir, f.path))) continue;
+      await atomicWrite(join(dir, f.path), f.bytes);
+      this.wrote.add(f.path.slice(FOLDER_ASSET_DIR.length + 1));
+    }
     await atomicWrite(this.main, text);
     const st = await stat(this.main);
     this.seen = { hash: hashOf(text), mtimeMs: st.mtimeMs, size: st.size };
+    if (this.layout === "folder") await this.prune(new Set(files.map((f) => f.path.slice(FOLDER_ASSET_DIR.length + 1)))).catch(() => []);
+  }
+
+  /** Takes away the pictures of m3e-assets/ the document no longer refers to: those this server wrote, and those
+   *  whose name is the hash of what they hold, unless another program wrote them a moment ago. What went, by name. */
+  async prune(wanted: ReadonlySet<string>, now = Date.now()): Promise<string[]> {
+    const assets = join(dirname(this.main), FOLDER_ASSET_DIR);
+    let names: string[];
+    try {
+      names = (await readdir(assets, { withFileTypes: true })).filter((e) => e.isFile()).map((e) => e.name);
+    } catch {
+      return [];
+    }
+    const gone: string[] = [];
+    for (const name of names) {
+      const m = HASH_NAME.exec(name);
+      if (!m || wanted.has(name)) continue;
+      const path = join(assets, name);
+      if (!this.wrote.has(name)) {
+        const st = await stat(path).catch(() => null);
+        if (!st || now - st.mtimeMs < ASSET_GRACE_MS) continue;
+        /* named like one of the format's, but holding something else: someone's own file */
+        if (digest(bytesToBase64(new Uint8Array(await readFile(path)))) !== m[1]) continue;
+      }
+      await unlink(path).then(
+        () => gone.push(name),
+        () => {},
+      );
+      this.wrote.delete(name);
+    }
+    return gone;
   }
 }
