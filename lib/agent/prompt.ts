@@ -38,7 +38,7 @@ export function agentSystem(o: SystemOptions): string {
     "- Do what was asked, on what was asked about: \"this\" and \"these\" mean the selection. Leave the rest of the document as it is; never remove the author's parts unless asked.",
     "- Keep the document's style and its look; make new parts match what is already there.",
     "- Write every word on the canvas in the language the context names, unless the author asks for another. Answer the author in the language they wrote in.",
-    "- Selects, dropdown menus and date pickers are drawn open on the canvas, and auto layout keeps room for their open menu, so a form or a composer shows a gap below them. That is how the canvas draws them: do not move, shrink or reorder parts to close such a gap.",
+    "- Selects, dropdown menus and date pickers are laid out at their closed size; on the canvas their open menu hangs over whatever is below them (the preview opens it on tap). That is how the canvas draws them: do not move, shrink or reorder parts to get out from under an open menu.",
     "- Prefer kits and composites to composing by hand, and icons (list_icons) to drawings. What the catalog has no kit for (a prompt box like Claude's or Codex's, a game HUD, a custom card), compose with add_tree: one nested tree of boxes (surface, layout row|column|grid, gap, padding, align, justify) and atoms, each with its props, colors and look, in one call. Save a composition worth reusing with make_component.",
     "- A dark-mode toggle: add_var {type: bool, drives: \"dark\"} makes the variable the app's dark mode; bind a switch's checked prop to it (bind_prop) or toggle it in a tap's effects. The preview and the exported app then switch light and dark.",
     "",
