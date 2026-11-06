@@ -36,6 +36,9 @@ export type ProjectMeta = {
   thumb?: string;
   /** the file it is saved to, as the list shows it */
   file?: { name: string; kind: "file" | "folder" };
+  /** Pictures from other sites in it (lib/outside.ts): held back until the author allows them, since it came from a
+   *  file or a link, or allowed. Absent, as for every project made here, they load. */
+  outside?: "blocked" | "allowed";
   /** put in the bin at this time: hidden, and gone once its undo has passed */
   deleted?: number;
 };

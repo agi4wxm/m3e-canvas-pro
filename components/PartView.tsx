@@ -14,6 +14,8 @@ import { renderNode } from "@/parts/render";
 import { holdModules, loadModules, modulesIn, modulesOf, subscribeModules } from "@/parts/components";
 import { REMEASURE } from "@/parts/contained";
 import type { PNode } from "@/parts/node";
+import { withoutOutside } from "@/lib/outside";
+import { outsideBlocked, subscribeOutside } from "@/lib/outsidePolicy";
 
 const NOTHING: PNode = { type: "span" };
 const NONE: readonly string[] = [];
@@ -115,7 +117,10 @@ function PartViewBody({ item: own, live = false, screen, held = false }: PartVie
   const def = partBySlug(item.component);
   /* a prop left at its default shows the default of the editor's language */
   const lang = useLang();
-  const tree = useMemo(() => (def ? viewOf(def, item.props, appearanceOf(item), screen, live && !held, item.id) : null), [def, item.props, item.fill, item.textColor, item.corners, item.look, item.id, screen?.w, screen?.h, live, held, lang]);
+  /* a project from elsewhere fetches nothing from other sites until the author allows it (lib/outside.ts) */
+  const blocked = useSyncExternalStore(subscribeOutside, outsideBlocked, outsideBlocked);
+  const props = useMemo(() => (blocked && def ? withoutOutside(def, item.props) : item.props), [blocked, def, item.props]);
+  const tree = useMemo(() => (def ? viewOf(def, props, appearanceOf(item), screen, live && !held, item.id) : null), [def, props, item.fill, item.textColor, item.corners, item.look, item.id, screen?.w, screen?.h, live, held, lang]);
   /* the icon component is memoized: icons that arrive after the first draw show only in a fresh tree */
   const icons = useIcons(tree ?? NOTHING);
   /* the components it is drawn with are fetched the first time a part needs them */

@@ -91,13 +91,21 @@ const mix = (a: string, b: string, t: number) => {
   return `#${[1, 3, 5].map((i) => Math.round(c(a, i) * (1 - t) + c(b, i) * t).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
 };
 
+/** `key`, or the first `key-2`, `key-3`… none of `taken` has */
+export function freeKey(key: string, taken: readonly string[]): string {
+  if (!taken.includes(key)) return key;
+  let n = 2;
+  while (taken.includes(`${key}-${n}`)) n++;
+  return `${key}-${n}`;
+}
+
 type Args = { description?: string; reference?: string; name?: string; extends?: string; refine?: string; feedback?: string; wear?: boolean };
 
 export const generateStyle = tool<Args>({
   name: "generate_style",
   group: "generate",
   description:
-    'Writes a custom style with the text model, from a description and/or an attached reference picture (ref1…), validated (colors, contrast, catalog recipes, safe CSS), added to the document and worn unless wear is false. Describe the material and its details, not only colors ("warm paper notebook: cream paper with faint blue ruled lines and a red margin line, ink-blue accents, cards with a soft deckled shadow, serif headings"): the style then draws textures, strokes and shadows. To change it after looking at a screen in it, call again with refine (its key) and feedback. About 20–60 s.',
+    'Writes a custom style with the text model, from a description and/or an attached reference picture (ref1…), validated (colors, contrast, catalog recipes, safe CSS), added to the document and worn unless wear is false. Describe the material and its details, not only colors ("warm paper notebook: cream paper with faint blue ruled lines and a red margin line, ink-blue accents, cards with a soft deckled shadow, serif headings"): the style then draws textures, strokes and shadows. A new style never replaces one the document has (it gets a key of its own); to change one after looking at a screen in it, call again with refine (its key) and feedback. About 20–60 s.',
   input: {
     type: "object",
     properties: {
@@ -165,7 +173,10 @@ export const generateStyle = tool<Args>({
     if (!made) throw new ToolFailure("invalid_value", `The model's answer is not a style: ${problemLines(problems).join("; ")}`, "Try again with a clearer description.");
     const repaired = repairContrast(made);
     const prev: CoreState = env.store.get();
-    const out = env.store.run(ops.addCustomStyle, { style: repaired.style as unknown as Record<string, unknown>, wear: a.wear ?? true }, { origin: env.origin, ...(env.history ? { history: env.history } : {}) });
+    /* a new style never writes over one of the document's under the key the model happened to pick: only `refine`
+       replaces a style, and a client is asked before that (lib/tools/removals.ts) */
+    const style = was ? repaired.style : { ...repaired.style, key: freeKey(repaired.style.key, prev.doc.styles?.map((x) => x.key) ?? []) };
+    const out = env.store.run(ops.addCustomStyle, { style: style as unknown as Record<string, unknown>, wear: a.wear ?? true }, { origin: env.origin, ...(env.history ? { history: env.history } : {}) });
     afterWrite(env, prev);
     return { result: { key: out.key, name: made.name.en, worn: out.worn, ...(out.problems.length ? { problems: out.problems } : {}), ...(repaired.changed.length ? { repaired: repaired.changed } : {}), ms: Date.now() - t0 } };
   },

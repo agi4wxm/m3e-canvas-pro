@@ -32,7 +32,7 @@ import {
 } from "../../tokens";
 import { t } from "../../i18n";
 import { op, OpError, S } from "../op";
-import { withFrames, withGroups, withSession, type CoreState } from "../state";
+import { MAX_SCREEN, withFrames, withGroups, withSession, type CoreState } from "../state";
 import { frameById, freshId } from "./common";
 import { pictureError } from "../images";
 
@@ -46,7 +46,7 @@ const noDefinition = (s: CoreState) => {
 export const addScreen = op<{ id?: string; name?: string; preset?: FramePreset; w?: number; h?: number; x?: number; y?: number }, { id: string }>({
   name: "add_screen",
   summary: "Adds a blank screen to the right of the others: the document's phone unless a preset (tablet, desktop) or a size is given.",
-  args: S.obj({ id: S.str(), name: S.str(), preset: S.enum(["phone", "tablet", "desktop"]), w: S.num(undefined, { minimum: 200, maximum: 3840 }), h: S.num(undefined, { minimum: 200, maximum: 3840 }), x: S.num(), y: S.num() }),
+  args: S.obj({ id: S.str(), name: S.str(), preset: S.enum(["phone", "tablet", "desktop"]), w: S.num(undefined, { minimum: 200, maximum: MAX_SCREEN }), h: S.num(undefined, { minimum: 200, maximum: MAX_SCREEN }), x: S.num(), y: S.num() }),
   label: () => "Add screen",
   run(s, a, ctx) {
     noDefinition(s);
@@ -118,7 +118,7 @@ export const patchScreen = op<{ id: string; patch: Partial<Frame> }>({
 export const resizeScreen = op<{ id: string; w?: number; h?: number; preset?: FramePreset }>({
   name: "resize_screen",
   summary: "Changes a screen's size (w and h in dp, or a preset: phone, tablet, desktop); its parts follow and it is laid out again.",
-  args: S.obj({ id: S.str(), w: S.num(undefined, { minimum: 200, maximum: 3840 }), h: S.num(undefined, { minimum: 200, maximum: 3840 }), preset: S.enum(["phone", "tablet", "desktop"]) }, ["id"]),
+  args: S.obj({ id: S.str(), w: S.num(undefined, { minimum: 200, maximum: MAX_SCREEN }), h: S.num(undefined, { minimum: 200, maximum: MAX_SCREEN }), preset: S.enum(["phone", "tablet", "desktop"]) }, ["id"]),
   label: () => "Resize screen",
   run(s, a, ctx) {
     const current = frameById(s, a.id);

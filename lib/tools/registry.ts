@@ -68,7 +68,8 @@ export async function executeTool(store: DocStore, name: string, args: unknown, 
   const reg = o.registry ?? CORE_REGISTRY;
   const t = reg.byName(name);
   if (!t) return { ok: false, error: { code: "unknown_tool", message: `There is no tool "${name}".`, hint: `The tools are: ${reg.tools.map((x) => x.name).join(", ")}.` } };
-  const a = args ?? {};
+  const given = args ?? {};
+  const a = t.prepare && given && typeof given === "object" && !Array.isArray(given) ? t.prepare(given as Record<string, unknown>, store.get()) : given;
   const bad = schemaError(t.input, a, "args");
   if (bad) return { ok: false, error: { code: "bad_args", message: `${name}: ${bad}`, hint: HINTS.bad_args } };
   if (o.signal?.aborted) return { ok: false, error: { code: "aborted", message: "Stopped before it ran." } };

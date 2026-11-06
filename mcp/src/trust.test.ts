@@ -1,11 +1,13 @@
 /* Remembered pairings on the server's side: where the file lives on each platform, that only the user may read it, that
  * one is forgotten only by whoever holds its secret, and that one nobody used for long is let go. */
 
-import { chmodSync, readFileSync, statSync } from "node:fs";
+import { createHmac } from "node:crypto";
+import { chmodSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { createLog } from "./log";
 import { scratchDir } from "./testkit";
-import { configDir, proofOf, TRUST_MAX_IDLE_MS, TrustStore } from "./trust";
+import { configDir, editorProven, proofOf, TRUST_MAX_IDLE_MS, TrustStore } from "./trust";
 
 const SECRET = "0f".repeat(32);
 
@@ -58,5 +60,39 @@ describe("remembered pairings", () => {
     expect(proofOf(SECRET, "ab12", 47831)).toMatch(/^[0-9a-f]{64}$/);
     expect(proofOf(SECRET, "ab12", 47831)).not.toBe(proofOf(SECRET, "ab12", 47832));
     expect(proofOf(SECRET, "ab12", 47831)).not.toBe(proofOf(SECRET, "ab13", 47831));
+  });
+
+  it("checks the tab's answer to the server's own challenge", () => {
+    const challenge = "cd".repeat(16);
+    const mac = createHmac("sha256", Buffer.from(SECRET, "hex")).update(`m3e-mcp-editor:47831:${challenge}`).digest("hex");
+    expect(editorProven(SECRET, challenge, 47831, mac)).toBe(true);
+    expect(editorProven(SECRET, challenge, 47832, mac)).toBe(false);
+    expect(editorProven("aa".repeat(32), challenge, 47831, mac)).toBe(false);
+    expect(editorProven(SECRET, challenge, 47831, "nope")).toBe(false);
+    /* the server's answer is another HMAC: one cannot stand for the other */
+    expect(editorProven(SECRET, challenge, 47831, proofOf(SECRET, challenge, 47831))).toBe(false);
+  });
+});
+
+describe("the config folder and the log file", () => {
+  it.skipIf(process.platform === "win32")("close a config folder open to other users, and keep the log file private", async () => {
+    const dir = join(scratchDir(), "open");
+    mkdirSync(dir);
+    chmodSync(dir, 0o755);
+    const warned: string[] = [];
+    const store = TrustStore.at(dir, (m) => warned.push(m));
+    expect(await store.list()).toEqual([]);
+    expect(statSync(dir).mode & 0o777).toBe(0o700);
+    expect(warned.join(" ")).toMatch(/0700/);
+
+    const file = join(scratchDir(), "server.log");
+    writeFileSync(file, "");
+    chmodSync(file, 0o644);
+    createLog({ file, quiet: true }).notice("pairing code 123-456");
+    expect(statSync(file).mode & 0o777).toBe(0o600);
+    const made = join(scratchDir(), "new.log");
+    createLog({ file: made, quiet: true }).notice("hello");
+    expect(statSync(made).mode & 0o777).toBe(0o600);
+    expect(readFileSync(made, "utf8")).toContain("hello");
   });
 });

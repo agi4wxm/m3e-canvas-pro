@@ -10,6 +10,7 @@ import * as data from "./data";
 import * as tree from "./tree";
 import * as styles from "./styles";
 import * as icons from "./icons";
+import { editComponentOp } from "./definition";
 
 export { document, screens, nodes, layout, components, data, tree, styles, icons };
 export * from "./document";
@@ -21,6 +22,7 @@ export * from "./data";
 export * from "./tree";
 export * from "./styles";
 export * from "./icons";
+export { DEFINITION_OPS, definitionOpened } from "./definition";
 export { OpError } from "../op";
 
 /** What a model or an MCP client may call, by name. The editor's own gestures (a drop, a paste, a drag of a layer)
@@ -98,6 +100,8 @@ export const OPS: Op<never, unknown>[] = [
   components.removeComponentProp,
   components.setInstanceProps,
   components.resetOverrides,
+  /* runs the operations on parts inside a definition: it finds them by name when it runs, so it can be in this list */
+  editComponentOp((name) => opByName(name)),
   data.addCollection,
   data.updateCollection,
   data.removeCollection,

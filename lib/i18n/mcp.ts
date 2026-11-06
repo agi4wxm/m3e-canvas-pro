@@ -14,6 +14,8 @@ type Words = {
   lookingHint: string;
   pairTitle: string;
   pairBody: string;
+  codeLabel: string;
+  codeWrong: string;
   pairReadOnlyOffered: string;
   allowEdit: string;
   allowRead: string;
@@ -25,6 +27,7 @@ type Words = {
   refusedProtocol: string;
   refusedDenied: string;
   refusedDisconnected: string;
+  refusedLocked: string;
   canEdit: string;
   readOnly: string;
   drawing: string;
@@ -54,13 +57,15 @@ export const MCP_TEXT: Record<Lang, Words> = {
   en: {
     title: "MCP",
     connect: "Connect to MCP",
-    intro: "Let Claude Desktop, Codex and other MCP clients work on this canvas. Add the m3e-canvas-mcp server to your client, then turn this on and approve the pairing code.",
+    intro: "Let Claude Desktop, Codex and other MCP clients work on this canvas. Add the m3e-canvas-mcp server to your client, then turn this on and type the pairing code your client gives you.",
     howToStart: "The server's command",
     docs: "Setup and security: docs/MCP.md",
     looking: "Looking for an MCP server on this computer…",
     lookingHint: "Start m3e-canvas-mcp from your MCP client (or run it in a terminal). It is found by itself.",
     pairTitle: "{client} wants to work on this canvas",
-    pairBody: "Approve only if this code is the one the MCP server shows (in its log, or ask the AI to call connection_status).",
+    pairBody: "Type the pairing code {client} gives you: ask the AI in it for the code (it calls connection_status), or read it in the server's log. The editor never shows it, so a page that is not yours cannot pair.",
+    codeLabel: "Pairing code",
+    codeWrong: "That is not the server's code. {n} tries left.",
     pairReadOnlyOffered: "The server was started read-only.",
     allowEdit: "Allow editing",
     allowRead: "Read only",
@@ -72,6 +77,7 @@ export const MCP_TEXT: Record<Lang, Words> = {
     refusedProtocol: "This server is another version: update m3e-canvas-mcp or the editor.",
     refusedDenied: "Denied",
     refusedDisconnected: "Disconnected",
+    refusedLocked: "Too many wrong codes: restart the MCP server to pair",
     canEdit: "Can edit",
     readOnly: "Read only",
     drawing: "Draws with the server's OpenAI key",
@@ -99,13 +105,15 @@ export const MCP_TEXT: Record<Lang, Words> = {
   zh: {
     title: "MCP",
     connect: "连接 MCP",
-    intro: "让 Claude Desktop、Codex 等 MCP 客户端操作这块画布。在客户端里添加 m3e-canvas-mcp 服务器，然后打开这里并确认配对码。",
+    intro: "让 Claude Desktop、Codex 等 MCP 客户端操作这块画布。在客户端里添加 m3e-canvas-mcp 服务器，然后打开这里，输入客户端给你的配对码。",
     howToStart: "服务器的命令",
     docs: "安装和安全说明：docs/MCP.md",
     looking: "正在查找这台电脑上的 MCP 服务器…",
     lookingHint: "在 MCP 客户端里启动 m3e-canvas-mcp（或在终端里运行），这里会自动找到它。",
     pairTitle: "{client} 想操作这块画布",
-    pairBody: "只有在这个配对码和 MCP 服务器显示的一致时才批准（看它的日志，或让 AI 调用 connection_status）。",
+    pairBody: "输入 {client} 给你的配对码：在客户端里问 AI 要（它会调用 connection_status），或看服务器的日志。编辑器不会显示这个码，所以不是你的网页无法配对。",
+    codeLabel: "配对码",
+    codeWrong: "这不是服务器的配对码，还可以试 {n} 次。",
     pairReadOnlyOffered: "服务器以只读方式启动。",
     allowEdit: "允许编辑",
     allowRead: "只读",
@@ -117,6 +125,7 @@ export const MCP_TEXT: Record<Lang, Words> = {
     refusedProtocol: "服务器版本不同：请更新 m3e-canvas-mcp 或编辑器。",
     refusedDenied: "已拒绝",
     refusedDisconnected: "已断开",
+    refusedLocked: "输错的次数太多：重启 MCP 服务器后再配对",
     canEdit: "可编辑",
     readOnly: "只读",
     drawing: "用服务器的 OpenAI 密钥生成图形",
@@ -144,13 +153,15 @@ export const MCP_TEXT: Record<Lang, Words> = {
   ja: {
     title: "MCP",
     connect: "MCP に接続",
-    intro: "Claude Desktop や Codex などの MCP クライアントがこのキャンバスを操作できるようにします。クライアントに m3e-canvas-mcp サーバーを追加し、ここをオンにしてペアリングコードを承認してください。",
+    intro: "Claude Desktop や Codex などの MCP クライアントがこのキャンバスを操作できるようにします。クライアントに m3e-canvas-mcp サーバーを追加し、ここをオンにして、クライアントが示すペアリングコードを入力してください。",
     howToStart: "サーバーのコマンド",
     docs: "設定とセキュリティ：docs/MCP.md",
     looking: "このコンピューターの MCP サーバーを探しています…",
     lookingHint: "MCP クライアントから m3e-canvas-mcp を起動してください（ターミナルで実行しても構いません）。自動で見つかります。",
     pairTitle: "{client} がこのキャンバスを操作しようとしています",
-    pairBody: "このコードが MCP サーバーの表示するコード（ログ、または AI に connection_status を呼んでもらう）と同じ場合だけ承認してください。",
+    pairBody: "{client} が示すペアリングコードを入力してください。クライアントの AI に尋ねる（connection_status を呼びます）か、サーバーのログで確認できます。エディタにはコードを表示しないので、あなたのものではないページはペアリングできません。",
+    codeLabel: "ペアリングコード",
+    codeWrong: "サーバーのコードと違います。あと {n} 回試せます。",
     pairReadOnlyOffered: "サーバーは読み取り専用で起動しています。",
     allowEdit: "編集を許可",
     allowRead: "読み取りのみ",
@@ -162,6 +173,7 @@ export const MCP_TEXT: Record<Lang, Words> = {
     refusedProtocol: "サーバーのバージョンが違います。m3e-canvas-mcp かエディターを更新してください。",
     refusedDenied: "拒否しました",
     refusedDisconnected: "切断しました",
+    refusedLocked: "間違ったコードが多すぎます。MCP サーバーを再起動してからペアリングしてください",
     canEdit: "編集できる",
     readOnly: "読み取りのみ",
     drawing: "サーバーの OpenAI キーで描画",
@@ -189,13 +201,15 @@ export const MCP_TEXT: Record<Lang, Words> = {
   ko: {
     title: "MCP",
     connect: "MCP 연결",
-    intro: "Claude Desktop, Codex 등 MCP 클라이언트가 이 캔버스를 다룰 수 있게 합니다. 클라이언트에 m3e-canvas-mcp 서버를 추가한 다음 여기를 켜고 페어링 코드를 승인하세요.",
+    intro: "Claude Desktop, Codex 등 MCP 클라이언트가 이 캔버스를 다룰 수 있게 합니다. 클라이언트에 m3e-canvas-mcp 서버를 추가한 다음 여기를 켜고 클라이언트가 알려 주는 페어링 코드를 입력하세요.",
     howToStart: "서버 명령",
     docs: "설정과 보안: docs/MCP.md",
     looking: "이 컴퓨터에서 MCP 서버를 찾는 중…",
     lookingHint: "MCP 클라이언트에서 m3e-canvas-mcp를 시작하세요(터미널에서 실행해도 됩니다). 자동으로 찾습니다.",
     pairTitle: "{client}이(가) 이 캔버스를 다루려고 합니다",
-    pairBody: "이 코드가 MCP 서버에 표시된 코드(로그, 또는 AI에게 connection_status를 호출하게 해서 확인)와 같을 때만 승인하세요.",
+    pairBody: "{client}이(가) 알려 주는 페어링 코드를 입력하세요. 클라이언트의 AI에게 물어보거나(connection_status를 호출합니다) 서버 로그에서 확인할 수 있습니다. 편집기에는 코드가 표시되지 않으므로 내 것이 아닌 페이지는 페어링할 수 없습니다.",
+    codeLabel: "페어링 코드",
+    codeWrong: "서버의 코드가 아닙니다. {n}번 더 시도할 수 있습니다.",
     pairReadOnlyOffered: "서버가 읽기 전용으로 시작되었습니다.",
     allowEdit: "편집 허용",
     allowRead: "읽기 전용",
@@ -207,6 +221,7 @@ export const MCP_TEXT: Record<Lang, Words> = {
     refusedProtocol: "서버 버전이 다릅니다. m3e-canvas-mcp 또는 편집기를 업데이트하세요.",
     refusedDenied: "거부됨",
     refusedDisconnected: "연결 끊김",
+    refusedLocked: "잘못된 코드가 너무 많습니다. MCP 서버를 다시 시작한 뒤 페어링하세요",
     canEdit: "편집 가능",
     readOnly: "읽기 전용",
     drawing: "서버의 OpenAI 키로 그리기",

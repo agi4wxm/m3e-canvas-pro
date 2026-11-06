@@ -156,6 +156,26 @@ export function loadInto(s: CoreState, doc: Partial<Doc>, reset: boolean): CoreS
   });
 }
 
+/** how wide or tall a screen may be: what add_screen and resize_screen take */
+export const MAX_SCREEN = 3840;
+/** how far a screen that scrolls may run: four of the tallest screens */
+export const MAX_SCREEN_LENGTH = MAX_SCREEN * 4;
+
+/** Screens held to the sizes the operations allow. A file asking for a screen a million dp wide would have the canvas,
+ *  the preview and every screenshot try to draw it; it opens at the largest size instead. The same list when none
+ *  was too large, so documents that always fitted come back exactly as they were. */
+export function cappedFrames(frames: Frame[]): Frame[] {
+  const cap = (v: number | undefined, max: number) => (typeof v === "number" && v > max ? max : v);
+  let changed = false;
+  const out = frames.map((f) => {
+    const sized = { w: cap(f.w, MAX_SCREEN), h: cap(f.h, MAX_SCREEN), length: cap(f.length, MAX_SCREEN_LENGTH), grownFrom: cap(f.grownFrom, MAX_SCREEN_LENGTH) };
+    if (sized.w === f.w && sized.h === f.h && sized.length === f.length && sized.grownFrom === f.grownFrom) return f;
+    changed = true;
+    return { ...f, ...Object.fromEntries(Object.entries(sized).filter(([, v]) => v !== undefined)) } as Frame;
+  });
+  return changed ? out : frames;
+}
+
 function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<string, unknown> {
   const look = doc.theme && typeof doc.theme === "object" ? normalizeTheme(doc.theme) : reset ? normalizeTheme(undefined) : s.doc.theme;
   const out: Record<string, unknown> = { ...s.doc };
@@ -170,7 +190,7 @@ function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<strin
   else if (reset) set("componentSets", undefined);
   if (Array.isArray(doc.collections)) set("collections", doc.collections);
   else if (reset) set("collections", undefined);
-  if (Array.isArray(doc.frames)) set("frames", doc.frames);
+  if (Array.isArray(doc.frames)) set("frames", cappedFrames(doc.frames));
   if (typeof doc.paletteKey === "string" && doc.paletteKey) set("paletteKey", doc.paletteKey);
   else if (reset) set("paletteKey", "purple");
   if (doc.customPalette && typeof doc.customPalette.primary === "string") set("customPalette", doc.customPalette);

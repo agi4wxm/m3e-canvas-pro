@@ -72,3 +72,5 @@ bun run eval -- --replay <本地目录> --record evals/baselines/2026-11-06-fixe
 - **改组件定义里的部件**（prompt-box-component）：`make_component` 后对已经进了定义的部件 `set_props`，报 not_found，只能拆开重做，步数从 5 到 11。工具里还没有改定义的操作（另一个代理在加组件的操作，可以在那之后补上）。
 - **随机性**：replicate-weather 多对照了两轮（15 步、388k token），polish-spacing 这次只做了一轮就结束，节间距 44/40 超出 `even-spacing` 的容差（非关键检查）；cart-ko 有一对容器被判重叠（截图上看不出，非关键检查）。每个任务只跑了一次，比较改动时仍应 `--repeat 3`。
 - **区分度**：19/19 通过，新加的三个任务也都过了。下一步可以加：带照片的复刻（要用到 `generate_image`）、给已有组件统一加一个部件（等有了改定义的操作）、严格风格下的长表单校验与报错状态。
+
+这里列的数值范围、`split_into_atoms` 的 `id` 和改组件定义三处，后来修了，受影响的任务重跑见 [2026-11-06-residuals](../2026-11-06-residuals/notes.md)。

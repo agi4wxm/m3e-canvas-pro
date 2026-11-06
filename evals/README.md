@@ -46,7 +46,7 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 | `--provider`、`--model`、`--effort`、`--image-model` | 服务商（默认 openai）、文本模型（默认 `gpt-6.1-sol`）、推理强度（low/medium/high，默认 medium）、图片模型 |
 | `--budget-tokens <n>` | 给每个任务的 token 预算再加一个上限 |
 | `--max-drawings <n>` | 整套评测最多画几次（图片、SVG）；超出时工具按“本回合不能再画”拒绝，和应用里用完额度一样 |
-| `--destructive <allow\|decline>` | 智能体要删掉作者大量内容（清空、删屏幕、删很多组件）而请求没有明确要删时，编辑器会问作者“允许 / 不要”；评测里按这个回答，默认 `decline`（想先被问的作者） |
+| `--destructive <allow\|decline>` | 智能体要删掉作者大量内容（清空、删屏幕、删很多组件），或拿走名字看不出的东西（数据行、字段、变量模式、组件属性，替换作者的自定义风格或文档图标）而请求没有明确要删时，编辑器会问作者“允许 / 不要”；评测里按这个回答，默认 `decline`（想先被问的作者） |
 | `--record <目录>` | 每次运行写一个文件夹，再写 `summary.md` 和 `results.json` |
 | `--artifacts <目录>` | 每次运行的文件夹（截图、对话）放到这里，`--record` 里只留汇总：截图大，不要进 git |
 | `--replay <目录>` | 重新评分记录下来的运行，不调用智能体 |
@@ -134,4 +134,5 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 `baselines/<日期>/` 是某一天用默认模型跑整套的结果（只提交 `summary.md`、`results.json` 和人工分析 `notes.md`，截图留在本地）。改提示词或工具后跑一遍，和最新的基线比较通过率、关键检查和 token。
 
 - [2026-11-06](baselines/2026-11-06/notes.md)：16 个任务通过 15 个，失败的是“全删了重做”没有先问；那里也列了智能体常犯的错误和建议的改法。
-- [2026-11-06-fixes](baselines/2026-11-06-fixes/notes.md)（最新）：修完那七处之后，同样 16 个任务全部通过，平均 token 95k → 85k，`describe_part` 占调用 28% → 10%；另加三个更难的任务（多屏应用、严格风格的结账表单、长屏动态）也都通过，那里列了还剩下的问题。
+- [2026-11-06-fixes](baselines/2026-11-06-fixes/notes.md)：修完那七处之后，同样 16 个任务全部通过，平均 token 95k → 85k，`describe_part` 占调用 28% → 10%；另加三个更难的任务（多屏应用、严格风格的结账表单、长屏动态）也都通过，那里列了还剩下的问题。
+- [2026-11-06-residuals](baselines/2026-11-06-residuals/notes.md)（最新）：修完遗留问题（改组件定义的 `edit_component`、速查表的数值范围和行数、单个部件的参数别名、删除前先问扩大到改写数据和替换风格图标）后，只重跑受影响的四个任务各一次：4/4 通过，失败的调用 2 → 0，平均 token 81k → 76k；prompt-box-component 从 11 步降到 5 步。

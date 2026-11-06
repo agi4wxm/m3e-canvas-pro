@@ -1,22 +1,30 @@
 /* What the MCP server (mcp/) and an editor tab say to each other over the live bridge: a WebSocket on 127.0.0.1 that
- * the tab opens when the author turns on "Connect to MCP". The server says hello with a pairing code it has also
- * printed to its log; the author compares the two and approves in the tab, choosing edit or read-only access. Only then
- * does the server send tool calls, which the tab runs on its own store, so every change appears live and is one undo
- * step. A destructive call waits for a click in the tab. The tab never sees a key: a drawing a generative tool needs
- * is asked of the server, which holds OPENAI_API_KEY, and only what was drawn comes back.
+ * the tab opens when the author turns on "Connect to MCP". The server prints a pairing code to its log and gives it
+ * to its MCP client (`connection_status`, and the hint of every call made before pairing), never to the socket: any
+ * page on an allowed port of this machine can open the socket, and only the author reads the client. The author types
+ * the code into the tab (`approve.code`), choosing edit or read-only access; the server checks it, and after a few
+ * wrong codes takes none until it is started again. Only then does the server send tool calls, which the tab runs on
+ * its own store, so every change appears live and is one undo step. A destructive call waits for a click in the tab.
+ * The tab never sees a key: a drawing a generative tool needs is asked of the server, which holds OPENAI_API_KEY, and
+ * only what was drawn comes back.
  *
  * Remembering a client: when the author approves with "remember this client", the tab gives the server a secret
  * (`approve.remember`), the server keeps it under an id it returns (`paired.remembered`), and the tab keeps both. A
  * later server for that client says which ids it holds (`hello.known`, `client.known`); the tab challenges it
- * (`prove`), checks the answer (`proof`: an HMAC of the challenge and the port, mcp/src/trust.ts `proofOf`) and
- * approves without asking. The fields are optional, so either side of an older version simply never offers it.
+ * (`prove`), checks the answer (`proof`: an HMAC of the challenge and the port, mcp/src/trust.ts `proofOf`), and then
+ * approves without the code by proving it holds the secret too (`approve.known`: an HMAC of the server's own
+ * challenge, `hello.challenge`, and the port). Each side proves itself to the other; the secret never travels again.
  *
  * Plain types and constants: the server bundle and the editor both import this, nothing else. */
 
 import type { ToolError, ToolOutcome } from "../tools/types";
 
-/** bumped when a message changes shape; the two sides refuse each other when it differs */
-export const BRIDGE_PROTOCOL = 1;
+/** bumped when a message changes shape; the two sides refuse each other when it differs (2: the code is typed in the
+ *  tab, never sent to it) */
+export const BRIDGE_PROTOCOL = 2;
+
+/** how many wrong codes a server takes before it takes none until it is started again */
+export const PAIRING_TRIES = 8;
 
 /** where the first server listens; a second one (another client on the same machine) takes the next */
 export const BRIDGE_PORT = 47831;
@@ -49,8 +57,8 @@ export type ServerMsg =
       client: ClientInfo | null;
       /** what the server allows; the author may give less */
       access: Access;
-      /** the code the server printed, for the author to compare */
-      code: string;
+      /** fresh for this connection: a tab that remembers this client proves it holds the secret against it */
+      challenge: string;
       /** whether the server can draw (it has an OpenAI key) */
       generate: boolean;
       confirmMs: number;
@@ -62,8 +70,11 @@ export type ServerMsg =
   | { t: "paired"; access: Access; resume: string; remembered?: { id: string } }
   /** the answer to a tab's challenge: the HMAC, or null when this server holds no such pairing */
   | { t: "proof"; id: string; nonce: string; mac: string | null }
-  /** another tab is paired already, or the protocols differ: the connection closes after this */
-  | { t: "refused"; reason: "busy" | "protocol" | "denied" }
+  /** the code typed in the tab is not the server's: how many tries are left before the server takes no more */
+  | { t: "wrong"; left: number }
+  /** another tab is paired already, the protocols differ, the author said no, or too many codes were wrong: the
+   *  connection closes after this */
+  | { t: "refused"; reason: "busy" | "protocol" | "denied" | "locked" }
   | { t: "call"; id: string; name: string; args: unknown; client: ClientInfo | null }
   | { t: "cancel"; id: string }
   | { t: "drawn"; id: string; ok: true; value: DrawResult }
@@ -72,7 +83,8 @@ export type ServerMsg =
 /** editor → server */
 export type EditorMsg =
   | { t: "hello"; protocol: number; resume?: string }
-  | { t: "approve"; access: Access; remember?: { secret: string } }
+  /** the author's approval: with the code they typed, or through a remembered pairing proven against `hello.challenge` */
+  | { t: "approve"; access: Access; code?: string; known?: { id: string; mac: string }; remember?: { secret: string } }
   /** a challenge: prove holding the remembered pairing `id` */
   | { t: "prove"; id: string; nonce: string }
   /** the author forgot a remembered pairing in the editor: its secret, so only the tab that holds it can */
@@ -84,12 +96,18 @@ export type EditorMsg =
   /** the document changed (by anyone): what the server's clients read of it is stale */
   | { t: "changed" };
 
-/** A pairing code: six digits, said in two halves. Not a secret (anything that reaches the socket sees it): it lets the
- *  author check that the tab is talking to the server they started. */
+/** A pairing code: six digits, said in two halves. A secret between the server and the author: it goes to the log and
+ *  the MCP client, never to the socket, and the author types it into the tab. */
 export function pairingCode(random: (n: number) => number): string {
   const d = () => String(random(10));
   return `${d()}${d()}${d()}-${d()}${d()}${d()}`;
 }
+
+/** a code as typed, its digits only: "733 659", "733-659" and "733659" are the same code */
+export const codeDigits = (typed: unknown): string => (typeof typed === "string" ? typed.replace(/\D/g, "") : "");
+
+/** the words both sides of a remembered pairing sign: the server answering the tab's challenge, the tab the server's */
+export const proofWords = (side: "server" | "editor", nonce: string, port: number) => (side === "server" ? `m3e-mcp-pair:${port}:${nonce}` : `m3e-mcp-editor:${port}:${nonce}`);
 
 /** the hosts a page or a request on this machine may name */
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);

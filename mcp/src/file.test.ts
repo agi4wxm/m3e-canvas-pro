@@ -387,6 +387,16 @@ describe("the MCP server on a project file", () => {
     expect(asked).toEqual([expect.stringMatching(/update_collection.*1 of the 1 rows of "Fruit"/)]);
   });
 
+  it("asks before a generative call that would replace a style or an icon, before it reaches the provider", async () => {
+    const s = await open({ env: { OPENAI_API_KEY: "test-key-not-used" } });
+    expect((await s.call("add_custom_style", { style: { key: "custom:mine", name: "Mine", seed: "#336699" } })).isError).toBeFalsy();
+    expect((await s.call("set_icon", { id: "leaf", svg: '<svg viewBox="0 0 24 24"><path d="M4 20C4 9 11 4 20 4c0 9-5 16-16 16z"/></svg>' })).isError).toBeFalsy();
+    const restyle = errorOf(await s.call("generate_style", { refine: "custom:mine", feedback: "warmer" }));
+    expect(restyle).toMatchObject({ code: "refused" });
+    expect(restyle?.message).toMatch(/custom style "custom:mine" as it was/);
+    expect(errorOf(await s.call("generate_svg", { prompt: "a leaf", icon: "leaf" }))?.message).toMatch(/icon svg:leaf/);
+  });
+
   it("says where calls go, and that pictures need a renderer", async () => {
     const { call } = await open();
     const status = (await call("connection_status")).structuredContent as { result: { mode: string; file: string } };

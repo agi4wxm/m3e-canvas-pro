@@ -14,6 +14,7 @@ import type { Doc } from "../tokens";
 import { getAssets, getFileRecord, getProject, listProjects, patchProject, pruneAssets, putFileRecord, deleteFileRecord, readProjectRecords, writeBeforeRecord, writeDocRecord, type FileRecord, type ProjectMeta } from "./db";
 import { FileLink, type LinkState } from "./fileLink";
 import { migrateLegacy } from "./migrate";
+import { setOutsideBlocked } from "../outsidePolicy";
 import { createProject, lockName, mostRecent, onProjectsChanged, PROJECT_PARAM, purgeTrashed, storedForm, summaryOf, tellProjectsChanged } from "./projects";
 
 /** where the id of the project last opened is kept, for what reads it before IndexedDB has answered */
@@ -136,6 +137,8 @@ export class ProjectsPersist implements PersistAdapter {
       this.ready = o;
       if (o.mode !== "projects") return;
       this.metaNow = o.meta;
+      /* before anyone is handed the document: its outside pictures must not be fetched by the first draw */
+      setOutsideBlocked(o.meta.outside === "blocked");
       this.lastJson = o.stored.doc ? storedForm(o.stored.doc).json : null;
       if (o.file) this.attach(o.file, false);
       /* renamed from the projects home, here or in another tab: the chrome follows */
@@ -159,6 +162,15 @@ export class ProjectsPersist implements PersistAdapter {
   }
   get meta(): ProjectMeta | null {
     return this.metaNow;
+  }
+
+  /** Holds the open project's pictures from other sites back, or lets them load, and remembers it in its listing. */
+  async setOutside(v: "blocked" | "allowed") {
+    setOutsideBlocked(v === "blocked");
+    const o = await this.opening;
+    if (o.mode !== "projects" || this.metaNow?.outside === v) return;
+    const m = await patchProject(o.id, { outside: v }).catch(() => undefined);
+    this.setMeta(m ?? (this.metaNow ? { ...this.metaNow, outside: v } : undefined));
   }
 
   /** hears the open project's listing change (its name, its picture, its file); returns the unsubscribe */

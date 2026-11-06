@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeItem, type Group } from "../tokens";
 import { counterIds, DocStore, HISTORY_MAX, type ChangeEvent } from "./store";
-import { savedDoc, stateOf, withGroups, type CoreState } from "./state";
+import { MAX_SCREEN, MAX_SCREEN_LENGTH, savedDoc, stateOf, withGroups, type CoreState } from "./state";
 import { addPart, addScreen, applyStyle, patchTheme, removeNodes, setItem, setTitle, makeComponentOp, OpError } from "./ops";
 import { guessMeasurer } from "./op";
 
@@ -267,5 +267,22 @@ describe("DocStore", () => {
     expect(store.history()).toHaveLength(1);
     store.undo();
     expect(store.get().doc.groups[0].x).toBe(16);
+  });
+});
+
+describe("opening a document", () => {
+  it("holds its screens to the largest size the operations allow, and leaves ones that fit as they were", () => {
+    const store = fresh();
+    const frames = [
+      { id: "huge", name: "Huge", x: 0, y: 0, w: 10_000_000, h: 9_000, length: 1e9 },
+      { id: "fine", name: "Fine", x: 400, y: 0, w: 1440, h: 900 },
+    ];
+    store.replace({ groups: [], frames, paletteKey: "purple", frame: "phone", title: "", brief: "" });
+    const [huge, fine] = store.get().doc.frames;
+    expect(huge).toMatchObject({ w: MAX_SCREEN, h: MAX_SCREEN, length: MAX_SCREEN_LENGTH });
+    expect(fine).toEqual(frames[1]);
+    const same = [{ id: "p", name: "Phone", x: 0, y: 0 }];
+    store.load({ frames: same });
+    expect(store.get().doc.frames).toBe(same);
   });
 });

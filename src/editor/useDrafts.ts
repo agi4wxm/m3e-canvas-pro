@@ -9,6 +9,7 @@ import type { Progress } from "@/lib/agent/complete";
 import type { NoteAction } from "@/components/Toolbar";
 import { aiErrorText } from "@/components/AiPanel";
 import { hasShareHash, readShareHash } from "@/lib/share";
+import { holdOutside } from "./useOutsideImages";
 import { isStrict, withDocStyles, withStyle, type CustomStyle } from "@/lib/styles";
 import { conformDoc, rulesForModel } from "@/lib/styleRules";
 import { Lang, getLang, t } from "@/lib/i18n";
@@ -81,6 +82,8 @@ export function useDrafts({ store, persist, editAccess, lang, aiSettings, mobile
         if (!active) return;
         if (next) {
           setShareOpen(false);
+          /* a link is someone else's design: what it shows from other sites waits for the author to allow it */
+          holdOutside(next, persist);
           arrive(next);
           clearShareHash();
         } else {

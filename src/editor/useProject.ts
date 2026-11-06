@@ -15,6 +15,8 @@ import { ProjectsPersist } from "@/lib/projects/persist";
 import { createProject, freeName, projectUrl } from "@/lib/projects/projects";
 import { projectFileName } from "@/lib/project";
 import type { Doc, Frame } from "@/lib/tokens";
+import { outsideInDoc } from "@/lib/outside";
+import { holdOutside } from "./useOutsideImages";
 
 /** a project file or folder opened or dropped, waiting for the person to say where it goes */
 export type PendingOpen = { doc: Doc; name: string; handle?: FileSystemHandle; kind?: "file" | "folder"; written?: FileRecord["written"] };
@@ -238,13 +240,15 @@ export function useProject(o: ProjectInputs) {
     if (!p) return;
     const bind = keepSynced && !!p.handle && !!projects && (await mayWrite(p.handle, true));
     if (where === "replace" || !projects) {
+      /* someone else's file: what it shows from other sites waits for the author to allow it */
+      holdOutside(p.doc, persist);
       live.current.importDoc(p.doc);
       if (bind && p.handle && p.kind) await projects!.bindFile(p.handle, p.kind, p.written);
       return;
     }
     const list = await listProjects().catch(() => []);
     const name = freeName(projectNameFromFile(p.name) ?? (p.doc.title.trim() || t("untitledProject", lang)), list);
-    const made = await createProject({ name, doc: p.doc });
+    const made = await createProject({ name, doc: p.doc, ...(outsideInDoc(p.doc).length ? { outside: "blocked" as const } : {}) });
     if (bind && p.handle && p.kind) await putFileRecord({ id: made.id, kind: p.kind, handle: p.handle, name: p.handle.name, ...(p.written ? { written: p.written } : {}) });
     await goTo(made.id);
   };

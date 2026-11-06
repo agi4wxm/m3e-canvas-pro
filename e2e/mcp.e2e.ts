@@ -48,8 +48,16 @@ async function pair(page: Page, call: (name: string) => Promise<CallToolResult>,
   await settle(page, 300);
   await page.locator('[data-mcp-panel] button[aria-label="Connect to MCP"]').click();
   await page.waitForSelector('[data-mcp-ask="pair"]', { timeout: 20_000 });
-  equal(await page.locator("[data-mcp-code]").first().textContent(), status.pairingCode, "the code the editor shows is the server's");
-  check(((await page.locator('[data-mcp-ask="pair"]').first().textContent()) ?? "").includes("e2e-client"), "the ask names the client");
+  const card = page.locator('[data-mcp-ask="pair"]').first();
+  check(!((await card.textContent()) ?? "").includes(status.pairingCode), "the editor does not show the code");
+  check(((await card.textContent()) ?? "").includes("e2e-client"), "the ask names the client");
+  check(!(await card.locator("button").filter({ hasText: "Allow editing" }).isEnabled()), "nothing to allow before the code is typed");
+  /* a wrong code first: the editor asks again and says how many tries are left */
+  await card.locator("[data-mcp-code-input]").fill(status.pairingCode === "000-000" ? "111111" : "000000");
+  await card.locator("button").filter({ hasText: "Allow editing" }).click();
+  await page.waitForSelector("[data-mcp-code-wrong]", { timeout: 5000 });
+  /* the code the client gave, as a person types it */
+  await page.locator('[data-mcp-ask="pair"] [data-mcp-code-input]').fill(status.pairingCode.replace("-", " "));
   if (remember) await page.locator("[data-mcp-remember] input").first().click();
   await page.locator('[data-mcp-ask="pair"] button').filter({ hasText: "Allow editing" }).first().click();
   await waitFor("paired", async () => JSON.parse(text(await call("connection_status"))).editor === "paired");

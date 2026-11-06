@@ -2,16 +2,17 @@
  * approves a pairing with "remember this client", the tab hands the server a secret of its own; the server keeps it
  * here, in a file under the user's config folder that only they may read (0600), with the client it was for (its MCP
  * name), the editor's origin and the access given. A later server for the same client, from the same origin, proves to
- * the tab that it holds the secret (an HMAC of a fresh challenge, bound to the port the tab reached it on) and the tab
- * approves without asking. The secret itself never travels again, except once more to be forgotten.
+ * the tab that it holds the secret (an HMAC of a fresh challenge, bound to the port the tab reached it on), the tab
+ * proves the same to it against a challenge of the server's (`editorProven`), and the pairing needs no code. The
+ * secret itself never travels again, except once more to be forgotten.
  *
  * Several servers (one per client) share the file: each change reads it, changes it and writes it back at once. */
 
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { chmod, mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import type { Access } from "../../lib/mcp/protocol";
+import { proofWords, type Access } from "../../lib/mcp/protocol";
 
 export type Remembered = {
   id: string;
@@ -43,7 +44,14 @@ export function configDir(env: Record<string, string | undefined> = process.env,
 
 /** what a tab's challenge is answered with: an HMAC of it, bound to the port the tab reached this server on */
 export function proofOf(secret: string, nonce: string, port: number): string {
-  return createHmac("sha256", Buffer.from(secret, "hex")).update(`m3e-mcp-pair:${port}:${nonce}`).digest("hex");
+  return createHmac("sha256", Buffer.from(secret, "hex")).update(proofWords("server", nonce, port)).digest("hex");
+}
+
+/** whether a tab's answer to this server's challenge shows it holds `secret` (lib/mcp/trusted.ts `editorProof`) */
+export function editorProven(secret: string, challenge: string, port: number, mac: unknown): boolean {
+  if (typeof mac !== "string" || !/^[0-9a-f]{64}$/.test(mac)) return false;
+  const want = createHmac("sha256", Buffer.from(secret, "hex")).update(proofWords("editor", challenge, port)).digest();
+  return timingSafeEqual(want, Buffer.from(mac, "hex"));
 }
 
 const HEX = /^[0-9a-f]+$/;
@@ -64,8 +72,28 @@ export class TrustStore {
     return new TrustStore(join(dir, "trusted-editors.json"), warn);
   }
 
+  private tightened = false;
+
+  /** The folder the file is in, closed to other users when it is open to them: a file there could otherwise be
+   *  swapped or removed by someone else. Only one this user owns is changed (a folder named by M3E_MCP_CONFIG_DIR may
+   *  be shared on purpose); Windows keeps its own per-user rights on the profile folder and is left alone. */
+  private async tighten() {
+    if (this.tightened || process.platform === "win32") return;
+    this.tightened = true;
+    const dir = dirname(this.path);
+    try {
+      const st = await stat(dir);
+      if (!(st.mode & 0o077) || st.uid !== process.getuid?.()) return;
+      await chmod(dir, 0o700);
+      this.warn(`${dir} could be read by other users; its permissions were set to 0700.`);
+    } catch {
+      /* not there yet: it is made 0700 when the first pairing is kept */
+    }
+  }
+
   /** every pairing kept, those idle too long left out */
   async list(): Promise<Remembered[]> {
+    await this.tighten();
     let text: string;
     try {
       const st = await stat(this.path);
@@ -91,6 +119,7 @@ export class TrustStore {
   /** writes the list whole: beside the file first, only the user may read it, then over it */
   private async write(editors: Remembered[]) {
     await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
+    await this.tighten();
     const tmp = `${this.path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
     const fh = await open(tmp, "wx", 0o600);
     try {

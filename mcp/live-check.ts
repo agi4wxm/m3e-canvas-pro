@@ -6,7 +6,7 @@
  * It starts the built server (node mcp/dist/m3e-canvas-mcp.js, so Node's own path is the one checked) as Claude
  * Desktop or Codex would, over stdio, connects the SDK's client, and hands the server's tools to the provider layer's
  * agent loop (lib/llm `runAgent`) on the OpenAI Responses adapter. In live mode a headless editor tab (Playwright)
- * turns on "Connect to MCP" and approves the pairing code first. Every picture a tool returns is saved in the out
+ * turns on "Connect to MCP" and types the pairing code first. Every picture a tool returns is saved in the out
  * folder, with the screen at the end. The key comes from OPENAI_API_KEY; where a proxy adds it on its way out, the
  * placeholder stands in. It is never printed. Bun's fetch goes through HTTPS_PROXY; the server, under Node, uses its
  * own proxy-aware fetch for the drawing it does. */
@@ -52,7 +52,7 @@ const textOf = (r: CallToolResult) => r.content.filter((c) => c.type === "text")
 /* ---------- live: an editor tab that pairs ---------- */
 
 type Pw = { chromium: { launch(): Promise<{ newContext(o: object): Promise<{ newPage(): Promise<PwPage>; addInitScript(f: (a: string) => void, a: string): Promise<void> }>; close(): Promise<void> }> } };
-type PwPage = { goto(u: string): Promise<unknown>; waitForSelector(s: string, o?: object): Promise<unknown>; waitForTimeout(ms: number): Promise<void>; locator(s: string): { click(): Promise<void>; first(): { click(): Promise<void> } }; screenshot(o: { path: string }): Promise<unknown> };
+type PwPage = { goto(u: string): Promise<unknown>; waitForSelector(s: string, o?: object): Promise<unknown>; waitForTimeout(ms: number): Promise<void>; locator(s: string): { click(): Promise<void>; fill(v: string): Promise<void>; first(): { click(): Promise<void> } }; screenshot(o: { path: string }): Promise<unknown> };
 let browser: Awaited<ReturnType<Pw["chromium"]["launch"]>> | undefined;
 let page: PwPage | undefined;
 if (mode === "live") {
@@ -76,6 +76,9 @@ if (mode === "live") {
   await page.locator("[data-mcp-button] button").click();
   await page.locator("[data-mcp-panel] button[aria-pressed]").click();
   await page.waitForSelector('[data-mcp-ask="pair"]', { timeout: 20_000 });
+  /* the code is the client's to give: typed in as the author would */
+  const { pairingCode } = JSON.parse(textOf(await call("connection_status"))) as { pairingCode: string };
+  await page.locator('[data-mcp-ask="pair"] [data-mcp-code-input]').fill(pairingCode);
   await page.screenshot({ path: join(out, "pairing.png") });
   await page.locator('[data-mcp-ask="pair"] button:has-text("Allow editing")').click();
   for (let i = 0; i < 100 && JSON.parse(textOf(await call("connection_status"))).editor !== "paired"; i++) await page.waitForTimeout(200);

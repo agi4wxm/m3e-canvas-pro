@@ -1,21 +1,24 @@
 /* The live backend: an editor tab the author paired with this server. The server listens on a WebSocket at
  * 127.0.0.1 (lib/mcp/protocol.ts); only a page served as the editor may open it (its Origin, and a Host naming this
- * machine, against DNS rebinding). The server says hello with the pairing code it printed to its log, the author
- * compares and approves in the tab, and from then on each tool call is sent to the tab, which runs it on its own store:
- * the change appears on the canvas as it happens and is one undo step there.
+ * machine, against DNS rebinding). Another page served on one of those ports could open it too, so the pairing code
+ * is never sent over it: the server prints it to its log and gives it to its MCP client, the author types it into the
+ * tab, and only a tab that sent it is paired. After PAIRING_TRIES wrong codes the server takes none until it is
+ * started again. From then on each tool call is sent to the tab, which runs it on its own store: the change appears
+ * on the canvas as it happens and is one undo step there.
  *
  * One tab at a time. A tab that reloads comes back without asking again (the resume token it was given), until this
  * server stops. When the author approved with "remember this client", a later server for the same client proves it
- * holds the secret the tab gave (trust.ts) and the tab approves by itself. Generative tools run in the tab too, but
- * what they draw is drawn here, with this process's key, and only for a generative call this server is waiting on. */
+ * holds the secret the tab gave (trust.ts), the tab proves it holds it too, and it is paired without the code.
+ * Generative tools run in the tab too, but what they draw is drawn here, with this process's key, and only for a
+ * generative call this server is waiting on. */
 
 import { randomBytes, randomInt } from "node:crypto";
 import { WebSocketServer, type WebSocket } from "ws";
-import { BRIDGE_PORT, BRIDGE_PORTS, BRIDGE_PROTOCOL, CONFIRM_MS, editorOrigin, loopbackHost, pairingCode, parseMsg, type Access, type ClientInfo, type DrawRequest, type DrawResult, type EditorMsg, type ServerMsg } from "../../lib/mcp/protocol";
+import { BRIDGE_PORT, BRIDGE_PORTS, BRIDGE_PROTOCOL, CONFIRM_MS, PAIRING_TRIES, codeDigits, editorOrigin, loopbackHost, pairingCode, parseMsg, type Access, type ClientInfo, type DrawRequest, type DrawResult, type EditorMsg, type ServerMsg } from "../../lib/mcp/protocol";
 import type { ToolError, ToolOutcome } from "../../lib/tools/types";
 import { failure, listeners, type Backend, type CallContext, type CallOutcome } from "./backend";
 import type { Log } from "./log";
-import { proofOf, type TrustStore } from "./trust";
+import { editorProven, proofOf, type TrustStore } from "./trust";
 
 export type LiveOptions = {
   /** the first port to try (BRIDGE_PORT), and how many after it */
@@ -41,7 +44,8 @@ export type LiveOptions = {
 };
 
 type Pending = { name: string; resolve: (o: ToolOutcome) => void; timer: ReturnType<typeof setTimeout>; draws: number; abort: AbortController };
-type Conn = { ws: WebSocket; paired: boolean; access: Access; origin: string; alive: boolean };
+/** `challenge` is what a tab remembering this client signs to be let in without the code */
+type Conn = { ws: WebSocket; paired: boolean; access: Access; origin: string; alive: boolean; challenge: string; approving?: boolean };
 
 const DRAWS_PER_CALL = 2;
 
@@ -58,6 +62,8 @@ export class LiveBackend implements Backend {
   private readonly changes = listeners<["document" | "access"]>();
   private readonly pairing = listeners<[]>();
   private ping: ReturnType<typeof setInterval> | null = null;
+  /** wrong codes typed so far; at PAIRING_TRIES the server takes no more */
+  private wrongCodes = 0;
   port: number | null = null;
 
   constructor(private readonly o: LiveOptions) {
@@ -85,7 +91,7 @@ export class LiveBackend implements Backend {
     if (!this.wss || this.port === null) throw new Error(`No port is free for the live bridge (${first}–${first + count - 1}): ${last instanceof Error ? last.message : String(last)}`);
     this.ping = setInterval(() => this.heartbeat(), 15_000);
     this.ping.unref?.();
-    this.o.log.notice(`Live bridge on ws://127.0.0.1:${this.port}. In M3E Canvas, turn on “Connect to MCP” and approve pairing code ${this.code}.`);
+    this.o.log.notice(`Live bridge on ws://127.0.0.1:${this.port}. In M3E Canvas, turn on “Connect to MCP” and type pairing code ${this.code}.`);
     return this.port;
   }
 
@@ -135,10 +141,10 @@ export class LiveBackend implements Backend {
     }
     /* a tab still waiting for approval gives way to the one that came after it */
     if (cur) cur.ws.close(4002, "replaced");
-    const conn: Conn = { ws, paired: false, access: this.o.access, origin, alive: true };
+    const conn: Conn = { ws, paired: false, access: this.o.access, origin, alive: true, challenge: randomBytes(16).toString("hex") };
     this.conn = conn;
-    this.o.log.info(`Editor tab connected from ${origin}. Pairing code ${this.code}: approve it in the editor.`);
-    void this.known(origin).then((known) => this.send(ws, { t: "hello", protocol: BRIDGE_PROTOCOL, server: { name: "m3e-canvas-mcp", version: this.o.version, id: this.id }, client: this.client, access: this.o.access, code: this.code, generate: !!this.o.draw, confirmMs: this.o.confirmMs ?? CONFIRM_MS, ...(known ? { known } : {}) }));
+    this.o.log.info(this.locked() ? `Editor tab connected from ${origin}; too many wrong pairing codes were typed, so this server pairs no more until it is started again.` : `Editor tab connected from ${origin}. Pairing code ${this.code}: type it in the editor.`);
+    void this.known(origin).then((known) => this.send(ws, { t: "hello", protocol: BRIDGE_PROTOCOL, server: { name: "m3e-canvas-mcp", version: this.o.version, id: this.id }, client: this.client, access: this.o.access, challenge: conn.challenge, generate: !!this.o.draw, confirmMs: this.o.confirmMs ?? CONFIRM_MS, ...(known ? { known } : {}) }));
     ws.on("pong", () => {
       conn.alive = true;
     });
@@ -152,6 +158,46 @@ export class LiveBackend implements Backend {
   private async known(origin: string): Promise<string[] | undefined> {
     if (!this.o.trust) return undefined;
     return this.o.trust.known(this.client?.name ?? "", origin).catch(() => []);
+  }
+
+  /** too many wrong codes were typed: this server pairs no more until it is started again */
+  private locked = () => this.wrongCodes >= PAIRING_TRIES;
+
+  /** A tab's approval: the code the author typed, or a remembered pairing the tab proves it holds (its HMAC of this
+   *  connection's challenge). Anything else is a wrong try. */
+  private async approval(conn: Conn, msg: Extract<EditorMsg, { t: "approve" }>) {
+    const access: Access = msg.access === "read" ? "read" : "edit";
+    if (this.locked()) return this.refuse(conn, "locked");
+    const known = msg.known && typeof msg.known === "object" ? msg.known : undefined;
+    if (known) {
+      const r = this.o.trust && typeof known.id === "string" ? await this.o.trust.find(known.id, this.client?.name ?? "", conn.origin).catch(() => undefined) : undefined;
+      if (this.conn !== conn || conn.paired) return;
+      if (r && this.port !== null && editorProven(r.secret, conn.challenge, this.port, known.mac)) {
+        void this.o.trust!.touch(r.id).catch(() => {});
+        return this.pair(conn, access === "edit" && r.access === "edit" ? "edit" : "read");
+      }
+      return this.wrong(conn);
+    }
+    const typed = codeDigits(msg.code);
+    if (!typed || typed !== codeDigits(this.code)) return this.wrong(conn);
+    return this.approved(conn, access, msg.remember);
+  }
+
+  /** a wrong code (or a proof that does not hold): the tab is told how many tries are left, or that there are none */
+  private wrong(conn: Conn) {
+    this.wrongCodes++;
+    const left = PAIRING_TRIES - this.wrongCodes;
+    if (left <= 0) {
+      this.o.log.warn(`${PAIRING_TRIES} wrong pairing codes were typed (the last from ${conn.origin}): this server pairs no more until it is started again. If it was not you, a page on this machine tried to connect.`);
+      return this.refuse(conn, "locked");
+    }
+    this.o.log.warn(`A wrong pairing code came from the tab at ${conn.origin}; ${left} ${left === 1 ? "try is" : "tries are"} left. The code is ${this.code}.`);
+    this.send(conn.ws, { t: "wrong", left });
+  }
+
+  private refuse(conn: Conn, reason: Extract<ServerMsg, { t: "refused" }>["reason"]) {
+    this.send(conn.ws, { t: "refused", reason });
+    conn.ws.close(4005, reason);
   }
 
   /** an approval, kept for later servers of this client when the author asked for it */
@@ -205,7 +251,12 @@ export class LiveBackend implements Backend {
         if (!conn.paired && this.resume && msg.resume === this.resume.token) this.pair(conn, this.resume.access);
         return;
       case "approve":
-        if (!conn.paired) void this.approved(conn, msg.access === "read" ? "read" : "edit", msg.remember);
+        if (!conn.paired && !conn.approving) {
+          conn.approving = true;
+          void this.approval(conn, msg).finally(() => {
+            conn.approving = false;
+          });
+        }
         return;
       case "prove":
         void this.prove(conn, msg.id, msg.nonce);
@@ -324,15 +375,16 @@ export class LiveBackend implements Backend {
 
   /** how the author connects a tab, in words a model can pass on */
   howToPair(): string {
-    return `Ask the author to open M3E Canvas, click the plug icon (Connect to MCP) at the bottom of the left rail, and approve pairing code ${this.code}.`;
+    if (this.locked()) return "Too many wrong pairing codes were typed in the editor, so this server pairs no more. Ask the author to restart the MCP server (restart the client, or reload its MCP servers), then pair again with the new code.";
+    return `Tell the author the pairing code ${this.code}, and ask them to open M3E Canvas, click the plug icon (Connect to MCP) at the bottom of the left rail and type that code when the editor asks for it.`;
   }
 
   status() {
     const c = this.conn;
     return {
       mode: "live",
-      editor: this.paired() ? "paired" : c ? "waiting for approval" : "not connected",
-      ...(this.paired() ? { access: c!.access, origin: c!.origin } : { pairingCode: this.code, howToConnect: this.howToPair() }),
+      editor: this.paired() ? "paired" : this.locked() ? "locked (too many wrong pairing codes)" : c ? "waiting for the author to type the code" : "not connected",
+      ...(this.paired() ? { access: c!.access, origin: c!.origin } : this.locked() ? { howToConnect: this.howToPair() } : { pairingCode: this.code, howToConnect: this.howToPair() }),
       bridge: this.port !== null ? `ws://127.0.0.1:${this.port}` : "not listening",
       drawing: this.o.draw ? "on (OPENAI_API_KEY)" : "off",
     };
@@ -341,7 +393,7 @@ export class LiveBackend implements Backend {
   async call(name: string, args: unknown, ctx: CallContext): Promise<CallOutcome> {
     if (!this.paired()) {
       const waiting = !!this.conn && (await this.waitForPairing(this.o.pairWaitMs ?? 30_000, ctx.signal));
-      if (!waiting) return failure("unavailable", this.conn ? `The editor tab has not approved the pairing yet (code ${this.code}).` : "No editor tab is connected.", this.howToPair());
+      if (!waiting) return failure("unavailable", this.locked() ? "This server pairs no more: too many wrong pairing codes were typed." : this.conn ? `The author has not typed the pairing code in the editor yet (code ${this.code}).` : "No editor tab is connected.", this.howToPair());
     }
     const conn = this.conn!;
     const id = `c${++this.seq}`;
