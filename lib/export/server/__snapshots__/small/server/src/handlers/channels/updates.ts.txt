@@ -1,0 +1,23 @@
+import { notImplemented } from "../../generated/errors";
+import type { Channel } from "../../generated/handlers";
+
+// Custom code (written by people or AI): what the server does on this realtime channel. The
+// export created this file once and never changes it again. Until it is written, an app that
+// connects is turned away (the connection closes with 4501). The channel, as the design had it
+// when this file was made (../../generated/types.ts always has the current contract):
+//
+//   websocket /live/items/{itemId}/updates  (channel updates)
+//   the server sends: changed (Item)
+//   the server receives: ping ({ at: string; })
+//
+// onConnect(connection) may turn an app away (throw unauthorized()…); onMessage(connection,
+// { message, payload }) gets each message the app sends, checked against the contract;
+// connection.send(message, payload) answers it, and publish(…) from ../../generated/handlers
+// sends to every app on the channel.
+const updates: Channel<"updates"> = {
+  onConnect() {
+    throw notImplemented("updates");
+  },
+};
+
+export default updates;

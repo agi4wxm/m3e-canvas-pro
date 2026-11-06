@@ -173,14 +173,50 @@ describe("exporting again", () => {
     expect(folder.manifest()!.files["apps/web/src/generated/screens/Kept.tsx"]).toBeUndefined();
   });
 
-  it("never deletes a seeded file the product no longer seeds: it is custom code", () => {
+  it("never deletes a seeded file the product no longer seeds: it is custom code, reported as an orphan", () => {
     const folder = new Folder();
     folder.export(product());
     const next = product();
     delete next["server/src/handlers/getHealth.ts"];
     const plan = folder.export(next);
     expect(plan.deletes).toEqual([]);
+    expect(plan.customOrphans).toEqual(["server/src/handlers/getHealth.ts"]);
+    expect(planSummary(plan).customOrphans).toBe(1);
     expect(folder.text("server/src/handlers/getHealth.ts")).toBe("// stub\n");
+  });
+
+  it("reports an orphan of custom code at every export until someone deletes it, and takes it back when it returns", () => {
+    const folder = new Folder();
+    folder.export(product());
+    folder.files.set("server/src/handlers/getHealth.ts", "// implemented\n");
+    const next = product();
+    delete next["server/src/handlers/getHealth.ts"];
+    folder.export(next);
+    /* still in the manifest, so the next export still knows it is custom code of this product */
+    expect(folder.manifest()!.files["server/src/handlers/getHealth.ts"]?.kind).toBe("seeded");
+    expect(folder.export(next).customOrphans).toEqual(["server/src/handlers/getHealth.ts"]);
+    /* the operation comes back: its handler is the one written, kept */
+    const back = folder.export(product());
+    expect(back.customOrphans).toEqual([]);
+    expect(back.kept).toContain("server/src/handlers/getHealth.ts");
+    expect(folder.text("server/src/handlers/getHealth.ts")).toBe("// implemented\n");
+    /* deleted while it was an orphan: no longer reported, gone from the manifest */
+    folder.export(next);
+    folder.files.delete("server/src/handlers/getHealth.ts");
+    const gone = folder.export(next);
+    expect(gone.customOrphans).toEqual([]);
+    expect(folder.manifest()!.files["server/src/handlers/getHealth.ts"]).toBeUndefined();
+  });
+
+  it("seeds the handler of a new operation and leaves every other one as it is", () => {
+    const folder = new Folder();
+    folder.export(product());
+    folder.files.set("server/src/handlers/getHealth.ts", "// implemented\n");
+    const plan = folder.export(product({ "server/src/handlers/listThings.ts": seeded("// stub\n") }));
+    expect(plan.writes.filter((w) => w.why === "seed").map((w) => w.path)).toEqual(["server/src/handlers/listThings.ts"]);
+    expect(plan.conflicts).toEqual([]);
+    expect(plan.customOrphans).toEqual([]);
+    expect(folder.text("server/src/handlers/getHealth.ts")).toBe("// implemented\n");
   });
 
   it("says when the folder held another product", () => {

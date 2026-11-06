@@ -186,6 +186,7 @@ export class FileBackend implements Backend {
           conflicts: done.conflicts,
           removed: done.removed,
           leftInPlace: done.orphaned,
+          customOrphans: done.customOrphans,
           warnings: [...product.warnings, ...done.notes],
           next: done.conflicts.length
             ? "Each conflict is a generated file someone edited: it was left as it is and the new version written beside it as <file>.m3e-new. Move the edit to custom code (server/src/handlers, the custom/ folders), then replace the file with its .m3e-new."

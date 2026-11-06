@@ -248,6 +248,11 @@ export function DownloadProject({ doc, widths, p, stacked = true }: { doc: Doc; 
               {t("exportOrphaned", lang)} {plan.orphaned.join(", ")}
             </div>
           )}
+          {plan.customOrphans.length > 0 && (
+            <div data-export-custom-orphans>
+              {t("exportCustomOrphans", lang)} {plan.customOrphans.join(", ")}
+            </div>
+          )}
         </div>
       )}
       {said && (

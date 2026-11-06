@@ -1,0 +1,27 @@
+import { notImplemented } from "../generated/errors";
+import type { Handler } from "../generated/handlers";
+
+// Custom code (written by people or AI): what the server does for this operation. The export
+// created this file once and never changes it again. Until it is written, the operation answers
+// 501 Not Implemented. The contract it answers to, as the design had it when this file was made
+// (../generated/types.ts always has the current one):
+//
+//   POST /items/{itemId}/photo  (operationId uploadPhoto)
+//   security: bearer (http bearer)
+//   path itemId: string
+//   body (multipart/form-data): {
+//     photo: UploadedFile;
+//     caption?: string;
+//   }
+//   answer 201 (application/json): {
+//     url: string;
+//   }
+//
+// The handler gets ctx: params, query, headers and body, already checked against the contract;
+// ctx.user, who is calling. It returns the 201 answer, or ctx.respond(status, body) for another
+// status the contract lists, or throws notFound(), badRequest()… from ../generated/errors.
+const uploadPhoto: Handler<"uploadPhoto"> = async () => {
+  throw notImplemented("uploadPhoto");
+};
+
+export default uploadPhoto;
