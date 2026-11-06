@@ -10,6 +10,9 @@ import type { PropDef } from "@/parts/types";
 import { Num } from "./PartPanel";
 import { Field, IconBtn, Section, Segmented, Select, SelectOption, Toggle } from "./ui";
 import { Icon } from "./Icon";
+import { ArgFields, BindingsContext, NavParams, endpointOptions, usePartShape } from "./BindingsPanel";
+import { ExprField } from "./ExprField";
+import { endpointOf, responseSchema } from "@/lib/bindings/contract";
 
 /* The panels that say what a prototype does beyond going to another screen: what else a tap runs, when
  * it runs, what hides, and the variables behind it all. What they need of the document comes by context,
@@ -156,10 +159,18 @@ const KINDS: { key: Effect["do"]; text: UIKey; icon: string }[] = [
   { key: "addVar", text: "effAddVar", icon: "add" },
   { key: "setProp", text: "effSetProp", icon: "tune" },
   { key: "snackbar", text: "effSnackbar", icon: "chat_bubble" },
+  { key: "call", text: "bdEffCall", icon: "cloud_upload" },
+  { key: "refresh", text: "bdEffRefresh", icon: "refresh" },
+  { key: "loadMore", text: "bdEffLoadMore", icon: "expand_more" },
+  { key: "submit", text: "bdEffSubmit", icon: "send" },
+  { key: "signOut", text: "bdEffSignOut", icon: "logout" },
 ];
 
+/** the data sources of every screen, for an effect that loads one */
+const sourceNames = (frames: { data?: { name: string }[] }[] | undefined) => [...new Set((frames ?? []).flatMap((f) => (f.data ?? []).map((d) => d.name)))];
+
 /** an effect of another kind, keeping the part or variable it was already about where it can */
-function changedKind(kind: Effect["do"], was: Effect | null, b: Behavior): Effect {
+function changedKind(kind: Effect["do"], was: Effect | null, b: Behavior, bindings?: React.ContextType<typeof BindingsContext>): Effect {
   const parts = b.groups.flatMap((g) => g.items);
   const part = was && "part" in was ? was.part : "";
   const first = (only: (it: Item) => boolean) => (parts.some((it) => it.id === part && only(it)) ? part : (parts.find(only)?.id ?? ""));
@@ -186,12 +197,23 @@ function changedKind(kind: Effect["do"], was: Effect | null, b: Behavior): Effec
     }
     case "snackbar":
       return { do: kind, message: "" };
+    case "call":
+      return { do: kind, operationId: bindings?.doc.api?.endpoints?.[0]?.operationId ?? "" };
+    case "refresh":
+    case "loadMore":
+      return { do: kind, source: sourceNames(bindings?.doc.frames)[0] ?? "" };
+    case "submit":
+      return { do: kind };
+    case "signOut":
+      return { do: kind };
   }
 }
 
-function EffectRow({ effect, index, onChange, onRemove, onUp, p }: { effect: Effect; index: number; onChange: (e: Effect) => void; onRemove: () => void; onUp: () => void; p: Palette }) {
+function EffectRow({ effect, index, onChange, onRemove, onUp, p, depth = 0 }: { effect: Effect; index: number; onChange: (e: Effect) => void; onRemove: () => void; onUp: () => void; p: Palette; depth?: number }) {
   const lang = useLang();
   const b = useContext(BehaviorContext);
+  const bindings = useContext(BindingsContext);
+  const shape = usePartShape();
   const parts = b.groups.flatMap((g) => g.items);
   const partSelect = (only?: (it: Item) => boolean) => {
     if (!("part" in effect)) return null;
@@ -233,7 +255,23 @@ function EffectRow({ effect, index, onChange, onRemove, onUp, p }: { effect: Eff
       body = (
         <>
           <VarSelect value={effect.var} onPick={(v) => onChange({ ...effect, var: v.id, value: v.value })} p={p} />
-          {varType && <ValueField type={varType} value={effect.value} onChange={(value) => onChange({ ...effect, value })} p={p} />}
+          {bindings && (
+            <Toggle
+              on={effect.expr !== undefined}
+              onChange={(on) => {
+                const { expr: _was, ...rest } = effect;
+                onChange(on ? { ...rest, expr: "" } : rest);
+              }}
+              p={p}
+              label={t("bdFromExpr", lang)}
+              grow
+            />
+          )}
+          {effect.expr !== undefined ? (
+            <ExprField name="setVar" value={effect.expr} onCommit={(expr) => onChange({ ...effect, expr })} shape={shape} api={bindings?.doc.api} p={p} />
+          ) : (
+            varType && <ValueField type={varType} value={effect.value} onChange={(value) => onChange({ ...effect, value })} p={p} />
+          )}
         </>
       );
       break;
@@ -266,12 +304,63 @@ function EffectRow({ effect, index, onChange, onRemove, onUp, p }: { effect: Eff
     case "snackbar":
       body = <Field value={effect.message} onChange={(message) => onChange({ ...effect, message })} placeholder={t("effectMessage", lang)} p={p} height={40} />;
       break;
+    case "call": {
+      const api = bindings?.doc.api;
+      const e = endpointOf(api, effect.operationId);
+      body = (
+        <div data-call-effect style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Select options={endpointOptions(api)} value={effect.operationId} onChange={(operationId) => onChange({ ...effect, operationId, args: undefined })} p={p} label={t("bdEndpoint", lang)} />
+          <ArgFields api={api} operationId={effect.operationId} value={effect.args} onChange={(args) => onChange({ ...effect, args })} shape={shape} p={p} body />
+          {shape.inRepeat && (
+            <Toggle
+              on={!!effect.optimistic?.remove}
+              onChange={(on) => {
+                const src = (bindings?.doc.frames ?? []).flatMap((f) => f.data ?? []).find(() => true)?.name;
+                const { optimistic: _was, ...rest } = effect;
+                onChange(on && src ? { ...rest, optimistic: { source: src, remove: true } } : rest);
+              }}
+              p={p}
+              label={t("bdOptimistic", lang)}
+              grow
+            />
+          )}
+          {depth < 2 && (
+            <>
+              <BodyEditor title={t("bdThen", lang)} body={effect.then} onChange={(next) => onChange(withBranch(effect, "then", next))} p={p} depth={depth + 1} response={api && e ? responseSchema(api, e) ?? true : true} />
+              <BodyEditor title={t("bdCatch", lang)} body={effect.catch} onChange={(next) => onChange(withBranch(effect, "catch", next))} p={p} depth={depth + 1} error />
+            </>
+          )}
+        </div>
+      );
+      break;
+    }
+    case "refresh":
+    case "loadMore": {
+      const names = sourceNames(bindings?.doc.frames);
+      body = <Select options={names.map((n) => ({ key: n, label: `data.${n}`, icon: "cloud_download" }))} value={effect.source} onChange={(source) => onChange({ ...effect, source })} p={p} label={t("bdSource", lang)} />;
+      break;
+    }
+    case "submit": {
+      const forms = (bindings?.doc.groups ?? []).filter((g) => g.form);
+      body = (
+        <Select
+          options={[{ key: "", label: t("bdFormOwn", lang), icon: "dynamic_form" }, ...forms.map((g) => ({ key: g.id, label: g.name || g.form!.operationId, icon: "dynamic_form" }))]}
+          value={effect.form ?? ""}
+          onChange={(form) => onChange(form ? { ...effect, form } : { do: "submit" })}
+          p={p}
+          label={t("bdForm", lang)}
+        />
+      );
+      break;
+    }
+    case "signOut":
+      break;
   }
   return (
     <div data-effect={effect.do} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 8, borderRadius: 12, background: p.surfaceContainerLow }}>
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <Select options={KINDS.map((k) => ({ key: k.key, label: t(k.text, lang), icon: k.icon }))} value={effect.do} onChange={(k) => onChange(changedKind(k as Effect["do"], effect, b))} p={p} label={t("effectKind", lang)} />
+          <Select options={KINDS.filter((k) => bindings || !BINDING_KINDS.has(k.key)).map((k) => ({ key: k.key, label: t(k.text, lang), icon: k.icon }))} value={effect.do} onChange={(k) => onChange(changedKind(k as Effect["do"], effect, b, bindings))} p={p} label={t("effectKind", lang)} />
         </div>
         {index > 0 && <IconBtn icon="arrow_upward" p={p} size={32} onClick={onUp} title={t("effectUp", lang)} />}
         <IconBtn icon="close" p={p} size={32} onClick={onRemove} title={t("effectRemove", lang)} />
@@ -294,7 +383,44 @@ function AddButton({ label, onClick, p }: { label: string; onClick: () => void; 
   );
 }
 
-function EffectList({ effects, onChange, p }: { effects: Effect[]; onChange: (e: Effect[]) => void; p: Palette }) {
+/** a call with what runs after its answer changed: `then` or `catch` */
+const withBranch = (e: Extract<Effect, { do: "call" }>, branch: "then" | "catch", body: ActionBody | undefined): Effect => {
+  const next: Record<string, unknown> = { ...e };
+  if (body) next[branch] = body;
+  else delete next[branch];
+  return next as Effect;
+};
+
+/** the effects that reach the API, offered where the editor has the bindings */
+const BINDING_KINDS = new Set<string>(["call", "refresh", "loadMore", "submit", "signOut"]);
+
+/** What a call does once it is answered: where it goes, with what params, and its effects. `response` or `error` is
+ *  what its expressions can read. */
+function BodyEditor({ title, body, onChange, p, depth, response, error }: { title: string; body: ActionBody | undefined; onChange: (b: ActionBody | undefined) => void; p: Palette; depth: number; response?: unknown; error?: boolean }) {
+  const lang = useLang();
+  const bindings = useContext(BindingsContext);
+  const frames = bindings?.doc.frames ?? [];
+  const base: ActionBody = body ?? { to: STAY_TARGET, transition: "none" };
+  const set = (patch: Partial<ActionBody>) => {
+    const next = { ...base, ...patch };
+    onChange(next.to === STAY_TARGET && !next.effects?.length ? undefined : next);
+  };
+  const options = [
+    { key: STAY_TARGET, label: t("none", lang), icon: "block" },
+    { key: BACK_TARGET, label: t("back", lang), icon: "arrow_back" },
+    ...frames.map((f) => ({ key: f.id, label: f.name || f.id, icon: "smartphone" })),
+  ];
+  return (
+    <div data-call-branch={error ? "catch" : "then"} style={{ display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: 10, border: `1px dashed ${p.outlineVariant}` }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>{title}</div>
+      <Select options={options} value={base.to} onChange={(to) => set({ to, transition: to === STAY_TARGET ? "none" : "slide", params: undefined })} p={p} label={title} />
+      <NavParams to={base.to} value={base.params} onChange={(params) => set({ params })} p={p} extra={error ? { error: true } : { response }} />
+      <EffectList effects={base.effects ?? []} onChange={(effects) => set({ effects: effects.length ? effects : undefined })} p={p} depth={depth} />
+    </div>
+  );
+}
+
+function EffectList({ effects, onChange, p, depth = 0 }: { effects: Effect[]; onChange: (e: Effect[]) => void; p: Palette; depth?: number }) {
   const lang = useLang();
   const b = useContext(BehaviorContext);
   return (
@@ -308,6 +434,7 @@ function EffectList({ effects, onChange, p }: { effects: Effect[]; onChange: (e:
           onRemove={() => onChange(effects.filter((_, j) => j !== i))}
           onUp={() => onChange(effects.map((x, j) => (j === i ? effects[i - 1] : j === i - 1 ? effects[i] : x)))}
           p={p}
+          depth={depth}
         />
       ))}
       <AddButton label={t("addEffect", lang)} onClick={() => onChange([...effects, changedKind("show", null, b)])} p={p} />
@@ -315,23 +442,55 @@ function EffectList({ effects, onChange, p }: { effects: Effect[]; onChange: (e:
   );
 }
 
-/** a test on a variable, or on a form field having something in it */
+/** a test on a variable, on a form field having something in it, or an expression */
 function ConditionEditor({ value, onChange, p }: { value: Condition; onChange: (c: Condition) => void; p: Palette }) {
+  const lang = useLang();
+  const b = useContext(BehaviorContext);
+  const bindings = useContext(BindingsContext);
+  const shape = usePartShape();
+  const fields = partOptions(b.groups, lang, isInput);
+  if ("expr" in value || bindings) {
+    const mode = "expr" in value ? "expr" : "filled" in value ? "field" : "var";
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 8, borderRadius: 12, background: p.surfaceContainerLow }}>
+        <Segmented<string>
+          options={[{ key: "var", label: t("condVar", lang) }, { key: "field", label: t("condField", lang) }, { key: "expr", label: t("bdExpr", lang) }]}
+          value={mode}
+          onChange={(k) => onChange(k === "expr" ? { expr: "data" in (shape as object) && shape.sources[0] ? `data.${shape.sources[0].name}.ready` : "auth.signedIn" } : k === "field" ? { filled: fields[0]?.key ?? "" } : { var: b.vars[0]?.id ?? "", op: "eq", value: b.vars[0]?.value ?? 0 })}
+          p={p}
+          height={36}
+          label={t("onlyWhen", lang)}
+        />
+        {"expr" in value ? <ExprField name="condition" value={value.expr} onCommit={(expr) => expr && onChange({ expr })} shape={shape} api={bindings?.doc.api} p={p} /> : <PlainCondition value={value} onChange={onChange} p={p} />}
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 8, borderRadius: 12, background: p.surfaceContainerLow }}>
+      <PlainCondition value={value} onChange={onChange} p={p} segmented />
+    </div>
+  );
+}
+
+/** a test on a variable, or on a form field having something in it */
+function PlainCondition({ value, onChange, p, segmented }: { value: Exclude<Condition, { expr: string }>; onChange: (c: Condition) => void; p: Palette; segmented?: boolean }) {
   const lang = useLang();
   const b = useContext(BehaviorContext);
   const fields = partOptions(b.groups, lang, isInput);
   const onField = "filled" in value;
   const v = !onField ? readableVars(b).find((x) => x.id === value.var) : undefined;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 8, borderRadius: 12, background: p.surfaceContainerLow }}>
-      <Segmented<string>
-        options={[{ key: "var", label: t("condVar", lang) }, { key: "field", label: t("condField", lang) }]}
-        value={onField ? "field" : "var"}
-        onChange={(k) => onChange(k === "field" ? { filled: fields[0]?.key ?? "" } : { var: b.vars[0]?.id ?? "", op: "eq", value: b.vars[0]?.value ?? 0 })}
-        p={p}
-        height={36}
-        label={t("onlyWhen", lang)}
-      />
+    <>
+      {segmented && (
+        <Segmented<string>
+          options={[{ key: "var", label: t("condVar", lang) }, { key: "field", label: t("condField", lang) }]}
+          value={onField ? "field" : "var"}
+          onChange={(k) => onChange(k === "field" ? { filled: fields[0]?.key ?? "" } : { var: b.vars[0]?.id ?? "", op: "eq", value: b.vars[0]?.value ?? 0 })}
+          p={p}
+          height={36}
+          label={t("onlyWhen", lang)}
+        />
+      )}
       {onField ? (
         fields.length ? <Select options={fields} value={value.filled} onChange={(filled) => onChange({ filled })} p={p} label={t("condFilled", lang)} /> : <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("noParts", lang)}</div>
       ) : (
@@ -341,7 +500,7 @@ function ConditionEditor({ value, onChange, p }: { value: Condition; onChange: (
           {v && <ValueField type={v.type} value={value.value} onChange={(x) => onChange({ ...value, value: x })} p={p} />}
         </>
       )}
-    </div>
+    </>
   );
 }
 
@@ -376,6 +535,7 @@ export function ActionExtras({ action, onChange, navOptions, p }: { action: Acti
   const label = (text: string) => <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant, padding: "0 4px" }}>{text}</div>;
   return (
     <div data-action-extras style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <NavParams to={base.to} value={base.params} onChange={(params) => set({ params })} p={p} />
       {label(t("effects", lang))}
       <EffectList effects={base.effects ?? []} onChange={(effects) => set({ effects })} p={p} />
       <Toggle on={!!base.when} onChange={(on) => set({ when: on ? firstCondition(b) : undefined })} p={p} label={t("onlyWhen", lang)} grow />

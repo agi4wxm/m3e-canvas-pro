@@ -197,7 +197,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 131 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 144 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -221,6 +221,7 @@ npx playwright install chromium
 | `describe_endpoint` | 读取 | 是 |  | One endpoint in full: the OpenAPI operation as stored (parameters, requestBody, responses, security, pagination), its parameters with references followed, the security that applie… |
 | `describe_model` | 读取 | 是 |  | One model in full: its JSON Schema, its fields as rows (name, type, required, format, enum, description, example), the TypeScript type it becomes, where it is used (models, endpoi… |
 | `get_spec` | 读取 | 是 |  | The API written as a standard file: openapi (OpenAPI 3.1 YAML, the HTTP endpoints), asyncapi (AsyncAPI 3.0 YAML, the realtime channels) or typescript (the models as TypeScript typ… |
+| `describe_bindings` | 读取 | 是 |  | How a screen is bound to the API: its params and sign-in, each data source (endpoint, params, paging, and the paths it offers: data.&lt;name>.items[], value fields), its regions w… |
 | `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
 | `compare_to_reference` | 读取 | 是 |  | Holds a screen of the canvas against the reference picture it copies: draws the screen, hands back both pictures (the reference first), and lays them over each other in a grid, gi… |
 | `apply_ops` | 搭建 |  | 含破坏性操作时 | Runs many operations as one change: all of them or none (if any fail, the document stays as it was and the error lists each one that failed and why: fix only those), one undo step. |
@@ -299,7 +300,7 @@ npx playwright install chromium
 | `add_collection` | 数据与交互 |  |  | Adds a data collection: named fields and rows of text (one cell per field). |
 | `update_collection` | 数据与交互 |  |  | Changes a data collection's name, fields or rows, or the API model it is linked to (model; null unlinks it). |
 | `remove_collection` | 数据与交互 |  | 是 | Removes a data collection; layouts that repeated it stop repeating. |
-| `set_repeat` | 数据与交互 |  |  | Makes a container with an auto layout draw its first child once per row of a collection (limit: at most that many rows), or stop (null). |
+| `set_repeat` | 数据与交互 |  |  | Makes a container with an auto layout draw its first child once per row of a collection ({collection}), or once per element of a list an expression reads ({data: "data.products.it… |
 | `add_var` | 数据与交互 |  |  | Adds a variable: type text, number, bool or color (a role such as primary or a hex), with its value in the first mode of its collection (values: what it is in the other modes, by … |
 | `update_var` | 数据与交互 |  |  | Changes a variable's name, type, value (in the first mode of its collection), its values in the other modes (values, by mode id or name), its collection, or whether it drives the … |
 | `remove_var` | 数据与交互 |  | 是 | Removes a variable; props bound to it are unbound. |
@@ -325,6 +326,18 @@ npx playwright install chromium
 | `set_api_info` | 数据与交互 |  |  | Sets the API's title, version and description (OpenAPI info), and the tags endpoints are grouped by, with words about each (the whole list). |
 | `import_openapi` | 数据与交互 |  |  | Imports an OpenAPI 3.1 or 3.0 document (YAML or JSON): models from components.schemas, endpoints from paths, security schemes, servers, tags. |
 | `import_asyncapi` | 数据与交互 |  |  | Imports an AsyncAPI 3.0 document (YAML or JSON): channels with their messages and operations, models from components.schemas, the realtime URLs of its servers. |
+| `add_data_source` | 数据与交互 |  |  | Makes a screen load data from an endpoint: read as data.&lt;name> (value, items, status, loading, error, hasMore, empty). |
+| `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions foll… |
+| `remove_data_source` | 数据与交互 |  | 是 | Stops a screen loading a data source; what reads data.&lt;name> reads nothing. |
+| `set_screen_params` | 数据与交互 |  |  | Declares what a screen is opened with (navigation passes them: set_action {params: {productId: "item.id"}}): each {name, type?: string\|number\|boolean, example?}; the screen read… |
+| `set_screen_auth` | 数据与交互 |  |  | Says a screen needs a session ("required": without one the app goes to the sign-in screen first) or is the sign-in screen ("login": where a 401 and a required screen send the app;… |
+| `bind_expression` | 数据与交互 |  |  | Binds a prop of a part to an expression, read in the preview and the exported app: data.&lt;source>.value.&lt;field>, item.&lt;field> inside a repeat over data, params.&lt;name>, … |
+| `set_region` | 数据与交互 |  |  | Makes a container with an auto layout a region bound to a data source of its screen: it shows its content when the data is there, and a design of its own while it loads, when it i… |
+| `remove_region` | 数据与交互 |  | 是 | Makes a region a plain container again: its state designs are removed with what they hold (keepDesigns: they stay, as content). |
+| `set_form` | 数据与交互 |  |  | Makes a container a form for an endpoint's request body ({operationId, params, values, then, catch}), or a plain container again (null). |
+| `make_form` | 数据与交互 |  |  | Makes a form for an endpoint's request body in one step: the container given (id) or a new one (on screen, or into a container) becomes the form, and an input for each body field … |
+| `bind_field` | 数据与交互 |  |  | Binds an input inside a form to a field of its request body ("email", "address.city"): it fills that field, is checked by the field's schema, and shows its error. |
+| `wire_screen` | 数据与交互 |  |  | Wires a screen to an endpoint in one step: a data source for it; for a list endpoint a region repeating a row bound to each element's fields (a tap opens `detail` with its params)… |
 | `generate_svg` | 生成（需 OPENAI_API_KEY） |  |  | Draws a custom SVG and puts it on the canvas as a vector (svg) part: a new icon, a logo, an illustration, a decoration nothing in the catalog has. |
 | `generate_image` | 生成（需 OPENAI_API_KEY） |  |  | Paints a picture with the image model (about 20–40 s): with `background` and `screen`, it becomes the picture behind that whole screen (its scene, filling the screen under every p… |
 | `generate_style` | 生成（需 OPENAI_API_KEY） |  |  | Writes a custom style with the text model, from a description and/or an attached reference picture (ref1…), validated (colors, contrast, catalog recipes, safe CSS), added to the d… |

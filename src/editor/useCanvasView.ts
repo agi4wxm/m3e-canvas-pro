@@ -60,8 +60,10 @@ export function useCanvasView({ carrying, groups, frames, frame, components, col
   }, [groups, canvas, carrying]);
   /** what a dock's other tabs hold: the canvas draws only the tab that is showing */
   const offTab = useMemo(() => outOfPane(groups, widths), [groups, widths]);
-  /** what the preview starts without, with what those parts hold: drawn dimmed, so it can still be selected */
-  const startsHidden = useMemo(() => new Set(groups.filter((g) => g.hidden).flatMap((g) => [g.id, ...heldBy(g, groups, widths).map((x) => x.id)])), [groups, widths]);
+  /** what the preview starts without, with what those parts hold: drawn dimmed, so it can still be selected. A part
+   *  shown only while an expression holds (a form's error, a "load more" while there is more) is dimmed too: it is a
+   *  design of a moment, not of the screen as it opens. */
+  const startsHidden = useMemo(() => new Set(groups.filter((g) => g.hidden || (g.showWhen && "expr" in g.showWhen)).flatMap((g) => [g.id, ...heldBy(g, groups, widths).map((x) => x.id)])), [groups, widths]);
   /** which frame each run sits on (phone mode only) */
   const frameOf = useMemo(() => {
     const m = new Map<string, string>();

@@ -98,6 +98,17 @@ describe("tool sets", () => {
     ["ログイン用のAPIとトークンの更新を定義して", ["api"]],
     ["로그인 API를 추가하고 JWT 토큰을 돌려줘", ["api"]],
     ["채팅방에 실시간 메시지 채널을 추가해 줘", ["api"]],
+    ["Wire the product list screen to the API with a loading skeleton and an empty state", ["api", "bindings"]],
+    ["Add pull to refresh and load more to this list", ["bindings"]],
+    ["Show the price as currency with an expression", ["bindings"]],
+    ["Add form validation and submit the form to createOrder", ["bindings"]],
+    ["把商品列表绑定到接口，加上骨架屏和空状态", ["data", "api", "bindings"]],
+    ["给这个列表加下拉刷新和加载更多", ["bindings"]],
+    ["注册表单要校验字段再提交表单", ["bindings"]],
+    ["商品一覧をAPIにつないで、読み込み中の表示と空の状態も", ["api", "bindings"]],
+    ["フォームの検証と送信を追加して", ["bindings"]],
+    ["상품 목록을 API에 연결하고 로딩 상태와 빈 상태를 추가해 줘", ["api", "bindings"]],
+    ["가입 양식 검증 후 제출하도록 해 줘", ["bindings"]],
   ];
   it.each(PHRASES)("%s → build + %j", (request, sets) => {
     expect(setsFor(request)).toEqual(TOOL_SETS.filter((s) => s === "build" || sets.includes(s)));

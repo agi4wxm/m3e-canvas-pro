@@ -10,9 +10,9 @@
 
 import { tool, type Tool } from "../tools";
 
-export type ToolSet = "build" | "layout" | "screens" | "components" | "style" | "data" | "api" | "generate" | "reference";
+export type ToolSet = "build" | "layout" | "screens" | "components" | "style" | "data" | "api" | "bindings" | "generate" | "reference";
 
-export const TOOL_SETS: readonly ToolSet[] = ["build", "layout", "screens", "components", "style", "data", "api", "generate", "reference"];
+export const TOOL_SETS: readonly ToolSet[] = ["build", "layout", "screens", "components", "style", "data", "api", "bindings", "generate", "reference"];
 
 /** what each set is for, for the model */
 export const SET_ABOUT: Record<ToolSet, string> = {
@@ -23,9 +23,14 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   style: "styles, themes, palettes, looks, custom styles",
   data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, bindings",
   api: "the contract with the back end: data models (JSON Schema), HTTP endpoints (OpenAPI 3.1) with paging and uploads, auth (bearer JWT, API key, OAuth2), realtime channels (AsyncAPI 3.0), servers; importing and reading the spec files",
+  bindings:
+    "screens bound to the API: the data a screen loads, its params and sign-in, props bound to expressions (formatting dates, money, plurals), lists repeated from data, regions with loading, empty, error and no-access designs, forms for request bodies with validation, taps that call endpoints; wire_screen does all of it for a screen and an endpoint",
   generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture; the document's own icons (svg:<id>)",
   reference: "measuring an attached reference picture and comparing a screen with it",
 };
+
+/** binding screens to the contract: its operations and the tool that reads it */
+const BINDINGS = new Set(["describe_bindings", "add_data_source", "update_data_source", "remove_data_source", "set_screen_params", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
 
 /** the tools of the build set; everything else falls in the set of its kind */
 const BUILD = new Set([
@@ -55,6 +60,7 @@ export function setOf(t: Pick<Tool<never>, "name" | "group">): ToolSet {
   if (COMPONENTS.has(t.name)) return "components";
   if (DRAWING.has(t.name)) return "generate";
   if (API.has(t.name)) return "api";
+  if (BINDINGS.has(t.name)) return "bindings";
   if (STYLE_READS.has(t.name) || t.group === "style") return "style";
   if (t.name === "list_data" || t.group === "data") return "data";
   if (t.group === "generate") return "generate";
@@ -115,6 +121,17 @@ const CUES: [ToolSet, Cue][] = [
         /接口|API|后端|后台服务|服务端|数据模型|模型字段|请求体|请求参数|响应(?!式)|返回(?:值|结构|字段)|状态码|分页|鉴权|令牌|JWT|OAuth|WebSocket|长连接|实时(?:消息|推送|通道|聊天)|推送通道|OpenAPI|Swagger|AsyncAPI|服务器地址/,
         /API|エンドポイント|バックエンド|サーバー側|データモデル|スキーマ|リクエスト|レスポンス|ステータスコード|ページネーション|ページング|認証(?:方式|トークン)|トークン|WebSocket|リアルタイム|OpenAPI|AsyncAPI/,
         /API|엔드포인트|백엔드|서버 ?측|데이터 ?모델|스키마|요청 ?본문|응답|상태 ?코드|페이지네이션|페이징|인증 ?(?:방식|토큰)|토큰|웹소켓|WebSocket|실시간|OpenAPI|AsyncAPI/,
+      ),
+    },
+  ],
+  [
+    "bindings",
+    {
+      yes: any(
+        /\b(?:bind(?:s|ing)?\s+(?:\w+\s+){0,3}(?:to|with)\s+(?:the\s+|an?\s+)?(?:api|endpoints?|backend|server)|wire(?:s|d)?\s+(?:\w+\s+){0,3}(?:to|up\s+(?:to|with))\s+(?:the\s+|an?\s+)?(?:api|endpoints?|backend)|data\s?sources?|loading\s+(?:states?|skeletons?|spinners?)|empty\s+states?|error\s+states?|skeletons?|pull[- ]to[- ]refresh|infinite\s+scroll(?:ing)?|load\s+more|form\s+validation|validat\w*\s+(?:the\s+)?(?:form|fields?|inputs?)|submit(?:s|ting)?\s+(?:the\s+|a\s+)?form|call(?:s|ing)?\s+(?:the\s+|an?\s+)?(?:api|endpoint)|fetch(?:es|ing)?\s+(?:\w+\s+)?from\s+(?:the\s+)?(?:api|endpoint|server|backend)|real\s+data\s+from|expressions?)\b/,
+        /绑定(?:到)?接口|接口数据|连接接口|对接接口|接到接口|数据源|加载中状态|加载状态|空状态|错误状态|出错状态|无权限状态|骨架屏|下拉刷新|上拉加载|加载更多|无限滚动|表单(?:校验|验证)|提交表单|校验字段|调用接口|请求接口|从接口(?:获取|加载|拉取|读取)|表达式/,
+        /API(?:に|と)(?:つな|接続|バインド)|データソース|読み込み中の(?:状態|表示)|空の状態|エラー(?:の)?状態|スケルトン|引っ張って更新|さらに読み込む|無限スクロール|フォーム(?:の)?(?:検証|送信)|入力チェック|バリデーション|APIを呼|API を呼|式で表示/,
+        /API(?:에|와)\s*(?:연결|바인딩)|데이터\s?소스|로딩\s?상태|빈\s?상태|오류\s?상태|스켈레톤|당겨서\s?새로고침|더\s?보기\s?버튼|무한\s?스크롤|양식\s?(?:검증|제출)|폼\s?(?:검증|제출)|입력\s?검증|API\s?호출|표현식/,
       ),
     },
   ],

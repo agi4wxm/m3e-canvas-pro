@@ -11,9 +11,10 @@ import * as tree from "./tree";
 import * as styles from "./styles";
 import * as icons from "./icons";
 import * as api from "./api";
+import * as bindings from "./bindings";
 import { editComponentOp } from "./definition";
 
-export { document, screens, nodes, layout, components, data, tree, styles, icons, api };
+export { document, screens, nodes, layout, components, data, tree, styles, icons, api, bindings };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -24,6 +25,7 @@ export * from "./tree";
 export * from "./styles";
 export * from "./icons";
 export * from "./api";
+export * from "./bindings";
 export { DEFINITION_OPS, definitionOpened } from "./definition";
 export { OpError } from "../op";
 
@@ -133,6 +135,18 @@ export const OPS: Op<never, unknown>[] = [
   api.setApiInfo,
   api.importOpenApi,
   api.importAsyncApi,
+  bindings.addDataSource,
+  bindings.updateDataSource,
+  bindings.removeDataSource,
+  bindings.setScreenParams,
+  bindings.setScreenAuth,
+  bindings.bindExpression,
+  bindings.setRegion,
+  bindings.removeRegion,
+  bindings.setForm,
+  bindings.makeForm,
+  bindings.bindField,
+  bindings.wireScreen,
 ] as unknown as Op<never, unknown>[];
 
 /** an operation by its name */

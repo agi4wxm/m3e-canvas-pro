@@ -135,6 +135,19 @@ const L: Record<string, Four> = {
   set_api_info: ["Describe the API", "设置接口信息", "API の情報を設定", "API 정보 설정"],
   import_openapi: ["Import OpenAPI", "导入 OpenAPI", "OpenAPI を取り込む", "OpenAPI 가져오기"],
   import_asyncapi: ["Import AsyncAPI", "导入 AsyncAPI", "AsyncAPI を取り込む", "AsyncAPI 가져오기"],
+  describe_bindings: ["Read a screen's bindings", "读取屏幕的数据绑定", "画面のバインドを読む", "화면 바인딩 읽기"],
+  add_data_source: ["Load data on a screen", "给屏幕加数据源", "画面にデータを読み込む", "화면에 데이터 불러오기"],
+  update_data_source: ["Change a data source", "修改数据源", "データソースを変更", "데이터 소스 변경"],
+  remove_data_source: ["Remove a data source", "删除数据源", "データソースを削除", "데이터 소스 삭제"],
+  set_screen_params: ["Set a screen's params", "设置屏幕参数", "画面のパラメーターを設定", "화면 매개변수 설정"],
+  set_screen_auth: ["Set a screen's sign-in", "设置屏幕的登录要求", "画面のログインを設定", "화면 로그인 설정"],
+  bind_expression: ["Bind to an expression", "绑定表达式", "式に結び付ける", "식에 연결"],
+  set_region: ["Show the states of data", "设置数据状态区域", "データの状態を表示", "데이터 상태 표시"],
+  remove_region: ["Stop showing states", "取消数据状态区域", "状態の表示をやめる", "상태 표시 해제"],
+  set_form: ["Set a form", "设置表单", "フォームを設定", "양식 설정"],
+  make_form: ["Make a form", "生成表单", "フォームを作る", "양식 만들기"],
+  bind_field: ["Bind a form field", "绑定表单字段", "フォームのフィールドに結び付ける", "양식 필드 연결"],
+  wire_screen: ["Wire a screen to the API", "把屏幕连上接口", "画面を API につなぐ", "화면을 API에 연결"],
 };
 
 const AT: Record<Lang, number> = { en: 0, zh: 1, ja: 2, ko: 3 };

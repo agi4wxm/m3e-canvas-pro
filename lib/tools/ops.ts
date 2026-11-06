@@ -14,9 +14,11 @@ import { tool, ToolFailure, type Tool, type ToolEnv, type ToolGroup } from "./ty
 const STYLE_OPS = new Set(["set_theme", "apply_style", "set_custom_styles", "add_custom_style", "set_style_rules", "set_style_layout", "set_palette", "set_custom_palette", "set_dynamic_color"]);
 /** the operations on the API section (lib/core/ops/api.ts): data too, the contract the data comes through */
 export const API_OPS = new Set(["add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi"]);
-const DATA_OPS = new Set(["add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS]);
+/** the operations that bind screens to the contract (lib/core/ops/bindings.ts) */
+export const BINDING_OPS = new Set(["add_data_source", "update_data_source", "remove_data_source", "set_screen_params", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
+const DATA_OPS = new Set([...BINDING_OPS, "add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS]);
 /** what takes away something the author made: a client asks the author first */
-export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel"]);
+export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel", "remove_data_source", "remove_region"]);
 
 const groupOf = (name: string): ToolGroup => (STYLE_OPS.has(name) ? "style" : DATA_OPS.has(name) ? "data" : "edit");
 
@@ -35,7 +37,7 @@ const MORE: Record<string, string> = {
   set_style_rules: "Off frees colors, shapes and every look field; on removes what the style decides. Only when the author asks for it.",
   clear: "Removes everything the canvas holds. Only when the author asks for a fresh start.",
   remove_nodes: "A container's children are not removed with it: remove them too when the whole block should go.",
-  set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here.',
+  set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here. The API: {do: "call", operationId, args: {param or body field: expression}, then: {to, params, effects}, catch: {...}} (then reads response, catch reads error), {do: "refresh", source}, {do: "loadMore", source}, {do: "submit"} (the form the part is in), {do: "signOut"}; params: {name: expression} gives the screen it opens its params; when: {expr} tests an expression; setVar {expr} sets a variable from one.',
   wrap_in_auto_layout: "Returns {itemId}: the new outer box.",
   make_component: "Its parts then live in the component's definition, no longer on the screen: change them with edit_component (every instance follows); an instance's own words with set_instance_props or set_overrides. Returns {id, instanceId, itemId}.",
   edit_component:
@@ -62,6 +64,13 @@ const MORE: Record<string, string> = {
   add_channel: "A chat: a WebSocket channel whose operations are the server sending new messages (send) and receiving the user's (receive).",
   import_openapi: "Give the whole file's text. Returns {models, endpoints, converted, kept, dropped, problems}.",
   import_asyncapi: "Give the whole file's text. Returns {models, channels, converted, kept, dropped, problems}.",
+  wire_screen:
+    "The quickest way to a working screen: one call per screen and endpoint (a list screen with detail: the detail screen's id, which then gets the row's id as its params). Afterwards restyle what it made like any parts. Returns {source, region, template, states}. describe_bindings shows the result.",
+  add_data_source: "Returns {name, addedParams}. The screen then reads data.<name>.value (the body), .items (a list, every page so far), .status, .loading, .error, .hasMore, .empty.",
+  bind_expression:
+    'Paths: data.<source>.value.<field>, data.<source>.items, item.<field> (inside a repeat over data), index, params.<name>, vars.<name>, form.<field>, form.errors.<field>, form.error, form.submitting, auth.signedIn, auth.user.<field>. Operators: + - * / % == != < <= > >= && || ! ?? ?:. Helpers: date(v, "date|time|datetime|short|long|relative"), relative(v), number(v, digits), currency(v, code), percent(v), fileSize(v), plural(n, "# item", "# items"), truncate(s, n), upper, lower, len, join, pluck, sum, first, last, contains, isEmpty, round, min, max. describe_bindings {screen, expr, at} checks one first.',
+  set_region: "A region is usually a repeat's container (a list) or the column showing one item. Returns {states}: the states it has designs for; each design is an ordinary box on the region's pane for that state, edited like any parts (set_region {show} brings it on the canvas).",
+  make_form: "Returns {formId, fields: [{field, itemId}], submitId}. The login endpoint's form (set_auth login) starts the session; then {to: screen} goes on.",
 };
 
 /** what an operation reports that a model has no use for */
