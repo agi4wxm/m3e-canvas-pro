@@ -5,6 +5,9 @@ import { buildPrompt } from "./prompt";
 import { cleanBehavior, isProject } from "./project";
 import { lookForModel } from "./look";
 import { Lang } from "./i18n";
+import { AiHttpError, isLocalUrl as isLocal, isSecureUrl, readError } from "./llm/errors";
+
+export { AiHttpError, isSecureUrl, readError };
 
 /* Optional AI helpers. The browser talks to the model provider directly with the
  * author's own key; there is no server in between. Every action has a fixed
@@ -73,38 +76,10 @@ export function saveAiSettings(s: AiSettings) {
   } catch {}
 }
 
-const isLocal = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(u.trim());
-
 /** a hosted endpoint needs a key; a server on this machine may run without one */
 export const hasKey = (s: AiSettings) => s.key.trim().length > 0 || isLocal(s.baseUrl);
 
-/** the key must not travel over plain http, except to this machine */
-export const isSecureUrl = (u: string) => /^https:\/\//i.test(u.trim()) || isLocal(u);
-
 const trimSlash = (u: string) => u.trim().replace(/\/+$/, "");
-
-/** a provider's answer that was not a success: its status says what the author is told, its message keeps the provider's words */
-export class AiHttpError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-/* The body is read once, as text: an answer that is not JSON (a gateway's plain words) still has something to say. */
-export async function readError(res: Response): Promise<AiHttpError> {
-  let detail = "";
-  try {
-    detail = await res.text();
-  } catch {}
-  try {
-    const j = JSON.parse(detail);
-    detail = String(j?.error?.message ?? j?.message ?? detail);
-  } catch {}
-  return new AiHttpError(res.status, `${res.status}${res.statusText ? ` ${res.statusText}` : ""}${detail ? `: ${detail.slice(0, 300)}` : ""}`);
-}
 
 /** one round trip: a system prompt and a user message in, the model's text out */
 export async function complete(s: AiSettings, system: string, user: string, signal?: AbortSignal, maxTokens = 4096): Promise<string> {

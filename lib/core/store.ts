@@ -274,13 +274,15 @@ export class DocStore {
   }
 
   /** Takes a step now, from the state as it is: what a gesture does before it starts changing things (a drag, a
-   *  size handle). With `coalesce`, only when the last step was not the same key a moment ago. Returns whether a
-   *  step was taken. */
-  checkpoint(label: string, o: { whole?: boolean; coalesce?: string; origin?: Origin } = {}): boolean {
+   *  size handle). With `coalesce`, only when the last step was not the same key a moment ago. With `from`, the step
+   *  keeps a state the store was in a moment ago: what an agent's turn of many changes, each run with no step of its
+   *  own, leaves behind once its first change has landed. Returns whether a step was taken. */
+  checkpoint(label: string, o: { whole?: boolean; coalesce?: string; origin?: Origin; from?: CoreState } = {}): boolean {
     const origin = o.origin ?? "user";
     const before = this.past.length;
-    if (o.coalesce !== undefined) this.coalesced(this.state, o.coalesce, label, origin);
-    else this.step(this.state, !!o.whole, label, origin);
+    const from = o.from ?? this.state;
+    if (o.coalesce !== undefined) this.coalesced(from, o.coalesce, label, origin);
+    else this.step(from, !!o.whole, label, origin);
     this.emit(this.state, "history", origin, label);
     return this.past.length !== before || !o.coalesce;
   }
