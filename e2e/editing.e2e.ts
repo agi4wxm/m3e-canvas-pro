@@ -1,5 +1,6 @@
 /* Editing a document: a part carried in, its props edited, undone and redone, the project downloaded; what is saved
- * coming back on a reload; a saved file opened over the canvas and taken back with one undo. */
+ * coming back on a reload; a saved file opened over the canvas (rather than as a project of its own) and taken back
+ * with one undo. */
 
 import { join } from "node:path";
 import { bySlug, center, check, clickAdd, dragAdd, equal, groupOf, itemsOf, nodeBox, redo, redoButton, reload, savedDoc, screenBox, select, settle, undo, undoButton, type E2ETest } from "./lib";
@@ -107,7 +108,7 @@ export const tests: E2ETest[] = [
       await clickAdd(page, "Switch");
       const saved = await savedDoc(page);
       await page.locator('button[title="Project"]').first().click();
-      const [download] = await Promise.all([page.waitForEvent("download"), page.locator('button[title="Save project"]').first().click()]);
+      const [download] = await Promise.all([page.waitForEvent("download"), page.locator('[role="menuitem"][title="Download project file"]').first().click()]);
       const file = join(out, "opened-project.json");
       await download.saveAs(file);
       await page.keyboard.press("Escape");
@@ -116,11 +117,15 @@ export const tests: E2ETest[] = [
       const edited = await savedDoc(page);
       equal(itemsOf(edited).length, itemsOf(saved).length + 2, "two more parts since the save");
 
+      /* the file input, as in a browser that cannot pick a file with a handle */
+      await page.evaluate(() => {
+        delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker;
+      });
       await page.locator('button[title="Project"]').first().click();
-      const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.locator('button[title="Open project"]').first().click()]);
+      const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.locator('[role="menuitem"][title="Open file…"]').first().click()]);
       await chooser.setFiles(file);
       await settle(page, 500);
-      await page.locator('[role="dialog"] button, [role="alertdialog"] button').filter({ hasText: /Open|Replace|OK|Confirm/ }).last().click();
+      await page.locator("[data-open-replace]").click();
       await settle(page, 1500);
       equal(await savedDoc(page), saved, "the file's document on the canvas");
       await undo(page);

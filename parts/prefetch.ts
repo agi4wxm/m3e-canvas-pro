@@ -55,21 +55,26 @@ export function modulesOfDoc(doc: unknown, live = false): string[] {
   return unique(items.map((it) => modulesOfItem(it, live)));
 }
 
-/** where the editor keeps the document it has open (lib/core/persist.ts `DOC_KEY`) */
+/** where an earlier version kept the document it had open (lib/core/persist.ts `DOC_KEY`) */
 const EDITOR_DOC_KEY = "m3e:doc";
 
 /** The parts a new document starts with (src/editor/seed.ts `seed` and `mobileSeed`). Only a head start: whatever the starter
  *  holds that this misses is fetched when it is drawn, and the boot screen waits for it. */
 export const STARTER_PARTS = ["app-bar", "button-group", "item", "fab", "navigation-bar", "button"];
 
-/** The modules of the document the editor is about to open: the one it kept in this browser, else the starter. They are
- *  fetched beside the editor's own code, so its first frame draws the real parts; what only its preview draws waits for
- *  idle time. */
-export function loadOpeningModules(): Promise<void> {
+/** The modules of the document the editor is about to open: `opening` (the project the tab opens,
+ *  lib/projects/opening.ts), or without it the one an earlier version kept in localStorage; the starter when there is
+ *  none. They are fetched beside the editor's own code, so its first frame draws the real parts; what only its preview
+ *  draws waits for idle time. */
+export async function loadOpeningModules(opening?: Promise<unknown>): Promise<void> {
   let keys: readonly string[] = [];
   try {
-    const kept = localStorage.getItem(EDITOR_DOC_KEY);
-    const doc: unknown = kept ? JSON.parse(kept) : null;
+    let doc: unknown;
+    if (opening) doc = await opening;
+    else {
+      const kept = localStorage.getItem(EDITOR_DOC_KEY);
+      doc = kept ? JSON.parse(kept) : null;
+    }
     keys = doc ? modulesOfDoc(doc) : unique(STARTER_PARTS.map(modulesOfPart));
     if (doc) whenStarted(() => prefetchModules(modulesOfDoc(doc, true)));
   } catch {

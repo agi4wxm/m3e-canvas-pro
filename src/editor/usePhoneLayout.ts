@@ -25,9 +25,11 @@ export type PhoneLayoutInputs = {
   ensureFrame: () => void;
   fitRef: RefObject<() => void>;
   setViewReady: (ready: boolean) => void;
+  /** set to the layout's own run, for a document that arrives after it first ran (a project read late) */
+  againRef?: { current: (() => void) | null };
 };
 
-export function usePhoneLayout({ store, setIsMobile, mobileRef, setMode, setSheet, hadDocRef, initialLangRef, setGroups, setFrames, frameRef, setFrame, ensureFrame, fitRef, setViewReady }: PhoneLayoutInputs) {
+export function usePhoneLayout({ store, setIsMobile, mobileRef, setMode, setSheet, hadDocRef, initialLangRef, setGroups, setFrames, frameRef, setFrame, ensureFrame, fitRef, setViewReady, againRef }: PhoneLayoutInputs) {
   /* everyone works on phone screens; a phone gets one fixed screen and the select tool only */
   useEffect(() => {
     const mq = window.matchMedia(
@@ -60,7 +62,11 @@ export function usePhoneLayout({ store, setIsMobile, mobileRef, setMode, setShee
       });
     };
     apply();
+    if (againRef) againRef.current = apply;
     mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
+    return () => {
+      if (againRef?.current === apply) againRef.current = null;
+      mq.removeEventListener("change", apply);
+    };
   }, []);
 }

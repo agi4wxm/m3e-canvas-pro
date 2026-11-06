@@ -1,8 +1,9 @@
 /* Where the editor keeps the document it is editing between visits, behind one small interface so that another place
- * (several projects in IndexedDB, a .json file kept up to date with the File System Access API) can be put in without
- * touching the editor. The default is what the editor has always done: the document in localStorage under `m3e:doc`,
- * its large pictures in IndexedDB (lib/assets.ts), the design a draft or a link replaced under `m3e:doc:before`, and
- * one tab editing at a time by a Web Lock. */
+ * can be put in without touching the editor. The editor's own is several projects in IndexedDB, each of which may be
+ * kept in sync with a file (lib/projects/persist.ts). `localPersist` here is what earlier versions did, and what the
+ * editor falls back to where IndexedDB is blocked: the document in localStorage under `m3e:doc`, its large pictures in
+ * IndexedDB (lib/assets.ts), the design a draft or a link replaced under `m3e:doc:before`, and one tab editing at a
+ * time by a Web Lock. */
 
 import { assetRefsIn, getAssets, pruneAssets, putAssets, restoreAssets, stripAssets } from "../assets";
 import { isProject } from "../project";

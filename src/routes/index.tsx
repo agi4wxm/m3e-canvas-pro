@@ -6,6 +6,10 @@ import { isLang, setGlobalLang, type Lang } from "@/lib/i18n"
 /** what fetches the parts' drawings (parts/prefetch.ts), once it has come */
 let parts: typeof import("@/parts/prefetch") | undefined
 
+/** whether the page is the editor's (this route), not another route the app started on */
+const onEditorPage = () =>
+  window.location.pathname.replace(/\/+$/, "") === (import.meta.env.VITE_BASE_PATH ?? "").replace(/\/+$/, "")
+
 /* the components the opening document's parts are drawn with come beside the
    editor's own code, so its first frame draws the real parts, not stand-ins:
    a guess at once (parts/opening.ts), then exactly, once the part definitions
@@ -14,10 +18,12 @@ let editorLoad: Promise<typeof import("../Editor")> | undefined
 const loadEditor = () =>
   (editorLoad ??= Promise.all([
     import("../Editor"),
-    import("@/parts/prefetch")
-      .then((m) => {
+    /* the project the tab opens is read meanwhile (lib/projects/opening.ts), and the drawings its parts need fetched;
+       only on the editor's own page: this runs wherever the app starts, and the gallery opens no project */
+    Promise.all([import("@/parts/prefetch"), onEditorPage() ? import("@/lib/projects/opening") : null])
+      .then(([m, projects]) => {
         parts = m
-        return m.loadOpeningModules()
+        return m.loadOpeningModules(projects?.openingDoc())
       })
       .catch(() => {}),
     import("@/parts/opening")

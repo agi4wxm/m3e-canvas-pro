@@ -279,25 +279,15 @@ export function openProject(value: unknown): Doc | null {
   return isProject(doc) ? cleanBehavior(doc) : null;
 }
 
-/** the file name a project is saved under: m3e-canvas, followed by the app's name when it has one */
-export const projectFileName = (doc: Doc) => {
-  const name = doc.title
+/** the file name a project is saved under: m3e-canvas, followed by its name (the project's, else the app's) when it has one */
+export const projectFileName = (doc: Pick<Doc, "title">, projectName?: string) => {
+  const name = (projectName?.trim() || doc.title)
     .trim()
     .replace(/[\\/:*?"<>|]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   return name ? `m3e-canvas ${name}.json` : "m3e-canvas.json";
 };
-
-/** hands the document to the browser as a JSON download */
-export function saveProject(doc: Doc) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(projectFile(doc), null, 2)], { type: "application/json" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = projectFileName(doc);
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
 
 /** reads a chosen file back into a document, or null when it is not one */
 export async function readProject(file: File): Promise<Doc | null> {
