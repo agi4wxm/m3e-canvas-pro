@@ -50,6 +50,7 @@ import { actionSlotsOf, darkVarOf } from "@/lib/tokens";
 import { screenBackground } from "@/lib/styles";
 import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
+import { FOOT_GAP, footOf } from "@/lib/foot";
 import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, scopeOf, screenVars, startState, writeField } from "@/lib/interact";
 import type { Effect, Group as DocGroup } from "@/lib/tokens";
 import { groupBounds } from "@/lib/tokens";
@@ -311,16 +312,12 @@ function Screen({
   /* A screen that loads data is as long as what the data makes of it: the list grows past the device and its body
    * scrolls, while what stands at its head and foot stays put. Any other screen is as long as it was drawn. */
   const loads = !!frame.data?.length;
-  const fixedPin = loads ? new Map(groups.flatMap((g) => (pinOf(g, frame, widths) ? [[g.id, pinOf(g, frame, widths)!] as const] : []))) : null;
-  const length = fixedPin
-    ? Math.max(
-        authored,
-        Math.ceil(
-          Math.max(0, ...groups.filter((g) => !fixedPin.has(g.id)).map((g) => groupBounds(g, widths).b - frame.y)) +
-            groups.filter((g) => fixedPin.get(g.id) === "foot").reduce((h, g) => Math.max(h, groupBounds(g, widths).b - groupBounds(g, widths).t), 0) +
-            24,
-        ),
-      )
+  /* What stands at its foot stays on the glass: its bars, and the buttons standing loose there (lib/foot.ts). Its body
+     ends far enough past its content for the last row to scroll clear of them. */
+  const foot = loads ? footOf(frame, groups, widths) : null;
+  const fixedPin = foot ? new Map([...groups.flatMap((g) => (pinOf(g, frame, widths) ? [[g.id, pinOf(g, frame, widths)!] as const] : [])), ...[...foot.floats].map((id) => [id, "foot"] as const)]) : null;
+  const length = fixedPin && foot
+    ? Math.max(authored, Math.ceil(Math.max(0, ...groups.filter((g) => !fixedPin.has(g.id)).map((g) => groupBounds(g, widths).b - frame.y)) + (foot.room || FOOT_GAP)))
     : authored;
   const scrolls = length > viewH;
   const pins = new Map<string, number>();

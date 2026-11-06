@@ -38,6 +38,7 @@ import { cleanLook } from "../../look";
 import { kitLookOf } from "../../kits";
 import { withDocStyles } from "../../styles";
 import { pinOf } from "../../tidy";
+import { footOf } from "../../foot";
 import { isOverlayPart } from "../../interact";
 import { endpointOf } from "../../bindings/contract";
 import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
@@ -334,6 +335,8 @@ class ScreenPrinter {
   repeats = 0;
   uses$ = false;
   usesCalls = false;
+  /** how far the page scrolls past its content, clear of what floats over the screen's foot (lib/foot.ts) */
+  room = 0;
 
   constructor(
     readonly doc: Doc,
@@ -790,6 +793,9 @@ class ScreenPrinter {
     const runs = [...this.all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { h } = frameSizeOf(this.frame);
     const out: J[] = [];
+    /* a screen that loads data keeps what stands at its foot on the glass, its page ending clear of it */
+    const foot = this.frame.data?.length ? footOf(this.frame, this.all, this.widths) : undefined;
+    this.room = foot?.room ?? 0;
     for (const run of runs) {
       if (run.inFlow && hosts.has(run.inFlow) && !run.locked) continue;
       if (ownerIdOf(run.id) && this.all.some((g) => g.id === ownerIdOf(run.id) && g.expandedFrom !== undefined)) continue;
@@ -817,6 +823,14 @@ class ScreenPrinter {
       if (run.items.length === 1 && first && fullWidth(first)) {
         this.kit.add("At");
         out.push(el("At", [["y", expr(top)], ["span", "true"]], [this.flow(run, at)]));
+        continue;
+      }
+      /* a button (or a FAB) at the foot of a screen of data floats there, as far above the foot as the design has it */
+      const above = foot?.above.get(run.id);
+      if (above !== undefined) {
+        const pos = layoutOf(run, this.widths)[0] ?? { x: run.x, y: run.y };
+        this.kit.add("Pin");
+        out.push(el("Pin", [["edge", str("floatingBottom")], ["x", expr(Math.round(pos.x - this.frame.x))], ["bottom", expr(above)]], [this.flow(run, at)]));
         continue;
       }
       out.push(this.at(run, at, { x: this.frame.x, y: this.frame.y }));
@@ -948,7 +962,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
       top.push(`usePageData([${paged.map((x) => `{ source: ${x.name}${x.pull ? ", pull: true" : ""}${x.more ? ", more: true" : ""} }`).join(", ")}]);`);
     }
     if (sources.length || p.forms.size) top.push(`s.register({ ${sources.length ? `sources: { ${sources.map((x) => (x.name === identOf(x.source) && x.name === x.source ? x.name : `${str(x.source)}: ${x.name}`)).join(", ")} }` : ""}${sources.length && p.forms.size ? ", " : ""}${p.forms.size ? `forms: { ${[...p.forms].map(([id, f]) => `${keyName(p.names.part(id))}: ${f.handle}`).join(", ")} }` : ""} });`);
-    const screen = el("Screen", [["screen", str(key)], ...(bg ? ([["bg", str(bg)]] as [string, string][]) : []), ["width", expr(w)], ["height", expr(h)], ...(length > h ? ([["length", expr(length)]] as [string, string][]) : [])], [...body, { code: "s.layer" }]);
+    const screen = el("Screen", [["screen", str(key)], ...(bg ? ([["bg", str(bg)]] as [string, string][]) : []), ["width", expr(w)], ["height", expr(h)], ...(length > h ? ([["length", expr(length)]] as [string, string][]) : []), ...(p.room > 0 ? ([["room", expr(p.room)]] as [string, string][]) : [])], [...body, { code: "s.layer" }]);
     const component = screens.names.get(frame.id)!;
     const kitTypes = ["Action", "ActionBody", "Condition", "PickedFile"].filter((t) => p.kit.has(t));
     const kitValues = [...p.kit].filter((k) => !kitTypes.includes(k)).sort();

@@ -218,6 +218,16 @@ export async function miniappOnMocks(browser: MiniBrowser, base: string, out: st
   /* the page scrolls (Taro's H5 page, as a mini-program's page does), never a box inside it */
   await page.evaluate(`(() => { const pages = document.querySelectorAll("${ON}"); const el = pages[pages.length - 1]; el.scrollTop = el.scrollHeight })()`);
   ok(await until(page, async () => (await rows(page).count()) > first), `miniapp mocks: the page reaching its end loads the next page (onReachBottom: ${first} rows, then more)`);
+  /* at its end the last row scrolls clear of the buttons that stay at the screen's foot (lib/foot.ts) */
+  for (let i = 0; i < 4; i++) {
+    await page.evaluate(`(() => { const pages = document.querySelectorAll("${ON}"); const el = pages[pages.length - 1]; el.scrollTop = el.scrollHeight })()`);
+    await page.waitForTimeout(500);
+  }
+  const end = await page.evaluate<{ last: number; button: number }>(
+    `(() => { const pages = document.querySelectorAll("${ON}"); const pg = pages[pages.length - 1]; const rows = [...pg.querySelectorAll('[data-screen="products"] [data-part="row"][role="button"]')]; const add = [...pg.querySelectorAll('[role="button"]')].find((b) => b.textContent.trim() === "Add product"); return { last: Math.max(...rows.map((r) => r.getBoundingClientRect().bottom)), button: add ? add.getBoundingClientRect().top : -1 } })()`,
+  );
+  ok(end.button > 0 && end.last <= end.button, `miniapp mocks: the buttons stay at the foot, and the end of the list scrolls clear of them (last row ends at ${Math.round(end.last)}, the buttons start at ${Math.round(end.button)})`);
+  await shot("list-end");
   await page.evaluate(`(() => { const pages = document.querySelectorAll("${ON}"); pages[pages.length - 1].scrollTop = 0 })()`);
 
   const name = (await rows(page).first().innerText()).split("\n")[0].trim();

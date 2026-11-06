@@ -40,6 +40,7 @@ import { cleanLook } from "../../look";
 import { kitLookOf } from "../../kits";
 import { withDocStyles } from "../../styles";
 import { pinOf } from "../../tidy";
+import { footOf } from "../../foot";
 import { templateOf } from "../../collections";
 import { INPUT_PROP } from "../../interact";
 import { endpointOf, formFields } from "../../bindings/contract";
@@ -349,6 +350,8 @@ class ScreenPrinter {
   readonly runtime: boolean;
   /** the bottom bars' height: a list that scrolls stops above them */
   private foot = 0;
+  /** how far a list that scrolls runs past its last row, clear of what floats over the screen's foot (lib/foot.ts) */
+  private room = 0;
   /** which form each group is in */
   private owner: Map<string, string>;
 
@@ -871,6 +874,7 @@ class ScreenPrinter {
       if (scroll && gap) props.push(["gap", expr(gap)]);
       if (src && scroll && src.def.paging === "scroll") props.push(["onEndReached", `() => void ${src.v}.loadMore()`], ["loadingMore", `${src.v}.loadingMore`]);
       if (src && scroll && src.def.pullToRefresh) props.push(["onRefresh", `() => void ${src.v}.refresh()`], ["refreshing", `${src.v}.loading && ${src.v}.ready`]);
+      if (scroll && this.room > 0) props.push(["room", expr(this.room)]);
       if (src && !scroll && (src.def.paging === "scroll" || src.def.pullToRefresh)) this.warn("binding", "paging by scrolling and pull to refresh work where the list has the screen's room", run.items[0]?.id);
       this.kit.add("Repeat");
       this.bind.add("keyOf");
@@ -958,6 +962,8 @@ class ScreenPrinter {
     const runs = [...this.all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { h } = frameSizeOf(this.frame);
     const pins = new Map<string, string>();
+    /* a screen that loads data keeps what stands at its foot on the glass, its list ending clear of it */
+    const foot = this.runtime && this.frame.data?.length ? footOf(this.frame, this.all, this.widths) : undefined;
     for (const run of runs) {
       if (run.inFlow && hosts.has(run.inFlow) && !run.locked) continue;
       const first = run.items[0];
@@ -972,6 +978,7 @@ class ScreenPrinter {
         }
       }
     }
+    if (foot) this.room = Math.max(0, foot.room - this.foot);
     const out: J[] = [];
     for (const run of runs) {
       if (run.inFlow && hosts.has(run.inFlow) && !run.locked) continue;
@@ -987,6 +994,14 @@ class ScreenPrinter {
       if (run.items.length === 1 && first && fullWidth(first)) {
         this.kit.add("At");
         out.push(el("At", [["y", expr(Math.round(run.y - this.frame.y))], ["span", "true"]], [this.flow(run)]));
+        continue;
+      }
+      /* a button (or a FAB) at the foot of a screen of data floats there, as far above the foot as the design has it */
+      const above = foot?.above.get(run.id);
+      if (above !== undefined) {
+        const at = layoutOf(run, this.widths)[0] ?? { x: run.x, y: run.y };
+        this.kit.add("Pin");
+        out.push(el("Pin", [["edge", str("floatingBottom")], ["x", expr(Math.round(at.x - this.frame.x))], ["bottom", expr(above)]], [this.flow(run)]));
         continue;
       }
       out.push(this.at(run, { x: this.frame.x, y: this.frame.y }));

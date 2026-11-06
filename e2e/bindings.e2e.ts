@@ -310,6 +310,26 @@ export const tests: E2ETest[] = [
       };
       await waitUntil(page, (t) => t.includes("ago"), "the mocks' products");
       await shot("list");
+      /* the buttons at the foot stay on the glass, and the end of the list scrolls clear of them (lib/foot.ts) */
+      const toEnd = (top?: boolean) =>
+        page.evaluate((up) => {
+          const body = document.querySelector("[data-preview-active] [data-scroll-body]");
+          if (body) body.scrollTop = up ? 0 : body.scrollHeight;
+        }, top);
+      for (let i = 0; i < 6; i++) {
+        await toEnd();
+        await settle(page, 600);
+      }
+      const end = await page.evaluate(() => {
+        const inBody = [...document.querySelectorAll("[data-preview-active] [data-scroll-body] [data-live-part]")].map((el) => el.getBoundingClientRect().bottom);
+        const add = [...document.querySelectorAll("[data-preview-active] [data-live-part]")].find((el) => el.textContent?.trim() === "Add product");
+        return { last: Math.max(...inBody), button: add?.getBoundingClientRect().top, floats: !add?.closest("[data-scroll-body]") };
+      });
+      check(end.floats, "the buttons at the foot are not part of the scrolling body");
+      check(end.button !== undefined && end.last <= end.button, `the last row ends above them (${JSON.stringify(end)})`);
+      await shot("list-end");
+      await toEnd(true);
+      await settle(page, 400);
       await scenario(page, "new-user");
       await waitForWords(page, "Nothing here yet");
       await shot("empty");

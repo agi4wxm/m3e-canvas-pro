@@ -45,6 +45,7 @@ import { templateOf } from "./collections";
 import { partBySlug } from "../parts/registry";
 import { fullWidth, roleOf } from "../parts/role";
 import { pinOf } from "./tidy";
+import { footOf } from "./foot";
 
 const REGISTRY_URL = "https://shadcn-m3e.crystaworld.dev/r/{name}.json";
 
@@ -282,10 +283,12 @@ function flowedInstanceOf(id: string, all: Map<string, Group>, hosts: Set<string
   return undefined;
 }
 
-/** the pieces of a screen, each run placed where the sketch has it */
-function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, number>, all: Group[], pinEdges = true, foldOnScroll = false, scope?: string, inside: Set<string> = new Set()): string[] {
+/** The pieces of a screen, each run placed where the sketch has it. `room`: the body scrolls this far past each piece, so
+ *  its end clears what floats over the screen's foot (lib/foot.ts): an empty, untouchable strip under it. */
+function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, number>, all: Group[], pinEdges = true, foldOnScroll = false, scope?: string, inside: Set<string> = new Set(), room = 0): string[] {
   const { h } = frameSizeOf(frame);
   const out: string[] = [];
+  const end = room > 0 ? `<span aria-hidden className="pointer-events-none absolute top-full left-0 w-px" style={{ height: ${room} }} />` : "";
   const hosts = new Set(all.filter((r) => flowOf(r)).map((r) => r.id));
   const byId = new Map(all.map((g) => [g.id, g]));
   for (const run of runs) {
@@ -305,10 +308,10 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
     if (hosts.has(run.id)) {
       /* a box pinned as a bar (a kit's tab bar) spans the screen at its edge, and lays out what it holds across it */
       if (run.items.length === 1 && fullWidth(first)) {
-        out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(Math.round(run.y - frame.y))}${float}">${flowJsx(run, c, all, undefined, undefined, undefined, undefined, ["width"])}</div>`));
+        out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(Math.round(run.y - frame.y))}${float}">${flowJsx(run, c, all, undefined, undefined, undefined, undefined, ["width"])}${end}</div>`));
         continue;
       }
-      out.push(gated(gates, `<div className=${str(`absolute left-[${Math.round(run.x - frame.x)}px] top-[${Math.round(run.y - frame.y)}px]`)}>${flowJsx(run, c, all)}</div>`));
+      out.push(gated(gates, `<div className=${str(`absolute left-[${Math.round(run.x - frame.x)}px] top-[${Math.round(run.y - frame.y)}px]`)}>${flowJsx(run, c, all)}${end}</div>`));
       continue;
     }
     const at = layoutOf(run, widths)[0];
@@ -322,12 +325,12 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
     });
     /* a part that spans the screen keeps to its edges; the bars stay pinned to the top or the bottom */
     if (run.items.length === 1 && fullWidth(first)) {
-      out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(top)}${float}">${body[0]}</div>`));
+      out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(top)}${float}">${body[0]}${end}</div>`));
       continue;
     }
     const pos = `absolute left-[${left}px] top-[${top}px]${float}`;
-    if (body.length === 1) out.push(gated(gates, `<div className=${str(pos)}>${body[0]}</div>`));
-    else out.push(gated(gates, `<div className=${str(`${pos} flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]`)}>${body.join("")}</div>`));
+    if (body.length === 1) out.push(gated(gates, `<div className=${str(pos)}>${body[0]}${end}</div>`));
+    else out.push(gated(gates, `<div className=${str(`${pos} flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]`)}>${body.join("")}${end}</div>`));
   }
   return out;
 }
@@ -557,10 +560,13 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
     const folds = scrolls && runs.some((run) => run.items.some((item) => item.collapseOnScroll && canCollapseFab(item)));
     let body: string[];
     if (scrolls) {
-      const pinned = runs.filter((run) => pinOf(run, frame, widths));
-      const flowing = runs.filter((run) => !pinOf(run, frame, widths));
-      const fixed = pinned.map((run) => ({ ...run, y: run.y - (pinOf(run, frame, widths) === "foot" ? length - h : 0), items: run.items.map((item) => roleOf(item) === "rail" ? { ...item, props: { ...item.props, height: h } } : item) }));
-      const content = screenBody(frame, flowing, c, widths, all, false, folds);
+      /* a screen that loads data keeps its bars and the buttons at its foot on the glass, its body ending clear of them */
+      const foot = loads ? footOf(frame, runs, widths) : undefined;
+      const atFoot = (run: Group) => pinOf(run, frame, widths) === "foot" || !!foot?.floats.has(run.id);
+      const pinned = runs.filter((run) => pinOf(run, frame, widths) || foot?.floats.has(run.id));
+      const flowing = runs.filter((run) => !pinOf(run, frame, widths) && !foot?.floats.has(run.id));
+      const fixed = pinned.map((run) => ({ ...run, y: run.y - (atFoot(run) ? length - h : 0), items: run.items.map((item) => roleOf(item) === "rail" ? { ...item, props: { ...item.props, height: h } } : item) }));
+      const content = screenBody(frame, flowing, c, widths, all, false, folds, undefined, undefined, foot?.room ?? 0);
       const overlays = screenBody(frame, fixed, c, widths, all, true, folds);
       const scrollHandler = folds ? ' onScroll={(event) => { const top = event.currentTarget.scrollTop; if (top !== lastScrollTop.current) setFabFolded(top > lastScrollTop.current); lastScrollTop.current = top }}' : "";
       /* the screen's name is the author's words: an expression, since a JSX attribute's quotes take no escapes */

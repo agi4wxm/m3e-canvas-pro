@@ -60,14 +60,15 @@ export function At({ x = 0, y = 0, span, z, bottom, children }: { x?: number; y?
   return <View style={style}>{span ? <FillWidth>{children}</FillWidth> : children}</View>;
 }
 
-/** a bar pinned to an edge of the screen, over what scrolls, inside the device's own bars */
-export function Pin({ edge, x, children }: { edge: "top" | "bottom" | "floatingBottom"; x?: number; children: ReactNode }) {
+/** a bar pinned to an edge of the screen, over what scrolls, inside the device's own bars; floating, it stands `bottom`
+ *  above the screen's foot (16 unless the design says), over the device's own bar at the bottom */
+export function Pin({ edge, x, bottom, children }: { edge: "top" | "bottom" | "floatingBottom"; x?: number; bottom?: number; children: ReactNode }) {
   const insets = useContext(SafeAreaInsetsContext);
   const floating = edge === "floatingBottom";
   const style: ViewStyle =
     edge === "top"
       ? { position: "absolute", left: 0, right: 0, top: 0, paddingTop: insets?.top ?? 0 }
-      : { position: "absolute", left: floating && x !== undefined ? x : 0, right: floating && x !== undefined ? undefined : 0, bottom: floating ? 16 + (insets?.bottom ?? 0) : 0, paddingBottom: floating ? 0 : (insets?.bottom ?? 0), alignItems: floating && x === undefined ? "center" : "stretch" };
+      : { position: "absolute", left: floating && x !== undefined ? x : 0, right: floating && x !== undefined ? undefined : 0, bottom: floating ? (bottom ?? 16) + (insets?.bottom ?? 0) : 0, paddingBottom: floating ? 0 : (insets?.bottom ?? 0), alignItems: floating && x === undefined ? "center" : "stretch" };
   return (
     <View style={[style, { zIndex: 10 }]} pointerEvents="box-none">
       {floating ? children : <FillWidth>{children}</FillWidth>}
