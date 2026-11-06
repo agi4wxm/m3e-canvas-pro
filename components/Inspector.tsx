@@ -1,9 +1,7 @@
 
 import {
-  ComponentDef,
   Frame,
   FramePreset,
-  Group,
   Item,
   Palette,
   TRANSITIONS,
@@ -268,7 +266,7 @@ export function Inspector({
   /** the document is held to its style's rules */
   strict?: boolean;
   /** the selection is one instance of a component, which has a panel of its own */
-  instance?: { group: Group; def: ComponentDef; components: ComponentDef[]; onEdit: () => void; onDetach: () => void; onOverrides: (overrides: Group["overrides"]) => void } | null;
+  instance?: Omit<React.ComponentProps<typeof InstanceInspector>, "palette" | "locked" | "inFlow" | "onToggleLock" | "onDuplicate" | "onDelete" | "onPlace" | "selectionKey"> | null;
 }) {
   if (item && instance) {
     return <InstanceInspector {...instance} palette={p} locked={!!locked} inFlow={!!inFlow} onToggleLock={onToggleLock} onDuplicate={onDuplicate} onDelete={onDelete} onPlace={onPlace} selectionKey={selectionKey ?? ""} />;

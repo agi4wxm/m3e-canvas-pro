@@ -179,7 +179,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 92 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
+共 100 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -196,7 +196,7 @@ npx playwright install chromium
 | `get_style` | 读取 | 是 |  | One style in full (the document's own when no key is given): colors (light and dark roles), faces, shape, icon family, control recipes, how its screens are spaced and composed, an… |
 | `look_reference` | 读取 | 是 |  | How to write a part's `look` (its effects: fills, strokes, shadows, glass, text effects, textures…), the look presets with the look each one writes, and the color roles fill, text… |
 | `list_icons` | 读取 | 是 |  | Material Symbols names (snake_case) every icon family draws offline. |
-| `list_components` | 读取 | 是 |  | The document's reusable components (id, name, size, the parts in their definition, how many instances there are). |
+| `list_components` | 读取 | 是 |  | The document's reusable components (id, name, size, the parts in their definition, how many instances there are), the set each variant belongs to with its values, and each compone… |
 | `list_data` | 读取 | 是 |  | The document's data collections (id, name, fields, rows) and prototype variables (id, name, type, starting value). |
 | `screenshot` | 读取 | 是 |  | A picture of a screen (or of one part, cut out of its screen) as the app draws it, to check your work by eye: alignment, spacing, overflow, contrast, anything missing. |
 | `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
@@ -261,6 +261,14 @@ npx playwright install chromium
 | `remove_component` | 搭建 |  | 是 | Removes a component; its instances, on the screens and in other components, become the plain parts they showed. |
 | `detach_instance` | 搭建 |  |  | Turns an instance back into plain parts of its own. |
 | `set_overrides` | 搭建 |  |  | Sets what an instance changes of its component: one override (key `itemId/propKey`, value; null resets it) or the whole map. |
+| `add_variant` | 搭建 |  |  | Adds a variant to a component: a copy of it (same parts, so overrides carry over) that differs by the values of variant properties such as state=pressed or size=m. |
+| `update_component_set` | 搭建 |  |  | Renames a set of variants, or gives it new variant properties: each {name, values}, with was (its old name) to rename one and renamed ({old value: new value}) to rename values. |
+| `set_variant_values` | 搭建 |  |  | Sets the values a variant has for its set's variant properties (a value the set does not have yet is added). |
+| `swap_instance` | 搭建 |  |  | Makes an instance an instance of another component (another variant of its set, or any component); what it overrides and its property values carry over where the parts and propert… |
+| `set_component_prop` | 搭建 |  |  | Adds (or, by id or name, replaces) a property of a component that its instances set: type "text" (targets: override keys itemId/propKey of the words it sets), "bool" (targets: ids… |
+| `remove_component_prop` | 搭建 |  |  | Removes a property of a component; its instances stop setting it. |
+| `set_instance_props` | 搭建 |  |  | Sets the values an instance gives its component's properties, by property id or name: words for a text property, true/false for a bool one, a component id for a swap one; null goe… |
+| `reset_overrides` | 搭建 |  |  | Takes back everything an instance changes of its component: its overrides and the values it gives its properties. |
 | `add_collection` | 数据与交互 |  |  | Adds a data collection: named fields and rows of text (one cell per field). |
 | `update_collection` | 数据与交互 |  |  | Changes a data collection's name, fields or rows. |
 | `remove_collection` | 数据与交互 |  | 是 | Removes a data collection; layouts that repeated it stop repeating. |

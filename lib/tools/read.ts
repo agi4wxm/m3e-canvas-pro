@@ -314,7 +314,8 @@ const listIcons = tool<{ family?: string; query?: string; limit?: number }>({
 const listComponents = tool<Record<string, never>>({
   name: "list_components",
   group: "read",
-  description: "The document's reusable components (id, name, size, the parts in their definition, how many instances there are). add_instance places one; set_overrides changes an instance's words, icons or pictures.",
+  description:
+    "The document's reusable components (id, name, size, the parts in their definition, how many instances there are), the set each variant belongs to with its values, and each component's properties. add_instance places one; set_overrides changes an instance's words, icons or pictures; swap_instance picks another variant; set_instance_props sets its properties.",
   input: obj({}),
   readOnly: true,
   destructive: false,
@@ -329,6 +330,8 @@ const listComponents = tool<Record<string, never>>({
         h: c.h,
         parts: c.groups.flatMap((g) => g.items.map((it) => `${it.id}:${it.component}`)),
         instances: groups.filter((g) => g.instanceOf === c.id).length,
+        ...(c.set ? { set: c.set, setName: s.doc.componentSets?.find((x) => x.id === c.set)?.name, variant: c.variant } : {}),
+        ...(c.props?.length ? { props: c.props } : {}),
       })),
     };
   },

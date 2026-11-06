@@ -1256,6 +1256,8 @@ export type Group = {
   instanceOf?: string;
   /** what this instance changes of its definition, by `itemId/propKey` */
   overrides?: Record<string, VarValue>;
+  /** the values this instance gives its component's properties (`ComponentDef.props`), by property id */
+  properties?: Record<string, VarValue>;
   /** on a layout container: its first child is drawn once per row of a collection (lib/collections.ts) */
   repeat?: { collection: string; limit?: number };
   /** The outermost box of a kit: which kit it was added as, so that a change of style can compose it again
@@ -1281,7 +1283,30 @@ export type KitMark = {
 };
 
 /** a reusable component: its parts, placed relative to its own top left, and how big they come to */
-export type ComponentDef ={ id: string; name: string; groups: Group[]; w: number; h: number };
+export type ComponentDef = {
+  id: string;
+  name: string;
+  groups: Group[];
+  w: number;
+  h: number;
+  /** the component set this is one variant of (`Doc.componentSets`) */
+  set?: string;
+  /** as a variant: the value it has for each of its set's variant properties, by property name */
+  variant?: Record<string, string>;
+  /** what an instance may set of it, in the panel and through the tools (Figma's component properties) */
+  props?: ComponentProp[];
+};
+
+/** Several components that are variants of one thing (a button's state and size): the properties they vary by and
+ *  the values each takes. Every variant is a whole definition of its own, with its own parts; they share item ids
+ *  where they were copied from one another, so what an instance overrides follows it from one variant to the next. */
+export type ComponentSet = { id: string; name: string; props: { name: string; values: string[] }[] };
+
+/** One property of a component that an instance sets: words shown by some of its parts (`text`, each target an
+ *  override key `itemId/propKey`), whether some of its layers show (`bool`, each target a group id of the definition),
+ *  or which component a nested instance is (`swap`, each target the id of a nested instance's group). `value` is what
+ *  an instance shows until it says otherwise: the words, on or off, a component id. */
+export type ComponentProp = { id: string; name: string; type: "text" | "bool" | "swap"; value: VarValue; targets: string[] };
 
 /** rows of data a layout can repeat its first child over */
 export type Collection = { id: string; name: string; fields: string[]; rows: string[][] };
@@ -1309,6 +1334,8 @@ export type Doc = {
   vars?: DocVar[];
   /** reusable components; `Group.instanceOf` names one */
   components?: ComponentDef[];
+  /** components grouped as variants of one another (`ComponentDef.set` names one) */
+  componentSets?: ComponentSet[];
   /** the data repeated layouts draw from; `Group.repeat` names one */
   collections?: Collection[];
   /** styles of the document's own (lib/styles/custom.ts): `theme.style` may name one by its `custom:` key */

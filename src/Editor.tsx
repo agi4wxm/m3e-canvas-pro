@@ -581,7 +581,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   });
 
   /* a definition opened on the canvas and closed again, and what else is done to components (src/editor/useDefinitions.ts) */
-  const { editDefinition, finishDefinition, finishDefinitionRef, renameComponent, deleteComponent, detachGroup, componentUses } = useDefinitions({ store, runOp, defEdit, groups, components, mobileRef, viewRef, setView, fitRef, frameRef, tidyRef, setSelectedLinkId });
+  const { editDefinition, finishDefinition, finishDefinitionRef, renameComponent, deleteComponent, detachGroup, componentUses, goToMain, fromInstance, componentsApi } = useDefinitions({ store, runOp, defEdit, groups, components, mobileRef, viewRef, setView, fitRef, frameRef, tidyRef, setSelectedLinkId });
 
   const clearAll = () => {
     setConfirmClear(false);
@@ -610,13 +610,18 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
       group,
       def,
       components,
-      onEdit: () => editDefinition(def.id),
+      sets: core.doc.componentSets ?? [],
+      hostId: defEdit?.id ?? null,
+      onEdit: () => goToMain(group.id, def.id),
       onDetach: () => detachGroup(group.id),
       onOverrides: (overrides: Group["overrides"]) => runOp(ops.setOverrides, { id: group.id, overrides: overrides ?? null }, { history: { coalesce: `overrides:${group.id}` } }),
+      onSwap: (component: string) => runOp(ops.swapInstance, { id: group.id, component }, { history: "step" }),
+      onProps: (values: Record<string, string | number | boolean | null>) => runOp(ops.setInstanceProps, { id: group.id, values }, { history: { coalesce: `properties:${group.id}:${Object.keys(values).join(",")}` } }),
+      onReset: () => runOp(ops.resetOverrides, { id: group.id }, { history: "step" }),
     };
     // the panel's handlers read the refs; only what it shows matters here
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, primaryId, groups, components]);
+  }, [selectedIds, primaryId, groups, components, core.doc.componentSets, defEdit]);
 
   /** what the layout keys do, read by the keyboard handler at the moment a key is pressed */
   const layoutKeysRef = useRef({ tidyUp: () => {}, tidyScreen: () => {}, autoLayout: () => {} });
@@ -1085,6 +1090,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   <ComponentsPanel
                     p={p}
                     components={components ?? []}
+                    sets={core.doc.componentSets}
+                    api={componentsApi}
                     uses={componentUses}
                     editingId={defEdit?.id ?? null}
                     onPointerDown={onComponentPointerDown}
@@ -1649,8 +1656,9 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
               <span style={{ fontSize: 13, fontWeight: 600 }}>
                 {t("editingComponent", lang)}: {components?.find((c) => c.id === defEdit.id)?.name}
               </span>
-              <button onClick={finishDefinition} data-definition-done className="m3-press" style={{ height: 40, padding: "0 20px", borderRadius: 20, border: "none", background: p.primary, color: p.onPrimary, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                {t("doneEditing", lang)}
+              <button onClick={finishDefinition} data-definition-done data-back-to-instance={fromInstance ? "" : undefined} className="m3-press" style={{ height: 40, padding: "0 20px", borderRadius: 20, border: "none", background: p.primary, color: p.onPrimary, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {fromInstance && <Icon name="undo" size={18} />}
+                {t(fromInstance ? "cpBackToInstance" : "doneEditing", lang)}
               </button>
             </div>
           )}
@@ -1770,8 +1778,12 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                     group={selectedInstance.group}
                     def={selectedInstance.def}
                     components={selectedInstance.components}
+                    sets={selectedInstance.sets}
                     onDetach={selectedInstance.onDetach}
                     onOverrides={selectedInstance.onOverrides}
+                    onSwap={selectedInstance.onSwap}
+                    onProps={selectedInstance.onProps}
+                    onReset={selectedInstance.onReset}
                     palette={p}
                     locked={selectedLocked}
                     inFlow={selectedInFlow}

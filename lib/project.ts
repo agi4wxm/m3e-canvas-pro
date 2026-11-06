@@ -2,7 +2,7 @@ import { childLayoutFields } from "./flow";
 import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
-import { COLOR_TOKENS, Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { COLOR_TOKENS, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -154,6 +154,7 @@ const cleanGroup = (g: Group) =>
       pane: (v) => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : undefined),
       instanceOf: (v) => (typeof v === "string" ? v : undefined),
       overrides: cleanOverrides,
+      properties: cleanOverrides,
       repeat: cleanRepeat,
       kit: cleanKit,
       expandedFrom: () => undefined,
@@ -184,12 +185,42 @@ function cleanPalette(p: unknown): Palette | undefined {
   return p as unknown as Palette;
 }
 
+/** a property of a component, whole or not at all */
+function cleanComponentProp(p: unknown): ComponentProp | undefined {
+  if (!isRecord(p) || typeof p.id !== "string" || (p.type !== "text" && p.type !== "bool" && p.type !== "swap") || !Array.isArray(p.targets)) return undefined;
+  const fallback = p.type === "bool" ? true : "";
+  const value = p.type === "bool" ? (typeof p.value === "boolean" ? p.value : fallback) : typeof p.value === "string" ? p.value : fallback;
+  return { id: p.id, name: typeof p.name === "string" ? p.name : "", type: p.type, value, targets: p.targets.filter((t): t is string => typeof t === "string") };
+}
+
+const cleanStrings = (map: unknown): Record<string, string> | undefined => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => typeof v === "string")) as Record<string, string> : undefined);
+
 /** one definition, or nothing when it has no id to be called by. Its groups go through the same checks as a screen's. */
 function cleanComponent(c: unknown): ComponentDef | undefined {
   if (!isRecord(c) || typeof c.id !== "string") return undefined;
   const groups = Array.isArray(c.groups) ? c.groups.filter(validGroup).map((g) => cleanGroup(g as Group)) : [];
   const size = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 40);
-  return { id: c.id, name: typeof c.name === "string" ? c.name : "", groups, w: size(c.w), h: size(c.h) };
+  const props = Array.isArray(c.props) ? c.props.map(cleanComponentProp).filter((p) => p !== undefined) : [];
+  const variant = cleanStrings(c.variant);
+  return {
+    id: c.id,
+    name: typeof c.name === "string" ? c.name : "",
+    groups,
+    w: size(c.w),
+    h: size(c.h),
+    ...(typeof c.set === "string" ? { set: c.set } : {}),
+    ...(variant ? { variant } : {}),
+    ...(props.length ? { props } : {}),
+  };
+}
+
+/** a set of variants: its properties and their values, as words */
+function cleanComponentSet(c: unknown): ComponentSet | undefined {
+  if (!isRecord(c) || typeof c.id !== "string") return undefined;
+  const props = Array.isArray(c.props)
+    ? c.props.flatMap((p) => (isRecord(p) && typeof p.name === "string" && Array.isArray(p.values) ? [{ name: p.name, values: p.values.filter((v): v is string => typeof v === "string") }] : []))
+    : [];
+  return { id: c.id, name: typeof c.name === "string" ? c.name : "", props };
 }
 
 /** one collection, or nothing when it has no id. A cell of another kind is read as words where it can be; a row that is no row goes. */
@@ -232,6 +263,10 @@ export function cleanBehavior(doc: Doc): Doc {
   if (out.collections !== undefined) {
     if (Array.isArray(out.collections)) out.collections = out.collections.map(cleanCollection).filter((c) => c !== undefined);
     else delete out.collections;
+  }
+  if (out.componentSets !== undefined) {
+    if (Array.isArray(out.componentSets)) out.componentSets = out.componentSets.map(cleanComponentSet).filter((c) => c !== undefined);
+    else delete out.componentSets;
   }
   /* a style of the document's own is validated as any style that comes from outside: what it says that a style may
      not is left out, and one that is no style goes. The theme naming one that is gone wears Material, as it does a

@@ -161,7 +161,12 @@ export function outline(doc: Doc, widths: Widths, o: OutlineOptions = {}): strin
   lines.push(`# ${doc.title ? JSON.stringify(doc.title) : "Untitled"} — ${look}, ${doc.frames.length} screen${doc.frames.length === 1 ? "" : "s"}${doc.components?.length ? `, ${doc.components.length} components` : ""}${doc.collections?.length ? `, ${doc.collections.length} collections` : ""}${doc.vars?.length ? `, ${doc.vars.length} variables` : ""}`);
   if (doc.brief) lines.push(`brief: ${clip(doc.brief, 200)}`);
   if (!o.screen) {
-    for (const c of doc.components ?? []) lines.push(`component ${c.id} "${c.name}" ${c.w}×${c.h}, ${c.groups.length} groups`);
+    for (const c of doc.components ?? []) {
+      const set = c.set ? doc.componentSets?.find((x) => x.id === c.set) : undefined;
+      const variant = set ? ` variant of "${set.name}" (${set.id}): ${Object.entries(c.variant ?? {}).map(([k, v]) => `${k}=${v}`).join(", ")}` : "";
+      const props = c.props?.length ? `; props ${c.props.map((p) => `${p.name}:${p.type}(${p.id})`).join(", ")}` : "";
+      lines.push(`component ${c.id} "${c.name}" ${c.w}×${c.h}, ${c.groups.length} groups${variant}${props}`);
+    }
     for (const c of doc.collections ?? []) lines.push(`collection ${c.id} "${c.name}" fields ${c.fields.join(", ")}; ${c.rows.length} rows`);
     for (const v of doc.vars ?? []) lines.push(`var ${v.id} "${v.name}" ${v.type} = ${JSON.stringify(v.value)}${v.drives === "dark" ? " (drives the dark mode)" : ""}`);
   }

@@ -32,6 +32,13 @@ const MORE: Record<string, string> = {
   remove_nodes: "A container's children are not removed with it: remove them too when the whole block should go.",
   set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here.',
   wrap_in_auto_layout: "Returns {itemId}: the new outer box.",
+  add_variant: "Returns {id, set}. Variants are whole components: edit one by its id like any other. An instance picks one with swap_instance.",
+  update_component_set: "The set's id is a variant's `set` (list_components). Renaming a value keeps the variants that had it.",
+  set_variant_values: "Each variant of a set should have a different combination of values.",
+  swap_instance: "To change an instance's variant, swap it to the variant with the values wanted (list_components lists each variant's values).",
+  set_component_prop: "Returns {id}. Text targets are what set_overrides takes as keys; instances then set the words with set_instance_props.",
+  set_instance_props: "Keys may be the property's name. Overrides by hand (set_overrides) still win over a text property.",
+  reset_overrides: "Leaves the instance exactly as its component is.",
   split_into_atoms: "Returns {rootItemId}.",
 };
 
