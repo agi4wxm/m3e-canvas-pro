@@ -233,6 +233,7 @@ export const tests: E2ETest[] = [
           { op: "add_var", args: { id: "dark", name: "Dark mode", type: "bool", value: false, drives: "dark" } },
           { op: "add_part", args: { slug: "switch", id: "dark-switch", screen, at: { x: 24, y: 640 }, props: { label: "Dark mode" } } },
           { op: "bind_prop", args: { id: "dark-switch", prop: "checked", var: "dark" } },
+          { op: "set_action", args: { id: "dark-switch", action: { effects: [{ do: "toggleVar", var: "dark" }] } } },
           { op: "add_part", args: { slug: "button", id: "dark-button", screen, at: { x: 24, y: 720 }, props: { label: "Toggle theme" } } },
           { op: "set_action", args: { id: "dark-button", action: { effects: [{ do: "toggleVar", var: "dark" }] } } },
         ],
@@ -257,6 +258,11 @@ export const tests: E2ETest[] = [
       await page.locator("[data-preview-dark]").first().click();
       await settle(page, 600);
       equal(await mode(), "off", "the preview's own switch turns the variable back too");
+      /* the switch bound to the variable, with the toggle as its tap too (what the agent writes): one tap, one switch */
+      const sw = doc.groups.find((g) => g.items.some((it) => it.id === "dark-switch"))!;
+      await page.locator(`[data-preview-group="${sw.id}"] [role="switch"], [data-preview-group="${sw.id}"] button`).first().click();
+      await settle(page, 800);
+      equal(await mode(), "on", "a tap on the bound switch turns the preview dark");
     },
   },
   {
