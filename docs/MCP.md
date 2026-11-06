@@ -105,13 +105,14 @@ bearer_token_env_var = "M3E_MCP_TOKEN"
 | `--port <端口>` | 实时连接的第一个端口（默认 47831，占用时依次试后面三个） |
 | `--origin <来源>` | 编辑器部署在别处时，允许它的来源，例如 `https://canvas.example.com`（可重复；也可用 `M3E_MCP_ORIGINS`，逗号分隔） |
 | `--allow-destructive` | 文件模式：删除、清空等操作不再询问 |
+| `--forget-editors` | 忘记所有“记住这个客户端”的配对（之后都要重新批准），然后照常启动 |
 | `--confirm-timeout <秒>` | 实时模式：破坏性调用等作者点“允许”的时间（默认 60） |
 | `--lang <ja\|en\|zh\|ko>` | 文件模式里新文字（组合件的标签、新屏幕名）用的语言，默认跟系统 |
 | `--app <目录或地址>` | 文件模式截图用的编辑器构建（`dist` 目录），或一个正在运行的编辑器地址 |
 | `--log <文件>` | 日志另存一份 |
 | `--quiet` / `--debug` | 只打印必须看到的（配对码、令牌）/ 打印每次调用 |
 
-环境变量：`OPENAI_API_KEY`（打开 `generate_svg`、`generate_image`）、`OPENAI_BASE_URL`、`M3E_MCP_TEXT_MODEL`、`M3E_MCP_IMAGE_MODEL`、`HTTPS_PROXY` / `NO_PROXY`、`PLAYWRIGHT_PATH`。
+环境变量：`OPENAI_API_KEY`（打开 `generate_svg`、`generate_image`）、`OPENAI_BASE_URL`、`M3E_MCP_TEXT_MODEL`、`M3E_MCP_IMAGE_MODEL`、`HTTPS_PROXY` / `NO_PROXY`、`PLAYWRIGHT_PATH`、`M3E_MCP_CONFIG_DIR`（记住的配对放在哪个文件夹，默认是用户配置目录下的 `m3e-canvas-mcp/`）。
 
 ## 实时模式：连接编辑器
 
@@ -123,7 +124,10 @@ bearer_token_env_var = "M3E_MCP_TOKEN"
    - 截图由编辑器自己画，和“导出图片”完全一样；
    - 删除屏幕、删除组件、清空画布等破坏性调用会弹出确认卡片，60 秒内不点“允许”就拒绝，AI 收到拒绝的原因；
    - 面板里有连接状态、客户端名字、可编辑或只读、最近的调用记录和断开按钮。
-5. 刷新标签页后会自动回到同一个服务器，不用再批准；服务器重启后要重新批准。客户端每次启动服务器（Claude Desktop 重启、Codex 开新会话）都是新的进程和新的配对码，所以要再批准一次。
+5. 刷新标签页后会自动回到同一个服务器，不用再批准。客户端每次启动服务器（Claude Desktop 重启、Codex 开新会话）都是新的进程和新的配对码，默认要再批准一次。
+6. **记住这个客户端**：批准时勾选“记住这个客户端”，以后同一个客户端（按它连接时报的名字，如 `claude-ai`）从同一个编辑器地址启动的服务器会自动连上，权限和这次一样，不再弹出配对码。面板的“记住的客户端”里可以逐个“忘记”，之后又会询问；服务器启动时加 `--forget-editors` 会忘记全部。不勾选时和以前完全一样。
+
+   做法：批准时编辑器生成一个随机密钥交给服务器。编辑器把它存在这个浏览器的 IndexedDB（项目数据库的 `kv`，键 `mcp:trusted`），服务器存在用户配置目录下的 `m3e-canvas-mcp/trusted-editors.json`（Linux `~/.config/`，macOS `~/Library/Application Support/`，Windows `%APPDATA%\`），文件权限 0600、文件夹 0700，发现别人能读时改回 0600 并在日志里提醒。下次服务器在问候里列出它保存的配对编号，编辑器发一个随机挑战，服务器用密钥对“挑战和端口”算 HMAC-SHA256 回答，编辑器核对通过才自动批准；密钥本身不再传输（只有“忘记”时发一次，让服务器删掉它那份）。在编辑器里忘记时如果没有服务器在线，等下一个服务器连上时再通知它删除。180 天没用过的配对自动失效。
 
 一个服务器同时只连一个标签页。同一台电脑上的第二个客户端（比如 Claude Desktop 和 Codex 都开着）会用下一个端口，编辑器会分别询问。
 
@@ -162,13 +166,14 @@ npx playwright install chromium
 | 只在本机 | 实时连接、HTTP 和截图用的页面都只监听 127.0.0.1 |
 | 只让编辑器连接 | WebSocket 只接受编辑器的来源（本机 3000–3010、4173–4183、5173–5183 端口，或 `--origin` 给的地址），并检查 Host 必须是 127.0.0.1 或 localhost，网页通过 DNS 重绑定也连不上 |
 | 配对 | 服务器每次启动生成一个配对码，打印在日志里；编辑器显示同一个码和客户端名字，作者核对后批准，之前不会运行任何调用 |
+| 记住的客户端 | 只有作者勾选才记住；服务器要用只有本用户能读的文件里的密钥回答一次性的挑战（绑定端口，转发别的服务器的回答没用），编辑器核对后才自动批准；可在面板里随时忘记 |
 | 只读和编辑 | `--read-only` 只提供读取的工具；作者批准时也可以只给只读。服务器和编辑器两边都检查 |
 | 破坏性操作 | 实时模式在编辑器里点“允许”，超时即拒绝；文件模式经客户端确认或 `--allow-destructive` |
 | 密钥 | 生成图形只用服务器自己环境里的 `OPENAI_API_KEY`。密钥不经过 MCP 消息，也不经过和编辑器的连接：实时模式下生成工具在标签页里运行，图由服务器画好后只把结果传回去，而且只为服务器正在等的生成调用作图。日志里不出现密钥 |
 | HTTP | 每个请求都要带令牌（`Authorization: Bearer`），检查 Host 和 Origin |
 | 没有代码执行 | 工具只有注册表里的类型化操作和读取，没有运行任意代码的工具 |
 
-局限：配对码保证编辑器连的是你启动的服务器；本机上的其他程序可以伪造来源连接服务器，冒充编辑器（它们只能收到 AI 的调用，碰不到你的标签页）。本机程序本来就能读写你的文件，这不在防护范围内。
+局限：配对码保证编辑器连的是你启动的服务器；本机上的其他程序可以伪造来源连接服务器，冒充编辑器（它们只能收到 AI 的调用，碰不到你的标签页）。本机程序本来就能读写你的文件（包括记住的配对文件），这不在防护范围内。
 
 ## 工具、资源和提示词
 
@@ -304,13 +309,15 @@ mcp/src/cli.ts          命令行：参数、stdio 或 HTTP
 mcp/src/setup.ts        按参数组合工具（注册表、有密钥时的生成工具、只读）和后端
 mcp/src/server.ts       MCP 服务器：工具、提示词、资源、订阅
 mcp/src/live.ts         实时后端：127.0.0.1 上的 WebSocket、配对、调用转发、代为作图
+mcp/src/trust.ts        记住的配对：用户配置目录里的 0600 文件、挑战的 HMAC
 mcp/src/file.ts         文件后端：DocStore、写回、冲突、确认
 mcp/src/fileStore.ts    磁盘上的项目文件和文件夹（ProjectFormat 接口接 lib/core/projectFile.ts、原子写入、改动检测）
 mcp/src/render.ts       无头截图：Playwright、提供编辑器构建、/render 页面
 mcp/src/http.ts         Streamable HTTP：令牌、Host 和 Origin 检查、每个会话一个 Server
 mcp/src/generate.ts     服务器环境里的生成配置、走代理的 fetch
 lib/mcp/protocol.ts     服务器和编辑器之间的消息
-lib/mcp/editorBridge.ts 编辑器这一端：查找、配对、在 store 上运行调用、确认、活动记录
+lib/mcp/editorBridge.ts 编辑器这一端：查找、配对、记住的客户端、在 store 上运行调用、确认、活动记录
+lib/mcp/trusted.ts      编辑器记住的客户端（IndexedDB）和核对服务器的回答
 src/editor/useMcpBridge.ts、components/McpPanel.tsx、lib/i18n/mcp.ts   编辑器里的开关、卡片和面板
 src/editor/RenderPage.tsx、src/editor/screenShot.tsx   截图：/render 页面和编辑器共用的离屏绘制
 ```

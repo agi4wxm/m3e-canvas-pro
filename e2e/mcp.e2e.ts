@@ -1,6 +1,7 @@
 /* The MCP server and a real editor tab: the server started as a client starts it (stdio), the author turning on
  * "Connect to MCP" and approving the code the server gave, a tool call changing the canvas live, a screenshot drawn by
- * the tab, one undo taking the call back, and a destructive call the author declines. */
+ * the tab, one undo taking the call back, and a destructive call the author declines; a client the author told the
+ * editor to remember comes back after its server restarts without asking, until it is forgotten. */
 
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -13,8 +14,11 @@ import { check, equal, itemsOf, savedDoc, settle, undo, type E2ETest, type Page 
 
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
-async function startServer(base: string, more: string[] = []) {
-  const transport = new StdioClientTransport({ command: process.execPath, args: [join(root, "mcp", "src", "cli.ts"), "--origin", base, "--quiet", "--confirm-timeout", "20", ...more], cwd: root, stderr: "pipe", env: { ...process.env, OPENAI_API_KEY: "" } as Record<string, string> });
+/* remembered pairings go to a folder of the test's own, never the user's config folder */
+const trustDir = mkdtempSync(join(tmpdir(), "m3e-mcp-trust-"));
+
+async function startServer(base: string, more: string[] = [], configDir = trustDir) {
+  const transport = new StdioClientTransport({ command: process.execPath, args: [join(root, "mcp", "src", "cli.ts"), "--origin", base, "--quiet", "--confirm-timeout", "20", ...more], cwd: root, stderr: "pipe", env: { ...process.env, OPENAI_API_KEY: "", M3E_MCP_CONFIG_DIR: configDir } as Record<string, string> });
   const client = new Client({ name: "e2e-client", version: "1.0.0" });
   await client.connect(transport);
   const call = async (name: string, args: Record<string, unknown> = {}) => (await client.callTool({ name, arguments: args })) as CallToolResult;
@@ -37,7 +41,7 @@ const pngSize = (b64: string) => {
   return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
 };
 
-async function pair(page: Page, call: (name: string) => Promise<CallToolResult>) {
+async function pair(page: Page, call: (name: string) => Promise<CallToolResult>, remember = false) {
   const status = JSON.parse(text(await call("connection_status"))) as { pairingCode: string; editor: string };
   check(status.editor === "not connected", "no editor yet");
   await page.locator('[data-mcp-button] button[aria-label="Connect to MCP"]').click();
@@ -46,6 +50,7 @@ async function pair(page: Page, call: (name: string) => Promise<CallToolResult>)
   await page.waitForSelector('[data-mcp-ask="pair"]', { timeout: 20_000 });
   equal(await page.locator("[data-mcp-code]").first().textContent(), status.pairingCode, "the code the editor shows is the server's");
   check(((await page.locator('[data-mcp-ask="pair"]').first().textContent()) ?? "").includes("e2e-client"), "the ask names the client");
+  if (remember) await page.locator("[data-mcp-remember] input").first().click();
   await page.locator('[data-mcp-ask="pair"] button').filter({ hasText: "Allow editing" }).first().click();
   await waitFor("paired", async () => JSON.parse(text(await call("connection_status"))).editor === "paired");
 }
@@ -97,6 +102,41 @@ export const tests: E2ETest[] = [
         check((await page.locator('[data-mcp-log="apply_ops"]').count()) > 0, "the batch is in the activity log");
       } finally {
         await client.close();
+      }
+    },
+  },
+  {
+    name: "a client the author told the editor to remember pairs again after its server restarts, until it is forgotten",
+    async run({ page, base }) {
+      const dir = mkdtempSync(join(tmpdir(), "m3e-mcp-trust-"));
+      const first = await startServer(base, [], dir);
+      try {
+        await pair(page, first.call, true);
+        await waitFor("the server kept the pairing", async () => existsSync(join(dir, "trusted-editors.json")) && JSON.parse(readFileSync(join(dir, "trusted-editors.json"), "utf8")).editors.length === 1);
+      } finally {
+        await first.client.close();
+      }
+      /* the client starts the server again: a new process with a new code, approved by the tab by itself */
+      const second = await startServer(base, [], dir);
+      try {
+        await waitFor("paired again without asking", async () => JSON.parse(text(await second.call("connection_status"))).editor === "paired", 30_000);
+        equal(await page.locator('[data-mcp-ask="pair"]').count(), 0, "nothing was asked");
+        check(!(await second.call("list_screens")).isError, "calls reach the tab");
+        /* forgotten from the panel: the server lets its side go too */
+        if (!(await page.locator("[data-mcp-panel]").count())) await page.locator('[data-mcp-button] button[aria-label="Connect to MCP"]').click();
+        await page.waitForSelector("[data-mcp-remembered]", { timeout: 10_000 });
+        await page.locator("[data-mcp-remembered] button").filter({ hasText: "Forget" }).first().click();
+        await waitFor("the server forgot it", async () => JSON.parse(readFileSync(join(dir, "trusted-editors.json"), "utf8")).editors.length === 0);
+        equal(await page.locator("[data-mcp-remembered]").count(), 0, "the panel lists it no more");
+      } finally {
+        await second.client.close();
+      }
+      /* the next server is asked about */
+      const third = await startServer(base, [], dir);
+      try {
+        await page.waitForSelector('[data-mcp-ask="pair"]', { timeout: 30_000 });
+      } finally {
+        await third.client.close();
       }
     },
   },

@@ -30,10 +30,10 @@ export function writeProject(path: string) {
 }
 
 /** a server on the options given, and a client talking to it; `elicit` answers the server's confirmations */
-export async function connect(o: Omit<SetupOptions, "version" | "log">, elicit?: (message: string) => boolean) {
-  const { backend, registry } = await setup({ screenshots: false, env: {}, ...o, version: "test", log: silentLog });
+export async function connect(o: Omit<SetupOptions, "version" | "log">, elicit?: (message: string) => boolean, clientName = "test-client") {
+  const { backend, registry } = await setup({ screenshots: false, env: {}, trustDir: scratchDir(), ...o, version: "test", log: silentLog });
   const server = createMcpServer({ backend, registry, version: "test", log: silentLog });
-  const client = new Client({ name: "test-client", version: "1.0.0" }, { capabilities: elicit ? { elicitation: {} } : {} });
+  const client = new Client({ name: clientName, version: "1.0.0" }, { capabilities: elicit ? { elicitation: {} } : {} });
   if (elicit) client.setRequestHandler(ElicitRequestSchema, async (req) => ({ action: "accept", content: { allow: elicit(req.params.message) } }));
   const [a, b] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(a), client.connect(b)]);

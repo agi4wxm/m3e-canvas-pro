@@ -42,6 +42,12 @@ type Words = {
   stateOk: string;
   stateError: string;
   stateDenied: string;
+  remember: string;
+  rememberHint: string;
+  remembered: string;
+  rememberedVia: string;
+  forget: string;
+  usedAt: string;
 };
 
 export const MCP_TEXT: Record<Lang, Words> = {
@@ -83,6 +89,12 @@ export const MCP_TEXT: Record<Lang, Words> = {
     stateOk: "Done",
     stateError: "Failed",
     stateDenied: "Not allowed",
+    remember: "Remember this client",
+    rememberHint: "Next time {client} starts its server, it connects without asking, with the same access.",
+    remembered: "Remembered clients",
+    rememberedVia: "Remembered",
+    forget: "Forget",
+    usedAt: "last used {when}",
   },
   zh: {
     title: "MCP",
@@ -122,6 +134,12 @@ export const MCP_TEXT: Record<Lang, Words> = {
     stateOk: "完成",
     stateError: "失败",
     stateDenied: "未允许",
+    remember: "记住这个客户端",
+    rememberHint: "下次 {client} 启动服务器时不再询问，直接以同样的权限连接。",
+    remembered: "记住的客户端",
+    rememberedVia: "已记住",
+    forget: "忘记",
+    usedAt: "上次使用 {when}",
   },
   ja: {
     title: "MCP",
@@ -161,6 +179,12 @@ export const MCP_TEXT: Record<Lang, Words> = {
     stateOk: "完了",
     stateError: "失敗",
     stateDenied: "許可されず",
+    remember: "このクライアントを記憶",
+    rememberHint: "次に {client} がサーバーを起動したときは、確認なしで同じ権限で接続します。",
+    remembered: "記憶したクライアント",
+    rememberedVia: "記憶済み",
+    forget: "削除",
+    usedAt: "最終使用 {when}",
   },
   ko: {
     title: "MCP",
@@ -200,6 +224,12 @@ export const MCP_TEXT: Record<Lang, Words> = {
     stateOk: "완료",
     stateError: "실패",
     stateDenied: "허용 안 됨",
+    remember: "이 클라이언트 기억하기",
+    rememberHint: "다음에 {client} 가 서버를 시작하면 묻지 않고 같은 권한으로 연결합니다.",
+    remembered: "기억한 클라이언트",
+    rememberedVia: "기억됨",
+    forget: "잊기",
+    usedAt: "마지막 사용 {when}",
   },
 };
 

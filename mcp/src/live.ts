@@ -5,8 +5,9 @@
  * the change appears on the canvas as it happens and is one undo step there.
  *
  * One tab at a time. A tab that reloads comes back without asking again (the resume token it was given), until this
- * server stops. Generative tools run in the tab too, but what they draw is drawn here, with this process's key, and
- * only for a generative call this server is waiting on. */
+ * server stops. When the author approved with "remember this client", a later server for the same client proves it
+ * holds the secret the tab gave (trust.ts) and the tab approves by itself. Generative tools run in the tab too, but
+ * what they draw is drawn here, with this process's key, and only for a generative call this server is waiting on. */
 
 import { randomBytes, randomInt } from "node:crypto";
 import { WebSocketServer, type WebSocket } from "ws";
@@ -14,6 +15,7 @@ import { BRIDGE_PORT, BRIDGE_PORTS, BRIDGE_PROTOCOL, CONFIRM_MS, editorOrigin, l
 import type { ToolError, ToolOutcome } from "../../lib/tools/types";
 import { failure, listeners, type Backend, type CallContext, type CallOutcome } from "./backend";
 import type { Log } from "./log";
+import { proofOf, type TrustStore } from "./trust";
 
 export type LiveOptions = {
   /** the first port to try (BRIDGE_PORT), and how many after it */
@@ -34,6 +36,8 @@ export type LiveOptions = {
   pairWaitMs?: number;
   version: string;
   log: Log;
+  /** where remembered pairings are kept; without it the tab is never offered to remember one */
+  trust?: TrustStore;
 };
 
 type Pending = { name: string; resolve: (o: ToolOutcome) => void; timer: ReturnType<typeof setTimeout>; draws: number; abort: AbortController };
@@ -134,7 +138,7 @@ export class LiveBackend implements Backend {
     const conn: Conn = { ws, paired: false, access: this.o.access, origin, alive: true };
     this.conn = conn;
     this.o.log.info(`Editor tab connected from ${origin}. Pairing code ${this.code}: approve it in the editor.`);
-    this.send(ws, { t: "hello", protocol: BRIDGE_PROTOCOL, server: { name: "m3e-canvas-mcp", version: this.o.version, id: this.id }, client: this.client, access: this.o.access, code: this.code, generate: !!this.o.draw, confirmMs: this.o.confirmMs ?? CONFIRM_MS });
+    void this.known(origin).then((known) => this.send(ws, { t: "hello", protocol: BRIDGE_PROTOCOL, server: { name: "m3e-canvas-mcp", version: this.o.version, id: this.id }, client: this.client, access: this.o.access, code: this.code, generate: !!this.o.draw, confirmMs: this.o.confirmMs ?? CONFIRM_MS, ...(known ? { known } : {}) }));
     ws.on("pong", () => {
       conn.alive = true;
     });
@@ -143,13 +147,46 @@ export class LiveBackend implements Backend {
     ws.on("error", () => {});
   }
 
-  private pair(conn: Conn, access: Access) {
+  /** the remembered pairings a tab at `origin` may ask this server to prove, for the client it serves; undefined when
+   *  nothing can be remembered here */
+  private async known(origin: string): Promise<string[] | undefined> {
+    if (!this.o.trust) return undefined;
+    return this.o.trust.known(this.client?.name ?? "", origin).catch(() => []);
+  }
+
+  /** an approval, kept for later servers of this client when the author asked for it */
+  private async approved(conn: Conn, access: Access, remember?: { secret?: unknown }) {
+    const secret = remember?.secret;
+    let remembered: { id: string } | undefined;
+    if (this.o.trust && typeof secret === "string" && /^[0-9a-f]{64}$/.test(secret)) {
+      const given = this.o.access === "read" ? "read" : access;
+      try {
+        const r = await this.o.trust.add({ secret, client: this.client?.name ?? "", ...(this.client?.title ? { title: this.client.title } : {}), origin: conn.origin, access: given });
+        remembered = { id: r.id };
+      } catch (e) {
+        this.o.log.warn(`Could not remember the pairing (${this.o.trust.path}): ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    if (this.conn !== conn || conn.paired) return;
+    this.pair(conn, access, remembered);
+  }
+
+  /** a tab's challenge for a remembered pairing, answered when this server holds it for its client and the tab */
+  private async prove(conn: Conn, id: unknown, nonce: unknown) {
+    if (typeof id !== "string" || typeof nonce !== "string" || !/^[0-9a-f]{16,64}$/.test(nonce)) return;
+    const r = this.o.trust && (await this.o.trust.find(id, this.client?.name ?? "", conn.origin).catch(() => undefined));
+    if (this.conn !== conn) return;
+    this.send(conn.ws, { t: "proof", id, nonce, mac: r && this.port !== null ? proofOf(r.secret, nonce, this.port) : null });
+    if (r) void this.o.trust!.touch(r.id).catch(() => {});
+  }
+
+  private pair(conn: Conn, access: Access, remembered?: { id: string }) {
     conn.paired = true;
     conn.access = this.o.access === "read" ? "read" : access;
     const token = randomBytes(16).toString("hex");
     this.resume = { token, access: conn.access };
-    this.send(conn.ws, { t: "paired", access: conn.access, resume: token });
-    this.o.log.notice(`Paired with the editor tab at ${conn.origin} (${conn.access === "edit" ? "edit" : "read-only"}).`);
+    this.send(conn.ws, { t: "paired", access: conn.access, resume: token, ...(remembered ? { remembered } : {}) });
+    this.o.log.notice(`Paired with the editor tab at ${conn.origin} (${conn.access === "edit" ? "edit" : "read-only"}${remembered ? `; remembered for ${this.client?.title ?? this.client?.name ?? "this client"} in ${this.o.trust!.path}` : ""}).`);
     this.pairing.emit();
     this.changes.emit("access");
     this.changes.emit("document");
@@ -168,7 +205,17 @@ export class LiveBackend implements Backend {
         if (!conn.paired && this.resume && msg.resume === this.resume.token) this.pair(conn, this.resume.access);
         return;
       case "approve":
-        if (!conn.paired) this.pair(conn, msg.access === "read" ? "read" : "edit");
+        if (!conn.paired) void this.approved(conn, msg.access === "read" ? "read" : "edit", msg.remember);
+        return;
+      case "prove":
+        void this.prove(conn, msg.id, msg.nonce);
+        return;
+      case "forget":
+        if (this.o.trust && typeof msg.id === "string" && typeof msg.secret === "string")
+          void this.o.trust.remove(msg.id, msg.secret).then(
+            (gone) => gone && this.o.log.info("The author forgot a remembered pairing in the editor."),
+            () => {},
+          );
         return;
       case "deny":
         this.send(conn.ws, { t: "refused", reason: "denied" });
@@ -265,7 +312,10 @@ export class LiveBackend implements Backend {
 
   setClient(client: ClientInfo | null) {
     this.client = client;
-    if (this.conn) this.send(this.conn.ws, { t: "client", client });
+    const conn = this.conn;
+    if (!conn) return;
+    /* a tab waiting may now find a pairing it remembers for this client */
+    void this.known(conn.origin).then((known) => this.send(conn.ws, { t: "client", client, ...(known ? { known } : {}) }));
   }
 
   onChange(fn: (what: "document" | "access") => void) {
