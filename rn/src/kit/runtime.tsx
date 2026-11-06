@@ -2,7 +2,7 @@ import { Children, createContext, isValidElement, useCallback, useContext, useMe
 import { Linking, Pressable, ScrollView, StyleSheet, View, type ViewStyle } from "react-native";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
-import { FillWidth } from "./layout";
+import { FillDown, FillWidth } from "./layout";
 import { withAlpha } from "./look";
 import type { BuildViewStyle } from "./styles";
 import { useKit } from "./theme/ThemeProvider";
@@ -13,10 +13,13 @@ import { useKit } from "./theme/ThemeProvider";
  * device. `ScreenStack` is a navigator small enough to read: an app with a router of its own gives `NavProvider` its
  * own `go` and `back` instead. */
 
+/** how a screen is opened: over the current one, with what it is given (its params), in place of the current one */
+export type GoOptions = { overlay?: boolean; params?: Record<string, unknown>; replace?: boolean };
+
 /** where a tap goes */
 export type Nav = {
   /** to a screen, by its key; over the current one when `overlay` */
-  go: (screen: string, opts?: { overlay?: boolean }) => void;
+  go: (screen: string, opts?: GoOptions) => void;
   back: () => void;
   /** an address outside the app */
   open: (url: string) => void;
@@ -42,10 +45,18 @@ export function NavProvider({ value, children }: { value: Partial<Nav>; children
   return <NavContext.Provider value={merged}>{children}</NavContext.Provider>;
 }
 
-/** a part placed on its screen, from the screen's top left; `span` runs it from edge to edge */
-export function At({ x = 0, y = 0, span, z, children }: { x?: number; y?: number; span?: boolean; z?: number; children: ReactNode }) {
+/** a part placed on its screen, from the screen's top left; `span` runs it from edge to edge; `bottom` runs it down to
+ *  that far from the screen's foot (a list of data that scrolls in what is left of the screen) */
+export function At({ x = 0, y = 0, span, z, bottom, children }: { x?: number; y?: number; span?: boolean; z?: number; bottom?: number; children: ReactNode }) {
   const style: BuildViewStyle = span ? { position: "absolute", left: 0, right: 0, top: y } : { position: "absolute", left: x, top: y };
   if (z) style.zIndex = z;
+  if (bottom !== undefined) style.bottom = bottom;
+  if (bottom !== undefined)
+    return (
+      <View style={style}>
+        <FillDown across={span}>{children}</FillDown>
+      </View>
+    );
   return <View style={style}>{span ? <FillWidth>{children}</FillWidth> : children}</View>;
 }
 
@@ -118,13 +129,24 @@ export function Screen({ bg = "surface", width, length, height, children }: Scre
   );
 }
 
+/** what a screen is given: what it was opened with */
+export type ScreenComponent = ComponentType<{ params?: Record<string, unknown> }>;
+
 /** One screen over another and a history to go back through: enough to run a design's flows. */
-export function ScreenStack({ screens, initial }: { screens: Record<string, ComponentType>; initial: string }) {
+export function ScreenStack({ screens, initial }: { screens: Record<string, ScreenComponent>; initial: string }) {
   const kit = useKit();
-  const [stack, setStack] = useState<{ key: string; overlay?: boolean }[]>([{ key: initial }]);
-  const go = useCallback((key: string, opts?: { overlay?: boolean }) => {
-    if (screens[key]) setStack((s) => [...s.filter((x) => !(opts?.overlay === undefined && x.overlay)), { key, overlay: opts?.overlay }]);
-  }, [screens]);
+  const [stack, setStack] = useState<{ key: string; overlay?: boolean; params?: Record<string, unknown> }[]>([{ key: initial }]);
+  const go = useCallback(
+    (key: string, opts?: GoOptions) => {
+      if (!screens[key]) return;
+      const entry = { key, overlay: opts?.overlay, params: opts?.params };
+      setStack((s) => {
+        const kept = s.filter((x) => !(opts?.overlay === undefined && x.overlay));
+        return opts?.replace && kept.length ? [...kept.slice(0, -1), entry] : [...kept, entry];
+      });
+    },
+    [screens],
+  );
   const back = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), []);
   const nav = useMemo(() => ({ go, back }), [go, back]);
   const top = stack[stack.length - 1];
@@ -134,19 +156,32 @@ export function ScreenStack({ screens, initial }: { screens: Record<string, Comp
   return (
     <NavProvider value={nav}>
       <View style={{ flex: 1 }}>
-        {Under ? <Under /> : null}
+        {Under && under ? <Under params={under.params} /> : null}
         {top.overlay ? (
           <Pressable accessibilityLabel="Close" onPress={back} style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(kit.colors.scrim ?? "#000000", 0.32), alignItems: "center", justifyContent: "center" }]}>
             <Pressable onPress={() => {}}>
               <Overlaid.Provider value>
-                <Top />
+                <Top params={top.params} />
               </Overlaid.Provider>
             </Pressable>
           </Pressable>
         ) : (
-          <Top />
+          <Top params={top.params} />
         )}
       </View>
     </NavProvider>
+  );
+}
+
+/** a screen shown over another, as the preview shows it: at its own size, its corners rounded, on a scrim that closes
+ *  it (an app with a router of its own draws its overlay screens in this) */
+export function OverlayFrame({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  const kit = useKit();
+  return (
+    <Pressable accessibilityLabel="Close" onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(kit.colors.scrim ?? "#000000", 0.32), alignItems: "center", justifyContent: "center" }]}>
+      <Pressable onPress={() => {}}>
+        <Overlaid.Provider value>{children}</Overlaid.Provider>
+      </Pressable>
+    </Pressable>
   );
 }

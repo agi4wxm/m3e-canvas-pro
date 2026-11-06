@@ -279,11 +279,13 @@ describe("calls", () => {
     const said: string[] = [];
     const failed = await rt.call(() => Promise.reject(new ApiError(500, { title: "Server error", status: 500 })), {
       optimistic: () => rt.sources.optimistic(spec.key, row, { remove: true }),
+      // eslint-disable-next-line unicorn/no-thenable -- the call's options, never awaited
       then: () => said.push("then"),
       catch: (e) => said.push(`catch ${e.status}`),
     });
     expect(failed.ok).toBe(false);
     expect(rt.sources.state(spec.key).items).toHaveLength(3);
+    // eslint-disable-next-line unicorn/no-thenable -- the call's options, never awaited
     const ok = await rt.call(async () => ({ done: true }), { optimistic: () => rt.sources.optimistic(spec.key, row, { remove: true }), then: (r) => said.push(`then ${JSON.stringify(r)}`), status: 204 });
     expect(ok).toMatchObject({ ok: true, status: 204 });
     expect(rt.sources.state(spec.key).items).toHaveLength(2);

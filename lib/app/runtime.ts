@@ -109,7 +109,8 @@ export class Runtime {
    *  details, anything thrown on the way (no network) as status 0. */
   errorOf(e: unknown): Problem {
     const status = errorStatus(e);
-    if (status !== undefined && status > 0) return problemOf(status, (e as { body?: unknown }).body, this.lang);
+    /* an answer of status 0 is no answer (the transport's word for a network that failed): as the preview reads it */
+    if (status !== undefined) return problemOf(status, (e as { body?: unknown }).body, this.lang);
     const detail = e instanceof Error && e.message ? e.message.slice(0, 500) : undefined;
     return { ...problemOf(0, undefined, this.lang), ...(detail ? { detail } : {}) };
   }

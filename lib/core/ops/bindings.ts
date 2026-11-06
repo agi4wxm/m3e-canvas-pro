@@ -12,6 +12,7 @@ import { shapeFor, type ScopeShape } from "../../bindings/complete";
 import { endpointOf, formFields, listOf, paramsOf, resolved, responseSchema, titleOf, type FieldSpec } from "../../bindings/contract";
 import { appMessage } from "../../bindings/messages";
 import { INPUT_PROP } from "../../interact";
+import { mergeAllOf } from "../../mocks/shape";
 import { contentWidth, frameOfPart, frameSizeOf, heldBy, REGION_STATES, STAY_TARGET, type Action, type ActionBody, type DataSource, type FormBinding, type Frame, type Group, type Item, type RegionState, type ScreenParam } from "../../tokens";
 import { op, OpError, S, type OpCtx } from "../op";
 import { withFrames, withGroups, withSession, type CoreState } from "../state";
@@ -559,12 +560,15 @@ function helperOf(f: FieldSpec, lang: string): string {
 
 const INPUT_TYPE: Partial<Record<FieldSpec["kind"], string>> = { email: "email", password: "password", number: "number", integer: "number", url: "url", tel: "tel" };
 
+/** a field's error as an expression reads it: the errors are keyed by the field's whole name ("price.amount") */
+const errorOf = (name: string) => (/^[A-Za-z_$][\w$]*$/.test(name) ? `form.errors.${name}` : `form.errors[${JSON.stringify(name)}]`);
+
 /** a helper line under a field: its hint, or its error once there is one, in the error's color */
 const helperNode = (f: FieldSpec, lang: string): TreeNode => ({
   part: "text",
   name: `${f.title} help`,
   props: { text: helperOf(f, lang), style: "caption", color: "muted" },
-  bind: { text: `=form.errors.${f.name} ?? ${JSON.stringify(helperOf(f, lang))}`, color: `=form.errors.${f.name} ? "error" : "muted"` },
+  bind: { text: `=${errorOf(f.name)} ?? ${JSON.stringify(helperOf(f, lang))}`, color: `=${errorOf(f.name)} ? "error" : "muted"` },
 });
 
 /** Adds the input of one field to a form, composed in the document's style: the labeled-field kit for words and numbers,
@@ -713,8 +717,14 @@ const NAMES = {
 };
 
 /** what a row or a detail shows of an element: its title, a line under it, a picture, a value at its end, the rest */
-function pickFields(api: ApiSpec, schema: JsonSchema | undefined): Fields {
+/** a schema with its top reference followed and its allOf merged: the fields its values have */
+function shapeOf(api: ApiSpec, schema: JsonSchema | undefined): JsonSchemaObject | undefined {
   const s = resolved(api, schema);
+  return s && Array.isArray(s.allOf) ? mergeAllOf({ api }, s) : s;
+}
+
+function pickFields(api: ApiSpec, schema: JsonSchema | undefined): Fields {
+  const s = shapeOf(api, schema);
   const props = s?.properties && typeof s.properties === "object" ? s.properties : {};
   const rows = Object.entries(props).map(([name, raw]) => ({ name, s: resolved(api, raw as JsonSchema) ?? ({} as JsonSchemaObject) }));
   const typeOf = (x: JsonSchemaObject) => (Array.isArray(x.type) ? x.type.find((t) => t !== "null") : x.type);
@@ -831,7 +841,7 @@ export const wireScreen = op<
     const regionId = region.result!.groupId;
     let template: string | undefined;
     if (list) {
-      const itemNames = Object.keys(resolved(api, list.item)?.properties ?? {});
+      const itemNames = Object.keys(shapeOf(api, list.item)?.properties ?? {});
       const tap: Action | undefined = detail ? { to: detail.id, transition: "slide", ...(paramsTo(detail, itemNames) ? { params: paramsTo(detail, itemNames)! } : {}) } : undefined;
       const row = addTree.run(state, { tree: rowTree(api, list.item, width, tap), into: { container: regionId } }, user);
       state = row.state;

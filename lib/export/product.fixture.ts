@@ -7,6 +7,7 @@ import { proofDoc } from "../exportProject.fixture";
 import { fromAsyncApi, fromOpenApi, mergeApi } from "../api";
 import { fillMocks } from "../mocks/fill";
 import { placeholderFile } from "../mocks/files";
+import { DocStore, counterIds, guessMeasurer, ops, savedDoc, stateOf } from "../core";
 import type { ApiSpec, Doc } from "../tokens";
 
 export const FIXTURE_TYPES = `export type Health = { status: string }
@@ -62,10 +63,51 @@ export function shopMocks(api: ApiSpec = shopApi()) {
   return { ...filled, files: [placeholderFile("image", { seed: "shop", title: "Sneaker", id: "sneaker" }), placeholderFile("pdf", { seed: "shop", title: "Receipt", id: "receipt" })] };
 }
 
-/** the proof document's screens with the shop's contract and its mocks as its own (Doc.api, Doc.mocks): the product
- *  reads them from the document */
+/** the sign-in the shop's mocks (and the handler scripts/check-product.ts writes) accept */
+export const SHOP_SIGN_IN = { email: "ada@shop.example", password: "correct horse" };
+
+/** The shop's screens bound to its contract, built only through operations the way the AI and MCP build them: a
+ *  sign-in screen, a catalog that pages and pulls to refresh, an item opened by its id, a form that sells a product, and
+ *  the orders, which need a session. */
+export function bindShop(doc: Doc): Doc {
+  const store = new DocStore(stateOf(doc), { ids: counterIds("shop"), measurer: guessMeasurer, lang: () => "en" });
+  store.transact("Bind the shop", "mcp", (tx) => {
+    tx.run(ops.addScreen, { id: "shop-signin", name: "Sign in" });
+    tx.run(ops.addScreen, { id: "shop-catalog", name: "Catalog" });
+    tx.run(ops.addScreen, { id: "shop-item", name: "Item" });
+    tx.run(ops.addScreen, { id: "shop-sell", name: "Sell" });
+    tx.run(ops.addScreen, { id: "shop-orders", name: "Orders" });
+    tx.run(ops.setScreenAuth, { screen: "shop-signin", auth: "login" });
+    tx.run(ops.setScreenAuth, { screen: "shop-orders", auth: "required" });
+    tx.run(ops.wireScreen, { screen: "shop-item", operationId: "getProduct" });
+    tx.run(ops.wireScreen, { screen: "shop-catalog", operationId: "listProducts", detail: "shop-item" });
+    tx.run(ops.wireScreen, { screen: "shop-orders", operationId: "listOrders" });
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    tx.run(ops.makeForm, { screen: "shop-sell", operationId: "createProduct", fields: ["name", "price.amount", "category", "description"], values: { "price.currency": "'CNY'" }, then: { to: "shop-catalog", transition: "slide", effects: [{ do: "snackbar", message: "Added {{response.name}}" }] } });
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    tx.run(ops.makeForm, { screen: "shop-signin", operationId: "login", then: { to: "shop-catalog", transition: "fade" } });
+    /* a picture of an item, uploaded with its progress (multipart/form-data) */
+    tx.run(ops.addScreen, { id: "shop-photo", name: "Photo" });
+    tx.run(ops.setScreenParams, { screen: "shop-photo", params: [{ name: "productId", type: "string" }] });
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    tx.run(ops.makeForm, { screen: "shop-photo", operationId: "uploadProductImage", params: { productId: "params.productId" }, then: { to: "back", transition: "slide", effects: [{ do: "snackbar", message: "Photo added" }] } });
+    tx.run(ops.addPart, { slug: "button", id: "shop-photo-button", screen: "shop-item", at: { x: 16, y: 800 }, props: { label: "Add a photo", variant: "tonal" } });
+    tx.run(ops.setAction, { id: "shop-photo-button", action: { to: "shop-photo", transition: "slide", params: { productId: "params.productId" } } });
+    tx.run(ops.addPart, { slug: "button", id: "shop-sell-button", screen: "shop-catalog", at: { x: 16, y: 800 }, props: { label: "Sell" } });
+    tx.run(ops.setAction, { id: "shop-sell-button", action: { to: "shop-sell", transition: "slide" } });
+    tx.run(ops.addPart, { slug: "button", id: "shop-orders-button", screen: "shop-catalog", at: { x: 220, y: 800 }, props: { label: "Orders", variant: "tonal" } });
+    tx.run(ops.setAction, { id: "shop-orders-button", action: { to: "shop-orders", transition: "slide" } });
+  });
+  return savedDoc(store.get());
+}
+
+/** the proof document's screens with the shop's contract and its mocks as its own (Doc.api, Doc.mocks), and the shop's
+ *  own screens bound to it: the product reads them from the document */
 export function shopProductDoc(): { doc: Doc; widths: Record<string, number> } {
   const { doc, widths } = proofDoc();
   const api = shopApi();
-  return { doc: { ...doc, api, mocks: shopMocks(api) }, widths };
+  const mocks = shopMocks(api);
+  /* a sign-in that wants the right password, and a scenario where the server turns a product's name down */
+  const taken = { id: "name-taken", name: "Name taken", ops: { createProduct: { status: 422, body: { type: "about:blank", title: "The product is not valid", status: 422, errors: [{ pointer: "#/name", detail: "That name is taken" }] } } } };
+  return { doc: bindShop({ ...doc, api, mocks: { ...mocks, auth: { ...mocks.auth, accept: [SHOP_SIGN_IN] }, scenarios: [...(mocks.scenarios ?? []), taken] } }), widths };
 }

@@ -8,7 +8,8 @@ import { apiTarget } from "./api";
 import { appRuntimeTarget } from "./appRuntime";
 import { mocksTarget } from "./mocks";
 import { contractTestsTarget } from "./contractTests";
-import { miniappTarget, mobileTarget } from "./others";
+import { miniappTarget } from "./others";
+import { mobileTarget } from "./mobile";
 import { serverTarget } from "./server";
 import { webTarget } from "./web";
 

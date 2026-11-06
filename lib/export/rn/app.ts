@@ -30,24 +30,32 @@ export const themeModule = (theme: RnTheme, kitImport = "../kit") => `${HEAD}\ni
 /** the glyphs as a module */
 export const iconsModule = (data: unknown, kitImport = "../kit") => `${HEAD}\nimport type { IconData } from ${str(kitImport)};\n\nexport const icons: IconData = ${JSON.stringify(data)};\n`;
 
-/** the app over the printed screens */
-export const appModule = (kitImport = "../kit") =>
+/** the app over the printed screens: its memory (the variables, the parts hidden at the start, the snackbar) around a
+ *  small navigator */
+export const appModule = (kitImport = "../kit", memory: Pick<RnScreens, "hidden" | "vars"> = { hidden: [], vars: [] }) =>
   [
     HEAD,
     'import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";',
-    `import { ScreenStack, ThemeProvider, registerIcons } from ${str(kitImport)};`,
+    `import { AppProvider, ScreenStack, SnackHost, ThemeProvider, registerIcons, type AppVar } from ${str(kitImport)};`,
     'import { icons } from "./icons";',
     'import { INITIAL, SCREENS } from "./screens";',
     'import { theme } from "./theme";',
     "",
     "registerIcons(icons);",
     "",
+    "/** the design's variables, and the parts hidden until a tap shows them */",
+    `const VARS: AppVar[] = ${expr(memory.vars)};`,
+    `const HIDDEN: string[] = ${expr(memory.hidden)};`,
+    "",
     "/** the design's app: its theme (light or dark as the device is, unless `dark` says), its screens and where taps go */",
     "export function App({ dark, initial = INITIAL }: { dark?: boolean; initial?: string }) {",
     "  return (",
     "    <SafeAreaProvider initialMetrics={initialWindowMetrics}>",
     "      <ThemeProvider theme={theme} dark={dark}>",
-    "        <ScreenStack screens={SCREENS} initial={initial} />",
+    "        <AppProvider vars={VARS} hidden={HIDDEN}>",
+    "          <ScreenStack screens={SCREENS} initial={initial} />",
+    "          <SnackHost />",
+    "        </AppProvider>",
     "      </ThemeProvider>",
     "    </SafeAreaProvider>",
     "  );",
@@ -72,7 +80,7 @@ export async function printRnApp(doc: Doc, widths: Record<string, number>, o: Rn
     { path: "src/generated/icons.ts", text: iconsModule(icons), kind: "generated" },
     ...screens.screens.map((s): RnAppFile => ({ path: `src/generated/screens/${s.component}.tsx`, text: s.source, kind: "generated" })),
     { path: "src/generated/screens/index.ts", text: screensIndex(screens), kind: "generated" },
-    { path: "src/generated/App.tsx", text: appModule(), kind: "generated" },
+    { path: "src/generated/App.tsx", text: appModule("../kit", screens), kind: "generated" },
     ...Object.entries(o.kit ?? {}).map(([path, text]): RnAppFile => ({ path: `src/kit/${path}`, text, kind: "kit" })),
   ];
   return { files, warnings: screens.warnings, theme, screens };

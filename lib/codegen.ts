@@ -144,6 +144,8 @@ function jsx(it: Item, c: Ctx, insideTap = false): string {
 
 /** a part that takes the room its layout gives it, not a number of pixels */
 function fluid(tree: PNode, keys: ("width" | "height")[]): PNode {
+  /* a root that takes no style (a select's: its size is its trigger's) gets none */
+  if (!tree.props?.style && tree.type === "Select") return tree;
   const style = { ...(tree.props?.style as Record<string, PValue> | undefined) };
   for (const k of keys) if (k in style) style[k] = "100%";
   return { ...tree, props: { ...tree.props, style } };

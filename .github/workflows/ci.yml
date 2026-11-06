@@ -115,15 +115,23 @@ jobs:
   # Chromium, and a second export over it that must keep custom code (scripts/check-product.ts). The shop is a document
   # with its own contract (auth, paging, uploads, realtime): its server answers 400 / 401 / 501 as problem details, two
   # handlers written into it pass the contract tests in strict mode, and a contract that grows or shrinks seeds a new
-  # stub or leaves an orphan, never touching the handlers written.
+  # stub or leaves an orphan, never touching the handlers written. Its mobile app (apps/mobile, Expo) is bundled by Metro
+  # for Android and the web, and driven in Chromium against the mocks and the real server (scripts/check-mobile.ts).
   product:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # npm's downloads, kept between runs: the products pin exact versions, so the key changes only with them
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-product-${{ hashFiles('lib/versions.generated.ts', 'rn/package.json', 'lib/export/targets/mobile.ts') }}
+          restore-keys: npm-product-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
@@ -138,11 +146,13 @@ jobs:
           echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
       - name: Export a product and check it for real
         run: bun scripts/check-product.ts "${{ runner.temp }}/product"
-      - name: Export the shop (its own contract) and check its server for real
+      - name: Export the shop (its own contract) and check its server and its mobile app for real
         run: bun scripts/check-product.ts "${{ runner.temp }}/product" shop
-      - name: Logs of what failed
-        if: failure()
+      - name: Logs and screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: product-logs
-          path: ${{ runner.temp }}/product/*.log
+          path: |
+            ${{ runner.temp }}/product/*.log
+            ${{ runner.temp }}/product/*.png

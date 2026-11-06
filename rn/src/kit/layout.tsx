@@ -78,6 +78,13 @@ export function FillWidth({ children }: { children: ReactNode }) {
   return <FillContext.Provider value={ACROSS}>{children}</FillContext.Provider>;
 }
 
+const DOWN: Fill = { w: false, h: true };
+const BOTH: Fill = { w: true, h: true };
+/** what runs down to the foot of the screen (a list of data that scrolls) is as tall as the room it is given */
+export function FillDown({ across, children }: { across?: boolean; children: ReactNode }) {
+  return <FillContext.Provider value={across ? BOTH : DOWN}>{children}</FillContext.Provider>;
+}
+
 export type CellProps = {
   /** take the room left along the run */
   grow?: boolean;
