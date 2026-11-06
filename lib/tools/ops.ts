@@ -8,7 +8,7 @@ import { laidOut } from "../core/ops/common";
 import { opInput } from "./schema";
 import { tool, ToolFailure, type Tool, type ToolEnv, type ToolGroup } from "./types";
 
-const STYLE_OPS = new Set(["set_theme", "apply_style", "set_custom_styles", "set_style_rules", "set_style_layout", "set_palette", "set_custom_palette", "set_dynamic_color"]);
+const STYLE_OPS = new Set(["set_theme", "apply_style", "set_custom_styles", "add_custom_style", "set_style_rules", "set_style_layout", "set_palette", "set_custom_palette", "set_dynamic_color"]);
 const DATA_OPS = new Set(["add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop"]);
 /** what takes away something the author made: a client asks the author first */
 export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "set_custom_styles"]);
@@ -19,6 +19,8 @@ const groupOf = (name: string): ToolGroup => (STYLE_OPS.has(name) ? "style" : DA
 const MORE: Record<string, string> = {
   add_part:
     "Compose with `into` (a box's auto layout, at `index`); `at` places it freely on the screen. Give `id` when later calls name the part. A `box` is the container atom: surface (none, card, panel, field, bar, chip, button, sheet, overlay, well), layout (row, column, grid), gap, padding. Returns {itemId, groupId}.",
+  add_tree:
+    "Compose with nested boxes the way Figma's auto layout does: a box's props set surface, layout (row, column, grid), gap, padding, align, justify and its size; children are laid out in order. Give ids to the nodes later calls name. Text hugs its words in a row and wraps at the column's width in a column with align stretch. To keep it as a reusable component, follow it with make_component {ids: [root id]}. Returns {itemId: the root, groupId, parts}.",
   add_kit: "Prefer a kit over composing the same by hand. Returns {itemId, groupId}; the kit's root box is itemId.",
   add_screen: "Returns {id}.",
   set_item: "To change words, icons and other props use set_props; set_item is for fill, textColor, corners, look, note, taps and the auto layout fields.",

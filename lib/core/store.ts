@@ -309,12 +309,13 @@ export class DocStore {
 
   /* ---------- undo ---------- */
 
-  /** takes the last step back; its label, or null when there was none */
-  undo(origin: Origin = "user"): string | null {
+  /** Takes the last step back; its label, or null when there was none. With `forget`, the step is gone for good,
+   *  not waiting to be redone: what a stopped agent turn did is discarded, not undone. */
+  undo(origin: Origin = "user", o: { forget?: boolean } = {}): string | null {
     if (this.tx) throw new OpError("busy", "undo inside a transaction");
     const prev = this.past.pop();
     if (!prev) return null;
-    this.future.push({ snap: snapshotOf(this.state, !!prev.snap.meta), label: prev.label, origin: prev.origin });
+    if (!o.forget) this.future.push({ snap: snapshotOf(this.state, !!prev.snap.meta), label: prev.label, origin: prev.origin });
     this.restore(prev, "undo", origin);
     return prev.label;
   }

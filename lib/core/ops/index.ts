@@ -7,14 +7,18 @@ import * as nodes from "./nodes";
 import * as layout from "./layout";
 import * as components from "./components";
 import * as data from "./data";
+import * as tree from "./tree";
+import * as styles from "./styles";
 
-export { document, screens, nodes, layout, components, data };
+export { document, screens, nodes, layout, components, data, tree, styles };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
 export * from "./layout";
 export * from "./components";
 export * from "./data";
+export * from "./tree";
+export * from "./styles";
 export { OpError } from "../op";
 
 /** What a model or an MCP client may call, by name. The editor's own gestures (a drop, a paste, a drag of a layer)
@@ -27,6 +31,7 @@ export const OPS: Op<never, unknown>[] = [
   document.patchTheme,
   document.applyStyle,
   document.setStyles,
+  styles.addCustomStyle,
   document.setRules,
   document.patchUx,
   document.setPalette,
@@ -48,6 +53,7 @@ export const OPS: Op<never, unknown>[] = [
   nodes.addPart,
   nodes.addInstance,
   nodes.addKit,
+  tree.addTree,
   nodes.removeNodes,
   nodes.duplicateNodes,
   nodes.setItem,
