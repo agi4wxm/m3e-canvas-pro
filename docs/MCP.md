@@ -159,6 +159,8 @@ npx playwright install chromium
 
 服务器会在 `PLAYWRIGHT_PATH`、`NODE_PATH`、全局模块里找它。没装时，截图工具返回错误并说明怎样安装，其他工具不受影响。
 
+屏幕上有加载不了的图片（外链失效、返回的不是图片、不允许复制）时，那张图画成灰块，截图照常返回，结果里的 `skipped` 列出这些地址并提示换成 `generate_image` 或图标；实时模式在编辑器里截图也一样。
+
 ## 安全
 
 | 方面 | 做法 |
@@ -178,6 +180,11 @@ npx playwright install chromium
 ## 工具、资源和提示词
 
 工具就是注册表的工具，带完整的 JSON Schema 输入、`outputSchema`（结果在 `structuredContent.result` 里，同时有文本），以及 `readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint` 提示。错误以 `{code, message, hint}` 返回，模型能据此改正。截图以图片返回。长时间的调用（生成）会定时发进度通知。
+
+- **常见的猜错按本意读**：点击位置写成属性名（应用栏的 `leading`/`trailing` 是 `icon`/`icon2`）、行的序号或文字，按钮的 `text`（`label`）、图片的 `url`（`src`）这类属性名，都按本意执行。
+- **批量**：`apply_ops` 有操作失败时整批不执行，错误列出每个失败的操作和原因，并说明其余操作没问题，只改这些再发。
+- **图片**：图片属性、列表行的图片、实例的图片覆盖和屏幕的 `backgroundImage` 只接受 `data:image/…` 和项目自己的图片；外链被拒（提示用 `generate_image`）。SVG data URL 先过和矢量原子相同的清理。
+- **组件定义**：`list_components` 给出每个组件的部件和实例可覆盖的键（`部件 id/属性 = 定义里的值`），`describe_node` 也能读组件定义里的部件。
 
 - **说明**：服务器的 instructions 是工具指南（`toolGuide`）加上 MCP 的说明。
 - **提示词**：`guide`（工具指南）、`design_screen`（按一段需求设计一个屏幕，先搭再截图检查）。
