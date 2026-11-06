@@ -21,7 +21,9 @@ import type { PickedImage } from "./attachImage";
 export type LogEntry =
   | { kind: "text"; step: number; text: string }
   | { kind: "tool"; id: string; name: string; state: "running" | "ok" | "error"; summary: string; ms?: number }
-  | { kind: "review"; images: string[] };
+  | { kind: "review"; images: string[] }
+  /** a removal the turn waits on the author for (lib/agent/guard.ts), and what they said */
+  | { kind: "ask"; id: string; state: "waiting" | "allowed" | "declined"; screens: string[]; parts: number; components: string[]; collections: string[] };
 
 export type TurnView = {
   id: string;
@@ -63,7 +65,7 @@ export type AgentInputs = {
 /** a turn as it is kept: what it said and did, without the pictures it looked at */
 const keptOf = (x: TurnView): KeptTurn => {
   const { shots: _s, log, images, ...rest } = x;
-  return { ...rest, log: log.filter((l) => l.kind !== "review"), ...(images?.length ? { images } : {}), ...(x.status === "running" ? { status: "stopped" } : {}) } as unknown as KeptTurn;
+  return { ...rest, log: log.filter((l) => l.kind !== "review").map((l) => (l.kind === "ask" && l.state === "waiting" ? { ...l, state: "declined" } : l)), ...(images?.length ? { images } : {}), ...(x.status === "running" ? { status: "stopped" } : {}) } as unknown as KeptTurn;
 };
 const viewOf = (k: KeptTurn): TurnView => ({ shots: [], log: [], reasoning: "", usage: noUsage(), ms: 0, drawings: 0, before: 0, status: "done", ...(k as unknown as Partial<TurnView>) }) as TurnView;
 
@@ -81,6 +83,8 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
   /** the author took the last turn back: the model is told on the next one */
   const undone = useRef(false);
   const runningRef = useRef(false);
+  /** the answer the running turn waits on, when it asked whether it may take away the author's work */
+  const answerRef = useRef<((allow: boolean) => void) | null>(null);
 
   const ready = hasKey(settings) && settings.model.trim().length > 0 && isSecureUrl(settings.baseUrl);
 
@@ -154,8 +158,29 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
       case "usage":
         patch(id, (x) => ({ ...x, usage: e.usage }));
         break;
+      case "ask":
+        patch(id, (x) => ({ ...x, log: [...x.log, { kind: "ask", id: e.id, state: "waiting", screens: e.ask.screens.map((s) => s.name), parts: e.ask.parts, components: e.ask.components.map((c) => c.name), collections: e.ask.collections.map((c) => c.name) }] }));
+        break;
+      case "answer":
+        patch(id, (x) => ({ ...x, log: x.log.map((l) => (l.kind === "ask" && l.id === e.id ? { ...l, state: e.allow ? "allowed" : "declined" } : l)) }));
+        break;
     }
   };
+
+  /** Waits for the author's Allow or Don't on a removal the turn asked about; stopping the turn is a Don't. */
+  const confirm = (_ask: unknown, signal?: AbortSignal) =>
+    new Promise<boolean>((resolve) => {
+      const done = (allow: boolean) => {
+        answerRef.current = null;
+        signal?.removeEventListener("abort", stopped);
+        resolve(allow);
+      };
+      const stopped = () => done(false);
+      signal?.addEventListener("abort", stopped, { once: true });
+      answerRef.current = done;
+    });
+  /** the author's answer to the removal the running turn waits on */
+  const answer = (allow: boolean) => answerRef.current?.(allow);
 
   /** Sends a request to the agent, with any pictures attached to it: one turn, streamed into the panel as it goes. */
   const send = async (request: string, pictures: PickedImage[] = []) => {
@@ -185,7 +210,7 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
       undone.current = false;
       const all = [...keptAttachments, ...images];
       /* SVG written as code needs only the text model; the image model is used when its key is set */
-      const r = await runTurn({ store, adapter, history: messages.current, request: ask, images, attachments: all, sets: sets.current as never, lang, renderer, gen: { settings, adapter }, signal: ac.signal, note, onEvent: onEvent(id) });
+      const r = await runTurn({ store, adapter, history: messages.current, request: ask, images, attachments: all, sets: sets.current as never, lang, renderer, gen: { settings, adapter }, signal: ac.signal, note, confirm, onEvent: onEvent(id) });
       messages.current = r.messages;
       if (r.stop !== "aborted") {
         attachments.current = all;
@@ -259,5 +284,5 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
     setTurns([]);
   };
 
-  return { turns, running, ready, agentFrameId, send, stop, undoTurn, keepTurn, retry, reset, onTop };
+  return { turns, running, ready, agentFrameId, send, stop, undoTurn, keepTurn, retry, reset, onTop, answer };
 }

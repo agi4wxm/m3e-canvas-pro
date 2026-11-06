@@ -212,7 +212,8 @@ export const finished = (): Check => ({
   critical: true,
   run(g) {
     const left = g.o.calls.filter((c, i) => {
-      if (c.ok || READS.has(c.name) || (c.error?.code === "refused" && /drawings?/i.test(c.error.message))) return false;
+      /* a removal the author declined is not an error to recover from: the work was meant to stay */
+      if (c.ok || READS.has(c.name) || (c.error?.code === "refused" && /drawings?/i.test(c.error.message)) || c.error?.code === "declined") return false;
       const ran = opsOf(c);
       return !g.o.calls.slice(i + 1).some((d) => d.ok && (d.name === c.name || opsOf(d).some((x) => ran.includes(x))));
     });

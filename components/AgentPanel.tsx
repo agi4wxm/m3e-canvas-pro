@@ -37,6 +37,8 @@ export type AgentApi = {
   keepTurn: (id: string) => void;
   retry: (id: string) => void;
   reset: () => void;
+  /** the author's answer to a removal the running turn asked about */
+  answer?: (allow: boolean) => void;
 };
 
 const kilo = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : String(n));
@@ -75,6 +77,42 @@ function Step({ entry, p }: { entry: Extract<LogEntry, { kind: "tool" }>; p: Pal
         {entry.summary}
       </span>
       {entry.ms !== undefined && entry.ms > 900 && <span style={{ flex: "0 0 auto", opacity: 0.7 }}>{(entry.ms / 1000).toFixed(1)} s</span>}
+    </div>
+  );
+}
+
+/** what a removal would take, in a line */
+export function askText(a: Extract<LogEntry, { kind: "ask" }>, lang: ReturnType<typeof useLang>): string {
+  const names = (xs: string[]) => xs.slice(0, 3).join(lang === "zh" || lang === "ja" ? "、" : ", ") + (xs.length > 3 ? "…" : "");
+  const say = (key: UIKey, n: number, list: string[] = []) => (n ? t(key, lang).replace("{n}", String(n)).replace("{names}", names(list)) : "");
+  return [say("agentAskScreens", a.screens.length, a.screens), say("agentAskParts", a.parts), say("agentAskComponents", a.components.length, a.components), say("agentAskCollections", a.collections.length, a.collections)].filter(Boolean).join(" · ");
+}
+
+/** The turn asks whether it may take away the author's work: Allow or Don't while it waits, then what they said. */
+function Ask({ entry, agent, p }: { entry: Extract<LogEntry, { kind: "ask" }>; agent: AgentApi; p: Palette }) {
+  const lang = useLang();
+  if (entry.state !== "waiting")
+    return (
+      <div data-agent-ask={entry.state} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 28, fontSize: 12, color: p.onSurfaceVariant }}>
+        <Icon name={entry.state === "allowed" ? "delete_sweep" : "shield"} size={16} color={entry.state === "allowed" ? p.error : p.primary} />
+        {t(entry.state === "allowed" ? "agentAskAllowed" : "agentAskDenied", lang)}
+      </div>
+    );
+  return (
+    <div role="alertdialog" aria-label={t("agentAskTitle", lang)} data-agent-ask="waiting" style={{ margin: "6px 0", padding: "12px 14px", borderRadius: 16, background: p.errorContainer, color: p.onErrorContainer, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700 }}>
+        <Icon name="delete_sweep" size={18} color={p.onErrorContainer} />
+        {t("agentAskTitle", lang)}
+      </div>
+      <div style={{ fontSize: 12, lineHeight: 1.5 }}>{t("agentAskBody", lang).replace("{what}", askText(entry, lang))}</div>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button type="button" data-agent-ask-deny className="m3-press" autoFocus style={{ ...pill(p), borderColor: p.onErrorContainer, color: p.onErrorContainer }} onClick={() => agent.answer?.(false)}>
+          {t("agentAskDeny", lang)}
+        </button>
+        <button type="button" data-agent-ask-allow className="m3-press" style={{ ...pill(p, true), background: p.error, color: p.onError }} onClick={() => agent.answer?.(true)}>
+          {t("agentAskAllow", lang)}
+        </button>
+      </div>
     </div>
   );
 }
@@ -137,6 +175,8 @@ function Turn({ turn, last, agent, p }: { turn: TurnView; last: boolean; agent: 
             </div>
           ) : l.kind === "tool" ? (
             <Step key={l.id || i} entry={l} p={p} />
+          ) : l.kind === "ask" ? (
+            <Ask key={`ask-${l.id || i}`} entry={l} agent={agent} p={p} />
           ) : (
             <div key={i} style={{ fontSize: 12, color: p.onSurfaceVariant, display: "flex", alignItems: "center", gap: 6, minHeight: 28 }}>
               <Icon name="visibility" size={16} color={p.primary} />

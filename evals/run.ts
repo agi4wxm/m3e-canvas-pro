@@ -37,6 +37,8 @@ const HELP = `bun run eval [options]
   --image-model <id>       the image model (default gpt-image-2.6-sunburst)
   --budget-tokens <n>      cap every task's token budget
   --max-drawings <n>       drawings (images, SVG) the whole suite may make (default: what the tasks allow)
+  --destructive <answer>   what the author says when the agent asks to take away much of their work: decline
+                           (default, the author who wants to be asked first) or allow
   --record <dir>           write each run (transcript, calls, documents, screenshots, scores, usage) and a summary
   --artifacts <dir>        put the per-run folders here instead of in --record (keep big pictures out of git)
   --replay <dir>           grade recorded runs again without calling the agent
@@ -60,6 +62,7 @@ const { values: v } = parseArgs({
     "image-model": { type: "string" },
     "budget-tokens": { type: "string" },
     "max-drawings": { type: "string" },
+    destructive: { type: "string" },
     record: { type: "string" },
     artifacts: { type: "string" },
     replay: { type: "string" },
@@ -167,6 +170,7 @@ try {
           renderers: renderers?.available ? renderers : null,
           ...(v["budget-tokens"] ? { budgetTokens: Number(v["budget-tokens"]) } : {}),
           drawings,
+          destructive: v.destructive === "allow" ? "allow" : "decline",
           onEvent: (e) => {
             if (e.type === "tool_end") console.log(`  [${e.step}] ${e.ok ? "ok " : "ERR"} ${e.name}${e.summary ? `: ${e.summary.slice(0, 100)}` : ""} (${(e.ms / 1000).toFixed(1)}s)`);
             else if (e.type === "review") console.log(`  review: ${e.screens.join(", ")}`);

@@ -65,6 +65,16 @@ export const AGENT_UI = {
   agentDropHere: { ja: "ここにドロップして画像を添付", en: "Drop to attach the picture", zh: "松开即可添加图片" },
   agentAttachHint: { ja: "スクリーンショットを貼り付け・ドロップ・添付すると、エージェントが原子で再現して見比べます。", en: "Paste, drop or attach a screenshot and the agent rebuilds it from atoms, then compares the two.", zh: "粘贴、拖入或添加一张截图，智能体会用原子组件复刻它，再并排对照修改。" },
   agentPictureTooBig: { ja: "この画像は読み込めませんでした", en: "That picture could not be read", zh: "这张图片读不出来" },
+  agentAskTitle: { ja: "エージェントがあなたの作ったものを削除しようとしています", en: "The agent wants to remove your work", zh: "智能体要删除你做的内容" },
+  agentAskBody: { ja: "{what} を削除します。依頼にははっきり書かれていませんでした。あとで元に戻すこともできます。", en: "It would remove {what}. Your request did not plainly ask for that. You can still undo it afterwards.", zh: "这会删掉 {what}。你的请求里没有明确这样说。之后也可以撤销。" },
+  agentAskScreens: { ja: "画面 {n} 個（{names}）", en: "{n} screens ({names})", zh: "{n} 个屏幕（{names}）" },
+  agentAskParts: { ja: "部品 {n} 個", en: "{n} parts", zh: "{n} 个组件" },
+  agentAskComponents: { ja: "コンポーネント {n} 個（{names}）", en: "{n} components ({names})", zh: "{n} 个可复用组件（{names}）" },
+  agentAskCollections: { ja: "データ {n} 個（{names}）", en: "{n} data collections ({names})", zh: "{n} 个数据集合（{names}）" },
+  agentAskAllow: { ja: "許可する", en: "Allow", zh: "允许" },
+  agentAskDeny: { ja: "しない", en: "Don't", zh: "不要" },
+  agentAskAllowed: { ja: "削除を許可しました", en: "You allowed the removal", zh: "你允许了删除" },
+  agentAskDenied: { ja: "削除しませんでした。作ったものはそのままです", en: "Not removed: your work is kept", zh: "没有删除，你的内容保留着" },
 } as const satisfies Record<string, Str>;
 
 export const AGENT_KO: Record<keyof typeof AGENT_UI, string> = {
@@ -129,4 +139,14 @@ export const AGENT_KO: Record<keyof typeof AGENT_UI, string> = {
   agentDropHere: "놓아서 이미지 첨부",
   agentAttachHint: "스크린샷을 붙여 넣거나 끌어 놓거나 첨부하면 에이전트가 원자로 다시 만들고 둘을 비교합니다.",
   agentPictureTooBig: "이 이미지를 읽을 수 없습니다",
+  agentAskTitle: "에이전트가 당신이 만든 내용을 지우려고 합니다",
+  agentAskBody: "{what}을(를) 지웁니다. 요청에 분명히 적혀 있지 않았습니다. 나중에 실행 취소할 수도 있습니다.",
+  agentAskScreens: "화면 {n}개({names})",
+  agentAskParts: "부품 {n}개",
+  agentAskComponents: "컴포넌트 {n}개({names})",
+  agentAskCollections: "데이터 컬렉션 {n}개({names})",
+  agentAskAllow: "허용",
+  agentAskDeny: "안 함",
+  agentAskAllowed: "삭제를 허용했습니다",
+  agentAskDenied: "지우지 않았습니다. 만든 내용은 그대로입니다",
 };
