@@ -335,6 +335,18 @@ export class DocStore {
     return prev.label;
   }
 
+  /** Forgets every step, done and undone: what comes next starts the history afresh (a document read again after
+   *  another program changed it, whose earlier states are no longer this session's to bring back). */
+  clearHistory(origin: Origin = "system") {
+    if (this.tx) throw new OpError("busy", "the history cannot be cleared inside a transaction");
+    if (!this.past.length && !this.future.length && !this.stash) return;
+    this.past = [];
+    this.future = [];
+    if (this.stash) this.stash = { ...this.stash, past: [], future: [] };
+    this.last = { key: "", at: 0 };
+    this.emit(this.state, "history", origin, "Clear history");
+  }
+
   /** takes the last step undone again; its label, or null */
   redo(origin: Origin = "user"): string | null {
     if (this.tx) throw new OpError("busy", "redo inside a transaction");

@@ -52,6 +52,19 @@ const STATUS: McpTool = {
   annotations: { title: "Connection status", readOnlyHint: true, idempotentHint: true, openWorldHint: false },
 };
 
+/** the tools a file's own history adds (file mode): the server's session of changes, taken back or made again */
+const HISTORY: McpTool[] = (["undo", "redo"] as const).map((name) => ({
+  name,
+  title: titleOf(name),
+  description:
+    name === "undo"
+      ? "Takes back the last change this server made to the project file (one tool call, or one apply_ops batch) and saves the file. The history is this server's session: it starts when the file is opened, and again whenever another program changes the file. Use it to step back from a change that made things worse."
+      : "Makes the last change undo took back again, and saves the file. A new change after an undo ends what can be redone.",
+  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  outputSchema: { type: "object", properties: { result: { type: "object", description: name === "undo" ? "{undone: the change's name, canUndo, canRedo}, or {nothing_to_do}" : "{redone: the change's name, canUndo, canRedo}, or {nothing_to_do}" } }, required: ["result"] },
+  annotations: { title: titleOf(name), readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+}));
+
 export function describeTool(t: Tool<never>): McpTool {
   const def = toolDefs([t])[0];
   return {
@@ -161,12 +174,15 @@ export function createMcpServer(o: McpServerOptions): Server {
   };
   const ctx = (signal?: AbortSignal, destructive = false): CallContext => ({ signal, client, destructive, confirm });
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [...visible().map(describeTool), STATUS] }));
+  /* a file's own history, while the session may edit */
+  const history = () => (backend.history && backend.access() === "edit" ? HISTORY : []);
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [...visible().map(describeTool), ...history(), STATUS] }));
 
   server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
     const { name } = req.params;
     const args = req.params.arguments ?? {};
     if (name === STATUS.name) return callResult({ ok: true, result: backend.status() });
+    if ((name === "undo" || name === "redo") && history().length) return callResult(await backend.history!(name));
     const t = registry.byName(name);
     if (!t) return callResult({ ok: false, error: { code: "unknown_tool", message: `There is no tool "${name}".`, hint: `The tools are: ${visible().map((x) => x.name).join(", ")}.` } });
     if (!t.readOnly && backend.access() === "read") return callResult({ ok: false, error: { code: "refused", message: "This session is read-only.", hint: "Read and screenshot only, or ask the author for edit access." } });

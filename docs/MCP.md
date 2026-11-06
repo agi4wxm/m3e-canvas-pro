@@ -137,6 +137,7 @@ npx -y m3e-canvas-mcp --file "m3e-canvas Shop.json"
 - 单个文件时图片以 data URL 留在文件里；文件夹（`m3e-project.json`）时较大的图片放在旁边的 `m3e-assets/`，文档里写 `m3e-file:m3e-assets/<哈希>.<扩展名>`。服务器不删除 `m3e-assets/` 里不再用到的图片（编辑器保存文件夹时会清理）。
 - 每次改动成功后立刻写回文件。写入是原子的：先写同目录下的临时文件，再改名覆盖；文件夹里先写图片，再写项目文件。
 - 编辑器绑定了同一个文件时也不会互相覆盖：两边都会在写之前检查文件是否被对方改过。
+- **撤销和重做**：文件模式多两个工具 `undo`、`redo`，撤销或重做这个服务器这次运行里对文件做的修改（一次调用或一批 `apply_ops` 是一步，最多 100 步），每次都立刻写回文件。历史只在内存里：服务器重启后、或者别的程序改过文件被重新读入后从头开始，所以不会撤销别人的修改。没能保存的修改直接丢掉，不能重做。只读会话没有这两个工具；有配对的标签页时（`--live`）改动在编辑器里，由作者在编辑器里撤销。
 - 每次调用前都检查文件：如果别的程序（或编辑器）在这期间保存过它，服务器重新读入，**这次写入被拒绝**并说明原因，不会覆盖别人的修改；AI 重新读大纲后再改。
 - 没有编辑器时，组件的尺寸先用各组件自己的估计（`guessMeasurer`）。截图时会在浏览器里实际测量，之后的排版也用测量值。
 - 破坏性调用：客户端支持 MCP 的 elicitation 时，会请客户端里的人确认；不支持时拒绝，除非用 `--allow-destructive` 启动。
@@ -179,7 +180,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 92 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
+共 94 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -274,6 +275,8 @@ npx playwright install chromium
 | `generate_svg` | 生成（需 OPENAI_API_KEY） |  |  | Draws a custom SVG and puts it on the canvas as a vector (svg) part: a new icon, a logo, an illustration, a decoration nothing in the catalog has. |
 | `generate_image` | 生成（需 OPENAI_API_KEY） |  |  | Paints a picture with the image model (about 20–40 s): with `background` and `screen`, it becomes the picture behind that whole screen (its scene, filling the screen under every p… |
 | `generate_style` | 生成（需 OPENAI_API_KEY） |  |  | Writes a custom style with the text model, from a description ("warm paper notebook: cream paper, ink-blue accents, serif headings") and/or an attached reference picture (ref1…), … |
+| `undo` | 文件模式自带 |  |  | Takes back the last change this server made to the project file (one tool call, or one apply_ops batch) and saves the file. |
+| `redo` | 文件模式自带 |  |  | Makes the last change undo took back again, and saves the file. |
 | `connection_status` | 服务器自带 | 是 |  | Where this server's calls go, whether an editor tab is paired, and the pairing code when none is. |
 
 <!-- tools:end -->

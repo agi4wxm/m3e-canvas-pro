@@ -33,7 +33,9 @@ describe("the MCP server on a project file", () => {
     const { client, registry } = await open();
     const { tools } = await client.listTools();
     const by = new Map(tools.map((t) => [t.name, t]));
-    expect(tools.length).toBe(registry.tools.length + 1);
+    /* the registry's, the file's undo and redo, and connection_status */
+    expect(tools.length).toBe(registry.tools.length + 3);
+    expect(by.get("undo")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
     expect(by.get("get_outline")?.annotations).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(by.get("remove_nodes")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
     expect(by.get("add_part")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false, idempotentHint: false });
@@ -124,6 +126,7 @@ describe("the MCP server on a project file", () => {
     expect(tools.every((t) => t.annotations?.readOnlyHint)).toBe(true);
     expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(["get_outline", "find_nodes", "describe_node", "screenshot", "list_parts"]));
     expect(tools.map((t) => t.name)).not.toContain("apply_ops");
+    expect(tools.map((t) => t.name)).not.toContain("undo");
     expect(registry.tools.every((t) => t.readOnly)).toBe(true);
     const r = await call("add_screen", { name: "Nope" });
     expect(r.isError).toBe(true);
@@ -154,6 +157,65 @@ describe("the MCP server on a project file", () => {
     const again = await call("add_screen", { id: "mine", name: "Mine" });
     expect(again.isError).toBeFalsy();
     expect(onDisk(path).frames.map((f) => f.id)).toEqual(["home", "theirs", "mine"]);
+  });
+
+  it("undoes and redoes the session's own changes, writing the file each time", async () => {
+    const { call, path } = await open();
+    const nothing = await call("undo");
+    expect(nothing.isError).toBeFalsy();
+    expect(nothing.structuredContent).toEqual({ result: { nothing_to_do: "There is nothing of this session's to undo." } });
+    await call("add_screen", { id: "cart", name: "Cart" });
+    await call("apply_ops", { ops: [{ op: "add_screen", args: { id: "pay", name: "Pay" } }, { op: "set_title", args: { title: "Fruit" } }] });
+    expect(onDisk(path).frames.map((f) => f.id)).toEqual(["home", "cart", "pay"]);
+
+    /* the batch is one step */
+    const undone = await call("undo");
+    expect(undone.structuredContent).toMatchObject({ result: { canUndo: true, canRedo: true } });
+    expect(onDisk(path).frames.map((f) => f.id)).toEqual(["home", "cart"]);
+    expect(onDisk(path).title).toBe("Shop");
+    await call("undo");
+    expect(onDisk(path).frames.map((f) => f.id)).toEqual(["home"]);
+    expect((await call("undo")).structuredContent).toMatchObject({ result: { nothing_to_do: expect.any(String) } });
+    await call("redo");
+    expect(onDisk(path).frames.map((f) => f.id)).toEqual(["home", "cart"]);
+    /* a new change ends what could be redone */
+    await call("add_screen", { id: "other", name: "Other" });
+    expect((await call("redo")).structuredContent).toMatchObject({ result: { nothing_to_do: "There is nothing undone to redo." } });
+    expect(onDisk(path).frames.map((f) => f.id)).toEqual(["home", "cart", "other"]);
+  });
+
+  it("starts the history again when another program changed the file, and never undoes past it", async () => {
+    const { call, path } = await open();
+    await call("add_screen", { id: "cart", name: "Cart" });
+    const theirs = onDisk(path);
+    theirs.title = "Theirs";
+    const written = JSON.stringify(projectFile(theirs), null, 2);
+    writeFileSync(path, written);
+    const r = await call("undo");
+    expect(errorOf(r)).toMatchObject({ code: "refused" });
+    expect(errorOf(r)?.message).toMatch(/changed on disk/);
+    expect(readFileSync(path, "utf8")).toBe(written);
+    /* their document is the start of the history now */
+    expect((await call("undo")).structuredContent).toMatchObject({ result: { nothing_to_do: expect.any(String) } });
+    expect(onDisk(path).title).toBe("Theirs");
+    expect(onDisk(path).frames.map((f) => f.id)).toEqual(["home", "cart"]);
+  });
+
+  it("leaves nothing to redo when a change could not be saved", async () => {
+    const { call, path, backend } = await open();
+    await call("add_screen", { id: "cart", name: "Cart" });
+    /* the file changes between the server's look at it and its write */
+    const file = (backend as unknown as { file: { changed(): Promise<boolean> } }).file;
+    const changed = file.changed.bind(file);
+    let n = 0;
+    file.changed = async () => (++n === 2 ? true : changed());
+    const r = await call("add_screen", { id: "lost", name: "Lost" });
+    expect(errorOf(r)?.code).toBe("refused");
+    file.changed = changed;
+    expect(onDisk(path).frames.map((f) => f.id)).toEqual(["home", "cart"]);
+    expect((await call("redo")).structuredContent).toMatchObject({ result: { nothing_to_do: expect.any(String) } });
+    await call("undo");
+    expect(onDisk(path).frames.map((f) => f.id)).toEqual(["home"]);
   });
 
   it("writes the editor's own format, byte for byte", async () => {
