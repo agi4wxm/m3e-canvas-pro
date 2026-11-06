@@ -6,12 +6,16 @@ import { GENERATED, jsonFile, sortedObject } from "../code";
 import { generated, seeded, type ProductContext, type ProductFiles, type Workspace } from "../types";
 
 /** the folders whose files are all generated: Prettier leaves them alone, AGENTS.md names them */
-export const GENERATED_DIRS = ["**/src/generated/", "apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/public/", "packages/api/", "packages/mocks/", "packages/app-runtime/"];
+export const GENERATED_DIRS = ["**/src/generated/", "apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/public/", "packages/api/", "packages/mocks/", "packages/app-runtime/", "apps/miniapp/src/kit/", "apps/miniapp/src/pages/"];
 
 /** the editor's copied components: ESLint leaves them alone (they are the editor's code, checked there) */
-const VENDORED = ["apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/src/react-css.d.ts", "packages/mocks/src/engine/", "packages/app-runtime/src/engine/"];
+const VENDORED = ["apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/src/react-css.d.ts", "packages/mocks/src/engine/", "packages/app-runtime/src/engine/", "apps/miniapp/src/kit/"];
 
 const ROOT_DEV = ["@eslint/js", "eslint", "eslint-plugin-react-hooks", "eslint-plugin-react-refresh", "globals", "prettier", "typescript", "typescript-eslint"];
+
+/* The React the packages share (packages/app-runtime, the web and mobile apps) is pinned at the root, so npm keeps it
+   there: the mini-program (Taro) has a React of its own, which npm would otherwise hoist in its place. */
+const ROOT_REACT = ["react", "react-dom", "@types/react", "@types/react-dom"];
 
 const ESLINT = `${GENERATED}
 import js from "@eslint/js"
@@ -56,6 +60,16 @@ export default defineConfig([
       "react-hooks/incompatible-library": "off",
       "react-hooks/unsupported-syntax": "off",
     },
+  },
+  /* The mini-program's own: Taro's config runs under Node; its global types add to process.env, and its development
+     build reads the mocks with require (a production build drops the branch and the module with it). */
+  {
+    files: ["apps/miniapp/config/**", "apps/miniapp/babel.config.js"],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ["apps/miniapp/types/**", "apps/miniapp/src/generated/runtime.ts"],
+    rules: { "@typescript-eslint/no-namespace": "off", "@typescript-eslint/no-require-imports": "off" },
   },
 ])
 `;
@@ -136,6 +150,7 @@ This file is custom (the export created it once and never changes it again): add
 
 function agentsSource(ws: Workspace[], scope: string): string {
   const handlers = ws.some((w) => w.dir === "server");
+  const miniapp = ws.some((w) => w.dir === "apps/miniapp" && w.pkg);
   return `# AGENTS.md
 
 Rules for AI coding agents (Codex, Claude Code, …) and people working in this repository.
@@ -151,7 +166,7 @@ third-party SDKs). Everything else is regenerated whenever the design is exporte
 | --- | --- |
 ${handlers ? "| `server/src/handlers/*.ts` | One file per API operation (and per realtime channel in `channels/`): what the server does for it. Each starts as a stub that answers 501 Not Implemented. |\n| `server/src/custom/*.ts` | `auth.ts` (who a credential stands for), `db.ts` (the data layer), `setup.ts` (Fastify plugins, hooks, routes the contract does not have). |\n" : ""}| \`apps/web/src/custom/setup.ts\` | Runs before the web app is drawn: start an SDK, read a token, change how the API is called. |
 | \`apps/web/src/custom/Providers.tsx\` | Wraps the web app: providers of third-party SDKs. |
-| \`CLAUDE.md\`, new files and folders of your own | Yours. |
+${miniapp ? "| `apps/miniapp/src/custom/*` | `setup.ts` runs as the mini-program starts, `Providers.tsx` wraps every page. |\n| `apps/miniapp/project.config.json`, `project.tt.json` | The WeChat and Douyin projects: put the real AppID there. |\n" : ""}| \`CLAUDE.md\`, new files and folders of your own | Yours. |
 
 These files were written once by the export and are never written again. Everything listed in \`.m3e/manifest.json\`
 with \`"kind": "generated"\` is the export's: **do not edit it**. That includes every \`generated/\` folder,
@@ -230,7 +245,7 @@ npm run build
 ## 生成的代码和自定义代码
 
 - **生成的文件**（\`.m3e/manifest.json\` 里 \`"kind": "generated"\`）每次导出都会重写，不要修改。要改屏幕、导航、文字、接口，请改设计后重新导出。
-- **自定义代码（人或 AI 写）**只写在导出时创建一次、之后不再改动的位置：\`server/src/handlers/\`（每个接口一个文件，先返回 501）、\`server/src/custom/\`、\`apps/web/src/custom/\`。
+- **自定义代码（人或 AI 写）**只写在导出时创建一次、之后不再改动的位置：\`server/src/handlers/\`（每个接口一个文件，先返回 501）、\`server/src/custom/\`、\`apps/web/src/custom/\`${ws.some((w) => w.dir === "apps/miniapp" && w.pkg) ? "、`apps/miniapp/src/custom/`" : ""}。
 - 重新导出时，被手动改过的生成文件不会被覆盖：新版本写在旁边的 \`<文件>.m3e-new\`，并在导出报告里列出。
 - 给某个工作区加依赖用 \`npm install <包> -w <工作区>\`，重新导出会保留它。
 
@@ -276,7 +291,7 @@ export async function rootFiles(ctx: ProductContext, ws: Workspace[], all: Produ
             test: "npm run test --workspaces --if-present",
           },
           engines: { node: "^22.12.0 || ^24.0.0 || >=26.0.0" },
-          devDependencies: sortedObject(Object.fromEntries(ROOT_DEV.map((d) => [d, ctx.version(d)]))),
+          devDependencies: sortedObject(Object.fromEntries([...ROOT_DEV, ...(ws.some((w) => w.dir === "apps/miniapp" && w.pkg) ? ROOT_REACT : [])].map((d) => [d, ctx.version(d)]))),
         }),
       ),
       merge: "package.json",

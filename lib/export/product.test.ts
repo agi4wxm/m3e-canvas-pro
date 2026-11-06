@@ -14,6 +14,7 @@ import { productDoc, shopProductDoc } from "./product.fixture";
 import { GENERATED_DIRS } from "./targets/root";
 import { MOCK_ENGINE_API_FILES, MOCK_ENGINE_FILES } from "./targets/mocks";
 import { APP_RUNTIME_FILES } from "./targets/appRuntime";
+import { miniappDependencies } from "./targets/miniapp";
 import type { Product, ProductTarget } from "./types";
 
 beforeAll(() => setGlobalLang("en"));
@@ -59,7 +60,7 @@ describe("the product of a document", () => {
   it("is a monorepo of workspaces, with the root's settings", () => {
     const root = JSON.parse(text(proof, "package.json"));
     expect(proof.name).toBe("proof-app");
-    expect(root.workspaces).toEqual(["packages/api", "packages/mocks", "packages/app-runtime", "apps/web", "server", "contract-tests"]);
+    expect(root.workspaces).toEqual(["packages/api", "packages/mocks", "packages/app-runtime", "apps/web", "server", "contract-tests", "apps/miniapp"]);
     expect(Object.keys(root.scripts)).toEqual(expect.arrayContaining(["dev", "build", "typecheck", "lint", "test"]));
     for (const ws of root.workspaces) expect(JSON.parse(text(proof, `${ws}/package.json`)).name).toMatch(/^@proof-app\//);
     for (const path of ["tsconfig.base.json", "eslint.config.js", ".prettierrc.json", ".prettierignore", ".gitignore", "README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "NOTICE", "scripts/dev.mjs", "apps/mobile/README.md", "apps/miniapp/README.md"]) expect(proof.files[path], path).toBeTruthy();
@@ -134,6 +135,10 @@ describe("the product of a document", () => {
       .sort();
     expect(seededPaths).toEqual([
       "CLAUDE.md",
+      "apps/miniapp/project.config.json",
+      "apps/miniapp/project.tt.json",
+      "apps/miniapp/src/custom/Providers.tsx",
+      "apps/miniapp/src/custom/setup.ts",
       "apps/web/src/custom/Providers.tsx",
       "apps/web/src/custom/setup.ts",
       "server/src/custom/auth.ts",
@@ -144,10 +149,13 @@ describe("the product of a document", () => {
   });
 
   it("pins every package it names, exactly", () => {
+    /* the mini-program is built with what its kit is checked with (Taro, React 18: miniapp-kit/package.json) */
+    const mini = miniappDependencies();
     for (const path of Object.keys(proof.files).filter((p) => p.endsWith("package.json"))) {
       const pkg = JSON.parse(text(proof, path));
       for (const [name, version] of Object.entries({ ...pkg.dependencies, ...pkg.devDependencies }) as [string, string][]) {
         if (name.startsWith("@proof-app/")) expect(version).toBe("0.1.0");
+        else if (path === "apps/miniapp/package.json" && (mini.dependencies[name] || mini.devDependencies[name])) expect(version, `${path}: ${name}`).toBe(mini.dependencies[name] ?? mini.devDependencies[name]);
         else expect(version, `${path}: ${name}`).toBe(PRODUCT_VERSIONS[name]);
       }
     }

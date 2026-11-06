@@ -6,8 +6,8 @@ export default defineConfig({
     alias: [{ find: /^@\//, replacement: fileURLToPath(new URL("./", import.meta.url)) }],
   },
   test: {
-    // agent worktrees are full copies of the project; their tests are not this checkout's. rn/ is a package of its own with its own runner (jest)
-    exclude: [...configDefaults.exclude, ".claude/**", "rn/**"],
+    // agent worktrees are full copies of the project; their tests are not this checkout's. rn/ is a package of its own with its own runner (jest), miniapp-kit/ too (its own vitest)
+    exclude: [...configDefaults.exclude, ".claude/**", "rn/**", "miniapp-kit/**"],
     // several tests draw every part, kit or template in every language; on a busy machine 5s is not enough for them
     testTimeout: 20_000,
     // its ESM imports have no file extension, which Node cannot resolve; the bundler can

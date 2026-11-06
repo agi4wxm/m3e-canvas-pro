@@ -12,19 +12,22 @@
 // whose contract is its own (Doc.api: the shop's OpenAPI and the chat's AsyncAPI, lib/api/fixtures), read by the export,
 // and whose screens are bound to it (a paged product list, a detail by its id, a form that adds a product, a sign-in):
 // its web app is driven in Chromium on the mocks and on the real server (scripts/check-shop-app.ts), and screenshots of
-// its screens go to <work folder>/shots-shop.
+// its screens go to <work folder>/shots-shop. The mini-program (apps/miniapp, Taro) is built by `npm run build` for
+// WeChat, Douyin and H5: the builds are read (a page for each screen, nothing a mini-program may not run, no mocks), and
+// the shop's H5 build is driven the same way on the mocks and on the server (scripts/check-miniapp-app.ts).
 import { execSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statfsSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { allPartsDoc } from "../lib/codegen.fixture";
 import { systemsDoc } from "../lib/exportProject.fixture";
 import { exportToFolder, reportLines } from "../lib/export/nodeWriter";
 import { buildProduct } from "../lib/export/product";
 import { boundShopDoc, productDoc } from "../lib/export/product.fixture";
+import { miniappBuilt, miniappOnMocks, miniappOnServer, serveMiniappH5, type MiniBrowser } from "./check-miniapp-app";
 import { shopOnMocks, shopOnServer, type ShopBrowser } from "./check-shop-app";
 import { setGlobalLang } from "../lib/i18n";
 import type { Doc } from "../lib/tokens";
@@ -94,7 +97,7 @@ type Page = {
   click(selector: string): Promise<void>;
   on(event: "pageerror", fn: (e: Error) => void): void;
 };
-type Browser = ShopBrowser & { newPage(o?: { viewport: { width: number; height: number }; deviceScaleFactor: number }): Promise<Page & Awaited<ReturnType<ShopBrowser["newPage"]>>>; close(): Promise<void> };
+type Browser = ShopBrowser & MiniBrowser & { newPage(o?: { viewport: { width: number; height: number }; deviceScaleFactor: number }): Promise<Page & Awaited<ReturnType<ShopBrowser["newPage"]>>>; close(): Promise<void> };
 
 /** Playwright from the first place it is installed, as e2e/run.ts finds it: it is no dependency of the project */
 function playwright(): { chromium: { launch(): Promise<Browser> } } | null {
@@ -119,13 +122,34 @@ function playwright(): { chromium: { launch(): Promise<Browser> } } | null {
 /** a server of the web app (vite preview or dev) on a free port, once it answers */
 async function serveWeb(mode: "preview" | "dev", env: Record<string, string> = {}): Promise<{ base: string; child: ChildProcess }> {
   const port = await freePort();
-  const child = spawn(process.execPath, [join(DIR, "node_modules/vite/bin/vite.js"), mode, "--port", String(port), "--strictPort", "--host", "127.0.0.1"], { cwd: join(DIR, "apps/web"), env: { ...process.env, ...env }, stdio: "ignore" });
+  /* the web app's own vite: npm keeps it beside the app when another workspace (the mini-program's Taro) wants an older one */
+  const vite = join(dirname(createRequire(join(DIR, "apps/web/package.json")).resolve("vite/package.json")), "bin/vite.js");
+  const child = spawn(process.execPath, [vite, mode, "--port", String(port), "--strictPort", "--host", "127.0.0.1"], { cwd: join(DIR, "apps/web"), env: { ...process.env, ...env }, stdio: "ignore" });
   const base = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 120; i++) {
     if (await fetch(base).then((r) => r.ok, () => false)) break;
     await new Promise((r) => setTimeout(r, 250));
   }
   return { base, child };
+}
+
+/** the mini-program's H5 development server (the mocks on) on a free port, once it answers: Taro's CLI run with Node
+ *  (its dev server cannot listen under bun) from the app's folder, so it can be stopped with its process */
+async function serveMiniapp(): Promise<{ base: string; up: boolean; child: ChildProcess }> {
+  const port = await freePort();
+  const app = join(DIR, "apps/miniapp");
+  const taro = createRequire(join(app, "package.json")).resolve("@tarojs/cli/bin/taro");
+  const child = spawn("node", [taro, "build", "--type", "h5", "--watch"], { cwd: app, env: { ...process.env, H5_PORT: String(port) }, stdio: "ignore" });
+  const base = `http://127.0.0.1:${port}`;
+  let up = false;
+  for (let i = 0; i < 720 && !up; i++) {
+    up = await fetch(base).then(
+      (r) => r.ok,
+      () => false,
+    );
+    if (!up) await new Promise((r) => setTimeout(r, 250));
+  }
+  return { base, up, child };
 }
 
 /** the built server on a free port, once it answers; the status it gave the probe */
@@ -270,6 +294,15 @@ if (installed) {
     ok(js.length > 0 && !js.includes("createMockTransport") && !js.includes("Not mocked") && !js.includes("setupWorker") && !js.includes("m3e-mock-engine"), "the web build has none of the mocks");
     ok(!existsSync(join(dist, "mockServiceWorker.js")), "nor the mocks' service worker");
 
+    /* the mini-program's builds (WeChat, Douyin, H5), read: a page for each screen, nothing a mini-program may not run,
+       none of the mocks (scripts/check-miniapp-app.ts) */
+    const config = product.files["apps/miniapp/src/app.config.ts"];
+    if (config) {
+      const pages = JSON.parse(/"pages": (\[[^\]]*\])/.exec(String(config.body))?.[1] ?? "[]") as string[];
+      const scenarios = ["new-user", "network-error", ...(fixture.doc.mocks?.scenarios ?? []).map((s) => s.id)];
+      miniappBuilt(join(DIR, "apps/miniapp"), ok, { pages, tabBar: "apps/miniapp/src/custom-tab-bar/index.tsx" in product.files, scenarios });
+    }
+
     /* the built server, answering 501 until a handler is written, and the contract tests against it */
     ok(existsSync(join(DIR, "server/dist/main.js")), "the server is built");
     let server = await startServer();
@@ -335,6 +368,15 @@ if (installed) {
             await shopOnServer(browser, web.base, SHOTS, ok, { session: `${product.name}:session`, stop: () => server.stop() });
           } finally {
             web.child.kill();
+          }
+          /* the mini-program's H5 build on a server of its own (what the web app added went with the last one), its
+             /api passed on to it as a production host would */
+          server = await startServer();
+          const h5 = await serveMiniappH5(join(DIR, "apps/miniapp/dist/h5"), server.base);
+          try {
+            await miniappOnServer(browser, h5.base, SHOTS, ok, { session: `${product.name}:session`, stop: () => server.stop() });
+          } finally {
+            h5.close();
             await browser.close();
           }
         }
@@ -357,6 +399,13 @@ if (pw && WHICH === "shop") {
       await shopOnMocks(browser, dev.base, SHOTS, ok);
     } finally {
       dev.child.kill();
+    }
+    const mini = await serveMiniapp();
+    try {
+      ok(mini.up, "the mini-program's H5 development server starts (taro build --type h5 --watch)");
+      if (mini.up) await miniappOnMocks(browser, mini.base, SHOTS, ok);
+    } finally {
+      mini.child.kill();
     }
     const msw = await serveWeb("dev", { VITE_API_MOCKS: "msw" });
     try {

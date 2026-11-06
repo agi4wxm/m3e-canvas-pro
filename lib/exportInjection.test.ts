@@ -288,3 +288,37 @@ describe("a document's and a contract's words in the exported product", () => {
     expect(paths.filter((p) => p.startsWith("server/src/handlers/channels/")).length).toBe(2);
   }, 120_000);
 });
+
+/* The mini-program (lib/export/miniapp) prints the same documents a third time, as Taro pages on its kit, with the
+   bindings a contract's screens carry (expressions, data sources, forms, calls) as strings the shared runtime reads:
+   the same words, and those of a contract's operations, fields and paths, must come out as strings there too. */
+async function miniEscapesOf(doc: Doc | null, api?: ReturnType<typeof hostileApi>): Promise<string[]> {
+  expect(doc).toBeTruthy();
+  const { buildProduct } = await import("./export/product");
+  const { miniappTarget } = await import("./export/targets");
+  const product = await buildProduct(doc!, {}, { read: fromDisk, fetchIcons: noNetwork, lang: "en", targets: [miniappTarget], ...(api ? { api } : {}) });
+  const written = Object.entries(product.files).filter(([p, f]) => f.kind === "generated" && /^apps\/miniapp\/src\/(generated\/|pages\/|app\.config\.ts)/.test(p) && /\.(ts|tsx)$/.test(p)) as [string, { body: string }][];
+  expect(written.some(([, f]) => f.body.includes("markA"))).toBe(true);
+  for (const [p, f] of Object.entries(product.files)) if (p.endsWith(".json")) expect(() => JSON.parse(f.body as string), p).not.toThrow();
+  return written.flatMap(([p, f]) => codeNames(p, f.body));
+}
+
+describe("a document's words in the mini-program", () => {
+  it("never come out as code in the proof document", async () => {
+    expect(await miniEscapesOf(openProject(JSON.parse(JSON.stringify(withWords(proofDoc().doc)))))).toEqual([]);
+  }, 120_000);
+
+  it("never come out as code in the document of every system", async () => {
+    expect(await miniEscapesOf(openProject(JSON.parse(JSON.stringify(withWords(systemsDoc().doc)))))).toEqual([]);
+  }, 120_000);
+
+  it("never come out as code from what the prototype and the variables name", async () => {
+    expect(await miniEscapesOf(hostileDoc())).toEqual([]);
+  }, 120_000);
+
+  it("never come out as code from a contract's names, nor from the screens bound to one", async () => {
+    expect(await miniEscapesOf(openProject(JSON.parse(JSON.stringify(withWords(systemsDoc().doc)))), hostileApi())).toEqual([]);
+    const { boundShopDoc } = await import("./export/product.fixture");
+    expect(await miniEscapesOf(openProject(JSON.parse(JSON.stringify(withWords(boundShopDoc().doc)))))).toEqual([]);
+  }, 120_000);
+});

@@ -48,7 +48,8 @@ describe("the version table", () => {
   });
 
   it("has every package a file the export may copy imports, and what a project always needs", () => {
-    for (const path of SOURCE_PATHS.filter((p) => /\.(ts|tsx)$/.test(p)))
+    /* the mini-program's kit is built with what its own package says (miniapp-kit/package.json), not this table */
+    for (const path of SOURCE_PATHS.filter((p) => /\.(ts|tsx)$/.test(p) && !p.startsWith("miniapp-kit/")))
       for (const spec of importsIn(text(path))) {
         if (spec.startsWith("@/") || spec.startsWith(".")) continue;
         expect(VERSIONS[packageOf(spec)], `${path} imports ${spec}`).toBeTruthy();
