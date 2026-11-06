@@ -105,6 +105,17 @@ describe("the canvas view of a part", () => {
     }
   });
 
+  it("gives a card's words the card's width, centered or beside a picture, or they stand one character to a line", () => {
+    const card = partBySlug("card")!;
+    const header = (values: Record<string, string>) => {
+      const node = treeOf(card, { ...defaultValues(card), ...values }).children?.find((c) => typeof c !== "string" && c.type === "CardHeader");
+      return typeof node === "object" ? node.props?.className : undefined;
+    };
+    for (const imagePos of ["leading", "trailing"]) expect(header({ imagePos }), imagePos).toBe("min-w-0 flex-1");
+    for (const textAlign of ["start", "center", "end"]) expect(header({ imagePos: "top", textAlign }), textAlign).toBe("self-stretch");
+    expect(header({ imagePos: "background", textAlign: "center" })).toBe("relative self-stretch");
+  });
+
   it("puts a part that opens something in a box, and prints it closed", () => {
     const dialog = partBySlug("dialog")!;
     expect(viewOf(dialog).type).toBe("Contained");

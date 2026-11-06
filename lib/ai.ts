@@ -35,7 +35,7 @@ export const IMAGE_PROVIDERS: { key: ImageProvider; label: string; baseUrl: stri
 export const imageSpec = (k: ImageProvider | undefined) => IMAGE_PROVIDERS.find((p) => p.key === k) ?? IMAGE_PROVIDERS[0];
 
 export const PROVIDERS: { key: Provider; label: string; baseUrl: string; model: string; keysUrl?: string }[] = [
-  { key: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-5.6-luna", keysUrl: "https://platform.openai.com/api-keys" },
+  { key: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-6.1-sol", keysUrl: "https://platform.openai.com/api-keys" },
   { key: "claude", label: "Claude", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5-5", keysUrl: "https://console.anthropic.com/settings/keys" },
   { key: "gemini", label: "Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.8-flash", keysUrl: "https://aistudio.google.com/apikey" },
   { key: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-v4-flash", keysUrl: "https://platform.deepseek.com/api_keys" },
@@ -83,17 +83,27 @@ export const isSecureUrl = (u: string) => /^https:\/\//i.test(u.trim()) || isLoc
 
 const trimSlash = (u: string) => u.trim().replace(/\/+$/, "");
 
-async function readError(res: Response): Promise<string> {
+/** a provider's answer that was not a success: its status says what the author is told, its message keeps the provider's words */
+export class AiHttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+/* The body is read once, as text: an answer that is not JSON (a gateway's plain words) still has something to say. */
+async function readError(res: Response): Promise<AiHttpError> {
   let detail = "";
   try {
-    const j = await res.json();
-    detail = j?.error?.message ?? j?.message ?? JSON.stringify(j);
-  } catch {
-    try {
-      detail = await res.text();
-    } catch {}
-  }
-  return `${res.status} ${res.statusText}${detail ? `: ${detail.slice(0, 300)}` : ""}`;
+    detail = await res.text();
+  } catch {}
+  try {
+    const j = JSON.parse(detail);
+    detail = String(j?.error?.message ?? j?.message ?? detail);
+  } catch {}
+  return new AiHttpError(res.status, `${res.status}${res.statusText ? ` ${res.statusText}` : ""}${detail ? `: ${detail.slice(0, 300)}` : ""}`);
 }
 
 /** one round trip: a system prompt and a user message in, the model's text out */
@@ -117,7 +127,7 @@ export async function complete(s: AiSettings, system: string, user: string, sign
       },
       body: JSON.stringify({ model, max_tokens: Math.min(maxTokens, 16000), system, messages: [{ role: "user", content: user }], ...(fallback ? { fallbacks: "default" } : {}) }),
     });
-    if (!res.ok) throw new Error(await readError(res));
+    if (!res.ok) throw await readError(res);
     const j = await res.json();
     if (j.stop_reason === "refusal") throw new Error("refusal");
     if (j.stop_reason === "max_tokens") throw new Error("long");
@@ -143,7 +153,7 @@ export async function complete(s: AiSettings, system: string, user: string, sign
       ],
     }),
   });
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) throw await readError(res);
   const j = await res.json();
   if (j.choices?.[0]?.finish_reason === "length") throw new Error("long");
   const c = j.choices?.[0]?.message?.content;
@@ -182,7 +192,7 @@ export async function generateImage(s: AiSettings, prompt: string, box: { w: num
     /* OpenAI's models always answer in base64 and refuse the old switch; Gemini needs it. A JPEG at medium quality keeps a scene small. */
     body: JSON.stringify({ model, prompt, n: 1, size, ...(s.imageProvider === "gemini" ? { response_format: "b64_json" } : moving ? { quality: "medium", output_format: "gif", frame_count: moving.frames, frame_duration_ms: moving.ms } : { quality: "medium", output_format: "jpeg" }) }),
   });
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) throw await readError(res);
   const first = (await res.json())?.data?.[0];
   if (typeof first?.b64_json === "string" && first.b64_json) return `data:${mimeOf(first.b64_json)};base64,${first.b64_json}`;
   if (typeof first?.url === "string" && /^https:\/\//i.test(first.url)) return first.url;
@@ -244,7 +254,13 @@ function parseJsonObject(text: string): Record<string, unknown> {
   const a = cleaned.indexOf("{");
   const b = cleaned.lastIndexOf("}");
   if (a < 0 || b <= a) throw new Error("json");
-  const v = JSON.parse(cleaned.slice(a, b + 1));
+  let v: unknown;
+  /* a reply cut off inside the object, or one that is not JSON at all, is a reply that could not be read */
+  try {
+    v = JSON.parse(cleaned.slice(a, b + 1));
+  } catch {
+    throw new Error("json");
+  }
   if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("json");
   return v as Record<string, unknown>;
 }

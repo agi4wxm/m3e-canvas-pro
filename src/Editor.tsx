@@ -3308,8 +3308,9 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       arrive(next);
       void paintScenes(scenesToPaint(next.groups), normalizeTheme(next.theme));
     } catch (e) {
+      /* said the way the other AI actions say it: what went wrong and, where the author can act, what to check */
       const m = e instanceof Error ? e.message : "";
-      showToast(m === "json" ? t("aiErrorJson", lang) : m === "refusal" ? t("aiErrorRefusal", lang) : m === "long" ? t("aiErrorLong", lang) : t("aiError", lang), 3200, "error");
+      showToast(m === "guide" ? t("aiError", lang) : aiErrorText(e, lang), 6000, "error");
     } finally {
       setDraftBusy(false);
     }

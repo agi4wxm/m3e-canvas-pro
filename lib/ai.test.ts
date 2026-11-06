@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { complete, generateImage, hasImageKey, hasKey, isSecureUrl, scenePrompt, scenesFirst, scenesToPaint, readableOnScenes, withoutSampleWords, type AiSettings, type Provider } from "./ai";
+import { AiHttpError, DEFAULT_AI, PROVIDERS, complete, draftDesign, generateImage, hasImageKey, hasKey, isSecureUrl, proposeDescription, scenePrompt, scenesFirst, scenesToPaint, readableOnScenes, withoutSampleWords, type AiSettings, type Provider } from "./ai";
 import { makeItem, type Doc } from "./tokens";
 
 const settings = (over: Partial<AiSettings> = {}): AiSettings =>
@@ -54,6 +54,14 @@ describe("complete on the claude path", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: "overloaded" } }), { status: 529, statusText: "Overloaded" })));
     await expect(complete(settings({ provider: "claude" }), "s", "u")).rejects.toThrow("529 Overloaded: overloaded");
   });
+
+  it("reads Anthropic's own error shape, and keeps the status apart", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ type: "error", error: { type: "overloaded_error", message: "Overloaded" } }), { status: 529 })));
+    const e = await complete(settings({ provider: "claude" }), "s", "u").catch((x) => x);
+    expect(e).toBeInstanceOf(AiHttpError);
+    expect(e.status).toBe(529);
+    expect(e.message).toBe("529: Overloaded");
+  });
 });
 
 describe("complete on the openai-compatible path", () => {
@@ -68,6 +76,17 @@ describe("complete on the openai-compatible path", () => {
     const body = JSON.parse(init.body);
     expect(body).toMatchObject({ model: "test-model", messages: [{ role: "system", content: "sys prompt" }, { role: "user", content: "user prompt" }] });
     expect(body).not.toHaveProperty("max_tokens");
+  });
+
+  it("asks OpenAI's default model with nothing it refuses: no budget, no sampling, no effort below its floor", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ choices: [{ finish_reason: "stop", message: { content: "{}" } }] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const openai = PROVIDERS.find((p) => p.key === "openai")!;
+    expect(openai.model).toBe("gpt-6.1-sol");
+    expect(DEFAULT_AI.model).toBe("gpt-6.1-sol");
+    /* a whole draft asks for the most room; left without a cap the model may use all it has, so nothing is cut short */
+    await complete(settings({ model: openai.model, baseUrl: openai.baseUrl }), "s", "u", undefined, 12000);
+    expect(Object.keys(JSON.parse(fetchMock.mock.calls[0][1].body)).sort()).toEqual(["messages", "model"]);
   });
 
   it.each(["gemini", "deepseek"] as Provider[])("sends a max_tokens budget to %s", async (provider) => {
@@ -100,6 +119,14 @@ describe("complete on the openai-compatible path", () => {
   it("throws the status and provider detail on an http error", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: "bad key" } }), { status: 401, statusText: "Unauthorized" })));
     await expect(complete(settings(), "s", "u")).rejects.toThrow("401 Unauthorized: bad key");
+  });
+
+  it("keeps the status apart, and the words of an answer that is not JSON", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("upstream request failed", { status: 502, statusText: "Bad Gateway" })));
+    const e = await complete(settings(), "s", "u").catch((x) => x);
+    expect(e).toBeInstanceOf(AiHttpError);
+    expect(e.status).toBe(502);
+    expect(e.message).toBe("502 Bad Gateway: upstream request failed");
   });
 
   it("throws empty when the reply has no content", async () => {
@@ -156,6 +183,23 @@ describe("Sonnet 5.5 on Anthropic's own API", () => {
       expect(body).not.toHaveProperty("fallbacks");
       expect(headers).not.toHaveProperty("anthropic-beta");
     }
+  });
+});
+
+describe("a reply that cannot be read", () => {
+  const reply = (content: string) => vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ choices: [{ finish_reason: "stop", message: { content } }] })));
+
+  it("is said to be unreadable when it was cut off inside the document, or is not JSON", async () => {
+    reply('{"title": "记账", "frames": [{"id": "home", "name": "首页", "x": 0, "y": 0}], "groups": [{"id": "g1", "x": 0, "y": 0, "axis": "x", "items": [{"id": "a"}]}');
+    await expect(draftDesign(settings(), "guide", "an app", "zh")).rejects.toThrow(/^json$/);
+    reply("{ not json }");
+    await expect(draftDesign(settings(), "guide", "an app", "zh")).rejects.toThrow(/^json$/);
+  });
+
+  it("is said to be unreadable when a description is cut short", async () => {
+    reply('{"name": "设置", "description": "管理');
+    const doc: Doc = { groups: [], frames: [{ id: "f", name: "设置", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "T", brief: "" };
+    await expect(proposeDescription(settings(), doc, {}, doc.frames[0], "zh")).rejects.toThrow(/^json$/);
   });
 });
 

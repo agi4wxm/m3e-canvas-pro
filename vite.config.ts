@@ -25,5 +25,9 @@ export default defineConfig({
   resolve: {
     alias: [{ find: /^@\//, replacement: `${__dirname}/` }],
   },
-  server: { port: 3000 },
+  server: {
+    port: 3000,
+    // agent worktrees are full copies of the project: a change in one must not reload this one
+    watch: { ignored: ["**/.claude/**"] },
+  },
 })

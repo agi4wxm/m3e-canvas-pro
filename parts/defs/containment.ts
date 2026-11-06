@@ -51,9 +51,11 @@ function cardTree(p: P): PNode {
   if (p.n("height") > 0) style.height = Math.round(p.n("height"));
   if (pos === "top") style.paddingTop = 0;
   if (pos === "bottom") style.paddingBottom = 0;
+  /* The header measures itself as a container, so left to its content it comes out as narrow as one character: it takes
+     the card's width (the rest of the row beside a picture) and its words are aligned inside it instead */
   const header = h(
     "CardHeader",
-    { className: bg ? "relative" : undefined },
+    { className: [bg && "relative", side ? "min-w-0 flex-1" : "self-stretch"].filter(Boolean).join(" ") },
     h("CardTitle", { className: [ink, textCls].filter(Boolean).join(" ") || undefined }, p.s("title")),
     p.s("description") && h("CardDescription", { className: [body, textCls].filter(Boolean).join(" ") || undefined }, p.s("description")),
   );
