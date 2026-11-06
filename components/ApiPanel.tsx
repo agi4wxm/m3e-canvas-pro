@@ -362,25 +362,33 @@ function ParamRow({ prm, onChange, onDelete, p }: { prm: ApiParameter; onChange:
   const lang = useLang();
   const schema = typeof prm.schema === "object" ? prm.schema : {};
   const type = (Array.isArray(schema.type) ? schema.type[0] : schema.type) ?? "string";
-  return (
-    <div data-api-param={`${prm.in}:${prm.name}`} style={row}>
-      {prm.in === "path" ? (
+  const typeSelect = (
+    <div style={{ width: 84, flex: "0 0 auto" }}>
+      <Select options={TYPE_KEYS.filter((x) => x.key !== "object").map((x) => ({ key: x.key, label: t(x.label, lang) }))} value={type} onChange={(k) => onChange({ ...prm, schema: { ...schema, type: k as JsonType } })} p={p} label={t("apiFieldType", lang)} height={28} />
+    </div>
+  );
+  /* a path parameter is named by the path: one line; another has its name, where it goes and its type on two */
+  if (prm.in === "path")
+    return (
+      <div data-api-param={`path:${prm.name}`} style={row}>
         <span title={prm.name} style={{ ...mono, flex: "1 1 0", minWidth: 0, padding: "0 6px", color: p.onSurface, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{`{${prm.name}}`}</span>
-      ) : (
+        <span style={{ fontSize: 11, color: p.onSurfaceVariant, padding: "0 6px" }}>path</span>
+        {typeSelect}
+      </div>
+    );
+  return (
+    <div data-api-param={`${prm.in}:${prm.name}`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={row}>
         <Cell grow value={prm.name} onCommit={(name) => name.trim() && onChange({ ...prm, name: name.trim() })} label={t("apiParamName", lang)} p={p} mono />
-      )}
-      <div style={{ width: prm.in === "path" ? 40 : 76, flex: "0 0 auto" }}>
-        {prm.in === "path" ? (
-          <span style={{ display: "block", fontSize: 11, color: p.onSurfaceVariant, padding: "0 8px" }}>path</span>
-        ) : (
+        <IconBtn icon={prm.required ? "check_box" : "check_box_outline_blank"} on={!!prm.required} p={p} size={28} onClick={() => onChange({ ...prm, required: !prm.required })} title={t("apiRequired", lang)} />
+        {onDelete && <IconBtn icon="close" p={p} size={28} onClick={onDelete} title={t("apiDeleteParam", lang)} />}
+      </div>
+      <div style={{ ...row, paddingLeft: 12 }}>
+        <div style={{ flex: "1 1 0", minWidth: 0 }}>
           <Select options={["query", "header", "cookie"].map((k) => ({ key: k, label: k }))} value={prm.in} onChange={(k) => onChange({ ...prm, in: k as ApiParameter["in"] })} p={p} label={t("apiParamIn", lang)} height={28} />
-        )}
+        </div>
+        {typeSelect}
       </div>
-      <div style={{ width: 84, flex: "0 0 auto" }}>
-        <Select options={TYPE_KEYS.filter((x) => x.key !== "object").map((x) => ({ key: x.key, label: t(x.label, lang) }))} value={type} onChange={(k) => onChange({ ...prm, schema: { ...schema, type: k as JsonType } })} p={p} label={t("apiFieldType", lang)} height={28} />
-      </div>
-      {prm.in !== "path" && <IconBtn icon={prm.required ? "check_box" : "check_box_outline_blank"} on={!!prm.required} p={p} size={28} onClick={() => onChange({ ...prm, required: !prm.required })} title={t("apiRequired", lang)} />}
-      {onDelete && <IconBtn icon="close" p={p} size={28} onClick={onDelete} title={t("apiDeleteParam", lang)} />}
     </div>
   );
 }
