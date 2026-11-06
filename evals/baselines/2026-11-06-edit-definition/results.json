@@ -1,0 +1,306 @@
+{
+  "date": "2026-11-06",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "provider": "openai",
+  "totals": {
+    "runs": 3,
+    "tasks": 1,
+    "passed": 3,
+    "passRate": 1,
+    "meanScore": 1,
+    "meanTokens": 66797,
+    "meanCachedShare": 0.96,
+    "meanMs": 12045,
+    "drawings": 0,
+    "cost": 0.04,
+    "meanJudge": 5
+  },
+  "runs": [
+    {
+      "task": "edit-definition",
+      "ability": "components",
+      "title": "Change a component once so every placed card, and every card placed later, follows",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "5 steps, 57090 tokens, 11s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "definition",
+          "label": "the component itself changed: button says 立即购买, price red",
+          "pass": true,
+          "detail": "button \"立即购买\", price red",
+          "weight": 2,
+          "critical": true
+        },
+        {
+          "id": "bold",
+          "label": "the price is bold in the component",
+          "pass": true,
+          "detail": "bold true, style body",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "instances-kept",
+          "label": "the three cards are still instances with their own fruit and price, and carry no copy of the change",
+          "pass": true,
+          "detail": "3 instances",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "judge": {
+        "score": 5,
+        "reasons": [
+          "所有可见商品卡片的价格均已改为红色加粗。",
+          "所有按钮文字均为“立即购买”。",
+          "卡片样式统一，布局完整，无明显重叠或截断；新增卡片是否继承样式无法从截图确认。"
+        ],
+        "usage": {
+          "input": 699,
+          "output": 72,
+          "reasoning": 0,
+          "cachedInput": 0,
+          "cacheWrite": 0
+        }
+      },
+      "name": "edit-definition#1",
+      "lang": "zh",
+      "usage": {
+        "input": 56854,
+        "output": 236,
+        "reasoning": 0,
+        "cachedInput": 55117,
+        "cacheWrite": 1722
+      },
+      "ms": 11333,
+      "steps": 5,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.011420875,
+      "text": "已修改“商品卡片”组件：价格统一为红色加粗，按钮文字改为“立即购买”。现有卡片已同步更新，以后新增的组件实例也会沿用这些设置。"
+    },
+    {
+      "task": "edit-definition",
+      "ability": "components",
+      "title": "Change a component once so every placed card, and every card placed later, follows",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "6 steps, 86189 tokens, 13s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "definition",
+          "label": "the component itself changed: button says 立即购买, price red",
+          "pass": true,
+          "detail": "button \"立即购买\", price red",
+          "weight": 2,
+          "critical": true
+        },
+        {
+          "id": "bold",
+          "label": "the price is bold in the component",
+          "pass": true,
+          "detail": "bold true, style body",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "instances-kept",
+          "label": "the three cards are still instances with their own fruit and price, and carry no copy of the change",
+          "pass": true,
+          "detail": "3 instances",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "judge": {
+        "score": 5,
+        "reasons": [
+          "所有可见商品卡片的价格均为红色加粗。",
+          "所有卡片的按钮文字均已改为“立即购买”。",
+          "卡片样式一致，布局完整，无明显重叠或文字截断。"
+        ],
+        "usage": {
+          "input": 699,
+          "output": 63,
+          "reasoning": 0,
+          "cachedInput": 0,
+          "cacheWrite": 0
+        }
+      },
+      "name": "edit-definition#2",
+      "lang": "zh",
+      "usage": {
+        "input": 85888,
+        "output": 301,
+        "reasoning": 0,
+        "cachedInput": 80773,
+        "cacheWrite": 5097
+      },
+      "ms": 13079,
+      "steps": 6,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.019500375,
+      "text": "已更新共享的“商品卡片”组件：价格改为红色并加粗，按钮文字改为“立即购买”。现有三张卡片已同步更新，以后新增该组件的卡片也会沿用这些设置。"
+    },
+    {
+      "task": "edit-definition",
+      "ability": "components",
+      "title": "Change a component once so every placed card, and every card placed later, follows",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "5 steps, 57111 tokens, 12s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "definition",
+          "label": "the component itself changed: button says 立即购买, price red",
+          "pass": true,
+          "detail": "button \"立即购买\", price red",
+          "weight": 2,
+          "critical": true
+        },
+        {
+          "id": "bold",
+          "label": "the price is bold in the component",
+          "pass": true,
+          "detail": "bold true, style body",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "instances-kept",
+          "label": "the three cards are still instances with their own fruit and price, and carry no copy of the change",
+          "pass": true,
+          "detail": "3 instances",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "judge": {
+        "score": 5,
+        "reasons": [
+          "所有可见商品卡片的价格均已改为红色加粗。",
+          "所有按钮文字均为“立即购买”，样式一致。",
+          "卡片排版完整，无明显重叠或文字截断；新卡片是否继承样式无法仅凭截图确认。"
+        ],
+        "usage": {
+          "input": 699,
+          "output": 75,
+          "reasoning": 0,
+          "cachedInput": 0,
+          "cacheWrite": 0
+        }
+      },
+      "name": "edit-definition#3",
+      "lang": "zh",
+      "usage": {
+        "input": 56870,
+        "output": 241,
+        "reasoning": 0,
+        "cachedInput": 55435,
+        "cacheWrite": 1420
+      },
+      "ms": 11724,
+      "steps": 5,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.011133125,
+      "text": "已更新“商品卡片”组件：价格改为红色加粗，按钮文字改为“立即购买”。现有卡片已同步更新，以后新增的该组件实例也会沿用这些设置。"
+    }
+  ]
+}

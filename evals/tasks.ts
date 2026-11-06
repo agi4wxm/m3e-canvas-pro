@@ -4,6 +4,7 @@
 
 import { asks, atFoot, autoLayout, barsPinned, collection, component, corners, counter, countShowing, custom, customStyle, darkControl, darkVar, evenSpacing, finished, has, inBounds, inBudget, instances, isA, keepsWork, language, likeness, navFlow, newScreen, noOverlap, partsOn, repeat, scrolls, shows, strictKept, styleTexture, svgPlaced, tapToDetail, undoOne, type Placed } from "./graders";
 import type { Budget, Check, EvalTask } from "./types";
+import type { Doc, Item } from "../lib/tokens";
 
 const MIN = 60_000;
 const SMALL: Budget = { steps: 20, tokens: 1_000_000, ms: 6 * MIN, drawings: 0 };
@@ -127,6 +128,16 @@ export const TASKS: EvalTask[] = [
     request: "用商品卡片组件在商店页放三个商品：苹果 ¥3、梨 ¥4、李子 ¥5。",
     budget: SMALL,
     checks: [...basics(), instances({ min: 3, component: "product", screen: "shop", words: ["苹果", "梨", "李子"] }), ...tidy({ screens: ["shop"] }), keepsWork()],
+  },
+  {
+    id: "edit-definition",
+    ability: "components",
+    title: "Change a component once so every placed card, and every card placed later, follows",
+    lang: "zh",
+    fixture: "shop-placed-zh",
+    request: "商品卡片要改一下：价格改成红色并加粗，按钮文字改成“立即购买”。所有卡片都要一起变，以后新放的卡片也一样。",
+    budget: SMALL,
+    checks: [...basics(), definitionChanged(), boldPrice(), cardsStillInstances(), keepsWork()],
   },
   {
     id: "paper-style",
@@ -268,3 +279,60 @@ export const TASKS: EvalTask[] = [
 ];
 
 export const taskById = (id: string) => TASKS.find((t) => t.id === id);
+
+/* ---------- edit-definition: the change is made on the component, not on each card ---------- */
+
+type Def = NonNullable<Doc["components"]>[number];
+const productDef = (doc: Doc): Def | undefined => doc.components?.find((c) => c.id === "product");
+const defItems = (d: Def | undefined) => (d?.groups ?? []).flatMap((g) => g.items);
+/** red as the canvas can say it: the error role, or a hex colour whose red clearly leads */
+function isRed(v: unknown): boolean {
+  if (typeof v !== "string") return false;
+  if (/^(error|on-error-container|red)$/i.test(v)) return true;
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(v);
+  if (!m) return false;
+  const [r, g, b] = [m[1], m[2], m[3]].map((h) => parseInt(h, 16));
+  return r >= 0xb0 && g <= 0x70 && b <= 0x70;
+}
+const redText = (it: Item) => isRed(it.props?.color) || isRed(it.textColor) || isRed((it.look as { text?: { color?: string } } | undefined)?.text?.color);
+const pricePart = (d: Def | undefined) => defItems(d).find((it) => it.id === "card-price") ?? defItems(d).find((it) => it.component === "text" && /¥/.test(String(it.props?.text ?? "")));
+
+function definitionChanged(): Check {
+  return custom(
+    "definition",
+    "the component itself changed: button says 立即购买, price red",
+    (g) => {
+      const d = productDef(g.doc);
+      const button = defItems(d).find((it) => it.component === "button" || it.component === "icon-button");
+      const price = pricePart(d);
+      const label = String(button?.props?.label ?? "");
+      const red = !!price && redText(price);
+      return { pass: !!d && label.includes("立即购买") && red, detail: `${d ? "" : "no product component; "}button ${JSON.stringify(label)}, price ${price ? (red ? "red" : `not red (${JSON.stringify(price.props?.color ?? price.textColor ?? null)})`) : "missing"}` };
+    },
+    { critical: true, weight: 2 },
+  );
+}
+
+function boldPrice(): Check {
+  return custom("bold", "the price is bold in the component", (g) => {
+    const price = pricePart(productDef(g.doc));
+    const bold = !!price && (price.props?.bold === true || /title|headline|display/.test(String(price.props?.style ?? "")) || Number((price.look as { text?: { weight?: number } } | undefined)?.text?.weight ?? 0) >= 600);
+    return { pass: bold, detail: price ? `bold ${String(price.props?.bold ?? false)}, style ${String(price.props?.style ?? "body")}` : "price missing" };
+  });
+}
+
+function cardsStillInstances(): Check {
+  return custom(
+    "instances-kept",
+    "the three cards are still instances with their own fruit and price, and carry no copy of the change",
+    (g) => {
+      const cards = g.doc.groups.filter((x) => x.instanceOf === "product");
+      const said = cards.flatMap((x) => Object.values(x.overrides ?? {}).map(String)).join("\n");
+      const words = ["苹果", "梨", "李子", "¥3", "¥4", "¥5"].filter((w) => !said.includes(w));
+      /* the change written into each card instead of the component would look the same and leave later cards behind */
+      const copied = cards.filter((x) => Object.entries(x.overrides ?? {}).some(([k, v]) => (k.endsWith("/label") && String(v).includes("立即购买")) || (k.endsWith("/color") && isRed(v))));
+      return { pass: cards.length >= 3 && !words.length && !copied.length, detail: `${cards.length} instances${words.length ? `, missing ${words.join(" ")}` : ""}${copied.length ? `, ${copied.length} carry the change as overrides` : ""}` };
+    },
+    { critical: true },
+  );
+}
