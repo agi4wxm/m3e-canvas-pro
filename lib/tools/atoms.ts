@@ -37,20 +37,34 @@ function tapsOf(def: PartDef): string {
   ].join(", ");
 }
 
-/** one part in a line: its props grouped by kind, enums with their choices, then its tap places */
+/** a range in a few characters: 40–960, ≥2, ≤8, or nothing */
+function range(min: number | undefined, max: number | undefined): string {
+  if (min !== undefined && max !== undefined) return `${min}–${max}`;
+  if (min !== undefined) return `≥${min}`;
+  return max !== undefined ? `≤${max}` : "";
+}
+
+/** One part in a line: its props grouped by kind, enums with their choices, numbers with the range they take and
+ *  lists with how many rows (a value outside is refused, which costs a round trip), then its tap places. */
 export function partLine(def: PartDef): string {
   const values = defaultValues(def);
   const props = def.props.filter((d) => !SKIP.has(d.key));
   const of = (kind: PropDef["kind"]) => props.filter((d) => d.kind === kind).map((d) => d.key);
   const enums = props.filter((d): d is Extract<PropDef, { kind: "enum" }> => d.kind === "enum").map((d) => `${d.key} ${choices(d, values[d.key])}`);
-  const lists = props.filter((d): d is Extract<PropDef, { kind: "list" }> => d.kind === "list").map((d) => `${d.key} [{label${d.icons ? ", icon" : ""}${d.images ? ", image" : ""}${(d.fields ?? []).map((f) => `, ${f.key}`).join("")}}]`);
+  const lists = props
+    .filter((d): d is Extract<PropDef, { kind: "list" }> => d.kind === "list")
+    .map((d) => {
+      const rows = range(d.min, d.max);
+      return `${d.key}${rows ? ` (${rows} rows)` : ""} [{label${d.icons ? ", icon" : ""}${d.images ? ", image" : ""}${(d.fields ?? []).map((f) => `, ${f.key}`).join("")}}]`;
+    });
+  const numbers = props.filter((d): d is Extract<PropDef, { kind: "number" }> => d.kind === "number").map((d) => [d.key, range(d.min, d.max)].filter(Boolean).join(" "));
   const bits = [
     of("text").length ? `words: ${of("text").join(", ")}` : "",
     of("icon").length ? `icon names: ${of("icon").join(", ")}` : "",
     of("image").length ? `picture: ${of("image").join(", ")}` : "",
     ...lists,
     ...enums,
-    of("number").length ? `numbers: ${of("number").join(", ")}` : "",
+    numbers.length ? `numbers: ${numbers.join(", ")}` : "",
     of("bool").length ? `true/false: ${of("bool").join(", ")}` : "",
   ].filter(Boolean);
   const taps = tapsOf(def);
@@ -61,7 +75,7 @@ export function partLine(def: PartDef): string {
 export function atomsReference(slugs: readonly string[] = REFERENCE_PARTS): string {
   const lines = slugs.map((s) => partBySlug(s)).filter((d): d is PartDef => !!d).map(partLine);
   return [
-    "## The parts used most: every prop with the values it takes (enum choices, default first) and the tap places",
+    "## The parts used most: every prop with the values it takes (enum choices with the default first, number ranges, rows a list takes) and the tap places",
     "These lines hold what describe_part would say about these parts' props: build with them straight away, without describing them first; describe_part is for other parts and kits. A part with no tap places takes one tap on the whole part (set_action without slot); with places, set_action {slot} or set_item {actions: {place: …}}. Sizes are dp.",
     ...lines,
   ].join("\n");

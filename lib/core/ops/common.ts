@@ -37,18 +37,25 @@ import { withGroups, type CoreState, type Widths } from "../state";
 export const groupOfItem = (groups: Group[], itemId: string) => groups.find((g) => g.items.some((it) => it.id === itemId));
 
 /** a part by its id, with the group it stands in */
+/** Where a part the canvas does not show lives, when it is one of a component's: what make_component took off the
+ *  screen is changed inside the component, and the error says how. */
+function inComponent(s: CoreState, id: string): string {
+  const def = s.doc.components?.find((c) => c.id !== s.editing?.id && c.groups.some((g) => g.id === id || g.items.some((it) => it.id === id)));
+  return def ? ` It is inside the component ${JSON.stringify(def.name)}: change it there with edit_component {id: ${JSON.stringify(def.id)}, ops: [{op: …, args: {id: ${JSON.stringify(id)}, …}}]}, and every instance follows.` : "";
+}
+
 export function itemById(s: CoreState, id: string): { group: Group; item: Item; index: number } {
   for (const group of s.doc.groups) {
     const index = group.items.findIndex((it) => it.id === id);
     if (index >= 0) return { group, item: group.items[index], index };
   }
-  throw new OpError("not_found", `There is no part ${JSON.stringify(id)} on the canvas.`, id);
+  throw new OpError("not_found", `There is no part ${JSON.stringify(id)} on the canvas.${inComponent(s, id)}`, id);
 }
 
 /** a group by its own id, or the group of the part with that id */
 export function groupById(s: CoreState, id: string): Group {
   const g = s.doc.groups.find((x) => x.id === id) ?? groupOfItem(s.doc.groups, id);
-  if (!g) throw new OpError("not_found", `There is no part or group ${JSON.stringify(id)} on the canvas.`, id);
+  if (!g) throw new OpError("not_found", `There is no part or group ${JSON.stringify(id)} on the canvas.${inComponent(s, id)}`, id);
   return g;
 }
 

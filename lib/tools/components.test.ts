@@ -60,6 +60,58 @@ describe("inside a component", () => {
     expect(none.ok).toBe(false);
   });
 
+  it("edit_component changes the definition's parts, every instance following, as one step", async () => {
+    const s = shop();
+    const steps = s.history().length;
+    const def = () => s.get().doc.components!.find((c) => c.id === "product")!;
+    const part = (id: string) => def().groups.flatMap((g) => g.items).find((it) => it.id === id);
+    /* set_props on a part of the definition says where it is and what to call instead */
+    const missed = await executeTool(s, "set_props", { id: "card-add", props: { label: "Buy" } }, { origin: "ai" });
+    expect(!missed.ok && missed.error.message).toMatch(/inside the component "Product card".*edit_component \{id: "product"/);
+    const out = ok(
+      await executeTool(
+        s,
+        "edit_component",
+        {
+          id: "product",
+          ops: [
+            /* the names a model reaches for are read as meant, against the definition */
+            { op: "set_props", args: { id: "card-add", props: { text: "Buy" } } },
+            { op: "add_part", args: { slug: "badge", id: "card-tag", into: { container: "card" } } },
+            { op: "remove_nodes", args: { ids: ["card-price"] } },
+          ],
+        },
+        { origin: "ai" },
+      ),
+    );
+    expect(out).toMatchObject({ ran: 3 });
+    expect(part("card-add")?.props?.label).toBe("Buy");
+    expect(part("card-tag")?.component).toBe("badge");
+    expect(part("card-price")).toBeUndefined();
+    expect(s.history().length).toBe(steps + 1);
+    /* the screens are as they were: the instance shows the new definition */
+    expect(s.get().doc.frames.map((f) => f.id)).toEqual(["shop"]);
+    expect(s.get().editing).toBeNull();
+    expect(s.get().doc.groups.some((g) => g.instanceOf === "product")).toBe(true);
+    s.undo();
+    expect(part("card-add")?.props?.label).toBe("Add to cart");
+    /* inside apply_ops too; what cannot run inside a component, or fails, changes nothing */
+    ok(await executeTool(s, "apply_ops", { ops: [{ op: "edit_component", args: { id: "product", ops: [{ op: "set_props", args: { id: "card-name", props: { text: "Pear" } } }] } }] }, { origin: "ai" }));
+    expect(part("card-name")?.props?.text).toBe("Pear");
+    const outside = await executeTool(s, "edit_component", { id: "product", ops: [{ op: "add_screen", args: { name: "x" } }] }, { origin: "ai" });
+    expect(outside.ok).toBe(false);
+    const bad = await executeTool(s, "edit_component", { id: "product", ops: [{ op: "set_props", args: { id: "card-name", props: { text: "Plum" } } }, { op: "set_props", args: { id: "nope", props: {} } }] }, { origin: "ai" });
+    expect(!bad.ok && bad.error.message).toMatch(/ops\[1\] \(set_props\)/);
+    expect(part("card-name")?.props?.text).toBe("Pear");
+  });
+
+  it("a removal inside a component is a destructive call", async () => {
+    const { isDestructiveCall } = await import("./ops");
+    expect(isDestructiveCall("edit_component", { id: "p", ops: [{ op: "remove_nodes", args: { ids: ["a"] } }] })).toBe(true);
+    expect(isDestructiveCall("apply_ops", { ops: [{ op: "edit_component", args: { id: "p", ops: [{ op: "remove_nodes", args: { ids: ["a"] } }] } }] })).toBe(true);
+    expect(isDestructiveCall("edit_component", { id: "p", ops: [{ op: "set_props", args: { id: "a", props: {} } }] })).toBe(false);
+  });
+
   it("the keys it gives are the ones set_overrides takes", async () => {
     const s = shop();
     const inst = s.get().doc.groups.find((g) => g.instanceOf === "product")!;

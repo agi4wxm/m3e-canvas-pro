@@ -5,7 +5,7 @@
 
 import { defaultValues, partBySlug } from "../../parts/registry";
 import { actionSlotsOf, type Item } from "../tokens";
-import type { CoreState } from "../core";
+import { opByName, type CoreState } from "../core";
 
 type Rec = Record<string, unknown>;
 const isRec = (v: unknown): v is Rec => !!v && typeof v === "object" && !Array.isArray(v);
@@ -92,8 +92,43 @@ function treeAliased(n: unknown): unknown {
   return props === n.props && kids === n.children ? n : { ...n, ...(props !== undefined ? { props } : {}), ...(kids !== undefined ? { children: kids } : {}) };
 }
 
+/** names models give the one part an operation works on */
+const ID_ALIASES = ["itemId", "nodeId", "partId", "part", "node", "target"];
+
+/** The one part an operation takes as `id`, given the way models give it: as a list of one (`ids`, which most
+ *  operations on parts take), or under another name; a list as `ids` given one `id`. What the schema has, or a list of
+ *  more than one, is left for the operation to refuse. */
+export function idAliased(name: string, args: Rec, s: CoreState): Rec {
+  const schema = opByName(name)?.args as { properties?: Rec; required?: string[] } | undefined;
+  const props = schema?.properties ?? {};
+  const required = schema?.required ?? [];
+  /* only where the part is what the operation is about (set_props, split_into_atoms), not a name for a new one */
+  const takesId = required.includes("id") && !("ids" in props);
+  const takesIds = required.includes("ids") && !("id" in props);
+  if (takesId && args.id === undefined) {
+    if (Array.isArray(args.ids) && args.ids.length === 1 && typeof args.ids[0] === "string") {
+      const { ids, ...rest } = args;
+      return { ...rest, id: ids[0] };
+    }
+    const alias = ID_ALIASES.find((k) => typeof args[k] === "string" && !(k in props));
+    if (alias) {
+      const { [alias]: id, ...rest } = args;
+      return { ...rest, id };
+    }
+    /* "split this": the one part selected */
+    const sel = s.session.selection;
+    if (name === "split_into_atoms" && sel.length === 1) return { ...args, id: sel[0] };
+  }
+  if (takesIds && args.ids === undefined && typeof args.id === "string") {
+    const { id, ...rest } = args;
+    return { ...rest, ids: [id] };
+  }
+  return args;
+}
+
 /** An operation's arguments with the names a model got nearly right read as meant, against the state it runs on. */
-export function withAliases(name: string, args: Rec, s: CoreState): Rec {
+export function withAliases(name: string, given: Rec, s: CoreState): Rec {
+  const args = idAliased(name, given, s);
   switch (name) {
     case "add_part":
       return typeof args.slug === "string" && isRec(args.props) ? { ...args, props: propsAliased(args.slug, args.props) } : args;

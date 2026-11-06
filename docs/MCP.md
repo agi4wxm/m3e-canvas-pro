@@ -197,7 +197,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 110 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo` 只在文件模式里有。说明取自工具给模型看的描述。
+共 111 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -291,6 +291,7 @@ npx playwright install chromium
 | `remove_component_prop` | 搭建 |  |  | Removes a property of a component; its instances stop setting it. |
 | `set_instance_props` | 搭建 |  |  | Sets the values an instance gives its component's properties, by property id or name: words for a text property, true/false for a bool one, a component id for a swap one; null goe… |
 | `reset_overrides` | 搭建 |  |  | Takes back everything an instance changes of its component: its overrides and the values it gives its properties. |
+| `edit_component` | 搭建 |  |  | Changes the parts inside a component's definition (after make_component they live there, not on the screen): runs operations on it as if it were open on a screen of its own, namin… |
 | `add_collection` | 数据与交互 |  |  | Adds a data collection: named fields and rows of text (one cell per field). |
 | `update_collection` | 数据与交互 |  |  | Changes a data collection's name, fields or rows. |
 | `remove_collection` | 数据与交互 |  | 是 | Removes a data collection; layouts that repeated it stop repeating. |

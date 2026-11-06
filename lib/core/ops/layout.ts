@@ -167,7 +167,7 @@ export const autoLayoutScreen = op<{ screen: string }, { itemId: string }>({
 export const split = op<{ id: string }, { rootItemId: string }>({
   name: "split_into_atoms",
   summary: "Replaces a composite part where it stands with the tree of atoms it is made of (boxes, text, icons…), composed the way the style composes it.",
-  args: S.obj({ id: S.str() }, ["id"]),
+  args: S.obj({ id: S.str("the item id of the one composite part to split (the outline and find_nodes give it)") }, ["id"]),
   label: () => "Split into atoms",
   run(s, a, ctx) {
     const { item } = itemById(s, a.id);

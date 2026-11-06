@@ -91,6 +91,9 @@ export type Tool<A = Record<string, unknown>> = {
   readOnly: boolean;
   /** takes away something the author made (a client asks the author before such a call) */
   destructive: boolean;
+  /** the arguments a model gave read as meant before they are checked against `input` (the one part an operation is
+   *  about, given as a list of one or under another name: lib/tools/aliases.ts) */
+  prepare?: (args: Record<string, unknown>, s: CoreState) => Record<string, unknown>;
   run(args: A, env: ToolEnv): ToolReturn | Promise<ToolReturn>;
 };
 

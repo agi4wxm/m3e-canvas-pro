@@ -33,7 +33,7 @@ const BUILD = new Set([
 ]);
 const SCREENS = new Set(["set_flow_start", "add_template", "list_templates", "remove_screen", "duplicate_screen", "create_screen_variant", "resize_screen", "set_phone_model", "set_screen_length", "set_screen_place", "move_screen", "set_canvas_mode", "set_title", "set_brief", "set_prompt", "clear"]);
 const COMPONENTS = new Set([
-  "make_component", "rename_component", "remove_component", "detach_instance", "set_overrides", "add_instance", "list_components",
+  "make_component", "edit_component", "rename_component", "remove_component", "detach_instance", "set_overrides", "add_instance", "list_components",
   "add_variant", "update_component_set", "set_variant_values", "swap_instance", "set_component_prop", "remove_component_prop", "set_instance_props", "reset_overrides",
 ]);
 const REFERENCE = new Set(["sample_colors", "compare_to_reference"]);

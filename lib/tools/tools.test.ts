@@ -133,6 +133,7 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["relayout", {}],
     ["make_component", { ids: ["col"], name: "Card", id: "cmp" }],
     ["rename_component", { id: "cmp", name: "Product card" }],
+    ["edit_component", { id: "cmp", ops: [{ op: "set_props", args: { id: "b1", props: { label: "Inside" } } }] }],
     ["add_instance", { component: "cmp", id: "inst", screen: "detail", at: { x: 16, y: 700 } }],
     ["set_overrides", { id: "inst", overrides: null }],
     ["detach_instance", { id: "inst" }],

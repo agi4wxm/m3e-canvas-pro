@@ -41,6 +41,32 @@ describe("aliases", () => {
     expect(Object.keys(item(s, "nav")!.actions ?? {}).sort()).toEqual(["tab:0", "tab:1"]);
   });
 
+  it("read the one part an operation is about however it is given: a list of one, another name, the selection", async () => {
+    const s = fresh();
+    ok(await run(s, "add_part", { slug: "settings-group", id: "group", screen: "F1" }));
+    /* the batch dark-mode-switch sent in the evaluation: split_into_atoms with ids */
+    const split = ok(await run(s, "apply_ops", { ops: [{ op: "split_into_atoms", args: { ids: ["group"] } }] }));
+    expect(split.ran).toBe(1);
+    expect(item(s, "group")?.component).not.toBe("settings-group");
+    ok(await run(s, "add_part", { slug: "button", id: "b1", screen: "F1" }));
+    ok(await run(s, "set_props", { itemId: "b1", props: { label: "Go" } }));
+    expect(item(s, "b1")!.props?.label).toBe("Go");
+    ok(await run(s, "remove_nodes", { id: "b1" }));
+    expect(item(s, "b1")).toBeUndefined();
+    /* "split this": the one part selected */
+    ok(await run(s, "add_part", { slug: "settings-group", id: "g2", screen: "F1" }));
+    s.select(["g2"]);
+    ok(await run(s, "split_into_atoms", {}));
+    expect(item(s, "g2")?.component).not.toBe("settings-group");
+    /* nothing selected and nothing given is refused with what to give */
+    s.select([]);
+    const none = await run(s, "split_into_atoms", {});
+    expect(!none.ok && none.error.message).toMatch(/id is required/);
+    /* a name for a new part is not a part to find */
+    const named = await run(s, "add_part", { slug: "button", part: "x", screen: "F1" });
+    expect(!named.ok && named.error.message).toMatch(/args\.part is not an argument/);
+  });
+
   it("leave a place that is not near anything for the operation to refuse", async () => {
     const s = fresh();
     ok(await run(s, "add_part", { slug: "app-bar", id: "bar", screen: "F1" }));

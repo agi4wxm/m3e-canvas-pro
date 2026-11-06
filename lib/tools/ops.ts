@@ -4,9 +4,10 @@
  * spelled out (schema.ts). */
 
 import { OPS, OpError, opByName, schemaError, sessionMeasurer, type CoreState, type Op, type Schema } from "../core";
+import { definitionOpened } from "../core/ops/definition";
 import { laidOut } from "../core/ops/common";
 import { picturesCleaned } from "../core/images";
-import { withAliases } from "./aliases";
+import { idAliased, withAliases } from "./aliases";
 import { opInput } from "./schema";
 import { tool, ToolFailure, type Tool, type ToolEnv, type ToolGroup } from "./types";
 
@@ -34,6 +35,9 @@ const MORE: Record<string, string> = {
   remove_nodes: "A container's children are not removed with it: remove them too when the whole block should go.",
   set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here.',
   wrap_in_auto_layout: "Returns {itemId}: the new outer box.",
+  make_component: "Its parts then live in the component's definition, no longer on the screen: change them with edit_component (every instance follows); an instance's own words with set_instance_props or set_overrides. Returns {id, instanceId, itemId}.",
+  edit_component:
+    'e.g. {id: "prompt-box", ops: [{op: "set_props", args: {id: "send", props: {icon: "arrow_upward"}}}, {op: "add_part", args: {slug: "chip", into: {container: "row"}}}]}. Returns {ran, results}.',
   add_variant: "Returns {id, set}. Variants are whole components: edit one by its id like any other. An instance picks one with swap_instance.",
   update_component_set: "The set's id is a variant's `set` (list_components). Renaming a value keeps the variants that had it.",
   set_variant_values: "Each variant of a set should have a different combination of values.",
@@ -68,6 +72,16 @@ const tapOf = (a: unknown): unknown => (isRec(a) ? { ...a, ...(a.to === undefine
 /** arguments as a model writes them, read the way the operation means them, against the state they will run on: the
  *  names it got nearly right (aliases.ts), pictures cleaned (an SVG goes through the sanitizer), taps filled in */
 function prepared(name: string, given: Rec, s: CoreState): Rec {
+  /* the operations run inside a component are read against its definition, as they will run on it */
+  if (name === "edit_component" && typeof given.id === "string" && Array.isArray(given.ops)) {
+    let inside: CoreState;
+    try {
+      inside = s.editing?.id === given.id ? s : definitionOpened(s, given.id);
+    } catch {
+      return given;
+    }
+    return { ...given, ops: (given.ops as unknown[]).map((c) => (isRec(c) && typeof c.op === "string" ? { ...c, args: prepared(c.op, isRec(c.args) ? c.args : {}, inside) } : c)) };
+  }
   const args = picturesCleaned(withAliases(name, given, s)) as Rec;
   if (name === "set_action" && isRec(args.action)) return { ...args, action: tapOf(args.action) };
   if (name === "set_item" && isRec(args.patch)) {
@@ -114,6 +128,7 @@ const opTool = (o: Op<never, unknown>): Tool<Record<string, unknown>> => ({
   input: opInput(o.name, o.args),
   readOnly: false,
   destructive: DESTRUCTIVE_OPS.has(o.name),
+  prepare: (args, s) => idAliased(o.name, args, s),
   run: (args, env) => runOne(o, args, env),
 });
 
@@ -205,10 +220,11 @@ export const applyOps = tool<{ ops: Call[]; label?: string }>({
   },
 });
 
-/** whether a call takes away something the author made: a destructive operation, or a batch holding one */
+/** whether a call takes away something the author made: a destructive operation, or a batch (or a component's edit)
+ *  holding one */
 export function isDestructiveCall(name: string, args: unknown): boolean {
   if (DESTRUCTIVE_OPS.has(name)) return true;
-  if (name !== "apply_ops") return false;
+  if (name !== "apply_ops" && name !== "edit_component") return false;
   const ops = (args as { ops?: Call[] } | null)?.ops;
-  return Array.isArray(ops) && ops.some((c) => DESTRUCTIVE_OPS.has(c?.op));
+  return Array.isArray(ops) && ops.some((c) => typeof c?.op === "string" && isDestructiveCall(c.op, c.args));
 }

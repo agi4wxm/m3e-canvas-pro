@@ -84,6 +84,7 @@ const L: Record<string, Four> = {
   combine_buttons: ["Combine buttons", "合并按钮", "ボタンをまとめる", "버튼 합치기"],
   relayout: ["Lay out again", "重新排版", "再レイアウト", "다시 배치"],
   make_component: ["Make a component", "存为可复用组件", "コンポーネントにする", "컴포넌트로 만들기"],
+  edit_component: ["Edit inside a component", "修改组件内部", "コンポーネントの中を編集", "컴포넌트 안 편집"],
   rename_component: ["Rename a component", "重命名组件", "コンポーネント名を変更", "컴포넌트 이름 변경"],
   remove_component: ["Remove a component", "删除可复用组件", "コンポーネントを削除", "컴포넌트 삭제"],
   detach_instance: ["Detach an instance", "分离实例", "インスタンスを切り離す", "인스턴스 분리"],

@@ -30,6 +30,16 @@ describe("the parts reference", () => {
     expect(line("text")).toContain("words: text");
   });
 
+  it("gives each number its range and each list how many rows it takes, from the registry", () => {
+    const ref = atomsReference();
+    const line = (slug: string) => ref.split("\n").find((l) => l.startsWith(`- ${slug}:`))!;
+    const text = partBySlug("text")!.props.find((d) => d.key === "width") as { min: number; max: number };
+    expect(line("text")).toContain(`width ${text.min}–${text.max}`);
+    expect(text.min).toBe(40);
+    expect(line("navigation-bar")).toContain("items (3–5 rows) [{label, icon}]");
+    expect(line("icon")).toMatch(/size 16–96/);
+  });
+
   it("is small, and rides in the agent's system prompt", () => {
     const ref = atomsReference();
     const bytes = new TextEncoder().encode(ref).length;
