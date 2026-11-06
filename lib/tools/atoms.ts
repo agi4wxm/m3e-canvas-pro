@@ -61,8 +61,8 @@ export function partLine(def: PartDef): string {
 export function atomsReference(slugs: readonly string[] = REFERENCE_PARTS): string {
   const lines = slugs.map((s) => partBySlug(s)).filter((d): d is PartDef => !!d).map(partLine);
   return [
-    "## The parts used most, with their props (enum choices default first) and tap places",
-    "A part with no tap places takes one tap on the whole part (set_action without slot); with places, set_action {slot} or set_item {actions: {place: …}}. Sizes are dp. describe_part gives any other part.",
+    "## The parts used most: every prop with the values it takes (enum choices, default first) and the tap places",
+    "These lines hold what describe_part would say about these parts' props: build with them straight away, without describing them first; describe_part is for other parts and kits. A part with no tap places takes one tap on the whole part (set_action without slot); with places, set_action {slot} or set_item {actions: {place: …}}. Sizes are dp.",
     ...lines,
   ].join("\n");
 }
