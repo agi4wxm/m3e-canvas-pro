@@ -231,7 +231,7 @@ export function ShareDialog({
                 onClick={onClose}
                 title={t("closeBtn", lang)}
                 className="m3-press"
-                style={{ height: 40, padding: "0 16px", borderRadius: 20, border: "none", background: "transparent", color: p.primary, fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+                style={{ flex: "0 0 auto", height: 40, padding: "0 16px", borderRadius: 20, border: "none", background: "transparent", color: p.primary, fontSize: 14, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
               >
                 {t("closeBtn", lang)}
               </button>
