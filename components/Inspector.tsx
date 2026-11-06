@@ -151,7 +151,7 @@ function GroupPanel({
             {t("makeComponent", lang)}
           </button>
         )}
-        {onAutoLayout && !grouped && (
+        {onAutoLayout && (
           <button
             onClick={onAutoLayout}
             data-suggest-layout
@@ -337,6 +337,7 @@ export function Inspector({
       flowParent={flowParent}
       onMoveTo={onMoveTo}
       onMakeComponent={onMakeComponent}
+      onAutoLayout={onAutoLayout}
       onSplit={onSplit}
       onExport={onExport}
       tab={partTab}

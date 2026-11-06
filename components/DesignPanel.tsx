@@ -209,12 +209,14 @@ export type PartDesignProps = {
   locked?: boolean;
   onSplit?: () => void;
   onMakeComponent?: () => void;
+  /** puts the part in an auto layout, or gives a container one of its own */
+  onAutoLayout?: () => void;
   /** saves the part as a picture at a scale */
   onExport?: (scale: number) => void;
   p: Palette;
 };
 
-export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect, onMoveTo, onPlace, locked, onSplit, onMakeComponent, onExport, p }: PartDesignProps) {
+export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect, onMoveTo, onPlace, locked, onSplit, onMakeComponent, onAutoLayout, onExport, p }: PartDesignProps) {
   const lang = useLang();
   const strict = useContext(StyleRulesContext);
   const behavior = useContext(BehaviorContext);
@@ -387,8 +389,15 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
         </DesignSection>
       )}
 
-      {((onSplit && def.atoms) || onMakeComponent) && !locked && (
+      {((onSplit && def.atoms) || onMakeComponent || onAutoLayout) && !locked && (
         <DesignSection id="actions" title={t("dzActions", lang)} p={p}>
+          {/* a container with a layout of its own has nothing to gain from this */}
+          {onAutoLayout && !(def.holds && def.flow && item.props?.layout && item.props.layout !== "free") && (
+            <button onClick={onAutoLayout} data-suggest-layout title={t("suggestLayoutKeys", lang)} className="m3-press" style={actionBtn(p)}>
+              <Icon name="view_quilt" size={16} />
+              {t("suggestLayout", lang)}
+            </button>
+          )}
           {onSplit && def.atoms && (
             <button onClick={onSplit} data-split-atoms title={t("splitAtomsHint", lang)} className="m3-press" style={actionBtn(p)}>
               <Icon name="call_split" size={16} />

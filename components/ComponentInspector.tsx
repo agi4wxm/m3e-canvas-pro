@@ -230,6 +230,7 @@ export function ComponentInspector({
   flowParent,
   onMoveTo,
   onMakeComponent,
+  onAutoLayout,
   onSplit,
   onExport,
   tab: tabAsked,
@@ -255,6 +256,8 @@ export function ComponentInspector({
   onMoveTo?: (x: number, y: number) => void;
   /** turns this part into a reusable component */
   onMakeComponent?: () => void;
+  /** puts this part in an auto layout, or gives a container one */
+  onAutoLayout?: () => void;
   /** replaces this composite, where it stands, with the atoms it is made of */
   onSplit?: () => void;
   /** saves the part as a picture */
@@ -283,7 +286,7 @@ export function ComponentInspector({
     >
       {tab === "design" && (
         <div role="tabpanel" id="part-panel-design" aria-labelledby="part-tab-design" style={{ margin: "0 -4px" }}>
-          <PartDesign item={item} frame={frame} onChange={onChange} inFlow={inFlow} flowParent={flowParent} selfRect={selfRect} onMoveTo={onMoveTo} onPlace={onPlace} locked={locked} onSplit={onSplit} onMakeComponent={onMakeComponent} onExport={onExport} p={p} />
+          <PartDesign item={item} frame={frame} onChange={onChange} inFlow={inFlow} flowParent={flowParent} selfRect={selfRect} onMoveTo={onMoveTo} onPlace={onPlace} locked={locked} onSplit={onSplit} onMakeComponent={onMakeComponent} onAutoLayout={onAutoLayout} onExport={onExport} p={p} />
         </div>
       )}
       {tab === "behavior" && (
