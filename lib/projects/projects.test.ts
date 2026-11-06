@@ -217,6 +217,24 @@ describe("the editor's adapter", () => {
     expect(rec.meta!.updated).toBeGreaterThan(1);
   });
 
+  it("writes a document handed over just as the write before it is finishing, without another change after it", async () => {
+    /* A write that changes nothing ends its drain at once; a document handed over a few ticks later, at any tick,
+       must still be written by itself (a design from a link arrives right after the editor's first write). */
+    for (let ticks = 0; ticks < 12; ticks++) {
+      const id = `p${ticks}`;
+      await createProject({ id, name: "P", doc: doc("P"), now: 1 });
+      const persist = new ProjectsPersist(resolveOpening(env(`?project=${id}`, {}, 2)));
+      const stored = (await persist.read()).doc as Doc;
+      await persist.write(stored);
+      void persist.write(stored);
+      for (let i = 0; i < ticks; i++) await Promise.resolve();
+      void persist.write(doc(`Linked ${ticks}`, 2));
+      await new Promise((r) => setTimeout(r, 30));
+      const rec = await readProjectRecords(id);
+      expect(JSON.parse(rec.doc ?? "null")?.title, `handed over ${ticks} ticks after`).toBe(`Linked ${ticks}`);
+    }
+  });
+
   it("keeps and forgets the design a draft replaced, per project", async () => {
     await createProject({ id: "p", name: "P", doc: doc("P"), now: 1 });
     await createProject({ id: "q", name: "Q", doc: doc("Q"), now: 1 });

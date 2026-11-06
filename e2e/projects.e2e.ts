@@ -33,6 +33,8 @@ async function cardAction(page: Page, id: string, action: string) {
   await page.locator('[data-projects-home] [role="menuitem"]').filter({ hasText: action }).first().click();
   await settle(page, 400);
 }
+/** the keep button a design that arrived over the canvas offers */
+const keepButton = (page: Page) => page.locator('button[title="Keep this design"], button[aria-label="Keep this design"]');
 const cardIds = (page: Page) => page.evaluate(() => [...document.querySelectorAll("[data-project-card]")].map((e) => e.getAttribute("data-project-card")));
 
 /** the private file system's file, as text */
@@ -351,6 +353,50 @@ export const tests: E2ETest[] = [
       await settle(slow, 1200);
       equal(await savedDoc(slow), kept, "the project as it was: nothing written over it while it was read");
       check((await slow.locator("[data-node]").count()) > 0, "its parts drawn");
+    },
+  },
+  {
+    name: "projects: a design from a link is saved as it arrives, with nothing done after it",
+    async run({ page, base }) {
+      const starter = await savedDoc(page);
+      /* the link's design: the starter with its own title and a part id nothing else has */
+      const linked = (title: string, partId: string) => {
+        const groups = starter.groups.map((g, i) => (i === 0 ? { ...g, items: g.items.map((it, j) => (j === 0 ? { ...it, id: partId } : it)) } : g));
+        return { ...starter, title, groups };
+      };
+      const hash = (doc: unknown) => `#doc=${encodeURIComponent(JSON.stringify(doc))}`;
+      const hasPart = (doc: Doc, id: string) => doc.groups.some((g) => g.items.some((it) => it.id === id));
+
+      /* opened in a fresh tab: the link's own project is written without a single edit, and a reload brings it back */
+      const tab = await page.context().newPage();
+      await page.close();
+      await tab.goto(`${base}/${hash(linked("From a link", "linkpart1"))}`, { waitUntil: "load" });
+      await ready(tab);
+      await settle(tab, 1500);
+      const first = await savedDoc(tab);
+      equal(first.title, "From a link", "the linked design is the project's document as soon as it arrives");
+      check(hasPart(first, "linkpart1"), "its parts saved");
+      await tab.reload({ waitUntil: "load" });
+      await ready(tab);
+      await settle(tab, 800);
+      equal((await savedDoc(tab)).title, "From a link", "a reload with no edit in between still has the linked design");
+      check(await keepButton(tab).count(), "and it is still offered to keep or undo");
+      await keepButton(tab).first().click();
+      await settle(tab, 800);
+
+      /* pasted into the open tab: the same, and keeping it writes nothing different */
+      await tab.evaluate((h) => (location.hash = h), hash(linked("Pasted in", "linkpart2")));
+      await settle(tab, 1500);
+      check(hasPart(await savedDoc(tab), "linkpart2"), "a link pasted into the tab is saved as it arrives");
+      await keepButton(tab).first().click();
+      await settle(tab, 800);
+      await tab.reload({ waitUntil: "load" });
+      await ready(tab);
+      await settle(tab, 800);
+      const kept = await savedDoc(tab);
+      equal(kept.title, "Pasted in", "kept and reloaded: the pasted design");
+      check(hasPart(kept, "linkpart2"), "with its parts");
+      equal(await keepButton(tab).count(), 0, "kept: nothing left to keep or undo");
     },
   },
 ];

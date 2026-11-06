@@ -195,39 +195,46 @@ export class ProjectsPersist implements PersistAdapter {
     if (this.ready?.mode === "legacy") return localPersist.write(doc);
     this.pending = doc;
     this.link?.schedule(doc);
-    this.flight ??= this.drain().finally(() => {
-      this.flight = null;
-    });
+    this.flight ??= this.drain();
     return this.flight;
   }
 
-  /** writes the latest document until none is waiting: at most one write in flight, the ones between skipped */
+  /** Writes the latest document until none is waiting: at most one write in flight, the ones between skipped.
+   *  It lets go of `flight` in the very step that finds nothing more waiting (the `finally` below runs straight after
+   *  the loop's last check, with no await between). Let go any later (a `.finally` chained on, or an awaited inner
+   *  function, runs a tick or more on), a write coming in between would see a drain still "in flight", leave its
+   *  document waiting and start none: a design from a link, or an author's last edit, then sat unwritten until the
+   *  next change. */
   private async drain() {
-    const o = await this.opening;
-    if (o.mode !== "projects") return;
-    while (this.pending) {
-      const doc = this.pending;
-      this.pending = null;
-      const { json, refs, assets } = storedForm(doc);
-      /* An edit moves the project's time on; a layout pass after opening, or the first write that only brings the
-         document to how this version writes it, does not. */
-      const edit = this.lastJson === null || (this.editSignals ? this.edited : this.seenWrite);
-      this.seenWrite = true;
-      if (json === this.lastJson) continue;
-      this.edited = false;
-      const at = Date.now();
-      try {
-        const meta = await writeDocRecord(o.id, { json, refs, assets, meta: (old) => (old ? { ...old, ...summaryOf(doc), ...(edit ? { updated: at } : {}) } : undefined) });
-        this.setMeta(meta);
-      } catch (e) {
-        if (isFull(e)) throw new PersistFullError(String(e));
-        throw e;
+    try {
+      const o = await this.opening;
+      if (o.mode !== "projects") return;
+      while (this.pending) {
+        const doc = this.pending;
+        this.pending = null;
+        const { json, refs, assets } = storedForm(doc);
+        /* An edit moves the project's time on; a layout pass after opening, or the first write that only brings the
+           document to how this version writes it, does not. */
+        const edit = this.lastJson === null || (this.editSignals ? this.edited : this.seenWrite);
+        this.seenWrite = true;
+        if (json === this.lastJson) continue;
+        this.edited = false;
+        const at = Date.now();
+        try {
+          const meta = await writeDocRecord(o.id, { json, refs, assets, meta: (old) => (old ? { ...old, ...summaryOf(doc), ...(edit ? { updated: at } : {}) } : undefined) });
+          this.setMeta(meta);
+        } catch (e) {
+          if (isFull(e)) throw new PersistFullError(String(e));
+          throw e;
+        }
+        this.lastJson = json;
+        if (at - this.toldAt > TELL_EDITS_MS) {
+          this.toldAt = at;
+          tellProjectsChanged();
+        }
       }
-      this.lastJson = json;
-      if (at - this.toldAt > TELL_EDITS_MS) {
-        this.toldAt = at;
-        tellProjectsChanged();
-      }
+    } finally {
+      this.flight = null;
     }
   }
 
@@ -299,6 +306,8 @@ export class ProjectsPersist implements PersistAdapter {
 
   /** resolves once what was handed over is kept: before the tab goes to another project */
   async flush(): Promise<void> {
+    /* a document still waiting with no drain on it (the last one failed) gets one more try before the tab moves on */
+    if (this.pending && !this.flight && this.ready?.mode === "projects") this.flight = this.drain();
     while (this.flight) await this.flight.catch(() => {});
     await this.link?.flush().catch(() => {});
   }
