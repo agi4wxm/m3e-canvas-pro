@@ -98,7 +98,8 @@ export function useProject(o: ProjectInputs) {
   const thumbAt = useRef(0);
   const drawingRef = useRef<Promise<void> | null>(null);
   const drawThumb = (): Promise<void> => {
-    if (!projects || drawingRef.current) return drawingRef.current ?? Promise.resolve();
+    /* a read-only tab leaves the project's listing to the tab that edits it */
+    if (!projects || !live.current.editable || drawingRef.current) return drawingRef.current ?? Promise.resolve();
     const first = live.current.framesRef.current?.[0];
     if (!first || !thumbDirtyRef.current) return Promise.resolve();
     thumbDirtyRef.current = false;
@@ -348,7 +349,6 @@ export function useProject(o: ProjectInputs) {
     keepMine,
     loadTheirs,
     stopSaving,
-    rename: (name: string) => projects?.rename(name),
     canSyncFile: canSyncFile(),
     canPickFolder: canPickFolder(),
   };

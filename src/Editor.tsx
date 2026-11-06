@@ -737,6 +737,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   };
 
   const showRight = rightOpen && !isMobile;
+  /** about how wide the canvas is between the panels, for what in its toolbar row gives way when it is narrow */
+  const canvasWidth = (typeof window === "undefined" ? 1440 : window.innerWidth) - (leftOpen ? leftW : RAIL_W) - (showRight ? rightW : 0);
   const overBin = (!!drag?.active && drag.overBin) || (gesture?.kind === "group" && gesture.overBin);
   const guide = drag?.active ? drag.guide : gesture?.kind === "group" && gesture.moved ? (gesture.guide ?? null) : null;
   /* what a part being carried would go into when let go, marked before it is: the button it would
@@ -1505,7 +1507,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                 onHome={() => project.setHomeOpen(true)}
                 onReconnect={() => void project.reconnect()}
                 onConflict={() => project.setConflictOpen(true)}
-                compact={showRight}
+                /* the toolbar row shares the canvas's width: the name gives way first */
+                size={canvasWidth < 640 ? "icon" : canvasWidth < 860 ? "compact" : "full"}
               />
             }
             projectMenu={(close) => (

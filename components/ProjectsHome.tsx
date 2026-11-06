@@ -12,6 +12,7 @@ import { downloadProject } from "@/lib/projects/download";
 import { readStored } from "@/lib/projects/persist";
 import { duplicateProject, freeName, onProjectsChanged, projectsInUse, projectUrl, purgeProject, renameProject, restoreProject, trashProject, UNDO_DELETE_MS, visibleProjects, type ProjectSort } from "@/lib/projects/projects";
 import type { Doc } from "@/lib/tokens";
+import { styleOf, styleTextOf } from "@/lib/styles";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
 import { IconBtn, Segmented, useDismiss } from "./ui";
@@ -32,11 +33,17 @@ function ago(at: number, lang: Lang, now = Date.now()): string {
   ];
   let v = s;
   for (const [unit, size] of steps) {
-    if (Math.abs(v) < size) return unit === "second" && Math.abs(v) < 45 ? rtf.format(0, "second") : rtf.format(Math.round(v), unit);
+    if (Math.abs(v) < size) return unit === "second" && Math.abs(v) < 45 ? t("justNow", lang) : rtf.format(Math.round(v), unit);
     v /= size;
   }
   return rtf.format(Math.round(v), "year");
 }
+
+/** the name of the style a project wears, when it is one of the editor's own (a project's own styles are its own) */
+const styleName = (key: string | undefined, lang: Lang) => {
+  const pack = key ? styleOf(key) : undefined;
+  return pack ? styleTextOf(pack.name, lang) : "";
+};
 
 export type ProjectsHomeProps = {
   p: Palette;
@@ -166,6 +173,7 @@ function Home({ p, onClose, current, currentDoc, onOpen, onNew, onOpenFile, bloc
           <Logo size={36} color={p.primary} glyph={p.onPrimary} />
           <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.2, fontWeight: 500, letterSpacing: 0 }}>{t("projectsTitle", lang)}</h1>
           {narrow && <span style={{ flex: 1 }} />}
+          {narrow && !blocked && <IconBtn icon="file_open" p={p} onClick={onOpenFile} title={t("openFile", lang)} size={44} />}
           {narrow && <IconBtn icon="close" p={p} onClick={onClose} title={t("backToEditor", lang)} size={44} />}
         </div>
         {!narrow && <span style={{ flex: 1 }} />}
@@ -200,7 +208,7 @@ function Home({ p, onClose, current, currentDoc, onOpen, onNew, onOpenFile, bloc
             ]}
           />
         )}
-        {!blocked && (
+        {!blocked && !narrow && (
           <button
             onClick={onOpenFile}
             className="m3-press"
@@ -220,7 +228,8 @@ function Home({ p, onClose, current, currentDoc, onOpen, onNew, onOpenFile, bloc
             }}
             className="m3-press"
             data-new-project
-            style={{ height: 56, padding: "0 22px 0 18px", borderRadius: 18, border: "none", background: p.primaryContainer, color: p.onPrimaryContainer, fontSize: 15, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 10, cursor: busy ? "progress" : "pointer", whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}
+            /* on a phone it floats in the corner, the way a new thing is made there */
+            style={{ ...(narrow ? { position: "fixed", right: 16, bottom: 16, zIndex: 2, boxShadow: "0 4px 14px rgba(0,0,0,0.22)" } : { boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }), height: 56, padding: "0 22px 0 18px", borderRadius: 18, border: "none", background: p.primaryContainer, color: p.onPrimaryContainer, fontSize: 15, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 10, cursor: busy ? "progress" : "pointer", whiteSpace: "nowrap" }}
           >
             <Icon name="add" size={24} />
             {t("newProject", lang)}
@@ -277,7 +286,7 @@ function Home({ p, onClose, current, currentDoc, onOpen, onNew, onOpenFile, bloc
             exit={{ opacity: 0, y: 12 }}
             transition={{ duration: 0.18 }}
             data-projects-notice
-            style={{ position: "fixed", left: "50%", bottom: 24, transform: "translateX(-50%)", zIndex: 1, display: "flex", alignItems: "center", gap: 16, minHeight: 48, padding: "4px 8px 4px 16px", borderRadius: 12, background: p.inverseSurface, color: p.inverseOnSurface, fontSize: 14, boxShadow: "0 4px 14px rgba(0,0,0,0.2)", maxWidth: "calc(100vw - 32px)" }}
+            style={{ position: "fixed", left: "50%", bottom: narrow ? 88 : 24, transform: "translateX(-50%)", zIndex: 1, display: "flex", alignItems: "center", gap: 16, minHeight: 48, padding: "4px 8px 4px 16px", borderRadius: 12, background: p.inverseSurface, color: p.inverseOnSurface, fontSize: 14, boxShadow: "0 4px 14px rgba(0,0,0,0.2)", maxWidth: "calc(100vw - 32px)" }}
           >
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{notice.text}</span>
             {notice.undo && (
@@ -379,7 +388,7 @@ function Card({ p, lang, m, here, elsewhere, menuOpen, onMenu, renaming, onRenam
             </div>
           )}
           <div style={{ fontSize: 12, color: p.onSurfaceVariant, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {fill(t("projectEdited", lang), { when: ago(m.updated, lang) })} · {m.screens === 1 ? t("projectOneScreen", lang) : fill(t("projectScreens", lang), { n: String(m.screens) })}
+            {[fill(t("projectEdited", lang), { when: ago(m.updated, lang) }), m.screens === 1 ? t("projectOneScreen", lang) : fill(t("projectScreens", lang), { n: String(m.screens) }), styleName(m.style, lang)].filter(Boolean).join(" · ")}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4, minHeight: 24 }}>
             {here && chip("check", t("projectHere", lang), "primary")}

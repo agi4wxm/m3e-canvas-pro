@@ -11,10 +11,10 @@ import { assetRefsIn, getAssets as getLegacyAssets, restoreAssets } from "../ass
 import { localPersist, PersistFullError, type PersistAdapter, type Stored } from "../core/persist";
 import { isProject } from "../project";
 import type { Doc } from "../tokens";
-import { getAssets, getFileRecord, listProjects, patchProject, pruneAssets, putFileRecord, deleteFileRecord, readProjectRecords, writeBeforeRecord, writeDocRecord, type FileRecord, type ProjectMeta } from "./db";
+import { getAssets, getFileRecord, getProject, listProjects, patchProject, pruneAssets, putFileRecord, deleteFileRecord, readProjectRecords, writeBeforeRecord, writeDocRecord, type FileRecord, type ProjectMeta } from "./db";
 import { FileLink, type LinkState } from "./fileLink";
 import { migrateLegacy } from "./migrate";
-import { createProject, lockName, mostRecent, PROJECT_PARAM, purgeTrashed, storedForm, summaryOf, tellProjectsChanged } from "./projects";
+import { createProject, lockName, mostRecent, onProjectsChanged, PROJECT_PARAM, purgeTrashed, storedForm, summaryOf, tellProjectsChanged } from "./projects";
 
 /** where the id of the project last opened is kept, for what reads it before IndexedDB has answered */
 export const LAST_PROJECT_KEY = "m3e:project:last";
@@ -138,6 +138,15 @@ export class ProjectsPersist implements PersistAdapter {
       this.metaNow = o.meta;
       this.lastJson = o.stored.doc ? storedForm(o.stored.doc).json : null;
       if (o.file) this.attach(o.file, false);
+      /* renamed from the projects home, here or in another tab: the chrome follows */
+      if (typeof window !== "undefined")
+        onProjectsChanged(() => {
+          void getProject(o.id)
+            .then((m) => {
+              if (m && (m.name !== this.metaNow?.name || m.thumb !== this.metaNow?.thumb)) this.setMeta({ ...this.metaNow, ...m });
+            })
+            .catch(() => {});
+        });
     });
   }
 
@@ -292,14 +301,6 @@ export class ProjectsPersist implements PersistAdapter {
   async flush(): Promise<void> {
     while (this.flight) await this.flight.catch(() => {});
     await this.link?.flush().catch(() => {});
-  }
-
-  async rename(name: string) {
-    const id = this.id;
-    const clean = name.trim();
-    if (!id || !clean) return;
-    this.setMeta(await patchProject(id, { name: clean }));
-    tellProjectsChanged();
   }
 
   /** keeps a picture of the first screen for the projects list */

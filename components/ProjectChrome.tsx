@@ -15,7 +15,7 @@ const fill = (s: string, vars: Record<string, string>) => s.replace(/\{(\w+)\}/g
 
 /* ---------- the name in the toolbar ---------- */
 
-export function ProjectPill({ p, name, link, onHome, onReconnect, onConflict, compact }: { p: Palette; name: string; link: LinkState | null; onHome: () => void; onReconnect: () => void; onConflict: () => void; compact?: boolean }) {
+export function ProjectPill({ p, name, link, onHome, onReconnect, onConflict, size = "full" }: { p: Palette; name: string; link: LinkState | null; onHome: () => void; onReconnect: () => void; onConflict: () => void; /** how much room the name has: all of it, a little, or none (the name is then in the tooltip) */ size?: "full" | "compact" | "icon" }) {
   const lang = useLang();
   const status = link?.status;
   const busy = status === "pending" || status === "saving";
@@ -24,13 +24,13 @@ export function ProjectPill({ p, name, link, onHome, onReconnect, onConflict, co
     <div style={{ display: "flex", alignItems: "center", gap: 4 }} data-project-pill data-file-status={status ?? "none"}>
       <button
         onClick={onHome}
-        title={t("allProjects", lang)}
+        title={size === "icon" ? `${name} · ${t("allProjects", lang)}` : t("allProjects", lang)}
         aria-label={`${t("allProjects", lang)}: ${name}`}
         className="m3-press"
         style={{
           height: 40,
-          maxWidth: compact ? 168 : 240,
-          padding: "0 14px 0 8px",
+          maxWidth: size === "compact" ? 168 : 240,
+          padding: size === "icon" ? "0 6px" : "0 14px 0 8px",
           borderRadius: 20,
           border: "none",
           background: "transparent",
@@ -45,7 +45,7 @@ export function ProjectPill({ p, name, link, onHome, onReconnect, onConflict, co
         <span style={{ width: 28, height: 28, borderRadius: 10, background: p.primaryContainer, color: p.onPrimaryContainer, display: "grid", placeItems: "center", flex: "0 0 auto" }}>
           <Icon name="stacks" size={18} fill />
         </span>
-        <span data-project-name style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
+        <span data-project-name style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, display: size === "icon" ? "none" : undefined }}>
           {name}
         </span>
         {link && (status === "saved" || busy || status === "error") && (

@@ -179,6 +179,13 @@ export const tests: E2ETest[] = [
       await page.keyboard.press("Enter");
       await settle(page, 500);
       equal(await card(page, a!).locator("[data-project-title]").textContent(), "Alpha", "the new name");
+      /* this tab's own project renamed: its name in the chrome follows at once */
+      await cardAction(page, b, "Rename");
+      await page.locator("[data-rename-input]").fill("Beta");
+      await page.keyboard.press("Enter");
+      await settle(page, 600);
+      equal(await card(page, b).locator("[data-project-title]").textContent(), "Beta", "this tab's project renamed");
+      equal(await projectName(page), "Beta", "and named so in the chrome");
       await card(page, a!).locator("a").first().click();
       await arrived(page, b);
       equal(await projectId(page), a, "back on the first project");
@@ -313,6 +320,37 @@ export const tests: E2ETest[] = [
       await settle(page, 1500);
       equal((await savedDoc(page)).title, "Changed elsewhere", "their version on the canvas");
       await page.waitForSelector('[data-project-pill][data-file-status="saved"]', { timeout: 10_000 });
+    },
+  },
+  {
+    name: "projects: a project read slowly shows no starter sketch and writes nothing over it",
+    async run({ page }) {
+      await clickAdd(page, "Rating");
+      const kept = await savedDoc(page);
+      const url = await page.evaluate(() => location.href);
+      /* the next page waits 2.5 s for IndexedDB to answer */
+      const slow = await page.context().newPage();
+      await slow.context().addInitScript(() => {
+        const open = IDBFactory.prototype.open;
+        IDBFactory.prototype.open = function (this: IDBFactory, ...a: Parameters<IDBFactory["open"]>) {
+          const r = open.apply(this, a);
+          if (a[0] !== "m3e-projects") return r;
+          let handler: ((e: Event) => void) | null = null;
+          Object.defineProperty(r, "onsuccess", { configurable: true, set: (fn: (e: Event) => void) => (handler = fn), get: () => handler });
+          r.addEventListener("success", (e) => setTimeout(() => handler?.call(r, e), 2500));
+          return r;
+        };
+      }, null);
+      await page.close();
+      await slow.goto(url, { waitUntil: "load" });
+      for (let i = 0; i < 5; i++) {
+        await slow.waitForTimeout(300);
+        check(await slow.locator(".m3e-boot").count(), "the boot cover stays up while the project is read");
+      }
+      await ready(slow);
+      await settle(slow, 1200);
+      equal(await savedDoc(slow), kept, "the project as it was: nothing written over it while it was read");
+      check((await slow.locator("[data-node]").count()) > 0, "its parts drawn");
     },
   },
 ];
