@@ -2,7 +2,7 @@
  * TypeScript the models become, the outline a model reads, and documents made to hurt whoever opens them. */
 
 import { describe, expect, it } from "vitest";
-import { apiOutline, apiProblems, cleanApi, describeModel, fieldRows, followRef, schemaToTs, schemaTypeTs, withFieldRows, type ApiSpec, type JsonSchemaObject } from ".";
+import { apiOutline, apiProblems, cleanApi, describeModel, fieldRows, fieldSchema, followRef, holdsFile, itemsTypeKey, rowTypeKey, schemaToTs, schemaTypeTs, withFieldRows, withItemsType, withRowType, type ApiSpec, type FieldRow, type JsonSchemaObject } from ".";
 import { openProject } from "../project";
 
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
@@ -143,6 +143,33 @@ describe("a model as rows of fields", () => {
     expect(withFieldRows(schema, rows)).toEqual(schema);
     const changed = withFieldRows(schema, [{ ...rows[0], format: "email", required: false }, { name: "count", type: "integer", required: true, nullable: true }]);
     expect(changed).toEqual({ type: "object", description: "A post", properties: { title: { type: "string", format: "email", examples: ["Hi"], maxLength: 80 }, count: { type: ["integer", "null"] } }, required: ["count"] });
+  });
+
+  it("names a file and the text formats that read as types of their own, and writes them back", () => {
+    const schema: JsonSchemaObject = {
+      type: "object",
+      properties: { file: { type: "string", format: "binary", description: "A JPEG" }, photos: { type: "array", items: { type: "string", format: "binary" }, maxItems: 4 }, at: { type: "string", format: "date-time" }, mail: { type: "string", format: "email" }, site: { type: "string", format: "uri" }, id: { type: "string", format: "uuid" }, secret: { type: "string", format: "password" }, n: { type: "integer", format: "int32" } },
+      required: ["file"],
+    };
+    const rows = fieldRows(schema);
+    expect(rows.map(rowTypeKey)).toEqual(["format:binary", "array", "format:date-time", "format:email", "format:uri", "format:uuid", "string", "integer"]);
+    expect(itemsTypeKey(rows[1])).toBe("format:binary");
+    expect(withFieldRows(schema, rows)).toEqual(schema);
+    expect(holdsFile(schema)).toBe(true);
+    expect(holdsFile({ type: "object", properties: { alt: { type: "string" } } })).toBe(false);
+    /* a text field made a file takes no choices or example; a file made text is no file; a number keeps its format */
+    const word: FieldRow = { name: "kind", type: "string", required: false, nullable: false, enum: ["a", "b"], example: "a" };
+    expect(withRowType(word, "format:binary")).toEqual({ name: "kind", type: "string", required: false, nullable: false, format: "binary" });
+    expect(withRowType(rows[0], "string").format).toBeUndefined();
+    expect(withRowType(rows[0], "number").format).toBeUndefined();
+    expect(withRowType(rows[6], "string").format).toBe("password");
+    expect(withRowType(rows[7], "number").format).toBe("int32");
+    expect(fieldSchema(withRowType(rows[2], "format:date"))).toEqual({ type: "string", format: "date" });
+    /* a list of files, and back to a list of words */
+    const words = withItemsType(rows[1], "string");
+    expect(fieldSchema(words, schema.properties!.photos)).toEqual({ type: "array", items: { type: "string" }, maxItems: 4 });
+    expect(fieldSchema(withItemsType(words, "format:binary"), schema.properties!.photos)).toEqual({ type: "array", items: { type: "string", format: "binary" }, maxItems: 4 });
+    expect(fieldSchema(withItemsType(words, "ref:User"))).toEqual({ type: "array", items: { $ref: "#/components/schemas/User" } });
   });
 
   it("follows a model's reference to what it is", () => {

@@ -57,25 +57,38 @@ export function chrome(): Chrome {
 /** the device's chrome, for a bar that has to keep clear of it */
 export const useChrome = () => useMemo(() => chrome(), []);
 
+/** how far the page scrolls past what stands on it, clear of what floats over the screen's foot */
+const FootRoom = createContext(0);
+
 /** a part placed on its screen, from the screen's top left; `span` runs it from edge to edge */
 export function At({ x = 0, y = 0, span, z, children }: { x?: number; y?: number; span?: boolean; z?: number; children?: ReactNode }) {
+  const room = useContext(FootRoom);
   const style: CSS = span ? { position: "absolute", left: 0, right: 0, top: y } : { position: "absolute", left: x, top: y };
   if (z) style.zIndex = String(z);
-  return <View style={sx(style)}>{span ? <FillWidth>{children}</FillWidth> : children}</View>;
+  const inside = span ? <FillWidth>{children}</FillWidth> : children;
+  if (!room) return <View style={sx(style)}>{inside}</View>;
+  /* the page scrolls past what stands here by the screen's room: an empty strip under it, nothing to tap */
+  return (
+    <View style={sx(style)}>
+      <FootRoom.Provider value={0}>{inside}</FootRoom.Provider>
+      <View style={sx({ position: "absolute", left: 0, top: "100%", width: 1, height: room, pointerEvents: "none" })} />
+    </View>
+  );
 }
 
 /** inside a pinned bar at the top: the bar keeps clear of the capsule */
 const PinnedTop = createContext(false);
 export const usePinnedTop = () => useContext(PinnedTop);
 
-/** a bar pinned to an edge of the screen, over what scrolls, inside the device's own bars */
-export function Pin({ edge, x, children }: { edge: "top" | "bottom" | "floatingBottom"; x?: number; children?: ReactNode }) {
+/** a bar pinned to an edge of the screen, over what scrolls, inside the device's own bars; floating, it stands `bottom`
+ *  above the screen's foot (16 unless the design says), over the device's own bar at the bottom */
+export function Pin({ edge, x, bottom, children }: { edge: "top" | "bottom" | "floatingBottom"; x?: number; bottom?: number; children?: ReactNode }) {
   const ch = useChrome();
   const floating = edge === "floatingBottom";
   const style: CSS =
     edge === "top"
       ? { position: "fixed", left: 0, right: 0, top: 0, paddingTop: ch.status }
-      : { position: "fixed", left: floating && x !== undefined ? x : 0, right: floating && x !== undefined ? undefined : 0, bottom: floating ? 16 + ch.bottom : 0, paddingBottom: floating ? 0 : ch.bottom, display: "flex", flexDirection: "column", alignItems: floating && x === undefined ? "center" : "stretch" };
+      : { position: "fixed", left: floating && x !== undefined ? x : 0, right: floating && x !== undefined ? undefined : 0, bottom: floating ? (bottom ?? 16) + ch.bottom : 0, paddingBottom: floating ? 0 : ch.bottom, display: "flex", flexDirection: "column", alignItems: floating && x === undefined ? "center" : "stretch" };
   const ground = edge === "top" ? undefined : undefined;
   return (
     <View style={sx(style, { zIndex: "10", boxSizing: "border-box", pointerEvents: floating ? "none" : undefined, backgroundColor: ground })}>
@@ -114,11 +127,13 @@ export type ScreenProps = {
   height?: number;
   /** the screen's key, on its root for tests and tools (`data-screen`) */
   screen?: string;
+  /** a screen of data: how far its page scrolls past what stands on it, so its last row clears what floats over its foot */
+  room?: number;
   children?: ReactNode;
 };
 
 /** a screen: its ground, its body (the page, scrolling when it is longer than the device) and its pinned bars */
-export function Screen({ bg = "surface", width, length, height, screen, children }: ScreenProps) {
+export function Screen({ bg = "surface", width, length, height, screen, room = 0, children }: ScreenProps) {
   const kit = useKit();
   const ch = useChrome();
   const overlaid = useContext(Overlaid);
@@ -143,7 +158,7 @@ export function Screen({ bg = "surface", width, length, height, screen, children
      which then lets a part past the edge show. */
   return (
     <View {...tag} className={themeClass(kit.dark, kit.theme.scope)} style={sx({ position: "relative", minHeight: "100vh", backgroundColor: ground, color: c("on-surface"), overflowX: "clip" })}>
-      <View style={sx({ position: "relative", height: tall || undefined, marginTop: ch.status, marginBottom: ch.bottom })}>{body}</View>
+      <View style={sx({ position: "relative", height: tall || undefined, marginTop: ch.status, marginBottom: ch.bottom })}>{room > 0 ? <FootRoom.Provider value={room + ch.bottom}>{body}</FootRoom.Provider> : body}</View>
       {pinned}
     </View>
   );

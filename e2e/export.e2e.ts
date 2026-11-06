@@ -75,6 +75,21 @@ export const tests: E2ETest[] = [
       const manifest = JSON.parse(strFromU8(zip[".m3e/manifest.json"])) as { files: Record<string, { kind: string }> };
       equal(manifest.files["apps/web/src/custom/setup.ts"]?.kind, "seeded", "the manifest says what is custom");
       equal(Object.keys(manifest.files).length, Object.keys(zip).length - 1, "and lists every other file");
+
+      /* where the phone and the mini-program draw something other than the design says: beside their screens, and in the report */
+      const listed = (app: string) => JSON.parse(strFromU8(zip[`apps/${app}/src/generated/warnings.json`])) as unknown[];
+      const mobile = listed("mobile").length;
+      const miniapp = listed("miniapp").length;
+      if (mobile + miniapp) {
+        await page.waitForSelector("[data-export-differences]", { timeout: 10_000 });
+        const said = (await page.locator("[data-export-differences]").first().textContent()) ?? "";
+        if (mobile) check(said.includes(`mobile app ${mobile} (`), `the report counts the mobile app's (${mobile}): ${said.slice(0, 200)}`);
+        if (miniapp) check(said.includes(`mini-program ${miniapp} (`), `and the mini-program's (${miniapp}): ${said.slice(0, 200)}`);
+        await page.locator("[data-export-differences] summary").first().click();
+        await settle(page, 300);
+        equal(await page.locator("[data-export-difference]").count(), Math.min(80, mobile + miniapp), "each is listed under the disclosure");
+        await page.locator("[data-download-project]").first().screenshot({ path: join(out, "export-differences.png") });
+      } else check(!(await page.locator("[data-export-differences]").count()), "an app drawn as designed reports nothing");
     },
   },
   {

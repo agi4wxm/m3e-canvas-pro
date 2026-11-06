@@ -1049,6 +1049,10 @@ export const mobileTarget: ProductTarget = {
     files["src/generated/theme.ts"] = generated(themeModule(theme, "../kit"));
     files["src/generated/icons.ts"] = generated(iconsModule(iconData, "../kit"));
     for (const s of screens.screens) files[`src/generated/screens/${s.component}.tsx`] = generated(s.source);
+    /* what the app does not do as the design says (a part drawn as its atoms or as a placeholder, a binding the kit
+       keeps at the design's value): listed beside the screens for the author, as the mini-program lists its own */
+    files["src/generated/warnings.json"] = generated(`${JSON.stringify(screens.warnings, null, 1)}\n`);
+    ctx.differences.push(...screens.warnings.map((w) => ({ app: "mobile" as const, ...w })));
 
     /* the routes */
     const routes = routesOf(screens);

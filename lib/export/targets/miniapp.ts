@@ -330,6 +330,7 @@ export const miniappTarget: ProductTarget = {
     /* what the mini-program does not do as the design says (a part drawn as its atoms or as a placeholder, a tap not
        printed): listed beside the screens for the author, as the React Native printer lists its own */
     files["src/generated/warnings.json"] = generated(`${JSON.stringify(printed.warnings, null, 1)}\n`);
+    ctx.differences.push(...printed.warnings.map((w) => ({ app: "miniapp" as const, ...w })));
     for (const path of MINIAPP_KIT_FILES) files[`src/kit/${path}`] = generated(kitFileFor(await ctx.read(`${MINIAPP_KIT_DIR}/${path}`), `${ctx.scope}/app-runtime`));
     for (const s of printed.screens) {
       files[`src/generated/screens/${s.component}.tsx`] = generated(s.source);

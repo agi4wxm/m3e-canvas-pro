@@ -80,7 +80,7 @@ export const EXPORT_PRODUCT: McpTool = {
     required: ["dir"],
     additionalProperties: false,
   },
-  outputSchema: { type: "object", properties: { result: { type: "object", description: "{folder, product, written, unchanged, customKept, merged, conflicts: [{path, copy}], removed, leftInPlace, warnings, next}" } }, required: ["result"] },
+  outputSchema: { type: "object", properties: { result: { type: "object", description: "{folder, product, written, unchanged, customKept, merged, conflicts: [{path, copy}], removed, leftInPlace, customOrphans, warnings, differences: [{app, count, kinds, file}] (where the mobile app and the mini-program draw something other than the design says), next}" } }, required: ["result"] },
   annotations: { title: "Export product", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 };
 

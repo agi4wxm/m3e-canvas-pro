@@ -108,6 +108,9 @@ export function boundShopDoc(lang: Lang = "en"): { doc: Doc; widths: Record<stri
     tx.run(ops.addScreen, { id: "orders", name: "Orders" });
     tx.run(ops.setScreenAuth, { screen: "orders", auth: "required" });
     tx.run(ops.wireScreen, { screen: "orders", operationId: "listOrders" });
+    /* who is signed in, loaded beside the orders: an operation that takes no input (GET /me), which the typed client
+       calls with its init alone */
+    tx.run(ops.addDataSource, { screen: "orders", operationId: "getMe" });
     tx.run(ops.addPart, { slug: "button", id: "to-orders", screen: "products", at: { x: 220, y: 820 }, props: { label: "Orders", variant: "tonal" } });
     tx.run(ops.setAction, { id: "to-orders", action: { to: "orders", transition: "slide" } });
     tx.run(ops.addScreen, { id: "photo", name: "Photo" });

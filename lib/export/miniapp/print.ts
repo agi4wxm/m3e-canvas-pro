@@ -3,6 +3,7 @@ import {
   GAP,
   PHONE_H,
   PHONE_W,
+  REGION_STATES,
   explodeGroup,
   frameLengthOf,
   frameOfPart,
@@ -37,9 +38,10 @@ import { cleanLook } from "../../look";
 import { kitLookOf } from "../../kits";
 import { withDocStyles } from "../../styles";
 import { pinOf } from "../../tidy";
+import { footOf } from "../../foot";
 import { isOverlayPart } from "../../interact";
-import { paginationOf } from "../../api/types";
-import { endpointOf, formFields, listOf } from "../../bindings/contract";
+import { endpointOf } from "../../bindings/contract";
+import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
 import { NATIVE, INPUT_PROPS, isNative, kitPropName } from "../../../miniapp-kit/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../miniapp-kit/src/kit/parts.generated";
 import { SET_ONLY, plainTree, propValues, type PlainNode } from "../rn/data";
@@ -274,27 +276,6 @@ function cleanAction(a: Action, names: Names): Record<string, unknown> {
   return { ...cleanBody(a, names), ...(when ? { when: cleanCondition(when, names) } : {}), ...(a.else ? { else: cleanBody(a.else, names) } : {}) };
 }
 
-/** a name for each part and form of a document, made of the letters and digits of its words, in the document's order */
-function partNames(doc: Doc): Map<string, string> {
-  const taken = new Set<string>();
-  const out = new Map<string, string>();
-  const add = (id: string, words: string, fallback: string) => {
-    if (out.has(id)) return;
-    const parts = (words.match(/[A-Za-z0-9]+/g) ?? []).map((w, i) => (i ? w[0].toUpperCase() + w.slice(1) : w[0].toLowerCase() + w.slice(1)));
-    let base = parts.join("").slice(0, 40);
-    if (!base || /^\d/.test(base)) base = fallback;
-    let name = base;
-    for (let i = 2; taken.has(name.toLowerCase()); i++) name = `${base}${i}`;
-    taken.add(name.toLowerCase());
-    out.set(id, name);
-  };
-  for (const g of doc.groups) {
-    if (g.form) add(g.id, `${g.name ?? ""} form`, "form");
-    for (const it of g.items) add(it.id, g.items.length === 1 && g.name ? g.name : (partBySlug(it.component)?.name ?? it.component ?? "part"), "part");
-  }
-  return out;
-}
-
 /** every effect of a document's taps, nested ones too */
 function effectsOf(doc: Doc): Effect[] {
   const out: Effect[] = [];
@@ -354,6 +335,8 @@ class ScreenPrinter {
   repeats = 0;
   uses$ = false;
   usesCalls = false;
+  /** how far the page scrolls past its content, clear of what floats over the screen's foot (lib/foot.ts) */
+  room = 0;
 
   constructor(
     readonly doc: Doc,
@@ -439,23 +422,21 @@ class ScreenPrinter {
   /** a prop bound to an expression, in the kind of value the prop takes (lib/interact.ts `exprValue`) */
   boundExpr(d: PropDef, e: string, design: string, $: string): string {
     this.uses$ = true;
-    switch (d.kind) {
-      case "bool":
-        return `${$}.bool(${str(e)}, ${design})`;
-      case "number":
-        return `${$}.num(${str(e)}, ${design}, ${d.min}, ${d.max})`;
-      case "enum": {
-        const options = d.options.map((x) => (typeof x === "string" ? x : x.value));
-        return `${$}.pick(${str(e)}, ${expr(options)} as const, ${design})`;
-      }
-      case "list":
-        this.kit.add("rowsOf");
-        return `rowsOf(${$}.ev(${str(e)}), ${design}, ${d.max ?? 50})`;
-      case "table":
-        return design;
-      default:
-        return `${$}.text(${str(e)})`;
-    }
+    const read = readOf(d.kind);
+    if (!read) return design;
+    /* what follows the expression: the design's value (already code), and the prop's range or choices */
+    const extra =
+      d.kind === "bool"
+        ? [design]
+        : d.kind === "number"
+          ? [design, `${d.min}`, `${d.max}`]
+          : d.kind === "enum"
+            ? [`${expr(d.options.map((x) => (typeof x === "string" ? x : x.value)))} as const`, design]
+            : d.kind === "list"
+              ? [design, `${d.max ?? 50}`]
+              : [];
+    if (read === "rows") this.kit.add("rowsOf");
+    return readCode(read, $, e, extra);
   }
 
   /** a part's own props as the kit takes them: what differs from the kit's defaults, under the kit's names, each read
@@ -483,7 +464,7 @@ class ScreenPrinter {
         code = `s.bound(${str(bind)}, ${code}${labels ? `, ${expr(labels)}` : ""})`;
       } else if (typeof v === "string" && v.includes("{{") && (d.kind === "text" || d.kind === "image")) {
         this.uses$ = true;
-        code = `${at.$}.fill(${str(v)})`;
+        code = fillCode(at.$, v);
       } else if (!this.setProps.has(`${it.id}:${d.key}`) && !SET_ONLY.has(d.key) && same(v, defaults[key])) continue;
       if (this.setProps.has(`${it.id}:${d.key}`)) code = `s.prop(${str(this.names.part(it.id))}, ${str(d.key)}, ${code})`;
       out.push([key, code]);
@@ -684,14 +665,13 @@ class ScreenPrinter {
     if (run.states) {
       /* a region: what it holds on each of its states, the one its data is in drawn */
       const region = this.region(run, inner);
-      const byPane = (p: number) => kids.filter((k) => (k.pane ?? 0) === p);
       held = [];
-      ["ready", "loading", "empty", "error", "forbidden"].forEach((state, p) => {
-        const list = byPane(p);
-        if (!list.length) return;
-        const body = p === 0 && run.repeat?.data !== undefined ? this.repeat(run, list, inner, print) : print(list, inner);
+      for (const state of REGION_STATES) {
+        const list = kids.filter((k) => paneState(k) === state);
+        if (!list.length) continue;
+        const body = state === "ready" && run.repeat?.data !== undefined ? this.repeat(run, list, inner, print) : print(list, inner);
         held.push({ when: `${region} === ${str(state)}`, show: body });
-      });
+      }
     } else if (run.repeat?.data !== undefined) held = this.repeat(run, kids, inner, print);
     else {
       if (run.repeat) this.warn("binding", "a repeat over a collection is drawn once", run.items[0]?.id);
@@ -711,8 +691,7 @@ class ScreenPrinter {
     this.runtime.add("keyOf");
     this.react.add("Fragment");
     this.uses$ = true;
-    const limit = run.repeat && "limit" in run.repeat && typeof run.repeat.limit === "number" ? `.slice(0, ${Math.max(0, Math.round(run.repeat.limit))})` : "";
-    const each: J = { each: `${at.$}.list(${str(run.repeat!.data!)})${limit}`, item, index, pre: [`const ${$r} = ${at.$}.with({ item: ${item}, index: ${index} });`], body: print([template], { ...at, $: $r, item }) };
+    const each: J = { each: listCode(at.$, run.repeat!.data!, run.repeat?.limit), item, index, pre: [`const ${$r} = ${at.$}.with({ item: ${item}, index: ${index} });`], body: print([template], { ...at, $: $r, item }) };
     return [each, ...print(rest, at)];
   }
 
@@ -723,9 +702,8 @@ class ScreenPrinter {
     this.runtime.add("regionOf");
     const name = `region${this.hooks.filter((h) => h.startsWith("const region")).length + 1}`;
     if (!src) this.warn("binding", `a region shows data the screen does not load (${st.source ?? "none"}): it shows its content`, run.items[0]?.id);
-    const emptyWhen = st.emptyWhen ? `, emptyWhen: () => ${at.$}.holds(${str(st.emptyWhen)})` : "";
     if (st.emptyWhen) this.uses$ = true;
-    this.hooks.push(`const ${name} = regionOf(${src ? identOf(src.name) : "undefined"}, { load: ${str(src?.load ?? "enter")}${emptyWhen} });`);
+    this.hooks.push(`const ${name} = regionOf(${src ? identOf(src.name) : "undefined"}, { ${regionOptions(src?.load, st.emptyWhen, at.$, true).join(", ")} });`);
     return name;
   }
 
@@ -754,12 +732,7 @@ class ScreenPrinter {
       }
     };
     walk(run.id);
-    const rules = Object.fromEntries(
-      formFields(this.api, e)
-        .filter((x) => owned.has(x.name))
-        .map((x) => [x.name, { kind: x.kind, required: x.required, schema: x.schema }]),
-    );
-    const R = this.constant("F", rules, "FormFields");
+    const R = this.constant("F", formRules(this.api, e, { only: owned, whole: true }), "FormFields");
     this.runtime.add("useForm").add("type FormFields");
     this.usesCalls = true;
     this.uses$ = true;
@@ -776,7 +749,7 @@ class ScreenPrinter {
         `  fields: ${R},`,
         `  send: (body, init) => CALLS[${str(f.operationId)}](${objOf(params)}, body, init),`,
         ...(values.length ? [`  extra: () => ({ ${values.join(", ")} }),`] : []),
-        `  status: ${expr(statusOf(e.responses))},`,
+        `  status: ${expr(okStatus(e))},`,
         `  then: (response, status) => s.answered(${str(f.operationId)}, ${then}, ${env("response, status")}, true),`,
         `  catch: (error, status) => s.answered(${str(f.operationId)}, ${caught}, ${env("error, status")}, false),`,
         `});`,
@@ -820,6 +793,9 @@ class ScreenPrinter {
     const runs = [...this.all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { h } = frameSizeOf(this.frame);
     const out: J[] = [];
+    /* a screen that loads data keeps what stands at its foot on the glass, its page ending clear of it */
+    const foot = this.frame.data?.length ? footOf(this.frame, this.all, this.widths) : undefined;
+    this.room = foot?.room ?? 0;
     for (const run of runs) {
       if (run.inFlow && hosts.has(run.inFlow) && !run.locked) continue;
       if (ownerIdOf(run.id) && this.all.some((g) => g.id === ownerIdOf(run.id) && g.expandedFrom !== undefined)) continue;
@@ -849,6 +825,14 @@ class ScreenPrinter {
         out.push(el("At", [["y", expr(top)], ["span", "true"]], [this.flow(run, at)]));
         continue;
       }
+      /* a button (or a FAB) at the foot of a screen of data floats there, as far above the foot as the design has it */
+      const above = foot?.above.get(run.id);
+      if (above !== undefined) {
+        const pos = layoutOf(run, this.widths)[0] ?? { x: run.x, y: run.y };
+        this.kit.add("Pin");
+        out.push(el("Pin", [["edge", str("floatingBottom")], ["x", expr(Math.round(pos.x - this.frame.x))], ["bottom", expr(above)]], [this.flow(run, at)]));
+        continue;
+      }
       out.push(this.at(run, at, { x: this.frame.x, y: this.frame.y }));
     }
     return out;
@@ -861,12 +845,6 @@ function listLabels(def: PartDef, it: Item): string[] | undefined {
   return reader(def, it.props)
     .list("items")
     .map((r) => r.label);
-}
-
-/** the status an operation answers with when it goes well */
-function statusOf(responses: Record<string, unknown> | undefined): number {
-  const codes = Object.keys(responses ?? {}).filter((c) => /^2\d\d$/.test(c));
-  return codes.length ? Number(codes.sort()[0]) : 200;
 }
 
 /** a data source's name as a variable: letters and digits, never one the printed code uses itself */
@@ -984,7 +962,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
       top.push(`usePageData([${paged.map((x) => `{ source: ${x.name}${x.pull ? ", pull: true" : ""}${x.more ? ", more: true" : ""} }`).join(", ")}]);`);
     }
     if (sources.length || p.forms.size) top.push(`s.register({ ${sources.length ? `sources: { ${sources.map((x) => (x.name === identOf(x.source) && x.name === x.source ? x.name : `${str(x.source)}: ${x.name}`)).join(", ")} }` : ""}${sources.length && p.forms.size ? ", " : ""}${p.forms.size ? `forms: { ${[...p.forms].map(([id, f]) => `${keyName(p.names.part(id))}: ${f.handle}`).join(", ")} }` : ""} });`);
-    const screen = el("Screen", [["screen", str(key)], ...(bg ? ([["bg", str(bg)]] as [string, string][]) : []), ["width", expr(w)], ["height", expr(h)], ...(length > h ? ([["length", expr(length)]] as [string, string][]) : [])], [...body, { code: "s.layer" }]);
+    const screen = el("Screen", [["screen", str(key)], ...(bg ? ([["bg", str(bg)]] as [string, string][]) : []), ["width", expr(w)], ["height", expr(h)], ...(length > h ? ([["length", expr(length)]] as [string, string][]) : []), ...(p.room > 0 ? ([["room", expr(p.room)]] as [string, string][]) : [])], [...body, { code: "s.layer" }]);
     const component = screens.names.get(frame.id)!;
     const kitTypes = ["Action", "ActionBody", "Condition", "PickedFile"].filter((t) => p.kit.has(t));
     const kitValues = [...p.kit].filter((k) => !kitTypes.includes(k)).sort();
@@ -1047,14 +1025,14 @@ function sourceHook(p: ScreenPrinter, api: ApiSpec, d: NonNullable<Frame["data"]
   const e = endpointOf(api, d.operationId);
   if (!e) p.warn("binding", `the data ${d.name} comes from an operation the contract does not have (${d.operationId})`);
   const args = Object.entries(d.params ?? {}).map(([k, x]) => `${NAME.test(k) ? k : str(k)}: $0.arg(${str(x)})`);
-  const list = e ? listOf(api, e) : undefined;
-  const paging = e?.pagination ? paginationOf(e.pagination) : undefined;
+  const { list, paging } = e ? answerShape(api, e) : {};
+  const pageSize = pageSizeOf(d, !!paging);
   const spec = [
     `key: sourceKey(${str(d.operationId)}, ${name}Args${d.body ? `, ${name}Body` : ""}),`,
     `operation: ${str(d.operationId)},`,
     ...(list ? [`list: ${expr({ field: list.field })},`] : []),
     ...(paging ? [`paging: ${expr(paging)},`] : []),
-    ...(d.pageSize ? [`pageSize: ${expr(d.pageSize)},`] : []),
+    ...(pageSize ? [`pageSize: ${expr(pageSize)},`] : []),
     `args: ${name}Args,`,
     `load: ({ page, signal }) => CALLS[${str(d.operationId)}]({ ...${name}Args, ...page }, ${d.body ? `${name}Body` : "undefined"}, { signal }),`,
   ];

@@ -18,6 +18,7 @@ type Page = {
   url(): string;
   waitForTimeout(ms: number): Promise<void>;
   waitForFunction(fn: string, arg?: unknown, o?: { timeout?: number }): Promise<unknown>;
+  evaluate<T>(fn: string): Promise<T>;
   locator(selector: string): Locator;
   innerText(selector: string): Promise<string>;
   screenshot(o: { path: string; fullPage?: boolean }): Promise<unknown>;
@@ -94,6 +95,23 @@ async function startServer(dir: string, port: number): Promise<{ base: string; u
 
 /** what the page says, its words only */
 const words = (page: Page) => page.innerText("body").catch(() => "");
+
+/** the list that scrolls on its own (a FlatList, on the web a box that scrolls): what holds a button and scrolls */
+const LIST_SCROLLER = `() => {
+  for (const b of document.querySelectorAll('[role="button"]'))
+    for (let el = b.parentElement; el; el = el.parentElement) {
+      const y = getComputedStyle(el).overflowY;
+      if ((y === "auto" || y === "scroll") && el.scrollHeight > el.clientHeight + 8) return el;
+    }
+  return null;
+}`;
+/** where the list's last row ends and where the "Add product" button standing at the foot starts, on the page */
+const LIST_END = `(() => {
+  const list = (${LIST_SCROLLER})();
+  const rows = list ? [...list.querySelectorAll('[role="button"]')] : [];
+  const add = [...document.querySelectorAll('[role="button"]')].find((b) => b.textContent.trim() === "Add product");
+  return { last: Math.max(...rows.map((r) => r.getBoundingClientRect().bottom)), button: add && !(list && list.contains(add)) ? add.getBoundingClientRect().top : -1 };
+})()`;
 
 /** waits until the page says something; whether it did */
 async function says(page: Page, test: (text: string) => boolean, ms = 15_000): Promise<boolean> {
@@ -181,6 +199,16 @@ export async function checkMobile(c: MobileCheck): Promise<void> {
       await open("/products");
       ok(await says(page, (t) => t.split("\n").filter((l) => l.endsWith("ago")).length >= 5), "the products list the mocks' products");
       await page.screenshot({ path: shots("list") });
+      /* at its end the last row scrolls clear of the buttons that stay at the screen's foot (lib/foot.ts) */
+      for (let i = 0; i < 4; i++) {
+        await page.evaluate(`(() => { const list = (${LIST_SCROLLER})(); if (list) list.scrollTop = list.scrollHeight })()`);
+        await page.waitForTimeout(500);
+      }
+      const end = await page.evaluate<{ last: number; button: number }>(LIST_END);
+      ok(end.last > 0 && end.button > 0 && end.last <= end.button, `the buttons stay at the foot, and the end of the list scrolls clear of them (last row ends at ${Math.round(end.last)}, the buttons start at ${Math.round(end.button)})`);
+      await page.screenshot({ path: shots("list-end") });
+      await page.evaluate(`(() => { const list = (${LIST_SCROLLER})(); if (list) list.scrollTop = 0 })()`);
+      await page.waitForTimeout(300);
       const first = (await words(page)).split("\n").find((l) => l.trim().length > 2 && !l.endsWith("ago")) ?? "";
       await page.locator(`text=${first}`).first().click();
       ok(await at(page, /^\/product\/[0-9a-f-]{8,}$/), `a row opens its product, its id in the route (${page.url()})`);
@@ -308,7 +336,7 @@ export async function checkMobile(c: MobileCheck): Promise<void> {
 
   /* ---------- beside the web app's screenshots of the same screens (scripts/check-shop-app.ts) ---------- */
   const img = (path: string) => (existsSync(path) ? `data:image/png;base64,${readFileSync(path).toString("base64")}` : "");
-  for (const [name, web] of [["list", "mocks-list"], ["detail", "mocks-detail"], ["empty", "mocks-empty"], ["error", "mocks-error"], ["form-errors", "mocks-form-errors"], ["form-server-error", "mocks-form-server-error"], ["server-list", "server-list"], ["server-error", "server-error"]]) {
+  for (const [name, web] of [["list", "mocks-list"], ["list-end", "mocks-list-end"], ["detail", "mocks-detail"], ["empty", "mocks-empty"], ["error", "mocks-error"], ["form-errors", "mocks-form-errors"], ["form-server-error", "mocks-form-server-error"], ["server-list", "server-list"], ["server-error", "server-error"]]) {
     const left = join(c.shots, `${web}.png`);
     if (!existsSync(left) || !existsSync(shots(name))) continue;
     await page.setContent(`<body style="margin:0;display:flex;gap:8px;align-items:flex-start;background:#888;font:12px sans-serif"><div><div>web</div><img src="${img(left)}"></div><div><div>mobile</div><img src="${img(shots(name))}"></div></body>`);

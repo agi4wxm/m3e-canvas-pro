@@ -181,6 +181,8 @@ export type FieldRow = {
   ref?: string;
   /** the type of an array's items when they are not a model */
   items?: JsonType;
+  /** the format of an array's items when they are not a model (a list of files: binary) */
+  itemsFormat?: string;
   required: boolean;
   nullable: boolean;
   format?: string;
@@ -218,7 +220,10 @@ export function fieldRows(schema: JsonSchema | undefined): FieldRow[] {
     if (type === "array" && isSchemaObject(s.items)) {
       const inner = refModel(s.items.$ref);
       if (inner) row.ref = inner;
-      else row.items = baseType(s.items).type ?? "string";
+      else {
+        row.items = baseType(s.items).type ?? "string";
+        if (typeof s.items.format === "string") row.itemsFormat = s.items.format;
+      }
     }
     if (typeof s.format === "string") row.format = s.format;
     if (Array.isArray(s.enum)) row.enum = s.enum.map((v) => String(v));
@@ -227,6 +232,52 @@ export function fieldRows(schema: JsonSchema | undefined): FieldRow[] {
     if (ex !== undefined) row.example = ex;
     return row;
   });
+}
+
+/** The formats of text the field table names as types of their own: a file (`binary`) is no words, a date is a date.
+ *  Other formats stay text, their format shown beside. */
+export const FORMAT_TYPES = ["binary", "date-time", "date", "time", "email", "uri", "uuid"] as const;
+export type FormatType = (typeof FORMAT_TYPES)[number];
+const isFormatType = (f: string | undefined): f is FormatType => !!f && (FORMAT_TYPES as readonly string[]).includes(f);
+
+/** The type a row is shown as in the field table: a JSON type, `format:<format>` for text of a format that is a type of
+ *  its own (`format:binary`, a file), or `ref:<model>`. */
+export function rowTypeKey(r: FieldRow): string {
+  if (r.type === "ref") return `ref:${r.ref ?? ""}`;
+  return r.type === "string" && isFormatType(r.format) ? `format:${r.format}` : r.type;
+}
+
+/** the type a list's items are shown as, the same way */
+export function itemsTypeKey(r: FieldRow): string {
+  if (r.ref) return `ref:${r.ref}`;
+  const t = r.items ?? "string";
+  return t === "string" && isFormatType(r.itemsFormat) ? `format:${r.itemsFormat}` : t;
+}
+
+/** A row of the type a key names (see `rowTypeKey`). A format's type is text of that format; a file takes no choices or
+ *  example, which are words; plain text from a format's type drops the format, so a file made text is no file. */
+export function withRowType(r: FieldRow, key: string): FieldRow {
+  if (key.startsWith("ref:")) return { ...r, type: "ref", ref: key.slice(4), items: undefined, itemsFormat: undefined, format: undefined, enum: undefined };
+  if (key.startsWith("format:")) {
+    const format = key.slice(7);
+    return { ...r, type: "string", ref: undefined, items: undefined, itemsFormat: undefined, format, ...(format === "binary" ? { enum: undefined, example: undefined } : {}) };
+  }
+  const type = key as JsonType;
+  const next: FieldRow = { ...r, type, ref: undefined, items: type === "array" ? (r.type === "array" ? r.items : "string") : undefined, itemsFormat: type === "array" && r.type === "array" ? r.itemsFormat : undefined };
+  if (rowTypeKey(r).startsWith("format:")) next.format = undefined;
+  return next;
+}
+
+/** a list's row whose items are of the type a key names */
+export function withItemsType(r: FieldRow, key: string): FieldRow {
+  if (key.startsWith("ref:")) return { ...r, ref: key.slice(4), items: undefined, itemsFormat: undefined };
+  if (key.startsWith("format:")) return { ...r, ref: undefined, items: "string", itemsFormat: key.slice(7) };
+  return { ...r, ref: undefined, items: key as JsonType, itemsFormat: undefined };
+}
+
+/** whether a schema's own fields (or the items of a list among them) hold a file: what only a multipart body carries */
+export function holdsFile(schema: JsonSchema | undefined): boolean {
+  return fieldRows(schema).some((r) => (r.type === "string" && r.format === "binary") || (r.type === "array" && !r.ref && r.itemsFormat === "binary"));
 }
 
 /** an example typed in a cell, as the value its type takes */
@@ -266,7 +317,15 @@ export function fieldSchema(row: FieldRow, was?: JsonSchema): JsonSchemaObject {
   if (row.enum?.length && row.type !== "ref") out.enum = row.enum.map((v) => exampleValue(v, row.type));
   if (row.type === "array") {
     const oldItems = sameType && isSchemaObject(old.items) ? old.items : undefined;
-    out.items = row.ref ? { $ref: modelRef(row.ref) } : { ...(oldItems && !oldItems.$ref ? oldItems : {}), type: row.items ?? "string" };
+    if (row.ref) out.items = { $ref: modelRef(row.ref) };
+    else {
+      const type = row.items ?? "string";
+      const items: JsonSchemaObject = { ...(oldItems && !oldItems.$ref ? oldItems : {}), type };
+      /* the row reads the items' format, so one it does not have was taken off */
+      if (row.itemsFormat && (type === "string" || type === "number" || type === "integer")) items.format = row.itemsFormat;
+      else delete items.format;
+      out.items = items;
+    }
   }
   if (row.example !== undefined && row.example !== "") out.examples = [exampleValue(row.example, row.type === "ref" ? "object" : row.type)];
   for (const [k, v] of Object.entries(keep)) if (!(k in out)) define(out, k, v);

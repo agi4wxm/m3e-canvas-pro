@@ -5,7 +5,6 @@ import {
   GAP,
   PHONE_H,
   PHONE_W,
-  REGION_STATES,
   explodeGroup,
   frameLengthOf,
   frameOfPart,
@@ -41,9 +40,11 @@ import { cleanLook } from "../../look";
 import { kitLookOf } from "../../kits";
 import { withDocStyles } from "../../styles";
 import { pinOf } from "../../tidy";
+import { footOf } from "../../foot";
 import { templateOf } from "../../collections";
 import { INPUT_PROP } from "../../interact";
 import { endpointOf, formFields } from "../../bindings/contract";
+import { fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
 import { formsOf } from "../../bindings/view";
 import { NATIVE, isNative, kitPropName } from "../../../rn/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../rn/src/kit/parts.generated";
@@ -288,12 +289,14 @@ type DocFacts = {
   setProps: Map<string, Set<string>>;
   overlays: Set<string>;
   tabs: Set<string>;
+  /** what a warning calls a part: its words (`bindCode.partNames`), not its id */
+  names: Map<string, string>;
 };
 
 function factsOf(doc: Doc): DocFacts {
   const groupOf = new Map<string, string>();
   for (const g of doc.groups) for (const it of g.items) groupOf.set(it.id, g.id);
-  const facts: DocFacts = { groupOf, toggled: new Set(), hidden: new Set(doc.groups.filter((g) => g.hidden).map((g) => g.id)), filled: new Set(), setProps: new Map(), overlays: new Set(), tabs: new Set() };
+  const facts: DocFacts = { groupOf, toggled: new Set(), hidden: new Set(doc.groups.filter((g) => g.hidden).map((g) => g.id)), filled: new Set(), setProps: new Map(), overlays: new Set(), tabs: new Set(), names: partNames(doc) };
   const conditions = (c: Condition | undefined) => {
     if (c && "filled" in c && typeof c.filled === "string") facts.filled.add(c.filled);
   };
@@ -347,6 +350,8 @@ class ScreenPrinter {
   readonly runtime: boolean;
   /** the bottom bars' height: a list that scrolls stops above them */
   private foot = 0;
+  /** how far a list that scrolls runs past its last row, clear of what floats over the screen's foot (lib/foot.ts) */
+  private room = 0;
   /** which form each group is in */
   private owner: Map<string, string>;
 
@@ -375,7 +380,7 @@ class ScreenPrinter {
   }
 
   warn(kind: RnWarning["kind"], detail: string, part?: string) {
-    this.warnings.push({ kind, screen: this.frame.name, ...(part ? { part } : {}), detail });
+    this.warnings.push({ kind, screen: this.frame.name, ...(part ? { part: this.facts.names.get(part) ?? part.replace(/[^\w-]/g, "") } : {}), detail });
   }
 
   /** the scope variable of where a part is printed: the screen's data, its params and the app's variables */
@@ -399,6 +404,11 @@ class ScreenPrinter {
     const to = this.target(b.to);
     const url = to === "link" ? linkUrlOf(b) : null;
     const effects = (b.effects ?? []).flatMap((e): Record<string, unknown>[] => {
+      /* what the API does runs only in an app with its runtime (the exported app, not the kit's test bed) */
+      if (isApiEffect(e) && !this.runtime) {
+        if (e.do === "call") this.warn("binding", "a call to the API runs only in an app with its runtime");
+        return [];
+      }
       switch (e.do) {
         case "show":
         case "hide":
@@ -409,18 +419,8 @@ class ScreenPrinter {
           return g ? [{ do: e.do, part: g }] : [];
         }
         case "call":
-          if (!this.runtime) {
-            this.warn("binding", "a call to the API runs only in an app with its runtime");
-            return [];
-          }
           // eslint-disable-next-line unicorn/no-thenable -- an action body as data, never a function: nothing awaits it
           return [{ ...e, then: this.bodyData(e.then, depth + 1), catch: this.bodyData(e.catch, depth + 1) }];
-        case "refresh":
-        case "loadMore":
-        case "submit":
-        case "signOut":
-          if (!this.runtime) return [];
-          return [e];
         default:
           return [e as unknown as Record<string, unknown>];
       }
@@ -497,7 +497,7 @@ class ScreenPrinter {
 
   /** a condition as code */
   holds(c: Condition): string {
-    if ("expr" in c && this.runtime) return `${this.$}.holds(${str(c.expr)})`;
+    if ("expr" in c && this.runtime) return holdsCode(this.$, c.expr);
     this.uses.app = true;
     return `app.holds(${expr(c)}${this.ctx.item || this.ctx.form ? `, { scope: ${this.$}.scope }` : ""})`;
   }
@@ -556,7 +556,7 @@ class ScreenPrinter {
       let code: string | undefined;
       const ref = it.bind?.[d.key];
       if (typeof ref === "string" && bound.has(d.key)) code = this.boundProp(d, ref, v, it.id);
-      else if (this.runtime && d.kind === "text" && typeof v === "string" && v.includes("{{")) code = `${this.$}.fill(${str(v)})`;
+      else if (this.runtime && d.kind === "text" && typeof v === "string" && v.includes("{{")) code = fillCode(this.$, v);
       const set = this.facts.setProps.get(it.id);
       if (set?.has(d.key) && (typeof v === "string" || typeof v === "number" || typeof v === "boolean")) {
         this.uses.app = true;
@@ -581,22 +581,24 @@ class ScreenPrinter {
       this.warn("binding", "a prop bound to an expression keeps the design's value without the app's runtime", part);
       return undefined;
     }
-    switch (d.kind) {
-      case "bool":
-        return `${this.$}.bool(${str(e)}, ${expr(!!design)})`;
-      case "number":
-        return `${this.$}.num(${str(e)}, ${expr(typeof design === "number" ? design : 0)}, ${expr(d.min)}, ${expr(d.max)})`;
-      case "enum":
-        return `${this.$}.pick(${str(e)}, ${expr(d.options.map((o) => (typeof o === "string" ? o : o.value)))}, ${expr(String(design ?? ""))})`;
-      case "list":
-        this.kit.add("rowsOf");
-        return `rowsOf(${this.$}.ev(${str(e)}), ${expr(design)}, ${expr(d.max ?? 50)})`;
-      case "table":
-        this.warn("binding", "a table bound to an expression keeps the design's rows", part);
-        return undefined;
-      default:
-        return `${this.$}.text(${str(e)})`;
+    const read = readOf(d.kind);
+    if (!read) {
+      this.warn("binding", "a table bound to an expression keeps the design's rows", part);
+      return undefined;
     }
+    /* what follows the expression: the design's value, as the kind of value the prop takes, and its range or choices */
+    const extra =
+      d.kind === "bool"
+        ? [expr(!!design)]
+        : d.kind === "number"
+          ? [expr(typeof design === "number" ? design : 0), expr(d.min), expr(d.max)]
+          : d.kind === "enum"
+            ? [expr(d.options.map((o) => (typeof o === "string" ? o : o.value))), expr(String(design ?? ""))]
+            : d.kind === "list"
+              ? [expr(design), expr(d.max ?? 50)]
+              : [];
+    if (read === "rows") this.kit.add("rowsOf");
+    return readCode(read, this.$, e, extra);
   }
 
   /** An input's wiring: the form field it fills, the variable it is bound to, or what a condition asks of it. What it
@@ -817,20 +819,20 @@ class ScreenPrinter {
       if (run.repeat?.data !== undefined) this.warn("binding", "a list of data draws its first element as the design has it without the app's runtime", run.items[0]?.id);
       return print(kids.filter((k) => !(run.states && (k.pane ?? 0) !== 0)));
     }
-    const pane = (k: Group) => Math.max(0, Math.min(REGION_STATES.length - 1, k.pane ?? 0));
-    const content = run.states ? kids.filter((k) => pane(k) === 0) : kids;
+    const content = run.states ? kids.filter((k) => paneState(k) === "ready") : kids;
     const ready = run.repeat?.data !== undefined ? this.repeat(run, content, flow, box, scrolls) : print(content);
     if (!run.states) return ready;
     const src = run.states.source ? this.sources.get(run.states.source) : undefined;
     if (!src) return ready;
     const v = `r${++this.n.region}`;
-    const emptyWhen = run.states.emptyWhen ? `, emptyWhen: () => ${this.$}.holds(${str(run.states.emptyWhen)})` : "";
+    /* the scope is read only where a condition says when the region is empty */
+    const options = regionOptions(src.def.load, run.states.emptyWhen, run.states.emptyWhen ? this.$ : "", true);
     this.bind.add("regionOf");
-    this.declare(`const ${v} = regionOf(${src.v}, { load: ${str(src.def.load ?? "enter")}${emptyWhen} });`);
+    this.declare(`const ${v} = regionOf(${src.v}, { ${options.join(", ")} });`);
     const branches: [string, J[]][] = [["ready", ready]];
-    for (let i = 1; i < REGION_STATES.length; i++) {
-      const design = kids.filter((k) => pane(k) === i);
-      if (design.length) branches.push([REGION_STATES[i], print(design)]);
+    for (const state of ["loading", "empty", "error", "forbidden"] as const) {
+      const design = kids.filter((k) => paneState(k) === state);
+      if (design.length) branches.push([state, print(design)]);
     }
     return [cases(v, branches)];
   }
@@ -860,11 +862,10 @@ class ScreenPrinter {
         this.ctx = outer;
       }
       const base = this.$;
-      const limit = run.repeat?.limit ? `.slice(0, ${Math.max(0, Math.round(run.repeat.limit))})` : "";
       const name = /^data\.([A-Za-z_$][\w$]*)\./.exec(list)?.[1];
       const src = name ? this.sources.get(name) : undefined;
       const props: [string, string][] = [
-        ["data", `${base}.list(${str(list)})${limit}`],
+        ["data", listCode(base, list, run.repeat?.limit)],
         ["keyOf", "keyOf"],
       ];
       if (scroll) props.push(["scroll", "true"]);
@@ -873,6 +874,7 @@ class ScreenPrinter {
       if (scroll && gap) props.push(["gap", expr(gap)]);
       if (src && scroll && src.def.paging === "scroll") props.push(["onEndReached", `() => void ${src.v}.loadMore()`], ["loadingMore", `${src.v}.loadingMore`]);
       if (src && scroll && src.def.pullToRefresh) props.push(["onRefresh", `() => void ${src.v}.refresh()`], ["refreshing", `${src.v}.loading && ${src.v}.ready`]);
+      if (scroll && this.room > 0) props.push(["room", expr(this.room)]);
       if (src && !scroll && (src.def.paging === "scroll" || src.def.pullToRefresh)) this.warn("binding", "paging by scrolling and pull to refresh work where the list has the screen's room", run.items[0]?.id);
       this.kit.add("Repeat");
       this.bind.add("keyOf");
@@ -960,6 +962,8 @@ class ScreenPrinter {
     const runs = [...this.all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { h } = frameSizeOf(this.frame);
     const pins = new Map<string, string>();
+    /* a screen that loads data keeps what stands at its foot on the glass, its list ending clear of it */
+    const foot = this.runtime && this.frame.data?.length ? footOf(this.frame, this.all, this.widths) : undefined;
     for (const run of runs) {
       if (run.inFlow && hosts.has(run.inFlow) && !run.locked) continue;
       const first = run.items[0];
@@ -974,6 +978,7 @@ class ScreenPrinter {
         }
       }
     }
+    if (foot) this.room = Math.max(0, foot.room - this.foot);
     const out: J[] = [];
     for (const run of runs) {
       if (run.inFlow && hosts.has(run.inFlow) && !run.locked) continue;
@@ -989,6 +994,14 @@ class ScreenPrinter {
       if (run.items.length === 1 && first && fullWidth(first)) {
         this.kit.add("At");
         out.push(el("At", [["y", expr(Math.round(run.y - this.frame.y))], ["span", "true"]], [this.flow(run)]));
+        continue;
+      }
+      /* a button (or a FAB) at the foot of a screen of data floats there, as far above the foot as the design has it */
+      const above = foot?.above.get(run.id);
+      if (above !== undefined) {
+        const at = layoutOf(run, this.widths)[0] ?? { x: run.x, y: run.y };
+        this.kit.add("Pin");
+        out.push(el("Pin", [["edge", str("floatingBottom")], ["x", expr(Math.round(at.x - this.frame.x))], ["bottom", expr(above)]], [this.flow(run)]));
         continue;
       }
       out.push(this.at(run, { x: this.frame.x, y: this.frame.y }));
@@ -1034,13 +1047,14 @@ class ScreenPrinter {
   sourceConsts(): string[] {
     return [...this.sources.values()].map((s, i) => {
       const d = s.def;
+      const pageSize = pageSizeOf(d, !!endpointOf(this.doc.api, d.operationId)?.pagination);
       const def = {
         name: d.name,
         operationId: d.operationId,
         ...(d.params && Object.keys(d.params).length ? { params: d.params } : {}),
         ...(d.body ? { body: d.body } : {}),
         ...(d.load === "demand" ? { load: "demand" } : {}),
-        ...(d.pageSize ? { pageSize: d.pageSize } : {}),
+        ...(pageSize ? { pageSize } : {}),
       };
       return `const S${i + 1}: SourceDef = ${expr(def)};`;
     });

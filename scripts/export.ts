@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { ProjectFileStore } from "../mcp/src/fileStore";
 import { exportToFolder, FolderRefused, reportLines } from "../lib/export/nodeWriter";
+import { differenceLines } from "../lib/export/differences";
 import { buildProduct } from "../lib/export/product";
 import { isLang, setGlobalLang } from "../lib/i18n";
 
@@ -36,6 +37,7 @@ try {
   const done = await exportToFolder(out, product, { force: values.force });
   console.log(`${product.name} → ${done.dir}`);
   for (const line of reportLines(done)) console.log(line);
+  for (const line of differenceLines(product.differences)) console.log(`differs: ${line}`);
 } catch (e) {
   console.error(e instanceof FolderRefused ? e.message : e instanceof Error ? (e.stack ?? e.message) : String(e));
   process.exit(1);

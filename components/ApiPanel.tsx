@@ -2,20 +2,26 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Collection, Palette } from "@/lib/tokens";
 import {
   FORMATS,
+  FORMAT_TYPES,
   HTTP_METHODS,
   PROBLEM_MODEL_NAME,
   apiProblems,
   fieldRows,
+  holdsFile,
+  itemsTypeKey,
   modelRef,
   modelUses,
   pathParams,
   refModel,
+  rowTypeKey,
   schemaToTs,
   tagOf,
   toAsyncApi,
   toOpenApi,
   typeText,
   withFieldRows,
+  withItemsType,
+  withRowType,
   type ApiChannel,
   type ApiEndpoint,
   type ApiModel,
@@ -24,6 +30,7 @@ import {
   type ApiSecurityScheme,
   type ApiSpec,
   type FieldRow,
+  type FormatType,
   type HttpMethod,
   type JsonSchema,
   type JsonType,
@@ -173,22 +180,43 @@ const TYPE_KEYS: { key: JsonType; label: UIKey }[] = [
   { key: "array", label: "apiTypeArray" },
 ];
 
+/** text of a format that is a type of its own, as the field table names it (lib/api/schema.ts `FORMAT_TYPES`) */
+const FORMAT_TYPE_LABELS: Record<FormatType, UIKey> = {
+  binary: "apiTypeFile",
+  "date-time": "apiTypeDateTime",
+  date: "apiTypeDate",
+  time: "apiTypeTime",
+  email: "apiTypeEmail",
+  uri: "apiTypeUri",
+  uuid: "apiTypeUuid",
+};
+
+/** the types a field can be: JSON's, then text of a format that reads as a type (a file, a date), then the models */
 function typeOptions(models: ApiModel[], lang: ReturnType<typeof useLang>): SelectOption[] {
-  return [...TYPE_KEYS.map((x) => ({ key: x.key, label: t(x.label, lang) })), ...models.map((m) => ({ key: `ref:${m.name}`, label: m.name, icon: "data_object" }))];
+  return [
+    ...TYPE_KEYS.map((x) => ({ key: x.key, label: t(x.label, lang) })),
+    ...FORMAT_TYPES.map((f) => ({ key: `format:${f}`, label: t(FORMAT_TYPE_LABELS[f], lang) })),
+    ...models.map((m) => ({ key: `ref:${m.name}`, label: m.name, icon: "data_object" })),
+  ];
 }
+
+/** a format among the format select's options: its own word, after the type's name when it reads as one */
+const formatOption = (f: string, lang: ReturnType<typeof useLang>): SelectOption => (f in FORMAT_TYPE_LABELS ? { key: f, label: `${t(FORMAT_TYPE_LABELS[f as FormatType], lang)} · ${f}` } : { key: f, label: f });
 
 function FieldEditor({ row: r, models, onChange, onDelete, p }: { row: FieldRow; models: ApiModel[]; onChange: (next: FieldRow) => void; onDelete: () => void; p: Palette }) {
   const lang = useLang();
   const [more, setMore] = useState(false);
-  const typeKey = r.type === "ref" ? `ref:${r.ref}` : r.type;
-  const setType = (k: string) => (k.startsWith("ref:") ? onChange({ ...r, type: "ref", ref: k.slice(4), items: undefined, format: undefined, enum: undefined }) : onChange({ ...r, type: k as JsonType, ref: undefined, ...(k === "array" ? { items: "string" as const } : { items: undefined }) }));
-  const itemsKey = r.ref && r.type === "array" ? `ref:${r.ref}` : (r.items ?? "string");
+  const typeKey = rowTypeKey(r);
+  const setType = (k: string) => onChange(withRowType(r, k));
+  const itemsKey = itemsTypeKey(r);
+  /* a file is no words: it takes no choices and no example */
+  const file = typeKey === "format:binary";
   return (
     <div data-api-field={r.name} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={row}>
         <Cell grow mono value={r.name} onCommit={(name) => name.trim() && onChange({ ...r, name: name.trim() })} label={t("apiFieldName", lang)} p={p} data="field-name" />
-        <div style={{ width: 92, flex: "0 0 auto" }} data-api-field-type>
-          <Select options={typeOptions(models, lang)} value={typeKey} onChange={setType} p={p} label={t("apiFieldType", lang)} height={28} />
+        <div style={{ width: 96, flex: "0 0 auto" }} data-api-field-type>
+          <Select options={typeOptions(models, lang)} value={typeKey} onChange={setType} p={p} label={t("apiFieldType", lang)} height={28} menuWidth={168} />
         </div>
         <IconBtn icon={r.required ? "check_box" : "check_box_outline_blank"} on={r.required} p={p} size={26} onClick={() => onChange({ ...r, required: !r.required })} title={t("apiRequired", lang)} />
         <IconBtn icon="more_horiz" on={more} p={p} size={26} onClick={() => setMore((x) => !x)} title={t("apiMore", lang)} expanded={more} />
@@ -198,20 +226,20 @@ function FieldEditor({ row: r, models, onChange, onDelete, p }: { row: FieldRow;
           {r.type === "array" && (
             <>
               <div style={label(p)}>{t("apiItems", lang)}</div>
-              <Select options={typeOptions(models, lang).filter((o) => o.key !== "array")} value={itemsKey} onChange={(k) => onChange(k.startsWith("ref:") ? { ...r, ref: k.slice(4), items: undefined } : { ...r, ref: undefined, items: k as JsonType })} p={p} label={t("apiItems", lang)} height={28} />
+              <Select options={typeOptions(models, lang).filter((o) => o.key !== "array")} value={itemsKey} onChange={(k) => onChange(withItemsType(r, k))} p={p} label={t("apiItems", lang)} height={28} menuWidth={168} />
             </>
           )}
           {(r.type === "string" || r.type === "number" || r.type === "integer") && <div style={label(p)}>{t("apiFormat", lang)}</div>}
           {(r.type === "string" || r.type === "number" || r.type === "integer") && (
-            <Select options={[{ key: "", label: t("apiFormatNone", lang) }, ...FORMATS.map((f) => ({ key: f, label: f })), ...(r.format && !(FORMATS as readonly string[]).includes(r.format) ? [{ key: r.format, label: r.format }] : [])]} value={r.format ?? ""} onChange={(f) => onChange({ ...r, format: f || undefined })} p={p} label={t("apiFormat", lang)} height={28} />
+            <Select options={[{ key: "", label: t("apiFormatNone", lang) }, ...FORMATS.map((f) => formatOption(f, lang)), ...(r.format && !(FORMATS as readonly string[]).includes(r.format) ? [{ key: r.format, label: r.format }] : [])]} value={r.format ?? ""} onChange={(f) => onChange(r.type === "string" && f === "binary" ? withRowType(r, "format:binary") : { ...r, format: f || undefined })} p={p} label={t("apiFormat", lang)} height={28} />
           )}
           <label style={{ ...row, fontSize: 12, color: p.onSurface, cursor: "pointer", gap: 6 }}>
             <input type="checkbox" checked={r.nullable} onChange={(e) => onChange({ ...r, nullable: e.target.checked })} />
             {t("apiNullable", lang)}
           </label>
-          {r.type !== "ref" && r.type !== "object" && r.type !== "array" && r.type !== "boolean" && <Cell value={(r.enum ?? []).join(", ")} onCommit={(v) => onChange({ ...r, enum: v.split(",").map((x) => x.trim()).filter(Boolean) })} label={t("apiEnum", lang)} p={p} />}
+          {r.type !== "ref" && r.type !== "object" && r.type !== "array" && r.type !== "boolean" && !file && <Cell value={(r.enum ?? []).join(", ")} onCommit={(v) => onChange({ ...r, enum: v.split(",").map((x) => x.trim()).filter(Boolean) })} label={t("apiEnum", lang)} p={p} />}
           <Cell value={r.description ?? ""} onCommit={(v) => onChange({ ...r, description: v || undefined })} label={t("apiDescription", lang)} p={p} />
-          <Cell value={r.example ?? ""} onCommit={(v) => onChange({ ...r, example: v || undefined })} label={t("apiExample", lang)} p={p} />
+          {!file && <Cell value={r.example ?? ""} onCommit={(v) => onChange({ ...r, example: v || undefined })} label={t("apiExample", lang)} p={p} />}
           <div style={{ ...row, justifyContent: "flex-end" }}>
             <button data-api-delete-field onClick={onDelete} className="m3-press" style={{ ...chip(p), height: 24, color: p.error, borderColor: "transparent" }}>
               <Icon name="delete" size={14} />
@@ -230,7 +258,7 @@ function FieldsHeader({ p }: { p: Palette }) {
   return (
     <div style={{ ...row, ...label(p) }}>
       <span style={{ flex: "1 1 0" }}>{t("apiFields", lang)}</span>
-      <span style={{ width: 92 }}>{t("apiFieldType", lang)}</span>
+      <span style={{ width: 96 }}>{t("apiFieldType", lang)}</span>
       <span style={{ width: 56 }}>{t("apiRequired", lang)}</span>
     </div>
   );
@@ -479,7 +507,15 @@ function EndpointEditor({ e, api, run, onRenamed, p }: { e: ApiEndpoint; api: Ap
           </div>
         )}
       </div>
-      {bodyChoice === "object" && bodyMedia?.schema !== undefined && <InlineFields schema={bodyMedia.schema} models={models} p={p} onChange={(schema) => update({ body: schema, contentType: bodyType ?? "application/json" })} />}
+      {bodyChoice === "object" && bodyMedia?.schema !== undefined && (
+        <InlineFields
+          schema={bodyMedia.schema}
+          models={models}
+          p={p}
+          /* a file goes only in a multipart body: a JSON body that gets one becomes an upload */
+          onChange={(schema) => update({ body: schema, contentType: holdsFile(schema) && (bodyType ?? "application/json") === "application/json" ? "multipart/form-data" : (bodyType ?? "application/json") })}
+        />
+      )}
       {bodyChoice === "custom" && <div style={{ ...hint(p), ...mono }}>{isRef(e.requestBody) ? e.requestBody.$ref : typeText(bodyMedia?.schema)}</div>}
       {bodyType === "multipart/form-data" && <div style={hint(p)}>{t("apiUploadHint", lang)}</div>}
       <div style={label(p)}>{t("apiResponses", lang)}</div>

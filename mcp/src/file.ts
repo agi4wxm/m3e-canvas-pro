@@ -8,6 +8,7 @@
 
 import { dirname, isAbsolute, resolve } from "node:path";
 import { DocStore, guessMeasurer, savedDoc, stateOf, type CoreState } from "../../lib/core";
+import { differenceCounts } from "../../lib/export/differences";
 import { exportToFolder, FolderRefused } from "../../lib/export/nodeWriter";
 import { buildProduct } from "../../lib/export/product";
 import type { Lang } from "../../lib/i18n";
@@ -188,6 +189,8 @@ export class FileBackend implements Backend {
           leftInPlace: done.orphaned,
           customOrphans: done.customOrphans,
           warnings: [...product.warnings, ...done.notes],
+          /* where the apps draw something other than the design says: how many of each kind, and where each is listed */
+          differences: differenceCounts(product.differences).map((c) => ({ app: c.app, count: c.total, kinds: Object.fromEntries(c.kinds), file: c.file })),
           next: done.conflicts.length
             ? "Each conflict is a generated file someone edited: it was left as it is and the new version written beside it as <file>.m3e-new. Move the edit to custom code (server/src/handlers, the custom/ folders), then replace the file with its .m3e-new."
             : "Run npm install, then npm run dev in the folder. Custom code goes in server/src/handlers and the custom/ folders (AGENTS.md there says more).",

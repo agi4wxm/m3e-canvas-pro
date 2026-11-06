@@ -10,6 +10,21 @@ import type { Lang } from "../i18n";
 import type { Doc } from "../tokens";
 import type { ApiModel } from "./api";
 
+/** Where an app draws or does something other than the design says (a part drawn as the atoms it splits into, a
+ *  placeholder, a tap that is not printed): what its printer reports, written beside its screens as
+ *  `src/generated/warnings.json` and listed in the export's report. */
+export type DesignDifference = {
+  /** the app: `mobile` (React Native) or `miniapp` (Taro) */
+  app: "mobile" | "miniapp";
+  /** what kind of difference: placeholder, atoms, binding, trigger, look… (the printer's own word) */
+  kind: string;
+  /** the screen, by its name */
+  screen?: string;
+  /** the part */
+  part?: string;
+  detail: string;
+};
+
 /** generated: the export owns it and rewrites it; seeded: written once if missing, then it is the product's own */
 export type FileKind = "generated" | "seeded";
 
@@ -45,6 +60,8 @@ export type ProductContext = {
   onProgress?: (done: number, total: number) => void;
   /** what is missing but did not stop the export */
   warnings: string[];
+  /** where the apps differ from the design (each app also writes its own to src/generated/warnings.json) */
+  differences: DesignDifference[];
 };
 
 /** One npm workspace of the product, or a folder that is only a placeholder (no package.json). Its files' paths are
@@ -76,4 +93,6 @@ export type Product = {
   /** every file but .m3e/manifest.json, which the writer makes (lib/export/merge.ts) */
   files: ProductFiles;
   warnings: string[];
+  /** where the apps differ from the design, for the export's report */
+  differences: DesignDifference[];
 };

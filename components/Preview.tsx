@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Item } from "@/lib/tokens";
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, useIsPresent } from "motion/react";
 import type { Variants } from "motion/react";
@@ -50,6 +50,7 @@ import { actionSlotsOf, darkVarOf } from "@/lib/tokens";
 import { screenBackground } from "@/lib/styles";
 import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
+import { FOOT_GAP, footOf } from "@/lib/foot";
 import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, scopeOf, screenVars, startState, writeField } from "@/lib/interact";
 import type { Effect, Group as DocGroup } from "@/lib/tokens";
 import { groupBounds } from "@/lib/tokens";
@@ -60,6 +61,7 @@ import { endpointOf, paramsOf as endpointParamsOf } from "@/lib/bindings/contrac
 import { evaluate, type Scope } from "@/lib/bindings/expr";
 import { fallbackTransport, signedInAtStart } from "@/lib/bindings/transport";
 import { BoundValues } from "./boundValues";
+import { boundTextIds, wordsHeight } from "./previewText";
 import { MockLogPanel, MockScenarioSwitch, PreviewMocksContext, usePreviewMocks } from "./MockPreview";
 import { PRESETS, variantFor } from "@/lib/variants";
 import { flowStarts } from "@/lib/prototype";
@@ -246,7 +248,10 @@ function Screen({
   onPull,
   onNearEnd,
   refreshing,
+  onWordHeights,
 }: {
+  /** how tall bound words in an auto layout are drawn here, where that is not what the canvas measured (`${id}:h`) */
+  onWordHeights?: (heights: Record<string, number>) => void;
   /** a file input of the screen took files */
   onFiles?: (it: Item, files: TransportFile[]) => void;
   /** the body was pulled down from its top: what loads on a pull loads again */
@@ -281,6 +286,22 @@ function Screen({
   const isPresent = useIsPresent();
   const interactive = active && isPresent;
   const screenRef = useRef<HTMLDivElement>(null);
+  /* bound words are as tall as they are wrapped, not as the canvas measured the design's words (components/previewText.ts):
+     read once they are drawn, before they are shown, and laid out again with that height */
+  const wordIds = useMemo(() => boundTextIds(groups), [groups]);
+  useLayoutEffect(() => {
+    const root = screenRef.current;
+    if (!onWordHeights || !root || !wordIds.size) return;
+    const items = new Map(groups.flatMap((g) => g.items.map((it) => [it.id, it] as const)));
+    const next: Record<string, number> = {};
+    for (const id of wordIds) {
+      const el = root.querySelector<HTMLElement>(`[data-part="${CSS.escape(id)}"] [data-slot="text"]`);
+      const it = items.get(id);
+      const h = el && it ? wordsHeight(el) : null;
+      if (h !== null && it && Math.abs(h - sizeOf(it, widths).h) >= 1) next[`${id}:h`] = h;
+    }
+    if (Object.keys(next).length) onWordHeights(next);
+  }, [groups, widths, wordIds, onWordHeights]);
   /* A screen longer than the device scrolls its body under what stays put. Which end a part
    * stays with is the same rule a change of length goes by (`pinOf`): one at the head keeps its
    * place on the glass, one at the foot keeps its distance from the foot, so a navigation bar at
@@ -291,16 +312,12 @@ function Screen({
   /* A screen that loads data is as long as what the data makes of it: the list grows past the device and its body
    * scrolls, while what stands at its head and foot stays put. Any other screen is as long as it was drawn. */
   const loads = !!frame.data?.length;
-  const fixedPin = loads ? new Map(groups.flatMap((g) => (pinOf(g, frame, widths) ? [[g.id, pinOf(g, frame, widths)!] as const] : []))) : null;
-  const length = fixedPin
-    ? Math.max(
-        authored,
-        Math.ceil(
-          Math.max(0, ...groups.filter((g) => !fixedPin.has(g.id)).map((g) => groupBounds(g, widths).b - frame.y)) +
-            groups.filter((g) => fixedPin.get(g.id) === "foot").reduce((h, g) => Math.max(h, groupBounds(g, widths).b - groupBounds(g, widths).t), 0) +
-            24,
-        ),
-      )
+  /* What stands at its foot stays on the glass: its bars, and the buttons standing loose there (lib/foot.ts). Its body
+     ends far enough past its content for the last row to scroll clear of them. */
+  const foot = loads ? footOf(frame, groups, widths) : null;
+  const fixedPin = foot ? new Map([...groups.flatMap((g) => (pinOf(g, frame, widths) ? [[g.id, pinOf(g, frame, widths)!] as const] : [])), ...[...foot.floats].map((id) => [id, "foot"] as const)]) : null;
+  const length = fixedPin && foot
+    ? Math.max(authored, Math.ceil(Math.max(0, ...groups.filter((g) => !fixedPin.has(g.id)).map((g) => groupBounds(g, widths).b - frame.y)) + (foot.room || FOOT_GAP)))
     : authored;
   const scrolls = length > viewH;
   const pins = new Map<string, number>();
@@ -1052,9 +1069,12 @@ export function Preview({
   const [opener] = useState(() => (typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null)));
   useEffect(() => () => { if (opener?.isConnected && !opener.closest("[inert]")) opener.focus(); }, [opener]);
 
+  /* how tall bound words are drawn in the preview (components/previewText.ts), over what the canvas measured */
+  const [wordHeights, setWordHeights] = useState<Record<string, number>>({});
+  const onWordHeights = useCallback((next: Record<string, number>) => setWordHeights((was) => (Object.entries(next).some(([k, v]) => was[k] !== v) ? { ...was, ...next } : was)), []);
   /* a screen's parts as they are right now. The tab a visitor chose goes in first, since which parts
    * the dock shows and how they are laid out both follow from it; then its bindings: the data drawn in, the regions in
-   * the state their data is in, the forms' errors (lib/bindings/view.ts). */
+   * the state their data is in, the forms' errors (lib/bindings/view.ts), the bound words as tall as they are. */
   const groupsFor = useCallback(
     (f: Frame, params?: Record<string, unknown>): { groups: DocGroup[]; widths: Record<string, number> } => {
       const tabbed = groupsInFrame(doc.groups, f, frames, widths).map((g) => {
@@ -1066,13 +1086,14 @@ export function Preview({
       try {
         const bound = boundScreen({ groups: tabbed, frame: f, doc, state: bindings, params, vars: vars.vars, fields: state.fields, files: files.current, widths, ctx: { lang } });
         boundRef.current[f.id] = bound;
-        return { groups: liveGroups(bound.groups, { ...vars, ctx: bound.ctx }, doc, bound.widths), widths: bound.widths };
+        const laid = { ...bound.widths, ...wordHeights };
+        return { groups: liveGroups(bound.groups, { ...vars, ctx: bound.ctx }, doc, laid), widths: laid };
       } catch {
         /* a binding that cannot be drawn leaves the screen as designed: the preview never stops for it */
         return { groups: liveGroups(tabbed, vars, doc, widths), widths };
       }
     },
-    [doc, frames, widths, values, state, dark, bindings, lang],
+    [doc, frames, widths, values, state, dark, bindings, lang, wordHeights],
   );
   /** the variables as a screen shows them, for the design fields bound to them */
   const boundFor = useCallback((f: Frame | undefined) => (doc.vars?.length && f ? screenVars(state, doc, f, dark).vars : null), [doc, state, dark]);
@@ -1215,6 +1236,7 @@ export function Preview({
 
   const screenProps = {
     widths,
+    onWordHeights,
     p,
     styled: { ...theme, dark },
     onAction: fire,

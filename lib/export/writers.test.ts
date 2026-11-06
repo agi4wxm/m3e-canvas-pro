@@ -12,7 +12,7 @@ import { generated, seeded, type Product, type ProductFiles } from "./types";
 /* The two writers carry out the same plan: on a real folder from Node (scripts/export.ts, MCP), and through a folder's
  * handle in the browser (File System Access), here a folder in memory with the same handle methods. */
 
-const product = (files: ProductFiles): Product => ({ name: "app", files, warnings: [] });
+const product = (files: ProductFiles): Product => ({ name: "app", files, warnings: [], differences: [] });
 const base = (): ProductFiles => ({
   "apps/web/src/generated/App.tsx": generated("export const App = 1\n"),
   "apps/web/src/generated/screens/Old.tsx": generated("old\n"),

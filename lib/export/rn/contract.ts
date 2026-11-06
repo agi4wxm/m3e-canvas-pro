@@ -4,10 +4,10 @@
  * own). The mobile app's generated contract module is written from these, and the session's (`AuthConfig`) by the web
  * app's own generator (lib/export/targets/webSources.ts `authSource`). */
 
-import { successOf } from "../../api";
-import { paginationOf, type ApiSpec } from "../../api/types";
-import { formFields, listOf, paramsOf, requestOf } from "../../bindings/contract";
+import type { paginationOf, ApiSpec } from "../../api/types";
+import { requestOf } from "../../bindings/contract";
 import type { Doc } from "../../tokens";
+import { answerShape, formRules, okStatus, paramPlaces } from "../bindCode";
 
 export type OperationData = {
   method: string;
@@ -27,17 +27,14 @@ export type OperationData = {
 export function operationsOf(api: ApiSpec | undefined): Record<string, OperationData> {
   const out: Record<string, OperationData> = {};
   for (const e of api?.endpoints ?? []) {
-    const ok = successOf(e);
     const media = requestOf(api!, e)?.type;
-    const list = listOf(api!, e);
     out[e.operationId] = {
       method: e.method.toUpperCase(),
       path: e.path,
-      params: Object.fromEntries(paramsOf(api!, e).map((p) => [p.name, p.in as "path" | "query" | "header"])),
+      params: Object.fromEntries(paramPlaces(api!, e)) as OperationData["params"],
       ...(media && media !== "application/json" ? { media } : {}),
-      status: ok && /^\d{3}$/.test(ok) ? Number(ok) : 200,
-      ...(list ? { list: { field: list.field } } : {}),
-      ...(e.pagination ? { paging: paginationOf(e.pagination) } : {}),
+      status: okStatus(e),
+      ...answerShape(api!, e),
     };
   }
   return out;
@@ -52,7 +49,7 @@ export function formRulesOf(doc: Pick<Doc, "api" | "groups">): Record<string, Re
     const id = g.form?.operationId;
     const e = id ? api.endpoints?.find((x) => x.operationId === id) : undefined;
     if (!e || out[e.operationId]) continue;
-    out[e.operationId] = Object.fromEntries(formFields(api, e).map((f) => [f.name, { kind: f.kind, required: f.required, schema: f.schema }]));
+    out[e.operationId] = formRules(api, e, { whole: true });
   }
   return out;
 }

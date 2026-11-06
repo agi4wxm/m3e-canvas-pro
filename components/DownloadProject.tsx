@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { Doc, Palette } from "@/lib/tokens";
-import { t, useLang } from "@/lib/i18n";
+import { t, UI, useLang, type UIKey } from "@/lib/i18n";
 import type { ExportPlan } from "@/lib/export/merge";
+import type { DesignDifference } from "@/lib/export/types";
+import { differenceCounts } from "@/lib/export/differences";
 import type { DirHandle } from "@/lib/projects/fileLink";
 import { Icon } from "./Icon";
 import { Select } from "./ui";
@@ -40,6 +42,8 @@ export function DownloadProject({ doc, widths, p, stacked = true }: { doc: Doc; 
   const [busy, setBusy] = useState<{ done: number; total: number; writing?: boolean } | null>(null);
   const [said, setSaid] = useState<{ text: string; bad: boolean } | null>(null);
   const [report, setReport] = useState<Report | null>(null);
+  /* where the exported apps draw something other than the design says, from the last product built */
+  const [differences, setDifferences] = useState<DesignDifference[]>([]);
   const [folder, setFolder] = useState<DirHandle | null>(null);
   /* a folder picked that holds other things: exported into only once the button is pressed again */
   const [unsure, setUnsure] = useState<DirHandle | null>(null);
@@ -68,6 +72,7 @@ export function DownloadProject({ doc, widths, p, stacked = true }: { doc: Doc; 
     running.current = true;
     setSaid(null);
     setReport(null);
+    setDifferences([]);
     setBusy({ done: 0, total: 0 });
     return true;
   };
@@ -103,6 +108,7 @@ export function DownloadProject({ doc, widths, p, stacked = true }: { doc: Doc; 
       const { zipProduct } = await import("@/lib/export/product");
       const built = await product();
       save(zipProduct(built), `${built.name}-product.zip`);
+      setDifferences(built.differences);
       setSaid(partial(built.warnings) ?? { text: t("downloadDone", lang), bad: false });
     } catch (e) {
       failed(e);
@@ -138,6 +144,7 @@ export function DownloadProject({ doc, widths, p, stacked = true }: { doc: Doc; 
       await fs.rememberFolder(projectKey(), dir);
       setFolder(dir);
       setReport({ folder: dir.name, plan });
+      setDifferences(built.differences);
       const missing = partial(built.warnings);
       if (missing) setSaid(missing);
     } catch (e) {
@@ -255,11 +262,46 @@ export function DownloadProject({ doc, widths, p, stacked = true }: { doc: Doc; 
           )}
         </div>
       )}
+      {differences.length > 0 && <Differences differences={differences} p={p} />}
       {said && (
         <div role="status" style={{ fontSize: 12, lineHeight: 1.5, color: said.bad ? p.error : p.onSurfaceVariant, overflowWrap: "anywhere" }}>
           {said.text}
         </div>
       )}
+    </div>
+  );
+}
+
+/** how many of each kind of difference shown, and each of them under a disclosure */
+const SHOWN_DIFFERENCES = 80;
+
+/** Where the exported apps draw something other than the design says (a part drawn as its atoms or as a placeholder, a
+ *  binding kept at the design's value): how many in each app and of what kind, each one under a disclosure, and the
+ *  file each app lists them in. */
+function Differences({ differences, p }: { differences: DesignDifference[]; p: Palette }) {
+  const lang = useLang();
+  const appName = (app: DesignDifference["app"]) => t(app === "mobile" ? "exportAppMobile" : "exportAppMiniapp", lang);
+  const kindName = (kind: string) => {
+    const key = `exportDiff_${kind}` as UIKey;
+    return key in UI ? t(key, lang) : kind;
+  };
+  const list = differenceCounts(differences)
+    .map((c) => fill(t("exportDifferenceApp", lang), { app: appName(c.app), n: c.total, kinds: c.kinds.map(([k, n]) => `${kindName(k)} ${n}`).join(lang === "zh" || lang === "ja" ? "、" : ", ") }))
+    .join(lang === "zh" || lang === "ja" ? "；" : "; ");
+  return (
+    <div data-export-differences style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, overflowWrap: "anywhere", display: "flex", flexDirection: "column", gap: 2 }}>
+      <span>{fill(t("exportDifferences", lang), { list })}</span>
+      <details>
+        <summary style={{ cursor: "pointer", color: p.primary, fontWeight: 600 }}>{t("exportDifferencesShow", lang)}</summary>
+        <ul style={{ margin: "2px 0 0", paddingLeft: 18, maxHeight: 160, overflowY: "auto" }}>
+          {differences.slice(0, SHOWN_DIFFERENCES).map((d, i) => (
+            <li key={i} data-export-difference={d.app}>
+              {[appName(d.app), d.screen, d.part].filter(Boolean).join(" · ")}: {d.detail}
+            </li>
+          ))}
+          {differences.length > SHOWN_DIFFERENCES && <li>…</li>}
+        </ul>
+      </details>
     </div>
   );
 }

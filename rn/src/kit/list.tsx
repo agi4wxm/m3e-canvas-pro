@@ -1,5 +1,6 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useContext, type ReactNode } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
+import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
 import { useKit } from "./theme/ThemeProvider";
 
@@ -28,11 +29,14 @@ export type RepeatProps<T> = {
   /** a pull loads it again */
   onRefresh?: () => void;
   refreshing?: boolean;
+  /** how far it scrolls past its last row, clear of what floats over the screen's foot (and the device's own bar there) */
+  room?: number;
   testID?: string;
 };
 
-export function Repeat<T>({ data, keyOf, children: render, scroll, gap = 0, horizontal, onEndReached, loadingMore, onRefresh, refreshing = false, testID }: RepeatProps<T>) {
+export function Repeat<T>({ data, keyOf, children: render, scroll, gap = 0, horizontal, onEndReached, loadingMore, onRefresh, refreshing = false, room = 0, testID }: RepeatProps<T>) {
   const kit = useKit();
+  const insets = useContext(SafeAreaInsetsContext);
   if (!scroll)
     return (
       <>
@@ -45,7 +49,7 @@ export function Repeat<T>({ data, keyOf, children: render, scroll, gap = 0, hori
     <FlatList
       testID={testID}
       style={{ flex: 1, alignSelf: "stretch" }}
-      contentContainerStyle={horizontal ? { columnGap: gap } : { rowGap: gap }}
+      contentContainerStyle={horizontal ? { columnGap: gap } : room > 0 ? { rowGap: gap, paddingBottom: room + (insets?.bottom ?? 0) } : { rowGap: gap }}
       horizontal={horizontal}
       data={data}
       keyExtractor={(item, i) => String(keyOf(item, i))}
