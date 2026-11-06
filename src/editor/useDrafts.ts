@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { Doc, FrameMode, normalizeTheme, Theme } from "@/lib/tokens";
 import { AiSettings, draftDesign, scenesToPaint } from "@/lib/ai";
+import { streamedComplete, type Progress } from "@/lib/agent/complete";
 import type { NoteAction } from "@/components/Toolbar";
 import { aiErrorText } from "@/components/AiPanel";
 import { hasShareHash, readShareHash } from "@/lib/share";
@@ -41,6 +42,8 @@ export function useDrafts({ store, persist, editAccess, lang, aiSettings, mobile
   const [ideaText, setIdeaText] = useState("");
   /** a model is drafting a design right now */
   const [draftBusy, setDraftBusy] = useState(false);
+  /** how far the streamed draft has got, while it streams */
+  const [draftProgress, setDraftProgress] = useState<Progress | null>(null);
   /** the design a draft replaced, kept until the author keeps or undoes the draft */
   const [draftBefore, setDraftBefore] = useState<Doc | null>(null);
   const draftBeforeRef = useRef<Doc | null>(null);
@@ -127,12 +130,13 @@ export function useDrafts({ store, persist, editAccess, lang, aiSettings, mobile
         guideRef.current = await res.text();
       }
       const held = isStrict(themeRef.current) ? themeRef.current : null;
-      const drafted = await draftDesign(aiSettings, guideRef.current, idea, lang, undefined, held ? rulesForModel(held) : undefined);
+      const drafted = await draftDesign(aiSettings, guideRef.current, idea, lang, undefined, held ? rulesForModel(held) : undefined, streamedComplete(setDraftProgress));
       /* a model may bring styles of its own: they join the document's, each in place of one of its key */
       const styles = (drafted.styles ?? []).reduce<CustomStyle[] | undefined>((list, s) => withStyle(list, s), store.get().doc.styles);
-      /* the model was told; what it wrote regardless does not stand. A design from a model is held to rules from then on */
+      /* the model was told; what it wrote regardless does not stand. The document keeps its own strictness: a draft on a
+         canvas held to a style is held to it, one on a free canvas keeps the looks it was allowed */
       const next = withDocStyles(styles, () => {
-        const look = normalizeTheme({ ...drafted.theme, ...(held ? { style: held.style } : {}), strict: true });
+        const look = normalizeTheme({ ...drafted.theme, ...(held ? { style: held.style } : {}), strict: !!held });
         return conformDoc({ ...drafted, theme: look, ...(styles ? { styles } : {}) }, look);
       });
       settleDraftRef.current = true;
@@ -144,6 +148,7 @@ export function useDrafts({ store, persist, editAccess, lang, aiSettings, mobile
       showToast(m === "guide" ? t("aiError", lang) : aiErrorText(e, lang), 6000, "error");
     } finally {
       setDraftBusy(false);
+      setDraftProgress(null);
     }
   };
   /** true after a kept draft until the author undoes something, so the header's undo also sits by the opener */
@@ -169,5 +174,5 @@ export function useDrafts({ store, persist, editAccess, lang, aiSettings, mobile
   const clearShareHash = () => {
     if (typeof window !== "undefined" && window.location.hash) window.history.replaceState(null, "", window.location.pathname + window.location.search);
   };
-  return { ideaText, setIdeaText, draftBusy, draftBefore, setDraftBefore, revealing, quickUndo, setQuickUndo, importDoc, startDraft, keepDraft, undoDraft, settleDraftRef };
+  return { ideaText, setIdeaText, draftBusy, draftProgress, draftBefore, setDraftBefore, revealing, quickUndo, setQuickUndo, importDoc, startDraft, keepDraft, undoDraft, settleDraftRef };
 }

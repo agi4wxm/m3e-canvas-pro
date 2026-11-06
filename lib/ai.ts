@@ -26,7 +26,15 @@ export type AiSettings = {
   imageBaseUrl?: string;
   imageModel?: string;
   imageKey?: string;
+  /** how hard the text model thinks in the agent and the drafts; medium when left out */
+  effort?: Effort;
 };
+
+export type Effort = "low" | "medium" | "high";
+export const EFFORTS: Effort[] = ["low", "medium", "high"];
+
+/** one question and its answer: `complete`, or the same streamed (lib/agent/complete.ts) */
+export type Complete = (s: AiSettings, system: string, user: string, signal?: AbortSignal, maxTokens?: number) => Promise<string>;
 
 export type ImageProvider = "openai" | "gemini";
 
@@ -64,6 +72,7 @@ export function loadAiSettings(): AiSettings {
       if (typeof v.imageBaseUrl === "string") s.imageBaseUrl = v.imageBaseUrl;
       if (typeof v.imageModel === "string") s.imageModel = v.imageModel;
       if (typeof v.imageKey === "string") s.imageKey = v.imageKey;
+      if (EFFORTS.includes(v.effort as Effort)) s.effort = v.effort;
     }
   } catch {}
   return s;
@@ -337,7 +346,7 @@ export function popHistory<V extends string, H extends string>(current: string |
 /** A whole design from an idea, drafted by the author's own model. `guide` is the same
  *  agent guide a coding agent reads (public/agent.md), so both paths follow one spec.
  *  The answer is the document itself; a link would be pointless here. */
-export async function draftDesign(s: AiSettings, guide: string, idea: string, lang: Lang, signal?: AbortSignal, rules?: string): Promise<Doc> {
+export async function draftDesign(s: AiSettings, guide: string, idea: string, lang: Lang, signal?: AbortSignal, rules?: string, ask: Complete = complete): Promise<Doc> {
   const system = [
     "You draft M3E Canvas designs. Follow the guide below exactly.",
     "Reply with the JSON document only: no share link, no prose, no markdown fence, no explanation.",
@@ -345,8 +354,9 @@ export async function draftDesign(s: AiSettings, guide: string, idea: string, la
     guide,
   ].join("\n");
   /* a document held to a style is told its rules, which leave looks to the style; any other may be given effects */
-  const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple.", "", rules || lookForModel()].join("\n");
-  const j = parseJsonObject(await complete(s, system, user, signal, 12000));
+  const free = `${lookForModel()}\nThis canvas is not held to a style's rules: if you name a \`theme.style\`, also write \`"strict": false\` in \`theme\`, and these looks stay.`;
+  const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple.", "", rules || free].join("\n");
+  const j = parseJsonObject(await ask(s, system, user, signal, 16000));
   if (!isProject(j)) throw new Error("json");
   return readableOnScenes(scenesFirst(withoutSampleWords(cleanBehavior(j))));
 }

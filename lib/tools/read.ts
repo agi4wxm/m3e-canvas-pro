@@ -96,14 +96,17 @@ const describeNodeTool = tool<{ id: string }>({
   name: "describe_node",
   group: "read",
   description: "Everything about one part: what it is, its screen and bounds, its group's fields, its parent and children, its auto layout and how it sits in its parent's, its own fields (fill, look, tap…), each prop with its value, default and the values it takes, and the places a tap can be set on (slots).",
-  input: obj({ id: str("the part's id") }, ["id"]),
+  input: obj({ id: str("the part's id (a screen's id gives the screen and its outline)") }, ["id"]),
   readOnly: true,
   destructive: false,
   run(a, env) {
     const { doc, widths } = reading(env);
     const d = describeNode(doc, widths, a.id);
-    if (!d) throw new ToolFailure("not_found", `There is no part ${JSON.stringify(a.id)} on the canvas.`, "get_outline or find_nodes gives the ids of the parts.");
-    return { result: d };
+    if (d) return { result: d };
+    /* a screen asked about as if it were a part: what a model reaches for first */
+    const f = doc.frames.find((x) => x.id === a.id);
+    if (f) return { result: { screen: { id: f.id, name: f.name, ...frameSizeOf(f), ...(f.note ? { note: f.note } : {}) }, outline: outline(doc, widths, { screen: f.id, depth: 2 }) } };
+    throw new ToolFailure("not_found", `There is no part ${JSON.stringify(a.id)} on the canvas.`, "get_outline or find_nodes gives the ids of the parts.");
   },
 });
 

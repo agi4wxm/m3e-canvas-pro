@@ -15,6 +15,7 @@ export function aiErrorText(e: unknown, lang: ReturnType<typeof useLang>): strin
     if (e.status >= 500) return t("aiErrorDown", lang);
   }
   if (m === "refusal") return t("aiErrorRefusal", lang);
+  if (m === "svg") return t("aiErrorSvg", lang);
   if (m === "long") return t("aiErrorLong", lang);
   if (m === "json" || m === "empty") return t("aiErrorJson", lang);
   if (m === "model") return t("aiErrorModel", lang);

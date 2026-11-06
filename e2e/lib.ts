@@ -21,6 +21,8 @@ export type Locator = {
   inputValue(): Promise<string>;
   waitFor(o?: { state?: "attached" | "detached" | "visible" | "hidden"; timeout?: number }): Promise<void>;
 };
+export type Route = { fulfill(o: { status?: number; headers?: Record<string, string>; body?: string }): Promise<void>; abort(code?: string): Promise<void> };
+export type Request = { method(): string; url(): string; postData(): string | null };
 export type Download = { suggestedFilename(): string; saveAs(path: string): Promise<void>; path(): Promise<string | null> };
 export type FileChooser = { setFiles(path: string): Promise<void> };
 export type Page = {
@@ -34,6 +36,8 @@ export type Page = {
   locator(s: string): Locator;
   screenshot(o: { path: string; fullPage?: boolean }): Promise<unknown>;
   on(event: "pageerror", f: (e: Error) => void): void;
+  /** answers the page's requests to a URL instead of the network: what a model provider says, in tests */
+  route(url: string | RegExp, handler: (route: Route, request: Request) => void | Promise<void>): Promise<void>;
   mouse: { move(x: number, y: number, o?: { steps?: number }): Promise<void>; down(): Promise<void>; up(): Promise<void>; click(x: number, y: number): Promise<void>; dblclick(x: number, y: number): Promise<void> };
   keyboard: { press(key: string): Promise<void>; down(key: string): Promise<void>; up(key: string): Promise<void> };
 };

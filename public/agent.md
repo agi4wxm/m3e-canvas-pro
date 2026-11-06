@@ -4,6 +4,8 @@ M3E Canvas Pro is a browser editor for Material 3 Expressive screens. A design i
 
 This format is in beta. Fields may be added; existing ones keep their meaning.
 
+This guide is for writing a whole document at once. An agent that works on a document the person has open does not write JSON: the editor's own AI tab and the M3E Canvas MCP server give it tools (read the outline, add screens and parts, set props, apply a style, batch many changes as one undo step), each with its own description, and the person sees every change land on the canvas.
+
 ## What to deliver
 
 **Reply with a share link.** If you cannot run code, reply with the JSON document itself in a code block; the person saves it as a `.json` file and opens it with **Open project**. Either way, **do not verify, decode, or round-trip your output**: the app checks the document when it opens and tells the person what is wrong, so your checks add nothing.
@@ -49,7 +51,7 @@ Rough placement is fine. The person presses **Tidy**: bars snap to the edges, an
 
 ### Style (`theme.style`)
 
-One word dresses the whole document: every part, the screens behind them and the pictures. Name the style that suits the idea and write nothing else in `theme`; the colors, type, corners and icons come with it, and `paletteKey` is ignored while it colors the document. A style is a set of rules the document is held to: what a theme says against them is replaced, and `corners`, a button's `shape`, an image's `radius`, a scene's `style` and every `look` field but `opacity`, `rotate`, `transform`, `blur`, `blend` and `elevation` are removed from every part when the document arrives. Choose among the things the rules leave open: which parts, their words, and `fill` and `textColor`, which name the style's own colors.
+One word dresses the whole document: every part, the screens behind them and the pictures. Name the style that suits the idea and write nothing else in `theme`; the colors, type, corners and icons come with it, and `paletteKey` is ignored while it colors the document. A style is a set of rules the document is held to: what a theme says against them is replaced, and `corners`, a button's `shape`, an image's `radius`, a scene's `style` and every `look` field but `opacity`, `rotate`, `transform`, `blur`, `blend` and `elevation` are removed from every part when the document arrives. Choose among the things the rules leave open: which parts, their words, and `fill` and `textColor`, which name the style's own colors. Only when you are told the canvas is not held to a style's rules (or the person asks for effects of your own), write `"strict": false` beside the style: it still brings its colors, faces, icons and controls, and corners, shapes and every `look` field stay as you write them.
 
 ```jsonc
 "theme": { "style": "cyber" }
