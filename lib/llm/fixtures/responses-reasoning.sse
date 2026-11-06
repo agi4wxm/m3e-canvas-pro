@@ -1,0 +1,162 @@
+event: response.created
+data: {"type":"response.created","response":{"id":"resp_06e6e6e1398a866e016aed46c42fd487d29a84699cd30612c4","object":"response","created_at":1793935044,"status":"in_progress","access_programs":null,"background":false,"completed_at":null,"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":null,"instructions":"You draw one SVG for a UI design editor. Reply with the SVG markup only: a single <svg> element, no prose, no markdown fence.\nRules:\n- The root is <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"> with no width or height.\n- Use only these elements: svg, g, path, circle, ellipse, rect, line, polyline, polygon, defs, linearGradient, radialGradient, stop, clipPath, mask, pattern, symbol, use.\n- No <text>, <image>, <foreignObject>, <style>, <script>, <filter>, animation, class attributes or event handlers.\n- Nothing outside the drawing: no http(s) or data: addresses. url(#id) and href=\"#id\" may point only at elements of this SVG.\n- Paint with fill=\"currentColor\" and stroke=\"currentColor\" so the editor's colour reaches the drawing; make lighter tones with fill-opacity or stroke-opacity, not other colours. Use a fixed colour only where the subject cannot do without one.\n- No letters, numbers or words anywhere in the drawing.\n- Keep it compact: well under 200 elements, coordinates with at most two decimals, shapes aligned to the viewBox with a little margin.","max_output_tokens":32000,"max_tool_calls":null,"model":"gpt-6.1-sol","moderation":null,"output":[],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":null,"prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":"detailed"},"safety_identifier":null,"service_tier":"auto","store":false,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[],"top_logprobs":0,"top_p":0.98,"truncation":"disabled","usage":null,"user":null,"metadata":{}},"sequence_number":0}
+
+event: response.in_progress
+data: {"type":"response.in_progress","response":{"id":"resp_06e6e6e1398a866e016aed46c42fd487d29a84699cd30612c4","object":"response","created_at":1793935044,"status":"in_progress","access_programs":null,"background":false,"completed_at":null,"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":null,"instructions":"You draw one SVG for a UI design editor. Reply with the SVG markup only: a single <svg> element, no prose, no markdown fence.\nRules:\n- The root is <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"> with no width or height.\n- Use only these elements: svg, g, path, circle, ellipse, rect, line, polyline, polygon, defs, linearGradient, radialGradient, stop, clipPath, mask, pattern, symbol, use.\n- No <text>, <image>, <foreignObject>, <style>, <script>, <filter>, animation, class attributes or event handlers.\n- Nothing outside the drawing: no http(s) or data: addresses. url(#id) and href=\"#id\" may point only at elements of this SVG.\n- Paint with fill=\"currentColor\" and stroke=\"currentColor\" so the editor's colour reaches the drawing; make lighter tones with fill-opacity or stroke-opacity, not other colours. Use a fixed colour only where the subject cannot do without one.\n- No letters, numbers or words anywhere in the drawing.\n- Keep it compact: well under 200 elements, coordinates with at most two decimals, shapes aligned to the viewBox with a little margin.","max_output_tokens":32000,"max_tool_calls":null,"model":"gpt-6.1-sol","moderation":null,"output":[],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":null,"prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":"detailed"},"safety_identifier":null,"service_tier":"auto","store":false,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[],"top_logprobs":0,"top_p":0.98,"truncation":"disabled","usage":null,"user":null,"metadata":{}},"sequence_number":1}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","type":"reasoning","content":[],"encrypted_content":"gAAAAABq7UbEW5dSz5NayzjBSxuWsPkZoFNAXw0wb3MaUZnM7nLd_tukP7Pw0hpv6D6buF6Q9SuGe0nDLsheP2HlagFFrjgS","summary":[]},"output_index":0,"sequence_number":2}
+
+event: response.reasoning_summary_part.added
+data: {"type":"response.reasoning_summary_part.added","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"part":{"type":"summary_text","text":""},"sequence_number":3,"summary_index":0}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":"**Designing gear teeth outline**\n\nI need to create an accurate outline for an 8-tooth","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":4,"summary_index":0}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":" radial gear, ensuring there’s a central hole with an even","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":16,"summary_index":0}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":"-odd structure. I'm considering generating a conceptual path that repeats","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":28,"summary_index":0}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":" and revolves around eight teeth, positioned at specific angles. I","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":40,"summary_index":0}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":" also need to calculate the gear tooth sectors with specific dimensions,","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":52,"summary_index":0}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":" ensuring that the teeth are designed correctly with rounded joins. I","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":64,"summary_index":0}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":" want to ensure everything is appropriately aligned before finalizing.","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":76,"summary_index":0}
+
+event: response.reasoning_summary_text.done
+data: {"type":"response.reasoning_summary_text.done","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":87,"summary_index":0,"text":"**Designing gear teeth outline**\n\nI need to create an accurate outline for an 8-tooth radial gear, ensuring there’s a central hole with an even-odd structure. I'm considering generating a conceptual path that repeats and revolves around eight teeth, positioned at specific angles. I also need to calculate the gear tooth sectors with specific dimensions, ensuring that the teeth are designed correctly with rounded joins. I want to ensure everything is appropriately aligned before finalizing."}
+
+event: response.reasoning_summary_part.done
+data: {"type":"response.reasoning_summary_part.done","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"part":{"type":"summary_text","text":"**Designing gear teeth outline**\n\nI need to create an accurate outline for an 8-tooth radial gear, ensuring there’s a central hole with an even-odd structure. I'm considering generating a conceptual path that repeats and revolves around eight teeth, positioned at specific angles. I also need to calculate the gear tooth sectors with specific dimensions, ensuring that the teeth are designed correctly with rounded joins. I want to ensure everything is appropriately aligned before finalizing."},"sequence_number":88,"summary_index":0}
+
+event: response.reasoning_summary_part.added
+data: {"type":"response.reasoning_summary_part.added","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"part":{"type":"summary_text","text":""},"sequence_number":89,"summary_index":1}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":"**Simulating coordinates for design**\n\nI’m working on simulating coordinates, specifically starting from M","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":90,"summary_index":1}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":"10, through various values to create a pattern. I’m","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":102,"summary_index":1}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":" considering a diagonal radius, possibly around 11, and ensuring the","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":114,"summary_index":1}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":" outer corners have specific measurements. The details like the corner tooth","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":126,"summary_index":1}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":" radius and center hole radius are all crucial for the overall design","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":138,"summary_index":1}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":". I want to make sure I standardize the fill correctly","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":150,"summary_index":1}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":" to keep everything cohesive. It's a lot to track, but","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":162,"summary_index":1}
+
+event: response.reasoning_summary_text.delta
+data: {"type":"response.reasoning_summary_text.delta","delta":" I'm getting there!","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":174,"summary_index":1}
+
+event: response.reasoning_summary_text.done
+data: {"type":"response.reasoning_summary_text.done","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"sequence_number":178,"summary_index":1,"text":"**Simulating coordinates for design**\n\nI’m working on simulating coordinates, specifically starting from M10, through various values to create a pattern. I’m considering a diagonal radius, possibly around 11, and ensuring the outer corners have specific measurements. The details like the corner tooth radius and center hole radius are all crucial for the overall design. I want to make sure I standardize the fill correctly to keep everything cohesive. It's a lot to track, but I'm getting there!"}
+
+event: response.reasoning_summary_part.done
+data: {"type":"response.reasoning_summary_part.done","item_id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","output_index":0,"part":{"type":"summary_text","text":"**Simulating coordinates for design**\n\nI’m working on simulating coordinates, specifically starting from M10, through various values to create a pattern. I’m considering a diagonal radius, possibly around 11, and ensuring the outer corners have specific measurements. The details like the corner tooth radius and center hole radius are all crucial for the overall design. I want to make sure I standardize the fill correctly to keep everything cohesive. It's a lot to track, but I'm getting there!"},"sequence_number":179,"summary_index":1}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","type":"reasoning","content":[],"encrypted_content":"gAAAAABq7UbOSctdmWlUV8TErFFnVvNpj8bfSFzy0jT_QkostxNo7vBXxEiJ-RR07OGGHJsmvZyzSUg_I9x5Lk1aUS7hBetf","summary":[{"type":"summary_text","text":"**Designing gear teeth outline**\n\nI need to create an accurate outline for an 8-tooth radial gear, ensuring there’s a central hole with an even-odd structure. I'm considering generating a conceptual path that repeats and revolves around eight teeth, positioned at specific angles. I also need to calculate the gear tooth sectors with specific dimensions, ensuring that the teeth are designed correctly with rounded joins. I want to ensure everything is appropriately aligned before finalizing."},{"type":"summary_text","text":"**Simulating coordinates for design**\n\nI’m working on simulating coordinates, specifically starting from M10, through various values to create a pattern. I’m considering a diagonal radius, possibly around 11, and ensuring the outer corners have specific measurements. The details like the corner tooth radius and center hole radius are all crucial for the overall design. I want to make sure I standardize the fill correctly to keep everything cohesive. It's a lot to track, but I'm getting there!"}]},"output_index":0,"sequence_number":180}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","type":"message","status":"in_progress","content":[],"phase":"final_answer","role":"assistant"},"output_index":1,"sequence_number":181}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","content_index":0,"item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","output_index":1,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":""},"sequence_number":182}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"<svg xmlns=\"http://www.w3.org/200","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":183}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"0/svg\" viewBox=\"0 0 24 ","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":195}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"24\"><path fill=\"currentColor\" fill-rule=\"evenodd","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":207}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"\" d=\"M10 2h4l.5","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":219}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" 2.3 1.2.5 2","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":231}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"-1.3 2.8 2.8","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":243}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"-1.3 2 .5 1.2","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":255}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" 2.3.5v4l-2.","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":267}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"3.5-.5 1.2 1.","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":279}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"3 2-2.8 2.8-","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":291}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"2-1.3-1.2.5L","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":303}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"14 22h-4l-.5-2.","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":315}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"3-1.2-.5-2 1.","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":327}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"3-2.8-2.8 1.","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":339}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"3-2-.5-1.2L2 ","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":351}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"14v-4l2.3-.5.5","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":363}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":"-1.2-1.3-2 2","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":375}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":".8-2.8 2 1.3","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":387}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" 1.2-.5L10 2Zm5","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":399}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":".5 10a3.5 3.5","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":411}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" 0 1 0-7 0 3","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":423}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":".5 3.5 0 0 0","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":435}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","content_index":0,"delta":" 7 0Z\"/></svg>","item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":447}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","content_index":0,"item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","logprobs":[],"output_index":1,"sequence_number":455,"text":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M10 2h4l.5 2.3 1.2.5 2-1.3 2.8 2.8-1.3 2 .5 1.2 2.3.5v4l-2.3.5-.5 1.2 1.3 2-2.8 2.8-2-1.3-1.2.5L14 22h-4l-.5-2.3-1.2-.5-2 1.3-2.8-2.8 1.3-2-.5-1.2L2 14v-4l2.3-.5.5-1.2-1.3-2 2.8-2.8 2 1.3 1.2-.5L10 2Zm5.5 10a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0Z\"/></svg>"}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","content_index":0,"item_id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","output_index":1,"part":{"type":"output_text","annotations":[],"logprobs":[],"text":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M10 2h4l.5 2.3 1.2.5 2-1.3 2.8 2.8-1.3 2 .5 1.2 2.3.5v4l-2.3.5-.5 1.2 1.3 2-2.8 2.8-2-1.3-1.2.5L14 22h-4l-.5-2.3-1.2-.5-2 1.3-2.8-2.8 1.3-2-.5-1.2L2 14v-4l2.3-.5.5-1.2-1.3-2 2.8-2.8 2 1.3 1.2-.5L10 2Zm5.5 10a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0Z\"/></svg>"},"sequence_number":456}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M10 2h4l.5 2.3 1.2.5 2-1.3 2.8 2.8-1.3 2 .5 1.2 2.3.5v4l-2.3.5-.5 1.2 1.3 2-2.8 2.8-2-1.3-1.2.5L14 22h-4l-.5-2.3-1.2-.5-2 1.3-2.8-2.8 1.3-2-.5-1.2L2 14v-4l2.3-.5.5-1.2-1.3-2 2.8-2.8 2 1.3 1.2-.5L10 2Zm5.5 10a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0Z\"/></svg>"}],"phase":"final_answer","role":"assistant"},"output_index":1,"sequence_number":457}
+
+event: response.completed
+data: {"type":"response.completed","response":{"id":"resp_06e6e6e1398a866e016aed46c42fd487d29a84699cd30612c4","object":"response","created_at":1793935044,"status":"completed","access_programs":null,"background":false,"completed_at":1793935055,"error":null,"frequency_penalty":0.0,"image":{"context_compression":"disabled"},"incomplete_details":null,"instructions":"You draw one SVG for a UI design editor. Reply with the SVG markup only: a single <svg> element, no prose, no markdown fence.\nRules:\n- The root is <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"> with no width or height.\n- Use only these elements: svg, g, path, circle, ellipse, rect, line, polyline, polygon, defs, linearGradient, radialGradient, stop, clipPath, mask, pattern, symbol, use.\n- No <text>, <image>, <foreignObject>, <style>, <script>, <filter>, animation, class attributes or event handlers.\n- Nothing outside the drawing: no http(s) or data: addresses. url(#id) and href=\"#id\" may point only at elements of this SVG.\n- Paint with fill=\"currentColor\" and stroke=\"currentColor\" so the editor's colour reaches the drawing; make lighter tones with fill-opacity or stroke-opacity, not other colours. Use a fixed colour only where the subject cannot do without one.\n- No letters, numbers or words anywhere in the drawing.\n- Keep it compact: well under 200 elements, coordinates with at most two decimals, shapes aligned to the viewBox with a little margin.","max_output_tokens":32000,"max_tool_calls":null,"model":"gpt-6.1-sol","moderation":null,"output":[{"id":"rs_06e6e6e1398a866e016aed46c4fcc887d2bfc4422191f9d577","type":"reasoning","content":[],"encrypted_content":"gAAAAABq7UbPbOFgauzZboFHqwtrmVcKP7fA-x5jAedwm3U2UM-vU2V41YDI8-cZS6V2WBWU-kpe4wr9q-4DQJdOTjIntteh","summary":[{"type":"summary_text","text":"**Designing gear teeth outline**\n\nI need to create an accurate outline for an 8-tooth radial gear, ensuring there’s a central hole with an even-odd structure. I'm considering generating a conceptual path that repeats and revolves around eight teeth, positioned at specific angles. I also need to calculate the gear tooth sectors with specific dimensions, ensuring that the teeth are designed correctly with rounded joins. I want to ensure everything is appropriately aligned before finalizing."},{"type":"summary_text","text":"**Simulating coordinates for design**\n\nI’m working on simulating coordinates, specifically starting from M10, through various values to create a pattern. I’m considering a diagonal radius, possibly around 11, and ensuring the outer corners have specific measurements. The details like the corner tooth radius and center hole radius are all crucial for the overall design. I want to make sure I standardize the fill correctly to keep everything cohesive. It's a lot to track, but I'm getting there!"}]},{"id":"msg_06e6e6e1398a866e016aed46ce032c87d28fa14b4f656d24d3","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M10 2h4l.5 2.3 1.2.5 2-1.3 2.8 2.8-1.3 2 .5 1.2 2.3.5v4l-2.3.5-.5 1.2 1.3 2-2.8 2.8-2-1.3-1.2.5L14 22h-4l-.5-2.3-1.2-.5-2 1.3-2.8-2.8 1.3-2-.5-1.2L2 14v-4l2.3-.5.5-1.2-1.3-2 2.8-2.8 2 1.3 1.2-.5L10 2Zm5.5 10a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0Z\"/></svg>"}],"phase":"final_answer","role":"assistant"}],"parallel_tool_calls":true,"presence_penalty":0.0,"previous_response_id":null,"prompt_cache_key":null,"prompt_cache_retention":"24h","reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":"detailed"},"safety_identifier":null,"service_tier":"default","store":false,"temperature":1.0,"text":{"format":{"type":"text"},"verbosity":"medium"},"tool_choice":"auto","tool_usage":{"image_gen":{"input_tokens":0,"input_tokens_details":{"image_tokens":0,"text_tokens":0},"output_tokens":0,"output_tokens_details":{"image_tokens":0,"text_tokens":0},"total_tokens":0},"web_search":{"num_requests":0}},"tools":[],"top_logprobs":0,"top_p":0.98,"truncation":"disabled","usage":{"input_tokens":293,"input_tokens_details":{"cache_write_tokens":0,"cached_tokens":0},"output_tokens":688,"output_tokens_details":{"reasoning_tokens":410},"total_tokens":981},"user":null,"metadata":{}},"sequence_number":458}
+
