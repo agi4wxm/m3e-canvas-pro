@@ -34,6 +34,7 @@ import { t } from "../../i18n";
 import { op, OpError, S } from "../op";
 import { withFrames, withGroups, withSession, type CoreState } from "../state";
 import { frameById, freshId } from "./common";
+import { pictureError } from "../images";
 
 const nextFrameX = (frames: Frame[]) => (frames.length ? Math.max(...frames.map((f) => frameRect(f).r)) + FRAME_GAP : 0);
 
@@ -103,6 +104,8 @@ export const patchScreen = op<{ id: string; patch: Partial<Frame> }>({
         if (k === "bg" && !COLOR_TOKENS.some((x) => x.key === v)) throw new OpError("invalid_value", `bg should be a color role: ${COLOR_TOKENS.map((x) => x.key).join(", ")}.`, k);
         if (k === "swipe" && (typeof v !== "object" || Object.entries(v as object).some(([d, to]) => !["left", "right", "up", "down"].includes(d) || !s.doc.frames.some((x) => x.id === to)))) throw new OpError("invalid_value", "swipe should be {left|right|up|down: an existing screen's id}.", k);
         if (k === "deviceBars" && typeof v !== "boolean") throw new OpError("invalid_value", "deviceBars should be true or false.", k);
+        const bad = k === "backgroundImage" ? pictureError(v) : null;
+        if (bad) throw new OpError("invalid_value", `backgroundImage ${bad}`, k);
       }
       patch = Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === null ? undefined : v]));
     }

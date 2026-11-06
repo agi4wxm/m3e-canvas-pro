@@ -294,4 +294,30 @@ export const tests: E2ETest[] = [
       check(await page.locator("[data-agent-panel]").first().isVisible(), "the AI tab opened to show the turn");
     },
   },
+  {
+    name: "the agent asks before wiping the author's work: Don't keeps it, Allow lets it go",
+    async run({ page }) {
+      const WIPE = { ops: [{ op: "clear", args: {} }] };
+      const { asked } = await withAgent(page, [toolTurn("call_1", "apply_ops", WIPE, "I'll start over."), textTurn("Kept everything. What should the new design look like?"), toolTurn("call_2", "apply_ops", WIPE, "Starting over."), textTurn("Cleared."), textTurn("Cleared.")]);
+      const before = await savedDoc(page);
+      check(before.frames.length > 0, "the canvas starts with the author's screens");
+      await ask(page, "it all looks bad, wipe it and redo it");
+      await until(page, async () => (await page.locator('[data-agent-ask="waiting"]').count()) > 0, "the agent to ask");
+      check((await page.locator('[data-agent-ask="waiting"]').first().textContent())?.includes("screens"), "the ask says what would go");
+      equal((await savedDoc(page)).frames.length, before.frames.length, "nothing is removed while it waits");
+      await page.locator("[data-agent-ask-deny]").first().click();
+      await until(page, async () => (await page.locator('[data-agent-turn="done"]').count()) > 0, "the turn to finish");
+      await settle(page);
+      equal((await savedDoc(page)).frames.length, before.frames.length, "Don't keeps the screens");
+      check((await page.locator('[data-agent-ask="declined"]').count()) === 1, "the panel says the work was kept");
+      check(JSON.stringify(asked[1].input).includes("declined"), "the model was told the author declined");
+      await ask(page, "it all looks bad, wipe it and redo it");
+      await until(page, async () => (await page.locator('[data-agent-ask="waiting"]').count()) > 0, "the agent to ask again");
+      await page.locator("[data-agent-ask-allow]").first().click();
+      await until(page, async () => (await page.locator('[data-agent-turn="done"]').count()) > 1, "the second turn to finish");
+      await settle(page);
+      equal((await savedDoc(page)).frames.length, 0, "Allow lets the canvas be cleared");
+      check((await page.locator('[data-agent-ask="allowed"]').count()) === 1, "the panel says the removal was allowed");
+    },
+  },
 ];

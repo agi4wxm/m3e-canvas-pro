@@ -101,6 +101,30 @@ export const S = {
 
 const typeOf = (v: unknown) => (Array.isArray(v) ? "array" : v === null ? "null" : typeof v);
 
+/** the name a word was probably meant to be: the one fewest letters away, when that is close enough to say */
+export function nearestName(names: string[], word: string): string | undefined {
+  const w = word.toLowerCase().replace(/[\s-]/g, "_");
+  const flat = (s: string) => s.replace(/_/g, "");
+  let best: { name: string; d: number } | undefined;
+  for (const name of names) {
+    const n = name.toLowerCase();
+    if (n === w || flat(n) === flat(w)) return name;
+    const d = editDistance(n, w);
+    if (!best || d < best.d) best = { name, d };
+  }
+  return best && best.d <= Math.max(2, Math.floor(w.length / 3)) ? best.name : undefined;
+}
+
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = row;
+  }
+  return prev[b.length];
+}
+
 /** Checks a value against the subset of JSON Schema the operations use; the first thing wrong, or null. */
 export function schemaError(schema: Schema, v: unknown, at = "args"): string | null {
   const types = (Array.isArray(schema.type) ? schema.type : schema.type ? [schema.type] : []) as string[];
@@ -111,7 +135,12 @@ export function schemaError(schema: Schema, v: unknown, at = "args"): string | n
     return `${at} should be ${types.map(named).join(" or ")}, not ${t === "number" && !Number.isFinite(v as number) ? "a number that is not finite" : t}`;
   }
   const type = types.find(fits);
-  if (Array.isArray(schema.enum) && !schema.enum.includes(v)) return `${at} should be one of ${schema.enum.map((x) => JSON.stringify(x)).join(", ")}`;
+  if (Array.isArray(schema.enum) && !schema.enum.includes(v)) {
+    /* a long list (every operation's name) is in the schema the caller already has: name the nearest instead */
+    if (schema.enum.length <= 16) return `${at} should be one of ${schema.enum.map((x) => JSON.stringify(x)).join(", ")}`;
+    const near = typeof v === "string" ? nearestName(schema.enum.filter((x): x is string => typeof x === "string"), v) : undefined;
+    return `${at} ${JSON.stringify(v)} is not one of the ${schema.enum.length} values the schema lists${near ? `; the nearest is ${JSON.stringify(near)}` : ""}`;
+  }
   if (typeof v === "number") {
     if (typeof schema.minimum === "number" && v < schema.minimum) return `${at} should be at least ${schema.minimum}`;
     if (typeof schema.maximum === "number" && v > schema.maximum) return `${at} should be at most ${schema.maximum}`;

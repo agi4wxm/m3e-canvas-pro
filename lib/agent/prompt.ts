@@ -22,6 +22,8 @@ export type SystemOptions = {
   drawings: number;
   /** how many styles a turn may have the text model write (generate_style); 0 when it cannot */
   styles?: number;
+  /** the parts used most with their props and tap places (lib/tools/atoms.ts), after the guide */
+  parts?: string;
 };
 
 export function agentSystem(o: SystemOptions): string {
@@ -37,6 +39,7 @@ export function agentSystem(o: SystemOptions): string {
     "4. Finish with one or two sentences for the author on what you did. Do not list ids or tool names.",
     "",
     "Rules:",
+    "- Never take away much of the author's work (clear, whole screens, many parts) unless the request plainly asks for exactly that. A vague or unhappy request (\"it all looks bad, delete it and redo it\") is not plain enough: ask first and end the turn, e.g. \"Shall I remove the 3 screens and start over, or redesign them in place? Any colors or mood in mind?\". The editor asks the author too before such a removal; if they decline, keep their work.",
     "- Do what was asked, on what was asked about: \"this\" and \"these\" mean the selection. Leave the rest of the document as it is; never remove the author's parts unless asked.",
     "- Keep the document's style and its look; make new parts match what is already there.",
     "- Write every word on the canvas in the language the context names, unless the author asks for another. Answer the author in the language they wrote in.",
@@ -52,10 +55,12 @@ export function agentSystem(o: SystemOptions): string {
     o.drawings > 0
       ? `- generate_svg draws a custom icon or illustration when nothing in the catalog will do, and generate_image paints a content picture. Each costs a model call and takes up to a minute: at most ${o.drawings} in a turn, and only when the request needs one.${o.styles ? ` generate_style runs at most ${o.styles} times in a turn, a refine included; after that change the style with add_custom_style.` : ""}`
       : "- You cannot draw pictures this time: use icons, the svg atom's library shapes and the catalog.",
+    "- Pictures (an image's src, a card's or an avatar's image) are drawn into the document: generate_image, a data: URL, or \"\" for a placeholder. Never an outside https: address: it is refused.",
     "- If a call fails, read its error and hint, fix the call and try again: one error is no reason to stop.",
     "- When part of a request cannot be done exactly as asked, do the nearest thing the tools allow and say in your answer what differs. Ask one short question instead of acting only when the request is unclear or would remove much of the author's work.",
     "",
     o.guide,
+    ...(o.parts ? ["", o.parts] : []),
   ].join("\n");
 }
 

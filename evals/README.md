@@ -41,11 +41,12 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 | 参数 | 说明 |
 | --- | --- |
-| `--only <ids或能力>` | 逗号分隔的任务 id 或能力：new-screen、edit、data、variables、components、styles、svg、replicate、game、multilingual、ambiguous |
+| `--only <ids或能力>` | 逗号分隔的任务 id 或能力：new-screen、edit、data、variables、components、styles、svg、replicate、game、multilingual、ambiguous、flow、long-screen |
 | `--repeat <n>` | 每个任务跑 n 次（模型不确定，看通过率要多跑几次） |
 | `--provider`、`--model`、`--effort`、`--image-model` | 服务商（默认 openai）、文本模型（默认 `gpt-6.1-sol`）、推理强度（low/medium/high，默认 medium）、图片模型 |
 | `--budget-tokens <n>` | 给每个任务的 token 预算再加一个上限 |
 | `--max-drawings <n>` | 整套评测最多画几次（图片、SVG）；超出时工具按“本回合不能再画”拒绝，和应用里用完额度一样 |
+| `--destructive <allow\|decline>` | 智能体要删掉作者大量内容（清空、删屏幕、删很多组件）而请求没有明确要删时，编辑器会问作者“允许 / 不要”；评测里按这个回答，默认 `decline`（想先被问的作者） |
 | `--record <目录>` | 每次运行写一个文件夹，再写 `summary.md` 和 `results.json` |
 | `--artifacts <目录>` | 每次运行的文件夹（截图、对话）放到这里，`--record` 里只留汇总：截图大，不要进 git |
 | `--replay <目录>` | 重新评分记录下来的运行，不调用智能体 |
@@ -86,10 +87,10 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 | 检查 | 看什么 |
 | --- | --- |
-| `finished` | 回合自己正常结束；改文档的调用失败后，后来都有同一个工具、或含有同一个操作的批量调用成功补上（只读调用失败后放弃不算；绘图次数用完被拒也不算） |
+| `finished` | 回合自己正常结束；改文档的调用失败后，后来都有同一个工具、或含有同一个操作的批量调用成功补上（只读调用失败后放弃不算；绘图次数用完被拒、作者拒绝的删除也不算） |
 | `undo` | 一次撤销回到起始文档，重做回到结果 |
 | `budget` | 步数、token、用时都在任务的预算内 |
-| `screen-added`、`has`、`shows` | 加了屏幕；屏幕上有某类组件（组件或组合件的 slug、kit）；屏幕上显示了这些字 |
+| `screen-added`、`has`、`shows` | 加了屏幕；屏幕上有某类组件（组件或组合件的 slug、kit；重复容器里的按行数算）；屏幕上显示了这些字 |
 | `language` | 这次新写的字（加的或改的组件，新屏幕的名字）是画布的语言：中文要有汉字、日文要有假名、韩文要有谚文，英文不含中日韩文字；没有字母、地址、`{{字段}}`、三个字母以内的拉丁词不算 |
 | `no-overlap`、`in-bounds` | 同一个父级下的组件互不遮挡（FAB、弹层、背景、脱离布局的除外）；没有组件超出屏幕，新加的没有落在屏幕外 |
 | `auto-layout` | 改过的屏幕至少有一个排着两个以上子项的自动布局容器，最外层零散的原子不超过两个 |
@@ -100,10 +101,14 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 | `collection`、`repeat`、`tap-detail` | 新数据集合的行数；有容器重复它；重复的行点一下跳到另一个屏幕，那里显示点中的这一行：用 `{{current.字段}}`，或者点击时把行的 `{{字段}}` 写进变量、详情页绑定这些变量 |
 | `component`、`instances` | 新的可复用组件主要由原子和自动布局拼成并含有要求的部件；屏幕上有足够的实例，覆盖里有要求的字 |
 | `custom-style` | 文档穿着一个新的或改过的自定义风格，没有对比度问题；要求暖色时表面色偏暖 |
-| `svg` | 新加的矢量组件有 SVG 代码，能通过 `sanitizeSvg`，放在要求的容器里 |
+| `svg` | 新加的矢量组件有 SVG 代码，能通过 `sanitizeSvg`，放在要求的容器里；或者画好的图存成文档自己的图标（`svg:<编号>`），由要求的容器里的组件显示 |
 | `likeness` | 改过的屏幕和参考图的相似度（和 `compare_to_reference` 同一个算法）不低于阈值 |
 | `corners` | 屏幕四个角各有要求的东西（游戏 HUD） |
 | `asks` | 回答里有问题（含糊或有破坏性的请求） |
+| `nav-flow` | 几个屏幕接成一个应用：有标签栏的屏幕互相切换，点一项打开没有标签栏的详情页，详情页能返回 |
+| `scrolls`、`posts`、`bars-pinned` | 屏幕比设备长、内容排到设备高度以下；某个词出现在足够多的组件上（比如每条动态的 Like）；顶栏在最上、标签栏在设备或长屏的底边 |
+| `pay-pinned` | 某类组件（支付按钮）在屏幕底部 |
+| `texture` | 穿着的自定义风格用规则画出材质：纹理（重复或径向渐变）、描边、阴影里至少两种 |
 
 ## 加一个任务
 
@@ -126,4 +131,7 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 ## 基线
 
-`baselines/<日期>/` 是某一天用默认模型跑整套的结果（只提交 `summary.md`、`results.json` 和人工分析 `notes.md`，截图留在本地）。改提示词或工具后跑一遍，和最新的基线比较通过率、关键检查和 token。最新的是 [2026-11-06](baselines/2026-11-06/notes.md)：16 个任务通过 15 个，失败的是“全删了重做”没有先问；那里也列了智能体常犯的错误和建议的改法。
+`baselines/<日期>/` 是某一天用默认模型跑整套的结果（只提交 `summary.md`、`results.json` 和人工分析 `notes.md`，截图留在本地）。改提示词或工具后跑一遍，和最新的基线比较通过率、关键检查和 token。
+
+- [2026-11-06](baselines/2026-11-06/notes.md)：16 个任务通过 15 个，失败的是“全删了重做”没有先问；那里也列了智能体常犯的错误和建议的改法。
+- [2026-11-06-fixes](baselines/2026-11-06-fixes/notes.md)（最新）：修完那七处之后，同样 16 个任务全部通过，平均 token 95k → 85k，`describe_part` 占调用 28% → 10%；另加三个更难的任务（多屏应用、严格风格的结账表单、长屏动态）也都通过，那里列了还剩下的问题。

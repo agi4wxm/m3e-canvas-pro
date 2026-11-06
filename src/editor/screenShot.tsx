@@ -64,16 +64,48 @@ export async function layerDrawn(doc: Doc) {
   await frameDone();
 }
 
+/** what a picture that will not draw is shown as: a plain grey patch where it stands */
+const MISSING = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%23d6d6d6'/%3E%3C/svg%3E";
+
+/** Pictures from elsewhere that will not draw (gone, not a picture, or not allowed to be copied into another one) are
+ *  swapped for a grey patch before the layer is turned into pixels: html-to-image fails the whole shot over one of
+ *  them, with nothing but an error event to say why. Their addresses are handed back. */
+async function setAsideBroken(el: HTMLElement): Promise<string[]> {
+  const out: string[] = [];
+  await Promise.all(
+    [...el.querySelectorAll("img")].map(async (img) => {
+      const src = img.currentSrc || img.getAttribute("src") || "";
+      if (!src || /^(data|blob):/i.test(src)) return;
+      const ok = await fetch(src, { signal: AbortSignal.timeout(8000) })
+        .then((r) => r.ok && /^image\//i.test(r.headers.get("content-type") ?? ""))
+        .catch(() => false);
+      if (ok) return;
+      out.push(src);
+      img.removeAttribute("srcset");
+      img.src = MISSING;
+    }),
+  );
+  return out;
+}
+
 /** The drawn layer as a PNG data URL, at `scale` pixels per dp, cut down to `crop` for a part; a long screen is drawn
  *  no taller than `maxH` dp when that is given (a model reads the top of a feed as well as all of it). A PNG longer
  *  than `jpegOver` characters (a screen with a painted backdrop is megabytes) comes as a JPEG instead: every picture is
- *  sent again with each request of a turn. */
-export async function capture(layer: HTMLElement, frame: Frame, scale = 1, crop?: Crop, maxH?: number, jpegOver?: number): Promise<string> {
+ *  sent again with each request of a turn. The addresses of pictures that would not draw, and were left out, go into
+ *  `skipped`. */
+export async function capture(layer: HTMLElement, frame: Frame, scale = 1, crop?: Crop, maxH?: number, jpegOver?: number, skipped?: string[]): Promise<string> {
   const el = layer.querySelector<HTMLElement>(`[data-export="${CSS.escape(frame.id)}"]`) ?? layer;
   const w = frameSizeOf(frame).w;
   const h = maxH ? Math.min(frameLengthOf(frame), maxH) : frameLengthOf(frame);
+  const broken = await setAsideBroken(el);
+  /* one that still fails as it is copied is left blank rather than failing the whole picture */
+  const onImageErrorHandler = (e: Event | string) => {
+    const src = typeof e === "string" ? "" : ((e.target as HTMLImageElement | null)?.src ?? "");
+    broken.push(src && !src.startsWith("data:") ? src : "a picture");
+  };
   /* the faces its words use, and only those: without them the words fall back to a wider face and get cut short */
-  const canvas = await toCanvas(el, { pixelRatio: scale, width: w, height: h, fontEmbedCSS: await shotFontCss(el) });
+  const canvas = await toCanvas(el, { pixelRatio: scale, width: w, height: h, fontEmbedCSS: await shotFontCss(el), imagePlaceholder: MISSING, onImageErrorHandler });
+  skipped?.push(...broken);
   const encode = (c: HTMLCanvasElement) => {
     const png = c.toDataURL("image/png");
     return jpegOver && png.length > jpegOver ? c.toDataURL("image/jpeg", 0.9) : png;

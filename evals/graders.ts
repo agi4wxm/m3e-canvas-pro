@@ -160,6 +160,19 @@ const ancestors = (p: Placed): Placed[] => {
   return out;
 };
 
+/** How many times a part is drawn: once, times the rows of each container that repeats the child it is in (a
+ *  container repeats its first child once per row of its collection, up to its limit). */
+export function copiesOf(g: Graded, p: Placed): number {
+  let n = 1;
+  for (let prev = p, at = p.parent; at; prev = at, at = at.parent) {
+    const r = at.group?.repeat;
+    if (!r || at.node.children[0]?.id !== prev.node.id) continue;
+    const rows = g.o.final.collections?.find((c) => c.id === r.collection)?.rows.length ?? 1;
+    n *= Math.max(1, r.limit !== undefined ? Math.min(rows, r.limit) : rows);
+  }
+  return n;
+}
+
 /** a deep look through a value for strings */
 const stringsIn = (v: unknown, out: string[] = []): string[] => {
   if (typeof v === "string") out.push(v);
@@ -212,7 +225,8 @@ export const finished = (): Check => ({
   critical: true,
   run(g) {
     const left = g.o.calls.filter((c, i) => {
-      if (c.ok || READS.has(c.name) || (c.error?.code === "refused" && /drawings?/i.test(c.error.message))) return false;
+      /* a removal the author declined is not an error to recover from: the work was meant to stay */
+      if (c.ok || READS.has(c.name) || (c.error?.code === "refused" && /drawings?/i.test(c.error.message)) || c.error?.code === "declined") return false;
       const ran = opsOf(c);
       return !g.o.calls.slice(i + 1).some((d) => d.ok && (d.name === c.name || opsOf(d).some((x) => ran.includes(x))));
     });
@@ -265,7 +279,9 @@ export const has = (id: string, label: string, match: (p: Placed, g: Graded) => 
     const screens = screensOf(g, o.screens);
     const found = screens.flatMap((s) => partsOn(g, s)).filter((p) => match(p, g));
     const min = o.min ?? 1;
-    return ok(found.length >= min, `${found.length} found (need ${min})${found.length ? `: ${found.slice(0, 4).map((p) => `${p.node.slug}${p.node.kit ? `/${p.node.kit}` : ""} ${quote(p.node.name)}`).join(", ")}` : ""} on ${screens.join(", ") || "no screen"}`);
+    /* a part in a repeated row is drawn once per row */
+    const drawn = found.reduce((n, p) => n + copiesOf(g, p), 0);
+    return ok(drawn >= min, `${drawn} found (need ${min})${drawn !== found.length ? ` (${found.length} in the document, the rest repeated rows)` : ""}${found.length ? `: ${found.slice(0, 4).map((p) => `${p.node.slug}${p.node.kit ? `/${p.node.kit}` : ""} ${quote(p.node.name)}`).join(", ")}` : ""} on ${screens.join(", ") || "no screen"}`);
   },
 });
 
@@ -606,10 +622,15 @@ export const svgPlaced = (o: { inside?: (p: Placed) => boolean; label?: string }
   critical: true,
   run(g) {
     const svgs = [...g.placed.values()].filter((p) => p.node.slug === "svg" && g.addedIds.has(p.node.id) && typeof p.item?.props?.markup === "string" && p.item.props.markup.length > 0);
-    if (!svgs.length) return ok(false, "no SVG markup part added");
+    /* or a drawing kept as one of the document's own icons (svg:<id>) that a part in place now shows by name */
+    const fresh = Object.entries(g.o.final.icons ?? {}).filter(([id, markup]) => g.o.start.icons?.[id] !== markup && sanitizeSvg(markup) !== null);
+    const named = (p: Placed, id: string) => stringsIn(p.item?.props).includes(`svg:${id}`);
+    const showing = fresh.flatMap(([id]) => [...g.placed.values()].filter((p) => named(p, id) && (!o.inside || o.inside(p) || ancestors(p).some(o.inside))).map((p) => ({ id, p })));
+    if (!svgs.length && !showing.length) return ok(false, fresh.length ? `${fresh.length} new document icons, none shown in place` : "no SVG markup part added");
     const clean = svgs.filter((p) => sanitizeSvg(p.item!.props!.markup as string) !== null);
     const inside = o.inside ? clean.filter((p) => ancestors(p).some(o.inside!)) : clean;
-    return ok(inside.length > 0, `${svgs.length} SVG parts, ${clean.length} sanitize, ${inside.length} in place${inside[0] ? ` (${inside[0].node.id}, ${(inside[0].item!.props!.markup as string).length} chars)` : ""}`);
+    const icon = showing[0] ? `; document icon svg:${showing[0].id} shown by ${showing[0].p.node.id}` : "";
+    return ok(inside.length > 0 || showing.length > 0, `${svgs.length} SVG parts, ${clean.length} sanitize, ${inside.length} in place${inside[0] ? ` (${inside[0].node.id}, ${(inside[0].item!.props!.markup as string).length} chars)` : ""}${icon}`);
   },
 });
 
@@ -659,6 +680,119 @@ export const asks = (): Check => ({
   id: "asks",
   label: "asks or says what it would do",
   run: (g) => ok(/[?？]/.test(g.o.text), g.o.text ? quote(g.o.text.replace(/\s+/g, " "), 120) : "no answer"),
+});
+
+/* ---------- flows, long screens, materials ---------- */
+
+/** a navigation bar, a kit's tab bar, or a box pinned to the foot as one */
+export const isTabBar = (p: Placed) => p.node.kit === "tab-bar" || p.node.slug === "navigation-bar" || (p.node.slug === "box" && p.item?.props?.pin === "bottom");
+
+/** where the taps on a part (and what it holds) go: screen ids, "back", or "none" */
+function tapsUnder(g: Graded, p: Placed): string[] {
+  const out: string[] = [];
+  const add = (a: unknown) => {
+    const r = a as { to?: unknown; else?: unknown } | undefined;
+    if (r && typeof r.to === "string") out.push(r.to);
+    if (r?.else) add(r.else);
+  };
+  for (const q of g.placed.values()) {
+    if (q !== p && !ancestors(q).includes(p)) continue;
+    add(q.item?.action);
+    for (const a of Object.values(q.item?.actions ?? {})) add(a);
+  }
+  return out;
+}
+
+/** A small app of several screens wired together: screens with a tab bar that switch to each other, a tap on one of
+ *  them that opens a screen without the bar (the detail), and a way back from there. */
+export const navFlow = (o: { minScreens?: number } = {}): Check => ({
+  id: "nav-flow",
+  label: "tab bar screens switch to each other, a tap opens a detail, the detail goes back",
+  critical: true,
+  run(g) {
+    const screens = g.doc.frames.filter((f) => partsOn(g, f.id).length).map((f) => f.id);
+    const barOf = new Map(screens.map((s) => [s, partsOn(g, s).find(isTabBar)] as const));
+    const tabbed = screens.filter((s) => barOf.get(s));
+    const switching = tabbed.filter((s) => tapsUnder(g, barOf.get(s)!).some((to) => to !== s && tabbed.includes(to)));
+    const details = screens.filter((s) => !barOf.get(s));
+    const opens = tabbed.flatMap((s) => partsOn(g, s).filter((p) => !ancestors(p).some(isTabBar) && !isTabBar(p)).flatMap((p) => (p.item?.action?.to ? [p.item.action.to] : Object.values(p.item?.actions ?? {}).map((a) => a?.to)))).filter((to): to is string => !!to && details.includes(to));
+    const back = details.filter((d) => partsOn(g, d).some((p) => [p.item?.action, ...Object.values(p.item?.actions ?? {})].some((a) => a?.to === "back" || (!!a?.to && tabbed.includes(a.to)))));
+    const enough = screens.length >= (o.minScreens ?? 3);
+    return ok(enough && switching.length >= 2 && opens.length > 0 && back.some((d) => opens.includes(d)), `${screens.length} screens; tab bars on ${tabbed.join(", ") || "none"}, switching from ${switching.join(", ") || "none"}; opens ${[...new Set(opens)].join(", ") || "no detail"}; back from ${back.join(", ") || "none"}`);
+  },
+});
+
+/** a screen runs longer than the device, so it scrolls */
+export const scrolls = (o: { screen: string; min?: number }): Check => ({
+  id: "scrolls",
+  label: "the screen is long enough to scroll",
+  critical: true,
+  run(g) {
+    const f = g.doc.frames.find((x) => x.id === o.screen);
+    if (!f) return ok(false, `no screen ${o.screen}`);
+    const h = frameSizeOf(f).h;
+    const L = frameLengthOf(f);
+    const lowest = Math.max(0, ...partsOn(g, o.screen).filter((p) => !isBar(p)).map((p) => box(p.node).b));
+    return ok(L >= (o.min ?? h * 1.5) && lowest > h, `length ${L} on a ${h} device, content down to ${Math.round(lowest)}`);
+  },
+});
+
+/** how many parts on a screen show a word (each counted once per time it is drawn, repeated rows included) */
+export const countShowing = (id: string, label: string, word: RegExp, o: { screen: string; min: number; critical?: boolean }): Check => ({
+  id,
+  label,
+  ...(o.critical ? { critical: true } : {}),
+  run(g) {
+    const n = partsOn(g, o.screen).filter((p) => (g.words.get(p.node.id) ?? []).some((w) => word.test(w))).reduce((sum, p) => sum + copiesOf(g, p), 0);
+    return ok(n >= o.min, `${n} parts show ${word} (need ${o.min})`);
+  },
+});
+
+/** the bars stay at their edges: the top bar at the head, the tab bar at the foot of the device or the long screen */
+export const barsPinned = (o: { screen: string }): Check => ({
+  id: "bars-pinned",
+  label: "the top bar at the head and the tab bar at the foot",
+  run(g) {
+    const f = g.doc.frames.find((x) => x.id === o.screen);
+    if (!f) return ok(false, `no screen ${o.screen}`);
+    const parts = partsOn(g, o.screen).filter((p) => !p.parent);
+    const top = parts.find((p) => roleOfPlaced(p) === "top");
+    const tab = parts.find(isTabBar);
+    const h = frameSizeOf(f).h;
+    const L = frameLengthOf(f);
+    const topOk = !!top && box(top.node).t <= 48;
+    const tabOk = !!tab && [h, L].some((edge) => Math.abs(box(tab.node).b - edge) <= 8);
+    return ok(topOk && tabOk, `top bar ${top ? `at ${Math.round(box(top.node).t)}` : "missing"}, tab bar ${tab ? `ends at ${Math.round(box(tab.node).b)} (device ${h}, screen ${L})` : "missing"}`);
+  },
+});
+
+/** a part of a kind stands at the foot of a screen (a pay button pinned at the bottom) */
+export const atFoot = (id: string, label: string, match: (p: Placed) => boolean, o: { within?: number } = {}): Check => ({
+  id,
+  label,
+  run(g) {
+    for (const s of g.touched) {
+      const f = g.doc.frames.find((x) => x.id === s)!;
+      const foot = frameLengthOf(f);
+      const hit = partsOn(g, s).find((p) => match(p) && foot - box(p.node).b <= (o.within ?? 120));
+      if (hit) return ok(true, `${hit.node.slug} ${quote(hit.node.name)} ends ${Math.round(foot - box(hit.node).b)} dp above the foot of ${s}`);
+    }
+    return ok(false, `none within ${o.within ?? 120} dp of the foot of ${g.touched.join(", ") || "no screen"}`);
+  },
+});
+
+/** the custom style the document wears draws its material: rules (or a screen) with textures, strokes or shadows */
+export const styleTexture = (o: { min?: number } = {}): Check => ({
+  id: "texture",
+  label: "the style draws its material (textures, strokes, shadows)",
+  run(g) {
+    const key = g.o.final.theme?.style;
+    const style = g.o.final.styles?.find((s) => s.key === key);
+    if (!style) return ok(false, "no custom style worn");
+    const css = [style.screen ?? "", ...(style.rules ?? []).map((r) => Object.entries(r.declarations).map(([k, v]) => `${k}:${v}`).join(";"))].join("\n");
+    const kinds = [/gradient\(/.test(css) && /repeating|radial|background-size/.test(css) ? "texture" : "", /border[^:]*:[^;]*(dashed|dotted|double|solid)/.test(css) ? "stroke" : "", /(box|text)-shadow/.test(css) ? "shadow" : ""].filter(Boolean);
+    return ok(kinds.length >= (o.min ?? 2), `${style.rules?.length ?? 0} rules; draws ${kinds.join(", ") || "only colors"}`);
+  },
 });
 
 /** a custom test of the observation, for what only one task needs */

@@ -307,6 +307,33 @@ export const FIXTURES: Record<string, Fixture> = {
         tx.run(ops.addPart, { slug: "button", id: "checkout", screen: "cart", at: { x: 16, y: 800 }, props: { label: "Check out", width: 380 } });
       }),
   },
+
+  /** a social feed screen with its bars and one post, to fill as a long scrolling screen, in English */
+  "feed-en": {
+    lang: "en",
+    doc: () =>
+      made("en", (tx) => {
+        tx.run(ops.setTitle, { title: "Murmur" });
+        tx.run(ops.addScreen, { id: "feed", name: "Feed" });
+        tx.run(ops.addPart, { slug: "app-bar", id: "bar", screen: "feed", at: { x: 0, y: 0 }, props: { title: "Murmur", trailing: "notifications" } });
+        tx.run(ops.addTree, {
+          screen: "feed",
+          at: { x: 16, y: 80 },
+          tree: {
+            part: "box",
+            id: "post-1",
+            name: "Post",
+            props: { surface: "card", layout: "column", gap: 8, padX: 12, padY: 12, hugWidth: false, width: 380 },
+            children: [
+              { part: "box", id: "post-1-head", props: { layout: "row", gap: 8, align: "center", padX: 0, padY: 0 }, children: [{ part: "avatar", props: { initials: "AL" } }, { part: "text", props: { text: "Ada Lin", style: "lead" } }, { part: "text", props: { text: "2h", color: "muted" } }] },
+              { part: "text", props: { text: "First morning swim of the year. The water was freezing and perfect." } },
+              { part: "box", id: "post-1-actions", props: { layout: "row", gap: 8, padX: 0, padY: 0 }, children: [{ part: "button", props: { label: "Like", icon: "favorite", variant: "text" } }, { part: "button", props: { label: "Comment", icon: "chat_bubble", variant: "text" } }] },
+            ],
+          },
+        });
+        tx.run(ops.addPart, { slug: "navigation-bar", id: "nav", screen: "feed", at: { x: 0, y: 828 }, props: { items: [{ label: "Feed", icon: "home" }, { label: "Search", icon: "search" }, { label: "Profile", icon: "person" }] } });
+      }),
+  },
 };
 
 /** a fixture's document: one built here, or a project file in evals/fixtures/ */

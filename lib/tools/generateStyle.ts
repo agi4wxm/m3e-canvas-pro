@@ -31,6 +31,12 @@ export function styleSystemPrompt(): string {
     "- type: {\"title-large\": [size, line, weight, tracking], …} for display/headline/title/body/label × large/medium/small; capsLabels, italicDisplay: booleans.",
     '- rules (optional, few): [{"selector": "[data-slot=\\"card\\"]", "declarations": {"border": "1px solid var(--md-sys-color-outline-variant)", "box-shadow": "0 1px 0 #0000000F"}}]. Selectors only by [data-slot=…], [data-surface=…], other [data-*] / [aria-*] attributes and states (:hover, :checked…); colors as var(--md-sys-color-<role-in-kebab-case>) or #hex; no url(), no !important.',
     "",
+    "Show the material, not only its colors. When the description names a material, a medium or an era (paper, notebook, leather, wood, linen, chalkboard, neon, pixel, terminal, glass, metal…), write 4–10 rules that draw it, within what rules allow:",
+    '- texture as background-image with a background-size: ruled or grid lines with repeating-linear-gradient (paper, notebook), grain or dots with radial-gradient (linen, leather, newsprint), on the screen (the `screen` field takes gradients too: "repeating-linear-gradient(#0000 0 27px, #2B5D8C1F 27px 28px), linear-gradient(#FBF4E6, #FBF4E6)", gradients only) and on surfaces;',
+    "- edges as strokes: dashed or double borders (stitching, tape, a margin line), hard 2px outlines with an offset box-shadow and no radius (pixel, comic), an inset box-shadow for a pressed or stamped edge;",
+    "- light as shadows: text-shadow and box-shadow glows in the accent (neon), soft emboss and deboss (leather, metal), a backdrop-filter blur (glass);",
+    "- aim them at named parts: & (the style's scope), [data-slot=card], [data-surface=card], [data-surface=field], [data-button], [data-slot=input], [data-slot=navigation-bar], [data-slot=tabs-trigger]. Keep words legible over a texture: lines and grain faint (alpha 1F or less).",
+    "",
     "Legibility is checked and must hold in both modes: every pair reads at 4.5:1 at least — " + READS.map(([bg, fg]) => `${fg} on ${bg}`).join(", ") + "; outline on surface 2.8:1; primary on surfaceContainerHigh 3:1.",
     "Make the palette coherent: surfaces in a few close steps (surface lightest in light mode, darkest in dark), on- colors that read on their grounds, containers as soft tints of their accent.",
   ].join("\n");
@@ -91,7 +97,7 @@ export const generateStyle = tool<Args>({
   name: "generate_style",
   group: "generate",
   description:
-    'Writes a custom style with the text model, from a description ("warm paper notebook: cream paper, ink-blue accents, serif headings") and/or an attached reference picture (ref1…), validated (colors, contrast, catalog recipes, safe CSS), added to the document and worn unless wear is false. To change it after looking at a screen in it, call again with refine (its key) and feedback. About 20–60 s.',
+    'Writes a custom style with the text model, from a description and/or an attached reference picture (ref1…), validated (colors, contrast, catalog recipes, safe CSS), added to the document and worn unless wear is false. Describe the material and its details, not only colors ("warm paper notebook: cream paper with faint blue ruled lines and a red margin line, ink-blue accents, cards with a soft deckled shadow, serif headings"): the style then draws textures, strokes and shadows. To change it after looking at a screen in it, call again with refine (its key) and feedback. About 20–60 s.',
   input: {
     type: "object",
     properties: {

@@ -104,7 +104,7 @@ export class HeadlessRenderer {
 
   /** a renderer for the tools, drawing what `get` holds; `measured` is told the sizes the parts came out at */
   forStore(get: () => CoreState, measured?: (w: Record<string, number>) => void): Renderer & { close(): Promise<void> } {
-    return { screenshot: (id, o) => this.shoot(get(), id, o?.scale ?? 1, measured), close: () => this.close() };
+    return { screenshot: (id, o) => this.shoot(get(), id, o?.scale ?? 1, measured, o?.onSkipped), close: () => this.close() };
   }
 
   private async open(): Promise<PwPage> {
@@ -144,7 +144,7 @@ export class HeadlessRenderer {
     return this.page;
   }
 
-  async shoot(state: CoreState, id: string, scale: number, measured?: (w: Record<string, number>) => void): Promise<string> {
+  async shoot(state: CoreState, id: string, scale: number, measured?: (w: Record<string, number>) => void, onSkipped?: (urls: string[]) => void): Promise<string> {
     const page = await this.ready();
     const lang = this.lang;
     try {
@@ -153,7 +153,11 @@ export class HeadlessRenderer {
       measured?.(sizes);
       const widths = { ...guessMeasurer.measure(state), ...sizes };
       const laid = laidOut({ ...state, session: { ...state.session, widths } }, widths);
-      return await page.evaluate((job) => window.m3eRender!(job as never), { doc: laid.doc, widths, id, scale, lang });
+      const out: { png: string; skipped: string[] } | string = await page.evaluate((job) => window.m3eRender!(job as never), { doc: laid.doc, widths, id, scale, lang });
+      /* a render page built before pictures were set aside hands back the PNG alone */
+      if (typeof out === "string") return out;
+      if (out.skipped.length) onSkipped?.(out.skipped);
+      return out.png;
     } catch (e) {
       throw new ToolFailure("failed", `The screenshot was not drawn: ${e instanceof Error ? e.message.split("\n")[0] : String(e)}`, "Try once more; read the outline if it fails again.");
     }

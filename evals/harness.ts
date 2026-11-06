@@ -153,6 +153,9 @@ export type RunOptions = {
   budgetTokens?: number;
   /** drawings the whole suite may still make; each task takes what it uses */
   drawings: { left: number };
+  /** What the author says when the agent asks to take away much of their work (lib/agent/guard.ts): the editor shows
+   *  Allow / Don't, the suite answers by policy. "decline" (the default) is the author who wants to be asked first. */
+  destructive?: "allow" | "decline";
   onEvent?: (e: TurnEvent) => void;
 };
 
@@ -261,6 +264,7 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
     gen: { settings, adapter, remote: capped.remote },
     maxSteps: budget.steps,
     signal: ac.signal,
+    confirm: () => o.destructive === "allow",
     onEvent: (e) => {
       if (e.type === "tool_start") {
         const batch = e.name === "apply_ops" && Array.isArray(e.args?.ops) ? (e.args.ops as { op?: unknown }[]).map((x) => String(x?.op ?? "")) : undefined;

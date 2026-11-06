@@ -8,6 +8,7 @@ import { t } from "../../i18n";
 import { op, OpError, S } from "../op";
 import { withSession, type CoreState } from "../state";
 import { componentById, groupById } from "./common";
+import { pictureError } from "../images";
 
 export const makeComponentOp = op<{ ids: string[]; name?: string; id?: string }, { id: string; instanceId: string; itemId: string }>({
   name: "make_component",
@@ -100,6 +101,8 @@ export const setOverrides = op<{ id: string; overrides?: Group["overrides"] | nu
         const [path, prop] = [a.key.slice(0, a.key.lastIndexOf("/")), a.key.slice(a.key.lastIndexOf("/") + 1)];
         const part = overridableParts(def, s.doc.components).find((p) => p.path === path);
         if (!part || !part.props.some((d) => d.key === prop)) throw new OpError("invalid_value", `${a.key} is not something this instance can override.`, a.key);
+        const picture = part.props.find((d) => d.key === prop)?.kind === "image" && a.value !== null ? pictureError(a.value) : null;
+        if (picture) throw new OpError("invalid_value", `${a.key} ${picture}`, a.key);
       }
       const next = { ...g.overrides };
       if (a.value === null || a.value === undefined) delete next[a.key];

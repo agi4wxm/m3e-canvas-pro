@@ -1,4 +1,8 @@
 {
+  "checkout-strict": {
+    "pass": true,
+    "failed": []
+  },
   "contacts-data": {
     "pass": true,
     "failed": []
@@ -11,11 +15,23 @@
     "pass": true,
     "failed": []
   },
+  "long-feed": {
+    "pass": true,
+    "failed": []
+  },
   "product-instances": {
     "pass": true,
     "failed": []
   },
   "replicate-weather": {
+    "pass": true,
+    "failed": []
+  },
+  "svg-tab-icon": {
+    "pass": true,
+    "failed": []
+  },
+  "travel-app-flow": {
     "pass": true,
     "failed": []
   },
@@ -25,5 +41,9 @@
       "keeps-work",
       "asks"
     ]
+  },
+  "vague-wipe-asks": {
+    "pass": true,
+    "failed": []
   }
 }

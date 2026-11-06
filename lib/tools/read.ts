@@ -13,7 +13,8 @@ import { kitLookOf } from "../kits";
 import { COLOR_ROLES, LOOK_PRESETS, STRICT_LOOK_KEYS, lookForModel } from "../look";
 import { rulesForModel } from "../styleRules";
 import { STYLE_PACKS, isStrict, recipesOf, styleOf, uxOf, withDocStyles } from "../styles";
-import { COLOR_TOKENS, ICON_FAMILIES, TEXT_TOKENS, frameLengthOf, frameSizeOf, type Doc } from "../tokens";
+import { COLOR_TOKENS, ICON_FAMILIES, TEXT_TOKENS, frameLengthOf, frameSizeOf, type ComponentDef, type Doc } from "../tokens";
+import { overridableParts } from "../instances";
 import { FAMILY_LACKS, ICON_NAMES } from "./icons.generated";
 import { partPropsSchema } from "./schema";
 import { tool, ToolFailure, type Tool, type ToolEnv } from "./types";
@@ -95,7 +96,7 @@ const findNodes = tool<FindQuery>({
 const describeNodeTool = tool<{ id: string }>({
   name: "describe_node",
   group: "read",
-  description: "Everything about one part: what it is, its screen and bounds, its group's fields, its parent and children, its auto layout and how it sits in its parent's, its own fields (fill, look, tap…), each prop with its value, default and the values it takes, and the places a tap can be set on (slots).",
+  description: "Everything about one part (also one inside a component's definition, with its overrideKeys; or a component by its id): what it is, its screen and bounds, its group's fields, its parent and children, its auto layout and how it sits in its parent's, its own fields (fill, look, tap…), each prop with its value, default and the values it takes, and the places a tap can be set on (slots).",
   input: obj({ id: str("the part's id (a screen's id gives the screen and its outline)") }, ["id"]),
   readOnly: true,
   destructive: false,
@@ -106,7 +107,19 @@ const describeNodeTool = tool<{ id: string }>({
     /* a screen asked about as if it were a part: what a model reaches for first */
     const f = doc.frames.find((x) => x.id === a.id);
     if (f) return { result: { screen: { id: f.id, name: f.name, ...frameSizeOf(f), ...(f.note ? { note: f.note } : {}) }, outline: outline(doc, widths, { screen: f.id, depth: 2 }) } };
-    throw new ToolFailure("not_found", `There is no part ${JSON.stringify(a.id)} on the canvas.`, "get_outline or find_nodes gives the ids of the parts.");
+    /* a component, or a part inside one's definition: what its instances show, and the keys that change it */
+    const c = doc.components?.find((x) => x.id === a.id);
+    if (c) return { result: componentOf(doc, c) };
+    const inDef = doc.components?.find((x) => x.groups.some((g) => g.items.some((it) => it.id === a.id)));
+    if (inDef) {
+      const part = describeNode({ ...doc, groups: inDef.groups, frames: [] }, widths, a.id);
+      const keys = overridableParts(inDef, doc.components).find((p) => p.path === a.id)?.props.map((p) => `${a.id}/${p.key}`) ?? [];
+      if (part) {
+        const { screen: _s, ...rest } = part;
+        return { result: { ...rest, component: { id: inDef.id, name: inDef.name }, overrideKeys: keys, note: keys.length ? "A part of a component's definition: set_overrides {id: an instance, key, value} changes it in one instance; editing the definition changes every instance." : "A part of a component's definition, with nothing an instance can override." } };
+      }
+    }
+    throw new ToolFailure("not_found", `There is no part ${JSON.stringify(a.id)} on the canvas or in a component.`, "get_outline or find_nodes gives the ids of the parts; list_components those inside components.");
   },
 });
 
@@ -312,11 +325,40 @@ const listIcons = tool<{ family?: string; query?: string; limit?: number }>({
 
 /* ---------- reuse and data ---------- */
 
+/** what a part shows in words, short */
+const wordsOf = (props: Record<string, unknown> | undefined): string | undefined => {
+  for (const k of ["text", "label", "title", "initials", "placeholder", "name"]) {
+    const v = props?.[k];
+    if (typeof v === "string" && v.trim()) return v.length > 40 ? `${v.slice(0, 40)}…` : v;
+  }
+  return undefined;
+};
+
+/** A component as a model uses it: its parts and what each shows, and the keys an instance changes them by
+ *  (set_overrides `key`), with the value the definition gives each; switches are named without their values. */
+function componentOf(doc: Doc, c: ComponentDef, instances?: number) {
+  const parts = overridableParts(c, doc.components);
+  const value = (v: unknown) => (typeof v === "string" && v.startsWith("data:") ? "(a picture)" : JSON.stringify(v ?? ""));
+  return {
+    id: c.id,
+    name: c.name,
+    w: c.w,
+    h: c.h,
+    parts: c.groups.flatMap((g) => g.items.map((it) => `${it.id}:${it.component}${wordsOf(it.props) ? ` "${wordsOf(it.props)}"` : ""}`)),
+    overrideKeys: parts.flatMap((p) => {
+      const defaults = defaultValues(partBySlug(p.item.component)!);
+      return p.props.filter((d) => d.kind !== "bool").map((d) => `${p.path}/${d.key} = ${value(p.item.props?.[d.key] ?? defaults[d.key])}`);
+    }),
+    switches: parts.flatMap((p) => p.props.filter((d) => d.kind === "bool").map((d) => `${p.path}/${d.key}`)),
+    ...(instances !== undefined ? { instances } : {}),
+  };
+}
+
 const listComponents = tool<Record<string, never>>({
   name: "list_components",
   group: "read",
   description:
-    "The document's reusable components (id, name, size, the parts in their definition, how many instances there are), the set each variant belongs to with its values, and each component's properties. add_instance places one; set_overrides changes an instance's words, icons or pictures; swap_instance picks another variant; set_instance_props sets its properties.",
+    "The document's reusable components: id, name, size, the parts in their definition (id:slug \"words\"), the keys an instance overrides them by (overrideKeys: `partId/prop = the definition's value`, switches), how many instances there are, the set each variant belongs to with its values, and each component's properties. add_instance places one; set_overrides {id: instance, key, value} changes an instance's words, icons or pictures; swap_instance picks another variant; set_instance_props sets its properties.",
   input: obj({}),
   readOnly: true,
   destructive: false,
@@ -325,12 +367,7 @@ const listComponents = tool<Record<string, never>>({
     const groups = s.editing ? s.editing.main.groups : s.doc.groups;
     return {
       result: (s.doc.components ?? []).map((c) => ({
-        id: c.id,
-        name: c.name,
-        w: c.w,
-        h: c.h,
-        parts: c.groups.flatMap((g) => g.items.map((it) => `${it.id}:${it.component}`)),
-        instances: groups.filter((g) => g.instanceOf === c.id).length,
+        ...componentOf(s.doc as Doc, c, groups.filter((g) => g.instanceOf === c.id).length),
         ...(c.set ? { set: c.set, setName: s.doc.componentSets?.find((x) => x.id === c.set)?.name, variant: c.variant } : {}),
         ...(c.props?.length ? { props: c.props } : {}),
       })),
@@ -368,8 +405,10 @@ const screenshot = tool<{ id: string; scale?: number }>({
     const isScreen = s.doc.frames.some((f) => f.id === a.id);
     const isPart = !isScreen && s.doc.groups.some((g) => g.items.some((it) => it.id === a.id));
     if (!isScreen && !isPart) throw new ToolFailure("not_found", `There is no screen or part ${JSON.stringify(a.id)}.`, "list_screens gives the screens' ids.");
-    const png = await env.renderer.screenshot(a.id, { scale: a.scale, signal: env.signal });
-    return { result: { id: a.id, kind: isScreen ? "screen" : "part" }, images: [png] };
+    let skipped: string[] = [];
+    const png = await env.renderer.screenshot(a.id, { scale: a.scale, signal: env.signal, onSkipped: (urls) => (skipped = urls) });
+    const left = skipped.length ? { skipped: skipped.map((u) => (u.length > 120 ? `${u.slice(0, 120)}…` : u)), note: `${skipped.length === 1 ? "A picture" : `${skipped.length} pictures`} would not load and ${skipped.length === 1 ? "is" : "are"} drawn as a grey patch. Only pictures drawn into the document (data: URLs) and the project's own are sure to show: replace outside addresses with generate_image, an icon, or an empty image placeholder.` } : {};
+    return { result: { id: a.id, kind: isScreen ? "screen" : "part", ...left }, images: [png] };
   },
 });
 

@@ -159,6 +159,8 @@ npx playwright install chromium
 
 服务器会在 `PLAYWRIGHT_PATH`、`NODE_PATH`、全局模块里找它。没装时，截图工具返回错误并说明怎样安装，其他工具不受影响。
 
+屏幕上有加载不了的图片（外链失效、返回的不是图片、不允许复制）时，那张图画成灰块，截图照常返回，结果里的 `skipped` 列出这些地址并提示换成 `generate_image` 或图标；实时模式在编辑器里截图也一样。
+
 ## 安全
 
 | 方面 | 做法 |
@@ -179,6 +181,11 @@ npx playwright install chromium
 
 工具就是注册表的工具，带完整的 JSON Schema 输入、`outputSchema`（结果在 `structuredContent.result` 里，同时有文本），以及 `readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint` 提示。错误以 `{code, message, hint}` 返回，模型能据此改正。截图以图片返回。长时间的调用（生成）会定时发进度通知。
 
+- **常见的猜错按本意读**：点击位置写成属性名（应用栏的 `leading`/`trailing` 是 `icon`/`icon2`）、行的序号或文字，按钮的 `text`（`label`）、图片的 `url`（`src`）这类属性名，都按本意执行。
+- **批量**：`apply_ops` 有操作失败时整批不执行，错误列出每个失败的操作和原因，并说明其余操作没问题，只改这些再发。
+- **图片**：图片属性、列表行的图片、实例的图片覆盖和屏幕的 `backgroundImage` 只接受 `data:image/…` 和项目自己的图片；外链被拒（提示用 `generate_image`）。SVG data URL 先过和矢量原子相同的清理。
+- **组件定义**：`list_components` 给出每个组件的部件和实例可覆盖的键（`部件 id/属性 = 定义里的值`），`describe_node` 也能读组件定义里的部件。
+
 - **说明**：服务器的 instructions 是工具指南（`toolGuide`）加上 MCP 的说明。
 - **提示词**：`guide`（工具指南）、`design_screen`（按一段需求设计一个屏幕，先搭再截图检查）。
 - **资源**：`m3e://document/outline`、`m3e://document/screens`、`m3e://document/components`、`m3e://document/data`、`m3e://document/styles`；目录 `m3e://catalog/parts`、`kits`、`templates`、`looks`、`icons`；模板 `m3e://screen/{id}/outline`、`m3e://screen/{id}/screenshot`、`m3e://node/{id}`、`m3e://part/{slug}`。文档资源可以订阅，改动后会收到通知。
@@ -192,7 +199,7 @@ npx playwright install chromium
 | `get_outline` | 读取 | 是 |  | The document as a compact outline: title and style, components, collections and variables, then each screen and the tree of its parts, one line each (id, part, name, position and … |
 | `list_screens` | 读取 | 是 |  | Every screen: id, name, size, how far it scrolls, background, what it is for, which screen it is another size of, and how many parts stand on it. |
 | `find_nodes` | 读取 | 是 |  | Finds parts that match everything given: on a screen, of a part slug, tier or category, with a name or shown words containing `name` / `text` (case-insensitive). |
-| `describe_node` | 读取 | 是 |  | Everything about one part: what it is, its screen and bounds, its group's fields, its parent and children, its auto layout and how it sits in its parent's, its own fields (fill, l… |
+| `describe_node` | 读取 | 是 |  | Everything about one part (also one inside a component's definition, with its overrideKeys; or a component by its id): what it is, its screen and bounds, its group's fields, its p… |
 | `get_selection` | 读取 | 是 |  | What the author has selected in the editor: the parts (the last one is the one the panel shows) and the selected screen. |
 | `list_parts` | 读取 | 是 |  | The catalog of parts: atoms (box, text, icon, svg, image, button, input… compose them in boxes) and ready-made composites. |
 | `describe_part` | 读取 | 是 |  | One part (or kit) of the catalog in full: its tier and category, default size, whether it holds parts, has an auto layout or splits into atoms, and each prop with its kind, defaul… |
@@ -202,12 +209,12 @@ npx playwright install chromium
 | `get_style` | 读取 | 是 |  | One style in full (the document's own when no key is given): colors (light and dark roles), faces, shape, icon family, control recipes, how its screens are spaced and composed, an… |
 | `look_reference` | 读取 | 是 |  | How to write a part's `look` (its effects: fills, strokes, shadows, glass, text effects, textures…), the look presets with the look each one writes, and the color roles fill, text… |
 | `list_icons` | 读取 | 是 |  | Material Symbols names (snake_case) every icon family draws offline. |
-| `list_components` | 读取 | 是 |  | The document's reusable components (id, name, size, the parts in their definition, how many instances there are), the set each variant belongs to with its values, and each compone… |
+| `list_components` | 读取 | 是 |  | The document's reusable components: id, name, size, the parts in their definition (id:slug "words"), the keys an instance overrides them by (overrideKeys: `partId/prop = the defin… |
 | `list_data` | 读取 | 是 |  | The document's data collections (id, name, fields, rows) and prototype variables (id, name, type, starting value). |
 | `screenshot` | 读取 | 是 |  | A picture of a screen (or of one part, cut out of its screen) as the app draws it, to check your work by eye: alignment, spacing, overflow, contrast, anything missing. |
 | `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
 | `compare_to_reference` | 读取 | 是 |  | Holds a screen of the canvas against the reference picture it copies: draws the screen, hands back both pictures (the reference first), and lays them over each other in a grid, gi… |
-| `apply_ops` | 搭建 |  | 含破坏性操作时 | Runs many operations as one change: all of them or none (if one fails, the document stays as it was and the error says which one), one undo step. |
+| `apply_ops` | 搭建 |  | 含破坏性操作时 | Runs many operations as one change: all of them or none (if any fail, the document stays as it was and the error lists each one that failed and why: fix only those), one undo step. |
 | `set_title` | 搭建 |  |  | Sets the app's name. |
 | `set_brief` | 搭建 |  |  | Sets the brief: what the app is for, in the author's words; it goes into the prompt. |
 | `set_prompt` | 搭建 |  |  | Sets the prompt's fields: title, brief, promptEdit (the prompt as rewritten by hand; null for the generated one), promptOptions (the guidance lines; null for the default set). |
@@ -295,7 +302,7 @@ npx playwright install chromium
 | `reorder_panes` | 搭建 |  |  | Puts a dock's tabs in a new order; what each tab holds follows it. |
 | `generate_svg` | 生成（需 OPENAI_API_KEY） |  |  | Draws a custom SVG and puts it on the canvas as a vector (svg) part: a new icon, a logo, an illustration, a decoration nothing in the catalog has. |
 | `generate_image` | 生成（需 OPENAI_API_KEY） |  |  | Paints a picture with the image model (about 20–40 s): with `background` and `screen`, it becomes the picture behind that whole screen (its scene, filling the screen under every p… |
-| `generate_style` | 生成（需 OPENAI_API_KEY） |  |  | Writes a custom style with the text model, from a description ("warm paper notebook: cream paper, ink-blue accents, serif headings") and/or an attached reference picture (ref1…), … |
+| `generate_style` | 生成（需 OPENAI_API_KEY） |  |  | Writes a custom style with the text model, from a description and/or an attached reference picture (ref1…), validated (colors, contrast, catalog recipes, safe CSS), added to the d… |
 | `undo` | 文件模式自带 |  |  | Takes back the last change this server made to the project file (one tool call, or one apply_ops batch) and saves the file. |
 | `redo` | 文件模式自带 |  |  | Makes the last change undo took back again, and saves the file. |
 | `connection_status` | 服务器自带 | 是 |  | Where this server's calls go, whether an editor tab is paired, and the pairing code when none is. |

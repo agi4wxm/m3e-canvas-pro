@@ -29,7 +29,7 @@ export function useScreenshots(store: DocStore) {
   const chain = useRef<Promise<unknown>>(Promise.resolve());
 
   const renderer = useMemo<Renderer>(() => {
-    const take = async (id: string, o: { scale?: number; signal?: AbortSignal } = {}): Promise<string> => {
+    const take = async (id: string, o: { scale?: number; signal?: AbortSignal; onSkipped?: (urls: string[]) => void } = {}): Promise<string> => {
       const doc = store.get().doc as Doc;
       const target = shotTarget(doc, store.ctx("ai").widths, id);
       if (!target) throw new Error(`there is no screen or part ${id} on a screen`);
@@ -43,7 +43,10 @@ export function useScreenshots(store: DocStore) {
         if (!layer) throw new Error("the screen could not be drawn");
         const scale = Math.max(0.25, Math.min(2, o.scale ?? 1));
         const crop = target.crop && { x: target.crop.x - PAD, y: target.crop.y - PAD, w: target.crop.w + PAD * 2, h: target.crop.h + PAD * 2 };
-        return await capture(layer, target.frame, scale, crop, MAX_H, JPEG_OVER);
+        const skipped: string[] = [];
+        const png = await capture(layer, target.frame, scale, crop, MAX_H, JPEG_OVER, skipped);
+        if (skipped.length) o.onSkipped?.(skipped);
+        return png;
       } finally {
         setShotFrame(null);
       }

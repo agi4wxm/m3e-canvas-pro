@@ -5,6 +5,8 @@
 
 import { OPS, OpError, opByName, schemaError, sessionMeasurer, type CoreState, type Op, type Schema } from "../core";
 import { laidOut } from "../core/ops/common";
+import { picturesCleaned } from "../core/images";
+import { withAliases } from "./aliases";
 import { opInput } from "./schema";
 import { tool, ToolFailure, type Tool, type ToolEnv, type ToolGroup } from "./types";
 
@@ -63,8 +65,10 @@ const isRec = (v: unknown): v is Rec => !!v && typeof v === "object" && !Array.i
  *  document spells "none". */
 const tapOf = (a: unknown): unknown => (isRec(a) ? { ...a, ...(a.to === undefined ? { to: "none" } : {}), ...(isRec(a.else) ? { else: tapOf(a.else) } : {}) } : a);
 
-/** arguments as a model writes them, read the way the operation means them */
-function prepared(name: string, args: Rec): Rec {
+/** arguments as a model writes them, read the way the operation means them, against the state they will run on: the
+ *  names it got nearly right (aliases.ts), pictures cleaned (an SVG goes through the sanitizer), taps filled in */
+function prepared(name: string, given: Rec, s: CoreState): Rec {
+  const args = picturesCleaned(withAliases(name, given, s)) as Rec;
   if (name === "set_action" && isRec(args.action)) return { ...args, action: tapOf(args.action) };
   if (name === "set_item" && isRec(args.patch)) {
     const p = args.patch;
@@ -93,7 +97,7 @@ function runOne(o: Op<never, unknown>, args: Record<string, unknown>, env: ToolE
   const prev = env.store.get();
   let result: unknown;
   try {
-    result = env.store.run(o, prepared(o.name, args) as never, { origin: env.origin, ...(env.history ? { history: env.history } : {}) });
+    result = env.store.run(o, prepared(o.name, args, prev) as never, { origin: env.origin, ...(env.history ? { history: env.history } : {}) });
   } catch (e) {
     if (e instanceof OpError && e.code === "nothing_to_do") return { result: { nothing_to_do: e.message } };
     throw e;
@@ -118,22 +122,35 @@ const BY_NAME = new Map(OP_TOOLS.map((t) => [t.name, t]));
 
 type Call = { op: string; args?: Record<string, unknown> };
 
-/** an operation of a batch failed: which one, and why */
+/** an operation of a batch that failed: which one, and why */
+type Failed = { index: number; op: string; code: string; message: string };
+
+/** the batch failed: every operation that did, so they can all be fixed in one go */
 class BatchFailure extends Error {
-  constructor(
-    readonly index: number,
-    readonly op: string,
-    readonly reason: unknown,
-  ) {
-    super(reason instanceof Error ? reason.message : String(reason));
+  constructor(readonly failed: Failed[]) {
+    super(failed.map((f) => f.message).join("; "));
   }
+}
+
+const failedOf = (index: number, op: string, e: unknown): Failed => ({ index, op, code: e instanceof OpError || e instanceof ToolFailure ? e.code : "failed", message: e instanceof Error ? e.message : String(e) });
+
+/** The words a failed batch comes back with: each operation that failed and why, said once, and that the others were
+ *  fine, so the model changes only those and sends the batch again rather than rewriting it. One that names a part
+ *  an earlier failed one was to make is marked as probably following from it. */
+function batchError(failed: Failed[], total: number): ToolFailure {
+  const first = failed[0];
+  const lines = failed.map((f) => `ops[${f.index}] (${f.op}): ${f.message}${f !== first && f.code === "not_found" ? " (may only follow from an earlier failure)" : ""}`);
+  const ok = total - failed.length;
+  const message = failed.length === 1 ? `ops[${first.index}] (${first.op}) failed, so none of the ${total} operations ran: ${first.message}` : `${failed.length} of the ${total} operations failed, so none ran:\n${lines.join("\n")}`;
+  const hint = ok ? `The other ${ok} ${ok === 1 ? "operation is" : "operations are"} fine: change only ${failed.length === 1 ? `ops[${first.index}]` : "those"} (or drop ${failed.length === 1 ? "it" : "them"}) and send the batch again.` : "Fix them and send the batch again.";
+  return new ToolFailure(first.code as never, message, hint);
 }
 
 export const applyOps = tool<{ ops: Call[]; label?: string }>({
   name: "apply_ops",
   group: "edit",
   description:
-    "Runs many operations as one change: all of them or none (if one fails, the document stays as it was and the error says which one), one undo step. The fastest way to build: a screen, its parts and their props in one call. Give new screens and parts your own ids (`id`, `groupId`) so later operations in the same batch can name them. Each entry is {op: an operation tool's name, args: its arguments}; read tools and generate tools cannot be batched.",
+    "Runs many operations as one change: all of them or none (if any fail, the document stays as it was and the error lists each one that failed and why: fix only those), one undo step. The fastest way to build: a screen, its parts and their props in one call. Give new screens and parts your own ids (`id`, `groupId`) so later operations in the same batch can name them. Each entry is {op: an operation tool's name, args: its arguments}; read tools and generate tools cannot be batched.",
   input: {
     type: "object",
     properties: {
@@ -158,28 +175,30 @@ export const applyOps = tool<{ ops: Call[]; label?: string }>({
         a.label ?? `${a.ops.length} changes`,
         env.origin,
         (tx) => {
+          /* an operation that fails changes nothing, so the rest are still tried: every failure is reported at once,
+             and the whole batch is then taken back */
+          const failed: Failed[] = [];
           a.ops.forEach((c, i) => {
             const t = BY_NAME.get(c.op);
             const o = opByName(c.op);
-            if (!t || !o) throw new BatchFailure(i, c.op, new OpError("bad_args", `There is no operation "${c.op}".`));
-            const args = prepared(c.op, c.args ?? {});
-            const bad = schemaError(t.input as Schema, args, "args");
-            if (bad) throw new BatchFailure(i, c.op, new OpError("bad_args", `${c.op}: ${bad}`));
+            if (!t || !o) return void failed.push(failedOf(i, c.op, new OpError("bad_args", `There is no operation "${c.op}".`)));
             try {
+              const args = prepared(c.op, c.args ?? {}, tx.state);
+              const bad = schemaError(t.input as Schema, args, "args");
+              if (bad) throw new OpError("bad_args", `${c.op}: ${bad}`);
               results.push(lean(c.op, tx.run(o, args as never)));
             } catch (e) {
               if (e instanceof OpError && e.code === "nothing_to_do") results.push({ nothing_to_do: e.message });
-              else throw new BatchFailure(i, c.op, e);
+              else failed.push(failedOf(i, c.op, e));
             }
           });
+          if (failed.length) throw new BatchFailure(failed);
         },
         env.history ? { history: env.history } : {},
       );
     } catch (e) {
       if (!(e instanceof BatchFailure)) throw e;
-      const cause = e.reason;
-      const code = cause instanceof OpError ? cause.code : "failed";
-      throw new ToolFailure(code, `ops[${e.index}] (${e.op}) failed, so none of the ${a.ops.length} operations ran: ${e.message}`, "Fix that operation (or drop it) and send the whole batch again.");
+      throw batchError(e.failed, a.ops.length);
     }
     afterWrite(env, prev);
     return { result: { ran: a.ops.length, results } };

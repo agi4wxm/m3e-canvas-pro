@@ -3,7 +3,8 @@
  * and calls two functions on the page:
  *
  *   m3eMeasure({doc, lang})                 the sizes the parts come out at, as the canvas measures them
- *   m3eRender({doc, widths, id, scale, lang})  a PNG of a screen (or a part cut out of its screen) as a data URL
+ *   m3eRender({doc, widths, id, scale, lang})  a PNG of a screen (or a part cut out of its screen) as a data URL, with
+ *                                            the addresses of pictures that would not draw and were left out
  *
  * Both take the document as the store holds it (the canvas as shown), with the theme always present. */
 
@@ -23,15 +24,16 @@ import { capture, layerDrawn, shotTarget, ShotLayer, themeFacesLoaded } from "./
 type Widths = Record<string, number>;
 export type MeasureJob = { doc: CoreState["doc"]; lang: Lang };
 export type RenderJob = { doc: CoreState["doc"]; widths: Widths; id: string; scale?: number; lang: Lang };
+export type RenderOut = { png: string; skipped: string[] };
 
 declare global {
   interface Window {
     m3eMeasure?: (job: MeasureJob) => Promise<Widths>;
-    m3eRender?: (job: RenderJob) => Promise<string>;
+    m3eRender?: (job: RenderJob) => Promise<RenderOut>;
   }
 }
 
-type Work = { kind: "measure"; job: MeasureJob; done: (w: Widths) => void; fail: (e: unknown) => void } | { kind: "render"; job: RenderJob; done: (png: string) => void; fail: (e: unknown) => void };
+type Work = { kind: "measure"; job: MeasureJob; done: (w: Widths) => void; fail: (e: unknown) => void } | { kind: "render"; job: RenderJob; done: (out: RenderOut) => void; fail: (e: unknown) => void };
 
 /** every part the canvas would draw, with the size of the screen it stands on */
 function partsOf(doc: Doc): { item: Item; screen?: { w: number; h: number } }[] {
@@ -103,7 +105,9 @@ export function RenderPage() {
           work.done(out);
         } else {
           if (!target) throw new Error(`There is no screen or part ${JSON.stringify(work.job.id)} to draw.`);
-          work.done(await capture(layer.current!, target.frame, work.job.scale ?? 1, target.crop));
+          const skipped: string[] = [];
+          const png = await capture(layer.current!, target.frame, work.job.scale ?? 1, target.crop, undefined, undefined, skipped);
+          work.done({ png, skipped });
         }
       } catch (e) {
         work.fail(e instanceof Error ? e.message : String(e));

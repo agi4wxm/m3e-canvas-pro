@@ -2,7 +2,7 @@
  * starts from, what it may spend and how it is graded. Requests are written the way a person types them, in the
  * language their editor is in. Add one by appending to TASKS (see README.md). */
 
-import { asks, autoLayout, collection, component, corners, counter, custom, customStyle, darkControl, darkVar, evenSpacing, finished, has, inBounds, inBudget, instances, isA, keepsWork, language, likeness, newScreen, noOverlap, partsOn, repeat, shows, strictKept, svgPlaced, tapToDetail, undoOne, type Placed } from "./graders";
+import { asks, atFoot, autoLayout, barsPinned, collection, component, corners, counter, countShowing, custom, customStyle, darkControl, darkVar, evenSpacing, finished, has, inBounds, inBudget, instances, isA, keepsWork, language, likeness, navFlow, newScreen, noOverlap, partsOn, repeat, scrolls, shows, strictKept, styleTexture, svgPlaced, tapToDetail, undoOne, type Placed } from "./graders";
 import type { Budget, Check, EvalTask } from "./types";
 
 const MIN = 60_000;
@@ -136,7 +136,7 @@ export const TASKS: EvalTask[] = [
     fixture: "notebook-zh",
     request: "生成一个暖色纸张笔记本风格并穿上。",
     budget: MEDIUM,
-    checks: [...basics(), customStyle({ warm: true }), keepsWork({ critical: true })],
+    checks: [...basics(), customStyle({ warm: true }), styleTexture(), keepsWork({ critical: true })],
   },
   {
     id: "svg-tab-icon",
@@ -212,6 +212,58 @@ export const TASKS: EvalTask[] = [
     request: "都不好看，全删了重做",
     budget: SMALL,
     checks: [finished(), undoOne({ orNothing: true }), inBudget(), keepsWork({ critical: true }), asks()],
+  },
+
+  /* harder tasks, added with the 2026-11-06 fixes (see baselines/2026-11-06-fixes/notes.md) */
+  {
+    id: "travel-app-flow",
+    ability: "flow",
+    title: "A three-screen app wired together: tab bar between two screens, a detail and back",
+    lang: "en",
+    fixture: "blank-en",
+    request: "Build a small travel app: a Trips list, a Trip detail screen and a Saved screen. Trips and Saved share a bottom navigation bar that switches between them. Tapping a trip opens its detail, which has a back button in its top bar.",
+    budget: LARGE,
+    checks: [...basics(), navFlow({ minScreens: 3 }), newScreen({ min: 2 }), language(), autoLayout(), noOverlap(), inBounds()],
+  },
+  {
+    id: "checkout-strict",
+    ability: "new-screen",
+    title: "A checkout form on a strict iOS document: fields, a choice, a switch, a summary, a pinned pay button",
+    lang: "en",
+    fixture: "ios-settings-en",
+    request: "Add a Checkout screen in the current style: shipping fields for name, street, city and postal code, a choice between Standard and Express delivery, a “Save this address” switch, an order summary with three items and a total, and a Pay button pinned to the bottom.",
+    budget: MEDIUM,
+    checks: [
+      ...basics(),
+      strictKept(),
+      newScreen({ name: /checkout/i }),
+      has("fields", "four shipping fields", field, { min: 4, critical: true }),
+      has("switch", "a save-address switch", isA("switch", "toggle"), { critical: true }),
+      shows(["Standard", "Express", "Total", "Pay"], { label: "the delivery choice, the total and the pay button", critical: true }),
+      atFoot("pay-pinned", "the pay button at the foot", (p) => button(p) && /pay/i.test(p.node.name)),
+      language(),
+      autoLayout(),
+      ...tidy(),
+      keepsWork(),
+    ],
+  },
+  {
+    id: "long-feed",
+    ability: "long-screen",
+    title: "A long scrolling feed: stories, eight posts, bars pinned",
+    lang: "en",
+    fixture: "feed-en",
+    request: "Fill the Feed screen with a long scrolling feed: a row of six story avatars under the top bar, then eight posts, each with the author's avatar and name, a time, two lines of text and Like and Comment buttons. The top bar and the bottom navigation stay pinned while the feed scrolls.",
+    budget: LARGE,
+    checks: [
+      ...basics(),
+      scrolls({ screen: "feed" }),
+      countShowing("posts", "eight posts with Like", /^like$/i, { screen: "feed", min: 8, critical: true }),
+      has("stories", "story avatars and post avatars", avatar, { min: 12, screens: ["feed"] }),
+      barsPinned({ screen: "feed" }),
+      noOverlap({ screens: ["feed"] }),
+      inBounds({ screens: ["feed"] }),
+    ],
   },
 ];
 

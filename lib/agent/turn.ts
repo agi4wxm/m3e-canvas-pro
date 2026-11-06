@@ -8,9 +8,11 @@ import { frameOfPart } from "../tokens";
 import { addUsage, emptyUsage, runAgent, type Adapter, type AgentStop, type Message, type ToolOutput, type Usage, type UserPart } from "../llm";
 import { createRegistry, executeTool, toolDefs, toolGuide, type Attachment, type GenerateEnv, type Registry, type Renderer, type ToolOutcome } from "../tools";
 import { GENERATE_TOOLS } from "../tools/generate";
+import { atomsReference } from "../tools/atoms";
 import type { Pixels } from "../tools/pixels";
 import type { Lang } from "../i18n";
 import { diffDocs, isEmptyDiff, touchedScreens, type DocDiff } from "./diff";
+import { declined, plainlyAsksToRemove, removalOf, type ConfirmRemoval, type RemovalAsk } from "./guard";
 import { prunePictures } from "./pictures";
 import { agentSystem, turnContext } from "./prompt";
 import { loadTools, setsFor, setsGuide, toolsIn, TOOL_SETS, type ToolSet } from "./toolsets";
@@ -23,6 +25,9 @@ export type TurnEvent =
   | { type: "tool_end"; step: number; id: string; name: string; ok: boolean; summary: string; images: string[]; ms: number }
   | { type: "review"; screens: string[]; images: string[] }
   | { type: "retry"; attempt: number; delayMs: number }
+  /** a call that would take away much of the author's work waits for their answer (guard.ts); then what they said */
+  | { type: "ask"; step: number; id: string; ask: RemovalAsk }
+  | { type: "answer"; step: number; id: string; allow: boolean }
   /** what the turn has spent so far */
   | { type: "usage"; usage: Usage };
 
@@ -55,6 +60,9 @@ export type TurnOptions = {
   reviews?: number;
   /** a word for the model in front of the request (the author undid the last turn…) */
   note?: string;
+  /** Asks the author whether a call that would take away much of their work, which the request does not plainly ask
+   *  for, may go ahead (the chat panel's Allow / Don't). Left out, such a call is declined: there is no one to ask. */
+  confirm?: ConfirmRemoval;
   signal?: AbortSignal;
   onEvent?: (e: TurnEvent) => void;
 };
@@ -88,7 +96,7 @@ export function agentSetup(o: { canSee: boolean; canDraw: boolean; drawings: num
   const all = createRegistry({ extra });
   const unseen = new Set(o.canSee ? [] : ["screenshot", "compare_to_reference"]);
   const registry = unseen.size ? createRegistry({ extra, only: all.tools.filter((t) => !unseen.has(t.name)).map((t) => t.name) }) : all;
-  return { registry, system: agentSystem({ guide: `${toolGuide(registry.tools, { list: false })}\n\n${setsGuide(registry.tools)}`, canSee: o.canSee, drawings: o.canDraw ? o.drawings : 0, styles: o.canDraw ? (o.styles ?? 2) : 0 }) };
+  return { registry, system: agentSystem({ guide: `${toolGuide(registry.tools, { list: false })}\n\n${setsGuide(registry.tools)}`, canSee: o.canSee, drawings: o.canDraw ? o.drawings : 0, styles: o.canDraw ? (o.styles ?? 2) : 0, parts: atomsReference() }) };
 }
 
 /** what a model reads back from a call: the result as text, and any picture */
@@ -176,6 +184,27 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   let messages: Message[] = [...o.history, user];
   let reviews = o.reviews ?? 1;
   let last: Awaited<ReturnType<typeof runAgent>>;
+  let atStep = 0;
+
+  /* A call that would take away much of the author's work waits for their answer, unless the request plainly asks
+     for it or they allowed one already this turn; with no one to ask, it is declined. */
+  let allowed = plainlyAsksToRemove(o.request);
+  const guard = async (call: { id: string; name: string; args: unknown }, signal?: AbortSignal): Promise<ToolOutcome | null> => {
+    if (allowed) return null;
+    const ask = await removalOf(store, before, call.name, call.args, { registry, selection: before.session.selection }).catch(() => null);
+    if (!ask) return null;
+    emit({ type: "ask", step: atStep, id: call.id, ask });
+    let yes = false;
+    try {
+      yes = !!o.confirm && !signal?.aborted && (await o.confirm(ask, signal)) === true;
+    } catch {
+      yes = false;
+    }
+    emit({ type: "answer", step: atStep, id: call.id, allow: yes });
+    if (!yes) return declined(ask);
+    allowed = true;
+    return null;
+  };
 
   for (;;) {
     const offset = stepsUsed;
@@ -188,6 +217,11 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
       maxSteps: Math.max(1, maxSteps - stepsUsed),
       signal: o.signal,
       execute: async (call, ctx) => {
+        const held = await guard(call, ctx.signal);
+        if (held) {
+          outcomes.set(call.id, held);
+          return outputOf(held, call.name);
+        }
         const out = await executeTool(store, call.name, call.args, { origin: "ai", history: "none", onWrite, renderer: o.renderer, signal: ctx.signal, gen, registry, attachments, ...(o.pixels ? { pixels: o.pixels } : {}) });
         if (out.ok && (call.name === "screenshot" || call.name === "compare_to_reference")) dirty = false;
         outcomes.set(call.id, out);
@@ -195,6 +229,7 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
       },
       onEvent: (e) => {
         const at = offset + e.step;
+        atStep = at;
         if (e.type === "step") emit({ type: "step", step: at });
         else if (e.type === "text") emit({ type: "text", step: at, delta: e.delta });
         else if (e.type === "reasoning") emit({ type: "reasoning", step: at, delta: e.delta });

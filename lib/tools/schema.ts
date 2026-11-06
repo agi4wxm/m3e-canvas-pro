@@ -26,7 +26,7 @@ export function propSchema(d: PropDef): Schema {
     case "number":
       return { type: "number", minimum: d.min, maximum: d.max, description: d.unit ? `${description} (${d.unit})` : description };
     case "image":
-      return { type: "string", description: `${description}: an https: or data:image address ("" for none)` };
+      return { type: "string", description: `${description}: a picture drawn into the document, a data:image URL (generate_image paints one; outside https: addresses are refused), or "" for none` };
     case "list": {
       const row: Record<string, Schema> = { label: { type: "string" } };
       if (d.icons) row.icon = { type: "string", description: "a Material Symbols name" };
