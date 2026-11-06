@@ -1,6 +1,6 @@
 # M3E Canvas Pro
 
-在浏览器里用现成组件拖拽搭出可交互的应用原型，再导出成能运行的 React 项目或给 AI 的提示词。基于 [m3e-canvas](https://github.com/lnkiai/m3e-canvas) 和 [shadcn M3E](https://github.com/Crysta1221/shadcn-m3e)，把各分支和组件库的组件全部按同一种方式重新实现。这是一个重构后的独立项目，只打开自己保存的文件，不兼容其他分支的文件格式。
+在浏览器里用现成组件拖拽搭出可交互的应用，定义好它和后端之间的接口，用模拟库看到完整运行的产品，再导出成一个完整的产品仓库（Web、手机应用、小程序、接口契约、后端骨架），后端交给 AI 编程助手去写；也可以只导出可运行的 React 原型或给 AI 的提示词。基于 [m3e-canvas](https://github.com/lnkiai/m3e-canvas) 和 [shadcn M3E](https://github.com/Crysta1221/shadcn-m3e)，把各分支和组件库的组件全部按同一种方式重新实现。这是一个重构后的独立项目，只打开自己保存的文件，不兼容其他分支的文件格式。
 
 ## 能做什么
 
@@ -22,7 +22,7 @@
 | 图层 | 和 Figma 一样的图层树：屏幕 → 盒子 → 原子，标出自动布局方向、组合件和实例；原地重命名、搜索、隐藏、锁定；拖动行排序或放进别的盒子；与画布选区同步 |
 | 编辑 | 右侧设计面板按 Figma 的顺序分节（属性、位置、布局、外观、文字、填充、描边、效果、导出），数字框可拖动标签调值、方向键步进、输入算式，多选显示“多个值”；画布上点选最外层、双击或 Enter 进入、Esc 退出，Shift/Alt 改尺寸，直接拖动自动布局的间距和内边距；右键菜单、多选一起拖动、与父级对齐、约束、双击就地改文字；`?` 打开快捷键表。见下面的“编辑” |
 | 项目 | 一个浏览器里可以有多个项目，存在 IndexedDB：项目主页可以搜索、按最近排序、新建、重命名、创建副本、删除（可撤销），每个项目有第一屏的缩略图；不同项目可以在不同标签页同时编辑。在 Chromium 里可以把项目绑定到电脑上的 `.json` 文件或文件夹，之后每次修改自动保存过去（原子写入，重新打开后一键重新连接，文件在外面被改过会先询问），清掉网站数据也不会丢；文件的排版适合放进 git，图片可以作为单独的文件放在旁边。打开或拖入文件默认作为新项目。别人的文件或分享链接里来自其他网站的图片、视频和网页，要你在画布上方点“加载外部图片”才会加载（像邮件客户端一样，每个项目记住这个选择）；项目自己的图片不受影响。旧版保存在浏览器里的文档第一次打开时自动成为第一个项目 |
-| 输出 | 两种导出：**原型项目**（一个可运行的 React 应用，zip）和**完整产品（monorepo）**（npm workspaces 单仓库：Web 应用、微信和抖音小程序（Taro，同一份代码也构建 H5）、接口契约和与平台无关的客户端、模拟库、Fastify 后端骨架、契约测试，ESLint、Prettier、类型检查、测试和构建都配好）。完整产品可以写进电脑上的文件夹（Chromium）、用命令行 `bun scripts/export.ts` 或 MCP 的 `export_product` 导出，之后再导出到同一个文件夹：生成的文件按清单 `.m3e/manifest.json` 更新，自定义代码（人或 AI 写，`server/src/handlers`、`custom/`）从不覆盖，被手改过的生成文件不覆盖、新版本写成 `.m3e-new` 并报告，见 [导出](docs/导出.md)。还有项目文件、复制代码、给 AI 的提示词、分享链接、导出屏幕图片。原型项目和预览一样运行原型：指针移入和延迟的触发、浮层、滚动到、各种动画、流程起点，绑定变量的字段跟着模式、深色模式和点击设的值变化 |
+| 输出 | 两种导出：**原型项目**（一个可运行的 React 应用，zip）和**完整产品（monorepo）**（npm workspaces 单仓库：Web 应用、手机应用（Expo / React Native）、微信和抖音小程序（Taro，同一份代码也构建 H5）、接口契约和与平台无关的客户端、三个前端共用的运行时、模拟库、Fastify 后端骨架、契约测试，ESLint、Prettier、类型检查、测试和构建都配好，见下面的“完整产品”）。完整产品可以写进电脑上的文件夹（Chromium）、用命令行 `bun scripts/export.ts` 或 MCP 的 `export_product` 导出，之后再导出到同一个文件夹：生成的文件按清单 `.m3e/manifest.json` 更新，自定义代码（人或 AI 写，`server/src/handlers`、`custom/`）从不覆盖，被手改过的生成文件不覆盖、新版本写成 `.m3e-new` 并报告，见 [导出](docs/导出.md)。还有项目文件、复制代码、给 AI 的提示词、分享链接、导出屏幕图片。原型项目和预览一样运行原型：指针移入和延迟的触发、浮层、滚动到、各种动画、流程起点，绑定变量的字段跟着模式、深色模式和点击设的值变化 |
 | AI | 应用内的智能体用编辑器自己的操作改画布：按当前风格加屏幕、改组件、加变量和交互、画 SVG 图标和图片，自己截图检查再修改；一次请求是一步撤销，可以中途停止。见下面的“AI” |
 | MCP | Claude Desktop、Codex 等 MCP 客户端通过 `m3e-canvas-mcp` 操作设计：连上打开的编辑器实时修改（输入客户端给的配对码，可以记住客户端、服务器重启后不再询问；可只读、删除要在编辑器里允许、每次调用一步撤销），或不开编辑器直接改项目文件（可撤销、重做）并在无头浏览器里截图，见 [MCP](docs/MCP.md) |
 
@@ -85,6 +85,38 @@
 
 同一套工具（`lib/tools`）也通过 MCP 提供给 Codex、Claude Desktop 等外部客户端，见 [MCP](docs/MCP.md)。给外部智能体一次写出整份文档用的说明在 `public/agent.md`。
 
+## 完整产品
+
+一个产品就是前端和后端，中间是接口。在编辑器里把三样都定下来：“接口”标签页写契约（数据模型、接口、鉴权、实时通道，按 OpenAPI 3.1 / AsyncAPI 3.0 存），“模拟”标签页决定没有后端时接口怎样回答（按 Schema 生成的数据、场景、文件），屏幕连上接口（数据源、表单、点击调用、加载中/空/出错/无权限的设计）。预览里整个应用跑在模拟库上，场景一键切换。导出“完整产品（monorepo）”得到一个可以直接开发和上线的仓库：
+
+```text
+apps/web               Web 应用（React + Vite）：屏幕、路由、表单、多语言，全部由设计生成
+apps/mobile            手机应用（Expo / React Native），同一份设计
+apps/miniapp           微信、抖音小程序和 H5（Taro），同一份设计
+packages/api           接口契约 openapi.yaml、asyncapi.yaml，类型，与平台无关的客户端
+packages/app-runtime   三个前端共用的运行时：数据源、表单、调用、会话、表达式（和编辑器预览同一份代码）
+packages/mocks         模拟库：传输层模拟和 MSW，只在开发时，生产构建里没有
+server                 后端骨架（Node + TypeScript + Fastify）：路由、校验、鉴权、分页、上传、实时通道都已生成，
+                       业务逻辑写在 server/src/handlers（每个接口一个文件，先回答 501）
+contract-tests         对照契约检查运行中的后端
+AGENTS.md              给 Codex、Claude Code 等 AI 编程助手的规则：哪里能写、哪里不能写、怎样检查
+.m3e/manifest.json     生成的文件和它们的哈希：再导出一次只更新生成的文件
+```
+
+**开发时用模拟库**（在导出的文件夹里）：
+
+```bash
+npm install
+npm run dev                        # 后端（3001）和 Web 应用；Web 应用的接口由模拟库回答，地址里加 ?scenario=new-user 换场景
+npm run start -w apps/mobile       # 手机应用（Expo Go、模拟器或网页），开发版同样由模拟库回答，角落的开发菜单切换场景
+npm run dev:h5 -w apps/miniapp     # 小程序的 H5；dev:weapp、dev:tt 构建给微信、抖音开发者工具
+VITE_API_MOCKS=off npm run dev     # Web 应用改为请求本地后端（手机应用 EXPO_PUBLIC_API_MOCKS=off，小程序 TARO_APP_API_MOCKS=off）
+```
+
+**后端交给 AI 编程助手**：在导出的文件夹里打开 Codex 或 Claude Code，让它“按契约实现后端”。`AGENTS.md` 告诉它只在 `server/src/handlers/`（处理函数，类型来自契约，返回契约以外的东西过不了类型检查）和 `server/src/custom/`（鉴权、数据层、插件）里写，不碰生成的代码，用 `npm run contract -w contract-tests -- --strict` 确认每个接口都按契约实现；契约本身要改时，回到设计里改（接口标签页、应用内 AI 或 MCP）再导出。设计表达不了的前端集成（支付、地图、推送等第三方 SDK）写在各前端的 `src/custom/`。这些自定义代码（人或 AI 写）再导出时原样保留：契约多了接口只多一个处理函数桩，去掉的接口留下的文件报告为孤儿，被手改过的生成文件不覆盖、新版本写在旁边的 `.m3e-new`。
+
+细节见 [导出](docs/导出.md)、[后端](docs/后端.md)、[手机端](docs/手机端.md)、[小程序](docs/小程序.md)、[数据绑定](docs/数据绑定.md)、[模拟库](docs/模拟库.md)、[接口](docs/接口.md)。
+
 ## 启动
 
 需要 [Node](https://nodejs.org/) 22 以上和 [bun](https://bun.sh/) 1.4。
@@ -116,7 +148,7 @@ bun run dev
 | `bun run mcp:build` | 把 MCP 服务器打包成 `mcp/dist/m3e-canvas-mcp.js`（先 `bun run build`，编辑器的构建会一起复制过去给截图用）；`mcp:dev` 直接运行源码，`mcp:docs` 按注册表重写 [MCP](docs/MCP.md) 里的工具表 |
 | `bun scripts/style-shots.ts --base <地址> --out <文件夹>` | 把风格画廊按风格、分类截图，用来核对每套风格（先另开 `bun run dev`） |
 | `bun scripts/export.ts <项目文件> <输出文件夹>` | 把项目导出成完整产品（monorepo），再次导出到同一个文件夹时保留自定义代码、报告冲突，见 [导出](docs/导出.md) |
-| `bun run check:product <空文件夹>` | 导出一个带接口契约的示例产品，真的 `npm install`、类型检查、lint、构建、测试，启动后端跑契约测试，在 Chromium 里打开应用，再导出一次检查合并规则 |
+| `bun run check:product <空文件夹> [shop]` | 导出一个带接口契约的示例产品，真的 `npm install`、类型检查、lint、构建、测试，启动后端跑契约测试，在 Chromium 里打开应用，再导出一次检查合并规则；`shop` 是屏幕绑定了接口的商店，在模拟库和真实后端上驱动 Web 应用、手机应用和小程序 H5，截图放在 `<文件夹>/shots-shop` |
 | `bun run check:export <空文件夹>` | 生成项目，真的安装、构建，再用无头 Edge（不是 Windows 时用 Playwright 的 Chromium）点一遍；`… systems` 只跑原型和变量的项目，用 Playwright 检查触发、浮层、动画和变量 |
 
 在 Windows 上，项目路径要尽量短。依赖目录层级很深，放在超长路径下安装可能失败。
@@ -133,11 +165,12 @@ lib/core/      文档核心：存储、操作、事务和撤销、查询、项�
 lib/api/       接口：模型、校验、OpenAPI / AsyncAPI 的读写、YAML、TypeScript 类型（docs/接口.md）
 lib/mocks/     模拟库：按 Schema 生成数据、模拟传输层、场景、文件、实时脚本（docs/模拟库.md）
 lib/bindings/  数据绑定：表达式、数据源和调用的运行时、表单校验、区域的状态（docs/数据绑定.md）
+lib/app/       导出的前端共用的运行时和 React hooks（packages/app-runtime，docs/导出.md）
 lib/llm/       AI 服务商层：流式适配器、智能体循环、SVG 生成
 lib/tools/     AI 和 MCP 共用的工具注册表
 lib/agent/     应用内的智能体
 lib/projects/  浏览器里的多个项目（IndexedDB）和绑定的文件
-lib/export/    完整产品（monorepo）的导出：各工作区的目标、清单和重新导出的合并
+lib/export/    完整产品（monorepo）的导出：各工作区的目标、Web / 手机 / 小程序共用的绑定打印（bindCode.ts）、清单和重新导出的合并
 lib/styles/    风格：每套一个文件，控件造型按组件家族分模块
 lib/m3e/       组件库的工具代码
 hooks/         组件库的 Hook
