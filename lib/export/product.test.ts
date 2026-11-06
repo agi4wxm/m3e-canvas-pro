@@ -85,7 +85,8 @@ describe("the product of a document", () => {
     }
     expect(text(proof, "server/src/generated/routes.ts")).toContain('url: "/products/:id"');
     expect(text(proof, "packages/api/openapi.yaml")).toContain('"/products/{id}":');
-    expect(text(proof, "packages/mocks/src/generated/fixtures.ts")).toContain('"status": "ok"');
+    expect(text(proof, "packages/mocks/src/generated/contract.ts")).toContain('"operationId": "getHealth"');
+    expect(text(proof, "packages/mocks/src/engine/mocks/transport.ts")).toContain("export function createMockTransport");
     expect(text(proof, "packages/api/src/generated/types.ts")).toContain("export type Product");
   });
 

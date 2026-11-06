@@ -5,6 +5,8 @@
 import { readFileSync } from "node:fs";
 import { proofDoc } from "../exportProject.fixture";
 import { fromAsyncApi, fromOpenApi, mergeApi } from "../api";
+import { fillMocks } from "../mocks/fill";
+import { placeholderFile } from "../mocks/files";
 import type { ApiSpec, Doc } from "../tokens";
 
 export const FIXTURE_TYPES = `export type Health = { status: string }
@@ -54,8 +56,16 @@ export function shopApi(): ApiSpec {
   return mergeApi(fromOpenApi(spec("shop.openapi.yaml")).api, fromAsyncApi(spec("chat.asyncapi.yaml")).api, "asyncapi", "merge")!;
 }
 
-/** the proof document's screens with the shop's contract as its own (Doc.api): the product reads it from the document */
+/** the shop's mock library as "fill the mocks" makes it, with a picture and a PDF in its files */
+export function shopMocks(api: ApiSpec = shopApi()) {
+  const filled = fillMocks(api, undefined, { locale: "en" });
+  return { ...filled, files: [placeholderFile("image", { seed: "shop", title: "Sneaker", id: "sneaker" }), placeholderFile("pdf", { seed: "shop", title: "Receipt", id: "receipt" })] };
+}
+
+/** the proof document's screens with the shop's contract and its mocks as its own (Doc.api, Doc.mocks): the product
+ *  reads them from the document */
 export function shopProductDoc(): { doc: Doc; widths: Record<string, number> } {
   const { doc, widths } = proofDoc();
-  return { doc: { ...doc, api: shopApi() }, widths };
+  const api = shopApi();
+  return { doc: { ...doc, api, mocks: shopMocks(api) }, widths };
 }

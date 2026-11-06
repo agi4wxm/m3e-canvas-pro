@@ -469,12 +469,12 @@ export function createMockTransport(source: MockSource, options: MockOptions = {
       const from = Math.min(offsetOfCursor(query[p.cursorParam]), total);
       pageRows = rows.slice(from, from + limit);
       extra[p.nextField] = from + limit < total ? cursorOf(from + limit) : null;
-      note = `${from + 1}–${from + pageRows.length} / ${total}`;
+      note = total ? `${from + 1}–${from + pageRows.length} / ${total}` : "0";
     } else if (p?.style === "offset") {
       const from = Math.max(0, intOf(query[p.offsetParam], 0));
       pageRows = rows.slice(from, from + limit);
       extra[p.totalField] = total;
-      note = `${from + 1}–${from + pageRows.length} / ${total}`;
+      note = total ? `${from + 1}–${from + pageRows.length} / ${total}` : "0";
     } else if (p?.style === "page") {
       const page = Math.max(1, intOf(query[p.pageParam], 1));
       pageRows = rows.slice((page - 1) * limit, page * limit);
@@ -700,7 +700,7 @@ export function createMockTransport(source: MockSource, options: MockOptions = {
         const given = isRecord(req.body) ? (req.body as Record<string, unknown>) : {};
         if (accept?.length && !accept.some((c) => Object.entries(c).every(([k, v]) => String(given[k] ?? "") === v))) return done(problem(401, words.credentials), "wrong credentials");
         const um = userModel();
-        let user = um ? clone(session.data.records(um)[0]) : undefined;
+        const user = um ? clone(session.data.records(um)[0]) : undefined;
         if (user) {
           for (const k of ["email", "username", "phone", "mobile", "name"]) if (typeof given[k] === "string" && k in user) user[k] = given[k];
           session.user = user;

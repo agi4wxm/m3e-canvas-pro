@@ -110,6 +110,16 @@ const fixture: { doc: Doc; widths: Record<string, number>; api?: ReturnType<type
   WHICH === "systems" ? { ...systemsDoc(), api: productDoc().api } : WHICH === "parts" ? { doc: allPartsDoc(), widths: {}, api: productDoc().api } : WHICH === "shop" ? shopProductDoc() : productDoc();
 /* an operation that takes no parameters, to knock on, and the handler written for it */
 const PROBE = WHICH === "shop" ? { path: "/products", handler: "listProducts", answer: '"items"' } : { path: "/health", handler: "getHealth", answer: '"ok"' };
+/* the shop's mocks answer with data made from its schemas (packages/mocks is the editor's own mock library) */
+const madeUp = (text: string) => {
+  try {
+    const body = JSON.parse(text) as { items?: { id?: unknown; name?: unknown; price?: { amount?: unknown } }[]; status?: unknown };
+    if (WHICH !== "shop") return typeof body.status === "string";
+    return Array.isArray(body.items) && body.items.length > 1 && body.items.every((p) => typeof p.id === "string" && typeof p.name === "string" && typeof p.price?.amount === "number");
+  } catch {
+    return false;
+  }
+};
 
 rmSync(DIR, { recursive: true, force: true });
 const product = await buildProduct(fixture.doc, fixture.widths, { lang: "en", read, api: fixture.api });
@@ -136,7 +146,7 @@ if (installed) {
     ok(existsSync(join(dist, "index.html")), "the web app is built");
     const assets = existsSync(join(dist, "assets")) ? readdirSync(join(dist, "assets")) : [];
     const js = assets.filter((f) => f.endsWith(".js")).map((f) => readFileSync(join(dist, "assets", f), "utf8")).join("\n");
-    ok(js.length > 0 && !js.includes("createMockTransport") && !js.includes("Not mocked") && !js.includes("setupWorker"), "the web build has none of the mocks");
+    ok(js.length > 0 && !js.includes("createMockTransport") && !js.includes("Not mocked") && !js.includes("setupWorker") && !js.includes("m3e-mock-engine"), "the web build has none of the mocks");
     ok(!existsSync(join(dist, "mockServiceWorker.js")), "nor the mocks' service worker");
 
     /* the built server, answering 501 until a handler is written, and the contract tests against it */
@@ -199,6 +209,7 @@ if (pw && (WHICH === "proof" || WHICH === "shop")) {
           await page.waitForFunction("!!navigator.serviceWorker.controller", undefined, { timeout: 10_000 }).catch(() => {});
           const answer = await page.evaluate<string>(`fetch("/api${PROBE.path}").then((r) => r.text())`);
           ok(answer.includes(PROBE.answer), `the mocks' service worker answers the API (${answer.slice(0, 80)})`);
+          ok(madeUp(answer), "with data the mock library made from the contract's schemas");
         }
         ok(!errors.length, `the dev app throws nothing (${errors.join("; ")})`);
       } finally {

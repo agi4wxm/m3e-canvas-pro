@@ -17,6 +17,8 @@ export const EXPORT_DEV = ["@tailwindcss/vite", "@types/react", "@types/react-do
  *    JavaScript API for it. The copied components typecheck with it (scripts/check-product.ts). */
 export const PRODUCT_PINS: Record<string, string> = {
   "@eslint/js": "10.0.1",
+  /* MSW 3's own interceptors, for React Native (packages/mocks/src/native.ts): the version msw 3.0.4 resolves to */
+  "@mswjs/interceptors": "0.45.11",
   "@types/node": "22.20.5",
   esbuild: "0.28.2",
   eslint: "10.14.0",

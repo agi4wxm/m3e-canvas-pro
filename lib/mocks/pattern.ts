@@ -104,8 +104,8 @@ function parse(src: string): Node {
     const a = atom();
     if (!a) return null;
     const c = src[i];
-    let min = 1;
-    let max = 1;
+    let min: number;
+    let max: number;
     if (c === "*") [min, max] = [0, 3];
     else if (c === "+") [min, max] = [1, 3];
     else if (c === "?") [min, max] = [0, 1];
