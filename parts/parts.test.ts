@@ -2,11 +2,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { COMPONENTS, FILE_OF } from "./components";
+import { COMPONENTS, FILE_OF, loadAllModules } from "./components";
 import { EXTERNAL } from "./externals";
 import { h, ic, raw } from "./node";
 import { WIDGET_SOURCES } from "./widgets/sources";
-import { loadWidgets } from "./widgets/load";
 import { existsSync } from "node:fs";
 import { choiceValueOf } from "./labels";
 import { inlineNode, namesIn } from "./print";
@@ -20,7 +19,7 @@ beforeAll(async () => {
   vi.stubGlobal("window", { innerWidth: 1280, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) });
   setGlobalLang("en");
   /* a static render cannot wait for a widget to be fetched */
-  await loadWidgets();
+  await loadAllModules();
 });
 
 describe("the part registry", () => {

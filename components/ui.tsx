@@ -1450,6 +1450,7 @@ export function Tile({
   onClick,
   starred,
   onStar,
+  part,
 }: {
   icon: string;
   label: string;
@@ -1458,10 +1459,12 @@ export function Tile({
   onClick?: () => void;
   starred?: boolean;
   onStar?: () => void;
+  /** the slug of the part the tile adds, for what fetches its drawing ahead (`data-tile`) */
+  part?: string;
 }) {
   const lang = useLang();
   return (
-    <div className="m3-tile" style={{ position: "relative", display: "flex", borderRadius: 16 }}>
+    <div className="m3-tile" data-tile={part} style={{ position: "relative", display: "flex", borderRadius: 16 }}>
       <button
         type="button"
         className="m3-tile-face"

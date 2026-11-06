@@ -5,6 +5,7 @@ import { setGlobalLang } from "../../lib/i18n";
 import { choiceValueOf } from "../labels";
 import { PARTS, defaultValues, partBySlug, reader, tierOf, treeOf } from "../registry";
 import { renderNode } from "../render";
+import { loadAllModules } from "../components";
 import { inLang, type Node } from "../templates/kit";
 import type { PropDef } from "../types";
 import { KITS, MATERIAL_LOOK, kitBySlug, kitCatalog, kitOfKey, kitKey, pickVariant, type KitLook } from ".";
@@ -13,9 +14,11 @@ import { KITS, MATERIAL_LOOK, kitBySlug, kitCatalog, kitOfKey, kitKey, pickVaria
  * atoms, only boxes holding anything, every prop one its part has, of the kind and in the range the
  * part takes, and words in every language. */
 
-beforeAll(() => {
+beforeAll(async () => {
   vi.stubGlobal("window", { innerWidth: 1280, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) });
   setGlobalLang("en");
+  /* a static render cannot wait for a part's components to be fetched */
+  await loadAllModules();
 });
 
 /* looks of the kinds the styles come in, written as fields: no style is named */

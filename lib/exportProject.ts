@@ -10,6 +10,8 @@ import { elevationCss } from "./look";
 import { iconSubset, setsOf } from "../components/m3e/icon-sets/load";
 import { SOURCES } from "../components/m3e/icon-sets/manifest";
 import { str } from "../parts/print";
+import { EXPORT_ALWAYS, EXPORT_DEV } from "./exportPackages";
+import { VERSIONS } from "./versions.generated";
 
 /* A document as a project someone can install and run: its screens, the runtime their taps call, its
  * theme, and a copy of only the source files those reach, found by walking their imports. Nothing here
@@ -566,18 +568,12 @@ Thumbs.db
 /** a package name from a title: letters and digits, else a plain name */
 export const projectName = (doc: Doc) => (doc.title || "").toLowerCase().match(/[a-z0-9]+/g)?.join("-") || "m3e-app";
 
-/** the exact versions this repo builds with: a range in package.json is only what it accepts, the lockfile what it runs */
-function versionsFrom(pkg: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> }, lock: string) {
-  const declared: Record<string, string> = { ...pkg.dependencies, ...pkg.devDependencies };
-  return (name: string): string => {
-    const range = declared[name];
-    /* an alias says exactly what it is */
-    if (range?.startsWith("npm:")) return range;
-    const escaped = name.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
-    const at = new RegExp(`"${escaped}": \\["${escaped}@([^"]+)"`).exec(lock);
-    if (at) return at[1];
-    throw new Error(`no version of ${name} in this repo`);
-  };
+/** The exact version this repo builds with: a range in package.json is only what it accepts, the lockfile what it runs.
+ *  Read off the lockfile when the editor is built (versions.generated.ts), so the editor does not carry the lockfile. */
+function versionOf(name: string): string {
+  const version = VERSIONS[name];
+  if (version) return version;
+  throw new Error(`no version of ${name} in this repo`);
 }
 
 const sorted = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
@@ -697,11 +693,10 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     delete files["src/components/m3e/icon-sets/shard.ts"];
   }
 
-  const pkg = JSON.parse(await read("package.json")) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string>; overrides?: Record<string, string>; engines?: Record<string, string> };
-  const versionOf = versionsFrom(pkg, await read("bun.lock"));
-  const deps = new Set([...packages, "react", "react-dom", "motion", "tailwindcss", "tw-animate-css", "shadcn"]);
+  const pkg = JSON.parse(await read("package.json")) as { overrides?: Record<string, string>; engines?: Record<string, string> };
+  const deps = new Set([...packages, ...EXPORT_ALWAYS]);
   /* tailwind is a build tool here, though the stylesheet names it */
-  const dev = ["@tailwindcss/vite", "@types/react", "@types/react-dom", "@vitejs/plugin-react", "tailwindcss", "typescript", "vite", "vite-plus"];
+  const dev = EXPORT_DEV;
   for (const d of dev) deps.delete(d);
   files["package.json"] = `${json({
     name,

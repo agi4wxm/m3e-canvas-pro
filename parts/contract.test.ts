@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { isProject } from "../lib/project";
 import { makeItem, type Doc } from "../lib/tokens";
 import { setGlobalLang } from "../lib/i18n";
-import { COMPONENTS } from "./components";
+import { COMPONENTS, loadAllModules, modulesOf } from "./components";
 import { EXTERNAL } from "./externals";
 import { FILE_OF } from "./files.generated";
 import { isNode, type PNode, type PValue } from "./node";
@@ -13,8 +13,8 @@ import { applyAppearance } from "./appearance";
 import { CATEGORIES, CATEGORY_TIER, PARTS, defaultValues, partBySlug, reader, tierOf, treeOf } from "./registry";
 import { KITS } from "./kits";
 import { renderNode } from "./render";
-import { loadWidgets } from "./widgets/load";
 import { WIDGET_SOURCES } from "./widgets/sources";
+import { WIDGET_MODULES } from "./widgets/modules";
 
 /* The contract every part keeps (docs/组件规范.md), checked for all of them: a new part is
  * covered the moment it is in PARTS, with no test of its own to write. */
@@ -22,7 +22,7 @@ import { WIDGET_SOURCES } from "./widgets/sources";
 beforeAll(async () => {
   vi.stubGlobal("window", { innerWidth: 1280, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) });
   setGlobalLang("en");
-  await loadWidgets();
+  await loadAllModules();
 });
 
 /** the component names a tree uses, in its children and in its props */
@@ -184,10 +184,17 @@ describe("the widgets", () => {
   });
 
   it("all arrive when loaded, from the file printed code names", async () => {
-    const mod = await loadWidgets();
+    await loadAllModules();
     for (const [name, from] of Object.entries(WIDGET_SOURCES)) {
-      expect(mod[name], name).toBeTruthy();
-      expect(existsSync(new URL(`widgets/${from.slice("@/components/widgets/".length)}.tsx`, dir)), from).toBe(true);
+      expect(COMPONENTS[name], name).toBeTruthy();
+      const file = from.slice("@/components/widgets/".length);
+      expect(existsSync(new URL(`widgets/${file}.tsx`, dir)), from).toBe(true);
+      /* the canvas fetches it from the file the printed code imports it from */
+      expect(WIDGET_MODULES[file], from).toBeTypeOf("function");
+      expect(modulesOf({ type: name }), name).toEqual([`widgets/${file}`]);
+      expect(name in (await WIDGET_MODULES[file]()), name).toBe(true);
     }
+    /* and fetches no file the printed code does not name */
+    expect(Object.keys(WIDGET_MODULES).sort()).toEqual([...new Set(Object.values(WIDGET_SOURCES).map((f) => f.slice("@/components/widgets/".length)))].sort());
   });
 });
