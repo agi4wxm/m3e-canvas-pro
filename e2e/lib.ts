@@ -23,6 +23,7 @@ export type Locator = {
   getAttribute(name: string): Promise<string | null>;
   locator(s: string): Locator;
   evaluateAll<R>(f: (els: Element[]) => R): Promise<R>;
+  screenshot(o: { path: string }): Promise<unknown>;
 };
 export type Route = { fulfill(o: { status?: number; headers?: Record<string, string>; body?: string }): Promise<void>; abort(code?: string): Promise<void> };
 export type Request = { method(): string; url(): string; postData(): string | null };

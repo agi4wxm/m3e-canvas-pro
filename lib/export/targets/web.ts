@@ -1,6 +1,8 @@
-/* apps/web: the React app of the design. It is the prototype export (lib/exportProject.ts) moved into the workspace:
- * what the design makes lives in src/generated/ (the app shell, the runtime, the theme, a screen per file, the router,
- * the API client the screens call), the editor's components it copies stay where their imports expect them
+/* apps/web: the React app of the design. It is the prototype export (lib/exportProject.ts) moved into the workspace,
+ * with the screens' bindings printed against the product's runtime (packages/app-runtime) and client (packages/api):
+ * what the design makes lives in src/generated/ (the app shell, the runtime, the theme, a screen per file with its data
+ * hooks beside it, the router with each screen's params in its address, the API client on the session, the mocks in
+ * development, what only a browser has), the editor's components it copies stay where their imports expect them
  * (src/components, src/lib, src/hooks, src/styles), and src/custom/ holds the extension points, written once.
  *
  * The prototype's own files are not changed to get here: they are moved, and the few imports that name a moved file
@@ -8,9 +10,10 @@
 
 import { buildProject, type ProjectFiles } from "../../exportProject";
 import { PRODUCT_WEB_DEV } from "../../exportPackages";
-import { GENERATED, jsonFile, propKey, sortedObject, str } from "../code";
-import { kebab } from "../paths";
+import { GENERATED, jsonFile, sortedObject } from "../code";
 import { generated, seeded, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "../types";
+import { specOf } from "./mocks";
+import { API_CLIENT, DATA_SCROLL, ENV, MAIN, MOCKS, PLATFORM, ROUTER, ROUTER_TEST, SCENARIO_PICKER, routesSource } from "./webSources";
 
 /** the prototype's own files that move into src/generated/ */
 const MOVED: Record<string, string> = {
@@ -25,7 +28,7 @@ const MOVED: Record<string, string> = {
 /** what the workspace writes its own way */
 const REPLACED = new Set(["package.json", "README.md", "LICENSE", "NOTICE", ".gitignore", "src/main.tsx", "vite.config.ts", "tsconfig.json"]);
 /** the generated modules the prototype names by their old place */
-const RENAMED_IMPORTS: Record<string, string> = { "@/runtime": "@/generated/runtime", "@/theme": "@/generated/theme", "@/style-icons": "@/generated/style-icons", "@/doc-icons": "@/generated/doc-icons" };
+const RENAMED_IMPORTS: Record<string, string> = { "@/runtime": "@/generated/runtime", "@/theme": "@/generated/theme", "@/style-icons": "@/generated/style-icons", "@/doc-icons": "@/generated/doc-icons", "@/api": "@/generated/api", "@/platform": "@/generated/platform", "@/DataScroll": "@/generated/DataScroll" };
 
 /** An import line with its module renamed, when it names one of `map`; any other line as it is. */
 function renamedImport(line: string, map: Record<string, string>): string {
@@ -68,197 +71,6 @@ export function distinctScreenFiles(names: string[]): Map<string, string> {
   return out;
 }
 
-const MAIN = (scope: string) => `${GENERATED}
-import { StrictMode } from "react"
-import { createRoot } from "react-dom/client"
-import { App } from "./generated/App"
-import { RouterSync } from "./generated/router"
-import { AppProvider } from "./generated/runtime"
-import { Theme } from "./generated/theme"
-import { Providers } from "./custom/Providers"
-import { setup } from "./custom/setup"
-import "./generated/index.css"
-
-/* In development the API answers from the mocks (${scope}/mocks) unless VITE_API_MOCKS is "off"; a production build
- * has none of them: the branch is dropped with what it imports. */
-async function start() {
-  if (import.meta.env.DEV && import.meta.env.VITE_API_MOCKS !== "off") await (await import("./generated/mocks")).startMocks(import.meta.env.VITE_API_MOCKS)
-  await setup()
-  createRoot(document.getElementById("root")!).render(
-    <StrictMode>
-      <Theme>
-        <AppProvider>
-          <Providers>
-            <RouterSync />
-            <App />
-          </Providers>
-        </AppProvider>
-      </Theme>
-    </StrictMode>,
-  )
-}
-
-void start()
-`;
-
-/** the screens' addresses: each screen's path, unique, from its key */
-function routesSource(screens: string[], start: string): string {
-  const paths = new Map<string, string>();
-  const taken = new Set<string>();
-  for (const key of screens) {
-    let path = `/${kebab(key) || "screen"}`;
-    for (let i = 2; taken.has(path); i++) path = `/${kebab(key) || "screen"}-${i}`;
-    taken.add(path);
-    paths.set(key, path);
-  }
-  return `${GENERATED}
-import type { ScreenId } from "./runtime"
-
-/** the address of each screen, under the app's base */
-export const ROUTES: Record<ScreenId, string> = {
-${screens.map((key) => `  ${propKey(key)}: ${str(paths.get(key))},`).join("\n")}
-}
-
-/** the screen the app starts on when the address names none */
-export const START: ScreenId = ${str(start)}
-
-const BASE = import.meta.env.BASE_URL.replace(/\\/$/, "")
-
-/** the screen an address names, if it names one */
-export function screenAt(pathname: string): ScreenId | undefined {
-  const path = (pathname.startsWith(BASE) ? pathname.slice(BASE.length) : pathname).replace(/\\/+$/, "") || "/"
-  return (Object.keys(ROUTES) as ScreenId[]).find((screen) => ROUTES[screen] === path)
-}
-
-/** the address of a screen */
-export const pathOf = (screen: ScreenId) => BASE + ROUTES[screen]
-`;
-}
-
-/** the router: the browser's history kept with the screens the app opens */
-const ROUTER = `${GENERATED}
-import { useEffect, useRef } from "react"
-import { pathOf, screenAt } from "./routes"
-import { useApp, type ScreenId } from "./runtime"
-
-/** Keeps the address and the screen on show together: a screen the app opens is pushed onto the browser's history, the
- *  app's own back takes it off again, the browser's back and forward move between the screens, and an address opened
- *  directly starts at its screen. Overlays have no address. */
-export function RouterSync() {
-  const { screen, move, go, back } = useApp()
-  /* the screens as the app opened them, to tell the browser's back from its forward */
-  const trail = useRef<ScreenId[]>([])
-  const seen = useRef<{ screen: ScreenId; move: object } | null>(null)
-  const started = useRef(false)
-
-  useEffect(() => {
-    if (started.current) return
-    started.current = true
-    const asked = screenAt(window.location.pathname)
-    if (asked && asked !== screen) go(asked, "none")
-  }, [go, screen])
-
-  useEffect(() => {
-    if (seen.current && seen.current.screen === screen && seen.current.move === move) return
-    const first = !seen.current
-    seen.current = { screen, move }
-    const trailNow = trail.current
-    const want = pathOf(screen)
-    const here = window.location.pathname === want
-    if (move.backwards && !first) {
-      trailNow.pop()
-      if (!here) {
-        const state: unknown = window.history.state
-        const ours = typeof state === "object" && state !== null && "m3e" in state
-        if (ours && trailNow.length) window.history.back()
-        else window.history.replaceState({ m3e: trailNow.length }, "", want + window.location.search)
-      }
-      return
-    }
-    trailNow.push(screen)
-    if (first) window.history.replaceState({ m3e: trailNow.length }, "", here ? undefined : want + window.location.search)
-    else if (!here) window.history.pushState({ m3e: trailNow.length }, "", want + window.location.search)
-  }, [screen, move])
-
-  useEffect(() => {
-    const onPop = () => {
-      const asked = screenAt(window.location.pathname)
-      const trailNow = trail.current
-      if (!asked || asked === trailNow[trailNow.length - 1]) return
-      if (asked === trailNow[trailNow.length - 2]) back()
-      else go(asked, "none")
-    }
-    window.addEventListener("popstate", onPop)
-    return () => window.removeEventListener("popstate", onPop)
-  }, [go, back])
-
-  return null
-}
-`;
-
-const ROUTER_TEST = `${GENERATED}
-import { describe, expect, it } from "vitest"
-import { ROUTES, START, pathOf, screenAt } from "./routes"
-
-describe("the router", () => {
-  it("gives every screen an address of its own", () => {
-    const paths = Object.values(ROUTES)
-    expect(new Set(paths).size).toBe(paths.length)
-    for (const path of paths) expect(path).toMatch(/^\\/[a-z0-9-]+$/)
-  })
-
-  it("reads each address back as its screen", () => {
-    for (const screen of Object.keys(ROUTES) as (keyof typeof ROUTES)[]) expect(screenAt(pathOf(screen))).toBe(screen)
-    expect(screenAt("/no-such-screen")).toBeUndefined()
-    expect(Object.keys(ROUTES)).toContain(START)
-  })
-})
-`;
-
-const API_CLIENT = (scope: string) => `${GENERATED}
-import { createApi, createFetchTransport, type Transport } from ${str(`${scope}/api`)}
-
-/** where the API is: VITE_API_BASE_URL, else /api on this site (the dev server forwards it to the server) */
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api"
-
-let transport: Transport = createFetchTransport({ baseUrl: BASE_URL })
-
-/** answers the app's calls another way from now on: the mocks in development, or a transport of the custom code's */
-export function setTransport(next: Transport) {
-  transport = next
-}
-
-/** the API as the screens call it: one function per operation of the contract */
-export const api = createApi({ request: (request) => transport.request(request) })
-`;
-
-const MOCKS = (scope: string) => `${GENERATED}
-import { createMockTransport } from ${str(`${scope}/mocks`)}
-import { setTransport } from "./api"
-
-/** Development only (main.tsx imports this behind import.meta.env.DEV): the API answers from the mocks. "msw" serves
- *  them from a service worker instead, so they show in the browser's network panel. */
-export async function startMocks(mode?: string) {
-  if (mode === "msw") {
-    const { startWorker } = await import(${str(`${scope}/mocks/browser`)})
-    await startWorker()
-    return
-  }
-  setTransport(createMockTransport())
-}
-`;
-
-const ENV = `${GENERATED}
-/// <reference types="vite/client" />
-
-interface ImportMetaEnv {
-  /** where the API is (default /api on the same site) */
-  readonly VITE_API_BASE_URL?: string
-  /** development only: "off" calls the real server, "msw" serves the mocks from a service worker */
-  readonly VITE_API_MOCKS?: string
-}
-`;
-
 const VITE_CONFIG = `${GENERATED}
 import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
@@ -266,8 +78,9 @@ import react from "@vitejs/plugin-react"
 import { msw } from "msw/vite"
 import { defineConfig } from "vite"
 
-/* where /api goes on the dev server when the mocks are off: the server's dev address */
+/* where /api goes on the dev server when the mocks are off, and on \`vite preview\` of the build: the server's address */
 const API_TARGET = process.env.API_TARGET ?? "http://127.0.0.1:3001"
+const proxy = { "/api": { target: API_TARGET, changeOrigin: true, rewrite: (path: string) => path.replace(/^\\/api/, "") } }
 
 export default defineConfig({
   /* the mocks' service worker is served in development only, never built */
@@ -275,9 +88,8 @@ export default defineConfig({
   resolve: {
     alias: [{ find: /^@\\//, replacement: fileURLToPath(new URL("./src/", import.meta.url)) }],
   },
-  server: {
-    proxy: { "/api": { target: API_TARGET, changeOrigin: true, rewrite: (path) => path.replace(/^\\/api/, "") } },
-  },
+  server: { proxy },
+  preview: { proxy },
   build: { chunkSizeWarningLimit: 4096 },
 })
 `;
@@ -318,10 +130,27 @@ The web app of the design: React, Vite and Tailwind. \`src/generated/\` and the 
 由设计生成的 Web 应用。\`src/generated/\` 和复制来的组件每次导出都会重写，\`src/custom/\` 是自定义代码的位置。
 `;
 
+/** the web app's section of AGENTS.md */
+const AGENTS = (scope: string) => `## The web app (apps/web)
+
+\`src/generated/screens/\` holds one component per screen of the design; a screen bound to the API has its data
+sources beside it as hooks named after them (\`<Screen>.data.ts\`, on the typed client of \`${scope}/api\`) and reads the
+design's expressions through \`${scope}/app-runtime\`. Screens, routes (\`/product/:productId\`), the session and the
+mocks in development are all generated: change them in the design. Custom code goes in \`src/custom/setup.ts\` (before
+the app is drawn: \`setTransport\` and \`runtime\` from \`../generated/api\`, to call the API another way or read the
+session) and \`src/custom/Providers.tsx\` (third-party providers).
+
+- \`VITE_API_BASE_URL\`: where the API is in a build (default \`/api\`; \`vite dev\` and \`vite preview\` forward \`/api\` to
+  \`API_TARGET\`, default \`http://127.0.0.1:3001\`).
+- Development only: \`VITE_API_MOCKS\` (\`off\` calls the server, \`msw\` serves the mocks from a service worker),
+  \`VITE_MOCK_SCENARIO\` or \`?scenario=\` in the address picks a scenario of the mocks.
+`;
+
 export const webTarget: ProductTarget = {
   id: "web",
   async build(ctx: ProductContext): Promise<Workspace> {
-    const project = await buildProject(ctx.doc, ctx.widths, { lang: ctx.lang, read: ctx.read, fetchIcons: ctx.fetchIcons, onProgress: ctx.onProgress });
+    const api = specOf(ctx);
+    const project = await buildProject(ctx.doc, ctx.widths, { lang: ctx.lang, read: ctx.read, fetchIcons: ctx.fetchIcons, onProgress: ctx.onProgress, binds: { runtime: `${ctx.scope}/app-runtime`, api, operations: ctx.api.operations } });
     ctx.warnings.push(...project.warnings);
     const proto: ProjectFiles = project.files;
     const files: ProductFiles = {};
@@ -330,7 +159,14 @@ export const webTarget: ProductTarget = {
     const screenPaths = Object.keys(proto).filter((p) => /^src\/screens\/[^/]+\.tsx$/.test(p));
     const names = screenPaths.map((p) => p.slice("src/screens/".length, -".tsx".length));
     const fileOf = distinctScreenFiles(names);
-    for (const name of names) files[`src/generated/screens/${fileOf.get(name)}.tsx`] = generated(withRenamedHead(proto[`src/screens/${name}.tsx`] as string, RENAMED_IMPORTS));
+    for (const name of names) {
+      const file = fileOf.get(name)!;
+      /* a screen's data hooks beside it, under the name it imports them by */
+      const map = file === name ? RENAMED_IMPORTS : { ...RENAMED_IMPORTS, [`./${name}.data`]: `./${file}.data` };
+      files[`src/generated/screens/${file}.tsx`] = generated(withRenamedHead(proto[`src/screens/${name}.tsx`] as string, map));
+      const data = proto[`src/screens/${name}.data.ts`];
+      if (typeof data === "string") files[`src/generated/screens/${file}.data.ts`] = generated(withRenamedHead(data, RENAMED_IMPORTS));
+    }
 
     for (const [path, body] of Object.entries(proto)) {
       if (REPLACED.has(path) || path.startsWith("src/screens/")) continue;
@@ -351,11 +187,14 @@ export const webTarget: ProductTarget = {
     const ids = /^export type ScreenId = (.*)$/m.exec(runtime)?.[1] ?? "";
     const keys = [...ids.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`) as string);
     const start = /^const START_SCREEN: ScreenId = (".*")$/m.exec(runtime)?.[1];
-    files["src/generated/routes.ts"] = generated(routesSource(keys, start ? (JSON.parse(start) as string) : keys[0]));
+    files["src/generated/routes.ts"] = generated(routesSource(keys, start ? (JSON.parse(start) as string) : keys[0], project.spec?.bound?.params ?? {}));
     files["src/generated/routes.test.ts"] = generated(ROUTER_TEST);
     files["src/generated/router.ts"] = generated(ROUTER);
-    files["src/generated/api.ts"] = generated(API_CLIENT(ctx.scope));
+    files["src/generated/api.ts"] = generated(API_CLIENT(ctx.scope, ctx.name, ctx.lang, api));
     files["src/generated/mocks.ts"] = generated(MOCKS(ctx.scope));
+    files["src/generated/ScenarioPicker.tsx"] = generated(SCENARIO_PICKER(ctx.scope));
+    files["src/generated/platform.ts"] = generated(PLATFORM(ctx.scope));
+    files["src/generated/DataScroll.tsx"] = generated(DATA_SCROLL);
     files["src/generated/env.d.ts"] = generated(ENV);
     files["src/main.tsx"] = generated(MAIN(ctx.scope));
     files["src/custom/setup.ts"] = seeded(CUSTOM_SETUP);
@@ -373,12 +212,20 @@ export const webTarget: ProductTarget = {
           private: true,
           type: "module",
           scripts: { dev: "vite", build: "vite build", preview: "vite preview", typecheck: "tsc --noEmit -p .", test: "vitest run" },
-          dependencies: sortedObject({ ...Object.fromEntries(used.map((d) => [d, ctx.version(d)])), [`${ctx.scope}/api`]: "0.1.0" }),
+          dependencies: sortedObject({ ...Object.fromEntries(used.map((d) => [d, ctx.version(d)])), [`${ctx.scope}/api`]: "0.1.0", [`${ctx.scope}/app-runtime`]: "0.1.0" }),
           devDependencies: sortedObject({ ...Object.fromEntries(PRODUCT_WEB_DEV.map((d) => [d, ctx.version(d)])), [`${ctx.scope}/mocks`]: "0.1.0" }),
         }),
       ),
       merge: "package.json",
     };
-    return { dir: "apps/web", pkg: `${ctx.scope}/web`, scripts: { dev: true, build: true, typecheck: true, test: true }, files, summary: { zh: "Web 应用（React + Vite），屏幕、路由、主题由设计生成", en: "the web app (React + Vite): screens, router and theme from the design" } };
+    return {
+      dir: "apps/web",
+      pkg: `${ctx.scope}/web`,
+      scripts: { dev: true, build: true, typecheck: true, test: true },
+      agents: AGENTS(ctx.scope),
+      files,
+      summary: { zh: "Web 应用（React + Vite）：屏幕、数据、表单、路由、主题由设计生成", en: "the web app (React + Vite): screens, data, forms, router and theme from the design" },
+    };
   },
 };
+

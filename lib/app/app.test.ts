@@ -248,7 +248,7 @@ describe("forms", () => {
     form.set("price", 3);
     const out = await form.submit((body) => send(rt.transport, { operationId: "createProduct", method: "POST", path: "/products", body }));
     expect(out).toMatchObject({ ok: false, status: 422 });
-    expect(form.view()).toMatchObject({ errors: { name: "That name is taken" }, error: { status: 422, title: "Unprocessable" }, submitting: false });
+    expect(form.view()).toMatchObject({ errors: { name: "That name is taken" }, error: { status: 422, title: "Couldn't submit. Check the fields and try again." }, submitting: false });
     /* the server's word goes with what it was about */
     form.set("name", "Another");
     expect(form.view().errors).toEqual({});
@@ -279,14 +279,18 @@ describe("calls", () => {
     const said: string[] = [];
     const failed = await rt.call(() => Promise.reject(new ApiError(500, { title: "Server error", status: 500 })), {
       optimistic: () => rt.sources.optimistic(spec.key, row, { remove: true }),
-      // eslint-disable-next-line unicorn/no-thenable -- the call's options, never awaited
+      // eslint-disable-next-line unicorn/no-thenable -- a call's options, never awaited
       then: () => said.push("then"),
       catch: (e) => said.push(`catch ${e.status}`),
     });
     expect(failed.ok).toBe(false);
     expect(rt.sources.state(spec.key).items).toHaveLength(3);
-    // eslint-disable-next-line unicorn/no-thenable -- the call's options, never awaited
-    const ok = await rt.call(async () => ({ done: true }), { optimistic: () => rt.sources.optimistic(spec.key, row, { remove: true }), then: (r) => said.push(`then ${JSON.stringify(r)}`), status: 204 });
+    const ok = await rt.call(async () => ({ done: true }), {
+      optimistic: () => rt.sources.optimistic(spec.key, row, { remove: true }),
+      // eslint-disable-next-line unicorn/no-thenable -- a call's options, never awaited
+      then: (r) => said.push(`then ${JSON.stringify(r)}`),
+      status: 204,
+    });
     expect(ok).toMatchObject({ ok: true, status: 204 });
     expect(rt.sources.state(spec.key).items).toHaveLength(2);
     expect(said).toEqual(["catch 500", 'then {"done":true}']);

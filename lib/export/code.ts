@@ -18,5 +18,15 @@ export const jsonFile = (v: unknown) => `${JSON.stringify(v, null, 2)}\n`;
 /** a key of an object literal: bare when it is a plain name, else an escaped string */
 export const propKey = (k: string) => (/^[A-Za-z_$][\w$]*$/.test(k) ? k : str(k));
 
+/** a value as code: an object literal with bare keys where they are names, spaced as code is written */
+export function literal(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(literal).join(", ")}]`;
+  if (v && typeof v === "object") {
+    const entries = Object.entries(v as Record<string, unknown>).filter(([, x]) => x !== undefined);
+    return entries.length ? `{ ${entries.map(([k, x]) => `${propKey(k)}: ${literal(x)}`).join(", ")} }` : "{}";
+  }
+  return str(v);
+}
+
 /** the keys of an object in order, as written into a package.json */
 export const sortedObject = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));

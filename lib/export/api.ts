@@ -23,8 +23,10 @@ export type ApiOperation = {
   params: string[];
   /** it takes query parameters */
   query: boolean;
-  /** it takes a JSON body */
+  /** it takes a body: JSON, or the fields of a multipart form (`multipart`) */
   body: boolean;
+  /** its body is multipart/form-data: fields and files */
+  multipart?: boolean;
   /** the TypeScript type of its body and of its successful response: a name the types declare, or `unknown` */
   bodyType: string;
   responseType: string;
@@ -94,6 +96,7 @@ export function operationsOf(openapi: Record<string, unknown>, types = ""): ApiO
       const ok = Object.keys(responses).find((code) => /^2\d\d$/.test(code)) ?? (responses["2XX"] ? "2XX" : responses.default ? "default" : undefined);
       const success = ok ? jsonContent(responses[ok]) : null;
       const requestBody = jsonContent(op.requestBody);
+      const multipart = !requestBody && !!record(record(op.requestBody).content)["multipart/form-data"];
       out.push({
         name,
         operationId: given || name,
@@ -101,8 +104,9 @@ export function operationsOf(openapi: Record<string, unknown>, types = ""): ApiO
         path,
         params: pathParams(path),
         query: params.some((p) => p.in === "query"),
-        body: !!requestBody,
-        bodyType: requestBody ? typeOfSchema(requestBody.schema, names) : "never",
+        body: !!requestBody || multipart,
+        ...(multipart ? { multipart: true } : {}),
+        bodyType: requestBody ? typeOfSchema(requestBody.schema, names) : multipart ? "Record<string, unknown>" : "never",
         responseType: success ? typeOfSchema(success.schema, names) : ok && ok !== "204" ? "unknown" : "void",
         status: ok && /^\d{3}$/.test(ok) ? Number(ok) : 200,
         ...(success && "example" in success ? { example: success.example } : {}),

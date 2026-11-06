@@ -84,14 +84,14 @@ export class ApiError extends Error {
 /** what any call may add: headers, a signal that cancels it, and what hears how an upload goes */
 export type CallInit = Pick<TransportRequest, "headers" | "signal" | "onUploadProgress">
 
-export type Call = { operationId?: string; method: HttpMethod; path: string; query?: Query; body?: unknown }
+export type Call = { operationId?: string; method: HttpMethod; path: string; query?: Query; body?: unknown; headers?: Readonly<Record<string, string>> }
 
 /** a path parameter as one segment of the path */
 export const segment = (value: string | number | boolean) => encodeURIComponent(String(value))
 
 /** Sends one call and gives back what a 2xx answer holds; anything else is thrown as an ApiError. */
 export async function send<T>(transport: Transport, call: Call, init: CallInit = {}): Promise<T> {
-  const response = await transport.request({ ...call, ...init })
+  const response = await transport.request({ ...call, ...init, ...(call.headers || init.headers ? { headers: { ...call.headers, ...init.headers } } : {}) })
   if (response.status < 200 || response.status > 299) throw new ApiError(response, call.operationId)
   return response.body as T
 }
@@ -119,7 +119,47 @@ export type FetchTransportOptions = {
   headers?: Readonly<Record<string, string>>
 }
 
-/** A transport over fetch. JSON goes out as JSON; bytes go out as they are. */
+/** a file as the transport carries one (a data URL) */
+type DataFile = { name: string; type: string; dataUrl: string }
+
+type FormDataLike = { append(name: string, value: unknown, fileName?: string): void }
+type BlobLike = { size: number; type: string }
+
+const isBlob = (v: unknown): v is BlobLike => !!v && typeof v === "object" && typeof (v as BlobLike).size === "number" && typeof (v as BlobLike).type === "string"
+const isDataFile = (v: unknown): v is DataFile => !!v && typeof v === "object" && typeof (v as DataFile).dataUrl === "string"
+
+/** a data URL's bytes as a Blob, where the platform has Blob */
+function blobOf(file: DataFile): unknown {
+  const Blob = (globalThis as { Blob?: new (parts: unknown[], o: { type: string }) => unknown }).Blob
+  const atob = (globalThis as { atob?: (s: string) => string }).atob
+  if (!Blob || !atob) return file.dataUrl
+  const bin = atob(file.dataUrl.slice(file.dataUrl.indexOf(",") + 1))
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new Blob([bytes], { type: file.type })
+}
+
+/** A multipart body as a FormData: files as they are (a data URL made a blob), lists as repeated fields, objects as
+ *  JSON, the rest as words. Undefined where the platform has no FormData. */
+export function formDataOf(body: Record<string, unknown>): unknown {
+  const FormData = (globalThis as { FormData?: new () => FormDataLike }).FormData
+  if (!FormData) return undefined
+  const form = new FormData()
+  const add = (key: string, v: unknown) => {
+    if (v === undefined || v === null) return
+    if (isDataFile(v)) form.append(key, blobOf(v), v.name)
+    else if (isBlob(v)) form.append(key, v, (v as { name?: string }).name)
+    else if (typeof v === "object") form.append(key, JSON.stringify(v))
+    else form.append(key, String(v))
+  }
+  for (const [key, v] of Object.entries(body)) for (const one of Array.isArray(v) ? v : [v]) add(key, one)
+  return form
+}
+
+/** whether a request's body goes as multipart/form-data */
+export const isMultipart = (request: TransportRequest) => Object.entries(request.headers ?? {}).some(([k, v]) => k.toLowerCase() === "content-type" && /multipart\\/form-data/i.test(v))
+
+/** A transport over fetch. JSON goes out as JSON; bytes go out as they are; a multipart body as form data. */
 export function createFetchTransport(options: FetchTransportOptions): Transport {
   return {
     async request(request: TransportRequest): Promise<TransportResponse> {
@@ -127,12 +167,15 @@ export function createFetchTransport(options: FetchTransportOptions): Transport 
       if (!fetchNow) throw new Error("There is no fetch here: give createFetchTransport one, or use another transport")
       const search = queryString(request.query)
       const binary = request.body instanceof Uint8Array || request.body instanceof ArrayBuffer
+      const form = isMultipart(request) && request.body && typeof request.body === "object" && !binary ? formDataOf(request.body as Record<string, unknown>) : undefined
       const headers: Record<string, string> = { accept: "application/json", ...options.headers, ...request.headers }
-      if (request.body !== undefined && !binary) headers["content-type"] ??= "application/json"
+      /* fetch writes a form's content type itself, with its boundary */
+      if (form) for (const k of Object.keys(headers)) if (k.toLowerCase() === "content-type") delete headers[k]
+      if (request.body !== undefined && !binary && !form) headers["content-type"] ??= "application/json"
       const response = await fetchNow(\`\${options.baseUrl.replace(/\\/$/, "")}\${request.path}\${search ? \`?\${search}\` : ""}\`, {
         method: request.method,
         headers,
-        body: request.body === undefined ? undefined : binary ? (request.body as Uint8Array | ArrayBuffer) : JSON.stringify(request.body),
+        body: request.body === undefined ? undefined : form ? (form as string) : binary ? (request.body as Uint8Array | ArrayBuffer) : JSON.stringify(request.body),
         signal: request.signal,
       })
       const out: Record<string, string> = {}
@@ -174,11 +217,11 @@ function operationsSource(api: ApiModel): string {
   const ops = api.operations;
   const methods = ops.map((op) => {
     const input = inputType(op);
-    const call = [`operationId: ${str(op.operationId)}`, `method: ${str(op.method)}`, `path: ${pathCode(op)}`, ...(op.query ? ["query: input?.query"] : []), ...(op.body ? ["body: input.body"] : [])].join(", ");
+    const call = [`operationId: ${str(op.operationId)}`, `method: ${str(op.method)}`, `path: ${pathCode(op)}`, ...(op.query ? ["query: input?.query"] : []), ...(op.body ? ["body: input.body"] : []), ...(op.multipart ? ['headers: { "content-type": "multipart/form-data" }'] : [])].join(", ");
     const arg = input ? (op.params.length || op.body ? `input: ${input}` : `input?: ${input}`) : "";
     return `    ${op.name}: (${arg}${arg ? ", " : ""}init?: CallInit) => send<${op.responseType}>(transport, { ${call} }, init),`;
   });
-  const typeNames = ops.flatMap((op) => [op.bodyType, op.responseType]).filter((t) => !["unknown", "void", "never"].includes(t));
+  const typeNames = ops.flatMap((op) => [op.bodyType, op.responseType]).filter((t) => !["unknown", "void", "never"].includes(t) && /^[A-Za-z_$][\w$]*$/.test(t));
   return `${GENERATED}
 import { send, type CallInit${ops.some((op) => op.params.length) ? ", segment" : ""} } from "../client"
 import type { ${ops.some((op) => op.query) ? "Query, " : ""}Transport, TransportRequest } from "../transport"

@@ -10,7 +10,7 @@ import type { Doc } from "../tokens";
 import { PRODUCT_VERSIONS } from "../versions.generated";
 import { MANIFEST_PATH, parseManifest } from "./merge";
 import { buildProduct, productName, zipProduct, type ProductOptions } from "./product";
-import { productDoc, shopProductDoc } from "./product.fixture";
+import { boundShopDoc, productDoc, shopProductDoc } from "./product.fixture";
 import { GENERATED_DIRS } from "./targets/root";
 import { MOCK_ENGINE_API_FILES, MOCK_ENGINE_FILES } from "./targets/mocks";
 import { APP_RUNTIME_FILES } from "./targets/appRuntime";
@@ -246,51 +246,61 @@ describe("the product of a document", () => {
 describe("the mobile app", () => {
   let shop: Product;
   beforeAll(async () => {
-    const { doc, widths } = shopProductDoc();
+    const { doc, widths } = boundShopDoc();
     shop = await build(doc, widths);
   }, 60_000);
 
-  it("is an Expo app on Expo Router: a route per screen, its params in its path, the navigation bar's screens as tabs", () => {
+  it("is an Expo app on Expo Router: a route per screen, its params in its path, a screen that needs a session guarded", () => {
     const pkg = JSON.parse(text(shop, "apps/mobile/package.json"));
-    expect(pkg).toMatchObject({ name: "@proof-app/mobile", main: "expo-router/entry" });
-    expect(Object.keys(pkg.dependencies)).toEqual(expect.arrayContaining(["expo", "expo-router", "expo-secure-store", "expo-image-picker", "expo-document-picker", "nativewind", "@proof-app/api", "@proof-app/app-runtime"]));
-    expect(pkg.devDependencies["@proof-app/mocks"]).toBe("0.1.0");
-    expect(pkg.dependencies["@proof-app/mocks"]).toBeUndefined();
-    for (const path of ["src/app/_layout.tsx", "src/app/index.tsx", "src/app/catalog.tsx", "src/app/item/[productId].tsx", "src/app/sign-in.tsx", "src/app/orders.tsx", "src/app/(tabs)/_layout.tsx", "src/app/(tabs)/bars.tsx"]) expect(shop.files[`apps/mobile/${path}`]?.kind, path).toBe("generated");
+    expect(pkg).toMatchObject({ name: "@shop/mobile", main: "expo-router/entry" });
+    expect(Object.keys(pkg.dependencies)).toEqual(expect.arrayContaining(["expo", "expo-router", "expo-secure-store", "expo-image-picker", "expo-document-picker", "nativewind", "@shop/api", "@shop/app-runtime"]));
+    expect(pkg.devDependencies["@shop/mocks"]).toBe("0.1.0");
+    expect(pkg.dependencies["@shop/mocks"]).toBeUndefined();
+    for (const path of ["src/app/_layout.tsx", "src/app/index.tsx", "src/app/products.tsx", "src/app/product/[productId].tsx", "src/app/new-product.tsx", "src/app/sign-in.tsx", "src/app/orders.tsx", "src/app/photo/[productId].tsx"]) expect(shop.files[`apps/mobile/${path}`]?.kind, path).toBe("generated");
     const routing = text(shop, "apps/mobile/src/generated/routing.tsx");
-    expect(routing).toContain('Item: {"path":"/item/[productId]","params":["productId"]');
+    expect(routing).toContain('Product: {"path":"/product/[productId]","params":["productId"]');
     expect(routing).toContain('Orders: {"path":"/orders","params":[],"spec":[],"auth":"required"}');
     expect(routing).toContain('export const LOGIN: string | undefined = "SignIn"');
-    expect(JSON.parse(text(shop, "apps/mobile/app.json")).expo).toMatchObject({ slug: "proof-app", plugins: [["expo-router", { asyncRoutes: false }]], web: { bundler: "metro", output: "single" } });
+    expect(JSON.parse(text(shop, "apps/mobile/app.json")).expo).toMatchObject({ slug: "shop", plugins: [["expo-router", { asyncRoutes: false }]], web: { bundler: "metro", output: "single" } });
+  });
+
+  it("puts a navigation bar's destinations in tabs, the router drawing no bar of its own", () => {
+    expect(text(proof, "apps/mobile/src/app/(tabs)/_layout.tsx")).toContain("<Tabs tabBar={() => null}");
+    expect(proof.files["apps/mobile/src/app/(tabs)/bars.tsx"]?.kind).toBe("generated");
+    expect(text(proof, "apps/mobile/src/app/_layout.tsx")).toContain('<Stack.Screen name="(tabs)" />');
   });
 
   it("copies the kit whole, and prints its screens on it with their bindings", async () => {
     for (const path of KIT_FILES) expect(text(shop, `apps/mobile/src/kit/${path}`), path).toBe(await fromDisk(`rn/src/kit/${path}`));
-    const catalog = text(shop, "apps/mobile/src/generated/screens/CatalogScreen.tsx");
-    expect(catalog).toContain('const S1: SourceDef = { name: "products", operationId: "listProducts", pageSize: 20 };');
-    expect(catalog).toContain("const products = useSource(S1, $0);");
-    expect(catalog).toContain('data={$.list("data.products.items")}');
-    expect(catalog).toContain("onEndReached={() => void products.loadMore()}");
-    expect(catalog).toContain("onRefresh={() => void products.refresh()}");
-    expect(catalog).toMatch(/r1 === "loading" \?/);
-    expect(catalog).toContain('const A1: Action = { to: "Item", params: { productId: "item.id" } };');
-    expect(catalog).toContain('text={$1.text("item.name")}');
-    const item = text(shop, "apps/mobile/src/generated/screens/ItemScreen.tsx");
-    expect(item).toContain("export function ItemScreen({ params: given }: { params?: Record<string, unknown> })");
-    expect(item).toContain('params: { productId: "params.productId" }');
-    const sell = text(shop, "apps/mobile/src/generated/screens/SellScreen.tsx");
-    expect(sell).toContain('fields: ["name", "price.amount", "category", "description"]');
-    expect(sell).toContain('onChangeText={(v: string) => form1.set("price.amount", v)}');
-    expect(sell).toContain('form.errors[\\"price.amount\\"]');
-    expect(sell).toContain("disabled={form1.submitting}");
+    const list = text(shop, "apps/mobile/src/generated/screens/ProductsScreen.tsx");
+    expect(list).toContain('const S1: SourceDef = { name: "products", operationId: "listProducts", pageSize: 20 };');
+    expect(list).toContain("const products = useSource(S1, $0);");
+    expect(list).toContain('data={$.list("data.products.items")}');
+    expect(list).toContain("onEndReached={() => void products.loadMore()}");
+    expect(list).toContain("onRefresh={() => void products.refresh()}");
+    expect(list).toMatch(/r1 === "loading" \?/);
+    expect(list).toContain('const A1: Action = { to: "Product", params: { productId: "item.id" } };');
+    expect(list).toContain('text={$1.text("item.name")}');
+    const detail = text(shop, "apps/mobile/src/generated/screens/ProductScreen.tsx");
+    expect(detail).toContain("export function ProductScreen({ params: given }: { params?: Record<string, unknown> })");
+    expect(detail).toContain('params: { productId: "params.productId" }');
+    const form = text(shop, "apps/mobile/src/generated/screens/NewProductScreen.tsx");
+    expect(form).toContain('fields: ["name", "price.amount", "price.currency", "category", "description", "stock"]');
+    expect(form).toContain('onChangeText={(v: string) => form1.set("price.amount", v)}');
+    expect(form).toContain('onSelect={(_i: number, label: string) => form1.set("category", label)}');
+    expect(form).toContain("disabled={form1.submitting}");
+    const photo = text(shop, "apps/mobile/src/generated/screens/PhotoScreen.tsx");
+    expect(photo).toContain('onPress={() => void pickFile("").then((file) => file && form1.set("file", file))}');
+    expect(photo).toContain('params: { productId: "params.productId" }');
     expect(text(shop, "apps/mobile/src/generated/screens/SignInScreen.tsx")).toContain("login: true");
+    expect(text(shop, "apps/mobile/src/generated/contract.ts")).toContain('"media": "multipart/form-data"');
   });
 
   it("keeps the mocks out of a production build: the app requires them only in development", () => {
     const root = text(shop, "apps/mobile/src/generated/root.tsx");
     expect(root).toContain('if (__DEV__ && process.env.EXPO_PUBLIC_API_MOCKS !== "off") {');
     for (const [path, f] of Object.entries(shop.files)) {
-      if (!path.startsWith("apps/mobile/src/") || path.endsWith(".test.tsx") || path.endsWith("mocks.tsx") || path.endsWith("root.tsx") || typeof f.body !== "string") continue;
+      if (!path.startsWith("apps/mobile/src/") || path.endsWith(".test.tsx") || path.endsWith("mocks.ts") || path.endsWith("DevMenu.tsx") || path.endsWith("root.tsx") || typeof f.body !== "string") continue;
       expect(importsIn(f.body).some((s) => s.includes("/mocks")), path).toBe(false);
     }
   });

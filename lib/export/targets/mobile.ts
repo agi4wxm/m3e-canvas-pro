@@ -7,10 +7,10 @@
  * generated but src/custom/, written once. docs/手机端.md says how it fits together. */
 
 import rnPackage from "../../../rn/package.json";
-import { authFields } from "../../api/types";
 import { KIT_FILES } from "../rn/kitFiles.generated";
 import { iconsModule, rnDependencies, themeModule } from "../rn/app";
-import { authOf, formRulesOf, operationsOf } from "../rn/contract";
+import { formRulesOf, operationsOf } from "../rn/contract";
+import { authSource } from "./webSources";
 import { rnIconData } from "../rn/icons";
 import { printRnScreens, type RnScreen, type RnScreens } from "../rn/print";
 import { rnThemeOf } from "../rn/theme";
@@ -229,7 +229,7 @@ export function call<T = unknown>(operationId: string, input: CallInput = {}, in
 }
 `;
 
-const CONTRACT = (scope: string, ops: unknown, auth: unknown, forms: unknown) => `${GENERATED}
+const CONTRACT = (scope: string, ops: unknown, auth: string, forms: unknown) => `${GENERATED}
 import type { AuthConfig, FieldRule, HttpMethod, ListAt, Paging } from ${str(`${scope}/app-runtime`)}
 
 /** an operation of the contract as the app calls it */
@@ -250,7 +250,7 @@ export type Operation = {
 export const OPERATIONS: Record<string, Operation> = ${jsonCode(ops)}
 
 /** what the session needs of the contract: which operations sign in, refresh and sign out, how each one's token rides */
-export const AUTH: AuthConfig = ${jsonCode(auth)}
+export const AUTH: AuthConfig = ${auth}
 
 /** the rules of the fields of each operation a form of the design sends, from its body's schema */
 export const FORMS: Record<string, Record<string, FieldRule>> = ${jsonCode(forms)}
@@ -402,9 +402,9 @@ export type FormDef = {
 
 /** a screen's params: what it was opened with, each as its type has it, the example of each it was not given */
 export function useParams(specs: ParamSpec[], given: Record<string, unknown> | undefined): Record<string, unknown> {
-  const key = JSON.stringify(given ?? {})
   /* the params as words: an equal object is the same params */
-  return useMemo(() => screenParams(specs, given), [specs, key])
+  const key = JSON.stringify(given ?? {})
+  return useMemo(() => screenParams(specs, JSON.parse(key) as Record<string, unknown>), [specs, key])
 }
 
 /** what a screen's expressions read: its params, the variables, the session (\`auth\`) and the time (\`now\`) */
@@ -451,6 +451,8 @@ export function useFormFor(def: FormDef, $: Bindings, run: (body: ActionBody | u
   }, [def])
   const scope = $.scope
   return useForm({
+    /* kept by the runtime: what is typed stays while the app signs in and comes back */
+    id: def.id,
     fields,
     initial: def.initial,
     status: OPERATIONS[def.operationId]?.status,
@@ -530,7 +532,7 @@ export const handleEffect: EffectHandler = (e, { here, screen, nav, run }) => {
       void source(e.source)?.loadMore()
       return
     case "submit": {
-      const form = (e.form ? screen.forms?.[e.form] : here.form) as FormHandle | undefined
+      const form = (here.form ?? (e.form ? screen.forms?.[e.form] : undefined)) as FormHandle | undefined
       void form?.submit()
       return
     }
@@ -566,11 +568,10 @@ function routesOf(screens: RnScreens): RouteInfo[] {
 }
 
 const ROUTING = (scope: string, routes: RouteInfo[], initial: string, login: string | undefined) => `${GENERATED}
-import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router"
-import { useCallback, useMemo, type ReactNode } from "react"
+import { router, type Href } from "expo-router"
 import { Linking } from "react-native"
-import { screenParams, useRequireAuth, type ParamSpec } from ${str(`${scope}/app-runtime`)}
-import { OverlayFrame, type Nav } from "../kit"
+import type { ParamSpec } from ${str(`${scope}/app-runtime`)}
+import type { Nav } from "../kit"
 import { runtime } from "./runtime"
 
 /** a screen's route: its path (its params are segments of it), whether it is a tab, whether a tap opens it over another */
@@ -600,6 +601,11 @@ export function hrefOf(key: string, params: Record<string, unknown> = {}, overla
 /** the screen on show, to come back to after a sign-in */
 let current: { key: string; params?: Record<string, unknown> } | undefined
 
+/** a screen came on show (./ScreenRoute) */
+export function seen(screen: { key: string; params?: Record<string, unknown> }) {
+  current = screen
+}
+
 /** where a tap goes, on Expo Router: a tab is switched to, a screen pushed (or put in place of this one), an overlay
  *  opened over it */
 export const routerNav: Nav = {
@@ -628,7 +634,16 @@ export function toSignIn(from = current) {
 }
 
 /* a call refused for want of a session (a 401 no refresh mended) */
-runtime.onUnauthorized = () => toSignIn()
+runtime.whenUnauthorized(() => toSignIn())
+
+`;
+
+const SCREEN_ROUTE = (scope: string) => `${GENERATED}
+import { useFocusEffect, useLocalSearchParams } from "expo-router"
+import { useCallback, useMemo, type ReactNode } from "react"
+import { screenParams, useRequireAuth } from ${str(`${scope}/app-runtime`)}
+import { OverlayFrame } from "../kit"
+import { ROUTES, routerNav, seen, toSignIn } from "./routing"
 
 /** the params an address holds, one value each */
 const flat = (given: Record<string, string | string[] | undefined>) => Object.fromEntries(Object.entries(given).flatMap(([k, v]) => (v === undefined ? [] : [[k, Array.isArray(v) ? v[0] : v]])))
@@ -638,12 +653,12 @@ const flat = (given: Record<string, string | string[] | undefined>) => Object.fr
 export function ScreenRoute({ screen, overlay, render }: { screen: string; overlay?: boolean; render: (params: Record<string, unknown>) => ReactNode }) {
   const given = useLocalSearchParams()
   const route = ROUTES[screen]
-  const key = JSON.stringify(given)
   /* the address as words: equal params are the same params */
-  const params = useMemo(() => screenParams(route?.spec, flat(given)), [route, key])
+  const key = JSON.stringify(given)
+  const params = useMemo(() => screenParams(route?.spec, flat(JSON.parse(key) as Record<string, string | string[] | undefined>)), [route, key])
   useFocusEffect(
     useCallback(() => {
-      current = { key: screen, params }
+      seen({ key: screen, params })
     }, [screen, params]),
   )
   useRequireAuth(route?.auth === "required", () => toSignIn({ key: screen, params }))
@@ -678,7 +693,8 @@ if (__DEV__ && process.env.EXPO_PUBLIC_API_MOCKS !== "off") {
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- development only, dropped from a production build
   const mocks = require("./mocks") as typeof import("./mocks")
   mocks.startMocks()
-  DevMenu = mocks.DevMenu
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- development only, dropped from a production build
+  DevMenu = (require("./DevMenu") as typeof import("./DevMenu")).DevMenu
 }
 
 ${
@@ -720,10 +736,8 @@ export function AppRoot({ children }: { children: ReactNode }) {
 `;
 
 const MOCKS = (scope: string) => `${GENERATED}
-import { useState } from "react"
-import { Modal, Platform, Pressable, Text, View } from "react-native"
-import { MOCKS, SCENARIOS, createMockTransport, type ScenarioName } from ${str(`${scope}/mocks`)}
-import { useKit } from "../kit"
+import { Platform } from "react-native"
+import { createMockTransport, startsSignedIn, type ScenarioName } from ${str(`${scope}/mocks`)}
 import { runtime } from "./runtime"
 
 /* Development only (./root requires this behind __DEV__): the API answers from the mocks, the editor preview's own,
@@ -744,9 +758,22 @@ function asked(): string | undefined {
 export function startMocks(next: string | undefined = scenario ?? asked()) {
   const transport = createMockTransport(next === undefined ? {} : { scenario: next as ScenarioName | "" })
   scenario = transport.scenario ?? ""
-  const presumed = MOCKS.scenarios?.find((s) => s.id === scenario)?.signedIn ?? MOCKS.auth?.signedIn ?? true
-  runtime.setTransport(transport, { presumed })
+  /* the app's session starts as the mocks' does under the scenario, as the preview's does */
+  runtime.setTransport(transport, { presumed: startsSignedIn(scenario) })
 }
+
+/** the scenario the mocks answer in now ("" for none) */
+export const scenarioNow = () => scenario ?? ""
+`;
+
+const DEV_MENU = (scope: string) => `${GENERATED}
+import { useState } from "react"
+import { Modal, Platform, Pressable, Text, View } from "react-native"
+import { SCENARIOS } from ${str(`${scope}/mocks`)}
+import { useKit } from "../kit"
+import { scenarioNow, startMocks } from "./mocks"
+
+/* Development only (./root requires this behind __DEV__): the scenarios of the mocks, one tap away. */
 
 /** whether the dev menu shows: ?devmenu=off on the web hides it (screenshots) */
 const shown = () => {
@@ -759,7 +786,7 @@ const shown = () => {
 export function DevMenu() {
   const kit = useKit()
   const [open, setOpen] = useState(false)
-  const [, setAt] = useState(scenario)
+  const [at, setAt] = useState(scenarioNow)
   if (!shown()) return null
   const pick = (id: string) => {
     startMocks(id)
@@ -767,14 +794,14 @@ export function DevMenu() {
     setOpen(false)
   }
   const row = (id: string, name: string) => (
-    <Pressable key={id || "-"} accessibilityRole="menuitem" onPress={() => pick(id)} style={{ paddingVertical: 12, paddingHorizontal: 16, backgroundColor: id === scenario ? kit.colors["secondary-container"] : "transparent" }}>
+    <Pressable key={id || "-"} accessibilityRole="menuitem" onPress={() => pick(id)} style={{ paddingVertical: 12, paddingHorizontal: 16, backgroundColor: id === at ? kit.colors["secondary-container"] : "transparent" }}>
       <Text style={{ color: kit.colors["on-surface"], fontSize: 16 }}>{name}</Text>
     </Pressable>
   )
   return (
     <>
       <Pressable accessibilityLabel="Mocks" testID="dev-menu" onPress={() => setOpen(true)} style={{ position: "absolute", right: 8, bottom: 140, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: kit.colors["inverse-surface"], opacity: 0.7, zIndex: 200 }}>
-        <Text style={{ color: kit.colors["inverse-on-surface"], fontSize: 12, fontWeight: "600" }}>{\`mocks · \${SCENARIOS.find((s) => s.id === scenario)?.name ?? "normal"}\`}</Text>
+        <Text style={{ color: kit.colors["inverse-on-surface"], fontSize: 12, fontWeight: "600" }}>{\`mocks · \${SCENARIOS.find((s) => s.id === at)?.name ?? "normal"}\`}</Text>
       </Pressable>
       <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable onPress={() => setOpen(false)} style={{ flex: 1, backgroundColor: "#00000052", justifyContent: "center", padding: 24 }}>
@@ -807,7 +834,7 @@ function routeFile(r: RouteInfo, depth: number, overlay: boolean): string {
   const up = "../".repeat(depth);
   const render = r.spec.length ? `(params) => <${r.component} params={params} />` : `() => <${r.component} />`;
   return `${GENERATED}
-import { ScreenRoute } from ${str(`${up}generated/routing`)}
+import { ScreenRoute } from ${str(`${up}generated/ScreenRoute`)}
 import { ${r.component} } from ${str(`${up}generated/screens/${r.component}`)}
 
 export default function ${r.component}Route() {
@@ -1042,12 +1069,14 @@ export const mobileTarget: ProductTarget = {
     files["src/generated/routing.tsx"] = generated(ROUTING(scope, routes, screens.initial, login));
     files["src/generated/runtime.ts"] = generated(RUNTIME(scope, ctx.name, ctx.lang));
     files["src/generated/api.ts"] = generated(API(scope));
-    files["src/generated/contract.ts"] = generated(CONTRACT(scope, operationsOf(doc.api), doc.api ? authOf(doc.api) : { security: {}, tokenField: authFields(undefined).token }, formRulesOf(doc)));
+    files["src/generated/contract.ts"] = generated(CONTRACT(scope, operationsOf(doc.api), authSource(doc.api ?? {}), formRulesOf(doc)));
     files["src/generated/bind.ts"] = generated(BIND(scope));
     files["src/generated/effects.ts"] = generated(EFFECTS(scope));
     files["src/generated/transport.ts"] = generated(TRANSPORT(scope));
     files["src/generated/files.ts"] = generated(FILES);
-    files["src/generated/mocks.tsx"] = generated(MOCKS(scope));
+    files["src/generated/mocks.ts"] = generated(MOCKS(scope));
+    files["src/generated/DevMenu.tsx"] = generated(DEV_MENU(scope));
+    files["src/generated/ScreenRoute.tsx"] = generated(SCREEN_ROUTE(scope));
     files["src/generated/env.d.ts"] = generated(ENV);
     const rules = formRulesOf(doc);
     const formScreens = screens.screens.flatMap((s) => (s.forms ?? []).slice(0, 1).map((f) => ({ screen: s.component, operationId: f.operationId, required: f.fields.some((x) => rules[f.operationId]?.[x]?.required) })));

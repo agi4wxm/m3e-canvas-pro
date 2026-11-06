@@ -1,12 +1,12 @@
 /* What an exported app's runtime needs of the contract, as data: each operation's method, path, where each parameter
- * goes, its request's media type, its success status, the list it answers with and how it pages; what the session
- * needs (packages/app-runtime `AuthConfig`: which operations sign in, refresh and sign out, how each one's token rides);
- * and the rules of the fields of each form the design binds to an operation's body (lib/bindings/contract.ts
- * `formFields`, the preview's own). The mobile app's generated contract module is written from these. */
+ * goes, its request's media type, its success status, the list it answers with and how it pages; and the rules of the
+ * fields of each form the design binds to an operation's body (lib/bindings/contract.ts `formFields`, the preview's
+ * own). The mobile app's generated contract module is written from these, and the session's (`AuthConfig`) by the web
+ * app's own generator (lib/export/targets/webSources.ts `authSource`). */
 
 import { successOf } from "../../api";
-import { authFields, paginationOf, type ApiSpec } from "../../api/types";
-import { formFields, listOf, paramsOf, requestOf, tokenPlacement } from "../../bindings/contract";
+import { paginationOf, type ApiSpec } from "../../api/types";
+import { formFields, listOf, paramsOf, requestOf } from "../../bindings/contract";
 import type { Doc } from "../../tokens";
 
 export type OperationData = {
@@ -41,27 +41,6 @@ export function operationsOf(api: ApiSpec | undefined): Record<string, Operation
     };
   }
   return out;
-}
-
-/** what the session needs of the contract (packages/app-runtime `AuthConfig`), as data */
-export function authOf(api: ApiSpec | undefined): Record<string, unknown> {
-  const a = api?.auth;
-  const op = (id: string | undefined) => {
-    const e = id ? api?.endpoints?.find((x) => x.operationId === id) : undefined;
-    return e ? { operationId: e.operationId, method: e.method.toUpperCase(), path: e.path } : undefined;
-  };
-  const fields = authFields(a);
-  const security = Object.fromEntries((api?.endpoints ?? []).map((e) => [e.operationId, tokenPlacement(api!, e)]));
-  const anyone = (api?.auth?.security ?? []).length === 0;
-  return {
-    ...(a?.login ? { login: a.login } : {}),
-    ...(op(a?.refresh) ? { refresh: op(a?.refresh) } : {}),
-    ...(op(a?.logout) ? { logout: op(a?.logout) } : {}),
-    tokenField: fields.token,
-    refreshTokenField: fields.refreshToken,
-    security,
-    fallback: anyone ? null : { header: "Authorization", prefix: "Bearer " },
-  };
 }
 
 /** the rules of the fields of each operation a form of the design sends: kind, required, schema */

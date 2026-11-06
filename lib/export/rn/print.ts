@@ -444,8 +444,11 @@ class ScreenPrinter {
   /** where a tap was made, for the expressions it reads: the scope, the form, the row's element */
   here(a: Action): string | undefined {
     const parts: string[] = [];
+    /* a submit that names its form (a button outside it) submits that one */
+    const named = [a, a.else].flatMap((b) => b?.effects ?? []).find((e): e is Extract<Effect, { do: "submit" }> => e.do === "submit" && !!e.form);
+    const form = (named?.form && this.forms.get(named.form)) || this.ctx.form?.v;
     if (this.readsScope(a) || this.ctx.form || this.ctx.item) parts.push(`scope: ${this.$}.scope`);
-    if (this.ctx.form) parts.push(`form: ${this.ctx.form.v}`);
+    if (form) parts.push(`form: ${form}`);
     if (this.ctx.item) parts.push(this.ctx.item === "item" ? "item" : `item: ${this.ctx.item}`);
     return parts.length ? `{ ${parts.join(", ")} }` : undefined;
   }
@@ -929,7 +932,7 @@ class ScreenPrinter {
     this.bind.add("useFormFor").add("type FormDef");
     this.uses.act = true;
     const outer = this.$;
-    this.head.forms.push(`const ${v} = useFormFor(F${n}, ${outer}, (body, here) => act(body, here));`, `const ${$v} = ${outer}.with({ form: ${v}.view });`);
+    this.head.forms.push(`const ${v} = useFormFor(F${n}, ${outer}, act);`, `const ${$v} = ${outer}.with({ form: ${v}.view });`);
     this.forms.set(run.id, v);
     return { v, $: $v };
   }
@@ -1014,14 +1017,14 @@ class ScreenPrinter {
       });
       if (sources.length) out.push(`const $ = $0.with({ data: { ${sources.map((s) => (s.v === s.def.name ? s.v : `${NAME.test(s.def.name) ? s.def.name : str(s.def.name)}: ${s.v}`)).join(", ")} } });`);
     }
-    out.push(...this.head.forms, ...this.head.regions);
+    /* the screen's taps, before its forms: a form runs its then and catch through them (the form a tap submits is
+       where the tap was made) */
     if (this.uses.act) {
       this.kit.add("useAct");
-      const parts: string[] = [];
-      if (this.sources.size) parts.push(`sources: { ${[...this.sources.values()].map((s) => (s.v === s.def.name ? s.v : `${NAME.test(s.def.name) ? s.def.name : str(s.def.name)}: ${s.v}`)).join(", ")} }`);
-      if (this.forms.size) parts.push(`forms: { ${[...this.forms].map(([id, v]) => `${NAME.test(id) ? id : str(id)}: ${v}`).join(", ")} }`);
-      out.push(`const act = useAct(${parts.length ? `{ ${parts.join(", ")} }` : ""});`);
+      const sources = this.sources.size ? `{ sources: { ${[...this.sources.values()].map((s) => (s.v === s.def.name ? s.v : `${NAME.test(s.def.name) ? s.def.name : str(s.def.name)}: ${s.v}`)).join(", ")} } }` : "";
+      out.push(`const act = useAct(${sources});`);
     }
+    out.push(...this.head.forms, ...this.head.regions);
     if (this.uses.app) this.kit.add("useApp");
     out.push(...this.head.after);
     return out;

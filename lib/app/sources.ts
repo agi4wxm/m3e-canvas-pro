@@ -11,7 +11,10 @@ import { appMessage } from "../bindings/messages";
 import { Store } from "./store";
 
 /** what a load is asked with beyond its own arguments: the page parameters, and a signal that says it is no longer wanted */
-export type LoadInit = { page: Record<string, unknown>; signal?: AbortSignalLike };
+/** the value of a page parameter: a cursor, how many to skip, how many to take */
+export type PageValue = string | number | null | undefined;
+
+export type LoadInit = { page: Readonly<Record<string, PageValue>>; signal?: AbortSignalLike };
 
 /** One data source as the generated hook describes it. */
 export type SourceSpec<T = unknown> = {
@@ -80,7 +83,7 @@ export class SourceCache {
     if (o.more) {
       if (!was.hasMore || was.loadingMore || was.loading || was.key !== spec.key) return;
     } else if (!o.force && was.key === spec.key && (was.status === "ready" || was.loading)) return;
-    const page = pageParams(spec.paging, { more: o.more, was, pageSize: spec.pageSize, params: spec.args ?? {} });
+    const page = pageParams(spec.paging, { more: o.more, was, pageSize: spec.pageSize, params: spec.args ?? {} }) as Record<string, PageValue>;
     const seq = was.seq + 1;
     const fresh = was.key !== spec.key;
     const epoch = this.epoch;
