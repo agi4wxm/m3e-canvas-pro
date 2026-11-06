@@ -552,7 +552,7 @@ export class Behaviour {
 
   /** a condition on a field of the row a part was drawn for is settled here, row by row */
   private onRow(c: Condition, row: Row | undefined): boolean | undefined {
-    if ("filled" in c || !c.var.startsWith("row.") || !row) return undefined;
+    if ("filled" in c || "expr" in c || !c.var.startsWith("row.") || !row) return undefined;
     const same = String(row[c.var.slice(4)]) === String(c.value);
     return c.op === "neq" ? !same : same;
   }
@@ -560,6 +560,8 @@ export class Behaviour {
   condition(c: Condition, uses: Uses, row: Row | undefined = this.rowNow): string {
     const known = this.onRow(c, row);
     if (known !== undefined) return String(known);
+    /* an expression over the bindings is printed by the export of the bindings; the prototype shows what it guards */
+    if ("expr" in c) return "true";
     if ("filled" in c) {
       const it = this.owner.get(c.filled)?.items.find((x) => x.id === c.filled);
       const v = it && this.inputVar(it);

@@ -10,9 +10,9 @@
 
 import { tool, type Tool } from "../tools";
 
-export type ToolSet = "build" | "layout" | "screens" | "components" | "style" | "data" | "api" | "mocks" | "generate" | "reference";
+export type ToolSet = "build" | "layout" | "screens" | "components" | "style" | "data" | "api" | "mocks" | "bindings" | "generate" | "reference";
 
-export const TOOL_SETS: readonly ToolSet[] = ["build", "layout", "screens", "components", "style", "data", "api", "mocks", "generate", "reference"];
+export const TOOL_SETS: readonly ToolSet[] = ["build", "layout", "screens", "components", "style", "data", "api", "mocks", "bindings", "generate", "reference"];
 
 /** what each set is for, for the model */
 export const SET_ABOUT: Record<ToolSet, string> = {
@@ -24,9 +24,14 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, bindings",
   api: "the contract with the back end: data models (JSON Schema), HTTP endpoints (OpenAPI 3.1) with paging and uploads, auth (bearer JWT, API key, OAuth2), realtime channels (AsyncAPI 3.0), servers; importing and reading the spec files",
   mocks: "the mock library that answers the API while the product is designed: made-up data (a hint per field, record counts, pinned records, seed, language), scenarios (new user, lots of data, network error, slow network, signed out, per-operation errors and retries), mock files (images, PDF, audio, video), realtime scripts, mock sign-in; reading the records and trying what an endpoint answers",
+  bindings:
+    "screens bound to the API: the data a screen loads, its params and sign-in, props bound to expressions (formatting dates, money, plurals), lists repeated from data, regions with loading, empty, error and no-access designs, forms for request bodies with validation, taps that call endpoints; wire_screen does all of it for a screen and an endpoint",
   generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture; the document's own icons (svg:<id>)",
   reference: "measuring an attached reference picture and comparing a screen with it",
 };
+
+/** binding screens to the contract: its operations and the tool that reads it */
+const BINDINGS = new Set(["describe_bindings", "add_data_source", "update_data_source", "remove_data_source", "set_screen_params", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
 
 /** the tools of the build set; everything else falls in the set of its kind */
 const BUILD = new Set([
@@ -63,6 +68,7 @@ export function setOf(t: Pick<Tool<never>, "name" | "group">): ToolSet {
   if (COMPONENTS.has(t.name)) return "components";
   if (DRAWING.has(t.name)) return "generate";
   if (API.has(t.name)) return "api";
+  if (BINDINGS.has(t.name)) return "bindings";
   if (STYLE_READS.has(t.name) || t.group === "style") return "style";
   if (t.name === "list_data" || t.group === "data") return "data";
   if (t.group === "generate") return "generate";
@@ -134,6 +140,17 @@ const CUES: [ToolSet, Cue][] = [
         /模拟|假数据|测试数据|伪造数据|场景|慢网|弱网|断网|网络错误|网络异常|大量数据|延迟|造数据/,
         /モック|ダミーデータ|テストデータ|サンプルデータ|シナリオ|疑似データ|遅いネットワーク|ネットワークエラー|オフライン|遅延/,
         /목업|목 ?데이터|더미 ?데이터|테스트 ?데이터|샘플 ?데이터|시나리오|모의|느린 ?네트워크|네트워크 ?오류|오프라인|지연/,
+      ),
+    },
+  ],
+  [
+    "bindings",
+    {
+      yes: any(
+        /\b(?:bind(?:s|ing)?\s+(?:\w+\s+){0,3}(?:to|with)\s+(?:the\s+|an?\s+)?(?:api|endpoints?|backend|server)|wire(?:s|d)?\s+(?:\w+\s+){0,3}(?:to|up\s+(?:to|with))\s+(?:the\s+|an?\s+)?(?:api|endpoints?|backend)|data\s?sources?|loading\s+(?:states?|skeletons?|spinners?)|empty\s+states?|error\s+states?|skeletons?|pull[- ]to[- ]refresh|infinite\s+scroll(?:ing)?|load\s+more|form\s+validation|validat\w*\s+(?:the\s+)?(?:form|fields?|inputs?)|submit(?:s|ting)?\s+(?:the\s+|a\s+)?form|call(?:s|ing)?\s+(?:the\s+|an?\s+)?(?:api|endpoint)|fetch(?:es|ing)?\s+(?:\w+\s+)?from\s+(?:the\s+)?(?:api|endpoint|server|backend)|real\s+data\s+from|expressions?)\b/,
+        /绑定(?:到)?接口|接口数据|连接接口|对接接口|接到接口|数据源|加载中状态|加载状态|空状态|错误状态|出错状态|无权限状态|骨架屏|下拉刷新|上拉加载|加载更多|无限滚动|表单(?:校验|验证)|提交表单|校验字段|调用接口|请求接口|从接口(?:获取|加载|拉取|读取)|表达式/,
+        /API(?:に|と)(?:つな|接続|バインド)|データソース|読み込み中の(?:状態|表示)|空の状態|エラー(?:の)?状態|スケルトン|引っ張って更新|さらに読み込む|無限スクロール|フォーム(?:の)?(?:検証|送信)|入力チェック|バリデーション|APIを呼|API を呼|式で表示/,
+        /API(?:에|와)\s*(?:연결|바인딩)|데이터\s?소스|로딩\s?상태|빈\s?상태|오류\s?상태|스켈레톤|당겨서\s?새로고침|더\s?보기\s?버튼|무한\s?스크롤|양식\s?(?:검증|제출)|폼\s?(?:검증|제출)|입력\s?검증|API\s?호출|표현식/,
       ),
     },
   ],

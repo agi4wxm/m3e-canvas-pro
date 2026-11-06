@@ -1,7 +1,7 @@
 import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import type { FlowValues } from "../parts/flow";
-import { Group, Item, groupBounds, heldBy, holdsParts, liesInside, makeItem, ownerIdOf, unionRect, type FlowAlign, type FlowSizing } from "./tokens";
+import { Group, Item, REGION_STATES, groupBounds, heldBy, holdsParts, liesInside, makeItem, ownerIdOf, unionRect, type FlowAlign, type FlowSizing } from "./tokens";
 import { alignIntent, boundsOf, gapSnapper, gridMeasure, median, runsOf, structureOf, union, type Box, type Rect, type Shape } from "./structure";
 
 /* Auto layout on the canvas. Parts stay where the document says they are, so everything else (the
@@ -168,8 +168,13 @@ export const baselineOf = (g: Group, h: number, widths: Widths): number => {
   return typeof base === "number" && Number.isFinite(base) && base > 0 && base <= h ? base : h;
 };
 
-/** the tab a container with tabs is showing, and how many it has; null for any other part */
-function panesOf(it: Item): { shown: number; count: number } | null {
+/** The tab a container with tabs is showing, and how many it has; null for any other part. A region bound to data
+ *  (`Group.states`, lib/bindings) is one too: its states are its tabs, in the order of REGION_STATES, its content on
+ *  the first, and the state it shows is the one showing. */
+function panesOf(g: Group): { shown: number; count: number } | null {
+  if (g.states && holdsParts(g)) return { count: REGION_STATES.length, shown: Math.max(0, REGION_STATES.indexOf(g.states.show ?? "ready")) };
+  const it = g.items[0];
+  if (!it) return null;
   const def = partBySlug(it.component);
   if (!def?.panes || !def.selectKey || !def.slots) return null;
   const p = reader(def, it.props);
@@ -184,8 +189,18 @@ const paneIn = (g: Group, panes: { count: number }) => Math.max(0, Math.min(pane
 export function outOfPane(groups: Group[], widths: Widths): Set<string> {
   const out = new Set<string>();
   for (const host of groups) {
-    const panes = holdsParts(host) ? panesOf(host.items[0]) : null;
+    const panes = holdsParts(host) ? panesOf(host) : null;
     if (!panes) continue;
+    /* A region's designs all stand in one place, laid out in it: what is off is each design on another state and what
+       is laid out in it, never what merely lies over it (the design on show does). */
+    if (host.states) {
+      for (const g of groups) {
+        if (g.inFlow !== host.id || paneIn(g, panes) === panes.shown) continue;
+        out.add(g.id);
+        for (const id of flowDescendants(g.id, groups)) out.add(id);
+      }
+      continue;
+    }
     const held = heldBy(host, groups, widths);
     /* only what the dock holds directly has a tab; the rest goes with what it stands in */
     const nested = new Set(held.flatMap((g) => heldBy(g, groups, widths).map((x) => x.id)));
@@ -208,12 +223,16 @@ export function showingGroups(source: Group[], ids: Set<string>, widths: Widths)
     const off = outOfPane(groups, widths);
     if (![...ids].some((id) => off.has(id))) break;
     const next = groups.find((host) => {
-      const panes = holdsParts(host) ? panesOf(host.items[0]) : null;
+      const panes = holdsParts(host) ? panesOf(host) : null;
       return panes && offTabHolding(host, panes, groups, ids, widths) !== null;
     });
     if (!next) break;
     const it = next.items[0];
-    const pane = offTabHolding(next, panesOf(it)!, groups, ids, widths)!;
+    const pane = offTabHolding(next, panesOf(next)!, groups, ids, widths)!;
+    if (next.states) {
+      groups = groups.map((g) => (g === next ? { ...g, states: { ...next.states, show: REGION_STATES[pane] } } : g));
+      continue;
+    }
     groups = groups.map((g) => (g === next ? { ...g, items: [{ ...it, props: { ...it.props, [partBySlug(it.component)!.selectKey!]: pane } }] } : g));
   }
   return groups;
@@ -246,7 +265,7 @@ function settlePane(groups: Group[], id: string, widths: Widths): Group[] {
     const s = ownSize(o, widths);
     if (cx >= o.x && cx <= o.x + s.w && cy >= o.y && cy <= o.y + s.h) holder = o;
   }
-  const shown = holder ? panesOf(holder.items[0])?.shown : undefined;
+  const shown = holder ? panesOf(holder)?.shown : undefined;
   if (g.pane === shown) return groups;
   const { pane: _was, ...rest } = g;
   const next: Group = shown === undefined ? rest : { ...rest, pane: shown };
@@ -258,7 +277,7 @@ function settlePane(groups: Group[], id: string, widths: Widths): Group[] {
  *  taking its place, rather than being lost with it. */
 export function panesAfterReorder(groups: Group[], hostId: string, order: number[], widths: Widths): Group[] {
   const host = groups.find((g) => g.id === hostId);
-  if (!host || !panesOf(host.items[0])) return groups;
+  if (!host || host.states || !panesOf(host)) return groups;
   const held = heldBy(host, groups, widths);
   const nested = new Set(held.flatMap((g) => heldBy(g, groups, widths).map((x) => x.id)));
   const direct = new Set(held.filter((g) => !nested.has(g.id)).map((g) => g.id));
@@ -336,7 +355,7 @@ function membership(groups: Group[], widths: Widths): Group[] {
     if (!near || !flowing.has(near.id)) return g;
     joined.add(near.id);
     /* added by a tap, it goes on the tab that is showing; standing loose was its place in a layout it has left */
-    const panes = panesOf(near.items[0]);
+    const panes = panesOf(near);
     return { ...inRun(g), inFlow: near.id, ...(panes ? { pane: panes.shown } : {}) };
   });
   return [...joined].reduce((gs, id) => sortKids(gs, id, flowing.get(id)!), out);
@@ -397,7 +416,7 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
   for (const g of groups) {
     if (!g.inFlow || !flows.has(g.inFlow) || g.locked || g.inFlow === g.id) continue;
     /* another tab's content takes no room here; it is laid out when its tab is chosen */
-    const panes = panesOf(work.get(g.inFlow)!.items[0]);
+    const panes = panesOf(work.get(g.inFlow)!);
     if (panes && paneIn(g, panes) !== panes.shown) continue;
     const into = childLayoutOf(lone(g)).absolute ? looseOf : kidsOf;
     into.set(g.inFlow, [...(into.get(g.inFlow) ?? []), g]);

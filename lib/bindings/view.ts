@@ -1,0 +1,180 @@
+/* One screen as its bindings have it at a moment: its scope (lib/bindings/runtime.ts), each form's values and errors,
+ * its repeats over data drawn from what the data holds, each region showing the state its data is in, inputs with an
+ * error showing it, a form's submit buttons held while it submits. What comes out is plain groups the preview lays
+ * out and draws like any other (lib/interact.ts `liveGroups`), and the context expressions on them read. */
+
+import { partBySlug, reader } from "../../parts/registry";
+import { expandRepeats, measuresFor } from "../collections";
+import { INPUT_PROP } from "../interact";
+import type { Doc, Frame, Group, Item, ItemScope, VarValue } from "../tokens";
+import type { TransportFile } from "../api/transport";
+import { endpointOf, fieldError, formFields, isBlank, typedValue, type FieldSpec } from "./contract";
+import { evaluate, readKey, type EvalContext, type Scope } from "./expr";
+import { regionState, screenScope, type BindingState, type FormRuntime } from "./runtime";
+import { scopeFor, type BindingContext, type FormView } from "./scope";
+
+type Widths = Record<string, number>;
+
+/** the containers around each group: the nearest with a form, by group id */
+export function formsOf(groups: Group[]): Map<string, string> {
+  const byId = new Map(groups.map((g) => [g.id, g]));
+  const out = new Map<string, string>();
+  const find = (g: Group): string | undefined => {
+    let at: Group | undefined = g;
+    for (let i = 0; at && i < 64; i++) {
+      if (out.has(at.id)) return out.get(at.id);
+      if (at.form) return at.id;
+      at = at.inFlow ? byId.get(at.inFlow) : undefined;
+    }
+    return undefined;
+  };
+  for (const g of groups) {
+    const f = find(g);
+    if (f) out.set(g.id, f);
+  }
+  return out;
+}
+
+/** what an input holds now, as its field's value: the words, the tick, the option chosen, the file */
+export function inputValue(it: Item, fields: Record<string, VarValue>, files?: Record<string, TransportFile[]>): unknown {
+  if (it.component === "file-upload") {
+    const f = files?.[it.id];
+    return f?.length ? (f.length === 1 ? f[0] : f) : undefined;
+  }
+  const key = INPUT_PROP[it.component ?? ""];
+  if (key === undefined) return undefined;
+  const def = partBySlug(it.component);
+  const d = def?.props.find((x) => x.key === key);
+  const r = def ? reader(def, it.props) : undefined;
+  const raw = fields[it.id] !== undefined ? fields[it.id] : !r || !d ? undefined : d.kind === "bool" ? r.b(key) : d.kind === "number" ? r.n(key) : r.s(key);
+  if ((key === "selected" || it.component === "radio-group") && typeof raw === "number" && def) {
+    const rows = reader(def, it.props).list("items");
+    return raw >= 0 ? rows[raw]?.label : undefined;
+  }
+  return raw;
+}
+
+/** a value put at a dotted path of a body */
+function setPath(body: Record<string, unknown>, path: string, v: unknown) {
+  const steps = path.split(".");
+  let at = body;
+  for (const s of steps.slice(0, -1)) {
+    const next = Object.prototype.hasOwnProperty.call(at, s) ? at[s] : undefined;
+    if (!next || typeof next !== "object") Object.defineProperty(at, s, { value: {}, enumerable: true, writable: true, configurable: true });
+    at = at[s] as Record<string, unknown>;
+  }
+  Object.defineProperty(at, steps.at(-1)!, { value: v, enumerable: true, writable: true, configurable: true });
+}
+
+/** A form's inputs read: the body they make (each field as its schema's type has it, the form's `values` added), what
+ *  the schema says is wrong with each, and whether a file is among them. */
+export function readForm(o: { form: Group; groups: Group[]; owner: Map<string, string>; doc: Pick<Doc, "api">; fields: Record<string, VarValue>; files?: Record<string, TransportFile[]>; scope: Scope; ctx: EvalContext }): { body: Record<string, unknown>; values: Record<string, unknown>; errors: Record<string, string>; files: boolean; specs: FieldSpec[] } {
+  const api = o.doc.api ?? {};
+  const e = o.form.form ? endpointOf(api, o.form.form.operationId) : undefined;
+  const specs = e ? formFields(api, e) : [];
+  const body: Record<string, unknown> = {};
+  const values: Record<string, unknown> = {};
+  const errors: Record<string, string> = {};
+  let hasFiles = false;
+  for (const g of o.groups) {
+    if (o.owner.get(g.id) !== o.form.id) continue;
+    for (const it of g.items) {
+      if (!it.field) continue;
+      const spec = specs.find((s) => s.name === it.field);
+      const raw = inputValue(it, o.fields, o.files);
+      const v = spec ? typedValue(spec.schema, raw) : raw;
+      values[it.field] = v;
+      if (it.component === "file-upload" && raw !== undefined) hasFiles = true;
+      if (!isBlank(v)) setPath(body, it.field, v);
+      if (spec) {
+        const err = fieldError(spec, v, o.ctx.lang);
+        if (err) errors[it.field] = err;
+      }
+    }
+  }
+  for (const [k, x] of Object.entries(o.form.form?.values ?? {})) {
+    const v = evaluate(x, o.scope, o.ctx);
+    if (v !== undefined) setPath(body, k, v);
+  }
+  return { body, values, errors, files: hasFiles, specs };
+}
+
+/** a form as `form.` reads it */
+function formView(read: ReturnType<typeof readForm>, run: FormRuntime | undefined): FormView {
+  /* once a submit was tried, what is wrong shows as it is typed; the server's word on a field stands until it changes */
+  const live = run?.submitted ? read.errors : {};
+  const errors = { ...run?.errors, ...live };
+  return { ...read.values, values: read.values, errors, error: run?.error ?? null, submitting: !!run?.submitting, valid: !Object.keys(read.errors).length, progress: run?.progress ?? null };
+}
+
+/** the effects of a tap, for whether it submits a form */
+const submits = (it: Item) => [it.action, ...Object.values(it.actions ?? {})].some((a) => a?.effects?.some((e) => e.do === "submit"));
+
+const withProps = (g: Group, i: number, props: Record<string, unknown>): Group => ({ ...g, items: g.items.map((it, j) => (j === i ? { ...it, props: { ...it.props, ...props } } : it)) });
+
+export type BoundScreen = { groups: Group[]; ctx: BindingContext; widths: Widths };
+
+/** One screen with its bindings applied (see the top of this file). `fields` is what the visitor entered, `vars` the
+ *  variables as the screen shows them, `params` what it was opened with. */
+export function boundScreen(o: {
+  groups: Group[];
+  frame: Frame;
+  doc: Pick<Doc, "api" | "vars" | "frames">;
+  state: BindingState;
+  params?: Record<string, unknown>;
+  vars: Record<string, VarValue>;
+  fields: Record<string, VarValue>;
+  files?: Record<string, TransportFile[]>;
+  widths: Widths;
+  ctx: EvalContext;
+}): BoundScreen {
+  const varNames = (o.doc.vars ?? []).map((v) => ({ id: v.id, name: v.name }));
+  const scope = screenScope({ frame: o.frame, state: o.state, params: o.params, vars: o.vars, varNames, now: o.ctx.now });
+  const base: BindingContext = { scope, varNames, forms: {}, eval: o.ctx };
+  if (!o.groups.some((g) => g.repeat || g.states || g.form || g.items.some((it) => it.bind || it.field)) && !o.frame.data?.length) return { groups: o.groups, ctx: base, widths: o.widths };
+  /* the forms first: what is typed in them is read before the repeats copy anything */
+  let owner = formsOf(o.groups);
+  const forms: Record<string, FormView> = {};
+  for (const g of o.groups) {
+    if (!g.form) continue;
+    const read = readForm({ form: g, groups: o.groups, owner, doc: o.doc, fields: o.fields, files: o.files, scope: scopeFor(base, o.vars), ctx: o.ctx });
+    forms[g.id] = formView(read, o.state.forms[g.id]);
+  }
+  const ctx: BindingContext = { ...base, forms };
+  /* the repeats over data, each element its copy's `item` */
+  const rowsOf = (host: Group): ItemScope[] | null => {
+    const it = host.items[0];
+    const list = evaluate(host.repeat!.data!, scopeFor(ctx, o.vars, it), o.ctx);
+    return Array.isArray(list) ? list.map((item, index) => ({ item, index })) : [];
+  };
+  let groups = o.groups.some((g) => g.repeat?.data !== undefined) ? expandRepeats(o.groups, { widths: o.widths, dataRows: rowsOf }) : o.groups;
+  const widths = groups === o.groups ? o.widths : measuresFor(groups, o.widths);
+  owner = groups === o.groups ? owner : formsOf(groups);
+  const loads = new Map((o.frame.data ?? []).map((d) => [d.name, d.load]));
+  groups = groups.map((g) => {
+    let out = g;
+    /* a part in a form reads it as `form` */
+    const formId = owner.get(g.id);
+    if (formId && forms[formId]) {
+      out = { ...out, items: out.items.map((it) => ({ ...it, scope: { ...it.scope, form: formId } })) };
+      const view = forms[formId];
+      out.items.forEach((it, i) => {
+        const def = partBySlug(it.component);
+        if (it.field && view.errors[it.field] && def?.props.some((d) => d.key === "error")) out = withProps(out, i, { error: true });
+        if (view.submitting && submits(it) && def?.props.some((d) => d.key === "disabled")) out = withProps(out, i, { disabled: true });
+      });
+    }
+    /* a region shows the state its data is in */
+    if (out.states) {
+      const st = regionState(out.states, scopeFor(ctx, o.vars, out.items[0]), out.states.source ? loads.get(out.states.source) : undefined, o.ctx);
+      out = { ...out, states: { ...out.states, show: st } };
+    }
+    return out;
+  });
+  return { groups, ctx, widths };
+}
+
+/** whether a group holds the item of a source's list, for an optimistic change: the element of its copy */
+export const itemOf = (it: Pick<Item, "scope">): unknown => it.scope?.item;
+
+export { readKey };

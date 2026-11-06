@@ -12,9 +12,10 @@ import * as styles from "./styles";
 import * as icons from "./icons";
 import * as api from "./api";
 import * as mocks from "./mocks";
+import * as bindings from "./bindings";
 import { editComponentOp } from "./definition";
 
-export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks };
+export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks, bindings };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -26,6 +27,7 @@ export * from "./styles";
 export * from "./icons";
 export * from "./api";
 export * from "./mocks";
+export * from "./bindings";
 export { DEFINITION_OPS, definitionOpened } from "./definition";
 export { OpError } from "../op";
 
@@ -152,6 +154,18 @@ export const OPS: Op<never, unknown>[] = [
   mocks.setMockRoute,
   mocks.fillMocksOp,
   mocks.clearMocks,
+  bindings.addDataSource,
+  bindings.updateDataSource,
+  bindings.removeDataSource,
+  bindings.setScreenParams,
+  bindings.setScreenAuth,
+  bindings.bindExpression,
+  bindings.setRegion,
+  bindings.removeRegion,
+  bindings.setForm,
+  bindings.makeForm,
+  bindings.bindField,
+  bindings.wireScreen,
 ] as unknown as Op<never, unknown>[];
 
 /** an operation by its name */

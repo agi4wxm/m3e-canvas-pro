@@ -197,7 +197,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 151 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 164 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -224,6 +224,7 @@ npx playwright install chromium
 | `get_mocks` | 读取 | 是 |  | The mock library in a few lines: seed, locale, latency, sign-in; how each operation is answered (list, get, create, update, delete, singleton, upload, download, login…, the model … |
 | `list_mock_records` | 读取 | 是 |  | The records the mocks have for a model, pinned ones first, as the app would get them (files shortened). |
 | `try_mock` | 读取 | 是 |  | Calls the API the way the app would, answered by the mocks on a fresh session (what one call makes, the next sees: create then list), with no waiting: each call by operationId wit… |
+| `describe_bindings` | 读取 | 是 |  | How a screen is bound to the API: its params and sign-in, each data source (endpoint, params, paging, and the paths it offers: data.&lt;name>.items[], value fields), its regions w… |
 | `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
 | `compare_to_reference` | 读取 | 是 |  | Holds a screen of the canvas against the reference picture it copies: draws the screen, hands back both pictures (the reference first), and lays them over each other in a grid, gi… |
 | `apply_ops` | 搭建 |  | 含破坏性操作时 | Runs many operations as one change: all of them or none (if any fail, the document stays as it was and the error lists each one that failed and why: fix only those), one undo step. |
@@ -302,7 +303,7 @@ npx playwright install chromium
 | `add_collection` | 数据与交互 |  |  | Adds a data collection: named fields and rows of text (one cell per field). |
 | `update_collection` | 数据与交互 |  |  | Changes a data collection's name, fields or rows, or the API model it is linked to (model; null unlinks it). |
 | `remove_collection` | 数据与交互 |  | 是 | Removes a data collection; layouts that repeated it stop repeating. |
-| `set_repeat` | 数据与交互 |  |  | Makes a container with an auto layout draw its first child once per row of a collection (limit: at most that many rows), or stop (null). |
+| `set_repeat` | 数据与交互 |  |  | Makes a container with an auto layout draw its first child once per row of a collection ({collection}), or once per element of a list an expression reads ({data: "data.products.it… |
 | `add_var` | 数据与交互 |  |  | Adds a variable: type text, number, bool or color (a role such as primary or a hex), with its value in the first mode of its collection (values: what it is in the other modes, by … |
 | `update_var` | 数据与交互 |  |  | Changes a variable's name, type, value (in the first mode of its collection), its values in the other modes (values, by mode id or name), its collection, or whether it drives the … |
 | `remove_var` | 数据与交互 |  | 是 | Removes a variable; props bound to it are unbound. |
@@ -345,6 +346,18 @@ npx playwright install chromium
 | `set_mock_route` | 数据与交互 |  |  | Says how the mocks answer an operation when its method and path do not say it plainly: kind auto, list, get, create, update, replace, delete, singleton, upload, download, login, r… |
 | `fill_mocks` | 数据与交互 |  |  | Fills the mock library for the API in one step: every model's fields get the hint their names, formats and enums say (written down, to change), each listed model a record count, t… |
 | `clear_mocks` | 数据与交互 |  | 是 | Takes every mock setting away (hints, counts, pinned records, scenarios, files, scripts): the API is then answered with data made from its schemas alone. |
+| `add_data_source` | 数据与交互 |  |  | Makes a screen load data from an endpoint: read as data.&lt;name> (value, items, status, loading, error, hasMore, empty). |
+| `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions foll… |
+| `remove_data_source` | 数据与交互 |  | 是 | Stops a screen loading a data source; what reads data.&lt;name> reads nothing. |
+| `set_screen_params` | 数据与交互 |  |  | Declares what a screen is opened with (navigation passes them: set_action {params: {productId: "item.id"}}): each {name, type?: string\|number\|boolean, example?}; the screen read… |
+| `set_screen_auth` | 数据与交互 |  |  | Says a screen needs a session ("required": without one the app goes to the sign-in screen first) or is the sign-in screen ("login": where a 401 and a required screen send the app;… |
+| `bind_expression` | 数据与交互 |  |  | Binds a prop of a part to an expression, read in the preview and the exported app: data.&lt;source>.value.&lt;field>, item.&lt;field> inside a repeat over data, params.&lt;name>, … |
+| `set_region` | 数据与交互 |  |  | Makes a container with an auto layout a region bound to a data source of its screen: it shows its content when the data is there, and a design of its own while it loads, when it i… |
+| `remove_region` | 数据与交互 |  | 是 | Makes a region a plain container again: its state designs are removed with what they hold (keepDesigns: they stay, as content). |
+| `set_form` | 数据与交互 |  |  | Makes a container a form for an endpoint's request body ({operationId, params, values, then, catch}), or a plain container again (null). |
+| `make_form` | 数据与交互 |  |  | Makes a form for an endpoint's request body in one step: the container given (id) or a new one (on screen, or into a container) becomes the form, and an input for each body field … |
+| `bind_field` | 数据与交互 |  |  | Binds an input inside a form to a field of its request body ("email", "address.city"): it fills that field, is checked by the field's schema, and shows its error. |
+| `wire_screen` | 数据与交互 |  |  | Wires a screen to an endpoint in one step: a data source for it; for a list endpoint a region repeating a row bound to each element's fields (a tap opens `detail` with its params)… |
 | `generate_svg` | 生成（需 OPENAI_API_KEY） |  |  | Draws a custom SVG and puts it on the canvas as a vector (svg) part: a new icon, a logo, an illustration, a decoration nothing in the catalog has. |
 | `generate_image` | 生成（需 OPENAI_API_KEY） |  |  | Paints a picture with the image model (about 20–40 s): with `background` and `screen`, it becomes the picture behind that whole screen (its scene, filling the screen under every p… |
 | `generate_style` | 生成（需 OPENAI_API_KEY） |  |  | Writes a custom style with the text model, from a description and/or an attached reference picture (ref1…), validated (colors, contrast, catalog recipes, safe CSS), added to the d… |

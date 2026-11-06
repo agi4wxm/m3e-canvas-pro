@@ -82,6 +82,7 @@ import { ComponentsPanel, DataPanel, InstanceInspector, sizeWord } from "@/compo
 import { VariablesPanel, type VariablesApi } from "@/components/VariablesPanel";
 import { sharedOf } from "@/components/DesignPanel";
 import { Behavior, BehaviorContext, StyleRulesContext } from "@/components/EffectsPanel";
+import { BindingsContext, CanvasStateSwitcher, type Bindings } from "@/components/BindingsPanel";
 import { readProject } from "@/lib/project";
 import { downloadProject } from "@/lib/projects/download";
 import { editorProjects } from "@/lib/projects/opening";
@@ -847,6 +848,30 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vars, primaryId, groups, frames, widths, snapshotFor, collections, canPaint, paintingScene, aiSettings, lang, core.doc.varCollections, screenValues]);
 
+  /** what the Data sections of the panels need (components/BindingsPanel.tsx): the document, the measures, and their
+   *  operations, each one step, a refusal said in a toast */
+  const bindingsPanel = useMemo<Bindings>(
+    () => ({
+      doc: core.doc,
+      widths,
+      run: (o, args, coalesce) => runOp(o, args, { ...(coalesce ? { history: { coalesce } } : {}), refused: (e) => e.code !== "nothing_to_do" && showToast(t("apiRefused", lang).replace("{message}", e.message), 6000) }),
+    }),
+    // the operations read the store; the document and the measures are what the panels show
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [core.doc, widths, lang],
+  );
+  /** the region the canvas offers the state switcher on: the selected part's, or the one around it */
+  const switcherRegion = useMemo(() => {
+    if (!primaryId || selectedIds.length !== 1) return null;
+    const byId = new Map(groups.map((g) => [g.id, g]));
+    let at: Group | undefined = groups.find((g) => g.items.some((it) => it.id === primaryId));
+    for (let i = 0; at && i < 64; i++) {
+      if (at.states) return at;
+      at = at.inFlow ? byId.get(at.inFlow) : undefined;
+    }
+    return null;
+  }, [primaryId, selectedIds, groups]);
+
   /* the same elements while nothing in them changes, so that a drag does not attach every ref again on each move */
   const measuringLayer = useMemo(
     () =>
@@ -932,6 +957,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     <LangContext.Provider value={lang}>
     <PartThemeContext.Provider value={partTheme}>
     <BehaviorContext.Provider value={behavior}>
+    <BindingsContext.Provider value={bindingsPanel}>
     <StyleRulesContext.Provider value={isStrict(theme)}>
       <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
       <PartStyleSheet theme={theme} />
@@ -1544,6 +1570,19 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   }}
                 />
               )}
+
+              {/* a region bound to data, selected or holding the selection: its states, switched on the canvas */}
+              {!handMode && !drag && !gesture && switcherRegion && (() => {
+                const b = groupBounds(switcherRegion, widths);
+                /* above the region, unless that would cover its screen's name: then over its top */
+                const f = frames.find((x) => x.id === frameOf.get(switcherRegion.id));
+                const inside = !!f && b.t - f.y < 48 / view.z;
+                return (
+                  <div style={{ position: "absolute", left: b.l, top: b.t, transform: `scale(${1 / view.z})`, transformOrigin: "0 0", zIndex: 73 }}>
+                    <CanvasStateSwitcher group={switcherRegion} x={0} y={0} p={p} inside={inside} />
+                  </div>
+                );
+              })()}
 
               {/* while a part's Prototype tab is open, the handle on its right edge drags out a connection to a screen */}
               {!handMode && !drag && !gesture && frame === "phone" && partTab === "behavior" && selectedIds.length === 1 && selected && selectedRect && !selectedLocked && (
@@ -2373,6 +2412,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         </div>
       )}
     </StyleRulesContext.Provider>
+    </BindingsContext.Provider>
     </BehaviorContext.Provider>
     </PartThemeContext.Provider>
     </LangContext.Provider>

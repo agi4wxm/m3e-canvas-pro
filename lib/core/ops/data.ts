@@ -3,7 +3,9 @@
  * part shows, and a dock's tabs. */
 
 import { panesAfterReorder } from "../../flow";
-import { actionWithoutScreen, type Action, type Collection, type DocVar, type Frame, type Transition, type VarCollection, type VarValue } from "../../tokens";
+import { actionWithoutScreen, frameOfPart, type Action, type Collection, type DocVar, type Frame, type Group, type Transition, type VarCollection, type VarValue } from "../../tokens";
+import { exprPlaceError } from "../../bindings/check";
+import { shapeFor } from "../../bindings/complete";
 import { BIND_FIELDS, collectionsOf, DEFAULT_COLLECTION, fitsType, isBindField, startValueOf } from "../../variables";
 import { partBySlug } from "../../../parts/registry";
 import { t } from "../../i18n";
@@ -89,21 +91,35 @@ export const removeCollection = op<{ id: string }>({
 });
 
 /** a layout repeating its first child over a collection's rows, or no longer */
-export const setRepeat = op<{ id: string; repeat: { collection: string; limit?: number } | null }>({
+export const setRepeat = op<{ id: string; repeat: { collection?: string; data?: string; limit?: number; sample?: number } | null }>({
   name: "set_repeat",
-  summary: "Makes a container with an auto layout draw its first child once per row of a collection (limit: at most that many rows), or stop (null).",
-  args: S.obj({ id: S.str("the container"), repeat: { type: ["object", "null"], properties: { collection: S.str(), limit: S.int(undefined, { minimum: 0 }) }, required: ["collection"] } }, ["id", "repeat"]),
+  summary:
+    'Makes a container with an auto layout draw its first child once per row of a collection ({collection}), or once per element of a list an expression reads ({data: "data.products.items"}: each copy reads item and index; sample: how many copies the canvas draws), at most limit of them; null stops it.',
+  args: S.obj(
+    {
+      id: S.str("the container"),
+      repeat: { type: ["object", "null"], properties: { collection: S.str(), data: S.str("an expression reading a list: data.<source>.items, item.<list field>"), limit: S.int(undefined, { minimum: 0 }), sample: S.int("copies the canvas draws (1-12)", { minimum: 1, maximum: 12 }) } },
+    },
+    ["id", "repeat"],
+  ),
   label: () => "Repeat",
   run(s, a, ctx) {
     const g = groupById(s, a.id);
+    const r = a.repeat;
+    if (r && (r.collection === undefined) === (r.data === undefined)) throw new OpError("invalid_value", "A repeat goes over a collection or over data: give collection or data, not both.", "repeat");
     if (ctx.strict) {
-      if (a.repeat) collectionById(s, a.repeat.collection);
+      if (r?.collection !== undefined) collectionById(s, r.collection);
+      if (r?.data !== undefined) {
+        const e = exprPlaceError(r.data, shapeFor(s.doc, frameOfPart(g, s.doc.groups, s.doc.frames, ctx.widths), g.id, ctx.widths));
+        if (e) throw new OpError("invalid_value", `data: ${e}.`, "repeat");
+      }
       if (!g.items[0]?.props?.layout || g.items[0].props.layout === "free") throw new OpError("invalid_value", "Only a container with an auto layout can repeat its first child.", a.id);
     }
+    const repeat: Group["repeat"] | undefined = !r ? undefined : r.data !== undefined ? { data: r.data, ...(r.limit !== undefined ? { limit: r.limit } : {}), ...(r.sample !== undefined ? { sample: Math.max(1, Math.min(12, r.sample)) } : {}) } : { collection: r.collection!, ...(r.limit !== undefined ? { limit: r.limit } : {}) };
     const groups = s.doc.groups.map((x) => {
       if (x.id !== g.id) return x;
       const { repeat: _was, ...rest } = x;
-      return a.repeat ? { ...rest, repeat: a.repeat } : rest;
+      return repeat ? { ...rest, repeat } : rest;
     });
     return { state: withGroups(s, groups) };
   },

@@ -37,6 +37,7 @@ import { AiIconBtn, Num, PartTabs, Tab } from "./PartPanel";
 import { ScreenModes } from "./VariablesPanel";
 import { FlowStartSection } from "./Interaction";
 import { VariantSection } from "./ReusePanels";
+import { ScreenDataSection } from "./BindingsPanel";
 import { COLOR_TOKEN_TEXT, t, useLang } from "@/lib/i18n";
 import { maxFrameLength } from "@/lib/tidy";
 
@@ -333,6 +334,7 @@ export function FrameInspector({
           </div>
         </Section>
         {variants && <VariantSection p={p} frame={frame} {...variants} />}
+        <ScreenDataSection frame={frame} p={p} />
         <Section id="frame-style" icon="palette" title={t("style", lang)} p={p}>
           <ScreenFillRun
             value={frame.bg ?? "surface"}

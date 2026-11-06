@@ -722,11 +722,18 @@ export type Item = {
   action?: Action;
   /** per-slot tap navigation, by the keys its `PartDef.slots` names */
   actions?: Record<string, Action>;
-  /** which of the part's props follow a variable in the preview: prop key to `DocVar.id` */
+  /** which of the part's props follow a variable in the preview: prop key to `DocVar.id`, or to an expression written
+   *  after "=" (`"=item.title"`, lib/bindings/expr.ts) that reads the screen's data, its params, variables, the row… */
   bind?: Record<string, string>;
+  /** an input inside a form (`Group.form`): the property of the request body it fills, dotted for a nested one
+   *  ("email", "address.city") */
+  field?: string;
   /** Runtime only, never saved: the fields of the row this copy was drawn for (lib/collections.ts).
    *  A tap on it runs with them as `row.field`. */
   row?: Record<string, string>;
+  /** Runtime only, never saved: what expressions on this part read beyond the screen's own (lib/bindings): the item of
+   *  a data repeat it was drawn for and its index, and the form it is in. */
+  scope?: ItemScope;
   /** the rail remembers which edge it expanded from */
   [railExpansionSide]?: "left" | "right";
 };
@@ -799,6 +806,9 @@ export type ActionBody = {
   scrollTo?: string;
   /** how the screen comes in, over `transition` where both are given */
   motion?: Motion;
+  /** what the screen it opens is given, by its param names (`Frame.params`): each an expression read at the tap
+   *  (`{ productId: "item.id" }`); that screen reads them as `params.productId` */
+  params?: Record<string, string>;
 };
 /** A tap. Without `when` it always runs; with one it runs when that holds, and `else` runs when it
  *  does not. `trigger` starts it on something other than a tap. Printed code reads this too, so it stays plain data. */
@@ -820,18 +830,96 @@ export type VarCollection = { id: string; name: string; modes: { id: string; nam
 /** the variable that is the app's dark mode, if one is */
 export const darkVarOf = (vars: DocVar[] | undefined): DocVar | undefined => (Array.isArray(vars) ? vars.find((v) => v.drives === "dark" && v.type === "bool") : undefined);
 
-/** a test on the preview's state: a variable against a value, or a form field (by item id) that has something in it */
-export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string };
+/** a test on the preview's state: a variable against a value, a form field (by item id) that has something in it, or an
+ *  expression (lib/bindings/expr.ts) that comes out truthy */
+export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string } | { expr: string };
 
 /** one step of a tap. `part` is an item id, the name that survives grouping and regrouping. */
 export type Effect =
   | { do: "show" | "hide" | "toggle" | "open" | "close"; part: string }
-  | { do: "setVar"; var: string; value: VarValue }
+  /** `expr` (an expression, lib/bindings/expr.ts) is read when the tap runs, over `value` */
+  | { do: "setVar"; var: string; value: VarValue; expr?: string }
   | { do: "toggleVar"; var: string }
   /** a counter has to count: "set" alone can only ever land on one number */
   | { do: "addVar"; var: string; by: number }
   | { do: "setProp"; part: string; prop: string; value: VarValue }
-  | { do: "snackbar"; message: string };
+  /** `message` may hold `{{expressions}}` */
+  | { do: "snackbar"; message: string }
+  /** Calls an endpoint of the API (lib/bindings): `args` gives its parameters by name and, under any other name, fields
+   *  of the JSON body, each an expression; `body` an expression for the whole body. `then` runs when it answers 2XX,
+   *  with `response` (the body) and `status` to read; `catch` when it does not, with `error` (problem details). The
+   *  effects after it do not wait for it. `optimistic` changes a data source's list at once and puts it back if the
+   *  call fails: the tapped row taken out, or fields of it set. */
+  | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: ActionBody; catch?: ActionBody; optimistic?: Optimistic }
+  /** loads a data source of the screen on show again */
+  | { do: "refresh"; source: string }
+  /** loads the next page of a paged data source of the screen on show */
+  | { do: "loadMore"; source: string }
+  /** submits a form (`Group.form`): the one given by its group id, else the one the tapped part is in */
+  | { do: "submit"; form?: string }
+  /** ends the session: the token is forgotten (and the API's logout endpoint called, when it has one) */
+  | { do: "signOut" };
+
+/** What a call changes before it is answered: the tapped row taken out of a data source's list, or fields of it set
+ *  (each an expression). Put back when the call fails. */
+export type Optimistic = { source: string; remove?: boolean; patch?: Record<string, string> };
+
+/** the scope a part drawn by the bindings carries (runtime only) */
+export type ItemScope = { item?: unknown; index?: number; form?: string };
+
+/** the states a region bound to data shows; "ready" is its content */
+export const REGION_STATES = ["ready", "loading", "empty", "error", "forbidden"] as const;
+export type RegionState = (typeof REGION_STATES)[number];
+
+/** A named piece of data a screen loads from the API (`Frame.data`): the endpoint, what it is called with, when. Read
+ *  as `data.<name>`: value, items, status, loading, error, hasMore… (lib/bindings). */
+export type DataSource = {
+  /** what expressions call it: an identifier */
+  name: string;
+  /** the endpoint (`Doc.api.endpoints`) */
+  operationId: string;
+  /** its path, query and header parameters by name, each an expression ("params.productId", "vars.search", "20") */
+  params?: Record<string, string>;
+  /** the request body, an expression: for an endpoint that reads with POST */
+  body?: string;
+  /** loaded as the screen is entered (the default), or only when a tap asks (`refresh`) */
+  load?: "enter" | "demand";
+  /** a pull on the screen's body loads it again */
+  pullToRefresh?: boolean;
+  /** how a paged endpoint's next page comes: when the screen is scrolled to its end, or by a tap (`loadMore`) */
+  paging?: "scroll" | "button";
+  /** the page size asked for */
+  pageSize?: number;
+};
+
+/** what a screen is given when it is opened (`ActionBody.params`); `example` is what the canvas and a preview opened
+ *  straight on it use */
+export type ScreenParam = { name: string; type?: "string" | "number" | "boolean"; example?: string };
+
+/** A container bound to an endpoint's request body (`Group.form`): its inputs (`Item.field`) fill the body, the
+ *  schema's rules check it, a submit calls the endpoint. */
+export type FormBinding = {
+  operationId: string;
+  /** the endpoint's parameters by name, each an expression ("params.productId") */
+  params?: Record<string, string>;
+  /** body fields no input fills, each an expression */
+  values?: Record<string, string>;
+  /** what runs when it answers 2XX (`response` to read) */
+  then?: ActionBody;
+  /** what runs when it does not (`error` to read; the fields' errors are shown on them already) */
+  catch?: ActionBody;
+};
+
+/** A container whose content comes from data: it shows one of its states, the designs of which are its children on the
+ *  pane of each state (`Group.pane`: the index in REGION_STATES). */
+export type RegionBinding = {
+  /** the data source (`Frame.data` name) whose status picks the state */
+  source?: string;
+  /** an expression that says the data is empty, over the default (no items, or nothing) */
+  emptyWhen?: string;
+  /** the state the canvas shows; the preview shows the one the data is in */
+  show?: RegionState;
+};
 
 /** the action left when its screen is deleted: its effects go on, staying put; with none it is gone */
 export function actionWithoutScreen(a: Action, screen: string): Action | undefined {
@@ -1018,6 +1106,13 @@ export type Frame = {
   varModes?: Record<string, string>;
   /** a flow starts here, under this name: the preview offers it */
   flow?: string;
+  /** the data this screen loads from the API (lib/bindings) */
+  data?: DataSource[];
+  /** what this screen is given when it is opened: `params.<name>` */
+  params?: ScreenParam[];
+  /** "required": only with a session (else the app goes to the sign-in screen); "login": the sign-in screen, where a
+   *  401 or a screen that needs a session sends the app */
+  auth?: "required" | "login";
 };
 
 /** how much of `backgroundImage` shows when the author has said nothing */
@@ -1323,8 +1418,14 @@ export type Group = {
   overrides?: Record<string, VarValue>;
   /** the values this instance gives its component's properties (`ComponentDef.props`), by property id */
   properties?: Record<string, VarValue>;
-  /** on a layout container: its first child is drawn once per row of a collection (lib/collections.ts) */
-  repeat?: { collection: string; limit?: number };
+  /** On a layout container: its first child is drawn once per row of a collection (lib/collections.ts), or once per
+   *  element of a list an expression reads (`data`: "data.products.items"), each copy reading it as `item` and
+   *  `index` (lib/bindings). `sample` is how many copies the canvas draws of a data repeat. */
+  repeat?: { collection: string; data?: undefined; limit?: number } | { data: string; collection?: undefined; limit?: number; sample?: number };
+  /** a container that is a form for an endpoint's request body (lib/bindings) */
+  form?: FormBinding;
+  /** a container whose content comes from data, showing its loading, empty, error and forbidden designs (lib/bindings) */
+  states?: RegionBinding;
   /** The outermost box of a kit: which kit it was added as, so that a change of style can compose it again
    *  while what it holds is still as it was added (lib/kits.ts `recomposeKits`). Nothing prints it. */
   kit?: KitMark;

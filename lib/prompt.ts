@@ -261,6 +261,11 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "addVar": return `変数 ${name} に ${e.by} を足す`;
         case "setProp": return `${part}の ${e.prop} を ${valueText(e.value, lang)} にする`;
         case "snackbar": return `${qj(e.message)}とスナックバーで知らせる`;
+        case "call": return `${e.operationId} を呼び出す`;
+        case "refresh": return `データ ${e.source} を読み込み直す`;
+        case "loadMore": return `データ ${e.source} の続きを読み込む`;
+        case "submit": return "フォームを送信する";
+        case "signOut": return "ログアウトする";
       }
     },
     en: () => {
@@ -275,6 +280,11 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "addVar": return `adds ${e.by} to variable ${name}`;
         case "setProp": return `sets ${e.prop} of ${part} to ${valueText(e.value, lang)}`;
         case "snackbar": return `shows a snackbar saying ${qe(e.message)}`;
+        case "call": return `calls ${e.operationId}`;
+        case "refresh": return `reloads data ${e.source}`;
+        case "loadMore": return `loads more of data ${e.source}`;
+        case "submit": return "submits the form";
+        case "signOut": return "signs out";
       }
     },
     zh: () => {
@@ -289,6 +299,11 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "addVar": return `给变量 ${name} 加 ${e.by}`;
         case "setProp": return `把${part}的 ${e.prop} 设为 ${valueText(e.value, lang)}`;
         case "snackbar": return `用 Snackbar 提示${qz(e.message)}`;
+        case "call": return `调用接口 ${e.operationId}`;
+        case "refresh": return `重新加载数据 ${e.source}`;
+        case "loadMore": return `加载数据 ${e.source} 的下一页`;
+        case "submit": return "提交表单";
+        case "signOut": return "退出登录";
       }
     },
     ko: () => {
@@ -303,6 +318,11 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "addVar": return `변수 ${name}에 ${e.by} 더하기`;
         case "setProp": return `${part}의 ${e.prop}을(를) ${valueText(e.value, lang)}(으)로 설정`;
         case "snackbar": return `스낵바로 ${qe(e.message)} 표시`;
+        case "call": return `${e.operationId} 호출`;
+        case "refresh": return `데이터 ${e.source} 다시 불러오기`;
+        case "loadMore": return `데이터 ${e.source}의 다음 페이지 불러오기`;
+        case "submit": return "양식 제출";
+        case "signOut": return "로그아웃";
       }
     },
   };
@@ -310,6 +330,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
 }
 
 function conditionText(c: Condition, s: Scope, lang: Lang): string | null {
+  if ("expr" in c) return { ja: `${c.expr} のとき`, en: `if ${c.expr}`, zh: `当 ${c.expr} 时`, ko: `${c.expr}일 때` }[lang];
   if ("filled" in c) {
     const part = partRef(c.filled, s, lang);
     if (!part) return null;

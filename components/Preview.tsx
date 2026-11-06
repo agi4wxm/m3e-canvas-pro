@@ -50,7 +50,15 @@ import { actionSlotsOf, darkVarOf } from "@/lib/tokens";
 import { screenBackground } from "@/lib/styles";
 import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
-import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, screenVars, startState, writeField } from "@/lib/interact";
+import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, scopeOf, screenVars, startState, writeField } from "@/lib/interact";
+import type { Effect, Group as DocGroup } from "@/lib/tokens";
+import { groupBounds } from "@/lib/tokens";
+import type { Transport, TransportFile } from "@/lib/api/transport";
+import { BindingEngine, emptyBindings, screenScope, type BindingState } from "@/lib/bindings/runtime";
+import { boundScreen, formsOf, readForm, type BoundScreen } from "@/lib/bindings/view";
+import { endpointOf, paramsOf as endpointParamsOf } from "@/lib/bindings/contract";
+import { evaluate, type Scope } from "@/lib/bindings/expr";
+import { fallbackTransport, signedInAtStart } from "@/lib/bindings/transport";
 import { BoundValues } from "./boundValues";
 import { MockLogPanel, MockScenarioSwitch, PreviewMocksContext, usePreviewMocks } from "./MockPreview";
 import { PRESETS, variantFor } from "@/lib/variants";
@@ -62,8 +70,8 @@ const WIDE_CONTROL_SPACE = 220;
 /** the strip the controls take along the bottom of a phone */
 const PHONE_BAR_H = 56;
 
-/** how the current screen was reached, so "back" can play it in reverse */
-type Entry = { id: string; t: Transition; m?: Motion };
+/** how the current screen was reached, so "back" can play it in reverse, and what it was opened with */
+type Entry = { id: string; t: Transition; m?: Motion; params?: Record<string, unknown> };
 
 const pct = (v: number) => `${v * 100}%`;
 
@@ -110,11 +118,28 @@ function readInput(root: HTMLElement, it: Item): VarValue | undefined {
   }
 }
 
+/** the files a file input holds, as the transport carries them: their bytes as data URLs, at most 25 MB each */
+async function readFiles(root: HTMLElement): Promise<TransportFile[]> {
+  const files = [...(root.querySelector<HTMLInputElement>('input[type="file"]')?.files ?? [])].slice(0, 10);
+  const out: TransportFile[] = [];
+  for (const f of files) {
+    if (f.size > 25 * 1024 * 1024) continue;
+    const dataUrl = await new Promise<string>((ok) => {
+      const r = new FileReader();
+      r.onload = () => ok(typeof r.result === "string" ? r.result : "");
+      r.onerror = () => ok("");
+      r.readAsDataURL(f);
+    });
+    if (dataUrl) out.push({ name: f.name, type: f.type || "application/octet-stream", dataUrl, size: f.size });
+  }
+  return out;
+}
+
 /** A real shadcn M3E component in the preview: it works. A press lands where it was aimed --
  *  on a place the part marked `data-tap` (a destination, a menu item) it fires that slot's
  *  action; anywhere else it is the part's own tap. An input says what it now holds, a button
  *  inside an overlay that dismisses it closes it. */
-function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onClose, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: VarValue) => void; onClose?: () => void; held?: boolean }) {
+function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onFiles, onClose, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: VarValue) => void; /** a file input took files */ onFiles?: (files: TransportFile[]) => void; onClose?: () => void; held?: boolean }) {
   const size = sizeOf(item, widths);
   const input = !!INPUT_PROP[item.component ?? ""];
   const click = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -148,6 +173,15 @@ function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onF
     }
   }
   const slug = item.component;
+  const files = useRef(onFiles);
+  files.current = onFiles;
+  useEffect(() => {
+    const root = box.current;
+    if (!root || slug !== "file-upload") return;
+    const took = () => void readFiles(root).then((list) => files.current?.(list));
+    root.addEventListener("change", took);
+    return () => root.removeEventListener("change", took);
+  }, [slug]);
   useEffect(() => {
     const root = box.current;
     if (!root || !input) return;
@@ -208,7 +242,19 @@ function Screen({
   onCloseOverlay,
   onScrim,
   bound,
+  onFiles,
+  onPull,
+  onNearEnd,
+  refreshing,
 }: {
+  /** a file input of the screen took files */
+  onFiles?: (it: Item, files: TransportFile[]) => void;
+  /** the body was pulled down from its top: what loads on a pull loads again */
+  onPull?: () => void;
+  /** the body was scrolled to its end: what pages on scroll loads its next page */
+  onNearEnd?: () => void;
+  /** a pull's load is under way */
+  refreshing?: boolean;
   active?: boolean;
   frame: Frame;
   groups: Group[];
@@ -218,8 +264,8 @@ function Screen({
   p: Palette;
   /** the theme in the mode this preview shows, for what the style draws behind a screen */
   styled: Theme;
-  /** a tap; `row` is the row of a repeat the part was drawn for */
-  onAction: (a: Action, row?: Item["row"]) => void;
+  /** a tap on a part: its row, its element and its form go with it */
+  onAction: (a: Action, it?: Item) => void;
   values: Record<string, number>;
   onValue: (id: string, v: number) => void;
   /** the overlays an effect holds open, by item id */
@@ -241,13 +287,28 @@ function Screen({
    * the bottom of the long screen sits at the bottom of the glass, and one left between the two
    * is part of the body and scrolls with it. A rail running the length is shown a screenful tall. */
   const viewH = frameSizeOf(frame).h;
-  const length = frameLengthOf(frame);
+  const authored = frameLengthOf(frame);
+  /* A screen that loads data is as long as what the data makes of it: the list grows past the device and its body
+   * scrolls, while what stands at its head and foot stays put. Any other screen is as long as it was drawn. */
+  const loads = !!frame.data?.length;
+  const fixedPin = loads ? new Map(groups.flatMap((g) => (pinOf(g, frame, widths) ? [[g.id, pinOf(g, frame, widths)!] as const] : []))) : null;
+  const length = fixedPin
+    ? Math.max(
+        authored,
+        Math.ceil(
+          Math.max(0, ...groups.filter((g) => !fixedPin.has(g.id)).map((g) => groupBounds(g, widths).b - frame.y)) +
+            groups.filter((g) => fixedPin.get(g.id) === "foot").reduce((h, g) => Math.max(h, groupBounds(g, widths).b - groupBounds(g, widths).t), 0) +
+            24,
+        ),
+      )
+    : authored;
   const scrolls = length > viewH;
   const pins = new Map<string, number>();
   if (scrolls) {
     for (const g of groups) {
-      const pin = pinOf(g, frame, widths);
-      if (pin) pins.set(g.id, pin === "head" ? 0 : length - viewH);
+      const pin = fixedPin ? (fixedPin.get(g.id) ?? null) : pinOf(g, frame, widths);
+      /* what stands at the foot was put there for the screen's own length, not the length the data gives it */
+      if (pin) pins.set(g.id, pin === "head" ? 0 : (fixedPin ? authored : length) - viewH);
     }
     /* what a pinned layout lays out stays put with it: a kit's bar is a box and the parts in it */
     const byId = new Map(groups.map((g) => [g.id, g]));
@@ -269,11 +330,57 @@ function Screen({
   const dims = openGroups.some((g) => g.items.some((it) => opened[it.id] && partBySlug(it.component)?.open?.trigger === "hide"));
   const lift = (g: Group) => pins.get(g.id) ?? 0;
   const hasFoldingFab = groups.some((g) => g.items.some((it) => canCollapseFab(it) && it.collapseOnScroll));
-  const onBodyScroll = (e: { currentTarget: { scrollTop: number } }) => {
+  const onBodyScroll = (e: { currentTarget: { scrollTop: number; scrollHeight?: number; clientHeight?: number } }) => {
     const top = e.currentTarget.scrollTop;
     const down = top - fabScrollTop.current;
     fabScrollTop.current = top;
     if (hasFoldingFab && down !== 0) setFabFolded(down > 0);
+    const el = e.currentTarget;
+    if (onNearEnd && down > 0 && el.scrollHeight !== undefined && el.clientHeight !== undefined && el.scrollHeight - top - el.clientHeight < 160) onNearEnd();
+  };
+  /* a pull down from the top of the body, by finger or by wheel, loads what loads on a pull */
+  const pull = useRef<{ y: number; at: number } | null>(null);
+  const onPullStart = onPull
+    ? (e: React.PointerEvent<HTMLDivElement>) => {
+        const top = (e.currentTarget as HTMLElement).scrollTop ?? 0;
+        pull.current = top <= 0 ? { y: e.clientY, at: 0 } : null;
+      }
+    : undefined;
+  const onPullMove = onPull
+    ? (e: React.PointerEvent<HTMLDivElement>) => {
+        if (pull.current) pull.current.at = e.clientY - pull.current.y;
+      }
+    : undefined;
+  const onPullEnd = onPull
+    ? () => {
+        if (pull.current && pull.current.at > 64) onPull();
+        pull.current = null;
+      }
+    : undefined;
+  const wheelPull = useRef(0);
+  const onPullWheel = onPull
+    ? (e: React.WheelEvent<HTMLDivElement>) => {
+        if (((e.currentTarget as HTMLElement).scrollTop ?? 0) > 0 || e.deltaY >= 0) return;
+        wheelPull.current += -e.deltaY;
+        if (wheelPull.current > 240) {
+          wheelPull.current = 0;
+          onPull();
+        }
+      }
+    : undefined;
+  /* the tap of the nearest container around a part that has one, for a part that does nothing of its own */
+  const byGroup = new Map(groups.map((g) => [g.id, g]));
+  const heldTap = (g: Group): { action: Action; item: Item } | undefined => {
+    const it = g.items.length === 1 ? g.items[0] : undefined;
+    const def = it && partBySlug(it.component);
+    if (!it || !def || INPUT_PROP[def.slug] !== undefined || def.slots || def.open) return undefined;
+    let at = g.inFlow ? byGroup.get(g.inFlow) : undefined;
+    for (let i = 0; at && i < 16; i++) {
+      const host = at.items.length === 1 ? at.items[0] : undefined;
+      if (host?.action && !host.action.trigger) return { action: host.action, item: host };
+      at = at.inFlow ? byGroup.get(at.inFlow) : undefined;
+    }
+    return undefined;
   };
   /* what starts after a delay starts once, when the screen comes on show; the parts and the handler are read as they are
      then, so a change of state does not start them again */
@@ -284,7 +391,7 @@ function Screen({
     const timers = timed.current.groups.flatMap((g) =>
       g.items.flatMap((it) => {
         const a = it.action;
-        return a?.trigger?.on === "delay" ? [window.setTimeout(() => timed.current.onAction(a, it.row), a.trigger.ms)] : [];
+        return a?.trigger?.on === "delay" ? [window.setTimeout(() => timed.current.onAction(a, it), a.trigger.ms)] : [];
       }),
     );
     return () => timers.forEach((id) => window.clearTimeout(id));
@@ -309,12 +416,21 @@ function Screen({
           tabIndex={0}
           className="m3-hidden-scrollbar"
           onScroll={onBodyScroll}
+          onPointerDown={onPullStart}
+          onPointerMove={onPullMove}
+          onPointerUp={onPullEnd}
+          onPointerCancel={onPullEnd}
+          onWheel={onPullWheel}
           style={{ position: "absolute", inset: 0, overflowX: "hidden", overflowY: "auto", overscrollBehavior: "contain", touchAction: "pan-y" }}
         >
           <div style={{ position: "relative", height: length }}>{nodes.filter((_, i) => !pins.has(groups[i].id))}</div>
         </div>
         {nodes.filter((_, i) => pins.has(groups[i].id))}
       </>
+    ) : onPull ? (
+      <div data-pull-body onPointerDown={onPullStart} onPointerMove={onPullMove} onPointerUp={onPullEnd} onPointerCancel={onPullEnd} onWheel={onPullWheel} style={{ position: "absolute", inset: 0 }}>
+        {nodes}
+      </div>
     ) : (
       nodes
     );
@@ -364,8 +480,11 @@ function Screen({
             if (foldable && fabFolded) shown = { ...shown, props: { ...shown.props, collapsed: true } };
             /* an interaction that starts by the pointer or by time is no tap */
             const on = act?.trigger?.on;
-            const tap = act && !on ? () => onAction(act, it.row) : undefined;
-            const hover = act && on === "hover" ? () => onAction(act, it.row) : undefined;
+            /* a part that does nothing of its own, inside a container that is tapped (a list's row), is a press on that
+               container, as it is in the exported app where it is inside it */
+            const held = !act && !it.actions ? heldTap(g) : undefined;
+            const tap = act && !on ? () => onAction(act, it) : held ? () => onAction(held.action, held.item) : undefined;
+            const hover = act && on === "hover" ? () => onAction(act, it) : undefined;
             const slotActions = it.actions;
             /* a part says which prop is its chosen entry (`selectKey`): a tap moves it. Destination
              *  bars share the choice across screens */
@@ -395,6 +514,7 @@ function Screen({
                 widths={widths}
                 screen={frameSizeOf(frame)}
                 onField={INPUT_PROP[it.component ?? ""] ? (v) => onField(it, v) : undefined}
+                onFiles={it.component === "file-upload" && onFiles ? (list) => onFiles(it, list) : undefined}
                 /* an overlay with its own trigger opens by itself; only one an effect opened is held */
                 held={!!opened[it.id] && !!def?.open && def.open.trigger !== "hide"}
                 onClose={isOverlayPart(it) ? () => onCloseOverlay(it.id) : undefined}
@@ -419,7 +539,7 @@ function Screen({
                           onValue(navKey || it.id, opens ? -1 : Number(slot.slice(4)));
                           if (opens && navKey) onValue(`${navKey}:opened:${a.to}`, Number(slot.slice(4)));
                         }
-                        if (a) onAction(a, it.row);
+                        if (a) onAction(a, it);
                         else tap?.();
                       }
                     : undefined
@@ -449,6 +569,12 @@ function Screen({
         </div>
       )))}
       </BoundValues.Provider>
+      {refreshing && (
+        <div data-pull-refresh aria-hidden style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", zIndex: 4, width: 36, height: 36, borderRadius: 18, background: p.surfaceContainerHigh, boxShadow: "0 2px 6px rgba(0,0,0,0.2)", display: "grid", placeItems: "center" }}>
+          <div className="m3-spin" style={{ width: 20, height: 20, borderRadius: 10, border: `3px solid ${p.primary}`, borderTopColor: "transparent", animation: "m3e-spin 0.8s linear infinite" }} />
+          <style>{"@keyframes m3e-spin { to { transform: rotate(360deg) } }"}</style>
+        </div>
+      )}
       {frame.deviceBars && takesDeviceBars(frame) && <DeviceBars p={p} bg={frame.bg ?? "surface"} height={viewH} zIndex={3} />}
     </div>
   );
@@ -472,12 +598,15 @@ export function Preview({
   palette,
   startId,
   onClose,
+  transport,
 }: {
   doc: Doc;
   widths: Record<string, number>;
   palette: Palette;
   startId: string | null;
   onClose: () => void;
+  /** what the preview's calls to the API go through (the mock library); a stand-in when none is given */
+  transport?: Transport;
 }) {
   const lang = useLang();
   const frames = doc.frames;
@@ -625,7 +754,7 @@ export function Preview({
   }, [spring, sameSize]);
 
   const go = useCallback(
-    (a: ActionBody) => {
+    (a: ActionBody, params?: Record<string, unknown>) => {
       if (a.to === BACK_TARGET) {
         back();
         return;
@@ -641,9 +770,19 @@ export function Preview({
         const el = document.querySelector(`[data-preview-active] [data-part="${CSS.escape(a.scrollTo)}"]`);
         el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
       }
-      if (!frames.some((f) => f.id === a.to)) return;
+      const target = frames.find((f) => f.id === a.to);
+      if (!target) return;
+      /* a screen that needs a session, without one: the sign-in screen first, then on to it */
+      const login = frames.find((f) => f.auth === "login");
+      if (target.auth === "required" && !bindingsRef.current.session && !bindingsRef.current.presumed && login && login.id !== target.id) {
+        pending.current = { entry: { id: a.to, t: a.transition, ...(params ? { params } : {}) } };
+        setOverlay(null);
+        setAnim({ transition: "fade", backwards: false, spring });
+        setStack((cur) => [...cur, { id: login.id, t: "fade" }]);
+        return;
+      }
       if (a.overlay) {
-        setOverlay({ id: a.to, t: a.transition, ...(a.motion ? { m: a.motion } : {}) });
+        setOverlay({ id: a.to, t: a.transition, ...(a.motion ? { m: a.motion } : {}), ...(params ? { params } : {}) });
         return;
       }
       /* an overlay closes when its screen goes on to another */
@@ -653,28 +792,230 @@ export function Preview({
       const t = same ? a.transition : "fade";
       const m = same ? a.motion : undefined;
       setAnim({ transition: t, backwards: false, spring, ...(m ? { motion: m } : {}) });
-      setStack((cur) => [...cur, { id: a.to, t, ...(m ? { m } : {}) }]);
+      setStack((cur) => [...cur, { id: a.to, t, ...(m ? { m } : {}), ...(params ? { params } : {}) }]);
     },
     [frames, back, spring, sameSize],
   );
 
+  /** once signed in: back to where a 401 left the app, or on to the screen that needed the session */
+  const afterSignIn = useCallback((): boolean => {
+    const p = pending.current;
+    pending.current = null;
+    if (!p) return false;
+    if ("back" in p) {
+      back();
+      return true;
+    }
+    setAnim({ transition: "fade", backwards: false, spring });
+    setStack((cur) => [...cur.slice(0, -1), p.entry]);
+    return true;
+  }, [back, spring]);
+
+  /** what a tap runs: its effects in order (those that reach the API sent off, not waited for), then where it goes,
+   *  with the params it gives; `extra` is what a call's answer adds to the scope (`response`, `error`) */
+  const runBody = useRef<(body: ActionBody, it: Item | undefined, extra: Scope | undefined, depth: number) => void>(() => {});
+  runBody.current = (body, it, extra, depth) => {
+    if (depth > 6) return;
+    const f = frameRef.current;
+    const ctx = boundRef.current[f.id]?.ctx;
+    const row = it?.row;
+    const scoped: PreviewState = { ...inRow(screenVars(stateRef.current, doc, f, darkRef.current), row), ...(ctx ? { ctx } : {}) };
+    const env = { it, extra };
+    const { ctx: _ctx, ...next } = leftRow(applyEffects(scoped, body.effects, doc, env), row);
+    setState(next);
+    /* an effect has just said which tab is chosen: an earlier tap on the tabs no longer speaks for it */
+    const told = (body.effects ?? []).flatMap((e) => (e.do === "setProp" ? [e.part] : []));
+    if (told.length) setValues((m) => ({ ...m, ...Object.fromEntries(told.map((id) => [id, -1])) }));
+    for (const e of body.effects ?? []) reach(e, it, extra, depth);
+    const scope = scopeOf({ ...next, ...(ctx ? { ctx } : {}) }, it, extra);
+    const params = body.params ? Object.fromEntries(Object.entries(body.params).map(([k, x]) => [k, evaluate(x, scope, ctx?.eval)])) : undefined;
+    go(body, params);
+  };
+
+  /** an effect that reaches the API: a call, a load, a page, a form's submit, a sign-out */
+  const reach = (e: Effect, it: Item | undefined, extra: Scope | undefined, depth: number) => {
+    const f = frameRef.current;
+    const src = "source" in e ? f.data?.find((d) => d.name === e.source) : undefined;
+    const params = stackRef.current[stackRef.current.length - 1]?.params;
+    switch (e.do) {
+      case "refresh":
+        if (src) void engine.load(f, src, scopeNow(f, params), { force: true }).catch(() => {});
+        return;
+      case "loadMore":
+        if (src) void engine.load(f, src, scopeNow(f, params), { more: true }).catch(() => {});
+        return;
+      case "signOut":
+        pending.current = null;
+        engine.signOut();
+        return;
+      case "call":
+        void callNow(e, it, extra, depth).catch(() => {});
+        return;
+      case "submit":
+        void submitNow(e.form, it, depth).catch(() => {});
+        return;
+      default:
+        return;
+    }
+  };
+
+  const callNow = async (e: Extract<Effect, { do: "call" }>, it: Item | undefined, extra: Scope | undefined, depth: number) => {
+    const f = frameRef.current;
+    const ctx = boundRef.current[f.id]?.ctx;
+    const scope = scopeOf({ ...stateRef.current, ...(ctx ? { ctx } : {}) }, it, extra);
+    const ep = endpointOf(doc.api, e.operationId);
+    const takes = new Set(doc.api && ep ? endpointParamsOf(doc.api, ep).map((x) => x.name) : []);
+    const params: Record<string, unknown> = {};
+    const fields: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(e.args ?? {})) (takes.has(k) ? params : fields)[k] = evaluate(x, scope, ctx?.eval);
+    const body = e.body ? evaluate(e.body, scope, ctx?.eval) : Object.keys(fields).length ? fields : undefined;
+    const undo = e.optimistic && it?.scope?.item !== undefined ? engine.optimistic(f.id, e.optimistic, it.scope.item, scope) : null;
+    const out = await engine.call(e.operationId, { params, body });
+    if (out.ok) {
+      if (doc.api?.auth?.login === e.operationId && afterSignIn()) return;
+      if (e.then) runBody.current(e.then, it, { ...extra, response: out.body, status: out.status }, depth + 1);
+      return;
+    }
+    undo?.();
+    if (out.unauthorized) return;
+    if (e.catch) runBody.current(e.catch, it, { ...extra, error: out.problem, status: out.status }, depth + 1);
+  };
+
+  const submitNow = async (formId: string | undefined, it: Item | undefined, depth: number) => {
+    const f = frameRef.current;
+    const bound = boundRef.current[f.id];
+    if (!bound) return;
+    const owner = formsOf(bound.groups);
+    const id = formId ?? it?.scope?.form ?? (it ? owner.get(bound.groups.find((g) => g.items.some((x) => x.id === it.id))?.id ?? "") : undefined);
+    const form = bound.groups.find((g) => g.id === id) ?? (id ? doc.groups.find((g) => g.id === id) : undefined);
+    if (!form?.form) return;
+    const scope = scopeOf({ ...stateRef.current, ctx: bound.ctx }, it);
+    const read = readForm({ form, groups: bound.groups, owner, doc, fields: stateRef.current.fields, files: files.current, scope, ctx: bound.ctx.eval });
+    if (Object.keys(read.errors).length) {
+      engine.setForm(form.id, { errors: read.errors, submitted: true, error: null });
+      return;
+    }
+    const params = Object.fromEntries(Object.entries(form.form.params ?? {}).map(([k, x]) => [k, evaluate(x, scope, bound.ctx.eval)]));
+    const tick = (fn: () => void) => {
+      const t = window.setInterval(fn, 120);
+      return () => window.clearInterval(t);
+    };
+    const out = await engine.submit(form.id, form.form.operationId, { params, body: read.body }, { files: read.files, tick });
+    if (out.ok) {
+      if (doc.api?.auth?.login === form.form.operationId && afterSignIn()) {
+        if (form.form.then?.effects?.length) runBody.current({ ...form.form.then, to: STAY_TARGET }, it, { response: out.body, status: out.status }, depth + 1);
+        return;
+      }
+      if (form.form.then) runBody.current(form.form.then, it, { response: out.body, status: out.status }, depth + 1);
+      return;
+    }
+    if (out.unauthorized) return;
+    if (form.form.catch) runBody.current(form.form.catch, it, { error: out.problem, status: out.status }, depth + 1);
+  };
+
   /* A tap: its condition picks what runs, its effects run in order, and then it goes where it goes. */
   const fire = useCallback(
-    (a: Action, row?: Item["row"]) => {
+    (a: Action, it?: Item) => {
       if (swiped.current) return;
       /* a tap from a repeated part reads its row's fields as `row.field`, and only for this tap; the variables read as
          the screen on show has them */
-      const scoped = inRow(screenVars(stateRef.current, doc, frameRef.current, darkRef.current), row);
-      const body = chooseBranch(a, scoped, doc);
+      const ctx = boundRef.current[frameRef.current.id]?.ctx;
+      const scoped: PreviewState = { ...inRow(screenVars(stateRef.current, doc, frameRef.current, darkRef.current), it?.row), ...(ctx ? { ctx } : {}) };
+      const body = chooseBranch(a, scoped, doc, it);
       if (!body) return;
-      setState(leftRow(applyEffects(scoped, body.effects, doc), row));
-      /* an effect has just said which tab is chosen: an earlier tap on the tabs no longer speaks for it */
-      const told = (body.effects ?? []).flatMap((e) => (e.do === "setProp" ? [e.part] : []));
-      if (told.length) setValues((m) => ({ ...m, ...Object.fromEntries(told.map((id) => [id, -1])) }));
-      go(body);
+      runBody.current(body, it, undefined, 0);
     },
-    [doc, go, setState],
+    [doc],
   );
+
+  /* ---------- the bindings: data, calls, forms, the session (lib/bindings) ---------- */
+  const [bindings, setBindingsNow] = useState<BindingState>(emptyBindings);
+  const bindingsRef = useRef(bindings);
+  const setBindings = useCallback((next: BindingState) => {
+    bindingsRef.current = next;
+    setBindingsNow(next);
+  }, []);
+  const docRef = useRef(doc);
+  docRef.current = doc;
+  /* What the calls go through: a page's own back end (a test's fake, an embedding app's), the transport the preview is
+     handed, else the mock library's in the scenario the bar has chosen. A document with endpoints waits for the mocks
+     to load rather than show answers they would take back; one without has nothing to call but the stand-in. */
+  const pageTransport = typeof window !== "undefined" ? window.m3ePreviewTransport : undefined;
+  const api = doc.api;
+  const standIn = useMemo(() => fallbackTransport({ api }), [api]);
+  const answering: Transport | null = pageTransport ?? transport ?? mocks?.transport ?? (api?.endpoints?.length ? null : standIn);
+  const transportRef = useRef<Transport | null>(answering);
+  transportRef.current = answering;
+  const langRef = useRef(lang);
+  langRef.current = lang;
+  /** what was opened over the sign-in screen: where the app goes once signed in */
+  const pending = useRef<{ back: true } | { entry: Entry } | null>(null);
+  const unauthorized = useRef<() => void>(() => {});
+  const engine = useMemo(
+    () =>
+      new BindingEngine({
+        doc: () => docRef.current,
+        transport: { request: (r) => transportRef.current?.request(r) ?? Promise.resolve({ status: 0, headers: {}, body: undefined }) },
+        get: () => bindingsRef.current,
+        set: setBindings,
+        ctx: () => ({ lang: langRef.current }),
+        unauthorized: () => unauthorized.current(),
+      }),
+    [setBindings],
+  );
+  const files = useRef<Record<string, TransportFile[]>>({});
+  /** each screen as its bindings had it when last drawn: what a tap reads */
+  const boundRef = useRef<Record<string, BoundScreen>>({});
+  const loginFrame = frames.find((f) => f.auth === "login");
+  /* a 401 ends the session and sends the app to the sign-in screen, which goes back to where it was once signed in */
+  unauthorized.current = () => {
+    const s = stackRef.current;
+    if (!loginFrame || s[s.length - 1]?.id === loginFrame.id) return;
+    pending.current = { back: true };
+    setOverlay(null);
+    setAnim({ transition: "fade", backwards: false, spring });
+    setStack((cur) => [...cur, { id: loginFrame.id, t: "fade" }]);
+  };
+  const varNames = useMemo(() => (doc.vars ?? []).map((v) => ({ id: v.id, name: v.name })), [doc.vars]);
+  /** the scope of a screen as it is now: its data, its params, the variables, the session */
+  const scopeNow = useCallback(
+    (f: Frame, params?: Record<string, unknown>): Scope => screenScope({ frame: f, state: bindingsRef.current, params, vars: screenVars(stateRef.current, doc, f, darkRef.current).vars, varNames }),
+    [doc, varNames],
+  );
+  /* Another transport, or another session of the mocks (a scenario chosen in the bar, the log's start over): the
+     bindings start over with it, signed in as the mocks' session starts (`auth.signedIn`, true unless the scenario
+     says not), and the screens on show load again just below. */
+  const mockSession = mocks?.session ?? 0;
+  const presumed = !!mocks && answering === mocks.transport && signedInAtStart(doc.mocks, mocks.scenario);
+  const startedWith = useRef<{ t: Transport; session: number } | null>(null);
+  useEffect(() => {
+    if (!answering) return;
+    /* the same again (React running effects twice in development) starts nothing over */
+    const was = startedWith.current;
+    if (was && was.t === answering && was.session === mockSession) return;
+    startedWith.current = { t: answering, session: mockSession };
+    pending.current = null;
+    engine.reset(emptyBindings(presumed));
+    // the scenario `presumed` reads comes with a session of its own
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answering, mockSession, engine]);
+  /* a screen loads its data as it comes on show, and again when it is opened with other params */
+  const topParams = top?.params;
+  const paramsKey = JSON.stringify(topParams ?? null);
+  useEffect(() => {
+    if (!answering || !current?.data?.length) return;
+    void engine.enter(current, scopeNow(current, topParams)).catch(() => {});
+    // the params are read through their key: a new object with the same values loads nothing again
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, paramsKey, engine, answering, mockSession]);
+  const overlayParams = overlay?.params;
+  const overlayKey = JSON.stringify(overlayParams ?? null);
+  useEffect(() => {
+    const f = overlay ? frames.find((x) => x.id === shownId(overlay.id)) : undefined;
+    if (!answering || !f?.data?.length) return;
+    void engine.enter(f, scopeNow(f, overlayParams)).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overlay?.id, overlayKey, engine, answering, mockSession]);
 
   const snack = state.snack;
   useEffect(() => {
@@ -704,24 +1045,34 @@ export function Preview({
   useEffect(() => () => { if (opener?.isConnected && !opener.closest("[inert]")) opener.focus(); }, [opener]);
 
   /* a screen's parts as they are right now. The tab a visitor chose goes in first, since which parts
-   * the dock shows and how they are laid out both follow from it. */
+   * the dock shows and how they are laid out both follow from it; then its bindings: the data drawn in, the regions in
+   * the state their data is in, the forms' errors (lib/bindings/view.ts). */
   const groupsFor = useCallback(
-    (f: Frame) => {
+    (f: Frame, params?: Record<string, unknown>): { groups: DocGroup[]; widths: Record<string, number> } => {
       const tabbed = groupsInFrame(doc.groups, f, frames, widths).map((g) => {
         const it = g.items[0];
         const def = g.items.length === 1 ? partBySlug(it.component) : undefined;
         return def?.panes && def.selectKey && values[it.id] >= 0 ? { ...g, items: [{ ...it, props: { ...it.props, [def.selectKey]: values[it.id] } }] } : g;
       });
-      return liveGroups(tabbed, screenVars(state, doc, f, dark), doc, widths);
+      const vars = screenVars(state, doc, f, dark);
+      try {
+        const bound = boundScreen({ groups: tabbed, frame: f, doc, state: bindings, params, vars: vars.vars, fields: state.fields, files: files.current, widths, ctx: { lang } });
+        boundRef.current[f.id] = bound;
+        return { groups: liveGroups(bound.groups, { ...vars, ctx: bound.ctx }, doc, bound.widths), widths: bound.widths };
+      } catch {
+        /* a binding that cannot be drawn leaves the screen as designed: the preview never stops for it */
+        return { groups: liveGroups(tabbed, vars, doc, widths), widths };
+      }
     },
-    [doc, frames, widths, values, state, dark],
+    [doc, frames, widths, values, state, dark, bindings, lang],
   );
   /** the variables as a screen shows them, for the design fields bound to them */
   const boundFor = useCallback((f: Frame | undefined) => (doc.vars?.length && f ? screenVars(state, doc, f, dark).vars : null), [doc, state, dark]);
-  const groups = useMemo(() => (current ? groupsFor(current) : []), [current, groupsFor]);
+  const live = useMemo(() => (current ? groupsFor(current, top?.params) : { groups: [], widths }), [current, groupsFor, top?.params, widths]);
+  const groups = live.groups;
   const overlayFrame = overlay ? frames.find((f) => f.id === shownId(overlay.id)) : undefined;
-  const overlayGroups = useMemo(() => (overlayFrame ? groupsFor(overlayFrame) : []), [overlayFrame, groupsFor]);
-  const peekGroups = useMemo(() => (peekFrame ? groupsFor(peekFrame) : []), [peekFrame, groupsFor]);
+  const overlayLive = useMemo(() => (overlayFrame ? groupsFor(overlayFrame, overlay?.params) : { groups: [], widths }), [overlayFrame, groupsFor, overlay?.params, widths]);
+  const peekLive = useMemo(() => (peekFrame ? groupsFor(peekFrame) : { groups: [], widths }), [peekFrame, groupsFor, widths]);
 
   /* ---- finger-tracked swipes: only the swipes the author set on the frame ---- */
   const axisMV = useMotionValue(0); // 0 = x, 1 = y
@@ -865,6 +1216,21 @@ export function Preview({
     onField: (it: Item, value: VarValue) => setState(writeField(stateRef.current, it, value, doc)),
     onCloseOverlay: (id: string) => setState(applyEffects(stateRef.current, [{ do: "close", part: id }], doc)),
     onScrim: () => setState(closeOpened(stateRef.current, doc)),
+    onFiles: (it: Item, list: TransportFile[]) => {
+      files.current = { ...files.current, [it.id]: list };
+      /* the names stand for the files where a value is read (a condition, a required field) */
+      setState(writeField({ ...stateRef.current, fields: { ...stateRef.current.fields, [it.id]: list.map((x) => x.name).join(", ") } }, it, list.map((x) => x.name).join(", "), doc));
+    },
+  };
+  /** what a screen does on a pull and at the end of its scrolling, and whether a pull's load is under way */
+  const dataHandlers = (f: Frame, params?: Record<string, unknown>) => {
+    const pulls = (f.data ?? []).filter((d) => d.pullToRefresh);
+    const pages = (f.data ?? []).filter((d) => d.paging === "scroll");
+    return {
+      onPull: pulls.length ? () => pulls.forEach((d) => void engine.load(f, d, scopeNow(f, params), { force: true }).catch(() => {})) : undefined,
+      onNearEnd: pages.length ? () => pages.forEach((d) => void engine.load(f, d, scopeNow(f, params), { more: true }).catch(() => {})) : undefined,
+      refreshing: pulls.some((d) => bindings.sources[`${f.id}/${d.name}`]?.loading && bindings.sources[`${f.id}/${d.name}`]?.value !== undefined),
+    };
   };
   /* a snackbar sits over the content, above a bar at the foot of the screen */
   const footH = Math.max(0, ...groups.filter((g) => g.items.length === 1 && roleOf(g.items[0]) === "bottom").map((g) => sizeOf(g.items[0], widths).h));
@@ -975,7 +1341,7 @@ export function Preview({
                   exit="exit"
                   style={{ position: "absolute", inset: 0 }}
                 >
-                  <Screen frame={current} groups={groups} {...screenProps} active={!overlayFrame} bound={boundFor(current)} />
+                  <Screen frame={current} groups={groups} {...screenProps} widths={live.widths} {...dataHandlers(current, top?.params)} active={!overlayFrame} bound={boundFor(current)} />
                 </motion.div>
               </AnimatePresence>
             </motion.div>
@@ -990,7 +1356,7 @@ export function Preview({
                     animate="animate"
                     style={{ position: "relative", width: frameSizeOf(overlayFrame).w, height: frameSizeOf(overlayFrame).h, borderRadius: frameRadius(overlayFrame) / 2, overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }}
                   >
-                    <Screen frame={overlayFrame} groups={overlayGroups} {...screenProps} bound={boundFor(overlayFrame)} />
+                    <Screen frame={overlayFrame} groups={overlayLive.groups} {...screenProps} widths={overlayLive.widths} {...dataHandlers(overlayFrame, overlay?.params)} bound={boundFor(overlayFrame)} />
                   </motion.div>
                 </motion.div>
               )}
@@ -1006,7 +1372,7 @@ export function Preview({
                   pointerEvents: "none",
                 }}
               >
-                <Screen {...screenProps} active={false} frame={peekFrame} groups={peekGroups} bound={boundFor(peekFrame)} />
+                <Screen {...screenProps} active={false} frame={peekFrame} groups={peekLive.groups} widths={peekLive.widths} bound={boundFor(peekFrame)} />
               </motion.div>
             )}
             <AnimatePresence>
