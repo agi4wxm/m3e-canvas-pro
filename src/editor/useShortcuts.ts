@@ -1,5 +1,5 @@
 /* The editor's keyboard: undo and redo, copy, cut, paste and duplicate, select all, group, Figma's layout keys,
- * delete, nudges, layer steps, the tools and the zoom. What is typed into a field is the field's, and a dialog, the
+ * delete, nudges, layer steps, going into and out of boxes and along siblings, the tools and the zoom. What is typed into a field is the field's, and a dialog, the
  * preview or the prompt's full-screen cover own the keyboard while they are up. */
 
 import { useEffect, useRef } from "react";
@@ -38,6 +38,17 @@ export type ShortcutInputs = {
   setSpaceHeld: (held: boolean) => void;
   zoom: (dir: "in" | "out") => void;
   fit: () => void;
+  /** Ctrl/Cmd+0: the zoom at 100% */
+  zoomTo100: () => void;
+  /** Shift+2: the selection fills the view */
+  zoomToSelection: () => void;
+  /** Enter: the selection's children; Shift+Enter or Escape: its parent (false when there is none) */
+  enterChildren: () => void;
+  selectParent: (escape: boolean) => boolean;
+  /** Tab and Shift+Tab: the next and the previous sibling (false when there is none) */
+  selectSibling: (dir: 1 | -1) => boolean;
+  /** `?`: the sheet of shortcuts */
+  showShortcuts: () => void;
 };
 
 export function useShortcuts(inputs: ShortcutInputs) {
@@ -135,9 +146,55 @@ export function useShortcuts(inputs: ShortcutInputs) {
         return;
       }
       if (e.key === "Escape") {
-        /* with nothing left to let go of, Escape leaves the definition being edited */
+        /* as in Figma, Escape goes up to the parent; at the top it lets go, and with nothing left to let go of it
+         * leaves the definition being edited */
+        if (selectedIds.length && k.selectParent(true)) return;
         if (!selectedIds.length && k.editingDefinition()) k.finishDefinition();
         k.clearSelection();
+        return;
+      }
+      /* Enter goes into the selection, Shift+Enter up to its parent; a focused button keeps its own Enter */
+      if (e.key === "Enter" && !mod && !e.altKey && !t.closest?.("button, [role=button], a, [role=treeitem]")) {
+        if (!selectedIds.length) return;
+        e.preventDefault();
+        if (e.shiftKey) k.selectParent(false);
+        else k.enterChildren();
+        return;
+      }
+      /* Tab walks the siblings of the selection while nothing in the panels has the focus */
+      if (e.key === "Tab" && !mod && !e.altKey && selectedIds.length && (t === document.body || !!t.closest?.("[data-canvas]"))) {
+        if (k.selectSibling(e.shiftKey ? -1 : 1)) e.preventDefault();
+        return;
+      }
+      if (e.key === "?" || (e.shiftKey && e.code === "Slash")) {
+        e.preventDefault();
+        k.showShortcuts();
+        return;
+      }
+      /* Figma's zoom keys: Shift+1 everything, Shift+2 the selection; Ctrl/Cmd with +, - and 0 */
+      if (e.shiftKey && !mod && !e.altKey && e.code === "Digit1") {
+        e.preventDefault();
+        k.fit();
+        return;
+      }
+      if (e.shiftKey && !mod && !e.altKey && e.code === "Digit2") {
+        e.preventDefault();
+        k.zoomToSelection();
+        return;
+      }
+      if (mod && !e.altKey && (e.key === "=" || e.key === "+" || e.code === "Equal" || e.code === "NumpadAdd")) {
+        e.preventDefault();
+        k.zoom("in");
+        return;
+      }
+      if (mod && !e.altKey && (e.key === "-" || e.key === "_" || e.code === "Minus" || e.code === "NumpadSubtract")) {
+        e.preventDefault();
+        k.zoom("out");
+        return;
+      }
+      if (mod && !e.altKey && (e.key === "0" || e.code === "Digit0" || e.code === "Numpad0")) {
+        e.preventDefault();
+        k.zoomTo100();
         return;
       }
       if (e.key === "p" || e.key === "P") {

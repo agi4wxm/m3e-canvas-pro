@@ -1,10 +1,14 @@
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PLACES, Palette, Place, R_INNER, SETTLE_MS, clamp, draftGradient } from "@/lib/tokens";
 import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react";
 import { t, useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
+
+/** Set over the design panel: its controls come out at Figma's density (28px rows, 12px words, hairline sections)
+ *  rather than the roomy touch sizes the other panels keep. */
+export const DenseContext = createContext(false);
 
 /** Closes what is open: on Escape, which goes no further (the editor also clears its selection on
  *  it), and, given what counts as inside, on a press anywhere else. Both are heard on their way down,
@@ -33,8 +37,8 @@ export function useDismiss(active: boolean, close: (by: "escape" | "press") => v
 }
 
 /** the row of tabs and the clear gap under it, and the band a panel with no tabs fades its top with */
-const PANEL_TABS_H = 48;
-const PANEL_TABS_GAP = 16;
+const PANEL_TABS_H = 40;
+const PANEL_TABS_GAP = 4;
 export const PANEL_FADE_H = 28;
 /** how the lock comes over the panel and goes away again: the blur first, then the switch and
  *  the line under it; on the way out the switch turns itself off before any of it fades */
@@ -376,6 +380,8 @@ export function Segmented<K extends string>({
   /** what the run as a whole chooses, for a screen reader */
   label?: string;
 }) {
+  const dense = useContext(DenseContext);
+  if (dense) height = Math.min(height, 28);
   const group = useRef<HTMLDivElement | null>(null);
   const picked = Math.max(0, options.findIndex((o) => o.key === value));
   const walk = (e: React.KeyboardEvent, d: 1 | -1) => {
@@ -415,7 +421,7 @@ export function Segmented<K extends string>({
               flex: (o.grow ?? grow) ? 1 : "0 0 auto",
               minWidth: tight ? 0 : o.wide ? height * 1.4 : height,
               height,
-              padding: o.label ? "0 14px" : 0,
+              padding: o.label ? (dense ? "0 8px" : "0 14px") : 0,
               border: "none",
               cursor: "pointer",
               borderTopLeftRadius: first ? outer : R_INNER,
@@ -428,7 +434,7 @@ export function Segmented<K extends string>({
               alignItems: "center",
               justifyContent: "center",
               gap: 6,
-              fontSize: 13,
+              fontSize: dense ? 12 : 13,
               fontWeight: on ? 600 : 500,
               transition: "background 120ms, color 120ms, border-radius 160ms",
               position: "relative",
@@ -493,13 +499,18 @@ export function Select({
   onChange,
   p,
   label,
+  height = 48,
 }: {
   options: SelectOption[];
   value: string;
   onChange: (k: string) => void;
   p: Palette;
   label: string;
+  /** the trigger's height; a short one (the design panel's) is drawn denser */
+  height?: number;
 }) {
+  if (useContext(DenseContext)) height = Math.min(height, 28);
+  const dense = height < 40;
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState<MenuPlace | null>(null);
   const box = useRef<HTMLDivElement | null>(null);
@@ -570,25 +581,25 @@ export function Select({
         className="m3-press"
         style={{
           width: "100%",
-          height: 48,
-          padding: "0 12px 0 14px",
-          borderRadius: !open ? 12 : place?.bottom !== undefined ? "4px 4px 12px 12px" : "12px 12px 4px 4px",
+          height,
+          padding: dense ? "0 4px 0 8px" : "0 12px 0 14px",
+          borderRadius: dense ? 6 : !open ? 12 : place?.bottom !== undefined ? "4px 4px 12px 12px" : "12px 12px 4px 4px",
           border: "none",
           background: p.surfaceContainerHigh,
           color: p.onSurface,
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
-          gap: 10,
-          fontSize: 14,
-          fontWeight: 600,
+          gap: dense ? 6 : 10,
+          fontSize: dense ? 12 : 14,
+          fontWeight: dense ? 500 : 600,
           textAlign: "left",
           transition: "border-radius 120ms",
         }}
       >
-        {current?.icon && <Icon name={current.icon} size={20} />}
+        {current?.icon && <Icon name={current.icon} size={dense ? 16 : 20} />}
         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{current?.label ?? ""}</span>
-        <Icon name={open ? "expand_less" : "expand_more"} size={20} />
+        <Icon name={open ? "expand_less" : "expand_more"} size={dense ? 16 : 20} />
       </button>
       {open &&
         place &&
@@ -671,7 +682,7 @@ export function Field({
   multiline,
   rows = 3,
   grow,
-  height = 44,
+  height: heightAsked = 44,
   action,
   maxHeight,
   aiBusy,
@@ -703,6 +714,8 @@ export function Field({
   invalid?: boolean;
   describedBy?: string;
 }) {
+  const dense = useContext(DenseContext);
+  const height = dense ? Math.min(heightAsked, 30) : heightAsked;
   const lang = useLang();
   const filled = value.length > 0;
   const areaRef = useRef<HTMLTextAreaElement>(null);
@@ -894,11 +907,11 @@ export function Field({
     display: "block",
     width: "100%",
     padding: multiline ? `12px ${padRight}px ${padBottom}px ${padLeft}px` : `0 ${padRight}px 0 ${padLeft}px`,
-    borderRadius: multiline ? 18 : height / 2,
+    borderRadius: multiline ? (dense ? 8 : 18) : dense ? 6 : height / 2,
     border: "none",
     background: p.surfaceContainerHigh,
     color: p.onSurface,
-    fontSize: 14,
+    fontSize: dense ? 12 : 14,
     lineHeight: multiline ? 1.55 : undefined,
     outline: "none",
     boxSizing: "border-box",
@@ -1327,6 +1340,12 @@ export function Toggle({
   /** fill the row and push the switch to the trailing edge */
   grow?: boolean;
 }) {
+  const dense = useContext(DenseContext);
+  /* the switch's track and knob, smaller where the panel is dense */
+  const tw = dense ? 32 : 44;
+  const th = dense ? 18 : 26;
+  const kOn = dense ? 12 : 18;
+  const kOff = dense ? 8 : 12;
   return (
     <button
       onClick={() => onChange(!on)}
@@ -1345,14 +1364,14 @@ export function Toggle({
         color: p.onSurfaceVariant,
       }}
     >
-      {icon && <Icon name={icon} size={20} />}
-      {label && <span style={{ fontSize: 13, color: p.onSurface, flex: grow ? 1 : undefined, textAlign: "left" }}>{label}</span>}
+      {icon && <Icon name={icon} size={dense ? 16 : 20} />}
+      {label && <span style={{ fontSize: dense ? 12 : 13, color: p.onSurface, flex: grow ? 1 : undefined, textAlign: "left" }}>{label}</span>}
       <span
         style={{
           position: "relative",
-          width: 44,
-          height: 26,
-          borderRadius: 13,
+          width: tw,
+          height: th,
+          borderRadius: th / 2,
           background: on ? p.primary : p.surfaceContainerHighest,
           border: on ? "2px solid transparent" : `2px solid ${p.outline}`,
           boxSizing: "border-box",
@@ -1364,10 +1383,10 @@ export function Toggle({
           style={{
             position: "absolute",
             top: "50%",
-            left: on ? 20 : 3,
-            width: on ? 18 : 12,
-            height: on ? 18 : 12,
-            marginTop: on ? -9 : -6,
+            left: on ? tw - kOn - 6 : 3,
+            width: on ? kOn : kOff,
+            height: on ? kOn : kOff,
+            marginTop: on ? -kOn / 2 : -kOff / 2,
             borderRadius: 9,
             background: on ? p.onPrimary : p.outline,
             transition: "left 160ms, width 160ms, height 160ms, margin 160ms",
@@ -1395,6 +1414,7 @@ export function Section({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const dense = useContext(DenseContext);
   useEffect(() => {
     try {
       const v = localStorage.getItem(`m3e:sec:${id}`);
@@ -1408,6 +1428,23 @@ export function Section({
     } catch {}
     setOpen(next);
   };
+  /* in the dense design panel a section is a quiet title over a hairline, as Figma draws them */
+  if (dense)
+    return (
+      <section aria-label={title} style={{ borderTop: `1px solid ${p.outlineVariant}`, padding: open ? "6px 4px 12px" : "6px 4px" }}>
+        <button
+          onClick={toggle}
+          aria-expanded={open}
+          style={{ width: "100%", height: 28, display: "flex", alignItems: "center", gap: 4, padding: "0 2px", border: "none", background: "transparent", color: p.onSurface, cursor: "pointer", fontSize: 12, fontWeight: 600, textAlign: "left" }}
+        >
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
+          <span style={{ display: "inline-flex", color: p.outline, transform: open ? "none" : "rotate(-90deg)", transition: "transform 120ms" }}>
+            <Icon name="expand_more" size={16} />
+          </span>
+        </button>
+        {open && <div style={{ paddingTop: 4 }}>{children}</div>}
+      </section>
+    );
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, height: 36 }}>

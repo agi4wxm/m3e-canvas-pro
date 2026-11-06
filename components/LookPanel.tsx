@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clamp, type BlendMode, type ColorRef, type GradientStop, type Item, type ItemLook, type LookShadow, type LookStroke, type LookText, type LookTexture, type PaintLayer, type Palette, type TextureKind } from "@/lib/tokens";
 import { t, useLang, type UIKey } from "@/lib/i18n";
 import { roleName } from "@/lib/i18n/look";
@@ -714,7 +714,14 @@ function pruned<T extends object>(v: T): T | undefined {
   return Object.keys(out).length ? out : undefined;
 }
 
-export function LookPanel({ item, onChange, p, strict = false }: { item: Item; onChange: (patch: Partial<Item>) => void; p: Palette; strict?: boolean }) {
+/** the groups of effects the panel is made of, by the names a caller picks them by */
+export type LookBlockKey = "presets" | "fill" | "stroke" | "shadows" | "blur" | "blend" | "filters" | "turn" | "distort" | "text" | "texture";
+/** one group of effects: what its header says and offers, and what it holds */
+export type LookBlock = { key: LookBlockKey; icon: string; title: string; on: boolean; actions?: React.ReactNode; body: React.ReactNode };
+
+/** The effects of a part. Whole, a strip of looks and a folded group for each kind of effect. With `only`, just those
+ *  groups; with `wrap`, each of them handed to the caller to frame (the design panel gives each its own section). */
+export function LookPanel({ item, onChange, p, strict = false, only, wrap }: { item: Item; onChange: (patch: Partial<Item>) => void; p: Palette; strict?: boolean; only?: LookBlockKey[]; wrap?: (block: LookBlock) => React.ReactNode }) {
   const lang = useLang();
   const look: ItemLook = item.look ?? {};
   const set = (patch: Partial<ItemLook>) => onChange({ look: tidyLook({ ...look, ...patch }) });
@@ -770,13 +777,9 @@ export function LookPanel({ item, onChange, p, strict = false }: { item: Item; o
   const opacity = <Range label={t("lookOpacity", lang)} value={look.opacity ?? 100} min={0} max={100} onChange={(v) => set({ opacity: v === 100 ? undefined : v })} p={p} />;
   const layerBlur = <Range label={t("lkLayerBlur", lang)} value={look.blur ?? 0} min={0} max={40} onChange={(v) => set({ blur: v || undefined })} p={p} />;
   const blend = <BlendSelect value={look.blend} onChange={(b) => set({ blend: b })} label={t("lkBlendMode", lang)} p={p} />;
-  const transform = (
+  const turn = (
     <>
       <Range label={t("lookRotate", lang)} value={look.rotate ?? 0} min={-180} max={180} onChange={(v) => set({ rotate: v || undefined })} p={p} />
-      <Range label={t("lkScaleX", lang)} value={tr.scaleX ?? 100} min={10} max={300} onChange={(v) => setTr({ scaleX: v === 100 ? undefined : v })} p={p} />
-      <Range label={t("lkScaleY", lang)} value={tr.scaleY ?? 100} min={10} max={300} onChange={(v) => setTr({ scaleY: v === 100 ? undefined : v })} p={p} />
-      <Range label={t("lkSkewX", lang)} value={tr.skewX ?? 0} min={-45} max={45} onChange={(v) => setTr({ skewX: v || undefined })} p={p} />
-      <Range label={t("lkSkewY", lang)} value={tr.skewY ?? 0} min={-45} max={45} onChange={(v) => setTr({ skewY: v || undefined })} p={p} />
       <div style={{ display: "flex", gap: 6 }}>
         <button onClick={() => setTr({ flipX: !tr.flipX || undefined })} aria-pressed={!!tr.flipX} style={{ ...smallBtn(p, !!tr.flipX), flex: 1 }}>
           <Icon name="swap_horiz" size={18} />
@@ -787,6 +790,20 @@ export function LookPanel({ item, onChange, p, strict = false }: { item: Item; o
           {t("lkFlipY", lang)}
         </button>
       </div>
+    </>
+  );
+  const distort = (
+    <>
+      <Range label={t("lkScaleX", lang)} value={tr.scaleX ?? 100} min={10} max={300} onChange={(v) => setTr({ scaleX: v === 100 ? undefined : v })} p={p} />
+      <Range label={t("lkScaleY", lang)} value={tr.scaleY ?? 100} min={10} max={300} onChange={(v) => setTr({ scaleY: v === 100 ? undefined : v })} p={p} />
+      <Range label={t("lkSkewX", lang)} value={tr.skewX ?? 0} min={-45} max={45} onChange={(v) => setTr({ skewX: v || undefined })} p={p} />
+      <Range label={t("lkSkewY", lang)} value={tr.skewY ?? 0} min={-45} max={45} onChange={(v) => setTr({ skewY: v || undefined })} p={p} />
+    </>
+  );
+  const transform = (
+    <>
+      {turn}
+      {distort}
     </>
   );
   const transformOn = !!look.rotate || !!look.transform;
@@ -805,26 +822,10 @@ export function LookPanel({ item, onChange, p, strict = false }: { item: Item; o
     </div>
   );
 
-  if (strict) {
-    return (
-      <div data-look-panel="strict" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("lkStrictHint", lang)}</div>
-        {elevation}
-        {opacity}
-        {layerBlur}
-        {blend}
-        <Sub id="transform" icon="transform" title={t("lkTransform", lang)} on={transformOn} p={p}>
-          {transform}
-        </Sub>
-        {toolbar}
-      </div>
-    );
-  }
-
   const textOn = !!look.text || !!look.font;
   const filterOn = !!look.filter;
-  return (
-    <div data-look-panel style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+  const presetsBody = (
+    <>
       <div>
         <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "0 4px 2px" }}>{t("lkPresets", lang)}</div>
         <div className="no-scrollbar" style={{ display: "flex", gap: 2, overflowX: "auto", padding: "4px 2px 6px", margin: "0 -4px", scrollSnapType: "x proximity" }}>
@@ -834,20 +835,64 @@ export function LookPanel({ item, onChange, p, strict = false }: { item: Item; o
         </div>
       </div>
       {toolbar}
-
-      <Sub id="fill" icon="format_color_fill" title={t("lkFill", lang)} on={fills.length > 0 || !!look.clearFill} p={p} actions={fills.length < MAX_FILLS && <IconBtn icon="add" size={32} p={p} title={t("lkAddFill", lang)} onClick={() => setFills([{ type: "linear", angle: 180, stops: [{ color: "primary", at: 0 }, { color: "tertiary", at: 100 }] }, ...fills])} />}>
+    </>
+  );
+  const turnOn = !!look.rotate || !!tr.flipX || !!tr.flipY;
+  const distortOn = tr.scaleX !== undefined || tr.scaleY !== undefined || tr.skewX !== undefined || tr.skewY !== undefined;
+  const blocks: LookBlock[] = strict
+    ? [
+        {
+          key: "presets",
+          icon: "auto_awesome",
+          title: t("lkPresets", lang),
+          on: false,
+          body: (
+            <>
+              <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("lkStrictHint", lang)}</div>
+              {toolbar}
+            </>
+          ),
+        },
+        { key: "shadows", icon: "shadow", title: t("lkShadows", lang), on: look.elevation !== undefined, body: elevation },
+        { key: "blur", icon: "blur_on", title: t("lkBlurGlass", lang), on: !!look.blur, body: layerBlur },
+        {
+          key: "blend",
+          icon: "opacity",
+          title: t("lkBlendOpacity", lang),
+          on: look.opacity !== undefined || !!look.blend,
+          body: (
+            <>
+              {opacity}
+              {blend}
+            </>
+          ),
+        },
+        { key: "turn", icon: "rotate_right", title: t("lkTransform", lang), on: turnOn, body: turn },
+        { key: "distort", icon: "transform", title: t("lkTransform", lang), on: distortOn, body: distort },
+      ]
+    : [
+        { key: "presets", icon: "auto_awesome", title: t("lkPresets", lang), on: false, body: presetsBody },
+        {
+          key: "fill",
+          icon: "format_color_fill",
+          title: t("lkFill", lang),
+          on: fills.length > 0 || !!look.clearFill,
+          actions: fills.length < MAX_FILLS && <IconBtn icon="add" size={32} p={p} title={t("lkAddFill", lang)} onClick={() => setFills([{ type: "linear", angle: 180, stops: [{ color: "primary", at: 0 }, { color: "tertiary", at: 100 }] }, ...fills])} />,
+          body: (
+            <>
         <FillList fills={fills} onChange={setFills} p={p} />
         <Toggle on={!!look.clearFill} onChange={(on) => set({ clearFill: on || undefined })} label={t("lkClearFill", lang)} p={p} grow />
-      </Sub>
-
-      <Sub
-        id="stroke"
-        icon="border_style"
-        title={t("lkStroke", lang)}
-        on={!!stroke}
-        p={p}
-        actions={stroke ? <IconBtn icon="close" size={32} p={p} title={t("lkRemove", lang)} onClick={() => setStroke(undefined)} /> : <IconBtn icon="add" size={32} p={p} title={t("lkStroke", lang)} onClick={() => setStroke({ width: 2, color: "outline" })} />}
-      >
+            </>
+          ),
+        },
+        {
+          key: "stroke",
+          icon: "border_style",
+          title: t("lkStroke", lang),
+          on: !!stroke,
+          actions: stroke ? <IconBtn icon="close" size={32} p={p} title={t("lkRemove", lang)} onClick={() => setStroke(undefined)} /> : <IconBtn icon="add" size={32} p={p} title={t("lkStroke", lang)} onClick={() => setStroke({ width: 2, color: "outline" })} />,
+          body: (
+            <>
         {stroke && (
           <>
             <Range label={t("lkWidth", lang)} value={stroke.width} min={0} max={16} onChange={(width) => setStroke({ ...stroke, width })} p={p} />
@@ -893,16 +938,17 @@ export function LookPanel({ item, onChange, p, strict = false }: { item: Item; o
             )}
           </>
         )}
-      </Sub>
-
-      <Sub
-        id="shadows"
-        icon="shadow"
-        title={t("lkShadows", lang)}
-        on={!!shadows || look.elevation !== undefined}
-        p={p}
-        actions={(shadows?.length ?? 0) < MAX_SHADOWS && <IconBtn icon="add" size={32} p={p} title={t("lkAddShadow", lang)} onClick={() => setShadows([...(shadows ?? []), NEW_SHADOW])} />}
-      >
+            </>
+          ),
+        },
+        {
+          key: "shadows",
+          icon: "shadow",
+          title: t("lkShadows", lang),
+          on: !!shadows || look.elevation !== undefined,
+          actions: (shadows?.length ?? 0) < MAX_SHADOWS && <IconBtn icon="add" size={32} p={p} title={t("lkAddShadow", lang)} onClick={() => setShadows([...(shadows ?? []), NEW_SHADOW])} />,
+          body: (
+            <>
         {elevation}
         {shadows ? (
           <>
@@ -927,21 +973,43 @@ export function LookPanel({ item, onChange, p, strict = false }: { item: Item; o
             </button>
           </div>
         )}
-      </Sub>
-
-      <Sub id="blur" icon="blur_on" title={t("lkBlurGlass", lang)} on={!!look.blur || !!look.glass} p={p}>
+            </>
+          ),
+        },
+        {
+          key: "blur",
+          icon: "blur_on",
+          title: t("lkBlurGlass", lang),
+          on: !!look.blur || !!look.glass,
+          body: (
+            <>
         {layerBlur}
         <Range label={t("lkBackdropBlur", lang)} value={look.glass ?? 0} min={0} max={60} onChange={(v) => set({ glass: v || undefined, ...(v ? {} : { glassSaturate: undefined }) })} p={p} />
         {!!look.glass && <Range label={t("lkBackdropSaturate", lang)} value={look.glassSaturate ?? 150} min={0} max={300} onChange={(v) => set({ glassSaturate: v === 150 ? undefined : v })} p={p} />}
-      </Sub>
-
-      <Sub id="blend" icon="opacity" title={t("lkBlendOpacity", lang)} on={look.opacity !== undefined || !!look.blend || !!look.clip} p={p}>
+            </>
+          ),
+        },
+        {
+          key: "blend",
+          icon: "opacity",
+          title: t("lkBlendOpacity", lang),
+          on: look.opacity !== undefined || !!look.blend || !!look.clip,
+          body: (
+            <>
         {opacity}
         {blend}
         <Toggle on={!!look.clip} onChange={(clip) => set({ clip: clip || undefined })} label={t("lkClip", lang)} p={p} grow />
-      </Sub>
-
-      <Sub id="filters" icon="photo_filter" title={t("lkFilters", lang)} on={filterOn} p={p} actions={filterOn && <IconBtn icon="restart_alt" size={32} p={p} title={t("lkResetSection", lang)} onClick={() => set({ filter: undefined })} />}>
+            </>
+          ),
+        },
+        {
+          key: "filters",
+          icon: "photo_filter",
+          title: t("lkFilters", lang),
+          on: filterOn,
+          actions: filterOn && <IconBtn icon="restart_alt" size={32} p={p} title={t("lkResetSection", lang)} onClick={() => set({ filter: undefined })} />,
+          body: (
+            <>
         <Range label={t("lkBrightness", lang)} value={f.brightness ?? 100} min={0} max={200} onChange={(v) => setF({ brightness: v === 100 ? undefined : v })} p={p} />
         <Range label={t("lkContrast", lang)} value={f.contrast ?? 100} min={0} max={200} onChange={(v) => setF({ contrast: v === 100 ? undefined : v })} p={p} />
         <Range label={t("lkSaturate", lang)} value={f.saturate ?? 100} min={0} max={300} onChange={(v) => setF({ saturate: v === 100 ? undefined : v })} p={p} />
@@ -949,13 +1017,17 @@ export function LookPanel({ item, onChange, p, strict = false }: { item: Item; o
         <Range label={t("lkGrayscale", lang)} value={f.grayscale ?? 0} min={0} max={100} onChange={(v) => setF({ grayscale: v || undefined })} p={p} />
         <Range label={t("lkSepia", lang)} value={f.sepia ?? 0} min={0} max={100} onChange={(v) => setF({ sepia: v || undefined })} p={p} />
         <Range label={t("lkInvert", lang)} value={f.invert ?? 0} min={0} max={100} onChange={(v) => setF({ invert: v || undefined })} p={p} />
-      </Sub>
-
-      <Sub id="transform" icon="transform" title={t("lkTransform", lang)} on={transformOn} p={p}>
-        {transform}
-      </Sub>
-
-      <Sub id="text" icon="text_fields" title={t("lkText", lang)} on={textOn} p={p} actions={textOn && <IconBtn icon="restart_alt" size={32} p={p} title={t("lkResetSection", lang)} onClick={() => set({ text: undefined, font: undefined })} />}>
+            </>
+          ),
+        },
+        {
+          key: "text",
+          icon: "text_fields",
+          title: t("lkText", lang),
+          on: textOn,
+          actions: textOn && <IconBtn icon="restart_alt" size={32} p={p} title={t("lkResetSection", lang)} onClick={() => set({ text: undefined, font: undefined })} />,
+          body: (
+            <>
         {!text.gradient && <ColorPick value={text.color} onChange={(color) => setText({ color })} label={t("lkTextColor", lang)} p={p} clearable />}
         <Select
           label={t("lookFont", lang)}
@@ -1009,9 +1081,16 @@ export function LookPanel({ item, onChange, p, strict = false }: { item: Item; o
         )}
         <Toggle on={!!text.gradient} onChange={(on) => setText({ gradient: on ? { type: "linear", angle: 180, stops: [{ color: "primary", at: 0 }, { color: "tertiary", at: 100 }] } : undefined })} label={t("lkTextGradient", lang)} p={p} grow />
         {text.gradient && <PaintEditor layer={text.gradient} onChange={(gradient) => setText({ gradient })} p={p} types={["linear", "radial", "conic"]} />}
-      </Sub>
-
-      <Sub id="texture" icon="texture" title={t("lkTexture", lang)} on={!!look.texture} p={p}>
+            </>
+          ),
+        },
+        {
+          key: "texture",
+          icon: "texture",
+          title: t("lkTexture", lang),
+          on: !!look.texture,
+          body: (
+            <>
         <TexturePick value={look.texture} onChange={(texture) => set({ texture })} p={p} />
         {look.texture && (
           <>
@@ -1021,7 +1100,63 @@ export function LookPanel({ item, onChange, p, strict = false }: { item: Item; o
             <BlendSelect value={look.texture.blend} onChange={(b) => set({ texture: { ...look.texture!, blend: b } })} label={t("lkTextureBlend", lang)} p={p} />
           </>
         )}
+            </>
+          ),
+        },
+        { key: "turn", icon: "rotate_right", title: t("lkTransform", lang), on: turnOn, body: turn },
+        { key: "distort", icon: "transform", title: t("lkTransform", lang), on: distortOn, body: distort },
+      ];
+  if (only || wrap) {
+    const picked = only ? only.map((k) => blocks.find((b) => b.key === k)).filter((b): b is LookBlock => !!b) : blocks;
+    if (wrap) return <>{picked.map((b) => <Fragment key={b.key}>{wrap(b)}</Fragment>)}</>;
+    return (
+      <div data-look-panel={strict ? "strict" : ""} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {picked.map((b) => (
+          <Sub key={b.key} id={b.key} icon={b.icon} title={b.title} on={b.on} actions={b.actions} p={p}>
+            {b.body}
+          </Sub>
+        ))}
+      </div>
+    );
+  }
+  /* the whole panel, as the phone's sheet shows it: the looks, then each kind of effect folded */
+  const sub = (k: LookBlockKey) => {
+    const b = blocks.find((x) => x.key === k);
+    return b ? (
+      <Sub key={b.key} id={b.key} icon={b.icon} title={b.title} on={b.on} actions={b.actions} p={p}>
+        {b.body}
       </Sub>
+    ) : null;
+  };
+  if (strict) {
+    return (
+      <div data-look-panel="strict" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("lkStrictHint", lang)}</div>
+        {elevation}
+        {opacity}
+        {layerBlur}
+        {blend}
+        <Sub id="transform" icon="transform" title={t("lkTransform", lang)} on={transformOn} p={p}>
+          {transform}
+        </Sub>
+        {toolbar}
+      </div>
+    );
+  }
+  return (
+    <div data-look-panel style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {presetsBody}
+      {sub("fill")}
+      {sub("stroke")}
+      {sub("shadows")}
+      {sub("blur")}
+      {sub("blend")}
+      {sub("filters")}
+      <Sub id="transform" icon="transform" title={t("lkTransform", lang)} on={transformOn} p={p}>
+        {transform}
+      </Sub>
+      {sub("text")}
+      {sub("texture")}
     </div>
   );
 }

@@ -3,13 +3,14 @@
  * one undo step (consecutive edits of one field, nudges and layer steps of one selection join into one). */
 
 import { useCallback, useRef, type RefObject } from "react";
-import { Frame, Group, Item } from "@/lib/tokens";
+import { Frame, frameOfPart, Group, groupBounds, Item } from "@/lib/tokens";
 import type { NoteAction } from "@/components/Toolbar";
 import { type AlignHow } from "@/lib/align";
 import { tidyLook } from "@/lib/look";
 import { getLang, t } from "@/lib/i18n";
 import { ops, type DocStore, type Op, type OpError, type TxOptions } from "@/lib/core";
 import { clipOf, movedGroups, type Clip } from "@/lib/core/ops/nodes";
+import { eachPatch } from "@/components/DesignPanel";
 import { groupRefusedMsg, lockedGroupMsg, type DragState, type LeftTab } from "./model";
 
 export type CommandInputs = {
@@ -44,6 +45,40 @@ export function useCommands({ store, runOp, didOp, showToast, selectedIds, selec
     if (dragRef.current?.item.id === id) {
       dragRef.current.item = { ...dragRef.current.item, ...("look" in patch ? { ...patch, look: tidyLook(patch.look) } : patch) };
     }
+  };
+
+  /** One field set on every selected part at once, from the panel of several: a place on its screen moves each part
+   *  there, a measure or a look is written on each that has it. One undo step, joined with the next of the same field. */
+  const setEachSelected = (field: "x" | "y" | "w" | "h" | "opacity" | "radius", v: number) => {
+    const ids = selectedIds;
+    if (!ids.length) return;
+    const s = store.get();
+    const groups = s.doc.groups;
+    store.transact(
+      "Edit",
+      "user",
+      (tx) => {
+        const moved = new Set<string>();
+        for (const id of ids) {
+          const g = groups.find((x) => x.items.some((it) => it.id === id));
+          const it = g?.items.find((x) => x.id === id);
+          if (!g || !it || g.locked) continue;
+          if (field === "x" || field === "y") {
+            /* a part a layout places is not moved by hand; a group moves as one */
+            if ((g.inFlow && !it.flowAbsolute) || moved.has(g.id)) continue;
+            moved.add(g.id);
+            const f = frameOfPart(g, groups, s.doc.frames, widthsRef.current);
+            const b = groupBounds(g, widthsRef.current);
+            const d = field === "x" ? v + (f?.x ?? 0) - b.l : v + (f?.y ?? 0) - b.t;
+            if (d) tx.run(ops.nudge, { ids: [id], dx: field === "x" ? d : 0, dy: field === "y" ? d : 0 });
+            continue;
+          }
+          const patch = eachPatch(it, field, v);
+          if (patch) tx.run(ops.setItem, { id, patch });
+        }
+      },
+      { history: { coalesce: `each:${field}:${ids.join(",")}` } },
+    );
   };
 
   const deleteSelected = useCallback(() => {
@@ -191,5 +226,5 @@ export function useCommands({ store, runOp, didOp, showToast, selectedIds, selec
       if (g !== all[i]) instantRef.current.add(g.id);
     });
   };
-  return { patchSelected, deleteSelected, toggleLockSelected, duplicateSelected, clipboardRef, copySelected, pasteClipboard, placeSelected, alignSelected, distributeSelected, tidyUpSelected, autoLayoutSelected, makeComponentOfSelection, groupSelected, ungroupSelected, nudge, moveSelectedTo, stepSelectedLayers };
+  return { patchSelected, setEachSelected, deleteSelected, toggleLockSelected, duplicateSelected, clipboardRef, copySelected, pasteClipboard, placeSelected, alignSelected, distributeSelected, tidyUpSelected, autoLayoutSelected, makeComponentOfSelection, groupSelected, ungroupSelected, nudge, moveSelectedTo, stepSelectedLayers };
 }

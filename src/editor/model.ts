@@ -96,6 +96,12 @@ export type Gesture =
       x1: number;
       y1: number;
       moved: boolean;
+      /** started on a screen's own ground: a press there with no drag selects the screen */
+      frame?: string;
+      /** Ctrl/Cmd held: the parts themselves, not the outermost layers they are in */
+      deep?: boolean;
+      /** what was selected when it started, kept with Shift */
+      base?: string[];
     }
   | {
       kind: "frame";
