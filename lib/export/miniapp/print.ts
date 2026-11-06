@@ -40,7 +40,7 @@ import { withDocStyles } from "../../styles";
 import { pinOf } from "../../tidy";
 import { isOverlayPart } from "../../interact";
 import { endpointOf } from "../../bindings/contract";
-import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneState, readCode, readOf, regionOptions } from "../bindCode";
+import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
 import { NATIVE, INPUT_PROPS, isNative, kitPropName } from "../../../miniapp-kit/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../miniapp-kit/src/kit/parts.generated";
 import { SET_ONLY, plainTree, propValues, type PlainNode } from "../rn/data";
@@ -273,27 +273,6 @@ function cleanBody(b: ActionBody, names: Names, depth = 0): Record<string, unkno
 function cleanAction(a: Action, names: Names): Record<string, unknown> {
   const when = a.when as Condition | undefined;
   return { ...cleanBody(a, names), ...(when ? { when: cleanCondition(when, names) } : {}), ...(a.else ? { else: cleanBody(a.else, names) } : {}) };
-}
-
-/** a name for each part and form of a document, made of the letters and digits of its words, in the document's order */
-function partNames(doc: Doc): Map<string, string> {
-  const taken = new Set<string>();
-  const out = new Map<string, string>();
-  const add = (id: string, words: string, fallback: string) => {
-    if (out.has(id)) return;
-    const parts = (words.match(/[A-Za-z0-9]+/g) ?? []).map((w, i) => (i ? w[0].toUpperCase() + w.slice(1) : w[0].toLowerCase() + w.slice(1)));
-    let base = parts.join("").slice(0, 40);
-    if (!base || /^\d/.test(base)) base = fallback;
-    let name = base;
-    for (let i = 2; taken.has(name.toLowerCase()); i++) name = `${base}${i}`;
-    taken.add(name.toLowerCase());
-    out.set(id, name);
-  };
-  for (const g of doc.groups) {
-    if (g.form) add(g.id, `${g.name ?? ""} form`, "form");
-    for (const it of g.items) add(it.id, g.items.length === 1 && g.name ? g.name : (partBySlug(it.component)?.name ?? it.component ?? "part"), "part");
-  }
-  return out;
 }
 
 /** every effect of a document's taps, nested ones too */

@@ -2,7 +2,7 @@
  {
   "kind": "image",
   "screen": "Counter",
-  "part": "picture",
+  "part": "image",
   "detail": "a picture held in the document is written to a file"
  },
  {
@@ -14,115 +14,115 @@
  {
   "kind": "atoms",
   "screen": "Products",
-  "part": "id28",
+  "part": "productCard",
   "detail": "drawn as the atoms it splits into (product-card)"
  },
  {
   "kind": "slot",
   "screen": "Products",
-  "part": "id28",
+  "part": "productCard",
   "detail": "a tap on a place inside a part drawn as atoms is not kept"
  },
  {
   "kind": "atoms",
   "screen": "Products",
-  "part": "id29",
+  "part": "productCard2",
   "detail": "drawn as the atoms it splits into (product-card)"
  },
  {
   "kind": "slot",
   "screen": "Products",
-  "part": "id29",
+  "part": "productCard2",
   "detail": "a tap on a place inside a part drawn as atoms is not kept"
  },
  {
   "kind": "atoms",
   "screen": "Products",
-  "part": "id30",
+  "part": "productCard3",
   "detail": "drawn as the atoms it splits into (product-card)"
  },
  {
   "kind": "slot",
   "screen": "Products",
-  "part": "id30",
+  "part": "productCard3",
   "detail": "a tap on a place inside a part drawn as atoms is not kept"
  },
  {
   "kind": "atoms",
   "screen": "Products",
-  "part": "id31",
+  "part": "productCard4",
   "detail": "drawn as the atoms it splits into (product-card)"
  },
  {
   "kind": "slot",
   "screen": "Products",
-  "part": "id31",
+  "part": "productCard4",
   "detail": "a tap on a place inside a part drawn as atoms is not kept"
  },
  {
   "kind": "atoms",
   "screen": "Product",
-  "part": "id61",
+  "part": "price",
   "detail": "drawn as the atoms it splits into (price-tag)"
  },
  {
   "kind": "atoms",
   "screen": "Product",
-  "part": "id71",
+  "part": "checkoutBar",
   "detail": "drawn as the atoms it splits into (checkout-bar)"
  },
  {
   "kind": "slot",
   "screen": "Product",
-  "part": "id71",
+  "part": "checkoutBar",
   "detail": "a tap on a place inside a part drawn as atoms is not kept"
  },
  {
   "kind": "placeholder",
   "screen": "Cart",
-  "part": "id88",
+  "part": "shoppingCart",
   "detail": "cart-list has no component in the kit"
  },
  {
   "kind": "atoms",
   "screen": "Cart",
-  "part": "id89",
+  "part": "sectionHeader",
   "detail": "drawn as the atoms it splits into (section-header)"
  },
  {
   "kind": "atoms",
   "screen": "Cart",
-  "part": "id91",
+  "part": "productCard5",
   "detail": "drawn as the atoms it splits into (product-card)"
  },
  {
   "kind": "atoms",
   "screen": "Cart",
-  "part": "id92",
+  "part": "productCard6",
   "detail": "drawn as the atoms it splits into (product-card)"
  },
  {
   "kind": "atoms",
   "screen": "Checkout",
-  "part": "id145",
+  "part": "descriptionList",
   "detail": "drawn as the atoms it splits into (description-list)"
  },
  {
   "kind": "atoms",
   "screen": "Checkout",
-  "part": "id146",
+  "part": "checkoutBar2",
   "detail": "drawn as the atoms it splits into (checkout-bar)"
  },
  {
   "kind": "slot",
   "screen": "Checkout",
-  "part": "id146",
+  "part": "checkoutBar2",
   "detail": "a tap on a place inside a part drawn as atoms is not kept"
  },
  {
   "kind": "atoms",
   "screen": "Order placed",
-  "part": "id170",
+  "part": "descriptionList2",
   "detail": "drawn as the atoms it splits into (description-list)"
  }
 ]

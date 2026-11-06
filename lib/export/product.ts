@@ -69,6 +69,7 @@ export async function buildProduct(doc: Doc, widths: Record<string, number>, o: 
     fetchIcons: o.fetchIcons,
     onProgress: o.onProgress,
     warnings: [],
+    differences: [],
   };
   const files: ProductFiles = {};
   const workspaces: Workspace[] = [];
@@ -89,7 +90,7 @@ export async function buildProduct(doc: Doc, widths: Record<string, number>, o: 
     files[path] = file;
   }
   assertSafePaths(Object.keys(files));
-  return { name, files, warnings: ctx.warnings };
+  return { name, files, warnings: ctx.warnings, differences: ctx.differences };
 }
 
 /** The product as a zip, with the manifest a first export into an empty folder writes: unpacked and exported into

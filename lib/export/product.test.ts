@@ -9,6 +9,7 @@ import { setGlobalLang } from "../i18n";
 import type { Doc } from "../tokens";
 import { PRODUCT_VERSIONS } from "../versions.generated";
 import { MANIFEST_PATH, parseManifest } from "./merge";
+import { differenceCounts, differenceLines } from "./differences";
 import { buildProduct, productName, zipProduct, type ProductOptions } from "./product";
 import { boundShopDoc, productDoc, shopProductDoc } from "./product.fixture";
 import { GENERATED_DIRS } from "./targets/root";
@@ -302,6 +303,21 @@ describe("the mobile app", () => {
     expect(photo).toContain('params: { productId: "params.productId" }');
     expect(text(shop, "apps/mobile/src/generated/screens/SignInScreen.tsx")).toContain("login: true");
     expect(text(shop, "apps/mobile/src/generated/contract.ts")).toContain('"media": "multipart/form-data"');
+  });
+
+  it("lists where it draws something other than the design says beside its screens, and in the export's report", async () => {
+    /* the proof document has parts the kit draws as their atoms or as a placeholder */
+    const listed = JSON.parse(text(proof, "apps/mobile/src/generated/warnings.json")) as { kind: string }[];
+    expect(listed.length).toBeGreaterThan(0);
+    expect(proof.differences.filter((d) => d.app === "mobile").map(({ app: _app, ...d }) => d)).toEqual(listed);
+    expect(proof.differences.filter((d) => d.app === "miniapp").map(({ app: _app, ...d }) => d)).toEqual(JSON.parse(text(proof, "apps/miniapp/src/generated/warnings.json")));
+    const counts = differenceCounts(proof.differences);
+    expect(counts.map((c) => c.app)).toEqual(["mobile", "miniapp"]);
+    expect(counts[0]).toMatchObject({ total: listed.length, file: "apps/mobile/src/generated/warnings.json" });
+    expect(counts[0].kinds.reduce((n, [, k]) => n + k, 0)).toBe(listed.length);
+    expect(differenceLines(proof.differences)[0]).toMatch(/^mobile: \d+ drawn differently from the design \(\d+ \w+/);
+    /* a product with nothing drawn differently says so with an empty list */
+    expect(JSON.parse(text(shop, "apps/mobile/src/generated/warnings.json"))).toEqual(shop.differences.filter((d) => d.app === "mobile").map(({ app: _app, ...d }) => d));
   });
 
   it("keeps the mocks out of a production build: the app requires them only in development", () => {

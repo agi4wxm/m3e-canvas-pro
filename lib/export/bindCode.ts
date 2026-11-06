@@ -8,15 +8,17 @@
  * - regions: the state a design is for, and how a region's state is chosen;
  * - the scope: how a bound prop is read by the kind of value it takes, a condition, words with `{{expressions}}`, the
  *   list a repeat draws, all through the shared runtime's `Bindings` (packages/app-runtime);
- * - effects: which effects of a tap are the API's (a call, a refresh, a next page, a submit, a sign-out).
+ * - effects: which effects of a tap are the API's (a call, a refresh, a next page, a submit, a sign-out);
+ * - names: what the printed apps, and what they report, call a part: its words, never its id.
  *
  * Pure: the contract and the design in, data and strings out. Expressions reach code only as escaped strings (`str`). */
 
 import { paginationOf, type ApiEndpoint, type ApiSpec } from "../api/types";
 import { formFields, listOf, paramsOf, type FieldRule, type FieldSpec } from "../bindings/contract";
+import { partBySlug } from "../../parts/registry";
 import type { PropDef } from "../../parts/types";
 import { str } from "../../parts/print";
-import { REGION_STATES, type DataSource, type Effect, type Group } from "../tokens";
+import { REGION_STATES, type DataSource, type Doc, type Effect, type Group } from "../tokens";
 
 /* ---------- the data a screen loads, the calls it makes ---------- */
 
@@ -120,3 +122,27 @@ export const listCode = ($: string, data: string, limit: number | undefined) => 
 /** the effects of a tap that are the API's: run by the app's runtime, not by the screen's memory */
 export const API_EFFECTS = new Set<Effect["do"]>(["call", "refresh", "loadMore", "submit", "signOut"]);
 export const isApiEffect = (e: Effect): boolean => API_EFFECTS.has(e.do);
+
+/* ---------- names ---------- */
+
+/** A name for each part and form of a document, made of the letters and digits of its words, in the document's order:
+ *  the same for the same design whatever ids it was given (a part a template adds has a random one). */
+export function partNames(doc: Pick<Doc, "groups">): Map<string, string> {
+  const taken = new Set<string>();
+  const out = new Map<string, string>();
+  const add = (id: string, words: string, fallback: string) => {
+    if (out.has(id)) return;
+    const parts = (words.match(/[A-Za-z0-9]+/g) ?? []).map((w, i) => (i ? w[0].toUpperCase() + w.slice(1) : w[0].toLowerCase() + w.slice(1)));
+    let base = parts.join("").slice(0, 40);
+    if (!base || /^\d/.test(base)) base = fallback;
+    let name = base;
+    for (let i = 2; taken.has(name.toLowerCase()); i++) name = `${base}${i}`;
+    taken.add(name.toLowerCase());
+    out.set(id, name);
+  };
+  for (const g of doc.groups) {
+    if (g.form) add(g.id, `${g.name ?? ""} form`, "form");
+    for (const it of g.items) add(it.id, g.items.length === 1 && g.name ? g.name : (partBySlug(it.component)?.name ?? it.component ?? "part"), "part");
+  }
+  return out;
+}

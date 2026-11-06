@@ -43,7 +43,7 @@ import { pinOf } from "../../tidy";
 import { templateOf } from "../../collections";
 import { INPUT_PROP } from "../../interact";
 import { endpointOf, formFields } from "../../bindings/contract";
-import { fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, readCode, readOf, regionOptions } from "../bindCode";
+import { fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
 import { formsOf } from "../../bindings/view";
 import { NATIVE, isNative, kitPropName } from "../../../rn/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../rn/src/kit/parts.generated";
@@ -288,12 +288,14 @@ type DocFacts = {
   setProps: Map<string, Set<string>>;
   overlays: Set<string>;
   tabs: Set<string>;
+  /** what a warning calls a part: its words (`bindCode.partNames`), not its id */
+  names: Map<string, string>;
 };
 
 function factsOf(doc: Doc): DocFacts {
   const groupOf = new Map<string, string>();
   for (const g of doc.groups) for (const it of g.items) groupOf.set(it.id, g.id);
-  const facts: DocFacts = { groupOf, toggled: new Set(), hidden: new Set(doc.groups.filter((g) => g.hidden).map((g) => g.id)), filled: new Set(), setProps: new Map(), overlays: new Set(), tabs: new Set() };
+  const facts: DocFacts = { groupOf, toggled: new Set(), hidden: new Set(doc.groups.filter((g) => g.hidden).map((g) => g.id)), filled: new Set(), setProps: new Map(), overlays: new Set(), tabs: new Set(), names: partNames(doc) };
   const conditions = (c: Condition | undefined) => {
     if (c && "filled" in c && typeof c.filled === "string") facts.filled.add(c.filled);
   };
@@ -375,7 +377,7 @@ class ScreenPrinter {
   }
 
   warn(kind: RnWarning["kind"], detail: string, part?: string) {
-    this.warnings.push({ kind, screen: this.frame.name, ...(part ? { part } : {}), detail });
+    this.warnings.push({ kind, screen: this.frame.name, ...(part ? { part: this.facts.names.get(part) ?? part.replace(/[^\w-]/g, "") } : {}), detail });
   }
 
   /** the scope variable of where a part is printed: the screen's data, its params and the app's variables */
