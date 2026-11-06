@@ -57,8 +57,12 @@ export const ASSET_GRACE_MS = 60_000;
 /** writes bytes all at once: beside the target first, then over it */
 async function atomicWrite(path: string, data: string | Uint8Array) {
   const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
-  const fh = await open(tmp, "wx");
+  /* the file replaced keeps who may read it: a project the author made private stays private */
+  const was = await exists(path);
+  const mode = was ? was.mode & 0o777 : undefined;
+  const fh = await open(tmp, "wx", mode ?? 0o666);
   try {
+    if (mode !== undefined) await fh.chmod(mode);
     await fh.writeFile(data);
     await fh.sync();
   } finally {

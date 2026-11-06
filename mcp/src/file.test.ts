@@ -2,7 +2,7 @@
  * reach the file, a batch that fails leaving the file as it was, read-only sessions, a file changed on disk, the
  * generative tools only with a key, destructive calls asked of the person at the client. */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { attachFiles, bytesToBase64, digest, parseProject, serializeProject } from "../../lib/core/projectFile";
@@ -341,6 +341,14 @@ describe("the MCP server on a project file", () => {
 
     const free = await open({ allowDestructive: true });
     expect((await free.call("remove_screen", { id: "home" })).isError).toBeFalsy();
+  });
+
+  it.skipIf(process.platform === "win32")("keeps a private project file private when it writes it", async () => {
+    const s = await open();
+    chmodSync(s.path, 0o600);
+    expect((await s.call("set_title", { title: "Private" })).isError).toBeFalsy();
+    expect(onDisk(s.path).title).toBe("Private");
+    expect(statSync(s.path).mode & 0o777).toBe(0o600);
   });
 
   it("asks before a call that takes work away under a name that does not say so", async () => {
