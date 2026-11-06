@@ -2,7 +2,7 @@
  * reach the file, a batch that fails leaving the file as it was, read-only sessions, a file changed on disk, the
  * generative tools only with a key, destructive calls asked of the person at the client. */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { attachFiles, bytesToBase64, digest, parseProject, serializeProject } from "../../lib/core/projectFile";
@@ -341,6 +341,50 @@ describe("the MCP server on a project file", () => {
 
     const free = await open({ allowDestructive: true });
     expect((await free.call("remove_screen", { id: "home" })).isError).toBeFalsy();
+  });
+
+  it.skipIf(process.platform === "win32")("keeps a private project file private when it writes it", async () => {
+    const s = await open();
+    chmodSync(s.path, 0o600);
+    expect((await s.call("set_title", { title: "Private" })).isError).toBeFalsy();
+    expect(onDisk(s.path).title).toBe("Private");
+    expect(statSync(s.path).mode & 0o777).toBe(0o600);
+  });
+
+  it("asks before a call that takes work away under a name that does not say so", async () => {
+    const s = await open();
+    const ok = async (name: string, args: Record<string, unknown>) => expect((await s.call(name, args)).isError, name).toBeFalsy();
+    await ok("add_collection", { id: "fruit", name: "Fruit", fields: ["name", "price"], rows: [["Apple", "1"], ["Pear", "2"]] });
+    /* adding takes nothing away */
+    await ok("update_collection", { id: "fruit", rows: [["Apple", "1"], ["Pear", "2"], ["Fig", "3"]] });
+
+    const wipe = await s.call("update_collection", { id: "fruit", rows: [] });
+    expect(errorOf(wipe)).toMatchObject({ code: "refused" });
+    expect(errorOf(wipe)?.message).toMatch(/3 of the 3 rows/);
+    expect(errorOf(await s.call("apply_ops", { ops: [{ op: "update_collection", args: { id: "fruit", fields: ["name"], rows: [["Apple"]] } }] }))?.code).toBe("refused");
+    expect(onDisk(s.path).collections?.[0].rows).toHaveLength(3);
+
+    const made = (await s.call("add_var_collection", { id: "theme", name: "Theme", modes: ["Light", "Dark"] })).structuredContent as { result: { modes: string[] } };
+    const [light] = made.result.modes;
+    expect(errorOf(await s.call("update_var_collection", { id: "theme", modes: [{ id: light, name: "Light" }] }))?.message).toMatch(/mode "Dark"/);
+    expect(onDisk(s.path).varCollections?.[0].modes).toHaveLength(2);
+
+    const leaf = '<svg viewBox="0 0 24 24"><path d="M4 20C4 9 11 4 20 4c0 9-5 16-16 16z"/></svg>';
+    await ok("set_icon", { id: "leaf", svg: leaf });
+    expect(errorOf(await s.call("set_icon", { id: "leaf", svg: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>' }))?.code).toBe("refused");
+
+    await ok("add_custom_style", { style: { key: "custom:mine", name: "Mine", seed: "#336699" } });
+    expect(errorOf(await s.call("add_custom_style", { style: { key: "custom:mine", name: "Mine", seed: "#993333" } }))?.code).toBe("refused");
+
+    /* the person at the client is asked, and what goes is named */
+    const asked: string[] = [];
+    const t = await open({}, (m) => {
+      asked.push(m);
+      return true;
+    });
+    await t.call("add_collection", { id: "fruit", name: "Fruit", fields: ["name"], rows: [["Apple"]] });
+    expect((await t.call("update_collection", { id: "fruit", rows: [] })).isError).toBeFalsy();
+    expect(asked).toEqual([expect.stringMatching(/update_collection.*1 of the 1 rows of "Fruit"/)]);
   });
 
   it("says where calls go, and that pictures need a renderer", async () => {

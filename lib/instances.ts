@@ -39,6 +39,13 @@ export const canNest = (components: ComponentDef[] | undefined, hostId: string |
 
 /* ---------- expansion ---------- */
 
+/** How much one expansion draws, whatever a file says: instances nested this deep, and this many groups drawn for
+ *  them in all. A definition holding a few instances of one holding a few instances of another… grows as a power of
+ *  its depth, so a file of a few kilobytes could ask for millions of parts; past these an instance is its empty box,
+ *  as one that would hold itself is. */
+export const MAX_INSTANCE_DEPTH = 24;
+export const MAX_INSTANCE_GROUPS = 10_000;
+
 /** a part with what the instance changes of it; keys are `itemId/propKey` */
 function overridden(it: Item, overrides: Record<string, VarValue> | undefined): Item {
   if (!overrides) return it;
@@ -120,7 +127,7 @@ function placedCopy(def: ComponentDef, x: number, y: number, inst: Pick<Group, "
   });
 }
 
-type Context = { components: ComponentDef[]; collections?: Collection[]; widths: Widths; rows: boolean; keepEmpty?: boolean };
+type Context = { components: ComponentDef[]; collections?: Collection[]; widths: Widths; rows: boolean; keepEmpty?: boolean; /** groups this expansion may still draw */ left: number };
 
 /** the container left where an instance was, its size what the parts come to */
 function wrapperOf(g: Group, name: string, w: number, h: number): Group {
@@ -134,10 +141,15 @@ function wrapperOf(g: Group, name: string, w: number, h: number): Group {
 function expandOne(g: Group, ctx: Context, stack: string[]): Group[] {
   const def = ctx.components.find((c) => c.id === g.instanceOf);
   if (!def) return [wrapperOf(g, "", 40, 40)];
-  if (stack.includes(def.id)) return [wrapperOf(g, def.name, def.w, def.h)];
+  if (stack.includes(def.id) || stack.length >= MAX_INSTANCE_DEPTH || ctx.left <= 0) return [wrapperOf(g, def.name, def.w, def.h)];
   const clones = placedCopy(def, g.x, g.y, g, (id) => `${g.id}/${id}`, (id) => `${g.id}/${id}`);
+  ctx.left -= clones.length;
   let kids = clones.flatMap((k) => (k.instanceOf ? expandOne(k, ctx, [...stack, def.id]) : [k]));
-  if (ctx.rows) kids = expandRepeats(kids, { collections: ctx.collections, widths: ctx.widths, keepEmpty: ctx.keepEmpty });
+  if (ctx.rows) {
+    const before = kids.length;
+    kids = expandRepeats(kids, { collections: ctx.collections, widths: ctx.widths, keepEmpty: ctx.keepEmpty });
+    ctx.left -= kids.length - before;
+  }
   const measures = measuresFor(kids, ctx.widths);
   kids = arrangeFlows(kids, measures);
   /* a second pass settles a hugging layout inside a layout */
@@ -146,8 +158,14 @@ function expandOne(g: Group, ctx: Context, stack: string[]): Group[] {
   /* what stands on a dock's other tab is still where it was last laid out, which says nothing of the size */
   const off = outOfPane(kids, measures);
   const seen = kids.filter((k) => !off.has(k.id));
-  const r = Math.max(...seen.map((k) => k.x + ownSize(k, measures).w));
-  const b = Math.max(...seen.map((k) => k.y + ownSize(k, measures).h));
+  /* a loop, not a spread: a definition can hold more groups than a call takes arguments */
+  let r = -Infinity;
+  let b = -Infinity;
+  for (const k of seen) {
+    const size = ownSize(k, measures);
+    r = Math.max(r, k.x + size.w);
+    b = Math.max(b, k.y + size.h);
+  }
   return [wrapperOf(g, def.name, r - g.x, b - g.y), ...kids];
 }
 
@@ -155,7 +173,7 @@ function expandOne(g: Group, ctx: Context, stack: string[]): Group[] {
  *  The same array comes back when there is nothing to expand. */
 export function expandInstances(doc: Pick<Doc, "groups" | "components" | "collections">, widths: Widths = {}, o: { rows?: boolean; keepEmpty?: boolean } = {}): Group[] {
   if (!doc.groups.some((g) => g.instanceOf)) return doc.groups;
-  const ctx: Context = { components: doc.components ?? [], collections: doc.collections, widths, rows: o.rows !== false, keepEmpty: o.keepEmpty };
+  const ctx: Context = { components: doc.components ?? [], collections: doc.collections, widths, rows: o.rows !== false, keepEmpty: o.keepEmpty, left: MAX_INSTANCE_GROUPS };
   return doc.groups.flatMap((g) => (g.instanceOf ? expandOne(g, ctx, []) : [g]));
 }
 
@@ -247,13 +265,16 @@ const OVERRIDABLE = new Set<PropDef["kind"]>(["text", "icon", "image", "bool"]);
 export type OverridePart = { /** the part's path in the override key: `itemId`, or `nestedGroupId/itemId` */ path: string; item: Item; props: PropDef[] };
 
 /** the parts inside a definition that an instance can change, with the props of each */
-export function overridableParts(def: ComponentDef, components: ComponentDef[] | undefined, prefix = "", stack: string[] = []): OverridePart[] {
+export function overridableParts(def: ComponentDef, components: ComponentDef[] | undefined, prefix = "", stack: string[] = [], budget = { left: MAX_INSTANCE_GROUPS }): OverridePart[] {
   return def.groups.flatMap((g): OverridePart[] => {
+    /* bounded as an expansion is: nested definitions multiply what is listed */
+    if (budget.left <= 0) return [];
     if (g.instanceOf) {
       const inner = components?.find((c) => c.id === g.instanceOf);
-      if (!inner || stack.includes(inner.id) || inner.id === def.id) return [];
-      return overridableParts(inner, components, `${prefix}${g.id}/`, [...stack, def.id]).map((p) => ({ ...p, item: overridden({ ...p.item, id: p.path.slice(prefix.length + g.id.length + 1) }, g.overrides) }));
+      if (!inner || stack.includes(inner.id) || inner.id === def.id || stack.length >= MAX_INSTANCE_DEPTH) return [];
+      return overridableParts(inner, components, `${prefix}${g.id}/`, [...stack, def.id], budget).map((p) => ({ ...p, item: overridden({ ...p.item, id: p.path.slice(prefix.length + g.id.length + 1) }, g.overrides) }));
     }
+    budget.left -= g.items.length;
     return g.items.flatMap((it) => {
       const part = partBySlug(it.component);
       /* a container's switches are how it lays out, not what it shows */

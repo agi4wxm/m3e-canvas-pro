@@ -1210,8 +1210,19 @@ export function heldBy(container: Group, groups: Group[], widths: Record<string,
    * on one another until they are placed, and one must not take the next along */
   const scopeOf = (id: string) => id.slice(0, Math.max(0, id.lastIndexOf("/")));
   const held = new Set(groups.filter((g, i) => g.id !== container.id && !g.locked && (g.inFlow === container.id || ownerIdOf(g.id) === container.id || (i > at && scopeOf(g.id) === scopeOf(container.id) && liesInside(g, outer, widths)))));
-  /* what a layout or an expansion holds is its own even where it overflows, at any depth */
-  for (const g of held) for (const o of groups) if ((o.inFlow === g.id || ownerIdOf(o.id) === g.id) && !o.locked) held.add(o);
+  /* what a layout or an expansion holds is its own even where it overflows, at any depth. Who holds whom is read once,
+     so a deep nest costs its size and not its size squared */
+  const kids = new Map<string, Group[]>();
+  for (const o of groups) {
+    if (o.locked) continue;
+    for (const p of new Set([o.inFlow, ownerIdOf(o.id)])) {
+      if (!p) continue;
+      const list = kids.get(p);
+      if (list) list.push(o);
+      else kids.set(p, [o]);
+    }
+  }
+  for (const g of held) for (const o of kids.get(g.id) ?? []) held.add(o);
   return groups.filter((g) => held.has(g));
 }
 
@@ -1240,10 +1251,16 @@ export function explodeGroup(g: Group, widths: Record<string, number>): Group[] 
 export function frameOfPart(g: Group, groups: Group[], frames: Frame[], widths: Record<string, number>): Frame | undefined {
   let at = g;
   const seen = new Set([g.id]);
+  /* a few steps up are looked for one by one; a deep nest is indexed, so its cost is its size, not its size squared */
+  let byId: Map<string, Group> | null = null;
   for (;;) {
     const next = at.inFlow ?? ownerIdOf(at.id);
     if (!next) break;
-    const host = groups.find((x) => x.id === next);
+    if (!byId && seen.size > 8) {
+      byId = new Map();
+      for (const x of groups) if (!byId.has(x.id)) byId.set(x.id, x);
+    }
+    const host = byId ? byId.get(next) : groups.find((x) => x.id === next);
     if (!host || seen.has(host.id)) break;
     seen.add(host.id);
     at = host;

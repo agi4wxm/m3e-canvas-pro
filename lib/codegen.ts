@@ -514,7 +514,8 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
       const content = screenBody(frame, flowing, c, widths, all, false, folds);
       const overlays = screenBody(frame, fixed, c, widths, all, true, folds);
       const scrollHandler = folds ? ' onScroll={(event) => { const top = event.currentTarget.scrollTop; if (top !== lastScrollTop.current) setFabFolded(top > lastScrollTop.current); lastScrollTop.current = top }}' : "";
-      body = [`<div role="region" aria-label=${str(`${frame.name || "Screen"} content`)} tabIndex={0} className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain"${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></div>`, ...overlays];
+      /* the screen's name is the author's words: an expression, since a JSX attribute's quotes take no escapes */
+      body = [`<div role="region" aria-label={${str(`${frame.name || "Screen"} content`)}} tabIndex={0} className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain"${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></div>`, ...overlays];
     } else body = screenBody(frame, runs, c, widths, all);
     const bg = frame.bg && COLOR_TOKENS.some((t) => t.key === frame.bg) ? `bg-${role(frame.bg)}` : "bg-surface";
     /* a style may draw something behind its screens (src/style.css) */

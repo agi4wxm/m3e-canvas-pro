@@ -51,14 +51,14 @@ export function nodeTree(doc: Pick<Doc, "groups" | "frames">, widths: Widths): {
     const b = groupBounds(g, widths);
     return (b.r - b.l) * (b.b - b.t);
   };
-  const holders = groups.filter(holdsParts).map((c) => ({ c, held: heldBy(c, groups, widths), area: areaOf(c) }));
+  const holders = groups.filter(holdsParts).map((c) => ({ c, held: new Set(heldBy(c, groups, widths)), area: areaOf(c) }));
   for (const g of groups) {
     if (g.inFlow && byId.has(g.inFlow) && g.inFlow !== g.id) {
       parent.set(g.id, g.inFlow);
       continue;
     }
     let best: { id: string; area: number } | null = null;
-    for (const h of holders) if (h.c.id !== g.id && h.held.includes(g) && (!best || h.area < best.area)) best = { id: h.c.id, area: h.area };
+    for (const h of holders) if (h.c.id !== g.id && h.held.has(g) && (!best || h.area < best.area)) best = { id: h.c.id, area: h.area };
     if (best) parent.set(g.id, best.id);
   }
   const screenOf = new Map<string, Frame | undefined>(groups.map((g) => [g.id, frameOfPart(g, groups, doc.frames, widths)]));

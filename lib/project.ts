@@ -234,7 +234,7 @@ const cleanStrings = (map: unknown): Record<string, string> | undefined => (isRe
 /** one definition, or nothing when it has no id to be called by. Its groups go through the same checks as a screen's. */
 function cleanComponent(c: unknown): ComponentDef | undefined {
   if (!isRecord(c) || typeof c.id !== "string") return undefined;
-  const groups = Array.isArray(c.groups) ? c.groups.filter(validGroup).map((g) => cleanGroup(g as Group)) : [];
+  const groups = Array.isArray(c.groups) ? cappedNesting(c.groups.filter(validGroup).map((g) => cleanGroup(g as Group))) : [];
   const size = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 40);
   const props = Array.isArray(c.props) ? c.props.map(cleanComponentProp).filter((p) => p !== undefined) : [];
   const variant = cleanStrings(c.variant);
@@ -284,9 +284,40 @@ function cleanInstance(g: Group, components: ComponentDef[] | undefined): Group 
   return { ...g, items: [{ ...made.items[0], ...own, id: was?.id ?? made.items[0].id }] };
 }
 
+/** How many auto layouts deep a part may be laid out. Layout, the layers and the outline go down a nest one call a
+ *  level, so a file nesting thousands of boxes would run the tab out of stack; no design comes near this. */
+export const MAX_NESTING = 100;
+
+/** The groups with every one laid out deeper than MAX_NESTING taken out of its layout: it stays where it is, on its
+ *  own, with what it holds. The same array when none is that deep. */
+export function cappedNesting(groups: Group[]): Group[] {
+  const byId = new Map(groups.map((g) => [g.id, g]));
+  const depth = new Map<string, number>();
+  /* walked up without recursion, so the nest itself cannot run this out of stack; a loop counts as no deeper */
+  const depthOf = (g: Group): number => {
+    const chain: Group[] = [];
+    const on = new Set<string>();
+    let at: Group | undefined = g;
+    while (at && !depth.has(at.id) && !on.has(at.id)) {
+      chain.push(at);
+      on.add(at.id);
+      at = at.inFlow !== undefined ? byId.get(at.inFlow) : undefined;
+    }
+    let d = at && depth.has(at.id) ? depth.get(at.id)! : 0;
+    for (let i = chain.length - 1; i >= 0; i--) depth.set(chain[i].id, chain[i].inFlow !== undefined && byId.has(chain[i].inFlow!) ? ++d : (d = 0));
+    return depth.get(g.id)!;
+  };
+  if (!groups.some((g) => g.inFlow !== undefined && depthOf(g) > MAX_NESTING)) return groups;
+  return groups.map((g) => {
+    if (g.inFlow === undefined || depthOf(g) <= MAX_NESTING) return g;
+    const { inFlow: _out, ...rest } = g;
+    return rest;
+  });
+}
+
 /** a document with what is wrong in its behaviour taken out; it always comes back whole */
 export function cleanBehavior(doc: Doc): Doc {
-  const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: doc.groups.map(cleanGroup) };
+  const out: Doc = { ...doc, frames: doc.frames.map(cleanFrame), groups: cappedNesting(doc.groups.map(cleanGroup)) };
   if (out.customPalette !== undefined) {
     const palette = cleanPalette(out.customPalette);
     if (palette) out.customPalette = palette;
