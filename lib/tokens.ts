@@ -769,7 +769,12 @@ export type Action = ActionBody & { when?: Condition; else?: ActionBody };
 /** what a variable can hold */
 export type VarValue = string | number | boolean;
 export type VarType = "text" | "number" | "bool";
-export type DocVar = { id: string; name: string; type: VarType; value: VarValue };
+/** `drives: "dark"` makes a bool variable the app's light/dark mode: true is dark. The preview and the exported app
+ *  start it at the mode they open in, and setting or toggling it (an effect, a bound switch) switches the theme. */
+export type DocVar = { id: string; name: string; type: VarType; value: VarValue; drives?: "dark" };
+
+/** the variable that is the app's dark mode, if one is */
+export const darkVarOf = (vars: DocVar[] | undefined): DocVar | undefined => (Array.isArray(vars) ? vars.find((v) => v.drives === "dark" && v.type === "bool") : undefined);
 
 /** a test on the preview's state: a variable against a value, or a form field (by item id) that has something in it */
 export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string };

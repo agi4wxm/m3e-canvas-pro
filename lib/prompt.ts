@@ -388,6 +388,8 @@ function varsLine(vars: DocVar[] | undefined, lang: Lang): string | null {
   };
   const list = vars.map((v) => {
     const value = valueText(v.value, lang);
+    if (v.drives === "dark")
+      return { ja: `${v.name || v.id}（真偽値、ダークモードそのもの: true でダーク、起動時の表示モードから始まる）`, en: `${v.name || v.id} (boolean, the app's dark mode itself: true is dark; it starts at the mode on show)`, zh: `${v.name || v.id}（布尔值，就是应用的深色模式：为真时是深色，初始值是启动时显示的模式）`, ko: `${v.name || v.id}(불리언, 앱의 다크 모드 자체: true면 다크, 시작할 때 보이는 모드에서 시작)` }[lang];
     return { ja: `${v.name || v.id}（${kind[v.type].ja}、初期値 ${value}）`, en: `${v.name || v.id} (${kind[v.type].en}, starts at ${value})`, zh: `${v.name || v.id}（${kind[v.type].zh}，初始值 ${value}）`, ko: `${v.name || v.id}(${kind[v.type].ko}, 초기값 ${value})` }[lang];
   });
   const sep = lang === "en" || lang === "ko" ? ", " : "、";

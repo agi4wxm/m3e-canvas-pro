@@ -1,7 +1,8 @@
 /* The AI tab of the left rail: a chat with the in-app agent (src/editor/useAgent.ts), and its settings. Each turn shows
- * what the agent is doing as it does it (its plan, each tool with how it went, the pictures it looked at, what it
- * spent), then what changed, to keep or undo as one step. The one-shot actions (a whole draft, a screen's
- * description, a part's behaviour, the scenes' pictures) stay one press away. */
+ * what the agent is doing as it does it (its plan, each tool by what it does, the pictures it looked at, what it
+ * spent), then what changed, to keep or undo as one step. A picture pasted, dropped or picked goes with the request
+ * (a screenshot to copy). The one-shot actions (a whole draft, a screen's description, a part's behaviour, the
+ * scenes' pictures) stay one press away. Loaded with the tab, not with the editor. */
 
 import { useEffect, useRef, useState } from "react";
 import type { Palette } from "@/lib/tokens";
@@ -12,7 +13,10 @@ import type { Usage } from "@/lib/llm";
 import { Icon } from "./Icon";
 import { IconBtn, Segmented } from "./ui";
 import { AiPanel } from "./AiPanel";
+import { toolLabel } from "@/lib/i18n/agentTools";
 import type { LogEntry, TurnView } from "@/src/editor/useAgent";
+import type { PickedImage } from "@/src/editor/attachImage";
+import { AttachedPictures, usePictures } from "./AgentPictures";
 
 export type QuickActions = {
   draft: () => void;
@@ -27,15 +31,13 @@ export type AgentApi = {
   turns: TurnView[];
   running: boolean;
   ready: boolean;
-  send: (request: string) => void;
+  send: (request: string, pictures?: PickedImage[]) => void;
   stop: () => void;
   undoTurn: (id: string) => void;
   keepTurn: (id: string) => void;
   retry: (id: string) => void;
   reset: () => void;
 };
-
-const GROUP_WORD: Record<string, UIKey> = { read: "agentToolRead", edit: "agentToolBuild", style: "agentToolStyle", data: "agentToolData", generate: "agentToolDraw" };
 
 const kilo = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k` : String(n));
 
@@ -63,14 +65,12 @@ export function diffText(d: DocDiff, lang: ReturnType<typeof useLang>): string {
 
 function Step({ entry, p }: { entry: Extract<LogEntry, { kind: "tool" }>; p: Palette }) {
   const lang = useLang();
-  const look = entry.name === "screenshot" ? "agentToolLook" : (GROUP_WORD[entry.group] ?? "agentToolBuild");
   return (
-    <div data-agent-step={entry.state} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 28, fontSize: 12, color: entry.state === "error" ? p.error : p.onSurfaceVariant }}>
+    <div data-agent-step={entry.state} data-tool={entry.name} title={entry.name} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 28, fontSize: 12, color: entry.state === "error" ? p.error : p.onSurfaceVariant }}>
       <span style={{ width: 18, display: "grid", placeItems: "center", flex: "0 0 auto" }}>
         {entry.state === "running" ? <span className="m3-spin" style={{ display: "grid" }}><Icon name="progress_activity" size={16} color={p.primary} /></span> : <Icon name={entry.state === "ok" ? "check_circle" : "error"} size={16} color={entry.state === "ok" ? p.primary : p.error} />}
       </span>
-      <span style={{ fontWeight: 600, color: p.onSurface, flex: "0 0 auto" }}>{t(look, lang)}</span>
-      <code style={{ fontSize: 11, opacity: 0.8, flex: "0 0 auto" }}>{entry.name}</code>
+      <span style={{ fontWeight: 600, color: p.onSurface, flex: "0 0 auto" }}>{toolLabel(entry.name, lang)}</span>
       <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={entry.summary}>
         {entry.summary}
       </span>
@@ -120,6 +120,13 @@ function Turn({ turn, last, agent, p }: { turn: TurnView; last: boolean; agent: 
   const changed = turn.diff ? diffText(turn.diff, lang) : "";
   return (
     <div data-agent-turn={turn.status} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {!!turn.images?.length && (
+        <div data-agent-attached style={{ alignSelf: "flex-end", display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: "88%" }}>
+          {turn.images.map((im) => (
+            <img key={im.id} src={im.dataUrl} alt={im.id} title={im.id} style={{ height: 72, maxWidth: 120, objectFit: "cover", borderRadius: 10, border: `1px solid ${p.outlineVariant}` }} />
+          ))}
+        </div>
+      )}
       <div style={{ alignSelf: "flex-end", maxWidth: "88%", padding: "8px 12px", borderRadius: "16px 16px 4px 16px", background: p.secondaryContainer, color: p.onSecondaryContainer, fontSize: 13, lineHeight: 1.45, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{turn.request}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 2px" }}>
         {turn.log.map((l, i) =>
@@ -194,10 +201,13 @@ function Turn({ turn, last, agent, p }: { turn: TurnView; last: boolean; agent: 
   );
 }
 
-export function AgentPanel({ p, settings, onSettings, agent, quick, draft }: { p: Palette; settings: AiSettings; onSettings: (s: AiSettings) => void; agent: AgentApi; quick: QuickActions; draft?: string }) {
+export function AgentPanel({ p, settings, onSettings, agent, quick, draft, onError }: { p: Palette; settings: AiSettings; onSettings: (s: AiSettings) => void; agent: AgentApi; quick: QuickActions; draft?: string; onError?: (message: string) => void }) {
   const lang = useLang();
   const [view, setView] = useState<"chat" | "settings">(agent.ready ? "chat" : "settings");
   const [text, setText] = useState("");
+  const pics = usePictures(() => onError?.(t("agentPictureTooBig", lang)));
+  const [dropping, setDropping] = useState(false);
+  const file = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const turns = agent.turns;
@@ -212,10 +222,12 @@ export function AgentPanel({ p, settings, onSettings, agent, quick, draft }: { p
   }, [draft]);
   const submit = () => {
     const words = text.trim();
-    if (!words || agent.running) return;
-    agent.send(words);
+    if ((!words && !pics.pictures.length) || agent.running) return;
+    agent.send(words, pics.pictures);
     setText("");
+    pics.clear();
   };
+  const canSend = (!!text.trim() || pics.pictures.length > 0) && agent.ready;
   const chips: { key: UIKey; icon: string; run?: () => void }[] = [
     { key: "agentQuickDraft", icon: "auto_awesome", run: quick.draft },
     { key: "agentQuickPolish", icon: "auto_fix_high", run: quick.polish },
@@ -263,6 +275,7 @@ export function AgentPanel({ p, settings, onSettings, agent, quick, draft }: { p
             {!turns.length && (
               <div style={{ fontSize: 13, lineHeight: 1.55, color: p.onSurfaceVariant, padding: "8px 4px" }}>
                 {agent.ready ? t("agentEmpty", lang) : t("agentNeedsKey", lang)}
+                {agent.ready && <div style={{ marginTop: 8 }}>{t("agentAttachHint", lang)}</div>}
                 {!agent.ready && (
                   <div>
                     <button type="button" className="m3-press" style={{ ...pill(p, true), marginTop: 12 }} onClick={() => setView("settings")}>
@@ -277,7 +290,24 @@ export function AgentPanel({ p, settings, onSettings, agent, quick, draft }: { p
               <Turn key={turn.id} turn={turn} last={i === turns.length - 1} agent={agent} p={p} />
             ))}
           </div>
-          <div style={{ padding: "8px 12px 12px", borderTop: `1px solid ${p.outlineVariant}` }}>
+          <div
+            data-agent-composer
+            onDragOver={(e) => {
+              if (![...e.dataTransfer.items].some((it) => it.kind === "file")) return;
+              e.preventDefault();
+              setDropping(true);
+            }}
+            onDragLeave={() => setDropping(false)}
+            onDrop={(e) => {
+              setDropping(false);
+              if (!e.dataTransfer.files.length) return;
+              e.preventDefault();
+              void pics.fromFiles(e.dataTransfer.files);
+            }}
+            style={{ padding: "8px 12px 12px", borderTop: `1px solid ${p.outlineVariant}`, outline: dropping ? `2px dashed ${p.primary}` : "none", outlineOffset: -4 }}
+          >
+            {dropping && <div style={{ fontSize: 12, color: p.primary, marginBottom: 6 }}>{t("agentDropHere", lang)}</div>}
+            <AttachedPictures pictures={pics.pictures} onRemove={pics.remove} p={p} />
             {!agent.running && (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }} aria-label={t("agentQuick", lang)}>
                 {chips
@@ -299,6 +329,7 @@ export function AgentPanel({ p, settings, onSettings, agent, quick, draft }: { p
                 aria-label={t("agentPlaceholder", lang)}
                 placeholder={t("agentPlaceholder", lang)}
                 onChange={(e) => setText(e.target.value)}
+                onPaste={pics.onPaste}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
@@ -307,12 +338,27 @@ export function AgentPanel({ p, settings, onSettings, agent, quick, draft }: { p
                 }}
                 style={{ flex: 1, resize: "none", border: "none", outline: "none", background: "transparent", color: p.onSurface, fontSize: 13, lineHeight: 1.45, fontFamily: "inherit", padding: "6px 0", maxHeight: 160 }}
               />
+              <input
+                ref={file}
+                data-agent-file
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void pics.pick(f);
+                  e.target.value = "";
+                }}
+              />
+              <button type="button" data-agent-attach title={t("agentAttach", lang)} aria-label={t("agentAttach", lang)} className="m3-press" disabled={agent.running} onClick={() => file.current?.click()} style={{ width: 36, height: 36, borderRadius: 18, border: "none", background: "transparent", color: p.onSurfaceVariant, display: "grid", placeItems: "center", cursor: "pointer", flex: "0 0 auto" }}>
+                <Icon name="add_photo_alternate" size={20} />
+              </button>
               {agent.running ? (
                 <button type="button" data-agent-stop title={t("agentStop", lang)} aria-label={t("agentStop", lang)} className="m3-press" onClick={agent.stop} style={{ width: 36, height: 36, borderRadius: 18, border: "none", background: p.errorContainer, color: p.onErrorContainer, display: "grid", placeItems: "center", cursor: "pointer", flex: "0 0 auto" }}>
                   <Icon name="stop" size={20} fill />
                 </button>
               ) : (
-                <button type="button" data-agent-send title={t("agentSend", lang)} aria-label={t("agentSend", lang)} className="m3-press" disabled={!text.trim() || !agent.ready} onClick={submit} style={{ width: 36, height: 36, borderRadius: 18, border: "none", background: text.trim() && agent.ready ? p.primary : p.surfaceContainerHighest, color: text.trim() && agent.ready ? p.onPrimary : p.onSurfaceVariant, display: "grid", placeItems: "center", cursor: text.trim() && agent.ready ? "pointer" : "default", flex: "0 0 auto" }}>
+                <button type="button" data-agent-send title={t("agentSend", lang)} aria-label={t("agentSend", lang)} className="m3-press" disabled={!canSend} onClick={submit} style={{ width: 36, height: 36, borderRadius: 18, border: "none", background: canSend ? p.primary : p.surfaceContainerHighest, color: canSend ? p.onPrimary : p.onSurfaceVariant, display: "grid", placeItems: "center", cursor: canSend ? "pointer" : "default", flex: "0 0 auto" }}>
                   <Icon name="arrow_upward" size={20} />
                 </button>
               )}

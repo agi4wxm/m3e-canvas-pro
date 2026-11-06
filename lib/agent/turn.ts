@@ -6,11 +6,14 @@
 import { savedDoc, type CoreState, type DocStore } from "../core";
 import { frameOfPart } from "../tokens";
 import { addUsage, emptyUsage, runAgent, type Adapter, type AgentStop, type Message, type ToolOutput, type Usage, type UserPart } from "../llm";
-import { createRegistry, executeTool, toolDefs, toolGuide, type GenerateEnv, type Registry, type Renderer, type ToolOutcome } from "../tools";
+import { createRegistry, executeTool, toolDefs, toolGuide, type Attachment, type GenerateEnv, type Registry, type Renderer, type ToolOutcome } from "../tools";
 import { GENERATE_TOOLS } from "../tools/generate";
+import type { Pixels } from "../tools/pixels";
 import type { Lang } from "../i18n";
 import { diffDocs, isEmptyDiff, touchedScreens, type DocDiff } from "./diff";
+import { prunePictures } from "./pictures";
 import { agentSystem, turnContext } from "./prompt";
+import { loadTools, setsFor, setsGuide, toolsIn, TOOL_SETS, type ToolSet } from "./toolsets";
 
 export type TurnEvent =
   | { type: "step"; step: number }
@@ -30,6 +33,14 @@ export type TurnOptions = {
   history: Message[];
   /** what the author asked */
   request: string;
+  /** pictures the author attached to this request (a screenshot to copy): shown to the model with it */
+  images?: Attachment[];
+  /** every picture attached in the conversation so far, this turn's included, for the tools to read by id */
+  attachments?: Attachment[];
+  /** the tool sets the conversation has loaded (lib/agent/toolsets.ts); a turn only ever adds to them */
+  sets?: readonly ToolSet[];
+  /** decodes a picture for the tools that measure one */
+  pixels?: (dataUrl: string) => Promise<Pixels>;
   lang: Lang;
   renderer?: Renderer;
   /** what the generative tools draw with; left out, the agent cannot draw */
@@ -64,23 +75,27 @@ export type TurnResult = {
   rolledBack: boolean;
   /** drawings made with a model */
   drawings: number;
+  /** the tool sets loaded by the end of the turn: what the next turn starts with */
+  sets: ToolSet[];
 };
 
-/** the system prompt and the registry a turn runs with */
-export function agentSetup(o: { canSee: boolean; canDraw: boolean; drawings: number }): { registry: Registry; system: string } {
-  const extra = o.canDraw ? GENERATE_TOOLS : [];
+/** The system prompt and every tool a turn may load. The prompt names all of them by set whichever are loaded, so it
+ *  is the same for the whole conversation. */
+export function agentSetup(o: { canSee: boolean; canDraw: boolean; drawings: number; load?: (sets: ToolSet[]) => ToolSet[] }): { registry: Registry; system: string } {
+  const extra = [...(o.canDraw ? GENERATE_TOOLS : []), loadTools(o.load ?? ((s) => s))];
   const all = createRegistry({ extra });
-  const registry = o.canSee ? all : createRegistry({ extra, only: all.tools.filter((t) => t.name !== "screenshot").map((t) => t.name) });
-  return { registry, system: agentSystem({ guide: toolGuide(registry.tools), canSee: o.canSee, drawings: o.canDraw ? o.drawings : 0 }) };
+  const unseen = new Set(o.canSee ? [] : ["screenshot", "compare_to_reference"]);
+  const registry = unseen.size ? createRegistry({ extra, only: all.tools.filter((t) => !unseen.has(t.name)).map((t) => t.name) }) : all;
+  return { registry, system: agentSystem({ guide: `${toolGuide(registry.tools, { list: false })}\n\n${setsGuide(registry.tools)}`, canSee: o.canSee, drawings: o.canDraw ? o.drawings : 0 }) };
 }
 
 /** what a model reads back from a call: the result as text, and any picture */
 const LIMIT = 24_000;
-function outputOf(o: ToolOutcome): ToolOutput {
+function outputOf(o: ToolOutcome, name: string): ToolOutput {
   if (!o.ok) return { content: [{ type: "text", text: JSON.stringify(o.error) }], isError: true };
   let text = typeof o.result === "string" ? o.result : JSON.stringify(o.result);
   if (text.length > LIMIT) text = `${text.slice(0, LIMIT)}\n…(cut short: ask for less, e.g. one screen, a smaller depth or a limit)`;
-  const images: UserPart[] = (o.images ?? []).map((dataUrl) => ({ type: "image", dataUrl, detail: "auto" }));
+  const images: UserPart[] = (o.images ?? []).map((dataUrl, i) => ({ type: "image", dataUrl, detail: "auto", name: `picture ${i + 1} of a ${name} call` }));
   return { content: [{ type: "text", text }, ...images] };
 }
 
@@ -98,7 +113,7 @@ function summaryOf(name: string, o: ToolOutcome): string {
 }
 
 const REVIEW =
-  "Here is how the screens you changed look now. Compare them with the request. If something is wrong (parts overlapping or cut off, uneven spacing, misaligned edges, missing content, words in the wrong language), fix it with the tools now; otherwise answer the author in one or two sentences. A gap under an open select, menu or date picker is how the canvas draws them: leave it.";
+  "Here is how the screens you changed look now. Compare them with the request. If something is wrong (parts overlapping or cut off, uneven spacing, misaligned edges, missing content, words in the wrong language), fix it with the tools now; otherwise answer the author in one or two sentences. A gap under an open select, menu or date picker is how the canvas draws them: leave it. The pictures use a fallback face a little wider than the real one: a word cut short at the end of a tight line may be only the picture.";
 
 export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   const t0 = Date.now();
@@ -130,10 +145,24 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
 
   const drawings = o.drawings ?? 2;
   const gen: GenerateEnv | undefined = o.gen ? { ...o.gen, budget: { left: drawings } } : undefined;
-  const { registry, system } = agentSetup({ canSee: !!o.renderer, canDraw: !!gen, drawings });
+  const images = o.images ?? [];
+  const attachments = o.attachments ?? images;
+  /* the sets loaded so far, those this request calls for, and those the model loads as it goes */
+  const loaded = new Set<ToolSet>([...(o.sets ?? []), ...setsFor(o.request, { attachments: images.length })]);
+  if (attachments.length) loaded.add("reference");
+  const load = (sets: ToolSet[]) => {
+    for (const x of sets) loaded.add(x);
+    return TOOL_SETS.filter((x) => loaded.has(x));
+  };
+  const { registry, system } = agentSetup({ canSee: !!o.renderer, canDraw: !!gen, drawings, load });
+  const tools = () => toolDefs(toolsIn(registry.tools, [...loaded]));
   const s = store.get();
   const context = turnContext({ doc: s.doc as never, widths: store.ctx("ai").widths, selection: s.session.selection, frameId: s.session.frameId, lang: o.lang });
-  const user: Message = { role: "user", content: [o.note, context, "", o.request.trim()].filter((x) => x !== undefined).join("\n") };
+  const words = [o.note, context, "", o.request.trim()].filter((x) => x !== undefined).join("\n");
+  const attached = images.length ? `\n\nAttached ${images.length === 1 ? "picture" : "pictures"} (tools read ${images.length === 1 ? "it" : "them"} by id): ${images.map((a) => `${a.id}${a.w && a.h ? ` (${a.w}×${a.h} px)` : ""}${a.name ? ` "${a.name}"` : ""}`).join(", ")}.` : "";
+  const user: Message = images.length
+    ? { role: "user", content: [{ type: "text", text: words + attached }, ...images.map((a): UserPart => ({ type: "image", dataUrl: a.dataUrl, detail: "high", name: `the attached picture ${a.id}` }))] }
+    : { role: "user", content: words };
 
   let usage = emptyUsage();
   /* what the readout shows while the turn runs: every model call so far */
@@ -151,14 +180,15 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
       adapter: o.adapter,
       system,
       messages,
-      tools: toolDefs(registry.tools),
+      tools,
+      prepare: (m) => prunePictures(m),
       maxSteps: Math.max(1, maxSteps - stepsUsed),
       signal: o.signal,
       execute: async (call, ctx) => {
-        const out = await executeTool(store, call.name, call.args, { origin: "ai", history: "none", onWrite, renderer: o.renderer, signal: ctx.signal, gen, registry });
-        if (out.ok && call.name === "screenshot") dirty = false;
+        const out = await executeTool(store, call.name, call.args, { origin: "ai", history: "none", onWrite, renderer: o.renderer, signal: ctx.signal, gen, registry, attachments, ...(o.pixels ? { pixels: o.pixels } : {}) });
+        if (out.ok && (call.name === "screenshot" || call.name === "compare_to_reference")) dirty = false;
         outcomes.set(call.id, out);
-        return outputOf(out);
+        return outputOf(out, call.name);
       },
       onEvent: (e) => {
         const at = offset + e.step;
@@ -190,21 +220,22 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
       return g ? frameOfPart(g, now.doc.groups, now.doc.frames, store.ctx("ai").widths)?.id : undefined;
     }).slice(0, 2);
     if (!screens.length) break;
-    const images: string[] = [];
+    const shots: string[] = [];
     try {
-      for (const id of screens) images.push(await o.renderer.screenshot(id, { signal: o.signal }));
+      for (const id of screens) shots.push(await o.renderer.screenshot(id, { signal: o.signal }));
     } catch {
       break;
     }
     dirty = false;
-    emit({ type: "review", screens, images });
-    messages = [...messages, { role: "user", content: [{ type: "text", text: REVIEW }, ...images.map((dataUrl): UserPart => ({ type: "image", dataUrl, detail: "auto" }))] }];
+    emit({ type: "review", screens, images: shots });
+    messages = [...messages, { role: "user", content: [{ type: "text", text: REVIEW }, ...shots.map((dataUrl, i): UserPart => ({ type: "image", dataUrl, detail: "auto", name: `the review picture of ${screens[i]}` }))] }];
   }
 
   const aborted = last.stop === "aborted";
   let rolledBack = false;
+  /* a stopped turn is discarded, not undone: nothing waits to be redone */
   if (aborted && step && onTop()) {
-    store.undo("ai");
+    store.undo("ai", { forget: true });
     rolledBack = true;
   }
   const after = store.get();
@@ -222,5 +253,6 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
     ...(step && onTop() ? { step } : {}),
     rolledBack,
     drawings: gen ? drawings - (gen.budget?.left ?? drawings) : 0,
+    sets: aborted ? [...new Set(["build" as const, ...(o.sets ?? [])])] : TOOL_SETS.filter((x) => loaded.has(x)),
   };
 }

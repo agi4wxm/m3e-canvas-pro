@@ -163,7 +163,7 @@ export function outline(doc: Doc, widths: Widths, o: OutlineOptions = {}): strin
   if (!o.screen) {
     for (const c of doc.components ?? []) lines.push(`component ${c.id} "${c.name}" ${c.w}×${c.h}, ${c.groups.length} groups`);
     for (const c of doc.collections ?? []) lines.push(`collection ${c.id} "${c.name}" fields ${c.fields.join(", ")}; ${c.rows.length} rows`);
-    for (const v of doc.vars ?? []) lines.push(`var ${v.id} "${v.name}" ${v.type} = ${JSON.stringify(v.value)}`);
+    for (const v of doc.vars ?? []) lines.push(`var ${v.id} "${v.name}" ${v.type} = ${JSON.stringify(v.value)}${v.drives === "dark" ? " (drives the dark mode)" : ""}`);
   }
   const walk = (n: TreeNode, depth: number) => {
     if (o.depth !== undefined && depth > o.depth) return;

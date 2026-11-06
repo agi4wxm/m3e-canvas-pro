@@ -1,7 +1,7 @@
 /* A screen, or one part of it, as a PNG: drawn offscreen at 1:1 with plain parts (`renderExport`, the layer the
- * editor's "export image" draws), then turned into pixels with html-to-image. The live MCP bridge takes its
- * screenshots this way inside the editor, and the render page the MCP server loads in headless Chromium does the
- * same, so a picture looks the same whoever took it. */
+ * editor's "export image" draws), then turned into pixels with html-to-image. The in-app agent (useScreenshots.ts)
+ * and the live MCP bridge take their screenshots this way inside the editor, and the render page the MCP server loads
+ * in headless Chromium does the same, so a picture looks the same whoever took it. */
 
 import { toCanvas } from "html-to-image";
 import { describeNode } from "@/lib/core";
@@ -53,15 +53,22 @@ export async function layerDrawn(doc: Doc) {
   await frameDone();
 }
 
-/** The drawn layer as a PNG data URL, at `scale` pixels per dp, cut down to `crop` for a part. */
-export async function capture(layer: HTMLElement, frame: Frame, scale = 1, crop?: Crop): Promise<string> {
+/** The drawn layer as a PNG data URL, at `scale` pixels per dp, cut down to `crop` for a part; a long screen is drawn
+ *  no taller than `maxH` dp when that is given (a model reads the top of a feed as well as all of it). A PNG longer
+ *  than `jpegOver` characters (a screen with a painted backdrop is megabytes) comes as a JPEG instead: every picture is
+ *  sent again with each request of a turn. */
+export async function capture(layer: HTMLElement, frame: Frame, scale = 1, crop?: Crop, maxH?: number, jpegOver?: number): Promise<string> {
   const el = layer.querySelector<HTMLElement>(`[data-export="${CSS.escape(frame.id)}"]`) ?? layer;
   const w = frameSizeOf(frame).w;
-  const h = frameLengthOf(frame);
+  const h = maxH ? Math.min(frameLengthOf(frame), maxH) : frameLengthOf(frame);
   /* the web fonts are not embedded (as in the agent's screenshots, useScreenshots.ts): fetching a face in many files
      takes seconds a picture, and a model reads the layout, which the fallback faces keep */
   const canvas = await toCanvas(el, { pixelRatio: scale, width: w, height: h, skipFonts: true });
-  if (!crop) return canvas.toDataURL("image/png");
+  const encode = (c: HTMLCanvasElement) => {
+    const png = c.toDataURL("image/png");
+    return jpegOver && png.length > jpegOver ? c.toDataURL("image/jpeg", 0.9) : png;
+  };
+  if (!crop) return encode(canvas);
   const x = Math.max(0, Math.min(w, crop.x));
   const y = Math.max(0, Math.min(h, crop.y));
   const cw = Math.max(1, Math.min(w - x, crop.w));
@@ -70,5 +77,5 @@ export async function capture(layer: HTMLElement, frame: Frame, scale = 1, crop?
   out.width = Math.max(1, Math.round(cw * scale));
   out.height = Math.max(1, Math.round(ch * scale));
   out.getContext("2d")!.drawImage(canvas, x * scale, y * scale, cw * scale, ch * scale, 0, 0, out.width, out.height);
-  return out.toDataURL("image/png");
+  return encode(out);
 }

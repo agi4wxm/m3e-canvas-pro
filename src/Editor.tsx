@@ -1,5 +1,7 @@
 
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -54,7 +56,8 @@ import { TemplatesPanel } from "@/components/TemplatesPanel";
 import { PromptPanel } from "@/components/PromptPanel";
 import { GitHubLink, Toolbar } from "@/components/Toolbar";
 import { LangMenu } from "@/components/Menus";
-import { AgentPanel } from "@/components/AgentPanel";
+/* the AI tab loads with its first opening: the agent's panel, providers and tools are not in the editor's own bundle */
+const AgentPanel = lazy(() => import("@/components/AgentPanel").then((m) => ({ default: m.AgentPanel })));
 import { PromptBar, usePromptBarKey } from "@/components/PromptBar";
 import { McpConnect } from "@/components/McpPanel";
 import { PANEL_FADE_H } from "@/components/ui";
@@ -638,15 +641,15 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
 
   /* the in-app agent: its eyes (src/editor/useScreenshots.ts), its conversation and turns (src/editor/useAgent.ts) */
   const { shotFrame, renderer: shotRenderer } = useScreenshots(store);
-  const agent = useAgent({ store, settings: aiSettings, lang, renderer: shotRenderer, editable: editAccess === "editable", showToast });
+  const agent = useAgent({ store, settings: aiSettings, lang, renderer: shotRenderer, editable: editAccess === "editable", showToast, project: loaded && persist instanceof ProjectsPersist ? persist.id : null });
   /** the Cmd/Ctrl+K prompt bar is up */
   const [promptBarOpen, setPromptBarOpen] = useState(false);
   usePromptBarKey(editAccess === "editable" && !isMobile && !confirmClear && project.pendingOpen === null && !project.homeOpen && !project.conflictOpen && !shareOpen && previewId === null && !promptCoverUp, () => setPromptBarOpen(true));
-  const askAgent = (words: string) => {
+  const askAgent = (words: string, pictures: Parameters<typeof agent.send>[1] = []) => {
     setPromptBarOpen(false);
     setLeftOpen(true);
     setLeftTab("ai");
-    void agent.send(words);
+    void agent.send(words, pictures);
   };
   const waitingScenes = scenesToPaint(groups);
 
@@ -1125,11 +1128,13 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                     <MotionPanel p={p} theme={theme} onChange={patchTheme} />
                   </StyleGate>
                 ) : leftTab === "ai" ? (
+                  <Suspense fallback={null}>
                   <AgentPanel
                     p={p}
                     settings={aiSettings}
                     onSettings={updateAiSettings}
                     agent={agent}
+                    onError={(m) => showToast(m, 4000)}
                     quick={{
                       draft: () => setShareOpen(true),
                       polish: tidyTarget ? () => void agent.send(t("agentQuickPolishAsk", lang)) : undefined,
@@ -1138,6 +1143,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                       paint: canPaint && waitingScenes.length ? () => void paintScenes(waitingScenes) : undefined,
                     }}
                   />
+                  </Suspense>
                 ) : (
                   <LayersPanel
                     p={p}

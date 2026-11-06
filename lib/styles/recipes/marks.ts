@@ -43,7 +43,9 @@ export const SCREEN_TEXTURE: Record<Recipes["screen"], string> = {
   scan: "repeating-linear-gradient(0deg, rgb(0 0 0 / 0.07) 0 1px, transparent 1px 3px)",
   grid: "repeating-linear-gradient(0deg, rgb(128 128 128 / 0.10) 0 1px, transparent 1px 24px), repeating-linear-gradient(90deg, rgb(128 128 128 / 0.10) 0 1px, transparent 1px 24px)",
   dots: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23808080' fill-opacity='0.28'/%3E%3C/svg%3E")`,
-  paper: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")`,
+  /* the noise does not read the rect, so the rect is clear: where the filter is not applied (a screen drawn to a
+     picture through an SVG image) it leaves nothing, not a black square */
+  paper: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='160' height='160' fill-opacity='0' filter='url(%23n)'/%3E%3C/svg%3E")`,
   vignette: "radial-gradient(120% 90% at 50% 40%, transparent 55%, rgb(0 0 0 / 0.32) 100%)",
 };
 

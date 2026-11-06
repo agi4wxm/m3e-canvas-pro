@@ -179,7 +179,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 87 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
+共 92 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -199,6 +199,8 @@ npx playwright install chromium
 | `list_components` | 读取 | 是 |  | The document's reusable components (id, name, size, the parts in their definition, how many instances there are). |
 | `list_data` | 读取 | 是 |  | The document's data collections (id, name, fields, rows) and prototype variables (id, name, type, starting value). |
 | `screenshot` | 读取 | 是 |  | A picture of a screen (or of one part, cut out of its screen) as the app draws it, to check your work by eye: alignment, spacing, overflow, contrast, anything missing. |
+| `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
+| `compare_to_reference` | 读取 | 是 |  | Holds a screen of the canvas against the reference picture it copies: draws the screen, hands back both pictures (the reference first), and lays them over each other in a grid, gi… |
 | `apply_ops` | 搭建 |  | 含破坏性操作时 | Runs many operations as one change: all of them or none (if one fails, the document stays as it was and the error says which one), one undo step. |
 | `set_title` | 搭建 |  |  | Sets the app's name. |
 | `set_brief` | 搭建 |  |  | Sets the brief: what the app is for, in the author's words; it goes into the prompt. |
@@ -206,6 +208,7 @@ npx playwright install chromium
 | `set_theme` | 风格 |  |  | Changes the theme: dark, contrast (standard, medium, high), shape (none, square, soft, rounded, full), font, displayFont, motion, icons, recipes, emphasized, bothModes. |
 | `apply_style` | 风格 |  |  | Puts one of the style packs on the document ("" for Android's Material 3), or one of the document's own styles by its custom: key: its colors, shapes, faces, icons and control rec… |
 | `set_custom_styles` | 风格 |  | 是 | Replaces the document's own styles (custom styles, each with a custom: key). |
+| `add_custom_style` | 风格 |  |  | Adds a custom style to the document's own styles, or replaces the one with its key, validated like a style file: roles as #RRGGBB with contrast checked, faces, icon families, shap… |
 | `set_style_rules` | 风格 |  |  | Holds the document to its style's rules (on), or lets its colors, shapes and looks be the author's (off). |
 | `set_style_layout` | 风格 |  |  | Changes one of the style's layout settings, and lays the screens out by it. |
 | `set_palette` | 风格 |  |  | Picks one of the editor's color schemes by key (purple, blue, green…), or "custom" for the document's own. |
@@ -227,6 +230,7 @@ npx playwright install chromium
 | `add_part` | 搭建 |  |  | Adds a part (an atom or a composite) to a screen: at a point, into a container's auto layout at a place in its run, or where there is room. |
 | `add_instance` | 搭建 |  |  | Adds an instance of a reusable component: at a point on a screen, into a container's auto layout, or where there is room. |
 | `add_kit` | 搭建 |  |  | Adds a kit: a composite made of atoms in nested auto layouts (search bar, list row, prompt box…), composed the way the style composes it; a bar goes to its edge of the screen. |
+| `add_tree` | 搭建 |  |  | Adds a whole tree of parts in one step: a box with auto layout holding atoms (text, icon, svg, image, button, input…) and other boxes, each with its props, colors and look. |
 | `remove_nodes` | 搭建 |  | 是 | Removes parts from the canvas (what a container holds stays where it is). |
 | `duplicate_nodes` | 搭建 |  |  | Duplicates parts (a container with what it holds) a step aside and selects the copies. |
 | `set_item` | 搭建 |  |  | Changes a part's own fields: props, fill, textColor, corners, look, note, action/actions, bind, and how it sits in an auto layout (flowSize, alignSelf, flowAbsolute, flowMin, flow… |
@@ -262,13 +266,14 @@ npx playwright install chromium
 | `remove_collection` | 数据与交互 |  | 是 | Removes a data collection; layouts that repeated it stop repeating. |
 | `set_repeat` | 数据与交互 |  |  | Makes a container with an auto layout draw its first child once per row of a collection (limit: at most that many rows), or stop (null). |
 | `add_var` | 数据与交互 |  |  | Adds a variable of the prototype (live in the preview only): type text, number or bool, with the value it starts at. |
-| `update_var` | 数据与交互 |  |  | Changes a variable's name, type or starting value. |
+| `update_var` | 数据与交互 |  |  | Changes a variable's name, type, starting value, or whether it drives the dark mode (drives: "dark" or null). |
 | `remove_var` | 数据与交互 |  | 是 | Removes a variable; props bound to it are unbound. |
 | `set_action` | 数据与交互 |  |  | Sets what a tap on a part does (or on one of its places: slot "tab:0", "icon"…): {to: screen id \| "back" \| "link" \| "none", transition, url, effects: [{do: show\|hide\|toggle\|… |
 | `bind_prop` | 数据与交互 |  |  | Binds a prop of a part to a variable (the preview shows the variable's value), or unbinds it (var null). |
 | `reorder_panes` | 搭建 |  |  | Puts a dock's tabs in a new order; what each tab holds follows it. |
 | `generate_svg` | 生成（需 OPENAI_API_KEY） |  |  | Draws a custom SVG and puts it on the canvas as a vector (svg) part: a new icon, a logo, an illustration, a decoration nothing in the catalog has. |
-| `generate_image` | 生成（需 OPENAI_API_KEY） |  |  | Paints a picture with the image model (about 20–40 s): with `replace` naming an image, a scene or another part, that part gets it (an image or scene keeps its place and takes the … |
+| `generate_image` | 生成（需 OPENAI_API_KEY） |  |  | Paints a picture with the image model (about 20–40 s): with `background` and `screen`, it becomes the picture behind that whole screen (its scene, filling the screen under every p… |
+| `generate_style` | 生成（需 OPENAI_API_KEY） |  |  | Writes a custom style with the text model, from a description ("warm paper notebook: cream paper, ink-blue accents, serif headings") and/or an attached reference picture (ref1…), … |
 | `connection_status` | 服务器自带 | 是 |  | Where this server's calls go, whether an editor tab is paired, and the pairing code when none is. |
 
 <!-- tools:end -->

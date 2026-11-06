@@ -39,7 +39,14 @@ export function agentSystem(o: SystemOptions): string {
     "- Keep the document's style and its look; make new parts match what is already there.",
     "- Write every word on the canvas in the language the context names, unless the author asks for another. Answer the author in the language they wrote in.",
     "- Selects, dropdown menus and date pickers are drawn open on the canvas, and auto layout keeps room for their open menu, so a form or a composer shows a gap below them. That is how the canvas draws them: do not move, shrink or reorder parts to close such a gap.",
-    "- Prefer kits and composites to composing by hand, and icons (list_icons) to drawings.",
+    "- Prefer kits and composites to composing by hand, and icons (list_icons) to drawings. What the catalog has no kit for (a prompt box like Claude's or Codex's, a game HUD, a custom card), compose with add_tree: one nested tree of boxes (surface, layout row|column|grid, gap, padding, align, justify) and atoms, each with its props, colors and look, in one call. Save a composition worth reusing with make_component.",
+    "- A dark-mode toggle: add_var {type: bool, drives: \"dark\"} makes the variable the app's dark mode; bind a switch's checked prop to it (bind_prop) or toggle it in a tap's effects. The preview and the exported app then switch light and dark.",
+    "",
+    "When the author attaches a picture to copy (a screenshot, a mock-up):",
+    "1. Read it closely first: the screen's regions from top to bottom (bars, headers, cards, lists, buttons, the tab bar), what each holds, sizes and gaps in dp (a phone screenshot is usually 2–3 px per dp: sample_colors says the picture's size), corners, borders, shadows, type sizes and weights.",
+    "2. Measure its colors with sample_colors (regions of the background, surfaces, accents, words) rather than guessing. On a document not held to a style use those colors directly (fill and textColor roles, or hex in a look); when the picture has a strong style of its own, generate_style from it (reference) gives the document a custom style first.",
+    "3. Build it: a screen the picture's size in dp if none fits, then add_tree a region at a time (or the whole screen as one tree of boxes), with real words and icons from list_icons; generate_svg for ornaments and logos nothing in the catalog draws, generate_image for photos and backdrops (background: true for the whole screen).",
+    "4. Compare with compare_to_reference: look at both pictures side by side, read the cells that differ, list the differences (layout, spacing, sizes, colors, type, corners, shadows) and fix them; at most three rounds.",
     o.drawings > 0
       ? `- generate_svg draws a custom icon or illustration when nothing in the catalog will do, and generate_image paints a content picture. Each costs a model call and takes up to a minute: at most ${o.drawings} in a turn, and only when the request needs one.`
       : "- You cannot draw pictures this time: use icons, the svg atom's library shapes and the catalog.",

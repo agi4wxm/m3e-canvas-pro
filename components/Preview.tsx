@@ -45,7 +45,7 @@ import { PartView } from "./PartView";
 import { partBySlug, reader } from "@/parts/registry";
 import { PartThemeContext, usePartTheme } from "@/parts/theme";
 import { roleOf } from "@/parts/role";
-import { actionSlotsOf } from "@/lib/tokens";
+import { actionSlotsOf, darkVarOf } from "@/lib/tokens";
 import { screenBackground } from "@/lib/styles";
 import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
@@ -515,7 +515,7 @@ export function Preview({
   const [values, setValues] = useState<Record<string, number>>({});
   const [peek, setPeek] = useState<Peek | null>(null);
   /* the prototype's state starts over each time the preview opens, and is never written to the document */
-  const [state, setStateNow] = useState<PreviewState>(() => startState(doc.vars, doc.collections));
+  const [state, setStateNow] = useState<PreviewState>(() => startState(doc.vars, doc.collections, theme.dark));
   /* the width the visitor switched to; until then each screen shows at its own size */
   const [device, setDevice] = useState<FramePreset | null>(null);
   /** the sibling of a screen at the width chosen: navigation keeps naming the screen it was written for */
@@ -529,8 +529,12 @@ export function Preview({
     stateRef.current = next;
     setStateNow(next);
   }, []);
-  /* a look at the other mode, for this preview only */
-  const [dark, setDark] = useState(theme.dark);
+  /* a look at the other mode, for this preview only; a variable that drives the dark mode is that mode, so a tap that
+     sets it switches the theme, and so does the bar's own button */
+  const [ownDark, setOwnDark] = useState(theme.dark);
+  const darkVar = darkVarOf(doc.vars);
+  const dark = darkVar ? !!state.vars[darkVar.id] : ownDark;
+  const toggleDark = () => (darkVar ? setState({ ...stateRef.current, vars: { ...stateRef.current.vars, [darkVar.id]: !stateRef.current.vars[darkVar.id] } }) : setOwnDark((d) => !d));
   const p = dark === theme.dark ? palette : paletteOf(doc.paletteKey, doc.customPalette, { ...theme, dark });
   const stackRef = useRef(stack);
   stackRef.current = stack;
@@ -1124,7 +1128,8 @@ export function Preview({
             </AnimatePresence>
           </div>
           <button
-            onClick={() => setDark((d) => !d)}
+            data-preview-dark={dark ? "on" : "off"}
+            onClick={toggleDark}
             title={t(dark ? "light" : "dark", lang)}
             aria-label={t(dark ? "light" : "dark", lang)}
             className="m3-press"
