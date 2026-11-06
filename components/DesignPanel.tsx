@@ -48,11 +48,10 @@ export function DesignSection({ id, title, actions, children, p, defaultOpen = t
         <button
           onClick={toggle}
           aria-expanded={open}
-          className="dz-title"
           style={{ flex: 1, minWidth: 0, height: 28, display: "flex", alignItems: "center", gap: 4, padding: "0 2px", border: "none", background: "transparent", color: children ? p.onSurface : p.onSurfaceVariant, cursor: "pointer", fontSize: 12, fontWeight: 600, textAlign: "left" }}
         >
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
-          <span className="dz-chevron" style={{ display: "inline-flex", color: p.outline, transform: open ? "none" : "rotate(-90deg)", transition: "transform 120ms" }}>
+          <span style={{ display: "inline-flex", color: p.outline, transform: open ? "none" : "rotate(-90deg)", transition: "transform 120ms" }}>
             <Icon name="expand_more" size={16} />
           </span>
         </button>

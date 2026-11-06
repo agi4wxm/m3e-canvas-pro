@@ -187,8 +187,23 @@ export function LayersPanel({ p, tree, groups, frames, components, selectedIds, 
   useEffect(() => {
     const id = primary ?? (selectedFrameId ? `s:${selectedFrameId}` : null);
     if (!id) return;
-    const el = listRef.current?.querySelector<HTMLElement>(`[data-layer-row="${CSS.escape(id)}"]`);
-    el?.scrollIntoView({ block: "nearest" });
+    /* after the frame is painted, when the page's layout is already worked out: reading it sooner would make the
+       browser lay out the whole canvas again in the middle of a press */
+    let timer = 0;
+    const raf = requestAnimationFrame(() => {
+      timer = window.setTimeout(() => {
+        const list = listRef.current;
+        const el = list?.querySelector<HTMLElement>(`[data-layer-row="${CSS.escape(id)}"]`);
+        if (!list || !el) return;
+        const a = list.getBoundingClientRect();
+        const b = el.getBoundingClientRect();
+        if (b.top < a.top || b.bottom > a.bottom) el.scrollIntoView({ block: "nearest" });
+      }, 0);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+    };
   }, [primary, selectedFrameId, open]);
   /* a screen picked elsewhere opens in the tree */
   useEffect(() => {

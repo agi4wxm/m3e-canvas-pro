@@ -13,7 +13,7 @@ import {
 import { ComponentInspector } from "./ComponentInspector";
 import { InstanceInspector } from "./ReusePanels";
 import { AlignBox, PartMenu, PlaceFn } from "./PartPanel";
-import { MultiDesign, type Shared } from "./DesignPanel";
+import { MultiDesign, actionBtn, type Shared } from "./DesignPanel";
 import type { AlignHow } from "@/lib/align";
 import type { Flow } from "@/lib/flow";
 import { Icon } from "./Icon";
@@ -141,15 +141,15 @@ function GroupPanel({
         )
       )}
       {/* the header already names the group, so the button that makes or breaks it stands under the sections without a title of its own */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "0 4px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 4px" }}>
         {onMakeComponent && !locked && (
           <button
             onClick={onMakeComponent}
             data-make-component
             className="m3-press"
-            style={{ height: 44, borderRadius: 22, border: "none", background: p.primaryContainer, color: p.onPrimaryContainer, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}
+            style={actionBtn(p)}
           >
-            <Icon name="widgets" size={20} />
+            <Icon name="widgets" size={16} />
             {t("makeComponent", lang)}
           </button>
         )}
@@ -159,32 +159,18 @@ function GroupPanel({
             data-suggest-layout
             title={t("suggestLayoutKeys", lang)}
             className="m3-press"
-            style={{ height: 44, borderRadius: 22, border: "none", background: p.primaryContainer, color: p.onPrimaryContainer, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}
+            style={actionBtn(p)}
           >
-            <Icon name="view_quilt" size={20} />
+            <Icon name="view_quilt" size={16} />
             {t("suggestLayout", lang)}
           </button>
         )}
         <button
           onClick={toggle}
           className="m3-press"
-          style={{
-            height: 44,
-            borderRadius: 22,
-            border: "none",
-            background: p.secondaryContainer,
-            color: p.onSecondaryContainer,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            width: "100%",
-          }}
+          style={actionBtn(p)}
         >
-          <Icon name={grouped ? "ungroup" : "group_work"} size={20} />
+          <Icon name={grouped ? "ungroup" : "group_work"} size={16} />
           {t(grouped ? "ungroup" : "makeGroup", lang)}
         </button>
         <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 4px", textWrap: "pretty" }}>{t(grouped ? "groupEditNote" : "groupHint", lang)}</div>

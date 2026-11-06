@@ -1,6 +1,7 @@
 /* The size handles of a lone part: an edge (or a circle's point) pulled with the pointer, or stepped with the keyboard.
  * The edge being pulled lines up with what is around it; off a guide it settles on the 4dp grid. One drag is one undo
- * step, taken at the first change, and the opposite edge stays where it is. */
+ * step, taken at the first change, and the opposite edge stays where it is. As in Figma, Shift keeps the part's
+ * proportions (the other measure follows) and Alt pulls from the centre (both edges move). */
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { clamp, Group, Item, layoutOf } from "@/lib/tokens";
@@ -39,6 +40,9 @@ export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, width
     round: boolean;
     /** the measure this handle pulls */
     axis?: PartAxis;
+    /** the measure across it, which Shift keeps in proportion, and where it started */
+    other?: PartAxis;
+    otherV: number;
     startX: number;
     startY: number;
     start0: number;
@@ -50,6 +54,10 @@ export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, width
     box0: { l: number; t: number; r: number; b: number };
     /** the undo step for this drag has been taken: it is taken at the first change */
     taken: boolean;
+    /** the measure across, while Shift holds the proportions */
+    o: number | undefined;
+    /** pulled from the centre (Alt) at the last move */
+    centre: boolean;
   } | null>(null);
   /** What a handle on this side of the part changes, and how far it may be pulled: the prop it
    *  holds, and the bounds of that prop. A drag and a key press read the same answer. */
@@ -60,11 +68,26 @@ export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, width
     const round = CORNERS.includes(side);
     const ax = componentAxes(item);
     const axis = ax ? (round ? ax.size : vertical ? ax.height : ax.width) : undefined;
+    const other = ax && !round ? (vertical ? ax.width : ax.height) : undefined;
     const startV = axis ? axisValue(axis, item.props) : 0;
-    return { vertical, round, startV, min: axis?.min ?? startV, max: axis?.max ?? startV, axis };
+    return { vertical, round, startV, min: axis?.min ?? startV, max: axis?.max ?? startV, axis, other, otherV: other ? axisValue(other, item.props) : 0 };
   };
   /** the patch a new measure is */
-  const sizePatch = (item: Item, d: { axis?: PartAxis }, v: number): Partial<Item> => (d.axis ? { props: { ...item.props, [d.axis.key]: axisWrite(d.axis, v) } } : {});
+  const sizePatch = (item: Item, d: { axis?: PartAxis; other?: PartAxis }, v: number, o?: number): Partial<Item> =>
+    d.axis ? { props: { ...item.props, [d.axis.key]: axisWrite(d.axis, v), ...(d.other && o !== undefined ? { [d.other.key]: axisWrite(d.other, o) } : {}) } } : {};
+  /** how far the group is drawn from where it sits, so the edges that stay put do: the one across from the handle, or
+   *  with Alt the centre; `o` is the other measure Shift brought along */
+  const shiftOf = (d: { side: HandleSide; round: boolean; vertical: boolean; startV: number; otherV: number }, v: number, o: number | undefined, centre: boolean) => {
+    const grow = v - d.startV;
+    const og = o === undefined ? 0 : o - d.otherV;
+    if (d.round) {
+      if (centre) return { dx: -grow / 2, dy: -grow / 2 };
+      return { dx: d.side === "tl" || d.side === "bl" ? -grow : 0, dy: d.side === "tl" || d.side === "tr" ? -grow : 0 };
+    }
+    const main = centre ? -grow / 2 : d.side === "left" || d.side === "top" ? -grow : 0;
+    const across = centre ? -og / 2 : 0;
+    return d.vertical ? { dx: across, dy: main } : { dx: main, dy: across };
+  };
   /** a handle pulled by the keyboard: one step out or in, kept the way a panel change is */
   const nudgeSize = (item: Item, side: HandleSide, dir: 1 | -1) => {
     const d = sizeDragSpec(item, side);
@@ -91,6 +114,8 @@ export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, width
       startY: e.clientY,
       start0: spec.vertical ? e.clientY : e.clientX,
       v: spec.startV,
+      o: undefined,
+      centre: false,
       box0: at ? { l: at.x, t: at.y, r: at.x + at.w, b: at.y + at.h } : { l: g.x, t: g.y, r: g.x, b: g.y },
       taken: false,
     };
@@ -108,11 +133,12 @@ export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, width
         raw = d.startV + (dx + dy) / CORNER_GAIN;
       } else {
         const delta = ((d.vertical ? ev.clientY : ev.clientX) - d.start0) / z;
-        raw = d.startV + (d.side === "right" || d.side === "bottom" ? delta : -delta);
+        /* from the centre both edges move, so the measure grows twice what the pointer travelled */
+        raw = d.startV + (d.side === "right" || d.side === "bottom" ? delta : -delta) * (ev.altKey ? 2 : 1);
       }
       /* the edge being pulled lines up with the edges and centres around it, as a moved part does; Ctrl skips it */
       let snapped = false;
-      if (!d.round && !(ev.ctrlKey || ev.metaKey)) {
+      if (!d.round && !(ev.ctrlKey || ev.metaKey) && !ev.altKey) {
         const grow = raw - d.startV;
         const b0 = d.box0;
         const far = d.side === "right" || d.side === "bottom";
@@ -128,30 +154,30 @@ export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, width
       }
       /* on a guide the edge keeps its whole pixel; off one it settles on the 4dp grid */
       const v = clamp(snapped ? Math.round(raw) : Math.round(raw / 4) * 4, d.min, d.max);
-      if (v === d.v) return;
+      /* Shift keeps the proportions: the measure across follows */
+      const o = ev.shiftKey && d.other && d.startV > 0 ? clamp(Math.round((d.otherV * v) / d.startV), d.other.min, d.other.max) : undefined;
+      if (v === d.v && o === d.o && ev.altKey === d.centre) return;
       /* the undo step is taken at the first change, so a handle merely pressed leaves none */
       if (!d.taken) {
         snapshot();
         d.taken = true;
       }
       d.v = v;
+      d.o = o;
+      d.centre = ev.altKey;
       /* a FAB hangs off its own corner, so its run is drawn at an offset that changes with the
          size: it has to land with the pointer rather than ease after it */
       instantRef.current.add(d.gid);
-      /* whichever point is held, the one across from it stays where it is */
-      const back = d.startV - v;
-      if (d.side === "left") setWidthShift({ gid: d.gid, dx: back, dy: 0 });
-      if (d.side === "top") setWidthShift({ gid: d.gid, dx: 0, dy: back });
-      if (d.round && d.side !== "br") {
-        setWidthShift({ gid: d.gid, dx: d.side === "tl" || d.side === "bl" ? back : 0, dy: d.side === "tl" || d.side === "tr" ? back : 0 });
-      }
+      /* whichever point is held, the one across from it stays where it is; with Alt the centre does */
+      const sh = shiftOf(d, v, o, ev.altKey);
+      setWidthShift(sh.dx || sh.dy ? { gid: d.gid, dx: sh.dx, dy: sh.dy } : null);
       setGroups((prev) =>
         prev.map((gr) =>
           gr.id !== d.gid
             ? gr
             : {
                 ...gr,
-                items: gr.items.map((it) => (it.id !== d.id ? it : { ...it, ...sizePatch(it, d, v) })),
+                items: gr.items.map((it) => (it.id !== d.id ? it : { ...it, ...sizePatch(it, d, v, o ?? (d.other ? d.otherV : undefined)) })),
               },
         ),
       );
@@ -160,14 +186,14 @@ export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, width
     const up = () => {
       const d = widthDragRef.current;
       /* the drawn offset becomes the group's real position, in one step and with no easing */
-      if (d && d.v !== d.startV && d.side !== "right" && d.side !== "bottom" && d.side !== "br") {
-        const shift = d.startV - d.v;
-        const movesX = d.side === "left" || d.side === "tl" || d.side === "bl";
-        const movesY = d.side === "top" || d.side === "tl" || d.side === "tr";
-        instantRef.current.add(d.gid);
-        setGroups((prev) =>
-          prev.map((gr) => (gr.id !== d.gid ? gr : { ...gr, x: gr.x + (movesX ? shift : 0), y: gr.y + (movesY ? shift : 0) })),
-        );
+      if (d && (d.v !== d.startV || d.o !== undefined)) {
+        const sh = shiftOf(d, d.v, d.o, d.centre);
+        const dx = Math.round(sh.dx);
+        const dy = Math.round(sh.dy);
+        if (dx || dy) {
+          instantRef.current.add(d.gid);
+          setGroups((prev) => prev.map((gr) => (gr.id !== d.gid ? gr : { ...gr, x: gr.x + dx, y: gr.y + dy })));
+        }
       }
       setWidthShift(null);
       setResizeGuide(null);

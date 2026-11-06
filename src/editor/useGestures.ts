@@ -44,9 +44,13 @@ export type GestureInputs = {
   setSelectedFrameId: (id: string | null) => void;
   setSelectedLinkId: (id: string | null) => void;
   setRightTab: (tab: "edit" | "prompt") => void;
+  /** the outermost layers a sweep reaches, by the layers tree: every part it touches with Ctrl/Cmd */
+  sweepTargets: (hit: string[], deep: boolean) => string[];
+  /** the selection now, for a sweep with Shift to add to */
+  selectionNow: () => string[];
 };
 
-export function useGestures({ dragRef, gestureRef, selectedIds, isMobile, mobileRef, modeRef, spaceRef, defEditRef, groupsRef, framesRef, widthsRef, viewRef, instantRef, toWorld, setView, inBin, snapshot, setGroups, setFrames, runOp, showToast, endGuides, guideFor, overFlow, itemRects, clearSelection, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab }: GestureInputs) {
+export function useGestures({ dragRef, gestureRef, selectedIds, isMobile, mobileRef, modeRef, spaceRef, defEditRef, groupsRef, framesRef, widthsRef, viewRef, instantRef, toWorld, setView, inBin, snapshot, setGroups, setFrames, runOp, showToast, endGuides, guideFor, overFlow, itemRects, clearSelection, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab, sweepTargets, selectionNow }: GestureInputs) {
   const [gesture, setGesture] = useState<Gesture | null>(null);
   const startPan = (clientX: number, clientY: number) => {
     const g: Gesture = {
@@ -126,6 +130,11 @@ export function useGestures({ dragRef, gestureRef, selectedIds, isMobile, mobile
       return;
     }
     if (e.button !== 0) return;
+    startSweep(e);
+  };
+
+  /** A sweep from empty ground: the canvas, or a screen's own ground (a press there with no drag selects the screen). */
+  const startSweep = (e: React.PointerEvent, frame?: string) => {
     const pt = toWorld(e.clientX, e.clientY);
     const g: Gesture = {
       kind: "marquee",
@@ -134,6 +143,9 @@ export function useGestures({ dragRef, gestureRef, selectedIds, isMobile, mobile
       x1: pt.x,
       y1: pt.y,
       moved: false,
+      frame,
+      deep: e.ctrlKey || e.metaKey,
+      base: e.shiftKey ? selectionNow() : [],
     };
     gestureRef.current = g;
     setGesture(g);
@@ -162,6 +174,12 @@ export function useGestures({ dragRef, gestureRef, selectedIds, isMobile, mobile
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    /* as on a top-level frame in Figma, a drag on the screen's own ground sweeps a selection; the screen is carried by
+       its name or its bezel */
+    if ((e.target as HTMLElement).closest?.("[data-screen]")) {
+      startSweep(e, f.id);
+      return;
+    }
     setSelectedFrameId(f.id);
     setSelectedIds([]);
     setSelectedLinkId(null);
@@ -290,7 +308,8 @@ export function useGestures({ dragRef, gestureRef, selectedIds, isMobile, mobile
         const hit = itemRects()
           .filter((it) => it.l < r && it.r > l && it.t < b && it.b > t)
           .map((it) => it.id);
-        setSelectedIds(hit);
+        const picked = sweepTargets(hit, !!g.deep || e.ctrlKey || e.metaKey);
+        setSelectedIds(g.base?.length ? [...g.base.filter((x) => !picked.includes(x)), ...picked] : picked);
       }
       setGesture({ ...g });
     };
@@ -299,6 +318,12 @@ export function useGestures({ dragRef, gestureRef, selectedIds, isMobile, mobile
       gestureRef.current = null;
       setGesture(null);
       endGuides();
+      /* a press on a screen's ground that swept nothing selects the screen */
+      if (g?.kind === "marquee" && !g.moved && g.frame) {
+        setSelectedIds([]);
+        setSelectedFrameId(g.frame);
+        setRightTab("edit");
+      }
       // a group dragged onto the parts panel is deleted, like a single part
       /* the step was taken when the drag began */
       if (g?.kind === "group" && g.moved && inBin(e.clientX)) {

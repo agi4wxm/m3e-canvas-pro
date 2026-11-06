@@ -1,7 +1,11 @@
-/* The Figma-like editing: the layers tree (a part dragged into a box) and the design panel's number fields (scrubbed by
- * their label, typed with arithmetic, stepped with the arrow keys). */
+/* The Figma-like editing: the layers tree (a part dragged into a box), the design panel's number fields (scrubbed by
+ * their label, typed with arithmetic), selection that goes into and out of boxes, and a select laid out by its closed
+ * size. */
 
-import { bySlug, check, clickAdd, equal, groupOf, kidsOf, leftTab, savedDoc, settle, undo, type E2ETest } from "./lib";
+import { bySlug, center, check, clickAdd, dragAdd, equal, groupOf, kidsOf, leftTab, nodeBox, savedDoc, settle, undo, type E2ETest, type Page } from "./lib";
+
+/** the layers the tree shows selected, by their group ids */
+const selectedRows = (page: Page) => page.locator('[data-layer-row][aria-selected="true"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-layer-row") ?? ""));
 
 export const tests: E2ETest[] = [
   {
@@ -80,6 +84,94 @@ export const tests: E2ETest[] = [
       /* the scrub, the typing and the steps are each one undo step */
       await undo(page);
       equal(Number(bySlug(await savedDoc(page), "box")[0].props?.width), 200, "the steps undone");
+    },
+  },
+  {
+    name: "selection: a press picks the outermost box, Enter and double-click go in, Shift+Enter and Escape come out",
+    async run({ page }) {
+      await clickAdd(page, "Labeled field");
+      const doc = await savedDoc(page);
+      const root = doc.groups.find((g) => g.kit && !g.inFlow);
+      check(root, "the kit's outermost box");
+      const input = bySlug(doc, "input")[0];
+      check(input, "the field's input atom");
+      const inputGroup = groupOf(doc, input.id)!;
+      await leftTab(page, "Layers");
+      await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
+      await settle(page, 300);
+      equal(await selectedRows(page), [], "nothing selected after Escape at the top");
+
+      /* a press on the input picks the box it is in, the outermost layer */
+      const ib = await nodeBox(page, input.id);
+      await page.mouse.click(ib.x + ib.width / 2, ib.y + ib.height / 2);
+      await settle(page, 400);
+      equal(await selectedRows(page), [root.id], "a press picks the kit's outermost box");
+
+      /* Enter: its children */
+      await page.keyboard.press("Enter");
+      await settle(page, 400);
+      const kids = await selectedRows(page);
+      equal([...kids].sort(), kidsOf(doc, root.id).map((g) => g.id).sort(), "Enter selects the box's children");
+
+      /* Shift+Enter: back to the box */
+      await page.keyboard.press("Shift+Enter");
+      await settle(page, 400);
+      equal(await selectedRows(page), [root.id], "Shift+Enter goes back to the box");
+
+      /* a double-click goes one level in, towards the input */
+      await page.mouse.dblclick(ib.x + ib.width / 2, ib.y + ib.height / 2);
+      await settle(page, 400);
+      const inner = await selectedRows(page);
+      equal(inner.length, 1, "a double-click selects one layer inside");
+      check(inner[0] !== root.id, "the double-click went inside the box");
+      const chain: string[] = [];
+      for (let at = groupOf(doc, input.id); at; at = at.inFlow ? doc.groups.find((g) => g.id === at!.inFlow) : undefined) chain.push(at.id);
+      check(chain.includes(inner[0]), "the layer the double-click selected holds the input");
+
+      /* Escape: up to the parent again */
+      await page.keyboard.press("Escape");
+      await settle(page, 400);
+      equal(await selectedRows(page), [doc.groups.find((g) => g.id === inner[0])!.inFlow!], "Escape selects the parent");
+
+      /* Ctrl+click: the input itself, deep inside */
+      await page.keyboard.down("Control");
+      await page.mouse.click(ib.x + ib.width / 2, ib.y + ib.height / 2);
+      await page.keyboard.up("Control");
+      await settle(page, 400);
+      equal(await selectedRows(page), [inputGroup.id], "Ctrl+click selects the input itself");
+
+      /* Tab: a sibling of it */
+      const sibs = kidsOf(doc, inputGroup.inFlow!).map((g) => g.id);
+      if (sibs.length > 1) {
+        await page.keyboard.press("Tab");
+        await settle(page, 400);
+        const next = await selectedRows(page);
+        check(next.length === 1 && next[0] !== inputGroup.id && sibs.includes(next[0]), `Tab selects a sibling (${next.join(", ")})`);
+      }
+    },
+  },
+  {
+    name: "a select in an auto layout is laid out by its closed size, its menu hanging over what follows",
+    async run({ page }) {
+      await clickAdd(page, "Box");
+      let doc = await savedDoc(page);
+      const boxItem = bySlug(doc, "box")[0];
+      const box = groupOf(doc, boxItem.id)!;
+      await dragAdd(page, "Select", center(await nodeBox(page, boxItem.id)));
+      const bb = await nodeBox(page, boxItem.id);
+      await dragAdd(page, "Button", { x: bb.x + bb.width / 2, y: bb.y + bb.height - 4 });
+      await settle(page, 1200);
+      doc = await savedDoc(page);
+      const kids = kidsOf(doc, box.id);
+      equal(kids.map((g) => g.items[0].component), ["select", "button"], "the box's run");
+      const [sel, btn] = kids;
+      const step = btn.y - sel.y;
+      /* closed, a select is a 56dp field; drawn open it was more than 200dp tall */
+      check(step > 40 && step < 100, `the button follows the select's closed field (${step}dp apart)`);
+      /* the open menu is still drawn on the canvas, hanging from the closed field */
+      const node = page.locator(`[data-node="${sel.items[0].id}"]`).first();
+      check((await node.locator("[data-overhang]").count()) > 0, "the open menu hangs from the closed field");
     },
   },
 ];
