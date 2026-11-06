@@ -87,7 +87,7 @@ describe("the web app of a document bound to its contract", () => {
     expect(screen).toContain("send: (body, init) => api.login({ body: body as LoginRequest }, init)");
     expect(screen).toContain('if (!afterSignIn()) { go("products", "fade") }');
     const runtime = web(shop, "runtime.tsx");
-    expect(runtime).toContain("const NEEDS_SIGN_IN: Partial<Record<ScreenId, true>> = { newProduct: true }");
+    expect(runtime).toContain("const NEEDS_SIGN_IN: Partial<Record<ScreenId, true>> = { newProduct: true, orders: true }");
     expect(runtime).toContain('const SIGN_IN: ScreenId | undefined = "signIn"');
     expect(runtime).toContain('product: [{ name: "productId", type: "string", example: "00000000-0000-4000-8000-000000000000" }],');
     expect(runtime).toContain("runtime.whenUnauthorized(");

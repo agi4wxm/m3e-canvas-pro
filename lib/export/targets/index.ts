@@ -1,7 +1,8 @@
-/* The targets of a product, in the order their workspaces are listed (packages before the apps that use them). A
- * target to come takes the place of its slot here: the React Native app replaces `mobileTarget`, the Taro mini-program
- * `miniappTarget` (now lib/export/targets/miniapp.ts); the mock library fills packages/mocks through `mocksTarget`, the bindings the web screens through
- * `webTarget`. Each one is a `ProductTarget` (lib/export/types.ts). */
+/* The targets of a product, in the order their workspaces are listed (packages before the apps that use them): the
+ * contract and its client (`apiTarget`), the mock library (`mocksTarget`), the runtime the apps share
+ * (`appRuntimeTarget`), the web app (`webTarget`), the server and its contract tests, the React Native app
+ * (`mobileTarget`, lib/export/targets/mobile.ts) and the Taro mini-program (`miniappTarget`,
+ * lib/export/targets/miniapp.ts). Each one is a `ProductTarget` (lib/export/types.ts). */
 
 import type { ProductTarget } from "../types";
 import { apiTarget } from "./api";
@@ -9,7 +10,7 @@ import { appRuntimeTarget } from "./appRuntime";
 import { mocksTarget } from "./mocks";
 import { contractTestsTarget } from "./contractTests";
 import { miniappTarget } from "./miniapp";
-import { mobileTarget } from "./others";
+import { mobileTarget } from "./mobile";
 import { serverTarget } from "./server";
 import { webTarget } from "./web";
 

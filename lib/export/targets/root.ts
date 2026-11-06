@@ -6,10 +6,10 @@ import { GENERATED, jsonFile, sortedObject } from "../code";
 import { generated, seeded, type ProductContext, type ProductFiles, type Workspace } from "../types";
 
 /** the folders whose files are all generated: Prettier leaves them alone, AGENTS.md names them */
-export const GENERATED_DIRS = ["**/src/generated/", "apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/public/", "packages/api/", "packages/mocks/", "packages/app-runtime/", "apps/miniapp/src/kit/", "apps/miniapp/src/pages/"];
+export const GENERATED_DIRS = ["**/src/generated/", "apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/public/", "apps/mobile/src/kit/", "apps/mobile/src/app/", "packages/api/", "packages/mocks/", "packages/app-runtime/", "apps/miniapp/src/kit/", "apps/miniapp/src/pages/"];
 
 /** the editor's copied components: ESLint leaves them alone (they are the editor's code, checked there) */
-const VENDORED = ["apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/src/react-css.d.ts", "packages/mocks/src/engine/", "packages/app-runtime/src/engine/", "apps/miniapp/src/kit/"];
+const VENDORED = ["apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/src/react-css.d.ts", "apps/mobile/src/kit/", "packages/mocks/src/engine/", "packages/app-runtime/src/engine/", "apps/miniapp/src/kit/"];
 
 const ROOT_DEV = ["@eslint/js", "eslint", "eslint-plugin-react-hooks", "eslint-plugin-react-refresh", "globals", "prettier", "typescript", "typescript-eslint"];
 
@@ -39,6 +39,16 @@ export default defineConfig([
   {
     files: ["server/**", "contract-tests/**", "scripts/**", "**/*.mjs", "**/*.config.{js,ts}"],
     languageOptions: { globals: globals.node },
+  },
+  /* the mobile app's configuration is CommonJS, as Expo and Metro read it; React Native defines __DEV__ */
+  {
+    files: ["apps/mobile/*.js"],
+    languageOptions: { sourceType: "commonjs", globals: globals.node },
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
+    files: ["apps/mobile/**/*.{ts,tsx}"],
+    languageOptions: { globals: { ...globals.browser, __DEV__: "readonly" } },
   },
   /* The web app's screens, data hooks, client, router and the rest of src/generated pass every rule custom code does.
      Its shell and runtime (App.tsx, runtime.tsx) are the prototype export's own, checked where it is made (the export's
@@ -118,6 +128,7 @@ for (const child of children)
 
 const GITIGNORE = `node_modules
 dist
+.expo
 *.log
 *.tsbuildinfo
 .env
@@ -166,7 +177,7 @@ third-party SDKs). Everything else is regenerated whenever the design is exporte
 | --- | --- |
 ${handlers ? "| `server/src/handlers/*.ts` | One file per API operation (and per realtime channel in `channels/`): what the server does for it. Each starts as a stub that answers 501 Not Implemented. |\n| `server/src/custom/*.ts` | `auth.ts` (who a credential stands for), `db.ts` (the data layer), `setup.ts` (Fastify plugins, hooks, routes the contract does not have). |\n" : ""}| \`apps/web/src/custom/setup.ts\` | Runs before the web app is drawn: start an SDK, read a token, change how the API is called. |
 | \`apps/web/src/custom/Providers.tsx\` | Wraps the web app: providers of third-party SDKs. |
-${miniapp ? "| `apps/miniapp/src/custom/*` | `setup.ts` runs as the mini-program starts, `Providers.tsx` wraps every page. |\n| `apps/miniapp/project.config.json`, `project.tt.json` | The WeChat and Douyin projects: put the real AppID there. |\n" : ""}| \`CLAUDE.md\`, new files and folders of your own | Yours. |
+${ws.some((w) => w.dir === "apps/mobile") ? "| `apps/mobile/src/custom/setup.ts` | Runs as the mobile app starts: start an SDK, change how the API is called. |\n| `apps/mobile/src/custom/Providers.tsx` | Wraps the mobile app: providers of third-party SDKs. |\n" : ""}${miniapp ? "| `apps/miniapp/src/custom/*` | `setup.ts` runs as the mini-program starts, `Providers.tsx` wraps every page. |\n| `apps/miniapp/project.config.json`, `project.tt.json` | The WeChat and Douyin projects: put the real AppID there. |\n" : ""}| \`CLAUDE.md\`, new files and folders of your own | Yours. |
 
 These files were written once by the export and are never written again. Everything listed in \`.m3e/manifest.json\`
 with \`"kind": "generated"\` is the export's: **do not edit it**. That includes every \`generated/\` folder,
@@ -245,7 +256,7 @@ npm run build
 ## 生成的代码和自定义代码
 
 - **生成的文件**（\`.m3e/manifest.json\` 里 \`"kind": "generated"\`）每次导出都会重写，不要修改。要改屏幕、导航、文字、接口，请改设计后重新导出。
-- **自定义代码（人或 AI 写）**只写在导出时创建一次、之后不再改动的位置：\`server/src/handlers/\`（每个接口一个文件，先返回 501）、\`server/src/custom/\`、\`apps/web/src/custom/\`${ws.some((w) => w.dir === "apps/miniapp" && w.pkg) ? "、`apps/miniapp/src/custom/`" : ""}。
+- **自定义代码（人或 AI 写）**只写在导出时创建一次、之后不再改动的位置：\`server/src/handlers/\`（每个接口一个文件，先返回 501）、\`server/src/custom/\`、\`apps/web/src/custom/\`${ws.some((w) => w.dir === "apps/mobile") ? "、`apps/mobile/src/custom/`" : ""}${ws.some((w) => w.dir === "apps/miniapp" && w.pkg) ? "、`apps/miniapp/src/custom/`" : ""}。
 - 重新导出时，被手动改过的生成文件不会被覆盖：新版本写在旁边的 \`<文件>.m3e-new\`，并在导出报告里列出。
 - 给某个工作区加依赖用 \`npm install <包> -w <工作区>\`，重新导出会保留它。
 

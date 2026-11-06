@@ -46,8 +46,7 @@ async function start() {
 void start()
 `;
 
-/** the session's needs of a contract: which operations sign in, refresh and sign out, and how each one's token rides (the
- *  web app's and the mini-program's) */
+/** the session's needs of a contract: which operations sign in, refresh and sign out, and how each one's token rides */
 export function authSource(api: ApiSpec): string {
   const auth = api.auth;
   const f = authFields(auth);

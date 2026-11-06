@@ -20,13 +20,26 @@ import { tapOf } from "./bars";
 
 const c = (kit: Kit, role: string) => kit.colors[role] ?? "#000000";
 
-export type RadioGroupProps = PartBase & { items?: ListRow[]; selected?: number; layout?: "column" | "row"; error?: boolean; disabled?: boolean };
+export type RadioGroupProps = PartBase & {
+  items?: ListRow[];
+  selected?: number;
+  layout?: "column" | "row";
+  error?: boolean;
+  disabled?: boolean;
+  /** told of the option chosen; given, `selected` says which is chosen (a form's field holds it) */
+  onSelect?: (index: number, label: string) => void;
+};
 
 export function RadioGroup(props: RadioGroupProps) {
   const p = withDefaults<RadioGroupProps>("radio-group", props);
   const kit = useKit();
   const items = p.items ?? [];
-  const [chosen, setChosen] = useState(clampInt(p.selected ?? 0, 0, Math.max(0, items.length - 1)));
+  const [own, setOwn] = useState(clampInt(p.selected ?? 0, 0, Math.max(0, items.length - 1)));
+  const chosen = p.onSelect ? clampInt(p.selected ?? -1, -1, items.length - 1) : own;
+  const setChosen = (i: number) => {
+    setOwn(i);
+    p.onSelect?.(i, items[i]?.label ?? "");
+  };
   return (
     <View testID={p.testID} accessibilityRole="radiogroup" style={{ flexDirection: p.layout === "row" ? "row" : "column", gap: p.layout === "row" ? 16 : 12, alignSelf: "flex-start" }}>
       {items.map((it, i) => (
@@ -139,18 +152,29 @@ export function CodeBlock(props: CodeBlockProps) {
   );
 }
 
-export type FileUploadProps = PartBase & { title?: string; hint?: string; action?: string; multiple?: boolean; accept?: string; width?: number };
+export type FileUploadProps = PartBase & {
+  title?: string;
+  hint?: string;
+  action?: string;
+  multiple?: boolean;
+  accept?: string;
+  width?: number;
+  /** the names of the files chosen, shown in place of the hint */
+  chosen?: string;
+  error?: boolean;
+};
 
 /** where files are dropped: a dashed panel with a button that picks them (the app wires the picker it uses) */
 export function FileUpload(props: FileUploadProps) {
   const p = withDefaults<FileUploadProps>("file-upload", props);
   const kit = useKit();
   const fill = useFill();
+  const hint = p.chosen || p.hint;
   return (
-    <Surface base={{ width: Math.round(p.width ?? 360), padding: 24, rowGap: 8, alignItems: "center", borderRadius: corner(kit, "lg"), borderWidth: 2, borderStyle: "dashed", borderColor: c(kit, "outline-variant"), backgroundColor: c(kit, "surface-container-low") }} style={fill} appearance={p} testID={p.testID}>
-      <Glyph name="upload_file" size={32} color={c(kit, "primary")} />
+    <Surface base={{ width: Math.round(p.width ?? 360), padding: 24, rowGap: 8, alignItems: "center", borderRadius: corner(kit, "lg"), borderWidth: 2, borderStyle: "dashed", borderColor: c(kit, p.error ? "error" : "outline-variant"), backgroundColor: c(kit, "surface-container-low") }} style={fill} appearance={p} testID={p.testID}>
+      <Glyph name={p.chosen ? "task" : "upload_file"} size={32} color={c(kit, "primary")} />
       <RNText style={{ ...typeStyle(kit, "title-medium"), color: c(kit, "on-surface") }}>{p.title}</RNText>
-      {p.hint ? <RNText style={{ ...typeStyle(kit, "body-small"), color: c(kit, "on-surface-variant") }}>{p.hint}</RNText> : null}
+      {hint ? <RNText style={{ ...typeStyle(kit, "body-small"), color: c(kit, p.chosen ? "on-surface" : "on-surface-variant") }}>{hint}</RNText> : null}
       {p.action ? <Button label={p.action} variant="tonal" size="sm" onPress={tapOf(p, "action") ?? p.onPress} /> : null}
     </Surface>
   );

@@ -76,7 +76,7 @@ describe("the shop bound to its contract", () => {
 
   it("is a page for each screen, in app.config's pages, each drawing its screen in the app's providers", () => {
     const pages = JSON.parse(/"pages": (\[[^\]]*\])/.exec(files["src/app.config.ts"])![1]) as string[];
-    expect(pages).toEqual(["pages/products/index", "pages/product/index", "pages/newProduct/index", "pages/signIn/index"]);
+    expect(pages).toEqual(["pages/products/index", "pages/product/index", "pages/newProduct/index", "pages/signIn/index", "pages/orders/index", "pages/photo/index"]);
     for (const p of pages) {
       expect(files[`src/${p}.tsx`], p).toContain("<Root>");
       expect(files[`src/${p}.config.ts`], p).toContain('"navigationStyle":"custom"');

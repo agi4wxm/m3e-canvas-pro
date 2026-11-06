@@ -391,7 +391,12 @@ export function FileUpload(props: FileUploadProps) {
       <Glyph name="upload_file" size={32} color="primary" />
       <Words text={list.length ? list.map((f) => f.name).join(", ") : p.title} style={{ ...typeStyle(kit, "title-medium"), color: c("on-surface"), textAlign: "center" }} />
       {p.hint ? <Words text={p.hint} style={{ ...typeStyle(kit, "body-small"), color: c("on-surface-variant") }} /> : null}
-      {p.action ? <Button label={p.action} variant="tonal" size="sm" onPress={choose} /> : null}
+      {/* the button in the middle, as the editor centres it (a button keeps to the start of its row by itself) */}
+      {p.action ? (
+        <View style={sx({ display: "flex", flexDirection: "row", justifyContent: "center", alignSelf: "stretch" })}>
+          <Button label={p.action} variant="tonal" size="sm" onPress={choose} />
+        </View>
+      ) : null}
     </Surface>
   );
 }

@@ -4,7 +4,7 @@
 // shapes, Material's theme as the kit's default, and for the kit's gallery the themes of the styles it is checked under,
 // the glyphs it draws and the trees of atoms the composites without a component of the kit's own split into. The kit is
 // its own package and never imports the editor; what it needs is written here, and `check:rn` fails when it is behind.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setGlobalLang, type Lang } from "../lib/i18n";
@@ -142,12 +142,26 @@ export const TREES: Record<string, { splits: Record<string, TreeNode>; kits: Rec
   };
 }
 
+/** every file of the kit, by its path under rn/src/kit: what an exported app copies into its src/kit */
+function kitFilesModule(): string {
+  const at = join(root, "rn/src/kit");
+  const walk = (dir: string): string[] =>
+    readdirSync(join(at, dir), { withFileTypes: true })
+      .flatMap((e) => (e.isDirectory() ? walk(dir ? `${dir}/${e.name}` : e.name) : /\.tsx?$/.test(e.name) && !/\.test\./.test(e.name) ? [dir ? `${dir}/${e.name}` : e.name] : []))
+      .sort();
+  return `${HEAD}
+/** every file of the kit (rn/src/kit), by its path there: an exported app copies them into its src/kit */
+export const KIT_FILES: string[] = ${json(walk(""))};
+`;
+}
+
 async function main() {
   const check = process.argv.includes("--check");
   const files: Record<string, string> = {
     "rn/src/kit/parts.generated.ts": partsModule(),
     "rn/src/kit/shapes.generated.ts": shapesModule(),
     "rn/src/kit/theme/default.generated.ts": defaultThemeModule(),
+    "lib/export/rn/kitFiles.generated.ts": kitFilesModule(),
     ...(await galleryModules()),
     ...(await printedFixture()),
   };

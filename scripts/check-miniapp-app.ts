@@ -3,8 +3,9 @@
  * not allow nowhere in them, none of the mocks. Its H5 build, the same pages for the web, is driven in Chromium as a
  * person would: on the mocks (the development server, a scenario by ?scenario=) the list with its rows and its next page
  * as the page reaches its end, its empty and error designs, a product's detail from a row (its id in the page's query)
- * and again from its address alone, the form refusing what the schema does not allow and then what the server
- * refuses, on its field, and a page that needs a session sending the app to sign in and back. On the real server (the
+ * and again from its address alone, a picture picked from the platform and uploaded from the product's photo form, the
+ * form refusing what the schema does not allow and then what the server refuses, on its field, a page that needs a
+ * session sending the app to sign in and back, and the orders once signed in. On the real server (the
  * production build, its /api passed on to the server the check started): empty at first, signing in before adding a
  * product, the server's refusal on the name, the product listed and opened, a 401 sending the app to sign in and
  * back, and the error design once the server is gone. Screenshots of each go to the work folder. */
@@ -31,6 +32,7 @@ export type MiniPage = {
   waitForTimeout(ms: number): Promise<void>;
   screenshot(o: { path: string }): Promise<unknown>;
   on(event: "pageerror", fn: (e: Error) => void): void;
+  waitForEvent(event: "filechooser", o?: { timeout?: number }): Promise<{ setFiles(files: { name: string; mimeType: string; buffer: Buffer }): Promise<void> }>;
   close(): Promise<void>;
 };
 export type MiniBrowser = { newPage(o: { viewport: { width: number; height: number }; deviceScaleFactor: number }): Promise<MiniPage> };
@@ -192,6 +194,12 @@ async function signIn(page: MiniPage) {
 
 const PRODUCT = /productId=[0-9a-f-]{36}/;
 
+/** a picture to upload: one pixel, a PNG */
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+
+/** whether the platform's toast (outside the page) says something within a while */
+const toasts = (page: MiniPage, text: string) => until(page, () => page.evaluate<boolean>(`document.body.innerText.includes(${JSON.stringify(text)})`), 5000);
+
 /** The H5 app on the mocks: `base` is Taro's development server (the mocks on, a scenario by ?scenario=). */
 export async function miniappOnMocks(browser: MiniBrowser, base: string, out: string, ok: Ok) {
   const page = await browser.newPage(VIEW);
@@ -222,6 +230,19 @@ export async function miniappOnMocks(browser: MiniBrowser, base: string, out: st
   await deep.goto(`${base}/#${detail}`);
   ok(await says(deep, name), "miniapp mocks: the detail's address opened directly shows the same product (a deep link)");
   await deep.close();
+
+  /* a picture of the product, picked from the platform (Taro.chooseImage: the browser's file chooser on H5) and sent as
+     a multipart body (Taro.uploadFile; the mocks read it as a data URL); the form goes back to the product, a toast */
+  await button(page, "Add a photo").click();
+  ok(await at(page, "photo", PRODUCT), `miniapp mocks: the product's page opens the photo form, its id passed on (${await route(page)})`);
+  await until(page, async () => (await button(page, "Choose files").count()) > 0);
+  const chooser = page.waitForEvent("filechooser", { timeout: 10_000 });
+  await button(page, "Choose files").click();
+  await (await chooser).setFiles({ name: "lamp.png", mimeType: "image/png", buffer: PNG });
+  ok(await says(page, "lamp.png"), "miniapp mocks: the picture picked from the platform shows by its name");
+  await shot("photo");
+  await button(page, "Submit").click();
+  ok((await toasts(page, "Photo added")) && (await at(page, "product", PRODUCT)), "miniapp mocks: the picture is uploaded and the form goes back to the product, with its toast");
 
   await open("/pages/products/index", "new-user");
   ok(await says(page, "Nothing here yet"), "miniapp mocks: the new-user scenario shows the list's empty design");
@@ -254,6 +275,9 @@ export async function miniappOnMocks(browser: MiniBrowser, base: string, out: st
   await button(page, "Add a product").click();
   ok((await at(page, "products")) && (await says(page, "Desk lamp")), "miniapp mocks: a product added is in the list the form goes back to");
   await shot("created");
+  await button(page, "Orders").click();
+  ok((await at(page, "orders")) && (await until(page, async () => (await on(page).locator('[data-screen="orders"] [data-part^="row"]').count()) > 0)), "miniapp mocks: the orders (they need a session) open, signed in, and list the mocks' orders");
+  await shot("orders");
   ok(!errors.length, `miniapp mocks: the app throws nothing (${errors.join("; ")})`);
   await page.close();
 }

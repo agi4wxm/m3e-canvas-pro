@@ -44,7 +44,7 @@ async function printed(name: string, doc: Doc, widths: Record<string, number>): 
     [`${at}/icons.ts`]: iconsModule(icons, "../../kit"),
     ...Object.fromEntries(screens.screens.map((s) => [`${at}/screens/${s.component}.tsx`, s.source])),
     [`${at}/screens/index.ts`]: screensIndex(screens),
-    [`${at}/App.tsx`]: appModule("../../kit"),
+    [`${at}/App.tsx`]: appModule("../../kit", screens),
     [`${at}/warnings.json`]: `${JSON.stringify(screens.warnings, null, 1)}\n`,
   };
 }
