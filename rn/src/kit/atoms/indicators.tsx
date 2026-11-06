@@ -134,7 +134,7 @@ export function Progress(props: ProgressProps) {
   const rest = thin ? withAlpha(c(kit, "on-surface"), 0.12) : c(kit, "secondary-container");
   const w = Math.round(p.width ?? 280);
   return (
-    <View testID={p.testID} accessibilityRole="progressbar" accessibilityValue={p.indeterminate ? undefined : { min: 0, max: 100, now: value }} style={[{ width: w, rowGap: 4 }, fill]}>
+    <View testID={p.testID} accessible accessibilityRole="progressbar" accessibilityValue={p.indeterminate ? undefined : { min: 0, max: 100, now: value }} style={[{ width: w, rowGap: 4 }, fill]}>
       {p.label || (p.showValue && !p.indeterminate) ? (
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
           <RNText style={{ ...typeStyle(kit, "label-large"), color: c(kit, "on-surface") }}>{p.label}</RNText>
@@ -171,7 +171,7 @@ export function CircularProgress(props: CircularProgressProps) {
   const spin = useSpin(1400, !!p.indeterminate);
   const arc = (len * value) / 100;
   return (
-    <Animated.View testID={p.testID} accessibilityRole="progressbar" accessibilityValue={p.indeterminate ? undefined : { min: 0, max: 100, now: value }} style={{ width: size, height: size, transform: p.indeterminate ? [{ rotate: spin }] : [] }}>
+    <Animated.View testID={p.testID} accessible accessibilityRole="progressbar" accessibilityValue={p.indeterminate ? undefined : { min: 0, max: 100, now: value }} style={{ width: size, height: size, transform: p.indeterminate ? [{ rotate: spin }] : [] }}>
       <Svg width={size} height={size} style={{ transform: [{ rotate: "-90deg" }] }}>
         {!p.indeterminate && value < 100 ? <Circle cx={size / 2} cy={size / 2} r={r} stroke={c(kit, "secondary-container")} strokeWidth={t} fill="none" strokeLinecap="round" strokeDasharray={`${Math.max(0, len - arc - gap * 2)} ${len}`} strokeDashoffset={-(arc + gap)} /> : null}
         <Circle cx={size / 2} cy={size / 2} r={r} stroke={c(kit, "primary")} strokeWidth={t} fill="none" strokeLinecap="round" strokeDasharray={`${arc} ${len}`} />
@@ -205,7 +205,7 @@ export function LoadingIndicator(props: PartBase & { variant?: "default" | "cont
   const contained = p.variant === "contained";
   const shape = Math.round(s * (contained ? 0.6 : 0.75));
   return (
-    <View testID={p.testID} accessibilityRole="progressbar" style={{ width: s, height: s, borderRadius: s / 2, alignItems: "center", justifyContent: "center", backgroundColor: contained ? c(kit, "primary-container") : "transparent" }}>
+    <View testID={p.testID} accessible accessibilityRole="progressbar" style={{ width: s, height: s, borderRadius: s / 2, alignItems: "center", justifyContent: "center", backgroundColor: contained ? c(kit, "primary-container") : "transparent" }}>
       <Animated.View style={{ transform: [{ rotate: spin }] }}>
         <Svg width={shape} height={shape} viewBox="0 0 380 380">
           <Path d={SHAPE_PATHS["soft-burst"] ?? SHAPE_PATHS.circle} fill={c(kit, contained ? "on-primary-container" : "primary")} />

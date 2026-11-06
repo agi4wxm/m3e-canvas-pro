@@ -407,7 +407,7 @@ export function Slider(props: SliderProps) {
       <View style={{ position: "absolute", left: (pos / 100) * w - 2, top: 0, width: 4, height: 44, borderRadius: 2, backgroundColor: active }} />
     );
   const track = (
-    <View testID={p.testID ? `${p.testID}-track` : undefined} accessibilityRole="adjustable" accessibilityValue={{ min: 0, max: 100, now: value }} onLayout={(e: LayoutChangeEvent) => setW(Math.max(1, e.nativeEvent.layout.width))} style={{ height: 44, justifyContent: "center", flexGrow: p.label ? 1 : 0, width: p.label ? undefined : w }} {...pan.panHandlers}>
+    <View testID={p.testID ? `${p.testID}-track` : undefined} accessible accessibilityRole="adjustable" accessibilityValue={{ min: 0, max: 100, now: value }} onLayout={(e: LayoutChangeEvent) => setW(Math.max(1, e.nativeEvent.layout.width))} style={{ height: 44, justifyContent: "center", flexGrow: p.label ? 1 : 0, width: p.label ? undefined : w }} {...pan.panHandlers}>
       <View style={{ height: trackH, borderRadius: trackH / 2, backgroundColor: rest, overflow: "hidden" }}>
         <View style={{ position: "absolute", left: (from / 100) * w, width: ((to - from) / 100) * w - (thin ? 0 : 6), top: 0, bottom: 0, backgroundColor: active, borderRadius: trackH / 2 }} />
       </View>
@@ -538,7 +538,7 @@ export function Rating(props: RatingProps) {
   const [value, setValue] = useState(Math.round(p.value ?? 4));
   const count = clampInt(p.count ?? 5, 1, 10);
   return (
-    <View testID={p.testID} accessibilityRole="adjustable" accessibilityValue={{ min: 0, max: count, now: value }} style={{ flexDirection: "row", columnGap: 8 }}>
+    <View testID={p.testID} accessible accessibilityRole="adjustable" accessibilityValue={{ min: 0, max: count, now: value }} style={{ flexDirection: "row", columnGap: 8 }}>
       {Array.from({ length: count }, (_, i) => (
         <Pressable key={i} disabled={p.readOnly} onPress={() => setValue(i + 1)} accessibilityLabel={`${i + 1}`}>
           <Glyph name="star" size={22} filled color={i < value ? c(kit, "primary") : c(kit, "outline-variant")} />

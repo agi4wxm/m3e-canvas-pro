@@ -107,7 +107,7 @@ export function Icon(props: IconAtomProps) {
   const painted = useMemo(() => paint(kit, p), [kit, p]);
   const role = ICON_COLORS[p.color ?? "default"];
   const color = p.textColor ? painted.ink?.["on-surface"] : role ? kit.colors[role] : undefined;
-  const glyph = <Glyph name={p.name || "favorite"} size={Math.round(p.size ?? 24)} filled={!!p.filled} color={color} testID={p.testID} />;
+  const glyph = <Glyph name={p.name || "favorite"} size={Math.round(p.size ?? 24)} filled={!!p.filled} color={color} testID={p.testID} label={p.name || "favorite"} />;
   return p.onPress || Object.keys(painted.style).length ? (
     <Surface appearance={p} onPress={p.onPress} accessibilityRole={p.onPress ? "button" : "image"}>
       {glyph}

@@ -72,6 +72,12 @@ export function NoFill({ children }: { children: ReactNode }) {
   return <FillContext.Provider value={NO_FILL}>{children}</FillContext.Provider>;
 }
 
+const ACROSS: Fill = { w: true, h: false };
+/** what spans the screen (a pinned bar) is as wide as it */
+export function FillWidth({ children }: { children: ReactNode }) {
+  return <FillContext.Provider value={ACROSS}>{children}</FillContext.Provider>;
+}
+
 export type CellProps = {
   /** take the room left along the run */
   grow?: boolean;

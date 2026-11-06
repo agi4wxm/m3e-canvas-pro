@@ -60,6 +60,15 @@ export const NATIVE = {
   "time-picker": "TimePicker",
   carousel: "Carousel",
   alert: "Alert",
+  "radio-group": "RadioGroup",
+  "input-group": "InputGroup",
+  "icon-grid": "IconGrid",
+  accordion: "Accordion",
+  "code-block": "CodeBlock",
+  "file-upload": "FileUpload",
+  scene: "Scene",
+  sidebar: "Sidebar",
+  "auth-form": "AuthForm",
 } as const;
 
 export type NativeSlug = keyof typeof NATIVE;

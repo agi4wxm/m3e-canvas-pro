@@ -56,17 +56,19 @@ export type IconProps = {
   color?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /** what a screen reader says for it; an icon inside a control leaves the control to say it */
+  label?: string;
 };
 
 /** one icon: a glyph of the theme's family */
-export const Glyph = memo(function Glyph({ name, size = 24, filled = false, color, style, testID }: IconProps) {
+export const Glyph = memo(function Glyph({ name, size = 24, filled = false, color, style, testID, label }: IconProps) {
   const kit = useKit();
   const glyph = name ? glyphFor(kit.theme.icons, name, filled) : undefined;
   const xml = useMemo(() => (glyph ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${glyph[1]} ${glyph[2]}">${glyph[0]}</svg>` : undefined), [glyph]);
   const ink = color ?? kit.colors["on-surface"];
-  if (!xml) return <View testID={testID} accessibilityLabel={name} style={[{ width: size, height: size }, style]} />;
+  if (!xml) return <View testID={testID} accessibilityLabel={label} style={[{ width: size, height: size }, style]} />;
   return (
-    <View testID={testID} accessibilityLabel={name} style={[{ width: size, height: size }, style]}>
+    <View testID={testID} accessibilityLabel={label} style={[{ width: size, height: size }, style]}>
       <SvgXml xml={xml} width={size} height={size} color={ink} />
     </View>
   );

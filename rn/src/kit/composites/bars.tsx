@@ -93,7 +93,7 @@ export function AppBar(props: AppBarProps) {
         )}
       </View>
       {big ? (
-        <View style={{ paddingHorizontal: 16, paddingBottom: ios ? 8 : p.size === "large" ? 28 : 16, paddingTop: ios ? 4 : p.size === "large" ? 16 : 0 }}>
+        <View style={{ paddingHorizontal: 16, paddingBottom: ios ? 8 : p.size === "large" ? 12 : 16, paddingTop: ios ? 4 : 0 }}>
           <RNText numberOfLines={2} style={{ ...typeStyle(kit, ios || recipe === "large" ? "headline-large" : p.size === "large" ? "display-small" : "headline-small"), ...(ios ? { fontSize: 34, lineHeight: 41, fontWeight: "700" } : null), color: titleInk }}>
             {p.title}
           </RNText>
@@ -265,7 +265,9 @@ export function Search(props: SearchProps) {
     borderRadius: ios ? 10 : recipe === "filled" ? corner(kit, "sm") : recipe === "boxed" ? corner(kit, "xs") : h / 2,
     ...(recipe === "pill" || recipe === "boxed" ? { borderWidth: 1, borderColor: c(kit, "outline-variant") } : null),
     ...(!own && p.styleVariant === "outlined" ? { borderWidth: 1, borderColor: c(kit, "outline-variant"), backgroundColor: c(kit, "surface") } : null),
-    ...(!own && p.styleVariant !== "outlined" ? { boxShadow: "0px 1px 2px 0px #0000004D, 0px 1px 3px 1px #00000026" } : null),
+    /* Material's search bar floats; its search view, closed, is a header ruled off from the suggestions under it */
+    ...(!own && p.styleVariant !== "outlined" && p.kind === "bar" ? { boxShadow: "0px 1px 2px 0px #0000004D, 0px 1px 3px 1px #00000026" } : null),
+    ...(!own && p.kind === "view" ? { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomWidth: 1, borderBottomColor: c(kit, "outline") } : null),
   };
   const ink = c(kit, "on-surface-variant");
   const field = (

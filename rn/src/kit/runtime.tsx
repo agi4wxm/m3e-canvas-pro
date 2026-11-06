@@ -2,6 +2,7 @@ import { Children, createContext, isValidElement, useCallback, useContext, useMe
 import { Linking, Pressable, ScrollView, StyleSheet, View, type ViewStyle } from "react-native";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
+import { FillWidth } from "./layout";
 import { withAlpha } from "./look";
 import type { BuildViewStyle } from "./styles";
 import { useKit } from "./theme/ThemeProvider";
@@ -45,7 +46,7 @@ export function NavProvider({ value, children }: { value: Partial<Nav>; children
 export function At({ x = 0, y = 0, span, z, children }: { x?: number; y?: number; span?: boolean; z?: number; children: ReactNode }) {
   const style: BuildViewStyle = span ? { position: "absolute", left: 0, right: 0, top: y } : { position: "absolute", left: x, top: y };
   if (z) style.zIndex = z;
-  return <View style={style}>{children}</View>;
+  return <View style={style}>{span ? <FillWidth>{children}</FillWidth> : children}</View>;
 }
 
 /** a bar pinned to an edge of the screen, over what scrolls, inside the device's own bars */
@@ -58,7 +59,7 @@ export function Pin({ edge, x, children }: { edge: "top" | "bottom" | "floatingB
       : { position: "absolute", left: floating && x !== undefined ? x : 0, right: floating && x !== undefined ? undefined : 0, bottom: floating ? 16 + (insets?.bottom ?? 0) : 0, paddingBottom: floating ? 0 : (insets?.bottom ?? 0), alignItems: floating && x === undefined ? "center" : "stretch" };
   return (
     <View style={[style, { zIndex: 10 }]} pointerEvents="box-none">
-      {children}
+      {floating ? children : <FillWidth>{children}</FillWidth>}
     </View>
   );
 }

@@ -91,7 +91,8 @@ export function Dialog(props: DialogProps) {
       </Surface>
     );
   /* it stands in a screen of its own size, with the screen's margins around it */
-  return <DialogCard p={p} base={{ width: Math.max(280, Math.min(560, Math.round(p.dialogWidth ?? 412) - 48)) }} />;
+  const recipe = recipeOf(kit, "dialog");
+  return <DialogCard p={p} base={recipe === "alert" || recipe === "weui" ? undefined : { width: Math.max(280, Math.min(560, Math.round(p.dialogWidth ?? 412) - 48)) }} />;
 }
 
 export type AlertDialogProps = PartBase & { icon?: string; title?: string; description?: string; cancel?: string; action?: string; size?: "default" | "sm" };

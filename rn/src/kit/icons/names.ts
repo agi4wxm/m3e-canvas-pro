@@ -2,6 +2,7 @@
  *  screens name. Material names; the theme's family draws them its own way. */
 export const KIT_ICONS = [
   "add",
+  "apps",
   "arrow_back",
   "arrow_drop_down",
   "calendar_today",
@@ -18,6 +19,7 @@ export const KIT_ICONS = [
   "error",
   "expand_less",
   "expand_more",
+  "landscape",
   "extension",
   "image",
   "info",
@@ -32,5 +34,6 @@ export const KIT_ICONS = [
   "search",
   "star",
   "unfold_more",
+  "upload_file",
   "warning",
 ] as const;

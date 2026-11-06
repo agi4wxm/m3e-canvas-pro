@@ -104,7 +104,7 @@ export function ListItem(props: ListItemProps) {
           {p.description && rows.length === 1 ? <RNText numberOfLines={2} style={{ ...typeStyle(kit, "body-medium"), color: c(kit, "on-surface-variant") }}>{p.description}</RNText> : null}
         </View>
         {end(i)}
-        {showsArrow ? <Glyph name="chevron_right" size={rowRecipe === "arrow" ? 18 : 20} color={rowRecipe === "arrow" ? withAlpha(c(kit, "on-surface"), 0.3) : c(kit, "outline")} /> : null}
+        {showsArrow ? <Glyph testID="row-chevron" name="chevron_right" size={rowRecipe === "arrow" ? 18 : 20} color={rowRecipe === "arrow" ? withAlpha(c(kit, "on-surface"), 0.3) : c(kit, "outline")} /> : null}
       </Surface>
     );
   };

@@ -7,6 +7,7 @@ export { Avatar, Badge, CircularProgress, Dot, Kbd, LoadingIndicator, PageDots, 
 export { AppBar, Fab, NavigationBar, Search, Tabs } from "./composites/bars";
 export { Alert, Card, Carousel, ListItem, Snackbar } from "./composites/content";
 export { ButtonGroup, DatePicker, Menu, SegmentedButton, Select, TextField, TimePicker } from "./composites/forms";
+export { Accordion, AuthForm, CodeBlock, FileUpload, IconGrid, InputGroup, RadioGroup, Scene, Sidebar } from "./composites/more";
 export { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 export { Placeholder } from "./Placeholder";
 export { At, NavProvider, Pin, Screen, ScreenStack, useNav, type Nav } from "./runtime";

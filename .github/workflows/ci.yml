@@ -32,6 +32,7 @@ jobs:
           bun run check:icons
           bun run check:icon-sets
           bun run check:versions
+          bun run check:rn
       - name: Test
         run: bun run test
       - name: Build
@@ -41,6 +42,42 @@ jobs:
         run: |
           bun run mcp:build
           node mcp/dist/m3e-canvas-mcp.js --help
+
+  # The React Native kit (rn/): its own package and toolchain (Expo, Jest), checked as an exported mobile app is: types,
+  # lint, the tests of every part and of the screens the printer wrote, a web build of its gallery and an Android bundle.
+  rn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Install the editor (the kit's data is written from it)
+        run: bun install --frozen-lockfile
+      - name: The kit's generated data is up to date
+        run: bun run check:rn
+      - name: Install rn/
+        working-directory: rn
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        working-directory: rn
+        run: npm run typecheck
+      - name: Lint
+        working-directory: rn
+        run: npm run lint
+      - name: Test
+        working-directory: rn
+        run: npm test -- --ci
+      - name: Web build of the gallery
+        working-directory: rn
+        run: npm run export:web
+      - name: Android bundle (Metro)
+        working-directory: rn
+        run: npm run export:android
 
   # The editor itself in headless Chromium (e2e/*.e2e.ts): built, served with `vp preview`, driven by its own controls.
   # Playwright is not a dependency of the project; it is installed here, with its Chromium, and found through npm's root.

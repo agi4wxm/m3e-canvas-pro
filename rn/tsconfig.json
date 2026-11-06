@@ -7,5 +7,5 @@
     "types": ["jest"]
   },
   "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts"],
-  "exclude": ["node_modules", "dist", "babel.config.js", "metro.config.js", "jest.config.js", "jest.setup.js", "eslint.config.js", "tailwind.config.js"]
+  "exclude": ["node_modules", "dist", "babel.config.js", "metro.config.js", "jest.config.js", "eslint.config.js", "tailwind.config.js"]
 }
