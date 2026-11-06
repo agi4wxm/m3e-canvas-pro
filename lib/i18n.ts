@@ -4,6 +4,7 @@ import { KITS_KO, KITS_UI } from "./i18n/kits";
 import { LAYOUT_KO, LAYOUT_UI } from "./i18n/layout";
 import { LOOK_KO, LOOK_UI } from "./i18n/look";
 import { STYLES_KO, STYLES_UI } from "./i18n/styles";
+import { CUSTOM_STYLES_KO, CUSTOM_STYLES_UI } from "./i18n/customStyles";
 import { EDITOR_KO, EDITOR_UI } from "./i18n/editor";
 
 export type Lang = "ja" | "en" | "zh" | "ko";
@@ -556,6 +557,7 @@ export const UI = {
   ...LOOK_UI,
   ...LAYOUT_UI,
   ...STYLES_UI,
+  ...CUSTOM_STYLES_UI,
   ...EDITOR_UI,
 } as const satisfies Record<string, Str>;
 
@@ -649,6 +651,7 @@ export const KO: Record<UIKey, string> = {
   ...LOOK_KO,
   ...LAYOUT_KO,
   ...STYLES_KO,
+  ...CUSTOM_STYLES_KO,
   ...EDITOR_KO,
 };
 

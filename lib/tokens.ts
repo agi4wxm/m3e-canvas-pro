@@ -4,7 +4,7 @@ import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
-import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type Recipes, type StyleUX } from "./styles";
+import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleUX } from "./styles";
 
 /* ---------- geometry ---------- */
 export const GAP = 3; // spacing between the parts of one group
@@ -446,7 +446,8 @@ export type Theme = {
   /** headings and labels take the heavier M3 Expressive "emphasized" styles */
   emphasized: boolean;
   motion: MotionScheme;
-  /** the style the document wears (lib/styles/); left out, it is plain Material */
+  /** the style the document wears (lib/styles/): a built-in pack's key, or a `custom:` key of one of `Doc.styles`;
+   *  left out, it is plain Material */
   style?: string;
   /** the author picked colors after the style: the palette is theirs, the rest stays the style's */
   ownColors?: boolean;
@@ -1293,6 +1294,8 @@ export type Doc = {
   components?: ComponentDef[];
   /** the data repeated layouts draw from; `Group.repeat` names one */
   collections?: Collection[];
+  /** styles of the document's own (lib/styles/custom.ts): `theme.style` may name one by its `custom:` key */
+  styles?: CustomStyle[];
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));

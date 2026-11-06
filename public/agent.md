@@ -94,6 +94,13 @@ Each one is modeled on real products. Pick the one nearest to what the person de
 
 Use the same style for the whole app. The screens are laid out by the style's rules when the document arrives: margins, gaps, where the navigation stands, and every row in reading order, so nothing has to be measured. On a screen with a `scene` behind it the parts are a composition rather than rows: each stays in the corner or along the edge you put it by, so place a HUD where it should stand. `recipes` and `ux` only count in a document that has been let off the rules with `"strict": false`, and only when asked: `{ "style": "ios", "strict": false, "recipes": { "tabs": "boxed" }, "ux": { "margin": 24, "nav": "top" } }`. The kinds of `recipes` are `button`, `surface`, `tabs`, `toggle`, `slider`, `nav`, `field`, `bar`, `meter`, `list`, `dialog`, `avatar`, `chip`, `check`, `dialogue` and `feedback`. `ux` holds `margin`, `gap`, `tight`, `nav` (`keep | bottom | rail | top`) and `place` (`top | center | bottom | spread`).
 
+Only when the person asks for a look none of these styles has (their brand, say), define one of the document's own in a top-level `styles` list and name it in `theme` by its key, which starts with `custom:`. Extend the nearest style and write only what differs: its colors (`light` and `dark` roles, `#RRGGBB`, words on each fill readable at 4.5:1), and recipes by the kinds above. Anything else it says is checked when the document arrives, and what a style may not say is dropped.
+
+```jsonc
+"styles": [{ "key": "custom:brand", "name": "Brand", "extends": "ios", "light": { "primary": "#C2185B", "onPrimary": "#FFFFFF" }, "dark": { "primary": "#FF6FA5", "onPrimary": "#3A0019" }, "recipes": { "tabs": "underline" } }],
+"theme": { "style": "custom:brand" }
+```
+
 ### Screens (`frames`)
 
 A phone screen is **412 × 892**; a desktop screen is **1280 × 800** (set `w` and `h`). Place screens side by side on the canvas, 80 apart:

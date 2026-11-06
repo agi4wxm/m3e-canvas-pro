@@ -2,14 +2,20 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/m3e/button";
 import { Switch } from "@/components/m3e/switch";
+import { Checkbox } from "@/components/m3e/checkbox";
+import { Chip } from "@/components/m3e/chip";
+import { Input } from "@/components/m3e/input";
+import { Slider as M3Slider } from "@/components/m3e/slider";
+import { Tabs, TabsList, TabsTrigger } from "@/components/m3e/tabs";
 import { themeCss } from "@/lib/m3e/color";
-import { RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, STYLE_PACKS, isStrict, recipesOf, styleCss, styleOf, stylePatch, styleTextOf, uxOf, variantLabel, type RecipeKey, type Recipes, type StylePack, type StyleUX } from "@/lib/styles";
+import { RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, STYLE_PACKS, isCustomKey, isStrict, recipesOf, resolveStyle, styleCss, styleOf, stylePatch, styleTextOf, uxOf, variantLabel, type CustomStyle, type RecipeKey, type Recipes, type StylePack, type StyleUX } from "@/lib/styles";
 import { FONTS, ICON_FAMILIES, Palette, Theme, fontFamilyOf, langFaceOf, shapeScaleOf, type FontKey, type IconFamily } from "@/lib/tokens";
 import { ensureFontLoaded } from "@/lib/theme";
 import { Lang, t, useLang } from "@/lib/i18n";
 import { shapeVars } from "@/parts/theme";
 import { Icon } from "./Icon";
 import { IconFamilyPicker } from "./IconFamilyPicker";
+import { MyStyles } from "./CustomStyleEditor";
 import { Select, Slider, Toggle } from "./ui";
 
 /* The styles, each shown by real controls wearing it, and then how each kind of control is built, for an
@@ -47,8 +53,9 @@ const loadFaces = (pack: StylePack, lang: Lang) => {
   if (pack.display) ensureFontLoaded(pack.display, undefined, lang);
 };
 
-/** the two controls that say the most about a style, drawn in it; its faces come once it scrolls into view */
-function Sample({ pack, lang }: { pack: StylePack; lang: Lang }) {
+/** the two controls that say the most about a style, drawn in it; its faces come once it scrolls into view. `rich`:
+ *  more of them, for the editor of a style of the document's own, where each recipe picked shows at once */
+function Sample({ pack, lang, rich }: { pack: StylePack; lang: Lang; rich?: boolean }) {
   const selector = `[data-style-sample="${pack.key}"]`;
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -95,6 +102,30 @@ function Sample({ pack, lang }: { pack: StylePack; lang: Lang }) {
         <Button size="xs" tabIndex={-1} className="w-full">
           {t("styleButton", lang)}
         </Button>
+        {rich && (
+          <>
+            <div className="flex gap-2">
+              <Button size="xs" variant="tonal" tabIndex={-1} className="flex-1">
+                {t("styleButton", lang)}
+              </Button>
+              <Button size="xs" variant="outlined" tabIndex={-1} className="flex-1">
+                {t("styleButton", lang)}
+              </Button>
+            </div>
+            <Tabs defaultValue="a">
+              <TabsList className="w-full">
+                <TabsTrigger value="a">{t("styleModeLight", lang)}</TabsTrigger>
+                <TabsTrigger value="b">{t("styleModeDark", lang)}</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="flex items-center gap-3 rounded-lg bg-surface-container-low px-2 py-2 text-on-surface">
+              <Checkbox defaultChecked tabIndex={-1} />
+              <Chip tabIndex={-1}>{t("styleKind", lang)}</Chip>
+              <M3Slider defaultValue={[60]} className="flex-1" />
+            </div>
+            <Input placeholder={t("styleName", lang)} tabIndex={-1} readOnly />
+          </>
+        )}
       </div>
     </div>
   );
@@ -234,6 +265,8 @@ export function StylePanel({
   onUx,
   onRelayout,
   onRules,
+  styles,
+  onStyles,
 }: {
   p: Palette;
   theme: Theme;
@@ -244,6 +277,10 @@ export function StylePanel({
   onRelayout: () => void;
   /** holds the document to its style's rules, or lets it go */
   onRules: (on: boolean) => void;
+  /** the document's own styles (`Doc.styles`) */
+  styles?: CustomStyle[];
+  /** the document's own styles changed, and a style to put on it afterwards ("" for Android); left out, the panel offers none */
+  onStyles?: (next: CustomStyle[] | undefined, pick?: string) => void;
 }) {
   const lang = useLang();
   const strict = isStrict(theme);
@@ -280,6 +317,25 @@ export function StylePanel({
         </div>
       ))}
 
+      {onStyles && (
+        <MyStyles
+          p={p}
+          lang={lang}
+          styles={styles}
+          current={theme.style}
+          onStyles={onStyles}
+          iconLabels={ICON_LABELS}
+          card={(s: CustomStyle) => {
+            const compiled = resolveStyle(s.key, styles);
+            return compiled ? card(compiled) : null;
+          }}
+          preview={(s: CustomStyle) => {
+            const compiled = resolveStyle(s.key, styles);
+            return compiled ? <Sample pack={compiled} lang={lang} rich /> : null;
+          }}
+        />
+      )}
+
       {theme.ownColors && pack && (
         <button onClick={() => onChange({ ownColors: undefined })} className="m3-press" style={{ height: 40, borderRadius: 12, border: "none", background: p.surfaceContainerHigh, color: p.onSurface, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
           {t("styleUseColors", lang)}
@@ -292,7 +348,7 @@ export function StylePanel({
       {strict && <StyleSpec theme={theme} pack={pack} p={p} lang={lang} />}
       {/* every part wearing this style, on a page of its own: to see what the style makes of each */}
       <a
-        href={`${import.meta.env.BASE_URL}gallery?${new URLSearchParams({ ...(theme.style ? { style: theme.style } : {}), dark: theme.dark ? "1" : "0", lang }).toString()}`}
+        href={`${import.meta.env.BASE_URL}gallery?${new URLSearchParams({ ...(theme.style ? { style: theme.style } : {}), dark: theme.dark ? "1" : "0", lang, ...(isCustomKey(theme.style) && styles?.some((s) => s.key === theme.style) ? { custom: JSON.stringify(styles.find((s) => s.key === theme.style)) } : {}) }).toString()}`}
         target="_blank"
         rel="noreferrer"
         className="m3-press"

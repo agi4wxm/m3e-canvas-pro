@@ -116,7 +116,7 @@ import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
 import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
 import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
-import { artOf, isStrict, screenBackground, styleOf, stylePatch, styleTextOf, type StyleUX } from "@/lib/styles";
+import { artOf, cleanStyles, isCustomKey, isStrict, screenBackground, setDocStyles, styleOf, stylePatch, styleTextOf, withDocStyles, withStyle, type CustomStyle, type StyleUX } from "@/lib/styles";
 import { conformDoc, conformGroups, rulesForModel } from "@/lib/styleRules";
 import { afterPass, relayoutDue, startRelayout, type Relayout } from "@/lib/relayoutClock";
 import { tidyLook } from "@/lib/look";
@@ -126,7 +126,7 @@ import { useIconFamily } from "@/parts/icons";
 import { StyleGate, StylePanel } from "@/components/StylePanel";
 import { partBySlug, reader, translateComponentProps } from "@/parts/registry";
 import { instantiate, templateBySlug } from "@/parts/templates";
-import { kitBySlug, kitOfKey } from "@/parts/kits";
+import { kitBySlug, kitOfKey, type KitLook } from "@/parts/kits";
 import { defaultMeasures } from "@/parts/templates/kit";
 import { kitGroups, kitLookOf, landTree, moveTo, recomposeKits, resignKits, sameKitLook, spansScreen, splitIntoAtoms, treeSize } from "@/lib/kits";
 import { COMMON_TEXT } from "@/parts/labels";
@@ -537,6 +537,16 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const [vars, setVars] = useState<DocVar[] | undefined>(undefined);
   const [components, setComponents] = useState<ComponentDef[] | undefined>(undefined);
   const [collections, setCollections] = useState<Collection[] | undefined>(undefined);
+  /* the document's own styles: put in reach (lib/styles/book.ts) before anything below reads a style by its key */
+  const [styles, setStylesNow] = useState<CustomStyle[] | undefined>(undefined);
+  const stylesRef = useRef(styles);
+  stylesRef.current = styles;
+  setDocStyles(styles);
+  const setStyles = (next: CustomStyle[] | undefined) => {
+    stylesRef.current = next;
+    setDocStyles(next);
+    setStylesNow(next);
+  };
   /** the definition open for editing, if one is: then `groups` and `frames` are its screen, not the document's */
   const [defEdit, setDefEditNow] = useState<DefEdit | null>(null);
   const defEditRef = useRef<DefEdit | null>(null);
@@ -815,6 +825,8 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       setDefEdit(null);
     }
     relayoutRef.current = null;
+    /* its own styles first: the theme may name one of them */
+    if (doc.styles !== undefined || reset) setStyles(cleanStyles(doc.styles));
     /* however a document came, a file, a link or a model, it comes under the rules of its theme */
     const look = doc.theme && typeof doc.theme === "object" ? normalizeTheme(doc.theme) : reset ? normalizeTheme(undefined) : themeRef.current;
     if (Array.isArray(doc.groups)) {
@@ -1001,7 +1013,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
         showToast(t("saveFull", getLang()), 9000, "warning");
       }
     }
-  }, [editAccess, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme, vars, components, collections, defEdit]);
+  }, [editAccess, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme, vars, components, collections, styles, defEdit]);
 
   useEffect(() => {
     if (!loadedRef.current) return;
@@ -3084,22 +3096,22 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   /** The document's kits composed again for a change of theme (lib/kits.ts `recomposeKits`): each one nobody has changed
    *  takes the composition the new look calls for, where it stands. Null when none changed. A definition open for
    *  editing has the document's own screens waiting: their kits follow too. */
-  const recomposed = (from: Theme, to: Theme): { groups: Group[]; components?: ComponentDef[] } | null => {
+  const recomposed = (from: Theme, to: Theme, fromLook?: KitLook): { groups: Group[]; components?: ComponentDef[] } | null => {
     const lang = getLang();
     const open = defEditRef.current;
     if (open) {
-      const main = recomposeKits({ groups: open.main.groups }, from, to, lang, { frames: open.main.frames, widths: widthsRef.current });
+      const main = recomposeKits({ groups: open.main.groups }, from, to, lang, { frames: open.main.frames, widths: widthsRef.current, fromLook });
       if (main.groups !== open.main.groups) setDefEdit({ ...open, main: { ...open.main, groups: main.groups } });
     }
     const doc = { groups: groupsRef.current, components: componentsRef.current };
-    const out = recomposeKits(doc, from, to, lang, { frames: framesRef.current, widths: widthsRef.current });
+    const out = recomposeKits(doc, from, to, lang, { frames: framesRef.current, widths: widthsRef.current, fromLook });
     return out === doc ? null : out;
   };
 
   /** Puts a style on the document: its colors, its shapes, and unless the author said not to, its layout. One undo step.
    *  A style is a spec, so what the parts carry against it comes off; the author is told how many parts that touched,
    *  and one tap on the notice takes it all back. */
-  const applyStyle = (key: string) => {
+  const applyStyle = (key: string, fromLook?: KitLook) => {
     snapshot(true);
     tidyRef.current = null;
     /* what stands on what is read now: in the style's sizes a part may grow into the next without being put on it */
@@ -3107,7 +3119,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
     relayoutRef.current = startRelayout(together, Date.now());
     const next = normalizeTheme({ ...themeRef.current, ...stylePatch(key) });
     /* the kits nobody has changed are composed the new style's way first, then everything is held to its rules */
-    const kits = recomposed(themeRef.current, next) ?? { groups: groupsRef.current, components: componentsRef.current };
+    const kits = recomposed(themeRef.current, next, fromLook) ?? { groups: groupsRef.current, components: componentsRef.current };
     const groups = conformGroups(kits.groups, next);
     const defs = kits.components;
     const components = defs ? conformDoc({ groups: [], components: defs }, next).components : defs;
@@ -3135,6 +3147,49 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
   const pickStyle = (key: string) => {
     if ((themeRef.current.style ?? "") === key) return;
     applyStyle(key);
+  };
+  /** The document's own styles changed (components/CustomStyleEditor.tsx): a style made, imported, edited or deleted,
+   *  and with `pick` a style to put on the document after, which is then the one undo step. A style edited in place is
+   *  worn as it now is: the theme takes what it changed of what picking it writes, the kits nobody has changed are
+   *  composed its new way, and a run of edits to one style is one undo step. */
+  const lastStylesEditRef = useRef({ key: "", at: 0 });
+  const changeStyles = (next: CustomStyle[] | undefined, pick?: string) => {
+    const from = themeRef.current;
+    /* what the kits were composed for, read while the style is still as it was */
+    const fromLook = kitLookOf(from);
+    const before = styleOf(from.style);
+    if (pick !== undefined && (from.style ?? "") !== pick) {
+      setStyles(next);
+      applyStyle(pick, fromLook);
+      return;
+    }
+    const now = Date.now();
+    const last = lastStylesEditRef.current;
+    if (last.key !== (from.style ?? "") || now - last.at > 800) snapshot(true);
+    lastStylesEditRef.current = { key: from.style ?? "", at: now };
+    setStyles(next);
+    const after = styleOf(from.style);
+    /* the style worn is as it was (another one changed): nothing on the document changes with it */
+    if (after === before) return;
+    const patch: Partial<Theme> = {};
+    if (isCustomKey(from.style) && before && after) {
+      if (before.font !== after.font) patch.font = after.font;
+      if (before.display !== after.display) patch.displayFont = after.display;
+      if (before.icons !== after.icons) patch.icons = after.icons;
+      if (before.shape !== after.shape) patch.shape = after.shape;
+      if (before.motion !== after.motion) patch.motion = after.motion;
+    }
+    /* a new theme object either way: what is worked out from the style is worked out again */
+    const to = normalizeTheme({ ...from, ...patch });
+    themeRef.current = to;
+    if (JSON.stringify(kitLookOf(to)) !== JSON.stringify(fromLook)) {
+      const kits = recomposed(from, to, fromLook);
+      if (kits) {
+        setGroups(conformGroups(kits.groups, to));
+        setComponents(kits.components);
+      }
+    }
+    setTheme(to);
   };
   /** holds the document to its style's rules, or lets it go; coming back is putting the style on again. One undo step. */
   const setRules = (on: boolean) => {
@@ -3242,9 +3297,13 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       }
       const held = isStrict(themeRef.current) ? themeRef.current : null;
       const drafted = await draftDesign(aiSettings, guideRef.current, idea, lang, undefined, held ? rulesForModel(held) : undefined);
+      /* a model may bring styles of its own: they join the document's, each in place of one of its key */
+      const styles = (drafted.styles ?? []).reduce<CustomStyle[] | undefined>((list, s) => withStyle(list, s), stylesRef.current);
       /* the model was told; what it wrote regardless does not stand. A design from a model is held to rules from then on */
-      const look = normalizeTheme({ ...drafted.theme, ...(held ? { style: held.style } : {}), strict: true });
-      const next = conformDoc({ ...drafted, theme: look }, look);
+      const next = withDocStyles(styles, () => {
+        const look = normalizeTheme({ ...drafted.theme, ...(held ? { style: held.style } : {}), strict: true });
+        return conformDoc({ ...drafted, theme: look, ...(styles ? { styles } : {}) }, look);
+      });
       settleDraftRef.current = true;
       arrive(next);
       void paintScenes(scenesToPaint(next.groups), normalizeTheme(next.theme));
@@ -4292,8 +4351,9 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
       vars,
       components: defs?.length ? defs : undefined,
       collections: collections?.length ? collections : undefined,
+      styles: styles?.length ? styles : undefined,
     };
-  }, [defEdit, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme, vars, components, collections, widths]);
+  }, [defEdit, groups, frames, paletteKey, frame, title, brief, promptEdit, promptOptions, customPalette, dynamicColor, theme, vars, components, collections, styles, widths]);
   /** what the preview plays: everything drawn out. With a definition open, that definition alone. */
   const previewDoc = useMemo(() => (previewId === null ? doc : expandDoc(defEdit ? { ...doc, groups, frames } : doc, widths)), [previewId, doc, defEdit, groups, frames, widths]);
   /** the same document, for callbacks that were created on an earlier render */
@@ -5000,7 +5060,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
                     }}
                   />
                 ) : leftTab === "style" ? (
-                  <StylePanel p={p} theme={theme} onChange={patchTheme} onPick={pickStyle} onUx={patchUx} onRelayout={() => relayout()} onRules={setRules} />
+                  <StylePanel p={p} theme={theme} onChange={patchTheme} onPick={pickStyle} onUx={patchUx} onRelayout={() => relayout()} onRules={setRules} styles={styles} onStyles={changeStyles} />
                 ) : leftTab === "color" ? (
                   <StyleGate p={p} theme={theme} what="color" onFree={() => setRules(false)}>
                     <ColorPanel

@@ -10,7 +10,7 @@ import { nameOf } from "../parts/labels";
 import { roleOf } from "../parts/role";
 import { inlineNode } from "../parts/print";
 import { Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
-import { isStrict, styleOf, styleTextOf, uxOf } from "./styles";
+import { isStrict, styleOf, styleTextOf, uxOf, withDocStyles } from "./styles";
 import {
   Place,
   Action,
@@ -1338,7 +1338,12 @@ export function promptMarks(text: string, frames: Frame[], lang: Lang = getLang(
   return out;
 }
 
+/** what a coding agent is told to build, read in the document's own styles (a custom style is resolved from `doc.styles`) */
 export function buildPrompt(source: Doc, widths: Record<string, number>, onlyFrameId?: string, lang: Lang = getLang()): string {
+  return withDocStyles(source.styles, () => promptOf(source, widths, onlyFrameId, lang));
+}
+
+function promptOf(source: Doc, widths: Record<string, number>, onlyFrameId: string | undefined, lang: Lang): string {
   /* instances are written out, each saying what it is an instance of; repeats are not drawn out, the first child stands for its rows */
   const doc: Doc = { ...source, groups: describeRepeats(expandInstances(source, widths, { rows: false }), source.collections) };
   const th = normalizeTheme(doc.theme);
