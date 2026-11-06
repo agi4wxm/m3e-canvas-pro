@@ -192,6 +192,8 @@ const HANGUL = /\p{Script=Hangul}/u;
 export function inLanguage(s: string, lang: Lang): boolean | null {
   const t = s.replace(/\{\{[^}]*\}\}/g, " ").trim();
   if (!/\p{L}/u.test(t) || /^(https?:|data:|mailto:|www\.)/i.test(t) || /\S+@\S+\.\S+/.test(t)) return null;
+  /* a handle or a tag (@aoi_sato, #travel) is written the same in every language */
+  if (/^[@#][\w.]+$/u.test(t)) return null;
   const han = HAN.test(t);
   const kana = KANA.test(t);
   const hangul = HANGUL.test(t);
