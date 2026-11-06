@@ -1,6 +1,10 @@
 /* Where the editor keeps the document between visits, through a `PersistAdapter` (lib/core/persist.ts): one tab
- * edits and the others wait read-only, the document saved last comes back on load with its pictures a moment later,
- * and every change of the document is written down. */
+ * edits and the others wait read-only, the document saved last comes back on load with its pictures, and every change
+ * of the document is written down.
+ *
+ * Reading may take a while (projects in IndexedDB, lib/projects/persist.ts). Until it is done the boot cover stays up
+ * over the starter sketch, nothing is written, and the tab is not yet editable, so nothing (a link's design, a
+ * keystroke) lands on a document about to be replaced. */
 
 import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { withGroups, withFrames, type DocStore } from "@/lib/core";
@@ -32,47 +36,71 @@ export type PersistenceInputs = {
   restoreUi: () => boolean;
   /** the starter sketch, when nothing was saved */
   seed: () => { groups: Group[]; frames: Frame[] };
-  /** once the document is in the store */
-  onLoaded: () => void;
+  /** once the document is in the store; `late` when it came after the editor's first effects had run */
+  onLoaded: (late: boolean) => void;
   showToast: (msg: string, ms?: number, icon?: string) => void;
 };
 
 export function usePersistence(o: PersistenceInputs) {
   const { store, persist } = o;
+  /** what the tab lock said, held until the document is in: only then may the tab edit */
+  const accessRef = useRef<"editable" | "readonly" | null>(null);
   /* where the document is kept between visits (lib/core/persist.ts): one tab edits, the others wait read-only */
-  useEffect(() => persist.lock(o.setEditAccess), [persist]);
+  useEffect(
+    () =>
+      persist.lock((access) => {
+        accessRef.current = access;
+        if (o.loadedRef.current) o.setEditAccess(access);
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [persist],
+  );
 
+  /** the reading has started: React's development double-run must not start a second one */
+  const startedRef = useRef(false);
   useEffect(() => {
-    // React's development double-run would otherwise read back its own first save
-    if (o.loadedRef.current) return;
+    if (o.loadedRef.current || startedRef.current) return;
+    startedRef.current = true;
+    const apply = (stored: Stored, late: boolean) => {
+      try {
+        const d = stored.doc;
+        if (d) {
+          o.hadDocRef.current = true;
+          o.leaveForNewDoc();
+          store.load(d, false);
+          // frame mode is decided by the device (media-query effect), not restored
+        }
+        if (stored.before) o.setDraftBefore(stored.before);
+        /* the large pictures, where the store keeps them apart: the document comes back whole a moment later */
+        void persist
+          .assets(stored)
+          .then((found) => {
+            if (!found) return;
+            store.update("Pictures", "system", (s) => ({ ...s, doc: { ...s.doc, groups: withAssets(s.doc.groups, found), frames: withAssets(s.doc.frames, found), ...(s.doc.components ? { components: withAssets(s.doc.components, found) } : {}) } }));
+            o.setDraftBefore((b) => (b ? withAssets(b, found) : b));
+          })
+          .catch(() => {});
+        o.restoreUi();
+        setGlobalLang(o.initialLang);
+        o.initialLangRef.current = o.initialLang;
+        /* Read at once, nothing has drawn yet and the starter goes down now. Read later, the canvas already holds the
+           starter (or the phone's own), and it stays. */
+        if (!d && !late) {
+          const { groups, frames } = o.seed();
+          store.update("Seed", "system", (s) => withFrames(withGroups(s, groups), frames));
+        }
+      } catch {}
+      o.onLoaded(late);
+      if (accessRef.current) o.setEditAccess(accessRef.current);
+    };
+    let read: Stored | Promise<Stored>;
     try {
-      const stored = persist.read() as Stored;
-      const d = stored.doc;
-      if (d) {
-        o.hadDocRef.current = true;
-        o.leaveForNewDoc();
-        store.load(d, false);
-        // frame mode is decided by the device (media-query effect), not restored
-      }
-      if (stored.before) o.setDraftBefore(stored.before);
-      /* the large pictures wait in the browser's asset store: the document comes back whole a moment later */
-      void persist
-        .assets(stored)
-        .then((found) => {
-          if (!found) return;
-          store.update("Pictures", "system", (s) => ({ ...s, doc: { ...s.doc, groups: withAssets(s.doc.groups, found), frames: withAssets(s.doc.frames, found), ...(s.doc.components ? { components: withAssets(s.doc.components, found) } : {}) } }));
-          o.setDraftBefore((b) => (b ? withAssets(b, found) : b));
-        })
-        .catch(() => {});
-      o.restoreUi();
-      setGlobalLang(o.initialLang);
-      o.initialLangRef.current = o.initialLang;
-      if (!d) {
-        const { groups, frames } = o.seed();
-        store.update("Seed", "system", (s) => withFrames(withGroups(s, groups), frames));
-      }
-    } catch {}
-    o.onLoaded();
+      read = persist.read();
+    } catch {
+      read = { doc: null, before: null };
+    }
+    if (read instanceof Promise) read.then((stored) => apply(stored, true), () => apply({ doc: null, before: null }, true));
+    else apply(read, false);
     // the saved document is read once, when the editor opens
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

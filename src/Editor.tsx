@@ -66,7 +66,12 @@ import { repeatAround } from "@/lib/collections";
 import { familyOf, missingSizes } from "@/lib/variants";
 import { ComponentsPanel, DataPanel, InstanceInspector, sizeWord } from "@/components/ReusePanels";
 import { Behavior, BehaviorContext, StyleRulesContext } from "@/components/EffectsPanel";
-import { readProject, saveProject } from "@/lib/project";
+import { readProject } from "@/lib/project";
+import { downloadProject } from "@/lib/projects/download";
+import { editorProjects } from "@/lib/projects/opening";
+import { ProjectsPersist } from "@/lib/projects/persist";
+import { ProjectsHome } from "@/components/ProjectsHome";
+import { DropCover, FileConflictDialog, OpenFileDialog, ProjectMenu, ProjectPill } from "@/components/ProjectChrome";
 import { LoadingIndicator } from "@/components/Loading";
 import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
@@ -82,12 +87,13 @@ import { ConfirmDialog, IconBtn, Segmented } from "@/components/ui";
 import { Lang, LangContext, setGlobalLang, t } from "@/lib/i18n";
 import { OpError, ops, savedDoc, translateSnapshot, withDoc, withFrames, withGroups, type Op, type TxOptions } from "@/lib/core";
 import { useStore } from "@/lib/core/react";
-import { localPersist, type PersistAdapter } from "@/lib/core/persist";
+import type { PersistAdapter } from "@/lib/core/persist";
 import { type GroupPatch } from "@/lib/core/ops/nodes";
 import { editorStore } from "./editor/store";
 import { useViewport } from "./editor/useViewport";
 import { useMeasure } from "./editor/useMeasure";
 import { usePersistence } from "./editor/usePersistence";
+import { useProject } from "./editor/useProject";
 import { useShortcuts } from "./editor/useShortcuts";
 import { seed, SEED_FRAMES } from "./editor/seed";
 import { ThinkingRing } from "./editor/ThinkingRing";
@@ -133,7 +139,7 @@ import {
   type Gesture,
 } from "./editor/model";
 
-export default function Editor({ initialLang, onReady, persist = localPersist }: { initialLang: Lang; onReady?: () => void; /** where the document is kept between visits (lib/core/persist.ts) */ persist?: PersistAdapter }) {
+export default function Editor({ initialLang, onReady, persist = editorProjects() }: { initialLang: Lang; onReady?: () => void; /** where the document is kept between visits (lib/core/persist.ts); projects in IndexedDB by default (lib/projects) */ persist?: PersistAdapter }) {
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
   /* ---------- document ---------- */
@@ -222,8 +228,6 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   /** the prompt's full-screen cover is up: the panel's own band steps aside while it is */
   const [promptCoverUp, setPromptCoverUp] = useState(false);
   /** the author's explicit target; null follows the screens (web once a desktop screen exists) */
-  /** a project file waiting for the author to confirm replacing the canvas */
-  const [pendingImport, setPendingImport] = useState<Doc | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
 
   /* ---------- editor ui ---------- */
@@ -290,6 +294,10 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   /** groups that must reposition without animating on the next render */
   const instantRef = useRef<Set<string>>(new Set());
   const loadedRef = useRef(false);
+  /** the same, for what draws differently once the document is in */
+  const [loaded, setLoaded] = useState(false);
+  /** the phone's layout applied again, for a document read after it first ran */
+  const phoneLayoutRef = useRef<(() => void) | null>(null);
   const initialLangRef = useRef<Lang>(initialLang);
   /** A saved document or the first viewport initialization prevents later reseeding. */
   const hadDocRef = useRef(false);
@@ -353,7 +361,10 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
       return false;
     }
     const ui = JSON.parse(u);
-    if (ui.view) setView(ui.view);
+    /* the camera as it was left on this project; another project's starts fitted */
+    const projectId = persist instanceof ProjectsPersist ? persist.id : null;
+    if (ui.view && (!ui.viewOf || !projectId || ui.viewOf === projectId)) setView(ui.view);
+    else queueMicrotask(() => fitRef.current());
     if (typeof ui.leftOpen === "boolean") setLeftOpen(ui.leftOpen);
     if (typeof ui.rightOpen === "boolean") setRightOpen(ui.rightOpen);
     if (ui.leftW) setLeftW(Math.max(RAIL_W + 244, ui.leftW));
@@ -380,9 +391,12 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     leaveForNewDoc,
     restoreUi,
     seed: () => ({ groups: seed(initialLang), frames: [{ ...SEED_FRAMES[0], name: t("home", initialLang) }] }),
-    onLoaded: () => {
+    onLoaded: (late) => {
       setAiSettings(loadAiSettings());
       loadedRef.current = true;
+      setLoaded(true);
+      /* read after the phone's layout ran: it runs again for the document that came */
+      if (late) phoneLayoutRef.current?.();
       /* the document is in state; one frame later it is on screen and the boot overlay may go.
          Not cancelled on cleanup: the development double-run skips this effect the second time. */
       requestAnimationFrame(() => onReadyRef.current?.());
@@ -394,10 +408,10 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   usePageChrome({ lang, theme, p, setWidths });
 
   /* a phone gets one fixed screen and the select tool only (src/editor/usePhoneLayout.ts) */
-  usePhoneLayout({ store, setIsMobile, mobileRef, setMode, setSheet, hadDocRef, initialLangRef, setGroups, setFrames, frameRef, setFrame, ensureFrame: () => ensureFrameRef.current(), fitRef, setViewReady });
+  usePhoneLayout({ store, setIsMobile, mobileRef, setMode, setSheet, hadDocRef, initialLangRef, setGroups, setFrames, frameRef, setFrame, ensureFrame: () => ensureFrameRef.current(), fitRef, setViewReady, againRef: phoneLayoutRef });
 
   /* the editor's own settings written down as they change (src/editor/useRememberUi.ts) */
-  useRememberUi({ loadedRef, view, leftOpen, rightOpen, leftW, rightW, favorites, mode, lang, showAllLinks, p, frame });
+  useRememberUi({ loadedRef, view, leftOpen, rightOpen, leftW, rightW, favorites, mode, lang, showAllLinks, p, frame, projectId: loaded && persist instanceof ProjectsPersist ? persist.id : null });
 
   /* ---------- measurement ---------- */
   /* every part measured as drawn; screens whose parts came out another size laid out again by what they came to */
@@ -587,12 +601,15 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   const selectAllRef = useRef(() => {});
 
   /* a screen, or all of them, saved as pictures (src/editor/useFrameImages.ts) */
-  const { exportFrame, saveFrameImage, saveAllFrameImages } = useFrameImages(framesRef);
+  const { exportFrame, saveFrameImage, saveAllFrameImages, frameThumb } = useFrameImages(framesRef);
+
+  /* the project open in this tab: its name, its picture, the file it is saved to, other projects (src/editor/useProject.ts) */
+  const project = useProject({ store, persist, docRef, framesRef, lang, loaded, editable: editAccess === "editable", frameThumb, importDoc, pickFallback: () => projectFileRef.current?.click(), showToast });
 
   /* the keyboard: undo, clipboard, grouping, layout keys, nudges, tools and zoom (src/editor/useShortcuts.ts) */
   useShortcuts({
     editable: editAccess === "editable",
-    blocked: confirmClear || pendingImport !== null || shareOpen || previewId !== null || promptCoverUp,
+    blocked: confirmClear || project.pendingOpen !== null || project.homeOpen || project.conflictOpen || shareOpen || previewId !== null || promptCoverUp,
     selectedIds,
     selectedFrameId,
     canPaste: () => !!clipboardRef.current,
@@ -1480,13 +1497,39 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
             place={tidyTarget?.place}
             onPlace={tidyTarget ? (pl) => setPlace(tidyTarget, pl) : undefined}
             note={aiNote}
-            onSaveProject={() => saveProject(doc)}
-            onOpenProject={() => projectFileRef.current?.click()}
+            project={
+              <ProjectPill
+                p={p}
+                name={project.meta?.name ?? (doc.title || t("untitledProject", lang))}
+                link={project.link}
+                onHome={() => project.setHomeOpen(true)}
+                onReconnect={() => void project.reconnect()}
+                onConflict={() => project.setConflictOpen(true)}
+                compact={showRight}
+              />
+            }
+            projectMenu={(close) => (
+              <ProjectMenu
+                p={p}
+                close={close}
+                a={{
+                  onHome: () => project.setHomeOpen(true),
+                  onSaveToFile: () => void project.saveToFile(),
+                  onSaveToFolder: project.canPickFolder && project.projects ? () => void project.saveToFolder() : undefined,
+                  onOpenFile: () => void project.openFile(),
+                  onOpenFolder: project.canPickFolder ? () => void project.openFolder() : undefined,
+                  onDownload: project.downloadCopy,
+                  onStopSaving: project.link ? project.stopSaving : undefined,
+                  canSync: project.canSyncFile && !!project.projects,
+                  link: project.link,
+                }}
+              />
+            )}
             onShare={!isMobile ? () => setShareOpen(true) : undefined}
             shareState={draftBusy ? "busy" : draftBefore ? "review" : "idle"}
             onDraftKeep={keepDraft}
             onDraftUndo={undoDraft}
-            onDraftSave={() => saveProject(doc)}
+            onDraftSave={() => downloadProject(doc, project.meta?.name)}
             quickUndo={quickUndo}
             onAddParts={isMobile && !defEdit ? () => setSheet(sheet === "add" ? null : "add") : undefined}
             rightInset={showRight ? rightW : 0}
@@ -1585,6 +1628,22 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
             )}
             {isMobile && sheet === "settings" && (
               <BottomSheet key="settings" p={p} onClose={() => setSheet(null)}>
+                {project.projects && (
+                  <button
+                    className="m3-press"
+                    data-mobile-projects
+                    onClick={() => {
+                      setSheet(null);
+                      project.setHomeOpen(true);
+                    }}
+                    style={{ width: "100%", minHeight: 56, marginBottom: 12, padding: "0 16px", borderRadius: 20, border: "none", background: p.secondaryContainer, color: p.onSecondaryContainer, display: "flex", alignItems: "center", gap: 12, fontSize: 15, fontWeight: 600, cursor: "pointer", textAlign: "left" }}
+                  >
+                    <Icon name="stacks" size={22} fill />
+                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{project.meta?.name ?? t("allProjects", lang)}</span>
+                    <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.8 }}>{t("allProjects", lang)}</span>
+                    <Icon name="chevron_right" size={20} />
+                  </button>
+                )}
                 <MobileSettings palette={p} paletteKey={paletteKey} onPalette={pickPalette} theme={theme} onTheme={patchTheme} onStyle={pickStyle} />
               </BottomSheet>
             )}
@@ -1823,20 +1882,7 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
           onChange={(e) => {
             const file = e.target.files?.[0];
             e.target.value = "";
-            if (file) void readProject(file).then((next) => (next ? setPendingImport(next) : showToast(t("invalidProject", lang), 3000, "error")));
-          }}
-        />
-
-        <ConfirmDialog
-          open={pendingImport !== null}
-          icon="file_open"
-          title={t("replaceProjectTitle", lang)}
-          body={t("replaceProject", lang)}
-          p={p}
-          onCancel={() => setPendingImport(null)}
-          onConfirm={() => {
-            if (pendingImport) importDoc(pendingImport);
-            setPendingImport(null);
+            if (file) void readProject(file).then((next) => (next ? project.offerDoc(next, file.name) : showToast(t("invalidProject", lang), 3000, "error")));
           }}
         />
 
@@ -1880,6 +1926,39 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
         )}
       </AnimatePresence>
 
+      {/* the projects, and what a file asks; outside the editor's tree, so a read-only tab can still reach them */}
+      <ProjectsHome
+        p={p}
+        open={project.homeOpen}
+        onClose={() => project.setHomeOpen(false)}
+        current={project.meta}
+        currentDoc={() => docRef.current}
+        onOpen={(id, newTab) => void project.goTo(id, newTab)}
+        onNew={() => void project.newProject()}
+        onOpenFile={() => void project.openFile()}
+        blocked={project.mode === "legacy"}
+      />
+      <OpenFileDialog
+        p={p}
+        open={project.pendingOpen !== null}
+        name={project.pendingOpen?.name ?? ""}
+        canBind={!!project.pendingOpen?.handle && !!project.projects}
+        onCancel={() => project.setPendingOpen(null)}
+        onConfirm={(where, keep) => {
+          project.setHomeOpen(false);
+          void project.confirmOpen(where, keep);
+        }}
+      />
+      <FileConflictDialog
+        p={p}
+        open={project.conflictOpen && project.link?.status === "conflict"}
+        name={project.link?.name ?? ""}
+        onCancel={() => project.setConflictOpen(false)}
+        onLoad={() => void project.loadTheirs()}
+        onKeep={() => void project.keepMine()}
+      />
+      <DropCover p={p} on={project.dropping} />
+
       {editAccess === "readonly" && (
         <div
           role="dialog"
@@ -1912,7 +1991,16 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
               <p style={{ margin: 0, color: p.onSurfaceVariant, fontSize: 14, lineHeight: 1.5 }}>
                 {t("readOnlyBody", lang)}
               </p>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 24 }}>
+                {project.projects && (
+                  <button
+                    className="m3-press"
+                    onClick={() => project.setHomeOpen(true)}
+                    style={{ minHeight: 40, padding: "0 16px", border: "none", borderRadius: 20, background: "transparent", color: p.primary, fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    {t("allProjects", lang)}
+                  </button>
+                )}
                 <button
                   autoFocus
                   className="m3-press"

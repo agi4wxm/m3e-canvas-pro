@@ -6,6 +6,7 @@ import { LOOK_KO, LOOK_UI } from "./i18n/look";
 import { STYLES_KO, STYLES_UI } from "./i18n/styles";
 import { CUSTOM_STYLES_KO, CUSTOM_STYLES_UI } from "./i18n/customStyles";
 import { EDITOR_KO, EDITOR_UI } from "./i18n/editor";
+import { PROJECTS_KO, PROJECTS_UI } from "./i18n/projects";
 
 export type Lang = "ja" | "en" | "zh" | "ko";
 export const LANGS: { key: Lang; label: string }[] = [
@@ -563,6 +564,7 @@ export const UI = {
   ...STYLES_UI,
   ...CUSTOM_STYLES_UI,
   ...EDITOR_UI,
+  ...PROJECTS_UI,
 } as const satisfies Record<string, Str>;
 
 export type UIKey = keyof typeof UI;
@@ -659,6 +661,7 @@ export const KO: Record<UIKey, string> = {
   ...STYLES_KO,
   ...CUSTOM_STYLES_KO,
   ...EDITOR_KO,
+  ...PROJECTS_KO,
 };
 
 export const t = (key: UIKey, lang: Lang = current): string => (lang === "ko" ? KO[key] : UI[key][lang]);

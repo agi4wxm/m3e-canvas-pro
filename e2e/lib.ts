@@ -20,6 +20,8 @@ export type Locator = {
   textContent(): Promise<string | null>;
   inputValue(): Promise<string>;
   waitFor(o?: { state?: "attached" | "detached" | "visible" | "hidden"; timeout?: number }): Promise<void>;
+  getAttribute(name: string): Promise<string | null>;
+  locator(s: string): Locator;
 };
 export type Download = { suggestedFilename(): string; saveAs(path: string): Promise<void>; path(): Promise<string | null> };
 export type FileChooser = { setFiles(path: string): Promise<void> };
@@ -34,6 +36,11 @@ export type Page = {
   locator(s: string): Locator;
   screenshot(o: { path: string; fullPage?: boolean }): Promise<unknown>;
   on(event: "pageerror", f: (e: Error) => void): void;
+  context(): Context;
+  url(): string;
+  title(): Promise<string>;
+  close(): Promise<void>;
+  waitForURL(url: string | RegExp | ((url: URL) => boolean), o?: { timeout?: number }): Promise<void>;
   mouse: { move(x: number, y: number, o?: { steps?: number }): Promise<void>; down(): Promise<void>; up(): Promise<void>; click(x: number, y: number): Promise<void>; dblclick(x: number, y: number): Promise<void> };
   keyboard: { press(key: string): Promise<void>; down(key: string): Promise<void>; up(key: string): Promise<void> };
 };
@@ -66,8 +73,32 @@ export type Group = { id: string; x: number; y: number; items: Item[]; inFlow?: 
 export type Frame = { id: string; name: string; x: number; y: number };
 export type Doc = { groups: Group[]; frames: Frame[]; title: string; theme?: { style?: string; strict?: boolean }; components?: { id: string; name: string; groups: Group[] }[]; collections?: { id: string; name: string; rows: string[][] }[]; vars?: unknown[]; styles?: { key: string; name: Record<string, string>; seed?: string }[] };
 
-/** the document as the editor saved it in this browser */
-export const savedDoc = async (page: Page): Promise<Doc> => JSON.parse((await page.evaluate(() => localStorage.getItem("m3e:doc"))) ?? "null") as Doc;
+/** The document as the editor saved it in this browser: the project the page has open, from IndexedDB
+ *  (lib/projects/db.ts), large pictures as references. A page with no project (storage blocked) reads the old place. */
+export const savedDoc = async (page: Page): Promise<Doc> =>
+  JSON.parse(
+    await page.evaluate(async () => {
+      const id = new URLSearchParams(location.search).get("project");
+      if (!id) return localStorage.getItem("m3e:doc") ?? "null";
+      const db = await new Promise<IDBDatabase>((ok, fail) => {
+        const r = indexedDB.open("m3e-projects");
+        r.onsuccess = () => ok(r.result);
+        r.onerror = () => fail(r.error);
+      });
+      try {
+        return await new Promise<string>((ok) => {
+          const r = db.transaction("docs").objectStore("docs").get(id);
+          r.onsuccess = () => ok((r.result as { json?: string } | undefined)?.json ?? "null");
+          r.onerror = () => ok("null");
+        });
+      } finally {
+        db.close();
+      }
+    }),
+  ) as Doc;
+
+/** the project the page has open, by its address */
+export const projectId = (page: Page): Promise<string | null> => page.evaluate(() => new URLSearchParams(location.search).get("project"));
 export const itemsOf = (doc: Doc) => doc.groups.flatMap((g) => g.items.map((it) => ({ ...it, group: g })));
 export const bySlug = (doc: Doc, slug: string) => itemsOf(doc).filter((it) => it.component === slug);
 export const groupOf = (doc: Doc, itemId: string) => doc.groups.find((g) => g.items.some((it) => it.id === itemId));
