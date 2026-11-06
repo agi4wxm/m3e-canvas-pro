@@ -9,6 +9,9 @@ export type TsOptions = {
   binary?: string;
   /** how deep inline schemas are written before they become `unknown` */
   maxDepth?: number;
+  /** write descriptions and formats as doc comments (true by default); the product export keeps the contract's words
+   *  out of comments altogether (docs/导出.md, “安全”) */
+  comments?: boolean;
 };
 
 const IDENT = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
@@ -16,12 +19,15 @@ const IDENT = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 /** a model's name as a type name: models are identifiers already; a stray one is made one */
 export const tsTypeName = (name: string) => (IDENT.test(name) ? name : name.replace(/[^A-Za-z0-9_$]/g, "_").replace(/^(\d)/, "_$1") || "Model");
 
-const prop = (name: string) => (IDENT.test(name) ? name : JSON.stringify(name));
+/** names a line of declarations is never read as starting with: a property called so is quoted (`"class"?: string`) */
+const KEYWORDS = new Set(["import", "require", "eval", "new", "function", "class", "const", "let", "var", "declare", "export"]);
+const prop = (name: string) => (IDENT.test(name) && !KEYWORDS.has(name) ? name : JSON.stringify(name));
 
 /** a comment's words, safe inside /** … *\/ */
 const commentText = (s: string) => s.replace(/\*\//g, "*\\/").replace(/\r?\n/g, " ").trim();
 
-function docComment(s: JsonSchemaObject, indent: string): string {
+function docComment(s: JsonSchemaObject, indent: string, o: TsOptions = {}): string {
+  if (o.comments === false) return "";
   const parts = [typeof s.description === "string" ? commentText(s.description) : "", typeof s.format === "string" ? `@format ${commentText(s.format)}` : "", s.deprecated === true ? "@deprecated" : ""].filter(Boolean);
   return parts.length ? `${indent}/** ${parts.join(" ")} */\n` : "";
 }
@@ -74,7 +80,7 @@ export function schemaTypeTs(schema: JsonSchema | undefined, o: TsOptions = {}, 
         const props = isRecord(s.properties) ? s.properties : {};
         const required = new Set(Array.isArray(s.required) ? s.required : []);
         const inner = indent + "  ";
-        const lines = Object.entries(props).map(([k, v]) => `${isRecord(v) ? docComment(v as JsonSchemaObject, inner) : ""}${inner}${prop(k)}${required.has(k) ? "" : "?"}: ${schemaTypeTs(v as JsonSchema, o, inner, depth + 1)};`);
+        const lines = Object.entries(props).map(([k, v]) => `${isRecord(v) ? docComment(v as JsonSchemaObject, inner, o) : ""}${inner}${prop(k)}${required.has(k) ? "" : "?"}: ${schemaTypeTs(v as JsonSchema, o, inner, depth + 1)};`);
         const extra = s.additionalProperties;
         if (extra !== undefined && extra !== false) lines.push(`${inner}[key: string]: ${extra === true ? "unknown" : Object.keys(props).length ? "unknown" : sub(extra)};`);
         if (!lines.length) return extra === false ? "Record<string, never>" : "Record<string, unknown>";
@@ -91,10 +97,10 @@ export function schemaTypeTs(schema: JsonSchema | undefined, o: TsOptions = {}, 
  *  doc comment: `export type User = { id: string; email: string; name?: string | null };`. A document without models
  *  gives an empty module. */
 export function schemaToTs(api: ApiSpec | undefined, o: TsOptions = {}): string {
-  const lines = ["/* The data models of the API, from its JSON Schemas (generated: do not edit). */", ""];
+  const lines = o.comments === false ? [] : ["/* The data models of the API, from its JSON Schemas (generated: do not edit). */", ""];
   for (const m of api?.models ?? []) {
     const s = m.schema;
-    if (isRecord(s)) lines.push(docComment(s as JsonSchemaObject, "").trimEnd());
+    if (isRecord(s)) lines.push(docComment(s as JsonSchemaObject, "", o).trimEnd());
     lines.push(`export type ${tsTypeName(m.name)} = ${schemaTypeTs(s, o)};`, "");
   }
   if (!api?.models?.length) lines.push("export {};", "");

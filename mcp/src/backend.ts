@@ -32,6 +32,9 @@ export interface Backend {
   /** Takes back the last change this server made, or makes the last one taken back again: a project file's own
    *  history, in memory for this server's session. Absent where an editor keeps the history (the author undoes). */
   history?(action: "undo" | "redo"): Promise<CallOutcome>;
+  /** Exports the document as a whole product (lib/export) into a folder: file mode only. Absent where an editor tab
+   *  holds the document (the author exports from the editor's download dialog). */
+  exportProduct?(dir: string, o: { force?: boolean; signal?: AbortSignal }): Promise<CallOutcome>;
   /** where things stand, for the connection_status tool */
   status(): Record<string, unknown>;
   close(): Promise<void>;
