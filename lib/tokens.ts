@@ -4,6 +4,7 @@ import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
+import type { Motion, Transition } from "./screenMotion";
 import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleUX } from "./styles";
 
 /* ---------- geometry ---------- */
@@ -119,6 +120,9 @@ export type LookStroke = {
   position?: "inside" | "center" | "outside";
   /** each side on its own, px; a solid line only */
   sides?: { t: number; r: number; b: number; l: number };
+  /** A line bound to a color variable in an exported app: the CSS variable (`--m3e-v-<name>`) it is drawn in, `color`
+   *  standing in where that is not defined. */
+  cssVar?: string;
 };
 
 export type BlendMode =
@@ -165,6 +169,9 @@ export type LookText = {
   stroke?: { width: number; color: ColorRef };
   /** the letters painted with a gradient instead of one color */
   gradient?: PaintLayer;
+  /** Words bound to a color variable in an exported app: the CSS variable (`--m3e-v-<name>`) they are read in, `color`
+   *  standing in where that is not defined. */
+  cssVar?: string;
 };
 
 export type TextureKind = "noise" | "paper" | "dots" | "grid" | "stripes" | "diagonal" | "checker" | "carbon" | "scanlines" | "crosshatch" | "halftone";
@@ -219,6 +226,9 @@ export type ItemLook = {
   texture?: LookTexture;
   /** what reaches past the edge is cut off */
   clip?: boolean;
+  /** Numbers bound to a variable in an exported app: the CSS variable (`--m3e-v-<name>`) the opacity, the rotation and
+   *  the corner radius each read, their own value standing in where it is not defined. */
+  vars?: { opacity?: string; rotate?: string; radius?: string };
 };
 export const uniformRadii = (r: number): Radii => ({ tl: r, tr: r, bl: r, br: r });
 
@@ -757,24 +767,9 @@ export const SWIPE_DIRS: { key: SwipeDir; icon: string; transition: Transition }
   { key: "down", icon: "swipe_down", transition: "slideDown" },
 ];
 
-/** how a sliding transition moves: the axis, where the new screen enters from and
- *  where the old one parks, as fractions of the screen */
-export const SLIDE_SPEC: Partial<Record<Transition, { axis: "x" | "y"; enter: number; exit: number }>> = {
-  slide: { axis: "x", enter: 1, exit: -0.3 },
-  slideLeft: { axis: "x", enter: -1, exit: 0.3 },
-  slideUp: { axis: "y", enter: 1, exit: -0.3 },
-  slideDown: { axis: "y", enter: -1, exit: 0.3 },
-};
-
-export type Transition = "slide" | "slideLeft" | "slideUp" | "slideDown" | "fade" | "expand" | "none";
-
-/** The way a screen comes in, Figma's animations: at once, fading in, moving in over the one there, pushing it out, or
- *  sliding in while it parks; from a side, on an easing curve, for so long. The preview plays it; `transition` stays the
- *  nearest of the older kinds, for what reads only those (the exported app, older files). */
-export type Motion = { kind: "instant" | "dissolve" | "move" | "push" | "slide"; dir?: "left" | "right" | "up" | "down"; easing?: "out" | "in" | "inOut" | "linear" | "spring"; ms?: number };
-export const MOTION_KINDS = ["instant", "dissolve", "move", "push", "slide"] as const;
-export const MOTION_DIRS = ["left", "right", "up", "down"] as const;
-export const MOTION_EASINGS = ["out", "in", "inOut", "linear", "spring"] as const;
+/* The transitions and Figma's animations live in lib/screenMotion.ts, which has no imports so that an exported app can
+ * carry a copy of it and play the same moves the preview does. */
+export { MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, SLIDE_SPEC, type Motion, type Transition } from "./screenMotion";
 
 /** the older transition nearest to a motion: what reads only those plays it that way */
 export function transitionOf(m: Motion): Transition {

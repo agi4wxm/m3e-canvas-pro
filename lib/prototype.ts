@@ -4,7 +4,8 @@ import { MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, transitionOf, type Action, t
  * pointer coming over a part, time since its screen showed), what it does (go to a screen, lay one over the screen on
  * show, go back, scroll to a part, set variables through its effects) and how the next screen comes in (Figma's
  * animations, with a direction, an easing and a duration). Plain data and the reading of it: the preview plays it
- * (components/Preview.tsx), the panels and the canvas edit it. */
+ * (components/Preview.tsx), an exported app plays it the same way (lib/printBehaviour.ts writes the code, its moves are
+ * lib/screenMotion.ts), the panels and the canvas edit it. */
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const oneOf = <T extends string>(v: unknown, list: readonly T[]): T | undefined => (list.includes(v as T) ? (v as T) : undefined);
@@ -49,19 +50,5 @@ export const triggerOf = (a: Pick<Action, "trigger"> | undefined): Trigger | { o
 /** the screens a flow starts at, in the order the document lists them */
 export const flowStarts = (frames: Frame[]): Frame[] => frames.filter((f) => typeof f.flow === "string");
 
-/** an easing as the preview's animations take it: a cubic Bézier, or nothing for a spring */
-export const EASING_CURVE: Record<NonNullable<Motion["easing"]>, [number, number, number, number] | null> = {
-  out: [0, 0, 0.2, 1],
-  in: [0.4, 0, 1, 1],
-  inOut: [0.4, 0, 0.2, 1],
-  linear: [0, 0, 1, 1],
-  spring: null,
-};
-
-/** where a screen moving in from a side starts, as fractions of the screen along the axis */
-export const DIR_OFFSET: Record<NonNullable<Motion["dir"]>, { axis: "x" | "y"; from: number }> = {
-  left: { axis: "x", from: 1 },
-  right: { axis: "x", from: -1 },
-  up: { axis: "y", from: 1 },
-  down: { axis: "y", from: -1 },
-};
+/* how those animations play, the easing curves and the sides a screen comes in from, are shared with an exported app */
+export { DIR_OFFSET, EASING_CURVE } from "./screenMotion";

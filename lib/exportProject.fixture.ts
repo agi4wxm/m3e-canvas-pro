@@ -264,13 +264,17 @@ export function sweepDoc(): { doc: Doc; widths: Record<string, number>; pickers:
 }
 
 /** What the editor builds the way Figma does, in one document: a set of variants with an instance of each, a component's
- *  properties set on an instance, variables in a light and a dark mode bound to a fill and an opacity (one screen pinned
- *  to the dark mode, the rest following the app's own), a prototype with an overlay, a hover, a timed interaction and
- *  their animations, a flow, and a part with constraints in a box with no auto layout. */
+ *  properties set on an instance, variables in a light and a dark mode bound to a fill, an opacity, the words' color, a
+ *  stroke, a radius and a rotation (one screen pinned to the dark mode, the rest following the app's own, which a switch
+ *  drives), a tap that sets a color variable, a prototype with an overlay, a hover, a timed interaction, a push and a
+ *  part scrolled to, two flows (the first not on the first screen), and a part with constraints in a box with no auto
+ *  layout. What scripts/check-export.ts drives in a browser. */
 export function systemsDoc(): { doc: Doc; widths: Record<string, number> } {
   const HOME = "s-home";
   const DARK = "s-dark";
   const SHEET = "s-sheet";
+  const PUSHED = "s-pushed";
+  const LONG = "s-long";
   const x = (i: number) => i * (PHONE_W + FRAME_GAP);
   const plain = (id: string, gx: number, gy: number, item: Item, more: Partial<Group> = {}): Group => ({ id, x: gx, y: gy, axis: "x", items: [item], ...more });
   const variant = (id: string, state: string, label: string): ComponentDef => ({
@@ -296,15 +300,30 @@ export function systemsDoc(): { doc: Doc; widths: Record<string, number> } {
     plain("pin", x(0) + 156, 270, part("pin-p", "icon", { name: "star" }, { constraints: { h: "right", v: "center" } })),
     plain("open", x(0) + 16, 380, button("open-b", "Open sheet", { to: SHEET, transition: "slideUp", overlay: true, motion: { kind: "push", dir: "up", easing: "inOut", ms: 300 } })),
     plain("hover", x(0) + 16, 440, button("hover-b", "Hover me", { to: DARK, transition: "fade", trigger: { on: "hover" }, motion: { kind: "dissolve", ms: 200 } })),
+    plain("accent-words", x(0) + 16, 500, text("accent-t", "Accent words", { bind: { "@text": "v-accent" } })),
+    plain("accent-box", x(0) + 216, 500, part("accent-p", "box", { surface: "card", layout: "free", width: 120, height: 48 }, { look: { stroke: { width: 3, color: "#000000" } }, bind: { "@stroke": "v-accent", "@radius": "v-round", "@rotation": "v-tilt" } })),
+    plain("paint", x(0) + 16, 570, button("paint-b", "Paint red", stay([{ do: "setVar", var: "v-accent", value: "#c62828" }]))),
+    plain("night", x(0) + 16, 630, part("night-p", "switch", { label: "Night", checked: false }, { bind: { checked: "v-night" } })),
+    plain("push", x(0) + 16, 690, button("push-b", "Push on", { to: PUSHED, transition: "slide", motion: { kind: "push", dir: "left", easing: "linear", ms: 900 } })),
+    plain("to-long", x(0) + 16, 750, button("to-long-b", "To long", { to: LONG, transition: "none" })),
     tinted("tint-dark", x(1) + 16, 40),
     plain("dark-back", x(1) + 16, 160, button("dark-back-b", "Back", { to: "back", transition: "slide" })),
     plain("sheet-t", x(2) + 16, 40, text("sheet-tt", "A sheet"), {}),
     plain("sheet-later", x(2) + 16, 100, button("sheet-later-b", "Closes itself", { to: "back", transition: "none", trigger: { on: "delay", ms: 1500 } })),
+    plain("pushed-t", x(3) + 16, 40, text("pushed-tt", "Pushed here")),
+    plain("pushed-back", x(3) + 16, 100, button("pushed-back-b", "Back again", { to: "back", transition: "slide" })),
+    plain("scroll", x(4) + 16, 40, button("scroll-b", "Scroll down", { to: "none", transition: "none", scrollTo: "bottom-t" })),
+    plain("bottom", x(4) + 16, 1700, text("bottom-t", "Bottom line")),
+    plain("intro-t", x(5) + 16, 40, text("intro-tt", "Intro screen")),
   ];
   const frames: Frame[] = [
+    /* the first screen starts no flow: the app starts where the first flow does */
+    { id: "s-intro", name: "Intro", x: x(5), y: 0 },
     { id: HOME, name: "Home", x: x(0), y: 0, flow: "Main" },
     { id: DARK, name: "Dark", x: x(1), y: 0, varModes: { theme: "dark" } },
     { id: SHEET, name: "Sheet", x: x(2), y: 0, w: 320, h: 240 },
+    { id: PUSHED, name: "Pushed", x: x(3), y: 0 },
+    { id: LONG, name: "Long", x: x(4), y: 0, length: 2000, flow: "Reading" },
   ];
   const doc: Doc = {
     groups,
@@ -314,7 +333,11 @@ export function systemsDoc(): { doc: Doc; widths: Record<string, number> } {
     vars: [
       { id: "v-brand", name: "brand", type: "color", value: "#ffd8e4", collection: "theme", modes: { dark: "#4a2532" } },
       { id: "v-fade", name: "fade", type: "number", value: 100, collection: "theme", modes: { dark: 70 } },
+      { id: "v-accent", name: "accent", type: "color", value: "#1565c0", collection: "theme", modes: { dark: "#90caf9" } },
+      { id: "v-round", name: "round", type: "number", value: 8, collection: "theme", modes: { dark: 24 } },
+      { id: "v-tilt", name: "tilt", type: "number", value: 0, collection: "theme", modes: { dark: 6 } },
       { id: "v-count", name: "count", type: "number", value: 0 },
+      { id: "v-night", name: "night", type: "bool", value: false, drives: "dark" },
     ],
     varCollections: [{ id: "theme", name: "Theme", modes: [{ id: "light", name: "Light" }, { id: "dark", name: "Dark" }], dark: "dark" }],
     paletteKey: "purple",
