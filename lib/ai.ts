@@ -5,6 +5,9 @@ import { buildPrompt } from "./prompt";
 import { cleanBehavior, isProject } from "./project";
 import { lookForModel } from "./look";
 import { Lang } from "./i18n";
+import { AiHttpError, isLocalUrl as isLocal, isSecureUrl, readError } from "./llm/errors";
+
+export { AiHttpError, isSecureUrl, readError };
 
 /* Optional AI helpers. The browser talks to the model provider directly with the
  * author's own key; there is no server in between. Every action has a fixed
@@ -23,7 +26,15 @@ export type AiSettings = {
   imageBaseUrl?: string;
   imageModel?: string;
   imageKey?: string;
+  /** how hard the text model thinks in the agent and the drafts; medium when left out */
+  effort?: Effort;
 };
+
+export type Effort = "low" | "medium" | "high";
+export const EFFORTS: Effort[] = ["low", "medium", "high"];
+
+/** one question and its answer: `complete`, or the same streamed (lib/agent/complete.ts) */
+export type Complete = (s: AiSettings, system: string, user: string, signal?: AbortSignal, maxTokens?: number) => Promise<string>;
 
 export type ImageProvider = "openai" | "gemini";
 
@@ -35,7 +46,7 @@ export const IMAGE_PROVIDERS: { key: ImageProvider; label: string; baseUrl: stri
 export const imageSpec = (k: ImageProvider | undefined) => IMAGE_PROVIDERS.find((p) => p.key === k) ?? IMAGE_PROVIDERS[0];
 
 export const PROVIDERS: { key: Provider; label: string; baseUrl: string; model: string; keysUrl?: string }[] = [
-  { key: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-5.6-luna", keysUrl: "https://platform.openai.com/api-keys" },
+  { key: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-6.1-sol", keysUrl: "https://platform.openai.com/api-keys" },
   { key: "claude", label: "Claude", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5-5", keysUrl: "https://console.anthropic.com/settings/keys" },
   { key: "gemini", label: "Gemini", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-3.8-flash", keysUrl: "https://aistudio.google.com/apikey" },
   { key: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-v4-flash", keysUrl: "https://platform.deepseek.com/api_keys" },
@@ -61,6 +72,7 @@ export function loadAiSettings(): AiSettings {
       if (typeof v.imageBaseUrl === "string") s.imageBaseUrl = v.imageBaseUrl;
       if (typeof v.imageModel === "string") s.imageModel = v.imageModel;
       if (typeof v.imageKey === "string") s.imageKey = v.imageKey;
+      if (EFFORTS.includes(v.effort as Effort)) s.effort = v.effort;
     }
   } catch {}
   return s;
@@ -73,28 +85,10 @@ export function saveAiSettings(s: AiSettings) {
   } catch {}
 }
 
-const isLocal = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(u.trim());
-
 /** a hosted endpoint needs a key; a server on this machine may run without one */
 export const hasKey = (s: AiSettings) => s.key.trim().length > 0 || isLocal(s.baseUrl);
 
-/** the key must not travel over plain http, except to this machine */
-export const isSecureUrl = (u: string) => /^https:\/\//i.test(u.trim()) || isLocal(u);
-
 const trimSlash = (u: string) => u.trim().replace(/\/+$/, "");
-
-async function readError(res: Response): Promise<string> {
-  let detail = "";
-  try {
-    const j = await res.json();
-    detail = j?.error?.message ?? j?.message ?? JSON.stringify(j);
-  } catch {
-    try {
-      detail = await res.text();
-    } catch {}
-  }
-  return `${res.status} ${res.statusText}${detail ? `: ${detail.slice(0, 300)}` : ""}`;
-}
 
 /** one round trip: a system prompt and a user message in, the model's text out */
 export async function complete(s: AiSettings, system: string, user: string, signal?: AbortSignal, maxTokens = 4096): Promise<string> {
@@ -117,7 +111,7 @@ export async function complete(s: AiSettings, system: string, user: string, sign
       },
       body: JSON.stringify({ model, max_tokens: Math.min(maxTokens, 16000), system, messages: [{ role: "user", content: user }], ...(fallback ? { fallbacks: "default" } : {}) }),
     });
-    if (!res.ok) throw new Error(await readError(res));
+    if (!res.ok) throw await readError(res);
     const j = await res.json();
     if (j.stop_reason === "refusal") throw new Error("refusal");
     if (j.stop_reason === "max_tokens") throw new Error("long");
@@ -143,7 +137,7 @@ export async function complete(s: AiSettings, system: string, user: string, sign
       ],
     }),
   });
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) throw await readError(res);
   const j = await res.json();
   if (j.choices?.[0]?.finish_reason === "length") throw new Error("long");
   const c = j.choices?.[0]?.message?.content;
@@ -182,7 +176,7 @@ export async function generateImage(s: AiSettings, prompt: string, box: { w: num
     /* OpenAI's models always answer in base64 and refuse the old switch; Gemini needs it. A JPEG at medium quality keeps a scene small. */
     body: JSON.stringify({ model, prompt, n: 1, size, ...(s.imageProvider === "gemini" ? { response_format: "b64_json" } : moving ? { quality: "medium", output_format: "gif", frame_count: moving.frames, frame_duration_ms: moving.ms } : { quality: "medium", output_format: "jpeg" }) }),
   });
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) throw await readError(res);
   const first = (await res.json())?.data?.[0];
   if (typeof first?.b64_json === "string" && first.b64_json) return `data:${mimeOf(first.b64_json)};base64,${first.b64_json}`;
   if (typeof first?.url === "string" && /^https:\/\//i.test(first.url)) return first.url;
@@ -244,7 +238,13 @@ function parseJsonObject(text: string): Record<string, unknown> {
   const a = cleaned.indexOf("{");
   const b = cleaned.lastIndexOf("}");
   if (a < 0 || b <= a) throw new Error("json");
-  const v = JSON.parse(cleaned.slice(a, b + 1));
+  let v: unknown;
+  /* a reply cut off inside the object, or one that is not JSON at all, is a reply that could not be read */
+  try {
+    v = JSON.parse(cleaned.slice(a, b + 1));
+  } catch {
+    throw new Error("json");
+  }
   if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("json");
   return v as Record<string, unknown>;
 }
@@ -346,7 +346,7 @@ export function popHistory<V extends string, H extends string>(current: string |
 /** A whole design from an idea, drafted by the author's own model. `guide` is the same
  *  agent guide a coding agent reads (public/agent.md), so both paths follow one spec.
  *  The answer is the document itself; a link would be pointless here. */
-export async function draftDesign(s: AiSettings, guide: string, idea: string, lang: Lang, signal?: AbortSignal, rules?: string): Promise<Doc> {
+export async function draftDesign(s: AiSettings, guide: string, idea: string, lang: Lang, signal?: AbortSignal, rules?: string, ask: Complete = complete): Promise<Doc> {
   const system = [
     "You draft M3E Canvas designs. Follow the guide below exactly.",
     "Reply with the JSON document only: no share link, no prose, no markdown fence, no explanation.",
@@ -354,8 +354,9 @@ export async function draftDesign(s: AiSettings, guide: string, idea: string, la
     guide,
   ].join("\n");
   /* a document held to a style is told its rules, which leave looks to the style; any other may be given effects */
-  const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple.", "", rules || lookForModel()].join("\n");
-  const j = parseJsonObject(await complete(s, system, user, signal, 12000));
+  const free = `${lookForModel()}\nThis canvas is not held to a style's rules: if you name a \`theme.style\`, also write \`"strict": false\` in \`theme\`, and these looks stay.`;
+  const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple.", "", rules || free].join("\n");
+  const j = parseJsonObject(await ask(s, system, user, signal, 16000));
   if (!isProject(j)) throw new Error("json");
   return readableOnScenes(scenesFirst(withoutSampleWords(cleanBehavior(j))));
 }

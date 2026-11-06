@@ -3,6 +3,7 @@ import { familyGlyph, setIconFamily, type IconFamily } from "@/components/m3e/ic
 import core from "@/components/m3e/icon-data";
 import { isKnownIcon, registerIcons } from "@/components/m3e/icon-registry";
 import { loadIcons } from "@/components/m3e/icon-sets/load";
+import type { IconifyJSON } from "@iconify/react/offline";
 import { isNode, isRaw, type PNode, type PValue } from "./node";
 
 /* The M3E components draw icons from bundled data. A sketch may use any Material Symbol, so the ones the
@@ -25,10 +26,56 @@ const asked = new Set<string>();
 /** names asked of Iconify */
 const fetched = new Set<string>();
 
+/* ---------- the document's own icons ---------- */
+
+/* A part names one of the document's own icons `svg:<id>` (lib/docIcons.ts); they are registered with the document
+ * (src/editor/docIcons.ts turns its drawings into an Iconify collection), never fetched. Kept apart from lib/docIcons
+ * here: this file goes into exported projects, which register theirs from src/doc-icons.ts. */
+const DOC_ICON_PREFIX = "svg:";
+
+/** the drawings registered for the document's own icons, by id, as they were kept: what tells one that changed */
+let docDrawn: Readonly<Record<string, string>> = {};
+const docListeners = new Set<() => void>();
+
+/** The document's own icons, drawn from now on: `set` holds those that are new or changed as Iconify icons, and
+ *  every tree that names one whose drawing changed is drawn again. */
+export function registerDocIcons(drawings: Readonly<Record<string, string>>, set: IconifyJSON | null) {
+  const changedSome = Object.keys(set?.icons ?? {}).length > 0 || Object.keys(docDrawn).some((id) => !(id in drawings));
+  docDrawn = drawings;
+  if (set && Object.keys(set.icons).length) registerIcons(set);
+  if (changedSome) {
+    changed();
+    docListeners.forEach((l) => l());
+  }
+}
+
+/** the document's own icons as they are drawn now, id → drawing */
+export const docIcons = (): Readonly<Record<string, string>> => docDrawn;
+
+/** the document's own icons, kept up to date (the icon picker lists them) */
+export function useDocIcons(): Readonly<Record<string, string>> {
+  return useSyncExternalStore(
+    (l) => {
+      docListeners.add(l);
+      return () => docListeners.delete(l);
+    },
+    docIcons,
+    docIcons,
+  );
+}
+
+const isDoc = (name: string) => name.startsWith(DOC_ICON_PREFIX);
+
 const base = (name: string) => name.replaceAll("_", "-");
 const rounded = (name: string) => [`material-symbols:${base(name)}-outline-rounded`, `material-symbols:${base(name)}-rounded`];
 /** the glyphs a name is drawn with now, outlined and filled: the family's once they are here, else Rounded's once they are, else none */
-const drawnWith = (name: string) => [false, true].map((filled) => familyGlyph(name, filled) ?? (isKnownIcon(rounded(name)[filled ? 1 : 0]) ? "r" : "")).join("|");
+const drawnWith = (name: string) => (isDoc(name) ? `doc:${hashOf(docDrawn[name.slice(DOC_ICON_PREFIX.length)] ?? "")}` : [false, true].map((filled) => familyGlyph(name, filled) ?? (isKnownIcon(rounded(name)[filled ? 1 : 0]) ? "r" : "")).join("|"));
+/** a short hash of a drawing, so a tree draws again when one of its document icons is drawn anew */
+function hashOf(s: string) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
 
 /* the names the components draw inside themselves (a dialog's close button, a menu's chevron): they are in
  * no part's tree, and a family brings its drawing of them too */
@@ -68,7 +115,8 @@ async function flush() {
 export function ensureIcons(names: Iterable<string>) {
   if (typeof window === "undefined") return;
   for (const name of names) {
-    if (!name) continue;
+    /* the document's own are registered with the document, never fetched */
+    if (!name || isDoc(name)) continue;
     named.add(name);
     const key = `${family}:${base(name)}`;
     if (asked.has(key)) continue;

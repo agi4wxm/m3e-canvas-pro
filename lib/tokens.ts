@@ -4,7 +4,8 @@ import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
-import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type Recipes, type StyleUX } from "./styles";
+import type { Motion, Transition } from "./screenMotion";
+import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleUX } from "./styles";
 
 /* ---------- geometry ---------- */
 export const GAP = 3; // spacing between the parts of one group
@@ -61,7 +62,19 @@ export const unionRect = (rects: Rect[]): Rect => ({
 
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-export const uid = () => Math.random().toString(36).slice(2, 10);
+/** where new ids come from while an operation of the document core runs with ids of its own (lib/core); random otherwise */
+let idSource: (() => string) | null = null;
+export const uid = () => (idSource ? idSource() : Math.random().toString(36).slice(2, 10));
+/** runs `fn` with every new id taken from `next`, so that what it makes is the same each time it runs */
+export function withIds<T>(next: () => string, fn: () => T): T {
+  const was = idSource;
+  idSource = next;
+  try {
+    return fn();
+  } finally {
+    idSource = was;
+  }
+}
 
 export type Radii = { tl: number; tr: number; bl: number; br: number };
 
@@ -89,6 +102,9 @@ export type PaintLayer = {
   circle?: boolean;
   /** switched off, and kept */
   hidden?: boolean;
+  /** A solid layer bound to a color variable in an exported app: the CSS variable (`--m3e-v-<name>`) it is painted with,
+   *  `color` standing in where that is not defined. */
+  cssVar?: string;
 };
 
 /** a shadow cast by the box, or inside it; on words, `spread` and `inset` mean nothing */
@@ -104,6 +120,9 @@ export type LookStroke = {
   position?: "inside" | "center" | "outside";
   /** each side on its own, px; a solid line only */
   sides?: { t: number; r: number; b: number; l: number };
+  /** A line bound to a color variable in an exported app: the CSS variable (`--m3e-v-<name>`) it is drawn in, `color`
+   *  standing in where that is not defined. */
+  cssVar?: string;
 };
 
 export type BlendMode =
@@ -150,6 +169,9 @@ export type LookText = {
   stroke?: { width: number; color: ColorRef };
   /** the letters painted with a gradient instead of one color */
   gradient?: PaintLayer;
+  /** Words bound to a color variable in an exported app: the CSS variable (`--m3e-v-<name>`) they are read in, `color`
+   *  standing in where that is not defined. */
+  cssVar?: string;
 };
 
 export type TextureKind = "noise" | "paper" | "dots" | "grid" | "stripes" | "diagonal" | "checker" | "carbon" | "scanlines" | "crosshatch" | "halftone";
@@ -204,6 +226,9 @@ export type ItemLook = {
   texture?: LookTexture;
   /** what reaches past the edge is cut off */
   clip?: boolean;
+  /** Numbers bound to a variable in an exported app: the CSS variable (`--m3e-v-<name>`) the opacity, the rotation and
+   *  the corner radius each read, their own value standing in where it is not defined. */
+  vars?: { opacity?: string; rotate?: string; radius?: string };
 };
 export const uniformRadii = (r: number): Radii => ({ tl: r, tr: r, bl: r, br: r });
 
@@ -446,7 +471,8 @@ export type Theme = {
   /** headings and labels take the heavier M3 Expressive "emphasized" styles */
   emphasized: boolean;
   motion: MotionScheme;
-  /** the style the document wears (lib/styles/); left out, it is plain Material */
+  /** the style the document wears (lib/styles/): a built-in pack's key, or a `custom:` key of one of `Doc.styles`;
+   *  left out, it is plain Material */
   style?: string;
   /** the author picked colors after the style: the palette is theirs, the rest stays the style's */
   ownColors?: boolean;
@@ -683,6 +709,10 @@ export type Item = {
   flowMax?: { w?: number; h?: number };
   /** in a grid, how many columns it takes */
   flowSpan?: number;
+  /** In a box with no auto layout, what it keeps when the box changes size (lib/constraints.ts): its distance to the
+   *  left or right edge, both (it stretches), its place at the centre, or its share of the box (it scales); the same
+   *  on the vertical. Left and top when left out. */
+  constraints?: { h?: "left" | "right" | "stretch" | "center" | "scale"; v?: "top" | "bottom" | "stretch" | "center" | "scale" };
   /** tap navigation to another frame */
   action?: Action;
   /** per-slot tap navigation, by the keys its `PartDef.slots` names */
@@ -737,26 +767,53 @@ export const SWIPE_DIRS: { key: SwipeDir; icon: string; transition: Transition }
   { key: "down", icon: "swipe_down", transition: "slideDown" },
 ];
 
-/** how a sliding transition moves: the axis, where the new screen enters from and
- *  where the old one parks, as fractions of the screen */
-export const SLIDE_SPEC: Partial<Record<Transition, { axis: "x" | "y"; enter: number; exit: number }>> = {
-  slide: { axis: "x", enter: 1, exit: -0.3 },
-  slideLeft: { axis: "x", enter: -1, exit: 0.3 },
-  slideUp: { axis: "y", enter: 1, exit: -0.3 },
-  slideDown: { axis: "y", enter: -1, exit: 0.3 },
-};
+/* The transitions and Figma's animations live in lib/screenMotion.ts, which has no imports so that an exported app can
+ * carry a copy of it and play the same moves the preview does. */
+export { MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, SLIDE_SPEC, type Motion, type Transition } from "./screenMotion";
 
-export type Transition = "slide" | "slideLeft" | "slideUp" | "slideDown" | "fade" | "expand" | "none";
+/** the older transition nearest to a motion: what reads only those plays it that way */
+export function transitionOf(m: Motion): Transition {
+  if (m.kind === "instant") return "none";
+  if (m.kind === "dissolve") return "fade";
+  return m.dir === "right" ? "slideLeft" : m.dir === "up" ? "slideUp" : m.dir === "down" ? "slideDown" : "slide";
+}
+
+/** what starts an interaction other than a tap: the pointer coming over the part, or time since its screen showed */
+export type Trigger = { on: "hover" } | { on: "delay"; ms: number };
+
 /** what a tap does once it has been decided to do it: its effects in order, then where it goes */
-export type ActionBody = { to: string; transition: Transition; /** the address a `LINK_TARGET` action opens */ url?: string; effects?: Effect[] };
+export type ActionBody = {
+  to: string;
+  transition: Transition;
+  /** the address a `LINK_TARGET` action opens */
+  url?: string;
+  effects?: Effect[];
+  /** the screen it goes to is laid over the one on show instead of taking its place; going back closes it */
+  overlay?: boolean;
+  /** a part (item id) the body of the screen on show scrolls to */
+  scrollTo?: string;
+  /** how the screen comes in, over `transition` where both are given */
+  motion?: Motion;
+};
 /** A tap. Without `when` it always runs; with one it runs when that holds, and `else` runs when it
- *  does not. Printed code reads this too, so it stays plain data. */
-export type Action = ActionBody & { when?: Condition; else?: ActionBody };
+ *  does not. `trigger` starts it on something other than a tap. Printed code reads this too, so it stays plain data. */
+export type Action = ActionBody & { when?: Condition; else?: ActionBody; trigger?: Trigger };
 
 /** what a variable can hold */
 export type VarValue = string | number | boolean;
-export type VarType = "text" | "number" | "bool";
-export type DocVar = { id: string; name: string; type: VarType; value: VarValue };
+export type VarType = "text" | "number" | "bool" | "color";
+/** `drives: "dark"` makes a bool variable the app's light/dark mode: true is dark. The preview and the exported app
+ *  start it at the mode they open in, and setting or toggling it (an effect, a bound switch) switches the theme.
+ *  A color variable holds a color reference (a role or a hex, as `ColorRef`). `value` is its value in the first mode
+ *  of its collection, `modes` what it is in the others (lib/variables.ts). */
+export type DocVar = { id: string; name: string; type: VarType; value: VarValue; drives?: "dark"; collection?: string; modes?: Record<string, VarValue> };
+
+/** A collection of variables and the modes they have values in (light and dark, compact and roomy). `dark` is the mode
+ *  shown while the app is in dark mode, when no screen or document chose one. */
+export type VarCollection = { id: string; name: string; modes: { id: string; name: string }[]; dark?: string };
+
+/** the variable that is the app's dark mode, if one is */
+export const darkVarOf = (vars: DocVar[] | undefined): DocVar | undefined => (Array.isArray(vars) ? vars.find((v) => v.drives === "dark" && v.type === "bool") : undefined);
 
 /** a test on the preview's state: a variable against a value, or a form field (by item id) that has something in it */
 export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string };
@@ -952,6 +1009,10 @@ export type Frame = {
   backgroundImage?: string;
   /** how much of that picture shows, 0 to 1 */
   backgroundOpacity?: number;
+  /** the mode this screen shows of each variable collection, over the document's choice */
+  varModes?: Record<string, string>;
+  /** a flow starts here, under this name: the preview offers it */
+  flow?: string;
 };
 
 /** how much of `backgroundImage` shows when the author has said nothing */
@@ -1144,8 +1205,19 @@ export function heldBy(container: Group, groups: Group[], widths: Record<string,
    * on one another until they are placed, and one must not take the next along */
   const scopeOf = (id: string) => id.slice(0, Math.max(0, id.lastIndexOf("/")));
   const held = new Set(groups.filter((g, i) => g.id !== container.id && !g.locked && (g.inFlow === container.id || ownerIdOf(g.id) === container.id || (i > at && scopeOf(g.id) === scopeOf(container.id) && liesInside(g, outer, widths)))));
-  /* what a layout or an expansion holds is its own even where it overflows, at any depth */
-  for (const g of held) for (const o of groups) if ((o.inFlow === g.id || ownerIdOf(o.id) === g.id) && !o.locked) held.add(o);
+  /* what a layout or an expansion holds is its own even where it overflows, at any depth. Who holds whom is read once,
+     so a deep nest costs its size and not its size squared */
+  const kids = new Map<string, Group[]>();
+  for (const o of groups) {
+    if (o.locked) continue;
+    for (const p of new Set([o.inFlow, ownerIdOf(o.id)])) {
+      if (!p) continue;
+      const list = kids.get(p);
+      if (list) list.push(o);
+      else kids.set(p, [o]);
+    }
+  }
+  for (const g of held) for (const o of kids.get(g.id) ?? []) held.add(o);
   return groups.filter((g) => held.has(g));
 }
 
@@ -1174,10 +1246,16 @@ export function explodeGroup(g: Group, widths: Record<string, number>): Group[] 
 export function frameOfPart(g: Group, groups: Group[], frames: Frame[], widths: Record<string, number>): Frame | undefined {
   let at = g;
   const seen = new Set([g.id]);
+  /* a few steps up are looked for one by one; a deep nest is indexed, so its cost is its size, not its size squared */
+  let byId: Map<string, Group> | null = null;
   for (;;) {
     const next = at.inFlow ?? ownerIdOf(at.id);
     if (!next) break;
-    const host = groups.find((x) => x.id === next);
+    if (!byId && seen.size > 8) {
+      byId = new Map();
+      for (const x of groups) if (!byId.has(x.id)) byId.set(x.id, x);
+    }
+    const host = byId ? byId.get(next) : groups.find((x) => x.id === next);
     if (!host || seen.has(host.id)) break;
     seen.add(host.id);
     at = host;
@@ -1238,6 +1316,8 @@ export type Group = {
   instanceOf?: string;
   /** what this instance changes of its definition, by `itemId/propKey` */
   overrides?: Record<string, VarValue>;
+  /** the values this instance gives its component's properties (`ComponentDef.props`), by property id */
+  properties?: Record<string, VarValue>;
   /** on a layout container: its first child is drawn once per row of a collection (lib/collections.ts) */
   repeat?: { collection: string; limit?: number };
   /** The outermost box of a kit: which kit it was added as, so that a change of style can compose it again
@@ -1263,7 +1343,30 @@ export type KitMark = {
 };
 
 /** a reusable component: its parts, placed relative to its own top left, and how big they come to */
-export type ComponentDef ={ id: string; name: string; groups: Group[]; w: number; h: number };
+export type ComponentDef = {
+  id: string;
+  name: string;
+  groups: Group[];
+  w: number;
+  h: number;
+  /** the component set this is one variant of (`Doc.componentSets`) */
+  set?: string;
+  /** as a variant: the value it has for each of its set's variant properties, by property name */
+  variant?: Record<string, string>;
+  /** what an instance may set of it, in the panel and through the tools (Figma's component properties) */
+  props?: ComponentProp[];
+};
+
+/** Several components that are variants of one thing (a button's state and size): the properties they vary by and
+ *  the values each takes. Every variant is a whole definition of its own, with its own parts; they share item ids
+ *  where they were copied from one another, so what an instance overrides follows it from one variant to the next. */
+export type ComponentSet = { id: string; name: string; props: { name: string; values: string[] }[] };
+
+/** One property of a component that an instance sets: words shown by some of its parts (`text`, each target an
+ *  override key `itemId/propKey`), whether some of its layers show (`bool`, each target a group id of the definition),
+ *  or which component a nested instance is (`swap`, each target the id of a nested instance's group). `value` is what
+ *  an instance shows until it says otherwise: the words, on or off, a component id. */
+export type ComponentProp = { id: string; name: string; type: "text" | "bool" | "swap"; value: VarValue; targets: string[] };
 
 /** rows of data a layout can repeat its first child over */
 export type Collection = { id: string; name: string; fields: string[]; rows: string[][] };
@@ -1289,10 +1392,21 @@ export type Doc = {
   theme?: Theme;
   /** the prototype's state, live during the preview only; `value` is what each starts at */
   vars?: DocVar[];
+  /** the collections variables are grouped in, with their modes; a variable that names none is in the default one */
+  varCollections?: VarCollection[];
+  /** the mode the document shows of each collection, by collection id; a screen may choose its own */
+  varModes?: Record<string, string>;
   /** reusable components; `Group.instanceOf` names one */
   components?: ComponentDef[];
+  /** components grouped as variants of one another (`ComponentDef.set` names one) */
+  componentSets?: ComponentSet[];
   /** the data repeated layouts draw from; `Group.repeat` names one */
   collections?: Collection[];
+  /** styles of the document's own (lib/styles/custom.ts): `theme.style` may name one by its `custom:` key */
+  styles?: CustomStyle[];
+  /** icons of the document's own (lib/docIcons.ts): id → sanitized SVG markup, named `svg:<id>` wherever a part takes
+   *  an icon name */
+  icons?: Record<string, string>;
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));

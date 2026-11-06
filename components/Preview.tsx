@@ -2,10 +2,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Item } from "@/lib/tokens";
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, useIsPresent } from "motion/react";
-import type { TargetAndTransition, Variants } from "motion/react";
+import type { Variants } from "motion/react";
 import {
   Action,
   ActionBody,
+  Motion,
   BACK_TARGET,
   LINK_TARGET,
   STAY_TARGET,
@@ -45,86 +46,32 @@ import { PartView } from "./PartView";
 import { partBySlug, reader } from "@/parts/registry";
 import { PartThemeContext, usePartTheme } from "@/parts/theme";
 import { roleOf } from "@/parts/role";
-import { actionSlotsOf } from "@/lib/tokens";
+import { actionSlotsOf, darkVarOf } from "@/lib/tokens";
 import { screenBackground } from "@/lib/styles";
 import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
-import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, startState, writeField } from "@/lib/interact";
+import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, screenVars, startState, writeField } from "@/lib/interact";
+import { BoundValues } from "./boundValues";
 import { PRESETS, variantFor } from "@/lib/variants";
+import { flowStarts } from "@/lib/prototype";
+import { EASE, SLIDE_S as SLIDE_MS, screenPoses, type ScreenMove } from "@/lib/screenMotion";
 
-const EASE = [0.2, 0, 0, 1] as const;
-const SLIDE_MS = 0.42;
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
 const WIDE_CONTROL_SPACE = 220;
 /** the strip the controls take along the bottom of a phone */
 const PHONE_BAR_H = 56;
 
-type Anim = { t: Transition; back: boolean; /** the expressive motion scheme: springs instead of eased tweens */ spring?: boolean };
-
-/** M3 Expressive spatial spring, with a visible overshoot */
-const SPRING = { type: "spring" as const, stiffness: 360, damping: 26, mass: 1 };
 /** how the current screen was reached, so "back" can play it in reverse */
-type Entry = { id: string; t: Transition };
+type Entry = { id: string; t: Transition; m?: Motion };
 
 const pct = (v: number) => `${v * 100}%`;
 
-/** offset along one axis, as a percentage of the screen */
-const off = (axis: "x" | "y", v: number) => (axis === "x" ? { x: pct(v), y: 0 } : { x: 0, y: pct(v) });
-
-type Pose = TargetAndTransition;
-
-/** enter / leave poses for one screen change; the same spec drives forward and back */
-function poses(c: Anim): { initial: Pose; animate: Pose; exit: Pose } {
-  const zi = { zIndex: { duration: 0 } };
-  const s = SLIDE_SPEC[c.t];
-  if (s) {
-    const tr = c.spring ? { ...SPRING, ...zi } : { duration: SLIDE_MS, ease: EASE, ...zi };
-    return c.back
-      ? {
-          initial: { ...off(s.axis, s.exit), opacity: 0.6, scale: 1, zIndex: 1 },
-          animate: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 1, transition: tr },
-          exit: { ...off(s.axis, s.enter), opacity: 1, scale: 1, zIndex: 2, transition: tr },
-        }
-      : {
-          initial: { ...off(s.axis, s.enter), opacity: 1, scale: 1, zIndex: 2 },
-          animate: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 2, transition: tr },
-          exit: { ...off(s.axis, s.exit), opacity: 0.6, scale: 1, zIndex: 1, transition: tr },
-        };
-  }
-  if (c.t === "fade") {
-    const tr = { duration: 0.3, ease: EASE, ...zi };
-    return {
-      initial: { x: 0, y: 0, opacity: 0, scale: 1, zIndex: 2 },
-      animate: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 2, transition: tr },
-      exit: { x: 0, y: 0, opacity: 0, scale: 1, zIndex: 1, transition: tr },
-    };
-  }
-  if (c.t === "expand") {
-    const tr = c.spring ? { ...SPRING, ...zi } : { duration: 0.36, ease: EASE, ...zi };
-    return c.back
-      ? {
-          initial: { x: 0, y: 0, scale: 0.92, opacity: 0, zIndex: 1 },
-          animate: { x: 0, y: 0, scale: 1, opacity: 1, zIndex: 1, transition: tr },
-          exit: { x: 0, y: 0, scale: 1.06, opacity: 0, zIndex: 2, transition: tr },
-        }
-      : {
-          initial: { x: 0, y: 0, scale: 0.92, opacity: 0, zIndex: 2 },
-          animate: { x: 0, y: 0, scale: 1, opacity: 1, zIndex: 2, transition: tr },
-          exit: { x: 0, y: 0, scale: 1.06, opacity: 0, zIndex: 1, transition: tr },
-        };
-  }
-  const tr = { duration: 0, ...zi };
-  return {
-    initial: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 2 },
-    animate: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 2, transition: tr },
-    exit: { x: 0, y: 0, opacity: 1, scale: 1, zIndex: 1, transition: tr },
-  };
-}
-
+/* Each change of screen plays the poses an exported app plays too (lib/screenMotion.ts): Figma's animation where the
+ * action has one, else its older transition, backwards for going back. */
 const screenVariants: Variants = {
-  initial: (c: Anim) => poses(c).initial,
-  animate: (c: Anim) => poses(c).animate,
-  exit: (c: Anim) => poses(c).exit,
+  initial: (c: ScreenMove) => screenPoses(c).initial,
+  animate: (c: ScreenMove) => screenPoses(c).animate,
+  exit: (c: ScreenMove) => screenPoses(c).exit,
 };
 
 /* the destination bars: a tap on their destination is shared with the bar of the same entries on
@@ -166,7 +113,7 @@ function readInput(root: HTMLElement, it: Item): VarValue | undefined {
  *  on a place the part marked `data-tap` (a destination, a menu item) it fires that slot's
  *  action; anywhere else it is the part's own tap. An input says what it now holds, a button
  *  inside an overlay that dismisses it closes it. */
-function LivePart({ item, widths, screen, onTap, onSlot, easeWidth, onField, onClose, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; easeWidth?: boolean; onField?: (value: VarValue) => void; onClose?: () => void; held?: boolean }) {
+function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onClose, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: VarValue) => void; onClose?: () => void; held?: boolean }) {
   const size = sizeOf(item, widths);
   const input = !!INPUT_PROP[item.component ?? ""];
   const click = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -226,6 +173,7 @@ function LivePart({ item, widths, screen, onTap, onSlot, easeWidth, onField, onC
       data-live-part
       data-part={item.id}
       onClick={onTap || onSlot || onClose ? click : undefined}
+      onPointerEnter={onHover ? () => onHover() : undefined}
       /* a tap on the whole part is a button for the keyboard too; what is focusable inside it answers for itself, its click reaching `click` */
       role={onTap ? "button" : undefined}
       tabIndex={onTap ? 0 : undefined}
@@ -258,10 +206,13 @@ function Screen({
   onField,
   onCloseOverlay,
   onScrim,
+  bound,
 }: {
   active?: boolean;
   frame: Frame;
   groups: Group[];
+  /** the variables as this screen shows them, for the design fields parts bind to them */
+  bound: Record<string, VarValue> | null;
   widths: Record<string, number>;
   p: Palette;
   /** the theme in the mode this preview shows, for what the style draws behind a screen */
@@ -323,6 +274,20 @@ function Screen({
     fabScrollTop.current = top;
     if (hasFoldingFab && down !== 0) setFabFolded(down > 0);
   };
+  /* what starts after a delay starts once, when the screen comes on show; the parts and the handler are read as they are
+     then, so a change of state does not start them again */
+  const timed = useRef({ groups, onAction });
+  timed.current = { groups, onAction };
+  useEffect(() => {
+    if (!interactive) return;
+    const timers = timed.current.groups.flatMap((g) =>
+      g.items.flatMap((it) => {
+        const a = it.action;
+        return a?.trigger?.on === "delay" ? [window.setTimeout(() => timed.current.onAction(a, it.row), a.trigger.ms)] : [];
+      }),
+    );
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [interactive]);
   /* The editor behind the preview is inert while it is up, so focus has nowhere else to
    * go: a screen that becomes the one on show takes it when nothing inside the preview
    * holds it. */
@@ -356,6 +321,8 @@ function Screen({
   return (
     <div
       ref={screenRef}
+      data-preview-screen={frame.id}
+      data-preview-active={interactive ? "" : undefined}
       inert={!interactive}
       aria-hidden={!interactive || undefined}
       role="group"
@@ -364,6 +331,7 @@ function Screen({
       style={{ position: "absolute", inset: 0, background: screenBackground(p[frame.bg ?? "surface"], styled), overflow: "hidden", outline: "none" }}
     >
       {openGroups.length > 0 && <div data-preview-scrim aria-hidden onClick={onScrim} style={{ position: "absolute", inset: 0, zIndex: 1, background: dims ? "rgba(0,0,0,0.32)" : "transparent" }} />}
+      <BoundValues.Provider value={bound}>
       {inBody(groups.map((g) => (
         <div
           key={g.id}
@@ -393,7 +361,10 @@ function Screen({
             /* The right edge stays authored while downward scrolling hides the label. */
             const foldable = scrolls && canCollapseFab(it) && !!it.collapseOnScroll;
             if (foldable && fabFolded) shown = { ...shown, props: { ...shown.props, collapsed: true } };
-            const tap = act ? () => onAction(act, it.row) : undefined;
+            /* an interaction that starts by the pointer or by time is no tap */
+            const on = act?.trigger?.on;
+            const tap = act && !on ? () => onAction(act, it.row) : undefined;
+            const hover = act && on === "hover" ? () => onAction(act, it.row) : undefined;
             const slotActions = it.actions;
             /* a part says which prop is its chosen entry (`selectKey`): a tap moves it. Destination
              *  bars share the choice across screens */
@@ -427,6 +398,7 @@ function Screen({
                 held={!!opened[it.id] && !!def?.open && def.open.trigger !== "hide"}
                 onClose={isOverlayPart(it) ? () => onCloseOverlay(it.id) : undefined}
                 onTap={tap}
+                onHover={hover}
                 onSlot={
                   /* a part whose rows are no slots works on its own: a press here would only cancel it */
                   slotActions || (selectKey && def?.slots) || def?.slug === "navigation-rail"
@@ -475,6 +447,7 @@ function Screen({
           })}
         </div>
       )))}
+      </BoundValues.Provider>
       {frame.deviceBars && takesDeviceBars(frame) && <DeviceBars p={p} bg={frame.bg ?? "surface"} height={viewH} zIndex={3} />}
     </div>
   );
@@ -507,15 +480,20 @@ export function Preview({
 }) {
   const lang = useLang();
   const frames = doc.frames;
-  const [stack, setStack] = useState<Entry[]>(() => [{ id: startId ?? frames[0]?.id ?? "", t: "none" }]);
-  const [anim, setAnim] = useState<Anim>({ t: "none", back: false });
+  /* with no screen chosen, the preview starts where the first flow does */
+  const [stack, setStack] = useState<Entry[]>(() => [{ id: startId ?? flowStarts(frames)[0]?.id ?? frames[0]?.id ?? "", t: "none" }]);
+  /** a screen laid over the one on show by an interaction, and how it came in */
+  const [overlay, setOverlay] = useState<Entry | null>(null);
+  const overlayRef = useRef(overlay);
+  overlayRef.current = overlay;
+  const [anim, setAnim] = useState<ScreenMove>({ transition: "none", backwards: false });
   const theme = normalizeTheme(doc.theme);
   const spring = theme.motion === "expressive";
   const [scale, setScale] = useState(1);
   const [values, setValues] = useState<Record<string, number>>({});
   const [peek, setPeek] = useState<Peek | null>(null);
   /* the prototype's state starts over each time the preview opens, and is never written to the document */
-  const [state, setStateNow] = useState<PreviewState>(() => startState(doc.vars, doc.collections));
+  const [state, setStateNow] = useState<PreviewState>(() => startState(doc.vars, doc.collections, theme.dark));
   /* the width the visitor switched to; until then each screen shows at its own size */
   const [device, setDevice] = useState<FramePreset | null>(null);
   /** the sibling of a screen at the width chosen: navigation keeps naming the screen it was written for */
@@ -529,8 +507,12 @@ export function Preview({
     stateRef.current = next;
     setStateNow(next);
   }, []);
-  /* a look at the other mode, for this preview only */
-  const [dark, setDark] = useState(theme.dark);
+  /* a look at the other mode, for this preview only; a variable that drives the dark mode is that mode, so a tap that
+     sets it switches the theme, and so does the bar's own button */
+  const [ownDark, setOwnDark] = useState(theme.dark);
+  const darkVar = darkVarOf(doc.vars);
+  const dark = darkVar ? !!state.vars[darkVar.id] : ownDark;
+  const toggleDark = () => (darkVar ? setState({ ...stateRef.current, vars: { ...stateRef.current.vars, [darkVar.id]: !stateRef.current.vars[darkVar.id] } }) : setOwnDark((d) => !d));
   const p = dark === theme.dark ? palette : paletteOf(doc.paletteKey, doc.customPalette, { ...theme, dark });
   const stackRef = useRef(stack);
   stackRef.current = stack;
@@ -541,6 +523,11 @@ export function Preview({
   const top = stack[stack.length - 1];
   const current = frames.find((f) => f.id === (top ? shownId(top.id) : undefined)) ?? frames[0];
   const peekFrame = peek ? frames.find((f) => f.id === peek.frameId) : undefined;
+  /* what a tap reads, whenever it comes: the screen on show and the mode the preview is in */
+  const frameRef = useRef(current);
+  frameRef.current = current;
+  const darkRef = useRef(dark);
+  darkRef.current = dark;
   const { w: frameW, h: frameH } = current ? frameSizeOf(current) : { w: PHONE_W, h: PHONE_H };
   const phone = current ? isPhoneFrame(current) : true;
   /* every screen sits in the same bezel; only the corners tell a phone from a window */
@@ -619,11 +606,17 @@ export function Preview({
   );
 
   const back = useCallback(() => {
+    /* an overlay is what going back closes first */
+    if (overlayRef.current) {
+      setOverlay(null);
+      return;
+    }
     const s = stackRef.current;
     if (s.length < 2 || peekRef.current) return;
     const from = s[s.length - 1];
     const to = s[s.length - 2];
-    setAnim({ t: sameSize(from.id, to.id) ? from.t : "fade", back: true, spring });
+    const same = sameSize(from.id, to.id);
+    setAnim({ transition: same ? from.t : "fade", backwards: true, spring, ...(same && from.m ? { motion: from.m } : {}) });
     setStack(s.slice(0, -1));
   }, [spring, sameSize]);
 
@@ -639,11 +632,24 @@ export function Preview({
         if (href) window.open(href, "_blank", "noopener,noreferrer");
         return;
       }
+      /* a part to scroll to, on the screen on show */
+      if (a.scrollTo) {
+        const el = document.querySelector(`[data-preview-active] [data-part="${CSS.escape(a.scrollTo)}"]`);
+        el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+      }
       if (!frames.some((f) => f.id === a.to)) return;
+      if (a.overlay) {
+        setOverlay({ id: a.to, t: a.transition, ...(a.motion ? { m: a.motion } : {}) });
+        return;
+      }
+      /* an overlay closes when its screen goes on to another */
+      setOverlay(null);
       const s = stackRef.current;
-      const t = sameSize(s[s.length - 1].id, a.to) ? a.transition : "fade";
-      setAnim({ t, back: false, spring });
-      setStack((cur) => [...cur, { id: a.to, t }]);
+      const same = sameSize(s[s.length - 1].id, a.to);
+      const t = same ? a.transition : "fade";
+      const m = same ? a.motion : undefined;
+      setAnim({ transition: t, backwards: false, spring, ...(m ? { motion: m } : {}) });
+      setStack((cur) => [...cur, { id: a.to, t, ...(m ? { m } : {}) }]);
     },
     [frames, back, spring, sameSize],
   );
@@ -652,8 +658,9 @@ export function Preview({
   const fire = useCallback(
     (a: Action, row?: Item["row"]) => {
       if (swiped.current) return;
-      /* a tap from a repeated part reads its row's fields as `row.field`, and only for this tap */
-      const scoped = inRow(stateRef.current, row);
+      /* a tap from a repeated part reads its row's fields as `row.field`, and only for this tap; the variables read as
+         the screen on show has them */
+      const scoped = inRow(screenVars(stateRef.current, doc, frameRef.current, darkRef.current), row);
       const body = chooseBranch(a, scoped, doc);
       if (!body) return;
       setState(leftRow(applyEffects(scoped, body.effects, doc), row));
@@ -676,8 +683,9 @@ export function Preview({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        /* an open menu is the thing Escape dismisses */
+        /* an open menu is the thing Escape dismisses, then an overlay */
         if (picker) setPicker(false);
+        else if (overlayRef.current) setOverlay(null);
         else onClose();
       }
       if (e.key === "Backspace" || e.key === "ArrowLeft") back();
@@ -700,11 +708,15 @@ export function Preview({
         const def = g.items.length === 1 ? partBySlug(it.component) : undefined;
         return def?.panes && def.selectKey && values[it.id] >= 0 ? { ...g, items: [{ ...it, props: { ...it.props, [def.selectKey]: values[it.id] } }] } : g;
       });
-      return liveGroups(tabbed, state, doc, widths);
+      return liveGroups(tabbed, screenVars(state, doc, f, dark), doc, widths);
     },
-    [doc, frames, widths, values, state],
+    [doc, frames, widths, values, state, dark],
   );
+  /** the variables as a screen shows them, for the design fields bound to them */
+  const boundFor = useCallback((f: Frame | undefined) => (doc.vars?.length && f ? screenVars(state, doc, f, dark).vars : null), [doc, state, dark]);
   const groups = useMemo(() => (current ? groupsFor(current) : []), [current, groupsFor]);
+  const overlayFrame = overlay ? frames.find((f) => f.id === shownId(overlay.id)) : undefined;
+  const overlayGroups = useMemo(() => (overlayFrame ? groupsFor(overlayFrame) : []), [overlayFrame, groupsFor]);
   const peekGroups = useMemo(() => (peekFrame ? groupsFor(peekFrame) : []), [peekFrame, groupsFor]);
 
   /* ---- finger-tracked swipes: only the swipes the author set on the frame ---- */
@@ -794,7 +806,7 @@ export function Preview({
       const commit = prog.get() > 0.25 || g.vel > 0.0012;
       animate(prog, commit ? 1 : 0, { duration: 0.26, ease: EASE }).then(() => {
         if (commit) {
-          setAnim({ t: "none", back: false, spring });
+          setAnim({ transition: "none", backwards: false, spring });
           setStack((s) => [...s, { id: pk.frameId, t: pk.t }]);
         }
         peekRef.current = null;
@@ -958,10 +970,26 @@ export function Preview({
                   exit="exit"
                   style={{ position: "absolute", inset: 0 }}
                 >
-                  <Screen frame={current} groups={groups} {...screenProps} />
+                  <Screen frame={current} groups={groups} {...screenProps} active={!overlayFrame} bound={boundFor(current)} />
                 </motion.div>
               </AnimatePresence>
             </motion.div>
+            <AnimatePresence>
+              {overlayFrame && overlay && (
+                <motion.div key={`overlay:${overlay.id}`} data-preview-overlay={overlay.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} style={{ position: "absolute", inset: 0, zIndex: 4, display: "grid", placeItems: "center" }}>
+                  <div aria-hidden onClick={() => setOverlay(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.32)" }} />
+                  <motion.div
+                    custom={{ transition: overlay.t, backwards: false, spring, motion: overlay.m } satisfies ScreenMove}
+                    variants={screenVariants}
+                    initial="initial"
+                    animate="animate"
+                    style={{ position: "relative", width: frameSizeOf(overlayFrame).w, height: frameSizeOf(overlayFrame).h, borderRadius: frameRadius(overlayFrame) / 2, overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }}
+                  >
+                    <Screen frame={overlayFrame} groups={overlayGroups} {...screenProps} bound={boundFor(overlayFrame)} />
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             {peek && peekFrame && (
               <motion.div
                 style={{
@@ -973,7 +1001,7 @@ export function Preview({
                   pointerEvents: "none",
                 }}
               >
-                <Screen {...screenProps} active={false} frame={peekFrame} groups={peekGroups} />
+                <Screen {...screenProps} active={false} frame={peekFrame} groups={peekGroups} bound={boundFor(peekFrame)} />
               </motion.div>
             )}
             <AnimatePresence>
@@ -1020,15 +1048,15 @@ export function Preview({
         >
           <button
             onClick={back}
-            disabled={stack.length < 2}
+            disabled={stack.length < 2 && !overlay}
             title={t("back", lang)}
             aria-label={t("back", lang)}
             className="m3-press"
             style={{
               ...barBtn,
               ...markOnly,
-              color: stack.length < 2 ? p.outlineVariant : p.onSurfaceVariant,
-              cursor: stack.length < 2 ? "default" : "pointer",
+              color: stack.length < 2 && !overlay ? p.outlineVariant : p.onSurfaceVariant,
+              cursor: stack.length < 2 && !overlay ? "default" : "pointer",
             }}
           >
             <Icon name="arrow_back" size={20} />
@@ -1079,6 +1107,25 @@ export function Preview({
                     transformOrigin: wide ? "bottom right" : "bottom center",
                   }}
                 >
+                  {flowStarts(frames).map((f) => (
+                    <button
+                      key={`flow:${f.id}`}
+                      role="menuitem"
+                      data-preview-flow={f.flow}
+                      onClick={() => {
+                        setPicker(false);
+                        setDevice(null);
+                        setOverlay(null);
+                        setAnim({ transition: "fade", backwards: false, spring });
+                        setStack([{ id: f.id, t: "fade" }]);
+                      }}
+                      className="m3-press"
+                      style={{ height: 40, padding: "0 14px 0 10px", borderRadius: 12, border: "none", background: "transparent", color: p.primary, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", textAlign: "left" }}
+                    >
+                      <Icon name="play_arrow" size={18} />
+                      {f.flow || t("prFlowStart", lang)}
+                    </button>
+                  ))}
                   {frames.map((f) => {
                     const on = f.id === current.id;
                     return (
@@ -1091,7 +1138,8 @@ export function Preview({
                           if (on) return;
                           /* a screen picked by hand is shown as it is, whichever width was on */
                           setDevice(null);
-                          setAnim({ t: "fade", back: false, spring });
+                          setOverlay(null);
+                          setAnim({ transition: "fade", backwards: false, spring });
                           setStack([{ id: f.id, t: "fade" }]);
                         }}
                         className="m3-press"
@@ -1124,7 +1172,8 @@ export function Preview({
             </AnimatePresence>
           </div>
           <button
-            onClick={() => setDark((d) => !d)}
+            data-preview-dark={dark ? "on" : "off"}
+            onClick={toggleDark}
             title={t(dark ? "light" : "dark", lang)}
             aria-label={t(dark ? "light" : "dark", lang)}
             className="m3-press"
@@ -1147,7 +1196,7 @@ export function Preview({
                     title={word}
                     data-preview-size={preset}
                     onClick={() => {
-                      setAnim({ t: "fade", back: false, spring });
+                      setAnim({ transition: "fade", backwards: false, spring });
                       setDevice(preset);
                     }}
                     className="m3-press"

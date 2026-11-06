@@ -82,6 +82,8 @@ export function Toolbar({
   addFrameBlocked,
   onPreview,
   rightInset,
+  compact,
+  onShortcuts,
   mobile,
   onPrompt,
   onSettings,
@@ -93,8 +95,8 @@ export function Toolbar({
   place,
   onPlace,
   note,
-  onSaveProject,
-  onOpenProject,
+  project,
+  projectMenu,
   onShare,
   shareState = "idle",
   onDraftKeep,
@@ -125,6 +127,10 @@ export function Toolbar({
   onPreview: () => void;
   /** width of the open right panel, so the zoom pill slides out of its way */
   rightInset: number;
+  /** the canvas between the panels is narrow: the top row's buttons come smaller and closer to the edges */
+  compact?: boolean;
+  /** opens the sheet of keyboard shortcuts */
+  onShortcuts?: () => void;
   mobile?: boolean;
   onPrompt?: () => void;
   onSettings?: () => void;
@@ -141,8 +147,10 @@ export function Toolbar({
   onPlace?: (place: Place) => void;
   /** a short message shown beside the tidy button for a moment */
   note?: Note | null;
-  onSaveProject?: () => void;
-  onOpenProject?: () => void;
+  /** the open project's name and file status (components/ProjectChrome.tsx), first in the toolbar */
+  project?: React.ReactNode;
+  /** the project menu's contents: save to a file, open one, download */
+  projectMenu?: (close: () => void) => React.ReactNode;
   /** opens the "ask an AI" dialog from the left end of the zoom row */
   onShare?: () => void;
   /** busy while a model drafts; review while the draft waits to be kept or undone */
@@ -157,6 +165,8 @@ export function Toolbar({
   onAddParts?: () => void;
 }) {
   const lang = useLang();
+  /** the top row's button size */
+  const S = compact ? 36 : 40;
   if (mobile) {
     const S = 40;
     /* below this the pill runs past the edge of the phone with its word in it */
@@ -276,8 +286,10 @@ export function Toolbar({
           zIndex: 40,
           transition: "right 260ms cubic-bezier(0.2, 0, 0, 1)",
           display: "flex",
+          /* on a narrow canvas the layout tools stack over the zoom, clear of the AI pill at the other corner */
+          flexDirection: compact ? "column" : "row",
           gap: 10,
-          alignItems: "center",
+          alignItems: compact ? "flex-end" : "center",
         }}
       >
         {tidy && onTidy && (
@@ -304,6 +316,7 @@ export function Toolbar({
           </Pill>
         )}
         <Pill p={p}>
+          {!compact && (
           <IconBtn
             icon="remove"
             p={p}
@@ -311,6 +324,7 @@ export function Toolbar({
             title={t("zoomOut", lang)}
             size={40}
           />
+          )}
           <button
             onClick={onFit}
             title={t("fit", lang)}
@@ -330,6 +344,7 @@ export function Toolbar({
           >
             {Math.round(zoom * 100)}%
           </button>
+          {!compact && (
           <IconBtn
             icon="add"
             p={p}
@@ -337,8 +352,10 @@ export function Toolbar({
             title={t("zoomIn", lang)}
             size={40}
           />
+          )}
           <IconBtn icon="fit_screen" p={p} onClick={onFit} title={t("fit", lang)} size={40} />
           {onAllLinks && <IconBtn icon="alt_route" p={p} on={allLinks} onClick={onAllLinks} title={t("allLinks", lang)} size={40} />}
+          {onShortcuts && <IconBtn icon="keyboard" p={p} onClick={onShortcuts} title={`${t("kbTitle", lang)} (?)`} size={40} />}
         </Pill>
       </div>
       {onShare && (
@@ -393,9 +410,12 @@ export function Toolbar({
           pointerEvents: "none",
           zIndex: 40,
           flexWrap: "nowrap",
-          padding: "0 72px",
+          /* the room at the ends is for the button that reopens the right panel; with the panel open there is none */
+          padding: compact ? `0 ${rightInset ? 12 : 72}px` : "0 72px",
         }}
       >
+        {project && <Pill p={p}>{project}</Pill>}
+
         <Pill p={p}>
           <Segmented<Mode>
             options={[
@@ -409,7 +429,7 @@ export function Toolbar({
             value={mode}
             onChange={onMode}
             p={p}
-            height={40}
+            height={S}
             grow={false}
           />
         </Pill>
@@ -422,7 +442,7 @@ export function Toolbar({
               onClick={onAddFrame}
               disabled={addFrameBlocked}
               title={t(addFrameBlocked ? "addFrameInDefinition" : "addFrame", lang)}
-              size={40}
+              size={S}
             />
           )}
           <IconBtn
@@ -430,7 +450,7 @@ export function Toolbar({
             p={p}
             onClick={onPreview}
             title={t("preview", lang)}
-            size={40}
+            size={S}
             fill
           />
         </Pill>
@@ -442,7 +462,7 @@ export function Toolbar({
             onClick={onUndo}
             disabled={!canUndo}
             title={t("undo", lang)}
-            size={40}
+            size={S}
           />
           <IconBtn
             icon="redo"
@@ -450,41 +470,18 @@ export function Toolbar({
             onClick={onRedo}
             disabled={!canRedo}
             title={t("redo", lang)}
-            size={40}
+            size={S}
           />
           <IconBtn
             icon="delete_sweep"
             p={p}
             onClick={onClear}
             title={t("clearAll", lang)}
-            size={40}
+            size={S}
           />
-          {onSaveProject && onOpenProject && (
-            <Popover p={p} icon="folder_open" title={t("project", lang)} size={40}>
-              {(close) => (
-                <div style={{ display: "flex", gap: 2 }}>
-                  <IconBtn
-                    icon="download"
-                    p={p}
-                    size={44}
-                    title={t("saveProject", lang)}
-                    onClick={() => {
-                      close();
-                      onSaveProject();
-                    }}
-                  />
-                  <IconBtn
-                    icon="upload"
-                    p={p}
-                    size={44}
-                    title={t("openProject", lang)}
-                    onClick={() => {
-                      close();
-                      onOpenProject();
-                    }}
-                  />
-                </div>
-              )}
+          {projectMenu && (
+            <Popover p={p} icon="folder_open" title={t("project", lang)} size={S}>
+              {projectMenu}
             </Popover>
           )}
         </Pill>

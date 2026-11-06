@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LangContext, setGlobalLang, type Lang } from "@/lib/i18n";
 import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
-import { STYLE_GROUPS, STYLE_PACKS, screenBackground, styleOf, styleTextOf } from "@/lib/styles";
+import { STYLE_GROUPS, STYLE_PACKS, cleanStyles, screenBackground, setDocStyles, styleOf, styleTextOf, type CustomStyle } from "@/lib/styles";
 import { DEFAULT_THEME, PHONE_H, PHONE_W, fontFamilyOf, makeItem, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Group, type Item, type Palette, type Theme } from "@/lib/tokens";
 import { useIconFamily } from "@/parts/icons";
 import { CATEGORIES, PARTS, categoryName, reader, type PartCategory } from "@/parts/registry";
@@ -25,7 +25,39 @@ import { PartView } from "./PartView";
  * `kits=1` shows the kits alone (`chosen=1`: only the variant the style picks); `splits=1` each composite that splits
  * beside the atoms it splits into. */
 
-export type GallerySearch = { style?: string; dark?: string; category?: string; lang?: string; part?: string; kits?: string; splits?: string; chosen?: string };
+export type GallerySearch = { style?: string; dark?: string; category?: string; lang?: string; part?: string; kits?: string; splits?: string; chosen?: string; /** custom styles as JSON: one style, a list, or a style file */ custom?: string };
+
+/** where an earlier version of the editor kept the document it had open (lib/core/persist.ts `DOC_KEY`) */
+const EDITOR_DOC_KEY = "m3e:doc";
+
+/** Custom styles given as JSON: one style, a list, a style file, or a document with styles of its own. Each is
+ *  validated as any style from outside is. */
+function readStyles(text: string | null): CustomStyle[] | undefined {
+  if (!text) return undefined;
+  try {
+    const v: unknown = JSON.parse(text);
+    if (Array.isArray(v)) return cleanStyles(v);
+    if (v && typeof v === "object" && Array.isArray((v as { styles?: unknown }).styles)) return cleanStyles((v as { styles: unknown[] }).styles);
+    return cleanStyles([v]);
+  } catch {
+    return undefined;
+  }
+}
+
+/** The custom styles of the project the editor last opened in this browser (lib/projects), else of the document an
+ *  earlier version kept: what the gallery shows when the address carries none (`custom`). */
+async function keptStyles(): Promise<CustomStyle[] | undefined> {
+  try {
+    const { lastProjectDoc } = await import("@/lib/projects/persist");
+    const doc = await lastProjectDoc();
+    if (doc) return readStyles(JSON.stringify(doc));
+  } catch {}
+  try {
+    return readStyles(localStorage.getItem(EDITOR_DOC_KEY));
+  } catch {
+    return undefined;
+  }
+}
 
 /** more cells for the parts whose composition a style changes with a prop: what the default alone would not show */
 const SAMPLES: Record<string, { label: string; props: Record<string, unknown> }[]> = {
@@ -252,7 +284,7 @@ const link = (search: GallerySearch, patch: Partial<GallerySearch>) => {
 };
 
 /** the bar along the top: which style, which mode, which section. Plain links, so a screenshot script can go anywhere by its address. */
-function Chrome({ search, sections, lang }: { search: GallerySearch; sections: string[]; lang: Lang }) {
+function Chrome({ search, sections, lang, customs }: { search: GallerySearch; sections: string[]; lang: Lang; /** the custom styles in reach */ customs?: CustomStyle[] }) {
   const pill = (on: boolean) => ({ padding: "2px 8px", borderRadius: 999, textDecoration: "none", color: on ? "#fff" : "#202124", background: on ? "#1a73e8" : "#f1f3f4", whiteSpace: "nowrap" as const });
   return (
     <header data-gallery-chrome style={{ ...CHROME, display: "flex", flexDirection: "column", gap: 6, padding: "12px 16px", borderBottom: "1px solid #dadce0", background: "#fff" }}>
@@ -271,6 +303,16 @@ function Chrome({ search, sections, lang }: { search: GallerySearch; sections: s
             ))}
           </Fragment>
         ))}
+        {!!customs?.length && (
+          <>
+            <span style={{ color: "#9aa0a6", margin: "0 4px" }}>·</span>
+            {customs.map((s) => (
+              <a key={s.key} data-gallery-custom={s.key} href={link(search, { style: s.key })} style={pill(search.style === s.key)} title={styleTextOf(s.hint, lang)}>
+                {styleTextOf(s.name, lang)}
+              </a>
+            ))}
+          </>
+        )}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
         <a href={link(search, { dark: search.dark === "1" ? "0" : "1" })} style={pill(false)}>
@@ -293,6 +335,19 @@ export function Gallery({ search }: { search: GallerySearch }) {
   const lang: Lang = search.lang === "en" || search.lang === "ja" || search.lang === "ko" ? search.lang : "zh";
   /* the words a part says by itself are read from the global language; set it before anything is drawn */
   setGlobalLang(lang);
+  /* a custom style is put in reach before anything reads the style by its key: the address's, or those of the
+     project last opened, once they have been read */
+  const [kept, setKept] = useState<CustomStyle[] | undefined>(undefined);
+  useEffect(() => {
+    if (search.custom) return;
+    let live = true;
+    void keptStyles().then((s) => live && setKept(s));
+    return () => {
+      live = false;
+    };
+  }, [search.custom]);
+  const customs = useMemo(() => (search.custom ? readStyles(search.custom) : kept), [search.custom, kept]);
+  setDocStyles(customs);
   const pack = styleOf(search.style);
   /* a style opens in its own mode unless the address says which */
   const theme = useMemo<Theme>(() => {
@@ -333,7 +388,7 @@ export function Gallery({ search }: { search: GallerySearch }) {
         <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
         <PartStyleSheet theme={theme} />
         <div data-gallery data-gallery-settled={settled ? "" : undefined} data-gallery-style={search.style || "android"} data-gallery-dark={theme.dark ? "1" : "0"} style={{ minHeight: "100vh", background: "#f8f9fa" }}>
-          <Chrome search={search} sections={sections} lang={lang} />
+          <Chrome search={search} sections={sections} lang={lang} customs={customs} />
           <main style={{ padding: 16, display: "flex", flexDirection: "column", gap: 28, fontFamily: fontFamilyOf(theme.font, lang) }}>
             {shown.map((c) => (
               <section key={c} data-gallery-category={c} style={{ display: "flex", flexDirection: "column", gap: 12 }}>

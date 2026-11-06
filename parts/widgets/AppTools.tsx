@@ -855,7 +855,7 @@ const gfTimes = (x: number, y: number) => {
 
 /** the Reed-Solomon remainder of `data`: its `degree` error correction codewords */
 export function qrRemainder(data: number[], degree: number): number[] {
-  const divisor = new Array<number>(degree).fill(0);
+  const divisor = Array.from({ length: degree }, () => 0);
   divisor[degree - 1] = 1;
   let root = 1;
   for (let i = 0; i < degree; i++) {
@@ -865,7 +865,7 @@ export function qrRemainder(data: number[], degree: number): number[] {
     }
     root = gfTimes(root, 2);
   }
-  const rest = new Array<number>(degree).fill(0);
+  const rest = Array.from({ length: degree }, () => 0);
   for (const byte of data) {
     const factor = byte ^ (rest.shift() as number);
     rest.push(0);
@@ -966,8 +966,8 @@ export function qrMatrix(text: string, level = "M"): boolean[][] | null {
 
   /* the fixed patterns */
   const size = version * 4 + 17;
-  const modules = Array.from({ length: size }, () => new Array<boolean>(size).fill(false));
-  const fixed = Array.from({ length: size }, () => new Array<boolean>(size).fill(false));
+  const modules = Array.from({ length: size }, () => Array.from({ length: size }, () => false));
+  const fixed = Array.from({ length: size }, () => Array.from({ length: size }, () => false));
   const mark = (x: number, y: number, on: boolean) => {
     modules[y][x] = on;
     fixed[y][x] = true;

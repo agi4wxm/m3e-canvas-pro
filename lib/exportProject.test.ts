@@ -6,7 +6,7 @@ import { TEMPLATES, instantiate } from "../parts/templates";
 import { defaultMeasures } from "../parts/templates/kit";
 import { buildCode } from "./codegen";
 import { allPartsDoc } from "./codegen.fixture";
-import { COUNTER, FORM, PICKED_PNG, proofDoc } from "./exportProject.fixture";
+import { COUNTER, FORM, PICKED_PNG, proofDoc, systemsDoc } from "./exportProject.fixture";
 import { buildProject, iconNamesIn, importClosure, importsIn, projectPath, zipProject, type ProjectFiles } from "./exportProject";
 import { SOURCE_PATHS, readSource } from "./exportSources";
 import { setGlobalLang } from "./i18n";
@@ -108,7 +108,7 @@ describe("the project of a real document", () => {
     expect(images).toHaveLength(1);
     expect(images[0]).toMatch(/\.png$/);
     const bytes = files[images[0]] as Uint8Array;
-    expect([...bytes.slice(1, 4)].map((c) => String.fromCharCode(c)).join("")).toBe("PNG");
+    expect(Array.from(bytes.slice(1, 4), (c) => String.fromCharCode(c)).join("")).toBe("PNG");
     const screen = textOf(files, "src/screens/CounterScreen.tsx");
     expect(screen).toContain(`src="${images[0].slice("public".length)}"`);
     expect(Object.values(files).some((f) => typeof f === "string" && f.includes(PICKED_PNG))).toBe(false);
@@ -150,6 +150,38 @@ describe("the project of a real document", () => {
     const out = unzipSync(zipProject(files));
     expect(Object.keys(out).sort()).toEqual(Object.keys(files).sort());
     expect(strFromU8(out["src/runtime.tsx"])).toBe(files["src/runtime.tsx"]);
+  });
+
+  it("switches the app's colors with the variable that drives the dark mode", async () => {
+    const { doc, widths } = proofDoc();
+    const dark: Doc = { ...doc, vars: [...(doc.vars ?? []), { id: "v-dark", name: "Dark mode", type: "bool", value: false, drives: "dark" }] };
+    const { files } = await buildProject(dark, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    const runtime = textOf(files, "src/runtime.tsx");
+    expect(runtime).toContain('import { useColorMode } from "@/components/m3e/color-mode-provider"');
+    expect(runtime).toContain('darkMode: colorMode.resolvedMode === "dark"');
+    expect(runtime).toContain('colorMode.setMode(darkOn ? "dark" : "light")');
+    const plain = await buildProject(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    expect(textOf(plain.files, "src/runtime.tsx")).not.toContain("useColorMode");
+    checkClosed(files);
+  });
+
+  it("builds a document with variants, variables in modes and a prototype, closed, its bound fields read off the runtime", async () => {
+    const { doc, widths } = systemsDoc();
+    const { files, warnings } = await buildProject(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    checkClosed(files);
+    expect(warnings).toEqual([]);
+    /* the modes are the runtime's to pick, not a stylesheet's */
+    expect("src/style.css" in files).toBe(false);
+    const runtime = textOf(files, "src/runtime.tsx");
+    expect(runtime).toContain('brand: { collection: "theme", values: { light: "#ffd8e4", dark: "#4a2532" } },');
+    expect(runtime).toContain('dark: { theme: ["dark", "dark"] },');
+    expect(runtime).toContain('brand: { css: "--m3e-v-brand-v-brand", kind: "color" },');
+    const home = textOf(files, "src/screens/HomeScreen.tsx");
+    expect(home).toContain("var(--m3e-v-brand-v-brand, #ffd8e4)");
+    /* the screen pinned to the dark mode draws its own values until the runtime says otherwise */
+    expect(textOf(files, "src/screens/DarkScreen.tsx")).toContain("var(--m3e-v-brand-v-brand, #4a2532)");
+    /* the prototype's moves are the editor's own, copied */
+    expect(files["src/lib/screenMotion.ts"]).toBe(await fromDisk("lib/screenMotion.ts"));
   });
 
   it("takes one screen, and a tap to a screen left out goes nowhere", async () => {

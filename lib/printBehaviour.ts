@@ -5,7 +5,9 @@ import { OVERLAY_ROOTS, partBySlug, reader, treeOf, withoutPickedImages } from "
 import type { PartDef, PropDef } from "../parts/types";
 import { type Row, CURRENT_TOKEN, fillCurrent, firstRows, markCurrent } from "./collections";
 import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
-import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, actionsOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
+import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn, varValues } from "./variables";
+import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
+import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type Transition, type VarType, type VarValue } from "./tokens";
 
 /* What a tap does and what state a part reads, as source text over the generated runtime
  * (lib/runtimeSource.ts). Pure, like the rest of the printer: a document in, strings out.
@@ -32,7 +34,30 @@ export type RuntimeSpec = {
   opened: string[];
   /** what `{{current.field}}` reads until a row has been tapped */
   current: Row;
+  /** the variable that is the app's dark mode (DocVar `drives: "dark"`) */
+  dark?: string;
+  /** where flows start (`Frame.flow`), in the document's order: the first is where the app starts */
+  flows?: { key: string; name: string; screen: string }[];
+  /** what of the prototype the screens use beyond taps and plain transitions, when they use any of it: animations
+   *  always come with it */
+  proto?: { overlay: boolean; scroll: boolean; hover: boolean; delay: boolean };
+  /** variables with a value in several modes, and the design fields bound to variables */
+  modes?: ModesSpec;
 };
+
+/** What the runtime keeps of variable modes: the collections with more than one mode, by key; the mode of each a screen
+ *  shows while light and while dark (by screen key, then collection key); each variable's value in each mode (by
+ *  variable key, then mode key); the variables design fields are bound to, with the CSS variable each is painted by;
+ *  and whether any screen's modes follow the dark mode. */
+export type ModesSpec = {
+  collections: string[];
+  screens: Record<string, Record<string, [light: string, dark: string]>>;
+  values: Record<string, { collection: string; values: Record<string, VarValue> }>;
+  bound: { key: string; css: string; kind: "color" | "number" }[];
+  followsDark: boolean;
+};
+
+const TRANSITIONS: readonly Transition[] = ["slide", "slideLeft", "slideUp", "slideDown", "fade", "expand", "none"];
 
 type Options = {
   /** the whole app is generated, so a part behaves as it does in the preview even with no action on it */
@@ -274,15 +299,26 @@ export class Behaviour {
   private readonly readsCurrent: boolean;
   /** the row the part being printed was drawn for */
   private rowNow: Row | undefined;
+  /** the screens printed */
+  private readonly shown: Frame[];
+  /** parts an action scrolls to: each is marked so the runtime can find it */
+  private readonly scrollTargets = new Set<string>();
+  /** the CSS variable each variable a design field is bound to paints it by (`--m3e-v-<name>`), by variable id */
+  private readonly boundNames = new Map<string, string>();
+  /** what of the prototype has been printed so far */
+  private readonly printed = { motion: false, overlay: false, scroll: false, hover: false, delay: false };
 
   constructor(doc: Doc, widths: Record<string, number>, o: Options) {
     this.doc = doc;
     this.live = o.live;
     this.image = o.image;
     this.readsCurrent = JSON.stringify(doc.groups).includes("{{current.");
+    this.shown = o.shown;
     const screenKeys = new Set<string>();
     o.shown.forEach((f, i) => this.screens.set(f.id, camel(f.name, `screen${i + 1}`, screenKeys)));
-    for (const [i, v] of (Array.isArray(doc.vars) ? doc.vars : []).entries()) this.vars.set(v.id, { key: camel(v.name, `var${i + 1}`, this.varKeys), type: v.type, start: v.value });
+    /* a variable starts at its value in the mode the document shows */
+    const starts = varValues(doc);
+    for (const [i, v] of (Array.isArray(doc.vars) ? doc.vars : []).entries()) this.vars.set(v.id, { key: camel(v.name, `var${i + 1}`, this.varKeys), type: v.type, start: starts[v.id] ?? v.value });
     const partNames = new Set<string>();
     for (const g of doc.groups)
       for (const it of g.items) {
@@ -293,6 +329,19 @@ export class Behaviour {
         const name = (g.items.length === 1 ? g.name : undefined) ?? shows?.match(/[A-Za-z0-9]+/g)?.slice(0, 3).join(" ");
         this.partKeys.set(it.id, camel(name, it.component ? camel(it.component, "part", new Set()) : "part", partNames));
       }
+    /* each variable a design field is bound to gets a CSS name of its own, the same however often it is bound */
+    const cssNames = new Set<string>();
+    for (const g of doc.groups)
+      for (const it of g.items)
+        for (const [field, id] of Object.entries(it.bind ?? {})) {
+          const v = isBindField(field) && !this.boundNames.has(id) ? doc.vars?.find((x) => x.id === id) : undefined;
+          if (!v) continue;
+          const base = cssNameOf(v);
+          let name = base;
+          for (let i = 2; cssNames.has(name); i++) name = `${base.slice(0, 36)}-${i}`;
+          cssNames.add(name);
+          this.boundNames.set(id, name);
+        }
     for (const g of doc.groups)
       for (const it of g.items) {
         if (g.showWhen && "filled" in g.showWhen) this.filled.add(g.showWhen.filled);
@@ -322,6 +371,7 @@ export class Behaviour {
   }
 
   private scanBody(b: ActionBody) {
+    if (typeof b.scrollTo === "string" && this.owner.has(b.scrollTo)) this.scrollTargets.add(b.scrollTo);
     for (const e of Array.isArray(b.effects) ? b.effects : []) {
       if (!("part" in e)) continue;
       const g = this.owner.get(e.part);
@@ -345,6 +395,54 @@ export class Behaviour {
     return this.inLiveDock.has(id);
   }
 
+  /** the CSS variable a variable bound to a design field paints it by, in a whole app (lib/codegen.ts) */
+  cssVarOf(varId: string): string | undefined {
+    return this.live ? this.boundNames.get(varId) : undefined;
+  }
+
+  /** the flows that start on a printed screen */
+  private flows(): RuntimeSpec["flows"] {
+    const keys = new Set<string>();
+    const out = flowStarts(this.shown).flatMap((f, i) => {
+      const screen = this.screens.get(f.id);
+      return screen ? [{ key: camel(f.flow, `flow${i + 1}`, keys), name: f.flow ?? "", screen }] : [];
+    });
+    return out.length ? out : undefined;
+  }
+
+  /** The collections with more than one mode, as the runtime reads them, and the design fields bound to variables.
+   *  Which mode a screen shows is worked out here, by the editor's own rule (lib/variables.ts `modeFor`), for the app
+   *  light and dark; the runtime only picks between the two. */
+  private modes(): ModesSpec | undefined {
+    const vars = (Array.isArray(this.doc.vars) ? this.doc.vars : []).filter((v) => v.drives !== "dark" && this.vars.has(v.id));
+    const all = collectionsOf(this.doc);
+    const used = all.filter((c) => c.modes.length > 1 && vars.some((v) => collectionIdOf(v, all) === c.id));
+    const bound = [...this.boundNames].flatMap(([id, css]) => {
+      const v = this.vars.get(id);
+      return v ? [{ key: v.key, css, kind: v.type === "color" ? ("color" as const) : ("number" as const) }] : [];
+    });
+    if (!used.length && !bound.length) return undefined;
+    const collectionKeys = new Set<string>();
+    const named = used.map((c, i) => {
+      const modeKeys = new Set<string>();
+      return { c, key: camel(c.name, `collection${i + 1}`, collectionKeys), modes: new Map(c.modes.map((m, j) => [m.id, camel(m.name, `mode${j + 1}`, modeKeys)])) };
+    });
+    const screens = Object.fromEntries(
+      this.shown.flatMap((f) => {
+        const key = this.screens.get(f.id);
+        return key ? [[key, Object.fromEntries(named.map((n) => [n.key, [n.modes.get(modeFor(this.doc, n.c, f, false))!, n.modes.get(modeFor(this.doc, n.c, f, true))!] as [string, string]]))]] : [];
+      }),
+    );
+    const values = Object.fromEntries(
+      vars.flatMap((v) => {
+        const n = named.find((x) => x.c.id === collectionIdOf(v, all));
+        return n ? [[this.vars.get(v.id)!.key, { collection: n.key, values: Object.fromEntries(n.c.modes.map((m) => [n.modes.get(m.id)!, valueIn(v, m.id, n.c)])) }]] : [];
+      }),
+    );
+    const followsDark = Object.values(screens).some((byCollection) => Object.values(byCollection).some(([light, dark]) => light !== dark));
+    return { collections: named.map((n) => n.key), screens, values, bound, followsDark };
+  }
+
   /** the parts the runtime has to know about, once every screen has been printed */
   spec(screens: string[]): RuntimeSpec {
     const hidden: string[] = [];
@@ -357,7 +455,23 @@ export class Behaviour {
         if (this.usedParts.has(k) && this.heldByState(it, g) && standingOf(partBySlug(it.component)) === "stands" && !g.hidden) opened.push(k);
       }
     }
-    return { screens, vars: [...this.vars.values(), ...this.inputs.values()], parts: [...this.usedParts], hidden, opened, current: firstRows(this.doc.collections ?? []) };
+    const darkVar = darkVarOf(this.doc.vars);
+    const dark = darkVar ? this.vars.get(darkVar.id)?.key : undefined;
+    const flows = this.flows();
+    const { motion, ...proto } = this.printed;
+    const modes = this.live ? this.modes() : undefined;
+    return {
+      screens,
+      vars: [...this.vars.values(), ...this.inputs.values()],
+      parts: [...this.usedParts],
+      hidden,
+      opened,
+      current: firstRows(this.doc.collections ?? []),
+      ...(dark ? { dark } : {}),
+      ...(flows ? { flows } : {}),
+      ...(motion || Object.values(proto).some(Boolean) ? { proto } : {}),
+      ...(modes ? { modes } : {}),
+    };
   }
 
   /** Words that may read the row last tapped, as code. On a part drawn for a row the tap itself says
@@ -531,34 +645,46 @@ export class Behaviour {
     return call("setProp", this.part(it.id), json(e.prop), typeof value === "string" ? this.wordsCode(value, uses) : json(value));
   }
 
-  /** where it goes, after its effects */
-  private nav(b: ActionBody, uses: Uses): string | null {
+  /** where it goes, after its effects: back, out to a link, or a part of the screen scrolled into view and then on to a
+   *  screen, in its place or laid over it, the way it comes in */
+  private nav(b: ActionBody, uses: Uses): string[] {
     if (b.to === BACK_TARGET) {
       uses.app.add("back");
-      return "back()";
+      return ["back()"];
     }
     if (b.to === LINK_TARGET) {
       /* an address read off the row last tapped can only be known at run time */
       if (b.url?.includes("{{current.") && !this.rowNow) {
         uses.app.add("openLink");
-        return `openLink(${this.wordsCode(b.url.trim(), uses)})`;
+        return [`openLink(${this.wordsCode(b.url.trim(), uses)})`];
       }
       const href = linkUrlOf(this.rowNow ? fillCurrent(b, this.rowNow) : b);
-      if (!href) return null;
+      if (!href) return [];
       uses.app.add("openLink");
-      return `openLink(${json(href)})`;
+      return [`openLink(${json(href)})`];
     }
-    if (b.to === STAY_TARGET) return null;
+    const out: string[] = [];
+    if (typeof b.scrollTo === "string" && this.scrollTargets.has(b.scrollTo)) {
+      this.printed.scroll = true;
+      out.push(`scrollTo(${this.part(b.scrollTo, uses, "scrollTo")})`);
+    }
+    if (b.to === STAY_TARGET) return out;
     const key = this.screens.get(b.to);
-    if (!key) return null;
-    uses.app.add("go");
-    return b.transition && b.transition !== "slide" ? `go(${json(key)}, ${json(b.transition)})` : `go(${json(key)})`;
+    if (!key) return out;
+    /* what a document says of the move is checked again here: only its words for one, and a number */
+    const transition = TRANSITIONS.includes(b.transition) ? b.transition : "slide";
+    const motion = cleanMotion(b.motion);
+    const call = b.overlay === true ? "openOverlay" : "go";
+    uses.app.add(call);
+    if (motion) this.printed.motion = true;
+    if (call === "openOverlay") this.printed.overlay = true;
+    const args = [json(key), ...(motion ? [json(transition), printValue(motion)] : transition !== "slide" ? [json(transition)] : [])];
+    return [...out, `${call}(${args.join(", ")})`];
   }
 
   private bodyStatements(b: ActionBody, uses: Uses): string[] {
     const effects = (Array.isArray(b.effects) ? b.effects : []).map((e) => this.effect(e, uses)).filter((s): s is string => !!s);
-    const nav = this.nav(b, uses);
-    return nav ? [...effects, nav] : effects;
+    return [...effects, ...this.nav(b, uses)];
   }
 
   private statements(a: Action, uses: Uses): string[] {
@@ -699,7 +825,15 @@ export class Behaviour {
     const def = partBySlug(it.component)!;
     const g = this.owner.get(it.id);
     this.rowNow = it.row;
-    const onPress = it.action ? this.handler(this.statements(it.action, uses)) : null;
+    /* the part's own action starts on a tap, unless it starts when the pointer comes over it or some time after its
+       screen came into use; what its slots do is always a tap */
+    const own = it.action ? this.handler(this.statements(it.action, uses)) : null;
+    const trigger = cleanTrigger(it.action?.trigger);
+    const onPress = trigger ? null : own;
+    const onHover = trigger?.on === "hover" ? own : null;
+    const after = trigger?.on === "delay" && own ? { ms: trigger.ms, run: own } : null;
+    if (onHover) this.printed.hover = true;
+    if (after) this.printed.delay = true;
     const selecting = this.selecting(it, def);
     const slots: Record<string, PValue> = {};
     let selfSelecting = false;
@@ -738,8 +872,14 @@ export class Behaviour {
     /* an overlay that only shows and hides has nothing of its own to shut it: its close button says so here */
     const closes = !!g && isOverlayPart(it) && standingOf(def) === "plain" && this.gatedByVisible(g);
     const direct = !!onPress && !hasSlots && !selfSelecting && !closes && !insideTap && CLICKS_ON_ROOT.has(root.type) && !root.props?.onClick;
-    const pressable = !direct && (!!onPress || hasSlots || selfSelecting || closes);
+    const pressable = !direct && (!!onPress || !!onHover || !!after || hasSlots || selfSelecting || closes);
     let tree = this.liveTree(it, def, uses, pressable);
+    /* a part an action scrolls to is marked, so the runtime finds it on the screen in use */
+    if (this.scrollTargets.has(it.id)) {
+      const key = this.partKeys.get(it.id)!;
+      this.usedParts.add(key);
+      tree = { ...tree, props: { ...tree.props, "data-part": key } };
+    }
     const inputVar = this.inputVar(it);
     if (inputVar) tree = this.wireInput(tree, it, def, inputVar, uses);
     if (g && this.heldByState(it, g)) {
@@ -753,7 +893,7 @@ export class Behaviour {
         return {
           ...n,
           props: { ...n.props, open: raw(`isOpen(${key})`), onOpenChange: raw(`(next) => (next ? open(${key}) : close(${key}))`) },
-          children: stands ? n.children?.filter((c) => typeof c === "string" || !/Trigger$/.test(c.type)) : n.children,
+          children: stands ? n.children?.filter((c) => typeof c === "string" || !c.type.endsWith("Trigger")) : n.children,
         };
       });
     }
@@ -762,6 +902,8 @@ export class Behaviour {
     uses.press = true;
     const attrs = [
       onPress ? `onPress={${onPress}}` : "",
+      onHover ? `onHover={${onHover}}` : "",
+      after ? `after={${after.ms}} onAfter={${after.run}}` : "",
       hasSlots ? `slots={${printValue(slots)}}` : "",
       selecting && selfSelecting ? `onTab={(index) => ${(uses.app.add("selectTab"), `selectTab(${json(this.barKey(it, def))}, index)`)}}` : "",
       closes ? `onClose={() => ${(uses.app.add("hide"), `hide(${this.part(g!.items[0].id)})`)}}` : "",

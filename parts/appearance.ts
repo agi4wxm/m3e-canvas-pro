@@ -1,5 +1,5 @@
 import type { ColorToken, Item, ItemLook, Radii, TextToken } from "../lib/tokens";
-import { lookGradientTextStyle, lookStyle, lookTextNodeStyle } from "../lib/look";
+import { cornersCss, lookGradientTextStyle, lookStyle, lookTextNodeStyle } from "../lib/look";
 import { mapNodes, type PNode, type PValue } from "./node";
 
 /* A part's look, set beside its props: the fill role it paints itself with, the role its text reads in, its four corner
@@ -42,8 +42,6 @@ const OWN_TEXT = /^text-(on-|inverse-|primary|secondary|tertiary|error|outline|s
 export function appearanceOf(it: Pick<Item, "fill" | "textColor" | "corners" | "look">): Appearance | undefined {
   return it.fill || it.textColor || it.corners || it.look ? { fill: it.fill, text: it.textColor, corners: it.corners, ...(it.look ? { look: it.look } : {}) } : undefined;
 }
-
-const radiusOf = (c: Radii) => `${c.tl}px ${c.tr}px ${c.br}px ${c.bl}px`;
 
 /** the role words read in over a fill; a surface's own words already read over it */
 const ON_FILL: Partial<Record<ColorToken, string>> = {
@@ -107,7 +105,7 @@ function paintWords(tree: PNode, look: ItemLook): PNode {
   if (!sized && !gradient) return tree;
   return mapNodes(tree, (n) => {
     if (n.props?.[WORDS] || !holdsWords(n)) return n;
-    const props = sized ? { ...(n.props ?? {}), style: { ...ownStyle(n.props ?? {}), ...own } } : n.props;
+    const props = sized ? { ...n.props, style: { ...ownStyle(n.props ?? {}), ...own } } : n.props;
     const children = gradient ? n.children!.map((c): PNode | string => (typeof c === "string" && c.trim() !== "" ? { type: "span", props: { [WORDS]: true, style: gradient }, children: [c] } : c)) : n.children;
     return { ...n, ...(props ? { props } : {}), children };
   });
@@ -121,12 +119,12 @@ export function applyAppearance(tree: PNode, a: Appearance | undefined, target?:
     .join(" ");
   const look = lookStyle(a.look);
   const paint = (n: PNode): PNode => {
-    const props = { ...(n.props ?? {}) };
+    const props = { ...n.props };
     if (classes) {
       const kept = (typeof props.className === "string" ? props.className.split(/\s+/) : []).filter((c) => c && !(a.fill && OWN_FILL.test(c)) && !(OWN_TEXT.test(c)));
       props.className = [...kept, ...classes.split(" ")].join(" ");
     }
-    const style = { ...wordRoles(a), ...(a.corners ? { borderRadius: radiusOf(a.corners) } : {}), ...look };
+    const style = { ...wordRoles(a), ...(a.corners ? { borderRadius: cornersCss(a.corners, a.look) } : {}), ...look };
     if (Object.keys(style).length) props.style = over(ownStyle(props), style);
     const painted = { ...n, props };
     return a.look ? paintWords(painted, a.look) : painted;

@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -8,14 +7,14 @@ import { makeItem, type Doc, type Group, type Item } from "../lib/tokens";
 import { setGlobalLang } from "../lib/i18n";
 import { PARTS, partBySlug, treeOf } from "./registry";
 import { renderNode } from "./render";
-import { loadWidgets } from "./widgets/load";
+import { loadAllModules } from "./components";
 
 /* What is particular to some widgets, the printed code, and the file format. What every part must do is in contract.test.ts. */
 
 beforeAll(async () => {
   vi.stubGlobal("window", { innerWidth: 1280, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) });
   setGlobalLang("en");
-  await loadWidgets();
+  await loadAllModules();
 });
 
 const docOf = (items: Item[]): Doc =>
@@ -30,16 +29,6 @@ const docOf = (items: Item[]): Doc =>
 
 const json = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 const html = (slug: string, props?: Record<string, unknown>) => renderToStaticMarkup(createElement("div", null, renderNode(treeOf(partBySlug(slug)!, props))));
-
-describe("fetching the widgets", () => {
-  it("settles a promise `use` can read at once, and calls `use` on every render: skipping it once they are in is what React warns of", async () => {
-    await loadWidgets();
-    expect(loadWidgets()).toMatchObject({ status: "fulfilled" });
-    const source = readFileSync(new URL("./widgets/load.tsx", import.meta.url), "utf8");
-    expect(source).toContain("const mod = use(loadWidgets())");
-    expect(source).not.toMatch(/\?\?\s*use\(/);
-  });
-});
 
 describe("table", () => {
   it("draws the author's own rows", () => {

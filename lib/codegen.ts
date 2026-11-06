@@ -15,6 +15,7 @@ import {
   frameOfPart,
   frameSizeOf,
   frameLengthOf,
+  frameRadius,
   canCollapseFab,
   groupBounds,
   ownerIdOf,
@@ -28,7 +29,7 @@ import {
   COLOR_TOKENS,
   type ColorToken,
 } from "./tokens";
-import { hasBackdrop } from "./styles";
+import { hasBackdrop, withDocStyles } from "./styles";
 import { EXTERNAL } from "../parts/externals";
 import { FILE_OF } from "../parts/files.generated";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
@@ -36,6 +37,7 @@ import { inlineNode, itemOfFile, localUsesIn, namesIn, str } from "../parts/prin
 import { flowClasses } from "../parts/flow";
 import { mapNodes, type PNode, type PValue } from "../parts/node";
 import { expandDoc } from "./expand";
+import { boundItem, bindsFields, varValues } from "./variables";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "./flow";
 import { Behaviour, type RuntimeSpec, type Uses } from "./printBehaviour";
 import { partBySlug } from "../parts/registry";
@@ -142,7 +144,7 @@ function jsx(it: Item, c: Ctx, insideTap = false): string {
 
 /** a part that takes the room its layout gives it, not a number of pixels */
 function fluid(tree: PNode, keys: ("width" | "height")[]): PNode {
-  const style = { ...((tree.props?.style as Record<string, PValue> | undefined) ?? {}) };
+  const style = { ...(tree.props?.style as Record<string, PValue> | undefined) };
   for (const k of keys) if (k in style) style[k] = "100%";
   return { ...tree, props: { ...tree.props, style } };
 }
@@ -443,6 +445,8 @@ export type ScreenCode = {
   height: number;
   /** the height of the bar at its foot: a snackbar stands above it */
   foot: number;
+  /** the corners it is shown with when laid over another screen, as the preview does */
+  radius: number;
   source: string;
   imports: Imports;
   /** this repo's own component files the code needs (see `LOCAL_M3E`), with what needs each */
@@ -459,7 +463,12 @@ type BuildOptions = {
 
 export const importLines = (imports: Imports) => [...imports.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([source, set]) => `import { ${[...set].sort((a, b) => a.localeCompare(b)).join(", ")} } from "${source}"`);
 
+/** Every screen of a document as a React component, read in the document's own styles (a custom style is resolved from `doc.styles`) */
 export function buildScreens(source: Doc, widths: Record<string, number>, o: BuildOptions = {}): { screens: ScreenCode[]; runtime: RuntimeSpec; usesToast: boolean } {
+  return withDocStyles(source.styles, () => screensOf(source, widths, o));
+}
+
+function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions): { screens: ScreenCode[]; runtime: RuntimeSpec; usesToast: boolean } {
   /* printed code is expanded: instances and repeated rows come out as plain parts. Its words are cleared of the
    * printer's own marks first */
   const doc = expandDoc(withoutMarks(source), widths);
@@ -480,10 +489,17 @@ export function buildScreens(source: Doc, widths: Record<string, number>, o: Bui
   let usesToast = false;
   const screens = shown.map((frame, i): ScreenCode => {
     const c = new Ctx(b, frame, widths);
+    /* A design field bound to a variable is printed with the variable's value on this screen. In a whole app it reads the
+     * variable's CSS variable, which the runtime defines for the screen in the mode it shows and with what taps set
+     * (src/runtime.tsx), that value standing in until it does */
+    const values = doc.vars?.length ? varValues(doc, frame, false) : {};
+    const cssVar = (id: string) => b.cssVarOf(id);
+    const bound = (g: Group): Group => (g.items.some(bindsFields) ? { ...g, items: g.items.map((it) => boundItem(it, values, cssVar)) } : g);
     /* a layout reads its parts in the order of the document, the rest go down the screen */
     const all = doc.groups
       .filter((g) => (loose || frameOfPart(g, doc.groups, frames, widths)?.id === frame.id) && !offTab.has(g.id))
-      .flatMap((g) => (g.free ? explodeGroup(g, widths) : [g]));
+      .flatMap((g) => (g.free ? explodeGroup(g, widths) : [g]))
+      .map(bound);
     const runs = [...all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { w, h } = frameSizeOf(frame);
     const length = frameLengthOf(frame);
@@ -498,7 +514,8 @@ export function buildScreens(source: Doc, widths: Record<string, number>, o: Bui
       const content = screenBody(frame, flowing, c, widths, all, false, folds);
       const overlays = screenBody(frame, fixed, c, widths, all, true, folds);
       const scrollHandler = folds ? ' onScroll={(event) => { const top = event.currentTarget.scrollTop; if (top !== lastScrollTop.current) setFabFolded(top > lastScrollTop.current); lastScrollTop.current = top }}' : "";
-      body = [`<div role="region" aria-label=${str(`${frame.name || "Screen"} content`)} tabIndex={0} className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain"${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></div>`, ...overlays];
+      /* the screen's name is the author's words: an expression, since a JSX attribute's quotes take no escapes */
+      body = [`<div role="region" aria-label={${str(`${frame.name || "Screen"} content`)}} tabIndex={0} className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain"${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></div>`, ...overlays];
     } else body = screenBody(frame, runs, c, widths, all);
     const bg = frame.bg && COLOR_TOKENS.some((t) => t.key === frame.bg) ? `bg-${role(frame.bg)}` : "bg-surface";
     /* a style may draw something behind its screens (src/style.css) */
@@ -516,6 +533,7 @@ export function buildScreens(source: Doc, widths: Record<string, number>, o: Bui
       width: w,
       height: h,
       foot: Math.max(0, ...runs.filter((g) => g.items.length === 1 && roleOf(g.items[0]) === "bottom").map((g) => sizeOf(g.items[0], widths).h)),
+      radius: frameRadius(frame) / 2,
       source: `export function ${name}() {\n${fromApp}${state}  return (\n${pretty(inner, 2)}\n  )\n}`,
       imports: c.imports,
       local: c.local,
@@ -524,7 +542,12 @@ export function buildScreens(source: Doc, widths: Record<string, number>, o: Bui
   return { screens, runtime: b.spec(screens.map((s) => s.key)), usesToast };
 }
 
+/** the code of a document, or of one of its screens, read in the document's own styles */
 export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?: string): CodeResult {
+  return withDocStyles(doc.styles, () => codeOf(doc, widths, onlyFrameId));
+}
+
+function codeOf(doc: Doc, widths: Record<string, number>, onlyFrameId?: string): CodeResult {
   const palette = paletteOf(doc.paletteKey, doc.customPalette, doc.theme);
   /* the header is comments: what it says of the document is only ever a color and a word it knows */
   const seed = [palette.seed, palette.primary].find((c): c is string => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c)) ?? "#6750A4";

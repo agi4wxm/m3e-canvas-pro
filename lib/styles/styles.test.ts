@@ -212,7 +212,7 @@ describe("what a style writes", () => {
     const css = every.join("\n");
     expect(css).not.toMatch(/:first-child|:last-child|:nth-|:only-child/);
     expect(css).not.toMatch(/>\s*(\*|div|span|:)/);
-    expect(css).not.toMatch(/(^|[\s,(}])(h1|h2|h3|p|span|div|svg|ul|li|button)(?=[\s,{.:\[)])/m);
+    expect(css).not.toMatch(/(^|[\s,(}])(h1|h2|h3|p|span|div|svg|ul|li|button)(?=[\s,{.:[)])/m);
   });
 
   it("dresses headings as headings, and leaves a price, a value or a button set as large alone", () => {

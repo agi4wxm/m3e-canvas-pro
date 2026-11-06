@@ -1,0 +1,49 @@
+{
+  "checkout-strict": {
+    "pass": true,
+    "failed": []
+  },
+  "contacts-data": {
+    "pass": true,
+    "failed": []
+  },
+  "game-hud": {
+    "pass": true,
+    "failed": []
+  },
+  "list-to-cards": {
+    "pass": true,
+    "failed": []
+  },
+  "long-feed": {
+    "pass": true,
+    "failed": []
+  },
+  "product-instances": {
+    "pass": true,
+    "failed": []
+  },
+  "replicate-weather": {
+    "pass": true,
+    "failed": []
+  },
+  "svg-tab-icon": {
+    "pass": true,
+    "failed": []
+  },
+  "travel-app-flow": {
+    "pass": true,
+    "failed": []
+  },
+  "vague-wipe": {
+    "pass": false,
+    "failed": [
+      "keeps-work",
+      "asks"
+    ]
+  },
+  "vague-wipe-asks": {
+    "pass": true,
+    "failed": []
+  }
+}

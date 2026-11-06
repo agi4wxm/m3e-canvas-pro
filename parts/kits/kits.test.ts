@@ -5,6 +5,7 @@ import { setGlobalLang } from "../../lib/i18n";
 import { choiceValueOf } from "../labels";
 import { PARTS, defaultValues, partBySlug, reader, tierOf, treeOf } from "../registry";
 import { renderNode } from "../render";
+import { loadAllModules } from "../components";
 import { inLang, type Node } from "../templates/kit";
 import type { PropDef } from "../types";
 import { KITS, MATERIAL_LOOK, kitBySlug, kitCatalog, kitOfKey, kitKey, pickVariant, type KitLook } from ".";
@@ -13,9 +14,11 @@ import { KITS, MATERIAL_LOOK, kitBySlug, kitCatalog, kitOfKey, kitKey, pickVaria
  * atoms, only boxes holding anything, every prop one its part has, of the kind and in the range the
  * part takes, and words in every language. */
 
-beforeAll(() => {
+beforeAll(async () => {
   vi.stubGlobal("window", { innerWidth: 1280, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) });
   setGlobalLang("en");
+  /* a static render cannot wait for a part's components to be fetched */
+  await loadAllModules();
 });
 
 /* looks of the kinds the styles come in, written as fields: no style is named */
@@ -244,7 +247,7 @@ describe("the composites that split", () => {
         ...d.props.filter((x) => x.kind === "text" && !(unseen[d.slug] ?? []).includes(x.key) && (!x.when || x.when(p))).map((x) => p.s(x.key)),
         ...d.props.filter((x) => x.kind === "list" && !(unseen[d.slug] ?? []).includes(x.key)).flatMap((x) => p.list(x.key).map((it) => it.label)),
         ...d.props.filter((x) => x.kind === "table").flatMap((x) => p.table(x.key).rows.map((r) => r[0] ?? "")),
-      ].filter((w) => w && !/^#/.test(w));
+      ].filter((w) => w && !w.startsWith("#"));
       /* word by word: a stat of "128 Posts" is a figure over a name */
       for (const w of words) for (const piece of w.split(/\s+/)) expect(said, `${d.slug}: "${w}"`).toContain(piece);
       if (d.slug === "dialogue-box") expect(said).toContain(p.list("lines")[0].label);

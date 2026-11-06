@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Palette, frameLengthOf, frameSizeOf } from "@/lib/tokens";
+import { fetchNow, modulesOfGroups, usePrefetchInView } from "@/parts/prefetch";
 import { partBySlug, reader } from "@/parts/registry";
 import { roleOf } from "@/parts/role";
 import { TEMPLATES, TEMPLATE_CATEGORIES, type Template, type TemplateCategory } from "@/parts/templates";
@@ -58,6 +59,20 @@ function planOf(template: Template): Plan {
   return plan;
 }
 
+const modules = new Map<string, readonly string[]>();
+
+/** what a template's parts are drawn with, fetched ahead of an add (parts/prefetch.ts) */
+function modulesOfTemplate(template: Template): readonly string[] {
+  let known = modules.get(template.slug);
+  if (!known) modules.set(template.slug, (known = modulesOfGroups(instantiate(template, "en").groups)));
+  return known;
+}
+
+const modulesOfTemplateTile = (el: Element): readonly string[] => {
+  const template = TEMPLATES.find((d) => d.slug === el.getAttribute("data-template"));
+  return template ? modulesOfTemplate(template) : [];
+};
+
 function Tile({ template, p, lang, onAdd, blocked }: { template: Template; p: Palette; lang: Lang; onAdd: (slug: string) => void; blocked?: boolean }) {
   const plan = planOf(template);
   const name = lang === "en" ? template.name : template.labels[lang];
@@ -68,6 +83,9 @@ function Tile({ template, p, lang, onAdd, blocked }: { template: Template; p: Pa
       type="button"
       className="m3-tile-face"
       data-template={template.slug}
+      /* pointed at or reached by the keyboard: its parts' drawings are fetched, so it lands drawn */
+      onPointerEnter={() => fetchNow(modulesOfTemplate(template))}
+      onFocus={() => fetchNow(modulesOfTemplate(template))}
       onClick={() => onAdd(template.slug)}
       disabled={blocked}
       title={blocked ? t("tplInDefinition", lang) : `${how}: ${name}`}
@@ -96,12 +114,15 @@ export function TemplatesPanel({ p, onAdd, blocked }: { p: Palette; onAdd: (slug
   }, [q, lang]);
   const grid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))", gap: 6 };
   const tile = (d: Template) => <Tile key={d.slug} template={d} p={p} lang={lang} onAdd={onAdd} blocked={blocked} />;
+  /* the templates in view have their parts' drawings fetched while the page is idle */
+  const scroller = useRef<HTMLDivElement | null>(null);
+  usePrefetchInView(scroller, "[data-template]", modulesOfTemplateTile);
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
       <div style={{ padding: "12px 12px 8px" }}>
         <Field value={q} onChange={setQ} placeholder={t("search", lang)} p={p} icon="search" height={40} />
       </div>
-      <div className="no-scrollbar" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "0 8px" }}>
+      <div ref={scroller} className="no-scrollbar" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "0 8px" }}>
         {q ? (
           <div style={{ ...grid, padding: "4px 4px 12px" }}>
             {filtered.map(tile)}

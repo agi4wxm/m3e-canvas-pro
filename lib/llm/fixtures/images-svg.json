@@ -1,0 +1,33 @@
+{
+  "created": 1793934170,
+  "background": "transparent",
+  "data": [
+    {
+      "b64_json": "PHN2ZyB2aWV3Qm94PSIwIDAgMTAyNCAxMDI0IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDI0IiBoZWlnaHQ9IjEwMjQiPgogIDx0aXRsZT5QYXBlciBhaXJwbGFuZSBiYWRnZTwvdGl0bGU+CiAgPHJlY3Qgd2lkdGg9IjEwMjQiIGhlaWdodD0iMTAyNCIgZmlsbD0iI2ZmZmZmZiIgLz4KICA8cmVjdCB4PSIzNCIgeT0iNDIiIHdpZHRoPSI5NTYiIGhlaWdodD0iOTQ2IiByeD0iMjYwIiBmaWxsPSIjMzE1NGY1IiAvPgogIDxnIGlkPSJwYXBlci1haXJwbGFuZSI+CiAgICA8cGF0aCBkPSJNMzE0IDU5MCA4MzIgMjkwIDQwOSA2NDUgMzUwIDgwOFEzMzUgODE5IDMzMiA3OTlaIiBmaWxsPSIjYTE4YWVmIiAvPgogICAgPHBhdGggZD0ibTMzNSA4MDkgNzQtMTY0IDg5IDUyLTE0OCAxMTFxLTkgNy0xNSAxWiIgZmlsbD0iI2ExOGFlZiIgLz4KICAgIDxwYXRoIGQ9Ik0xNjcgNDc2IDg0NyAyNTZRODY4IDI0OCA4NzUgMjYyIDg3OSAyNjkgODcyIDI4N0w2NjcgNzQ2UTY1MCA3ODcgNjE5IDc2OUw0MDkgNjQ1IDgzMiAyOTAgMzE0IDU5NCAxNzEgNTI5UTE0NSA1MTcgMTQ0IDUwMSAxNDMgNDg2IDE2NyA0NzZaIiBmaWxsPSIjZmZmZmZmIiAvPgogIDwvZz4KPC9zdmc+"
+    }
+  ],
+  "output_format": "svg",
+  "quality": "medium",
+  "safety_identifier": null,
+  "size": "1024x1024",
+  "svg_usage": {
+    "input_tokens": 1572,
+    "model": "gpt-6.1-sol",
+    "output_tokens": 286,
+    "reasoning_tokens": 23,
+    "total_tokens": 1858
+  },
+  "usage": {
+    "input_tokens": 100,
+    "input_tokens_details": {
+      "image_tokens": 0,
+      "text_tokens": 100
+    },
+    "output_tokens": 2578,
+    "output_tokens_details": {
+      "image_tokens": 2578,
+      "text_tokens": 0
+    },
+    "total_tokens": 2678
+  }
+}

@@ -39,6 +39,13 @@ export const canNest = (components: ComponentDef[] | undefined, hostId: string |
 
 /* ---------- expansion ---------- */
 
+/** How much one expansion draws, whatever a file says: instances nested this deep, and this many groups drawn for
+ *  them in all. A definition holding a few instances of one holding a few instances of another… grows as a power of
+ *  its depth, so a file of a few kilobytes could ask for millions of parts; past these an instance is its empty box,
+ *  as one that would hold itself is. */
+export const MAX_INSTANCE_DEPTH = 24;
+export const MAX_INSTANCE_GROUPS = 10_000;
+
 /** a part with what the instance changes of it; keys are `itemId/propKey` */
 function overridden(it: Item, overrides: Record<string, VarValue> | undefined): Item {
   if (!overrides) return it;
@@ -57,19 +64,59 @@ function passedDown(g: Group, overrides: Record<string, VarValue> | undefined): 
   return down.length ? { ...g.overrides, ...Object.fromEntries(down.map(([k, v]) => [k.slice(prefix.length), v])) } : g.overrides;
 }
 
-/** A definition's groups placed at (x, y) under new ids. What they point at among themselves follows. */
-function placedCopy(def: ComponentDef, x: number, y: number, overrides: Group["overrides"], groupId: (id: string) => string, itemId: (id: string) => string): Group[] {
-  const groupIds = new Map(def.groups.map((g) => [g.id, groupId(g.id)]));
-  const itemIds = new Map(def.groups.flatMap((g) => g.items.map((it) => [it.id, itemId(it.id)] as const)));
-  return def.groups.map((g) => {
+/** What an instance's property values come to: words written over parts as overrides would be, layers left out, nested
+ *  instances that are another component. A property the instance says nothing of shows what the definition does,
+ *  except a visibility property whose own value is off. */
+export function propertyEffects(def: ComponentDef, values: Group["properties"]): { overrides: Record<string, VarValue>; hidden: Set<string>; swaps: Map<string, string> } {
+  const overrides: Record<string, VarValue> = {};
+  const hidden = new Set<string>();
+  const swaps = new Map<string, string>();
+  for (const p of def.props ?? []) {
+    const v = values?.[p.id];
+    if (p.type === "text") {
+      if (v !== undefined) for (const key of p.targets) overrides[key] = String(v);
+    } else if (p.type === "bool") {
+      if ((v ?? p.value) === false) for (const id of p.targets) hidden.add(id);
+    } else if (typeof v === "string" && v) for (const id of p.targets) swaps.set(id, v);
+  }
+  return { overrides, hidden, swaps };
+}
+
+/** the groups of a definition with the layers a property hides taken out, and what those lay out with them */
+function withoutHidden(groups: Group[], hidden: Set<string>): Group[] {
+  if (!hidden.size) return groups;
+  const gone = new Set(hidden);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const g of groups)
+      if (!gone.has(g.id) && g.inFlow && gone.has(g.inFlow)) {
+        gone.add(g.id);
+        grew = true;
+      }
+  }
+  return groups.filter((g) => !gone.has(g.id));
+}
+
+/** A definition's groups placed at (x, y) under new ids, as `inst` shows them: its property values and overrides
+ *  over them. What they point at among themselves follows. */
+function placedCopy(def: ComponentDef, x: number, y: number, inst: Pick<Group, "overrides" | "properties">, groupId: (id: string) => string, itemId: (id: string) => string): Group[] {
+  const fx = propertyEffects(def, inst.properties);
+  /* what an instance overrides by hand wins over what its properties say */
+  const overrides = Object.keys(fx.overrides).length ? { ...fx.overrides, ...inst.overrides } : inst.overrides;
+  const source = withoutHidden(def.groups, fx.hidden);
+  const groupIds = new Map(source.map((g) => [g.id, groupId(g.id)]));
+  const itemIds = new Map(source.flatMap((g) => g.items.map((it) => [it.id, itemId(it.id)] as const)));
+  return source.map((g) => {
     const { inFlow, overrides: _own, ...rest } = g;
     const down = g.instanceOf ? passedDown(g, overrides) : undefined;
+    const swapped = g.instanceOf ? fx.swaps.get(g.id) : undefined;
     return retarget(
       {
         ...rest,
         id: groupIds.get(g.id)!,
         x: g.x + x,
         y: g.y + y,
+        ...(swapped ? { instanceOf: swapped } : {}),
         ...(inFlow && groupIds.has(inFlow) ? { inFlow: groupIds.get(inFlow) } : {}),
         ...(down ? { overrides: down } : {}),
         ...(g.pos ? { pos: Object.fromEntries(Object.entries(g.pos).map(([id, p]) => [itemIds.get(id) ?? id, p])) } : {}),
@@ -80,11 +127,11 @@ function placedCopy(def: ComponentDef, x: number, y: number, overrides: Group["o
   });
 }
 
-type Context = { components: ComponentDef[]; collections?: Collection[]; widths: Widths; rows: boolean; keepEmpty?: boolean };
+type Context = { components: ComponentDef[]; collections?: Collection[]; widths: Widths; rows: boolean; keepEmpty?: boolean; /** groups this expansion may still draw */ left: number };
 
 /** the container left where an instance was, its size what the parts come to */
 function wrapperOf(g: Group, name: string, w: number, h: number): Group {
-  const { instanceOf: _of, overrides: _over, ...rest } = g;
+  const { instanceOf: _of, overrides: _over, properties: _props, ...rest } = g;
   return { ...rest, expandedFrom: name, items: [{ ...g.items[0], component: "container", props: BOX(w, h) }] };
 }
 
@@ -94,10 +141,15 @@ function wrapperOf(g: Group, name: string, w: number, h: number): Group {
 function expandOne(g: Group, ctx: Context, stack: string[]): Group[] {
   const def = ctx.components.find((c) => c.id === g.instanceOf);
   if (!def) return [wrapperOf(g, "", 40, 40)];
-  if (stack.includes(def.id)) return [wrapperOf(g, def.name, def.w, def.h)];
-  const clones = placedCopy(def, g.x, g.y, g.overrides, (id) => `${g.id}/${id}`, (id) => `${g.id}/${id}`);
+  if (stack.includes(def.id) || stack.length >= MAX_INSTANCE_DEPTH || ctx.left <= 0) return [wrapperOf(g, def.name, def.w, def.h)];
+  const clones = placedCopy(def, g.x, g.y, g, (id) => `${g.id}/${id}`, (id) => `${g.id}/${id}`);
+  ctx.left -= clones.length;
   let kids = clones.flatMap((k) => (k.instanceOf ? expandOne(k, ctx, [...stack, def.id]) : [k]));
-  if (ctx.rows) kids = expandRepeats(kids, { collections: ctx.collections, widths: ctx.widths, keepEmpty: ctx.keepEmpty });
+  if (ctx.rows) {
+    const before = kids.length;
+    kids = expandRepeats(kids, { collections: ctx.collections, widths: ctx.widths, keepEmpty: ctx.keepEmpty });
+    ctx.left -= kids.length - before;
+  }
   const measures = measuresFor(kids, ctx.widths);
   kids = arrangeFlows(kids, measures);
   /* a second pass settles a hugging layout inside a layout */
@@ -106,8 +158,14 @@ function expandOne(g: Group, ctx: Context, stack: string[]): Group[] {
   /* what stands on a dock's other tab is still where it was last laid out, which says nothing of the size */
   const off = outOfPane(kids, measures);
   const seen = kids.filter((k) => !off.has(k.id));
-  const r = Math.max(...seen.map((k) => k.x + ownSize(k, measures).w));
-  const b = Math.max(...seen.map((k) => k.y + ownSize(k, measures).h));
+  /* a loop, not a spread: a definition can hold more groups than a call takes arguments */
+  let r = -Infinity;
+  let b = -Infinity;
+  for (const k of seen) {
+    const size = ownSize(k, measures);
+    r = Math.max(r, k.x + size.w);
+    b = Math.max(b, k.y + size.h);
+  }
   return [wrapperOf(g, def.name, r - g.x, b - g.y), ...kids];
 }
 
@@ -115,7 +173,7 @@ function expandOne(g: Group, ctx: Context, stack: string[]): Group[] {
  *  The same array comes back when there is nothing to expand. */
 export function expandInstances(doc: Pick<Doc, "groups" | "components" | "collections">, widths: Widths = {}, o: { rows?: boolean; keepEmpty?: boolean } = {}): Group[] {
   if (!doc.groups.some((g) => g.instanceOf)) return doc.groups;
-  const ctx: Context = { components: doc.components ?? [], collections: doc.collections, widths, rows: o.rows !== false, keepEmpty: o.keepEmpty };
+  const ctx: Context = { components: doc.components ?? [], collections: doc.collections, widths, rows: o.rows !== false, keepEmpty: o.keepEmpty, left: MAX_INSTANCE_GROUPS };
   return doc.groups.flatMap((g) => (g.instanceOf ? expandOne(g, ctx, []) : [g]));
 }
 
@@ -169,12 +227,12 @@ function detachedParts(g: Group, def: ComponentDef, newIds?: Map<string, string>
     newIds?.set(`${g.id}/${id}`, fresh);
     return fresh;
   };
-  const parts = placedCopy(def, g.x, g.y, g.overrides, uid, named);
+  const parts = placedCopy(def, g.x, g.y, g, uid, named);
   const kept = { ...(g.inFlow ? { inFlow: g.inFlow } : {}), ...(g.pane !== undefined ? { pane: g.pane } : {}), ...(g.hidden ? { hidden: true } : {}), ...(g.showWhen ? { showWhen: g.showWhen } : {}), ...(g.locked ? { locked: true } : {}), ...(g.name ? { name: g.name } : {}) };
   const top = parts.filter((p) => !p.inFlow);
   if (top.length === 1) return parts.map((p) => (p === top[0] ? { ...p, ...kept } : p));
   if (!Object.keys(kept).length) return parts;
-  const { instanceOf: _of, overrides: _over, ...rest } = g;
+  const { instanceOf: _of, overrides: _over, properties: _props, ...rest } = g;
   return [{ ...rest, items: [{ ...g.items[0], component: "container", props: BOX(def.w, def.h) }] }, ...parts];
 }
 
@@ -207,13 +265,16 @@ const OVERRIDABLE = new Set<PropDef["kind"]>(["text", "icon", "image", "bool"]);
 export type OverridePart = { /** the part's path in the override key: `itemId`, or `nestedGroupId/itemId` */ path: string; item: Item; props: PropDef[] };
 
 /** the parts inside a definition that an instance can change, with the props of each */
-export function overridableParts(def: ComponentDef, components: ComponentDef[] | undefined, prefix = "", stack: string[] = []): OverridePart[] {
+export function overridableParts(def: ComponentDef, components: ComponentDef[] | undefined, prefix = "", stack: string[] = [], budget = { left: MAX_INSTANCE_GROUPS }): OverridePart[] {
   return def.groups.flatMap((g): OverridePart[] => {
+    /* bounded as an expansion is: nested definitions multiply what is listed */
+    if (budget.left <= 0) return [];
     if (g.instanceOf) {
       const inner = components?.find((c) => c.id === g.instanceOf);
-      if (!inner || stack.includes(inner.id) || inner.id === def.id) return [];
-      return overridableParts(inner, components, `${prefix}${g.id}/`, [...stack, def.id]).map((p) => ({ ...p, item: overridden({ ...p.item, id: p.path.slice(prefix.length + g.id.length + 1) }, g.overrides) }));
+      if (!inner || stack.includes(inner.id) || inner.id === def.id || stack.length >= MAX_INSTANCE_DEPTH) return [];
+      return overridableParts(inner, components, `${prefix}${g.id}/`, [...stack, def.id], budget).map((p) => ({ ...p, item: overridden({ ...p.item, id: p.path.slice(prefix.length + g.id.length + 1) }, g.overrides) }));
     }
+    budget.left -= g.items.length;
     return g.items.flatMap((it) => {
       const part = partBySlug(it.component);
       /* a container's switches are how it lays out, not what it shows */
@@ -274,4 +335,83 @@ export function rekeyedAll(units: Group[], dx: number, dy: number, sameScreen = 
     const { inFlow: _left, ...rest } = c;
     return rest;
   });
+}
+
+/* ---------- variants, swapping and properties ---------- */
+
+/** the variants of a set, in the order the document lists them */
+export const variantsOf = (components: ComponentDef[] | undefined, setId: string | undefined): ComponentDef[] => (setId ? (components ?? []).filter((c) => c.set === setId) : []);
+
+/** The variant of a set with these values for its properties, or the one that shares most of them with it (the
+ *  first property counting most): picking one value of one property lands on the closest variant there is. */
+export function variantMatching(components: ComponentDef[] | undefined, setId: string, values: Record<string, string>, order: string[] = Object.keys(values)): ComponentDef | undefined {
+  const list = variantsOf(components, setId);
+  const score = (c: ComponentDef) => order.reduce((n, name, i) => n + (c.variant?.[name] === values[name] ? 2 ** (order.length - i) : 0), 0);
+  return list.reduce<ComponentDef | undefined>((best, c) => (!best || score(c) > score(best) ? c : best), undefined);
+}
+
+/** what a part is called when it is looked for in another component: its kind and the name it goes by */
+const partName = (it: Item) => `${it.component ?? ""}|${it.label}`;
+
+/** An instance's overrides carried to another component. A key whose part the other one has under the same path stays
+ *  (variants copied from one another share their ids); one whose part goes by the same kind and name there follows
+ *  it; the rest go, as Figma keeps an override where the layer names match. */
+export function carriedOverrides(overrides: Group["overrides"], from: ComponentDef, to: ComponentDef, components: ComponentDef[] | undefined): Group["overrides"] {
+  if (!overrides) return undefined;
+  const there = overridableParts(to, components);
+  const paths = new Set(there.map((p) => p.path));
+  const before = new Map(overridableParts(from, components).map((p) => [p.path, p]));
+  const out: Record<string, VarValue> = {};
+  for (const [key, value] of Object.entries(overrides)) {
+    const at = key.lastIndexOf("/");
+    const path = key.slice(0, at);
+    const prop = key.slice(at + 1);
+    if (paths.has(path)) {
+      out[key] = value;
+      continue;
+    }
+    const was = before.get(path);
+    const same = was && there.find((p) => partName(p.item) === partName(was.item) && p.props.some((d) => d.key === prop) && out[`${p.path}/${prop}`] === undefined);
+    if (same) out[`${same.path}/${prop}`] = value;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** an instance's property values carried to another component: by the name and kind of property */
+export function carriedProperties(values: Group["properties"], from: ComponentDef, to: ComponentDef): Group["properties"] {
+  if (!values) return undefined;
+  const out: Record<string, VarValue> = {};
+  for (const [id, value] of Object.entries(values)) {
+    const was = from.props?.find((p) => p.id === id);
+    const now = to.props?.find((p) => p.id === id && (!was || p.type === was.type)) ?? (was && to.props?.find((p) => p.name === was.name && p.type === was.type));
+    if (now) out[now.id] = value;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** An instance made an instance of another component (a variant of its own, or any other): what it overrides and the
+ *  values it gives follow where they can, and the box standing in for it takes the other one's size. */
+export function swappedInstance(g: Group, to: ComponentDef, components: ComponentDef[] | undefined): Group {
+  const from = components?.find((c) => c.id === g.instanceOf);
+  const { overrides: _o, properties: _p, ...rest } = g;
+  const overrides = from ? carriedOverrides(g.overrides, from, to, components) : undefined;
+  const properties = from ? carriedProperties(g.properties, from, to) : undefined;
+  const it = g.items[0];
+  return {
+    ...rest,
+    instanceOf: to.id,
+    ...(overrides ? { overrides } : {}),
+    ...(properties ? { properties } : {}),
+    items: it ? [{ ...it, label: to.name, props: { ...it.props, ...BOX(to.w, to.h) } }, ...g.items.slice(1)] : g.items,
+  };
+}
+
+/** A copy of a definition to be another variant of it: the same parts under the same ids, so that an instance moved
+ *  from one to the other keeps what it overrides. */
+export const variantCopy = (def: ComponentDef, id: string, name: string, variant: Record<string, string>): ComponentDef => ({ ...structuredClone(def), id, name, variant });
+
+/** what a definition's targets for a property can be: parts' words (override keys), its layers, its nested instances */
+export function propertyTargets(def: ComponentDef, components: ComponentDef[] | undefined): { text: { key: string; item: Item; prop: PropDef }[]; layers: Group[]; nested: Group[] } {
+  const text = overridableParts(def, components).flatMap((p) => p.props.filter((d) => d.kind === "text").map((d) => ({ key: `${p.path}/${d.key}`, item: p.item, prop: d })));
+  return { text, layers: def.groups, nested: def.groups.filter((g) => !!g.instanceOf) };
 }

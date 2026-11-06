@@ -2,12 +2,21 @@
 import { useRef } from "react";
 import { Palette } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
-import { AiSettings, IMAGE_PROVIDERS, ImageProvider, PROVIDERS, Provider, imageSpec, providerSpec } from "@/lib/ai";
+import { AiHttpError, AiSettings, IMAGE_PROVIDERS, ImageProvider, PROVIDERS, Provider, imageSpec, providerSpec } from "@/lib/ai";
 
 /** the message shown for a failed request, mapped from the error codes lib/ai throws */
 export function aiErrorText(e: unknown, lang: ReturnType<typeof useLang>): string {
   const m = e instanceof Error ? e.message : String(e);
+  /* the statuses an author can do something about are said in words; any other keeps the provider's own */
+  if (e instanceof AiHttpError) {
+    if (e.status === 401 || e.status === 403) return t("aiErrorKey", lang);
+    if (e.status === 404) return t("aiErrorNotFound", lang);
+    if (e.status === 429) return t("aiErrorRate", lang);
+    if (e.status >= 500) return t("aiErrorDown", lang);
+  }
   if (m === "refusal") return t("aiErrorRefusal", lang);
+  if (m === "svg") return t("aiErrorSvg", lang);
+  if (m === "long") return t("aiErrorLong", lang);
   if (m === "json" || m === "empty") return t("aiErrorJson", lang);
   if (m === "model") return t("aiErrorModel", lang);
   if (m === "insecure") return t("aiErrorInsecure", lang);

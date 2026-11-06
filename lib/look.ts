@@ -13,6 +13,7 @@ import {
   type LookTexture,
   type LookTransform,
   type PaintLayer,
+  type Radii,
   type TextToken,
   type TextureKind,
 } from "./tokens";
@@ -132,6 +133,13 @@ export const tokenRole = (t: ColorToken | TextToken): ColorRole => t.replace(/[A
 
 export const roleVar = (role: string) => `var(--md-sys-color-${role})`;
 
+/** the name of a CSS variable an exported app paints a bound field with (`--m3e-v-<name>`): letters, digits, dashes */
+const isVarName = (v: unknown): v is string => typeof v === "string" && /^[a-z][a-z0-9-]{0,40}$/.test(v);
+
+/** A value read from a variable's CSS variable when the field is bound to one, the field's own standing in while it is
+ *  not defined; the value itself when it is not. */
+export const boundCss = (css: string, name: string | undefined) => (name ? `var(--m3e-v-${name}, ${css})` : css);
+
 /** A color reference as CSS: a role is its variable, a share of one is mixed with nothing, a hex stays a hex.
  *  Anything else is no color, and comes back as nothing. */
 export function colorCss(ref: unknown): string | undefined {
@@ -220,6 +228,7 @@ export function cleanPaint(v: unknown): PaintLayer | undefined {
   if (type === "solid") {
     if (!isColorRef(v.color)) return undefined;
     out.color = v.color;
+    if (isVarName(v.cssVar)) out.cssVar = v.cssVar;
   } else {
     const stops = cleanStops(v.stops);
     if (!stops || stops.length < 2) return undefined;
@@ -252,7 +261,8 @@ export function paintCss(layer: PaintLayer | undefined): string | undefined {
   const l = cleanPaint(layer);
   if (!l || l.hidden) return undefined;
   if (l.type === "solid") {
-    const c = colorCss(l.color)!;
+    const own = colorCss(l.color)!;
+    const c = boundCss(own, l.cssVar);
     return `linear-gradient(${c}, ${c})`;
   }
   const stops = stopsCss(l.stops!);
@@ -390,6 +400,7 @@ export function cleanStroke(v: unknown): LookStroke | undefined {
     const s = v.sides;
     out.sides = { t: lim(s.t, "strokeWidth") ?? 0, r: lim(s.r, "strokeWidth") ?? 0, b: lim(s.b, "strokeWidth") ?? 0, l: lim(s.l, "strokeWidth") ?? 0 };
   }
+  if (isVarName(v.cssVar)) out.cssVar = v.cssVar;
   return out;
 }
 
@@ -398,7 +409,8 @@ export function cleanStroke(v: unknown): LookStroke | undefined {
  *  made of, so it is the outline, pulled in by as much as it should sit inside. */
 export function strokeCss(stroke: LookStroke | undefined): { shadows: string[]; outline?: string; outlineOffset?: string } {
   const s = cleanStroke(stroke);
-  const color = s && colorCss(s.color);
+  const own = s && colorCss(s.color);
+  const color = own && boundCss(own, s.cssVar);
   if (!s || !color) return { shadows: [] };
   const position = s.position ?? "inside";
   if (s.style === "dashed" || s.style === "dotted") {
@@ -542,6 +554,7 @@ export function cleanText(v: unknown): LookText | undefined {
   }
   const gradient = cleanPaint(v.gradient);
   if (gradient && gradient.type !== "solid") out.gradient = gradient;
+  if (out.color && isVarName(v.cssVar)) out.cssVar = v.cssVar;
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -552,11 +565,16 @@ const FONT_OF: Record<NonNullable<ItemLook["font"]>, string> = {
 
 const CASE_OF = { upper: "uppercase", lower: "lowercase", title: "capitalize" } as const;
 
-/** the one color words are read in, when the look names one, written into the roles words read so it reaches them all */
-function wordColor(c: string): Record<string, string> {
-  const out: Record<string, string> = { color: c };
-  /* a role defined by itself is no value at all, so the one being read stays as it is */
-  for (const name of ["on-surface", "on-surface-variant"]) if (!c.includes(`--md-sys-color-${name})`)) out[`--md-sys-color-${name}`] = c;
+/** the one color words are read in, when the look names one, written into the roles words read so it reaches them all;
+ *  `bound` is the variable it is bound to in an exported app */
+function wordColor(c: string, bound?: string): Record<string, string> {
+  const out: Record<string, string> = { color: boundCss(c, bound) };
+  for (const name of ["on-surface", "on-surface-variant"]) {
+    /* a role defined by itself is no value at all, so the one being read stays as it is; one bound to a variable reads
+       the variable alone, which the screen around it always defines */
+    if (!c.includes(`--md-sys-color-${name})`)) out[`--md-sys-color-${name}`] = boundCss(c, bound);
+    else if (bound) out[`--md-sys-color-${name}`] = `var(--m3e-v-${bound})`;
+  }
   return out;
 }
 
@@ -572,7 +590,7 @@ export function lookTextNodeStyle(look: ItemLook | undefined): Record<string, st
   const t = cleanText(look?.text);
   if (!t) return {};
   const out: Record<string, string | number> = {};
-  if (t.color && !t.gradient) out.color = colorCss(t.color)!;
+  if (t.color && !t.gradient) out.color = boundCss(colorCss(t.color)!, t.cssVar);
   if (t.size !== undefined) out.fontSize = `${t.size}px`;
   if (t.weight !== undefined) out.fontWeight = t.weight;
   if (t.letterSpacing !== undefined) out.letterSpacing = `${t.letterSpacing}px`;
@@ -687,6 +705,12 @@ export function cleanLook(v: unknown): ItemLook | undefined {
   if (texture) out.texture = texture;
   if (v.clip === true) out.clip = true;
   if (v.clearFill === true) out.clearFill = true;
+  if (isRecord(v.vars)) {
+    const named = v.vars;
+    const vars: NonNullable<ItemLook["vars"]> = {};
+    for (const k of ["opacity", "rotate", "radius"] as const) if (isVarName(named[k])) vars[k] = named[k];
+    if (Object.keys(vars).length) out.vars = vars;
+  }
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -729,13 +753,16 @@ export function lookStyle(look: ItemLook | undefined): Record<string, string | n
 
   /* the first look */
   if (l.borderWidth) out.border = `${l.borderWidth}px solid ${roleVar(LEGACY_TEXT_ROLE(l.borderColor ?? "onSurfaceVariant"))}`;
-  if (l.opacity !== undefined && l.opacity < 100) out.opacity = l.opacity / 100;
+  /* a bound number is read off its variable, held in the range the panel keeps it in */
+  if (l.vars?.opacity) out.opacity = `clamp(0, ${boundCss(String(l.opacity ?? 100), l.vars.opacity)} / 100, 1)`;
+  else if (l.opacity !== undefined && l.opacity < 100) out.opacity = l.opacity / 100;
   if (l.glass) {
     const saturate = round((l.glassSaturate ?? 150) / 100);
     out.backdropFilter = `blur(${l.glass}px) saturate(${saturate})`;
     out.WebkitBackdropFilter = out.backdropFilter;
   }
-  if (l.rotate) out.rotate = `${l.rotate}deg`;
+  if (l.vars?.rotate) out.rotate = `calc(clamp(-360, ${boundCss(String(l.rotate ?? 0), l.vars.rotate)}, 360) * 1deg)`;
+  else if (l.rotate) out.rotate = `${l.rotate}deg`;
   if (l.font) out.fontFamily = FONT_OF[l.font];
 
   /* paint: a texture over the paint layers, over the part's own fill unless that is taken away */
@@ -796,7 +823,7 @@ export function lookStyle(look: ItemLook | undefined): Record<string, string | n
   /* words, as far as they are inherited: the size and weight a class gives a node are set on that node too */
   const t = l.text;
   if (t) {
-    if (t.color && !t.gradient) Object.assign(out, wordColor(colorCss(t.color)!));
+    if (t.color && !t.gradient) Object.assign(out, wordColor(colorCss(t.color)!, t.cssVar));
     Object.assign(out, lookTextNodeStyle(l));
     if (t.decoration) out.textDecorationLine = t.decoration;
     const shadows = (t.shadows ?? []).map((s) => shadowCss(s, true)).filter((s): s is string => !!s);
@@ -823,6 +850,13 @@ export function colorsOfLook(l: ItemLook | undefined): ColorRef[] {
   paint(l.text?.gradient);
   if (l.texture?.color) out.push(l.texture.color);
   return out.filter(isColorRef);
+}
+
+/** The four corners as CSS: one radius read off the variable it is bound to in an exported app, held where the panel
+ *  holds it, else each corner as it is. */
+export function cornersCss(c: Radii, look: ItemLook | undefined): string {
+  const bound = look?.vars && isVarName(look.vars.radius) ? look.vars.radius : undefined;
+  return bound ? `calc(clamp(0, ${boundCss(String(c.tl), bound)}, 999) * 1px)` : `${c.tl}px ${c.tr}px ${c.br}px ${c.bl}px`;
 }
 
 /* ---------- presets ---------- */

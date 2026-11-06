@@ -1,15 +1,19 @@
 import { familiesOf } from "./variants";
 import { strToU8, zipSync } from "fflate";
 import { buildScreens, importLines, type ScreenCode } from "./codegen";
+import type { RuntimeSpec } from "./printBehaviour";
 import { getLang, type Lang } from "./i18n";
 import { BASELINE_SEED } from "./m3e/color";
 import { runtimeSource } from "./runtimeSource";
 import { SLIDE_SPEC, faceSheetsOf, fontFamilyOf, normalizeTheme, seedOf, shapeScaleOf, type Doc } from "./tokens";
-import { APP_SCOPE, recipesOf, styleCss } from "./styles";
+import { APP_SCOPE, recipesOf, styleCss, withDocStyles } from "./styles";
 import { elevationCss } from "./look";
 import { iconSubset, setsOf } from "../components/m3e/icon-sets/load";
 import { SOURCES } from "../components/m3e/icon-sets/manifest";
 import { str } from "../parts/print";
+import { EXPORT_ALWAYS, EXPORT_DEV } from "./exportPackages";
+import { iconifySetOf } from "./docIcons";
+import { VERSIONS } from "./versions.generated";
 
 /* A document as a project someone can install and run: its screens, the runtime their taps call, its
  * theme, and a copy of only the source files those reach, found by walking their imports. Nothing here
@@ -233,21 +237,10 @@ function useSized(asked: ScreenId): ScreenId {
 `;
 }
 
-function appSource(screens: ScreenCode[], motion: string, usesToast: boolean, families: string[][]): string {
-  const imports = screens.map((s) => `import { ${s.component} } from "./screens/${s.component}"`).join("\n");
-  const table = screens.map((s) => `  ${s.key}: { Screen: ${s.component}, width: ${s.width}, height: ${s.height}, foot: ${Math.round(s.foot)} },`).join("\n");
-  return `import { useEffect, useLayoutEffect, useRef, useState, type ComponentType } from "react"
-import { AnimatePresence, MotionConfig, motion, useIsPresent, type TargetAndTransition, type Variants } from "motion/react"
-import { PortalContainer } from "@/components/m3e/portal-container"
-${usesToast ? `import { Toaster } from "@/components/m3e/sonner"\n` : ""}import { useApp, type App as AppState, type ScreenId } from "./runtime"
-${imports}
-
-const SCREENS: Record<ScreenId, { Screen: ComponentType; width: number; height: number; foot: number }> = {
-${table}
-}
-
-${sizesSource(families)}
-/** the theme's motion scheme: springs for expressive, eased tweens for standard */
+/** The poses of the theme's motion as they always were written into an app, for one that plays no more than the older
+ *  transitions: kept so such a document exports as it did */
+function plainPoses(motion: string): string {
+  return `/** the theme's motion scheme: springs for expressive, eased tweens for standard */
 const SPRINGS = ${motion === "expressive"}
 const EASE = [0.2, 0, 0, 1] as const
 const SLIDE_S = 0.42
@@ -296,9 +289,22 @@ const VARIANTS: Variants = {
   initial: (m: AppState["move"]) => poses(m).initial,
   animate: (m: AppState["move"]) => poses(m).animate,
   exit: (m: AppState["move"]) => poses(m).exit,
+}`;
 }
 
-/** a screen on its way out takes no more taps */
+/** the poses of an app that plays a prototype's animations: the editor's preview's own, out of src/lib/screenMotion.ts */
+const sharedPoses = (motion: string) => `/** the theme's motion scheme: springs for expressive, eased tweens for standard */
+const SPRINGS = ${motion === "expressive"}
+
+/** where a screen comes in from and goes off to, as the editor's preview plays it (src/lib/screenMotion.ts): an action's
+ *  animation where it has one, else its older transition; back plays the same move in reverse */
+const VARIANTS: Variants = {
+  initial: (m: AppState["move"]) => screenPoses({ ...m, spring: SPRINGS }).initial,
+  animate: (m: AppState["move"]) => screenPoses({ ...m, spring: SPRINGS }).animate,
+  exit: (m: AppState["move"]) => screenPoses({ ...m, spring: SPRINGS }).exit,
+}`;
+
+const PLAIN_PAGE = `/** a screen on its way out takes no more taps */
 function Page({ screen }: { screen: ScreenId }) {
   const present = useIsPresent()
   const { Screen } = SCREENS[screen]
@@ -307,7 +313,47 @@ function Page({ screen }: { screen: ScreenId }) {
       <Screen />
     </div>
   )
+}`;
+
+/** a page that says which screen it is and whether it can be used, for the runtime; the CSS variables of its bound fields */
+const livePage = (bound: boolean) => `/** A screen on its way out, or under an overlay, takes no taps, and what it starts after a delay waits. It tells the parts
+ *  in it which screen they are on${bound ? ", and defines the CSS variables its bound design fields read" : ""}. */
+function Page({ screen, covered = false }: { screen: ScreenId; covered?: boolean }) {
+  const present = useIsPresent()
+${bound ? "  const { varStyle } = useApp()\n" : ""}  const { Screen } = SCREENS[screen]
+  const active = present && !covered
+  return (
+    <ScreenContext.Provider value={{ screen, active }}>
+      <div inert={!active} data-page={screen} data-active={active || undefined} className="absolute inset-0"${bound ? " style={varStyle(screen)}" : ""}>
+        <Screen />
+      </div>
+    </ScreenContext.Provider>
+  )
+}`;
+
+function appSource(screens: ScreenCode[], motion: string, usesToast: boolean, families: string[][], runtime: RuntimeSpec): string {
+  /* what of the prototype and the variables the app plays; with none of it, the app is written as it always was */
+  const proto = runtime.proto;
+  const overlay = !!proto?.overlay;
+  const bound = !!runtime.modes?.bound.length;
+  const live = !!proto || !!runtime.modes;
+  const imports = screens.map((s) => `import { ${s.component} } from "./screens/${s.component}"`).join("\n");
+  const table = screens.map((s) => `  ${s.key}: { Screen: ${s.component}, width: ${s.width}, height: ${s.height}, foot: ${Math.round(s.foot)}${overlay ? `, radius: ${Math.round(s.radius)}` : ""} },`).join("\n");
+  const fromApp = [families.length ? "screen: asked" : "screen", "move", "snack", ...(overlay ? ["overlay", "closeOverlay"] : []), ...(bound ? ["varStyle"] : [])];
+  return `import { useEffect, useLayoutEffect, useRef, useState, type ComponentType } from "react"
+import { AnimatePresence, MotionConfig, motion, useIsPresent, ${proto ? "" : "type TargetAndTransition, "}type Variants } from "motion/react"
+import { PortalContainer } from "@/components/m3e/portal-container"
+${usesToast ? `import { Toaster } from "@/components/m3e/sonner"\n` : ""}${proto ? `import { screenPoses } from "@/lib/screenMotion"\n` : ""}import { ${live ? "ScreenContext, " : ""}useApp, type App as AppState, type ScreenId } from "./runtime"
+${imports}
+
+const SCREENS: Record<ScreenId, { Screen: ComponentType; width: number; height: number; foot: number${overlay ? "; radius: number" : ""} }> = {
+${table}
 }
+
+${sizesSource(families)}
+${proto ? sharedPoses(motion) : plainPoses(motion)}
+
+${live ? livePage(bound) : PLAIN_PAGE}
 
 /** as large as the window allows, never larger than the screen was drawn. A screen far taller than the window is read by scrolling the page */
 function useFit(width: number, height: number) {
@@ -322,7 +368,7 @@ function useFit(width: number, height: number) {
 }
 
 export function App() {
-  ${families.length ? "const { screen: asked, move, snack } = useApp()\n  const screen = useSized(asked)" : "const { screen, move, snack } = useApp()"}
+  const { ${fromApp.join(", ")} } = useApp()${families.length ? `\n  const screen = useSized(asked)${overlay ? "\n  const overlayShown = useSized(overlay?.screen ?? asked)" : ""}` : ""}
   const shown = SCREENS[screen]
   const fit = useFit(shown.width, shown.height)
   /* overlays open inside the screen, not over the whole window: the transform makes their \`fixed\` lay out in it */
@@ -331,10 +377,24 @@ export function App() {
   const was = useRef(screen)
   const from = SCREENS[was.current]
   const changed = from.width !== shown.width || from.height !== shown.height
-  const custom: AppState["move"] = changed ? { ...move, transition: "fade" } : move
+  const custom: AppState["move"] = changed ? { ...move, transition: "fade"${proto ? ", motion: undefined" : ""} } : move
   useEffect(() => {
     was.current = screen
-  })
+  })${
+    overlay
+      ? `
+  /* the screen laid over this one, at the width the window picks too; Escape closes it, as going back does */
+  const laid = ${families.length ? "overlay ? overlayShown : undefined" : "overlay?.screen"}
+  useEffect(() => {
+    if (!overlay) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeOverlay()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [overlay, closeOverlay])`
+      : ""
+  }
   return (
     <MotionConfig reducedMotion="user">
       <main className="grid min-h-dvh place-items-center overflow-x-hidden">
@@ -343,14 +403,45 @@ export function App() {
             ref={setStage}
             data-screen={screen}
             className="relative origin-top-left overflow-hidden"
-            style={{ width: shown.width, height: shown.height, transform: \`scale(\${fit}) translateZ(0)\` }}
+            style={{ width: shown.width, height: shown.height, transform: \`scale(\${fit}) translateZ(0)\`${bound ? `, ...varStyle(${overlay ? "laid ?? screen" : "screen"})` : ""} }}
           >
             <PortalContainer container={stage}>
               <AnimatePresence initial={false} mode="popLayout" custom={custom}>
-                <motion.div key={screen} custom={custom} variants={VARIANTS} initial="initial" animate="animate" exit="exit" className="absolute inset-0">
-                  <Page screen={screen} />
+                <motion.div key={screen} custom={custom} variants={VARIANTS} initial="initial" animate="animate" exit="exit" className="absolute inset-0"${proto ? " data-move={custom.motion?.kind ?? custom.transition}" : ""}>
+                  <Page screen={screen}${overlay ? " covered={!!overlay}" : ""} />
                 </motion.div>
-              </AnimatePresence>${usesToast ? "\n              <Toaster />" : ""}
+              </AnimatePresence>${
+                overlay
+                  ? `
+              {/* a screen laid over this one, in the middle, over a dimmed backdrop a tap on which closes it */}
+              <AnimatePresence>
+                {overlay && laid && (
+                  <motion.div
+                    key={\`overlay:\${laid}\`}
+                    data-overlay={laid}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="absolute inset-0 z-40 grid place-items-center"
+                  >
+                    <div aria-hidden data-overlay-backdrop onClick={closeOverlay} className="absolute inset-0 bg-black/32" />
+                    <motion.div
+                      custom={{ transition: overlay.transition, backwards: false, motion: overlay.motion }}
+                      variants={VARIANTS}
+                      initial="initial"
+                      animate="animate"
+                      data-move={overlay.motion?.kind ?? overlay.transition}
+                      className="relative overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.3)]"
+                      style={{ width: SCREENS[laid].width, height: SCREENS[laid].height, borderRadius: SCREENS[laid].radius }}
+                    >
+                      <Page screen={laid} />
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>`
+                  : ""
+              }${usesToast ? "\n              <Toaster />" : ""}
             </PortalContainer>
             {snack && (
               <div
@@ -389,6 +480,17 @@ createRoot(document.getElementById("root")!).render(
 )
 `;
 
+const hasDocIcons = (doc: Doc) => Object.keys(iconifySetOf(doc.icons).icons).length > 0;
+
+/** the document's own icons as the Iconify collection the app registers at start (lib/docIcons.ts) */
+const docIconsFile = (doc: Doc) => `import type { IconifyJSON } from "@iconify/react/offline"
+
+// Generated by M3E Canvas. The document's own icons: a part names one as "svg:<id>" and the icon component draws it from here.
+const data: IconifyJSON = ${json(iconifySetOf(doc.icons))}
+
+export default data
+`;
+
 function themeSource(doc: Doc, name: string): string {
   const theme = normalizeTheme(doc.theme);
   const asked = seedOf(doc.paletteKey, doc.customPalette, theme);
@@ -402,7 +504,7 @@ function themeSource(doc: Doc, name: string): string {
   return `import type { ReactNode } from "react"
 import { ColorModeProvider } from "@/components/m3e/color-mode-provider"
 import { M3ThemeProvider, type M3Theme } from "@/components/m3e/m3-theme-provider"
-${icons ? `import { registerIconMap, registerIcons, setIconFamily } from "@/components/m3e/icon"\nimport styleIcons, { map as styleIconMap } from "@/style-icons"\n\nstyleIcons.forEach(registerIcons)\nregisterIconMap(${str(icons)}, styleIconMap)\nsetIconFamily(${str(icons)})\n` : ""}
+${icons ? `import { registerIconMap, registerIcons, setIconFamily } from "@/components/m3e/icon"\nimport styleIcons, { map as styleIconMap } from "@/style-icons"\n\nstyleIcons.forEach(registerIcons)\nregisterIconMap(${str(icons)}, styleIconMap)\nsetIconFamily(${str(icons)})\n` : ""}${hasDocIcons(doc) ? `import { registerIcons as registerDocIcons } from "@/components/m3e/icon"\nimport docIcons from "@/doc-icons"\n\nregisterDocIcons(docIcons)\n` : ""}
 /* The look the document was drawn in. Every color role is generated from the source color,
  * so changing it here is enough; corners and motion follow the other two.${styleCssOf(doc, getLang()) ? " The rest of its style, and the colors it names itself, are in style.css." : ""} */
 const THEME: Partial<M3Theme> = {
@@ -512,10 +614,16 @@ const TSCONFIG = json({
   include: ["src"],
 });
 
-function readmeSource(doc: Doc, screens: ScreenCode[], copied: string[], missing: string[]): string {
+/** words of the author's as one line of plain text: control characters and line separators go */
+// eslint-disable-next-line no-control-regex -- the point is to take them out
+const oneLine = (s: string) => s.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim();
+
+function readmeSource(doc: Doc, screens: ScreenCode[], copied: string[], missing: string[], runtime: RuntimeSpec): string {
   const dirs = [...new Set(copied.map((p) => p.slice(0, p.lastIndexOf("/"))))].sort();
   /* the title is a heading of one line */
-  const title = (doc.title || "").replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim() || "App";
+  const title = oneLine(doc.title || "") || "App";
+  const flows = runtime.flows ?? [];
+  const flowList = flows.map((f) => `- \`?flow=${f.key}\`${oneLine(f.name) ? `: ${oneLine(f.name)}` : ""}`).join("\n");
   return `# ${title}
 
 Exported from M3E Canvas: ${screens.length} ${screens.length === 1 ? "screen" : "screens"}, working as they did in the preview.
@@ -539,11 +647,11 @@ bun run typecheck
 
 - \`src/screens/\`: one component per screen. Edit these first.
 - \`src/runtime.tsx\`: what the running app remembers. \`useApp()\` holds the current screen and its history, the variables and what is shown; \`go("cart")\`, \`back()\`, \`setVar(…)\`, \`show(…)\` and the rest are plain calls on it.
-- \`src/App.tsx\`: draws the current screen, with the transition between screens.
+- \`src/App.tsx\`: draws the current screen, with the transition between screens.${runtime.proto ? "\n- `src/lib/screenMotion.ts`: how one screen gives way to another, the same moves the editor's preview plays. What starts when the pointer comes over a part, or some time after its screen shows, is in `Pressable` (`src/runtime.tsx`); a screen laid over another opens with `openOverlay(…)`." : ""}${runtime.modes ? "\n- Variables with modes: `src/runtime.tsx` lists the mode each screen shows and each variable's value in every mode. A design field bound to a variable (a fill, a stroke, the words' color, the opacity, a radius, the rotation) reads a CSS variable `--m3e-v-…` that each screen defines, so setting the variable changes it wherever it is bound." : ""}
 - \`src/theme.tsx\` and \`src/index.css\`: the palette, corners, type and motion.
 - \`public/images/\`: the pictures picked in the editor.
 - Copied from the editor, only what these screens use: ${dirs.map((d) => `\`${d}/\``).join(", ")}.
-${missing.length ? `\n## Before you ship\n\nThese icons could not be fetched when this was exported, so they draw blank: ${missing.join(", ")}. Add their Iconify data to \`src/components/m3e/icon-data.app.ts\`.\n` : ""}
+${flows.length ? `\n## Flows\n\nThe app starts where the first flow does. Add one of these to the address to start at another:\n\n${flowList}\n` : ""}${missing.length ? `\n## Before you ship\n\nThese icons could not be fetched when this was exported, so they draw blank: ${missing.join(", ")}. Add their Iconify data to \`src/components/m3e/icon-data.app.ts\`.\n` : ""}
 Icons a widget only knows while running are fetched from Iconify, as they are in the editor. The fonts come from Google Fonts, and a face Google does not have (the pixel face with Chinese) from jsDelivr: see \`index.html\`. When the document wears a style, that style's own icon set is bundled in \`src/style-icons.ts\`, so it draws offline.
 
 ## License
@@ -565,18 +673,12 @@ Thumbs.db
 /** a package name from a title: letters and digits, else a plain name */
 export const projectName = (doc: Doc) => (doc.title || "").toLowerCase().match(/[a-z0-9]+/g)?.join("-") || "m3e-app";
 
-/** the exact versions this repo builds with: a range in package.json is only what it accepts, the lockfile what it runs */
-function versionsFrom(pkg: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> }, lock: string) {
-  const declared: Record<string, string> = { ...pkg.dependencies, ...pkg.devDependencies };
-  return (name: string): string => {
-    const range = declared[name];
-    /* an alias says exactly what it is */
-    if (range?.startsWith("npm:")) return range;
-    const escaped = name.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
-    const at = new RegExp(`"${escaped}": \\["${escaped}@([^"]+)"`).exec(lock);
-    if (at) return at[1];
-    throw new Error(`no version of ${name} in this repo`);
-  };
+/** The exact version this repo builds with: a range in package.json is only what it accepts, the lockfile what it runs.
+ *  Read off the lockfile when the editor is built (versions.generated.ts), so the editor does not carry the lockfile. */
+function versionOf(name: string): string {
+  const version = VERSIONS[name];
+  if (version) return version;
+  throw new Error(`no version of ${name} in this repo`);
 }
 
 const sorted = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
@@ -598,42 +700,48 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     }
     return images.get(data)!;
   };
-  const { screens, runtime, usesToast } = buildScreens(doc, widths, { onlyFrameId: o.onlyFrameId, live: true, image });
-  if (!screens.length) throw new Error("there is no screen to export");
+  /* Everything that reads the document's style is written first, in one go, with the document's own styles in reach
+     (a custom style is resolved from `doc.styles`): nothing in it waits, so no other document's styles can come between */
+  const { screens, theme, runtime } = withDocStyles(doc.styles, () => {
+    const { screens, runtime, usesToast } = buildScreens(doc, widths, { onlyFrameId: o.onlyFrameId, live: true, image });
+    if (!screens.length) throw new Error("there is no screen to export");
 
-  const seen = new Set<string>();
-  for (const s of screens) {
-    /* two screens may not share a file, however their names come out */
-    if (seen.has(s.component)) throw new Error(`two screens are both called ${s.component}`);
-    seen.add(s.component);
-    const lines = importLines(s.imports);
-    files[`src/screens/${s.component}.tsx`] = `${lines.join("\n")}${lines.length ? "\n\n" : ""}${s.source}\n`;
-  }
-  for (const [data, path] of images) files[`public${path}`] = dataToBytes(data);
+    const seen = new Set<string>();
+    for (const s of screens) {
+      /* two screens may not share a file, however their names come out */
+      if (seen.has(s.component)) throw new Error(`two screens are both called ${s.component}`);
+      seen.add(s.component);
+      const lines = importLines(s.imports);
+      files[`src/screens/${s.component}.tsx`] = `${lines.join("\n")}${lines.length ? "\n\n" : ""}${s.source}\n`;
+    }
+    for (const [data, path] of images) files[`public${path}`] = dataToBytes(data);
 
-  const theme = normalizeTheme(doc.theme);
-  const keyOf = new Map(screens.map((s) => [s.id, s.key]));
-  const families = familiesOf(doc.frames)
-    .map((family) => family.flatMap((f) => keyOf.get(f.id) ?? []))
-    .filter((family) => family.length > 1);
-  const appSrc = appSource(screens, theme.motion, usesToast, families);
-  const themeSrc = themeSource(doc, name);
-  files["src/App.tsx"] = appSrc;
-  files["src/main.tsx"] = MAIN;
-  files["src/runtime.tsx"] = runtimeSource(runtime);
-  files["src/theme.tsx"] = themeSrc;
-  files["src/index.css"] = cssSource(doc, lang);
-  const styleSheet = styleCssOf(doc, lang);
-  if (styleSheet) files["src/style.css"] = `/* The document's style. It is not in a layer, so it wins over what the components say about themselves. */\n${styleSheet}\n`;
-  files["index.html"] = htmlSource(doc, lang);
+    const theme = normalizeTheme(doc.theme);
+    const keyOf = new Map(screens.map((s) => [s.id, s.key]));
+    const families = familiesOf(doc.frames)
+      .map((family) => family.flatMap((f) => keyOf.get(f.id) ?? []))
+      .filter((family) => family.length > 1);
+    const appSrc = appSource(screens, theme.motion, usesToast, families, runtime);
+    const themeSrc = themeSource(doc, name);
+    files["src/App.tsx"] = appSrc;
+    files["src/main.tsx"] = MAIN;
+    files["src/runtime.tsx"] = runtimeSource(runtime);
+    files["src/theme.tsx"] = themeSrc;
+    if (hasDocIcons(doc)) files["src/doc-icons.ts"] = docIconsFile(doc);
+    files["src/index.css"] = cssSource(doc, lang);
+    const styleSheet = styleCssOf(doc, lang);
+    if (styleSheet) files["src/style.css"] = `/* The document's style. It is not in a layer, so it wins over what the components say about themselves. */\n${styleSheet}\n`;
+    files["index.html"] = htmlSource(doc, lang);
+    return { screens, theme, runtime };
+  });
   files["vite.config.ts"] = VITE_CONFIG;
   files["tsconfig.json"] = TSCONFIG;
   files[".gitignore"] = GITIGNORE;
 
   /* the walk starts from what was just written, so it copies what they reach and nothing else */
-  const written = [...Object.keys(files).filter((p) => p.endsWith(".tsx")).map((p) => files[p] as string)];
+  const written = Object.keys(files).filter((p) => p.endsWith(".tsx")).map((p) => files[p] as string);
   const roots = new Set<string>(["@/styles/m3e.css", "@/react-css.d.ts"]);
-  const here = new Set(["@/runtime", "@/theme", "@/style-icons"]);
+  const here = new Set(["@/runtime", "@/theme", "@/style-icons", "@/doc-icons"]);
   for (const source of written) for (const spec of importsIn(source)) if (!spec.startsWith(".") && !here.has(spec)) roots.add(spec);
   const { files: copied, packages } = await importClosure([...roots], read, o.onProgress);
   for (const [path, text] of copied) files[projectPath(path)] = text;
@@ -691,11 +799,10 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     delete files["src/components/m3e/icon-sets/shard.ts"];
   }
 
-  const pkg = JSON.parse(await read("package.json")) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string>; overrides?: Record<string, string>; engines?: Record<string, string> };
-  const versionOf = versionsFrom(pkg, await read("bun.lock"));
-  const deps = new Set([...packages, "react", "react-dom", "motion", "tailwindcss", "tw-animate-css", "shadcn"]);
+  const pkg = JSON.parse(await read("package.json")) as { overrides?: Record<string, string>; engines?: Record<string, string> };
+  const deps = new Set([...packages, ...EXPORT_ALWAYS]);
   /* tailwind is a build tool here, though the stylesheet names it */
-  const dev = ["@tailwindcss/vite", "@types/react", "@types/react-dom", "@vitejs/plugin-react", "tailwindcss", "typescript", "vite", "vite-plus"];
+  const dev = EXPORT_DEV;
   for (const d of dev) deps.delete(d);
   files["package.json"] = `${json({
     name,
@@ -709,7 +816,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     ...(pkg.overrides ? { overrides: pkg.overrides } : {}),
   })}\n`;
 
-  files["README.md"] = readmeSource(doc, screens, [...copied.keys()].map(projectPath), [...missing]);
+  files["README.md"] = readmeSource(doc, screens, [...copied.keys()].map(projectPath), [...missing], runtime);
   files.LICENSE = await read("LICENSE");
   files.NOTICE = `This project was exported from M3E Canvas Pro, whose notice follows. Of the code it names, only the\nfiles in ${[...new Set([...copied.keys()].map((p) => projectPath(p).split("/").slice(0, 3).join("/")))].sort().join(", ")} are copied here.\n\n${await read("NOTICE")}`;
   return { name, files, warnings };

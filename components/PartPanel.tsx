@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { Reorder, useDragControls } from "motion/react";
 import {
   Action,
@@ -30,7 +30,8 @@ import { segmentedFits } from "@/lib/choices";
 import { Field, IconBtn, ImageRow, RUN_CELL, Section, Segmented, Select, SelectOption, Slider, Toggle, useDismiss } from "./ui";
 import { AiHooks } from "./Inspector";
 import { LinkStage, TapStage } from "./TapStage";
-import { ActionExtras, tidiedAction } from "./EffectsPanel";
+import { ActionExtras, BehaviorContext, tidiedAction } from "./EffectsPanel";
+import { InteractionFields, SCROLL_TO } from "./Interaction";
 import { partBySlug } from "@/parts/registry";
 import { COLOR_TOKEN_TEXT, TEXT_TOKEN_TEXT, t, useLang } from "@/lib/i18n";
 import type { AlignHow } from "@/lib/align";
@@ -62,7 +63,7 @@ function AlignGlyph({ c, r, color }: { c: Col; r: Row3; color: string }) {
 }
 
 /** how tall the row of tabs is; the panel keeps that much room for it above what scrolls */
-const TABS_H = 48;
+const TABS_H = 40;
 
 /** Two M3 primary tabs with the underline indicator. The panel under them is one of two, named
  *  by the tab that opens it, and the arrow keys move between the two. */
@@ -70,7 +71,7 @@ export function PartTabs({ value, onChange, p, idPrefix = "part" }: { value: Tab
   const lang = useLang();
   const tabs: { key: Tab; icon: string; label: string }[] = [
     { key: "design", icon: "palette", label: t("design", lang) },
-    { key: "behavior", icon: "bolt", label: t("trigger", lang) },
+    { key: "behavior", icon: "bolt", label: t("dzPrototype", lang) },
   ];
   const walk = (e: React.KeyboardEvent, d: 1 | -1) => {
     e.preventDefault();
@@ -109,14 +110,14 @@ export function PartTabs({ value, onChange, p, idPrefix = "part" }: { value: Tab
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 8,
-              fontSize: 14,
+              gap: 6,
+              fontSize: 13,
               fontWeight: 600,
             }}
           >
-            <Icon name={tab.icon} size={20} fill={on} />
+            <Icon name={tab.icon} size={16} fill={on} />
             {tab.label}
-            {on && <span aria-hidden style={{ position: "absolute", left: 16, right: 16, bottom: 0, height: 3, borderRadius: "3px 3px 0 0", background: p.primary }} />}
+            {on && <span aria-hidden style={{ position: "absolute", left: 20, right: 20, bottom: 0, height: 2, borderRadius: "2px 2px 0 0", background: p.primary }} />}
           </button>
         );
       })}
@@ -125,7 +126,7 @@ export function PartTabs({ value, onChange, p, idPrefix = "part" }: { value: Tab
 }
 
 /** a wide 3x3 grid of dots: one tap lines the part up on both axes, and the dot becomes a glyph for that spot */
-export function AlignBox({ onPlace, p }: { onPlace: PlaceFn; p: Palette }) {
+export function AlignBox({ onPlace, p, compact }: { onPlace: PlaceFn; p: Palette; /** the small square the design panel puts beside the position */ compact?: boolean }) {
   const lang = useLang();
   const [pick, setPick] = useState<[Col, Row3] | null>(null);
   const colTitle = [t("alignLeft", lang), t("alignCenterH", lang), t("alignRight", lang)];
@@ -135,9 +136,10 @@ export function AlignBox({ onPlace, p }: { onPlace: PlaceFn; p: Palette }) {
       role="group"
       aria-label={t("align", lang)}
       style={{
-        width: "100%",
-        height: 108,
-        borderRadius: 16,
+        width: compact ? 68 : "100%",
+        height: compact ? 68 : 108,
+        flex: compact ? "0 0 auto" : undefined,
+        borderRadius: compact ? 6 : 16,
         background: p.surfaceContainerHigh,
         display: "grid",
         gridTemplateColumns: "repeat(3, 1fr)",
@@ -163,7 +165,7 @@ export function AlignBox({ onPlace, p }: { onPlace: PlaceFn; p: Palette }) {
               className="m3-press"
               style={{
                 border: "none",
-                borderRadius: 12,
+                borderRadius: compact ? 4 : 12,
                 background: on ? p.primary : "transparent",
                 color: on ? p.onPrimary : p.outline,
                 cursor: "pointer",
@@ -173,7 +175,7 @@ export function AlignBox({ onPlace, p }: { onPlace: PlaceFn; p: Palette }) {
                 transition: "background 120ms",
               }}
             >
-              {on ? <AlignGlyph c={c} r={r} color={p.onPrimary} /> : <span aria-hidden style={{ width: 8, height: 8, borderRadius: 4, background: p.outline }} />}
+              {on && !compact ? <AlignGlyph c={c} r={r} color={p.onPrimary} /> : <span aria-hidden style={{ width: compact ? 4 : 8, height: compact ? 4 : 8, borderRadius: 4, background: on ? p.onPrimary : p.outline }} />}
             </button>
           );
         }),
@@ -354,6 +356,7 @@ function actionOptionsOf(item: Item, frame: Frame | null, frames: Frame[], lang:
     ...(partBySlug(item.component)?.props.some((d) => d.key === "toggle") ? [{ key: "toggle", label: t("toggleTitle", lang), icon: "swap_horiz" }] : []),
     { key: BACK_TARGET, label: t("back", lang), icon: "arrow_back" },
     { key: LINK_TARGET, label: t("openLink", lang), icon: "open_in_new" },
+    { key: SCROLL_TO, label: t("prScrollTo", lang), icon: "swap_vert" },
     ...[...frames]
       .sort((a, b) => a.x - b.x || a.y - b.y)
       .filter((f) => f.id !== frame?.id)
@@ -417,15 +420,24 @@ export function TriggerSection({
       onChange({ action: next });
       return;
     }
-    const actions = { ...(item.actions ?? {}) };
+    const actions = { ...item.actions };
     if (next) actions[slot] = next;
     else delete actions[slot];
     onChange({ actions: Object.keys(actions).length ? actions : undefined });
   };
   const isLink = action?.to === LINK_TARGET;
+  const behavior = useContext(BehaviorContext);
+  const scrolls = action?.to === STAY_TARGET && action.scrollTo !== undefined;
   /* where a tap goes is one choice among what it does: changing it leaves its effects and condition be */
   const pick = (k: string) => {
-    const stays = action ? tidiedAction({ ...action, to: STAY_TARGET, transition: "none" }) : undefined;
+    const { scrollTo: _scroll, overlay: _overlay, ...was } = action ?? { to: STAY_TARGET, transition: "none" as const };
+    const stays = action ? tidiedAction({ ...was, to: STAY_TARGET, transition: "none" }) : undefined;
+    if (k === SCROLL_TO) {
+      /* the first part of the screen that is not this one is where it scrolls to first */
+      const first = behavior.groups.flatMap((g) => g.items).find((it) => it.id !== item.id) ?? item;
+      set({ ...was, to: STAY_TARGET, transition: "none", scrollTo: first.id });
+      return;
+    }
     if (toggleable && k === "toggle") {
       onChange({ props: { ...item.props, toggle: true }, action: stays });
       return;
@@ -433,7 +445,7 @@ export function TriggerSection({
     /* choosing a destination leaves a flip part's toggle off */
     if (toggleable && item.props?.toggle) onChange({ props: { ...item.props, toggle: false } });
     if (k === LINK_TARGET) {
-      set({ ...action, to: LINK_TARGET, transition: "none", url: action?.url });
+      set({ ...was, to: LINK_TARGET, transition: "none", url: action?.url });
       return;
     }
     if (k === "none") {
@@ -441,19 +453,20 @@ export function TriggerSection({
       return;
     }
     const transition = action && action.to !== LINK_TARGET && action.to !== STAY_TARGET ? action.transition : "slide";
-    set({ ...action, to: k, transition });
+    set({ ...was, ...(action?.overlay && k !== BACK_TARGET ? { overlay: true } : {}), to: k, transition });
   };
   const options = actionOptionsOf(item, frame, allFrames, lang);
   return (
     <Section id="part-action" icon="ads_click" title={t("tapTo", lang)} p={p}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {head}
-        <Select options={options} value={toggles ? "toggle" : (action?.to ?? "none")} onChange={pick} p={p} label={t("tapTo", lang)} />
+        <Select options={options} value={toggles ? "toggle" : scrolls ? SCROLL_TO : (action?.to ?? "none")} onChange={pick} p={p} label={t("tapTo", lang)} />
         {isLink ? (
           <LinkStage self={frame} selfRect={selfRect} action={action} onChange={set} p={p} />
-        ) : (
+        ) : scrolls ? null : (
           <TapStage frames={allFrames} self={frame} selfRect={selfRect} action={action} onChange={set} p={p} />
         )}
+        <InteractionFields action={action} onChange={set} frames={allFrames} p={p} />
         <ActionExtras action={action} onChange={set} navOptions={options.filter((o) => o.key !== "toggle")} p={p} />
       </div>
     </Section>
@@ -626,7 +639,7 @@ export function AppearanceCorners({ item, seed, onChange, p }: { item: Item; see
 
 /** The widths a screen is built from, as one connected run. The names carry the meaning, so the
  *  cells stay plain words. */
-function WidthRun({ value, onChange, frameW, p }: { value: number | undefined; onChange: (size: number | undefined) => void; frameW: number; p: Palette }) {
+export function WidthRun({ value, onChange, frameW, p, height }: { value: number | undefined; onChange: (size: number | undefined) => void; frameW: number; p: Palette; height?: number }) {
   const lang = useLang();
   const cells: { key: string; size: number; label: string }[] = [
     { key: "half", size: halfWidth(frameW), label: t("halfWidth", lang) },
@@ -641,6 +654,7 @@ function WidthRun({ value, onChange, frameW, p }: { value: number | undefined; o
       onChange={(k) => onChange(cells.find((c) => c.key === k)?.size)}
       p={p}
       label={t("width", lang)}
+      height={height}
       tight
     />
   );

@@ -241,7 +241,7 @@ function opened(node: PNode, open: NonNullable<PartDef["open"]>, first: { menu: 
       return {
         ...node,
         props: { ...props, open: true, modal: false, ...open.root },
-        children: open.trigger === "hide" ? node.children?.filter((c) => typeof c === "string" || !/Trigger$/.test(c.type)) : node.children,
+        children: open.trigger === "hide" ? node.children?.filter((c) => typeof c === "string" || !c.type.endsWith("Trigger")) : node.children,
       };
     default:
       return node;
@@ -265,14 +265,31 @@ export function viewOf(def: PartDef, values?: PropValues, appearance?: Appearanc
   const p = reader(def, values, scope);
   const open = def.open;
   const selfOpens = live && !!open && open.trigger !== "hide";
-  const tree = applyAppearance(def.view && !selfOpens ? def.view(p, screen) : def.tree(p), appearance, def.appearance?.target);
+  /* a canvas view that only draws the part open (a date picker's calendar) gives way to the real part in the preview */
+  const ownView = def.view && !selfOpens && !(live && LIVE_TREE.has(def.slug));
+  const tree = applyAppearance(ownView ? def.view!(p, screen) : def.tree(p), appearance, def.appearance?.target);
   if (!open) return tree;
   const { w, h: height, ax, ay } = open.box(p);
   const box = { width: screen ? Math.min(w, screen.w) : w, height: screen ? Math.min(height, screen.h) : height, ax, ay };
-  if (selfOpens) return h("Contained", { ...box, live: true }, mapNodes(tree, modalOff));
+  /* hanging off its trigger, the open drawing stands on the part drawn closed: that is the part's size (`Overhang`) */
+  const hang = (n: PNode) => (overhangs(def, values) ? h("Overhang", { live: live || undefined }, applyAppearance(def.tree(p), appearance, def.appearance?.target), n) : n);
+  if (selfOpens) return hang(h("Contained", { ...box, live: true }, mapNodes(tree, modalOff)));
   const first = { menu: true, nav: true };
   const renamed = open.rename ? mapNodes(tree, (n) => ({ ...n, type: open.rename!(n.type) })) : tree;
-  return h("Contained", { ...box, fit: open.fit || undefined }, mapNodes(renamed, (n) => opened(n, open, first)));
+  return hang(h("Contained", { ...box, fit: open.fit || undefined }, mapNodes(renamed, (n) => opened(n, open, first))));
+}
+
+/** parts whose canvas view draws them open with no `open` box of their own, and whose real tree opens on a tap */
+const LIVE_TREE = new Set(["date-picker"]);
+
+/** A part drawn open off a trigger that it hangs from the top left of (a select, a dropdown menu, a menubar, a search with
+ *  its suggestions): it stands, is measured and is laid out at its closed size, and the open drawing overhangs. One whose
+ *  menu opens around the trigger (a tooltip, a popover) keeps the box it is drawn in, as before. */
+export function overhangs(def: PartDef | undefined, values?: PropValues): boolean {
+  const open = def?.open;
+  if (!open || open.trigger === "hide") return false;
+  const b = open.box(reader(def, values));
+  return (b.ax ?? "start") === "start" && (b.ay ?? "start") === "start";
 }
 
 /** the default value of every prop */
@@ -332,7 +349,10 @@ export function translateComponentProps(component: string | undefined, props: Pr
       const v = next[d.key];
       if (typeof v === "string" && v) {
         const t = translateSeed(v, d, lang);
-        if (t !== v) (next[d.key] = t), (changed = true);
+        if (t !== v) {
+          next[d.key] = t;
+          changed = true;
+        }
       }
     } else if (d.kind === "list") {
       const v = next[d.key];
@@ -342,7 +362,10 @@ export function translateComponentProps(component: string | undefined, props: Pr
           const label = key ? (COMMON_TEXT[key][lang] ?? key) : x.label;
           return label !== x.label ? { ...x, label } : x;
         });
-        if (rows.some((x, i) => x !== (v as ListItem[])[i])) (next[d.key] = rows), (changed = true);
+        if (rows.some((x, i) => x !== (v as ListItem[])[i])) {
+          next[d.key] = rows;
+          changed = true;
+        }
       }
     }
   }

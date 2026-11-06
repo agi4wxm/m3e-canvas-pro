@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import { MAX_DEPTH, MAX_REUSE, SVG_PRESETS, cleanPath, sanitizeSvg, unsafe, type CleanSvg } from "./svg";
 import { renderNode } from "./render";
+import { loadAllModules } from "./components";
 import { h, type PNode, type PValue } from "./node";
 import { applyAppearance } from "./appearance";
 import { partBySlug, treeOf, viewOf } from "./registry";
@@ -14,7 +15,11 @@ import { makeItem, type Doc } from "../lib/tokens";
  * hide either is dropped on the way. Markup also comes in shared links, so a drawing may not be made
  * to draw without end, to nest past what anything can walk, or to paint with another drawing's parts. */
 
-beforeAll(() => setGlobalLang("en"));
+beforeAll(async () => {
+  setGlobalLang("en");
+  /* a static render cannot wait for a part's components to be fetched */
+  await loadAllModules();
+});
 
 const drawn = (markup: string, scope?: string) => {
   const clean = sanitizeSvg(markup, scope);

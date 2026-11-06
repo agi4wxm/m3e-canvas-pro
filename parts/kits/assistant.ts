@@ -1,4 +1,4 @@
-import { atom, avatar, box, button, chip, hbox, icon, iconButton, image, para, round, svg, text, vbox } from "../atoms";
+import { avatar, box, button, chip, hbox, icon, iconButton, image, para, round, svg, text, vbox } from "../atoms";
 import { say, type Node, type Say } from "../templates/kit";
 import { T, W, busy, isDense, kit, lines, muted, tag, tile, variant } from "./shared";
 import type { KitDef } from "./types";

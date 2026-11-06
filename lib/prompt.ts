@@ -10,7 +10,7 @@ import { nameOf } from "../parts/labels";
 import { roleOf } from "../parts/role";
 import { inlineNode } from "../parts/print";
 import { Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
-import { isStrict, styleOf, styleTextOf, uxOf } from "./styles";
+import { isStrict, styleOf, styleTextOf, uxOf, withDocStyles } from "./styles";
 import {
   Place,
   Action,
@@ -385,9 +385,12 @@ function varsLine(vars: DocVar[] | undefined, lang: Lang): string | null {
     text: { ja: "テキスト", en: "text", zh: "文本", ko: "텍스트" },
     number: { ja: "数値", en: "number", zh: "数字", ko: "숫자" },
     bool: { ja: "真偽値", en: "boolean", zh: "布尔值", ko: "불리언" },
+    color: { ja: "色", en: "color", zh: "颜色", ko: "색상" },
   };
   const list = vars.map((v) => {
     const value = valueText(v.value, lang);
+    if (v.drives === "dark")
+      return { ja: `${v.name || v.id}（真偽値、ダークモードそのもの: true でダーク、起動時の表示モードから始まる）`, en: `${v.name || v.id} (boolean, the app's dark mode itself: true is dark; it starts at the mode on show)`, zh: `${v.name || v.id}（布尔值，就是应用的深色模式：为真时是深色，初始值是启动时显示的模式）`, ko: `${v.name || v.id}(불리언, 앱의 다크 모드 자체: true면 다크, 시작할 때 보이는 모드에서 시작)` }[lang];
     return { ja: `${v.name || v.id}（${kind[v.type].ja}、初期値 ${value}）`, en: `${v.name || v.id} (${kind[v.type].en}, starts at ${value})`, zh: `${v.name || v.id}（${kind[v.type].zh}，初始值 ${value}）`, ko: `${v.name || v.id}(${kind[v.type].ko}, 초기값 ${value})` }[lang];
   });
   const sep = lang === "en" || lang === "ko" ? ", " : "、";
@@ -396,7 +399,6 @@ function varsLine(vars: DocVar[] | undefined, lang: Lang): string | null {
 
 function notes(g: Group, scope: Scope, lang: Lang): string[] {
   const out: string[] = stateNotes(g, scope, lang);
-  const frames = scope.frames;
   const q = quote(lang);
   for (const it of g.items) {
     const noun = nounOf(it, lang);
@@ -1338,7 +1340,12 @@ export function promptMarks(text: string, frames: Frame[], lang: Lang = getLang(
   return out;
 }
 
+/** what a coding agent is told to build, read in the document's own styles (a custom style is resolved from `doc.styles`) */
 export function buildPrompt(source: Doc, widths: Record<string, number>, onlyFrameId?: string, lang: Lang = getLang()): string {
+  return withDocStyles(source.styles, () => promptOf(source, widths, onlyFrameId, lang));
+}
+
+function promptOf(source: Doc, widths: Record<string, number>, onlyFrameId: string | undefined, lang: Lang): string {
   /* instances are written out, each saying what it is an instance of; repeats are not drawn out, the first child stands for its rows */
   const doc: Doc = { ...source, groups: describeRepeats(expandInstances(source, widths, { rows: false }), source.collections) };
   const th = normalizeTheme(doc.theme);

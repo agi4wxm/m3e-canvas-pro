@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Palette } from "@/lib/tokens";
+import { kitGroups } from "@/lib/kits";
 import { CATEGORY_ICON, CATEGORY_TEXT, PARTS, categoriesOf, partBySlug, type PartCategory, type PartTier } from "@/parts/registry";
-import { KITS, kitKey, kitOfKey, pickVariant, type KitDef, type KitLook } from "@/parts/kits";
+import { KITS, kitBySlug, kitKey, kitOfKey, pickVariant, type KitDef, type KitLook } from "@/parts/kits";
+import { fetchNow, modulesOfGroups, modulesOfPart, usePrefetchInView } from "@/parts/prefetch";
 import { nameIn, nameOf } from "@/parts/labels";
 import { searchTerms } from "@/parts/keywords";
 import type { PartDef } from "@/parts/types";
@@ -26,6 +28,42 @@ const categoryWords = (c: string) => Object.values(CATEGORY_TEXT[c as PartCatego
 const wordsOfPart = (d: PartDef) => [d.slug, d.slug.replace(/-/g, " "), d.name, ...LANGS.map((l) => nameOf(d, l.key)), ...categoryWords(d.category)].join("\n").toLowerCase();
 const wordsOfKit = (k: KitDef) => [k.slug, k.slug.replace(/-/g, " "), k.name, ...Object.values(k.labels), ...k.variants.flatMap((v) => [v.name, ...Object.values(v.labels)]), ...categoryWords(k.category)].join("\n").toLowerCase();
 const WORDS = new Map<string, string>([...PARTS.map((d) => [d.slug, wordsOfPart(d)] as const), ...KITS.map((k) => [kitKey(k.slug), wordsOfKit(k)] as const)]);
+
+/** the modules what a tile adds is drawn with: a part as it comes from the palette, a kit as the style composes it */
+function modulesOfTile(el: Element, look: KitLook, lang: Lang): readonly string[] {
+  const slug = el.getAttribute("data-tile");
+  if (slug) return modulesOfPart(slug);
+  const kit = kitBySlug(el.getAttribute("data-kit") ?? "");
+  if (!kit) return [];
+  try {
+    return modulesOfGroups(kitGroups(kit, look, lang));
+  } catch {
+    return [];
+  }
+}
+
+/** What the tiles in view add is fetched while the page is idle, and what a pointer rests on at once: a part carried out
+ *  of the palette is then drawn as it lands, not held by a stand-in. Returns the handler for the pointer. */
+function usePrefetchTiles(scroller: RefObject<HTMLDivElement | null>, look: KitLook, lang: Lang) {
+  /* a kit is composed to find out: once per tile and look is enough. The look comes afresh with every render of the
+   * editor, so it is told apart by what it says */
+  const lookKey = JSON.stringify(look);
+  const keysOf = useMemo(() => {
+    const known = new Map<string, readonly string[]>();
+    const fixed = JSON.parse(lookKey) as KitLook;
+    return (el: Element) => {
+      const id = `${el.getAttribute("data-tile") ?? ""}|${el.getAttribute("data-kit") ?? ""}`;
+      let keys = known.get(id);
+      if (!keys) known.set(id, (keys = modulesOfTile(el, fixed, lang)));
+      return keys;
+    };
+  }, [lookKey, lang]);
+  usePrefetchInView(scroller, "[data-tile], [data-kit]", keysOf);
+  return (e: React.PointerEvent) => {
+    const tile = (e.target as Element).closest?.("[data-tile], [data-kit]");
+    if (tile) fetchNow(keysOf(tile));
+  };
+}
 
 export function PartsPalette({
   palette: p,
@@ -54,6 +92,8 @@ export function PartsPalette({
   const lang = useLang();
   const [q, setQ] = useState("");
   const [tier, setTier] = useState<PartTier>("composite");
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const onTilePointer = usePrefetchTiles(scroller, kitLook, lang);
   useEffect(() => {
     try {
       const v = localStorage.getItem(TIER_KEY);
@@ -91,6 +131,7 @@ export function PartsPalette({
     const tile = (
       <Tile
         key={slug}
+        part={slug}
         icon={d.icon}
         label={nameOf(d, lang)}
         p={p}
@@ -151,7 +192,7 @@ export function PartsPalette({
         )}
       </div>
 
-      <div className="no-scrollbar" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "0 8px" }}>
+      <div ref={scroller} onPointerOver={onTilePointer} className="no-scrollbar" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "0 8px" }}>
         {!q && favorites.length > 0 && (
           <Section id="fav" icon="star" title={t("favorites", lang)} p={p}>
             <div style={grid}>{favorites.map(favorite)}</div>

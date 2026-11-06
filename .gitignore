@@ -3,6 +3,7 @@
 
 # testing
 /coverage
+/e2e/.out
 
 # production
 /dist
@@ -21,3 +22,7 @@ Thumbs.db
 # env files
 .env*
 !.env.example
+
+# the MCP server bundle and its copy of the app build
+/mcp/dist
+/mcp/.live
