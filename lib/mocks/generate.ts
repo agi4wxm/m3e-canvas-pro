@@ -244,6 +244,20 @@ function object(s: JsonSchemaObject, ctx: Ctx, at: At): Out {
     const v = gen(sub, ctx, { key: at.key, model: at.model, path, name, depth: at.depth + 1, refs: at.refs, required: req, obj });
     if (v !== SKIP) Object.defineProperty(out, name, { value: v, enumerable: true, writable: true, configurable: true });
   }
+  /* a placeholder file shows its record's title: a PDF of an invoice says the invoice's title */
+  const title = ["title", "name", "subject", "headline", "fileName", "filename", "label"].map((k) => out[k]).find((v): v is string => typeof v === "string" && v.length > 0 && !v.startsWith("data:"));
+  if (title)
+    for (const [name, sub] of Object.entries(props)) {
+      const v = out[name];
+      const subS = isRecord(sub) ? (sub as JsonSchemaObject) : undefined;
+      if (typeof v !== "string" || !v.startsWith("data:") || !subS) continue;
+      const path = at.path ? `${at.path}.${name}` : name;
+      const sub2: At = { key: at.key, model: at.model, path, name, depth: at.depth + 1, refs: at.refs, required: required.has(name), obj };
+      const hint = hintAt(ctx, sub2, subS);
+      const kind: FileKind | undefined = hint.kind === "file" ? "pdf" : hint.kind === "image" || hint.kind === "video" ? hint.kind : undefined;
+      if (!kind || poolFor(ctx, kind, hint).length) continue;
+      out[name] = fileFor(ctx, kind, hint, rngAt(sub2, "titled"), title, `${obj}|${path}|${kind}`);
+    }
   /* a price and its currency belong together: the price is made again in the currency's own range */
   const currency = typeof out.currency === "string" && /^[A-Z]{3}$/.test(out.currency) ? out.currency : undefined;
   if (currency && PRICES[currency] && PRICES[currency] !== ctx.words.price)
@@ -448,8 +462,11 @@ function word(ctx: Ctx, rng: Rng): string {
   return rng.pick(ctx.words.words);
 }
 
+/** the library's files a field of this kind may use */
+const poolFor = (ctx: Ctx, kind: FileKind, hint: MockHint) => (ctx.files ?? []).filter((f) => (hint.files?.length ? hint.files.includes(f.id) : fileFits(f, kind)));
+
 function fileFor(ctx: Ctx, kind: FileKind, hint: MockHint, rng: Rng, title: string, seed: string): string {
-  const pool = (ctx.files ?? []).filter((f) => (hint.files?.length ? hint.files.includes(f.id) : fileFits(f, kind)));
+  const pool = poolFor(ctx, kind, hint);
   if (pool.length) {
     const f = rng.pick(pool);
     return ctx.fileUrl ? ctx.fileUrl(f) : f.data;

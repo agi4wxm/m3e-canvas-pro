@@ -244,6 +244,14 @@ describe("placeholder files", () => {
     expect(text).toContain("/Title <FEFF");
   });
 
+  it("puts a record's title on its placeholder file", () => {
+    const spec: ApiSpec = { models: [{ name: "Invoice", schema: { type: "object", properties: { title: { type: "string" }, receipt: { type: "string", format: "uri" } }, required: ["title", "receipt"] } }] };
+    const data = new MockData({ api: spec, mocks: { models: [{ name: "Invoice", hints: { title: { kind: "constant", value: "March rent" } } }] } }, { now: NOW });
+    const receipt = parseDataUrl(String(data.records("Invoice")[0].receipt))!;
+    expect(receipt.type).toBe("application/pdf");
+    expect(String.fromCharCode(...receipt.bytes)).toContain("(March rent) Tj");
+  });
+
   it("makes a WAV, an MP4, an SVG and bytes", () => {
     const wav = wavTone({ seed: "s" });
     expect(String.fromCharCode(...wav.slice(0, 4))).toBe("RIFF");
