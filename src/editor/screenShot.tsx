@@ -58,7 +58,9 @@ export async function capture(layer: HTMLElement, frame: Frame, scale = 1, crop?
   const el = layer.querySelector<HTMLElement>(`[data-export="${CSS.escape(frame.id)}"]`) ?? layer;
   const w = frameSizeOf(frame).w;
   const h = frameLengthOf(frame);
-  const canvas = await toCanvas(el, { pixelRatio: scale, width: w, height: h, cacheBust: true });
+  /* the web fonts are not embedded (as in the agent's screenshots, useScreenshots.ts): fetching a face in many files
+     takes seconds a picture, and a model reads the layout, which the fallback faces keep */
+  const canvas = await toCanvas(el, { pixelRatio: scale, width: w, height: h, skipFonts: true });
   if (!crop) return canvas.toDataURL("image/png");
   const x = Math.max(0, Math.min(w, crop.x));
   const y = Math.max(0, Math.min(h, crop.y));

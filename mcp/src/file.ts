@@ -1,6 +1,7 @@
 /* The file backend: a project file worked on with no editor open. A `DocStore` holds the document with each part's own
  * guess at its size (`guessMeasurer`), every tool runs on it exactly as it does in the editor, and each call that
- * changed the document is written back at once. Pictures are drawn in headless Chromium (render.ts) when it is there.
+ * changed the document is written back at once, in the editor's own format (lib/core/projectFile.ts: one file, or a
+ * folder with its pictures beside it). Pictures are drawn in headless Chromium (render.ts) when it is there.
  *
  * Before each call the file is looked at again: one that changed on disk is read again, and a call that would write is
  * refused that once, so nothing another program saved is ever overwritten and the model reads the new document first. */
@@ -64,7 +65,7 @@ export class FileBackend implements Backend {
   }
 
   status() {
-    return { mode: "file", file: this.o.path, access: this.access(), writes: this.writes, screenshots: this.renderer ? "headless Chromium, when Playwright is installed" : "off" };
+    return { mode: "file", file: this.o.path, layout: this.file.layout === "folder" ? "folder (m3e-project.json, pictures in m3e-assets/)" : "one file", access: this.access(), writes: this.writes, screenshots: this.renderer ? "headless Chromium, when Playwright is installed" : "off" };
   }
 
   /** the file read again when it changed on disk; what that means for the call, or null when it had not changed */

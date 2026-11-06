@@ -14,12 +14,14 @@ const HELP = `m3e-canvas-mcp ${pkg.version}: an MCP server for M3E Canvas Pro
 
 Usage:
   m3e-canvas-mcp [options]                 work on an editor tab paired over the live bridge (default)
-  m3e-canvas-mcp --file <project.json>     work on a project file headless, no editor needed
+  m3e-canvas-mcp --file <project.json|folder>
+                                           work on a project file headless, no editor needed
   m3e-canvas-mcp --file <project.json> --live
                                            the tab while one is paired, the file otherwise
 
 Options:
-  --file <path>          the project file (the editor's "Save project" JSON); created on the first change if missing
+  --file <path>          the project: a file (m3e-canvas <name>.json) or a folder (m3e-project.json with its pictures
+                         in m3e-assets/), as the editor saves them; created on the first change if missing
   --live                 also listen for an editor tab when --file is given
   --read-only            offer only the tools that read (outline, find, describe, screenshot, catalogs)
   --http [port]          serve Streamable HTTP at http://127.0.0.1:<port>/mcp (default ${HTTP_PORT}) instead of stdio

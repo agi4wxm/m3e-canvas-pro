@@ -7,7 +7,7 @@
 | 方式 | 改的是什么 | 什么时候用 |
 | --- | --- | --- |
 | **实时**（默认） | 浏览器里打开的编辑器标签页。改动立刻出现在画布上，每次调用是一步撤销 | 一边看一边让 AI 改，随时撤销 |
-| **文件**（`--file`） | 磁盘上的项目文件（编辑器“保存项目”得到的 `m3e-canvas <名字>.json`），不需要打开编辑器 | 批量生成、在没有界面的环境里改设计 |
+| **文件**（`--file`） | 磁盘上的项目文件或项目文件夹（编辑器“保存到文件”“保存到文件夹”得到的，见 [项目文件](项目文件.md)），不需要打开编辑器 | 批量生成、在没有界面的环境里改设计、放进版本库一起管理 |
 
 两个都给（`--file <路径> --live`）时，有已配对的标签页就改标签页，没有就改文件。
 
@@ -97,7 +97,7 @@ bearer_token_env_var = "M3E_MCP_TOKEN"
 
 | 参数 | 说明 |
 | --- | --- |
-| `--file <路径>` | 文件模式。文件不存在时，第一次改动会创建它 |
+| `--file <路径>` | 文件模式：一个项目文件（`m3e-canvas <名字>.json`），或一个项目文件夹（`m3e-project.json` 加 `m3e-assets/`）。不存在时第一次改动会创建它（路径以 `/` 结尾时创建文件夹） |
 | `--live` | 和 `--file` 一起用：有配对的标签页时改标签页 |
 | `--read-only` | 只读会话：只提供读取的工具（大纲、查找、描述、截图、目录） |
 | `--http [端口]` | 改用 Streamable HTTP，只监听 127.0.0.1（默认端口 47841） |
@@ -133,8 +133,10 @@ bearer_token_env_var = "M3E_MCP_TOKEN"
 npx -y m3e-canvas-mcp --file "m3e-canvas Shop.json"
 ```
 
-- 读写的是编辑器“保存项目”得到的文件，打开、校验和迁移都经过 `lib/project.ts` 的 `openProject`。读写只通过 `mcp/src/fileStore.ts` 的 `ProjectFormat` 接口，以后改用多项目存储的 `lib/core/projectFile.ts` 时只换这一处。
-- 每次改动成功后立刻写回文件。写入是原子的：先写同目录下的临时文件，再改名覆盖。
+- 读写的格式和编辑器保存的完全相同，都经过 `lib/core/projectFile.ts`（格式见 [项目文件](项目文件.md)）：键排序、一个组件一行，同一份文档总是写出相同的字节，放进版本库时只有真正的改动。打开、校验和迁移经过 `openProject`。服务器只通过 `mcp/src/fileStore.ts` 的 `ProjectFormat` 接口接触格式。
+- 单个文件时图片以 data URL 留在文件里；文件夹（`m3e-project.json`）时较大的图片放在旁边的 `m3e-assets/`，文档里写 `m3e-file:m3e-assets/<哈希>.<扩展名>`。服务器不删除 `m3e-assets/` 里不再用到的图片（编辑器保存文件夹时会清理）。
+- 每次改动成功后立刻写回文件。写入是原子的：先写同目录下的临时文件，再改名覆盖；文件夹里先写图片，再写项目文件。
+- 编辑器绑定了同一个文件时也不会互相覆盖：两边都会在写之前检查文件是否被对方改过。
 - 每次调用前都检查文件：如果别的程序（或编辑器）在这期间保存过它，服务器重新读入，**这次写入被拒绝**并说明原因，不会覆盖别人的修改；AI 重新读大纲后再改。
 - 没有编辑器时，组件的尺寸先用各组件自己的估计（`guessMeasurer`）。截图时会在浏览器里实际测量，之后的排版也用测量值。
 - 破坏性调用：客户端支持 MCP 的 elicitation 时，会请客户端里的人确认；不支持时拒绝，除非用 `--allow-destructive` 启动。
@@ -295,7 +297,7 @@ mcp/src/setup.ts        按参数组合工具（注册表、有密钥时的生�
 mcp/src/server.ts       MCP 服务器：工具、提示词、资源、订阅
 mcp/src/live.ts         实时后端：127.0.0.1 上的 WebSocket、配对、调用转发、代为作图
 mcp/src/file.ts         文件后端：DocStore、写回、冲突、确认
-mcp/src/fileStore.ts    项目文件的读写（ProjectFormat 接口、原子写入、改动检测）
+mcp/src/fileStore.ts    磁盘上的项目文件和文件夹（ProjectFormat 接口接 lib/core/projectFile.ts、原子写入、改动检测）
 mcp/src/render.ts       无头截图：Playwright、提供编辑器构建、/render 页面
 mcp/src/http.ts         Streamable HTTP：令牌、Host 和 Origin 检查、每个会话一个 Server
 mcp/src/generate.ts     服务器环境里的生成配置、走代理的 fetch

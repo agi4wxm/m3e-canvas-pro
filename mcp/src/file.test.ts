@@ -2,9 +2,10 @@
  * reach the file, a batch that fails leaving the file as it was, read-only sessions, a file changed on disk, the
  * generative tools only with a key, destructive calls asked of the person at the client. */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { attachFiles, parseProject, serializeProject } from "../../lib/core/projectFile";
 import { setGlobalLang } from "../../lib/i18n";
 import { openProject, projectFile } from "../../lib/project";
 import { connect, errorOf, scratchDir, textOf, writeProject } from "./testkit";
@@ -153,6 +154,35 @@ describe("the MCP server on a project file", () => {
     const again = await call("add_screen", { id: "mine", name: "Mine" });
     expect(again.isError).toBeFalsy();
     expect(onDisk(path).frames.map((f) => f.id)).toEqual(["home", "theirs", "mine"]);
+  });
+
+  it("writes the editor's own format, byte for byte", async () => {
+    const { call, path } = await open();
+    await call("add_screen", { id: "cart", name: "Cart" });
+    const text = readFileSync(path, "utf8");
+    /* what the editor would write for the same document (lib/core/projectFile.ts): sorted keys, one line a part */
+    expect(text).toBe(serializeProject(parseProject(text)!.doc).text);
+    expect(text).toMatch(/^ {4}"frames": \[\n {6}\{"id":"home"/m);
+  });
+
+  it("keeps a project folder's pictures beside it", async () => {
+    const dir = scratchDir();
+    const s = await connect({ file: dir });
+    done.push(s.close);
+    const picture = `data:image/png;base64,${Buffer.from(Array.from({ length: 3000 }, (_, i) => (i * 37) % 256)).toString("base64")}`;
+    const r = await s.call("apply_ops", { ops: [{ op: "add_screen", args: { id: "home", name: "Home" } }, { op: "add_part", args: { slug: "image", id: "hero", screen: "home", at: { x: 16, y: 80 }, props: { src: picture } } }] });
+    expect(r.isError).toBeFalsy();
+    const text = readFileSync(join(dir, "m3e-project.json"), "utf8");
+    const parsed = parseProject(text)!;
+    expect(parsed.files).toHaveLength(1);
+    expect(text).not.toContain(picture.slice(30, 90));
+    expect(existsSync(join(dir, parsed.files[0]))).toBe(true);
+    expect(JSON.stringify(attachFiles(parsed.doc, new Map([[parsed.files[0], new Uint8Array(readFileSync(join(dir, parsed.files[0])))]])))).toContain(picture);
+    /* read again by another server: the picture comes back whole */
+    const again = await connect({ file: dir });
+    done.push(again.close);
+    expect(JSON.stringify((await again.call("describe_node", { id: "hero" })).structuredContent)).toContain(picture.slice(-40));
+    expect(((await again.call("connection_status")).structuredContent as { result: { layout: string } }).result.layout).toMatch(/folder/);
   });
 
   it("starts a file that does not exist yet with the first change", async () => {

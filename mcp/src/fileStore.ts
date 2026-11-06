@@ -1,64 +1,98 @@
-/* A project file on disk, read and written by the file backend. What the file's bytes mean is one small interface
- * (`ProjectFormat`), so the format can change in one place: today it is the JSON the editor saves (lib/project.ts,
- * `m3e-canvas <name>.json`); the multi-project work's headless module (lib/core/projectFile.ts) can stand in for it.
+/* A project on disk, read and written by the file backend, in the format the editor saves (docs/项目文件.md,
+ * lib/core/projectFile.ts): one file (`m3e-canvas <name>.json`, pictures inside as data URLs), or a folder
+ * (`m3e-project.json`, pictures beside it in `m3e-assets/`). What the bytes mean is the small `ProjectFormat`
+ * interface; everything about the disk is here.
  *
  * Writes are atomic (a temporary file beside it, renamed over it), and a file that changed on disk since it was last
- * read or written is never overwritten: the caller is told, and reads it again. */
+ * read or written is never overwritten: the caller is told, and reads it again. The format writes the same document as
+ * the same bytes, so comparing what is on disk with what was last read or written is exact. */
 
 import { createHash, randomBytes } from "node:crypto";
-import { open, readFile, rename, stat, unlink } from "node:fs/promises";
+import { mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { openProject, projectFile } from "../../lib/project";
+import { FOLDER_ASSET_DIR, FOLDER_MAIN_FILE, fileRefsIn, isAssetPath, readProjectText, serializeProject, type ProjectAssetFile } from "../../lib/core/projectFile";
 import type { Doc } from "../../lib/tokens";
 
 /** what a project file's bytes hold */
 export interface ProjectFormat {
-  /** the document in a file's text; throws a NotAProject when it is not one */
-  parse(text: string): Doc;
-  /** the text a document is saved as */
-  serialize(doc: Doc): string;
+  /** the document in a file's text, with the pictures it refers to read through `load`; throws a NotAProject */
+  parse(text: string, load: (path: string) => Promise<Uint8Array | null>): Promise<Doc>;
+  /** the text a document is saved as, and in a folder the pictures to keep beside it */
+  serialize(doc: Doc, layout: "file" | "folder"): { text: string; files: ProjectAssetFile[] };
 }
 
 export class NotAProject extends Error {}
 
-/** the editor's own file: the document in its `m3e-project` envelope, as "Save project" writes it */
-export const jsonProject: ProjectFormat = {
-  parse(text) {
-    let value: unknown;
-    try {
-      value = JSON.parse(text);
-    } catch (e) {
-      throw new NotAProject(`It is not JSON (${e instanceof Error ? e.message : String(e)}).`);
-    }
-    const doc = openProject(value);
-    if (!doc) throw new NotAProject("It is not an M3E Canvas project, or it was saved by a newer version.");
+/** the editor's own format (lib/core/projectFile.ts) */
+export const editorProject: ProjectFormat = {
+  async parse(text, load) {
+    const doc = await readProjectText(text, load);
+    if (!doc) throw new NotAProject("It is not an M3E Canvas project (or not JSON), or it was saved by a newer version.");
     return doc;
   },
-  serialize: (doc) => JSON.stringify(projectFile(doc), null, 2),
+  serialize: (doc, layout) => serializeProject(doc, { assets: layout === "folder" ? "files" : "inline" }),
 };
 
 /** the file as it was last read or written: what decides whether it changed since */
 type Seen = { hash: string; mtimeMs: number; size: number } | { absent: true };
 
 const hashOf = (text: string) => createHash("sha256").update(text).digest("hex");
+const exists = (p: string) => stat(p).then(
+  (s) => s,
+  () => null,
+);
 
 /** the file changed on disk since it was last read or written */
 export class FileConflict extends Error {}
 
+/** writes bytes all at once: beside the target first, then over it */
+async function atomicWrite(path: string, data: string | Uint8Array) {
+  const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
+  const fh = await open(tmp, "wx");
+  try {
+    await fh.writeFile(data);
+    await fh.sync();
+  } finally {
+    await fh.close();
+  }
+  try {
+    await rename(tmp, path);
+  } catch (e) {
+    await unlink(tmp).catch(() => {});
+    throw e;
+  }
+}
+
 export class ProjectFileStore {
   private seen: Seen | null = null;
+  /** the project file itself (in a folder, its m3e-project.json) and how pictures are kept */
+  private main: string;
+  layout: "file" | "folder";
 
   constructor(
     readonly path: string,
-    readonly format: ProjectFormat = jsonProject,
-  ) {}
+    readonly format: ProjectFormat = editorProject,
+  ) {
+    this.layout = basename(path) === FOLDER_MAIN_FILE ? "folder" : "file";
+    this.main = path;
+  }
 
-  /** Reads the file. Null when there is none yet (the first write creates it). */
+  /** a folder given for the project is the folder layout, its file inside it */
+  private async locate() {
+    const st = await exists(this.path);
+    if (st?.isDirectory() || (!st && /[\\/]$/.test(this.path))) {
+      this.layout = "folder";
+      this.main = join(this.path, FOLDER_MAIN_FILE);
+    }
+  }
+
+  /** Reads the project. Null when there is none yet (the first write creates it). */
   async read(): Promise<Doc | null> {
+    await this.locate();
     let text: string;
     let st: Awaited<ReturnType<typeof stat>>;
     try {
-      [text, st] = await Promise.all([readFile(this.path, "utf8"), stat(this.path)]);
+      [text, st] = await Promise.all([readFile(this.main, "utf8"), stat(this.main)]);
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") {
         this.seen = { absent: true };
@@ -66,7 +100,11 @@ export class ProjectFileStore {
       }
       throw e;
     }
-    const doc = this.format.parse(text);
+    const dir = dirname(this.main);
+    const load = async (p: string) => (isAssetPath(p) ? new Uint8Array(await readFile(join(dir, p))) : null);
+    const doc = await this.format.parse(text, load);
+    /* a single file that refers to pictures beside it is kept that way */
+    if (this.layout === "file" && fileRefsIn(JSON.parse(text)).length) this.layout = "folder";
     this.seen = { hash: hashOf(text), mtimeMs: st.mtimeMs, size: st.size };
     return doc;
   }
@@ -75,41 +113,28 @@ export class ProjectFileStore {
   async changed(): Promise<boolean> {
     const seen = this.seen;
     if (!seen) return true;
-    let st: Awaited<ReturnType<typeof stat>>;
-    try {
-      st = await stat(this.path);
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code === "ENOENT") return !("absent" in seen);
-      throw e;
-    }
+    const st = await exists(this.main);
+    if (!st) return !("absent" in seen);
     if ("absent" in seen) return true;
     if (st.mtimeMs === seen.mtimeMs && st.size === seen.size) return false;
     /* touched but the same bytes (a sync tool, a save of the same thing) is not a change */
-    const now = hashOf(await readFile(this.path, "utf8"));
+    const now = hashOf(await readFile(this.main, "utf8"));
     if (now !== seen.hash) return true;
     this.seen = { ...seen, mtimeMs: st.mtimeMs, size: st.size };
     return false;
   }
 
-  /** Writes the document over the file, all at once, unless the file changed since it was last read or written. */
+  /** Writes the document over the file, all at once, unless the file changed since it was last read or written. In
+   *  a folder its pictures go first: each is named by what it holds, so one already there is the same picture. */
   async write(doc: Doc): Promise<void> {
-    if (await this.changed()) throw new FileConflict(`${basename(this.path)} changed on disk since it was read.`);
-    const text = this.format.serialize(doc);
-    const tmp = join(dirname(this.path), `.${basename(this.path)}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
-    const fh = await open(tmp, "wx");
-    try {
-      await fh.writeFile(text, "utf8");
-      await fh.sync();
-    } finally {
-      await fh.close();
-    }
-    try {
-      await rename(tmp, this.path);
-    } catch (e) {
-      await unlink(tmp).catch(() => {});
-      throw e;
-    }
-    const st = await stat(this.path);
+    if (await this.changed()) throw new FileConflict(`${basename(this.main)} changed on disk since it was read.`);
+    const { text, files } = this.format.serialize(doc, this.layout);
+    const dir = dirname(this.main);
+    if (this.layout === "folder") await mkdir(dir, { recursive: true });
+    if (files.length) await mkdir(join(dir, FOLDER_ASSET_DIR), { recursive: true });
+    for (const f of files) if (!(await exists(join(dir, f.path)))) await atomicWrite(join(dir, f.path), f.bytes);
+    await atomicWrite(this.main, text);
+    const st = await stat(this.main);
     this.seen = { hash: hashOf(text), mtimeMs: st.mtimeMs, size: st.size };
   }
 }
