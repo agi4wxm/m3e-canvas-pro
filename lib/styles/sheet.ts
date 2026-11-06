@@ -12,7 +12,13 @@ const kebab = (s: string) => s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 
 /** every role of a scheme a style has an opinion on: what it names, and what follows from those */
 function roleVars(r: StyleRoles, dark: boolean): string {
-  const all: Record<string, string> = {
+  return Object.entries(styleRoleColors(r, dark)).map(([k, v]) => `--md-sys-color-${kebab(k)}:${v};`).join("");
+}
+
+/** every role a style's colors come to, by camelCase name: what it names, and what follows from those (also read by the
+ *  React Native theme, lib/export/rn/theme.ts) */
+export function styleRoleColors(r: StyleRoles, dark: boolean): Record<string, string> {
+  return {
     ...(dark ? ERRORS_DARK : ERRORS_LIGHT),
     ...r,
     background: r.surface,
@@ -38,7 +44,6 @@ function roleVars(r: StyleRoles, dark: boolean): string {
     onTertiaryFixed: r.onTertiaryContainer,
     onTertiaryFixedVariant: r.onTertiaryContainer,
   };
-  return Object.entries(all).map(([k, v]) => `--md-sys-color-${kebab(k)}:${v};`).join("");
 }
 
 /** a type ramp as the variables the type classes read */
