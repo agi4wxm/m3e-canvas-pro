@@ -3,7 +3,7 @@
  * so a server started again for that client is approved without asking; forgetting one in the MCP panel takes it
  * away here and tells the servers that are listening. The secret proves a server, so it is never shown. */
 
-import type { Access, ClientInfo } from "./protocol";
+import { proofWords, type Access, type ClientInfo } from "./protocol";
 
 export type TrustedServer = {
   /** the server's id for the pairing (mcp/src/trust.ts) */
@@ -74,9 +74,15 @@ export const randomHex = (n: number) => hex(crypto.getRandomValues(new Uint8Arra
 /** whether this page can check a server's proof (WebCrypto is only there in a secure context) */
 export const canProve = () => typeof crypto !== "undefined" && !!crypto.subtle;
 
-/** What a server holding `secret` answers the challenge `nonce` on `port` with (mcp/src/trust.ts `proofOf`). */
-export async function expectedProof(secret: string, nonce: string, port: number): Promise<string> {
+async function hmac(secret: string, words: string): Promise<string> {
   const bytes = new Uint8Array((secret.match(/../g) ?? []).map((h) => parseInt(h, 16)));
   const key = await crypto.subtle.importKey("raw", bytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return hex(new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`m3e-mcp-pair:${port}:${nonce}`))));
+  return hex(new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(words))));
 }
+
+/** What a server holding `secret` answers the challenge `nonce` on `port` with (mcp/src/trust.ts `proofOf`). */
+export const expectedProof = (secret: string, nonce: string, port: number): Promise<string> => hmac(secret, proofWords("server", nonce, port));
+
+/** What this tab answers the server's own challenge with, to be let in without the code (mcp/src/trust.ts
+ *  `editorProven`). */
+export const editorProof = (secret: string, challenge: string, port: number): Promise<string> => hmac(secret, proofWords("editor", challenge, port));

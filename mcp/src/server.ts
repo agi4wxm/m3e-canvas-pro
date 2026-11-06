@@ -81,7 +81,7 @@ export function describeTool(t: Tool<never>): McpTool {
 /** the words a session starts with: the registry's guide, and what is particular to MCP */
 export function instructionsFor(tools: Tool<never>[]): string {
   return [
-    "M3E Canvas Pro is a browser editor for interactive app prototypes. This server works on one of its documents: a live editor tab the author paired (changes appear on their canvas at once, each call is one step they can undo), or a project file. Destructive calls (removing screens or parts, clearing) wait for the author's confirmation. If a call says no editor is connected, call connection_status and pass the pairing code on to the author.",
+    "M3E Canvas Pro is a browser editor for interactive app prototypes. This server works on one of its documents: a live editor tab the author paired (changes appear on their canvas at once, each call is one step they can undo), or a project file. Destructive calls (removing screens or parts, clearing) wait for the author's confirmation. If a call says no editor is connected, call connection_status and tell the author the pairing code: they type it into the editor (it is never shown there, so only you can give it to them).",
     "",
     toolGuide(tools),
   ].join("\n");

@@ -11,6 +11,7 @@ import { DocStore, guessMeasurer, ops, savedDoc, stateOf } from "../../lib/core"
 import { setGlobalLang } from "../../lib/i18n";
 import { scriptedAdapter } from "../../lib/llm/testkit";
 import { EditorBridge, type BridgeView } from "../../lib/mcp/editorBridge";
+import { PAIRING_TRIES } from "../../lib/mcp/protocol";
 import { memoryTrusted, type TrustedStore } from "../../lib/mcp/trusted";
 import type { AiSettings } from "../../lib/ai";
 import { ToolListChangedNotificationSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -110,21 +111,25 @@ describe("the live bridge", () => {
     expect(await rawOpen(`ws://127.0.0.1:${port}`, { origin: "https://canvas.example.com" })).toBe("open");
   });
 
-  it("pairs only when the author approves the code, then runs calls in the tab, each one undo step", async () => {
+  it("pairs only when the author types the code the client gave them, then runs calls in the tab, each one undo step", async () => {
     const { live, port, call, client } = await server();
     const notConnected = await call("get_outline");
     expect(errorOf(notConnected)?.code).toBe("unavailable");
     expect(errorOf(notConnected)?.hint).toContain(live.code);
+    expect(((await call("connection_status")).structuredContent as { result: { pairingCode: string } }).result.pairingCode).toBe(live.code);
 
     const t = tab(port);
     await until(() => t.view().asks.some((a) => a.kind === "pair"));
     const ask = t.view().asks.find((a) => a.kind === "pair")!;
-    expect(ask).toMatchObject({ kind: "pair", code: live.code, offered: "edit" });
+    expect(ask).toMatchObject({ kind: "pair", offered: "edit" });
     expect(ask.client?.name).toBe("test-client");
+    /* the code never reached the tab: it has to be typed */
+    expect(JSON.stringify(t.view())).not.toContain(live.code.replace("-", ""));
+    expect(JSON.stringify(t.view())).not.toContain(live.code);
     /* not approved yet: nothing reaches the tab */
-    expect(errorOf(await call("get_outline"))?.message).toMatch(/not approved/);
+    expect(errorOf(await call("get_outline"))?.message).toMatch(/not typed the pairing code/);
 
-    t.bridge.approve(port, "edit");
+    t.bridge.approve(port, "edit", { code: ` ${live.code.replace("-", " ")} ` });
     await until(() => t.view().conns[0]?.phase === "paired");
     const outline = await call("get_outline");
     expect(textOf(outline)).toContain('screen home "Home"');
@@ -152,6 +157,54 @@ describe("the live bridge", () => {
     expect((await client.listTools()).tools.length).toBeGreaterThan(40);
   });
 
+  it("never sends the code to a page, and takes no more codes after too many wrong ones", async () => {
+    const { live, port, call } = await server();
+    /* a page on an allowed port that is not the author's: it reads what the server says and guesses */
+    const heard: string[] = [];
+    const rogue = new WebSocket(`ws://127.0.0.1:${port}`, { origin: "http://localhost:5173" });
+    cleanup.push(() => rogue.close());
+    rogue.on("message", (d) => heard.push(String(d)));
+    await new Promise((r) => rogue.once("open", r));
+    rogue.send(JSON.stringify({ t: "hello", protocol: 2 }));
+    await until(() => heard.some((m) => m.includes('"t":"hello"')));
+    expect(heard.join("\n")).not.toContain(live.code);
+    expect(heard.join("\n")).not.toContain(live.code.replace("-", ""));
+    /* an approval with no code, or a made-up remembered pairing, is a wrong try */
+    rogue.send(JSON.stringify({ t: "approve", access: "edit" }));
+    await until(() => heard.some((m) => m.includes('"t":"wrong"')));
+    expect(JSON.parse(heard.find((m) => m.includes('"t":"wrong"'))!)).toEqual({ t: "wrong", left: PAIRING_TRIES - 1 });
+    rogue.send(JSON.stringify({ t: "approve", access: "edit", known: { id: "00ff", mac: "ab".repeat(32) } }));
+    await until(() => heard.filter((m) => m.includes('"t":"wrong"')).length === 2);
+    const wrong = live.code === "000-000" ? "111-111" : "000-000";
+    for (let i = 2; i < PAIRING_TRIES; i++) {
+      rogue.send(JSON.stringify({ t: "approve", access: "edit", code: wrong }));
+      await until(() => heard.filter((m) => m.includes('"t":"wrong"')).length === i + 1 || heard.some((m) => m.includes('"locked"')));
+    }
+    await until(() => heard.some((m) => m.includes('"reason":"locked"')));
+    expect(live.paired()).toBe(false);
+    /* now even the right code is turned away, and the client is told to restart the server */
+    const t = tab(port);
+    await until(() => t.view().asks.some((a) => a.kind === "pair"));
+    t.bridge.approve(port, "edit", { code: live.code });
+    await until(() => t.view().conns[0]?.phase === "refused");
+    expect(t.view().conns[0].reason).toBe("locked");
+    const status = ((await call("connection_status")).structuredContent as { result: Record<string, unknown> }).result;
+    expect(status.editor).toMatch(/locked/);
+    expect(status.pairingCode).toBeUndefined();
+    expect(String(status.howToConnect)).toMatch(/restart/);
+  });
+
+  it("asks again after a wrong code, saying how many tries are left", async () => {
+    const { live, port } = await server();
+    const t = tab(port);
+    await until(() => t.view().asks.some((a) => a.kind === "pair"));
+    t.bridge.approve(port, "edit", { code: live.code === "123-456" ? "654-321" : "123-456" });
+    await until(() => t.view().asks.some((a) => a.kind === "pair" && a.left === PAIRING_TRIES - 1));
+    expect(t.view().conns[0].phase).toBe("pairing");
+    t.bridge.approve(port, "edit", { code: live.code });
+    await until(() => t.view().conns[0]?.phase === "paired");
+  });
+
   it("refuses the pairing when the author says no", async () => {
     const { port, call } = await server();
     const t = tab(port);
@@ -162,14 +215,14 @@ describe("the live bridge", () => {
   });
 
   it("gives a session the author made read-only only the reading tools", async () => {
-    const { port, call, client } = await server();
+    const { port, call, client, live } = await server();
     let listChanged = 0;
     client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
       listChanged++;
     });
     const t = tab(port);
     await until(() => t.view().asks.length > 0);
-    t.bridge.approve(port, "read");
+    t.bridge.approve(port, "read", { code: live.code });
     await until(() => t.view().conns[0]?.phase === "paired");
     await until(() => listChanged > 0);
     const tools = (await client.listTools()).tools;
@@ -181,10 +234,10 @@ describe("the live bridge", () => {
   });
 
   it("refuses a destructive call nobody confirms in time, and does one the author allows", async () => {
-    const { port, call } = await server({ confirmMs: 300 });
+    const { port, call, live } = await server({ confirmMs: 300 });
     const t = tab(port);
     await until(() => t.view().asks.length > 0);
-    t.bridge.approve(port, "edit");
+    t.bridge.approve(port, "edit", { code: live.code });
     await until(() => t.view().conns[0]?.phase === "paired");
 
     const started = Date.now();
@@ -208,10 +261,10 @@ describe("the live bridge", () => {
   });
 
   it("asks the author before a call that takes work away under a name that does not say so", async () => {
-    const { port, call } = await server({ confirmMs: 300 });
+    const { port, call, live } = await server({ confirmMs: 300 });
     const t = tab(port);
     await until(() => t.view().asks.length > 0);
-    t.bridge.approve(port, "edit");
+    t.bridge.approve(port, "edit", { code: live.code });
     await until(() => t.view().conns[0]?.phase === "paired");
     expect((await call("add_collection", { id: "fruit", name: "Fruit", fields: ["name"], rows: [["Apple"], ["Pear"]] })).isError).toBeFalsy();
     expect(t.view().asks).toEqual([]);
@@ -224,11 +277,11 @@ describe("the live bridge", () => {
   });
 
   it("lets a reloaded tab back in without asking, and turns a second tab away", async () => {
-    const { port, call } = await server();
+    const { port, call, live } = await server();
     const kept = new Map<string, string>();
     const first = tab(port, { storage: kept });
     await until(() => first.view().asks.length > 0);
-    first.bridge.approve(port, "edit");
+    first.bridge.approve(port, "edit", { code: live.code });
     await until(() => first.view().conns[0]?.phase === "paired");
 
     const second = tab(port);
@@ -246,12 +299,12 @@ describe("the live bridge", () => {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 4h16v16H4z" fill="currentColor"/></svg>';
     const adapter = scriptedAdapter([{ text: svg }]);
     const settings: AiSettings = { provider: "deepseek", baseUrl: "https://example.invalid", model: "m", key: "server-secret-key" };
-    const { port, call, client } = await server({ gen: { settings, adapter } });
+    const { port, call, client, live } = await server({ gen: { settings, adapter } });
     expect((await client.listTools()).tools.map((x) => x.name)).toContain("generate_svg");
     const sent: string[] = [];
     const t = tab(port, { sent });
     await until(() => t.view().asks.length > 0);
-    t.bridge.approve(port, "edit");
+    t.bridge.approve(port, "edit", { code: live.code });
     await until(() => t.view().conns[0]?.phase === "paired");
     const r = await call("generate_svg", { prompt: "a square", route: "code", screen: "home", at: { x: 20, y: 400 }, id: "logo" });
     expect(r.isError).toBeFalsy();
@@ -271,7 +324,7 @@ describe("a client the author told the editor to remember", () => {
     const t = tab(s.port, { trusted });
     await until(() => t.view().asks.some((a) => a.kind === "pair"));
     expect(t.view().asks[0]).toMatchObject({ kind: "pair", canRemember: true });
-    t.bridge.approve(s.port, "edit", remember);
+    t.bridge.approve(s.port, "edit", { code: s.live.code, remember });
     await until(() => t.view().conns[0]?.phase === "paired");
     return { s, t };
   }

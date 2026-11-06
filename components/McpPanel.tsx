@@ -20,11 +20,12 @@ import { IconBtn, Toggle, useDismiss } from "./ui";
 
 const clientName = (c: ClientInfo | null | undefined, lang: Lang) => c?.title || c?.name || mcpText("someClient", lang);
 
-function Btn({ p, label, kind = "text", onClick, autoFocus }: { p: Palette; label: string; kind?: "filled" | "tonal" | "text"; onClick: () => void; autoFocus?: boolean }) {
+function Btn({ p, label, kind = "text", onClick, autoFocus, disabled }: { p: Palette; label: string; kind?: "filled" | "tonal" | "text"; onClick: () => void; autoFocus?: boolean; disabled?: boolean }) {
   return (
     <button
       autoFocus={autoFocus}
       onClick={onClick}
+      disabled={disabled}
       className="m3-press"
       style={{
         height: 40,
@@ -35,7 +36,8 @@ function Btn({ p, label, kind = "text", onClick, autoFocus }: { p: Palette; labe
         color: kind === "filled" ? p.onPrimary : kind === "tonal" ? p.onSecondaryContainer : p.primary,
         fontSize: 14,
         fontWeight: 600,
-        cursor: "pointer",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.38 : 1,
         whiteSpace: "nowrap",
       }}
     >
@@ -54,10 +56,15 @@ function useCountdown(until: number) {
   return Math.max(0, Math.ceil((until - now) / 1000));
 }
 
-function AskCard({ ask, p, lang, onApprove, onDeny, onAnswer }: { ask: BridgeAsk; p: Palette; lang: Lang; onApprove: (port: number, edit: boolean, remember: boolean) => void; onDeny: (port: number) => void; onAnswer: (id: string, allow: boolean) => void }) {
+function AskCard({ ask, p, lang, onApprove, onDeny, onAnswer }: { ask: BridgeAsk; p: Palette; lang: Lang; onApprove: (port: number, edit: boolean, code: string, remember: boolean) => void; onDeny: (port: number) => void; onAnswer: (id: string, allow: boolean) => void }) {
   const left = useCountdown(ask.kind === "confirm" ? ask.until : 0);
   const name = clientName(ask.client, lang);
   const [remember, setRemember] = useState(false);
+  /* the code the author reads off their MCP client and types here: the server never sends it to the page */
+  const [code, setCode] = useState("");
+  const digits = code.replace(/\D/g, "");
+  const ready = digits.length === 6;
+  const approve = (edit: boolean) => ready && ask.kind === "pair" && onApprove(ask.port, edit, digits, remember);
   return (
     <div
       role="alertdialog"
@@ -71,13 +78,30 @@ function AskCard({ ask, p, lang, onApprove, onDeny, onAnswer }: { ask: BridgeAsk
       </div>
       {ask.kind === "pair" ? (
         <>
-          <div data-mcp-code style={{ fontSize: 30, fontWeight: 700, letterSpacing: 4, textAlign: "center", padding: "6px 0", fontVariantNumeric: "tabular-nums", color: p.onSurface }}>
-            {ask.code}
-          </div>
           <div style={{ fontSize: 13, lineHeight: 1.5, color: p.onSurfaceVariant }}>
-            {mcpText("pairBody", lang)}
+            {mcpText("pairBody", lang, { client: name })}
             {ask.offered === "read" ? ` ${mcpText("pairReadOnlyOffered", lang)}` : ""}
           </div>
+          <input
+            data-mcp-code-input
+            aria-label={mcpText("codeLabel", lang)}
+            placeholder="000-000"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            autoFocus
+            maxLength={11}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") approve(ask.offered === "edit");
+            }}
+            style={{ height: 56, boxSizing: "border-box", width: "100%", padding: "0 12px", borderRadius: 12, border: `2px solid ${ask.left !== undefined ? p.error : p.outline}`, background: p.surface, color: p.onSurface, fontSize: 28, fontWeight: 700, letterSpacing: 4, textAlign: "center", fontVariantNumeric: "tabular-nums", outline: "none" }}
+          />
+          {ask.left !== undefined && (
+            <div role="alert" data-mcp-code-wrong style={{ fontSize: 12, color: p.error }}>
+              {mcpText("codeWrong", lang, { n: ask.left })}
+            </div>
+          )}
           {ask.canRemember && (
             <label data-mcp-remember style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13, lineHeight: 1.4, color: p.onSurface, cursor: "pointer" }}>
               <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} style={{ width: 18, height: 18, margin: "1px 0 0", accentColor: p.primary, flex: "0 0 auto" }} />
@@ -89,8 +113,8 @@ function AskCard({ ask, p, lang, onApprove, onDeny, onAnswer }: { ask: BridgeAsk
           )}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, flexWrap: "wrap" }}>
             <Btn p={p} label={mcpText("deny", lang)} onClick={() => onDeny(ask.port)} />
-            {ask.offered === "edit" && <Btn p={p} kind="tonal" label={mcpText("allowRead", lang)} onClick={() => onApprove(ask.port, false, remember)} />}
-            <Btn p={p} kind="filled" autoFocus label={ask.offered === "edit" ? mcpText("allowEdit", lang) : mcpText("allowRead", lang)} onClick={() => onApprove(ask.port, ask.offered === "edit", remember)} />
+            {ask.offered === "edit" && <Btn p={p} kind="tonal" disabled={!ready} label={mcpText("allowRead", lang)} onClick={() => approve(false)} />}
+            <Btn p={p} kind="filled" disabled={!ready} label={ask.offered === "edit" ? mcpText("allowEdit", lang) : mcpText("allowRead", lang)} onClick={() => approve(ask.offered === "edit")} />
           </div>
         </>
       ) : (
@@ -109,7 +133,7 @@ function AskCard({ ask, p, lang, onApprove, onDeny, onAnswer }: { ask: BridgeAsk
 }
 
 const PHASE: Record<BridgeConn["phase"], McpKey> = { connecting: "looking", pairing: "pairing", paired: "paired", refused: "refusedDenied", closed: "closed" };
-const REFUSED: Record<string, McpKey> = { busy: "refusedBusy", protocol: "refusedProtocol", denied: "refusedDenied", disconnected: "refusedDisconnected" };
+const REFUSED: Record<string, McpKey> = { busy: "refusedBusy", protocol: "refusedProtocol", denied: "refusedDenied", disconnected: "refusedDisconnected", locked: "refusedLocked" };
 const STATE: Record<BridgeEntry["state"], McpKey> = { running: "stateRunning", asking: "stateAsking", ok: "stateOk", error: "stateError", denied: "stateDenied" };
 
 function ConnRow({ c, p, lang, onDisconnect }: { c: BridgeConn; p: Palette; lang: Lang; onDisconnect: () => void }) {
@@ -258,7 +282,7 @@ export function McpConnect({ store, p, theme, lang, enabled, size = 44 }: { stor
         createPortal(
           <div ref={asksBox} style={{ position: "fixed", left: 0, right: 0, top: 16, zIndex: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, pointerEvents: "none", fontFamily: "Roboto, system-ui, sans-serif" }}>
             {view.asks.map((a) => (
-              <AskCard key={a.kind === "pair" ? `pair:${a.port}` : a.id} ask={a} p={p} lang={lang} onApprove={(port, edit, remember) => bridge?.approve(port, edit ? "edit" : "read", remember)} onDeny={(port) => bridge?.deny(port)} onAnswer={(id, allow) => bridge?.answer(id, allow)} />
+              <AskCard key={a.kind === "pair" ? `pair:${a.port}` : a.id} ask={a} p={p} lang={lang} onApprove={(port, edit, code, remember) => bridge?.approve(port, edit ? "edit" : "read", { code, remember })} onDeny={(port) => bridge?.deny(port)} onAnswer={(id, allow) => bridge?.answer(id, allow)} />
             ))}
           </div>,
           document.body,
