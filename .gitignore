@@ -3,6 +3,7 @@
 
 # testing
 /coverage
+/e2e/.out
 
 # production
 /dist

@@ -18,6 +18,7 @@
     "preview": "vp preview",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
+    "test:e2e": "bun e2e/run.ts",
     "gen:parts": "node scripts/gen-parts-components.mjs",
     "gen:agent": "bun scripts/gen-agent.ts",
     "gen:icons": "node scripts/icons.mjs --src components/m3e --dir components/m3e",
