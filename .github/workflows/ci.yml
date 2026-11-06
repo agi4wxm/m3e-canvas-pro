@@ -118,15 +118,23 @@ jobs:
   # stub or leaves an orphan, never touching the handlers written. Its screens are bound to that contract: the web app is
   # driven in Chromium on the mocks (data, paging, pull to refresh, empty and error scenarios, a deep link, the form's
   # errors, signing in and back) and on the real server (sign in, a 422 on a field, create, a 401 and back, the server
-  # gone), and the screenshots of its screens are kept.
+  # gone), and the screenshots of its screens are kept. Its mobile app (apps/mobile, Expo) is bundled by
+  # Metro for Android and the web, and driven in Chromium on the mocks and the real server too (scripts/check-mobile.ts).
   product:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # npm's downloads, kept between runs: the products pin exact versions, so the key changes only with them
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-product-${{ hashFiles('lib/versions.generated.ts', 'rn/package.json', 'lib/export/targets/mobile.ts') }}
+          restore-keys: npm-product-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
@@ -141,9 +149,9 @@ jobs:
           echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
       - name: Export a product and check it for real
         run: bun scripts/check-product.ts "${{ runner.temp }}/product"
-      - name: Export the shop (its own contract, its screens bound to it) and check its server and web app for real
+      - name: Export the shop (its own contract, its screens bound to it) and check its server, web app and mobile app for real
         run: bun scripts/check-product.ts "${{ runner.temp }}/product" shop
-      - name: Screenshots of the shop's web app
+      - name: Screenshots of the shop's web and mobile apps
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -154,4 +162,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: product-logs
-          path: ${{ runner.temp }}/product/*.log
+          path: |
+            ${{ runner.temp }}/product/*.log
+            ${{ runner.temp }}/product/*.png

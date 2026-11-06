@@ -72,17 +72,21 @@ export function shopProductDoc(): { doc: Doc; widths: Record<string, number> } {
   return { doc: { ...doc, api, mocks: shopMocks(api) }, widths };
 }
 
+/** the sign-in the shop's mocks accept (and the handler scripts/check-mobile.ts writes): any other is turned down */
+export const SHOP_SIGN_IN = { email: "ada@example.com", password: "correct horse" };
+
 /** a scenario of the shop's mocks where the server turns a new product's name down, on its field */
 export const NAME_TAKEN = { id: "name-taken", name: "Name taken", ops: { createProduct: { status: 422, body: { type: "about:blank", title: "Unprocessable Content", status: 422, detail: "That name is taken.", errors: [{ pointer: "#/name", detail: "That name is taken" }] } } } };
 
 /** The shop bound to its own contract (lib/api/fixtures/shop.openapi.yaml), built only through operations the way the
  *  AI and MCP build one: a sign-in screen, a paged product list with pull to refresh and its loading, empty, error and
- *  forbidden designs, a product's detail by its id in the screen's params, and a form that adds a product (it needs a
- *  session) checked by the schema and by the server. scripts/check-product.ts exports it and drives the web app. */
+ *  forbidden designs, a product's detail by its id in the screen's params, a form that adds a product (it needs a
+ *  session) checked by the schema and by the server, the orders (they need a session too) and a picture of a product
+ *  uploaded from a form. scripts/check-product.ts exports it and drives the web app and the mobile app. */
 export function boundShopDoc(lang: Lang = "en"): { doc: Doc; widths: Record<string, number> } {
   const api = shopApi();
   const mocks = shopMocks(api);
-  const store = new DocStore(stateOf({ groups: [], frames: [], api, mocks: { ...mocks, scenarios: [...(mocks.scenarios ?? []), NAME_TAKEN] } }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => lang });
+  const store = new DocStore(stateOf({ groups: [], frames: [], api, mocks: { ...mocks, auth: { ...mocks.auth, accept: [SHOP_SIGN_IN] }, scenarios: [...(mocks.scenarios ?? []), NAME_TAKEN] } }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => lang });
   store.transact("Build the shop", "mcp", (tx) => {
     tx.run(ops.setTitle, { title: "Shop" });
     tx.run(ops.addScreen, { id: "products", name: "Products" });
@@ -100,6 +104,18 @@ export function boundShopDoc(lang: Lang = "en"): { doc: Doc; widths: Record<stri
     tx.run(ops.makeForm, { screen: "login", operationId: "login", then: { to: "products", transition: "fade" } });
     tx.run(ops.addPart, { slug: "button", id: "add", screen: "products", at: { x: 16, y: 820 }, props: { label: "Add product" } });
     tx.run(ops.setAction, { id: "add", action: { to: "create", transition: "slide" } });
+    /* the orders, which need a session; a picture of a product, uploaded with its progress (multipart/form-data) */
+    tx.run(ops.addScreen, { id: "orders", name: "Orders" });
+    tx.run(ops.setScreenAuth, { screen: "orders", auth: "required" });
+    tx.run(ops.wireScreen, { screen: "orders", operationId: "listOrders" });
+    tx.run(ops.addPart, { slug: "button", id: "to-orders", screen: "products", at: { x: 220, y: 820 }, props: { label: "Orders", variant: "tonal" } });
+    tx.run(ops.setAction, { id: "to-orders", action: { to: "orders", transition: "slide" } });
+    tx.run(ops.addScreen, { id: "photo", name: "Photo" });
+    tx.run(ops.setScreenParams, { screen: "photo", params: [{ name: "productId", type: "string", example: "00000000-0000-4000-8000-000000000000" }] });
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    tx.run(ops.makeForm, { screen: "photo", operationId: "uploadProductImage", params: { productId: "params.productId" }, then: { to: "back", transition: "slide", effects: [{ do: "snackbar", message: "Photo added" }] } });
+    tx.run(ops.addPart, { slug: "button", id: "add-photo", screen: "detail", at: { x: 16, y: 820 }, props: { label: "Add a photo", variant: "tonal" } });
+    tx.run(ops.setAction, { id: "add-photo", action: { to: "photo", transition: "slide", params: { productId: "params.productId" } } });
   });
   return { doc: savedDoc(store.get()), widths: {} };
 }

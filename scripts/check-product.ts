@@ -12,7 +12,8 @@
 // whose contract is its own (Doc.api: the shop's OpenAPI and the chat's AsyncAPI, lib/api/fixtures), read by the export,
 // and whose screens are bound to it (a paged product list, a detail by its id, a form that adds a product, a sign-in):
 // its web app is driven in Chromium on the mocks and on the real server (scripts/check-shop-app.ts), and screenshots of
-// its screens go to <work folder>/shots-shop.
+// its screens go to <work folder>/shots-shop. Its mobile app (apps/mobile) is bundled by Metro for Android and the web and
+// driven the same way (scripts/check-mobile.ts), its screenshots beside the web app's.
 import { execSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statfsSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -26,6 +27,7 @@ import { exportToFolder, reportLines } from "../lib/export/nodeWriter";
 import { buildProduct } from "../lib/export/product";
 import { boundShopDoc, productDoc } from "../lib/export/product.fixture";
 import { shopOnMocks, shopOnServer, type ShopBrowser } from "./check-shop-app";
+import { checkMobile } from "./check-mobile";
 import { setGlobalLang } from "../lib/i18n";
 import type { Doc } from "../lib/tokens";
 
@@ -47,11 +49,11 @@ function ok(condition: unknown, label: string) {
   console.log(`${condition ? "ok  " : "FAIL"} ${label}`);
 }
 
-/** a command in the product, its output kept in the work folder; whether it passed */
-function run(cmd: string, args: string[], log: string, env: Record<string, string> = {}): boolean {
+/** a command in the product (or a folder of it), its output kept in the work folder; whether it passed */
+function run(cmd: string, args: string[], log: string, env: Record<string, string> = {}, cwd = DIR): boolean {
   console.log(`\n$ ${cmd} ${args.join(" ")}`);
   const started = Date.now();
-  const r = spawnSync(cmd, args, { cwd: DIR, encoding: "utf8", shell: process.platform === "win32", env: { ...process.env, CI: "1", ...env }, maxBuffer: 1 << 28 });
+  const r = spawnSync(cmd, args, { cwd, encoding: "utf8", shell: process.platform === "win32", env: { ...process.env, CI: "1", ...env }, maxBuffer: 1 << 28 });
   writeFileSync(join(WORK, log), `${r.stdout ?? ""}\n${r.stderr ?? ""}`);
   console.log(`  exit ${r.status}, ${Math.round((Date.now() - started) / 1000)}s, log ${log}`);
   if (r.status !== 0) console.log(`${r.stdout ?? ""}\n${r.stderr ?? ""}`.split("\n").slice(-80).join("\n"));
@@ -418,6 +420,17 @@ if (pw && WHICH === "proof") {
     }
   } finally {
     await browser.close();
+  }
+}
+
+/* ---------- the mobile app (apps/mobile): Metro, the mocks and the real server in a browser ---------- */
+
+if (WHICH === "shop" && installed) {
+  const browser = pw ? await pw.chromium.launch() : null;
+  try {
+    await checkMobile({ dir: DIR, work: WORK, shots: SHOTS, ok, run, freePort, browser: browser as never, token: TOKEN });
+  } finally {
+    await browser?.close();
   }
 }
 

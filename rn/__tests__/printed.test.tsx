@@ -59,6 +59,36 @@ describe("the proof document, printed", () => {
     await fireEvent.press(screen.getByText("Form"));
     expect(screen.getByText("Sign up")).toBeTruthy();
   });
+
+  it("runs what a tap sets and shows: variables, a hidden part, a prop, a condition, a snackbar", async () => {
+    await render(<ProofApp dark={false} initial="Counter" />);
+    expect(screen.queryByText("A secret")).toBeNull();
+    expect(screen.queryByText("Three!")).toBeNull();
+    for (let i = 0; i < 3; i++) await fireEvent.press(screen.getByText("Add"));
+    expect(screen.getByText("3")).toBeTruthy();
+    expect(screen.getByText("Three!")).toBeTruthy();
+    await fireEvent.press(screen.getByText("Reset"));
+    expect(screen.getByText("0")).toBeTruthy();
+    await fireEvent.press(screen.getByText("Reveal"));
+    expect(screen.getByText("A secret")).toBeTruthy();
+    await fireEvent.press(screen.getByText("Retitle"));
+    expect(screen.getByText("New title")).toBeTruthy();
+    expect(screen.queryByText("Flag is on")).toBeNull();
+    await fireEvent.press(screen.getByText("Flip"));
+    expect(screen.getByText("Flag is on")).toBeTruthy();
+    await fireEvent.press(screen.getByText("Ask"));
+    expect(screen.getByText("Set it to 100?")).toBeTruthy();
+  });
+
+  it("takes a tap's other branch while its condition does not hold, and the first once it does", async () => {
+    await render(<ProofApp dark={false} initial="Form" />);
+    await fireEvent.press(screen.getByText("Continue"));
+    expect(screen.getByTestId("snackbar")).toBeTruthy();
+    expect(screen.getByText("Accept the terms first")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("checkbox"));
+    await fireEvent.press(screen.getByText("Continue"));
+    expect(screen.queryByText("Sign up")).toBeNull();
+  });
 });
 
 describe("a screen of kits, printed under iOS", () => {

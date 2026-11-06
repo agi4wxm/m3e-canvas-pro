@@ -4,7 +4,7 @@ import type { ComponentType } from "react";
 import { KitsScreen } from "./KitsScreen";
 
 /** every screen, by the key a tap goes to it by */
-export const SCREENS: Record<string, ComponentType> = { "Kits": KitsScreen };
+export const SCREENS: Record<string, ComponentType<{ params?: Record<string, unknown> }>> = { "Kits": KitsScreen };
 
 /** the screen the app opens on: the first flow's, else the first screen */
 export const INITIAL = "Kits";

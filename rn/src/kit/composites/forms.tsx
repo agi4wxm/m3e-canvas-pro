@@ -1,6 +1,5 @@
-import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
-import { useState, type ReactNode } from "react";
-import { Modal, Platform, Pressable, Text as RNText, TextInput, View, type ViewStyle } from "react-native";
+import { useState } from "react";
+import { Pressable, Text as RNText, TextInput, View, type ViewStyle } from "react-native";
 
 import type { PartBase } from "../atoms/basics";
 import { buttonColors } from "../atoms/controls";
@@ -8,6 +7,7 @@ import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
 import { withAlpha } from "../look";
 import { clampInt, withDefaults, type ListRow } from "../parts";
+import { Popup, dateOfValue, dayOf, usePicker } from "../picker";
 import { fieldStyle, panelStyle } from "../recipes";
 import { Surface } from "../Surface";
 import { controlRadius, corner, recipeOf, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
@@ -18,20 +18,6 @@ import { tapOf } from "./bars";
  * menu. A select and a menu open over the screen when tapped; the editor draws them open, the app keeps them closed. */
 
 const c = (kit: Kit, role: string) => kit.colors[role] ?? "#000000";
-
-/** a list floating over the screen: a select's options, a menu's actions */
-function Popup({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
-  const kit = useKit();
-  return (
-    <Modal transparent visible={open} animationType="fade" onRequestClose={onClose}>
-      <Pressable accessibilityLabel="Close" onPress={onClose} style={{ flex: 1, backgroundColor: withAlpha(c(kit, "scrim") || "#000000", 0.32), alignItems: "center", justifyContent: "center", padding: 24 }}>
-        <Pressable onPress={() => {}} style={panelStyle(kit, { minWidth: 220, maxWidth: 360, paddingVertical: 8, borderRadius: recipeOf(kit, "menu") === "ios" ? 13 : corner(kit, "xs"), backgroundColor: c(kit, "surface-container"), boxShadow: "0px 1px 2px 0px #0000004D, 0px 2px 6px 2px #00000026" })}>
-          {children}
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
 
 /** one action of a menu or option of a select */
 function MenuRow({ label, icon, danger, chosen, onPress }: { label: string; icon?: string; danger?: boolean; chosen?: boolean; onPress: () => void }) {
@@ -48,7 +34,19 @@ function MenuRow({ label, icon, danger, chosen, onPress }: { label: string; icon
 
 /* ---------- a text field ---------- */
 
-export type TextFieldProps = PartBase & { label?: string; value?: string; supporting?: string; variant?: "outlined" | "filled"; leadingIcon?: string; trailingIcon?: string; error?: boolean; multiline?: boolean; width?: number };
+export type TextFieldProps = PartBase & {
+  label?: string;
+  value?: string;
+  supporting?: string;
+  variant?: "outlined" | "filled";
+  leadingIcon?: string;
+  trailingIcon?: string;
+  error?: boolean;
+  multiline?: boolean;
+  width?: number;
+  /** told of what is typed; given, `value` is what the field shows (a form's field holds it) */
+  onChangeText?: (text: string) => void;
+};
 
 /** Material's text field: its label inside until there is something typed, then above the words; the style's own field
  *  where it has one (the label then stays inside the box, as the web's recipes do) */
@@ -56,7 +54,12 @@ export function TextField(props: TextFieldProps) {
   const p = withDefaults<TextFieldProps>("text-field", props);
   const kit = useKit();
   const fill = useFill();
-  const [text, setText] = useState(p.value ?? "");
+  const [typed, setTyped] = useState(p.value ?? "");
+  const text = p.onChangeText ? (p.value ?? "") : typed;
+  const setText = (v: string) => {
+    setTyped(v);
+    p.onChangeText?.(v);
+  };
   const [focused, setFocused] = useState(false);
   const { box, focus } = fieldStyle(kit, p.variant ?? "outlined", !!p.multiline);
   const own = recipeOf(kit, "field") !== "m3" || recipeOf(kit, "input") !== "m3" || !!kit.theme.extras?.fieldFill;
@@ -93,22 +96,45 @@ export function TextField(props: TextFieldProps) {
 
 /* ---------- a select ---------- */
 
-export type SelectProps = PartBase & { items?: ListRow[]; selected?: number; variant?: "outlined" | "filled"; label?: string; placeholder?: string; supporting?: string; size?: "default" | "sm"; disabled?: boolean; width?: number };
+export type SelectProps = PartBase & {
+  items?: ListRow[];
+  selected?: number;
+  variant?: "outlined" | "filled";
+  label?: string;
+  placeholder?: string;
+  supporting?: string;
+  size?: "default" | "sm";
+  disabled?: boolean;
+  width?: number;
+  /** told of the option chosen; given, `selected` says which is chosen (a form's field holds it) */
+  onSelect?: (index: number, label: string) => void;
+  error?: boolean;
+};
 
 export function Select(props: SelectProps) {
   const p = withDefaults<SelectProps>("select", props);
   const kit = useKit();
   const fill = useFill();
   const items = p.items ?? [];
-  const [chosen, setChosen] = useState(clampInt(p.selected ?? 0, -1, items.length - 1));
+  const [own, setOwn] = useState(clampInt(p.selected ?? 0, -1, items.length - 1));
+  const chosen = p.onSelect ? clampInt(p.selected ?? -1, -1, items.length - 1) : own;
   const [open, setOpen] = useState(false);
-  const { box } = fieldStyle(kit, p.variant ?? "outlined");
+  const { box: field } = fieldStyle(kit, p.variant ?? "outlined");
+  const box = p.error ? { ...field, borderColor: c(kit, "error"), borderBottomColor: c(kit, "error") } : field;
   const ios = recipeOf(kit, "menu") === "ios" || recipeOf(kit, "picker") === "ios";
   const value = items[chosen]?.label;
+  /* Material's outlined field carries its label in a notch of its outline, as the web's select does; a style's own
+     field (and the filled one) has it above */
+  const notched = !!p.label && p.variant !== "filled" && recipeOf(kit, "field") === "m3" && recipeOf(kit, "input") === "m3" && !kit.theme.extras?.fieldFill;
   return (
     <View testID={p.testID} style={[{ width: Math.round(p.width ?? 224), rowGap: 4 }, fill]}>
-      {p.label ? <RNText style={{ ...typeStyle(kit, "body-small"), color: c(kit, "on-surface-variant") }}>{p.label}</RNText> : null}
+      {p.label && !notched ? <RNText style={{ ...typeStyle(kit, "body-small"), color: c(kit, "on-surface-variant") }}>{p.label}</RNText> : null}
       <Pressable accessibilityRole="combobox" accessibilityLabel={p.label || p.placeholder} disabled={p.disabled} onPress={() => setOpen(true)} style={{ height: p.size === "sm" ? 40 : 56, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, columnGap: 8, opacity: p.disabled ? 0.38 : 1, ...box }}>
+        {notched ? (
+          <RNText pointerEvents="none" style={{ position: "absolute", top: -8, left: 12, paddingHorizontal: 4, backgroundColor: c(kit, "surface"), ...typeStyle(kit, "body-small"), color: p.error ? c(kit, "error") : c(kit, "on-surface-variant") }}>
+            {p.label}
+          </RNText>
+        ) : null}
         <RNText numberOfLines={1} style={{ flex: 1, ...typeStyle(kit, "body-large"), color: value ? c(kit, "on-surface") : c(kit, "on-surface-variant") }}>{value ?? p.placeholder}</RNText>
         <Glyph name={ios ? "unfold_more" : "arrow_drop_down"} size={24} color={c(kit, "on-surface-variant")} />
       </Pressable>
@@ -121,8 +147,9 @@ export function Select(props: SelectProps) {
             icon={it.icon}
             chosen={i === chosen}
             onPress={() => {
-              setChosen(i);
+              setOwn(i);
               setOpen(false);
+              p.onSelect?.(i, it.label);
               tapOf(p, `tab:${i}`)?.();
             }}
           />
@@ -134,76 +161,34 @@ export function Select(props: SelectProps) {
 
 /* ---------- dates and times ---------- */
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-/** a month to pick a day from, where the platform has no picker of its own (the web) */
-function MonthGrid({ value, onPick }: { value: Date; onPick: (d: Date) => void }) {
-  const kit = useKit();
-  const [month, setMonth] = useState(new Date(value.getFullYear(), value.getMonth(), 1));
-  const first = month.getDay();
-  const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const cells = [...Array.from({ length: first }, () => 0), ...Array.from({ length: days }, (_, i) => i + 1)];
-  const shift = (n: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + n, 1));
-  return (
-    <View style={{ width: 308, padding: 12 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-        <RNText style={{ flex: 1, ...typeStyle(kit, "title-small"), color: c(kit, "on-surface") }}>{`${MONTHS[month.getMonth()]} ${month.getFullYear()}`}</RNText>
-        <Pressable accessibilityLabel="Previous month" onPress={() => shift(-1)} style={{ padding: 8 }}>
-          <Glyph name="chevron_left" size={24} color={c(kit, "on-surface-variant")} />
-        </Pressable>
-        <Pressable accessibilityLabel="Next month" onPress={() => shift(1)} style={{ padding: 8 }}>
-          <Glyph name="chevron_right" size={24} color={c(kit, "on-surface-variant")} />
-        </Pressable>
-      </View>
-      <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-        {cells.map((d, i) => {
-          const on = d === value.getDate() && month.getMonth() === value.getMonth() && month.getFullYear() === value.getFullYear();
-          return (
-            <Pressable key={i} disabled={!d} onPress={() => onPick(new Date(month.getFullYear(), month.getMonth(), d))} style={{ width: 40, height: 40, margin: 1, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: on ? c(kit, "primary") : "transparent" }}>
-              <RNText style={{ ...typeStyle(kit, "body-large"), color: on ? c(kit, "on-primary") : c(kit, "on-surface") }}>{d ? String(d) : ""}</RNText>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-/** Ask the platform for a date or a time: Android's dialog, iOS's picker in a sheet, the kit's month on the web. */
-function usePicker(mode: "date" | "time", value: Date, set: (d: Date) => void) {
-  const [open, setOpen] = useState(false);
-  const show = () => {
-    if (Platform.OS === "android") DateTimePickerAndroid.open({ value, mode, onChange: (_e, d) => d && set(d) });
-    else setOpen(true);
-  };
-  const sheet = (
-    <Popup open={open} onClose={() => setOpen(false)}>
-      {Platform.OS === "ios" ? (
-        <DateTimePicker value={value} mode={mode} display={mode === "date" ? "inline" : "spinner"} onChange={(_e, d) => d && set(d)} />
-      ) : mode === "date" ? (
-        <MonthGrid
-          value={value}
-          onPick={(d) => {
-            set(d);
-            setOpen(false);
-          }}
-        />
-      ) : null}
-    </Popup>
-  );
-  return { show, sheet };
-}
-
-export type DatePickerProps = PartBase & { variant?: "docked" | "modal"; label?: string; placeholder?: string; width?: number; mode?: "single" | "range"; title?: string; defaultView?: string; disabled?: boolean };
+export type DatePickerProps = PartBase & {
+  variant?: "docked" | "modal";
+  label?: string;
+  placeholder?: string;
+  width?: number;
+  mode?: "single" | "range";
+  title?: string;
+  defaultView?: string;
+  disabled?: boolean;
+  /** the day chosen, YYYY-MM-DD; given with `onChange`, the field shows it (a form's field holds it) */
+  value?: string;
+  onChange?: (day: string) => void;
+  error?: boolean;
+};
 
 /** a field that opens the platform's date picker */
 export function DatePicker(props: DatePickerProps) {
   const p = withDefaults<DatePickerProps>("date-picker", props);
   const kit = useKit();
   const fill = useFill();
-  const [date, setDate] = useState<Date | undefined>(undefined);
-  const picker = usePicker("date", date ?? new Date(), setDate);
-  const { box } = fieldStyle(kit, "outlined");
+  const [own, setOwn] = useState<Date | undefined>(undefined);
+  const date = p.onChange ? (p.value ? dateOfValue(p.value, "date") : undefined) : own;
+  const picker = usePicker("date", date ?? new Date(), (d) => {
+    setOwn(d);
+    p.onChange?.(dayOf(d));
+  });
+  const { box: field } = fieldStyle(kit, "outlined");
+  const box = p.error ? { ...field, borderColor: c(kit, "error") } : field;
   const shown = date ? `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}` : undefined;
   return (
     <View testID={p.testID} style={[{ width: Math.round(p.width ?? 256) }, fill]}>

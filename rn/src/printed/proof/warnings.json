@@ -1,117 +1,15 @@
 [
  {
-  "kind": "condition",
-  "screen": "Form",
-  "part": "thanks",
-  "detail": "a part shown on a condition is printed always"
- },
- {
-  "kind": "condition",
-  "screen": "Form",
-  "part": "continue",
-  "detail": "a tap's condition is not printed: it always takes its first branch"
- },
- {
-  "kind": "effects",
-  "screen": "Counter",
-  "part": "add",
-  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
- },
- {
-  "kind": "effects",
-  "screen": "Counter",
-  "part": "reset",
-  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
- },
- {
-  "kind": "condition",
-  "screen": "Counter",
-  "part": "three",
-  "detail": "a part shown on a condition is printed always"
- },
- {
-  "kind": "hidden",
-  "screen": "Counter",
-  "part": "secret",
-  "detail": "a part hidden until something shows it is not printed"
- },
- {
-  "kind": "effects",
-  "screen": "Counter",
-  "part": "reveal",
-  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
- },
- {
-  "kind": "effects",
-  "screen": "Counter",
-  "part": "retitle",
-  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
- },
- {
-  "kind": "effects",
-  "screen": "Counter",
-  "part": "flip",
-  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
- },
- {
-  "kind": "condition",
-  "screen": "Counter",
-  "part": "flag-on",
-  "detail": "a part shown on a condition is printed always"
- },
- {
-  "kind": "effects",
-  "screen": "Counter",
-  "part": "ask",
-  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
- },
- {
-  "kind": "hidden",
-  "screen": "Counter",
-  "part": "confirm",
-  "detail": "a part hidden until something shows it is not printed"
- },
- {
   "kind": "image",
   "screen": "Counter",
   "part": "picture",
   "detail": "a picture held in the document is written to a file"
  },
  {
-  "kind": "effects",
-  "screen": "Counter",
-  "part": "more",
-  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
- },
- {
-  "kind": "effects",
-  "screen": "Counter",
-  "part": "more",
-  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
- },
- {
-  "kind": "effects",
-  "screen": "Inputs",
-  "part": "large",
-  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
- },
- {
-  "kind": "condition",
-  "screen": "Inputs",
-  "part": "noted",
-  "detail": "a part shown on a condition is printed always"
- },
- {
   "kind": "holder",
   "screen": "Dock",
   "part": "dock",
   "detail": "dock has no component in the kit"
- },
- {
-  "kind": "effects",
-  "screen": "Long",
-  "part": "low",
-  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
  },
  {
   "kind": "atoms",

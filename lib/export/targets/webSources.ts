@@ -47,7 +47,7 @@ void start()
 `;
 
 /** the session's needs of a contract: which operations sign in, refresh and sign out, and how each one's token rides */
-function authSource(api: ApiSpec): string {
+export function authSource(api: ApiSpec): string {
   const auth = api.auth;
   const f = authFields(auth);
   const opOf = (id: string | undefined) => {

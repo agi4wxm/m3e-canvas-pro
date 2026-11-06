@@ -1,5 +1,5 @@
-/* The slots of the mobile app and the mini-program: each is a target a later part of the export fills in place
- * (lib/export/targets/index.ts). The contract tests are lib/export/targets/contractTests.ts. */
+/* The slot of the mini-program: a target a later part of the export fills in place (lib/export/targets/index.ts). The
+ * mobile app is lib/export/targets/mobile.ts, the contract tests lib/export/targets/contractTests.ts. */
 
 import { generated, type ProductTarget, type Workspace } from "../types";
 
@@ -11,5 +11,4 @@ const slot = (dir: string, title: string, zh: string, en: string): Workspace => 
   files: { "README.md": generated(`# ${title}\n\n${zh}将在后续版本里由设计生成到这里，和 Web 应用共用 \`packages/api\` 和 \`packages/mocks\`。\n\n${en} will be generated here from the same design, sharing \`packages/api\` and \`packages/mocks\` with the web app.\n`) },
 });
 
-export const mobileTarget: ProductTarget = { id: "mobile", build: () => slot("apps/mobile", "apps/mobile", "移动应用（React Native、Expo）", "The mobile app (React Native, Expo)") };
 export const miniappTarget: ProductTarget = { id: "miniapp", build: () => slot("apps/miniapp", "apps/miniapp", "小程序（Taro：微信、抖音）", "The mini-program (Taro: WeChat, Douyin)") };

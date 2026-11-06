@@ -5,6 +5,7 @@ import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
 import { colorOf, withAlpha } from "../look";
 import { clampInt, withDefaults, type ListRow } from "../parts";
+import { dateOfValue, dayOf, timeOf, usePicker } from "../picker";
 import { accentText, capsOf, extra, extraColor, fieldStyle } from "../recipes";
 import { Surface } from "../Surface";
 import { controlRadius, corner, pillRadius, recipeOf, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
@@ -279,13 +280,28 @@ function SwitchTrack({ on, small, disabled }: { on: boolean; small: boolean; dis
   );
 }
 
-export type SwitchProps = PartBase & { label?: string; checked?: boolean; size?: "default" | "sm"; disabled?: boolean; width?: number };
+/** a control that holds its own state from the design's value, or, given `onValueChange`, shows the value it is given
+ *  (a form's field or a variable holds it) and says what was chosen */
+function useHeld<T>(design: T, given: T, controlled: boolean, onValueChange: ((v: T) => void) | undefined): [T, (v: T) => void] {
+  const [own, setOwn] = useState(design);
+  const value = controlled ? given : own;
+  return [
+    value,
+    (v: T) => {
+      setOwn(v);
+      onValueChange?.(v);
+    },
+  ];
+}
+
+export type SwitchProps = PartBase & { label?: string; checked?: boolean; size?: "default" | "sm"; disabled?: boolean; width?: number; onValueChange?: (on: boolean) => void };
 
 export function Switch(props: SwitchProps) {
   const p = withDefaults<SwitchProps>("switch", props);
   const kit = useKit();
   const fill = useFill();
-  const [on, setOn] = useState(!!p.checked);
+  const [on, set] = useHeld(!!p.checked, !!p.checked, !!p.onValueChange, p.onValueChange);
+  const setOn = (fn: (v: boolean) => boolean) => set(fn(on));
   const track = <SwitchTrack on={on} small={p.size === "sm"} disabled={!!p.disabled} />;
   return (
     <Pressable
@@ -331,12 +347,13 @@ function CheckMark({ on, mixed, error, disabled }: { on: boolean; mixed?: boolea
   );
 }
 
-export type CheckboxProps = PartBase & { label?: string; checked?: boolean; indeterminate?: boolean; error?: boolean; disabled?: boolean };
+export type CheckboxProps = PartBase & { label?: string; checked?: boolean; indeterminate?: boolean; error?: boolean; disabled?: boolean; onValueChange?: (on: boolean) => void };
 
 export function Checkbox(props: CheckboxProps) {
   const p = withDefaults<CheckboxProps>("checkbox", props);
   const kit = useKit();
-  const [on, setOn] = useState(!!p.checked);
+  const [on, set] = useHeld(!!p.checked, !!p.checked, !!p.onValueChange, p.onValueChange);
+  const setOn = (fn: (v: boolean) => boolean) => set(fn(on));
   return (
     <Pressable testID={p.testID} accessibilityRole="checkbox" accessibilityState={{ checked: p.indeterminate ? "mixed" : on, disabled: !!p.disabled }} accessibilityLabel={p.label} disabled={p.disabled} onPress={() => {
         setOn((v) => !v);
@@ -377,14 +394,14 @@ export function Radio(props: RadioProps) {
 
 /* ---------- a slider ---------- */
 
-export type SliderProps = PartBase & { label?: string; value?: number; range?: boolean; end?: number; disabled?: boolean; width?: number };
+export type SliderProps = PartBase & { label?: string; value?: number; range?: boolean; end?: number; disabled?: boolean; width?: number; onValueChange?: (value: number) => void };
 
 /** a slider the finger drags: M3 Expressive's thick track and bar handle, or the style's thin track and round knob */
 export function Slider(props: SliderProps) {
   const p = withDefaults<SliderProps>("slider", props);
   const kit = useKit();
   const fill = useFill();
-  const [value, setValue] = useState(clampInt(p.value ?? 40, 0, 100));
+  const [value, setValue] = useHeld(clampInt(p.value ?? 40, 0, 100), clampInt(p.value ?? 40, 0, 100), !!p.onValueChange, p.onValueChange);
   const [w, setW] = useState(Math.max(40, Math.round(p.width ?? 280) - (p.label ? 80 : 0)));
   const thin = recipeOf(kit, "slider") === "thin";
   const at = (x: number) => clampInt((x / Math.max(1, w)) * 100, 0, 100);
@@ -425,16 +442,49 @@ export function Slider(props: SliderProps) {
 
 /* ---------- inputs ---------- */
 
-export type InputProps = PartBase & { placeholder?: string; value?: string; type?: string; variant?: "outlined" | "filled" | "plain"; size?: "default" | "sm"; error?: boolean; disabled?: boolean; width?: number };
+export type InputProps = PartBase & {
+  placeholder?: string;
+  value?: string;
+  type?: string;
+  variant?: "outlined" | "filled" | "plain";
+  size?: "default" | "sm";
+  error?: boolean;
+  disabled?: boolean;
+  width?: number;
+  /** told of what is typed; given, `value` is what the input shows (a form's field holds it) */
+  onChangeText?: (text: string) => void;
+};
 
 const KEYBOARD: Record<string, "default" | "email-address" | "numeric" | "phone-pad" | "url" | "web-search"> = { email: "email-address", number: "numeric", tel: "phone-pad", url: "url", search: "web-search" };
+
+/** the inputs that take a day or a time: the platform's own picker opens on them */
+const PICKED: Record<string, "date" | "time" | "datetime"> = { date: "date", time: "time", datetime: "datetime", "datetime-local": "datetime" };
+
+/** an input of a day or a time: a field that opens the platform's picker, and holds what it picked as a form sends it */
+function PickedInput({ p, kind, style, text, setText }: { p: InputProps; kind: "date" | "time" | "datetime"; style: TextStyle; text: string; setText: (v: string) => void }) {
+  const kit = useKit();
+  const value = dateOfValue(text, kind);
+  const picker = usePicker(kind === "time" ? "time" : "date", value, (d) => setText(kind === "date" ? dayOf(d) : kind === "time" ? timeOf(d) : d.toISOString()));
+  const shown = !text ? "" : kind === "datetime" ? `${dayOf(value)} ${timeOf(value)}` : text;
+  return (
+    <>
+      <Pressable testID={p.testID} accessibilityRole="button" accessibilityLabel={p.placeholder} disabled={p.disabled} onPress={picker.show} style={{ ...(style as ViewStyle), flexDirection: "row", alignItems: "center", columnGap: 8 }}>
+        <RNText numberOfLines={1} style={{ flex: 1, ...typeStyle(kit, "body-large"), color: shown ? c(kit, "on-surface") : c(kit, "on-surface-variant") }}>
+          {shown || p.placeholder}
+        </RNText>
+        <Glyph name={kind === "time" ? "schedule" : "calendar_today"} size={20} color={c(kit, "on-surface-variant")} />
+      </Pressable>
+      {picker.sheet}
+    </>
+  );
+}
 
 /** a one-line input in the style's field, or bare (`plain`) inside a box that is its field */
 export function Input(props: InputProps) {
   const p = withDefaults<InputProps>("input", props);
   const kit = useKit();
   const fill = useFill();
-  const [text, setText] = useState(p.value ?? "");
+  const [text, setText] = useHeld(p.value ?? "", p.value ?? "", !!p.onChangeText, p.onChangeText);
   const [focused, setFocused] = useState(false);
   const plain = p.variant === "plain";
   const { box, focus } = fieldStyle(kit, p.variant ?? "outlined");
@@ -452,6 +502,8 @@ export function Input(props: InputProps) {
     ...(plain ? { flexGrow: 1, minWidth: 0 } : { width: Math.round(p.width ?? 280) }),
     ...(fill as TextStyle),
   };
+  const picked = PICKED[p.type ?? ""];
+  if (picked) return <PickedInput p={p} kind={picked} style={style} text={text} setText={setText} />;
   return (
     <TextInput
       testID={p.testID}
@@ -470,13 +522,13 @@ export function Input(props: InputProps) {
   );
 }
 
-export type TextareaProps = PartBase & { placeholder?: string; value?: string; variant?: "outlined" | "filled" | "plain"; rows?: number; autoGrow?: boolean; error?: boolean; disabled?: boolean; width?: number };
+export type TextareaProps = PartBase & { placeholder?: string; value?: string; variant?: "outlined" | "filled" | "plain"; rows?: number; autoGrow?: boolean; error?: boolean; disabled?: boolean; width?: number; onChangeText?: (text: string) => void };
 
 export function Textarea(props: TextareaProps) {
   const p = withDefaults<TextareaProps>("textarea", props);
   const kit = useKit();
   const fill = useFill();
-  const [text, setText] = useState(p.value ?? "");
+  const [text, setText] = useHeld(p.value ?? "", p.value ?? "", !!p.onChangeText, p.onChangeText);
   const plain = p.variant === "plain";
   const { box } = fieldStyle(kit, p.variant ?? "outlined", true);
   const rows = Math.max(1, Math.round(p.rows ?? 3));
