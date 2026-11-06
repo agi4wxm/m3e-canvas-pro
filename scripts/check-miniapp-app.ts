@@ -226,7 +226,7 @@ export async function miniappOnMocks(browser: MiniBrowser, base: string, out: st
   const end = await page.evaluate<{ last: number; button: number }>(
     `(() => { const pages = document.querySelectorAll("${ON}"); const pg = pages[pages.length - 1]; const rows = [...pg.querySelectorAll('[data-screen="products"] [data-part="row"][role="button"]')]; const add = [...pg.querySelectorAll('[role="button"]')].find((b) => b.textContent.trim() === "Add product"); return { last: Math.max(...rows.map((r) => r.getBoundingClientRect().bottom)), button: add ? add.getBoundingClientRect().top : -1 } })()`,
   );
-  ok(end.button > 0 && end.last <= end.button, `miniapp mocks: the buttons stay at the foot, and the end of the list scrolls clear of them (last row ends at ${Math.round(end.last)}, the buttons start at ${Math.round(end.button)})`);
+  ok(end.last > 0 && end.button > 0 && end.last <= end.button, `miniapp mocks: the buttons stay at the foot, and the end of the list scrolls clear of them (last row ends at ${Math.round(end.last)}, the buttons start at ${Math.round(end.button)})`);
   await shot("list-end");
   await page.evaluate(`(() => { const pages = document.querySelectorAll("${ON}"); pages[pages.length - 1].scrollTop = 0 })()`);
 

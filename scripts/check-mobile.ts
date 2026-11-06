@@ -201,13 +201,13 @@ export async function checkMobile(c: MobileCheck): Promise<void> {
       await page.screenshot({ path: shots("list") });
       /* at its end the last row scrolls clear of the buttons that stay at the screen's foot (lib/foot.ts) */
       for (let i = 0; i < 4; i++) {
-        await page.evaluate(`(${LIST_SCROLLER})()?.scrollTo(0, 1e7)`);
+        await page.evaluate(`(() => { const list = (${LIST_SCROLLER})(); if (list) list.scrollTop = list.scrollHeight })()`);
         await page.waitForTimeout(500);
       }
       const end = await page.evaluate<{ last: number; button: number }>(LIST_END);
-      ok(end.button > 0 && end.last <= end.button, `the buttons stay at the foot, and the end of the list scrolls clear of them (last row ends at ${Math.round(end.last)}, the buttons start at ${Math.round(end.button)})`);
+      ok(end.last > 0 && end.button > 0 && end.last <= end.button, `the buttons stay at the foot, and the end of the list scrolls clear of them (last row ends at ${Math.round(end.last)}, the buttons start at ${Math.round(end.button)})`);
       await page.screenshot({ path: shots("list-end") });
-      await page.evaluate(`(${LIST_SCROLLER})()?.scrollTo(0, 0)`);
+      await page.evaluate(`(() => { const list = (${LIST_SCROLLER})(); if (list) list.scrollTop = 0 })()`);
       await page.waitForTimeout(300);
       const first = (await words(page)).split("\n").find((l) => l.trim().length > 2 && !l.endsWith("ago")) ?? "";
       await page.locator(`text=${first}`).first().click();

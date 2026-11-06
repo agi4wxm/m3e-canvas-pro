@@ -57,14 +57,15 @@ export function flowStyle(f: FlowProps): ViewStyle {
 }
 
 /** which ways the layout around a part has it fill: a part takes the room of its cell on those axes */
-export type Fill = { w: boolean; h: boolean };
+/** `bounded`: the height it fills is all it has, however much it holds (a list that scrolls in it) */
+export type Fill = { w: boolean; h: boolean; bounded?: boolean };
 const NO_FILL: Fill = { w: false, h: false };
 const FillContext = createContext<Fill>(NO_FILL);
 
 /** the style a part's root takes to fill its cell */
 export function useFill(): ViewStyle {
   const f = useContext(FillContext);
-  return f.w || f.h ? { ...(f.w ? { alignSelf: "stretch", width: "100%" as DimensionValue } : null), ...(f.h ? { flexGrow: 1, alignSelf: f.w ? "stretch" : undefined } : null) } : {};
+  return f.w || f.h ? { ...(f.w ? { alignSelf: "stretch", width: "100%" as DimensionValue } : null), ...(f.h ? { flexGrow: 1, alignSelf: f.w ? "stretch" : undefined } : null), ...(f.h && f.bounded ? { flexShrink: 1, minHeight: 0 } : null) } : {};
 }
 
 /** what is held by a view that lays it out is in no cell of the one around */
@@ -78,8 +79,8 @@ export function FillWidth({ children }: { children: ReactNode }) {
   return <FillContext.Provider value={ACROSS}>{children}</FillContext.Provider>;
 }
 
-const DOWN: Fill = { w: false, h: true };
-const BOTH: Fill = { w: true, h: true };
+const DOWN: Fill = { w: false, h: true, bounded: true };
+const BOTH: Fill = { w: true, h: true, bounded: true };
 /** what runs down to the foot of the screen (a list of data that scrolls) is as tall as the room it is given */
 export function FillDown({ across, children }: { across?: boolean; children: ReactNode }) {
   return <FillContext.Provider value={across ? BOTH : DOWN}>{children}</FillContext.Provider>;

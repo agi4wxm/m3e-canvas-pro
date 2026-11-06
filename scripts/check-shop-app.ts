@@ -104,7 +104,7 @@ export async function shopOnMocks(browser: ShopBrowser, base: string, out: strin
     /* what the body draws (the rows' own presses lay nothing out), the empty strip at its end left out */
     `(() => { const drawn = [...document.querySelectorAll("${ON} [data-scroll-body] *")].filter((e) => !e.closest("[aria-hidden]")).map((e) => e.getBoundingClientRect()).filter((r) => r.height > 0); const add = [...document.querySelectorAll("${ON} button")].find((b) => b.textContent.trim() === "Add product"); return { last: Math.max(...drawn.map((r) => r.bottom)), button: add ? add.getBoundingClientRect().top : -1, floats: !!add && !add.closest("[data-scroll-body]") } })()`,
   );
-  ok(end.floats && end.button > 0 && end.last <= end.button, `mocks: the buttons stay at the foot, and the end of the list scrolls clear of them (last row ends at ${Math.round(end.last)}, the buttons start at ${Math.round(end.button)})`);
+  ok(end.floats && end.last > 0 && end.button > 0 && end.last <= end.button, `mocks: the buttons stay at the foot, and the end of the list scrolls clear of them (last row ends at ${Math.round(end.last)}, the buttons start at ${Math.round(end.button)})`);
   await shot("list-end");
   await page.evaluate(`document.querySelector("[data-scroll-body]").scrollTop = 0`);
   await page.waitForTimeout(200);
