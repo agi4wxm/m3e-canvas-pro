@@ -4,6 +4,7 @@ import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
 import { cleanApi } from "./api/clean";
+import { cleanMocks } from "./mocks/clean";
 import { fitsType, startValueOf } from "./variables";
 import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
@@ -365,6 +366,12 @@ export function cleanBehavior(doc: Doc): Doc {
     const api = cleanApi(out.api);
     if (api) out.api = api;
     else delete out.api;
+  }
+  /* so are the mock settings (lib/mocks/clean.ts): their files are data URLs, their records plain JSON */
+  if (out.mocks !== undefined) {
+    const mocks = cleanMocks(out.mocks);
+    if (mocks) out.mocks = mocks;
+    else delete out.mocks;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);

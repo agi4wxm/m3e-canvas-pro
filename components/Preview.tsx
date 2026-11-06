@@ -52,6 +52,7 @@ import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
 import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, screenVars, startState, writeField } from "@/lib/interact";
 import { BoundValues } from "./boundValues";
+import { MockLogPanel, MockScenarioSwitch, PreviewMocksContext, usePreviewMocks } from "./MockPreview";
 import { PRESETS, variantFor } from "@/lib/variants";
 import { flowStarts } from "@/lib/prototype";
 import { EASE, SLIDE_S as SLIDE_MS, screenPoses, type ScreenMove } from "@/lib/screenMotion";
@@ -480,6 +481,9 @@ export function Preview({
 }) {
   const lang = useLang();
   const frames = doc.frames;
+  /* the API answered by the mock library for this preview session (components/MockPreview.tsx) */
+  const mocks = usePreviewMocks(doc);
+  const [logOpen, setLogOpen] = useState(false);
   /* with no screen chosen, the preview starts where the first flow does */
   const [stack, setStack] = useState<Entry[]>(() => [{ id: startId ?? flowStarts(frames)[0]?.id ?? frames[0]?.id ?? "", t: "none" }]);
   /** a screen laid over the one on show by an interaction, and how it came in */
@@ -889,6 +893,7 @@ export function Preview({
   const label: React.CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 };
 
   return (
+    <PreviewMocksContext.Provider value={mocks}>
     <PreviewTheme dark={dark}>
     <motion.div
       initial={{ opacity: 0 }}
@@ -1023,6 +1028,8 @@ export function Preview({
           </motion.div>
         </motion.div>
       </div>
+
+      {mocks && logOpen && <MockLogPanel mocks={mocks} p={p} onClose={() => setLogOpen(false)} />}
 
       <div
         style={
@@ -1171,6 +1178,13 @@ export function Preview({
               )}
             </AnimatePresence>
           </div>
+          {mocks && <MockScenarioSwitch mocks={mocks} scenarios={doc.mocks?.scenarios ?? []} p={p} wide={wide} barBtn={{ ...barBtn, ...markOnly }} />}
+          {mocks && (
+            <button data-preview-log-button aria-pressed={logOpen} onClick={() => setLogOpen((v) => !v)} title={t("mocksLog", lang)} aria-label={t("mocksLog", lang)} className="m3-press" style={{ ...barBtn, ...markOnly, color: logOpen ? p.onSecondaryContainer : p.onSurfaceVariant, background: logOpen ? p.secondaryContainer : "transparent" }}>
+              <Icon name="receipt_long" size={20} />
+              {wide && <span style={label}>{t("mocksLog", lang)}</span>}
+            </button>
+          )}
           <button
             data-preview-dark={dark ? "on" : "off"}
             onClick={toggleDark}
@@ -1216,5 +1230,6 @@ export function Preview({
       </div>
     </motion.div>
     </PreviewTheme>
+    </PreviewMocksContext.Provider>
   );
 }

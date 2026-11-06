@@ -49,6 +49,7 @@ export const PRODUCT_VERSIONS: Record<string, string> = {
   "@fontsource-variable/roboto-flex": "5.3.0",
   "@iconify/react": "6.0.2",
   "@material/material-color-utilities": "0.4.0",
+  "@mswjs/interceptors": "0.45.11",
   "@shadcn/react": "0.3.1",
   "@tailwindcss/vite": "4.3.3",
   "@tanstack/react-router": "1.170.40",

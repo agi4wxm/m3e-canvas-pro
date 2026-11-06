@@ -98,6 +98,12 @@ describe("tool sets", () => {
     ["ログイン用のAPIとトークンの更新を定義して", ["api"]],
     ["로그인 API를 추가하고 JWT 토큰을 돌려줘", ["api"]],
     ["채팅방에 실시간 메시지 채널을 추가해 줘", ["api"]],
+    ["Fill the mocks for this API and add a slow network scenario", ["api", "mocks"]],
+    ["Use realistic fake data for the product list", ["mocks"]],
+    ["给这个接口填好模拟数据，加一个网络错误的场景", ["api", "mocks"]],
+    ["用假数据把订单列表填满", ["mocks"]],
+    ["モックデータを用意して、遅いネットワークのシナリオも", ["mocks"]],
+    ["목업 데이터를 채우고 네트워크 오류 시나리오를 추가해 줘", ["mocks"]],
   ];
   it.each(PHRASES)("%s → build + %j", (request, sets) => {
     expect(setsFor(request)).toEqual(TOOL_SETS.filter((s) => s === "build" || sets.includes(s)));

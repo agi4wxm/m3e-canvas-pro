@@ -10,9 +10,9 @@
 
 import { tool, type Tool } from "../tools";
 
-export type ToolSet = "build" | "layout" | "screens" | "components" | "style" | "data" | "api" | "generate" | "reference";
+export type ToolSet = "build" | "layout" | "screens" | "components" | "style" | "data" | "api" | "mocks" | "generate" | "reference";
 
-export const TOOL_SETS: readonly ToolSet[] = ["build", "layout", "screens", "components", "style", "data", "api", "generate", "reference"];
+export const TOOL_SETS: readonly ToolSet[] = ["build", "layout", "screens", "components", "style", "data", "api", "mocks", "generate", "reference"];
 
 /** what each set is for, for the model */
 export const SET_ABOUT: Record<ToolSet, string> = {
@@ -23,6 +23,7 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   style: "styles, themes, palettes, looks, custom styles",
   data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, bindings",
   api: "the contract with the back end: data models (JSON Schema), HTTP endpoints (OpenAPI 3.1) with paging and uploads, auth (bearer JWT, API key, OAuth2), realtime channels (AsyncAPI 3.0), servers; importing and reading the spec files",
+  mocks: "the mock library that answers the API while the product is designed: made-up data (a hint per field, record counts, pinned records, seed, language), scenarios (new user, lots of data, network error, slow network, signed out, per-operation errors and retries), mock files (images, PDF, audio, video), realtime scripts, mock sign-in; reading the records and trying what an endpoint answers",
   generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture; the document's own icons (svg:<id>)",
   reference: "measuring an attached reference picture and comparing a screen with it",
 };
@@ -47,9 +48,16 @@ const API = new Set([
   "add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi",
 ]);
 
+/** the mock library: its operations and the tools that read and try it */
+const MOCKS = new Set([
+  "get_mocks", "list_mock_records", "try_mock",
+  "set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks",
+]);
+
 /** the set a tool belongs to */
 export function setOf(t: Pick<Tool<never>, "name" | "group">): ToolSet {
   if (BUILD.has(t.name)) return "build";
+  if (MOCKS.has(t.name)) return "mocks";
   if (REFERENCE.has(t.name)) return "reference";
   if (SCREENS.has(t.name)) return "screens";
   if (COMPONENTS.has(t.name)) return "components";
@@ -115,6 +123,17 @@ const CUES: [ToolSet, Cue][] = [
         /接口|API|后端|后台服务|服务端|数据模型|模型字段|请求体|请求参数|响应(?!式)|返回(?:值|结构|字段)|状态码|分页|鉴权|令牌|JWT|OAuth|WebSocket|长连接|实时(?:消息|推送|通道|聊天)|推送通道|OpenAPI|Swagger|AsyncAPI|服务器地址/,
         /API|エンドポイント|バックエンド|サーバー側|データモデル|スキーマ|リクエスト|レスポンス|ステータスコード|ページネーション|ページング|認証(?:方式|トークン)|トークン|WebSocket|リアルタイム|OpenAPI|AsyncAPI/,
         /API|엔드포인트|백엔드|서버 ?측|데이터 ?모델|스키마|요청 ?본문|응답|상태 ?코드|페이지네이션|페이징|인증 ?(?:방식|토큰)|토큰|웹소켓|WebSocket|실시간|OpenAPI|AsyncAPI/,
+      ),
+    },
+  ],
+  [
+    "mocks",
+    {
+      yes: any(
+        /\b(?:mock(?:s|ed|ing)?|mock-?ups? data|fake data|dummy data|test data|sample data|seed data|placeholder data|fixtures?|scenarios?|simulat\w*|slow (?:network|connection)|network (?:error|failure)s?|offline mode|latency|realistic data|generated data)\b/,
+        /模拟|假数据|测试数据|伪造数据|场景|慢网|弱网|断网|网络错误|网络异常|大量数据|延迟|造数据/,
+        /モック|ダミーデータ|テストデータ|サンプルデータ|シナリオ|疑似データ|遅いネットワーク|ネットワークエラー|オフライン|遅延/,
+        /목업|목 ?데이터|더미 ?데이터|테스트 ?데이터|샘플 ?데이터|시나리오|모의|느린 ?네트워크|네트워크 ?오류|오프라인|지연/,
       ),
     },
   ],

@@ -378,12 +378,12 @@ export const SELF_CHECKS: { secured: { name: string; method: HttpMethod; url: st
     {
       "name": "deleteItem",
       "method": "DELETE",
-      "url": "/items/3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      "url": "/items/a4c14015-7516-4fb4-8de8-a5c4002c4d8b"
     },
     {
       "name": "uploadPhoto",
       "method": "POST",
-      "url": "/items/3fa85f64-5717-4562-b3fc-2c963f66afa6/photo"
+      "url": "/items/a4c14015-7516-4fb4-8de8-a5c4002c4d8b/photo"
     }
   ],
   "invalid": [

@@ -90,7 +90,7 @@ export const OPERATION_CASES: OperationCase[] = [
     "contentType": "application/json",
     "body": {
       "name": "Lamp",
-      "price": 0.5
+      "price": 182.99
     },
     "files": {},
     "security": [
@@ -131,7 +131,7 @@ export const OPERATION_CASES: OperationCase[] = [
     "clientInput": true,
     "clientQuery": false,
     "params": {
-      "itemId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      "itemId": "a4c14015-7516-4fb4-8de8-a5c4002c4d8b"
     },
     "query": {},
     "headers": {},
@@ -165,7 +165,7 @@ export const OPERATION_CASES: OperationCase[] = [
     "clientInput": true,
     "clientQuery": false,
     "params": {
-      "itemId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      "itemId": "a4c14015-7516-4fb4-8de8-a5c4002c4d8b"
     },
     "query": {},
     "headers": {},
@@ -192,7 +192,7 @@ export const OPERATION_CASES: OperationCase[] = [
     "clientInput": true,
     "clientQuery": false,
     "params": {
-      "itemId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      "itemId": "a4c14015-7516-4fb4-8de8-a5c4002c4d8b"
     },
     "query": {},
     "headers": {},
@@ -239,7 +239,7 @@ export const OPERATION_CASES: OperationCase[] = [
     "clientInput": true,
     "clientQuery": false,
     "params": {
-      "itemId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      "itemId": "a4c14015-7516-4fb4-8de8-a5c4002c4d8b"
     },
     "query": {},
     "headers": {},
@@ -291,7 +291,7 @@ export const CHANNEL_CASES: ChannelCase[] = [
     "example": {
       "message": "ping",
       "payload": {
-        "at": "example"
+        "at": "2025-07-28T20:20:00Z"
       }
     }
   },

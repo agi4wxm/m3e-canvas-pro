@@ -218,7 +218,7 @@ export const generateSvg = tool<SvgArgs>({
   },
 });
 
-type ImageArgs = Place & { prompt: string; width?: number; height?: number; background?: boolean };
+type ImageArgs = Place & { prompt: string; width?: number; height?: number; background?: boolean; mockFile?: { name?: string; id?: string; tags?: string[] } };
 
 /** the scene behind a screen, when it has one: a backdrop part standing on it */
 function sceneOf(s: CoreState, widths: Record<string, number>, screen: string) {
@@ -229,9 +229,21 @@ export const generateImageTool = tool<ImageArgs>({
   name: "generate_image",
   group: "generate",
   description:
-    "Paints a picture with the image model (about 20–40 s): with `background` and `screen`, it becomes the picture behind that whole screen (its scene, filling the screen under every part; a game's or a hero screen's backdrop); with `replace` naming an image, a scene or another part, that part gets it (an image or scene keeps its place and takes the picture; any other part is replaced by an image); else a new image part. Say what it shows, never words or interface in it. Costs an image call: only for real content pictures.",
-  input: { type: "object", properties: { prompt: { type: "string" }, width: { type: "number", minimum: 24, maximum: 1600 }, height: { type: "number", minimum: 24, maximum: 1600 }, background: { type: "boolean", description: "the picture behind the whole screen named by `screen`" }, ...PLACE }, required: ["prompt"], additionalProperties: false },
-  output: "{itemId}",
+    "Paints a picture with the image model (about 20–40 s): with `background` and `screen`, it becomes the picture behind that whole screen (its scene, filling the screen under every part; a game's or a hero screen's backdrop); with `replace` naming an image, a scene or another part, that part gets it (an image or scene keeps its place and takes the picture; any other part is replaced by an image); with `mockFile` it goes into the mock library instead (the pictures the API's image fields answer with: a product photo, an avatar; tags say which); else a new image part. Say what it shows, never words or interface in it. Costs an image call: only for real content pictures.",
+  input: {
+    type: "object",
+    properties: {
+      prompt: { type: "string" },
+      width: { type: "number", minimum: 24, maximum: 1600 },
+      height: { type: "number", minimum: 24, maximum: 1600 },
+      background: { type: "boolean", description: "the picture behind the whole screen named by `screen`" },
+      mockFile: { type: "object", properties: { name: { type: "string" }, id: { type: "string" }, tags: { type: "array", items: { type: "string" } } }, additionalProperties: false, description: "keep it in the mock library as a file (name, id, tags such as avatar or product) rather than on the canvas" },
+      ...PLACE,
+    },
+    required: ["prompt"],
+    additionalProperties: false,
+  },
+  output: "{itemId}; with mockFile {mockFile: id}",
   readOnly: false,
   destructive: false,
   async run(a, env) {
@@ -245,7 +257,7 @@ export const generateImageTool = tool<ImageArgs>({
     const scene = frame ? sceneOf(s, widths, frame.id) : undefined;
     const target = a.replace ? s.doc.groups.flatMap((g) => g.items).find((it) => it.id === a.replace) : scene;
     if (a.replace && !target) throw new ToolFailure("not_found", `There is no part ${JSON.stringify(a.replace)}.`, "find_nodes gives the ids of the parts.");
-    const box = frame ? frameSizeOf(frame) : target ? describeNode(s.doc as never, widths, target.id)!.bounds : { w: a.width ?? 240, h: a.height ?? 160 };
+    const box = frame ? frameSizeOf(frame) : target ? describeNode(s.doc as never, widths, target.id)!.bounds : { w: a.width ?? (a.mockFile ? 640 : 240), h: a.height ?? (a.mockFile ? 480 : 160) };
     spend(gen);
     const t0 = Date.now();
     const prompt = `${a.prompt}. No text, letters, logos or user interface in the picture.`;
@@ -253,6 +265,14 @@ export const generateImageTool = tool<ImageArgs>({
     const ms = Date.now() - t0;
     const prev = env.store.get();
     const how = { origin: env.origin, ...(env.history ? { history: env.history } : {}) };
+    if (a.mockFile) {
+      if (!picture.startsWith("data:")) throw new ToolFailure("failed", "The image model answered with an address, not the picture itself, so it cannot go into the mock library.", "Ask the author to upload the picture in the Mocks tab.");
+      const type = /^data:([^;,]+)/.exec(picture)?.[1] ?? "image/png";
+      const name = a.mockFile.name ?? `${a.prompt.slice(0, 40).replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "") || "picture"}.${type === "image/jpeg" ? "jpg" : type.split("/")[1]?.replace("+xml", "") ?? "png"}`;
+      const out = env.store.run(ops.addMockFile, { name, data: picture, ...(a.mockFile.id ? { id: a.mockFile.id } : {}), ...(a.mockFile.tags ? { tags: a.mockFile.tags } : {}) }, how);
+      afterWrite(env, prev);
+      return { result: { mockFile: out.id, ms } };
+    }
     if (target && (target.component === "image" || target.component === "scene")) {
       env.store.run(ops.setProps, { id: target.id, props: target.component === "image" ? { src: picture } : { image: picture } }, how);
       afterWrite(env, prev);
