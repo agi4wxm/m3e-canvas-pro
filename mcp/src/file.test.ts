@@ -2,10 +2,10 @@
  * reach the file, a batch that fails leaving the file as it was, read-only sessions, a file changed on disk, the
  * generative tools only with a key, destructive calls asked of the person at the client. */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { attachFiles, parseProject, serializeProject } from "../../lib/core/projectFile";
+import { attachFiles, bytesToBase64, digest, parseProject, serializeProject } from "../../lib/core/projectFile";
 import { setGlobalLang } from "../../lib/i18n";
 import { openProject, projectFile } from "../../lib/project";
 import { connect, errorOf, scratchDir, textOf, writeProject } from "./testkit";
@@ -245,6 +245,52 @@ describe("the MCP server on a project file", () => {
     done.push(again.close);
     expect(JSON.stringify((await again.call("describe_node", { id: "hero" })).structuredContent)).toContain(picture.slice(-40));
     expect(((await again.call("connection_status")).structuredContent as { result: { layout: string } }).result.layout).toMatch(/folder/);
+  });
+
+  it("takes away the pictures the folder's document no longer uses, and only those that are the format's own", async () => {
+    const dir = scratchDir();
+    const s = await connect({ file: dir });
+    done.push(s.close);
+    const pic = (n: number) => `data:image/png;base64,${Buffer.from(Array.from({ length: 3000 }, (_, i) => (i * n) % 256)).toString("base64")}`;
+    await s.call("apply_ops", { ops: [{ op: "add_screen", args: { id: "home", name: "Home" } }, { op: "add_part", args: { slug: "image", id: "a", screen: "home", at: { x: 16, y: 80 }, props: { src: pic(37) } } }, { op: "add_part", args: { slug: "image", id: "b", screen: "home", at: { x: 16, y: 300 }, props: { src: pic(41) } } }] });
+    const assets = join(dir, "m3e-assets");
+    const own = readdirSync(assets).sort();
+    expect(own).toHaveLength(2);
+    /* beside them: someone's own file, a file named like the format's that holds something else, and an old picture
+       of the format's that another program left */
+    const bytes = new Uint8Array(Array.from({ length: 2600 }, (_, i) => (i * 7) % 256));
+    const left = `${digest(bytesToBase64(bytes))}.png`;
+    writeFileSync(join(assets, "Logo.png"), "mine");
+    writeFileSync(join(assets, "abc123.png"), "not a hash of this");
+    writeFileSync(join(assets, left), bytes);
+    const old = new Date(Date.now() - 5 * 60_000);
+    for (const n of ["abc123.png", left]) utimesSync(join(assets, n), old, old);
+    mkdirSync(join(assets, "keep"));
+
+    /* the first picture goes from the document: its file goes, the other stays */
+    expect((await s.call("set_props", { id: "a", props: { src: "" } })).isError).toBeFalsy();
+    const now = readdirSync(assets).sort();
+    expect(now).toContain("Logo.png");
+    expect(now).toContain("abc123.png");
+    expect(now).toContain("keep");
+    expect(now).not.toContain(left);
+    expect(now.filter((n) => own.includes(n))).toHaveLength(1);
+    /* undo brings the picture back, file and all */
+    await s.call("undo");
+    expect(readdirSync(assets).filter((n) => own.includes(n)).sort()).toEqual(own);
+  });
+
+  it("leaves a picture another program wrote a moment ago for that program's own save", async () => {
+    const dir = scratchDir();
+    const s = await connect({ file: dir });
+    done.push(s.close);
+    await s.call("add_screen", { id: "home", name: "Home" });
+    const bytes = new Uint8Array(Array.from({ length: 2600 }, (_, i) => (i * 11) % 256));
+    const fresh = `${digest(bytesToBase64(bytes))}.png`;
+    mkdirSync(join(dir, "m3e-assets"), { recursive: true });
+    writeFileSync(join(dir, "m3e-assets", fresh), bytes);
+    await s.call("add_screen", { id: "two", name: "Two" });
+    expect(readdirSync(join(dir, "m3e-assets"))).toContain(fresh);
   });
 
   it("starts a file that does not exist yet with the first change", async () => {
