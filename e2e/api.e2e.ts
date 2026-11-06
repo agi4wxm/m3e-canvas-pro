@@ -90,6 +90,16 @@ export const tests: E2ETest[] = [
       await undo(page);
       equal((await apiOf(page)).models?.[0].schema.required, ["id"], "undo takes back the required box alone");
 
+      /* a type that is text of a format reads as its own: a date and time, a file */
+      await page.locator('[data-api-model="Product"] [data-api-add="field"]').click();
+      await settle(page, 400);
+      await pickIn(page, '[data-api-field="field3"]', "Type", "Date & time");
+      equal((await apiOf(page)).models?.[0].schema.properties?.field3, { type: "string", format: "date-time" }, "a date and time is text of that format");
+      check((await page.locator('[data-api-field="field3"] [data-api-field-type] button').first().textContent())?.includes("Date & time"), "and the table names it so");
+      await pickIn(page, '[data-api-field="field3"]', "Type", "File");
+      equal((await apiOf(page)).models?.[0].schema.properties?.field3, { type: "string", format: "binary" }, "a file is binary text");
+      await page.locator('[data-api-model="Product"]').first().screenshot({ path: join(out, "api-field-types.png") });
+
       /* an endpoint that returns the model */
       await section(page, 1);
       await settle(page, 300);

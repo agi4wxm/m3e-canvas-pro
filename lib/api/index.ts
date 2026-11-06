@@ -13,24 +13,31 @@ export { schemaToTs, schemaTypeTs, tsTypeName, type TsOptions } from "./typescri
 export { apiOutline, bodyOf, describeEndpoint, describeModel, endpointLine, successOf, tagOf } from "./outline";
 export {
   FORMATS,
+  FORMAT_TYPES,
   JSON_TYPES,
   eachSubschema,
   exampleValue,
   fieldRows,
   fieldSchema,
   followRef,
+  holdsFile,
   identifier,
+  itemsTypeKey,
   mapRefs,
   operationIdFor,
   pathParams,
   pointerRoot,
   renameModelRefs,
   resolvePointer,
+  rowTypeKey,
   schemaModels,
   schemaRefs,
   typeText,
   withFieldRows,
+  withItemsType,
+  withRowType,
   type FieldRow,
+  type FormatType,
 } from "./schema";
 export { parseSpecText, parseYaml, toYaml, yamlString, YamlError, YAML_LIMITS } from "./yaml";
 export { PROBLEM_MODEL_NAME, PROBLEM_TYPE, STATUS_TEXT, pathParameter, problemModel, problemResponse, statusText, successStatus, syncPathParams, withPageParams } from "./defaults";
