@@ -5,7 +5,7 @@ import { getLang, type Lang } from "./i18n";
 import { BASELINE_SEED } from "./m3e/color";
 import { runtimeSource } from "./runtimeSource";
 import { SLIDE_SPEC, faceSheetsOf, fontFamilyOf, normalizeTheme, seedOf, shapeScaleOf, type Doc } from "./tokens";
-import { APP_SCOPE, recipesOf, styleCss } from "./styles";
+import { APP_SCOPE, recipesOf, styleCss, withDocStyles } from "./styles";
 import { elevationCss } from "./look";
 import { iconSubset, setsOf } from "../components/m3e/icon-sets/load";
 import { SOURCES } from "../components/m3e/icon-sets/manifest";
@@ -599,34 +599,39 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     }
     return images.get(data)!;
   };
-  const { screens, runtime, usesToast } = buildScreens(doc, widths, { onlyFrameId: o.onlyFrameId, live: true, image });
-  if (!screens.length) throw new Error("there is no screen to export");
+  /* Everything that reads the document's style is written first, in one go, with the document's own styles in reach
+     (a custom style is resolved from `doc.styles`): nothing in it waits, so no other document's styles can come between */
+  const { screens, theme } = withDocStyles(doc.styles, () => {
+    const { screens, runtime, usesToast } = buildScreens(doc, widths, { onlyFrameId: o.onlyFrameId, live: true, image });
+    if (!screens.length) throw new Error("there is no screen to export");
 
-  const seen = new Set<string>();
-  for (const s of screens) {
-    /* two screens may not share a file, however their names come out */
-    if (seen.has(s.component)) throw new Error(`two screens are both called ${s.component}`);
-    seen.add(s.component);
-    const lines = importLines(s.imports);
-    files[`src/screens/${s.component}.tsx`] = `${lines.join("\n")}${lines.length ? "\n\n" : ""}${s.source}\n`;
-  }
-  for (const [data, path] of images) files[`public${path}`] = dataToBytes(data);
+    const seen = new Set<string>();
+    for (const s of screens) {
+      /* two screens may not share a file, however their names come out */
+      if (seen.has(s.component)) throw new Error(`two screens are both called ${s.component}`);
+      seen.add(s.component);
+      const lines = importLines(s.imports);
+      files[`src/screens/${s.component}.tsx`] = `${lines.join("\n")}${lines.length ? "\n\n" : ""}${s.source}\n`;
+    }
+    for (const [data, path] of images) files[`public${path}`] = dataToBytes(data);
 
-  const theme = normalizeTheme(doc.theme);
-  const keyOf = new Map(screens.map((s) => [s.id, s.key]));
-  const families = familiesOf(doc.frames)
-    .map((family) => family.flatMap((f) => keyOf.get(f.id) ?? []))
-    .filter((family) => family.length > 1);
-  const appSrc = appSource(screens, theme.motion, usesToast, families);
-  const themeSrc = themeSource(doc, name);
-  files["src/App.tsx"] = appSrc;
-  files["src/main.tsx"] = MAIN;
-  files["src/runtime.tsx"] = runtimeSource(runtime);
-  files["src/theme.tsx"] = themeSrc;
-  files["src/index.css"] = cssSource(doc, lang);
-  const styleSheet = styleCssOf(doc, lang);
-  if (styleSheet) files["src/style.css"] = `/* The document's style. It is not in a layer, so it wins over what the components say about themselves. */\n${styleSheet}\n`;
-  files["index.html"] = htmlSource(doc, lang);
+    const theme = normalizeTheme(doc.theme);
+    const keyOf = new Map(screens.map((s) => [s.id, s.key]));
+    const families = familiesOf(doc.frames)
+      .map((family) => family.flatMap((f) => keyOf.get(f.id) ?? []))
+      .filter((family) => family.length > 1);
+    const appSrc = appSource(screens, theme.motion, usesToast, families);
+    const themeSrc = themeSource(doc, name);
+    files["src/App.tsx"] = appSrc;
+    files["src/main.tsx"] = MAIN;
+    files["src/runtime.tsx"] = runtimeSource(runtime);
+    files["src/theme.tsx"] = themeSrc;
+    files["src/index.css"] = cssSource(doc, lang);
+    const styleSheet = styleCssOf(doc, lang);
+    if (styleSheet) files["src/style.css"] = `/* The document's style. It is not in a layer, so it wins over what the components say about themselves. */\n${styleSheet}\n`;
+    files["index.html"] = htmlSource(doc, lang);
+    return { screens, theme };
+  });
   files["vite.config.ts"] = VITE_CONFIG;
   files["tsconfig.json"] = TSCONFIG;
   files[".gitignore"] = GITIGNORE;

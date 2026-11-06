@@ -1,6 +1,7 @@
 import { childLayoutFields } from "./flow";
 import { standIn } from "./instances";
 import { cleanLook } from "./look";
+import { cleanStyles } from "./styles";
 import { COLOR_TOKENS, Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
@@ -225,6 +226,14 @@ export function cleanBehavior(doc: Doc): Doc {
   if (out.collections !== undefined) {
     if (Array.isArray(out.collections)) out.collections = out.collections.map(cleanCollection).filter((c) => c !== undefined);
     else delete out.collections;
+  }
+  /* a style of the document's own is validated as any style that comes from outside: what it says that a style may
+     not is left out, and one that is no style goes. The theme naming one that is gone wears Material, as it does a
+     built-in key this version does not know */
+  if (out.styles !== undefined) {
+    const styles = cleanStyles(out.styles);
+    if (styles) out.styles = styles;
+    else delete out.styles;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);

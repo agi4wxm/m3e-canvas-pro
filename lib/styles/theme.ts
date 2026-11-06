@@ -1,4 +1,6 @@
 import type { FontKey, IconFamily, Palette, ShapeScale } from "../tokens";
+import { customPackIn, customPackOf } from "./book";
+import type { CustomStyle } from "./custom";
 import { PACKS } from "./packs";
 import { M3, RECIPES, RECIPE_KEYS, type RecipeKey, type Recipes } from "./recipes";
 import { DEFAULT_UX, ERRORS_DARK, ERRORS_LIGHT, type StyleGroup, type StylePack, type StyleUX } from "./types";
@@ -21,7 +23,16 @@ export function styleCatalog(): string {
   ].join("\n");
 }
 
-export const styleOf = (key: string | undefined): StylePack | undefined => (key ? STYLE_PACKS.find((s) => s.key === key) : undefined);
+const BUILT_IN = new Map(STYLE_PACKS.map((s) => [s.key, s]));
+/** a built-in pack by its key */
+export const builtInStyleOf = (key: string | undefined): StylePack | undefined => (key ? BUILT_IN.get(key) : undefined);
+
+/** The pack a key names: a built-in one, or a custom style of the document in reach (book.ts). Everything that reads
+ *  a style reads it through here, so a custom style is worn wherever a built-in one is. */
+export const styleOf = (key: string | undefined): StylePack | undefined => (key ? (BUILT_IN.get(key) ?? customPackOf(key)) : undefined);
+
+/** a key read against a document's own styles, without changing which are in reach */
+export const resolveStyle = (key: string | undefined, styles: readonly CustomStyle[] | undefined): StylePack | undefined => (key ? (BUILT_IN.get(key) ?? customPackIn(key, styles)) : undefined);
 
 /** what a theme says that bears on its style */
 export type Styled = {

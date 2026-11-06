@@ -671,10 +671,10 @@ function recomposeAll(groups: Group[], c: Recompose): Group[] {
  *  for it by hand, while the kit has it) and is built anew in place. One whose look is the same, or that cannot be
  *  built anew without losing a tap or a part something reaches for, is only signed again for the new rules. The same
  *  document comes back when nothing changed. */
-export function recomposeKits<D extends { groups: Group[]; components?: ComponentDef[] }>(doc: D, from: Theme, to: Theme, lang: Lang, opts: { frames?: Frame[]; widths?: Record<string, number> } = {}): D {
+export function recomposeKits<D extends { groups: Group[]; components?: ComponentDef[] }>(doc: D, from: Theme, to: Theme, lang: Lang, opts: { frames?: Frame[]; widths?: Record<string, number>; /** the look `from` came to, when it can no longer be read off `from`: a custom style edited in place keeps its key */ fromLook?: KitLook } = {}): D {
   const marked = (gs: Group[]) => gs.some((g) => g.kit);
   if (!marked(doc.groups) && !doc.components?.some((d) => marked(d.groups))) return doc;
-  const fromLook = kitLookOf(from);
+  const fromLook = opts.fromLook ?? kitLookOf(from);
   const toLook = kitLookOf(to);
   const c: Recompose = {
     from,
