@@ -24,6 +24,8 @@ export const PRODUCT_PINS: Record<string, string> = {
   "@fastify/swagger": "9.9.2",
   "@fastify/swagger-ui": "6.1.2",
   "@fastify/websocket": "11.3.4",
+  /* MSW 3's own interceptors, for React Native (packages/mocks/src/native.ts): the version msw 3.0.4 resolves to */
+  "@mswjs/interceptors": "0.45.11",
   "@types/node": "22.20.5",
   "@types/ws": "8.18.2",
   ajv: "8.20.0",

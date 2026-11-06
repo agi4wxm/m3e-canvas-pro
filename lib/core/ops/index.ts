@@ -11,10 +11,11 @@ import * as tree from "./tree";
 import * as styles from "./styles";
 import * as icons from "./icons";
 import * as api from "./api";
+import * as mocks from "./mocks";
 import * as bindings from "./bindings";
 import { editComponentOp } from "./definition";
 
-export { document, screens, nodes, layout, components, data, tree, styles, icons, api, bindings };
+export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks, bindings };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -25,6 +26,7 @@ export * from "./tree";
 export * from "./styles";
 export * from "./icons";
 export * from "./api";
+export * from "./mocks";
 export * from "./bindings";
 export { DEFINITION_OPS, definitionOpened } from "./definition";
 export { OpError } from "../op";
@@ -135,6 +137,23 @@ export const OPS: Op<never, unknown>[] = [
   api.setApiInfo,
   api.importOpenApi,
   api.importAsyncApi,
+  mocks.setMocks,
+  mocks.setMockModel,
+  mocks.pinMockRecords,
+  mocks.unpinMockRecords,
+  mocks.addMockScenario,
+  mocks.updateMockScenario,
+  mocks.removeMockScenario,
+  mocks.addMockFile,
+  mocks.generateMockFiles,
+  mocks.updateMockFile,
+  mocks.removeMockFile,
+  mocks.setMockRealtime,
+  mocks.removeMockRealtime,
+  mocks.setMockAuth,
+  mocks.setMockRoute,
+  mocks.fillMocksOp,
+  mocks.clearMocks,
   bindings.addDataSource,
   bindings.updateDataSource,
   bindings.removeDataSource,

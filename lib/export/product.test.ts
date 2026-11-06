@@ -12,6 +12,7 @@ import { MANIFEST_PATH, parseManifest } from "./merge";
 import { buildProduct, productName, zipProduct, type ProductOptions } from "./product";
 import { productDoc, shopProductDoc } from "./product.fixture";
 import { GENERATED_DIRS } from "./targets/root";
+import { MOCK_ENGINE_API_FILES, MOCK_ENGINE_FILES } from "./targets/mocks";
 import type { Product, ProductTarget } from "./types";
 
 beforeAll(() => setGlobalLang("en"));
@@ -85,8 +86,27 @@ describe("the product of a document", () => {
     }
     expect(text(proof, "server/src/generated/operations.ts")).toContain('"url": "/products/:id"');
     expect(text(proof, "packages/api/openapi.yaml")).toContain('"/products/{id}":');
-    expect(text(proof, "packages/mocks/src/generated/fixtures.ts")).toContain('"status": "ok"');
+    expect(text(proof, "packages/mocks/src/generated/contract.ts")).toContain('"operationId": "getHealth"');
+    expect(text(proof, "packages/mocks/src/engine/mocks/transport.ts")).toContain("export function createMockTransport");
     expect(text(proof, "packages/api/src/generated/types.ts")).toContain("export type Product");
+  });
+
+  it("puts the editor's own mock library in packages/mocks, with the design's mocks as data and its files beside", async () => {
+    const { doc, widths } = shopProductDoc();
+    const shop = await build(doc, widths);
+    for (const path of MOCK_ENGINE_FILES) expect(text(shop, `packages/mocks/src/engine/${path.slice(4)}`), path).toBe(await fromDisk(path));
+    for (const path of MOCK_ENGINE_API_FILES) expect(text(shop, `packages/mocks/src/engine/${path.slice(4)}`), path).toBe(await fromDisk(path));
+    expect(text(shop, "packages/mocks/src/generated/scenarios.ts")).toContain('export type ScenarioName = "new-user" | "lots" | "network-error" | "slow" | "signed-out"');
+    expect(text(shop, "packages/mocks/src/generated/settings.ts")).toContain('"kind": "email"');
+    expect(text(shop, "packages/mocks/src/generated/files.ts")).toContain('"id": "receipt"');
+    const pdf = shop.files["packages/mocks/files/receipt.pdf"]?.body;
+    expect(pdf instanceof Uint8Array && String.fromCharCode(...pdf.slice(0, 5))).toBe("%PDF-");
+    expect(shop.files["packages/mocks/files/sneaker.svg"]?.kind).toBe("generated");
+    const pkg = JSON.parse(text(shop, "packages/mocks/package.json"));
+    expect(Object.keys(pkg.exports)).toEqual([".", "./msw", "./browser", "./node", "./native"]);
+    expect(Object.keys(pkg.dependencies)).toEqual(Object.keys(pkg.dependencies).sort());
+    /* the engine is the editor's code, checked there: ESLint leaves it alone, as the copied components */
+    expect(text(shop, "eslint.config.js")).toContain('"packages/mocks/src/engine/"');
   });
 
   it("is generated whole: every file is generated but the extension points, which are seeded", () => {

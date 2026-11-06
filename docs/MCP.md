@@ -197,7 +197,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 144 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 164 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -221,6 +221,9 @@ npx playwright install chromium
 | `describe_endpoint` | 读取 | 是 |  | One endpoint in full: the OpenAPI operation as stored (parameters, requestBody, responses, security, pagination), its parameters with references followed, the security that applie… |
 | `describe_model` | 读取 | 是 |  | One model in full: its JSON Schema, its fields as rows (name, type, required, format, enum, description, example), the TypeScript type it becomes, where it is used (models, endpoi… |
 | `get_spec` | 读取 | 是 |  | The API written as a standard file: openapi (OpenAPI 3.1 YAML, the HTTP endpoints), asyncapi (AsyncAPI 3.0 YAML, the realtime channels) or typescript (the models as TypeScript typ… |
+| `get_mocks` | 读取 | 是 |  | The mock library in a few lines: seed, locale, latency, sign-in; how each operation is answered (list, get, create, update, delete, singleton, upload, download, login…, the model … |
+| `list_mock_records` | 读取 | 是 |  | The records the mocks have for a model, pinned ones first, as the app would get them (files shortened). |
+| `try_mock` | 读取 | 是 |  | Calls the API the way the app would, answered by the mocks on a fresh session (what one call makes, the next sees: create then list), with no waiting: each call by operationId wit… |
 | `describe_bindings` | 读取 | 是 |  | How a screen is bound to the API: its params and sign-in, each data source (endpoint, params, paging, and the paths it offers: data.&lt;name>.items[], value fields), its regions w… |
 | `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
 | `compare_to_reference` | 读取 | 是 |  | Holds a screen of the canvas against the reference picture it copies: draws the screen, hands back both pictures (the reference first), and lays them over each other in a grid, gi… |
@@ -326,6 +329,23 @@ npx playwright install chromium
 | `set_api_info` | 数据与交互 |  |  | Sets the API's title, version and description (OpenAPI info), and the tags endpoints are grouped by, with words about each (the whole list). |
 | `import_openapi` | 数据与交互 |  |  | Imports an OpenAPI 3.1 or 3.0 document (YAML or JSON): models from components.schemas, endpoints from paths, security schemes, servers, tags. |
 | `import_asyncapi` | 数据与交互 |  |  | Imports an AsyncAPI 3.0 document (YAML or JSON): channels with their messages and operations, models from components.schemas, the realtime URLs of its servers. |
+| `set_mocks` | 数据与交互 |  |  | Sets the mock library's settings: seed (the same seed, the same made-up data), locale (zh, en, ja, ko: names, words, addresses, phone numbers), scenario (the scenario the preview … |
+| `set_mock_model` | 数据与交互 |  |  | Sets how a model's mock records are made: count (how many records, pinned ones included; null for the default 24), hints by field path ({"name": {kind: "personName"}, "price.amoun… |
+| `pin_mock_records` | 数据与交互 |  |  | Pins records of a model by hand: they come first in its mock data, exactly as written (the rest are made up). |
+| `unpin_mock_records` | 数据与交互 |  | 是 | Takes pinned records of a model away: those with these ids, or all of them. |
+| `add_mock_scenario` | 数据与交互 |  |  | Adds a named scenario the app can be previewed in: e.g. |
+| `update_mock_scenario` | 数据与交互 |  |  | Changes a scenario: its name, words, what every operation does (all), how single operations answer (ops: merged by operationId; null removes one), latency, error rate, record coun… |
+| `remove_mock_scenario` | 数据与交互 |  | 是 | Removes a scenario. |
+| `add_mock_file` | 数据与交互 |  |  | Adds a file to the mock library: a picture, a PDF, audio, video or any other file, as a data URL (data:&lt;type>;base64,…, up to about 12 MB). |
+| `generate_mock_files` | 数据与交互 |  |  | Makes placeholder files for the mock library without a model: image (an SVG picture with the title), avatar (initials on a circle), pdf (a one-page PDF with the title), audio (a s… |
+| `update_mock_file` | 数据与交互 |  |  | Renames a file of the mock library or changes its tags. |
+| `remove_mock_file` | 数据与交互 |  | 是 | Removes a file from the mock library; hints that named it no longer do. |
+| `set_mock_realtime` | 数据与交互 |  |  | Adds or replaces (by id) a realtime script: the messages the server sends over a channel, each at a time in ms after it starts, e.g. |
+| `remove_mock_realtime` | 数据与交互 |  | 是 | Removes a realtime script. |
+| `set_mock_auth` | 数据与交互 |  |  | How signing in behaves in the mocks: signedIn (true by default: secured calls work without a token; false: 401 until the app signs in), accept (the credentials the login endpoint … |
+| `set_mock_route` | 数据与交互 |  |  | Says how the mocks answer an operation when its method and path do not say it plainly: kind auto, list, get, create, update, replace, delete, singleton, upload, download, login, r… |
+| `fill_mocks` | 数据与交互 |  |  | Fills the mock library for the API in one step: every model's fields get the hint their names, formats and enums say (written down, to change), each listed model a record count, t… |
+| `clear_mocks` | 数据与交互 |  | 是 | Takes every mock setting away (hints, counts, pinned records, scenarios, files, scripts): the API is then answered with data made from its schemas alone. |
 | `add_data_source` | 数据与交互 |  |  | Makes a screen load data from an endpoint: read as data.&lt;name> (value, items, status, loading, error, hasMore, empty). |
 | `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions foll… |
 | `remove_data_source` | 数据与交互 |  | 是 | Stops a screen loading a data source; what reads data.&lt;name> reads nothing. |

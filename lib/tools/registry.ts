@@ -9,11 +9,12 @@ import { applyOps, OP_TOOLS } from "./ops";
 import { READ_TOOLS } from "./read";
 import { API_READ_TOOLS } from "./apiRead";
 import { BINDINGS_READ_TOOLS } from "./bindingsRead";
+import { MOCK_READ_TOOLS } from "./mocksRead";
 import { REFERENCE_TOOLS } from "./reference";
 import { TOOL_GROUPS, ToolFailure, type Tool, type ToolEnv, type ToolError, type ToolGroup, type ToolOutcome } from "./types";
 
 /** every tool that needs nothing but a document: reading, building, styling, data */
-export const CORE_TOOLS: Tool<never>[] = [...READ_TOOLS, ...API_READ_TOOLS, ...BINDINGS_READ_TOOLS, ...REFERENCE_TOOLS, applyOps as unknown as Tool<never>, ...(OP_TOOLS as unknown as Tool<never>[])];
+export const CORE_TOOLS: Tool<never>[] = [...READ_TOOLS, ...API_READ_TOOLS, ...MOCK_READ_TOOLS, ...BINDINGS_READ_TOOLS, ...REFERENCE_TOOLS, applyOps as unknown as Tool<never>, ...(OP_TOOLS as unknown as Tool<never>[])];
 
 export type Registry = {
   tools: Tool<never>[];

@@ -14,11 +14,13 @@ import { tool, ToolFailure, type Tool, type ToolEnv, type ToolGroup } from "./ty
 const STYLE_OPS = new Set(["set_theme", "apply_style", "set_custom_styles", "add_custom_style", "set_style_rules", "set_style_layout", "set_palette", "set_custom_palette", "set_dynamic_color"]);
 /** the operations on the API section (lib/core/ops/api.ts): data too, the contract the data comes through */
 export const API_OPS = new Set(["add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi"]);
+/** the operations on the mock library (lib/core/ops/mocks.ts): data too, what the API answers with */
+export const MOCK_OPS = new Set(["set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks"]);
 /** the operations that bind screens to the contract (lib/core/ops/bindings.ts) */
 export const BINDING_OPS = new Set(["add_data_source", "update_data_source", "remove_data_source", "set_screen_params", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
-const DATA_OPS = new Set([...BINDING_OPS, "add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS]);
+const DATA_OPS = new Set([...BINDING_OPS, "add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS, ...MOCK_OPS]);
 /** what takes away something the author made: a client asks the author first */
-export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel", "remove_data_source", "remove_region"]);
+export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel", "unpin_mock_records", "remove_mock_scenario", "remove_mock_file", "remove_mock_realtime", "clear_mocks", "remove_data_source", "remove_region"]);
 
 const groupOf = (name: string): ToolGroup => (STYLE_OPS.has(name) ? "style" : DATA_OPS.has(name) ? "data" : "edit");
 
@@ -64,6 +66,14 @@ const MORE: Record<string, string> = {
   add_channel: "A chat: a WebSocket channel whose operations are the server sending new messages (send) and receiving the user's (receive).",
   import_openapi: "Give the whole file's text. Returns {models, endpoints, converted, kept, dropped, problems}.",
   import_asyncapi: "Give the whole file's text. Returns {models, channels, converted, kept, dropped, problems}.",
+  fill_mocks: "Start here when the API has no mocks yet; then get_mocks shows what it wrote and try_mock shows what an endpoint answers. Returns {models, hints, scenarios, scripts}.",
+  set_mock_model: "get_mocks lists each model's fields with the hint they have now; list_mock_records shows the records they make.",
+  pin_mock_records: "list_mock_records gives records to start from. Returns {model, pinned}.",
+  add_mock_scenario: "An operation is named by its operationId (get_api lists them). Returns {id}.",
+  update_mock_scenario: "get_mocks lists the scenarios.",
+  add_mock_file: "Returns {id}; a hint's files: [id] makes a field use it.",
+  generate_mock_files: "Returns {ids}.",
+  set_mock_realtime: "get_api lists each channel's messages. Returns {id}.",
   wire_screen:
     "The quickest way to a working screen: one call per screen and endpoint (a list screen with detail: the detail screen's id, which then gets the row's id as its params). Afterwards restyle what it made like any parts. Returns {source, region, template, states}. describe_bindings shows the result.",
   add_data_source: "Returns {name, addedParams}. The screen then reads data.<name>.value (the body), .items (a list, every page so far), .status, .loading, .error, .hasMore, .empty.",

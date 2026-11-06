@@ -64,10 +64,11 @@ import { LangMenu } from "@/components/Menus";
 const AgentPanel = lazy(() => import("@/components/AgentPanel").then((m) => ({ default: m.AgentPanel })));
 /* the API tab loads with its first opening too */
 const ApiPanel = lazy(() => import("@/components/ApiPanel").then((m) => ({ default: m.ApiPanel })));
+const MocksPanel = lazy(() => import("@/components/MocksPanel").then((m) => ({ default: m.MocksPanel })));
 import { PromptBar, usePromptBarKey } from "@/components/PromptBar";
 import { McpConnect } from "@/components/McpPanel";
 import { PANEL_FADE_H } from "@/components/ui";
-import { loadAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
+import { generateImage, loadAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
 import { maxFrameLength } from "@/lib/tidy";
 import { joinTargetOf } from "@/lib/combine";
 import { flowHostAt, flowOf, showingGroups } from "@/lib/flow";
@@ -1198,6 +1199,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                 ) : leftTab === "api" ? (
                   <Suspense fallback={null}>
                     <ApiPanel p={p} api={core.doc.api} collections={collections ?? []} title={core.doc.title} run={runApi} />
+                  </Suspense>
+                ) : leftTab === "mocks" ? (
+                  <Suspense fallback={null}>
+                    {/* the mock library: how the API answers while the product is designed (components/MocksPanel.tsx) */}
+                    <MocksPanel p={p} api={core.doc.api} mocks={core.doc.mocks} collections={collections ?? []} run={runApi} paint={canPaint ? (prompt) => generateImage(aiSettings, `${prompt}. No text, letters, logos or user interface in the picture.`, { w: 640, h: 480 }) : null} />
                   </Suspense>
                 ) : leftTab === "data" ? (
                   <DataPanel

@@ -11,6 +11,7 @@
 
 import { counterIds, DocStore, savedDoc, type CoreState } from "../core";
 import type { ApiSpec, Doc } from "../tokens";
+import type { MockSpec } from "../mocks/types";
 import { collectionsOf } from "../variables";
 import { executeTool, type Registry } from "./registry";
 import { isDestructiveCall } from "./ops";
@@ -33,7 +34,11 @@ export type Taken =
   | { kind: "channel"; name: string }
   | { kind: "messages"; of: string; names: string[] }
   | { kind: "server"; name: string }
-  | { kind: "scheme"; name: string };
+  | { kind: "scheme"; name: string }
+  | { kind: "mockScenario"; name: string }
+  | { kind: "mockFile"; name: string }
+  | { kind: "mockRecords"; of: string; n: number }
+  | { kind: "mockScript"; name: string };
 
 /** the property names of an object schema */
 const fieldsOf = (s: unknown): string[] => {
@@ -78,6 +83,22 @@ export function apiTakenAway(before: ApiSpec | undefined, after: ApiSpec | undef
   }
   for (const sv of before.servers ?? []) if (!a.servers?.some((x) => x.env === sv.env)) out.push({ kind: "server", name: sv.env });
   for (const name of Object.keys(before.auth?.schemes ?? {})) if (!a.auth?.schemes[name]) out.push({ kind: "scheme", name });
+  return out;
+}
+
+/** What the mock library lost: scenarios, files, records pinned by hand, realtime scripts written down. Hints and
+ *  counts are settings, changed freely. */
+export function mocksTakenAway(before: MockSpec | undefined, after: MockSpec | undefined): Taken[] {
+  const out: Taken[] = [];
+  if (!before) return out;
+  const a = after ?? {};
+  for (const sc of before.scenarios ?? []) if (!a.scenarios?.some((x) => x.id === sc.id)) out.push({ kind: "mockScenario", name: sc.name || sc.id });
+  for (const f of before.files ?? []) if (!a.files?.some((x) => x.id === f.id)) out.push({ kind: "mockFile", name: f.name || f.id });
+  for (const m of before.models ?? []) {
+    const n = (m.fixtures?.length ?? 0) - (a.models?.find((x) => x.name === m.name)?.fixtures?.length ?? 0);
+    if (n > 0) out.push({ kind: "mockRecords", of: m.name, n });
+  }
+  for (const r of before.realtime ?? []) if (!a.realtime?.some((x) => x.id === r.id)) out.push({ kind: "mockScript", name: r.id });
   return out;
 }
 
@@ -127,6 +148,7 @@ export function takenAway(before: Doc, after: Doc): Taken[] {
     }
   }
   out.push(...apiTakenAway(before.api, after.api));
+  out.push(...mocksTakenAway(before.mocks, after.mocks));
   return out;
 }
 
@@ -169,6 +191,14 @@ export function takenText(t: Taken): string {
       return `the server ${q(t.name)}`;
     case "scheme":
       return `the security scheme ${q(t.name)}`;
+    case "mockScenario":
+      return `the mock scenario ${q(t.name)}`;
+    case "mockFile":
+      return `the mock file ${q(t.name)}`;
+    case "mockRecords":
+      return `${t.n} pinned mock record${t.n === 1 ? "" : "s"} of ${q(t.of)}`;
+    case "mockScript":
+      return `the realtime script ${q(t.name)}`;
   }
 }
 

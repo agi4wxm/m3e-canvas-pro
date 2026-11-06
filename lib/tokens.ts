@@ -7,6 +7,7 @@ import type { ListItem } from "../parts/types";
 import type { Motion, Transition } from "./screenMotion";
 import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleUX } from "./styles";
 import type { ApiSpec } from "./api/types";
+import type { MockSpec } from "./mocks/types";
 
 /* the API section's model (lib/api): data models, endpoints, auth, channels, servers */
 export type * from "./api/types";
@@ -1516,6 +1517,9 @@ export type Doc = {
   /** the contract with the back end (lib/api, docs/接口.md): data models as JSON Schema, endpoints as OpenAPI 3.1
    *  operations, auth, realtime channels as AsyncAPI 3.0, servers */
   api?: ApiSpec;
+  /** the mock library (lib/mocks, docs/模拟库.md): how the API is answered while the product is designed: seed and
+   *  locale, hints and counts per model, pinned records, scenarios, files, realtime scripts, sign-in */
+  mocks?: MockSpec;
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));
