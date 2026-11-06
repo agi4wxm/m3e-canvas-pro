@@ -93,8 +93,8 @@ export function Toolbar({
   place,
   onPlace,
   note,
-  onSaveProject,
-  onOpenProject,
+  project,
+  projectMenu,
   onShare,
   shareState = "idle",
   onDraftKeep,
@@ -141,8 +141,10 @@ export function Toolbar({
   onPlace?: (place: Place) => void;
   /** a short message shown beside the tidy button for a moment */
   note?: Note | null;
-  onSaveProject?: () => void;
-  onOpenProject?: () => void;
+  /** the open project's name and file status (components/ProjectChrome.tsx), first in the toolbar */
+  project?: React.ReactNode;
+  /** the project menu's contents: save to a file, open one, download */
+  projectMenu?: (close: () => void) => React.ReactNode;
   /** opens the "ask an AI" dialog from the left end of the zoom row */
   onShare?: () => void;
   /** busy while a model drafts; review while the draft waits to be kept or undone */
@@ -396,6 +398,8 @@ export function Toolbar({
           padding: "0 72px",
         }}
       >
+        {project && <Pill p={p}>{project}</Pill>}
+
         <Pill p={p}>
           <Segmented<Mode>
             options={[
@@ -459,32 +463,9 @@ export function Toolbar({
             title={t("clearAll", lang)}
             size={40}
           />
-          {onSaveProject && onOpenProject && (
+          {projectMenu && (
             <Popover p={p} icon="folder_open" title={t("project", lang)} size={40}>
-              {(close) => (
-                <div style={{ display: "flex", gap: 2 }}>
-                  <IconBtn
-                    icon="download"
-                    p={p}
-                    size={44}
-                    title={t("saveProject", lang)}
-                    onClick={() => {
-                      close();
-                      onSaveProject();
-                    }}
-                  />
-                  <IconBtn
-                    icon="upload"
-                    p={p}
-                    size={44}
-                    title={t("openProject", lang)}
-                    onClick={() => {
-                      close();
-                      onOpenProject();
-                    }}
-                  />
-                </div>
-              )}
+              {projectMenu}
             </Popover>
           )}
         </Pill>

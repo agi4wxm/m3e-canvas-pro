@@ -136,6 +136,18 @@ const crossesDoc = (prev: CoreState, next: CoreState) => {
   return false;
 };
 
+/** A client outside the editor (MCP) changes the document, not what the person at the editor has selected: the
+ *  selection and the selected screen stay as they were, less what the change took away. */
+function keptSelection(before: CoreState, after: CoreState): CoreState {
+  const was = before.session;
+  const now = after.session;
+  if (now.selection === was.selection && now.frameId === was.frameId) return after;
+  const ids = new Set(after.doc.groups.flatMap((g) => g.items.map((it) => it.id)));
+  const selection = was.selection.filter((id) => ids.has(id));
+  const frameId = was.frameId && after.doc.frames.some((f) => f.id === was.frameId) ? was.frameId : null;
+  return { ...after, session: { ...now, selection: selection.length === was.selection.length ? was.selection : selection, frameId } };
+}
+
 export class DocStore {
   private state: CoreState;
   private past: HistoryEntry[] = [];
@@ -217,7 +229,7 @@ export class DocStore {
       const ctx = this.ctx(tx.origin);
       const go = () => runOp(o, this.state, args, ctx);
       const out = this.options.ids ? withIds(this.options.ids, go) : go();
-      this.state = out.state;
+      this.state = tx.origin === "mcp" ? keptSelection(this.state, out.state) : out.state;
       tx.ran++;
       if (out.history === "whole") tx.whole = true;
       if (out.history === "none") tx.none = true;

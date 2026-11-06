@@ -1,0 +1,36 @@
+{
+  "name": "m3e-canvas-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for M3E Canvas Pro: Claude Desktop, Codex and other MCP clients read and edit a design, live in the editor or in a project file.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "m3e-canvas-mcp": "dist/m3e-canvas-mcp.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "m3e-canvas",
+    "design",
+    "prototype"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agifirefly-wu/m3e-canvas-pro.git",
+    "directory": "mcp"
+  },
+  "peerDependencies": {
+    "playwright": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
+  }
+}

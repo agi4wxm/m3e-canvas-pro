@@ -11,7 +11,8 @@ const obj = (properties: Record<string, Schema>, required: string[] = []): Schem
 const RECT: Schema = { type: "object", properties: { x: { type: "number" }, y: { type: "number" }, w: { type: "number", minimum: 1 }, h: { type: "number", minimum: 1 }, name: { type: "string" } }, required: ["x", "y", "w", "h"] };
 const POINT: Schema = { type: "object", properties: { x: { type: "number" }, y: { type: "number" }, name: { type: "string" } }, required: ["x", "y"] };
 
-const attachmentOf = (env: ToolEnv, id: string): Attachment | undefined => env.attachments?.find((a) => a.id === id);
+/** an attached picture by its id, or a picture handed over as a data URL (what an MCP client can send) */
+const attachmentOf = (env: ToolEnv, id: string): Attachment | undefined => (/^data:image\//i.test(id) ? { id: "picture", dataUrl: id } : env.attachments?.find((a) => a.id === id));
 
 const listed = (env: ToolEnv) => (env.attachments?.length ? `The attached pictures are ${env.attachments.map((a) => a.id).join(", ")}.` : "The author attached no picture.");
 
@@ -41,7 +42,7 @@ const sampleColors = tool<{ image: string; regions?: (Rect & { name?: string })[
   group: "read",
   description:
     "Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. Gives its size in pixels, the colors that cover most of it (with their share), and for each region {x, y, w, h} (in the picture's pixels) its ground color, average and second color, and for each point its color. Use it to take the exact backgrounds, surfaces, accents and text colors of a screenshot you copy.",
-  input: obj({ image: { type: "string", description: "ref1… or a screen or part id" }, regions: { type: "array", items: RECT, description: "areas to measure, in the picture's pixels" }, points: { type: "array", items: POINT }, colors: { type: "integer", minimum: 1, maximum: 16, description: "how many main colors (default 8)" } }, ["image"]),
+  input: obj({ image: { type: "string", description: "ref1…, a screen or part id, or a picture as a data: URL" }, regions: { type: "array", items: RECT, description: "areas to measure, in the picture's pixels" }, points: { type: "array", items: POINT }, colors: { type: "integer", minimum: 1, maximum: 16, description: "how many main colors (default 8)" } }, ["image"]),
   output: "{image: {w, h}, palette: [{hex, share}], regions: [{name, dominant, average, second}], points: [{name, hex}]}",
   readOnly: true,
   destructive: false,
@@ -66,7 +67,7 @@ const compareToReference = tool<{ screen: string; reference: string; cells?: num
   group: "read",
   description:
     "Holds a screen of the canvas against the reference picture it copies: draws the screen, hands back both pictures (the reference first), and lays them over each other in a grid, giving the cells whose colors differ most (in dp on the screen, with the reference's color and the screen's) and an overall likeness 0–100. Then compare layout, spacing, sizes, type, corners and shadows by eye, and fix what differs.",
-  input: obj({ screen: { type: "string", description: "the screen (or a part) that copies the reference" }, reference: { type: "string", description: "the attached picture: ref1…" }, cells: { type: "integer", minimum: 1, maximum: 20, description: "how many differing cells to list (default 8)" } }, ["screen", "reference"]),
+  input: obj({ screen: { type: "string", description: "the screen (or a part) that copies the reference" }, reference: { type: "string", description: "the attached picture: ref1… (or a data: URL)" }, cells: { type: "integer", minimum: 1, maximum: 20, description: "how many differing cells to list (default 8)" } }, ["screen", "reference"]),
   output: "both pictures, and {similarity, reference: {w, h}, screen: {w, h}, differ: [{x, y, w, h, reference, screen}]}",
   readOnly: true,
   destructive: false,

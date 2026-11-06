@@ -21,9 +21,11 @@ export type UiMemory = {
   showAllLinks: boolean;
   p: Palette;
   frame: FrameMode;
+  /** the project the camera is on: another project opened later starts fitted instead */
+  projectId?: string | null;
 };
 
-export function useRememberUi({ loadedRef, view, leftOpen, rightOpen, leftW, rightW, favorites, mode, lang, showAllLinks, p, frame }: UiMemory) {
+export function useRememberUi({ loadedRef, view, leftOpen, rightOpen, leftW, rightW, favorites, mode, lang, showAllLinks, p, frame, projectId }: UiMemory) {
   useEffect(() => {
     if (!loadedRef.current) return;
     try {
@@ -31,6 +33,7 @@ export function useRememberUi({ loadedRef, view, leftOpen, rightOpen, leftW, rig
         UI_KEY,
         JSON.stringify({
           view,
+          ...(projectId ? { viewOf: projectId } : {}),
           leftOpen,
           rightOpen,
           leftW,
@@ -56,5 +59,6 @@ export function useRememberUi({ loadedRef, view, leftOpen, rightOpen, leftW, rig
     mode,
     lang,
     showAllLinks,
+    projectId,
   ]);
 }

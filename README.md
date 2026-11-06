@@ -16,8 +16,10 @@
 | 数据 | 数据集合驱动的重复列表，点一行把这行数据带到详情页 |
 | 交互 | 跳转、返回、外链；显示隐藏、开关弹层、设变量、改属性、提示条；按变量或输入内容走不同分支；输入框写入变量，属性可绑定变量；Dock 按标签切换内容 |
 | 图层 | 重命名、搜索、隐藏、锁定、调整层级 |
-| 输出 | 下载可运行的完整项目（zip）、复制代码、给 AI 的提示词、分享链接、导出屏幕图片 |
+| 项目 | 一个浏览器里可以有多个项目，存在 IndexedDB：项目主页可以搜索、按最近排序、新建、重命名、创建副本、删除（可撤销），每个项目有第一屏的缩略图；不同项目可以在不同标签页同时编辑。在 Chromium 里可以把项目绑定到电脑上的 `.json` 文件或文件夹，之后每次修改自动保存过去（原子写入，重新打开后一键重新连接，文件在外面被改过会先询问），清掉网站数据也不会丢；文件的排版适合放进 git，图片可以作为单独的文件放在旁边。打开或拖入文件默认作为新项目。旧版保存在浏览器里的文档第一次打开时自动成为第一个项目 |
+| 输出 | 下载可运行的完整项目（zip）、项目文件、复制代码、给 AI 的提示词、分享链接、导出屏幕图片 |
 | AI | 应用内的智能体用编辑器自己的操作改画布：按当前风格加屏幕、改组件、加变量和交互、画 SVG 图标和图片，自己截图检查再修改；一次请求是一步撤销，可以中途停止。见下面的“AI” |
+| MCP | Claude Desktop、Codex 等 MCP 客户端通过 `m3e-canvas-mcp` 操作设计：连上打开的编辑器实时修改（配对码确认、可只读、删除要在编辑器里允许、每次调用一步撤销），或不开编辑器直接改项目文件并在无头浏览器里截图，见 [MCP](docs/MCP.md) |
 
 ## AI
 
@@ -30,7 +32,7 @@
 - **风格**：文档严格遵守风格时，智能体只用风格允许的外观；不严格时可以用全部效果。选择框、下拉菜单在画布上是展开画的，留下的空位是正常的，智能体不会为它挪动组件。
 - **SVG 和图片**：画布上没有的图标或插图，智能体可以让图片模型画出再描成 SVG，或让文本模型直接写 SVG；内容图片用图片模型画。每个请求最多两次，都会经过 SVG 清理。
 
-同一套工具（`lib/tools`）以后也通过 MCP 提供给 Codex、Claude Desktop 等外部客户端。给外部智能体一次写出整份文档用的说明在 `public/agent.md`。
+同一套工具（`lib/tools`）也通过 MCP 提供给 Codex、Claude Desktop 等外部客户端，见 [MCP](docs/MCP.md)。给外部智能体一次写出整份文档用的说明在 `public/agent.md`。
 
 ## 启动
 
@@ -58,6 +60,7 @@ bun run dev
 | `bun run gen:versions` | 依赖升级后，按 `package.json` 和 `bun.lock` 重写导出项目用的版本表 `lib/versions.generated.ts`（`check:versions` 只检查，测试也会检查） |
 | `bun run gen:agent` | 把组件清单写进 `public/agent.md` |
 | `bun run gen:icon-sets` | 按图标对照表重新打包各风格的图标集（`check:icon-sets` 只检查） |
+| `bun run mcp:build` | 把 MCP 服务器打包成 `mcp/dist/m3e-canvas-mcp.js`（先 `bun run build`，编辑器的构建会一起复制过去给截图用）；`mcp:dev` 直接运行源码，`mcp:docs` 按注册表重写 [MCP](docs/MCP.md) 里的工具表 |
 | `bun scripts/style-shots.ts --base <地址> --out <文件夹>` | 把风格画廊按风格、分类截图，用来核对每套风格（先另开 `bun run dev`） |
 | `bun run check:export <空文件夹>` | 生成项目，真的安装、构建，再用无头 Edge 点一遍 |
 
@@ -71,10 +74,11 @@ components/    编辑器界面
 components/m3e/  Material 3 Expressive 组件库
 components/m3e/icon-sets/  各风格的图标集（按需加载）
 lib/           文档模型、排版、外观效果、提示词和代码生成
-lib/core/      文档核心：存储、操作、事务和撤销、查询
+lib/core/      文档核心：存储、操作、事务和撤销、查询、项目文件的读写
 lib/llm/       AI 服务商层：流式适配器、智能体循环、SVG 生成
 lib/tools/     AI 和 MCP 共用的工具注册表
 lib/agent/     应用内的智能体
+lib/projects/  浏览器里的多个项目（IndexedDB）和绑定的文件
 lib/styles/    风格：每套一个文件，控件造型按组件家族分模块
 lib/m3e/       组件库的工具代码
 hooks/         组件库的 Hook
@@ -85,6 +89,7 @@ parts/widgets/ 自带组件
 parts/kits/    组合件：由原子组件拼成的输入框、搜索栏、列表行等
 parts/templates/ 屏幕和流程模板
 public/        静态资源
+mcp/           MCP 服务器 m3e-canvas-mcp（docs/MCP.md）
 scripts/       生成脚本
 docs/          组件规范、清单和盘点
 ```
@@ -118,6 +123,8 @@ docs/          组件规范、清单和盘点
 - [组件清单](docs/组件清单.md)：现有的全部组件和实测情况
 - [组件规范](docs/组件规范.md)：怎样新增组件，以及必须遵守的约定
 - [组件盘点](docs/组件盘点.md)：每个来源的组件现在由谁承担
+- [项目文件](docs/项目文件.md)：项目文件的格式，其他工具（MCP 服务器、脚本）读写它时的约定
+- [MCP](docs/MCP.md)：让 Claude Desktop、Codex 操作画布：安装、配置、配对和安全、工具列表
 
 ## 许可证
 
