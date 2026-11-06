@@ -22,7 +22,7 @@
 export { DEFAULT_UX, styleTextOf, type StyleGroup, type StylePack, type StyleRoles, type StyleText, type StyleToken, type StyleUX } from "./types";
 export { RECIPES, RECIPE_KEYS, RECIPE_LABELS, VARIANT_LABELS, variantLabel, type RecipeKey, type Recipes } from "./recipes";
 export { STYLE_GROUPS, STYLE_PACKS, artOf, isStrict, normalizeRecipes, normalizeUx, recipesOf, styleCatalog, styleOf, stylePalette, stylePatch, styleSeed, uxOf } from "./theme";
-export { APP_SCOPE, CANVAS_SCOPE, hasBackdrop, screenBackground, styleCss, type StyleSelectors } from "./sheet";
+export { APP_SCOPE, CANVAS_SCOPE, hasBackdrop, screenBackground, styleCss, styleRoleColors, type StyleSelectors } from "./sheet";
 export { builtInStyleOf, resolveStyle } from "./theme";
 export { customPackOf, customPacks, docStyles, docStylesRevision, setDocStyles, withDocStyles } from "./book";
 export { CUSTOM_PREFIX, OPTIONAL_ROLE_KEYS, READS, ROLE_KEYS, STYLE_FORMAT, STYLE_VERSION, TOKEN_KEYS, cleanStyles, compileCustomStyle, contrastFloor, contrastProblems, contrastRatio, copyOfStyle, fromPack, hexOf, isCustomKey, newStyleKey, readStyleFile, rolesFromSeed, styleFile, styleFileName, validateCustomStyle, withStyle, type CustomStyle, type StyleFile, type StyleProblem, type Validated } from "./custom";

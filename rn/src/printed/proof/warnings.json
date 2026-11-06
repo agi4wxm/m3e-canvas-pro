@@ -1,0 +1,230 @@
+[
+ {
+  "kind": "condition",
+  "screen": "Form",
+  "part": "thanks",
+  "detail": "a part shown on a condition is printed always"
+ },
+ {
+  "kind": "condition",
+  "screen": "Form",
+  "part": "continue",
+  "detail": "a tap's condition is not printed: it always takes its first branch"
+ },
+ {
+  "kind": "effects",
+  "screen": "Counter",
+  "part": "add",
+  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
+ },
+ {
+  "kind": "effects",
+  "screen": "Counter",
+  "part": "reset",
+  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
+ },
+ {
+  "kind": "condition",
+  "screen": "Counter",
+  "part": "three",
+  "detail": "a part shown on a condition is printed always"
+ },
+ {
+  "kind": "hidden",
+  "screen": "Counter",
+  "part": "secret",
+  "detail": "a part hidden until something shows it is not printed"
+ },
+ {
+  "kind": "effects",
+  "screen": "Counter",
+  "part": "reveal",
+  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
+ },
+ {
+  "kind": "effects",
+  "screen": "Counter",
+  "part": "retitle",
+  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
+ },
+ {
+  "kind": "effects",
+  "screen": "Counter",
+  "part": "flip",
+  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
+ },
+ {
+  "kind": "condition",
+  "screen": "Counter",
+  "part": "flag-on",
+  "detail": "a part shown on a condition is printed always"
+ },
+ {
+  "kind": "effects",
+  "screen": "Counter",
+  "part": "ask",
+  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
+ },
+ {
+  "kind": "hidden",
+  "screen": "Counter",
+  "part": "confirm",
+  "detail": "a part hidden until something shows it is not printed"
+ },
+ {
+  "kind": "image",
+  "screen": "Counter",
+  "part": "picture",
+  "detail": "a picture held in the document is written to a file"
+ },
+ {
+  "kind": "effects",
+  "screen": "Counter",
+  "part": "more",
+  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
+ },
+ {
+  "kind": "effects",
+  "screen": "Counter",
+  "part": "more",
+  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
+ },
+ {
+  "kind": "effects",
+  "screen": "Inputs",
+  "part": "large",
+  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
+ },
+ {
+  "kind": "condition",
+  "screen": "Inputs",
+  "part": "noted",
+  "detail": "a part shown on a condition is printed always"
+ },
+ {
+  "kind": "holder",
+  "screen": "Dock",
+  "part": "dock",
+  "detail": "dock has no component in the kit"
+ },
+ {
+  "kind": "effects",
+  "screen": "Long",
+  "part": "low",
+  "detail": "what a tap sets or shows (variables, parts, snackbars) is printed as nav.todo"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Products",
+  "part": "id28",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Products",
+  "part": "id28",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Products",
+  "part": "id29",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Products",
+  "part": "id29",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Products",
+  "part": "id30",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Products",
+  "part": "id30",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Products",
+  "part": "id31",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Products",
+  "part": "id31",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Product",
+  "part": "id61",
+  "detail": "drawn as the atoms it splits into (price-tag)"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Product",
+  "part": "id71",
+  "detail": "drawn as the atoms it splits into (checkout-bar)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Product",
+  "part": "id71",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "placeholder",
+  "screen": "Cart",
+  "part": "id88",
+  "detail": "cart-list has no component in the kit"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Cart",
+  "part": "id89",
+  "detail": "drawn as the atoms it splits into (section-header)"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Cart",
+  "part": "id91",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Cart",
+  "part": "id92",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Checkout",
+  "part": "id145",
+  "detail": "drawn as the atoms it splits into (description-list)"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Checkout",
+  "part": "id146",
+  "detail": "drawn as the atoms it splits into (checkout-bar)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Checkout",
+  "part": "id146",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Order placed",
+  "part": "id170",
+  "detail": "drawn as the atoms it splits into (description-list)"
+ }
+]

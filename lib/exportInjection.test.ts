@@ -3,6 +3,7 @@ import { parse } from "@babel/parser";
 import { beforeAll, describe, expect, it } from "vitest";
 import { proofDoc, systemsDoc } from "./exportProject.fixture";
 import { buildProject, type ProjectFiles } from "./exportProject";
+import { printRnApp } from "./export/rn/app";
 import { setGlobalLang } from "./i18n";
 import { openProject } from "./project";
 import { makeItem, type Doc } from "./tokens";
@@ -81,6 +82,30 @@ describe("a document's words in the exported project", () => {
     const raw = hostileDoc();
     expect(await escapesOf(raw, openProject(JSON.parse(JSON.stringify(raw))))).toEqual([]);
     expect(await escapesOf(raw, raw)).toEqual([]);
+  }, 120_000);
+});
+
+/* The React Native app (lib/export/rn) prints the same documents again, as screens on the kit: the same words must come
+   out as strings there too, whatever part they are in, whatever tap or name carries them. */
+async function rnEscapesOf(doc: Doc | null): Promise<string[]> {
+  expect(doc).toBeTruthy();
+  const { files } = await printRnApp(doc!, {});
+  const written = files.filter((f) => f.kind === "generated" && /\.(ts|tsx)$/.test(f.path));
+  expect(written.some((f) => f.text.includes("markA"))).toBe(true);
+  return written.flatMap((f) => codeNames(f.path, f.text));
+}
+
+describe("a document's words in the React Native screens", () => {
+  it("never come out as code in the proof document", async () => {
+    expect(await rnEscapesOf(openProject(JSON.parse(JSON.stringify(withWords(proofDoc().doc)))))).toEqual([]);
+  }, 120_000);
+
+  it("never come out as code in the document of every system", async () => {
+    expect(await rnEscapesOf(openProject(JSON.parse(JSON.stringify(withWords(systemsDoc().doc)))))).toEqual([]);
+  }, 120_000);
+
+  it("never come out as code from what the prototype and the variables name", async () => {
+    expect(await rnEscapesOf(hostileDoc())).toEqual([]);
   }, 120_000);
 });
 
