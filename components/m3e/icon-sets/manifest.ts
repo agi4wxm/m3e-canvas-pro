@@ -38,4 +38,4 @@ export const SOURCES: Record<keyof typeof SHARDS, string> = {
 }
 
 /** the Material names bundled in every set */
-export const BUNDLED = 535
+export const BUNDLED = 536
