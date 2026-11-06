@@ -51,7 +51,9 @@ export function useScreenshots(store: DocStore) {
         const scale = Math.max(0.25, Math.min(2, o.scale ?? 1));
         const w = frameSizeOf(frame).w;
         const h = Math.min(frameLengthOf(frame), MAX_H);
-        const canvas = await toCanvas(el, { pixelRatio: scale, width: w, height: h, cacheBust: false });
+        /* the web fonts are not embedded: a face in many files (a CJK face comes in a hundred pieces) takes seconds to
+           fetch for every picture, and the model reads the layout, not the type, which the fallback faces keep */
+        const canvas = await toCanvas(el, { pixelRatio: scale, width: w, height: h, cacheBust: false, skipFonts: true });
         if (!crop) return canvas.toDataURL("image/png");
         const pad = 8;
         const x = Math.max(0, crop.x - pad);
