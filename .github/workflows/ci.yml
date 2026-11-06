@@ -36,3 +36,31 @@ jobs:
         run: bun run test
       - name: Build
         run: bun run build
+
+  # The editor itself in headless Chromium (e2e/*.e2e.ts): built, served with `vp preview`, driven by its own controls.
+  # Playwright is not a dependency of the project; it is installed here, with its Chromium, and found through npm's root.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Playwright and Chromium
+        run: |
+          npm install -g playwright@1.63.0
+          npx -y playwright@1.63.0 install --with-deps chromium
+      - name: End-to-end tests
+        run: NODE_PATH="$(npm root -g)" bun run test:e2e
+      - name: Screenshots of what failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failures
+          path: e2e/.out

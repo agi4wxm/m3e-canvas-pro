@@ -9,7 +9,7 @@ export const STARTER_MODULES = ["app-bar", "button", "button-group", "fab", "ico
 
 /** where the modules on screen are kept between visits */
 const DRAWN_KEY = "m3e:drawn-modules";
-/** where the editor keeps the document it has open (src/Editor.tsx `DOC_KEY`) */
+/** where the editor keeps the document it has open (lib/core/persist.ts `DOC_KEY`) */
 const EDITOR_DOC_KEY = "m3e:doc";
 
 /** The modules to fetch before anything else is known: the starter's when no document is kept, else those kept from the

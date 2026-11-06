@@ -55,10 +55,10 @@ export function modulesOfDoc(doc: unknown, live = false): string[] {
   return unique(items.map((it) => modulesOfItem(it, live)));
 }
 
-/** where the editor keeps the document it has open (src/Editor.tsx `DOC_KEY`) */
+/** where the editor keeps the document it has open (lib/core/persist.ts `DOC_KEY`) */
 const EDITOR_DOC_KEY = "m3e:doc";
 
-/** The parts a new document starts with (src/Editor.tsx `seed` and `mobileSeed`). Only a head start: whatever the starter
+/** The parts a new document starts with (src/editor/seed.ts `seed` and `mobileSeed`). Only a head start: whatever the starter
  *  holds that this misses is fetched when it is drawn, and the boot screen waits for it. */
 export const STARTER_PARTS = ["app-bar", "button-group", "item", "fab", "navigation-bar", "button"];
 

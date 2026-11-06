@@ -61,7 +61,19 @@ export const unionRect = (rects: Rect[]): Rect => ({
 
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-export const uid = () => Math.random().toString(36).slice(2, 10);
+/** where new ids come from while an operation of the document core runs with ids of its own (lib/core); random otherwise */
+let idSource: (() => string) | null = null;
+export const uid = () => (idSource ? idSource() : Math.random().toString(36).slice(2, 10));
+/** runs `fn` with every new id taken from `next`, so that what it makes is the same each time it runs */
+export function withIds<T>(next: () => string, fn: () => T): T {
+  const was = idSource;
+  idSource = next;
+  try {
+    return fn();
+  } finally {
+    idSource = was;
+  }
+}
 
 export type Radii = { tl: number; tr: number; bl: number; br: number };
 
