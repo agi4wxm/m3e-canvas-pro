@@ -1,10 +1,12 @@
 /* A screen saved as a PNG: drawn offscreen at 1:1 with plain parts (src/editor/render.tsx `renderExport`), so the
  * canvas's zoom, outlines and animations never reach the picture. The same layer draws the small picture of the first
- * screen the projects list shows. There is one layer, so one picture is drawn at a time. */
+ * screen the projects list shows. There is one layer, so one picture is drawn at a time. Both embed the web fonts the
+ * screen's words use, as the agent's and the MCP's screenshots do (shotFonts.ts), so all of them draw words alike. */
 
 import { useRef, useState, type RefObject } from "react";
 import { toCanvas, toPng } from "html-to-image";
 import { Frame, frameLengthOf, frameSizeOf } from "@/lib/tokens";
+import { shotFontCss } from "./shotFonts";
 
 /** how wide a project's picture is, and how tall a long screen's picture may run before it is cut */
 const THUMB_W = 240;
@@ -38,7 +40,7 @@ export function useFrameImages(framesRef: RefObject<Frame[]>) {
    *  canvas zoom, selection outlines and in-flight animations never leak into the PNG. */
   const saveFrameImage = async (f: Frame) => {
     await onLayer(f, async (el) => {
-      const url = await toPng(el, { pixelRatio: 2, cacheBust: true, width: frameSizeOf(f).w, height: frameLengthOf(f) });
+      const url = await toPng(el, { pixelRatio: 2, cacheBust: true, width: frameSizeOf(f).w, height: frameLengthOf(f), fontEmbedCSS: await shotFontCss(el) });
       const a = document.createElement("a");
       a.href = url;
       a.download = `${f.name || "screen"}.png`;
@@ -56,13 +58,12 @@ export function useFrameImages(framesRef: RefObject<Frame[]>) {
   };
 
   /** A small picture of a screen for the projects list (WebP where the browser writes it, else JPEG); a long screen
-   *  is cut below the first view or so. Null when it could not be drawn. Web fonts are not embedded: at this size the
-   *  page's own faces do, and embedding them is the slow part (and reads stylesheets of other origins). */
+   *  is cut below the first view or so. Null when it could not be drawn. */
   const frameThumb = (f: Frame): Promise<string | null> =>
     onLayer(f, async (el) => {
       const { w } = frameSizeOf(f);
       const h = Math.min(frameLengthOf(f), Math.round(w * THUMB_MAX_RATIO));
-      const canvas = await toCanvas(el, { pixelRatio: THUMB_W / w, width: w, height: h, skipFonts: true });
+      const canvas = await toCanvas(el, { pixelRatio: THUMB_W / w, width: w, height: h, fontEmbedCSS: await shotFontCss(el) });
       const webp = canvas.toDataURL("image/webp", 0.72);
       return webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.78);
     }).catch(() => null);

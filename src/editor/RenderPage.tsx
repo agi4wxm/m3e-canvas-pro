@@ -18,7 +18,7 @@ import { PartView } from "@/components/PartView";
 import { FIT_OVERLAY } from "@/parts/contained";
 import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
 import { firstBaseline } from "./model";
-import { capture, layerDrawn, shotTarget, ShotLayer } from "./screenShot";
+import { capture, layerDrawn, shotTarget, ShotLayer, themeFacesLoaded } from "./screenShot";
 
 type Widths = Record<string, number>;
 export type MeasureJob = { doc: CoreState["doc"]; lang: Lang };
@@ -86,6 +86,8 @@ export function RenderPage() {
     const next = () => setWork(queue.current.shift() ?? null);
     void (async () => {
       try {
+        /* the theme's faces first: the sizes are measured, and the words drawn, in them, as on the canvas */
+        await themeFacesLoaded(theme, lang);
         await layerDrawn(doc);
         if (gone) return;
         if (work.kind === "measure") {
