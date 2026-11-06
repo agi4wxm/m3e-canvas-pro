@@ -33,8 +33,8 @@ describe("the MCP server on a project file", () => {
     const { client, registry } = await open();
     const { tools } = await client.listTools();
     const by = new Map(tools.map((t) => [t.name, t]));
-    /* the registry's, the file's undo and redo, and connection_status */
-    expect(tools.length).toBe(registry.tools.length + 3);
+    /* the registry's, the file's undo and redo, export_product, and connection_status */
+    expect(tools.length).toBe(registry.tools.length + 4);
     expect(by.get("undo")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
     expect(by.get("get_outline")?.annotations).toMatchObject({ readOnlyHint: true, idempotentHint: true });
     expect(by.get("remove_nodes")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });

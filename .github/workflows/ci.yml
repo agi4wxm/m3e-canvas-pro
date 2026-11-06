@@ -109,3 +109,35 @@ jobs:
         with:
           name: e2e-failures
           path: e2e/.out
+
+  # The whole-product export (lib/export): a fixture with an API contract exported as a monorepo, then for real npm
+  # install, typecheck, lint, build (web and server), test, the contract tests against the built server, the app in
+  # Chromium, and a second export over it that must keep custom code (scripts/check-product.ts).
+  product:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Install
+        run: bun install --frozen-lockfile
+      # Outside the checkout: package.json names bun as its package manager (devEngines), and npm refuses to run there.
+      - name: Playwright and Chromium
+        working-directory: ${{ runner.temp }}
+        run: |
+          npm install -g playwright@1.63.0
+          npx -y playwright@1.63.0 install --with-deps chromium
+          echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
+      - name: Export a product and check it for real
+        run: bun scripts/check-product.ts "${{ runner.temp }}/product"
+      - name: Logs of what failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-logs
+          path: ${{ runner.temp }}/product/*.log

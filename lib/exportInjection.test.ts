@@ -142,3 +142,63 @@ function hostileDoc(): Doc {
     brief: "",
   } as unknown as Doc;
 }
+
+/* ---------- the product (lib/export) ---------- */
+
+/** a contract whose every name, path, parameter and example carries words that try to end what they are printed in */
+function hostileApi() {
+  const w = (s: string) => `${s}${WORDS}`;
+  const op = (id: string, extra: Record<string, unknown> = {}) => ({ operationId: w(id), summary: w("s"), description: w("d"), responses: { "200": { description: w("ok"), content: { "application/json": { schema: { $ref: `#/components/schemas/${w("X")}` }, example: { [w("k")]: w("v") } } } } }, ...extra });
+  return {
+    openapi: {
+      openapi: "3.1.0",
+      info: { title: w("T"), version: w("1") },
+      paths: {
+        [`/a/{${w("id")}}`]: { get: op("get"), post: op("post", { requestBody: { content: { "application/json": { schema: { type: "object" } } } } }) },
+        [`/b"+markA+"/{x}`]: { delete: op("del"), put: op("put", { parameters: [{ name: w("q"), in: "query" }] }) },
+        "/ok": { get: op("") },
+      },
+      components: { schemas: { [w("X")]: { type: "object", description: w("x") } } },
+    },
+    types: "",
+  };
+}
+
+/** the npm names npm accepts */
+const NPM_NAME = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
+
+describe("a document's and a contract's words in the exported product", () => {
+  it("never come out as code, a path, a package name or YAML structure", async () => {
+    const { buildProduct } = await import("./export/product");
+    const doc = openProject(JSON.parse(JSON.stringify(withWords(systemsDoc().doc))))!;
+    doc.frames = doc.frames.map((f, i) => ({ ...f, name: i ? `../../${f.name}` : `CON ${WORDS}` }));
+    const product = await buildProduct(doc, {}, { read: fromDisk, fetchIcons: noNetwork, lang: "en", api: hostileApi() });
+    const paths = Object.keys(product.files);
+    /* every path is plain ASCII the export chose: no word of the document or the contract names a file or a folder */
+    for (const p of paths) expect(p, p).toMatch(/^[A-Za-z0-9._/-]+$/);
+    for (const p of paths) expect(p.split("/"), p).not.toContain("..");
+    /* the code the export writes (not the editor's copied components) parses, and no marker is a name in it */
+    const code = paths.filter((p) => /\.(ts|tsx|js|mjs)$/.test(p) && !/^apps\/web\/src\/(components|lib|hooks|styles)\//.test(p));
+    expect(code.some((p) => (product.files[p].body as string).includes("markA"))).toBe(true);
+    const escapes = code.flatMap((p) => codeNames(p.endsWith(".mjs") ? `${p}.js` : p, product.files[p].body as string));
+    expect(escapes).toEqual([]);
+    /* package names */
+    for (const p of paths.filter((x) => x.endsWith("package.json"))) {
+      const pkg = JSON.parse(product.files[p].body as string) as { name: string; workspaces?: string[] };
+      expect(pkg.name, p).toMatch(NPM_NAME);
+    }
+    /* route paths */
+    const routes = product.files["apps/web/src/generated/routes.ts"].body as string;
+    for (const m of routes.matchAll(/: ("[^"]*"),$/gm)) expect(JSON.parse(m[1]), m[1]).toMatch(/^\/[a-z0-9-]+$/);
+    /* the YAML: every line a key and a value, the markers only ever inside a quoted string */
+    for (const file of ["packages/api/openapi.yaml", "packages/api/asyncapi.yaml"]) {
+      for (const line of (product.files[file].body as string).split("\n").filter(Boolean)) {
+        const bare = line.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+        expect(bare, line).toMatch(/^ *(- )?([A-Za-z_][A-Za-z0-9_-]*|""):?( ("")|( -?[0-9.]+)| true| false| null| \[\]| \{\})?$|^ *- ""$/);
+        expect(bare).not.toContain("mark");
+      }
+    }
+    /* the JSON files read back as JSON */
+    for (const p of paths.filter((x) => x.endsWith(".json"))) expect(() => JSON.parse(product.files[p].body as string), p).not.toThrow();
+  }, 120_000);
+});
