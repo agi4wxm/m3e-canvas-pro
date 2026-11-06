@@ -88,7 +88,7 @@ export class BudgetSpent extends Error {
   override name = "BudgetSpent";
 }
 
-export type Meter = { usage: Usage; calls: number; cut?: string };
+export type Meter = { usage: Usage; calls: number; cut?: string; /** each call's own usage, in order */ each?: Usage[] };
 
 /** The adapter with every call counted, refusing to ask again once the budget is spent (the turn then ends as a
  *  provider error would, keeping what it did). */
@@ -105,7 +105,10 @@ export function metered(inner: Adapter, budget: { tokens: number; ms: number }, 
       }
       meter.calls++;
       for await (const e of inner.stream(req, signal)) {
-        if (e.type === "done") meter.usage = addUsage(meter.usage, e.usage);
+        if (e.type === "done") {
+          meter.usage = addUsage(meter.usage, e.usage);
+          meter.each?.push(e.usage);
+        }
         yield e;
       }
     },
@@ -231,7 +234,7 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
 
   const budget = { ...task.budget, tokens: Math.min(task.budget.tokens, o.budgetTokens ?? Infinity) };
   const t0 = Date.now();
-  const meter: Meter = { usage: emptyUsage(), calls: 0 };
+  const meter: Meter = { usage: emptyUsage(), calls: 0, each: [] };
   const settings = settingsOf(o.model);
   const inner = o.adapter ? o.adapter(task) : createAdapter(settings, { effort: o.model.effort, ...(o.model.fetch ? { fetch: o.model.fetch } : {}) });
   const adapter = metered(inner, budget, t0, meter);
@@ -281,15 +284,17 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
   const shots: Observed["shots"] = [];
   const likeness: NonNullable<Observed["likeness"]> = [];
   if (renderer) {
-    /* one picture measures every part, so the sizes are right even when nothing was touched */
-    const ids = screens.length ? screens : now.doc.frames.slice(0, 1).map((f) => f.id);
+    /* a change of the whole document (a style, the theme) touches no screen of its own: every screen shows it */
+    const shown = screens.length ? screens : r.changed ? now.doc.frames.slice(0, 4).map((f) => f.id) : [];
+    /* one picture measures every part, so the sizes are right even when nothing was changed */
+    const ids = shown.length ? shown : now.doc.frames.slice(0, 1).map((f) => f.id);
     for (const id of ids) {
       try {
         const png = await renderer.screenshot(id);
         const name = `after-${id}.png`;
         pictures[name] = png;
-        if (screens.includes(id)) shots.push({ screen: id, file: name });
-        if (images[0] && screens.includes(id)) likeness.push({ screen: id, similarity: likenessOf(images[0].dataUrl, png) });
+        if (shown.includes(id)) shots.push({ screen: id, file: name });
+        if (images[0] && shown.includes(id)) likeness.push({ screen: id, similarity: likenessOf(images[0].dataUrl, png) });
       } catch {
         /* a screen that will not draw is graded on its outline alone */
       }
@@ -332,6 +337,7 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
     shots,
     budget,
     ...(meter.cut ? { cut: meter.cut } : {}),
+    perCall: (meter.each ?? []).map((u) => ({ input: u.input, cachedInput: u.cachedInput, output: u.output })),
   };
   return { observed, transcript: transcriptOf(r.messages, pictures), pictures };
 }

@@ -16,7 +16,9 @@ import { frameLengthOf, frameSizeOf, type Doc, type Group, type Item } from "../
 import { partBySlug, reader, tierOf } from "../parts/registry";
 import { roleOf } from "../parts/role";
 import { sanitizeSvg } from "../parts/svg";
-import type { Check, CheckResult, Observed, Verdict, Widths } from "./types";
+import { createRegistry } from "../lib/tools/registry";
+import { GENERATE_TOOLS } from "../lib/tools/generate";
+import type { CallRecord, Check, CheckResult, Observed, Verdict, Widths } from "./types";
 
 /* ---------- what is worked out once per observation ---------- */
 
@@ -193,15 +195,26 @@ const LANG_NAME: Record<Lang, string> = { en: "English", zh: "Chinese", ja: "Jap
 
 /* ---------- the checks ---------- */
 
-/** the turn ended on its own and every call that failed was put right by a later one */
+/** the tools that only read: a failed read the agent moved on from leaves nothing wrong in the document */
+const READS = new Set(createRegistry({ extra: GENERATE_TOOLS }).tools.filter((t) => t.readOnly).map((t) => t.name).concat("load_tools"));
+
+/** the operations a call ran: its own name, or the ops of a batch (when its arguments were kept whole) */
+const opsOf = (c: CallRecord): string[] => {
+  const batch = c.name === "apply_ops" && c.args && typeof c.args === "object" ? (c.args as { ops?: { op?: unknown }[] }).ops : undefined;
+  return Array.isArray(batch) ? batch.map((x) => String(x?.op ?? "")) : [c.name];
+};
+
+/** the turn ended on its own and every change that failed was made after all by a later call (the same tool, or a
+ *  batch that ran the same operation, or the other way round) */
 export const finished = (): Check => ({
   id: "finished",
   label: "ended normally, no error left unrecovered",
   critical: true,
   run(g) {
     const left = g.o.calls.filter((c, i) => {
-      if (c.ok || (c.error?.code === "refused" && /drawings?/i.test(c.error.message))) return false;
-      return !g.o.calls.slice(i + 1).some((d) => d.ok && d.name === c.name);
+      if (c.ok || READS.has(c.name) || (c.error?.code === "refused" && /drawings?/i.test(c.error.message))) return false;
+      const ran = opsOf(c);
+      return !g.o.calls.slice(i + 1).some((d) => d.ok && (d.name === c.name || opsOf(d).some((x) => ran.includes(x))));
     });
     const bits = [`stop=${g.o.stop}`, `${g.o.calls.filter((c) => !c.ok).length} failed calls`, ...(left.length ? [`unrecovered: ${left.slice(0, 3).map((c) => `${c.name} (${c.error?.code}: ${(c.error?.message ?? "").slice(0, 60)})`).join("; ")}`] : [])];
     return ok(g.o.stop === "end_turn" && !left.length, bits.join(", "));

@@ -1,1 +1,29 @@
-{}
+{
+  "contacts-data": {
+    "pass": true,
+    "failed": []
+  },
+  "game-hud": {
+    "pass": true,
+    "failed": []
+  },
+  "list-to-cards": {
+    "pass": true,
+    "failed": []
+  },
+  "product-instances": {
+    "pass": true,
+    "failed": []
+  },
+  "replicate-weather": {
+    "pass": true,
+    "failed": []
+  },
+  "vague-wipe": {
+    "pass": false,
+    "failed": [
+      "keeps-work",
+      "asks"
+    ]
+  }
+}

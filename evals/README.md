@@ -38,6 +38,7 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 | `--replay <目录>` | 重新评分记录下来的运行，不调用智能体 |
 | `--judge`、`--judge-model` | 视觉评分（默认关）：模型看改过的屏幕（和参考图）给 1–5 分和理由，只作参考，不影响通过与否 |
 | `--price <输入,缓存,输出>` | 费用估算用的单价，美元每百万 token |
+| `--title <文字>` | `summary.md` 的标题 |
 | `--no-shots` | 不开 Chromium：智能体不能截图，跑完也不画 |
 
 ## 一次运行留下什么
@@ -101,7 +102,7 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 ## 回放和单元测试
 
-`--replay` 只读 `observed.json`，用现在的检查重新评分，所以改了检查以后，可以拿以前的记录看结论怎么变，不用再花 token。`evals/evals.test.ts` 在 `bun run test` 里跑，不联网：用操作搭出的文档测每类检查的通过和失败、用脚本模型（`lib/llm/testkit.ts` 的 `scriptedAdapter`）把一个任务从头跑一遍、检查 token 预算会让智能体停下，并把 `recorded/` 里提交的几次真实运行（`observed.json.gz`）重新评分，结论要和 `recorded/expected.json` 一致。改了检查导致结论变化时，确认变化是对的，再更新 `expected.json`。
+`--replay` 只读 `observed.json`，用现在的检查重新评分，所以改了检查以后，可以拿以前的记录看结论怎么变，不用再花 token。`evals/evals.test.ts` 在 `bun run test` 里跑，不联网：用操作搭出的文档测每类检查的通过和失败、用脚本模型（`lib/llm/testkit.ts` 的 `scriptedAdapter`）把一个任务从头跑一遍、检查 token 预算会让智能体停下，并把 `recorded/` 里提交的几次真实运行（`observed.json.gz`）重新评分，结论要和 `recorded/expected.json` 一致。改了检查导致结论变化时，确认变化是对的，再用 `bun evals/keep-recorded.ts --update` 重写 `expected.json`；要加一次运行，用 `bun evals/keep-recorded.ts <记录目录> <运行名>…`（只保留压缩后的 `observed.json`）。
 
 ## 和应用里的差别
 
@@ -112,4 +113,4 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 ## 基线
 
-`baselines/<日期>/` 是某一天用默认模型跑整套的结果（只提交 `summary.md` 和 `results.json`，截图留在本地）。改提示词或工具后跑一遍，和最新的基线比较通过率、关键检查和 token。
+`baselines/<日期>/` 是某一天用默认模型跑整套的结果（只提交 `summary.md`、`results.json` 和人工分析 `notes.md`，截图留在本地）。改提示词或工具后跑一遍，和最新的基线比较通过率、关键检查和 token。最新的是 [2026-11-06](baselines/2026-11-06/notes.md)：16 个任务通过 15 个，失败的是“全删了重做”没有先问；那里也列了智能体常犯的错误和建议的改法。

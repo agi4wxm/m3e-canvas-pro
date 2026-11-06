@@ -20,7 +20,7 @@ const field = isA("input", "textarea", "text-field", "labeled-field", "password-
 const avatar = isA("avatar", "profile-summary", "profile-header");
 const cardLike = (p: Placed) => isA("card", "media-card", "product-tile", "plan-card", "feed-post", "stat-tile")(p) || (p.node.slug === "box" && p.item?.props?.surface === "card");
 const progressLike = isA("progress", "circular-progress", "stat-bar", "slider", "hud-top-bar");
-const skillLike = (p: Placed) => isA("button", "icon-button", "fab", "cooldown-skill")(p) || (p.node.slug === "box" && ["button", "chip"].includes(String(p.item?.props?.surface ?? "")));
+const skillLike = (p: Placed) => isA("button", "icon-button", "fab", "skill-button", "cooldown-skill")(p) || (p.node.slug === "box" && ["button", "chip"].includes(String(p.item?.props?.surface ?? "")));
 const anything = () => true;
 const inTabBar = (p: Placed) => p.node.kit === "tab-bar" || p.node.slug === "navigation-bar" || (p.node.slug === "box" && p.item?.props?.pin === "bottom");
 

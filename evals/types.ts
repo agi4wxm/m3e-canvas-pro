@@ -92,6 +92,8 @@ export type Observed = {
   /** screenshots taken after the turn, files beside observed.json */
   shots: { screen: string; file: string }[];
   budget: Budget;
+  /** each model call's tokens, in order (the tools' own calls among them) */
+  perCall?: { input: number; cachedInput: number; output: number }[];
   /** what the harness stopped, if it did: "tokens", "time" */
   cut?: string;
 };

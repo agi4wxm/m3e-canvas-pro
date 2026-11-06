@@ -20,9 +20,10 @@ import { proxyFetch } from "../mcp/src/generate";
 import { score } from "./graders";
 import { attachmentOf, DEFAULT_MODEL, Renderers, runTask, settingsOf, type ModelConfig } from "./harness";
 import { judge } from "./judge";
-import { readRuns, recordedJudge, shotsOf, writeRun } from "./record";
+import { writeRun } from "./record";
+import { replay } from "./replay";
 import { PRICES, rowOf, summaryMarkdown, totalsOf, type Price, type RunRow } from "./report";
-import { taskById, TASKS } from "./tasks";
+import { TASKS } from "./tasks";
 import type { EvalTask, JudgeVerdict, TaskScore } from "./types";
 
 const HELP = `bun run eval [options]
@@ -43,6 +44,7 @@ const HELP = `bun run eval [options]
   --judge-model <id>       the judge's model (default: --model)
   --price <in,cached,out>  dollars per million tokens for the cost estimate
   --no-shots               no headless Chromium: no screenshots during or after the turn
+  --title <text>           the heading of summary.md
   --list                   list the tasks
   -h, --help
 `;
@@ -66,6 +68,7 @@ const { values: v } = parseArgs({
     price: { type: "string" },
     "no-shots": { type: "boolean" },
     list: { type: "boolean" },
+    title: { type: "string" },
     help: { type: "boolean", short: "h" },
   },
   strict: true,
@@ -132,23 +135,14 @@ async function judged(task: EvalTask, request: string, shots: string[]): Promise
 /* ---------- replay: recorded runs graded again ---------- */
 
 if (v.replay) {
-  const rows: RunRow[] = [];
-  for (const run of readRuns(resolve(v.replay))) {
-    const task = taskById(run.observed.task);
-    if (!task) {
-      console.error(`skipped ${run.name}: there is no task ${run.observed.task} any more`);
-      continue;
-    }
-    const s = score(task.checks, run.observed);
-    /* the judge's recorded opinion stands unless it is asked again */
-    const j = judgeAdapter ? await judged(task, run.observed.request, shotsOf(run.dir, run.observed)) : recordedJudge(run.dir);
-    const row = rowOf(run.name, { task: task.id, ability: task.ability, title: task.title, ...s, ...(j ? { judge: j } : {}) }, run.observed, v.price ? price : PRICES[run.observed.model]);
-    rows.push(row);
-    console.log(line(row));
-  }
-  const first = readRuns(resolve(v.replay))[0]?.observed;
-  const replayPrice = v.price ? price : first ? PRICES[first.model] : undefined;
-  const md = write(v.record, rows, { title: "Replayed eval runs", model: first?.model ?? model.model, effort: first?.effort ?? model.effort, ...(replayPrice ? { price: replayPrice } : {}) });
+  const { rows, model: used, effort } = await replay(resolve(v.replay), {
+    ...(judgeAdapter ? { judge: (task, o, shots) => judged(task, o.request, shots) } : {}),
+    ...(v.price ? { price } : {}),
+    onRow: (row) => console.log(line(row)),
+    onSkip: (name, task) => console.error(`skipped ${name}: there is no task ${task} any more`),
+  });
+  const replayPrice = v.price ? price : used ? PRICES[used] : undefined;
+  const md = write(v.record, rows, { title: v.title ?? "Replayed eval runs", model: used ?? model.model, effort: effort ?? model.effort, ...(replayPrice ? { price: replayPrice } : {}) });
   if (!v.record) console.log(`\n${md}`);
   process.exit(0);
 }
@@ -196,5 +190,5 @@ try {
 } finally {
   await renderers?.close();
 }
-const md = write(v.record ? resolve(v.record) : undefined, rows, { title: "Eval run", model: model.model, effort: model.effort, ...(price ? { price } : {}) });
+const md = write(v.record ? resolve(v.record) : undefined, rows, { title: v.title ?? "Eval run", model: model.model, effort: model.effort, ...(price ? { price } : {}) });
 console.log(`\n${md}`);

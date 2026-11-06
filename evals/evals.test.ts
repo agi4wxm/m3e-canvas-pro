@@ -9,12 +9,12 @@ import { counterIds, DocStore, guessMeasurer, ops, savedDoc, stateOf, type Tx } 
 import { emptyUsage } from "../lib/llm";
 import { scriptedAdapter } from "../lib/llm/testkit";
 import { setGlobalLang, type Lang } from "../lib/i18n";
-import type { Doc } from "../lib/tokens";
 import { fixtureDoc, FIXTURES } from "./fixtures";
 import { inLanguage, score } from "./graders";
 import { DEFAULT_MODEL, likenessOf, metered, runTask, type Meter } from "./harness";
 import { parseJudge } from "./judge";
 import { readRuns } from "./record";
+import { replay } from "./replay";
 import { rowOf, summaryMarkdown } from "./report";
 import { taskById, TASKS } from "./tasks";
 import type { Observed } from "./types";
@@ -291,13 +291,22 @@ describe("recorded runs", () => {
   const dir = join(HERE, "recorded");
   const expected = JSON.parse(readFileSync(join(dir, "expected.json"), "utf8")) as Record<string, { pass: boolean; failed: string[] }>;
 
-  it("grade again to the verdicts they were recorded with", () => {
-    const runs = readRuns(dir);
-    expect(runs.map((r) => r.name).sort()).toEqual(Object.keys(expected).sort());
-    for (const run of runs) {
-      const task = taskById(run.observed.task)!;
-      const s = score(task.checks, run.observed as Observed & { final: Doc });
-      expect({ pass: s.pass, failed: s.verdicts.filter((v) => !v.pass).map((v) => v.id) }, run.name).toEqual(expected[run.name]);
-    }
+  it("grade again (as --replay does) to the verdicts they were recorded with", async () => {
+    const { rows, model } = await replay(dir);
+    expect(rows.map((r) => r.name).sort()).toEqual(Object.keys(expected).sort());
+    for (const r of rows) expect({ pass: r.pass, failed: r.verdicts.filter((v) => !v.pass).map((v) => v.id) }, r.name).toEqual(expected[r.name]);
+    /* real runs of the default model: what they cost can be estimated, and the summary lists them all */
+    expect(model).toBe(DEFAULT_MODEL.model);
+    expect(rows.every((r) => r.cost !== undefined && r.usage.input > 0)).toBe(true);
+    const md = summaryMarkdown(rows, { title: "Replayed", model: model!, effort: "medium", date: "2026-11-06" });
+    for (const r of rows) expect(md).toContain(`| ${r.name} |`);
+  });
+
+  it("fail when what they recorded is made worse", async () => {
+    const run = readRuns(dir).find((r) => r.name === "replicate-weather")!;
+    const worse: Observed = { ...run.observed, likeness: [{ screen: "weather", similarity: 30 }], final: run.observed.start, stop: "max_steps" };
+    const s = score(taskById("replicate-weather")!.checks, worse);
+    expect(s.pass).toBe(false);
+    expect(s.verdicts.filter((v) => !v.pass).map((v) => v.id)).toEqual(expect.arrayContaining(["finished", "likeness", "shows"]));
   });
 });
