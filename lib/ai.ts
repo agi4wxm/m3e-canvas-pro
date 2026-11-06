@@ -94,7 +94,7 @@ export class AiHttpError extends Error {
 }
 
 /* The body is read once, as text: an answer that is not JSON (a gateway's plain words) still has something to say. */
-async function readError(res: Response): Promise<AiHttpError> {
+export async function readError(res: Response): Promise<AiHttpError> {
   let detail = "";
   try {
     detail = await res.text();
