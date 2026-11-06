@@ -22,7 +22,6 @@ type Words = {
   outsideBody: string;
   outsideLoad: string;
   outsideLater: string;
-  outsideBlocked: string;
 };
 
 export const SAFETY_TEXT: Record<Lang, Words> = {
@@ -43,7 +42,6 @@ export const SAFETY_TEXT: Record<Lang, Words> = {
     outsideBody: "This project came from a file or a link. Loading its pictures, videos and pages from other sites would tell those sites that you opened it.",
     outsideLoad: "Load external images",
     outsideLater: "Not now",
-    outsideBlocked: "Not loaded",
   },
   zh: {
     askRows: "“{of}”的 {total} 行中的 {n} 行",
@@ -62,7 +60,6 @@ export const SAFETY_TEXT: Record<Lang, Words> = {
     outsideBody: "这个项目来自文件或链接。加载其中来自其他网站的图片、视频和网页，会让这些网站知道你打开了它。",
     outsideLoad: "加载外部图片",
     outsideLater: "暂不",
-    outsideBlocked: "未加载",
   },
   ja: {
     askRows: "「{of}」の {total} 行のうち {n} 行",
@@ -81,7 +78,6 @@ export const SAFETY_TEXT: Record<Lang, Words> = {
     outsideBody: "このプロジェクトはファイルかリンクから開かれました。ほかのサイトにある画像・動画・ページを読み込むと、あなたが開いたことがそのサイトに伝わります。",
     outsideLoad: "外部の画像を読み込む",
     outsideLater: "あとで",
-    outsideBlocked: "未読み込み",
   },
   ko: {
     askRows: "“{of}”의 {total}행 중 {n}행",
@@ -100,7 +96,6 @@ export const SAFETY_TEXT: Record<Lang, Words> = {
     outsideBody: "이 프로젝트는 파일이나 링크에서 왔습니다. 다른 사이트의 이미지, 동영상, 웹 페이지를 불러오면 그 사이트에 이 프로젝트를 열었다는 사실이 전해집니다.",
     outsideLoad: "외부 이미지 불러오기",
     outsideLater: "나중에",
-    outsideBlocked: "불러오지 않음",
   },
 };
 

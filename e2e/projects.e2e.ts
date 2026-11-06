@@ -323,6 +323,44 @@ export const tests: E2ETest[] = [
     },
   },
   {
+    name: "projects: a link from someone else fetches no outside picture until the author allows it, and the project remembers",
+    async run({ page, base }) {
+      const asked: string[] = [];
+      page.on("request", (r) => {
+        if (r.url().startsWith("https://outside.example/")) asked.push(r.url());
+      });
+      await page.route(/^https:\/\/outside\.example\//, (route) => route.fulfill({ status: 200, headers: { "content-type": "image/svg+xml" }, body: '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="red"/></svg>' }));
+      const theirs = {
+        groups: [{ id: "g1", x: 40, y: 120, axis: "y", items: [{ id: "pic", kind: "component", component: "image", label: "Image", icon: null, variant: "filled", props: { src: "https://outside.example/tracker.svg" } }] }],
+        frames: [{ id: "f1", name: "Shared", x: 0, y: 0 }],
+        title: "Shared",
+        paletteKey: "purple",
+        frame: "phone",
+        brief: "",
+      };
+      await page.goto(`${base}/#doc=${encodeURIComponent(JSON.stringify(theirs))}`, { waitUntil: "load" });
+      await page.waitForSelector('[data-node="pic"]', { timeout: 30_000 });
+      await page.waitForSelector("[data-outside-banner]", { timeout: 10_000 });
+      await settle(page, 1500);
+      equal(asked, [], "nothing fetched from the other site");
+      equal(await page.locator('img[src^="https://outside.example/"]').count(), 0, "the picture is not drawn");
+      check(((await page.locator("[data-outside-banner]").textContent()) ?? "").includes("Load external images"), "the banner offers to load them");
+
+      await page.locator("[data-outside-load]").click();
+      await page.waitForSelector('[data-node="pic"] img[src="https://outside.example/tracker.svg"]', { timeout: 10_000 });
+      check(asked.length > 0, "fetched once allowed");
+      equal(await page.locator("[data-outside-banner]").count(), 0, "the banner is gone");
+
+      /* the project remembers: it opens with its pictures (an edit first, so the arrived design is saved) */
+      await clickAdd(page, "Chip");
+      await settle(page, 1500);
+      await page.reload({ waitUntil: "load" });
+      await ready(page);
+      await page.waitForSelector('[data-node="pic"] img[src="https://outside.example/tracker.svg"]', { timeout: 10_000 });
+      equal(await page.locator("[data-outside-banner]").count(), 0, "nothing to allow again");
+    },
+  },
+  {
     name: "projects: a project read slowly shows no starter sketch and writes nothing over it",
     async run({ page }) {
       await clickAdd(page, "Rating");

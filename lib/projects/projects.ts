@@ -96,9 +96,9 @@ export function onProjectsChanged(fn: () => void): () => void {
 /* ---------- changes ---------- */
 
 /** A new project, empty (the editor starts it from its starter sketch) or holding `doc`. */
-export async function createProject(o: { name: string; doc?: Doc; now?: number; id?: string }): Promise<ProjectMeta> {
+export async function createProject(o: { name: string; doc?: Doc; now?: number; id?: string; outside?: ProjectMeta["outside"] }): Promise<ProjectMeta> {
   const now = o.now ?? Date.now();
-  const meta: ProjectMeta = { id: o.id ?? newProjectId(), name: o.name, created: now, updated: now, screens: 0, ...(o.doc ? summaryOf(o.doc) : {}) };
+  const meta: ProjectMeta = { id: o.id ?? newProjectId(), name: o.name, created: now, updated: now, screens: 0, ...(o.doc ? summaryOf(o.doc) : {}), ...(o.outside ? { outside: o.outside } : {}) };
   await putNewProject(meta, o.doc ? storedForm(o.doc) : undefined);
   tellProjectsChanged();
   return meta;

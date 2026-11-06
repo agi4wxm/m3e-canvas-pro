@@ -146,6 +146,9 @@ import { useAgent } from "./editor/useAgent";
 import { usePageChrome } from "./editor/usePageChrome";
 import { usePhoneLayout } from "./editor/usePhoneLayout";
 import { usePanels } from "./editor/usePanels";
+import { useOutsideImages } from "./editor/useOutsideImages";
+import { OutsideBanner } from "@/components/OutsideBanner";
+import { isOutside } from "@/lib/outside";
 import { useRememberUi } from "./editor/useRememberUi";
 import {
   BAR_SIDES,
@@ -661,6 +664,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
 
   /* the project open in this tab: its name, its picture, the file it is saved to, other projects (src/editor/useProject.ts) */
   const project = useProject({ store, persist, docRef, framesRef, lang, loaded, editable: editAccess === "editable", frameThumb, importDoc, pickFallback: () => projectFileRef.current?.click(), showToast });
+  /* pictures from other sites in a project from elsewhere wait for the author to allow them */
+  const outside = useOutsideImages(store, persist);
 
   /* the in-app agent: its eyes (src/editor/useScreenshots.ts), its conversation and turns (src/editor/useAgent.ts) */
   const { shotFrame, renderer: shotRenderer } = useScreenshots(store);
@@ -1404,7 +1409,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                           }}
                         >
                           {/* a mockup to trace lies under everything, and takes no pointer */}
-                          {f.backgroundImage && <img data-trace-image alt="" src={f.backgroundImage} draggable={false} style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "auto", opacity: f.backgroundOpacity ?? TRACE_OPACITY, pointerEvents: "none" }} />}
+                          {f.backgroundImage && !(outside.blocked && isOutside(f.backgroundImage)) && <img data-trace-image alt="" src={f.backgroundImage} draggable={false} style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "auto", opacity: f.backgroundOpacity ?? TRACE_OPACITY, pointerEvents: "none" }} />}
                           <BoundValues.Provider value={screenValues.get(f.id) ?? null}>
                             {groups
                               .filter((g) => frameOf.get(g.id) === f.id && !offTab.has(g.id))
@@ -1929,6 +1934,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
             )}
           </AnimatePresence>
 
+          {outside.show && <OutsideBanner p={p} lang={lang} onAllow={outside.allow} onLater={outside.later} />}
           {toast && (
             <div
               role="status"
