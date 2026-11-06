@@ -115,7 +115,10 @@ jobs:
   # Chromium, and a second export over it that must keep custom code (scripts/check-product.ts). The shop is a document
   # with its own contract (auth, paging, uploads, realtime): its server answers 400 / 401 / 501 as problem details, two
   # handlers written into it pass the contract tests in strict mode, and a contract that grows or shrinks seeds a new
-  # stub or leaves an orphan, never touching the handlers written.
+  # stub or leaves an orphan, never touching the handlers written. Its screens are bound to that contract: the web app is
+  # driven in Chromium on the mocks (data, paging, pull to refresh, empty and error scenarios, a deep link, the form's
+  # errors, signing in and back) and on the real server (sign in, a 422 on a field, create, a 401 and back, the server
+  # gone), and the screenshots of its screens are kept.
   product:
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -138,8 +141,14 @@ jobs:
           echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
       - name: Export a product and check it for real
         run: bun scripts/check-product.ts "${{ runner.temp }}/product"
-      - name: Export the shop (its own contract) and check its server for real
+      - name: Export the shop (its own contract, its screens bound to it) and check its server and web app for real
         run: bun scripts/check-product.ts "${{ runner.temp }}/product" shop
+      - name: Screenshots of the shop's web app
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-shop-screens
+          path: ${{ runner.temp }}/product/shots-shop
       - name: Logs of what failed
         if: failure()
         uses: actions/upload-artifact@v4

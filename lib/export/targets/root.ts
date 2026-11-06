@@ -36,10 +36,11 @@ export default defineConfig([
     files: ["server/**", "contract-tests/**", "scripts/**", "**/*.mjs", "**/*.config.{js,ts}"],
     languageOptions: { globals: globals.node },
   },
-  /* The app the design makes is checked where it is made (the export's own tests); what are matters of taste in code
-     someone writes is not asked of it here. Custom code gets every rule. */
+  /* The web app's screens, data hooks, client, router and the rest of src/generated pass every rule custom code does.
+     Its shell and runtime (App.tsx, runtime.tsx) are the prototype export's own, checked where it is made (the export's
+     tests): a few rules about how React code is written are not asked of those two. */
   {
-    files: ["apps/web/src/generated/**"],
+    files: ["apps/web/src/generated/App.tsx", "apps/web/src/generated/runtime.tsx"],
     rules: {
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-empty-object-type": "off",

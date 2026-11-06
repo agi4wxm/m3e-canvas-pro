@@ -9,7 +9,10 @@
 // screen at its own address, the browser's back, a deep link) and the dev server with the mocks on (the app draws,
 // and with VITE_API_MOCKS=msw the service worker answers the API). Needs the network for npm install and Playwright
 // installed (as for the e2e tests); not part of `bun run test`. Exits non-zero on any failure. `shop` exports a document
-// whose contract is its own (Doc.api: the shop's OpenAPI and the chat's AsyncAPI, lib/api/fixtures), read by the export.
+// whose contract is its own (Doc.api: the shop's OpenAPI and the chat's AsyncAPI, lib/api/fixtures), read by the export,
+// and whose screens are bound to it (a paged product list, a detail by its id, a form that adds a product, a sign-in):
+// its web app is driven in Chromium on the mocks and on the real server (scripts/check-shop-app.ts), and screenshots of
+// its screens go to <work folder>/shots-shop.
 import { execSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statfsSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -21,7 +24,8 @@ import { allPartsDoc } from "../lib/codegen.fixture";
 import { systemsDoc } from "../lib/exportProject.fixture";
 import { exportToFolder, reportLines } from "../lib/export/nodeWriter";
 import { buildProduct } from "../lib/export/product";
-import { productDoc, shopProductDoc } from "../lib/export/product.fixture";
+import { boundShopDoc, productDoc } from "../lib/export/product.fixture";
+import { shopOnMocks, shopOnServer, type ShopBrowser } from "./check-shop-app";
 import { setGlobalLang } from "../lib/i18n";
 import type { Doc } from "../lib/tokens";
 
@@ -34,6 +38,9 @@ if ((free.bavail * free.bsize) / 2 ** 30 < 2) throw new Error("under 2GB free: s
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const DIR = join(WORK, `product-${WHICH}`);
+/* the screenshots of the shop's web app, on the mocks and on the server */
+const SHOTS = join(WORK, `shots-${WHICH}`);
+mkdirSync(SHOTS, { recursive: true });
 const failures: string[] = [];
 function ok(condition: unknown, label: string) {
   if (!condition) failures.push(label);
@@ -87,7 +94,7 @@ type Page = {
   click(selector: string): Promise<void>;
   on(event: "pageerror", fn: (e: Error) => void): void;
 };
-type Browser = { newPage(): Promise<Page>; close(): Promise<void> };
+type Browser = ShopBrowser & { newPage(o?: { viewport: { width: number; height: number }; deviceScaleFactor: number }): Promise<Page & Awaited<ReturnType<ShopBrowser["newPage"]>>>; close(): Promise<void> };
 
 /** Playwright from the first place it is installed, as e2e/run.ts finds it: it is no dependency of the project */
 function playwright(): { chromium: { launch(): Promise<Browser> } } | null {
@@ -139,9 +146,10 @@ async function startServer(): Promise<{ base: string; status: number; stop: () =
 
 setGlobalLang("en");
 const read = (path: string) => readFile(join(ROOT, path), "utf8");
-/* the shop's contract comes from the document itself (Doc.api), so no api is handed to the export */
+/* the shop's contract comes from the document itself (Doc.api), so no api is handed to the export; its screens are
+   bound to it */
 const fixture: { doc: Doc; widths: Record<string, number>; api?: ReturnType<typeof productDoc>["api"] } =
-  WHICH === "systems" ? { ...systemsDoc(), api: productDoc().api } : WHICH === "parts" ? { doc: allPartsDoc(), widths: {}, api: productDoc().api } : WHICH === "shop" ? shopProductDoc() : productDoc();
+  WHICH === "systems" ? { ...systemsDoc(), api: productDoc().api } : WHICH === "parts" ? { doc: allPartsDoc(), widths: {}, api: productDoc().api } : WHICH === "shop" ? boundShopDoc() : productDoc();
 /* an operation that takes no parameters, to knock on, and the handler written for it */
 const PROBE = WHICH === "shop" ? { path: "/products", handler: "listProducts", answer: '"items"' } : { path: "/health", handler: "getHealth", answer: '"status"' };
 /* the shop's mocks answer with data made from its schemas (packages/mocks is the editor's own mock library) */
@@ -176,12 +184,18 @@ export async function authenticate(credential: Credential): Promise<User | null>
 `,
   "server/src/handlers/createProduct.ts": `import { randomUUID } from "node:crypto";
 import { table } from "../custom/db";
+import { unprocessable } from "../generated/errors";
 import type { Handler } from "../generated/handlers";
 import type { Product } from "../generated/types";
 
 export const products = table<Product>();
 
 const createProduct: Handler<"createProduct"> = async (ctx) => {
+  if (/taken/i.test(ctx.body.name)) {
+    throw unprocessable("That name is taken.", [
+      { pointer: "#/name", detail: "That name is taken" },
+    ]);
+  }
   return products.put({ ...ctx.body, id: randomUUID(), createdAt: new Date().toISOString() });
 };
 
@@ -198,6 +212,33 @@ const listProducts: Handler<"listProducts"> = async (ctx) => {
 };
 
 export default listProducts;
+`,
+};
+/* the two more operations the shop's screens use, written later the same way: signing in, one product by its id */
+const FOR_THE_SCREENS: Record<string, string> = {
+  "server/src/handlers/login.ts": `import type { Handler } from "../generated/handlers";
+
+const login: Handler<"login"> = async () => {
+  return {
+    accessToken: "${TOKEN}",
+    refreshToken: "${TOKEN}-refresh",
+    expiresIn: 3600,
+  };
+};
+
+export default login;
+`,
+  "server/src/handlers/getProduct.ts": `import { notFound } from "../generated/errors";
+import type { Handler } from "../generated/handlers";
+import { products } from "./createProduct";
+
+const getProduct: Handler<"getProduct"> = async (ctx) => {
+  const found = products.get(ctx.params.productId);
+  if (!found) throw notFound("There is no such product.");
+  return found;
+};
+
+export default getProduct;
 `,
 };
 
@@ -279,6 +320,24 @@ if (installed) {
         ok(created.status === 201 && !!listed.items?.some((p) => p.name === "Lamp") && "nextCursor" in listed, `what is created is listed, in the contract's page (${created.status}, ${JSON.stringify(listed).slice(0, 120)})`);
         const rest = runOut("npm", ["run", "contract", "-w", "contract-tests", "--", "--base-url", server.base], "product-contract-all.log", { CONTRACT_TOKEN: TOKEN });
         ok(rest.ok && /2 implemented, \d+ pending, 0 failing/.test(rest.out), `the rest stays pending (${summaryOf(rest.out)})`);
+
+        /* the operations the screens need beside those, then the built web app on this server */
+        for (const [path, body] of Object.entries(FOR_THE_SCREENS)) writeFileSync(join(DIR, path), body);
+        ok(run("npm", ["run", "typecheck", "-w", "server"], "product-screens-typecheck.log") && run("npx", ["eslint", "server", "--max-warnings=0"], "product-screens-eslint.log") && run("npx", ["prettier", "--check", "server"], "product-screens-prettier.log"), "the screens' handlers typecheck and pass ESLint and Prettier");
+        ok(run("npm", ["run", "build", "-w", "server"], "product-screens-build.log"), "the server builds with them");
+        server.stop();
+        server = await startServer();
+        const pw = playwright();
+        if (pw) {
+          const browser = await pw.chromium.launch();
+          const web = await serveWeb("preview", { API_TARGET: server.base });
+          try {
+            await shopOnServer(browser, web.base, SHOTS, ok, { session: `${product.name}:session`, stop: () => server.stop() });
+          } finally {
+            web.child.kill();
+            await browser.close();
+          }
+        }
       }
     } finally {
       server.stop();
@@ -290,7 +349,32 @@ if (installed) {
 
 const pw = installed ? playwright() : null;
 ok(!installed || pw, "Playwright is installed (npm i -g playwright && npx playwright install chromium, or PLAYWRIGHT_PATH)");
-if (pw && (WHICH === "proof" || WHICH === "shop")) {
+if (pw && WHICH === "shop") {
+  const browser = await pw.chromium.launch();
+  try {
+    const dev = await serveWeb("dev");
+    try {
+      await shopOnMocks(browser, dev.base, SHOTS, ok);
+    } finally {
+      dev.child.kill();
+    }
+    const msw = await serveWeb("dev", { VITE_API_MOCKS: "msw" });
+    try {
+      const page = await browser.newPage();
+      await page.goto(`${msw.base}/products`);
+      await page.waitForFunction("!!navigator.serviceWorker.controller", undefined, { timeout: 10_000 }).catch(() => {});
+      const answer = await page.evaluate<string>(`fetch("/api${PROBE.path}").then((r) => r.text())`);
+      ok(answer.includes(PROBE.answer), `the mocks' service worker answers the API (${answer.slice(0, 80)})`);
+      ok(madeUp(answer), "with data the mock library made from the contract's schemas");
+      ok(await page.waitForFunction(`document.querySelectorAll('[data-screen] [data-scroll-body] [role="button"]').length > 3`, undefined, { timeout: 10_000 }).then(() => true, () => false), "and the list draws it, through the service worker");
+    } finally {
+      msw.child.kill();
+    }
+  } finally {
+    await browser.close();
+  }
+}
+if (pw && WHICH === "proof") {
   const browser = await pw.chromium.launch();
   const screenIs = (page: Page, key: string) => page.waitForFunction(`document.querySelector("[data-screen]")?.getAttribute("data-screen") === ${JSON.stringify(key)}`, undefined, { timeout: 10_000 }).then(() => true, () => false);
   const path = (page: Page) => page.evaluate<string>("location.pathname");
@@ -343,7 +427,7 @@ const again = await exportToFolder(DIR, product);
 ok(again.writes.filter((w) => w.why !== "manifest").length === 0 && again.conflicts.length === 0, "the same export again writes nothing");
 if (WHICH === "shop" && installed)
   ok(
-    Object.entries(IMPLEMENTED).every(([path, body]) => readFileSync(join(DIR, path), "utf8") === body && again.kept.includes(path)),
+    Object.entries({ ...IMPLEMENTED, ...FOR_THE_SCREENS }).every(([path, body]) => readFileSync(join(DIR, path), "utf8") === body && again.kept.includes(path)),
     "the handlers and authenticate() written into it are kept byte for byte",
   );
 
