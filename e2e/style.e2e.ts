@@ -1,7 +1,7 @@
 /* The whole document's look and words: a style picked takes off what it rules out and offers its undo on the notice;
  * the editor's language changes the seed words, and an undo afterwards comes back in the new language. */
 
-import { bySlug, check, clickAdd, dragAdd, equal, leftTab, redo, savedDoc, screenBox, select, settle, undo, undoButton, type E2ETest } from "./lib";
+import { bySlug, check, clickAdd, dragAdd, equal, leftTab, redo, reload, savedDoc, screenBox, select, settle, undo, undoButton, type E2ETest } from "./lib";
 
 export const tests: E2ETest[] = [
   {
@@ -73,6 +73,52 @@ export const tests: E2ETest[] = [
       doc = await savedDoc(page);
       equal(doc.frames[0].name, "Home", "back in English");
       equal((doc.groups[0].items[0].props as { title?: string }).title, "Inbox", "the seed title back in English");
+    },
+  },
+  {
+    name: "a style of the document's own: copied from the one worn, edited, undone, kept on reload",
+    async run({ page }) {
+      await leftTab(page, "Style");
+      await page.locator('[role="button"][aria-label="iOS"]').first().click();
+      await settle(page, 1200);
+      await page.locator("[data-style-duplicate]").first().click();
+      await settle(page, 1200);
+      let doc = await savedDoc(page);
+      const key = doc.theme?.style ?? "";
+      check(key.startsWith("custom:"), `the copy is worn (${key})`);
+      equal(doc.styles?.map((s) => s.key), [key], "and kept in the document");
+
+      /* two edits in a row, a moment apart: one step */
+      await page.locator("[data-style-name]").first().fill("Mine");
+      await page.locator("[data-style-seed]").first().fill("#b00020");
+      await settle(page);
+      doc = await savedDoc(page);
+      equal(doc.styles?.[0].name.en, "Mine", "renamed in place");
+      equal(doc.styles?.[0].seed, "#B00020", "its seed changed in place");
+      equal(doc.theme?.style, key, "still the one worn");
+
+      /* the edits to the style worn are one step, the copy another */
+      await undo(page);
+      await settle(page);
+      doc = await savedDoc(page);
+      check(doc.styles?.[0].name.en !== "Mine", "the edits undone together");
+      equal(doc.theme?.style, key, "the copy still worn");
+      await undo(page);
+      await settle(page, 1200);
+      doc = await savedDoc(page);
+      equal(doc.theme?.style, "ios", "the copy undone: iOS again");
+      equal(doc.styles, undefined, "and no style of the document's own");
+      await redo(page);
+      await redo(page);
+      await settle(page, 1200);
+      doc = await savedDoc(page);
+      equal([doc.theme?.style, doc.styles?.[0].name.en], [key, "Mine"], "both redone");
+
+      await reload(page);
+      doc = await savedDoc(page);
+      equal([doc.theme?.style, doc.styles?.[0].name.en], [key, "Mine"], "kept on reload");
+      await leftTab(page, "Style");
+      equal(await page.locator(`[data-custom-style-editor="${key}"] [data-style-name]`).first().inputValue(), "Mine", "the panel edits it again");
     },
   },
 ];

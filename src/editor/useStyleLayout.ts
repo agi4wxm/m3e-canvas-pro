@@ -5,7 +5,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { Frame, Group, Theme } from "@/lib/tokens";
 import type { NoteAction } from "@/components/Toolbar";
-import { isStrict, styleOf, styleTextOf, type StyleUX } from "@/lib/styles";
+import { isStrict, styleOf, styleTextOf, type CustomStyle, type StyleUX } from "@/lib/styles";
 import { conformGroups } from "@/lib/styleRules";
 import { afterPass, relayoutDue, startRelayout, type Relayout } from "@/lib/relayoutClock";
 import { layoutForStyle, metricsOf } from "@/lib/styleLayout";
@@ -78,11 +78,12 @@ export function useStyleLayout({ store, runOp, didOp, undo, showToast, theme, gr
   /** Puts a style on the document: its colors, its shapes, and unless the author said not to, its layout. One undo step.
    *  A style is a spec, so what the parts carry against it comes off (lib/core `apply_style`); the author is told how
    *  many parts that touched, and one tap on the notice takes it all back. */
-  const applyStyle = (key: string) => {
+  const applyStyle = (key: string, styles?: CustomStyle[] | null) => {
     /* what stands on what is read now: in the style's sizes a part may grow into the next without being put on it */
     const s = store.get();
     const together = standingTogether(s.doc.groups, s.doc.frames, s.session.widths, metricsOf(s.doc.theme));
-    const out = runOp(ops.applyStyle, { style: key }, { history: "whole" });
+    /* with the document's own styles, when they change with the pick: the two are one step */
+    const out = runOp(ops.applyStyle, styles === undefined ? { style: key } : { style: key, styles }, { history: "whole" });
     if (!out) return;
     tidyRef.current = null;
     relayoutRef.current = startRelayout(together, Date.now());
@@ -112,6 +113,17 @@ export function useStyleLayout({ store, runOp, didOp, undo, showToast, theme, gr
       return;
     }
     runOp(ops.setRules, { on: false }, { history: "whole" });
+  };
+  /** The document's own styles changed (components/CustomStyleEditor.tsx): a style made, imported, edited or deleted,
+   *  and with `pick` a style to put on the document after, which is then the one undo step. A style edited in place is
+   *  worn as it now is, and a run of edits to the style worn is one undo step (lib/core `set_custom_styles`). */
+  const changeStyles = (next: CustomStyle[] | undefined, pick?: string) => {
+    const worn = themeRef.current.style ?? "";
+    if (pick !== undefined && worn !== pick) {
+      applyStyle(pick, next ?? null);
+      return;
+    }
+    runOp(ops.setStyles, { styles: next ?? null }, { history: { coalesce: `styles:${worn}` } });
   };
 
   /* Held to a style's rules, nothing stays where the rules would not put it. Whatever just changed, a part dropped, added,
@@ -152,5 +164,5 @@ export function useStyleLayout({ store, runOp, didOp, undo, showToast, theme, gr
     store.update("Style layout", "user", (st) => withDoc(st, { theme: { ...st.doc.theme, ux: { ...st.doc.theme.ux, ...patch } as Theme["ux"] } }));
     relayout();
   };
-  return { relayoutRef, applyStyle, pickStyle, setRules, relayout, patchUx };
+  return { relayoutRef, applyStyle, pickStyle, setRules, changeStyles, relayout, patchUx };
 }

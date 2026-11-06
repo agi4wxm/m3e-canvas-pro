@@ -64,7 +64,7 @@ export function equal<V>(got: V, want: V, what: string) {
 export type Item = { id: string; component?: string; props?: Record<string, unknown>; fill?: string; look?: Record<string, unknown>; action?: { to: string } };
 export type Group = { id: string; x: number; y: number; items: Item[]; inFlow?: string; instanceOf?: string; kit?: { slug: string }; repeat?: { collection: string }; free?: boolean };
 export type Frame = { id: string; name: string; x: number; y: number };
-export type Doc = { groups: Group[]; frames: Frame[]; title: string; theme?: { style?: string; strict?: boolean }; components?: { id: string; name: string; groups: Group[] }[]; collections?: { id: string; name: string; rows: string[][] }[]; vars?: unknown[] };
+export type Doc = { groups: Group[]; frames: Frame[]; title: string; theme?: { style?: string; strict?: boolean }; components?: { id: string; name: string; groups: Group[] }[]; collections?: { id: string; name: string; rows: string[][] }[]; vars?: unknown[]; styles?: { key: string; name: Record<string, string>; seed?: string }[] };
 
 /** the document as the editor saved it in this browser */
 export const savedDoc = async (page: Page): Promise<Doc> => JSON.parse((await page.evaluate(() => localStorage.getItem("m3e:doc"))) ?? "null") as Doc;

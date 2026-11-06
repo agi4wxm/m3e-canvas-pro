@@ -12,6 +12,7 @@ import { openProject } from "../project";
 import { definitionFrom } from "../instances";
 import { withIds, type ComponentDef, type Doc, type FrameMode, type Theme } from "../tokens";
 import { getLang, type Lang } from "../i18n";
+import { withDocStyles } from "../styles";
 import { OpError, runOp, sessionMeasurer, type Measurer, type Op, type OpCtx } from "./op";
 import {
   DEF_INSET,
@@ -60,7 +61,8 @@ export type StoreView = { state: CoreState; history: HistoryView };
  *    ask for `whole` or `none` itself (a style picked; a theme patch that composes nothing anew)
  *  - `step`: a step of the canvas's screens, parts, definitions and data, whatever else changed
  *  - `whole`: a step that crosses the whole document
- *  - `{ coalesce }`: merged into the step before when that was the same key a moment ago
+ *  - `{ coalesce }`: merged into the step before when that was the same key a moment ago (a step of the whole document
+ *    when an operation in it asked for `whole`)
  *  - `none`: no step: it belongs to the step before it (a layout pass after a change, a drag in progress) */
 export type HistoryMode = "auto" | "step" | "whole" | "none" | { coalesce: string };
 
@@ -246,7 +248,8 @@ export class DocStore {
      * editor has always kept them); what an agent or a client does is always a step it can take back */
     const quiet = tx.ran === 1 && tx.none && (origin === "user" || origin === "system");
     const mode: HistoryMode = asked !== "auto" ? asked : tx.whole ? "whole" : quiet ? "none" : "auto";
-    this.commit(start, mode, origin, label);
+    /* a run of changes that each cross the whole document (one style edited) joins as one step of the whole document */
+    this.commit(start, mode, origin, label, tx.whole);
     return value;
   }
 
@@ -261,9 +264,9 @@ export class DocStore {
     this.transact(label, origin, (tx) => tx.set(fn), { history: "none" });
   }
 
-  private commit(start: CoreState, mode: HistoryMode, origin: Origin, label: string) {
+  private commit(start: CoreState, mode: HistoryMode, origin: Origin, label: string, whole = false) {
     if (mode !== "none") {
-      if (typeof mode === "object") this.coalesced(start, mode.coalesce, label, origin);
+      if (typeof mode === "object") this.coalesced(start, mode.coalesce, label, origin, whole);
       else this.step(start, mode === "whole" || (mode === "auto" && crossesDoc(start, this.state)), label, origin);
     }
     if (start === this.state && mode === "none") return;
@@ -282,10 +285,10 @@ export class DocStore {
     return this.past.length !== before || !o.coalesce;
   }
 
-  private coalesced(from: CoreState, key: string, label: string, origin: Origin) {
+  private coalesced(from: CoreState, key: string, label: string, origin: Origin, whole = false) {
     const now = this.options.now();
     const last = this.last;
-    if (last.key !== key || now - last.at > COALESCE_MS) this.step(from, false, label, origin);
+    if (last.key !== key || now - last.at > COALESCE_MS) this.step(from, whole, label, origin);
     this.last = { key, at: now };
   }
 
@@ -444,11 +447,14 @@ export class DocStore {
     const prev = this.state;
     const s = this.state;
     const theme: Theme = s.doc.theme;
-    const translated = translateSnapshot({ groups: s.doc.groups, frames: s.doc.frames }, lang, theme);
-    const components = s.doc.components?.map((c) => ({ ...c, groups: translateSnapshot({ groups: c.groups, frames: [] }, lang, theme).groups }));
-    this.state = { ...s, doc: { ...s.doc, groups: translated.groups, frames: translated.frames, ...(components ? { components } : {}) } };
-    this.past = this.past.map((e) => ({ ...e, snap: translateSnapshot(e.snap, lang, theme) }));
-    this.future = this.future.map((e) => ({ ...e, snap: translateSnapshot(e.snap, lang, theme) }));
+    /* read against the document's own styles, as everything that reads its theme is */
+    withDocStyles(s.doc.styles, () => {
+      const translated = translateSnapshot({ groups: s.doc.groups, frames: s.doc.frames }, lang, theme);
+      const components = s.doc.components?.map((c) => ({ ...c, groups: translateSnapshot({ groups: c.groups, frames: [] }, lang, theme).groups }));
+      this.state = { ...s, doc: { ...s.doc, groups: translated.groups, frames: translated.frames, ...(components ? { components } : {}) } };
+      this.past = this.past.map((e) => ({ ...e, snap: translateSnapshot(e.snap, lang, theme) }));
+      this.future = this.future.map((e) => ({ ...e, snap: translateSnapshot(e.snap, lang, theme) }));
+    });
     this.emit(prev, "edit", origin, "Language");
   }
 

@@ -2,7 +2,7 @@
  * as JSON Schema (for the tools the in-app agent and MCP are given) and checked before it runs. An operation that
  * cannot do what it was asked throws an `OpError`: a code a program can act on, and words a person can read. */
 
-import { isStrict } from "../styles";
+import { isStrict, withDocStyles } from "../styles";
 import { conformDoc, conformGroups } from "../styleRules";
 import { defaultMeasures } from "../../parts/templates/kit";
 import type { Group } from "../tokens";
@@ -147,8 +147,9 @@ export function runOp<A, R>(o: Op<A, R>, state: CoreState, args: A, ctx: OpCtx):
     const e = schemaError(o.args, args ?? {});
     if (e) throw new OpError("bad_args", `${o.name}: ${e}`);
   }
-  const out = o.run(state, args, ctx);
-  return { ...out, state: conformed(out.state, state) };
+  /* the document's own styles are in reach while it runs, and the ones it leaves while it is held to its rules */
+  const out = withDocStyles(state.doc.styles, () => o.run(state, args, ctx));
+  return { ...out, state: withDocStyles(out.state.doc.styles, () => conformed(out.state, state)) };
 }
 
 /** a state as its theme's rules allow it, when the operation changed its parts */

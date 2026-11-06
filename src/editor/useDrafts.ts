@@ -6,8 +6,9 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { Doc, FrameMode, normalizeTheme, Theme } from "@/lib/tokens";
 import { AiSettings, draftDesign, scenesToPaint } from "@/lib/ai";
 import type { NoteAction } from "@/components/Toolbar";
+import { aiErrorText } from "@/components/AiPanel";
 import { hasShareHash, readShareHash } from "@/lib/share";
-import { isStrict } from "@/lib/styles";
+import { isStrict, withDocStyles, withStyle, type CustomStyle } from "@/lib/styles";
 import { conformDoc, rulesForModel } from "@/lib/styleRules";
 import { Lang, getLang, t } from "@/lib/i18n";
 import type { DocStore } from "@/lib/core";
@@ -127,15 +128,20 @@ export function useDrafts({ store, persist, editAccess, lang, aiSettings, mobile
       }
       const held = isStrict(themeRef.current) ? themeRef.current : null;
       const drafted = await draftDesign(aiSettings, guideRef.current, idea, lang, undefined, held ? rulesForModel(held) : undefined);
+      /* a model may bring styles of its own: they join the document's, each in place of one of its key */
+      const styles = (drafted.styles ?? []).reduce<CustomStyle[] | undefined>((list, s) => withStyle(list, s), store.get().doc.styles);
       /* the model was told; what it wrote regardless does not stand. A design from a model is held to rules from then on */
-      const look = normalizeTheme({ ...drafted.theme, ...(held ? { style: held.style } : {}), strict: true });
-      const next = conformDoc({ ...drafted, theme: look }, look);
+      const next = withDocStyles(styles, () => {
+        const look = normalizeTheme({ ...drafted.theme, ...(held ? { style: held.style } : {}), strict: true });
+        return conformDoc({ ...drafted, theme: look, ...(styles ? { styles } : {}) }, look);
+      });
       settleDraftRef.current = true;
       arrive(next);
       void paintScenes(scenesToPaint(next.groups), normalizeTheme(next.theme));
     } catch (e) {
+      /* said the way the other AI actions say it: what went wrong and, where the author can act, what to check */
       const m = e instanceof Error ? e.message : "";
-      showToast(m === "json" ? t("aiErrorJson", lang) : m === "refusal" ? t("aiErrorRefusal", lang) : m === "long" ? t("aiErrorLong", lang) : t("aiError", lang), 3200, "error");
+      showToast(m === "guide" ? t("aiError", lang) : aiErrorText(e, lang), 6000, "error");
     } finally {
       setDraftBusy(false);
     }

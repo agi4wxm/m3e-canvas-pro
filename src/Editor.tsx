@@ -72,7 +72,7 @@ import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
 import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
-import { artOf, isStrict, screenBackground } from "@/lib/styles";
+import { artOf, isStrict, screenBackground, setDocStyles } from "@/lib/styles";
 import { StyleGate, StylePanel } from "@/components/StylePanel";
 import { partBySlug, reader } from "@/parts/registry";
 import { kitOfKey } from "@/parts/kits";
@@ -143,6 +143,8 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
    * the selection and the measures, and the history. Everything here reads it and changes it through it. */
   const [store] = useState(() => editorStore(seed(initialLang), [{ ...SEED_FRAMES[0], name: t("home", initialLang) }]));
   const { state: core, history } = useStore(store);
+  /* the document's own styles in reach (lib/styles/book.ts) before anything below reads a style by its key */
+  setDocStyles(core.doc.styles);
   const { groups, frames, paletteKey, theme, vars, components, collections, frame } = core.doc;
   const customPalette = core.doc.customPalette ?? null;
   const dynamicColor = !!core.doc.dynamicColor;
@@ -549,7 +551,7 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   };
 
   /* a style put on, its layout passes, a draft settled, a document held to its style's rules (src/editor/useStyleLayout.ts) */
-  const { relayoutRef, pickStyle, setRules, relayout, patchUx } = useStyleLayout({ store, runOp, didOp, undo, showToast, theme, groups, frames, widths, drag, gesture, defEdit, previewId, groupsRef, framesRef, widthsRef, themeRef, dragRef, gestureRef, settleDraftRef, tidyRef, setGroups, setFrames, setWidths });
+  const { relayoutRef, pickStyle, setRules, changeStyles, relayout, patchUx } = useStyleLayout({ store, runOp, didOp, undo, showToast, theme, groups, frames, widths, drag, gesture, defEdit, previewId, groupsRef, framesRef, widthsRef, themeRef, dragRef, gestureRef, settleDraftRef, tidyRef, setGroups, setFrames, setWidths });
 
   /** the selection is one instance: what its panel needs */
   const selectedInstance = useMemo(() => {
@@ -966,7 +968,7 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
                     onChange={(next) => runOp(ops.setCollections, { collections: next }, { history: { coalesce: "collections" } })}
                   />
                 ) : leftTab === "style" ? (
-                  <StylePanel p={p} theme={theme} onChange={patchTheme} onPick={pickStyle} onUx={patchUx} onRelayout={() => relayout()} onRules={setRules} />
+                  <StylePanel p={p} theme={theme} onChange={patchTheme} onPick={pickStyle} onUx={patchUx} onRelayout={() => relayout()} onRules={setRules} styles={core.doc.styles} onStyles={changeStyles} />
                 ) : leftTab === "color" ? (
                   <StyleGate p={p} theme={theme} what="color" onFree={() => setRules(false)}>
                     <ColorPanel

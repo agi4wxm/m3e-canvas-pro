@@ -1,7 +1,8 @@
 /* Runs the end-to-end tests: a real editor in headless Chromium, driven through its own controls.
  *
- *   bun run test:e2e                        starts the dev server on a free port and runs every e2e/*.e2e.ts
- *   bun run test:e2e -- --build             builds the app and runs against `vp preview` instead
+ *   bun run test:e2e                        builds the app, serves it with `vp preview` on a free port, runs every e2e/*.e2e.ts
+ *   bun run test:e2e -- --dev               runs against the dev server instead (a cold one fetches and reloads as it
+ *                                           finds dependencies, which can upset a test: run it twice, or use the build)
  *   bun run test:e2e -- --base http://localhost:3000   runs against an editor already running
  *   bun run test:e2e -- split tidy          only the tests whose names contain one of these words
  *
@@ -74,8 +75,9 @@ async function server(): Promise<{ base: string; stop: () => void }> {
   if (given) return { base: given.replace(/\/$/, ""), stop: () => {} };
   const port = await freePort();
   const vp = join(root, "node_modules", ".bin", "vp");
-  if (args.includes("--build")) execSync("bun run build", { cwd: root, stdio: "inherit" });
-  const child: ChildProcess = spawn(vp, [args.includes("--build") ? "preview" : "dev", "--port", String(port), "--strictPort", "--host", "127.0.0.1"], { cwd: root, stdio: "ignore" });
+  const dev = args.includes("--dev");
+  if (!dev) execSync("bun run build", { cwd: root, stdio: "inherit" });
+  const child: ChildProcess = spawn(vp, [dev ? "dev" : "preview", "--port", String(port), "--strictPort", "--host", "127.0.0.1"], { cwd: root, stdio: "ignore" });
   const base = `http://127.0.0.1:${port}`;
   await waitFor(base + "/", 120_000);
   return { base, stop: () => child.kill() };

@@ -6,6 +6,7 @@
 import { definitionFrom } from "../instances";
 import { resignKits } from "../kits";
 import { conformDoc, conformGroups } from "../styleRules";
+import { cleanStyles, withDocStyles } from "../styles";
 import { DEFAULT_THEME, normalizeTheme, PHONE_W, type Collection, type ComponentDef, type Doc, type DocVar, type Frame, type FrameMode, type Group, type Palette, type Theme } from "../tokens";
 import { translateDefaultFrameName, type Lang } from "../i18n";
 import { translateComponentProps } from "../../parts/registry";
@@ -100,6 +101,7 @@ export function savedDoc(s: CoreState): Doc {
     vars: doc.vars,
     components: defs?.length ? defs : undefined,
     collections: doc.collections?.length ? doc.collections : undefined,
+    styles: doc.styles?.length ? doc.styles : undefined,
   };
 }
 
@@ -129,8 +131,22 @@ export const drawableGroups = (groups: Group[]): Group[] => groups.map((g) => ({
 /** What a stored or opened document does to the state: its fields come in under the rules of its theme. Fields a
  *  partial document leaves out keep their value, or go back to their default when `reset`. A definition open for
  *  editing is closed, since the document it belonged to is gone. The canvas's mode (screens or a blank canvas) is
- *  not read here: the device decides it on load, and opening a file sets it on its own (`DocStore.replace`). */
+ *  not read here: the device decides it on load, and opening a file sets it on its own (`DocStore.replace`).
+ *  The document's own styles come first, cleaned (lib/styles/custom.ts): its theme may name one of them, and it is
+ *  read against them. */
 export function loadInto(s: CoreState, doc: Partial<Doc>, reset: boolean): CoreState {
+  const styles = doc.styles !== undefined || reset ? cleanStyles(doc.styles) : s.doc.styles;
+  return withDocStyles(styles, () => {
+    const out = readInto(s, doc, reset);
+    if (doc.styles !== undefined || reset) {
+      if (styles === undefined) delete out.styles;
+      else out.styles = styles;
+    }
+    return { ...s, doc: out as DocState, editing: null };
+  });
+}
+
+function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<string, unknown> {
   const look = doc.theme && typeof doc.theme === "object" ? normalizeTheme(doc.theme) : reset ? normalizeTheme(undefined) : s.doc.theme;
   const out: Record<string, unknown> = { ...s.doc };
   const set = (k: keyof DocState, v: unknown) => {
@@ -160,7 +176,7 @@ export function loadInto(s: CoreState, doc: Partial<Doc>, reset: boolean): CoreS
   else if (reset) set("promptOptions", undefined);
   if (Array.isArray(doc.vars)) set("vars", doc.vars);
   else if (reset) set("vars", undefined);
-  return { ...s, doc: out as DocState, editing: null };
+  return out;
 }
 
 /* ---------- history snapshots ---------- */

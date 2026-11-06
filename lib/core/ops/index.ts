@@ -26,6 +26,7 @@ export const OPS: Op<never, unknown>[] = [
   document.setPrompt,
   document.patchTheme,
   document.applyStyle,
+  document.setStyles,
   document.setRules,
   document.patchUx,
   document.setPalette,

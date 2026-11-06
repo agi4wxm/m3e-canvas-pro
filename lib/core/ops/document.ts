@@ -1,9 +1,10 @@
 /* Operations on the document as a whole: its title, brief and prompt, its colors, its theme and style (with the kits
  * composed again and the parts held to the style's rules), whether it is screens or a blank canvas, and clearing it. */
 
-import { recomposeKits, sameKitLook } from "../../kits";
+import { kitLookOf, recomposeKits, sameKitLook } from "../../kits";
+import type { KitLook } from "../../../parts/kits";
 import { conformDoc, conformGroups } from "../../styleRules";
-import { isStrict, styleOf, stylePatch, type StyleUX } from "../../styles";
+import { cleanStyles, isCustomKey, isStrict, styleOf, stylePatch, withDocStyles, type CustomStyle, type StyleUX } from "../../styles";
 import { layoutForStyle } from "../../styleLayout";
 import { normalizeTheme, PALETTES, type ComponentDef, type FrameMode, type Group, type Item, type Palette, type Theme } from "../../tokens";
 import { t } from "../../i18n";
@@ -14,15 +15,15 @@ import { ensureScreen } from "./screens";
 /** The document's kits composed again for a change of theme (lib/kits.ts `recomposeKits`): each one nobody has
  *  changed takes the composition the new look calls for, where it stands. Null when none changed. A definition open
  *  for editing has the document's own screens waiting: their kits follow too. */
-export function recomposed(s: CoreState, from: Theme, to: Theme, ctx: OpCtx): { state: CoreState; changed: boolean } {
+export function recomposed(s: CoreState, from: Theme, to: Theme, ctx: OpCtx, fromLook?: KitLook): { state: CoreState; changed: boolean } {
   let state = s;
   let changed = false;
   if (s.editing) {
-    const main = recomposeKits({ groups: s.editing.main.groups }, from, to, ctx.lang, { frames: s.editing.main.frames, widths: ctx.widths });
+    const main = recomposeKits({ groups: s.editing.main.groups }, from, to, ctx.lang, { frames: s.editing.main.frames, widths: ctx.widths, fromLook });
     if (main.groups !== s.editing.main.groups) state = { ...state, editing: { ...s.editing, main: { ...s.editing.main, groups: main.groups } } };
   }
   const doc = { groups: s.doc.groups, components: s.doc.components };
-  const out = recomposeKits(doc, from, to, ctx.lang, { frames: s.doc.frames, widths: ctx.widths });
+  const out = recomposeKits(doc, from, to, ctx.lang, { frames: s.doc.frames, widths: ctx.widths, fromLook });
   if (out !== doc) {
     changed = true;
     state = { ...state, doc: { ...state.doc, groups: out.groups, ...(out.components ? { components: out.components } : {}) } };
@@ -91,26 +92,74 @@ export const patchTheme = op<{ patch: Partial<Theme> }, { recomposed: boolean }>
 
 /** Puts a style on the document: its colors, its shapes, and its layout once its parts are measured in it. A style is
  *  a spec, so what the parts carry against it comes off; the result says how many parts that touched. One step. */
-export const applyStyle = op<{ style: string }, { stripped: number; together?: string[][] }>({
+export const applyStyle = op<{ style: string; styles?: CustomStyle[] | null }, { stripped: number; together?: string[][] }>({
   name: "apply_style",
-  summary: "Puts one of the style packs on the document (\"\" for Android's Material 3): its colors, shapes, faces, icons and control recipes; kits are composed its way and what the parts carry against its rules comes off.",
-  args: S.obj({ style: S.str("the style's key, as the style catalog names it; \"\" for Material") }, ["style"]),
+  summary: "Puts one of the style packs on the document (\"\" for Android's Material 3), or one of the document's own styles by its custom: key: its colors, shapes, faces, icons and control recipes; kits are composed its way and what the parts carry against its rules comes off. With styles, the document's own styles are replaced first, in the same step.",
+  args: S.obj({ style: S.str("the style's key, as the style catalog names it (or a custom: key of the document's own styles); \"\" for Material"), styles: S.arr(S.any(), "the document's own styles to set first (lib/styles/custom.ts), or null for none", { type: ["array", "null"] }) }, ["style"]),
   label: (a) => `Style ${a.style || "Material"}`,
+  run(before, a, ctx) {
+    /* what the kits were composed for is read while the styles are as they were: the one worn may change with them */
+    const fromLook = a.styles === undefined ? undefined : kitLookOf(before.doc.theme);
+    const s = a.styles === undefined ? before : withDoc(before, { styles: (ctx.strict ? cleanStyles(a.styles) : a.styles) ?? undefined });
+    return withDocStyles(s.doc.styles, () => putStyle(s, a.style, ctx, fromLook));
+  },
+});
+
+/** apply_style's work, with the document's own styles in reach */
+function putStyle(s: CoreState, style: string, ctx: OpCtx, fromLook: KitLook | undefined) {
+  if (style && !styleOf(style)) throw new OpError("not_found", `There is no style "${style}".`, style);
+  const from = s.doc.theme;
+  const next = normalizeTheme({ ...from, ...stylePatch(style) });
+  /* the kits nobody has changed are composed the new style's way first, then everything is held to its rules */
+  const kits = recomposed(s, from, next, ctx, fromLook);
+  const base = kits.changed ? kits.state : s;
+  const groups = conformGroups(base.doc.groups, next);
+  const defs = base.doc.components;
+  const components = defs ? conformDoc({ groups: [] as Group[], components: defs }, next).components : defs;
+  /* what the author had on their parts and the rules took off; a kit composed anew had nothing of the author's on it */
+  const had = new Set([...s.doc.groups, ...(s.doc.components ?? []).flatMap((c) => c.groups)].flatMap((g) => g.items));
+  const stripped = changedItems(base.doc.groups, groups, had) + (defs ?? []).reduce((n, c, i) => n + changedItems(c.groups, components?.[i]?.groups ?? c.groups, had), 0);
+  const state: CoreState = { ...base, doc: { ...base.doc, theme: next, groups, ...(components ? { components: components as ComponentDef[] } : {}) } };
+  return { state: ctx.origin === "user" ? state : styled(state, ctx.widths), result: { stripped }, history: "whole" as const };
+}
+
+/** The document's own styles replaced (components/CustomStyleEditor.tsx: a style made, imported, edited or deleted).
+ *  The style worn, when it is one of them, is worn as it now is: the theme takes what it changed of what picking it
+ *  writes (the faces, the icons, the shapes, the motion), and the kits nobody has changed are composed its new way. A
+ *  step of the whole document; the editor joins a run of edits to one style into one. */
+export const setStyles = op<{ styles: CustomStyle[] | null }>({
+  name: "set_custom_styles",
+  summary: "Replaces the document's own styles (custom styles, each with a custom: key). The style the document wears, when it is one of them, is worn as it now is. To put one on, use apply_style.",
+  args: S.obj({ styles: S.arr(S.any(), "the document's own styles (lib/styles/custom.ts), or null for none", { type: ["array", "null"] }) }, ["styles"]),
+  label: () => "Styles",
   run(s, a, ctx) {
-    if (a.style && !styleOf(a.style)) throw new OpError("not_found", `There is no style "${a.style}".`, a.style);
+    const next = (ctx.strict ? cleanStyles(a.styles) : a.styles) ?? undefined;
     const from = s.doc.theme;
-    const next = normalizeTheme({ ...from, ...stylePatch(a.style) });
-    /* the kits nobody has changed are composed the new style's way first, then everything is held to its rules */
-    const kits = recomposed(s, from, next, ctx);
-    const base = kits.changed ? kits.state : s;
-    const groups = conformGroups(base.doc.groups, next);
-    const defs = base.doc.components;
-    const components = defs ? conformDoc({ groups: [] as Group[], components: defs }, next).components : defs;
-    /* what the author had on their parts and the rules took off; a kit composed anew had nothing of the author's on it */
-    const had = new Set([...s.doc.groups, ...(s.doc.components ?? []).flatMap((c) => c.groups)].flatMap((g) => g.items));
-    const stripped = changedItems(base.doc.groups, groups, had) + (defs ?? []).reduce((n, c, i) => n + changedItems(c.groups, components?.[i]?.groups ?? c.groups, had), 0);
-    const state: CoreState = { ...base, doc: { ...base.doc, theme: next, groups, ...(components ? { components: components as ComponentDef[] } : {}) } };
-    return { state: ctx.origin === "user" ? state : styled(state, ctx.widths), result: { stripped }, history: "whole" };
+    /* what the kits were composed for, read while the style is still as it was */
+    const fromLook = kitLookOf(from);
+    const before = styleOf(from.style);
+    const set = withDoc(s, { styles: next });
+    return withDocStyles(next, () => {
+      const after = styleOf(from.style);
+      /* the style worn is as it was (another one changed): nothing on the document changes with it */
+      if (after === before) return { state: set, history: "whole" as const };
+      const patch: Partial<Theme> = {};
+      if (isCustomKey(from.style) && before && after) {
+        if (before.font !== after.font) patch.font = after.font;
+        if (before.display !== after.display) patch.displayFont = after.display;
+        if (before.icons !== after.icons) patch.icons = after.icons;
+        if (before.shape !== after.shape) patch.shape = after.shape;
+        if (before.motion !== after.motion) patch.motion = after.motion;
+      }
+      /* a new theme object either way: what is worked out from the style is worked out again */
+      const to = normalizeTheme({ ...from, ...patch });
+      let state = withDoc(set, { theme: to });
+      if (JSON.stringify(kitLookOf(to)) !== JSON.stringify(fromLook)) {
+        const kits = recomposed(state, from, to, ctx, fromLook);
+        if (kits.changed) state = withDoc(kits.state, { groups: conformGroups(kits.state.doc.groups, to) });
+      }
+      return { state, history: "whole" as const };
+    });
   },
 });
 
