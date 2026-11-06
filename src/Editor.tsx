@@ -54,6 +54,7 @@ import { GitHubLink, Toolbar } from "@/components/Toolbar";
 import { LangMenu } from "@/components/Menus";
 import { AgentPanel } from "@/components/AgentPanel";
 import { PromptBar, usePromptBarKey } from "@/components/PromptBar";
+import { McpConnect } from "@/components/McpPanel";
 import { PANEL_FADE_H } from "@/components/ui";
 import { loadAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
 import { maxFrameLength } from "@/lib/tidy";
@@ -943,6 +944,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   </div>
                 ))}
               </div>
+              {/* MCP clients (Claude Desktop, Codex) working on this canvas: components/McpPanel.tsx */}
+              <McpConnect store={store} p={p} theme={theme} lang={lang} enabled={editAccess === "editable"} />
               <LangMenu p={p} onLang={changeLanguage} side="right" size={44} />
               <GitHubLink p={p} size={44} />
             </div>

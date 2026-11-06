@@ -36,7 +36,21 @@ export type GenerateEnv = {
   fetch?: typeof fetch;
   /** how many drawings the caller still allows (a turn's budget); undefined is no limit */
   budget?: { left: number };
+  /** Draws somewhere else and hands back only what was drawn: an editor tab paired with the MCP server asks the
+   *  server, which holds the key. `settings` and `adapter` are then not read. */
+  remote?: RemoteDrawing;
 };
+
+/** an SVG drawn for the vector atom: its markup, ready for the canvas, and how it was made */
+export type SvgDrawing = { markup: string; route: "image" | "code"; warnings: string[]; ms: number };
+
+/** what the generative tools ask of whoever draws for them (generate.ts `drawSvg`, `paintPicture`) */
+export interface RemoteDrawing {
+  /** the generate_svg arguments that say what to draw */
+  svg(args: Record<string, unknown>, signal?: AbortSignal): Promise<SvgDrawing>;
+  /** a picture for a box of this size, as a data URL */
+  image(args: { prompt: string; box: { w: number; h: number } }, signal?: AbortSignal): Promise<string>;
+}
 
 /** what a tool runs with */
 export type ToolEnv = {
