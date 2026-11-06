@@ -7,31 +7,21 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { toPng } from "html-to-image";
 import { buildPrompt, effectivePrompt } from "@/lib/prompt";
 import {
-  actionsOf,
-  ComponentDef,
-  BACK_TARGET,
   draftGradient,
   BEZEL,
   clamp,
   Doc,
   Frame,
-  Place,
-  FramePreset,
   FRAME_LABEL_H,
   FrameMode,
-  frameOfGroup,
   frameOfPart,
   frameRadius,
-  frameRect,
   frameSizeOf,
   frameLengthOf,
   Group,
   groupBounds,
-  Item,
-  heldBy,
   layoutOf,
   Theme,
   fontFamilyOf,
@@ -44,7 +34,6 @@ import {
   SETTLE_MS,
   Transition,
   TRANSITIONS,
-  uid,
   takesDeviceBars,
   TRACE_OPACITY,
 } from "@/lib/tokens";
@@ -61,56 +50,46 @@ import { Logo } from "@/components/Logo";
 import { PartsPalette } from "@/components/PartsPalette";
 import { TemplatesPanel } from "@/components/TemplatesPanel";
 import { PromptPanel } from "@/components/PromptPanel";
-import { GitHubLink, Mode, Toolbar } from "@/components/Toolbar";
+import { GitHubLink, Toolbar } from "@/components/Toolbar";
 import { LangMenu } from "@/components/Menus";
 import { AiPanel } from "@/components/AiPanel";
-import { TidyState, PANEL_FADE_H } from "@/components/ui";
+import { PANEL_FADE_H } from "@/components/ui";
 import { loadAiSettings, scenePrompt } from "@/lib/ai";
-import { holdsEdgeBar, maxFrameLength, minFrameLength, tidyFrame } from "@/lib/tidy";
-import { combineButtons, joinTargetOf } from "@/lib/combine";
-import { type AlignHow } from "@/lib/align";
-import { childLayoutOf, flowHostAt, flowOf, outOfPane, showingGroups } from "@/lib/flow";
+import { maxFrameLength } from "@/lib/tidy";
+import { joinTargetOf } from "@/lib/combine";
+import { flowHostAt, flowOf, showingGroups } from "@/lib/flow";
 import { targetRects } from "@/lib/guides";
 import { InsertionMark, SmartGuides } from "@/components/SmartGuides";
-import { canNest, expandInstances } from "@/lib/instances";
-import { canvasView, expandDoc, type CanvasView } from "@/lib/expand";
+import { expandInstances } from "@/lib/instances";
+import { expandDoc } from "@/lib/expand";
 import { repeatAround } from "@/lib/collections";
 import { familyOf, missingSizes } from "@/lib/variants";
 import { ComponentsPanel, DataPanel, InstanceInspector, sizeWord } from "@/components/ReusePanels";
 import { Behavior, BehaviorContext, StyleRulesContext } from "@/components/EffectsPanel";
 import { readProject, saveProject } from "@/lib/project";
 import { LoadingIndicator } from "@/components/Loading";
-import { isNavPart, mergeLinks, routeLink, shownLinks, type LinkLine, type Route } from "@/lib/links";
 import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
-import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
 import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
 import { artOf, isStrict, screenBackground } from "@/lib/styles";
-import { tidyLook } from "@/lib/look";
-import { metricsOf } from "@/lib/styleLayout";
-import { useIconFamily } from "@/parts/icons";
 import { StyleGate, StylePanel } from "@/components/StylePanel";
 import { partBySlug, reader } from "@/parts/registry";
-import { templateBySlug } from "@/parts/templates";
 import { kitOfKey } from "@/parts/kits";
-import { defaultMeasures } from "@/parts/templates/kit";
-import { kitLookOf, moveTo, treeSize } from "@/lib/kits";
+import { kitLookOf } from "@/lib/kits";
 import { BottomSheet, MobileActionBar, MobileInspector, MobileLang, MobileSettings } from "@/components/Mobile";
 import { ConfirmDialog, IconBtn, Segmented } from "@/components/ui";
-import { Lang, LangContext, getLang, setGlobalLang, t } from "@/lib/i18n";
+import { Lang, LangContext, setGlobalLang, t } from "@/lib/i18n";
 import { OpError, ops, savedDoc, translateSnapshot, withDoc, withFrames, withGroups, type Op, type TxOptions } from "@/lib/core";
 import { useStore } from "@/lib/core/react";
 import { localPersist, type PersistAdapter } from "@/lib/core/persist";
-import { freshPart, freshSize } from "@/lib/core/ops/common";
-import { buildKit as buildKitGroups, clipOf, movedGroups, type Clip, type GroupPatch } from "@/lib/core/ops/nodes";
-import { ensureScreen } from "@/lib/core/ops/screens";
+import { type GroupPatch } from "@/lib/core/ops/nodes";
 import { editorStore } from "./editor/store";
 import { useViewport } from "./editor/useViewport";
 import { useMeasure } from "./editor/useMeasure";
 import { usePersistence } from "./editor/usePersistence";
 import { useShortcuts } from "./editor/useShortcuts";
-import { mobileSeed, seed, SEED_FRAMES } from "./editor/seed";
+import { seed, SEED_FRAMES } from "./editor/seed";
 import { ThinkingRing } from "./editor/ThinkingRing";
 import { drawnParts, renderExport, renderGroup as drawGroup, type GroupView } from "./editor/render";
 import { useGap } from "./editor/useGap";
@@ -123,13 +102,25 @@ import { usePreview } from "./editor/usePreview";
 import { useSizeHandles } from "./editor/useSizeHandles";
 import { useGestures } from "./editor/useGestures";
 import { usePartDrag } from "./editor/usePartDrag";
+import { useLayers } from "./editor/useLayers";
+import { useLinks } from "./editor/useLinks";
+import { useScreenLength } from "./editor/useScreenLength";
+import { useCanvasView } from "./editor/useCanvasView";
+import { useSelection } from "./editor/useSelection";
+import { useCommands } from "./editor/useCommands";
+import { useDefinitions } from "./editor/useDefinitions";
+import { useScreens } from "./editor/useScreens";
+import { useAdding } from "./editor/useAdding";
+import { useFrameImages } from "./editor/useFrameImages";
+import { usePageChrome } from "./editor/usePageChrome";
+import { usePhoneLayout } from "./editor/usePhoneLayout";
+import { usePanels } from "./editor/usePanels";
+import { useRememberUi } from "./editor/useRememberUi";
 import {
   BAR_SIDES,
   CARRIED,
   carriedDrag,
   componentAxes,
-  FRAME_MARGIN,
-  groupRefusedMsg,
   LEFT_TABS,
   lockedGroupMsg,
   RAIL_W,
@@ -140,8 +131,6 @@ import {
   VANISH,
   type DragState,
   type Gesture,
-  type LeftTab,
-  type View,
 } from "./editor/model";
 
 export default function Editor({ initialLang, onReady, persist = localPersist }: { initialLang: Lang; onReady?: () => void; /** where the document is kept between visits (lib/core/persist.ts) */ persist?: PersistAdapter }) {
@@ -225,12 +214,9 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   const [isMobile, setIsMobile] = useState(false);
   const [sheet, setSheet] = useState<"edit" | "settings" | "lang" | "add" | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
-  /** frame being rendered offscreen for the PNG export */
-  const [exportFrame, setExportFrame] = useState<Frame | null>(null);
   /** the definition open for editing, if one is: then `groups` and `frames` are its screen, not the document's.
-   *  Read live from the store; the view the canvas had before it opened waits here. */
+   *  Read live from the store. */
   const defEditRef = { get current() { return store.get().editing; } };
-  const defViewRef = useRef<View | null>(null);
   /** the prompt's full-screen cover is up: the panel's own band steps aside while it is */
   const [promptCoverUp, setPromptCoverUp] = useState(false);
   /** the author's explicit target; null follows the screens (web once a desktop screen exists) */
@@ -239,26 +225,9 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   const [shareOpen, setShareOpen] = useState(false);
 
   /* ---------- editor ui ---------- */
-  /** screens ease to their new place and size for a moment after one changes size */
-  const [easing, setEasing] = useState(false);
-  const [mode, setMode] = useState<Mode>("select");
-  const [spaceHeld, setSpaceHeld] = useState(false);
-  const [leftOpen, setLeftOpen] = useState(true);
-  const [rightOpen, setRightOpen] = useState(true);
-  const [leftW, setLeftW] = useState(RAIL_W + 268);
-  const [leftTab, setLeftTab] = useState<LeftTab>("parts");
-  /** pointer over the collapsed rail: the logo becomes the open button */
-  const [railHover, setRailHover] = useState(false);
-  /** the screen whose layers are listed when nothing on a screen is selected */
-  const [layersFrameId, setLayersFrameId] = useState<string | null>(null);
-  const [rightW, setRightW] = useState(320);
-  const [rightTab, setRightTab] = useState<"edit" | "prompt">("edit");
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const selectedFrameIdRef = useRef(selectedFrameId);
-  selectedFrameIdRef.current = selectedFrameId;
+  /* the tool, the side panels, their tabs and widths, the favourites (src/editor/usePanels.ts) */
+  const { mode, setMode, spaceHeld, setSpaceHeld, leftOpen, setLeftOpen, rightOpen, setRightOpen, leftW, setLeftW, leftTab, setLeftTab, railHover, setRailHover, layersFrameId, setLayersFrameId, rightW, setRightW, rightTab, setRightTab, favorites, setFavorites, showAllLinks, setShowAllLinks, resizing, setResizing } = usePanels();
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
-  const [showAllLinks, setShowAllLinks] = useState(false);
-  const [resizing, setResizing] = useState<"left" | "right" | null>(null);
   /* ---------- tidy and ai ---------- */
   /** the groups before and after the last tidy; "undo" is offered only while the after-state is still current */
   const tidyRef = useRef<{ frameId: string; before: Group[]; after: Group[] } | null>(null);
@@ -419,227 +388,33 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     showToast: (msg, ms, icon) => showToast(msg, ms, icon),
   });
 
-  useEffect(() => {
-    document.documentElement.lang = lang;
-    /* the editor's own text and the parts both pick up the language's Noto face */
-    document.body.style.fontFamily = uiFontFamily(lang);
-    ensureLangFontLoaded(lang, () => setWidths({}));
-  }, [lang]);
+  /* the page's language, fonts, icons, background and height (src/editor/usePageChrome.ts) */
+  usePageChrome({ lang, theme, p, setWidths });
 
-  useEffect(() => {
-    /* an empty width map makes every measured part read its width again in the new face */
-    ensureFontLoaded(theme.font, () => setWidths({}), lang);
-    if (theme.displayFont) ensureFontLoaded(theme.displayFont, () => setWidths({}), lang);
-    /* a style builds its controls to other sizes too */
-    setWidths({});
-  }, [theme.font, theme.displayFont, theme.style, theme.recipes, lang]);
+  /* a phone gets one fixed screen and the select tool only (src/editor/usePhoneLayout.ts) */
+  usePhoneLayout({ store, setIsMobile, mobileRef, setMode, setSheet, hadDocRef, initialLangRef, setGroups, setFrames, frameRef, setFrame, ensureFrame: () => ensureFrameRef.current(), fitRef, setViewReady });
 
-  useIconFamily(theme.icons ?? "rounded");
-
-  /* the page background outside the app root follows the scheme, so dark mode has no white edges */
-  useEffect(() => {
-    document.body.style.background = p.surface;
-    document.body.style.color = p.onSurface;
-  }, [p.surface, p.onSurface]);
-
-  /* in-app browsers size the page behind their own toolbars and may ignore dvh,
-     so the measured inner height wins over the CSS height (innerHeight, not the
-     visual viewport, so pinch-zoom and the keyboard leave the layout alone) */
-  useEffect(() => {
-    const apply = () => {
-      const h = Math.round(window.innerHeight);
-      if (h > 0) document.documentElement.style.setProperty("--app-h", `${h}px`);
-    };
-    /* in-app browsers (X, Instagram, LINE...) keep their own action bar over the
-       page bottom, so the controls sit one button higher there. App names in the
-       user agent are unreliable; the embedded web view itself is not: iOS web
-       views omit the Safari token and Android ones carry "wv" */
-    const ua = navigator.userAgent;
-    const iosWebView = /iPhone|iPad|iPod/.test(ua) && !/Safari\//.test(ua);
-    const androidWebView = /Android/.test(ua) && /(?:^|\W)wv(?:\W|$)/.test(ua);
-    if (iosWebView || androidWebView || /Twitter|Instagram|FBAN|FBAV|Line\//i.test(ua)) {
-      document.documentElement.style.setProperty("--bottom-ui", "64px");
-    }
-    apply();
-    window.addEventListener("resize", apply);
-    window.addEventListener("orientationchange", apply);
-    return () => {
-      window.removeEventListener("resize", apply);
-      window.removeEventListener("orientationchange", apply);
-    };
-  }, []);
-
-  /* everyone works on phone screens; a phone gets one fixed screen and the select tool only */
-  useEffect(() => {
-    const mq = window.matchMedia(
-      "(max-width: 840px), (pointer: coarse) and (max-width: 1024px)",
-    );
-    const apply = () => {
-      const m = mq.matches;
-      setIsMobile(m);
-      mobileRef.current = m;
-      /* a phone edits screens only: a document arriving or a step brought back keeps it on them */
-      store.pinFrameMode(m ? "phone" : null);
-      if (m) {
-        setMode("select");
-        setSheet(null);
-        if (!hadDocRef.current) {
-          hadDocRef.current = true;
-          setGroups(mobileSeed(initialLangRef.current));
-          setFrames([{ id: uid(), name: t("home", initialLangRef.current), x: 0, y: 0 }]);
-        }
-      }
-      hadDocRef.current = true;
-      if (frameRef.current !== "phone") {
-        setFrame("phone");
-        frameRef.current = "phone";
-      }
-      ensureFrameRef.current();
-      queueMicrotask(() => {
-        fitRef.current();
-        setViewReady(true);
-      });
-    };
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
-
-
-  useEffect(() => {
-    if (!loadedRef.current) return;
-    try {
-      localStorage.setItem(
-        UI_KEY,
-        JSON.stringify({
-          view,
-          leftOpen,
-          rightOpen,
-          leftW,
-          rightW,
-          favorites,
-          mode,
-          pickedLang: lang,
-          showAllLinks,
-          /* the theme's surfaces, so the shell drawn before the editor loads is already this colour */
-          boot: { surface: p.surface, container: p.surfaceContainer, low: p.surfaceContainerLow, high: p.surfaceContainerHigh, primary: p.primary, canvas: frame === "phone" ? p.surfaceContainerLow : "#ffffff" },
-        }),
-      );
-    } catch {}
-  }, [
-    view,
-    leftOpen,
-    rightOpen,
-    leftW,
-    rightW,
-    p,
-    frame,
-    favorites,
-    mode,
-    lang,
-    showAllLinks,
-  ]);
+  /* the editor's own settings written down as they change (src/editor/useRememberUi.ts) */
+  useRememberUi({ loadedRef, view, leftOpen, rightOpen, leftW, rightW, favorites, mode, lang, showAllLinks, p, frame });
 
   /* ---------- measurement ---------- */
   /* every part measured as drawn; screens whose parts came out another size laid out again by what they came to */
   const { retidyRef, freshFramesRef, newPhoneRef } = useMeasure({ store, measureEls, groupsRef, framesRef, widthsRef, themeRef });
-
 
   /* ---------- coordinates ---------- */
   /* only the open left panel accepts a drop for deletion; the narrow rail never does */
   const inBin = (clientX: number) =>
     !mobileRef.current && leftOpenRef.current && clientX >= 0 && clientX <= leftWRef.current;
 
-
-
   /* what a drag lines up with, and where every part stands on the canvas (src/editor/useGuides.ts) */
   const { guideCache, targetsFor, endGuides, overFlow, guideFor, itemRects } = useGuides({ groupsRef, framesRef, widthsRef, frameRef, themeRef, viewRef });
 
   /* ---------- pointer: parts ---------- */
-  /** A kit's groups for the document as it is: in the variant asked for or the one its style calls for,
-   *  in the editor's language, no wider than a phone's content. */
-  const buildKit = (slug: string, variant: string | undefined, screen: Frame | undefined) => buildKitGroups(store.get(), slug, variant, screen, getLang());
-
-  /** A kit's groups put down with their top left near (x, y): inside the screen under them, brought to
-   *  its width, taken into the layout they were let go in (lib/core `add_kit`). Selected as one: the outermost box.
-   *  One undo step. */
-  const landKit = (kit: NonNullable<DragState["kit"]>, x: number, y: number) => {
-    if (!runOp(ops.addKit, { slug: kit.slug, variant: kit.variant, at: { x, y }, built: kit.groups }, { history: "step" })) return;
-    setRightTab("edit");
-    setSheet(null);
-  };
-
-  /** Where a part or a kit chosen without a drag lands: on the selected screen (or the one the selection is on) while it is
-   *  in view, else on the screen under the middle of the view, else on the nearest screen in view; on a phone, the screen
-   *  shown. The spot is the middle of the view brought onto that screen, so nothing lands in the gap between two. */
-  const landingSpot = (): { f: Frame | undefined; cx: number; cy: number } => {
-    const r = canvasRect();
-    const v = viewRef.current;
-    const w = r?.width ?? 0;
-    const h = r?.height ?? 0;
-    let cx = (w / 2 - v.x) / v.z;
-    let cy = (h / 2 - v.y) / v.z;
-    /* screens are hidden on a blank canvas */
-    if (frameRef.current !== "phone") return { f: undefined, cx, cy };
-    const frames = framesRef.current;
-    const holds = (fr: Frame) => {
-      const b = frameRect(fr);
-      return cx >= b.l && cx <= b.r && cy >= b.t && cy <= b.b;
-    };
-    const view = { l: -v.x / v.z, t: -v.y / v.z, r: (w - v.x) / v.z, b: (h - v.y) / v.z };
-    const seen = frames.filter((fr) => {
-      const b = frameRect(fr);
-      return b.l < view.r && b.r > view.l && b.t < view.b && b.b > view.t;
-    });
-    const held = groupsRef.current.find((g) => g.items.some((it) => it.id === selectedIds[0]));
-    const chosen = frames.find((fr) => fr.id === selectedFrameIdRef.current) ?? (held ? frameOfGroup(held, frames, widthsRef.current) : undefined);
-    const away = (fr: Frame) => {
-      const b = frameRect(fr);
-      return Math.hypot(Math.max(b.l - cx, 0, cx - b.r), Math.max(b.t - cy, 0, cy - b.b));
-    };
-    const f = (chosen && seen.includes(chosen) ? chosen : undefined) ?? frames.find(holds) ?? [...seen].sort((a, b) => away(a) - away(b))[0] ?? (mobileRef.current ? frames[0] : undefined);
-    if (f && !holds(f)) {
-      const b = frameRect(f);
-      cx = (b.l + b.r) / 2;
-      cy = Math.min(Math.max(cy, b.t), b.b);
-    }
-    return { f, cx, cy };
-  };
-
-  /** A kit chosen without a drag: it lands where the view is looking, as a part does, on the screen in view and below what
-   *  already stands at that spot. */
-  const addKit = (slug: string, variant?: string) => {
-    if (defEditRef.current) return;
-    const { f, cx, cy } = landingSpot();
-    const groups = buildKit(slug, variant, f ?? framesRef.current[0]);
-    if (!groups?.length) return;
-    const sz = treeSize(groups);
-    let x = cx - sz.w / 2;
-    let y = cy - sz.h / 2;
-    if (f) {
-      const h = frameLengthOf(f);
-      const taken = (yy: number) => itemRects().some((o) => o.l < x + sz.w && o.r > x && o.t < yy + sz.h && o.b > yy);
-      x = clamp(x, f.x + FRAME_MARGIN, Math.max(f.x + FRAME_MARGIN, f.x + frameSizeOf(f).w - FRAME_MARGIN - sz.w));
-      y = clamp(y, f.y + FRAME_MARGIN, Math.max(f.y + FRAME_MARGIN, f.y + h - FRAME_MARGIN - sz.h));
-      let tries = 0;
-      while (taken(y) && y + sz.h * 2 < f.y + h && tries++ < 12) y += Math.min(sz.h, 120) + 12;
-    }
-    landKit({ slug, variant, groups: moveTo(groups, { x: 0, y: 0 }), measures: defaultMeasures(groups) }, x, y);
-  };
-  const addKitRef = useRef(addKit);
-  addKitRef.current = addKit;
-
-  /** the selected composite, replaced where it stands by the atoms it is made of. One undo step. */
-  const splitSelected = () => {
-    const id = selectedIds[0];
-    if (!id) return;
-    if (!runOp(ops.split, { id }, { history: "step", refused: () => {} })) return;
-    showToast(t("splitDone", getLang()));
-  };
+  /* parts, kits and instances added where the view is looking, and a composite split (src/editor/useAdding.ts) */
+  const { buildKit, landKit, addKit, addKitRef, splitSelected, addPart, addInstance, addPartRef, addInstanceRef } = useAdding({ store, runOp, showToast, selectedIds, selectedFrameId, canvasRect, viewRef, frameRef, framesRef, groupsRef, widthsRef, mobileRef, defEditRef, componentsRef, itemRects, setRightTab, setSheet });
 
   /* a lone part's size handles, pulled or stepped (src/editor/useSizeHandles.ts) */
   const { widthDragId, widthShift, resizeGuide, onWidthHandleDown, nudgeSize } = useSizeHandles({ snapshot, setGroups, instantRef, viewRef, widthsRef, targetsFor, endGuides, patchSelected: (patch) => patchSelected(patch) });
-
 
   /* ---------- pointer: canvas (pan / marquee) ---------- */
 
@@ -691,320 +466,73 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     addKit: (slug, variant) => addKitRef.current(slug, variant),
   });
 
-  /* Containers with a layout put what they hold in its place after every change. It waits while
-   * something is being carried, which is what lets a part be dragged out of its row or across it,
-   * and it is part of whatever change caused it, so it never makes an undo step of its own. */
   const carrying = gesture !== null || !!drag;
-  /* What instances and repeats come to, and the layout of the document with them in it. It is worked
-   * out while nothing is being carried; what it draws is relative to the group it stands on, so a
-   * carried group takes its share along with no need to work anything out meanwhile. */
-  const lastView = useRef<CanvasView>({ groups, drawn: new Map(), shown: new Map(), extra: [] });
-  const canvas = useMemo(() => (carrying ? lastView.current : canvasView({ groups, components, collections }, widths)), [carrying, groups, components, collections, widths]);
-  lastView.current = canvas;
-  /* the part being carried, not where it is: the drag changes with every move of the pointer */
-  const dragItem = drag?.item;
-  const allItems = useMemo(() => {
-    const map = new Map<string, Item>();
-    for (const g of groups) for (const it of g.items) map.set(it.id, canvas.shown.get(it.id) ?? it);
-    for (const { item } of canvas.extra) map.set(item.id, item);
-    if (dragItem) map.set(dragItem.id, dragItem);
-    return [...map.values()];
-  }, [groups, dragItem, canvas]);
-  useEffect(() => {
-    if (carrying) return;
-    const next = canvas.groups;
-    if (next === groups) return;
-    next.forEach((g, i) => {
-      if (g !== groups[i]) instantRef.current.add(g.id);
-    });
-    /* what remembers this very state (Tidy's way back, a length being dragged) is told of the new one */
-    if (tidyRef.current?.after === groups) tidyRef.current = { ...tidyRef.current, after: next };
-    if (lengthRun.current?.to.groups === groups) lengthRun.current = { ...lengthRun.current, to: { ...lengthRun.current.to, groups: next } };
-    /* only over the state it was worked out from: a layout just asked for must not be written over by this older one, and it comes back here anyway */
-    setGroups((current) => (current === groups ? next : current));
-  }, [groups, canvas, carrying]);
-
-  /* ---------- panel resize ---------- */
-  useEffect(() => {
-    if (!resizing) return;
-    const move = (e: PointerEvent) => {
-      if (resizing === "left") setLeftW(clamp(e.clientX, RAIL_W + 244, 480));
-      else setRightW(clamp(window.innerWidth - e.clientX, 280, 480));
-    };
-    const up = () => setResizing(null);
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-  }, [resizing]);
+  /* a screen's length, from its slider or its grip (src/editor/useScreenLength.ts) */
+  const { lengthRun, setFrameLength, lengthDragId, onLengthHandleDown, onLengthHandleKey } = useScreenLength({ store, didOp, framesRef, groupsRef, viewRef, tidyRef });
+  /* instances, repeats and container layouts worked out, and the screen each part is on (src/editor/useCanvasView.ts) */
+  const { canvas, allItems, offTab, startsHidden, frameOf, screenByItem } = useCanvasView({ carrying, groups, frames, frame, components, collections, widths, drag, instantRef, tidyRef, lengthRun, setGroups });
 
   /* ---------- editing ---------- */
-  const primaryId = selectedIds[selectedIds.length - 1] ?? null;
-  const selected = useMemo(() => {
-    for (const g of groups) {
-      const it = g.items.find((i) => i.id === primaryId);
-      if (it) return it;
-    }
-    return drag?.item.id === primaryId ? (drag?.item ?? null) : null;
-  }, [groups, primaryId, drag]);
+  /* what the selection is, read off the document (src/editor/useSelection.ts) */
+  const { primaryId, selected, selectedSet, selectedLocked, selectionPlaceable, selectionWhole, selectedGroup, selectedFrame, selectedMinLength, selectedRect, selectedInFlow, selectedFlowParent, selectedLoose, selectedPartFrame, tidyTarget } = useSelection({ selectedIds, selectedFrameId, groups, frames, widths, frame, drag, isMobile, defEdit });
 
   useEffect(() => {
     if (!selected && sheet === "edit") setSheet(null);
   }, [selected, sheet]);
 
-  const patchSelected = (patch: Partial<Item>) => {
-    if (!primaryId) return;
-    const id = primaryId;
-    /* a locked part is not to be changed at all: its panel is behind a blur, and anything that asks for a change anyway
-     * -- a shortcut, the phone's panel -- is turned away (lib/core `set_item`); consecutive edits of one field are one step */
-    const done = runOp(ops.setItem, { id, patch }, { history: { coalesce: id + ":" + Object.keys(patch).join(",") }, label: "Edit" });
-    if (done === undefined && store.get().doc.groups.some((g) => g.locked && g.items.some((it) => it.id === id))) return;
-    if (dragRef.current?.item.id === id) {
-      dragRef.current.item = { ...dragRef.current.item, ...("look" in patch ? { ...patch, look: tidyLook(patch.look) } : patch) };
-    }
-  };
+  /* what is done to the selection, each one operation and one undo step (src/editor/useCommands.ts) */
+  const { patchSelected, deleteSelected, toggleLockSelected, duplicateSelected, clipboardRef, copySelected, pasteClipboard, placeSelected, alignSelected, distributeSelected, tidyUpSelected, autoLayoutSelected, makeComponentOfSelection, groupSelected, ungroupSelected, nudge, moveSelectedTo, stepSelectedLayers } = useCommands({
+    store,
+    runOp,
+    didOp,
+    showToast,
+    selectedIds,
+    selectedFrameId,
+    primaryId,
+    selected,
+    selectedGroup,
+    selectedRect,
+    dragRef,
+    instantRef,
+    framesRef,
+    widthsRef,
+    setLeftTab,
+    setLeftOpen,
+  });
 
-  const deleteSelected = useCallback(() => {
-    if (selectedIds.length === 0) return;
-    const before = store.get().doc.groups;
-    /* nothing deletable when every selected part sits in a locked group: no step, the selection kept */
-    const out = runOp(ops.removeNodes, { ids: selectedIds }, { history: "step", refused: () => showToast(lockedGroupMsg()) });
-    if (!out) return;
-    /* some of the selection sits in a locked group: the rest went, and the author is told why that part stayed */
-    if (out.kept) showToast(t("lockedKept", getLang()));
-    /* a run whose first part went has a new anchor: it is drawn there at once */
-    for (const id of movedGroups(before, store.get().doc.groups)) instantRef.current.add(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, store]);
+  /* what is done to screens, each one operation and one undo step (src/editor/useScreens.ts) */
+  const { easing, autoLayoutScreen, ensureFrameRef, changeFrame, addFrame, addTemplate, patchFrame, setFramePreset, setPhoneModel, resizeFrame, tidyState, tidy, canCombine, combine, setPlace, deleteFrame, duplicateFrame, duplicateFrameRef, createVariantOf } = useScreens({
+    store,
+    runOp,
+    didOp,
+    showToast,
+    snapshot,
+    frame,
+    groups,
+    frames,
+    widths,
+    theme,
+    tidyTarget,
+    tidyRef,
+    frameRef,
+    framesRef,
+    groupsRef,
+    widthsRef,
+    defEditRef,
+    viewRef,
+    canvasRect,
+    setView,
+    fitRef,
+    glideToFrame,
+    retidyRef,
+    freshFramesRef,
+    newPhoneRef,
+    setSelectedLinkId,
+    setRightTab,
+  });
 
-  /** every group holding a selected part is locked, so the menu offers to unlock instead */
-  const selectedLocked = useMemo(() => {
-    const ids = new Set(selectedIds);
-    const held = groups.filter((g) => g.items.some((it) => ids.has(it.id)));
-    return held.length > 0 && held.every((g) => !!g.locked);
-  }, [groups, selectedIds]);
-
-  /** the selection can be placed in a screen: something in it is not a bar, and all of that
-   *  stands on one screen -- a selection of bars alone, or one spread over several screens,
-   *  has no one body to go to */
-  const selectionPlaceable = useMemo(() => {
-    const ids = new Set(selectedIds);
-    const units = groups.filter((g) => g.items.some((it) => ids.has(it.id)) && !holdsEdgeBar(g) && !g.inFlow);
-    if (!units.length) return false;
-    const f = frameOfGroup(units[0], frames, widths);
-    return !!f && units.every((g) => frameOfGroup(g, frames, widths)?.id === f.id);
-  }, [groups, frames, widths, selectedIds]);
-
-  /** the selection covers every group it touches, so locking it locks nothing that was not selected */
-  const selectionWhole = useMemo(() => {
-    const ids = new Set(selectedIds);
-    const held = groups.filter((g) => g.items.some((it) => ids.has(it.id)));
-    return held.length > 0 && held.every((g) => g.items.every((it) => ids.has(it.id)));
-  }, [groups, selectedIds]);
-
-  /** locks every group holding a selected part, or unlocks them all when they already are */
-  const toggleLockSelected = useCallback(() => {
-    if (!selectedIds.length) return;
-    runOp(ops.toggleLock, { ids: selectedIds }, { history: "step" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, store]);
-
-  /** duplicates everything selected a step aside, and selects the copies */
-  const duplicateSelected = useCallback(() => {
-    if (!selectedIds.length) return;
-    runOp(ops.duplicateNodes, { ids: selectedIds, primary: primaryId ?? undefined }, { history: "step" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, primaryId, store]);
-
-  /* The in-app clipboard: Ctrl+C keeps a copy of the selection (whole groups where the
-   * selection covers them) with its offset inside its screen, so Ctrl+V can put it at the
-   * same spot on another screen, or a step aside on the same one. The offset is that of the
-   * selection's top-left corner, so several units keep their places relative to each other. */
-  const clipboardRef = useRef<Clip | null>(null);
-
-  const copySelected = useCallback(() => {
-    if (!selected) return;
-    const clip = clipOf(store.get(), selectedIds, selected.id, widthsRef.current);
-    if (clip) clipboardRef.current = clip;
-  }, [selected, selectedIds, store]);
-
-  const pasteClipboard = useCallback(() => {
-    const clip = clipboardRef.current;
-    if (!clip) return;
-    /* pasted into a definition, an instance must not put that definition inside itself */
-    runOp(ops.pasteClip, { clip, selected: selected?.id }, { history: "step", refused: (e) => e.code === "refused" && showToast(t("nestRefused", getLang())) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, store]);
-
-  /** the free group the whole selection belongs to, if it is exactly one */
-  const selectedGroup = useMemo(() => {
-    if (selectedIds.length === 0) return null;
-    const g = groups.find((x) => x.free && x.items.some((it) => it.id === selectedIds[0]));
-    if (!g) return null;
-    const ids = new Set(g.items.map((it) => it.id));
-    return selectedIds.every((id) => ids.has(id)) && selectedIds.length === g.items.length ? g : null;
-  }, [groups, selectedIds]);
-
-  /** Puts the selection at one of nine spots in its screen's body, the box Tidy fills between the bars, as one block,
-   *  clear of what is already there (lib/core `place_in_screen`). */
-  const placeSelected = useCallback(
-    (col: "left" | "centerH" | "right", row: "top" | "centerV" | "bottom") => {
-      runOp(ops.placeInScreen, { ids: selectedIds, col, row }, { history: "step" });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedIds, store],
-  );
-
-  /** the selected parts lined up against each other, the way their own edges say */
-  const alignSelected = useCallback(
-    (how: AlignHow) => {
-      runOp(ops.align, { ids: selectedIds, how }, { history: "step" });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedIds, store],
-  );
-
-  /** the selected parts spread out evenly; with `gap`, that exact space between them */
-  const distributeSelected = useCallback(
-    (axis: "x" | "y", gap?: number) => {
-      runOp(ops.distribute, { ids: selectedIds, axis, gap }, { history: "step" });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedIds, store],
-  );
-
-  /** Figma's Tidy up: the selected parts as an even row, column or grid, read off where they stand */
-  const tidyUpSelected = useCallback(() => {
-    runOp(ops.tidyUp, { ids: selectedIds }, { history: "step" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, store]);
-
-  /** The selected parts in nested containers that keep them the way they stand: rows, columns and grids read off their
-   *  places, as Figma suggests auto layout. A lone container takes the layout itself; a lone part goes in a row. */
-  const autoLayoutSelected = useCallback(() => {
-    runOp(ops.autoLayout, { ids: selectedIds }, { history: "step" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, store]);
-
-  /** The body of a screen in nested auto layouts: what stands at its edges (bars, a FAB, a dialog, a rail, its picture)
-   *  and what is locked keep their places. */
-  const autoLayoutScreen = (f: Frame) => {
-    if (!runOp(ops.autoLayoutScreen, { screen: f.id }, { history: "step", refused: () => showToast(t("suggestNone", getLang())) })) return;
-    tidyRef.current = null;
-  };
-
-  /** the selected parts, with what they hold, as a new definition and an instance of it in their place */
-  const makeComponentOfSelection = useCallback(() => {
-    if (!runOp(ops.makeComponentOp, { ids: selectedIds, name: t("componentDefaultName", getLang()).replace("{n}", String((store.get().doc.components?.length ?? 0) + 1)) }, { history: "step", refused: () => showToast(lockedGroupMsg()) })) return;
-    setLeftTab("components");
-    setLeftOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, store]);
-
-  /** Opens a definition as the one screen of the canvas. The document's screens and its history wait in the store
-   *  until it is done; while it is open every tool works on it as on any screen. */
-  const editDefinition = (id: string) => {
-    const def = store.get().doc.components?.find((c) => c.id === id);
-    if (!def || mobileRef.current) return;
-    const open = store.get().editing;
-    if (open?.id === id) return;
-    if (open) finishDefinitionRef.current();
-    pending.current = () => {
-      defViewRef.current = viewRef.current;
-      tidyRef.current = null;
-      store.openDefinition(id);
-      frameRef.current = "phone";
-      setSelectedLinkId(null);
-    };
-    /* out of the definition open now, the view says so only after the next draw */
-    if (open) return;
-    pending.current();
-    pending.current = null;
-  };
-  /** the definition to open once the one open now has closed */
-  const pending = useRef<(() => void) | null>(null);
-
-  /** Closes the definition being edited: the document comes back, with its instances following. One undo takes it all back. */
-  const finishDefinition = () => {
-    if (!store.get().editing) return;
-    store.closeDefinition();
-    frameRef.current = store.get().doc.frame;
-    if (defViewRef.current) setView(defViewRef.current);
-    defViewRef.current = null;
-    tidyRef.current = null;
-  };
-  const finishDefinitionRef = useRef(finishDefinition);
-  finishDefinitionRef.current = finishDefinition;
-  /* one definition left for another: this one opens now the draw has brought the document back */
-  useEffect(() => {
-    if (defEdit || !pending.current) return;
-    const open = pending.current;
-    pending.current = null;
-    open();
-  }, [defEdit]);
-  /* the screen of a definition is brought into view when it opens */
-  useEffect(() => {
-    if (defEdit) requestAnimationFrame(() => fitRef.current());
-  }, [defEdit?.id]);
-
-  /** the definition's name, from the tab or the bar over its screen */
-  const renameComponent = (id: string, name: string) => runOp(ops.renameComponent, { id, name }, { history: { coalesce: `component:${id}:name` } });
-
-  /** a definition gone: its instances, on the screens and in other definitions, become the parts they showed. The screens
-   *  wait outside a definition's history: this could not be taken back from in there, and the panel says so */
-  const deleteComponent = (id: string) => {
-    if (store.get().editing) return;
-    runOp(ops.removeComponentOp, { id }, { history: "step" });
-  };
-
-  /** one instance, back to plain parts */
-  const detachGroup = (id: string) => runOp(ops.detach, { id }, { history: "step" });
-
-  /** how many instances each definition has, on the screens and in the other definitions */
-  const componentUses = useMemo(() => {
-    const out: Record<string, number> = {};
-    for (const g of [...(defEdit?.main.groups ?? groups), ...(components ?? []).flatMap((c) => c.groups)]) if (g.instanceOf) out[g.instanceOf] = (out[g.instanceOf] ?? 0) + 1;
-    return out;
-  }, [defEdit, groups, components]);
-
-  /** Pull the selected parts out of their runs into one free group that keeps
-   *  their positions. It takes the layer slot of the topmost run involved. */
-  const groupSelected = useCallback(() => {
-    if (selectedIds.length < 2) return;
-    const before = store.get().doc.groups;
-    /* regrouping would carry a locked group's parts into an unlocked group; an instance or a repeat would be lost in it */
-    if (!runOp(ops.groupNodes, { ids: selectedIds }, { history: "step", refused: (e) => (e.code === "locked" ? showToast(lockedGroupMsg()) : e.code === "refused" ? showToast(groupRefusedMsg()) : undefined) })) return;
-    for (const id of movedGroups(before, store.get().doc.groups)) instantRef.current.add(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds, store]);
-
-  /** Split a free group back into single runs at their current positions, in the same layer slot. */
-  const ungroupSelected = useCallback(() => {
-    const g = selectedGroup;
-    if (!g) return;
-    /* ungrouping would replace a locked group with unlocked single runs */
-    const out = runOp(ops.ungroup, { id: g.id }, { history: "step" });
-    for (const id of out?.ids ?? []) instantRef.current.add(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroup, store]);
-
-  const nudge = useCallback(
-    (dx: number, dy: number) => {
-      if (selectedIds.length === 0 && selectedFrameId) {
-        if (!framesRef.current.some((x) => x.id === selectedFrameId)) return;
-        const out = runOp(ops.nudge, { screen: selectedFrameId, dx, dy }, { history: { coalesce: "nudge:frame:" + selectedFrameId } });
-        for (const id of out?.moved ?? []) instantRef.current.add(id);
-        return;
-      }
-      if (selectedIds.length === 0) return;
-      /* a locked group stays where it is, even when its parts are selected; a layout places what it holds */
-      runOp(ops.nudge, { ids: selectedIds, dx, dy }, { history: { coalesce: "nudge:" + selectedIds.join(",") } });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedIds, selectedFrameId, store],
-  );
+  /* a definition opened on the canvas and closed again, and what else is done to components (src/editor/useDefinitions.ts) */
+  const { editDefinition, finishDefinition, finishDefinitionRef, renameComponent, deleteComponent, detachGroup, componentUses } = useDefinitions({ store, runOp, defEdit, groups, components, mobileRef, viewRef, setView, fitRef, frameRef, tidyRef, setSelectedLinkId });
 
   const clearAll = () => {
     setConfirmClear(false);
@@ -1020,28 +548,8 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     didOp(ops.clearAll, {}, { history: "step" });
   };
 
-
-
   /* a style put on, its layout passes, a draft settled, a document held to its style's rules (src/editor/useStyleLayout.ts) */
   const { relayoutRef, pickStyle, setRules, relayout, patchUx } = useStyleLayout({ store, runOp, didOp, undo, showToast, theme, groups, frames, widths, drag, gesture, defEdit, previewId, groupsRef, framesRef, widthsRef, themeRef, dragRef, gestureRef, settleDraftRef, tidyRef, setGroups, setFrames, setWidths });
-
-
-
-  const selectedFrame = useMemo(
-    () => frames.find((f) => f.id === selectedFrameId) ?? null,
-    [frames, selectedFrameId],
-  );
-  const selectedMinLength = useMemo(
-    () => (selectedFrame ? minFrameLength(groups, selectedFrame, frames, widths) : 0),
-    [groups, selectedFrame, frames, widths],
-  );
-  const selectedRect = useMemo(() => {
-    if (!primaryId) return null;
-    const g = groups.find((g) => g.items.some((it) => it.id === primaryId));
-    if (!g) return null;
-    const b = groupBounds(g, widths);
-    return { x: b.l, y: b.t, w: b.r - b.l, h: b.b - b.t };
-  }, [primaryId, groups, widths]);
 
   /** the selection is one instance: what its panel needs */
   const selectedInstance = useMemo(() => {
@@ -1061,257 +569,6 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds, primaryId, groups, components]);
 
-  /** a container's auto layout places the selected part, so its place is not the author's to set */
-  const selectedInFlow = useMemo(() => {
-    const g = primaryId ? groups.find((x) => x.items.some((it) => it.id === primaryId)) : undefined;
-    const host = g?.inFlow ? groups.find((x) => x.id === g.inFlow) : undefined;
-    return !!host && !!flowOf(host);
-  }, [primaryId, groups]);
-  /** the layout that places the selected part, for how it is sized and lined up in it */
-  const selectedFlowParent = useMemo(() => {
-    const g = primaryId ? groups.find((x) => x.items.some((it) => it.id === primaryId)) : undefined;
-    const host = g?.inFlow ? groups.find((x) => x.id === g.inFlow) : undefined;
-    return host ? flowOf(host) : null;
-  }, [primaryId, groups]);
-  /** the selected part stands loose in its layout, where it was put: its place is the author's again */
-  const selectedLoose = useMemo(() => {
-    const it = primaryId ? groups.flatMap((g) => g.items).find((x) => x.id === primaryId) : undefined;
-    return childLayoutOf(it).absolute;
-  }, [primaryId, groups]);
-
-  /** the selected part put at a place given in numbers */
-  const moveSelectedTo = useCallback(
-    (x: number, y: number) => {
-      if (selectedRect) nudge(x - selectedRect.x, y - selectedRect.y);
-    },
-    [selectedRect, nudge],
-  );
-
-  const selectedPartFrame = useMemo(() => {
-    if (!primaryId || frame !== "phone") return null;
-    const g = groups.find((g) => g.items.some((it) => it.id === primaryId));
-    return g ? (frameOfGroup(g, frames, widths) ?? null) : null;
-  }, [primaryId, frame, groups, frames, widths]);
-
-  /** the screen the tidy button works on: the selected one, or the one under the selected part */
-  const tidyTarget = useMemo((): Frame | null => {
-    if (frame !== "phone" || isMobile || defEdit) return null;
-    if (selectedFrame) return selectedFrame;
-    if (!primaryId) return null;
-    const g = groups.find((g) => g.items.some((it) => it.id === primaryId));
-    return g ? (frameOfGroup(g, frames, widths) ?? null) : null;
-  }, [frame, isMobile, defEdit, selectedFrame, primaryId, groups, frames, widths]);
-
-  /** Entering phone mode with no frames wraps the existing parts in one. */
-  const ensureFrame = () => store.update("Screens", "user", (s) => ensureScreen(s, widthsRef.current, uid(), t("home")));
-
-  const ensureFrameRef = useRef(() => {});
-  ensureFrameRef.current = ensureFrame;
-
-  /** A palette tile chosen without a pointer, and the phone's plus button, drop a part where
-   *  the view is looking, landing as a drop there would. Over a screen it is kept inside it and
-   *  nudged down when that spot is already taken; over empty canvas it stays at the centre of
-   *  the view, so the new part is always in sight */
-  const addPart = (slug: string, instance?: ComponentDef) => {
-    const sz = instance ? { w: instance.w, h: instance.h } : freshSize(freshPart(slug));
-    /* the selected screen or the one in view, never the gap between two; the phone shows one screen at a time */
-    const { f, cx, cy } = landingSpot();
-    let x = cx - sz.w / 2;
-    let y = cy - sz.h / 2;
-    if (f) {
-      const { w } = frameSizeOf(f);
-      const h = frameLengthOf(f);
-      const lx = f.x + Math.min(FRAME_MARGIN, (w - sz.w) / 2);
-      const ly = f.y + Math.min(FRAME_MARGIN, (h - sz.h) / 2);
-      x = clamp(x, lx, Math.max(lx, f.x + w - FRAME_MARGIN - sz.w));
-      y = clamp(y, ly, Math.max(ly, f.y + h - FRAME_MARGIN - sz.h));
-      const taken = (yy: number) =>
-        itemRects().some((o) => o.l < x + sz.w && o.r > x && o.t < yy + sz.h && o.b > yy);
-      let tries = 0;
-      while (taken(y) && y + sz.h * 2 < f.y + h && tries++ < 12) y += sz.h + 12;
-    }
-    /* a scene is its screen's picture: it fills the screen in view, or the one selected, behind everything on it */
-    const backdrop = { screen: (framesRef.current.find((fr) => fr.id === selectedFrameIdRef.current) ?? f)?.id, x: cx, y: cy };
-    const added = instance
-      ? runOp(ops.addInstance, { component: instance.id, at: { x, y } }, { history: "step", refused: (e) => e.code === "refused" && showToast(t("nestRefused", getLang())) })
-      : runOp(ops.addPart, { slug, at: { x, y }, seed: true, backdrop }, { history: "step" });
-    if (!added) return;
-    setRightTab("edit");
-    setSheet(null);
-  };
-
-  /** a definition added without a drag, where the view is looking */
-  const addInstance = (id: string) => {
-    const def = componentsRef.current?.find((c) => c.id === id);
-    if (!def) return;
-    if (!canNest(componentsRef.current, defEditRef.current?.id ?? null, id)) {
-      showToast(t("nestRefused", getLang()));
-      return;
-    }
-    addPart("container", def);
-  };
-  const addPartRef = useRef(addPart);
-  addPartRef.current = addPart;
-  const addInstanceRef = useRef(addInstance);
-  addInstanceRef.current = addInstance;
-
-  const changeFrame = (f: FrameMode) => {
-    if (f === frame || defEditRef.current) return;
-    if (!didOp(ops.setFrameMode, { mode: f }, { history: "step" })) return;
-    frameRef.current = f;
-    setSelectedLinkId(null);
-    queueMicrotask(() => fitRef.current());
-  };
-
-  const addFrame = () => {
-    if (defEditRef.current) return;
-    const made = runOp(ops.addScreen, {}, { history: "step" });
-    const f = made && store.get().doc.frames.find((x) => x.id === made.id);
-    if (!f) return;
-    const r = canvasRect();
-    if (r) {
-      const z = viewRef.current.z;
-      const { w, h } = frameSizeOf(f);
-      setView({
-        x: r.width / 2 - (f.x + w / 2) * z,
-        y: r.height / 2 - (f.y + h / 2) * z,
-        z,
-      });
-    }
-  };
-
-  /** Adds a template's screens beside the existing ones, in the words of the editor's language, and
-   *  selects the first. On a blank canvas it brings the screens back: they are what it adds. */
-  const addTemplate = (slug: string) => {
-    if (!templateBySlug(slug) || defEditRef.current) return;
-    const added = runOp(ops.addTemplate, { slug }, { history: "step" });
-    if (!added) return;
-    frameRef.current = "phone";
-    tidyRef.current = null;
-    /* its parts were placed by a guess at their sizes: once they are drawn it is laid out again by what they came to */
-    freshFramesRef.current = { ids: added.frames, until: Date.now() + 4000 };
-    retidyRef.current = added.frames;
-    setSelectedLinkId(null);
-    setRightTab("edit");
-    const first = store.get().doc.frames.find((x) => x.id === added.frames[0]);
-    if (first) glideToFrame(first);
-  };
-
-  const patchFrame = (id: string, patch: Partial<Frame>) => runOp(ops.patchScreen, { id, patch }, { history: { coalesce: "frame:" + id + ":" + Object.keys(patch).join(",") } });
-
-  /* a phone chosen for a screen is the phone the document is drawn for */
-  const setFramePreset = (id: string, preset: FramePreset) => resizeFrame(id, { preset });
-
-  /** every phone screen of the document at the size of one model, each kept upright or on its side. One undo step. */
-  const setPhoneModel = (size: { w: number; h: number }) => {
-    snapshot();
-    tidyRef.current = null;
-    const out = runOp(ops.setPhoneModel, size, { history: "none" });
-    if (!out) return;
-    setEasing(true);
-    window.setTimeout(() => setEasing(false), SETTLE_MS + 40);
-    retidyRef.current = out.frames;
-    newPhoneRef.current = { ids: out.frames, until: Date.now() + 4000 };
-  };
-
-  /** A screen's new size: the screens to the right move over, parts take the sizes the new screen calls for, and the
-   *  screen is laid out again by the tidy rules (lib/core `resize_screen`). */
-  const resizeFrame = (id: string, size: { w?: number; h?: number; preset?: FramePreset }) => {
-    if (!didOp(ops.resizeScreen, { id, ...size }, { history: "step" })) return;
-    tidyRef.current = null;
-    setEasing(true);
-    window.setTimeout(() => setEasing(false), SETTLE_MS + 40);
-    /* overlays drawn open (a dialog's box is the screen it floats in) are laid out here with
-     * their old measures; they are re-measured against the new screen size in the measuring
-     * pass, and the screen is laid out once more with the sizes that came out */
-    retidyRef.current = [id];
-  };
-
-  /** the document a run of length changes started from, and what the last of them made of it */
-  const lengthRun = useRef<{ id: string; from: { frames: Frame[]; groups: Group[] }; to: { frames: Frame[]; groups: Group[] } } | null>(null);
-  /** makes a screen run longer than its device, or back: what stands at its foot goes with the foot.
-   *  A slider sends a stream of lengths; each is worked out from where the stream began, so a part
-   *  is never taken for one at the foot halfway through and dragged along from then on. */
-  /** One drag of a screen's length handle: the document it started from, and whether it took its one undo step */
-  type LengthDrag = { from: { frames: Frame[]; groups: Group[] }; snapped: boolean };
-  const setFrameLength = (id: string, length: number, drag?: LengthDrag) => {
-    const run = lengthRun.current;
-    const from = drag
-      ? drag.from
-      : run && run.id === id && run.to.frames === framesRef.current && run.to.groups === groupsRef.current
-        ? run.from
-        : { frames: framesRef.current, groups: groupsRef.current };
-    if (!didOp(ops.setScreenLength, { id, length, from }, { history: drag ? (drag.snapped ? "none" : "step") : { coalesce: "frame:" + id + ":length" } })) return;
-    if (drag) drag.snapped = true;
-    lengthRun.current = { id, from, to: { frames: store.get().doc.frames, groups: store.get().doc.groups } };
-    tidyRef.current = null;
-  };
-
-  /** the screen whose length handle is being dragged: it follows the pointer without easing */
-  const [lengthDragId, setLengthDragId] = useState<string | null>(null);
-  /** the grip under the chosen screen: dragging it makes the screen run longer or shorter, as the
-   *  length slider does, in steps of 4dp. The whole drag is worked out from the document it began
-   *  with, and takes one undo step, and only once the length really changes. */
-  const onLengthHandleDown = (e: React.PointerEvent, f: Frame) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const pointerId = e.pointerId;
-    const startY = e.clientY;
-    const start = frameLengthOf(f);
-    const deviceH = frameSizeOf(f).h;
-    const max = maxFrameLength(f);
-    const drag: LengthDrag = { from: { frames: framesRef.current, groups: groupsRef.current }, snapped: false };
-    lengthRun.current = null;
-    setLengthDragId(f.id);
-    /* captured, the pointer's events reach the window through the handle wherever it is let go;
-     * should the handle go away mid-drag, they reach the window directly */
-    (e.currentTarget as HTMLElement).setPointerCapture(pointerId);
-    const move = (ev: PointerEvent) => {
-      if (ev.pointerId !== pointerId) return;
-      setFrameLength(f.id, clamp(Math.round((start + (ev.clientY - startY) / viewRef.current.z) / 4) * 4, deviceH, max), drag);
-    };
-    const end = (ev: PointerEvent) => {
-      if (ev.pointerId !== pointerId) return;
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", end);
-      window.removeEventListener("pointercancel", end);
-      lengthRun.current = null;
-      setLengthDragId(null);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", end);
-    window.addEventListener("pointercancel", end);
-  };
-  /** the same handle from the keyboard: arrows move it by 4dp, with Shift by 40dp */
-  const onLengthHandleKey = (e: React.KeyboardEvent, f: Frame) => {
-    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-    e.preventDefault();
-    e.stopPropagation();
-    const step = (e.shiftKey ? 40 : 4) * (e.key === "ArrowDown" ? 1 : -1);
-    setFrameLength(f.id, clamp(frameLengthOf(f) + step, frameSizeOf(f).h, maxFrameLength(f)));
-  };
-
-  /** the tidy button's state for the screen in play; the layout pass runs only when the document changes */
-  const tidyState = useMemo((): TidyState | null => {
-    if (!tidyTarget) return null;
-    const last = tidyRef.current;
-    if (last && last.frameId === tidyTarget.id && last.after === groups) return "undo";
-    return tidyFrame(groups, tidyTarget, frames, widths, metricsOf(theme)) ? "tidy" : "done";
-  }, [tidyTarget, groups, frames, widths]);
-
-  const tidy = (f: Frame) => {
-    const last = tidyRef.current;
-    if (last && last.frameId === f.id && last.after === groupsRef.current) {
-      /* tidy's own way back, as a step of its own */
-      store.transact("Undo tidy", "user", (tx) => tx.set((s) => withGroups(s, last.before)), { history: "step" });
-      tidyRef.current = null;
-      return;
-    }
-    const out = runOp(ops.tidyScreen, { screen: f.id }, { history: "step" });
-    if (out) tidyRef.current = { frameId: f.id, before: out.before, after: store.get().doc.groups };
-  };
-
   /** what the layout keys do, read by the keyboard handler at the moment a key is pressed */
   const layoutKeysRef = useRef({ tidyUp: () => {}, tidyScreen: () => {}, autoLayout: () => {} });
   layoutKeysRef.current = {
@@ -1322,92 +579,13 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     autoLayout: autoLayoutSelected,
   };
 
-  /** whether the screen in play has buttons side by side that can become one button group */
-  const canCombine = useMemo(() => !!tidyTarget && !!combineButtons(groups, tidyTarget, frames, widths), [tidyTarget, groups, frames, widths]);
-
-  /** joins neighbouring buttons into button groups; one undo step */
-  const combine = (f: Frame) => {
-    if (didOp(ops.combine, { screen: f.id }, { history: "step" })) tidyRef.current = null;
-  };
-
-  /** sets where Tidy puts a screen's body, then tidies it that way; one undo step covers both */
-  const setPlace = (f: Frame, place: Place) => {
-    const before = store.get().doc.groups;
-    const out = runOp(ops.setPlace, { id: f.id, place }, { history: "step" });
-    tidyRef.current = out?.tidied ? { frameId: f.id, before, after: store.get().doc.groups } : null;
-  };
-
   const aiReason = !aiReady ? t("aiNoKey", lang) : !tidyTarget ? t("aiSelectScreen", lang) : undefined;
 
-
-  /** a screen takes everything on it along, and links into it are dropped */
-  const deleteFrame = useCallback(
-    (id: string) => {
-      if (defEditRef.current) return;
-      runOp(ops.removeScreen, { id }, { history: "step" });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store],
-  );
-
-  const duplicateFrame = (id: string) => {
-    if (!framesRef.current.some((x) => x.id === id) || defEditRef.current) return;
-    /* a copy is a screen of its own, not one more size of this one */
-    runOp(ops.duplicateScreen, { id }, { history: "step" });
-  };
-
-  /** another size of a screen, beside it: a copy carried to the new size, one undo step */
-  const createVariantOf = (id: string, preset: FramePreset) => {
-    const made = runOp(ops.createScreenVariant, { id, preset }, { history: "step" });
-    if (!made) return;
-    tidyRef.current = null;
-    retidyRef.current = [made.id];
-    const f = store.get().doc.frames.find((x) => x.id === made.id);
-    if (f) glideToFrame(f);
-  };
-  const duplicateFrameRef = useRef(duplicateFrame);
-  duplicateFrameRef.current = duplicateFrame;
   /** Ctrl+A: set where the screen the layers list is worked out */
   const selectAllRef = useRef(() => {});
 
-  /** One step forward or back for what is selected, with whatever it holds. */
-  const stepSelectedLayers = (dir: 1 | -1) => {
-    const all = store.get().doc.groups;
-    if (!didOp(ops.zOrder, { ids: selectedIds, to: dir === 1 ? "forward" : "backward" }, { history: { coalesce: "layer-step:" + selectedIds.join(",") } })) return;
-    store.get().doc.groups.forEach((g, i) => {
-      if (g !== all[i]) instantRef.current.add(g.id);
-    });
-  };
-
-  /** The screen is re-rendered offscreen at 1:1 with static parts, so the
-   *  canvas zoom, selection outlines and in-flight animations never leak into the PNG. */
-  const saveFrameImage = async (f: Frame) => {
-    setExportFrame(f);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
-    try {
-      await document.fonts?.ready;
-      const el = document.querySelector<HTMLElement>(`[data-export="${f.id}"]`);
-      if (!el) return;
-      const url = await toPng(el, { pixelRatio: 2, cacheBust: true, width: frameSizeOf(f).w, height: frameLengthOf(f) });
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${f.name || "screen"}.png`;
-      a.click();
-    } finally {
-      setExportFrame(null);
-    }
-  };
-
-  /** One file per screen, one after another: there is one export layer, and browsers drop downloads
-   *  that start in the same instant. */
-  const saveAllFrameImages = async () => {
-    for (const f of framesRef.current) {
-      await saveFrameImage(f);
-      await new Promise((r) => setTimeout(r, 300));
-    }
-  };
-
-
+  /* a screen, or all of them, saved as pictures (src/editor/useFrameImages.ts) */
+  const { exportFrame, saveFrameImage, saveAllFrameImages } = useFrameImages(framesRef);
 
   /* the keyboard: undo, clipboard, grouping, layout keys, nudges, tools and zoom (src/editor/useShortcuts.ts) */
   useShortcuts({
@@ -1449,55 +627,11 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   openPreviewRef.current = openPreview;
 
   /* ---------- render ---------- */
-  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   /** what the preview plays: everything drawn out. With a definition open, that definition alone. */
   const previewDoc = useMemo(() => (previewId === null ? doc : expandDoc(defEdit ? { ...doc, groups, frames } : doc, widths)), [previewId, doc, defEdit, groups, frames, widths]);
 
-  /** arrows from tappable parts to the frames they open */
-  const links = useMemo(() => {
-    if (frame !== "phone") return [];
-    const rects = itemRects();
-    const out: (Route & LinkLine & { t: Transition })[] = [];
-    for (const g of groups) {
-      const source = frameOfPart(g, groups, frames, widths);
-      for (const it of g.items) {
-        for (const { slot, action } of actionsOf(it)) {
-        if (action.to === BACK_TARGET) continue;
-        const at = frames.findIndex((x) => x.id === action.to);
-        const r = rects.find((x) => x.id === it.id);
-        if (at < 0 || !r) continue;
-        const f = frames[at];
-        const others = frames.filter((x) => x.id !== f.id && x.id !== source?.id).map(frameRect);
-        out.push({
-          ...routeLink(r, frameRect(f), others, source ? frameRect(source) : undefined, BEZEL, at * 12),
-          id: `${it.id}|${slot}`,
-          itemId: it.id,
-          to: f.id,
-          fromFrame: source?.id,
-          nav: isNavPart(it.component),
-          t: action.transition,
-        });
-        }
-      }
-    }
-    return mergeLinks(out);
-  }, [groups, frames, frame, itemRects, widths]);
-  /** the lines worth drawing right now: most of a design's are noise until asked for */
-  const visibleLinks = useMemo(() => shownLinks(links, { all: showAllLinks, selectedIds, selectedFrameId, selectedLinkId }), [links, showAllLinks, selectedIds, selectedFrameId, selectedLinkId]);
-
-  /* a line can stand for several rows that open one screen: what is done to it is done to them all */
-  const idsOfLink = (linkId: string) => links.find((l) => l.id === linkId)?.ids ?? [linkId];
-  const setLinkTransition = (linkId: string, transition: Transition) => runOp(ops.setLinkTransition, { links: idsOfLink(linkId), transition }, { history: { coalesce: "link:" + linkId } });
-  const removeLink = (linkId: string) => {
-    /* the arrow is where it goes; what else the tap does stays */
-    runOp(ops.removeLinks, { links: idsOfLink(linkId) }, { history: "step" });
-    setSelectedLinkId(null);
-  };
-
-  /** what a dock's other tabs hold: the canvas draws only the tab that is showing */
-  const offTab = useMemo(() => outOfPane(groups, widths), [groups, widths]);
-  /** what the preview starts without, with what those parts hold: drawn dimmed, so it can still be selected */
-  const startsHidden = useMemo(() => new Set(groups.filter((g) => g.hidden).flatMap((g) => [g.id, ...heldBy(g, groups, widths).map((x) => x.id)])), [groups, widths]);
+  /* the arrows from tappable parts to the screens they open (src/editor/useLinks.ts) */
+  const { visibleLinks, setLinkTransition, removeLink } = useLinks({ frame, groups, frames, widths, itemRects, showAllLinks, selectedIds, selectedFrameId, selectedLinkId, setSelectedLinkId, runOp });
 
   /** what the panels that edit behaviour need of the document */
   const behavior = useMemo<Behavior>(() => {
@@ -1544,44 +678,6 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vars, primaryId, groups, frames, widths, snapshotFor, collections, canPaint, paintingScene, aiSettings, lang]);
 
-  /** which frame each run sits on (phone mode only) */
-  const frameOf = useMemo(() => {
-    const m = new Map<string, string>();
-    if (frame !== "phone") return m;
-    /* a part goes with the layout that holds it: what overflows, or stands on a dock's other tab where it
-     * was last laid out, is still on that screen. One walk for each part, so a large document stays quick */
-    const byId = new Map(groups.map((g) => [g.id, g]));
-    const screenOf = (g: Group, depth = 0): string | undefined => {
-      const known = m.get(g.id);
-      if (known !== undefined) return known;
-      const host = g.inFlow ? byId.get(g.inFlow) : undefined;
-      const id = host && host !== g && depth < 32 ? screenOf(host, depth + 1) : frameOfGroup(g, frames, widths)?.id;
-      if (id) m.set(g.id, id);
-      return id;
-    };
-    for (const g of groups) screenOf(g);
-    return m;
-  }, [groups, frames, frame, widths]);
-
-  /** the size of the screen each part sits on, by part: an overlay drawn open never gets a
-   *  virtual viewport bigger than the real one it is on */
-  const screenByItem = useMemo(() => {
-    const m = new Map<string, { w: number; h: number }>();
-    for (const g of groups) {
-      const fid = frameOf.get(g.id);
-      const f = fid ? frames.find((x) => x.id === fid) : undefined;
-      if (!f) continue;
-      const s = frameSizeOf(f);
-      for (const it of g.items) m.set(it.id, s);
-    }
-    /* what an instance or a row draws is on the screen of the group it stands on */
-    for (const { item, owner } of canvas.extra) {
-      const f = frames.find((x) => x.id === frameOf.get(owner));
-      if (f) m.set(item.id, frameSizeOf(f));
-    }
-    return m;
-  }, [groups, frameOf, frames, canvas]);
-
   /* the same elements while nothing in them changes, so that a drag does not attach every ref again on each move */
   const measuringLayer = useMemo(
     () =>
@@ -1600,65 +696,9 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
     [allItems, screenByItem],
   );
 
-  /** the screen whose layers the panel lists: the selection's, else the chosen one */
-  const layersFrame = useMemo(() => {
-    if (frame !== "phone") return null;
-    if (primaryId) {
-      const g = groups.find((x) => x.items.some((it) => it.id === primaryId));
-      const fid = g ? frameOf.get(g.id) : undefined;
-      if (fid) return frames.find((f) => f.id === fid) ?? null;
-    }
-    if (selectedFrameId) return frames.find((f) => f.id === selectedFrameId) ?? null;
-    return frames.find((f) => f.id === layersFrameId) ?? frames[0] ?? null;
-  }, [frame, primaryId, groups, frameOf, frames, selectedFrameId, layersFrameId]);
-  const layerGroups = useMemo(
-    () => (layersFrame ? groups.filter((g) => frameOf.get(g.id) === layersFrame.id) : []),
-    [groups, frameOf, layersFrame],
-  );
-  /* the current screen is the one the layers list; a blank canvas has only the one place */
-  selectAllRef.current = () => {
-    const on = frame === "phone" ? layerGroups : groups;
-    /* what stands on a dock's other tab is not on the canvas: a delete must not reach what cannot be seen */
-    setSelectedIds(on.filter((g) => !offTab.has(g.id)).flatMap((g) => g.items.map((it) => it.id)));
-    setSelectedFrameId(null);
-    setSelectedLinkId(null);
-  };
-  /** A drag in the layers panel is one undo step: the snapshot is taken when it starts,
-   *  and the reorders it fires along the way record nothing more. */
-  const layerDragRef = useRef(false);
-  const onLayerDragging = (dragging: boolean) => {
-    if (dragging && !layerDragRef.current) snapshot();
-    layerDragRef.current = dragging;
-  };
-  /** a reorder from the layers panel: while a drag of it goes on, its step was taken when it began */
-  const layerHistory = (key: string) => (layerDragRef.current ? ("none" as const) : { coalesce: key });
-
-  const reorderLayers = (topFirst: string[]) => {
-    if (!didOp(ops.reorderLayers, { order: topFirst }, { history: layerHistory("layers:" + (layersFrame?.id ?? "")) })) return;
-    for (const id of topFirst) instantRef.current.add(id);
-  };
-
-  /** flips a group's lock from its row's lock icon in the Layers panel */
-  const toggleGroupLock = (id: string) => {
-    const g = store.get().doc.groups.find((x) => x.id === id);
-    if (g) runOp(ops.setGroup, { id, patch: { locked: !g.locked } }, { history: "step" });
-  };
-
-  /** flips whether a group starts the preview hidden, from its row's eye in the Layers panel */
-  const toggleGroupHidden = (id: string) => {
-    const g = store.get().doc.groups.find((x) => x.id === id);
-    if (g) runOp(ops.setGroup, { id, patch: { hidden: g.hidden ? null : true } }, { history: "step" });
-  };
-
-  /** names a group from its row in the Layers panel; no words give up the name */
-  const renameGroup = (id: string, name: string) => runOp(ops.setGroup, { id, patch: { name: name || null } }, { history: "step" });
-
-  /** The parts of one group in a new order: reading order for a group laid out along its axis,
-   *  back to front for a free group. */
-  const reorderGroupItems = (groupId: string, order: string[]) => {
-    if (!didOp(ops.reorderItems, { group: groupId, order }, { history: layerHistory("layers:items:" + groupId), refused: () => {} })) return;
-    instantRef.current.add(groupId);
-  };
+  /* the Layers panel: the screen it lists and what its rows do (src/editor/useLayers.ts) */
+  const { layersFrame, layerGroups, selectAll, onLayerDragging, reorderLayers, toggleGroupLock, toggleGroupHidden, renameGroup, reorderGroupItems } = useLayers({ store, frame, primaryId, groups, frames, frameOf, selectedFrameId, layersFrameId, offTab, instantRef, snapshot, runOp, didOp, setSelectedIds, setSelectedFrameId, setSelectedLinkId });
+  selectAllRef.current = selectAll;
 
   /** a run or a free group on the canvas, drawn as src/editor/render.tsx says */
   const renderGroup = (g: Group, ox: number, oy: number, screen?: { w: number; h: number }) => drawGroup(g, ox, oy, screen, groupView);
@@ -1735,7 +775,6 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
             {renderExport(exportFrame, { doc, widths, frames, p, theme })}
           </div>
         )}
-
 
         {/* the part in flight rides above every panel so it stays visible while crossing them */}
         {drag?.active && (() => {
@@ -2225,7 +1264,6 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
                   />
                 );
               })()}
-
 
               {visibleLinks.length > 0 && (
                 <svg
@@ -2816,7 +1854,6 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
             setLeftTab("ai");
           }}
         />
-
 
         <ConfirmDialog
           open={confirmClear}

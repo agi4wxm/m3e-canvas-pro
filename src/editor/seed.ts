@@ -7,7 +7,6 @@ import { makeItem, PHONE_H, PHONE_MARGIN, PHONE_W, uid, type Frame, type Group, 
 
 export const SEED_FRAMES: Frame[] = [{ id: "seedF1", name: "Home", x: 0, y: 0 }];
 
-
 /** a part that is a shadcn M3E component, with the values the author would have set */
 export const partOf = (slug: string, props: Record<string, unknown>, id: string): Item => ({ ...makeItem(slug), id, props });
 
