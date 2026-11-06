@@ -198,19 +198,23 @@ function shortText(v: unknown, depth = 0): string {
   return values.length ? values.slice(0, 3).map((x) => String(x)).join(" ") : "{…}";
 }
 
-/** a value of a record in a cell: pictures as pictures, files by their kind, the rest as text */
+/** the width of the records' column of pictures: one thumbnail and room for how many more there are */
+const THUMB_COLUMN = 52;
+const thumb = (p: Palette): React.CSSProperties => ({ width: 28, height: 28, borderRadius: 6, objectFit: "cover", display: "block", flex: "0 0 auto", background: p.surfaceContainerHighest });
+
+/** a value of a record in a cell: pictures as pictures (a list of them as its first and how many more), files by their
+ *  kind, the rest as text cut to the cell */
 function ValueView({ v, p }: { v: unknown; p: Palette }) {
-  if (typeof v === "string" && v.startsWith("data:image/")) return <img data-mocks-image src={v} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", display: "block" }} />;
+  if (typeof v === "string" && v.startsWith("data:image/")) return <img data-mocks-image src={v} alt="" style={thumb(p)} />;
   if (typeof v === "string" && v.startsWith("data:")) return <Icon name={v.startsWith("data:audio") ? "audio_file" : v.startsWith("data:video") ? "video_file" : v.startsWith("data:application/pdf") ? "picture_as_pdf" : "draft"} size={20} color={p.onSurfaceVariant} />;
   if (Array.isArray(v) && v.length && typeof v[0] === "string" && v[0].startsWith("data:image/"))
     return (
-      <span style={{ display: "inline-flex", gap: 2 }}>
-        {v.slice(0, 3).map((x, i) => (
-          <img key={i} data-mocks-image src={x as string} alt="" style={{ width: 22, height: 22, borderRadius: 4, objectFit: "cover" }} />
-        ))}
+      <span style={{ position: "relative", display: "block", width: 28, height: 28, flex: "0 0 auto" }}>
+        <img data-mocks-image src={v[0] as string} alt="" style={thumb(p)} />
+        {v.length > 1 && <span style={{ position: "absolute", right: -6, bottom: -4, minWidth: 16, height: 16, padding: "0 3px", boxSizing: "border-box", borderRadius: 8, background: p.inverseSurface, color: p.inverseOnSurface, fontSize: 10, fontWeight: 600, lineHeight: "16px", textAlign: "center" }}>+{v.length - 1}</span>}
       </span>
     );
-  return <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortText(v)}</span>;
+  return <span style={{ display: "block", flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortText(v)}</span>;
 }
 
 /** a cell of the records' table: what it shows, and a field to change it (the record is then pinned) */
@@ -250,7 +254,7 @@ function RecordCell({ v, onCommit, p, data }: { v: unknown; onCommit: (next: unk
     );
   }
   return (
-    <button data-mocks-record-cell={data} onClick={() => editable && !file && setEditing(true)} style={{ width: "100%", height: 30, border: "none", background: "transparent", color: p.onSurface, fontSize: 12, textAlign: "left", padding: "0 4px", cursor: editable && !file ? "text" : "default", display: "flex", alignItems: "center", minWidth: 0 }}>
+    <button data-mocks-record-cell={data} onClick={() => editable && !file && setEditing(true)} style={{ width: "100%", height: 34, border: "none", background: "transparent", color: p.onSurface, fontSize: 12, textAlign: "left", padding: "0 6px", cursor: editable && !file ? "text" : "default", display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden" }}>
       <ValueView v={v} p={p} />
     </button>
   );
@@ -311,7 +315,7 @@ function DataTab({ api, mocks, collections, run, p, locale }: { api: ApiSpec; mo
   const kindOf = (c: string) => config?.hints?.[c]?.kind ?? inferred[c]?.kind ?? inferred[`${c}[]`]?.kind ?? "auto";
   const rank = (c: string) => (["avatar", "image"].includes(kindOf(c)) ? 0 : ["personName", "productName", "title", "company", "username"].includes(kindOf(c)) ? 1 : c === idField ? 3 : 2);
   const columns = Object.keys(props).sort((a, b) => rank(a) - rank(b));
-  const widthOf = (c: string) => (rank(c) === 0 ? 44 : 120);
+  const widthOf = (c: string) => (rank(c) === 0 ? THUMB_COLUMN : 120);
   const pinnedIds = new Set((config?.fixtures ?? []).map((r) => String(idField ? r[idField] : "")));
   const pin = (rec: Record<string, unknown>) => run(ops.pinMockRecords, { model, records: [rec] });
   return (
@@ -343,12 +347,19 @@ function DataTab({ api, mocks, collections, run, p, locale }: { api: ApiSpec; mo
       </div>
       <div style={hint(p)}>{t("mocksPinnedHint", lang)}</div>
       <div data-mocks-records={model} className="no-scrollbar" style={{ overflowX: "auto", borderRadius: 10, background: p.surfaceContainerLow }}>
-        <table style={{ borderCollapse: "collapse", minWidth: "100%", tableLayout: "fixed" }}>
+        {/* fixed columns: a picture keeps to its own, words are cut at the cell's edge */}
+        <table style={{ borderCollapse: "collapse", tableLayout: "fixed", width: 30 + columns.reduce((w, c) => w + widthOf(c), 0), minWidth: "100%" }}>
+          <colgroup>
+            <col style={{ width: 30 }} />
+            {columns.map((c) => (
+              <col key={c} style={{ width: widthOf(c) }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               <th style={{ width: 30 }} />
               {columns.map((c) => (
-                <th key={c} style={{ ...mono, fontSize: 11, fontWeight: 600, color: p.onSurfaceVariant, textAlign: "left", padding: "6px 4px", width: widthOf(c), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <th key={c} style={{ ...mono, fontSize: 11, fontWeight: 600, color: p.onSurfaceVariant, textAlign: "left", padding: "6px 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {c}
                 </th>
               ))}
@@ -372,7 +383,7 @@ function DataTab({ api, mocks, collections, run, p, locale }: { api: ApiSpec; mo
                     </button>
                   </td>
                   {columns.map((c) => (
-                    <td key={c} style={{ padding: 0, maxWidth: widthOf(c) }}>
+                    <td key={c} style={{ padding: 0, overflow: "hidden" }}>
                       <RecordCell v={rec[c]} p={p} data={`${i}:${c}`} onCommit={(next) => pin({ ...rec, [c]: next })} />
                     </td>
                   ))}
