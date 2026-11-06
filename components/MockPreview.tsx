@@ -16,6 +16,9 @@ export type PreviewMocks = {
   setScenario: (id: string | undefined) => void;
   /** starts the data over in the same scenario */
   reset: () => void;
+  /** counts the sessions the mocks have begun here: a scenario chosen or a reset begins one, with its data made
+   *  afresh and no tokens, so what the preview's screens hold starts over too */
+  session: number;
   log: MockLogEntry[];
   clearLog: () => void;
   /** the operations, read from REST conventions, for trying one */
@@ -35,6 +38,7 @@ export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections">)
   const has = !!doc.api?.endpoints?.length || !!doc.api?.channels?.length;
   const [made, setMade] = useState<{ transport: MockTransport; routes: Route[] } | null>(null);
   const [scenario, setScenarioNow] = useState<string | undefined>(undefined);
+  const [session, setSession] = useState(0);
   const [log, setLog] = useState<MockLogEntry[]>([]);
   const answers = useRef(new Map<number, string>());
   useEffect(() => {
@@ -71,13 +75,18 @@ export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections">)
         setScenario: (id) => {
           made.transport.setScenario(id);
           setScenarioNow(made.transport.scenario);
+          setSession((n) => n + 1);
         },
-        reset: () => made.transport.reset(),
+        reset: () => {
+          made.transport.reset();
+          setSession((n) => n + 1);
+        },
+        session,
         log,
         clearLog: () => setLog([]),
         answers: answers.current,
       },
-    [made, scenario, log],
+    [made, scenario, log, session],
   );
 }
 

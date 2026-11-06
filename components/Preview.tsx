@@ -58,7 +58,7 @@ import { BindingEngine, emptyBindings, screenScope, type BindingState } from "@/
 import { boundScreen, formsOf, readForm, type BoundScreen } from "@/lib/bindings/view";
 import { endpointOf, paramsOf as endpointParamsOf } from "@/lib/bindings/contract";
 import { evaluate, type Scope } from "@/lib/bindings/expr";
-import { fallbackTransport } from "@/lib/bindings/transport";
+import { fallbackTransport, signedInAtStart } from "@/lib/bindings/transport";
 import { BoundValues } from "./boundValues";
 import { MockLogPanel, MockScenarioSwitch, PreviewMocksContext, usePreviewMocks } from "./MockPreview";
 import { PRESETS, variantFor } from "@/lib/variants";
@@ -774,7 +774,7 @@ export function Preview({
       if (!target) return;
       /* a screen that needs a session, without one: the sign-in screen first, then on to it */
       const login = frames.find((f) => f.auth === "login");
-      if (target.auth === "required" && !bindingsRef.current.session && login && login.id !== target.id) {
+      if (target.auth === "required" && !bindingsRef.current.session && !bindingsRef.current.presumed && login && login.id !== target.id) {
         pending.current = { entry: { id: a.to, t: a.transition, ...(params ? { params } : {}) } };
         setOverlay(null);
         setAnim({ transition: "fade", backwards: false, spring });
@@ -937,8 +937,15 @@ export function Preview({
   }, []);
   const docRef = useRef(doc);
   docRef.current = doc;
-  const transportRef = useRef<Transport>(transport ?? fallbackTransport(doc));
-  if (transport && transportRef.current !== transport) transportRef.current = transport;
+  /* What the calls go through: a page's own back end (a test's fake, an embedding app's), the transport the preview is
+     handed, else the mock library's in the scenario the bar has chosen. A document with endpoints waits for the mocks
+     to load rather than show answers they would take back; one without has nothing to call but the stand-in. */
+  const pageTransport = typeof window !== "undefined" ? window.m3ePreviewTransport : undefined;
+  const api = doc.api;
+  const standIn = useMemo(() => fallbackTransport({ api }), [api]);
+  const answering: Transport | null = pageTransport ?? transport ?? mocks?.transport ?? (api?.endpoints?.length ? null : standIn);
+  const transportRef = useRef<Transport | null>(answering);
+  transportRef.current = answering;
   const langRef = useRef(lang);
   langRef.current = lang;
   /** what was opened over the sign-in screen: where the app goes once signed in */
@@ -948,7 +955,7 @@ export function Preview({
     () =>
       new BindingEngine({
         doc: () => docRef.current,
-        transport: { request: (r) => transportRef.current.request(r) },
+        transport: { request: (r) => transportRef.current?.request(r) ?? Promise.resolve({ status: 0, headers: {}, body: undefined }) },
         get: () => bindingsRef.current,
         set: setBindings,
         ctx: () => ({ lang: langRef.current }),
@@ -975,23 +982,40 @@ export function Preview({
     (f: Frame, params?: Record<string, unknown>): Scope => screenScope({ frame: f, state: bindingsRef.current, params, vars: screenVars(stateRef.current, doc, f, darkRef.current).vars, varNames }),
     [doc, varNames],
   );
+  /* Another transport, or another session of the mocks (a scenario chosen in the bar, the log's start over): the
+     bindings start over with it, signed in as the mocks' session starts (`auth.signedIn`, true unless the scenario
+     says not), and the screens on show load again just below. */
+  const mockSession = mocks?.session ?? 0;
+  const presumed = !!mocks && answering === mocks.transport && signedInAtStart(doc.mocks, mocks.scenario);
+  const startedWith = useRef<{ t: Transport; session: number } | null>(null);
+  useEffect(() => {
+    if (!answering) return;
+    /* the same again (React running effects twice in development) starts nothing over */
+    const was = startedWith.current;
+    if (was && was.t === answering && was.session === mockSession) return;
+    startedWith.current = { t: answering, session: mockSession };
+    pending.current = null;
+    engine.reset(emptyBindings(presumed));
+    // the scenario `presumed` reads comes with a session of its own
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answering, mockSession, engine]);
   /* a screen loads its data as it comes on show, and again when it is opened with other params */
   const topParams = top?.params;
   const paramsKey = JSON.stringify(topParams ?? null);
   useEffect(() => {
-    if (!current?.data?.length) return;
+    if (!answering || !current?.data?.length) return;
     void engine.enter(current, scopeNow(current, topParams)).catch(() => {});
     // the params are read through their key: a new object with the same values loads nothing again
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id, paramsKey, engine]);
+  }, [current?.id, paramsKey, engine, answering, mockSession]);
   const overlayParams = overlay?.params;
   const overlayKey = JSON.stringify(overlayParams ?? null);
   useEffect(() => {
     const f = overlay ? frames.find((x) => x.id === shownId(overlay.id)) : undefined;
-    if (!f?.data?.length) return;
+    if (!answering || !f?.data?.length) return;
     void engine.enter(f, scopeNow(f, overlayParams)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlay?.id, overlayKey, engine]);
+  }, [overlay?.id, overlayKey, engine, answering, mockSession]);
 
   const snack = state.snack;
   useEffect(() => {

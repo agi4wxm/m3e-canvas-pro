@@ -1,6 +1,8 @@
 /* The bindings at run time against a fake back end (lib/bindings/fixture.ts): a screen's data loading with its region in
  * each state, pages after pages, a detail by its params, a form checked by its schema and by the server, a session
- * started by a sign-in and ended by a 401, and errors (refused, failing, throwing transports) that never escape. */
+ * started by a sign-in and ended by a 401, and errors (refused, failing, throwing transports) that never escape. Then
+ * the same screens against the mock library, as the preview runs them: its data, its scenarios, its validation, its
+ * sign-in. */
 
 import { beforeAll, describe, expect, it } from "vitest";
 import type { Transport, TransportRequest } from "../api/transport";
@@ -11,7 +13,8 @@ import type { Doc, Frame, Group } from "../tokens";
 import { sampleProducts, shopDoc, shopTransport } from "./fixture";
 import { BindingEngine, emptyBindings, paramsFor, screenScope, sourceKey, type BindingState, type CallOutcome } from "./runtime";
 import { boundScreen, formsOf, readForm } from "./view";
-import { fallbackTransport } from "./transport";
+import { fallbackTransport, signedInAtStart } from "./transport";
+import { createMockTransport, defaultScenarios, type MockSpec } from "../mocks";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -280,5 +283,89 @@ describe("errors never escape", () => {
     const odd: Transport = { request: async () => undefined as never };
     expect((await harness(doc, odd).engine.call("getProduct", { params: { productId: "x" } })).ok).toBe(false);
     expect(await h.engine.call("nothingLikeThis", {})).toMatchObject({ ok: false, problem: { title: "No endpoint nothingLikeThis" } });
+  });
+});
+
+describe("against the mock library", () => {
+  const spec: MockSpec = { seed: 1, locale: "en", scenarios: defaultScenarios("en") };
+  /** the shop answered by the mocks with no wait, the engine started over as the preview starts it for a session */
+  function mocked() {
+    const doc = shopDoc();
+    const mock = createMockTransport({ api: doc.api, mocks: spec }, { latency: false });
+    const h = harness(doc, mock);
+    const start = () => h.engine.reset(emptyBindings(signedInAtStart(spec, mock.scenario)));
+    start();
+    return { doc, mock, h, start, f: h.frame("products") };
+  }
+  const show = (h: ReturnType<typeof harness>) => region(h.bound("products").groups).states?.show;
+
+  it("shows its data, then empty, then an error, as the scenario says", async () => {
+    const { mock, h, start, f } = mocked();
+    await h.engine.enter(f, h.scope(f));
+    expect(show(h)).toBe("ready");
+    expect(h.state.sources[sourceKey("products", "products")].items).toHaveLength(20);
+    mock.setScenario("new-user");
+    start();
+    await h.engine.enter(f, h.scope(f));
+    expect(show(h)).toBe("empty");
+    mock.setScenario("network-error");
+    start();
+    await h.engine.enter(f, h.scope(f));
+    expect(show(h)).toBe("error");
+    expect(h.state.sources[sourceKey("products", "products")].error?.status).toBe(0);
+  });
+
+  it("drops what a call answers once the state has started over", async () => {
+    const doc = shopDoc();
+    let answer: (v: { status: number; headers: Record<string, string>; body: unknown }) => void = () => {};
+    const slow: Transport = { request: () => new Promise((r) => (answer = r)) };
+    const h = harness(doc, slow);
+    const f = h.frame("products");
+    const out = h.engine.enter(f, h.scope(f));
+    h.engine.reset();
+    answer({ status: 200, headers: {}, body: { items: sampleProducts(3), nextCursor: null } });
+    await out;
+    expect(h.state.sources).toEqual({});
+  });
+
+  it("starts signed in unless the scenario says not; a sign-out ends it, and a 401 sends the app to sign in", async () => {
+    const { doc, mock, h, start, f } = mocked();
+    expect(h.scope(f).auth).toEqual({ signedIn: true, user: null });
+    /* signed out: the mocks' logout is told, and the secured list is then refused */
+    h.engine.signOut();
+    expect(h.scope(f).auth).toEqual({ signedIn: false, user: null });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mock.log.at(-1)?.operationId).toBe("logout");
+    let lost = 0;
+    const g = new BindingEngine({ ...h.engine.host, unauthorized: () => lost++ });
+    await g.enter(f, h.scope(f));
+    expect(lost).toBe(1);
+    expect(show(h)).toBe("forbidden");
+    /* the signed-out scenario starts so; a sign-in with the form's fields mends it */
+    mock.setScenario("signed-out");
+    start();
+    expect(signedInAtStart(spec, "signed-out")).toBe(false);
+    expect(h.scope(f).auth).toMatchObject({ signedIn: false });
+    const signIn = await h.engine.call("login", { body: { email: "ann@example.com", password: "long enough" } });
+    expect(signIn.ok).toBe(true);
+    expect(h.state.session?.token).toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);
+    await h.engine.enter(f, h.scope(f));
+    expect(show(h)).toBe("ready");
+    expect(mock.log.at(-1)).toMatchObject({ operationId: "listProducts", status: 200 });
+    void doc;
+  });
+
+  it("puts the mocks' validation errors on the form's fields", async () => {
+    const { doc, h } = mocked();
+    const form = doc.groups.find((g) => g.form?.operationId === "createProduct")!;
+    const out = await h.engine.submit(form.id, "createProduct", { body: { name: "A", price: -1 } });
+    expect(out.ok).toBe(false);
+    expect(!out.ok && [400, 422]).toContain(out.status);
+    const errors = h.state.forms[form.id].errors;
+    expect(Object.keys(errors).sort()).toEqual(["name", "price"]);
+    expect(h.state.forms[form.id].submitting).toBe(false);
+    const ok = await h.engine.submit(form.id, "createProduct", { body: { name: "Desk lamp", price: 12 } });
+    expect(ok).toMatchObject({ ok: true, body: { name: "Desk lamp", price: 12 } });
+    expect(h.state.forms[form.id].errors).toEqual({});
   });
 });

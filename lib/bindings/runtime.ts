@@ -47,16 +47,26 @@ export type BindingState = {
   /** by the form's group id */
   forms: Record<string, FormRuntime>;
   session: Session | null;
+  /** the back end counts the app as signed in without a token: the mock library's session starts so unless its
+   *  scenario says otherwise (`auth.signedIn` reads true); a sign-out or a 401 ends it */
+  presumed?: boolean;
 };
 
-export const emptyBindings = (): BindingState => ({ sources: {}, forms: {}, session: null });
+export const emptyBindings = (presumed = false): BindingState => ({ sources: {}, forms: {}, session: null, ...(presumed ? { presumed: true } : {}) });
+
+/** the state with no session, presumed or started */
+function signedOut(s: BindingState): BindingState {
+  const { presumed: _presumed, ...rest } = s;
+  return { ...rest, session: null };
+}
 
 export const sourceKey = (frameId: string, name: string) => `${frameId}/${name}`;
 
 const idleSource = (): SourceState => ({ status: "idle", loading: false, loadingMore: false, hasMore: false, seq: 0 });
 
 /** what an answer to a call came to */
-export type CallOutcome = { ok: true; status: number; body: unknown } | { ok: false; status: number; problem: Problem; unauthorized: boolean };
+/** what an answer to a call came to; `dropped` when the state was started over while it was out (`reset`) */
+export type CallOutcome = { ok: true; status: number; body: unknown } | { ok: false; status: number; problem: Problem; unauthorized: boolean; dropped?: boolean };
 
 /** how a call is given its parameters and body: values already read */
 export type CallArgs = { params?: Record<string, unknown>; body?: unknown };
@@ -80,6 +90,16 @@ export const MAX_ITEMS = 2000;
 /** The engine: what the host calls when a screen is entered, a tap calls, a form is submitted. */
 export class BindingEngine {
   constructor(readonly host: Host) {}
+
+  /** how many times the state was started over: an answer to a call made before the last time is dropped */
+  private epoch = 0;
+
+  /** Starts the state over (another scenario of the mock library, its session begun again): no data, no forms, no
+   *  session but the one given, and what calls are still out answer into nothing. */
+  reset(next: BindingState = emptyBindings()) {
+    this.epoch++;
+    this.host.set(next);
+  }
 
   private patch(fn: (s: BindingState) => BindingState) {
     this.host.set(fn(this.host.get()));
@@ -133,17 +153,21 @@ export class BindingEngine {
     if (!e) return { ok: false, status: 0, problem: { status: 0, title: `No endpoint ${operationId}` }, unauthorized: false };
     let status = 0;
     let body: unknown;
+    let thrown: string | undefined;
+    const epoch = this.epoch;
     try {
       const res = await this.host.transport.request(this.requestFor(api, e, args));
       status = typeof res?.status === "number" ? res.status : 0;
       body = res?.body;
     } catch (err) {
-      return { ok: false, status: 0, problem: { ...problemOf(0, undefined, lang), detail: err instanceof Error ? err.message.slice(0, 500) : undefined }, unauthorized: false };
+      thrown = err instanceof Error ? err.message.slice(0, 500) : "";
     }
+    if (epoch !== this.epoch) return { ok: false, status, problem: problemOf(status, undefined, lang), unauthorized: false, dropped: true };
+    if (thrown !== undefined) return { ok: false, status: 0, problem: { ...problemOf(0, undefined, lang), detail: thrown || undefined }, unauthorized: false };
     const auth = api.auth;
     if (status >= 200 && status < 300) {
       if (auth?.login === operationId) this.signedIn(api, body);
-      if (auth?.logout === operationId) this.patch((s) => ({ ...s, session: null }));
+      if (auth?.logout === operationId) this.patch(signedOut);
       if (auth?.refresh === operationId) this.refreshed(api, body);
       return { ok: true, status, body };
     }
@@ -152,7 +176,7 @@ export class BindingEngine {
     }
     const unauthorized = status === 401 && auth?.login !== operationId;
     if (unauthorized) {
-      this.patch((s) => ({ ...s, session: null }));
+      this.patch(signedOut);
       this.host.unauthorized?.();
     }
     return { ok: false, status, problem: problemOf(status, body, lang), unauthorized };
@@ -190,8 +214,9 @@ export class BindingEngine {
   signOut() {
     const api = this.host.doc().api ?? {};
     const op = api.auth?.logout;
-    if (op && endpointOf(api, op) && this.host.get().session) void this.call(op, {});
-    this.patch((s) => ({ ...s, session: null }));
+    const was = this.host.get();
+    if (op && endpointOf(api, op) && (was.session || was.presumed)) void this.call(op, {});
+    this.patch(signedOut);
   }
 
   /* ---------- data sources ---------- */
@@ -230,7 +255,7 @@ export class BindingEngine {
     const fresh = was.key !== argKey;
     this.setSource(key, (s) => (o.more ? { ...s, seq, loadingMore: true } : { ...s, seq, key: argKey, loading: true, loadingMore: false, status: fresh || s.status === "idle" ? "loading" : s.status, ...(fresh ? { value: undefined, items: undefined, error: null, hasMore: false } : {}) }));
     const out = await this.call(src.operationId, { ...args, params });
-    if ((this.host.get().sources[key]?.seq ?? -1) !== seq) return;
+    if ((!out.ok && out.dropped) || (this.host.get().sources[key]?.seq ?? -1) !== seq) return;
     if (!out.ok) {
       this.setSource(key, (s) => ({ ...s, status: s.value !== undefined && o.more ? s.status : s.value !== undefined && !fresh ? "ready" : "error", loading: false, loadingMore: false, error: out.problem }));
       return;
@@ -317,6 +342,7 @@ export class BindingEngine {
     const stop = o.files && o.tick ? o.tick(() => this.setForm(formId, { progress: Math.min(95, (this.formState(formId).progress ?? 0) + 7) })) : () => {};
     const out = await this.call(operationId, args);
     stop();
+    if (!out.ok && out.dropped) return out;
     if (out.ok) {
       this.setForm(formId, { submitting: false, errors: {}, error: null, progress: o.files ? 100 : null, response: out.body });
       return out;
@@ -402,7 +428,7 @@ export function screenScope(o: { frame: Frame; state: BindingState; params?: Rec
     data,
     params: paramsFor(o.frame, o.params),
     vars,
-    auth: { signedIn: !!session, user: session?.user ?? null },
+    auth: { signedIn: !!session || !!o.state.presumed, user: session?.user ?? null },
     now: new Date(o.now ?? Date.now()).toISOString(),
   };
 }

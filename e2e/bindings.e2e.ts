@@ -2,20 +2,23 @@
  * (e2e/fakeShop.ts): a list screen wired to its endpoint from the Data section and rows in the preview; a form that
  * refuses what its schema does not allow, then shows the server's error on its field, then submits; a 401 that sends
  * the app to the sign-in screen and back; a detail screen opened from a row with its params; the state switcher on a
- * region of the canvas. Screenshots go to e2e/.out (bindings-*.png). */
+ * region of the canvas. Then the API answered by the mock library, as the editor answers it: the list with its data,
+ * empty and failing as the preview's scenario says, and signed out until the sign-in screen is filled in.
+ * Screenshots go to e2e/.out (bindings-*.png). */
 
 import { join } from "node:path";
 import { setGlobalLang } from "../lib/i18n";
 import { shopDoc } from "../lib/bindings/fixture";
+import { defaultScenarios } from "../lib/mocks";
 import type { Doc as FullDoc } from "../lib/tokens";
 import { installFakeShop, type FakeShop } from "./fakeShop";
 import { check, equal, savedDoc, screenBox, selectScreen, settle, undo, type E2ETest, type Page } from "./lib";
 
 setGlobalLang("en");
 
-/** the editor opened on a document, the fake back end answering the preview */
-async function openShop(page: Page, base: string, doc: FullDoc, fake: FakeShop) {
-  await page.context().addInitScript(installFakeShop, fake);
+/** the editor opened on a document, the fake back end answering the preview, else the mock library */
+async function openShop(page: Page, base: string, doc: FullDoc, fake?: FakeShop) {
+  if (fake) await page.context().addInitScript(installFakeShop, fake);
   await page.goto(`${base}/#doc=${encodeURIComponent(JSON.stringify(doc))}`, { waitUntil: "load" });
   /* a document whose screens are still empty has no part to wait for: its screens are what arrives */
   await page.waitForSelector(".m3e-boot", { state: "detached", timeout: 90_000 });
@@ -54,6 +57,33 @@ async function waitForScreen(page: Page, id: string, ms = 8000) {
   }
   throw new Error(`the preview never showed ${id}; it shows ${await shownScreen(page)}`);
 }
+/** waits until what the screen on show says passes a test */
+async function waitUntil(page: Page, ok: (text: string) => boolean, what: string, ms = 10_000) {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    if (ok(await words(page))) return;
+    await page.waitForTimeout(150);
+  }
+  throw new Error(`the screen on show never showed ${what}; it says ${JSON.stringify((await words(page)).slice(0, 300))}`);
+}
+/** a scenario of the mock library chosen in the preview's bar ("" for none) */
+async function scenario(page: Page, id: string) {
+  await page.locator("[data-preview-scenario-button]").first().click();
+  await settle(page, 300);
+  await page.locator(`[data-preview-scenario="${id}"]`).first().click();
+  await settle(page, 300);
+}
+/** the calls the mock library answered, oldest first, from the preview's request log */
+async function mockLog(page: Page): Promise<string[]> {
+  const open = await page.locator("[data-preview-log]").count();
+  if (!open) await page.locator("[data-preview-log-button]").first().click();
+  await settle(page, 200);
+  const rows = await page.evaluate(() => [...document.querySelectorAll("[data-preview-log-entry]")].map((e) => `${e.getAttribute("data-preview-log-entry")} ${e.getAttribute("data-status")}`));
+  if (!open) await page.locator("[data-preview-log-button]").first().click();
+  return rows.reverse();
+}
+const prices = (text: string) => (text.match(/\$\d/g) ?? []).length;
+
 const calls = (page: Page) => page.evaluate(() => (window as unknown as { __calls: { op: string; path: string; query: Record<string, unknown> | null; auth: string | null; body: unknown }[] }).__calls);
 
 /** an input of the preview by the field it fills */
@@ -221,6 +251,45 @@ export const tests: E2ETest[] = [
       await undo(page);
       equal(((await savedDoc(page)) as unknown as FullDoc).groups.find((g) => g.id === region.id)?.states?.show, "empty", "one undo goes back one state");
       check(sb.width > 0, "the screen is there");
+    },
+  },
+  {
+    name: "bindings: in the preview the mock library answers the list, empty and failing as the scenario says, and signed out until signed in",
+    async run({ page, base, out }) {
+      const doc: FullDoc = { ...shopDoc(), mocks: { seed: 1, locale: "en", scenarios: defaultScenarios("en") } };
+      await openShop(page, base, doc);
+      await preview(page, "products");
+      /* the mocks' products, a page of them, each with its price */
+      await waitUntil(page, (t) => prices(t) >= 5, "the mocks' products");
+      check(!(await words(page)).includes("Nothing here yet"), "no empty design over the data");
+      await page.screenshot({ path: join(out, "bindings-mock-data.png") });
+      /* a new user has nothing yet: the empty design */
+      await scenario(page, "new-user");
+      await waitForWords(page, "Nothing here yet");
+      equal(prices(await words(page)), 0, "no rows left from before");
+      await page.screenshot({ path: join(out, "bindings-mock-empty.png") });
+      /* the network down: the error design, saying why */
+      await scenario(page, "network-error");
+      await waitForWords(page, "Couldn't load");
+      check((await words(page)).includes("Can't reach the server"), "the problem's words on the error design");
+      await page.screenshot({ path: join(out, "bindings-mock-error.png") });
+      /* signed out: the secured list is refused and the app goes to sign in, then back with the token */
+      await scenario(page, "signed-out");
+      await waitForScreen(page, "login");
+      await fieldInput(page, doc, "email", "login").fill("ann@example.com");
+      await fieldInput(page, doc, "password", "login").fill("long enough");
+      await page.screenshot({ path: join(out, "bindings-mock-signed-out.png") });
+      await onShow(page).locator("[data-live-part]").filter({ hasText: "Sign in" }).last().click();
+      await waitForScreen(page, "products");
+      await waitUntil(page, (t) => prices(t) >= 5, "the products once signed in");
+      const log = await mockLog(page);
+      equal(log.slice(-3), ["listProducts 401", "login 200", "listProducts 200"], "refused, signed in, answered");
+      await page.screenshot({ path: join(out, "bindings-mock-signed-in.png") });
+      /* back to the normal scenario: the data again */
+      await scenario(page, "");
+      await waitUntil(page, (t) => prices(t) >= 5, "the products in the normal scenario");
+      await page.keyboard.press("Escape");
+      await settle(page, 600);
     },
   },
 ];

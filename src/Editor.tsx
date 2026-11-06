@@ -83,7 +83,6 @@ import { VariablesPanel, type VariablesApi } from "@/components/VariablesPanel";
 import { sharedOf } from "@/components/DesignPanel";
 import { Behavior, BehaviorContext, StyleRulesContext } from "@/components/EffectsPanel";
 import { BindingsContext, CanvasStateSwitcher, type Bindings } from "@/components/BindingsPanel";
-import { previewTransportFor } from "@/lib/bindings/transport";
 import { readProject } from "@/lib/project";
 import { downloadProject } from "@/lib/projects/download";
 import { editorProjects } from "@/lib/projects/opening";
@@ -872,8 +871,6 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     }
     return null;
   }, [primaryId, selectedIds, groups]);
-  /** what the preview calls the API through: the mock library once it answers, the contract's examples until then */
-  const previewTransport = useMemo(() => (previewId === null ? undefined : previewTransportFor(previewDoc)), [previewId, previewDoc]);
 
   /* the same elements while nothing in them changes, so that a drag does not attach every ref again on each move */
   const measuringLayer = useMemo(
@@ -2313,7 +2310,6 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
             palette={p}
             startId={previewId}
             onClose={closePreview}
-            transport={previewTransport}
           />
         )}
       </AnimatePresence>

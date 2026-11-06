@@ -1,12 +1,14 @@
-/* The transport the preview calls the API through until the mock library (lib/mocks) answers it: what a page embedding
- * the editor (and an end-to-end test) puts on `window.m3ePreviewTransport`, else an answer made from the contract's own
- * examples (an `example` or `examples` on the success response's media type), else an empty success. The mock library
- * replaces the last two with data generated from the schemas; the preview only ever sees a `Transport`. */
+/* What the preview calls the API through, beside the mock library (lib/mocks, components/MockPreview.tsx), which
+ * answers it in the editor: what a page embedding the editor (and an end-to-end test) puts on
+ * `window.m3ePreviewTransport` goes first, and where neither is (a run with no DOM, a document with no endpoints) an
+ * answer made from the contract's own examples stands in (an `example` or `examples` on the success response's media
+ * type, else an empty list or an empty success). The preview only ever sees a `Transport`. */
 
 import type { Transport, TransportRequest, TransportResponse } from "../api/transport";
 import { successOf } from "../api";
 import { isRecord } from "../api/schema";
 import type { Doc } from "../tokens";
+import type { MockSpec } from "../mocks/types";
 import { endpointOf, listOf } from "./contract";
 
 declare global {
@@ -30,9 +32,11 @@ function exampleAnswer(doc: Pick<Doc, "api">, req: TransportRequest): TransportR
   return { status, headers: body === undefined ? {} : { "content-type": "application/json" }, body };
 }
 
-/** The transport the editor hands its preview for a document. The mock library's `createMockTransport(doc, opts)`
- *  takes the place of the fallback here once it is in. */
-export const previewTransportFor = (doc: Pick<Doc, "api">): Transport => fallbackTransport(doc);
+/** Whether the mock library's session starts signed in, as lib/mocks/transport.ts starts it: the scenario's word, else
+ *  the mock settings' sign-in, else yes. The preview's `auth.signedIn` starts so, and a screen that needs a session
+ *  opens without the sign-in screen first. */
+export const signedInAtStart = (mocks: MockSpec | undefined, scenario: string | undefined): boolean =>
+  mocks?.scenarios?.find((s) => s.id === scenario)?.signedIn ?? mocks?.auth?.signedIn ?? true;
 
 /** The preview's transport when it is given none: the page's, else the contract's examples. */
 export function fallbackTransport(doc: Pick<Doc, "api">): Transport {
