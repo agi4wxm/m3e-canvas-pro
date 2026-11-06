@@ -46,6 +46,24 @@ export function useFrameImages(framesRef: RefObject<Frame[]>) {
     });
   };
 
+  /** One part of a screen saved as a PNG at a scale (the design panel's Export): the screen drawn as for its own picture,
+   *  cut to the part's box. False when it could not be drawn. */
+  const savePartImage = async (f: Frame, box: { x: number; y: number; w: number; h: number }, scale: number, name: string) =>
+    !!(await onLayer(f, async (el) => {
+      const canvas = await toCanvas(el, { pixelRatio: scale, cacheBust: true, width: frameSizeOf(f).w, height: frameLengthOf(f) });
+      const x = Math.max(0, box.x - f.x);
+      const y = Math.max(0, box.y - f.y);
+      const out = document.createElement("canvas");
+      out.width = Math.max(1, Math.round(box.w * scale));
+      out.height = Math.max(1, Math.round(box.h * scale));
+      out.getContext("2d")?.drawImage(canvas, x * scale, y * scale, box.w * scale, box.h * scale, 0, 0, out.width, out.height);
+      const a = document.createElement("a");
+      a.href = out.toDataURL("image/png");
+      a.download = `${name || "part"}@${scale}x.png`;
+      a.click();
+      return true;
+    }).catch(() => null));
+
   /** One file per screen, one after another: there is one export layer, and browsers drop downloads
    *  that start in the same instant. */
   const saveAllFrameImages = async () => {
@@ -67,5 +85,5 @@ export function useFrameImages(framesRef: RefObject<Frame[]>) {
       return webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.78);
     }).catch(() => null);
 
-  return { exportFrame, saveFrameImage, saveAllFrameImages, frameThumb };
+  return { exportFrame, saveFrameImage, saveAllFrameImages, savePartImage, frameThumb };
 }

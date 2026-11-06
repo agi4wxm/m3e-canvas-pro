@@ -62,7 +62,7 @@ function AlignGlyph({ c, r, color }: { c: Col; r: Row3; color: string }) {
 }
 
 /** how tall the row of tabs is; the panel keeps that much room for it above what scrolls */
-const TABS_H = 48;
+const TABS_H = 40;
 
 /** Two M3 primary tabs with the underline indicator. The panel under them is one of two, named
  *  by the tab that opens it, and the arrow keys move between the two. */
@@ -70,7 +70,7 @@ export function PartTabs({ value, onChange, p, idPrefix = "part" }: { value: Tab
   const lang = useLang();
   const tabs: { key: Tab; icon: string; label: string }[] = [
     { key: "design", icon: "palette", label: t("design", lang) },
-    { key: "behavior", icon: "bolt", label: t("trigger", lang) },
+    { key: "behavior", icon: "bolt", label: t("dzPrototype", lang) },
   ];
   const walk = (e: React.KeyboardEvent, d: 1 | -1) => {
     e.preventDefault();
@@ -109,14 +109,14 @@ export function PartTabs({ value, onChange, p, idPrefix = "part" }: { value: Tab
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 8,
-              fontSize: 14,
+              gap: 6,
+              fontSize: 13,
               fontWeight: 600,
             }}
           >
-            <Icon name={tab.icon} size={20} fill={on} />
+            <Icon name={tab.icon} size={16} fill={on} />
             {tab.label}
-            {on && <span aria-hidden style={{ position: "absolute", left: 16, right: 16, bottom: 0, height: 3, borderRadius: "3px 3px 0 0", background: p.primary }} />}
+            {on && <span aria-hidden style={{ position: "absolute", left: 20, right: 20, bottom: 0, height: 2, borderRadius: "2px 2px 0 0", background: p.primary }} />}
           </button>
         );
       })}
@@ -125,7 +125,7 @@ export function PartTabs({ value, onChange, p, idPrefix = "part" }: { value: Tab
 }
 
 /** a wide 3x3 grid of dots: one tap lines the part up on both axes, and the dot becomes a glyph for that spot */
-export function AlignBox({ onPlace, p }: { onPlace: PlaceFn; p: Palette }) {
+export function AlignBox({ onPlace, p, compact }: { onPlace: PlaceFn; p: Palette; /** the small square the design panel puts beside the position */ compact?: boolean }) {
   const lang = useLang();
   const [pick, setPick] = useState<[Col, Row3] | null>(null);
   const colTitle = [t("alignLeft", lang), t("alignCenterH", lang), t("alignRight", lang)];
@@ -135,9 +135,10 @@ export function AlignBox({ onPlace, p }: { onPlace: PlaceFn; p: Palette }) {
       role="group"
       aria-label={t("align", lang)}
       style={{
-        width: "100%",
-        height: 108,
-        borderRadius: 16,
+        width: compact ? 68 : "100%",
+        height: compact ? 68 : 108,
+        flex: compact ? "0 0 auto" : undefined,
+        borderRadius: compact ? 6 : 16,
         background: p.surfaceContainerHigh,
         display: "grid",
         gridTemplateColumns: "repeat(3, 1fr)",
@@ -163,7 +164,7 @@ export function AlignBox({ onPlace, p }: { onPlace: PlaceFn; p: Palette }) {
               className="m3-press"
               style={{
                 border: "none",
-                borderRadius: 12,
+                borderRadius: compact ? 4 : 12,
                 background: on ? p.primary : "transparent",
                 color: on ? p.onPrimary : p.outline,
                 cursor: "pointer",
@@ -173,7 +174,7 @@ export function AlignBox({ onPlace, p }: { onPlace: PlaceFn; p: Palette }) {
                 transition: "background 120ms",
               }}
             >
-              {on ? <AlignGlyph c={c} r={r} color={p.onPrimary} /> : <span aria-hidden style={{ width: 8, height: 8, borderRadius: 4, background: p.outline }} />}
+              {on && !compact ? <AlignGlyph c={c} r={r} color={p.onPrimary} /> : <span aria-hidden style={{ width: compact ? 4 : 8, height: compact ? 4 : 8, borderRadius: 4, background: on ? p.onPrimary : p.outline }} />}
             </button>
           );
         }),
@@ -626,7 +627,7 @@ export function AppearanceCorners({ item, seed, onChange, p }: { item: Item; see
 
 /** The widths a screen is built from, as one connected run. The names carry the meaning, so the
  *  cells stay plain words. */
-function WidthRun({ value, onChange, frameW, p }: { value: number | undefined; onChange: (size: number | undefined) => void; frameW: number; p: Palette }) {
+export function WidthRun({ value, onChange, frameW, p, height }: { value: number | undefined; onChange: (size: number | undefined) => void; frameW: number; p: Palette; height?: number }) {
   const lang = useLang();
   const cells: { key: string; size: number; label: string }[] = [
     { key: "half", size: halfWidth(frameW), label: t("halfWidth", lang) },
@@ -641,6 +642,7 @@ function WidthRun({ value, onChange, frameW, p }: { value: number | undefined; o
       onChange={(k) => onChange(cells.find((c) => c.key === k)?.size)}
       p={p}
       label={t("width", lang)}
+      height={height}
       tight
     />
   );

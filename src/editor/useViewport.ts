@@ -118,6 +118,14 @@ export function useViewport({ groupsRef, framesRef, widthsRef, frameRef, mobileR
     // the camera reads the document through its refs, at the moment it fits
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  /** Brings a box of the canvas into view as large as it fits (Shift+2, the selection), gliding there. */
+  const fitBox = (b: { l: number; t: number; r: number; b: number }) => {
+    const r = canvasRect();
+    if (!r || b.r <= b.l || b.b <= b.t) return;
+    const pad = 64;
+    const z = clamp(Math.min((r.width - pad * 2) / (b.r - b.l), (r.height - GLIDE_TOP - pad) / (b.b - b.t)), MIN_Z, MAX_Z);
+    glide({ x: (r.width - (b.r - b.l) * z) / 2 - b.l * z, y: GLIDE_TOP + (r.height - GLIDE_TOP - pad - (b.b - b.t) * z) / 2 - b.t * z, z });
+  };
   const fitRef = useRef(fit);
   fitRef.current = fit;
 
@@ -204,5 +212,5 @@ export function useViewport({ groupsRef, framesRef, widthsRef, frameRef, mobileR
     glide({ x: (r.width - boxW * z) / 2 - (f.x - BEZEL) * z, y: GLIDE_TOP + (r.height - GLIDE_TOP - GLIDE_PAD - boxH * z) / 2 - (f.y - BEZEL - FRAME_LABEL_H) * z, z });
   };
 
-  return { view, setView, viewRef, viewReady, setViewReady, cameraEasing, canvasRef, canvasRect, inCanvas, toWorld, setZoomAt, fit, fitRef, onTouchCapture, glide, glideToFrame };
+  return { view, setView, viewRef, viewReady, setViewReady, cameraEasing, canvasRef, canvasRect, inCanvas, toWorld, setZoomAt, fit, fitRef, fitBox, onTouchCapture, glide, glideToFrame };
 }

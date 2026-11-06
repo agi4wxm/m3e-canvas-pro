@@ -52,9 +52,11 @@ export type PartDragInputs = {
   addPart: (slug: string) => void;
   addInstance: (id: string) => void;
   addKit: (slug: string, variant?: string) => void;
+  /** what a press on a part picks, by the layers tree: the outermost layer in context, or the part itself with Ctrl/Cmd */
+  pickFor: (e: { ctrlKey: boolean; metaKey: boolean }, g: Group, index: number, item: Item) => { g: Group; index: number; item: Item; ids: string[]; wasSelected: boolean };
 };
 
-export function usePartDrag({ dragRef, gestureRef, setGesture, startPan, modeRef, spaceRef, groupsRef, framesRef, widthsRef, componentsRef, defEditRef, viewRef, instantRef, toWorld, inCanvas, inBin, snapshot, setGroups, runOp, showToast, endGuides, guideFor, overFlow, holdGap, closeGap, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab, buildKit, landKit, addPart, addInstance, addKit }: PartDragInputs) {
+export function usePartDrag({ dragRef, gestureRef, setGesture, startPan, modeRef, spaceRef, groupsRef, framesRef, widthsRef, componentsRef, defEditRef, viewRef, instantRef, toWorld, inCanvas, inBin, snapshot, setGroups, runOp, showToast, endGuides, guideFor, overFlow, holdGap, closeGap, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab, buildKit, landKit, addPart, addInstance, addKit, pickFor }: PartDragInputs) {
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const sizeRef = useCallback((it: Item) => sizeOf(it, widthsRef.current), []);
@@ -81,9 +83,9 @@ export function usePartDrag({ dragRef, gestureRef, setGesture, startPan, modeRef
   };
   const onItemPointerDown = (
     e: React.PointerEvent,
-    g: Group,
-    index: number,
-    item: Item,
+    pressedGroup: Group,
+    pressedIndex: number,
+    pressedItem: Item,
   ) => {
     if (e.button === 1 || modeRef.current === "hand" || spaceRef.current) {
       e.preventDefault();
@@ -94,10 +96,16 @@ export function usePartDrag({ dragRef, gestureRef, setGesture, startPan, modeRef
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    /* what the press picks: the outermost layer in the selection's context, or with Ctrl/Cmd the part itself; that
+       layer is what is selected and what a drag carries */
+    const { g, index, item, ids, wasSelected } = pickFor(e, pressedGroup, pressedIndex, pressedItem);
+    /* Shift adds what was picked, or takes it away when it is selected already; the same selection again changes nothing,
+       so pressing a selected part to drag it does not draw the panels again */
+    const pick = (cur: string[]) => (!e.shiftKey ? (cur.length === ids.length && ids.every((x, i) => cur[i] === x) ? cur : ids) : ids.every((x) => cur.includes(x)) ? cur.filter((x) => !ids.includes(x)) : [...cur.filter((x) => !ids.includes(x)), ...ids]);
     /* an instance moves in place, as one unit, like a hand-made group: the copy that follows a
        pointer is for parts that are nothing but their item */
     if (g.free || g.instanceOf) {
-      setSelectedIds((cur) => (e.shiftKey ? [...cur.filter((x) => !g.items.some((it) => it.id === x)), ...g.items.map((it) => it.id)] : g.items.map((it) => it.id)));
+      setSelectedIds(pick);
       setSelectedFrameId(null);
       setSelectedLinkId(null);
       setRightTab("edit");
@@ -112,7 +120,7 @@ export function usePartDrag({ dragRef, gestureRef, setGesture, startPan, modeRef
        following the pointer; an empty one is a part like any other */
     const held = g.locked ? [] : heldBy(g, groupsRef.current, widthsRef.current);
     if (held.length) {
-      setSelectedIds((cur) => (e.shiftKey ? [...cur.filter((x) => x !== item.id), item.id] : [item.id]));
+      setSelectedIds(pick);
       setSelectedFrameId(null);
       setSelectedLinkId(null);
       setRightTab("edit");
@@ -127,14 +135,12 @@ export function usePartDrag({ dragRef, gestureRef, setGesture, startPan, modeRef
     const top = g.axis === "x" ? g.y : g.y + off;
     sx.jump(left);
     sy.jump(top);
-    setSelectedIds((cur) =>
-      e.shiftKey ? [...cur.filter((x) => x !== item.id), item.id] : [item.id],
-    );
+    setSelectedIds(pick);
     setSelectedFrameId(null);
     setSelectedLinkId(null);
     setRightTab("edit");
-    /* a locked group's part stays selectable, but dragging it does nothing */
-    if (g.locked) return;
+    /* a locked group's part stays selectable, but dragging it does nothing; one taken out of the selection is not carried */
+    if (g.locked || (e.shiftKey && wasSelected)) return;
     setPressedId(item.id);
     const d: DragState = {
       item,

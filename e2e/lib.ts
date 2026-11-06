@@ -22,6 +22,7 @@ export type Locator = {
   waitFor(o?: { state?: "attached" | "detached" | "visible" | "hidden"; timeout?: number }): Promise<void>;
   getAttribute(name: string): Promise<string | null>;
   locator(s: string): Locator;
+  evaluateAll<R>(f: (els: Element[]) => R): Promise<R>;
 };
 export type Route = { fulfill(o: { status?: number; headers?: Record<string, string>; body?: string }): Promise<void>; abort(code?: string): Promise<void> };
 export type Request = { method(): string; url(): string; postData(): string | null };
@@ -215,12 +216,15 @@ export async function screenBox(page: Page, id: string): Promise<Box> {
 }
 
 /** selects a part with a click near its top left (or its bottom right, clear of a part over its top); with `add`,
- *  adds it to the selection */
+ *  adds it to the selection. Ctrl is held, the editor's deep select: the part itself, even inside a box (a plain click
+ *  picks the outermost layer it is in) */
 export async function select(page: Page, id: string, add = false, at: "start" | "end" = "start") {
   const b = await nodeBox(page, id);
   if (add) await page.keyboard.down("Shift");
+  await page.keyboard.down("Control");
   if (at === "end") await page.mouse.click(b.x + b.width - Math.min(20, b.width / 2), b.y + b.height - Math.min(8, b.height / 2));
   else await page.mouse.click(b.x + Math.min(20, b.width / 2), b.y + Math.min(14, b.height / 2));
+  await page.keyboard.up("Control");
   if (add) await page.keyboard.up("Shift");
   await settle(page, 350);
 }

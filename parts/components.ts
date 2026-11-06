@@ -4,7 +4,7 @@
  * names has arrived (`modulesOf`, `loadModules`); until then PartView holds the part's place at its size. */
 import type { ComponentType } from "react";
 import { MODULES } from "./components.generated";
-import { Contained } from "./contained";
+import { Contained, Overhang } from "./contained";
 import { EXTERNAL } from "./externals";
 import { FILE_OF } from "./files.generated";
 import { isNode, isRaw, isWrap, type PNode, type PValue } from "./node";
@@ -36,8 +36,9 @@ for (const [name, from] of Object.entries(WIDGET_SOURCES)) KEY_OF.set(name, `wid
 const NAMES_IN = new Map<string, string[]>();
 for (const [name, key] of KEY_OF) NAMES_IN.set(key, [...(NAMES_IN.get(key) ?? []), name]);
 
-/** the components that have arrived, by name. The box an open overlay is drawn in is the canvas's own, and always here */
-export const COMPONENTS: Record<string, AnyComponent> = { Contained: Contained as AnyComponent };
+/** the components that have arrived, by name. The box an open overlay is drawn in, and the closed stand that holds it
+ *  up, are the canvas's own and always here */
+export const COMPONENTS: Record<string, AnyComponent> = { Contained: Contained as AnyComponent, Overhang: Overhang as AnyComponent };
 
 const loaded = new Set<string>();
 /** modules that would not load: a part naming one draws a note in its place (PartBoundary) rather than waiting for ever */

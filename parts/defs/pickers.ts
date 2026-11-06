@@ -43,17 +43,18 @@ export const pickers: PartDef[] = [
       { key: "disabled", label: "Disabled (docked)", kind: "bool", default: false, when: (p) => p.s("variant") === "docked" },
     ],
     // the docked picker is the text field; the modal is drawn closed, as the button that opens it
-    // the real popup is a portal with its own state; the canvas draws its field and the calendar it opens
+    // the real popup is a portal with its own state; the canvas draws its field and the calendar it opens, the calendar
+    // hanging below the field so the part is laid out and measured as the field alone (the preview draws the real one)
     view: (p) =>
       h(
         "div",
-        { className: "flex w-fit flex-col gap-2" },
+        { className: "flex w-fit flex-col gap-2", style: { position: "relative" } },
         p.s("variant") === "modal"
           ? h("Button", { variant: "tonal" }, ic("calendar_today"), p.s("label") || "Pick a date")
           : h("DatePicker", { label: p.s("label") || undefined, placeholder: p.s("placeholder") || undefined, className: `w-[${Math.round(p.n("width"))}px]` }),
         h(
           "div",
-          { "data-slot": "date-picker-popup", className: "w-fit rounded-xl bg-surface-container-high p-3 shadow-elevation-3" },
+          { "data-slot": "date-picker-popup", className: "w-fit rounded-xl bg-surface-container-high p-3 shadow-elevation-3", style: { position: "absolute", left: 0, top: "calc(100% + 8px)", zIndex: 1 } },
           p.s("variant") === "modal" ? h("p", { className: "px-2 pb-2 text-label-large text-on-surface-variant" }, p.s("title")) : null,
           h("Calendar"),
         ),

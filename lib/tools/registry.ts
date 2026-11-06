@@ -97,7 +97,7 @@ export function toolGuide(tools: Tool<never>[] = CORE_REGISTRY.tools, o: { list?
     "- Words go in the author's language. Colors are theme roles: fill takes surface, surfaceContainer…, primary, primaryContainer…; textColor takes onSurface, onSurfaceVariant, primary…; a look takes kebab-case roles or hex.",
     "- A document held to its style's rules keeps only what the style allows: no corners, no button shapes, only opacity, rotate, transform, blur, blend and elevation of the look. get_style says what the rules leave you. A document not held to them takes every look field.",
     "- Taps: set_action {id, action: {to: screen id | \"back\", effects…}}; variables (add_var) drive effects, bind_prop and showWhen.",
-    has("screenshot") ? "- Check by eye: screenshot a screen after changing it, and fix what looks wrong. Open selects, menus and date pickers are drawn open on the canvas by design: leave the room they take." : "",
+    has("screenshot") ? "- Check by eye: screenshot a screen after changing it, and fix what looks wrong. Open selects, menus and date pickers hang over the parts below them on the canvas by design: leave the layout as it is." : "",
     "- Errors come back as {code, message, hint}; fix the call and try again. nothing_to_do means it already was so.",
     ...(o.list === false ? [] : ["", "Tools by group:", ...byGroup.map(([g, names]) => `- ${g}: ${names.join(", ")}`)]),
   ]

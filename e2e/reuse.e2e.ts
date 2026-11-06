@@ -86,7 +86,7 @@ export const tests: E2ETest[] = [
       await page.locator('button[title="Fit"]').first().click();
       await settle(page);
       await select(page, text.id);
-      await partTab(page, "Trigger");
+      await partTab(page, "Prototype");
       await pick(page, "Tap action", "Screen 2");
       doc = await savedDoc(page);
       equal(doc.groups.flatMap((g) => g.items).find((it) => it.id === text.id)?.action?.to, doc.frames[1].id, "the row goes to the second screen");
