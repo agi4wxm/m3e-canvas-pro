@@ -4,6 +4,7 @@ import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { fitsType, startValueOf } from "./variables";
 import { cleanMotion, cleanTrigger } from "./prototype";
+import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
 import { COLOR_TOKENS, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
@@ -153,7 +154,15 @@ function cleanVarCollection(c: unknown): VarCollection | undefined {
 
 const cleanModes = (map: unknown) => (isRecord(map) ? (Object.fromEntries(Object.entries(map).filter(([, v]) => typeof v === "string")) as Record<string, string>) : undefined);
 
-const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, look: cleanLook, fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined), row: () => undefined }) as unknown as Item;
+/** a part's constraints in a box, whichever of the two are of the right kind */
+function cleanConstraints(v: unknown) {
+  if (!isRecord(v)) return undefined;
+  const h = H_CONSTRAINTS.includes(v.h as never) ? (v.h as (typeof H_CONSTRAINTS)[number]) : undefined;
+  const vv = V_CONSTRAINTS.includes(v.v as never) ? (v.v as (typeof V_CONSTRAINTS)[number]) : undefined;
+  return h || vv ? { ...(h ? { h } : {}), ...(vv ? { v: vv } : {}) } : undefined;
+}
+
+const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, look: cleanLook, fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined), row: () => undefined, constraints: cleanConstraints }) as unknown as Item;
 
 const cleanOverrides = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => isValue(v))) : undefined);
 

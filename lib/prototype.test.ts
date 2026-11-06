@@ -43,18 +43,18 @@ describe("set_action and set_flow_start", () => {
 
   it("takes a trigger, an overlay, a part to scroll to and a motion, filling in the older transition", () => {
     const s = store();
-    s.run(ops.setAction, { id: "btn", action: { to: "b", overlay: true, trigger: { on: "delay", ms: 500 }, motion: { kind: "push", dir: "up" } } }, ai);
+    s.run(ops.setAction, { id: "btn", action: { to: "b", overlay: true, trigger: { on: "delay", ms: 500 }, motion: { kind: "push", dir: "up" } } as never }, ai);
     expect(action(s)).toEqual({ to: "b", overlay: true, trigger: { on: "delay", ms: 500 }, motion: { kind: "push", dir: "up" }, transition: "slideUp" });
-    s.run(ops.setAction, { id: "btn", action: { to: "none", scrollTo: "txt" } }, ai);
+    s.run(ops.setAction, { id: "btn", action: { to: "none", scrollTo: "txt" } as never }, ai);
     expect(action(s)).toMatchObject({ to: "none", scrollTo: "txt" });
   });
 
   it("refuses what is no trigger, no motion, an overlay of no screen, or a part that is not there", () => {
     const s = store();
-    expect(() => s.run(ops.setAction, { id: "btn", action: { to: "b", trigger: { on: "swipe" } } }, ai)).toThrow(/trigger/);
-    expect(() => s.run(ops.setAction, { id: "btn", action: { to: "b", motion: { kind: "zoom" } } }, ai)).toThrow(/motion/);
-    expect(() => s.run(ops.setAction, { id: "btn", action: { to: "back", overlay: true } }, ai)).toThrow(/overlay/);
-    expect(() => s.run(ops.setAction, { id: "btn", action: { to: "none", scrollTo: "gone" } }, ai)).toThrow(/scroll/);
+    expect(() => s.run(ops.setAction, { id: "btn", action: { to: "b", trigger: { on: "swipe" } } as never }, ai)).toThrow(/trigger/);
+    expect(() => s.run(ops.setAction, { id: "btn", action: { to: "b", motion: { kind: "zoom" } } as never }, ai)).toThrow(/motion/);
+    expect(() => s.run(ops.setAction, { id: "btn", action: { to: "back", overlay: true } as never }, ai)).toThrow(/overlay/);
+    expect(() => s.run(ops.setAction, { id: "btn", action: { to: "none", scrollTo: "gone" } as never }, ai)).toThrow(/scroll/);
   });
 
   it("starts a flow at a screen, and no longer", () => {

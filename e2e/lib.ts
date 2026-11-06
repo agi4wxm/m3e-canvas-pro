@@ -46,7 +46,7 @@ export type Page = {
   title(): Promise<string>;
   close(): Promise<void>;
   waitForURL(url: string | RegExp | ((url: URL) => boolean), o?: { timeout?: number }): Promise<void>;
-  mouse: { move(x: number, y: number, o?: { steps?: number }): Promise<void>; down(): Promise<void>; up(): Promise<void>; click(x: number, y: number): Promise<void>; dblclick(x: number, y: number): Promise<void> };
+  mouse: { move(x: number, y: number, o?: { steps?: number }): Promise<void>; down(): Promise<void>; up(): Promise<void>; click(x: number, y: number, o?: { button?: "left" | "right" | "middle" }): Promise<void>; dblclick(x: number, y: number): Promise<void> };
   keyboard: { press(key: string): Promise<void>; down(key: string): Promise<void>; up(key: string): Promise<void> };
 };
 export type Context = { newPage(): Promise<Page>; addInitScript<A>(f: (arg: A) => void, arg: A): Promise<void>; close(): Promise<void> };

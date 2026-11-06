@@ -43,6 +43,10 @@ export type Behavior = {
   setVarMode?: (collection: string, mode: string | null, screen?: string) => void;
   /** what each variable is in the modes the selected part's screen shows */
   bound?: Record<string, VarValue>;
+  /** lines the selected part up against the box it stands in, or its screen */
+  alignToParent?: (how: "left" | "centerH" | "right" | "top" | "centerV" | "bottom") => void;
+  /** the selected part stands in a box with no auto layout: constraints say what it keeps when the box changes size */
+  inFreeBox?: boolean;
 };
 
 /** whether the document is held to its style's rules: then the panels offer only what the rules leave open */

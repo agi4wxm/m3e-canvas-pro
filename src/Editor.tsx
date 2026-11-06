@@ -20,6 +20,7 @@ import {
   FrameMode,
   frameOfPart,
   frameRadius,
+  heldBy,
   frameSizeOf,
   frameLengthOf,
   Group,
@@ -47,6 +48,7 @@ import { ComponentNode } from "@/components/ComponentNode";
 import { PartView } from "@/components/PartView";
 import { BoundValues } from "@/components/boundValues";
 import { collectionsOf, varValues } from "@/lib/variables";
+import { holdsFreely } from "@/lib/constraints";
 import { SizeHandles } from "@/components/SizeHandles";
 import { LayersPanel } from "@/components/Layers";
 import { FrameSizePicker, Inspector } from "@/components/Inspector";
@@ -126,6 +128,10 @@ import { useCanvasSelect } from "./editor/useCanvasSelect";
 import { itemsUnder, pickTarget, type LayerTree } from "@/lib/layerTree";
 import { useLinks } from "./editor/useLinks";
 import { linkAction, useConnect } from "./editor/useConnect";
+import { useTextEdit } from "./editor/useTextEdit";
+import { menuEntries, useContextMenu } from "./editor/useContextMenu";
+import { ContextMenu } from "@/components/ContextMenu";
+import { TextEditor } from "@/components/TextEditor";
 import { ConnectionBox } from "@/components/Interaction";
 import { useScreenLength } from "./editor/useScreenLength";
 import { useCanvasView } from "./editor/useCanvasView";
@@ -458,7 +464,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const { buildKit, landKit, addKit, addKitRef, splitSelected, addPart, addInstance, addPartRef, addInstanceRef } = useAdding({ store, runOp, showToast, selectedIds, selectedFrameId, canvasRect, viewRef, frameRef, framesRef, groupsRef, widthsRef, mobileRef, defEditRef, componentsRef, itemRects, setRightTab, setSheet });
 
   /* a lone part's size handles, pulled or stepped (src/editor/useSizeHandles.ts) */
-  const { widthDragId, widthShift, resizeGuide, onWidthHandleDown, nudgeSize } = useSizeHandles({ snapshot, setGroups, instantRef, viewRef, widthsRef, targetsFor, endGuides, patchSelected: (patch) => patchSelected(patch) });
+  const { widthDragId, widthShift, resizeGuide, onWidthHandleDown, nudgeSize } = useSizeHandles({ snapshot, setGroups, instantRef, viewRef, widthsRef, targetsFor, endGuides, patchSelected: (patch) => patchSelected(patch), groupsRef });
 
   /* ---------- pointer: canvas (pan / marquee) ---------- */
 
@@ -479,7 +485,13 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   }, selectionNow: () => store.get().session.selection });
   /* a part carried: out of its run, or new from the palette, the Components tab or a kit (src/editor/usePartDrag.ts) */
   /* selecting on the canvas by the layers tree: in context, in and out, siblings, the hover outline (src/editor/useCanvasSelect.ts) */
-  const { pickFor, onCanvasDoubleClick, enterChildren, selectParent, selectSibling, onCanvasPointerMove, onCanvasPointerLeave, hoverBox: pickHoverBox } = useCanvasSelect({ store, layersRef, groupsRef, itemRects, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab, busy: () => !!dragRef.current || !!gestureRef.current, mobileRef });
+  const { pickFor, onCanvasDoubleClick, enterChildren, selectParent, selectSibling, onCanvasPointerMove, onCanvasPointerLeave, hoverBox: pickHoverBox } = useCanvasSelect({ store, layersRef, groupsRef, itemRects, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab, busy: () => !!dragRef.current || !!gestureRef.current, mobileRef, onEditText: (id) => startTextEditRef.current(id) });
+  /* words edited where they stand (src/editor/useTextEdit.ts) */
+  const { textEdit, startTextEdit, commitTextEdit, cancelTextEdit } = useTextEdit({ store, runOp, itemRects });
+  const startTextEditRef = useRef(startTextEdit);
+  startTextEditRef.current = startTextEdit;
+  /* the canvas's right-click menu (src/editor/useContextMenu.ts) */
+  const { menuAt, openMenu, closeMenu } = useContextMenu({ store, layersRef, setSelectedIds, setSelectedFrameId });
   const { drag, setDrag, pressedId, setPressedId, sx, sy, onItemPointerDown, onPartPointerDown, onComponentPointerDown, onKitPointerDown } = usePartDrag({
     dragRef,
     gestureRef,
@@ -516,6 +528,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     addInstance: (id) => addInstanceRef.current(id),
     addKit: (slug, variant) => addKitRef.current(slug, variant),
     pickFor,
+    selectionNow: () => store.get().session.selection,
   });
 
   const carrying = gesture !== null || !!drag;
@@ -807,6 +820,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
       },
       varCollections: collectionsOf(core.doc),
       setVarMode: variablesApi.setMode,
+      alignToParent: group && selectedIds.length === 1 ? (how) => runOp(ops.alignToParent, { id: primaryId!, how }, { history: "step", refused: () => {} }) : undefined,
+      inFreeBox: !!group && groups.some((h) => h.id !== group.id && holdsFreely(h) && heldBy(h, groups, widths).some((x) => x.id === group.id)),
       bound: screenValues.get(screen?.id ?? "") ?? screenValues.get(""),
     };
     // the panels' handlers read the store; only what they show matters here
@@ -1271,6 +1286,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
             onPointerMove={isMobile ? undefined : onCanvasPointerMove}
             onPointerLeave={onCanvasPointerLeave}
             onDoubleClick={isMobile ? undefined : onCanvasDoubleClick}
+            onContextMenu={isMobile ? undefined : openMenu}
             style={{
               position: "absolute",
               inset: isMobile ? 6 : 8,
@@ -1646,6 +1662,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
               {resizeGuide && <SmartGuides lines={resizeGuide.lines} gaps={resizeGuide.gaps} z={view.z} p={p} />}
               {measure && !guide && <SmartGuides lines={[]} gaps={measure.gaps} z={view.z} p={p} avoid={measure.avoid} />}
 
+              {textEdit && <TextEditor key={textEdit.itemId} edit={textEdit} onCommit={commitTextEdit} onCancel={cancelTextEdit} z={view.z} p={p} />}
               {hoverBox && !carrying && (
                 <div
                   aria-hidden
@@ -2169,6 +2186,41 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         />
 
         <ShortcutsSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} p={p} />
+
+        <ContextMenu
+          at={menuAt}
+          onClose={closeMenu}
+          p={p}
+          entries={
+            menuAt
+              ? menuEntries(
+                  store,
+                  layersRef.current,
+                  {
+                    copy: copySelected,
+                    paste: pasteClipboard,
+                    canPaste: !!clipboardRef.current,
+                    duplicate: duplicateSelected,
+                    remove: deleteSelected,
+                    order: (to) => runOp(ops.zOrder, { ids: selectedIds, to }, { history: "step" }),
+                    group: groupSelected,
+                    ungroup: ungroupSelected,
+                    grouped: !!selectedGroup,
+                    autoLayout: autoLayoutSelected,
+                    makeComponent: makeComponentOfSelection,
+                    goToMain: selectedInstance?.onEdit,
+                    editText: (id) => void startTextEdit(id),
+                    selectAll: () => selectAllRef.current(),
+                    select: (ids) => {
+                      setSelectedIds(ids);
+                      setSelectedFrameId(null);
+                    },
+                  },
+                  lang,
+                )
+              : []
+          }
+        />
 
         <ConfirmDialog
           open={confirmClear}

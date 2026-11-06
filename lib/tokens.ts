@@ -699,6 +699,10 @@ export type Item = {
   flowMax?: { w?: number; h?: number };
   /** in a grid, how many columns it takes */
   flowSpan?: number;
+  /** In a box with no auto layout, what it keeps when the box changes size (lib/constraints.ts): its distance to the
+   *  left or right edge, both (it stretches), its place at the centre, or its share of the box (it scales); the same
+   *  on the vertical. Left and top when left out. */
+  constraints?: { h?: "left" | "right" | "stretch" | "center" | "scale"; v?: "top" | "bottom" | "stretch" | "center" | "scale" };
   /** tap navigation to another frame */
   action?: Action;
   /** per-slot tap navigation, by the keys its `PartDef.slots` names */

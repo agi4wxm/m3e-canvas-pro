@@ -138,6 +138,7 @@ export const SYSTEMS_UI = {
   cmSelectLayer: { ja: "レイヤーを選択", en: "Select layer", zh: "选择图层" },
   cmEditText: { ja: "テキストを編集", en: "Edit text", zh: "编辑文字" },
   cmMenu: { ja: "キャンバスのメニュー", en: "Canvas menu", zh: "画布菜单" },
+  cmSelectAll: { ja: "すべて選択", en: "Select all", zh: "全选" },
   /* constraints and aligning to the parent */
   csConstraints: { ja: "制約", en: "Constraints", zh: "约束" },
   csHorizontal: { ja: "水平方向の制約", en: "Horizontal constraint", zh: "水平约束" },
@@ -152,6 +153,9 @@ export const SYSTEMS_UI = {
   csScale: { ja: "拡大縮小", en: "Scale", zh: "缩放" },
   csAlignParent: { ja: "親に揃える", en: "Align to parent", zh: "与父级对齐" },
   txEditHint: { ja: "Enter で確定、Esc で取り消し", en: "Enter to finish, Esc to cancel", zh: "Enter 确定，Esc 取消" },
+  kbRightClick: { ja: "右クリック", en: "Right-click", zh: "右键单击" },
+  kbContextMenu: { ja: "選んだものへの操作メニュー", en: "Menu of what can be done here", zh: "对所选内容的操作菜单" },
+  kbEditText: { ja: "テキストをその場で編集（それ以上中に入れないとき）", en: "Edit words in place (when nothing is further in)", zh: "原地编辑文字（没有更里层时）" },
 } as const satisfies Record<string, Str>;
 
 export const SYSTEMS_KO: Record<keyof typeof SYSTEMS_UI, string> = {
@@ -275,6 +279,7 @@ export const SYSTEMS_KO: Record<keyof typeof SYSTEMS_UI, string> = {
   cmSelectLayer: "레이어 선택",
   cmEditText: "텍스트 편집",
   cmMenu: "캔버스 메뉴",
+  cmSelectAll: "모두 선택",
   csConstraints: "제약",
   csHorizontal: "가로 제약",
   csVertical: "세로 제약",
@@ -288,4 +293,7 @@ export const SYSTEMS_KO: Record<keyof typeof SYSTEMS_UI, string> = {
   csScale: "크기 조절",
   csAlignParent: "부모에 맞춤",
   txEditHint: "Enter로 확정, Esc로 취소",
+  kbRightClick: "오른쪽 클릭",
+  kbContextMenu: "선택한 것에 대한 작업 메뉴",
+  kbEditText: "텍스트를 그 자리에서 편집(더 안쪽이 없을 때)",
 };

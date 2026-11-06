@@ -54,9 +54,11 @@ export type PartDragInputs = {
   addKit: (slug: string, variant?: string) => void;
   /** what a press on a part picks, by the layers tree: the outermost layer in context, or the part itself with Ctrl/Cmd */
   pickFor: (e: { ctrlKey: boolean; metaKey: boolean }, g: Group, index: number, item: Item) => { g: Group; index: number; item: Item; ids: string[]; wasSelected: boolean };
+  /** what is selected right now, read at the moment of a press */
+  selectionNow?: () => string[];
 };
 
-export function usePartDrag({ dragRef, gestureRef, setGesture, startPan, modeRef, spaceRef, groupsRef, framesRef, widthsRef, componentsRef, defEditRef, viewRef, instantRef, toWorld, inCanvas, inBin, snapshot, setGroups, runOp, showToast, endGuides, guideFor, overFlow, holdGap, closeGap, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab, buildKit, landKit, addPart, addInstance, addKit, pickFor }: PartDragInputs) {
+export function usePartDrag({ dragRef, gestureRef, setGesture, startPan, modeRef, spaceRef, groupsRef, framesRef, widthsRef, componentsRef, defEditRef, viewRef, instantRef, toWorld, inCanvas, inBin, snapshot, setGroups, runOp, showToast, endGuides, guideFor, overFlow, holdGap, closeGap, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab, buildKit, landKit, addPart, addInstance, addKit, pickFor, selectionNow }: PartDragInputs) {
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const sizeRef = useCallback((it: Item) => sizeOf(it, widthsRef.current), []);
@@ -102,6 +104,24 @@ export function usePartDrag({ dragRef, gestureRef, setGesture, startPan, modeRef
     /* Shift adds what was picked, or takes it away when it is selected already; the same selection again changes nothing,
        so pressing a selected part to drag it does not draw the panels again */
     const pick = (cur: string[]) => (!e.shiftKey ? (cur.length === ids.length && ids.every((x, i) => cur[i] === x) ? cur : ids) : ids.every((x) => cur.includes(x)) ? cur.filter((x) => !ids.includes(x)) : [...cur.filter((x) => !ids.includes(x)), ...ids]);
+    /* A press on a part of a selection of several carries all of them, as in Figma: the part pressed leads and the rest,
+       with what they hold, keep their distance to it. Parts a layout places stay to it unless their layout comes too. */
+    const sel = selectionNow?.() ?? [];
+    if (!e.shiftKey && wasSelected && sel.length > ids.length && !g.locked) {
+      const chosen = new Set(sel);
+      const all = groupsRef.current;
+      const units = all.filter((x) => x.items.some((it) => chosen.has(it.id)) && !x.locked);
+      const loose = (x: Group) => !x.inFlow || units.some((u) => u.id === x.inFlow) || (x.items.length === 1 && !!x.items[0].flowAbsolute);
+      if (units.some((u) => u.id === g.id) && units.every(loose)) {
+        const carried = new Map<string, Group>();
+        for (const u of units) for (const x of [u, ...heldBy(u, all, widthsRef.current)]) if (x.id !== g.id) carried.set(x.id, x);
+        for (const x of heldBy(g, all, widthsRef.current)) carried.set(x.id, x);
+        const gg: Gesture = { kind: "group", id: g.id, sx: e.clientX, sy: e.clientY, gx: g.x, gy: g.y, moved: false, overBin: false, carry: [...carried.values()].map((x) => ({ id: x.id, x: x.x, y: x.y })) };
+        gestureRef.current = gg;
+        setGesture(gg);
+        return;
+      }
+    }
     /* an instance moves in place, as one unit, like a hand-made group: the copy that follows a
        pointer is for parts that are nothing but their item */
     if (g.free || g.instanceOf) {

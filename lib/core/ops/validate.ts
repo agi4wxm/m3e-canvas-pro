@@ -11,6 +11,7 @@ import { styleOwnsProp } from "../../styleRules";
 import { isStrict } from "../../styles";
 import { actionSlotsOf, BACK_TARGET, COLOR_TOKENS, MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, transitionOf, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
 import { cleanMotion, cleanTrigger } from "../../prototype";
+import { H_CONSTRAINTS, V_CONSTRAINTS } from "../../constraints";
 import { OpError } from "../op";
 import type { CoreState } from "../state";
 
@@ -110,6 +111,7 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
   flowMin: (v) => (v === undefined || isWH(v, (x) => typeof x === "number" && Number.isFinite(x) && x >= 0) ? null : "should be {w?, h?} in dp"),
   flowMax: (v) => (v === undefined || isWH(v, (x) => typeof x === "number" && Number.isFinite(x) && x >= 0) ? null : "should be {w?, h?} in dp"),
   flowSpan: (v) => (v === undefined || (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 12) ? null : "should be a whole number of columns from 1 to 12"),
+  constraints: (v) => (v === undefined || (isRecord(v) && Object.keys(v).every((k) => k === "h" || k === "v") && (v.h === undefined || H_CONSTRAINTS.includes(v.h as never)) && (v.v === undefined || V_CONSTRAINTS.includes(v.v as never))) ? null : `should be {h?: ${H_CONSTRAINTS.join("|")}, v?: ${V_CONSTRAINTS.join("|")}}`),
   action: (v, s) => (v === undefined ? null : actionError(v, s)),
   actions: (v, s, it) => {
     if (v === undefined) return null;

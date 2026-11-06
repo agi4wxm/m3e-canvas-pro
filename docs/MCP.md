@@ -179,7 +179,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 105 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
+共 106 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -250,6 +250,7 @@ npx playwright install chromium
 | `tidy_screen` | 搭建 |  |  | Tidies a screen: bars pinned, the body read as rows, columns and grids, spaced on the style's spacing scale. |
 | `tidy_up` | 搭建 |  |  | Arranges the given parts as an even row, column or grid read off where they stand, one gap each way; the top left stays. |
 | `align` | 搭建 |  |  | Lines the given parts up against each other: left, centerH, right, top, centerV or bottom. |
+| `align_to_parent` | 搭建 |  |  | Lines one part up against what it stands in: the box with no auto layout that holds it, else its screen (left, centerH, right, top, centerV, bottom). |
 | `distribute` | 搭建 |  |  | Spreads the given parts out evenly along x or y; with gap, exactly that space between them. |
 | `wrap_in_auto_layout` | 搭建 |  |  | Puts the given parts into nested auto layout boxes that keep them where they stand (rows, columns, grids read off their places); one container takes a layout itself. |
 | `auto_layout_screen` | 搭建 |  |  | Turns a screen's body into nested auto layouts; bars, FABs, dialogs, rails, its picture and locked parts keep their places. |

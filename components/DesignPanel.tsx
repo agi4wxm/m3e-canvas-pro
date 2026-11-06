@@ -273,6 +273,8 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
           </div>
         </div>
         {onPlace && !inFlow && strict && <div style={{ fontSize: 11, lineHeight: 1.5, color: p.onSurfaceVariant, padding: "0 2px" }}>{t("styleDecidesPlace", lang)}</div>}
+        {(!inFlow || loose) && behavior.alignToParent && !locked && <AlignToParent onAlign={behavior.alignToParent} p={p} />}
+        {behavior.inFreeBox && (!inFlow || loose) && <Constraints item={item} onChange={onChange} p={p} />}
         {inFlow && <Toggle on={loose} onChange={(on) => onChange({ flowAbsolute: on || undefined })} label={t("flowAbsolute", lang)} p={p} grow />}
         {!inFlow && def.props.some((d) => d.screen) && <ComponentProps item={item} palette={p} onChange={onChange} frame={frame} layoutApart only={(d) => !!d.screen} />}
       </DesignSection>
@@ -401,6 +403,62 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
           )}
         </DesignSection>
       )}
+    </div>
+  );
+}
+
+/** Figma's six align buttons for one layer: against the box it stands in, or its screen */
+function AlignToParent({ onAlign, p }: { onAlign: NonNullable<React.ContextType<typeof BehaviorContext>["alignToParent"]>; p: Palette }) {
+  const lang = useLang();
+  const cells = [
+    { how: "left", icon: "align_horizontal_left", title: "lineLeft" },
+    { how: "centerH", icon: "align_horizontal_center", title: "lineCenterH" },
+    { how: "right", icon: "align_horizontal_right", title: "lineRight" },
+    { how: "top", icon: "align_vertical_top", title: "lineTop" },
+    { how: "centerV", icon: "align_vertical_center", title: "lineCenterV" },
+    { how: "bottom", icon: "align_vertical_bottom", title: "lineBottom" },
+  ] as const;
+  return (
+    <div data-align-parent role="group" aria-label={t("csAlignParent", lang)} title={t("csAlignParent", lang)} style={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+      {cells.map((c) => (
+        <FieldToggle key={c.how} icon={c.icon} name={`align-${c.how}`} title={`${t("csAlignParent", lang)}: ${t(c.title, lang)}`} p={p} onClick={() => onAlign(c.how)} />
+      ))}
+    </div>
+  );
+}
+
+const H_RULES = [
+  { key: "left", text: "csLeft" },
+  { key: "right", text: "csRight" },
+  { key: "stretch", text: "csLeftRight" },
+  { key: "center", text: "csCenter" },
+  { key: "scale", text: "csScale" },
+] as const;
+const V_RULES = [
+  { key: "top", text: "csTop" },
+  { key: "bottom", text: "csBottom" },
+  { key: "stretch", text: "csTopBottom" },
+  { key: "center", text: "csCenter" },
+  { key: "scale", text: "csScale" },
+] as const;
+
+/** what a part in a box with no auto layout keeps when the box changes size, on each axis */
+function Constraints({ item, onChange, p }: { item: Item; onChange: (patch: Partial<Item>) => void; p: Palette }) {
+  const lang = useLang();
+  const c = item.constraints ?? {};
+  const put = (patch: NonNullable<Item["constraints"]>) => {
+    const next = { ...c, ...patch };
+    if (next.h === "left") delete next.h;
+    if (next.v === "top") delete next.v;
+    onChange({ constraints: next.h || next.v ? next : undefined });
+  };
+  return (
+    <div data-constraints style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: p.onSurfaceVariant, padding: "2px 2px 0" }}>{t("csConstraints", lang)}</div>
+      <div style={grid2}>
+        <Select height={28} label={t("csHorizontal", lang)} p={p} value={c.h ?? "left"} options={H_RULES.map((r) => ({ key: r.key, label: t(r.text, lang) }))} onChange={(k) => put({ h: k as (typeof H_RULES)[number]["key"] })} />
+        <Select height={28} label={t("csVertical", lang)} p={p} value={c.v ?? "top"} options={V_RULES.map((r) => ({ key: r.key, label: t(r.text, lang) }))} onChange={(k) => put({ v: k as (typeof V_RULES)[number]["key"] })} />
+      </div>
     </div>
   );
 }

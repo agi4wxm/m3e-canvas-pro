@@ -73,6 +73,7 @@ export const OPS: Op<never, unknown>[] = [
   layout.tidyScreen,
   layout.tidyUp,
   layout.align,
+  layout.alignToParent,
   layout.distribute,
   layout.autoLayout,
   layout.autoLayoutScreen,

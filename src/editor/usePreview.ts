@@ -39,7 +39,8 @@ export function usePreview({ frame, selectedFrameId, framesRef, viewRef, canvasR
       changeFrame("phone");
     }
     queueMicrotask(() => {
-      const id = startId ?? selectedFrameId ?? framesRef.current[0]?.id ?? null;
+      /* with no screen chosen, the preview starts where the first flow of the prototype does */
+      const id = startId ?? selectedFrameId ?? framesRef.current.find((x) => typeof x.flow === "string")?.id ?? framesRef.current[0]?.id ?? null;
       const f = framesRef.current.find((x) => x.id === id);
       const r = canvasRect();
       if (f && r) {

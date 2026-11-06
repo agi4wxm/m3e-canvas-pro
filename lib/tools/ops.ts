@@ -23,7 +23,7 @@ const MORE: Record<string, string> = {
     "Compose with nested boxes the way Figma's auto layout does: a box's props set surface, layout (row, column, grid), gap, padding, align, justify and its size; children are laid out in order. Give ids to the nodes later calls name. Text hugs its words in a row and wraps at the column's width in a column with align stretch. To keep it as a reusable component, follow it with make_component {ids: [root id]}. Returns {itemId: the root, groupId, parts}.",
   add_kit: "Prefer a kit over composing the same by hand. Returns {itemId, groupId}; the kit's root box is itemId.",
   add_screen: "Returns {id}.",
-  set_item: "To change words, icons and other props use set_props; set_item is for fill, textColor, corners, look, note, taps and the auto layout fields.",
+  set_item: "To change words, icons and other props use set_props; set_item is for fill, textColor, corners, look, note, taps, constraints ({h, v}: what a part in a box with no auto layout keeps when the box changes size) and the auto layout fields.",
   set_props: "describe_part (or describe_node) lists a part's props and the values they take.",
   set_layout: "Only a container (a box, or a part that holds parts) has a layout.",
   apply_style: "On a document held to its rules, what the style decides (corners, a button's shape, most looks) is removed from every part.",

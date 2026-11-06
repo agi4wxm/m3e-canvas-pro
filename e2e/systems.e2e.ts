@@ -2,7 +2,7 @@
  * them, a fill bound to a color variable whose mode is switched, a prototype connection drawn on the canvas and
  * followed in the preview, a text edited in place, and the canvas's context menu. */
 
-import { center, check, clickAdd, drag, equal, groupOf, leftTab, partTab, pick, savedDoc, screenBox, select, selectScreen, settle, undo, type E2ETest } from "./lib";
+import { center, check, clickAdd, drag, equal, groupOf, leftTab, nodeBox, partTab, pick, savedDoc, screenBox, select, selectScreen, settle, undo, type E2ETest } from "./lib";
 
 export const tests: E2ETest[] = [
   {
@@ -134,5 +134,53 @@ tests.push({
     equal(await page.locator("[data-preview-active]").first().getAttribute("data-preview-screen"), second.id, "the preview went to the second screen");
     await page.keyboard.press("Escape");
     await settle(page, 1000);
+  },
+});
+
+tests.push({
+  name: "inline text: a text part's words edited where they stand, by a double-click",
+  async run({ page }) {
+    await clickAdd(page, "Text");
+    let doc = await savedDoc(page);
+    const text = doc.groups.flatMap((g) => g.items).find((it) => it.component === "text")!;
+    const b = await nodeBox(page, text.id);
+    await page.mouse.dblclick(b.x + b.width / 2, b.y + b.height / 2);
+    await settle(page, 400);
+    const field = page.locator(`[data-text-editor="${text.id}"]`).first();
+    check(await field.isVisible(), "the field over the words");
+    await field.fill("Written in place");
+    await field.press("Enter");
+    await settle(page);
+    doc = await savedDoc(page);
+    equal(doc.groups.flatMap((g) => g.items).find((it) => it.id === text.id)?.props?.text, "Written in place", "the words changed");
+    check(!(await page.locator("[data-text-editor]").count()), "the field is gone");
+    /* Escape lets the words go */
+    await page.mouse.dblclick(b.x + 10, b.y + b.height / 2);
+    await settle(page, 400);
+    await page.locator(`[data-text-editor="${text.id}"]`).first().fill("Not kept");
+    await page.keyboard.press("Escape");
+    await settle(page);
+    equal((await savedDoc(page)).groups.flatMap((g) => g.items).find((it) => it.id === text.id)?.props?.text, "Written in place", "Escape keeps the words as they were");
+    await undo(page);
+    check((await savedDoc(page)).groups.flatMap((g) => g.items).find((it) => it.id === text.id)?.props?.text !== "Written in place", "one undo takes the edit back");
+  },
+});
+
+tests.push({
+  name: "context menu: a right-click on a part, Duplicate",
+  async run({ page }) {
+    let doc = await savedDoc(page);
+    const before = doc.groups.length;
+    const b = await nodeBox(page, "seed3");
+    await page.keyboard.down("Control");
+    await page.mouse.click(b.x + 20, b.y + 14, { button: "right" });
+    await page.keyboard.up("Control");
+    await settle(page, 400);
+    check(await page.locator('[data-context-menu="0"]').first().isVisible(), "the menu at the pointer");
+    await page.locator('[data-menu-item="duplicate"]').first().click();
+    await settle(page);
+    doc = await savedDoc(page);
+    equal(doc.groups.length, before + 1, "one more part on the canvas");
+    check(!(await page.locator("[data-context-menu]").count()), "the menu closed");
   },
 });

@@ -108,6 +108,7 @@ const L: Record<string, Four> = {
   remove_var_collection: ["Remove a variable collection", "删除变量集合", "変数コレクションを削除", "변수 컬렉션 삭제"],
   set_var_mode: ["Choose a variable mode", "切换变量模式", "変数モードを選ぶ", "변수 모드 선택"],
   set_flow_start: ["Start a flow", "设置流程起点", "フローの開始点を設定", "플로 시작점 설정"],
+  align_to_parent: ["Align to the parent", "与父级对齐", "親に揃える", "부모에 맞춤"],
   reorder_panes: ["Reorder tabs", "调整标签页顺序", "タブの順序を変更", "탭 순서 변경"],
   generate_svg: ["Draw an SVG", "绘制 SVG", "SVG を描く", "SVG 그리기"],
   generate_image: ["Paint a picture", "生成图片", "画像を描く", "이미지 그리기"],

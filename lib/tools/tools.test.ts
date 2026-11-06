@@ -105,6 +105,7 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["set_item", { id: "b2", patch: { note: "Does the second thing", fill: "primaryContainer" } }],
     ["set_group", { id: "b2", patch: { name: "Second" } }],
     ["align", { ids: ["b2", "b3"], how: "top" }],
+    ["align_to_parent", { id: "b2", how: "centerH" }],
     ["distribute", { ids: ["b2", "b3"], axis: "x", gap: 24 }],
     ["tidy_up", { ids: ["b2", "b3"] }],
     ["nudge", { ids: ["b2"], dx: 4, dy: 0 }],
