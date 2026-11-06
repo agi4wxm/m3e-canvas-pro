@@ -25,3 +25,4 @@ Thumbs.db
 
 # the MCP server bundle and its copy of the app build
 /mcp/dist
+/mcp/.live

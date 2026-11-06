@@ -2,6 +2,8 @@
  * "Connect to MCP" and approving the code the server gave, a tool call changing the canvas live, a screenshot drawn by
  * the tab, one undo taking the call back, and a destructive call the author declines. */
 
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -11,8 +13,8 @@ import { check, equal, itemsOf, savedDoc, settle, undo, type E2ETest, type Page 
 
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
-async function startServer(base: string) {
-  const transport = new StdioClientTransport({ command: process.execPath, args: [join(root, "mcp", "src", "cli.ts"), "--origin", base, "--quiet", "--confirm-timeout", "20"], cwd: root, stderr: "pipe", env: { ...process.env, OPENAI_API_KEY: "" } as Record<string, string> });
+async function startServer(base: string, more: string[] = []) {
+  const transport = new StdioClientTransport({ command: process.execPath, args: [join(root, "mcp", "src", "cli.ts"), "--origin", base, "--quiet", "--confirm-timeout", "20", ...more], cwd: root, stderr: "pipe", env: { ...process.env, OPENAI_API_KEY: "" } as Record<string, string> });
   const client = new Client({ name: "e2e-client", version: "1.0.0" });
   await client.connect(transport);
   const call = async (name: string, args: Record<string, unknown> = {}) => (await client.callTool({ name, arguments: args })) as CallToolResult;
@@ -93,6 +95,42 @@ export const tests: E2ETest[] = [
         if (!(await page.locator("[data-mcp-panel]").count())) await page.locator('[data-mcp-button] button[aria-label="Connect to MCP"]').click();
         await settle(page, 300);
         check((await page.locator('[data-mcp-log="apply_ops"]').count()) > 0, "the batch is in the activity log");
+      } finally {
+        await client.close();
+      }
+    },
+  },
+  {
+    name: "an MCP client works on a project file headless, its screenshots drawn by the render page",
+    async run({ base }) {
+      const file = join(mkdtempSync(join(tmpdir(), "m3e-mcp-e2e-")), "m3e-canvas Shop.json");
+      /* the app build the runner made, or the editor it is pointed at */
+      const app = existsSync(join(root, "dist", "index.html")) ? join(root, "dist") : base;
+      const { client, call } = await startServer(base, ["--file", file, "--app", app, "--lang", "en"]);
+      try {
+        const built = await call("apply_ops", {
+          ops: [
+            { op: "set_title", args: { title: "Shop" } },
+            { op: "add_screen", args: { id: "home", name: "Home" } },
+            { op: "add_kit", args: { slug: "search-bar", screen: "home" } },
+            { op: "add_part", args: { slug: "box", id: "card", screen: "home", at: { x: 16, y: 96 }, props: { surface: "card", padX: 16, padY: 16 } } },
+            { op: "add_part", args: { slug: "text", id: "title", into: { container: "card" }, props: { text: "Fresh fruit", style: "title" } } },
+            { op: "add_part", args: { slug: "button", id: "buy", into: { container: "card" }, props: { label: "Buy now" } } },
+          ],
+        });
+        check(!built.isError, `the batch ran: ${text(built)}`);
+        const saved = JSON.parse(readFileSync(file, "utf8")) as { format: string; document: { frames: { id: string }[]; groups: { items: { id: string }[] }[] } };
+        equal(saved.format, "m3e-project", "the file is a project");
+        check(saved.document.groups.some((g) => g.items.some((it) => it.id === "buy")), "the button is in the file");
+
+        const shot = await call("screenshot", { id: "home" });
+        const img = shot.content.find((c) => c.type === "image") as { data: string } | undefined;
+        check(img, `a picture came back: ${text(shot).slice(0, 300)}`);
+        equal(pngSize(img.data), { w: 412, h: 892 }, "the screen at 1:1");
+        check(Buffer.from(img.data, "base64").length > 4000, "the picture has something drawn in it");
+        const part = await call("screenshot", { id: "card", scale: 2 });
+        const pimg = part.content.find((c) => c.type === "image") as { data: string } | undefined;
+        check(pimg && pngSize(pimg.data).w > 300, `the part cut out at twice the size: ${text(part).slice(0, 200)}`);
       } finally {
         await client.close();
       }

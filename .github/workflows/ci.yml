@@ -36,6 +36,11 @@ jobs:
         run: bun run test
       - name: Build
         run: bun run build
+      # the MCP server (mcp/): one Node bundle with the app build beside it, and it must start under plain Node
+      - name: MCP server
+        run: |
+          bun run mcp:build
+          node mcp/dist/m3e-canvas-mcp.js --help
 
   # The editor itself in headless Chromium (e2e/*.e2e.ts): built, served with `vp preview`, driven by its own controls.
   # Playwright is not a dependency of the project; it is installed here, with its Chromium, and found through npm's root.

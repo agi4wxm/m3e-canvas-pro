@@ -31,7 +31,8 @@
     "check:versions": "bun scripts/gen-versions.ts --check",
     "check:export": "bun scripts/check-export.ts",
     "mcp:build": "bun mcp/build.ts",
-    "mcp:dev": "bun mcp/src/cli.ts"
+    "mcp:dev": "bun mcp/src/cli.ts",
+    "mcp:docs": "bun mcp/docs.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
