@@ -1,8 +1,10 @@
 import { partBySlug, reader } from "../parts/registry";
 import { arrangeFlows, outOfPane } from "./flow";
 import { type Row, fillCurrent, firstRows, rowVars } from "./collections";
-import type { Action, ActionBody, Collection, Condition, Doc, DocVar, Effect, Group, Item, VarValue } from "./tokens";
+import type { Action, ActionBody, Collection, Condition, Doc, DocVar, Effect, Frame, Group, Item, VarValue } from "./tokens";
+import { varValues } from "./variables";
 import { heldBy } from "./tokens";
+import { isColorRef } from "./look";
 
 export { retarget } from "./tokens";
 
@@ -28,7 +30,23 @@ export type PreviewState = {
   /** The row the last tap on a repeated part came from: what `{{current.field}}` reads. Until a row
    *  has been tapped, the first row of the data, so a detail screen opened directly is not blank. */
   current?: Row;
+  /** the variables a tap or an input has written: they keep that value on every screen, whatever mode it shows */
+  set?: Record<string, true>;
 };
+
+/** the state with a variable written, and marked as written */
+const wrote = (s: PreviewState, id: string, value: VarValue): PreviewState => ({ ...s, vars: { ...s.vars, [id]: value }, set: { ...s.set, [id]: true } });
+
+/** The state as one screen reads it: the variables nothing has written yet take their value in the modes that screen
+ *  shows (lib/variables.ts), the rest keep what was written. The dark-mode variable is the preview's own switch. */
+export function screenVars(s: PreviewState, doc: Pick<Doc, "vars" | "varCollections" | "varModes">, frame: Frame | undefined, dark: boolean): PreviewState {
+  const vars = Array.isArray(doc.vars) ? doc.vars : [];
+  if (!vars.length) return s;
+  const modes = varValues(doc, frame, dark);
+  const out = { ...s.vars };
+  for (const v of vars) if (!s.set?.[v.id] && v.drives !== "dark") out[v.id] = modes[v.id];
+  return { ...s, vars: out };
+}
 
 /** the prop of an input the visitor changes by using it */
 export const INPUT_PROP: Record<string, string> = {
@@ -90,6 +108,7 @@ const asBool = (v: VarValue) => (typeof v === "string" ? v !== "" && v !== "fals
 /** a value put into a variable keeps to the variable's type; null when it cannot */
 export function coerce(v: VarValue, type: DocVar["type"]): VarValue | null {
   if (type === "text") return String(v);
+  if (type === "color") return isColorRef(v) ? v : null;
   if (type === "bool") return asBool(v);
   return asNumber(v);
 }
@@ -190,12 +209,12 @@ function applyEffect(s: PreviewState, e: Effect, doc: Scope): PreviewState {
     case "setVar": {
       const type = doc.vars?.find((v) => v.id === e.var)?.type;
       const value = type && coerce(e.value, type);
-      return value === undefined || value === null ? s : { ...s, vars: { ...s.vars, [e.var]: value } };
+      return value === undefined || value === null ? s : wrote(s, e.var, value);
     }
     case "toggleVar": {
       const v = doc.vars?.find((x) => x.id === e.var);
       if (!v) return s;
-      return { ...s, vars: { ...s.vars, [e.var]: v.type === "bool" ? !asBool(s.vars[e.var] ?? v.value) : s.vars[e.var] ?? v.value } };
+      return wrote(s, e.var, v.type === "bool" ? !asBool(s.vars[e.var] ?? v.value) : (s.vars[e.var] ?? v.value));
     }
     case "addVar": {
       const v = doc.vars?.find((x) => x.id === e.var);
@@ -203,7 +222,7 @@ function applyEffect(s: PreviewState, e: Effect, doc: Scope): PreviewState {
       const now = asNumber(s.vars[e.var] ?? v.value) ?? 0;
       /* tenths added together should not read 0.30000000000000004 */
       const next = Math.round((now + e.by) * 1e6) / 1e6;
-      return { ...s, vars: { ...s.vars, [e.var]: coerce(next, v.type) ?? next } };
+      return wrote(s, e.var, coerce(next, v.type) ?? next);
     }
     case "setProp":
       if (!itemOf(doc.groups, e.part)) return s;
@@ -235,7 +254,7 @@ export function writeField(s: PreviewState, it: Item, value: VarValue, doc: Scop
   const next = type ? coerce(words ?? value, type) : null;
   const sameVar = !id || !type || next === null || s.vars[id] === next;
   if (s.fields[it.id] === value && sameVar) return s;
-  return { ...s, fields: { ...s.fields, [it.id]: value }, vars: sameVar ? s.vars : { ...s.vars, [id!]: next! } };
+  return sameVar ? { ...s, fields: { ...s.fields, [it.id]: value } } : { ...wrote(s, id!, next!), fields: { ...s.fields, [it.id]: value } };
 }
 
 /** what the state leaves off the screen: hidden, or its condition not met, or on another tab, with what those hold */

@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { Reorder, useDragControls } from "motion/react";
 import {
   Action,
@@ -30,7 +30,8 @@ import { segmentedFits } from "@/lib/choices";
 import { Field, IconBtn, ImageRow, RUN_CELL, Section, Segmented, Select, SelectOption, Slider, Toggle, useDismiss } from "./ui";
 import { AiHooks } from "./Inspector";
 import { LinkStage, TapStage } from "./TapStage";
-import { ActionExtras, tidiedAction } from "./EffectsPanel";
+import { ActionExtras, BehaviorContext, tidiedAction } from "./EffectsPanel";
+import { InteractionFields, SCROLL_TO } from "./Interaction";
 import { partBySlug } from "@/parts/registry";
 import { COLOR_TOKEN_TEXT, TEXT_TOKEN_TEXT, t, useLang } from "@/lib/i18n";
 import type { AlignHow } from "@/lib/align";
@@ -355,6 +356,7 @@ function actionOptionsOf(item: Item, frame: Frame | null, frames: Frame[], lang:
     ...(partBySlug(item.component)?.props.some((d) => d.key === "toggle") ? [{ key: "toggle", label: t("toggleTitle", lang), icon: "swap_horiz" }] : []),
     { key: BACK_TARGET, label: t("back", lang), icon: "arrow_back" },
     { key: LINK_TARGET, label: t("openLink", lang), icon: "open_in_new" },
+    { key: SCROLL_TO, label: t("prScrollTo", lang), icon: "swap_vert" },
     ...[...frames]
       .sort((a, b) => a.x - b.x || a.y - b.y)
       .filter((f) => f.id !== frame?.id)
@@ -424,9 +426,18 @@ export function TriggerSection({
     onChange({ actions: Object.keys(actions).length ? actions : undefined });
   };
   const isLink = action?.to === LINK_TARGET;
+  const behavior = useContext(BehaviorContext);
+  const scrolls = action?.to === STAY_TARGET && action.scrollTo !== undefined;
   /* where a tap goes is one choice among what it does: changing it leaves its effects and condition be */
   const pick = (k: string) => {
-    const stays = action ? tidiedAction({ ...action, to: STAY_TARGET, transition: "none" }) : undefined;
+    const { scrollTo: _scroll, overlay: _overlay, ...was } = action ?? { to: STAY_TARGET, transition: "none" as const };
+    const stays = action ? tidiedAction({ ...was, to: STAY_TARGET, transition: "none" }) : undefined;
+    if (k === SCROLL_TO) {
+      /* the first part of the screen that is not this one is where it scrolls to first */
+      const first = behavior.groups.flatMap((g) => g.items).find((it) => it.id !== item.id) ?? item;
+      set({ ...was, to: STAY_TARGET, transition: "none", scrollTo: first.id });
+      return;
+    }
     if (toggleable && k === "toggle") {
       onChange({ props: { ...item.props, toggle: true }, action: stays });
       return;
@@ -434,7 +445,7 @@ export function TriggerSection({
     /* choosing a destination leaves a flip part's toggle off */
     if (toggleable && item.props?.toggle) onChange({ props: { ...item.props, toggle: false } });
     if (k === LINK_TARGET) {
-      set({ ...action, to: LINK_TARGET, transition: "none", url: action?.url });
+      set({ ...was, to: LINK_TARGET, transition: "none", url: action?.url });
       return;
     }
     if (k === "none") {
@@ -442,19 +453,20 @@ export function TriggerSection({
       return;
     }
     const transition = action && action.to !== LINK_TARGET && action.to !== STAY_TARGET ? action.transition : "slide";
-    set({ ...action, to: k, transition });
+    set({ ...was, ...(action?.overlay && k !== BACK_TARGET ? { overlay: true } : {}), to: k, transition });
   };
   const options = actionOptionsOf(item, frame, allFrames, lang);
   return (
     <Section id="part-action" icon="ads_click" title={t("tapTo", lang)} p={p}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {head}
-        <Select options={options} value={toggles ? "toggle" : (action?.to ?? "none")} onChange={pick} p={p} label={t("tapTo", lang)} />
+        <Select options={options} value={toggles ? "toggle" : scrolls ? SCROLL_TO : (action?.to ?? "none")} onChange={pick} p={p} label={t("tapTo", lang)} />
         {isLink ? (
           <LinkStage self={frame} selfRect={selfRect} action={action} onChange={set} p={p} />
-        ) : (
+        ) : scrolls ? null : (
           <TapStage frames={allFrames} self={frame} selfRect={selfRect} action={action} onChange={set} p={p} />
         )}
+        <InteractionFields action={action} onChange={set} frames={allFrames} p={p} />
         <ActionExtras action={action} onChange={set} navOptions={options.filter((o) => o.key !== "toggle")} p={p} />
       </div>
     </Section>

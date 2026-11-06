@@ -11,7 +11,9 @@ import { suggestAutoLayout, wrapInFlow } from "../../flow";
 import { kitLookOf, splitIntoAtoms } from "../../kits";
 import { layoutForStyle, metricsOf } from "../../styleLayout";
 import { bodyRect, holdsEdgeBar, isScreenLayout, tidyFrame } from "../../tidy";
-import { frameOfGroup, groupBounds, type Group } from "../../tokens";
+import { frameOfGroup, frameOfPart, frameRect, groupBounds, heldBy, type Group } from "../../tokens";
+import { holdsFreely } from "../../constraints";
+import { nudge } from "./nodes";
 import { op, OpError, S } from "../op";
 import { withGroups, withSession, type CoreState } from "../state";
 import { frameById, itemById, laidOut, spacingScale } from "./common";
@@ -73,6 +75,40 @@ export const align = op<{ ids: string[]; how: AlignHow }>({
   label: () => "Align",
   run(s, a, ctx) {
     return { state: changed(s, alignParts(s.doc.groups, new Set(a.ids), a.how, ctx.widths), "They are lined up already.") };
+  },
+});
+
+/** the box a part stands in, for lining it up against: the smallest box with no auto layout that holds it, else its screen */
+export function parentBoxOf(s: CoreState, g: Group, widths: Record<string, number>): { l: number; t: number; r: number; b: number } | null {
+  const holders = s.doc.groups.filter((h) => h.id !== g.id && holdsFreely(h) && heldBy(h, s.doc.groups, widths).some((x) => x.id === g.id));
+  const area = (h: Group) => {
+    const b = groupBounds(h, widths);
+    return (b.r - b.l) * (b.b - b.t);
+  };
+  const box = holders.sort((a, b) => area(a) - area(b))[0];
+  if (box) return groupBounds(box, widths);
+  const f = frameOfPart(g, s.doc.groups, s.doc.frames, widths);
+  return f ? frameRect(f) : null;
+}
+
+/** One part lined up against the box it stands in, or its screen, as Figma's align buttons do for a single layer. */
+export const alignToParent = op<{ id: string; how: AlignHow }>({
+  name: "align_to_parent",
+  summary: "Lines one part up against what it stands in: the box with no auto layout that holds it, else its screen (left, centerH, right, top, centerV, bottom). What it holds comes along.",
+  args: S.obj({ id: S.str("the part"), how: S.enum(["left", "centerH", "right", "top", "centerV", "bottom"]) }, ["id", "how"]),
+  label: () => "Align",
+  run(s, a, ctx) {
+    const { group } = itemById(s, a.id);
+    if (group.inFlow && !(group.items.length === 1 && group.items[0].flowAbsolute)) throw new OpError("refused", "Its auto layout places it: set how it aligns in the layout instead.", a.id);
+    const parent = parentBoxOf(s, group, ctx.widths);
+    if (!parent) throw new OpError("refused", "It stands in nothing to line up against.", a.id);
+    const b = groupBounds(group, ctx.widths);
+    const dx = a.how === "left" ? parent.l - b.l : a.how === "right" ? parent.r - b.r : a.how === "centerH" ? (parent.l + parent.r) / 2 - (b.l + b.r) / 2 : 0;
+    const dy = a.how === "top" ? parent.t - b.t : a.how === "bottom" ? parent.b - b.b : a.how === "centerV" ? (parent.t + parent.b) / 2 - (b.t + b.b) / 2 : 0;
+    const mx = Math.round(dx);
+    const my = Math.round(dy);
+    if (!mx && !my) throw new OpError("nothing_to_do", "It is lined up there already.");
+    return nudge.run(s, { ids: [a.id], dx: mx, dy: my }, ctx) as { state: CoreState };
   },
 });
 

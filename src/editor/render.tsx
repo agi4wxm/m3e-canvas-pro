@@ -6,6 +6,8 @@ import { motion } from "motion/react";
 import { Doc, Frame, frameLengthOf, frameOfPart, frameSizeOf, GAP, Group, groupBounds, Item, layoutOf, Palette, sizeOf, Theme } from "@/lib/tokens";
 import { ComponentNode, StaticPart } from "@/components/ComponentNode";
 import { PartView } from "@/components/PartView";
+import { BoundValues } from "@/components/boundValues";
+import { varValues } from "@/lib/variables";
 import { outOfPane } from "@/lib/flow";
 import { expandDoc, type CanvasView, type DrawnPart } from "@/lib/expand";
 import { screenBackground } from "@/lib/styles";
@@ -211,6 +213,7 @@ export function renderExport(f: Frame, { doc, widths, frames, p, theme }: { doc:
   const { w } = frameSizeOf(f);
   const h = frameLengthOf(f);
   return (
+    <BoundValues.Provider value={varValues(doc, f, theme.dark)}>
     <div
       data-export={f.id}
       style={{
@@ -248,5 +251,6 @@ export function renderExport(f: Frame, { doc, widths, frames, p, theme }: { doc:
         ),
       )}
     </div>
+    </BoundValues.Provider>
   );
 }

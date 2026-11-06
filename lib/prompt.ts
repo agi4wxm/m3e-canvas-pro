@@ -385,6 +385,7 @@ function varsLine(vars: DocVar[] | undefined, lang: Lang): string | null {
     text: { ja: "テキスト", en: "text", zh: "文本", ko: "텍스트" },
     number: { ja: "数値", en: "number", zh: "数字", ko: "숫자" },
     bool: { ja: "真偽値", en: "boolean", zh: "布尔值", ko: "불리언" },
+    color: { ja: "色", en: "color", zh: "颜色", ko: "색상" },
   };
   const list = vars.map((v) => {
     const value = valueText(v.value, lang);

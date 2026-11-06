@@ -1,8 +1,9 @@
 /* Components: a definition opened as the one screen of the canvas and closed again (the store keeps the document and
  * its history meanwhile, lib/core `openDefinition`), renamed, deleted, an instance detached, and how often each is used. */
 
-import { useEffect, useMemo, useRef, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { ComponentDef, FrameMode, Group } from "@/lib/tokens";
+import type { ComponentsApi } from "@/components/ReusePanels";
 import { ops, type CoreState, type DocStore, type Op, type TxOptions } from "@/lib/core";
 import type { View } from "./model";
 
@@ -24,6 +25,8 @@ export type DefinitionInputs = {
 export function useDefinitions({ store, runOp, defEdit, groups, components, mobileRef, viewRef, setView, fitRef, frameRef, tidyRef, setSelectedLinkId }: DefinitionInputs) {
   /** the view the canvas had before a definition opened, to come back to */
   const defViewRef = useRef<View | null>(null);
+  /** the instance the definition open now was reached from (Go to main component): finishing goes back to it */
+  const [fromInstance, setFromInstance] = useState<string | null>(null);
   /** Opens a definition as the one screen of the canvas. The document's screens and its history wait in the store
    *  until it is done; while it is open every tool works on it as on any screen. */
   const editDefinition = (id: string) => {
@@ -50,6 +53,7 @@ export function useDefinitions({ store, runOp, defEdit, groups, components, mobi
   /** Closes the definition being edited: the document comes back, with its instances following. One undo takes it all back. */
   const finishDefinition = () => {
     if (!store.get().editing) return;
+    setFromInstance(null);
     store.closeDefinition();
     frameRef.current = store.get().doc.frame;
     if (defViewRef.current) setView(defViewRef.current);
@@ -83,11 +87,26 @@ export function useDefinitions({ store, runOp, defEdit, groups, components, mobi
   /** one instance, back to plain parts */
   const detachGroup = (id: string) => runOp(ops.detach, { id }, { history: "step" });
 
+  /** Figma's Go to main component: the definition opens, and finishing it comes back to the instance, still selected */
+  const goToMain = (instanceId: string, componentId: string) => {
+    editDefinition(componentId);
+    setFromInstance(instanceId);
+  };
+
+  /** what the components tab does to variants and properties */
+  const componentsApi: ComponentsApi = {
+    addVariant: (id) => runOp(ops.addVariant, { component: id }, { history: "step" }),
+    updateSet: (id, patch) => runOp(ops.updateComponentSet, { id, ...patch }, { history: { coalesce: `set:${id}:${Object.keys(patch).join(",")}` } }),
+    setVariantValues: (id, values) => runOp(ops.setVariantValues, { component: id, values }, { history: "step" }),
+    setProp: (component, prop) => runOp(ops.setComponentProp, { component, ...prop }, { history: { coalesce: `prop:${component}:${prop.id ?? "new"}` } }),
+    removeProp: (component, id) => runOp(ops.removeComponentProp, { component, id }, { history: "step" }),
+  };
+
   /** how many instances each definition has, on the screens and in the other definitions */
   const componentUses = useMemo(() => {
     const out: Record<string, number> = {};
     for (const g of [...(defEdit?.main.groups ?? groups), ...(components ?? []).flatMap((c) => c.groups)]) if (g.instanceOf) out[g.instanceOf] = (out[g.instanceOf] ?? 0) + 1;
     return out;
   }, [defEdit, groups, components]);
-  return { editDefinition, finishDefinition, finishDefinitionRef, renameComponent, deleteComponent, detachGroup, componentUses };
+  return { editDefinition, finishDefinition, finishDefinitionRef, renameComponent, deleteComponent, detachGroup, componentUses, goToMain, fromInstance, componentsApi };
 }

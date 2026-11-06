@@ -9,6 +9,7 @@ import { CORNER_GAIN, CORNERS, HandleSide } from "@/components/SizeHandles";
 import { snapRect, type GuideGap, type GuideLine, type GuideTargets } from "@/lib/guides";
 import { axisStep, axisValue, axisWrite, type PartAxis } from "@/parts/resize";
 import { componentAxes, GUIDE_PX, type View } from "./model";
+import { boxWithProps, constrainedIn, holdsFreely, withConstraints, type HeldBase } from "@/lib/constraints";
 
 export type SizeHandleInputs = {
   snapshot: () => void;
@@ -21,9 +22,11 @@ export type SizeHandleInputs = {
   endGuides: () => void;
   /** the selected part changed the way a panel changes it */
   patchSelected: (patch: Partial<Item>) => void;
+  /** the canvas's groups now, for what a box with no auto layout holds */
+  groupsRef?: RefObject<Group[]>;
 };
 
-export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, widthsRef, targetsFor, endGuides, patchSelected }: SizeHandleInputs) {
+export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, widthsRef, targetsFor, endGuides, patchSelected, groupsRef }: SizeHandleInputs) {
   /** the in-flight size drag on a lone button's edge handle */
   const [widthDragId, setWidthDragId] = useState<string | null>(null);
   /** how far the group under a left- or top-edge drag is drawn from where it sits, so the opposite
@@ -58,6 +61,10 @@ export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, width
     o: number | undefined;
     /** pulled from the centre (Alt) at the last move */
     centre: boolean;
+    /** a box with no auto layout: the parts it holds with constraints, as they stood, and the box they stood in */
+    held: HeldBase[];
+    was: { l: number; t: number; w: number; h: number } | null;
+    group0: Group;
   } | null>(null);
   /** What a handle on this side of the part changes, and how far it may be pulled: the prop it
    *  holds, and the bounds of that prop. A drag and a key press read the same answer. */
@@ -118,7 +125,16 @@ export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, width
       centre: false,
       box0: at ? { l: at.x, t: at.y, r: at.x + at.w, b: at.y + at.h } : { l: g.x, t: g.y, r: g.x, b: g.y },
       taken: false,
+      held: [],
+      was: null,
+      group0: g,
     };
+    /* a box with no auto layout takes what it holds along by their constraints, while it is pulled */
+    if (g.items.length === 1 && holdsFreely(g)) {
+      const all = groupsRef?.current ?? [];
+      widthDragRef.current.held = constrainedIn(g, all, widthsRef.current);
+      widthDragRef.current.was = boxWithProps(g, item, widthsRef.current);
+    }
     setWidthDragId(item.id);
     const move = (ev: PointerEvent) => {
       const d = widthDragRef.current;
@@ -171,16 +187,21 @@ export function useSizeHandles({ snapshot, setGroups, instantRef, viewRef, width
       /* whichever point is held, the one across from it stays where it is; with Alt the centre does */
       const sh = shiftOf(d, v, o, ev.altKey);
       setWidthShift(sh.dx || sh.dy ? { gid: d.gid, dx: sh.dx, dy: sh.dy } : null);
-      setGroups((prev) =>
-        prev.map((gr) =>
+      setGroups((prev) => {
+        const next = prev.map((gr) =>
           gr.id !== d.gid
             ? gr
             : {
                 ...gr,
                 items: gr.items.map((it) => (it.id !== d.id ? it : { ...it, ...sizePatch(it, d, v, o ?? (d.other ? d.otherV : undefined)) })),
               },
-        ),
-      );
+        );
+        if (!d.held.length || !d.was) return next;
+        const box = next.find((gr) => gr.id === d.gid);
+        if (!box) return next;
+        const now = boxWithProps(d.group0, box.items[0], widthsRef.current);
+        return withConstraints(next, d.held, d.was, { ...now, l: d.was.l + sh.dx, t: d.was.t + sh.dy });
+      });
 
     };
     const up = () => {

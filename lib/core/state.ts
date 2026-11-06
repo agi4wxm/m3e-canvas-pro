@@ -7,7 +7,7 @@ import { definitionFrom } from "../instances";
 import { resignKits } from "../kits";
 import { conformDoc, conformGroups } from "../styleRules";
 import { cleanStyles, withDocStyles } from "../styles";
-import { DEFAULT_THEME, normalizeTheme, PHONE_W, type Collection, type ComponentDef, type Doc, type DocVar, type Frame, type FrameMode, type Group, type Palette, type Theme } from "../tokens";
+import { DEFAULT_THEME, normalizeTheme, PHONE_W, type Collection, type ComponentDef, type ComponentSet, type Doc, type DocVar, type Frame, type FrameMode, type Group, type Palette, type Theme } from "../tokens";
 import { translateDefaultFrameName, type Lang } from "../i18n";
 import { cleanDocIcons } from "../docIcons";
 import { translateComponentProps } from "../../parts/registry";
@@ -45,7 +45,7 @@ export type DocMeta = Omit<Doc, "groups" | "frames">;
 
 /** An undo step: the screens, parts, definitions and data as they were, plus the rest of the document for a step
  *  that crossed all of it (a style picked, a file opened). */
-export type Snapshot = { groups: Group[]; frames: Frame[]; components?: ComponentDef[]; collections?: Collection[]; meta?: DocMeta };
+export type Snapshot = { groups: Group[]; frames: Frame[]; components?: ComponentDef[]; componentSets?: ComponentSet[]; collections?: Collection[]; meta?: DocMeta };
 
 /** How far the parts of a definition stand from the corner of the screen they are edited on, and how much room that
  *  screen leaves around them. The definition itself goes back on its own top left. */
@@ -75,7 +75,10 @@ export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, sess
       theme: normalizeTheme(doc.theme),
       ...(doc.vars ? { vars: doc.vars } : {}),
       ...(doc.components ? { components: doc.components } : {}),
+      ...(doc.componentSets ? { componentSets: doc.componentSets } : {}),
       ...(doc.collections ? { collections: doc.collections } : {}),
+      ...(doc.varCollections ? { varCollections: doc.varCollections } : {}),
+      ...(doc.varModes ? { varModes: doc.varModes } : {}),
       ...(icons ? { icons } : {}),
     },
     editing: null,
@@ -105,6 +108,9 @@ export function savedDoc(s: CoreState): Doc {
     components: defs?.length ? defs : undefined,
     collections: doc.collections?.length ? doc.collections : undefined,
     styles: doc.styles?.length ? doc.styles : undefined,
+    componentSets: doc.componentSets?.length ? doc.componentSets : undefined,
+    varCollections: doc.varCollections?.length ? doc.varCollections : undefined,
+    varModes: doc.varModes && Object.keys(doc.varModes).length ? doc.varModes : undefined,
     icons: doc.icons && Object.keys(doc.icons).length ? doc.icons : undefined,
   };
 }
@@ -160,6 +166,8 @@ function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<strin
   if (Array.isArray(doc.groups)) set("groups", drawableGroups(conformGroups(doc.groups, look)));
   if (Array.isArray(doc.components)) set("components", conformDoc({ groups: [], components: doc.components }, look).components);
   else if (reset) set("components", undefined);
+  if (Array.isArray(doc.componentSets)) set("componentSets", doc.componentSets);
+  else if (reset) set("componentSets", undefined);
   if (Array.isArray(doc.collections)) set("collections", doc.collections);
   else if (reset) set("collections", undefined);
   if (Array.isArray(doc.frames)) set("frames", doc.frames);
@@ -180,6 +188,10 @@ function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<strin
   else if (reset) set("promptOptions", undefined);
   if (Array.isArray(doc.vars)) set("vars", doc.vars);
   else if (reset) set("vars", undefined);
+  if (Array.isArray(doc.varCollections)) set("varCollections", doc.varCollections);
+  else if (reset) set("varCollections", undefined);
+  if (doc.varModes && typeof doc.varModes === "object") set("varModes", doc.varModes);
+  else if (reset) set("varModes", undefined);
   /* whatever brought them, the document's icons come in as drawings the vector atom would keep */
   if (doc.icons !== undefined || reset) set("icons", cleanDocIcons(doc.icons));
   return out;
@@ -192,9 +204,9 @@ function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<strin
 export function snapshotOf(s: CoreState, whole: boolean): Snapshot {
   if (whole) {
     const { groups, frames, ...meta } = savedDoc(s);
-    return { groups, frames, components: meta.components, collections: meta.collections, meta };
+    return { groups, frames, components: meta.components, componentSets: meta.componentSets, collections: meta.collections, meta };
   }
-  return { groups: s.doc.groups, frames: s.doc.frames, components: s.doc.components, collections: s.doc.collections };
+  return { groups: s.doc.groups, frames: s.doc.frames, components: s.doc.components, componentSets: s.doc.componentSets, collections: s.doc.collections };
 }
 
 /** A step put back: the screens, parts, definitions and data it holds; one that crossed the whole document brings
@@ -209,6 +221,8 @@ export function restoreSnapshot(s: CoreState, snap: Snapshot, pinMode: FrameMode
   const doc = { ...s.doc, groups: snap.groups, frames: snap.frames } as Record<string, unknown>;
   if (snap.components === undefined) delete doc.components;
   else doc.components = snap.components;
+  if (snap.componentSets === undefined) delete doc.componentSets;
+  else doc.componentSets = snap.componentSets;
   if (snap.collections === undefined) delete doc.collections;
   else doc.collections = snap.collections;
   return { ...s, doc: doc as DocState };

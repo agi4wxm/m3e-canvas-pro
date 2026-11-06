@@ -22,12 +22,14 @@ export type CanvasSelectInputs = {
   busy: () => boolean;
   /** a phone: with no double-click or keyboard to go in with, a tap picks the part itself, as it always did */
   mobileRef: RefObject<boolean>;
+  /** opens a part's words for editing where they stand; false when it has none (src/editor/useTextEdit.ts) */
+  onEditText?: (itemId: string) => boolean;
 };
 
 /** what a press picked: the group and the part a drag takes hold of, and what becomes selected */
 export type Picked = { g: Group; index: number; item: Item; ids: string[]; /** all of it was selected before the press */ wasSelected: boolean };
 
-export function useCanvasSelect({ store, layersRef, groupsRef, itemRects, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab, busy, mobileRef }: CanvasSelectInputs) {
+export function useCanvasSelect({ store, layersRef, groupsRef, itemRects, setSelectedIds, setSelectedFrameId, setSelectedLinkId, setRightTab, busy, mobileRef, onEditText }: CanvasSelectInputs) {
   /** What a press on a part on the canvas picks. With no tree yet, the part itself (its whole group when hand-made). */
   const pickFor = (e: { ctrlKey: boolean; metaKey: boolean }, g: Group, index: number, item: Item): Picked => {
     const tree = layersRef.current;
@@ -59,13 +61,18 @@ export function useCanvasSelect({ store, layersRef, groupsRef, itemRects, setSel
     const cur = store.get().session.selection;
     const next = pickInside(tree, id, cur);
     if (next.join(" ") !== cur.join(" ")) select(next);
+    /* nothing further in: the words of the part picked are edited where they stand */
+    else if (cur.length === 1 && cur[0] === id) onEditText?.(id);
   };
 
   /** Enter: what the selection holds */
   const enterChildren = () => {
     const tree = layersRef.current;
-    const next = tree && childrenOfSelection(tree, store.get().session.selection);
+    const cur = store.get().session.selection;
+    const next = tree && childrenOfSelection(tree, cur);
     if (next) select(next);
+    /* a part with no children but words of its own: Enter edits them, as in Figma */
+    else if (cur.length === 1) onEditText?.(cur[0]);
   };
   /** Shift+Enter: the selection's parent, its screen at the top; Escape the same, letting go at the top */
   const selectParent = (escape: boolean) => {
