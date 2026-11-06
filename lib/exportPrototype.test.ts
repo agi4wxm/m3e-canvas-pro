@@ -154,6 +154,16 @@ describe("the exported app's prototype", () => {
   });
 });
 
+describe("a document with one variable", () => {
+  it("writes it under a key read as any key, so a value of another type for it still typechecks", async () => {
+    const one = text(await exported(doc([button("b", "Go", { to: "none", transition: "none", effects: [{ do: "addVar", var: "w", by: 1 }] })], { vars: [{ id: "w", name: "word", type: "text", value: "1" }] })), "src/runtime.tsx");
+    expect(one).toContain("toggleVar: (name) => setState((s) => ({ ...s, vars: { ...s.vars, [name as string]: !s.vars[name] } })),");
+    expect(one).toContain('return { ...s, vars: { ...s.vars, [name as string]: typeof now === "string" ? String(next) : next } }');
+    /* more than one is read as any key already */
+    expect(text(await exported(proofDoc().doc, proofDoc().widths), "src/runtime.tsx")).not.toContain("name as string");
+  });
+});
+
 /* ---------- a document that uses none of it ---------- */
 
 /** one digest of the files an export writes from the document itself, in order of their paths */

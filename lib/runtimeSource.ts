@@ -110,8 +110,12 @@ export function runtimeSource(spec: RuntimeSpec): string {
   const colorMode = !!spec.dark || !!spec.modes?.followsDark;
   const react = ["createContext", "useContext", "useEffect", "useMemo", ...(p?.delay ? ["useRef"] : []), "useState", ...(bound ? ["type CSSProperties"] : []), "type MouseEvent", "type ReactNode"];
   const firstFlow = flows[0];
+  /* With more than one variable, `[name]` is read as any key; with one it is that variable's own, and a value of another
+     type for it (a toggle of words) would not typecheck. The value is the runtime's to keep right, so the key is read
+     as any key there too. */
+  const key = spec.vars.length === 1 ? "name as string" : "name";
   /* what a call that changes a variable writes: with modes, it is marked as written, so it keeps its value on every screen */
-  const write = (value: string) => (modes ? `wrote(s, name, ${value})` : `({ ...s, vars: { ...s.vars, [name]: ${value} } })`);
+  const write = (value: string) => (modes ? `wrote(s, name, ${value})` : `({ ...s, vars: { ...s.vars, [${key}]: ${value} } })`);
   /* what a variable reads now: with modes, as the screen on show has it */
   const darkOn = colorMode ? "darkOn" : "false";
   const now = modes ? `varsOn(s, s.stack[s.stack.length - 1].screen, ${darkOn})[name]` : "s.vars[name]";
@@ -238,7 +242,7 @@ export const ScreenContext = createContext<{ screen: ScreenId; active: boolean }
 )}
 const asBool = (value: Value) => (typeof value === "string" ? value !== "" && value !== "false" && value !== "0" : !!value)
 const hasValue = (value: Value) => (typeof value === "string" ? value.trim() !== "" : typeof value === "boolean" ? value : value >= 0)
-${when(modes, "\n/** the state with a variable written, and marked as written */\nconst wrote = (s: State, name: keyof Vars, value: Value): State => ({ ...s, vars: { ...s.vars, [name]: value }, written: { ...s.written, [name]: true } })\n")}
+${when(modes, `\n/** the state with a variable written, and marked as written */\nconst wrote = (s: State, name: keyof Vars, value: Value): State => ({ ...s, vars: { ...s.vars, [${key}]: value }, written: { ...s.written, [name]: true } })\n`)}
 export function AppProvider({ children }: { children: ReactNode }) {
 ${
   spec.dark
@@ -303,7 +307,7 @@ ${when(modes, "      varsOn: shownOn,\n")}${when(bound, `      varStyle: (on) =>
           const now: unknown = ${now}
           /* tenths added together should not read 0.30000000000000004 */
           const next = Math.round(((Number(now) || 0) + by) * 1e6) / 1e6
-          return ${modes ? 'wrote(s, name, typeof now === "string" ? String(next) : next)' : '{ ...s, vars: { ...s.vars, [name]: typeof now === "string" ? String(next) : next } }'}
+          return ${modes ? 'wrote(s, name, typeof now === "string" ? String(next) : next)' : `{ ...s, vars: { ...s.vars, [${key}]: typeof now === "string" ? String(next) : next } }`}
         }),
       visible: (part) => !state.hidden[part],
       show: (part) => setState((s) => ({ ...s, hidden: { ...s.hidden, [part]: false } })),
