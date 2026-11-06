@@ -11,6 +11,7 @@ import type { Lang } from "../../lib/i18n";
 import type { Access, ClientInfo } from "../../lib/mcp/protocol";
 import { executeTool, type Registry } from "../../lib/tools";
 import { wrote } from "../../lib/tools/ops";
+import { wouldTakeAway } from "../../lib/tools/removals";
 import type { GenerateEnv, Renderer } from "../../lib/tools/types";
 import { failure, listeners, serial, type Backend, type CallContext, type CallOutcome } from "./backend";
 import { FileConflict, NotAProject, ProjectFileStore, type ProjectFormat } from "./fileStore";
@@ -96,9 +97,13 @@ export class FileBackend implements Backend {
       const writes = !!t && !t.readOnly;
       if (writes && this.o.readOnly) return failure("refused", "This session is read-only.", "Read and screenshot only; ask the author to start the server without --read-only to edit.");
       if (writes && notice) return { ...failure("refused", `Not done: ${notice}`, "Read the outline again, then make the change on the document as it is now."), notice };
-      if (ctx.destructive && !this.o.allowDestructive) {
-        const asked = ctx.confirm ? await ctx.confirm(`Allow ${name}? It takes away something in ${this.o.path}.`) : null;
-        if (asked === null) return failure("refused", `${name} takes away something the author made, and there is no editor here to confirm it in.`, "Ask the author to allow it (start the server with --allow-destructive), or make the change without removing anything.");
+      /* a call that takes work away under a name that does not say so (rows rewritten, modes left out, a style
+         replaced) is asked about as a destructive one is */
+      const takes = writes && !ctx.destructive && !this.o.allowDestructive ? await wouldTakeAway(this.store, name, args, { registry: this.o.registry }).catch(() => []) : [];
+      if ((ctx.destructive || takes.length) && !this.o.allowDestructive) {
+        const what = takes.length ? `It takes away ${takes.join("; ")} in ${this.o.path}.` : `It takes away something in ${this.o.path}.`;
+        const asked = ctx.confirm ? await ctx.confirm(`Allow ${name}? ${what}`) : null;
+        if (asked === null) return failure("refused", `${name} takes away something the author made${takes.length ? ` (${takes.join("; ")})` : ""}, and there is no editor here to confirm it in.`, "Ask the author to allow it (start the server with --allow-destructive), or make the change without removing anything.");
         if (!asked) return failure("refused", `The author declined ${name}.`, "Leave it as it is, or ask the author what to do instead.");
       }
       const prev = this.store.get();

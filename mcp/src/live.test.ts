@@ -207,6 +207,22 @@ describe("the live bridge", () => {
     expect(t.store.get().doc.groups.flatMap((g) => g.items).some((it) => it.id === "hello")).toBe(false);
   });
 
+  it("asks the author before a call that takes work away under a name that does not say so", async () => {
+    const { port, call } = await server({ confirmMs: 300 });
+    const t = tab(port);
+    await until(() => t.view().asks.length > 0);
+    t.bridge.approve(port, "edit");
+    await until(() => t.view().conns[0]?.phase === "paired");
+    expect((await call("add_collection", { id: "fruit", name: "Fruit", fields: ["name"], rows: [["Apple"], ["Pear"]] })).isError).toBeFalsy();
+    expect(t.view().asks).toEqual([]);
+
+    const pending = call("update_collection", { id: "fruit", rows: [] });
+    await until(() => t.view().asks.some((a) => a.kind === "confirm"));
+    expect(t.view().asks[0]).toMatchObject({ kind: "confirm", name: "update_collection", summary: expect.stringMatching(/2 of the 2 rows of "Fruit"/) });
+    expect(errorOf(await pending)?.message).toMatch(/did not confirm/);
+    expect(t.store.get().doc.collections?.[0].rows).toHaveLength(2);
+  });
+
   it("lets a reloaded tab back in without asking, and turns a second tab away", async () => {
     const { port, call } = await server();
     const kept = new Map<string, string>();

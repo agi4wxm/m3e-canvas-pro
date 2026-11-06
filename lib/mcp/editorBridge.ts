@@ -11,6 +11,7 @@
 import type { ChangeEvent, DocStore } from "../core";
 import { createRegistry, executeTool, isDestructiveCall, type Registry } from "../tools";
 import { wrote } from "../tools/ops";
+import { wouldTakeAway } from "../tools/removals";
 import { GENERATE_TOOLS } from "../tools/generate";
 import type { GenerateEnv, Renderer, ToolError, ToolOutcome } from "../tools/types";
 import { DEFAULT_AI } from "../ai";
@@ -505,7 +506,11 @@ export class EditorBridge {
       const exists = this.registryFor({ ...c, access: "edit" }).byName(msg.name);
       return reply({ ok: false, error: exists ? { code: "refused", message: "The author gave this session read-only access.", hint: "Read and screenshot only, or ask the author for edit access." } : { code: "unknown_tool", message: `The editor has no tool "${msg.name}".`, hint: "The editor and the MCP server may be different versions." } });
     }
-    if (isDestructiveCall(msg.name, msg.args)) {
+    /* a call that takes work away under a name that does not say so (rows rewritten, modes left out, a style replaced)
+       is asked about as a destructive one is */
+    const takes = await wouldTakeAway(this.o.store, msg.name, msg.args, { registry }).catch(() => []);
+    if (takes.length) e.summary = `takes away ${takes.join("; ")}${e.summary ? ` (${e.summary})` : ""}`;
+    if (isDestructiveCall(msg.name, msg.args) || takes.length) {
       e.state = "asking";
       this.changed();
       const answer = await this.confirm(c, key, e);
