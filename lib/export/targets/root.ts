@@ -6,10 +6,10 @@ import { GENERATED, jsonFile, sortedObject } from "../code";
 import { generated, seeded, type ProductContext, type ProductFiles, type Workspace } from "../types";
 
 /** the folders whose files are all generated: Prettier leaves them alone, AGENTS.md names them */
-export const GENERATED_DIRS = ["**/src/generated/", "apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/public/", "packages/api/", "packages/mocks/"];
+export const GENERATED_DIRS = ["**/src/generated/", "apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/public/", "packages/api/", "packages/mocks/", "packages/app-runtime/"];
 
 /** the editor's copied components: ESLint leaves them alone (they are the editor's code, checked there) */
-const VENDORED = ["apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/src/react-css.d.ts", "packages/mocks/src/engine/"];
+const VENDORED = ["apps/web/src/components/", "apps/web/src/lib/", "apps/web/src/hooks/", "apps/web/src/styles/", "apps/web/src/react-css.d.ts", "packages/mocks/src/engine/", "packages/app-runtime/src/engine/"];
 
 const ROOT_DEV = ["@eslint/js", "eslint", "eslint-plugin-react-hooks", "eslint-plugin-react-refresh", "globals", "prettier", "typescript", "typescript-eslint"];
 

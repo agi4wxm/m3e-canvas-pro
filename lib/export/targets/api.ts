@@ -36,6 +36,8 @@ export interface TransportRequest {
   /** a JSON value, sent as JSON; or the bytes of a file */
   body?: unknown
   signal?: AbortSignalLike
+  /** told how much of the body has gone out, where the platform can say (an upload over XMLHttpRequest, Taro's uploadFile) */
+  onUploadProgress?: (sent: number, total: number) => void
 }
 
 export interface TransportResponse {
@@ -79,8 +81,8 @@ export class ApiError extends Error {
   }
 }
 
-/** what any call may add: headers, and a signal that cancels it */
-export type CallInit = Pick<TransportRequest, "headers" | "signal">
+/** what any call may add: headers, a signal that cancels it, and what hears how an upload goes */
+export type CallInit = Pick<TransportRequest, "headers" | "signal" | "onUploadProgress">
 
 export type Call = { operationId?: string; method: HttpMethod; path: string; query?: Query; body?: unknown }
 
@@ -192,7 +194,7 @@ export type OperationName = (typeof OPERATIONS)[number]["name"]
 export function createApi(transport: Transport) {
   return {
 ${methods.join("\n")}
-    request: <T = unknown>(request: TransportRequest) => send<T>(transport, request, { headers: request.headers, signal: request.signal }),
+    request: <T = unknown>(request: TransportRequest) => send<T>(transport, request, { headers: request.headers, signal: request.signal, onUploadProgress: request.onUploadProgress }),
   }
 }
 

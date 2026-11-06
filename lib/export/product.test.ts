@@ -13,6 +13,7 @@ import { buildProduct, productName, zipProduct, type ProductOptions } from "./pr
 import { productDoc, shopProductDoc } from "./product.fixture";
 import { GENERATED_DIRS } from "./targets/root";
 import { MOCK_ENGINE_API_FILES, MOCK_ENGINE_FILES } from "./targets/mocks";
+import { APP_RUNTIME_FILES } from "./targets/appRuntime";
 import type { Product, ProductTarget } from "./types";
 
 beforeAll(() => setGlobalLang("en"));
@@ -58,7 +59,7 @@ describe("the product of a document", () => {
   it("is a monorepo of workspaces, with the root's settings", () => {
     const root = JSON.parse(text(proof, "package.json"));
     expect(proof.name).toBe("proof-app");
-    expect(root.workspaces).toEqual(["packages/api", "packages/mocks", "apps/web", "server", "contract-tests"]);
+    expect(root.workspaces).toEqual(["packages/api", "packages/mocks", "packages/app-runtime", "apps/web", "server", "contract-tests"]);
     expect(Object.keys(root.scripts)).toEqual(expect.arrayContaining(["dev", "build", "typecheck", "lint", "test"]));
     for (const ws of root.workspaces) expect(JSON.parse(text(proof, `${ws}/package.json`)).name).toMatch(/^@proof-app\//);
     for (const path of ["tsconfig.base.json", "eslint.config.js", ".prettierrc.json", ".prettierignore", ".gitignore", "README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "NOTICE", "scripts/dev.mjs", "apps/mobile/README.md", "apps/miniapp/README.md"]) expect(proof.files[path], path).toBeTruthy();
@@ -107,6 +108,23 @@ describe("the product of a document", () => {
     expect(Object.keys(pkg.dependencies)).toEqual(Object.keys(pkg.dependencies).sort());
     /* the engine is the editor's code, checked there: ESLint leaves it alone, as the copied components */
     expect(text(shop, "eslint.config.js")).toContain('"packages/mocks/src/engine/"');
+  });
+
+  it("puts the editor's own runtime in packages/app-runtime, for every front end: React and no platform", async () => {
+    for (const path of APP_RUNTIME_FILES) expect(text(proof, `packages/app-runtime/src/engine/${path.slice(4)}`), path).toBe(await fromDisk(path));
+    const pkg = JSON.parse(text(proof, "packages/app-runtime/package.json"));
+    expect(pkg).toMatchObject({ name: "@proof-app/app-runtime", exports: { ".": "./src/index.ts" }, peerDependencies: { react: ">=18.3.0" } });
+    expect(pkg.dependencies).toBeUndefined();
+    expect(JSON.parse(text(proof, "packages/app-runtime/tsconfig.json")).compilerOptions.lib).toEqual(["ES2022"]);
+    /* nothing of a platform: no DOM, React Native, Taro or fetch, and every module it names is its own or React */
+    for (const path of APP_RUNTIME_FILES) {
+      const source = text(proof, `packages/app-runtime/src/engine/${path.slice(4)}`);
+      for (const spec of importsIn(source)) expect(spec.startsWith(".") || spec === "react", `${path} imports ${spec}`).toBe(true);
+      const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+      expect(code, path).not.toMatch(/\b(window|document|localStorage|sessionStorage|navigator|fetch|XMLHttpRequest)\b|react-native|@tarojs/);
+    }
+    expect(text(proof, "AGENTS.md")).toContain("## The app runtime (packages/app-runtime)");
+    expect(text(proof, "eslint.config.js")).toContain('"packages/app-runtime/src/engine/"');
   });
 
   it("is generated whole: every file is generated but the extension points, which are seeded", () => {

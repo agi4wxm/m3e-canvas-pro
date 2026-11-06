@@ -5,12 +5,13 @@
 
 import type { ProductTarget } from "../types";
 import { apiTarget } from "./api";
+import { appRuntimeTarget } from "./appRuntime";
 import { mocksTarget } from "./mocks";
 import { contractTestsTarget } from "./contractTests";
 import { miniappTarget, mobileTarget } from "./others";
 import { serverTarget } from "./server";
 import { webTarget } from "./web";
 
-export const PRODUCT_TARGETS: readonly ProductTarget[] = [apiTarget, mocksTarget, webTarget, serverTarget, contractTestsTarget, mobileTarget, miniappTarget];
+export const PRODUCT_TARGETS: readonly ProductTarget[] = [apiTarget, mocksTarget, appRuntimeTarget, webTarget, serverTarget, contractTestsTarget, mobileTarget, miniappTarget];
 
-export { apiTarget, contractTestsTarget, miniappTarget, mobileTarget, mocksTarget, serverTarget, webTarget };
+export { apiTarget, appRuntimeTarget, contractTestsTarget, miniappTarget, mobileTarget, mocksTarget, serverTarget, webTarget };

@@ -143,7 +143,7 @@ const read = (path: string) => readFile(join(ROOT, path), "utf8");
 const fixture: { doc: Doc; widths: Record<string, number>; api?: ReturnType<typeof productDoc>["api"] } =
   WHICH === "systems" ? { ...systemsDoc(), api: productDoc().api } : WHICH === "parts" ? { doc: allPartsDoc(), widths: {}, api: productDoc().api } : WHICH === "shop" ? shopProductDoc() : productDoc();
 /* an operation that takes no parameters, to knock on, and the handler written for it */
-const PROBE = WHICH === "shop" ? { path: "/products", handler: "listProducts", answer: '"items"' } : { path: "/health", handler: "getHealth", answer: '"ok"' };
+const PROBE = WHICH === "shop" ? { path: "/products", handler: "listProducts", answer: '"items"' } : { path: "/health", handler: "getHealth", answer: '"status"' };
 /* the shop's mocks answer with data made from its schemas (packages/mocks is the editor's own mock library) */
 const madeUp = (text: string) => {
   try {
