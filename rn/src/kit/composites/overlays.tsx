@@ -5,7 +5,7 @@ import { Button } from "../atoms/controls";
 import { Glyph } from "../icons/Icon";
 import { withAlpha } from "../look";
 import { withDefaults, type ListRow } from "../parts";
-import { accentText, extraColor, panelStyle } from "../recipes";
+import { accentText, extra, extraColor, panelStyle } from "../recipes";
 import { Surface } from "../Surface";
 import { corner, recipeOf, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
 import { tapOf } from "./bars";
@@ -25,7 +25,7 @@ function SplitActions({ kit, actions }: { kit: Kit; actions: { label: string; on
     <View style={{ flexDirection: "row", borderTopWidth: 0.5, borderTopColor: line }}>
       {actions.map((a, i) => (
         <Pressable key={i} accessibilityRole="button" onPress={a.onPress} style={{ flex: 1, height: weui ? 56 : 44, alignItems: "center", justifyContent: "center", borderLeftWidth: i ? 0.5 : 0, borderLeftColor: line }}>
-          <RNText style={{ ...typeStyle(kit, "body-large"), fontSize: 17, fontWeight: a.main && weui ? "600" : "400", color: weui ? (a.main ? c(kit, "primary") : c(kit, "on-surface")) : c(kit, "primary") }}>{a.label}</RNText>
+          <RNText style={{ ...typeStyle(kit, "body-large"), fontSize: 17, fontWeight: a.main && weui ? "600" : "400", color: weui ? (a.main ? accentText(kit) : c(kit, "on-surface")) : c(kit, "primary") }}>{a.label}</RNText>
         </Pressable>
       ))}
     </View>
@@ -42,7 +42,7 @@ function DialogCard({ p, base }: { p: PartBase & Dialogish; base?: ViewStyle }) 
   if (recipe === "alert" || recipe === "weui") {
     const weui = recipe === "weui";
     return (
-      <Surface base={panelStyle(kit, { width: weui ? 320 : 270, borderRadius: weui ? 12 : 14, backgroundColor: extraColor(kit, "dialogBg") ?? c(kit, "surface-container-high"), overflow: "hidden", ...base })} appearance={p} testID={p.testID}>
+      <Surface base={panelStyle(kit, { width: weui ? 320 : 270, borderRadius: weui ? 12 : 14, backgroundColor: extraColor(kit, "dialogBg") ?? c(kit, weui ? "surface-container-low" : "surface-container-high"), overflow: "hidden", ...base })} appearance={p} testID={p.testID}>
         <View style={{ paddingHorizontal: weui ? 24 : 16, paddingTop: weui ? 32 : 20, paddingBottom: weui ? 32 : 20, rowGap: weui ? 16 : 4, alignItems: "center" }}>
           {p.icon ? <Glyph name={p.icon} size={24} color={c(kit, "secondary")} /> : null}
           <RNText style={{ ...typeStyle(kit, "title-medium"), fontSize: 17, lineHeight: 22, fontWeight: "600", color: c(kit, "on-surface"), textAlign: "center" }}>{p.title}</RNText>
@@ -121,7 +121,7 @@ export function Sheet(props: SheetProps) {
       {bottom && p.side === "bottom" && recipe !== "panel" && recipe !== "m3" ? <View style={{ alignSelf: "center", marginTop: recipe === "grabber" ? 6 : 16, width: recipe === "grabber" ? 36 : 32, height: recipe === "grabber" ? 5 : 4, borderRadius: 3, backgroundColor: recipe === "grabber" ? withAlpha(c(kit, "on-surface"), 0.22) : c(kit, "on-surface-variant") }} /> : null}
       <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 24, columnGap: 12 }}>
         <View style={{ flex: 1, rowGap: 4 }}>
-          <RNText style={{ ...typeStyle(kit, recipe === "grabber" || recipe === "weui" ? "title-medium" : "title-large"), ...(recipe === "grabber" || recipe === "weui" ? { fontSize: 17, fontWeight: "600" } : null), color: c(kit, "on-surface") }}>{p.title}</RNText>
+          <RNText style={{ ...typeStyle(kit, "title-large"), ...(typeof extra(kit, "sheetTitle") === "number" ? { fontSize: Number(extra(kit, "sheetTitle")), lineHeight: Number(extra(kit, "sheetTitle")) + 5, fontWeight: "600" } : null), color: c(kit, "on-surface") }}>{p.title}</RNText>
           {p.description ? <RNText style={{ ...typeStyle(kit, "body-medium"), color: c(kit, "on-surface-variant") }}>{p.description}</RNText> : null}
         </View>
         <Pressable accessibilityLabel="Close" onPress={tapOf(p, "dismiss")}>
@@ -163,7 +163,7 @@ export function ActionSheet(props: ActionSheetProps) {
         ) : null}
         {actions.map((a, i) => (
           <Pressable key={i} accessibilityRole="button" onPress={tapOf(p, `tab:${i}`)} style={{ height: rowH, alignItems: "center", justifyContent: "center", borderTopWidth: 0.5, borderTopColor: line }}>
-            <RNText style={{ ...typeStyle(kit, ios || weui ? "body-large" : "label-large"), ...(ios ? { fontSize: 20 } : weui ? { fontSize: 17 } : null), color: i === 0 && ios ? c(kit, "error") : ink }}>{a.label}</RNText>
+            <RNText style={{ ...typeStyle(kit, ios || weui ? "body-large" : "label-large"), ...(ios ? { fontSize: 20 } : weui ? { fontSize: 17 } : null), color: ink }}>{a.label}</RNText>
           </Pressable>
         ))}
       </View>

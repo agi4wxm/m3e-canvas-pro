@@ -340,7 +340,9 @@ export function SegmentedButton(props: SegmentedButtonProps) {
         })}
       </Surface>
     );
-  const apart = recipe === "capsules" || p.connected === false;
+  /* capsules apart, the chosen one in the words' color (Spotify), else M3 Expressive's connected group */
+  const capsules = recipe === "capsules";
+  const apart = capsules || p.connected === false;
   return (
     <Surface base={{ flexDirection: "row", columnGap: apart ? 8 : 2, alignSelf: "flex-start" }} appearance={p} testID={p.testID}>
       {items.map((it, i) => {
@@ -349,9 +351,9 @@ export function SegmentedButton(props: SegmentedButtonProps) {
         const inner = apart ? end : corner(kit, "xs") + 4;
         const radius: ViewStyle = { borderTopLeftRadius: i === 0 || on ? end : inner, borderBottomLeftRadius: i === 0 || on ? end : inner, borderTopRightRadius: i === items.length - 1 || on ? end : inner, borderBottomRightRadius: i === items.length - 1 || on ? end : inner };
         return (
-          <Pressable key={i} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => pick(i)} style={{ height: h, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", columnGap: 8, justifyContent: "center", backgroundColor: on ? c(kit, "primary") : c(kit, "surface-container"), ...radius }}>
-            {it.icon ? <Glyph name={it.icon} size={20} filled={on} color={on ? c(kit, "on-primary") : c(kit, "on-surface-variant")} /> : null}
-            <RNText style={{ ...typeStyle(kit, "label-large"), color: on ? c(kit, "on-primary") : c(kit, "on-surface-variant") }}>{it.label}</RNText>
+          <Pressable key={i} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => pick(i)} style={{ height: h, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", columnGap: 8, justifyContent: "center", backgroundColor: on ? c(kit, capsules ? "on-surface" : "primary") : c(kit, capsules ? "surface-container-high" : "surface-container"), ...radius }}>
+            {it.icon ? <Glyph name={it.icon} size={20} filled={on} color={on ? c(kit, capsules ? "surface" : "on-primary") : c(kit, capsules ? "on-surface" : "on-surface-variant")} /> : null}
+            <RNText style={{ ...typeStyle(kit, "label-large"), color: on ? c(kit, capsules ? "surface" : "on-primary") : c(kit, capsules ? "on-surface" : "on-surface-variant"), ...(capsules ? { fontWeight: "700" } : null) }}>{it.label}</RNText>
           </Pressable>
         );
       })}

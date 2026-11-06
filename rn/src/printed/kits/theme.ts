@@ -320,6 +320,7 @@ export const theme: KitTheme = {
   "outlinedBg": "outline/20",
   "outlinedText": "primary",
   "filledWeight": 600,
-  "dialogBg": "surface-container-high/86"
+  "dialogBg": "surface-container-high/86",
+  "sheetTitle": 17
  }
 };

@@ -632,7 +632,8 @@ export const THEMES: Record<GalleryStyle, KitTheme> = {
    "outlinedBg": "outline/20",
    "outlinedText": "primary",
    "filledWeight": 600,
-   "dialogBg": "surface-container-high/86"
+   "dialogBg": "surface-container-high/86",
+   "sheetTitle": 17
   }
  },
  "wechat": {
@@ -953,7 +954,9 @@ export const THEMES: Record<GalleryStyle, KitTheme> = {
    "fieldFill": "on-surface/5",
    "fieldRadius": 8,
    "searchBg": "surface-container-low",
-   "rowMin": 56
+   "rowMin": 56,
+   "sheetTitle": 17,
+   "largeTitle": 22
   }
  },
  "spotify": {

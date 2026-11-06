@@ -94,7 +94,7 @@ export function AppBar(props: AppBarProps) {
       </View>
       {big ? (
         <View style={{ paddingHorizontal: 16, paddingBottom: ios ? 8 : p.size === "large" ? 12 : 16, paddingTop: ios ? 4 : 0 }}>
-          <RNText numberOfLines={2} style={{ ...typeStyle(kit, ios || recipe === "large" ? "headline-large" : p.size === "large" ? "display-small" : "headline-small"), ...(ios ? { fontSize: 34, lineHeight: 41, fontWeight: "700" } : null), color: titleInk }}>
+          <RNText numberOfLines={2} style={{ ...typeStyle(kit, ios || recipe === "large" ? "headline-large" : p.size === "large" ? "display-small" : "headline-small"), ...(ios ? { fontSize: 34, lineHeight: 41, fontWeight: "700" } : typeof extra(kit, "largeTitle") === "number" ? { fontSize: Number(extra(kit, "largeTitle")), lineHeight: Number(extra(kit, "largeTitle")) + 8, fontWeight: "600" } : null), color: titleInk }}>
             {p.title}
           </RNText>
           {p.subtitle ? <RNText style={{ ...typeStyle(kit, "body-medium"), color: c(kit, "on-surface-variant") }}>{p.subtitle}</RNText> : null}
@@ -224,7 +224,7 @@ export function Tabs(props: TabsProps) {
           <Pressable key={i} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => tap(i)} style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
             <View style={{ flexDirection: "row", alignItems: "center", columnGap: 8, height: 24 }}>
               {it.icon ? <Glyph name={it.icon} size={24} filled={on} color={on ? onColor : c(kit, "on-surface-variant")} /> : null}
-              <RNText numberOfLines={1} style={{ ...typeStyle(kit, "title-small"), color: on ? (p.variant === "secondary" ? c(kit, "on-surface") : onColor) : c(kit, "on-surface-variant"), ...(kit.theme.capsLabels ? { textTransform: "uppercase" } : null) }}>
+              <RNText numberOfLines={1} style={{ ...typeStyle(kit, "title-small"), color: on ? (p.variant === "secondary" || short ? c(kit, "on-surface") : onColor) : c(kit, "on-surface-variant"), ...(on && short ? { fontWeight: "600" } : null), ...(kit.theme.capsLabels ? { textTransform: "uppercase" } : null) }}>
                 {it.label}
               </RNText>
               {/* the primary tabs' indicator is as wide as the words, the secondary's as the tab */}

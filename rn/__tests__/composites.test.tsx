@@ -274,6 +274,6 @@ describe("overlays", () => {
     await fireEvent.press(screen.getByText("Cancel"));
     expect(del).toHaveBeenCalled();
     expect(cancel).toHaveBeenCalled();
-    expect(styleOf(screen.getByText("Delete")).color).toBe(THEMES.ios.light.colors.error);
+    expect(styleOf(screen.getByText("Delete")).color).toBe(THEMES.ios.light.st.primaryText);
   });
 });

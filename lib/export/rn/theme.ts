@@ -56,6 +56,7 @@ const EXTRAS: Record<string, Record<string, string | number>> = {
     outlinedText: "primary",
     filledWeight: 600,
     dialogBg: "surface-container-high/86",
+    sheetTitle: 17,
   },
   wechat: {
     appbarBg: "surface",
@@ -73,6 +74,8 @@ const EXTRAS: Record<string, Record<string, string | number>> = {
     fieldRadius: 8,
     searchBg: "surface-container-low",
     rowMin: 56,
+    sheetTitle: 17,
+    largeTitle: 22,
   },
   spotify: {
     filledWeight: 700,

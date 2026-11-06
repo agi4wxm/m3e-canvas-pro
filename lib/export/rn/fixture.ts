@@ -1,6 +1,6 @@
 import { proofDoc } from "../../exportProject.fixture";
 import { kitGroups, kitLookOf } from "../../kits";
-import { normalizeTheme, groupBounds, withIds, type Doc, type Frame, type Group } from "../../tokens";
+import { normalizeTheme, withIds, type Doc, type Frame, type Group } from "../../tokens";
 import { KITS } from "../../../parts/kits";
 import { KIT_ICONS } from "../../../rn/src/kit/icons/names";
 import { appModule, iconsModule, themeModule } from "./app";
@@ -19,20 +19,17 @@ export function kitsDoc(): { doc: Doc; widths: Record<string, number> } {
   const look = kitLookOf(theme);
   const frame: Frame = { id: "kits", name: "Kits", x: 0, y: 0, flow: "Kits" };
   const groups: Group[] = [];
-  let y = 0;
-  const add = (slug: string, variant?: string, x = 0) => {
+  /* where each stands on the screen: the editor places them by what they measure, which this headless fixture has not */
+  const add = (slug: string, y: number, variant?: string, x = 0) => {
     const kit = KITS.find((k) => k.slug === slug)!;
-    const added = kitGroups(kit, look, "en", { variant, at: { x, y }, screen: frame, theme });
-    groups.push(...added);
-    y = groupBounds(added[0], {}).b + 16;
+    groups.push(...kitGroups(kit, look, "en", { variant, at: { x, y }, screen: frame, theme }));
   };
-  add("top-app-bar");
-  add("search-bar", undefined, 16);
-  add("inset-group", undefined, 16);
-  add("settings-row", "switch", 16);
-  add("button-stack", undefined, 16);
-  y = 892 - 90;
-  add("tab-bar");
+  add("top-app-bar", 0);
+  add("search-bar", 72, undefined, 16);
+  add("inset-group", 136, undefined, 16);
+  add("settings-row", 400, "switch", 16);
+  add("button-stack", 480, undefined, 16);
+  add("tab-bar", 892 - 90);
   return { doc: { groups, frames: [frame], paletteKey: "purple", frame: "phone", title: "Kits", brief: "", theme }, widths: {} };
 }
 

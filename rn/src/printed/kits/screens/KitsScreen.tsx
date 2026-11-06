@@ -39,7 +39,7 @@ export function KitsScreen() {
           </Cell>
         </Box>
       </Pin>
-      <At x={16} y={112}>
+      <At x={16} y={72}>
         <Box
           surface="field"
           layout="row"
@@ -59,7 +59,7 @@ export function KitsScreen() {
           <Icon name="mic" size={20} color="muted" />
         </Box>
       </At>
-      <At x={16} y={224}>
+      <At x={16} y={136}>
         <Box gap={6} padX={0} padY={0} align="stretch" width={380} height={204} hugWidth={false}>
           <Cell dir="column" fillWidth>
             <Box layout="row" padX={16} padY={0} align="center" width={380} height={16} hugWidth={false}>
@@ -209,7 +209,7 @@ export function KitsScreen() {
           </Cell>
         </Box>
       </At>
-      <At x={16} y={336}>
+      <At x={16} y={400}>
         <Box layout="row" gap={16} padX={16} padY={10} align="center" width={380} height={52} hugWidth={false}>
           <Box
             surface="well"
@@ -237,7 +237,7 @@ export function KitsScreen() {
           <Switch label="" checked={false} />
         </Box>
       </At>
-      <At x={16} y={448}>
+      <At x={16} y={480}>
         <Box padX={0} padY={0} align="stretch" width={380} height={120} hugWidth={false}>
           <Cell dir="column" fillWidth>
             <Button label="Continue" size="md" width={380} />
