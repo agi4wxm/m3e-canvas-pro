@@ -33,6 +33,8 @@
     "check:versions": "bun scripts/gen-versions.ts --check",
     "gen:rn": "bun scripts/gen-rn.ts",
     "check:rn": "bun scripts/gen-rn.ts --check",
+    "gen:miniapp": "bun scripts/gen-miniapp.ts",
+    "check:miniapp": "bun scripts/gen-miniapp.ts --check",
     "check:export": "bun scripts/check-export.ts",
     "check:product": "bun scripts/check-product.ts",
     "export": "bun scripts/export.ts",

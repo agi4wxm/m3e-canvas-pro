@@ -33,6 +33,7 @@ jobs:
           bun run check:icon-sets
           bun run check:versions
           bun run check:rn
+          bun run check:miniapp
       - name: Test
         run: bun run test
       - name: Build
@@ -79,6 +80,46 @@ jobs:
         working-directory: rn
         run: npm run export:android
 
+  # The mini-program kit (miniapp-kit/): its own package and toolchain (Taro 4, React 18), checked as an exported
+  # mini-program is: types, ESLint, its unit tests (bun), and the builds for WeChat, Douyin and H5 of its gallery and of
+  # the documents the printer wrote into it.
+  miniapp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: Install the editor (the kit's data and the printed pages are written from it)
+        run: bun install --frozen-lockfile
+      - name: The kit's generated data and printed pages are up to date
+        run: bun run check:miniapp
+      - name: Install miniapp-kit/
+        working-directory: miniapp-kit
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        working-directory: miniapp-kit
+        run: npm run typecheck
+      - name: Lint
+        working-directory: miniapp-kit
+        run: npm run lint
+      - name: Test
+        working-directory: miniapp-kit
+        run: npm test
+      - name: WeChat build
+        working-directory: miniapp-kit
+        run: npm run build:weapp
+      - name: Douyin build
+        working-directory: miniapp-kit
+        run: npm run build:tt
+      - name: H5 build
+        working-directory: miniapp-kit
+        run: npm run build:h5
+
   # The editor itself in headless Chromium (e2e/*.e2e.ts): built, served with `vp preview`, driven by its own controls.
   # Playwright is not a dependency of the project; it is installed here, with its Chromium, and found through npm's root.
   e2e:
@@ -120,9 +161,12 @@ jobs:
   # errors, signing in and back) and on the real server (sign in, a 422 on a field, create, a 401 and back, the server
   # gone), and the screenshots of its screens are kept. Its mobile app (apps/mobile, Expo) is bundled by
   # Metro for Android and the web, and driven in Chromium on the mocks and the real server too (scripts/check-mobile.ts).
+  # Every product's mini-program is built for WeChat, Douyin and H5 and its builds read (a page per screen, nothing a
+  # mini-program may not run, no mocks); the shop's H5 build is driven through the same flows on the mocks and on the
+  # server (scripts/check-miniapp-app.ts).
   product:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -149,9 +193,9 @@ jobs:
           echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
       - name: Export a product and check it for real
         run: bun scripts/check-product.ts "${{ runner.temp }}/product"
-      - name: Export the shop (its own contract, its screens bound to it) and check its server, web app and mobile app for real
+      - name: Export the shop (its own contract, its screens bound to it) and check its server, web app, mobile app and mini-program for real
         run: bun scripts/check-product.ts "${{ runner.temp }}/product" shop
-      - name: Screenshots of the shop's web and mobile apps
+      - name: Screenshots of the shop's web and mobile apps and mini-program (H5)
         if: always()
         uses: actions/upload-artifact@v4
         with:
