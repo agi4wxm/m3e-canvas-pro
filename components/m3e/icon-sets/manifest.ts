@@ -12,7 +12,7 @@ export const SHARDS = {
   "remix": 2,
   "ant": 3,
   "tabler": 3,
-  "mingcute": 7,
+  "mingcute": 8,
   "game": 2,
   "emoji": 3,
   "pixel": 1
@@ -38,4 +38,4 @@ export const SOURCES: Record<keyof typeof SHARDS, string> = {
 }
 
 /** the Material names bundled in every set */
-export const BUNDLED = 533
+export const BUNDLED = 535

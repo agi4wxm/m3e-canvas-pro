@@ -51,7 +51,7 @@ export const TABLES: Record<TableFamily, IconTable> = { sf, fluentui, codicon, p
 
 /** Material names bundled beyond the ones this codebase draws: the most used ones, so a sketch or the AI
  *  can name them and still draw offline, in every family */
-export const COMMON = `account-balance arrow-back-ios arrow-back-ios-new arrow-circle-right arrow-drop-up arrow-forward-ios
+export const COMMON = `account-balance file-open link-off arrow-back-ios arrow-back-ios-new arrow-circle-right arrow-drop-up arrow-forward-ios
 arrow-right arrow-right-alt add-a-photo add-photo-alternate add-shopping-cart admin-panel-settings alarm album
 alternate-email analytics apartment assignment attach-money autorenew badge battery-full beach-access bluetooth bomb
 book bookmark-add bookmarks bug-report cake cancel casino castle check-box-outline-blank checkroom chess close-fullscreen
