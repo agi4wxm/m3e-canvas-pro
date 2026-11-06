@@ -1,5 +1,5 @@
 import type { ColorToken, Item, ItemLook, Radii, TextToken } from "../lib/tokens";
-import { lookGradientTextStyle, lookStyle, lookTextNodeStyle } from "../lib/look";
+import { cornersCss, lookGradientTextStyle, lookStyle, lookTextNodeStyle } from "../lib/look";
 import { mapNodes, type PNode, type PValue } from "./node";
 
 /* A part's look, set beside its props: the fill role it paints itself with, the role its text reads in, its four corner
@@ -42,8 +42,6 @@ const OWN_TEXT = /^text-(on-|inverse-|primary|secondary|tertiary|error|outline|s
 export function appearanceOf(it: Pick<Item, "fill" | "textColor" | "corners" | "look">): Appearance | undefined {
   return it.fill || it.textColor || it.corners || it.look ? { fill: it.fill, text: it.textColor, corners: it.corners, ...(it.look ? { look: it.look } : {}) } : undefined;
 }
-
-const radiusOf = (c: Radii) => `${c.tl}px ${c.tr}px ${c.br}px ${c.bl}px`;
 
 /** the role words read in over a fill; a surface's own words already read over it */
 const ON_FILL: Partial<Record<ColorToken, string>> = {
@@ -126,7 +124,7 @@ export function applyAppearance(tree: PNode, a: Appearance | undefined, target?:
       const kept = (typeof props.className === "string" ? props.className.split(/\s+/) : []).filter((c) => c && !(a.fill && OWN_FILL.test(c)) && !(OWN_TEXT.test(c)));
       props.className = [...kept, ...classes.split(" ")].join(" ");
     }
-    const style = { ...wordRoles(a), ...(a.corners ? { borderRadius: radiusOf(a.corners) } : {}), ...look };
+    const style = { ...wordRoles(a), ...(a.corners ? { borderRadius: cornersCss(a.corners, a.look) } : {}), ...look };
     if (Object.keys(style).length) props.style = over(ownStyle(props), style);
     const painted = { ...n, props };
     return a.look ? paintWords(painted, a.look) : painted;

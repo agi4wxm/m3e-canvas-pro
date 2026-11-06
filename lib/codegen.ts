@@ -15,6 +15,7 @@ import {
   frameOfPart,
   frameSizeOf,
   frameLengthOf,
+  frameRadius,
   canCollapseFab,
   groupBounds,
   ownerIdOf,
@@ -36,7 +37,7 @@ import { inlineNode, itemOfFile, localUsesIn, namesIn, str } from "../parts/prin
 import { flowClasses } from "../parts/flow";
 import { mapNodes, type PNode, type PValue } from "../parts/node";
 import { expandDoc } from "./expand";
-import { boundItem, bindsFields, collectionIdOf, collectionsOf, darkSwitched, varValues } from "./variables";
+import { boundItem, bindsFields, varValues } from "./variables";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "./flow";
 import { Behaviour, type RuntimeSpec, type Uses } from "./printBehaviour";
 import { partBySlug } from "../parts/registry";
@@ -444,6 +445,8 @@ export type ScreenCode = {
   height: number;
   /** the height of the bar at its foot: a snackbar stands above it */
   foot: number;
+  /** the corners it is shown with when laid over another screen, as the preview does */
+  radius: number;
   source: string;
   imports: Imports;
   /** this repo's own component files the code needs (see `LOCAL_M3E`), with what needs each */
@@ -484,16 +487,13 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
   /* a dock whose tabs do nothing prints the content of the tab that is chosen; the rest stays in the sketch */
   const offTab = new Set([...outOfPane(doc.groups, widths)].filter((id) => !b.keepsOffTab(id)));
   let usesToast = false;
-  /* the color variables the app's dark mode switches, and the collection each variable is in */
-  const switched = darkSwitched(doc);
-  const varCollections = collectionsOf(doc);
-  const collectionOfVar = new Map((doc.vars ?? []).map((v) => [v.id, collectionIdOf(v, varCollections)]));
   const screens = shown.map((frame, i): ScreenCode => {
     const c = new Ctx(b, frame, widths);
-    /* A design field bound to a variable is printed with the variable's value on this screen; a fill whose variable the
-     * dark mode switches, where the screen does not choose the mode itself, names the CSS variable that does (style.css) */
+    /* A design field bound to a variable is printed with the variable's value on this screen. In a whole app it reads the
+     * variable's CSS variable, which the runtime defines for the screen in the mode it shows and with what taps set
+     * (src/runtime.tsx), that value standing in until it does */
     const values = doc.vars?.length ? varValues(doc, frame, false) : {};
-    const cssVar = (id: string) => (switched.has(id) && !frame.varModes?.[collectionOfVar.get(id) ?? ""] ? switched.get(id)!.name : undefined);
+    const cssVar = (id: string) => b.cssVarOf(id);
     const bound = (g: Group): Group => (g.items.some(bindsFields) ? { ...g, items: g.items.map((it) => boundItem(it, values, cssVar)) } : g);
     /* a layout reads its parts in the order of the document, the rest go down the screen */
     const all = doc.groups
@@ -533,6 +533,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
       width: w,
       height: h,
       foot: Math.max(0, ...runs.filter((g) => g.items.length === 1 && roleOf(g.items[0]) === "bottom").map((g) => sizeOf(g.items[0], widths).h)),
+      radius: frameRadius(frame) / 2,
       source: `export function ${name}() {\n${fromApp}${state}  return (\n${pretty(inner, 2)}\n  )\n}`,
       imports: c.imports,
       local: c.local,
