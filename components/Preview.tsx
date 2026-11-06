@@ -1069,12 +1069,12 @@ export function Preview({
   const [opener] = useState(() => (typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null)));
   useEffect(() => () => { if (opener?.isConnected && !opener.closest("[inert]")) opener.focus(); }, [opener]);
 
-  /* a screen's parts as they are right now. The tab a visitor chose goes in first, since which parts
-   * the dock shows and how they are laid out both follow from it; then its bindings: the data drawn in, the regions in
-   * the state their data is in, the forms' errors (lib/bindings/view.ts). */
   /* how tall bound words are drawn in the preview (components/previewText.ts), over what the canvas measured */
   const [wordHeights, setWordHeights] = useState<Record<string, number>>({});
   const onWordHeights = useCallback((next: Record<string, number>) => setWordHeights((was) => (Object.entries(next).some(([k, v]) => was[k] !== v) ? { ...was, ...next } : was)), []);
+  /* a screen's parts as they are right now. The tab a visitor chose goes in first, since which parts
+   * the dock shows and how they are laid out both follow from it; then its bindings: the data drawn in, the regions in
+   * the state their data is in, the forms' errors (lib/bindings/view.ts), the bound words as tall as they are. */
   const groupsFor = useCallback(
     (f: Frame, params?: Record<string, unknown>): { groups: DocGroup[]; widths: Record<string, number> } => {
       const tabbed = groupsInFrame(doc.groups, f, frames, widths).map((g) => {
