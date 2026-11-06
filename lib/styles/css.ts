@@ -101,6 +101,7 @@ export function checkValue(prop: string, raw: string): Reason | null {
   /* said first, by name, since an address would otherwise be refused only for its colon */
   const fetches = /(?:^|[^-a-z0-9])((?:-webkit-)?image-set|url|image|element|cross-fade|paint|src|expression)\s*\(/i.exec(value);
   if (fetches) return why(`${fetches[1]}() 会从别处取东西，不允许`, `${fetches[1]}() fetches something from elsewhere and is not allowed`);
+  // eslint-disable-next-line no-control-regex -- control characters are among what a value may never carry
   if (/[;{}<>@\\!`:=[\]^|?$&]|\/\*|\*\/|[\u0000-\u001f\u007f]/.test(value.replace(/"[^"]*"|'[^']*'/g, '""'))) return why("值里有不允许的字符（; { } < > @ \\ ! : 等）", "the value has a character a value may not have (; { } < > @ \\ ! : …)");
   /* strings: only where a style needs words or a face's name, short, and with nothing that would end them */
   const strings = value.match(/"[^"]*"|'[^']*'/g) ?? [];
@@ -284,6 +285,7 @@ export function checkSelector(raw: string): Reason | null {
   if (!s) return why("选择器是空的", "the selector is empty");
   if (s.length > LIMITS.selector) return why(`选择器超过 ${LIMITS.selector} 个字符`, `the selector is longer than ${LIMITS.selector} characters`);
   if (s === "&") return null;
+  // eslint-disable-next-line no-control-regex -- control characters are among what a selector may never carry
   if (/[;{}<>\\@!`]|\/\*|[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(s.replace(/>/g, " "))) return why("选择器里有不允许的字符（; { } \\ @ 等）", "the selector has a character it may not have (; { } \\ @ …)");
   const c: Cursor = { s, i: 0 };
   const r = list(c, 0, false);
