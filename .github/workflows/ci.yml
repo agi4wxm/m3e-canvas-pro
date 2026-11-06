@@ -27,10 +27,11 @@ jobs:
         run: bun run typecheck
       - name: Lint
         run: bun run lint
-      - name: Icons are up to date
+      - name: Generated files are up to date
         run: |
           bun run check:icons
           bun run check:icon-sets
+          bun run check:versions
       - name: Test
         run: bun run test
       - name: Build
