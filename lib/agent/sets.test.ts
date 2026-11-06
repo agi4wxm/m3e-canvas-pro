@@ -11,7 +11,7 @@ import { scriptedAdapter } from "../llm/testkit";
 import type { LlmEvent, Message } from "../llm";
 import { agentSetup, runTurn } from "./turn";
 import { prunePictures, picturesIn } from "./pictures";
-import { setOf, setsFor, TOOL_SETS } from "./toolsets";
+import { setOf, setsFor, TOOL_SETS, type ToolSet } from "./toolsets";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -39,6 +39,59 @@ describe("tool sets", () => {
     expect(r.sets).toEqual(["build", "style", "data"]);
     expect(setsFor("做一个深色模式开关")).toEqual(expect.arrayContaining(["style", "data"]));
     expect(setsFor("replicate this", { attachments: 1 })).toEqual(expect.arrayContaining(["reference", "style", "generate"]));
+  });
+
+  /* real phrasings and the sets they call for besides build: a look-alike word ("Codex-style", a tab's icon, 画布,
+     검색) brings nothing, a request that means a set brings it */
+  const PHRASES: [string, ToolSet[]][] = [
+    ["Make a login screen in the current style", []],
+    ["Build a Codex-style prompt box with an attach icon and a send button", []],
+    ["Change the icon of the first tab to a heart", []],
+    ["Add a navigation drawer with five items and a button group", []],
+    ["Make a settings screen with a toggle for notifications and a profile picture", []],
+    ["Add a dark mode toggle", ["style", "data"]],
+    ["Switch the app to the iOS style", ["style"]],
+    ["Generate a warm paper notebook style and wear it", ["style", "generate"]],
+    ["Draw a leaf icon for the tab bar", ["generate"]],
+    ["Paint a mountain backdrop behind the home screen", ["generate"]],
+    ["When I tap the login button, go to the home screen", ["data"]],
+    ["Show the products from a data collection in this list", ["data"]],
+    ["Turn this card into a reusable component", ["components"]],
+    ["Draft a whole app with five screens for a coffee shop", ["screens"]],
+    ["Tidy up this screen and align the buttons", ["layout"]],
+    ["按当前风格做一个登录页面", []],
+    ["做一个 Codex 风格的输入框", []],
+    ["把第一个标签的图标换成爱心", []],
+    ["在画布上加一个搜索栏和通知开关", []],
+    ["把这个列表改成卡片，背景是浅灰色", []],
+    ["换成 iOS 风格", ["style"]],
+    ["加一个深色模式开关变量并绑定", ["style", "data"]],
+    ["画一个叶子图标放进标签栏", ["generate"]],
+    ["给首页加一张背景图", ["generate"]],
+    ["生成一个暖色纸张笔记本风格并穿上", ["style", "generate"]],
+    ["点击登录按钮跳转到首页", ["data"]],
+    ["把这张卡片存成组件", ["components"]],
+    ["做一个咖啡店的整个应用，五个页面", ["screens"]],
+    ["整理一下这个屏幕，按钮对齐", ["layout"]],
+    ["ホーム画面に検索バーとカードのリストを追加して", []],
+    ["Codex風の入力欄を作って", []],
+    ["iOSのスタイルに変更して", ["style"]],
+    ["ダークモードの切り替えスイッチを追加", ["style", "data"]],
+    ["葉っぱのアイコンを描いてタブバーに入れて", ["generate"]],
+    ["ログインボタンをタップしたらホーム画面に遷移", ["data"]],
+    ["このカードをコンポーネント化して", ["components"]],
+    ["画面を整えて、ボタンを揃えて", ["layout"]],
+    ["설정 화면을 만들어 줘. 검색 바와 알림 스위치가 있어야 해", []],
+    ["Codex 스타일의 입력창을 만들어 줘", []],
+    ["iOS 스타일로 바꿔 줘", ["style"]],
+    ["다크 모드 전환 스위치를 추가해 줘", ["style", "data"]],
+    ["탭 바에 넣을 나뭇잎 아이콘을 그려 줘", ["generate"]],
+    ["로그인 버튼을 누르면 홈 화면으로 이동", ["data"]],
+    ["이 카드를 재사용 컴포넌트로 만들어 줘", ["components"]],
+    ["버튼을 정렬하고 간격을 맞춰 줘", ["layout"]],
+  ];
+  it.each(PHRASES)("%s → build + %j", (request, sets) => {
+    expect(setsFor(request)).toEqual(TOOL_SETS.filter((s) => s === "build" || sets.includes(s)));
   });
 
   it("loads a set mid-turn, keeps it for the next turn, and never changes the system prompt", async () => {
