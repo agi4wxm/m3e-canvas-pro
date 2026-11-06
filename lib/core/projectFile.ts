@@ -42,8 +42,33 @@ export function sortKeys(value: unknown): unknown {
 
 const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/** A value as JSON would write it, its keys in their own order: what `sortKeys` does without the sorting. */
+function plainJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((v) => (v === undefined || typeof v === "function" ? null : plainJson(v)));
+  if (value === null || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v === undefined || typeof v === "function") continue;
+    Object.defineProperty(out, k, { value: plainJson(v), enumerable: true, writable: true, configurable: true });
+  }
+  return out;
+}
+
+/** the document with its keys sorted, but for the API section, whose keys keep their order */
+function sortedDocument(document: unknown): unknown {
+  if (document === null || typeof document !== "object" || Array.isArray(document) || !("api" in document)) return sortKeys(document);
+  const { api, ...rest } = document as Record<string, unknown>;
+  const sorted = sortKeys({ ...rest, api: null }) as Record<string, unknown>;
+  if (api === undefined) delete sorted.api;
+  else sorted.api = plainJson(api);
+  return sorted;
+}
+
 /** the lists inside the document whose entries hold lists of their own, each entry written open */
 const OPEN_ENTRIES = new Set(["components", "collections"]);
+/** The API section (lib/api): its own lists and records written open, one model, endpoint, channel, server or security
+ *  scheme a line. Its keys keep their order: the order of a schema's properties, of the responses, is the author's. */
+const API = "api";
 
 /** Whether a value at this place is written open (one member per line) rather than on one line. The envelope, the
  *  document, and the document's own lists and records are open; so are the entries of `components` and `collections`
@@ -54,6 +79,7 @@ function isOpen(path: string[], value: unknown): boolean {
   if (n === 0) return true;
   if (path[0] !== "document") return false;
   if (n <= 2) return true;
+  if (path[1] === API) return n === 3;
   if (n === 3) return OPEN_ENTRIES.has(path[1]) && !Array.isArray(value);
   if (n === 4) return OPEN_ENTRIES.has(path[1]) && Array.isArray(value);
   return false;
@@ -73,7 +99,7 @@ function write(value: unknown, path: string[], indent: string): string {
  *  the document with its keys sorted, laid out as `isOpen` says, ending with a newline. */
 export function formatProject(file: { format: string; version: number; document: unknown }): string {
   const { format, version, document, ...rest } = file;
-  const envelope: Record<string, unknown> = { format, version, document: sortKeys(document) };
+  const envelope: Record<string, unknown> = { format, version, document: sortedDocument(document) };
   for (const k of Object.keys(rest).sort(byCodePoint)) envelope[k] = sortKeys(rest[k as keyof typeof rest]);
   return write(envelope, [], "") + "\n";
 }

@@ -10,7 +10,7 @@ import type { Doc } from "../tokens";
 import { PRODUCT_VERSIONS } from "../versions.generated";
 import { MANIFEST_PATH, parseManifest } from "./merge";
 import { buildProduct, productName, zipProduct, type ProductOptions } from "./product";
-import { productDoc } from "./product.fixture";
+import { productDoc, shopProductDoc } from "./product.fixture";
 import { GENERATED_DIRS } from "./targets/root";
 import type { Product, ProductTarget } from "./types";
 
@@ -164,4 +164,25 @@ describe("the product of a document", () => {
     expect(JSON.parse(text(p, "package.json")).workspaces).toContain("apps/mobile");
     expect(p.files["apps/mobile/README.md"]).toBeUndefined();
   });
+
+  it("reads the document's own contract (Doc.api): its operations, models, channels and servers come out", async () => {
+    const { doc, widths } = shopProductDoc();
+    const shop = await build(doc, widths);
+    const ops = text(shop, "packages/api/src/generated/operations.ts");
+    for (const op of ["login", "refreshToken", "listProducts", "createProduct", "getProduct", "updateProduct", "deleteProduct", "uploadProductImage", "listOrders", "getMe"]) {
+      expect(ops).toContain(`${op}: (`);
+      expect(text(shop, `server/src/handlers/${op}.ts`)).toContain(`throw notImplemented("${op}")`);
+    }
+    const openapi = text(shop, "packages/api/openapi.yaml");
+    expect(openapi).toContain('"/products/{productId}/images":');
+    expect(openapi).toContain("x-m3e-pagination:");
+    expect(openapi).toContain('"application/problem+json":');
+    expect(text(shop, "packages/api/asyncapi.yaml")).toContain('"/rooms/{roomId}"');
+    const types = text(shop, "packages/api/src/generated/types.ts");
+    for (const t of ["Product", "NewProduct", "Order", "Tokens", "Problem", "ChatMessage"]) expect(types).toContain(`export type ${t} = `);
+    expect(text(shop, "server/src/generated/routes.ts")).toContain('url: "/products/:productId/images"');
+    /* a document without an API exports the empty contract it always did */
+    const bare = await build(proofDoc().doc, proofDoc().widths);
+    expect(text(bare, "packages/api/openapi.yaml")).not.toContain("/products");
+  }, 60_000);
 });

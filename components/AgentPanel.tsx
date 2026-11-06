@@ -114,6 +114,20 @@ export function takenWords(x: Taken, lang: ReturnType<typeof useLang>): string {
       return safetyText("askCollection", lang, { name: x.name });
     case "props":
       return safetyText("askProps", lang, { names: list(x.names), of: x.of });
+    case "model":
+      return t("apiAskModel", lang).replace("{name}", x.name);
+    case "modelFields":
+      return t("apiAskModelFields", lang).replace("{names}", list(x.names)).replace("{of}", x.of);
+    case "endpoint":
+      return t("apiAskEndpoint", lang).replace("{name}", x.name);
+    case "channel":
+      return t("apiAskChannel", lang).replace("{name}", x.name);
+    case "messages":
+      return t("apiAskMessages", lang).replace("{names}", list(x.names)).replace("{of}", x.of);
+    case "server":
+      return t("apiAskServer", lang).replace("{name}", x.name);
+    case "scheme":
+      return t("apiAskScheme", lang).replace("{name}", x.name);
   }
 }
 

@@ -1,4 +1,4 @@
-// bun scripts/check-product.ts <empty work folder> [proof|systems|parts]
+// bun scripts/check-product.ts <empty work folder> [proof|systems|parts|shop]
 //
 // The proof a product export (the monorepo, lib/export) is what it claims to be. Exports a fixture product into the
 // work folder the way scripts/export.ts does, then for real: npm install, npm run typecheck, npm run lint (ESLint with
@@ -8,7 +8,8 @@
 // its .m3e-new beside it, a dependency someone added stays. In Playwright's Chromium it opens the built app (each
 // screen at its own address, the browser's back, a deep link) and the dev server with the mocks on (the app draws,
 // and with VITE_API_MOCKS=msw the service worker answers the API). Needs the network for npm install and Playwright
-// installed (as for the e2e tests); not part of `bun run test`. Exits non-zero on any failure.
+// installed (as for the e2e tests); not part of `bun run test`. Exits non-zero on any failure. `shop` exports a document
+// whose contract is its own (Doc.api: the shop's OpenAPI and the chat's AsyncAPI, lib/api/fixtures), read by the export.
 import { execSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statfsSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -20,12 +21,13 @@ import { allPartsDoc } from "../lib/codegen.fixture";
 import { systemsDoc } from "../lib/exportProject.fixture";
 import { exportToFolder, reportLines } from "../lib/export/nodeWriter";
 import { buildProduct } from "../lib/export/product";
-import { productDoc } from "../lib/export/product.fixture";
+import { productDoc, shopProductDoc } from "../lib/export/product.fixture";
 import { setGlobalLang } from "../lib/i18n";
+import type { Doc } from "../lib/tokens";
 
 const WORK = process.argv[2];
 const WHICH = process.argv[3] ?? "proof";
-if (!WORK) throw new Error("usage: bun scripts/check-product.ts <empty work folder> [proof|systems|parts]");
+if (!WORK) throw new Error("usage: bun scripts/check-product.ts <empty work folder> [proof|systems|parts|shop]");
 mkdirSync(WORK, { recursive: true });
 const free = statfsSync(WORK);
 if ((free.bavail * free.bsize) / 2 ** 30 < 2) throw new Error("under 2GB free: stopping");
@@ -103,7 +105,11 @@ async function serveWeb(mode: "preview" | "dev", env: Record<string, string> = {
 
 setGlobalLang("en");
 const read = (path: string) => readFile(join(ROOT, path), "utf8");
-const fixture = WHICH === "systems" ? { ...systemsDoc(), api: productDoc().api } : WHICH === "parts" ? { doc: allPartsDoc(), widths: {}, api: productDoc().api } : productDoc();
+/* the shop's contract comes from the document itself (Doc.api), so no api is handed to the export */
+const fixture: { doc: Doc; widths: Record<string, number>; api?: ReturnType<typeof productDoc>["api"] } =
+  WHICH === "systems" ? { ...systemsDoc(), api: productDoc().api } : WHICH === "parts" ? { doc: allPartsDoc(), widths: {}, api: productDoc().api } : WHICH === "shop" ? shopProductDoc() : productDoc();
+/* an operation that takes no parameters, to knock on, and the handler written for it */
+const PROBE = WHICH === "shop" ? { path: "/products", handler: "listProducts", answer: '"items"' } : { path: "/health", handler: "getHealth", answer: '"ok"' };
 
 rmSync(DIR, { recursive: true, force: true });
 const product = await buildProduct(fixture.doc, fixture.widths, { lang: "en", read, api: fixture.api });
@@ -140,7 +146,7 @@ if (installed) {
     try {
       let status = 0;
       for (let i = 0; i < 60 && !status; i++) {
-        status = await fetch(`http://127.0.0.1:${port}/health`).then(
+        status = await fetch(`http://127.0.0.1:${port}${PROBE.path}`).then(
           (r) => r.status,
           () => 0,
         );
@@ -158,7 +164,7 @@ if (installed) {
 
 const pw = installed ? playwright() : null;
 ok(!installed || pw, "Playwright is installed (npm i -g playwright && npx playwright install chromium, or PLAYWRIGHT_PATH)");
-if (pw && WHICH === "proof") {
+if (pw && (WHICH === "proof" || WHICH === "shop")) {
   const browser = await pw.chromium.launch();
   const screenIs = (page: Page, key: string) => page.waitForFunction(`document.querySelector("[data-screen]")?.getAttribute("data-screen") === ${JSON.stringify(key)}`, undefined, { timeout: 10_000 }).then(() => true, () => false);
   const path = (page: Page) => page.evaluate<string>("location.pathname");
@@ -191,8 +197,8 @@ if (pw && WHICH === "proof") {
         ok(await screenIs(page, "menu"), `the dev server draws the app with the mocks on (${mocks})`);
         if (mocks === "msw") {
           await page.waitForFunction("!!navigator.serviceWorker.controller", undefined, { timeout: 10_000 }).catch(() => {});
-          const health = await page.evaluate<string>('fetch("/api/health").then((r) => r.text())');
-          ok(health.includes('"ok"'), `the mocks' service worker answers the API (${health.slice(0, 80)})`);
+          const answer = await page.evaluate<string>(`fetch("/api${PROBE.path}").then((r) => r.text())`);
+          ok(answer.includes(PROBE.answer), `the mocks' service worker answers the API (${answer.slice(0, 80)})`);
         }
         ok(!errors.length, `the dev app throws nothing (${errors.join("; ")})`);
       } finally {
@@ -209,7 +215,7 @@ if (pw && WHICH === "proof") {
 const again = await exportToFolder(DIR, product);
 ok(again.writes.filter((w) => w.why !== "manifest").length === 0 && again.conflicts.length === 0, "the same export again writes nothing");
 
-const seededPath = "server/src/handlers/getHealth.ts";
+const seededPath = `server/src/handlers/${PROBE.handler}.ts`;
 const generatedPath = "apps/web/src/generated/router.ts";
 writeFileSync(join(DIR, seededPath), `${readFileSync(join(DIR, seededPath), "utf8")}// custom: implemented here\n`);
 writeFileSync(join(DIR, generatedPath), `${readFileSync(join(DIR, generatedPath), "utf8")}// edited by hand\n`);

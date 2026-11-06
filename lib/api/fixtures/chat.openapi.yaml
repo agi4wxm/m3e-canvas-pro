@@ -1,0 +1,115 @@
+# The chat's HTTP half: the rooms and a room's history, paged by cursor. Its models are the realtime half's too.
+openapi: 3.1.0
+info:
+  title: Chat
+  version: 1.4.0
+servers:
+  - url: https://api.chat.example
+    x-m3e-env: prod
+    x-m3e-realtime: wss://rt.chat.example/realtime
+security:
+  - bearerAuth: []
+paths:
+  /rooms:
+    get:
+      operationId: listRooms
+      tags: [Rooms]
+      responses:
+        '200':
+          description: The rooms the user is in
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+  /rooms/{roomId}/messages:
+    get:
+      operationId: listMessages
+      tags: [Rooms]
+      x-m3e-pagination:
+        style: cursor
+        items: items
+        cursorParam: before
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: before
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 200
+      responses:
+        '200':
+          description: Older messages, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChatMessage'
+                  nextCursor:
+                    type: [string, 'null']
+                required: [items, nextCursor]
+components:
+  schemas:
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        unread:
+          type: integer
+          minimum: 0
+      required: [id, name]
+    ChatUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        avatar:
+          type: [string, 'null']
+          format: uri
+      required: [id, name]
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        roomId:
+          type: string
+        author:
+          $ref: '#/components/schemas/ChatUser'
+        text:
+          type: string
+          maxLength: 4000
+        sentAt:
+          type: string
+          format: date-time
+        attachments:
+          type: array
+          items:
+            type: string
+            format: uri
+      required: [id, roomId, author, text, sentAt]
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -62,6 +62,8 @@ import { GitHubLink, Toolbar } from "@/components/Toolbar";
 import { LangMenu } from "@/components/Menus";
 /* the AI tab loads with its first opening: the agent's panel, providers and tools are not in the editor's own bundle */
 const AgentPanel = lazy(() => import("@/components/AgentPanel").then((m) => ({ default: m.AgentPanel })));
+/* the API tab loads with its first opening too */
+const ApiPanel = lazy(() => import("@/components/ApiPanel").then((m) => ({ default: m.ApiPanel })));
 import { PromptBar, usePromptBarKey } from "@/components/PromptBar";
 import { McpConnect } from "@/components/McpPanel";
 import { PANEL_FADE_H } from "@/components/ui";
@@ -204,6 +206,17 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
       if (opts.refused) opts.refused(e);
       else if (e.code === "locked") showToast(lockedGroupMsg());
       return undefined;
+    }
+  };
+  /** An operation of the API tab: what it reported, or the words of its refusal, which the toast shows too (the API
+   *  is never left with an error an operation made, so a refusal says what would have been wrong). */
+  const runApi = <A,>(o: Op<A, unknown>, args: A): { ok: true; result: unknown } | { ok: false; message: string } => {
+    try {
+      return { ok: true, result: store.run(o, args, { origin: "user" }) };
+    } catch (e) {
+      if (!(e instanceof OpError)) throw e;
+      if (e.code !== "nothing_to_do") showToast(t("apiRefused", lang).replace("{message}", e.message), 6000);
+      return { ok: false, message: e.message };
     }
   };
   /** the same, for an operation that reports nothing: whether it did what it was asked */
@@ -1153,9 +1166,14 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   />
                 ) : leftTab === "variables" ? (
                   <VariablesPanel p={p} doc={core.doc} api={variablesApi} />
+                ) : leftTab === "api" ? (
+                  <Suspense fallback={null}>
+                    <ApiPanel p={p} api={core.doc.api} collections={collections ?? []} title={core.doc.title} run={runApi} />
+                  </Suspense>
                 ) : leftTab === "data" ? (
                   <DataPanel
                     p={p}
+                    models={core.doc.api?.models?.map((m) => m.name)}
                     collections={collections ?? []}
                     onChange={(next) => runOp(ops.setCollections, { collections: next }, { history: { coalesce: "collections" } })}
                   />

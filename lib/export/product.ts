@@ -8,6 +8,7 @@ import { strToU8, zipSync } from "fflate";
 import type { Doc } from "../tokens";
 import { getLang, type Lang } from "../i18n";
 import { PRODUCT_VERSIONS } from "../versions.generated";
+import { asyncApiObject, openApiObject, schemaToTs } from "../api";
 import { apiModelOf, type ApiModel } from "./api";
 import { MANIFEST_PATH, planExport } from "./merge";
 import { assertSafePaths, npmSlug, pathProblem } from "./paths";
@@ -21,7 +22,7 @@ export type ProductOptions = {
   read?: (path: string) => Promise<string>;
   fetchIcons?: ProductContext["fetchIcons"];
   onProgress?: (done: number, total: number) => void;
-  /** the API contract; until the document carries one (Doc.api), an empty one */
+  /** the API contract in place of the document's own (Doc.api); a document without one gets an empty one */
   api?: { openapi?: Record<string, unknown>; asyncapi?: Record<string, unknown> | null; types?: string } | ApiModel;
   /** the targets to build, PRODUCT_TARGETS by default */
   targets?: readonly ProductTarget[];
@@ -38,6 +39,14 @@ export function productVersion(name: string): string {
   return version;
 }
 
+/** The contract a document carries (Doc.api, lib/api) as the product reads it: its OpenAPI 3.1 document, its AsyncAPI
+ *  3.0 one when it has realtime channels, and its models as TypeScript. Undefined for a document without an API. */
+export function contractOf(doc: Doc, title: string): { openapi: Record<string, unknown>; asyncapi: Record<string, unknown> | null; types: string } | undefined {
+  if (!doc.api) return undefined;
+  const source = { api: doc.api, title };
+  return { openapi: openApiObject(source), asyncapi: doc.api.channels?.length ? asyncApiObject(source) : null, types: doc.api.models?.length ? schemaToTs(doc.api, { comments: false }) : "" };
+}
+
 /** the npm name of a document's product */
 export const productName = (doc: Doc) => npmSlug(doc.title, "m3e-app");
 
@@ -45,7 +54,7 @@ export async function buildProduct(doc: Doc, widths: Record<string, number>, o: 
   const readAny = o.read ?? (await import("../exportSources")).readSource;
   const name = productName(doc);
   const title = oneLine(doc.title) || "App";
-  const api = o.api && "operations" in o.api ? o.api : apiModelOf(title, o.api);
+  const api = o.api && "operations" in o.api ? o.api : apiModelOf(title, o.api ?? contractOf(doc, title));
   const ctx: ProductContext = {
     doc,
     widths,

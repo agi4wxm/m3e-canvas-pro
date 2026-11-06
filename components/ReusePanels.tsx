@@ -532,7 +532,7 @@ export function InstanceInspector({
 
 /* ---------- data ---------- */
 
-function CollectionCard({ c, onChange, onDelete, p }: { c: Collection; onChange: (patch: Partial<Collection>) => void; onDelete: () => void; p: Palette }) {
+function CollectionCard({ c, models, onChange, onDelete, p }: { c: Collection; models?: string[]; onChange: (patch: Partial<Collection>) => void; onDelete: () => void; p: Palette }) {
   const lang = useLang();
   /* The words typed are kept as typed: reading them back from the rows would swallow a line just
    * started or a space after a comma. They give way when the rows change from elsewhere, an undo say. */
@@ -566,18 +566,34 @@ function CollectionCard({ c, onChange, onDelete, p }: { c: Collection; onChange:
         height={44}
       />
       <div style={hintStyle(p)}>{t("collectionTable", lang)}</div>
+      {/* the API model the rows are examples of: what mock data is made from */}
+      {(models?.length || c.model) && (
+        <div data-collection-model>
+          <Select
+            options={[{ key: "", label: t("apiNoModel", lang), icon: "block" }, ...[...new Set([...(models ?? []), ...(c.model ? [c.model] : [])])].map((m) => ({ key: m, label: m, icon: "data_object" }))]}
+            value={c.model ?? ""}
+            onChange={(model) => onChange({ model: model || undefined })}
+            p={p}
+            label={t("apiCollectionModel", lang)}
+            height={40}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-export function DataPanel({ p, collections, onChange }: { p: Palette; collections: Collection[]; onChange: (next: Collection[]) => void }) {
+/** a collection without the fields a patch took away (a model unlinked), so what is saved never says `undefined` */
+const withoutUndefined = (c: Collection): Collection => Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined)) as Collection;
+
+export function DataPanel({ p, collections, models, onChange }: { p: Palette; collections: Collection[]; /** the API's models, for a collection to name */ models?: string[]; onChange: (next: Collection[]) => void }) {
   const lang = useLang();
   const add = () => onChange([...collections, { id: uid(), name: t("collectionDefaultName", lang).replace("{n}", String(collections.length + 1)), fields: ["title", "subtitle"], rows: [["A", "1"], ["B", "2"], ["C", "3"]] }]);
   return (
     <div className="no-scrollbar" style={{ height: "100%", overflowY: "auto", padding: "12px 12px 16px", display: "flex", flexDirection: "column", gap: 12, boxSizing: "border-box" }}>
       <div style={hintStyle(p)}>{t("noCollections", lang)}</div>
       {collections.map((c) => (
-        <CollectionCard key={c.id} c={c} p={p} onChange={(patch) => onChange(collections.map((x) => (x.id === c.id ? { ...x, ...patch } : x)))} onDelete={() => onChange(collections.filter((x) => x.id !== c.id))} />
+        <CollectionCard key={c.id} c={c} models={models} p={p} onChange={(patch) => onChange(collections.map((x) => (x.id === c.id ? withoutUndefined({ ...x, ...patch }) : x)))} onDelete={() => onChange(collections.filter((x) => x.id !== c.id))} />
       ))}
       <button onClick={add} data-add-collection className="m3-press" style={wideBtn(p)}>
         <Icon name="add" size={20} />

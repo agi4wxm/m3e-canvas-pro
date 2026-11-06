@@ -1,7 +1,7 @@
 /* The API contract as the product export reads it: an OpenAPI 3.1 document (and an AsyncAPI 3.0 one for realtime),
  * the TypeScript declarations of its schemas, and the operations the client, the mocks and the server are generated
- * from. Until a document carries its own contract (Doc.api, lib/api) the product gets an empty one; the API model's
- * `toOpenApi` and `schemaToTs` feed `apiModelOf` once it does.
+ * from. A document's own contract (Doc.api, lib/api) comes in through `contractOf` (product.ts): `openApiObject`,
+ * `asyncApiObject` and `schemaToTs`; a document without one gets an empty one.
  *
  * Whatever the contract says is data: names become identifiers through `identifierOf`, paths and keys are printed as
  * escaped strings, and nothing of it is ever written into a comment. */

@@ -10,9 +10,10 @@ import * as data from "./data";
 import * as tree from "./tree";
 import * as styles from "./styles";
 import * as icons from "./icons";
+import * as api from "./api";
 import { editComponentOp } from "./definition";
 
-export { document, screens, nodes, layout, components, data, tree, styles, icons };
+export { document, screens, nodes, layout, components, data, tree, styles, icons, api };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -22,6 +23,7 @@ export * from "./data";
 export * from "./tree";
 export * from "./styles";
 export * from "./icons";
+export * from "./api";
 export { DEFINITION_OPS, definitionOpened } from "./definition";
 export { OpError } from "../op";
 
@@ -116,6 +118,21 @@ export const OPS: Op<never, unknown>[] = [
   data.setAction,
   data.bindProp,
   data.reorderPanes,
+  api.addModel,
+  api.updateModel,
+  api.renameModel,
+  api.removeModel,
+  api.addEndpoint,
+  api.updateEndpoint,
+  api.removeEndpoint,
+  api.setAuth,
+  api.addChannel,
+  api.updateChannel,
+  api.removeChannel,
+  api.setServers,
+  api.setApiInfo,
+  api.importOpenApi,
+  api.importAsyncApi,
 ] as unknown as Op<never, unknown>[];
 
 /** an operation by its name */

@@ -12,9 +12,11 @@ import { opInput } from "./schema";
 import { tool, ToolFailure, type Tool, type ToolEnv, type ToolGroup } from "./types";
 
 const STYLE_OPS = new Set(["set_theme", "apply_style", "set_custom_styles", "add_custom_style", "set_style_rules", "set_style_layout", "set_palette", "set_custom_palette", "set_dynamic_color"]);
-const DATA_OPS = new Set(["add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode"]);
+/** the operations on the API section (lib/core/ops/api.ts): data too, the contract the data comes through */
+export const API_OPS = new Set(["add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi"]);
+const DATA_OPS = new Set(["add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS]);
 /** what takes away something the author made: a client asks the author first */
-export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon"]);
+export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel"]);
 
 const groupOf = (name: string): ToolGroup => (STYLE_OPS.has(name) ? "style" : DATA_OPS.has(name) ? "data" : "edit");
 
@@ -50,6 +52,16 @@ const MORE: Record<string, string> = {
   set_var_mode: "A screen's own choice wins over the document's; list_data lists the collections and their modes.",
   bind_prop: "A fill bound to a color variable shows its value in the mode on show; to drive a switch's checked prop by a bool variable, bind it and toggle the variable with set_action.",
   split_into_atoms: "Returns {rootItemId}.",
+  add_model: "get_api shows the models there are. Name fields in camelCase; required lists what is always there. Returns {name}.",
+  update_model: "To rename a model use rename_model (references follow).",
+  remove_model: "Refused while something refers to the model; the error lists what.",
+  add_endpoint:
+    "REST shape: GET /products (listProducts, paged: pagination {style: \"cursor\", items: \"items\"} with returns {type: object, properties: {items: {type: array, items: {$ref: Product}}, nextCursor: {type: [string, null]}}}), GET /products/{id}, POST /products, PATCH /products/{id}, DELETE /products/{id}. Returns {operationId, parameters, responses}.",
+  update_endpoint: "describe_endpoint shows one in full first.",
+  set_auth: "A login endpoint is usually public (update_endpoint {security: []}) and returns {accessToken, refreshToken}.",
+  add_channel: "A chat: a WebSocket channel whose operations are the server sending new messages (send) and receiving the user's (receive).",
+  import_openapi: "Give the whole file's text. Returns {models, endpoints, converted, kept, dropped, problems}.",
+  import_asyncapi: "Give the whole file's text. Returns {models, channels, converted, kept, dropped, problems}.",
 };
 
 /** what an operation reports that a model has no use for */

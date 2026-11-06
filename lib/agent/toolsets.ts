@@ -10,9 +10,9 @@
 
 import { tool, type Tool } from "../tools";
 
-export type ToolSet = "build" | "layout" | "screens" | "components" | "style" | "data" | "generate" | "reference";
+export type ToolSet = "build" | "layout" | "screens" | "components" | "style" | "data" | "api" | "generate" | "reference";
 
-export const TOOL_SETS: readonly ToolSet[] = ["build", "layout", "screens", "components", "style", "data", "generate", "reference"];
+export const TOOL_SETS: readonly ToolSet[] = ["build", "layout", "screens", "components", "style", "data", "api", "generate", "reference"];
 
 /** what each set is for, for the model */
 export const SET_ABOUT: Record<ToolSet, string> = {
@@ -22,6 +22,7 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   components: "reusable components and their instances: variants, component properties, swapping an instance",
   style: "styles, themes, palettes, looks, custom styles",
   data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, bindings",
+  api: "the contract with the back end: data models (JSON Schema), HTTP endpoints (OpenAPI 3.1) with paging and uploads, auth (bearer JWT, API key, OAuth2), realtime channels (AsyncAPI 3.0), servers; importing and reading the spec files",
   generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture; the document's own icons (svg:<id>)",
   reference: "measuring an attached reference picture and comparing a screen with it",
 };
@@ -40,6 +41,11 @@ const REFERENCE = new Set(["sample_colors", "compare_to_reference"]);
 const STYLE_READS = new Set(["list_styles", "get_style", "look_reference"]);
 /** the document's own icons go with drawing */
 const DRAWING = new Set(["set_icon", "remove_icon"]);
+/** the API section: its operations and the tools that read it */
+const API = new Set([
+  "get_api", "describe_endpoint", "describe_model", "get_spec",
+  "add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi",
+]);
 
 /** the set a tool belongs to */
 export function setOf(t: Pick<Tool<never>, "name" | "group">): ToolSet {
@@ -48,6 +54,7 @@ export function setOf(t: Pick<Tool<never>, "name" | "group">): ToolSet {
   if (SCREENS.has(t.name)) return "screens";
   if (COMPONENTS.has(t.name)) return "components";
   if (DRAWING.has(t.name)) return "generate";
+  if (API.has(t.name)) return "api";
   if (STYLE_READS.has(t.name) || t.group === "style") return "style";
   if (t.name === "list_data" || t.group === "data") return "data";
   if (t.group === "generate") return "generate";
@@ -98,6 +105,17 @@ const CUES: [ToolSet, Cue][] = [
         /변수|데이터 ?(?:컬렉션|세트|바인딩)|컬렉션|바인딩|바인드|탭하면|탭할 때|누르면|클릭|이동(?:하|해|시)|전환(?!\s*버튼)|프로토타입|인터랙션|상호작용|(?:다크|라이트) ?모드 ?(?:전환|토글|스위치)|카운터|플로우/,
       ),
       no: all(/\b(?:tap|click) targets?\b/, /\btab bars?\b/, /\bnavigation (?:drawers?|bars?|rails?|menus?|tabs?|items?|buttons?|links?)\b/),
+    },
+  ],
+  [
+    "api",
+    {
+      yes: any(
+        /\b(?:apis?|endpoints?|open-?api|async-?api|swagger|back-?ends?|data models?|json schemas?|schemas?|request bod(?:y|ies)|response (?:bod(?:y|ies)|schemas?|codes?)|status codes?|paginat\w*|web-?sockets?|real-?time (?:channels?|messages?|updates?|chat)|server-sent events|sse|jwt|oauth2?|bearer tokens?|api keys?|access tokens?|refresh tokens?|auth(?:entication)? (?:scheme|flow|endpoint)s?|(?:upload|login|sign-?in) endpoints?)\b/,
+        /接口|API|后端|后台服务|服务端|数据模型|模型字段|请求体|请求参数|响应(?!式)|返回(?:值|结构|字段)|状态码|分页|鉴权|令牌|JWT|OAuth|WebSocket|长连接|实时(?:消息|推送|通道|聊天)|推送通道|OpenAPI|Swagger|AsyncAPI|服务器地址/,
+        /API|エンドポイント|バックエンド|サーバー側|データモデル|スキーマ|リクエスト|レスポンス|ステータスコード|ページネーション|ページング|認証(?:方式|トークン)|トークン|WebSocket|リアルタイム|OpenAPI|AsyncAPI/,
+        /API|엔드포인트|백엔드|서버 ?측|데이터 ?모델|스키마|요청 ?본문|응답|상태 ?코드|페이지네이션|페이징|인증 ?(?:방식|토큰)|토큰|웹소켓|WebSocket|실시간|OpenAPI|AsyncAPI/,
+      ),
     },
   ],
   [

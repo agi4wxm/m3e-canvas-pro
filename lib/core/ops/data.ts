@@ -30,29 +30,42 @@ const checkRows = (fields: string[], rows: unknown) => {
   if (long >= 0) throw new OpError("invalid_value", `row ${long} has more cells than there are fields (${fields.join(", ")}).`, "rows");
 };
 
-export const addCollection = op<{ id?: string; name?: string; fields: string[]; rows?: string[][] }, { id: string }>({
+/** a model of the API a collection may name: one there is */
+const checkModel = (s: CoreState, model: string | null | undefined) => {
+  if (!model) return;
+  const models = s.doc.api?.models ?? [];
+  if (!models.some((m) => m.name === model)) throw new OpError("not_found", `There is no model ${JSON.stringify(model)} in the API.${models.length ? ` The models are: ${models.map((m) => m.name).join(", ")}.` : " add_model makes one."}`, model);
+};
+
+const MODEL_LINK = { type: ["string", "null"], description: "the API model (add_model) the rows are examples of, so mock data can be made from its schema; null unlinks it" };
+
+export const addCollection = op<{ id?: string; name?: string; fields: string[]; rows?: string[][]; model?: string | null }, { id: string }>({
   name: "add_collection",
-  summary: "Adds a data collection: named fields and rows of text (one cell per field). A layout repeats its first child per row; {{field}} in its words reads the row.",
-  args: S.obj({ id: S.str(), name: S.str(), fields: S.arr(S.str(undefined, { minLength: 1 }), undefined, { minItems: 1 }), rows: S.arr(S.arr(S.str())) }, ["fields"]),
+  summary: "Adds a data collection: named fields and rows of text (one cell per field). A layout repeats its first child per row; {{field}} in its words reads the row. model links it to an API model.",
+  args: S.obj({ id: S.str(), name: S.str(), fields: S.arr(S.str(undefined, { minLength: 1 }), undefined, { minItems: 1 }), rows: S.arr(S.arr(S.str())), model: MODEL_LINK }, ["fields"]),
   label: () => "Add data",
   run(s, a, ctx) {
     const list = s.doc.collections ?? [];
     const id = a.id ?? ctx.newId();
     if (list.some((c) => c.id === id)) throw new OpError("invalid_value", `The id ${JSON.stringify(id)} is taken already.`, id);
     checkRows(a.fields, a.rows ?? []);
-    const c: Collection = { id, name: a.name ?? t("collectionDefaultName", ctx.lang).replace("{n}", String(list.length + 1)), fields: a.fields, rows: a.rows ?? [] };
+    checkModel(s, a.model);
+    const c: Collection = { id, name: a.name ?? t("collectionDefaultName", ctx.lang).replace("{n}", String(list.length + 1)), fields: a.fields, rows: a.rows ?? [], ...(a.model ? { model: a.model } : {}) };
     return { state: withDoc(s, { collections: [...list, c] }), result: { id } };
   },
 });
 
-export const updateCollection = op<{ id: string; name?: string; fields?: string[]; rows?: string[][] }>({
+export const updateCollection = op<{ id: string; name?: string; fields?: string[]; rows?: string[][]; model?: string | null }>({
   name: "update_collection",
-  summary: "Changes a data collection's name, fields or rows.",
-  args: S.obj({ id: S.str(), name: S.str(), fields: S.arr(S.str()), rows: S.arr(S.arr(S.str())) }, ["id"]),
+  summary: "Changes a data collection's name, fields or rows, or the API model it is linked to (model; null unlinks it).",
+  args: S.obj({ id: S.str(), name: S.str(), fields: S.arr(S.str()), rows: S.arr(S.arr(S.str())), model: MODEL_LINK }, ["id"]),
   label: () => "Data",
   run(s, a) {
     const c = collectionById(s, a.id);
-    const next = { ...c, ...(a.name !== undefined ? { name: a.name } : {}), ...(a.fields ? { fields: a.fields } : {}), ...(a.rows ? { rows: a.rows } : {}) };
+    checkModel(s, a.model);
+    const { model: _was, ...rest } = c;
+    const linked = a.model === null ? rest : a.model ? { ...rest, model: a.model } : c;
+    const next = { ...linked, ...(a.name !== undefined ? { name: a.name } : {}), ...(a.fields ? { fields: a.fields } : {}), ...(a.rows ? { rows: a.rows } : {}) };
     checkRows(next.fields, next.rows);
     return { state: withDoc(s, { collections: (s.doc.collections ?? []).map((x) => (x.id === a.id ? next : x)) }) };
   },

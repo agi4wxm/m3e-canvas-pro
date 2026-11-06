@@ -10,6 +10,7 @@ import { AGENT_KO, AGENT_UI } from "./i18n/agent";
 import { PROJECTS_KO, PROJECTS_UI } from "./i18n/projects";
 import { DESIGN_KO, DESIGN_UI } from "./i18n/design";
 import { SYSTEMS_KO, SYSTEMS_UI } from "./i18n/systems";
+import { API_KO, API_UI } from "./i18n/api";
 import { EXPORT_KO, EXPORT_UI } from "./i18n/export";
 
 export type Lang = "ja" | "en" | "zh" | "ko";
@@ -572,6 +573,7 @@ export const UI = {
   ...PROJECTS_UI,
   ...DESIGN_UI,
   ...SYSTEMS_UI,
+  ...API_UI,
   ...EXPORT_UI,
 } as const satisfies Record<string, Str>;
 
@@ -673,6 +675,7 @@ export const KO: Record<UIKey, string> = {
   ...PROJECTS_KO,
   ...DESIGN_KO,
   ...SYSTEMS_KO,
+  ...API_KO,
   ...EXPORT_KO,
 };
 
