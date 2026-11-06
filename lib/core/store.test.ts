@@ -176,6 +176,26 @@ describe("DocStore", () => {
     expect(savedDoc(store.get()).groups).toEqual(before.groups);
   });
 
+  it("a whole step undone from inside a definition drops the definition's own redo steps", () => {
+    const store = fresh();
+    store.run(makeComponentOp, { ids: ["a"], name: "Card", id: "C1" });
+    const docGroups = savedDoc(store.get()).groups.map((g) => g.id);
+    store.openDefinition("C1");
+    store.run(applyStyle, { style: "ios" });
+    store.run(setItem, { id: "a", patch: { props: { label: "Inside" } } });
+    store.undo();
+    expect(store.canRedo()).toBe(true);
+    /* the style's step: the definition ends with it, and only that step waits to be redone */
+    expect(store.undo()).toBe("Style ios");
+    expect(store.get().editing).toBeNull();
+    expect(store.get().doc.theme.style).toBeUndefined();
+    expect(store.redo()).toBe("Style ios");
+    expect(store.get().doc.theme.style).toBe("ios");
+    expect(store.canRedo()).toBe(false);
+    expect(store.redo()).toBeNull();
+    expect(ids(store.get())).toEqual(docGroups);
+  });
+
   it("saves the document's own screens while a definition is open", () => {
     const store = fresh();
     store.run(makeComponentOp, { ids: ["a"], id: "C1" });

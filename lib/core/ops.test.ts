@@ -103,6 +103,17 @@ describe("screens", () => {
     expect(s.get().doc.frames[0].length).toBe(1400);
   });
 
+  it("puts every phone screen on another phone, and leaves no step when it is that phone already", () => {
+    const s = store();
+    s.run(ops.setPhoneModel, { w: 390, h: 844 }, { origin: "user", history: "step" });
+    expect(s.get().doc.frames[0]).toMatchObject({ w: 390, h: 844 });
+    const steps = s.history().length;
+    fails(() => s.run(ops.setPhoneModel, { w: 390, h: 844 }, { origin: "user", history: "step" }), "nothing_to_do");
+    expect(s.history().length).toBe(steps);
+    s.undo();
+    expect(s.get().doc.frames[0].w).not.toBe(390);
+  });
+
   it("makes another size of a screen", () => {
     const s = store();
     const made = s.run(ops.createScreenVariant, { id: "F1", preset: "desktop" }, ai);

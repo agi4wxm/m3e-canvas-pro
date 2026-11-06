@@ -327,6 +327,9 @@ export class DocStore {
     if (this.tx) throw new OpError("busy", "undo inside a transaction");
     const prev = this.past.pop();
     if (!prev) return null;
+    /* a whole document's step taken back from inside a definition ends the definition: the steps of its own waiting
+       to be redone were steps of a screen that is no longer there, and would put its parts on the document's */
+    if (prev.snap.meta && this.stash) this.future = [];
     if (!o.forget) this.future.push({ snap: snapshotOf(this.state, !!prev.snap.meta), label: prev.label, origin: prev.origin });
     this.restore(prev, "undo", origin);
     return prev.label;
