@@ -1,5 +1,5 @@
 /* contract-tests: a running server checked against the contract. For every operation a request is built from the
- * contract's examples (or values made from its schemas, lib/export/server/examples.ts) and sent through the generated
+ * contract's examples (or values the mock library makes from its schemas, lib/export/server/examples.ts) and sent through the generated
  * client (packages/api); the answer must have a status the contract lists for it and a body its schema allows. 501 is
  * pending, not failing, so a fresh skeleton is green; --strict fails on pending too. Realtime channels: connect, send a
  * valid message, check every message that comes back. Everything here is generated; the cases are data. */

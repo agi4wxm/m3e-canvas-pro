@@ -108,8 +108,10 @@ export function createMockTransport(options: MockOptions = {}): MockTransport {
 `;
 
 const MSW = `${GENERATED}
-import { http, HttpResponse, type HttpHandler } from "msw"
+import { http, HttpResponse, sse, ws, type HttpHandler, type WebSocketHandler } from "msw"
 import { fromBase64, toBase64 } from "./engine/mocks/bytes"
+import { channelPattern } from "./engine/mocks/realtime"
+import { API } from "./generated/contract"
 import { createMockTransport, type MockOptions } from "./index"
 
 /** a file the app sent, as the transport carries one */
@@ -119,12 +121,33 @@ async function fileOf(file: File) {
 
 const isFile = (v: unknown): v is { name: string; type: string; dataUrl: string } => !!v && typeof v === "object" && typeof (v as { dataUrl?: unknown }).dataUrl === "string"
 
-/** Mock Service Worker handlers that answer the API under its base ("/api" in the web app) from one mock session. */
-export function mswHandlers(options: MockOptions & { baseUrl?: string } = {}): HttpHandler[] {
+/** Mock Service Worker handlers that answer the API under its base ("/api" in the web app) from one mock session, and
+ *  its realtime channels wherever their URLs end in the channel's address: a WebSocket's frames are the JSON payloads
+ *  alone (the message an app sends is the one it fits), server-sent events carry the message's name as the event and
+ *  its JSON payload as the data, as the exported server sends them. */
+export function mswHandlers(options: MockOptions & { baseUrl?: string } = {}): (HttpHandler | WebSocketHandler)[] {
   const { baseUrl = "/api", ...rest } = options
   const base = baseUrl.replace(/\\/$/, "")
   const transport = createMockTransport(rest)
+  const realtime = (API.channels ?? [])
+    .filter((c) => c.address)
+    .map((c): HttpHandler | WebSocketHandler => {
+      const pattern = new RegExp(\`/\${channelPattern(c).replace(/^\\\\?\\//, "")}\`)
+      if (c.transport === "sse")
+        return sse(pattern, ({ request, client }) => {
+          const connection = transport.connect(new URL(request.url).pathname, (m) => client.send({ event: m.message, data: JSON.stringify(m.payload ?? null) } as never))
+          request.signal.addEventListener("abort", () => connection.close())
+        })
+      return ws.link(pattern).addEventListener("connection", ({ client }) => {
+        const connection = transport.connect(client.url.pathname, (m) => client.send(m.frame))
+        client.addEventListener("message", (event) => {
+          if (typeof event.data === "string") connection.receive(event.data)
+        })
+        client.addEventListener("close", () => connection.close())
+      })
+    })
   return [
+    ...realtime,
     http.all(\`\${base}/*\`, async ({ request }) => {
       const url = new URL(request.url)
       const query: Record<string, string | string[]> = {}
@@ -220,7 +243,7 @@ import { createApi } from ${str(`${scope}/api`)}
 import { compileRoutes } from "./engine/mocks/routes"
 import { API } from "./generated/contract"
 import { SCENARIOS, type ScenarioName } from "./generated/scenarios"
-import { createMockTransport } from "./index"
+import { createMockTransport, fakeClock } from "./index"
 import { mockServer } from "./node"
 
 /* the operations a test can call with nothing but their path: a GET with no path or required query parameters */
@@ -253,6 +276,21 @@ describe("the mock transport", () => {
       expect(transport.scenario).toBe(scenario.id)
       for (const route of plain.slice(0, 3)) expect(typeof (await transport.request({ method: "GET", path: route.path })).status).toBe("number")
     }
+  })
+})
+
+describe("the realtime channels", () => {
+  it("send what the exported server sends: the JSON payload alone over a WebSocket, the name as the event over SSE", async () => {
+    const clock = fakeClock()
+    const transport = createMockTransport({ latency: false, clock, scenario: "" })
+    const got: { frame: string; payload: unknown; transport: string }[] = []
+    for (const c of API.channels ?? []) if (c.address) transport.connect(c.address.replace(/\\{[^{}]+\\}/g, "1"), (m) => got.push(m))
+    await clock.advance(20_000)
+    for (const m of got) {
+      if (m.transport === "sse") expect(m.frame).toBe(\`event: \${m.frame.slice(7, m.frame.indexOf("\\n"))}\\ndata: \${JSON.stringify(m.payload ?? null)}\\n\\n\`)
+      else expect(JSON.parse(m.frame)).toEqual(m.payload ?? null)
+    }
+    transport.close()
   })
 })
 

@@ -240,21 +240,30 @@ describe("the contract as the server reads it", () => {
 describe("example values", () => {
   const ex = new Examples({ models: [{ name: "Node", schema: { type: "object", properties: { name: { type: "string" }, next: ref("Node") }, required: ["name", "next"] } }] });
 
-  it("take the contract's own first, else keep to the schema's bounds", () => {
+  it("take the contract's own first, else come from the mock library's generator within the schema's bounds", () => {
     expect(ex.of({ type: "string", examples: ["given"] })).toBe("given");
-    expect(ex.of({ type: "string", enum: ["a", "b"] })).toBe("a");
-    expect(ex.of({ type: "string", minLength: 10 })).toHaveLength(10);
-    expect(ex.of({ type: "string", maxLength: 3 })).toBe("exa");
-    expect(ex.of({ type: "string", format: "uuid" })).toMatch(/^[0-9a-f-]{36}$/);
-    expect(ex.of({ type: "integer", minimum: 5 })).toBe(5);
-    expect(ex.of({ type: "number", exclusiveMinimum: 0 })).toBe(0.5);
-    expect(ex.of({ type: "integer", maximum: 0 })).toBe(0);
-    expect(ex.of({ type: "object", properties: { a: { type: "string" }, b: { type: "integer", default: 3 }, c: { type: "string" } }, required: ["a"] })).toEqual({ a: "example", b: 3 });
-    expect(ex.of({ type: "object", properties: { id: { type: "string", readOnly: true }, n: { type: "string" } }, required: ["id", "n"] })).toEqual({ n: "example" });
+    expect(["a", "b"]).toContain(ex.of({ type: "string", enum: ["a", "b"] }));
+    expect(ex.of({ type: "string", minLength: 10 })).toMatch(/^.{10,}$/);
+    expect(String(ex.of({ type: "string", maxLength: 3 })).length).toBeLessThanOrEqual(3);
+    expect(ex.of({ type: "string", format: "uuid" })).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(ex.of({ type: "integer", minimum: 5 })).toBeGreaterThanOrEqual(5);
+    expect(ex.of({ type: "number", exclusiveMinimum: 0 })).toBeGreaterThan(0);
+    expect(ex.of({ type: "integer", maximum: 0 })).toBeLessThanOrEqual(0);
+    expect(ex.of({ type: "string", format: "email" })).toMatch(/@example\.(com|net|org)$/);
+    /* only what is required, and what has an example of its own */
+    const o = ex.of({ type: "object", properties: { a: { type: "string" }, b: { type: "integer", default: 3 }, c: { type: "string" } }, required: ["a"] }) as Record<string, unknown>;
+    expect(Object.keys(o).sort()).toEqual(["a", "b"]);
+    expect(o.b).toBe(3);
+    expect(ex.of({ type: "object", properties: { id: { type: "string", readOnly: true }, n: { type: "string" } }, required: ["id", "n"] })).toEqual({ n: expect.any(String) });
+    /* the same schema, the same value */
+    expect(ex.of({ type: "string", format: "date-time" })).toBe(ex.of({ type: "string", format: "date-time" }));
   });
 
   it("end on a model that refers to itself", () => {
-    expect(ex.of(ref("Node"))).toEqual({ name: "example", next: null });
+    const depth = (v: unknown, d = 0): number => (v && typeof v === "object" ? Math.max(d, ...Object.values(v).map((x) => depth(x, d + 1))) : d);
+    const v = ex.of(ref("Node")) as { name: unknown };
+    expect(typeof v.name).toBe("string");
+    expect(depth(v)).toBeLessThan(6);
   });
 });
 

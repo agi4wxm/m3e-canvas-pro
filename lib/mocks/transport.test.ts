@@ -396,6 +396,31 @@ describe("realtime", () => {
     expect(clock.pending).toBe(0);
   });
 
+  it("sends frames as the exported server does: the JSON payload alone over a WebSocket, the name as the event over SSE", async () => {
+    const clock = fakeClock();
+    const sseApi: ApiSpec = { ...api, channels: [...(api.channels ?? []), { id: "news", address: "/news", transport: "sse", messages: [{ name: "headline", payload: { type: "object", properties: { title: { type: "string" } }, required: ["title"] } }], operations: [{ id: "onHeadline", action: "send" }] }] };
+    const t = createMockTransport({ api: sseApi }, { clock, latency: false });
+    const frames: string[] = [];
+    const room = t.connect("wss://rt.chat.example/realtime/rooms/r1", (m) => frames.push(m.frame));
+    expect(room.channel).toBe("room");
+    expect(room.transport).toBe("websocket");
+    const news = t.connect("http://localhost/api/news", (m) => frames.push(m.frame));
+    expect(news.transport).toBe("sse");
+    await clock.advance(1300);
+    const ws = frames.find((f) => f.startsWith("{"))!;
+    expect(Object.keys(JSON.parse(ws))).toEqual(expect.arrayContaining(["id", "roomId", "text", "author", "sentAt"]));
+    expect(frames.find((f) => f.startsWith("event: "))).toMatch(/^event: headline\ndata: \{"title":".+"\}\n\n$/);
+    /* what the app sends is the message it fits; a reply follows */
+    const said = { id: "3f0c8a5e-1d2b-4c3a-9e8f-7a6b5c4d3e2f", roomId: "r1", author: { id: "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d", name: "Ann" }, text: "hi", sentAt: "2026-11-06T10:00:00Z" };
+    expect(room.receive(JSON.stringify(said))).toBe("chatMessage");
+    expect(room.receive(JSON.stringify({ text: 1 }))).toBeUndefined();
+    expect(room.receive("not json")).toBeUndefined();
+    const before = frames.length;
+    await clock.advance(1000);
+    expect(frames.length).toBeGreaterThan(before);
+    t.close();
+  });
+
   it("plays a script of the author's when an operation is called, with the payload laid over the made one", async () => {
     const clock = fakeClock();
     const t = createMockTransport({ api, mocks: { realtime: [{ id: "push", channel: "room", trigger: { on: "call", operationId: "createProduct" }, steps: [{ at: 200, message: "chatMessage", payload: { text: "A new product!" } }] }] } }, { clock, latency: false });

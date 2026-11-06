@@ -43,6 +43,11 @@ export type GenOptions = {
   selfDepth?: number;
   /** what is made: a response leaves writeOnly fields out, a request readOnly ones */
   direction?: "response" | "request";
+  /** the contract's own examples (examples, example, default) first, wherever a schema gives one: one valid request
+   *  the author would recognise (the contract tests), where made-up data varies (the mocks) */
+  preferExamples?: boolean;
+  /** only what is required, and what the contract gives an example of; lists as short as they may be */
+  minimal?: boolean;
 };
 
 /** the generator's state through one call */
@@ -165,7 +170,7 @@ function gen(schema: JsonSchema | undefined, ctx: Ctx, at: At): Out {
     const isNull = (x: JsonSchema) => isRecord(x) && (x.type === "null" || (Array.isArray(x.type) && x.type.length === 1 && x.type[0] === "null"));
     const real = list.filter((x) => !isNull(x as JsonSchema)) as JsonSchema[];
     const rng = rngAt(at, k);
-    if (real.length < list.length && rng.chance(nullRateOf(ctx, at, s))) return null;
+    if (real.length < list.length && !ctx.minimal && rng.chance(nullRateOf(ctx, at, s))) return null;
     if (!real.length) return null;
     const i = Math.floor(rng.next() * real.length);
     const branch = real[i];
@@ -182,6 +187,11 @@ function gen(schema: JsonSchema | undefined, ctx: Ctx, at: At): Out {
     return out;
   }
 
+  if (ctx.preferExamples) {
+    if (Array.isArray(s.examples) && s.examples.length) return s.examples[0];
+    if ("example" in s && s.example !== undefined) return s.example;
+    if ("default" in s && s.default !== undefined) return s.default;
+  }
   const hint = hintAt(ctx, at, s);
   if (hint.kind === "constant" && hint.value !== undefined) return hint.value;
   if (s.const !== undefined) return s.const;
@@ -189,7 +199,7 @@ function gen(schema: JsonSchema | undefined, ctx: Ctx, at: At): Out {
 
   const all = Array.isArray(s.type) ? s.type : s.type ? [s.type] : [];
   const nullable = all.includes("null");
-  if (nullable && rngAt(at, "null").chance(nullRateOf(ctx, at, s))) return null;
+  if (nullable && !ctx.minimal && rngAt(at, "null").chance(nullRateOf(ctx, at, s))) return null;
   const types = typesOf(s);
   const type = types.length > 1 ? rngAt(at, "type").pick(types) : types[0];
 
@@ -223,8 +233,6 @@ const nullRateOf = (ctx: Ctx, at: At, s: JsonSchemaObject) => {
 
 /* ---------- objects and arrays ---------- */
 
-const READ_ONLY_OK = new Set(["id"]);
-
 function object(s: JsonSchemaObject, ctx: Ctx, at: At): Out {
   const out: Record<string, unknown> = {};
   const props = isRecord(s.properties) ? (s.properties as Record<string, JsonSchema>) : {};
@@ -232,10 +240,11 @@ function object(s: JsonSchemaObject, ctx: Ctx, at: At): Out {
   const obj = `${at.key}|${at.path}|${at.depth}`;
   for (const [name, sub] of Object.entries(props)) {
     const subS = isRecord(sub) ? (sub as JsonSchemaObject) : undefined;
-    if (ctx.direction === "request" && subS?.readOnly && !READ_ONLY_OK.has(name)) continue;
+    if (ctx.direction === "request" && subS?.readOnly) continue;
     if (ctx.direction !== "request" && subS?.writeOnly) continue;
     const path = at.path ? `${at.path}.${name}` : name;
     const req = required.has(name);
+    if (!req && ctx.minimal && !(subS && (Array.isArray(subS.examples) || subS.example !== undefined || subS.default !== undefined))) continue;
     if (!req) {
       const own = at.model ? ctx.hints?.(at.model)?.[path]?.nullRate : undefined;
       if (rngOf(`${at.key}|${path}|present`).chance(own ?? 0.12)) continue;
@@ -287,7 +296,7 @@ function array(s: JsonSchemaObject, ctx: Ctx, at: At): Out {
   const min = Math.max(0, Math.min(typeof s.minItems === "number" ? s.minItems : (hint?.min ?? 1), 100));
   const maxGiven = typeof s.maxItems === "number" ? s.maxItems : hint?.max ?? min + 3;
   const max = Math.max(min, Math.min(maxGiven, min + 20, 100));
-  const n = rng.int(min, max);
+  const n = ctx.minimal ? Math.max(min, Math.min(1, max)) : rng.int(min, max);
   const out: unknown[] = [];
   const prefix = Array.isArray(s.prefixItems) ? (s.prefixItems as JsonSchema[]) : [];
   const seen = new Set<string>();
@@ -617,7 +626,8 @@ function string(s: JsonSchemaObject, hint: MockHint, ctx: Ctx, at: At): string {
       v = iso(moment(ctx, hint, rng));
       break;
     case "time":
-      v = `${String(rng.int(7, 21)).padStart(2, "0")}:${String(rng.pick([0, 15, 30, 45])).padStart(2, "0")}:00`;
+      /* RFC 3339's full-time carries its offset */
+      v = `${String(rng.int(7, 21)).padStart(2, "0")}:${String(rng.pick([0, 15, 30, 45])).padStart(2, "0")}:00Z`;
       break;
     case "status":
       v = hint.values?.length ? pick([]) : rng.weighted(STATUS_WORDS, (x) => (x === "active" ? 4 : x === "pending" ? 2 : 1));

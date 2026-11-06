@@ -69,7 +69,8 @@ export interface MockTransport extends Transport {
   readonly log: readonly MockLogEntry[];
   /** a model's records as this session has them now */
   records(model: string): Record<string, unknown>[];
-  /** opens a realtime channel by its id or address; the server's messages come to `onMessage` */
+  /** opens a realtime channel by its id, its address or a URL ending in it; the server's messages come to `onMessage`,
+   *  each with its `frame` as it goes over the wire (lib/mocks/realtime.ts) */
   connect(address: string, onMessage: (message: MockMessage) => void): MockConnection;
   /** stops every timer and closes every connection */
   close(): void;
