@@ -57,12 +57,15 @@ jobs:
           bun-version: 1.4.2
       - name: Install
         run: bun install --frozen-lockfile
+      # Outside the checkout: package.json names bun as its package manager (devEngines), and npm refuses to run there.
       - name: Playwright and Chromium
+        working-directory: ${{ runner.temp }}
         run: |
           npm install -g playwright@1.63.0
           npx -y playwright@1.63.0 install --with-deps chromium
+          echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
       - name: End-to-end tests
-        run: NODE_PATH="$(npm root -g)" bun run test:e2e
+        run: bun run test:e2e
       - name: Screenshots of what failed
         if: failure()
         uses: actions/upload-artifact@v4
