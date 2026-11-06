@@ -232,6 +232,8 @@ export function ComponentInspector({
   onMakeComponent,
   onSplit,
   onExport,
+  tab: tabAsked,
+  onTab,
 }: {
   ai: AiHooks;
   item: Item;
@@ -257,9 +259,14 @@ export function ComponentInspector({
   onSplit?: () => void;
   /** saves the part as a picture */
   onExport?: (scale: number) => void;
+  /** the tab shown, when the editor keeps it */
+  tab?: Tab;
+  onTab?: (tab: Tab) => void;
 }) {
   const lang = useLang();
-  const [tab, setTab] = useState<Tab>("design");
+  const [ownTab, setOwnTab] = useState<Tab>("design");
+  const tab = tabAsked ?? ownTab;
+  const setTab = onTab ?? setOwnTab;
   const [slot, setSlot] = useState("");
   const def = partBySlug(item.component);
   if (!def) return null;

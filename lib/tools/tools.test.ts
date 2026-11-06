@@ -162,6 +162,8 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["remove_var_collection", { id: "spare" }],
     ["add_part", { slug: "button", id: "go", screen: "home", at: { x: 16, y: 760 }, props: { label: "Go" } }],
     ["set_action", { id: "go", action: { to: "detail" } }],
+    ["set_action", { id: "go", action: { to: "detail", overlay: true, trigger: { on: "hover" }, motion: { kind: "push", dir: "up", easing: "inOut", ms: 300 } } }],
+    ["set_flow_start", { screen: "home", name: "Checkout" }],
     ["bind_prop", { id: "row", prop: "text", var: "who" }],
     ["remove_collection", { id: "fruit" }],
     ["remove_component", { id: "cmp" }],

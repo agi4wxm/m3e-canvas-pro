@@ -357,7 +357,7 @@ export function tidiedAction(a: Action): Action | undefined {
     out.when = when;
     if (other && (other.to !== STAY_TARGET || other.effects?.length)) out.else = other;
   }
-  return out.to === STAY_TARGET && !out.effects && !out.when ? undefined : out;
+  return out.to === STAY_TARGET && !out.effects && !out.when && out.scrollTo === undefined ? undefined : out;
 }
 
 /** What else a tap does, under where it goes: its effects in order, a condition it runs on, and what

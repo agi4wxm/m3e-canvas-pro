@@ -31,7 +31,7 @@ const BUILD = new Set([
   "get_outline", "list_screens", "find_nodes", "describe_node", "get_selection", "list_parts", "describe_part", "list_kits", "list_icons", "screenshot", "load_tools",
   "apply_ops", "add_screen", "set_screen", "add_part", "add_tree", "add_kit", "set_props", "set_item", "set_group", "set_layout", "remove_nodes", "move_into", "move_node", "duplicate_nodes",
 ]);
-const SCREENS = new Set(["add_template", "list_templates", "remove_screen", "duplicate_screen", "create_screen_variant", "resize_screen", "set_phone_model", "set_screen_length", "set_screen_place", "move_screen", "set_canvas_mode", "set_title", "set_brief", "set_prompt", "clear"]);
+const SCREENS = new Set(["set_flow_start", "add_template", "list_templates", "remove_screen", "duplicate_screen", "create_screen_variant", "resize_screen", "set_phone_model", "set_screen_length", "set_screen_place", "move_screen", "set_canvas_mode", "set_title", "set_brief", "set_prompt", "clear"]);
 const COMPONENTS = new Set([
   "make_component", "rename_component", "remove_component", "detach_instance", "set_overrides", "add_instance", "list_components",
   "add_variant", "update_component_set", "set_variant_values", "swap_instance", "set_component_prop", "remove_component_prop", "set_instance_props", "reset_overrides",

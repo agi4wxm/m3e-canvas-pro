@@ -50,6 +50,7 @@ export const OPS: Op<never, unknown>[] = [
   screens.createScreenVariant,
   screens.setPlace,
   screens.moveScreen,
+  screens.setFlowStart,
   nodes.addPart,
   nodes.addInstance,
   nodes.addKit,

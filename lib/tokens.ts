@@ -763,11 +763,42 @@ export const SLIDE_SPEC: Partial<Record<Transition, { axis: "x" | "y"; enter: nu
 };
 
 export type Transition = "slide" | "slideLeft" | "slideUp" | "slideDown" | "fade" | "expand" | "none";
+
+/** The way a screen comes in, Figma's animations: at once, fading in, moving in over the one there, pushing it out, or
+ *  sliding in while it parks; from a side, on an easing curve, for so long. The preview plays it; `transition` stays the
+ *  nearest of the older kinds, for what reads only those (the exported app, older files). */
+export type Motion = { kind: "instant" | "dissolve" | "move" | "push" | "slide"; dir?: "left" | "right" | "up" | "down"; easing?: "out" | "in" | "inOut" | "linear" | "spring"; ms?: number };
+export const MOTION_KINDS = ["instant", "dissolve", "move", "push", "slide"] as const;
+export const MOTION_DIRS = ["left", "right", "up", "down"] as const;
+export const MOTION_EASINGS = ["out", "in", "inOut", "linear", "spring"] as const;
+
+/** the older transition nearest to a motion: what reads only those plays it that way */
+export function transitionOf(m: Motion): Transition {
+  if (m.kind === "instant") return "none";
+  if (m.kind === "dissolve") return "fade";
+  return m.dir === "right" ? "slideLeft" : m.dir === "up" ? "slideUp" : m.dir === "down" ? "slideDown" : "slide";
+}
+
+/** what starts an interaction other than a tap: the pointer coming over the part, or time since its screen showed */
+export type Trigger = { on: "hover" } | { on: "delay"; ms: number };
+
 /** what a tap does once it has been decided to do it: its effects in order, then where it goes */
-export type ActionBody = { to: string; transition: Transition; /** the address a `LINK_TARGET` action opens */ url?: string; effects?: Effect[] };
+export type ActionBody = {
+  to: string;
+  transition: Transition;
+  /** the address a `LINK_TARGET` action opens */
+  url?: string;
+  effects?: Effect[];
+  /** the screen it goes to is laid over the one on show instead of taking its place; going back closes it */
+  overlay?: boolean;
+  /** a part (item id) the body of the screen on show scrolls to */
+  scrollTo?: string;
+  /** how the screen comes in, over `transition` where both are given */
+  motion?: Motion;
+};
 /** A tap. Without `when` it always runs; with one it runs when that holds, and `else` runs when it
- *  does not. Printed code reads this too, so it stays plain data. */
-export type Action = ActionBody & { when?: Condition; else?: ActionBody };
+ *  does not. `trigger` starts it on something other than a tap. Printed code reads this too, so it stays plain data. */
+export type Action = ActionBody & { when?: Condition; else?: ActionBody; trigger?: Trigger };
 
 /** what a variable can hold */
 export type VarValue = string | number | boolean;
@@ -981,6 +1012,8 @@ export type Frame = {
   backgroundOpacity?: number;
   /** the mode this screen shows of each variable collection, over the document's choice */
   varModes?: Record<string, string>;
+  /** a flow starts here, under this name: the preview offers it */
+  flow?: string;
 };
 
 /** how much of `backgroundImage` shows when the author has said nothing */

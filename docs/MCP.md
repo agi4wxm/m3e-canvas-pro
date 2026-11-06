@@ -179,7 +179,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 104 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
+共 105 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -227,6 +227,7 @@ npx playwright install chromium
 | `create_screen_variant` | 搭建 |  |  | Makes another size of a screen (tablet, desktop or phone) beside it; each size keeps a layout of its own and the preview switches between them by width. |
 | `set_screen_place` | 搭建 |  |  | Sets where Tidy puts a screen's body between its bars (top, center, bottom, spread), and tidies it that way. |
 | `move_screen` | 搭建 |  |  | Moves a screen, with everything on it, to x, y on the canvas. |
+| `set_flow_start` | 搭建 |  |  | Makes a screen a starting point of a flow of the prototype, under a name (the preview offers each flow), or no longer (null). |
 | `add_part` | 搭建 |  |  | Adds a part (an atom or a composite) to a screen: at a point, into a container's auto layout at a place in its run, or where there is room. |
 | `add_instance` | 搭建 |  |  | Adds an instance of a reusable component: at a point on a screen, into a container's auto layout, or where there is room. |
 | `add_kit` | 搭建 |  |  | Adds a kit: a composite made of atoms in nested auto layouts (search bar, list row, prompt box…), composed the way the style composes it; a bar goes to its edge of the screen. |

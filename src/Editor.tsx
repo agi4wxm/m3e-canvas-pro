@@ -125,6 +125,8 @@ import { useLayers } from "./editor/useLayers";
 import { useCanvasSelect } from "./editor/useCanvasSelect";
 import { itemsUnder, pickTarget, type LayerTree } from "@/lib/layerTree";
 import { useLinks } from "./editor/useLinks";
+import { linkAction, useConnect } from "./editor/useConnect";
+import { ConnectionBox } from "@/components/Interaction";
 import { useScreenLength } from "./editor/useScreenLength";
 import { useCanvasView } from "./editor/useCanvasView";
 import { useSelection } from "./editor/useSelection";
@@ -757,6 +759,9 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     return out;
   }, [vars, core.doc.varCollections, core.doc.varModes, frames, theme.dark]);
 
+  /* the prototype drawn on the canvas: the handle that connects a part to a screen, and the box that edits a connection (src/editor/useConnect.ts) */
+  const { partTab, setPartTab, noodle, onHandleDown, setLinkActions } = useConnect({ store, runOp, toWorld, framesRef, setSelectedLinkId });
+
   /* the arrows from tappable parts to the screens they open (src/editor/useLinks.ts) */
   const { visibleLinks, setLinkTransition, removeLink } = useLinks({ frame, groups, frames, widths, itemRects, showAllLinks, selectedIds, selectedFrameId, selectedLinkId, setSelectedLinkId, runOp });
 
@@ -1339,6 +1344,13 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                             {sizeWord(f, lang)}
                           </span>
                         )}
+                        {/* a flow of the prototype starts here */}
+                        {typeof f.flow === "string" && !defEdit && (
+                          <span data-flow-badge title={t("prFlowStart", lang)} style={{ display: "inline-flex", alignItems: "center", gap: 2, padding: "2px 10px 2px 4px", borderRadius: 12, background: p.primary, color: p.onPrimary, fontSize: 14, fontWeight: 600 }}>
+                            <Icon name="play_arrow" size={18} />
+                            {f.flow || t("prFlowStart", lang)}
+                          </span>
+                        )}
                       </div>
                       <div
                         onPointerDown={(e) => onFramePointerDown(e, f)}
@@ -1488,6 +1500,31 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                 />
               )}
 
+              {/* while a part's Prototype tab is open, the handle on its right edge drags out a connection to a screen */}
+              {!handMode && !drag && !gesture && frame === "phone" && partTab === "behavior" && selectedIds.length === 1 && selected && selectedRect && !selectedLocked && (
+                <div
+                  data-connect-handle
+                  role="button"
+                  aria-label={t("prConnect", lang)}
+                  title={t("prConnect", lang)}
+                  onPointerDown={(e) => onHandleDown(e, selected.id, { x: selectedRect.x + selectedRect.w, y: selectedRect.y + selectedRect.h / 2 }, selectedPartFrame?.id)}
+                  style={{ position: "absolute", left: selectedRect.x + selectedRect.w, top: selectedRect.y + selectedRect.h / 2, width: 22, height: 22, transform: `translate(-50%, -50%) scale(${1 / view.z})`, borderRadius: 11, background: p.primary, color: p.onPrimary, border: `2px solid ${p.surface}`, display: "grid", placeItems: "center", cursor: "crosshair", zIndex: 72, boxShadow: "0 2px 6px rgba(0,0,0,0.24)" }}
+                >
+                  <Icon name="add" size={16} />
+                </div>
+              )}
+              {noodle && (
+                <svg aria-hidden data-noodle style={{ position: "absolute", left: 0, top: 0, overflow: "visible", pointerEvents: "none", zIndex: 71 }} width={1} height={1}>
+                  {(() => {
+                    const f = frames.find((x) => x.id === noodle.over);
+                    if (!f) return null;
+                    const r = frameRect(f);
+                    return <rect x={r.l - BEZEL} y={r.t - BEZEL} width={r.r - r.l + BEZEL * 2} height={r.b - r.t + BEZEL * 2} rx={frameRadius(f) + BEZEL} fill="none" stroke={p.primary} strokeWidth={3 / view.z} />;
+                  })()}
+                  <path d={`M${noodle.from.x} ${noodle.from.y} C${noodle.from.x + 80} ${noodle.from.y} ${noodle.to.x - 80} ${noodle.to.y} ${noodle.to.x} ${noodle.to.y}`} fill="none" stroke={p.primary} strokeWidth={2.5 / view.z} />
+                  <circle cx={noodle.to.x} cy={noodle.to.y} r={5 / view.z} fill={p.primary} />
+                </svg>
+              )}
               {visibleLinks.length > 0 && (
                 <svg
                   style={{
@@ -1552,42 +1589,24 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   <div
                     key={l.id}
                     onPointerDown={(e) => e.stopPropagation()}
+                    /* the box edits the connection where it is drawn, the size it would be at 100% */
                     style={{
                       position: "absolute",
                       left: l.mx,
                       top: l.my,
                       transform: `translate(-50%, 14px) scale(${1 / view.z})`,
                       transformOrigin: "50% 0",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      padding: 6,
-                      borderRadius: 26,
-                      background: p.surfaceContainerLow,
-                      boxShadow: "0 4px 16px rgba(0,0,0,0.16)",
                       zIndex: 60,
                     }}
                   >
-                    <Segmented<Transition>
-                      options={TRANSITIONS.map((t) => ({
-                        key: t.key,
-                        icon: t.icon,
-                        title: t.label,
-                      }))}
-                      value={l.t}
-                      onChange={(t) => setLinkTransition(l.id, t)}
-                      p={p}
-                      height={36}
-                      grow={false}
-                    />
-                    <IconBtn
-                      icon="link_off"
-                      p={p}
-                      danger
-                      onClick={() => removeLink(l.id)}
-                      title={t("removeLink", lang)}
-                      size={36}
-                    />
+                    {(() => {
+                      const a = linkAction(groups, l.id);
+                      return a ? (
+                        <ConnectionBox action={a} frames={frames} onChange={(next) => setLinkActions(l.ids, next)} onRemove={() => removeLink(l.id)} p={p} />
+                      ) : (
+                        <Segmented<Transition> options={TRANSITIONS.map((x) => ({ key: x.key, icon: x.icon, title: x.label }))} value={l.t} onChange={(x) => setLinkTransition(l.id, x)} p={p} height={36} grow={false} />
+                      );
+                    })()}
                   </div>
                 ))}
 
@@ -2020,6 +2039,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
               {rightTab === "edit" && selectedFrame && !selected ? (
                 <FrameInspector
                   frame={selectedFrame}
+                  flowCount={frames.filter((f) => typeof f.flow === "string").length}
                   palette={p}
                   onSize={(preset) => setFramePreset(selectedFrame.id, preset)}
                   onPhoneModel={setPhoneModel}
@@ -2094,6 +2114,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   onEach={setEachSelected}
                   onExport={selectedPartFrame ? exportSelected : undefined}
                   strict={isStrict(theme)}
+                  partTab={partTab}
+                  onPartTab={setPartTab}
                 />
               ) : (
                 <PromptPanel

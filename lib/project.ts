@@ -3,6 +3,7 @@ import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { fitsType, startValueOf } from "./variables";
+import { cleanMotion, cleanTrigger } from "./prototype";
 import { COLOR_TOKENS, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
@@ -103,8 +104,10 @@ function cleaned<T extends Record<string, unknown>>(value: T, fields: Record<str
 }
 
 const cleanEffects = (list: unknown) => (Array.isArray(list) ? list.map(cleanEffect).filter((e) => e !== undefined) : undefined);
-const cleanBody = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects }) : undefined);
-const cleanAction = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, when: cleanCondition, else: cleanBody }) : undefined);
+/* what a prototype adds to a tap: an overlay, a part to scroll to, a motion, a trigger (lib/prototype.ts) */
+const PROTOTYPE = { overlay: (v: unknown) => (typeof v === "boolean" ? v : undefined), scrollTo: (v: unknown) => (typeof v === "string" ? v : undefined), motion: cleanMotion };
+const cleanBody = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, ...PROTOTYPE }) : undefined);
+const cleanAction = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, when: cleanCondition, else: cleanBody, trigger: cleanTrigger, ...PROTOTYPE }) : undefined);
 
 const cleanActions = (map: unknown) => {
   if (!isRecord(map)) return undefined;
@@ -193,6 +196,7 @@ const cleanFrame = (f: Frame) =>
     backgroundImage: (v) => (typeof v === "string" && v ? v : undefined),
     backgroundOpacity: (v) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined),
     varModes: cleanModes,
+    flow: (v) => (typeof v === "string" ? v : undefined),
   }) as unknown as Frame;
 
 /** A scheme of the author's own: colors, and only colors, since every one of them is painted with and printed.

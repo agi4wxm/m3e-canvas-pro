@@ -6,6 +6,7 @@ import type { TargetAndTransition, Variants } from "motion/react";
 import {
   Action,
   ActionBody,
+  Motion,
   BACK_TARGET,
   LINK_TARGET,
   STAY_TARGET,
@@ -52,6 +53,7 @@ import { pinOf } from "@/lib/tidy";
 import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, screenVars, startState, writeField } from "@/lib/interact";
 import { BoundValues } from "./boundValues";
 import { PRESETS, variantFor } from "@/lib/variants";
+import { DIR_OFFSET, EASING_CURVE, flowStarts } from "@/lib/prototype";
 
 const EASE = [0.2, 0, 0, 1] as const;
 const SLIDE_MS = 0.42;
@@ -60,12 +62,12 @@ const WIDE_CONTROL_SPACE = 220;
 /** the strip the controls take along the bottom of a phone */
 const PHONE_BAR_H = 56;
 
-type Anim = { t: Transition; back: boolean; /** the expressive motion scheme: springs instead of eased tweens */ spring?: boolean };
+type Anim = { t: Transition; back: boolean; /** the expressive motion scheme: springs instead of eased tweens */ spring?: boolean; /** Figma's animation, over `t` */ m?: Motion };
 
 /** M3 Expressive spatial spring, with a visible overshoot */
 const SPRING = { type: "spring" as const, stiffness: 360, damping: 26, mass: 1 };
 /** how the current screen was reached, so "back" can play it in reverse */
-type Entry = { id: string; t: Transition };
+type Entry = { id: string; t: Transition; m?: Motion };
 
 const pct = (v: number) => `${v * 100}%`;
 
@@ -74,8 +76,27 @@ const off = (axis: "x" | "y", v: number) => (axis === "x" ? { x: pct(v), y: 0 } 
 
 type Pose = TargetAndTransition;
 
+/** The poses of one of Figma's animations: at once, a dissolve, or the new screen coming in from a side over the one
+ *  there (move in), pushing it out (push), or while it parks a little way off (slide in); backwards, the same undone. */
+function motionPoses(m: Motion, back: boolean): { initial: Pose; animate: Pose; exit: Pose } {
+  const zi = { zIndex: { duration: 0 } };
+  const curve = EASING_CURVE[m.easing ?? "out"];
+  const tr = m.kind === "instant" ? { duration: 0, ...zi } : curve ? { duration: (m.ms ?? 300) / 1000, ease: curve, ...zi } : { ...SPRING, ...zi };
+  const still = { x: 0, y: 0, opacity: 1, scale: 1 };
+  if (m.kind === "instant") return { initial: { ...still, zIndex: 2 }, animate: { ...still, zIndex: 2, transition: tr }, exit: { ...still, zIndex: 1, transition: tr } };
+  if (m.kind === "dissolve") return { initial: { ...still, opacity: 0, zIndex: 2 }, animate: { ...still, zIndex: 2, transition: tr }, exit: { ...still, opacity: 0, zIndex: 1, transition: tr } };
+  const d = DIR_OFFSET[m.dir ?? "left"];
+  const into = off(d.axis, d.from);
+  /* where the screen it covers goes: nowhere, all the way out, or a little way off */
+  const away = m.kind === "move" ? still : m.kind === "push" ? { ...off(d.axis, -d.from), opacity: 1, scale: 1 } : { ...off(d.axis, -0.3 * d.from), opacity: 0.6, scale: 1 };
+  return back
+    ? { initial: { ...away, zIndex: 1 }, animate: { ...still, zIndex: 1, transition: tr }, exit: { ...into, opacity: 1, scale: 1, zIndex: 2, transition: tr } }
+    : { initial: { ...into, opacity: 1, scale: 1, zIndex: 2 }, animate: { ...still, zIndex: 2, transition: tr }, exit: { ...away, zIndex: 1, transition: tr } };
+}
+
 /** enter / leave poses for one screen change; the same spec drives forward and back */
 function poses(c: Anim): { initial: Pose; animate: Pose; exit: Pose } {
+  if (c.m) return motionPoses(c.m, c.back);
   const zi = { zIndex: { duration: 0 } };
   const s = SLIDE_SPEC[c.t];
   if (s) {
@@ -167,7 +188,7 @@ function readInput(root: HTMLElement, it: Item): VarValue | undefined {
  *  on a place the part marked `data-tap` (a destination, a menu item) it fires that slot's
  *  action; anywhere else it is the part's own tap. An input says what it now holds, a button
  *  inside an overlay that dismisses it closes it. */
-function LivePart({ item, widths, screen, onTap, onSlot, easeWidth, onField, onClose, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; easeWidth?: boolean; onField?: (value: VarValue) => void; onClose?: () => void; held?: boolean }) {
+function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onClose, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: VarValue) => void; onClose?: () => void; held?: boolean }) {
   const size = sizeOf(item, widths);
   const input = !!INPUT_PROP[item.component ?? ""];
   const click = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -227,6 +248,7 @@ function LivePart({ item, widths, screen, onTap, onSlot, easeWidth, onField, onC
       data-live-part
       data-part={item.id}
       onClick={onTap || onSlot || onClose ? click : undefined}
+      onPointerEnter={onHover ? () => onHover() : undefined}
       /* a tap on the whole part is a button for the keyboard too; what is focusable inside it answers for itself, its click reaching `click` */
       role={onTap ? "button" : undefined}
       tabIndex={onTap ? 0 : undefined}
@@ -327,6 +349,20 @@ function Screen({
     fabScrollTop.current = top;
     if (hasFoldingFab && down !== 0) setFabFolded(down > 0);
   };
+  /* what starts after a delay starts once, when the screen comes on show; the parts and the handler are read as they are
+     then, so a change of state does not start them again */
+  const timed = useRef({ groups, onAction });
+  timed.current = { groups, onAction };
+  useEffect(() => {
+    if (!interactive) return;
+    const timers = timed.current.groups.flatMap((g) =>
+      g.items.flatMap((it) => {
+        const a = it.action;
+        return a?.trigger?.on === "delay" ? [window.setTimeout(() => timed.current.onAction(a, it.row), a.trigger.ms)] : [];
+      }),
+    );
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [interactive]);
   /* The editor behind the preview is inert while it is up, so focus has nowhere else to
    * go: a screen that becomes the one on show takes it when nothing inside the preview
    * holds it. */
@@ -360,6 +396,8 @@ function Screen({
   return (
     <div
       ref={screenRef}
+      data-preview-screen={frame.id}
+      data-preview-active={interactive ? "" : undefined}
       inert={!interactive}
       aria-hidden={!interactive || undefined}
       role="group"
@@ -398,7 +436,10 @@ function Screen({
             /* The right edge stays authored while downward scrolling hides the label. */
             const foldable = scrolls && canCollapseFab(it) && !!it.collapseOnScroll;
             if (foldable && fabFolded) shown = { ...shown, props: { ...shown.props, collapsed: true } };
-            const tap = act ? () => onAction(act, it.row) : undefined;
+            /* an interaction that starts by the pointer or by time is no tap */
+            const on = act?.trigger?.on;
+            const tap = act && !on ? () => onAction(act, it.row) : undefined;
+            const hover = act && on === "hover" ? () => onAction(act, it.row) : undefined;
             const slotActions = it.actions;
             /* a part says which prop is its chosen entry (`selectKey`): a tap moves it. Destination
              *  bars share the choice across screens */
@@ -432,6 +473,7 @@ function Screen({
                 held={!!opened[it.id] && !!def?.open && def.open.trigger !== "hide"}
                 onClose={isOverlayPart(it) ? () => onCloseOverlay(it.id) : undefined}
                 onTap={tap}
+                onHover={hover}
                 onSlot={
                   /* a part whose rows are no slots works on its own: a press here would only cancel it */
                   slotActions || (selectKey && def?.slots) || def?.slug === "navigation-rail"
@@ -513,7 +555,12 @@ export function Preview({
 }) {
   const lang = useLang();
   const frames = doc.frames;
-  const [stack, setStack] = useState<Entry[]>(() => [{ id: startId ?? frames[0]?.id ?? "", t: "none" }]);
+  /* with no screen chosen, the preview starts where the first flow does */
+  const [stack, setStack] = useState<Entry[]>(() => [{ id: startId ?? flowStarts(frames)[0]?.id ?? frames[0]?.id ?? "", t: "none" }]);
+  /** a screen laid over the one on show by an interaction, and how it came in */
+  const [overlay, setOverlay] = useState<Entry | null>(null);
+  const overlayRef = useRef(overlay);
+  overlayRef.current = overlay;
   const [anim, setAnim] = useState<Anim>({ t: "none", back: false });
   const theme = normalizeTheme(doc.theme);
   const spring = theme.motion === "expressive";
@@ -634,11 +681,17 @@ export function Preview({
   );
 
   const back = useCallback(() => {
+    /* an overlay is what going back closes first */
+    if (overlayRef.current) {
+      setOverlay(null);
+      return;
+    }
     const s = stackRef.current;
     if (s.length < 2 || peekRef.current) return;
     const from = s[s.length - 1];
     const to = s[s.length - 2];
-    setAnim({ t: sameSize(from.id, to.id) ? from.t : "fade", back: true, spring });
+    const same = sameSize(from.id, to.id);
+    setAnim({ t: same ? from.t : "fade", back: true, spring, ...(same && from.m ? { m: from.m } : {}) });
     setStack(s.slice(0, -1));
   }, [spring, sameSize]);
 
@@ -654,11 +707,24 @@ export function Preview({
         if (href) window.open(href, "_blank", "noopener,noreferrer");
         return;
       }
+      /* a part to scroll to, on the screen on show */
+      if (a.scrollTo) {
+        const el = document.querySelector(`[data-preview-active] [data-part="${CSS.escape(a.scrollTo)}"]`);
+        el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+      }
       if (!frames.some((f) => f.id === a.to)) return;
+      if (a.overlay) {
+        setOverlay({ id: a.to, t: a.transition, ...(a.motion ? { m: a.motion } : {}) });
+        return;
+      }
+      /* an overlay closes when its screen goes on to another */
+      setOverlay(null);
       const s = stackRef.current;
-      const t = sameSize(s[s.length - 1].id, a.to) ? a.transition : "fade";
-      setAnim({ t, back: false, spring });
-      setStack((cur) => [...cur, { id: a.to, t }]);
+      const same = sameSize(s[s.length - 1].id, a.to);
+      const t = same ? a.transition : "fade";
+      const m = same ? a.motion : undefined;
+      setAnim({ t, back: false, spring, ...(m ? { m } : {}) });
+      setStack((cur) => [...cur, { id: a.to, t, ...(m ? { m } : {}) }]);
     },
     [frames, back, spring, sameSize],
   );
@@ -692,8 +758,9 @@ export function Preview({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        /* an open menu is the thing Escape dismisses */
+        /* an open menu is the thing Escape dismisses, then an overlay */
         if (picker) setPicker(false);
+        else if (overlayRef.current) setOverlay(null);
         else onClose();
       }
       if (e.key === "Backspace" || e.key === "ArrowLeft") back();
@@ -723,6 +790,8 @@ export function Preview({
   /** the variables as a screen shows them, for the design fields bound to them */
   const boundFor = useCallback((f: Frame | undefined) => (doc.vars?.length && f ? screenVars(state, doc, f, dark).vars : null), [doc, state, dark]);
   const groups = useMemo(() => (current ? groupsFor(current) : []), [current, groupsFor]);
+  const overlayFrame = overlay ? frames.find((f) => f.id === shownId(overlay.id)) : undefined;
+  const overlayGroups = useMemo(() => (overlayFrame ? groupsFor(overlayFrame) : []), [overlayFrame, groupsFor]);
   const peekGroups = useMemo(() => (peekFrame ? groupsFor(peekFrame) : []), [peekFrame, groupsFor]);
 
   /* ---- finger-tracked swipes: only the swipes the author set on the frame ---- */
@@ -976,10 +1045,26 @@ export function Preview({
                   exit="exit"
                   style={{ position: "absolute", inset: 0 }}
                 >
-                  <Screen frame={current} groups={groups} {...screenProps} bound={boundFor(current)} />
+                  <Screen frame={current} groups={groups} {...screenProps} active={!overlayFrame} bound={boundFor(current)} />
                 </motion.div>
               </AnimatePresence>
             </motion.div>
+            <AnimatePresence>
+              {overlayFrame && overlay && (
+                <motion.div key={`overlay:${overlay.id}`} data-preview-overlay={overlay.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} style={{ position: "absolute", inset: 0, zIndex: 4, display: "grid", placeItems: "center" }}>
+                  <div aria-hidden onClick={() => setOverlay(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.32)" }} />
+                  <motion.div
+                    custom={{ t: overlay.t, back: false, spring, m: overlay.m } as Anim}
+                    variants={screenVariants}
+                    initial="initial"
+                    animate="animate"
+                    style={{ position: "relative", width: frameSizeOf(overlayFrame).w, height: frameSizeOf(overlayFrame).h, borderRadius: frameRadius(overlayFrame) / 2, overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }}
+                  >
+                    <Screen frame={overlayFrame} groups={overlayGroups} {...screenProps} bound={boundFor(overlayFrame)} />
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             {peek && peekFrame && (
               <motion.div
                 style={{
@@ -1038,15 +1123,15 @@ export function Preview({
         >
           <button
             onClick={back}
-            disabled={stack.length < 2}
+            disabled={stack.length < 2 && !overlay}
             title={t("back", lang)}
             aria-label={t("back", lang)}
             className="m3-press"
             style={{
               ...barBtn,
               ...markOnly,
-              color: stack.length < 2 ? p.outlineVariant : p.onSurfaceVariant,
-              cursor: stack.length < 2 ? "default" : "pointer",
+              color: stack.length < 2 && !overlay ? p.outlineVariant : p.onSurfaceVariant,
+              cursor: stack.length < 2 && !overlay ? "default" : "pointer",
             }}
           >
             <Icon name="arrow_back" size={20} />
@@ -1097,6 +1182,25 @@ export function Preview({
                     transformOrigin: wide ? "bottom right" : "bottom center",
                   }}
                 >
+                  {flowStarts(frames).map((f) => (
+                    <button
+                      key={`flow:${f.id}`}
+                      role="menuitem"
+                      data-preview-flow={f.flow}
+                      onClick={() => {
+                        setPicker(false);
+                        setDevice(null);
+                        setOverlay(null);
+                        setAnim({ t: "fade", back: false, spring });
+                        setStack([{ id: f.id, t: "fade" }]);
+                      }}
+                      className="m3-press"
+                      style={{ height: 40, padding: "0 14px 0 10px", borderRadius: 12, border: "none", background: "transparent", color: p.primary, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", textAlign: "left" }}
+                    >
+                      <Icon name="play_arrow" size={18} />
+                      {f.flow || t("prFlowStart", lang)}
+                    </button>
+                  ))}
                   {frames.map((f) => {
                     const on = f.id === current.id;
                     return (
@@ -1109,6 +1213,7 @@ export function Preview({
                           if (on) return;
                           /* a screen picked by hand is shown as it is, whichever width was on */
                           setDevice(null);
+                          setOverlay(null);
                           setAnim({ t: "fade", back: false, spring });
                           setStack([{ id: f.id, t: "fade" }]);
                         }}

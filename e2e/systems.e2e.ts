@@ -2,7 +2,7 @@
  * them, a fill bound to a color variable whose mode is switched, a prototype connection drawn on the canvas and
  * followed in the preview, a text edited in place, and the canvas's context menu. */
 
-import { check, clickAdd, equal, groupOf, leftTab, pick, savedDoc, select, settle, undo, type E2ETest } from "./lib";
+import { center, check, clickAdd, drag, equal, groupOf, leftTab, partTab, pick, savedDoc, screenBox, select, selectScreen, settle, undo, type E2ETest } from "./lib";
 
 export const tests: E2ETest[] = [
   {
@@ -93,5 +93,46 @@ tests.push({
     await page.keyboard.press("Escape");
     await settle(page, 800);
     await leftTab(page, "Parts");
+  },
+});
+
+tests.push({
+  name: "prototype: a connection dragged from a part to a screen, edited in place and followed in the preview",
+  async run({ page }) {
+    await page.locator('button[title="Add screen"]').first().click();
+    await settle(page);
+    await page.locator('button[title="Fit"]').first().click();
+    await settle(page);
+    let doc = await savedDoc(page);
+    const [home, second] = doc.frames;
+    await select(page, "seed3");
+    await partTab(page, "Prototype");
+    const handle = await page.locator("[data-connect-handle]").first().boundingBox();
+    check(handle, "the handle that connects, on the selected part");
+    const target = await screenBox(page, second.id);
+    await drag(page, center(handle), { x: target.x + target.width / 2, y: target.y + target.height / 3 }, 18);
+    doc = await savedDoc(page);
+    const row = doc.groups.flatMap((g) => g.items).find((it) => it.id === "seed3")!;
+    equal(row.action?.to, second.id, "the row goes to the second screen");
+
+    /* the connection is edited where it is drawn */
+    check(await page.locator("[data-connection-box]").first().isVisible(), "the box on the connection");
+    await page.locator('[data-connection-box] button[aria-label="Animation"]').first().click();
+    await settle(page, 250);
+    await page.locator('[role="listbox"] [role="option"]').filter({ hasText: "Push" }).first().click();
+    await settle(page);
+    doc = await savedDoc(page);
+    equal((doc.groups.flatMap((g) => g.items).find((it) => it.id === "seed3")!.action as { motion?: unknown }).motion, { kind: "push", dir: "left" }, "the connection pushes the screen in");
+
+    /* followed in the preview */
+    await page.keyboard.press("Escape");
+    await selectScreen(page, home.id);
+    await page.keyboard.press("p");
+    await settle(page, 1800);
+    await page.locator('[data-preview-active] [data-part="seed3"]').first().click();
+    await settle(page, 1500);
+    equal(await page.locator("[data-preview-active]").first().getAttribute("data-preview-screen"), second.id, "the preview went to the second screen");
+    await page.keyboard.press("Escape");
+    await settle(page, 1000);
   },
 });

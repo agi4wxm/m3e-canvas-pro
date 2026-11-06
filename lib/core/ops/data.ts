@@ -239,7 +239,7 @@ export const removeVar = op<{ id: string }>({
 export const setAction = op<{ id: string; slot?: string; action: Action | null }>({
   name: "set_action",
   summary:
-    'Sets what a tap on a part does (or on one of its places: slot "tab:0", "icon"…): {to: screen id | "back" | "link" | "none", transition, url, effects: [{do: show|hide|toggle|open|close, part} | {do: setVar, var, value} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message}], when: {var, op: eq|neq, value} | {filled: part}, else: {...}}. null removes it.',
+    'Sets what a tap on a part does (or on one of its places: slot "tab:0", "icon"…): {to: screen id | "back" | "link" | "none", transition, url, effects: [{do: show|hide|toggle|open|close, part} | {do: setVar, var, value} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message}], when: {var, op: eq|neq, value} | {filled: part}, else: {...}, trigger: {on: "hover"} | {on: "delay", ms} (starts it without a tap), overlay: true (the screen opens over the one on show; back closes it), scrollTo: part id (with to "none"), motion: {kind: instant|dissolve|move|push|slide, dir: left|right|up|down (the way the new screen moves), easing: out|in|inOut|linear|spring, ms}}. null removes it.',
   args: S.obj({ id: S.str(), slot: S.str(), action: { type: ["object", "null"] } }, ["id", "action"]),
   label: () => "Tap",
   run(s, a, ctx) {

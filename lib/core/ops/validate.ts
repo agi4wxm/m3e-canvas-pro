@@ -9,7 +9,8 @@ export type { PartDef };
 import { cleanLook } from "../../look";
 import { styleOwnsProp } from "../../styleRules";
 import { isStrict } from "../../styles";
-import { actionSlotsOf, BACK_TARGET, COLOR_TOKENS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
+import { actionSlotsOf, BACK_TARGET, COLOR_TOKENS, MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, transitionOf, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
+import { cleanMotion, cleanTrigger } from "../../prototype";
 import { OpError } from "../op";
 import type { CoreState } from "../state";
 
@@ -203,6 +204,9 @@ function bodyError(a: unknown, s: CoreState): string | null {
   if (to !== BACK_TARGET && to !== LINK_TARGET && to !== STAY_TARGET && !s.doc.frames.some((f) => f.id === to)) return `there is no screen ${JSON.stringify(to)}`;
   if (a.transition !== undefined && !TRANSITIONS.includes(a.transition as string)) return `transition should be one of ${TRANSITIONS.join(", ")}`;
   if (to === LINK_TARGET && (typeof a.url !== "string" || !/^https?:\/\//i.test(a.url))) return "a link needs an http(s) url";
+  if (a.overlay !== undefined && (typeof a.overlay !== "boolean" || (a.overlay && !s.doc.frames.some((f) => f.id === to)))) return "overlay is true or false, and only a screen opens as an overlay";
+  if (a.scrollTo !== undefined && (typeof a.scrollTo !== "string" || !s.doc.groups.some((g) => g.items.some((it) => it.id === a.scrollTo)))) return `there is no part ${JSON.stringify(a.scrollTo)} to scroll to`;
+  if (a.motion !== undefined && !cleanMotion(a.motion)) return `motion should be {kind: ${MOTION_KINDS.join("|")}, dir: ${MOTION_DIRS.join("|")}, easing: ${MOTION_EASINGS.join("|")}, ms}`;
   if (a.effects !== undefined) {
     if (!Array.isArray(a.effects)) return "effects should be a list";
     for (const [i, e] of a.effects.entries()) {
@@ -217,6 +221,7 @@ export function actionError(a: unknown, s: CoreState): string | null {
   const e = bodyError(a, s);
   if (e) return e;
   const r = a as Record<string, unknown>;
+  if (r.trigger !== undefined && !cleanTrigger(r.trigger)) return 'trigger should be {on: "hover"} or {on: "delay", ms}';
   if (r.when !== undefined) {
     const c = conditionError(r.when, s);
     if (c) return `when: ${c}`;
@@ -229,7 +234,10 @@ export function actionError(a: unknown, s: CoreState): string | null {
 }
 
 /** an action with its transition filled in */
-export const fullAction = (a: Action): Action => ({ ...a, transition: a.transition ?? "slide", ...(a.else ? { else: { ...a.else, transition: (a.else as ActionBody).transition ?? "slide" } } : {}) });
+export const fullAction = (a: Action): Action => {
+  const body = <B extends ActionBody>(b: B): B => ({ ...b, transition: b.transition ?? (b.motion ? transitionOf(b.motion) : "slide") });
+  return { ...body(a), ...(a.else ? { else: body(a.else as ActionBody) } : {}) };
+};
 
 const VALUE_WORDS = { text: "text", number: "a number", bool: "true or false", color: "a color (a role such as primary, or a hex such as #6750a4)" } as const;
 
