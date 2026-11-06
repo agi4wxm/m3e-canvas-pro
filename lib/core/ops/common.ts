@@ -3,13 +3,15 @@
 
 import { partBySlug } from "../../../parts/registry";
 import { defaultMeasures } from "../../../parts/templates/kit";
-import { fullWidth } from "../../../parts/role";
+import { fullWidth, roleOf } from "../../../parts/role";
 import { canvasView } from "../../expand";
+import { landTree } from "../../kits";
 import { metricsOf } from "../../styleLayout";
 import { barSlotOf, pullInto } from "../../tidy";
 import {
   carryItemSize,
   fitHeight,
+  frameOfGroup,
   frameRect,
   frameSizeOf,
   groupBounds,
@@ -18,6 +20,7 @@ import {
   makeItem,
   PHONE_H,
   PHONE_W,
+  safeAreaOf,
   sizeOf,
   uid,
   type Collection,
@@ -129,6 +132,31 @@ export function landNewPart(s: CoreState, item: Item, rawX: number, rawY: number
   const pulled = targetFrame ? pullInto(landed, targetFrame, widths) : landed;
   if (pulled === landed) return pulled;
   return { ...pulled, x: held("x") ? pulled.x : onGrid(pulled.x, origin.x), y: held("y") ? pulled.y : onGrid(pulled.y, origin.y) };
+}
+
+/** A bar or a FAB given no place goes where it belongs on the screen it landed on, as the tool guide promises and as
+ *  Tidy would put it: a top bar under the bars already at the head, a bottom bar above those at the foot, a floating
+ *  one a margin above them, a FAB in the bottom right corner above whatever stands at the foot. Without this, where
+ *  nothing lays the screen out afterwards (an agent, the MCP file backend) a navigation bar stays in the middle of its
+ *  screen. Anything else, or a part off every screen, stays where it is. */
+export function onItsEdge(s: CoreState, g: Group, widths: Widths): Group {
+  const it = g.items[0];
+  const role = g.items.length === 1 ? roleOf(it) : undefined;
+  if (role !== "top" && role !== "bottom" && role !== "floatingBottom" && role !== "fab") return g;
+  const frames = s.doc.frames;
+  const frame = frameOfGroup(g, frames, widths);
+  if (!frame) return g;
+  const margin = metricsOf(s.doc.theme).margin ?? 16;
+  if (role !== "fab") return landTree([g], g.x, g.y, frames, fullWidth(it), { groups: s.doc.groups, widths, margin }).groups[0] ?? g;
+  const { w, h } = sizeOf(it, widths);
+  const slot = barSlotOf(s.doc.groups, frame, frames, widths);
+  /* above the bars at the foot, and above the device's own gesture bar */
+  let foot = frameRect(frame).b - safeAreaOf(frame).b;
+  for (const o of s.doc.groups) {
+    if (o.id === g.id || o.inFlow || o.items.length !== 1 || !["bottom", "floatingBottom"].includes(roleOf(o.items[0]) ?? "")) continue;
+    if (frameOfGroup(o, frames, widths)?.id === frame.id) foot = Math.min(foot, groupBounds(o, widths).t);
+  }
+  return { ...g, x: Math.round(slot.x + slot.w - margin - w), y: Math.round(foot - margin - h) };
 }
 
 /** every part on the canvas with where it is drawn */

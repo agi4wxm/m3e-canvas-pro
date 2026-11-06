@@ -35,7 +35,7 @@ import {
 } from "../../tokens";
 import { op, OpError, S } from "../op";
 import { withGroups, withSession, type CoreState, type Widths } from "../state";
-import { componentById, copiedIds, freshId, freshPart, frameById, groupById, groupOfItem, itemById, itemRects, landNewPart, laidOut, selectionUnits, spotOn, unlocked, withHeld } from "./common";
+import { componentById, copiedIds, freshId, freshPart, frameById, groupById, groupOfItem, itemById, itemRects, landNewPart, laidOut, onItsEdge, selectionUnits, spotOn, unlocked, withHeld } from "./common";
 import { checkItemPatch, checkProps, cleanedLook, conditionError } from "./validate";
 
 /** the groups whose anchor moved, for a canvas that draws them there at once rather than easing them */
@@ -143,7 +143,8 @@ export const addPart = op<AddPartArgs, { itemId: string; groupId: string }>({
       const size = sizeOf(item, ctx.widths);
       at = spotOn(s, f, size, ctx.widths);
     }
-    const landed = landNewPart(s, item, at.x, at.y, () => false, ctx.widths, groupId);
+    const dropped = landNewPart(s, item, at.x, at.y, () => false, ctx.widths, groupId);
+    const landed = a.at ? dropped : onItsEdge(s, dropped, ctx.widths);
     if (roleOf(item) === "backdrop") {
       /* a scene is its screen's picture: it fills the screen, behind everything on it */
       const on = a.backdrop?.screen !== undefined ? s.doc.frames.find((f) => f.id === a.backdrop!.screen) : frame;
