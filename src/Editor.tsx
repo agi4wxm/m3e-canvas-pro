@@ -22,6 +22,8 @@ import {
   frameLengthOf,
   Group,
   groupBounds,
+  frameRect,
+  unionRect,
   layoutOf,
   Theme,
   fontFamilyOf,
@@ -67,6 +69,7 @@ import { expandDoc } from "@/lib/expand";
 import { repeatAround } from "@/lib/collections";
 import { familyOf, missingSizes } from "@/lib/variants";
 import { ComponentsPanel, DataPanel, InstanceInspector, sizeWord } from "@/components/ReusePanels";
+import { sharedOf } from "@/components/DesignPanel";
 import { Behavior, BehaviorContext, StyleRulesContext } from "@/components/EffectsPanel";
 import { readProject } from "@/lib/project";
 import { downloadProject } from "@/lib/projects/download";
@@ -85,7 +88,7 @@ import { partBySlug, reader } from "@/parts/registry";
 import { kitOfKey } from "@/parts/kits";
 import { kitLookOf } from "@/lib/kits";
 import { BottomSheet, MobileActionBar, MobileInspector, MobileLang, MobileSettings } from "@/components/Mobile";
-import { ConfirmDialog, IconBtn, Segmented } from "@/components/ui";
+import { ConfirmDialog, DenseContext, IconBtn, Segmented } from "@/components/ui";
 import { Lang, LangContext, setGlobalLang, t } from "@/lib/i18n";
 import { OpError, ops, savedDoc, translateSnapshot, withDoc, withFrames, withGroups, type Op, type TxOptions } from "@/lib/core";
 import { useStore } from "@/lib/core/react";
@@ -111,6 +114,7 @@ import { useSizeHandles } from "./editor/useSizeHandles";
 import { useGestures } from "./editor/useGestures";
 import { usePartDrag } from "./editor/usePartDrag";
 import { useLayers } from "./editor/useLayers";
+import { itemsUnder, type LayerTree } from "@/lib/layerTree";
 import { useLinks } from "./editor/useLinks";
 import { useScreenLength } from "./editor/useScreenLength";
 import { useCanvasView } from "./editor/useCanvasView";
@@ -251,6 +255,10 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     [paletteKey, customPalette, theme],
   );
 
+  /** the canvas as layers, as of the last draw: what a press on the canvas selects goes by it (src/editor/useLayers.ts) */
+  const layersRef = useRef<LayerTree | null>(null);
+  /** the row under the pointer in the layers panel, outlined on the canvas */
+  const [hoverLayer, setHoverLayer] = useState<string | null>(null);
   const measureEls = useRef<Map<string, HTMLElement>>(new Map());
   const dragRef = useRef<DragState | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
@@ -501,7 +509,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   }, [selected, sheet]);
 
   /* what is done to the selection, each one operation and one undo step (src/editor/useCommands.ts) */
-  const { patchSelected, deleteSelected, toggleLockSelected, duplicateSelected, clipboardRef, copySelected, pasteClipboard, placeSelected, alignSelected, distributeSelected, tidyUpSelected, autoLayoutSelected, makeComponentOfSelection, groupSelected, ungroupSelected, nudge, moveSelectedTo, stepSelectedLayers } = useCommands({
+  const { patchSelected, setEachSelected, deleteSelected, toggleLockSelected, duplicateSelected, clipboardRef, copySelected, pasteClipboard, placeSelected, alignSelected, distributeSelected, tidyUpSelected, autoLayoutSelected, makeComponentOfSelection, groupSelected, ungroupSelected, nudge, moveSelectedTo, stepSelectedLayers } = useCommands({
     store,
     runOp,
     didOp,
@@ -605,7 +613,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const selectAllRef = useRef(() => {});
 
   /* a screen, or all of them, saved as pictures (src/editor/useFrameImages.ts) */
-  const { exportFrame, saveFrameImage, saveAllFrameImages, frameThumb } = useFrameImages(framesRef);
+  const { exportFrame, saveFrameImage, saveAllFrameImages, savePartImage, frameThumb } = useFrameImages(framesRef);
 
   /* the project open in this tab: its name, its picture, the file it is saved to, other projects (src/editor/useProject.ts) */
   const project = useProject({ store, persist, docRef, framesRef, lang, loaded, editable: editAccess === "editable", frameThumb, importDoc, pickFallback: () => projectFileRef.current?.click(), showToast });
@@ -662,6 +670,27 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   });
   const openPreviewRef = useRef(openPreview);
   openPreviewRef.current = openPreview;
+
+  /** what several selected parts share, for the panel of several (components/DesignPanel.tsx) */
+  const sharedSelection = useMemo(() => {
+    if (selectedIds.length < 2) return undefined;
+    const ids = new Set(selectedIds);
+    const items = groups.flatMap((g) => g.items).filter((it) => ids.has(it.id));
+    const rects = new Map(itemRects().filter((r) => ids.has(r.id)).map((r) => [r.id, { x: r.l, y: r.t, w: r.r - r.l, h: r.b - r.t }]));
+    const origin = (id: string) => {
+      const g = groups.find((x) => x.items.some((it) => it.id === id));
+      const f = g ? frames.find((x) => x.id === frameOf.get(g.id)) : undefined;
+      return { x: f?.x ?? 0, y: f?.y ?? 0 };
+    };
+    return sharedOf(items, rects, origin);
+    // the rects are read off the groups and the measures named here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds, groups, widths, frames, frameOf]);
+  /** the selected part saved as a picture, cut out of its screen's */
+  const exportSelected = (scale: number) => {
+    if (!selectedRect || !selectedPartFrame || !selected) return;
+    void savePartImage(selectedPartFrame, selectedRect, scale, selected.label || selected.component || "part").then((ok) => !ok && showToast(t("dzExportFailed", lang), 2400, "error"));
+  };
 
   /* ---------- render ---------- */
   /** what the preview plays: everything drawn out. With a definition open, that definition alone. */
@@ -734,8 +763,9 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   );
 
   /* the Layers panel: the screen it lists and what its rows do (src/editor/useLayers.ts) */
-  const { layersFrame, layerGroups, selectAll, onLayerDragging, reorderLayers, toggleGroupLock, toggleGroupHidden, renameGroup, reorderGroupItems } = useLayers({ store, frame, primaryId, groups, frames, frameOf, selectedFrameId, layersFrameId, offTab, instantRef, snapshot, runOp, didOp, setSelectedIds, setSelectedFrameId, setSelectedLinkId });
+  const { tree: layers, layersFrame, selectAll, moveLayerTo, toggleGroupLock, toggleGroupHidden, renameGroup, reorderGroupItems } = useLayers({ store, frame, primaryId, groups, frames, widths, frameOf, selectedFrameId, layersFrameId, offTab, carrying, instantRef, runOp, didOp, setSelectedIds, setSelectedFrameId, setSelectedLinkId });
   selectAllRef.current = selectAll;
+  layersRef.current = layers;
 
   /** a run or a free group on the canvas, drawn as src/editor/render.tsx says */
   const renderGroup = (g: Group, ox: number, oy: number, screen?: { w: number; h: number }) => drawGroup(g, ox, oy, screen, groupView);
@@ -769,6 +799,19 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const flowSlot = flowHint && carriedGroups ? slotIn(flowHint, carriedGroups.groups, carriedGroups.id, widths) : null;
   /* what the numbers of a drag's guides keep clear of: the parts it lines up with, worked out when it started */
   const guideAvoid = guide && guideCache.current ? targetRects(guideCache.current.targets) : undefined;
+  /* what the layer row under the pointer covers on the canvas, outlined there */
+  const hoverBox = (() => {
+    if (!hoverLayer || carrying) return null;
+    const n = layers.nodes.get(hoverLayer);
+    if (!n) return null;
+    if (n.kind === "screen") {
+      const f = frames.find((x) => x.id === n.frameId);
+      return f ? frameRect(f) : null;
+    }
+    const ids = new Set(itemsUnder(layers, hoverLayer));
+    const rects = itemRects().filter((r) => ids.has(r.id));
+    return rects.length ? unionRect(rects) : null;
+  })();
   const groupView: GroupView = { instantRef, selectedSet, startsHidden, widths, canvas, p, handMode, onItemPointerDown, view, gapOut, widthShift, pressedId, widthDragId, editDefinition };
 
   return (
@@ -1057,21 +1100,24 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                 ) : (
                   <LayersPanel
                     p={p}
+                    tree={layers}
+                    groups={groups}
                     frames={frames}
-                    frameId={layersFrame?.id ?? null}
-                    onFrame={(id) => {
+                    components={components}
+                    selectedIds={selectedIds}
+                    selectedFrameId={selectedFrameId}
+                    focusFrameId={layersFrame?.id ?? null}
+                    onSelectScreen={(id) => {
                       setLayersFrameId(id);
                       setSelectedIds([]);
                       setSelectedFrameId(id);
+                      setSelectedLinkId(null);
+                      setRightTab("edit");
                       const f = framesRef.current.find((x) => x.id === id);
                       if (f) glideToFrame(f);
                     }}
-                    groups={layerGroups}
-                    components={components}
-                    widths={widths}
-                    selectedIds={selectedIds}
-                    onSelect={(ids, add) => {
-                      setSelectedIds((cur) => (add ? [...cur.filter((x) => !ids.includes(x)), ...ids] : ids));
+                    onSelect={(ids, how) => {
+                      setSelectedIds((cur) => (how === "toggle" ? (ids.every((x) => cur.includes(x)) ? cur.filter((x) => !ids.includes(x)) : [...cur.filter((x) => !ids.includes(x)), ...ids]) : ids));
                       /* picked on a dock's other tab: the dock comes round to it, or there would be no ring and nothing to work on */
                       const picked = new Set(groupsRef.current.filter((g) => g.items.some((it) => ids.includes(it.id))).map((g) => g.id));
                       const showing = showingGroups(groupsRef.current, picked, widthsRef.current);
@@ -1083,12 +1129,13 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                       setSelectedLinkId(null);
                       setRightTab("edit");
                     }}
-                    onReorder={reorderLayers}
+                    onMove={moveLayerTo}
+                    onReorderItems={reorderGroupItems}
                     onToggleLock={toggleGroupLock}
                     onToggleHidden={toggleGroupHidden}
                     onRename={renameGroup}
-                    onReorderItems={reorderGroupItems}
-                    onDragging={onLayerDragging}
+                    onRenameScreen={(id, name) => patchFrame(id, { name })}
+                    onHover={setHoverLayer}
                   />
                 )}
               </div>
@@ -1463,6 +1510,13 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
               {resizeGuide && <SmartGuides lines={resizeGuide.lines} gaps={resizeGuide.gaps} z={view.z} p={p} />}
               {measure && !guide && <SmartGuides lines={[]} gaps={measure.gaps} z={view.z} p={p} avoid={measure.avoid} />}
 
+              {hoverBox && (
+                <div
+                  aria-hidden
+                  data-hover-outline
+                  style={{ position: "absolute", left: hoverBox.l, top: hoverBox.t, width: hoverBox.r - hoverBox.l, height: hoverBox.b - hoverBox.t, boxShadow: `0 0 0 ${1.5 / view.z}px ${p.primary}`, borderRadius: 2 / view.z, pointerEvents: "none", zIndex: 70 }}
+                />
+              )}
               {marquee && (
                 <div
                   style={{
@@ -1834,6 +1888,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   pointerEvents: "none",
                 }}
               />
+              {/* the design panel at Figma's density; the prompt keeps its own room */}
+              <DenseContext.Provider value={rightTab === "edit"}>
               {rightTab === "edit" && selectedFrame && !selected ? (
                 <FrameInspector
                   frame={selectedFrame}
@@ -1907,6 +1963,10 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   onMakeComponent={makeComponentOfSelection}
                   onSplit={splitSelected}
                   instance={selectedInstance}
+                  shared={sharedSelection}
+                  onEach={setEachSelected}
+                  onExport={selectedPartFrame ? exportSelected : undefined}
+                  strict={isStrict(theme)}
                 />
               ) : (
                 <PromptPanel
@@ -1924,6 +1984,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   }
                 />
               )}
+              </DenseContext.Provider>
             </div>
           </aside>
         )}
