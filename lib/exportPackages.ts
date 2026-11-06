@@ -14,12 +14,22 @@ export const EXPORT_DEV = ["@tailwindcss/vite", "@types/react", "@types/react-do
  *
  *  - vite: plain Vite, where the editor builds with vite-plus (the product lints with ESLint and formats with Prettier).
  *  - typescript: 6.0, the last line typescript-eslint supports (its peer range is <6.1.0); the editor's 7.x has no
- *    JavaScript API for it. The copied components typecheck with it (scripts/check-product.ts). */
+ *    JavaScript API for it. The copied components typecheck with it (scripts/check-product.ts).
+ *  - the server's Fastify plugins and its validator (ajv with the JSON Schema 2020-12 dialect OpenAPI 3.1 uses): the
+ *    newest release at least two weeks old when they were written here. */
 export const PRODUCT_PINS: Record<string, string> = {
   "@eslint/js": "10.0.1",
+  "@fastify/cors": "11.3.1",
+  "@fastify/multipart": "10.1.6",
+  "@fastify/swagger": "9.9.2",
+  "@fastify/swagger-ui": "6.1.2",
+  "@fastify/websocket": "11.3.4",
   /* MSW 3's own interceptors, for React Native (packages/mocks/src/native.ts): the version msw 3.0.4 resolves to */
   "@mswjs/interceptors": "0.45.11",
   "@types/node": "22.20.5",
+  "@types/ws": "8.18.2",
+  ajv: "8.20.0",
+  "ajv-formats": "3.0.1",
   esbuild: "0.28.2",
   eslint: "10.14.0",
   "eslint-plugin-react-hooks": "7.1.1",

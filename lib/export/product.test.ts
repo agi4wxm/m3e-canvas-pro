@@ -84,7 +84,7 @@ describe("the product of a document", () => {
       expect(proof.files[`server/src/handlers/${op}.ts`]?.kind, op).toBe("seeded");
       expect(text(proof, `server/src/handlers/${op}.ts`)).toContain(`throw notImplemented("${op}")`);
     }
-    expect(text(proof, "server/src/generated/routes.ts")).toContain('url: "/products/:id"');
+    expect(text(proof, "server/src/generated/operations.ts")).toContain('"url": "/products/:id"');
     expect(text(proof, "packages/api/openapi.yaml")).toContain('"/products/{id}":');
     expect(text(proof, "packages/mocks/src/generated/contract.ts")).toContain('"operationId": "getHealth"');
     expect(text(proof, "packages/mocks/src/engine/mocks/transport.ts")).toContain("export function createMockTransport");
@@ -114,7 +114,15 @@ describe("the product of a document", () => {
       .filter(([, f]) => f.kind === "seeded")
       .map(([p]) => p)
       .sort();
-    expect(seededPaths).toEqual(["CLAUDE.md", "apps/web/src/custom/Providers.tsx", "apps/web/src/custom/setup.ts", "server/src/custom/setup.ts", ...["createProduct", "deleteProduct", "getHealth", "getProduct", "listProducts"].map((o) => `server/src/handlers/${o}.ts`)]);
+    expect(seededPaths).toEqual([
+      "CLAUDE.md",
+      "apps/web/src/custom/Providers.tsx",
+      "apps/web/src/custom/setup.ts",
+      "server/src/custom/auth.ts",
+      "server/src/custom/db.ts",
+      "server/src/custom/setup.ts",
+      ...["createProduct", "deleteProduct", "getHealth", "getProduct", "listProducts"].map((o) => `server/src/handlers/${o}.ts`),
+    ]);
   });
 
   it("pins every package it names, exactly", () => {
@@ -200,7 +208,8 @@ describe("the product of a document", () => {
     expect(text(shop, "packages/api/asyncapi.yaml")).toContain('"/rooms/{roomId}"');
     const types = text(shop, "packages/api/src/generated/types.ts");
     for (const t of ["Product", "NewProduct", "Order", "Tokens", "Problem", "ChatMessage"]) expect(types).toContain(`export type ${t} = `);
-    expect(text(shop, "server/src/generated/routes.ts")).toContain('url: "/products/:productId/images"');
+    expect(text(shop, "server/src/generated/operations.ts")).toContain('"url": "/products/:productId/images"');
+    for (const ch of ["room", "presence"]) expect(text(shop, `server/src/handlers/channels/${ch}.ts`)).toContain(`throw notImplemented("${ch}")`);
     /* a document without an API exports the empty contract it always did */
     const bare = await build(proofDoc().doc, proofDoc().widths);
     expect(text(bare, "packages/api/openapi.yaml")).not.toContain("/products");

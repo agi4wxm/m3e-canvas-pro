@@ -51,6 +51,24 @@ function run(cmd: string, args: string[], log: string, env: Record<string, strin
   return r.status === 0;
 }
 
+/** a command in the product, its output kept in the work folder and given back */
+function runOut(cmd: string, args: string[], log: string, env: Record<string, string> = {}): { ok: boolean; out: string } {
+  console.log(`\n$ ${cmd} ${args.join(" ")}`);
+  const r = spawnSync(cmd, args, { cwd: DIR, encoding: "utf8", shell: process.platform === "win32", env: { ...process.env, CI: "1", ...env }, maxBuffer: 1 << 28 });
+  const out = `${r.stdout ?? ""}\n${r.stderr ?? ""}`;
+  writeFileSync(join(WORK, log), out);
+  console.log(
+    out
+      .split("\n")
+      .filter((l) => /^contract:|^ {2}(ok|pending|PENDING|FAIL)\b/.test(l))
+      .join("\n"),
+  );
+  return { ok: r.status === 0, out };
+}
+
+/** the summary line of the contract tests */
+const summaryOf = (out: string) => /contract: .*/.exec(out)?.[0] ?? "no summary";
+
 const freePort = () =>
   new Promise<number>((resolve, reject) => {
     const s = createServer();
@@ -103,6 +121,22 @@ async function serveWeb(mode: "preview" | "dev", env: Record<string, string> = {
   return { base, child };
 }
 
+/** the built server on a free port, once it answers; the status it gave the probe */
+async function startServer(): Promise<{ base: string; status: number; stop: () => void }> {
+  const port = await freePort();
+  const child = spawn(process.execPath, ["dist/main.js"], { cwd: join(DIR, "server"), env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", LOG_LEVEL: "warn" }, stdio: "ignore" });
+  const base = `http://127.0.0.1:${port}`;
+  let status = 0;
+  for (let i = 0; i < 60 && !status; i++) {
+    status = await fetch(`${base}${PROBE.path}`).then(
+      (r) => r.status,
+      () => 0,
+    );
+    if (!status) await new Promise((r) => setTimeout(r, 250));
+  }
+  return { base, status, stop: () => child.kill() };
+}
+
 setGlobalLang("en");
 const read = (path: string) => readFile(join(ROOT, path), "utf8");
 /* the shop's contract comes from the document itself (Doc.api), so no api is handed to the export */
@@ -119,6 +153,52 @@ const madeUp = (text: string) => {
   } catch {
     return false;
   }
+};
+/* a request the contract turns down, and where */
+const BAD: { method: string; path: string; body?: unknown; pointer: string } =
+  WHICH === "shop" ? { method: "POST", path: "/auth/login", body: {}, pointer: "#/email" } : { method: "GET", path: "/products?page=many", pointer: "#/page" };
+/* the token the authenticate() written below takes */
+const TOKEN = "check-product-token";
+/* authenticate() and the handlers of two operations, written into the shop as an AI coding agent would (in Prettier's
+   style, as the product's lint asks of custom code) */
+const IMPLEMENTED: Record<string, string> = {
+  "server/src/custom/auth.ts": `import type { Credential } from "../generated/auth";
+
+export type User = {
+  id: string;
+};
+
+export async function authenticate(credential: Credential): Promise<User | null> {
+  return credential.type === "bearer" && credential.token === "${TOKEN}"
+    ? { id: "tester" }
+    : null;
+}
+`,
+  "server/src/handlers/createProduct.ts": `import { randomUUID } from "node:crypto";
+import { table } from "../custom/db";
+import type { Handler } from "../generated/handlers";
+import type { Product } from "../generated/types";
+
+export const products = table<Product>();
+
+const createProduct: Handler<"createProduct"> = async (ctx) => {
+  return products.put({ ...ctx.body, id: randomUUID(), createdAt: new Date().toISOString() });
+};
+
+export default createProduct;
+`,
+  "server/src/handlers/listProducts.ts": `import type { Handler } from "../generated/handlers";
+import { products } from "./createProduct";
+
+const listProducts: Handler<"listProducts"> = async (ctx) => {
+  const all = products
+    .all()
+    .filter((p) => !ctx.query.category || p.category === ctx.query.category);
+  return ctx.paginate(all);
+};
+
+export default listProducts;
+`,
 };
 
 rmSync(DIR, { recursive: true, force: true });
@@ -151,21 +231,57 @@ if (installed) {
 
     /* the built server, answering 501 until a handler is written, and the contract tests against it */
     ok(existsSync(join(DIR, "server/dist/main.js")), "the server is built");
-    const port = await freePort();
-    const server = spawn(process.execPath, ["dist/main.js"], { cwd: join(DIR, "server"), env: { ...process.env, PORT: String(port), HOST: "127.0.0.1" }, stdio: "ignore" });
+    let server = await startServer();
     try {
-      let status = 0;
-      for (let i = 0; i < 60 && !status; i++) {
-        status = await fetch(`http://127.0.0.1:${port}${PROBE.path}`).then(
-          (r) => r.status,
-          () => 0,
-        );
-        if (!status) await new Promise((r) => setTimeout(r, 250));
+      ok(server.status === 501, `the built server answers an operation not written yet with 501 (got ${server.status})`);
+      const base = server.base;
+      const stub = await fetch(`${base}${PROBE.path}`);
+      ok(/application\/problem\+json/.test(stub.headers.get("content-type") ?? "") && ((await stub.json()) as { status?: number }).status === 501, "as problem details (application/problem+json)");
+      const health = await fetch(`${base}${WHICH === "shop" ? "/health" : "/healthz"}`).then(
+        (r) => r.status,
+        () => 0,
+      );
+      ok(health === 200, `it answers its health (${health})`);
+      const docs = (await fetch(`${base}/docs/json`).then(
+        (r) => r.json(),
+        () => ({}),
+      )) as { openapi?: string };
+      ok(docs.openapi === "3.1.0", "it serves the contract at /docs in development");
+      const bad = await fetch(`${base}${BAD.path}`, { method: BAD.method, headers: { "content-type": "application/json" }, ...(BAD.body === undefined ? {} : { body: JSON.stringify(BAD.body) }) });
+      const badBody = (await bad.json().catch(() => ({}))) as { errors?: { pointer: string }[] };
+      ok(
+        bad.status === 400 && /application\/problem\+json/.test(bad.headers.get("content-type") ?? "") && !!badBody.errors?.some((e) => e.pointer === BAD.pointer),
+        `a request the contract turns down is 400 problem+json, with ${BAD.pointer} among its errors (${bad.status} ${JSON.stringify(badBody).slice(0, 160)})`,
+      );
+      if (WHICH === "shop") {
+        const anonymous = await fetch(`${base}/products`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+        ok(anonymous.status === 401 && /bearer/i.test(anonymous.headers.get("www-authenticate") ?? ""), `a secured operation without credentials is 401 with a Bearer challenge (${anonymous.status})`);
+        const someone = await fetch(`${base}/products`, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer someone" }, body: "{}" });
+        ok(someone.status === 501, `with a credential, authenticate() not written yet answers 501 (${someone.status})`);
       }
-      ok(status === 501, `the built server answers an operation not written yet with 501 (got ${status})`);
-      ok(run("npm", ["test", "-w", "contract-tests"], "product-contract.log", { CONTRACT_BASE_URL: `http://127.0.0.1:${port}` }), "the contract tests pass against the running server");
+      ok(run("npm", ["test", "-w", "contract-tests"], "product-contract.log", { CONTRACT_BASE_URL: base }), "the contract tests pass against the running server");
+      const fresh = runOut("npm", ["run", "contract", "-w", "contract-tests", "--", "--base-url", base], "product-contract-cli.log");
+      ok(fresh.ok && /0 implemented, \d+ pending, 0 failing/.test(fresh.out), `a fresh skeleton is green: every operation pending, none failing (${summaryOf(fresh.out)})`);
+      ok(!runOut("npm", ["run", "contract", "-w", "contract-tests", "--", "--base-url", base, "--strict"], "product-contract-strict.log").ok, "--strict fails while operations are pending");
+
+      if (WHICH === "shop") {
+        /* the back end of two operations written as an AI coding agent would: in the handlers and custom/ only */
+        for (const [path, body] of Object.entries(IMPLEMENTED)) writeFileSync(join(DIR, path), body);
+        ok(run("npm", ["run", "typecheck", "-w", "server"], "product-impl-typecheck.log"), "handlers written against the generated types typecheck");
+        ok(run("npx", ["eslint", "server", "--max-warnings=0"], "product-impl-eslint.log") && run("npx", ["prettier", "--check", "server"], "product-impl-prettier.log"), "and pass ESLint and Prettier");
+        ok(run("npm", ["run", "build", "-w", "server"], "product-impl-build.log"), "the server builds with them");
+        server.stop();
+        server = await startServer();
+        const two = runOut("npm", ["run", "contract", "-w", "contract-tests", "--", "--base-url", server.base, "--strict", "--only", "listProducts,createProduct"], "product-contract-implemented.log", { CONTRACT_TOKEN: TOKEN });
+        ok(two.ok && /2 implemented, 0 pending, 0 failing/.test(two.out), `--strict passes for the two operations written (${summaryOf(two.out)})`);
+        const created = await fetch(`${server.base}/products`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${TOKEN}` }, body: JSON.stringify({ name: "Lamp", price: { amount: 25, currency: "CNY" }, category: "bags" }) });
+        const listed = (await fetch(`${server.base}/products?limit=5`).then((r) => r.json())) as { items?: { name: string }[]; nextCursor?: unknown };
+        ok(created.status === 201 && !!listed.items?.some((p) => p.name === "Lamp") && "nextCursor" in listed, `what is created is listed, in the contract's page (${created.status}, ${JSON.stringify(listed).slice(0, 120)})`);
+        const rest = runOut("npm", ["run", "contract", "-w", "contract-tests", "--", "--base-url", server.base], "product-contract-all.log", { CONTRACT_TOKEN: TOKEN });
+        ok(rest.ok && /2 implemented, \d+ pending, 0 failing/.test(rest.out), `the rest stays pending (${summaryOf(rest.out)})`);
+      }
     } finally {
-      server.kill();
+      server.stop();
     }
   }
 }
@@ -225,6 +341,11 @@ if (pw && (WHICH === "proof" || WHICH === "shop")) {
 
 const again = await exportToFolder(DIR, product);
 ok(again.writes.filter((w) => w.why !== "manifest").length === 0 && again.conflicts.length === 0, "the same export again writes nothing");
+if (WHICH === "shop" && installed)
+  ok(
+    Object.entries(IMPLEMENTED).every(([path, body]) => readFileSync(join(DIR, path), "utf8") === body && again.kept.includes(path)),
+    "the handlers and authenticate() written into it are kept byte for byte",
+  );
 
 const seededPath = `server/src/handlers/${PROBE.handler}.ts`;
 const generatedPath = "apps/web/src/generated/router.ts";
@@ -242,6 +363,35 @@ ok(third.kept.includes(seededPath), "and reported as kept");
 ok(readFileSync(join(DIR, generatedPath), "utf8").includes("// edited by hand"), "a generated file someone edited is not overwritten");
 ok(third.conflicts.some((c) => c.path === generatedPath) && existsSync(join(DIR, `${generatedPath}.m3e-new`)), "it is reported as a conflict, the new version in .m3e-new");
 ok((JSON.parse(readFileSync(pkgPath, "utf8")) as { dependencies: Record<string, string> }).dependencies["left-pad"] === "1.3.0", "a dependency someone added to a generated package.json stays");
+
+/* ---------- the contract changes ---------- */
+
+if (WHICH === "shop" && fixture.doc.api) {
+  const api = fixture.doc.api;
+  const reviews = {
+    operationId: "listReviews",
+    method: "get" as const,
+    path: "/products/{productId}/reviews",
+    summary: "The reviews of a product",
+    security: [],
+    parameters: [{ name: "productId", in: "path" as const, required: true, schema: { type: "string" as const, format: "uuid" } }],
+    responses: { "200": { description: "Its reviews", content: { "application/json": { schema: { type: "array" as const, items: { type: "string" as const } } } } } },
+  };
+  const before = new Set(third.conflicts.map((c) => c.path));
+  const custom = Object.fromEntries(["server/src/custom/auth.ts", "server/src/handlers/createProduct.ts", seededPath].map((path) => [path, readFileSync(join(DIR, path), "utf8")]));
+  const grown = await exportToFolder(DIR, await buildProduct({ ...fixture.doc, api: { ...api, endpoints: [...(api.endpoints ?? []), reviews] } }, fixture.widths, { lang: "en", read }));
+  console.log(reportLines(grown).join("\n"));
+  const seeds = grown.writes.filter((w) => w.why === "seed").map((w) => w.path);
+  ok(seeds.length === 1 && seeds[0] === "server/src/handlers/listReviews.ts", `a new operation seeds one new handler stub (${seeds.join(", ")})`);
+  ok(grown.conflicts.every((c) => before.has(c.path)) && !grown.orphaned.length && !grown.customOrphans.length, "and reports nothing else: no new conflict, nothing left over");
+  ok(Object.entries(custom).every(([path, body]) => readFileSync(join(DIR, path), "utf8") === body), "the custom code stays as it was");
+  if (installed) ok(run("npm", ["run", "typecheck", "-w", "server"], "product-grown-typecheck.log"), "the server typechecks with the new stub");
+  const shrunk = await exportToFolder(DIR, await buildProduct({ ...fixture.doc, api: { ...api, endpoints: (api.endpoints ?? []).filter((e) => e.operationId !== "createProduct") } }, fixture.widths, { lang: "en", read }));
+  console.log(reportLines(shrunk).join("\n"));
+  ok(readFileSync(join(DIR, "server/src/handlers/createProduct.ts"), "utf8") === custom["server/src/handlers/createProduct.ts"], "an operation taken out of the contract leaves its handler in place");
+  ok(shrunk.customOrphans.includes("server/src/handlers/createProduct.ts") && shrunk.customOrphans.includes("server/src/handlers/listReviews.ts"), `and reports it as an orphan (${shrunk.customOrphans.join(", ")})`);
+  if (installed) ok(run("npm", ["run", "typecheck", "-w", "server"], "product-shrunk-typecheck.log"), "the server still typechecks with the orphans in place");
+}
 
 console.log(`\n${failures.length ? `${failures.length} FAILED:\n  ${failures.join("\n  ")}` : "all passed"}`);
 process.exit(failures.length ? 1 : 0);

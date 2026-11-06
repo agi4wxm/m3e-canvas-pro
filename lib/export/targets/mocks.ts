@@ -295,6 +295,24 @@ function bytesOf(f: MockFile): Uint8Array | null {
   }
 }
 
+/** the mocks' section of AGENTS.md: what the package is, how to use it, and that none of it is edited by hand */
+const AGENTS = (scope: string) => `## The mocks (packages/mocks)
+
+\`${scope}/mocks\` answers the API with made-up data while the app is developed: data made from the contract's schemas,
+the design's scenarios (new user, lots of data, network error, slow network, signed out…), its mock files, realtime
+scripts and a sign-in with tokens that expire. It is the design editor's own mock library: \`src/engine/\` is copied
+from it and \`src/generated/\` holds the design's mock settings. **Never edit any of it**: the data, the scenarios and
+the files are changed in the design (the Mocks tab) and exported again. Development only: never import it from
+production code (\`import.meta.env.DEV\` keeps it out of the web build).
+
+- \`createMockTransport({ scenario, seed, latency, routes })\` is a \`Transport\` for \`createApi\`: no network, no DOM,
+  works in tests, React Native and a mini-program. \`routes\` are answers of your own, tried first (an endpoint the
+  contract does not have yet).
+- \`${scope}/mocks/browser\` (\`startWorker\`), \`/node\` (\`mockServer\`, for tests) and \`/native\` (\`startNative({ baseUrl })\`,
+  React Native) answer real fetch calls the same way through Mock Service Worker.
+- A status 0 answer is a network failure; every other failure is RFC 9457 problem details.
+`;
+
 /** a TypeScript literal type of a scenario's id */
 const scenarioType = (scenarios: MockScenario[]) => (scenarios.length ? scenarios.map((s) => str(s.id)).join(" | ") : "never");
 
@@ -319,6 +337,7 @@ export const mocksTarget: ProductTarget = {
       pkg: `${ctx.scope}/mocks`,
       scripts: { typecheck: true, test: true },
       summary: { zh: "模拟库：传输层模拟和 MSW（只在开发时使用），和编辑器预览同一套生成器和场景", en: "the mocks: a mock transport and MSW handlers (development only), the editor preview's own generator and scenarios" },
+      agents: AGENTS(ctx.scope),
       files: {
         "package.json": {
           ...generated(

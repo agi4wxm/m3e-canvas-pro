@@ -6,7 +6,8 @@
 import type { ProductTarget } from "../types";
 import { apiTarget } from "./api";
 import { mocksTarget } from "./mocks";
-import { contractTestsTarget, miniappTarget, mobileTarget } from "./others";
+import { contractTestsTarget } from "./contractTests";
+import { miniappTarget, mobileTarget } from "./others";
 import { serverTarget } from "./server";
 import { webTarget } from "./web";
 

@@ -148,7 +148,7 @@ third-party SDKs). Everything else is regenerated whenever the design is exporte
 
 | Where | What |
 | --- | --- |
-${handlers ? "| `server/src/handlers/*.ts` | One file per API operation: what the server does for it. Each starts as a stub that answers 501 Not Implemented. |\n| `server/src/custom/setup.ts` | Fastify plugins, hooks, a database connection, routes the contract does not have. |\n" : ""}| \`apps/web/src/custom/setup.ts\` | Runs before the web app is drawn: start an SDK, read a token, change how the API is called. |
+${handlers ? "| `server/src/handlers/*.ts` | One file per API operation (and per realtime channel in `channels/`): what the server does for it. Each starts as a stub that answers 501 Not Implemented. |\n| `server/src/custom/*.ts` | `auth.ts` (who a credential stands for), `db.ts` (the data layer), `setup.ts` (Fastify plugins, hooks, routes the contract does not have). |\n" : ""}| \`apps/web/src/custom/setup.ts\` | Runs before the web app is drawn: start an SDK, read a token, change how the API is called. |
 | \`apps/web/src/custom/Providers.tsx\` | Wraps the web app: providers of third-party SDKs. |
 | \`CLAUDE.md\`, new files and folders of your own | Yours. |
 
@@ -188,9 +188,13 @@ Before you finish, run \`npm run typecheck && npm run lint && npm test && npm ru
   mobile app and a mini-program share it.
 - \`packages/mocks\` (\`${scope}/mocks\`): \`createMockTransport()\` answers the API with made-up data; MSW handlers do the
   same for dev servers. Development only: never import it from production code.
-${handlers ? `- \`server\` (\`${scope}/server\`): Fastify. \`src/generated/routes.ts\` routes every operation to \`src/handlers/<operation>.ts\`;\n  the handler types in \`src/generated/handlers.ts\` say what each one receives and returns.\n` : ""}- \`contract-tests\`: checks the server against the contract (\`CONTRACT_BASE_URL=http://127.0.0.1:3001 npm test -w contract-tests\`
-  checks a running one).
-`;
+${handlers ? `- \`server\` (\`${scope}/server\`): Fastify. \`src/generated/routes.ts\` routes every operation to \`src/handlers/<operation>.ts\`;\n  the handler types in \`src/generated/handlers.ts\` say what each one receives and returns.\n` : ""}- \`contract-tests\`: checks the server against the contract (\`npm run contract -w contract-tests\`; the server's section below says how
+  to run it strictly).
+${ws
+  .map((w) => w.agents?.trim())
+  .filter(Boolean)
+  .map((section) => `\n${section}\n`)
+  .join("")}`;
 }
 
 function readmeSource(ctx: ProductContext, ws: Workspace[]): string {
@@ -220,6 +224,7 @@ npm run build
 \`\`\`
 
 开发时设 \`VITE_API_MOCKS=off\` 就改为请求本地后端（\`/api\` 转发到 \`http://127.0.0.1:3001\`），设 \`msw\` 用 Service Worker 提供模拟数据。
+\`npm run contract -w contract-tests\` 按契约检查后端的每个接口（未实现的算“待实现”，加 \`-- --strict\` 时也算失败）；开发时后端自带接口文档（Swagger UI，地址见 AGENTS.md）。
 
 ## 生成的代码和自定义代码
 
