@@ -41,11 +41,12 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 | 参数 | 说明 |
 | --- | --- |
-| `--only <ids或能力>` | 逗号分隔的任务 id 或能力：new-screen、edit、data、variables、components、styles、svg、replicate、game、multilingual、ambiguous |
+| `--only <ids或能力>` | 逗号分隔的任务 id 或能力：new-screen、edit、data、variables、components、styles、svg、replicate、game、multilingual、ambiguous、flow、long-screen |
 | `--repeat <n>` | 每个任务跑 n 次（模型不确定，看通过率要多跑几次） |
 | `--provider`、`--model`、`--effort`、`--image-model` | 服务商（默认 openai）、文本模型（默认 `gpt-6.1-sol`）、推理强度（low/medium/high，默认 medium）、图片模型 |
 | `--budget-tokens <n>` | 给每个任务的 token 预算再加一个上限 |
 | `--max-drawings <n>` | 整套评测最多画几次（图片、SVG）；超出时工具按“本回合不能再画”拒绝，和应用里用完额度一样 |
+| `--destructive <allow\|decline>` | 智能体要删掉作者大量内容（清空、删屏幕、删很多组件）而请求没有明确要删时，编辑器会问作者“允许 / 不要”；评测里按这个回答，默认 `decline`（想先被问的作者） |
 | `--record <目录>` | 每次运行写一个文件夹，再写 `summary.md` 和 `results.json` |
 | `--artifacts <目录>` | 每次运行的文件夹（截图、对话）放到这里，`--record` 里只留汇总：截图大，不要进 git |
 | `--replay <目录>` | 重新评分记录下来的运行，不调用智能体 |
@@ -86,7 +87,7 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 | 检查 | 看什么 |
 | --- | --- |
-| `finished` | 回合自己正常结束；改文档的调用失败后，后来都有同一个工具、或含有同一个操作的批量调用成功补上（只读调用失败后放弃不算；绘图次数用完被拒也不算） |
+| `finished` | 回合自己正常结束；改文档的调用失败后，后来都有同一个工具、或含有同一个操作的批量调用成功补上（只读调用失败后放弃不算；绘图次数用完被拒、作者拒绝的删除也不算） |
 | `undo` | 一次撤销回到起始文档，重做回到结果 |
 | `budget` | 步数、token、用时都在任务的预算内 |
 | `screen-added`、`has`、`shows` | 加了屏幕；屏幕上有某类组件（组件或组合件的 slug、kit）；屏幕上显示了这些字 |
@@ -104,6 +105,10 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 | `likeness` | 改过的屏幕和参考图的相似度（和 `compare_to_reference` 同一个算法）不低于阈值 |
 | `corners` | 屏幕四个角各有要求的东西（游戏 HUD） |
 | `asks` | 回答里有问题（含糊或有破坏性的请求） |
+| `nav-flow` | 几个屏幕接成一个应用：有标签栏的屏幕互相切换，点一项打开没有标签栏的详情页，详情页能返回 |
+| `scrolls`、`posts`、`bars-pinned` | 屏幕比设备长、内容排到设备高度以下；某个词出现在足够多的组件上（比如每条动态的 Like）；顶栏在最上、标签栏在设备或长屏的底边 |
+| `pay-pinned` | 某类组件（支付按钮）在屏幕底部 |
+| `texture` | 穿着的自定义风格用规则画出材质：纹理（重复或径向渐变）、描边、阴影里至少两种 |
 
 ## 加一个任务
 
