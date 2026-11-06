@@ -19,9 +19,9 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   build: "read the document and build on it (always loaded)",
   layout: "arrange: tidy, align, distribute, group, lock, z-order, wrap in or split out of auto layout",
   screens: "screens and the document: templates, sizes, variants, places, title, brief, clearing",
-  components: "reusable components and their instances",
+  components: "reusable components and their instances: variants, component properties, swapping an instance",
   style: "styles, themes, palettes, looks, custom styles",
-  data: "variables, data collections, repeats, taps and their effects, bindings",
+  data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, bindings",
   generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture",
   reference: "measuring an attached reference picture and comparing a screen with it",
 };
@@ -56,7 +56,7 @@ const CALLS: [ToolSet, RegExp][] = [
   ["style", /\b(style|styles|theme|colou?rs?|palette|dark|light mode|font|typeface|look|brand|skin|aesthetic|notebook|retro|minimal)\b|风格|主题|颜色|配色|色调|字体|深色|浅色|暗色|外观|质感|スタイル|テーマ|色|配色|フォント|ダーク|ライト|見た目|스타일|테마|색|글꼴|폰트|다크|라이트/i],
   ["data", /\b(variables?|data|collection|list of|toggle|switch|tap|taps|click|navigat\w*|link|links|interact\w*|prototype|flow|state|counter|login flow|when)\b|变量|数据|交互|跳转|点击|开关|切换|原型|流程|状态|绑定|変数|データ|タップ|遷移|切り替え|スイッチ|プロトタイプ|변수|데이터|탭|전환|스위치|프로토타입/i],
   ["generate", /\b(draw|drawing|svg|icon|icons|illustration|picture|image|photo|background|backdrop|logo|ornament|generate|paint|artwork|hero)\b|画|绘|插图|图标|图片|背景|生成|装饰|描|イラスト|アイコン|画像|背景|生成|그려|그림|아이콘|이미지|배경|생성/i],
-  ["components", /\b(component|components|reusable|instance|instances|symbol)\b|组件库|可复用|复用|实例|コンポーネント|再利用|インスタンス|컴포넌트|재사용|인스턴스/i],
+  ["components", /\b(component|components|reusable|instance|instances|symbol|variants?)\b|组件库|可复用|复用|实例|变体|コンポーネント|再利用|インスタンス|バリアント|컴포넌트|재사용|인스턴스|베리언트/i],
   ["screens", /\b(screens|template|templates|whole app|app with|pages|onboarding|tablet|desktop|variant|title of the app)\b|屏幕|页面|模板|整个应用|多屏|平板|桌面版|画面|テンプレート|アプリ全体|화면|템플릿|앱 전체/i],
   ["layout", /\b(tidy|align|distribute|arrange|spacing|group|lock|reorder|auto layout|polish|clean up)\b|整理|对齐|分布|排列|间距|分组|锁定|自动布局|打磨|整える|揃え|整列|余白|정리|정렬|간격|그룹/i],
 ];

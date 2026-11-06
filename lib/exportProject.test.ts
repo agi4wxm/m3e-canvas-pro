@@ -6,7 +6,7 @@ import { TEMPLATES, instantiate } from "../parts/templates";
 import { defaultMeasures } from "../parts/templates/kit";
 import { buildCode } from "./codegen";
 import { allPartsDoc } from "./codegen.fixture";
-import { COUNTER, FORM, PICKED_PNG, proofDoc } from "./exportProject.fixture";
+import { COUNTER, FORM, PICKED_PNG, proofDoc, systemsDoc } from "./exportProject.fixture";
 import { buildProject, iconNamesIn, importClosure, importsIn, projectPath, zipProject, type ProjectFiles } from "./exportProject";
 import { SOURCE_PATHS, readSource } from "./exportSources";
 import { setGlobalLang } from "./i18n";
@@ -163,6 +163,22 @@ describe("the project of a real document", () => {
     const plain = await buildProject(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
     expect(textOf(plain.files, "src/runtime.tsx")).not.toContain("useColorMode");
     checkClosed(files);
+  });
+
+  it("builds a document with variants, variables in modes and a prototype, closed, its bound fill switched by the dark mode", async () => {
+    const { doc, widths } = systemsDoc();
+    const { files, warnings } = await buildProject(doc, widths, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    checkClosed(files);
+    expect(warnings).toEqual([]);
+    const css = textOf(files, "src/style.css");
+    expect(css).toContain("--m3e-v-brand-v-brand: #ffd8e4;");
+    expect(css).toMatch(/\.dark \{\n {2}--m3e-v-brand-v-brand: #4a2532;/);
+    const home = Object.entries(files).find(([p, s]) => p.startsWith("src/screens/") && typeof s === "string" && s.includes("Home"))![1] as string;
+    expect(home).toContain("var(--m3e-v-brand-v-brand, #ffd8e4)");
+    /* the screen pinned to the dark mode is drawn in it, with nothing to switch */
+    const dark = Object.entries(files).find(([p, s]) => p.startsWith("src/screens/") && typeof s === "string" && s.includes("function Dark"))![1] as string;
+    expect(dark).toContain("#4a2532");
+    expect(dark).not.toContain("--m3e-v-");
   });
 
   it("takes one screen, and a tap to a screen left out goes nowhere", async () => {

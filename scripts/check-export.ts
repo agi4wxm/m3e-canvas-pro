@@ -13,7 +13,7 @@ import { dirname, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { unzipSync } from "fflate";
 import { allPartsDoc } from "../lib/codegen.fixture";
-import { COUNTER, proofDoc, reuseDoc, sweepDoc } from "../lib/exportProject.fixture";
+import { COUNTER, proofDoc, reuseDoc, sweepDoc, systemsDoc } from "../lib/exportProject.fixture";
 import { buildProject, zipProject, type ExportOptions } from "../lib/exportProject";
 import { setGlobalLang } from "../lib/i18n";
 import { makeItem, normalizeTheme, type Doc } from "../lib/tokens";
@@ -23,7 +23,7 @@ import { FAMILIES } from "./icon-tables";
 
 const WORK = process.argv[2];
 const ONLY = process.argv[3];
-if (!WORK) throw new Error("usage: bun scripts/check-export.ts <empty work folder> [reuse|proof|one|parts|modal|style|sweep|<a saved .zip>]");
+if (!WORK) throw new Error("usage: bun scripts/check-export.ts <empty work folder> [reuse|proof|one|parts|modal|style|sweep|systems|<a saved .zip>]");
 mkdirSync(WORK, { recursive: true });
 const fs0 = statfsSync(WORK);
 if ((fs0.bavail * fs0.bsize) / 2 ** 30 < 2) throw new Error("under 2GB free: stopping");
@@ -949,6 +949,8 @@ if (!ONLY || ONLY === "one") await oneScreen();
 if (!ONLY || ONLY === "parts") await allParts();
 if (!ONLY || ONLY === "modal") await modalAndSplit();
 if (!ONLY || ONLY === "style") await styled();
+/* variants and component properties, variables in modes bound to design fields, a prototype's interactions: it has to install, typecheck and build */
+if (!ONLY || ONLY === "systems") await assemble("systems", systemsDoc().doc, systemsDoc().widths);
 if (!ONLY) await sweep();
 
 console.log(`\n${passes} passed, ${failures.length} failed`);
