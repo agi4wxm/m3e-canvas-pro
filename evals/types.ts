@@ -22,7 +22,7 @@ export type Budget = {
 };
 
 /** the abilities the tasks are spread over, for the report */
-export type Ability = "new-screen" | "edit" | "data" | "variables" | "components" | "styles" | "svg" | "replicate" | "game" | "multilingual" | "ambiguous" | "flow" | "long-screen";
+export type Ability = "new-screen" | "edit" | "data" | "variables" | "components" | "styles" | "svg" | "replicate" | "game" | "multilingual" | "ambiguous" | "flow" | "long-screen" | "product";
 
 export type EvalTask = {
   id: string;
@@ -98,6 +98,11 @@ export type Observed = {
   perCall?: { input: number; cachedInput: number; output: number }[];
   /** what the harness stopped, if it did: "tokens", "time" */
   cut?: string;
+  /** a document with an API: each screen that loads data as the preview showed it under every scenario, and the
+   *  sign-in tried on the mocks (evals/product.ts) */
+  preview?: import("./product").PreviewObserved;
+  /** a document with an API: the exported product, built and its generated code type-checked */
+  product?: import("./product").ProductObserved;
 };
 
 export type CheckResult = { pass: boolean; detail: string };

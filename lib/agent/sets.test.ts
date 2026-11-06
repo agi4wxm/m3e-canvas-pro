@@ -115,6 +115,27 @@ describe("tool sets", () => {
     ["フォームの検証と送信を追加して", ["bindings"]],
     ["상품 목록을 API에 연결하고 로딩 상태와 빈 상태를 추가해 줘", ["api", "bindings"]],
     ["가입 양식 검증 후 제출하도록 해 줘", ["bindings"]],
+    /* a product made real: the contract and the bindings together, the mocks when they are named */
+    ["Make the Products screen real: work out the API it needs, connect the list to it and fill the mock data", ["api", "mocks", "bindings"]],
+    ["Add a sign-in screen that logs in through the API", ["api", "bindings"]],
+    ["Make the orders screen available only to signed-in users", ["api", "bindings"]],
+    ["Show real data from the backend in this list", ["api", "bindings"]],
+    ["Make this chat work with the API and load the messages from the server", ["api", "bindings"]],
+    ["Import this OpenAPI file and wire the Products and Orders screens to it:\n```yaml\ninfo:\n  title: Styles and images\n```", ["api", "bindings"]],
+    ["把订单页面连上接口，用模拟数据显示", ["api", "mocks", "bindings"]],
+    ["订单页需要登录才能看", ["api", "bindings"]],
+    ["帮我做一个记账小应用，三个页面，要有完整的接口和模拟数据", ["screens", "api", "mocks", "bindings"]],
+    ["注文画面はログインが必要にして", ["api", "bindings"]],
+    ["この一覧画面をAPIにつないで、モックデータで表示して", ["api", "mocks", "bindings"]],
+    ["주문 화면은 로그인이 필요해", ["api", "bindings"]],
+    ["프로필 화면을 백엔드에 연결해 줘", ["api", "bindings"]],
+    /* and what only looks like one: an endpoint that lists, a sign-in screen to draw, screens linked by a tap */
+    ["Add an endpoint that lists products", ["api"]],
+    ["Make a login screen with email and password", []],
+    ["加一个登录页", []],
+    ["ログイン画面を作って", []],
+    ["로그인 화면을 만들어 줘", []],
+    ["Connect these two screens with a tap", ["screens", "data"]],
   ];
   it.each(PHRASES)("%s → build + %j", (request, sets) => {
     expect(setsFor(request)).toEqual(TOOL_SETS.filter((s) => s === "build" || sets.includes(s)));

@@ -87,9 +87,11 @@ function checkedSource(s: CoreState, f: Frame, d: DataSource, strict: boolean) {
 function withPathParams(s: CoreState, f: Frame, d: DataSource): { frame: Frame; source: DataSource; added: string[] } {
   const { api, e } = endpoint(s, d.operationId);
   const missing = paramsOf(api, e).filter((p) => p.in === "path" && !(d.params && p.name in d.params));
-  if (!missing.length) return { frame: f, source: d, added: [] };
+  /* a param given as the screen's own (params.productId) is one the screen takes, declared like the path's */
+  const read = Object.values(d.params ?? {}).flatMap((x) => /^\s*params\.([A-Za-z_]\w*)\s*$/.exec(String(x))?.[1] ?? []);
+  if (!missing.length && !read.length) return { frame: f, source: d, added: [] };
   const have = new Set((f.params ?? []).map((p) => p.name));
-  const added = missing.map((p) => p.name).filter((n) => !have.has(n) && BINDING_NAME.test(n));
+  const added = [...new Set([...missing.map((p) => p.name), ...read])].filter((n) => !have.has(n) && BINDING_NAME.test(n));
   const params: ScreenParam[] = [...(f.params ?? []), ...added.map((name) => ({ name }))];
   return { frame: { ...f, params }, source: { ...d, params: { ...d.params, ...Object.fromEntries(missing.filter((p) => BINDING_NAME.test(p.name)).map((p) => [p.name, `params.${p.name}`])) } }, added };
 }
@@ -110,7 +112,7 @@ type SourceArgs = Omit<DataSource, "name" | "operationId">;
 export const addDataSource = op<{ screen: string; operationId: string; name?: string } & SourceArgs, { name: string; addedParams: string[] }>({
   name: "add_data_source",
   summary:
-    "Makes a screen load data from an endpoint: read as data.<name> (value, items, status, loading, error, hasMore, empty). Params are expressions; a path param left out reads the screen's param of the same name (declared if missing). Loads on enter unless load: demand.",
+    "Makes a screen load data from an endpoint: read as data.<name> (value, items, status, loading, error, hasMore, empty). Params are expressions; a path param left out reads the screen's param of the same name, and a screen param read as params.<name> is declared on the screen when missing. Loads on enter unless load: demand.",
   args: S.obj({ screen: S.str(), operationId: S.str(), name: S.str("what expressions call it (default from the operationId: listProducts → products)"), ...SOURCE_ARGS }, ["screen", "operationId"]),
   label: () => "Add data source",
   run(s, a, ctx) {
@@ -703,7 +705,7 @@ export const makeForm = op<
 
 /* ---------- the helper: a screen wired to an endpoint ---------- */
 
-type Fields = { title?: string; subtitle?: string; image?: string; trailing?: { name: string; how: "currency" | "relative" | "number" | "text" }; id?: string; rest: { name: string; how: "currency" | "relative" | "date" | "number" | "text" | "bool" }[] };
+type Fields = { title?: string; subtitle?: string; image?: string; trailing?: { name: string; how: "currency" | "relative" | "number" | "text" }; id?: string; rest: { name: string; how: "currency" | "relative" | "date" | "number" | "text" | "bool" }[]; /** what each field is called: its schema's title, else words from its name */ label: (name: string) => string };
 
 const NAMES = {
   title: ["title", "name", "label", "headline", "subject", "displayName", "fullName", "username"],
@@ -730,7 +732,8 @@ function pickFields(api: ApiSpec, schema: JsonSchema | undefined): Fields {
   const rest = rows
     .filter((r) => !used.has(r.name) && typeOf(r.s) !== "object" && typeOf(r.s) !== "array" && r.s.format !== "binary")
     .map((r) => ({ name: r.name, how: (NAMES.money.test(r.name) && (typeOf(r.s) === "number" || typeOf(r.s) === "integer") ? "currency" : r.s.format === "date-time" ? "relative" : r.s.format === "date" ? "date" : typeOf(r.s) === "number" || typeOf(r.s) === "integer" ? "number" : typeOf(r.s) === "boolean" ? "bool" : "text") as Fields["rest"][number]["how"] }));
-  return { title, subtitle, image, trailing, id: rows.some((r) => r.name === "id") ? "id" : undefined, rest };
+  const titles = new Map(rows.map((r) => [r.name, typeof r.s.title === "string" && r.s.title.trim() ? r.s.title.trim() : titleOf(r.name)]));
+  return { title, subtitle, image, trailing, id: rows.some((r) => r.name === "id") ? "id" : undefined, rest, label: (name) => titles.get(name) ?? titleOf(name) };
 }
 
 /** an expression that writes a field as people read it */
@@ -742,20 +745,17 @@ function formatted(path: string, how: string): string {
   return path;
 }
 
-/** words to show on the canvas for a field before there is data */
-const sampleWords = (name: string) => titleOf(name);
-
 /** a row of a list: a picture, a title over a line, a value at its end, each bound to the element's fields */
 function rowTree(api: ApiSpec, item: JsonSchema | undefined, width: number, tap: Action | undefined): TreeNode {
   const f = pickFields(api, item);
   const kids: TreeNode[] = [];
   if (f.image) kids.push({ part: "image", props: { width: 48, height: 48, radius: 8 }, bind: { src: `=item.${f.image}` } });
   const lines: TreeNode[] = [];
-  if (f.title) lines.push({ part: "text", props: { text: sampleWords(f.title), style: "lead", maxLines: 1, fit: "fixed" }, bind: { text: `=item.${f.title}` } });
-  if (f.subtitle) lines.push({ part: "text", props: { text: sampleWords(f.subtitle), style: "caption", color: "muted", maxLines: 2, fit: "fixed" }, bind: { text: `=item.${f.subtitle}` } });
+  if (f.title) lines.push({ part: "text", props: { text: f.label(f.title), style: "lead", maxLines: 1, fit: "fixed" }, bind: { text: `=item.${f.title}` } });
+  if (f.subtitle) lines.push({ part: "text", props: { text: f.label(f.subtitle), style: "caption", color: "muted", maxLines: 2, fit: "fixed" }, bind: { text: `=item.${f.subtitle}` } });
   if (!lines.length) lines.push({ part: "text", props: { text: "Item", style: "lead" }, bind: { text: f.id ? `=item.${f.id}` : "=item" } });
   kids.push({ part: "box", props: { layout: "column", gap: 2, padX: 0, padY: 0, align: "stretch", hugWidth: true }, grow: true, children: lines });
-  if (f.trailing) kids.push({ part: "text", props: { text: sampleWords(f.trailing.name), style: "label" }, bind: { text: `=${formatted(`item.${f.trailing.name}`, f.trailing.how)}` } });
+  if (f.trailing) kids.push({ part: "text", props: { text: f.label(f.trailing.name), style: "label" }, bind: { text: `=${formatted(`item.${f.trailing.name}`, f.trailing.how)}` } });
   return { part: "box", name: "Row", props: { layout: "row", gap: 12, padX: 16, padY: 12, align: "center", hugWidth: false, width }, children: kids, ...(tap ? { action: tap as unknown as Record<string, unknown> } : {}) };
 }
 
@@ -765,16 +765,16 @@ function detailTree(api: ApiSpec, schema: JsonSchema | undefined, source: string
   const v = (name: string) => `data.${source}.value.${name}`;
   const out: TreeNode[] = [];
   if (f.image) out.push({ part: "image", props: { width, height: 200 }, bind: { src: `=${v(f.image)}` } });
-  if (f.title) out.push({ part: "text", props: { text: sampleWords(f.title), style: "headline", fit: "fixed" }, bind: { text: `=${v(f.title)}` } });
-  if (f.trailing) out.push({ part: "text", props: { text: sampleWords(f.trailing.name), style: "title", color: "primary" }, bind: { text: `=${formatted(v(f.trailing.name), f.trailing.how)}` } });
-  if (f.subtitle) out.push({ part: "text", props: { text: sampleWords(f.subtitle), style: "body", color: "muted", fit: "fixed" }, bind: { text: `=${v(f.subtitle)}` } });
+  if (f.title) out.push({ part: "text", props: { text: f.label(f.title), style: "headline", fit: "fixed" }, bind: { text: `=${v(f.title)}` } });
+  if (f.trailing) out.push({ part: "text", props: { text: f.label(f.trailing.name), style: "title", color: "primary" }, bind: { text: `=${formatted(v(f.trailing.name), f.trailing.how)}` } });
+  if (f.subtitle) out.push({ part: "text", props: { text: f.label(f.subtitle), style: "body", color: "muted", fit: "fixed" }, bind: { text: `=${v(f.subtitle)}` } });
   for (const r of f.rest.slice(0, 8))
     out.push({
       part: "box",
       props: { layout: "row", gap: 8, padX: 0, padY: 4, justify: "between", align: "center", hugWidth: false, width },
       children: [
-        { part: "text", props: { text: titleOf(r.name), style: "body", color: "muted" } },
-        { part: "text", props: { text: sampleWords(r.name), style: "body" }, bind: { text: r.how === "bool" ? `=${v(r.name)} ? "✓" : "—"` : `=${formatted(v(r.name), r.how)}` } },
+        { part: "text", props: { text: f.label(r.name), style: "body", color: "muted" } },
+        { part: "text", props: { text: f.label(r.name), style: "body" }, bind: { text: r.how === "bool" ? `=${v(r.name)} ? "✓" : "—"` : `=${formatted(v(r.name), r.how)}` } },
       ],
     });
   return out;
@@ -823,6 +823,7 @@ export const wireScreen = op<
     const added = addDataSource.run(s, { screen: f.id, operationId: a.operationId, ...(a.name ? { name: a.name } : {}), ...(a.params ? { params: a.params } : {}), ...(list ? { pullToRefresh: true, ...(e.pagination ? { paging: a.paging ?? "scroll", pageSize: 20 } : {}) } : {}) }, ctx);
     let state = added.state;
     const name = added.result!.name;
+    const addedParams = [...added.result!.addedParams];
     const frame = frameById(state, f.id);
     const width = contentWidth(frameSizeOf(frame).w);
     /* the region */
@@ -832,7 +833,20 @@ export const wireScreen = op<
     let template: string | undefined;
     if (list) {
       const itemNames = Object.keys(resolved(api, list.item)?.properties ?? {});
-      const tap: Action | undefined = detail ? { to: detail.id, transition: "slide", ...(paramsTo(detail, itemNames) ? { params: paramsTo(detail, itemNames)! } : {}) } : undefined;
+      /* a detail screen not wired yet is told the param it will need: the one the list's get-one endpoint names
+         (/products/{productId}), so the screens can be wired in either order */
+      let target = detail;
+      if (target && !target.params?.length && itemNames.includes("id")) {
+        const one = (api.endpoints ?? []).find((x) => x.method.toLowerCase() === "get" && x.path.startsWith(`${e.path.replace(/\/$/, "")}/{`) && /^\/\{[^{}/]+\}$/.test(x.path.slice(e.path.replace(/\/$/, "").length)));
+        const name = one ? one.path.slice(one.path.lastIndexOf("{") + 1, -1) : "id";
+        if (BINDING_NAME.test(name)) {
+          target = { ...target, params: [{ name, type: "string" }] };
+          state = withFrame(state, target);
+          addedParams.push(`${target.id}.${name}`);
+        }
+      }
+      const params = target ? paramsTo(target, itemNames) : undefined;
+      const tap: Action | undefined = target ? { to: target.id, transition: "slide", ...(params ? { params } : {}) } : undefined;
       const row = addTree.run(state, { tree: rowTree(api, list.item, width, tap), into: { container: regionId } }, user);
       state = row.state;
       template = row.result?.itemId;
@@ -853,7 +867,7 @@ export const wireScreen = op<
     const parts = state.doc.groups.length - s.doc.groups.length;
     return {
       state: withSession(laidOut(state, ctx.widths), { selection: [after.items[0].id], frameId: null }),
-      result: { source: name, region: after.items[0].id, ...(template ? { template } : {}), parts, addedParams: added.result!.addedParams, states: REGION_STATES.filter((st) => st === "ready" || !!have[st]?.length) },
+      result: { source: name, region: after.items[0].id, ...(template ? { template } : {}), parts, addedParams, states: REGION_STATES.filter((st) => st === "ready" || !!have[st]?.length) },
     };
   },
 });

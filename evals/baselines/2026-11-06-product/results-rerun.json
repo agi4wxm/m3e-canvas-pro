@@ -1,0 +1,636 @@
+{
+  "date": "2026-11-06",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "provider": "openai",
+  "totals": {
+    "runs": 5,
+    "tasks": 5,
+    "passed": 5,
+    "passRate": 1,
+    "meanScore": 1,
+    "meanTokens": 178345,
+    "meanCachedShare": 0.83,
+    "meanMs": 38290,
+    "drawings": 0,
+    "cost": 0.38
+  },
+  "runs": [
+    {
+      "task": "contacts-data",
+      "ability": "data",
+      "title": "Contacts from a collection, repeated rows, tap to a detail screen",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "7 steps, 107604 tokens, 21s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "collection",
+          "label": "a collection of 5+ rows",
+          "pass": true,
+          "detail": "people \"People\": name, phone, city; 5 rows",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "repeat",
+          "label": "a layout repeats it",
+          "pass": true,
+          "detail": "contacts-list repeats people",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "tap-detail",
+          "label": "tapping a row opens a detail screen with its data",
+          "pass": true,
+          "detail": "2vihsdhe→person-detail; the detail reads {{current.…}}",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "screen-added",
+          "label": "a new screen",
+          "pass": true,
+          "detail": "\"Contact details\"",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-overlap",
+          "label": "no overlapping parts",
+          "pass": true,
+          "detail": "none on contacts, person-detail",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "in-bounds",
+          "label": "nothing out of the screen",
+          "pass": true,
+          "detail": "all inside",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "keeps-work",
+          "label": "nothing of the author's removed",
+          "pass": true,
+          "detail": "all kept",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "contacts-data",
+      "lang": "en",
+      "usage": {
+        "input": 106725,
+        "output": 879,
+        "reasoning": 23,
+        "cachedInput": 89873,
+        "cacheWrite": 16831
+      },
+      "ms": 21229,
+      "steps": 7,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.041089125,
+      "text": "Added a five-person collection with name, phone, and city. The contacts list repeats one row per person; tapping a row opens their details, with a back arrow to return."
+    },
+    {
+      "task": "shop-api-wire",
+      "ability": "product",
+      "title": "A designed shop list made real: infer models and endpoints, wire the list, fill the mocks",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "7 steps, 183304 tokens, 40s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "api-valid",
+          "label": "the API has endpoints and no errors",
+          "pass": true,
+          "detail": "2 models, 2 endpoints; no errors",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "model",
+          "label": "a product model with name and price",
+          "pass": true,
+          "detail": "Product: id, name, description, price, picture",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "list-endpoint",
+          "label": "a GET list endpoint",
+          "pass": true,
+          "detail": "GET /products (listProducts)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "list-bound",
+          "label": "products loads a list and repeats a bound row",
+          "pass": true,
+          "detail": "products: products=listProducts; repeat over data.products.items with 4 bound parts",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "states",
+          "label": "products: its regions design every state",
+          "pass": true,
+          "detail": "1 regions, every state designed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "6 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "mocks",
+          "label": "the mocks are set up",
+          "pass": true,
+          "detail": "5 scenarios (new-user, lots, network-error, slow, signed-out), 2 models set",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "preview",
+          "label": "in the preview products shows mock data (3+ rows)",
+          "pass": true,
+          "detail": "products: products ready 8 items; regions ready",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "design-kept",
+          "label": "the designed row is the repeated one (one row design, its picture bound)",
+          "pass": true,
+          "detail": "1 bound pictures; no sample row left over",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "278 files, screens ProductsScreen; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "shop-api-wire",
+      "lang": "en",
+      "usage": {
+        "input": 181656,
+        "output": 1648,
+        "reasoning": 374,
+        "cachedInput": 132064,
+        "cacheWrite": 49571
+      },
+      "ms": 39882,
+      "steps": 7,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.094978,
+      "text": "Your existing row design now displays API-backed products with names, short descriptions, USD prices, and mock placeholder pictures. I added eight mock products, pagination, pull-to-refresh, and loading, empty, and error states."
+    },
+    {
+      "task": "detail-params",
+      "ability": "product",
+      "title": "A detail screen opened from a list tap with the row's id as its params",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "6 steps, 142659 tokens, 25s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "api-valid",
+          "label": "the API has endpoints and no errors",
+          "pass": true,
+          "detail": "2 models, 2 endpoints; no errors",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "tap-params",
+          "label": "a row on products opens product with its id, which loads that record",
+          "pass": true,
+          "detail": "products → product with {\"productId\":\"item.id\"}; product loads getProduct with it",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "detail-bound",
+          "label": "product loads one record and shows its fields",
+          "pass": true,
+          "detail": "product: product=getProduct; 6 bound props",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "states",
+          "label": "product: its regions design every state",
+          "pass": true,
+          "detail": "1 regions, every state designed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "13 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "preview",
+          "label": "in the preview product shows mock data",
+          "pass": true,
+          "detail": "product: product ready; regions ready",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "291 files, screens ProductsScreen, ProductScreen, NewProductScreen; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "detail-params",
+      "lang": "en",
+      "usage": {
+        "input": 141799,
+        "output": 860,
+        "reasoning": 55,
+        "cachedInput": 115684,
+        "cacheWrite": 26097
+      },
+      "ms": 24992,
+      "steps": 6,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.05570425,
+      "text": "Tapping a product now opens the Product screen and loads its picture, name, price, and description from the API. The back arrow returns to the list, and I verified the detail screen with mock API data."
+    },
+    {
+      "task": "scenarios-states",
+      "ability": "product",
+      "title": "Mock scenarios (empty, server error, slow) and the list's states in the shop's words",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "3 steps, 57409 tokens, 10s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "scenario-empty",
+          "label": "an empty-shop scenario shows the list empty",
+          "pass": true,
+          "detail": "empty-shop on products: empty",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "scenario-error",
+          "label": "a server-error scenario shows the list's error",
+          "pass": true,
+          "detail": "server-error on products: error",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "scenario-slow",
+          "label": "a slow-network scenario (2 s or more)",
+          "pass": true,
+          "detail": "slow-network",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "state-words",
+          "label": "the empty and error designs say it in the shop's words",
+          "pass": true,
+          "detail": "empty: No products yet / Your shop is ready for its first product. / Refresh products; error: Couldn't load products / The shop couldn't load your products. Please try again. / Try again",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "states",
+          "label": "products: its regions design every state",
+          "pass": true,
+          "detail": "1 regions, every state designed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "5 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "290 files, screens ProductsScreen, ProductScreen, NewProductScreen; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "scenarios-states",
+      "lang": "en",
+      "usage": {
+        "input": 56966,
+        "output": 443,
+        "reasoning": 0,
+        "cachedInput": 37188,
+        "cacheWrite": 19769
+      },
+      "ms": 9915,
+      "steps": 3,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.033801,
+      "text": "Added Empty shop, Server error (500), and Slow network scenarios, with slow responses taking 2.8–3.2 seconds. Updated and checked the product list’s empty and error states with shop-specific wording and a storefront icon."
+    },
+    {
+      "task": "ledger-app-zh",
+      "ability": "product",
+      "title": "A whole small app asked for in Chinese: three screens, contract, bindings, mocks",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 1 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "13 steps, 400748 tokens, 95s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "screen-added",
+          "label": "a new screen",
+          "pass": true,
+          "detail": "\"记一笔\", \"账单详情\"",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "three-screens",
+          "label": "at least three screens",
+          "pass": true,
+          "detail": "账单列表, 记一笔, 账单详情",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "api-valid",
+          "label": "the API has endpoints and no errors",
+          "pass": true,
+          "detail": "3 models, 3 endpoints; no errors",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "model",
+          "label": "a bill model with an amount",
+          "pass": true,
+          "detail": "BillInput: type, amount, category, date, note",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "list-endpoint",
+          "label": "a GET list endpoint",
+          "pass": true,
+          "detail": "GET /bills (listBills)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "get-endpoint",
+          "label": "a GET one endpoint",
+          "pass": true,
+          "detail": "GET /bills/{billId} (getBill)",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "create-endpoint",
+          "label": "a POST create endpoint",
+          "pass": true,
+          "detail": "POST /bills (createBill)",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "list-bound",
+          "label": "/./ loads a list and repeats a bound row",
+          "pass": true,
+          "detail": "home: bills=listBills; repeat over data.bills.items with 3 bound parts",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "tap-params",
+          "label": "a row on /./ opens /./ with its id, which loads that record",
+          "pass": true,
+          "detail": "home → detail with {\"billId\":\"item.id\"}; detail loads getBill with it",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "form",
+          "label": "/./: a form for the body with its fields bound",
+          "pass": true,
+          "detail": "entry: form of POST /bills (createBill), fields type, amount, category, date, note",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "states",
+          "label": "/./: its regions design every state",
+          "pass": true,
+          "detail": "2 regions, every state designed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "bindings-resolve",
+          "label": "every expression and source on the bound screens resolves",
+          "pass": true,
+          "detail": "26 expressions, all resolve",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "mocks",
+          "label": "the mocks are set up",
+          "pass": true,
+          "detail": "5 scenarios (new-user, lots, network-error, slow, signed-out), 3 models set",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "preview",
+          "label": "in the preview /./ shows mock data (3+ rows)",
+          "pass": true,
+          "detail": "home: bills ready 6 items; regions ready",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "language",
+          "label": "new words in the canvas language",
+          "pass": true,
+          "detail": "48/48 in Chinese",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "export",
+          "label": "the exported product builds and type-checks (packages/api, apps/web)",
+          "pass": true,
+          "detail": "298 files, screens ; api 0 errors; web 0 errors",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "ledger-app-zh",
+      "lang": "zh",
+      "usage": {
+        "input": 394528,
+        "output": 6220,
+        "reasoning": 253,
+        "cachedInput": 355318,
+        "cacheWrite": 39171
+      },
+      "ms": 95432,
+      "steps": 13,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.15562725,
+      "text": "已完成账单列表、记一笔表单和账单详情三个页面，绑定了列表、详情、新建接口，并填入 6 笔模拟账单。\n\n现在可点击账单查看详情，提交记账表单后返回列表；同时配好了表单校验，以及加载、空数据和错误状态。目前使用模拟接口，可直接预览完整流程。"
+    }
+  ]
+}

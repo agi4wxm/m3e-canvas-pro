@@ -13,7 +13,7 @@ import { nextFrame, shotTarget, type Crop } from "./screenShot";
 const KEY = "m3e:mcp";
 
 /** a screenshot waiting for the export layer */
-export type ShotJob = { frame: Frame; crop?: Crop; scale: number; resolve: (png: string) => void; reject: (e: unknown) => void };
+export type ShotJob = { frame: Frame; crop?: Crop; scale: number; doc?: Doc; widths?: Record<string, number>; resolve: (png: string) => void; reject: (e: unknown) => void };
 
 const OFF: BridgeView = { on: false, conns: [], log: [], asks: [], remembered: [] };
 const nothing = () => () => {};
@@ -76,9 +76,11 @@ export function useMcpBridge({ store, enabled }: { store: DocStore; enabled: boo
           screenshot: (id, o) =>
             new Promise<string>((resolve, reject) => {
               const s = store.get();
-              const target = shotTarget(s.doc as Doc, s.session.widths, id);
+              const doc = o?.doc ?? (s.doc as Doc);
+              const widths = o?.doc ? { ...s.session.widths, ...o.widths } : s.session.widths;
+              const target = shotTarget(doc, widths, id);
               if (!target) return reject(new ToolFailure("not_found", `There is no screen or part ${JSON.stringify(id)}.`, "list_screens gives the screens' ids."));
-              queue.current.push({ ...target, scale: o?.scale ?? 1, resolve, reject });
+              queue.current.push({ ...target, scale: o?.scale ?? 1, ...(o?.doc ? { doc, widths } : {}), resolve, reject });
               setShot((cur) => cur ?? queue.current.shift() ?? null);
             }),
         };

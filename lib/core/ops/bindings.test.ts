@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { setGlobalLang } from "../../i18n";
 import { openProject, projectFile } from "../../project";
 import { formatProject } from "../projectFile";
-import { REGION_STATES, type Doc } from "../../tokens";
+import { heldBy, REGION_STATES, type Doc } from "../../tokens";
 import { shopDoc } from "../../bindings/fixture";
 import { expandDoc } from "../../expand";
 import { canvasView } from "../../expand";
@@ -18,6 +18,7 @@ import { guessMeasurer } from "../op";
 import { savedDoc, stateOf } from "../state";
 import * as ops from ".";
 import { sourceNameFor } from "./bindings";
+import { outline } from "../query";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -70,7 +71,8 @@ describe("data sources", () => {
     refused(() => run(ops.addDataSource, { screen: "products", operationId: "listThings" }), /no endpoint "listThings".*listProducts/);
     refused(() => run(ops.addDataSource, { screen: "products", operationId: "listProducts", params: { sort: "1" } }), /takes no param "sort"/);
     refused(() => run(ops.addDataSource, { screen: "products", operationId: "listProducts", params: { limit: "1 +" } }), /no expression/);
-    refused(() => run(ops.addDataSource, { screen: "products", operationId: "listProducts", params: { limit: "params.size" } }), /takes no param "size"/);
+    /* a param given as the screen's own is one the screen takes: declared, like a path param left out */
+    expect((run(ops.addDataSource, { screen: "products", operationId: "listProducts", name: "sized", params: { limit: "params.size" } }) as { addedParams: string[] }).addedParams).toEqual(["size"]);
     refused(() => run(ops.addDataSource, { screen: "detail", operationId: "getProduct", paging: "scroll" }), /no pagination/);
     refused(() => run(ops.addDataSource, { screen: "products", operationId: "listProducts", name: "1st" }), /no name for data/);
     run(ops.addDataSource, { screen: "products", operationId: "listProducts" });
@@ -214,7 +216,7 @@ describe("forms", () => {
 
 describe("taps that reach the API", () => {
   it("are checked: the endpoint, the args' expressions, the source, the form, the screen's params", () => {
-    const { run } = shop();
+    const { run, frame } = shop();
     run(ops.wireScreen, { screen: "products", operationId: "listProducts", detail: "detail" });
     run(ops.setScreenParams, { screen: "detail", params: [{ name: "productId" }] });
     run(ops.addPart, { slug: "button", id: "b", screen: "products", at: { x: 16, y: 700 } });
@@ -225,7 +227,9 @@ describe("taps that reach the API", () => {
     refused(() => set({ to: "none", effects: [{ do: "call", operationId: "createProduct", args: { name: "(" } }] }), /args.name/);
     refused(() => set({ to: "none", effects: [{ do: "refresh", source: "cart" }] }), /no screen loads data called "cart"/);
     refused(() => set({ to: "none", effects: [{ do: "submit", form: "nowhere" }] }), /no form/);
-    refused(() => set({ to: "detail", params: { id: "1" } }), /takes no param "id"/);
+    /* a param the screen it opens does not declare yet is declared there, so either may come first */
+    set({ to: "detail", params: { id: "\"1\"" } });
+    expect(frame("detail").params?.map((p) => p.name)).toEqual(["productId", "id"]);
     refused(() => set({ to: "none", when: { expr: "a ==" }, effects: [{ do: "signOut" }] }), /no expression/);
     set({ to: "none", when: { expr: "auth.signedIn" }, effects: [{ do: "signOut" }, { do: "setVar", var: "v", value: 0 }].slice(0, 1) });
   });
@@ -252,6 +256,42 @@ describe("wire_screen", () => {
     expect(doc().groups.some((g) => g.states)).toBe(false);
   });
 
+  it("tells a detail screen not wired yet the param its get-one endpoint names, so either may be wired first", () => {
+    const { run, doc, frame } = shop();
+    run(ops.setScreenParams, { screen: "detail", params: [] });
+    const out = run(ops.wireScreen, { screen: "products", operationId: "listProducts", detail: "detail" }) as { template?: string; addedParams: string[] };
+    expect(frame("detail").params).toEqual([{ name: "productId", type: "string" }]);
+    expect(out.addedParams).toEqual(["detail.productId"]);
+    expect(doc().groups.find((g) => g.items[0].id === out.template)!.items[0].action).toMatchObject({ to: "detail", params: { productId: "item.id" } });
+    const detail = run(ops.wireScreen, { screen: "detail", operationId: "getProduct" }) as { addedParams: string[] };
+    expect(detail.addedParams).toEqual([]);
+    expect(frame("detail").data?.[0].params).toEqual({ productId: "params.productId" });
+  });
+
+  it("labels a field by its schema's title, in the author's language", () => {
+    const { run, doc } = shop();
+    run(ops.updateModel, { name: "Product", properties: { createdAt: { type: "string", format: "date-time", readOnly: true, title: "上架时间" } } });
+    run(ops.wireScreen, { screen: "detail", operationId: "getProduct" });
+    const words = doc().groups.flatMap((g) => g.items.map((it) => String(it.props?.text ?? "")));
+    expect(words).toContain("上架时间");
+    expect(words).not.toContain("Created at");
+  });
+
+  it("keeps each state's design apart from the others on the canvas and in what holds what", () => {
+    const { run, s } = shop();
+    run(ops.wireScreen, { screen: "products", operationId: "listProducts" });
+    const widths = guessMeasurer.measure(s.get());
+    const groups = s.get().doc.groups;
+    const region = groups.find((g) => g.states)!;
+    const designs = groups.filter((g) => g.inFlow === region.id && g.pane);
+    expect(designs.length).toBe(4);
+    for (const d of designs) {
+      const held = heldBy(d, groups, widths);
+      /* only what the design itself lays out, never another pane or what that one holds */
+      expect(held.every((h) => designs.every((o) => o === d || (h.id !== o.id && h.inFlow !== o.id))), `pane ${d.pane}`).toBe(true);
+    }
+  });
+
   it("binds a detail screen: the fields of the one thing, read from the source", () => {
     const { run, doc, frame } = shop();
     /* the screen declares the path's param already: the source reads it */
@@ -261,6 +301,22 @@ describe("wire_screen", () => {
     expect(frame("detail").data?.[0].params).toEqual({ productId: "params.productId" });
     const binds = doc().groups.flatMap((g) => g.items.flatMap((it) => Object.values(it.bind ?? {})));
     expect(binds).toEqual(expect.arrayContaining(["=data.product.value.name", "=currency(data.product.value.price)", "=relative(data.product.value.createdAt)"]));
+  });
+});
+
+describe("the outline a model reads", () => {
+  it("says what is bound: the API in a line, each screen's data, params and sign-in, repeats, regions, designs, forms, fields", () => {
+    const text = outline(shopDoc(), {}, { props: "set" });
+    expect(text).toMatch(/^api: 3 models, 5 endpoints, sign-in login; mocks: none set \(fill_mocks\)$/m);
+    expect(text).toContain('## screen products "Products" 412×892 [data products=listProducts]');
+    expect(text).toMatch(/## screen detail "Product" [^\n]*\[data product=getProduct; params productId\]/);
+    expect(text).toMatch(/## screen login "Sign in" [^\n]*\[auth login\]/);
+    expect(text).toContain("repeats data.products.items, region of products");
+    for (const design of ["loading design", "empty design", "error design", "forbidden design"]) expect(text).toContain(design);
+    expect(text).toContain("form of createProduct");
+    expect(text).toMatch(/field=email/);
+    /* a document without an API says nothing of one */
+    expect(outline({ ...shopDoc(), api: undefined }, {}, {})).not.toMatch(/^api:/m);
   });
 });
 
