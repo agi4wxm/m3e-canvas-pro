@@ -11,6 +11,7 @@ import type { Doc, Frame, Group } from "../tokens";
 import { sampleProducts, shopDoc, shopTransport } from "./fixture";
 import { BindingEngine, emptyBindings, paramsFor, screenScope, sourceKey, type BindingState, type CallOutcome } from "./runtime";
 import { boundScreen, formsOf, readForm } from "./view";
+import { fallbackTransport } from "./transport";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -116,6 +117,34 @@ describe("a list screen", () => {
     const last = h.engine.load(f, f.data![0], h.scope(f), { force: true });
     await Promise.all([again, last]);
     expect(h.state.sources[sourceKey("products", "products")].items?.length).toBe(1);
+  });
+
+  it("loads again behind what it shows when the screen is entered again", async () => {
+    const doc = shopDoc();
+    const f = doc.frames.find((x) => x.id === "products")!;
+    const log: TransportRequest[] = [];
+    const t = shopTransport({ products: sampleProducts(2), log });
+    const h = harness(doc, t);
+    await h.engine.enter(f, h.scope(f));
+    t.products.unshift({ id: "new", name: "Fresh", price: 1 });
+    const again = h.engine.enter(f, h.scope(f));
+    /* what it held stays on show meanwhile */
+    expect(region(h.bound("products").groups).states?.show).toBe("ready");
+    /* entered twice at once (React's strict effects): one call */
+    void h.engine.enter(f, h.scope(f));
+    await again;
+    expect(log.filter((r) => r.operationId === "listProducts")).toHaveLength(2);
+    expect(texts(h.shown("products"))).toContain("Fresh");
+  });
+
+  it("answers from the contract's examples, and a list with nothing, until the mock library does", async () => {
+    const doc = shopDoc();
+    const out = await fallbackTransport(doc).request({ operationId: "listProducts", method: "GET", path: "/products" });
+    expect(out).toMatchObject({ status: 200, body: { items: [] } });
+    const h = harness(doc, fallbackTransport(doc));
+    const f = h.frame("products");
+    await h.engine.enter(f, h.scope(f));
+    expect(region(h.bound("products").groups).states?.show).toBe("empty");
   });
 
   it("takes a row out at once and puts it back when the call fails", async () => {

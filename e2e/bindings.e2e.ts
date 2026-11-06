@@ -9,7 +9,7 @@ import { setGlobalLang } from "../lib/i18n";
 import { shopDoc } from "../lib/bindings/fixture";
 import type { Doc as FullDoc } from "../lib/tokens";
 import { installFakeShop, type FakeShop } from "./fakeShop";
-import { check, equal, ready, savedDoc, screenBox, selectScreen, settle, undo, type E2ETest, type Page } from "./lib";
+import { check, equal, savedDoc, screenBox, selectScreen, settle, undo, type E2ETest, type Page } from "./lib";
 
 setGlobalLang("en");
 
@@ -17,8 +17,10 @@ setGlobalLang("en");
 async function openShop(page: Page, base: string, doc: FullDoc, fake: FakeShop) {
   await page.context().addInitScript(installFakeShop, fake);
   await page.goto(`${base}/#doc=${encodeURIComponent(JSON.stringify(doc))}`, { waitUntil: "load" });
-  await ready(page);
-  await settle(page, 1200);
+  /* a document whose screens are still empty has no part to wait for: its screens are what arrives */
+  await page.waitForSelector(".m3e-boot", { state: "detached", timeout: 90_000 });
+  await page.waitForSelector('[data-screen="products"]', { timeout: 30_000 });
+  await settle(page, 1500);
 }
 
 /** the preview of a screen, opened from its bar */

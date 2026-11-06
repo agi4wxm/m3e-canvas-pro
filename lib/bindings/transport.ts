@@ -7,7 +7,7 @@ import type { Transport, TransportRequest, TransportResponse } from "../api/tran
 import { successOf } from "../api";
 import { isRecord } from "../api/schema";
 import type { Doc } from "../tokens";
-import { endpointOf } from "./contract";
+import { endpointOf, listOf } from "./contract";
 
 declare global {
   interface Window {
@@ -24,7 +24,10 @@ function exampleAnswer(doc: Pick<Doc, "api">, req: TransportRequest): TransportR
   const media = isRecord(res) && isRecord(res.content) ? Object.values(res.content)[0] : undefined;
   const example = isRecord(media) ? (media.example !== undefined ? media.example : isRecord(media.examples) ? (Object.values(media.examples)[0] as { value?: unknown } | undefined)?.value : undefined) : undefined;
   const status = code && /^\d{3}$/.test(code) ? Number(code) : 200;
-  return { status, headers: example === undefined ? {} : { "content-type": "application/json" }, body: example };
+  /* with no example, a list endpoint answers an empty list, so its screen shows its empty design rather than an error */
+  const list = example === undefined && e && doc.api ? listOf(doc.api, e) : undefined;
+  const body = example !== undefined ? example : list ? (list.field ? { [list.field]: [] } : []) : undefined;
+  return { status, headers: body === undefined ? {} : { "content-type": "application/json" }, body };
 }
 
 /** The transport the editor hands its preview for a document. The mock library's `createMockTransport(doc, opts)`

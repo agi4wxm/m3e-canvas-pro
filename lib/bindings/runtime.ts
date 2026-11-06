@@ -269,9 +269,18 @@ export class BindingEngine {
     });
   }
 
-  /** the sources of a screen that load as it is entered, each as `load` takes it */
+  /** The sources of a screen that load as it is entered. One that holds what the same arguments gave is loaded again
+   *  behind what it shows (a list come back to after a product was added shows it), and one already loading is left to
+   *  finish. */
   enter(frame: Frame, scope: Scope): Promise<void[]> {
-    return Promise.all((frame.data ?? []).filter((d) => (d.load ?? "enter") === "enter").map((d) => this.load(frame, d, scope)));
+    return Promise.all(
+      (frame.data ?? [])
+        .filter((d) => (d.load ?? "enter") === "enter")
+        .map((d) => {
+          const was = this.host.get().sources[sourceKey(frame.id, d.name)];
+          return this.load(frame, d, scope, { force: was?.status === "ready" && !was.loading });
+        }),
+    );
   }
 
   /* ---------- optimistic changes ---------- */
