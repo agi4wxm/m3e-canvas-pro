@@ -15,6 +15,7 @@ import { drawerFor, generationFromEnv } from "./generate";
 import { LiveBackend } from "./live";
 import type { Log } from "./log";
 import { findApp, HeadlessRenderer } from "./render";
+import { configDir, TrustStore } from "./trust";
 
 export type SetupOptions = {
   /** a project file to work on headless */
@@ -39,6 +40,8 @@ export type SetupOptions = {
   /** what draws, instead of the environment's key (tests) */
   gen?: GenerateEnv;
   format?: ProjectFormat;
+  /** the folder remembered pairings are kept in (trust.ts; the user's config folder by default), or false for none */
+  trustDir?: string | false;
   version: string;
   log: Log;
 };
@@ -86,6 +89,7 @@ export async function setup(o: SetupOptions): Promise<{ backend: Backend; regist
       pairWaitMs: o.pairWaitMs,
       version: o.version,
       log: o.log,
+      ...(o.trustDir === false ? {} : { trust: TrustStore.at(o.trustDir ?? configDir(o.env ?? process.env), (m) => o.log.warn(m)) }),
     });
     await live.start();
   }

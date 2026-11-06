@@ -13,7 +13,8 @@ const GROUP: Record<ToolGroup, string> = { read: "读取", edit: "搭建", style
 /** a description's first sentence, fit for a table cell */
 const firstSentence = (s: string) => {
   const m = /^(.*?[.!?])(\s|$)/.exec(s);
-  const one = (m ? m[1] : s).replaceAll("|", "\\|").replace(/\s+/g, " ").trim();
+  /* a name like svg:<id> is words in a cell, not a tag */
+  const one = (m ? m[1] : s).replaceAll("|", "\\|").replaceAll("<", "&lt;").replace(/\s+/g, " ").trim();
   return one.length > 180 ? `${one.slice(0, 179)}…` : one;
 };
 
@@ -23,11 +24,13 @@ export function toolTable(): string {
   return [
     TABLE_START,
     "",
-    `共 ${tools.length + 1} 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的。说明取自工具给模型看的描述。`,
+    `共 ${tools.length + 3} 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，\`undo\`、\`redo\` 只在文件模式里有。说明取自工具给模型看的描述。`,
     "",
     "| 工具 | 组 | 只读 | 需作者确认 | 说明 |",
     "| --- | --- | --- | --- | --- |",
     ...rows,
+    "| `undo` | 文件模式自带 |  |  | Takes back the last change this server made to the project file (one tool call, or one apply_ops batch) and saves the file. |",
+    "| `redo` | 文件模式自带 |  |  | Makes the last change undo took back again, and saves the file. |",
     "| `connection_status` | 服务器自带 | 是 |  | Where this server's calls go, whether an editor tab is paired, and the pairing code when none is. |",
     "",
     TABLE_END,

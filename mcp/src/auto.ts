@@ -2,7 +2,7 @@
  * otherwise. connection_status says which one the next call reaches. */
 
 import type { Access, ClientInfo } from "../../lib/mcp/protocol";
-import { listeners, type Backend, type CallContext, type CallOutcome } from "./backend";
+import { failure, listeners, type Backend, type CallContext, type CallOutcome } from "./backend";
 import type { FileBackend } from "./file";
 import type { LiveBackend } from "./live";
 
@@ -24,6 +24,12 @@ export class AutoBackend implements Backend {
 
   call(name: string, args: unknown, ctx: CallContext): Promise<CallOutcome> {
     return this.now.call(name, args, ctx);
+  }
+
+  /** the file's own history; while a tab is paired, its changes are the author's to undo there */
+  history(action: "undo" | "redo"): Promise<CallOutcome> {
+    if (this.live.paired()) return Promise.resolve(failure("refused", `An editor tab is paired: what this server changed there is taken back with the editor's own ${action}, by the author.`, "Ask the author to press undo (or redo) in the editor, or make the change you want with the tools."));
+    return this.file.history(action);
   }
 
   access(): Access {

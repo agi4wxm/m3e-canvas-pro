@@ -1392,6 +1392,9 @@ export type Doc = {
   collections?: Collection[];
   /** styles of the document's own (lib/styles/custom.ts): `theme.style` may name one by its `custom:` key */
   styles?: CustomStyle[];
+  /** icons of the document's own (lib/docIcons.ts): id → sanitized SVG markup, named `svg:<id>` wherever a part takes
+   *  an icon name */
+  icons?: Record<string, string>;
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));

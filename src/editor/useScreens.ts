@@ -21,7 +21,8 @@ export type ScreenInputs = {
   runOp: <A, R>(o: Op<A, R>, args: A, opts?: TxOptions & { label?: string; refused?: (e: OpError) => void }) => R | undefined;
   didOp: <A>(o: Op<A, unknown>, args: A, opts?: TxOptions & { label?: string; refused?: (e: OpError) => void }) => boolean;
   showToast: (msg: string, ms?: number, icon?: string, action?: NoteAction) => void;
-  snapshot: () => void;
+  /** no longer read: the phone model takes its own step, and none when nothing changed */
+  snapshot?: () => void;
   frame: FrameMode;
   groups: Group[];
   frames: Frame[];
@@ -49,7 +50,7 @@ export type ScreenInputs = {
   setRightTab: (tab: "edit" | "prompt") => void;
 };
 
-export function useScreens({ store, runOp, didOp, showToast, snapshot, frame, groups, frames, widths, theme, tidyTarget, tidyRef, frameRef, framesRef, groupsRef, widthsRef, defEditRef, viewRef, canvasRect, setView, fitRef, glideToFrame, retidyRef, freshFramesRef, newPhoneRef, setSelectedLinkId, setRightTab }: ScreenInputs) {
+export function useScreens({ store, runOp, didOp, showToast, frame, groups, frames, widths, theme, tidyTarget, tidyRef, frameRef, framesRef, groupsRef, widthsRef, defEditRef, viewRef, canvasRect, setView, fitRef, glideToFrame, retidyRef, freshFramesRef, newPhoneRef, setSelectedLinkId, setRightTab }: ScreenInputs) {
   /** screens ease to their new place and size for a moment after one changes size */
   const [easing, setEasing] = useState(false);
   /** The body of a screen in nested auto layouts: what stands at its edges (bars, a FAB, a dialog, a rail, its picture)
@@ -110,9 +111,9 @@ export function useScreens({ store, runOp, didOp, showToast, snapshot, frame, gr
 
   /** every phone screen of the document at the size of one model, each kept upright or on its side. One undo step. */
   const setPhoneModel = (size: { w: number; h: number }) => {
-    snapshot();
     tidyRef.current = null;
-    const out = runOp(ops.setPhoneModel, size, { history: "none" });
+    /* the step is taken by the operation itself, so a phone already that size leaves no empty step behind */
+    const out = runOp(ops.setPhoneModel, size, { history: "step" });
     if (!out) return;
     setEasing(true);
     window.setTimeout(() => setEasing(false), SETTLE_MS + 40);

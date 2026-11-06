@@ -177,6 +177,9 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["set_style_layout", { patch: { margin: 20 } }],
     ["set_custom_styles", { styles: null }],
     ["add_custom_style", { style: { name: "Paper", extends: "ios", light: { primary: "#1F4E79" } }, wear: false }],
+    ["set_icon", { id: "leaf", svg: '<svg viewBox="0 0 24 24"><path d="M4 20C4 9 11 4 20 4c0 9-5 16-16 16z"/></svg>' }],
+    ["set_icon", { id: "gone", svg: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>' }],
+    ["remove_icon", { id: "gone" }],
     ["resize_screen", { id: "detail", preset: "tablet" }],
     ["set_phone_model", { w: 390, h: 844 }],
     ["set_screen_length", { id: "home", length: 1200 }],
@@ -383,6 +386,32 @@ describe("generate_svg and generate_image", () => {
     /* first in the bar's run, where the icon was */
     const bar = groups.find((g) => g.items[0].id === "bar")!;
     expect(groups.filter((g) => g.inFlow === bar.id).map((g) => g.items[0].id)).toEqual(["leaf", "lbl"]);
+  });
+
+  it("keeps a drawing as a document icon: an icon atom takes its name, a place gets a new one, or it is only kept", async () => {
+    const store = await withScreen();
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 2h20v20z" fill="currentColor"/></svg>';
+    const adapter = scriptedAdapter([{ text: svg }, { text: svg.replace("M2 2", "M4 4") }, { text: svg.replace("M2 2", "M6 6") }]);
+    const env = { origin: "ai" as const, registry: reg, gen: { settings: SETTINGS, adapter } };
+    const steps = store.history().length;
+    const first = ok(await executeTool(store, "generate_svg", { prompt: "a leaf", route: "code", replace: "ic", icon: "leaf" }, env));
+    expect(first).toMatchObject({ icon: "svg:leaf", itemId: "ic", route: "code" });
+    const ic = store.get().doc.groups.flatMap((g) => g.items).find((it) => it.id === "ic")!;
+    expect(ic.component).toBe("icon");
+    expect(ic.props?.name).toBe("svg:leaf");
+    expect(store.get().doc.icons?.leaf).toContain("<path");
+    /* one step for the drawing kept and put to use */
+    expect(store.history().length).toBe(steps + 1);
+    const placed = ok(await executeTool(store, "generate_svg", { prompt: "A rocket ship", route: "code", screen: "s", at: { x: 40, y: 200 }, icon: "" }, env));
+    expect(placed.itemId).toBeTruthy();
+    const kept = ok(await executeTool(store, "generate_svg", { prompt: "a coffee cup", route: "code", icon: "cup" }, env));
+    expect(kept).toEqual(expect.objectContaining({ icon: "svg:cup" }));
+    expect(kept.itemId).toBeUndefined();
+    expect(Object.keys(store.get().doc.icons ?? {}).sort()).toEqual(["cup", "leaf"]);
+    /* a tab bar's tabs take it like any name */
+    ok(await executeTool(store, "add_part", { slug: "navigation-bar", id: "nav", screen: "s" }, { origin: "ai" }));
+    ok(await executeTool(store, "set_props", { id: "nav", props: { items: [{ label: "Coffee", icon: "svg:cup" }, { label: "Home", icon: "home" }, { label: "Me", icon: "person" }] } }, { origin: "ai" }));
+    expect(ok(await executeTool(store, "list_icons", { query: "cup" }, { origin: "ai" })).document).toEqual(["svg:cup"]);
   });
 
   it("traces an icon from the image model, without its backdrop, in the part's own color", async () => {

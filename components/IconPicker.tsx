@@ -2,6 +2,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Palette } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
+import { iconText } from "@/lib/i18n/icons";
+import { docIconName } from "@/lib/docIcons";
+import { Icon as PartIcon } from "@/components/m3e/icon";
+import { useDocIcons } from "@/parts/icons";
 import { useDismiss } from "./ui";
 
 type IconMeta = { n: string; p: number; t: string };
@@ -111,8 +115,14 @@ export function IconPicker({
     if (learned) setKnown(new Map(glyphOk));
   }, [fontReady, unknown]);
 
+  /* the document's own icons (svg:<id>) come first, in a section of their own, when there are any that match */
+  const own = useDocIcons();
+  const ownNames = useMemo(() => {
+    const s = q.trim().toLowerCase().replace(/\s+/g, "-");
+    return Object.keys(own).filter((id) => !s || id.includes(s)).map(docIconName);
+  }, [own, q]);
   const visible = useMemo(() => candidates.filter((c) => known.get(c.n) === true).slice(0, SHOWN), [candidates, known]);
-  const at = Math.min(cursor, Math.max(0, visible.length - 1));
+  const at = Math.min(cursor, Math.max(0, ownNames.length + visible.length - 1));
   /* the arrow keys walk the grid: a row at a time up and down, read off how many tiles share a line */
   const onGridKey = (e: React.KeyboardEvent) => {
     const tiles = Array.from(grid.current?.querySelectorAll<HTMLElement>("[data-icon]") ?? []);
@@ -255,6 +265,39 @@ export function IconPicker({
               </svg>
             </button>
           )}
+          {ownNames.length > 0 && (
+            <>
+              <div data-icon-section="document" style={{ gridColumn: "1 / -1", padding: "4px 4px 0", fontSize: 12, fontWeight: 600, color: palette.onSurfaceVariant }}>
+                {iconText("docIcons", lang)}
+              </div>
+              {ownNames.map((n, k) => (
+                <button
+                  key={n}
+                  data-icon={n}
+                  title={n}
+                  aria-label={n}
+                  aria-pressed={value === n}
+                  tabIndex={k === at ? 0 : -1}
+                  onFocus={() => setCursor(k)}
+                  onClick={() => onChange(n)}
+                  style={{
+                    aspectRatio: "1",
+                    minWidth: 0,
+                    display: "grid",
+                    placeItems: "center",
+                    borderRadius: 12,
+                    border: "none",
+                    background: value === n ? palette.primary : "transparent",
+                    color: value === n ? palette.onPrimary : palette.onSurfaceVariant,
+                    cursor: "pointer",
+                  }}
+                >
+                  <PartIcon name={n} size={22} />
+                </button>
+              ))}
+              <div style={{ gridColumn: "1 / -1", padding: "6px 4px 0", fontSize: 12, fontWeight: 600, color: palette.onSurfaceVariant }}>{iconText("symbols", lang)}</div>
+            </>
+          )}
           {visible.map((i, idx) => (
             <button
               key={i.n}
@@ -262,8 +305,8 @@ export function IconPicker({
               title={i.n}
               aria-label={i.n}
               aria-pressed={value === i.n}
-              tabIndex={idx === at ? 0 : -1}
-              onFocus={() => setCursor(idx)}
+              tabIndex={idx + ownNames.length === at ? 0 : -1}
+              onFocus={() => setCursor(idx + ownNames.length)}
               onClick={() => onChange(i.n)}
               style={{
                 aspectRatio: "1",

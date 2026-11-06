@@ -5,6 +5,12 @@
  * step. A destructive call waits for a click in the tab. The tab never sees a key: a drawing a generative tool needs
  * is asked of the server, which holds OPENAI_API_KEY, and only what was drawn comes back.
  *
+ * Remembering a client: when the author approves with "remember this client", the tab gives the server a secret
+ * (`approve.remember`), the server keeps it under an id it returns (`paired.remembered`), and the tab keeps both. A
+ * later server for that client says which ids it holds (`hello.known`, `client.known`); the tab challenges it
+ * (`prove`), checks the answer (`proof`: an HMAC of the challenge and the port, mcp/src/trust.ts `proofOf`) and
+ * approves without asking. The fields are optional, so either side of an older version simply never offers it.
+ *
  * Plain types and constants: the server bundle and the editor both import this, nothing else. */
 
 import type { ToolError, ToolOutcome } from "../tools/types";
@@ -48,9 +54,14 @@ export type ServerMsg =
       /** whether the server can draw (it has an OpenAI key) */
       generate: boolean;
       confirmMs: number;
+      /** the remembered pairings this server can prove for its client and the tab's origin; present when it can
+       *  remember one at all */
+      known?: string[];
     }
-  | { t: "client"; client: ClientInfo | null }
-  | { t: "paired"; access: Access; resume: string }
+  | { t: "client"; client: ClientInfo | null; known?: string[] }
+  | { t: "paired"; access: Access; resume: string; remembered?: { id: string } }
+  /** the answer to a tab's challenge: the HMAC, or null when this server holds no such pairing */
+  | { t: "proof"; id: string; nonce: string; mac: string | null }
   /** another tab is paired already, or the protocols differ: the connection closes after this */
   | { t: "refused"; reason: "busy" | "protocol" | "denied" }
   | { t: "call"; id: string; name: string; args: unknown; client: ClientInfo | null }
@@ -61,7 +72,11 @@ export type ServerMsg =
 /** editor → server */
 export type EditorMsg =
   | { t: "hello"; protocol: number; resume?: string }
-  | { t: "approve"; access: Access }
+  | { t: "approve"; access: Access; remember?: { secret: string } }
+  /** a challenge: prove holding the remembered pairing `id` */
+  | { t: "prove"; id: string; nonce: string }
+  /** the author forgot a remembered pairing in the editor: its secret, so only the tab that holds it can */
+  | { t: "forget"; id: string; secret: string }
   | { t: "deny" }
   | { t: "result"; id: string; outcome: ToolOutcome }
   /** a drawing for the call `call` (a generative tool's), under the request id `id` */

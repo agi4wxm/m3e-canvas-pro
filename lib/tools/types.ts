@@ -37,6 +37,8 @@ export type GenerateEnv = {
   fetch?: typeof fetch;
   /** how many drawings the caller still allows (a turn's budget); undefined is no limit */
   budget?: { left: number };
+  /** how many styles the caller still lets the text model write (a turn's budget, `of` in all); undefined is no limit */
+  styles?: { left: number; of: number };
   /** Draws somewhere else and hands back only what was drawn: an editor tab paired with the MCP server asks the
    *  server, which holds the key. `settings` and `adapter` are then not read. */
   remote?: RemoteDrawing;

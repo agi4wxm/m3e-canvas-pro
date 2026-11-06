@@ -2,6 +2,7 @@ import { childLayoutFields } from "./flow";
 import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
+import { cleanDocIcons } from "./docIcons";
 import { fitsType, startValueOf } from "./variables";
 import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
@@ -319,6 +320,12 @@ export function cleanBehavior(doc: Doc): Doc {
     const modes = cleanModes(out.varModes);
     if (modes) out.varModes = modes;
     else delete out.varModes;
+  }
+  /* the document's own icons are drawings, held to what the vector atom keeps; one that is not goes */
+  if (out.icons !== undefined) {
+    const icons = cleanDocIcons(out.icons);
+    if (icons) out.icons = icons;
+    else delete out.icons;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);

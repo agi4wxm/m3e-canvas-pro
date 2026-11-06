@@ -8,10 +8,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { stripAssets } from "../assets";
 import { BEFORE_KEY, DOC_KEY } from "../core/persist";
 import type { Doc } from "../tokens";
-import { getAssets, getKv, listProjects, pruneAssets, readProjectRecords, useIndexedDb } from "./db";
+import { getAssets, getKv, listProjects, pruneAssets, putKv, readProjectRecords, useIndexedDb } from "./db";
 import { LEGACY_MARK, migrateLegacy } from "./migrate";
 import { ProjectsPersist, resolveOpening, type OpeningEnv } from "./persist";
-import { createProject, duplicateProject, freeName, purgeProject, purgeTrashed, renameProject, restoreProject, trashProject, UNDO_DELETE_MS, visibleProjects } from "./projects";
+import { agentConversationKey, createProject, duplicateProject, freeName, purgeProject, purgeTrashed, renameProject, restoreProject, trashProject, UNDO_DELETE_MS, visibleProjects } from "./projects";
 
 beforeEach(() => {
   useIndexedDb(() => fresh);
@@ -77,6 +77,26 @@ describe("projects", () => {
     expect((await listProjects()).map((m) => m.id)).toEqual([a.id]);
     /* the picture A still uses stays; the one only B used is gone */
     expect([...(await getAssets(names)).keys()]).toEqual([names[0]]);
+  });
+
+  it("take their agent conversation with them once their undo has passed, and only theirs", async () => {
+    const a = await createProject({ name: "A" });
+    const b = await createProject({ name: "B" });
+    const c = await createProject({ name: "C", now: 1 });
+    for (const m of [a, b, c]) await putKv(agentConversationKey(m.id), { version: 1, messages: [{ role: "user", content: m.name }], turns: [] });
+    await trashProject(b.id, 100);
+    /* while it can still be undone, the conversation waits with the project */
+    expect(await getKv(agentConversationKey(b.id))).toBeTruthy();
+    await restoreProject(b.id);
+    await trashProject(b.id, 100);
+    await purgeProject(b.id);
+    expect(await getKv(agentConversationKey(b.id))).toBeUndefined();
+    expect(await getKv(agentConversationKey(a.id))).toBeTruthy();
+    /* one a closed tab left in the bin goes when a tab next clears it */
+    await trashProject(c.id, 1000);
+    await purgeTrashed(1000 + UNDO_DELETE_MS * 3);
+    expect(await getKv(agentConversationKey(c.id))).toBeUndefined();
+    expect(await getKv(agentConversationKey(a.id))).toBeTruthy();
   });
 
   it("left in the bin by a tab that closed are forgotten when a tab next opens", async () => {

@@ -9,6 +9,7 @@ import { HTTP_PORT, newToken, serveHttp } from "./http";
 import { createLog } from "./log";
 import { createMcpServer } from "./server";
 import { langOf, setup } from "./setup";
+import { configDir, TrustStore } from "./trust";
 
 const HELP = `m3e-canvas-mcp ${pkg.version}: an MCP server for M3E Canvas Pro
 
@@ -29,6 +30,7 @@ Options:
   --port <port>          the live bridge's first port (default ${BRIDGE_PORT}; the next three are tried when busy)
   --origin <origin>      another origin the editor is served from (repeatable; also M3E_MCP_ORIGINS, comma-separated)
   --allow-destructive    file mode: let removing and clearing through without asking
+  --forget-editors       forget every pairing an editor was told to remember (they are asked again), then run
   --confirm-timeout <s>  live mode: how long the editor waits for the author to allow a destructive call (default 60)
   --lang <ja|en|zh|ko>   the language new words are written in (file mode; default: the system's)
   --app <dir|url>        the app build, or a running editor, that file-mode screenshots are drawn with
@@ -43,6 +45,7 @@ Environment:
   OPENAI_BASE_URL, M3E_MCP_TEXT_MODEL, M3E_MCP_IMAGE_MODEL   where and with what they draw
   HTTPS_PROXY, NO_PROXY  honoured for the model calls
   PLAYWRIGHT_PATH        where Playwright is, for file-mode screenshots (otherwise NODE_PATH and the global modules)
+  M3E_MCP_CONFIG_DIR     where remembered pairings are kept (default: the user's config folder, m3e-canvas-mcp/)
 `;
 
 async function main() {
@@ -70,6 +73,11 @@ async function main() {
   const pf = proxyFetch();
   if (pf) globalThis.fetch = pf;
 
+  if (v["forget-editors"]) {
+    const trust = TrustStore.at(configDir(process.env));
+    await trust.clear();
+    log.notice(`Forgot every remembered editor pairing (${trust.path}).`);
+  }
   const origins = [...(v.origin ?? []), ...(process.env.M3E_MCP_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean)];
   const confirm = v["confirm-timeout"] !== undefined ? Number(v["confirm-timeout"]) : undefined;
   const { backend, registry } = await setup({
@@ -131,6 +139,7 @@ function parse() {
       port: { type: "string" },
       origin: { type: "string", multiple: true },
       "allow-destructive": { type: "boolean" },
+      "forget-editors": { type: "boolean" },
       "confirm-timeout": { type: "string" },
       lang: { type: "string" },
       app: { type: "string" },

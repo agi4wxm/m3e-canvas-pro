@@ -327,9 +327,24 @@ export class DocStore {
     if (this.tx) throw new OpError("busy", "undo inside a transaction");
     const prev = this.past.pop();
     if (!prev) return null;
+    /* a whole document's step taken back from inside a definition ends the definition: the steps of its own waiting
+       to be redone were steps of a screen that is no longer there, and would put its parts on the document's */
+    if (prev.snap.meta && this.stash) this.future = [];
     if (!o.forget) this.future.push({ snap: snapshotOf(this.state, !!prev.snap.meta), label: prev.label, origin: prev.origin });
     this.restore(prev, "undo", origin);
     return prev.label;
+  }
+
+  /** Forgets every step, done and undone: what comes next starts the history afresh (a document read again after
+   *  another program changed it, whose earlier states are no longer this session's to bring back). */
+  clearHistory(origin: Origin = "system") {
+    if (this.tx) throw new OpError("busy", "the history cannot be cleared inside a transaction");
+    if (!this.past.length && !this.future.length && !this.stash) return;
+    this.past = [];
+    this.future = [];
+    if (this.stash) this.stash = { ...this.stash, past: [], future: [] };
+    this.last = { key: "", at: 0 };
+    this.emit(this.state, "history", origin, "Clear history");
   }
 
   /** takes the last step undone again; its label, or null */

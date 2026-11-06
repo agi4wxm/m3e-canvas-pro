@@ -296,7 +296,7 @@ const listIcons = tool<{ family?: string; query?: string; limit?: number }>({
   name: "list_icons",
   group: "read",
   description:
-    "Material Symbols names (snake_case) every icon family draws offline. Icons are always named this way; a style's family (sf, fluentui, lucide…) draws its own glyph for the name, or Rounded's where it has none. Other Material names also work in the editor but are fetched online. With `family`, says which names that family draws itself.",
+    "Material Symbols names (snake_case) every icon family draws offline. Icons are always named this way; a style's family (sf, fluentui, lucide…) draws its own glyph for the name, or Rounded's where it has none. Other Material names also work in the editor but are fetched online. With `family`, says which names that family draws itself. `document` lists the document's own icons (svg:<id>, drawings kept with set_icon or generate_svg's icon), which go wherever an icon name does.",
   input: obj({ family: { type: "string", enum: [...ICON_FAMILIES] }, query: str("part of a name: cart, arrow, person…"), limit: int(undefined, { minimum: 1 }) }),
   readOnly: true,
   destructive: false,
@@ -305,7 +305,8 @@ const listIcons = tool<{ family?: string; query?: string; limit?: number }>({
     const q = a.query?.trim().toLowerCase().replaceAll(" ", "_");
     const lacks = new Set((FAMILY_LACKS[family] ?? "").split(" ").filter(Boolean));
     const names = ICONS.filter((n) => !q || n.includes(q)).slice(0, a.limit ?? 200);
-    return { result: { family, count: names.length, names: names.map((n) => (lacks.has(n) ? `${n}*` : n)), ...(lacks.size ? { note: "* drawn from Rounded: this family has no glyph of its own" } : {}) } };
+    const own = Object.keys(env.store.get().doc.icons ?? {}).map((id) => `svg:${id}`).filter((n) => !q || n.includes(q));
+    return { result: { family, count: names.length, names: names.map((n) => (lacks.has(n) ? `${n}*` : n)), ...(lacks.size ? { note: "* drawn from Rounded: this family has no glyph of its own" } : {}), ...(own.length ? { document: own } : {}) } };
   },
 });
 

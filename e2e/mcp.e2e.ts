@@ -1,6 +1,7 @@
 /* The MCP server and a real editor tab: the server started as a client starts it (stdio), the author turning on
  * "Connect to MCP" and approving the code the server gave, a tool call changing the canvas live, a screenshot drawn by
- * the tab, one undo taking the call back, and a destructive call the author declines. */
+ * the tab, one undo taking the call back, and a destructive call the author declines; a client the author told the
+ * editor to remember comes back after its server restarts without asking, until it is forgotten. */
 
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -9,12 +10,15 @@ import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { check, equal, itemsOf, savedDoc, settle, undo, type E2ETest, type Page } from "./lib";
+import { check, equal, itemsOf, redo, savedDoc, settle, undo, type E2ETest, type Page } from "./lib";
 
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
-async function startServer(base: string, more: string[] = []) {
-  const transport = new StdioClientTransport({ command: process.execPath, args: [join(root, "mcp", "src", "cli.ts"), "--origin", base, "--quiet", "--confirm-timeout", "20", ...more], cwd: root, stderr: "pipe", env: { ...process.env, OPENAI_API_KEY: "" } as Record<string, string> });
+/* remembered pairings go to a folder of the test's own, never the user's config folder */
+const trustDir = mkdtempSync(join(tmpdir(), "m3e-mcp-trust-"));
+
+async function startServer(base: string, more: string[] = [], configDir = trustDir) {
+  const transport = new StdioClientTransport({ command: process.execPath, args: [join(root, "mcp", "src", "cli.ts"), "--origin", base, "--quiet", "--confirm-timeout", "20", ...more], cwd: root, stderr: "pipe", env: { ...process.env, OPENAI_API_KEY: "", M3E_MCP_CONFIG_DIR: configDir } as Record<string, string> });
   const client = new Client({ name: "e2e-client", version: "1.0.0" });
   await client.connect(transport);
   const call = async (name: string, args: Record<string, unknown> = {}) => (await client.callTool({ name, arguments: args })) as CallToolResult;
@@ -37,7 +41,7 @@ const pngSize = (b64: string) => {
   return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
 };
 
-async function pair(page: Page, call: (name: string) => Promise<CallToolResult>) {
+async function pair(page: Page, call: (name: string) => Promise<CallToolResult>, remember = false) {
   const status = JSON.parse(text(await call("connection_status"))) as { pairingCode: string; editor: string };
   check(status.editor === "not connected", "no editor yet");
   await page.locator('[data-mcp-button] button[aria-label="Connect to MCP"]').click();
@@ -46,6 +50,7 @@ async function pair(page: Page, call: (name: string) => Promise<CallToolResult>)
   await page.waitForSelector('[data-mcp-ask="pair"]', { timeout: 20_000 });
   equal(await page.locator("[data-mcp-code]").first().textContent(), status.pairingCode, "the code the editor shows is the server's");
   check(((await page.locator('[data-mcp-ask="pair"]').first().textContent()) ?? "").includes("e2e-client"), "the ask names the client");
+  if (remember) await page.locator("[data-mcp-remember] input").first().click();
   await page.locator('[data-mcp-ask="pair"] button').filter({ hasText: "Allow editing" }).first().click();
   await waitFor("paired", async () => JSON.parse(text(await call("connection_status"))).editor === "paired");
 }
@@ -98,6 +103,97 @@ export const tests: E2ETest[] = [
       } finally {
         await client.close();
       }
+    },
+  },
+  {
+    name: "a client the author told the editor to remember pairs again after its server restarts, until it is forgotten",
+    async run({ page, base }) {
+      const dir = mkdtempSync(join(tmpdir(), "m3e-mcp-trust-"));
+      const first = await startServer(base, [], dir);
+      try {
+        await pair(page, first.call, true);
+        await waitFor("the server kept the pairing", async () => existsSync(join(dir, "trusted-editors.json")) && JSON.parse(readFileSync(join(dir, "trusted-editors.json"), "utf8")).editors.length === 1);
+      } finally {
+        await first.client.close();
+      }
+      /* the client starts the server again: a new process with a new code, approved by the tab by itself */
+      const second = await startServer(base, [], dir);
+      try {
+        await waitFor("paired again without asking", async () => JSON.parse(text(await second.call("connection_status"))).editor === "paired", 30_000);
+        equal(await page.locator('[data-mcp-ask="pair"]').count(), 0, "nothing was asked");
+        check(!(await second.call("list_screens")).isError, "calls reach the tab");
+        /* forgotten from the panel: the server lets its side go too */
+        if (!(await page.locator("[data-mcp-panel]").count())) await page.locator('[data-mcp-button] button[aria-label="Connect to MCP"]').click();
+        await page.waitForSelector("[data-mcp-remembered]", { timeout: 10_000 });
+        await page.locator("[data-mcp-remembered] button").filter({ hasText: "Forget" }).first().click();
+        await waitFor("the server forgot it", async () => JSON.parse(readFileSync(join(dir, "trusted-editors.json"), "utf8")).editors.length === 0);
+        equal(await page.locator("[data-mcp-remembered]").count(), 0, "the panel lists it no more");
+      } finally {
+        await second.client.close();
+      }
+      /* the next server is asked about */
+      const third = await startServer(base, [], dir);
+      try {
+        await page.waitForSelector('[data-mcp-ask="pair"]', { timeout: 30_000 });
+      } finally {
+        await third.client.close();
+      }
+    },
+  },
+  {
+    name: "a drawing kept as a document icon draws wherever an icon name is taken, on the canvas and in the preview",
+    async run({ page, base, out }) {
+      const { client, call } = await startServer(base);
+      try {
+        await pair(page, call);
+        const LEAF = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M4 20C4 9 11 4 20 4c0 9-5 16-16 16z"/><path d="M4 20l9-9" stroke="currentColor" stroke-width="2" fill="none"/></svg>';
+        const made = await call("apply_ops", {
+          ops: [
+            { op: "set_icon", args: { id: "leaf", svg: LEAF } },
+            { op: "add_part", args: { slug: "icon", id: "docicon", screen: "seedF1", at: { x: 40, y: 520 }, props: { name: "svg:leaf", size: 48 } } },
+            { op: "add_part", args: { slug: "button", id: "docbtn", screen: "seedF1", at: { x: 120, y: 520 }, props: { label: "Plant", icon: "svg:leaf" } } },
+            { op: "add_part", args: { slug: "navigation-bar", id: "docnav", screen: "seedF1", props: { items: [{ label: "Garden", icon: "svg:leaf" }, { label: "Home", icon: "home" }, { label: "Me", icon: "person" }] } } },
+          ],
+        });
+        check(!made.isError, `the batch ran: ${text(made)}`);
+        const drawn = async (id: string) => page.evaluate((n) => [...document.querySelectorAll(`[data-node="${n}"] svg path`)].some((p) => (p.getAttribute("d") ?? "").startsWith("M4 20C4 9")), id);
+        await waitFor("the icon atom draws the leaf", () => drawn("docicon"), 10_000);
+        check(await drawn("docbtn"), "the button draws the leaf");
+        check(await drawn("docnav"), "the nav bar's first tab draws the leaf");
+        const doc = await savedDoc(page);
+        check(typeof (doc as { icons?: Record<string, string> }).icons?.leaf === "string", "the icon is saved with the document");
+        await page.screenshot({ path: join(out, "doc-icons-canvas.png") });
+        /* one undo takes the batch back, the icon with it; redo brings them back */
+        await undo(page);
+        check(!((await savedDoc(page)) as { icons?: unknown }).icons, "the icon undone with the batch");
+        await redo(page);
+        await waitFor("the leaf drawn again", () => drawn("docicon"), 10_000);
+        /* the preview draws them too */
+        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+        await page.keyboard.press("p");
+        await page.waitForSelector("[data-preview-dark]", { timeout: 10_000 });
+        await settle(page, 1200);
+        const inPreview = await page.evaluate(() => [...document.querySelectorAll("[data-preview-group] svg path")].filter((p) => (p.getAttribute("d") ?? "").startsWith("M4 20C4 9")).length);
+        check(inPreview >= 3, `the preview draws the leaf three times (${inPreview})`);
+        await page.screenshot({ path: join(out, "doc-icons-preview.png") });
+      } finally {
+        await client.close();
+      }
+    },
+  },
+  {
+    name: "the render page the MCP server draws with loads none of the editor",
+    async run({ page, base }) {
+      const scripts: string[] = [];
+      page.on("request", (r) => {
+        if (/\.(?:js|tsx?)(?:\?|$)/.test(r.url())) scripts.push(r.url());
+      });
+      await page.goto(`${base}/render`);
+      await page.waitForSelector('html[data-m3e-render="ready"]', { state: "attached", timeout: 30_000 });
+      await settle(page, 800);
+      const editor = scripts.filter((u) => /\/(?:Editor|AgentPanel|Inspector)[-.]/.test(u));
+      check(editor.length === 0, `the render page loaded the editor: ${editor.join(", ")}`);
+      check(scripts.length > 0, "the render page loaded its own code");
     },
   },
   {

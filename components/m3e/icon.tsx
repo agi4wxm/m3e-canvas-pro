@@ -36,8 +36,14 @@ export function symbolName(name: string, filled: boolean) {
   return drawing(name, filled).icon
 }
 
+/** a drawing of the document's own ("svg:<id>"), registered under this collection (lib/docIcons.ts); the same both
+ *  ways, filled or not, whatever the family */
+const DOC_ICON = "svg:"
+const DOC_SET = "m3e-doc"
+
 /** the id that draws a name, and the family it comes from (nothing when Rounded draws it) */
 function drawing(name: string, filled: boolean): { icon: string; family?: IconFamily } {
+  if (name.startsWith(DOC_ICON)) return { icon: `${DOC_SET}:${name.slice(DOC_ICON.length)}` }
   const styled = familyGlyph(name, filled)
   if (styled) return { icon: styled, family }
   const base = name.replaceAll("_", "-")

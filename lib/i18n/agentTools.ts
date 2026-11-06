@@ -34,6 +34,8 @@ const L: Record<string, Four> = {
   apply_style: ["Wear a style", "套用风格", "スタイルを適用", "스타일 적용"],
   set_custom_styles: ["Set the custom styles", "设置自定义风格", "カスタムスタイルを設定", "사용자 스타일 설정"],
   add_custom_style: ["Add a custom style", "添加自定义风格", "カスタムスタイルを追加", "사용자 스타일 추가"],
+  set_icon: ["Keep an icon", "保存文档图标", "ドキュメントのアイコンを保存", "문서 아이콘 저장"],
+  remove_icon: ["Remove an icon", "删除文档图标", "ドキュメントのアイコンを削除", "문서 아이콘 삭제"],
   set_style_rules: ["Set the style's rules", "设置风格规则", "スタイルの規則を設定", "스타일 규칙 설정"],
   set_style_layout: ["Set the spacing", "设置间距", "余白を設定", "간격 설정"],
   set_palette: ["Change the palette", "更换配色", "配色を変更", "팔레트 변경"],

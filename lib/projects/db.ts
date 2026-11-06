@@ -9,7 +9,8 @@
  *   refs      id | id#before -> string[] the pictures each of those refers to, so the unused ones can be found cheaply
  *   assets    m3e-asset:… -> data URL    the pictures, shared by every project (lib/assets.ts names them)
  *   files     id -> FileRecord           the file or folder a project is saved to as it changes
- *   kv        key -> value               bookkeeping: whether the old single document has been moved in
+ *   kv        key -> value               bookkeeping: whether the old single document has been moved in; what a
+ *                                        project keeps beside its document (the agent's conversation)
  *
  * Callback-style requests rather than awaits inside a transaction, so it behaves the same in every browser and in
  * fake-indexeddb under the tests. */
@@ -309,4 +310,9 @@ export const deleteFileRecord = (id: string) =>
 
 export const putKv = (key: string, value: unknown) => transact(["kv"], "readwrite", (t) => {
   t.objectStore("kv").put(value, key);
+});
+
+/** forgets some keys of the kv store */
+export const deleteKv = (keys: readonly string[]) => transact(["kv"], "readwrite", (t) => {
+  for (const key of keys) t.objectStore("kv").delete(key);
 });

@@ -2,7 +2,8 @@
  * has "Connect to MCP" on, asks the author to approve each one's pairing code, then runs the calls a paired server
  * sends on the editor's own store, through the same registry and checks as the in-app agent (`executeTool`, origin
  * `mcp`): every change appears on the canvas as it happens and is one undo step (a batch, `apply_ops`, is one step).
- * A destructive call waits for the author's click, and is refused when none comes in time.
+ * A destructive call waits for the author's click, and is refused when none comes in time. A client the author told
+ * it to remember (lib/mcp/trusted.ts) is approved without asking once its server proves it holds the secret.
  *
  * Plain TypeScript with the WebSocket and the storage handed in, so it runs in tests as it does in the tab;
  * src/editor/useMcpBridge.ts puts it in the editor and components/McpPanel.tsx shows it. */
@@ -14,6 +15,7 @@ import { GENERATE_TOOLS } from "../tools/generate";
 import type { GenerateEnv, Renderer, ToolError, ToolOutcome } from "../tools/types";
 import { DEFAULT_AI } from "../ai";
 import { BRIDGE_PORT, BRIDGE_PORTS, BRIDGE_PROTOCOL, CONFIRM_MS, parseMsg, type Access, type ClientInfo, type DrawRequest, type DrawResult, type EditorMsg, type ServerMsg } from "./protocol";
+import { canProve, expectedProof, randomHex, type TrustedServer, type TrustedStore } from "./trusted";
 
 type Hello = Extract<ServerMsg, { t: "hello" }>;
 
@@ -30,6 +32,8 @@ export type BridgeConn = {
   code?: string;
   generate?: boolean;
   reason?: string;
+  /** paired through a client the author told it to remember, without asking */
+  remembered?: boolean;
 };
 
 /** a call in the activity log */
@@ -37,10 +41,13 @@ export type BridgeEntry = { id: string; port: number; at: number; client: string
 
 /** what waits for the author: a pairing to approve, a destructive call to allow */
 export type BridgeAsk =
-  | { kind: "pair"; port: number; code: string; client: ClientInfo | null; offered: Access; server: Hello["server"] }
+  | { kind: "pair"; port: number; code: string; client: ClientInfo | null; offered: Access; server: Hello["server"]; canRemember: boolean }
   | { kind: "confirm"; id: string; port: number; client: ClientInfo | null; name: string; summary: string; until: number };
 
-export type BridgeView = { on: boolean; conns: BridgeConn[]; log: BridgeEntry[]; asks: BridgeAsk[] };
+/** a remembered client, as the panel lists it (never its secret) */
+export type RememberedClient = Omit<TrustedServer, "secret" | "forgotten">;
+
+export type BridgeView = { on: boolean; conns: BridgeConn[]; log: BridgeEntry[]; asks: BridgeAsk[]; remembered: RememberedClient[] };
 
 /* the little of a WebSocket used here: the browser's, or a Node client in tests (its handlers take the events it gives) */
 type Socket = { readyState: number; send(data: string): void; close(code?: number, reason?: string): void; onclose: ((e: never) => void) | null; onerror: ((e: never) => void) | null; onmessage: ((e: never) => void) | null };
@@ -63,6 +70,8 @@ export type EditorBridgeOptions = {
   retryMs?: number;
   /** the time, for tests */
   now?: () => number;
+  /** where remembered clients are kept (lib/mcp/trusted.ts); without it the author is never offered to remember one */
+  trusted?: TrustedStore;
 };
 
 const LOG_MAX = 60;
@@ -79,7 +88,18 @@ export function summarize(name: string, args: unknown): string {
   return !s || s === "{}" ? "" : s.length > 90 ? `${s.slice(0, 89)}…` : s;
 }
 
-type Conn = BridgeConn & { ws: Socket | null; retry: ReturnType<typeof setTimeout> | null; confirmMs: number; askTimer: ReturnType<typeof setTimeout> | null };
+type Conn = BridgeConn & {
+  ws: Socket | null;
+  retry: ReturnType<typeof setTimeout> | null;
+  confirmMs: number;
+  askTimer: ReturnType<typeof setTimeout> | null;
+  /** the server can keep a remembered pairing (its hello says which it holds) */
+  canRemember?: boolean;
+  /** the secret given with an approval the author asked to remember, until the server says it kept it */
+  giving?: string;
+  /** the challenge sent for a remembered pairing, until its proof comes */
+  challenge?: { nonce: string; rec: TrustedServer };
+};
 type Running = { abort: AbortController; port: number; draws: Map<string, { resolve: (v: DrawResult) => void; reject: (e: ToolError) => void }> };
 
 export class EditorBridge {
@@ -90,7 +110,8 @@ export class EditorBridge {
   private running = new Map<string, Running>();
   private confirms = new Map<string, (allow: boolean) => void>();
   private listeners = new Set<() => void>();
-  private current: BridgeView = { on: false, conns: [], log: [], asks: [] };
+  private current: BridgeView = { on: false, conns: [], log: [], asks: [], remembered: [] };
+  private remembered: RememberedClient[] = [];
   private tail: Promise<unknown> = Promise.resolve();
   private seq = 0;
   private offStore: (() => void) | null = null;
@@ -108,7 +129,13 @@ export class EditorBridge {
     };
   };
   private changed() {
-    this.current = { on: this.on, conns: [...this.conns.values()].filter((c) => c.phase !== "closed" || c.server).map(({ ws: _ws, retry: _r, confirmMs: _c, askTimer: _a, ...c }) => c), log: [...this.log], asks: [...this.asks] };
+    this.current = {
+      on: this.on,
+      conns: [...this.conns.values()].filter((c) => c.phase !== "closed" || c.server).map(({ ws: _ws, retry: _r, confirmMs: _c, askTimer: _a, canRemember: _m, giving: _g, challenge: _ch, ...c }) => c),
+      log: [...this.log],
+      asks: [...this.asks],
+      remembered: this.remembered,
+    };
     for (const fn of this.listeners) fn();
   }
   private now = () => (this.o.now ?? Date.now)();
@@ -120,7 +147,68 @@ export class EditorBridge {
     this.on = true;
     this.offStore = this.o.store.subscribe((e) => this.storeChanged(e));
     for (const port of this.o.ports ?? Array.from({ length: BRIDGE_PORTS }, (_, i) => BRIDGE_PORT + i)) this.connect(port);
+    void this.readRemembered();
     this.changed();
+  }
+
+  /* ---------- remembered clients ---------- */
+
+  /** the remembered clients the panel lists, read again */
+  private async readRemembered() {
+    const list = (await this.o.trusted?.list().catch(() => [])) ?? [];
+    this.remembered = list.filter((r) => !r.forgotten).map(({ secret: _s, forgotten: _f, ...r }) => r);
+    this.changed();
+  }
+
+  /** Forgets a remembered client: its server will ask again. The servers listening now forget their side too; when
+   *  none is, the secret waits (marked forgotten) to tell the next one that holds it. */
+  async forget(id: string) {
+    const store = this.o.trusted;
+    const rec = (await store?.list().catch(() => []))?.find((r) => r.id === id);
+    if (!store || !rec) return;
+    const told = [...this.conns.values()].filter((c) => c.server && c.ws?.readyState === OPEN);
+    for (const c of told) this.send(c, { t: "forget", id, secret: rec.secret });
+    if (told.length) await store.remove(id).catch(() => {});
+    else await store.put({ ...rec, forgotten: true }).catch(() => {});
+    await this.readRemembered();
+  }
+
+  /** what a server that says which pairings it holds is told or asked: pairings forgotten here are forgotten there
+   *  too; one remembered here for its client is challenged, and the author is asked only if it cannot prove it */
+  private async meet(c: Conn, known: string[], client: ClientInfo | null) {
+    const store = this.o.trusted;
+    if (!store) return false;
+    const list = await store.list().catch(() => [] as TrustedServer[]);
+    for (const r of list.filter((x) => x.forgotten && known.includes(x.id))) {
+      this.send(c, { t: "forget", id: r.id, secret: r.secret });
+      await store.remove(r.id).catch(() => {});
+    }
+    const rec = list.find((r) => !r.forgotten && known.includes(r.id) && r.client.name === (client?.name ?? ""));
+    if (!rec || c.phase !== "pairing" || !canProve()) return false;
+    const nonce = randomHex(16);
+    c.challenge = { nonce, rec };
+    this.send(c, { t: "prove", id: rec.id, nonce });
+    return true;
+  }
+
+  /** a server's answer to the challenge: approved as the author approved it before, or the author is asked */
+  private async proven(c: Conn, msg: Extract<ServerMsg, { t: "proof" }>) {
+    const ch = c.challenge;
+    if (!ch || msg.id !== ch.rec.id || msg.nonce !== ch.nonce) return;
+    c.challenge = undefined;
+    const ok = !!msg.mac && msg.mac === (await expectedProof(ch.rec.secret, ch.nonce, c.port).catch(() => ""));
+    if (c.phase !== "pairing") return;
+    if (!ok) {
+      if (c.askTimer) clearTimeout(c.askTimer);
+      this.askPairing(c);
+      return;
+    }
+    if (c.askTimer) clearTimeout(c.askTimer);
+    c.remembered = true;
+    this.send(c, { t: "approve", access: c.offered === "read" ? "read" : ch.rec.access });
+    this.asks = this.asks.filter((a) => !(a.kind === "pair" && a.port === c.port));
+    await this.o.trusted?.put({ ...ch.rec, client: c.client ?? ch.rec.client, used: this.now() }).catch(() => {});
+    void this.readRemembered();
   }
 
   stop() {
@@ -222,27 +310,49 @@ export class EditorBridge {
           this.changed();
           return;
         }
-        Object.assign(c, { server: msg.server, client: msg.client, offered: msg.access, code: msg.code, generate: msg.generate, confirmMs: msg.confirmMs, phase: "pairing" as const, reason: undefined });
+        Object.assign(c, { server: msg.server, client: msg.client, offered: msg.access, code: msg.code, generate: msg.generate, confirmMs: msg.confirmMs, phase: "pairing" as const, reason: undefined, remembered: false, challenge: undefined, giving: undefined });
+        c.canRemember = Array.isArray(msg.known) && !!this.o.trusted && canProve();
         const resume = this.o.storage?.getItem(this.resumeKey(msg.server.id)) ?? undefined;
         this.send(c, { t: "hello", protocol: BRIDGE_PROTOCOL, ...(resume ? { resume } : {}) });
-        /* a tab that was paired with this very server comes back without asking; if it does not, the author is asked */
+        /* a tab that was paired with this very server comes back without asking, and one that remembers this client
+           once its server proves it; if neither does, the author is asked */
         if (resume) c.askTimer = setTimeout(() => this.askPairing(c), 1200);
-        else this.askPairing(c);
+        void (async () => {
+          const challenged = Array.isArray(msg.known) && (await this.meet(c, msg.known, msg.client));
+          if (challenged && !resume) c.askTimer = setTimeout(() => this.askPairing(c), 2500);
+          else if (!resume) this.askPairing(c);
+        })();
         this.changed();
         return;
       }
       case "client":
         c.client = msg.client;
         this.asks = this.asks.map((a) => (a.port === c.port && a.kind === "pair" ? { ...a, client: msg.client } : a));
+        /* the client named now may be one this tab remembers */
+        if (Array.isArray(msg.known) && c.phase === "pairing" && !c.challenge) void this.meet(c, msg.known, msg.client);
         this.changed();
         return;
-      case "paired":
+      case "paired": {
         if (c.askTimer) clearTimeout(c.askTimer);
         c.phase = "paired";
         c.access = msg.access;
         if (c.server) this.o.storage?.setItem(this.resumeKey(c.server.id), msg.resume);
         this.asks = this.asks.filter((a) => !(a.port === c.port && a.kind === "pair"));
+        const secret = c.giving;
+        c.giving = undefined;
+        if (secret && msg.remembered && this.o.trusted) {
+          c.remembered = true;
+          const now = this.now();
+          void this.o.trusted
+            .put({ id: msg.remembered.id, secret, client: c.client ?? { name: "" }, access: msg.access, created: now, used: now })
+            .catch(() => {})
+            .then(() => this.readRemembered());
+        }
         this.changed();
+        return;
+      }
+      case "proof":
+        void this.proven(c, msg);
         return;
       case "refused":
         c.phase = "refused";
@@ -274,15 +384,20 @@ export class EditorBridge {
   private askPairing(c: Conn) {
     if (c.phase !== "pairing" || !c.server || !c.code) return;
     if (this.asks.some((a) => a.kind === "pair" && a.port === c.port)) return;
-    this.asks = [...this.asks, { kind: "pair", port: c.port, code: c.code, client: c.client, offered: c.offered ?? "edit", server: c.server }];
+    this.asks = [...this.asks, { kind: "pair", port: c.port, code: c.code, client: c.client, offered: c.offered ?? "edit", server: c.server, canRemember: !!c.canRemember }];
     this.changed();
   }
 
-  /** the author approved a server's pairing code, giving it edit or read-only access */
-  approve(port: number, access: Access) {
+  /** The author approved a server's pairing code, giving it edit or read-only access; with `remember`, later servers
+   *  of the same client are approved without asking, until the author forgets it. */
+  approve(port: number, access: Access, remember = false) {
     const c = this.conns.get(port);
     if (!c || c.phase !== "pairing") return;
-    this.send(c, { t: "approve", access: c.offered === "read" ? "read" : access });
+    c.challenge = undefined;
+    if (c.askTimer) clearTimeout(c.askTimer);
+    const keep = remember && c.canRemember;
+    c.giving = keep ? randomHex(32) : undefined;
+    this.send(c, { t: "approve", access: c.offered === "read" ? "read" : access, ...(keep ? { remember: { secret: c.giving! } } : {}) });
     this.asks = this.asks.filter((a) => !(a.kind === "pair" && a.port === port));
     this.changed();
   }
