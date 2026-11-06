@@ -11,7 +11,7 @@ import { settleInFlow } from "../../flow";
 import { landTree, moveTo, roomOn, treeSize } from "../../kits";
 import { tidyLook } from "../../look";
 import { metricsOf } from "../../styleLayout";
-import { frameRect, frameSizeOf, STAY_TARGET, type Action, type Condition, type Group, type Item } from "../../tokens";
+import { COLOR_TOKENS, frameRect, frameSizeOf, STAY_TARGET, TEXT_TOKENS, type Action, type Condition, type Group, type Item } from "../../tokens";
 import { op, OpError, S, type Schema } from "../op";
 import { withGroups, withSession, type CoreState } from "../state";
 import { frameById, freshId, freshPart, groupById, laidOut, spotOn } from "./common";
@@ -204,8 +204,8 @@ const NODE: Schema = {
     props: S.any("prop values over the part's defaults (describe_part lists them); a box: surface, layout row|column|grid, gap, padX/padY or padTop…, align, justify, wrap, hugWidth/hugHeight (false to give it width/height of its own), width, height, pin"),
     children: { type: "array", description: "the parts a box holds, in reading order", items: { type: "object" } },
     grow: S.bool("takes the room left along its box's run"),
-    fill: S.str("a fill color role"),
-    textColor: S.str("a text color role"),
+    fill: S.enum(COLOR_TOKENS.map((t) => t.key), "the surface's color role; any other color goes in look"),
+    textColor: S.enum(TEXT_TOKENS.map((t) => t.key), "the words' color role; any other color goes in look"),
     corners: S.any("{tl, tr, bl, br} radii in dp"),
     look: S.any("effects (look_reference): fills, stroke, shadows, glass, text effects…"),
     action: S.any("what a tap does: {to, effects…}, as set_action takes it"),

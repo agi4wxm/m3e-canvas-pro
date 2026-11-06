@@ -19,6 +19,8 @@ const wait = (ms: number, signal?: AbortSignal) =>
 
 /** the tallest picture taken of a long screen, in dp: a model reads the top of a feed as well as all of it */
 const MAX_H = 2000;
+/** how long a PNG may be before the picture goes as a JPEG: a screen with a painted backdrop is megabytes as a PNG */
+const JPEG_OVER = 600_000;
 /** room around a part cut out of its screen, so its edges and shadow show */
 const PAD = 8;
 
@@ -41,7 +43,7 @@ export function useScreenshots(store: DocStore) {
         if (!layer) throw new Error("the screen could not be drawn");
         const scale = Math.max(0.25, Math.min(2, o.scale ?? 1));
         const crop = target.crop && { x: target.crop.x - PAD, y: target.crop.y - PAD, w: target.crop.w + PAD * 2, h: target.crop.h + PAD * 2 };
-        return await capture(layer, target.frame, scale, crop, MAX_H);
+        return await capture(layer, target.frame, scale, crop, MAX_H, JPEG_OVER);
       } finally {
         setShotFrame(null);
       }
