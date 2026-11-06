@@ -53,7 +53,7 @@ const ACTION: Schema = {
   type: "object",
   description: "what a tap does",
   properties: {
-    to: { type: "string", description: 'a screen id, "back", "link" (with url) or "none" (effects only)' },
+    to: { type: "string", description: 'a screen id, "back", "link" (with url) or "none" (effects only, the default)' },
     transition: { type: "string", enum: ["slide", "slideLeft", "slideUp", "slideDown", "fade", "expand", "none"] },
     url: { type: "string" },
     effects: {

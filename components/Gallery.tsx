@@ -27,27 +27,33 @@ import { PartView } from "./PartView";
 
 export type GallerySearch = { style?: string; dark?: string; category?: string; lang?: string; part?: string; kits?: string; splits?: string; chosen?: string; /** custom styles as JSON: one style, a list, or a style file */ custom?: string };
 
-/** where the editor keeps the document it has open (src/Editor.tsx `DOC_KEY`) */
+/** where an earlier version of the editor kept the document it had open (lib/core/persist.ts `DOC_KEY`) */
 const EDITOR_DOC_KEY = "m3e:doc";
 
-/** The custom styles the gallery can show: those the address carries as JSON (`custom`: one style, a list or a style
- *  file), or else those of the document open in the editor in this browser. Each is validated as any style from
- *  outside is. */
-function customStylesOf(custom: string | undefined): CustomStyle[] | undefined {
-  const read = (text: string | null) => {
-    if (!text) return undefined;
-    try {
-      const v: unknown = JSON.parse(text);
-      if (Array.isArray(v)) return cleanStyles(v);
-      if (v && typeof v === "object" && Array.isArray((v as { styles?: unknown }).styles)) return cleanStyles((v as { styles: unknown[] }).styles);
-      return cleanStyles([v]);
-    } catch {
-      return undefined;
-    }
-  };
-  if (custom) return read(custom);
+/** Custom styles given as JSON: one style, a list, a style file, or a document with styles of its own. Each is
+ *  validated as any style from outside is. */
+function readStyles(text: string | null): CustomStyle[] | undefined {
+  if (!text) return undefined;
   try {
-    return read(localStorage.getItem(EDITOR_DOC_KEY));
+    const v: unknown = JSON.parse(text);
+    if (Array.isArray(v)) return cleanStyles(v);
+    if (v && typeof v === "object" && Array.isArray((v as { styles?: unknown }).styles)) return cleanStyles((v as { styles: unknown[] }).styles);
+    return cleanStyles([v]);
+  } catch {
+    return undefined;
+  }
+}
+
+/** The custom styles of the project the editor last opened in this browser (lib/projects), else of the document an
+ *  earlier version kept: what the gallery shows when the address carries none (`custom`). */
+async function keptStyles(): Promise<CustomStyle[] | undefined> {
+  try {
+    const { lastProjectDoc } = await import("@/lib/projects/persist");
+    const doc = await lastProjectDoc();
+    if (doc) return readStyles(JSON.stringify(doc));
+  } catch {}
+  try {
+    return readStyles(localStorage.getItem(EDITOR_DOC_KEY));
   } catch {
     return undefined;
   }
@@ -329,8 +335,18 @@ export function Gallery({ search }: { search: GallerySearch }) {
   const lang: Lang = search.lang === "en" || search.lang === "ja" || search.lang === "ko" ? search.lang : "zh";
   /* the words a part says by itself are read from the global language; set it before anything is drawn */
   setGlobalLang(lang);
-  /* a custom style is put in reach before anything reads the style by its key */
-  const customs = useMemo(() => customStylesOf(search.custom), [search.custom]);
+  /* a custom style is put in reach before anything reads the style by its key: the address's, or those of the
+     project last opened, once they have been read */
+  const [kept, setKept] = useState<CustomStyle[] | undefined>(undefined);
+  useEffect(() => {
+    if (search.custom) return;
+    let live = true;
+    void keptStyles().then((s) => live && setKept(s));
+    return () => {
+      live = false;
+    };
+  }, [search.custom]);
+  const customs = useMemo(() => (search.custom ? readStyles(search.custom) : kept), [search.custom, kept]);
   setDocStyles(customs);
   const pack = styleOf(search.style);
   /* a style opens in its own mode unless the address says which */

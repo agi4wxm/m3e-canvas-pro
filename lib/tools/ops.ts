@@ -28,7 +28,7 @@ const MORE: Record<string, string> = {
   set_style_rules: "Off frees colors, shapes and every look field; on removes what the style decides. Only when the author asks for it.",
   clear: "Removes everything the canvas holds. Only when the author asks for a fresh start.",
   remove_nodes: "A container's children are not removed with it: remove them too when the whole block should go.",
-  set_action: 'Screens are named by id. {"to":"back"} goes back; effects need no "to" but "none".',
+  set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here.',
   wrap_in_auto_layout: "Returns {itemId}: the new outer box.",
   split_into_atoms: "Returns {rootItemId}.",
 };
@@ -42,6 +42,23 @@ const lean = (name: string, result: unknown): unknown => {
 
 /** whether a change reached the document (not just the selection or the measures) */
 export const wrote = (prev: CoreState, next: CoreState) => prev.doc !== next.doc || prev.editing !== next.editing;
+
+type Rec = Record<string, unknown>;
+const isRec = (v: unknown): v is Rec => !!v && typeof v === "object" && !Array.isArray(v);
+
+/** A tap that only has effects (set a variable, show a part) goes nowhere: models leave `to` out for it, which the
+ *  document spells "none". */
+const tapOf = (a: unknown): unknown => (isRec(a) ? { ...a, ...(a.to === undefined ? { to: "none" } : {}), ...(isRec(a.else) ? { else: tapOf(a.else) } : {}) } : a);
+
+/** arguments as a model writes them, read the way the operation means them */
+function prepared(name: string, args: Rec): Rec {
+  if (name === "set_action" && isRec(args.action)) return { ...args, action: tapOf(args.action) };
+  if (name === "set_item" && isRec(args.patch)) {
+    const p = args.patch;
+    return { ...args, patch: { ...p, ...(isRec(p.action) ? { action: tapOf(p.action) } : {}), ...(isRec(p.actions) ? { actions: Object.fromEntries(Object.entries(p.actions).map(([k, v]) => [k, tapOf(v)])) } : {}) } };
+  }
+  return args;
+}
 
 /** A change made where no canvas measures what it added (Node, the MCP file backend): an operation lays its layouts
  *  out with the sizes known before it ran, so a part it just added has none yet and waits where it landed. Laid out
@@ -63,7 +80,7 @@ function runOne(o: Op<never, unknown>, args: Record<string, unknown>, env: ToolE
   const prev = env.store.get();
   let result: unknown;
   try {
-    result = env.store.run(o, args as never, { origin: env.origin, ...(env.history ? { history: env.history } : {}) });
+    result = env.store.run(o, prepared(o.name, args) as never, { origin: env.origin, ...(env.history ? { history: env.history } : {}) });
   } catch (e) {
     if (e instanceof OpError && e.code === "nothing_to_do") return { result: { nothing_to_do: e.message } };
     throw e;
@@ -132,7 +149,7 @@ export const applyOps = tool<{ ops: Call[]; label?: string }>({
             const t = BY_NAME.get(c.op);
             const o = opByName(c.op);
             if (!t || !o) throw new BatchFailure(i, c.op, new OpError("bad_args", `There is no operation "${c.op}".`));
-            const args = c.args ?? {};
+            const args = prepared(c.op, c.args ?? {});
             const bad = schemaError(t.input as Schema, args, "args");
             if (bad) throw new BatchFailure(i, c.op, new OpError("bad_args", `${c.op}: ${bad}`));
             try {

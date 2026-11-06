@@ -9,14 +9,16 @@ export const STARTER_MODULES = ["app-bar", "button", "button-group", "fab", "ico
 
 /** where the modules on screen are kept between visits */
 const DRAWN_KEY = "m3e:drawn-modules";
-/** where the editor keeps the document it has open (lib/core/persist.ts `DOC_KEY`) */
+/** where an earlier version kept the document it had open (lib/core/persist.ts `DOC_KEY`) */
 const EDITOR_DOC_KEY = "m3e:doc";
+/** the project a tab last opened (lib/projects/persist.ts `LAST_PROJECT_KEY`): this browser has been used before */
+const LAST_PROJECT_KEY = "m3e:project:last";
 
-/** The modules to fetch before anything else is known: the starter's when no document is kept, else those kept from the
- *  last visit that this build still has. */
+/** The modules to fetch before anything else is known: the starter's on a first visit, else those kept from the last
+ *  visit that this build still has. */
 export function headStart(storage: Pick<Storage, "getItem"> = localStorage): string[] {
   try {
-    if (!storage.getItem(EDITOR_DOC_KEY)) return STARTER_MODULES;
+    if (!storage.getItem(EDITOR_DOC_KEY) && !storage.getItem(LAST_PROJECT_KEY)) return STARTER_MODULES;
     const kept: unknown = JSON.parse(storage.getItem(DRAWN_KEY) ?? "[]");
     return Array.isArray(kept) ? kept.filter((k): k is string => typeof k === "string" && MODULE_KEYS.includes(k)) : [];
   } catch {

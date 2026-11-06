@@ -207,6 +207,7 @@ describe("every tool, headless", () => {
       ["list_screens", {}],
       ["find_nodes", { slug: "button" }],
       ["describe_node", { id: "title" }],
+      ["describe_node", { id: "home" }],
       ["get_selection", {}],
       ["list_parts", { tier: "atom" }],
       ["list_parts", { query: "cart" }],
@@ -316,6 +317,15 @@ describe("errors a model can act on", () => {
     await executeTool(store, "apply_ops", { ops: [{ op: "add_screen", args: { id: "s" } }, { op: "add_part", args: { slug: "text", id: "t", screen: "s" } }, { op: "toggle_lock", args: { ids: ["t"] } }] }, { origin: "ai" });
     const out = await executeTool(store, "set_props", { id: "t", props: { text: "x" } }, { origin: "ai" });
     expect(out).toMatchObject({ ok: false, error: { code: "locked" } });
+  });
+
+  it("reads a tap with only effects as going nowhere, alone and in a batch", async () => {
+    const store = fresh();
+    ok(await executeTool(store, "apply_ops", { ops: [{ op: "add_screen", args: { id: "s" } }, { op: "add_var", args: { id: "dark", name: "dark", type: "bool", value: false } }, { op: "add_part", args: { slug: "switch", id: "sw", screen: "s" } }, { op: "set_action", args: { id: "sw", action: { effects: [{ do: "toggleVar", var: "dark" }] } } }] }, { origin: "ai" }));
+    const tap = () => store.get().doc.groups.flatMap((g) => g.items).find((it) => it.id === "sw")?.action;
+    expect(tap()).toMatchObject({ to: "none", effects: [{ do: "toggleVar", var: "dark" }] });
+    ok(await executeTool(store, "set_item", { id: "sw", patch: { action: { effects: [{ do: "setVar", var: "dark", value: true }] } } }, { origin: "ai" }));
+    expect(tap()).toMatchObject({ to: "none" });
   });
 
   it("reports nothing to do as done, not as an error", async () => {

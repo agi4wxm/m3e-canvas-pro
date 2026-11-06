@@ -63,6 +63,14 @@ describe("the document the editor opens with", () => {
     expect(modulesIn(["app-bar"])).toBe(false);
   });
 
+  it("is the project the tab opens when it is handed one, read from wherever projects are kept", async () => {
+    const { loadOpeningModules, modulesIn, item } = await fresh();
+    vi.stubGlobal("localStorage", storage(null));
+    await loadOpeningModules(Promise.resolve({ groups: [{ id: "g", x: 0, y: 0, axis: "x", items: [item("rating", { value: 4 })] }] }));
+    expect(modulesIn(["widgets/Rating"])).toBe(true);
+    expect(modulesIn(["app-bar"])).toBe(false);
+  });
+
   it("is the starter when nothing is kept: the parts a new document starts with come with the editor", async () => {
     const { loadOpeningModules, modulesIn, modulesOfPart, STARTER_PARTS } = await fresh();
     vi.stubGlobal("localStorage", storage(null));

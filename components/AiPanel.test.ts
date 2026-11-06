@@ -19,6 +19,7 @@ describe("aiErrorText", () => {
     expect(aiErrorText(new Error("long"), "zh")).toBe("回复过长被截断了。请减少屏幕数量再试");
     expect(aiErrorText(new Error("json"), "zh")).toBe("无法解析模型的回复");
     expect(aiErrorText(new Error("refusal"), "zh")).toBe("模型拒绝回答");
+    expect(aiErrorText(new Error("svg"), "en")).toBe("The drawing came back with nothing the editor can draw");
     expect(aiErrorText(new TypeError("Failed to fetch"), "zh")).toBe("无法连接。请检查 URL、网络和服务器的 CORS 设置");
   });
 });
