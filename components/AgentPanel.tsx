@@ -14,6 +14,8 @@ import { Icon } from "./Icon";
 import { IconBtn, Segmented } from "./ui";
 import { AiPanel } from "./AiPanel";
 import { toolLabel } from "@/lib/i18n/agentTools";
+import { safetyText } from "@/lib/i18n/safety";
+import type { Taken } from "@/lib/tools/removals";
 import type { LogEntry, TurnView } from "@/src/editor/useAgent";
 import type { PickedImage } from "@/src/editor/attachImage";
 import { AttachedPictures, usePictures } from "./AgentPictures";
@@ -85,7 +87,34 @@ function Step({ entry, p }: { entry: Extract<LogEntry, { kind: "tool" }>; p: Pal
 export function askText(a: Extract<LogEntry, { kind: "ask" }>, lang: ReturnType<typeof useLang>): string {
   const names = (xs: string[]) => xs.slice(0, 3).join(lang === "zh" || lang === "ja" ? "、" : ", ") + (xs.length > 3 ? "…" : "");
   const say = (key: UIKey, n: number, list: string[] = []) => (n ? t(key, lang).replace("{n}", String(n)).replace("{names}", names(list)) : "");
-  return [say("agentAskScreens", a.screens.length, a.screens), say("agentAskParts", a.parts), say("agentAskComponents", a.components.length, a.components), say("agentAskCollections", a.collections.length, a.collections)].filter(Boolean).join(" · ");
+  return [say("agentAskScreens", a.screens.length, a.screens), say("agentAskParts", a.parts), say("agentAskComponents", a.components.length, a.components), say("agentAskCollections", a.collections.length, a.collections), ...(a.takes ?? []).map((x) => takenWords(x, lang))].filter(Boolean).join(" · ");
+}
+
+/** one piece of work a call would take away besides screens and parts (lib/tools/removals.ts), in the editor's words */
+export function takenWords(x: Taken, lang: ReturnType<typeof useLang>): string {
+  const list = (xs: string[]) => xs.slice(0, 3).map((n) => `“${n}”`).join(lang === "zh" || lang === "ja" ? "、" : ", ") + (xs.length > 3 ? "…" : "");
+  switch (x.kind) {
+    case "rows":
+      return safetyText("askRows", lang, { n: x.n, total: x.total, of: x.of });
+    case "fields":
+      return safetyText("askFields", lang, { names: list(x.names), of: x.of });
+    case "variables":
+      return safetyText("askVariables", lang, { names: list(x.names) });
+    case "varCollection":
+      return safetyText("askVarCollection", lang, { name: x.name });
+    case "modes":
+      return safetyText("askModes", lang, { names: list(x.names), of: x.of });
+    case "style":
+      return safetyText(x.replaced ? "askStyleReplaced" : "askStyle", lang, { name: x.name });
+    case "icon":
+      return safetyText(x.replaced ? "askIconReplaced" : "askIcon", lang, { name: x.name });
+    case "component":
+      return safetyText("askComponent", lang, { name: x.name });
+    case "collection":
+      return safetyText("askCollection", lang, { name: x.name });
+    case "props":
+      return safetyText("askProps", lang, { names: list(x.names), of: x.of });
+  }
 }
 
 /** The turn asks whether it may take away the author's work: Allow or Don't while it waits, then what they said. */

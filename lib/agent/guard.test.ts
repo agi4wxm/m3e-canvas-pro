@@ -7,7 +7,8 @@ import { counterIds, DocStore, guessMeasurer, ops, stateOf } from "../core";
 import { setGlobalLang } from "../i18n";
 import { scriptedAdapter } from "../llm/testkit";
 import { createRegistry } from "../tools";
-import { plainlyAsksToRemove, removalOf, runTurn, type RemovalAsk, type TurnEvent } from ".";
+import { GENERATE_TOOLS } from "../tools/generate";
+import { plainlyAsksToRemove, removalOf, removalText, runTurn, type RemovalAsk, type TurnEvent } from ".";
 
 beforeAll(() => setGlobalLang("zh"));
 
@@ -50,6 +51,65 @@ describe("what a call would take away", () => {
     expect(s.get()).toBe(start);
     /* what does not take anything away is not asked about at all */
     expect(await removalOf(s, start, "add_screen", { name: "x" }, { registry })).toBeNull();
+  });
+});
+
+describe("what a call takes away under a name that does not say so", () => {
+  /** the app, with a collection, a variable collection with two modes, a style and an icon of the author's */
+  const rich = () => {
+    const s = app();
+    s.transact("Data", "user", (tx) => {
+      tx.run(ops.addCollection, { id: "fruit", name: "Fruit", fields: ["name", "price"], rows: [["Apple", "1"], ["Pear", "2"], ["Fig", "3"]] });
+      tx.run(ops.addVarCollection, { id: "theme", name: "Theme", modes: ["Light", "Dark"] });
+      tx.run(ops.addCustomStyle, { style: { key: "custom:mine", name: "Mine", seed: "#336699" } });
+      tx.run(ops.setIcon, { id: "leaf", svg: '<svg viewBox="0 0 24 24"><path d="M4 20C4 9 11 4 20 4c0 9-5 16-16 16z"/></svg>' });
+    });
+    return s;
+  };
+
+  it("names rows, modes, a replaced style and a redrawn icon, against how the turn found the document", async () => {
+    const s = rich();
+    const start = s.get();
+    const registry = createRegistry();
+    const rows = await removalOf(s, start, "update_collection", { id: "fruit", rows: [] }, { registry });
+    expect(rows?.takes).toEqual([{ kind: "rows", of: "Fruit", n: 3, total: 3 }]);
+    expect(removalText(rows!)).toMatch(/3 of the 3 rows of "Fruit"/);
+    const modes = start.doc.varCollections![0].modes;
+    expect((await removalOf(s, start, "update_var_collection", { id: "theme", modes: [{ id: modes[0].id, name: "Light" }] }, { registry }))?.takes).toEqual([{ kind: "modes", of: "Theme", names: ["Dark"] }]);
+    expect((await removalOf(s, start, "add_custom_style", { style: { key: "custom:mine", name: "Mine", seed: "#993333" } }, { registry }))?.takes).toEqual([{ kind: "style", name: "custom:mine", replaced: true }]);
+    expect((await removalOf(s, start, "set_icon", { id: "leaf", svg: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>' }, { registry }))?.takes).toEqual([{ kind: "icon", name: "svg:leaf", replaced: true }]);
+    /* adding takes nothing away; what the turn made itself is its own to change */
+    expect(await removalOf(s, start, "update_collection", { id: "fruit", rows: [["Apple", "1"], ["Pear", "2"], ["Fig", "3"], ["Kiwi", "4"]] }, { registry })).toBeNull();
+    s.run(ops.addCustomStyle, { style: { key: "custom:new", name: "New", seed: "#336699" } }, { origin: "ai" });
+    expect(await removalOf(s, start, "add_custom_style", { style: { key: "custom:new", name: "New", seed: "#993333" } }, { registry })).toBeNull();
+    /* parts moved into a component are not lost */
+    expect(await removalOf(s, start, "make_component", { ids: ["home-0", "home-1", "home-2", "home-3", "home-4", "home-5", "home-6", "home-7"] }, { registry })).toBeNull();
+  });
+
+  it("reads what a generative call would replace from its arguments, without drawing", async () => {
+    const s = rich();
+    const start = s.get();
+    const registry = createRegistry({ extra: GENERATE_TOOLS });
+    expect((await removalOf(s, start, "generate_style", { refine: "custom:mine", feedback: "warmer" }, { registry }))?.takes).toEqual([{ kind: "style", name: "custom:mine", replaced: true }]);
+    expect((await removalOf(s, start, "generate_svg", { prompt: "a leaf", icon: "svg:leaf" }, { registry }))?.takes).toEqual([{ kind: "icon", name: "svg:leaf", replaced: true }]);
+    expect(await removalOf(s, start, "generate_svg", { prompt: "a cup", icon: "cup" }, { registry })).toBeNull();
+    expect(await removalOf(s, start, "generate_style", { description: "warm paper" }, { registry })).toBeNull();
+  });
+
+  it("pauses the turn for them as for a removal, and keeps the rows when the author declines", async () => {
+    const s = rich();
+    const asked: RemovalAsk[] = [];
+    const adapter = scriptedAdapter([{ calls: [call("c1", "apply_ops", { ops: [{ op: "update_collection", args: { id: "fruit", rows: [["Apple", "1"]] } }] })] }, { text: "Kept." }]);
+    await runTurn({ store: s, adapter, history: [], request: "make the fruit list shorter", lang: "zh", confirm: (ask) => (asked.push(ask), false) });
+    expect(asked[0].takes).toEqual([{ kind: "rows", of: "Fruit", n: 2, total: 3 }]);
+    expect(s.get().doc.collections![0].rows).toHaveLength(3);
+    const result = adapter.requests[1].messages.at(-1) as { results: { content: { text: string }[] }[] };
+    expect(result.results[0].content[0].text).toMatch(/"code":"declined".*2 of the 3 rows of \\"Fruit\\"/);
+    /* asked plainly, it goes through */
+    let asks = 0;
+    await runTurn({ store: s, adapter: scriptedAdapter([{ calls: [call("c1", "apply_ops", { ops: [{ op: "update_collection", args: { id: "fruit", rows: [] } }] })] }, { text: "Cleared." }]), history: [], request: "remove every fruit", lang: "zh", confirm: () => (asks++, false) });
+    expect(asks).toBe(0);
+    expect(s.get().doc.collections![0].rows).toHaveLength(0);
   });
 });
 

@@ -225,6 +225,16 @@ describe("add_custom_style and generate_style", () => {
     expect(!none.ok && none.error.code).toBe("unavailable");
   });
 
+  it("never writes a new style over one the document has: only refine replaces", async () => {
+    const s = fresh();
+    ok(await executeTool(s, "add_custom_style", { style: { key: "custom:paper", name: "Paper", seed: "#336699" } }, { origin: "ai" }));
+    const adapter = scriptedAdapter([{ text: JSON.stringify({ key: "custom:paper", name: "Paper", extends: "notion" }) }]);
+    const out = ok(await executeTool(s, "generate_style", { description: "paper" }, { origin: "ai", registry: reg, gen: { settings: SETTINGS, adapter } }));
+    expect(out.key).toBe("custom:paper-2");
+    expect(s.get().doc.styles?.map((x) => x.key)).toEqual(["custom:paper", "custom:paper-2"]);
+    expect(s.get().doc.styles?.[0].seed).toBe("#336699");
+  });
+
   it("writes only as many styles as the turn allows, then says what to do instead", async () => {
     const s = fresh();
     const adapter = scriptedAdapter([{ text: JSON.stringify({ name: "One", extends: "notion" }) }, { text: JSON.stringify({ name: "One", extends: "notion", light: { primary: "#123456" } }) }]);

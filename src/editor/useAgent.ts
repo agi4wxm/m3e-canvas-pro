@@ -9,6 +9,7 @@ import type { Message, Usage } from "@/lib/llm/types";
 import type { AgentStop } from "@/lib/llm/loop";
 import type { DocDiff } from "@/lib/agent/diff";
 import type { TurnEvent } from "@/lib/agent/turn";
+import type { Taken } from "@/lib/tools/removals";
 import type { Attachment, Renderer } from "@/lib/tools/types";
 import { hasKey, isSecureUrl, type AiSettings } from "@/lib/ai";
 import { frameOfPart } from "@/lib/tokens";
@@ -23,7 +24,7 @@ export type LogEntry =
   | { kind: "tool"; id: string; name: string; state: "running" | "ok" | "error"; summary: string; ms?: number }
   | { kind: "review"; images: string[] }
   /** a removal the turn waits on the author for (lib/agent/guard.ts), and what they said */
-  | { kind: "ask"; id: string; state: "waiting" | "allowed" | "declined"; screens: string[]; parts: number; components: string[]; collections: string[] };
+  | { kind: "ask"; id: string; state: "waiting" | "allowed" | "declined"; screens: string[]; parts: number; components: string[]; collections: string[]; takes?: Taken[] };
 
 export type TurnView = {
   id: string;
@@ -159,7 +160,7 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
         patch(id, (x) => ({ ...x, usage: e.usage }));
         break;
       case "ask":
-        patch(id, (x) => ({ ...x, log: [...x.log, { kind: "ask", id: e.id, state: "waiting", screens: e.ask.screens.map((s) => s.name), parts: e.ask.parts, components: e.ask.components.map((c) => c.name), collections: e.ask.collections.map((c) => c.name) }] }));
+        patch(id, (x) => ({ ...x, log: [...x.log, { kind: "ask", id: e.id, state: "waiting", screens: e.ask.screens.map((s) => s.name), parts: e.ask.parts, components: e.ask.components.map((c) => c.name), collections: e.ask.collections.map((c) => c.name), ...(e.ask.takes.length ? { takes: e.ask.takes } : {}) }] }));
         break;
       case "answer":
         patch(id, (x) => ({ ...x, log: x.log.map((l) => (l.kind === "ask" && l.id === e.id ? { ...l, state: e.allow ? "allowed" : "declined" } : l)) }));
