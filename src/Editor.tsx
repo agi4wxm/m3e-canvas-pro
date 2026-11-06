@@ -683,7 +683,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const outside = useOutsideImages(store, persist);
 
   /* the in-app agent: its eyes (src/editor/useScreenshots.ts), its conversation and turns (src/editor/useAgent.ts) */
-  const { shotFrame, renderer: shotRenderer } = useScreenshots(store);
+  const { shotFrame, shotDoc, shotWidths, renderer: shotRenderer } = useScreenshots(store);
   const agent = useAgent({ store, settings: aiSettings, lang, renderer: shotRenderer, editable: editAccess === "editable", showToast, project: loaded && persist instanceof ProjectsPersist ? persist.id : null });
   /** the Cmd/Ctrl+K prompt bar is up */
   const [promptBarOpen, setPromptBarOpen] = useState(false);
@@ -1000,7 +1000,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         {/* a screen the agent is looking at, drawn the same way */}
         {shotFrame && (
           <div aria-hidden data-shot style={{ position: "fixed", left: -99999, top: 0, pointerEvents: "none", fontFamily: fontFamilyOf(theme.font, lang) }}>
-            {renderExport(shotFrame, { doc, widths, frames, p, theme })}
+            {renderExport(shotFrame, { doc: shotDoc ?? doc, widths: shotWidths ?? widths, frames, p, theme })}
           </div>
         )}
 

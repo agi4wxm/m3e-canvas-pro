@@ -12,7 +12,7 @@ import { t } from "../../i18n";
 import { op, OpError, S } from "../op";
 import { withDoc, withFrames, withGroups, type CoreState } from "../state";
 import { collectionById, groupById, itemById, unlocked } from "./common";
-import { actionError, fullAction, varError } from "./validate";
+import { actionError, fullAction, varError, withTapParams } from "./validate";
 import { setItem } from "./nodes";
 
 /* ---------- collections ---------- */
@@ -271,7 +271,9 @@ export const setAction = op<{ id: string; slot?: string; action: Action | null }
     'Sets what a tap on a part does (or on one of its places: slot "tab:0", "icon"…): {to: screen id | "back" | "link" | "none", transition, url, effects: [{do: show|hide|toggle|open|close, part} | {do: setVar, var, value} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message}], when: {var, op: eq|neq, value} | {filled: part}, else: {...}, trigger: {on: "hover"} | {on: "delay", ms} (starts it without a tap), overlay: true (the screen opens over the one on show; back closes it), scrollTo: part id (with to "none"), motion: {kind: instant|dissolve|move|push|slide, dir: left|right|up|down (the way the new screen moves), easing: out|in|inOut|linear|spring, ms}}. null removes it.',
   args: S.obj({ id: S.str(), slot: S.str(), action: { type: ["object", "null"] } }, ["id", "action"]),
   label: () => "Tap",
-  run(s, a, ctx) {
+  run(given, a, ctx) {
+    /* the screen it opens takes the params it is given */
+    const s = a.action ? withTapParams(given, a.action) : given;
     const { item, group } = itemById(s, a.id);
     unlocked(group, "That part");
     if (a.action && ctx.strict) {

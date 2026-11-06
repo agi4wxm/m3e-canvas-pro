@@ -10,6 +10,7 @@ import { setGlobalLang, type Lang } from "../lib/i18n";
 import { overridableParts } from "../lib/instances";
 import { openProject } from "../lib/project";
 import type { Doc } from "../lib/tokens";
+import type { JsonSchemaObject } from "../lib/api/types";
 
 const HERE = new URL(".", import.meta.url).pathname;
 
@@ -356,6 +357,151 @@ export const FIXTURES: Record<string, Fixture> = {
       }),
   },
 };
+
+/* ---------- the product layer: screens to give an API, bindings and mocks ---------- */
+
+const PRODUCT: JsonSchemaObject = {
+  type: "object",
+  properties: {
+    id: { type: "string", format: "uuid", readOnly: true },
+    name: { type: "string" },
+    description: { type: "string" },
+    price: { type: "number" },
+    image: { type: "string", format: "uri" },
+    createdAt: { type: "string", format: "date-time", readOnly: true },
+  },
+  required: ["id", "name", "price"],
+};
+
+/** a page of a model's records, as a cursor-paged list answers */
+const page = (model: string): JsonSchemaObject => ({ type: "object", properties: { items: { type: "array", items: { $ref: `#/components/schemas/${model}` } }, nextCursor: { type: ["string", "null"] } }, required: ["items"] });
+
+/** a designed product row: a picture, a name over a line, a price at its end */
+const productRow = (id: string, name: string, line: string, price: string) => ({
+  part: "box",
+  id,
+  name: "Product row",
+  props: { layout: "row", gap: 12, padX: 0, padY: 8, align: "center", hugWidth: false, width: 380 },
+  children: [
+    { part: "image", id: `${id}-image`, props: { width: 56, height: 56, radius: 8 } },
+    { part: "box", id: `${id}-words`, grow: true, props: { layout: "column", gap: 2, padX: 0, padY: 0 }, children: [{ part: "text", id: `${id}-name`, props: { text: name, style: "lead" } }, { part: "text", id: `${id}-line`, props: { text: line, color: "muted" } }] },
+    { part: "text", id: `${id}-price`, props: { text: price, style: "label" } },
+  ],
+});
+
+/** the shop's contract so far: products, a page of them and one by id */
+function shopApi(tx: Tx) {
+  tx.run(ops.addModel, { name: "Product", schema: PRODUCT });
+  tx.run(ops.addEndpoint, { operationId: "listProducts", method: "get", path: "/products", summary: "List products", tags: ["Products"], returns: page("Product"), pagination: { style: "cursor", items: "items" } });
+  tx.run(ops.addEndpoint, { operationId: "getProduct", method: "get", path: "/products/{productId}", summary: "Get a product", tags: ["Products"], returns: { $ref: "#/components/schemas/Product" } });
+}
+
+const PRODUCT_FIXTURES: Record<string, Fixture> = {
+  /** a shop's product list designed by hand, nothing behind it yet, in English */
+  "shop-design-en": {
+    lang: "en",
+    doc: () =>
+      made("en", (tx) => {
+        tx.run(ops.setTitle, { title: "Corner Shop" });
+        tx.run(ops.addScreen, { id: "products", name: "Products" });
+        tx.run(ops.addPart, { slug: "app-bar", id: "bar", screen: "products", at: { x: 0, y: 0 }, props: { title: "Products" } });
+        tx.run(ops.addTree, {
+          screen: "products",
+          at: { x: 16, y: 80 },
+          tree: { part: "box", id: "product-list", name: "Product list", props: { layout: "column", gap: 4, padX: 0, padY: 0, hugWidth: false, width: 380 }, children: [productRow("row-1", "Ceramic mug", "Stoneware, 350 ml", "$18.00"), productRow("row-2", "Linen tea towel", "Washed natural linen", "$12.50")] },
+        });
+      }),
+  },
+
+  /** the shop with its contract and the product list wired to it; a product screen and a new-product screen with only
+   *  their bars, in English */
+  "shop-wired-en": {
+    lang: "en",
+    doc: () =>
+      made("en", (tx) => {
+        tx.run(ops.setTitle, { title: "Corner Shop" });
+        shopApi(tx);
+        tx.run(ops.addScreen, { id: "products", name: "Products" });
+        tx.run(ops.addPart, { slug: "app-bar", id: "bar", screen: "products", at: { x: 0, y: 0 }, props: { title: "Products" } });
+        tx.run(ops.wireScreen, { screen: "products", operationId: "listProducts" });
+        tx.run(ops.addScreen, { id: "product", name: "Product" });
+        tx.run(ops.addPart, { slug: "app-bar", id: "product-bar", screen: "product", at: { x: 0, y: 0 }, props: { title: "Product", leading: "arrow_back" } });
+        tx.run(ops.addScreen, { id: "new-product", name: "New product" });
+        tx.run(ops.addPart, { slug: "app-bar", id: "new-bar", screen: "new-product", at: { x: 0, y: 0 }, props: { title: "New product", leading: "close" } });
+      }),
+  },
+
+  /** a shop's orders list wired to its contract, with no sign-in anywhere yet, in English */
+  "orders-en": {
+    lang: "en",
+    doc: () =>
+      made("en", (tx) => {
+        tx.run(ops.setTitle, { title: "Corner Shop" });
+        tx.run(ops.addModel, {
+          name: "Order",
+          schema: { type: "object", properties: { id: { type: "string", format: "uuid" }, number: { type: "string" }, total: { type: "number" }, status: { type: "string", enum: ["placed", "shipped", "delivered", "cancelled"] }, createdAt: { type: "string", format: "date-time" } }, required: ["id", "number", "total", "status"] },
+        });
+        tx.run(ops.addEndpoint, { operationId: "listOrders", method: "get", path: "/orders", summary: "My orders", tags: ["Orders"], returns: page("Order"), pagination: { style: "cursor", items: "items" } });
+        tx.run(ops.addScreen, { id: "orders", name: "Orders" });
+        tx.run(ops.addPart, { slug: "app-bar", id: "bar", screen: "orders", at: { x: 0, y: 0 }, props: { title: "My orders" } });
+        tx.run(ops.wireScreen, { screen: "orders", operationId: "listOrders" });
+      }),
+  },
+
+  /** two list screens with only their bars, waiting for a back end's contract, in English */
+  "two-screens-en": {
+    lang: "en",
+    doc: () =>
+      made("en", (tx) => {
+        tx.run(ops.setTitle, { title: "Corner Shop" });
+        tx.run(ops.addScreen, { id: "products", name: "Products" });
+        tx.run(ops.addPart, { slug: "app-bar", id: "bar", screen: "products", at: { x: 0, y: 0 }, props: { title: "Products" } });
+        tx.run(ops.addScreen, { id: "orders", name: "My orders" });
+        tx.run(ops.addPart, { slug: "app-bar", id: "orders-bar", screen: "orders", at: { x: 0, y: 0 }, props: { title: "My orders" } });
+      }),
+  },
+
+  /** a team chat designed by hand: two messages and a composer pinned to the bottom, nothing behind it, in English */
+  "chat-design-en": {
+    lang: "en",
+    doc: () =>
+      made("en", (tx) => {
+        tx.run(ops.setTitle, { title: "Murmur" });
+        tx.run(ops.addScreen, { id: "chat", name: "Chat" });
+        tx.run(ops.addPart, { slug: "app-bar", id: "bar", screen: "chat", at: { x: 0, y: 0 }, props: { title: "Design team" } });
+        tx.run(ops.addTree, {
+          screen: "chat",
+          at: { x: 16, y: 80 },
+          tree: {
+            part: "box",
+            id: "messages",
+            name: "Messages",
+            props: { layout: "column", gap: 8, padX: 0, padY: 0, hugWidth: false, width: 380 },
+            children: [
+              { part: "box", id: "msg-1", name: "Message", props: { surface: "card", layout: "column", gap: 2, padX: 12, padY: 8 }, children: [{ part: "text", id: "msg-1-author", props: { text: "Ada", style: "label", color: "primary" } }, { part: "text", id: "msg-1-text", props: { text: "The new icons are in the shared folder." } }] },
+              { part: "box", id: "msg-2", name: "Message", props: { surface: "card", layout: "column", gap: 2, padX: 12, padY: 8 }, children: [{ part: "text", id: "msg-2-author", props: { text: "Lin", style: "label", color: "primary" } }, { part: "text", id: "msg-2-text", props: { text: "Thanks! Reviewing them now." } }] },
+            ],
+          },
+        });
+        tx.run(ops.addTree, {
+          screen: "chat",
+          at: { x: 0, y: 820 },
+          tree: { part: "box", id: "composer", name: "Composer", props: { surface: "bar", layout: "row", gap: 8, padX: 16, padY: 12, align: "center", hugWidth: false, width: 412, pin: "bottom" }, children: [{ part: "input", id: "draft", grow: true, props: { placeholder: "Message" } }, { part: "icon-button", id: "send", props: { icon: "send" } }] },
+        });
+      }),
+  },
+
+  /** a new project with one empty screen, in Chinese */
+  "blank-zh": {
+    lang: "zh",
+    doc: () =>
+      made("zh", (tx) => {
+        tx.run(ops.setTitle, { title: "小账本" });
+        tx.run(ops.addScreen, { id: "home", name: "首页" });
+      }),
+  },
+};
+Object.assign(FIXTURES, PRODUCT_FIXTURES);
 
 /** a fixture's document: one built here, or a project file in evals/fixtures/ */
 export function fixtureDoc(name: string): Doc {

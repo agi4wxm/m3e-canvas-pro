@@ -1,0 +1,533 @@
+openapi: 3.1.0
+info:
+  title: Shop API
+  version: "2.3.0"
+  description: |
+    The API of a small shop: products, a cart, orders and the signed-in user.
+
+    Errors are RFC 9457 problem details.
+  contact:
+    name: Shop team
+    email: api@shop.example
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: http://localhost:8080/v1
+    description: Local development server
+  - url: https://staging.shop.example/v1
+    description: Staging
+  - url: https://api.shop.example/v1
+    description: Production
+tags:
+  - name: Auth
+    description: Signing in and keeping the session alive
+  - name: Products
+    description: The catalog
+  - name: Orders
+  - name: Me
+security:
+  - bearerAuth: []
+x-m3e-auth:
+  login: login
+  refresh: refreshToken
+  logout: logout
+x-logo:
+  url: https://shop.example/logo.svg
+externalDocs:
+  url: https://docs.shop.example
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in with email and password
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tokens'
+        '401':
+          description: Wrong email or password
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Trade the refresh token for a new access token
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required: [refreshToken]
+      responses:
+        '200':
+          description: New tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tokens'
+        default:
+          $ref: '#/components/responses/Error'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      responses:
+        '204':
+          description: Signed out
+  /products:
+    get:
+      tags: [Products]
+      summary: List the products, newest first
+      operationId: listProducts
+      security: []
+      x-m3e-pagination:
+        style: cursor
+        items: items
+      parameters:
+        - name: cursor
+          in: query
+          description: The next page's cursor
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [shoes, shirts, bags]
+        - name: q
+          in: query
+          description: Words to search for
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        '200':
+          description: A page of products
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPage'
+              example:
+                items: []
+                nextCursor: null
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [Products]
+      summary: Add a product
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewProduct'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              description: Where the product is
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '422':
+          description: The product is not valid
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://shop.example/problems/invalid
+                title: The product is not valid
+                status: 422
+                errors:
+                  - pointer: '#/price'
+                    detail: must be more than 0
+        default:
+          $ref: '#/components/responses/Error'
+  /products/{productId}:
+    summary: One product
+    parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Products]
+      operationId: getProduct
+      security: []
+      responses:
+        '200':
+          description: The product
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Products]
+      operationId: updateProduct
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewProduct'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Products]
+      operationId: deleteProduct
+      deprecated: true
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /products/{productId}/images:
+    post:
+      tags: [Products]
+      summary: Upload a picture of the product
+      operationId: uploadProductImage
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: A JPEG or PNG, up to 5 MB
+                alt:
+                  type: string
+              required: [file]
+            encoding:
+              file:
+                contentType: image/png, image/jpeg
+      responses:
+        '201':
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                required: [url]
+        '413':
+          description: Too large
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /orders:
+    get:
+      tags: [Orders]
+      operationId: listOrders
+      x-m3e-pagination:
+        style: offset
+        items: data
+        totalField: count
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+        - $ref: '#/components/parameters/Limit'
+        - name: X-Request-Id
+          in: header
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: A page of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+                  count:
+                    type: integer
+                required: [data, count]
+  /me:
+    get:
+      tags: [Me]
+      operationId: getMe
+      security:
+        - bearerAuth: []
+        - apiKey: []
+      responses:
+        '200':
+          description: The signed-in user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Error'
+webhooks:
+  orderPaid:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+      responses:
+        '200':
+          description: Received
+components:
+  schemas:
+    Category:
+      type: string
+      enum: [shoes, shirts, bags]
+    Money:
+      type: object
+      properties:
+        amount:
+          type: number
+          exclusiveMinimum: 0
+          examples: [19.9]
+        currency:
+          type: string
+          enum: [CNY, USD, EUR, JPY, KRW]
+          default: CNY
+      required: [amount, currency]
+    NewProduct:
+      type: object
+      description: What a product is made from
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples: [Canvas sneaker]
+        price:
+          $ref: '#/components/schemas/Money'
+        category:
+          $ref: '#/components/schemas/Category'
+        description:
+          type: [string, 'null']
+        stock:
+          type: integer
+          minimum: 0
+      required: [name, price, category]
+    Product:
+      allOf:
+        - $ref: '#/components/schemas/NewProduct'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              readOnly: true
+            images:
+              type: array
+              items:
+                type: string
+                format: uri
+            createdAt:
+              type: string
+              format: date-time
+          required: [id, createdAt]
+    ProductPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        nextCursor:
+          type: [string, 'null']
+      required: [items, nextCursor]
+    OrderItem:
+      type: object
+      properties:
+        product:
+          $ref: '#/components/schemas/Product'
+        quantity:
+          type: integer
+          minimum: 1
+      required: [product, quantity]
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, paid, shipped, cancelled]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        total:
+          $ref: '#/components/schemas/Money'
+        placedAt:
+          type: string
+          format: date-time
+      required: [id, status, items, total]
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        avatar:
+          type: [string, 'null']
+          format: uri
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [customer, admin]
+          uniqueItems: true
+      required: [id, email]
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+      required: [email, password]
+    Tokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          description: Seconds until the access token expires
+      required: [accessToken, refreshToken, expiresIn]
+    Problem:
+      type: object
+      description: RFC 9457 problem details
+      properties:
+        type:
+          type: string
+          format: uri
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              pointer:
+                type: string
+              detail:
+                type: string
+      required: [title, status]
+  responses:
+    NotFound:
+      description: There is no such thing
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Error:
+      description: Something went wrong
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      description: How many items a page holds
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    oauth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.shop.example/authorize
+          tokenUrl: https://auth.shop.example/token
+          refreshUrl: https://auth.shop.example/token
+          scopes:
+            orders:read: Read your orders
+            orders:write: Place orders

@@ -22,10 +22,10 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   components: "reusable components and their instances: variants, component properties, swapping an instance",
   style: "styles, themes, palettes, looks, custom styles",
   data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, bindings",
-  api: "the contract with the back end: data models (JSON Schema), HTTP endpoints (OpenAPI 3.1) with paging and uploads, auth (bearer JWT, API key, OAuth2), realtime channels (AsyncAPI 3.0), servers; importing and reading the spec files",
-  mocks: "the mock library that answers the API while the product is designed: made-up data (a hint per field, record counts, pinned records, seed, language), scenarios (new user, lots of data, network error, slow network, signed out, per-operation errors and retries), mock files (images, PDF, audio, video), realtime scripts, mock sign-in; reading the records and trying what an endpoint answers",
+  api: "the contract with the back end: data models (JSON Schema), endpoints (OpenAPI 3.1) with paging and uploads, auth, realtime channels (AsyncAPI 3.0), servers, importing and reading specs",
+  mocks: "the mock library answering the API while it is designed: made-up data (hints per field, counts, pinned records), scenarios (empty, errors, slow, signed out, retries), mock files, realtime scripts, mock sign-in; reading records, trying endpoints",
   bindings:
-    "screens bound to the API: the data a screen loads, its params and sign-in, props bound to expressions (formatting dates, money, plurals), lists repeated from data, regions with loading, empty, error and no-access designs, forms for request bodies with validation, taps that call endpoints; wire_screen does all of it for a screen and an endpoint",
+    "screens bound to the API: data sources, params, sign-in, props bound to expressions, lists repeated from data, regions with state designs, forms for request bodies, taps that call endpoints; wire_screen does it in one step",
   generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture; the document's own icons (svg:<id>)",
   reference: "measuring an attached reference picture and comparing a screen with it",
 };
@@ -201,13 +201,28 @@ const CUES: [ToolSet, Cue][] = [
   ],
 ];
 
+/** The product made real — wired, connected, its data real, its forms saving through the API, its screens behind
+ *  sign-in: the contract and the bindings together. */
+const PRODUCT_CUE = any(
+  /\b(?:wire(?:s|d)?\s+(?:it|them|this|these|the\s+\w+(?:\s+\w+)?)\s+(?:up|to)|connect\w*\s+(?:\w+\s+){0,3}to\s+(?:the\s+|our\s+|an?\s+)?(?:api|endpoints?|back-?end|server|it)|(?:make|making)\s+(?:the\s+|this\s+)?(?:\w+\s+){0,2}(?:screen|app|list|page)s?\s+real|real(?:-looking)?\s+data|(?:creates?|saves?|posts?|sends?|submits?)\s+(?:\w+\s+){0,2}(?:through|via|to)\s+the\s+(?:api|back-?end|server)|(?:signs?|logs?)\s+in\s+(?:through|via|with)\s+the\s+(?:api|back-?end|server)|only\s+(?:to|for)\s+signed[- ]in|signed[- ]in\s+users\s+only|requires?\s+(?:a\s+)?(?:sign[- ]?in|log[- ]?in)|behind\s+(?:a\s+|the\s+)?(?:sign[- ]?in|log[- ]?in)|works?\s+with\s+(?:the\s+|our\s+)?(?:api|back-?end|server)|loads?\s+(?:\S+\s+){0,4}from\s+the\s+(?:api|back-?end|server))\b/,
+  /连上接口|接上接口|连接(?:到)?(?:接口|后端|服务器)|绑定(?:好)?(?:接口|数据)|数据绑定|真实数据|通过接口|需要登录|登录后才能|登录才能|仅限登录/,
+  /(?:API|バックエンド|サーバー)に(?:接続|つな)|実データ|ログインが必要|ログイン(?:した|済みの)(?:人|ユーザー)だけ/,
+  /(?:API|백엔드|서버)(?:에|와)\s*연결|실제\s?데이터|로그인(?:이)?\s?필요|로그인한\s?사용자만/,
+);
+
+/** what a request about the contract says when it is about screens too ("lists" the verb and 一覧 of an endpoint are not) */
+const SCREEN_WORDS = any(/\b(?:screens?|pages?|forms?|buttons?|rows?|tabs?|apps?)\b|\b(?:the|this|a|my|our)\s+(?:\w+\s+)?list\b/, /页面|屏幕|界面|表单|按钮|页|应用/, /画面|フォーム|ボタン|アプリ/, /화면|폼|양식|버튼|앱/);
+
 /** The sets a request calls for by its words, and by what comes with it: a picture to copy brings the tools that
  *  measure it, styles and drawing. */
 export function setsFor(request: string, o: { attachments?: number } = {}): ToolSet[] {
   const out = new Set<ToolSet>(["build"]);
-  /* full-width letters and digits read as plain ones */
-  const text = request.normalize("NFKC");
+  /* full-width letters and digits read as plain ones; a pasted file (a fenced block) says nothing about what is wanted */
+  const text = request.normalize("NFKC").replace(/```[\s\S]*?(?:```|$)/g, " ");
   for (const [set, cue] of CUES) if (cue.yes.test(cue.no ? text.replace(cue.no, " ") : text)) out.add(set);
+  /* a product made real needs the contract and the bindings; the contract asked for about screens is bound to them */
+  if (PRODUCT_CUE.test(text)) for (const s of ["api", "bindings"] as const) out.add(s);
+  if (out.has("api") && SCREEN_WORDS.test(text)) out.add("bindings");
   if (o.attachments) for (const s of ["reference", "style", "generate"] as const) out.add(s);
   return TOOL_SETS.filter((s) => out.has(s));
 }

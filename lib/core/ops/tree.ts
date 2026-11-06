@@ -16,7 +16,7 @@ import { op, OpError, S, type Schema } from "../op";
 import { withGroups, withSession, type CoreState } from "../state";
 import { frameById, freshId, freshPart, groupById, laidOut, spotOn } from "./common";
 import { intoFlow } from "./nodes";
-import { actionError, checkItemPatch, cleanedLook, conditionError, fullAction } from "./validate";
+import { actionError, checkItemPatch, cleanedLook, conditionError, fullAction, withTapParams } from "./validate";
 
 /** one node of a tree as a caller writes it */
 export type TreeNode = {
@@ -230,7 +230,10 @@ export const addTree = op<AddTreeArgs, { itemId: string; groupId: string; parts:
   summary: "Adds a whole tree of parts in one step: a box with auto layout holding atoms (text, icon, svg, image, button, input…) and other boxes, each with its props, colors and look. How to compose what the catalog has no part or kit for.",
   args: S.obj({ tree: NODE, screen: S.str("the screen it goes on"), at: S.point("where its top left lands, from the screen's top left"), into: S.obj({ container: S.str("a box with an auto layout"), index: S.int("its place in the run") }, ["container"]), label: S.str("the step's name") }, ["tree"]),
   label: (a) => a.label ?? `Add ${a.tree?.name ?? a.tree?.part ?? "tree"}`,
-  run(s, a, ctx) {
+  run(given, a, ctx) {
+    /* the screens its taps open take the params they are given */
+    const tapsIn = (n: unknown, depth = 0): unknown[] => (n && typeof n === "object" && depth < 40 ? [(n as TreeNode).action, ...((n as TreeNode).children ?? []).flatMap((c) => tapsIn(c, depth + 1))] : []);
+    const s = tapsIn(a.tree).reduce<CoreState>((st, act) => (act ? withTapParams(st, act) : st), given);
     const flat = checked(s, a.tree, ctx.strict);
     const frames = s.doc.frames;
     const frame = a.screen !== undefined ? frameById(s, a.screen) : undefined;
