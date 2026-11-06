@@ -160,6 +160,19 @@ const ancestors = (p: Placed): Placed[] => {
   return out;
 };
 
+/** How many times a part is drawn: once, times the rows of each container that repeats the child it is in (a
+ *  container repeats its first child once per row of its collection, up to its limit). */
+export function copiesOf(g: Graded, p: Placed): number {
+  let n = 1;
+  for (let prev = p, at = p.parent; at; prev = at, at = at.parent) {
+    const r = at.group?.repeat;
+    if (!r || at.node.children[0]?.id !== prev.node.id) continue;
+    const rows = g.o.final.collections?.find((c) => c.id === r.collection)?.rows.length ?? 1;
+    n *= Math.max(1, r.limit !== undefined ? Math.min(rows, r.limit) : rows);
+  }
+  return n;
+}
+
 /** a deep look through a value for strings */
 const stringsIn = (v: unknown, out: string[] = []): string[] => {
   if (typeof v === "string") out.push(v);
@@ -266,7 +279,9 @@ export const has = (id: string, label: string, match: (p: Placed, g: Graded) => 
     const screens = screensOf(g, o.screens);
     const found = screens.flatMap((s) => partsOn(g, s)).filter((p) => match(p, g));
     const min = o.min ?? 1;
-    return ok(found.length >= min, `${found.length} found (need ${min})${found.length ? `: ${found.slice(0, 4).map((p) => `${p.node.slug}${p.node.kit ? `/${p.node.kit}` : ""} ${quote(p.node.name)}`).join(", ")}` : ""} on ${screens.join(", ") || "no screen"}`);
+    /* a part in a repeated row is drawn once per row */
+    const drawn = found.reduce((n, p) => n + copiesOf(g, p), 0);
+    return ok(drawn >= min, `${drawn} found (need ${min})${drawn !== found.length ? ` (${found.length} in the document, the rest repeated rows)` : ""}${found.length ? `: ${found.slice(0, 4).map((p) => `${p.node.slug}${p.node.kit ? `/${p.node.kit}` : ""} ${quote(p.node.name)}`).join(", ")}` : ""} on ${screens.join(", ") || "no screen"}`);
   },
 });
 
@@ -607,10 +622,15 @@ export const svgPlaced = (o: { inside?: (p: Placed) => boolean; label?: string }
   critical: true,
   run(g) {
     const svgs = [...g.placed.values()].filter((p) => p.node.slug === "svg" && g.addedIds.has(p.node.id) && typeof p.item?.props?.markup === "string" && p.item.props.markup.length > 0);
-    if (!svgs.length) return ok(false, "no SVG markup part added");
+    /* or a drawing kept as one of the document's own icons (svg:<id>) that a part in place now shows by name */
+    const fresh = Object.entries(g.o.final.icons ?? {}).filter(([id, markup]) => g.o.start.icons?.[id] !== markup && sanitizeSvg(markup) !== null);
+    const named = (p: Placed, id: string) => stringsIn(p.item?.props).includes(`svg:${id}`);
+    const showing = fresh.flatMap(([id]) => [...g.placed.values()].filter((p) => named(p, id) && (!o.inside || o.inside(p) || ancestors(p).some(o.inside))).map((p) => ({ id, p })));
+    if (!svgs.length && !showing.length) return ok(false, fresh.length ? `${fresh.length} new document icons, none shown in place` : "no SVG markup part added");
     const clean = svgs.filter((p) => sanitizeSvg(p.item!.props!.markup as string) !== null);
     const inside = o.inside ? clean.filter((p) => ancestors(p).some(o.inside!)) : clean;
-    return ok(inside.length > 0, `${svgs.length} SVG parts, ${clean.length} sanitize, ${inside.length} in place${inside[0] ? ` (${inside[0].node.id}, ${(inside[0].item!.props!.markup as string).length} chars)` : ""}`);
+    const icon = showing[0] ? `; document icon svg:${showing[0].id} shown by ${showing[0].p.node.id}` : "";
+    return ok(inside.length > 0 || showing.length > 0, `${svgs.length} SVG parts, ${clean.length} sanitize, ${inside.length} in place${inside[0] ? ` (${inside[0].node.id}, ${(inside[0].item!.props!.markup as string).length} chars)` : ""}${icon}`);
   },
 });
 
@@ -717,13 +737,13 @@ export const scrolls = (o: { screen: string; min?: number }): Check => ({
   },
 });
 
-/** how many parts on a screen show a word (each part counted once) */
+/** how many parts on a screen show a word (each counted once per time it is drawn, repeated rows included) */
 export const countShowing = (id: string, label: string, word: RegExp, o: { screen: string; min: number; critical?: boolean }): Check => ({
   id,
   label,
   ...(o.critical ? { critical: true } : {}),
   run(g) {
-    const n = partsOn(g, o.screen).filter((p) => (g.words.get(p.node.id) ?? []).some((w) => word.test(w))).length;
+    const n = partsOn(g, o.screen).filter((p) => (g.words.get(p.node.id) ?? []).some((w) => word.test(w))).reduce((sum, p) => sum + copiesOf(g, p), 0);
     return ok(n >= o.min, `${n} parts show ${word} (need ${o.min})`);
   },
 });
