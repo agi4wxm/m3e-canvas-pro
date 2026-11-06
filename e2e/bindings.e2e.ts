@@ -76,7 +76,7 @@ export const tests: E2ETest[] = [
   {
     name: "bindings: a list screen wired to its endpoint from the Data section, rows from the API in the preview",
     async run({ page, base, out }) {
-      await openShop(page, base, shopDoc({ unwired: true }), { n: 30, delay: 600 });
+      await openShop(page, base, shopDoc({ unwired: true }), { n: 30, delay: 2000 });
       await selectScreen(page, "products");
       await page.waitForSelector("[data-screen-data]");
       /* the endpoint is the first one, the list; a row opens the product screen */
@@ -95,7 +95,7 @@ export const tests: E2ETest[] = [
       await page.screenshot({ path: join(out, "bindings-wired-canvas.png") });
 
       await preview(page, "products");
-      await page.waitForTimeout(250);
+      await page.waitForTimeout(150);
       check(!(await words(page)).includes("Product 1"), "nothing yet while the call is under way");
       await page.screenshot({ path: join(out, "bindings-list-loading.png") });
       await waitForWords(page, "Product 1");
