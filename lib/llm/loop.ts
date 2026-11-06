@@ -26,7 +26,11 @@ export type RunAgentOptions = {
   system: string;
   /** the conversation so far, ending with the author's new message */
   messages: Message[];
-  tools: ToolDef[];
+  /** the tools, or what they are at each step (a tool can add others for the steps after it) */
+  tools: ToolDef[] | (() => ToolDef[]);
+  /** the conversation as it is sent at each step, when the caller sends less of it (older pictures left out); it
+   *  must keep every message in its place. What it left out stays out of the conversation this run returns. */
+  prepare?: (messages: Message[]) => Message[];
   /** runs one call; may throw, which the model is told as an error result */
   execute: (call: ToolCall, ctx: { step: number; signal?: AbortSignal }) => Promise<ToolOutput> | ToolOutput;
   onEvent?: (e: AgentEvent) => void;
@@ -69,8 +73,10 @@ export async function collectTurn(adapter: Adapter, req: LlmRequest, signal?: Ab
 
 export async function runAgent(o: RunAgentOptions): Promise<AgentResult> {
   const maxSteps = Math.max(1, o.maxSteps ?? 24);
-  const tools = new Map(o.tools.map((t) => [t.name, t]));
-  const added: Message[] = [];
+  const toolsNow = () => (typeof o.tools === "function" ? o.tools() : o.tools);
+  let added: Message[] = [];
+  /* the conversation before this run, as last sent: what `prepare` left out of it stays out */
+  let before = o.messages;
   let usage = emptyUsage();
   let text = "";
   const emit = (e: AgentEvent) => {
@@ -80,7 +86,7 @@ export async function runAgent(o: RunAgentOptions): Promise<AgentResult> {
       /* a listener that fails must not stop the work it is watching */
     }
   };
-  const finish = (stop: AgentStop, steps: number, error?: unknown): AgentResult => ({ messages: [...o.messages, ...added], added, usage, stop, steps, text, ...(error !== undefined ? { error } : {}) });
+  const finish = (stop: AgentStop, steps: number, error?: unknown): AgentResult => ({ messages: [...before, ...added], added, usage, stop, steps, text, ...(error !== undefined ? { error } : {}) });
 
   for (let step = 1; step <= maxSteps; step++) {
     if (o.signal?.aborted) return finish("aborted", step - 1, abortReason(o.signal));
@@ -88,7 +94,15 @@ export async function runAgent(o: RunAgentOptions): Promise<AgentResult> {
     let done: Extract<LlmEvent, { type: "done" }> | undefined;
     let failed: unknown;
     let hasFailed = false;
-    for await (const e of o.adapter.stream({ system: o.system, messages: [...o.messages, ...added], tools: o.tools, maxOutputTokens: o.maxOutputTokens }, o.signal)) {
+    const defs = toolsNow();
+    const tools = new Map(defs.map((t) => [t.name, t]));
+    if (o.prepare) {
+      /* what is left out once is left out for good, so the next request starts the same way this one does */
+      const sent = o.prepare([...before, ...added]);
+      before = sent.slice(0, before.length);
+      added = sent.slice(before.length);
+    }
+    for await (const e of o.adapter.stream({ system: o.system, messages: [...before, ...added], tools: defs, maxOutputTokens: o.maxOutputTokens }, o.signal)) {
       emit({ ...e, step });
       if (e.type === "done") done = e;
       else if (e.type === "error") {

@@ -6,8 +6,10 @@
 import { generateImage, hasImageKey, type AiSettings } from "../ai";
 import { generateSvgCode, generateSvgImageStreamed } from "../llm/svg";
 import { describeNode, ops, type CoreState, type Schema } from "../core";
+import { frameSizeOf } from "../tokens";
 import { afterWrite } from "./ops";
 import { tool, ToolFailure, type GenerateEnv, type SvgDrawing, type Tool, type ToolEnv } from "./types";
+import { generateStyle } from "./generateStyle";
 
 const OPENAI = "https://api.openai.com/v1";
 
@@ -180,14 +182,19 @@ export const generateSvg = tool<SvgArgs>({
   },
 });
 
-type ImageArgs = Place & { prompt: string; width?: number; height?: number };
+type ImageArgs = Place & { prompt: string; width?: number; height?: number; background?: boolean };
+
+/** the scene behind a screen, when it has one: a backdrop part standing on it */
+function sceneOf(s: CoreState, widths: Record<string, number>, screen: string) {
+  return s.doc.groups.flatMap((g) => g.items).find((it) => it.component === "scene" && describeNode(s.doc as never, widths, it.id)?.screen?.id === screen);
+}
 
 export const generateImageTool = tool<ImageArgs>({
   name: "generate_image",
   group: "generate",
   description:
-    "Paints a picture with the image model (about 20–40 s): with `replace` naming an image, a scene or another part, that part gets it (an image or scene keeps its place and takes the picture; any other part is replaced by an image); else a new image part. Say what it shows, never words or interface in it. Costs an image call: only for real content pictures.",
-  input: { type: "object", properties: { prompt: { type: "string" }, width: { type: "number", minimum: 24, maximum: 1600 }, height: { type: "number", minimum: 24, maximum: 1600 }, ...PLACE }, required: ["prompt"], additionalProperties: false },
+    "Paints a picture with the image model (about 20–40 s): with `background` and `screen`, it becomes the picture behind that whole screen (its scene, filling the screen under every part; a game's or a hero screen's backdrop); with `replace` naming an image, a scene or another part, that part gets it (an image or scene keeps its place and takes the picture; any other part is replaced by an image); else a new image part. Say what it shows, never words or interface in it. Costs an image call: only for real content pictures.",
+  input: { type: "object", properties: { prompt: { type: "string" }, width: { type: "number", minimum: 24, maximum: 1600 }, height: { type: "number", minimum: 24, maximum: 1600 }, background: { type: "boolean", description: "the picture behind the whole screen named by `screen`" }, ...PLACE }, required: ["prompt"], additionalProperties: false },
   output: "{itemId}",
   readOnly: false,
   destructive: false,
@@ -195,24 +202,35 @@ export const generateImageTool = tool<ImageArgs>({
     const gen = needGen(env);
     if (!gen.remote && !hasImageKey(gen.settings)) throw new ToolFailure("unavailable", "No image model key is set.", "Leave the picture empty; the author can paint it later.");
     const s = env.store.get();
-    const target = a.replace ? s.doc.groups.flatMap((g) => g.items).find((it) => it.id === a.replace) : undefined;
-    if (a.replace && !target) throw new ToolFailure("not_found", `There is no part ${JSON.stringify(a.replace)}.`, "find_nodes gives the ids of the parts.");
     const widths = env.store.ctx(env.origin).widths;
-    const box = target ? describeNode(s.doc as never, widths, target.id)!.bounds : { w: a.width ?? 240, h: a.height ?? 160 };
+    if (a.background && !a.screen) throw new ToolFailure("bad_args", "A background needs the screen it goes behind (`screen`).", "list_screens gives the screens' ids.");
+    const frame = a.background ? s.doc.frames.find((f) => f.id === a.screen) : undefined;
+    if (a.background && !frame) throw new ToolFailure("not_found", `There is no screen ${JSON.stringify(a.screen)}.`, "list_screens gives the screens' ids.");
+    const scene = frame ? sceneOf(s, widths, frame.id) : undefined;
+    const target = a.replace ? s.doc.groups.flatMap((g) => g.items).find((it) => it.id === a.replace) : scene;
+    if (a.replace && !target) throw new ToolFailure("not_found", `There is no part ${JSON.stringify(a.replace)}.`, "find_nodes gives the ids of the parts.");
+    const box = frame ? frameSizeOf(frame) : target ? describeNode(s.doc as never, widths, target.id)!.bounds : { w: a.width ?? 240, h: a.height ?? 160 };
     spend(gen);
     const t0 = Date.now();
     const prompt = `${a.prompt}. No text, letters, logos or user interface in the picture.`;
     const picture = gen.remote ? await gen.remote.image({ prompt, box: { w: box.w, h: box.h } }, env.signal) : await paintPicture(gen, prompt, { w: box.w, h: box.h }, env.signal);
     const ms = Date.now() - t0;
+    const prev = env.store.get();
+    const how = { origin: env.origin, ...(env.history ? { history: env.history } : {}) };
     if (target && (target.component === "image" || target.component === "scene")) {
-      const prev = env.store.get();
-      env.store.run(ops.setProps, { id: target.id, props: target.component === "image" ? { src: picture } : { image: picture } }, { origin: env.origin, ...(env.history ? { history: env.history } : {}) });
+      env.store.run(ops.setProps, { id: target.id, props: target.component === "image" ? { src: picture } : { image: picture } }, how);
       afterWrite(env, prev);
       return { result: { itemId: target.id, ms } };
+    }
+    if (frame) {
+      /* a scene stands behind everything on its screen and fills it */
+      const out = env.store.run(ops.addPart, { slug: "scene", props: { image: picture, prompt: a.prompt.slice(0, 200) }, screen: frame.id, backdrop: { screen: frame.id, x: frame.x + 1, y: frame.y + 1 }, ...(a.id ? { id: a.id } : {}) }, how);
+      afterWrite(env, prev);
+      return { result: { itemId: out.itemId, background: frame.id, ms } };
     }
     const placed = put(env, "image", { src: picture, alt: a.prompt.slice(0, 80) }, a, { w: a.width, h: a.height });
     return { result: { ...placed, ms } };
   },
 });
 
-export const GENERATE_TOOLS: Tool<never>[] = [generateSvg, generateImageTool] as unknown as Tool<never>[];
+export const GENERATE_TOOLS: Tool<never>[] = [generateSvg, generateImageTool, generateStyle] as unknown as Tool<never>[];

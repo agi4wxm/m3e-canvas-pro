@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { Doc, FrameMode, normalizeTheme, Theme } from "@/lib/tokens";
 import { AiSettings, draftDesign, scenesToPaint } from "@/lib/ai";
-import { streamedComplete, type Progress } from "@/lib/agent/complete";
+import type { Progress } from "@/lib/agent/complete";
 import type { NoteAction } from "@/components/Toolbar";
 import { aiErrorText } from "@/components/AiPanel";
 import { hasShareHash, readShareHash } from "@/lib/share";
@@ -130,6 +130,8 @@ export function useDrafts({ store, persist, editAccess, lang, aiSettings, mobile
         guideRef.current = await res.text();
       }
       const held = isStrict(themeRef.current) ? themeRef.current : null;
+      /* the streaming providers come with the first draft, not with the editor */
+      const { streamedComplete } = await import("@/lib/agent/complete");
       const drafted = await draftDesign(aiSettings, guideRef.current, idea, lang, undefined, held ? rulesForModel(held) : undefined, streamedComplete(setDraftProgress));
       /* a model may bring styles of its own: they join the document's, each in place of one of its key */
       const styles = (drafted.styles ?? []).reduce<CustomStyle[] | undefined>((list, s) => withStyle(list, s), store.get().doc.styles);

@@ -7,10 +7,11 @@ import { OpError, schemaError, type DocStore } from "../core";
 import type { ToolDef } from "../llm/types";
 import { applyOps, OP_TOOLS } from "./ops";
 import { READ_TOOLS } from "./read";
+import { REFERENCE_TOOLS } from "./reference";
 import { TOOL_GROUPS, ToolFailure, type Tool, type ToolEnv, type ToolError, type ToolGroup, type ToolOutcome } from "./types";
 
 /** every tool that needs nothing but a document: reading, building, styling, data */
-export const CORE_TOOLS: Tool<never>[] = [...READ_TOOLS, applyOps as unknown as Tool<never>, ...(OP_TOOLS as unknown as Tool<never>[])];
+export const CORE_TOOLS: Tool<never>[] = [...READ_TOOLS, ...REFERENCE_TOOLS, applyOps as unknown as Tool<never>, ...(OP_TOOLS as unknown as Tool<never>[])];
 
 export type Registry = {
   tools: Tool<never>[];
@@ -81,14 +82,14 @@ export async function executeTool(store: DocStore, name: string, args: unknown, 
 
 /** The short guide to the tools: how a document is built, read and checked with them, then the tools there are by
  *  group. The in-app agent's system prompt starts from it; an MCP server serves it as its instructions. */
-export function toolGuide(tools: Tool<never>[] = CORE_REGISTRY.tools): string {
+export function toolGuide(tools: Tool<never>[] = CORE_REGISTRY.tools, o: { list?: boolean } = {}): string {
   const has = (n: string) => tools.some((t) => t.name === n);
   const byGroup = TOOL_GROUPS.map((g) => [g, tools.filter((t) => t.group === g).map((t) => t.name)] as const).filter(([, names]) => names.length);
   return [
     "## Working on an M3E Canvas document",
     "A document is screens with parts on them, plus a theme (often a style pack modeled on a real product), reusable components, data collections and prototype variables. Every part has an id; take ids from the outline or from what a tool returned, never guess them.",
     "- Read first, briefly: get_outline (one screen, a small depth) or find_nodes, then describe_node for one part. The catalogs: list_parts and describe_part (props and the values they take), list_kits, list_templates, list_styles and get_style, look_reference, list_icons.",
-    "- Compose the way Figma's auto layout does: a `box` (surface none, card, panel, field, bar, chip, button, sheet, overlay or well) with layout column, row or grid holds parts in a run; add parts with add_part {into: {container, index}}. A box hugs what it holds (hugWidth and hugHeight are on): set them false to give it a width or height of its own, and give a child flowSize {w: \"fill\"} to stretch it across its container. Kits (add_kit) are ready compositions of atoms that follow the style: prefer them to composing the same by hand. Composites (app-bar, navigation-bar, list…) are single parts; split_into_atoms turns one into its atoms when it must change inside.",
+    "- Compose the way Figma's auto layout does: a `box` (surface none, card, panel, field, bar, chip, button, sheet, overlay or well) with layout column, row or grid holds parts in a run; add parts with add_part {into: {container, index}}. A box hugs what it holds (hugWidth and hugHeight are on): set them false to give it a width or height of its own, and give a child flowSize {w: \"fill\"} to stretch it across its container. Kits (add_kit) are ready compositions of atoms that follow the style: prefer them to composing the same by hand. Composites (app-bar, navigation-bar, list…) are single parts; split_into_atoms turns one into its atoms when it must change inside." + (has("add_tree") ? " What no kit has, compose in one add_tree call: a nested tree of boxes and atoms with their props, colors and looks." : ""),
     has("apply_ops")
       ? "- Batch: apply_ops runs many operations as one change, all or nothing. Build a screen in one or two batches, giving new screens and parts your own short ids (`id`) so later entries can name them; send the next batch after reading the results."
       : "",
@@ -98,9 +99,7 @@ export function toolGuide(tools: Tool<never>[] = CORE_REGISTRY.tools): string {
     "- Taps: set_action {id, action: {to: screen id | \"back\", effects…}}; variables (add_var) drive effects, bind_prop and showWhen.",
     has("screenshot") ? "- Check by eye: screenshot a screen after changing it, and fix what looks wrong. Open selects, menus and date pickers are drawn open on the canvas by design: leave the room they take." : "",
     "- Errors come back as {code, message, hint}; fix the call and try again. nothing_to_do means it already was so.",
-    "",
-    "Tools by group:",
-    ...byGroup.map(([g, names]) => `- ${g}: ${names.join(", ")}`),
+    ...(o.list === false ? [] : ["", "Tools by group:", ...byGroup.map(([g, names]) => `- ${g}: ${names.join(", ")}`)]),
   ]
     .filter((l) => l !== "")
     .join("\n");

@@ -5,7 +5,7 @@ import { OVERLAY_ROOTS, partBySlug, reader, treeOf, withoutPickedImages } from "
 import type { PartDef, PropDef } from "../parts/types";
 import { type Row, CURRENT_TOKEN, fillCurrent, firstRows, markCurrent } from "./collections";
 import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
-import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, actionsOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
+import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type VarType, type VarValue } from "./tokens";
 
 /* What a tap does and what state a part reads, as source text over the generated runtime
  * (lib/runtimeSource.ts). Pure, like the rest of the printer: a document in, strings out.
@@ -32,6 +32,8 @@ export type RuntimeSpec = {
   opened: string[];
   /** what `{{current.field}}` reads until a row has been tapped */
   current: Row;
+  /** the variable that is the app's dark mode (DocVar `drives: "dark"`) */
+  dark?: string;
 };
 
 type Options = {
@@ -357,7 +359,9 @@ export class Behaviour {
         if (this.usedParts.has(k) && this.heldByState(it, g) && standingOf(partBySlug(it.component)) === "stands" && !g.hidden) opened.push(k);
       }
     }
-    return { screens, vars: [...this.vars.values(), ...this.inputs.values()], parts: [...this.usedParts], hidden, opened, current: firstRows(this.doc.collections ?? []) };
+    const darkVar = darkVarOf(this.doc.vars);
+    const dark = darkVar ? this.vars.get(darkVar.id)?.key : undefined;
+    return { screens, vars: [...this.vars.values(), ...this.inputs.values()], parts: [...this.usedParts], hidden, opened, current: firstRows(this.doc.collections ?? []), ...(dark ? { dark } : {}) };
   }
 
   /** Words that may read the row last tapped, as code. On a part drawn for a row the tap itself says

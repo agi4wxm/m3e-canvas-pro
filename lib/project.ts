@@ -115,12 +115,18 @@ const cleanActions = (map: unknown) => {
 
 const cleanBind = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, id]) => typeof id === "string")) : undefined);
 
+/** one variable at most is the dark mode: the first that says so */
+function onlyOneDark(vars: DocVar[]): DocVar[] {
+  const first = vars.findIndex((v) => v.drives === "dark");
+  return vars.map((v, i) => (v.drives && i !== first ? { id: v.id, name: v.name, type: v.type, value: v.value } : v));
+}
+
 function cleanVar(v: unknown): DocVar | undefined {
   if (!isRecord(v) || typeof v.id !== "string" || (v.type !== "text" && v.type !== "number" && v.type !== "bool")) return undefined;
   const fallback = v.type === "text" ? "" : v.type === "number" ? 0 : false;
   /* a start value of another type keeps the variable and loses the value */
   const value = typeof v.value === typeof fallback && isValue(v.value) ? v.value : fallback;
-  return { id: v.id, name: typeof v.name === "string" ? v.name : "", type: v.type, value };
+  return { id: v.id, name: typeof v.name === "string" ? v.name : "", type: v.type, value, ...(v.drives === "dark" && v.type === "bool" ? { drives: "dark" as const } : {}) };
 }
 
 const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, look: cleanLook, fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined), row: () => undefined }) as unknown as Item;
@@ -239,7 +245,7 @@ export function cleanBehavior(doc: Doc): Doc {
   out.groups = instances(out.groups);
   if (out.components) out.components = out.components.map((c) => ({ ...c, groups: instances(c.groups) }));
   if (out.vars === undefined) return out;
-  if (Array.isArray(out.vars)) out.vars = out.vars.map(cleanVar).filter((v) => v !== undefined);
+  if (Array.isArray(out.vars)) out.vars = onlyOneDark(out.vars.map(cleanVar).filter((v) => v !== undefined));
   else delete out.vars;
   return out;
 }

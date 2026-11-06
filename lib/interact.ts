@@ -56,8 +56,10 @@ export function isOverlayPart(it: Item): boolean {
   return def.category === "Overlays" || /menu|drawer/.test(def.slug);
 }
 
-export const startState = (vars: DocVar[] | undefined, collections?: Collection[]): PreviewState => ({
-  vars: Object.fromEntries((Array.isArray(vars) ? vars : []).map((v) => [v.id, v.value])),
+/** The state a preview starts in. A variable that drives the dark mode starts at the mode the preview opens in
+ *  (`dark`), whatever it was saved with, so the switch bound to it says what is on show. */
+export const startState = (vars: DocVar[] | undefined, collections?: Collection[], dark?: boolean): PreviewState => ({
+  vars: Object.fromEntries((Array.isArray(vars) ? vars : []).map((v) => [v.id, v.drives === "dark" && v.type === "bool" && dark !== undefined ? dark : v.value])),
   hidden: {},
   props: {},
   opened: {},

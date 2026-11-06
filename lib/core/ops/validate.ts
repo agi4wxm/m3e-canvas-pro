@@ -9,7 +9,7 @@ export type { PartDef };
 import { cleanLook } from "../../look";
 import { styleOwnsProp } from "../../styleRules";
 import { isStrict } from "../../styles";
-import { actionSlotsOf, BACK_TARGET, COLOR_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
+import { actionSlotsOf, BACK_TARGET, COLOR_TOKENS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
 import { OpError } from "../op";
 import type { CoreState } from "../state";
 
@@ -89,8 +89,8 @@ const isWH = (v: unknown, of: (x: unknown) => boolean) => isRecord(v) && Object.
 
 /** the fields of a part an operation may set, with how each is checked */
 const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string | null> = {
-  fill: (v) => (v === undefined || COLOR_TOKENS.some((t) => t.key === v) ? null : `should be a color role: ${COLOR_TOKENS.map((t) => t.key).join(", ")}`),
-  textColor: (v) => (v === undefined || isTextToken(v) ? null : "should be a text color role"),
+  fill: (v) => (v === undefined || COLOR_TOKENS.some((t) => t.key === v) ? null : `should be a color role: ${COLOR_TOKENS.map((t) => t.key).join(", ")} (other colors go in the look: {"fills": [...]})`),
+  textColor: (v) => (v === undefined || isTextToken(v) ? null : `should be a text color role: ${TEXT_TOKENS.map((t) => t.key).join(", ")} (other colors go in the look: {"text": {"color": "#hex"}})`),
   corners: (v, s) => {
     if (v === undefined) return null;
     if (isStrict(s.doc.theme)) return "are decided by the style the document is held to";

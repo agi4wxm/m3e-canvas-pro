@@ -353,7 +353,7 @@ const listData = tool<{ rows?: number }>({
 const screenshot = tool<{ id: string; scale?: number }>({
   name: "screenshot",
   group: "read",
-  description: "A picture of a screen (or of one part, cut out of its screen) as the app draws it, to check your work by eye: alignment, spacing, overflow, contrast, anything missing. Open selects, menus and date pickers are drawn open on the canvas by design; leave the room they take as it is.",
+  description: "A picture of a screen (or of one part, cut out of its screen) as the app draws it, to check your work by eye: alignment, spacing, overflow, contrast, anything missing. Open selects, menus and date pickers are drawn open on the canvas by design; leave the room they take as it is. The picture uses a fallback face a little wider than the real one, so a word cut short at the end of a tight line may be only the picture: check the outline before changing it.",
   input: obj({ id: str("a screen id or a part id"), scale: { type: "number", minimum: 0.25, maximum: 2, description: "1 = one pixel per dp (the default)" } }, ["id"]),
   output: "a PNG",
   readOnly: true,

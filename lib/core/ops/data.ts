@@ -112,35 +112,43 @@ export const setVars = op<{ vars: DocVar[] }>({
   },
 });
 
-export const addVar = op<{ id?: string; name: string; type: DocVar["type"]; value: DocVar["value"] }, { id: string }>({
+/** the variables with `v` as the one that drives the dark mode, when it does: no other one does any more */
+const soleDark = (vars: DocVar[], v: DocVar): DocVar[] => (v.drives === "dark" ? vars.map((x) => (x.id !== v.id && x.drives ? { id: x.id, name: x.name, type: x.type, value: x.value } : x)) : vars);
+
+const DRIVES = { type: ["string", "null"], enum: ["dark", null], description: '"dark": this bool variable is the app\'s dark mode (true is dark), so setting or toggling it switches the theme in the preview and the exported app; null: it no longer is' };
+
+export const addVar = op<{ id?: string; name: string; type: DocVar["type"]; value: DocVar["value"]; drives?: "dark" | null }, { id: string }>({
   name: "add_var",
-  summary: "Adds a variable of the prototype (live in the preview only): type text, number or bool, with the value it starts at.",
-  args: S.obj({ id: S.str(), name: S.str(undefined, { minLength: 1 }), type: S.enum(["text", "number", "bool"]), value: { type: ["string", "number", "boolean"] } }, ["name", "type", "value"]),
+  summary: 'Adds a variable of the prototype (live in the preview only): type text, number or bool, with the value it starts at. drives: "dark" makes a bool one the light/dark mode: a dark-mode switch binds its checked prop to it and toggles it.',
+  args: S.obj({ id: S.str(), name: S.str(undefined, { minLength: 1 }), type: S.enum(["text", "number", "bool"]), value: { type: ["string", "number", "boolean"] }, drives: DRIVES }, ["name", "type", "value"]),
   label: () => "Add variable",
   run(s, a, ctx) {
-    const v: DocVar = { id: a.id ?? ctx.newId(), name: a.name, type: a.type, value: a.value };
+    const v: DocVar = { id: a.id ?? ctx.newId(), name: a.name, type: a.type, value: a.value, ...(a.drives === "dark" ? { drives: "dark" as const } : {}) };
     const e = varError(v);
     if (e) throw new OpError("invalid_value", e);
+    if (v.drives && v.type !== "bool") throw new OpError("invalid_value", "Only a bool variable can drive the dark mode.", "drives");
     const vars = s.doc.vars ?? [];
     if (vars.some((x) => x.id === v.id)) throw new OpError("invalid_value", `The id ${JSON.stringify(v.id)} is taken already.`, v.id);
     if (vars.some((x) => x.name === v.name)) throw new OpError("invalid_value", `There is a variable called ${JSON.stringify(v.name)} already.`, v.name);
-    return { state: withDoc(s, { vars: [...vars, v] }), result: { id: v.id } };
+    return { state: withDoc(s, { vars: soleDark([...vars, v], v) }), result: { id: v.id } };
   },
 });
 
-export const updateVar = op<{ id: string; name?: string; type?: DocVar["type"]; value?: DocVar["value"] }>({
+export const updateVar = op<{ id: string; name?: string; type?: DocVar["type"]; value?: DocVar["value"]; drives?: "dark" | null }>({
   name: "update_var",
-  summary: "Changes a variable's name, type or starting value.",
-  args: S.obj({ id: S.str(), name: S.str(), type: S.enum(["text", "number", "bool"]), value: { type: ["string", "number", "boolean"] } }, ["id"]),
+  summary: 'Changes a variable\'s name, type, starting value, or whether it drives the dark mode (drives: "dark" or null).',
+  args: S.obj({ id: S.str(), name: S.str(), type: S.enum(["text", "number", "bool"]), value: { type: ["string", "number", "boolean"] }, drives: DRIVES }, ["id"]),
   label: () => "Variable",
   run(s, a) {
     const vars = s.doc.vars ?? [];
     const v = vars.find((x) => x.id === a.id);
     if (!v) throw new OpError("not_found", `There is no variable ${JSON.stringify(a.id)}.`, a.id);
-    const next: DocVar = { ...v, ...(a.name !== undefined ? { name: a.name } : {}), ...(a.type ? { type: a.type } : {}), ...(a.value !== undefined ? { value: a.value } : {}) };
+    const merged: DocVar = { ...v, ...(a.name !== undefined ? { name: a.name } : {}), ...(a.type ? { type: a.type } : {}), ...(a.value !== undefined ? { value: a.value } : {}), ...(a.drives === "dark" ? { drives: "dark" as const } : {}) };
+    const next: DocVar = a.drives === null || merged.type !== "bool" ? { id: merged.id, name: merged.name, type: merged.type, value: merged.value } : merged;
+    if (a.drives === "dark" && next.type !== "bool") throw new OpError("invalid_value", "Only a bool variable can drive the dark mode.", "drives");
     const e = varError(next);
     if (e) throw new OpError("invalid_value", e);
-    return { state: withDoc(s, { vars: vars.map((x) => (x.id === a.id ? next : x)) }) };
+    return { state: withDoc(s, { vars: soleDark(vars.map((x) => (x.id === a.id ? next : x)), next) }) };
   },
 });
 

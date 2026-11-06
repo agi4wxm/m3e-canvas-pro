@@ -59,6 +59,12 @@ export const AGENT_UI = {
   agentPlan: { ja: "計画", en: "Plan", zh: "计划" },
   agentShowReasoning: { ja: "考えたこと", en: "Reasoning", zh: "思考过程" },
   aiErrorSvg: { ja: "描いた結果に、エディタで描けるものが残りませんでした", en: "The drawing came back with nothing the editor can draw", zh: "绘制结果里没有编辑器能画出的内容" },
+  agentCopyPicture: { ja: "この画像をキャンバスに再現してください。", en: "Recreate this picture on the canvas.", zh: "把这张图复刻到画布上。" },
+  agentAttach: { ja: "画像を添付", en: "Attach a picture", zh: "添加图片" },
+  agentRemovePicture: { ja: "画像を外す", en: "Remove the picture", zh: "移除图片" },
+  agentDropHere: { ja: "ここにドロップして画像を添付", en: "Drop to attach the picture", zh: "松开即可添加图片" },
+  agentAttachHint: { ja: "スクリーンショットを貼り付け・ドロップ・添付すると、エージェントが原子で再現して見比べます。", en: "Paste, drop or attach a screenshot and the agent rebuilds it from atoms, then compares the two.", zh: "粘贴、拖入或添加一张截图，智能体会用原子组件复刻它，再并排对照修改。" },
+  agentPictureTooBig: { ja: "この画像は読み込めませんでした", en: "That picture could not be read", zh: "这张图片读不出来" },
 } as const satisfies Record<string, Str>;
 
 export const AGENT_KO: Record<keyof typeof AGENT_UI, string> = {
@@ -117,4 +123,10 @@ export const AGENT_KO: Record<keyof typeof AGENT_UI, string> = {
   agentPlan: "계획",
   agentShowReasoning: "생각한 과정",
   aiErrorSvg: "그린 결과에 편집기가 그릴 수 있는 것이 남지 않았습니다",
+  agentCopyPicture: "이 이미지를 캔버스에 재현해 주세요.",
+  agentAttach: "이미지 첨부",
+  agentRemovePicture: "이미지 제거",
+  agentDropHere: "놓아서 이미지 첨부",
+  agentAttachHint: "스크린샷을 붙여 넣거나 끌어 놓거나 첨부하면 에이전트가 원자로 다시 만들고 둘을 비교합니다.",
+  agentPictureTooBig: "이 이미지를 읽을 수 없습니다",
 };

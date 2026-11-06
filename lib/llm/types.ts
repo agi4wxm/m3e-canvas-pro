@@ -13,7 +13,7 @@ export type AdapterKind = "openai-responses" | "anthropic" | "chat";
 export type TextPart = { type: "text"; text: string };
 
 /** a picture as a data URL (a PNG screenshot, usually); `detail` is a hint some providers read */
-export type ImagePart = { type: "image"; dataUrl: string; detail?: "low" | "high" | "auto" };
+export type ImagePart = { type: "image"; dataUrl: string; detail?: "low" | "high" | "auto"; /** what it is, for the words left in its place when it is dropped from a long conversation */ name?: string };
 
 /** what the model thought, as far as the provider shows it: a summary for people, and the opaque
  *  item the provider wants back on the next step */

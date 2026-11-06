@@ -5,6 +5,7 @@
 import type { CoreState, DocStore, HistoryMode, OpErrorCode, Origin, Schema } from "../core";
 import type { AiSettings } from "../ai";
 import type { Adapter } from "../llm/types";
+import type { Pixels } from "./pixels";
 
 /** the subsets a client can be given: reading, building, styling, data and behaviour, and drawing with a model */
 export type ToolGroup = "read" | "edit" | "style" | "data" | "generate";
@@ -41,6 +42,10 @@ export type GenerateEnv = {
   remote?: RemoteDrawing;
 };
 
+/** A picture the author handed over with a request (a screenshot to copy, a mood board): named by its id ("ref1")
+ *  in what the model is told, so a tool can be pointed at it. */
+export type Attachment = { id: string; dataUrl: string; name?: string; w?: number; h?: number };
+
 /** an SVG drawn for the vector atom: its markup, ready for the canvas, and how it was made */
 export type SvgDrawing = { markup: string; route: "image" | "code"; warnings: string[]; ms: number };
 
@@ -63,6 +68,10 @@ export type ToolEnv = {
   renderer?: Renderer;
   signal?: AbortSignal;
   gen?: GenerateEnv;
+  /** the pictures the author attached in this conversation */
+  attachments?: Attachment[];
+  /** decodes a picture to pixels (lib/tools/pixels.ts `readPixels` when left out) */
+  pixels?: (dataUrl: string) => Promise<Pixels>;
 };
 
 export type Tool<A = Record<string, unknown>> = {
