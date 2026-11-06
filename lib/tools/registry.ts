@@ -84,6 +84,17 @@ export async function executeTool(store: DocStore, name: string, args: unknown, 
   }
 }
 
+/** A working product (data, sign-in, an API) is built in the document, never in code: the order the work goes in,
+ *  and what the tools do not say alone. */
+const PRODUCT_GUIDE = [
+  "- A working app (real data, forms that save, sign-in, \"connect to the API\") is made in the document, never in code:",
+  "  1. Contract (get_api first): from the screens infer models (camelCase fields; uuid ids, date-time, email, uri pictures, enums; a title per field in the canvas language: forms and labels show it) and REST endpoints: GET /things (listThings, cursor paging {items, nextCursor}), GET /things/{thingId}, POST /things (body: the writable fields with their rules), PATCH, DELETE; errors are problem+json. Sign-in: public POST /auth/login (security []) returning accessToken, refreshToken, user, then set_auth {schemes: bearer, security, login}. One apply_ops batch, or import_openapi for a given spec.",
+  "  2. Bindings: wire_screen per screen and endpoint (source, region, row bound to the fields, state designs; detail: the screen a row opens). A designed list keeps its design: add_data_source, set_repeat {data: \"data.<source>.items\"} on its container (the first child is the row), remove the other sample rows, bind_expression the row's parts (item.name, currency(item.price)), set_region on the container. A row of API data opens a detail by set_action {to, params: {thingId: \"item.id\"}}, read there as params.thingId (a data collection's row is read as {{current.field}} instead). make_form for create, edit and sign-in forms; a button calling an endpoint: effects [{do: \"call\", operationId, args, then}]; set_screen_auth login / required.",
+  "  3. States: each region has loading, empty, error and no-access designs in the document's style: word them for the product (set_props).",
+  "  4. Mocks: fill_mocks (they draw placeholder pictures for image fields: draw none for the data); add_mock_scenario as asked ({all: {empty: true}}, {all: {status: 500}}, latency); set_mock_realtime for a channel.",
+  "  5. Check: screenshot {id, scenario: \"\"} shows a screen with mock data and what each source got, {state} a region's design; try_mock calls endpoints.",
+].join("\n");
+
 /** The short guide to the tools: how a document is built, read and checked with them, then the tools there are by
  *  group. The in-app agent's system prompt starts from it; an MCP server serves it as its instructions. */
 export function toolGuide(tools: Tool<never>[] = CORE_REGISTRY.tools, o: { list?: boolean } = {}): string {
@@ -103,6 +114,7 @@ export function toolGuide(tools: Tool<never>[] = CORE_REGISTRY.tools, o: { list?
     "- Taps: set_action {id, action: {to: screen id | \"back\", effects…}}; variables (add_var) drive effects, bind_prop and showWhen.",
     has("screenshot") ? "- Check by eye: screenshot a screen after changing it, and fix what looks wrong. Open selects, menus and date pickers hang over the parts below them on the canvas by design: leave the layout as it is." : "",
     "- Errors come back as {code, message, hint}; fix the call and try again. nothing_to_do means it already was so.",
+    ...(has("wire_screen") ? [PRODUCT_GUIDE] : []),
     ...(o.list === false ? [] : ["", "Tools by group:", ...byGroup.map(([g, names]) => `- ${g}: ${names.join(", ")}`)]),
   ]
     .filter((l) => l !== "")

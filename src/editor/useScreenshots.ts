@@ -6,7 +6,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { DocStore } from "@/lib/core";
-import type { Renderer } from "@/lib/tools";
+import type { Renderer, ShotOptions } from "@/lib/tools";
 import type { Doc, Frame } from "@/lib/tokens";
 import { capture, layerDrawn, nextFrame, shotTarget } from "./screenShot";
 
@@ -25,15 +25,18 @@ const JPEG_OVER = 600_000;
 const PAD = 8;
 
 export function useScreenshots(store: DocStore) {
-  const [shotFrame, setShotFrame] = useState<Frame | null>(null);
+  /* the screen on the layer, and the version of the document it is drawn from when not the one held (a screen with
+     its mock data in, a region in one of its states) */
+  const [shot, setShot] = useState<{ frame: Frame; doc?: Doc; widths?: Record<string, number> } | null>(null);
   const chain = useRef<Promise<unknown>>(Promise.resolve());
 
   const renderer = useMemo<Renderer>(() => {
-    const take = async (id: string, o: { scale?: number; signal?: AbortSignal; onSkipped?: (urls: string[]) => void } = {}): Promise<string> => {
-      const doc = store.get().doc as Doc;
-      const target = shotTarget(doc, store.ctx("ai").widths, id);
+    const take = async (id: string, o: ShotOptions = {}): Promise<string> => {
+      const doc = o.doc ?? (store.get().doc as Doc);
+      const widths = o.doc ? { ...store.ctx("ai").widths, ...o.widths } : store.ctx("ai").widths;
+      const target = shotTarget(doc, widths, id);
       if (!target) throw new Error(`there is no screen or part ${id} on a screen`);
-      setShotFrame(target.frame);
+      setShot({ frame: target.frame, ...(o.doc ? { doc, widths } : {}) });
       try {
         /* drawn, measured and laid out by the canvas, its parts' code and faces in */
         await nextFrame();
@@ -48,7 +51,7 @@ export function useScreenshots(store: DocStore) {
         if (skipped.length) o.onSkipped?.(skipped);
         return png;
       } finally {
-        setShotFrame(null);
+        setShot(null);
       }
     };
     return {
@@ -60,5 +63,5 @@ export function useScreenshots(store: DocStore) {
     };
   }, [store]);
 
-  return { shotFrame, renderer };
+  return { shotFrame: shot?.frame ?? null, shotDoc: shot?.doc, shotWidths: shot?.widths, renderer };
 }

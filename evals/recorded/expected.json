@@ -1,4 +1,8 @@
 {
+  "chat-realtime-1": {
+    "pass": true,
+    "failed": []
+  },
   "checkout-strict": {
     "pass": true,
     "failed": []
@@ -24,6 +28,10 @@
     "failed": []
   },
   "replicate-weather": {
+    "pass": true,
+    "failed": []
+  },
+  "shop-api-wire": {
     "pass": true,
     "failed": []
   },

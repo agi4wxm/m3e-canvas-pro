@@ -1304,7 +1304,10 @@ export function heldBy(container: Group, groups: Group[], widths: Record<string,
   /* lying inside counts only among parts of the same expansion: the rows of a repeat start out stacked
    * on one another until they are placed, and one must not take the next along */
   const scopeOf = (id: string) => id.slice(0, Math.max(0, id.lastIndexOf("/")));
-  const held = new Set(groups.filter((g, i) => g.id !== container.id && !g.locked && (g.inFlow === container.id || ownerIdOf(g.id) === container.id || (i > at && scopeOf(g.id) === scopeOf(container.id) && liesInside(g, outer, widths)))));
+  /* A part an auto layout lays out is that layout's alone: the panes of one host (a region's state designs, a dock's
+     tabs) stand on one another, and what one pane holds must not be taken for the pane drawn under it. */
+  const laidOutElsewhere = (g: Group) => !!g.inFlow && g.inFlow !== container.id && groups.some((x) => x.id === g.inFlow);
+  const held = new Set(groups.filter((g, i) => g.id !== container.id && !g.locked && (g.inFlow === container.id || ownerIdOf(g.id) === container.id || (i > at && scopeOf(g.id) === scopeOf(container.id) && !laidOutElsewhere(g) && liesInside(g, outer, widths)))));
   /* what a layout or an expansion holds is its own even where it overflows, at any depth. Who holds whom is read once,
      so a deep nest costs its size and not its size squared */
   const kids = new Map<string, Group[]>();

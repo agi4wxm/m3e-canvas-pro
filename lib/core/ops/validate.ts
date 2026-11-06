@@ -301,6 +301,33 @@ function bodyError(a: unknown, s: CoreState, depth = 0): string | null {
   return null;
 }
 
+/** A tap that opens a screen with params the screen does not declare yet declares them there: the screen a list's row
+ *  opens learns what it is given, whichever of the two is made first. Its call branches and its else count too. */
+export function withTapParams(s: CoreState, a: unknown): CoreState {
+  const wanted = new Map<string, Set<string>>();
+  const visit = (b: unknown, depth: number) => {
+    if (!isRecord(b) || depth > 6) return;
+    if (typeof b.to === "string" && isRecord(b.params)) for (const name of Object.keys(b.params)) if (/^[A-Za-z_]\w{0,63}$/.test(name)) (wanted.get(b.to) ?? wanted.set(b.to, new Set()).get(b.to)!).add(name);
+    for (const e of Array.isArray(b.effects) ? b.effects : [])
+      if (isRecord(e) && e.do === "call") {
+        visit(e.then, depth + 1);
+        visit(e.catch, depth + 1);
+      }
+    visit(b.else, depth + 1);
+  };
+  visit(a, 0);
+  if (!wanted.size) return s;
+  let changed = false;
+  const frames = s.doc.frames.map((f) => {
+    const names = wanted.get(f.id);
+    const missing = names ? [...names].filter((n) => !(f.params ?? []).some((p) => p.name === n)) : [];
+    if (!missing.length) return f;
+    changed = true;
+    return { ...f, params: [...(f.params ?? []), ...missing.map((name) => ({ name, type: "string" as const }))] };
+  });
+  return changed ? { ...s, doc: { ...s.doc, frames } } : s;
+}
+
 export function actionError(a: unknown, s: CoreState): string | null {
   const e = bodyError(a, s);
   if (e) return e;

@@ -161,6 +161,8 @@ npx playwright install chromium
 
 屏幕上有加载不了的图片（外链失效、返回的不是图片、不允许复制）时，那张图画成灰块，截图照常返回，结果里的 `skipped` 列出这些地址并提示换成 `generate_image` 或图标；实时模式在编辑器里截图也一样。
 
+截图可以带模拟场景和状态：`screenshot {id, scenario: ""}` 让模拟库回答屏幕的数据源，按预览的方式画出列表、绑定的文字和区域的状态，结果的 `data` 说明每个数据源拿到了什么；`{state: "empty"}` 让区域显示某个状态的设计（见 [组件规范](组件规范.md) 的“产品层”）。没装 Playwright 时带场景的截图仍然返回 `data`，只是没有图片。
+
 ## 安全
 
 | 方面 | 做法 |
@@ -191,7 +193,7 @@ npx playwright install chromium
 - **图片**：图片属性、列表行的图片、实例的图片覆盖和屏幕的 `backgroundImage` 只接受 `data:image/…` 和项目自己的图片；外链被拒（提示用 `generate_image`）。SVG data URL 先过和矢量原子相同的清理。
 - **组件定义**：`list_components` 给出每个组件的部件和实例可覆盖的键（`部件 id/属性 = 定义里的值`），`describe_node` 也能读组件定义里的部件。
 
-- **说明**：服务器的 instructions 是工具指南（`toolGuide`）加上 MCP 的说明。
+- **说明**：服务器的 instructions 是工具指南（`toolGuide`）加上 MCP 的说明；工具指南里有做成能用的产品的顺序（契约、绑定、状态、模拟库、检查），和应用内的智能体看到的一样。
 - **提示词**：`guide`（工具指南）、`design_screen`（按一段需求设计一个屏幕，先搭再截图检查）。
 - **资源**：`m3e://document/outline`、`m3e://document/screens`、`m3e://document/components`、`m3e://document/data`、`m3e://document/styles`；目录 `m3e://catalog/parts`、`kits`、`templates`、`looks`、`icons`；模板 `m3e://screen/{id}/outline`、`m3e://screen/{id}/screenshot`、`m3e://node/{id}`、`m3e://part/{slug}`。文档资源可以订阅，改动后会收到通知。
 

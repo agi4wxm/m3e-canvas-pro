@@ -39,7 +39,7 @@ const MORE: Record<string, string> = {
   set_style_rules: "Off frees colors, shapes and every look field; on removes what the style decides. Only when the author asks for it.",
   clear: "Removes everything the canvas holds. Only when the author asks for a fresh start.",
   remove_nodes: "A container's children are not removed with it: remove them too when the whole block should go.",
-  set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here. The API: {do: "call", operationId, args: {param or body field: expression}, then: {to, params, effects}, catch: {...}} (then reads response, catch reads error), {do: "refresh", source}, {do: "loadMore", source}, {do: "submit"} (the form the part is in), {do: "signOut"}; params: {name: expression} gives the screen it opens its params; when: {expr} tests an expression; setVar {expr} sets a variable from one.',
+  set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here. The API: {do: "call", operationId, args: {param or body field: expression}, then: {to, params, effects}, catch: {...}} (then reads response, catch reads error), {do: "refresh", source}, {do: "loadMore", source}, {do: "submit"} (the form the part is in), {do: "signOut"}; params: {name: expression} gives the screen it opens its params (declared there if missing; for API data, while a detail opened from a row of a data collection reads {{current.field}}); when: {expr} tests an expression; setVar {expr} sets a variable from one.',
   wrap_in_auto_layout: "Returns {itemId}: the new outer box.",
   make_component: "Its parts then live in the component's definition, no longer on the screen: change them with edit_component (every instance follows); an instance's own words with set_instance_props or set_overrides. Returns {id, instanceId, itemId}.",
   edit_component:
@@ -75,12 +75,12 @@ const MORE: Record<string, string> = {
   generate_mock_files: "Returns {ids}.",
   set_mock_realtime: "get_api lists each channel's messages. Returns {id}.",
   wire_screen:
-    "The quickest way to a working screen: one call per screen and endpoint (a list screen with detail: the detail screen's id, which then gets the row's id as its params). Afterwards restyle what it made like any parts. Returns {source, region, template, states}. describe_bindings shows the result.",
+    "The quickest way to a working screen: one call per screen and endpoint (a list with detail: the screen a row opens, given the row's id as its params, in either order). It composes a region of its own below what the screen holds: a list already designed is bound in place instead (set_repeat, bind_expression, set_region). Restyle what it made like any parts. Returns {source, region, template, states}.",
   add_data_source: "Returns {name, addedParams}. The screen then reads data.<name>.value (the body), .items (a list, every page so far), .status, .loading, .error, .hasMore, .empty.",
   bind_expression:
     'Paths: data.<source>.value.<field>, data.<source>.items, item.<field> (inside a repeat over data), index, params.<name>, vars.<name>, form.<field>, form.errors.<field>, form.error, form.submitting, auth.signedIn, auth.user.<field>. Operators: + - * / % == != < <= > >= && || ! ?? ?:. Helpers: date(v, "date|time|datetime|short|long|relative"), relative(v), number(v, digits), currency(v, code), percent(v), fileSize(v), plural(n, "# item", "# items"), truncate(s, n), upper, lower, len, join, pluck, sum, first, last, contains, isEmpty, round, min, max. describe_bindings {screen, expr, at} checks one first.',
   set_region: "A region is usually a repeat's container (a list) or the column showing one item. Returns {states}: the states it has designs for; each design is an ordinary box on the region's pane for that state, edited like any parts (set_region {show} brings it on the canvas).",
-  make_form: "Returns {formId, fields: [{field, itemId}], submitId}. The login endpoint's form (set_auth login) starts the session; then {to: screen} goes on.",
+  make_form: "Returns {formId, fields: [{field, itemId}], submitId}. The login endpoint's form (set_auth login) starts the session; then {to: screen} goes on. A list opened after saving loads again by itself: refresh only names a source of the screen the form is on.",
 };
 
 /** what an operation reports that a model has no use for */
@@ -151,12 +151,33 @@ function runOne(o: Op<never, unknown>, args: Record<string, unknown>, env: ToolE
   return { result: lean(o.name, result) };
 }
 
+/** Operations that change what another adds, with the same fields: their fields are described once, on the adding
+ *  one, and only named here (the operation still checks every value). Every request carries every loaded tool. */
+const SAME_FIELDS_AS: Record<string, string> = { update_endpoint: "add_endpoint", update_mock_scenario: "add_mock_scenario", update_channel: "add_channel" };
+
+/** a tool's input with the fields it shares with the operation it updates left undescribed */
+function leanInput(name: string, input: Schema): Schema {
+  const like = SAME_FIELDS_AS[name] ? opByName(SAME_FIELDS_AS[name]) : undefined;
+  const shared = like ? ((like.args as Schema).properties as Record<string, Schema> | undefined) : undefined;
+  const props = input.properties as Record<string, Schema> | undefined;
+  if (!shared || !props) return input;
+  const bare = (s: Schema): Schema => {
+    const { description: _d, ...rest } = s;
+    const out: Schema = { ...rest };
+    if (out.properties && typeof out.properties === "object") out.properties = Object.fromEntries(Object.entries(out.properties as Record<string, Schema>).map(([k, v]) => [k, bare(v)]));
+    if (out.items && typeof out.items === "object" && !Array.isArray(out.items)) out.items = bare(out.items as Schema);
+    if (out.additionalProperties && typeof out.additionalProperties === "object") out.additionalProperties = bare(out.additionalProperties as Schema);
+    return out;
+  };
+  return { ...input, properties: Object.fromEntries(Object.entries(props).map(([k, s]) => [k, k in shared ? bare(s) : s])) };
+}
+
 /** one tool for one operation */
 const opTool = (o: Op<never, unknown>): Tool<Record<string, unknown>> => ({
   name: o.name,
   group: groupOf(o.name),
-  description: MORE[o.name] ? `${o.summary} ${MORE[o.name]}` : o.summary,
-  input: opInput(o.name, o.args),
+  description: [o.summary, MORE[o.name], SAME_FIELDS_AS[o.name] ? `The fields are as ${SAME_FIELDS_AS[o.name]} describes them.` : ""].filter(Boolean).join(" "),
+  input: leanInput(o.name, opInput(o.name, o.args)),
   readOnly: false,
   destructive: DESTRUCTIVE_OPS.has(o.name),
   prepare: (args, s) => idAliased(o.name, args, s),
