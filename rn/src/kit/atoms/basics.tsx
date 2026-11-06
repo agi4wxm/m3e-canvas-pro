@@ -248,7 +248,7 @@ export function Shape(props: ShapeProps) {
   const h = Math.round(p.height ?? 96);
   return (
     <Surface appearance={p} onPress={p.onPress} testID={p.testID} accessibilityRole="image" base={{ width: w, height: h }}>
-      <Svg width={w} height={h} viewBox="0 0 380 380" preserveAspectRatio="none">
+      <Svg width={w} height={h} viewBox="0 0 100 100" preserveAspectRatio="none">
         <Path d={d} fill={kit.colors[SHAPE_COLORS[p.color ?? "primary"] ?? "primary"]} />
       </Svg>
     </Surface>

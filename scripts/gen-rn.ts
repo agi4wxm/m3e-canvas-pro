@@ -11,7 +11,7 @@ import { setGlobalLang, type Lang } from "../lib/i18n";
 import { CATEGORIES, PARTS, reader, tierOf } from "../parts/registry";
 import { KITS, pickVariant } from "../parts/kits";
 import { SVG_PRESETS } from "../parts/svg";
-import { SHAPE_PATHS } from "../lib/m3e/shape-library";
+import { SHAPE_NAMES, shapeClipPath } from "../lib/m3e/shape-library";
 import { kitLookOf } from "../lib/kits";
 import { normalizeTheme } from "../lib/tokens";
 import { rnThemeOf } from "../lib/export/rn/theme";
@@ -52,14 +52,24 @@ export const CATEGORIES: string[] = ${json([...CATEGORIES])};
 `;
 }
 
+/** a shape's clip-path polygon (in percent) as a path in a 100 × 100 box */
+function shapePaths(): Record<string, string> {
+  return Object.fromEntries(
+    SHAPE_NAMES.map((name) => {
+      const points = [...shapeClipPath(name).matchAll(/([\d.]+)% ([\d.]+)%/g)].map((m) => `${m[1]} ${m[2]}`);
+      return [name, `M${points.join("L")}Z`];
+    }),
+  );
+}
+
 function shapesModule(): string {
   const presets = Object.fromEntries(Object.entries(SVG_PRESETS).map(([k, v]) => [k, { viewBox: v.viewBox, d: v.d, ...(v.stroke !== undefined ? { stroke: v.stroke } : {}) }]));
   return `${HEAD}
 /** the vector part's library of shapes (parts/svg.ts) */
 export const SVG_PRESETS: Record<string, { viewBox: string; d: string[]; stroke?: number }> = ${json(presets)};
 
-/** M3 Expressive's shapes, each drawn in a 380 × 380 box (lib/m3e/shape-library.ts) */
-export const SHAPE_PATHS: Record<string, string> = ${json(SHAPE_PATHS)};
+/** M3 Expressive's shapes as the canvas clips them (lib/m3e/shape-library.ts \`shapeClipPath\`), each a path in a 100 × 100 box */
+export const SHAPE_PATHS: Record<string, string> = ${json(shapePaths())};
 `;
 }
 

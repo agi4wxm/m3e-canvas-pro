@@ -207,7 +207,7 @@ export function LoadingIndicator(props: PartBase & { variant?: "default" | "cont
   return (
     <View testID={p.testID} accessible accessibilityRole="progressbar" style={{ width: s, height: s, borderRadius: s / 2, alignItems: "center", justifyContent: "center", backgroundColor: contained ? c(kit, "primary-container") : "transparent" }}>
       <Animated.View style={{ transform: [{ rotate: spin }] }}>
-        <Svg width={shape} height={shape} viewBox="0 0 380 380">
+        <Svg width={shape} height={shape} viewBox="0 0 100 100">
           <Path d={SHAPE_PATHS["soft-burst"] ?? SHAPE_PATHS.circle} fill={c(kit, contained ? "on-primary-container" : "primary")} />
         </Svg>
       </Animated.View>
