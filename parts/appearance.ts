@@ -107,7 +107,7 @@ function paintWords(tree: PNode, look: ItemLook): PNode {
   if (!sized && !gradient) return tree;
   return mapNodes(tree, (n) => {
     if (n.props?.[WORDS] || !holdsWords(n)) return n;
-    const props = sized ? { ...(n.props ?? {}), style: { ...ownStyle(n.props ?? {}), ...own } } : n.props;
+    const props = sized ? { ...n.props, style: { ...ownStyle(n.props ?? {}), ...own } } : n.props;
     const children = gradient ? n.children!.map((c): PNode | string => (typeof c === "string" && c.trim() !== "" ? { type: "span", props: { [WORDS]: true, style: gradient }, children: [c] } : c)) : n.children;
     return { ...n, ...(props ? { props } : {}), children };
   });
@@ -121,7 +121,7 @@ export function applyAppearance(tree: PNode, a: Appearance | undefined, target?:
     .join(" ");
   const look = lookStyle(a.look);
   const paint = (n: PNode): PNode => {
-    const props = { ...(n.props ?? {}) };
+    const props = { ...n.props };
     if (classes) {
       const kept = (typeof props.className === "string" ? props.className.split(/\s+/) : []).filter((c) => c && !(a.fill && OWN_FILL.test(c)) && !(OWN_TEXT.test(c)));
       props.className = [...kept, ...classes.split(" ")].join(" ");

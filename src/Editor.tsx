@@ -4344,7 +4344,7 @@ export default function Editor({ initialLang, onReady }: { initialLang: Lang; on
           const cur = it.actions?.[slot];
           if (!cur) return it;
           const next = fn(cur);
-          const actions = { ...(it.actions ?? {}) };
+          const actions = { ...it.actions };
           if (next) actions[slot] = next;
           else delete actions[slot];
           return { ...it, actions: Object.keys(actions).length ? actions : undefined };

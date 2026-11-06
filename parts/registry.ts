@@ -241,7 +241,7 @@ function opened(node: PNode, open: NonNullable<PartDef["open"]>, first: { menu: 
       return {
         ...node,
         props: { ...props, open: true, modal: false, ...open.root },
-        children: open.trigger === "hide" ? node.children?.filter((c) => typeof c === "string" || !/Trigger$/.test(c.type)) : node.children,
+        children: open.trigger === "hide" ? node.children?.filter((c) => typeof c === "string" || !c.type.endsWith("Trigger")) : node.children,
       };
     default:
       return node;
@@ -332,7 +332,10 @@ export function translateComponentProps(component: string | undefined, props: Pr
       const v = next[d.key];
       if (typeof v === "string" && v) {
         const t = translateSeed(v, d, lang);
-        if (t !== v) (next[d.key] = t), (changed = true);
+        if (t !== v) {
+          next[d.key] = t;
+          changed = true;
+        }
       }
     } else if (d.kind === "list") {
       const v = next[d.key];
@@ -342,7 +345,10 @@ export function translateComponentProps(component: string | undefined, props: Pr
           const label = key ? (COMMON_TEXT[key][lang] ?? key) : x.label;
           return label !== x.label ? { ...x, label } : x;
         });
-        if (rows.some((x, i) => x !== (v as ListItem[])[i])) (next[d.key] = rows), (changed = true);
+        if (rows.some((x, i) => x !== (v as ListItem[])[i])) {
+          next[d.key] = rows;
+          changed = true;
+        }
       }
     }
   }

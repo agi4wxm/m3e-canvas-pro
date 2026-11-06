@@ -38,6 +38,7 @@ bun run dev
 | `bun run preview` | 预览生产构建 |
 | `bun run typecheck` | 类型检查 |
 | `bun run test` | 运行测试 |
+| `bun run lint` | 代码检查，有警告也算失败 |
 | `bun run gen:parts` | 重新生成组件索引 |
 | `bun run gen:agent` | 把组件清单写进 `public/agent.md` |
 | `bun run gen:icon-sets` | 按图标对照表重新打包各风格的图标集（`check:icon-sets` 只检查） |

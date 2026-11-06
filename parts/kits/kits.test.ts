@@ -244,7 +244,7 @@ describe("the composites that split", () => {
         ...d.props.filter((x) => x.kind === "text" && !(unseen[d.slug] ?? []).includes(x.key) && (!x.when || x.when(p))).map((x) => p.s(x.key)),
         ...d.props.filter((x) => x.kind === "list" && !(unseen[d.slug] ?? []).includes(x.key)).flatMap((x) => p.list(x.key).map((it) => it.label)),
         ...d.props.filter((x) => x.kind === "table").flatMap((x) => p.table(x.key).rows.map((r) => r[0] ?? "")),
-      ].filter((w) => w && !/^#/.test(w));
+      ].filter((w) => w && !w.startsWith("#"));
       /* word by word: a stat of "128 Posts" is a figure over a name */
       for (const w of words) for (const piece of w.split(/\s+/)) expect(said, `${d.slug}: "${w}"`).toContain(piece);
       if (d.slug === "dialogue-box") expect(said).toContain(p.list("lines")[0].label);

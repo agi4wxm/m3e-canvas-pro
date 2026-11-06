@@ -336,7 +336,7 @@ describe("painting the effects onto a part", () => {
     expect(run.type).toBe("span");
     expect(run.props?.["data-look-text"]).toBe(true);
     expect(run.children).toEqual(["Title"]);
-    expect((run.props?.style as Record<string, string>).backgroundClip).toBe("text");
+    expect((run.props!.style as Record<string, string>).backgroundClip).toBe("text");
     const small = ((out.children![1] as PNode).children![1] as PNode);
     expect(small.props?.style).toEqual({ fontSize: "18px", fontWeight: 700 });
     expect((small.children![0] as PNode).type).toBe("span");
@@ -350,7 +350,7 @@ describe("painting the effects onto a part", () => {
     const out = applyAppearance(tree, { look: { shadows: [{ x: 0, y: 2, blur: 4, spread: 0, color: "#000" }], text: { gradient: { type: "linear", stops: [{ color: "#fff", at: 0 }, { color: "#000", at: 100 }] } } } }, "div");
     for (const c of out.children ?? []) {
       const slide = (c as PNode).children![0] as PNode;
-      expect((slide.props?.style as Record<string, string>).boxShadow).toBe("0px 2px 4px 0px #000000");
+      expect((slide.props!.style as Record<string, string>).boxShadow).toBe("0px 2px 4px 0px #000000");
       expect((slide.children![0] as PNode).type).toBe("span");
     }
   });

@@ -396,7 +396,6 @@ function varsLine(vars: DocVar[] | undefined, lang: Lang): string | null {
 
 function notes(g: Group, scope: Scope, lang: Lang): string[] {
   const out: string[] = stateNotes(g, scope, lang);
-  const frames = scope.frames;
   const q = quote(lang);
   for (const it of g.items) {
     const noun = nounOf(it, lang);

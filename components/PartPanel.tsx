@@ -417,7 +417,7 @@ export function TriggerSection({
       onChange({ action: next });
       return;
     }
-    const actions = { ...(item.actions ?? {}) };
+    const actions = { ...item.actions };
     if (next) actions[slot] = next;
     else delete actions[slot];
     onChange({ actions: Object.keys(actions).length ? actions : undefined });

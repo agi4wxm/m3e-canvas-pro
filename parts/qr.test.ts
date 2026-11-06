@@ -48,7 +48,7 @@ function read(m: boolean[][]) {
   const level = LEVEL_OF[format >>> 13];
   const mask = (format >>> 10) & 7;
 
-  const reserved = Array.from({ length: size }, () => new Array<boolean>(size).fill(false));
+  const reserved = Array.from({ length: size }, () => Array.from({ length: size }, () => false));
   const box = (x0: number, y0: number, w: number, h: number) => {
     for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) reserved[y][x] = true;
   };

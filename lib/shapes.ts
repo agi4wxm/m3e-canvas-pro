@@ -169,7 +169,7 @@ export function morphedShape(fraction: number): Point[] {
   const t = Math.max(0, Math.min(1, fraction - idx));
   const a = shapes[from];
   const b = shapes[to];
-  const out: Point[] = new Array(a.length);
+  const out = Array.from({ length: a.length }) as Point[];
   for (let i = 0; i < a.length; i++) {
     out[i] = [a[i][0] + (b[i][0] - a[i][0]) * t, a[i][1] + (b[i][1] - a[i][1]) * t];
   }

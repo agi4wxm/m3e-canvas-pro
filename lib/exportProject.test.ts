@@ -108,7 +108,7 @@ describe("the project of a real document", () => {
     expect(images).toHaveLength(1);
     expect(images[0]).toMatch(/\.png$/);
     const bytes = files[images[0]] as Uint8Array;
-    expect([...bytes.slice(1, 4)].map((c) => String.fromCharCode(c)).join("")).toBe("PNG");
+    expect(Array.from(bytes.slice(1, 4), (c) => String.fromCharCode(c)).join("")).toBe("PNG");
     const screen = textOf(files, "src/screens/CounterScreen.tsx");
     expect(screen).toContain(`src="${images[0].slice("public".length)}"`);
     expect(Object.values(files).some((f) => typeof f === "string" && f.includes(PICKED_PNG))).toBe(false);

@@ -515,6 +515,7 @@ const TSCONFIG = json({
 function readmeSource(doc: Doc, screens: ScreenCode[], copied: string[], missing: string[]): string {
   const dirs = [...new Set(copied.map((p) => p.slice(0, p.lastIndexOf("/"))))].sort();
   /* the title is a heading of one line */
+  // eslint-disable-next-line no-control-regex -- a title is one line of plain text: control characters and line separators go
   const title = (doc.title || "").replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim() || "App";
   return `# ${title}
 
@@ -631,7 +632,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
   files[".gitignore"] = GITIGNORE;
 
   /* the walk starts from what was just written, so it copies what they reach and nothing else */
-  const written = [...Object.keys(files).filter((p) => p.endsWith(".tsx")).map((p) => files[p] as string)];
+  const written = Object.keys(files).filter((p) => p.endsWith(".tsx")).map((p) => files[p] as string);
   const roots = new Set<string>(["@/styles/m3e.css", "@/react-css.d.ts"]);
   const here = new Set(["@/runtime", "@/theme", "@/style-icons"]);
   for (const source of written) for (const spec of importsIn(source)) if (!spec.startsWith(".") && !here.has(spec)) roots.add(spec);

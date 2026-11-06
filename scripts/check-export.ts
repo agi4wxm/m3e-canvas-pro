@@ -154,7 +154,7 @@ async function edgeAt(name: string, url: string) {
     if (r.exceptionDetails) throw new Error(`${r.exceptionDetails.exception?.description} in: ${expr.slice(0, 160)}`);
     return r.result.value;
   };
-  const waitFor = async (expr: string, label: string) => {
+  const waitFor = async (expr: string, _label: string) => {
     for (let i = 0; i < 40; i++) {
       if ((await ev(`return !!(${expr})`)) === true) return true;
       await sleep(125);

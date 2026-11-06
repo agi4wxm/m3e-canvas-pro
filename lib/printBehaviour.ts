@@ -753,7 +753,7 @@ export class Behaviour {
         return {
           ...n,
           props: { ...n.props, open: raw(`isOpen(${key})`), onOpenChange: raw(`(next) => (next ? open(${key}) : close(${key}))`) },
-          children: stands ? n.children?.filter((c) => typeof c === "string" || !/Trigger$/.test(c.type)) : n.children,
+          children: stands ? n.children?.filter((c) => typeof c === "string" || !c.type.endsWith("Trigger")) : n.children,
         };
       });
     }

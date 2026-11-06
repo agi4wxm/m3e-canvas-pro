@@ -17,6 +17,7 @@
     "build": "vp build",
     "preview": "vp preview",
     "typecheck": "tsc --noEmit -p .",
+    "lint": "vp lint --deny-warnings",
     "test": "vitest run",
     "gen:parts": "node scripts/gen-parts-components.mjs",
     "gen:agent": "bun scripts/gen-agent.ts",
