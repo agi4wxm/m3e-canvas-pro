@@ -7,7 +7,7 @@ import { generateImage, hasImageKey, type AiSettings } from "../ai";
 import { generateSvgCode, generateSvgImageStreamed } from "../llm/svg";
 import { describeNode, ops, type CoreState, type Schema } from "../core";
 import { afterWrite } from "./ops";
-import { tool, ToolFailure, type GenerateEnv, type Tool, type ToolEnv } from "./types";
+import { tool, ToolFailure, type GenerateEnv, type SvgDrawing, type Tool, type ToolEnv } from "./types";
 
 const OPENAI = "https://api.openai.com/v1";
 
@@ -131,6 +131,33 @@ const spend = (gen: GenerateEnv) => {
 
 type SvgArgs = Place & { prompt: string; route?: "image" | "code"; kind?: "icon" | "illustration"; width?: number; height?: number; colors?: string[] };
 
+/** Draws what generate_svg was asked for and makes it fit for the canvas: the route the keys allow, the model's call,
+ *  the backdrop and the colors taken out of an icon. Where a tab runs the tool and the MCP server draws for it, the
+ *  server runs this with its own key. */
+export async function drawSvg(a: SvgArgs, gen: GenerateEnv, signal?: AbortSignal): Promise<SvgDrawing> {
+  const icon = (a.kind ?? "icon") === "icon";
+  const traced = svgImageRoute(gen.settings);
+  const route = a.route === "code" || !traced ? "code" : "image";
+  if (route === "code" && !gen.adapter) throw new ToolFailure("unavailable", "There is no text model to write the SVG.", "Use an icon instead.");
+  const warnings: string[] = [];
+  if (a.route === "image" && !traced) warnings.push("No OpenAI image key is set, so the text model wrote the SVG instead.");
+  if (route === "image") {
+    const ask = icon ? `A simple flat icon: ${a.prompt}. One solid dark color on a transparent background, bold simple shapes, centered with a small margin, no text, no shadow, no frame.` : `${a.prompt}. Flat vector illustration, no text.`;
+    const r = await generateSvgImageStreamed({ prompt: ask, key: traced!.key, baseUrl: traced!.baseUrl, model: traced!.model, textModel: traced!.textModel, complexity: icon ? "low" : "medium", background: "transparent", size: "1024x1024", signal, fetch: gen.fetch });
+    return { markup: icon ? toCurrentColor(stripBackdrop(r.markup)) : r.markup, route, warnings: [...warnings, ...r.warnings], ms: r.ms };
+  }
+  const w = a.width ?? (icon ? 24 : 240);
+  const h = a.height ?? (icon ? 24 : 160);
+  const r = await generateSvgCode({ adapter: gen.adapter!, prompt: a.prompt, viewBox: icon ? "0 0 24 24" : `0 0 ${Math.round(w)} ${Math.round(h)}`, colors: icon ? "current" : a.colors?.length ? a.colors : undefined, signal });
+  return { markup: icon ? stripBackdrop(r.markup) : r.markup, route, warnings: [...warnings, ...r.warnings], ms: r.ms };
+}
+
+/** A picture for a box of this size from the author's image model, as a data URL (or an https: address). */
+export function paintPicture(gen: GenerateEnv, prompt: string, box: { w: number; h: number }, signal?: AbortSignal): Promise<string> {
+  if (!hasImageKey(gen.settings)) throw new ToolFailure("unavailable", "No image model key is set.", "Leave the picture empty; the author can paint it later.");
+  return generateImage(gen.settings, prompt, box, signal);
+}
+
 export const generateSvg = tool<SvgArgs>({
   name: "generate_svg",
   group: "generate",
@@ -143,28 +170,10 @@ export const generateSvg = tool<SvgArgs>({
   async run(a, env) {
     const gen = needGen(env);
     const icon = (a.kind ?? "icon") === "icon";
-    const traced = svgImageRoute(gen.settings);
-    const route = a.route === "code" || !traced ? "code" : "image";
-    if (route === "code" && !gen.adapter) throw new ToolFailure("unavailable", "There is no text model to write the SVG.", "Use an icon instead.");
+    /* a drawing that cannot be made here fails before the budget is spent on it */
+    if (!gen.remote && (a.route === "code" || !svgImageRoute(gen.settings)) && !gen.adapter) throw new ToolFailure("unavailable", "There is no text model to write the SVG.", "Use an icon instead.");
     spend(gen);
-    const warnings: string[] = [];
-    if (a.route === "image" && !traced) warnings.push("No OpenAI image key is set, so the text model wrote the SVG instead.");
-    let markup: string;
-    let ms: number;
-    if (route === "image") {
-      const ask = icon ? `A simple flat icon: ${a.prompt}. One solid dark color on a transparent background, bold simple shapes, centered with a small margin, no text, no shadow, no frame.` : `${a.prompt}. Flat vector illustration, no text.`;
-      const r = await generateSvgImageStreamed({ prompt: ask, key: traced!.key, baseUrl: traced!.baseUrl, model: traced!.model, textModel: traced!.textModel, complexity: icon ? "low" : "medium", background: "transparent", size: "1024x1024", signal: env.signal, fetch: gen.fetch });
-      markup = icon ? toCurrentColor(stripBackdrop(r.markup)) : r.markup;
-      warnings.push(...r.warnings);
-      ms = r.ms;
-    } else {
-      const w = a.width ?? (icon ? 24 : 240);
-      const h = a.height ?? (icon ? 24 : 160);
-      const r = await generateSvgCode({ adapter: gen.adapter!, prompt: a.prompt, viewBox: icon ? "0 0 24 24" : `0 0 ${Math.round(w)} ${Math.round(h)}`, colors: icon ? "current" : a.colors?.length ? a.colors : undefined, signal: env.signal });
-      markup = icon ? stripBackdrop(r.markup) : r.markup;
-      warnings.push(...r.warnings);
-      ms = r.ms;
-    }
+    const { markup, route, warnings, ms } = gen.remote ? await gen.remote.svg(a as unknown as Record<string, unknown>, env.signal) : await drawSvg(a, gen, env.signal);
     const size = { w: a.width ?? (a.replace ? undefined : icon ? 24 : 240), h: a.height ?? (a.replace ? undefined : icon ? 24 : 240) };
     const placed = put(env, "svg", { mode: "markup", markup, label: a.prompt.slice(0, 60) }, a, size);
     return { result: { ...placed, route, ...(warnings.length ? { warnings } : {}), ms } };
@@ -184,7 +193,7 @@ export const generateImageTool = tool<ImageArgs>({
   destructive: false,
   async run(a, env) {
     const gen = needGen(env);
-    if (!hasImageKey(gen.settings)) throw new ToolFailure("unavailable", "No image model key is set.", "Leave the picture empty; the author can paint it later.");
+    if (!gen.remote && !hasImageKey(gen.settings)) throw new ToolFailure("unavailable", "No image model key is set.", "Leave the picture empty; the author can paint it later.");
     const s = env.store.get();
     const target = a.replace ? s.doc.groups.flatMap((g) => g.items).find((it) => it.id === a.replace) : undefined;
     if (a.replace && !target) throw new ToolFailure("not_found", `There is no part ${JSON.stringify(a.replace)}.`, "find_nodes gives the ids of the parts.");
@@ -192,7 +201,8 @@ export const generateImageTool = tool<ImageArgs>({
     const box = target ? describeNode(s.doc as never, widths, target.id)!.bounds : { w: a.width ?? 240, h: a.height ?? 160 };
     spend(gen);
     const t0 = Date.now();
-    const picture = await generateImage(gen.settings, `${a.prompt}. No text, letters, logos or user interface in the picture.`, { w: box.w, h: box.h }, env.signal);
+    const prompt = `${a.prompt}. No text, letters, logos or user interface in the picture.`;
+    const picture = gen.remote ? await gen.remote.image({ prompt, box: { w: box.w, h: box.h } }, env.signal) : await paintPicture(gen, prompt, { w: box.w, h: box.h }, env.signal);
     const ms = Date.now() - t0;
     if (target && (target.component === "image" || target.component === "scene")) {
       const prev = env.store.get();

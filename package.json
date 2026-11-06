@@ -29,7 +29,9 @@
     "gen:tokens": "bun scripts/gen-tokens.ts",
     "gen:versions": "bun scripts/gen-versions.ts",
     "check:versions": "bun scripts/gen-versions.ts --check",
-    "check:export": "bun scripts/check-export.ts"
+    "check:export": "bun scripts/check-export.ts",
+    "mcp:build": "bun mcp/build.ts",
+    "mcp:dev": "bun mcp/src/cli.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -72,18 +74,22 @@
     "@iconify-json/pixelarticons": "^1.2.10",
     "@iconify-json/ri": "^1.2.10",
     "@iconify-json/tabler": "^1.2.43",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@tailwindcss/vite": "^4",
     "@tanstack/router-plugin": "^1.168.41",
     "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "8.18.1",
     "@vitejs/plugin-react": "^6",
     "tailwindcss": "^4",
     "typescript": "^7",
+    "undici": "7.30.0",
     "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0",
     "vite-plus": "1.0.0",
     "vitest": "^5.0.2",
-    "wrangler": "^4.147.0"
+    "wrangler": "^4.147.0",
+    "ws": "8.22.0"
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0"
