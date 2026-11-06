@@ -109,6 +109,7 @@ bun run dev
 | `bun run gen:versions` | 依赖升级后，按 `package.json` 和 `bun.lock` 重写导出项目用的版本表 `lib/versions.generated.ts`（`check:versions` 只检查，测试也会检查） |
 | `bun run gen:agent` | 把组件清单写进 `public/agent.md` |
 | `bun run gen:icon-sets` | 按图标对照表重新打包各风格的图标集（`check:icon-sets` 只检查） |
+| `bun run gen:rn` | 重新生成手机端组件套件（`rn/`）用的数据和打印器的样例输出（`check:rn` 只检查），见 [手机端](docs/手机端.md) |
 | `bun run mcp:build` | 把 MCP 服务器打包成 `mcp/dist/m3e-canvas-mcp.js`（先 `bun run build`，编辑器的构建会一起复制过去给截图用）；`mcp:dev` 直接运行源码，`mcp:docs` 按注册表重写 [MCP](docs/MCP.md) 里的工具表 |
 | `bun scripts/style-shots.ts --base <地址> --out <文件夹>` | 把风格画廊按风格、分类截图，用来核对每套风格（先另开 `bun run dev`） |
 | `bun scripts/export.ts <项目文件> <输出文件夹>` | 把项目导出成完整产品（monorepo），再次导出到同一个文件夹时保留自定义代码、报告冲突，见 [导出](docs/导出.md) |
@@ -143,6 +144,7 @@ parts/kits/    组合件：由原子组件拼成的输入框、搜索栏、列�
 parts/templates/ 屏幕和流程模板
 public/        静态资源
 mcp/           MCP 服务器 m3e-canvas-mcp（docs/MCP.md）
+rn/            手机端的组件套件和测试台（独立的 Expo 项目，docs/手机端.md）
 scripts/       生成脚本
 docs/          组件规范、清单和盘点
 ```
@@ -179,6 +181,7 @@ docs/          组件规范、清单和盘点
 - [项目文件](docs/项目文件.md)：项目文件的格式，其他工具（MCP 服务器、脚本）读写它时的约定
 - [MCP](docs/MCP.md)：让 Claude Desktop、Codex 操作画布：安装、配置、配对和安全、工具列表
 - [导出](docs/导出.md)：原型项目和完整产品（monorepo）、生成的文件和自定义代码、重新导出和冲突、命令行和 MCP
+- [手机端](docs/手机端.md)：导出手机应用（Expo / React Native）用的组件套件、主题和代码打印器，以及每个组件的覆盖情况
 
 ## 许可证
 
