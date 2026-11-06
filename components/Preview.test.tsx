@@ -26,6 +26,8 @@ vi.mock("react", async (original) => ({
   },
   useRef: (current: unknown) => hooks.refs[hooks.cursor++] ?? (hooks.refs[hooks.cursor - 1] = { current }),
   useEffect: (effect: () => void | (() => void)) => { hooks.effects.push(effect); },
+  /* what a screen reads off the page once drawn (bound words' heights): there is no page here */
+  useLayoutEffect: () => {},
   useMemo: (value: () => unknown) => value(),
   useCallback: (callback: unknown) => callback,
 }));

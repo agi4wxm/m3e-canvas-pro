@@ -323,6 +323,16 @@ export const tests: E2ETest[] = [
       await waitForScreen(page, "detail");
       await waitUntil(page, (t) => t.includes("Category"), "the product's detail");
       await shot("detail");
+      /* bound words are laid out by what they say: the description takes its lines and pushes what is below it down */
+      const laid = await page.evaluate(() => {
+        const texts = [...document.querySelectorAll("[data-preview-active] [data-slot=text]")] as HTMLElement[];
+        const box = (el: HTMLElement | undefined) => el?.getBoundingClientRect();
+        const longest = texts.reduce<HTMLElement | undefined>((a, el) => ((el.textContent ?? "").length > (a?.textContent ?? "").length ? el : a), undefined);
+        const category = texts.find((el) => el.textContent === "Category");
+        return { words: box(longest), below: box(category), cut: longest ? longest.scrollHeight - longest.clientHeight : 0 };
+      });
+      check(laid.words && laid.below && laid.words.bottom <= laid.below.top + 0.5, `the description stands clear of the row below it (${JSON.stringify(laid)})`);
+      check(laid.cut <= 1, `and none of it is cut (${laid.cut}px)`);
       await page.locator('[aria-label="Back"]').first().click();
       await waitForScreen(page, "products");
       await onShow(page).locator("[data-live-part]").filter({ hasText: "Add product" }).last().click();
