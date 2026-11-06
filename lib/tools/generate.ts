@@ -10,6 +10,7 @@ import { frameSizeOf } from "../tokens";
 import { afterWrite } from "./ops";
 import { tool, ToolFailure, type GenerateEnv, type SvgDrawing, type Tool, type ToolEnv } from "./types";
 import { generateStyle } from "./generateStyle";
+import { docIconIdFor } from "../docIcons";
 
 const OPENAI = "https://api.openai.com/v1";
 
@@ -131,7 +132,41 @@ const spend = (gen: GenerateEnv) => {
 
 /* ---------- the tools ---------- */
 
-type SvgArgs = Place & { prompt: string; route?: "image" | "code"; kind?: "icon" | "illustration"; width?: number; height?: number; colors?: string[] };
+type SvgArgs = Place & { prompt: string; route?: "image" | "code"; kind?: "icon" | "illustration"; width?: number; height?: number; colors?: string[]; icon?: string };
+
+/** Keeps a drawing as one of the document's own icons (svg:<id>) and, where asked, puts it to use: an icon atom named
+ *  in `replace` takes the new name, another part named there gives its place to an icon atom, and a place puts a new
+ *  icon atom there. One change. */
+function keepAsIcon(env: ToolEnv, a: SvgArgs, markup: string): { icon: string; itemId?: string; replaced?: string } {
+  const store = env.store;
+  const prev = store.get();
+  const widths = store.ctx(env.origin).widths;
+  const target = a.replace ? prev.doc.groups.flatMap((g) => g.items).find((it) => it.id === a.replace) : undefined;
+  if (a.replace && !target) throw new ToolFailure("not_found", `There is no part ${JSON.stringify(a.replace)} to replace.`, "find_nodes gives the ids of the parts.");
+  const where = target && target.component !== "icon" ? placeOf(prev, widths, target.id) : undefined;
+  const id = a.icon?.trim() ? a.icon.trim().replace(/^svg:/, "") : docIconIdFor(a.prompt, prev.doc.icons);
+  const size = a.width ?? where?.size.w;
+  const out = store.transact(
+    `Icon ${id}`,
+    env.origin,
+    (tx) => {
+      const kept = tx.run(ops.setIcon, { id, svg: markup });
+      if (target?.component === "icon") {
+        tx.run(ops.setProps, { id: target.id, props: { name: kept.icon } });
+        return { icon: kept.icon, itemId: target.id };
+      }
+      const at = where ?? (a.screen || a.at || a.into ? a : undefined);
+      if (!at) return { icon: kept.icon };
+      if (target) tx.run(ops.removeNodes, { ids: [target.id] });
+      const props = { name: kept.icon, ...(size ? { size: Math.max(16, Math.min(96, Math.round(size / 4) * 4)) } : {}) };
+      const added = tx.run(ops.addPart, { slug: "icon", props, ...(a.id ? { id: a.id } : {}), ...(at.into ? { into: at.into } : {}), ...(at.screen ? { screen: at.screen } : {}), ...(at.at ? { at: at.at } : {}) });
+      return { icon: kept.icon, itemId: added.itemId, ...(target ? { replaced: target.id } : {}) };
+    },
+    env.history ? { history: env.history } : {},
+  );
+  afterWrite(env, prev);
+  return out;
+}
 
 /** Draws what generate_svg was asked for and makes it fit for the canvas: the route the keys allow, the model's call,
  *  the backdrop and the colors taken out of an icon. Where a tab runs the tool and the MCP server draws for it, the
@@ -164,9 +199,9 @@ export const generateSvg = tool<SvgArgs>({
   name: "generate_svg",
   group: "generate",
   description:
-    "Draws a custom SVG and puts it on the canvas as a vector (svg) part: a new icon, a logo, an illustration, a decoration nothing in the catalog has. `kind: icon` (the default) gives a one-color drawing in the part's own color with no background, like an icon. route `image` (the default when an OpenAI key is set) has the image model draw it and trace it as SVG, about 30 s; `code` has the text model write the SVG, quicker and plainer. `replace` puts it in place of another part (an icon in a tab bar). Costs a model call: check the catalog and the icons first.",
-  input: { type: "object", properties: { prompt: { type: "string", description: "what to draw, concretely: subject, style, no text" }, route: { type: "string", enum: ["image", "code"] }, kind: { type: "string", enum: ["icon", "illustration"] }, width: { type: "number", minimum: 4, maximum: 1600 }, height: { type: "number", minimum: 4, maximum: 1600 }, colors: { type: "array", items: { type: "string" }, description: "hex colors an illustration written as code may use" }, ...PLACE }, required: ["prompt"], additionalProperties: false },
-  output: "{itemId, route, warnings, ms}",
+    "Draws a custom SVG and puts it on the canvas as a vector (svg) part: a new icon, a logo, an illustration, a decoration nothing in the catalog has. `kind: icon` (the default) gives a one-color drawing in the part's own color with no background, like an icon. route `image` (the default when an OpenAI key is set) has the image model draw it and trace it as SVG, about 30 s; `code` has the text model write the SVG, quicker and plainer. `replace` puts it in place of another part (an icon in a tab bar). With `icon` it is kept as one of the document's own icons, named svg:<id>, that goes wherever a part takes an icon name (a nav bar's tabs, a button's or a list row's icon: set it there with set_props); then `replace` naming an icon atom gives it the new name, and a place puts an icon atom there. Costs a model call: check the catalog and the icons first.",
+  input: { type: "object", properties: { prompt: { type: "string", description: "what to draw, concretely: subject, style, no text" }, route: { type: "string", enum: ["image", "code"] }, kind: { type: "string", enum: ["icon", "illustration"] }, width: { type: "number", minimum: 4, maximum: 1600 }, height: { type: "number", minimum: 4, maximum: 1600 }, colors: { type: "array", items: { type: "string" }, description: "hex colors an illustration written as code may use" }, icon: { type: "string", description: "keep it as a document icon under this id (leaf, coffee-cup: lowercase words joined by dashes)" }, ...PLACE }, required: ["prompt"], additionalProperties: false },
+  output: "{itemId, route, warnings, ms}; with icon also {icon: svg:<id>}",
   readOnly: false,
   destructive: false,
   async run(a, env) {
@@ -176,6 +211,7 @@ export const generateSvg = tool<SvgArgs>({
     if (!gen.remote && (a.route === "code" || !svgImageRoute(gen.settings)) && !gen.adapter) throw new ToolFailure("unavailable", "There is no text model to write the SVG.", "Use an icon instead.");
     spend(gen);
     const { markup, route, warnings, ms } = gen.remote ? await gen.remote.svg(a as unknown as Record<string, unknown>, env.signal) : await drawSvg(a, gen, env.signal);
+    if (a.icon) return { result: { ...keepAsIcon(env, a, markup), route, ...(warnings.length ? { warnings } : {}), ms } };
     const size = { w: a.width ?? (a.replace ? undefined : icon ? 24 : 240), h: a.height ?? (a.replace ? undefined : icon ? 24 : 240) };
     const placed = put(env, "svg", { mode: "markup", markup, label: a.prompt.slice(0, 60) }, a, size);
     return { result: { ...placed, route, ...(warnings.length ? { warnings } : {}), ms } };

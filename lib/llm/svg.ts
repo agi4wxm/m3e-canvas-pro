@@ -1,5 +1,4 @@
-import { MAX_MARKUP, sanitizeSvg, type CleanSvg } from "../../parts/svg";
-import type { PNode, PValue } from "../../parts/node";
+import { cleanToMarkup, MAX_MARKUP, sanitizeSvg } from "../../parts/svg";
 import { readError } from "./errors";
 import { LlmHttpError, postSse, streamError, trimSlash } from "./http";
 import { collectTurn } from "./loop";
@@ -23,52 +22,8 @@ export const SVG_ELEMENTS = ["svg", "g", "path", "circle", "ellipse", "rect", "l
 const HARMLESS = new Set(["title", "desc", "metadata"]);
 const MAX_ELEMENTS = 4000;
 
-/* ---------- writing a cleaned drawing out again ---------- */
-
-/** attribute names React and SVG spell the same; every other React name is SVG's with dashes */
-const CAMEL = new Set(["viewBox", "preserveAspectRatio", "gradientUnits", "gradientTransform", "spreadMethod", "patternUnits", "patternContentUnits", "patternTransform", "clipPathUnits", "maskUnits", "maskContentUnits", "pathLength"]);
-const svgName = (k: string) => (CAMEL.has(k) ? k : k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`));
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-/** Markup for what the sanitizer kept. Its parts are renamed p0, p1… in the order they appear, so the
- *  markup is short and the same for the same drawing; the vector atom scopes the names again when it
- *  draws them. */
-export function cleanToMarkup(clean: CleanSvg): string {
-  const names = new Map<string, string>();
-  const collect = (n: PNode) => {
-    const id = n.props?.id;
-    if (typeof id === "string" && !names.has(id)) names.set(id, `p${names.size}`);
-    for (const c of n.children ?? []) if (typeof c !== "string") collect(c);
-  };
-  clean.children.forEach(collect);
-  const rename = (v: string) => v.replace(/url\(#([\w.-]+)\)/g, (all, id: string) => (names.has(id) ? `url(#${names.get(id)})` : all));
-  const value = (k: string, v: PValue): string | undefined => {
-    if (v === null || v === undefined || v === false) return undefined;
-    if (k === "style" && typeof v === "object") {
-      const decls = Object.entries(v as Record<string, PValue>)
-        .filter(([, x]) => x !== null && x !== undefined)
-        .map(([p, x]) => `${svgName(p)}:${rename(String(x))}`);
-      return decls.length ? decls.join(";") : undefined;
-    }
-    if (typeof v === "object") return undefined;
-    const s = String(v);
-    if (k === "id") return names.get(s) ?? s;
-    if (k === "href") return s.startsWith("#") && names.has(s.slice(1)) ? `#${names.get(s.slice(1))}` : s;
-    return rename(s);
-  };
-  const attrs = (props: Record<string, PValue> | undefined) =>
-    Object.entries(props ?? {})
-      .map(([k, v]) => [k, value(k, v)] as const)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => ` ${svgName(k)}="${esc(v!)}"`)
-      .join("");
-  const write = (n: PNode | string): string => {
-    if (typeof n === "string") return esc(n);
-    const kids = (n.children ?? []).map(write).join("");
-    return kids ? `<${n.type}${attrs(n.props)}>${kids}</${n.type}>` : `<${n.type}${attrs(n.props)}/>`;
-  };
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${esc(clean.viewBox)}"${attrs(clean.attrs)}>${clean.children.map(write).join("")}</svg>`;
-}
+/* writing a cleaned drawing out again lives with the sanitizer (parts/svg.ts), where the document core reads it too */
+export { cleanToMarkup };
 
 /** the outermost svg element of a reply, without prose or a code fence around it */
 export function extractSvg(text: string): string | null {

@@ -12,6 +12,7 @@ import type { CoreState } from "@/lib/core";
 import { canvasView } from "@/lib/expand";
 import { LangContext, setGlobalLang, type Lang } from "@/lib/i18n";
 import { setDocStyles } from "@/lib/styles";
+import { setDocIcons } from "./docIcons";
 import { fontFamilyOf, frameOfGroup, frameSizeOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Doc, type Item } from "@/lib/tokens";
 import { PartView } from "@/components/PartView";
 import { FIT_OVERLAY } from "@/parts/contained";
@@ -72,6 +73,7 @@ export function RenderPage() {
   if (doc) {
     setGlobalLang(lang);
     setDocStyles(doc.styles);
+    setDocIcons(doc.icons);
   }
   const p = useMemo(() => paletteOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme), [doc, theme]);
   const partTheme = useMemo<PartTheme>(() => ({ seed: seedOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme), dark: theme.dark, contrast: theme.contrast, shape: shapeScaleOf(theme.shape) }), [doc, theme]);

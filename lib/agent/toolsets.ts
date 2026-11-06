@@ -22,7 +22,7 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   components: "reusable components and their instances",
   style: "styles, themes, palettes, looks, custom styles",
   data: "variables, data collections, repeats, taps and their effects, bindings",
-  generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture",
+  generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture; the document's own icons (svg:<id>)",
   reference: "measuring an attached reference picture and comparing a screen with it",
 };
 
@@ -35,6 +35,8 @@ const SCREENS = new Set(["add_template", "list_templates", "remove_screen", "dup
 const COMPONENTS = new Set(["make_component", "rename_component", "remove_component", "detach_instance", "set_overrides", "add_instance", "list_components"]);
 const REFERENCE = new Set(["sample_colors", "compare_to_reference"]);
 const STYLE_READS = new Set(["list_styles", "get_style", "look_reference"]);
+/** the document's own icons go with drawing */
+const DRAWING = new Set(["set_icon", "remove_icon"]);
 
 /** the set a tool belongs to */
 export function setOf(t: Pick<Tool<never>, "name" | "group">): ToolSet {
@@ -42,6 +44,7 @@ export function setOf(t: Pick<Tool<never>, "name" | "group">): ToolSet {
   if (REFERENCE.has(t.name)) return "reference";
   if (SCREENS.has(t.name)) return "screens";
   if (COMPONENTS.has(t.name)) return "components";
+  if (DRAWING.has(t.name)) return "generate";
   if (STYLE_READS.has(t.name) || t.group === "style") return "style";
   if (t.name === "list_data" || t.group === "data") return "data";
   if (t.group === "generate") return "generate";

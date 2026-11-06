@@ -13,7 +13,8 @@ const GROUP: Record<ToolGroup, string> = { read: "读取", edit: "搭建", style
 /** a description's first sentence, fit for a table cell */
 const firstSentence = (s: string) => {
   const m = /^(.*?[.!?])(\s|$)/.exec(s);
-  const one = (m ? m[1] : s).replaceAll("|", "\\|").replace(/\s+/g, " ").trim();
+  /* a name like svg:<id> is words in a cell, not a tag */
+  const one = (m ? m[1] : s).replaceAll("|", "\\|").replaceAll("<", "&lt;").replace(/\s+/g, " ").trim();
   return one.length > 180 ? `${one.slice(0, 179)}…` : one;
 };
 

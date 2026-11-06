@@ -293,6 +293,24 @@ describe("the MCP server on a project file", () => {
     expect(readdirSync(join(dir, "m3e-assets"))).toContain(fresh);
   });
 
+  it("keeps the document's own icons in the file, cleaned, and reads them back", async () => {
+    const { call, path } = await open();
+    const svg = '<svg viewBox="0 0 24 24" onload="x()"><script>x()</script><path d="M4 20L20 4" stroke="currentColor"/></svg>';
+    const kept = await call("set_icon", { id: "arrow", svg });
+    expect(kept.structuredContent).toEqual({ result: { id: "arrow", icon: "svg:arrow", replaced: false } });
+    expect((await call("set_props", { id: "hello", props: { text: "Go" } })).isError).toBeFalsy();
+    const r = await call("add_part", { slug: "icon", id: "ic", screen: "home", props: { name: "svg:arrow" } });
+    expect(r.isError).toBeFalsy();
+    const text = readFileSync(path, "utf8");
+    expect(text).toContain('"icons": {');
+    expect(text).not.toContain("script");
+    expect(text).not.toContain("onload");
+    const again = await connect({ file: path });
+    done.push(again.close);
+    expect((await again.call("list_icons", { query: "arrow" })).structuredContent).toMatchObject({ result: { document: ["svg:arrow"] } });
+    expect(errorOf(await again.call("set_props", { id: "ic", props: { name: "svg:nope" } }))?.message).toMatch(/no icon svg:nope/);
+  });
+
   it("starts a file that does not exist yet with the first change", async () => {
     const path = join(scratchDir(), "new.json");
     const s = await connect({ file: path });

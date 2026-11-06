@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { check, equal, itemsOf, savedDoc, settle, undo, type E2ETest, type Page } from "./lib";
+import { check, equal, itemsOf, redo, savedDoc, settle, undo, type E2ETest, type Page } from "./lib";
 
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
@@ -137,6 +137,47 @@ export const tests: E2ETest[] = [
         await page.waitForSelector('[data-mcp-ask="pair"]', { timeout: 30_000 });
       } finally {
         await third.client.close();
+      }
+    },
+  },
+  {
+    name: "a drawing kept as a document icon draws wherever an icon name is taken, on the canvas and in the preview",
+    async run({ page, base, out }) {
+      const { client, call } = await startServer(base);
+      try {
+        await pair(page, call);
+        const LEAF = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M4 20C4 9 11 4 20 4c0 9-5 16-16 16z"/><path d="M4 20l9-9" stroke="currentColor" stroke-width="2" fill="none"/></svg>';
+        const made = await call("apply_ops", {
+          ops: [
+            { op: "set_icon", args: { id: "leaf", svg: LEAF } },
+            { op: "add_part", args: { slug: "icon", id: "docicon", screen: "seedF1", at: { x: 40, y: 520 }, props: { name: "svg:leaf", size: 48 } } },
+            { op: "add_part", args: { slug: "button", id: "docbtn", screen: "seedF1", at: { x: 120, y: 520 }, props: { label: "Plant", icon: "svg:leaf" } } },
+            { op: "add_part", args: { slug: "navigation-bar", id: "docnav", screen: "seedF1", props: { items: [{ label: "Garden", icon: "svg:leaf" }, { label: "Home", icon: "home" }, { label: "Me", icon: "person" }] } } },
+          ],
+        });
+        check(!made.isError, `the batch ran: ${text(made)}`);
+        const drawn = async (id: string) => page.evaluate((n) => [...document.querySelectorAll(`[data-node="${n}"] svg path`)].some((p) => (p.getAttribute("d") ?? "").startsWith("M4 20C4 9")), id);
+        await waitFor("the icon atom draws the leaf", () => drawn("docicon"), 10_000);
+        check(await drawn("docbtn"), "the button draws the leaf");
+        check(await drawn("docnav"), "the nav bar's first tab draws the leaf");
+        const doc = await savedDoc(page);
+        check(typeof (doc as { icons?: Record<string, string> }).icons?.leaf === "string", "the icon is saved with the document");
+        await page.screenshot({ path: join(out, "doc-icons-canvas.png") });
+        /* one undo takes the batch back, the icon with it; redo brings them back */
+        await undo(page);
+        check(!((await savedDoc(page)) as { icons?: unknown }).icons, "the icon undone with the batch");
+        await redo(page);
+        await waitFor("the leaf drawn again", () => drawn("docicon"), 10_000);
+        /* the preview draws them too */
+        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+        await page.keyboard.press("p");
+        await page.waitForSelector("[data-preview-dark]", { timeout: 10_000 });
+        await settle(page, 1200);
+        const inPreview = await page.evaluate(() => [...document.querySelectorAll("[data-preview-group] svg path")].filter((p) => (p.getAttribute("d") ?? "").startsWith("M4 20C4 9")).length);
+        check(inPreview >= 3, `the preview draws the leaf three times (${inPreview})`);
+        await page.screenshot({ path: join(out, "doc-icons-preview.png") });
+      } finally {
+        await client.close();
       }
     },
   },

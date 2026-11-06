@@ -2,6 +2,7 @@ import { childLayoutFields } from "./flow";
 import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
+import { cleanDocIcons } from "./docIcons";
 import { COLOR_TOKENS, Collection, ComponentDef, Condition, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
@@ -240,6 +241,12 @@ export function cleanBehavior(doc: Doc): Doc {
     const styles = cleanStyles(out.styles);
     if (styles) out.styles = styles;
     else delete out.styles;
+  }
+  /* the document's own icons are drawings, held to what the vector atom keeps; one that is not goes */
+  if (out.icons !== undefined) {
+    const icons = cleanDocIcons(out.icons);
+    if (icons) out.icons = icons;
+    else delete out.icons;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);

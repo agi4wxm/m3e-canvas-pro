@@ -185,7 +185,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 94 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo` 只在文件模式里有。说明取自工具给模型看的描述。
+共 96 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -215,6 +215,8 @@ npx playwright install chromium
 | `apply_style` | 风格 |  |  | Puts one of the style packs on the document ("" for Android's Material 3), or one of the document's own styles by its custom: key: its colors, shapes, faces, icons and control rec… |
 | `set_custom_styles` | 风格 |  | 是 | Replaces the document's own styles (custom styles, each with a custom: key). |
 | `add_custom_style` | 风格 |  |  | Adds a custom style to the document's own styles, or replaces the one with its key, validated like a style file: roles as #RRGGBB with contrast checked, faces, icon families, shap… |
+| `set_icon` | 搭建 |  |  | Keeps an SVG drawing as one of the document's own icons, named svg:&lt;id>: it then goes wherever a part takes an icon name (an icon atom's name, a button's or a list row's icon, … |
+| `remove_icon` | 搭建 |  | 是 | Takes one of the document's own icons away. |
 | `set_style_rules` | 风格 |  |  | Holds the document to its style's rules (on), or lets its colors, shapes and looks be the author's (off). |
 | `set_style_layout` | 风格 |  |  | Changes one of the style's layout settings, and lays the screens out by it. |
 | `set_palette` | 风格 |  |  | Picks one of the editor's color schemes by key (purple, blue, green…), or "custom" for the document's own. |
