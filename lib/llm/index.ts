@@ -8,6 +8,7 @@ import type { Adapter, RetryPolicy } from "./types";
  * wire protocol, the agent loop, and the two ways to draw SVG. Nothing here knows about documents. */
 
 export * from "./types";
+export { AiHttpError, isLocalUrl, isSecureUrl, readError } from "./errors";
 export { anthropicMessages, type AnthropicOptions } from "./anthropic";
 export { chatCompletions, type ChatOptions } from "./chat";
 export { openAiResponses, type OpenAiResponsesOptions, type ReasoningEffort } from "./openai";

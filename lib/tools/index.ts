@@ -1,0 +1,8 @@
+/* The tool registry: typed tools over the document core, shared by the in-app agent (lib/agent) and the MCP server.
+ * See docs/组件规范.md, “AI”. The generative tools live in ./generate and are added by whoever has the keys. */
+
+export * from "./types";
+export { CORE_REGISTRY, CORE_TOOLS, createRegistry, executeTool, toolDefs, toolGuide, type ExecOptions, type Registry } from "./registry";
+export { DESTRUCTIVE_OPS, OP_TOOLS, applyOps, isDestructiveCall } from "./ops";
+export { READ_TOOLS } from "./read";
+export { opInput, partPropsSchema, propSchema } from "./schema";

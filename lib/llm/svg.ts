@@ -1,6 +1,6 @@
 import { MAX_MARKUP, sanitizeSvg, type CleanSvg } from "../../parts/svg";
 import type { PNode, PValue } from "../../parts/node";
-import { readError } from "../ai";
+import { readError } from "./errors";
 import { LlmHttpError, postSse, streamError, trimSlash } from "./http";
 import { collectTurn } from "./loop";
 import { responsesUsage } from "./openai";

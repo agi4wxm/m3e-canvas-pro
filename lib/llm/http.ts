@@ -1,4 +1,4 @@
-import { AiHttpError, isSecureUrl, readError } from "../ai";
+import { AiHttpError, isSecureUrl, readError } from "./errors";
 import { readSse, type SseMessage } from "./sse";
 import { DEFAULT_RETRY, type AdapterOptions, type LlmEvent, type RetryPolicy } from "./types";
 

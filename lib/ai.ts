@@ -5,6 +5,9 @@ import { buildPrompt } from "./prompt";
 import { cleanBehavior, isProject } from "./project";
 import { lookForModel } from "./look";
 import { Lang } from "./i18n";
+import { AiHttpError, isLocalUrl as isLocal, isSecureUrl, readError } from "./llm/errors";
+
+export { AiHttpError, isSecureUrl, readError };
 
 /* Optional AI helpers. The browser talks to the model provider directly with the
  * author's own key; there is no server in between. Every action has a fixed
@@ -23,7 +26,15 @@ export type AiSettings = {
   imageBaseUrl?: string;
   imageModel?: string;
   imageKey?: string;
+  /** how hard the text model thinks in the agent and the drafts; medium when left out */
+  effort?: Effort;
 };
+
+export type Effort = "low" | "medium" | "high";
+export const EFFORTS: Effort[] = ["low", "medium", "high"];
+
+/** one question and its answer: `complete`, or the same streamed (lib/agent/complete.ts) */
+export type Complete = (s: AiSettings, system: string, user: string, signal?: AbortSignal, maxTokens?: number) => Promise<string>;
 
 export type ImageProvider = "openai" | "gemini";
 
@@ -61,6 +72,7 @@ export function loadAiSettings(): AiSettings {
       if (typeof v.imageBaseUrl === "string") s.imageBaseUrl = v.imageBaseUrl;
       if (typeof v.imageModel === "string") s.imageModel = v.imageModel;
       if (typeof v.imageKey === "string") s.imageKey = v.imageKey;
+      if (EFFORTS.includes(v.effort as Effort)) s.effort = v.effort;
     }
   } catch {}
   return s;
@@ -73,38 +85,10 @@ export function saveAiSettings(s: AiSettings) {
   } catch {}
 }
 
-const isLocal = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(u.trim());
-
 /** a hosted endpoint needs a key; a server on this machine may run without one */
 export const hasKey = (s: AiSettings) => s.key.trim().length > 0 || isLocal(s.baseUrl);
 
-/** the key must not travel over plain http, except to this machine */
-export const isSecureUrl = (u: string) => /^https:\/\//i.test(u.trim()) || isLocal(u);
-
 const trimSlash = (u: string) => u.trim().replace(/\/+$/, "");
-
-/** a provider's answer that was not a success: its status says what the author is told, its message keeps the provider's words */
-export class AiHttpError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-/* The body is read once, as text: an answer that is not JSON (a gateway's plain words) still has something to say. */
-export async function readError(res: Response): Promise<AiHttpError> {
-  let detail = "";
-  try {
-    detail = await res.text();
-  } catch {}
-  try {
-    const j = JSON.parse(detail);
-    detail = String(j?.error?.message ?? j?.message ?? detail);
-  } catch {}
-  return new AiHttpError(res.status, `${res.status}${res.statusText ? ` ${res.statusText}` : ""}${detail ? `: ${detail.slice(0, 300)}` : ""}`);
-}
 
 /** one round trip: a system prompt and a user message in, the model's text out */
 export async function complete(s: AiSettings, system: string, user: string, signal?: AbortSignal, maxTokens = 4096): Promise<string> {
@@ -362,7 +346,7 @@ export function popHistory<V extends string, H extends string>(current: string |
 /** A whole design from an idea, drafted by the author's own model. `guide` is the same
  *  agent guide a coding agent reads (public/agent.md), so both paths follow one spec.
  *  The answer is the document itself; a link would be pointless here. */
-export async function draftDesign(s: AiSettings, guide: string, idea: string, lang: Lang, signal?: AbortSignal, rules?: string): Promise<Doc> {
+export async function draftDesign(s: AiSettings, guide: string, idea: string, lang: Lang, signal?: AbortSignal, rules?: string, ask: Complete = complete): Promise<Doc> {
   const system = [
     "You draft M3E Canvas designs. Follow the guide below exactly.",
     "Reply with the JSON document only: no share link, no prose, no markdown fence, no explanation.",
@@ -370,8 +354,9 @@ export async function draftDesign(s: AiSettings, guide: string, idea: string, la
     guide,
   ].join("\n");
   /* a document held to a style is told its rules, which leave looks to the style; any other may be given effects */
-  const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple.", "", rules || lookForModel()].join("\n");
-  const j = parseJsonObject(await complete(s, system, user, signal, 12000));
+  const free = `${lookForModel()}\nThis canvas is not held to a style's rules: if you name a \`theme.style\`, also write \`"strict": false\` in \`theme\`, and these looks stay.`;
+  const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple.", "", rules || free].join("\n");
+  const j = parseJsonObject(await ask(s, system, user, signal, 16000));
   if (!isProject(j)) throw new Error("json");
   return readableOnScenes(scenesFirst(withoutSampleWords(cleanBehavior(j))));
 }

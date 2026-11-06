@@ -52,9 +52,10 @@ import { TemplatesPanel } from "@/components/TemplatesPanel";
 import { PromptPanel } from "@/components/PromptPanel";
 import { GitHubLink, Toolbar } from "@/components/Toolbar";
 import { LangMenu } from "@/components/Menus";
-import { AiPanel } from "@/components/AiPanel";
+import { AgentPanel } from "@/components/AgentPanel";
+import { PromptBar, usePromptBarKey } from "@/components/PromptBar";
 import { PANEL_FADE_H } from "@/components/ui";
-import { loadAiSettings, scenePrompt } from "@/lib/ai";
+import { loadAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
 import { maxFrameLength } from "@/lib/tidy";
 import { joinTargetOf } from "@/lib/combine";
 import { flowHostAt, flowOf, showingGroups } from "@/lib/flow";
@@ -112,6 +113,8 @@ import { useDefinitions } from "./editor/useDefinitions";
 import { useScreens } from "./editor/useScreens";
 import { useAdding } from "./editor/useAdding";
 import { useFrameImages } from "./editor/useFrameImages";
+import { useScreenshots } from "./editor/useScreenshots";
+import { useAgent } from "./editor/useAgent";
 import { usePageChrome } from "./editor/usePageChrome";
 import { usePhoneLayout } from "./editor/usePhoneLayout";
 import { usePanels } from "./editor/usePanels";
@@ -343,7 +346,7 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   };
 
   /* a project file, a design from a link or a draft from the model taking the canvas (src/editor/useDrafts.ts) */
-  const { ideaText, setIdeaText, draftBusy, draftBefore, setDraftBefore, revealing, quickUndo, setQuickUndo, importDoc, startDraft, keepDraft, undoDraft, settleDraftRef } = useDrafts({ store, persist, editAccess, lang, aiSettings, mobileRef, docRef, themeRef, frameRef, hadDocRef, fitRef, leaveForNewDoc, setSelectedLinkId, setShareOpen, showToast, paintScenes, stopPainting });
+  const { ideaText, setIdeaText, draftBusy, draftProgress, draftBefore, setDraftBefore, revealing, quickUndo, setQuickUndo, importDoc, startDraft, keepDraft, undoDraft, settleDraftRef } = useDrafts({ store, persist, editAccess, lang, aiSettings, mobileRef, docRef, themeRef, frameRef, hadDocRef, fitRef, leaveForNewDoc, setSelectedLinkId, setShareOpen, showToast, paintScenes, stopPainting });
 
   /** the editor's own settings as they were left: the camera, the panels, the favourites */
   const restoreUi = () => {
@@ -589,10 +592,24 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
   /* a screen, or all of them, saved as pictures (src/editor/useFrameImages.ts) */
   const { exportFrame, saveFrameImage, saveAllFrameImages } = useFrameImages(framesRef);
 
+  /* the in-app agent: its eyes (src/editor/useScreenshots.ts), its conversation and turns (src/editor/useAgent.ts) */
+  const { shotFrame, renderer: shotRenderer } = useScreenshots(store);
+  const agent = useAgent({ store, settings: aiSettings, lang, renderer: shotRenderer, editable: editAccess === "editable", showToast });
+  /** the Cmd/Ctrl+K prompt bar is up */
+  const [promptBarOpen, setPromptBarOpen] = useState(false);
+  usePromptBarKey(editAccess === "editable" && !isMobile && !confirmClear && pendingImport === null && !shareOpen && previewId === null && !promptCoverUp, () => setPromptBarOpen(true));
+  const askAgent = (words: string) => {
+    setPromptBarOpen(false);
+    setLeftOpen(true);
+    setLeftTab("ai");
+    void agent.send(words);
+  };
+  const waitingScenes = scenesToPaint(groups);
+
   /* the keyboard: undo, clipboard, grouping, layout keys, nudges, tools and zoom (src/editor/useShortcuts.ts) */
   useShortcuts({
     editable: editAccess === "editable",
-    blocked: confirmClear || pendingImport !== null || shareOpen || previewId !== null || promptCoverUp,
+    blocked: confirmClear || pendingImport !== null || shareOpen || previewId !== null || promptCoverUp || promptBarOpen,
     selectedIds,
     selectedFrameId,
     canPaste: () => !!clipboardRef.current,
@@ -775,6 +792,12 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
         {exportFrame && (
           <div aria-hidden style={{ position: "fixed", left: -99999, top: 0, pointerEvents: "none", fontFamily: fontFamilyOf(theme.font, lang) }}>
             {renderExport(exportFrame, { doc, widths, frames, p, theme })}
+          </div>
+        )}
+        {/* a screen the agent is looking at, drawn the same way */}
+        {shotFrame && (
+          <div aria-hidden data-shot style={{ position: "fixed", left: -99999, top: 0, pointerEvents: "none", fontFamily: fontFamilyOf(theme.font, lang) }}>
+            {renderExport(shotFrame, { doc, widths, frames, p, theme })}
           </div>
         )}
 
@@ -996,7 +1019,19 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
                     <MotionPanel p={p} theme={theme} onChange={patchTheme} />
                   </StyleGate>
                 ) : leftTab === "ai" ? (
-                  <AiPanel p={p} settings={aiSettings} onSettings={updateAiSettings} />
+                  <AgentPanel
+                    p={p}
+                    settings={aiSettings}
+                    onSettings={updateAiSettings}
+                    agent={agent}
+                    quick={{
+                      draft: () => setShareOpen(true),
+                      polish: tidyTarget ? () => void agent.send(t("agentQuickPolishAsk", lang)) : undefined,
+                      describe: aiReady && tidyTarget ? () => void runAi("describe", tidyTarget) : undefined,
+                      behavior: aiReady && tidyTarget && selected ? () => void runAi("behavior", tidyTarget, selected.id) : undefined,
+                      paint: canPaint && waitingScenes.length ? () => void paintScenes(waitingScenes) : undefined,
+                    }}
+                  />
                 ) : (
                   <LayersPanel
                     p={p}
@@ -1164,7 +1199,7 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
                           transition: lengthDragId === f.id ? "background-color 160ms, box-shadow 120ms" : `background-color 160ms, box-shadow 120ms, ${SIZE_TRANSITION}`,
                         }}
                       >
-                        <AnimatePresence>{aiFrameId === f.id && <ThinkingRing key="ring" p={p} frame={f} />}</AnimatePresence>
+                        <AnimatePresence>{(aiFrameId === f.id || agent.agentFrameId === f.id) && <ThinkingRing key="ring" p={p} frame={f} />}</AnimatePresence>
                         <div
                           data-screen={f.id}
                           style={{
@@ -1436,6 +1471,19 @@ export default function Editor({ initialLang, onReady, persist = localPersist }:
                   </linearGradient>
                 </defs>
               </svg>
+            </div>
+          )}
+          <PromptBar
+            p={p}
+            open={promptBarOpen}
+            busy={agent.running}
+            about={selectedIds.length ? t("agentOnSelection", lang).replace("{n}", String(selectedIds.length)) : selectedFrameId ? t("agentOnScreen", lang).replace("{name}", frames.find((f) => f.id === selectedFrameId)?.name ?? "") : t("agentOnDocument", lang)}
+            onClose={() => setPromptBarOpen(false)}
+            onSend={askAgent}
+          />
+          {draftBusy && draftProgress && draftProgress.chars + draftProgress.reasoning > 0 && (
+            <div data-draft-progress style={{ position: "absolute", left: "50%", bottom: 24, transform: "translateX(-50%)", zIndex: 45, padding: "8px 16px", borderRadius: 20, background: p.surface, boxShadow: "0 4px 18px rgba(0,0,0,0.14)", color: p.onSurfaceVariant, fontSize: 13, whiteSpace: "nowrap" }}>
+              {t("agentDrafting", lang).replace("{n}", String(draftProgress.chars))}
             </div>
           )}
           {defEdit && (

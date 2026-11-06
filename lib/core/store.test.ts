@@ -29,6 +29,20 @@ describe("DocStore", () => {
     expect(store.view().history.undoLabel).toBe("Add chip");
   });
 
+  it("keeps a turn of changes, each with no step, as one step taken from where it began", () => {
+    const store = fresh();
+    const begin = store.get();
+    store.run(removeNodes, { ids: ["a"] }, { origin: "ai", history: "none" });
+    store.checkpoint("AI: tidy", { from: begin, whole: true, origin: "ai" });
+    store.run(setTitle, { title: "Turned" }, { origin: "ai", history: "none" });
+    store.run(addScreen, { id: "F2" }, { origin: "ai", history: "none" });
+    expect(store.history()).toEqual(["AI: tidy"]);
+    expect(store.undo()).toBe("AI: tidy");
+    expect(ids(store.get())).toEqual(["g-a", "g-b"]);
+    expect(store.get().doc.title).toBe("");
+    expect(store.get().doc.frames.map((f) => f.id)).toEqual(["F1"]);
+  });
+
   it("undoes and redoes steps with their labels", () => {
     const store = fresh();
     store.run(setTitle, { title: "One" }, { origin: "ai" });
