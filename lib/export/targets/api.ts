@@ -86,8 +86,13 @@ export type CallInit = Pick<TransportRequest, "headers" | "signal" | "onUploadPr
 
 export type Call = { operationId?: string; method: HttpMethod; path: string; query?: Query; body?: unknown; headers?: Readonly<Record<string, string>> }
 
-/** a path parameter as one segment of the path */
-export const segment = (value: string | number | boolean) => encodeURIComponent(String(value))
+/** A path parameter as one segment of the path. "." and ".." would be steps along the path to every URL parser (fetch
+ *  included): data that held one would send the call, and the session's token, to another address of the API. */
+export function segment(value: string | number | boolean): string {
+  const s = encodeURIComponent(String(value))
+  if (s === "." || s === "..") throw new TypeError("A path parameter cannot be " + JSON.stringify(s) + ".")
+  return s
+}
 
 /** Sends one call and gives back what a 2xx answer holds; anything else is thrown as an ApiError. */
 export async function send<T>(transport: Transport, call: Call, init: CallInit = {}): Promise<T> {
@@ -257,6 +262,7 @@ export { CONTRACT, ASYNC_CONTRACT } from "./generated/contract"
 const CLIENT_TEST = `${GENERATED}
 import { describe, expect, it } from "vitest"
 import { ApiError, createApi, queryString, type Transport, type TransportRequest } from "../index"
+import { segment } from "../client"
 import { OPERATIONS } from "./operations"
 
 /** a transport that answers every call with what it is given, and remembers what it was asked */
@@ -289,6 +295,16 @@ describe("the API client", () => {
     const api = createApi(answering(501, { error: "Not Implemented" }).transport)
     await expect(api.request({ method: "POST", path: "/anything", body: {} })).rejects.toBeInstanceOf(ApiError)
     await expect(api.request({ method: "POST", path: "/anything" })).rejects.toMatchObject({ status: 501 })
+  })
+
+  it("keeps a path parameter one segment of its own path, whatever the data gives it", () => {
+    expect(segment("a/b?c#d")).toBe("a%2Fb%3Fc%23d")
+    expect(segment(42)).toBe("42")
+    /* "." and ".." are steps along the path to every URL parser (fetch too): /orders/{id}/cancel with ".." would be
+       sent to /cancel, with the session's token */
+    for (const step of [".", ".."]) expect(() => segment(step)).toThrow()
+    expect(segment("%2e%2e")).toBe("%252e%252e")
+    expect(segment("...")).toBe("...")
   })
 })
 `;
