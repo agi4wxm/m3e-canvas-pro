@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import type { DirHandle } from "../projects/fileLink";
 import { exportToDirectory, folderState } from "./fsAccess";
@@ -61,6 +61,23 @@ describe("exporting into a folder from Node", () => {
     const forced = await exportToFolder(dir, product(base()), { force: true });
     expect(forced.writes.length).toBeGreaterThan(0);
     expect(await readFile(join(dir, "notes.txt"), "utf8")).toBe("mine");
+  });
+
+  /* export_product takes any folder an MCP client names, and force: words an agent read somewhere could otherwise have
+     a product's files (package.json, AGENTS.md, server/…) put straight into someone's home folder */
+  it("never exports into the home folder or a folder holding it, forced or not", async () => {
+    const home = await temp();
+    await mkdir(join(home, "work"));
+    const was = process.env.HOME;
+    process.env.HOME = home;
+    try {
+      for (const dir of [home, join(home, "work", ".."), dirname(home)]) await expect(exportToFolder(dir, product(base()), { force: true })).rejects.toBeInstanceOf(FolderRefused);
+      expect(existsSync(join(home, MANIFEST_PATH))).toBe(false);
+      /* a folder in it is fine */
+      expect((await exportToFolder(join(home, "work", "app"), product(base()))).writes.length).toBeGreaterThan(0);
+    } finally {
+      process.env.HOME = was;
+    }
   });
 
   it("never writes through a link out of the folder", async () => {

@@ -70,7 +70,7 @@ export const EXPORT_PRODUCT: McpTool = {
   name: "export_product",
   title: "Export product",
   description:
-    "Exports the project as a whole product into a folder on this computer: an npm workspaces monorepo generated from the design (apps/web, packages/api, packages/mocks, server, contract-tests, with .m3e/manifest.json listing every generated file). Exporting again into the same folder rewrites only the generated files nobody changed: custom code (server/src/handlers, the custom/ folders) is never touched, and a generated file someone edited is left as it is, with the new version beside it as <file>.m3e-new, reported as a conflict. A relative dir is taken from the project file's folder; a folder that holds other things and no earlier export is refused unless force is true.",
+    "Exports the project as a whole product into a folder on this computer: an npm workspaces monorepo generated from the design (apps/web, packages/api, packages/mocks, server, contract-tests, with .m3e/manifest.json listing every generated file). Exporting again into the same folder rewrites only the generated files nobody changed: custom code (server/src/handlers, the custom/ folders) is never touched, and a generated file someone edited is left as it is, with the new version beside it as <file>.m3e-new, reported as a conflict. A relative dir is taken from the project file's folder; a folder that holds other things and no earlier export is refused unless force is true, and the root of a disk, the home folder or a folder holding it is always refused.",
   inputSchema: {
     type: "object",
     properties: {
