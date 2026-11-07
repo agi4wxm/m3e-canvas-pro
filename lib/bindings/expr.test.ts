@@ -171,6 +171,34 @@ describe("hostile input", () => {
     expect(({} as Record<string, unknown>).admin).toBeUndefined();
   });
 
+  /* `{{` and a long run of spaces with no `}}` after them: three quantifiers over the same characters made the template's
+     pattern try every split of the run (cubic: 2000 spaces took a second, 8000 almost a minute), on the preview, in
+     the exported apps and while the export prints a screen */
+  it("reads words with an unclosed {{ and a long run of spaces at once", () => {
+    for (const words of [`{{${" ".repeat(50_000)}x`, `{{ item.name${" ".repeat(50_000)}}`, `${"{{ ".repeat(20_000)}`, `{{${" \t".repeat(20_000)}}}`]) {
+      const t = performance.now();
+      expect(hasTemplate(words)).toBe(false);
+      expect(fillTemplate(words, scope).length).toBeLessThanOrEqual(EXPR_LIMITS.text);
+      expect(performance.now() - t).toBeLessThan(200);
+    }
+    /* what the pattern found before, it still finds: spaces inside the braces are the expression's own */
+    expect(fillTemplate("{{  item.name  }} and {{item.price}}", scope)).toBe("Tea and 12.5");
+    expect(fillTemplate("{{ }} {{}} {{ field }}", scope)).toBe("{{ }} {{}} {{ field }}");
+  });
+
+  /* a helper that repeats words it was given (a separator between a long list's elements, a plural's `#` written
+     once per number) made strings far past the cap before cutting them: memory a page full of bindings could not hold */
+  it("caps what a helper makes before it makes it", () => {
+    const list = Array.from({ length: 1000 }, (_, i) => i);
+    const sep = "s".repeat(1_000_000);
+    const t = performance.now();
+    expect((evaluate("join(item.list, item.sep)", { item: { list, sep } }) as string).length).toBeLessThanOrEqual(EXPR_LIMITS.text);
+    expect((evaluate(`plural(1000000000000000, "${"#".repeat(3800)}")`, {}) as string).length).toBeLessThanOrEqual(EXPR_LIMITS.text);
+    expect((evaluate("upper(item.sep)", { item: { sep } }) as string).length).toBeLessThanOrEqual(EXPR_LIMITS.text);
+    expect(performance.now() - t).toBeLessThan(500);
+    expect(evaluate("join(item.list, ' · ')", { item: { list: [1, 2, 3] } })).toBe("1 · 2 · 3");
+  });
+
   it("never throws on any input", () => {
     const junk = ["", "\u0000", "}}{{", "a".repeat(300), "((((", "1e999", "'\\u12'", "item[item[item[item]]]", "x?.5:1", "item?.[0]", "@#$%", "date(", "plural()", "?? 1", "a ? b", "\\"];
     for (const j of junk) expect(() => evaluate(j, scope)).not.toThrow();

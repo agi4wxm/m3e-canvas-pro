@@ -5,6 +5,7 @@
 
 import { randomBytes } from "node:crypto";
 import { lstat, mkdir, readdir, readFile, realpath, rename, rmdir, unlink, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { CONFLICT_SUFFIX, MANIFEST_PATH, parseManifest, pathsToHash, pathsToRead, planExport, type ExportPlan } from "./merge";
 import { pathProblem } from "./paths";
@@ -54,6 +55,15 @@ async function foreign(root: string): Promise<boolean> {
   return !(await lstatOrNull(join(root, ...MANIFEST_PATH.split("/"))))?.isFile();
 }
 
+/** Whether a folder is one no export may go into, forced or not: the root of a disk, the home folder, or a folder that
+ *  holds it. A product's hundreds of files (a package.json, an AGENTS.md, server/) do not belong there, and an agent
+ *  told to export by words it read somewhere must not be able to put them there. */
+async function tooWide(root: string): Promise<boolean> {
+  if (dirname(root) === root) return true;
+  const home = await realpath(homedir()).catch(() => resolve(homedir()));
+  return !!home && (root === home || home.startsWith(root.endsWith(sep) ? root : root + sep));
+}
+
 export type FolderExport = ExportPlan & { dir: string };
 
 /** Exports `product` into `dir` (made when missing). A folder that holds other things and no export manifest is
@@ -61,6 +71,7 @@ export type FolderExport = ExportPlan & { dir: string };
 export async function exportToFolder(dir: string, product: Product, o: { force?: boolean } = {}): Promise<FolderExport> {
   await mkdir(dir, { recursive: true });
   const root = await realpath(dir);
+  if (await tooWide(root)) throw new FolderRefused(`${dir} is the root of a disk or holds the home folder: export into a folder of its own (force does not change this)`);
   if (!o.force && (await foreign(root))) throw new FolderRefused(`${dir} is not empty and holds no export of a product (.m3e/manifest.json): pick an empty folder, or pass force`);
   const manifestFile = await placeOf(root, MANIFEST_PATH);
   const previous = parseManifest((await lstatOrNull(manifestFile))?.isFile() ? await readFile(manifestFile, "utf8") : null);

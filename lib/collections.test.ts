@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectionOf, collectionText, expandRepeats, fillCurrent, fillText, repeatAround, rowOf, rowsOfRepeat } from "./collections";
+import { CURRENT_TOKEN, collectionOf, collectionText, expandRepeats, fillCurrent, fillText, markCurrent, repeatAround, rowOf, rowsOfRepeat } from "./collections";
 import { canvasView, expandDoc } from "./expand";
 import { arrangeFlows } from "./flow";
 import { expandInstances, rekeyedAll, standIn } from "./instances";
@@ -31,6 +31,20 @@ describe("rows", () => {
     expect(fillCurrent({ a: "{{current.none}}!" }, {})).toEqual({ a: "!" });
     const same = { a: "plain" };
     expect(fillCurrent(same, { title: "X" })).toBe(same);
+  });
+
+  /* `{{` and a long run of spaces with no `}}`: the token's pattern used to try every split of the run (cubic), so a
+     row's or a part's words could freeze the canvas, the preview and the export */
+  it("reads an unclosed {{ before a long run of spaces at once", () => {
+    const t = performance.now();
+    for (const words of [`{{${" ".repeat(50_000)}x`, `{{current.${" ".repeat(50_000)}x`, `{{ current.title${" ".repeat(50_000)}`]) {
+      expect(fillText(words, rowOf(posts, 0))).toBe(words);
+      expect(fillCurrent(words, { title: "X" })).toBe(words);
+      expect(words.split(CURRENT_TOKEN)).toEqual([words]);
+      expect(markCurrent(words, () => "!")).toBe(words);
+    }
+    expect(performance.now() - t).toBeLessThan(500);
+    expect("a {{ current.title }} b {{current.first name}}".split(CURRENT_TOKEN)).toEqual(["a ", "title", " b ", "first name", ""]);
   });
 
   it("edits a collection as the table text a table prop uses", () => {

@@ -561,15 +561,19 @@ export const holds = (e: string, scope: Scope, ctx?: EvalContext) => truthy(eval
 
 /* ---------- words with expressions in them ---------- */
 
-const TOKEN = /\{\{\s*([^{}]+?)\s*\}\}/g;
+/* What is between the braces is taken whole and trimmed after. A run of spaces matched on each side of a lazy middle
+   is tried split every way when no `}}` follows (cubic in the run's length): a document's words must never be able
+   to ask for that. Nothing between these braces can be a brace, so this reads in one pass. */
+const TOKEN = /\{\{([^{}]*)\}\}/g;
 
 /** Words with each `{{expression}}` read and written in: one that reads a root of the bindings (or calls a helper);
  *  another token (`{{field}}` of a collection's row, a typo) is left as written. The same string when it has none. */
 export function fillTemplate(text: string, scope: Scope, ctx?: EvalContext): string {
   if (!text.includes("{{")) return text;
   let budget = 64;
-  const out = text.replace(TOKEN, (whole, src: string) => {
-    if (--budget < 0) return whole;
+  const out = text.replace(TOKEN, (whole, inner: string) => {
+    const src = inner.trim();
+    if (!src || --budget < 0) return whole;
     const p = parseExpr(src);
     if (!p.ok) return whole;
     return display(evaluate(p, scope, ctx));
@@ -580,7 +584,10 @@ export function fillTemplate(text: string, scope: Scope, ctx?: EvalContext): str
 /** whether words hold a `{{expression}}` the bindings read */
 export function hasTemplate(text: string): boolean {
   if (!text.includes("{{")) return false;
-  for (const m of text.matchAll(TOKEN)) if (parseExpr(m[1]).ok) return true;
+  for (const m of text.matchAll(TOKEN)) {
+    const src = m[1].trim();
+    if (src && parseExpr(src).ok) return true;
+  }
   return false;
 }
 
@@ -613,7 +620,12 @@ export const HELPERS: Record<string, Helper> = Object.assign(Object.create(null)
     try {
       if (new Intl.PluralRules(localeOf(r.ctx.lang)).select(n) === "one") form = str(a[1]);
     } catch {}
-    return form.replace(/#/g, formatNumber(n, { style: "decimal" }, r.ctx));
+    /* each `#` grows into the number: the words stop at the cap rather than being made whole and cut after */
+    const number = formatNumber(n, { style: "decimal" }, r.ctx);
+    const pieces = form.split("#");
+    let out = pieces[0];
+    for (let i = 1; i < pieces.length && out.length < EXPR_LIMITS.text; i++) out += number + pieces[i];
+    return capped(out);
   },
   /** truncate(words, length): cut with an ellipsis */
   truncate: (a: unknown[]) => {
@@ -622,8 +634,8 @@ export const HELPERS: Record<string, Helper> = Object.assign(Object.create(null)
     const chars = [...s];
     return chars.length > n ? `${chars.slice(0, Math.max(0, n - 1)).join("")}…` : s;
   },
-  upper: (a: unknown[]) => str(a[0]).toUpperCase(),
-  lower: (a: unknown[]) => str(a[0]).toLowerCase(),
+  upper: (a: unknown[]) => capped(str(a[0]).toUpperCase()),
+  lower: (a: unknown[]) => capped(str(a[0]).toLowerCase()),
   trim: (a: unknown[]) => str(a[0]).trim(),
   /** len(list or words) */
   len: (a: unknown[]) => (Array.isArray(a[0]) ? a[0].length : typeof a[0] === "string" ? [...a[0]].length : 0),
@@ -631,7 +643,12 @@ export const HELPERS: Record<string, Helper> = Object.assign(Object.create(null)
   join: (a: unknown[], r: Run) => {
     const l = listOf(a[0]).slice(0, 1000);
     step(r, l.length);
-    return capped(l.map((x) => str(x)).join(typeof a[1] === "string" ? a[1] : ", "));
+    /* one element at a time, stopping at the cap: a long separator between a thousand elements would otherwise make
+       far more than the cap before it was cut */
+    const sep = typeof a[1] === "string" ? capped(a[1]) : ", ";
+    let out = "";
+    for (let i = 0; i < l.length && out.length < EXPR_LIMITS.text; i++) out += (i ? sep : "") + str(l[i]);
+    return capped(out);
   },
   /** pluck(list, field): the field of each element */
   pluck: (a: unknown[], r: Run) => {

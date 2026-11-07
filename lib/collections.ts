@@ -14,7 +14,10 @@ export type Row = Record<string, string>;
 const MAX_ROWS = 200;
 const MAX_GROUPS = 6000;
 
-const TOKEN = /\{\{\s*([^{}]+?)\s*\}\}/g;
+/* What is between the braces is taken whole and trimmed after: spaces matched on both sides of a lazy middle are tried
+   split every way when no `}}` follows (cubic in a run of spaces), which a document's words must not be able to ask
+   for. Nothing between these braces can be a brace, so they are read in one pass. */
+const TOKEN = /\{\{([^{}]*)\}\}/g;
 
 export const rowOf = (c: Collection, at: number): Row => Object.fromEntries(c.fields.map((f, i) => [f, c.rows[at]?.[i] ?? ""]));
 
@@ -47,14 +50,28 @@ export function fillDeep<T>(value: T, fill: (text: string) => string): T {
 }
 
 /** `{{field}}` is the row's; a token it does not know is left as written, so a typo shows */
-export const fillText = (text: string, row: Row) => (text.includes("{{") ? text.replace(TOKEN, (whole, key: string) => (Object.prototype.hasOwnProperty.call(row, key) ? row[key] : whole)) : text);
+export const fillText = (text: string, row: Row) =>
+  text.includes("{{")
+    ? text.replace(TOKEN, (whole, inner: string) => {
+        const key = inner.trim();
+        return key && Object.prototype.hasOwnProperty.call(row, key) ? row[key] : whole;
+      })
+    : text;
 
 /** `{{current.field}}` reads the row last tapped; a field it does not have reads as nothing */
 export const fillCurrent = <T>(value: T, current: Row | undefined): T =>
-  fillDeep(value, (text) => (text.includes("{{current.") ? text.replace(TOKEN, (whole, key: string) => (key.startsWith("current.") ? (current?.[key.slice(8)] ?? "") : whole)) : text));
+  fillDeep(value, (text) =>
+    text.includes("{{current.")
+      ? text.replace(TOKEN, (whole, inner: string) => {
+          const key = inner.trim();
+          return key.startsWith("current.") ? (current?.[key.slice(8)] ?? "") : whole;
+        })
+      : text,
+  );
 
-/** `{{current.field}}` with its field caught, for code that has to read it at run time */
-export const CURRENT_TOKEN = /\{\{\s*current\.([^{}]+?)\s*\}\}/;
+/** `{{current.field}}` with its field caught, for code that has to read it at run time. The field is words with single
+ *  runs of spaces between them, so no run of spaces can be split two ways (linear, whatever the words). */
+export const CURRENT_TOKEN = /\{\{\s*current\.(\s*[^{}\s]+(?:\s+[^{}\s]+)*)\s*\}\}/;
 
 /** a value with each `{{current.field}}` in it written as `mark` says, the same object where there is none */
 export const markCurrent = <T>(value: T, mark: (field: string) => string): T =>
