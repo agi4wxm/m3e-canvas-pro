@@ -16,6 +16,7 @@ import { OpError } from "../op";
 import { pictureError } from "../images";
 import { docIconId, docIconName, isDocIconName } from "../../docIcons";
 import type { CoreState } from "../state";
+import { exprSyntaxError } from "../../bindings/check";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -113,6 +114,8 @@ export function checkProps(def: PartDef, props: Record<string, unknown>, s: Core
 }
 
 const FLOW_SIZING = ["fixed", "hug", "fill"];
+/** a field of a body: names joined by dots */
+export const FIELD_PATH = /^[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*){0,7}$/;
 const FLOW_ALIGN = ["start", "center", "end", "stretch", "baseline"];
 const isWH = (v: unknown, of: (x: unknown) => boolean) => isRecord(v) && Object.entries(v).every(([k, x]) => (k === "w" || k === "h") && (x === undefined || of(x)));
 
@@ -157,10 +160,17 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
     const def = partBySlug(it.component);
     for (const [prop, id] of Object.entries(v)) {
       if (!def?.props.some((d) => d.key === prop)) return `${it.component} has no prop "${prop}" to bind`;
+      /* "=…" is an expression over the bindings */
+      if (typeof id === "string" && id.startsWith("=")) {
+        const e = exprSyntaxError(id.slice(1));
+        if (e) return `${prop}: ${e}`;
+        continue;
+      }
       if (typeof id !== "string" || !(s.doc.vars ?? []).some((x) => x.id === id)) return `there is no variable ${JSON.stringify(id)} for ${prop}`;
     }
     return null;
   },
+  field: (v) => (v === undefined || (typeof v === "string" && FIELD_PATH.test(v)) ? null : 'should be the name of a field of the form\'s body ("email", "address.city")'),
 };
 
 /** Checks a patch of a part's own fields. `props` is checked against the definition; `id`, `kind` and `component`
@@ -191,7 +201,8 @@ export function cleanedLook(v: unknown) {
 const isValue = (v: unknown): v is VarValue => typeof v === "string" || typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v));
 
 export function conditionError(c: unknown, s: CoreState): string | null {
-  if (!isRecord(c)) return "should be {var, op, value} or {filled}";
+  if (!isRecord(c)) return "should be {var, op, value}, {filled} or {expr}";
+  if (c.expr !== undefined) return exprSyntaxError(c.expr);
   if (typeof c.filled === "string") return s.doc.groups.some((g) => g.items.some((it) => it.id === c.filled)) ? null : `there is no part ${JSON.stringify(c.filled)}`;
   if (typeof c.var !== "string" || !(s.doc.vars ?? []).some((v) => v.id === c.var)) return `there is no variable ${JSON.stringify(c.var)}`;
   if (c.op !== "eq" && c.op !== "neq") return 'op should be "eq" or "neq"';
@@ -200,7 +211,7 @@ export function conditionError(c: unknown, s: CoreState): string | null {
 
 const TRANSITIONS = ["slide", "slideLeft", "slideUp", "slideDown", "fade", "expand", "none"];
 
-function effectError(e: unknown, s: CoreState): string | null {
+function effectError(e: unknown, s: CoreState, depth = 0): string | null {
   if (!isRecord(e)) return "an effect should be an object";
   const part = (id: unknown) => (typeof id === "string" && s.doc.groups.some((g) => g.items.some((it) => it.id === id)) ? null : `there is no part ${JSON.stringify(id)}`);
   const v = (id: unknown) => (typeof id === "string" && (s.doc.vars ?? []).some((x) => x.id === id) ? null : `there is no variable ${JSON.stringify(id)}`);
@@ -212,7 +223,7 @@ function effectError(e: unknown, s: CoreState): string | null {
     case "close":
       return part(e.part);
     case "setVar":
-      return v(e.var) ?? (isValue(e.value) ? null : "value should be text, a number or true/false");
+      return v(e.var) ?? (e.expr !== undefined ? exprSyntaxError(e.expr) : null) ?? (isValue(e.value) || e.expr !== undefined ? null : "value should be text, a number or true/false (or give expr)");
     case "toggleVar":
       return v(e.var);
     case "addVar":
@@ -221,12 +232,46 @@ function effectError(e: unknown, s: CoreState): string | null {
       return part(e.part) ?? (typeof e.prop === "string" && isValue(e.value) ? null : "prop and value are required");
     case "snackbar":
       return typeof e.message === "string" ? null : "message should be text";
+    case "call": {
+      const endpoints = s.doc.api?.endpoints ?? [];
+      if (typeof e.operationId !== "string" || !endpoints.some((x) => x.operationId === e.operationId)) return `there is no endpoint ${JSON.stringify(e.operationId)}${endpoints.length ? ` (get_api lists them: ${endpoints.slice(0, 12).map((x) => x.operationId).join(", ")})` : "; add_endpoint adds one"}`;
+      if (depth > 3) return "a call's then and catch may hold calls only 4 deep";
+      for (const k of ["args"] as const) {
+        if (e[k] === undefined) continue;
+        if (!isRecord(e[k])) return `${k} should be {name: expression}`;
+        for (const [name, x] of Object.entries(e[k] as Record<string, unknown>)) {
+          const err = exprSyntaxError(x);
+          if (err) return `${k}.${name}: ${err}`;
+        }
+      }
+      if (e.body !== undefined) {
+        const err = exprSyntaxError(e.body);
+        if (err) return `body: ${err}`;
+      }
+      if (e.optimistic !== undefined && (!isRecord(e.optimistic) || typeof e.optimistic.source !== "string")) return "optimistic should be {source, remove: true} or {source, patch: {field: expression}}";
+      for (const k of ["then", "catch"] as const) {
+        if (e[k] === undefined) continue;
+        const err = bodyError(e[k], s, depth + 1);
+        if (err) return `${k}: ${err}`;
+      }
+      return null;
+    }
+    case "refresh":
+    case "loadMore": {
+      const names = s.doc.frames.flatMap((f) => (f.data ?? []).map((d) => d.name));
+      return typeof e.source === "string" && names.includes(e.source) ? null : `no screen loads data called ${JSON.stringify(e.source)}${names.length ? ` (the screens load ${[...new Set(names)].join(", ")})` : "; add_data_source adds one"}`;
+    }
+    case "submit":
+      if (e.form === undefined) return null;
+      return typeof e.form === "string" && s.doc.groups.some((g) => g.form && (g.id === e.form || g.items.some((it) => it.id === e.form))) ? null : `there is no form ${JSON.stringify(e.form)} (make_form makes one)`;
+    case "signOut":
+      return null;
     default:
-      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar)`;
+      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, refresh, loadMore, submit, signOut)`;
   }
 }
 
-function bodyError(a: unknown, s: CoreState): string | null {
+function bodyError(a: unknown, s: CoreState, depth = 0): string | null {
   if (!isRecord(a)) return "should be an object";
   const to = a.to;
   if (typeof to !== "string") return 'to should be a screen id, "back", "link" or "none"';
@@ -239,11 +284,48 @@ function bodyError(a: unknown, s: CoreState): string | null {
   if (a.effects !== undefined) {
     if (!Array.isArray(a.effects)) return "effects should be a list";
     for (const [i, e] of a.effects.entries()) {
-      const err = effectError(e, s);
+      const err = effectError(e, s, depth);
       if (err) return `effect ${i}: ${err}`;
     }
   }
+  if (a.params !== undefined) {
+    if (!isRecord(a.params)) return "params should be {name: expression}";
+    const target = s.doc.frames.find((f) => f.id === to);
+    const takes = (target?.params ?? []).map((p) => p.name);
+    for (const [name, x] of Object.entries(a.params)) {
+      if (target && !takes.includes(name)) return `the screen ${JSON.stringify(target.name || target.id)} takes no param ${JSON.stringify(name)}${takes.length ? ` (it takes ${takes.join(", ")})` : "; set_screen_params declares what it takes"}`;
+      const err = exprSyntaxError(x);
+      if (err) return `params.${name}: ${err}`;
+    }
+  }
   return null;
+}
+
+/** A tap that opens a screen with params the screen does not declare yet declares them there: the screen a list's row
+ *  opens learns what it is given, whichever of the two is made first. Its call branches and its else count too. */
+export function withTapParams(s: CoreState, a: unknown): CoreState {
+  const wanted = new Map<string, Set<string>>();
+  const visit = (b: unknown, depth: number) => {
+    if (!isRecord(b) || depth > 6) return;
+    if (typeof b.to === "string" && isRecord(b.params)) for (const name of Object.keys(b.params)) if (/^[A-Za-z_]\w{0,63}$/.test(name)) (wanted.get(b.to) ?? wanted.set(b.to, new Set()).get(b.to)!).add(name);
+    for (const e of Array.isArray(b.effects) ? b.effects : [])
+      if (isRecord(e) && e.do === "call") {
+        visit(e.then, depth + 1);
+        visit(e.catch, depth + 1);
+      }
+    visit(b.else, depth + 1);
+  };
+  visit(a, 0);
+  if (!wanted.size) return s;
+  let changed = false;
+  const frames = s.doc.frames.map((f) => {
+    const names = wanted.get(f.id);
+    const missing = names ? [...names].filter((n) => !(f.params ?? []).some((p) => p.name === n)) : [];
+    if (!missing.length) return f;
+    changed = true;
+    return { ...f, params: [...(f.params ?? []), ...missing.map((name) => ({ name, type: "string" as const }))] };
+  });
+  return changed ? { ...s, doc: { ...s.doc, frames } } : s;
 }
 
 export function actionError(a: unknown, s: CoreState): string | null {

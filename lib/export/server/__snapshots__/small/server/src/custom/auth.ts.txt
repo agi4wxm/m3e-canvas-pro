@@ -1,0 +1,22 @@
+import type { Credential } from "../generated/auth";
+import { notImplemented } from "../generated/errors";
+
+// Custom code (written by people or AI). The export created this file once and never changes it
+// again; the generated code uses only what it exports: the type User and authenticate().
+//
+// The contract says which operations need a user and how one proves who it is (its security
+// schemes). The generated code reads the credential a request carries and calls authenticate()
+// with it: return the user it stands for, or null when it stands for no one (the request gets
+// 401). Throw forbidden() from ../generated/errors when the user may not do this (scopes): 403.
+// Realtime connections bring a bearer token (header, or ?access_token=) the same way.
+//
+//   scheme bearer: http bearer
+
+/** who is calling: handlers read it as ctx.user */
+export type User = {
+  id: string;
+};
+
+export async function authenticate(credential: Credential): Promise<User | null> {
+  throw notImplemented("authenticate (" + credential.scheme + ")");
+}

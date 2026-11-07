@@ -1,0 +1,52 @@
+/* The kit's own rules: what a style object cannot say (a press, an animation). Class selectors only, so the same file
+   is valid WXSS (WeChat), TTSS (Douyin) and CSS (the web). */
+
+.m3e-pressed {
+  opacity: 0.85;
+}
+
+@keyframes m3e-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.m3e-spin {
+  animation: m3e-spin 1s linear infinite;
+}
+
+@keyframes m3e-shimmer {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.m3e-shimmer {
+  animation: m3e-shimmer 1.6s ease-in-out infinite;
+}
+
+.m3e-theme {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* On the web (H5) Taro draws a textarea as the browser's own, with the browser's font, ground and grip: the field it
+   stands in is the one drawn. A mini-program has no such class. */
+.m3e-theme .taro-textarea {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  outline: none;
+  resize: none;
+  padding: 0;
+}

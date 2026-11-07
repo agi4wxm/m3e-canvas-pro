@@ -138,7 +138,8 @@ function fieldsLine(it: Item): string {
   if (it.look) out.push(`look(${Object.keys(it.look).join(",")})`);
   if (it.action) out.push(`tap→${it.action.to}${it.action.effects?.length ? `+${it.action.effects.length} effects` : ""}`);
   if (it.actions) out.push(`taps(${Object.keys(it.actions).join(",")})`);
-  if (it.bind) out.push(`bind(${Object.entries(it.bind).map(([p, v]) => `${p}:${v}`).join(",")})`);
+  if (it.bind) out.push(`bind(${Object.entries(it.bind).map(([p, v]) => `${p}:${clip(v, 60)}`).join(",")})`);
+  if (it.field) out.push(`field=${it.field}`);
   const c = childLayoutOf(it);
   if (it.flowSize || it.flowFill) out.push(`size=${c.size.w ?? (it.flowFill ? "fill" : "-")}/${c.size.h ?? "-"}`);
   if (c.self) out.push(`self=${c.self}`);
@@ -169,18 +170,45 @@ export function outline(doc: Doc, widths: Widths, o: OutlineOptions = {}): strin
     }
     for (const c of doc.collections ?? []) lines.push(`collection ${c.id} "${c.name}" fields ${c.fields.join(", ")}; ${c.rows.length} rows`);
     for (const v of doc.vars ?? []) lines.push(`var ${v.id} "${v.name}" ${v.type} = ${JSON.stringify(v.value)}${v.drives === "dark" ? " (drives the dark mode)" : ""}`);
+    /* the product layer in a line: get_api, get_mocks and describe_bindings read it in full */
+    const api = doc.api;
+    if (api && (api.models?.length || api.endpoints?.length || api.channels?.length)) {
+      const mocks = doc.mocks;
+      lines.push(`api: ${api.models?.length ?? 0} models, ${api.endpoints?.length ?? 0} endpoints${api.channels?.length ? `, ${api.channels.length} channels` : ""}${api.auth?.login ? `, sign-in ${api.auth.login}` : ""}; mocks: ${mocks ? `${mocks.scenarios?.length ?? 0} scenarios` : "none set (fill_mocks)"}`);
+    }
   }
+  /** a region's state designs sit on panes 1–4 of it: loading, empty, error, forbidden */
+  const PANE_STATE = ["", "loading", "empty", "error", "forbidden"];
   const walk = (n: TreeNode, depth: number) => {
     if (o.depth !== undefined && depth > o.depth) return;
     const it = items.get(n.id);
     const g = groups.get(n.groupId);
-    const flags = [n.placed === "flow" ? "" : n.placed === "loose" ? "absolute in layout" : "", n.layout ? `layout=${n.layout}` : "", n.instanceOf ? `instance of ${n.instanceOf}` : "", n.kit ? `kit ${n.kit}` : "", n.locked ? "locked" : "", n.hidden ? "hidden" : "", g?.showWhen ? "showWhen" : "", g?.repeat ? `repeats ${g.repeat.collection}` : "", roleOf(it ?? {}) && ["top", "bottom", "floatingBottom", "fab", "overlay", "rail"].includes(roleOf(it ?? {})!) ? `role=${roleOf(it ?? {})}` : ""].filter(Boolean);
+    const host = g?.inFlow ? groups.get(g.inFlow) : undefined;
+    const flags = [
+      n.placed === "flow" ? "" : n.placed === "loose" ? "absolute in layout" : "",
+      n.layout ? `layout=${n.layout}` : "",
+      n.instanceOf ? `instance of ${n.instanceOf}` : "",
+      n.kit ? `kit ${n.kit}` : "",
+      n.locked ? "locked" : "",
+      n.hidden ? "hidden" : "",
+      g?.showWhen ? ("expr" in g.showWhen ? `showWhen ${clip(g.showWhen.expr, 40)}` : "showWhen") : "",
+      g?.repeat ? `repeats ${g.repeat.data ?? g.repeat.collection}` : "",
+      g?.states ? `region of ${g.states.source ?? "no source"}${g.states.show ? `, showing ${g.states.show}` : ""}` : "",
+      host?.states && g?.pane ? `${PANE_STATE[g.pane] ?? "state"} design` : "",
+      g?.form ? `form of ${g.form.operationId}` : "",
+      roleOf(it ?? {}) && ["top", "bottom", "floatingBottom", "fab", "overlay", "rail"].includes(roleOf(it ?? {})!) ? `role=${roleOf(it ?? {})}` : "",
+    ].filter(Boolean);
     lines.push(`${"  ".repeat(depth)}- ${n.id} ${n.slug} "${clip(n.name, 32)}" @${n.x},${n.y} ${n.w}×${n.h}${flags.length ? ` [${flags.join(", ")}]` : ""}${it ? propsLine(it, o.props ?? "set") + fieldsLine(it) : ""}`);
     for (const c of n.children) walk(c, depth + 1);
   };
   for (const s of screens) {
     const f = doc.frames.find((x) => x.id === s.id)!;
-    lines.push(`## screen ${s.id} "${s.name}" ${s.w}×${s.h}${s.length > s.h ? ` scrolls to ${s.length}` : ""}${f.bg ? ` bg=${f.bg}` : ""}${f.variantOf ? ` size of ${f.variantOf}` : ""}${f.note ? ` — ${clip(f.note, 80)}` : ""}`);
+    const bound = [
+      f.data?.length ? `data ${f.data.map((d) => `${d.name}=${d.operationId}`).join(", ")}` : "",
+      f.params?.length ? `params ${f.params.map((p) => p.name).join(", ")}` : "",
+      f.auth ? `auth ${f.auth}` : "",
+    ].filter(Boolean);
+    lines.push(`## screen ${s.id} "${s.name}" ${s.w}×${s.h}${s.length > s.h ? ` scrolls to ${s.length}` : ""}${f.bg ? ` bg=${f.bg}` : ""}${f.variantOf ? ` size of ${f.variantOf}` : ""}${bound.length ? ` [${bound.join("; ")}]` : ""}${f.note ? ` — ${clip(f.note, 80)}` : ""}`);
     for (const n of s.nodes) walk(n, 1);
   }
   if (!o.screen && tree.loose.length) {

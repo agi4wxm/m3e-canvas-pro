@@ -12,9 +12,15 @@ import { opInput } from "./schema";
 import { tool, ToolFailure, type Tool, type ToolEnv, type ToolGroup } from "./types";
 
 const STYLE_OPS = new Set(["set_theme", "apply_style", "set_custom_styles", "add_custom_style", "set_style_rules", "set_style_layout", "set_palette", "set_custom_palette", "set_dynamic_color"]);
-const DATA_OPS = new Set(["add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode"]);
+/** the operations on the API section (lib/core/ops/api.ts): data too, the contract the data comes through */
+export const API_OPS = new Set(["add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi"]);
+/** the operations on the mock library (lib/core/ops/mocks.ts): data too, what the API answers with */
+export const MOCK_OPS = new Set(["set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks"]);
+/** the operations that bind screens to the contract (lib/core/ops/bindings.ts) */
+export const BINDING_OPS = new Set(["add_data_source", "update_data_source", "remove_data_source", "set_screen_params", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
+const DATA_OPS = new Set([...BINDING_OPS, "add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS, ...MOCK_OPS]);
 /** what takes away something the author made: a client asks the author first */
-export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon"]);
+export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel", "unpin_mock_records", "remove_mock_scenario", "remove_mock_file", "remove_mock_realtime", "clear_mocks", "remove_data_source", "remove_region"]);
 
 const groupOf = (name: string): ToolGroup => (STYLE_OPS.has(name) ? "style" : DATA_OPS.has(name) ? "data" : "edit");
 
@@ -33,7 +39,7 @@ const MORE: Record<string, string> = {
   set_style_rules: "Off frees colors, shapes and every look field; on removes what the style decides. Only when the author asks for it.",
   clear: "Removes everything the canvas holds. Only when the author asks for a fresh start.",
   remove_nodes: "A container's children are not removed with it: remove them too when the whole block should go.",
-  set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here.',
+  set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here. The API: {do: "call", operationId, args: {param or body field: expression}, then: {to, params, effects}, catch: {...}} (then reads response, catch reads error), {do: "refresh", source}, {do: "loadMore", source}, {do: "submit"} (the form the part is in), {do: "signOut"}; params: {name: expression} gives the screen it opens its params (declared there if missing; for API data, while a detail opened from a row of a data collection reads {{current.field}}); when: {expr} tests an expression; setVar {expr} sets a variable from one.',
   wrap_in_auto_layout: "Returns {itemId}: the new outer box.",
   make_component: "Its parts then live in the component's definition, no longer on the screen: change them with edit_component (every instance follows); an instance's own words with set_instance_props or set_overrides. Returns {id, instanceId, itemId}.",
   edit_component:
@@ -50,6 +56,31 @@ const MORE: Record<string, string> = {
   set_var_mode: "A screen's own choice wins over the document's; list_data lists the collections and their modes.",
   bind_prop: "A fill bound to a color variable shows its value in the mode on show; to drive a switch's checked prop by a bool variable, bind it and toggle the variable with set_action.",
   split_into_atoms: "Returns {rootItemId}.",
+  add_model: "get_api shows the models there are. Name fields in camelCase; required lists what is always there. Returns {name}.",
+  update_model: "To rename a model use rename_model (references follow).",
+  remove_model: "Refused while something refers to the model; the error lists what.",
+  add_endpoint:
+    "REST shape: GET /products (listProducts, paged: pagination {style: \"cursor\", items: \"items\"} with returns {type: object, properties: {items: {type: array, items: {$ref: Product}}, nextCursor: {type: [string, null]}}}), GET /products/{id}, POST /products, PATCH /products/{id}, DELETE /products/{id}. Returns {operationId, parameters, responses}.",
+  update_endpoint: "describe_endpoint shows one in full first.",
+  set_auth: "A login endpoint is usually public (update_endpoint {security: []}) and returns {accessToken, refreshToken}.",
+  add_channel: "A chat: a WebSocket channel whose operations are the server sending new messages (send) and receiving the user's (receive).",
+  import_openapi: "Give the whole file's text. Returns {models, endpoints, converted, kept, dropped, problems}.",
+  import_asyncapi: "Give the whole file's text. Returns {models, channels, converted, kept, dropped, problems}.",
+  fill_mocks: "Start here when the API has no mocks yet; then get_mocks shows what it wrote and try_mock shows what an endpoint answers. Returns {models, hints, scenarios, scripts}.",
+  set_mock_model: "get_mocks lists each model's fields with the hint they have now; list_mock_records shows the records they make.",
+  pin_mock_records: "list_mock_records gives records to start from. Returns {model, pinned}.",
+  add_mock_scenario: "An operation is named by its operationId (get_api lists them). Returns {id}.",
+  update_mock_scenario: "get_mocks lists the scenarios.",
+  add_mock_file: "Returns {id}; a hint's files: [id] makes a field use it.",
+  generate_mock_files: "Returns {ids}.",
+  set_mock_realtime: "get_api lists each channel's messages. Returns {id}.",
+  wire_screen:
+    "The quickest way to a working screen: one call per screen and endpoint (a list with detail: the screen a row opens, given the row's id as its params, in either order). It composes a region of its own below what the screen holds: a list already designed is bound in place instead (set_repeat, bind_expression, set_region). Restyle what it made like any parts. Returns {source, region, template, states}.",
+  add_data_source: "Returns {name, addedParams}. The screen then reads data.<name>.value (the body), .items (a list, every page so far), .status, .loading, .error, .hasMore, .empty.",
+  bind_expression:
+    'Paths: data.<source>.value.<field>, data.<source>.items, item.<field> (inside a repeat over data), index, params.<name>, vars.<name>, form.<field>, form.errors.<field>, form.error, form.submitting, auth.signedIn, auth.user.<field>. Operators: + - * / % == != < <= > >= && || ! ?? ?:. Helpers: date(v, "date|time|datetime|short|long|relative"), relative(v), number(v, digits), currency(v, code), percent(v), fileSize(v), plural(n, "# item", "# items"), truncate(s, n), upper, lower, len, join, pluck, sum, first, last, contains, isEmpty, round, min, max. describe_bindings {screen, expr, at} checks one first.',
+  set_region: "A region is usually a repeat's container (a list) or the column showing one item. Returns {states}: the states it has designs for; each design is an ordinary box on the region's pane for that state, edited like any parts (set_region {show} brings it on the canvas).",
+  make_form: "Returns {formId, fields: [{field, itemId}], submitId}. The login endpoint's form (set_auth login) starts the session; then {to: screen} goes on. A list opened after saving loads again by itself: refresh only names a source of the screen the form is on.",
 };
 
 /** what an operation reports that a model has no use for */
@@ -120,12 +151,33 @@ function runOne(o: Op<never, unknown>, args: Record<string, unknown>, env: ToolE
   return { result: lean(o.name, result) };
 }
 
+/** Operations that change what another adds, with the same fields: their fields are described once, on the adding
+ *  one, and only named here (the operation still checks every value). Every request carries every loaded tool. */
+const SAME_FIELDS_AS: Record<string, string> = { update_endpoint: "add_endpoint", update_mock_scenario: "add_mock_scenario", update_channel: "add_channel" };
+
+/** a tool's input with the fields it shares with the operation it updates left undescribed */
+function leanInput(name: string, input: Schema): Schema {
+  const like = SAME_FIELDS_AS[name] ? opByName(SAME_FIELDS_AS[name]) : undefined;
+  const shared = like ? ((like.args as Schema).properties as Record<string, Schema> | undefined) : undefined;
+  const props = input.properties as Record<string, Schema> | undefined;
+  if (!shared || !props) return input;
+  const bare = (s: Schema): Schema => {
+    const { description: _d, ...rest } = s;
+    const out: Schema = { ...rest };
+    if (out.properties && typeof out.properties === "object") out.properties = Object.fromEntries(Object.entries(out.properties as Record<string, Schema>).map(([k, v]) => [k, bare(v)]));
+    if (out.items && typeof out.items === "object" && !Array.isArray(out.items)) out.items = bare(out.items as Schema);
+    if (out.additionalProperties && typeof out.additionalProperties === "object") out.additionalProperties = bare(out.additionalProperties as Schema);
+    return out;
+  };
+  return { ...input, properties: Object.fromEntries(Object.entries(props).map(([k, s]) => [k, k in shared ? bare(s) : s])) };
+}
+
 /** one tool for one operation */
 const opTool = (o: Op<never, unknown>): Tool<Record<string, unknown>> => ({
   name: o.name,
   group: groupOf(o.name),
-  description: MORE[o.name] ? `${o.summary} ${MORE[o.name]}` : o.summary,
-  input: opInput(o.name, o.args),
+  description: [o.summary, MORE[o.name], SAME_FIELDS_AS[o.name] ? `The fields are as ${SAME_FIELDS_AS[o.name]} describes them.` : ""].filter(Boolean).join(" "),
+  input: leanInput(o.name, opInput(o.name, o.args)),
   readOnly: false,
   destructive: DESTRUCTIVE_OPS.has(o.name),
   prepare: (args, s) => idAliased(o.name, args, s),

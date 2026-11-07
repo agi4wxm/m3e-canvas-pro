@@ -1,5 +1,5 @@
 import { flowOf } from "./flow";
-import { type Collection, type Group, type Item, heldBy, retarget } from "./tokens";
+import { type Collection, type Group, type Item, type ItemScope, heldBy, retarget } from "./tokens";
 
 /* Data-bound repeat. A layout container with `Group.repeat` draws its first child once per row of a
  * collection. The rows are real groups in the expanded document, placed by the same `arrangeFlows`
@@ -14,7 +14,10 @@ export type Row = Record<string, string>;
 const MAX_ROWS = 200;
 const MAX_GROUPS = 6000;
 
-const TOKEN = /\{\{\s*([^{}]+?)\s*\}\}/g;
+/* What is between the braces is taken whole and trimmed after: spaces matched on both sides of a lazy middle are tried
+   split every way when no `}}` follows (cubic in a run of spaces), which a document's words must not be able to ask
+   for. Nothing between these braces can be a brace, so they are read in one pass. */
+const TOKEN = /\{\{([^{}]*)\}\}/g;
 
 export const rowOf = (c: Collection, at: number): Row => Object.fromEntries(c.fields.map((f, i) => [f, c.rows[at]?.[i] ?? ""]));
 
@@ -32,7 +35,7 @@ export const firstRows = (collections: Collection[]): Row => Object.assign({}, .
 
 /** A value with its tokens filled in, the same object where nothing changed. It walks the whole value
  *  so that the words of a list row or a table cell are reached too, not only plain text props. */
-function fillDeep<T>(value: T, fill: (text: string) => string): T {
+export function fillDeep<T>(value: T, fill: (text: string) => string): T {
   if (typeof value === "string") return fill(value) as T;
   if (Array.isArray(value)) {
     const out = value.map((x) => fillDeep(x, fill));
@@ -47,14 +50,28 @@ function fillDeep<T>(value: T, fill: (text: string) => string): T {
 }
 
 /** `{{field}}` is the row's; a token it does not know is left as written, so a typo shows */
-export const fillText = (text: string, row: Row) => (text.includes("{{") ? text.replace(TOKEN, (whole, key: string) => (Object.prototype.hasOwnProperty.call(row, key) ? row[key] : whole)) : text);
+export const fillText = (text: string, row: Row) =>
+  text.includes("{{")
+    ? text.replace(TOKEN, (whole, inner: string) => {
+        const key = inner.trim();
+        return key && Object.prototype.hasOwnProperty.call(row, key) ? row[key] : whole;
+      })
+    : text;
 
 /** `{{current.field}}` reads the row last tapped; a field it does not have reads as nothing */
 export const fillCurrent = <T>(value: T, current: Row | undefined): T =>
-  fillDeep(value, (text) => (text.includes("{{current.") ? text.replace(TOKEN, (whole, key: string) => (key.startsWith("current.") ? (current?.[key.slice(8)] ?? "") : whole)) : text));
+  fillDeep(value, (text) =>
+    text.includes("{{current.")
+      ? text.replace(TOKEN, (whole, inner: string) => {
+          const key = inner.trim();
+          return key.startsWith("current.") ? (current?.[key.slice(8)] ?? "") : whole;
+        })
+      : text,
+  );
 
-/** `{{current.field}}` with its field caught, for code that has to read it at run time */
-export const CURRENT_TOKEN = /\{\{\s*current\.([^{}]+?)\s*\}\}/;
+/** `{{current.field}}` with its field caught, for code that has to read it at run time. The field is words with single
+ *  runs of spaces between them, so no run of spaces can be split two ways (linear, whatever the words). */
+export const CURRENT_TOKEN = /\{\{\s*current\.(\s*[^{}\s]+(?:\s+[^{}\s]+)*)\s*\}\}/;
 
 /** a value with each `{{current.field}}` in it written as `mark` says, the same object where there is none */
 export const markCurrent = <T>(value: T, mark: (field: string) => string): T =>
@@ -94,6 +111,11 @@ export function measuresFor(groups: Group[], widths: Widths): Widths {
 
 /** one more row: the template and what it holds, under ids of their own, with what they point at among themselves following */
 function rowCopy(members: Group[], hostId: string, at: number, row: Row): Group[] {
+  return blockCopy(members, hostId, at, (it) => fillItem(it, row));
+}
+
+/** the template and what it holds as row `at`, each part made what `decorate` makes of it */
+export function blockCopy(members: Group[], hostId: string, at: number, decorate: (it: Item) => Item): Group[] {
   const key = `${hostId}#${at}`;
   const groupIds = new Map(members.map((g) => [g.id, `${key}/${g.id}`]));
   const itemIds = new Map(members.flatMap((g) => g.items.map((it) => [it.id, `${key}/${it.id}`] as const)));
@@ -104,25 +126,54 @@ function rowCopy(members: Group[], hostId: string, at: number, row: Row): Group[
         id: groupIds.get(g.id)!,
         ...(g.inFlow ? { inFlow: groupIds.get(g.inFlow) ?? g.inFlow } : {}),
         ...(g.pos ? { pos: Object.fromEntries(Object.entries(g.pos).map(([id, p]) => [itemIds.get(id) ?? id, p])) } : {}),
-        items: g.items.map((it) => ({ ...fillItem(it, row), id: itemIds.get(it.id)! })),
+        items: g.items.map((it) => ({ ...decorate(it), id: itemIds.get(it.id)! })),
       },
       itemIds,
     ),
   );
 }
 
-type RepeatOptions = { collections?: Collection[]; widths: Widths; /** the canvas keeps a template with no rows to draw, or it could not be selected */ keepEmpty?: boolean };
+type RepeatOptions = {
+  collections?: Collection[];
+  widths: Widths;
+  /** the canvas keeps a template with no rows to draw, or it could not be selected */
+  keepEmpty?: boolean;
+  /** The elements a repeat over data draws, each as the scope its copy reads (lib/bindings): what the preview's data
+   *  holds; null leaves the repeat as it is. Left out, the canvas (`keepEmpty`) draws `sample` copies of the template
+   *  and anything else leaves the repeat for the preview to draw. */
+  dataRows?: (host: Group) => ItemScope[] | null;
+};
+
+/** how many copies of a repeat over data the canvas draws, when the repeat does not say */
+export const SAMPLE_ROWS = 3;
+
+/** the first child of a repeat: on a region bound to data, the first of its content, not of a state's design */
+export const templateOf = (groups: Group[], host: Group) => groups.find((g) => g.inFlow === host.id && (!host.states || (g.pane ?? 0) === 0));
 
 /** Every repeat drawn out: `repeat` is gone from the result. A repeat on something that is not a layout
- *  any more, or naming a collection that is gone, is a plain container again. */
+ *  any more, or naming a collection that is gone, is a plain container again. A repeat over data is drawn from
+ *  `dataRows`, as samples on the canvas, or left for the preview (lib/bindings). */
 export function expandRepeats(groups: Group[], o: RepeatOptions): Group[] {
   let out = groups;
+  /* the repeats over data left as they are, for whoever draws them from data */
+  const kept = new Set<string>();
   for (;;) {
-    const host = out.find((g) => g.repeat);
+    const host = out.find((g) => g.repeat && !kept.has(g.id));
     if (!host) return out;
     const { repeat, ...bare } = host;
+    if (repeat!.data !== undefined) {
+      const scopes = o.dataRows ? o.dataRows(host) : o.keepEmpty ? Array.from({ length: Math.max(1, Math.min(repeat!.sample ?? SAMPLE_ROWS, repeat!.limit ?? Infinity, 12)) }, () => ({})) : null;
+      const template = flowOf(host) && out.length < MAX_GROUPS ? templateOf(out, host) : undefined;
+      if (scopes === null || !template) {
+        if (scopes === null && template) kept.add(host.id);
+        else out = out.map((g) => (g === host ? bare : g));
+        continue;
+      }
+      out = drawnOver(out, host, bare, template, scopes.slice(0, Math.min(MAX_ROWS, repeat!.limit ?? Infinity)), o.widths, o.keepEmpty);
+      continue;
+    }
     const c = o.collections?.find((x) => x.id === repeat!.collection);
-    const template = c && flowOf(host) && out.length < MAX_GROUPS ? out.find((g) => g.inFlow === host.id) : undefined;
+    const template = c && flowOf(host) && out.length < MAX_GROUPS ? templateOf(out, host) : undefined;
     if (!c || !template) {
       out = out.map((g) => (g === host ? bare : g));
       continue;
@@ -146,6 +197,23 @@ export function expandRepeats(groups: Group[], o: RepeatOptions): Group[] {
   }
 }
 
+/** A repeat over data drawn out: the template as the first element, a copy of it for each of the others, every part
+ *  carrying the scope of its element. With no elements, the template goes (the canvas keeps it). */
+function drawnOver(out: Group[], host: Group, bare: Group, template: Group, scopes: ItemScope[], widths: Widths, keepEmpty?: boolean): Group[] {
+  const measures = measuresFor(out, widths);
+  const members = [template, ...heldBy(template, out, measures).filter((g) => g !== template)];
+  const inBlock = new Set(members.map((g) => g.id));
+  if (!scopes.length) return keepEmpty ? out.map((g) => (g === host ? bare : g)) : out.filter((g) => !inBlock.has(g.id)).map((g) => (g === host ? bare : g));
+  const scoped = (scope: ItemScope) => (it: Item): Item => ({ ...it, scope: { ...it.scope, ...scope } });
+  const filled = out.map((g) => (g === host ? bare : inBlock.has(g.id) ? { ...g, items: g.items.map(scoped(scopes[0])) } : g));
+  let last = -1;
+  filled.forEach((g, i) => {
+    if (inBlock.has(g.id)) last = i;
+  });
+  filled.splice(last + 1, 0, ...scopes.slice(1).flatMap((sc, i) => blockCopy(members, host.id, i + 1, scoped(sc))));
+  return filled;
+}
+
 /** a table is edited as text: the column names on the first line, one row per line, cells split by `,` */
 export const tableText = (t: { columns: string[]; rows: string[][] }) => [t.columns, ...t.rows].map((r) => r.join(", ")).join("\n");
 export const tableOf = (text: string): { columns: string[]; rows: string[][] } => {
@@ -165,6 +233,7 @@ export const collectionOf = (text: string): Pick<Collection, "fields" | "rows"> 
 export const describeRepeats = (groups: Group[], collections: Collection[] | undefined): Group[] =>
   groups.some((g) => g.repeat)
     ? groups.map((g) => {
+        if (g.repeat?.data !== undefined && flowOf(g)) return { ...g, rowsOf: { name: g.repeat.data, rows: g.repeat.sample ?? SAMPLE_ROWS, fields: [] } };
         const c = g.repeat && flowOf(g) ? collections?.find((x) => x.id === g.repeat!.collection) : undefined;
         return c ? { ...g, rowsOf: { name: c.name, rows: rowsOfRepeat(c, g.repeat!.limit).length, fields: c.fields } } : g;
       })
@@ -174,7 +243,7 @@ export const describeRepeats = (groups: Group[], collections: Collection[] | und
 export function repeatAround(groups: Group[], g: Group, widths: Widths): Group | undefined {
   for (const host of groups) {
     if (!host.repeat) continue;
-    const template = groups.find((x) => x.inFlow === host.id);
+    const template = templateOf(groups, host);
     if (template && (template.id === g.id || heldBy(template, groups, widths).some((x) => x.id === g.id))) return host;
   }
   return undefined;

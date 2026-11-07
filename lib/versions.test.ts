@@ -9,6 +9,8 @@ import { buildProject, importsIn, type ProjectFiles } from "./exportProject";
 import { SOURCE_PATHS } from "./exportSources";
 import { setGlobalLang } from "./i18n";
 import { VERSIONS } from "./versions.generated";
+import rnPackage from "../rn/package.json";
+import miniPackage from "../miniapp-kit/package.json";
 
 /* The export pins the versions this repo runs. It used to read them off the lockfile, which the editor then carried
  * whole; it now reads a table written from the lockfile when the editor is built. These hold the table to the lockfile,
@@ -48,10 +50,14 @@ describe("the version table", () => {
   });
 
   it("has every package a file the export may copy imports, and what a project always needs", () => {
+    /* the React Native kit goes into the mobile app, which pins what the kit is built with (rn/package.json); the
+       mini-program's kit likewise into the mini-program (miniapp-kit/package.json) */
+    const rn: Record<string, string> = { ...rnPackage.dependencies, ...rnPackage.devDependencies };
+    const mini: Record<string, string> = { ...miniPackage.dependencies, ...miniPackage.devDependencies, "@m3e/app-runtime": "0.1.0" };
     for (const path of SOURCE_PATHS.filter((p) => /\.(ts|tsx)$/.test(p)))
       for (const spec of importsIn(text(path))) {
         if (spec.startsWith("@/") || spec.startsWith(".")) continue;
-        expect(VERSIONS[packageOf(spec)], `${path} imports ${spec}`).toBeTruthy();
+        expect((path.startsWith("rn/") ? rn : path.startsWith("miniapp-kit/") ? mini : VERSIONS)[packageOf(spec)], `${path} imports ${spec}`).toBeTruthy();
       }
     for (const name of [...EXPORT_ALWAYS, ...EXPORT_DEV]) expect(VERSIONS[name], name).toBeTruthy();
   });

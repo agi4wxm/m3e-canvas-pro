@@ -3,14 +3,16 @@
  * part shows, and a dock's tabs. */
 
 import { panesAfterReorder } from "../../flow";
-import { actionWithoutScreen, type Action, type Collection, type DocVar, type Frame, type Transition, type VarCollection, type VarValue } from "../../tokens";
+import { actionWithoutScreen, frameOfPart, type Action, type Collection, type DocVar, type Frame, type Group, type Transition, type VarCollection, type VarValue } from "../../tokens";
+import { exprPlaceError } from "../../bindings/check";
+import { shapeFor } from "../../bindings/complete";
 import { BIND_FIELDS, collectionsOf, DEFAULT_COLLECTION, fitsType, isBindField, startValueOf } from "../../variables";
 import { partBySlug } from "../../../parts/registry";
 import { t } from "../../i18n";
 import { op, OpError, S } from "../op";
 import { withDoc, withFrames, withGroups, type CoreState } from "../state";
 import { collectionById, groupById, itemById, unlocked } from "./common";
-import { actionError, fullAction, varError } from "./validate";
+import { actionError, fullAction, varError, withTapParams } from "./validate";
 import { setItem } from "./nodes";
 
 /* ---------- collections ---------- */
@@ -30,29 +32,42 @@ const checkRows = (fields: string[], rows: unknown) => {
   if (long >= 0) throw new OpError("invalid_value", `row ${long} has more cells than there are fields (${fields.join(", ")}).`, "rows");
 };
 
-export const addCollection = op<{ id?: string; name?: string; fields: string[]; rows?: string[][] }, { id: string }>({
+/** a model of the API a collection may name: one there is */
+const checkModel = (s: CoreState, model: string | null | undefined) => {
+  if (!model) return;
+  const models = s.doc.api?.models ?? [];
+  if (!models.some((m) => m.name === model)) throw new OpError("not_found", `There is no model ${JSON.stringify(model)} in the API.${models.length ? ` The models are: ${models.map((m) => m.name).join(", ")}.` : " add_model makes one."}`, model);
+};
+
+const MODEL_LINK = { type: ["string", "null"], description: "the API model (add_model) the rows are examples of, so mock data can be made from its schema; null unlinks it" };
+
+export const addCollection = op<{ id?: string; name?: string; fields: string[]; rows?: string[][]; model?: string | null }, { id: string }>({
   name: "add_collection",
-  summary: "Adds a data collection: named fields and rows of text (one cell per field). A layout repeats its first child per row; {{field}} in its words reads the row.",
-  args: S.obj({ id: S.str(), name: S.str(), fields: S.arr(S.str(undefined, { minLength: 1 }), undefined, { minItems: 1 }), rows: S.arr(S.arr(S.str())) }, ["fields"]),
+  summary: "Adds a data collection: named fields and rows of text (one cell per field). A layout repeats its first child per row; {{field}} in its words reads the row. model links it to an API model.",
+  args: S.obj({ id: S.str(), name: S.str(), fields: S.arr(S.str(undefined, { minLength: 1 }), undefined, { minItems: 1 }), rows: S.arr(S.arr(S.str())), model: MODEL_LINK }, ["fields"]),
   label: () => "Add data",
   run(s, a, ctx) {
     const list = s.doc.collections ?? [];
     const id = a.id ?? ctx.newId();
     if (list.some((c) => c.id === id)) throw new OpError("invalid_value", `The id ${JSON.stringify(id)} is taken already.`, id);
     checkRows(a.fields, a.rows ?? []);
-    const c: Collection = { id, name: a.name ?? t("collectionDefaultName", ctx.lang).replace("{n}", String(list.length + 1)), fields: a.fields, rows: a.rows ?? [] };
+    checkModel(s, a.model);
+    const c: Collection = { id, name: a.name ?? t("collectionDefaultName", ctx.lang).replace("{n}", String(list.length + 1)), fields: a.fields, rows: a.rows ?? [], ...(a.model ? { model: a.model } : {}) };
     return { state: withDoc(s, { collections: [...list, c] }), result: { id } };
   },
 });
 
-export const updateCollection = op<{ id: string; name?: string; fields?: string[]; rows?: string[][] }>({
+export const updateCollection = op<{ id: string; name?: string; fields?: string[]; rows?: string[][]; model?: string | null }>({
   name: "update_collection",
-  summary: "Changes a data collection's name, fields or rows.",
-  args: S.obj({ id: S.str(), name: S.str(), fields: S.arr(S.str()), rows: S.arr(S.arr(S.str())) }, ["id"]),
+  summary: "Changes a data collection's name, fields or rows, or the API model it is linked to (model; null unlinks it).",
+  args: S.obj({ id: S.str(), name: S.str(), fields: S.arr(S.str()), rows: S.arr(S.arr(S.str())), model: MODEL_LINK }, ["id"]),
   label: () => "Data",
   run(s, a) {
     const c = collectionById(s, a.id);
-    const next = { ...c, ...(a.name !== undefined ? { name: a.name } : {}), ...(a.fields ? { fields: a.fields } : {}), ...(a.rows ? { rows: a.rows } : {}) };
+    checkModel(s, a.model);
+    const { model: _was, ...rest } = c;
+    const linked = a.model === null ? rest : a.model ? { ...rest, model: a.model } : c;
+    const next = { ...linked, ...(a.name !== undefined ? { name: a.name } : {}), ...(a.fields ? { fields: a.fields } : {}), ...(a.rows ? { rows: a.rows } : {}) };
     checkRows(next.fields, next.rows);
     return { state: withDoc(s, { collections: (s.doc.collections ?? []).map((x) => (x.id === a.id ? next : x)) }) };
   },
@@ -76,21 +91,35 @@ export const removeCollection = op<{ id: string }>({
 });
 
 /** a layout repeating its first child over a collection's rows, or no longer */
-export const setRepeat = op<{ id: string; repeat: { collection: string; limit?: number } | null }>({
+export const setRepeat = op<{ id: string; repeat: { collection?: string; data?: string; limit?: number; sample?: number } | null }>({
   name: "set_repeat",
-  summary: "Makes a container with an auto layout draw its first child once per row of a collection (limit: at most that many rows), or stop (null).",
-  args: S.obj({ id: S.str("the container"), repeat: { type: ["object", "null"], properties: { collection: S.str(), limit: S.int(undefined, { minimum: 0 }) }, required: ["collection"] } }, ["id", "repeat"]),
+  summary:
+    'Makes a container with an auto layout draw its first child once per row of a collection ({collection}), or once per element of a list an expression reads ({data: "data.products.items"}: each copy reads item and index; sample: how many copies the canvas draws), at most limit of them; null stops it.',
+  args: S.obj(
+    {
+      id: S.str("the container"),
+      repeat: { type: ["object", "null"], properties: { collection: S.str(), data: S.str("an expression reading a list: data.<source>.items, item.<list field>"), limit: S.int(undefined, { minimum: 0 }), sample: S.int("copies the canvas draws (1-12)", { minimum: 1, maximum: 12 }) } },
+    },
+    ["id", "repeat"],
+  ),
   label: () => "Repeat",
   run(s, a, ctx) {
     const g = groupById(s, a.id);
+    const r = a.repeat;
+    if (r && (r.collection === undefined) === (r.data === undefined)) throw new OpError("invalid_value", "A repeat goes over a collection or over data: give collection or data, not both.", "repeat");
     if (ctx.strict) {
-      if (a.repeat) collectionById(s, a.repeat.collection);
+      if (r?.collection !== undefined) collectionById(s, r.collection);
+      if (r?.data !== undefined) {
+        const e = exprPlaceError(r.data, shapeFor(s.doc, frameOfPart(g, s.doc.groups, s.doc.frames, ctx.widths), g.id, ctx.widths));
+        if (e) throw new OpError("invalid_value", `data: ${e}.`, "repeat");
+      }
       if (!g.items[0]?.props?.layout || g.items[0].props.layout === "free") throw new OpError("invalid_value", "Only a container with an auto layout can repeat its first child.", a.id);
     }
+    const repeat: Group["repeat"] | undefined = !r ? undefined : r.data !== undefined ? { data: r.data, ...(r.limit !== undefined ? { limit: r.limit } : {}), ...(r.sample !== undefined ? { sample: Math.max(1, Math.min(12, r.sample)) } : {}) } : { collection: r.collection!, ...(r.limit !== undefined ? { limit: r.limit } : {}) };
     const groups = s.doc.groups.map((x) => {
       if (x.id !== g.id) return x;
       const { repeat: _was, ...rest } = x;
-      return a.repeat ? { ...rest, repeat: a.repeat } : rest;
+      return repeat ? { ...rest, repeat } : rest;
     });
     return { state: withGroups(s, groups) };
   },
@@ -242,7 +271,9 @@ export const setAction = op<{ id: string; slot?: string; action: Action | null }
     'Sets what a tap on a part does (or on one of its places: slot "tab:0", "icon"…): {to: screen id | "back" | "link" | "none", transition, url, effects: [{do: show|hide|toggle|open|close, part} | {do: setVar, var, value} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message}], when: {var, op: eq|neq, value} | {filled: part}, else: {...}, trigger: {on: "hover"} | {on: "delay", ms} (starts it without a tap), overlay: true (the screen opens over the one on show; back closes it), scrollTo: part id (with to "none"), motion: {kind: instant|dissolve|move|push|slide, dir: left|right|up|down (the way the new screen moves), easing: out|in|inOut|linear|spring, ms}}. null removes it.',
   args: S.obj({ id: S.str(), slot: S.str(), action: { type: ["object", "null"] } }, ["id", "action"]),
   label: () => "Tap",
-  run(s, a, ctx) {
+  run(given, a, ctx) {
+    /* the screen it opens takes the params it is given */
+    const s = a.action ? withTapParams(given, a.action) : given;
     const { item, group } = itemById(s, a.id);
     unlocked(group, "That part");
     if (a.action && ctx.strict) {

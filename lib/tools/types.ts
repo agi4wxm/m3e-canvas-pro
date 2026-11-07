@@ -6,6 +6,7 @@ import type { CoreState, DocStore, HistoryMode, OpErrorCode, Origin, Schema } fr
 import type { AiSettings } from "../ai";
 import type { Adapter } from "../llm/types";
 import type { Pixels } from "./pixels";
+import type { Doc } from "../tokens";
 
 /** the subsets a client can be given: reading, building, styling, data and behaviour, and drawing with a model */
 export type ToolGroup = "read" | "edit" | "style" | "data" | "generate";
@@ -28,8 +29,12 @@ export type ToolReturn = { result: unknown; images?: string[] };
 export interface Renderer {
   /** a screen, or one part cut out of its screen, as a PNG data URL; `scale` 1 is one pixel per dp. Pictures that
    *  would not draw are left out of it, and their addresses handed to `onSkipped`. */
-  screenshot(id: string, o?: { scale?: number; signal?: AbortSignal; onSkipped?: (urls: string[]) => void }): Promise<string>;
+  screenshot(id: string, o?: ShotOptions): Promise<string>;
 }
+
+/** How a picture is taken. `doc` (with its `widths`) draws another version of the document than the one held: a
+ *  screen with its mock data in (lib/bindings/headless.ts), a region showing one of its states. */
+export type ShotOptions = { scale?: number; signal?: AbortSignal; onSkipped?: (urls: string[]) => void; doc?: Doc; widths?: Record<string, number> };
 
 /** What the generative tools draw with: the author's settings (keys stay in the browser, or in the MCP server's
  *  environment), an adapter of the text model for SVG written as code, and a fetch to send it through. */

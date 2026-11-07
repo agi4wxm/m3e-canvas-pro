@@ -6,7 +6,11 @@
  * Before each call the file is looked at again: one that changed on disk is read again, and a call that would write is
  * refused that once, so nothing another program saved is ever overwritten and the model reads the new document first. */
 
+import { dirname, isAbsolute, resolve } from "node:path";
 import { DocStore, guessMeasurer, savedDoc, stateOf, type CoreState } from "../../lib/core";
+import { differenceCounts } from "../../lib/export/differences";
+import { exportToFolder, FolderRefused } from "../../lib/export/nodeWriter";
+import { buildProduct } from "../../lib/export/product";
 import type { Lang } from "../../lib/i18n";
 import type { Access, ClientInfo } from "../../lib/mcp/protocol";
 import { executeTool, type Registry } from "../../lib/tools";
@@ -16,6 +20,7 @@ import type { GenerateEnv, Renderer } from "../../lib/tools/types";
 import { failure, listeners, serial, type Backend, type CallContext, type CallOutcome } from "./backend";
 import { FileConflict, NotAProject, ProjectFileStore, type ProjectFormat } from "./fileStore";
 import type { Log } from "./log";
+import { readEditorSource } from "./sources";
 
 export type FileBackendOptions = {
   path: string;
@@ -150,6 +155,51 @@ export class FileBackend implements Backend {
       }
       this.changes.emit("document");
       return { ok: true, result: { [action === "undo" ? "undone" : "redone"]: label, canUndo: this.store.canUndo(), canRedo: this.store.canRedo() } };
+    });
+  }
+
+  /** Exports the project as a whole product into `dir` (taken from the project file's folder when relative): the file
+   *  is read again first when it changed on disk, so what is exported is what the file holds. */
+  exportProduct(dir: string, o: { force?: boolean } = {}): Promise<CallOutcome> {
+    return this.queue(async () => {
+      if (this.o.readOnly) return failure("refused", "This session is read-only.", "Read and screenshot only; ask the author to start the server without --read-only to export.");
+      if (typeof dir !== "string" || !dir.trim()) return failure("bad_args", "dir is the folder to export into.");
+      let notice: string | null;
+      try {
+        notice = await this.refresh();
+      } catch (e) {
+        return failure("failed", `${this.o.path} cannot be read: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      const target = isAbsolute(dir) ? dir : resolve(dirname(resolve(this.o.path)), dir);
+      try {
+        const state = this.store.get();
+        const product = await buildProduct(savedDoc(state), state.session.widths, { lang: this.o.lang, read: readEditorSource });
+        const done = await exportToFolder(target, product, { force: o.force });
+        const written = done.writes.filter((w) => w.why !== "conflict" && w.why !== "manifest").map((w) => w.path);
+        this.o.log.info(`Exported ${product.name} to ${done.dir}: ${written.length} written, ${done.conflicts.length} conflicts.`);
+        const result = {
+          folder: done.dir,
+          product: product.name,
+          written: written.length,
+          unchanged: done.unchanged.length,
+          customKept: done.kept,
+          merged: done.merged,
+          conflicts: done.conflicts,
+          removed: done.removed,
+          leftInPlace: done.orphaned,
+          customOrphans: done.customOrphans,
+          warnings: [...product.warnings, ...done.notes],
+          /* where the apps draw something other than the design says: how many of each kind, and where each is listed */
+          differences: differenceCounts(product.differences).map((c) => ({ app: c.app, count: c.total, kinds: Object.fromEntries(c.kinds), file: c.file })),
+          next: done.conflicts.length
+            ? "Each conflict is a generated file someone edited: it was left as it is and the new version written beside it as <file>.m3e-new. Move the edit to custom code (server/src/handlers, the custom/ folders), then replace the file with its .m3e-new."
+            : "Run npm install, then npm run dev in the folder. Custom code goes in server/src/handlers and the custom/ folders (AGENTS.md there says more).",
+        };
+        return notice ? { ok: true, result, notice } : { ok: true, result };
+      } catch (e) {
+        if (e instanceof FolderRefused) return failure("refused", e.message, "Export into an empty folder, a folder this tool exported into before, or pass force: true to export among what is there.");
+        return failure("failed", `The export failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
     });
   }
 

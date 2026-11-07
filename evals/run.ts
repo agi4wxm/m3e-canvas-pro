@@ -29,7 +29,7 @@ import type { EvalTask, JudgeVerdict, TaskScore } from "./types";
 const HELP = `bun run eval [options]
 
   --only <ids|abilities>   comma-separated task ids or abilities (new-screen, edit, data, variables, components,
-                           styles, svg, replicate, game, multilingual, ambiguous)
+                           styles, svg, replicate, game, multilingual, ambiguous, flow, long-screen, product)
   --repeat <n>             run each task n times
   --provider <name>        openai (default), claude, gemini, deepseek
   --model <id>             the text model (default gpt-6.1-sol)

@@ -104,7 +104,8 @@ export class HeadlessRenderer {
 
   /** a renderer for the tools, drawing what `get` holds; `measured` is told the sizes the parts came out at */
   forStore(get: () => CoreState, measured?: (w: Record<string, number>) => void): Renderer & { close(): Promise<void> } {
-    return { screenshot: (id, o) => this.shoot(get(), id, o?.scale ?? 1, measured, o?.onSkipped), close: () => this.close() };
+    /* another version of the document (a screen with its mock data in) is drawn as it is: its sizes are not the store's */
+    return { screenshot: (id, o) => this.shoot(o?.doc ? { ...get(), doc: o.doc as CoreState["doc"] } : get(), id, o?.scale ?? 1, o?.doc ? undefined : measured, o?.onSkipped), close: () => this.close() };
   }
 
   private async open(): Promise<PwPage> {
@@ -151,8 +152,15 @@ export class HeadlessRenderer {
       /* the parts measured as the canvas would, the containers laid out by those sizes, then the screen drawn */
       const sizes = await page.evaluate((job) => window.m3eMeasure!(job as never), { doc: state.doc, lang });
       measured?.(sizes);
-      const widths = { ...guessMeasurer.measure(state), ...sizes };
-      const laid = laidOut({ ...state, session: { ...state.session, widths } }, widths);
+      let widths = { ...guessMeasurer.measure(state), ...sizes };
+      let laid = laidOut({ ...state, session: { ...state.session, widths } }, widths);
+      /* Another version of the document (a screen with its mock data in) was never laid out by these sizes the way the
+         canvas lays out what it holds as it is measured: once more, from where the first pass put everything. */
+      if (!measured) {
+        const again = await page.evaluate((job) => window.m3eMeasure!(job as never), { doc: laid.doc, lang });
+        widths = { ...widths, ...again };
+        laid = laidOut({ ...laid, session: { ...laid.session, widths } }, widths);
+      }
       const out: { png: string; skipped: string[] } | string = await page.evaluate((job) => window.m3eRender!(job as never), { doc: laid.doc, widths, id, scale, lang });
       /* a render page built before pictures were set aside hands back the PNG alone */
       if (typeof out === "string") return out;

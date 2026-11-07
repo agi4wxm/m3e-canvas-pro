@@ -10,9 +10,9 @@
 
 import { tool, type Tool } from "../tools";
 
-export type ToolSet = "build" | "layout" | "screens" | "components" | "style" | "data" | "generate" | "reference";
+export type ToolSet = "build" | "layout" | "screens" | "components" | "style" | "data" | "api" | "mocks" | "bindings" | "generate" | "reference";
 
-export const TOOL_SETS: readonly ToolSet[] = ["build", "layout", "screens", "components", "style", "data", "generate", "reference"];
+export const TOOL_SETS: readonly ToolSet[] = ["build", "layout", "screens", "components", "style", "data", "api", "mocks", "bindings", "generate", "reference"];
 
 /** what each set is for, for the model */
 export const SET_ABOUT: Record<ToolSet, string> = {
@@ -22,9 +22,16 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   components: "reusable components and their instances: variants, component properties, swapping an instance",
   style: "styles, themes, palettes, looks, custom styles",
   data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, bindings",
+  api: "the contract with the back end: data models (JSON Schema), endpoints (OpenAPI 3.1) with paging and uploads, auth, realtime channels (AsyncAPI 3.0), servers, importing and reading specs",
+  mocks: "the mock library answering the API while it is designed: made-up data (hints per field, counts, pinned records), scenarios (empty, errors, slow, signed out, retries), mock files, realtime scripts, mock sign-in; reading records, trying endpoints",
+  bindings:
+    "screens bound to the API: data sources, params, sign-in, props bound to expressions, lists repeated from data, regions with state designs, forms for request bodies, taps that call endpoints; wire_screen does it in one step",
   generate: "drawing with a model: SVG, pictures, custom styles written from words or a picture; the document's own icons (svg:<id>)",
   reference: "measuring an attached reference picture and comparing a screen with it",
 };
+
+/** binding screens to the contract: its operations and the tool that reads it */
+const BINDINGS = new Set(["describe_bindings", "add_data_source", "update_data_source", "remove_data_source", "set_screen_params", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
 
 /** the tools of the build set; everything else falls in the set of its kind */
 const BUILD = new Set([
@@ -40,14 +47,28 @@ const REFERENCE = new Set(["sample_colors", "compare_to_reference"]);
 const STYLE_READS = new Set(["list_styles", "get_style", "look_reference"]);
 /** the document's own icons go with drawing */
 const DRAWING = new Set(["set_icon", "remove_icon"]);
+/** the API section: its operations and the tools that read it */
+const API = new Set([
+  "get_api", "describe_endpoint", "describe_model", "get_spec",
+  "add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi",
+]);
+
+/** the mock library: its operations and the tools that read and try it */
+const MOCKS = new Set([
+  "get_mocks", "list_mock_records", "try_mock",
+  "set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks",
+]);
 
 /** the set a tool belongs to */
 export function setOf(t: Pick<Tool<never>, "name" | "group">): ToolSet {
   if (BUILD.has(t.name)) return "build";
+  if (MOCKS.has(t.name)) return "mocks";
   if (REFERENCE.has(t.name)) return "reference";
   if (SCREENS.has(t.name)) return "screens";
   if (COMPONENTS.has(t.name)) return "components";
   if (DRAWING.has(t.name)) return "generate";
+  if (API.has(t.name)) return "api";
+  if (BINDINGS.has(t.name)) return "bindings";
   if (STYLE_READS.has(t.name) || t.group === "style") return "style";
   if (t.name === "list_data" || t.group === "data") return "data";
   if (t.group === "generate") return "generate";
@@ -101,6 +122,39 @@ const CUES: [ToolSet, Cue][] = [
     },
   ],
   [
+    "api",
+    {
+      yes: any(
+        /\b(?:apis?|endpoints?|open-?api|async-?api|swagger|back-?ends?|data models?|json schemas?|schemas?|request bod(?:y|ies)|response (?:bod(?:y|ies)|schemas?|codes?)|status codes?|paginat\w*|web-?sockets?|real-?time (?:channels?|messages?|updates?|chat)|server-sent events|sse|jwt|oauth2?|bearer tokens?|api keys?|access tokens?|refresh tokens?|auth(?:entication)? (?:scheme|flow|endpoint)s?|(?:upload|login|sign-?in) endpoints?)\b/,
+        /接口|API|后端|后台服务|服务端|数据模型|模型字段|请求体|请求参数|响应(?!式)|返回(?:值|结构|字段)|状态码|分页|鉴权|令牌|JWT|OAuth|WebSocket|长连接|实时(?:消息|推送|通道|聊天)|推送通道|OpenAPI|Swagger|AsyncAPI|服务器地址/,
+        /API|エンドポイント|バックエンド|サーバー側|データモデル|スキーマ|リクエスト|レスポンス|ステータスコード|ページネーション|ページング|認証(?:方式|トークン)|トークン|WebSocket|リアルタイム|OpenAPI|AsyncAPI/,
+        /API|엔드포인트|백엔드|서버 ?측|데이터 ?모델|스키마|요청 ?본문|응답|상태 ?코드|페이지네이션|페이징|인증 ?(?:방식|토큰)|토큰|웹소켓|WebSocket|실시간|OpenAPI|AsyncAPI/,
+      ),
+    },
+  ],
+  [
+    "mocks",
+    {
+      yes: any(
+        /\b(?:mock(?:s|ed|ing)?|mock-?ups? data|fake data|dummy data|test data|sample data|seed data|placeholder data|fixtures?|scenarios?|simulat\w*|slow (?:network|connection)|network (?:error|failure)s?|offline mode|latency|realistic data|generated data)\b/,
+        /模拟|假数据|测试数据|伪造数据|场景|慢网|弱网|断网|网络错误|网络异常|大量数据|延迟|造数据/,
+        /モック|ダミーデータ|テストデータ|サンプルデータ|シナリオ|疑似データ|遅いネットワーク|ネットワークエラー|オフライン|遅延/,
+        /목업|목 ?데이터|더미 ?데이터|테스트 ?데이터|샘플 ?데이터|시나리오|모의|느린 ?네트워크|네트워크 ?오류|오프라인|지연/,
+      ),
+    },
+  ],
+  [
+    "bindings",
+    {
+      yes: any(
+        /\b(?:bind(?:s|ing)?\s+(?:\w+\s+){0,3}(?:to|with)\s+(?:the\s+|an?\s+)?(?:api|endpoints?|backend|server)|wire(?:s|d)?\s+(?:\w+\s+){0,3}(?:to|up\s+(?:to|with))\s+(?:the\s+|an?\s+)?(?:api|endpoints?|backend)|data\s?sources?|loading\s+(?:states?|skeletons?|spinners?)|empty\s+states?|error\s+states?|skeletons?|pull[- ]to[- ]refresh|infinite\s+scroll(?:ing)?|load\s+more|form\s+validation|validat\w*\s+(?:the\s+)?(?:form|fields?|inputs?)|submit(?:s|ting)?\s+(?:the\s+|a\s+)?form|call(?:s|ing)?\s+(?:the\s+|an?\s+)?(?:api|endpoint)|fetch(?:es|ing)?\s+(?:\w+\s+)?from\s+(?:the\s+)?(?:api|endpoint|server|backend)|real\s+data\s+from|expressions?)\b/,
+        /绑定(?:到)?接口|接口数据|连接接口|对接接口|接到接口|数据源|加载中状态|加载状态|空状态|错误状态|出错状态|无权限状态|骨架屏|下拉刷新|上拉加载|加载更多|无限滚动|表单(?:校验|验证)|提交表单|校验字段|调用接口|请求接口|从接口(?:获取|加载|拉取|读取)|表达式/,
+        /API(?:に|と)(?:つな|接続|バインド)|データソース|読み込み中の(?:状態|表示)|空の状態|エラー(?:の)?状態|スケルトン|引っ張って更新|さらに読み込む|無限スクロール|フォーム(?:の)?(?:検証|送信)|入力チェック|バリデーション|APIを呼|API を呼|式で表示/,
+        /API(?:에|와)\s*(?:연결|바인딩)|데이터\s?소스|로딩\s?상태|빈\s?상태|오류\s?상태|스켈레톤|당겨서\s?새로고침|더\s?보기\s?버튼|무한\s?스크롤|양식\s?(?:검증|제출)|폼\s?(?:검증|제출)|입력\s?검증|API\s?호출|표현식/,
+      ),
+    },
+  ],
+  [
     "generate",
     {
       yes: any(
@@ -147,13 +201,28 @@ const CUES: [ToolSet, Cue][] = [
   ],
 ];
 
+/** The product made real — wired, connected, its data real, its forms saving through the API, its screens behind
+ *  sign-in: the contract and the bindings together. */
+const PRODUCT_CUE = any(
+  /\b(?:wire(?:s|d)?\s+(?:it|them|this|these|the\s+\w+(?:\s+\w+)?)\s+(?:up|to)|connect\w*\s+(?:\w+\s+){0,3}to\s+(?:the\s+|our\s+|an?\s+)?(?:api|endpoints?|back-?end|server|it)|(?:make|making)\s+(?:the\s+|this\s+)?(?:\w+\s+){0,2}(?:screen|app|list|page)s?\s+real|real(?:-looking)?\s+data|(?:creates?|saves?|posts?|sends?|submits?)\s+(?:\w+\s+){0,2}(?:through|via|to)\s+the\s+(?:api|back-?end|server)|(?:signs?|logs?)\s+in\s+(?:through|via|with)\s+the\s+(?:api|back-?end|server)|only\s+(?:to|for)\s+signed[- ]in|signed[- ]in\s+users\s+only|requires?\s+(?:a\s+)?(?:sign[- ]?in|log[- ]?in)|behind\s+(?:a\s+|the\s+)?(?:sign[- ]?in|log[- ]?in)|works?\s+with\s+(?:the\s+|our\s+)?(?:api|back-?end|server)|loads?\s+(?:\S+\s+){0,4}from\s+the\s+(?:api|back-?end|server))\b/,
+  /连上接口|接上接口|连接(?:到)?(?:接口|后端|服务器)|绑定(?:好)?(?:接口|数据)|数据绑定|真实数据|通过接口|需要登录|登录后才能|登录才能|仅限登录/,
+  /(?:API|バックエンド|サーバー)に(?:接続|つな)|実データ|ログインが必要|ログイン(?:した|済みの)(?:人|ユーザー)だけ/,
+  /(?:API|백엔드|서버)(?:에|와)\s*연결|실제\s?데이터|로그인(?:이)?\s?필요|로그인한\s?사용자만/,
+);
+
+/** what a request about the contract says when it is about screens too ("lists" the verb and 一覧 of an endpoint are not) */
+const SCREEN_WORDS = any(/\b(?:screens?|pages?|forms?|buttons?|rows?|tabs?|apps?)\b|\b(?:the|this|a|my|our)\s+(?:\w+\s+)?list\b/, /页面|屏幕|界面|表单|按钮|页|应用/, /画面|フォーム|ボタン|アプリ/, /화면|폼|양식|버튼|앱/);
+
 /** The sets a request calls for by its words, and by what comes with it: a picture to copy brings the tools that
  *  measure it, styles and drawing. */
 export function setsFor(request: string, o: { attachments?: number } = {}): ToolSet[] {
   const out = new Set<ToolSet>(["build"]);
-  /* full-width letters and digits read as plain ones */
-  const text = request.normalize("NFKC");
+  /* full-width letters and digits read as plain ones; a pasted file (a fenced block) says nothing about what is wanted */
+  const text = request.normalize("NFKC").replace(/```[\s\S]*?(?:```|$)/g, " ");
   for (const [set, cue] of CUES) if (cue.yes.test(cue.no ? text.replace(cue.no, " ") : text)) out.add(set);
+  /* a product made real needs the contract and the bindings; the contract asked for about screens is bound to them */
+  if (PRODUCT_CUE.test(text)) for (const s of ["api", "bindings"] as const) out.add(s);
+  if (out.has("api") && SCREEN_WORDS.test(text)) out.add("bindings");
   if (o.attachments) for (const s of ["reference", "style", "generate"] as const) out.add(s);
   return TOOL_SETS.filter((s) => out.has(s));
 }

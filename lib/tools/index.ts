@@ -5,6 +5,8 @@ export * from "./types";
 export { CORE_REGISTRY, CORE_TOOLS, createRegistry, executeTool, toolDefs, toolGuide, type ExecOptions, type Registry } from "./registry";
 export { DESTRUCTIVE_OPS, OP_TOOLS, applyOps, isDestructiveCall } from "./ops";
 export { READ_TOOLS } from "./read";
+export { API_READ_TOOLS } from "./apiRead";
+export { MOCK_READ_TOOLS } from "./mocksRead";
 export { REFERENCE_TOOLS } from "./reference";
 export { compareGrid, decodePng, paletteOf, readPixels, regionColor, type Pixels } from "./pixels";
 export { opInput, partPropsSchema, propSchema } from "./schema";

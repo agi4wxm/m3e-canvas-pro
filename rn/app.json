@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "M3E Canvas RN",
+    "slug": "m3e-canvas-rn",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["ios", "android", "web"],
+    "web": { "bundler": "metro", "output": "single" },
+    "android": { "package": "dev.m3ecanvas.rn" },
+    "ios": { "bundleIdentifier": "dev.m3ecanvas.rn" }
+  }
+}

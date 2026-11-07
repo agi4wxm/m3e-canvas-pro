@@ -153,13 +153,15 @@ export function slotIn(host: Group, groups: Group[], id: string, widths: Record<
   const room = { l: b.l + f.inset.l + f.pad.l, t: b.t + f.inset.t + f.pad.t, r: b.r - f.inset.r - f.pad.r, b: b.b - f.inset.b - f.pad.b };
   return insertionMark(kids, { x: carried.x, y: carried.y }, { dir: f.dir, wrap: f.wrap, gap: f.gap }, room);
 }
-export type LeftTab = "parts" | "templates" | "components" | "data" | "variables" | "layers" | "style" | "color" | "shape" | "type" | "motion" | "ai";
+export type LeftTab = "parts" | "templates" | "components" | "data" | "api" | "mocks" | "variables" | "layers" | "style" | "color" | "shape" | "type" | "motion" | "ai";
 /** the left rail: parts, templates, what the design reuses and layers, then the look of the whole design: its style, and the four axes under it */
-export const LEFT_TABS: { key: LeftTab; icon: string; title: "parts" | "screenTemplates" | "components" | "data" | "vrTitle" | "layers" | "styleTab" | "colors" | "shape" | "typography" | "motion" | "ai" }[] = [
+export const LEFT_TABS: { key: LeftTab; icon: string; title: "parts" | "screenTemplates" | "components" | "data" | "apiTab" | "mocksTab" | "vrTitle" | "layers" | "styleTab" | "colors" | "shape" | "typography" | "motion" | "ai" }[] = [
   { key: "parts", icon: "add_box", title: "parts" },
   { key: "templates", icon: "dashboard_customize", title: "screenTemplates" },
   { key: "components", icon: "widgets", title: "components" },
   { key: "data", icon: "table_chart", title: "data" },
+  { key: "api", icon: "api", title: "apiTab" },
+  { key: "mocks", icon: "science", title: "mocksTab" },
   { key: "variables", icon: "data_object", title: "vrTitle" },
   { key: "layers", icon: "layers", title: "layers" },
   { key: "style", icon: "style", title: "styleTab" },

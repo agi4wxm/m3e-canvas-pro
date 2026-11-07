@@ -1,6 +1,8 @@
 /* What a call would take away of the author's work that no destructive operation's name says: the rows or fields of a
  * collection rewritten by update_collection, the modes (and their values) update_var_collection leaves out, a custom
- * style or one of the document's own icons replaced under its key, a component's property dropped. A client that is
+ * style or one of the document's own icons replaced under its key, a component's property dropped, and in the API
+ * (lib/api) a model, a model's fields, an endpoint, a channel or its messages, a server or a security scheme gone (an
+ * import in replace mode, update_model, set_servers, set_auth). A client that is
  * asked to confirm `remove_collection` must be asked for `update_collection {rows: []}` too. The call is run once on a
  * scratch copy of the document and what it leaves is compared with what was there; nothing reaches the real store.
  * A generative tool is not run twice (it reaches a provider): what it would replace is read from its arguments.
@@ -8,7 +10,8 @@
  * about it as they ask about a destructive call. */
 
 import { counterIds, DocStore, savedDoc, type CoreState } from "../core";
-import type { Doc } from "../tokens";
+import type { ApiSpec, Doc } from "../tokens";
+import type { MockSpec } from "../mocks/types";
 import { collectionsOf } from "../variables";
 import { executeTool, type Registry } from "./registry";
 import { isDestructiveCall } from "./ops";
@@ -24,7 +27,80 @@ export type Taken =
   | { kind: "style"; name: string; replaced: boolean }
   | { kind: "icon"; name: string; replaced: boolean }
   | { kind: "component"; name: string }
-  | { kind: "props"; of: string; names: string[] };
+  | { kind: "props"; of: string; names: string[] }
+  | { kind: "model"; name: string }
+  | { kind: "modelFields"; of: string; names: string[] }
+  | { kind: "endpoint"; name: string }
+  | { kind: "channel"; name: string }
+  | { kind: "messages"; of: string; names: string[] }
+  | { kind: "server"; name: string }
+  | { kind: "scheme"; name: string }
+  | { kind: "mockScenario"; name: string }
+  | { kind: "mockFile"; name: string }
+  | { kind: "mockRecords"; of: string; n: number }
+  | { kind: "mockScript"; name: string };
+
+/** the property names of an object schema */
+const fieldsOf = (s: unknown): string[] => {
+  const props = s && typeof s === "object" ? (s as { properties?: unknown }).properties : undefined;
+  return props && typeof props === "object" ? Object.keys(props) : [];
+};
+
+/** What the API section lost: models, fields of a model, endpoints, channels and their messages, servers, security
+ *  schemes. One renamed (the same schema under another name, the same route under another operationId, the same
+ *  address under another id) is not lost. */
+export function apiTakenAway(before: ApiSpec | undefined, after: ApiSpec | undefined): Taken[] {
+  const out: Taken[] = [];
+  if (!before) return out;
+  const a = after ?? {};
+  const json = (v: unknown) => JSON.stringify(v ?? null);
+  const isNewModel = (name: string) => !(before.models ?? []).some((y) => y.name === name);
+  for (const m of before.models ?? []) {
+    const now = a.models?.find((x) => x.name === m.name);
+    if (!now) {
+      const ref = `"#/components/schemas/${m.name}"`;
+      const renamed = (a.models ?? []).some((x) => isNewModel(x.name) && json(x.schema).split(`"#/components/schemas/${x.name}"`).join(ref) === json(m.schema));
+      if (!renamed) out.push({ kind: "model", name: m.name });
+      continue;
+    }
+    const gone = fieldsOf(m.schema).filter((f) => !fieldsOf(now.schema).includes(f));
+    if (gone.length) out.push({ kind: "modelFields", of: m.name, names: gone });
+  }
+  const isNewEndpoint = (id: string) => !(before.endpoints ?? []).some((y) => y.operationId === id);
+  for (const e of before.endpoints ?? []) {
+    if (a.endpoints?.some((x) => x.operationId === e.operationId)) continue;
+    const renamed = (a.endpoints ?? []).some((x) => x.method === e.method && x.path === e.path && isNewEndpoint(x.operationId));
+    if (!renamed) out.push({ kind: "endpoint", name: `${e.operationId} (${e.method.toUpperCase()} ${e.path})` });
+  }
+  for (const c of before.channels ?? []) {
+    const now = a.channels?.find((x) => x.id === c.id) ?? a.channels?.find((x) => x.address === c.address && !(before.channels ?? []).some((y) => y.id === x.id));
+    if (!now) {
+      out.push({ kind: "channel", name: c.id });
+      continue;
+    }
+    const gone = c.messages.filter((m) => !now.messages.some((x) => x.name === m.name)).map((m) => m.name);
+    if (gone.length) out.push({ kind: "messages", of: c.id, names: gone });
+  }
+  for (const sv of before.servers ?? []) if (!a.servers?.some((x) => x.env === sv.env)) out.push({ kind: "server", name: sv.env });
+  for (const name of Object.keys(before.auth?.schemes ?? {})) if (!a.auth?.schemes[name]) out.push({ kind: "scheme", name });
+  return out;
+}
+
+/** What the mock library lost: scenarios, files, records pinned by hand, realtime scripts written down. Hints and
+ *  counts are settings, changed freely. */
+export function mocksTakenAway(before: MockSpec | undefined, after: MockSpec | undefined): Taken[] {
+  const out: Taken[] = [];
+  if (!before) return out;
+  const a = after ?? {};
+  for (const sc of before.scenarios ?? []) if (!a.scenarios?.some((x) => x.id === sc.id)) out.push({ kind: "mockScenario", name: sc.name || sc.id });
+  for (const f of before.files ?? []) if (!a.files?.some((x) => x.id === f.id)) out.push({ kind: "mockFile", name: f.name || f.id });
+  for (const m of before.models ?? []) {
+    const n = (m.fixtures?.length ?? 0) - (a.models?.find((x) => x.name === m.name)?.fixtures?.length ?? 0);
+    if (n > 0) out.push({ kind: "mockRecords", of: m.name, n });
+  }
+  for (const r of before.realtime ?? []) if (!a.realtime?.some((x) => x.id === r.id)) out.push({ kind: "mockScript", name: r.id });
+  return out;
+}
 
 /** Every piece of the author's work `before` has that `after` lost or holds changed under the same name. Parts and
  *  screens are left to the destructive operations that remove them. */
@@ -71,6 +147,8 @@ export function takenAway(before: Doc, after: Doc): Taken[] {
       if (props.length) out.push({ kind: "props", of: name(c), names: props.map(name) });
     }
   }
+  out.push(...apiTakenAway(before.api, after.api));
+  out.push(...mocksTakenAway(before.mocks, after.mocks));
   return out;
 }
 
@@ -99,6 +177,28 @@ export function takenText(t: Taken): string {
       return `the component ${q(t.name)}`;
     case "props":
       return `the propert${t.names.length === 1 ? "y" : "ies"} ${list(t.names)} of the component ${q(t.of)}`;
+    case "model":
+      return `the data model ${q(t.name)}`;
+    case "modelFields":
+      return `the field${t.names.length === 1 ? "" : "s"} ${list(t.names)} of the model ${q(t.of)}`;
+    case "endpoint":
+      return `the endpoint ${t.name}`;
+    case "channel":
+      return `the realtime channel ${q(t.name)}`;
+    case "messages":
+      return `the message${t.names.length === 1 ? "" : "s"} ${list(t.names)} of the channel ${q(t.of)}`;
+    case "server":
+      return `the server ${q(t.name)}`;
+    case "scheme":
+      return `the security scheme ${q(t.name)}`;
+    case "mockScenario":
+      return `the mock scenario ${q(t.name)}`;
+    case "mockFile":
+      return `the mock file ${q(t.name)}`;
+    case "mockRecords":
+      return `${t.n} pinned mock record${t.n === 1 ? "" : "s"} of ${q(t.of)}`;
+    case "mockScript":
+      return `the realtime script ${q(t.name)}`;
   }
 }
 

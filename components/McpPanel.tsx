@@ -208,7 +208,7 @@ export function McpConnect({ store, p, theme, lang, enabled, size = 44 }: { stor
     let gone = false;
     void (async () => {
       try {
-        await layerDrawn(state.doc as Doc);
+        await layerDrawn(shot.doc ?? (state.doc as Doc));
         if (gone || !layer.current) return;
         shot.resolve(await capture(layer.current, shot.frame, shot.scale, shot.crop));
       } catch (e) {
@@ -287,7 +287,7 @@ export function McpConnect({ store, p, theme, lang, enabled, size = 44 }: { stor
           </div>,
           document.body,
         )}
-      {shot && createPortal(<ShotLayer layer={layer} frame={shot.frame} doc={state.doc as Doc} widths={state.session.widths} p={p} theme={theme} lang={lang} />, document.body)}
+      {shot && createPortal(<ShotLayer layer={layer} frame={shot.frame} doc={shot.doc ?? (state.doc as Doc)} widths={shot.widths ?? state.session.widths} p={p} theme={theme} lang={lang} />, document.body)}
     </>
   );
 }

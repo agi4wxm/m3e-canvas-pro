@@ -1,0 +1,128 @@
+[
+ {
+  "kind": "image",
+  "screen": "Counter",
+  "part": "image",
+  "detail": "a picture held in the document is written to a file"
+ },
+ {
+  "kind": "holder",
+  "screen": "Dock",
+  "part": "dock",
+  "detail": "dock has no component in the kit"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Products",
+  "part": "productCard",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Products",
+  "part": "productCard",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Products",
+  "part": "productCard2",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Products",
+  "part": "productCard2",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Products",
+  "part": "productCard3",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Products",
+  "part": "productCard3",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Products",
+  "part": "productCard4",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Products",
+  "part": "productCard4",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Product",
+  "part": "price",
+  "detail": "drawn as the atoms it splits into (price-tag)"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Product",
+  "part": "checkoutBar",
+  "detail": "drawn as the atoms it splits into (checkout-bar)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Product",
+  "part": "checkoutBar",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "placeholder",
+  "screen": "Cart",
+  "part": "shoppingCart",
+  "detail": "cart-list has no component in the kit"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Cart",
+  "part": "sectionHeader",
+  "detail": "drawn as the atoms it splits into (section-header)"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Cart",
+  "part": "productCard5",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Cart",
+  "part": "productCard6",
+  "detail": "drawn as the atoms it splits into (product-card)"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Checkout",
+  "part": "descriptionList",
+  "detail": "drawn as the atoms it splits into (description-list)"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Checkout",
+  "part": "checkoutBar2",
+  "detail": "drawn as the atoms it splits into (checkout-bar)"
+ },
+ {
+  "kind": "slot",
+  "screen": "Checkout",
+  "part": "checkoutBar2",
+  "detail": "a tap on a place inside a part drawn as atoms is not kept"
+ },
+ {
+  "kind": "atoms",
+  "screen": "Order placed",
+  "part": "descriptionList2",
+  "detail": "drawn as the atoms it splits into (description-list)"
+ }
+]

@@ -62,10 +62,13 @@ import { GitHubLink, Toolbar } from "@/components/Toolbar";
 import { LangMenu } from "@/components/Menus";
 /* the AI tab loads with its first opening: the agent's panel, providers and tools are not in the editor's own bundle */
 const AgentPanel = lazy(() => import("@/components/AgentPanel").then((m) => ({ default: m.AgentPanel })));
+/* the API tab loads with its first opening too */
+const ApiPanel = lazy(() => import("@/components/ApiPanel").then((m) => ({ default: m.ApiPanel })));
+const MocksPanel = lazy(() => import("@/components/MocksPanel").then((m) => ({ default: m.MocksPanel })));
 import { PromptBar, usePromptBarKey } from "@/components/PromptBar";
 import { McpConnect } from "@/components/McpPanel";
 import { PANEL_FADE_H } from "@/components/ui";
-import { loadAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
+import { generateImage, loadAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
 import { maxFrameLength } from "@/lib/tidy";
 import { joinTargetOf } from "@/lib/combine";
 import { flowHostAt, flowOf, showingGroups } from "@/lib/flow";
@@ -79,6 +82,7 @@ import { ComponentsPanel, DataPanel, InstanceInspector, sizeWord } from "@/compo
 import { VariablesPanel, type VariablesApi } from "@/components/VariablesPanel";
 import { sharedOf } from "@/components/DesignPanel";
 import { Behavior, BehaviorContext, StyleRulesContext } from "@/components/EffectsPanel";
+import { BindingsContext, CanvasStateSwitcher, type Bindings } from "@/components/BindingsPanel";
 import { readProject } from "@/lib/project";
 import { downloadProject } from "@/lib/projects/download";
 import { editorProjects } from "@/lib/projects/opening";
@@ -204,6 +208,17 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
       if (opts.refused) opts.refused(e);
       else if (e.code === "locked") showToast(lockedGroupMsg());
       return undefined;
+    }
+  };
+  /** An operation of the API tab: what it reported, or the words of its refusal, which the toast shows too (the API
+   *  is never left with an error an operation made, so a refusal says what would have been wrong). */
+  const runApi = <A,>(o: Op<A, unknown>, args: A): { ok: true; result: unknown } | { ok: false; message: string } => {
+    try {
+      return { ok: true, result: store.run(o, args, { origin: "user" }) };
+    } catch (e) {
+      if (!(e instanceof OpError)) throw e;
+      if (e.code !== "nothing_to_do") showToast(t("apiRefused", lang).replace("{message}", e.message), 6000);
+      return { ok: false, message: e.message };
     }
   };
   /** the same, for an operation that reports nothing: whether it did what it was asked */
@@ -668,7 +683,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const outside = useOutsideImages(store, persist);
 
   /* the in-app agent: its eyes (src/editor/useScreenshots.ts), its conversation and turns (src/editor/useAgent.ts) */
-  const { shotFrame, renderer: shotRenderer } = useScreenshots(store);
+  const { shotFrame, shotDoc, shotWidths, renderer: shotRenderer } = useScreenshots(store);
   const agent = useAgent({ store, settings: aiSettings, lang, renderer: shotRenderer, editable: editAccess === "editable", showToast, project: loaded && persist instanceof ProjectsPersist ? persist.id : null });
   /** the Cmd/Ctrl+K prompt bar is up */
   const [promptBarOpen, setPromptBarOpen] = useState(false);
@@ -833,6 +848,30 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vars, primaryId, groups, frames, widths, snapshotFor, collections, canPaint, paintingScene, aiSettings, lang, core.doc.varCollections, screenValues]);
 
+  /** what the Data sections of the panels need (components/BindingsPanel.tsx): the document, the measures, and their
+   *  operations, each one step, a refusal said in a toast */
+  const bindingsPanel = useMemo<Bindings>(
+    () => ({
+      doc: core.doc,
+      widths,
+      run: (o, args, coalesce) => runOp(o, args, { ...(coalesce ? { history: { coalesce } } : {}), refused: (e) => e.code !== "nothing_to_do" && showToast(t("apiRefused", lang).replace("{message}", e.message), 6000) }),
+    }),
+    // the operations read the store; the document and the measures are what the panels show
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [core.doc, widths, lang],
+  );
+  /** the region the canvas offers the state switcher on: the selected part's, or the one around it */
+  const switcherRegion = useMemo(() => {
+    if (!primaryId || selectedIds.length !== 1) return null;
+    const byId = new Map(groups.map((g) => [g.id, g]));
+    let at: Group | undefined = groups.find((g) => g.items.some((it) => it.id === primaryId));
+    for (let i = 0; at && i < 64; i++) {
+      if (at.states) return at;
+      at = at.inFlow ? byId.get(at.inFlow) : undefined;
+    }
+    return null;
+  }, [primaryId, selectedIds, groups]);
+
   /* the same elements while nothing in them changes, so that a drag does not attach every ref again on each move */
   const measuringLayer = useMemo(
     () =>
@@ -918,6 +957,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     <LangContext.Provider value={lang}>
     <PartThemeContext.Provider value={partTheme}>
     <BehaviorContext.Provider value={behavior}>
+    <BindingsContext.Provider value={bindingsPanel}>
     <StyleRulesContext.Provider value={isStrict(theme)}>
       <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
       <PartStyleSheet theme={theme} />
@@ -960,7 +1000,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         {/* a screen the agent is looking at, drawn the same way */}
         {shotFrame && (
           <div aria-hidden data-shot style={{ position: "fixed", left: -99999, top: 0, pointerEvents: "none", fontFamily: fontFamilyOf(theme.font, lang) }}>
-            {renderExport(shotFrame, { doc, widths, frames, p, theme })}
+            {renderExport(shotFrame, { doc: shotDoc ?? doc, widths: shotWidths ?? widths, frames, p, theme })}
           </div>
         )}
 
@@ -1153,9 +1193,19 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   />
                 ) : leftTab === "variables" ? (
                   <VariablesPanel p={p} doc={core.doc} api={variablesApi} />
+                ) : leftTab === "api" ? (
+                  <Suspense fallback={null}>
+                    <ApiPanel p={p} api={core.doc.api} collections={collections ?? []} title={core.doc.title} run={runApi} />
+                  </Suspense>
+                ) : leftTab === "mocks" ? (
+                  <Suspense fallback={null}>
+                    {/* the mock library: how the API answers while the product is designed (components/MocksPanel.tsx) */}
+                    <MocksPanel p={p} api={core.doc.api} mocks={core.doc.mocks} collections={collections ?? []} run={runApi} paint={canPaint ? (prompt) => generateImage(aiSettings, `${prompt}. No text, letters, logos or user interface in the picture.`, { w: 640, h: 480 }) : null} />
+                  </Suspense>
                 ) : leftTab === "data" ? (
                   <DataPanel
                     p={p}
+                    models={core.doc.api?.models?.map((m) => m.name)}
                     collections={collections ?? []}
                     onChange={(next) => runOp(ops.setCollections, { collections: next }, { history: { coalesce: "collections" } })}
                   />
@@ -1520,6 +1570,19 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   }}
                 />
               )}
+
+              {/* a region bound to data, selected or holding the selection: its states, switched on the canvas */}
+              {!handMode && !drag && !gesture && switcherRegion && (() => {
+                const b = groupBounds(switcherRegion, widths);
+                /* above the region, unless that would cover its screen's name: then over its top */
+                const f = frames.find((x) => x.id === frameOf.get(switcherRegion.id));
+                const inside = !!f && b.t - f.y < 48 / view.z;
+                return (
+                  <div style={{ position: "absolute", left: b.l, top: b.t, transform: `scale(${1 / view.z})`, transformOrigin: "0 0", zIndex: 73 }}>
+                    <CanvasStateSwitcher group={switcherRegion} x={0} y={0} p={p} inside={inside} />
+                  </div>
+                );
+              })()}
 
               {/* while a part's Prototype tab is open, the handle on its right edge drags out a connection to a screen */}
               {!handMode && !drag && !gesture && frame === "phone" && partTab === "behavior" && selectedIds.length === 1 && selected && selectedRect && !selectedLocked && (
@@ -2349,6 +2412,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         </div>
       )}
     </StyleRulesContext.Provider>
+    </BindingsContext.Provider>
     </BehaviorContext.Provider>
     </PartThemeContext.Provider>
     </LangContext.Provider>

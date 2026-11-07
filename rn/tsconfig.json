@@ -1,0 +1,23 @@
+{
+  "//": "Expo's tsconfig.base (expo 58) written out rather than extended, so tools outside rn/ (the editor's tests, which import the kit's data files) can read this file without rn/node_modules installed. Keep in step with expo/tsconfig.base.json when Expo is upgraded.",
+  "compilerOptions": {
+    "allowJs": true,
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "lib": ["DOM", "ESNext"],
+    "module": "preserve",
+    "moduleDetection": "force",
+    "moduleResolution": "bundler",
+    "customConditions": ["react-native"],
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "target": "ESNext",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "types": ["jest"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", "nativewind-env.d.ts"],
+  "exclude": ["node_modules", "dist", "android", "ios", "babel.config.js", "metro.config.js", "jest.config.js", "eslint.config.js", "tailwind.config.js"]
+}

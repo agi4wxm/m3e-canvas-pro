@@ -42,8 +42,35 @@ export function sortKeys(value: unknown): unknown {
 
 const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/** A value as JSON would write it, its keys in their own order: what `sortKeys` does without the sorting. */
+function plainJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((v) => (v === undefined || typeof v === "function" ? null : plainJson(v)));
+  if (value === null || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v === undefined || typeof v === "function") continue;
+    Object.defineProperty(out, k, { value: plainJson(v), enumerable: true, writable: true, configurable: true });
+  }
+  return out;
+}
+
+/** the document with its keys sorted, but for the API section, whose keys keep their order */
+function sortedDocument(document: unknown): unknown {
+  if (document === null || typeof document !== "object" || Array.isArray(document) || !("api" in document)) return sortKeys(document);
+  const { api, ...rest } = document as Record<string, unknown>;
+  const sorted = sortKeys({ ...rest, api: null }) as Record<string, unknown>;
+  if (api === undefined) delete sorted.api;
+  else sorted.api = plainJson(api);
+  return sorted;
+}
+
 /** the lists inside the document whose entries hold lists of their own, each entry written open */
 const OPEN_ENTRIES = new Set(["components", "collections"]);
+/** The mock library (lib/mocks): its lists and records written open, one model, scenario, file or script a line. */
+const MOCKS = "mocks";
+/** The API section (lib/api): its own lists and records written open, one model, endpoint, channel, server or security
+ *  scheme a line. Its keys keep their order: the order of a schema's properties, of the responses, is the author's. */
+const API = "api";
 
 /** Whether a value at this place is written open (one member per line) rather than on one line. The envelope, the
  *  document, and the document's own lists and records are open; so are the entries of `components` and `collections`
@@ -54,6 +81,7 @@ function isOpen(path: string[], value: unknown): boolean {
   if (n === 0) return true;
   if (path[0] !== "document") return false;
   if (n <= 2) return true;
+  if (path[1] === API || path[1] === MOCKS) return n === 3;
   if (n === 3) return OPEN_ENTRIES.has(path[1]) && !Array.isArray(value);
   if (n === 4) return OPEN_ENTRIES.has(path[1]) && Array.isArray(value);
   return false;
@@ -73,7 +101,7 @@ function write(value: unknown, path: string[], indent: string): string {
  *  the document with its keys sorted, laid out as `isOpen` says, ending with a newline. */
 export function formatProject(file: { format: string; version: number; document: unknown }): string {
   const { format, version, document, ...rest } = file;
-  const envelope: Record<string, unknown> = { format, version, document: sortKeys(document) };
+  const envelope: Record<string, unknown> = { format, version, document: sortedDocument(document) };
   for (const k of Object.keys(rest).sort(byCodePoint)) envelope[k] = sortKeys(rest[k as keyof typeof rest]);
   return write(envelope, [], "") + "\n";
 }
@@ -81,10 +109,13 @@ export function formatProject(file: { format: string; version: number; document:
 /* ---------- pictures as files ---------- */
 
 const MIME_EXT: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif", "image/svg+xml": "svg" };
-const EXT_MIME: Record<string, string> = Object.fromEntries(Object.entries(MIME_EXT).map(([m, e]) => [e, m]));
+/** the other files the mock library keeps (document.mocks.files), beside the pictures */
+const MOCK_MIME_EXT: Record<string, string> = { "application/pdf": "pdf", "audio/wav": "wav", "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/mp4": "m4a", "video/mp4": "mp4", "video/webm": "webm", "application/octet-stream": "bin" };
+const EXT_MIME: Record<string, string> = Object.fromEntries([...Object.entries(MIME_EXT), ...Object.entries(MOCK_MIME_EXT)].map(([m, e]) => [e, m]));
 const DATA_URL = /^data:(image\/(?:png|jpeg|webp|gif|avif|svg\+xml));base64,([A-Za-z0-9+/]*={0,2})$/;
+const MOCK_DATA_URL = /^data:(application\/pdf|audio\/(?:wav|mpeg|ogg|mp4)|video\/(?:mp4|webm)|application\/octet-stream);base64,([A-Za-z0-9+/]*={0,2})$/;
 /** what a picture's path inside the folder may look like: nothing that climbs out of it */
-const ASSET_PATH = new RegExp(`^${FOLDER_ASSET_DIR}/[a-z0-9]+\\.(?:${Object.values(MIME_EXT).join("|")})$`);
+const ASSET_PATH = new RegExp(`^${FOLDER_ASSET_DIR}/[a-z0-9]+\\.(?:${[...Object.values(MIME_EXT), ...Object.values(MOCK_MIME_EXT)].join("|")})$`);
 
 /** whether a path a document refers to is one of the pictures beside it, and nothing else */
 export const isAssetPath = (path: string) => ASSET_PATH.test(path);
@@ -119,9 +150,9 @@ export function bytesToBase64(bytes: Uint8Array): string {
 
 /** A picture that can go into a file of its own and come back as exactly the same text: a base64 image of a kind
  *  with a file extension, written the way it would be written again. Anything else stays in the document. */
-function asFile(s: string): ProjectAssetFile | null {
-  if (s.length < FILE_MIN_CHARS || !s.startsWith("data:image/")) return null;
-  const m = DATA_URL.exec(s);
+function asFile(s: string, mock = false): ProjectAssetFile | null {
+  if (s.length < FILE_MIN_CHARS || !s.startsWith("data:")) return null;
+  const m = DATA_URL.exec(s) ?? (mock ? MOCK_DATA_URL.exec(s) : null);
   if (!m) return null;
   let bytes: Uint8Array;
   try {
@@ -130,7 +161,7 @@ function asFile(s: string): ProjectAssetFile | null {
     return null;
   }
   if (bytesToBase64(bytes) !== m[2]) return null;
-  return { path: `${FOLDER_ASSET_DIR}/${digest(m[2])}.${MIME_EXT[m[1]]}`, mime: m[1], bytes };
+  return { path: `${FOLDER_ASSET_DIR}/${digest(m[2])}.${MIME_EXT[m[1]] ?? MOCK_MIME_EXT[m[1]]}`, mime: m[1], bytes };
 }
 
 /** the picture a file holds, as the data URL the document had */
@@ -186,15 +217,15 @@ export type SerializeOptions = {
  *  written as it is: pictures the editor keeps by reference in the browser (`m3e-asset:`) must be put back first. */
 export function serializeProject(doc: Doc, o: SerializeOptions = {}): { text: string; files: ProjectAssetFile[] } {
   const files = new Map<string, ProjectAssetFile>();
-  const body =
-    o.assets === "files"
-      ? mapStrings(doc, (s) => {
-          const f = asFile(s);
-          if (!f) return s;
-          files.set(f.path, f);
-          return FILE_REF + f.path;
-        })
-      : doc;
+  const keep = (mock: boolean) => (s: string) => {
+    const f = asFile(s, mock);
+    if (!f) return s;
+    files.set(f.path, f);
+    return FILE_REF + f.path;
+  };
+  let body = o.assets === "files" ? mapStrings(doc, keep(false)) : doc;
+  /* the mock library's PDFs, sounds and clips go beside the pictures too; nothing else in a document is one of them */
+  if (o.assets === "files" && body.mocks?.files?.length) body = { ...body, mocks: { ...body.mocks, files: body.mocks.files.map((f) => ({ ...f, data: keep(true)(f.data) })) } };
   return { text: formatProject(projectFile(body)), files: [...files.values()].sort((a, b) => byCodePoint(a.path, b.path)) };
 }
 

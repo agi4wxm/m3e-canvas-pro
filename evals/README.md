@@ -8,8 +8,9 @@
 | --- | --- |
 | `run.ts` | 命令行：`bun run eval` |
 | `harness.ts` | 跑一个任务：起始文档、无头截图、计量和预算、跑完后截图、对照参考图、撤销检查 |
-| `tasks.ts`、`fixtures.ts` | 任务和它们的起始文档 |
-| `graders.ts` | 确定性的检查和打分 |
+| `tasks.ts`、`fixtures.ts` | 任务和它们的起始文档；产品层的八个任务在 `productTasks.ts`，起始文档在 `fixtures.ts` 末尾，导入任务用的规范文件在 `fixtures/shop-backend.openapi.yaml` |
+| `graders.ts`、`productGraders.ts` | 确定性的检查和打分；产品层的检查（契约、绑定、状态、模拟库、预览、导出） |
+| `product.ts` | 文档有接口时，回合结束后算一次：每个绑定了数据的屏幕在每个场景下的预览、用模拟库试登录、导出完整产品并类型检查生成的代码 |
 | `judge.ts` | 可选的视觉评分 |
 | `record.ts`、`replay.ts`、`keep-recorded.ts` | 写下和读回一次运行、重新评分、挑几次运行给单元测试 |
 | `report.ts` | `summary.md`、`results.json` 和费用估算 |
@@ -41,7 +42,7 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 | 参数 | 说明 |
 | --- | --- |
-| `--only <ids或能力>` | 逗号分隔的任务 id 或能力：new-screen、edit、data、variables、components、styles、svg、replicate、game、multilingual、ambiguous、flow、long-screen |
+| `--only <ids或能力>` | 逗号分隔的任务 id 或能力：new-screen、edit、data、variables、components、styles、svg、replicate、game、multilingual、ambiguous、flow、long-screen、product |
 | `--repeat <n>` | 每个任务跑 n 次（模型不确定，看通过率要多跑几次） |
 | `--provider`、`--model`、`--effort`、`--image-model` | 服务商（默认 openai）、文本模型（默认 `gpt-6.1-sol`）、推理强度（low/medium/high，默认 medium）、图片模型 |
 | `--budget-tokens <n>` | 给每个任务的 token 预算再加一个上限 |
@@ -110,6 +111,32 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 | `pay-pinned` | 某类组件（支付按钮）在屏幕底部 |
 | `texture` | 穿着的自定义风格用规则画出材质：纹理（重复或径向渐变）、描边、阴影里至少两种 |
 
+### 产品层的检查
+
+`productGraders.ts`。屏幕可以按 id、按名字的正则或 `/./`（任何一个屏幕）来指。
+
+| 检查 | 看什么 |
+| --- | --- |
+| `api-valid` | 有接口，`apiProblems` 没有错误级的问题 |
+| `*-endpoint`、`model` | 有这样的接口（方法、路径、是不是列表、有没有请求体、是否分页、是否公开）；有含这些字段的模型 |
+| `list-bound` | 屏幕有列表接口的数据源，有容器按 `data.<名字>.items` 重复，重复的行里有绑定 `item.` 的部件 |
+| `detail-bound` | 屏幕有取一条的数据源，并显示它的这些字段 |
+| `bindings-resolve` | 绑定了数据的屏幕上每个表达式（属性、重复、条件、数据源参数）都能解析、读的东西都在，区域的数据源存在 |
+| `states` | 屏幕上的每个区域都有加载中、空、出错、无权限四个设计 |
+| `form` | 有某个接口请求体的表单，这些字段都有输入框绑定，并有提交 |
+| `tap-params` | 列表行的点击打开详情页并带上 `item.` 的参数，详情页的数据源读这个参数 |
+| `auth-login`、`auth-required` | 登录页、要登录的屏幕 |
+| `sends` | 点击发送到某个接口：调用效果，或这个接口的表单的提交 |
+| `mocks`、`scenario-*` | 模拟库设置过（场景数）；有这样的场景（空、5XX、慢），并且预览里在这个场景下区域显示相应的状态 |
+| `realtime` | 有服务器推送消息的实时通道（应用发消息可以走 WebSocket，也可以走 POST）和它的模拟脚本 |
+| `preview` | 预览（正常回答）里屏幕的数据源都加载成功、列表至少有几条、区域显示内容 |
+| `sign-in` | 登录接口在模拟库上回答 2XX 并带令牌 |
+| `export` | 完整产品能导出，`packages/api` 和 `apps/web` 生成的代码类型检查没有错误 |
+
+预览、试登录和导出不是在检查里做的：它们要异步运行模拟库、调用编译器，所以 `harness.ts` 在回合结束后用 `product.ts` 算一次，存进 `observed.json` 的 `preview` 和 `product`，检查只读它们，回放照样能评分。预览用的是 `lib/bindings/headless.ts` 的 `previewScreen`（和编辑器预览、智能体带场景的截图同一套），固定时刻，所以同一份文档结果相同。导出写到临时文件夹（之后删掉），`packages/api` 按它自己的 tsconfig 检查，`apps/web` 按一份把依赖指向本仓库 `node_modules` 的 tsconfig 检查（只在开发时用的 msw 部分和 Vite 的环境类型换成占位声明），用本仓库的 `tsc`，一次约一秒；真正的安装、构建和契约测试是 `bun run check:product`。`--no-shots` 不影响它们；`RunOptions.product: false` 不导出。
+
+`evals/product.test.ts` 把每个产品任务用操作“做一遍好的”（只用工具背后的操作，所以也证明工具做得到），检查全部通过；起始文档的关键检查都不通过。
+
 ## 加一个任务
 
 1. 起始文档：在 `fixtures.ts` 的 `FIXTURES` 里用操作搭一个（推荐：确定、可读、跟着代码一起变），或者把编辑器“保存到文件”得到的项目文件放进 `evals/fixtures/`，用文件名引用。
@@ -135,4 +162,5 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 - [2026-11-06](baselines/2026-11-06/notes.md)：16 个任务通过 15 个，失败的是“全删了重做”没有先问；那里也列了智能体常犯的错误和建议的改法。
 - [2026-11-06-fixes](baselines/2026-11-06-fixes/notes.md)：修完那七处之后，同样 16 个任务全部通过，平均 token 95k → 85k，`describe_part` 占调用 28% → 10%；另加三个更难的任务（多屏应用、严格风格的结账表单、长屏动态）也都通过，那里列了还剩下的问题。
-- [2026-11-06-residuals](baselines/2026-11-06-residuals/notes.md)（最新）：修完遗留问题（改组件定义的 `edit_component`、速查表的数值范围和行数、单个部件的参数别名、删除前先问扩大到改写数据和替换风格图标）后，只重跑受影响的四个任务各一次：4/4 通过，失败的调用 2 → 0，平均 token 81k → 76k；prompt-box-component 从 11 步降到 5 步。
+- [2026-11-06-residuals](baselines/2026-11-06-residuals/notes.md)：修完遗留问题（改组件定义的 `edit_component`、速查表的数值范围和行数、单个部件的参数别名、删除前先问扩大到改写数据和替换风格图标）后，只重跑受影响的四个任务各一次：4/4 通过，失败的调用 2 → 0，平均 token 81k → 76k；prompt-box-component 从 11 步降到 5 步。
+- [2026-11-06-product](baselines/2026-11-06-product/notes.md)（最新）：产品层的八个任务（推出接口并绑定、建表单、详情带参数、登录守卫、导入 OpenAPI、场景和状态、实时聊天、中文的三屏小应用）各两次，原来的二十个任务各一次：产品层 16/16（按当时的检查 14/16，实时通道的检查过严，已改），原来的 19/20；修了看到的问题（点击带的参数自动声明到目标屏幕、数据集合的详情读 `{{current}}`、不给模拟数据画图、带场景截图的排版）后重跑受影响的五个任务 5/5，detail-params 193k → 143k，scenarios-states 156k → 57k。

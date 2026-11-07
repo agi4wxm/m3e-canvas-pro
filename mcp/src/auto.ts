@@ -32,6 +32,12 @@ export class AutoBackend implements Backend {
     return this.file.history(action);
   }
 
+  /** the file's document, exported; while a tab is paired the editor holds the design, and exports it itself */
+  exportProduct(dir: string, o: { force?: boolean } = {}): Promise<CallOutcome> {
+    if (this.live.paired()) return Promise.resolve(failure("refused", "An editor tab is paired: the design is the one open there.", "Ask the author to export from the editor (Ask an AI → Whole product (monorepo)), or call this again once the tab is no longer paired."));
+    return this.file.exportProduct(dir, o);
+  }
+
   access(): Access {
     return this.now.access();
   }

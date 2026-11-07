@@ -185,9 +185,9 @@ describe("a document with no prototype interactions, flows or variables in modes
        documents that use none of them now export differently: if that is meant, update the digests. */
     expect({ proof: digestOf(proof), reuse: digestOf(await exported(reuseDoc().doc, reuseDoc().widths)), sweep: digestOf(await exported(sweepDoc().doc, sweepDoc().widths)) }).toMatchInlineSnapshot(`
       {
-        "proof": "0a3c4ec055eba3b5",
-        "reuse": "d2d21c7221944ec7",
-        "sweep": "2be5df7a00b389ca",
+        "proof": "1380d9aae3086256",
+        "reuse": "aeba42efb325c141",
+        "sweep": "9df164afde516432",
       }
     `);
   }, 60_000);

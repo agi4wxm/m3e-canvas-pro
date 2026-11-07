@@ -1,10 +1,12 @@
 import { partBySlug, reader } from "../parts/registry";
 import { arrangeFlows, outOfPane } from "./flow";
-import { type Row, fillCurrent, firstRows, rowVars } from "./collections";
+import { type Row, fillCurrent, fillDeep, firstRows, rowVars } from "./collections";
 import type { Action, ActionBody, Collection, Condition, Doc, DocVar, Effect, Frame, Group, Item, VarValue } from "./tokens";
 import { varValues } from "./variables";
 import { heldBy } from "./tokens";
 import { isColorRef } from "./look";
+import { display, evaluate, fillTemplate, holds, toNumber, truthy, type Scope } from "./bindings/expr";
+import { NO_BINDINGS, exprOfBind, scopeFor, type BindingContext } from "./bindings/scope";
 
 export { retarget } from "./tokens";
 
@@ -12,7 +14,7 @@ export { retarget } from "./tokens";
  * the state and calls these, and nothing here touches the document or the page. A reference to a part
  * or a variable that is gone does nothing, so a prototype with a stale link still runs. */
 
-type Scope = Pick<Doc, "groups" | "vars">;
+type DocScope = Pick<Doc, "groups" | "vars">;
 type Widths = Record<string, number>;
 
 export type PreviewState = {
@@ -32,7 +34,13 @@ export type PreviewState = {
   current?: Row;
   /** the variables a tap or an input has written: they keep that value on every screen, whatever mode it shows */
   set?: Record<string, true>;
+  /** Runtime only: what expressions on the screen on show read (lib/bindings): its data, params, forms, the session. */
+  ctx?: BindingContext;
 };
+
+/** what an expression on a part reads in this state: the screen's bindings, the variables now, the part's own scope */
+export const scopeOf = (s: PreviewState, it?: Pick<Item, "scope" | "row">, extra?: Scope): Scope => scopeFor(s.ctx ?? NO_BINDINGS, s.vars, it, extra);
+const evalCtx = (s: PreviewState) => (s.ctx ?? NO_BINDINGS).eval;
 
 /** the state with a variable written, and marked as written */
 const wrote = (s: PreviewState, id: string, value: VarValue): PreviewState => ({ ...s, vars: { ...s.vars, [id]: value }, set: { ...s.set, [id]: true } });
@@ -139,15 +147,52 @@ function boundValue(it: Item, key: string, v: VarValue): VarValue | undefined {
   return String(v);
 }
 
-/** the part as it is right now: what effects changed, what the visitor entered, what variables say,
+/** What a prop bound to an expression shows, in the kind of value the prop takes: words for words (nothing is ""), a
+ *  number kept to its range, yes or no, a choice it offers, rows for a list. Undefined leaves the prop as designed. */
+function exprValue(it: Item, key: string, v: unknown): unknown {
+  const d = partBySlug(it.component)?.props.find((x) => x.key === key);
+  if (!d) return undefined;
+  switch (d.kind) {
+    case "bool":
+      return v === undefined ? undefined : truthy(v);
+    case "number": {
+      const n = toNumber(v);
+      return n === undefined ? undefined : Math.min(d.max, Math.max(d.min, n));
+    }
+    case "enum":
+      return d.options.some((o) => (typeof o === "string" ? o : o.value) === String(v)) ? String(v) : undefined;
+    case "list":
+      if (!Array.isArray(v)) return undefined;
+      return v.slice(0, d.max ?? 50).map((x) => {
+        if (!x || typeof x !== "object" || Array.isArray(x)) return { label: display(x) };
+        const r = x as Record<string, unknown>;
+        return { label: display(r.label ?? r.name ?? r.title ?? ""), ...(typeof r.icon === "string" ? { icon: r.icon } : {}), ...(typeof r.image === "string" ? { image: r.image } : {}) };
+      });
+    case "table":
+      return undefined;
+    default:
+      return display(v);
+  }
+}
+
+/** the part as it is right now: what effects changed, what the visitor entered, what variables and expressions say,
  *  and what the row last tapped fills in */
 export function liveItem(source: Item, s: PreviewState): Item {
-  const props = fillCurrent(source.props, s.current);
+  const filled = fillCurrent(source.props, s.current);
+  /* words with {{expressions}} in them read the bindings, where the screen has any */
+  const props = s.ctx && filled ? fillDeep(filled, (text) => (text.includes("{{") ? fillTemplate(text, scopeOf(s, source), evalCtx(s)) : text)) : filled;
   const it = props === source.props ? source : { ...source, props };
   const key = INPUT_PROP[it.component ?? ""];
   const changed = s.props[it.id];
   const field = key !== undefined ? s.fields[it.id] : undefined;
+  let scope: Scope | undefined;
   const bound = Object.entries(it.bind ?? {}).flatMap(([prop, id]) => {
+    const expr = exprOfBind(id);
+    if (expr !== null) {
+      scope ??= scopeOf(s, it);
+      const value = exprValue(it, prop, evaluate(expr, scope, evalCtx(s)));
+      return value === undefined ? [] : [[prop, value] as const];
+    }
     const v = s.vars[id];
     const value = v === undefined ? undefined : boundValue(it, prop, v);
     return value === undefined ? [] : [[prop, value] as const];
@@ -159,8 +204,9 @@ export function liveItem(source: Item, s: PreviewState): Item {
 /** whether an input holds something: words, a tick, a choice */
 const holdsValue = (v: unknown) => (typeof v === "string" ? v.trim() !== "" : typeof v === "boolean" ? v : typeof v === "number" ? v >= 0 : false);
 
-export function conditionHolds(c: Condition | undefined, s: PreviewState, doc: Scope): boolean {
+export function conditionHolds(c: Condition | undefined, s: PreviewState, doc: DocScope, it?: Pick<Item, "scope" | "row">): boolean {
   if (!c) return true;
+  if ("expr" in c) return typeof c.expr === "string" && holds(c.expr, scopeOf(s, it), evalCtx(s));
   if ("filled" in c) {
     const it = itemOf(doc.groups, c.filled);
     const def = it && partBySlug(it.component);
@@ -178,13 +224,16 @@ export function conditionHolds(c: Condition | undefined, s: PreviewState, doc: S
 }
 
 /** the part of an action this state runs: itself, its `else`, or nothing when it has no `else` */
-export function chooseBranch(a: Action, s: PreviewState, doc: Scope): ActionBody | null {
-  const body = conditionHolds(a.when, s, doc) ? a : a.else;
+export function chooseBranch(a: Action, s: PreviewState, doc: DocScope, it?: Pick<Item, "scope" | "row">): ActionBody | null {
+  const body = conditionHolds(a.when, s, doc, it) ? a : a.else;
   /* what it says or sets may read the row this tap came from */
   return body ? fillCurrent(body, s.current) : null;
 }
 
-function applyEffect(s: PreviewState, e: Effect, doc: Scope): PreviewState {
+/** what an effect reads besides the state: the part tapped, and what a call answered */
+export type EffectEnv = { it?: Pick<Item, "scope" | "row">; extra?: Scope };
+
+function applyEffect(s: PreviewState, e: Effect, doc: DocScope, env: EffectEnv = {}): PreviewState {
   switch (e.do) {
     case "show":
     case "hide":
@@ -208,7 +257,10 @@ function applyEffect(s: PreviewState, e: Effect, doc: Scope): PreviewState {
     }
     case "setVar": {
       const type = doc.vars?.find((v) => v.id === e.var)?.type;
-      const value = type && coerce(e.value, type);
+      /* an expression is read now; what it comes to is kept as the variable's type keeps it */
+      const raw = typeof e.expr === "string" ? evaluate(e.expr, scopeOf(s, env.it, env.extra), evalCtx(s)) : e.value;
+      const given: VarValue | undefined = raw === undefined || raw === null ? undefined : typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean" ? raw : display(raw);
+      const value = type && given !== undefined && coerce(given, type);
       return value === undefined || value === null ? s : wrote(s, e.var, value);
     }
     case "toggleVar": {
@@ -228,22 +280,22 @@ function applyEffect(s: PreviewState, e: Effect, doc: Scope): PreviewState {
       if (!itemOf(doc.groups, e.part)) return s;
       return { ...s, props: { ...s.props, [e.part]: { ...s.props[e.part], [e.prop]: e.value } } };
     case "snackbar":
-      return { ...s, snack: { id: (s.snack?.id ?? 0) + 1, message: e.message } };
+      return { ...s, snack: { id: (s.snack?.id ?? 0) + 1, message: e.message.includes("{{") ? fillTemplate(e.message, scopeOf(s, env.it, env.extra), evalCtx(s)) : e.message } };
     default:
       /* a kind this version does not know, from a file saved by a later one */
       return s;
   }
 }
 
-export function applyEffects(s: PreviewState, effects: Effect[] | undefined, doc: Scope): PreviewState {
-  return Array.isArray(effects) ? effects.reduce((at, e) => applyEffect(at, e, doc), s) : s;
+export function applyEffects(s: PreviewState, effects: Effect[] | undefined, doc: DocScope, env?: EffectEnv): PreviewState {
+  return Array.isArray(effects) ? effects.reduce((at, e) => applyEffect(at, e, doc, env), s) : s;
 }
 
 /** closes everything held open: a tap on the scrim */
-export const closeOpened = (s: PreviewState, doc: Scope) => applyEffects(s, Object.keys(s.opened).map((part) => ({ do: "close" as const, part })), doc);
+export const closeOpened = (s: PreviewState, doc: DocScope) => applyEffects(s, Object.keys(s.opened).map((part) => ({ do: "close" as const, part })), doc);
 
 /** the visitor changed an input: it remembers, and the variable its value is bound to follows */
-export function writeField(s: PreviewState, it: Item, value: VarValue, doc: Scope): PreviewState {
+export function writeField(s: PreviewState, it: Item, value: VarValue, doc: DocScope): PreviewState {
   const key = INPUT_PROP[it.component ?? ""];
   if (key === undefined) return s;
   const id = it.bind?.[key];
@@ -258,11 +310,11 @@ export function writeField(s: PreviewState, it: Item, value: VarValue, doc: Scop
 }
 
 /** what the state leaves off the screen: hidden, or its condition not met, or on another tab, with what those hold */
-export function goneIds(groups: Group[], s: PreviewState, doc: Scope, widths: Widths): Set<string> {
+export function goneIds(groups: Group[], s: PreviewState, doc: DocScope, widths: Widths): Set<string> {
   const gone = outOfPane(groups, widths);
   for (const g of groups) {
     /* a part drawn for a row can ask about that row: its fields are `row.field` for it, always */
-    if (!isHidden(s, g) && conditionHolds(g.showWhen, inRow(s, g.items[0]?.row), doc)) continue;
+    if (!isHidden(s, g) && conditionHolds(g.showWhen, inRow(s, g.items[0]?.row), doc, g.items[0])) continue;
     gone.add(g.id);
     for (const held of heldBy(g, groups, widths)) gone.add(held.id);
   }
@@ -270,7 +322,7 @@ export function goneIds(groups: Group[], s: PreviewState, doc: Scope, widths: Wi
 }
 
 /** One screen's parts as the state has them, laid out again: what is hidden leaves no hole. */
-export function liveGroups(groups: Group[], s: PreviewState, doc: Scope, widths: Widths): Group[] {
+export function liveGroups(groups: Group[], s: PreviewState, doc: DocScope, widths: Widths): Group[] {
   const live = groups.map((g) => {
     const items = g.items.map((it) => liveItem(it, s));
     return items.every((it, i) => it === g.items[i]) ? g : { ...g, items };

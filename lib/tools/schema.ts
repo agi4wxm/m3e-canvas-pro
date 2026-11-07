@@ -58,10 +58,12 @@ const ACTION: Schema = {
     url: { type: "string" },
     effects: {
       type: "array",
-      description: "{do: show|hide|toggle|open|close, part} | {do: setVar, var, value} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message}",
-      items: { type: "object", properties: { do: { type: "string", enum: ["show", "hide", "toggle", "open", "close", "setVar", "toggleVar", "addVar", "setProp", "snackbar"] } }, required: ["do"] },
+      description:
+        "{do: show|hide|toggle|open|close, part} | {do: setVar, var, value, expr?} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message ({{expressions}} allowed)} | {do: call, operationId, args?: {name: expression}, body?: expression, then?: action body (reads response), catch?: action body (reads error), optimistic?: {source, remove: true}} | {do: refresh, source} | {do: loadMore, source} | {do: submit, form?} | {do: signOut}",
+      items: { type: "object", properties: { do: { type: "string", enum: ["show", "hide", "toggle", "open", "close", "setVar", "toggleVar", "addVar", "setProp", "snackbar", "call", "refresh", "loadMore", "submit", "signOut"] } }, required: ["do"] },
     },
-    when: { type: "object", description: "{var, op: eq|neq, value} or {filled: a text field's part id}" },
+    params: { type: "object", description: "what the screen it opens is given, by its params' names: each an expression (\"item.id\")" },
+    when: { type: "object", description: "{var, op: eq|neq, value}, {filled: a text field's part id} or {expr: an expression}" },
     else: { type: "object", description: "the action taken when `when` does not hold" },
   },
 };

@@ -40,9 +40,12 @@ import { expandDoc } from "./expand";
 import { boundItem, bindsFields, varValues } from "./variables";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "./flow";
 import { Behaviour, type RuntimeSpec, type Uses } from "./printBehaviour";
+import { BoundPrint, type BindPrintOptions } from "./printBindings";
+import { templateOf } from "./collections";
 import { partBySlug } from "../parts/registry";
 import { fullWidth, roleOf } from "../parts/role";
 import { pinOf } from "./tidy";
+import { footOf } from "./foot";
 
 const REGISTRY_URL = "https://shadcn-m3e.crystaworld.dev/r/{name}.json";
 
@@ -72,6 +75,10 @@ const GATE_END = "";
 const GATE_CLOSE = "";
 /** where a layout's contents go in the printed layout */
 const HOLE = "\uE013flow\uE013";
+/** a line of code of its own at the depth it is at (a statement in a repeat's callback), ended by GATE_END */
+const STATEMENT = "\uE014";
+/** the end of a block opened by GATE_OPEN, with the words that close it ("})}" of a repeat), ended by GATE_END */
+const CLOSE_WITH = "\uE015";
 const PRINTER_MARK = /[\uE000-\uE01F]/;
 const PRINTER_MARKS = /[\uE000-\uE01F]/g;
 
@@ -144,6 +151,8 @@ function jsx(it: Item, c: Ctx, insideTap = false): string {
 
 /** a part that takes the room its layout gives it, not a number of pixels */
 function fluid(tree: PNode, keys: ("width" | "height")[]): PNode {
+  /* a select takes no style of its own: its trigger has the width */
+  if (tree.type === "Select" && !(tree.props && "style" in tree.props)) return tree;
   const style = { ...(tree.props?.style as Record<string, PValue> | undefined) };
   for (const k of keys) if (k in style) style[k] = "100%";
   return { ...tree, props: { ...tree.props, style } };
@@ -226,7 +235,19 @@ function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new S
   });
   c.useTree(placed);
   const box = { x: run.x + (marked(tree) ? flow.inset.l : 0), y: run.y + (marked(tree) ? flow.inset.t : 0) };
-  const held = kids.map((k) => gated(c.b.gates(k, within, c.uses), flowJsx(k, c, all, flow, within, tapped, box))).join("");
+  const bound = c.b.bound;
+  const form = bound?.formHost(run.id);
+  const template = bound && run.repeat?.data !== undefined ? templateOf(all, run) : undefined;
+  const kid = (k: Group): string => {
+    const gates = c.b.gates(k, within, c.uses);
+    if (k !== template || !bound || run.repeat?.data === undefined) return gated(gates, flowJsx(k, c, all, flow, within, tapped, box));
+    /* the template once per element of the list, in the element's scope, keyed by its id */
+    if (gates.includes("false")) return "";
+    const r = bound.repeatOpen(run.repeat.data, gates, run.repeat.limit);
+    const inner = bound.within(r.close, bound.form, () => flowJsx(k, c, all, flow, within, tapped, box));
+    return `${GATE_OPEN}${r.open}${GATE_END}${STATEMENT}${r.row}${GATE_END}${GATE_OPEN}return (${GATE_END}${r.key}${inner}</Fragment>${CLOSE_WITH})${GATE_END}${CLOSE_WITH}})}${GATE_END}`;
+  };
+  const held = (form && bound ? bound.within(form.scope, form, () => kids.map(kid)) : kids.map(kid)).join("");
   /* a function: a `$` in a part's words is not a replacement pattern */
   return boxed(part.wrap(inlineNode(placed, part.keepTap).replace(HOLE, () => held)));
 }
@@ -262,10 +283,12 @@ function flowedInstanceOf(id: string, all: Map<string, Group>, hosts: Set<string
   return undefined;
 }
 
-/** the pieces of a screen, each run placed where the sketch has it */
-function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, number>, all: Group[], pinEdges = true, foldOnScroll = false, scope?: string, inside: Set<string> = new Set()): string[] {
+/** The pieces of a screen, each run placed where the sketch has it. `room`: the body scrolls this far past each piece, so
+ *  its end clears what floats over the screen's foot (lib/foot.ts): an empty, untouchable strip under it. */
+function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, number>, all: Group[], pinEdges = true, foldOnScroll = false, scope?: string, inside: Set<string> = new Set(), room = 0): string[] {
   const { h } = frameSizeOf(frame);
   const out: string[] = [];
+  const end = room > 0 ? `<span aria-hidden className="pointer-events-none absolute top-full left-0 w-px" style={{ height: ${room} }} />` : "";
   const hosts = new Set(all.filter((r) => flowOf(r)).map((r) => r.id));
   const byId = new Map(all.map((g) => [g.id, g]));
   for (const run of runs) {
@@ -285,10 +308,10 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
     if (hosts.has(run.id)) {
       /* a box pinned as a bar (a kit's tab bar) spans the screen at its edge, and lays out what it holds across it */
       if (run.items.length === 1 && fullWidth(first)) {
-        out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(Math.round(run.y - frame.y))}${float}">${flowJsx(run, c, all, undefined, undefined, undefined, undefined, ["width"])}</div>`));
+        out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(Math.round(run.y - frame.y))}${float}">${flowJsx(run, c, all, undefined, undefined, undefined, undefined, ["width"])}${end}</div>`));
         continue;
       }
-      out.push(gated(gates, `<div className=${str(`absolute left-[${Math.round(run.x - frame.x)}px] top-[${Math.round(run.y - frame.y)}px]`)}>${flowJsx(run, c, all)}</div>`));
+      out.push(gated(gates, `<div className=${str(`absolute left-[${Math.round(run.x - frame.x)}px] top-[${Math.round(run.y - frame.y)}px]`)}>${flowJsx(run, c, all)}${end}</div>`));
       continue;
     }
     const at = layoutOf(run, widths)[0];
@@ -302,12 +325,12 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
     });
     /* a part that spans the screen keeps to its edges; the bars stay pinned to the top or the bottom */
     if (run.items.length === 1 && fullWidth(first)) {
-      out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(top)}${float}">${body[0]}</div>`));
+      out.push(gated(gates, `<div className="absolute inset-x-0 ${anchorOf(top)}${float}">${body[0]}${end}</div>`));
       continue;
     }
     const pos = `absolute left-[${left}px] top-[${top}px]${float}`;
-    if (body.length === 1) out.push(gated(gates, `<div className=${str(pos)}>${body[0]}</div>`));
-    else out.push(gated(gates, `<div className=${str(`${pos} flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]`)}>${body.join("")}</div>`));
+    if (body.length === 1) out.push(gated(gates, `<div className=${str(pos)}>${body[0]}${end}</div>`));
+    else out.push(gated(gates, `<div className=${str(`${pos} flex ${run.axis === "x" ? "flex-row" : "flex-col"} gap-[${GAP}px]`)}>${body.join("")}${end}</div>`));
   }
   return out;
 }
@@ -346,6 +369,16 @@ function tokenize(s: string): string[] {
       i++;
       continue;
     }
+    if (s[i] === STATEMENT || s[i] === CLOSE_WITH) {
+      const end = s.indexOf(GATE_END, i);
+      if (end < 0) {
+        i++;
+        continue;
+      }
+      out.push(s.slice(i, end));
+      i = end + 1;
+      continue;
+    }
     const tag = s[i] === "<";
     let j = tag ? i + 1 : i;
     let depth = 0;
@@ -359,7 +392,7 @@ function tokenize(s: string): string[] {
       else if (ch === "{") depth++;
       else if (ch === "}") depth--;
       else if (tag && ch === ">" && depth === 0) break;
-      else if (!tag && (ch === "<" || ch === GATE_OPEN || ch === GATE_CLOSE) && depth === 0) {
+      else if (!tag && (ch === "<" || ch === GATE_OPEN || ch === GATE_CLOSE || ch === STATEMENT || ch === CLOSE_WITH) && depth === 0) {
         j--;
         break;
       }
@@ -406,7 +439,7 @@ function pretty(source: string, depth: number): string {
   const tokens = tokenize(source);
   const lines: string[] = [];
   let d = depth;
-  const plain = (x: string | undefined) => x !== undefined && x[0] !== GATE_OPEN && x !== GATE_CLOSE;
+  const plain = (x: string | undefined) => x !== undefined && x[0] !== GATE_OPEN && x !== GATE_CLOSE && x[0] !== STATEMENT && x[0] !== CLOSE_WITH;
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
     if (t[0] === GATE_OPEN) {
@@ -415,6 +448,10 @@ function pretty(source: string, depth: number): string {
     } else if (t === GATE_CLOSE) {
       d--;
       lines.push(`${pad(d)})}`);
+    } else if (t[0] === STATEMENT) lines.push(pad(d) + t.slice(1));
+    else if (t[0] === CLOSE_WITH) {
+      d--;
+      lines.push(pad(d) + t.slice(1));
     } else if (t.startsWith("</")) {
       d--;
       lines.push(pad(d) + t);
@@ -451,6 +488,8 @@ export type ScreenCode = {
   imports: Imports;
   /** this repo's own component files the code needs (see `LOCAL_M3E`), with what needs each */
   local: Map<string, Set<string>>;
+  /** its data sources' hooks and its forms' rules (`<Screen>.data.ts`), when it has bindings */
+  data?: string;
 };
 
 type BuildOptions = {
@@ -459,9 +498,18 @@ type BuildOptions = {
   live?: boolean;
   /** the path for a picture held as data */
   image?: (data: string) => string;
+  /** the bindings printed against the product's runtime and client (the product's web app) */
+  binds?: BindPrintOptions;
 };
 
-export const importLines = (imports: Imports) => [...imports.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([source, set]) => `import { ${[...set].sort((a, b) => a.localeCompare(b)).join(", ")} } from "${source}"`);
+export const importLines = (imports: Imports) =>
+  [...imports.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([source, set]) => {
+      const names = [...set].sort((a, b) => a.localeCompare(b));
+      /* names that are all types (`type Product`) are a type import */
+      return names.every((n) => n.startsWith("type ")) ? `import type { ${names.map((n) => n.slice(5)).join(", ")} } from "${source}"` : `import { ${names.join(", ")} } from "${source}"`;
+    });
 
 /** Every screen of a document as a React component, read in the document's own styles (a custom style is resolved from `doc.styles`) */
 export function buildScreens(source: Doc, widths: Record<string, number>, o: BuildOptions = {}): { screens: ScreenCode[]; runtime: RuntimeSpec; usesToast: boolean } {
@@ -482,7 +530,8 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
   }
   const shown = onlyFrameId ? frames.filter((f) => f.id === onlyFrameId) : frames;
 
-  const b = new Behaviour(doc, widths, { live: !!o.live, shown, image: o.image ?? PLACEHOLDER_IMAGE });
+  const binds = o.binds ? new BoundPrint(doc, o.binds) : undefined;
+  const b = new Behaviour(doc, widths, { live: !!o.live, shown, image: o.image ?? PLACEHOLDER_IMAGE, binds });
   const taken = new Set<string>();
   /* a dock whose tabs do nothing prints the content of the tab that is chosen; the rest stays in the sketch */
   const offTab = new Set([...outOfPane(doc.groups, widths)].filter((id) => !b.keepsOffTab(id)));
@@ -503,28 +552,47 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
     const runs = [...all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { w, h } = frameSizeOf(frame);
     const length = frameLengthOf(frame);
-    const scrolls = length > h;
-    const folds = scrolls && runs.some((run) => run.items.some((item) => item.collapseOnScroll && canCollapseFab(item)));
     const name = componentName(frame.name, i, taken);
+    binds?.begin(frame, all, name);
+    /* a screen that loads data grows with it: its body scrolls, its bars stay put */
+    const loads = !!binds?.loads;
+    const scrolls = length > h || loads;
+    const folds = scrolls && runs.some((run) => run.items.some((item) => item.collapseOnScroll && canCollapseFab(item)));
     let body: string[];
     if (scrolls) {
-      const pinned = runs.filter((run) => pinOf(run, frame, widths));
-      const flowing = runs.filter((run) => !pinOf(run, frame, widths));
-      const fixed = pinned.map((run) => ({ ...run, y: run.y - (pinOf(run, frame, widths) === "foot" ? length - h : 0), items: run.items.map((item) => roleOf(item) === "rail" ? { ...item, props: { ...item.props, height: h } } : item) }));
-      const content = screenBody(frame, flowing, c, widths, all, false, folds);
+      /* a screen that loads data keeps its bars and the buttons at its foot on the glass, its body ending clear of them */
+      const foot = loads ? footOf(frame, runs, widths) : undefined;
+      const atFoot = (run: Group) => pinOf(run, frame, widths) === "foot" || !!foot?.floats.has(run.id);
+      const pinned = runs.filter((run) => pinOf(run, frame, widths) || foot?.floats.has(run.id));
+      const flowing = runs.filter((run) => !pinOf(run, frame, widths) && !foot?.floats.has(run.id));
+      const fixed = pinned.map((run) => ({ ...run, y: run.y - (atFoot(run) ? length - h : 0), items: run.items.map((item) => roleOf(item) === "rail" ? { ...item, props: { ...item.props, height: h } } : item) }));
+      const content = screenBody(frame, flowing, c, widths, all, false, folds, undefined, undefined, foot?.room ?? 0);
       const overlays = screenBody(frame, fixed, c, widths, all, true, folds);
       const scrollHandler = folds ? ' onScroll={(event) => { const top = event.currentTarget.scrollTop; if (top !== lastScrollTop.current) setFabFolded(top > lastScrollTop.current); lastScrollTop.current = top }}' : "";
       /* the screen's name is the author's words: an expression, since a JSX attribute's quotes take no escapes */
-      body = [`<div role="region" aria-label={${str(`${frame.name || "Screen"} content`)}} tabIndex={0} className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain"${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></div>`, ...overlays];
+      const label = `aria-label={${str(`${frame.name || "Screen"} content`)}}`;
+      body = loads
+        ? [`<DataScroll ${label}${binds!.scrollProps()}${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></DataScroll>`, ...overlays]
+        : [`<div role="region" ${label} tabIndex={0} className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain"${scrollHandler}><div className="relative" style={{ height: ${length} }}>${content.join("")}</div></div>`, ...overlays];
     } else body = screenBody(frame, runs, c, widths, all);
     const bg = frame.bg && COLOR_TOKENS.some((t) => t.key === frame.bg) ? `bg-${role(frame.bg)}` : "bg-surface";
     /* a style may draw something behind its screens (src/style.css) */
     const open = `<div${hasBackdrop(normalizeTheme(doc.theme)) ? " data-backdrop" : ""} className=${str(`relative overflow-hidden ${bg} w-[${w}px] h-[${h}px]`)}>`;
     const inner = [open, ...body, "</div>"].join("");
-    if (folds) c.imports.set("react", new Set(["useRef", "useState"]));
+    if (folds) c.imports.set("react", new Set([...(c.imports.get("react") ?? []), "useRef", "useState"]));
+    /* the bindings' hooks: params, data, the scope, the regions' states, the forms (they say what else they use) */
+    const head = binds?.head((body, scope) => b.statementsOf(body, c.uses, scope), !!doc.vars?.length);
+    const fromRuntime = new Set<string>();
+    for (const n of head?.app ?? []) {
+      if (n === "useScreenParams" || n === "scopeVars") fromRuntime.add(n);
+      else c.uses.app.add(n);
+    }
+    if (binds) for (const [source, names] of binds.imports()) c.imports.set(source, new Set([...(c.imports.get(source) ?? []), ...names]));
     const fromApp = c.uses.app.size ? `  const { ${[...c.uses.app].sort().join(", ")} } = useApp()\n` : "";
-    if (c.uses.app.size || c.uses.press) c.imports.set(RUNTIME, new Set([...(c.uses.app.size ? ["useApp"] : []), ...(c.uses.press ? ["Pressable"] : [])]));
-    const state = folds ? "  const [fabFolded, setFabFolded] = useState(false)\n  const lastScrollTop = useRef(0)\n" : "";
+    if (c.uses.app.size || c.uses.press || fromRuntime.size) c.imports.set(RUNTIME, new Set([...(c.uses.app.size ? ["useApp"] : []), ...(c.uses.press ? ["Pressable"] : []), ...fromRuntime]));
+    const data = binds?.dataFile();
+    const hooks = head?.lines.length ? `${head.lines.map((l) => `  ${l}\n`).join("")}` : "";
+    const state = (folds ? "  const [fabFolded, setFabFolded] = useState(false)\n  const lastScrollTop = useRef(0)\n" : "") + hooks;
     usesToast ||= c.usesToast;
     return {
       id: frame.id,
@@ -537,6 +605,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
       source: `export function ${name}() {\n${fromApp}${state}  return (\n${pretty(inner, 2)}\n  )\n}`,
       imports: c.imports,
       local: c.local,
+      ...(data ? { data } : {}),
     };
   });
   return { screens, runtime: b.spec(screens.map((s) => s.key)), usesToast };

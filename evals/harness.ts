@@ -23,6 +23,7 @@ import { frameOfPart, type Doc } from "../lib/tokens";
 import { silentLog } from "../mcp/src/log";
 import { findApp, HeadlessRenderer } from "../mcp/src/render";
 import { fixtureDoc } from "./fixtures";
+import { previewsOf, productOf } from "./product";
 import type { CallRecord, EvalTask, Observed } from "./types";
 
 export const REFS = join(new URL(".", import.meta.url).pathname, "refs");
@@ -156,6 +157,8 @@ export type RunOptions = {
   /** What the author says when the agent asks to take away much of their work (lib/agent/guard.ts): the editor shows
    *  Allow / Don't, the suite answers by policy. "decline" (the default) is the author who wants to be asked first. */
   destructive?: "allow" | "decline";
+  /** false: do not export and type-check the product of a document with an API after the turn */
+  product?: boolean;
   onEvent?: (e: TurnEvent) => void;
 };
 
@@ -308,6 +311,10 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
   }
   const final = savedDoc(store.get());
   const widths = guessMeasurer.measure(store.get());
+  /* the product layer, worked out once: the preview of the bound screens and the exported product */
+  const hasApi = !!final.api?.endpoints?.length;
+  const preview = hasApi ? await previewsOf(final, task.lang, widths).catch((e) => ({ reports: [], errors: [String(e)] })) : undefined;
+  const product = hasApi && o.product !== false ? await productOf(final, widths, task.lang) : undefined;
 
   /* one undo takes the turn back whole, and redo brings it again */
   let undo: Observed["undo"] = null;
@@ -344,6 +351,8 @@ export async function runTask(task: EvalTask, o: RunOptions): Promise<RunOutput>
     budget,
     ...(meter.cut ? { cut: meter.cut } : {}),
     perCall: (meter.each ?? []).map((u) => ({ input: u.input, cachedInput: u.cachedInput, output: u.output })),
+    ...(preview ? { preview } : {}),
+    ...(product ? { product } : {}),
   };
   return { observed, transcript: transcriptOf(r.messages, pictures), pictures };
 }

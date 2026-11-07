@@ -474,16 +474,19 @@ type MenuPlace = { left: number; width: number; maxHeight: number; top?: number;
 const MENU_MAX = 232;
 const MENU_GAP = 4;
 
-function measureMenu(trigger: HTMLElement): MenuPlace | null {
+function measureMenu(trigger: HTMLElement, minWidth = 0): MenuPlace | null {
   const r = trigger.getBoundingClientRect();
   if (r.bottom < 0 || r.top > window.innerHeight) return null;
+  /* a list wider than its narrow trigger stays inside the window */
+  const width = Math.max(r.width, minWidth);
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
   const below = window.innerHeight - r.bottom - MENU_GAP - 8;
   const above = r.top - MENU_GAP - 8;
   const up = below < 160 && above > below;
   const maxHeight = Math.max(88, Math.min(MENU_MAX, up ? above : below));
   return {
-    left: r.left,
-    width: r.width,
+    left: width > r.width ? left : r.left,
+    width,
     maxHeight,
     ...(up ? { bottom: window.innerHeight - r.top + MENU_GAP } : { top: r.bottom + MENU_GAP }),
   };
@@ -500,6 +503,7 @@ export function Select({
   p,
   label,
   height = 48,
+  menuWidth,
 }: {
   options: SelectOption[];
   value: string;
@@ -508,6 +512,8 @@ export function Select({
   label: string;
   /** the trigger's height; a short one (the design panel's) is drawn denser */
   height?: number;
+  /** the list's least width, for a narrow trigger whose choices have longer words */
+  menuWidth?: number;
 }) {
   if (useContext(DenseContext)) height = Math.min(height, 28);
   const dense = height < 40;
@@ -528,7 +534,7 @@ export function Select({
       return;
     }
     const update = () => {
-      const next = trigger.current ? measureMenu(trigger.current) : null;
+      const next = trigger.current ? measureMenu(trigger.current, menuWidth) : null;
       if (!next) {
         setOpen(false);
         return;
@@ -542,7 +548,7 @@ export function Select({
       window.removeEventListener("scroll", update, true);
       window.removeEventListener("resize", update);
     };
-  }, [open]);
+  }, [open, menuWidth]);
   const placed = place !== null;
   useEffect(() => {
     if (!open || !placed) return;

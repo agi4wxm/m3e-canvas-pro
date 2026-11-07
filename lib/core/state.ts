@@ -10,6 +10,8 @@ import { cleanStyles, withDocStyles } from "../styles";
 import { DEFAULT_THEME, normalizeTheme, PHONE_W, type Collection, type ComponentDef, type ComponentSet, type Doc, type DocVar, type Frame, type FrameMode, type Group, type Palette, type Theme } from "../tokens";
 import { translateDefaultFrameName, type Lang } from "../i18n";
 import { cleanDocIcons } from "../docIcons";
+import { cleanApi } from "../api/clean";
+import { cleanMocks } from "../mocks/clean";
 import { translateComponentProps } from "../../parts/registry";
 
 export type Widths = Record<string, number>;
@@ -80,6 +82,8 @@ export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, sess
       ...(doc.varCollections ? { varCollections: doc.varCollections } : {}),
       ...(doc.varModes ? { varModes: doc.varModes } : {}),
       ...(icons ? { icons } : {}),
+      ...(doc.api ? { api: doc.api } : {}),
+      ...(doc.mocks ? { mocks: doc.mocks } : {}),
     },
     editing: null,
     session: { ...emptySession(), ...session },
@@ -112,6 +116,8 @@ export function savedDoc(s: CoreState): Doc {
     varCollections: doc.varCollections?.length ? doc.varCollections : undefined,
     varModes: doc.varModes && Object.keys(doc.varModes).length ? doc.varModes : undefined,
     icons: doc.icons && Object.keys(doc.icons).length ? doc.icons : undefined,
+    api: doc.api,
+    mocks: doc.mocks,
   };
 }
 
@@ -214,6 +220,10 @@ function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<strin
   else if (reset) set("varModes", undefined);
   /* whatever brought them, the document's icons come in as drawings the vector atom would keep */
   if (doc.icons !== undefined || reset) set("icons", cleanDocIcons(doc.icons));
+  /* the API section comes in checked and within its bounds, whatever brought it (lib/api/clean.ts) */
+  if (doc.api !== undefined || reset) set("api", cleanApi(doc.api));
+  /* the mock settings likewise (lib/mocks/clean.ts) */
+  if (doc.mocks !== undefined || reset) set("mocks", cleanMocks(doc.mocks));
   return out;
 }
 

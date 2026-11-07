@@ -1,0 +1,146 @@
+# A chat's realtime API as AsyncAPI 3.0: a WebSocket room where the server pushes messages and typing, takes the
+# user's messages, and a presence feed. Messages are defined once in components and referred to from the channels.
+asyncapi: 3.0.0
+info:
+  title: Chat realtime
+  version: 1.4.0
+  description: Rooms, typing and presence over a WebSocket.
+defaultContentType: application/json
+servers:
+  dev:
+    host: localhost:8081
+    protocol: ws
+    pathname: /realtime
+    description: Local
+  prod:
+    host: rt.chat.example
+    protocol: wss
+    pathname: /realtime
+    description: Production
+channels:
+  room:
+    address: /rooms/{roomId}
+    title: A chat room
+    parameters:
+      roomId:
+        description: The room's id
+    messages:
+      chatMessage:
+        $ref: '#/components/messages/ChatMessage'
+      typing:
+        $ref: '#/components/messages/Typing'
+  presence:
+    address: /presence
+    description: Who is online
+    messages:
+      presenceChanged:
+        name: presenceChanged
+        summary: Someone came online or went away
+        payload:
+          $ref: '#/components/schemas/Presence'
+operations:
+  onChatMessage:
+    action: send
+    summary: A new message in the room
+    channel:
+      $ref: '#/channels/room'
+    messages:
+      - $ref: '#/channels/room/messages/chatMessage'
+  sendChatMessage:
+    action: receive
+    summary: The user says something
+    channel:
+      $ref: '#/channels/room'
+    messages:
+      - $ref: '#/channels/room/messages/chatMessage'
+  onTyping:
+    action: send
+    channel:
+      $ref: '#/channels/room'
+    messages:
+      - $ref: '#/channels/room/messages/typing'
+  onPresence:
+    action: send
+    channel:
+      $ref: '#/channels/presence'
+components:
+  schemas:
+    ChatUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        avatar:
+          type: [string, 'null']
+          format: uri
+      required: [id, name]
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        roomId:
+          type: string
+        author:
+          $ref: '#/components/schemas/ChatUser'
+        text:
+          type: string
+          maxLength: 4000
+        sentAt:
+          type: string
+          format: date-time
+        attachments:
+          type: array
+          items:
+            type: string
+            format: uri
+      required: [id, roomId, author, text, sentAt]
+    Typing:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/ChatUser'
+        typing:
+          type: boolean
+      required: [user, typing]
+    Presence:
+      type: object
+      properties:
+        userId:
+          type: string
+        online:
+          type: boolean
+        lastSeen:
+          type: string
+          format: date-time
+      required: [userId, online]
+  messages:
+    ChatMessage:
+      name: chatMessage
+      title: A chat message
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ChatMessage'
+      examples:
+        - name: hello
+          payload:
+            id: 3f0c8a5e-1d2b-4c3a-9e8f-7a6b5c4d3e2f
+            roomId: lobby
+            author:
+              id: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
+              name: Ann
+            text: Hello!
+            sentAt: 2026-11-06T10:00:00Z
+    Typing:
+      name: typing
+      payload:
+        $ref: '#/components/schemas/Typing'
+  securitySchemes:
+    token:
+      type: httpApiKey
+      name: token
+      in: query

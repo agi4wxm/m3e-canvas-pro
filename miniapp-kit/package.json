@@ -1,0 +1,58 @@
+{
+  "name": "m3e-canvas-miniapp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Taro rendering of M3E Canvas parts: the kit an exported mini-program (WeChat, Douyin, H5) is built on, and a gallery to check it.",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "lint": "eslint --max-warnings 0 .",
+    "test": "bun test",
+    "build:weapp": "taro build --type weapp",
+    "build:tt": "taro build --type tt",
+    "build:h5": "taro build --type h5",
+    "dev:weapp": "taro build --type weapp --watch",
+    "dev:h5": "taro build --type h5 --watch",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build:weapp && npm run build:tt && npm run build:h5"
+  },
+  "browserslist": [
+    "iOS >= 12",
+    "Android >= 7",
+    "Chrome >= 70"
+  ],
+  "dependencies": {
+    "@babel/runtime": "7.29.13",
+    "@tarojs/components": "4.3.2",
+    "@tarojs/helper": "4.3.2",
+    "@tarojs/plugin-framework-react": "4.3.2",
+    "@tarojs/plugin-platform-h5": "4.3.2",
+    "@tarojs/plugin-platform-tt": "4.3.2",
+    "@tarojs/plugin-platform-weapp": "4.3.2",
+    "@tarojs/react": "4.3.2",
+    "@tarojs/router": "4.3.2",
+    "@tarojs/runtime": "4.3.2",
+    "@tarojs/shared": "4.3.2",
+    "@tarojs/taro": "4.3.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@babel/core": "7.29.13",
+    "@babel/preset-react": "7.29.7",
+    "@eslint/js": "10.0.1",
+    "@pmmmwh/react-refresh-webpack-plugin": "0.5.17",
+    "@tarojs/cli": "4.3.2",
+    "@tarojs/taro-loader": "4.3.2",
+    "@tarojs/webpack5-runner": "4.3.2",
+    "@types/react": "18.3.31",
+    "babel-preset-taro": "4.3.2",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.14.0",
+    "postcss": "8.5.32",
+    "react-refresh": "0.14.2",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "webpack": "5.91.0"
+  }
+}

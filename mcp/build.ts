@@ -6,18 +6,38 @@
  *   bun mcp/build.ts            bundle, and copy the app build when there is one
  *   bun mcp/build.ts --no-app   bundle only */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { EXPORT_SOURCE_DIRS, isExportSource } from "../lib/export/sourceList";
 
 /* Bun's bundler, typed as far as it is used here (the project has no Bun types) */
 type BuildOutput = { success: boolean; logs: unknown[] };
+type Plugin = { name: string; setup(build: { onLoad(o: { filter: RegExp }, fn: () => { contents: string; loader: string }): void }): void };
 const { Bun } = globalThis as unknown as { Bun: { build(o: Record<string, unknown>): Promise<BuildOutput> } };
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const root = resolve(here, "..");
 const out = join(here, "dist");
 const file = join(out, "m3e-canvas-mcp.js");
+
+/* the editor's files a product export copies (export_product), carried inside the bundle: an installed server has no
+   checkout to read them from (mcp/src/sources.ts reads the checkout when run from source) */
+const sources: Record<string, string> = {};
+for (const dir of EXPORT_SOURCE_DIRS)
+  for (const name of readdirSync(join(root, dir)).sort()) {
+    const path = dir ? `${dir}/${name}` : name;
+    if (isExportSource(path)) sources[path] = readFileSync(join(root, path), "utf8");
+  }
+const embedSources: Plugin = {
+  name: "export-sources",
+  setup(build) {
+    build.onLoad({ filter: /mcp[\\/]src[\\/]sources\.ts$/ }, () => ({
+      loader: "ts",
+      contents: `const FILES: Record<string, string> = ${JSON.stringify(sources)}\nexport async function readEditorSource(path: string): Promise<string> {\n  const text = Object.hasOwn(FILES, path) ? FILES[path] : undefined\n  if (text === undefined) throw new Error(\`no such source: \${path}\`)\n  return text\n}\n`,
+    }));
+  },
+};
 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
@@ -32,6 +52,7 @@ const result = await Bun.build({
   define: { "process.env.NODE_ENV": '"production"' },
   sourcemap: "none",
   minify: { syntax: true, whitespace: false, identifiers: false },
+  plugins: [embedSources],
 });
 if (!result.success) {
   for (const log of result.logs) console.error(log);

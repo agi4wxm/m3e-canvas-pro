@@ -13,7 +13,7 @@ import { kitLookOf } from "../kits";
 import { COLOR_ROLES, LOOK_PRESETS, STRICT_LOOK_KEYS, lookForModel } from "../look";
 import { rulesForModel } from "../styleRules";
 import { STYLE_PACKS, isStrict, recipesOf, styleOf, uxOf, withDocStyles } from "../styles";
-import { COLOR_TOKENS, ICON_FAMILIES, TEXT_TOKENS, frameLengthOf, frameSizeOf, type ComponentDef, type Doc } from "../tokens";
+import { COLOR_TOKENS, ICON_FAMILIES, REGION_STATES, TEXT_TOKENS, frameLengthOf, frameSizeOf, type ComponentDef, type Doc, type RegionState } from "../tokens";
 import { overridableParts } from "../instances";
 import { FAMILY_LACKS, ICON_NAMES } from "./icons.generated";
 import { partPropsSchema } from "./schema";
@@ -391,24 +391,67 @@ const listData = tool<{ rows?: number }>({
 
 /* ---------- pictures ---------- */
 
-const screenshot = tool<{ id: string; scale?: number }>({
+type ShotArgs = { id: string; scale?: number; scenario?: string; params?: Record<string, unknown>; state?: RegionState; region?: string };
+
+const screenshot = tool<ShotArgs>({
   name: "screenshot",
   group: "read",
-  description: "A picture of a screen (or of one part, cut out of its screen) as the app draws it, to check your work by eye: alignment, spacing, overflow, contrast, anything missing. Open selects, menus and date pickers hang over the parts below them on the canvas by design; leave the layout as it is. The picture uses a fallback face a little wider than the real one, so a word cut short at the end of a tight line may be only the picture: check the outline before changing it.",
-  input: obj({ id: str("a screen id or a part id"), scale: { type: "number", minimum: 0.25, maximum: 2, description: "1 = one pixel per dp (the default)" } }, ["id"]),
-  output: "a PNG",
+  description:
+    "A picture of a screen (or of one part, cut out of its screen) as the app draws it, to check your work by eye: alignment, spacing, overflow, contrast, anything missing. With scenario (a mock scenario's id, \"\" for the normal answers) the screen is drawn as the preview shows it: its data loaded from the mocks, lists repeated, words bound, each region in the state its data is in; the result says what each data source got. With state, the regions (or the one named by region) are drawn in that state (loading, empty, error, forbidden, ready). Open selects, menus and date pickers hang over the parts below them on the canvas by design; leave the layout as it is. The picture uses a fallback face a little wider than the real one, so a word cut short at the end of a tight line may be only the picture: check the outline before changing it.",
+  input: obj(
+    {
+      id: str("a screen id or a part id"),
+      scale: { type: "number", minimum: 0.25, maximum: 2, description: "1 = one pixel per dp (the default)" },
+      scenario: str('draw the screen with its mock data under this scenario (get_mocks lists them; "" for the normal answers)'),
+      params: { type: "object", description: "the params the screen is opened with, under a scenario (an id from the mocks is used when left out)" },
+      state: { type: "string", enum: [...REGION_STATES], description: "draw the regions in this state" },
+      region: str("with state: only this region (its container's id)"),
+    },
+    ["id"],
+  ),
+  output: "a PNG; under a scenario also {data: what each source got and the state each region shows}",
   readOnly: true,
   destructive: false,
   async run(a, env) {
-    if (!env.renderer) throw new ToolFailure("unavailable", "Pictures cannot be taken here (no renderer).", "Read the outline instead.");
     const s = env.store.get();
     const isScreen = s.doc.frames.some((f) => f.id === a.id);
     const isPart = !isScreen && s.doc.groups.some((g) => g.items.some((it) => it.id === a.id));
     if (!isScreen && !isPart) throw new ToolFailure("not_found", `There is no screen or part ${JSON.stringify(a.id)}.`, "list_screens gives the screens' ids.");
+    const widths = env.store.ctx(env.origin).widths;
+    const screen = isScreen ? a.id : describeNode(s.doc as Doc, widths, a.id)?.screen?.id;
+    let doc: Doc | undefined;
+    let drawWidths: Record<string, number> | undefined;
+    let data: unknown;
+    if (a.scenario !== undefined || a.state) {
+      if (!screen) throw new ToolFailure("not_found", `${JSON.stringify(a.id)} is on no screen.`, "Name a screen.");
+      const { previewScreen, regionsShowing } = await import("../bindings/headless");
+      doc = s.doc as Doc;
+      if (a.scenario !== undefined) {
+        try {
+          const out = await previewScreen(doc, screen, { scenario: a.scenario === "normal" ? "" : a.scenario, params: a.params, lang: env.store.options.lang(), widths });
+          /* laid out once here, as the canvas lays out what it shows, before whoever draws it measures it again */
+          const { laidOut } = await import("../core/ops/common");
+          drawWidths = { ...widths, ...out.widths };
+          doc = laidOut({ ...s, doc: out.doc as CoreState["doc"], session: { ...s.session, widths: drawWidths } }, drawWidths).doc as Doc;
+          data = out.report;
+        } catch (e) {
+          throw new ToolFailure("not_found", e instanceof Error ? e.message : String(e), "get_mocks lists the scenarios.");
+        }
+      }
+      if (a.state) {
+        const shown = regionsShowing(doc, screen, a.state, { region: a.region, widths: drawWidths ?? widths });
+        if (!shown.regions.length) throw new ToolFailure("not_found", a.region ? `${JSON.stringify(a.region)} is no region on ${screen}.` : `The screen ${screen} has no region (set_region or wire_screen makes one).`, "describe_bindings lists a screen's regions.");
+        doc = shown.doc;
+      }
+    }
+    if (!env.renderer) {
+      if (data) return { result: { id: a.id, data, note: "No picture can be taken here; this is what the screen got." } };
+      throw new ToolFailure("unavailable", "Pictures cannot be taken here (no renderer).", "Read the outline instead.");
+    }
     let skipped: string[] = [];
-    const png = await env.renderer.screenshot(a.id, { scale: a.scale, signal: env.signal, onSkipped: (urls) => (skipped = urls) });
+    const png = await env.renderer.screenshot(a.id, { scale: a.scale, signal: env.signal, onSkipped: (urls) => (skipped = urls), ...(doc ? { doc, widths: drawWidths ?? widths } : {}) });
     const left = skipped.length ? { skipped: skipped.map((u) => (u.length > 120 ? `${u.slice(0, 120)}…` : u)), note: `${skipped.length === 1 ? "A picture" : `${skipped.length} pictures`} would not load and ${skipped.length === 1 ? "is" : "are"} drawn as a grey patch. Only pictures drawn into the document (data: URLs) and the project's own are sure to show: replace outside addresses with generate_image, an icon, or an empty image placeholder.` } : {};
-    return { result: { id: a.id, kind: isScreen ? "screen" : "part", ...left }, images: [png] };
+    return { result: { id: a.id, kind: isScreen ? "screen" : "part", ...(data ? { data } : {}), ...(a.state ? { state: a.state } : {}), ...left }, images: [png] };
   },
 });
 

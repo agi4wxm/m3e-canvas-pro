@@ -3,10 +3,13 @@ import { standIn } from "./instances";
 import { cleanLook } from "./look";
 import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
+import { cleanApi } from "./api/clean";
+import { cleanMocks } from "./mocks/clean";
 import { fitsType, startValueOf } from "./variables";
 import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
-import { COLOR_TOKENS, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { COLOR_TOKENS, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
+import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams } from "./bindings/clean";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -65,11 +68,18 @@ const isValue = (v: unknown): v is VarValue => typeof v === "string" || typeof v
 function cleanCondition(c: unknown): Condition | undefined {
   if (!isRecord(c)) return undefined;
   if (typeof c.filled === "string") return { filled: c.filled };
+  if (c.expr !== undefined) {
+    const expr = cleanExpr(c.expr);
+    return expr ? { expr } : undefined;
+  }
   if (typeof c.var === "string" && (c.op === "eq" || c.op === "neq") && isValue(c.value)) return { var: c.var, op: c.op, value: c.value };
   return undefined;
 }
 
-function cleanEffect(e: unknown): Effect | undefined {
+/** how deep a call's `then` and `catch` may hold calls of their own */
+const MAX_CALL_DEPTH = 4;
+
+function cleanEffect(e: unknown, depth = 0): Effect | undefined {
   if (!isRecord(e)) return undefined;
   switch (e.do) {
     case "show":
@@ -78,8 +88,11 @@ function cleanEffect(e: unknown): Effect | undefined {
     case "open":
     case "close":
       return typeof e.part === "string" ? { do: e.do, part: e.part } : undefined;
-    case "setVar":
-      return typeof e.var === "string" && isValue(e.value) ? { do: "setVar", var: e.var, value: e.value } : undefined;
+    case "setVar": {
+      if (typeof e.var !== "string" || !isValue(e.value)) return undefined;
+      const expr = e.expr === undefined ? undefined : cleanExpr(e.expr);
+      return { do: "setVar", var: e.var, value: e.value, ...(expr ? { expr } : {}) };
+    }
     case "toggleVar":
       return typeof e.var === "string" ? { do: "toggleVar", var: e.var } : undefined;
     case "addVar":
@@ -88,6 +101,23 @@ function cleanEffect(e: unknown): Effect | undefined {
       return typeof e.part === "string" && typeof e.prop === "string" && isValue(e.value) ? { do: "setProp", part: e.part, prop: e.prop, value: e.value } : undefined;
     case "snackbar":
       return typeof e.message === "string" ? { do: "snackbar", message: e.message } : undefined;
+    case "call": {
+      if (typeof e.operationId !== "string" || !e.operationId || depth > MAX_CALL_DEPTH) return undefined;
+      const args = cleanExprMap(e.args);
+      const body = e.body === undefined ? undefined : cleanExpr(e.body);
+      const then = cleanBody(e.then, depth + 1);
+      const fail = cleanBody(e.catch, depth + 1);
+      const o = isRecord(e.optimistic) && typeof e.optimistic.source === "string" ? { source: e.optimistic.source, ...(e.optimistic.remove === true ? { remove: true } : {}), ...(cleanExprMap(e.optimistic.patch) ? { patch: cleanExprMap(e.optimistic.patch) } : {}) } : undefined;
+      // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+      return { do: "call", operationId: e.operationId, ...(args ? { args } : {}), ...(body ? { body } : {}), ...(then ? { then } : {}), ...(fail ? { catch: fail } : {}), ...(o && (o.remove || o.patch) ? { optimistic: o } : {}) };
+    }
+    case "refresh":
+    case "loadMore":
+      return typeof e.source === "string" && e.source ? { do: e.do, source: e.source } : undefined;
+    case "submit":
+      return { do: "submit", ...(typeof e.form === "string" && e.form ? { form: e.form } : {}) };
+    case "signOut":
+      return { do: "signOut" };
     default:
       return undefined;
   }
@@ -105,10 +135,13 @@ function cleaned<T extends Record<string, unknown>>(value: T, fields: Record<str
   return out as T;
 }
 
-const cleanEffects = (list: unknown) => (Array.isArray(list) ? list.map(cleanEffect).filter((e) => e !== undefined) : undefined);
-/* what a prototype adds to a tap: an overlay, a part to scroll to, a motion, a trigger (lib/prototype.ts) */
-const PROTOTYPE = { overlay: (v: unknown) => (typeof v === "boolean" ? v : undefined), scrollTo: (v: unknown) => (typeof v === "string" ? v : undefined), motion: cleanMotion };
-const cleanBody = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, ...PROTOTYPE }) : undefined);
+const cleanEffects = (list: unknown, depth = 0) => (Array.isArray(list) ? list.map((e) => cleanEffect(e, depth)).filter((e) => e !== undefined) : undefined);
+/* what a prototype adds to a tap: an overlay, a part to scroll to, a motion, a trigger (lib/prototype.ts), and the
+   params the screen it opens is given (lib/bindings) */
+const PROTOTYPE = { overlay: (v: unknown) => (typeof v === "boolean" ? v : undefined), scrollTo: (v: unknown) => (typeof v === "string" ? v : undefined), motion: cleanMotion, params: cleanExprMap };
+function cleanBody(a: unknown, depth = 0): ActionBody | undefined {
+  return isRecord(a) && typeof a.to === "string" ? (cleaned(a, { effects: (l) => cleanEffects(l, depth), ...PROTOTYPE }) as unknown as ActionBody) : undefined;
+}
 const cleanAction = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, when: cleanCondition, else: cleanBody, trigger: cleanTrigger, ...PROTOTYPE }) : undefined);
 
 const cleanActions = (map: unknown) => {
@@ -163,7 +196,18 @@ function cleanConstraints(v: unknown) {
   return h || vv ? { ...(h ? { h } : {}), ...(vv ? { v: vv } : {}) } : undefined;
 }
 
-const cleanItem = (it: Item) => cleaned(it as unknown as Record<string, unknown>, { action: cleanAction, actions: cleanActions, bind: cleanBind, look: cleanLook, fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined), row: () => undefined, constraints: cleanConstraints }) as unknown as Item;
+const cleanItem = (it: Item) =>
+  cleaned(it as unknown as Record<string, unknown>, {
+    action: cleanAction,
+    actions: cleanActions,
+    bind: cleanBind,
+    look: cleanLook,
+    fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined),
+    row: () => undefined,
+    scope: () => undefined,
+    constraints: cleanConstraints,
+    field: (v) => (typeof v === "string" && v && v.length <= 200 ? v : undefined),
+  }) as unknown as Item;
 
 const cleanOverrides = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => isValue(v))) : undefined);
 
@@ -174,9 +218,13 @@ function cleanKit(k: unknown) {
 }
 
 function cleanRepeat(r: unknown) {
-  if (!isRecord(r) || typeof r.collection !== "string") return undefined;
+  if (!isRecord(r)) return undefined;
   /* a limit of the wrong kind goes, and the repeat stays */
-  return { collection: r.collection, ...(typeof r.limit === "number" && Number.isInteger(r.limit) && r.limit >= 0 ? { limit: r.limit } : {}) };
+  const limit = typeof r.limit === "number" && Number.isInteger(r.limit) && r.limit >= 0 ? { limit: r.limit } : {};
+  if (typeof r.collection === "string") return { collection: r.collection, ...limit };
+  const data = cleanExpr(r.data);
+  if (!data) return undefined;
+  return { data, ...limit, ...(typeof r.sample === "number" && Number.isInteger(r.sample) && r.sample >= 1 && r.sample <= 12 ? { sample: r.sample } : {}) };
 }
 
 const cleanGroup = (g: Group) =>
@@ -190,6 +238,8 @@ const cleanGroup = (g: Group) =>
       overrides: cleanOverrides,
       properties: cleanOverrides,
       repeat: cleanRepeat,
+      form: (v) => cleanForm(v, cleanBody),
+      states: cleanRegion,
       kit: cleanKit,
       expandedFrom: () => undefined,
       rowsOf: () => undefined,
@@ -207,6 +257,9 @@ const cleanFrame = (f: Frame) =>
     backgroundOpacity: (v) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined),
     varModes: cleanModes,
     flow: (v) => (typeof v === "string" ? v : undefined),
+    data: cleanDataSources,
+    params: cleanScreenParams,
+    auth: (v) => (v === "required" || v === "login" ? v : undefined),
   }) as unknown as Frame;
 
 /** A scheme of the author's own: colors, and only colors, since every one of them is painted with and printed.
@@ -265,7 +318,7 @@ function cleanCollection(c: unknown): Collection | undefined {
   const cell = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : "");
   const fields = Array.isArray(c.fields) ? c.fields.filter((f): f is string => typeof f === "string") : [];
   const rows = Array.isArray(c.rows) ? c.rows.filter(Array.isArray).map((r: unknown[]) => r.map(cell)) : [];
-  return { id: c.id, name: typeof c.name === "string" ? c.name : "", fields, rows };
+  return { id: c.id, name: typeof c.name === "string" ? c.name : "", fields, rows, ...(typeof c.model === "string" && c.model ? { model: c.model } : {}) };
 }
 
 /** An instance has a definition to draw from and one item standing in for it, whatever the file said.
@@ -357,6 +410,19 @@ export function cleanBehavior(doc: Doc): Doc {
     const icons = cleanDocIcons(out.icons);
     if (icons) out.icons = icons;
     else delete out.icons;
+  }
+  /* the API section is held to its shape and its bounds (lib/api/clean.ts); what is merely wrong in it stays, for the
+     author to see and fix */
+  if (out.api !== undefined) {
+    const api = cleanApi(out.api);
+    if (api) out.api = api;
+    else delete out.api;
+  }
+  /* so are the mock settings (lib/mocks/clean.ts): their files are data URLs, their records plain JSON */
+  if (out.mocks !== undefined) {
+    const mocks = cleanMocks(out.mocks);
+    if (mocks) out.mocks = mocks;
+    else delete out.mocks;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);

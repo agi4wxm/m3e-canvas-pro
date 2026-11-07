@@ -65,6 +65,25 @@ const HISTORY: McpTool[] = (["undo", "redo"] as const).map((name) => ({
   annotations: { title: titleOf(name), readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 }));
 
+/** the tool file mode adds: the project exported as a whole product into a folder */
+export const EXPORT_PRODUCT: McpTool = {
+  name: "export_product",
+  title: "Export product",
+  description:
+    "Exports the project as a whole product into a folder on this computer: an npm workspaces monorepo generated from the design (apps/web, packages/api, packages/mocks, server, contract-tests, with .m3e/manifest.json listing every generated file). Exporting again into the same folder rewrites only the generated files nobody changed: custom code (server/src/handlers, the custom/ folders) is never touched, and a generated file someone edited is left as it is, with the new version beside it as <file>.m3e-new, reported as a conflict. A relative dir is taken from the project file's folder; a folder that holds other things and no earlier export is refused unless force is true, and the root of a disk, the home folder or a folder holding it is always refused.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      dir: { type: "string", description: "the folder to export into: absolute, or relative to the project file's folder; made when missing" },
+      force: { type: "boolean", description: "export into a folder that holds other things and no earlier export (nothing there is overwritten: a generated file of the same name is written as <file>.m3e-new)" },
+    },
+    required: ["dir"],
+    additionalProperties: false,
+  },
+  outputSchema: { type: "object", properties: { result: { type: "object", description: "{folder, product, written, unchanged, customKept, merged, conflicts: [{path, copy}], removed, leftInPlace, customOrphans, warnings, differences: [{app, count, kinds, file}] (where the mobile app and the mini-program draw something other than the design says), next}" } }, required: ["result"] },
+  annotations: { title: "Export product", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
+
 export function describeTool(t: Tool<never>): McpTool {
   const def = toolDefs([t])[0];
   return {
@@ -176,13 +195,20 @@ export function createMcpServer(o: McpServerOptions): Server {
 
   /* a file's own history, while the session may edit */
   const history = () => (backend.history && backend.access() === "edit" ? HISTORY : []);
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [...visible().map(describeTool), ...history(), STATUS] }));
+  /* exporting the product, where the server holds the document (file mode) and may write */
+  const exporting = () => (backend.exportProduct && backend.access() === "edit" ? [EXPORT_PRODUCT] : []);
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [...visible().map(describeTool), ...history(), ...exporting(), STATUS] }));
 
   server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
     const { name } = req.params;
     const args = req.params.arguments ?? {};
     if (name === STATUS.name) return callResult({ ok: true, result: backend.status() });
     if ((name === "undo" || name === "redo") && history().length) return callResult(await backend.history!(name));
+    if (name === EXPORT_PRODUCT.name && exporting().length) {
+      const a = args as { dir?: unknown; force?: unknown };
+      if (typeof a.dir !== "string") return callResult({ ok: false, error: { code: "bad_args", message: "dir must be a string: the folder to export into." } });
+      return callResult(await backend.exportProduct!(a.dir, { force: a.force === true, signal: extra.signal }));
+    }
     const t = registry.byName(name);
     if (!t) return callResult({ ok: false, error: { code: "unknown_tool", message: `There is no tool "${name}".`, hint: `The tools are: ${visible().map((x) => x.name).join(", ")}.` } });
     if (!t.readOnly && backend.access() === "read") return callResult({ ok: false, error: { code: "refused", message: "This session is read-only.", hint: "Read and screenshot only, or ask the author for edit access." } });

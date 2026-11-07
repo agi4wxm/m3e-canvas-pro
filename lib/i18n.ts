@@ -10,6 +10,10 @@ import { AGENT_KO, AGENT_UI } from "./i18n/agent";
 import { PROJECTS_KO, PROJECTS_UI } from "./i18n/projects";
 import { DESIGN_KO, DESIGN_UI } from "./i18n/design";
 import { SYSTEMS_KO, SYSTEMS_UI } from "./i18n/systems";
+import { API_KO, API_UI } from "./i18n/api";
+import { EXPORT_KO, EXPORT_UI } from "./i18n/export";
+import { BINDINGS_KO, BINDINGS_UI } from "./i18n/bindings";
+import { MOCKS_KO, MOCKS_UI } from "./i18n/mocks";
 
 export type Lang = "ja" | "en" | "zh" | "ko";
 export const LANGS: { key: Lang; label: string }[] = [
@@ -571,6 +575,10 @@ export const UI = {
   ...PROJECTS_UI,
   ...DESIGN_UI,
   ...SYSTEMS_UI,
+  ...API_UI,
+  ...BINDINGS_UI,
+  ...EXPORT_UI,
+  ...MOCKS_UI,
 } as const satisfies Record<string, Str>;
 
 export type UIKey = keyof typeof UI;
@@ -671,6 +679,10 @@ export const KO: Record<UIKey, string> = {
   ...PROJECTS_KO,
   ...DESIGN_KO,
   ...SYSTEMS_KO,
+  ...API_KO,
+  ...BINDINGS_KO,
+  ...EXPORT_KO,
+  ...MOCKS_KO,
 };
 
 export const t = (key: UIKey, lang: Lang = current): string => (lang === "ko" ? KO[key] : UI[key][lang]);
