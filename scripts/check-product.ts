@@ -155,10 +155,13 @@ async function serveMiniapp(): Promise<{ base: string; up: boolean; child: Child
   return { base, up, child };
 }
 
-/** the built server on a free port, once it answers; the status it gave the probe */
-async function startServer(): Promise<{ base: string; status: number; stop: () => void }> {
+/** the built server on a free port, once it answers; the status it gave the probe. It runs in development (its docs,
+ *  every answer checked against the contract) unless `production`: then NODE_ENV is left unset, as `npm start` has it */
+async function startServer(o: { production?: boolean } = {}): Promise<{ base: string; status: number; stop: () => void }> {
   const port = await freePort();
-  const child = spawn(process.execPath, ["dist/main.js"], { cwd: join(DIR, "server"), env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", LOG_LEVEL: "warn" }, stdio: "ignore" });
+  const env: Record<string, string | undefined> = { ...process.env, PORT: String(port), HOST: "127.0.0.1", LOG_LEVEL: "warn", NODE_ENV: o.production ? undefined : "development" };
+  if (o.production) delete env.NODE_ENV;
+  const child = spawn(process.execPath, ["dist/main.js"], { cwd: join(DIR, "server"), env, stdio: "ignore" });
   const base = `http://127.0.0.1:${port}`;
   let status = 0;
   for (let i = 0; i < 60 && !status; i++) {
@@ -308,6 +311,21 @@ if (installed) {
 
     /* the built server, answering 501 until a handler is written, and the contract tests against it */
     ok(existsSync(join(DIR, "server/dist/main.js")), "the server is built");
+    /* started as npm start starts it (no NODE_ENV), the built server is the production one: no docs, nosniff */
+    const shipped = await startServer({ production: true });
+    try {
+      const docs = await fetch(`${shipped.base}/docs/json`).then(
+        (r) => r.status,
+        () => 0,
+      );
+      const sniff = await fetch(`${shipped.base}${PROBE.path}`).then(
+        (r) => r.headers.get("x-content-type-options"),
+        () => null,
+      );
+      ok(shipped.status === 501 && docs === 404 && sniff === "nosniff", `the built server runs as production unless NODE_ENV says otherwise: no /docs (${docs}), answers marked nosniff (${sniff})`);
+    } finally {
+      shipped.stop();
+    }
     let server = await startServer();
     try {
       ok(server.status === 501, `the built server answers an operation not written yet with 501 (got ${server.status})`);

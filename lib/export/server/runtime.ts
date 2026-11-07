@@ -8,7 +8,7 @@ import { GENERATED } from "../code";
 const file = (body: string) => `${GENERATED}\n${body.replace(/^\n/, "")}`;
 
 export const CONFIG = file(String.raw`
-import { REALTIME_PREFIX } from "./contract"
+import { REALTIME_PREFIX, SECURITY_SCHEMES } from "./contract"
 
 /** what the server reads from its environment (a .env file beside it, see .env.example, fills in what is not set) */
 export type Config = {
@@ -60,6 +60,37 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     uploadMaxBytes: Number(env.UPLOAD_MAX_BYTES ?? 10 * 1024 * 1024),
     realtimePrefix: env.REALTIME_PREFIX ?? REALTIME_PREFIX,
   }
+}
+
+/** the query parameters that carry a credential: the realtime token (RFC 6750 access_token) and the contract's API
+ *  keys sent in the query */
+const SECRET_PARAMS = new Set(["access_token", ...Object.values(SECURITY_SCHEMES).flatMap((s) => (s.type === "apiKey" && s.in === "query" && s.name ? [s.name] : []))])
+
+/** An address as the log may keep it: the value of every query parameter that carries a credential left out, so a
+ *  token never lands in a log file. */
+export function redactedUrl(url: string): string {
+  const at = url.indexOf("?")
+  if (at < 0) return url
+  const query = url
+    .slice(at + 1)
+    .split("&")
+    .map((pair) => {
+      const eq = pair.indexOf("=")
+      const key = eq < 0 ? pair : pair.slice(0, eq)
+      let name = key
+      try {
+        name = decodeURIComponent(key.replace(/\+/g, " "))
+      } catch {
+        /* a name that is no valid encoding is compared as it is */
+      }
+      return SECRET_PARAMS.has(name) ? key + "=[redacted]" : pair
+    })
+  return url.slice(0, at + 1) + query.join("&")
+}
+
+/** what the log keeps of a request (Fastify's own fields, the address without credentials) */
+export function requestForLog(request: { method?: string; url?: string; host?: string; hostname?: string; ip?: string; socket?: { remotePort?: number } }) {
+  return { method: request.method, url: redactedUrl(request.url ?? ""), host: request.host ?? request.hostname, remoteAddress: request.ip, remotePort: request.socket?.remotePort }
 }
 `);
 
@@ -283,13 +314,24 @@ function header(request: FastifyRequest, name: string): string | undefined {
   return Array.isArray(v) ? v[0] : v
 }
 
-function cookie(request: FastifyRequest, name: string): string | undefined {
-  for (const part of (header(request, "cookie") ?? "").split(";")) {
+/** A cookie's value in a Cookie header; one that is no valid encoding is taken as it is (a bad cookie is a credential
+ *  authenticate() turns down, never a 500). */
+export function cookieValue(cookieHeader: string, name: string): string | undefined {
+  for (const part of cookieHeader.split(";")) {
     const at = part.indexOf("=")
-    if (at > 0 && part.slice(0, at).trim() === name) return decodeURIComponent(part.slice(at + 1).trim())
+    if (at > 0 && part.slice(0, at).trim() === name) {
+      const value = part.slice(at + 1).trim()
+      try {
+        return decodeURIComponent(value)
+      } catch {
+        return value
+      }
+    }
   }
   return undefined
 }
+
+const cookie = (request: FastifyRequest, name: string) => cookieValue(header(request, "cookie") ?? "", name)
 
 function queryValue(request: FastifyRequest, name: string): string | undefined {
   const v = (request.query as Record<string, unknown> | undefined)?.[name]
@@ -540,6 +582,19 @@ export function disposition(filename: string, inline = false): string {
   const ascii = filename.replace(/[^\x20-\x7e]|["\\]/g, "_")
   return (inline ? "inline" : "attachment") + '; filename="' + ascii + "\"; filename*=UTF-8''" + encodeURIComponent(filename)
 }
+
+/** media types a browser runs scripts in when it opens them (an uploaded SVG or HTML page served back) */
+const SCRIPTABLE = /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/xml|application\/xml|application\/[\w.+-]*\+xml|text\/javascript|application\/javascript|application\/x-javascript)$/i
+
+/** The headers of a file answer: its type, never sniffed into another; a type a browser runs scripts in is
+ *  sandboxed (no script, no plugin, no origin of its own), so a file someone uploaded cannot act on the API's origin
+ *  when it is opened from there; its name, when it has one. */
+export function fileHeaders(type: string, filename?: string, inline?: boolean): Record<string, string> {
+  const out: Record<string, string> = { "content-type": type, "x-content-type-options": "nosniff" }
+  if (SCRIPTABLE.test(type.split(";")[0].trim())) out["content-security-policy"] = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox"
+  if (filename !== undefined) out["content-disposition"] = disposition(filename, inline)
+  return out
+}
 `);
 
 export const PAGINATION = file(String.raw`
@@ -628,7 +683,7 @@ import type { Handlers } from "./handlers"
 import { OPERATIONS, documented, responseFor, type BodySpec, type OperationSpec } from "./operations"
 import { pageAnswer, pageOf } from "./pagination"
 import { Responded } from "./respond"
-import { bodyFile, disposition, isFileReply, readMultipart, type FileReply } from "./uploads"
+import { bodyFile, fileHeaders, isFileReply, readMultipart, type FileReply } from "./uploads"
 import { check } from "./validation"
 
 type Run = (ctx: unknown) => unknown
@@ -690,8 +745,7 @@ async function readBody(body: BodySpec | null, request: FastifyRequest): Promise
 
 function sendFile(reply: FastifyReply, status: number, file: FileReply, listed: string | undefined) {
   const type = file.contentType ?? (listed && !listed.includes("*") ? listed : "application/octet-stream")
-  reply.code(status).type(type)
-  if (file.filename !== undefined) reply.header("content-disposition", disposition(file.filename, file.inline))
+  reply.code(status).headers(fileHeaders(type, file.filename, file.inline))
   return reply.send(typeof file.data === "string" ? Buffer.from(file.data) : file.data)
 }
 
@@ -845,10 +899,33 @@ function outgoing(spec: ChannelSpec, message: string, payload: unknown, config: 
   if (errors) throw new HttpError(500, "The message " + message + " does not match the contract.", { errors: problemErrors(errors) })
 }
 
+/** A close frame's reason: at most 123 bytes of UTF-8 (RFC 6455), cut between characters. ws throws on a longer one,
+ *  and a throw there, after a handler's error, would end the whole server. */
+export function closeReason(text: string): string {
+  let out = ""
+  let bytes = 0
+  for (const ch of text) {
+    const size = Buffer.byteLength(ch)
+    if (bytes + size > 123) break
+    out += ch
+    bytes += size
+  }
+  return out
+}
+
 /** the close code of an error: 4000 + its status (4401, 4403, 4501), 1011 for anything else */
 function closeCode(error: unknown): [number, string] {
-  if (error instanceof HttpError) return [4000 + error.status, error.message.slice(0, 120)]
+  if (error instanceof HttpError && error.status >= 400 && error.status < 1000) return [4000 + error.status, closeReason(error.message)]
   return [1011, "server error"]
+}
+
+/** Closes a socket and never throws: a code ws does not take, or a socket already going, ends it outright. */
+function closeSocket(socket: WebSocket, code: number, reason = "") {
+  try {
+    if (socket.readyState === socket.OPEN || socket.readyState === socket.CONNECTING) socket.close(code, closeReason(reason))
+  } catch {
+    socket.terminate()
+  }
 }
 
 function paramsOf(spec: ChannelSpec, request: FastifyRequest): Record<string, string> {
@@ -862,39 +939,43 @@ function websocketRoute(app: FastifyInstance, spec: ChannelSpec, handler: Channe
     const waiting: { data: Buffer; binary: boolean }[] = []
     let ready = false
     let queue = Promise.resolve()
+    /* nothing here may throw or reject unheard: an error that escapes a socket's event ends the whole server */
     const fail = (error: unknown) => {
       const [code, reason] = closeCode(error)
       if (code === 4501) request.log.info({ channel: spec.id }, "not implemented yet (closed 4501)")
       else if (code === 1011) request.log.error({ err: error, channel: spec.id }, "realtime error")
-      if (socket.readyState === socket.OPEN) socket.close(code, reason)
+      closeSocket(socket, code, reason)
     }
     let connection: Connection<ChannelShape> | undefined
     const take = async (data: Buffer, binary: boolean) => {
       if (!connection) return
-      if (binary) return socket.close(1003, "this channel takes JSON text")
+      if (binary) return closeSocket(socket, 1003, "this channel takes JSON text")
       let payload: unknown
       try {
         payload = JSON.parse(data.toString("utf8"))
       } catch {
-        return socket.close(1007, "not JSON")
+        return closeSocket(socket, 1007, "not JSON")
       }
-      if (!spec.receive.length) return socket.close(1008, "this channel takes no messages")
+      if (!spec.receive.length) return closeSocket(socket, 1008, "this channel takes no messages")
       const message = spec.receive.find((name) => !check("input", spec.payloads[name], payload))
-      if (!message) return socket.close(1007, "no message of the contract")
-      try {
-        await handler.onMessage?.(connection, { message, payload } as never)
-      } catch (e) {
-        fail(e)
-      }
+      if (!message) return closeSocket(socket, 1007, "no message of the contract")
+      await handler.onMessage?.(connection, { message, payload } as never)
+    }
+    const later = (data: Buffer, binary: boolean) => {
+      queue = queue.then(() => take(data, binary)).catch(fail)
     }
     socket.on("message", (data: Buffer, binary: boolean) => {
       if (!ready) waiting.push({ data, binary })
-      else queue = queue.then(() => take(data, binary))
+      else later(data, binary)
     })
     const entry: Open = { channel: spec.name, params: paramsOf(spec, request), push: () => {} }
     socket.on("close", () => {
       open.delete(entry)
-      if (connection && ready) Promise.resolve(handler.onClose?.(connection)).catch((e) => request.log.error({ err: e, channel: spec.id }, "realtime error"))
+      const was = connection
+      if (was && ready)
+        Promise.resolve()
+          .then(() => handler.onClose?.(was))
+          .catch((e) => request.log.error({ err: e, channel: spec.id }, "realtime error"))
     })
     void (async () => {
       try {
@@ -903,7 +984,7 @@ function websocketRoute(app: FastifyInstance, spec: ChannelSpec, handler: Channe
           outgoing(spec, message, payload, config)
           if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(payload))
         }
-        connection = { id: randomUUID(), channel: spec.name, params: entry.params, user, request, send: send as never, close: (code, reason) => socket.close(code, reason) }
+        connection = { id: randomUUID(), channel: spec.name, params: entry.params, user, request, send: send as never, close: (code = 1000, reason) => closeSocket(socket, code, reason) }
         entry.push = (message, payload) => {
           try {
             send(message, payload)
@@ -914,11 +995,11 @@ function websocketRoute(app: FastifyInstance, spec: ChannelSpec, handler: Channe
         await handler.onConnect?.(connection)
         ready = true
         open.add(entry)
-        for (const w of waiting.splice(0)) queue = queue.then(() => take(w.data, w.binary))
+        for (const w of waiting.splice(0)) later(w.data, w.binary)
       } catch (e) {
         fail(e)
       }
-    })()
+    })().catch(() => socket.terminate())
   })
 }
 
@@ -927,7 +1008,8 @@ function sseRoute(app: FastifyInstance, spec: ChannelSpec, handler: ChannelHandl
     const user = await connectionUser(request)
     const early: string[] = []
     let raw: ServerResponse | null = null
-    const write = (text: string) => (raw ? raw.write(text) : early.push(text))
+    /* a stream already ended takes nothing: writing to it would raise an error nobody hears, and end the server */
+    const write = (text: string) => (raw ? !raw.writableEnded && !raw.destroyed && raw.write(text) : early.push(text))
     const send = (message: string, payload: unknown) => {
       outgoing(spec, message, payload, config)
       write("event: " + message.replace(/[\r\n]/g, "") + "\ndata: " + JSON.stringify(payload) + "\n\n")
@@ -943,11 +1025,14 @@ function sseRoute(app: FastifyInstance, spec: ChannelSpec, handler: ChannelHandl
     raw.write(": connected\n\n")
     for (const text of early.splice(0)) raw.write(text)
     open.add(entry)
-    const ping = setInterval(() => raw?.write(": ping\n\n"), 15000)
+    const ping = setInterval(() => write(": ping\n\n"), 15000)
     request.raw.on("close", () => {
       clearInterval(ping)
       open.delete(entry)
-      Promise.resolve(handler.onClose?.(connection)).catch((e) => request.log.error({ err: e, channel: spec.id }, "realtime error"))
+      /* a handler that throws as it is told, async or not, is logged: an error out of this event would end the server */
+      Promise.resolve()
+        .then(() => handler.onClose?.(connection))
+        .catch((e) => request.log.error({ err: e, channel: spec.id }, "realtime error"))
     })
   })
 }
@@ -994,7 +1079,7 @@ import cors from "@fastify/cors"
 import multipart from "@fastify/multipart"
 import Fastify, { type FastifyServerOptions } from "fastify"
 import { setup } from "./custom/setup"
-import { loadConfig, type Config } from "./generated/config"
+import { loadConfig, requestForLog, type Config } from "./generated/config"
 import { registerDocs } from "./generated/docs"
 import { installErrorHandling } from "./generated/errors"
 import { channelHandlers, handlers } from "./generated/handlers"
@@ -1013,15 +1098,23 @@ export type AppOptions = {
  *  the custom setup (plugins, hooks, a database), then every operation and realtime channel of the contract. */
 export async function buildApp(options: AppOptions = {}) {
   const config: Config = { ...loadConfig(), ...options.config }
-  const app = Fastify({ logger: { level: config.logLevel }, exposeHeadRoutes: false, ...options.fastify })
+  /* the log keeps a request's address without the credentials a query may carry (a realtime access_token) */
+  const app = Fastify({ logger: { level: config.logLevel, serializers: { req: requestForLog } }, exposeHeadRoutes: false, ...options.fastify })
   onSchemaProblem((message) => app.log.warn(message))
   app.setValidatorCompiler(validatorCompiler)
   installErrorHandling(app)
   installBodyParsers(app)
+  /* every answer is read as the type it says it is, never sniffed into another */
+  app.addHook("onRequest", async (_request, reply) => {
+    reply.header("x-content-type-options", "nosniff")
+  })
+  /* Any origin (*) is for calls that carry no cookie: a browser then sends none, and no other site can read an answer
+     with the cookies of someone signed in. Origins listed one by one may send them (an API key in a cookie). */
+  const anyOrigin = config.corsOrigins.includes("*")
   await app.register(cors, {
-    origin: config.corsOrigins.includes("*") ? true : config.corsOrigins,
+    origin: anyOrigin ? "*" : config.corsOrigins,
     methods: ["GET", "HEAD", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"],
-    credentials: true,
+    credentials: !anyOrigin,
   })
   await app.register(multipart, { limits: { fileSize: config.uploadMaxBytes, files: 20, fields: 200 } })
   await registerDocs(app, config)
@@ -1039,6 +1132,9 @@ import { loadConfig } from "./generated/config"
 
 /* a .env file beside the server sets what the environment does not (see .env.example) */
 if (existsSync(".env")) process.loadEnvFile(".env")
+/* the built server (npm start, dist/main.js) is the one that goes to production: it runs as production (no docs, no
+   development CORS origins) unless NODE_ENV says otherwise; npm run dev stays development */
+if ((globalThis as { m3eBuilt?: boolean }).m3eBuilt) process.env.NODE_ENV ??= "production"
 
 const config = loadConfig()
 const app = await buildApp({ config })
@@ -1056,9 +1152,11 @@ PORT=3001
 HOST=127.0.0.1
 # fatal, error, warn, info, debug, trace or silent
 LOG_LEVEL=info
-# The origins browsers may call the API from, comma-separated (* for any). Left out: the web and mobile dev servers.
+# The origins browsers may call the API from, comma-separated. Left out: the web and mobile dev servers in development,
+# none in production. * is any origin, for calls without cookies only (a browser sends none to it).
 # CORS_ORIGINS=https://app.example.com
-# NODE_ENV=production turns off /docs and the checks of every answer against the contract (or set them apart):
+# NODE_ENV=production turns off /docs and the checks of every answer against the contract (or set them apart). The
+# built server (npm start) runs as production unless NODE_ENV says otherwise; npm run dev runs as development.
 # API_DOCS=off
 # VALIDATE_RESPONSES=off
 # The largest file an upload may carry, in bytes

@@ -378,8 +378,12 @@ export function publish<K extends ChannelName, M extends keyof Channels[K]["send
 const SERVER_TEST = `${GENERATED}
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { buildApp } from "../app"
+import { cookieValue } from "./auth"
+import { redactedUrl } from "./config"
 import { DOCS_PATH, HEALTH_PATH } from "./contract"
 import { OPERATIONS, SELF_CHECKS } from "./operations"
+import { closeReason } from "./realtime"
+import { fileHeaders } from "./uploads"
 
 let app: Awaited<ReturnType<typeof buildApp>>
 
@@ -427,6 +431,46 @@ describe("the server", () => {
     const response = await app.inject({ method, url, ...(payload === undefined ? {} : { payload: payload as object }) })
     expect(response.statusCode).toBe(400)
     expect(problem(response).errors?.map((e) => e.pointer)).toContain(pointer)
+  })
+})
+
+describe("the server's safe defaults", () => {
+  it("answers browsers of other sites only as CORS_ORIGINS says, and any origin (*) never with cookies", async () => {
+    const elsewhere = { origin: "https://elsewhere.example" }
+    expect((await app.inject({ method: "GET", url: HEALTH_PATH, headers: elsewhere })).headers["access-control-allow-origin"]).toBeUndefined()
+    const open = await buildApp({ config: { logLevel: "silent", corsOrigins: ["*"] } })
+    try {
+      const response = await open.inject({ method: "OPTIONS", url: HEALTH_PATH, headers: { ...elsewhere, "access-control-request-method": "GET", "access-control-request-headers": "authorization" } })
+      expect(response.headers["access-control-allow-origin"]).toBe("*")
+      expect(response.headers["access-control-allow-credentials"]).toBeUndefined()
+    } finally {
+      await open.close()
+    }
+  })
+
+  it("has every answer taken as the type it says, and sandboxes a file a browser would run scripts in", async () => {
+    for (const url of [HEALTH_PATH, "/no-such-route-in-the-contract"]) expect((await app.inject({ method: "GET", url })).headers["x-content-type-options"]).toBe("nosniff")
+    expect(fileHeaders("image/svg+xml", "logo.svg")["content-security-policy"]).toContain("sandbox")
+    expect(fileHeaders("text/html; charset=utf-8")["content-security-policy"]).toContain("sandbox")
+    expect(fileHeaders("image/png", "a.png")).toMatchObject({ "content-type": "image/png", "x-content-type-options": "nosniff" })
+    expect(fileHeaders("application/pdf")["content-security-policy"]).toBeUndefined()
+  })
+
+  it("keeps a credential sent in a query out of the log", () => {
+    expect(redactedUrl("/realtime/rooms/1?x=1&access_token=secret")).toBe("/realtime/rooms/1?x=1&access_token=[redacted]")
+    expect(redactedUrl("/products?limit=2")).toBe("/products?limit=2")
+  })
+
+  it("reads a cookie that is no valid encoding as it is, never failing the request", () => {
+    expect(cookieValue("a=1; key=%E0%A4%A", "key")).toBe("%E0%A4%A")
+    expect(cookieValue("a=1; key=x%20y", "key")).toBe("x y")
+  })
+
+  it("closes a realtime connection with a reason the WebSocket library takes, however long the handler's words", () => {
+    const reason = closeReason("您没有权限进入这个聊天室，请先加入该群组后再尝试连接。如果您认为这是一个错误，请联系管理员。")
+    expect(Buffer.byteLength(reason)).toBeLessThanOrEqual(123)
+    expect(reason.length).toBeGreaterThan(30)
+    expect(closeReason("not implemented")).toBe("not implemented")
   })
 })
 `;
@@ -625,6 +669,8 @@ await build({
   outfile: "dist/main.js",
   external,
   logLevel: "warning",
+  // the mark src/main.ts reads: this is the built server, so it runs as production unless NODE_ENV says otherwise
+  banner: { js: "globalThis.m3eBuilt = true;" },
 })
 `;
 
@@ -799,7 +845,40 @@ The contract tests start the server themselves (or test a running one: \`--base-
 operations need a credential: \`CONTRACT_TOKEN\` (bearer), \`CONTRACT_API_KEY\`, \`CONTRACT_BASIC=user:password\`,
 which your \`authenticate\` must accept. Configuration is read from the environment or \`server/.env\` (see
 \`server/.env.example\`): \`PORT\`, \`HOST\`, \`LOG_LEVEL\`, \`CORS_ORIGINS\`, \`UPLOAD_MAX_BYTES\`, \`REALTIME_PREFIX\`;
-\`NODE_ENV=production\` turns off the docs and the answer checks.
+\`NODE_ENV=production\` turns off the docs and the answer checks. The built server (\`npm start\`) runs as production
+unless \`NODE_ENV\` says otherwise; \`npm run dev\` runs as development.
+
+### Security
+
+What the skeleton already does, and must keep doing: every operation the contract secures is authenticated before its
+body is read, and \`authenticate\` starts out answering 501, so nothing gets in until you write it; requests are checked
+against the contract (400); errors other than \`HttpError\` answer 500 with no detail (the stack goes to the log only);
+CORS allows the web and mobile dev servers in development and nothing in production until \`CORS_ORIGINS\` lists the
+app's origins (\`*\` allows any origin but never with cookies); every answer is \`X-Content-Type-Options: nosniff\`, and
+a file answer of a type a browser would run scripts in (SVG, HTML, XML) is sandboxed by its Content-Security-Policy;
+a credential in a query (\`access_token\` of the realtime channels, an API key in the query) is left out of the log.
+
+What is yours to do:
+
+- \`authenticate\`: verify tokens properly (signature, expiry, audience; a library such as \`jose\`), never trust what a
+  token says without checking it, and compare secrets in constant time (\`crypto.timingSafeEqual\`). Store passwords
+  only as slow hashes (\`argon2\` or \`bcrypt\`). Never log a token, a password or a whole request body.
+- Authorization is per record: \`ctx.user\` says who calls, not what they may touch. Check that the record a handler
+  reads or changes belongs to that user (or their role allows it) before answering; a 404 is better than a 403 for
+  someone else's record.
+- Uploads: \`mimetype\` is what the client said. Check the bytes when it matters (a picture is a picture), store files
+  outside the code under names you make (never the client's \`filename\` as a path), and answer them with
+  \`fileReply\`, giving a \`filename\` for downloads.
+- Realtime: \`onConnect\` decides who may listen; a connection without a token has no \`user\`. Turn away who may not
+  (\`throw unauthorized()\` / \`forbidden()\`) and check the channel's parameters (a room id) against the user.
+- There is no rate limit: add one before the API is public (\`@fastify/rate-limit\` in \`custom/setup.ts\`), at least on
+  signing in and anything that sends mail or costs money. The request body is limited to 1 MB (uploads to
+  \`UPLOAD_MAX_BYTES\`, 20 files, 200 fields).
+- A \`pattern\` of the contract is checked against every request: a pattern that repeats something that itself
+  repeats with an optional part (\`^([a-z0-9]+[._-]?)*$\`) can take exponential time on a string it does not match.
+  Keep patterns simple and give the field a \`maxLength\`; change them in the design, not here.
+- Secrets live in the environment (\`server/.env\` is never committed); set \`NODE_ENV=production\` (or run
+  \`npm start\`), \`HOST=0.0.0.0\` behind a reverse proxy that terminates TLS, and \`CORS_ORIGINS\` to the app's origins.
 
 ### When the contract is wrong
 
