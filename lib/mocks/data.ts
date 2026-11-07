@@ -12,6 +12,12 @@ import { typesOf } from "./hints";
 import type { Rng } from "./rng";
 import { MAX_COUNT, type MockLocale, type MockSpec } from "./types";
 
+/** the values one made-up record may take, the values all of a model's made-up records may take together, and the
+ *  least a record is given however many there are */
+const RECORD_BUDGET = 4000;
+const MODEL_BUDGET = 1_000_000;
+const RECORD_BUDGET_LEAST = 150;
+
 /** a data collection of the document, as far as the mocks read it (Doc.collections) */
 export type MockCollection = { id: string; name: string; fields: string[]; rows: string[][]; model?: string };
 
@@ -120,8 +126,12 @@ export class MockData {
       const taken = new Set(pinned.map((r) => (idField ? String(r[idField]) : "")));
       let next = Math.max(0, ...pinned.map((r) => (idField && typeof r[idField] === "number" ? (r[idField] as number) : 0)));
       const made: Record<string, unknown>[] = [];
+      /* the records of a model share a budget: as many as a model may have, each as wide as its schema may make it,
+         would otherwise be millions of values the preview makes before it answers (a usual count keeps the whole
+         budget of a record, so its records are the same) */
+      const budget = Math.max(RECORD_BUDGET_LEAST, Math.min(RECORD_BUDGET, Math.floor(MODEL_BUDGET / Math.max(1, n))));
       for (let i = 0; i < n; i++) {
-        const v = generateValue(schema, { ...this.gen, budget: 4000 }, { key: `${this.seed}:${model}:${config?.seed ?? 0}:${i}`, model, name: model });
+        const v = generateValue(schema, { ...this.gen, budget }, { key: `${this.seed}:${model}:${config?.seed ?? 0}:${i}`, model, name: model });
         const rec = isRecord(v) ? v : { value: v };
         if (idField) {
           if (idType === "integer" || idType === "number") rec[idField] = ++next;

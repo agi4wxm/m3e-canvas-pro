@@ -374,6 +374,29 @@ describe("never throws", () => {
     const broken = createMockTransport({ api: { endpoints: [{ operationId: "x", method: "get", path: "/x", responses: { "200": { description: "ok", content: { "application/json": { schema: { $ref: "#/components/schemas/Missing" } } } } } }] } }, { latency: false });
     expect((await broken.request({ method: "GET", path: "/x" })).status).toBe(200);
   });
+
+  /* A shared document's mocks may ask for the most records a model can have (5000), each as wide as its schema can make
+     it: every record used to be made with a budget of 4000 values, so one list took half a minute and 180 MB in the
+     preview the document opens with. A model's records now share a budget, so many records are each smaller. */
+  it("makes the records of a huge, wide model in bounded time and size", async () => {
+    const wide: Record<string, unknown> = {};
+    for (let i = 0; i < 200; i++) wide[`f${i}`] = { type: "array", minItems: 50, items: { type: "object", properties: { a: { type: "string" }, b: { type: "array", minItems: 50, items: { type: "string" } } } } };
+    const api: ApiSpec = {
+      models: [{ name: "Wide", schema: { type: "object", properties: { id: { type: "string" }, ...wide } } }],
+      endpoints: [{ operationId: "listWide", method: "get", path: "/wide", responses: { "200": { description: "all", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Wide" } } } } } } }],
+    };
+    const t = createMockTransport({ api, mocks: { models: [{ name: "Wide", count: 5000 }] } }, { latency: false });
+    const started = performance.now();
+    const out = await t.request({ method: "GET", path: "/wide", operationId: "listWide" });
+    expect(out.status).toBe(200);
+    expect(out.body as unknown[]).toHaveLength(5000);
+    expect(JSON.stringify(out.body).length).toBeLessThan(20_000_000);
+    expect(performance.now() - started).toBeLessThan(8000);
+    /* a model of the usual size keeps its whole budget: its records are as they were */
+    const few = createMockTransport({ api, mocks: { models: [{ name: "Wide", count: 3 }] } }, { latency: false });
+    const small = (await few.request({ method: "GET", path: "/wide", operationId: "listWide" })).body as Record<string, unknown>[];
+    expect(JSON.stringify(small[0]).length).toBeGreaterThan(20_000);
+  }, 120_000);
 });
 
 describe("realtime", () => {
