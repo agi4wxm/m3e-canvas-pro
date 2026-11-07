@@ -170,6 +170,47 @@ export function regexOf(pattern: string): RegExp | null {
   return re;
 }
 
+/** whether a quantifier that lets its atom repeat more than once starts at `i` (`*`, `+`, `{2,}`, `{1,5}`) */
+const repeatsAt = (p: string, i: number): boolean => {
+  if (p[i] === "*" || p[i] === "+") return true;
+  const m = /^\{(\d+)(,(\d*))?\}/.exec(p.slice(i, i + 24));
+  return !!m && (m[2] !== undefined ? m[3] === "" || Number(m[3]) > 1 : Number(m[1]) > 1);
+};
+
+/** Whether a pattern repeats a group that itself repeats something (`(a+)+`, `^(\w+\s?)*$`): a string that almost
+ *  matches it can take a regular expression engine exponential time (32 characters, seconds; 40, hours). Such a
+ *  pattern of a document is never tested against words made some other way. */
+export function nestedRepeat(pattern: string): boolean {
+  const open: boolean[] = [];
+  let repeats = false;
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i];
+    if (c === "\\") {
+      i++;
+      continue;
+    }
+    if (c === "[") {
+      /* a class is one character, whatever is in it */
+      for (i++; i < pattern.length && pattern[i] !== "]"; i++) if (pattern[i] === "\\") i++;
+      continue;
+    }
+    if (c === "(") {
+      open.push(repeats);
+      repeats = false;
+      continue;
+    }
+    if (c === ")") {
+      const inner: boolean = repeats;
+      const again = repeatsAt(pattern, i + 1);
+      if (inner && again) return true;
+      repeats = (open.pop() ?? false) || inner || again;
+      continue;
+    }
+    if (repeatsAt(pattern, i)) repeats = true;
+  }
+  return false;
+}
+
 /** a string the pattern matches, within `maxLength`; undefined when the pattern is beyond this or nothing fits */
 export function fromPattern(pattern: string, rng: Rng, o: { minLength?: number; maxLength?: number } = {}): string | undefined {
   if (pattern.length > 500) return undefined;
@@ -181,6 +222,9 @@ export function fromPattern(pattern: string, rng: Rng, o: { minLength?: number; 
   } catch {
     return undefined;
   }
+  /* what is made from the pattern's own tree matches it; a pattern that repeats a repeat is not asked to say so, since a
+     near miss (an approximated \b or \S) could take it exponential time */
+  const risky = nestedRepeat(pattern);
   for (let attempt = 0; attempt < 6; attempt++) {
     const out: string[] = [];
     try {
@@ -190,7 +234,7 @@ export function fromPattern(pattern: string, rng: Rng, o: { minLength?: number; 
     }
     const s = out.join("");
     if (s.length > (o.maxLength ?? 400) || s.length < (o.minLength ?? 0)) continue;
-    if (re.test(s)) return s;
+    if (risky || re.test(s)) return s;
   }
   return undefined;
 }

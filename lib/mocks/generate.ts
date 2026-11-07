@@ -16,7 +16,7 @@ import { fileFits, placeholderFile, svgPicture, type FileKind } from "./files";
 import { mergeAllOf } from "./shape";
 import { inferHint, typesOf, wordsOf } from "./hints";
 import { EMAIL_DOMAINS, LATIN_WORDS, LOCALES, STATUS_WORDS, type LocaleData } from "./locales";
-import { fromPattern, regexOf } from "./pattern";
+import { fromPattern, nestedRepeat, regexOf } from "./pattern";
 import { base36Of, hash53, rngOf, uuidOf, type Rng } from "./rng";
 import type { MockFile, MockHint, MockLocale } from "./types";
 
@@ -692,8 +692,15 @@ function fitString(v: string, s: JsonSchemaObject, rng: Rng): string {
   const maxLength = typeof s.maxLength === "number" ? Math.max(s.maxLength, 0) : undefined;
   if (pattern) {
     const re = regexOf(pattern);
-    if (re && !re.test(v)) v = fromPattern(pattern, rng, { minLength, maxLength }) ?? v;
-    if (re && re.test(v)) return v;
+    if (re && nestedRepeat(pattern)) {
+      /* words made otherwise are never tested against a pattern that repeats a repeat: a near miss could take the
+         engine exponential time (a 32-character token, seconds; 40, hours). What is made from the pattern fits it. */
+      const made = fromPattern(pattern, rng, { minLength, maxLength });
+      if (made !== undefined) return made;
+    } else {
+      if (re && !re.test(v)) v = fromPattern(pattern, rng, { minLength, maxLength }) ?? v;
+      if (re && re.test(v)) return v;
+    }
   }
   const chars = [...v];
   if (chars.length < minLength) {

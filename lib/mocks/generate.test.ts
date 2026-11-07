@@ -12,7 +12,7 @@ import { MockData } from "./data";
 import { pdfDocument, placeholderFile, wavTone } from "./files";
 import { generateValue, type GenOptions } from "./generate";
 import { inferHint } from "./hints";
-import { fromPattern } from "./pattern";
+import { fromPattern, nestedRepeat } from "./pattern";
 import { rngOf } from "./rng";
 import { MOCK_LOCALES, type MockLocale } from "./types";
 
@@ -172,6 +172,20 @@ describe("cycles and hostile schemas, bounded", () => {
       expect(JSON.stringify(v).length).toBeLessThan(5_000_000);
     }
   });
+
+  /* `^(a+)+$` above is harmless with the words a field named x gets (they fail at the first letter). A token's 32 word
+     characters before a `!` the pattern wants are not: the engine tries every way to split them (2^32), about 20 seconds
+     in V8 for one value, and the preview makes every record's */
+  it("never tests made-up words against a pattern that repeats a repeat", () => {
+    for (const pattern of ["^(\\w+)*!$", "^([a-zA-Z0-9]+\\s?)*\\.$", "^(?:[a-z0-9]{1,}[._-]?)+@$"]) {
+      const t0 = Date.now();
+      const v = generateValue({ type: "string", pattern }, opts({ api }), { key: "x", name: "token" }) as string;
+      expect(Date.now() - t0, pattern).toBeLessThan(500);
+      expect(new RegExp(pattern).test(v), `${pattern} ${v}`).toBe(true);
+    }
+    expect(["(a+)+", "^(\\w+\\s?)*$", "((ab)*c)*", "(x{2,})+", "(a|b+){2,}"].every(nestedRepeat)).toBe(true);
+    expect(["^[a-z]+$", "^(ab)+$", "(a?)+", "^\\(a+\\)+$", "[(a+)]+", "^\\d{4}-\\d{2}$", "(a{1})+"].some(nestedRepeat)).toBe(false);
+  }, 120_000);
 
   it("keeps a thousand records of a large model quick", () => {
     const t0 = Date.now();
