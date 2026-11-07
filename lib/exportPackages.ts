@@ -2,10 +2,11 @@
  * and by scripts/gen-versions.ts, which writes their exact versions out of this repo's lockfile. */
 
 /** what an exported project always depends on: what its entry, its stylesheet and its components' CLI name */
-export const EXPORT_ALWAYS = ["react", "react-dom", "motion", "tailwindcss", "tw-animate-css", "shadcn"];
+export const EXPORT_ALWAYS = ["react", "react-dom", "motion", "tailwindcss", "tw-animate-css"];
 
-/** what an exported project builds with, its devDependencies. Tailwind is a build tool there, though the stylesheet names it */
-export const EXPORT_DEV = ["@tailwindcss/vite", "@types/react", "@types/react-dom", "@vitejs/plugin-react", "tailwindcss", "typescript", "vite", "vite-plus"];
+/** what an exported project builds with, its devDependencies. Tailwind is a build tool there, though the stylesheet names it;
+ *  so is shadcn, whose stylesheet the build reads (its CLI and that CLI's own dependencies never reach the app) */
+export const EXPORT_DEV = ["@tailwindcss/vite", "@types/react", "@types/react-dom", "@vitejs/plugin-react", "shadcn", "tailwindcss", "typescript", "vite", "vite-plus"];
 
 /** The packages a product (the monorepo export, lib/export) names that this repo does not run itself, at the exact
  *  version it pins them at. Each was checked against the npm registry when it was written here
@@ -46,4 +47,4 @@ export const PRODUCT_PINS: Record<string, string> = {
 };
 
 /** what a product's web app builds with, beside the packages its copied files import */
-export const PRODUCT_WEB_DEV = ["@tailwindcss/vite", "@types/react", "@types/react-dom", "@vitejs/plugin-react", "msw", "tailwindcss", "typescript", "vite", "vitest"];
+export const PRODUCT_WEB_DEV = ["@tailwindcss/vite", "@types/react", "@types/react-dom", "@vitejs/plugin-react", "msw", "shadcn", "tailwindcss", "typescript", "vite", "vitest"];

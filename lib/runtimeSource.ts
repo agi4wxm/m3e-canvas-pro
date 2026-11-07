@@ -408,7 +408,16 @@ ${when(p.overlay, "          if (s.overlay) return { ...s, overlay: null }\n")} 
         target?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "nearest", inline: "nearest" })
       },
 `,
-)}${when(firstFlow, `      startFlow: (flow) => setState((s) => ({ ...s, ${overlayGone}move: { transition: "fade", backwards: false }, stack: [{ screen: FLOWS[flow].screen, transition: "fade" }] })),\n`)}      openLink: (url) => void window.open(url, "_blank", "noopener,noreferrer"),
+)}${when(firstFlow, `      startFlow: (flow) => setState((s) => ({ ...s, ${overlayGone}move: { transition: "fade", backwards: false }, stack: [{ screen: FLOWS[flow].screen, transition: "fade" }] })),\n`)}      /* only web pages leave the app: a link made from data (a row's words, a server's answer) could name a script */
+      openLink: (url) => {
+        const raw = url.trim()
+        try {
+          const page = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : "https://" + raw)
+          if (page.protocol === "http:" || page.protocol === "https:") window.open(page.href, "_blank", "noopener,noreferrer")
+        } catch {
+          /* not a link at all */
+        }
+      },
       vars: ${modes ? "shownOn(screen)" : "state.vars"},
 ${when(modes, "      varsOn: shownOn,\n")}${when(bound, `      varStyle: (on) => varStyleOf(${modes ? "shownOn(on)" : "state.vars"}),\n`)}      setVar: (name, value) => setState((s) => ${write("value")}),
       toggleVar: (name) => setState((s) => ${write(`!${now}`)}),
