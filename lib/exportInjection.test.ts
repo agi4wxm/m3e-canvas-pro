@@ -322,3 +322,45 @@ describe("a document's words in the mini-program", () => {
     expect(await miniEscapesOf(openProject(JSON.parse(JSON.stringify(withWords(boundShopDoc().doc)))))).toEqual([]);
   }, 120_000);
 });
+
+/* The shop bound to its contract, exported whole (web, mobile, mini-program, api, app-runtime, mocks, server, contract
+   tests): every name the bindings carry (an operation, a data source, a screen's param, a field of a form, a model and
+   its properties) holds the words, and so does every name and value of its mock library (scenarios, files, realtime
+   scripts, hints, pinned records). Read back from a file, and as the editor's state may hold it unchecked: the web
+   app's `<Screen>.data.ts` once put a data source's and an operation's name in a block comment as they were, and made
+   a form's rules constant of the operation's name. */
+describe("a bound product's names and mocks in every app of the product", () => {
+  const escaped = (s: string) => JSON.stringify(s).slice(1, -1);
+  async function hostileShop(): Promise<Doc> {
+    const { boundShopDoc } = await import("./export/product.fixture");
+    let text = JSON.stringify(boundShopDoc().doc);
+    for (const name of ["productId", "listProducts", "getProduct", "createProduct", "uploadProductImage", "listOrders", "products", "product", "orders", "Product", "name", "price", "email", "password"])
+      text = text.replace(new RegExp(`"${name}"(?!:)`, "g"), `"${escaped(`${name}${WORDS}`)}"`).replaceAll(`.${name}`, `.${escaped(`${name}${WORDS}`)}`);
+    const doc = JSON.parse(text) as Doc;
+    const w = (s: string) => `${s}${WORDS}`;
+    doc.mocks = {
+      ...withWords(doc.mocks),
+      scenarios: [...(doc.mocks?.scenarios ?? []), { id: w("sc"), name: w("Scenario"), description: w("d"), ops: { [w("op")]: { status: 500, body: { [w("k")]: w("v") } } } }],
+      files: [...(doc.mocks?.files ?? []), { id: w("f"), name: w("file.png"), type: w("image/png"), data: "data:image/png;base64,AAAA", tags: [w("t")] }],
+      realtime: [{ id: w("rt"), channel: w("ch"), steps: [{ at: 0, message: w("m"), payload: { [w("k")]: w("v") } }] }],
+      models: [...(doc.mocks?.models ?? []), { name: w("M"), hints: { [w("p")]: { kind: "constant", value: w("x") } }, fixtures: [{ [w("a")]: w("b") }] }],
+    } as Doc["mocks"];
+    return doc;
+  }
+
+  it("never come out as code, a path, a package name or broken JSON", async () => {
+    const { buildProduct } = await import("./export/product");
+    const raw = await hostileShop();
+    for (const doc of [openProject(JSON.parse(JSON.stringify(raw)))!, raw]) {
+      const product = await buildProduct(doc, {}, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+      const paths = Object.keys(product.files);
+      for (const p of paths) expect(p, p).toMatch(/^[A-Za-z0-9._/@[\]-]+$/);
+      for (const p of paths) expect(p.split("/"), p).not.toContain("..");
+      const code = paths.filter((p) => /\.(ts|tsx|js|mjs|cjs)$/.test(p) && !/^apps\/web\/src\/(components|lib|hooks|styles)\//.test(p) && typeof product.files[p].body === "string");
+      expect(code.filter((p) => (product.files[p].body as string).includes("markA")).length).toBeGreaterThan(20);
+      expect(code.flatMap((p) => codeNames(/\.(mjs|cjs)$/.test(p) ? `${p}.js` : p, product.files[p].body as string))).toEqual([]);
+      for (const p of paths.filter((x) => x.endsWith(".json"))) expect(() => JSON.parse(product.files[p].body as string), p).not.toThrow();
+      for (const p of paths.filter((x) => x.endsWith("package.json"))) expect((JSON.parse(product.files[p].body as string) as { name: string }).name, p).toMatch(NPM_NAME);
+    }
+  }, 240_000);
+});

@@ -20,6 +20,7 @@ import { mapNodes, raw, type PNode, type PValue } from "../parts/node";
 import { str } from "../parts/print";
 import { identifierOf } from "./export/paths";
 import { literal } from "./export/code";
+import { commentText } from "./export/server/comments";
 import type { DataSource, Doc, Effect, FormBinding, Frame, Group, Item, Optimistic, VarType } from "./tokens";
 
 /** what the printer is told of the product: where the runtime is, the contract and its client's operations */
@@ -90,6 +91,8 @@ const RESERVED = new Set(["$", "scope", "params", "vars", "call", "api", "item",
 
 const pascal = (s: string) => s[0].toUpperCase() + s.slice(1);
 const constName = (s: string) => s.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toUpperCase();
+/** a document's name in a block comment: one line, and never the comment's end */
+const inComment = (s: unknown) => commentText(s, 80).replace(/\*\//g, "* /");
 
 /** whether a document's screens use any bindings at all */
 export function usesBindings(doc: Pick<Doc, "frames" | "groups">): boolean {
@@ -153,7 +156,7 @@ export class BoundPrint {
       const e = endpointOf(this.o.api, op);
       const specs = new Map((e ? formFields(this.o.api, e) : []).map((f) => [f.name, f]));
       const n = name(`${op}Form`, "form");
-      forms.set(g.id, { id: g.id, name: n, scope: formGroups.length === 1 ? "$form" : `$${n}`, fields: constName(`${op}Fields`), form: g.form!, specs, inputs: [] });
+      forms.set(g.id, { id: g.id, name: n, scope: formGroups.length === 1 ? "$form" : `$${n}`, fields: constName(identifierOf(`${op}Fields`, "formFields")), form: g.form!, specs, inputs: [] });
     }
     /* the form each group is in: the nearest container with one */
     for (const g of groups) {
@@ -558,7 +561,7 @@ export class BoundPrint {
       const op = this.ops.get(x.src.operationId);
       if (!e || !op) {
         rt.add("useDataSource");
-        parts.push(`/** \`data.${x.src.name}\`: its operation is not in the contract, so it only ever fails */\nexport function ${x.hook}() {\n  return useDataSource({ key: ${str(`missing:${x.src.name}`)}, load: () => Promise.reject(new Error(${str(`No operation ${x.src.operationId}`)})) })\n}`);
+        parts.push(`/** \`data.${inComment(x.src.name)}\`: its operation is not in the contract, so it only ever fails */\nexport function ${x.hook}() {\n  return useDataSource({ key: ${str(`missing:${x.src.name}`)}, load: () => Promise.reject(new Error(${str(`No operation ${x.src.operationId}`)})) })\n}`);
         continue;
       }
       usesApi = true;
@@ -589,7 +592,7 @@ export class BoundPrint {
       ];
       const how = [list ? (pg ? `a ${pg.style}-paged list` : "a list") : "one thing", ...(x.src.pageSize && pg ? [`${x.src.pageSize} at a time`] : []), ...(x.src.paging === "scroll" ? ["the next page on scroll"] : x.src.paging === "button" ? ["the next page by a tap"] : []), ...(x.src.pullToRefresh ? ["pull to refresh"] : []), ...(x.src.load === "demand" ? ["loaded only when asked"] : [])];
       parts.push(
-        `/** \`data.${x.src.name}\`: ${x.src.operationId}, ${how.join(", ")} */\nexport function ${x.hook}(${reads ? "$: Bindings" : ""}) {\n${lines.map((l) => `  ${l}\n`).join("")}  return useDataSource({\n${spec.map((l) => `    ${l},\n`).join("")}  }${x.src.load === "demand" ? ', { load: "demand" }' : ""})\n}`,
+        `/** \`data.${inComment(x.src.name)}\`: ${inComment(x.src.operationId)}, ${how.join(", ")} */\nexport function ${x.hook}(${reads ? "$: Bindings" : ""}) {\n${lines.map((l) => `  ${l}\n`).join("")}  return useDataSource({\n${spec.map((l) => `    ${l},\n`).join("")}  }${x.src.load === "demand" ? ', { load: "demand" }' : ""})\n}`,
       );
     }
     for (const f of s.forms.values()) {
@@ -597,7 +600,7 @@ export class BoundPrint {
       const rows = f.inputs.map((x) => {
         return `  ${propName(x.field)}: ${literal(fieldRule(f.specs.get(x.field)))},`;
       });
-      parts.push(`/** the fields of the ${f.form.operationId} form: what the contract's schema asks of each */\nexport const ${f.fields}: FormFields = {\n${rows.join("\n")}\n}`);
+      parts.push(`/** the fields of the ${inComment(f.form.operationId)} form: what the contract's schema asks of each */\nexport const ${f.fields}: FormFields = {\n${rows.join("\n")}\n}`);
     }
     if (bindings) rt.add("Bindings");
     const isType = (n: string) => n === "Bindings" || n === "FormFields";
