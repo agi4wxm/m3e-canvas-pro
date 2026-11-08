@@ -37,6 +37,8 @@ let made = 0;
 
 type App = {
   screen: string;
+  /** the last screen move (src/runtime.tsx `Move`) */
+  move?: { backwards: boolean; motion?: { kind: string } };
   overlay?: { screen: string; params?: Record<string, unknown> } | null;
   params?: Record<string, unknown>;
   vars: Record<string, string | number | boolean>;
@@ -227,7 +229,8 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       const words = pages().flatMap((p) => wordsIn(p));
       const vars = Object.fromEntries(Object.entries(app?.vars ?? {}).map(([k, v]) => [varIds.get(k) ?? k, v]));
       const screen = doc.frames[spec.screens.indexOf(app?.screen ?? "")]?.id ?? "";
-      return { vars, words, toast: app?.snack?.message ?? null, screen, calls: backend.calls };
+      const move = app?.move ? { back: app.move.backwards, motion: app.move.motion?.kind ?? "none" } : undefined;
+      return { vars, words, toast: app?.snack?.message ?? null, screen, calls: backend.calls, ...(move ? { move } : {}) };
     },
   };
 }

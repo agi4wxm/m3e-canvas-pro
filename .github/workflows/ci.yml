@@ -177,7 +177,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.npm
-          key: npm-product-${{ hashFiles('lib/versions.generated.ts', 'rn/package.json', 'lib/export/targets/mobile.ts') }}
+          key: npm-product-${{ hashFiles('lib/versions.generated.ts', 'lib/exportPackages.ts', 'rn/package.json', 'miniapp-kit/package.json') }}
           restore-keys: npm-product-
       - uses: oven-sh/setup-bun@v2
         with:

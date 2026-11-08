@@ -83,6 +83,7 @@ export function differences(expect: Expect, seen: Observed): string[] {
         for (const [k, v] of Object.entries(c.in)) if (!same(got[i].in[k], v)) out.push(`${what} ${c.op}: ${k} expected ${JSON.stringify(v)}, got ${JSON.stringify(got[i].in[k])}`);
       });
   };
+  if (expect.move && !same(seen.move, expect.move)) out.push(`move: expected ${JSON.stringify(expect.move)}, got ${JSON.stringify(seen.move)}`);
   compare("call", expect.calls, seen.calls);
   compare("invoke", expect.invokes, seen.invokes ?? []);
   return out;

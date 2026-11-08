@@ -57,7 +57,7 @@ mock.module("@tarojs/components", () => fakeComponents());
 
 const { RuntimeProvider } = await import("@m3e/app-runtime");
 const { AppSpecProvider } = await import("../src/kit/app/screen");
-const { screenOfPath } = await import("../src/kit/app/nav");
+const { lastMove, screenOfPath } = await import("../src/kit/app/nav");
 const { readVar } = await import("../src/kit/app/vars");
 const { answerWith } = await import("./table/backend");
 const { drive, turns, verdict } = await import("./table/check");
@@ -161,7 +161,10 @@ describe("the consistency table on the mini-program kit", () => {
         observe: () => {
           const page = stack.at(-1);
           const key = page ? (screenOfPath(SPEC, page.route) ?? "") : "";
-          return { vars: Object.fromEntries(row.vars.map((id) => [id, readVar(id)])) as Record<string, string | number | boolean>, words: wordsIn(top()), toast, screen: row.screens[key] ?? key, calls: backend.calls };
+          /* the motion a back is handed is what the kit's navigator keeps (the page stack plays the platform's own) */
+          const last = lastMove();
+          const move = last ? { back: last.back, motion: last.motion?.kind ?? "none" } : undefined;
+          return { vars: Object.fromEntries(row.vars.map((id) => [id, readVar(id)])) as Record<string, string | number | boolean>, words: wordsIn(top()), toast, screen: row.screens[key] ?? key, calls: backend.calls, ...(move ? { move } : {}) };
         },
       };
     });

@@ -25,7 +25,7 @@ export { PARTS, type PartInfo } from "./parts.generated";
 export { sx, merge, type CSS } from "./styles";
 export { useValue } from "./value";
 export { AppSpecProvider, eventOf, slotTaps, useAfter, useAppSpec, usePageData, useScreen, useScreenForm, type Env, type EventFields, type ScreenForm, type ScreenHandle, type ScreenInit } from "./app/screen";
-export { currentPlace, goBack, loginScreen, moved, movesSoFar, openPlace, readQuery, urlOf, type Place } from "./app/nav";
+export { currentPlace, goBack, lastMove, loginScreen, moved, movesSoFar, openPlace, readQuery, urlOf, type BackOptions as PageBackOptions, type PageMove, type Place } from "./app/nav";
 export { initVars, readVar, writeVar } from "./app/vars";
 export { optionIndex, rowsOf } from "./app/values";
 export { KIT_ICONS } from "./iconNames";

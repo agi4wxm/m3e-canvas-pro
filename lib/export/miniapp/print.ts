@@ -1,4 +1,5 @@
 import {
+  BACK_TARGET,
   COLOR_TOKENS,
   GAP,
   PHONE_H,
@@ -34,6 +35,7 @@ import { isNode, type PNode } from "../../../parts/node";
 import { str } from "../../../parts/print";
 import type { Node } from "../../../parts/templates/kit";
 import { expandDoc } from "../../expand";
+import { cleanMotion } from "../../prototype";
 import { getLang } from "../../i18n";
 import { childLayoutOf, flowOf, sizingOf, type Flow } from "../../flow";
 import { dockPanes, isLaidOutDock, offTabOf } from "../panes";
@@ -287,7 +289,9 @@ function cleanEffect(e: Effect, depth: number, names: Names): Record<string, unk
 
 function cleanBody(b: ActionBody, names: Names, depth = 0): Record<string, unknown> {
   const effects = (b.effects ?? []).map((e) => cleanEffect(e, depth, names)).filter((e): e is Record<string, unknown> => !!e);
-  return { to: names.screen(b.to), ...(b.url ? { url: b.url } : {}), ...(effects.length ? { effects } : {}), ...(b.overlay ? { overlay: true } : {}), ...(b.params ? { params: b.params } : {}) };
+  /* a back action's own motion, for the interpreter to hand the kit's navigator (Host.back) */
+  const motion = b.to === BACK_TARGET ? cleanMotion(b.motion) : undefined;
+  return { to: names.screen(b.to), ...(b.url ? { url: b.url } : {}), ...(effects.length ? { effects } : {}), ...(b.overlay ? { overlay: true } : {}), ...(b.params ? { params: b.params } : {}), ...(motion ? { motion } : {}) };
 }
 
 /** a call's or an invoke's then or catch: a body, with the branch the answer picks (docs/交互规则.md, 回答上的条件) */

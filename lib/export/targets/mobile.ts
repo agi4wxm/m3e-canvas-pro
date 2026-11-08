@@ -20,20 +20,13 @@ import { darkVarOf } from "../../tokens";
 import { GENERATED, jsonCode, jsonFile, propKey, sortedObject, str } from "../code";
 import { kebab } from "../paths";
 import { boundaryDifferences } from "../boundary";
+import { EXPO_PINS, MOBILE_PACKAGES } from "../../exportPackages";
+import { MOBILE_FILES_DIR, copiedFile } from "../copy";
 import { generated, seeded, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "../types";
 
 /** The Expo packages the app needs beyond the kit's (rn/package.json): the router and what it stands on, the secure
- *  store for the session's tokens, the pickers for uploads. Each the version Expo SDK 58's bundledNativeModules.json
- *  names (checked against the npm registry when written here). */
-export const MOBILE_PINS: Record<string, string> = {
-  "expo-constants": "58.0.15",
-  "expo-document-picker": "58.0.4",
-  "expo-image-picker": "58.0.10",
-  "expo-linking": "58.0.16",
-  "expo-router": "58.0.30",
-  "expo-secure-store": "58.0.2",
-  "react-native-screens": "4.30.1",
-};
+ *  store for the session's tokens, the pickers for uploads, at the Expo line's versions (lib/exportPackages.ts). */
+export const MOBILE_PINS: Record<string, string> = Object.fromEntries(MOBILE_PACKAGES.map((name) => [name, EXPO_PINS[name]]));
 
 /** what the app's tests run on, at the kit's versions (rn/package.json) */
 const TEST_DEV = ["@testing-library/react-native", "@types/jest", "jest", "jest-expo", "test-renderer"];
@@ -129,32 +122,6 @@ module.exports = {
     "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|expo-router|react-native-svg|nativewind|react-native-css-interop|react-native-reanimated|react-native-worklets|react-native-screens))",
   ],
 }
-`;
-
-const JEST_SETUP = `${GENERATED}
-/* Reanimated and Worklets have no native side under Jest: their own mocks stand in. */
-jest.mock("react-native-reanimated", () => jest.requireActual("react-native-reanimated/mock"))
-jest.mock("react-native-worklets", () => jest.requireActual("react-native-worklets/src/mock"))
-
-/* the platform's date and time pickers are native views: a stand-in that names what it was asked for */
-jest.mock("@react-native-community/datetimepicker", () => {
-  const { Text } = jest.requireActual("react-native")
-  const Picker = ({ mode }: { mode: string }) => <Text>{\`native \${mode} picker\`}</Text>
-  return { __esModule: true, default: Picker, DateTimePickerAndroid: { open: jest.fn() } }
-})
-
-/* the device's safe area: the library's own stand-in, with a phone's insets */
-jest.mock("react-native-safe-area-context", () => jest.requireActual("react-native-safe-area-context/jest/mock").default)
-
-/* the session's tokens: kept in memory */
-jest.mock("expo-secure-store", () => {
-  const kept = new Map<string, string>()
-  return {
-    getItemAsync: async (k: string) => kept.get(k) ?? null,
-    setItemAsync: async (k: string, v: string) => void kept.set(k, v),
-    deleteItemAsync: async (k: string) => void kept.delete(k),
-  }
-})
 `;
 
 /* ---------- the app's own modules ---------- */
@@ -258,68 +225,6 @@ export const AUTH: AuthConfig = ${auth}
 
 /** the rules of the fields of each operation a form of the design sends, from its body's schema */
 export const FORMS: Record<string, Record<string, FieldRule>> = ${jsonCode(forms)}
-`;
-
-const TRANSPORT = (scope: string) => `${GENERATED}
-import { Platform } from "react-native"
-import { createFetchTransport, queryString, readBody, type Transport, type TransportRequest, type TransportResponse } from ${str(`${scope}/api`)}
-
-/** a file a picker gave (./files): what the transport sends for a file field, as the mocks read one too */
-export type PickedFile = { name: string; type: string; size?: number; dataUrl: string; uri?: string }
-
-const isFile = (v: unknown): v is PickedFile => !!v && typeof v === "object" && typeof (v as PickedFile).dataUrl === "string"
-
-const multipart = (r: TransportRequest) => /multipart\\/form-data/i.test(r.headers?.["content-type"] ?? "") && !!r.body && typeof r.body === "object"
-
-/** the headers of an answer, by their names in lower case */
-function headersOf(raw: string): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const line of raw.split(/\\r?\\n/)) {
-    const at = line.indexOf(":")
-    if (at > 0) out[line.slice(0, at).trim().toLowerCase()] = line.slice(at + 1).trim()
-  }
-  return out
-}
-
-/** A multipart form sent with XMLHttpRequest, which tells how far the upload has gone: a file field is the file the
- *  picker gave (its uri on a phone, its bytes on the web), any other field its words. */
-async function upload(baseUrl: string, r: TransportRequest): Promise<TransportResponse> {
-  const form = new FormData()
-  for (const [key, value] of Object.entries(r.body as Record<string, unknown>)) {
-    for (const one of Array.isArray(value) ? value : [value]) {
-      if (one === undefined || one === null) continue
-      if (isFile(one)) {
-        if (Platform.OS === "web") form.append(key, await (await fetch(one.uri ?? one.dataUrl)).blob(), one.name)
-        else form.append(key, { uri: one.uri ?? one.dataUrl, name: one.name, type: one.type } as unknown as Blob)
-      } else form.append(key, typeof one === "object" ? JSON.stringify(one) : String(one))
-    }
-  }
-  const search = queryString(r.query)
-  const url = \`\${baseUrl.replace(/\\/$/, "")}\${r.path}\${search ? \`?\${search}\` : ""}\`
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open(r.method, url)
-    xhr.setRequestHeader("accept", "application/json")
-    for (const [h, v] of Object.entries(r.headers ?? {})) if (h.toLowerCase() !== "content-type") xhr.setRequestHeader(h, v)
-    if (r.onUploadProgress) xhr.upload.onprogress = (e) => r.onUploadProgress?.(e.loaded, e.total)
-    /* the answer's bytes as they came, read as packages/api reads every answer (JSON, text or a file) */
-    xhr.responseType = "arraybuffer"
-    xhr.onload = () => {
-      const headers = headersOf(xhr.getAllResponseHeaders())
-      const bytes = xhr.response ? new Uint8Array(xhr.response as ArrayBuffer) : new Uint8Array(0)
-      resolve({ status: xhr.status, headers, body: readBody({ method: r.method, path: r.path, status: xhr.status, headers, bytes }) })
-    }
-    xhr.onerror = () => reject(new Error("Network request failed"))
-    xhr.send(form)
-  })
-}
-
-/** The API over React Native's fetch: JSON as JSON, a multipart form (an upload) with its progress; every answer read
- *  the same way (JSON, text, or a file such as a PDF as its bytes). */
-export function createNativeTransport(options: { baseUrl: string }): Transport {
-  const json = createFetchTransport({ baseUrl: options.baseUrl })
-  return { request: (r) => (multipart(r) ? upload(options.baseUrl, r) : json.request(r)) }
-}
 `;
 
 const FILES = `${GENERATED}
@@ -554,7 +459,8 @@ const host: ActionHost = {
   setProp: (part, prop, value) => kit?.setProp(part, prop, value),
   toast: (text) => kit?.toast(text),
   go: (to, o) => nav?.go(to, { ...(o.overlay ? { overlay: true } : {}), ...(o.params ? { params: o.params } : {}) }),
-  back: () => nav?.back(),
+  /* a back action's own motion goes to the navigator with it */
+  back: (o) => nav?.back(o),
   openLink: (url) => void openLink(url),
   scrollTo: () => {},
   call: async (operationId, given): Promise<Outcome> => {
@@ -697,6 +603,8 @@ export const routerNav: Nav = {
     else if (ROUTES[key]?.tab) router.navigate(href)
     else router.push(href)
   },
+  /* the native stack plays the platform's own animation going back, as it does going forward: a back action's motion
+     (Nav.back's options) has no say there (docs/手机端.md) */
   back: () => {
     if (router.canGoBack()) router.back()
     else router.replace(hrefOf(INITIAL) ?? "/")
@@ -749,9 +657,9 @@ export function ScreenRoute({ screen, overlay, render }: { screen: string; overl
 `;
 
 const ROOT = (scope: string, vars: unknown, hidden: unknown, triggers: unknown, dark: string | undefined) => `${GENERATED}
-import { useEffect, type ComponentType, type ReactNode } from "react"
+import type { ComponentType, ReactNode } from "react"
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context"
-import { RuntimeProvider } from ${str(`${scope}/app-runtime`)}
+import { RuntimeProvider, SetupGate } from ${str(`${scope}/app-runtime`)}
 import { AppProvider, NavProvider, SnackHost, ThemeProvider, registerIcons, ${dark ? "useApp, " : ""}type AppVar } from "../kit"
 import { Providers } from "../custom/Providers"
 import { setup } from "../custom/setup"
@@ -795,18 +703,19 @@ function Themed({ children }: { children: ReactNode }) {
 }
 
 /** The app around its routes: the safe area, the runtime (session, data, language), the app's memory (variables, what
- *  taps showed, the snackbar) with the API's effects, the theme, where taps go, the custom providers. */
+ *  taps showed, the snackbar) with the API's effects, the theme, where taps go, the custom providers. The routes are
+ *  drawn once the custom setup has run (SetupGate: nothing before; a setup that fails is reported and the app drawn
+ *  all the same), as the web app and the mini-program draw theirs. */
 export function AppRoot({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    void setup()
-  }, [])
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <RuntimeProvider runtime={runtime}>
         <AppProvider vars={VARS} hidden={HIDDEN} triggers={TRIGGERS} reader={reader} interpret={interpret}>
           <Themed>
             <NavProvider value={routerNav}>
-              <Providers>{children}</Providers>
+              <SetupGate setup={setup}>
+                <Providers>{children}</Providers>
+              </SetupGate>
               <SnackHost />
               {DevMenu ? <DevMenu /> : null}
             </NavProvider>
@@ -964,16 +873,19 @@ export default function Index() {
 }
 `;
 
-/* the app's own tests: every screen draws, its data comes, a form checks what is entered before it sends */
+/* the app's own tests: it waits for the custom setup, every screen draws, its data comes, a form checks what is entered
+   before it sends */
 const TEST = (scope: string, screens: RnScreen[], forms: { screen: string; operationId: string; required: boolean }[]) => `${GENERATED}
 import { act, fireEvent, render, screen } from "@testing-library/react-native"
 import type { ComponentType } from "react"
+import { Text } from "react-native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 import { RuntimeProvider, type TransportRequest } from ${str(`${scope}/app-runtime`)}
 import { createMockTransport } from ${str(`${scope}/mocks`)}
 import { AppProvider, NavProvider, ThemeProvider, registerIcons } from "../kit"
 import { interpret, reader } from "./effects"
 import { icons } from "./icons"
+import { AppRoot } from "./root"
 import { runtime } from "./runtime"
 ${screens.map((s) => `import { ${s.component} } from ${str(`./screens/${s.component}`)}`).join("\n")}
 import { theme } from "./theme"
@@ -1014,8 +926,31 @@ function draw(Screen: ComponentType) {
 /** lets the mocks answer and the screen draw what they said */
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 20)))
 
+/* Expo Router stands outside Jest's reach (its stack is ESM): where taps go is a stand-in here, as it is for the screens */
+jest.mock("./routing", () => ({ routerNav: { go: jest.fn(), back: jest.fn(), open: jest.fn(), todo: jest.fn() } }))
+
+/* the custom setup, held until the test lets it finish */
+let mockFinishSetup: () => void = () => {}
+jest.mock("../custom/setup", () => ({
+  setup: () =>
+    new Promise<void>((resolve) => {
+      mockFinishSetup = resolve
+    }),
+}))
+
 it("starts its runtime on the contract's session", () => {
   expect(runtime.auth).toBeDefined()
+})
+
+it("draws its routes only once the custom setup has run (SetupGate)", async () => {
+  await render(
+    <AppRoot>
+      <Text>the routes</Text>
+    </AppRoot>,
+  )
+  expect(screen.queryByText("the routes")).toBeNull()
+  await act(async () => mockFinishSetup())
+  expect(screen.getByText("the routes")).toBeTruthy()
 })
 
 if (SCREENS.length) describe("the screens", () => {
@@ -1168,7 +1103,8 @@ export const mobileTarget: ProductTarget = {
     files["src/generated/contract.ts"] = generated(CONTRACT(scope, operationsOf(doc.api), authSource(doc.api ?? {}), formRulesOf(doc)));
     files["src/generated/bind.ts"] = generated(BIND(scope));
     files["src/generated/effects.ts"] = generated(EFFECTS(scope));
-    files["src/generated/transport.ts"] = generated(TRANSPORT(scope));
+    /* the same in every app: real files of this repo, copied as they are (lib/export/copy.ts) */
+    files["src/generated/transport.ts"] = generated(await copiedFile(ctx, `${MOBILE_FILES_DIR}/transport.ts`));
     files["src/generated/files.ts"] = generated(FILES);
     files["src/generated/mocks.ts"] = generated(MOCKS(scope));
     files["src/generated/DevMenu.tsx"] = generated(DEV_MENU(scope));
@@ -1209,7 +1145,7 @@ export const mobileTarget: ProductTarget = {
     files["nativewind-env.d.ts"] = generated(NATIVEWIND_ENV);
     files["tsconfig.json"] = generated(TSCONFIG);
     files["jest.config.js"] = generated(JEST);
-    files["jest.setup.tsx"] = generated(JEST_SETUP);
+    files["jest.setup.tsx"] = generated(await copiedFile(ctx, `${MOBILE_FILES_DIR}/jest.setup.tsx`));
     files["README.md"] = generated(README(scope));
 
     const { dependencies } = rnDependencies();

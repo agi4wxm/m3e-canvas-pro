@@ -9,6 +9,7 @@ import { wordsOf } from "./reference";
 import { ROWS } from "./rows";
 import { tiny } from "./tiny";
 import type { Element } from "./tinyReact";
+import type { ScreenMove } from "../../screenMotion";
 import type { Observed } from "./types";
 
 /* The table on the editor's preview: the real `Preview` component (components/Preview.tsx) and everything a tap goes
@@ -121,7 +122,10 @@ function previewOf(doc: Doc, backend: Backend): Driver {
           if (it.component === "dropdown-menu" && opened[it.id]) for (const row of (it.props?.items as { label?: string }[] | undefined) ?? []) words.push(row.label ?? "");
         }
       }
-      return { vars: state?.vars ?? {}, words, toast: state?.snack?.message ?? null, screen: (shown[0]?.props.frame as { id: string } | undefined)?.id ?? "", calls: backend.calls };
+      /* the move the screen on show plays: what the preview hands the motion of its screens (`custom`) */
+      const played = tiny.elements(tree).find((e) => { const c = e.props.custom as ScreenMove | undefined; return !!c && typeof c === "object" && "backwards" in c; })?.props.custom as ScreenMove | undefined;
+      const move = played ? { back: played.backwards, motion: played.motion?.kind ?? "none" } : undefined;
+      return { vars: state?.vars ?? {}, words, toast: state?.snack?.message ?? null, screen: (shown[0]?.props.frame as { id: string } | undefined)?.id ?? "", calls: backend.calls, ...(move ? { move } : {}) };
     },
   };
 }

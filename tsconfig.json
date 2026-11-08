@@ -15,7 +15,9 @@
     "jsx": "react-jsx",
     "incremental": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@m3e/api": ["./lib/export/files/api/index.ts"],
+      "@m3e/app-runtime": ["./lib/export/files/appRuntime/index.ts"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.mts"],

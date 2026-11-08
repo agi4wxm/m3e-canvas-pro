@@ -45,6 +45,11 @@ export type Outcome = { ok: true; status: number; response: unknown } | { ok: fa
 /** how a screen is opened */
 export type GoOptions = { transition: Transition; motion?: Motion; overlay?: boolean; params?: Record<string, unknown> };
 
+/** How going back moves: the back action's own `motion`, played backwards, in place of the way the screen came in. Left
+ *  out (a back action with no motion, the platform's back), the screen goes the way it came, undone. The older
+ *  `transition` of a back action is not passed: no host ever played it, and old documents keep going back as they did. */
+export type BackOptions = { motion?: Motion };
+
 /** A call's arguments as the tap read them: `args` by name (the host puts each in the path, the query, a header or the
  *  JSON body, as the contract places it), `body` the whole body when the effect gives one. Undefined values are left
  *  out. */
@@ -79,8 +84,8 @@ export interface Host {
   toast(text: string): void;
   /** opens a screen (by id); one the host does not have goes nowhere */
   go(to: string, o: GoOptions): void;
-  /** goes back: an overlay closes first */
-  back(): void;
+  /** goes back: an overlay closes first (as it closes, whatever the motion) */
+  back(o?: BackOptions): void;
   /** opens a web page (http or https only: the interpreter checks) outside the app */
   openLink(url: string): void;
   /** brings a part of the screen on show into view */

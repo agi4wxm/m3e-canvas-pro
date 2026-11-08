@@ -30,7 +30,7 @@ const load = (id: string): Modules => ({
 });
 
 /** what the app's memory is, read by a part inside it */
-const probe: { app?: AppState; place?: Place } = {};
+const probe: { app?: AppState; place?: Place; move?: { back: boolean; motion: string } } = {};
 function Probe() {
   const app = useApp();
   useEffect(() => {
@@ -56,9 +56,15 @@ function Routes({ row, m }: { row: Row; m: Modules }) {
         const place = { key, ...(o.params ? { params: o.params } : {}) };
         if (o.overlay) return setOverlay(place);
         setOverlay(null);
+        probe.move = { back: false, motion: "none" };
         setStack((s) => (o.replace ? [...s.slice(0, -1), place] : [...s, place]));
       },
-      back: () => (live.current.overlay ? setOverlay(null) : setStack((s) => (s.length > 1 ? s.slice(0, -1) : s))),
+      /* the motion a back is handed is what Expo Router's stack would be told (it plays the platform's own) */
+      back: (o) => {
+        if (live.current.overlay) return setOverlay(null);
+        if (live.current.stack.length > 1) probe.move = { back: true, motion: o?.motion?.kind ?? "none" };
+        setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
+      },
       open: () => {},
       todo: () => {},
     }),
@@ -114,6 +120,7 @@ describe("the consistency table on the React Native kit", () => {
         return { status: a.status, headers: { "content-type": "application/json" }, body: a.body };
       });
       m.runtime.restart();
+      probe.move = undefined;
       await render(
         <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 412, height: 892 }, insets: { top: 24, left: 0, right: 0, bottom: 24 } }}>
           <RuntimeProvider runtime={m.runtime}>
@@ -161,6 +168,7 @@ describe("the consistency table on the React Native kit", () => {
           toast: probe.app?.snack?.message ?? null,
           screen: row.screens[probe.place?.key ?? ""] ?? "",
           calls: backend.calls,
+          ...(probe.move ? { move: probe.move } : {}),
         }),
       };
     });

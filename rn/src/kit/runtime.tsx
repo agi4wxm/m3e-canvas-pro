@@ -16,11 +16,16 @@ import { useKit } from "./theme/ThemeProvider";
 /** how a screen is opened: over the current one, with what it is given (its params), in place of the current one */
 export type GoOptions = { overlay?: boolean; params?: Record<string, unknown>; replace?: boolean };
 
+/** How going back moves: the back action's own motion (lib/screenMotion's `Motion`), played backwards, in place of the
+ *  way the screen came in. A router of the platform's plays its own animation (docs/手机端.md): the motion is what the
+ *  app's navigator is handed. */
+export type BackOptions = { motion?: { kind: string; dir?: string; easing?: string; ms?: number } };
+
 /** where a tap goes */
 export type Nav = {
   /** to a screen, by its key; over the current one when `overlay` */
   go: (screen: string, opts?: GoOptions) => void;
-  back: () => void;
+  back: (opts?: BackOptions) => void;
   /** an address outside the app */
   open: (url: string) => void;
   /** what the design asks for that the export does not print yet (setting a variable, showing a part): the key says what */
@@ -62,9 +67,9 @@ export function NavProvider({ value, children }: { value: Partial<Nav>; children
         moved();
         nav.go(...asked);
       },
-      back: () => {
+      back: (...asked) => {
         moved();
-        nav.back();
+        nav.back(...asked);
       },
     };
   }, [value]);

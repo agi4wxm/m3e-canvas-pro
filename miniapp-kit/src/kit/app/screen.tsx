@@ -254,9 +254,9 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
         /* leaving the sign-in screen does not keep it under the next one */
         void openPlace(spec, place, { replace: spec.screens[key]?.auth === "login" });
       },
-      back: () => {
+      back: (o) => {
         if (live.current.overlay) return setOverlay(null);
-        void goBack(spec);
+        void goBack(spec, o);
       },
       openLink: (url) =>
         void runtime.invoke("link.open", { url }).then((out) => {
