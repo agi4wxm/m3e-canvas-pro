@@ -127,8 +127,13 @@
  },
  {
   "kind": "atoms",
-  "screen": "Order placed",
+  "screen": "Payment result",
   "part": "descriptionList2",
   "detail": "drawn as the atoms it splits into (description-list)"
+ },
+ {
+  "kind": "binding",
+  "screen": "Payment result",
+  "detail": "the data order comes from an operation the contract does not have (getOrder)"
  }
 ]

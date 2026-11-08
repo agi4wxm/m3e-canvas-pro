@@ -1,4 +1,4 @@
-import { col, panel, part, row, say, screen, txt, type Template } from "./kit";
+import { col, panel, part, row, say, sayInAction, screen, txt, type Template } from "./kit";
 import { homeNav, PEOPLE, WORDS } from "./words";
 
 /* Reading, finding and playing things. */
@@ -445,7 +445,37 @@ export const content: Template[] = [
         name: say("Route", "路线", "ルート", "경로"),
         top: [part("app-bar", { title: say("Route", "路线", "ルート", "경로"), leading: "arrow_back", trailing: "more_vert" })],
         body: [
-          part("map", { label: say("Destination", "目的地", "目的地", "목적지"), height: 488 }),
+          /* the map is a capability view: the markers are the design's example, the real map is the product's slot */
+          part("map", {
+            label: say("Destination", "目的地", "目的地", "목적지"),
+            height: 440,
+            center: "31.2304,121.4737",
+            zoom: 13,
+            route: true,
+            markers: { columns: ["Id", "Title", "Lat", "Lng"], rows: [["start", say("Where you are", "当前位置", "現在地", "현재 위치"), "31.2240", "121.4690"], ["end", say("Destination", "目的地", "目的地", "목적지"), "31.2397", "121.4998"]] },
+          }),
+          /* where the device is, asked when the visitor wants it; a refusal and a timeout each have a design */
+          row({ gap: 8, align: "center" }, [
+            part("button", { label: say("Use my location", "使用当前位置", "現在地を使う", "현재 위치 사용"), icon: "my_location", variant: "tonal", size: "sm" }, {
+              action: {
+                to: "none",
+                transition: "none",
+                effects: [
+                  { do: "setVar", var: "locIssue", value: "" },
+                  {
+                    do: "invoke",
+                    capability: "location.current",
+                    args: { accuracy: "'high'" },
+                    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+                    then: { to: "none", transition: "none", effects: [{ do: "setVar", var: "here", value: "", expr: "result.lat + ',' + result.lng" }] },
+                    catch: { to: "none", transition: "none", effects: [{ do: "setVar", var: "locIssue", value: "", expr: "error.type" }] },
+                  },
+                ],
+              },
+            }),
+          ]),
+          row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: "location_disabled", size: 24, color: "error" }), txt(say("Location is off for this app. Turn it on in Settings, or type where you are.", "这个应用的定位被关闭了。请在设置中打开，或手动输入出发地。", "このアプリの位置情報がオフです。設定でオンにするか、出発地を入力してください。", "이 앱의 위치 정보가 꺼져 있습니다. 설정에서 켜거나 출발지를 입력하세요."), "caption", { color: "muted" }, { fill: true })], { showWhen: { var: "locIssue", op: "eq", value: "denied" } }),
+          row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: "location_searching", size: 24, color: "error" }), txt(say("Your location could not be found. Try again outdoors.", "暂时取不到你的位置，请到开阔处重试。", "現在地を取得できませんでした。屋外でもう一度お試しください。", "위치를 찾지 못했습니다. 실외에서 다시 시도하세요."), "caption", { color: "muted" }, { fill: true })], { showWhen: { expr: "vars.locIssue != '' && vars.locIssue != 'denied'" } }),
           part("toggle-group", {
             selected: 1,
             items: [
@@ -463,11 +493,21 @@ export const content: Template[] = [
             note: say("Fastest route", "最快路线", "最速ルート", "최단 경로"),
             price: "",
             action: say("Start", "开始导航", "案内開始", "안내 시작"),
-            done: say("On the way", "导航中", "案内中", "안내 중"),
+            /* navigating is the maps app's: the card does not say "on the way" by itself */
+            done: "",
+          }, {
+            actions: {
+              action: {
+                to: "none",
+                transition: "none",
+                effects: [{ do: "invoke", capability: "link.open", args: { url: "'https://www.openstreetmap.org/directions?route=31.2240%2C121.4690%3B31.2397%2C121.4998'" }, catch: { to: "none", transition: "none", effects: [{ do: "snackbar", message: sayInAction("The maps app could not be opened", "无法打开地图应用", "地図アプリを開けませんでした", "지도 앱을 열 수 없습니다") }] } }],
+              },
+            },
           }),
         ],
       }),
     ],
+    contract: () => ({ vars: [{ id: "locIssue", name: "locIssue", type: "text", value: "" }, { id: "here", name: "here", type: "text", value: "" }] }),
   },
   {
     slug: "wallet",
@@ -493,17 +533,39 @@ export const content: Template[] = [
           }),
         ],
         body: [
-          part("balance-card", {
-            title: say("Total balance", "总资产", "残高合計", "총 잔액"),
-            amount: "$12,480.50",
-            change: "+2.4%",
-            actions: [
-              { label: say("Send", "转账", "送金", "보내기"), icon: "north_east" },
-              { label: say("Receive", "收款", "受取", "받기"), icon: "south_west" },
-              { label: say("Pay", "支付", "支払い", "결제"), icon: "qr_code_scanner" },
-              { label: say("More", "更多", "その他", "더보기"), icon: "more_horiz" },
-            ],
-          }),
+          part(
+            "balance-card",
+            {
+              title: say("Total balance", "总资产", "残高合計", "총 잔액"),
+              amount: "$12,480.50",
+              change: "+2.4%",
+              actions: [
+                { label: say("Send", "转账", "送金", "보내기"), icon: "north_east" },
+                { label: say("Receive", "收款", "受取", "받기"), icon: "south_west" },
+                { label: say("Pay", "支付", "支払い", "결제"), icon: "qr_code_scanner" },
+                { label: say("More", "更多", "その他", "더보기"), icon: "more_horiz" },
+              ],
+            },
+            {
+              /* paying scans the merchant's code (scan.code); what it pays is the back end's, from what was scanned */
+              actions: {
+                "tab:2": {
+                  to: "none",
+                  transition: "none",
+                  effects: [
+                    {
+                      do: "invoke",
+                      capability: "scan.code",
+                      args: { formats: "['qr']" },
+                      // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+                      then: { to: "none", transition: "none", effects: [{ do: "snackbar", message: sayInAction("Scanned: {{result.text}}", "已扫码：{{result.text}}", "読み取りました：{{result.text}}", "스캔함: {{result.text}}") }] },
+                      catch: { to: "none", transition: "none", effects: [{ do: "snackbar", message: sayInAction("Nothing was scanned", "没有扫到二维码", "読み取れませんでした", "스캔하지 못했습니다") }] },
+                    },
+                  ],
+                },
+              },
+            },
+          ),
           part("transaction-list", {
             filters: [{ label: say("All", "全部", "すべて", "전체") }, { label: say("Income", "收入", "入金", "입금") }, { label: say("Spending", "支出", "出金", "지출") }],
             data: {

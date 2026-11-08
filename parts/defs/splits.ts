@@ -921,6 +921,15 @@ export const SPLIT_TAPS: Record<string, SplitTaps> = {
   /* only the first notice is split out */
   "notice-bar": { slots: (_p, t) => ({ "tab:0": firstOf(t, "text") }) },
   "checkout-bar": { slots: (p, t) => tabs((t.kids ?? []).slice(0, p.list("icons").length)) },
+  /* the plans after the title (and the words under it), then the button */
+  subscription: {
+    slots: (p, t) => {
+      const kids = t.kids ?? [];
+      const first = p.s("description") ? 2 : 1;
+      const n = p.list("plans").length;
+      return { ...tabs(kids.slice(first, first + n)), ...(p.s("action") ? { action: firstOf(t, "button") } : {}) };
+    },
+  },
   "balance-card": { slots: (p, t) => tabs(p.list("actions").length ? t.kids?.[2]?.kids : []) },
   "profile-header": {
     slots: (p, t) => {

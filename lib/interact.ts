@@ -1,4 +1,5 @@
 import { PARTS, partBySlug, reader } from "../parts/registry";
+import type { ListItem, PartDef } from "../parts/types";
 import { arrangeFlows, outOfPane } from "./flow";
 import { type Row, fillCurrent, fillDeep, firstRows, rowVars } from "./collections";
 import type { Action, ActionBody, Collection, Condition, Doc, DocVar, Effect, Frame, Group, Item, VarValue } from "./tokens";
@@ -58,6 +59,13 @@ export function screenVars(s: PreviewState, doc: Pick<Doc, "vars" | "varCollecti
 
 /** the prop of an input the visitor changes by using it, by slug: every part that declares an `input` (PartDef) */
 export const INPUT_PROP: Record<string, string> = Object.fromEntries(PARTS.flatMap((d) => (d.input ? [[d.slug, d.input.prop]] : [])));
+
+/** The rows a choice picks from: its `items`, else the part's first list (a subscription's `plans`); none for a part
+ *  whose choice is no row of a list (a map's marker is an id). */
+export function choiceRows(def: PartDef, props: Item["props"]): ListItem[] {
+  const list = def.props.find((d) => d.key === "items" && d.kind === "list") ?? def.props.find((d) => d.kind === "list");
+  return list ? reader(def, props).list(list.key) : [];
+}
 
 /** an overlay with no trigger of its own stands on the screen only while it is open; one with a
  *  trigger (a menu) stays on the screen and its popup opens from it */
@@ -126,7 +134,7 @@ function boundValue(it: Item, key: string, v: VarValue): VarValue | undefined {
   if (d.kind === "number") {
     /* a choice bound to a text variable holds the words of the row chosen */
     if (typeof v === "string" && INPUT_PROP[def.slug] === key && key === "selected") {
-      const at = reader(def, it.props).list("items").findIndex((row) => row.label === v);
+      const at = choiceRows(def, it.props).findIndex((row) => row.label === v);
       if (at >= 0) return at;
     }
     return asNumber(v) ?? undefined;
@@ -291,7 +299,7 @@ export function writeField(s: PreviewState, it: Item, value: VarValue, doc: DocS
   const type = id ? doc.vars?.find((v) => v.id === id)?.type : undefined;
   const def = partBySlug(it.component);
   /* a choice written to a text variable is the row's words, not its place in the list */
-  const words = type === "text" && key === "selected" && def && typeof value === "number" ? (reader(def, it.props).list("items")[value]?.label ?? "") : undefined;
+  const words = type === "text" && key === "selected" && def && typeof value === "number" ? (choiceRows(def, it.props)[value]?.label ?? "") : undefined;
   const next = type ? coerce(words ?? value, type) : null;
   const sameVar = !id || !type || next === null || s.vars[id] === next;
   if (s.fields[it.id] === value && sameVar) return s;

@@ -245,13 +245,16 @@ export const app: PartDef[] = [
       text("label", "Label", "Total", "合计"),
       text("amount", "Amount", "$48.00", "¥336"),
       text("note", "Note", "Free delivery", "免运费"),
-      list("icons", "Icon actions", [{ label: "Save", icon: "favorite" }], 3, true),
+      { key: "icons", label: "Icon actions", ...say("Icon actions"), kind: "list", default: [{ label: "Save", icon: "favorite" }], max: 3, icons: true, fields: [{ key: "variant", label: "State", options: ["off", "on"] }] },
       text("action", "Action", "Buy now", "立即购买"),
       text("done", "When pressed", "", ""),
+      { ...flag("placed", "Placed", false), labels: { ja: "注文済み", zh: "已下单", ko: "주문됨" } },
       WIDTH(412, 240, 1280),
     ],
     slots: (p) => [...listSlots(p.list("icons")), ...slot("action", p.s("action") || "Action", !!p.s("action"))],
-    tree: (p) => h("CheckoutBar", { label: p.s("label"), amount: p.s("amount"), note: p.s("note"), icons: withIcons(p.list("icons")), action: p.s("action"), done: p.s("done"), width: px(p) }),
+    /* whether the order was placed, and an icon's state, are the back end's to say: only a prototype flips them by itself */
+    demo: { what: "says the order is placed, and flips its icons, as soon as they are pressed", takenOverBy: ["placed"] },
+    tree: (p) => h("CheckoutBar", { label: p.s("label"), amount: p.s("amount"), note: p.s("note"), icons: p.list("icons").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}), ...(x.variant === "on" ? { variant: "on" } : {}) })), action: p.s("action"), done: p.s("done"), placed: p.b("placed") || undefined, width: px(p) }),
   },
 
   /* ---------- money and journeys ---------- */

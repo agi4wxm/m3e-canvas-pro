@@ -194,15 +194,20 @@ export function Coupon({ amount = "", condition = "", title = "", expiry = "", a
   );
 }
 
-export function CheckoutBar({ label = "", amount = "", note = "", icons = [], action = "", done = "", width = 412, className, style }: { label?: string; amount?: string; note?: string; icons?: { label: string; icon?: string }[]; action?: string; done?: string; width?: number } & Look) {
-  const [pressed, setPressed] = useState<number[]>([]);
-  const [placed, setPlaced] = useState(false);
+/* The bar under a checkout: the total and the count are what the props say (the back end's sums), the button is a slot
+   whose action creates the order. Whether the order was placed is `placed`, from the back end: only a prototype says so
+   by itself when the button is pressed, and flips an icon's state (a row's `variant` "on") by itself. */
+export function CheckoutBar({ label = "", amount = "", note = "", icons = [], action = "", done = "", placed: given = false, width = 412, demo, onValueChange, onEvent, className, style }: { label?: string; amount?: string; note?: string; icons?: { label: string; icon?: string; variant?: string }[]; action?: string; done?: string; placed?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent });
+  const [flipped, setFlipped] = useState<number[]>([]);
+  const [placedHere, setPlacedHere] = useState(false);
+  const placed = given || (host.demo && placedHere);
   return (
-    <div data-slot="checkout-bar" data-placed={placed || undefined} data-pressed={pressed.join(",")} className={cn("bg-surface-container text-on-surface flex min-h-16 items-center gap-2 px-3 py-2", className)} style={{ width, ...style }}>
+    <div data-slot="checkout-bar" data-placed={placed || undefined} data-pressed={icons.flatMap((it, i) => ((it.variant === "on") !== flipped.includes(i) ? [i] : [])).join(",")} className={cn("bg-surface-container text-on-surface flex min-h-16 items-center gap-2 px-3 py-2", className)} style={{ width, ...style }}>
       {icons.map((it, i) => {
-        const on = pressed.includes(i);
+        const on = (it.variant === "on") !== (host.demo && flipped.includes(i));
         return (
-          <Tap key={i} data-tap={`tab:${i}`} aria-pressed={on} className="text-label-small flex w-12 shrink-0 flex-col items-center gap-0.5 rounded-md py-1" onClick={() => setPressed((all) => (on ? all.filter((x) => x !== i) : [...all, i]))}>
+          <Tap key={i} data-tap={`tab:${i}`} aria-pressed={on} className="text-label-small flex w-12 shrink-0 flex-col items-center gap-0.5 rounded-md py-1" onClick={host.demo ? () => setFlipped((all) => (all.includes(i) ? all.filter((x) => x !== i) : [...all, i])) : undefined}>
             {it.icon && <Glyph name={it.icon} filled={on} className={cn("size-5", on && "text-primary")} />}
             <span className="w-full truncate">{it.label}</span>
           </Tap>
@@ -216,8 +221,8 @@ export function CheckoutBar({ label = "", amount = "", note = "", icons = [], ac
         {note && <div data-slot="checkout-bar-meta" className={`text-label-small truncate ${Soft}`}>{note}</div>}
       </div>
       {action && (
-        <Button variant={placed ? "tonal" : "filled"} size="sm" data-tap="action" className="shrink-0" onClick={() => done && setPlaced((p) => !p)}>
-          {placed ? done : action}
+        <Button variant={placed ? "tonal" : "filled"} size="sm" data-tap="action" className="shrink-0" onClick={host.demo && done ? () => setPlacedHere((p) => !p) : undefined}>
+          {placed && done ? done : action}
         </Button>
       )}
     </div>

@@ -1,4 +1,7 @@
-import { col, go, grid, panel, part, row, say, screen, txt, type Node, type Say, type ScreenSeed, type Template } from "./kit";
+import { col, go, grid, panel, part, row, say, screen, txt, type Node, type Say, type ScreenSeed, type Template, type TemplateContract } from "./kit";
+import type { Lang } from "../../lib/i18n";
+import type { Action, ApiEndpoint, ApiModel, DocVar } from "../../lib/tokens";
+import type { MockScenario } from "../../lib/mocks/types";
 import { PEOPLE, shopNav, WORDS } from "./words";
 
 /* A shop, one screen each. Each builder takes the links the shop flow gives it. */
@@ -146,13 +149,77 @@ export const cartScreen = (links: { checkout?: Link; back?: Link } = {}): Screen
     ],
   });
 
+/* ---------- paying (report 2.4) ----------
+   The back end makes the order (createOrder), the platform's payment sheet takes it (payment.pay, which only says it
+   was submitted), and the result screen loads the order and shows what its status says: paid, still processing, or
+   failed. Each of those, and a payment cancelled or failed on the sheet, has a design of its own, and each is a
+   scenario of the mocks the preview switches between. */
+
+const PLACE = say("Place order", "提交订单", "注文を確定", "주문하기");
+
+/** the variables the checkout's states read: what went wrong last (an invoke's error.type, or "order"), and whether
+ *  the order is on its way (a draft of the screen's, never the order's status) */
+const PAYMENT_VARS: DocVar[] = [
+  { id: "payIssue", name: "payIssue", type: "text", value: "" },
+  { id: "paying", name: "paying", type: "bool", value: false },
+];
+
+/** What "Place order" does: create the order, hand it to the payment sheet, open the result screen with its id. */
+export const placeOrder = (result: string): Action => ({
+  to: "none",
+  transition: "none",
+  effects: [
+    { do: "setVar", var: "payIssue", value: "" },
+    { do: "setVar", var: "paying", value: true },
+    {
+      do: "call",
+      operationId: "createOrder",
+      args: { method: "'card'" },
+      // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+      then: {
+        to: "none",
+        transition: "none",
+        effects: [
+          {
+            do: "invoke",
+            capability: "payment.pay",
+            args: { orderId: "response.id", amount: "response.amount", currency: "response.currency", method: "response.method", payload: "response.payment" },
+            // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+            then: { to: result, transition: "slide", params: { orderId: "response.id" }, effects: [{ do: "setVar", var: "paying", value: false }] },
+            catch: { to: "none", transition: "none", effects: [{ do: "setVar", var: "paying", value: false }, { do: "setVar", var: "payIssue", value: "", expr: "error.type" }] },
+          },
+        ],
+      },
+      catch: { to: "none", transition: "none", effects: [{ do: "setVar", var: "paying", value: false }, { do: "setVar", var: "payIssue", value: "order" }] },
+    },
+  ],
+});
+
+/** a notice of the checkout's, shown while what went wrong last is this */
+const issue = (when: { var: string; op: "eq"; value: string } | { expr: string }, icon: string, title: Say, words: Say): Node =>
+  row({ gap: 12, align: "start", padX: 16, padY: 12, fill: "surface-container-highest", radius: 12 }, [part("icon", { name: icon, size: 24, color: "error" }), col({ gap: 2 }, [txt(title, "label"), txt(words, "caption", { color: "muted" })], { fill: true })], { showWhen: when });
+
 export const checkoutScreen = (links: { place?: Link; back?: Link } = {}): ScreenSeed =>
   screen({
     id: "checkout",
     name: say("Checkout", "结算", "レジ", "결제"),
     top: [backBar(say("Checkout", "结算", "レジ", "결제"), links.back)],
-    bottom: [part("checkout-bar", { label: TOTAL, amount: "$68.00", note: FREE, icons: [], action: say("Place order", "提交订单", "注文を確定", "주문하기"), done: "" }, { actions: { action: links.place } })],
+    bottom: [
+      part(
+        "checkout-bar",
+        { label: TOTAL, amount: "$68.00", note: FREE, icons: [], action: PLACE, done: "" },
+        /* while the order is on its way the button says so; the total is the design's example, the back end's in the product */
+        { actions: { action: links.place }, ...(links.place ? { bind: { action: { en: "=vars.paying ? 'Submitting…' : 'Place order'", zh: "=vars.paying ? '正在提交…' : '提交订单'", ja: "=vars.paying ? '送信中…' : '注文を確定'", ko: "=vars.paying ? '제출 중…' : '주문하기'" } } } : {}) },
+      ),
+    ],
     body: [
+      ...(links.place
+        ? [
+            issue({ var: "payIssue", op: "eq", value: "cancelled" }, "do_not_disturb_on", say("Payment cancelled", "支付已取消", "支払いをキャンセルしました", "결제가 취소되었습니다"), say("Your order is kept: place it again when you are ready.", "订单已保留，准备好后可以重新支付。", "注文はそのままです。準備ができたらもう一度お支払いください。", "주문은 그대로 있습니다. 준비되면 다시 결제하세요.")),
+            issue({ var: "payIssue", op: "eq", value: "order" }, "cloud_off", say("The order was not created", "订单没有创建成功", "注文を作成できませんでした", "주문을 만들지 못했습니다"), say("Check your connection and try again.", "请检查网络后重试。", "接続を確認して、もう一度お試しください。", "연결을 확인하고 다시 시도하세요.")),
+            issue({ expr: "vars.payIssue != '' && vars.payIssue != 'cancelled' && vars.payIssue != 'order'" }, "error", say("The payment did not go through", "支付没有成功", "支払いが完了しませんでした", "결제가 완료되지 않았습니다"), say("Try again, or pick another way to pay.", "请重试，或换一种支付方式。", "もう一度お試しいただくか、別の支払い方法を選んでください。", "다시 시도하거나 다른 결제 수단을 선택하세요.")),
+          ]
+        : []),
       panel({ gap: 8 }, [txt(say("Deliver to", "配送至", "お届け先", "배송지"), "label", { color: "muted" }), deliverTo()]),
       panel({}, [
         row({ gap: 8 }, [
@@ -183,34 +250,118 @@ export const checkoutScreen = (links: { place?: Link; back?: Link } = {}): Scree
     ],
   });
 
+/** The result of a payment: the order, loaded by its id, and what its status from the back end says. Never what the
+ *  payment sheet said: that only means it was submitted. */
 export const orderSuccessScreen = (links: { more?: Link } = {}): ScreenSeed =>
   screen({
     id: "success",
-    name: say("Order placed", "下单成功", "注文完了", "주문 완료"),
+    name: say("Payment result", "支付结果", "支払い結果", "결제 결과"),
     place: "center",
+    params: [{ name: "orderId", type: "string", example: "A-1042" }],
+    data: [{ name: "order", operationId: "getOrder", params: { orderId: "params.orderId" } }],
     body: [
-      /* as tall as the icon from the start: a row that only grows once the icon is drawn takes the words below it in */
-      row({ justify: "center", hugHeight: false, height: 96 }, [part("icon", { name: "check_circle", size: 96, color: "primary", filled: true })]),
-      txt(say("Thank you for your order", "感谢你的订单", "ご注文ありがとうございます", "주문해 주셔서 감사합니다"), "headline", { align: "center" }),
-      txt(say("We will email you when it ships.", "发货后会给你发邮件。", "発送時にメールでお知らせします。", "배송이 시작되면 이메일로 알려 드립니다."), "body", { align: "center", color: "muted" }),
-      panel({}, [
-        part("description-list", {
-          data: {
-            columns: ["Name", "Value"],
-            rows: [
-              [say("Order", "订单号", "注文番号", "주문 번호"), "A-1042"],
-              [ARRIVES, FRIDAY],
-              [TOTAL, "$68.00"],
-            ],
-          },
-        }),
-      ]),
-      col({ gap: 8 }, [
-        part("button", { label: say("Track order", "查看物流", "配送を確認", "배송 조회"), icon: "local_shipping" }),
-        part("button", { label: say("Continue shopping", "继续购物", "買い物を続ける", "쇼핑 계속하기"), variant: "text" }, { action: links.more }),
-      ]),
+      col({ gap: 16 }, [
+        /* paid: the back end has heard from the payment service */
+        col({ gap: 12 }, [
+          row({ justify: "center", hugHeight: false, height: 96 }, [part("icon", { name: "check_circle", size: 96, color: "primary", filled: true })]),
+          txt(say("Payment received", "支付成功", "お支払いが完了しました", "결제가 완료되었습니다"), "headline", { align: "center" }),
+          txt(say("We will email you when it ships.", "发货后会给你发邮件。", "発送時にメールでお知らせします。", "배송이 시작되면 이메일로 알려 드립니다."), "body", { align: "center", color: "muted" }),
+          panel({}, [
+            part("description-list", {
+              data: {
+                columns: ["Name", "Value"],
+                rows: [
+                  [say("Order", "订单号", "注文番号", "주문 번호"), "A-1042"],
+                  [ARRIVES, FRIDAY],
+                  [TOTAL, "$68.00"],
+                ],
+              },
+            }),
+          ]),
+          col({ gap: 8 }, [
+            part("button", { label: say("Track order", "查看物流", "配送を確認", "배송 조회"), icon: "local_shipping" }),
+            part("button", { label: say("Continue shopping", "继续购物", "買い物を続ける", "쇼핑 계속하기"), variant: "text" }, { action: links.more }),
+          ]),
+        ], { showWhen: { expr: "data.order.value.status == 'paid'" } }),
+        /* still processing: submitted, and the back end has not heard yet */
+        col({ gap: 12 }, [
+          row({ justify: "center", hugHeight: false, height: 72 }, [part("icon", { name: "hourglass_top", size: 72, color: "primary" })]),
+          txt(say("Payment processing", "支付处理中", "お支払いを処理しています", "결제 처리 중"), "headline", { align: "center" }),
+          txt(say("This page shows the result as soon as the payment service confirms it.", "支付服务确认后，这里会显示结果。", "決済サービスの確認が取れしだい、ここに結果を表示します。", "결제 서비스가 확인하면 바로 결과가 표시됩니다."), "body", { align: "center", color: "muted" }),
+          part("button", { label: say("Check again", "刷新状态", "もう一度確認", "다시 확인"), icon: "refresh", variant: "tonal" }, { action: { to: "none", transition: "none", effects: [{ do: "refresh", source: "order" }] } }),
+        ], { showWhen: { expr: "data.order.value.status == 'pending' || data.order.value.status == 'processing'" } }),
+        /* failed or cancelled, as the back end says */
+        col({ gap: 12 }, [
+          row({ justify: "center", hugHeight: false, height: 72 }, [part("icon", { name: "error", size: 72, color: "error" })]),
+          txt(say("Payment failed", "支付失败", "お支払いに失敗しました", "결제 실패"), "headline", { align: "center" }),
+          txt(say("Nothing was taken for this order. Try again, or pick another way to pay.", "这笔订单没有扣款。请重试，或换一种支付方式。", "この注文の支払いは行われていません。もう一度お試しいただくか、別の支払い方法を選んでください。", "이 주문은 결제되지 않았습니다. 다시 시도하거나 다른 결제 수단을 선택하세요."), "body", { align: "center", color: "muted" }),
+          part("button", { label: say("Back to checkout", "返回结算", "レジに戻る", "결제로 돌아가기") }, { action: { to: "back", transition: "slide" } }),
+        ], { showWhen: { expr: "data.order.value.status == 'failed' || data.order.value.status == 'cancelled'" } }),
+        /* the order on its way, and one that could not be loaded */
+        col({ gap: 8, align: "center" }, [part("loading-indicator", {}), txt(say("Checking the payment…", "正在确认支付结果…", "支払いを確認しています…", "결제를 확인하는 중…"), "body", { color: "muted" })], { pane: 1 }),
+        col({ gap: 8, align: "center" }, [
+          txt(say("The order could not be loaded", "订单加载失败", "注文を読み込めませんでした", "주문을 불러오지 못했습니다"), "label"),
+          part("button", { label: say("Try again", "重试", "再試行", "다시 시도"), variant: "tonal" }, { action: { to: "none", transition: "none", effects: [{ do: "refresh", source: "order" }] } }),
+        ], { pane: 3 }),
+      ], { states: { source: "order" } }),
     ],
   });
+
+/* ---------- the contract the payment screens lean on ---------- */
+
+const ORDER_STATUS = ["pending", "processing", "paid", "failed", "cancelled"];
+
+const ORDER_MODEL: ApiModel = {
+  name: "Order",
+  schema: {
+    type: "object",
+    properties: {
+      id: { type: "string", readOnly: true },
+      status: { type: "string", enum: ORDER_STATUS, default: "pending", readOnly: true, description: "set by the back end from the payment service's callback; the app shows it, never decides it" },
+      amount: { type: "number", minimum: 0, readOnly: true, description: "what the back end charges for the order" },
+      currency: { type: "string", readOnly: true, examples: ["CNY", "USD"] },
+      method: { type: "string", enum: ["card", "wallet", "bank"] },
+      payment: { type: "object", readOnly: true, description: "the parameters the back end signed for the payment sheet (payment.pay's payload)" },
+    },
+    required: ["id", "status", "amount", "currency"],
+  },
+};
+
+const ORDER_REF = { $ref: "#/components/schemas/Order" };
+const ORDER_ENDPOINTS: ApiEndpoint[] = [
+  {
+    operationId: "createOrder",
+    method: "post",
+    path: "/orders",
+    summary: "Creates the order and signs what the payment sheet needs",
+    tags: ["orders"],
+    requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { method: { type: "string", enum: ["card", "wallet", "bank"] } }, required: ["method"] } } } },
+    responses: { "201": { description: "The order, pending until the payment service says otherwise", content: { "application/json": { schema: ORDER_REF } } }, "422": { description: "The cart cannot be ordered" } },
+  },
+  {
+    operationId: "getOrder",
+    method: "get",
+    path: "/orders/{orderId}",
+    summary: "The order and its status",
+    tags: ["orders"],
+    parameters: [{ name: "orderId", in: "path", required: true, schema: { type: "string" } }],
+    responses: { "200": { description: "The order", content: { "application/json": { schema: ORDER_REF } } }, "404": { description: "No such order" } },
+  },
+];
+
+/** one scenario per outcome of a payment, named in the language the screens are added in */
+const paymentScenarios = (lang: Lang): MockScenario[] => {
+  const name = (en: string, zh: string, ja: string, ko: string) => ({ en, zh, ja, ko })[lang];
+  return [
+    { id: "pay-success", name: name("Payment received", "支付成功", "支払い完了", "결제 완료"), description: name("The sheet submits, the back end says paid", "支付已提交，后端订单状态为已支付", "送信され、注文は支払い済み", "제출되고 주문은 결제 완료"), ops: { getOrder: { patch: { status: "paid" } } } },
+    { id: "pay-processing", name: name("Payment processing", "支付处理中", "支払い処理中", "결제 처리 중"), description: name("The sheet submits, the back end has not heard yet", "支付已提交，后端还没收到结果", "送信され、結果はまだ", "제출되었지만 결과는 아직"), ops: { getOrder: { patch: { status: "processing" } } } },
+    { id: "pay-cancelled", name: name("Payment cancelled", "支付已取消", "支払いキャンセル", "결제 취소"), description: name("The visitor closes the payment sheet", "访客关掉了支付界面", "支払い画面を閉じた", "결제 화면을 닫음"), capabilities: { "payment.pay": { fail: "cancelled" } } },
+    { id: "pay-failed", name: name("Payment failed", "支付失败", "支払い失敗", "결제 실패"), description: name("The back end says the payment failed", "后端订单状态为支付失败", "注文の支払いは失敗", "주문 결제 실패"), ops: { getOrder: { patch: { status: "failed" } } } },
+  ];
+};
+
+/** what the payment screens call, load and read */
+export const paymentContract = (lang: Lang): TemplateContract => ({ api: { models: [ORDER_MODEL], endpoints: ORDER_ENDPOINTS }, mocks: { scenarios: paymentScenarios(lang) }, vars: PAYMENT_VARS });
 
 const orderCard = (number: string, status: Say, title: Say, kind: Say, price: string, action: Say): Node =>
   panel({ gap: 8 }, [
@@ -273,7 +424,7 @@ export const shop: Template[] = [
   { slug: "product-detail", name: "Product detail", labels: { ja: "商品詳細", zh: "商品详情", ko: "상품 상세" }, category: "shop", frame: "phone", icon: "sell", build: () => [productDetailScreen()] },
   { slug: "cart", name: "Cart", labels: { ja: "カート", zh: "购物车", ko: "장바구니" }, category: "shop", frame: "phone", icon: "shopping_cart", build: () => [cartScreen()] },
   { slug: "checkout", name: "Checkout", labels: { ja: "レジ", zh: "结算", ko: "결제" }, category: "shop", frame: "phone", icon: "shopping_bag", build: () => [checkoutScreen()] },
-  { slug: "order-success", name: "Order success", labels: { ja: "注文完了", zh: "下单成功", ko: "주문 완료" }, category: "shop", frame: "phone", icon: "task_alt", build: () => [orderSuccessScreen()] },
+  { slug: "order-success", name: "Payment result", labels: { ja: "支払い結果", zh: "支付结果", ko: "결제 결과" }, category: "shop", frame: "phone", icon: "task_alt", build: () => [orderSuccessScreen()], contract: paymentContract },
   {
     slug: "order-list",
     name: "Orders",

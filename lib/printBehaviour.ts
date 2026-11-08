@@ -5,7 +5,7 @@ import { OVERLAY_ROOTS, partBySlug, reader, treeOf, withoutPickedImages } from "
 import type { PartDef, PropDef } from "../parts/types";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { type Row, CURRENT_TOKEN, fillCurrent, firstRows, markCurrent } from "./collections";
-import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
+import { INPUT_PROP, choiceRows, coerce, isOverlayPart } from "./interact";
 import { demoRuns, isPlaceKey } from "./partContract";
 import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn, varValues } from "./variables";
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
@@ -588,8 +588,8 @@ export class Behaviour {
     const d = def.props.find((x) => x.key === key);
     const name = this.partKeys.get(it.id);
     let info: VarInfo;
-    if (key === "selected") {
-      const rows = p.list("items");
+    if (key === "selected" && d?.kind === "number") {
+      const rows = choiceRows(def, it.props);
       info = { key: camel(name, "field", this.varKeys), type: "text", start: rows[Math.min(p.n(key), rows.length - 1)]?.label ?? "" };
     } else if (d?.kind === "bool") info = { key: camel(name, "field", this.varKeys), type: "bool", start: p.b(key) };
     else if (d?.kind === "number") info = { key: camel(name, "field", this.varKeys), type: "number", start: p.n(key) };
@@ -719,7 +719,7 @@ export class Behaviour {
     if (INPUT_PROP[def.slug] === e.prop) {
       const v = this.inputVar(it);
       if (!v) return null;
-      const rows = e.prop === "selected" ? reader(def, it.props).list("items") : [];
+      const rows = e.prop === "selected" ? choiceRows(def, it.props) : [];
       const value = e.prop === "selected" && v.type === "text" ? (rows[Number(e.value)]?.label ?? "") : coerce(e.value, v.type);
       return value === null ? null : call("setVar", json(v.key), json(value));
     }

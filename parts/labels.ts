@@ -411,6 +411,12 @@ const COMMON_LABELS: Record<string, Labels> = {
 /** seed text a fresh part carries, by the English default */
 export const COMMON_TEXT: Record<string, Labels> = {
   Button: { ja: "ボタン", zh: "按钮", ko: "버튼" },
+  /* a sign-in or payment button's own words (brand-button): the service's name goes in {name} */
+  "Sign in with {name}": { ja: "{name} でサインイン", zh: "使用{name}登录", ko: "{name}(으)로 로그인" },
+  "Pay with {name}": { ja: "{name} で支払う", zh: "{name}支付", ko: "{name}(으)로 결제" },
+  WeChat: { ja: "WeChat", zh: "微信", ko: "위챗" },
+  Alipay: { ja: "Alipay", zh: "支付宝", ko: "알리페이" },
+  Pay: { ja: "支払う", zh: "支付", ko: "결제" },
   Chip: { ja: "チップ", zh: "纸片", ko: "칩" },
   Cancel: { ja: "キャンセル", zh: "取消", ko: "취소" },
   Accept: { ja: "OK", zh: "确定", ko: "확인" },

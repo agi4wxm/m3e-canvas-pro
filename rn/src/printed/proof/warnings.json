@@ -102,6 +102,12 @@
   "detail": "drawn as the atoms it splits into (description-list)"
  },
  {
+  "kind": "binding",
+  "screen": "Checkout",
+  "part": "checkoutBar2",
+  "detail": "a bound prop of a part drawn as atoms keeps the design's value"
+ },
+ {
   "kind": "atoms",
   "screen": "Checkout",
   "part": "checkoutBar2",
@@ -115,7 +121,7 @@
  },
  {
   "kind": "atoms",
-  "screen": "Order placed",
+  "screen": "Payment result",
   "part": "descriptionList2",
   "detail": "drawn as the atoms it splits into (description-list)"
  }

@@ -1584,6 +1584,10 @@ export const PARTS: Record<string, PartInfo> = {
   "tier": "composite",
   "category": "Media",
   "defaults": {
+   "facing": "back",
+   "mode": "photo",
+   "state": "live",
+   "denied": "",
    "width": 360,
    "height": 480
   }
@@ -1594,6 +1598,19 @@ export const PARTS: Record<string, PartInfo> = {
   "category": "Media",
   "defaults": {
    "label": "Current location",
+   "center": "",
+   "zoom": 14,
+   "markers": {
+    "columns": [
+     "Id",
+     "Title",
+     "Lat",
+     "Lng"
+    ],
+    "rows": []
+   },
+   "selected": "",
+   "route": false,
    "width": 380,
    "height": 240
   }
@@ -2375,6 +2392,8 @@ export const PARTS: Record<string, PartInfo> = {
   "tier": "composite",
   "category": "Actions",
   "defaults": {
+   "provider": "other",
+   "intent": "signin",
    "label": "Continue",
    "width": 380
   }
@@ -2413,6 +2432,7 @@ export const PARTS: Record<string, PartInfo> = {
      "label": "Yearly"
     }
    ],
+   "selected": 0,
    "action": "Subscribe",
    "width": 380
   }
@@ -3010,6 +3030,7 @@ export const PARTS: Record<string, PartInfo> = {
    ],
    "action": "Buy now",
    "done": "",
+   "placed": false,
    "width": 412
   }
  },
@@ -4238,6 +4259,10 @@ export const PARTS: Record<string, PartInfo> = {
    "name": "Ada Lovelace",
    "connected": true,
    "status": "Calling…",
+   "mic": true,
+   "camera": true,
+   "speaker": true,
+   "startedAt": "",
    "image": "",
    "icon": "person",
    "height": 560,

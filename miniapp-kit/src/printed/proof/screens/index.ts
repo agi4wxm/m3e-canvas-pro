@@ -14,7 +14,7 @@ import { ProductsScreen } from "./ProductsScreen";
 import { ProductScreen } from "./ProductScreen";
 import { CartScreen } from "./CartScreen";
 import { CheckoutScreen } from "./CheckoutScreen";
-import { OrderPlacedScreen } from "./OrderPlacedScreen";
+import { PaymentResultScreen } from "./PaymentResultScreen";
 
 /** every screen, by the key a tap goes to it by */
-export const SCREENS: Record<string, ComponentType> = { menu: MenuScreen, form: FormScreen, welcome: WelcomeScreen, counter: CounterScreen, inputs: InputsScreen, dock: DockScreen, bars: BarsScreen, barsTwo: BarsTwoScreen, long: LongScreen, products: ProductsScreen, product: ProductScreen, cart: CartScreen, checkout: CheckoutScreen, orderPlaced: OrderPlacedScreen };
+export const SCREENS: Record<string, ComponentType> = { menu: MenuScreen, form: FormScreen, welcome: WelcomeScreen, counter: CounterScreen, inputs: InputsScreen, dock: DockScreen, bars: BarsScreen, barsTwo: BarsTwoScreen, long: LongScreen, products: ProductsScreen, product: ProductScreen, cart: CartScreen, checkout: CheckoutScreen, paymentResult: PaymentResultScreen };

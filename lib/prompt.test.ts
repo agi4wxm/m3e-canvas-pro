@@ -285,10 +285,12 @@ describe("buildPrompt for the camera, map and dropdown parts", () => {
 
   it.each(LANGS)("writes the camera and map boxes as width and height in %s", (lang) => {
     const prompt = screen(lang, [part("camera", "cam"), part("map", "map", { width: 200, height: 120 })]);
-    expect(prompt).toContain("width: 360, height: 480");
+    /* capability views: drawn at their size, and said to be the product's slot to draw for real */
+    expect(prompt).toContain("width={360} height={480}");
     expect(prompt).toContain(NOUN[lang][0]);
-    expect(prompt).toContain("width: 200, height: 120");
+    expect(prompt).toContain("width={200} height={120}");
     expect(prompt).toContain(NOUN[lang][1]);
+    expect(prompt).toContain("src/custom/slots");
   });
 
   it.each(LANGS)("lists a dropdown's options and names the initial value in %s", (lang) => {
