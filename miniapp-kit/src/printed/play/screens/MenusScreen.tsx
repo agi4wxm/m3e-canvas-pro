@@ -12,77 +12,28 @@ export function MenusScreen() {
   return (
     <Screen screen="menus" width={412} height={892}>
       <At x={16} y={40}>
-        <SplitButton
-          label="Edit"
-          icon="edit"
-          variant="filled"
-          size="sm"
-          menu
-          menuItems={[{ label: "Duplicate", icon: "content_copy" }, { label: "Share", icon: "share" }, { label: "Delete", icon: "delete" }]}
-          taps={{ "main": s.tap(A1, { $: $ }), "tab:1": s.tap(A2, { $: $ }) }}
-          testID="splitButton"
-        />
+        <SplitButton taps={{ "main": s.tap(A1, { $: $ }), "tab:1": s.tap(A2, { $: $ }) }} testID="splitButton" />
       </At>
       <At x={16} y={100}>
-        <BrandButton provider="google" intent="signin" label="" width={380} testID="signInOrPayButton" />
+        <BrandButton provider="google" label="" testID="signInOrPayButton" />
       </At>
       <At x={16} y={160}>
-        <Command
-          placeholder="Type a command or search..."
-          heading="Suggestions"
-          items={[{ label: "Calendar", icon: "calendar_month" }, { label: "Search emoji", icon: "mood" }, { label: "Calculator", icon: "calculate" }]}
-          width={380}
-          taps={{ "tab:2": s.tap(A2, { $: $ }) }}
-          testID="command"
-        />
+        <Command width={380} taps={{ "tab:2": s.tap(A2, { $: $ }) }} testID="command" />
       </At>
       <At x={16} y={400}>
-        <ContextMenu
-          label="Right click here"
-          items={[{ label: "Back", icon: "arrow_back" }, { label: "Forward", icon: "arrow_forward" }, { label: "Reload", icon: "refresh" }]}
-          width={256}
-          height={128}
-          taps={{ "tab:0": s.tap(A1, { $: $ }) }}
-          testID="contextMenu"
-        />
+        <ContextMenu taps={{ "tab:0": s.tap(A1, { $: $ }) }} testID="contextMenu" />
       </At>
       <At x={16} y={548}>
-        <FilterBar
-          placeholder="Search invoices"
-          filters={[{ label: "Status" }, { label: "Due date" }, { label: "Currency" }]}
-          width={380}
-          testID="filterBar"
-        />
+        <FilterBar width={380} testID="filterBar" />
       </At>
       <At x={16} y={680}>
-        <CascadingMenu
-          label="Open menu"
-          items={[{ label: "Edit", icon: "edit" }, { label: "Share", icon: "share" }]}
-          subLabel="More"
-          subItems={[{ label: "Sort" }, { label: "Filter" }]}
-          taps={{ "sub:1": s.tap(A3, { $: $ }) }}
-          testID="cascadingMenu"
-        />
+        <CascadingMenu taps={{ "sub:1": s.tap(A3, { $: $ }) }} testID="cascadingMenu" />
       </At>
       <At x={16} y={740}>
-        <ButtonGroup
-          items={[{ label: "Rewind", icon: "fast_rewind" }, { label: "Play", icon: "play_arrow" }, { label: "Forward", icon: "fast_forward" }]}
-          variant="connected"
-          orientation="horizontal"
-          buttonVariant="tonal"
-          size="sm"
-          taps={{ "tab:1": s.tap(A2, { $: $ }) }}
-          testID="buttonGroup"
-        />
+        <ButtonGroup taps={{ "tab:1": s.tap(A2, { $: $ }) }} testID="buttonGroup" />
       </At>
       <At x={340} y={820}>
-        <FabMenu
-          items={[{ label: "Mail", icon: "mail" }, { label: "Event", icon: "event" }, { label: "Task", icon: "task_alt" }]}
-          icon="add"
-          open={false}
-          taps={{ "tab:0": s.tap(A1, { $: $ }) }}
-          testID="fABMenu"
-        />
+        <FabMenu taps={{ "tab:0": s.tap(A1, { $: $ }) }} testID="fABMenu" />
       </At>
       {s.layer}
     </Screen>

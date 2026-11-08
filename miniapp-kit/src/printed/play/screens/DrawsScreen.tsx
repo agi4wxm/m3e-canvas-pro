@@ -10,35 +10,13 @@ export function DrawsScreen() {
   return (
     <Screen screen="draws" width={412} height={892}>
       <At x={16} y={40}>
-        <PrizeWheel
-          label="Spin"
-          prizes={[{ label: "First prize", icon: "trophy" }, { label: "Try again", icon: "refresh" }, { label: "Second prize", icon: "military_tech" }, { label: "No luck", icon: "sentiment_dissatisfied" }, { label: "Third prize", icon: "workspace_premium" }, { label: "Gift", icon: "redeem" }, { label: "Lucky", icon: "star" }, { label: "Coins", icon: "paid" }]}
-          result={2}
-          pending={false}
-          size={220}
-          taps={{ "action": s.tap(A1, { $: $ }) }}
-          testID="prizeWheel"
-        />
+        <PrizeWheel result={2} taps={{ "action": s.tap(A1, { $: $ }) }} testID="prizeWheel" />
       </At>
       <At x={16} y={320}>
-        <GridDraw
-          label="Draw"
-          prizes={[{ label: "First prize", icon: "trophy" }, { label: "Try again", icon: "refresh" }, { label: "Second prize", icon: "military_tech" }, { label: "No luck", icon: "sentiment_dissatisfied" }, { label: "Third prize", icon: "workspace_premium" }, { label: "Gift", icon: "redeem" }, { label: "Lucky", icon: "star" }, { label: "Coins", icon: "paid" }]}
-          result={-1}
-          pending={false}
-          size={240}
-          testID="gridDraw"
-        />
+        <GridDraw testID="gridDraw" />
       </At>
       <At x={16} y={620}>
-        <Gacha
-          label="Draw once"
-          prizes={[{ label: "First prize", icon: "trophy" }, { label: "Try again", icon: "refresh" }, { label: "Second prize", icon: "military_tech" }, { label: "No luck", icon: "sentiment_dissatisfied" }, { label: "Third prize", icon: "workspace_premium" }, { label: "Gift", icon: "redeem" }, { label: "Lucky", icon: "star" }, { label: "Coins", icon: "paid" }]}
-          result={-1}
-          pending
-          size={170}
-          testID="gacha"
-        />
+        <Gacha pending testID="gacha" />
       </At>
       {s.layer}
     </Screen>

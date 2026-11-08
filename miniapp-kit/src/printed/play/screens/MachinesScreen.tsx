@@ -10,36 +10,13 @@ export function MachinesScreen() {
   return (
     <Screen screen="machines" width={412} height={892}>
       <At x={16} y={40}>
-        <SlotMachine
-          label="Shake"
-          prizes={[{ label: "First prize", icon: "trophy" }, { label: "Try again", icon: "refresh" }, { label: "Second prize", icon: "military_tech" }, { label: "No luck", icon: "sentiment_dissatisfied" }, { label: "Third prize", icon: "workspace_premium" }, { label: "Gift", icon: "redeem" }, { label: "Lucky", icon: "star" }, { label: "Coins", icon: "paid" }]}
-          result={-1}
-          pending={false}
-          reels="0,2,1"
-          size={280}
-          testID="slotMachine"
-        />
+        <SlotMachine reels="0,2,1" testID="slotMachine" />
       </At>
       <At x={16} y={220}>
-        <MoneyTree
-          label="Shake"
-          prizes={[{ label: "First prize", icon: "trophy" }, { label: "Try again", icon: "refresh" }, { label: "Second prize", icon: "military_tech" }, { label: "No luck", icon: "sentiment_dissatisfied" }, { label: "Third prize", icon: "workspace_premium" }, { label: "Gift", icon: "redeem" }, { label: "Lucky", icon: "star" }, { label: "Coins", icon: "paid" }]}
-          result={-1}
-          pending={false}
-          size={190}
-          testID="moneyTree"
-        />
+        <MoneyTree testID="moneyTree" />
       </At>
       <At x={16} y={420}>
-        <EggSmash
-          label="Pick an egg"
-          prizes={[{ label: "First prize", icon: "trophy" }, { label: "Try again", icon: "refresh" }, { label: "Second prize", icon: "military_tech" }, { label: "No luck", icon: "sentiment_dissatisfied" }, { label: "Third prize", icon: "workspace_premium" }, { label: "Gift", icon: "redeem" }, { label: "Lucky", icon: "star" }, { label: "Coins", icon: "paid" }]}
-          result={-1}
-          pending={false}
-          size={260}
-          taps={{ "egg:1": s.tap(A1, { $: $ }) }}
-          testID="eggSmash"
-        />
+        <EggSmash taps={{ "egg:1": s.tap(A1, { $: $ }) }} testID="eggSmash" />
       </At>
       {s.layer}
     </Screen>

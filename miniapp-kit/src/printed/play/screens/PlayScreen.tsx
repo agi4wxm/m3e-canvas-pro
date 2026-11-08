@@ -11,47 +11,18 @@ export function PlayScreen() {
   return (
     <Screen screen="play" width={412} height={892}>
       <At x={16} y={40}>
-        <Joystick size={132} angle={0} autoCenter value="" ariaLabel="Move" disabled={false} testID="joystick" />
+        <Joystick ariaLabel="Move" testID="joystick" />
       </At>
       <At x={180} y={40}>
-        <SkillButton
-          icon="bolt"
-          label="Dash"
-          cooldown={5}
-          endsAt={0}
-          clockSkew={0}
-          disabled={false}
-          size={72}
-          taps={{ "action": s.tap(A1, { $: $ }) }}
-          testID="skillButton"
-        />
+        <SkillButton taps={{ "action": s.tap(A1, { $: $ }) }} testID="skillButton" />
       </At>
       <At x={16} y={200}>
-        <LevelMap
-          levels={12}
-          current={5}
-          selected={1}
-          stars="3,3,2,1"
-          perRow={4}
-          width={380}
-          taps={{ "tab:0": s.tap(A1, { $: $ }) }}
-          testID="levelMap"
-        />
+        <LevelMap selected={1} taps={{ "tab:0": s.tap(A1, { $: $ }) }} testID="levelMap" />
       </At>
       <At x={16} y={500}>
         <GameBoard
-          mode="mark"
-          rows={3}
-          columns={3}
           cells="X,,O,,X"
           status="O to play"
-          picked=""
-          marks="X,O"
-          need={3}
-          turnText={"{mark} to play"}
-          winText={"{mark} wins"}
-          drawText="A draw"
-          reset="Play again"
           width={280}
           taps={{ "cell:1": s.tap(A2, { $: $ }), "reset": s.tap(A1, { $: $ }) }}
           testID="gameBoard"

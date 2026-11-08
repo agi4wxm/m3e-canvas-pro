@@ -12,10 +12,6 @@ export function HomeScreen() {
       <At x={16} y={88}>
         <ButtonGroup
           items={[{ label: "Small" }, { label: "Medium" }, { label: "Large" }]}
-          variant="connected"
-          orientation="horizontal"
-          buttonVariant="tonal"
-          size="sm"
           taps={{ "tab:0": s.tap(A1, { $: $ }) }}
           testID="buttonGroup"
         />
