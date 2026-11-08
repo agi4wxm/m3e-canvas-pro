@@ -513,8 +513,8 @@ class ScreenPrinter {
       return el("Placeholder", [["part", str(typeof it.component === "string" ? it.component.replace(/[^\w-]+/g, "").slice(0, 60) : "")]]);
     }
     /* a capability view is its slot (src/custom/slots), handed what the design's stand-in is and drawing it until written */
-    const slot = def.capability ? this.o.slots?.names[it.id] : undefined;
-    if (slot) {
+    const slot = this.o.slots?.names[it.id];
+    if (slot && def.capability) {
       this.slots.add(slot);
       /* the stand-in is the kit's own drawing of the view where it has one (the camera's, the map's, the call's), its
          props the part's as the kit takes them */
@@ -523,9 +523,12 @@ class ScreenPrinter {
       const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it, at), ...this.extras(p, at, true, close), ["testID", str(this.names.part(it.id))]]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
       return el(slot, [...slotGiven(def, it).map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(p, at)], [drawn]);
     }
+    /* a part the product draws itself (`Item.slot`): its slot, handed what the kit's component is (the generated slots
+       module draws the kit's component inside it), or around the atoms or the placeholder it is drawn as */
+    if (slot) this.slots.add(slot);
     if (isNative(def.slug)) {
       const name = NATIVE[def.slug];
-      this.kit.add(name);
+      if (!slot) this.kit.add(name);
       const own = new Set(layout.map(([k]) => k));
       const input = this.input(def, it, at);
       const props = this.props(def, it, at, input.skip).filter(([k]) => !own.has(k));
@@ -545,8 +548,15 @@ class ScreenPrinter {
       const picks: [string, string][] = selectsByProp(def, it) ? [["onSelect", `(i: number) => s.setProp(${str(this.names.part(it.id))}, "selected", i)`]] : [];
       /* files are asked for through the capability registry (file.pick) */
       if (def.slug === "file-upload") picks.push(["pick", "s.pickFiles"]);
-      return el(name, [...props, ...input.props, ...layout, ...this.extras(p, at, true, close), ...opens, ...picks, ["testID", str(this.names.part(it.id))]], kids);
+      return el(slot ?? name, [...props, ...input.props, ...layout, ...this.extras(p, at, true, close), ...opens, ...picks, ["testID", str(this.names.part(it.id))]], kids);
     }
+    const drawn = this.drawn(p, at, kids, layout);
+    return slot ? el(slot, [["width", expr(size.w)], ["height", expr(size.h)]], [drawn]) : drawn;
+  }
+
+  /** a part the kit has no component for: the atoms it splits into, or a placeholder naming it */
+  drawn(p: PartNode, at: At, kids: J[], layout: [string, string][]): J {
+    const { item: it, def, size } = p as Required<PartNode>;
     if (def.atoms && !kids.length) {
       this.warn("atoms", `drawn as the atoms it splits into (${def.slug})`, it.id);
       const atoms = atomsOf(this.doc, def, it);

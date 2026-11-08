@@ -737,6 +737,10 @@ export type Item = {
   /** an input inside a form (`Group.form`): the property of the request body it fills, dotted for a nested one
    *  ("email", "address.city") */
   field?: string;
+  /** The exported product draws this part with code of its own: a slot written once in each app
+   *  (`src/custom/slots/<Name>.tsx`, kept on every export), handed what the part is and drawing the design's part until
+   *  it is changed (docs/平台能力.md 插槽). `true` names the slot after the part; a name (`"BuyButton"`) keeps it. */
+  slot?: true | string;
   /** Runtime only, never saved: the fields of the row this copy was drawn for (lib/collections.ts).
    *  A tap on it runs with them as `row.field`. */
   row?: Record<string, string>;

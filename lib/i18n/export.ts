@@ -77,6 +77,8 @@ export const EXPORT_UI = {
   exportDiff_interface: { ja: "契約にない API", en: "operations not in the contract", zh: "契约里没有的接口" },
   exportDiff_capability: { ja: "未接続のプラットフォーム機能", en: "platform capabilities to connect", zh: "待接入的平台能力" },
   exportDiff_input: { ja: "外に出ない入力", en: "inputs not handed out", zh: "传不出去的输入" },
+  exportDiff_custom: { ja: "プロダクト自身のスロットで描く部品", en: "parts drawn by the product's own slots", zh: "由产品自己的插槽画的组件" },
+  partSlot: { ja: "書き出したアプリで自分のコードで描く（スロット）", en: "Draw with the product's own code (slot)", zh: "在导出的应用里用自己的代码画（插槽）" },
 } as const satisfies Record<string, Str>;
 
 export const EXPORT_KO: Record<keyof typeof EXPORT_UI, string> = {
@@ -126,4 +128,6 @@ export const EXPORT_KO: Record<keyof typeof EXPORT_UI, string> = {
   exportDiff_interface: "계약에 없는 API",
   exportDiff_capability: "연결할 플랫폼 기능",
   exportDiff_input: "밖으로 나가지 않는 입력",
+  exportDiff_custom: "제품 자체 슬롯으로 그리는 부품",
+  partSlot: "내보낸 앱에서 자체 코드로 그리기(슬롯)",
 };

@@ -11,6 +11,8 @@
  *   camera, a call) drawn by its stand-in until the product's slot draws the real one, an invoke whose adapter is the
  *   product's own to write (it answers `not-implemented` until then), one the catalog and the product do not declare,
  *   and a sign-in or payment button whose tap invokes nothing.
+ * - `custom`: a part the design marks as the product's own (`Item.slot`): every app draws it with a slot written once
+ *   (`src/custom/slots/<Name>.tsx`), the design's drawing until it is changed, kept on every export.
  *
  * The printers report what they draw differently themselves; this is what holds for the design whatever the printer. */
 
@@ -22,6 +24,7 @@ import { expandDoc } from "../expand";
 import { untakenDemos } from "../partContract";
 import { groupsInFrame, type ActionBody, type Doc, type Effect, type Item } from "../tokens";
 import type { DesignDifference } from "./types";
+import { slotNames, slotsOf } from "./appCapabilities";
 
 /** the generic capabilities each app has a default adapter for (lib/export/appCapabilities.ts) */
 const DEFAULT_ADAPTERS: Record<DesignDifference["app"], Set<string>> = {
@@ -51,6 +54,7 @@ export function boundaryDifferences(given: Doc, app: DesignDifference["app"], wi
   const doc = expandDoc(given, widths);
   const out: DesignDifference[] = [];
   const add = (kind: string, screen: string, it: Item | undefined, detail: string) => out.push({ app, kind, screen, ...(it ? { part: nameOf(it) } : {}), detail });
+  const slots = slotNames(slotsOf(given, widths));
   for (const f of doc.frames) {
     const groups = groupsInFrame(doc.groups, f, doc.frames, widths);
     const items = groups.flatMap((g) => g.items);
@@ -69,6 +73,7 @@ export function boundaryDifferences(given: Doc, app: DesignDifference["app"], wi
       }
       const view = partBySlug(it.component)?.capability;
       if (view) add("capability", f.name, it, `a capability view (${view}): the app draws the design's stand-in until its slot (src/custom/slots) draws the real one`);
+      else if (it.slot && slots[it.id]) add("custom", f.name, it, `the product's own: drawn by its slot src/custom/slots/${slots[it.id]}.tsx (written once, kept on every export), the design's part until it is changed`);
       const invoked = new Set(invokesOfItem(it).map((e) => e.capability));
       for (const name of invoked) {
         const def = capabilityOf(doc.capabilities, name);

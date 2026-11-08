@@ -1,7 +1,8 @@
 import { proofDoc } from "../../exportProject.fixture";
 import { withIds, type Doc } from "../../tokens";
 import { str } from "../../../parts/print";
-import { dataDoc, inputsDoc, kitsDoc, mediaDoc, playDoc, splitsDoc } from "../rn/fixture";
+import { dataDoc, inputsDoc, kitsDoc, mediaDoc, playDoc, slotsDoc, splitsDoc, testBedSlots } from "../rn/fixture";
+import { slotNames, slotsOf } from "../appCapabilities";
 import { layoutsDoc } from "../rn/layoutsFixture";
 import { callsModule, iconsModule, pageConfig, pageModule, printMiniApp, screensIndex, specModule, themeModule } from "./app";
 
@@ -42,7 +43,9 @@ export function Root({ children }: { children?: ReactNode }) {
 /** a printed document's files, under miniapp-kit/src/printed/<name> */
 async function printed(name: string, doc: Doc, widths: Record<string, number>): Promise<{ files: Record<string, string>; pages: string[] }> {
   const at = `miniapp-kit/src/printed/${name}`;
-  const app = await printMiniApp(doc, widths, { kitImport: "../../../kit", callsImport: "../calls", scope: `m3e-printed-${name}`, pagePrefix: `printed/${name}/`, tabBar: false });
+  /* the parts the design marks as the product's own: a capability view's slot types come from a package the test bed has not */
+  const slots = slotsOf(doc).filter((s) => !s.view);
+  const app = await printMiniApp(doc, widths, { kitImport: "../../../kit", callsImport: "../calls", scope: `m3e-printed-${name}`, pagePrefix: `printed/${name}/`, tabBar: false, ...(slots.length ? { slots: { from: "../slots", names: slotNames(slots) } } : {}) });
   const files: Record<string, string> = {
     [`${at}/theme.ts`]: themeModule(app.theme, "../../kit"),
     [`${at}/theme.css`]: app.css,
@@ -53,6 +56,7 @@ async function printed(name: string, doc: Doc, widths: Record<string, number>): 
     ...Object.fromEntries(app.printed.screens.map((s) => [`${at}/screens/${s.component}.tsx`, s.source])),
     [`${at}/screens/index.ts`]: screensIndex(app.printed),
     [`${at}/warnings.json`]: `${JSON.stringify(app.printed.warnings, null, 1)}\n`,
+    ...testBedSlots(at, doc, "miniapp"),
   };
   for (const s of app.printed.screens) {
     files[`${at}/pages/${s.key}/index.tsx`] = pageModule(s.component, { rootFrom: "../../root", screenFrom: `../../screens/${s.component}` });
@@ -85,6 +89,9 @@ export async function printedFixture(): Promise<Record<string, string>> {
   /* D1: the media parts, the capability views' stand-ins, what talks and keeps time */
   const media = withIds(next, mediaDoc);
   const h = await printed("media", media.doc, media.widths);
+  /* the parts the product draws itself (report 9.3) */
+  const slots = withIds(next, slotsDoc);
+  const i = await printed("slots", slots.doc, slots.widths);
   return {
     ...a.files,
     ...b.files,
@@ -94,6 +101,7 @@ export async function printedFixture(): Promise<Record<string, string>> {
     ...f.files,
     ...g.files,
     ...h.files,
-    "miniapp-kit/src/printed/pages.ts": `${HEAD}\n\n/** the pages of the printed documents, for the app's config */\nexport const PRINTED_PAGES: string[] = ${JSON.stringify([...a.pages, ...b.pages, ...c.pages, ...d.pages, ...e.pages, ...f.pages, ...g.pages, ...h.pages], null, 2)};\n`,
+    ...i.files,
+    "miniapp-kit/src/printed/pages.ts": `${HEAD}\n\n/** the pages of the printed documents, for the app's config */\nexport const PRINTED_PAGES: string[] = ${JSON.stringify([...a.pages, ...b.pages, ...c.pages, ...d.pages, ...e.pages, ...f.pages, ...g.pages, ...h.pages, ...i.pages], null, 2)};\n`,
   };
 }

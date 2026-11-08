@@ -12,13 +12,17 @@ import { groupsInFrame, type Doc } from "../tokens";
 import { GENERATED, str } from "./code";
 import { typeBase } from "./targets/capabilities";
 import { generated, seeded, type ProductContext, type ProductFiles } from "./types";
+import { NATIVE as RN_NATIVE } from "../../rn/src/kit/coverage";
+import { NATIVE as MINI_NATIVE } from "../../miniapp-kit/src/kit/coverage";
 
 export type AppPlatform = "web" | "mobile" | "miniapp";
 
 /* ---------- slots ---------- */
 
-/** a capability view the design draws, and the slot that draws it in an app */
-export type SlotSpec = { item: string; name: string; view: string; screen: string };
+/** A slot the product draws a part with: a capability view's (`view`: the capability, `map`), drawn by its stand-in
+ *  until written, or a part the design marks as the product's own (`Item.slot`; `view` is ""), drawn as the design has
+ *  it until written. `slug` is the part's. */
+export type SlotSpec = { item: string; name: string; view: string; screen: string; slug: string };
 
 /** words as a component's name: letters and digits, each word capitalized; "" when nothing of it is ASCII */
 const pascal = (words: string) =>
@@ -32,14 +36,19 @@ const pascal = (words: string) =>
     .replace(/^\d+/, "")
     .slice(0, 40);
 
-/** Names no slot takes: what a screen's file already names, the kits' stand-ins a slot draws until it is written among
- *  them, and the web's own widgets a web screen draws its stand-in with (a map's default slot, `MapView`, is the
- *  web's map widget: it takes `MapView2`). A name that clashes with none of them stays as it was. */
-const TAKEN = new Set(["Screen", "View", "Text", "Image", "Placeholder", "Slot", "Fragment", "React", "MapStandIn", "CameraStandIn", "CallStandIn", ...Object.keys(WIDGET_SOURCES)]);
+/** what a screen's file names from its kits besides their parts' components */
+const KIT_NAMES = ["At", "Pin", "Cell", "Repeat", "DockPane", "Layer", "Box", "TabBar", "Screen", "Placeholder"];
 
-/** Every capability view of the document, screen by screen, each with a slot's name of its own: the part's name (its
- *  group's, else its label), else the view's (MapView, CameraView); the same name for the same design on every
- *  export, so a slot written for it stays its own. */
+/** Names no slot takes: what a screen's file already names, the kits' components (a slot's screen draws them, and the
+ *  part a slot draws is one) and the stand-ins a slot draws until it is written among them, and the web's own widgets
+ *  a web screen draws its stand-in with (a map's default slot, `MapView`, is the web's map widget: it takes
+ *  `MapView2`). A name that clashes with none of them stays as it was. */
+const TAKEN = new Set(["Screen", "View", "Text", "Image", "Placeholder", "Slot", "Fragment", "React", "MapStandIn", "CameraStandIn", "CallStandIn", ...Object.keys(WIDGET_SOURCES), ...KIT_NAMES, ...Object.values(RN_NATIVE), ...Object.values(MINI_NATIVE)]);
+
+/** Every slot of the document, screen by screen, each with a name of its own: a capability view's is the part's name
+ *  (its group's, else its label), else the view's (MapView, CameraView); a part's the one the design gives it
+ *  (`slot: "BuyButton"`), else its group's, else its kind's (`ButtonSlot`). The same name for the same design on every
+ *  export, so a slot written for it stays its own; a name given in the design stays the same whatever else changes. */
 export function slotsOf(doc: Doc, widths: Record<string, number> = {}): SlotSpec[] {
   const out: SlotSpec[] = [];
   const names = new Set<string>(TAKEN);
@@ -47,14 +56,15 @@ export function slotsOf(doc: Doc, widths: Record<string, number> = {}): SlotSpec
   for (const f of doc.frames)
     for (const g of groupsInFrame(doc.groups, f, doc.frames, widths))
       for (const it of g.items) {
-        const view = partBySlug(it.component)?.capability;
-        if (!view || seen.has(it.id)) continue;
+        const def = partBySlug(it.component);
+        const view = def?.capability;
+        if (!def || (!view && !it.slot) || seen.has(it.id)) continue;
         seen.add(it.id);
-        const base = pascal(g.name ?? "") || pascal(it.label ?? "") || `${typeBase(view)}View`;
+        const base = view ? pascal(g.name ?? "") || pascal(it.label ?? "") || `${typeBase(view)}View` : (typeof it.slot === "string" && pascal(it.slot)) || (g.items.length === 1 && pascal(g.name ?? "")) || `${pascal(def.slug)}Slot`;
         let name = base;
         for (let n = 2; names.has(name); n++) name = `${base}${n}`;
         names.add(name);
-        out.push({ item: it.id, name, view, screen: f.name });
+        out.push({ item: it.id, name, view: view ?? "", screen: f.name, slug: def.slug });
       }
   return out;
 }
@@ -71,14 +81,18 @@ const importLine = (names: string[], from: string, type = false) => {
   return one.length <= 100 || names.length < 2 ? one : `import ${kind}{\n${names.map((n) => `  ${n},`).join("\n")}\n} from ${str(from)};`;
 };
 
-/** a slot written once: what it is handed and how it sends the view's events, the design's stand-in until then */
-const SLOT = (scope: string, s: SlotSpec, platform: AppPlatform) => {
+/** a screen's name as a comment may hold it: letters, digits, spaces */
+const screenWords = (s: SlotSpec) => s.screen.replace(/[^\p{L}\p{N} _-]/gu, "");
+
+/** a capability view's slot written once: what it is handed and how it sends the view's events, the design's stand-in
+ *  until then */
+const VIEW_SLOT = (scope: string, s: SlotSpec, platform: AppPlatform) => {
   const t = typeBase(s.view);
   const where = platform === "web" ? "a web map library, the browser's camera (getUserMedia), a WebRTC call" : platform === "mobile" ? "react-native-maps, expo-camera, a WebRTC or vendor call SDK" : "Taro's <Map>, <Camera>, <LivePusher>/<LivePlayer> or a vendor plugin";
   return `import type { ReactNode } from "react";
 ${importLine([`${t}Events`, `${t}Props`, "ViewSlotProps"], `${scope}/capabilities`, true)}
 
-/* The ${s.view} view the design places on the screen "${s.screen.replace(/[^\p{L}\p{N} _-]/gu, "")}" (written once by the export, never
+/* The ${s.view} view the design places on the screen "${screenWords(s)}" (written once by the export, never
    overwritten: it is the product's own). Draw the real one here with the platform's own component (${where}), from the
    props the design hands it, and send what the visitor does with onEvent: the design's actions on the part's events
    run on them. M3E embeds no SDK, key or permission declaration: add the package, its keys and the permissions this
@@ -91,15 +105,79 @@ export default function ${s.name}({ children }: Props) {
 `;
 };
 
-/** the slots' files: each written once, and the module the screens import them from */
-export function slotFiles(scope: string, slots: SlotSpec[], platform: AppPlatform): ProductFiles {
+/** where a slot's files reach the kit and each other: from the generated module, and from a slot written once */
+export type SlotPaths = { kit: string; custom: string; kitFromCustom: string };
+const PRODUCT_PATHS: SlotPaths = { kit: "../kit", custom: "../custom/slots", kitFromCustom: "../../kit" };
+
+/** the kit's component that draws a part on an app, when the kit has one of its own (the web draws parts as trees) */
+const kitComponent = (s: SlotSpec, platform: AppPlatform): string | undefined => (platform === "mobile" ? (RN_NATIVE as Record<string, string>)[s.slug] : platform === "miniapp" ? (MINI_NATIVE as Record<string, string>)[s.slug] : undefined);
+
+/** A part's slot written once. On a phone and in a mini-program a part the kit has a component for is handed what
+ *  that component is handed (its props as the design sets them, its taps, its events and what its input holds wired
+ *  to the design's actions and data, typed as the component's), and the kit's drawing of it as children; a part drawn
+ *  otherwise (as its atoms) and a web part are handed their size or their props, and the design's drawing as children.
+ *  Either way it draws its children until it is changed: the exported app looks as the design does. */
+const PART_SLOT = (s: SlotSpec, platform: AppPlatform, paths: SlotPaths) => {
+  const kit = kitComponent(s, platform);
+  const handed = kit
+    ? [`It is handed what the kit's ${kit} is handed: its props as the design sets them, its taps, events and input`, "wired to the design's actions and data. Its children are the kit's drawing of it, which is what it draws until", "you change it."]
+    : platform === "web"
+      ? ["It is handed the props of the design's drawing of it. Its children are that drawing, which is what it draws", "until you change it."]
+      : ["It is handed its size. Its children are the design's drawing of it (the kit draws it as its parts), which is", "what it draws until you change it."];
+  const head = kit ? `import type { ComponentProps, ReactNode } from "react";\nimport type { ${kit} } from ${str(paths.kitFromCustom)};` : 'import type { ReactNode } from "react";';
+  const props = kit ? `ComponentProps<typeof ${kit}> & { children?: ReactNode }` : platform === "web" ? "Record<string, unknown> & { children?: ReactNode }" : "{ width: number; height: number; children?: ReactNode }";
+  return `${head}
+
+/* The part "${s.slug}" the design places on the screen "${screenWords(s)}", marked as the product's own: written
+   once by the export, never overwritten. Draw it your own way here.
+
+   ${handed.join("\n   ")} */
+type Props = ${props};
+
+export default function ${s.name}({ children }: Props) {
+  return <>{children}</>;
+}
+`;
+};
+
+/** The slots' files: each written once, and the module the screens import them from. A part drawn by its kit's
+ *  component is drawn by its slot with the kit's drawing as children, both handed the same props (the screen prints
+ *  them once): the module is a `.tsx` then. */
+export function slotFiles(scope: string, slots: SlotSpec[], platform: AppPlatform, paths: SlotPaths = PRODUCT_PATHS): ProductFiles {
   if (!slots.length) return {};
   const files: ProductFiles = {};
-  for (const s of slots) files[`src/custom/slots/${s.name}.tsx`] = seeded(SLOT(scope, s, platform));
-  files["src/generated/slots.ts"] = generated(`${GENERATED}
+  for (const s of slots) files[`src/custom/slots/${s.name}.tsx`] = seeded(s.view ? VIEW_SLOT(scope, s, platform) : PART_SLOT(s, platform, paths));
+  const wrapped = slots.filter((s) => !s.view && kitComponent(s, platform));
+  const passed = slots.filter((s) => !wrapped.includes(s));
+  if (!wrapped.length) {
+    files["src/generated/slots.ts"] = generated(`${GENERATED}
 /* The capability views' slots (src/custom/slots, the product's own): the screens draw each with the design's stand-in. */
-${slots.map((s) => `export { default as ${s.name} } from "../custom/slots/${s.name}"`).join("\n")}
+${passed.map((s) => `export { default as ${s.name} } from "${paths.custom}/${s.name}"`).join("\n")}
 `);
+    return files;
+  }
+  const kits = [...new Set(wrapped.map((s) => kitComponent(s, platform)!))].sort();
+  files["src/generated/slots.tsx"] = generated(`${GENERATED}
+/* The slots (src/custom/slots, the product's own): a capability view's the screens draw with the design's stand-in, a
+   part's with the kit's drawing of it, both handed the props the screen gives the part. */
+import type { ComponentProps } from "react";
+import { ${kits.join(", ")} } from ${str(paths.kit)};
+${wrapped.map((s) => `import ${s.name}Slot from ${str(`${paths.custom}/${s.name}`)};`).join("\n")}
+${passed.map((s) => `export { default as ${s.name} } from ${str(`${paths.custom}/${s.name}`)};`).join("\n")}${passed.length ? "\n" : ""}
+${wrapped
+  .map((s) => {
+    const kit = kitComponent(s, platform)!;
+    return `/** the ${s.slug} the product draws itself: its slot, handed the kit's drawing of it */
+export function ${s.name}(props: ComponentProps<typeof ${kit}>) {
+  return (
+    <${s.name}Slot {...props}>
+      <${kit} {...props} />
+    </${s.name}Slot>
+  );
+}
+`;
+  })
+  .join("\n")}`);
   return files;
 }
 

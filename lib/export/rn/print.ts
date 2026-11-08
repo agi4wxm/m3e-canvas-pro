@@ -640,8 +640,8 @@ class ScreenPrinter {
       return el("Placeholder", [["part", str(typeof it.component === "string" ? it.component.replace(/[^\w-]+/g, "").slice(0, 60) : "")]]);
     }
     /* a capability view is its slot (src/custom/slots), handed what the design's stand-in is and drawing it until written */
-    const slot = def.capability ? this.o.slots?.names[it.id] : undefined;
-    if (slot) {
+    const slot = this.o.slots?.names[it.id];
+    if (slot && def.capability) {
       this.slots.add(slot);
       /* the stand-in is the kit's own drawing of the view where it has one (the camera's, the map's, the call's), its
          props the part's as the kit takes them */
@@ -650,9 +650,12 @@ class ScreenPrinter {
       const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it), ...this.extras(p)]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
       return el(slot, [...slotGiven(def, it).map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(p)], [drawn]);
     }
+    /* a part the product draws itself (`Item.slot`): its slot, handed what the kit's component is (the generated slots
+       module draws the kit's component inside it), or around the atoms or the placeholder it is drawn as */
+    if (slot) this.slots.add(slot);
     if (isNative(def.slug)) {
       const name = NATIVE[def.slug];
-      this.kit.add(name);
+      if (!slot) this.kit.add(name);
       /* what the layout says of a layout's own size stands over the part's props of the same name */
       const own = new Set(layout.map(([k]) => k));
       const props = this.props(def, it).filter(([k]) => !own.has(k));
@@ -674,8 +677,15 @@ class ScreenPrinter {
       const submitting: [string, string][] = submits && this.ctx.form ? formStateProps(def, { submitting: `${this.ctx.form.v}.submitting` }).map(([k, v]) => [kitPropName(def.slug, k), v === true ? "true" : v]) : [];
       const held = new Set(submitting.map(([k]) => k));
       if (submits && this.ctx.form && !replaced.has("testID")) submitting.push(["testID", str(`submit:${this.ctx.form.id}`)]);
-      return el(name, [...props.filter(([k]) => !replaced.has(k) && !held.has(k)), ...layout, ...extras, ...wired, ...submitting], kids);
+      return el(slot ?? name, [...props.filter(([k]) => !replaced.has(k) && !held.has(k)), ...layout, ...extras, ...wired, ...submitting], kids);
     }
+    const drawn = this.drawn(p, kids, layout);
+    return slot ? el(slot, [["width", expr(size.w)], ["height", expr(size.h)]], [drawn]) : drawn;
+  }
+
+  /** a part the kit has no component for: the atoms it splits into, or a placeholder naming it */
+  drawn(p: PartNode, kids: J[], layout: [string, string][]): J {
+    const { item: it, def, size } = p as Required<PartNode>;
     if (it.bind && Object.keys(it.bind).length) this.warn("binding", "a bound prop of a part drawn as atoms keeps the design's value", it.id);
     if (def.atoms && !kids.length) {
       this.warn("atoms", `drawn as the atoms it splits into (${def.slug})`, it.id);
