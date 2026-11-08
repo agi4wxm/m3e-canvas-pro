@@ -120,7 +120,12 @@ function AskCard({ ask, p, lang, onApprove, onDeny, onAnswer }: { ask: BridgeAsk
       ) : (
         <>
           <div style={{ fontSize: 13, lineHeight: 1.5, color: p.onSurfaceVariant }}>{mcpText("confirmBody", lang, { name: ask.name })}</div>
-          {ask.summary && <code style={{ fontSize: 12, padding: "8px 10px", borderRadius: 10, background: p.surfaceContainer, color: p.onSurface, overflowWrap: "anywhere" }}>{ask.summary}</code>}
+          {ask.changed && (
+            <div role="alert" data-mcp-confirm-changed style={{ fontSize: 12, lineHeight: 1.4, color: p.error }}>
+              {mcpText("confirmChanged", lang)}
+            </div>
+          )}
+          {ask.summary &&<code style={{ fontSize: 12, padding: "8px 10px", borderRadius: 10, background: p.surfaceContainer, color: p.onSurface, overflowWrap: "anywhere" }}>{ask.summary}</code>}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ flex: 1, fontSize: 12, color: p.onSurfaceVariant }}>{mcpText("confirmLeft", lang, { n: left })}</span>
             <Btn p={p} label={mcpText("decline", lang)} onClick={() => onAnswer(ask.id, false)} />

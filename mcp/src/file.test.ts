@@ -4,13 +4,29 @@
 
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { attachFiles, bytesToBase64, digest, parseProject, serializeProject } from "../../lib/core/projectFile";
 import { setGlobalLang } from "../../lib/i18n";
 import { openProject, projectFile } from "../../lib/project";
 import { connect, errorOf, scratchDir, textOf, writeProject } from "./testkit";
 
+/* the review of what a call takes away, broken on purpose */
+const review = vi.hoisted(() => ({ fail: false }));
+vi.mock("../../lib/tools/removals", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../lib/tools/removals")>();
+  return {
+    ...real,
+    wouldTakeAway: async (...a: Parameters<typeof real.wouldTakeAway>) => {
+      if (review.fail) throw new Error("the reviewer broke");
+      return real.wouldTakeAway(...a);
+    },
+  };
+});
+
 beforeAll(() => setGlobalLang("en"));
+afterEach(() => {
+  review.fail = false;
+});
 
 const onDisk = (path: string) => openProject(JSON.parse(readFileSync(path, "utf8")))!;
 
@@ -385,6 +401,21 @@ describe("the MCP server on a project file", () => {
     await t.call("add_collection", { id: "fruit", name: "Fruit", fields: ["name"], rows: [["Apple"]] });
     expect((await t.call("update_collection", { id: "fruit", rows: [] })).isError).toBeFalsy();
     expect(asked).toEqual([expect.stringMatching(/update_collection.*1 of the 1 rows of "Fruit"/)]);
+  });
+
+  it("refuses a call whose takes cannot be checked, and writes nothing", async () => {
+    const asked: string[] = [];
+    const s = await open({}, (m) => {
+      asked.push(m);
+      return true;
+    });
+    expect((await s.call("add_collection", { id: "fruit", name: "Fruit", fields: ["name"], rows: [["Apple"]] })).isError).toBeFalsy();
+    review.fail = true;
+    const wipe = errorOf(await s.call("update_collection", { id: "fruit", rows: [] }));
+    expect(wipe).toMatchObject({ code: "refused" });
+    expect(wipe?.message).toMatch(/could not be checked \(the reviewer broke\)/);
+    expect(asked).toEqual([]);
+    expect(onDisk(s.path).collections?.[0].rows).toHaveLength(1);
   });
 
   it("asks before a generative call that would replace a style or an icon, before it reaches the provider", async () => {

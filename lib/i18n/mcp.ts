@@ -36,6 +36,7 @@ type Words = {
   noActivity: string;
   confirmTitle: string;
   confirmBody: string;
+  confirmChanged: string;
   confirmLeft: string;
   allow: string;
   decline: string;
@@ -86,6 +87,7 @@ export const MCP_TEXT: Record<Lang, Words> = {
     noActivity: "No calls yet.",
     confirmTitle: "Allow {client} to do this?",
     confirmBody: "{name} takes something off the canvas. You can undo it afterwards.",
+    confirmChanged: "The canvas changed while you were asked, and so did what this takes away. Check it again.",
     confirmLeft: "Declined in {n} s",
     allow: "Allow",
     decline: "Decline",
@@ -134,6 +136,7 @@ export const MCP_TEXT: Record<Lang, Words> = {
     noActivity: "还没有调用。",
     confirmTitle: "允许 {client} 这样做吗？",
     confirmBody: "{name} 会从画布上删掉内容。之后可以撤销。",
+    confirmChanged: "询问期间画布有了变化，这次调用要删掉的内容也变了。请再确认一次。",
     confirmLeft: "{n} 秒后自动拒绝",
     allow: "允许",
     decline: "拒绝",
@@ -182,6 +185,7 @@ export const MCP_TEXT: Record<Lang, Words> = {
     noActivity: "まだ呼び出しはありません。",
     confirmTitle: "{client} にこの操作を許可しますか？",
     confirmBody: "{name} はキャンバスから内容を取り除きます。あとで取り消せます。",
+    confirmChanged: "確認を待つ間にキャンバスが変わり、取り除かれる内容も変わりました。もう一度確認してください。",
     confirmLeft: "{n} 秒後に拒否",
     allow: "許可",
     decline: "拒否",
@@ -230,6 +234,7 @@ export const MCP_TEXT: Record<Lang, Words> = {
     noActivity: "아직 호출이 없습니다.",
     confirmTitle: "{client}에게 이 작업을 허용할까요?",
     confirmBody: "{name}은(는) 캔버스에서 내용을 지웁니다. 나중에 실행 취소할 수 있습니다.",
+    confirmChanged: "확인을 기다리는 동안 캔버스가 바뀌어 지워질 내용도 달라졌습니다. 다시 확인하세요.",
     confirmLeft: "{n}초 후 거부",
     allow: "허용",
     decline: "거부",

@@ -103,11 +103,21 @@ export class FileBackend implements Backend {
       if (writes && this.o.readOnly) return failure("refused", "This session is read-only.", "Read and screenshot only; ask the author to start the server without --read-only to edit.");
       if (writes && notice) return { ...failure("refused", `Not done: ${notice}`, "Read the outline again, then make the change on the document as it is now."), notice };
       /* a call that takes work away under a name that does not say so (rows rewritten, modes left out, a style
-         replaced) is asked about as a destructive one is */
-      const takes = writes && !ctx.destructive && !this.o.allowDestructive ? await wouldTakeAway(this.store, name, args, { registry: this.o.registry }).catch(() => []) : [];
+         replaced) is asked about as a destructive one is; one whose takes cannot be found out is not done. Nothing but
+         this queue changes the store, so what is asked about is what runs (a file saved meanwhile is a conflict). */
+      let takes: string[] = [];
+      if (writes && !ctx.destructive && !this.o.allowDestructive) {
+        try {
+          takes = await wouldTakeAway(this.store, name, args, { registry: this.o.registry });
+        } catch (e) {
+          return failure("refused", `Not done: what ${name} would take away could not be checked (${e instanceof Error ? e.message : String(e)}).`, "Try again; if it fails again, make the change in smaller steps.");
+        }
+      }
+      if (ctx.signal?.aborted) return failure("aborted", "Stopped by the client before it ran.");
       if ((ctx.destructive || takes.length) && !this.o.allowDestructive) {
         const what = takes.length ? `It takes away ${takes.join("; ")} in ${this.o.path}.` : `It takes away something in ${this.o.path}.`;
         const asked = ctx.confirm ? await ctx.confirm(`Allow ${name}? ${what}`) : null;
+        if (ctx.signal?.aborted) return failure("aborted", "Stopped by the client before it ran.");
         if (asked === null) return failure("refused", `${name} takes away something the author made${takes.length ? ` (${takes.join("; ")})` : ""}, and there is no editor here to confirm it in.`, "Ask the author to allow it (start the server with --allow-destructive), or make the change without removing anything.");
         if (!asked) return failure("refused", `The author declined ${name}.`, "Leave it as it is, or ask the author what to do instead.");
       }
