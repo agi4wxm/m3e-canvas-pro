@@ -423,6 +423,8 @@ export const additions: PartDef[] = [
       { key: "subItems", label: "Submenu items", labels: { ja: "サブメニュー項目", zh: "子菜单项", ko: "하위 메뉴 항목" }, kind: "list", default: [{ label: "Sort" }, { label: "Filter" }], min: 1, max: 8 },
     ],
     open: { box: (p) => ({ w: 460, h: 40 + 8 + (p.list("items").length + 1) * 44 + 28 }) },
+    /* each item, and each item of its submenu (`sub:N`), does something of its own */
+    slots: (p) => [...listSlots(p.list("items")), ...p.list("subItems").map((it, i) => ({ key: `sub:${i}`, label: it.label }))],
     tree: (p) =>
       h(
         "DropdownMenu",
@@ -431,8 +433,8 @@ export const additions: PartDef[] = [
         h(
           "DropdownMenuContent",
           { className: "w-56" },
-          ...p.list("items").map((it) => h("DropdownMenuItem", null, it.icon ? ic(it.icon) : null, it.label)),
-          h("DropdownMenuSub", null, h("DropdownMenuSubTrigger", null, p.s("subLabel")), h("DropdownMenuSubContent", null, ...p.list("subItems").map((it) => h("DropdownMenuItem", null, it.label)))),
+          ...p.list("items").map((it, i) => h("DropdownMenuItem", { "data-tap": `tab:${i}` }, it.icon ? ic(it.icon) : null, it.label)),
+          h("DropdownMenuSub", null, h("DropdownMenuSubTrigger", null, p.s("subLabel")), h("DropdownMenuSubContent", null, ...p.list("subItems").map((it, i) => h("DropdownMenuItem", { "data-tap": `sub:${i}` }, it.label)))),
         ),
       ),
   },

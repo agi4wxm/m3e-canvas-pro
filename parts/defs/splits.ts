@@ -898,6 +898,26 @@ export const SPLIT_TAPS: Record<string, SplitTaps> = {
     /* what is typed, and what stands there before, are the entry's */
     binds: (_p, t) => ({ value: entryOf(t, "value"), placeholder: entryOf(t, "placeholder") }),
   },
+  breadcrumb: {
+    /* each crumb's words, past the separators between them (and the ellipsis a collapsed trail puts after the first) */
+    slots: (p, t) => {
+      const n = p.list("items").length;
+      const collapsed = p.b("collapse") && n > 3;
+      const kids = t.kids ?? [];
+      const out: Record<string, Node | undefined> = {};
+      let at = 0;
+      Array.from({ length: n }, (_, i) => i)
+        .filter((i) => !collapsed || i === 0 || i >= n - 2)
+        .forEach((i, shown) => {
+          if (shown > 0) at++;
+          out[`tab:${i}`] = kids[at++];
+          if (collapsed && i === 0) at += 2;
+        });
+      return out;
+    },
+  },
+  /* its actions, under its header and between the lines that part them; its cancel is its own button */
+  "action-sheet": { slots: (_p, t) => tabs((t.kids?.[0]?.kids ?? []).slice(1).filter((k) => (k.kids?.length ?? 0) > 0)) },
   "app-bar": {
     /* its buttons, in order: what leads (an iPhone's says where it goes), then what trails */
     slots: (p, t) => {

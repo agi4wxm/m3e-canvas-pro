@@ -1,4 +1,4 @@
-import { h, ic } from "../node";
+import { h, ic, listSlots } from "../node";
 import type { PartDef } from "../types";
 import { FIELD, fieldFrame, fieldValues } from "../fieldState";
 
@@ -70,6 +70,8 @@ export const mobile: PartDef[] = [
       { key: "cancel", label: "Cancel", labels: { ja: "キャンセル", zh: "取消文字", ko: "취소" }, kind: "text", default: "Cancel", defaults: { zh: "取消" } },
       { key: "width", label: "Width", kind: "number", default: 380, min: 200, max: 640, step: 4, unit: "px" },
     ],
+    /* each action does something of its own, and so does its cancel (as the kits for phones always had them) */
+    slots: (p) => [...listSlots(p.list("actions")), ...(p.s("cancel") ? [{ key: "cancel", label: p.s("cancel") }] : [])],
     tree: (p) =>
       h(
         "div",
@@ -78,9 +80,9 @@ export const mobile: PartDef[] = [
           "div",
           { "data-slot": "action-sheet-group", className: "bg-surface-container-high divide-outline-variant flex flex-col divide-y overflow-hidden rounded-2xl" },
           h("div", { "data-slot": "action-sheet-header", className: "p-3 text-center" }, h("div", { "data-slot": "action-sheet-title", className: "text-label-large text-on-surface" }, p.s("title")), p.s("message") && h("div", { "data-slot": "action-sheet-message", className: "text-body-small text-on-surface-variant" }, p.s("message"))),
-          ...p.list("actions").map((a) => h("Button", { variant: "text", "data-slot": "action-sheet-action", className: "w-full rounded-none" }, a.label)),
+          ...p.list("actions").map((a, i) => h("Button", { variant: "text", "data-slot": "action-sheet-action", "data-tap": `tab:${i}`, className: "w-full rounded-none" }, a.label)),
         ),
-        p.s("cancel") && h("Button", { variant: "tonal", "data-slot": "action-sheet-cancel", className: "w-full" }, p.s("cancel")),
+        p.s("cancel") && h("Button", { variant: "tonal", "data-slot": "action-sheet-cancel", "data-tap": "cancel", className: "w-full" }, p.s("cancel")),
       ),
   },
   {

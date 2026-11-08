@@ -366,12 +366,14 @@ function actionOptionsOf(item: Item, frame: Frame | null, frames: Frame[], lang:
 }
 
 /** What the behaviour tab offers an action for: the part's places, its families of places and the events it sends
- *  (lib/partContract.ts). A part with no places of its own but families or events gets "the whole part" first, its
- *  key "". None when it has nothing but the whole part. */
+ *  (lib/partContract.ts), and "the whole part" (key ""): a tap anywhere else on it, or on a place with no action of
+ *  its own. A part with no places of its own gets the whole part first, one with places after them. None when it has
+ *  nothing but the whole part. */
 export function actionOutletsOf(item: Item, lang: Lang): Outlet[] {
   const all = outletsOf(item, lang).map((o) => (o.kind === "slot" ? o : { ...o, icon: o.kind === "event" ? "bolt" : "select_all" }));
-  if (!all.length || all.some((o) => o.kind === "slot")) return all;
-  return [{ key: "", kind: "slot", label: t("dzWholePart", lang), icon: "touch_app" }, ...all];
+  if (!all.length) return all;
+  const whole: Outlet = { key: "", kind: "slot", label: t("dzWholePart", lang), icon: "touch_app" };
+  return all.some((o) => o.kind === "slot") ? [...all, whole] : [whole, ...all];
 }
 
 /** the places a bar can be tapped, as one connected run: the icons at its ends, or the entries

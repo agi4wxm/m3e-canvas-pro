@@ -60,7 +60,7 @@ function cardTree(p: P): PNode {
     h("CardTitle", { className: [ink, textCls].filter(Boolean).join(" ") || undefined }, p.s("title")),
     p.s("description") && h("CardDescription", { className: [body, textCls].filter(Boolean).join(" ") || undefined }, p.s("description")),
   );
-  const footer = p.s("action") && h("CardFooter", { className: bg ? "relative" : undefined }, h("Button", { variant: "text", size: "sm" }, p.s("action")));
+  const footer = p.s("action") && h("CardFooter", { className: bg ? "relative" : undefined }, h("Button", { variant: "text", size: "sm", "data-tap": "action" }, p.s("action")));
   return h(
     "Card",
     {
@@ -136,6 +136,8 @@ export const containment: PartDef[] = [
       { key: "width", label: "Width", kind: "number", default: 280, min: 160, max: 520, step: 4, unit: "px" },
       { key: "height", label: "Height (0: auto)", kind: "number", default: 0, min: 0, max: 480, step: 4, unit: "px" },
     ],
+    /* its button does something of its own; a tap anywhere else is the whole card's */
+    slots: (p) => (p.s("action") ? [{ key: "action", label: p.s("action") }] : []),
     tree: (p) => cardTree(p),
   },
   {

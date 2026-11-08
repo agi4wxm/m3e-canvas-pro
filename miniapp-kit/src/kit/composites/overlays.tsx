@@ -106,7 +106,7 @@ export function AlertDialog(props: AlertDialogProps) {
   return <DialogCard p={{ ...p, dismiss: p.cancel, confirm: p.action, filled: true, taps: { dismiss: tapOf(p, "cancel") ?? tapOf(p, "dismiss"), confirm: tapOf(p, "action") ?? tapOf(p, "confirm") } }} base={recipe !== "alert" && recipe !== "weui" ? { width: p.size === "sm" ? 280 : 364 } : undefined} />;
 }
 
-export type SheetProps = PartBase & { side?: "right" | "left" | "bottom" | "top"; title?: string; description?: string; footer?: boolean };
+export type SheetProps = PartBase & { side?: "right" | "left" | "bottom" | "top"; title?: string; description?: string; footer?: boolean; /** the words of its two buttons, the part's own */ confirm?: string; dismiss?: string };
 
 /** a sheet from an edge: a panel down a side, or one rising from the foot with the style's handle */
 export function Sheet(props: SheetProps) {
@@ -133,8 +133,8 @@ export function Sheet(props: SheetProps) {
       </View>
       {p.footer ? (
         <View style={sx(ROW, { justifyContent: "flex-end", columnGap: 8, paddingLeft: 24, paddingRight: 24, marginTop: bottom ? 0 : "auto", paddingBottom: bottom ? 0 : 24 })}>
-          <Button label="Cancel" variant="outlined" size="sm" onPress={tapOf(p, "dismiss")} />
-          <Button label="Save" size="sm" onPress={tapOf(p, "confirm")} />
+          {p.dismiss ? <Button label={p.dismiss} variant="outlined" size="sm" onPress={tapOf(p, "dismiss")} /> : null}
+          {p.confirm ? <Button label={p.confirm} size="sm" onPress={tapOf(p, "confirm")} /> : null}
         </View>
       ) : null}
     </Surface>
