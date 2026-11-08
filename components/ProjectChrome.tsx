@@ -8,6 +8,8 @@ import { AnimatePresence, motion } from "motion/react";
 import type { Palette } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
 import type { LinkState } from "@/lib/projects/fileLink";
+import type { Recovered, SaveReport, SaveState } from "@/lib/projects/persist";
+import { saveKindKey } from "@/lib/i18n/projects";
 import { Icon } from "./Icon";
 import { Toggle } from "./ui";
 import { useLayer } from "./layers";
@@ -16,13 +18,36 @@ const fill = (s: string, vars: Record<string, string>) => s.replace(/\{(\w+)\}/g
 
 /* ---------- the name in the toolbar ---------- */
 
-export function ProjectPill({ p, name, link, onHome, onReconnect, onConflict, size = "full" }: { p: Palette; name: string; link: LinkState | null; onHome: () => void; onReconnect: () => void; onConflict: () => void; /** how much room the name has: all of it, a little, or none (the name is then in the tooltip) */ size?: "full" | "compact" | "icon" }) {
+export function ProjectPill({
+  p,
+  name,
+  link,
+  save,
+  onHome,
+  onReconnect,
+  onConflict,
+  onSaveState,
+  size = "full",
+}: {
+  p: Palette;
+  name: string;
+  link: LinkState | null;
+  /** where the browser's copy stands: a failed save shows here until one goes through */
+  save?: SaveState | null;
+  onHome: () => void;
+  onReconnect: () => void;
+  onConflict: () => void;
+  onSaveState?: () => void;
+  /** how much room the name has: all of it, a little, or none (the name is then in the tooltip) */
+  size?: "full" | "compact" | "icon";
+}) {
   const lang = useLang();
   const status = link?.status;
   const busy = status === "pending" || status === "saving";
   const linkTitle = link ? fill(t(busy ? "fileSavingTo" : status === "error" ? "fileSaveFailed" : "fileSavedTo", lang), { name: link.name }) + (status === "error" && link.error ? `: ${link.error}` : "") : "";
+  const failed = save?.status === "error" ? save.error : undefined;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }} data-project-pill data-file-status={status ?? "none"}>
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }} data-project-pill data-file-status={status ?? "none"} data-save-status={save?.status ?? "none"}>
       <button
         onClick={onHome}
         title={size === "icon" ? `${name} · ${t("allProjects", lang)}` : t("allProjects", lang)}
@@ -55,6 +80,18 @@ export function ProjectPill({ p, name, link, onHome, onReconnect, onConflict, si
           </span>
         )}
       </button>
+      {failed && (
+        <button
+          onClick={onSaveState}
+          title={`${t("saveNotKeptTitle", lang)}: ${t(saveKindKey(failed.kind), lang)}`}
+          className="m3-press"
+          data-save-error={failed.kind}
+          style={{ height: 32, padding: "0 12px 0 8px", borderRadius: 16, border: "none", background: p.errorContainer, color: p.onErrorContainer, fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", whiteSpace: "nowrap" }}
+        >
+          <Icon name="sync_problem" size={18} />
+          {t("saveNotKept", lang)}
+        </button>
+      )}
       {status === "reconnect" && link && (
         <button
           onClick={onReconnect}
@@ -93,6 +130,8 @@ export type ProjectMenuActions = {
   onOpenFolder?: () => void;
   onDownload: () => void;
   onStopSaving?: () => void;
+  /** where the browser's copy and the file's stand, at any time */
+  onSaveState?: () => void;
   /** the browser can keep a file in sync (else saving to a file downloads it) */
   canSync: boolean;
   link: LinkState | null;
@@ -120,6 +159,7 @@ export function ProjectMenu({ p, close, a }: { p: Palette; close: () => void; a:
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 220 }}>
       {row("grid_view", t("allProjects", lang), a.onHome)}
+      {a.onSaveState && row("cloud_done", t("saveStatusMenu", lang), a.onSaveState)}
       {(a.link || a.canSync) && rule("a")}
       {a.link && (
         <div key="linked" style={{ padding: "6px 14px 6px 10px", display: "flex", alignItems: "center", gap: 12, color: p.onSurfaceVariant, fontSize: 12, maxWidth: 280 }}>
@@ -236,6 +276,69 @@ export function FileConflictDialog({ p, open, name, onCancel, onLoad, onKeep }: 
         {button(p, "text", t("cancel", lang), onCancel)}
         {button(p, "tonal", t("fileConflictKeep", lang), onKeep, "conflict-keep")}
         {button(p, "filled", t("fileConflictLoad", lang), onLoad, "conflict-load")}
+      </div>
+    </Dialog>
+  );
+}
+
+/** Where the browser's copy and the file's stand, each on its own row, with what can be done: try again, download
+ *  a copy; on the way to another project also leave anyway or stay. */
+export function SaveStateDialog({ p, open, report, leaving, onRetry, onDownload, onLeave, onClose }: { p: Palette; open: boolean; report: SaveReport | null; leaving: boolean; onRetry: () => void; onDownload: () => void; onLeave: () => void; onClose: () => void }) {
+  const lang = useLang();
+  const browser = report?.browser;
+  const file = report?.file ?? null;
+  const browserKept = browser?.status === "saved";
+  const why = (kind: Parameters<typeof saveKindKey>[0], message?: string) => t(saveKindKey(kind), lang) + (message && kind !== "conflict" ? ` (${message})` : "");
+  const browserText = !browser ? "" : browser.status === "saved" ? t("saveStateSaved", lang) : browser.error ? why(browser.error.kind, browser.error.message) : t("saveStateSaving", lang);
+  const fileText = !file
+    ? ""
+    : file.status === "saved"
+      ? t("saveStateSaved", lang)
+      : file.status === "reconnect"
+        ? t("saveStateReconnect", lang)
+        : file.status === "conflict"
+          ? t("saveStateChanged", lang)
+          : file.status === "error"
+            ? why(file.errorKind ?? "io", file.error)
+            : t("saveStateSaving", lang);
+  const ok = !!report?.ok;
+  const title = ok ? t("saveAllKept", lang) : leaving ? t("saveLeaveTitle", lang) : t("saveNotKeptTitle", lang);
+  const body = ok ? "" : browserKept ? t("saveLeaveFileBody", lang) : t("saveLeaveBrowserBody", lang);
+  const row = (icon: string, label: string, text: string, ok: boolean, data: string) => (
+    <div {...{ [`data-save-row`]: data }} data-ok={ok ? "1" : "0"} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 12px", borderRadius: 16, background: p.surfaceContainer }}>
+      <Icon name={ok ? "check_circle" : icon} size={20} color={ok ? p.primary : p.error} />
+      <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, overflowWrap: "anywhere" }}>{label}</span>
+        <span style={{ fontSize: 13, color: p.onSurfaceVariant, overflowWrap: "anywhere" }}>{text}</span>
+      </div>
+    </div>
+  );
+  return (
+    <Dialog p={p} open={open} label={title} icon={ok ? "cloud_done" : "sync_problem"} iconColor={ok ? p.primary : p.error} title={title} body={body} onCancel={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }} data-save-state={ok ? "ok" : "not-ok"}>
+        {browser && row("sync_problem", t("saveInBrowser", lang), browserText, browserKept, "browser")}
+        {file && row(file.kind === "folder" ? "folder" : "description", file.name, fileText, file.status === "saved", "file")}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8 }}>
+        {button(p, "text", leaving ? t("saveStay", lang) : t("closeBtn", lang), onClose, "save-stay")}
+        {leaving && button(p, "text", t("saveLeaveAnyway", lang), onLeave, "save-leave")}
+        {button(p, "tonal", t("saveDownloadCopy", lang), onDownload, "save-download")}
+        {!ok && button(p, "filled", t("saveRetry", lang), onRetry, "save-retry")}
+      </div>
+    </Dialog>
+  );
+}
+
+/** A version an earlier tab could not keep: restored over the canvas (one undo away), or let go. Dismissed any other
+ *  way (Escape, the scrim) it is kept, and offered again next time. */
+export function RecoveryDialog({ p, recovered, onRestore, onDiscard, onLater }: { p: Palette; recovered: Recovered | null; onRestore: () => void; onDiscard: () => void; onLater: () => void }) {
+  const lang = useLang();
+  const when = recovered?.at ? new Date(recovered.at).toLocaleString(lang) : "";
+  return (
+    <Dialog p={p} open={!!recovered} label={t("recoveryTitle", lang)} icon="history" iconColor={p.primary} title={t("recoveryTitle", lang)} body={fill(t("recoveryBody", lang), { when })} onCancel={onLater}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8 }} data-recovery>
+        {button(p, "text", t("recoveryDiscard", lang), onDiscard, "recovery-discard")}
+        {button(p, "filled", t("recoveryRestore", lang), onRestore, "recovery-restore")}
       </div>
     </Dialog>
   );

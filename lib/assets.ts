@@ -43,7 +43,8 @@ function mapStrings<T>(value: T, fn: (s: string) => string): T {
     for (const [k, v] of Object.entries(value)) {
       const next = mapStrings(v, fn);
       if (next !== v) changed = true;
-      out[k] = next;
+      /* defined, not assigned: a key such as `__proto__` stays a key of the copy instead of becoming its prototype */
+      Object.defineProperty(out, k, { value: next, enumerable: true, writable: true, configurable: true });
     }
     return (changed ? out : value) as T;
   }

@@ -31,11 +31,50 @@ export interface PersistAdapter {
   lock(say: (access: "editable" | "readonly") => void): () => void;
 }
 
+/** Why a save did not go through, told apart because the author can do different things about each: no room left
+ *  (`quota`), the store closed under the tab (`closed`: another tab upgrading it, the browser shutting it down), not
+ *  allowed (`permission`: storage blocked, a file's permission taken back), saved meanwhile by another tab
+ *  (`conflict`), or anything else the browser or the disk said (`io`). */
+export type SaveErrorKind = "quota" | "closed" | "permission" | "conflict" | "io";
+
+/** a save that did not go through, and why */
+export class PersistError extends Error {
+  constructor(
+    readonly kind: SaveErrorKind,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 /** a store with no room left */
-export class PersistFullError extends Error {}
+export class PersistFullError extends PersistError {
+  constructor(message = "") {
+    super("quota", message);
+  }
+}
+
+/** what kind of failure an error from IndexedDB, localStorage or the File System Access API is, by the names
+ *  browsers give them */
+export function saveErrorKind(err: unknown): SaveErrorKind {
+  if (err instanceof PersistError) return err.kind;
+  const name = err && typeof err === "object" && "name" in err ? String((err as { name: unknown }).name) : "";
+  if (name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED") return "quota";
+  if (name === "InvalidStateError" || name === "TransactionInactiveError") return "closed";
+  if (name === "SecurityError" || name === "NotAllowedError") return "permission";
+  return "io";
+}
+
+/** an error as the save that met it reports it */
+export const asPersistError = (err: unknown): PersistError => {
+  if (err instanceof PersistError) return err;
+  const kind = saveErrorKind(err);
+  const message = err instanceof Error ? err.message : String(err);
+  return kind === "quota" ? new PersistFullError(message) : new PersistError(kind, message);
+};
 
 /** the browser refusing a save for want of room, by the names browsers give it */
-const isStorageFull = (err: unknown) => err instanceof DOMException && (err.name === "QuotaExceededError" || err.name === "NS_ERROR_DOM_QUOTA_REACHED");
+const isStorageFull = (err: unknown) => saveErrorKind(err) === "quota";
 
 export const DOC_KEY = "m3e:doc";
 /** the design a draft or a link replaced, until the author keeps or undoes it */
@@ -69,7 +108,7 @@ export const localPersist: PersistAdapter = {
       saveAt(DOC_KEY, doc);
     } catch (err) {
       if (isStorageFull(err)) throw new PersistFullError(String(err));
-      throw err;
+      throw asPersistError(err);
     }
   },
   writeBefore(doc) {

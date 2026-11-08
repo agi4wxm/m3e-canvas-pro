@@ -25,6 +25,12 @@ export type ProjectAssetFile = { path: string; mime: string; bytes: Uint8Array }
 
 /* ---------- the layout ---------- */
 
+/** Sets an own, enumerable key the way JSON.parse makes one. A plain assignment would run the inherited setter of a
+ *  key such as `__proto__` (changing the copy's prototype and losing the key) instead of keeping it as data. */
+export function setOwn(out: Record<string, unknown>, key: string, value: unknown) {
+  Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
+}
+
 /** A value with every object's keys in code-point order, as JSON would write it: a key whose value is undefined (or a
  *  function) is left out, and in a list it becomes null. */
 export function sortKeys(value: unknown): unknown {
@@ -35,7 +41,7 @@ export function sortKeys(value: unknown): unknown {
   for (const k of Object.keys(o).sort(byCodePoint)) {
     const v = o[k];
     if (v === undefined || typeof v === "function") continue;
-    out[k] = sortKeys(v);
+    setOwn(out, k, sortKeys(v));
   }
   return out;
 }
@@ -49,7 +55,7 @@ function plainJson(value: unknown): unknown {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     if (v === undefined || typeof v === "function") continue;
-    Object.defineProperty(out, k, { value: plainJson(v), enumerable: true, writable: true, configurable: true });
+    setOwn(out, k, plainJson(v));
   }
   return out;
 }
@@ -102,7 +108,7 @@ function write(value: unknown, path: string[], indent: string): string {
 export function formatProject(file: { format: string; version: number; document: unknown }): string {
   const { format, version, document, ...rest } = file;
   const envelope: Record<string, unknown> = { format, version, document: sortedDocument(document) };
-  for (const k of Object.keys(rest).sort(byCodePoint)) envelope[k] = sortKeys(rest[k as keyof typeof rest]);
+  for (const k of Object.keys(rest).sort(byCodePoint)) setOwn(envelope, k, sortKeys(rest[k as keyof typeof rest]));
   return write(envelope, [], "") + "\n";
 }
 
@@ -114,11 +120,29 @@ const MOCK_MIME_EXT: Record<string, string> = { "application/pdf": "pdf", "audio
 const EXT_MIME: Record<string, string> = Object.fromEntries([...Object.entries(MIME_EXT), ...Object.entries(MOCK_MIME_EXT)].map(([m, e]) => [e, m]));
 const DATA_URL = /^data:(image\/(?:png|jpeg|webp|gif|avif|svg\+xml));base64,([A-Za-z0-9+/]*={0,2})$/;
 const MOCK_DATA_URL = /^data:(application\/pdf|audio\/(?:wav|mpeg|ogg|mp4)|video\/(?:mp4|webm)|application\/octet-stream);base64,([A-Za-z0-9+/]*={0,2})$/;
+const ASSET_EXTS = [...Object.values(MIME_EXT), ...Object.values(MOCK_MIME_EXT)].join("|");
 /** what a picture's path inside the folder may look like: nothing that climbs out of it */
-const ASSET_PATH = new RegExp(`^${FOLDER_ASSET_DIR}/[a-z0-9]+\\.(?:${[...Object.values(MIME_EXT), ...Object.values(MOCK_MIME_EXT)].join("|")})$`);
+const ASSET_PATH = new RegExp(`^${FOLDER_ASSET_DIR}/[a-z0-9]+\\.(?:${ASSET_EXTS})$`);
+/** a file name in m3e-assets/ as the format gives one: what it holds, hashed, and an extension */
+const ASSET_NAME = new RegExp(`^([a-z0-9]+)\\.(?:${ASSET_EXTS})$`);
 
 /** whether a path a document refers to is one of the pictures beside it, and nothing else */
 export const isAssetPath = (path: string) => ASSET_PATH.test(path);
+
+/** How long a picture in m3e-assets/ that another program wrote is left alone: its own save may still be under way,
+ *  its project file not yet written. */
+export const ASSET_GRACE_MS = 60_000;
+
+/** Whether a file in m3e-assets/ is one the format could have written: named by the hash of exactly what it holds. A
+ *  file put there by hand (`logo.png`), or one whose bytes are not what its name says, is not, and a tool that tidies
+ *  the folder leaves it alone. */
+export function isFormatAsset(name: string, bytes: Uint8Array): boolean {
+  const m = ASSET_NAME.exec(name);
+  return !!m && digest(bytesToBase64(bytes)) === m[1];
+}
+
+/** whether a file name in m3e-assets/ has the shape of one the format writes (its bytes not looked at) */
+export const isAssetFileName = (name: string) => ASSET_NAME.test(name);
 
 /** a short, well-spread hash of a text (cyrb53), in base 36: the same picture always gets the same name */
 export function digest(s: string): string {
@@ -188,7 +212,7 @@ function mapStrings<T>(value: T, fn: (s: string) => string): T {
     for (const [k, v] of Object.entries(value)) {
       const next = mapStrings(v, fn);
       if (next !== v) changed = true;
-      out[k] = next;
+      setOwn(out, k, next);
     }
     return (changed ? out : value) as T;
   }

@@ -40,4 +40,13 @@ describe("assets", () => {
     const { doc: light } = stripAssets(doc);
     expect(restoreAssets(light, new Map()).groups[0].items[0].props.image).toBe("");
   });
+
+  it("keeps a key such as __proto__ as a key on the way out and back", () => {
+    const value = JSON.parse(`{"props":{"__proto__":{"image":${JSON.stringify(picture)}},"constructor":{"image":${JSON.stringify(picture)}}}}`) as { props: object };
+    const { doc: light, found } = stripAssets(value);
+    expect(Object.keys(light.props)).toEqual(["__proto__", "constructor"]);
+    expect(Object.getPrototypeOf(light.props)).toBe(Object.prototype);
+    expect(restoreAssets(light, found)).toEqual(value);
+    expect(JSON.parse(JSON.stringify(restoreAssets(light, found)))).toEqual(value);
+  });
 });
