@@ -115,8 +115,10 @@ export type RnScreens = {
 export type RnPrintOptions = {
   /** where the kit is, from a screen's file */
   kitImport?: string;
-  /** the path a picture the document holds as data is written to */
-  image?: (data: string) => string;
+  /** The pictures the document holds as data (a data: URL), as files the app bundles: `name` gives the name a picture
+   *  is required by in the images module (lib/export/rn/app.ts `RnPictures`), `from` is where a screen imports that
+   *  module from. Left out, such a picture is left out of the app, and reported. */
+  images?: { from: string; name: (data: string) => string | undefined };
   /** The app's runtime, for a document bound to its API: where a screen imports the data layer the export generates
    *  beside the screens (its data sources, forms, scope; see lib/export/rn/mobile.ts). Left out (the kit's test bed),
    *  the bindings keep the design's values and are reported. */
@@ -138,8 +140,14 @@ const isCode = (j: J): j is Code => "code" in j;
 /** an attribute's name: only names the printer chose, made of letters */
 const NAME = /^[A-Za-z][A-Za-z0-9]*$/;
 
+/** code standing where a value is printed: a picture the app bundles, read from the images module (`IMAGES.image1`) */
+class Raw {
+  constructor(readonly code: string) {}
+}
+
 /** a value as an expression: numbers, words (as strings), lists and objects of them */
 export function expr(v: unknown): string {
+  if (v instanceof Raw) return v.code;
   if (v === null || v === undefined) return "undefined";
   if (typeof v === "number") return Number.isFinite(v) ? String(Math.round(v * 100) / 100) : "0";
   if (typeof v === "boolean") return v ? "true" : "false";
@@ -328,7 +336,7 @@ type Ctx = { $: string; form?: { v: string; id: string }; item?: string; locals?
 type SourceInfo = { v: string; def: DataSource };
 
 /** the words a reserved name of the printed screen cannot be a data source's variable */
-const RESERVED = new Set(["app", "act", "nav", "params", "given", "item", "index", "keyOf", "regionOf", "rowsOf", "optionOf", "pickFile", "fileName", "useSource", "useFormFor", "useParams", "useScreenScope", "View"]);
+const RESERVED = new Set(["app", "act", "nav", "params", "given", "item", "index", "keyOf", "regionOf", "rowsOf", "optionOf", "pickFile", "fileName", "useSource", "useFormFor", "useParams", "useScreenScope", "View", "IMAGES"]);
 
 class ScreenPrinter {
   /** the kit's components this screen names */
@@ -345,6 +353,8 @@ class ScreenPrinter {
   forms = new Map<string, string>();
   formInfos: { id: string; operationId: string; fields: string[] }[] = [];
   icons = new Set<string>();
+  /** whether the screen reads a picture the app bundles (the images module) */
+  pictures = false;
   ctx: Ctx;
   private n = { action: 0, form: 0, region: 0, row: 0, source: 0 };
   readonly runtime: boolean;
@@ -537,6 +547,26 @@ class ScreenPrinter {
 
   /* ---------- props ---------- */
 
+  /** A picture the document holds as data, as the screen reads it: the file the app bundles it as, from the images
+   *  module. One the export does not write as a file is left out, and reported. */
+  picture(data: string, part: string): Raw | string {
+    const name = this.o.images?.name(data);
+    if (!name) {
+      this.warn("image", "a picture held in the document is left out (PNG, JPEG, GIF and WebP are written as files the app bundles)", part);
+      return "";
+    }
+    this.pictures = true;
+    return new Raw(`IMAGES.${name}`);
+  }
+
+  /** the pictures a tree of atoms holds as data, each the file the app bundles it as */
+  pictured(v: unknown, part: string | undefined): unknown {
+    if (typeof v === "string") return v.startsWith("data:image/") && this.o.images ? this.picture(v, part ?? "") : v;
+    if (Array.isArray(v)) return v.map((x) => this.pictured(x, part));
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, this.pictured(x, part)]));
+    return v;
+  }
+
   /** a part's own props as the kit takes them: what differs from the kit's defaults, under the kit's names */
   props(def: PartDef, it: Item): [string, string][] {
     const values = propValues(def, it.props);
@@ -547,11 +577,8 @@ class ScreenPrinter {
       const key = kitPropName(def.slug, d.key);
       let v = values[d.key];
       if (SET_ONLY.has(d.key) && !(it.props && typeof it.props[d.key] === "number")) continue;
-      if (d.kind === "image" && typeof v === "string" && v.startsWith("data:")) {
-        v = this.o.image ? this.o.image(v) : "";
-        this.warn("image", "a picture held in the document is written to a file", it.id);
-      }
-      if (d.kind === "list" && Array.isArray(v)) v = (v as Record<string, unknown>[]).map((row) => (typeof row.image === "string" && row.image.startsWith("data:") ? { ...row, image: this.o.image ? this.o.image(row.image) : "" } : row));
+      if (d.kind === "image" && typeof v === "string" && v.startsWith("data:")) v = this.picture(v, it.id);
+      if (d.kind === "list" && Array.isArray(v)) v = (v as Record<string, unknown>[]).map((row) => (typeof row.image === "string" && row.image.startsWith("data:") ? { ...row, image: this.picture(row.image, it.id) } : row));
       if (def.slug === "svg" && d.key === "markup" && typeof v === "string" && v) v = svgMarkup(v, it.id) ?? "";
       let code: string | undefined;
       const ref = it.bind?.[d.key];
@@ -660,7 +687,7 @@ class ScreenPrinter {
     }
     this.kit.add(name);
     for (const i of iconNamesOf(n.slug, n.props)) this.icons.add(i);
-    const props: [string, string][] = Object.entries(n.props).map(([k, v]) => [k, expr(v)]);
+    const props: [string, string][] = Object.entries(n.props).map(([k, v]) => [k, expr(this.pictured(v, root?.id))]);
     if (n.fill) props.push(["fill", str(n.fill)]);
     if (n.textColor) props.push(["textColor", str(n.textColor)]);
     if (n.corners) props.push(["corners", expr(n.corners)]);
@@ -1109,6 +1136,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
       ...(p.rn.size ? [`import { ${[...p.rn].sort().join(", ")} } from "react-native";`] : []),
       `import { ${kitNames.join(", ")} } from ${str(kitImport)};`,
       ...(bindNames.length && o.runtime ? [`import { ${bindNames.join(", ")} } from ${str(o.runtime.bind)};`] : []),
+      ...(p.pictures && o.images ? [`import { IMAGES } from ${str(o.images.from)};`] : []),
     ];
     const source = [
       "// Generated by M3E Canvas from the design. Do not edit: change the design and export again.",

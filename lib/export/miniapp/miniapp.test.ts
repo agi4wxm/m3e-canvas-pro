@@ -24,6 +24,8 @@ beforeAll(() => setGlobalLang("en"));
 
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const fromDisk = (path: string) => readFile(join(ROOT, path), "utf8");
+/** a file's text, or a binary file's bytes in base64 (the pictures the design holds) */
+const textOf = (body: string | Uint8Array) => (typeof body === "string" ? body : Buffer.from(body).toString("base64"));
 const parses = (path: string, text: string) => parse(text, { sourceType: "module", plugins: ["typescript", ...(path.endsWith(".tsx") ? (["jsx"] as const) : [])] });
 
 /** every file under a folder, by its path from there */
@@ -71,7 +73,7 @@ describe("the shop bound to its contract", () => {
   beforeAll(async () => {
     const { doc, widths } = boundShopDoc();
     const product = await buildProduct(doc, widths, { lang: "en", read: fromDisk });
-    files = Object.fromEntries(Object.entries(product.files).filter(([p]) => p.startsWith("apps/miniapp/")).map(([p, f]) => [p.slice("apps/miniapp/".length), typeof f.body === "string" ? f.body : ""]));
+    files = Object.fromEntries(Object.entries(product.files).filter(([p]) => p.startsWith("apps/miniapp/")).map(([p, f]) => [p.slice("apps/miniapp/".length), textOf(f.body)]));
   }, 120_000);
 
   it("is a page for each screen, in app.config's pages, each drawing its screen in the app's providers", () => {
@@ -117,6 +119,6 @@ describe("the shop bound to its contract", () => {
   it("comes out the same each time", async () => {
     const { doc, widths } = boundShopDoc();
     const again = await buildProduct(doc, widths, { lang: "en", read: fromDisk });
-    for (const [p, text] of Object.entries(files)) expect(again.files[`apps/miniapp/${p}`].body, p).toBe(text);
+    for (const [p, text] of Object.entries(files)) expect(textOf(again.files[`apps/miniapp/${p}`].body), p).toBe(text);
   }, 120_000);
 });

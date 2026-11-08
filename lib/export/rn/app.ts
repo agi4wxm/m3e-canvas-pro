@@ -1,5 +1,6 @@
 import type { Doc } from "../../tokens";
 import { str } from "../../../parts/print";
+import { fromBase64 } from "../../mocks/bytes";
 import { KIT_ICONS } from "../../../rn/src/kit/icons/names";
 import rnPackage from "../../../rn/package.json";
 import { rnIconData } from "./icons";
@@ -29,6 +30,60 @@ export const themeModule = (theme: RnTheme, kitImport = "../kit") => `${HEAD}\ni
 
 /** the glyphs as a module */
 export const iconsModule = (data: unknown, kitImport = "../kit") => `${HEAD}\nimport type { IconData } from ${str(kitImport)};\n\nexport const icons: IconData = ${JSON.stringify(data)};\n`;
+
+/** the kinds of picture Metro bundles and expo-image draws on every platform, and the extension each file takes */
+const PICTURE_KINDS: Record<string, string> = { png: "png", jpeg: "jpg", jpg: "jpg", gif: "gif", webp: "webp" };
+
+/** The pictures a document holds as data (a data: URL: a picture the author picked from a file), as files an app on
+ *  the kit bundles. Metro bundles a picture only where code requires its file, so each one is written once (`files`,
+ *  by its path from the app's root) and required once in the images module (`module`), which the screens read; the
+ *  kit's image props take what the require gives (rn/src/kit/parts.ts `sourceOf`). */
+export class RnPictures {
+  /** each picture by its data: the name the screens read it by, and its file's name */
+  private seen = new Map<string, { name: string; file: string }>();
+  /** each picture's file, by its path from the app's root */
+  readonly files: Record<string, Uint8Array> = {};
+
+  /** `dir`: where the files go, from the app's root; `from`: that folder as the images module requires it */
+  constructor(
+    private readonly dir: string,
+    private readonly from: string,
+  ) {}
+
+  /** the name the screens read a picture by, its file written the first time; none for what Metro does not bundle */
+  readonly name = (data: string): string | undefined => {
+    const seen = this.seen.get(data);
+    if (seen) return seen.name;
+    const m = /^data:image\/([a-z]+);base64,([A-Za-z0-9+/=\s]+)$/.exec(data);
+    const ext = m ? PICTURE_KINDS[m[1]] : undefined;
+    if (!m || !ext) return undefined;
+    const name = `image${this.seen.size + 1}`;
+    const file = `${name}.${ext}`;
+    this.seen.set(data, { name, file });
+    this.files[`${this.dir}/${file}`] = fromBase64(m[2]);
+    return name;
+  };
+
+  /** whether any picture was written */
+  get any(): boolean {
+    return this.seen.size > 0;
+  }
+
+  /** The images module: a require of each picture's file, by its name. `requireRule`: the app's ESLint config forbids
+   *  require (typescript-eslint's recommended rules, as the product's root config has them; Expo's has not). */
+  module(o: { requireRule?: boolean } = {}): string {
+    return [
+      HEAD,
+      ...(o.requireRule ? ["/* eslint-disable @typescript-eslint/no-require-imports -- Metro bundles a picture only where code requires its file */"] : []),
+      "",
+      "/** the pictures the design holds, as files the app bundles: what the kit's image props take */",
+      "export const IMAGES = {",
+      ...[...this.seen.values()].map((x) => `  ${x.name}: require(${str(`${this.from}/${x.file}`)}),`),
+      "};",
+      "",
+    ].join("\n");
+  }
+}
 
 /** the app over the printed screens: its memory (the variables, the parts hidden at the start, the snackbar) around a
  *  small navigator */

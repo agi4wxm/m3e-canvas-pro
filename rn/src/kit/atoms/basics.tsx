@@ -6,7 +6,7 @@ import Svg, { Path, SvgXml } from "react-native-svg";
 import { Glyph } from "../icons/Icon";
 import { Cell, flowStyle, GridRows, NoFill, useFill, type FlowProps } from "../layout";
 import { paint, type Appearance } from "../look";
-import { withDefaults } from "../parts";
+import { sourceOf, withDefaults, type Picture } from "../parts";
 import { accentText, surfaceInk, surfaceStyle } from "../recipes";
 import { SHAPE_PATHS, SVG_PRESETS } from "../shapes.generated";
 import { Surface, useTextLook } from "../Surface";
@@ -185,7 +185,7 @@ export function Svg_(props: SvgProps) {
 
 /* ---------- a picture ---------- */
 
-export type ImageProps = PartBase & { src?: string; alt?: string; fit?: "cover" | "contain"; radius?: number; width?: number; height?: number };
+export type ImageProps = PartBase & { src?: Picture; alt?: string; fit?: "cover" | "contain"; radius?: number; width?: number; height?: number };
 
 export function Image(props: ImageProps) {
   const p = withDefaults<ImageProps>("image", props);
@@ -201,7 +201,7 @@ export function Image(props: ImageProps) {
     );
   return (
     <Surface appearance={p} onPress={p.onPress} testID={p.testID} base={box}>
-      <ExpoImage source={{ uri: p.src }} accessibilityLabel={p.alt} contentFit={p.fit === "contain" ? "contain" : "cover"} style={{ width: "100%", height: "100%" }} />
+      <ExpoImage source={sourceOf(p.src)} accessibilityLabel={p.alt} contentFit={p.fit === "contain" ? "contain" : "cover"} style={{ width: "100%", height: "100%" }} />
     </Surface>
   );
 }

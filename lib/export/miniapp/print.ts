@@ -439,6 +439,14 @@ class ScreenPrinter {
     return readCode(read, $, e, extra);
   }
 
+  /** a picture the document holds as data, as the page reads it: the file the export writes it as; one it does not
+   *  write is left out, and reported */
+  picture(data: string, part: string): string {
+    const path = this.o.image?.(data) ?? "";
+    if (!path) this.warn("image", "a picture held in the document is left out (PNG, JPEG, GIF, WebP and SVG are written as files)", part);
+    return path;
+  }
+
   /** a part's own props as the kit takes them: what differs from the kit's defaults, under the kit's names, each read
    *  from what it is bound to; the prop a person enters is left to `input` */
   props(def: PartDef, it: Item, at: At, skip?: string): [string, string][] {
@@ -450,11 +458,8 @@ class ScreenPrinter {
       const key = kitPropName(def.slug, d.key);
       let v = values[d.key];
       if (SET_ONLY.has(d.key) && !(it.props && typeof it.props[d.key] === "number")) continue;
-      if (d.kind === "image" && typeof v === "string" && v.startsWith("data:")) {
-        v = this.o.image ? this.o.image(v) : "";
-        this.warn("image", "a picture held in the document is written to a file", it.id);
-      }
-      if (d.kind === "list" && Array.isArray(v)) v = (v as Record<string, unknown>[]).map((row) => (typeof row.image === "string" && row.image.startsWith("data:") ? { ...row, image: this.o.image ? this.o.image(row.image) : "" } : row));
+      if (d.kind === "image" && typeof v === "string" && v.startsWith("data:")) v = this.picture(v, it.id);
+      if (d.kind === "list" && Array.isArray(v)) v = (v as Record<string, unknown>[]).map((row) => (typeof row.image === "string" && row.image.startsWith("data:") ? { ...row, image: this.picture(row.image, it.id) } : row));
       if (def.slug === "svg" && d.key === "markup" && typeof v === "string" && v) v = svgMarkup(v, it.id) ?? "";
       const bind = it.bind?.[d.key];
       let code = expr(v);

@@ -1,11 +1,5 @@
 [
  {
-  "kind": "image",
-  "screen": "Counter",
-  "part": "image",
-  "detail": "a picture held in the document is written to a file"
- },
- {
   "kind": "holder",
   "screen": "Dock",
   "part": "dock",

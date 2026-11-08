@@ -8,7 +8,7 @@
 
 import rnPackage from "../../../rn/package.json";
 import { KIT_FILES } from "../rn/kitFiles.generated";
-import { iconsModule, rnDependencies, themeModule } from "../rn/app";
+import { RnPictures, iconsModule, rnDependencies, themeModule } from "../rn/app";
 import { formRulesOf, operationsOf } from "../rn/contract";
 import { authSource } from "./webSources";
 import { rnIconData } from "../rn/icons";
@@ -1036,7 +1036,9 @@ export const mobileTarget: ProductTarget = {
   id: "mobile",
   async build(ctx: ProductContext): Promise<Workspace> {
     const { doc, scope } = ctx;
-    const screens = printRnScreens(doc, ctx.widths, { kitImport: "../../kit", runtime: { bind: "../bind" } });
+    /* the pictures the design holds as data: files under assets/images, which Metro bundles from src/generated/images.ts */
+    const pictures = new RnPictures("assets/images", "../../assets/images");
+    const screens = printRnScreens(doc, ctx.widths, { kitImport: "../../kit", runtime: { bind: "../bind" }, images: { from: "../images", name: pictures.name } });
     const theme = rnThemeOf(doc);
     const iconData = await rnIconData([theme.icons], [...screens.icons, ...KIT_ICONS]);
     for (const [id, markup] of Object.entries(doc.icons ?? {})) {
@@ -1049,6 +1051,8 @@ export const mobileTarget: ProductTarget = {
     files["src/generated/theme.ts"] = generated(themeModule(theme, "../kit"));
     files["src/generated/icons.ts"] = generated(iconsModule(iconData, "../kit"));
     for (const s of screens.screens) files[`src/generated/screens/${s.component}.tsx`] = generated(s.source);
+    if (pictures.any) files["src/generated/images.ts"] = generated(pictures.module({ requireRule: true }));
+    for (const [path, bytes] of Object.entries(pictures.files)) files[path] = generated(bytes);
     /* what the app does not do as the design says (a part drawn as its atoms or as a placeholder, a binding the kit
        keeps at the design's value): listed beside the screens for the author, as the mini-program lists its own */
     files["src/generated/warnings.json"] = generated(`${JSON.stringify(screens.warnings, null, 1)}\n`);
