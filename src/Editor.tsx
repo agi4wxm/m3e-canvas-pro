@@ -71,7 +71,7 @@ import { PANEL_FADE_H } from "@/components/ui";
 import { generateImage, loadAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
 import { maxFrameLength } from "@/lib/tidy";
 import { joinTargetOf } from "@/lib/combine";
-import { flowHostAt, flowOf, showingGroups } from "@/lib/flow";
+import { flowHostAt, flowOf } from "@/lib/flow";
 import { targetRects } from "@/lib/guides";
 import { InsertionMark, SmartGuides } from "@/components/SmartGuides";
 import { expandInstances } from "@/lib/instances";
@@ -391,7 +391,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
 
   /* ---------- ai ---------- */
   /* the author's model writing a field or painting a scene (src/editor/useAi.ts) */
-  const { aiSettings, setAiSettings, updateAiSettings, aiReady, aiBusy, aiFrameId, runAi, cancelAi, canPaint, paintingScene, sceneItem, paintScenes, stopPainting } = useAi({ store, lang, theme, doc, groupsRef, widthsRef, snapshot, setGroups, setFrames, showToast, showAiNote });
+  const { aiSettings, setAiSettings, updateAiSettings, aiReady, aiBusy, aiFrameId, runAi, cancelAi, canPaint, paintingScene, sceneItem, paintScenes, stopPainting } = useAi({ store, lang, theme, doc, groupsRef, widthsRef, didOp, showToast, showAiNote });
 
   /* ---------- persistence ---------- */
   /** What a whole document arriving does to what was open over the one it replaces: the preview closes (or an opening
@@ -1272,13 +1272,9 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                     }}
                     onSelect={(ids, how) => {
                       setSelectedIds((cur) => (how === "toggle" ? (ids.every((x) => cur.includes(x)) ? cur.filter((x) => !ids.includes(x)) : [...cur.filter((x) => !ids.includes(x)), ...ids]) : ids));
-                      /* picked on a dock's other tab: the dock comes round to it, or there would be no ring and nothing to work on */
-                      const picked = new Set(groupsRef.current.filter((g) => g.items.some((it) => ids.includes(it.id))).map((g) => g.id));
-                      const showing = showingGroups(groupsRef.current, picked, widthsRef.current);
-                      if (showing !== groupsRef.current) {
-                        snapshot();
-                        setGroups(showing);
-                      }
+                      /* picked on a dock's other tab: the dock comes round to it, or there would be no ring and nothing to work on;
+                       * one step, as `show_nodes` is for the agent (one already showing is nothing to do) */
+                      runOp(ops.showNodes, { ids }, { refused: () => {} });
                       setSelectedFrameId(null);
                       setSelectedLinkId(null);
                       setRightTab("edit");
