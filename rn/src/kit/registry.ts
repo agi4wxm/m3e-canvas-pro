@@ -10,6 +10,9 @@ import { Accordion, CodeBlock, FileUpload, IconGrid, InputGroup, RadioGroup, Sce
 import { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 import { NATIVE, type NativeName, type NativeSlug } from "./coverage";
 import { SplitView } from "./split";
+/* D3: pickers and entry parts */
+import { CopyRow, Field, Form, InputOtp, NumberPad, PhoneInput, QuantityStepper, RichTextEditor, SignaturePad, TagInput } from "./composites/entry";
+import { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker } from "./composites/pickers";
 /* D4: the game parts, and actions, menus and search */
 import { BrandButton, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SplitButton } from "./composites/actions";
 import { EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, PrizeWheel, SkillButton, SlotMachine } from "./composites/games";
@@ -84,6 +87,29 @@ export const BY_NAME = {
   FileUpload,
   Scene,
   Sidebar,
+  /* D3: pickers and entry parts */
+  NativeSelect,
+  Combobox,
+  Calendar,
+  ColorField,
+  WheelPicker,
+  ItemPicker,
+  MultiSelect,
+  ColorPalette,
+  NumberPicker,
+  TransferList,
+  RegionPicker,
+  SeatMap,
+  InputOtp,
+  Field,
+  Form,
+  CopyRow,
+  QuantityStepper,
+  TagInput,
+  PhoneInput,
+  NumberPad,
+  SignaturePad,
+  RichTextEditor,
   /* D4: the game parts, and actions, menus and search */
   PrizeWheel,
   GridDraw,
