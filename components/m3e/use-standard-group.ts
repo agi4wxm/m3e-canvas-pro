@@ -1,5 +1,7 @@
 import * as React from "react"
 
+import { useReducedMotionPreference } from "@/components/m3e/reduced-motion"
+
 /** Compose ButtonGroupDefaults.ExpandedRatio */
 const EXPANDED_RATIO = 0.15
 
@@ -16,10 +18,11 @@ export function useStandardGroup(
   ref: React.RefObject<HTMLElement | null>,
   enabled: boolean
 ) {
+  /* with reduced motion the buttons keep their widths; the setting changing while the group is up counts */
+  const reduced = useReducedMotionPreference()
   React.useEffect(() => {
     const group = ref.current
-    if (!group || !enabled) return undefined
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined
+    if (!group || !enabled || reduced) return undefined
 
     const items = () =>
       [...group.children].filter(
@@ -82,5 +85,5 @@ export function useStandardGroup(
         el.style.flexShrink = ""
       }
     }
-  }, [ref, enabled])
+  }, [ref, enabled, reduced])
 }

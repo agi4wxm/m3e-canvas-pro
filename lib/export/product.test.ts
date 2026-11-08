@@ -43,14 +43,14 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: shadcn moved to the build's
-     devDependencies, and the link opener refusing anything but web pages). */
+     before the product existed; one that changes on purpose is written again here (last: the ripple holding still
+     under reduced motion, read from the new components/m3e/reduced-motion.ts, and its timers cleared with it). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [76, "caabb62ce105141b0c83bd9a4078a580ac5ca4f04f7b401b4480ee0f971761bd"],
-    systems: [39, "1fea6589ffb4206125a253589641b3b266fa50e2ffb49ac010de90d2165b1f23"],
-    reuse: [29, "387bce0ce0dd0299a5042d02c6982c6834031dbb89291c5129c36193adfbfcdc"],
-    sweep: [82, "0141b74a7531ea4a7f3fa551b8a9f5cc65e68378af8b2ee2d19522786c8f0d9e"],
-    parts: [135, "f8854db5ae62e6be8b65a6a38389caacfa3f0410bac0fdde411c9eebc93c919c"],
+    proof: [77, "093de076e62505bfa21bd9b7d19571105d88fe97de3155e128607c273ee12b60"],
+    systems: [40, "fe350b28dee0e667c6a33665a619f74599695020dda85b6107a334d8079e82af"],
+    reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
+    sweep: [83, "1328dddf1c92380cfcc05510dfa1ce8e01b9788cdacadee33ade3940dc9a27a0"],
+    parts: [136, "1ee7a65aa11cb12c3c616eff99c81384bd779bd062fc49843ae15976c27400c7"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
