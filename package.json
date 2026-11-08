@@ -92,14 +92,23 @@
     "@types/ws": "8.18.1",
     "@vitejs/plugin-react": "^6",
     "fake-indexeddb": "^6.2.7",
+    "fast-xml-parser": "5.11.2",
+    "gltf-validator": "2.0.0-dev.3.10",
+    "ical.js": "2.2.1",
+    "mammoth": "1.13.0",
+    "music-metadata": "12.2.3",
+    "sharp": "0.35.4",
     "tailwindcss": "^4",
     "typescript": "^7",
     "undici": "7.30.0",
+    "unpdf": "1.9.1",
     "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0",
     "vite-plus": "1.0.0",
     "vitest": "^5.0.2",
     "wrangler": "^4.147.0",
-    "ws": "8.22.0"
+    "ws": "8.22.0",
+    "xlsx": "0.18.5",
+    "yaml": "2.9.1"
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0"

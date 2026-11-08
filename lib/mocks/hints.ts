@@ -73,18 +73,25 @@ export function inferHint(name: string, schema: JsonSchema | undefined, model?: 
     if (format === "date-time") return { kind: "dateTime", ...dateRange(words) };
     if (format === "date") return { kind: "date", ...dateRange(words) };
     if (format === "time") return { kind: "time" };
-    if (format === "binary" || format === "byte") return { kind: fileKind(words, s) };
+    /* a string that holds a file of a media type, whatever else it says */
+    if (typeof s.contentMediaType === "string") return { kind: fileKind([...words, ...wordsOf(s.contentMediaType)], s) };
+    if (format === "binary" || format === "byte") {
+      const named = typeof s.contentMediaType === "string" ? undefined : typeOfWords(words);
+      return named ? { kind: kindOfMedia(named), type: named } : { kind: fileKind(words, s) };
+    }
     if (format === "password") return { kind: "password" };
     if (format === "ipv4" || format === "ipv6") return { kind: "ip" };
     if (format === "phone" || format === "tel") return { kind: "phone" };
     if (format === "uri" || format === "url" || format === "iri" || format === "uri-reference") {
-      if (has(words, "avatar", "photo", "picture", "image", "img", "thumbnail", "thumb", "cover", "banner", "logo", "icon", "poster", "portrait", "headshot")) return { kind: has(words, "avatar", "portrait", "headshot") || (sort === "person" && has(words, "photo", "picture")) ? "avatar" : "image" };
+      const named = typeOfWords(words);
+      if (named && !named.startsWith("image/")) return { kind: kindOfMedia(named), type: named };
+      if (has(words, "avatar", "photo", "picture", "image", "img", "thumbnail", "thumb", "cover", "banner", "logo", "icon", "poster", "portrait", "headshot")) return { kind: has(words, "avatar", "portrait", "headshot") || (sort === "person" && has(words, "photo", "picture")) ? "avatar" : "image", ...(named ? { type: named } : {}) };
+      if (named) return { kind: "image", type: named };
       if (has(words, "audio", "voice", "sound", "music", "song", "podcast", "track")) return { kind: "audio" };
       if (has(words, "video", "clip", "movie", "trailer")) return { kind: "video" };
       if (has(words, "file", "attachment", "document", "pdf", "download", "receipt", "invoice", "resume", "cv")) return { kind: "file" };
       return { kind: "url" };
     }
-    if (typeof s.contentMediaType === "string") return { kind: fileKind([...words, ...wordsOf(s.contentMediaType)], s) };
   }
 
   if (type === "boolean") return { kind: "boolean" };
@@ -99,6 +106,7 @@ export function inferHint(name: string, schema: JsonSchema | undefined, model?: 
     if (end === "age" || has(words, "age")) return { kind: "age" };
     if (has(words, "lat", "latitude")) return { kind: "latitude" };
     if (has(words, "lng", "lon", "long", "longitude")) return { kind: "longitude" };
+    if (has(words, "bytes") || (has(words, "size") && has(words, "file", "attachment", "upload", "byte", "content", "download"))) return { kind: "integer", min: 2_000, max: 8_000_000 };
     if (has(words, "quantity", "qty", "count", "stock", "inventory", "likes", "views", "followers", "comments", "number", "num", "size", "seats", "votes")) return { kind: "quantity" };
     if (has(words, "year")) return { kind: "integer", min: 2000, max: 2030 };
     if (has(words, "timestamp", "time", "at") || (has(words, "created", "updated", "deleted", "expires", "published") && type === "integer")) return { kind: "dateTime", ...dateRange(words) };
@@ -110,6 +118,12 @@ export function inferHint(name: string, schema: JsonSchema | undefined, model?: 
   /* a string, by its name */
   if (has(words, "email", "mail")) return { kind: "email" };
   if (has(words, "phone", "mobile", "tel", "telephone", "cell", "fax")) return { kind: "phone" };
+  if (has(words, "filename") || (end === "name" && has(words, "file", "attachment", "document"))) return { kind: "fileName" };
+  if (has(words, "mime", "mimetype") || (end === "type" && has(words, "content", "media"))) return { kind: "mimeType" };
+  if (has(words, "url", "link", "file", "download", "attachment", "document", "export", "report", "href", "uri", "image", "photo", "picture", "logo", "icon", "audio", "video", "model", "asset")) {
+    const named = typeOfWords(words);
+    if (named) return { kind: kindOfMedia(named), type: named };
+  }
   if (has(words, "avatar", "portrait", "headshot")) return { kind: "avatar" };
   if (has(words, "photo", "picture", "image", "img", "thumbnail", "thumb", "cover", "banner", "logo", "poster")) return { kind: sort === "person" && has(words, "photo", "picture") ? "avatar" : "image" };
   if (has(words, "audio", "voice", "sound", "song", "podcast")) return { kind: "audio" };
@@ -160,6 +174,59 @@ function dateRange(words: string[]): Pick<MockHint, "from" | "to"> {
   return { from: "-180d", to: "now" };
 }
 
+const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+/** the format a file field's name says it is in (reportCsv, exportXlsx, modelGlb, logoPng), as a media type */
+const FILE_WORDS: [RegExp, string][] = [
+  [/^pdf$/, "application/pdf"],
+  [/^csv$/, "text/csv"],
+  [/^tsv$/, "text/tab-separated-values"],
+  [/^(xlsx|xls|excel|spreadsheet|workbook)$/, XLSX],
+  [/^docx$/, DOCX],
+  [/^(pptx|ppt|slides|deck|presentation)$/, PPTX],
+  [/^json$/, "application/json"],
+  [/^(ndjson|jsonl)$/, "application/x-ndjson"],
+  [/^xml$/, "application/xml"],
+  [/^(yaml|yml)$/, "application/yaml"],
+  [/^(zip|archive)$/, "application/zip"],
+  [/^(gz|gzip|tgz)$/, "application/gzip"],
+  [/^tar$/, "application/x-tar"],
+  [/^(glb|3d|model3d|mesh)$/, "model/gltf-binary"],
+  [/^gltf$/, "model/gltf+json"],
+  [/^obj$/, "model/obj"],
+  [/^stl$/, "model/stl"],
+  [/^ply$/, "model/x-ply"],
+  [/^(ics|ical|calendar)$/, "text/calendar"],
+  [/^(vcf|vcard)$/, "text/vcard"],
+  [/^geojson$/, "application/geo+json"],
+  [/^gpx$/, "application/gpx+xml"],
+  [/^kml$/, "application/vnd.google-earth.kml+xml"],
+  [/^(md|markdown)$/, "text/markdown"],
+  [/^png$/, "image/png"],
+  [/^(jpg|jpeg)$/, "image/jpeg"],
+  [/^webp$/, "image/webp"],
+  [/^gif$/, "image/gif"],
+  [/^svg$/, "image/svg+xml"],
+  [/^(ico|favicon)$/, "image/x-icon"],
+  [/^mp3$/, "audio/mpeg"],
+  [/^(ogg|opus)$/, "audio/ogg"],
+  [/^wav$/, "audio/wav"],
+  [/^(m4a|aac)$/, "audio/mp4"],
+  [/^mp4$/, "video/mp4"],
+  [/^webm$/, "video/webm"],
+];
+
+/** the media type a field's words name, when they name one */
+function typeOfWords(words: string[]): string | undefined {
+  for (const w of words) for (const [re, type] of FILE_WORDS) if (re.test(w)) return type;
+  return undefined;
+}
+
+/** the hint kind of a media type */
+const kindOfMedia = (type: string): MockKind => (type.startsWith("image/") ? "image" : type.startsWith("audio/") ? "audio" : type.startsWith("video/") ? "video" : "file");
+
 /** what kind of file a binary field holds, by its name or its media type */
 function fileKind(words: string[], s: JsonSchemaObject): MockKind {
   const media = typeof s.contentMediaType === "string" ? s.contentMediaType : "";
@@ -178,6 +245,6 @@ export function kindsFor(schema: JsonSchema | undefined): MockKind[] {
   if (t === "array" || t === "object") return ["auto"];
   return [
     "auto", "id", "uuid", "personName", "firstName", "lastName", "username", "avatar", "email", "phone", "address", "street", "city", "region", "country", "postcode", "company", "jobTitle", "productName", "category", "tag",
-    "price", "currency", "title", "sentence", "paragraph", "word", "slug", "code", "color", "url", "image", "file", "audio", "video", "date", "dateTime", "time", "enum", "status", "token", "password", "ip", "version", "constant",
+    "price", "currency", "title", "sentence", "paragraph", "word", "slug", "code", "color", "url", "image", "file", "audio", "video", "fileName", "mimeType", "date", "dateTime", "time", "enum", "status", "token", "password", "ip", "version", "constant",
   ];
 }

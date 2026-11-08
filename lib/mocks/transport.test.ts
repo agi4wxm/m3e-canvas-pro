@@ -188,6 +188,94 @@ describe("files", () => {
   });
 });
 
+describe("files of every format", () => {
+  const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
+  const id = { name: "id", in: "path", required: true, schema: { type: "string" } };
+  const binary = (type: string) => ({ "200": { description: "the file", content: { [type]: { schema: { type: "string", format: "binary" } } } } });
+  const files = fromOpenApi({
+    openapi: "3.1.0",
+    info: { title: "Files", version: "1" },
+    paths: {
+      "/orders": { get: { operationId: "listOrders", responses: { "200": { description: "the orders", content: { "application/json": { schema: { type: "array", items: ref("Order") } }, "text/csv": { schema: { type: "string" } }, [XLSX_TYPE]: { schema: { type: "string", format: "binary" } } } } } } },
+      "/orders/{id}": { get: { operationId: "getOrder", parameters: [id], responses: { "200": { description: "an order", content: { "application/json": { schema: ref("Order") } } } } } },
+      "/orders/export": { get: { operationId: "exportOrders", responses: binary("text/csv") } },
+      "/orders/{id}/invoice": { get: { operationId: "orderInvoice", parameters: [id], responses: binary("application/pdf") } },
+      "/attachments": { get: { operationId: "listAttachments", responses: { "200": { description: "the attachments", content: { "application/json": { schema: { type: "array", items: ref("Attachment") } } } } } } },
+      "/attachments/{id}": { get: { operationId: "getAttachment", parameters: [id], responses: { "200": { description: "one", content: { "application/json": { schema: ref("Attachment") } } } } } },
+      "/attachments/{id}/download": { get: { operationId: "downloadAttachment", parameters: [id], responses: binary("application/octet-stream") } },
+      "/models/{id}/mesh": { get: { operationId: "modelMesh", parameters: [id], responses: binary("model/gltf-binary") } },
+      "/readme": { get: { operationId: "readme", responses: { "200": { description: "words", content: { "text/plain": { schema: { type: "string" } } } } } } },
+    },
+    components: {
+      schemas: {
+        Order: { type: "object", required: ["id", "title", "total"], properties: { id: { type: "string" }, title: { type: "string" }, total: { type: "number" } } },
+        Attachment: { type: "object", required: ["id", "fileName"], properties: { id: { type: "string" }, fileName: { type: "string" } } },
+      },
+    },
+  }).api;
+  const mocks: MockSpec = { models: [{ name: "Attachment", fixtures: [{ id: "att-1", fileName: "plan 平面图.glb" }, { id: "att-2", fileName: "budget.xlsx" }] }] };
+  const asFile = (r: TransportResponse) => r.body as { name: string; type: string; dataUrl: string; size: number };
+  const text = (r: TransportResponse) => atob(asFile(r).dataUrl.split(",")[1]);
+
+  it("answers a list in the type the request accepts among those it offers: JSON by default, else CSV or XLSX of the same rows", async () => {
+    const t = make(mocks, {}, files);
+    const rows = (await call(t, "GET", "/orders")).body as unknown as Record<string, unknown>[];
+    expect(Array.isArray(rows)).toBe(true);
+    expect((await call(t, "GET", "/orders", { headers: { accept: "application/json" } })).headers["content-type"]).toBe("application/json");
+    const csv = await call(t, "GET", "/orders", { headers: { Accept: "text/csv" } });
+    expect(csv.headers["content-type"]).toBe("text/csv; charset=utf-8");
+    expect(csv.headers["content-disposition"]).toMatch(/^attachment; filename=".+\.csv"/);
+    expect(text(csv).split("\r\n")[0]).toBe("id,title,total");
+    expect(text(csv)).toContain(String(rows[0].id));
+    const xlsx = await call(t, "GET", "/orders", { headers: { accept: `${XLSX_TYPE}, application/json;q=0.5` } });
+    expect(asFile(xlsx).type).toBe(XLSX_TYPE);
+    expect(asFile(xlsx).name.endsWith(".xlsx")).toBe(true);
+    /* asking for what the operation does not offer gets JSON */
+    expect((await call(t, "GET", "/orders", { headers: { accept: "image/png, */*;q=0.1" } })).headers["content-type"]).toBe("application/json");
+  });
+
+  it("exports a list as the file its operation answers with, a record's document from the record, a 404 for none", async () => {
+    const t = make(mocks, {}, files);
+    const order = ((await call(t, "GET", "/orders")).body as unknown as Record<string, unknown>[])[2];
+    const exp = await call(t, "GET", "/orders/export");
+    expect(exp.headers["content-type"]).toBe("text/csv; charset=utf-8");
+    expect(text(exp).trimEnd().split("\r\n")).toHaveLength(1 + 24);
+    const inv = await call(t, "GET", `/orders/${order.id}/invoice`);
+    expect(inv.headers["content-type"]).toBe("application/pdf");
+    expect(asFile(inv).name).toBe(`${String(order.title).replace(/\s+/g, "-")}.pdf`);
+    expect(text(inv)).toContain(String(order.id));
+    expect((await call(t, "GET", "/orders/nope/invoice")).status).toBe(404);
+    const mesh = await call(t, "GET", "/models/m1/mesh");
+    expect(asFile(mesh).type).toBe("model/gltf-binary");
+    expect(text(mesh).slice(0, 4)).toBe("glTF");
+  });
+
+  it("gives bytes the type its record's file name says, under that name, in any language", async () => {
+    const t = make(mocks, {}, files);
+    const glb = await call(t, "GET", "/attachments/att-1/download");
+    expect(glb.headers["content-type"]).toBe("model/gltf-binary");
+    expect(glb.headers["content-disposition"]).toBe(`attachment; filename="plan ___.glb"; filename*=UTF-8''plan%20%E5%B9%B3%E9%9D%A2%E5%9B%BE.glb`);
+    expect(text(glb).slice(0, 4)).toBe("glTF");
+    const xlsx = await call(t, "GET", "/attachments/att-2/download");
+    expect(asFile(xlsx).type).toBe(XLSX_TYPE);
+    expect(asFile(xlsx).name).toBe("budget.xlsx");
+    /* the library's file of the type comes first */
+    const lib = make({ ...mocks, files: [{ id: "deck", name: "deck.glb", type: "model/gltf-binary", data: "data:model/gltf-binary;base64,Z2xURgIAAAA=" }] }, {}, files);
+    expect(asFile(await call(lib, "GET", "/attachments/att-1/download")).name).toBe("deck.glb");
+  });
+
+  it("answers text as text under its own type, and serves the library's files inline", async () => {
+    const t = make({ files: [{ id: "doc", name: "说明.txt", type: "text/plain", data: "data:text/plain;base64,aGk=" }] }, {}, files);
+    const r = await call(t, "GET", "/readme");
+    expect(r.headers["content-type"]).toBe("text/plain; charset=utf-8");
+    expect(typeof r.body).toBe("string");
+    const f = await call(t, "GET", `${MOCK_FILES_PATH}/doc`);
+    expect(f.headers["content-type"]).toBe("text/plain; charset=utf-8");
+    expect(f.headers["content-disposition"]).toBe(`inline; filename="__.txt"; filename*=UTF-8''%E8%AF%B4%E6%98%8E.txt`);
+  });
+});
+
 describe("signing in", () => {
   const login = (t: ReturnType<typeof make>, body = { email: "demo@example.com", password: "demo12345" }) => call(t, "POST", "/auth/login", { body });
   const bearer = (token: string) => ({ headers: { Authorization: `Bearer ${token}` } });

@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Collection, Palette } from "@/lib/tokens";
 import type { ApiSpec, JsonSchema, JsonSchemaObject } from "@/lib/api";
 import { ops } from "@/lib/core";
 import { t, useLang, type UIKey } from "@/lib/i18n";
-import { MockData, compileRoutes, inferredHints, kindOfType, kindsFor, modelShape, idFieldOf, MOCK_LOCALES, dataUrlSize, type MockFile, type MockHint, type MockKind, type MockLocale, type MockOpRule, type MockRealtimeScript, type MockScenario, type MockSpec } from "@/lib/mocks";
+import { MockData, compileRoutes, inferredHints, fileFits, FORMATS, formatOf, kindOfType, kindsFor, modelShape, idFieldOf, MOCK_LOCALES, dataUrlSize, type FileKind, type MockFile, type MockHint, type MockKind, type MockLocale, type MockOpRule, type MockRealtimeScript, type MockScenario, type MockSpec } from "@/lib/mocks";
 import { Icon } from "./Icon";
 import type { ApiRun } from "./ApiPanel";
 import { ConfirmDialog, DenseContext, Field, IconBtn, Segmented, Select, Toggle } from "./ui";
+
+/* a file's preview reads Office files, archives and 3D models: loaded with the first file shown */
+const FilePreviewDialog = lazy(() => import("./MockFilePreview"));
+const FilePreview = lazy(() => import("./MockFilePreview").then((m) => ({ default: m.FilePreview })));
+const FileFacts = lazy(() => import("./MockFilePreview").then((m) => ({ default: m.FileFacts })));
 
 /* The Mocks tab: how the API (the API tab's contract) is answered while the product is designed, with no back end
  * (lib/mocks, docs/模拟库.md). Scenarios and the one the preview starts in; each model's records as a table, how its
@@ -206,7 +211,7 @@ const thumb = (p: Palette): React.CSSProperties => ({ width: 28, height: 28, bor
  *  kind, the rest as text cut to the cell */
 function ValueView({ v, p }: { v: unknown; p: Palette }) {
   if (typeof v === "string" && v.startsWith("data:image/")) return <img data-mocks-image src={v} alt="" style={thumb(p)} />;
-  if (typeof v === "string" && v.startsWith("data:")) return <Icon name={v.startsWith("data:audio") ? "audio_file" : v.startsWith("data:video") ? "video_file" : v.startsWith("data:application/pdf") ? "picture_as_pdf" : "draft"} size={20} color={p.onSurfaceVariant} />;
+  if (typeof v === "string" && v.startsWith("data:")) return <Icon name={fileIcon(/^data:([^;,]*)/.exec(v)?.[1] ?? "")} size={20} color={p.onSurfaceVariant} />;
   if (Array.isArray(v) && v.length && typeof v[0] === "string" && v[0].startsWith("data:image/"))
     return (
       <span style={{ position: "relative", display: "block", width: 28, height: 28, flex: "0 0 auto" }}>
@@ -266,8 +271,11 @@ function HintRow({ model, path, schema, own, inferred, files, run, p }: { model:
   const value = own?.kind ?? "auto";
   const kind = value === "auto" ? inferred.kind : value;
   const set = (h: MockHint | null) => run(ops.setMockModel, { model, hints: { [path]: h } });
-  const fileKind = kind === "avatar" || kind === "image" ? "image" : kind === "audio" ? "audio" : kind === "video" ? "video" : kind === "file" ? "file" : null;
-  const pool = fileKind ? files.filter((f) => (fileKind === "file" ? ["pdf", "file"].includes(kindOfType(f.type)) : kindOfType(f.type) === fileKind)) : [];
+  const fileKind: FileKind | null = kind === "avatar" || kind === "image" ? "image" : kind === "audio" ? "audio" : kind === "video" ? "video" : kind === "file" ? "file" : null;
+  const pool = fileKind ? files.filter((f) => fileFits(f, fileKind)) : [];
+  /* the formats a field of the kind may be made in: its family's, every document's for a file */
+  const formats = fileKind ? FORMATS.filter((f) => (fileKind === "file" ? !["image", "audio", "video"].includes(f.family) : f.family === fileKind)) : [];
+  const type = own?.type ?? inferred.type;
   return (
     <div data-mocks-hint={path} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.3fr)", gap: 6, alignItems: "center" }}>
       <span style={{ ...mono, color: p.onSurface, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={path}>
@@ -281,6 +289,20 @@ function HintRow({ model, path, schema, own, inferred, files, run, p }: { model:
         label={path}
         height={28}
       />
+      {formats.length > 1 && (
+        <>
+          <span style={label(p)}>{t("mocksFormat", lang)}</span>
+          <Select
+            options={[{ key: "", label: t("mocksFormatAuto", lang) }, ...formats.map((f) => ({ key: f.type, label: `${f.ext.toUpperCase()} · ${f.type}` }))]}
+            value={type ? (formatOf(type)?.type ?? "") : ""}
+            onChange={(k) => set({ ...own, kind, type: k || undefined })}
+            p={p}
+            label={t("mocksFormat", lang)}
+            height={28}
+            menuWidth={320}
+          />
+        </>
+      )}
       {pool.length > 0 && (
         <>
           <span style={label(p)}>{t("mocksFilesUse", lang)}</span>
@@ -406,7 +428,8 @@ function DataTab({ api, mocks, collections, run, p, locale }: { api: ApiSpec; mo
 /* ---------- files ---------- */
 
 const MAX_FILE = 12_000_000;
-const fileIcon = (type: string) => ({ image: "image", pdf: "picture_as_pdf", audio: "audio_file", video: "video_file", file: "draft" })[kindOfType(type)];
+const fileIcon = (type: string) =>
+  ({ image: "image", pdf: "picture_as_pdf", audio: "audio_file", video: "video_file", document: "description", spreadsheet: "table_chart", presentation: "slideshow", data: "data_object", text: "article", archive: "folder_zip", model: "view_in_ar", file: "draft" })[kindOfType(type)];
 const sizeText = (n: number) => (n > 1_000_000 ? `${(n / 1_000_000).toFixed(1)} MB` : n > 1000 ? `${Math.round(n / 1000)} KB` : `${n} B`);
 
 function FilesTab({ mocks, run, p, paint, toast }: { mocks: MockSpec; run: ApiRun; p: Palette; paint: Props["paint"]; toast: (s: string) => void }) {
@@ -414,7 +437,15 @@ function FilesTab({ mocks, run, p, paint, toast }: { mocks: MockSpec; run: ApiRu
   const input = useRef<HTMLInputElement>(null);
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
+  const [format, setFormat] = useState("xlsx");
+  const [shown, setShown] = useState<MockFile | null>(null);
   const files = mocks.files ?? [];
+  /* a file of any format: what makes it loads first (the editor's own bundle has only the basic placeholders) */
+  const makeFormat = () =>
+    void ops.loadMockMakers().then(() => {
+      const out = run(ops.generateMockFiles, { types: [format] });
+      if (!out.ok) toast(out.message);
+    });
   const upload = (list: FileList | null) => {
     for (const f of Array.from(list ?? [])) {
       if (f.size > MAX_FILE) {
@@ -440,6 +471,15 @@ function FilesTab({ mocks, run, p, paint, toast }: { mocks: MockSpec; run: ApiRu
           {t("mocksPlaceholders", lang)}
         </button>
         <input ref={input} data-mocks-file-input type="file" multiple hidden onChange={(e) => (upload(e.target.files), (e.target.value = ""))} />
+      </div>
+      <div style={{ ...row, gap: 6 }}>
+        <div style={{ flex: "1 1 auto", minWidth: 0 }}>
+          <Select options={FORMATS.map((f) => ({ key: f.ext, label: `${f.ext.toUpperCase()} · ${f.type}` }))} value={format} onChange={setFormat} p={p} label={t("mocksMakeFormat", lang)} height={28} menuWidth={320} />
+        </div>
+        <button data-mocks-make-format title={t("mocksMakeFormatHint", lang)} onClick={makeFormat} className="m3-press" style={chip(p)}>
+          <Icon name="add" size={16} />
+          {t("mocksMakeFormat", lang)}
+        </button>
       </div>
       <div style={{ ...card(p), gap: 6 }}>
         <span style={label(p)}>{t("mocksPaint", lang)}</span>
@@ -472,17 +512,24 @@ function FilesTab({ mocks, run, p, paint, toast }: { mocks: MockSpec; run: ApiRu
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(124px, 1fr))", gap: 8 }}>
         {files.map((f) => (
           <div key={f.id} data-mocks-file={f.id} style={{ display: "flex", flexDirection: "column", gap: 4, padding: 6, borderRadius: 12, background: p.surfaceContainerLow, minWidth: 0 }}>
-            <div style={{ height: 84, borderRadius: 8, background: p.surfaceContainerHigh, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {f.type.startsWith("image/") ? (
-                <img src={f.data} alt={f.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              ) : f.type.startsWith("video/") ? (
-                <video src={f.data} muted loop playsInline autoPlay style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              ) : f.type.startsWith("audio/") ? (
-                <audio src={f.data} controls style={{ width: "100%" }} />
+            <button
+              data-mocks-file-thumb={f.id}
+              onClick={() => setShown(f)}
+              title={t("mocksPreview", lang)}
+              aria-label={`${t("mocksPreview", lang)}: ${f.name}`}
+              style={{ height: 84, padding: 0, border: "none", borderRadius: 8, background: p.surfaceContainerHigh, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-in" }}
+            >
+              {f.type.startsWith("audio/") ? (
+                <audio src={f.data} controls style={{ width: "100%" }} onClick={(e) => e.stopPropagation()} />
               ) : (
-                <Icon name={fileIcon(f.type)} size={36} color={p.onSurfaceVariant} />
+                <Suspense fallback={<Icon name={fileIcon(f.type)} size={36} color={p.onSurfaceVariant} />}>
+                  <FilePreview file={f} p={p} small />
+                </Suspense>
               )}
-            </div>
+            </button>
+            <Suspense fallback={null}>
+              <FileFacts file={f} p={p} />
+            </Suspense>
             <Cell value={f.name} onCommit={(v) => v.trim() && run(ops.updateMockFile, { id: f.id, name: v.trim() })} label={f.name} p={p} />
             <Cell value={(f.tags ?? []).join(", ")} onCommit={(v) => run(ops.updateMockFile, { id: f.id, tags: v.split(/[,，、]\s*/).map((x) => x.trim()).filter(Boolean) })} label={t("mocksFileTags", lang)} p={p} />
             <div style={{ ...row, justifyContent: "space-between" }}>
@@ -492,6 +539,11 @@ function FilesTab({ mocks, run, p, paint, toast }: { mocks: MockSpec; run: ApiRu
           </div>
         ))}
       </div>
+      {shown && (
+        <Suspense fallback={null}>
+          <FilePreviewDialog file={files.find((f) => f.id === shown.id) ?? shown} p={p} onClose={() => setShown(null)} />
+        </Suspense>
+      )}
     </div>
   );
 }

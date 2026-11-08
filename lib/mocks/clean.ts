@@ -61,6 +61,7 @@ export function cleanHint(v: unknown, b: Budget): MockHint | undefined {
     values: values?.length ? values : undefined,
     value: json(v.value, b),
     files: files?.length ? files : undefined,
+    type: typeof v.type === "string" && /^[\w.+-]{1,60}(\/[\w.+-]{1,100})?$/.test(v.type.trim()) ? v.type.trim().toLowerCase() : undefined,
     nullRate: num(v.nullRate, 0, 1),
   });
 }

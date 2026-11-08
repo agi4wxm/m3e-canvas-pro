@@ -4,8 +4,10 @@
 
 import { tool, ToolFailure, type Tool } from "./types";
 
-/** files in an answer, shortened: a data URL of a picture is kilobytes the model has no use for */
-const lean = (v: unknown): unknown => JSON.parse(JSON.stringify(v ?? null, (_k, x) => (typeof x === "string" && x.startsWith("data:") && x.length > 100 ? `${x.slice(0, 40)}…(${x.length} chars)` : x)));
+/** files in an answer, shortened: a data URL of a picture (or a file's base64 or text in a field) is kilobytes the
+ *  model has no use for */
+const lean = (v: unknown): unknown =>
+  JSON.parse(JSON.stringify(v ?? null, (_k, x) => (typeof x === "string" && ((x.startsWith("data:") && x.length > 100) || x.length > 2000) ? `${x.slice(0, 40)}…(${x.length} chars)` : x)));
 
 const getMocks = tool<Record<string, never>>({
   name: "get_mocks",

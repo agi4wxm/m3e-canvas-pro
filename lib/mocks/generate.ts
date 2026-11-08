@@ -7,12 +7,15 @@
  *
  * The fields of one object share a person: a user's name, user name, email and avatar belong together. A field
  * named after another model's id (productId), or holding another model (an order's product), takes one of that
- * model's records when the caller can give them, so the data hangs together. */
+ * model's records when the caller can give them, so the data hangs together. A file is made from the record it is
+ * in (an invoice's PDF shows the invoice), in the format its field names (contentMediaType, a hint's type) or the
+ * record's file name says, and the record's file name, media type and size agree with it. */
 
 import { followRef, isRecord, pointerRoot, resolvePointer } from "../api/schema";
 import { refModel, type ApiSpec, type JsonSchema, type JsonSchemaObject } from "../api/types";
-import { dataUrl, utf8 } from "./bytes";
-import { fileFits, placeholderFile, svgPicture, type FileKind } from "./files";
+import { dataUrl, dataUrlSize, fromUtf8, parseDataUrl, toBase64, utf8 } from "./bytes";
+import { fileBase, fileFits, formatOf, isTextType, KIND_TYPE, nearestFormat, svgPicture, typeOfName, type FileKind } from "./files";
+import { mockFile } from "./formats";
 import { mergeAllOf } from "./shape";
 import { inferHint, typesOf, wordsOf } from "./hints";
 import { EMAIL_DOMAINS, LATIN_WORDS, LOCALES, STATUS_WORDS, type LocaleData } from "./locales";
@@ -68,7 +71,12 @@ type At = {
   hint?: MockHint;
   /** the currency the object's prices are in, once it has one */
   currency?: string;
+  /** a field of an object: its file is made once the record is there (filesOfRecord), not now */
+  defer?: boolean;
 };
+
+/** what a field holds whose file is made once its record is there */
+const DEFERRED = "\u0000m3e-file\u0000";
 
 /** a field left out */
 const SKIP = Symbol("skip");
@@ -140,7 +148,9 @@ function least(s: JsonSchemaObject | undefined): unknown {
   return null;
 }
 
-function gen(schema: JsonSchema | undefined, ctx: Ctx, at: At): Out {
+function gen(schema: JsonSchema | undefined, ctx: Ctx, given: At): Out {
+  /* only a field's own string defers its file: a reference or a combination is made in place */
+  const { defer, ...at } = given;
   if (schema === false) return SKIP;
   if (ctx.budget.left-- <= 0 || at.depth > (ctx.maxDepth ?? 10)) return at.required ? least(isRecord(schema) ? schema : undefined) : SKIP;
   if (schema === undefined || schema === true) return word(ctx, rngAt(at));
@@ -216,7 +226,7 @@ function gen(schema: JsonSchema | undefined, ctx: Ctx, at: At): Out {
     case "null":
       return null;
     default:
-      return string(s, hint, ctx, at);
+      return string(s, hint, ctx, { ...at, defer });
   }
 }
 
@@ -250,23 +260,10 @@ function object(s: JsonSchemaObject, ctx: Ctx, at: At): Out {
       if (rngOf(`${at.key}|${path}|present`).chance(own ?? 0.12)) continue;
       if (ctx.budget.left < 50) continue;
     }
-    const v = gen(sub, ctx, { key: at.key, model: at.model, path, name, depth: at.depth + 1, refs: at.refs, required: req, obj });
+    const v = gen(sub, ctx, { key: at.key, model: at.model, path, name, depth: at.depth + 1, refs: at.refs, required: req, obj, defer: true });
     if (v !== SKIP) Object.defineProperty(out, name, { value: v, enumerable: true, writable: true, configurable: true });
   }
-  /* a placeholder file shows its record's title: a PDF of an invoice says the invoice's title */
-  const title = ["title", "name", "subject", "headline", "fileName", "filename", "label"].map((k) => out[k]).find((v): v is string => typeof v === "string" && v.length > 0 && !v.startsWith("data:"));
-  if (title)
-    for (const [name, sub] of Object.entries(props)) {
-      const v = out[name];
-      const subS = isRecord(sub) ? (sub as JsonSchemaObject) : undefined;
-      if (typeof v !== "string" || !v.startsWith("data:") || !subS) continue;
-      const path = at.path ? `${at.path}.${name}` : name;
-      const sub2: At = { key: at.key, model: at.model, path, name, depth: at.depth + 1, refs: at.refs, required: required.has(name), obj };
-      const hint = hintAt(ctx, sub2, subS);
-      const kind: FileKind | undefined = hint.kind === "file" ? "pdf" : hint.kind === "image" || hint.kind === "video" ? hint.kind : undefined;
-      if (!kind || poolFor(ctx, kind, hint).length) continue;
-      out[name] = fileFor(ctx, kind, hint, rngAt(sub2, "titled"), title, `${obj}|${path}|${kind}`);
-    }
+  filesOfRecord(s, ctx, at, out, obj);
   /* a price and its currency belong together: the price is made again in the currency's own range */
   const currency = typeof out.currency === "string" && /^[A-Z]{3}$/.test(out.currency) ? out.currency : undefined;
   if (currency && PRICES[currency] && PRICES[currency] !== ctx.words.price)
@@ -471,19 +468,137 @@ function word(ctx: Ctx, rng: Rng): string {
   return rng.pick(ctx.words.words);
 }
 
-/** the library's files a field of this kind may use */
-const poolFor = (ctx: Ctx, kind: FileKind, hint: MockHint) => (ctx.files ?? []).filter((f) => (hint.files?.length ? hint.files.includes(f.id) : fileFits(f, kind)));
+/** the library's files a field of this kind (and of this format, when it names one) may use */
+const poolFor = (ctx: Ctx, kind: FileKind, hint: MockHint, type?: string) => (ctx.files ?? []).filter((f) => (hint.files?.length ? hint.files.includes(f.id) : fileFits(f, kind, type)));
 
-function fileFor(ctx: Ctx, kind: FileKind, hint: MockHint, rng: Rng, title: string, seed: string): string {
-  const pool = poolFor(ctx, kind, hint);
-  if (pool.length) {
-    const f = rng.pick(pool);
-    return ctx.fileUrl ? ctx.fileUrl(f) : f.data;
-  }
-  if (kind === "image" || kind === "avatar") return dataUrl("image/svg+xml", utf8(svgPicture({ seed, title, avatar: kind === "avatar", w: 480, h: 360 })));
-  const f = placeholderFile(kind, { seed, title });
-  return ctx.fileUrl ? ctx.fileUrl(f) : f.data;
+/** How a string holds a file: its bytes in base64 (contentEncoding, or OpenAPI's format byte), its text itself (a
+ *  text media type with no encoding: a CSV in a JSON string), or (anything else) its address, a data URL or the
+ *  library's own. */
+type FileForm = "url" | "base64" | "base64url" | "text";
+function formOf(s: JsonSchemaObject | undefined, type: string | undefined): FileForm {
+  const enc = typeof s?.contentEncoding === "string" ? s.contentEncoding.toLowerCase() : "";
+  if (enc === "base64" || (!enc && s?.format === "byte")) return "base64";
+  if (enc === "base64url") return "base64url";
+  if (!enc && typeof s?.contentMediaType === "string" && s.format !== "binary" && s.format !== "uri" && s.format !== "url" && type && isTextType(type)) return "text";
+  return "url";
 }
+
+/** what a file field asks for: its kind, hint and schema; the record it is in, and a format the record names */
+type FileAsk = { kind: FileKind; hint: MockHint; rng: Rng; title: string; seed: string; s?: JsonSchemaObject; record?: Record<string, unknown>; named?: string; model?: string; defer?: boolean };
+
+/** a file for a field, as its string, with its media type and size */
+function fileOf(ctx: Ctx, a: FileAsk): { value: string; type: string; size: number } {
+  const type = a.hint.type ?? (typeof a.s?.contentMediaType === "string" ? a.s.contentMediaType : undefined) ?? a.named;
+  const form = formOf(a.s, type);
+  const limit = typeof a.s?.maxLength === "number" ? Math.max(0, a.s.maxLength) : undefined;
+  const pool = poolFor(ctx, a.kind, a.hint, type);
+  if (pool.length) return handOut(ctx, a.rng.pick(pool), form, limit);
+  /* a document of the record, or a file of a format: made once, when the record is there */
+  if (a.defer && (a.kind === "file" || type)) return { value: DEFERRED, type: "", size: 0 };
+  /* a picture as it has always been: an SVG with the record's title, or the avatar's initials */
+  if (!type && form === "url" && limit === undefined && (a.kind === "image" || a.kind === "avatar")) {
+    const data = dataUrl("image/svg+xml", utf8(svgPicture({ seed: a.seed, title: a.title, avatar: a.kind === "avatar", w: 480, h: 360 })));
+    return { value: data, type: "image/svg+xml", size: dataUrlSize(data) };
+  }
+  const what = type ?? (a.kind === "file" ? "application/pdf" : KIND_TYPE[a.kind]);
+  const format = formatOf(what) ?? nearestFormat(what);
+  const room = limit === undefined ? undefined : form === "text" ? limit : form === "url" ? ((limit - `data:${format.type};base64,`.length) * 3) / 4 : (limit * 3) / 4;
+  const f = mockFile(format.type, { seed: a.seed, title: a.title || undefined, record: a.record, model: a.model, locale: ctx.locale, avatar: a.kind === "avatar", maxBytes: room === undefined ? undefined : Math.max(0, Math.floor(room)) });
+  return handOut(ctx, f, form, limit);
+}
+
+const fileFor = (ctx: Ctx, a: FileAsk): string => fileOf(ctx, a).value;
+
+/** a file as the string its field holds; an address too long for the field becomes a short one */
+function handOut(ctx: Ctx, f: MockFile, form: FileForm, limit?: number): { value: string; type: string; size: number } {
+  const size = dataUrlSize(f.data);
+  if (form === "url") {
+    const url = ctx.fileUrl ? ctx.fileUrl(f) : f.data;
+    const short = `https://files.example.com/${encodeURIComponent(f.name)}`;
+    return { value: limit !== undefined && url.length > limit && short.length <= limit ? short : url, type: f.type, size };
+  }
+  const bytes = parseDataUrl(f.data)?.bytes ?? new Uint8Array(0);
+  if (form === "text") return { value: fromUtf8(bytes), type: f.type, size };
+  const b64 = toBase64(bytes);
+  return { value: form === "base64url" ? b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : b64, type: f.type, size };
+}
+
+const SIZE_FIELD = /^(size|filesize|file_size|bytes|bytesize|byte_size|sizebytes|size_bytes|sizeinbytes|contentlength|content_length|length)$/i;
+
+/** The files of a record, made again from it once its other fields are there: a PDF of an invoice shows the
+ *  invoice, in the format the record's file name or media type names; then the file name's extension, the media
+ *  type and the size agree with the file. A picture is made again only to carry the record's title, as before. */
+function filesOfRecord(s: JsonSchemaObject, ctx: Ctx, at: At, out: Record<string, unknown>, obj: string): void {
+  const props = isRecord(s.properties) ? (s.properties as Record<string, JsonSchema>) : {};
+  const required = new Set(Array.isArray(s.required) ? s.required : []);
+  const fields = Object.entries(props).flatMap(([name, sub]) => {
+    const subS = isRecord(sub) ? (sub as JsonSchemaObject) : undefined;
+    if (!subS || out[name] === undefined || out[name] === null) return [];
+    const path = at.path ? `${at.path}.${name}` : name;
+    const sub2: At = { key: at.key, model: at.model, path, name, depth: at.depth + 1, refs: at.refs, required: required.has(name), obj };
+    return [{ name, subS, sub2, hint: hintAt(ctx, sub2, subS) }];
+  });
+  const fileNameField = fields.find((f) => (f.hint.kind === "fileName" || /^(file_?name|original_?(file_?)?name)$/i.test(f.name)) && typeof out[f.name] === "string");
+  const mimeField = fields.find((f) => (f.hint.kind === "mimeType" || /^(mime_?type|mime|content_?type|media_?type)$/i.test(f.name)) && typeof out[f.name] === "string");
+  const sizeField = fields.find((f) => SIZE_FIELD.test(f.name) && typeof out[f.name] === "number");
+  const nameType = fileNameField ? typeOfName(String(out[fileNameField.name])) : undefined;
+  const mime = mimeField && formatOf(String(out[mimeField.name])) ? String(out[mimeField.name]) : undefined;
+  const title = ["title", "name", "subject", "headline", "fileName", "filename", "label"].map((k) => out[k]).find((v): v is string => typeof v === "string" && v.length > 0 && !v.startsWith("data:"));
+  /* what the record says, its files apart */
+  const fileFields = new Set(fields.filter((f) => ["file", "image", "video", "audio", "avatar"].includes(f.hint.kind)).map((f) => f.name));
+  const record = Object.fromEntries(Object.entries(out).filter(([k, v]) => !fileFields.has(k) && !(typeof v === "string" && (v.startsWith("data:") || v === DEFERRED))));
+  let made: { type: string; size: number } | undefined;
+  for (const f of fields) {
+    if (typeof out[f.name] !== "string") continue;
+    const kind: FileKind | undefined = f.hint.kind === "file" ? "file" : f.hint.kind === "image" || f.hint.kind === "video" || f.hint.kind === "audio" ? f.hint.kind : undefined;
+    if (!kind) continue;
+    const own = f.hint.type ?? (typeof f.subS.contentMediaType === "string" ? f.subS.contentMediaType : undefined);
+    const fromRecord = nameType ?? mime;
+    const named = !own && fromRecord && (kind === "file" || kindOfMedia(fromRecord) === kind) ? fromRecord : undefined;
+    const deferred = out[f.name] === DEFERRED;
+    if (!deferred && poolFor(ctx, kind, f.hint, own ?? named).length) continue;
+    const ask: FileAsk = { kind, hint: f.hint, rng: rngAt(f.sub2, "titled"), title: title ?? "", seed: `${obj}|${f.sub2.path}|${kind}`, s: f.subS };
+    if (!deferred && kind !== "file" && !own && !named) {
+      /* a picture or a clip carries the record's title, made as it always has been */
+      if (title && kind !== "audio") out[f.name] = fileFor(ctx, ask);
+      continue;
+    }
+    const file = fileOf(ctx, { ...ask, record, named, model: at.model });
+    out[f.name] = file.value;
+    made ??= file;
+  }
+  /* the file's name, media type and size say what the file is */
+  const type = made?.type ?? nameType ?? mime;
+  const format = type ? formatOf(type) : undefined;
+  if (!format) return;
+  if (fileNameField && made && fileNameField.hint.kind === "fileName") {
+    const was = String(out[fileNameField.name]);
+    const stem = was.replace(/\.[A-Za-z0-9]{1,8}$/, "") || "file";
+    const next = `${stem}.${format.ext}`;
+    if (fits(fileNameField.subS, next)) out[fileNameField.name] = next;
+  }
+  if (mimeField && mimeField.hint.kind === "mimeType" && fits(mimeField.subS, format.type)) out[mimeField.name] = format.type;
+  if (sizeField && made) {
+    const sz = sizeField.subS;
+    if ((typeof sz.minimum !== "number" || made.size >= sz.minimum) && (typeof sz.maximum !== "number" || made.size <= sz.maximum)) out[sizeField.name] = made.size;
+  }
+}
+
+/** whether a string fits a schema's enum, lengths and pattern */
+function fits(s: JsonSchemaObject, v: string): boolean {
+  if (Array.isArray(s.enum)) return s.enum.includes(v);
+  if (typeof s.maxLength === "number" && [...v].length > s.maxLength) return false;
+  if (typeof s.minLength === "number" && [...v].length < s.minLength) return false;
+  const re = typeof s.pattern === "string" ? regexOf(s.pattern) : undefined;
+  return !re || nestedRepeat(s.pattern as string) || re.test(v);
+}
+
+const kindOfMedia = (type: string): FileKind => (type.startsWith("image/") ? "image" : type.startsWith("audio/") ? "audio" : type.startsWith("video/") ? "video" : "file");
+
+/** the media types a field of media types takes, the common ones first */
+const MEDIA_TYPES = ["image/jpeg", "image/png", "application/pdf", "image/webp", "text/plain", "application/json", "text/csv", "application/zip", "video/mp4", "audio/mpeg", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "image/gif", "image/svg+xml"];
+/** the extensions a made-up file name takes */
+const FILE_EXTS = ["pdf", "docx", "xlsx", "pptx", "png", "jpg", "csv", "zip", "txt", "mp4", "json"];
 
 function hex(rng: Rng): string {
   const h = rng.int(0, 359);
@@ -544,7 +659,7 @@ function string(s: JsonSchemaObject, hint: MockHint, ctx: Ctx, at: At): string {
     }
     case "avatar": {
       const p = personOf(ctx, at);
-      v = fileFor(ctx, "avatar", hint, rng, L.fullName(p.family, p.given), `${at.obj}|avatar`);
+      v = fileFor(ctx, { kind: "avatar", hint, rng, title: L.fullName(p.family, p.given), seed: `${at.obj}|avatar`, s });
       break;
     }
     case "phone":
@@ -608,16 +723,24 @@ function string(s: JsonSchemaObject, hint: MockHint, ctx: Ctx, at: At): string {
       v = `https://${rng.pick(LATIN_WORDS)}.example.com/${rng.pick(LATIN_WORDS)}-${rng.int(1, 999)}`;
       break;
     case "image":
-      v = fileFor(ctx, "image", hint, rng, at.model && at.depth <= 2 ? L.product(rng.pick(L.productAdjectives), rng.pick(L.productNouns)) : pick(L.words), `${at.obj}|${at.path}|image`);
+      v = fileFor(ctx, { kind: "image", defer: at.defer, hint, rng, title: at.model && at.depth <= 2 ? L.product(rng.pick(L.productAdjectives), rng.pick(L.productNouns)) : pick(L.words), seed: `${at.obj}|${at.path}|image`, s });
       break;
     case "file":
-      v = fileFor(ctx, "pdf", hint, rng, rng.pick(L.titles)(pick(L.words), rng.int(3, 9)), `${at.obj}|${at.path}|file`);
+      v = fileFor(ctx, { kind: "file", defer: at.defer, hint, rng, title: rng.pick(L.titles)(pick(L.words), rng.int(3, 9)), seed: `${at.obj}|${at.path}|file`, s });
       break;
     case "audio":
-      v = fileFor(ctx, "audio", hint, rng, pick(L.words), `${at.obj}|${at.path}|audio`);
+      v = fileFor(ctx, { kind: "audio", defer: at.defer, hint, rng, title: pick(L.words), seed: `${at.obj}|${at.path}|audio`, s });
       break;
     case "video":
-      v = fileFor(ctx, "video", hint, rng, pick(L.words), `${at.obj}|${at.path}|video`);
+      v = fileFor(ctx, { kind: "video", defer: at.defer, hint, rng, title: pick(L.words), seed: `${at.obj}|${at.path}|video`, s });
+      break;
+    case "fileName": {
+      const ext = (hint.type ? formatOf(hint.type)?.ext : undefined) ?? rng.pick(FILE_EXTS);
+      v = `${fileBase(pick(L.words)) || "file"}${rng.chance(0.5) ? `-${rng.int(1, 99)}` : ""}.${ext}`;
+      break;
+    }
+    case "mimeType":
+      v = hint.values?.length ? pick([]) : (hint.type ? formatOf(hint.type)?.type : undefined) ?? rng.pick(MEDIA_TYPES);
       break;
     case "date":
       v = iso(moment(ctx, hint, rng)).slice(0, 10);
@@ -667,6 +790,7 @@ function string(s: JsonSchemaObject, hint: MockHint, ctx: Ctx, at: At): string {
     default:
       v = pick(L.words);
   }
+  if (v === DEFERRED) return v;
   return fitString(v, s, rng);
 }
 
