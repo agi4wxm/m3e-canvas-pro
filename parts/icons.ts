@@ -68,6 +68,9 @@ const isDoc = (name: string) => name.startsWith(DOC_ICON_PREFIX);
 
 const base = (name: string) => name.replaceAll("_", "-");
 const rounded = (name: string) => [`material-symbols:${base(name)}-outline-rounded`, `material-symbols:${base(name)}-rounded`];
+/* Both glyphs, outlined and filled: a part draws either, and the components' own icons (icon-data.ts) carry only
+ * some names' filled glyph -- a name with one of the two is still to be fetched, from its shard or Iconify. */
+const whole = (name: string) => rounded(name).every(isKnownIcon);
 /** the glyphs a name is drawn with now, outlined and filled: the family's once they are here, else Rounded's once they are, else none */
 const drawnWith = (name: string, of: IconFamily) => (isDoc(name) ? `doc:${hashOf(docDrawn[name.slice(DOC_ICON_PREFIX.length)] ?? "")}` : [false, true].map((filled) => familyGlyph(name, filled, of) ?? (isKnownIcon(rounded(name)[filled ? 1 : 0]) ? "r" : "")).join("|"));
 /** a short hash of a drawing, so a tree draws again when one of its document icons is drawn anew */
@@ -141,10 +144,10 @@ async function flush() {
   for (const [drawn, set] of work) {
     const names = [...set];
     if (await loadIcons(drawn, names)) changed();
-    const missing = names.filter((n) => !fetched.has(n) && !rounded(n).some(isKnownIcon));
+    const missing = names.filter((n) => !fetched.has(n) && !whole(n));
     missing.forEach((n) => fetched.add(n));
     if (missing.length) await fromIconify(missing);
-    const undrawn = names.filter((n) => !rounded(n).some(isKnownIcon));
+    const undrawn = names.filter((n) => !whole(n));
     if (undrawn.length) retryLater(undrawn, drawn);
     else retries = 0;
   }
