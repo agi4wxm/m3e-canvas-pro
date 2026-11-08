@@ -31,6 +31,9 @@ const { Preview } = await import("../../../components/Preview");
 
 const isPreviewState = (v: unknown): v is PreviewState => !!v && typeof v === "object" && "vars" in v && "hidden" in v && "opened" in v && "fields" in v && "snack" in v;
 
+/** what the stand-in draws: the preview, and its screens (what a screen starts on its own, a delay, is theirs) */
+const drawn = (t: unknown) => t === Preview || (typeof t === "function" && t.name === "Screen");
+
 function previewOf(doc: Doc, backend: Backend): Driver {
   const transportOf = (): Transport => ({
     request: async (r) => {
@@ -41,7 +44,7 @@ function previewOf(doc: Doc, backend: Backend): Driver {
   let transport = transportOf();
   let tree: unknown;
   const draw = () => {
-    tree = tiny.render(tiny.react.createElement(Preview, { doc, widths: {}, palette: PALETTES[0], startId: doc.frames[0].id, onClose: () => {}, transport }), (t) => t === Preview);
+    tree = tiny.render(tiny.react.createElement(Preview, { doc, widths: {}, palette: PALETTES[0], startId: doc.frames[0].id, onClose: () => {}, transport }), drawn);
   };
   /** the screens drawn: the one on show, and the overlay over it (drawn after it); no swipe is under way here */
   const screens = (): Element[] => tiny.elements(tree).filter((e) => typeof e.type === "function" && "frame" in e.props && "onAction" in e.props);
@@ -60,6 +63,13 @@ function previewOf(doc: Doc, backend: Backend): Driver {
       const { screen, it } = find(words);
       if (!it.action) return;
       (screen.props.onAction as (a: unknown, it: Item) => void)(it.action, it);
+      draw();
+    },
+    hover: (words) => {
+      const { it } = find(words);
+      /* the part as its screen drew it, with what the pointer coming over it does */
+      const part = tiny.elements(tree).find((e) => (e.props.item as Item | undefined)?.id === it.id && "onHover" in e.props);
+      (part?.props.onHover as (() => void) | undefined)?.();
       draw();
     },
     type: (words, value) => {

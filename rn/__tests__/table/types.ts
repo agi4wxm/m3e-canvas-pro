@@ -80,7 +80,11 @@ export type Step =
    *  operations in `Row.hold` wait for this; every other call is answered at once. */
   | { answer: string; status?: number; body?: unknown; which?: "oldest" | "newest" }
   /** the host starts over: another scenario of the mocks, a restarted runtime */
-  | { restart: true };
+  | { restart: true }
+  /** the pointer comes over the part with these words; a host with no pointer taps it instead (docs/交互规则.md 触发方式) */
+  | { hover: string }
+  /** this many milliseconds pass */
+  | { wait: number };
 
 /** a call as the back end saw it: its operation and what it was given (query and JSON body fields together) */
 export type SeenCall = { op: string; in: Record<string, unknown> };

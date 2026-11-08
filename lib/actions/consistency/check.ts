@@ -62,6 +62,8 @@ export function differences(expect: Expect, seen: Observed): string[] {
 /** What a host's runner gives the table: a visitor's hands on the host, and a look at what it ends with. */
 export type Driver = {
   tap(words: string): void | Promise<void>;
+  /** the pointer over the part; a host with no pointer leaves this out, and a hover is a tap there */
+  hover?(words: string): void | Promise<void>;
   type(words: string, value: string): void | Promise<void>;
   restart(): void | Promise<void>;
   /** lets what is under way settle: answers already given run, the host draws again */
@@ -87,7 +89,9 @@ export async function drive(row: Omit<Row, "design">, make: (backend: Backend) =
         const seen = await d.observe();
         return { problems: [`no call of ${step.answer} was waiting for its answer`], seen };
       }
-    } else await d.restart();
+    } else if ("hover" in step) await (d.hover ? d.hover(step.hover) : d.tap(step.hover));
+    else if ("wait" in step) await new Promise((r) => setTimeout(r, step.wait));
+    else await d.restart();
     await d.settle();
   }
   const seen = await d.observe();

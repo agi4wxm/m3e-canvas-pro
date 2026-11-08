@@ -6,7 +6,7 @@ import { endpointOf, formFields, paramsOf } from "../../bindings/contract";
 import { groupsInFrame, type Doc, type Frame, type Group, type Item } from "../../tokens";
 import type { CallArgs, Change, FormRef, Host, Outcome, Tap } from "../host";
 import type { VarValue } from "../model";
-import { run } from "../run";
+import { run, startOf } from "../run";
 import { Backend, givenOf } from "./check";
 import type { Observed } from "./types";
 
@@ -42,6 +42,7 @@ export class ReferenceHost implements Host {
     this.vars = Object.fromEntries((doc.vars ?? []).map((v) => [v.id, v.value]));
     this.stack = [{ id: doc.frames[0].id }];
     for (const g of doc.groups) for (const it of g.items) this.groupOfItem.set(it.id, g);
+    this.inUse();
   }
 
   /* ---------- what the table reads ---------- */
@@ -72,13 +73,44 @@ export class ReferenceHost implements Host {
   /** the tap on the part with these words, on the overlay if one is up, else the screen on show; what it starts is
    *  left to run (an answer may be held) */
   tap(words: string) {
+    this.start(words, "tap");
+  }
+
+  /** the pointer comes over the part with these words */
+  hover(words: string) {
+    this.start(words, "hover");
+  }
+
+  /** the part's action, if it starts this way (a part whose action starts on a hover does nothing on a tap) */
+  private start(words: string, how: "tap" | "hover") {
     const on = this.overlay ?? this.top();
     const it = this.partsOn(on.id).find((x) => wordsOf(x) === words);
     if (!it) throw new Error(`no words "${words}" on show`);
+    if (it.action && startOf(it.action, { pointer: true }).on === how) this.runOn(it, on);
+  }
+
+  private runOn(it: Item, on: Entry) {
     if (!it.action) return;
     const g = this.groupOfItem.get(it.id);
     const form = g ? this.formOf(g)?.id : undefined;
     void run(it.action, this, { screen: on.id, ...(on.params ? { params: on.params } : {}), part: it.id, ...(form ? { form } : {}) });
+  }
+
+  /* what starts some time after its screen comes into use: timed again each time one does */
+  private timers: ReturnType<typeof setTimeout>[] = [];
+  private inUse() {
+    for (const t of this.timers) clearTimeout(t);
+    const on = this.overlay ?? this.top();
+    this.timers = this.partsOn(on.id).flatMap((it) => {
+      const s = startOf(it.action, { pointer: true });
+      return s.on === "delay" ? [setTimeout(() => this.runOn(it, on), s.ms)] : [];
+    });
+  }
+
+  /** stops what is timed: the run is over */
+  stop() {
+    for (const t of this.timers) clearTimeout(t);
+    this.timers = [];
   }
 
   type(words: string, value: string) {
@@ -178,7 +210,7 @@ export class ReferenceHost implements Host {
   go(to: string, o: { overlay?: boolean; params?: Record<string, unknown> }) {
     const f = this.frame(to);
     if (!f) return;
-    this.count++;
+    this.moved();
     const login = this.doc.frames.find((x) => x.auth === "login");
     if (f.auth === "required" && !this.signedIn && login && login.id !== to) {
       this.returnTo = { id: to, ...(o.params ? { params: o.params } : {}) };
@@ -195,7 +227,7 @@ export class ReferenceHost implements Host {
   }
 
   back() {
-    this.count++;
+    this.moved();
     if (this.overlay) this.overlay = null;
     else if (this.stack.length > 1) this.stack = this.stack.slice(0, -1);
   }
@@ -262,7 +294,7 @@ export class ReferenceHost implements Host {
     /* a screen that needs a session does not stay on show without one */
     const login = this.doc.frames.find((x) => x.auth === "login");
     if (login && this.frame(this.top().id)?.auth === "required") {
-      this.count++;
+      this.moved();
       this.returnTo = null;
       this.overlay = null;
       this.stack = [...this.stack, { id: login.id }];
@@ -273,12 +305,18 @@ export class ReferenceHost implements Host {
     if (operationId !== this.doc.api?.auth?.login || !this.returnTo) return false;
     const to = this.returnTo;
     this.returnTo = null;
-    this.count++;
+    this.moved();
     this.stack = [...this.stack.slice(0, -1), to];
     return true;
   }
 
   moves() {
     return this.count;
+  }
+
+  /** a move: counted, and the screen it leaves in use starts what it times (done once the move is made) */
+  private moved() {
+    this.count++;
+    queueMicrotask(() => this.inUse());
   }
 }

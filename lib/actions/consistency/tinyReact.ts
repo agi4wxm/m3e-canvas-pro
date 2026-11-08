@@ -1,7 +1,8 @@
 /* A small stand-in for React, for running a host's own React code headless in the table's runners (no DOM, no
  * renderer): the hooks keep their state by the place of the component in the tree, effects run after a render when
  * their dependencies change, contexts hand down what their providers give. Only the components a runner names are
- * called; every other element stays as data, with its props (its handlers among them) for the runner to read and use.
+ * called (each stays in the tree, what it drew as its children); every other element stays as data, with its props (its
+ * handlers among them) for the runner to read and use.
  * Written into the mini-program kit's test bed by scripts/gen-miniapp.ts, so it imports nothing. */
 
 type Props = Record<string, unknown> & { children?: unknown };
@@ -141,7 +142,8 @@ export function createTinyReact() {
       } finally {
         current = was;
       }
-      return renderNode(out, at, calls);
+      /* the element stays, with what it drew as its children: a runner reads the props it was given */
+      return { ...node, props: { ...node.props, children: renderNode(out, at, calls) } };
     }
     return { ...node, props: { ...node.props, children: renderNode(node.props.children, `${path}/${nameOf(type)}`, calls) } };
   }

@@ -3,7 +3,7 @@
 
 import { DocStore, counterIds, guessMeasurer, ops, savedDoc, stateOf } from "../../core";
 import type { Doc } from "../../tokens";
-import type { Design, OperationSpec } from "./types";
+import type { Design, OperationSpec, PartSpec } from "./types";
 
 const SLUG = { button: "button", text: "text", field: "text-field", menu: "dropdown-menu", dialog: "dialog" } as const;
 
@@ -67,7 +67,10 @@ export function designDoc(d: Design): { doc: Doc; widths: Record<string, number>
   const doc = savedDoc(store.get());
   /* what starts hidden, and the actions written past the checks */
   const hidden = new Set(d.parts.filter((p) => p.hidden).map((p) => groupOf[p.id]));
-  const unchecked = new Map(d.parts.filter((p) => p.unchecked && p.action).map((p) => [p.id, p.action!]));
+  /* a form's input is named "@field:<its field>" in an action written past the checks: the form made it, with an id of its own */
+  const fieldIds = new Map(doc.groups.flatMap((g) => g.items.flatMap((it) => (it.field ? [[it.field, it.id] as const] : []))));
+  const resolved = (a: unknown) => JSON.parse(JSON.stringify(a).replace(/"@field:([^"]+)"/g, (_, f: string) => JSON.stringify(fieldIds.get(f) ?? f))) as NonNullable<PartSpec["action"]>;
+  const unchecked = new Map(d.parts.filter((p) => p.unchecked && p.action).map((p) => [p.id, resolved(p.action)]));
   const groups = doc.groups.map((g) => {
     const items = unchecked.size ? g.items.map((it) => (unchecked.has(it.id) ? { ...it, action: unchecked.get(it.id) } : it)) : g.items;
     return { ...g, items, ...(hidden.has(g.id) ? { hidden: true } : {}) };

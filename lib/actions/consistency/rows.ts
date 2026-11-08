@@ -138,6 +138,45 @@ export const ROWS: Row[] = [
     expect: { vars: { r: "filled" } },
   },
 
+  {
+    id: "cond-filled-form-field",
+    title: "“已填写”条件读表单里的输入框",
+    ref: "条件；报告 6.2",
+    design: {
+      screens: [HOME],
+      vars: [words("r", "")],
+      api: [op("note", { body: { text: { title: "Note" } } })],
+      forms: [{ operationId: "note", submit: "Save note" }],
+      parts: [btn("go", "Check note", { ...stay(setVar("r", "filled")), when: { filled: "@field:text" }, else: body("none", setVar("r", "empty")) }, { unchecked: true })],
+    },
+    steps: [{ type: "Note", value: "hi" }, { tap: "Check note" }],
+    expect: { vars: { r: "filled" } },
+    known: {
+      webProduct: "表单里的输入框在产品 Web 里由表单保管，没有自己的变量，“已填写”永远不成立（报告 6.2：`printBehaviour.ts` inputVar）",
+      rn: "手机端表单里的输入框由表单保管，“已填写”读的是套件自己的输入记录，读不到（`rn/src/kit/app.tsx` holds）",
+      miniapp: "小程序表单里的输入框由表单保管，“已填写”读的是屏幕自己的输入记录，读不到（`screen.tsx` holdsOver）",
+    },
+  },
+
+  /* ---------- what starts an action ---------- */
+  {
+    id: "trigger-delay",
+    title: "延迟触发：屏幕进入使用后自己运行",
+    ref: "触发方式；报告 6.2",
+    design: { screens: [HOME, NEXT], parts: [text("splash", "Welcome", { action: { ...goTo("next"), trigger: { on: "delay", ms: 40 } } })] },
+    steps: [{ wait: 120 }],
+    expect: { screen: "next" },
+    known: { miniapp: "小程序把延迟触发印成点击，不点就不运行（报告 6.2：`lib/export/miniapp/print.ts` trigger）" },
+  },
+  {
+    id: "trigger-hover",
+    title: "指针移入触发；没有指针的平台上点一下",
+    ref: "触发方式；报告 6.2",
+    design: { screens: [HOME], parts: [btn("peek", "Peek", { ...stay(toast("Peeked")), trigger: { on: "hover" } })] },
+    steps: [{ hover: "Peek" }],
+    expect: { toast: "Peeked" },
+  },
+
   /* ---------- show, hide, open, close ---------- */
   {
     id: "hide-visible",

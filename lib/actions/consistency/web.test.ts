@@ -40,7 +40,7 @@ type App = {
   vars: Record<string, string | number | boolean>;
   snack: { message: string } | null;
 };
-type RuntimeModule = { AppProvider: (p: { children?: unknown }) => unknown; useApp: () => App; ScreenContext?: { Provider: unknown } };
+type RuntimeModule = { AppProvider: (p: { children?: unknown }) => unknown; useApp: () => App; ScreenContext?: { Provider: unknown }; Pressable?: unknown };
 
 /** the client of the API (packages/api) as the printed code calls it: each operation by its name, over the runtime's
  *  transport (the session's tokens on it), throwing what the client throws for an answer outside 2XX */
@@ -106,22 +106,22 @@ function wordsIn(node: unknown, out: string[] = [], closed = false): string[] {
 
 /** The handler a tap on these words reaches: the nearest element around them that takes a press; a no-op where none
  *  does (the printer left the tap out). Null when the words are not on show. */
-function handlerOf(node: unknown, words: string, around: Element[] = []): (() => void) | null {
+function handlerOf(node: unknown, words: string, around: Element[] = [], props = ["onClick", "onPress"]): (() => void) | null {
   if (Array.isArray(node)) {
     for (const x of node) {
-      const h = handlerOf(x, words, around);
+      const h = handlerOf(x, words, around, props);
       if (h) return h;
     }
     return null;
   }
   if (typeof node === "string" && node === words) {
     for (const e of [...around].reverse()) {
-      const h = (e.props.onClick ?? e.props.onPress) as ((ev: unknown) => void) | undefined;
+      const h = props.map((k) => e.props[k]).find((f) => typeof f === "function") as ((ev: unknown) => void) | undefined;
       if (typeof h === "function") return () => h({ preventDefault() {}, stopPropagation() {}, nativeEvent: {}, target: { closest: () => null } });
     }
     return () => {};
   }
-  return isElement(node) ? handlerOf(node.props.children, words, [...around, node]) : null;
+  return isElement(node) ? handlerOf(node.props.children, words, [...around, node], props) : null;
 }
 
 function inputOf(node: unknown, words: string): Element | null {
@@ -152,7 +152,8 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
     };
     return [page(app.screen, app.params, !!app.overlay), ...(app.overlay ? [page(app.overlay.screen, app.overlay.params, false)] : [])];
   }
-  const own = new Set<unknown>([Mount, rt.AppProvider, RuntimeProvider, ...Object.values(screens)]);
+  /* the runtime's Pressable is drawn too: what starts as the pointer comes over a part, or some time after its screen */
+  const own = new Set<unknown>([Mount, rt.AppProvider, RuntimeProvider, rt.Pressable, ...Object.values(screens)]);
   const draw = () => {
     tree = tiny.render(tiny.react.createElement(RuntimeProvider as never, { runtime }, tiny.react.createElement(rt.AppProvider as never, {}, tiny.react.createElement(Mount, null))), (t) => own.has(t));
   };
@@ -168,6 +169,12 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
   return {
     tap: (words) => {
       const h = handlerOf(top(), words);
+      if (!h) throw new Error(`no words "${words}" on show`);
+      h();
+      draw();
+    },
+    hover: (words) => {
+      const h = handlerOf(top(), words, [], ["onPointerEnter"]);
       if (!h) throw new Error(`no words "${words}" on show`);
       h();
       draw();

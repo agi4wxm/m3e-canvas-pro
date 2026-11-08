@@ -255,6 +255,74 @@ export const ROWS: KitRow[] = [
   }
  },
  {
+  "id": "cond-filled-form-field",
+  "title": "“已填写”条件读表单里的输入框",
+  "ref": "条件；报告 6.2",
+  "steps": [
+   {
+    "type": "Note",
+    "value": "hi"
+   },
+   {
+    "tap": "Check note"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "r": "filled"
+   }
+  },
+  "known": {
+   "webProduct": "表单里的输入框在产品 Web 里由表单保管，没有自己的变量，“已填写”永远不成立（报告 6.2：`printBehaviour.ts` inputVar）",
+   "rn": "手机端表单里的输入框由表单保管，“已填写”读的是套件自己的输入记录，读不到（`rn/src/kit/app.tsx` holds）",
+   "miniapp": "小程序表单里的输入框由表单保管，“已填写”读的是屏幕自己的输入记录，读不到（`screen.tsx` holdsOver）"
+  },
+  "vars": [
+   "r"
+  ],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "trigger-delay",
+  "title": "延迟触发：屏幕进入使用后自己运行",
+  "ref": "触发方式；报告 6.2",
+  "steps": [
+   {
+    "wait": 120
+   }
+  ],
+  "expect": {
+   "screen": "next"
+  },
+  "known": {
+   "miniapp": "小程序把延迟触发印成点击，不点就不运行（报告 6.2：`lib/export/miniapp/print.ts` trigger）"
+  },
+  "vars": [],
+  "screens": {
+   "home": "home",
+   "next": "next"
+  }
+ },
+ {
+  "id": "trigger-hover",
+  "title": "指针移入触发；没有指针的平台上点一下",
+  "ref": "触发方式；报告 6.2",
+  "steps": [
+   {
+    "hover": "Peek"
+   }
+  ],
+  "expect": {
+   "toast": "Peeked"
+  },
+  "vars": [],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
   "id": "hide-visible",
   "title": "隐藏一开始可见的部件",
   "ref": "显示与隐藏；报告 6.2、6.3",
