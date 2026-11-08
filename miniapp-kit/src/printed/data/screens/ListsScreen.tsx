@@ -5,7 +5,7 @@ import { At, FileList, Screen, SortableList, SwipeRow, Tracker, useScreen, type 
 const A1: Action = { to: "desk" };
 
 export function ListsScreen() {
-  const s = useScreen("lists");
+  const s = useScreen("lists", { inputs: { "sortableList": { value: "Wash\nDry\nFold" }, "swipeRow": { value: true } } });
   const $ = useBindings({ params: s.params, vars: s.vars });
   return (
     <Screen screen="lists" width={412} height={892}>
@@ -13,13 +13,30 @@ export function ListsScreen() {
         <Tracker width={380} testID="statusTracker" />
       </At>
       <At x={16} y={120}>
-        <SortableList items={[{ label: "Wash" }, { label: "Dry" }, { label: "Fold" }]} width={380} testID="sortableList" />
+        <SortableList
+          width={380}
+          items={s.value<string>("sortableList", "Wash\nDry\nFold")}
+          onChange={(v: string[]) => s.setter("sortableList")(v.join("\n"))}
+          testID="sortableList"
+        />
       </At>
       <At x={16} y={320}>
-        <SwipeRow title="Invoice 42" note="Due today" open width={380} testID="swipeRow" />
+        <SwipeRow
+          title="Invoice 42"
+          note="Due today"
+          width={380}
+          open={s.value<boolean>("swipeRow", true)}
+          onChange={s.setter("swipeRow")}
+          testID="swipeRow"
+        />
       </At>
       <At x={16} y={420}>
-        <FileList selected={0} taps={{ "tab:1": () => s.run(A1, { $: $ }) }} testID="files" />
+        <FileList
+          selected={s.prop("files", "selected", 0)}
+          taps={{ "tab:1": () => s.run(A1, { $: $ }) }}
+          onSelect={(i: number) => s.setProp("files", "selected", i)}
+          testID="files"
+        />
       </At>
       {s.layer}
     </Screen>

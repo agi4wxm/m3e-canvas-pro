@@ -282,6 +282,11 @@ const FILE_INPUTS = new Set(["file-upload"]);
 const RN_INPUTS = new Set(["input", "text-field", "textarea", "switch", "checkbox", "slider", "select", "radio-group", "rating"]);
 /* D3: the pickers' and the entry parts' kit controls take a value and a change too, each as its input's kind says */
 for (const slug of ["color-field", "item-picker", "multi-select", "color-palette", "number-picker", "transfer-list", "region-picker", "seat-map", "quantity-stepper", "tag-input", "number-pad", "signature-pad", "rich-text-editor"]) RN_INPUTS.add(slug);
+/* the rows a sortable list is moved into, and whether a swipe row is open */
+for (const slug of ["sortable-list", "swipe-row"]) RN_INPUTS.add(slug);
+/** the parts whose chosen row is `selected` and which say so when one is tapped (`onSelect`), without moving it
+ *  themselves: the app moves it, as the preview does */
+const SELECTS_BY_PROP = new Set(["bar-list", "file-list", "tree"]);
 /** a list input's rows as their words */
 const labelsOf = (rows: unknown): string[] => (Array.isArray(rows) ? rows.map((r) => (r && typeof r === "object" ? String((r as { label?: unknown }).label ?? "") : String(r))) : []);
 /** a list input's value as a text variable holds it, and the kit control takes it: one row a line */
@@ -694,7 +699,8 @@ class ScreenPrinter {
       if (typeof ref === "string" && bound.has(d.key)) code = this.boundProp(d, ref, v, it.id);
       else if (this.runtime && d.kind === "text" && typeof v === "string" && v.includes("{{")) code = fillCode(this.$, v);
       const set = this.facts.setProps.get(it.id);
-      if (set?.has(d.key) && (typeof v === "string" || typeof v === "number" || typeof v === "boolean")) {
+      /* a row picked moves the chosen one where the part leaves that to whoever draws it (`selects`) */
+      if ((set?.has(d.key) || (d.key === "selected" && this.selects(def, it))) && (typeof v === "string" || typeof v === "number" || typeof v === "boolean")) {
         this.uses.app = true;
         code = `app.prop(${str(it.id)}, ${str(d.key)}, ${code ?? expr(v)})`;
       }
@@ -703,6 +709,11 @@ class ScreenPrinter {
     }
     for (const n of iconNamesOf(def.slug, values)) this.icons.add(n);
     return out;
+  }
+
+  /** whether the part's chosen row is the app's to move when one is tapped: it is not bound to anything */
+  selects(def: PartDef, it: Item): boolean {
+    return SELECTS_BY_PROP.has(def.slug) && it.bind?.selected === undefined;
   }
 
   /** a prop that follows a variable or an expression, in the kind of value the prop takes */
@@ -761,6 +772,7 @@ class ScreenPrinter {
         out.push(["onPress", `() => void pickFile(${expr(typeof accept === "string" ? accept : "")}).then((file) => file && ${f}.set(${field}, file))`], ["chosen", `fileName(${f}.value(${field}))`]);
       } else if (slug === "date-picker") out.push(["value", `${f}.text(${field})`], ["onChange", `(v: string) => ${f}.set(${field}, v)`]);
       else if (slug === "switch" || slug === "checkbox") out.push(["checked", `!!${f}.value(${field})`], ["onValueChange", `(v: boolean) => ${f}.set(${field}, v)`]);
+      else if (def.input?.kind === "bool") out.push([kitPropName(slug, key!), `!!${f}.value(${field})`], ["onValueChange", `(v: boolean) => ${f}.set(${field}, v)`]);
       else if (def.input?.kind === "number") out.push(["value", `Number(${f}.value(${field}) ?? 0)`], ["onValueChange", `(v: number) => ${f}.set(${field}, v)`]);
       else if (slug === "select" || slug === "radio-group") {
         this.kit.add("optionOf");
@@ -790,7 +802,7 @@ class ScreenPrinter {
     if (!toVar && !this.facts.filled.has(it.id)) return [];
     this.uses.app = true;
     const write = (type: string) => `(v: ${type}) => app.input(${str(it.id)}, v${toVar ? `, ${str(varId)}` : ""})`;
-    if (slug === "switch" || slug === "checkbox") return [["onValueChange", write("boolean")]];
+    if (slug === "switch" || slug === "checkbox" || def.input?.kind === "bool") return [["onValueChange", write("boolean")]];
     if (def.input?.kind === "number") return [["onValueChange", write("number")]];
     if (slug === "select" || slug === "radio-group") return [["onSelect", `(_i: number, label: string) => app.input(${str(it.id)}, label${toVar ? `, ${str(varId)}` : ""})`]];
     if (def.input?.kind === "choice") return this.choiceToVar(def, it, props, key, toVar ? varId : undefined);
@@ -899,6 +911,10 @@ class ScreenPrinter {
       const wired = this.input(def, it, props);
       const replaced = new Set(wired.map(([k]) => k));
       const extras = this.extras(it).filter(([k]) => !replaced.has(k));
+      if (this.selects(def, it)) {
+        this.uses.app = true;
+        extras.push(["onSelect", `(i: number) => app.setProp(${str(it.id)}, "selected", i)`]);
+      }
       /* a menu a tap opens or closes: its popup follows the app's memory, and the visitor's own opening is kept there */
       const group = this.facts.groupOf.get(it.id);
       if (group && this.facts.opened.has(group) && OPENS_BY_PROP.has(def.slug)) {

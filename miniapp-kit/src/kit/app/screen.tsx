@@ -18,6 +18,7 @@ import {
   type Tap,
 } from "@m3e/app-runtime";
 
+import { pickFiles, type PickedFile } from "../composites/forms";
 import { Layer, OverlaidProvider } from "../screen";
 import { currentPlace, goBack, loginScreen, moved, movesSoFar, openPlace, readQuery, type Place } from "./nav";
 import type { Action, ActionBody, AppSpec, Condition, VarValue } from "./spec";
@@ -121,6 +122,8 @@ export type ScreenHandle = {
   register: (o: { sources?: Record<string, SourceHandle>; forms?: Record<string, ScreenForm> }) => void;
   /** a screen opened over this one, while it is */
   layer: ReactNode;
+  /** asks for files through the capability registry (file.pick), else the platform's own pickers */
+  pickFiles: (o: { multiple?: boolean; accept?: string }) => Promise<PickedFile[]>;
 };
 
 /** a value as the kind the design gave a prop: a yes or no, a number, words */
@@ -168,7 +171,9 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
   /* what a tap reads when it runs: the screen as the last step left it, its data and forms as the last render
      registered them */
   const live = useRef<Live>({ state, sources: {}, forms: {}, overlay, params });
-  live.current.params = params;
+  useEffect(() => {
+    live.current.params = params;
+  }, [params]);
   const update = useCallback((fn: (s: State) => State) => {
     live.current.state = fn(live.current.state);
     setState(live.current.state);
@@ -179,7 +184,9 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
     setOverlayState(p);
   }, []);
   const latestInit = useRef(init);
-  latestInit.current = init;
+  useEffect(() => {
+    latestInit.current = init;
+  });
 
   /* a screen that needs a session: to the sign-in screen, and back here after */
   useRequireAuth(me?.auth === "required", () => {
@@ -372,6 +379,16 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
       if (o.forms) live.current.forms = { ...live.current.forms, ...o.forms };
     },
     layer,
+    pickFiles: async (o) => {
+      const out = await runtime.invoke("file.pick", { ...(o.accept ? { accept: o.accept } : {}), ...(o.multiple ? { multiple: true } : {}) });
+      if (out.ok) {
+        const files = (out.result as { files?: { name?: string; type?: string; size?: number; url?: string }[] } | undefined)?.files ?? [];
+        return files.flatMap((f) => (f.url ? [{ path: f.url, name: f.name ?? "file", type: f.type ?? "application/octet-stream", size: f.size ?? 0 }] : []));
+      }
+      /* cancelled, refused: nothing; no adapter for it: the platform's own pickers */
+      if (out.dropped || out.error.type !== "not-implemented") return [];
+      return pickFiles(o);
+    },
   };
 }
 

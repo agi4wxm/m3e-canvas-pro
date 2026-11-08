@@ -222,4 +222,7 @@ export const INPUT_PROPS: Record<string, string> = {
   "number-pad": "value",
   "signature-pad": "value",
   "rich-text-editor": "text",
+  /* the rows a sortable list is moved into, and whether a swipe row is open */
+  "sortable-list": "items",
+  "swipe-row": "open",
 };

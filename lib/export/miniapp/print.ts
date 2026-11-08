@@ -336,6 +336,10 @@ function keepsTrigger(it: Item | undefined): boolean {
   return !!def?.overlay && !!def.open && def.open.trigger !== "hide";
 }
 
+/** the parts whose chosen row is `selected` and which say so when one is tapped (`onSelect`), without moving it
+ *  themselves: the screen moves it, as the preview does, unless it is bound to something */
+const selects = (def: PartDef, it: Item) => ["bar-list", "file-list", "tree"].includes(def.slug) && it.bind?.selected === undefined;
+
 /** the kit's components that open and close as their prop says, a tap's open and close effects too */
 const OPENS_BY_PROP = new Set(["dropdown-menu", "tooltip", "popover", "hover-card"]);
 
@@ -581,8 +585,9 @@ class ScreenPrinter {
       } else if (typeof v === "string" && v.includes("{{") && (d.kind === "text" || d.kind === "image")) {
         this.uses$ = true;
         code = fillCode(at.$, v);
-      } else if (!this.setProps.has(`${it.id}:${d.key}`) && !SET_ONLY.has(d.key) && same(v, defaults[key])) continue;
-      if (this.setProps.has(`${it.id}:${d.key}`)) code = `s.prop(${str(this.names.part(it.id))}, ${str(d.key)}, ${code})`;
+      } else if (!this.setProps.has(`${it.id}:${d.key}`) && !(d.key === "selected" && selects(def, it)) && !SET_ONLY.has(d.key) && same(v, defaults[key])) continue;
+      /* a row picked moves the chosen one where the part leaves that to whoever draws it (`selects`) */
+      if (this.setProps.has(`${it.id}:${d.key}`) || (d.key === "selected" && selects(def, it))) code = `s.prop(${str(this.names.part(it.id))}, ${str(d.key)}, ${code})`;
       out.push([key, code]);
     }
     for (const n of iconNamesOf(def.slug, values)) this.icons.add(n);
@@ -617,7 +622,7 @@ class ScreenPrinter {
       if (labels) {
         this.kit.add("optionIndex");
         out.push([prop, `optionIndex(${expr(labels)}, ${h}.value(${f}))`], ["onChange", `(i: number) => ${h}.set(${f}, ${expr(labels)}[i])`]);
-      } else if (key === "checked") out.push([prop, `!!${h}.value(${f})`], ["onChange", `(v: boolean) => ${h}.set(${f}, v)`]);
+      } else if (key === "checked" || def.input?.kind === "bool") out.push([prop, `!!${h}.value(${f})`], ["onChange", `(v: boolean) => ${h}.set(${f}, v)`]);
       else if (list) out.push([prop, `(${h}.value(${f}) as string[] | undefined) ?? ${expr(linesOf(values[key]))}`], ["onChange", `(v: string[]) => ${h}.set(${f}, v)`]);
       else if (def.input?.kind === "number") out.push([prop, `Number(${h}.value(${f}) ?? ${expr(values.value ?? 0)})`], ["onChange", `(v: number) => ${h}.set(${f}, v)`]);
       else if (def.slug === "file-upload") {
@@ -715,7 +720,10 @@ class ScreenPrinter {
       /* a menu a tap opens or closes: its sheet follows the screen's runtime, the visitor's own opening kept there */
       const owner = this.visibility.owner.get(it.id);
       const opens: [string, string][] = owner && this.visibility.opened.has(owner.id) && OPENS_BY_PROP.has(def.slug) ? [["open", `s.opened(${str(this.names.shown(it.id))})`], ["onOpenChange", `(on: boolean) => s.setOpened(${str(this.names.shown(it.id))}, on)`]] : [];
-      return el(name, [...props, ...input.props, ...layout, ...this.extras(it, at, true, close), ...opens, ["testID", str(this.names.part(it.id))]], kids);
+      const picks: [string, string][] = selects(def, it) ? [["onSelect", `(i: number) => s.setProp(${str(this.names.part(it.id))}, "selected", i)`]] : [];
+      /* files are asked for through the capability registry (file.pick) */
+      if (def.slug === "file-upload") picks.push(["pick", "s.pickFiles"]);
+      return el(name, [...props, ...input.props, ...layout, ...this.extras(it, at, true, close), ...opens, ...picks, ["testID", str(this.names.part(it.id))]], kids);
     }
     if (def.atoms && !kids.length) {
       this.warn("atoms", `drawn as the atoms it splits into (${def.slug})`, it.id);
@@ -1180,7 +1188,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
     if (sources.length) top.push(`s.register({ sources: { ${sources.map((x) => (x.name === identOf(x.source) && x.name === x.source ? x.name : `${str(x.source)}: ${x.name}`)).join(", ")} } });`);
     const screen = el("Screen", [["screen", str(key)], ...(bg ? ([["bg", str(bg)]] as [string, string][]) : []), ["width", expr(w)], ["height", expr(h)], ...(length > h ? ([["length", expr(length)]] as [string, string][]) : []), ...(p.room > 0 ? ([["room", expr(p.room)]] as [string, string][]) : [])], [...body, { code: "s.layer" }]);
     const component = screens.names.get(frame.id)!;
-    const kitTypes = ["Action", "ActionBody", "Condition", "PickedFile"].filter((t) => p.kit.has(t));
+    const kitTypes = ["Action", "ActionBody", "Condition", "EventFields", "PickedFile"].filter((t) => p.kit.has(t));
     const kitValues = [...p.kit].filter((k) => !kitTypes.includes(k)).sort();
     const runtimeTypes = [...p.runtime].filter((k) => k.startsWith("type ")).map((k) => k.slice(5));
     const runtimeValues = [...p.runtime].filter((k) => !k.startsWith("type ")).sort();

@@ -619,7 +619,7 @@ export function Sparkline(props: SparklineProps) {
   );
 }
 
-export type BarListProps = PartBase & { title?: string; data?: TableData; sorted?: boolean; selected?: number; width?: number };
+export type BarListProps = PartBase & { title?: string; data?: TableData; sorted?: boolean; selected?: number; width?: number; onSelect?: (index: number) => void };
 
 /** A row's share is the data's: its third column ("54%") is what the bars stand in; an older table with no shares draws
  *  them by their values. The open row is `selected`, which whoever draws the list moves; a tap on a row runs its own. */
@@ -637,7 +637,12 @@ export function BarList(props: BarListProps) {
     <Surface base={{ width: Math.round(p.width ?? 360), padding: 12, rowGap: 4, borderRadius: corner(kit, "lgi"), backgroundColor: c(kit, "surface-container-low"), ...fill }} appearance={p} testID={p.testID}>
       {p.title ? <RNText style={{ ...typeStyle(kit, "title-small"), color: c(kit, "on-surface"), paddingBottom: 4 }}>{p.title}</RNText> : null}
       {order.map((l) => (
-        <Pressable key={l.i} accessibilityRole="button" accessibilityLabel={`${l.label} ${l.shown}`} accessibilityState={{ selected: l.i === on }} onPress={tapOf(p, `tab:${l.i}`)} style={{ rowGap: 4, borderRadius: corner(kit, "md"), paddingHorizontal: 4, paddingVertical: 6, backgroundColor: l.i === on ? c(kit, "surface-container-high") : undefined }}>
+        <Pressable key={l.i} accessibilityRole="button" accessibilityLabel={`${l.label} ${l.shown}`} accessibilityState={{ selected: l.i === on }}
+          onPress={() => {
+            p.onSelect?.(l.i);
+            tapOf(p, `tab:${l.i}`)?.();
+          }}
+          style={{ rowGap: 4, borderRadius: corner(kit, "md"), paddingHorizontal: 4, paddingVertical: 6, backgroundColor: l.i === on ? c(kit, "surface-container-high") : undefined }}>
           <View style={{ flexDirection: "row", alignItems: "baseline", columnGap: 8 }}>
             <RNText numberOfLines={1} style={{ flex: 1, ...typeStyle(kit, "body-medium"), color: c(kit, "on-surface") }}>{l.label}</RNText>
             <RNText style={{ ...typeStyle(kit, "label-large"), color: c(kit, "on-surface"), fontVariant: ["tabular-nums"] }}>{l.i === on && l.share ? l.share : l.shown}</RNText>

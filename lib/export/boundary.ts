@@ -2,9 +2,10 @@
  *
  * - `demo`: a part that acts out a domain result in a prototype (a coupon that says it was claimed, a prize drawn at
  *   random). A product never runs a demo, so until the part is bound or its actions call the API it only asks and waits.
- * - `event`: an action on a part's named event (`on:<name>`) or on a family of its slots (`tab:*`). The apps do not
- *   send part events yet (the preview does): the action is not printed. lib/actions, the single interpreter, will run
- *   them on every app.
+ * - `event`: an action on a part's named event (`on:<name>`) or on a family of its slots (`tab:*`) the web app does not
+ *   run yet. The phone app and the mini-program run them with lib/actions, the single interpreter, on the callbacks
+ *   their kits' components hand out; their printers report the few a component does not send (an event of a part drawn
+ *   as its atoms, the map stand-in's region change) as their own differences.
  * - `interface`: what the screens call or load that the API contract does not have.
  * - `capability`: a platform capability the app leans on (lib/capabilities, docs/平台能力.md): a capability view (a map, a
  *   camera, a call) drawn by its stand-in until the product's slot draws the real one, an invoke whose adapter is the
@@ -59,7 +60,8 @@ export function boundaryDifferences(given: Doc, app: DesignDifference["app"], wi
     }
     const missing = new Set<string>();
     for (const it of items) {
-      for (const key of Object.keys(it.actions ?? {})) {
+      /* the phone and the mini-program run them (their printers report what they cannot) */
+      for (const key of app === "web" ? Object.keys(it.actions ?? {}) : []) {
         const event = eventOfKey(key);
         const family = familyOfKey(key);
         if (event !== null) add("event", f.name, it, `the action on its event "${event}" is not run: the app does not send part events yet`);

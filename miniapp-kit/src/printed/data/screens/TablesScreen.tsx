@@ -22,7 +22,12 @@ export function TablesScreen() {
         <DataTable pageSize={3} width={380} taps={{ "row:0": () => s.run(A1, { $: $ }) }} testID="dataTable" />
       </At>
       <At x={16} y={760}>
-        <BarList selected={1} width={380} testID="barList" />
+        <BarList
+          selected={s.prop("barList", "selected", 1)}
+          width={380}
+          onSelect={(i: number) => s.setProp("barList", "selected", i)}
+          testID="barList"
+        />
       </At>
       <At x={16} y={1000}>
         <Markdown text={"## Notes\n\nShip **today**, run `deploy`.\n\n- Check\n- Ship"} width={380} testID="markdown" />

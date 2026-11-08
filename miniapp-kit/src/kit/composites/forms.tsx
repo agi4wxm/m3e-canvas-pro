@@ -1,6 +1,6 @@
 import { Input as TaroInput, Picker, Textarea as TaroTextarea, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { PartBase } from "../atoms/basics";
 import { Button, buttonColors, inkCss, keyboardOf, RadioMark } from "../atoms/controls";
@@ -330,11 +330,16 @@ export function Menu(props: MenuProps) {
       .catch(() => p.onOpenChange?.(false));
   };
   const controlled = !!p.onOpenChange;
-  /* the app opened it: the sheet comes up (a sheet the platform shows is not taken down from outside: closing it is
-     the visitor's) */
+  const asked = controlled && !!p.open;
+  const latest = useRef(sheet);
   useEffect(() => {
-    if (controlled && p.open) sheet();
-  }, [controlled && p.open]);
+    latest.current = sheet;
+  });
+  /* the app opened it: the sheet comes up once (a sheet the platform shows is not taken down from outside: closing it
+     is the visitor's) */
+  useEffect(() => {
+    if (asked) latest.current();
+  }, [asked]);
   const open = () => (controlled ? p.onOpenChange?.(true) : sheet());
   return (
     <Surface base={{ ...ROW, height: 40, paddingLeft: 16, paddingRight: 16, borderRadius: controlRadius(kit, 40), columnGap: 8, alignSelf: "flex-start", ...look.box }} appearance={p} testID={p.testID} onPress={open} label={p.label} ink={look.ink}>
@@ -382,7 +387,9 @@ export function RadioGroup(props: RadioGroupProps) {
 /** a file as the platform hands one over: its temporary path, name, type and size */
 export type PickedFile = { path: string; name: string; type: string; size: number };
 
-export type FileUploadProps = PartBase & FieldProps & { title?: string; hint?: string; action?: string; multiple?: boolean; accept?: string; width?: number; error?: boolean; disabled?: boolean; value?: PickedFile | PickedFile[]; onChange?: (files: PickedFile | PickedFile[] | undefined) => void };
+/** `pick`: how the app asks for the files (an exported app's capability registry, file.pick); the platform's own
+ *  pickers (`pickFiles`) without it */
+export type FileUploadProps = PartBase & FieldProps & { title?: string; hint?: string; action?: string; multiple?: boolean; accept?: string; width?: number; error?: boolean; disabled?: boolean; value?: PickedFile | PickedFile[]; onChange?: (files: PickedFile | PickedFile[] | undefined) => void; pick?: (o: { multiple?: boolean; accept?: string }) => Promise<PickedFile[]> };
 
 const mimeOf = (path: string) => {
   const ext = /\.([a-z0-9]+)(?:\?|$)/i.exec(path)?.[1]?.toLowerCase();
@@ -411,7 +418,7 @@ export function FileUpload(props: FileUploadProps) {
   const [files, setFiles] = useValue<PickedFile | PickedFile[] | undefined>(p.value, p.onChange);
   const list = files === undefined ? [] : Array.isArray(files) ? files : [files];
   const choose = () => {
-    pickFiles({ multiple: p.multiple, accept: p.accept })
+    (p.pick ?? pickFiles)({ multiple: p.multiple, accept: p.accept })
       .then((picked) => {
         if (picked.length) setFiles(p.multiple ? picked : picked[0]);
         (tapOf(p, "action") ?? p.onPress)?.();
