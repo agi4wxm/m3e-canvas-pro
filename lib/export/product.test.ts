@@ -1,12 +1,16 @@
 import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { strFromU8, unzipSync } from "fflate";
 import { beforeAll, describe, expect, it } from "vitest";
 import { allPartsDoc } from "../codegen.fixture";
-import { proofDoc, reuseDoc, sweepDoc, systemsDoc } from "../exportProject.fixture";
+import { PICKED_PNG, proofDoc, reuseDoc, sweepDoc, systemsDoc } from "../exportProject.fixture";
 import { buildProject, importsIn } from "../exportProject";
 import { setGlobalLang } from "../i18n";
-import type { Doc } from "../tokens";
+import { makeItem, type Doc } from "../tokens";
 import { PRODUCT_VERSIONS } from "../versions.generated";
 import { MANIFEST_PATH, parseManifest } from "./merge";
 import { differenceCounts, differenceLines } from "./differences";
@@ -304,6 +308,62 @@ describe("the mobile app", () => {
     expect(photo).toContain('params: { productId: "params.productId" }');
     expect(text(shop, "apps/mobile/src/generated/screens/SignInScreen.tsx")).toContain("login: true");
     expect(text(shop, "apps/mobile/src/generated/contract.ts")).toContain('"media": "multipart/form-data"');
+  });
+
+  it("keeps a path parameter one segment of its path, as the typed client does: '.' and '..' are refused", async () => {
+    /* the printed modules run as they are: the app's api.ts over its contract.ts, with packages/api's client (its
+       segment()) and a runtime whose transport only remembers what it was asked */
+    const dir = mkdtempSync(join(tmpdir(), "m3e-mobile-api-"));
+    try {
+      writeFileSync(join(dir, "api.ts"), text(shop, "apps/mobile/src/generated/api.ts").replace('from "@shop/api"', 'from "./shopApi"'));
+      writeFileSync(join(dir, "contract.ts"), text(shop, "apps/mobile/src/generated/contract.ts"));
+      writeFileSync(join(dir, "client.ts"), text(shop, "packages/api/src/client.ts"));
+      writeFileSync(join(dir, "shopApi.ts"), 'export { segment } from "./client"\nexport type CallInit = object\nexport const createApi = (t: { request(r: unknown): unknown }) => ({ request: (r: unknown) => t.request(r) })\n');
+      writeFileSync(join(dir, "runtime.ts"), "export const asked: { path: string }[] = []\nexport const runtime = { transport: { request: async (r: { path: string }) => (asked.push(r), { status: 200, headers: {}, body: {} }) } }\n");
+      const { call } = (await import(pathToFileURL(join(dir, "api.ts")).href)) as { call: (op: string, input: { params: Record<string, unknown> }) => Promise<unknown> };
+      const { asked } = (await import(pathToFileURL(join(dir, "runtime.ts")).href)) as { asked: { path: string }[] };
+      for (const step of ["..", "."]) await expect(call("getProduct", { params: { productId: step } })).rejects.toThrow(TypeError);
+      expect(asked).toEqual([]);
+      await call("getProduct", { params: { productId: "../me" } });
+      await call("uploadProductImage", { params: { productId: "%2e%2e" } });
+      expect(asked.map((r) => r.path)).toEqual(["/products/..%2Fme", "/products/%252e%252e/images"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("writes a picture the document holds as a file the app bundles, and the screen draws that file", () => {
+    /* the proof's Counter screen has a picture the author picked from a file (lib/exportProject.fixture.ts PICKED_PNG) */
+    const png = proof.files["apps/mobile/assets/images/image1.png"]?.body;
+    expect(png instanceof Uint8Array && Buffer.from(png).toString("base64")).toBe(PICKED_PNG.slice(PICKED_PNG.indexOf(",") + 1));
+    const images = text(proof, "apps/mobile/src/generated/images.ts");
+    expect(images).toContain('  image1: require("../../assets/images/image1.png"),');
+    /* each require names a file of the app: Metro bundles it from there */
+    for (const m of images.matchAll(/require\("([^"]+)"\)/g)) expect(proof.files[new URL(m[1], "file:///apps/mobile/src/generated/images.ts").pathname.slice(1)]?.kind, m[1]).toBe("generated");
+    const counter = text(proof, "apps/mobile/src/generated/screens/CounterScreen.tsx");
+    expect(counter).toContain('import { IMAGES } from "../images";');
+    expect(counter).toContain('<Image src={IMAGES.image1} alt="Picked"');
+    expect(proof.differences.some((d) => d.app === "mobile" && d.kind === "image")).toBe(false);
+  });
+
+  it("writes each picture once, and leaves out (and reports) one an app does not bundle", async () => {
+    const doc: Doc = { ...proofDoc().doc, frames: [{ id: "f", name: "Pictures", x: 0, y: 0 }], groups: [] };
+    const svg = `data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>').toString("base64")}`;
+    doc.groups = [
+      { id: "a", x: 16, y: 16, axis: "x", items: [{ ...makeItem("image"), id: "a1", props: { src: PICKED_PNG, alt: "One" } }] },
+      { id: "b", x: 16, y: 200, axis: "x", items: [{ ...makeItem("avatar"), id: "b1", props: { image: PICKED_PNG } }] },
+      { id: "c", x: 16, y: 300, axis: "x", items: [{ ...makeItem("image"), id: "c1", props: { src: svg, alt: "Two" } }] },
+    ];
+    const p = await build(doc);
+    expect(Object.keys(p.files).filter((f) => f.startsWith("apps/mobile/assets/"))).toEqual(["apps/mobile/assets/images/image1.png"]);
+    const screen = text(p, "apps/mobile/src/generated/screens/PicturesScreen.tsx");
+    expect(screen.match(/IMAGES\.image1/g)).toHaveLength(2);
+    expect(screen).toContain('<Image alt="Two" />');
+    expect(p.differences.filter((d) => d.app === "mobile" && d.kind === "image")).toEqual([expect.objectContaining({ part: "image2", detail: expect.stringContaining("left out") })]);
+    /* a document with no picture the app bundles has no images module */
+    const bare = await build({ ...doc, groups: doc.groups.slice(2) });
+    expect(Object.keys(bare.files).filter((f) => f.startsWith("apps/mobile/assets/") || f.endsWith("/images.ts"))).toEqual([]);
+    expect(text(bare, "apps/mobile/src/generated/screens/PicturesScreen.tsx")).not.toContain("IMAGES");
   });
 
   it("lists where it draws something other than the design says beside its screens, and in the export's report", async () => {

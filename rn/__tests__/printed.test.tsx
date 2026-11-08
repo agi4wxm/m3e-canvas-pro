@@ -9,6 +9,7 @@ import { SCREENS as KITS } from "../src/printed/kits/screens";
 import { theme as kitsTheme } from "../src/printed/kits/theme";
 import { App as ProofApp } from "../src/printed/proof/App";
 import { icons as proofIcons } from "../src/printed/proof/icons";
+import { IMAGES } from "../src/printed/proof/images";
 import { INITIAL, SCREENS as PROOF } from "../src/printed/proof/screens";
 import { theme as proofTheme } from "../src/printed/proof/theme";
 
@@ -78,6 +79,13 @@ describe("the proof document, printed", () => {
     expect(screen.getByText("Flag is on")).toBeTruthy();
     await fireEvent.press(screen.getByText("Ask"));
     expect(screen.getByText("Set it to 100?")).toBeTruthy();
+  });
+
+  it("draws a picture the design holds from the file the app bundles", async () => {
+    await screenOf(PROOF.Counter, proofTheme);
+    /* the native view expo-image draws with: its source is the file's module, not an address */
+    expect(screen.getByLabelText("Picked").props.source).toEqual([IMAGES.image1]);
+    expect(IMAGES.image1).toEqual({ testUri: "../../../src/printed/proof/assets/image1.png" });
   });
 
   it("takes a tap's other branch while its condition does not hold, and the first once it does", async () => {
