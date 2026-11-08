@@ -347,6 +347,69 @@ export const PARTS: Record<string, PartInfo> = {
    "errorText": ""
   }
  },
+ "native-select": {
+  "name": "Native select",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Option A"
+    },
+    {
+     "label": "Option B"
+    },
+    {
+     "label": "Option C"
+    }
+   ],
+   "selected": 1,
+   "size": "default",
+   "disabled": false,
+   "width": 224,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "combobox": {
+  "name": "Combobox",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Next.js"
+    },
+    {
+     "label": "SvelteKit"
+    },
+    {
+     "label": "Nuxt"
+    },
+    {
+     "label": "Remix"
+    },
+    {
+     "label": "Astro"
+    }
+   ],
+   "selected": -1,
+   "placeholder": "Select a framework",
+   "clear": false,
+   "disabled": false,
+   "width": 256,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
  "text-field": {
   "name": "Text field",
   "tier": "composite",
@@ -410,6 +473,59 @@ export const PARTS: Record<string, PartInfo> = {
    "loading": false,
    "errorText": "",
    "helperText": ""
+  }
+ },
+ "input-group": {
+  "name": "Input group",
+  "tier": "composite",
+  "defaults": {
+   "placeholder": "Search...",
+   "leadingIcon": "search",
+   "leadingText": "",
+   "trailingText": "",
+   "button": "",
+   "error": false,
+   "disabled": false,
+   "width": 320,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "input-otp": {
+  "name": "Input OTP",
+  "tier": "composite",
+  "defaults": {
+   "length": 6,
+   "group": 3,
+   "value": "",
+   "error": false,
+   "disabled": false,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "field": {
+  "name": "Field",
+  "tier": "composite",
+  "defaults": {
+   "label": "Email",
+   "control": "input",
+   "placeholder": "you@example.com",
+   "description": "We will never share it.",
+   "error": "",
+   "disabled": false,
+   "width": 320,
+   "readOnly": false,
+   "required": false,
+   "loading": false
   }
  },
  "label": {
@@ -1020,6 +1136,24 @@ export const PARTS: Record<string, PartInfo> = {
    ]
   }
  },
+ "calendar": {
+  "name": "Calendar",
+  "tier": "composite",
+  "defaults": {
+   "mode": "single",
+   "months": 1,
+   "outside": true,
+   "weekStart": "sunday",
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
  "date-picker": {
   "name": "Date picker",
   "tier": "composite",
@@ -1113,6 +1247,25 @@ export const PARTS: Record<string, PartInfo> = {
    "height": 96
   }
  },
+ "form": {
+  "name": "Form",
+  "tier": "composite",
+  "defaults": {
+   "fields": [
+    {
+     "label": "Name"
+    },
+    {
+     "label": "Email"
+    },
+    {
+     "label": "Role"
+    }
+   ],
+   "submit": "Submit",
+   "width": 360
+  }
+ },
  "rating": {
   "name": "Rating",
   "tier": "atom",
@@ -1122,6 +1275,21 @@ export const PARTS: Record<string, PartInfo> = {
    "readOnly": false,
    "ariaLabel": "",
    "disabled": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "color-field": {
+  "name": "Color field",
+  "tier": "composite",
+  "defaults": {
+   "label": "Theme color",
+   "value": "#6750A4",
+   "disabled": false,
+   "readOnly": false,
    "required": false,
    "loading": false,
    "error": false,
@@ -1493,6 +1661,14 @@ export const PARTS: Record<string, PartInfo> = {
    "width": 260
   }
  },
+ "copy-row": {
+  "name": "Copy row",
+  "tier": "composite",
+  "defaults": {
+   "text": "npm run deploy",
+   "width": 280
+  }
+ },
  "prize-wheel": {
   "name": "Prize wheel",
   "tier": "composite",
@@ -1770,6 +1946,24 @@ export const PARTS: Record<string, PartInfo> = {
    "disabled": false
   }
  },
+ "quantity-stepper": {
+  "name": "Quantity stepper",
+  "tier": "composite",
+  "defaults": {
+   "value": 1,
+   "min": 0,
+   "max": 99,
+   "width": 200,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
  "page-dots": {
   "name": "Page dots",
   "tier": "atom",
@@ -1804,6 +1998,39 @@ export const PARTS: Record<string, PartInfo> = {
    ],
    "cancel": "Cancel",
    "width": 380
+  }
+ },
+ "wheel-picker": {
+  "name": "Wheel picker",
+  "tier": "composite",
+  "defaults": {
+   "label": "Minutes",
+   "items": [
+    {
+     "label": "5"
+    },
+    {
+     "label": "10"
+    },
+    {
+     "label": "15"
+    },
+    {
+     "label": "30"
+    },
+    {
+     "label": "60"
+    }
+   ],
+   "selected": 2,
+   "width": 380,
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "text": {
@@ -1885,6 +2112,47 @@ export const PARTS: Record<string, PartInfo> = {
    "height": 400
   }
  },
+ "tag-input": {
+  "name": "Tag input",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Design"
+    },
+    {
+     "label": "Prototype"
+    }
+   ],
+   "placeholder": "Add a tag",
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "phone-input": {
+  "name": "Phone number",
+  "tier": "composite",
+  "defaults": {
+   "code": "+86",
+   "placeholder": "Phone number",
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
  "file-upload": {
   "name": "File upload",
   "tier": "composite",
@@ -1901,6 +2169,105 @@ export const PARTS: Record<string, PartInfo> = {
    "loading": false,
    "error": false,
    "errorText": ""
+  }
+ },
+ "item-picker": {
+  "name": "Item picker",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Home",
+     "icon": "home"
+    },
+    {
+     "label": "Work",
+     "icon": "work"
+    },
+    {
+     "label": "Travel",
+     "icon": "flight"
+    },
+    {
+     "label": "Food",
+     "icon": "restaurant"
+    }
+   ],
+   "columns": 4,
+   "selected": 0,
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "multi-select": {
+  "name": "Multiple choice",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Email"
+    },
+    {
+     "label": "Push"
+    },
+    {
+     "label": "SMS"
+    }
+   ],
+   "selected": "1",
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "color-palette": {
+  "name": "Color palette",
+  "tier": "composite",
+  "defaults": {
+   "colors": "#6750A4,#625B71,#7D5260,#B3261E,#386A20,#006A6A",
+   "selected": 0,
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "number-picker": {
+  "name": "Number picker",
+  "tier": "composite",
+  "defaults": {
+   "value": 5,
+   "min": 0,
+   "max": 10,
+   "step": 1,
+   "unit": "",
+   "width": 96,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "floating-nav": {
@@ -2315,6 +2682,104 @@ export const PARTS: Record<string, PartInfo> = {
    "width": 360
   }
  },
+ "transfer-list": {
+  "name": "Transfer list",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "View reports"
+    },
+    {
+     "label": "Edit members"
+    },
+    {
+     "label": "Manage billing"
+    },
+    {
+     "label": "Export data"
+    },
+    {
+     "label": "Delete projects"
+    }
+   ],
+   "chosen": "4",
+   "from": "Available",
+   "to": "Granted",
+   "width": 380,
+   "height": 220,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "number-pad": {
+  "name": "Number pad",
+  "tier": "composite",
+  "defaults": {
+   "mode": "amount",
+   "prefix": "$",
+   "length": 6,
+   "action": "Confirm",
+   "done": "Sent",
+   "value": "",
+   "sent": false,
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "signature-pad": {
+  "name": "Signature pad",
+  "tier": "composite",
+  "defaults": {
+   "hint": "Sign here",
+   "clear": "Clear",
+   "action": "Done",
+   "done": "Signed",
+   "value": "",
+   "signed": false,
+   "height": 180,
+   "width": 360,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "rich-text-editor": {
+  "name": "Rich text editor",
+  "tier": "composite",
+  "defaults": {
+   "text": "Select some of this text and try the buttons above.",
+   "placeholder": "Write something",
+   "counter": true,
+   "height": 200,
+   "width": 380,
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
  "icon-grid": {
   "name": "Icon grid",
   "tier": "composite",
@@ -2402,6 +2867,106 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "height": 24,
    "width": 380
+  }
+ },
+ "region-picker": {
+  "name": "Region picker",
+  "tier": "composite",
+  "defaults": {
+   "label": "Delivery area",
+   "placeholder": "Choose an area",
+   "data": {
+    "columns": [
+     "Province",
+     "City",
+     "District"
+    ],
+    "rows": [
+     [
+      "Guangdong",
+      "Shenzhen",
+      "Nanshan"
+     ],
+     [
+      "Guangdong",
+      "Shenzhen",
+      "Futian"
+     ],
+     [
+      "Guangdong",
+      "Guangzhou",
+      "Tianhe"
+     ],
+     [
+      "Guangdong",
+      "Guangzhou",
+      "Yuexiu"
+     ],
+     [
+      "Zhejiang",
+      "Hangzhou",
+      "Xihu"
+     ],
+     [
+      "Zhejiang",
+      "Hangzhou",
+      "Binjiang"
+     ],
+     [
+      "Zhejiang",
+      "Ningbo",
+      "Haishu"
+     ],
+     [
+      "Beijing",
+      "Beijing",
+      "Chaoyang"
+     ],
+     [
+      "Beijing",
+      "Beijing",
+      "Haidian"
+     ]
+    ]
+   },
+   "action": "Confirm",
+   "value": "",
+   "height": 240,
+   "width": 380,
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "seat-map": {
+  "name": "Seat map",
+  "tier": "composite",
+  "defaults": {
+   "rows": 6,
+   "columns": 8,
+   "aisle": 4,
+   "taken": "A3,A4,C5,D2,D3",
+   "price": 45,
+   "currency": "$",
+   "most": 4,
+   "screen": "Screen",
+   "pickedText": "Choose your seats",
+   "action": "Confirm seats",
+   "picked": "",
+   "total": "",
+   "width": 380,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "funnel-chart": {
