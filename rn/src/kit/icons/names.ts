@@ -45,6 +45,9 @@ export const KIT_ICONS = [
   "lock",
   "login",
   "payments",
+  /* D5: the rail's compose button, the mini-program header's capsule */
+  "edit",
+  "radio_button_checked",
   /* D2: what the data, list and desktop parts draw by themselves (sort arrows, a drag handle, a file's kind, a window's buttons) */
   "arrow_downward",
   "arrow_forward",

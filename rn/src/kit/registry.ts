@@ -13,6 +13,10 @@ import { SplitView } from "./split";
 /* D4: the game parts, and actions, menus and search */
 import { BrandButton, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SplitButton } from "./composites/actions";
 import { EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, PrizeWheel, SkillButton, SlotMachine } from "./composites/games";
+/* D5 */
+import { AspectRatio, Collapsible, CustomComponent, Dock, GridView, ScrollArea, Stack, SupportingPane } from "./composites/layouts";
+import { FloatingNav, MiniProgramHeader, NavigationMenu, NavigationRail, Onboarding, Pagination, SlideGroup, TableOfContents } from "./composites/navs";
+import { Drawer, HoverCard, Popover, SideSheet, Tooltip } from "./composites/floating";
 /* D2: data and charts, lists and desktop parts */
 import { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table } from "./composites/data";
 import { FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Window } from "./composites/desk";
@@ -101,6 +105,28 @@ export const BY_NAME = {
   ContextMenu,
   FilterBar,
   CascadingMenu,
+  /* D5: layouts, ways of getting around, what floats */
+  Collapsible,
+  ScrollArea,
+  AspectRatio,
+  Stack,
+  GridView,
+  Dock,
+  SupportingPane,
+  CustomComponent,
+  NavigationRail,
+  Pagination,
+  NavigationMenu,
+  FloatingNav,
+  MiniProgramHeader,
+  TableOfContents,
+  SlideGroup,
+  Onboarding,
+  Tooltip,
+  SideSheet,
+  Drawer,
+  Popover,
+  HoverCard,
   /* D2: data and charts, lists and desktop parts */
   Chart,
   ScatterPlot,
