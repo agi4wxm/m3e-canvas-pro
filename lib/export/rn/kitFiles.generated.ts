@@ -10,6 +10,8 @@ export const KIT_FILES: string[] = [
  "atoms/indicators.tsx",
  "composites/bars.tsx",
  "composites/content.tsx",
+ "composites/data.tsx",
+ "composites/desk.tsx",
  "composites/forms.tsx",
  "composites/more.tsx",
  "composites/overlays.tsx",
