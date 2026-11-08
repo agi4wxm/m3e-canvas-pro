@@ -143,8 +143,14 @@ export const setVars = op<{ vars: DocVar[] }>({
   },
 });
 
+/** a variable that no longer drives the dark mode: only that flag goes, its collection and its values in the modes stay */
+const notDriving = (v: DocVar): DocVar => {
+  const { drives: _drives, ...rest } = v;
+  return rest;
+};
+
 /** the variables with `v` as the one that drives the dark mode, when it does: no other one does any more */
-const soleDark = (vars: DocVar[], v: DocVar): DocVar[] => (v.drives === "dark" ? vars.map((x) => (x.id !== v.id && x.drives ? { id: x.id, name: x.name, type: x.type, value: x.value } : x)) : vars);
+const soleDark = (vars: DocVar[], v: DocVar): DocVar[] => (v.drives === "dark" ? vars.map((x) => (x.id !== v.id && x.drives ? notDriving(x) : x)) : vars);
 
 const DRIVES = { type: ["string", "null"], enum: ["dark", null], description: '"dark": this bool variable is the app\'s dark mode (true is dark), so setting or toggling it switches the theme in the preview and the exported app; null: it no longer is' };
 
