@@ -25,6 +25,11 @@ export default defineConfig({
   resolve: {
     alias: [{ find: /^@\//, replacement: `${__dirname}/` }],
   },
+  lint: {
+    /* the consistency table's rows as the kits' test beds hold them: exported apps' code, printed by lib/export and checked
+       there by the kits' own lint (scripts/gen-rn.ts, scripts/gen-miniapp.ts write them) */
+    ignorePatterns: ["rn/__tests__/table/**", "miniapp-kit/test/table/**"],
+  },
   server: {
     port: 3000,
     // agent worktrees are full copies of the project: a change in one must not reload this one

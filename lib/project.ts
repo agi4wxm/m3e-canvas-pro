@@ -10,6 +10,8 @@ import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
 import { COLOR_TOKENS, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams } from "./bindings/clean";
+/* how deep a call's `then` and `catch` may hold calls of their own: the interpreter's own limit */
+import { MAX_CALL_DEPTH } from "./actions/model";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -76,8 +78,6 @@ function cleanCondition(c: unknown): Condition | undefined {
   return undefined;
 }
 
-/** how deep a call's `then` and `catch` may hold calls of their own */
-const MAX_CALL_DEPTH = 4;
 
 function cleanEffect(e: unknown, depth = 0): Effect | undefined {
   if (!isRecord(e)) return undefined;
