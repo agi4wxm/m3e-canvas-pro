@@ -1,5 +1,6 @@
 // The mobile app's part of scripts/check-product.ts (the `shop` fixture): apps/mobile, installed with the rest of the
-// monorepo, is bundled by Metro for Android (with none of the mocks in it), exported for the web twice (a development
+// monorepo, is bundled by Metro for Android (with none of the mocks in it, and the picture the design holds as a file of
+// it, drawn on the sign-in screen), exported for the web twice (a development
 // build, which answers from the mocks, and a production build that calls the exported server), and driven in
 // Playwright's Chromium: the products with their data, empty and failing as the mocks' scenario says, a row opening its
 // product by its id, a picture uploaded for it, a form refusing what its schema does not allow and showing the server's
@@ -10,7 +11,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer as createHttpServer } from "node:http";
 import { extname, join } from "node:path";
-import { SHOP_SIGN_IN } from "../lib/export/product.fixture";
+import { SHOP_LOGO, SHOP_SIGN_IN } from "../lib/export/product.fixture";
 
 type Locator = { count(): Promise<number>; first(): Locator; nth(i: number): Locator; click(): Promise<void>; innerText(): Promise<string>; fill(v: string): Promise<void> };
 type Page = {
@@ -159,6 +160,18 @@ function bundleText(folder: string): string {
 
 const MOCK_MARKS = ["m3e-mock-engine", "createMockTransport", "Scenario of the mocks"];
 
+/** the shop's logo, a picture the design holds as data: the app bundles it as a file (src/generated/images.ts) */
+const LOGO = Buffer.from(SHOP_LOGO.slice(SHOP_LOGO.indexOf(",") + 1), "base64");
+
+/** whether a folder Metro wrote holds the logo's file, byte for byte */
+function bundlesLogo(folder: string): boolean {
+  const walk = (d: string): boolean => readdirSync(d, { withFileTypes: true }).some((e) => (e.isDirectory() ? walk(join(d, e.name)) : statSync(join(d, e.name)).size === LOGO.length && readFileSync(join(d, e.name)).equals(LOGO)));
+  return existsSync(folder) && walk(folder);
+}
+
+/** whether the page draws the logo from a file of the app (not an address the document held): 24 pixels wide, loaded */
+const DRAWS_LOGO = `[...document.images].some((i) => i.complete && i.naturalWidth === 24 && !i.currentSrc.startsWith("data:"))`;
+
 /** a 1 × 1 PNG, to upload */
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
@@ -175,6 +188,7 @@ export async function checkMobile(c: MobileCheck): Promise<void> {
   if (android) {
     const text = bundleText(join(app, "dist/android"));
     ok(text.length > 100_000 && MOCK_MARKS.every((m) => !text.includes(m)), "the Android bundle has none of the mocks");
+    ok(bundlesLogo(join(app, "dist/android")), "the Android bundle carries the picture the design holds (the logo) as a file");
   }
   const devWeb = run("npx", ["expo", "export", "--platform", "web", "--dev", "--clear", "--output-dir", "dist/web-dev"], "mobile-export-web-dev.log", {}, app);
   ok(devWeb, "expo export --platform web (development, with the mocks) bundles the app");
@@ -253,6 +267,7 @@ export async function checkMobile(c: MobileCheck): Promise<void> {
       /* a screen that needs a session: to sign in and back */
       await open("/orders?scenario=signed-out");
       ok(await at(page, /^\/sign-in$/), `signed out, the orders send the app to sign in (${page.url()})`);
+      ok(await page.waitForFunction(DRAWS_LOGO, undefined, { timeout: 10_000 }).then(() => true, () => false), "the sign-in screen draws the logo the design holds, from the file the app bundles");
       await page.locator('[data-testid="field:email"]').fill(SHOP_SIGN_IN.email);
       await page.locator('[data-testid="field:password"]').fill("wrong password");
       await page.locator('[data-testid^="submit:"]').first().click();
@@ -302,6 +317,7 @@ export async function checkMobile(c: MobileCheck): Promise<void> {
 
     await open("/orders");
     ok(await at(page, /^\/sign-in$/), "no session: the orders send the app to sign in");
+    ok(bundlesLogo(join(app, "dist/web")) && (await page.waitForFunction(DRAWS_LOGO, undefined, { timeout: 10_000 }).then(() => true, () => false)), "the production web build carries the logo as a file and the sign-in screen draws it");
     await page.locator('[data-testid="field:email"]').fill(SHOP_SIGN_IN.email);
     await page.locator('[data-testid="field:password"]').fill("short");
     await page.locator('[data-testid^="submit:"]').first().click();

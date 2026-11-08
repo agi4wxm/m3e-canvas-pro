@@ -3,7 +3,7 @@ import { kitGroups, kitLookOf } from "../../kits";
 import { normalizeTheme, withIds, type Doc, type Frame, type Group } from "../../tokens";
 import { KITS } from "../../../parts/kits";
 import { KIT_ICONS } from "../../../rn/src/kit/icons/names";
-import { appModule, iconsModule, themeModule } from "./app";
+import { RnPictures, appModule, iconsModule, themeModule } from "./app";
 import { rnIconData } from "./icons";
 import { printRnScreens, screensIndex } from "./print";
 import { rnThemeOf } from "./theme";
@@ -33,10 +33,11 @@ export function kitsDoc(): { doc: Doc; widths: Record<string, number> } {
   return { doc: { groups, frames: [frame], paletteKey: "purple", frame: "phone", title: "Kits", brief: "", theme }, widths: {} };
 }
 
-/** a printed document's files, under rn/src/printed/<name> */
-async function printed(name: string, doc: Doc, widths: Record<string, number>): Promise<Record<string, string>> {
+/** a printed document's files, under rn/src/printed/<name>: its pictures as files beside it, as an exported app has them */
+async function printed(name: string, doc: Doc, widths: Record<string, number>): Promise<Record<string, string | Uint8Array>> {
   const at = `rn/src/printed/${name}`;
-  const screens = printRnScreens(doc, widths, { kitImport: "../../../kit" });
+  const pictures = new RnPictures("assets", "./assets");
+  const screens = printRnScreens(doc, widths, { kitImport: "../../../kit", images: { from: "../images", name: pictures.name } });
   const theme = rnThemeOf(doc);
   const icons = await rnIconData([theme.icons], [...screens.icons, ...KIT_ICONS]);
   return {
@@ -46,11 +47,13 @@ async function printed(name: string, doc: Doc, widths: Record<string, number>): 
     [`${at}/screens/index.ts`]: screensIndex(screens),
     [`${at}/App.tsx`]: appModule("../../kit", screens),
     [`${at}/warnings.json`]: `${JSON.stringify(screens.warnings, null, 1)}\n`,
+    ...(pictures.any ? { [`${at}/images.ts`]: pictures.module() } : {}),
+    ...Object.fromEntries(Object.entries(pictures.files).map(([path, bytes]) => [`${at}/${path}`, bytes])),
   };
 }
 
 /** every file of the test bed's printed documents, by its path from the repo's root */
-export async function printedFixture(): Promise<Record<string, string>> {
+export async function printedFixture(): Promise<Record<string, string | Uint8Array>> {
   /* the same ids every time, so the files are the same every time */
   let n = 0;
   const next = () => `id${++n}`;
