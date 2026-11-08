@@ -422,7 +422,7 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], api: [op("note", { body: { text: { title: "Note", required: true } } })], forms: [{ operationId: "note", submit: "Save note", ok: body("none", toast("Saved {{form.values.text}}")) }], parts: [] },
     steps: [{ type: "Note", value: "hi" }, { tap: "Save note" }],
     expect: { toast: "Saved hi", calls: [{ op: "note", in: { text: "hi" } }] },
-    known: { webPrototype: WEB_PROTO_NO_API, rn: "手机端表单的 then 和 catch 读屏幕的作用域，里面没有 form：`form.values.*` 读不到（`mobile.ts` 的 useFormFor）" },
+    known: { webPrototype: WEB_PROTO_NO_API },
   },
   {
     id: "form-invalid",

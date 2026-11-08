@@ -452,7 +452,8 @@ export function useFormFor(def: FormDef, $: Bindings, run: (body: ActionBody | u
     return out
   }, [def])
   const scope = $.scope
-  return useForm({
+  /* what follows the answer reads the form it sent as \`form\`, as the screen's own expressions do */
+  const form: FormHandle = useForm({
     /* kept by the runtime: what is typed stays while the app signs in and comes back */
     id: def.id,
     fields,
@@ -464,9 +465,10 @@ export function useFormFor(def: FormDef, $: Bindings, run: (body: ActionBody | u
       return call(def.operationId, { params, body }, init)
     },
     extra: () => Object.fromEntries(Object.entries(def.values ?? {}).map(([k, e]) => [k, $.ev(e)])),
-    then: (response, status) => afterSignIn(runtime, def.login ? def.operationId : undefined, def.then, { scope: { ...scope, response, status } }, run, nav),
-    catch: (error, status) => run(def.catch, { scope: { ...scope, error, status } }),
+    then: (response, status) => afterSignIn(runtime, def.login ? def.operationId : undefined, def.then, { scope: { ...scope, form: form.view, response, status }, form }, run, nav),
+    catch: (error, status) => run(def.catch, { scope: { ...scope, form: form.view, error, status }, form }),
   })
+  return form
 }
 `;
 
