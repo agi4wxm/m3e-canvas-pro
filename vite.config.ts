@@ -29,6 +29,8 @@ export default defineConfig({
     /* the consistency table's rows as the kits' test beds hold them: exported apps' code, printed by lib/export and checked
        there by the kits' own lint (scripts/gen-rn.ts, scripts/gen-miniapp.ts write them) */
     ignorePatterns: ["rn/__tests__/table/**", "miniapp-kit/test/table/**"],
+    /* the printed proofs hold taps as data: a call's or an invoke's `then` is an action body, never awaited */
+    overrides: [{ files: ["rn/src/printed/**", "miniapp-kit/src/printed/**"], rules: { "unicorn/no-thenable": "off" } }],
   },
   server: {
     port: 3000,
