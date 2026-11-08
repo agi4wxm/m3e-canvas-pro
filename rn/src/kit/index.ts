@@ -26,3 +26,7 @@ export { NATIVE, isNative, kitPropName } from "./coverage";
 export { BY_NAME, COMPONENTS } from "./registry";
 export { TreeView, type TreeNode } from "./tree";
 export { PARTS, type PartInfo } from "./parts.generated";
+/* D5: layouts, ways of getting around, what floats */
+export { AspectRatio, Collapsible, CustomComponent, Dock, DockPane, GridView, ScrollArea, Stack, SupportingPane, onPane, ratioOf, useDraft, type DockProps, type GridViewProps } from "./composites/layouts";
+export { FloatingNav, MiniProgramHeader, NavigationMenu, NavigationRail, Onboarding, Pagination, SlideGroup, TableOfContents, pagesShown, tocRow, type OnboardingProps } from "./composites/navs";
+export { Drawer, HoverCard, Popover, SideSheet, Tooltip, around, sideSheetWindow } from "./composites/floating";

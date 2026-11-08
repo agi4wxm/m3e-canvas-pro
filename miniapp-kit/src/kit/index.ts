@@ -31,3 +31,7 @@ export { optionIndex, rowsOf } from "./app/values";
 export { KIT_ICONS } from "./iconNames";
 export { createTaroTransport, queryString, readAsDataUrl, taroStorage, withFileData, type PlatformFile, type TaroTransportOptions } from "./app/transport";
 export type { Action, ActionBody, AppSpec, CallFn, Condition, Effect, ScreenSpec, VarSpec } from "./app/spec";
+/* D5: layouts, ways of getting around, what floats */
+export { Accordion, AspectRatio, Collapsible, CustomComponent, Dock, DockPane, GridView, ScrollArea, Stack, SupportingPane, gridRowHeight, onPane, ratioOf, toggled, useDraft, type DockProps, type GridViewProps } from "./composites/layouts";
+export { FloatingNav, IconGrid, NavigationMenu, NavigationRail, Onboarding, Pagination, Sidebar, SlideGroup, TableOfContents, pagesShown, railWidths, tocRow, type OnboardingProps } from "./composites/navs";
+export { Drawer, HoverCard, Popover, SideSheet, Tooltip, around, placeOf } from "./composites/floating";

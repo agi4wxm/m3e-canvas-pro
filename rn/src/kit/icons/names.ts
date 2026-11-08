@@ -40,4 +40,7 @@ export const KIT_ICONS = [
   "unfold_more",
   "upload_file",
   "warning",
+  /* D5: the rail's compose button, the mini-program header's capsule */
+  "edit",
+  "radio_button_checked",
 ] as const;

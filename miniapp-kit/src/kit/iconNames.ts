@@ -27,4 +27,10 @@ export const KIT_ICONS = [
   "star",
   "unfold_more",
   "upload_file",
+  /* D5: a shortcut with no icon, an accordion's and a menu's chevrons, the rail's menu and compose buttons */
+  "apps",
+  "edit",
+  "expand_less",
+  "expand_more",
+  "menu",
 ] as const;

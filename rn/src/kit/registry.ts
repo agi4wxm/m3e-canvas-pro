@@ -10,6 +10,10 @@ import { Accordion, CodeBlock, FileUpload, IconGrid, InputGroup, RadioGroup, Sce
 import { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 import { NATIVE, type NativeName, type NativeSlug } from "./coverage";
 import { SplitView } from "./split";
+/* D5 */
+import { AspectRatio, Collapsible, CustomComponent, Dock, GridView, ScrollArea, Stack, SupportingPane } from "./composites/layouts";
+import { FloatingNav, MiniProgramHeader, NavigationMenu, NavigationRail, Onboarding, Pagination, SlideGroup, TableOfContents } from "./composites/navs";
+import { Drawer, HoverCard, Popover, SideSheet, Tooltip } from "./composites/floating";
 
 /* Every component the kit draws a part with, by the name coverage.ts gives it, and by the part's id. */
 
@@ -77,6 +81,28 @@ export const BY_NAME = {
   FileUpload,
   Scene,
   Sidebar,
+  /* D5: layouts, ways of getting around, what floats */
+  Collapsible,
+  ScrollArea,
+  AspectRatio,
+  Stack,
+  GridView,
+  Dock,
+  SupportingPane,
+  CustomComponent,
+  NavigationRail,
+  Pagination,
+  NavigationMenu,
+  FloatingNav,
+  MiniProgramHeader,
+  TableOfContents,
+  SlideGroup,
+  Onboarding,
+  Tooltip,
+  SideSheet,
+  Drawer,
+  Popover,
+  HoverCard,
 } satisfies Record<NativeName, ComponentType<never>>;
 
 /** the component that draws each part the kit covers, by the part's id */

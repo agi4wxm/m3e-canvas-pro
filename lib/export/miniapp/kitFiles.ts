@@ -38,6 +38,10 @@ export const MINIAPP_KIT_FILES = [
   "theme.generated.ts",
   "theme.ts",
   "value.ts",
+  /* D5: layouts, ways of getting around, what floats */
+  "composites/floating.tsx",
+  "composites/layouts.tsx",
+  "composites/navs.tsx",
 ] as const;
 
 export const MINIAPP_KIT_DIR = "miniapp-kit/src/kit";
