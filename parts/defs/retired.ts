@@ -39,12 +39,13 @@ function figure(cell: string): number {
   return Number.NaN;
 }
 
-/** the note a pull-to-refresh box carries once split: the pull is the screen's data source's now */
+/** the note a pull-to-refresh box carries once split: the pull is the screen's data source's now (split_retired turns
+ *  it on for the data the screen loads; on a screen that loads none yet, it is the author's to turn on) */
 const PULL_NOTE: Say = {
-  en: "Pull to refresh: turn it on for the screen's data source (pull to refresh).",
-  zh: "下拉刷新：在屏幕的数据源上打开“下拉刷新”。",
-  ja: "引っ張って更新：画面のデータソースで「引っ張って更新」をオンにします。",
-  ko: "당겨서 새로고침: 화면의 데이터 소스에서 '당겨서 새로고침'을 켜세요.",
+  en: "Pull to refresh belongs to the screen's data source: its “pull to refresh” setting loads the data again.",
+  zh: "下拉刷新由屏幕的数据源负责：数据源的“下拉刷新”设置会重新加载数据。",
+  ja: "引っ張って更新は画面のデータソースが受け持ちます：データソースの「引っ張って更新」の設定でデータを読み込み直します。",
+  ko: "당겨서 새로고침은 화면의 데이터 소스가 맡습니다: 데이터 소스의 '당겨서 새로고침' 설정이 데이터를 다시 불러옵니다.",
 };
 
 /** a field as the form draws it: an outlined entry whose label stands in it until something is typed */

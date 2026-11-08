@@ -161,6 +161,22 @@ describe("splitting the retired parts", () => {
     expect(none.ok && (none.result as Record<string, unknown>).nothing_to_do).toBeTruthy();
   });
 
+  it("hands a pull to refresh to the data its screen loads, and leaves a screen that loads none as it was", async () => {
+    const doc = docOf([item("pull-to-refresh", "pull"), item("pull-to-refresh", "bare")]);
+    doc.frames[0] = { ...doc.frames[0], data: [{ name: "feed", operationId: "listFeed" }, { name: "me", operationId: "getMe", pullToRefresh: true }] };
+    const s = storeOf(doc);
+    const out = await executeTool(s, "split_retired", {}, { origin: "mcp" });
+    const split = (out.ok ? (out.result as { split: { id: string; refreshes?: string[] }[] }) : { split: [] }).split;
+    expect(split.map((x) => [x.id, x.refreshes])).toEqual([["pull", ["feed"]], ["bare", undefined]]);
+    const after = savedDoc(s.get());
+    expect(after.frames[0].data).toEqual([{ name: "feed", operationId: "listFeed", pullToRefresh: true }, { name: "me", operationId: "getMe", pullToRefresh: true }]);
+    expect(after.frames[1].data).toBeUndefined();
+    expect(retiredParts(after.groups)).toEqual([]);
+    /* the same one step: an undo takes the pull back with the part */
+    s.undo("mcp");
+    expect(savedDoc(s.get()).frames).toEqual(doc.frames);
+  });
+
   it("keeps what each one says and shows", () => {
     for (const slug of SLUGS) {
       const s = storeOf(docOf([item(slug, "p")]));

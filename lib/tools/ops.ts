@@ -56,7 +56,7 @@ const MORE: Record<string, string> = {
   set_var_mode: "A screen's own choice wins over the document's; list_data lists the collections and their modes.",
   bind_prop: "A fill bound to a color variable shows its value in the mode on show; to drive a switch's checked prop by a bool variable, bind it and toggle the variable with set_action.",
   split_into_atoms: "Returns {rootItemId, collection?}: a retired list whose rows are alike gets a data collection its rows repeat over (list_data shows it).",
-  split_retired: "Use it before changing a retired part, or when the author asks to modernize an old design. Returns {split: [{id, slug, rootItemId, collection?}], left}.",
+  split_retired: "Use it before changing a retired part, or when the author asks to modernize an old design. Returns {split: [{id, slug, rootItemId, collection?, refreshes?}], left}: refreshes names the screen's data sources a pull-to-refresh turned pull to refresh on for.",
   add_model: "get_api shows the models there are. Name fields in camelCase; required lists what is always there. Returns {name}.",
   update_model: "To rename a model use rename_model (references follow).",
   remove_model: "Refused while something refers to the model; the error lists what.",
