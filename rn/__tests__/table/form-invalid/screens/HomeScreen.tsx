@@ -22,6 +22,7 @@ export function HomeScreen() {
                 value={form1.text("text")}
                 onChangeText={(v: string) => form1.set("text", v)}
                 error={!!form1.error("text")}
+                required
                 testID="field:text"
               />
             </Cell>
@@ -47,6 +48,7 @@ export function HomeScreen() {
             label="Save note"
             onPress={() => act(A1, { scope: $form1.scope, form: form1 })}
             disabled={form1.submitting}
+            loading={form1.submitting}
             testID="submit:n2"
           />
         </Box>

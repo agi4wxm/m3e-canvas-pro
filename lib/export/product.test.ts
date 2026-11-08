@@ -47,18 +47,21 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the icons reading their
+     before the product existed; one that changes on purpose is written again here (last: the field states and the
+     accessible names, docs/组件规范.md: the M3E button's own loading spinner (spinner.tsx copied beside it), the widgets'
+     arrow keys (parts/widgets/roving.ts) and a rating named in the page's language, icon-only controls named by what
+     their icon means; before them the icons reading their
      family from a root's provider and drawn again when it changes, components/m3e/icon.tsx and symbols.tsx, and the
      loader asking for each root's family; with it the widgets' host contract, parts/widgets/host.ts, copied beside
      them, and a rating an input wired to its variable; before them an icon counted as drawn only with both its glyphs, the components saying their own words in Chinese, Japanese and Korean too, the
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [78, "7fada9a30ec5cdd94ef8ff591abae2bf0f9b62575bd0629fe0f7197416281314"],
-    systems: [40, "58807e81f5714322a5a6a60c6bd52007dd8f794c6d8e51804d642a637d315fef"],
-    reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [84, "3b0ac95ebcbc15899e056cdd48566f3041df0b35a3c721f61e5ca45829df2630"],
-    parts: [137, "0a7cb7c8aedcda26c5de7e729720e280e961b110977918bb69222a8256890428"],
+    proof: [81, "96ee35a498550f4a112acb2090db1560ae8e288a538a90175676281af36bfda6"],
+    systems: [41, "992987b9634db0e617a98539279765cae5163f7caa5fe8ecdbc9aa5dc3ca56cb"],
+    reuse: [31, "bf3a590479d5cbc75c4c9fcd91fa094350452f6190f2690665cefe7aecff44aa"],
+    sweep: [85, "1130d6a1283f0eea3a43046504daa27709c1934732e5465a1660c0b422620871"],
+    parts: [138, "b2bd770af4d6e7b2e64514de6ad4a73178a6782f93b7bc7931eee8d011f0d78d"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

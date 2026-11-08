@@ -33,6 +33,7 @@ export function HomeScreen() {
                 value={form1.text("text")}
                 onChange={(v: string) => form1.set("text", v)}
                 error={!!form1.error("text")}
+                errorText={form1.error("text") ?? ""}
                 testID="input"
               />
             </Cell>
@@ -59,6 +60,7 @@ export function HomeScreen() {
           <Button
             label="Save note"
             disabled={form1.submitting}
+            loading={form1.submitting}
             onPress={s.tap(A4, { $: $f1, form: "noteForm" })}
             testID="button"
           />
