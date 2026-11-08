@@ -126,8 +126,11 @@ function PartViewBody({ item: own, live = false, screen, held = false }: PartVie
   const icons = useIcons(tree ?? NOTHING);
   /* the components it is drawn with are fetched the first time a part needs them */
   const ready = usePartModules(tree);
+  /* in the preview, a part that holds an input draws that control controlled (parts/render.tsx): the value it shows is
+   * the one it is drawn with, and what the visitor does goes to the part host (components/preview/LivePart.tsx) */
+  const controls = live && !!def?.input;
   /* the same elements for the same tree: React then leaves the whole component under them alone */
-  const drawn = useMemo(() => (tree && ready ? renderNode(tree) : null), [tree, ready]);
+  const drawn = useMemo(() => (tree && ready ? renderNode(tree, undefined, controls) : null), [tree, ready, controls]);
   /* drawn at last where its stand-in stood: the canvas measured the stand-in, so it measures again */
   const waited = useRef(false);
   useLayoutEffect(() => {

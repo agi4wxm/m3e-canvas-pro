@@ -48,7 +48,8 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: a screen whose name has no
+     before the product existed; one that changes on purpose is written again here (last: the map stand-in's chosen marker kept as its input by
+     parts/widgets/seed.ts useValue, so a marker set from elsewhere shows after a tap, parts/widgets/Platform.tsx; before that a screen whose name has no
      ASCII words, the parts' "日本語", named after its id and no longer its place among the screens, lib/export/ir/names.ts;
      before that a back action's own motion, which the prototype's back now plays; before that the taps printed as the data they are, lib/actions'
      Action, and run in src/runtime.tsx by the interpreter copied into src/lib/actions (docs/交互规则.md), which the
@@ -79,7 +80,7 @@ describe("the prototype export", () => {
     systems: [47, "e7ff2759b207bda928431634f428e527959a4f46717ec9923ebe221248db82b5"],
     reuse: [38, "96f30985cda9ab89862682ab51b77da26207296ddd8f8f3d7a617fe589184d47"],
     sweep: [100, "fe04935736ab7e2a326e01b3866e7afee6ee0f83a4c6be19a0eed42c59b495ed"],
-    parts: [140, "3f611c66bc87878ffb9e1241ee81c1c57c2000c230cd5997338ffe4b9fa8d36b"],
+    parts: [140, "c5ccc447b9193a1993076c525f3b328b84cf09c199eb192138258cf78583d103"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
