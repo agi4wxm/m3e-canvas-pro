@@ -35,6 +35,7 @@ export const EXPORT_SOURCE_GLOBS = [
   "/rn/src/kit/composites/*.tsx",
   "/rn/src/kit/icons/*.{ts,tsx}",
   "/rn/src/kit/theme/*.{ts,tsx}",
+  "/rn/src/app/*.{ts,tsx}",
   "/styles/*.css",
   "/react-css.d.ts",
   "/package.json",

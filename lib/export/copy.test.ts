@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
 import { setGlobalLang } from "../i18n";
 import { GENERATED } from "./code";
-import { FILES_DIR, productFile } from "./copy";
+import { FILES_DIR, MOBILE_FILES_DIR, productFile } from "./copy";
 import { buildProduct } from "./product";
 import type { Product } from "./types";
 import { productDoc } from "./product.fixture";
@@ -37,9 +37,12 @@ describe("the files an export copies as they are (lib/export/files)", () => {
       "packages/app-runtime/src/runtime.test.ts": "appRuntime/runtime.spec.ts",
       "apps/web/src/generated/platform.ts": "web/platform.ts",
       "apps/web/src/generated/DataScroll.tsx": "web/DataScroll.tsx",
+      "apps/mobile/src/generated/transport.ts": `${MOBILE_FILES_DIR}/transport.ts`,
+      "apps/mobile/jest.setup.tsx": `${MOBILE_FILES_DIR}/jest.setup.tsx`,
     };
     for (const [at, from] of Object.entries(copied)) {
-      expect(text(at), at).toBe(`${GENERATED}\n${productFile(await fromDisk(`${FILES_DIR}/${from}`), `@${proof.name}`)}`);
+      const source = from.startsWith(MOBILE_FILES_DIR) ? from : `${FILES_DIR}/${from}`;
+      expect(text(at), at).toBe(`${GENERATED}\n${productFile(await fromDisk(source), `@${proof.name}`)}`);
       expect(text(at), at).not.toContain("//!");
       expect(text(at), at).not.toMatch(/from "@m3e\//);
     }

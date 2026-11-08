@@ -21,6 +21,7 @@ import { GENERATED, jsonCode, jsonFile, propKey, sortedObject, str } from "../co
 import { kebab } from "../paths";
 import { boundaryDifferences } from "../boundary";
 import { EXPO_PINS, MOBILE_PACKAGES } from "../../exportPackages";
+import { MOBILE_FILES_DIR, copiedFile } from "../copy";
 import { generated, seeded, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "../types";
 
 /** The Expo packages the app needs beyond the kit's (rn/package.json): the router and what it stands on, the secure
@@ -121,32 +122,6 @@ module.exports = {
     "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|expo-router|react-native-svg|nativewind|react-native-css-interop|react-native-reanimated|react-native-worklets|react-native-screens))",
   ],
 }
-`;
-
-const JEST_SETUP = `${GENERATED}
-/* Reanimated and Worklets have no native side under Jest: their own mocks stand in. */
-jest.mock("react-native-reanimated", () => jest.requireActual("react-native-reanimated/mock"))
-jest.mock("react-native-worklets", () => jest.requireActual("react-native-worklets/src/mock"))
-
-/* the platform's date and time pickers are native views: a stand-in that names what it was asked for */
-jest.mock("@react-native-community/datetimepicker", () => {
-  const { Text } = jest.requireActual("react-native")
-  const Picker = ({ mode }: { mode: string }) => <Text>{\`native \${mode} picker\`}</Text>
-  return { __esModule: true, default: Picker, DateTimePickerAndroid: { open: jest.fn() } }
-})
-
-/* the device's safe area: the library's own stand-in, with a phone's insets */
-jest.mock("react-native-safe-area-context", () => jest.requireActual("react-native-safe-area-context/jest/mock").default)
-
-/* the session's tokens: kept in memory */
-jest.mock("expo-secure-store", () => {
-  const kept = new Map<string, string>()
-  return {
-    getItemAsync: async (k: string) => kept.get(k) ?? null,
-    setItemAsync: async (k: string, v: string) => void kept.set(k, v),
-    deleteItemAsync: async (k: string) => void kept.delete(k),
-  }
-})
 `;
 
 /* ---------- the app's own modules ---------- */
@@ -250,68 +225,6 @@ export const AUTH: AuthConfig = ${auth}
 
 /** the rules of the fields of each operation a form of the design sends, from its body's schema */
 export const FORMS: Record<string, Record<string, FieldRule>> = ${jsonCode(forms)}
-`;
-
-const TRANSPORT = (scope: string) => `${GENERATED}
-import { Platform } from "react-native"
-import { createFetchTransport, queryString, readBody, type Transport, type TransportRequest, type TransportResponse } from ${str(`${scope}/api`)}
-
-/** a file a picker gave (./files): what the transport sends for a file field, as the mocks read one too */
-export type PickedFile = { name: string; type: string; size?: number; dataUrl: string; uri?: string }
-
-const isFile = (v: unknown): v is PickedFile => !!v && typeof v === "object" && typeof (v as PickedFile).dataUrl === "string"
-
-const multipart = (r: TransportRequest) => /multipart\\/form-data/i.test(r.headers?.["content-type"] ?? "") && !!r.body && typeof r.body === "object"
-
-/** the headers of an answer, by their names in lower case */
-function headersOf(raw: string): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const line of raw.split(/\\r?\\n/)) {
-    const at = line.indexOf(":")
-    if (at > 0) out[line.slice(0, at).trim().toLowerCase()] = line.slice(at + 1).trim()
-  }
-  return out
-}
-
-/** A multipart form sent with XMLHttpRequest, which tells how far the upload has gone: a file field is the file the
- *  picker gave (its uri on a phone, its bytes on the web), any other field its words. */
-async function upload(baseUrl: string, r: TransportRequest): Promise<TransportResponse> {
-  const form = new FormData()
-  for (const [key, value] of Object.entries(r.body as Record<string, unknown>)) {
-    for (const one of Array.isArray(value) ? value : [value]) {
-      if (one === undefined || one === null) continue
-      if (isFile(one)) {
-        if (Platform.OS === "web") form.append(key, await (await fetch(one.uri ?? one.dataUrl)).blob(), one.name)
-        else form.append(key, { uri: one.uri ?? one.dataUrl, name: one.name, type: one.type } as unknown as Blob)
-      } else form.append(key, typeof one === "object" ? JSON.stringify(one) : String(one))
-    }
-  }
-  const search = queryString(r.query)
-  const url = \`\${baseUrl.replace(/\\/$/, "")}\${r.path}\${search ? \`?\${search}\` : ""}\`
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open(r.method, url)
-    xhr.setRequestHeader("accept", "application/json")
-    for (const [h, v] of Object.entries(r.headers ?? {})) if (h.toLowerCase() !== "content-type") xhr.setRequestHeader(h, v)
-    if (r.onUploadProgress) xhr.upload.onprogress = (e) => r.onUploadProgress?.(e.loaded, e.total)
-    /* the answer's bytes as they came, read as packages/api reads every answer (JSON, text or a file) */
-    xhr.responseType = "arraybuffer"
-    xhr.onload = () => {
-      const headers = headersOf(xhr.getAllResponseHeaders())
-      const bytes = xhr.response ? new Uint8Array(xhr.response as ArrayBuffer) : new Uint8Array(0)
-      resolve({ status: xhr.status, headers, body: readBody({ method: r.method, path: r.path, status: xhr.status, headers, bytes }) })
-    }
-    xhr.onerror = () => reject(new Error("Network request failed"))
-    xhr.send(form)
-  })
-}
-
-/** The API over React Native's fetch: JSON as JSON, a multipart form (an upload) with its progress; every answer read
- *  the same way (JSON, text, or a file such as a PDF as its bytes). */
-export function createNativeTransport(options: { baseUrl: string }): Transport {
-  const json = createFetchTransport({ baseUrl: options.baseUrl })
-  return { request: (r) => (multipart(r) ? upload(options.baseUrl, r) : json.request(r)) }
-}
 `;
 
 const FILES = `${GENERATED}
@@ -1187,7 +1100,8 @@ export const mobileTarget: ProductTarget = {
     files["src/generated/contract.ts"] = generated(CONTRACT(scope, operationsOf(doc.api), authSource(doc.api ?? {}), formRulesOf(doc)));
     files["src/generated/bind.ts"] = generated(BIND(scope));
     files["src/generated/effects.ts"] = generated(EFFECTS(scope));
-    files["src/generated/transport.ts"] = generated(TRANSPORT(scope));
+    /* the same in every app: real files of this repo, copied as they are (lib/export/copy.ts) */
+    files["src/generated/transport.ts"] = generated(await copiedFile(ctx, `${MOBILE_FILES_DIR}/transport.ts`));
     files["src/generated/files.ts"] = generated(FILES);
     files["src/generated/mocks.ts"] = generated(MOCKS(scope));
     files["src/generated/DevMenu.tsx"] = generated(DEV_MENU(scope));
@@ -1228,7 +1142,7 @@ export const mobileTarget: ProductTarget = {
     files["nativewind-env.d.ts"] = generated(NATIVEWIND_ENV);
     files["tsconfig.json"] = generated(TSCONFIG);
     files["jest.config.js"] = generated(JEST);
-    files["jest.setup.tsx"] = generated(JEST_SETUP);
+    files["jest.setup.tsx"] = generated(await copiedFile(ctx, `${MOBILE_FILES_DIR}/jest.setup.tsx`));
     files["README.md"] = generated(README(scope));
 
     const { dependencies } = rnDependencies();

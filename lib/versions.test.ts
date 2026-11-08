@@ -61,7 +61,7 @@ describe("the version table", () => {
       for (const spec of importsIn(text(path))) {
         if (spec.startsWith("@/") || spec.startsWith(".")) continue;
         /* the files a product copies as they are (lib/export/copy.ts) name its own packages, and what it pins */
-        if (path.startsWith("lib/export/files/") && /^@m3e\/(api|app-runtime|mocks)$/.test(packageOf(spec))) continue;
+        if ((path.startsWith("lib/export/files/") || path.startsWith("rn/src/app/")) && /^@m3e\/(api|app-runtime|mocks)$/.test(packageOf(spec))) continue;
         const table = path.startsWith("rn/") ? rn : path.startsWith("miniapp-kit/") ? mini : path.startsWith("lib/export/files/") ? PRODUCT_VERSIONS : VERSIONS;
         expect(table[packageOf(spec)], `${path} imports ${spec}`).toBeTruthy();
       }
