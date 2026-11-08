@@ -66,7 +66,8 @@ describe("a part's outlets", () => {
   it("are its slots, its families and its events, and nothing else", () => {
     expect(outletKeysOf(part("number-pad"))).toEqual(["confirm", "on:submit"]);
     expect(outletKeysOf(part("item", { props: { items: [{ label: "A" }, { label: "B" }] } }))).toEqual(["tab:0", "tab:1", "tab:*"]);
-    expect(outletKeysOf(part("prize-wheel"))).toEqual(["on:settled"]);
+    expect(outletKeysOf(part("prize-wheel"))).toEqual(["action", "on:settled"]);
+    expect(outletKeysOf(part("egg-smash"))).toEqual(["egg:0", "egg:1", "egg:2", "egg:*", "on:settled"]);
     expect(outletKeysOf(part("text"))).toEqual([]);
   });
 
