@@ -44,7 +44,8 @@ const useFont = () =>
 /** a name drawn from the bundled Rounded glyphs, once they have been loaded */
 function BundledGlyph({ name, size, color, fill }: { name: string; size: number; color?: string; fill?: boolean }) {
   const version = useIconVersion();
-  useEffect(() => ensureIcons([name]), [name]);
+  /* the editor draws its own in Rounded, whatever family the document wears */
+  useEffect(() => ensureIcons([name], "rounded"), [name]);
   const glyph = `material-symbols:${name.replaceAll("_", "-")}${fill ? "" : "-outline"}-rounded`;
   return (
     <span aria-hidden data-icon-fallback={name} style={{ display: "inline-flex", width: size, height: size, color, flex: "0 0 auto" }}>
