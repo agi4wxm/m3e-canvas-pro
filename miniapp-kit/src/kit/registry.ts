@@ -8,12 +8,14 @@ import { Alert, Card, ListItem, Snackbar } from "./composites/content";
 import { DatePicker, FileUpload, Menu, RadioGroup, SegmentedButton, Select, TextField, TimePicker } from "./composites/forms";
 import { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 import { NATIVE, type NativeName, type NativeSlug } from "./coverage";
+import { SplitView } from "./split";
 
 /* Every component the kit draws a part with, by the name coverage.ts gives it, and by the part's id. */
 
 export const BY_NAME = {
   Box,
   Container,
+  SplitView,
   Text,
   Icon,
   Svg,

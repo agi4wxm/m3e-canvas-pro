@@ -1597,7 +1597,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   handles={splitHandles}
                   z={view.z}
                   p={p}
-                  onChange={(id, share) => runOp(ops.setSplit, { id, split: share }, { history: { coalesce: `split:${id}` } })}
+                  onChange={(id, share, step) => runOp(ops.setSplit, { id, split: share }, { history: { coalesce: `split:${id}:${step}` } })}
                   onFold={(id, folded) => {
                     const h = splitHandles.find((x) => x.id === id);
                     /* a pane folded by its share alone unfolds to its least */

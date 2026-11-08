@@ -13,6 +13,7 @@ export { Placeholder } from "./Placeholder";
 export { At, NavProvider, OverlayFrame, Pin, Screen, ScreenStack, useNav, type GoOptions, type Nav, type ScreenComponent } from "./runtime";
 export { AppProvider, SnackHost, optionOf, rowsOf, useAct, useAfter, useApp, type Action, type ActionBody, type AppState, type AppVar, type Condition, type Effect, type EffectHandler, type Here, type Reader, type Scope, type ScreenParts, type VarValue } from "./app";
 export { Repeat, type RepeatProps } from "./list";
+export { SplitView, type SplitViewProps } from "./split";
 export { dateOfValue, dayOf, timeOf, usePicker } from "./picker";
 export { Glyph, glyphFor, hasGlyph, registerIcons, type IconData } from "./icons/Icon";
 export { KIT_ICONS } from "./icons/names";

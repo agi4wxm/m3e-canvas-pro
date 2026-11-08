@@ -29,10 +29,18 @@ export type SplitHandle = {
 
 const SNAP_PX = 6;
 
-export function SplitHandles({ handles, z, p, onChange, onFold }: { handles: SplitHandle[]; z: number; p: Palette; onChange: (id: string, share: number) => void; onFold: (id: string, folded: boolean) => void }) {
+export function SplitHandles({ handles, z, p, onChange, onFold }: { handles: SplitHandle[]; z: number; p: Palette; /** `step` names the undo step: one per drag, per double click, per run of arrow keys */ onChange: (id: string, share: number, step: string) => void; onFold: (id: string, folded: boolean) => void }) {
   const lang = useLang();
   const [held, setHeld] = useState<string | null>(null);
   const drag = useRef<{ id: string; start: number; pos: number } | null>(null);
+  /* each gesture its own undo step: a run of arrow presses is one, anything else starts the next */
+  const steps = useRef({ n: 0, arrows: false });
+  const nextStep = (arrows = false) => {
+    if (!(arrows && steps.current.arrows)) steps.current.n += 1;
+    steps.current.arrows = arrows;
+    return String(steps.current.n);
+  };
+  const current = () => String(steps.current.n);
   const room = (h: SplitHandle) => Math.max(1, (h.split.vertical ? h.box.b - h.box.t : h.box.r - h.box.l) - h.split.divider);
   /** a share the pointer reached, snapped */
   const snapped = (h: SplitHandle, raw: number, e: { shiftKey: boolean; altKey: boolean }) => {
@@ -51,6 +59,7 @@ export function SplitHandles({ handles, z, p, onChange, onFold }: { handles: Spl
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { id: h.id, start: h.split.vertical ? e.clientY : e.clientX, pos: h.at };
+    nextStep();
     setHeld(h.id);
   };
   const move = (e: React.PointerEvent, h: SplitHandle) => {
@@ -58,7 +67,7 @@ export function SplitHandles({ handles, z, p, onChange, onFold }: { handles: Spl
     if (!d || d.id !== h.id) return;
     const pos = d.pos + ((h.split.vertical ? e.clientY : e.clientX) - d.start) / z;
     const share = snapped(h, (pos / room(h)) * 100, e);
-    if (share !== h.share) onChange(h.id, share);
+    if (share !== h.share) onChange(h.id, share, current());
   };
   const end = (e: React.PointerEvent) => {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
@@ -83,7 +92,8 @@ export function SplitHandles({ handles, z, p, onChange, onFold }: { handles: Spl
     e.preventDefault();
     e.stopPropagation();
     const v = Math.round(Math.max(h.range.min, Math.min(h.range.max, next)) * 100) / 100;
-    if (v !== h.share) onChange(h.id, v);
+    const step = nextStep(e.key === back || e.key === on);
+    if (v !== h.share) onChange(h.id, v, step);
   };
 
   return (
@@ -114,7 +124,7 @@ export function SplitHandles({ handles, z, p, onChange, onFold }: { handles: Spl
             onPointerCancel={end}
             onDoubleClick={(e) => {
               e.stopPropagation();
-              if (h.share !== 50) onChange(h.id, 50);
+              if (h.share !== 50) onChange(h.id, 50, nextStep());
             }}
             onKeyDown={(e) => key(e, h)}
             style={{
