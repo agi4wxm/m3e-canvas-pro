@@ -6,16 +6,17 @@
 import { useEffect, useRef } from "react";
 import { modalOpen } from "@/components/layers";
 
-/** Focused controls that answer keys of their own: a select (native, or a button that opens a list), a slider, a list
- *  of options, a menu, a run of radios, tabs. Their arrows, letters, Enter and Delete are theirs; only Ctrl/Cmd
- *  shortcuts, Escape and Space (which the hand tool and a button reached with Tab settle between them below) reach the
- *  canvas past them. */
-const OWN_KEYS = "select, [aria-haspopup=listbox], [role=slider], [role=spinbutton], [role=listbox], [role=option], [role=menu], [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], [role=radiogroup], [role=radio], [role=tablist], [role=tab], [role=combobox], [role=grid], [data-own-keys]";
+/** Focused controls that move with keys of their own: a button that opens a list (a select), a slider, a list of
+ *  options, a menu, a run of radios, tabs, a grid. Their arrows, Home, End and the page keys are theirs; every other
+ *  key (Delete, a tool's letter, P for the preview) still reaches the canvas past them, as past any button. */
+const OWN_KEYS = "[aria-haspopup=listbox], [role=slider], [role=spinbutton], [role=listbox], [role=option], [role=menu], [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], [role=radiogroup], [role=radio], [role=tablist], [role=tab], [role=combobox], [role=grid], [data-own-keys]";
+const MOVES = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"]);
 
 type KeyLike = Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "defaultPrevented" | "isComposing"> & { target: EventTarget | null };
 
 /** Whether a key is not the canvas's to answer: something on the page has answered it already, an IME is composing,
- *  a text field or a control with keys of its own has the focus, or a dialog that asks something is up. */
+ *  a text field (or a native select, which takes letters to find an option) has the focus, a control that moves with
+ *  the arrows has it and this is one of its keys, or a dialog that asks something is up. */
 export function keyIsNotOurs(e: KeyLike): boolean {
   if (e.defaultPrevented) return true;
   /* a key pressed while an IME composes (Chrome names it "Process") belongs to the composition */
@@ -23,8 +24,8 @@ export function keyIsNotOurs(e: KeyLike): boolean {
   if (modalOpen()) return true;
   const t = e.target as HTMLElement | null;
   if (!t || typeof t.closest !== "function") return false;
-  if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) return true;
-  return !!t.closest(OWN_KEYS) && !(e.ctrlKey || e.metaKey) && e.key !== "Escape" && e.key !== " ";
+  if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable) return true;
+  return MOVES.has(e.key) && !(e.ctrlKey || e.metaKey) && !!t.closest(OWN_KEYS);
 }
 
 export type ShortcutInputs = {

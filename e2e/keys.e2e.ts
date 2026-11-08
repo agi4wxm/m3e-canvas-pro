@@ -136,9 +136,6 @@ export const tests: E2ETest[] = [
       doc = await savedDoc(page);
       equal(bySlug(doc, "button")[0].props?.shape, "square", "the arrow chose the next shape");
       equal(await at(), where, "and did not move the part");
-      await page.keyboard.press("Delete");
-      await settle(page, 400);
-      equal(bySlug(await savedDoc(page), "button").length, 1, "Delete on a focused radio deletes nothing");
 
       /* on the canvas the keys are the canvas's again; a key in a composition is not */
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());

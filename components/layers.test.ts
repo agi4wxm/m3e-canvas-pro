@@ -94,12 +94,16 @@ describe("which keys the canvas hears", () => {
     expect(keyIsNotOurs(key("Process", body))).toBe(true);
   });
 
-  it("leaves a focused select, slider or radio run its own arrows, letters and Delete, but not Ctrl/Cmd shortcuts or Escape", () => {
-    for (const control of [el("SELECT", ["select"]), el("DIV", ["[role=slider]"]), el("BUTTON", ["[role=radio]", "[role=radiogroup]"]), el("BUTTON", ["[role=option]", "[role=listbox]"])]) {
-      for (const k of ["ArrowDown", "ArrowLeft", "Home", "Delete", "Enter", "v", "p"]) expect(keyIsNotOurs(key(k, control)), k).toBe(true);
+  it("leaves a focused select, slider, radio run or list its arrows, Home, End and page keys; the canvas's other keys still reach it", () => {
+    for (const control of [el("BUTTON", ["[aria-haspopup=listbox]"]), el("DIV", ["[role=slider]"]), el("BUTTON", ["[role=radio]", "[role=radiogroup]"]), el("BUTTON", ["[role=option]", "[role=listbox]"]), el("BUTTON", ["[role=tab]"])]) {
+      for (const k of ["ArrowDown", "ArrowLeft", "ArrowRight", "ArrowUp", "Home", "End", "PageUp"]) expect(keyIsNotOurs(key(k, control)), k).toBe(true);
+      for (const k of ["Delete", "p", "v", "Escape", " "]) expect(keyIsNotOurs(key(k, control)), k).toBe(false);
       expect(keyIsNotOurs(key("z", control, { ctrlKey: true }))).toBe(false);
-      expect(keyIsNotOurs(key("Escape", control))).toBe(false);
     }
+  });
+
+  it("leaves a native select every key, as a text field: it finds an option by the letters typed", () => {
+    for (const k of ["ArrowDown", "p", "Delete"]) expect(keyIsNotOurs(key(k, el("SELECT")))).toBe(true);
   });
 
   it("hears nothing while a dialog that asks something is up", () => {
