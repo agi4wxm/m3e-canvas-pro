@@ -1,7 +1,8 @@
 /* One turn of the in-app agent: the author's request goes to the model with the document's context, the model plans,
  * acts with the tools, looks at what it made and fixes it, and the turn ends as one undo step with a summary of what
- * changed. Stopping it mid-turn takes back everything it did. Built on lib/llm's `runAgent` (streaming, any provider)
- * and lib/tools (every change through the document core, origin `ai`). */
+ * changed. Stopping it mid-turn takes back what it did and keeps what the author changed meanwhile (ledger.ts); the
+ * result says whether all of it went back, part of it (and what stayed), or none. Built on lib/llm's `runAgent`
+ * (streaming, any provider) and lib/tools (every change through the document core, origin `ai`). */
 
 import { savedDoc, type CoreState, type DocStore } from "../core";
 import { frameOfPart } from "../tokens";
@@ -12,7 +13,8 @@ import { atomsReference } from "../tools/atoms";
 import type { Pixels } from "../tools/pixels";
 import type { Lang } from "../i18n";
 import { diffDocs, isEmptyDiff, touchedScreens, type DocDiff } from "./diff";
-import { declined, plainlyAsksToRemove, removalOf, type ConfirmRemoval, type RemovalAsk } from "./guard";
+import { changedMeanwhile, declined, namedIn, plainlyAsksToRemove, removalOf, unchecked, type ConfirmRemoval, type RemovalAsk } from "./guard";
+import { TurnLedger, type RevertReport } from "./ledger";
 import { prunePictures } from "./pictures";
 import { agentSystem, turnContext } from "./prompt";
 import { loadTools, setsFor, setsGuide, toolsIn, TOOL_SETS, type ToolSet } from "./toolsets";
@@ -79,10 +81,15 @@ export type TurnResult = {
   ms: number;
   diff: DocDiff;
   changed: boolean;
-  /** the undo step the turn is, while it is the last one in the history */
+  /** the undo step the turn is, while it is the last one in the history and the author did not edit in between */
   step?: { label: string; depth: number };
   /** everything stopped was taken back */
   rolledBack: boolean;
+  /** what taking a stopped turn back did: all of it, part of it (and what stayed, and why), or none */
+  revert?: RevertReport;
+  /** Takes a finished turn back later, keeping what the author changed meanwhile and after (the panel's undo when one
+   *  undo step would not do it); `release` once the turn is kept or another starts. */
+  takeBack?: { run: () => RevertReport; release: () => void };
   /** drawings made with a model */
   drawings: number;
   /** the tool sets loaded by the end of the turn: what the next turn starts with */
@@ -137,6 +144,8 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   };
   const before = store.get();
   const label = `AI: ${o.request.trim().replace(/\s+/g, " ").slice(0, 40)}`;
+  /* what the turn changes, apart from what the author changes meanwhile */
+  const ledger = new TurnLedger(store);
   let step: { label: string; depth: number } | undefined;
   const onTop = () => {
     if (!step) return false;
@@ -186,24 +195,36 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   let last: Awaited<ReturnType<typeof runAgent>>;
   let atStep = 0;
 
-  /* A call that would take away much of the author's work waits for their answer, unless the request plainly asks
-     for it or they allowed one already this turn; with no one to ask, it is declined. */
-  let allowed = plainlyAsksToRemove(o.request);
+  /* A call that would take away much of the author's work waits for their answer; with no one to ask, it is declined.
+     What may go is bound to exactly what goes (guard.ts): what the author allowed, and what a plain request names. A
+     check that fails is an error, never a pass; an answer given while the document changed holds only for what was
+     shown, so the call is checked again and asked about again when it would now take more. */
+  const named = plainlyAsksToRemove(o.request);
+  const allowed = new Set<string>();
+  const covered = (k: { key: string; names: string[] }) => allowed.has(k.key) || (named && namedIn(o.request, k.names));
   const guard = async (call: { id: string; name: string; args: unknown }, signal?: AbortSignal): Promise<ToolOutcome | null> => {
-    if (allowed) return null;
-    const ask = await removalOf(store, before, call.name, call.args, { registry, selection: before.session.selection }).catch(() => null);
-    if (!ask) return null;
-    emit({ type: "ask", step: atStep, id: call.id, ask });
-    let yes = false;
-    try {
-      yes = !!o.confirm && !signal?.aborted && (await o.confirm(ask, signal)) === true;
-    } catch {
-      yes = false;
+    for (let asked = 0; ; asked++) {
+      let ask: RemovalAsk | null;
+      try {
+        ask = await removalOf(store, ledger.baseline(), call.name, call.args, { registry, selection: before.session.selection, covered });
+      } catch (e) {
+        return unchecked(e);
+      }
+      if (!ask) return null;
+      if (asked >= 3) return changedMeanwhile(ask);
+      const seen = store.get().doc;
+      emit({ type: "ask", step: atStep, id: call.id, ask });
+      let yes = false;
+      try {
+        yes = !!o.confirm && !signal?.aborted && (await o.confirm(ask, signal)) === true;
+      } catch {
+        yes = false;
+      }
+      emit({ type: "answer", step: atStep, id: call.id, allow: yes });
+      if (!yes) return declined(ask);
+      for (const k of ask.keys) allowed.add(k);
+      if (store.get().doc === seen) return null;
     }
-    emit({ type: "answer", step: atStep, id: call.id, allow: yes });
-    if (!yes) return declined(ask);
-    allowed = true;
-    return null;
   };
 
   for (;;) {
@@ -270,12 +291,13 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   }
 
   const aborted = last.stop === "aborted";
-  let rolledBack = false;
-  /* a stopped turn is discarded, not undone: nothing waits to be redone */
-  if (aborted && step && onTop()) {
-    store.undo("ai", { forget: true });
-    rolledBack = true;
-  }
+  /* a stopped turn is discarded, not undone: its own changes go, the author's stay, and nothing waits to be redone */
+  const revert = aborted ? ledger.revert(label) : undefined;
+  const rolledBack = revert?.outcome === "full" || revert?.outcome === "none";
+  /* one undo step takes the turn back only when nothing of the author's came in between */
+  const single = !ledger.authorEdited;
+  const takeBack = !aborted && ledger.changed ? { run: () => ledger.revert(label), release: () => ledger.close() } : undefined;
+  if (!takeBack) ledger.close();
   const after = store.get();
   const diff = diffDocs(savedDoc(before), savedDoc(after));
   return {
@@ -288,8 +310,10 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
     ms: Date.now() - t0,
     diff,
     changed: !isEmptyDiff(diff),
-    ...(step && onTop() ? { step } : {}),
+    ...(step && onTop() && single ? { step } : {}),
     rolledBack,
+    ...(revert ? { revert } : {}),
+    ...(takeBack ? { takeBack } : {}),
     drawings: gen ? drawings - (gen.budget?.left ?? drawings) : 0,
     sets: aborted ? [...new Set(["build" as const, ...(o.sets ?? [])])] : TOOL_SETS.filter((x) => loaded.has(x)),
   };
