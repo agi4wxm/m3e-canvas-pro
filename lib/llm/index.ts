@@ -8,7 +8,7 @@ import type { Adapter, RetryPolicy } from "./types";
  * wire protocol, the agent loop, and the two ways to draw SVG. Nothing here knows about documents. */
 
 export * from "./types";
-export { AiHttpError, isLocalUrl, isSecureUrl, readError } from "./errors";
+export { AiHttpError, isLocalUrl, isSecureUrl, LimitReached, readError, withoutKey, type Limit } from "./errors";
 export { anthropicMessages, type AnthropicOptions } from "./anthropic";
 export { chatCompletions, type ChatOptions } from "./chat";
 export { openAiResponses, type OpenAiResponsesOptions, type ReasoningEffort } from "./openai";
@@ -22,14 +22,19 @@ export type AgentTuning = {
   maxOutputTokens?: number;
   retry?: RetryPolicy;
   fetch?: typeof fetch;
+  /** how long a stream may send nothing before it is cut off (http.ts `IDLE_MS` when left out) */
+  idleMs?: number;
 };
+
+/** what one model call may write when nothing else is said: every provider has a cap, so no call runs unbounded */
+export const STEP_OUTPUT_TOKENS = 32000;
 
 /** The adapter for the author's settings: OpenAI through the Responses API (the only place its newest
  *  models call tools), Claude through Messages, Gemini and DeepSeek through their compatible chat endpoints. */
 export function createAdapter(s: AiSettings, t: AgentTuning = {}): Adapter {
-  const base = { baseUrl: s.baseUrl, model: s.model, key: s.key, retry: t.retry, fetch: t.fetch };
-  if (s.provider === "openai") return openAiResponses({ ...base, effort: t.effort ?? "medium", summary: "auto", maxOutputTokens: t.maxOutputTokens });
-  if (s.provider === "claude") return anthropicMessages({ ...base, effort: t.effort, maxTokens: t.maxOutputTokens ?? 32000 });
+  const base = { baseUrl: s.baseUrl, model: s.model, key: s.key, retry: t.retry, fetch: t.fetch, ...(t.idleMs ? { idleMs: t.idleMs } : {}) };
+  if (s.provider === "openai") return openAiResponses({ ...base, effort: t.effort ?? "medium", summary: "auto", maxOutputTokens: t.maxOutputTokens ?? STEP_OUTPUT_TOKENS });
+  if (s.provider === "claude") return anthropicMessages({ ...base, effort: t.effort, maxTokens: t.maxOutputTokens ?? STEP_OUTPUT_TOKENS });
   /* these endpoints cap around 8k unless told otherwise; Gemini also reads an effort, DeepSeek may refuse one */
   return chatCompletions({ ...base, maxTokens: t.maxOutputTokens ?? 8192, ...(s.provider === "gemini" && t.effort ? { reasoningEffort: t.effort } : {}) });
 }

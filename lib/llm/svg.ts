@@ -118,7 +118,7 @@ export async function generateSvgImage(o: SvgImageOptions): Promise<SvgImageResu
     }),
   });
   if (!res.ok) {
-    const e = await readError(res);
+    const e = await readError(res, o.key);
     throw new LlmHttpError(e.status, e.message);
   }
   const j = (await res.json()) as { data?: { b64_json?: string; svg?: string }[]; svg_usage?: Record<string, unknown>; usage?: { output_tokens_details?: { image_tokens?: number } } };
