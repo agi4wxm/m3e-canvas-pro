@@ -8,7 +8,7 @@
 
 import rnPackage from "../../../rn/package.json";
 import { KIT_FILES } from "../rn/kitFiles.generated";
-import { iconsModule, rnDependencies, themeModule } from "../rn/app";
+import { RnPictures, iconsModule, rnDependencies, themeModule } from "../rn/app";
 import { formRulesOf, operationsOf } from "../rn/contract";
 import { authSource } from "./webSources";
 import { rnIconData } from "../rn/icons";
@@ -189,7 +189,7 @@ export const runtime = createRuntime({
 `;
 
 const API = (scope: string) => `${GENERATED}
-import { createApi, type CallInit } from ${str(`${scope}/api`)}
+import { createApi, segment, type CallInit } from ${str(`${scope}/api`)}
 import { OPERATIONS } from "./contract"
 import { runtime } from "./runtime"
 
@@ -200,10 +200,12 @@ export const api = createApi(runtime.transport)
 export type CallInput = { params?: Record<string, unknown>; body?: unknown }
 
 /** Calls an operation of the contract by its id, as the design names it: its path filled in, the other parameters in its
- *  query or headers, the body as its media type wants it. A 2xx answer's body, or an ApiError. */
-export function call<T = unknown>(operationId: string, input: CallInput = {}, init: CallInit = {}): Promise<T> {
+ *  query or headers, the body as its media type wants it. A 2xx answer's body, or an ApiError. A path parameter is one
+ *  segment of the path, as the typed client keeps it (\`segment\`): one that is "." or ".." is refused, since it would
+ *  send the call, and the session's token, to another address of the API. */
+export async function call<T = unknown>(operationId: string, input: CallInput = {}, init: CallInit = {}): Promise<T> {
   const op = OPERATIONS[operationId]
-  if (!op) return Promise.reject(new Error(\`The contract has no operation \${operationId}\`))
+  if (!op) throw new Error(\`The contract has no operation \${operationId}\`)
   let path = op.path
   const query: Record<string, string | number | boolean> = {}
   const headers: Record<string, string> = { ...init.headers }
@@ -211,7 +213,7 @@ export function call<T = unknown>(operationId: string, input: CallInput = {}, in
     const at = op.params[name] ?? "query"
     if (v === undefined || v === null || v === "") continue
     const value = typeof v === "number" || typeof v === "boolean" ? v : typeof v === "string" ? v : JSON.stringify(v)
-    if (at === "path") path = path.split(\`{\${name}}\`).join(encodeURIComponent(String(value)))
+    if (at === "path") path = path.split(\`{\${name}}\`).join(segment(value))
     else if (at === "header") headers[name] = String(value)
     else query[name] = value
   }
@@ -1036,7 +1038,9 @@ export const mobileTarget: ProductTarget = {
   id: "mobile",
   async build(ctx: ProductContext): Promise<Workspace> {
     const { doc, scope } = ctx;
-    const screens = printRnScreens(doc, ctx.widths, { kitImport: "../../kit", runtime: { bind: "../bind" } });
+    /* the pictures the design holds as data: files under assets/images, which Metro bundles from src/generated/images.ts */
+    const pictures = new RnPictures("assets/images", "../../assets/images");
+    const screens = printRnScreens(doc, ctx.widths, { kitImport: "../../kit", runtime: { bind: "../bind" }, images: { from: "../images", name: pictures.name } });
     const theme = rnThemeOf(doc);
     const iconData = await rnIconData([theme.icons], [...screens.icons, ...KIT_ICONS]);
     for (const [id, markup] of Object.entries(doc.icons ?? {})) {
@@ -1049,6 +1053,8 @@ export const mobileTarget: ProductTarget = {
     files["src/generated/theme.ts"] = generated(themeModule(theme, "../kit"));
     files["src/generated/icons.ts"] = generated(iconsModule(iconData, "../kit"));
     for (const s of screens.screens) files[`src/generated/screens/${s.component}.tsx`] = generated(s.source);
+    if (pictures.any) files["src/generated/images.ts"] = generated(pictures.module({ requireRule: true }));
+    for (const [path, bytes] of Object.entries(pictures.files)) files[path] = generated(bytes);
     /* what the app does not do as the design says (a part drawn as its atoms or as a placeholder, a binding the kit
        keeps at the design's value): listed beside the screens for the author, as the mini-program lists its own */
     files["src/generated/warnings.json"] = generated(`${JSON.stringify(screens.warnings, null, 1)}\n`);

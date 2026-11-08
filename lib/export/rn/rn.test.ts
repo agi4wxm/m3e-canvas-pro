@@ -1,8 +1,9 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, beforeAll } from "vitest";
 import { parse } from "@babel/parser";
 import { setGlobalLang } from "../../i18n";
 import { makeItem, normalizeTheme, type Doc, type Group } from "../../tokens";
-import { PARTS, partBySlug } from "../../../parts/registry";
+import { PARTS, partBySlug, reader } from "../../../parts/registry";
 import { NATIVE, PROP_RENAMES } from "../../../rn/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../rn/src/kit/parts.generated";
 import { propValues, SET_ONLY } from "./data";
@@ -114,6 +115,31 @@ describe("the screens", () => {
     expect(screens[0].source).toContain("<Box");
     expect(screens[0].source).toContain('<Placeholder part="prize-wheel" name="Prize wheel"');
     expect(warnings.map((w) => w.kind).sort()).toEqual(["atoms", "placeholder"]);
+  });
+
+  it("gives a sign-in form's buttons their actions under the slot names the part and the kit both use", () => {
+    const def = partBySlug("auth-form")!;
+    const slots = def.slots!(reader(def, {})).map((s) => s.key);
+    expect(slots).toEqual(["submit", "forgot", "switch", "other:0"]);
+    const form = item("auth-form", {}, { actions: Object.fromEntries(slots.map((k) => [k, { to: "f2", transition: "slide" as const }])) });
+    const { screens, warnings } = printRnScreens(docOf([{ id: "g", x: 16, y: 40, axis: "x", items: [form] }]), {});
+    const src = screens[0].source.replace(/\n\s*/g, " ");
+    expect(src).toContain('taps={{ "submit": () => nav.go("DetailPage"), "forgot": () => nav.go("DetailPage"), "switch": () => nav.go("DetailPage"), "other:0": () => nav.go("DetailPage") }}');
+    expect(warnings.filter((w) => w.kind === "slot")).toEqual([]);
+    /* the kit's AuthForm presses each by the same name (rn/__tests__/composites.test.tsx presses them) */
+    const kit = readFileSync(new URL("../../../rn/src/kit/composites/more.tsx", import.meta.url), "utf8");
+    const authForm = kit.slice(kit.indexOf("export function AuthForm("));
+    for (const k of ["submit", "forgot", "switch"]) expect(authForm).toContain(`tapOf(p, "${k}")`);
+    expect(authForm).toContain("tapOf(p, `other:${i}`)");
+  });
+
+  it("never names a screen's component as the kit's Screen, nor its key where a tap goes beside a screen", () => {
+    const doc = docOf([]);
+    doc.frames = ["Home", "Screen", "Back", "None"].map((name, i) => ({ id: `f${i}`, name, x: i * 600, y: 0 }));
+    const printed = printRnScreens(doc, {});
+    expect(printed.screens.map((s) => [s.component, s.key])).toEqual([["HomeScreen", "Home"], ["Screen2", "Screen"], ["BackScreen", "Back"], ["NoneScreen", "None"]]);
+    expect(printed.screens[1].source).toContain("export function Screen2()");
+    for (const s of printed.screens) parses(`${s.component}.tsx`, s.source);
   });
 
   it("names screens and keys by the author's words, letters only, and writes the index", () => {

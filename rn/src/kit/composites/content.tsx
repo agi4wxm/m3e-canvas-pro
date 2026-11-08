@@ -8,7 +8,7 @@ import { Button, RadioMark, Slider, Switch, Checkbox } from "../atoms/controls";
 import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
 import { withAlpha } from "../look";
-import { clampInt, withDefaults, type ListRow } from "../parts";
+import { clampInt, sourceOf, withDefaults, type ListRow, type Picture } from "../parts";
 import { accentText, cardStyle, extra } from "../recipes";
 import { Surface } from "../Surface";
 import { corner, recipeOf, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
@@ -132,7 +132,7 @@ export type CardProps = PartBase & {
   description?: string;
   variant?: "filled" | "elevated" | "outlined";
   imagePos?: "none" | "top" | "bottom" | "leading" | "trailing" | "background";
-  image?: string;
+  image?: Picture;
   imageIcon?: string;
   imageSize?: number;
   textAlign?: "start" | "center" | "end";
@@ -156,7 +156,7 @@ export function Card(props: CardProps) {
   const pad = SPACING[p.size ?? "default"] ?? 16;
   const extent = Math.round(p.imageSize ?? 96);
   const inner = p.image ? (
-    <ExpoImage source={{ uri: p.image }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+    <ExpoImage source={sourceOf(p.image)} style={{ width: "100%", height: "100%" }} contentFit="cover" />
   ) : (
     <LinearGradient colors={[c(kit, "primary-container"), c(kit, "tertiary-container")]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
       <Glyph name={p.imageIcon || "image"} size={34} color={c(kit, "on-primary-container")} />
@@ -258,7 +258,7 @@ export function Carousel(props: CarouselProps) {
       <ScrollView horizontal={!vertical} pagingEnabled={item === (vertical ? h : w)} snapToInterval={item + gap} decelerationRate="fast" showsHorizontalScrollIndicator={false} showsVerticalScrollIndicator={false} contentContainerStyle={vertical ? { rowGap: gap } : { columnGap: gap }} onMomentumScrollEnd={(e) => setAt(Math.round((vertical ? e.nativeEvent.contentOffset.y : e.nativeEvent.contentOffset.x) / (item + gap)))}>
         {slides.map((s, i) => (
           <Pressable key={i} onPress={tapOf(p, `tab:${i}`)} style={{ width: vertical ? w : item, height: vertical ? item : h, borderRadius: corner(kit, "xl"), overflow: "hidden", backgroundColor: c(kit, SLIDE_COLORS[i % SLIDE_COLORS.length]), alignItems: "center", justifyContent: "center" }}>
-            {s.image ? <ExpoImage source={{ uri: s.image }} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} contentFit="cover" /> : null}
+            {s.image ? <ExpoImage source={sourceOf(s.image)} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} contentFit="cover" /> : null}
             <RNText style={{ ...typeStyle(kit, "title-large"), color: s.image ? "#FFFFFF" : c(kit, `on-${SLIDE_COLORS[i % SLIDE_COLORS.length]}`.replace("on-surface-container-highest", "on-surface")) }}>{s.label}</RNText>
           </Pressable>
         ))}
