@@ -52,7 +52,7 @@ import { screenBackground } from "@/lib/styles";
 import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
 import { FOOT_GAP, footOf } from "@/lib/foot";
-import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, scopeOf, screenVars, startState, writeField } from "@/lib/interact";
+import { INPUT_PROP, PreviewState, applyEffects, fieldValueOf, type FieldValue, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, scopeOf, screenVars, startState, writeField } from "@/lib/interact";
 import type { Effect, Group as DocGroup } from "@/lib/tokens";
 import { groupBounds } from "@/lib/tokens";
 import type { Transport, TransportFile } from "@/lib/api/transport";
@@ -150,7 +150,7 @@ async function readFiles(root: HTMLElement): Promise<TransportFile[]> {
  *  on a place the part marked `data-tap` (a destination, a menu item) it fires that slot's
  *  action; anywhere else it is the part's own tap. An input says what it now holds, a button
  *  inside an overlay that dismisses it closes it. */
-function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onFiles, onClose, onEvent, demo = false, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: VarValue) => void; /** a file input took files */ onFiles?: (files: TransportFile[]) => void; onClose?: () => void; /** the part sent one of its named events */ onEvent?: (name: string, payload?: Record<string, unknown>) => void; /** its prototype demo runs (lib/partContract.ts demoRuns) */ demo?: boolean; held?: boolean }) {
+function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onFiles, onClose, onEvent, demo = false, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: FieldValue) => void; /** a file input took files */ onFiles?: (files: TransportFile[]) => void; onClose?: () => void; /** the part sent one of its named events */ onEvent?: (name: string, payload?: Record<string, unknown>) => void; /** its prototype demo runs (lib/partContract.ts demoRuns) */ demo?: boolean; held?: boolean }) {
   const size = sizeOf(item, widths);
   const input = !!INPUT_PROP[item.component ?? ""];
   const click = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -176,9 +176,11 @@ function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onF
   const own = useRef(value);
   const seen = useRef(value);
   const redraw = useRef(0);
-  if (value !== seen.current) {
+  /* a list input's rows are drawn afresh each time from what holds them: the same rows are the same value */
+  const same = (a: unknown, b: unknown) => a === b || (Array.isArray(a) && Array.isArray(b) && JSON.stringify(a) === JSON.stringify(b));
+  if (!same(value, seen.current)) {
     seen.current = value;
-    if (value !== own.current) {
+    if (!same(value, own.current)) {
       own.current = value;
       redraw.current++;
     }
@@ -189,13 +191,16 @@ function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onF
     () => ({
       demo,
       input: input
-        ? (v) => {
-            if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") return;
+        ? (raw) => {
+            const v = fieldValueOf(live.current.item, raw);
+            if (v === undefined) return;
             own.current = v;
             live.current.onField?.(v);
           }
         : undefined,
       emit: (name, payload) => live.current.onEvent?.(name, payload),
+      /* a control of the part's own reaches the slot's action, or its family's */
+      wired: (slot) => !!slotAction(live.current.item, slot),
     }),
     [demo, input],
   );
@@ -302,7 +307,7 @@ function Screen({
   onValue: (id: string, v: number) => void;
   /** the overlays an effect holds open, by item id */
   opened: Record<string, boolean>;
-  onField: (it: Item, value: VarValue) => void;
+  onField: (it: Item, value: FieldValue) => void;
   onCloseOverlay: (id: string) => void;
   onScrim: () => void;
 }) {
@@ -1348,7 +1353,7 @@ export function Preview({
     values,
     onValue: (id: string, v: number) => setValues((m) => ({ ...m, [id]: v })),
     opened: state.opened,
-    onField: (it: Item, value: VarValue) => setState(writeField(stateRef.current, it, value, doc)),
+    onField: (it: Item, value: FieldValue) => setState(writeField(stateRef.current, it, value, doc)),
     onCloseOverlay: (id: string) => setState(applyEffects(stateRef.current, [{ do: "close", part: id }], doc)),
     onScrim: () => setState(closeOpened(stateRef.current, doc)),
     onFiles: (it: Item, list: TransportFile[]) => {
