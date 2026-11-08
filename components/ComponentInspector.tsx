@@ -1,11 +1,12 @@
 
 import { useContext, useState } from "react";
-import { Frame, Item, NavTab, PHONE_W, Palette, defaultTabRows, defaultTabs, frameSizeOf, listRowsPatch } from "@/lib/tokens";
+import { Frame, Item, NavTab, PHONE_W, Palette, defaultTabRows, defaultTabs, frameSizeOf, listRowsPatch, tableRowsPatch } from "@/lib/tokens";
 import { t, useLang, type Lang } from "@/lib/i18n";
 import { partBySlug, reader } from "@/parts/registry";
 import { choiceLabelOf, choiceValueOf, labelOf, nameOf } from "@/parts/labels";
 import { dpOf } from "@/parts/resize";
-import type { Choice, ListItem, PropDef, TableData } from "@/parts/types";
+import type { Choice, ListItem, PropDef, TableColumn, TableData } from "@/parts/types";
+import { COLUMN_TYPES, alignOf, columnsOf } from "@/parts/tables";
 import { AiHooks } from "./Inspector";
 import { BehaviorContext, BindRow, StyleRulesContext, VisibilitySection } from "./EffectsPanel";
 import { styleOwnsProp } from "@/lib/styleRules";
@@ -32,9 +33,38 @@ const fromRows = (rows: NavTab[], icons: boolean): ListItem[] =>
 
 /** a table prop as the text it is edited in (lib/collections.ts): the words stay as typed while the rows follow them,
  *  so a line just started, a space after a comma and a quoted "$1,350.00" all survive the typing */
-function TableField({ value, onChange, label, p }: { value: TableData; onChange: (v: TableData) => void; label: string; p: Palette }) {
+function TableField({ value, onChange, label, p, structured }: { value: TableData; onChange: (v: TableData) => void; label: string; p: Palette; /** the author lays out its columns (the table part) */ structured?: boolean }) {
+  const lang = useLang();
   const [draft, type] = useDraft(value, tableText, tableOf);
-  return <Field value={draft} onChange={(text) => onChange(type(text))} placeholder={label} label={label} p={p} multiline rows={6} height={44} />;
+  /* the text holds the headers and the cells; the columns' structure stays with the table as it is retyped */
+  const keep = (next: TableData): TableData => (value.spec ? { ...next, spec: value.spec.slice(0, next.columns.length) } : next);
+  const cols = columnsOf(value);
+  const setCol = (i: number, patch: Partial<TableColumn>) => onChange({ ...value, spec: cols.map((c, j) => ({ key: c.key, ...(c.type ? { type: c.type } : {}), ...(c.width ? { width: c.width } : {}), ...(c.align ? { align: c.align } : {}), ...(c.format ? { format: c.format } : {}), ...(j === i ? patch : {}) })) });
+  const small = { fontSize: 11, color: p.onSurfaceVariant, padding: "0 4px" } as const;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <Field value={draft} onChange={(text) => onChange(keep(type(text)))} placeholder={label} label={label} p={p} multiline rows={6} height={44} />
+      {structured && (
+        <div data-table-columns style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("tableColumns", lang)}</div>
+          {cols.map((c, i) => (
+            <div key={i} data-table-column={i} style={{ display: "flex", flexDirection: "column", gap: 4, padding: 6, borderRadius: 12, background: p.surfaceContainerLow }}>
+              <div style={small}>{c.label || `${i + 1}`}</div>
+              <div style={{ display: "flex", gap: 4 }}>
+                <Field value={c.key} onChange={(key) => /^[A-Za-z_$][\w$]{0,63}$/.test(key) && setCol(i, { key })} placeholder={t("tableColumnKey", lang)} label={t("tableColumnKey", lang)} p={p} height={36} />
+                <Select options={COLUMN_TYPES.map((k) => ({ key: k, label: t(`tableType_${k}` as "tableType_text", lang) }))} value={c.type ?? "text"} onChange={(k) => setCol(i, { type: k as TableColumn["type"] })} p={p} label={t("tableColumnType", lang)} />
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                <Segmented<string> options={["start", "center", "end"].map((k) => ({ key: k, label: t(`tableAlign_${k}` as "tableAlign_start", lang) }))} value={alignOf(c)} onChange={(k) => setCol(i, { align: k as TableColumn["align"] })} p={p} height={32} label={t("tableColumnAlign", lang)} />
+                <Field value={c.width ? String(c.width) : ""} onChange={(w) => setCol(i, { width: Number(w) >= 24 && Number(w) <= 960 ? Math.round(Number(w)) : undefined })} placeholder={t("tableColumnWidth", lang)} label={t("tableColumnWidth", lang)} p={p} height={32} />
+                <Field value={c.format ?? ""} onChange={(f) => setCol(i, { format: f || undefined })} placeholder={t("tableColumnFormat", lang)} label={t("tableColumnFormat", lang)} p={p} height={32} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def: PropDef; value: unknown; onChange: (v: unknown) => void; onRows: (rows: ListItem[], order: number[]) => void; item: Item; p: Palette; frameW: number; lang: Lang }) {
@@ -105,7 +135,7 @@ function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def:
       return (
         <div>
           {label}
-          <TableField value={value as TableData} onChange={onChange} label={labelText} p={p} />
+          <TableField value={value as TableData} onChange={onChange} label={labelText} p={p} structured={def.structure} />
         </div>
       );
     case "list": {
@@ -174,7 +204,9 @@ export function ComponentProps({ item, palette: p, onChange, frame, layoutApart,
   const tabs = def.panes ? def.slots?.(values) : undefined;
   /* a part's choice counts the rows of its first list */
   const firstList = def.props.find((d) => d.kind === "list");
-  const rowsToPick = tabs?.map((s) => s.label) ?? (firstList ? values.list(firstList.key).map((r) => r.label) : undefined);
+  /* a part whose rows are a table's picks its row by the row's first cell */
+  const firstTable = firstList ? undefined : def.props.find((d) => d.kind === "table");
+  const rowsToPick = tabs?.map((s) => s.label) ?? (firstList ? values.list(firstList.key).map((r) => r.label) : firstTable ? values.table(firstTable.key).rows.map((r) => r[0] ?? "") : undefined);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {def.props
@@ -200,7 +232,8 @@ export function ComponentProps({ item, palette: p, onChange, frame, layoutApart,
               <PropRow
                 def={d}
                 value={read(d)}
-                onChange={(v) => set(d.key, v)}
+                /* a table's rows take their taps and its choice with them, as a list's do */
+                onChange={(v) => (d.kind === "table" ? onChange(tableRowsPatch(item, d.key, v as TableData)) : set(d.key, v))}
                 onRows={(rows, order) => {
                   onChange(listRowsPatch(item, d.key, rows, order));
                   /* what stands on a tab goes with the tab */

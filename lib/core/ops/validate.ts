@@ -92,6 +92,20 @@ export function propValueError(d: PropDef, v: unknown): string | null {
       if (!isRecord(v) || !Array.isArray(v.columns) || !Array.isArray(v.rows)) return 'should be {"columns": [...], "rows": [[...]]}';
       if (!v.columns.every((c) => typeof c === "string")) return "columns should be text";
       if (!v.rows.every((r) => Array.isArray(r) && r.every((c) => typeof c === "string"))) return "rows should be lists of text";
+      /* a row of more cells than the table has columns would lose them */
+      const wide = (v.rows as unknown[][]).findIndex((r) => r.length > (v.columns as unknown[]).length);
+      if (wide >= 0) return `row ${wide} has ${(v.rows as unknown[][])[wide].length} cells, the table ${(v.columns as unknown[]).length} columns`;
+      if (v.spec !== undefined) {
+        const TYPES = ["text", "number", "currency", "percent", "date", "bool"];
+        if (!Array.isArray(v.spec) || v.spec.length > v.columns.length) return "spec should be one entry for each column";
+        for (const [i, c] of (v.spec as unknown[]).entries()) {
+          if (!isRecord(c) || typeof c.key !== "string" || !/^[A-Za-z_$][\w$]{0,63}$/.test(c.key)) return `spec ${i} should have a key: letters and digits, starting with a letter`;
+          if (c.type !== undefined && !TYPES.includes(c.type as string)) return `spec ${i}: type should be one of ${TYPES.join(", ")}`;
+          if (c.align !== undefined && !["start", "center", "end"].includes(c.align as string)) return `spec ${i}: align should be start, center or end`;
+          if (c.width !== undefined && (typeof c.width !== "number" || !(c.width >= 24 && c.width <= 960))) return `spec ${i}: width should be a number from 24 to 960`;
+          if (c.format !== undefined && typeof c.format !== "string") return `spec ${i}: format should be text`;
+        }
+      }
       return null;
     }
   }

@@ -331,7 +331,8 @@ export function rowsOf<T>(v: unknown, design: T, max = 50): T {
   return v.slice(0, max).map((x) => {
     if (!x || typeof x !== "object" || Array.isArray(x)) return { label: asWords(x) };
     const r = x as Record<string, unknown>;
-    return { label: asWords(r.label ?? r.name ?? r.title ?? ""), ...(typeof r.icon === "string" ? { icon: r.icon } : {}), ...(typeof r.image === "string" ? { image: r.image } : {}) };
+    /* a row keeps the state its part reads from `variant` and `width`, as the editor's preview does */
+    return { label: asWords(r.label ?? r.name ?? r.title ?? ""), ...(typeof r.icon === "string" ? { icon: r.icon } : {}), ...(typeof r.image === "string" ? { image: r.image } : {}), ...(typeof r.variant === "string" ? { variant: r.variant } : {}), ...(typeof r.width === "string" ? { width: r.width } : {}) };
   }) as T;
 }
 
