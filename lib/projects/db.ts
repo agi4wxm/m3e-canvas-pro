@@ -52,7 +52,13 @@ export type FileRecord = {
   name: string;
   /** the file as it was right after the editor last wrote it: what tells a change made elsewhere */
   written?: { size: number; modified: number; digest: string };
+  /** A folder's pictures (m3e-assets/) as each was right after the editor wrote it (`own`) or read it and found what
+   *  the document needs: one unchanged since needs no reading again, and only one the editor wrote, or one named by
+   *  the hash of what it holds, is ever taken away. */
+  assets?: Record<string, AssetMark>;
 };
+
+export type AssetMark = { size: number; modified: number; own?: boolean };
 
 /** the record a document is kept in */
 export type DocRecord = { json: string };

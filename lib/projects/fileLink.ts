@@ -4,7 +4,7 @@
  * browser asks again before the editor may write (`reconnect`), and a file changed by something else since the editor
  * last wrote it is never written over without asking (`conflict`). */
 
-import { FOLDER_ASSET_DIR, FOLDER_MAIN_FILE, digest, isAssetPath, readProjectText, serializeProject } from "../core/projectFile";
+import { ASSET_GRACE_MS, FOLDER_ASSET_DIR, FOLDER_MAIN_FILE, digest, isAssetFileName, isAssetPath, isFormatAsset, readProjectText, serializeProject } from "../core/projectFile";
 import type { Doc } from "../tokens";
 import type { FileRecord } from "./db";
 
@@ -125,8 +125,6 @@ export type LinkState = { kind: "file" | "folder"; name: string; status: LinkSta
 /** how long after the last change the file is written, and how long a stream of changes may hold it back */
 const QUIET_MS = 700;
 const MAX_WAIT_MS = 3000;
-/** the pictures the editor writes into a folder, and so may remove from it */
-const OWN_ASSET = /^[a-z0-9]+\.(?:png|jpg|webp|gif|avif|svg)$/;
 
 export type LinkDeps = {
   /** the document with any picture still kept by reference in the browser put back */
@@ -278,6 +276,11 @@ export class FileLink {
     await this.deps.save(this.rec).catch(() => {});
   }
 
+  /** Writes the document. A folder is not one atomic write but three steps, in an order that leaves a version whole on
+   *  disk at every point: every picture the new version refers to written and read back first (any failure stops here,
+   *  the project file untouched), then the project file in one atomic write, and only then the pictures nothing
+   *  refers to any more taken away, of those provably the editor's own. A crash between leaves an unused picture, never
+   *  a project file whose pictures are gone. */
   private async put(doc: Doc, force: boolean) {
     const whole = await this.deps.resolve(doc);
     const folder = this.rec.kind === "folder";
@@ -298,7 +301,8 @@ export class FileLink {
       }
     }
     this.set({ status: "saving" });
-    if (folder) await this.putPictures(this.rec.handle as DirHandle, files);
+    const wanted = new Map(files.map((f) => [f.path.slice(FOLDER_ASSET_DIR.length + 1), f.bytes]));
+    const assets = folder ? await this.putPictures(this.rec.handle as DirHandle, wanted) : null;
     const out = await main.createWritable();
     try {
       await out.write(text);
@@ -309,25 +313,77 @@ export class FileLink {
     }
     await this.record(main, text);
     this.set({ status: "saved", at: Date.now(), error: undefined });
+    /* the version that refers to them is on disk: what it does not refer to may go; a failure leaves it for next time */
+    if (assets) await this.prunePictures(assets, wanted).catch(() => {});
   }
 
-  /** the pictures the document refers to, each written once; those it no longer refers to taken away */
-  private async putPictures(dir: DirHandle, files: { path: string; bytes: Uint8Array }[]) {
-    const wanted = new Map(files.map((f) => [f.path.slice(FOLDER_ASSET_DIR.length + 1), f.bytes]));
-    let assets: DirHandle | null = null;
+  /** Every picture the document refers to, in m3e-assets/ and holding exactly what it should: one missing, or one
+   *  of that name holding something else (a broken copy), written whole and read back. Throws when one cannot be,
+   *  before the project file that refers to it is written. The folder of pictures, or null where none is needed. */
+  private async putPictures(dir: DirHandle, wanted: ReadonlyMap<string, Uint8Array>): Promise<DirHandle | null> {
+    let assets: DirHandle;
     try {
       assets = await dir.getDirectoryHandle(FOLDER_ASSET_DIR, { create: wanted.size > 0 });
-    } catch {
-      return;
+    } catch (e) {
+      if (wanted.size) throw e;
+      /* none wanted, and no folder of them: nothing to keep or take away */
+      return null;
     }
-    const there = new Set<string>();
-    for await (const [name, h] of assets.entries()) if (h.kind === "file") there.add(name);
+    const marks = { ...this.rec.assets };
+    let wrote = false;
     for (const [name, bytes] of wanted) {
-      if (there.has(name)) continue;
-      const out = await (await assets.getFileHandle(name, { create: true })).createWritable();
-      await out.write(bytes as unknown as BufferSource);
-      await out.close();
+      const there = await assets.getFileHandle(name).catch(() => null);
+      const file = there ? await there.getFile().catch(() => null) : null;
+      const mark = marks[name];
+      if (file && mark && file.size === mark.size && file.lastModified === mark.modified) continue;
+      if (file && file.size === bytes.length && sameBytes(new Uint8Array(await file.arrayBuffer()), bytes)) {
+        marks[name] = { size: file.size, modified: file.lastModified, ...(mark?.own ? { own: true } : {}) };
+        continue;
+      }
+      const handle = there ?? (await assets.getFileHandle(name, { create: true }));
+      const out = await handle.createWritable();
+      try {
+        await out.write(bytes as unknown as BufferSource);
+        await out.close();
+      } catch (e) {
+        await out.abort?.().catch(() => {});
+        throw e;
+      }
+      const back = await handle.getFile();
+      if (!sameBytes(new Uint8Array(await back.arrayBuffer()), bytes)) throw new Error(`${FOLDER_ASSET_DIR}/${name} does not read back as it was written`);
+      marks[name] = { size: back.size, modified: back.lastModified, own: true };
+      wrote = true;
     }
-    for (const name of there) if (!wanted.has(name) && OWN_ASSET.test(name)) await assets.removeEntry(name).catch(() => {});
+    this.rec.assets = marks;
+    /* kept before the project file is written: a picture written for a save that then failed is still known as ours */
+    if (wrote) await this.deps.save(this.rec).catch(() => {});
+    return assets;
+  }
+
+  /** Takes away the pictures of m3e-assets/ the version just written does not refer to, but only those provably the
+   *  editor's: one it wrote and that nothing changed since, or one named by the hash of exactly what it holds and not
+   *  written a moment ago (another program's save may still be under way). A file put there by hand stays. */
+  private async prunePictures(assets: DirHandle, wanted: ReadonlyMap<string, Uint8Array>, now = Date.now()) {
+    const names: [string, FileHandle][] = [];
+    for await (const [name, h] of assets.entries()) if (h.kind === "file") names.push([name, h as FileHandle]);
+    const marks = { ...this.rec.assets };
+    const present = new Set(names.map(([n]) => n));
+    for (const name of Object.keys(marks)) if (!present.has(name)) delete marks[name];
+    for (const [name, h] of names) {
+      if (wanted.has(name) || !isAssetFileName(name)) continue;
+      const file = await h.getFile().catch(() => null);
+      if (!file) continue;
+      const mark = marks[name];
+      const ours = !!mark?.own && file.size === mark.size && file.lastModified === mark.modified;
+      if (!ours && (now - file.lastModified < ASSET_GRACE_MS || !isFormatAsset(name, new Uint8Array(await file.arrayBuffer())))) continue;
+      try {
+        await assets.removeEntry(name);
+        delete marks[name];
+      } catch {}
+    }
+    this.rec.assets = marks;
+    await this.deps.save(this.rec).catch(() => {});
   }
 }
+
+const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);

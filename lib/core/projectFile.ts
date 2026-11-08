@@ -120,11 +120,29 @@ const MOCK_MIME_EXT: Record<string, string> = { "application/pdf": "pdf", "audio
 const EXT_MIME: Record<string, string> = Object.fromEntries([...Object.entries(MIME_EXT), ...Object.entries(MOCK_MIME_EXT)].map(([m, e]) => [e, m]));
 const DATA_URL = /^data:(image\/(?:png|jpeg|webp|gif|avif|svg\+xml));base64,([A-Za-z0-9+/]*={0,2})$/;
 const MOCK_DATA_URL = /^data:(application\/pdf|audio\/(?:wav|mpeg|ogg|mp4)|video\/(?:mp4|webm)|application\/octet-stream);base64,([A-Za-z0-9+/]*={0,2})$/;
+const ASSET_EXTS = [...Object.values(MIME_EXT), ...Object.values(MOCK_MIME_EXT)].join("|");
 /** what a picture's path inside the folder may look like: nothing that climbs out of it */
-const ASSET_PATH = new RegExp(`^${FOLDER_ASSET_DIR}/[a-z0-9]+\\.(?:${[...Object.values(MIME_EXT), ...Object.values(MOCK_MIME_EXT)].join("|")})$`);
+const ASSET_PATH = new RegExp(`^${FOLDER_ASSET_DIR}/[a-z0-9]+\\.(?:${ASSET_EXTS})$`);
+/** a file name in m3e-assets/ as the format gives one: what it holds, hashed, and an extension */
+const ASSET_NAME = new RegExp(`^([a-z0-9]+)\\.(?:${ASSET_EXTS})$`);
 
 /** whether a path a document refers to is one of the pictures beside it, and nothing else */
 export const isAssetPath = (path: string) => ASSET_PATH.test(path);
+
+/** How long a picture in m3e-assets/ that another program wrote is left alone: its own save may still be under way,
+ *  its project file not yet written. */
+export const ASSET_GRACE_MS = 60_000;
+
+/** Whether a file in m3e-assets/ is one the format could have written: named by the hash of exactly what it holds. A
+ *  file put there by hand (`logo.png`), or one whose bytes are not what its name says, is not, and a tool that tidies
+ *  the folder leaves it alone. */
+export function isFormatAsset(name: string, bytes: Uint8Array): boolean {
+  const m = ASSET_NAME.exec(name);
+  return !!m && digest(bytesToBase64(bytes)) === m[1];
+}
+
+/** whether a file name in m3e-assets/ has the shape of one the format writes (its bytes not looked at) */
+export const isAssetFileName = (name: string) => ASSET_NAME.test(name);
 
 /** a short, well-spread hash of a text (cyrb53), in base 36: the same picture always gets the same name */
 export function digest(s: string): string {

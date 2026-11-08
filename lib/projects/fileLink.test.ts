@@ -2,7 +2,7 @@
  * System Access API does: written a moment after a change, never over a change made elsewhere without asking, picked
  * up again after the browser asks for permission once more, pictures beside a folder's project file. */
 
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { bytesToBase64, FOLDER_ASSET_DIR, FOLDER_MAIN_FILE, serializeProject } from "../core/projectFile";
 import type { Doc } from "../tokens";
 import type { FileRecord } from "./db";
@@ -11,6 +11,15 @@ import { FileLink, readFromDisk } from "./fileLink";
 type Perm = "granted" | "prompt" | "denied";
 let clock = 1_000;
 
+/** Steps made to fail, by where: `asset:` or `main:` and `open` (createWritable), `write` or `close`; `dir:create`
+ *  (making m3e-assets/); `remove` (taking a file away). A file's bytes change only on a close that goes through, as
+ *  with the real API's write aside and swap. */
+const faults = new Set<string>();
+const fault = (what: string) => {
+  if (faults.has(what)) throw new DOMException(`${what} failed`, "UnknownError");
+};
+beforeEach(() => faults.clear());
+
 class MemFile {
   kind = "file" as const;
   data: string | Uint8Array = "";
@@ -18,6 +27,9 @@ class MemFile {
   writes = 0;
   perm: Perm = "granted";
   constructor(readonly name: string) {}
+  private get role() {
+    return this.name.endsWith(".json") ? "main" : "asset";
+  }
   async queryPermission() {
     return this.perm;
   }
@@ -29,16 +41,20 @@ class MemFile {
     return new File([this.data as BlobPart], this.name, { lastModified: this.modified });
   }
   async createWritable() {
+    fault(`${this.role}:open`);
     let next: string | Uint8Array = "";
     return {
       write: async (d: string | Uint8Array) => {
+        fault(`${this.role}:write`);
         next = d;
       },
       close: async () => {
+        fault(`${this.role}:close`);
         this.data = next;
         this.modified = ++clock;
         this.writes++;
       },
+      abort: async () => {},
     };
   }
   /** a change made by another program */
@@ -74,13 +90,23 @@ class MemDir {
     let d = this.dirs.get(name);
     if (!d) {
       if (!o?.create) throw new DOMException("missing", "NotFoundError");
+      fault("dir:create");
       d = new MemDir(name);
       this.dirs.set(name, d);
     }
     return d;
   }
   async removeEntry(name: string) {
+    fault("remove");
     this.files.delete(name);
+  }
+  /** a file put here by something other than the editor */
+  place(name: string, data: Uint8Array, modified = ++clock) {
+    const f = new MemFile(name);
+    f.data = data;
+    f.modified = modified;
+    this.files.set(name, f);
+    return f;
   }
   async *entries(): AsyncIterable<[string, MemFile | MemDir]> {
     for (const e of this.files) yield e;
@@ -89,7 +115,8 @@ class MemDir {
 }
 
 const doc = (title: string, extra: Partial<Doc> = {}): Doc => ({ groups: [], frames: [{ id: "f", name: "Home", x: 0, y: 0 }], title, paletteKey: "purple", frame: "phone", brief: "", theme: { style: "material" }, ...extra }) as unknown as Doc;
-const picture = () => `data:image/png;base64,${bytesToBase64(new Uint8Array(4000).map((_, i) => i & 0xff))}`;
+const pictureBytes = (seed = 0) => new Uint8Array(4000).map((_, i) => (i * (seed + 1) + seed) & 0xff);
+const picture = (seed = 0) => `data:image/png;base64,${bytesToBase64(pictureBytes(seed))}`;
 const withPicture = (d: Doc, src: string): Doc => ({ ...d, groups: [{ id: "g", x: 0, y: 0, axis: "y", items: [{ id: "i", kind: "component", component: "image", label: "Image", icon: null, variant: "filled", props: { src } }] }] }) as Doc;
 
 function linked(handle: MemFile | MemDir, kind: "file" | "folder") {
@@ -186,6 +213,136 @@ describe("a folder kept in sync", () => {
     link.schedule(doc("Shop"));
     await link.flush();
     expect([...assets.files.keys()]).toHaveLength(0);
+  });
+
+  /** what the folder holds read back: its title and its pictures ("" for one that is missing) */
+  const onDisk = async (dir: MemDir) => {
+    const back = await readFromDisk(dir as unknown as FileSystemHandle);
+    return { title: back.doc?.title, pictures: (back.doc?.groups ?? []).flatMap((g) => g.items.map((it) => it.props?.src)) };
+  };
+  const assetName = (src: string) => serializeProject(withPicture(doc("x"), src), { assets: "files" }).files[0].path.slice(FOLDER_ASSET_DIR.length + 1);
+  const assetsOf = (dir: MemDir) => dir.dirs.get(FOLDER_ASSET_DIR)!;
+  const A = picture(1);
+  const B = picture(2);
+
+  it("never takes away a file put in m3e-assets/ by hand, nor one whose bytes are not what its name says", async () => {
+    const dir = new MemDir("design");
+    const assets = await dir.getDirectoryHandle(FOLDER_ASSET_DIR, { create: true });
+    assets.place("logo.png", pictureBytes(7));
+    assets.place("notes.txt", new TextEncoder().encode("mine"));
+    /* named the way the format names its pictures, but holding something else */
+    assets.place(assetName(picture(8)), pictureBytes(9));
+    const { link } = linked(dir, "folder");
+    link.schedule(withPicture(doc("One"), A));
+    await link.flush();
+    link.schedule(withPicture(doc("Two"), B));
+    await link.flush();
+    expect(link.state.status).toBe("saved");
+    expect([...assets.files.keys()].sort()).toEqual([assetName(B), assetName(picture(8)), "logo.png", "notes.txt"].sort());
+    expect(await onDisk(dir)).toEqual({ title: "Two", pictures: [B] });
+  });
+
+  it("takes away another program's picture only once it is no longer new and holds what its name says", async () => {
+    const dir = new MemDir("design");
+    const assets = await dir.getDirectoryHandle(FOLDER_ASSET_DIR, { create: true });
+    const C = picture(3);
+    const D = picture(4);
+    /* written by the MCP server long ago, and a moment ago (its own save may still be under way) */
+    assets.place(assetName(C), pictureBytes(3), 5);
+    assets.place(assetName(D), pictureBytes(4), Date.now());
+    const { link } = linked(dir, "folder");
+    link.schedule(withPicture(doc("One"), A));
+    await link.flush();
+    expect([...assets.files.keys()].sort()).toEqual([assetName(A), assetName(D)].sort());
+  });
+
+  it.each(["asset:open", "asset:write", "asset:close", "main:open", "main:write", "main:close"])("a save that fails at %s leaves the version before it whole on disk, and goes through once it can", async (stage) => {
+    const dir = new MemDir("design");
+    const { link } = linked(dir, "folder");
+    link.schedule(withPicture(doc("One"), A));
+    await link.flush();
+    expect(await onDisk(dir)).toEqual({ title: "One", pictures: [A] });
+
+    faults.add(stage);
+    link.schedule(withPicture(doc("Two"), B));
+    await link.flush();
+    expect(link.state.status).toBe("error");
+    expect(await onDisk(dir)).toEqual({ title: "One", pictures: [A] });
+
+    /* the document waits for the next try, and the folder ends up holding it and only what it needs */
+    faults.clear();
+    await link.flush();
+    expect(link.state.status).toBe("saved");
+    expect(await onDisk(dir)).toEqual({ title: "Two", pictures: [B] });
+    expect([...assetsOf(dir).files.keys()]).toEqual([assetName(B)]);
+  });
+
+  it("does not write a project file that refers to pictures when their folder cannot be made", async () => {
+    const dir = new MemDir("design");
+    const { link } = linked(dir, "folder");
+    link.schedule(doc("Plain"));
+    await link.flush();
+    faults.add("dir:create");
+    link.schedule(withPicture(doc("Pictured"), A));
+    await link.flush();
+    expect(link.state.status).toBe("error");
+    expect(await onDisk(dir)).toEqual({ title: "Plain", pictures: [] });
+    faults.clear();
+    await link.flush();
+    expect(await onDisk(dir)).toEqual({ title: "Pictured", pictures: [A] });
+  });
+
+  it("keeps a picture it could not take away for the next save, which takes it", async () => {
+    const dir = new MemDir("design");
+    const { link } = linked(dir, "folder");
+    link.schedule(withPicture(doc("One"), A));
+    await link.flush();
+    faults.add("remove");
+    link.schedule(withPicture(doc("Two"), B));
+    await link.flush();
+    expect(link.state.status).toBe("saved");
+    expect(await onDisk(dir)).toEqual({ title: "Two", pictures: [B] });
+    expect([...assetsOf(dir).files.keys()].sort()).toEqual([assetName(A), assetName(B)].sort());
+    faults.clear();
+    link.schedule(withPicture(doc("Three"), B));
+    await link.flush();
+    expect([...assetsOf(dir).files.keys()]).toEqual([assetName(B)]);
+  });
+
+  it("knows a picture written for a save that then failed as its own, after a reload too", async () => {
+    const dir = new MemDir("design");
+    const first = linked(dir, "folder");
+    first.link.schedule(withPicture(doc("One"), A));
+    await first.link.flush();
+    faults.add("main:close");
+    first.link.schedule(withPicture(doc("Two"), B));
+    await first.link.flush();
+    faults.clear();
+    /* the tab closed; the next one starts from the record the browser kept, and goes back to the first version */
+    const kept = first.saved.at(-1)!;
+    expect(kept.assets?.[assetName(B)]?.own).toBe(true);
+    const again = new FileLink({ ...kept }, { resolve: async (d) => d, save: async () => {} });
+    again.schedule(withPicture(doc("One again"), A));
+    await again.flush();
+    expect([...assetsOf(dir).files.keys()]).toEqual([assetName(A)]);
+  });
+
+  it("finds a picture of the right name holding the wrong bytes, and writes it again", async () => {
+    const dir = new MemDir("design");
+    const assets = await dir.getDirectoryHandle(FOLDER_ASSET_DIR, { create: true });
+    /* a broken copy left by an earlier tool, before the first save */
+    assets.place(assetName(A), pictureBytes(1).slice(0, 100));
+    const { link } = linked(dir, "folder");
+    link.schedule(withPicture(doc("One"), A));
+    await link.flush();
+    expect(await onDisk(dir)).toEqual({ title: "One", pictures: [A] });
+    /* broken again after the editor wrote it, the same size this time */
+    const bad = pictureBytes(1);
+    bad[10] ^= 0xff;
+    assets.place(assetName(A), bad);
+    link.schedule(withPicture(doc("One, renamed"), A));
+    await link.flush();
+    expect(await onDisk(dir)).toEqual({ title: "One, renamed", pictures: [A] });
   });
 
   it("reads a folder's project when it is the only project file there under another name", async () => {
