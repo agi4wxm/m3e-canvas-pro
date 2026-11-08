@@ -595,6 +595,9 @@ export function SeatMap(props: SeatMapProps) {
   const cols = clampInt(p.columns ?? 8, 1, 30);
   const aisle = Math.round(p.aisle ?? 0);
   const most = Math.max(1, Math.round(p.most ?? 4));
+  /* a seat is as tall as it is wide: worked out from the width (an older WebView has no aspect-ratio) */
+  const width = Math.round(p.width ?? 380);
+  const seat = Math.max(8, Math.floor((width - 24 - 16 - 4 * cols - (aisle > 0 && aisle < cols ? 12 : 0)) / cols));
   /* a seat past the most that may be picked stays as it is: nothing changed, nothing is handed out */
   const toggle = (id: string) => {
     const next = toggleSeat(picked, id, most);
@@ -603,7 +606,7 @@ export function SeatMap(props: SeatMapProps) {
   const held = heldBy(p);
   return withField(
     p,
-    <Surface base={merge({ ...COL, rowGap: 12, padding: 12, width: Math.round(p.width ?? 380), flexShrink: 0, borderRadius: corner(kit, "lg"), backgroundColor: c("surface-container-low"), opacity: p.disabled ? 0.38 : 1 }, p.error ? { border: `1px solid ${c("error")}` } : null, fill)} appearance={p} testID={p.testID} label={starred(p.ariaLabel, p.required)}>
+    <Surface base={merge({ ...COL, rowGap: 12, padding: 12, width, flexShrink: 0, borderRadius: corner(kit, "lg"), backgroundColor: c("surface-container-low"), opacity: p.disabled ? 0.38 : 1 }, p.error ? { border: `1px solid ${c("error")}` } : null, fill)} appearance={p} testID={p.testID} label={starred(p.ariaLabel, p.required)}>
       {p.screen ? <Words text={p.screen} style={{ alignSelf: "center", width: "75%", paddingTop: 4, paddingBottom: 4, textAlign: "center", borderBottomLeftRadius: corner(kit, "lg"), borderBottomRightRadius: corner(kit, "lg"), backgroundColor: c("surface-container-high"), ...typeStyle(kit, "label-small"), color: c("on-surface-variant") }} /> : null}
       <View style={sx(COL, { rowGap: 4 })}>
         {Array.from({ length: rows }, (_, r) => (
@@ -621,7 +624,7 @@ export function SeatMap(props: SeatMapProps) {
                   ariaSelected={on}
                  
                   onClick={pressOf(() => toggle(id), off || held)}
-                  style={sx({ boxSizing: "border-box", flex: 1, minWidth: 0, aspectRatio: "1", borderRadius: 4, marginRight: aisle > 0 && col === aisle - 1 ? 12 : 0 }, off ? { backgroundColor: c("surface-container-highest"), opacity: 0.5 } : on ? { backgroundColor: c("primary") } : { border: `1px solid ${c("outline-variant")}`, backgroundColor: c("surface") })}
+                  style={sx({ boxSizing: "border-box", flex: 1, minWidth: 0, height: seat, borderRadius: 4, marginRight: aisle > 0 && col === aisle - 1 ? 12 : 0 }, off ? { backgroundColor: c("surface-container-highest"), opacity: 0.5 } : on ? { backgroundColor: c("primary") } : { border: `1px solid ${c("outline-variant")}`, backgroundColor: c("surface") })}
                 />
               );
             })}
