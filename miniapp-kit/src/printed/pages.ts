@@ -18,5 +18,9 @@ export const PRINTED_PAGES: string[] = [
   "printed/proof/pages/paymentResult/index",
   "printed/kits/pages/kits/index",
   "printed/splits/pages/splitDesk/index",
-  "printed/splits/pages/splitPhone/index"
+  "printed/splits/pages/splitPhone/index",
+  "printed/play/pages/draws/index",
+  "printed/play/pages/machines/index",
+  "printed/play/pages/play/index",
+  "printed/play/pages/menus/index"
 ];
