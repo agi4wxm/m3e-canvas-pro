@@ -396,7 +396,7 @@ const BINDING_KINDS = new Set<string>(["call", "refresh", "loadMore", "submit", 
 
 /** What a call does once it is answered: where it goes, with what params, and its effects. `response` or `error` is
  *  what its expressions can read. */
-function BodyEditor({ title, body, onChange, p, depth, response, error }: { title: string; body: ActionBody | undefined; onChange: (b: ActionBody | undefined) => void; p: Palette; depth: number; response?: unknown; error?: boolean }) {
+export function BodyEditor({ title, body, onChange, p, depth, response, error }: { title: string; body: ActionBody | undefined; onChange: (b: ActionBody | undefined) => void; p: Palette; depth: number; response?: unknown; error?: boolean }) {
   const lang = useLang();
   const bindings = useContext(BindingsContext);
   const frames = bindings?.doc.frames ?? [];

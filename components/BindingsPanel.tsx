@@ -1,17 +1,18 @@
 import { createContext, useContext, useMemo, useState } from "react";
 import type { ApiSpec } from "@/lib/api/types";
-import { endpointOf, paramsOf, requestOf } from "@/lib/bindings/contract";
+import { endpointOf, paramsOf, requestOf, responseSchema } from "@/lib/bindings/contract";
 import { listPaths, shapeFor, type ScopeShape } from "@/lib/bindings/complete";
 import { exprOfBind } from "@/lib/bindings/scope";
 import { formAround, regionDesigns } from "@/lib/core/ops/bindings";
 import type { Op } from "@/lib/core";
 import * as ops from "@/lib/core/ops";
 import { INPUT_PROP } from "@/lib/interact";
+import { SAMPLE_ROWS } from "@/lib/collections";
 import { REGION_STATES, frameOfPart, type DataSource, type Doc, type Frame, type Group, type Item, type Palette, type RegionState } from "@/lib/tokens";
 import { t, useLang, type UIKey } from "@/lib/i18n";
 import { partBySlug } from "@/parts/registry";
 import { labelOf } from "@/parts/labels";
-import { BehaviorContext } from "./EffectsPanel";
+import { BehaviorContext, BodyEditor } from "./EffectsPanel";
 import { DesignSection, actionBtn } from "./DesignPanel";
 import { ExprField } from "./ExprField";
 import { Icon } from "./Icon";
@@ -112,6 +113,36 @@ export function ArgFields({ api, operationId, value, onChange, shape, p, body }:
             {k}
           </span>
           <ExprField name={`arg:${k}`} value={value?.[k] ?? ""} onCommit={(v) => put(k, v)} shape={shape} api={api} p={p} label={k} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** A form's body fields that no input in it fills, each an expression (`FormBinding.values`): what the visitor does not
+ *  type, sent all the same (the signed-in user's id, a screen param). */
+function FormValues({ api, form, group, groups, shape, p, onChange }: { api: ApiSpec | undefined; form: NonNullable<Group["form"]>; group: Group; groups: Group[]; shape: ScopeShape; p: Palette; onChange: (v: Record<string, string> | undefined) => void }) {
+  const lang = useLang();
+  const e = endpointOf(api, form.operationId);
+  if (!e || !api) return null;
+  const filled = new Set(groups.filter((g) => formAround(groups, g)?.id === group.id).flatMap((g) => g.items.map((it) => it.field).filter((f): f is string => !!f)));
+  const fields = Object.keys(requestOf(api, e)?.schema?.properties ?? {}).filter((f) => !filled.has(f) || form.values?.[f] !== undefined);
+  if (!fields.length) return null;
+  const put = (k: string, v: string) => {
+    const next = { ...form.values };
+    if (v) next[k] = v;
+    else delete next[k];
+    onChange(Object.keys(next).length ? next : undefined);
+  };
+  return (
+    <div data-form-values style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={label(p)}>{t("bdFormValues", lang)}</div>
+      {fields.map((k) => (
+        <div key={k} style={{ display: "grid", gridTemplateColumns: "84px minmax(0, 1fr)", gap: 6, alignItems: "start" }}>
+          <span title={k} style={{ fontSize: 12, fontFamily: "ui-monospace, monospace", color: p.onSurfaceVariant, paddingTop: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {k}
+          </span>
+          <ExprField name={`value:${k}`} value={form.values?.[k] ?? ""} onCommit={(v) => put(k, v)} shape={shape} api={api} p={p} label={k} />
         </div>
       ))}
     </div>
@@ -271,6 +302,9 @@ export function PartDataSection({ item, frame, p }: { item: Item; frame: Frame |
   const props = bindable(item);
   const run = b.run;
   const repeatHost = behavior.repeatHost;
+  /* a repeat over data: its limit and the copies the canvas draws are its own */
+  const byData = repeatHost?.repeat?.data !== undefined ? repeatHost.repeat : undefined;
+  const setByData = (patch: { limit?: number; sample?: number }) => byData && repeatHost && run(ops.setRepeat, { id: repeatHost.id, repeat: { data: byData.data, limit: byData.limit, sample: byData.sample, ...patch } });
   const lists = listPaths(api ?? {}, repeatHost ? shapeFor(b.doc, frame ?? undefined, repeatHost.id, b.widths) : shape);
   const writable = endpointOptions(api, (m) => m === "post" || m === "put" || m === "patch");
   const designs = group.states ? regionDesigns(b.doc.groups, group) : {};
@@ -321,7 +355,16 @@ export function PartDataSection({ item, frame, p }: { item: Item; frame: Frame |
               options={[{ key: "", label: t("bdRepeatNone", lang), icon: "block" }, ...lists.map((l) => ({ key: l.path, label: l.path, icon: "repeat" })), ...(repeatHost.repeat?.data && !lists.some((l) => l.path === repeatHost.repeat?.data) ? [{ key: repeatHost.repeat.data, label: repeatHost.repeat.data, icon: "repeat" }] : [])]}
               onChange={(k) => run(ops.setRepeat, { id: repeatHost.id, repeat: k ? { data: k } : null })}
             />
-            {repeatHost.repeat?.data !== undefined && <div style={hint(p)}>{t("bdRepeatHint", lang)}</div>}
+            {repeatHost.repeat?.data !== undefined && (
+              <>
+                {/* how many it draws at most, and how many copies the canvas shows while it has no data */}
+                <div data-repeat-limits style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  <Num value={byData?.limit ?? 200} min={1} max={200} title={t("bdRepeatLimit", lang)} lazy onChange={(limit) => setByData({ limit: limit < 200 ? limit : undefined })} p={p} />
+                  <Num value={byData?.sample ?? SAMPLE_ROWS} min={1} max={12} title={t("bdRepeatSample", lang)} lazy onChange={(sample) => setByData({ sample })} p={p} />
+                </div>
+                <div style={hint(p)}>{t("bdRepeatHint", lang)}</div>
+              </>
+            )}
           </div>
         )}
 
@@ -356,6 +399,11 @@ export function PartDataSection({ item, frame, p }: { item: Item; frame: Frame |
               <>
                 <Select height={28} label={t("bdFormFor", lang)} p={p} value={group.form.operationId} options={writable} onChange={(k) => run(ops.setForm, { id: group.id, form: { ...group.form!, operationId: k } })} />
                 <ArgFields api={api} operationId={group.form.operationId} value={group.form.params} onChange={(params) => run(ops.setForm, { id: group.id, form: { ...group.form!, ...(params ? { params } : { params: undefined }) } })} shape={shape} p={p} />
+                <FormValues api={api} form={group.form} group={group} groups={b.doc.groups} shape={shape} p={p} onChange={(values) => run(ops.setForm, { id: group.id, form: { ...group.form!, values } })} />
+                {/* what runs once it is answered: where it goes, what it sets, what it says */}
+                <div style={label(p)}>{t("bdFormAnswer", lang)}</div>
+                <BodyEditor title={t("bdThen", lang)} body={group.form.then} onChange={(then) => run(ops.setForm, { id: group.id, form: { ...group.form!, then } })} p={p} depth={1} response={(() => { const e = api ? endpointOf(api, group.form!.operationId) : undefined; return api && e ? (responseSchema(api, e) ?? true) : true; })()} />
+                <BodyEditor title={t("bdCatch", lang)} body={group.form.catch} onChange={(next) => run(ops.setForm, { id: group.id, form: { ...group.form!, catch: next } })} p={p} depth={1} error />
                 <button onClick={() => run(ops.setForm, { id: group.id, form: null })} className="m3-press" style={actionBtn(p)}>
                   <Icon name="remove_circle_outline" size={16} />
                   {t("bdFormRemove", lang)}

@@ -246,6 +246,8 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
   const group = behavior.group;
   const effects: LookBlockKey[] = strict ? ["shadows", "blur", "distort"] : ["shadows", "blur", "filters", "texture", "distort"];
   const textual = def.slug === "text" || def.category === "Basics" && def.props.some((d) => d.key === "text");
+  /* every part can be turned, faded, outlined and given effects: the look lands on its root where it paints no surface
+     of its own (an image, a shape, an icon); a fill, a text role, corners and presets are for the parts that do */
   const boundRotation = useBoundNumber(item, "@rotation");
   const widthAxis = axes?.width?.kind === "number" ? axes.width : undefined;
 
@@ -269,12 +271,12 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
           <div style={{ ...grid2, flex: 1, minWidth: 0 }}>
             <NumberField name="x" word="X" value={selfRect ? Math.round(selfRect.x - fx) : undefined} disabled={!onMoveTo || !selfRect || placed} title={placed ? `X · ${t("dzSetByLayout", lang)}` : "X"} onChange={(v) => selfRect && onMoveTo?.(v + fx, selfRect.y)} p={p} />
             <NumberField name="y" word="Y" value={selfRect ? Math.round(selfRect.y - fy) : undefined} disabled={!onMoveTo || !selfRect || placed} title={placed ? `Y · ${t("dzSetByLayout", lang)}` : "Y"} onChange={(v) => selfRect && onMoveTo?.(selfRect.x, v + fy)} p={p} />
-            {def.appearance && (
+            {(
               <BoundNumber item={item} field="@rotation" onChange={onChange} p={p}>
                 <NumberField name="rotation" icon="rotate_right" value={boundRotation ?? look.rotate ?? 0} disabled={boundRotation !== undefined} min={-180} max={180} unit="°" title={t("dzRotation", lang)} onChange={(v) => setLook({ rotate: v || undefined })} p={p} />
               </BoundNumber>
             )}
-            {def.appearance && (
+            {(
               <div style={{ display: "flex", gap: 2 }}>
                 <FieldToggle icon="flip" name="flipX" on={!!tr.flipX} title={t("dzFlipH", lang)} p={p} onClick={() => setTr({ flipX: !tr.flipX || undefined })} />
                 <span style={{ display: "inline-flex", transform: "rotate(90deg)" }}>
@@ -316,7 +318,7 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
 
       <PartDataSection item={item} frame={frame ?? null} p={p} />
 
-      {def.appearance && (
+      {(
         <DesignSection
           id="appearance"
           title={t("dzAppearance", lang)}
@@ -363,7 +365,7 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
         </DesignSection>
       )}
 
-      {def.appearance && !strict && (
+      {!strict && (
         <LookPanel
           key={`${item.id}:stroke`}
           item={item}
@@ -379,7 +381,7 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
         />
       )}
 
-      {def.appearance && (
+      {(
         <DesignSection id="effects" title={t("dzEffects", lang)} p={p}>
           <LookPanel key={`${item.id}:effects`} item={item} onChange={onChange} p={p} strict={strict} only={effects} />
         </DesignSection>

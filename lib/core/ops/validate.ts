@@ -254,8 +254,18 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
       return v(e.var);
     case "addVar":
       return v(e.var) ?? (typeof e.by === "number" && Number.isFinite(e.by) ? null : "by should be a number");
-    case "setProp":
-      return part(e.part) ?? (typeof e.prop === "string" && isValue(e.value) ? null : "prop and value are required");
+    case "setProp": {
+      const bad = part(e.part) ?? (typeof e.prop === "string" && isValue(e.value) ? null : "prop and value are required");
+      if (bad) return bad;
+      /* the prop is one the part has, and the value one it takes: a preview would show nothing else */
+      const def = partBySlug(s.doc.groups.flatMap((g) => g.items).find((it) => it.id === e.part)?.component);
+      if (!def) return null;
+      const d = def.props.find((x) => x.key === e.prop);
+      if (!d) return `${def.slug} has no prop ${JSON.stringify(e.prop)} (it has ${def.props.map((x) => x.key).slice(0, 16).join(", ")})`;
+      if (d.kind === "list" || d.kind === "table") return `${d.key} is a ${d.kind}: an effect sets words, a number, true/false or a choice`;
+      const wrong = propValueError(d, e.value);
+      return wrong ? `${d.key} ${wrong}` : null;
+    }
     case "snackbar":
       return typeof e.message === "string" ? null : "message should be text";
     case "call": {
