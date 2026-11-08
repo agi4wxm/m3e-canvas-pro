@@ -2,7 +2,7 @@
  * web, SecureStore in React Native, Taro's storage in a mini-program: injected as a `TokenStorage`), and a transport
  * that puts the token on every call that needs one, keeps the tokens a sign-in, a refresh and a sign-out give or take,
  * and on a 401 trades the refresh token for a new one once before it ends the session and says so (the app then goes
- * to its sign-in screen). The same rules as the preview's engine (lib/bindings/runtime.ts `call`). */
+ * to its sign-in screen). The editor's preview runs this very session too (lib/bindings/design.ts). */
 
 import type { HttpMethod, Transport, TransportRequest, TransportResponse } from "../api/transport";
 import { Store } from "./store";
@@ -154,8 +154,11 @@ function withToken(request: TransportRequest, token: string | undefined, place: 
 }
 
 /** A transport over another (`inner`, asked each time, so it can be swapped) that carries the session: see the top of
- *  this file. `onUnauthorized` hears of a 401 no refresh could mend, after the session has ended. */
-export function sessionTransport(o: { inner: () => Transport; session: SessionStore; auth?: AuthConfig; onUnauthorized?: (request: TransportRequest) => void }): Transport {
+ *  this file. `onUnauthorized` hears of a 401 no refresh could mend, after the session has ended. `epoch` counts the
+ *  times the app started over: an answer to a call made before the last time belongs to a session that is gone, and
+ *  starts, ends or refreshes none (docs/交互规则.md, “迟到的回答”: a sign-in answered after a new mock session began does
+ *  not sign that session in). */
+export function sessionTransport(o: { inner: () => Transport; session: SessionStore; auth?: AuthConfig; onUnauthorized?: (request: TransportRequest) => void; epoch?: () => number }): Transport {
   const { session, auth } = o;
   let refreshing: Promise<boolean> | null = null;
 
@@ -165,10 +168,11 @@ export function sessionTransport(o: { inner: () => Transport; session: SessionSt
     const op = auth?.refresh;
     if (!was?.refreshToken || !op) return Promise.resolve(false);
     refreshing ??= (async () => {
+      const at = o.epoch?.();
       try {
         const res = await o.inner().request({ operationId: op.operationId, method: op.method, path: op.path, body: { [auth?.refreshTokenField ?? "refreshToken"]: was.refreshToken } });
         const next = res.status >= 200 && res.status < 300 ? sessionOf(res.body, auth) : null;
-        if (!next) return false;
+        if (!next || o.epoch?.() !== at) return false;
         session.update({ token: next.token, ...(next.refreshToken ? { refreshToken: next.refreshToken } : {}) });
         return true;
       } catch {
@@ -183,8 +187,11 @@ export function sessionTransport(o: { inner: () => Transport; session: SessionSt
   const send = async (request: TransportRequest, retried: boolean): Promise<TransportResponse> => {
     const place = placementOf(auth, request);
     const token = session.token;
+    const at = o.epoch?.();
     const res = await o.inner().request(withToken(request, token, place));
     const op = request.operationId;
+    /* the app started over while it was out: nothing it says is the new session's */
+    if (o.epoch?.() !== at) return res;
     if (res.status >= 200 && res.status < 300) {
       if (op !== undefined && op === auth?.login) {
         const started = sessionOf(res.body, auth);

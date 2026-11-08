@@ -1,19 +1,21 @@
-/* One screen as its bindings have it at a moment: its scope (lib/bindings/runtime.ts), each form's values and errors,
+/* One screen as its bindings have it at a moment: its scope (lib/bindings/design.ts `DesignRuntime.screen`: the data the
+ * runtime holds, the params, the variables, the session), each form's values and errors (lib/app's form controller),
  * its repeats over data drawn from what the data holds, each region showing the state its data is in, inputs with an
  * error showing it, a form's submit buttons held while it submits. What comes out is plain groups the preview lays
- * out and draws like any other (lib/interact.ts `liveGroups`), and the context expressions on them read. */
+ * out and draws like any other (lib/interact.ts `liveGroups`), and the context expressions on them read. The pure
+ * readings of a form's inputs (`inputValue`, `readForm`) and of a region (`regionState`) live here too. */
 
 import { partBySlug, reader } from "../../parts/registry";
 import { formStateProps } from "../../parts/fieldState";
 import { expandRepeats, measuresFor } from "../collections";
 import { INPUT_PROP, type FieldValue } from "../interact";
 import { optionsOf } from "../partContract";
-import type { Doc, Frame, Group, Item, ItemScope, VarValue } from "../tokens";
+import type { DataSource, Doc, Frame, Group, Item, ItemScope, VarValue } from "../tokens";
 import type { TransportFile } from "../api/transport";
 import { endpointOf, formFields, type FieldSpec } from "./contract";
-import { formViewOf, readFields, setPath, type FieldEntry, type FormView } from "./form";
-import { evaluate, readKey, type EvalContext, type Scope } from "./expr";
-import { regionState, screenScope, type BindingState } from "./runtime";
+import { readFields, setPath, type FieldEntry, type FormView } from "./form";
+import { evaluate, readKey, truthy, type EvalContext, type Scope } from "./expr";
+import { regionOf, type SourceView } from "./sources";
 import { scopeFor, type BindingContext } from "./scope";
 
 type Widths = Record<string, number>;
@@ -75,29 +77,35 @@ export function inputValue(it: Item, fields: Record<string, FieldValue>, files?:
   return raw;
 }
 
-/** A form's inputs read: the body they make (each field as its schema's type has it, the form's `values` added), what
- *  the schema says is wrong with each, and whether a file is among them. */
-export function readForm(o: { form: Group; groups: Group[]; owner: Map<string, string>; doc: Pick<Doc, "api">; fields: Record<string, FieldValue>; files?: Record<string, TransportFile[]>; scope: Scope; ctx: EvalContext }): { body: Record<string, unknown>; values: Record<string, unknown>; errors: Record<string, string>; files: boolean; specs: FieldSpec[] } {
+/** what a form is read from: its group, the screen's groups (`owner` says which are in it), what the visitor gave */
+export type FormInputs = { form: Group; groups: Group[]; owner: Map<string, string>; doc: Pick<Doc, "api">; fields: Record<string, FieldValue>; files?: Record<string, TransportFile[]> };
+
+/** What a form's inputs hold, field by field, each with its rule from the contract when the schema has the field. */
+export function formEntries(o: FormInputs): FieldEntry[] {
   const api = o.doc.api ?? {};
   const e = o.form.form ? endpointOf(api, o.form.form.operationId) : undefined;
-  const specs = e ? formFields(api, e) : [];
+  const specs: FieldSpec[] = e ? formFields(api, e) : [];
   const entries: FieldEntry[] = [];
-  let hasFiles = false;
   for (const g of o.groups) {
     if (o.owner.get(g.id) !== o.form.id) continue;
     for (const it of g.items) {
       if (!it.field) continue;
-      const raw = inputValue(it, o.fields, o.files);
-      if (it.component === "file-upload" && raw !== undefined) hasFiles = true;
-      entries.push({ field: it.field, raw, rule: specs.find((s) => s.name === it.field) });
+      const spec = specs.find((s) => s.name === it.field);
+      entries.push({ field: it.field, raw: inputValue(it, o.fields, o.files), ...(spec ? { rule: { kind: spec.kind, required: spec.required, schema: spec.schema } } : {}) });
     }
   }
-  const { body, values, errors } = readFields(entries, o.ctx.lang);
+  return entries;
+}
+
+/** A form's inputs read: the body they make (each field as its schema's type has it, the form's `values` added) and
+ *  what the schema says is wrong with each (lib/app's form controller reads them the same way, from the same entries). */
+export function readForm(o: FormInputs & { scope: Scope; ctx: EvalContext }): { body: Record<string, unknown>; values: Record<string, unknown>; errors: Record<string, string> } {
+  const { body, values, errors } = readFields(formEntries(o), o.ctx.lang);
   for (const [k, x] of Object.entries(o.form.form?.values ?? {})) {
     const v = evaluate(x, o.scope, o.ctx);
     if (v !== undefined) setPath(body, k, v);
   }
-  return { body, values, errors, files: hasFiles, specs };
+  return { body, values, errors };
 }
 
 /** the effects of a tap, for whether it submits a form */
@@ -107,23 +115,36 @@ const withProps = (g: Group, i: number, props: Record<string, unknown>): Group =
 
 export type BoundScreen = { groups: Group[]; ctx: BindingContext; widths: Widths };
 
-/** One screen with its bindings applied (see the top of this file). `fields` is what the visitor entered, `vars` the
- *  variables as the screen shows them, `params` what it was opened with. */
+/** The state a region shows for its source: loading until it has something, forbidden or an error when it failed with
+ *  nothing to show, empty when it holds nothing (or `emptyWhen` says so), else its content (sources.ts `regionOf`). */
+export function regionState(region: { source?: string; emptyWhen?: string }, scope: Scope, load: DataSource["load"] | undefined, ctx?: EvalContext): "ready" | "loading" | "empty" | "error" | "forbidden" {
+  const data = scope.data && typeof scope.data === "object" ? (scope.data as Record<string, SourceView | undefined>) : {};
+  const v = region.source && Object.prototype.hasOwnProperty.call(data, region.source) ? data[region.source] : undefined;
+  const emptyWhen = region.emptyWhen;
+  return regionOf(v, { load, ...(emptyWhen ? { emptyWhen: () => truthy(evaluate(emptyWhen, scope, ctx)) } : {}) });
+}
+
+/** the fields of a form's operation the contract requires */
+const requiredOf = (doc: Pick<Doc, "api">, form: Group): Set<string> => {
+  const e = form.form ? endpointOf(doc.api, form.form.operationId) : undefined;
+  return new Set(e && doc.api ? formFields(doc.api, e).filter((s) => s.required).map((s) => s.name) : []);
+};
+
+/** One screen with its bindings applied (see the top of this file). `scope` is the screen's own (its data, params, the
+ *  session), `form` what a form of it reads as `form.`, `vars` the variables as the screen shows them. */
 export function boundScreen(o: {
   groups: Group[];
   frame: Frame;
   doc: Pick<Doc, "api" | "vars" | "frames" | "collections">;
-  state: BindingState;
-  params?: Record<string, unknown>;
+  scope: Scope;
+  /** a form of the screen as `form.` reads it, from what its inputs (in `groups`, `owner` saying which) hold */
+  form: (form: Group, groups: Group[], owner: Map<string, string>) => FormView;
   vars: Record<string, VarValue>;
-  fields: Record<string, FieldValue>;
-  files?: Record<string, TransportFile[]>;
   widths: Widths;
   ctx: EvalContext;
 }): BoundScreen {
   const varNames = (o.doc.vars ?? []).map((v) => ({ id: v.id, name: v.name }));
-  const scope = screenScope({ frame: o.frame, state: o.state, params: o.params, vars: o.vars, varNames, now: o.ctx.now, collections: o.doc.collections });
-  const base: BindingContext = { scope, varNames, forms: {}, eval: o.ctx };
+  const base: BindingContext = { scope: o.scope, varNames, forms: {}, eval: o.ctx };
   if (!o.groups.some((g) => g.repeat || g.states || g.form || g.items.some((it) => it.bind || it.field)) && !o.frame.data?.length) return { groups: o.groups, ctx: base, widths: o.widths };
   /* the forms first: what is typed in them is read before the repeats copy anything */
   let owner = formsOf(o.groups);
@@ -132,9 +153,8 @@ export function boundScreen(o: {
   const required: Record<string, Set<string>> = {};
   for (const g of o.groups) {
     if (!g.form) continue;
-    const read = readForm({ form: g, groups: o.groups, owner, doc: o.doc, fields: o.fields, files: o.files, scope: scopeFor(base, o.vars), ctx: o.ctx });
-    forms[g.id] = formViewOf(read, o.state.forms[g.id]);
-    required[g.id] = new Set(read.specs.filter((s) => s.required).map((s) => s.name));
+    forms[g.id] = o.form(g, o.groups, owner);
+    required[g.id] = requiredOf(o.doc, g);
   }
   const ctx: BindingContext = { ...base, forms };
   /* the repeats over data, each element its copy's `item` */
