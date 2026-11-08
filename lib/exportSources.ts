@@ -36,6 +36,7 @@ const SOURCES = import.meta.glob(
     "/rn/src/kit/icons/*.{ts,tsx}",
     "/rn/src/kit/theme/*.{ts,tsx}",
     "/rn/src/app/*.{ts,tsx}",
+    "/rn/src/custom/*.{ts,tsx}",
     "/styles/*.css",
     "/react-css.d.ts",
     "/package.json",

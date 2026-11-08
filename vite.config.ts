@@ -30,7 +30,12 @@ export default defineConfig({
        there by the kits' own lint (scripts/gen-rn.ts, scripts/gen-miniapp.ts write them) */
     ignorePatterns: ["rn/__tests__/table/**", "miniapp-kit/test/table/**"],
     /* the printed proofs hold taps as data: a call's or an invoke's `then` is an action body, never awaited */
-    overrides: [{ files: ["rn/src/printed/**", "miniapp-kit/src/printed/**"], rules: { "unicorn/no-thenable": "off" } }],
+    overrides: [
+      { files: ["rn/src/printed/**", "miniapp-kit/src/printed/**"], rules: { "unicorn/no-thenable": "off" } },
+      /* the mobile app's own files every export copies (rn/src/app): written as products have always had them, and linted
+         with the kit's ESLint, the product's own; a form's `then` there is an action body too */
+      { files: ["rn/src/app/**"], rules: { "unicorn/no-thenable": "off", "unicorn/prefer-string-starts-ends-with": "off" } },
+    ],
   },
   server: {
     port: 3000,

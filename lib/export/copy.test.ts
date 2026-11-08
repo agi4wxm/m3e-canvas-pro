@@ -39,6 +39,13 @@ describe("the files an export copies as they are (lib/export/files)", () => {
       "apps/web/src/generated/DataScroll.tsx": "web/DataScroll.tsx",
       "apps/mobile/src/generated/transport.ts": `${MOBILE_FILES_DIR}/transport.ts`,
       "apps/mobile/jest.setup.tsx": `${MOBILE_FILES_DIR}/jest.setup.tsx`,
+      "apps/mobile/src/generated/api.ts": `${MOBILE_FILES_DIR}/api.ts`,
+      "apps/mobile/src/generated/bind.ts": `${MOBILE_FILES_DIR}/bind.ts`,
+      "apps/mobile/src/generated/files.ts": `${MOBILE_FILES_DIR}/files.ts`,
+      "apps/mobile/src/generated/mocks.ts": `${MOBILE_FILES_DIR}/mocks.ts`,
+      "apps/mobile/src/generated/DevMenu.tsx": `${MOBILE_FILES_DIR}/DevMenu.tsx`,
+      "apps/mobile/src/generated/ScreenRoute.tsx": `${MOBILE_FILES_DIR}/ScreenRoute.tsx`,
+      "apps/mobile/src/generated/env.d.ts": `${MOBILE_FILES_DIR}/env.d.ts`,
     };
     for (const [at, from] of Object.entries(copied)) {
       const source = from.startsWith(MOBILE_FILES_DIR) ? from : `${FILES_DIR}/${from}`;
@@ -47,6 +54,39 @@ describe("the files an export copies as they are (lib/export/files)", () => {
       expect(text(at), at).not.toMatch(/from "@m3e\//);
     }
     expect(text("packages/app-runtime/src/index.ts")).toContain('export * from "./setup"');
+  });
+});
+
+describe("the mobile app's own files filled in for the design (rn/src/app, lib/export/regions.ts)", () => {
+  const MARKS = /\/\/#|\/\/\||\/\*#|#end\*\/|\/\*\$|@@|\/\/!/;
+  const FILLED = ["root.tsx", "routing.tsx", "runtime.ts", "contract.ts", "effects.ts"];
+
+  it("keep no mark, name the product's scope, and hold the design's own tables", () => {
+    for (const file of FILLED) {
+      const body = text(`apps/mobile/src/generated/${file}`);
+      expect(body, file).not.toMatch(MARKS);
+      expect(body, file).not.toMatch(/@m3e\//);
+      expect(body.startsWith(`${GENERATED}\n`), file).toBe(true);
+    }
+    expect(text("apps/mobile/src/generated/effects.ts")).toContain(`(lib/actions in @${proof.name}/app-runtime,`);
+    expect(text("apps/mobile/src/generated/root.tsx")).toContain(`(@${proof.name}/mocks)`);
+    expect(text("apps/mobile/src/generated/runtime.ts")).toContain(`storageKey: "proof_app.session"`);
+    expect(text("apps/mobile/src/custom/setup.ts")).toContain(`@${proof.name}/mocks/native (startNative)`);
+    expect(text("apps/mobile/src/custom/setup.ts")).not.toMatch(MARKS);
+  });
+
+  it("keep the regions the design uses: the capabilities' registry, a variable that drives the dark mode", async () => {
+    /* the proof pays through payment.pay: its runtime takes the capabilities' registry */
+    expect(text("apps/mobile/src/generated/runtime.ts")).toContain('import { registry } from "./capabilities"');
+    expect(text("apps/mobile/src/generated/runtime.ts")).toContain("  capabilities: registry,\n");
+    const plain = await buildProduct({ groups: [], frames: [{ id: "home", name: "Home", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "Plain", brief: "", vars: [{ id: "night", name: "Night", type: "bool", value: false, drives: "dark" }] }, {}, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    const body = (path: string) => plain.files[path].body as string;
+    expect(body("apps/mobile/src/generated/runtime.ts")).not.toContain("registry");
+    const root = body("apps/mobile/src/generated/root.tsx");
+    expect(root).toContain("registerIcons, useApp, type AppVar }");
+    expect(root).toContain('const dark = app.vars["night"]');
+    expect(root).not.toContain("light or dark as the device is");
+    expect(text("apps/mobile/src/generated/root.tsx")).toContain("light or dark as the device is");
   });
 });
 
