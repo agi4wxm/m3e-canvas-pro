@@ -20,6 +20,7 @@ import { mobile } from "./defs/mobile";
 import { more } from "./defs/more";
 import { atoms } from "./defs/atoms";
 import { SPLITS } from "./defs/splits";
+import { RETIRED, RETIRED_SPLITS } from "./defs/retired";
 import type { Labels, ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
 import type { KitLook } from "./kits/types";
 import { applyAppearance, type Appearance } from "./appearance";
@@ -142,15 +143,25 @@ export const TIER_TEXT: Record<PartTier, Required<Labels>> = {
 
 export const categoryName = (c: PartCategory, lang: Lang) => CATEGORY_TEXT[c][lang];
 
-/* the composites that split are handed their trees of atoms here, where the two meet */
+/* the composites that split are handed their trees of atoms here, where the two meet, and the retired parts what
+ * replaces them (parts/defs/retired.ts) */
 export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((d) => {
-  const split = SPLITS[d.slug] as (typeof SPLITS)[string] | undefined;
+  const split = (SPLITS[d.slug] ?? RETIRED_SPLITS[d.slug]) as (typeof SPLITS)[string] | undefined;
+  const retired = RETIRED[d.slug];
   /* the look a split is handed is the document's KitLook, which PartDef cannot name */
-  return split && !d.atoms ? { ...d, atoms: (p: P, look?: object) => split(p, look as KitLook | undefined) } : d;
+  const atomsOf = split && !d.atoms ? { atoms: (p: P, look?: object) => split(p, look as KitLook | undefined) } : {};
+  return split || retired ? { ...d, ...atomsOf, ...(retired ? { retired } : {}) } : d;
 });
 
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);
+
+/** whether a part is retired: still drawn, no longer offered (`PartDef.retired`) */
+export const isRetired = (d: PartDef | undefined): boolean => !!d?.retired;
+
+/** The parts there are to build with: every part but the retired ones. The palette, the AI's catalog and the add
+ *  operations read this; what draws, opens, splits or prints a part reads `PARTS`, so an old document is unchanged. */
+export const OFFERED_PARTS: PartDef[] = PARTS.filter((d) => !d.retired);
 
 /** the fields of a row a tree reads. A row comes from the document, so one that holds anything but words
  *  there (a node, code to print) is read with those fields left out. */

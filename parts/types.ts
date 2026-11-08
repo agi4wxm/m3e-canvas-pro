@@ -128,6 +128,22 @@ export type SlotFamily = { prefix: string; label: string; labels?: Labels };
  *  one of `takenOverBy` bound or an action of the part reaching the API. A product never runs it. */
 export type PartDemo = { what: string; takenOverBy: string[] };
 
+/** A whole-screen part that keeps its data and its behaviour to itself (a cart that adds up its own rows, a sign-in
+ *  form that checks its own fields), retired in favour of the same look built from atoms with bindings. It still draws,
+ *  so an old document looks the same, but the palette and the AI's catalog no longer offer it, and adding one is
+ *  refused; splitting it (lib/retire.ts) turns it into atoms, its rows into a data collection where they are alike. */
+export type PartRetired = {
+  /** what to build instead, in a sentence: the kits and atoms, where the data goes, what the taps call */
+  use: string;
+  /** the kits and parts that replace it, by slug: what the palette shows for a search by the retired part's name */
+  with?: string[];
+  /** why it retired, where that is not that it keeps its data to itself */
+  why?: string;
+  /** the operation that turns an old one into what replaces it, where that is no split into atoms (a resizable
+   *  becomes a split view whose panes hold parts) */
+  convert?: string;
+};
+
 /** the part's place on a screen: a bar pinned to an edge, a corner FAB, a centered overlay.
  *  Tidy pins it and the prompt describes it by this. A box takes `top`, `bottom` or `floatingBottom` from its `pin`. */
 export type PartRole = "top" | "bottom" | "floatingBottom" | "fab" | "overlay" | "rail" | "label" | "control" | "listLike" | "fullWidth" | "backdrop";
@@ -168,6 +184,8 @@ export type PartDef = {
   overlay?: boolean;
   /** a destination bar: a tap on a destination is shared with the bar of the same entries on every other screen */
   nav?: boolean;
+  /** retired: still drawn, no longer offered (see `PartRetired`); parts/defs/retired.ts says it for each */
+  retired?: PartRetired;
   /** A container: what lies wholly inside it moves with it, the way a screen carries its parts.
    *  It keeps no list of them; see `heldBy`. */
   holds?: boolean;

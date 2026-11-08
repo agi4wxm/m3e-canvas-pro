@@ -3,6 +3,7 @@ import { useBindings } from "@m3e/app-runtime";
 import { AppBar, At, Box, Button, Cell, Container, Image, ListItem, Pin, Placeholder, RadioGroup, Screen, Text, useScreen, type Action } from "../../../kit";
 
 const A1: Action = { to: "back" };
+const A2: Action = { to: "orderPlaced" };
 
 export function CheckoutScreen() {
   const s = useScreen("checkout", { inputs: { "radioGroup2": { value: 0, labels: ["Card ending 4242", "Bank transfer", "Cash on delivery"] } } });
@@ -30,7 +31,7 @@ export function CheckoutScreen() {
           testID="panel"
         >
           <Cell dir="column" fillWidth>
-            <Text text="Deliver to" styleVariant="label" color="muted" width={348} testID="text23" />
+            <Text text="Deliver to" styleVariant="label" color="muted" width={348} testID="text40" />
           </Cell>
           <Cell dir="column" fillWidth>
             <ListItem
@@ -70,11 +71,11 @@ export function CheckoutScreen() {
               hugHeight
               testID="row2"
             >
-              <Image alt="Everyday canvas tote" width={56} height={56} testID="image3" />
-              <Image alt="Ceramic mug" width={56} height={56} testID="image4" />
-              <Image alt="Steel bottle" width={56} height={56} testID="image5" />
+              <Image alt="Everyday canvas tote" width={56} height={56} testID="image6" />
+              <Image alt="Ceramic mug" width={56} height={56} testID="image7" />
+              <Image alt="Steel bottle" width={56} height={56} testID="image8" />
               <Cell dir="row" grow>
-                <Text text="4 items" color="muted" align="end" width={156} testID="text24" />
+                <Text text="4 items" color="muted" align="end" width={156} testID="text41" />
               </Cell>
             </Container>
           </Cell>
@@ -92,7 +93,7 @@ export function CheckoutScreen() {
           testID="panel3"
         >
           <Cell dir="column" fillWidth>
-            <Text text="Pay with" styleVariant="label" color="muted" width={348} testID="text25" />
+            <Text text="Pay with" styleVariant="label" color="muted" width={348} testID="text42" />
           </Cell>
           <Cell dir="column" fillWidth>
             <RadioGroup
@@ -119,7 +120,7 @@ export function CheckoutScreen() {
           testID="panel4"
         >
           <Cell dir="column" fillWidth>
-            <Text text="Summary" styleVariant="label" color="muted" width={348} testID="text26" />
+            <Text text="Summary" styleVariant="label" color="muted" width={348} testID="text43" />
           </Cell>
           <Cell dir="column" fillWidth>
             <Box padX={0} padY={0} align="stretch" hugWidth={false} width={348} testID="descriptionList">
@@ -169,7 +170,7 @@ export function CheckoutScreen() {
             </Box>
             <Text text="Free delivery" styleVariant="tiny" fit="auto" color="muted" />
           </Box>
-          <Button label="Place order" />
+          <Button label="Place order" onPress={s.tap(A2, { $: $ })} />
         </Box>
       </At>
       {s.layer}

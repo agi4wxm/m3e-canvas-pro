@@ -1,4 +1,5 @@
 import { col, go, grid, panel, part, row, say, screen, txt, type Node, type Say, type ScreenSeed, type Template } from "./kit";
+import { atomsOf } from "./atoms";
 import { PEOPLE, shopNav, WORDS } from "./words";
 
 /* A shop, one screen each. Each builder takes the links the shop flow gives it. */
@@ -118,7 +119,7 @@ export const cartScreen = (links: { checkout?: Link; back?: Link } = {}): Screen
     body: [
       /* in one layout: a cart is as tall as what is in it, and what is under it stays under it */
       col({ gap: 16 }, [
-        part(
+        atomsOf(
           "cart-list",
           {
             data: {

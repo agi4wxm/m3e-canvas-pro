@@ -108,7 +108,7 @@ export function ProductScreen() {
             </Box>
             <Text text="Free delivery" styleVariant="tiny" fit="auto" color="muted" />
           </Box>
-          <Button label="Add to cart" />
+          <Button label="Add to cart" onPress={() => nav.go("Cart")} />
         </Box>
       </At>
     </Screen>

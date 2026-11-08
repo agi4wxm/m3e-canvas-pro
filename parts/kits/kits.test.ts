@@ -226,6 +226,9 @@ describe("the composites that split", () => {
       "profile-header": ["done"],
       "contact-list": ["done"],
       "task-row": ["done"],
+      /* a cart says it is empty only when it is; a sign-in form shows the sign-up words, and its own checks, only in the other mode */
+      "cart-list": ["empty"],
+      "auth-form": ["upTitle", "nameLabel", "confirmLabel", "upAction", "toIn", "badEmail", "badPassword", "badConfirm", "success"],
       "item-cell": ["rarityColor"],
       dialog: ["width", "height"],
       /* a dialogue shows its first line; the rest, and the choices, come with the taps */

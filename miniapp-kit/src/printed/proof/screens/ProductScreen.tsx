@@ -3,6 +3,7 @@ import { useBindings } from "@m3e/app-runtime";
 import { AppBar, At, Badge, Box, Button, Cell, Chip, Container, Icon, Image, ListItem, Pin, Rating, Screen, Text, useScreen, type Action } from "../../../kit";
 
 const A1: Action = { to: "back" };
+const A2: Action = { to: "cart" };
 
 export function ProductScreen() {
   const s = useScreen("product");
@@ -117,7 +118,7 @@ export function ProductScreen() {
             </Box>
             <Text text="Free delivery" styleVariant="tiny" fit="auto" color="muted" />
           </Box>
-          <Button label="Add to cart" />
+          <Button label="Add to cart" onPress={s.tap(A2, { $: $ })} />
         </Box>
       </At>
       {s.layer}

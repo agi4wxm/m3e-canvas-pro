@@ -16,6 +16,7 @@ import { tidyLook } from "../../look";
 import { updateRail } from "../../rail";
 import { boxWithProps, constrainedIn, holdsFreely, withConstraints } from "../../constraints";
 import { onScreenAsBackdrop } from "../../settle";
+import { retiredRefusal } from "../../retire";
 import {
   collapseFree,
   explodeGroup,
@@ -129,6 +130,7 @@ export const addPart = op<AddPartArgs, { itemId: string; groupId: string; panes?
   run(s, a, ctx) {
     const def = partBySlug(a.slug);
     if (!def) throw new OpError("not_found", `There is no part "${a.slug}". The parts catalog lists every slug.`, a.slug);
+    if (def.retired) throw new OpError("refused", retiredRefusal(def), a.slug);
     if (a.props && ctx.strict) checkProps(def, a.props, s);
     const id = freshId(s, a.id, ctx.newId);
     const base = freshPart(a.slug, !!a.seed);

@@ -5,6 +5,7 @@
 
 import { outline } from "../core/query";
 import { describeNode } from "../core/query";
+import { retiredParts } from "../retire";
 import { STRICT_LOOK_KEYS } from "../look";
 import { rulesForModel } from "../styleRules";
 import { isStrict, styleContext, styleOf, withDocStyles } from "../styles";
@@ -93,10 +94,15 @@ export function turnContext(o: { doc: Doc; widths: Record<string, number>; selec
       .filter((d): d is NonNullable<typeof d> => !!d)
       .map((d) => `${d.id} (${d.slug}${d.name ? ` "${d.name}"` : ""}) on ${d.screen ? `${d.screen.id} "${d.screen.name}"` : "no screen"}`);
     const screen = o.frameId ? doc.frames.find((f) => f.id === o.frameId) : undefined;
+    /* an old design's retired parts: the model is told what they are before it touches one */
+    const retired = retiredParts(doc.groups);
     return [
       "<context>",
       `Language for words on the canvas: ${LANG_NAME[o.lang]}.`,
       sel.length ? `Selected: ${sel.join("; ")}.` : screen ? `Selected screen: ${screen.id} "${screen.name}".` : "Nothing is selected.",
+      ...(retired.length
+        ? [`Retired parts on the screens, drawn as before but no longer built with: ${retired.slice(0, 12).map((r) => `${r.item.id} (${r.def.slug})`).join(", ")}${retired.length > 12 ? ` and ${retired.length - 12} more` : ""}. Before changing one, split_retired turns them into atoms (a resizable into a split view).`]
+        : []),
       strict
         ? `The document is held to its style's rules.\n${rulesForModel(theme!, styles)}\nSo of a part's look only ${STRICT_LOOK_KEYS.join(", ")} survive; corners and a button's shape are the style's.`
         : `The document wears ${pack ? `the ${pack.name.en} style` : "Material 3"} but is not held to its rules: colors, corners, shapes and every look field are yours to set where they help (look_reference lists them).`,
