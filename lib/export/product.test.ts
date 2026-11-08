@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { parse } from "@babel/parser";
 import { strFromU8, unzipSync } from "fflate";
 import { beforeAll, describe, expect, it } from "vitest";
 import { allPartsDoc } from "../codegen.fixture";
@@ -284,6 +285,58 @@ describe("the product of a document", () => {
   }, 60_000);
 });
 
+/** what the app's own code and its tests may name without importing it: the language's, React Native's and Jest's */
+const GLOBALS = new Set(["Array", "Boolean", "Date", "Error", "JSON", "Map", "Math", "Number", "Object", "Promise", "Set", "String", "Symbol", "URL", "console", "encodeURIComponent", "decodeURIComponent", "globalThis", "process", "require", "setTimeout", "clearTimeout", "undefined", "__DEV__", "jest", "describe", "it", "test", "expect", "beforeEach", "afterEach", "beforeAll", "afterAll"]);
+
+/** A module's names, read off its syntax: the names it declares anywhere (imports, variables, functions, parameters,
+ *  types), the bare names its JSX uses (an element, a prop's value) and every name it refers to outside its imports,
+ *  what it imports, and the props each JSX element is handed. Rough (scopes are not followed), but it is what a name
+ *  left behind by a change looks like: one used and declared nowhere, or one imported and used nowhere. */
+function namesOf(source: string, jsx: boolean) {
+  const ast = parse(source, { sourceType: "module", plugins: ["typescript", ...(jsx ? (["jsx"] as const) : [])] });
+  const declared = new Set<string>();
+  const imported = new Set<string>();
+  const used = new Set<string>();
+  const referenced = new Set<string>();
+  const props = new Map<string, string[]>();
+  const bind = (node: unknown): void => {
+    const n = node as { type?: string; name?: string; properties?: unknown[]; elements?: unknown[]; value?: unknown; argument?: unknown; left?: unknown; parameter?: unknown } | null;
+    if (!n?.type) return;
+    if (n.type === "Identifier") declared.add(n.name!);
+    else if (n.type === "ObjectPattern") n.properties!.forEach((p) => bind((p as { value?: unknown; argument?: unknown }).value ?? (p as { argument?: unknown }).argument));
+    else if (n.type === "ArrayPattern") n.elements!.forEach(bind);
+    else if (n.type === "AssignmentPattern") bind(n.left);
+    else if (n.type === "RestElement") bind(n.argument);
+    else if (n.type === "TSParameterProperty") bind(n.parameter);
+  };
+  const walk = (node: unknown, inImport: boolean): void => {
+    if (Array.isArray(node)) return node.forEach((x) => walk(x, inImport));
+    if (!node || typeof node !== "object" || !("type" in node)) return;
+    const n = node as Record<string, unknown> & { type: string };
+    const here = inImport || n.type === "ImportDeclaration";
+    if (n.type === "ImportSpecifier" || n.type === "ImportDefaultSpecifier" || n.type === "ImportNamespaceSpecifier") {
+      const local = (n.local as { name: string }).name;
+      declared.add(local);
+      imported.add(local);
+    }
+    if (n.type === "VariableDeclarator") bind(n.id);
+    if ((n.type === "FunctionDeclaration" || n.type === "ClassDeclaration" || n.type === "TSTypeAliasDeclaration" || n.type === "TSInterfaceDeclaration" || n.type === "TSEnumDeclaration") && n.id) bind(n.id);
+    if (n.type === "FunctionDeclaration" || n.type === "FunctionExpression" || n.type === "ArrowFunctionExpression" || n.type === "ObjectMethod" || n.type === "ClassMethod") (n.params as unknown[]).forEach(bind);
+    if (n.type === "CatchClause") bind(n.param);
+    if (n.type === "TSTypeParameter") declared.add(typeof n.name === "string" ? n.name : (n.name as { name: string }).name);
+    if (!here && (n.type === "Identifier" || n.type === "JSXIdentifier")) referenced.add(n.name as string);
+    if (n.type === "JSXOpeningElement" && (n.name as { type: string }).type === "JSXIdentifier") {
+      const name = (n.name as { name: string }).name;
+      if (/^[A-Z]/.test(name)) used.add(name);
+      props.set(name, [...(props.get(name) ?? []), ...(n.attributes as { type: string; name?: { name: string } }[]).flatMap((a) => (a.type === "JSXAttribute" ? [a.name!.name] : []))]);
+    }
+    if (n.type === "JSXExpressionContainer" && (n.expression as { type: string }).type === "Identifier") used.add((n.expression as { name: string }).name);
+    for (const [k, v] of Object.entries(n)) if (k !== "loc" && k !== "leadingComments" && k !== "trailingComments" && k !== "innerComments") walk(v, here);
+  };
+  walk(ast.program, false);
+  return { declared, imported, used, referenced, props };
+}
+
 describe("the mobile app", () => {
   let shop: Product;
   beforeAll(async () => {
@@ -421,6 +474,21 @@ describe("the mobile app", () => {
       if (!path.startsWith("apps/mobile/src/") || path.endsWith(".test.tsx") || path.endsWith("mocks.ts") || path.endsWith("DevMenu.tsx") || path.endsWith("root.tsx") || typeof f.body !== "string") continue;
       expect(importsIn(f.body).some((s) => s.includes("/mocks")), path).toBe(false);
     }
+  });
+
+  it("uses only names its generated files have, imports only names they use, and hands the kit's AppProvider only its props", async () => {
+    const kit = parse(await fromDisk("rn/src/kit/app.tsx"), { sourceType: "module", plugins: ["typescript", "jsx"] });
+    const provider = kit.program.body.flatMap((s) => (s.type === "ExportNamedDeclaration" && s.declaration?.type === "FunctionDeclaration" && s.declaration.id?.name === "AppProvider" ? [s.declaration] : []))[0];
+    const pattern = provider?.params[0];
+    if (pattern?.type !== "ObjectPattern") throw new Error("rn/src/kit/app.tsx: AppProvider takes no object of props");
+    const props = new Set(pattern.properties.flatMap((p) => (p.type === "ObjectProperty" && p.key.type === "Identifier" ? [p.key.name] : [])));
+    for (const p of [proof, shop])
+      for (const path of Object.keys(p.files).filter((f) => f.startsWith("apps/mobile/src/generated/") && /\.tsx?$/.test(f))) {
+        const n = namesOf(text(p, path), path.endsWith(".tsx"));
+        for (const name of n.used) expect(n.declared.has(name) || GLOBALS.has(name), `${path} uses ${name}, which it neither imports nor declares`).toBe(true);
+        for (const name of n.imported) expect(n.referenced.has(name), `${path} imports ${name} and never uses it`).toBe(true);
+        for (const prop of n.props.get("AppProvider") ?? []) expect(props.has(prop), `${path} hands AppProvider ${prop}, which it does not take`).toBe(true);
+      }
   });
 
   it("has every module its sources import: a file there, or a package its package.json names", () => {

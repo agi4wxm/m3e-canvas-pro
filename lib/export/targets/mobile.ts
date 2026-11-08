@@ -999,7 +999,7 @@ function draw(Screen: ComponentType) {
   return render(
     <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 412, height: 892 }, insets: { top: 24, left: 0, right: 0, bottom: 24 } }}>
       <RuntimeProvider runtime={runtime}>
-        <AppProvider reader={reader} handle={handleEffect}>
+        <AppProvider reader={reader} interpret={interpret}>
           <ThemeProvider theme={theme} dark={false}>
             <NavProvider value={nav}>
               <Screen />
