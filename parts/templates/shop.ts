@@ -213,46 +213,50 @@ export const checkoutScreen = (links: { place?: Link; back?: Link } = {}): Scree
       ),
     ],
     body: [
-      ...(links.place
-        ? [
-            issue({ var: "payIssue", op: "eq", value: "cancelled" }, "do_not_disturb_on", say("Payment cancelled", "支付已取消", "支払いをキャンセルしました", "결제가 취소되었습니다"), say("Your order is kept: place it again when you are ready.", "订单已保留，准备好后可以重新支付。", "注文はそのままです。準備ができたらもう一度お支払いください。", "주문은 그대로 있습니다. 준비되면 다시 결제하세요.")),
-            issue({ var: "payIssue", op: "eq", value: "order" }, "cloud_off", say("The order was not created", "订单没有创建成功", "注文を作成できませんでした", "주문을 만들지 못했습니다"), say("Check your connection and try again.", "请检查网络后重试。", "接続を確認して、もう一度お試しください。", "연결을 확인하고 다시 시도하세요.")),
-            issue({ expr: "vars.payIssue != '' && vars.payIssue != 'cancelled' && vars.payIssue != 'order'" }, "error", say("The payment did not go through", "支付没有成功", "支払いが完了しませんでした", "결제가 완료되지 않았습니다"), say("Try again, or pick another way to pay.", "请重试，或换一种支付方式。", "もう一度お試しいただくか、別の支払い方法を選んでください。", "다시 시도하거나 다른 결제 수단을 선택하세요.")),
-          ]
-        : []),
-      panel({ gap: 8 }, [txt(say("Deliver to", "配送至", "お届け先", "배송지"), "label", { color: "muted" }), deliverTo()]),
-      panel({}, [
-        row({ gap: 8 }, [
-          part("image", { alt: TOTE, width: 56, height: 56 }),
-          part("image", { alt: MUG, width: 56, height: 56 }),
-          part("image", { alt: BOTTLE, width: 56, height: 56 }),
-          txt(say("4 items", "共 4 件", "4 点", "4개"), "body", { align: "end", color: "muted" }, { fill: true }),
+      /* one column, so the notices not on show leave no hole in the preview (the body rows of a screen stand where
+         they are drawn; a column closes up around what it hides) */
+      col({ gap: 16 }, [
+        ...(links.place
+          ? [
+              issue({ var: "payIssue", op: "eq", value: "cancelled" }, "do_not_disturb_on", say("Payment cancelled", "支付已取消", "支払いをキャンセルしました", "결제가 취소되었습니다"), say("Your order is kept: place it again when you are ready.", "订单已保留，准备好后可以重新支付。", "注文はそのままです。準備ができたらもう一度お支払いください。", "주문은 그대로 있습니다. 준비되면 다시 결제하세요.")),
+              issue({ var: "payIssue", op: "eq", value: "order" }, "cloud_off", say("The order was not created", "订单没有创建成功", "注文を作成できませんでした", "주문을 만들지 못했습니다"), say("Check your connection and try again.", "请检查网络后重试。", "接続を確認して、もう一度お試しください。", "연결을 확인하고 다시 시도하세요.")),
+              issue({ expr: "vars.payIssue != '' && vars.payIssue != 'cancelled' && vars.payIssue != 'order'" }, "error", say("The payment did not go through", "支付没有成功", "支払いが完了しませんでした", "결제가 완료되지 않았습니다"), say("Try again, or pick another way to pay.", "请重试，或换一种支付方式。", "もう一度お試しいただくか、別の支払い方法を選んでください。", "다시 시도하거나 다른 결제 수단을 선택하세요.")),
+            ]
+          : []),
+        panel({ gap: 8 }, [txt(say("Deliver to", "配送至", "お届け先", "배송지"), "label", { color: "muted" }), deliverTo()]),
+        panel({}, [
+          row({ gap: 8 }, [
+            part("image", { alt: TOTE, width: 56, height: 56 }),
+            part("image", { alt: MUG, width: 56, height: 56 }),
+            part("image", { alt: BOTTLE, width: 56, height: 56 }),
+            txt(say("4 items", "共 4 件", "4 点", "4개"), "body", { align: "end", color: "muted" }, { fill: true }),
+          ]),
         ]),
-      ]),
-      panel({ gap: 8 }, [
-        txt(say("Pay with", "支付方式", "お支払い方法", "결제 수단"), "label", { color: "muted" }),
-        part("radio-group", { selected: 0, items: [{ label: say("Card ending 4242", "尾号 4242 的卡", "下 4 桁 4242 のカード", "끝자리 4242 카드") }, { label: say("Bank transfer", "银行转账", "銀行振込", "계좌 이체") }, { label: say("Cash on delivery", "货到付款", "代金引換", "착불") }] }),
-      ]),
-      part("input-group", { placeholder: say("Promo code", "优惠码", "プロモーションコード", "프로모션 코드"), leadingIcon: "sell", leadingText: "", trailingText: "", button: say("Apply", "使用", "適用", "적용") }),
-      panel({ gap: 8 }, [
-        txt(say("Summary", "订单摘要", "ご注文内容", "주문 요약"), "label", { color: "muted" }),
-        part("description-list", {
-          data: {
-            columns: ["Name", "Value"],
-            rows: [
-              [say("Items", "商品", "商品", "상품"), "$68.00"],
-              [say("Delivery", "运费", "送料", "배송비"), say("Free", "免费", "無料", "무료")],
-              [ARRIVES, FRIDAY],
-            ],
-          },
-        }),
+        panel({ gap: 8 }, [
+          txt(say("Pay with", "支付方式", "お支払い方法", "결제 수단"), "label", { color: "muted" }),
+          part("radio-group", { selected: 0, items: [{ label: say("Card ending 4242", "尾号 4242 的卡", "下 4 桁 4242 のカード", "끝자리 4242 카드") }, { label: say("Bank transfer", "银行转账", "銀行振込", "계좌 이체") }, { label: say("Cash on delivery", "货到付款", "代金引換", "착불") }] }),
+        ]),
+        part("input-group", { placeholder: say("Promo code", "优惠码", "プロモーションコード", "프로모션 코드"), leadingIcon: "sell", leadingText: "", trailingText: "", button: say("Apply", "使用", "適用", "적용") }),
+        panel({ gap: 8 }, [
+          txt(say("Summary", "订单摘要", "ご注文内容", "주문 요약"), "label", { color: "muted" }),
+          part("description-list", {
+            data: {
+              columns: ["Name", "Value"],
+              rows: [
+                [say("Items", "商品", "商品", "상품"), "$68.00"],
+                [say("Delivery", "运费", "送料", "배송비"), say("Free", "免费", "無料", "무료")],
+                [ARRIVES, FRIDAY],
+              ],
+            },
+          }),
+        ]),
       ]),
     ],
   });
 
 /** The result of a payment: the order, loaded by its id, and what its status from the back end says. Never what the
  *  payment sheet said: that only means it was submitted. */
-export const orderSuccessScreen = (links: { more?: Link } = {}): ScreenSeed =>
+export const orderSuccessScreen =(links: { more?: Link } = {}): ScreenSeed =>
   screen({
     id: "success",
     name: say("Payment result", "支付结果", "支払い結果", "결제 결과"),

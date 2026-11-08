@@ -22,282 +22,299 @@ export function CheckoutScreen() {
         />
       </Pin>
       <At x={16} y={80}>
-        {s.holds(C2, $) ? (
-          <Container
-            label=""
-            ground="surface-container-highest"
-            border="none"
-            layout="row"
-            gap={12}
-            padY={12}
-            height={74}
-            hugHeight
-            testID="row2"
-          >
-            <Icon name="do_not_disturb_on" color="error" testID="icon" />
-            <Cell dir="row" grow>
-              <Container
-                label=""
-                ground="none"
-                border="none"
-                radius={0}
-                layout="column"
-                gap={2}
-                padX={0}
-                padY={0}
-                align="stretch"
-                width={312}
-                height={50}
-                hugHeight
-                testID="column4"
-              >
-                <Cell dir="column" fillWidth>
-                  <Text text="Payment cancelled" styleVariant="label" width={312} testID="text23" />
-                </Cell>
-                <Cell dir="column" fillWidth>
-                  <Text
-                    text="Your order is kept: place it again when you are ready."
-                    styleVariant="caption"
-                    color="muted"
-                    width={312}
-                    testID="text24"
-                  />
-                </Cell>
-              </Container>
-            </Cell>
-          </Container>
-        ) : null}
-      </At>
-      <At x={16} y={170}>
-        {s.holds(C3, $) ? (
-          <Container
-            label=""
-            ground="surface-container-highest"
-            border="none"
-            layout="row"
-            gap={12}
-            padY={12}
-            height={74}
-            hugHeight
-            testID="row3"
-          >
-            <Icon name="cloud_off" color="error" testID="icon2" />
-            <Cell dir="row" grow>
-              <Container
-                label=""
-                ground="none"
-                border="none"
-                radius={0}
-                layout="column"
-                gap={2}
-                padX={0}
-                padY={0}
-                align="stretch"
-                width={312}
-                height={50}
-                hugHeight
-                testID="column5"
-              >
-                <Cell dir="column" fillWidth>
-                  <Text text="The order was not created" styleVariant="label" width={312} testID="text25" />
-                </Cell>
-                <Cell dir="column" fillWidth>
-                  <Text
-                    text="Check your connection and try again."
-                    styleVariant="caption"
-                    color="muted"
-                    width={312}
-                    testID="text26"
-                  />
-                </Cell>
-              </Container>
-            </Cell>
-          </Container>
-        ) : null}
-      </At>
-      <At x={16} y={260}>
-        {s.holds(C4, $) ? (
-          <Container
-            label=""
-            ground="surface-container-highest"
-            border="none"
-            layout="row"
-            gap={12}
-            padY={12}
-            height={74}
-            hugHeight
-            testID="row4"
-          >
-            <Icon name="error" color="error" testID="icon3" />
-            <Cell dir="row" grow>
-              <Container
-                label=""
-                ground="none"
-                border="none"
-                radius={0}
-                layout="column"
-                gap={2}
-                padX={0}
-                padY={0}
-                align="stretch"
-                width={312}
-                height={50}
-                hugHeight
-                testID="column6"
-              >
-                <Cell dir="column" fillWidth>
-                  <Text text="The payment did not go through" styleVariant="label" width={312} testID="text27" />
-                </Cell>
-                <Cell dir="column" fillWidth>
-                  <Text
-                    text="Try again, or pick another way to pay."
-                    styleVariant="caption"
-                    color="muted"
-                    width={312}
-                    testID="text28"
-                  />
-                </Cell>
-              </Container>
-            </Cell>
-          </Container>
-        ) : null}
-      </At>
-      <At x={16} y={350}>
         <Container
           label=""
+          ground="none"
           border="none"
-          radius={16}
+          radius={0}
           layout="column"
+          gap={16}
+          padX={0}
+          padY={0}
           align="stretch"
-          height={128}
+          height={958}
           hugHeight
-          testID="panel"
+          testID="column4"
         >
-          <Cell dir="column" fillWidth>
-            <Text text="Deliver to" styleVariant="label" color="muted" width={348} testID="text29" />
-          </Cell>
-          <Cell dir="column" fillWidth>
-            <ListItem
-              items={[{ label: "Mia Carter", icon: "location_on" }]}
-              description="12 Example Road, Unit 4"
-              trailing="icon"
-              width={348}
-              testID="listItem2"
-            />
-          </Cell>
-        </Container>
-      </At>
-      <At x={16} y={494}>
-        <Container
-          label=""
-          border="none"
-          radius={16}
-          layout="column"
-          gap={12}
-          align="stretch"
-          height={88}
-          hugHeight
-          testID="panel2"
-        >
+          {s.holds(C2, $) ? (
+            <Cell dir="column" fillWidth>
+              <Container
+                label=""
+                ground="surface-container-highest"
+                border="none"
+                layout="row"
+                gap={12}
+                padY={12}
+                height={74}
+                hugHeight
+                testID="row2"
+              >
+                <Icon name="do_not_disturb_on" color="error" testID="icon" />
+                <Cell dir="row" grow>
+                  <Container
+                    label=""
+                    ground="none"
+                    border="none"
+                    radius={0}
+                    layout="column"
+                    gap={2}
+                    padX={0}
+                    padY={0}
+                    align="stretch"
+                    width={312}
+                    height={50}
+                    hugHeight
+                    testID="column5"
+                  >
+                    <Cell dir="column" fillWidth>
+                      <Text text="Payment cancelled" styleVariant="label" width={312} testID="text23" />
+                    </Cell>
+                    <Cell dir="column" fillWidth>
+                      <Text
+                        text="Your order is kept: place it again when you are ready."
+                        styleVariant="caption"
+                        color="muted"
+                        width={312}
+                        testID="text24"
+                      />
+                    </Cell>
+                  </Container>
+                </Cell>
+              </Container>
+            </Cell>
+          ) : null}
+          {s.holds(C3, $) ? (
+            <Cell dir="column" fillWidth>
+              <Container
+                label=""
+                ground="surface-container-highest"
+                border="none"
+                layout="row"
+                gap={12}
+                padY={12}
+                height={74}
+                hugHeight
+                testID="row3"
+              >
+                <Icon name="cloud_off" color="error" testID="icon2" />
+                <Cell dir="row" grow>
+                  <Container
+                    label=""
+                    ground="none"
+                    border="none"
+                    radius={0}
+                    layout="column"
+                    gap={2}
+                    padX={0}
+                    padY={0}
+                    align="stretch"
+                    width={312}
+                    height={50}
+                    hugHeight
+                    testID="column6"
+                  >
+                    <Cell dir="column" fillWidth>
+                      <Text text="The order was not created" styleVariant="label" width={312} testID="text25" />
+                    </Cell>
+                    <Cell dir="column" fillWidth>
+                      <Text
+                        text="Check your connection and try again."
+                        styleVariant="caption"
+                        color="muted"
+                        width={312}
+                        testID="text26"
+                      />
+                    </Cell>
+                  </Container>
+                </Cell>
+              </Container>
+            </Cell>
+          ) : null}
+          {s.holds(C4, $) ? (
+            <Cell dir="column" fillWidth>
+              <Container
+                label=""
+                ground="surface-container-highest"
+                border="none"
+                layout="row"
+                gap={12}
+                padY={12}
+                height={74}
+                hugHeight
+                testID="row4"
+              >
+                <Icon name="error" color="error" testID="icon3" />
+                <Cell dir="row" grow>
+                  <Container
+                    label=""
+                    ground="none"
+                    border="none"
+                    radius={0}
+                    layout="column"
+                    gap={2}
+                    padX={0}
+                    padY={0}
+                    align="stretch"
+                    width={312}
+                    height={50}
+                    hugHeight
+                    testID="column7"
+                  >
+                    <Cell dir="column" fillWidth>
+                      <Text text="The payment did not go through" styleVariant="label" width={312} testID="text27" />
+                    </Cell>
+                    <Cell dir="column" fillWidth>
+                      <Text
+                        text="Try again, or pick another way to pay."
+                        styleVariant="caption"
+                        color="muted"
+                        width={312}
+                        testID="text28"
+                      />
+                    </Cell>
+                  </Container>
+                </Cell>
+              </Container>
+            </Cell>
+          ) : null}
           <Cell dir="column" fillWidth>
             <Container
               label=""
-              ground="none"
               border="none"
-              radius={0}
-              layout="row"
-              padX={0}
-              padY={0}
-              align="center"
-              width={348}
-              height={56}
+              radius={16}
+              layout="column"
+              align="stretch"
+              height={128}
               hugHeight
-              testID="row5"
+              testID="panel"
             >
-              <Image alt="Everyday canvas tote" width={56} height={56} testID="image3" />
-              <Image alt="Ceramic mug" width={56} height={56} testID="image4" />
-              <Image alt="Steel bottle" width={56} height={56} testID="image5" />
-              <Cell dir="row" grow>
-                <Text text="4 items" color="muted" align="end" width={156} testID="text30" />
+              <Cell dir="column" fillWidth>
+                <Text text="Deliver to" styleVariant="label" color="muted" width={348} testID="text29" />
+              </Cell>
+              <Cell dir="column" fillWidth>
+                <ListItem
+                  items={[{ label: "Mia Carter", icon: "location_on" }]}
+                  description="12 Example Road, Unit 4"
+                  trailing="icon"
+                  width={348}
+                  testID="listItem2"
+                />
               </Cell>
             </Container>
           </Cell>
-        </Container>
-      </At>
-      <At x={16} y={598}>
-        <Container
-          label=""
-          border="none"
-          radius={16}
-          layout="column"
-          align="stretch"
-          height={168}
-          hugHeight
-          testID="panel3"
-        >
           <Cell dir="column" fillWidth>
-            <Text text="Pay with" styleVariant="label" color="muted" width={348} testID="text31" />
-          </Cell>
-          <Cell dir="column" fillWidth>
-            <RadioGroup
-              items={[{ label: "Card ending 4242" }, { label: "Bank transfer" }, { label: "Cash on delivery" }]}
-              selected={s.value<number>("radioGroup2", 0)}
-              onChange={s.setter("radioGroup2")}
-              testID="radioGroup2"
-            />
-          </Cell>
-        </Container>
-      </At>
-      <At x={16} y={782}>
-        <Placeholder part="input-group" name="Input group" width={380} height={56} />
-      </At>
-      <At x={16} y={854}>
-        <Container
-          label=""
-          border="none"
-          radius={16}
-          layout="column"
-          align="stretch"
-          height={184}
-          hugHeight
-          testID="panel4"
-        >
-          <Cell dir="column" fillWidth>
-            <Text text="Summary" styleVariant="label" color="muted" width={348} testID="text32" />
-          </Cell>
-          <Cell dir="column" fillWidth>
-            <Box padX={0} padY={0} align="stretch" hugWidth={false} width={348} testID="descriptionList">
+            <Container
+              label=""
+              border="none"
+              radius={16}
+              layout="column"
+              gap={12}
+              align="stretch"
+              height={88}
+              hugHeight
+              testID="panel2"
+            >
               <Cell dir="column" fillWidth>
-                <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
-                  <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={66}>
-                    <Text text="Items" styleVariant="label" fit="auto" color="muted" />
-                  </Box>
+                <Container
+                  label=""
+                  ground="none"
+                  border="none"
+                  radius={0}
+                  layout="row"
+                  padX={0}
+                  padY={0}
+                  align="center"
+                  width={348}
+                  height={56}
+                  hugHeight
+                  testID="row5"
+                >
+                  <Image alt="Everyday canvas tote" width={56} height={56} testID="image3" />
+                  <Image alt="Ceramic mug" width={56} height={56} testID="image4" />
+                  <Image alt="Steel bottle" width={56} height={56} testID="image5" />
                   <Cell dir="row" grow>
-                    <Text text={"$68.00"} />
+                    <Text text="4 items" color="muted" align="end" width={156} testID="text30" />
+                  </Cell>
+                </Container>
+              </Cell>
+            </Container>
+          </Cell>
+          <Cell dir="column" fillWidth>
+            <Container
+              label=""
+              border="none"
+              radius={16}
+              layout="column"
+              align="stretch"
+              height={168}
+              hugHeight
+              testID="panel3"
+            >
+              <Cell dir="column" fillWidth>
+                <Text text="Pay with" styleVariant="label" color="muted" width={348} testID="text31" />
+              </Cell>
+              <Cell dir="column" fillWidth>
+                <RadioGroup
+                  items={[{ label: "Card ending 4242" }, { label: "Bank transfer" }, { label: "Cash on delivery" }]}
+                  selected={s.value<number>("radioGroup2", 0)}
+                  onChange={s.setter("radioGroup2")}
+                  testID="radioGroup2"
+                />
+              </Cell>
+            </Container>
+          </Cell>
+          <Cell dir="column" fillWidth>
+            <Placeholder part="input-group" name="Input group" width={380} height={56} />
+          </Cell>
+          <Cell dir="column" fillWidth>
+            <Container
+              label=""
+              border="none"
+              radius={16}
+              layout="column"
+              align="stretch"
+              height={184}
+              hugHeight
+              testID="panel4"
+            >
+              <Cell dir="column" fillWidth>
+                <Text text="Summary" styleVariant="label" color="muted" width={348} testID="text32" />
+              </Cell>
+              <Cell dir="column" fillWidth>
+                <Box padX={0} padY={0} align="stretch" hugWidth={false} width={348} testID="descriptionList">
+                  <Cell dir="column" fillWidth>
+                    <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
+                      <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={66}>
+                        <Text text="Items" styleVariant="label" fit="auto" color="muted" />
+                      </Box>
+                      <Cell dir="row" grow>
+                        <Text text={"$68.00"} />
+                      </Cell>
+                    </Box>
+                  </Cell>
+                  <Cell dir="column" fillWidth>
+                    <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
+                      <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={66}>
+                        <Text text="Delivery" styleVariant="label" fit="auto" color="muted" />
+                      </Box>
+                      <Cell dir="row" grow>
+                        <Text text="Free" />
+                      </Cell>
+                    </Box>
+                  </Cell>
+                  <Cell dir="column" fillWidth>
+                    <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
+                      <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={66}>
+                        <Text text="Arrives" styleVariant="label" fit="auto" color="muted" />
+                      </Box>
+                      <Cell dir="row" grow>
+                        <Text text="Friday" />
+                      </Cell>
+                    </Box>
                   </Cell>
                 </Box>
               </Cell>
-              <Cell dir="column" fillWidth>
-                <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
-                  <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={66}>
-                    <Text text="Delivery" styleVariant="label" fit="auto" color="muted" />
-                  </Box>
-                  <Cell dir="row" grow>
-                    <Text text="Free" />
-                  </Cell>
-                </Box>
-              </Cell>
-              <Cell dir="column" fillWidth>
-                <Box layout="row" gap={16} padX={0} padY={0} hugWidth={false}>
-                  <Box layout="row" gap={0} padX={0} padY={0} align="center" hugWidth={false} width={66}>
-                    <Text text="Arrives" styleVariant="label" fit="auto" color="muted" />
-                  </Box>
-                  <Cell dir="row" grow>
-                    <Text text="Friday" />
-                  </Cell>
-                </Box>
-              </Cell>
-            </Box>
+            </Container>
           </Cell>
         </Container>
       </At>

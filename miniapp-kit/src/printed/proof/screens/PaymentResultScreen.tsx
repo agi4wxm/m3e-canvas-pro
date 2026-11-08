@@ -38,7 +38,7 @@ export function PaymentResultScreen() {
           align="stretch"
           height={856}
           hugHeight
-          testID="column7"
+          testID="column8"
         >
           {region1 === "ready" ? (
             <>
@@ -56,7 +56,7 @@ export function PaymentResultScreen() {
                     align="stretch"
                     height={432}
                     hugHeight
-                    testID="column8"
+                    testID="column9"
                   >
                     <Cell dir="column" fillWidth>
                       <Container
@@ -147,7 +147,7 @@ export function PaymentResultScreen() {
                         align="stretch"
                         height={88}
                         hugHeight
-                        testID="column9"
+                        testID="column10"
                       >
                         <Cell dir="column" fillWidth>
                           <Button label="Track order" icon="local_shipping" width={380} testID="button20" />
@@ -180,7 +180,7 @@ export function PaymentResultScreen() {
                     align="stretch"
                     height={196}
                     hugHeight
-                    testID="column10"
+                    testID="column11"
                   >
                     <Cell dir="column" fillWidth>
                       <Container
@@ -238,7 +238,7 @@ export function PaymentResultScreen() {
                     align="stretch"
                     height={196}
                     hugHeight
-                    testID="column11"
+                    testID="column12"
                   >
                     <Cell dir="column" fillWidth>
                       <Container
@@ -290,7 +290,7 @@ export function PaymentResultScreen() {
                 align="center"
                 height={80}
                 hugHeight
-                testID="column12"
+                testID="column13"
               >
                 <LoadingIndicator testID="loadingIndicator" />
                 <Text text={"Checking the payment…"} color="muted" testID="text39" />
@@ -310,7 +310,7 @@ export function PaymentResultScreen() {
                 align="center"
                 height={72}
                 hugHeight
-                testID="column13"
+                testID="column14"
               >
                 <Text text="The order could not be loaded" styleVariant="label" testID="text40" />
                 <Button label="Try again" variant="tonal" onPress={s.tap(A3, { $: $ })} testID="button24" />

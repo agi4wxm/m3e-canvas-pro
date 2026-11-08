@@ -47,7 +47,8 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the platform capabilities,
+     before the product existed; one that changes on purpose is written again here (last: the checkout's body in one column, its payment notices
+     among its rows, so the hidden ones leave no hole in the preview; before that, the platform capabilities,
      docs/平台能力.md: the shop flow pays through createOrder and payment.pay and shows the order's status, so the proof's
      checkout reads expressions; checkout-bar, video-call, map and camera take their state as props, the map and the
      camera drawn by widgets of their own, parts/widgets/Platform.tsx. Before that: the icons reading their
@@ -57,7 +58,7 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [80, "1350c4a444bc2b142835f72ae853eed7731c8827fe0c4bd45bf5f85867053174"],
+    proof: [80, "48150a14b0e8b06b936da52cd3e182b474cfbc5edf7fa54491657476a23c7128"],
     systems: [40, "58807e81f5714322a5a6a60c6bd52007dd8f794c6d8e51804d642a637d315fef"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
     sweep: [85, "90e6c0bc79fb60ebd3440a7957399fac1fa720db8a3e35426375556ac83bd227"],
