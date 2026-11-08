@@ -47,18 +47,21 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the icons reading their
+     before the product existed; one that changes on purpose is written again here (last: the split view, whose
+     widget contract copied beside the widgets says whether a part may keep the visitor's UI state on the device
+     (parts/widgets/host.ts `remember`) and which design props an input's value takes over from (parts/types.ts
+     `PartInput.resets`), and in parts the split view itself, its widget file and react-resizable-panels 4.19.1; before it: the icons reading their
      family from a root's provider and drawn again when it changes, components/m3e/icon.tsx and symbols.tsx, and the
      loader asking for each root's family; with it the widgets' host contract, parts/widgets/host.ts, copied beside
      them, and a rating an input wired to its variable; before them an icon counted as drawn only with both its glyphs, the components saying their own words in Chinese, Japanese and Korean too, the
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [78, "7fada9a30ec5cdd94ef8ff591abae2bf0f9b62575bd0629fe0f7197416281314"],
+    proof: [78, "e3bfd2203bab7031066831f2f10f8d922c031e96422dcb44b45bc9450cf6c9ec"],
     systems: [40, "58807e81f5714322a5a6a60c6bd52007dd8f794c6d8e51804d642a637d315fef"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [84, "3b0ac95ebcbc15899e056cdd48566f3041df0b35a3c721f61e5ca45829df2630"],
-    parts: [137, "0a7cb7c8aedcda26c5de7e729720e280e961b110977918bb69222a8256890428"],
+    sweep: [84, "5317f49f07cb4f576875c0e901e988c645ec5b6ba3f9237ce3163633eae74b8d"],
+    parts: [138, "0600ee02bdf6cfefe92a94c37692c08851e70ff1ca284afc92aa663796d64d7a"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
