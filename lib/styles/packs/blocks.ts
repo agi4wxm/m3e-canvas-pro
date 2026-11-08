@@ -124,6 +124,11 @@ const CSS = `
 [data-slot=side-tabs-item][data-active]{${piece("#5B74E0")};color:#fff}
 `;
 
+/* errors read on the royal blue ground the whole pack stands on: Material's red sinks into it (1.05:1), a light
+ * rose reads (4.7:1 on the ground, more on the navy panels), with deep red words when the error is a fill */
+const ERROR = "#FFD6D6";
+const ON_ERROR = "#5C0A0A";
+
 export default definePack({
   key: "blocks",
   name: zhEnJaKo("方块解谜", "Block puzzle", "ブロックパズル", "블록 퍼즐"),
@@ -133,8 +138,8 @@ export default definePack({
   group: "mobileGame",
   seed: "#425AB7",
   mode: "dark",
-  light: roles({ p: ["#FFD23F", "#2B1F00"], pc: ["#3A2E8F", "#E6E0FF"], s: ["#FFFFFF", "#1B2A5E"], sc: ["#2C3A8F", "#FFFFFF"], t: ["#D8B8FF", "#2B1266"], tc: ["#4A2A8F", "#EADCFF"], bg: ["#425AB7", "#282858", "#2F3378", "#36408F", "#3A47A0"], text: ["#FFFFFF", "#E0E6FF"], line: ["#C3CCF7", "#5A6CC8"] }),
-  dark: roles({ p: ["#FFD23F", "#2B1F00"], pc: ["#3A2E8F", "#E6E0FF"], s: ["#FFFFFF", "#1B2A5E"], sc: ["#2C3A8F", "#FFFFFF"], t: ["#D8B8FF", "#2B1266"], tc: ["#4A2A8F", "#EADCFF"], bg: ["#425AB7", "#282858", "#2F3378", "#36408F", "#3A47A0"], text: ["#FFFFFF", "#E0E6FF"], line: ["#C3CCF7", "#5A6CC8"] }),
+  light: { ...roles({ p: ["#FFD23F", "#2B1F00"], pc: ["#3A2E8F", "#E6E0FF"], s: ["#FFFFFF", "#1B2A5E"], sc: ["#2C3A8F", "#FFFFFF"], t: ["#D8B8FF", "#2B1266"], tc: ["#4A2A8F", "#EADCFF"], bg: ["#425AB7", "#282858", "#2F3378", "#36408F", "#3A47A0"], text: ["#FFFFFF", "#E0E6FF"], line: ["#C3CCF7", "#5A6CC8"] }), error: ERROR, onError: ON_ERROR },
+  dark: { ...roles({ p: ["#FFD23F", "#2B1F00"], pc: ["#3A2E8F", "#E6E0FF"], s: ["#FFFFFF", "#1B2A5E"], sc: ["#2C3A8F", "#FFFFFF"], t: ["#D8B8FF", "#2B1266"], tc: ["#4A2A8F", "#EADCFF"], bg: ["#425AB7", "#282858", "#2F3378", "#36408F", "#3A47A0"], text: ["#FFFFFF", "#E0E6FF"], line: ["#C3CCF7", "#5A6CC8"] }), error: ERROR, onError: ON_ERROR },
   shape: "rounded",
   font: "fredoka",
   display: "fredoka",
