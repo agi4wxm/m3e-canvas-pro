@@ -66,7 +66,8 @@ describe("a part's outlets", () => {
   it("are its slots, its families and its events, and nothing else", () => {
     expect(outletKeysOf(part("number-pad"))).toEqual(["confirm", "on:submit"]);
     expect(outletKeysOf(part("item", { props: { items: [{ label: "A" }, { label: "B" }] } }))).toEqual(["tab:0", "tab:1", "tab:*"]);
-    expect(outletKeysOf(part("prize-wheel"))).toEqual(["on:settled"]);
+    expect(outletKeysOf(part("prize-wheel"))).toEqual(["action", "on:settled"]);
+    expect(outletKeysOf(part("egg-smash"))).toEqual(["egg:0", "egg:1", "egg:2", "egg:*", "on:settled"]);
     expect(outletKeysOf(part("text"))).toEqual([]);
   });
 
@@ -187,9 +188,12 @@ describe("the exports", () => {
     for (const app of ["web", "mobile", "miniapp"] as const) {
       const kinds = Object.fromEntries(counts.find((c) => c.app === app)?.kinds ?? []);
       expect(kinds, app).toMatchObject({ demo: 1, event: 1, interface: 1, capability: 1 });
-      /* the web wires a widget's input to its variable; the phone apps' kits do not yet, and say so */
-      expect(kinds.input, app).toBe(app === "web" ? undefined : 1);
+      /* every app wires the stars to their variable: none has an input to report */
+      expect(kinds.input, app).toBeUndefined();
     }
+    const screenOf = (app: string) => Object.entries(product.files).find(([p]) => new RegExp(`^apps/${app}/src/generated/screens/[^/]+\\.tsx$`).test(p))![1].body as string;
+    expect(screenOf("mobile")).toMatch(/<Rating[^>]*value=\{app\.bound\("score", \d\)\}[^>]*onValueChange=\{\(v: number\) => app\.input\("stars", v, "score"\)\}/);
+    expect(screenOf("miniapp")).toMatch(/<Rating[^>]*value=\{s\.value<number>\([^)]*\)\}[^>]*onChange=\{s\.setter\(/);
     const warnings = JSON.parse(String(product.files["apps/web/src/generated/warnings.json"].body)) as { kind: string; detail: string }[];
     expect(warnings.find((w) => w.kind === "interface")?.detail).toContain('"payNow"');
     expect(warnings.find((w) => w.kind === "event")?.detail).toContain('"submit"');
@@ -208,6 +212,10 @@ describe("the exports", () => {
     const product = await buildProduct(savedDoc(s.get()), {}, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
     const screen = Object.entries(product.files).find(([p]) => /^apps\/web\/src\/generated\/screens\/[^/]+\.tsx$/.test(p))![1].body as string;
     expect(screen).toMatch(/<Rating[^>]*value=\{Number\((\w+)\.value\("stars"\) \?\? 0\)\}[^>]*onValueChange=\{\(value\) => \1\.set\("stars", value\)\}/);
+    /* and on the phones, whose kits' stars follow the value they are given */
+    const on = (app: string) => Object.entries(product.files).find(([p]) => new RegExp(`^apps/${app}/src/generated/screens/[^/]+\\.tsx$`).test(p))![1].body as string;
+    expect(on("mobile")).toMatch(/<Rating[^>]*value=\{Number\((\w+)\.value\("stars"\) \?\? 0\)\}[^>]*onValueChange=\{\(v: number\) => \1\.set\("stars", v\)\}/);
+    expect(on("miniapp")).toMatch(/<Rating[^>]*value=\{Number\((\w+)\.value\("stars"\) \?\? \d\)\}[^>]*onChange=\{\(v: number\) => \1\.set\("stars", v\)\}/);
   }, 120_000);
 
   it("tell the coding tool which parts only act out their result in the prototype", () => {

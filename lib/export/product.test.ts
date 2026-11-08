@@ -47,18 +47,21 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the icons reading their
+     before the product existed; one that changes on purpose is written again here (last: the reward track and the leaderboard copied with the widgets, a
+     claim the demo made kept by its reward and the open row only the one given; before them the widgets' state and
+     outlets, report 3.3 and 3.4: inputs controlled through the host, demos printed where a part acts out a result, the
+     sweep's parts with a selectKey now including the level map, the side tabs and the review summary; before them the icons reading their
      family from a root's provider and drawn again when it changes, components/m3e/icon.tsx and symbols.tsx, and the
      loader asking for each root's family; with it the widgets' host contract, parts/widgets/host.ts, copied beside
      them, and a rating an input wired to its variable; before them an icon counted as drawn only with both its glyphs, the components saying their own words in Chinese, Japanese and Korean too, the
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [78, "7fada9a30ec5cdd94ef8ff591abae2bf0f9b62575bd0629fe0f7197416281314"],
+    proof: [78, "a5de0151522c73223ba55cd42d6f2557ac1a226454d713d7a7748df45d511874"],
     systems: [40, "58807e81f5714322a5a6a60c6bd52007dd8f794c6d8e51804d642a637d315fef"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [84, "3b0ac95ebcbc15899e056cdd48566f3041df0b35a3c721f61e5ca45829df2630"],
-    parts: [137, "0a7cb7c8aedcda26c5de7e729720e280e961b110977918bb69222a8256890428"],
+    sweep: [89, "0c8303d1ee827ab4fe91fc752eb56f4e2a6fcba5c0073c4fdeae3fb346adc5cc"],
+    parts: [137, "f2cdfd242dd199ac50b14654b3b8dce91cf901cd6c776a0e87db2dcb09f474c0"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
@@ -378,10 +381,12 @@ describe("the mobile app", () => {
     expect(proof.differences.filter((d) => d.app === "mobile").map(({ app: _app, ...d }) => d)).toEqual(listed);
     expect(proof.differences.filter((d) => d.app === "miniapp").map(({ app: _app, ...d }) => d)).toEqual(JSON.parse(text(proof, "apps/miniapp/src/generated/warnings.json")));
     const counts = differenceCounts(proof.differences);
-    expect(counts.map((c) => c.app)).toEqual(["mobile", "miniapp"]);
-    expect(counts[0]).toMatchObject({ total: listed.length, file: "apps/mobile/src/generated/warnings.json" });
-    expect(counts[0].kinds.reduce((n, [, k]) => n + k, 0)).toBe(listed.length);
-    expect(differenceLines(proof.differences)[0]).toMatch(/^mobile: \d+ drawn differently from the design \(\d+ \w+/);
+    /* the web lists the product cards' prototype demo (a heart and a cart count they act out), which a product never runs */
+    expect(counts.map((c) => c.app)).toEqual(["web", "mobile", "miniapp"]);
+    expect(proof.differences.filter((d) => d.app === "web").map((d) => d.kind)).toEqual(expect.arrayContaining(["demo"]));
+    expect(counts[1]).toMatchObject({ total: listed.length, file: "apps/mobile/src/generated/warnings.json" });
+    expect(counts[1].kinds.reduce((n, [, k]) => n + k, 0)).toBe(listed.length);
+    expect(differenceLines(proof.differences)[1]).toMatch(/^mobile: \d+ drawn differently from the design \(\d+ \w+/);
     /* a product with nothing drawn differently says so with an empty list */
     expect(JSON.parse(text(shop, "apps/mobile/src/generated/warnings.json"))).toEqual(shop.differences.filter((d) => d.app === "mobile").map(({ app: _app, ...d }) => d));
   });

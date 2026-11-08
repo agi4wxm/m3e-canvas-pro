@@ -5,7 +5,8 @@
 
 import { partBySlug, reader } from "../../parts/registry";
 import { expandRepeats, measuresFor } from "../collections";
-import { INPUT_PROP } from "../interact";
+import { INPUT_PROP, type FieldValue } from "../interact";
+import { optionsOf } from "../partContract";
 import type { Doc, Frame, Group, Item, ItemScope, VarValue } from "../tokens";
 import type { TransportFile } from "../api/transport";
 import { endpointOf, formFields, type FieldSpec } from "./contract";
@@ -37,7 +38,7 @@ export function formsOf(groups: Group[]): Map<string, string> {
 }
 
 /** what an input holds now, as its field's value: the words, the tick, the option chosen, the file */
-export function inputValue(it: Item, fields: Record<string, VarValue>, files?: Record<string, TransportFile[]>): unknown {
+export function inputValue(it: Item, fields: Record<string, FieldValue>, files?: Record<string, TransportFile[]>): unknown {
   if (it.component === "file-upload") {
     const f = files?.[it.id];
     return f?.length ? (f.length === 1 ? f[0] : f) : undefined;
@@ -47,17 +48,16 @@ export function inputValue(it: Item, fields: Record<string, VarValue>, files?: R
   const def = partBySlug(it.component);
   const d = def?.props.find((x) => x.key === key);
   const r = def ? reader(def, it.props) : undefined;
-  const raw = fields[it.id] !== undefined ? fields[it.id] : !r || !d ? undefined : d.kind === "bool" ? r.b(key) : d.kind === "number" ? r.n(key) : r.s(key);
-  if ((key === "selected" || it.component === "radio-group") && typeof raw === "number" && def) {
-    const rows = reader(def, it.props).list("items");
-    return raw >= 0 ? rows[raw]?.label : undefined;
-  }
+  const raw = fields[it.id] !== undefined ? fields[it.id] : !r || !d ? undefined : d.kind === "bool" ? r.b(key) : d.kind === "number" ? r.n(key) : d.kind === "list" ? r.list(key) : r.s(key);
+  /* a choice sends the words of what is picked, a list the words of its rows */
+  if (def?.input?.kind === "choice" && typeof raw === "number") return raw >= 0 ? optionsOf(it)[raw] : undefined;
+  if (Array.isArray(raw)) return raw.map((r) => r.label);
   return raw;
 }
 
 /** A form's inputs read: the body they make (each field as its schema's type has it, the form's `values` added), what
  *  the schema says is wrong with each, and whether a file is among them. */
-export function readForm(o: { form: Group; groups: Group[]; owner: Map<string, string>; doc: Pick<Doc, "api">; fields: Record<string, VarValue>; files?: Record<string, TransportFile[]>; scope: Scope; ctx: EvalContext }): { body: Record<string, unknown>; values: Record<string, unknown>; errors: Record<string, string>; files: boolean; specs: FieldSpec[] } {
+export function readForm(o: { form: Group; groups: Group[]; owner: Map<string, string>; doc: Pick<Doc, "api">; fields: Record<string, FieldValue>; files?: Record<string, TransportFile[]>; scope: Scope; ctx: EvalContext }): { body: Record<string, unknown>; values: Record<string, unknown>; errors: Record<string, string>; files: boolean; specs: FieldSpec[] } {
   const api = o.doc.api ?? {};
   const e = o.form.form ? endpointOf(api, o.form.form.operationId) : undefined;
   const specs = e ? formFields(api, e) : [];
@@ -96,7 +96,7 @@ export function boundScreen(o: {
   state: BindingState;
   params?: Record<string, unknown>;
   vars: Record<string, VarValue>;
-  fields: Record<string, VarValue>;
+  fields: Record<string, FieldValue>;
   files?: Record<string, TransportFile[]>;
   widths: Widths;
   ctx: EvalContext;
