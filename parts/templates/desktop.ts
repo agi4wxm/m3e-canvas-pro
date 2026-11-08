@@ -1,4 +1,4 @@
-import { col, deskScreen, grid, panel, part, row, say, screen, txt, type Node, type Say, type Template } from "./kit";
+import { col, deskScreen, grid, panel, part, row, say, screen, split, txt, type Node, type Say, type Template } from "./kit";
 import { AUTH_WORDS, PEOPLE } from "./words";
 
 /* Screens for a window rather than a hand: a dashboard, a back office table, a landing page. */
@@ -28,6 +28,19 @@ const STATUS = { active: say("Active", "进行中", "進行中", "진행 중"), 
 const DAY = { mon: say("Mon", "周一", "月", "월"), tue: say("Tue", "周二", "火", "화"), wed: say("Wed", "周三", "水", "수"), thu: say("Thu", "周四", "木", "목"), fri: say("Fri", "周五", "金", "금"), sat: say("Sat", "周六", "土", "토"), sun: say("Sun", "周日", "日", "일") };
 
 const SEARCH = say("Search", "搜索", "検索", "검색");
+
+/** a pane holding a split view of its own, which takes all of it */
+const holding = (inner: Node, name: Say): Node => col({ gap: 0 }, [{ ...inner, fill: true }], { name });
+
+const PANE = {
+  list: say("Message list", "邮件列表", "メール一覧", "메일 목록"),
+  reading: say("Reading pane", "阅读窗格", "閲覧ウィンドウ", "읽기 창"),
+  files: say("Files", "文件", "ファイル", "파일"),
+  details: say("Details", "详细信息", "詳細", "세부 정보"),
+  editors: say("Editors", "编辑区", "エディター", "편집기"),
+  terminal: say("Terminal", "终端", "ターミナル", "터미널"),
+  work: say("Work area", "工作区", "作業領域", "작업 영역"),
+};
 
 const feature = (icon: string, title: Say, description: Say): Node => panel({ gap: 8, padY: 20 }, [part("icon", { name: icon, size: 32, color: "primary" }), txt(title, "title"), txt(description, "body", { color: "muted" })]);
 
@@ -191,9 +204,11 @@ export const desktop: Template[] = [
           ],
         }),
         body: [
-          row({ gap: 16, align: "stretch", hugHeight: false }, [
+          /* the list and the message beside it, with a divider between them the reader moves (a split view) */
+          split(
+            { split: 34, minFirst: 280, maxFirst: 520, minSecond: 360, divider: "gap" },
             /* the list's own ground runs on to the foot of its pane, however many rows there are */
-            panel({ width: 340, gap: 8, padX: 8, padY: 8, hugHeight: false }, [
+            panel({ gap: 8, padX: 8, padY: 8 }, [
               row({ gap: 8 }, [part("search", { kind: "bar", placeholder: SEARCH, trailing: "" }, { fill: true }), part("icon-button", { icon: "edit", label: ACT.compose, variant: "tonal" })]),
               part("conversation-list", {
                 selected: 0,
@@ -213,8 +228,8 @@ export const desktop: Template[] = [
                   ],
                 },
               }),
-            ]),
-            panel({ justify: "between", padX: 24, padY: 16, hugHeight: false }, [
+            ], { name: PANE.list }),
+            panel({ justify: "between", padX: 24, padY: 16 }, [
               col({ gap: 12 }, [
                 row({ justify: "end" }, [actions([["archive", ACT.archive], ["delete", ACT.remove], ["mark_email_unread", ACT.unread], ["more_vert", ACT.more]])]),
                 txt(say("Notes from the review", "评审记录", "レビューのメモ", "리뷰 메모"), "headline"),
@@ -231,8 +246,9 @@ export const desktop: Template[] = [
                 part("attachment", { title: say("Notes.pdf", "评审记录.pdf", "メモ.pdf", "메모.pdf"), description: "2.4 MB" }),
               ]),
               row({ gap: 8 }, [part("button", { label: say("Reply", "回复", "返信", "답장"), icon: "reply" }), part("button", { label: say("Forward", "转发", "転送", "전달"), icon: "forward", variant: "tonal" })]),
-            ], { fill: true }),
-          ], { fill: true }),
+            ], { name: PANE.reading }),
+            { fill: true },
+          ),
         ],
       }),
     ],
@@ -367,8 +383,10 @@ export const desktop: Template[] = [
             part("breadcrumb", { items: [{ label: say("Home", "主目录", "ホーム", "홈") }, { label: say("Documents", "文档", "ドキュメント", "문서") }] }),
             row({ gap: 8, hugWidth: true }, [part("button", { label: say("Upload", "上传", "アップロード", "업로드"), icon: "upload", variant: "tonal" }), part("icon-button", { icon: "view_list", label: say("Change view", "切换视图", "表示を切り替え", "보기 전환") }), part("icon-button", { icon: "more_vert", label: ACT.more })]),
           ]),
-          row({ gap: 16, align: "stretch", hugHeight: false }, [
-            panel({ padX: 8, padY: 8, hugHeight: false }, [
+          /* the files and what is picked beside them, the divider the reader's to move (a split view) */
+          split(
+            { split: 72, minFirst: 360, minSecond: 240, maxSecond: 420, divider: "gap" },
+            panel({ padX: 8, padY: 8 }, [
               part("file-list", {
                 removable: false,
                 selected: 2,
@@ -388,8 +406,8 @@ export const desktop: Template[] = [
                   ],
                 },
               }),
-            ], { fill: true }),
-            panel({ width: 280, justify: "between", hugHeight: false }, [
+            ], { name: PANE.files }),
+            panel({ justify: "between" }, [
               col({ gap: 12 }, [
                 part("image", { alt: say("Preview", "预览", "プレビュー", "미리 보기"), height: 160 }),
                 txt(say("Report.pdf", "报告.pdf", "レポート.pdf", "보고서.pdf"), "title"),
@@ -406,8 +424,9 @@ export const desktop: Template[] = [
                 }),
               ]),
               col({ gap: 8 }, [part("button", { label: say("Open", "打开", "開く", "열기") }), part("button", { label: say("Share", "共享", "共有", "공유"), variant: "tonal" })]),
-            ]),
-          ], { fill: true }),
+            ], { name: PANE.details }),
+            { fill: true },
+          ),
         ],
       }),
     ],
@@ -518,8 +537,11 @@ export const desktop: Template[] = [
         top: [part("title-bar", { title: say("Project", "项目", "プロジェクト", "프로젝트"), controls: "windows" })],
         bottom: [part("status-bar", { text: say("Ready", "就绪", "準備完了", "준비됨"), trailing: say("Line 4, column 12", "第 4 行，第 12 列", "4 行 12 列", "4행 12열") })],
         body: [
-          row({ gap: 12, align: "stretch", hugHeight: false }, [
-            panel({ width: 240, gap: 8, padX: 8, padY: 12, hugHeight: false }, [
+          /* the files, the editors side by side and the terminal under them: split views, each divider the reader's to move,
+             the terminal folding away */
+          split(
+            { split: 20, minFirst: 180, maxFirst: 400, divider: "gap" },
+            panel({ gap: 8, padX: 8, padY: 12 }, [
               txt(say("Files", "文件", "ファイル", "파일"), "label", { color: "muted" }),
               part("tree", {
                 selected: 1,
@@ -534,15 +556,24 @@ export const desktop: Template[] = [
                   { label: "config.json", icon: "draft" },
                 ],
               }),
-            ]),
-            col({ gap: 12, justify: "between", hugHeight: false }, [
-              grid(2, {}, [
-                col({ gap: 8 }, [part("tabs", { selected: 0, items: [{ label: "main.js" }, { label: "styles.css" }] }), part("code-block", { code: CODE_MAIN, language: "JavaScript" })]),
-                col({ gap: 8 }, [part("tabs", { selected: 0, items: [{ label: "main.test.js" }, { label: "README.md" }] }), part("code-block", { code: CODE_TEST, language: "JavaScript" })]),
-              ]),
-              part("code-block", { code: say("$ run tests\n  4 passed, 0 failed\n  Done in 1.8 s", "$ 运行测试\n  通过 4 项，失败 0 项\n  用时 1.8 秒", "$ テストを実行\n  成功 4 件、失敗 0 件\n  1.8 秒で完了", "$ 테스트 실행\n  성공 4개, 실패 0개\n  1.8초 만에 완료"), language: say("Terminal", "终端", "ターミナル", "터미널") }),
-            ], { fill: true }),
-          ], { fill: true }),
+            ], { name: PANE.files }),
+            holding(
+              split(
+                { orientation: "vertical", split: 74, minFirst: 240, collapsible: "second", minSecond: 96, divider: "gap" },
+                holding(
+                  split(
+                    { split: 50, minFirst: 240, minSecond: 240, divider: "gap" },
+                    col({ gap: 8 }, [part("tabs", { selected: 0, items: [{ label: "main.js" }, { label: "styles.css" }] }), part("code-block", { code: CODE_MAIN, language: "JavaScript" })], { name: say("main.js", "main.js", "main.js", "main.js") }),
+                    col({ gap: 8 }, [part("tabs", { selected: 0, items: [{ label: "main.test.js" }, { label: "README.md" }] }), part("code-block", { code: CODE_TEST, language: "JavaScript" })], { name: say("main.test.js", "main.test.js", "main.test.js", "main.test.js") }),
+                  ),
+                  PANE.editors,
+                ),
+                col({ gap: 0 }, [part("code-block", { code: say("$ run tests\n  4 passed, 0 failed\n  Done in 1.8 s", "$ 运行测试\n  通过 4 项，失败 0 项\n  用时 1.8 秒", "$ テストを実行\n  成功 4 件、失敗 0 件\n  1.8 秒で完了", "$ 테스트 실행\n  성공 4개, 실패 0개\n  1.8초 만에 완료"), language: say("Terminal", "终端", "ターミナル", "터미널") })], { name: PANE.terminal }),
+              ),
+              PANE.work,
+            ),
+            { fill: true },
+          ),
         ],
       }),
     ],

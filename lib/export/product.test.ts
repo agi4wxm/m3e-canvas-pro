@@ -51,7 +51,10 @@ describe("the prototype export", () => {
      accessible names, docs/组件规范.md: the M3E button's own loading spinner (spinner.tsx copied beside it), the widgets'
      arrow keys (parts/widgets/roving.ts) and a rating named in the page's language, icon-only controls named by what
      their icon means, a picture with no name kept from a screen reader, a field's line of help in its frame; before them
-     the reward track and the leaderboard copied with the widgets, a
+     the split view, whose
+     widget contract copied beside the widgets says whether a part may keep the visitor's UI state on the device
+     (parts/widgets/host.ts `remember`) and which design props an input's value takes over from (parts/types.ts
+     `PartInput.resets`), and in parts the split view itself, its widget file and react-resizable-panels 4.19.1; before it: the reward track and the leaderboard copied with the widgets, a
      claim the demo made kept by its reward and the open row only the one given; before them the widgets' state and
      outlets, report 3.3 and 3.4: inputs controlled through the host, demos printed where a part acts out a result, the
      sweep's parts with a selectKey now including the level map, the side tabs and the review summary; before them the icons reading their
@@ -61,11 +64,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [81, "60a25d2ce60e17bb0e54fd41559fbac10f028be768958abfeb0ac12d3f75496e"],
+    proof: [81, "cbad6fcd02e47bcfd37c72adde674683a64356812cd9d87f5304a449f4c92423"],
     systems: [41, "992987b9634db0e617a98539279765cae5163f7caa5fe8ecdbc9aa5dc3ca56cb"],
     reuse: [31, "bf3a590479d5cbc75c4c9fcd91fa094350452f6190f2690665cefe7aecff44aa"],
-    sweep: [92, "18c50f952370b325ef72ebb50b94a01b3929039ba5f8907ce6e3388dd5b79110"],
-    parts: [138, "9e5e4e52e80a7ee65dbacc1a387547211cf3068bc623c1e5affc159dd0c52844"],
+    sweep: [92, "4699fa3b7919e1c63ade18ed16daa491d9a00195494ae1d43e42d224127d2ab7"],
+    parts: [139, "695c3a2b38c604d85d499bc2fafbf3a34c5016268bffc26ad5249ddaaeee57d7"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

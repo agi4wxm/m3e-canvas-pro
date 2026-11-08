@@ -18,6 +18,7 @@ import { op, OpError, S } from "../op";
 import { withGroups, withSession, type CoreState } from "../state";
 import { frameById, itemById, laidOut, spacingScale } from "./common";
 import { checkProps } from "./validate";
+import { refusePanes } from "./split";
 
 const changed = (s: CoreState, next: Group[] | null, what: string) => {
   if (!next) throw new OpError("nothing_to_do", what);
@@ -131,6 +132,7 @@ export const autoLayout = op<{ ids: string[]; id?: string }, { itemId: string }>
   label: () => "Auto layout",
   run(s, a, ctx) {
     const ids = new Set(a.ids);
+    refusePanes(s, ids, "wrapped in another layout");
     const groupIds = new Set(s.doc.groups.filter((g) => g.items.some((it) => ids.has(it.id)) || ids.has(g.id)).map((g) => g.id));
     if (!groupIds.size) throw new OpError("not_found", "None of those parts is on the canvas.");
     if (a.id && s.doc.groups.some((g) => g.id === a.id || g.items.some((it) => it.id === a.id))) throw new OpError("invalid_value", `The id ${JSON.stringify(a.id)} is taken already.`, a.id);

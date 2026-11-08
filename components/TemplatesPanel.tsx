@@ -45,8 +45,8 @@ function planOf(template: Template): Plan {
     if (!def) continue;
     let ink: Box["ink"] = INK_OF[def.slug] ?? "surfaceContainerHighest";
     if (def.holds === true && def.slug !== "scene") {
-      /* a bare layout draws nothing of its own */
-      const fill = reader(def, it.props).s("fill");
+      /* a bare layout draws nothing of its own, nor does a holder with no ground (a split view: its panes draw) */
+      const fill = def.props.some((d) => d.key === "fill") ? reader(def, it.props).s("fill") : "";
       if (!fill || fill === "none") continue;
       ink = fill.includes("primary") ? "primaryContainer" : fill.includes("secondary") ? "secondaryContainer" : "surfaceContainerHigh";
     } else if (roleOf(it) === "top" || roleOf(it) === "bottom") ink = "surfaceContainerHigh";

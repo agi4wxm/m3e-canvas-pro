@@ -28,6 +28,7 @@ export const KIT_FILES: string[] = [
  "registry.ts",
  "runtime.tsx",
  "shapes.generated.ts",
+ "split.tsx",
  "styles.ts",
  "theme/ThemeProvider.tsx",
  "theme/default.generated.ts",

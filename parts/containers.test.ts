@@ -17,7 +17,7 @@ describe("a container", () => {
 
   it("the containers hold, and nothing else does", () => {
     const holding = PARTS.filter((d) => d.holds === true).map((d) => d.slug);
-    expect(holding.toSorted()).toEqual(["box", "container", "custom", "dock", "grid-view", "resizable", "scene", "stack", "supporting-pane", "window"]);
+    expect(holding.toSorted()).toEqual(["box", "container", "custom", "dock", "grid-view", "resizable", "scene", "split-view", "stack", "supporting-pane", "window"]);
     /* an overlay holds what is laid out in it, while its auto layout is on (lib/overlayHolds.test.ts) */
     expect(PARTS.filter((d) => d.holds === "laidOut").map((d) => d.slug).toSorted()).toEqual(["alert-dialog", "dialog", "sheet"]);
   });

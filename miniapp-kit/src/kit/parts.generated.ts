@@ -809,6 +809,28 @@ export const PARTS: Record<string, PartInfo> = {
    "height": 200
   }
  },
+ "split-view": {
+  "name": "Split view",
+  "tier": "composite",
+  "defaults": {
+   "orientation": "horizontal",
+   "split": 50,
+   "minFirst": 0,
+   "maxFirst": 0,
+   "minSecond": 0,
+   "maxSecond": 0,
+   "collapsible": "none",
+   "collapsedSize": 0,
+   "collapsed": false,
+   "divider": "line",
+   "handle": true,
+   "compact": "stack",
+   "breakpoint": 600,
+   "persist": false,
+   "width": 640,
+   "height": 360
+  }
+ },
  "page-dots": {
   "name": "Page dots",
   "tier": "atom",

@@ -35,6 +35,7 @@ import type { Node } from "../../../parts/templates/kit";
 import { expandDoc } from "../../expand";
 import { getLang } from "../../i18n";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "../../flow";
+import { PANE_SIDES, panesOfSplit, splitOf } from "../../split";
 import { cleanLook } from "../../look";
 import { kitLookOf } from "../../kits";
 import { kindsIn, styleContext, styleDifferences, withDocStyles, type StyleScreen } from "../../styles";
@@ -698,6 +699,14 @@ class ScreenPrinter {
     if (run.expandedFrom !== undefined && parent) return this.instance(run, at);
     const asked = parent ? this.cell(run, parent, origin) : [];
     const boxed = (j: J): J => (asked.length ? (this.kit.add("Cell"), el("Cell", asked, [j])) : j);
+    /* a split view: the kit's, its two panes in it, each a box filling its pane (both show: no tab's visibility rule) */
+    if (run.items.length === 1 && splitOf(run)) {
+      const it = run.items[0];
+      const panes = panesOfSplit(this.all, run.id);
+      const held = PANE_SIDES.flatMap((side) => (panes[side] ? [this.flow(panes[side]!, at, undefined, { x: panes[side]!.x, y: panes[side]!.y })] : []));
+      const kept: [string, string][] = it.props?.persist === true ? [["persistKey", str(`m3e-split:${it.id}`)]] : [];
+      return this.shown(run, at, boxed(this.part(it, at, held, kept)));
+    }
     const flow = run.items.length === 1 ? flowOf(run) : null;
     if (!flow) {
       if (run.items.length === 1) return this.shown(run, at, boxed(this.part(run.items[0], at)));
@@ -849,7 +858,7 @@ class ScreenPrinter {
   /** the screen's body: every run on it, the bars pinned to their edge */
   body(): J[] {
     const at: At = { $: "$" };
-    const hosts = new Set(this.all.filter((r) => flowOf(r)).map((r) => r.id));
+    const hosts = new Set(this.all.filter((r) => flowOf(r) || splitOf(r)).map((r) => r.id));
     const runs = [...this.all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { h } = frameSizeOf(this.frame);
     const out: J[] = [];

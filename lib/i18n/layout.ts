@@ -54,6 +54,12 @@ export const LAYOUT_UI = {
   flowMax: { ja: "最大", en: "Max", zh: "最大" },
   flowLimitHint: { ja: "0 は制限なし", en: "0 means no limit", zh: "0 表示不限制" },
   flowSpan: { ja: "列をまたぐ", en: "Column span", zh: "跨列" },
+  /* a split view */
+  splitDivider: { ja: "{first}と{second}の区切り", en: "Divider between {first} and {second}", zh: "{first}与{second}之间的分隔条" },
+  splitDividerHint: { ja: "ドラッグでペインの大きさを変更（Shift で 5%、Alt も押すと 10%）。ダブルクリックで半分に戻す。矢印キーで 1%、Home と End で限界まで、Enter で折りたたむ", en: "Drag to resize the panes (Shift snaps to 5%, with Alt to 10%). Double-click to split in half. Arrow keys move 1%, Home and End to the limits, Enter folds", zh: "拖动以调整两栏大小（按住 Shift 以 5% 吸附，再按 Alt 以 10%）。双击恢复为各占一半。方向键每次 1%，Home 和 End 到最小最大，Enter 折叠" },
+  convertSplit: { ja: "分割ビューに変換", en: "Convert to split view", zh: "转为分栏视图" },
+  convertSplitHint: { ja: "2 つのペインに部品を入れられる分割ビューに置き換えます。パネルの上にある部品は、中心がある方のペインに移ります", en: "Replaces it with a split view whose two panes hold parts; the parts over each panel move into the pane their centre is on", zh: "替换为两栏都能放组件的分栏视图；压在面板上的组件按中心点移入对应的栏" },
+  splitPaneKept: { ja: "ペインは分割ビューの一部です。分割ビューを削除するか、ペインの中身を削除してください", en: "A pane is part of its split view: remove the split view, or what the pane holds", zh: "栏属于它的分栏视图：请删除整个分栏视图，或删除栏里的内容" },
 } as const satisfies Record<string, Str>;
 
 export const LAYOUT_KO: Record<keyof typeof LAYOUT_UI, string> = {
@@ -104,4 +110,9 @@ export const LAYOUT_KO: Record<keyof typeof LAYOUT_UI, string> = {
   flowMax: "최대",
   flowLimitHint: "0은 제한 없음",
   flowSpan: "열 병합",
+  splitDivider: "{first}과(와) {second} 사이 구분선",
+  splitDividerHint: "끌어서 창 크기 조절 (Shift는 5%, Alt도 누르면 10% 단위). 두 번 클릭하면 반으로. 화살표 키로 1%, Home과 End로 한계까지, Enter로 접기",
+  convertSplit: "분할 보기로 변환",
+  convertSplitHint: "두 창에 부품을 넣을 수 있는 분할 보기로 바꿉니다. 패널 위의 부품은 중심이 있는 창으로 옮겨집니다",
+  splitPaneKept: "창은 분할 보기의 일부입니다. 분할 보기를 삭제하거나 창 안의 내용을 삭제하세요",
 };

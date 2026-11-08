@@ -403,7 +403,7 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
         </DesignSection>
       )}
 
-      {((onSplit && def.atoms) || onMakeComponent || onAutoLayout) && !locked && (
+      {((onSplit && (def.atoms || def.slug === "resizable")) || onMakeComponent || onAutoLayout) && !locked && (
         <DesignSection id="actions" title={t("dzActions", lang)} p={p}>
           {/* a container with a layout of its own has nothing to gain from this */}
           {onAutoLayout && !(def.holds && def.flow && item.props?.layout && item.props.layout !== "free") && (
@@ -416,6 +416,13 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
             <button onClick={onSplit} data-split-atoms title={t("splitAtomsHint", lang)} className="m3-press" style={actionBtn(p)}>
               <Icon name="call_split" size={16} />
               {t("splitAtoms", lang)}
+            </button>
+          )}
+          {/* the legacy resizable becomes a split view whose panes hold parts (the same `onSplit`: what the part splits into) */}
+          {onSplit && def.slug === "resizable" && (
+            <button onClick={onSplit} data-convert-split title={t("convertSplitHint", lang)} className="m3-press" style={actionBtn(p)}>
+              <Icon name="vertical_split" size={16} />
+              {t("convertSplit", lang)}
             </button>
           )}
           {onMakeComponent && (

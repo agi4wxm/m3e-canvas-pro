@@ -33,6 +33,8 @@ export type GroupView = {
   widthShift: { gid: string; dx: number; dy: number } | null;
   pressedId: string | null;
   widthDragId: string | null;
+  /** what a split's pane holds is seen within the pane (lib/flow.ts `paneClips`) */
+  clips?: Map<string, string>;
 };
 
 export type GroupActs = {
@@ -71,6 +73,7 @@ export function sameGroup(a: CanvasGroupProps, b: CanvasGroupProps): boolean {
   if (x === y) return true;
   if (x.p !== y.p || x.handMode !== y.handMode || x.acts !== y.acts || x.instantRef !== y.instantRef) return false;
   if (x.startsHidden.has(g.id) !== y.startsHidden.has(g.id)) return false;
+  if (x.clips?.get(g.id) !== y.clips?.get(g.id)) return false;
   if (x.canvas.drawn.get(g.id) !== y.canvas.drawn.get(g.id)) return false;
   if ((x.gapOut?.gid === g.id ? x.gapOut : null) !== (y.gapOut?.gid === g.id ? y.gapOut : null)) return false;
   if ((x.widthShift?.gid === g.id ? x.widthShift : null) !== (y.widthShift?.gid === g.id ? y.widthShift : null)) return false;
@@ -109,7 +112,7 @@ function drawGroup(g: Group, ox: number, oy: number, screen: { w: number; h: num
         animate={{ x: g.x - ox, y: g.y - oy }}
         transition={instantG ? INSTANT : OPEN}
         /* keep any selection lift inside the group, so canvas-wide layer order is preserved */
-        style={{ position: "absolute", left: 0, top: 0, zIndex: drawnOpen(g) ? 1 : undefined, isolation: "isolate", opacity: startsHidden.has(g.id) ? HIDDEN_DIM : undefined }}
+        style={{ position: "absolute", left: 0, top: 0, zIndex: drawnOpen(g) ? 1 : undefined, isolation: "isolate", opacity: startsHidden.has(g.id) ? HIDDEN_DIM : undefined, clipPath: v.clips?.get(g.id) }}
       >
         {layoutOf(g, widths).map((pl) => (
           <div key={pl.item.id} style={{ position: "absolute", left: pl.x - g.x, top: pl.y - g.y }}>
@@ -199,6 +202,7 @@ function drawGroup(g: Group, ox: number, oy: number, screen: { w: number; h: num
         gap: GAP,
         /* keep any selection lift inside the run, so canvas-wide layer order is preserved */
         isolation: "isolate",
+        clipPath: v.clips?.get(g.id),
       }}
     >
       {cells.map((c) => {

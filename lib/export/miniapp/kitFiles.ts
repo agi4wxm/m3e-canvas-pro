@@ -33,6 +33,7 @@ export const MINIAPP_KIT_FILES = [
   "registry.ts",
   "screen.tsx",
   "shapes.generated.ts",
+  "split.tsx",
   "styles.ts",
   "theme.generated.ts",
   "theme.ts",

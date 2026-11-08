@@ -5,8 +5,9 @@
 // Edge (Playwright's Chromium off Windows): the shop flow, a form with a condition, a counter, inputs, a dock,
 // bars, a long screen, under the build and under the dev server, whose React reports what a build keeps quiet.
 // The systems document's app (a prototype's triggers, overlays and animations, flows, variables in modes bound to
-// design fields) is driven with Playwright. Not part of `bun run test` since it installs everything from the
-// network. Exits non-zero on any failure.
+// design fields) is driven with Playwright, and so are split views (`split`: the dividers dragged at the app's scale,
+// their keys, the visitor's share remembered across a reload or not). Not part of `bun run test` since it installs
+// everything from the network. Exits non-zero on any failure.
 import { execSync, spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdirSync, rmSync, statfsSync, writeFileSync } from "node:fs";
@@ -19,6 +20,7 @@ import { allPartsDoc } from "../lib/codegen.fixture";
 import { COUNTER, proofDoc, reuseDoc, sweepDoc, systemsDoc } from "../lib/exportProject.fixture";
 import { buildProject, zipProject, type ExportOptions } from "../lib/exportProject";
 import { setGlobalLang } from "../lib/i18n";
+import { DocStore, counterIds, guessMeasurer, ops, savedDoc, stateOf } from "../lib/core";
 import { makeItem, normalizeTheme, type Doc } from "../lib/tokens";
 import { layoutForStyle } from "../lib/styleLayout";
 import { partBySlug } from "../parts/registry";
@@ -26,7 +28,7 @@ import { FAMILIES } from "./icon-tables";
 
 const WORK = process.argv[2];
 const ONLY = process.argv[3];
-if (!WORK) throw new Error("usage: bun scripts/check-export.ts <empty work folder> [reuse|proof|one|parts|modal|style|sweep|systems|<a saved .zip>]");
+if (!WORK) throw new Error("usage: bun scripts/check-export.ts <empty work folder> [reuse|proof|one|parts|modal|style|sweep|systems|split|<a saved .zip>]");
 mkdirSync(WORK, { recursive: true });
 const fs0 = statfsSync(WORK);
 if ((fs0.bavail * fs0.bsize) / 2 ** 30 < 2) throw new Error("under 2GB free: stopping");
@@ -231,6 +233,17 @@ async function edgeAt(name: string, url: string) {
     ev,
     waitFor,
     clickAt,
+    /** a press, a move in small steps and a release, the way a hand drags */
+    drag: async (from: { x: number; y: number }, to: { x: number; y: number }, steps = 12) => {
+      await mouse("mouseMoved", from.x, from.y, 0);
+      await mouse("mousePressed", from.x, from.y);
+      for (let i = 1; i <= steps; i++) {
+        await mouse("mouseMoved", from.x + ((to.x - from.x) * i) / steps, from.y + ((to.y - from.y) * i) / steps);
+        await sleep(16);
+      }
+      await mouse("mouseReleased", to.x, to.y, 0);
+      await sleep(300);
+    },
     /** the screen on show, settled */
     screen: () => ev<string>(`return document.querySelector('[data-screen]')?.getAttribute('data-screen')??''`),
     at: async (screen: string) => {
@@ -890,6 +903,72 @@ async function modalAndSplit() {
   }
 }
 
+/** Split views in a built app: a desktop screen whose files | work split (remembered) holds an editor over a terminal
+ *  (not remembered, the terminal folding), each pane holding parts. The dividers are the library's separators, dragged
+ *  with the pointer whatever the app's scale, the panes' parts following; the keys move them; after a reload the
+ *  remembered one is where the visitor left it and the other where the design has it. */
+async function splitViews() {
+  const store = new DocStore(stateOf({ groups: [], frames: [] }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => "en" });
+  store.transact("Splits", "mcp", (tx) => {
+    tx.run(ops.addScreen, { id: "desk", name: "Desk", preset: "desktop" });
+    const outer = tx.run(ops.addPart, { slug: "split-view", id: "outer", screen: "desk", at: { x: 0, y: 0 }, props: { width: 1280, height: 800, split: 30, minFirst: 200, minSecond: 400, persist: true, divider: "gap" } });
+    tx.run(ops.addPart, { slug: "text", id: "files", into: { container: outer.panes!.first! }, props: { text: "Files here", style: "title" } });
+    tx.run(ops.setProps, { id: outer.panes!.second!, props: { padX: 0, padY: 0 } });
+    const inner = tx.run(ops.addPart, { slug: "split-view", id: "inner", into: { container: outer.panes!.second! }, props: { orientation: "vertical", split: 60, minFirst: 160, collapsible: "second", minSecond: 120 } });
+    tx.run(ops.setItem, { id: "inner", patch: { flowSize: { w: "fill", h: "fill" } } });
+    tx.run(ops.addPart, { slug: "button", id: "run", into: { container: inner.panes!.first! }, props: { label: "Run it" } });
+    tx.run(ops.addPart, { slug: "text", id: "term", into: { container: inner.panes!.second! }, props: { text: "Terminal here" } });
+  });
+  const dist = await assemble("split", savedDoc(store.get()), guessMeasurer.measure(store.get()));
+  if (!dist) return;
+  const server = await serve(dist, 4197);
+  const p = await edgeAt("split", "http://127.0.0.1:4197/");
+  type Sep = { now: number; min: number; max: number; x: number; y: number };
+  const seps = () => p.ev<Sep[]>(`return [...document.querySelectorAll('[data-screen] [role="separator"]')].map(e=>{const r=e.getBoundingClientRect();return {now:+e.getAttribute('aria-valuenow'),min:+e.getAttribute('aria-valuemin'),max:+e.getAttribute('aria-valuemax'),x:r.x+r.width/2,y:r.y+r.height/2}})`);
+  const edgeOf = (words: string, side: "left" | "top") => p.ev<number>(`${FIND_TEXT}return find(${JSON.stringify(words)})?.getBoundingClientRect().${side} ?? NaN`);
+  try {
+    await p.width(1000);
+    await p.reload();
+    let s = await seps();
+    ok(s.length === 2 && s[0].now === 30 && s[1].now === 60, `split: two separators at the design's shares (${JSON.stringify(s.map((x) => x.now))})`);
+    ok((await p.sees("Files here")) && (await p.sees("Run it")) && (await p.sees("Terminal here")), "split: each pane draws what it holds");
+    const scale = await p.ev<number>(`const e=document.querySelector('[data-screen]');return e.getBoundingClientRect().width/e.offsetWidth`);
+    const runAt = await edgeOf("Run it", "left");
+    await p.drag(s[0], { x: s[0].x + 90, y: s[0].y });
+    const moved = await seps();
+    ok(Math.abs(moved[0].x - s[0].x - 90) <= 2, `split: the divider follows the pointer at the app's scale ${scale.toFixed(2)} (${(moved[0].x - s[0].x).toFixed(1)}px)`);
+    ok(Math.abs((await edgeOf("Run it", "left")) - runAt - 90) <= 3, "split: the parts in the other pane follow it");
+    await p.ev(`document.querySelectorAll('[data-screen] [role="separator"]')[1].focus()`);
+    await p.key("ArrowUp", "ArrowUp", 38);
+    await sleep(300);
+    s = await seps();
+    ok(s[1].now < 60, `split: ↑ moves the inner divider (${s[1].now})`);
+    await p.key("Home", "Home", 36);
+    await sleep(300);
+    s = await seps();
+    ok(s[1].now === s[1].min, "split: Home takes it to its least");
+    await p.key("End", "End", 35);
+    await sleep(300);
+    s = await seps();
+    ok(s[1].now === s[1].max, "split: End to its most, the terminal folded");
+    await p.key("Enter", "Enter", 13);
+    await sleep(400);
+    s = await seps();
+    ok(s[1].now < s[1].max && (await edgeOf("Terminal here", "top")) > s[1].y, "split: Enter unfolds the terminal under the divider");
+    const kept = await p.ev<string | null>(`return localStorage.getItem("m3e-split:outer")`);
+    ok(!!kept && Math.abs((JSON.parse(kept) as { split: number }).split - moved[0].now) < 0.01, `split: the remembered share is kept on the device (${kept})`);
+    ok((await p.ev<string | null>(`return localStorage.getItem("m3e-split:inner")`)) === null, "split: one not remembered keeps nothing");
+    await p.reload();
+    s = await seps();
+    ok(Math.abs(s[0].now - moved[0].now) < 0.01 && s[1].now === 60, `split: after a reload the remembered one is where it was left, the other where the design has it (${JSON.stringify(s.map((x) => x.now))})`);
+    await p.shot("export-shot-split.png");
+    ok(!p.errors.length, `split: nothing went wrong on the page${p.errors.length ? `:\n  ${[...new Set(p.errors)].slice(0, 20).join("\n  ")}` : ""}`);
+  } finally {
+    await p.close();
+    server.close();
+  }
+}
+
 /** an app in a style: what the editor drew is what the built app draws */
 async function styled() {
   const part = (id: string, slug: string, x: number, y: number, props: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({ id: `g-${id}`, x, y, axis: "x" as const, items: [{ ...makeItem(slug), id, props, ...extra }] });
@@ -1173,6 +1252,7 @@ if (!ONLY || ONLY === "parts") await allParts();
 if (!ONLY || ONLY === "modal") await modalAndSplit();
 if (!ONLY || ONLY === "style") await styled();
 if (!ONLY || ONLY === "systems") await systems();
+if (!ONLY || ONLY === "split") await splitViews();
 if (!ONLY) await sweep();
 
 console.log(`\n${passes} passed, ${failures.length} failed`);

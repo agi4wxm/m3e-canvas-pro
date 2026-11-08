@@ -3,6 +3,7 @@ import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import type { FlowValues } from "../parts/flow";
 import { Group, Item, REGION_STATES, groupBounds, heldBy, holdsParts, liesInside, makeItem, ownerIdOf, unionRect, type FlowAlign, type FlowSizing } from "./tokens";
 import { alignIntent, boundsOf, gapSnapper, gridMeasure, median, runsOf, structureOf, union, type Box, type Rect, type Shape } from "./structure";
+import { PANE_SIDES, panesOfSplit, splitOf, splitSizes, type Split } from "./split";
 
 /* Auto layout on the canvas. Parts stay where the document says they are, so everything else (the
  * preview, the guides, the layers) keeps working; a container with a layout rewrites those places.
@@ -11,7 +12,10 @@ import { alignIntent, boundsOf, gapSnapper, gridMeasure, median, runsOf, structu
  *
  * Each part in a layout may say how it is sized on each axis (its own measure, its contents, or the
  * room it is given), where it stands across the run, the least and most it may be made, how many
- * columns of a grid it takes, and that it stays where it was put (absolute), as in Figma. */
+ * columns of a grid it takes, and that it stays where it was put (absolute), as in Figma.
+ *
+ * A split view (lib/split.ts) is laid out here too, though it is no auto layout of its own: it gives its two panes
+ * their sizes and places, and each pane, a container with a layout, lays out what it holds. */
 
 type Size = { w: number; h: number };
 type Widths = Record<string, number>;
@@ -301,6 +305,37 @@ export function ownSize(g: Group, widths: Widths): Size {
   return { w: ax.width ? axisValue(ax.width, it.props) : size.w, h: ax.height ? axisValue(ax.height, it.props) : size.h };
 }
 
+/** A split view's pane shows what it holds within its own box, as the exported app's panel does: what reaches past it
+ *  (a pane folded away, a part wider than its pane) is cut at its edge. For each group in a pane, at any depth, that
+ *  reaches past one, the CSS clip-path that cuts it, from the group's own top left (`x`, `y`). */
+export function paneClips(groups: Group[], widths: Widths): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!groups.some((g) => g.splitPane)) return out;
+  const byId = new Map(groups.map((g) => [g.id, g]));
+  const rectOf = (g: Group) => {
+    if (!holdsParts(g)) return groupBounds(g, widths);
+    const s = ownSize(g, widths);
+    return { l: g.x, t: g.y, r: g.x + s.w, b: g.y + s.h };
+  };
+  const panes = new Map(groups.flatMap((g) => (g.splitPane && g.inFlow && splitOf(byId.get(g.inFlow)) ? [[g.id, rectOf(g)] as const] : [])));
+  for (const g of groups) {
+    let clip: { l: number; t: number; r: number; b: number } | null = null;
+    for (let at = g.inFlow ? byId.get(g.inFlow) : undefined, i = 0; at && i < 64; at = at.inFlow ? byId.get(at.inFlow) : undefined, i++) {
+      const r = panes.get(at.id);
+      if (r) clip = clip ? { l: Math.max(clip.l, r.l), t: Math.max(clip.t, r.t), r: Math.min(clip.r, r.r), b: Math.min(clip.b, r.b) } : r;
+    }
+    if (!clip) continue;
+    const b = rectOf(g);
+    if (b.l >= clip.l - 0.5 && b.t >= clip.t - 0.5 && b.r <= clip.r + 0.5 && b.b <= clip.b + 0.5) continue;
+    const l = Math.round(clip.l - g.x);
+    const t = Math.round(clip.t - g.y);
+    const r = Math.round(Math.max(clip.l, clip.r) - g.x);
+    const bt = Math.round(Math.max(clip.t, clip.b) - g.y);
+    out.set(g.id, `polygon(${l}px ${t}px, ${r}px ${t}px, ${r}px ${bt}px, ${l}px ${bt}px)`);
+  }
+  return out;
+}
+
 /** a part has been drawn and measured, or says its measure itself */
 const measured = (g: Group, widths: Widths) => holdsParts(g) || !!g.instanceOf || g.items.every((it) => widths[it.id] !== undefined);
 
@@ -331,11 +366,13 @@ function membership(groups: Group[], widths: Widths): Group[] {
     const f = flowOf(g);
     return f ? [[g.id, f] as const] : [];
   }));
+  /* a split view lays out its panes, and nothing else */
+  const splits = new Set(groups.flatMap((g) => (splitOf(g) ? [g.id] : [])));
   const joined = new Set<string>();
   const out = groups.map((g, i) => {
     if (g.inFlow !== undefined) {
-      if (typeof g.inFlow === "string" && flowing.has(g.inFlow) && g.inFlow !== g.id) return g;
-      const { inFlow: _gone, ...rest } = g;
+      if (typeof g.inFlow === "string" && g.inFlow !== g.id && (flowing.has(g.inFlow) || (splits.has(g.inFlow) && g.splitPane !== undefined))) return g;
+      const { inFlow: _gone, splitPane: _pane, ...rest } = g;
       return rest;
     }
     /* what an instance or a repeated row expanded to belongs to it, wherever it happens to lie */
@@ -401,13 +438,23 @@ export function distribute(justify: string, spare: number, count: number, gap: n
 export function arrangeFlows(source: Group[], widths: Widths): Group[] {
   const groups = source.some((g) => g.inFlow !== undefined || holdsParts(g)) ? membership(source, widths) : source;
   const flows = new Map<string, Flow>();
+  const splits = new Map<string, Split>();
   for (const g of groups) {
     /* a locked container is finished: it stays as it is, with what is in it */
     const f = g.locked ? null : flowOf(g);
     if (f) flows.set(g.id, f);
+    const sp = g.locked ? null : splitOf(g);
+    if (sp) splits.set(g.id, sp);
   }
-  if (!flows.size) return groups.every((g, i) => g === source[i]) ? source : groups;
+  if (!flows.size && !splits.size) return groups.every((g, i) => g === source[i]) ? source : groups;
   const work = new Map(groups.map((g) => [g.id, g]));
+  /** what places what it holds: an auto layout, or a split view its panes */
+  const isHost = (id: string | undefined) => id !== undefined && (flows.has(id) || splits.has(id));
+  /** a pane of a split view: the split gives it its size on both axes */
+  const inSplit = (id: string) => {
+    const g = work.get(id);
+    return !!g && g.splitPane !== undefined && splits.has(g.inFlow ?? "");
+  };
   const sizes = new Map<string, Size>();
   const sizeOf = (id: string) => sizes.get(id) ?? ownSize(work.get(id)!, widths);
   const kidsOf = new Map<string, Group[]>();
@@ -459,7 +506,7 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
   function hugsOn(id: string, axis: "w" | "h", depth = 0): boolean {
     const g = work.get(id)!;
     const f = flows.get(id)!;
-    if (givenByParent(id, axis, depth)) return false;
+    if (inSplit(id) || givenByParent(id, axis, depth)) return false;
     const set = parentOf(g) ? childLayoutOf(lone(g)).size[axis] : undefined;
     return set === "hug" ? true : set === "fixed" ? false : axis === "w" ? f.hugW : f.hugH;
   }
@@ -542,7 +589,7 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
     const dx = nx - g.x;
     const dy = ny - g.y;
     if (!dx && !dy) return;
-    if (holdsParts(g) && !flows.has(id))
+    if (holdsParts(g) && !isHost(id))
       for (const held of heldBy(g, [...work.values()], widths)) {
         const h = work.get(held.id)!;
         work.set(held.id, { ...h, x: h.x + dx, y: h.y + dy });
@@ -552,10 +599,32 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
   };
 
   const placed = new Set<string>();
+  /** A split view's panes, each as long along its axis as the split gives it and as wide across as the split, the
+   *  divider between them; then what each pane holds. */
+  const placeSplit = (id: string) => {
+    const s = splits.get(id)!;
+    const host = work.get(id)!;
+    const size = sizeOf(id);
+    const length = s.vertical ? size.h : size.w;
+    const panes = panesOfSplit([...work.values()], id);
+    /* whole pixels, the two together the room the divider leaves */
+    const one = Math.round(splitSizes(s, length).first);
+    const along = { first: one, second: Math.max(0, length - s.divider - one) };
+    const from = { first: 0, second: one + s.divider };
+    for (const side of PANE_SIDES) {
+      const pane = panes[side];
+      if (!pane || pane.locked) continue;
+      setAxis(pane.id, "width", s.vertical ? size.w : along[side]);
+      setAxis(pane.id, "height", s.vertical ? along[side] : size.h);
+      put(pane.id, host.x + (s.vertical ? 0 : from[side]), host.y + (s.vertical ? from[side] : 0));
+      if (isHost(pane.id)) place(pane.id);
+    }
+  };
   /* outside next: where a container stands, and the room it has, are its children's to go by */
   const place = (id: string) => {
     if (placed.has(id)) return;
     placed.add(id);
+    if (splits.has(id)) return placeSplit(id);
     const f = flows.get(id)!;
     const kids = ordered(id);
     /* what has not been measured yet would be placed by a guess */
@@ -636,15 +705,16 @@ export function arrangeFlows(source: Group[], widths: Widths): Group[] {
         y += s.h + step;
       }
     }
-    for (const k of [...kids, ...loose(id)]) if (flows.has(k.id)) place(k.id);
+    for (const k of [...kids, ...loose(id)]) if (isHost(k.id)) place(k.id);
   };
+  const hostIds = groups.flatMap((g) => (isHost(g.id) ? [g.id] : []));
   /* from the outermost: a container in another is placed by it first */
-  for (const id of flows.keys()) {
+  for (const id of hostIds) {
     const parent = work.get(id)!.inFlow;
-    if (!parent || !flows.has(parent)) place(id);
+    if (!isHost(parent)) place(id);
   }
   /* a loop of containers each in the other, from a file edited by hand, has no outermost */
-  for (const id of flows.keys()) place(id);
+  for (const id of hostIds) place(id);
 
   /* a measure written twice over may have come back to what it was: that is no change */
   const propsOf = (g: Group) => JSON.stringify(g.items.map((it) => it.props));
