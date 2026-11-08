@@ -219,6 +219,11 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       runtime.restart();
       draw();
     },
+    /* the web app keeps no history of the browser's: its own back (src/runtime.tsx), which no tap asked for */
+    platformBack: () => {
+      (app as unknown as { back: () => void }).back();
+      draw();
+    },
     settle: async () => {
       for (let i = 0; i < 6; i++) {
         await turns(2);

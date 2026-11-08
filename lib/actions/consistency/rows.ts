@@ -597,6 +597,19 @@ export const ROWS: Row[] = [
     expect: { vars: { got: "submitted" }, screen: "other" },
   },
   {
+    id: "invoke-late-platform-back",
+    title: "访客已离开：用系统返回键（或滑动返回）离开也算，能力 then 的效果照常运行，跳转不再发生",
+    ref: "调用能力；迟到的回答；第四批第三波 G3",
+    design: {
+      screens: [HOME, NEXT, OTHER],
+      vars: [words("got", "")],
+      parts: [btn("open", "Open", goTo("next")), btn("pay", "Pay", stay(invoke("payment.pay", { args: { orderId: "'o1'" }, ok: body("other", setVar("got", "", "result.status")) })), { screen: "next" })],
+    },
+    hold: ["payment.pay"],
+    steps: [{ tap: "Open" }, { tap: "Pay" }, { platformBack: true }, { answer: "payment.pay", body: { status: "submitted" } }],
+    expect: { vars: { got: "submitted" }, screen: "home" },
+  },
+  {
     id: "invoke-late-restart",
     title: "重新开始后到达的能力结果什么都不做",
     ref: "调用能力；迟到的回答",

@@ -56,6 +56,23 @@ export const moved = () => {
   moves++;
 };
 
+/* The screen on show as the app's routes last said (`screenShown`), and whether the app has asked its navigator for a
+   move since that has not come on show yet. A screen that comes on show with none asked for is a move of the platform's
+   own: the system's back button, a swipe back, a tab bar of the router's. */
+let showing: string | undefined;
+let asked = false;
+
+/** The app's routes say which screen came on show (Expo Router's focus: the exported app's ScreenRoute), as a key that
+ *  tells screens and their params apart. One the app did not ask for counts as a move of the visitor's, so an answer
+ *  that comes after it goes nowhere, as after a tap that left. */
+export function screenShown(place: string) {
+  if (showing !== undefined && place !== showing) {
+    if (asked) asked = false;
+    else moved();
+  }
+  showing = place;
+}
+
 const NavContext = createContext<Nav>(NOWHERE);
 export const useNav = () => useContext(NavContext);
 export function NavProvider({ value, children }: { value: Partial<Nav>; children: ReactNode }) {
@@ -63,13 +80,15 @@ export function NavProvider({ value, children }: { value: Partial<Nav>; children
     const nav = { ...NOWHERE, ...value };
     return {
       ...nav,
-      go: (...asked) => {
+      go: (...given) => {
         moved();
-        nav.go(...asked);
+        asked = true;
+        nav.go(...given);
       },
-      back: (...asked) => {
+      back: (...given) => {
         moved();
-        nav.back(...asked);
+        asked = true;
+        nav.back(...given);
       },
     };
   }, [value]);

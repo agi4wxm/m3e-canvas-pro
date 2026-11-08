@@ -5,7 +5,7 @@
 import { router, type Href } from "expo-router"
 import { Linking } from "react-native"
 import type { ParamSpec } from "@m3e/app-runtime"
-import type { Nav } from "../kit"
+import { screenShown, type Nav } from "../kit"
 import { runtime } from "./runtime"
 
 /** a screen's route: its path (its params are segments of it), whether it is a tab, whether a tap opens it over another */
@@ -35,9 +35,11 @@ export function hrefOf(key: string, params: Record<string, unknown> = {}, overla
 /** the screen on show, to come back to after a sign-in */
 let current: { key: string; params?: Record<string, unknown> } | undefined
 
-/** a screen came on show (./ScreenRoute) */
+/** a screen came on show (./ScreenRoute): one the app did not go to (the system's back button, a swipe back) is a move
+ *  of the visitor's all the same, which an answer that comes later is told (the kit's screenShown) */
 export function seen(screen: { key: string; params?: Record<string, unknown> }) {
   current = screen
+  screenShown(`${screen.key}:${JSON.stringify(screen.params ?? {})}`)
 }
 
 /** where a tap goes, on Expo Router: a tab is switched to, a screen pushed (or put in place of this one), an overlay
