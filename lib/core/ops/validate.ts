@@ -258,6 +258,8 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
         }
       }
       if (e.body !== undefined) {
+        /* the expressions have no object literals: models reach for one to send a few fields, which args does */
+        if (typeof e.body === "string" && e.body.trim().startsWith("{")) return `body is one expression that reads a whole body (form.values, vars.draft), not an object: give the fields in args instead, each an expression ({productId: "'latte'", quantity: "2"})`;
         const err = exprSyntaxError(e.body);
         if (err) return `body: ${err}`;
       }

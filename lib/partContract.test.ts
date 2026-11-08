@@ -120,6 +120,14 @@ describe("the operations", () => {
     fails(() => s.run(ops.setAction, { id: "b", action: stay([answer as never]) }, { origin: "ai" }), /then takes no when: it runs whenever the call answers 2XX/);
   });
 
+  it("send a call's fields in args, saying so when a body is written as an object", () => {
+    const s = store();
+    s.run(ops.addEndpoint, { operationId: "order", method: "post", path: "/orders", body: { type: "object", properties: { productId: { type: "string" } } }, returns: { type: "object" } }, { origin: "ai" });
+    s.run(ops.addPart, { slug: "button", id: "b", screen: "home", at: { x: 16, y: 40 } }, { origin: "ai" });
+    fails(() => s.run(ops.setAction, { id: "b", action: stay([{ do: "call", operationId: "order", body: "{productId: 'latte'}" } as never]) }, { origin: "ai" }), /body is one expression .* not an object: give the fields in args/);
+    s.run(ops.setAction, { id: "b", action: stay([{ do: "call", operationId: "order", args: { productId: "'latte'" } } as never]) }, { origin: "ai" });
+  });
+
   it("describe what a part declares, for the AI and MCP", async () => {
     const s = store();
     s.run(ops.addPart, { slug: "coupon", id: "c", screen: "home", at: { x: 16, y: 40 } }, { origin: "ai" });
