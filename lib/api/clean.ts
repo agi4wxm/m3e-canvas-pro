@@ -5,6 +5,7 @@
  * the order of a schema's properties, of the paths, of the responses is the author's. */
 
 import { define, identifier, isRecord, operationIdFor } from "./schema";
+import { fields, withUnknown } from "../keep";
 import { HTTP_METHODS, type ApiAuth, type ApiChannel, type ApiChannelOperation, type ApiEndpoint, type ApiInfo, type ApiMessage, type ApiModel, type ApiPagination, type ApiServer, type ApiSpec, type ApiTag, type HttpMethod, type JsonSchema, type SecurityRequirement } from "./types";
 
 /** how much an API section may hold; far past any real product, small enough that every walk of it is quick */
@@ -67,6 +68,23 @@ export function cleanJson(v: unknown, budget: Budget, depth = 0): unknown {
   return undefined;
 }
 
+/* What each object of the section has. A field it holds that this version does not know is kept as it came, copied
+   within the budget like everything else (lib/keep.ts), after the fields it knows. */
+const API = fields("info", "servers", "models", "endpoints", "tags", "auth", "channels", "extra");
+const INFO = fields("title", "version", "description", "extra");
+const SERVER = fields("env", "url", "description", "realtime", "extra");
+const MODEL = fields("name", "schema");
+const ENDPOINT = fields("operationId", "method", "path", "summary", "description", "tags", "deprecated", "parameters", "requestBody", "responses", "security", "pagination", "extra");
+const PAGINATION = fields("style", "items", "cursorParam", "nextField", "limitParam", "offsetParam", "totalField");
+const TAG = fields("name", "description", "extra");
+const AUTH = fields("schemes", "security", "login", "refresh", "logout", "tokenField", "refreshTokenField");
+const EXTRA = fields("openapi", "asyncapi");
+const MESSAGE = fields("name", "title", "summary", "description", "contentType", "payload", "headers", "examples", "extra");
+const OPERATION = fields("id", "action", "messages", "summary", "description", "extra");
+const CHANNEL = fields("id", "address", "title", "summary", "description", "transport", "parameters", "messages", "operations", "extra");
+/** what a field this version does not know becomes: plain JSON within the budget */
+const kept = (budget: Budget) => (v: unknown) => cleanJson(v, budget);
+
 const str = (v: unknown, max = 20_000): string | undefined => (typeof v === "string" ? (v.length > max ? v.slice(0, max) : v) : undefined);
 const record = (v: unknown, budget: Budget): Record<string, unknown> | undefined => {
   const c = isRecord(v) ? cleanJson(v, budget) : undefined;
@@ -91,7 +109,7 @@ export function freeName(name: string, taken: Set<string>): string {
 
 function cleanInfo(v: unknown, budget: Budget): ApiInfo | undefined {
   if (!isRecord(v)) return undefined;
-  const out = compact({ title: str(v.title, 500), version: str(v.version, 100), description: str(v.description), extra: record(v.extra, budget) });
+  const out = withUnknown(v, compact({ title: str(v.title, 500), version: str(v.version, 100), description: str(v.description), extra: record(v.extra, budget) }), INFO, kept(budget));
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -103,7 +121,7 @@ function cleanServers(v: unknown, budget: Budget): ApiServer[] | undefined {
     if (!isRecord(s) || typeof s.url !== "string") continue;
     const env = freeName(typeof s.env === "string" && API_ID.test(s.env) ? s.env : `server${out.length + 1}`, taken);
     taken.add(env);
-    out.push(compact({ env, url: s.url.slice(0, 2000), description: str(s.description, 2000), realtime: str(s.realtime, 2000), extra: record(s.extra, budget) }));
+    out.push(withUnknown(s, compact({ env, url: s.url.slice(0, 2000), description: str(s.description, 2000), realtime: str(s.realtime, 2000), extra: record(s.extra, budget) }), SERVER, kept(budget)));
   }
   return out.length ? out : undefined;
 }
@@ -117,16 +135,16 @@ function cleanModels(v: unknown, budget: Budget): ApiModel[] | undefined {
     const schema = schemaOf(m.schema, budget);
     if (schema === undefined) continue;
     taken.add(m.name);
-    out.push({ name: m.name, schema });
+    out.push(withUnknown(m, { name: m.name, schema }, MODEL, kept(budget)));
   }
   return out.length ? out : undefined;
 }
 
-export function cleanPagination(v: unknown): ApiPagination | undefined {
+export function cleanPagination(v: unknown, budget: Budget = { nodes: API_LIMITS.nodes }): ApiPagination | undefined {
   if (!isRecord(v) || typeof v.items !== "string" || !v.items) return undefined;
   const name = (x: unknown) => (typeof x === "string" && x ? x.slice(0, 100) : undefined);
-  if (v.style === "cursor") return compact({ style: "cursor" as const, items: v.items.slice(0, 100), cursorParam: name(v.cursorParam), nextField: name(v.nextField), limitParam: name(v.limitParam) });
-  if (v.style === "offset") return compact({ style: "offset" as const, items: v.items.slice(0, 100), offsetParam: name(v.offsetParam), limitParam: name(v.limitParam), totalField: name(v.totalField) });
+  if (v.style === "cursor") return withUnknown(v, compact({ style: "cursor" as const, items: v.items.slice(0, 100), cursorParam: name(v.cursorParam), nextField: name(v.nextField), limitParam: name(v.limitParam) }), PAGINATION, kept(budget));
+  if (v.style === "offset") return withUnknown(v, compact({ style: "offset" as const, items: v.items.slice(0, 100), offsetParam: name(v.offsetParam), limitParam: name(v.limitParam), totalField: name(v.totalField) }), PAGINATION, kept(budget));
   return undefined;
 }
 
@@ -154,23 +172,22 @@ function cleanEndpoints(v: unknown, budget: Budget): ApiEndpoint[] | undefined {
         if (STATUS.test(code) && isRecord(c)) define(responses, code, c);
       }
     const tags = Array.isArray(e.tags) ? e.tags.filter((x): x is string => typeof x === "string").slice(0, 20) : undefined;
-    out.push(
-      compact({
-        operationId: id,
-        method: e.method,
-        path: e.path,
-        summary: str(e.summary, 2000),
-        description: str(e.description),
-        tags: tags?.length ? tags : undefined,
-        deprecated: e.deprecated === true ? true : undefined,
-        parameters: (params?.length ? params : undefined) as ApiEndpoint["parameters"],
-        requestBody: isRecord(e.requestBody) ? (cleanJson(e.requestBody, budget) as ApiEndpoint["requestBody"]) : undefined,
-        responses: responses as ApiEndpoint["responses"],
-        security: cleanSecurity(e.security),
-        pagination: cleanPagination(e.pagination),
-        extra: record(e.extra, budget),
-      }),
-    );
+    const built = compact({
+      operationId: id,
+      method: e.method,
+      path: e.path,
+      summary: str(e.summary, 2000),
+      description: str(e.description),
+      tags: tags?.length ? tags : undefined,
+      deprecated: e.deprecated === true ? true : undefined,
+      parameters: (params?.length ? params : undefined) as ApiEndpoint["parameters"],
+      requestBody: isRecord(e.requestBody) ? (cleanJson(e.requestBody, budget) as ApiEndpoint["requestBody"]) : undefined,
+      responses: responses as ApiEndpoint["responses"],
+      security: cleanSecurity(e.security),
+      pagination: cleanPagination(e.pagination, budget),
+      extra: record(e.extra, budget),
+    });
+    out.push(withUnknown(e, built, ENDPOINT, kept(budget)));
   }
   return out.length ? out : undefined;
 }
@@ -181,7 +198,7 @@ function cleanTags(v: unknown, budget: Budget): ApiTag[] | undefined {
   const out = v
     .slice(0, API_LIMITS.tags)
     .filter((t): t is Record<string, unknown> => isRecord(t) && typeof t.name === "string" && !!t.name && !seen.has(t.name) && !!seen.add(t.name))
-    .map((t) => compact({ name: (t.name as string).slice(0, 200), description: str(t.description), extra: record(t.extra, budget) }));
+    .map((t) => withUnknown(t, compact({ name: (t.name as string).slice(0, 200), description: str(t.description), extra: record(t.extra, budget) }), TAG, kept(budget)));
   return out.length ? out : undefined;
 }
 
@@ -197,13 +214,13 @@ function cleanAuth(v: unknown, budget: Budget): ApiAuth | undefined {
     }
   const id = (x: unknown) => (typeof x === "string" && x ? x.slice(0, 128) : undefined);
   const out = compact({ schemes, security: cleanSecurity(v.security), login: id(v.login), refresh: id(v.refresh), logout: id(v.logout), tokenField: id(v.tokenField), refreshTokenField: id(v.refreshTokenField) });
-  return Object.keys(schemes).length || out.security?.length || out.login || out.refresh || out.logout ? out : undefined;
+  return Object.keys(schemes).length || out.security?.length || out.login || out.refresh || out.logout ? withUnknown(v, out, AUTH, kept(budget)) : undefined;
 }
 
 function cleanMessage(m: unknown, budget: Budget): ApiMessage | undefined {
   if (!isRecord(m) || typeof m.name !== "string" || !m.name) return undefined;
   const examples = Array.isArray(m.examples) ? (m.examples.slice(0, 20).map((x) => cleanJson(x, budget)).filter(isRecord) as ApiMessage["examples"]) : undefined;
-  return compact({
+  const built = compact({
     name: m.name.slice(0, 128),
     title: str(m.title, 500),
     summary: str(m.summary, 2000),
@@ -214,12 +231,13 @@ function cleanMessage(m: unknown, budget: Budget): ApiMessage | undefined {
     examples: examples?.length ? examples : undefined,
     extra: record(m.extra, budget),
   });
+  return withUnknown(m, built, MESSAGE, kept(budget));
 }
 
 function cleanOperation(o: unknown, budget: Budget): ApiChannelOperation | undefined {
   if (!isRecord(o) || typeof o.id !== "string" || !o.id || (o.action !== "send" && o.action !== "receive")) return undefined;
   const messages = Array.isArray(o.messages) ? o.messages.filter((x): x is string => typeof x === "string").slice(0, API_LIMITS.messages) : undefined;
-  return compact({ id: o.id.slice(0, 128), action: o.action as ApiChannelOperation["action"], messages, summary: str(o.summary, 2000), description: str(o.description), extra: record(o.extra, budget) });
+  return withUnknown(o, compact({ id: o.id.slice(0, 128), action: o.action as ApiChannelOperation["action"], messages, summary: str(o.summary, 2000), description: str(o.description), extra: record(o.extra, budget) }), OPERATION, kept(budget));
 }
 
 function cleanChannels(v: unknown, budget: Budget): ApiChannel[] | undefined {
@@ -235,20 +253,19 @@ function cleanChannels(v: unknown, budget: Budget): ApiChannel[] | undefined {
     const ops = new Set<string>();
     const operations = (Array.isArray(c.operations) ? c.operations.slice(0, API_LIMITS.operations) : []).map((o) => cleanOperation(o, budget)).filter((o): o is ApiChannelOperation => !!o && !ops.has(o.id) && !!ops.add(o.id));
     const parameters = record(c.parameters, budget) as ApiChannel["parameters"];
-    out.push(
-      compact({
-        id,
-        address: c.address.slice(0, 2000),
-        title: str(c.title, 500),
-        summary: str(c.summary, 2000),
-        description: str(c.description),
-        transport: c.transport === "sse" || c.transport === "websocket" ? c.transport : undefined,
-        parameters,
-        messages,
-        operations,
-        extra: record(c.extra, budget),
-      }),
-    );
+    const built = compact({
+      id,
+      address: c.address.slice(0, 2000),
+      title: str(c.title, 500),
+      summary: str(c.summary, 2000),
+      description: str(c.description),
+      transport: c.transport === "sse" || c.transport === "websocket" ? (c.transport as ApiChannel["transport"]) : undefined,
+      parameters,
+      messages,
+      operations,
+      extra: record(c.extra, budget),
+    });
+    out.push(withUnknown(c, built, CHANNEL, kept(budget)));
   }
   return out.length ? out : undefined;
 }
@@ -262,8 +279,8 @@ export const isEmptyApi = (a: ApiSpec | undefined) => !a || Object.values(a).eve
 export function cleanApi(v: unknown): ApiSpec | undefined {
   if (!isRecord(v)) return undefined;
   const budget: Budget = { nodes: API_LIMITS.nodes };
-  const extra = isRecord(v.extra) ? compact({ openapi: record(v.extra.openapi, budget), asyncapi: record(v.extra.asyncapi, budget) }) : undefined;
-  const out: ApiSpec = compact({
+  const extra = isRecord(v.extra) ? withUnknown(v.extra, compact({ openapi: record(v.extra.openapi, budget), asyncapi: record(v.extra.asyncapi, budget) }), EXTRA, kept(budget)) : undefined;
+  const built: ApiSpec = compact({
     info: cleanInfo(v.info, budget),
     servers: cleanServers(v.servers, budget),
     models: cleanModels(v.models, budget),
@@ -273,6 +290,7 @@ export function cleanApi(v: unknown): ApiSpec | undefined {
     channels: cleanChannels(v.channels, budget),
     extra: extra && Object.keys(extra).length ? extra : undefined,
   });
+  const out = withUnknown(v, built, API, kept(budget));
   return isEmptyApi(out) ? undefined : out;
 }
 

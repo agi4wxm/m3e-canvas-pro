@@ -243,6 +243,29 @@ describe("the MCP server on a project file", () => {
     expect(text).toMatch(/^ {4}"frames": \[\n {6}\{"id":"home"/m);
   });
 
+  it("writes back what this version does not know, at every level, when a tool changes the file", async () => {
+    const path = join(scratchDir(), "m3e-canvas Future.json");
+    const doc = writeProject(path);
+    /* fields a newer version (or a tool of its own) wrote: on the document, a screen, a group, a part, its props, a tap */
+    const g = doc.groups[0];
+    const future = {
+      ...doc,
+      futureSection: { kept: [1, 2] },
+      frames: doc.frames.map((f) => ({ ...f, futureFrame: "x" })),
+      groups: [{ ...g, futureGroup: true, items: [{ ...g.items[0], futureItem: { a: 1 }, props: { ...g.items[0].props, futureProp: 3 }, action: { to: "none", transition: "none", futureTap: 1, effects: [{ do: "invoke", capability: "pay" }] } }] }, ...doc.groups.slice(1)],
+    };
+    writeFileSync(path, serializeProject(future as never).text);
+    const s = await connect({ file: path });
+    done.push(s.close);
+    expect((await s.call("set_title", { title: "Kept" })).isError).toBeFalsy();
+    const written = (JSON.parse(readFileSync(path, "utf8")) as { document: Record<string, unknown> & typeof future }).document;
+    expect(written.title).toBe("Kept");
+    expect(written.futureSection).toEqual({ kept: [1, 2] });
+    expect(written.frames[0]).toMatchObject({ futureFrame: "x" });
+    expect(written.groups[0]).toMatchObject({ futureGroup: true });
+    expect(written.groups[0].items[0]).toMatchObject({ futureItem: { a: 1 }, props: { futureProp: 3 }, action: { futureTap: 1, effects: [{ do: "invoke", capability: "pay" }] } });
+  });
+
   it("keeps a project folder's pictures beside it", async () => {
     const dir = scratchDir();
     const s = await connect({ file: dir });

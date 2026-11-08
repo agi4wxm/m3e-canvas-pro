@@ -13,6 +13,11 @@ import { cleanDocIcons } from "../docIcons";
 import { cleanApi } from "../api/clean";
 import { cleanMocks } from "../mocks/clean";
 import { translateComponentProps } from "../../parts/registry";
+import { fields, withUnknown } from "../keep";
+
+/** The fields of a document this version knows. Any other a document brings (a newer version's, a tool's own) goes
+ *  into the state as it came and is saved with it, after these: the store never drops what it does not understand. */
+export const DOC_FIELDS = fields("groups", "frames", "paletteKey", "customPalette", "dynamicColor", "frame", "title", "brief", "promptEdit", "promptOptions", "theme", "vars", "varCollections", "varModes", "components", "componentSets", "collections", "styles", "icons", "api", "mocks");
 
 export type Widths = Record<string, number>;
 
@@ -63,7 +68,7 @@ export const emptySession = (): Session => ({ selection: [], frameId: null, widt
 export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, session: Partial<Session> = {}): CoreState {
   const icons = cleanDocIcons(doc.icons);
   return {
-    doc: {
+    doc: withUnknown(doc, {
       groups: doc.groups,
       frames: doc.frames,
       paletteKey: doc.paletteKey || "purple",
@@ -84,7 +89,7 @@ export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, sess
       ...(icons ? { icons } : {}),
       ...(doc.api ? { api: doc.api } : {}),
       ...(doc.mocks ? { mocks: doc.mocks } : {}),
-    },
+    } as DocState, DOC_FIELDS),
     editing: null,
     session: { ...emptySession(), ...session },
   };
@@ -96,7 +101,7 @@ export function stateOf(doc: Partial<Doc> & Pick<Doc, "groups" | "frames">, sess
 export function savedDoc(s: CoreState): Doc {
   const { doc, editing } = s;
   const defs = editing ? doc.components?.map((c) => (c.id === editing.id ? definitionFrom(c, doc.groups, s.session.widths) : c)) : doc.components;
-  return {
+  const saved: Doc = {
     groups: editing ? editing.main.groups : doc.groups,
     frames: editing ? editing.main.frames : doc.frames,
     paletteKey: doc.paletteKey,
@@ -119,6 +124,7 @@ export function savedDoc(s: CoreState): Doc {
     api: doc.api,
     mocks: doc.mocks,
   };
+  return withUnknown(doc, saved, DOC_FIELDS);
 }
 
 /* ---------- small writers ---------- */
@@ -189,6 +195,9 @@ function readInto(s: CoreState, doc: Partial<Doc>, reset: boolean): Record<strin
     if (v === undefined) delete out[k];
     else out[k] = v;
   };
+  /* what this version does not know comes in as it is; a whole document coming in takes the place of the last one's */
+  if (reset) for (const k of Object.keys(out)) if (!DOC_FIELDS.has(k)) delete out[k];
+  for (const k of Object.keys(doc)) if (!DOC_FIELDS.has(k) && (doc as Record<string, unknown>)[k] !== undefined) Object.defineProperty(out, k, { value: (doc as Record<string, unknown>)[k], enumerable: true, writable: true, configurable: true });
   if (Array.isArray(doc.groups)) set("groups", drawableGroups(conformGroups(doc.groups, look)));
   if (Array.isArray(doc.components)) set("components", conformDoc({ groups: [], components: doc.components }, look).components);
   else if (reset) set("components", undefined);

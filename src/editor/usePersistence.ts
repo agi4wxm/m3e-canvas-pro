@@ -77,7 +77,8 @@ export function usePersistence(o: PersistenceInputs) {
           .assets(stored)
           .then((found) => {
             if (!found) return;
-            store.update("Pictures", "system", (s) => ({ ...s, doc: { ...s.doc, groups: withAssets(s.doc.groups, found), frames: withAssets(s.doc.frames, found), ...(s.doc.components ? { components: withAssets(s.doc.components, found) } : {}) } }));
+            /* wherever they are: the screens and parts, the mock library's files, a field this version does not know */
+            store.update("Pictures", "system", (s) => ({ ...s, doc: withAssets(s.doc, found) }));
             o.setDraftBefore((b) => (b ? withAssets(b, found) : b));
           })
           .catch(() => {});

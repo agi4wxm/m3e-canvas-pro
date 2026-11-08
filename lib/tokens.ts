@@ -8,6 +8,7 @@ import type { Motion, Transition } from "./screenMotion";
 import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleUX } from "./styles";
 import type { ApiSpec } from "./api/types";
 import type { MockSpec } from "./mocks/types";
+import { fields, withUnknown } from "./keep";
 
 /* the API section's model (lib/api): data models, endpoints, auth, channels, servers */
 export type * from "./api/types";
@@ -496,7 +497,11 @@ export const DEFAULT_THEME: Theme = { dark: false, bothModes: false, contrast: "
 
 export const ICON_FAMILIES: IconFamily[] = ["rounded", "filled", "light", "sharp", "pixel", "sf", "fluentui", "codicon", "phosphor", "lucide", "remix", "ant", "tabler", "mingcute", "game", "emoji"];
 
-/** a stored theme with any missing or unknown field replaced by its default */
+/** the fields a theme has */
+const THEME_FIELDS = fields("dark", "bothModes", "contrast", "shape", "font", "emphasized", "motion", "style", "ownColors", "recipes", "displayFont", "icons", "ux", "strict");
+
+/** A stored theme with any missing field, or one of a value it cannot take, replaced by its default. A field a theme
+ *  does not have (a newer version's) is kept as it came, after the others. */
 export function normalizeTheme(t: Partial<Theme> | undefined): Theme {
   if (!t) return DEFAULT_THEME;
   const pack = styleOf(t.style);
@@ -508,7 +513,7 @@ export function normalizeTheme(t: Partial<Theme> | undefined): Theme {
   const held: Theme | null = !strict ? null : pack ? d : { ...DEFAULT_THEME, ...stylePatch("") };
   const recipes = held ? undefined : normalizeRecipes(t.recipes);
   const ux = held ? undefined : normalizeUx(t.ux);
-  return {
+  const built: Theme = {
     dark: typeof t.dark === "boolean" ? t.dark : d.dark,
     bothModes: typeof t.bothModes === "boolean" ? t.bothModes : d.bothModes,
     contrast: CONTRASTS.some((c) => c.key === t.contrast) ? (t.contrast as Contrast) : d.contrast,
@@ -524,6 +529,7 @@ export function normalizeTheme(t: Partial<Theme> | undefined): Theme {
     ...(held ? (held.displayFont ? { displayFont: held.displayFont } : {}) : FONTS.some((c) => c.key === t.displayFont) ? { displayFont: t.displayFont } : d.displayFont ? { displayFont: d.displayFont } : {}),
     ...(held ? (held.icons ? { icons: held.icons } : {}) : ICON_FAMILIES.includes(t.icons as IconFamily) ? { icons: t.icons } : d.icons ? { icons: d.icons } : {}),
   };
+  return withUnknown(t, built, THEME_FIELDS);
 }
 
 export const SHAPES: { key: ShapeScale; label: string; icon: string }[] = [

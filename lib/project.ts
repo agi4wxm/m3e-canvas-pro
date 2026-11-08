@@ -10,6 +10,7 @@ import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
 import { COLOR_TOKENS, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams } from "./bindings/clean";
+import { fields, withUnknown } from "./keep";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -65,22 +66,54 @@ const validFrame = (frame: unknown) =>
 
 const isValue = (v: unknown): v is VarValue => typeof v === "string" || typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v));
 
+const CONDITION = fields("filled", "expr", "var", "op", "value");
+
 function cleanCondition(c: unknown): Condition | undefined {
   if (!isRecord(c)) return undefined;
-  if (typeof c.filled === "string") return { filled: c.filled };
+  const keep = (built: Condition) => withUnknown(c, built, CONDITION);
+  if (typeof c.filled === "string") return keep({ filled: c.filled });
   if (c.expr !== undefined) {
     const expr = cleanExpr(c.expr);
-    return expr ? { expr } : undefined;
+    return expr ? keep({ expr }) : undefined;
   }
-  if (typeof c.var === "string" && (c.op === "eq" || c.op === "neq") && isValue(c.value)) return { var: c.var, op: c.op, value: c.value };
+  if (typeof c.var === "string" && (c.op === "eq" || c.op === "neq") && isValue(c.value)) return keep({ var: c.var, op: c.op, value: c.value });
   return undefined;
 }
 
 /** how deep a call's `then` and `catch` may hold calls of their own */
 const MAX_CALL_DEPTH = 4;
 
+/** the fields each kind of effect has: what `cleanEffect` checks, the rest of an effect kept as it came */
+const EFFECT_FIELDS: Record<string, ReadonlySet<string>> = {
+  show: fields("do", "part"),
+  hide: fields("do", "part"),
+  toggle: fields("do", "part"),
+  open: fields("do", "part"),
+  close: fields("do", "part"),
+  setVar: fields("do", "var", "value", "expr"),
+  toggleVar: fields("do", "var"),
+  addVar: fields("do", "var", "by"),
+  setProp: fields("do", "part", "prop", "value"),
+  snackbar: fields("do", "message"),
+  call: fields("do", "operationId", "args", "body", "then", "catch", "optimistic"),
+  refresh: fields("do", "source"),
+  loadMore: fields("do", "source"),
+  submit: fields("do", "form"),
+  signOut: fields("do"),
+};
+const OPTIMISTIC = fields("source", "remove", "patch");
+
+/** An effect checked for its kind's fields. One of a kind this version does not know (a newer version's) is kept as
+ *  it came, an opaque record every runtime skips (lib/interact.ts); one of a known kind and the wrong shape goes. */
 function cleanEffect(e: unknown, depth = 0): Effect | undefined {
   if (!isRecord(e)) return undefined;
+  const known = typeof e.do === "string" && Object.prototype.hasOwnProperty.call(EFFECT_FIELDS, e.do) ? EFFECT_FIELDS[e.do] : undefined;
+  if (!known) return typeof e.do === "string" && e.do ? ({ ...e } as unknown as Effect) : undefined;
+  const built = cleanKnownEffect(e, depth);
+  return built ? withUnknown(e, built, known) : undefined;
+}
+
+function cleanKnownEffect(e: Record<string, unknown>, depth: number): Effect | undefined {
   switch (e.do) {
     case "show":
     case "hide":
@@ -107,7 +140,7 @@ function cleanEffect(e: unknown, depth = 0): Effect | undefined {
       const body = e.body === undefined ? undefined : cleanExpr(e.body);
       const then = cleanBody(e.then, depth + 1);
       const fail = cleanBody(e.catch, depth + 1);
-      const o = isRecord(e.optimistic) && typeof e.optimistic.source === "string" ? { source: e.optimistic.source, ...(e.optimistic.remove === true ? { remove: true } : {}), ...(cleanExprMap(e.optimistic.patch) ? { patch: cleanExprMap(e.optimistic.patch) } : {}) } : undefined;
+      const o = isRecord(e.optimistic) && typeof e.optimistic.source === "string" ? withUnknown(e.optimistic, { source: e.optimistic.source, ...(e.optimistic.remove === true ? { remove: true } : {}), ...(cleanExprMap(e.optimistic.patch) ? { patch: cleanExprMap(e.optimistic.patch) } : {}) }, OPTIMISTIC) : undefined;
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
       return { do: "call", operationId: e.operationId, ...(args ? { args } : {}), ...(body ? { body } : {}), ...(then ? { then } : {}), ...(fail ? { catch: fail } : {}), ...(o && (o.remove || o.patch) ? { optimistic: o } : {}) };
     }
@@ -138,11 +171,11 @@ function cleaned<T extends Record<string, unknown>>(value: T, fields: Record<str
 const cleanEffects = (list: unknown, depth = 0) => (Array.isArray(list) ? list.map((e) => cleanEffect(e, depth)).filter((e) => e !== undefined) : undefined);
 /* what a prototype adds to a tap: an overlay, a part to scroll to, a motion, a trigger (lib/prototype.ts), and the
    params the screen it opens is given (lib/bindings) */
-const PROTOTYPE = { overlay: (v: unknown) => (typeof v === "boolean" ? v : undefined), scrollTo: (v: unknown) => (typeof v === "string" ? v : undefined), motion: cleanMotion, params: cleanExprMap };
+const PROTOTYPE = { overlay: (v: unknown) => (typeof v === "boolean" ? v : undefined), scrollTo: (v: unknown) => (typeof v === "string" ? v : undefined), motion: (v: unknown) => cleanMotion(v, true), params: cleanExprMap };
 function cleanBody(a: unknown, depth = 0): ActionBody | undefined {
   return isRecord(a) && typeof a.to === "string" ? (cleaned(a, { effects: (l) => cleanEffects(l, depth), ...PROTOTYPE }) as unknown as ActionBody) : undefined;
 }
-const cleanAction = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, when: cleanCondition, else: cleanBody, trigger: cleanTrigger, ...PROTOTYPE }) : undefined);
+const cleanAction = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, when: cleanCondition, else: cleanBody, trigger: (v) => cleanTrigger(v, true), ...PROTOTYPE }) : undefined);
 
 const cleanActions = (map: unknown) => {
   if (!isRecord(map)) return undefined;
@@ -165,6 +198,8 @@ function onlyOneDark(vars: DocVar[]): DocVar[] {
   });
 }
 
+const VAR = fields("id", "name", "type", "value", "drives", "collection", "modes");
+
 function cleanVar(v: unknown): DocVar | undefined {
   if (!isRecord(v) || typeof v.id !== "string" || (v.type !== "text" && v.type !== "number" && v.type !== "bool" && v.type !== "color")) return undefined;
   const type = v.type;
@@ -172,7 +207,7 @@ function cleanVar(v: unknown): DocVar | undefined {
   /* a start value of another type keeps the variable and loses the value */
   const value = fitsType(v.value, type) ? v.value : fallback;
   const modes = isRecord(v.modes) ? (Object.fromEntries(Object.entries(v.modes).filter(([, x]) => fitsType(x, type))) as Record<string, VarValue>) : undefined;
-  return {
+  const built: DocVar = {
     id: v.id,
     name: typeof v.name === "string" ? v.name : "",
     type,
@@ -181,24 +216,30 @@ function cleanVar(v: unknown): DocVar | undefined {
     ...(typeof v.collection === "string" ? { collection: v.collection } : {}),
     ...(modes && Object.keys(modes).length ? { modes } : {}),
   };
+  return withUnknown(v, built, VAR);
 }
+
+const VAR_COLLECTION = fields("id", "name", "modes", "dark");
+const VAR_MODE = fields("id", "name");
 
 /** a collection of variables, with modes that each have an id; one of no modes is given one */
 function cleanVarCollection(c: unknown): VarCollection | undefined {
   if (!isRecord(c) || typeof c.id !== "string") return undefined;
-  const modes = Array.isArray(c.modes) ? c.modes.flatMap((m) => (isRecord(m) && typeof m.id === "string" ? [{ id: m.id, name: typeof m.name === "string" ? m.name : "" }] : [])) : [];
+  const modes = Array.isArray(c.modes) ? c.modes.flatMap((m) => (isRecord(m) && typeof m.id === "string" ? [withUnknown(m, { id: m.id, name: typeof m.name === "string" ? m.name : "" }, VAR_MODE)] : [])) : [];
   if (!modes.length) modes.push({ id: "default", name: "" });
-  return { id: c.id, name: typeof c.name === "string" ? c.name : "", modes, ...(typeof c.dark === "string" && modes.some((m) => m.id === c.dark) ? { dark: c.dark } : {}) };
+  return withUnknown(c, { id: c.id, name: typeof c.name === "string" ? c.name : "", modes, ...(typeof c.dark === "string" && modes.some((m) => m.id === c.dark) ? { dark: c.dark } : {}) }, VAR_COLLECTION);
 }
 
 const cleanModes = (map: unknown) => (isRecord(map) ? (Object.fromEntries(Object.entries(map).filter(([, v]) => typeof v === "string")) as Record<string, string>) : undefined);
 
 /** a part's constraints in a box, whichever of the two are of the right kind */
+const CONSTRAINTS = fields("h", "v");
+
 function cleanConstraints(v: unknown) {
   if (!isRecord(v)) return undefined;
   const h = H_CONSTRAINTS.includes(v.h as never) ? (v.h as (typeof H_CONSTRAINTS)[number]) : undefined;
   const vv = V_CONSTRAINTS.includes(v.v as never) ? (v.v as (typeof V_CONSTRAINTS)[number]) : undefined;
-  return h || vv ? { ...(h ? { h } : {}), ...(vv ? { v: vv } : {}) } : undefined;
+  return h || vv ? withUnknown(v, { ...(h ? { h } : {}), ...(vv ? { v: vv } : {}) }, CONSTRAINTS) : undefined;
 }
 
 const cleanItem = (it: Item) =>
@@ -206,7 +247,7 @@ const cleanItem = (it: Item) =>
     action: cleanAction,
     actions: cleanActions,
     bind: cleanBind,
-    look: cleanLook,
+    look: (v) => cleanLook(v, true),
     fill: (v) => (COLOR_TOKENS.some((t) => t.key === v) ? v : undefined),
     row: () => undefined,
     scope: () => undefined,
@@ -217,19 +258,23 @@ const cleanItem = (it: Item) =>
 const cleanOverrides = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => isValue(v))) : undefined);
 
 /** what a kit's box remembers, whole or not at all: a mark of another shape only means the kit is left as it is */
+const KIT = fields("slug", "variant", "auto", "sig");
+
 function cleanKit(k: unknown) {
   if (!isRecord(k) || typeof k.slug !== "string" || typeof k.variant !== "string" || typeof k.auto !== "boolean" || typeof k.sig !== "string") return undefined;
-  return { slug: k.slug, variant: k.variant, auto: k.auto, sig: k.sig };
+  return withUnknown(k, { slug: k.slug, variant: k.variant, auto: k.auto, sig: k.sig }, KIT);
 }
+
+const REPEAT = fields("collection", "limit", "data", "sample");
 
 function cleanRepeat(r: unknown) {
   if (!isRecord(r)) return undefined;
   /* a limit of the wrong kind goes, and the repeat stays */
   const limit = typeof r.limit === "number" && Number.isInteger(r.limit) && r.limit >= 0 ? { limit: r.limit } : {};
-  if (typeof r.collection === "string") return { collection: r.collection, ...limit };
+  if (typeof r.collection === "string") return withUnknown(r, { collection: r.collection, ...limit }, REPEAT);
   const data = cleanExpr(r.data);
   if (!data) return undefined;
-  return { data, ...limit, ...(typeof r.sample === "number" && Number.isInteger(r.sample) && r.sample >= 1 && r.sample <= 12 ? { sample: r.sample } : {}) };
+  return withUnknown(r, { data, ...limit, ...(typeof r.sample === "number" && Number.isInteger(r.sample) && r.sample >= 1 && r.sample <= 12 ? { sample: r.sample } : {}) }, REPEAT);
 }
 
 const cleanGroup = (g: Group) =>
@@ -280,11 +325,14 @@ function cleanPalette(p: unknown): Palette | undefined {
 }
 
 /** a property of a component, whole or not at all */
+const COMPONENT_PROP = fields("id", "name", "type", "value", "targets");
+
 function cleanComponentProp(p: unknown): ComponentProp | undefined {
   if (!isRecord(p) || typeof p.id !== "string" || (p.type !== "text" && p.type !== "bool" && p.type !== "swap") || !Array.isArray(p.targets)) return undefined;
   const fallback = p.type === "bool" ? true : "";
   const value = p.type === "bool" ? (typeof p.value === "boolean" ? p.value : fallback) : typeof p.value === "string" ? p.value : fallback;
-  return { id: p.id, name: typeof p.name === "string" ? p.name : "", type: p.type, value, targets: p.targets.filter((t): t is string => typeof t === "string") };
+  const built: ComponentProp = { id: p.id, name: typeof p.name === "string" ? p.name : "", type: p.type, value, targets: p.targets.filter((t): t is string => typeof t === "string") };
+  return withUnknown(p, built, COMPONENT_PROP);
 }
 
 const cleanStrings = (map: unknown): Record<string, string> | undefined => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, v]) => typeof v === "string")) as Record<string, string> : undefined);
@@ -296,7 +344,7 @@ function cleanComponent(c: unknown): ComponentDef | undefined {
   const size = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 40);
   const props = Array.isArray(c.props) ? c.props.map(cleanComponentProp).filter((p) => p !== undefined) : [];
   const variant = cleanStrings(c.variant);
-  return {
+  const built: ComponentDef = {
     id: c.id,
     name: typeof c.name === "string" ? c.name : "",
     groups,
@@ -306,25 +354,35 @@ function cleanComponent(c: unknown): ComponentDef | undefined {
     ...(variant ? { variant } : {}),
     ...(props.length ? { props } : {}),
   };
+  return withUnknown(c, built, COMPONENT);
 }
+
+const COMPONENT = fields("id", "name", "groups", "w", "h", "set", "variant", "props");
+const COMPONENT_SET = fields("id", "name", "props");
+const SET_PROP = fields("name", "values");
 
 /** a set of variants: its properties and their values, as words */
 function cleanComponentSet(c: unknown): ComponentSet | undefined {
   if (!isRecord(c) || typeof c.id !== "string") return undefined;
   const props = Array.isArray(c.props)
-    ? c.props.flatMap((p) => (isRecord(p) && typeof p.name === "string" && Array.isArray(p.values) ? [{ name: p.name, values: p.values.filter((v): v is string => typeof v === "string") }] : []))
+    ? c.props.flatMap((p) => (isRecord(p) && typeof p.name === "string" && Array.isArray(p.values) ? [withUnknown(p, { name: p.name, values: p.values.filter((v): v is string => typeof v === "string") }, SET_PROP)] : []))
     : [];
-  return { id: c.id, name: typeof c.name === "string" ? c.name : "", props };
+  return withUnknown(c, { id: c.id, name: typeof c.name === "string" ? c.name : "", props }, COMPONENT_SET);
 }
+
+const COLLECTION = fields("id", "name", "fields", "rows", "model");
 
 /** one collection, or nothing when it has no id. A cell of another kind is read as words where it can be; a row that is no row goes. */
 function cleanCollection(c: unknown): Collection | undefined {
   if (!isRecord(c) || typeof c.id !== "string") return undefined;
   const cell = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : "");
-  const fields = Array.isArray(c.fields) ? c.fields.filter((f): f is string => typeof f === "string") : [];
+  const names = Array.isArray(c.fields) ? c.fields.filter((f): f is string => typeof f === "string") : [];
   const rows = Array.isArray(c.rows) ? c.rows.filter(Array.isArray).map((r: unknown[]) => r.map(cell)) : [];
-  return { id: c.id, name: typeof c.name === "string" ? c.name : "", fields, rows, ...(typeof c.model === "string" && c.model ? { model: c.model } : {}) };
+  return withUnknown(c, { id: c.id, name: typeof c.name === "string" ? c.name : "", fields: names, rows, ...(typeof c.model === "string" && c.model ? { model: c.model } : {}) }, COLLECTION);
 }
+
+/** the fields a part (`Item`) has */
+const ITEM_FIELDS = fields("id", "kind", "label", "icon", "variant", "component", "props", "look", "navTabs", "note", "noteHistory", "collapseOnScroll", "fill", "textColor", "corners", "flowFill", "flowSize", "alignSelf", "flowAbsolute", "flowMin", "flowMax", "flowSpan", "constraints", "action", "actions", "bind", "field", "row", "scope");
 
 /** An instance has a definition to draw from and one item standing in for it, whatever the file said.
  *  One of nothing known loses the link, and goes altogether if nothing else is left of it. */
@@ -339,7 +397,8 @@ function cleanInstance(g: Group, components: ComponentDef[] | undefined): Group 
   const was = g.items[0];
   /* what the instance asks of the layout it stands in, where it goes and what it is said to be are its own, not the definition's */
   const own = was ? { ...childLayoutFields(was), ...(was.action ? { action: was.action } : {}), ...(typeof was.note === "string" ? { note: was.note } : {}) } : {};
-  return { ...g, items: [{ ...made.items[0], ...own, id: was?.id ?? made.items[0].id }] };
+  /* and so is what this version does not know of it */
+  return { ...g, items: [withUnknown(was, { ...made.items[0], ...own, id: was?.id ?? made.items[0].id }, ITEM_FIELDS)] };
 }
 
 /** How many auto layouts deep a part may be laid out. Layout, the layers and the outline go down a nest one call a

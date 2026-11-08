@@ -422,7 +422,8 @@ describe("a file with behaviour in it", () => {
     expect(g.showWhen).toBeUndefined();
     const it = g.items[0];
     expect(it.bind).toEqual({ label: "t" });
-    expect(it.action).toEqual({ to: "f2", transition: "slide", effects: [{ do: "show", part: "a" }, { do: "snackbar", message: "hi" }] });
+    /* an effect of a kind this version does not know is kept as it came, for the version that wrote it */
+    expect(it.action).toEqual({ to: "f2", transition: "slide", effects: [{ do: "nope" }, { do: "show", part: "a" }, { do: "snackbar", message: "hi" }] });
     expect(it.actions).toEqual({ "tab:1": { to: "f", transition: "none" } });
     expect(h.hidden).toBe(true);
     expect(h.pane).toBeUndefined();
