@@ -4,23 +4,14 @@ import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
+import { useHost, type HostProps } from "./host";
+import { secondsLeft, useSeeded } from "./seed";
 
-/* The game panels, after 17722797729/m3e-canvas game-ui (MIT), each holding its own state. A rarity's color is the author's data, not a theme role, so it is written as given. */
+/* The game panels, after 17722797729/m3e-canvas game-ui (MIT). What is claimed, checked in or picked is the game's to
+ * say and comes in as props; a press only asks, and only a prototype's demo marks things done by itself. A rarity's
+ * color is the author's data, not a theme role, so it is written as given. */
 
 const HEX = /^#[0-9a-f]{3,8}$/i;
-
-export function SideTabs({ items = [], selected = 0, width = 120, className, style }: { items?: { label: string }[]; selected?: number; width?: number } & Look) {
-  const [on, setOn] = useState(selected);
-  return (
-    <div data-slot="side-tabs" data-selected={on} role="tablist" aria-orientation="vertical" className={cn("bg-surface-container flex flex-col gap-1 rounded-xl p-1", className)} style={{ width, ...style }}>
-      {items.map((t, i) => (
-        <Tap key={i} role="tab" aria-selected={i === on} data-slot="side-tabs-item" data-active={i === on || undefined} className={`text-label-large truncate rounded-lg px-3 py-2 text-left ${i === on ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant"}`} onClick={() => setOn(i)}>
-          {t.label}
-        </Tap>
-      ))}
-    </div>
-  );
-}
 
 export function Inventory({ columns = 5, rows = 4, filled = 7, width = 380, className, style }: { columns?: number; rows?: number; filled?: number; width?: number } & Look) {
   const [on, setOn] = useState(-1);
@@ -35,10 +26,11 @@ export function Inventory({ columns = 5, rows = 4, filled = 7, width = 380, clas
   );
 }
 
-export function ItemCell({ icon = "", count = "", name = "", rarity = "", rarityColor = "", badge = "", size = 60, className, style }: { icon?: string; count?: string; name?: string; rarity?: string; rarityColor?: string; badge?: string; size?: number } & Look) {
+export function ItemCell({ icon = "", count = "", name = "", rarity = "", rarityColor = "", badge = "", selected = false, size = 60, className, style }: { icon?: string; count?: string; name?: string; rarity?: string; rarityColor?: string; badge?: string; selected?: boolean; size?: number } & Look) {
+  /* whether it is the one picked is whoever draws it to say */
   return (
-    <div data-slot="item-cell" className={cn("inline-flex flex-col items-center gap-0.5", className)} style={{ width: size, ...style }}>
-      <div data-slot="item-cell-frame" className="bg-surface-container-high border-secondary-container text-on-surface relative flex aspect-square w-full items-center justify-center rounded-lg border">
+    <div data-slot="item-cell" data-selected={selected || undefined} className={cn("inline-flex flex-col items-center gap-0.5", className)} style={{ width: size, ...style }}>
+      <div data-slot="item-cell-frame" className={cn("bg-surface-container-high text-on-surface relative flex aspect-square w-full items-center justify-center rounded-lg border", selected ? "border-primary ring-primary ring-2" : "border-secondary-container")}>
         {icon && <WidgetIcon name={icon} className="size-7" />}
         {badge && <span data-slot="item-cell-badge" className="bg-error text-on-error text-label-small absolute -top-1 -right-1 rounded-full px-1">{badge}</span>}
         {count && <span data-slot="item-cell-value" className="text-label-small text-on-surface absolute right-1 bottom-0">{count}</span>}
@@ -65,17 +57,25 @@ export function TaskBar({ title = "", action = "", done = "", width = 380, class
   );
 }
 
-export function RewardTrack({ rewards = [], value = 0, max = 60, action = "", width = 380, className, style }: { rewards?: { at: number; label: string; icon?: string }[]; value?: number; max?: number; action?: string; width?: number } & Look) {
-  const [claimed, setClaimed] = useState<number[]>([]);
+/** rows counted from 1 in words like "1,3", as places from 0 */
+const rowsIn = (words: string) => new Set(words.split(/[\s,，]+/).map((x) => Number(x) - 1).filter((n) => Number.isInteger(n) && n >= 0));
+
+/* Which rewards are claimed is the game's to say (`claimed`, the rows counted from 1): a press on a ready one asks (one
+ * action for every reward, `slot.index` is the row). A prototype's demo marks it claimed itself. */
+export function RewardTrack({ rewards = [], value = 0, max = 60, claimed = "", action = "", width = 380, demo, onValueChange, onEvent, wired, className, style }: { rewards?: { at: number; label: string; icon?: string }[]; value?: number; max?: number; claimed?: string; action?: string; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [mine, setMine] = useSeeded<number[]>([]);
+  const given = rowsIn(claimed);
+  const done = (i: number) => given.has(i) || (host.demo && mine.includes(i));
   const share = Math.min(100, Math.max(0, (value / Math.max(1, max)) * 100));
   return (
-    <div data-slot="reward-track" data-claimed={claimed.length} className={cn("flex flex-col gap-2", className)} style={{ width, ...style }}>
+    <div data-slot="reward-track" data-claimed={rewards.filter((_, i) => done(i)).length} className={cn("flex flex-col gap-2", className)} style={{ width, ...style }}>
       <div className="flex justify-between gap-2">
         {rewards.map((r, i) => {
-          const ready = value >= r.at && !claimed.includes(i);
+          const ready = value >= r.at && !done(i);
           return (
-            <Tap key={i} disabled={!ready} data-ready={ready || undefined} data-slot="reward-track-cell" className={`text-label-small flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg p-2 ${ready ? "bg-primary-container text-on-primary-container" : "bg-surface-container text-on-surface-variant"}`} onClick={() => setClaimed((c) => [...c, i])}>
-              {r.icon && <WidgetIcon name={claimed.includes(i) ? "check" : r.icon} className="size-5" />}
+            <Tap key={i} disabled={!ready} data-tap={`tab:${i}`} data-ready={ready || undefined} data-claimed={done(i) || undefined} data-slot="reward-track-cell" className={`text-label-small flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg p-2 ${ready ? "bg-primary-container text-on-primary-container" : "bg-surface-container text-on-surface-variant"}`} onClick={() => host.demo && setMine((c) => [...c, i])}>
+              {r.icon && <WidgetIcon name={done(i) ? "check" : r.icon} className="size-5" />}
               <span className="truncate">{r.label}</span>
               {ready && action && <span className="truncate">{action}</span>}
             </Tap>
@@ -96,16 +96,22 @@ export function RewardTrack({ rewards = [], value = 0, max = 60, action = "", wi
   );
 }
 
-export function CheckIn({ title = "", days = 30, signed = 3, width = 300, className, style }: { title?: string; days?: number; signed?: number; width?: number } & Look) {
-  const [count, setCount] = useState(signed);
+/* How many days are checked in is the other side's (`signed`), and so is which day is today (`today`, counted from 1;
+ * 0: the day after the last one checked in): a press on today asks (the `today` slot). A prototype's demo checks today
+ * in itself, starting over from what it is given. */
+export function CheckIn({ title = "", days = 30, signed = 3, today = 0, width = 300, demo, onValueChange, onEvent, wired, className, style }: { title?: string; days?: number; signed?: number; today?: number; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [more, setMore] = useSeeded({ from: [signed, today], by: 0 });
+  const count = signed + (host.demo ? more.by : 0);
+  const now = today > 0 ? today - 1 : count;
   return (
-    <div data-slot="check-in" data-signed={count} className={cn("bg-surface-container-low flex flex-col gap-2 rounded-2xl p-3", className)} style={{ width, ...style }}>
+    <div data-slot="check-in" data-signed={count} data-today={now + 1} className={cn("bg-surface-container-low flex flex-col gap-2 rounded-2xl p-3", className)} style={{ width, ...style }}>
       {title && <div data-slot="check-in-title" className="text-title-small text-on-surface">{title}</div>}
       <div className="grid grid-cols-7 gap-1">
         {Array.from({ length: days }, (_, i) => {
-          const today = i === count;
+          const here = i === now && i >= count;
           return (
-            <Tap key={i} disabled={!today} aria-current={today ? "date" : undefined} data-slot="check-in-cell" data-state={i < count ? "done" : today ? "today" : undefined} className={`text-label-small flex aspect-square items-center justify-center rounded-full ${i < count ? "bg-primary text-on-primary" : today ? "border-primary text-primary border-2" : "text-on-surface-variant"}`} onClick={() => setCount((c) => c + 1)}>
+            <Tap key={i} disabled={!here} data-tap={here ? "today" : undefined} aria-current={i === now ? "date" : undefined} data-slot="check-in-cell" data-state={i < count ? "done" : here ? "today" : undefined} className={`text-label-small flex aspect-square items-center justify-center rounded-full ${i < count ? "bg-primary text-on-primary" : here ? "border-primary text-primary border-2" : "text-on-surface-variant"}`} onClick={() => host.demo && setMore((m) => ({ ...m, by: m.by + 1 }))}>
               {i < count ? <WidgetIcon name="check" className="size-3" /> : i + 1}
             </Tap>
           );
@@ -117,26 +123,30 @@ export function CheckIn({ title = "", days = 30, signed = 3, width = 300, classN
 
 const UNIT_SECONDS: Record<string, number> = { second: 1, minute: 60, hour: 3600 };
 
-export function FunctionButton({ icon = "", label = "", timer = 0, unit = "minute", size = 50, className, style }: { icon?: string; label?: string; timer?: number; unit?: string; size?: number } & Look) {
-  const start = timer * (UNIT_SECONDS[unit] ?? 60);
-  const [left, setLeft] = useState(start);
+const pad = (n: number) => String(n).padStart(2, "0");
+const clockOf = (left: number) => (left >= 3600 ? `${pad(Math.floor(left / 3600))}:${pad(Math.floor(left / 60) % 60)}:${pad(left % 60)}` : `${pad(Math.floor(left / 60))}:${pad(left % 60)}`);
+
+/* What is left is read off the clock the other side keeps: `endsAt` (ms on that clock, which runs `clockSkew` ahead of
+ * the device's). With no end given, `timer` and `unit` are only words drawn on it: nothing counts down by itself, so
+ * coming back to the screen never starts it over. */
+export function FunctionButton({ icon = "", label = "", timer = 0, unit = "minute", endsAt = 0, clockSkew = 0, size = 50, className, style }: { icon?: string; label?: string; timer?: number; unit?: string; endsAt?: number; clockSkew?: number; size?: number } & Look) {
   const ref = useRef<HTMLDivElement>(null);
+  const [, setTick] = useState(0);
+  const live = endsAt > 0;
+  const left = live ? secondsLeft(endsAt, clockSkew) : timer * (UNIT_SECONDS[unit] ?? 60);
   useEffect(() => {
-    setLeft(start);
-    /* on the canvas a part is a drawing: it only counts down in the preview */
-    if (start <= 0 || ref.current?.closest("[inert]")) return;
-    const id = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000);
+    /* on the canvas a part is a drawing: it only counts down in use */
+    if (!live || ref.current?.closest("[inert]")) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
-  }, [start]);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const clock = left >= 3600 ? `${pad(Math.floor(left / 3600))}:${pad(Math.floor(left / 60) % 60)}:${pad(left % 60)}` : `${pad(Math.floor(left / 60))}:${pad(left % 60)}`;
+  }, [live, endsAt]);
   return (
     <div ref={ref} data-slot="function-button" data-left={left} className={cn("inline-flex flex-col items-center gap-0.5", className)} style={{ width: size + 24, ...style }}>
       <Tap aria-label={label} data-slot="function-button-glyph" className="bg-secondary-container text-on-secondary-container flex items-center justify-center rounded-full" style={{ width: size, height: size }}>
         {icon && <WidgetIcon name={icon} className="size-6" />}
       </Tap>
       <span data-slot="function-button-label" className="text-label-small text-on-surface w-full truncate text-center">{label}</span>
-      {start > 0 && <span data-slot="function-button-value" className="text-label-small text-on-surface-variant">{clock}</span>}
+      {(live || timer > 0) && <span data-slot="function-button-value" className="text-label-small text-on-surface-variant">{clockOf(left)}</span>}
     </div>
   );
 }
