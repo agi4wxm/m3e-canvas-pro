@@ -1,6 +1,6 @@
 import { proofDoc } from "../../exportProject.fixture";
 import { kitGroups, kitLookOf } from "../../kits";
-import { makeItem, normalizeTheme, withIds, type Doc, type Frame, type Group, type Item } from "../../tokens";
+import { makeItem, normalizeTheme, withIds, type Doc, type DocVar, type Frame, type Group, type Item } from "../../tokens";
 import { arrangeFlows } from "../../flow";
 import { defaultMeasures } from "../../../parts/templates/kit";
 import { KITS } from "../../../parts/kits";
@@ -68,6 +68,57 @@ export function splitsDoc(): { doc: Doc; widths: Record<string, number> } {
   return { doc: { groups: laid, frames: [desk, phone], paletteKey: "purple", frame: "phone", title: "Splits", brief: "" }, widths };
 }
 
+/* D3: the pickers and the entry parts */
+
+/** The pickers and what a person enters beyond a plain field, down two long phone screens as the editor adds them, some
+ *  bound to variables: words, a choice held as the words of its option and as its place, a number, a list one a line. */
+export function inputsDoc(): { doc: Doc; widths: Record<string, number> } {
+  const pickers: Frame = { id: "pickers", name: "Pickers", x: 0, y: 0, h: 3000 };
+  const entry: Frame = { id: "entry", name: "Entry", x: 480, y: 0, h: 2800 };
+  const vars: DocVar[] = [
+    { id: "color", name: "color", type: "text", value: "#386A20" },
+    { id: "trip", name: "trip", type: "text", value: "Travel" },
+    { id: "swatch", name: "swatch", type: "number", value: 2 },
+    { id: "area", name: "area", type: "text", value: "" },
+    { id: "seats", name: "seats", type: "text", value: "" },
+    { id: "count", name: "count", type: "number", value: 2 },
+    { id: "tags", name: "tags", type: "text", value: "Design\nPrototype" },
+    { id: "notes", name: "notes", type: "text", value: "" },
+  ];
+  const groups: Group[] = [];
+  let y = 24;
+  const add = (frame: Frame, slug: string, h: number, props: Record<string, unknown> = {}, bind?: Record<string, string>) => {
+    const it: Item = { ...makeItem(slug), id: slug, props, ...(bind ? { bind } : {}) };
+    groups.push({ id: `g-${slug}`, x: frame.x + 16, y, axis: "x", items: [it] });
+    y += h + 24;
+  };
+  add(pickers, "native-select", 56);
+  add(pickers, "combobox", 56, { clear: true, selected: 1 });
+  add(pickers, "calendar", 340, { mode: "range" });
+  add(pickers, "color-field", 56, {}, { value: "color" });
+  add(pickers, "wheel-picker", 180);
+  add(pickers, "item-picker", 168, {}, { selected: "trip" });
+  add(pickers, "multi-select", 80, { selected: "1,3" });
+  add(pickers, "color-palette", 96, {}, { selected: "swatch" });
+  add(pickers, "number-picker", 200, { unit: "kg" });
+  add(pickers, "transfer-list", 220);
+  add(pickers, "region-picker", 372, {}, { value: "area" });
+  add(pickers, "seat-map", 380, { total: "$90" }, { picked: "seats" });
+  y = 24;
+  add(entry, "input-group", 56, { button: "Go" });
+  add(entry, "input-otp", 56, { value: "12" });
+  add(entry, "field", 96, { control: "switch", error: "Turn it on" });
+  add(entry, "form", 240);
+  add(entry, "copy-row", 40);
+  add(entry, "quantity-stepper", 56, {}, { value: "count" });
+  add(entry, "tag-input", 104, {}, { items: "tags" });
+  add(entry, "phone-input", 56);
+  add(entry, "number-pad", 440, { mode: "pin", length: 4 });
+  add(entry, "signature-pad", 260);
+  add(entry, "rich-text-editor", 300, {}, { text: "notes" });
+  return { doc: { groups, frames: [pickers, entry], vars, paletteKey: "purple", frame: "phone", title: "Inputs", brief: "" }, widths: {} };
+}
+
 /** a printed document's files, under rn/src/printed/<name>: its pictures as files beside it, as an exported app has them */
 async function printed(name: string, doc: Doc, widths: Record<string, number>): Promise<Record<string, string | Uint8Array>> {
   const at = `rn/src/printed/${name}`;
@@ -95,6 +146,8 @@ export async function printedFixture(): Promise<Record<string, string | Uint8Arr
   const proof = withIds(next, proofDoc);
   const kits = withIds(next, kitsDoc);
   const splits = withIds(next, splitsDoc);
-  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)) };
+  /* D3 */
+  const inputs = withIds(next, inputsDoc);
+  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("inputs", inputs.doc, inputs.widths)) };
 }
 

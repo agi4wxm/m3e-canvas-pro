@@ -17,6 +17,11 @@ import { App as SplitsApp } from "../src/printed/splits/App";
 import { icons as splitsIcons } from "../src/printed/splits/icons";
 import { SCREENS as SPLITS } from "../src/printed/splits/screens";
 import { theme as splitsTheme } from "../src/printed/splits/theme";
+/* D3 */
+import { App as InputsApp } from "../src/printed/inputs/App";
+import { icons as inputsIcons } from "../src/printed/inputs/icons";
+import { SCREENS as INPUTS } from "../src/printed/inputs/screens";
+import { theme as inputsTheme } from "../src/printed/inputs/theme";
 
 /* What the code printer (lib/export/rn) wrote for the export's proof document and a screen of kits, drawn as an exported
  * app draws it: every screen renders, its words are there, and a tap goes where the design sends it. */
@@ -24,6 +29,7 @@ import { theme as splitsTheme } from "../src/printed/splits/theme";
 registerIcons(proofIcons);
 registerIcons(kitsIcons);
 registerIcons(splitsIcons);
+registerIcons(inputsIcons);
 
 const nav = { go: jest.fn(), back: jest.fn(), open: jest.fn(), todo: jest.fn() };
 
@@ -143,5 +149,36 @@ describe("split views, printed", () => {
   it("runs as an app", async () => {
     await render(<SplitsApp dark={false} />);
     expect(screen.getByText("Folders")).toBeTruthy();
+  });
+});
+
+/* D3 */
+describe("the pickers and the entry parts, printed", () => {
+  it.each(Object.keys(INPUTS))("draws %s with the kit's own components, no placeholder among them", async (key) => {
+    await screenOf(INPUTS[key], inputsTheme);
+    expect(screen.queryAllByTestId(/^placeholder-/)).toHaveLength(0);
+  });
+
+  it("shows what the variables hold and writes what is picked into them", async () => {
+    await render(<InputsApp dark={false} initial="Pickers" />);
+    /* a choice bound to words: the option they name is the one chosen, and a tap writes another's words */
+    expect(screen.getByRole("radio", { name: "Travel" }).props.accessibilityState.checked).toBe(true);
+    await fireEvent.press(screen.getByRole("radio", { name: "Work" }));
+    expect(screen.getByRole("radio", { name: "Work" }).props.accessibilityState.checked).toBe(true);
+    /* a choice bound to a number: its place */
+    expect(screen.getByRole("radio", { name: "#7D5260" }).props.accessibilityState.checked).toBe(true);
+    /* words: the color the variable holds */
+    expect(screen.getByRole("image", { name: "#386A20" })).toBeTruthy();
+  });
+
+  it("steps a number and adds a tag into the variables they are bound to", async () => {
+    await render(<InputsApp dark={false} initial="Entry" />);
+    expect(screen.getByRole("adjustable", { name: "Quantity" }).props.accessibilityValue).toMatchObject({ now: 2 });
+    await fireEvent.press(screen.getByLabelText("Increase"));
+    expect(screen.getByRole("adjustable", { name: "Quantity" }).props.accessibilityValue).toMatchObject({ now: 3 });
+    await fireEvent.changeText(screen.getByLabelText("Add a tag"), "Ship");
+    await fireEvent(screen.getByLabelText("Add a tag"), "submitEditing");
+    expect(screen.getByText("Ship")).toBeTruthy();
+    expect(screen.getByText("Prototype")).toBeTruthy();
   });
 });

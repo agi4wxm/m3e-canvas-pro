@@ -45,7 +45,7 @@ import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
 import { templateOf } from "../../collections";
 import { INPUT_PROP } from "../../interact";
-import { isPlaceKey } from "../../partContract";
+import { isPlaceKey, optionsOf } from "../../partContract";
 import { endpointOf, formFields, type FieldSpec } from "../../bindings/contract";
 import { formStateProps } from "../../../parts/fieldState";
 import { fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
@@ -273,6 +273,12 @@ const NAV_BARS = new Set(["navigation-bar", "tab-bar", "floating-nav", "navigati
 const FILE_INPUTS = new Set(["file-upload"]);
 /** the inputs whose kit control the printer wires to a form field or a variable */
 const RN_INPUTS = new Set(["input", "text-field", "textarea", "switch", "checkbox", "slider", "select", "radio-group", "rating"]);
+/* D3: the pickers' and the entry parts' kit controls take a value and a change too, each as its input's kind says */
+for (const slug of ["color-field", "item-picker", "multi-select", "color-palette", "number-picker", "transfer-list", "region-picker", "seat-map", "quantity-stepper", "tag-input", "number-pad", "signature-pad", "rich-text-editor"]) RN_INPUTS.add(slug);
+/** a list input's rows as their words */
+const labelsOf = (rows: unknown): string[] => (Array.isArray(rows) ? rows.map((r) => (r && typeof r === "object" ? String((r as { label?: unknown }).label ?? "") : String(r))) : []);
+/** a list input's value as a text variable holds it, and the kit control takes it: one row a line */
+const linesOf = (rows: unknown) => labelsOf(rows).join("\n");
 
 /** Every action body the document holds: each part's taps, their else, the then and catch of their calls, and a form's. */
 function eachBody(doc: Doc, fn: (b: ActionBody & { when?: Condition }, item?: Item) => void) {
@@ -674,8 +680,15 @@ class ScreenPrinter {
         this.kit.add("optionOf");
         const items = props.find(([k]) => k === "items")?.[1] ?? expr(propValues(def, it.props).items);
         out.push(["selected", `optionOf(${items}, ${f}.value(${field}))`], ["onSelect", `(_i: number, label: string) => ${f}.set(${field}, label)`]);
+      } else if (def.input?.kind === "choice") {
+        /* a choice of the D3 pickers: the field holds the words of the option, as a select's does */
+        this.kit.add("optionOf");
+        out.push([kitPropName(slug, key!), `optionOf(${this.optionRows(def, it, props)}, ${f}.value(${field}))`], ["onSelect", `(_i: number, label: string) => ${f}.set(${field}, label)`]);
+      } else if (def.input?.kind === "choices" && def.props.find((d) => d.key === key)?.kind === "list") {
+        /* a list of words (the tags): the field holds the words, as the preview sends them */
+        out.push([kitPropName(slug, key!), `(${f}.value(${field}) as string[] | undefined) ?? ${expr(linesOf(propValues(def, it.props)[key!]))}`], ["onChange", `(v: string[]) => ${f}.set(${field}, v)`]);
       } else {
-        out.push(["value", `${f}.text(${field})`], ["onChangeText", `(v: string) => ${f}.set(${field}, v)`]);
+        out.push([kitPropName(slug, key ?? "value"), `${f}.text(${field})`], ["onChangeText", `(v: string) => ${f}.set(${field}, v)`]);
         const kind = this.fieldKind(form.id, it.field);
         if (slug === "input" && (kind === "date" || kind === "datetime")) out.push(["type", str(kind)]);
       }
@@ -694,7 +707,36 @@ class ScreenPrinter {
     if (slug === "switch" || slug === "checkbox") return [["onValueChange", write("boolean")]];
     if (def.input?.kind === "number") return [["onValueChange", write("number")]];
     if (slug === "select" || slug === "radio-group") return [["onSelect", `(_i: number, label: string) => app.input(${str(it.id)}, label${toVar ? `, ${str(varId)}` : ""})`]];
+    if (def.input?.kind === "choice") return this.choiceToVar(def, it, props, key, toVar ? varId : undefined);
+    if (def.input?.kind === "choices" && def.props.find((d) => d.key === key)?.kind === "list") {
+      /* a list of words in a variable is one a line, as the preview writes it, and the control reads it back so */
+      const shown: [string, string][] = toVar ? [[kitPropName(slug, key), `app.bound(${str(varId)}, ${expr(linesOf(propValues(def, it.props)[key]))})`]] : [];
+      return [...shown, ["onChange", `(v: string[]) => app.input(${str(it.id)}, v.join("\\n")${toVar ? `, ${str(varId)}` : ""})`]];
+    }
     return [["onChangeText", write("string")]];
+  }
+
+  /** the rows a choice input picks from, as code: its list prop as printed, or the words it lists with commas */
+  optionRows(def: PartDef, it: Item, props: [string, string][]): string {
+    const key = def.input?.options ?? "items";
+    /* rows read from data are found among as they are read; the design's own by their words */
+    const read = it.bind?.[key] !== undefined ? props.find(([k]) => k === kitPropName(def.slug, key))?.[1] : undefined;
+    return read ?? expr(optionsOf(it).map((label) => ({ label })));
+  }
+
+  /** A D3 choice bound to a variable: a text variable holds the words of the option chosen and the control finds them
+   *  among its options (lib/interact.ts `writeField`, `boundValue`), any other its place among them. */
+  choiceToVar(def: PartDef, it: Item, props: [string, string][], key: string, varId: string | undefined): [string, string][] {
+    const words = !!varId && this.doc.vars?.find((v) => v.id === varId)?.type === "text";
+    const to = varId ? `, ${str(varId)}` : "";
+    if (!words) return [["onSelect", `(i: number) => app.input(${str(it.id)}, i${to})`]];
+    this.kit.add("optionOf");
+    const design = propValues(def, it.props)[key];
+    const label = typeof design === "number" ? (optionsOf(it)[design] ?? "") : "";
+    return [
+      [kitPropName(def.slug, key), `optionOf(${this.optionRows(def, it, props)}, app.bound(${str(varId!)}, ${expr(label)}))`],
+      ["onSelect", `(_i: number, label: string) => app.input(${str(it.id)}, label${to})`],
+    ];
   }
 
   /** how a form's field is entered, as its operation's body says */
@@ -1002,6 +1044,12 @@ class ScreenPrinter {
         if ((def.slug === "select" || def.slug === "radio-group") && typeof raw === "number") {
           const rows = values.items as { label?: string }[] | undefined;
           if (raw >= 0 && rows?.[raw]?.label) initial[it.field] = rows[raw].label;
+        } else if (def.input?.kind === "choice" && typeof raw === "number") {
+          /* D3: a choice starts with the words of its option, a list of words with its words */
+          const words = raw >= 0 ? optionsOf(it)[raw] : undefined;
+          if (words) initial[it.field] = words;
+        } else if (Array.isArray(raw) && RN_INPUTS.has(def.slug)) {
+          if (raw.length) initial[it.field] = labelsOf(raw);
         } else if (typeof raw === "boolean" || typeof raw === "number" || (typeof raw === "string" && raw)) initial[it.field] = raw;
       }
     }
