@@ -13,6 +13,7 @@ import type { BoundPrint } from "./printBindings";
 import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type Transition, type VarType, type VarValue } from "./tokens";
 import { eventKey, familyKey, type Answer } from "./actions/model";
 import { literal } from "./export/code";
+import { screenToken, screenWords } from "./export/ir/names";
 
 /* What a tap does and what state a part reads, as source text over the generated runtime
  * (lib/runtimeSource.ts). Pure, like the rest of the printer: a document in, strings out.
@@ -382,7 +383,9 @@ export class Behaviour {
     this.bound = o.binds;
     this.groupById = new Map(doc.groups.map((g) => [g.id, g]));
     const screenKeys = new Set<string>();
-    o.shown.forEach((f, i) => this.screens.set(f.id, camel(f.name, `screen${i + 1}`, screenKeys)));
+    /* a screen's key (its address, lib/export/targets/webSources.ts) is its words, else the English the templates give
+       them, else its id's (lib/export/ir/names.ts), as on the phone and in the mini-program */
+    for (const f of o.shown) this.screens.set(f.id, camel(screenWords(f), `screen${screenToken(f)}`, screenKeys));
     /* a variable starts at its value in the mode the document shows */
     const starts = varValues(doc);
     for (const [i, v] of (Array.isArray(doc.vars) ? doc.vars : []).entries()) this.vars.set(v.id, { key: camel(v.name, `var${i + 1}`, this.varKeys), type: v.type, start: starts[v.id] ?? v.value });
@@ -828,8 +831,15 @@ export class Behaviour {
     /* what a document says of the move is checked again here: only its words for one, and a number */
     const transition = TRANSITIONS.includes(b.transition) ? b.transition : "slide";
     const out: ActionBody = { to: STAY_TARGET, transition };
-    if (b.to === BACK_TARGET) out.to = BACK_TARGET;
-    else if (b.to === LINK_TARGET) {
+    if (b.to === BACK_TARGET) {
+      out.to = BACK_TARGET;
+      /* a back action's own motion is played backwards in place of the way the screen came in (Host.back) */
+      const motion = cleanMotion(b.motion);
+      if (motion) {
+        this.printed.motion = true;
+        out.motion = motion;
+      }
+    } else if (b.to === LINK_TARGET) {
       /* an address read off the row last tapped can only be known at run time; the interpreter opens only a web page */
       const url = b.url?.includes("{{current.") ? b.url.trim() : linkUrlOf(b);
       if (url) Object.assign(out, { to: LINK_TARGET, url });

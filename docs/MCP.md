@@ -277,7 +277,7 @@ npx playwright install chromium
 | `add_tree` | 搭建 |  |  | Adds a whole tree of parts in one step: a box with auto layout holding atoms (text, icon, svg, image, button, input…) and other boxes, each with its props, colors and look. |
 | `remove_nodes` | 搭建 |  | 是 | Removes parts from the canvas (what a container holds stays where it is). |
 | `duplicate_nodes` | 搭建 |  |  | Duplicates parts (a container with what it holds) a step aside and selects the copies. |
-| `set_item` | 搭建 |  |  | Changes a part's own fields: props, fill, textColor, corners, look, note, action/actions, bind, and how it sits in an auto layout (flowSize, alignSelf, flowAbsolute, flowMin, flow… |
+| `set_item` | 搭建 |  |  | Changes a part's own fields: props, fill, textColor, corners, look, note, action/actions, bind, slot (true or a component name such as "BuyButton": the exported apps draw the part… |
 | `set_props` | 搭建 |  |  | Sets prop values of a part (checked against its PropDefs); null resets one to its default. |
 | `set_rows` | 搭建 |  |  | Gives a list prop of a part its rows (a navigation bar's tabs, a menu's entries…), in order: each {label, icon?…}. |
 | `set_group` | 搭建 |  |  | Sets a group's fields (by the group's or one of its parts' id): name, hidden (at the start of the preview), locked, showWhen (a condition), pane. |

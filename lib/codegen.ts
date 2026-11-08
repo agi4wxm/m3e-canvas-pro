@@ -47,6 +47,7 @@ import { partBySlug } from "../parts/registry";
 import { fullWidth, roleOf } from "../parts/role";
 import { pinOf } from "./tidy";
 import { footOf } from "./foot";
+import { screenToken, screenWords } from "./export/ir/names";
 
 const REGISTRY_URL = "https://shadcn-m3e.crystaworld.dev/r/{name}.json";
 
@@ -366,11 +367,13 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
   return out;
 }
 
-/** a component name for a screen: its own name when that is made of letters, else `ScreenN` */
-function componentName(name: string, index: number, taken: Set<string>): string {
-  const words = name.match(/[A-Za-z0-9]+/g) ?? [];
+/** A component name for a screen: its own name when that is made of letters, else the English the templates give
+ *  its words, else named after its id (lib/export/ir/names.ts): never its place among the screens, which the screen's
+ *  file and address would move with. */
+function componentName(frame: Pick<Frame, "id" | "name">, taken: Set<string>): string {
+  const words = (screenWords(frame) ?? "").match(/[A-Za-z0-9]+/g) ?? [];
   let n = words.map((w) => w[0].toUpperCase() + w.slice(1)).join("");
-  if (!n || /^\d/.test(n)) n = `Screen${index + 1}`;
+  if (!n || /^\d/.test(n)) n = `Screen${screenToken(frame)}`;
   else if (!n.endsWith("Screen")) n += "Screen";
   let out = n;
   for (let i = 2; taken.has(out); i++) out = `${n}${i}`;
@@ -587,7 +590,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
     const runs = [...all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { w, h } = frameSizeOf(frame);
     const length = frameLengthOf(frame);
-    const name = componentName(frame.name, i, taken);
+    const name = componentName(frame, taken);
     binds?.begin(frame, all, name);
     b.beginScreen(name);
     /* a screen that loads data grows with it: its body scrolls, its bars stay put */

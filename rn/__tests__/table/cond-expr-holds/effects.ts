@@ -70,7 +70,8 @@ const host: ActionHost = {
   setProp: (part, prop, value) => kit?.setProp(part, prop, value),
   toast: (text) => kit?.toast(text),
   go: (to, o) => nav?.go(to, { ...(o.overlay ? { overlay: true } : {}), ...(o.params ? { params: o.params } : {}) }),
-  back: () => nav?.back(),
+  /* a back action's own motion goes to the navigator with it */
+  back: (o) => nav?.back(o),
   openLink: (url) => void openLink(url),
   scrollTo: () => {},
   call: async (operationId, given): Promise<Outcome> => {

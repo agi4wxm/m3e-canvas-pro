@@ -611,4 +611,15 @@ export const ROWS: Row[] = [
     steps: [{ tap: "Lay over" }, { tap: "Dismiss" }],
     expect: { screen: "home", shown: { Dismiss: false, "Lay over": true } },
   },
+  {
+    id: "back-own-motion",
+    title: "返回带自己的动画：按它倒放，不按来时的",
+    ref: "跳转；第四批第一波遗留（Host.back 的 motion）",
+    design: {
+      screens: [HOME, NEXT],
+      parts: [btn("go", "Push in", { ...goTo("next"), motion: { kind: "push", dir: "left" } }), btn("back", "Fade back", { ...goTo("back"), motion: { kind: "dissolve", ms: 200 } }, { screen: "next" })],
+    },
+    steps: [{ tap: "Push in" }, { tap: "Fade back" }],
+    expect: { screen: "home", move: { back: true, motion: "dissolve" } },
+  },
 ];
