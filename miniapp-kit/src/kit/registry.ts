@@ -9,6 +9,9 @@ import { DatePicker, FileUpload, Menu, RadioGroup, SegmentedButton, Select, Text
 import { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 import { NATIVE, type NativeName, type NativeSlug } from "./coverage";
 import { SplitView } from "./split";
+/* D3: pickers and entry parts */
+import { CopyRow, Field, Form, InputGroup, InputOtp, NumberPad, PhoneInput, QuantityStepper, RichTextEditor, SignaturePad, TagInput } from "./composites/entry";
+import { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker } from "./composites/pickers";
 
 /* Every component the kit draws a part with, by the name coverage.ts gives it, and by the part's id. */
 
@@ -69,6 +72,30 @@ export const BY_NAME = {
   Alert,
   RadioGroup,
   FileUpload,
+  /* D3: pickers and entry parts */
+  NativeSelect,
+  Combobox,
+  Calendar,
+  ColorField,
+  WheelPicker,
+  ItemPicker,
+  MultiSelect,
+  ColorPalette,
+  NumberPicker,
+  TransferList,
+  RegionPicker,
+  SeatMap,
+  InputGroup,
+  InputOtp,
+  Field,
+  Form,
+  CopyRow,
+  QuantityStepper,
+  TagInput,
+  PhoneInput,
+  NumberPad,
+  SignaturePad,
+  RichTextEditor,
 } satisfies Record<NativeName, ComponentType<never>>;
 
 /** the component that draws each part the kit covers, by the part's id */

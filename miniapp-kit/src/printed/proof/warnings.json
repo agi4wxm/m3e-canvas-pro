@@ -66,12 +66,6 @@
   "detail": "drawn as the atoms it splits into (product-card)"
  },
  {
-  "kind": "placeholder",
-  "screen": "Checkout",
-  "part": "inputGroup",
-  "detail": "input-group has no component in the mini-program kit"
- },
- {
   "kind": "atoms",
   "screen": "Checkout",
   "part": "descriptionList",

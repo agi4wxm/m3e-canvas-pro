@@ -38,6 +38,9 @@ export const MINIAPP_KIT_FILES = [
   "theme.generated.ts",
   "theme.ts",
   "value.ts",
+  /* D3: pickers and entry parts */
+  "composites/entry.tsx",
+  "composites/pickers.tsx",
 ] as const;
 
 export const MINIAPP_KIT_DIR = "miniapp-kit/src/kit";
