@@ -5,6 +5,7 @@
 
 import { cleanJson, compact } from "../api/clean";
 import { isRecord } from "../api/schema";
+import { fields, withUnknown } from "../keep";
 import { MAX_COUNT, MOCK_KINDS, MOCK_LOCALES, MOCK_ROUTE_KINDS, type MockAuth, type MockFile, type MockHint, type MockKind, type MockLocale, type MockModelConfig, type MockOpRule, type MockRealtimeScript, type MockRealtimeTrigger, type MockRouteRule, type MockScenario, type MockSpec, type MockStep } from "./types";
 
 /** how much the mock settings may hold */
@@ -33,6 +34,27 @@ export const MOCK_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
 
 type Budget = { nodes: number };
 
+/* What each object of the settings has. A field this version does not know is kept as it came, copied as plain JSON
+   within the budget (lib/keep.ts), after the fields it knows. */
+const SPEC = fields("seed", "locale", "scenario", "latency", "errorRate", "models", "scenarios", "files", "realtime", "auth", "routes");
+const RANGE = fields("min", "max");
+const HINT = fields("kind", "min", "max", "from", "to", "weights", "values", "value", "files", "type", "nullRate");
+const MODEL = fields("name", "count", "seed", "hints", "fixtures");
+const STEP = fields("status", "body", "latencyMs", "network", "empty");
+const RULE = fields("status", "body", "latencyMs", "network", "empty", "fixtures", "sequence");
+const SCENARIO = fields("id", "name", "description", "all", "ops", "latency", "errorRate", "counts", "signedIn");
+const FILE = fields("id", "name", "type", "data", "tags");
+const TRIGGER = fields("on", "operationId", "message");
+const SCRIPT = fields("id", "channel", "trigger", "steps", "repeat");
+const SCRIPT_STEP = fields("at", "message", "payload");
+const REPEAT = fields("every", "times");
+const AUTH = fields("signedIn", "accept", "tokenTtl", "refreshTtl");
+const ROUTE = fields("operationId", "kind", "model");
+/** what a field this version does not know becomes: plain JSON within the budget */
+const kept = (b: Budget) => (v: unknown) => cleanJson(v, b);
+/** a shared budget for the cleaners that are also called on their own (a file, a route) */
+const freshBudget = (): Budget => ({ nodes: MOCK_LIMITS.nodes });
+
 const num = (v: unknown, lo: number, hi: number): number | undefined => (typeof v === "number" && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : undefined);
 const str = (v: unknown, max = 2000): string | undefined => (typeof v === "string" ? v.slice(0, max) : undefined);
 const json = (v: unknown, b: Budget): unknown => (v === undefined ? undefined : cleanJson(v, b));
@@ -43,7 +65,7 @@ function cleanRange(v: unknown): { min: number; max: number } | undefined {
   const max = num(v.max, 0, 120_000);
   if (min === undefined && max === undefined) return undefined;
   const lo = min ?? max!;
-  return { min: Math.round(lo), max: Math.round(Math.max(lo, max ?? lo)) };
+  return withUnknown(v, { min: Math.round(lo), max: Math.round(Math.max(lo, max ?? lo)) }, RANGE, kept(freshBudget()));
 }
 
 export function cleanHint(v: unknown, b: Budget): MockHint | undefined {
@@ -51,7 +73,7 @@ export function cleanHint(v: unknown, b: Budget): MockHint | undefined {
   const weights = isRecord(v.weights) ? Object.fromEntries(Object.entries(v.weights).slice(0, 200).filter(([, w]) => typeof w === "number" && Number.isFinite(w) && w >= 0).map(([k, w]) => [k.slice(0, 200), Math.min(w as number, 1e6)])) : undefined;
   const values = Array.isArray(v.values) ? (json(v.values.slice(0, 500), b) as unknown[] | undefined) : undefined;
   const files = Array.isArray(v.files) ? v.files.filter((f): f is string => typeof f === "string" && MOCK_ID.test(f)).slice(0, 200) : undefined;
-  return compact({
+  return withUnknown(v, compact({
     kind: v.kind as MockKind,
     min: num(v.min, -1e15, 1e15),
     max: num(v.max, -1e15, 1e15),
@@ -63,7 +85,7 @@ export function cleanHint(v: unknown, b: Budget): MockHint | undefined {
     files: files?.length ? files : undefined,
     type: typeof v.type === "string" && /^[\w.+-]{1,60}(\/[\w.+-]{1,100})?$/.test(v.type.trim()) ? v.type.trim().toLowerCase() : undefined,
     nullRate: num(v.nullRate, 0, 1),
-  });
+  }), HINT, kept(b));
 }
 
 function cleanModel(v: unknown, b: Budget): MockModelConfig | undefined {
@@ -75,31 +97,31 @@ function cleanModel(v: unknown, b: Budget): MockModelConfig | undefined {
       if (c && path.length <= 300) hints[path] = c;
     }
   const fixtures = Array.isArray(v.fixtures) ? v.fixtures.slice(0, MOCK_LIMITS.fixtures).map((r) => json(r, b)).filter(isRecord) : undefined;
-  return compact({
+  return withUnknown(v, compact({
     name: v.name,
     count: num(v.count, 0, MAX_COUNT) !== undefined ? Math.round(num(v.count, 0, MAX_COUNT)!) : undefined,
     seed: num(v.seed, -1e9, 1e9) !== undefined ? Math.round(num(v.seed, -1e9, 1e9)!) : undefined,
     hints: Object.keys(hints).length ? hints : undefined,
     fixtures: fixtures?.length ? (fixtures as Record<string, unknown>[]) : undefined,
-  });
+  }), MODEL, kept(b));
 }
 
-function cleanStep(v: unknown, b: Budget): MockStep {
+function cleanStep(v: unknown, b: Budget, known: ReadonlySet<string> = STEP): MockStep {
   if (!isRecord(v)) return {};
-  return compact({
+  return withUnknown(v, compact({
     status: num(v.status, 0, 599) !== undefined ? Math.round(num(v.status, 0, 599)!) : undefined,
     body: json(v.body, b),
     latencyMs: num(v.latencyMs, 0, 120_000),
     network: typeof v.network === "boolean" ? v.network : undefined,
     empty: typeof v.empty === "boolean" ? v.empty : undefined,
-  });
+  }), known, kept(b));
 }
 
 function cleanRule(v: unknown, b: Budget): MockOpRule | undefined {
   if (!isRecord(v)) return undefined;
   const fixtures: "all" | string[] | undefined = v.fixtures === "all" ? "all" : Array.isArray(v.fixtures) ? v.fixtures.filter((x): x is string => typeof x === "string").map((x) => x.slice(0, 200)).slice(0, 500) : undefined;
   const sequence = Array.isArray(v.sequence) ? v.sequence.slice(0, MOCK_LIMITS.sequence).map((s) => cleanStep(s, b)) : undefined;
-  return compact({ ...cleanStep(v, b), fixtures, sequence: sequence?.length ? sequence : undefined });
+  return compact({ ...cleanStep(v, b, RULE), fixtures, sequence: sequence?.length ? sequence : undefined });
 }
 
 function cleanScenario(v: unknown, b: Budget): MockScenario | undefined {
@@ -112,7 +134,7 @@ function cleanScenario(v: unknown, b: Budget): MockScenario | undefined {
     }
   const counts = isRecord(v.counts) ? Object.fromEntries(Object.entries(v.counts).slice(0, 1000).filter(([, n]) => typeof n === "number" && Number.isFinite(n)).map(([k, n]) => [k.slice(0, 64), Math.round(Math.max(0, Math.min(MAX_COUNT, n as number)))])) : undefined;
   const all = cleanRule(v.all, b);
-  return compact({
+  return withUnknown(v, compact({
     id: v.id,
     name: str(v.name, 200) || v.id,
     description: str(v.description, 2000),
@@ -122,7 +144,7 @@ function cleanScenario(v: unknown, b: Budget): MockScenario | undefined {
     errorRate: num(v.errorRate, 0, 1),
     counts: counts && Object.keys(counts).length ? counts : undefined,
     signedIn: typeof v.signedIn === "boolean" ? v.signedIn : undefined,
-  });
+  }), SCENARIO, kept(b));
 }
 
 /** a file of the library: its data must be a data URL */
@@ -133,14 +155,15 @@ export function cleanFile(v: unknown): MockFile | undefined {
   if (v.data.length > MOCK_LIMITS.fileChars) return undefined;
   const type = typeof v.type === "string" && /^[\w.+-]+\/[\w.+-]+$/.test(v.type) ? v.type.toLowerCase() : (/^data:([\w.+-]+\/[\w.+-]+)/.exec(v.data)?.[1] ?? "application/octet-stream");
   const tags = Array.isArray(v.tags) ? v.tags.filter((t): t is string => typeof t === "string" && t.length > 0).map((t) => t.slice(0, 40)).slice(0, 20) : undefined;
-  return compact({ id: v.id, name: (str(v.name, 200) || v.id).replace(/[\\/]/g, "-"), type, data: v.data, tags: tags?.length ? tags : undefined });
+  return withUnknown(v, compact({ id: v.id, name: (str(v.name, 200) || v.id).replace(/[\\/]/g, "-"), type, data: v.data, tags: tags?.length ? tags : undefined }), FILE, kept(freshBudget()));
 }
 
 function cleanTrigger(v: unknown): MockRealtimeTrigger | undefined {
   if (!isRecord(v)) return undefined;
-  if (v.on === "connect") return { on: "connect" };
-  if (v.on === "call" && typeof v.operationId === "string") return { on: "call", operationId: v.operationId.slice(0, 128) };
-  if (v.on === "message" && typeof v.message === "string") return { on: "message", message: v.message.slice(0, 200) };
+  const keep = <T extends MockRealtimeTrigger>(t: T) => withUnknown(v, t, TRIGGER, kept(freshBudget()));
+  if (v.on === "connect") return keep({ on: "connect" });
+  if (v.on === "call" && typeof v.operationId === "string") return keep({ on: "call", operationId: v.operationId.slice(0, 128) });
+  if (v.on === "message" && typeof v.message === "string") return keep({ on: "message", message: v.message.slice(0, 200) });
   return undefined;
 }
 
@@ -149,9 +172,9 @@ function cleanScript(v: unknown, b: Budget): MockRealtimeScript | undefined {
   const steps = (Array.isArray(v.steps) ? v.steps : [])
     .slice(0, MOCK_LIMITS.steps)
     .filter((s): s is Record<string, unknown> => isRecord(s) && typeof s.message === "string")
-    .map((s) => compact({ at: Math.round(num(s.at, 0, 3_600_000) ?? 0), message: (s.message as string).slice(0, 200), payload: json(s.payload, b) }));
-  const repeat = isRecord(v.repeat) && num(v.repeat.every, 100, 3_600_000) !== undefined ? compact({ every: Math.round(num(v.repeat.every, 100, 3_600_000)!), times: num(v.repeat.times, 0, 10_000) !== undefined ? Math.round(num(v.repeat.times, 0, 10_000)!) : undefined }) : undefined;
-  return compact({ id: v.id, channel: v.channel.slice(0, 64), trigger: cleanTrigger(v.trigger), steps, repeat });
+    .map((s) => withUnknown(s, compact({ at: Math.round(num(s.at, 0, 3_600_000) ?? 0), message: (s.message as string).slice(0, 200), payload: json(s.payload, b) }), SCRIPT_STEP, kept(b)));
+  const repeat = isRecord(v.repeat) && num(v.repeat.every, 100, 3_600_000) !== undefined ? withUnknown(v.repeat, compact({ every: Math.round(num(v.repeat.every, 100, 3_600_000)!), times: num(v.repeat.times, 0, 10_000) !== undefined ? Math.round(num(v.repeat.times, 0, 10_000)!) : undefined }), REPEAT, kept(b)) : undefined;
+  return withUnknown(v, compact({ id: v.id, channel: v.channel.slice(0, 64), trigger: cleanTrigger(v.trigger), steps, repeat }), SCRIPT, kept(b));
 }
 
 function cleanAuth(v: unknown): MockAuth | undefined {
@@ -169,13 +192,13 @@ function cleanAuth(v: unknown): MockAuth | undefined {
     tokenTtl: num(v.tokenTtl, 1, 31_536_000) !== undefined ? Math.round(num(v.tokenTtl, 1, 31_536_000)!) : undefined,
     refreshTtl: num(v.refreshTtl, 1, 315_360_000) !== undefined ? Math.round(num(v.refreshTtl, 1, 315_360_000)!) : undefined,
   });
-  return Object.keys(out).length ? out : undefined;
+  return Object.keys(out).length ? withUnknown(v, out, AUTH, kept(freshBudget())) : undefined;
 }
 
 function cleanRoute(v: unknown): MockRouteRule | undefined {
   if (!isRecord(v) || typeof v.operationId !== "string") return undefined;
   const kind = typeof v.kind === "string" && (MOCK_ROUTE_KINDS as readonly string[]).includes(v.kind) ? (v.kind as MockRouteRule["kind"]) : undefined;
-  return compact({ operationId: v.operationId.slice(0, 128), kind, model: typeof v.model === "string" && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(v.model) ? v.model : undefined });
+  return withUnknown(v, compact({ operationId: v.operationId.slice(0, 128), kind, model: typeof v.model === "string" && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(v.model) ? v.model : undefined }), ROUTE, kept(freshBudget()));
 }
 
 /** unique by a key: the first of each stays */
@@ -209,7 +232,7 @@ export function cleanMocks(v: unknown): MockSpec | undefined {
     (f) => f.id,
     MOCK_LIMITS.files,
   );
-  const out: MockSpec = compact({
+  const built: MockSpec = compact({
     seed: num(v.seed, -1e9, 1e9) !== undefined ? Math.round(num(v.seed, -1e9, 1e9)!) : undefined,
     locale: typeof v.locale === "string" && (MOCK_LOCALES as readonly string[]).includes(v.locale) ? (v.locale as MockLocale) : undefined,
     scenario: typeof v.scenario === "string" && MOCK_ID.test(v.scenario) ? v.scenario : undefined,
@@ -222,6 +245,7 @@ export function cleanMocks(v: unknown): MockSpec | undefined {
     auth: cleanAuth(v.auth),
     routes: Array.isArray(v.routes) ? unique(v.routes.slice(0, MOCK_LIMITS.routes * 2).map(cleanRoute), (r) => r.operationId, MOCK_LIMITS.routes) : undefined,
   });
+  const out = withUnknown(v, built, SPEC, kept(b));
   /* an empty list of scripts says "none", where no list at all plays the channels' defaults */
   /* a model's settings with nothing in them are no settings */
   if (out.models) out.models = out.models.filter((m) => Object.keys(m).length > 1);

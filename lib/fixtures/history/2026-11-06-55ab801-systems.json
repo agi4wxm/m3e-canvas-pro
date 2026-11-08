@@ -1,0 +1,90 @@
+{
+  "format": "m3e-project",
+  "version": 2,
+  "document": {
+    "brief": "",
+    "componentSets": [
+      {"id":"set-button","name":"Button","props":[{"name":"State","values":["Rest","Down"]}]}
+    ],
+    "components": [
+      {
+        "groups": [
+          {"axis":"x","id":"cg-b","items":[{"component":"button","icon":null,"id":"cb","kind":"component","label":"Button","props":{"icon":"","label":"Rest","variant":"filled","width":160},"variant":"filled"}],"x":0,"y":0},
+          {"axis":"x","id":"cg-t","items":[{"component":"text","icon":null,"id":"ct","kind":"component","label":"Text","props":{"text":"Caption"},"variant":"filled"}],"x":0,"y":56}
+        ],
+        "h": 96,
+        "id": "c-rest",
+        "name": "State=Rest",
+        "props": [
+          {"id":"p-label","name":"Label","targets":["cb/label"],"type":"text","value":"Rest"},
+          {"id":"p-caption","name":"Caption","targets":["cg-t"],"type":"bool","value":true}
+        ],
+        "set": "set-button",
+        "variant": {"State":"Rest"},
+        "w": 200
+      },
+      {
+        "groups": [
+          {"axis":"x","id":"cg-b","items":[{"component":"button","icon":null,"id":"cb","kind":"component","label":"Button","props":{"icon":"","label":"Down","variant":"tonal","width":160},"variant":"filled"}],"x":0,"y":0},
+          {"axis":"x","id":"cg-t","items":[{"component":"text","icon":null,"id":"ct","kind":"component","label":"Text","props":{"text":"Caption"},"variant":"filled"}],"x":0,"y":56}
+        ],
+        "h": 96,
+        "id": "c-down",
+        "name": "State=Down",
+        "props": [
+          {"id":"p-label","name":"Label","targets":["cb/label"],"type":"text","value":"Down"},
+          {"id":"p-caption","name":"Caption","targets":["cg-t"],"type":"bool","value":true}
+        ],
+        "set": "set-button",
+        "variant": {"State":"Down"},
+        "w": 200
+      }
+    ],
+    "frame": "phone",
+    "frames": [
+      {"id":"s-intro","name":"Intro","x":2660,"y":0},
+      {"flow":"Main","id":"s-home","name":"Home","x":0,"y":0},
+      {"id":"s-dark","name":"Dark","varModes":{"theme":"dark"},"x":532,"y":0},
+      {"h":240,"id":"s-sheet","name":"Sheet","w":320,"x":1064,"y":0},
+      {"id":"s-pushed","name":"Pushed","x":1596,"y":0},
+      {"flow":"Reading","id":"s-long","length":2000,"name":"Long","x":2128,"y":0}
+    ],
+    "groups": [
+      {"axis":"x","id":"i-rest","instanceOf":"c-rest","items":[{"component":"container","icon":null,"id":"i-rest-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","height":96,"label":"","radius":0,"width":200},"variant":"filled"}],"properties":{"p-label":"Buy"},"x":16,"y":40},
+      {"axis":"x","id":"i-down","instanceOf":"c-down","items":[{"component":"container","icon":null,"id":"i-down-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","height":96,"label":"","radius":0,"width":200},"variant":"filled"}],"properties":{"p-caption":false},"x":16,"y":150},
+      {"axis":"x","id":"tint-home","items":[{"bind":{"@fill":"v-brand","@opacity":"v-fade"},"component":"box","icon":null,"id":"tint-home-p","kind":"component","label":"Box","props":{"height":80,"layout":"free","surface":"card","width":200},"variant":"filled"}],"x":16,"y":260},
+      {"axis":"x","id":"pin","items":[{"component":"icon","constraints":{"h":"right","v":"center"},"icon":null,"id":"pin-p","kind":"component","label":"Icon","props":{"name":"star"},"variant":"filled"}],"x":156,"y":270},
+      {"axis":"x","id":"open","items":[{"action":{"motion":{"dir":"up","easing":"inOut","kind":"push","ms":300},"overlay":true,"to":"s-sheet","transition":"slideUp"},"component":"button","icon":null,"id":"open-b","kind":"component","label":"Button","props":{"icon":"","label":"Open sheet","variant":"filled","width":160},"variant":"filled"}],"x":16,"y":380},
+      {"axis":"x","id":"hover","items":[{"action":{"motion":{"kind":"dissolve","ms":200},"to":"s-dark","transition":"fade","trigger":{"on":"hover"}},"component":"button","icon":null,"id":"hover-b","kind":"component","label":"Button","props":{"icon":"","label":"Hover me","variant":"filled","width":160},"variant":"filled"}],"x":16,"y":440},
+      {"axis":"x","id":"accent-words","items":[{"bind":{"@text":"v-accent"},"component":"text","icon":null,"id":"accent-t","kind":"component","label":"Text","props":{"text":"Accent words"},"variant":"filled"}],"x":16,"y":500},
+      {"axis":"x","id":"accent-box","items":[{"bind":{"@radius":"v-round","@rotation":"v-tilt","@stroke":"v-accent"},"component":"box","icon":null,"id":"accent-p","kind":"component","label":"Box","look":{"stroke":{"color":"#000000","width":3}},"props":{"height":48,"layout":"free","surface":"card","width":120},"variant":"filled"}],"x":216,"y":500},
+      {"axis":"x","id":"paint","items":[{"action":{"effects":[{"do":"setVar","value":"#c62828","var":"v-accent"}],"to":"none","transition":"none"},"component":"button","icon":null,"id":"paint-b","kind":"component","label":"Button","props":{"icon":"","label":"Paint red","variant":"filled","width":160},"variant":"filled"}],"x":16,"y":570},
+      {"axis":"x","id":"night","items":[{"bind":{"checked":"v-night"},"component":"switch","icon":null,"id":"night-p","kind":"component","label":"Switch","props":{"checked":false,"label":"Night"},"variant":"filled"}],"x":16,"y":630},
+      {"axis":"x","id":"push","items":[{"action":{"motion":{"dir":"left","easing":"linear","kind":"push","ms":900},"to":"s-pushed","transition":"slide"},"component":"button","icon":null,"id":"push-b","kind":"component","label":"Button","props":{"icon":"","label":"Push on","variant":"filled","width":160},"variant":"filled"}],"x":16,"y":690},
+      {"axis":"x","id":"to-long","items":[{"action":{"to":"s-long","transition":"none"},"component":"button","icon":null,"id":"to-long-b","kind":"component","label":"Button","props":{"icon":"","label":"To long","variant":"filled","width":160},"variant":"filled"}],"x":16,"y":750},
+      {"axis":"x","id":"tint-dark","items":[{"bind":{"@fill":"v-brand","@opacity":"v-fade"},"component":"box","icon":null,"id":"tint-dark-p","kind":"component","label":"Box","props":{"height":80,"layout":"free","surface":"card","width":200},"variant":"filled"}],"x":548,"y":40},
+      {"axis":"x","id":"dark-back","items":[{"action":{"to":"back","transition":"slide"},"component":"button","icon":null,"id":"dark-back-b","kind":"component","label":"Button","props":{"icon":"","label":"Back","variant":"filled","width":160},"variant":"filled"}],"x":548,"y":160},
+      {"axis":"x","id":"sheet-t","items":[{"component":"text","icon":null,"id":"sheet-tt","kind":"component","label":"Text","props":{"text":"A sheet"},"variant":"filled"}],"x":1080,"y":40},
+      {"axis":"x","id":"sheet-later","items":[{"action":{"to":"back","transition":"none","trigger":{"ms":1500,"on":"delay"}},"component":"button","icon":null,"id":"sheet-later-b","kind":"component","label":"Button","props":{"icon":"","label":"Closes itself","variant":"filled","width":160},"variant":"filled"}],"x":1080,"y":100},
+      {"axis":"x","id":"pushed-t","items":[{"component":"text","icon":null,"id":"pushed-tt","kind":"component","label":"Text","props":{"text":"Pushed here"},"variant":"filled"}],"x":1612,"y":40},
+      {"axis":"x","id":"pushed-back","items":[{"action":{"to":"back","transition":"slide"},"component":"button","icon":null,"id":"pushed-back-b","kind":"component","label":"Button","props":{"icon":"","label":"Back again","variant":"filled","width":160},"variant":"filled"}],"x":1612,"y":100},
+      {"axis":"x","id":"scroll","items":[{"action":{"scrollTo":"bottom-t","to":"none","transition":"none"},"component":"button","icon":null,"id":"scroll-b","kind":"component","label":"Button","props":{"icon":"","label":"Scroll down","variant":"filled","width":160},"variant":"filled"}],"x":2144,"y":40},
+      {"axis":"x","id":"bottom","items":[{"component":"text","icon":null,"id":"bottom-t","kind":"component","label":"Text","props":{"text":"Bottom line"},"variant":"filled"}],"x":2144,"y":1700},
+      {"axis":"x","id":"intro-t","items":[{"component":"text","icon":null,"id":"intro-tt","kind":"component","label":"Text","props":{"text":"Intro screen"},"variant":"filled"}],"x":2676,"y":40}
+    ],
+    "paletteKey": "purple",
+    "title": "Systems app",
+    "varCollections": [
+      {"dark":"dark","id":"theme","modes":[{"id":"light","name":"Light"},{"id":"dark","name":"Dark"}],"name":"Theme"}
+    ],
+    "vars": [
+      {"collection":"theme","id":"v-brand","modes":{"dark":"#4a2532"},"name":"brand","type":"color","value":"#ffd8e4"},
+      {"collection":"theme","id":"v-fade","modes":{"dark":70},"name":"fade","type":"number","value":100},
+      {"collection":"theme","id":"v-accent","modes":{"dark":"#90caf9"},"name":"accent","type":"color","value":"#1565c0"},
+      {"collection":"theme","id":"v-round","modes":{"dark":24},"name":"round","type":"number","value":8},
+      {"collection":"theme","id":"v-tilt","modes":{"dark":6},"name":"tilt","type":"number","value":0},
+      {"id":"v-count","name":"count","type":"number","value":0},
+      {"drives":"dark","id":"v-night","name":"night","type":"bool","value":false}
+    ]
+  }
+}

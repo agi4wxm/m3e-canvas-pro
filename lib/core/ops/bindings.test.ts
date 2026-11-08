@@ -344,7 +344,8 @@ describe("the document", () => {
     expect(opened.groups[0].form).toBeUndefined();
     expect(opened.groups[0].repeat).toBeUndefined();
     const effects = JSON.stringify(opened.groups.find((g) => g.id === g1.id)!.items[0].action);
-    expect(effects).not.toContain("launch");
+    /* an effect of a kind this version does not know stays, for the version that wrote it; runtimes skip it */
+    expect(effects).toContain("\"launch\"");
     expect(effects).not.toContain("deeper");
   });
 

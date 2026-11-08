@@ -444,7 +444,7 @@ describe("a look in a document", () => {
       ),
     );
     expect(opened).not.toBeNull();
-    expect(opened!.groups[0].items[0].look).toEqual({
+    const known = {
       opacity: 100,
       glass: 0,
       fills: [{ type: "linear", angle: 360, stops: [{ color: "#fff", at: 0 }, { color: "#000", at: 100 }] }],
@@ -454,7 +454,13 @@ describe("a look in a document", () => {
       filter: { sepia: 50 },
       transform: { scaleX: 5 },
       text: { size: 400, weight: 300 },
-    });
+    };
+    /* the fields a look does not have stay in the document as they came (a newer version's, kept for it)… */
+    const look = opened!.groups[0].items[0].look!;
+    expect(look).toEqual({ ...known, filter: { sepia: 50, evil: 1 }, unknown: "url(x)" });
+    /* …and never reach a style or an exported app: what paints and prints a look reads only what it knows */
+    expect(cleanLook(look)).toEqual(known);
+    expect(JSON.stringify(lookStyle(look))).not.toContain("url(x)");
   });
 
   it("goes when nothing of it is good, or when it is not an object", () => {

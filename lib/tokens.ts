@@ -5,10 +5,12 @@ import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
 import type { Motion, Transition } from "./screenMotion";
-import { STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, type Effect, type VarType, type VarValue } from "./actions/model";
+import { STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, type VarType, type VarValue } from "./actions/model";
 import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleContext, type StyleUX } from "./styles";
 import type { ApiSpec } from "./api/types";
 import type { MockSpec } from "./mocks/types";
+import { fields, withUnknown } from "./keep";
+import { mapAction, mapBody, mapCondition, type RefMap } from "./refs";
 
 /* the API section's model (lib/api): data models, endpoints, auth, channels, servers */
 export type * from "./api/types";
@@ -497,7 +499,11 @@ export const DEFAULT_THEME: Theme = { dark: false, bothModes: false, contrast: "
 
 export const ICON_FAMILIES: IconFamily[] = ["rounded", "filled", "light", "sharp", "pixel", "sf", "fluentui", "codicon", "phosphor", "lucide", "remix", "ant", "tabler", "mingcute", "game", "emoji"];
 
-/** a stored theme with any missing or unknown field replaced by its default */
+/** the fields a theme has */
+const THEME_FIELDS = fields("dark", "bothModes", "contrast", "shape", "font", "emphasized", "motion", "style", "ownColors", "recipes", "displayFont", "icons", "ux", "strict");
+
+/** A stored theme with any missing field, or one of a value it cannot take, replaced by its default. A field a theme
+ *  does not have (a newer version's) is kept as it came, after the others. */
 export function normalizeTheme(t: Partial<Theme> | undefined, styles?: StyleContext): Theme {
   if (!t) return DEFAULT_THEME;
   const pack = styleOf(t.style, styles);
@@ -509,7 +515,7 @@ export function normalizeTheme(t: Partial<Theme> | undefined, styles?: StyleCont
   const held: Theme | null = !strict ? null : pack ? d : { ...DEFAULT_THEME, ...stylePatch("") };
   const recipes = held ? undefined : normalizeRecipes(t.recipes);
   const ux = held ? undefined : normalizeUx(t.ux);
-  return {
+  const built: Theme = {
     dark: typeof t.dark === "boolean" ? t.dark : d.dark,
     bothModes: typeof t.bothModes === "boolean" ? t.bothModes : d.bothModes,
     contrast: CONTRASTS.some((c) => c.key === t.contrast) ? (t.contrast as Contrast) : d.contrast,
@@ -525,6 +531,7 @@ export function normalizeTheme(t: Partial<Theme> | undefined, styles?: StyleCont
     ...(held ? (held.displayFont ? { displayFont: held.displayFont } : {}) : FONTS.some((c) => c.key === t.displayFont) ? { displayFont: t.displayFont } : d.displayFont ? { displayFont: d.displayFont } : {}),
     ...(held ? (held.icons ? { icons: held.icons } : {}) : ICON_FAMILIES.includes(t.icons as IconFamily) ? { icons: t.icons } : d.icons ? { icons: d.icons } : {}),
   };
+  return withUnknown(t, built, THEME_FIELDS);
 }
 
 export const SHAPES: { key: ShapeScale; label: string; icon: string }[] = [
@@ -1186,20 +1193,26 @@ export function groupBounds(g: Group, widths: Record<string, number>) {
   return { l, t, r, b };
 }
 
-/** a tap's reach, for copies: what a copied part points at follows the copy when that was copied too */
+/** A tap's reach, for copies: what a copied part points at follows the copy when that was copied too. Every reference
+ *  a tap holds is followed (lib/refs.ts): the parts its effects and its condition name, the part it scrolls to, the
+ *  form it submits, in its `else`, in a call's `then` and `catch`, and in a form's own `then` and `catch`. */
 export function retarget(g: Group, ids: Map<string, string> | ((id: string) => string)): Group {
-  const part = typeof ids === "function" ? ids : (id: string) => ids.get(id) ?? id;
-  const when = (c: Condition | undefined): Condition | undefined => (c && "filled" in c ? { filled: part(c.filled) } : c);
-  const effects = (list: Effect[] | undefined) => list?.map((e) => ("part" in e ? { ...e, part: part(e.part) } : e));
-  const body = <T extends ActionBody>(a: T): T => ({ ...a, ...(a.effects ? { effects: effects(a.effects) } : {}) });
-  const action = (a: Action): Action => ({ ...body(a), ...(a.when ? { when: when(a.when) } : {}), ...(a.else ? { else: body(a.else) } : {}) });
+  const to = typeof ids === "function" ? ids : (id: string) => ids.get(id) ?? id;
+  const f: RefMap = { part: to, form: to };
+  const form = g.form && {
+    ...g.form,
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    ...(g.form.then ? { then: mapBody(g.form.then, f) } : {}),
+    ...(g.form.catch ? { catch: mapBody(g.form.catch, f) } : {}),
+  };
   return {
     ...g,
-    ...(g.showWhen ? { showWhen: when(g.showWhen) } : {}),
+    ...(g.showWhen ? { showWhen: mapCondition(g.showWhen, f) } : {}),
+    ...(form ? { form } : {}),
     items: g.items.map((it) => ({
       ...it,
-      ...(it.action ? { action: action(it.action) } : {}),
-      ...(it.actions ? { actions: Object.fromEntries(Object.entries(it.actions).map(([k, a]) => [k, action(a)])) } : {}),
+      ...(it.action ? { action: mapAction(it.action, f) } : {}),
+      ...(it.actions ? { actions: Object.fromEntries(Object.entries(it.actions).map(([k, a]) => [k, mapAction(a, f)])) } : {}),
     })),
   };
 }

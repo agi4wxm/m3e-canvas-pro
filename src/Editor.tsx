@@ -181,6 +181,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
    * the selection and the measures, and the history. Everything here reads it and changes it through it. */
   const [store] = useState(() => editorStore(seed(initialLang), [{ ...SEED_FRAMES[0], name: t("home", initialLang) }]));
   const { state: core, history } = useStore(store);
+  /* a document a newer version of the editor wrote is shown read-only, never written back (lib/project.ts `Loaded.newer`) */
+  const newerFormat = store.readOnlyVersion();
+  useEffect(() => {
+    if (newerFormat !== null) setEditAccess("readonly");
+  }, [newerFormat]);
   /* what a style's key is read against here: the document's own styles, handed to everything drawn below
      (DocStylesProvider); the store keeps them in reach for the code that is not handed them (src/editor/store.ts) */
   const docStyles = styleContext(core.doc.styles);
@@ -2383,11 +2388,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
             >
               <Icon name="lock" size={28} />
               {/* read-only from the start (another tab holds the project), or since another tab saved it over this one's edits */}
-              <h1 id="edit-access-title" data-edit-conflict={project.save?.status === "conflict" ? "" : undefined} style={{ margin: "16px 0 8px", fontSize: 22, lineHeight: 1.25 }}>
-                {t(project.save?.status === "conflict" ? "conflictTabTitle" : "readOnlyTitle", lang)}
+              <h1 id="edit-access-title" data-edit-conflict={project.save?.status === "conflict" ? "" : undefined} data-newer-doc={newerFormat !== null ? newerFormat : undefined} style={{ margin: "16px 0 8px", fontSize: 22, lineHeight: 1.25 }}>
+                {t(newerFormat !== null ? "newerDocTitle" : project.save?.status === "conflict" ? "conflictTabTitle" : "readOnlyTitle", lang)}
               </h1>
               <p style={{ margin: 0, color: p.onSurfaceVariant, fontSize: 14, lineHeight: 1.5 }}>
-                {t(project.save?.status === "conflict" ? "conflictTabBody" : "readOnlyBody", lang)}
+                {newerFormat !== null ? t("newerDocBody", lang).replace("{version}", String(newerFormat)) : t(project.save?.status === "conflict" ? "conflictTabBody" : "readOnlyBody", lang)}
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, marginTop: 24 }}>
                 {project.save?.status === "conflict" && (

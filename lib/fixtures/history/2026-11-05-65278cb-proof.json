@@ -1,0 +1,3209 @@
+{
+  "format": "m3e-project",
+  "version": 2,
+  "document": {
+    "groups": [
+      {
+        "id": "g-to-shop",
+        "x": 16,
+        "y": 24,
+        "axis": "x",
+        "items": [
+          {
+            "id": "to-shop",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Shop",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "p1jj1nd7",
+              "transition": "slide"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-to-form",
+        "x": 16,
+        "y": 78,
+        "axis": "x",
+        "items": [
+          {
+            "id": "to-form",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Form",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "f-form",
+              "transition": "slideUp"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-to-counter",
+        "x": 16,
+        "y": 132,
+        "axis": "x",
+        "items": [
+          {
+            "id": "to-counter",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Counter",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "f-counter",
+              "transition": "fade"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-to-inputs",
+        "x": 16,
+        "y": 186,
+        "axis": "x",
+        "items": [
+          {
+            "id": "to-inputs",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Inputs",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "f-inputs",
+              "transition": "expand"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-to-dock",
+        "x": 16,
+        "y": 240,
+        "axis": "x",
+        "items": [
+          {
+            "id": "to-dock",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Dock",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "f-dock",
+              "transition": "none"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-to-bars",
+        "x": 16,
+        "y": 294,
+        "axis": "x",
+        "items": [
+          {
+            "id": "to-bars",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Bars",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "f-bars",
+              "transition": "slide"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-to-long",
+        "x": 16,
+        "y": 348,
+        "axis": "x",
+        "items": [
+          {
+            "id": "to-long",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Long",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "f-long",
+              "transition": "slide"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-form-title",
+        "x": 548,
+        "y": 24,
+        "axis": "x",
+        "items": [
+          {
+            "id": "form-title",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Sign up"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-email",
+        "x": 548,
+        "y": 78,
+        "axis": "x",
+        "items": [
+          {
+            "id": "email",
+            "kind": "component",
+            "label": "Text field",
+            "icon": null,
+            "variant": "filled",
+            "component": "text-field",
+            "props": {
+              "label": "Email",
+              "value": ""
+            },
+            "bind": {
+              "value": "v-email"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-terms",
+        "x": 548,
+        "y": 132,
+        "axis": "x",
+        "items": [
+          {
+            "id": "terms",
+            "kind": "component",
+            "label": "Checkbox",
+            "icon": null,
+            "variant": "filled",
+            "component": "checkbox",
+            "props": {
+              "label": "Accept terms",
+              "checked": false
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-thanks",
+        "x": 548,
+        "y": 186,
+        "axis": "x",
+        "items": [
+          {
+            "id": "thanks",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "We will write to you"
+            }
+          }
+        ],
+        "showWhen": {
+          "filled": "email"
+        }
+      },
+      {
+        "id": "g-continue",
+        "x": 548,
+        "y": 240,
+        "axis": "x",
+        "items": [
+          {
+            "id": "continue",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Continue",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "f-welcome",
+              "transition": "fade",
+              "when": {
+                "filled": "terms"
+              },
+              "else": {
+                "to": "none",
+                "transition": "none",
+                "effects": [
+                  {
+                    "do": "snackbar",
+                    "message": "Accept the terms first"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-hello",
+        "x": 1080,
+        "y": 24,
+        "axis": "x",
+        "items": [
+          {
+            "id": "hello",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": ""
+            },
+            "bind": {
+              "text": "v-email"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-welcome-back",
+        "x": 1080,
+        "y": 78,
+        "axis": "x",
+        "items": [
+          {
+            "id": "welcome-back",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Back to form",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "back",
+              "transition": "slide"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-count",
+        "x": 1612,
+        "y": 24,
+        "axis": "x",
+        "items": [
+          {
+            "id": "count",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "0"
+            },
+            "bind": {
+              "text": "v-count"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-add",
+        "x": 1612,
+        "y": 78,
+        "axis": "x",
+        "items": [
+          {
+            "id": "add",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Add",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "none",
+              "transition": "none",
+              "effects": [
+                {
+                  "do": "addVar",
+                  "var": "v-count",
+                  "by": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-reset",
+        "x": 1612,
+        "y": 132,
+        "axis": "x",
+        "items": [
+          {
+            "id": "reset",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Reset",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "none",
+              "transition": "none",
+              "effects": [
+                {
+                  "do": "setVar",
+                  "var": "v-count",
+                  "value": 0
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-three",
+        "x": 1612,
+        "y": 186,
+        "axis": "x",
+        "items": [
+          {
+            "id": "three",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Three!"
+            }
+          }
+        ],
+        "showWhen": {
+          "var": "v-count",
+          "op": "eq",
+          "value": "3"
+        }
+      },
+      {
+        "id": "g-secret",
+        "x": 1612,
+        "y": 240,
+        "axis": "x",
+        "items": [
+          {
+            "id": "secret",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "A secret"
+            }
+          }
+        ],
+        "hidden": true
+      },
+      {
+        "id": "g-reveal",
+        "x": 1612,
+        "y": 294,
+        "axis": "x",
+        "items": [
+          {
+            "id": "reveal",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Reveal",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "none",
+              "transition": "none",
+              "effects": [
+                {
+                  "do": "toggle",
+                  "part": "secret"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-title",
+        "x": 1612,
+        "y": 348,
+        "axis": "x",
+        "items": [
+          {
+            "id": "title",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Old title"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-retitle",
+        "x": 1612,
+        "y": 402,
+        "axis": "x",
+        "items": [
+          {
+            "id": "retitle",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Retitle",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "none",
+              "transition": "none",
+              "effects": [
+                {
+                  "do": "setProp",
+                  "part": "title",
+                  "prop": "text",
+                  "value": "New title"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-flag",
+        "x": 1612,
+        "y": 456,
+        "axis": "x",
+        "items": [
+          {
+            "id": "flag",
+            "kind": "component",
+            "label": "Switch",
+            "icon": null,
+            "variant": "filled",
+            "component": "switch",
+            "props": {
+              "label": "Flag",
+              "checked": false
+            },
+            "bind": {
+              "checked": "v-flag"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-flip",
+        "x": 1612,
+        "y": 510,
+        "axis": "x",
+        "items": [
+          {
+            "id": "flip",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Flip",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "none",
+              "transition": "none",
+              "effects": [
+                {
+                  "do": "toggleVar",
+                  "var": "v-flag"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-flag-on",
+        "x": 1612,
+        "y": 564,
+        "axis": "x",
+        "items": [
+          {
+            "id": "flag-on",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Flag is on"
+            }
+          }
+        ],
+        "showWhen": {
+          "var": "v-flag",
+          "op": "eq",
+          "value": true
+        }
+      },
+      {
+        "id": "g-ask",
+        "x": 1612,
+        "y": 618,
+        "axis": "x",
+        "items": [
+          {
+            "id": "ask",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Ask",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "none",
+              "transition": "none",
+              "effects": [
+                {
+                  "do": "open",
+                  "part": "confirm"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-confirm",
+        "x": 1612,
+        "y": 672,
+        "axis": "x",
+        "items": [
+          {
+            "id": "confirm",
+            "kind": "component",
+            "label": "Dialog",
+            "icon": null,
+            "variant": "filled",
+            "component": "dialog",
+            "props": {
+              "title": "Set it to 100?",
+              "description": "Really?",
+              "dismiss": "Cancel",
+              "confirm": "Accept"
+            },
+            "actions": {
+              "confirm": {
+                "to": "none",
+                "transition": "none",
+                "effects": [
+                  {
+                    "do": "setVar",
+                    "var": "v-count",
+                    "value": 100
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "hidden": true
+      },
+      {
+        "id": "g-picture",
+        "x": 1612,
+        "y": 726,
+        "axis": "x",
+        "items": [
+          {
+            "id": "picture",
+            "kind": "component",
+            "label": "Image",
+            "icon": null,
+            "variant": "filled",
+            "component": "image",
+            "props": {
+              "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==",
+              "alt": "Picked",
+              "width": 96,
+              "height": 48
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-more",
+        "x": 1612,
+        "y": 780,
+        "axis": "x",
+        "items": [
+          {
+            "id": "more",
+            "kind": "component",
+            "label": "Dropdown menu",
+            "icon": null,
+            "variant": "filled",
+            "component": "dropdown-menu",
+            "props": {
+              "label": "More",
+              "items": [
+                {
+                  "label": "Set to 7"
+                },
+                {
+                  "label": "Say hi"
+                }
+              ],
+              "destructive": ""
+            },
+            "actions": {
+              "tab:0": {
+                "to": "none",
+                "transition": "none",
+                "effects": [
+                  {
+                    "do": "setVar",
+                    "var": "v-count",
+                    "value": 7
+                  }
+                ]
+              },
+              "tab:1": {
+                "to": "none",
+                "transition": "none",
+                "effects": [
+                  {
+                    "do": "snackbar",
+                    "message": "Hi"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-fruit",
+        "x": 2144,
+        "y": 24,
+        "axis": "x",
+        "items": [
+          {
+            "id": "fruit",
+            "kind": "component",
+            "label": "Select",
+            "icon": null,
+            "variant": "filled",
+            "component": "select",
+            "props": {
+              "items": [
+                {
+                  "label": "Apple"
+                },
+                {
+                  "label": "Banana"
+                },
+                {
+                  "label": "Cherry"
+                }
+              ],
+              "selected": 0,
+              "width": 224
+            },
+            "bind": {
+              "selected": "v-fruit"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-fruit-said",
+        "x": 2144,
+        "y": 78,
+        "axis": "x",
+        "items": [
+          {
+            "id": "fruit-said",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": ""
+            },
+            "bind": {
+              "text": "v-fruit"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-volume",
+        "x": 2144,
+        "y": 132,
+        "axis": "x",
+        "items": [
+          {
+            "id": "volume",
+            "kind": "component",
+            "label": "Slider",
+            "icon": null,
+            "variant": "filled",
+            "component": "slider",
+            "props": {
+              "value": 40,
+              "width": 240
+            },
+            "bind": {
+              "value": "v-volume"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-volume-said",
+        "x": 2144,
+        "y": 186,
+        "axis": "x",
+        "items": [
+          {
+            "id": "volume-said",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": ""
+            },
+            "bind": {
+              "text": "v-volume"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-size",
+        "x": 2144,
+        "y": 240,
+        "axis": "x",
+        "items": [
+          {
+            "id": "size",
+            "kind": "component",
+            "label": "Radio group",
+            "icon": null,
+            "variant": "filled",
+            "component": "radio-group",
+            "props": {
+              "items": [
+                {
+                  "label": "Small"
+                },
+                {
+                  "label": "Large"
+                }
+              ],
+              "selected": 0
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-large",
+        "x": 2144,
+        "y": 294,
+        "axis": "x",
+        "items": [
+          {
+            "id": "large",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Pick large",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "none",
+              "transition": "none",
+              "effects": [
+                {
+                  "do": "setProp",
+                  "part": "size",
+                  "prop": "selected",
+                  "value": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-note",
+        "x": 2144,
+        "y": 348,
+        "axis": "x",
+        "items": [
+          {
+            "id": "note",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Note"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-notes",
+        "x": 2144,
+        "y": 402,
+        "axis": "x",
+        "items": [
+          {
+            "id": "notes",
+            "kind": "component",
+            "label": "Textarea",
+            "icon": null,
+            "variant": "filled",
+            "component": "textarea",
+            "props": {
+              "placeholder": "Notes",
+              "value": ""
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-noted",
+        "x": 2144,
+        "y": 456,
+        "axis": "x",
+        "items": [
+          {
+            "id": "noted",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Noted"
+            }
+          }
+        ],
+        "showWhen": {
+          "filled": "notes"
+        }
+      },
+      {
+        "id": "g-city",
+        "x": 2144,
+        "y": 510,
+        "axis": "x",
+        "items": [
+          {
+            "id": "city",
+            "kind": "component",
+            "label": "Input",
+            "icon": null,
+            "variant": "filled",
+            "component": "input",
+            "props": {
+              "placeholder": "City",
+              "value": "Oslo"
+            },
+            "bind": {
+              "value": "v-city"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-city-said",
+        "x": 2144,
+        "y": 564,
+        "axis": "x",
+        "items": [
+          {
+            "id": "city-said",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": ""
+            },
+            "bind": {
+              "text": "v-city"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-dock",
+        "x": 2676,
+        "y": 40,
+        "axis": "x",
+        "items": [
+          {
+            "id": "dock",
+            "kind": "component",
+            "label": "Dock",
+            "icon": null,
+            "variant": "filled",
+            "component": "dock",
+            "props": {
+              "items": [
+                {
+                  "label": "One"
+                },
+                {
+                  "label": "Two"
+                },
+                {
+                  "label": "Three"
+                }
+              ],
+              "width": 360,
+              "height": 320
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-tab-a",
+        "x": 2692,
+        "y": 96,
+        "axis": "x",
+        "inFlow": "g-dock",
+        "pane": 0,
+        "items": [
+          {
+            "id": "tab-a",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Content one"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-tab-b",
+        "x": 2692,
+        "y": 96,
+        "axis": "x",
+        "inFlow": "g-dock",
+        "pane": 1,
+        "items": [
+          {
+            "id": "tab-b",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Content two"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-tab-c",
+        "x": 2692,
+        "y": 96,
+        "axis": "x",
+        "inFlow": "g-dock",
+        "pane": 2,
+        "items": [
+          {
+            "id": "tab-c",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Content three",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "none",
+              "transition": "none",
+              "effects": [
+                {
+                  "do": "snackbar",
+                  "message": "Pressed three"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-bars-title",
+        "x": 3208,
+        "y": 24,
+        "axis": "x",
+        "items": [
+          {
+            "id": "bars-title",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "First bars"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-tabs",
+        "x": 3208,
+        "y": 78,
+        "axis": "x",
+        "items": [
+          {
+            "id": "tabs",
+            "kind": "component",
+            "label": "Tabs",
+            "icon": null,
+            "variant": "filled",
+            "component": "tabs",
+            "props": {
+              "items": [
+                {
+                  "label": "Red"
+                },
+                {
+                  "label": "Green"
+                },
+                {
+                  "label": "Blue"
+                }
+              ],
+              "selected": 0
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-bar-one",
+        "x": 3192,
+        "y": 796,
+        "axis": "x",
+        "items": [
+          {
+            "id": "bar-one",
+            "kind": "component",
+            "label": "Navigation bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "navigation-bar",
+            "props": {
+              "items": [
+                {
+                  "label": "Home",
+                  "icon": "home"
+                },
+                {
+                  "label": "Search",
+                  "icon": "search"
+                },
+                {
+                  "label": "Inbox",
+                  "icon": "inbox"
+                }
+              ],
+              "selected": 0,
+              "width": 412
+            },
+            "actions": {
+              "tab:1": {
+                "to": "f-bars-two",
+                "transition": "none"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-bars-two-title",
+        "x": 3740,
+        "y": 24,
+        "axis": "x",
+        "items": [
+          {
+            "id": "bars-two-title",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Second bars"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-bars-back",
+        "x": 3740,
+        "y": 78,
+        "axis": "x",
+        "items": [
+          {
+            "id": "bars-back",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Bars back",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "back",
+              "transition": "none"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-bar-two",
+        "x": 3724,
+        "y": 796,
+        "axis": "x",
+        "items": [
+          {
+            "id": "bar-two",
+            "kind": "component",
+            "label": "Navigation bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "navigation-bar",
+            "props": {
+              "items": [
+                {
+                  "label": "Home",
+                  "icon": "home"
+                },
+                {
+                  "label": "Search",
+                  "icon": "search"
+                },
+                {
+                  "label": "Inbox",
+                  "icon": "inbox"
+                }
+              ],
+              "selected": 1,
+              "width": 412
+            },
+            "actions": {
+              "tab:0": {
+                "to": "f-bars",
+                "transition": "none"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-long-top",
+        "x": 4272,
+        "y": 24,
+        "axis": "x",
+        "items": [
+          {
+            "id": "long-top",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Top of the page"
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-low",
+        "x": 4272,
+        "y": 1292,
+        "axis": "x",
+        "items": [
+          {
+            "id": "low",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Below the fold",
+              "icon": "",
+              "variant": "filled",
+              "width": 160
+            },
+            "action": {
+              "to": "none",
+              "transition": "none",
+              "effects": [
+                {
+                  "do": "snackbar",
+                  "message": "Reached"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "g-long-fab",
+        "x": 4456,
+        "y": 1604,
+        "axis": "x",
+        "items": [
+          {
+            "id": "long-fab",
+            "kind": "component",
+            "label": "FAB",
+            "icon": null,
+            "variant": "filled",
+            "component": "fab",
+            "props": {
+              "label": "Compose",
+              "icon": "add"
+            },
+            "collapseOnScroll": true
+          }
+        ]
+      },
+      {
+        "id": "g-bar-long",
+        "x": 4256,
+        "y": 1688,
+        "axis": "x",
+        "items": [
+          {
+            "id": "bar-long",
+            "kind": "component",
+            "label": "Navigation bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "navigation-bar",
+            "props": {
+              "items": [
+                {
+                  "label": "Home",
+                  "icon": "home"
+                },
+                {
+                  "label": "Search",
+                  "icon": "search"
+                },
+                {
+                  "label": "Inbox",
+                  "icon": "inbox"
+                }
+              ],
+              "selected": 0,
+              "width": 412
+            }
+          }
+        ]
+      },
+      {
+        "id": "lpl5yiup",
+        "x": 4788,
+        "y": 0,
+        "axis": "x",
+        "items": [
+          {
+            "id": "ya961dvt",
+            "kind": "component",
+            "label": "App bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "app-bar",
+            "props": {
+              "title": "Shop",
+              "leading": "",
+              "trailing": "filter_list",
+              "trailing2": "search",
+              "width": 412
+            }
+          }
+        ]
+      },
+      {
+        "id": "d04mynrh",
+        "x": 4804,
+        "y": 80,
+        "axis": "x",
+        "name": "Column",
+        "items": [
+          {
+            "id": "b4eqthio",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "none",
+              "border": "none",
+              "radius": 0,
+              "padX": 0,
+              "padY": 0,
+              "layout": "column",
+              "gap": 8,
+              "align": "stretch",
+              "hugHeight": true,
+              "width": 380,
+              "height": 728
+            }
+          }
+        ]
+      },
+      {
+        "id": "2l61vr43",
+        "x": 4804,
+        "y": 80,
+        "axis": "x",
+        "inFlow": "d04mynrh",
+        "items": [
+          {
+            "id": "w5ienrka",
+            "kind": "component",
+            "label": "Chip",
+            "icon": null,
+            "variant": "filled",
+            "component": "chip",
+            "props": {
+              "kind": "filter",
+              "selected": 0,
+              "items": [
+                {
+                  "label": "All"
+                },
+                {
+                  "label": "Bags"
+                },
+                {
+                  "label": "Home"
+                },
+                {
+                  "label": "Sale"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "kp3nimy5",
+        "x": 4804,
+        "y": 120,
+        "axis": "x",
+        "name": "Grid",
+        "inFlow": "d04mynrh",
+        "items": [
+          {
+            "id": "xl9pcwd8",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "none",
+              "border": "none",
+              "radius": 0,
+              "padX": 0,
+              "padY": 0,
+              "layout": "grid",
+              "columns": 2,
+              "gap": 8,
+              "align": "stretch",
+              "hugHeight": true,
+              "height": 688
+            }
+          }
+        ]
+      },
+      {
+        "id": "xfnc3vig",
+        "x": 4804,
+        "y": 120,
+        "axis": "x",
+        "inFlow": "kp3nimy5",
+        "items": [
+          {
+            "id": "i3myl6sm",
+            "kind": "component",
+            "label": "Product card",
+            "icon": null,
+            "variant": "filled",
+            "component": "product-card",
+            "props": {
+              "title": "Everyday canvas tote",
+              "subtitle": "",
+              "price": "$24.00",
+              "original": "$32.00",
+              "badge": "-25%",
+              "rating": 4.6,
+              "action": "Add to cart",
+              "done": "In cart",
+              "width": 186
+            },
+            "actions": {
+              "open": {
+                "to": "upl854zc",
+                "transition": "slide"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "in8qrtia",
+        "x": 4998,
+        "y": 120,
+        "axis": "x",
+        "inFlow": "kp3nimy5",
+        "items": [
+          {
+            "id": "wchyn2bi",
+            "kind": "component",
+            "label": "Product card",
+            "icon": null,
+            "variant": "filled",
+            "component": "product-card",
+            "props": {
+              "title": "Ceramic mug",
+              "subtitle": "",
+              "price": "$12.50",
+              "original": "",
+              "badge": "",
+              "rating": 4.8,
+              "action": "Add to cart",
+              "done": "In cart",
+              "width": 186
+            },
+            "actions": {
+              "open": {
+                "to": "upl854zc",
+                "transition": "slide"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "3mk6vx81",
+        "x": 4804,
+        "y": 468,
+        "axis": "x",
+        "inFlow": "kp3nimy5",
+        "items": [
+          {
+            "id": "1n7e81ex",
+            "kind": "component",
+            "label": "Product card",
+            "icon": null,
+            "variant": "filled",
+            "component": "product-card",
+            "props": {
+              "title": "Desk lamp",
+              "subtitle": "",
+              "price": "$38.00",
+              "original": "$45.00",
+              "badge": "-15%",
+              "rating": 4.3,
+              "action": "Add to cart",
+              "done": "In cart",
+              "width": 186
+            },
+            "actions": {
+              "open": {
+                "to": "upl854zc",
+                "transition": "slide"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "l5khmkc8",
+        "x": 4998,
+        "y": 468,
+        "axis": "x",
+        "inFlow": "kp3nimy5",
+        "items": [
+          {
+            "id": "fq2f212l",
+            "kind": "component",
+            "label": "Product card",
+            "icon": null,
+            "variant": "filled",
+            "component": "product-card",
+            "props": {
+              "title": "Steel bottle",
+              "subtitle": "",
+              "price": "$19.00",
+              "original": "",
+              "badge": "",
+              "rating": 4.7,
+              "action": "Add to cart",
+              "done": "In cart",
+              "width": 186
+            },
+            "actions": {
+              "open": {
+                "to": "upl854zc",
+                "transition": "slide"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "gajax696",
+        "x": 4788,
+        "y": 828,
+        "axis": "x",
+        "items": [
+          {
+            "id": "z93zgrdc",
+            "kind": "component",
+            "label": "Navigation bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "navigation-bar",
+            "props": {
+              "items": [
+                {
+                  "label": "Home",
+                  "icon": "home"
+                },
+                {
+                  "label": "Shop",
+                  "icon": "storefront"
+                },
+                {
+                  "label": "Cart",
+                  "icon": "shopping_cart"
+                },
+                {
+                  "label": "Profile",
+                  "icon": "person"
+                }
+              ],
+              "selected": 1,
+              "width": 412
+            }
+          }
+        ]
+      },
+      {
+        "id": "jcrzxugg",
+        "x": 5320,
+        "y": 0,
+        "axis": "x",
+        "items": [
+          {
+            "id": "68ekafm9",
+            "kind": "component",
+            "label": "App bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "app-bar",
+            "props": {
+              "title": "",
+              "leading": "arrow_back",
+              "trailing": "share",
+              "trailing2": "shopping_cart",
+              "width": 412
+            },
+            "actions": {
+              "icon": {
+                "to": "back",
+                "transition": "slide"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "rxlilfyb",
+        "x": 5336,
+        "y": 80,
+        "axis": "x",
+        "items": [
+          {
+            "id": "6spumshd",
+            "kind": "component",
+            "label": "Image",
+            "icon": null,
+            "variant": "filled",
+            "component": "image",
+            "props": {
+              "alt": "Everyday canvas tote",
+              "height": 240,
+              "width": 380
+            }
+          }
+        ]
+      },
+      {
+        "id": "1348erfr",
+        "x": 5336,
+        "y": 336,
+        "axis": "x",
+        "items": [
+          {
+            "id": "nesdzptg",
+            "kind": "component",
+            "label": "Price",
+            "icon": null,
+            "variant": "filled",
+            "component": "price-tag",
+            "props": {
+              "currency": "$",
+              "amount": "24.00",
+              "original": "$32.00",
+              "discount": "-25%",
+              "size": "medium"
+            }
+          }
+        ]
+      },
+      {
+        "id": "tc5mfamf",
+        "x": 5336,
+        "y": 392,
+        "axis": "x",
+        "items": [
+          {
+            "id": "jegtiu1s",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Everyday canvas tote",
+              "style": "title",
+              "bold": true,
+              "width": 380
+            }
+          }
+        ]
+      },
+      {
+        "id": "08q9udv5",
+        "x": 5336,
+        "y": 432,
+        "axis": "x",
+        "name": "Row",
+        "items": [
+          {
+            "id": "gh7s71wl",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "none",
+              "border": "none",
+              "radius": 0,
+              "padX": 0,
+              "padY": 0,
+              "layout": "row",
+              "gap": 8,
+              "align": "center",
+              "hugHeight": true,
+              "width": 380,
+              "height": 40
+            }
+          }
+        ]
+      },
+      {
+        "id": "51cog2mc",
+        "x": 5336,
+        "y": 432,
+        "axis": "x",
+        "inFlow": "08q9udv5",
+        "items": [
+          {
+            "id": "6j56jpjc",
+            "kind": "component",
+            "label": "Rating",
+            "icon": null,
+            "variant": "filled",
+            "component": "rating",
+            "props": {
+              "value": 5,
+              "readOnly": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "f70ic23i",
+        "x": 5504,
+        "y": 436,
+        "axis": "x",
+        "inFlow": "08q9udv5",
+        "items": [
+          {
+            "id": "ubxce3c5",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "4.6 · 128 reviews",
+              "style": "caption",
+              "color": "muted",
+              "width": 212
+            },
+            "flowFill": true
+          }
+        ]
+      },
+      {
+        "id": "mlqsjc2l",
+        "x": 5336,
+        "y": 488,
+        "axis": "x",
+        "items": [
+          {
+            "id": "bwwklm3m",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Heavy cotton canvas with a roomy inside pocket. Made to carry a laptop and a day's shopping.",
+              "style": "body",
+              "color": "muted",
+              "width": 380
+            }
+          }
+        ]
+      },
+      {
+        "id": "ynqmyh1t",
+        "x": 5336,
+        "y": 528,
+        "axis": "x",
+        "name": "Column",
+        "items": [
+          {
+            "id": "10bfx097",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "none",
+              "border": "none",
+              "radius": 0,
+              "padX": 0,
+              "padY": 0,
+              "layout": "column",
+              "gap": 8,
+              "align": "stretch",
+              "hugHeight": true,
+              "width": 380,
+              "height": 64
+            }
+          }
+        ]
+      },
+      {
+        "id": "navk13ub",
+        "x": 5336,
+        "y": 528,
+        "axis": "x",
+        "inFlow": "ynqmyh1t",
+        "items": [
+          {
+            "id": "f60zar32",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Color",
+              "style": "label",
+              "color": "muted",
+              "width": 380
+            }
+          }
+        ]
+      },
+      {
+        "id": "6tulnc3u",
+        "x": 5336,
+        "y": 560,
+        "axis": "x",
+        "inFlow": "ynqmyh1t",
+        "items": [
+          {
+            "id": "fnfyvl7a",
+            "kind": "component",
+            "label": "Chip",
+            "icon": null,
+            "variant": "filled",
+            "component": "chip",
+            "props": {
+              "kind": "filter",
+              "selected": 0,
+              "items": [
+                {
+                  "label": "Sand"
+                },
+                {
+                  "label": "Navy"
+                },
+                {
+                  "label": "Olive"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "f9ggqimi",
+        "x": 5336,
+        "y": 608,
+        "axis": "x",
+        "items": [
+          {
+            "id": "daom2txp",
+            "kind": "component",
+            "label": "List item",
+            "icon": null,
+            "variant": "filled",
+            "component": "item",
+            "props": {
+              "size": "sm",
+              "description": "",
+              "items": [
+                {
+                  "label": "Arrives by Friday",
+                  "icon": "local_shipping"
+                },
+                {
+                  "label": "Free returns for 30 days",
+                  "icon": "assignment_return"
+                }
+              ],
+              "width": 380
+            }
+          }
+        ]
+      },
+      {
+        "id": "p48uw5e7",
+        "x": 5320,
+        "y": 820,
+        "axis": "x",
+        "items": [
+          {
+            "id": "t309hk3i",
+            "kind": "component",
+            "label": "Checkout bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "checkout-bar",
+            "props": {
+              "label": "Price",
+              "amount": "$24.00",
+              "note": "Free delivery",
+              "icons": [
+                {
+                  "label": "Save",
+                  "icon": "favorite"
+                }
+              ],
+              "action": "Add to cart",
+              "done": "In cart",
+              "width": 412
+            },
+            "actions": {
+              "action": {
+                "to": "yyi28knn",
+                "transition": "slide"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "b5cc8gcg",
+        "x": 5852,
+        "y": 0,
+        "axis": "x",
+        "items": [
+          {
+            "id": "pv8g52yl",
+            "kind": "component",
+            "label": "App bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "app-bar",
+            "props": {
+              "title": "Cart",
+              "leading": "arrow_back",
+              "trailing": "",
+              "width": 412
+            },
+            "actions": {
+              "icon": {
+                "to": "back",
+                "transition": "slide"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "48bsv46n",
+        "x": 5868,
+        "y": 80,
+        "axis": "x",
+        "name": "Column",
+        "items": [
+          {
+            "id": "fs3j0983",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "none",
+              "border": "none",
+              "radius": 0,
+              "padX": 0,
+              "padY": 0,
+              "layout": "column",
+              "gap": 16,
+              "align": "stretch",
+              "hugHeight": true,
+              "width": 380,
+              "height": 732
+            }
+          }
+        ]
+      },
+      {
+        "id": "pqax9ye8",
+        "x": 5868,
+        "y": 80,
+        "axis": "x",
+        "inFlow": "48bsv46n",
+        "items": [
+          {
+            "id": "ycq91kv4",
+            "kind": "component",
+            "label": "Shopping cart",
+            "icon": null,
+            "variant": "filled",
+            "component": "cart-list",
+            "props": {
+              "data": {
+                "columns": [
+                  "Name",
+                  "Variant",
+                  "Price",
+                  "Quantity"
+                ],
+                "rows": [
+                  [
+                    "Everyday canvas tote",
+                    "Sand / Large",
+                    "24.00",
+                    "1"
+                  ],
+                  [
+                    "Ceramic mug",
+                    "Glazed white",
+                    "12.50",
+                    "2"
+                  ],
+                  [
+                    "Steel bottle",
+                    "Steel / 500 ml",
+                    "19.00",
+                    "1"
+                  ]
+                ]
+              },
+              "currency": "$",
+              "selectAll": "All",
+              "total": "Total",
+              "action": "Checkout",
+              "empty": "Your cart is empty"
+            },
+            "actions": {
+              "action": {
+                "to": "fymin8u8",
+                "transition": "slide"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "m1msioxo",
+        "x": 5868,
+        "y": 416,
+        "axis": "x",
+        "inFlow": "48bsv46n",
+        "items": [
+          {
+            "id": "cmmacpls",
+            "kind": "component",
+            "label": "Section header",
+            "icon": null,
+            "variant": "filled",
+            "component": "section-header",
+            "props": {
+              "title": "You may also like",
+              "subtitle": "",
+              "action": ""
+            }
+          }
+        ]
+      },
+      {
+        "id": "a6b7h59m",
+        "x": 5868,
+        "y": 472,
+        "axis": "x",
+        "name": "Grid",
+        "inFlow": "48bsv46n",
+        "items": [
+          {
+            "id": "t2v53g2h",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "none",
+              "border": "none",
+              "radius": 0,
+              "padX": 0,
+              "padY": 0,
+              "layout": "grid",
+              "columns": 2,
+              "gap": 8,
+              "align": "stretch",
+              "hugHeight": true,
+              "height": 340
+            }
+          }
+        ]
+      },
+      {
+        "id": "wa0moio5",
+        "x": 5868,
+        "y": 472,
+        "axis": "x",
+        "inFlow": "a6b7h59m",
+        "items": [
+          {
+            "id": "mlnmd6qt",
+            "kind": "component",
+            "label": "Product card",
+            "icon": null,
+            "variant": "filled",
+            "component": "product-card",
+            "props": {
+              "title": "Desk lamp",
+              "subtitle": "",
+              "price": "$38.00",
+              "original": "",
+              "badge": "",
+              "rating": 0,
+              "action": "",
+              "done": "",
+              "width": 186
+            }
+          }
+        ]
+      },
+      {
+        "id": "r190x6q7",
+        "x": 6062,
+        "y": 472,
+        "axis": "x",
+        "inFlow": "a6b7h59m",
+        "items": [
+          {
+            "id": "i73mpbzp",
+            "kind": "component",
+            "label": "Product card",
+            "icon": null,
+            "variant": "filled",
+            "component": "product-card",
+            "props": {
+              "title": "Linen notebook",
+              "subtitle": "",
+              "price": "$9.00",
+              "original": "",
+              "badge": "",
+              "rating": 0,
+              "action": "",
+              "done": "",
+              "width": 186
+            }
+          }
+        ]
+      },
+      {
+        "id": "r40wh25r",
+        "x": 6384,
+        "y": 0,
+        "axis": "x",
+        "items": [
+          {
+            "id": "by0mr4ho",
+            "kind": "component",
+            "label": "App bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "app-bar",
+            "props": {
+              "title": "Checkout",
+              "leading": "arrow_back",
+              "trailing": "",
+              "width": 412
+            },
+            "actions": {
+              "icon": {
+                "to": "back",
+                "transition": "slide"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "oid2xnqy",
+        "x": 6400,
+        "y": 80,
+        "axis": "x",
+        "name": "Panel",
+        "items": [
+          {
+            "id": "iabweylb",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "surface-container-low",
+              "border": "none",
+              "radius": 16,
+              "padX": 16,
+              "padY": 16,
+              "layout": "column",
+              "gap": 8,
+              "align": "stretch",
+              "hugHeight": true,
+              "width": 380,
+              "height": 128
+            }
+          }
+        ]
+      },
+      {
+        "id": "ushazprc",
+        "x": 6416,
+        "y": 96,
+        "axis": "x",
+        "inFlow": "oid2xnqy",
+        "items": [
+          {
+            "id": "8c7t9zuk",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Deliver to",
+              "style": "label",
+              "color": "muted",
+              "width": 348
+            }
+          }
+        ]
+      },
+      {
+        "id": "esob0mcg",
+        "x": 6416,
+        "y": 128,
+        "axis": "x",
+        "inFlow": "oid2xnqy",
+        "items": [
+          {
+            "id": "48s1342x",
+            "kind": "component",
+            "label": "List item",
+            "icon": null,
+            "variant": "filled",
+            "component": "item",
+            "props": {
+              "items": [
+                {
+                  "label": "Mia Carter",
+                  "icon": "location_on"
+                }
+              ],
+              "description": "12 Example Road, Unit 4",
+              "trailing": "icon",
+              "trailingIcon": "chevron_right",
+              "width": 348
+            }
+          }
+        ]
+      },
+      {
+        "id": "9qnmxh8g",
+        "x": 6400,
+        "y": 224,
+        "axis": "x",
+        "name": "Panel",
+        "items": [
+          {
+            "id": "536ny37f",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "surface-container-low",
+              "border": "none",
+              "radius": 16,
+              "padX": 16,
+              "padY": 16,
+              "layout": "column",
+              "gap": 12,
+              "align": "stretch",
+              "hugHeight": true,
+              "width": 380,
+              "height": 88
+            }
+          }
+        ]
+      },
+      {
+        "id": "desv3yv0",
+        "x": 6416,
+        "y": 240,
+        "axis": "x",
+        "name": "Row",
+        "inFlow": "9qnmxh8g",
+        "items": [
+          {
+            "id": "unejtai9",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "none",
+              "border": "none",
+              "radius": 0,
+              "padX": 0,
+              "padY": 0,
+              "layout": "row",
+              "gap": 8,
+              "align": "center",
+              "hugHeight": true,
+              "height": 56,
+              "width": 348
+            }
+          }
+        ]
+      },
+      {
+        "id": "9qgn2etn",
+        "x": 6416,
+        "y": 240,
+        "axis": "x",
+        "inFlow": "desv3yv0",
+        "items": [
+          {
+            "id": "tf5qt56s",
+            "kind": "component",
+            "label": "Image",
+            "icon": null,
+            "variant": "filled",
+            "component": "image",
+            "props": {
+              "alt": "Everyday canvas tote",
+              "width": 56,
+              "height": 56
+            }
+          }
+        ]
+      },
+      {
+        "id": "uk2qh5le",
+        "x": 6480,
+        "y": 240,
+        "axis": "x",
+        "inFlow": "desv3yv0",
+        "items": [
+          {
+            "id": "nka18m7o",
+            "kind": "component",
+            "label": "Image",
+            "icon": null,
+            "variant": "filled",
+            "component": "image",
+            "props": {
+              "alt": "Ceramic mug",
+              "width": 56,
+              "height": 56
+            }
+          }
+        ]
+      },
+      {
+        "id": "d8qnr14v",
+        "x": 6544,
+        "y": 240,
+        "axis": "x",
+        "inFlow": "desv3yv0",
+        "items": [
+          {
+            "id": "su14icu6",
+            "kind": "component",
+            "label": "Image",
+            "icon": null,
+            "variant": "filled",
+            "component": "image",
+            "props": {
+              "alt": "Steel bottle",
+              "width": 56,
+              "height": 56
+            }
+          }
+        ]
+      },
+      {
+        "id": "7he70aut",
+        "x": 6608,
+        "y": 256,
+        "axis": "x",
+        "inFlow": "desv3yv0",
+        "items": [
+          {
+            "id": "kjfdvjmi",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "4 items",
+              "style": "body",
+              "align": "end",
+              "color": "muted",
+              "width": 156
+            },
+            "flowFill": true
+          }
+        ]
+      },
+      {
+        "id": "0a0rir0r",
+        "x": 6400,
+        "y": 328,
+        "axis": "x",
+        "name": "Panel",
+        "items": [
+          {
+            "id": "prkml8dk",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "surface-container-low",
+              "border": "none",
+              "radius": 16,
+              "padX": 16,
+              "padY": 16,
+              "layout": "column",
+              "gap": 8,
+              "align": "stretch",
+              "hugHeight": true,
+              "width": 380,
+              "height": 168
+            }
+          }
+        ]
+      },
+      {
+        "id": "o4i7f5e6",
+        "x": 6416,
+        "y": 344,
+        "axis": "x",
+        "inFlow": "0a0rir0r",
+        "items": [
+          {
+            "id": "cbdgorq2",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Pay with",
+              "style": "label",
+              "color": "muted",
+              "width": 348
+            }
+          }
+        ]
+      },
+      {
+        "id": "19qvp46k",
+        "x": 6416,
+        "y": 376,
+        "axis": "x",
+        "inFlow": "0a0rir0r",
+        "items": [
+          {
+            "id": "a6lh5p4y",
+            "kind": "component",
+            "label": "Radio group",
+            "icon": null,
+            "variant": "filled",
+            "component": "radio-group",
+            "props": {
+              "selected": 0,
+              "items": [
+                {
+                  "label": "Card ending 4242"
+                },
+                {
+                  "label": "Bank transfer"
+                },
+                {
+                  "label": "Cash on delivery"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "wljk7q7v",
+        "x": 6400,
+        "y": 512,
+        "axis": "x",
+        "items": [
+          {
+            "id": "is9eqyro",
+            "kind": "component",
+            "label": "Input group",
+            "icon": null,
+            "variant": "filled",
+            "component": "input-group",
+            "props": {
+              "placeholder": "Promo code",
+              "leadingIcon": "sell",
+              "leadingText": "",
+              "trailingText": "",
+              "button": "Apply",
+              "width": 380
+            }
+          }
+        ]
+      },
+      {
+        "id": "0qjjww4a",
+        "x": 6400,
+        "y": 584,
+        "axis": "x",
+        "name": "Panel",
+        "items": [
+          {
+            "id": "tqr2ytj2",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "surface-container-low",
+              "border": "none",
+              "radius": 16,
+              "padX": 16,
+              "padY": 16,
+              "layout": "column",
+              "gap": 8,
+              "align": "stretch",
+              "hugHeight": true,
+              "width": 380,
+              "height": 184
+            }
+          }
+        ]
+      },
+      {
+        "id": "65beu0ri",
+        "x": 6416,
+        "y": 600,
+        "axis": "x",
+        "inFlow": "0qjjww4a",
+        "items": [
+          {
+            "id": "hyfth0zr",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Summary",
+              "style": "label",
+              "color": "muted",
+              "width": 348
+            }
+          }
+        ]
+      },
+      {
+        "id": "q438qnh1",
+        "x": 6416,
+        "y": 632,
+        "axis": "x",
+        "inFlow": "0qjjww4a",
+        "items": [
+          {
+            "id": "l4v30rkj",
+            "kind": "component",
+            "label": "Description list",
+            "icon": null,
+            "variant": "filled",
+            "component": "description-list",
+            "props": {
+              "data": {
+                "columns": [
+                  "Name",
+                  "Value"
+                ],
+                "rows": [
+                  [
+                    "Items",
+                    "$68.00"
+                  ],
+                  [
+                    "Delivery",
+                    "Free"
+                  ],
+                  [
+                    "Arrives",
+                    "Friday"
+                  ]
+                ]
+              },
+              "width": 348
+            }
+          }
+        ]
+      },
+      {
+        "id": "5zmer0yp",
+        "x": 6384,
+        "y": 820,
+        "axis": "x",
+        "items": [
+          {
+            "id": "5vp26ewy",
+            "kind": "component",
+            "label": "Checkout bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "checkout-bar",
+            "props": {
+              "label": "Total",
+              "amount": "$68.00",
+              "note": "Free delivery",
+              "icons": [],
+              "action": "Place order",
+              "done": "",
+              "width": 412
+            },
+            "actions": {
+              "action": {
+                "to": "87y6j9p5",
+                "transition": "slide"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "c1cifwan",
+        "x": 6932,
+        "y": 222,
+        "axis": "x",
+        "name": "Row",
+        "items": [
+          {
+            "id": "wstpvmbk",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "none",
+              "border": "none",
+              "radius": 0,
+              "padX": 0,
+              "padY": 0,
+              "layout": "row",
+              "gap": 8,
+              "align": "center",
+              "hugHeight": false,
+              "justify": "center",
+              "height": 96,
+              "width": 380
+            }
+          }
+        ]
+      },
+      {
+        "id": "d2za577h",
+        "x": 7110,
+        "y": 258,
+        "axis": "x",
+        "inFlow": "c1cifwan",
+        "items": [
+          {
+            "id": "0uzu3d9q",
+            "kind": "component",
+            "label": "Icon",
+            "icon": null,
+            "variant": "filled",
+            "component": "icon",
+            "props": {
+              "name": "check_circle",
+              "size": 96,
+              "color": "primary",
+              "filled": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "1rzfngqe",
+        "x": 6932,
+        "y": 334,
+        "axis": "x",
+        "items": [
+          {
+            "id": "0xib0oct",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "Thank you for your order",
+              "style": "headline",
+              "align": "center",
+              "width": 380
+            }
+          }
+        ]
+      },
+      {
+        "id": "6egu3s86",
+        "x": 6932,
+        "y": 374,
+        "axis": "x",
+        "items": [
+          {
+            "id": "56u5uj16",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {
+              "text": "We will email you when it ships.",
+              "style": "body",
+              "align": "center",
+              "color": "muted",
+              "width": 380
+            }
+          }
+        ]
+      },
+      {
+        "id": "zyczdc45",
+        "x": 6932,
+        "y": 414,
+        "axis": "x",
+        "name": "Panel",
+        "items": [
+          {
+            "id": "x7u1ljp9",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "surface-container-low",
+              "border": "none",
+              "radius": 16,
+              "padX": 16,
+              "padY": 16,
+              "layout": "column",
+              "gap": 12,
+              "align": "stretch",
+              "hugHeight": true,
+              "width": 380,
+              "height": 152
+            }
+          }
+        ]
+      },
+      {
+        "id": "ojodlsbl",
+        "x": 6948,
+        "y": 430,
+        "axis": "x",
+        "inFlow": "zyczdc45",
+        "items": [
+          {
+            "id": "k38nkuyt",
+            "kind": "component",
+            "label": "Description list",
+            "icon": null,
+            "variant": "filled",
+            "component": "description-list",
+            "props": {
+              "data": {
+                "columns": [
+                  "Name",
+                  "Value"
+                ],
+                "rows": [
+                  [
+                    "Order",
+                    "A-1042"
+                  ],
+                  [
+                    "Arrives",
+                    "Friday"
+                  ],
+                  [
+                    "Total",
+                    "$68.00"
+                  ]
+                ]
+              },
+              "width": 348
+            }
+          }
+        ]
+      },
+      {
+        "id": "iy43085h",
+        "x": 6932,
+        "y": 582,
+        "axis": "x",
+        "name": "Column",
+        "items": [
+          {
+            "id": "ocnu3ubk",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {
+              "label": "",
+              "fill": "none",
+              "border": "none",
+              "radius": 0,
+              "padX": 0,
+              "padY": 0,
+              "layout": "column",
+              "gap": 8,
+              "align": "stretch",
+              "hugHeight": true,
+              "width": 380,
+              "height": 88
+            }
+          }
+        ]
+      },
+      {
+        "id": "c3chm8aq",
+        "x": 6932,
+        "y": 582,
+        "axis": "x",
+        "inFlow": "iy43085h",
+        "items": [
+          {
+            "id": "49tem4i0",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Track order",
+              "icon": "local_shipping",
+              "width": 380
+            }
+          }
+        ]
+      },
+      {
+        "id": "irbz2qd2",
+        "x": 6932,
+        "y": 630,
+        "axis": "x",
+        "inFlow": "iy43085h",
+        "items": [
+          {
+            "id": "uy1uu3as",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {
+              "label": "Continue shopping",
+              "variant": "text",
+              "width": 380
+            },
+            "action": {
+              "to": "p1jj1nd7",
+              "transition": "fade"
+            }
+          }
+        ]
+      }
+    ],
+    "frames": [
+      {
+        "id": "f-menu",
+        "name": "Menu",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "id": "f-form",
+        "name": "Form",
+        "x": 532,
+        "y": 0
+      },
+      {
+        "id": "f-welcome",
+        "name": "Welcome",
+        "x": 1064,
+        "y": 0
+      },
+      {
+        "id": "f-counter",
+        "name": "Counter",
+        "x": 1596,
+        "y": 0
+      },
+      {
+        "id": "f-inputs",
+        "name": "Inputs",
+        "x": 2128,
+        "y": 0
+      },
+      {
+        "id": "f-dock",
+        "name": "Dock",
+        "x": 2660,
+        "y": 0
+      },
+      {
+        "id": "f-bars",
+        "name": "Bars",
+        "x": 3192,
+        "y": 0
+      },
+      {
+        "id": "f-bars-two",
+        "name": "Bars two",
+        "x": 3724,
+        "y": 0
+      },
+      {
+        "id": "f-long",
+        "name": "Long",
+        "x": 4256,
+        "y": 0,
+        "length": 1784
+      },
+      {
+        "id": "p1jj1nd7",
+        "name": "Products",
+        "x": 4788,
+        "y": 0
+      },
+      {
+        "id": "upl854zc",
+        "name": "Product",
+        "x": 5320,
+        "y": 0
+      },
+      {
+        "id": "yyi28knn",
+        "name": "Cart",
+        "x": 5852,
+        "y": 0
+      },
+      {
+        "id": "fymin8u8",
+        "name": "Checkout",
+        "x": 6384,
+        "y": 0
+      },
+      {
+        "id": "87y6j9p5",
+        "name": "Order placed",
+        "x": 6916,
+        "y": 0,
+        "place": "center"
+      }
+    ],
+    "paletteKey": "purple",
+    "frame": "phone",
+    "title": "Proof app",
+    "brief": "",
+    "theme": {
+      "dark": false,
+      "bothModes": false,
+      "contrast": "standard",
+      "shape": "full",
+      "font": "roboto",
+      "emphasized": false,
+      "motion": "expressive"
+    },
+    "vars": [
+      {
+        "id": "v-email",
+        "name": "Email",
+        "type": "text",
+        "value": ""
+      },
+      {
+        "id": "v-count",
+        "name": "Count",
+        "type": "number",
+        "value": 0
+      },
+      {
+        "id": "v-flag",
+        "name": "Flag",
+        "type": "bool",
+        "value": false
+      },
+      {
+        "id": "v-fruit",
+        "name": "Fruit",
+        "type": "text",
+        "value": "Apple"
+      },
+      {
+        "id": "v-volume",
+        "name": "Volume",
+        "type": "number",
+        "value": 40
+      },
+      {
+        "id": "v-city",
+        "name": "City",
+        "type": "text",
+        "value": "Oslo"
+      }
+    ]
+  }
+}

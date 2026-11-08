@@ -14,7 +14,7 @@ import { downloadProject } from "@/lib/projects/download";
 import { canPickFolder, canSyncFile, mayWrite, pickFolder, pickOpenFile, pickSaveFile, readFromDisk, type LinkState } from "@/lib/projects/fileLink";
 import { ProjectsPersist, type Recovered, type SaveReport, type SaveState } from "@/lib/projects/persist";
 import { createProject, freeName, projectUrl } from "@/lib/projects/projects";
-import { projectFileName } from "@/lib/project";
+import { newerVersionOf, projectFileName } from "@/lib/project";
 import type { Doc, Frame } from "@/lib/tokens";
 import { outsideInDoc } from "@/lib/outside";
 import { holdOutside } from "./useOutsideImages";
@@ -315,7 +315,8 @@ export function useProject(o: ProjectInputs) {
     const p = pendingOpen;
     setPendingOpen(null);
     if (!p) return;
-    const bind = keepSynced && !!p.handle && !!projects && (await mayWrite(p.handle, true));
+    /* a file a newer version wrote is never kept in sync: nothing may write over it (lib/project.ts `Loaded.newer`) */
+    const bind = keepSynced && !!p.handle && !!projects && newerVersionOf(p.doc) === undefined && (await mayWrite(p.handle, true));
     if (where === "replace" || !projects) {
       /* someone else's file: what it shows from other sites waits for the author to allow it */
       holdOutside(p.doc, persist);

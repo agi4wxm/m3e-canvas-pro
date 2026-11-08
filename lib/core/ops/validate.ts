@@ -18,6 +18,7 @@ import { pictureError } from "../images";
 import { docIconId, docIconName, isDocIconName } from "../../docIcons";
 import type { CoreState } from "../state";
 import { exprSyntaxError } from "../../bindings/check";
+import { bindRule, conditionRule, ROW_FIELD } from "../../rules";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -165,6 +166,9 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
     const def = partBySlug(it.component);
     for (const [prop, id] of Object.entries(v)) {
       if (!def?.props.some((d) => d.key === prop)) return `${it.component} has no prop "${prop}" to bind`;
+      /* held to what reading a file holds a binding to (lib/rules.ts) */
+      const shape = bindRule(id);
+      if (shape) return `${prop}: ${shape}`;
       /* "=…" is an expression over the bindings */
       if (typeof id === "string" && id.startsWith("=")) {
         const e = exprSyntaxError(id.slice(1));
@@ -205,13 +209,16 @@ export function cleanedLook(v: unknown) {
 
 const isValue = (v: unknown): v is VarValue => typeof v === "string" || typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v));
 
+/** A condition as the one rule for conditions has it (lib/rules.ts, what reading a file holds it to too), then what it
+ *  points at: the part it asks about, the variable it reads (a field of the row, `row.<field>`, is one, as the guide
+ *  says), and an expression that parses. */
 export function conditionError(c: unknown, s: CoreState): string | null {
-  if (!isRecord(c)) return "should be {var, op, value}, {filled} or {expr}";
-  if (c.expr !== undefined) return exprSyntaxError(c.expr);
-  if (typeof c.filled === "string") return s.doc.groups.some((g) => g.items.some((it) => it.id === c.filled)) ? null : `there is no part ${JSON.stringify(c.filled)}`;
-  if (typeof c.var !== "string" || !(s.doc.vars ?? []).some((v) => v.id === c.var)) return `there is no variable ${JSON.stringify(c.var)}`;
-  if (c.op !== "eq" && c.op !== "neq") return 'op should be "eq" or "neq"';
-  return isValue(c.value) ? null : "value should be text, a number or true/false";
+  const shape = conditionRule(c);
+  if (shape) return shape;
+  const r = c as Record<string, unknown>;
+  if (typeof r.filled === "string") return s.doc.groups.some((g) => g.items.some((it) => it.id === r.filled)) ? null : `there is no part ${JSON.stringify(r.filled)}`;
+  if (r.expr !== undefined) return exprSyntaxError(r.expr);
+  return ROW_FIELD.test(r.var as string) || (s.doc.vars ?? []).some((v) => v.id === r.var) ? null : `there is no variable ${JSON.stringify(r.var)}`;
 }
 
 const TRANSITIONS = ["slide", "slideLeft", "slideUp", "slideDown", "fade", "expand", "none"];

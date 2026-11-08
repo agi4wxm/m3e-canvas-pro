@@ -62,8 +62,14 @@ export type AssetMark = { size: number; modified: number; own?: boolean };
 
 /** The record a document is kept in. `stamp` is new with every write of the editor: a tab that finds another stamp
  *  than the one it read or wrote last knows another tab saved the project meanwhile (absent in what earlier
- *  versions, and the other ways a project is made, wrote). */
-export type DocRecord = { json: string; stamp?: string };
+ *  versions, and the other ways a project is made, wrote). `version` is the format version the document is written
+ *  in (lib/migrations.ts); absent in what was written before records said, which is read as BARE_VERSION. */
+export type DocRecord = { json: string; stamp?: string; version?: number };
+
+/** a document as a record keeps it: its JSON, the pictures it refers to, and the format version it is written in */
+export type StoredDoc = { json: string; refs: string[]; assets: ReadonlyMap<string, string>; version?: number };
+
+const versionField = (v: number | undefined) => (typeof v === "number" ? { version: v } : {});
 
 /** another tab wrote the project since this one read or wrote it */
 export class DocConflict extends Error {}
@@ -166,18 +172,26 @@ export const getProject = (id: string) => transact<ProjectMeta | undefined>(["pr
   t.objectStore("projects").get(id).onsuccess = (e) => set((e.target as IDBRequest<ProjectMeta | undefined>).result);
 });
 
+/** what `readProjectRecords` finds: the versions are the records' own, undefined when they say none */
+export type ProjectRecords = { meta?: ProjectMeta; doc: string | null; stamp: string | null; before: string | null; docVersion?: number; beforeVersion?: number };
+
 /** a project's listing, its document (and the stamp of its last write) and the design a draft replaced, as stored */
 export const readProjectRecords = (id: string) =>
-  transact<{ meta?: ProjectMeta; doc: string | null; stamp: string | null; before: string | null }>(["projects", "docs", "befores"], "readonly", (t, set) => {
-    const out: { meta?: ProjectMeta; doc: string | null; stamp: string | null; before: string | null } = { doc: null, stamp: null, before: null };
+  transact<ProjectRecords>(["projects", "docs", "befores"], "readonly", (t, set) => {
+    const out: ProjectRecords = { doc: null, stamp: null, before: null };
     set(out);
     t.objectStore("projects").get(id).onsuccess = (e) => (out.meta = (e.target as IDBRequest<ProjectMeta | undefined>).result);
     t.objectStore("docs").get(id).onsuccess = (e) => {
       const rec = (e.target as IDBRequest<DocRecord | undefined>).result;
       out.doc = rec?.json ?? null;
       out.stamp = rec?.stamp ?? null;
+      if (typeof rec?.version === "number") out.docVersion = rec.version;
     };
-    t.objectStore("befores").get(id).onsuccess = (e) => (out.before = (e.target as IDBRequest<DocRecord | undefined>).result?.json ?? null);
+    t.objectStore("befores").get(id).onsuccess = (e) => {
+      const rec = (e.target as IDBRequest<DocRecord | undefined>).result;
+      out.before = rec?.json ?? null;
+      if (typeof rec?.version === "number") out.beforeVersion = rec.version;
+    };
   });
 
 /** the pictures found of those named */
@@ -217,14 +231,14 @@ function putMissing(store: IDBObjectStore, assets: ReadonlyMap<string, string>) 
 /** Keeps a project's document with the pictures it refers to and its listing as `meta` makes it from the one
  *  stored (absent for a project not listed yet), in one transaction. With `expect`, only if the document stored
  *  still carries that stamp (null: none): else nothing is written and it rejects with a `DocConflict`. */
-export async function writeDocRecord(id: string, o: { json: string; refs: string[]; assets: ReadonlyMap<string, string>; meta: (old: ProjectMeta | undefined) => ProjectMeta | undefined; stamp?: string; expect?: string | null }): Promise<ProjectMeta | undefined> {
+export async function writeDocRecord(id: string, o: StoredDoc & { meta: (old: ProjectMeta | undefined) => ProjectMeta | undefined; stamp?: string; expect?: string | null }): Promise<ProjectMeta | undefined> {
   let clash = false;
   try {
     return await transact<ProjectMeta | undefined>(["projects", "docs", "refs", "assets"], "readwrite", (t, set) => {
       const docs = t.objectStore("docs");
       const write = () => {
         putMissing(t.objectStore("assets"), o.assets);
-        docs.put({ json: o.json, ...(o.stamp ? { stamp: o.stamp } : {}) } satisfies DocRecord, id);
+        docs.put({ json: o.json, ...(o.stamp ? { stamp: o.stamp } : {}), ...versionField(o.version) } satisfies DocRecord, id);
         t.objectStore("refs").put(o.refs, id);
         const projects = t.objectStore("projects");
         projects.get(id).onsuccess = (e) => {
@@ -247,7 +261,7 @@ export async function writeDocRecord(id: string, o: { json: string; refs: string
 }
 
 /** keeps, or forgets (null), the design a draft or a link replaced */
-export const writeBeforeRecord = (id: string, o: { json: string; refs: string[]; assets: ReadonlyMap<string, string> } | null) =>
+export const writeBeforeRecord = (id: string, o: StoredDoc | null) =>
   transact(["befores", "refs", "assets"], "readwrite", (t) => {
     if (!o) {
       t.objectStore("befores").delete(id);
@@ -255,7 +269,7 @@ export const writeBeforeRecord = (id: string, o: { json: string; refs: string[];
       return;
     }
     putMissing(t.objectStore("assets"), o.assets);
-    t.objectStore("befores").put({ json: o.json } satisfies DocRecord, id);
+    t.objectStore("befores").put({ json: o.json, ...versionField(o.version) } satisfies DocRecord, id);
     t.objectStore("refs").put(o.refs, beforeKey(id));
   });
 
@@ -274,12 +288,12 @@ export const patchProject = (id: string, patch: Partial<ProjectMeta> | ((m: Proj
   });
 
 /** A new project: its listing, and its document with its pictures when it starts from one. */
-export const putNewProject = (meta: ProjectMeta, doc?: { json: string; refs: string[]; assets: ReadonlyMap<string, string> }) =>
+export const putNewProject = (meta: ProjectMeta, doc?: StoredDoc) =>
   transact(["projects", "docs", "refs", "assets"], "readwrite", (t) => {
     t.objectStore("projects").add(meta);
     if (!doc) return;
     putMissing(t.objectStore("assets"), doc.assets);
-    t.objectStore("docs").put({ json: doc.json } satisfies DocRecord, meta.id);
+    t.objectStore("docs").put({ json: doc.json, ...versionField(doc.version) } satisfies DocRecord, meta.id);
     t.objectStore("refs").put(doc.refs, meta.id);
   });
 

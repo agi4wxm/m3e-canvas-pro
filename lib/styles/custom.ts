@@ -5,6 +5,7 @@ import { checkRule, checkValue, rulesCss, rulesFromCss, LIMITS, type CssRule, ty
 import { PACKS } from "./packs";
 import { RECIPES, RECIPE_KEYS, type RecipeKey, type Recipes } from "./recipes";
 import { DEFAULT_UX, type StyleGroup, type StylePack, type StyleRoles, type StyleText, type StyleToken, type StyleUX, type Step, type TypeRamp } from "./types";
+import { fields, withUnknown } from "../keep";
 
 /* A custom style: a style as plain data, carried by the document that wears it (`Doc.styles`), so a person or a model can
  * make one, and it travels with the file, a link and an export. It holds what a pack holds (types.ts `StylePack`),
@@ -552,6 +553,9 @@ export function readStyleFile(text: string): Validated {
   return validateCustomStyle(json);
 }
 
+/** the fields a style of a document's own has (`CustomStyle`) */
+const STYLE_FIELDS = fields("key", "name", "hint", "refs", "basis", "group", "extends", "seed", "light", "dark", "mode", "shape", "font", "display", "icons", "motion", "recipes", "control", "pill", "compact", "edge", "screen", "screenDark", "capsLabels", "italicDisplay", "loud", "tokens", "art", "ux", "layout", "type", "rules", "css", "format", "version", "style");
+
 /** A document's styles as it may keep them: each one validated, what is no style left out, one style to a key.
  *  Undefined when none is left. */
 export function cleanStyles(list: unknown): CustomStyle[] | undefined {
@@ -559,7 +563,8 @@ export function cleanStyles(list: unknown): CustomStyle[] | undefined {
   const out: CustomStyle[] = [];
   for (const item of list) {
     const { style } = validateCustomStyle(item);
-    if (style && !out.some((s) => s.key === style.key)) out.push(style);
+    /* a field a style does not have (a newer version's) is kept with it, as it came; nothing compiles it */
+    if (style && !out.some((s) => s.key === style.key)) out.push(withUnknown(isRecord(item) && item.format === STYLE_FORMAT ? item.style : item, style, STYLE_FIELDS));
   }
   return out.length ? out : undefined;
 }

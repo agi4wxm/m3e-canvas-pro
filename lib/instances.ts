@@ -318,9 +318,9 @@ export function rekeyedAll(units: Group[], dx: number, dy: number, sameScreen = 
   const made = units.map((u) => rekeyed(u, dx, dy));
   const ids = new Map(units.flatMap((u, i) => u.items.map((it, j) => [it.id, made[i].items[j].id] as const)));
   const fresh = new Map(units.map((u, i) => [u.id, made[i].id]));
-  /* a part inside an instance goes by the instance's id, and follows its copy too */
+  /* a part inside an instance goes by the instance's id, and follows its copy too; a form may go by its group's */
   const follows = (id: string) => {
-    const known = ids.get(id);
+    const known = ids.get(id) ?? fresh.get(id);
     if (known) return known;
     const at = id.indexOf("/");
     const instance = at > 0 ? fresh.get(id.slice(0, at)) : undefined;

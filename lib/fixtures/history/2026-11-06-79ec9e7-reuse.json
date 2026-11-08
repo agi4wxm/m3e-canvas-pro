@@ -1,0 +1,128 @@
+{
+  "format": "m3e-project",
+  "version": 2,
+  "document": {
+    "brief": "",
+    "collections": [
+      {
+        "fields": [
+          "name",
+          "price"
+        ],
+        "id": "products",
+        "name": "Products",
+        "rows": [
+          ["Apple","1"],
+          ["Pear","2"],
+          ["Plum","3"]
+        ]
+      }
+    ],
+    "components": [
+      {
+        "groups": [
+          {"axis":"x","id":"p-col","items":[{"component":"container","icon":null,"id":"p-col-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","gap":8,"height":80,"hugHeight":true,"hugWidth":true,"label":"","layout":"column","padX":0,"padY":0,"radius":0,"width":380},"variant":"filled"}],"x":0,"y":0},
+          {"axis":"x","id":"p-title","inFlow":"p-col","items":[{"component":"text","icon":null,"id":"p-title-t","kind":"component","label":"Text","props":{"text":"Promo"},"variant":"filled"}],"x":0,"y":0},
+          {"axis":"x","id":"p-more","inFlow":"p-col","items":[{"action":{"effects":[{"do":"toggle","part":"p-secret-t"}],"to":"none","transition":"none"},"component":"button","icon":null,"id":"p-more-b","kind":"component","label":"Button","props":{"icon":"","label":"Reveal promo","variant":"filled","width":160},"variant":"filled"}],"x":0,"y":0},
+          {"axis":"x","hidden":true,"id":"p-secret","inFlow":"p-col","items":[{"component":"text","icon":null,"id":"p-secret-t","kind":"component","label":"Text","props":{"text":"Promo secret"},"variant":"filled"}],"x":0,"y":0},
+          {"axis":"x","id":"p-rename","inFlow":"p-col","items":[{"action":{"effects":[{"do":"setProp","part":"p-title-t","prop":"text","value":"Promo renamed"}],"to":"none","transition":"none"},"component":"button","icon":null,"id":"p-rename-b","kind":"component","label":"Button","props":{"icon":"","label":"Rename promo","variant":"filled","width":160},"variant":"filled"}],"x":0,"y":0}
+        ],
+        "h": 160,
+        "id": "c-promo",
+        "name": "Promo",
+        "w": 240
+      },
+      {
+        "groups": [
+          {"axis":"x","id":"t-row","items":[{"component":"container","icon":null,"id":"t-row-part","kind":"component","label":"Container","props":{"align":"center","border":"none","fill":"none","gap":8,"height":80,"hugHeight":true,"hugWidth":true,"label":"","layout":"row","padX":0,"padY":0,"radius":0,"width":380},"variant":"filled"}],"x":0,"y":0},
+          {"axis":"x","id":"t-name","inFlow":"t-row","items":[{"component":"text","icon":null,"id":"t-name-t","kind":"component","label":"Text","props":{"text":"Tag {{name}}"},"variant":"filled"}],"x":0,"y":0},
+          {"axis":"x","id":"t-pick","inFlow":"t-row","items":[{"action":{"to":"r-detail","transition":"slide"},"component":"button","icon":null,"id":"t-pick-b","kind":"component","label":"Button","props":{"icon":"","label":"Pick {{name}}","variant":"filled","width":160},"variant":"filled"}],"x":0,"y":0}
+        ],
+        "h": 160,
+        "id": "c-tag",
+        "name": "Tag",
+        "w": 240
+      },
+      {
+        "groups": [
+          {"axis":"x","id":"d-dock","items":[{"component":"dock","icon":null,"id":"d-dock-p","kind":"component","label":"Dock","props":{"height":220,"items":[{"label":"One"},{"label":"Two"}],"width":360},"variant":"filled"}],"x":0,"y":0},
+          {"axis":"x","id":"d-a","inFlow":"d-dock","items":[{"component":"text","icon":null,"id":"d-a-t","kind":"component","label":"Text","props":{"text":"Pane one"},"variant":"filled"}],"pane":0,"x":0,"y":0},
+          {"axis":"x","id":"d-b","inFlow":"d-dock","items":[{"action":{"effects":[{"do":"snackbar","message":"Pressed pane"}],"to":"none","transition":"none"},"component":"button","icon":null,"id":"d-b-b","kind":"component","label":"Button","props":{"icon":"","label":"Pane two","variant":"filled","width":160},"variant":"filled"}],"pane":1,"x":0,"y":0}
+        ],
+        "h": 160,
+        "id": "c-tabs",
+        "name": "Tabs",
+        "w": 240
+      },
+      {
+        "groups": [
+          {"axis":"x","id":"o-t","items":[{"component":"text","icon":null,"id":"o-t-t","kind":"component","label":"Text","props":{"text":"Outer words"},"variant":"filled"}],"x":0,"y":0},
+          {"axis":"x","id":"o-i","instanceOf":"c-promo","items":[{"component":"container","icon":null,"id":"o-i-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","height":100,"label":"","radius":0,"width":200},"variant":"filled"}],"overrides":{"p-title-t/text":"Nested title"},"x":0,"y":40}
+        ],
+        "h": 160,
+        "id": "c-outer",
+        "name": "Outer",
+        "w": 240
+      },
+      {
+        "groups": [
+          {"axis":"x","id":"l-col","items":[{"component":"container","icon":null,"id":"l-col-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","gap":8,"height":80,"hugHeight":true,"hugWidth":true,"label":"","layout":"column","padX":0,"padY":0,"radius":0,"width":380},"variant":"filled"}],"repeat":{"collection":"products"},"x":0,"y":0},
+          {"axis":"x","id":"l-row","inFlow":"l-col","items":[{"component":"text","icon":null,"id":"l-row-t","kind":"component","label":"Text","props":{"text":"Listed {{name}}"},"variant":"filled"}],"x":0,"y":0}
+        ],
+        "h": 160,
+        "id": "c-list",
+        "name": "List",
+        "w": 240
+      }
+    ],
+    "frame": "phone",
+    "frames": [
+      {"id":"r-home","name":"Reuse home","x":0,"y":0},
+      {"h":1194,"id":"r-big","name":"Reuse home","variantOf":"r-home","w":834,"x":532,"y":0},
+      {"id":"r-detail","name":"Detail","x":1486,"y":0},
+      {"id":"r-instances","name":"Instances","x":2018,"y":0},
+      {"id":"r-docked","name":"Docked","x":2550,"y":0}
+    ],
+    "groups": [
+      {"axis":"x","id":"home-col","items":[{"component":"container","icon":null,"id":"home-col-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","gap":8,"height":80,"hugHeight":true,"hugWidth":true,"label":"","layout":"column","padX":0,"padY":0,"radius":0,"width":380},"variant":"filled"}],"repeat":{"collection":"products"},"x":16,"y":40},
+      {"axis":"x","id":"home-row","inFlow":"home-col","items":[{"component":"container","icon":null,"id":"home-row-part","kind":"component","label":"Container","props":{"align":"center","border":"none","fill":"none","gap":8,"height":80,"hugHeight":true,"hugWidth":true,"label":"","layout":"row","padX":0,"padY":0,"radius":0,"width":380},"variant":"filled"}],"x":0,"y":0},
+      {"axis":"x","id":"home-name","inFlow":"home-row","items":[{"component":"text","icon":null,"id":"home-name-t","kind":"component","label":"Text","props":{"text":"{{name}}","width":48},"variant":"filled"}],"x":0,"y":0},
+      {"axis":"x","id":"home-price","inFlow":"home-row","items":[{"component":"text","icon":null,"id":"home-price-t","kind":"component","label":"Text","props":{"text":"{{price}}$","width":28},"variant":"filled"}],"x":0,"y":0},
+      {"axis":"x","id":"home-open","inFlow":"home-row","items":[{"action":{"to":"r-detail","transition":"slide"},"component":"button","icon":null,"id":"home-open-b","kind":"component","label":"Button","props":{"icon":"","label":"Open {{name}}","variant":"filled","width":110},"variant":"filled"}],"x":0,"y":0},
+      {"axis":"x","id":"home-say","inFlow":"home-row","items":[{"action":{"effects":[{"do":"snackbar","message":"Pear only"}],"else":{"effects":[{"do":"snackbar","message":"Not pear {{name}}"}],"to":"none","transition":"none"},"to":"none","transition":"none","when":{"op":"eq","value":"Pear","var":"row.name"}},"component":"button","icon":null,"id":"home-say-b","kind":"component","label":"Button","props":{"icon":"","label":"Say {{name}}","variant":"filled","width":110},"variant":"filled"}],"x":0,"y":0},
+      {"axis":"x","id":"home-plum","inFlow":"home-row","items":[{"component":"text","icon":null,"id":"home-plum-t","kind":"component","label":"Text","props":{"text":"Plum tag","width":48},"variant":"filled"}],"showWhen":{"op":"eq","value":"Plum","var":"row.name"},"x":0,"y":0},
+      {"axis":"x","id":"home-go","items":[{"action":{"to":"r-instances","transition":"slide"},"component":"button","icon":null,"id":"home-go-b","kind":"component","label":"Button","props":{"icon":"","label":"To instances","variant":"filled","width":160},"variant":"filled"}],"x":16,"y":300},
+      {"axis":"x","id":"tags","items":[{"component":"container","icon":null,"id":"tags-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","gap":8,"height":80,"hugHeight":true,"hugWidth":true,"label":"","layout":"column","padX":0,"padY":0,"radius":0,"width":380},"variant":"filled"}],"repeat":{"collection":"products","limit":2},"x":16,"y":360},
+      {"axis":"x","id":"tag-i","inFlow":"tags","instanceOf":"c-tag","items":[{"component":"container","icon":null,"id":"tag-i-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","height":100,"label":"","radius":0,"width":200},"variant":"filled"}],"x":0,"y":0},
+      {"axis":"x","id":"det-a","items":[{"component":"text","icon":null,"id":"det-a-t","kind":"component","label":"Text","props":{"text":"You chose {{current.name}}"},"variant":"filled"}],"x":1502,"y":40},
+      {"axis":"x","id":"det-b","items":[{"component":"text","icon":null,"id":"det-b-t","kind":"component","label":"Text","props":{"text":"{{current.price}} dollars"},"variant":"filled"}],"x":1502,"y":80},
+      {"axis":"x","id":"det-say","items":[{"action":{"effects":[{"do":"snackbar","message":"Said {{current.name}}"}],"to":"none","transition":"none"},"component":"button","icon":null,"id":"det-say-b","kind":"component","label":"Button","props":{"icon":"","label":"Say chosen","variant":"filled","width":160},"variant":"filled"}],"x":1502,"y":120},
+      {"axis":"x","id":"det-back","items":[{"action":{"to":"back","transition":"slide"},"component":"button","icon":null,"id":"det-back-b","kind":"component","label":"Button","props":{"icon":"","label":"Go back","variant":"filled","width":160},"variant":"filled"}],"x":1502,"y":180},
+      {"axis":"x","id":"i-a","instanceOf":"c-promo","items":[{"component":"container","icon":null,"id":"i-a-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","height":100,"label":"","radius":0,"width":200},"variant":"filled"}],"x":2034,"y":40},
+      {"axis":"x","id":"inst-col","items":[{"component":"container","icon":null,"id":"inst-col-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","gap":8,"height":80,"hugHeight":true,"hugWidth":true,"label":"","layout":"column","padX":0,"padY":0,"radius":0,"width":380},"variant":"filled"}],"x":2034,"y":260},
+      {"axis":"x","id":"inst-before","inFlow":"inst-col","items":[{"component":"text","icon":null,"id":"inst-before-t","kind":"component","label":"Text","props":{"text":"Before instance"},"variant":"filled"}],"x":532,"y":0},
+      {"axis":"x","id":"i-b","inFlow":"inst-col","instanceOf":"c-promo","items":[{"component":"container","icon":null,"id":"i-b-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","height":100,"label":"","radius":0,"width":200},"variant":"filled"}],"overrides":{"p-more-b/label":"Reveal second","p-title-t/text":"Second"},"x":532,"y":0},
+      {"axis":"x","id":"inst-after","inFlow":"inst-col","items":[{"component":"text","icon":null,"id":"inst-after-t","kind":"component","label":"Text","props":{"text":"After instance"},"variant":"filled"}],"x":532,"y":0},
+      {"axis":"x","hidden":true,"id":"i-c","instanceOf":"c-promo","items":[{"component":"container","icon":null,"id":"i-c-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","height":100,"label":"","radius":0,"width":200},"variant":"filled"}],"overrides":{"p-title-t/text":"Third"},"x":2234,"y":40},
+      {"axis":"x","id":"show-c","items":[{"action":{"effects":[{"do":"toggle","part":"i-c-part"}],"to":"none","transition":"none"},"component":"button","icon":null,"id":"show-c-b","kind":"component","label":"Button","props":{"icon":"","label":"Toggle third","variant":"filled","width":160},"variant":"filled"}],"x":2234,"y":700},
+      {"axis":"x","id":"hide-before","items":[{"action":{"effects":[{"do":"toggle","part":"inst-before-t"}],"to":"none","transition":"none"},"component":"button","icon":null,"id":"hide-before-b","kind":"component","label":"Button","props":{"icon":"","label":"Toggle before","variant":"filled","width":160},"variant":"filled"}],"x":2034,"y":700},
+      {"axis":"x","id":"to-docked","items":[{"action":{"to":"r-docked","transition":"slide"},"component":"button","icon":null,"id":"to-docked-b","kind":"component","label":"Button","props":{"icon":"","label":"To docked","variant":"filled","width":160},"variant":"filled"}],"x":2034,"y":760},
+      {"axis":"x","id":"i-d","instanceOf":"c-tabs","items":[{"component":"container","icon":null,"id":"i-d-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","height":100,"label":"","radius":0,"width":200},"variant":"filled"}],"x":2566,"y":40},
+      {"axis":"x","id":"i-n","instanceOf":"c-outer","items":[{"component":"container","icon":null,"id":"i-n-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","height":100,"label":"","radius":0,"width":200},"variant":"filled"}],"overrides":{"o-i/p-rename-b/label":"Deep rename"},"x":2566,"y":300},
+      {"axis":"x","id":"i-l","instanceOf":"c-list","items":[{"component":"container","icon":null,"id":"i-l-part","kind":"component","label":"Container","props":{"border":"none","fill":"none","height":100,"label":"","radius":0,"width":200},"variant":"filled"}],"x":2566,"y":560},
+      {"axis":"x","id":"to-big","items":[{"action":{"to":"r-big","transition":"slide"},"component":"button","icon":null,"id":"to-big-b","kind":"component","label":"Button","props":{"icon":"","label":"To tablet","variant":"filled","width":160},"variant":"filled"}],"x":2566,"y":760},
+      {"axis":"x","id":"h44","items":[{"component":"container","icon":null,"id":"h43","kind":"component","label":"Container","props":{"border":"none","fill":"none","gap":8,"height":80,"hugHeight":true,"hugWidth":true,"label":"","layout":"column","padX":0,"padY":0,"radius":0,"width":802},"variant":"filled"}],"repeat":{"collection":"products"},"x":548,"y":16},
+      {"axis":"x","id":"h46","inFlow":"h44","items":[{"component":"container","icon":null,"id":"h45","kind":"component","label":"Container","props":{"align":"center","border":"none","fill":"none","gap":8,"height":80,"hugHeight":true,"hugWidth":true,"label":"","layout":"row","padX":0,"padY":0,"radius":0,"width":802},"variant":"filled"}],"x":532,"y":0},
+      {"axis":"x","id":"h48","inFlow":"h46","items":[{"component":"text","icon":null,"id":"h47","kind":"component","label":"Text","props":{"text":"{{name}}","width":48},"variant":"filled"}],"x":532,"y":0},
+      {"axis":"x","id":"h50","inFlow":"h46","items":[{"component":"text","icon":null,"id":"h49","kind":"component","label":"Text","props":{"text":"{{price}}$","width":28},"variant":"filled"}],"x":532,"y":0},
+      {"axis":"x","id":"h52","inFlow":"h46","items":[{"action":{"to":"r-detail","transition":"slide"},"component":"button","icon":null,"id":"h51","kind":"component","label":"Button","props":{"icon":"","label":"Open {{name}}","variant":"filled","width":110},"variant":"filled"}],"x":532,"y":0},
+      {"axis":"x","id":"h54","inFlow":"h46","items":[{"action":{"effects":[{"do":"snackbar","message":"Pear only"}],"else":{"effects":[{"do":"snackbar","message":"Not pear {{name}}"}],"to":"none","transition":"none"},"to":"none","transition":"none","when":{"op":"eq","value":"Pear","var":"row.name"}},"component":"button","icon":null,"id":"h53","kind":"component","label":"Button","props":{"icon":"","label":"Say {{name}}","variant":"filled","width":110},"variant":"filled"}],"x":532,"y":0},
+      {"axis":"x","id":"h56","inFlow":"h46","items":[{"component":"text","icon":null,"id":"h55","kind":"component","label":"Text","props":{"text":"Plum tag","width":48},"variant":"filled"}],"showWhen":{"op":"eq","value":"Plum","var":"row.name"},"x":532,"y":0},
+      {"axis":"x","id":"h58","items":[{"action":{"to":"r-instances","transition":"slide"},"component":"button","icon":null,"id":"h57","kind":"component","label":"Button","props":{"icon":"","label":"To instances","variant":"filled","width":160},"variant":"filled"}],"x":548,"y":112},
+      {"axis":"x","id":"h60","items":[{"component":"container","icon":null,"id":"h59","kind":"component","label":"Container","props":{"border":"none","fill":"none","gap":8,"height":80,"hugHeight":true,"hugWidth":true,"label":"","layout":"column","padX":0,"padY":0,"radius":0,"width":802},"variant":"filled"}],"repeat":{"collection":"products","limit":2},"x":548,"y":168},
+      {"axis":"x","id":"h62","inFlow":"h60","instanceOf":"c-tag","items":[{"component":"container","icon":null,"id":"h61","kind":"component","label":"Container","props":{"border":"none","fill":"none","height":100,"label":"","radius":0,"width":200},"variant":"filled"}],"x":532,"y":0}
+    ],
+    "paletteKey": "purple",
+    "title": "Reuse app"
+  }
+}
