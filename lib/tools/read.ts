@@ -17,6 +17,8 @@ import { COLOR_TOKENS, ICON_FAMILIES, REGION_STATES, TEXT_TOKENS, frameLengthOf,
 import { overridableParts } from "../instances";
 import { FAMILY_LACKS, ICON_NAMES } from "./icons.generated";
 import { partPropsSchema } from "./schema";
+import { declarationsOf } from "../partContract";
+import type { PartDef } from "../../parts/types";
 import { tool, ToolFailure, type Tool, type ToolEnv } from "./types";
 
 const obj = (properties: Record<string, Schema>, required: string[] = []): Schema => ({ type: "object", properties, required, additionalProperties: false });
@@ -142,25 +144,29 @@ const getSelection = tool<Record<string, never>>({
 
 /* ---------- the catalogs ---------- */
 
+/** a part's input, events and demo, briefly, for its row in the catalog */
+const outletsLine = (d: PartDef) =>
+  [d.input ? ` | input: ${d.input.prop} (${d.input.kind})` : "", d.events?.length ? ` | events: ${d.events.map((e) => `on:${e.name}`).join(", ")}` : "", d.families?.length ? ` | families: ${d.families.map((f) => `${f.prefix}:*`).join(", ")}` : "", d.demo ? " | prototype demo" : ""].join("");
+
 const listParts = tool<{ tier?: "atom" | "composite"; category?: string; query?: string }>({
   name: "list_parts",
   group: "read",
   description:
-    "The catalog of parts: atoms (box, text, icon, svg, image, button, input… compose them in boxes) and ready-made composites. Filter by tier, category or a word. Each row: slug, name, category, and its prop keys. describe_part gives one part's props with their kinds, defaults and schema.",
+    "The catalog of parts: atoms (box, text, icon, svg, image, button, input… compose them in boxes) and ready-made composites. Filter by tier, category or a word. Each row: slug, name, category, its prop keys, and its input, events, slot families and prototype demo when it has them. describe_part gives one part's props with their kinds, defaults and schema.",
   input: obj({ tier: { type: "string", enum: [...TIERS] }, category: { type: "string", enum: [...CATEGORIES] }, query: str("a word to look for in slugs, names and categories") }),
   readOnly: true,
   destructive: false,
   run(a) {
     const hit = matcher(a.query);
     const rows = PARTS.filter((d) => (!a.tier || tierOf(d) === a.tier) && (!a.category || d.category === a.category) && hit(d.slug, d.name, labelsOf(d.labels), d.category));
-    return { result: { count: rows.length, parts: rows.map((d) => `${d.slug} | ${d.name} | ${tierOf(d)}/${d.category}${d.holds ? " | holds parts" : ""}${d.atoms ? " | splits" : ""} | props: ${d.props.map((p) => p.key).join(", ")}`) } };
+    return { result: { count: rows.length, parts: rows.map((d) => `${d.slug} | ${d.name} | ${tierOf(d)}/${d.category}${d.holds ? " | holds parts" : ""}${d.atoms ? " | splits" : ""} | props: ${d.props.map((p) => p.key).join(", ")}${outletsLine(d)}`) } };
   },
 });
 
 const describePart = tool<{ slug: string }>({
   name: "describe_part",
   group: "read",
-  description: "One part (or kit) of the catalog in full: its tier and category, default size, whether it holds parts, has an auto layout or splits into atoms, and each prop with its kind, default and the values it takes, plus `propsSchema` (JSON Schema of its props). For a kit: what it is made of and its variants, with the one the document's style would pick.",
+  description: "One part (or kit) of the catalog in full: its tier and category, default size, whether it holds parts, has an auto layout or splits into atoms, and each prop with its kind, default and the values it takes, plus `propsSchema` (JSON Schema of its props), and what it declares: `input` (the prop the visitor's value goes in), `events` (on:<name> keys of set_action, their payload read as event.<field>), `families` (tab:* keys, read slot.index), `demo` (a domain behaviour it only acts out in a prototype until bound or wired to the API). For a kit: what it is made of and its variants, with the one the document's style would pick.",
   input: obj({ slug: str("a part slug, or a kit slug") }, ["slug"]),
   readOnly: true,
   destructive: false,
@@ -183,6 +189,7 @@ const describePart = tool<{ slug: string }>({
           appearance: !!def.appearance,
           props: def.props.map((d) => ({ key: d.key, label: d.label, kind: d.kind, default: defaults[d.key], takes: propKindText(d) })),
           propsSchema: partPropsSchema(def),
+          ...declarationsOf(def),
         },
       };
     }

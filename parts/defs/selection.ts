@@ -4,6 +4,7 @@ import type { PartDef } from "../types";
 export const selection: PartDef[] = [
   {
     slug: "switch",
+    input: { prop: "checked", kind: "bool" },
     appearance: { radius: 8 },
     name: "Switch",
     category: "Controls",
@@ -31,6 +32,7 @@ export const selection: PartDef[] = [
   },
   {
     slug: "checkbox",
+    input: { prop: "checked", kind: "bool" },
     appearance: { radius: 8 },
     name: "Checkbox",
     category: "Controls",
@@ -62,6 +64,7 @@ export const selection: PartDef[] = [
   },
   {
     slug: "radio-group",
+    input: { prop: "selected", kind: "choice" },
     appearance: { radius: 8 },
     name: "Radio group",
     category: "Forms",
@@ -92,6 +95,7 @@ export const selection: PartDef[] = [
   },
   {
     slug: "slider",
+    input: { prop: "value", kind: "number" },
     appearance: { radius: 8 },
     name: "Slider",
     category: "Controls",
@@ -120,6 +124,7 @@ export const selection: PartDef[] = [
   },
   {
     slug: "select",
+    input: { prop: "selected", kind: "choice" },
     appearance: { target: "SelectTrigger", radius: 4 },
     name: "Select",
     category: "Pickers",

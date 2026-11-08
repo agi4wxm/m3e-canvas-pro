@@ -40,6 +40,7 @@ import { withDocStyles } from "../../styles";
 import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
 import { isOverlayPart } from "../../interact";
+import { isPlaceKey } from "../../partContract";
 import { endpointOf } from "../../bindings/contract";
 import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
 import { NATIVE, INPUT_PROPS, isNative, kitPropName } from "../../../miniapp-kit/src/kit/coverage";
@@ -62,7 +63,7 @@ import { iconNamesOf } from "../rn/print";
 
 /** something the printed app does not do as the design says, for the exporter to list */
 export type MiniWarning = {
-  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "look" | "image" | "unknown" | "binding" | "scroll" | "link";
+  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "look" | "image" | "unknown" | "binding" | "scroll" | "link" | "input";
   screen?: string;
   part?: string;
   detail: string;
@@ -422,7 +423,8 @@ class ScreenPrinter {
     }
     const tap = this.tap(it.action, it.id, at);
     if (tap) out.push(["onPress", tap]);
-    const wired = Object.entries(it.actions ?? {}).filter(([, a]) => !!a);
+    /* an event or a family of places is not printed yet: lib/export/boundary.ts reports it */
+    const wired = Object.entries(it.actions ?? {}).filter(([k, a]) => !!a && isPlaceKey(k));
     if (wired.length && !slots) this.warn("slot", "a tap on a place inside a part drawn as atoms is not kept", it.id);
     const taps = slots ? wired.map(([slot, a]) => [slot, this.tap(a, it.id, at)] as const).filter((x): x is readonly [string, string] => !!x[1]) : [];
     /* a part open over the screen closes once one of its places is tapped */
@@ -497,7 +499,12 @@ class ScreenPrinter {
    *  bound to), so a condition can read it */
   input(def: PartDef, it: Item, at: At): { skip?: string; props: [string, string][] } {
     const key = INPUT_PROPS[def.slug];
-    if (!key) return { props: [] };
+    if (!key) {
+      /* a part that declares an input the kit does not wire keeps its value to itself here, and says so where it is read */
+      const own = def.input?.prop;
+      if (own && ((it.field && at.form) || (typeof it.bind?.[own] === "string" && !it.bind[own].startsWith("=")))) this.warn("input", "what is entered here does not reach its variable or form in a mini-program", it.id);
+      return { props: [] };
+    }
     const prop = kitPropName(def.slug, key);
     const values = propValues(def, it.props);
     const labels = key === "selected" ? listLabels(def, it) : undefined;

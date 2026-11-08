@@ -280,7 +280,7 @@ const SHOWN_DIFFERENCES = 80;
  *  file each app lists them in. */
 function Differences({ differences, p }: { differences: DesignDifference[]; p: Palette }) {
   const lang = useLang();
-  const appName = (app: DesignDifference["app"]) => t(app === "mobile" ? "exportAppMobile" : "exportAppMiniapp", lang);
+  const appName = (app: DesignDifference["app"]) => t(app === "web" ? "exportAppWeb" : app === "mobile" ? "exportAppMobile" : "exportAppMiniapp", lang);
   const kindName = (kind: string) => {
     const key = `exportDiff_${kind}` as UIKey;
     return key in UI ? t(key, lang) : kind;

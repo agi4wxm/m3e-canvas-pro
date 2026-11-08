@@ -30,9 +30,12 @@ function drawDef(slug: string, component: string, name: string, labels: PartDef[
     props: [
       { key: "label", label: "Label", kind: "text", default: buttonDefault },
       { key: "prizes", label: "Prizes", labels: { ja: "賞品", zh: "奖品", ko: "상품" }, kind: "list", icons: true, default: PRIZES, min: 1, max: 12 },
-      { key: "result", label: "Forced result (-1: random)", labels: { ja: "固定の結果（-1: ランダム）", zh: "固定结果（-1 为随机）", ko: "고정 결과 (-1: 무작위)" }, kind: "number", default: -1, min: -1, max: 11, step: 1 },
+      { key: "result", label: "Result (-1: none yet)", labels: { ja: "結果（-1: まだない）", zh: "结果（-1 为还没有）", ko: "결과 (-1: 아직 없음)" }, kind: "number", default: -1, min: -1, max: 11, step: 1 },
       { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "number", default: side, min: 120, max: 480, step: 4, unit: "px" },
     ],
+    /* the prize is the other side's to decide: a press asks, `result` brings the answer in, and the machine settles on it */
+    events: [{ name: "settled", label: "Shown the result", labels: { ja: "結果を表示した", zh: "结果展示完", ko: "결과를 보여 줌" }, payload: { index: "number", label: "text" } }],
+    demo: { what: "picks a prize at random when pressed and nothing else gives one", takenOverBy: ["result"] },
     tree: (p: P) => h(component, { prizes: p.list("prizes").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}) })), label: p.s("label"), result: Math.round(p.n("result")), size: Math.round(p.n("size")) }),
   };
 }
@@ -201,6 +204,7 @@ export const game: PartDef[] = [
   },
   {
     slug: "quantity-stepper",
+    input: { prop: "value", kind: "number" },
     appearance: { radius: 999 },
     name: "Quantity stepper",
     labels: { ja: "数量ステッパー", zh: "数量加减器", ko: "수량 스테퍼" },

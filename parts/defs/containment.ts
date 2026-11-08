@@ -139,6 +139,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "item",
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     name: "List item",
     category: "Lists",
     icon: "list_alt",
@@ -195,6 +196,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "dialog",
+    overlay: true,
     appearance: { target: "DialogContent", radius: 28 },
     name: "Dialog",
     category: "Overlays",
@@ -265,6 +267,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "alert-dialog",
+    overlay: true,
     appearance: { target: "AlertDialogContent", radius: 28 },
     name: "Alert dialog",
     category: "Overlays",
@@ -303,6 +306,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "sheet",
+    overlay: true,
     name: "Sheet",
     category: "Overlays",
     icon: "side_navigation",
@@ -334,6 +338,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "side-sheet",
+    overlay: true,
     name: "Side sheet",
     category: "Overlays",
     icon: "right_panel_open",
@@ -357,6 +362,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "drawer",
+    overlay: true,
     name: "Drawer",
     category: "Overlays",
     icon: "vertical_align_bottom",
@@ -387,6 +393,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "popover",
+    overlay: true,
     appearance: { target: "PopoverContent", radius: 16 },
     name: "Popover",
     category: "Overlays",
@@ -415,6 +422,7 @@ export const containment: PartDef[] = [
   },
   {
     slug: "hover-card",
+    overlay: true,
     appearance: { target: "HoverCardContent", radius: 16 },
     name: "Hover card",
     category: "Overlays",
