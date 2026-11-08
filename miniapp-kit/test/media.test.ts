@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
 
 import { createTinyReact, type Element } from "./table/tinyReact";
+import { fakeTaro } from "./taro";
 
 const tiny = createTinyReact();
 mock.module("react", () => tiny.react);
@@ -27,7 +28,7 @@ mock.module("@tarojs/taro", () => {
       return q;
     },
   };
-  return { default: taro, ...taro };
+  return fakeTaro(taro);
 });
 
 const { ThemeProvider } = await import("../src/kit/theme");

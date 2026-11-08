@@ -5,6 +5,7 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
 
 import { createTinyReact, type Element } from "./table/tinyReact";
+import { fakeTaro } from "./taro";
 
 const tiny = createTinyReact();
 mock.module("react", () => tiny.react);
@@ -13,7 +14,7 @@ mock.module("react/jsx-dev-runtime", () => tiny.jsxRuntime);
 mock.module("@tarojs/components", () => ({ View: "View", Image: "Image", Input: "Input", Picker: "Picker", Slider: "Slider", Textarea: "Textarea", Text: "Text", ScrollView: "ScrollView" }));
 mock.module("@tarojs/taro", () => {
   const taro = { getSystemInfoSync: () => ({ windowWidth: 375 }), onThemeChange: () => {}, offThemeChange: () => {} };
-  return { default: taro, ...taro };
+  return fakeTaro(taro);
 });
 
 const { ThemeProvider } = await import("../src/kit/theme");
