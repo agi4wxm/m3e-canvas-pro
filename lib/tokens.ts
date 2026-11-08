@@ -1355,6 +1355,9 @@ export type Group = {
   showWhen?: Condition;
   /** the tab of the dock it was dropped in */
   pane?: number;
+  /** One of the two panes of the split view its `inFlow` names (lib/split.ts): a box laid out by the split view, which
+   *  holds parts of its own. Both panes show at once; nothing hides one for the other, as a dock's tab (`pane`) does. */
+  splitPane?: "first" | "second";
   /** An instance of a reusable component (lib/instances.ts): the group is one unit on the canvas and
    *  `items` holds a single empty container standing in for it, so that moving, selecting and
    *  measuring it work as for any part. What it shows comes from the definition. */

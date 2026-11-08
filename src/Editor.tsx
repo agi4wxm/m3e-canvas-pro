@@ -72,7 +72,7 @@ import { PANEL_FADE_H } from "@/components/ui";
 import { generateImage, loadAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
 import { maxFrameLength } from "@/lib/tidy";
 import { joinTargetOf } from "@/lib/combine";
-import { flowHostAt, flowOf } from "@/lib/flow";
+import { flowHostAt, flowOf, ownSize, paneClips } from "@/lib/flow";
 import { targetRects } from "@/lib/guides";
 import { InsertionMark, SmartGuides } from "@/components/SmartGuides";
 import { expandInstances } from "@/lib/instances";
@@ -93,6 +93,8 @@ import { DropCover, FileConflictDialog, OpenFileDialog, ProjectMenu, ProjectPill
 import { LoadingIndicator } from "@/components/Loading";
 import { ShortcutsSheet } from "@/components/ShortcutsSheet";
 import { LayoutHandles } from "@/components/LayoutHandles";
+import { SplitHandles, type SplitHandle } from "@/components/SplitHandles";
+import { panesOfSplit, shareRange, splitOf, splitSizes } from "@/lib/split";
 import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
@@ -954,7 +956,25 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     return { group, flow, box: groupBounds(group, widths), kids };
   })();
   groupActs.current = { onItemPointerDown, editDefinition };
-  const groupView: GroupView = { instantRef, selectedSet, startsHidden, widths, canvas, p, handMode, acts: groupActs, view, gapOut, widthShift, pressedId, widthDragId };
+  const clips = useMemo(() => paneClips(groups, widths), [groups, widths]);
+  /* the dividers of the split view selected, and of every split view the selection is in */
+  const splitHandles = ((): SplitHandle[] => {
+    if (isMobile || selectedIds.length !== 1 || !selected) return [];
+    const byId = new Map(groups.map((g) => [g.id, g]));
+    const out: SplitHandle[] = [];
+    let at = groups.find((g) => g.items.some((it) => it.id === selected.id));
+    for (let i = 0; at && i < 32; at = at.inFlow ? byId.get(at.inFlow) : undefined, i++) {
+      const sp = at.locked || offTab.has(at.id) ? null : splitOf(at);
+      if (!sp) continue;
+      const s = ownSize(at, widths);
+      const length = sp.vertical ? s.h : s.w;
+      const sizes = splitSizes(sp, length);
+      const panes = panesOfSplit(groups, at.id);
+      out.push({ id: at.items[0].id, box: { l: at.x, t: at.y, r: at.x + s.w, b: at.y + s.h }, split: sp, share: sp.share, at: Math.round(sizes.first), range: shareRange(sp, length), names: [panes.first?.name ?? "1", panes.second?.name ?? "2"], folded: sizes.collapsed !== null });
+    }
+    return out;
+  })();
+  const groupView: GroupView = { instantRef, selectedSet, startsHidden, widths, canvas, p, handMode, acts: groupActs, view, gapOut, widthShift, pressedId, widthDragId, clips };
 
   return (
     <LangContext.Provider value={lang}>
@@ -1568,6 +1588,22 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                       else props[k] = v;
                     }
                     runOp(ops.setItem, { id: it.id, patch: { props } }, { history: { coalesce: `spacing:${it.id}:${key}` } });
+                  }}
+                />
+              )}
+
+              {/* the dividers of the split views the selection is or is in, pulled on the canvas (components/SplitHandles.tsx) */}
+              {!handMode && !drag && !gesture && splitHandles.length > 0 && (
+                <SplitHandles
+                  handles={splitHandles}
+                  z={view.z}
+                  p={p}
+                  onChange={(id, share, step) => runOp(ops.setSplit, { id, split: share }, { history: { coalesce: `split:${id}:${step}` } })}
+                  onFold={(id, folded) => {
+                    const h = splitHandles.find((x) => x.id === id);
+                    /* a pane folded by its share alone unfolds to its least */
+                    const share = !folded && h && !h.split.collapsed ? (h.split.collapsible === "first" ? h.range.min : h.range.max) : undefined;
+                    runOp(ops.setSplit, { id, collapsed: folded, ...(share !== undefined ? { split: Math.round(share * 100) / 100 } : {}) }, { history: "step" });
                   }}
                 />
               )}

@@ -48,10 +48,13 @@ beforeAll(async () => {
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
      before the product existed; one that changes on purpose is written again here (last: the platform capabilities,
-     docs/平台能力.md, beside the widgets' outlets: the shop flow pays through createOrder and payment.pay and shows the
-     order's status, the checkout's body one column with its payment notices among its rows; checkout-bar, video-call,
-     map and camera take their state as props, the map and the camera drawn by parts/widgets/Platform.tsx, and the
-     subscription's plans are its choice. Before that: the reward track and the leaderboard copied with the widgets, a
+     docs/平台能力.md, beside the split view and the widgets' outlets: the shop flow pays through createOrder and
+     payment.pay and shows the order's status, the checkout's body one column with its payment notices among its rows;
+     checkout-bar, video-call, map and camera take their state as props, the map and the camera drawn by
+     parts/widgets/Platform.tsx, and the subscription's plans are its choice. Before that: the split view, whose
+     widget contract copied beside the widgets says whether a part may keep the visitor's UI state on the device
+     (parts/widgets/host.ts `remember`) and which design props an input's value takes over from (parts/types.ts
+     `PartInput.resets`), and in parts the split view itself, its widget file and react-resizable-panels 4.19.1; before it: the reward track and the leaderboard copied with the widgets, a
      claim the demo made kept by its reward and the open row only the one given; before them the widgets' state and
      outlets, report 3.3 and 3.4: inputs controlled through the host, demos printed where a part acts out a result, the
      sweep's parts with a selectKey now including the level map, the side tabs and the review summary; before them the icons reading their
@@ -61,11 +64,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [80, "fca3a66e45f080d3da0ef6713d59e108c26caf8b12f1ad9101249f74176b4dd5"],
+    proof: [80, "efaaac0883ac778a15acb2f2221c21847c601ea4d4fd5a81c07ebdfbabd7261d"],
     systems: [40, "58807e81f5714322a5a6a60c6bd52007dd8f794c6d8e51804d642a637d315fef"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [90, "d915ea4dc21e821ba637711a1edab790048405f696f4d61e63f6dce35cca69fa"],
-    parts: [138, "30f14406e28f0fa457e701c7cd94eb1fe937627bcc75b031e0bce1f6175d6687"],
+    sweep: [90, "127475f12d30a73cca778830ef3f4f2e2c4e79e9b43a4db8426b994e17ed4cd8"],
+    parts: [139, "e21bdcd326788374baf030dc84cb4694da0e729fb376c1bf0a31e5ca9ebde127"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

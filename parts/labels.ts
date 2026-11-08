@@ -422,6 +422,7 @@ export const COMMON_TEXT: Record<string, Labels> = {
   Accept: { ja: "OK", zh: "确定", ko: "확인" },
   Delete: { ja: "削除", zh: "删除", ko: "삭제" },
   Close: { ja: "閉じる", zh: "关闭", ko: "닫기" },
+  "Resize panes": { ja: "ペインの大きさを変更", zh: "调整分栏大小", ko: "창 크기 조절" },
   Save: { ja: "保存", zh: "保存", ko: "저장" },
   Apply: { ja: "適用", zh: "应用", ko: "적용" },
   Search: { ja: "検索", zh: "搜索", ko: "검색" },

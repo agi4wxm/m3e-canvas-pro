@@ -1,0 +1,8 @@
+[
+ {
+  "kind": "input",
+  "screen": "Split desk",
+  "part": "splitView",
+  "detail": "the visitor's share of a split view is remembered while the app runs, not across launches"
+ }
+]

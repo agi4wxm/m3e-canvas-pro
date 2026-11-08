@@ -12,6 +12,7 @@ import { partBySlug, reader } from "../registry";
 import { lengthToHold } from "../../lib/tidy";
 import { defaultMeasures, inLang, instantiate, seedGroups } from "./kit";
 import { TEMPLATES, templateCatalog } from "./index";
+import { panesOfSplit, splitOf } from "../../lib/split";
 
 const seedsOf = (t: (typeof TEMPLATES)[number]) => t.build().map((s) => ({ seed: s, groups: seedGroups(s) }));
 const docOf = (t: (typeof TEMPLATES)[number], lang: Lang): Doc => {
@@ -230,5 +231,45 @@ describe("the set of templates", () => {
   it("is named in the guide an AI agent reads (bun run gen:agent)", () => {
     const guide = readFileSync(new URL("../../public/agent.md", import.meta.url), "utf8").replaceAll("\r\n", "\n");
     expect(guide).toContain(templateCatalog());
+  });
+
+  it("splits a desktop window's panes with split views the reader drags, not rows of fixed widths", () => {
+    /* the mail's list and message, the files and the details, the editor's files, editors and terminal */
+    const want: Record<string, { splits: number; words: string[][] }> = {
+      "mail-inbox": { splits: 1, words: [["Search"], ["Notes from the review", "Reply"]] },
+      "file-manager": { splits: 1, words: [["Report.pdf"], ["Open", "Share"]] },
+      "editor-workspace": { splits: 3, words: [["Files"], []] },
+    };
+    for (const [slug, w] of Object.entries(want)) {
+      const doc = docOf(TEMPLATES.find((t) => t.slug === slug)!, "en");
+      const groups = arrangeFlows(doc.groups, defaultMeasures(doc.groups));
+      const splits = groups.filter((g) => !!splitOf(g));
+      expect(splits.length, slug).toBe(w.splits);
+      for (const s of splits) {
+        const panes = panesOfSplit(groups, s.id);
+        expect(panes.first && panes.second, slug).toBeTruthy();
+        /* each pane as big as its split gives it, beside (or under) the other */
+        const sp = splitOf(s)!;
+        const size = (g: Group) => g.items[0].props as { width: number; height: number };
+        const along = (g: Group) => (sp.vertical ? size(g).height : size(g).width);
+        expect(along(panes.first!) + along(panes.second!) + sp.divider, slug).toBe(sp.vertical ? size(s).height : size(s).width);
+      }
+      /* the outer split's panes hold what they did as fixed columns */
+      const outer = panesOfSplit(groups, splits[0].id);
+      const textIn = (pane: Group) => {
+        const inside = new Set([pane.id]);
+        for (let grew = true; grew; ) {
+          grew = false;
+          for (const g of groups)
+            if (g.inFlow && inside.has(g.inFlow) && !inside.has(g.id)) {
+              inside.add(g.id);
+              grew = true;
+            }
+        }
+        return JSON.stringify(groups.filter((g) => inside.has(g.id)).map((g) => g.items[0].props));
+      };
+      w.words[0].forEach((x) => expect(textIn(outer.first!), `${slug}: ${x}`).toContain(x));
+      w.words[1].forEach((x) => expect(textIn(outer.second!), `${slug}: ${x}`).toContain(x));
+    }
   });
 });

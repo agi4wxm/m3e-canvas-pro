@@ -39,6 +39,7 @@ import { mapNodes, type PNode, type PValue } from "../parts/node";
 import { expandDoc } from "./expand";
 import { boundItem, bindsFields, varValues } from "./variables";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "./flow";
+import { PANE_SIDES, panesOfSplit, splitOf } from "./split";
 import { Behaviour, type RuntimeSpec, type Uses } from "./printBehaviour";
 import { BoundPrint, type BindPrintOptions } from "./printBindings";
 import { templateOf } from "./collections";
@@ -204,8 +205,9 @@ function itemClasses(run: Group, parent: Flow, origin: { x: number; y: number })
 
 /** The JSX of a run laid out by a container: nested, the way the browser will lay it out. The classes
  *  of the layout go on the node the container keeps for it, or on its root. */
-function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new Set<string>(), insideTap = false, origin = { x: 0, y: 0 }, /** the axes the screen gives a layout standing on it (a bar spans it) */ spans: ("width" | "height")[] = []): string {
+function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new Set<string>(), insideTap = false, origin = { x: 0, y: 0 }, /** the axes the screen gives a layout standing on it (a bar spans it) */ spans: ("width" | "height")[] = [], /** a pane of a split view: as big as its panel, whatever it holds */ pane = false): string {
   if (parent && run.expandedFrom !== undefined) return instanceJsx(run, c, all, inside);
+  if (run.items.length === 1 && splitOf(run)) return splitJsx(run, c, all, parent, inside, insideTap, origin, spans);
   const it = run.items[0];
   const def = partBySlug(it.component);
   const flow = run.items.length === 1 ? flowOf(run) : null;
@@ -229,7 +231,7 @@ function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new S
   /* a layout takes the size of what it holds only when it holds something that flows: an empty one, or one whose
    * parts all stand loose, keeps its own size, as it does on the canvas */
   const flowing = kids.some((k) => !childLayoutOf(k.items.length === 1 ? k.items[0] : undefined).absolute);
-  const fit = flowing ? [...(sizedByContents(run, flow, parent, "w") ? ["width"] : []), ...(sizedByContents(run, flow, parent, "h") ? ["height"] : [])] : [];
+  const fit = flowing && !pane ? [...(sizedByContents(run, flow, parent, "w") ? ["width"] : []), ...(sizedByContents(run, flow, parent, "h") ? ["height"] : [])] : [];
   const style = Object.fromEntries(Object.entries((tree.props?.style as Record<string, PValue> | undefined) ?? {}).filter(([k]) => !fit.includes(k)));
   tree = { ...tree, props: { ...tree.props, style } };
   const marked = (n: PNode): boolean => !!n.props?.["data-flow"] || !!n.children?.some((x) => typeof x !== "string" && marked(x));
@@ -258,6 +260,24 @@ function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new S
   };
   const held = (form && bound ? bound.within(form.scope, form, () => kids.map(kid)) : kids.map(kid)).join("");
   /* a function: a `$` in a part's words is not a replacement pattern */
+  return boxed(part.wrap(inlineNode(placed, part.keepTap).replace(HOLE, () => held)));
+}
+
+/** A split view: the part (the library's panel group, parts/widgets/Split.tsx), and in its two panels the two panes,
+ *  each as big as its panel and laying out what it holds the way the canvas does. The split stands in a layout as any
+ *  part does. */
+function splitJsx(run: Group, c: Ctx, all: Group[], parent: Flow | undefined, inside: Set<string>, insideTap: boolean, origin: { x: number; y: number }, spans: ("width" | "height")[]): string {
+  const it = run.items[0];
+  const asked = parent ? itemClasses(run, parent, origin) : { classes: "", fill: spans };
+  const boxed = (source: string) => (asked.classes ? `<div className=${str(asked.classes)}>${source}</div>` : source);
+  const part = c.b.printPart(it, c.uses, insideTap);
+  const tapped = insideTap || !!it.action || !!Object.keys(it.actions ?? {}).length;
+  const within = new Set(inside).add(run.id);
+  const panes = panesOfSplit(all, run.id);
+  const placed = { ...fluid(part.tree, asked.fill), children: [HOLE] };
+  c.useTree(placed);
+  const paneJsx = (g: Group | undefined) => (g ? gated(c.b.gates(g, within, c.uses), flowJsx(g, c, all, undefined, within, tapped, { x: g.x, y: g.y }, ["width", "height"], true)) : "<div />");
+  const held = PANE_SIDES.map((side) => paneJsx(panes[side])).join("");
   return boxed(part.wrap(inlineNode(placed, part.keepTap).replace(HOLE, () => held)));
 }
 
@@ -298,7 +318,7 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
   const { h } = frameSizeOf(frame);
   const out: string[] = [];
   const end = room > 0 ? `<span aria-hidden className="pointer-events-none absolute top-full left-0 w-px" style={{ height: ${room} }} />` : "";
-  const hosts = new Set(all.filter((r) => flowOf(r)).map((r) => r.id));
+  const hosts = new Set(all.filter((r) => flowOf(r) || splitOf(r)).map((r) => r.id));
   const byId = new Map(all.map((g) => [g.id, g]));
   for (const run of runs) {
     /* what a layout holds is printed inside it */

@@ -8,6 +8,7 @@ import { settleSizes } from "../../../parts/atoms";
 import { partBySlug, PARTS, tierOf } from "../../../parts/registry";
 import { arranged, defaultMeasures, seedGroups, type Node } from "../../../parts/templates/kit";
 import { settleInFlow } from "../../flow";
+import { SPLIT_SLUG } from "../../split";
 import { landTree, moveTo, roomOn, treeSize } from "../../kits";
 import { tidyLook } from "../../look";
 import { metricsOf } from "../../styleLayout";
@@ -82,7 +83,14 @@ function checked(s: CoreState, root: unknown, strict: boolean): Flat[] {
     if (!def) throw new OpError("not_found", `${path}: there is no part "${node.part}". Parts that may be meant: ${near(node.part)}.`, `${path}.part`);
     const kids = node.children ?? [];
     if (!Array.isArray(kids)) throw new OpError("invalid_value", `${path}.children should be a list of nodes.`, `${path}.children`);
-    if (kids.length && !(def.holds && def.flow)) throw new OpError("invalid_value", `${path}: a ${node.part} holds no parts; put children in a box.`, `${path}.children`);
+    if (node.part === SPLIT_SLUG) {
+      /* a split view's children are its two panes, each a box that lays out what it holds */
+      if (kids.length && kids.length !== 2) throw new OpError("invalid_value", `${path}: a split view takes two children, its first and its second pane (boxes with a layout), or none for two empty panes.`, `${path}.children`);
+      kids.forEach((k, i) => {
+        const kd = k && typeof k === "object" ? partBySlug((k as TreeNode).part) : undefined;
+        if (kd && !(kd.holds && kd.flow)) throw new OpError("invalid_value", `${path}.children[${i}]: a pane of a split view is a box (or a container) that lays out what it holds, not a ${(k as TreeNode).part}.`, `${path}.children[${i}].part`);
+      });
+    } else if (kids.length && !(def.holds && def.flow)) throw new OpError("invalid_value", `${path}: a ${node.part} holds no parts; put children in a box.`, `${path}.children`);
     if (kids.length && node.props?.layout === "free") throw new OpError("invalid_value", `${path}: a box that holds children lays them out in a row, column or grid, not "free".`, `${path}.props.layout`);
     if (node.id !== undefined) {
       if (typeof node.id !== "string" || !node.id.trim()) throw new OpError("invalid_value", `${path}.id should be text.`, `${path}.id`);
@@ -156,7 +164,11 @@ function fitOf(n: TreeNode, parent: TreeNode | undefined): string | undefined {
 function toNode(n: TreeNode, parent?: TreeNode): Node {
   const fit = fitOf(n, parent);
   const name = n.name ? { en: n.name, zh: n.name, ja: n.name, ko: n.name } : undefined;
-  return { slug: n.part, props: { ...(n.part === "box" ? { surface: "none", layout: "column", padX: 0, padY: 0, gap: 8 } : {}), ...n.props, ...(fit ? { fit } : {}) }, ...(name ? { name } : {}), ...(n.grow ? { grow: true } : {}), kids: (n.children ?? []).map((k) => toNode(k, n)) };
+  /* the two children of a split view are its panes, a box padded like a new pane unless they say */
+  const pane = parent?.part === SPLIT_SLUG ? (parent.children?.indexOf(n) === 0 ? "first" : "second") : undefined;
+  const base = n.part === "box" ? (pane ? { surface: "none", layout: "column", padX: 16, padY: 16, gap: 8, align: "stretch" } : { surface: "none", layout: "column", padX: 0, padY: 0, gap: 8 }) : {};
+  /* a pane is as big as its split gives it, never as what it holds */
+  return { slug: n.part, props: { ...base, ...n.props, ...(fit ? { fit } : {}), ...(pane ? { hugWidth: false, hugHeight: false } : {}) }, ...(name ? { name } : {}), ...(n.grow ? { grow: true } : {}), ...(pane ? { splitPane: pane } : {}), kids: (n.children ?? []).map((k) => toNode(k, n)) };
 }
 
 /** The tree as groups, outermost first, laid out by a guess at each part's size, its top left at 0,0. */
@@ -202,7 +214,7 @@ const NODE: Schema = {
     id: S.str("an id for later calls to name it"),
     name: S.str("its name in the layers"),
     props: S.any("prop values over the part's defaults (describe_part lists them); a box: surface, layout row|column|grid, gap, padX/padY or padTop…, align, justify, wrap, hugWidth/hugHeight (false to give it width/height of its own), width, height, pin"),
-    children: { type: "array", description: "the parts a box holds, in reading order", items: { type: "object" } },
+    children: { type: "array", description: "the parts a box holds, in reading order; a split-view's two children are its first and second pane (boxes)", items: { type: "object" } },
     grow: S.bool("takes the room left along its box's run"),
     fill: S.enum(COLOR_TOKENS.map((t) => t.key), "the surface's color role; any other color goes in look"),
     textColor: S.enum(TEXT_TOKENS.map((t) => t.key), "the words' color role; any other color goes in look"),

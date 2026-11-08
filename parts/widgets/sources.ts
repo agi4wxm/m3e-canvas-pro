@@ -18,6 +18,7 @@ const FILES: Record<string, string[]> = {
   GameParts: ["SkillButton", "LevelMap", "DialogueBox", "GameBoard"],
   Scene: ["Scene"],
   Platform: ["MapView", "CameraView"],
+  Split: ["SplitView"],
 };
 
 /** where printed code imports each widget from */
