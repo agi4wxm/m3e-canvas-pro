@@ -14,7 +14,7 @@ import type { ProjectFormat } from "./fileStore";
 import { drawerFor, generationFromEnv } from "./generate";
 import { LiveBackend } from "./live";
 import type { Log } from "./log";
-import { findApp, HeadlessRenderer } from "./render";
+import { findApp, findPlaywright, HeadlessRenderer } from "./render";
 import { configDir, TrustStore } from "./trust";
 
 export type SetupOptions = {
@@ -31,10 +31,14 @@ export type SetupOptions = {
   lang?: Lang;
   /** the app build (a folder) or a running editor (an address) screenshots are drawn with in file mode */
   app?: string;
+  /** origins whose pictures and pages file-mode screenshots may load besides the app's own ("*": any; render.ts) */
+  allowOutside?: string[];
   /** false: no headless screenshots (tests) */
   screenshots?: boolean;
   confirmMs?: number;
   pairWaitMs?: number;
+  /** how long a pairing code holds (live.ts PAIRING_CODE_MS; tests make it short) */
+  pairCodeMs?: number;
   /** the environment generation reads OPENAI_API_KEY from */
   env?: Record<string, string | undefined>;
   /** what draws, instead of the environment's key (tests) */
@@ -62,7 +66,7 @@ export async function setup(o: SetupOptions): Promise<{ backend: Backend; regist
 
   let file: FileBackend | undefined;
   if (o.file) {
-    const renderer = o.screenshots === false ? undefined : new HeadlessRenderer(findApp(o.app), lang, o.log);
+    const renderer = o.screenshots === false ? undefined : new HeadlessRenderer(findApp(o.app), lang, o.log, findPlaywright, { outside: o.allowOutside });
     file = new FileBackend({
       path: o.file,
       registry,
@@ -87,6 +91,7 @@ export async function setup(o: SetupOptions): Promise<{ backend: Backend; regist
       drawingTools: GENERATE_TOOLS.map((t) => t.name),
       confirmMs: o.confirmMs ?? CONFIRM_MS,
       pairWaitMs: o.pairWaitMs,
+      codeMs: o.pairCodeMs,
       version: o.version,
       log: o.log,
       ...(o.trustDir === false ? {} : { trust: TrustStore.at(o.trustDir ?? configDir(o.env ?? process.env), (m) => o.log.warn(m)) }),
