@@ -48,7 +48,7 @@ export class FileBackend implements Backend {
 
   constructor(private readonly o: FileBackendOptions) {
     this.store = new DocStore(stateOf({ groups: [], frames: [] }), { measurer: guessMeasurer, lang: () => o.lang });
-    this.file = new ProjectFileStore(o.path, o.format);
+    this.file = new ProjectFileStore(o.path, o.format, (m) => o.log.warn(m));
     this.renderer = o.renderer?.(() => this.store.get());
   }
 
