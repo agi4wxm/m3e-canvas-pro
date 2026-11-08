@@ -4,7 +4,7 @@
  * interpreter, the preview and both web hosts), `bun run gen:rn` and `bun run gen:miniapp` (they write the table into
  * the kits' test beds), then the kits' own tests; list a host under `known` only with its reason. */
 
-import type { Action, ActionBody, Effect } from "../model";
+import type { Action, ActionBody, Answer, Condition, Effect } from "../model";
 import type { Design, PartSpec, Row } from "./types";
 
 const HOME = { id: "home", name: "Home" };
@@ -19,17 +19,19 @@ const body = (to: string, ...effects: Effect[]): ActionBody => ({ to, transition
 const btn = (id: string, label: string, action: Action, more: Partial<PartSpec> = {}): PartSpec => ({ id, label, action, ...more });
 const text = (id: string, label: string, more: Partial<PartSpec> = {}): PartSpec => ({ id, kind: "text", label, ...more });
 /** a call; `ok` is its `then`, `fail` its `catch` */
-function call(operationId: string, more: { args?: Record<string, string>; ok?: ActionBody; fail?: ActionBody } = {}): Effect {
+function call(operationId: string, more: { args?: Record<string, string>; ok?: Answer; fail?: Answer } = {}): Effect {
   const { ok, fail, ...rest } = more;
   // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
   return { do: "call", operationId, ...rest, ...(ok ? { then: ok } : {}), ...(fail ? { catch: fail } : {}) };
 }
 /** an invoke of a capability; `ok` is its `then`, `fail` its `catch` */
-function invoke(capability: string, more: { args?: Record<string, string>; ok?: ActionBody; fail?: ActionBody } = {}): Effect {
+function invoke(capability: string, more: { args?: Record<string, string>; ok?: Answer; fail?: Answer } = {}): Effect {
   const { ok, fail, ...rest } = more;
   // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
   return { do: "invoke", capability, ...rest, ...(ok ? { then: ok } : {}), ...(fail ? { catch: fail } : {}) };
 }
+/** an answer that branches on what it says: `yes` when the condition holds, `no` when it does not */
+const branch = (when: Condition, yes: ActionBody, no: ActionBody): Answer => ({ ...yes, when, else: no });
 const toast = (message: string): Effect => ({ do: "snackbar", message });
 const setVar = (v: string, value: string | number | boolean, expr?: string): Effect => ({ do: "setVar", var: v, value, ...(expr ? { expr } : {}) });
 const num = (id: string, value: number) => ({ id, name: id, type: "number" as const, value });
@@ -45,6 +47,7 @@ const NAV_AFTER_MOVE = "回答到达时访客已经离开，lib/app 宿主仍执
 const EXPORTS_NO_OUTLETS = "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项";
 const PREVIEW_BATCH = "预览先整批执行本地效果、再发出接口调用和能力调用，调用读到后面才写的值（报告 6.2：`Preview.tsx` runBody）";
 const WEB_PROTO_NO_CAPABILITIES = "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）";
+const ANSWER_BRANCH = "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）";
 const PREVIEW_DROPS ="预览在访客离开后整个丢弃 then/catch（第一批 W5 的规则），效果也不再运行，状态跟不上后端（报告 7.1）";
 
 export const ROWS: Row[] = [
@@ -337,6 +340,26 @@ export const ROWS: Row[] = [
     known: { webPrototype: WEB_PROTO_NO_API },
   },
   {
+    id: "call-then-branch",
+    title: "回答上的条件：then 按回答走本身或 else",
+    ref: "回答上的条件；交接 4.1 第 6 条",
+    design: { screens: [HOME], vars: [words("state", "")], api: [op("pay", { returns: { state: "string" } })], parts: [btn("go", "Pay now", stay(call("pay", { ok: branch({ expr: "response.state == 'paid'" }, body("none", setVar("state", "paid")), body("none", setVar("state", "pending"))) })))] },
+    answers: { pay: { status: 200, body: { state: "pending" } } },
+    steps: [{ tap: "Pay now" }],
+    expect: { vars: { state: "pending" } },
+    known: { preview: ANSWER_BRANCH, webPrototype: WEB_PROTO_NO_API, webProduct: ANSWER_BRANCH, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
+  },
+  {
+    id: "call-catch-branch",
+    title: "回答上的条件：catch 按 status 分支",
+    ref: "回答上的条件",
+    design: { screens: [HOME], api: [op("claim")], parts: [btn("go", "Claim it", stay(call("claim", { fail: branch({ expr: "status == 409" }, body("none", toast("Taken")), body("none", toast("Failed {{status}}"))) })))] },
+    answers: { claim: { status: 500, body: {} } },
+    steps: [{ tap: "Claim it" }],
+    expect: { toast: "Failed 500" },
+    known: { preview: ANSWER_BRANCH, webPrototype: WEB_PROTO_NO_API, webProduct: ANSWER_BRANCH, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
+  },
+  {
     id: "call-unauthorized-no-catch",
     title: "因为没有会话被拒绝（401）：不运行 catch",
     ref: "调用接口；会话",
@@ -526,6 +549,16 @@ export const ROWS: Row[] = [
     steps: [{ tap: "Pay" }],
     expect: { vars: { got: "submitted" }, invokes: [{ op: "payment.pay", in: { orderId: "o1", amount: 12.5 } }] },
     known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
+  },
+  {
+    id: "invoke-then-branch",
+    title: "回答上的条件：能力的 then 按 result 分支",
+    ref: "回答上的条件；调用能力",
+    design: { screens: [HOME], vars: [words("read", "")], parts: [btn("scan", "Scan it", stay(invoke("scan.code", { ok: branch({ expr: "result.text" }, body("none", setVar("read", "", "result.text")), body("none", setVar("read", "nothing"))) })))] },
+    capabilities: { "scan.code": { result: { text: "", format: "qr" } } },
+    steps: [{ tap: "Scan it" }],
+    expect: { vars: { read: "nothing" } },
+    known: { preview: ANSWER_BRANCH, webPrototype: WEB_PROTO_NO_CAPABILITIES, webProduct: ANSWER_BRANCH, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
   },
   {
     id: "invoke-catch-type",

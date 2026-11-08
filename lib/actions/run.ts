@@ -7,14 +7,14 @@
  *      A call is sent at its step, with its arguments read then; nothing after it waits for its answer.
  *   3. Then the tap goes where it goes, its params read after every effect.
  *      An invoke of a capability is sent the same way, and answered the same way.
- *   4. An answer runs its `then` or `catch` where the tap was made (its screen, params, row, form), reading the data,
+ *   4. An answer runs its `then` or `catch` (the branch its condition picks, when it has one) where the tap was made (its screen, params, row, form), reading the data,
  *      the variables and the session as they are when it comes. It runs nothing once its host has started over, and
  *      nothing when the same part has made the same call again since. When the visitor has moved on since the tap,
  *      its effects still run (the app keeps up with the back end) but it goes nowhere.
  */
 
 import { display, evaluate, fillTemplate, holds, type Scope } from "../bindings/expr";
-import { BACK_TARGET, LINK_TARGET, MAX_CALL_DEPTH, STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, type Effect, type Trigger, type VarType, type VarValue } from "./model";
+import { BACK_TARGET, LINK_TARGET, MAX_CALL_DEPTH, STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Answer, type Condition, type Effect, type Trigger, type VarType, type VarValue } from "./model";
 import type { Change, FormRef, Host, InvokeOutcome, Outcome, Tap } from "./host";
 
 /* ---------- values ---------- */
@@ -97,10 +97,17 @@ export function conditionHolds(c: Condition | undefined, host: Host, tap: Tap, e
   return c.op === "neq" ? !same : same;
 }
 
-/** the body a tap runs: the action itself, its `else`, or nothing; its words read the row last tapped */
-export function chooseBranch(a: Action, host: Host, tap: Tap): ActionBody | null {
-  const body = conditionHolds(a.when, host, tap) ? a : a.else;
+/** The body a tap runs: the action itself, its `else`, or nothing; its words read the row last tapped. `extra` is what
+ *  the condition reads beyond the tap's scope (an answer's `response`, `status`, `result` or `error`). */
+export function chooseBranch(a: Action | Answer, host: Host, tap: Tap, extra?: Scope): ActionBody | null {
+  const body = conditionHolds(a.when, host, tap, extra) ? a : a.else;
   return body ? fillCurrent(body, tap.current) : null;
+}
+
+/** the body an answer runs: its own, its `else` when its condition does not hold, or nothing */
+function answerBranch(a: Answer, host: Host, tap: Tap, extra: Scope): ActionBody | null {
+  if (!a.when) return a;
+  return conditionHolds(a.when, host, tap, extra) ? a : (a.else ?? null);
 }
 
 /* ---------- running ---------- */
@@ -322,11 +329,10 @@ function invoke(e: Extract<Effect, { do: "invoke" }>, r: Run, tap: Tap, extra: S
       if (!out.ok && out.dropped) return;
       if (ledger.get(key) !== n) return;
       const here = stillThere(r);
-      if (out.ok) {
-        if (e.then) runBody(e.then, r, tap, { ...extra, result: out.result }, depth + 1, here);
-        return;
-      }
-      if (e.catch) runBody(e.catch, r, tap, { ...extra, error: out.error }, depth + 1, here);
+      const scope: Scope = out.ok ? { ...extra, result: out.result } : { ...extra, error: out.error };
+      const given = out.ok ? e.then : e.catch;
+      const chosen = given && answerBranch(given, host, tap, scope);
+      if (chosen) runBody(chosen, r, tap, scope, depth + 1, here);
     }),
   );
 }
@@ -343,16 +349,21 @@ function submit(form: FormRef, r: Run, tap: Tap, depth: number) {
   );
 }
 
-/** an answer's `then` or `catch`, where the tap was made; with the visitor moved on, its effects only */
-function answered(out: Outcome, operationId: string, then: ActionBody | undefined, fail: ActionBody | undefined, r: Run, tap: Tap, extra: Scope | undefined, depth: number) {
+/** An answer's `then` or `catch`, where the tap was made; with the visitor moved on, its effects only. A body with a
+ *  condition runs the branch the answer picks. */
+function answered(out: Outcome, operationId: string, then: Answer | undefined, fail: Answer | undefined, r: Run, tap: Tap, extra: Scope | undefined, depth: number) {
   const here = stillThere(r);
   if (out.ok) {
     /* a sign-in the app was sent to: back where it was, in place of where `then` goes */
     const back = here && r.host.afterSignIn(operationId);
-    if (then) runBody(then, r, tap, { ...extra, response: out.response, status: out.status }, depth + 1, here && !back);
+    const scope: Scope = { ...extra, response: out.response, status: out.status };
+    const chosen = then && answerBranch(then, r.host, tap, scope);
+    if (chosen) runBody(chosen, r, tap, scope, depth + 1, here && !back);
     return;
   }
   /* a refusal that sent the app to sign in has nothing to say here */
   if (out.unauthorized) return;
-  if (fail) runBody(fail, r, tap, { ...extra, error: out.error, status: out.status }, depth + 1, here);
+  const scope: Scope = { ...extra, error: out.error, status: out.status };
+  const chosen = fail && answerBranch(fail, r.host, tap, scope);
+  if (chosen) runBody(chosen, r, tap, scope, depth + 1, here);
 }

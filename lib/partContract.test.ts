@@ -112,13 +112,20 @@ describe("the operations", () => {
     fails(() => s.run(ops.setAction, { id: "pad", slot: "tab:*", action: stay() }, { origin: "ai" }), /not a family of places/);
   });
 
-  it("refuse a condition on a call's answer, which no host would read", () => {
+  it("take a condition on a call's answer, checked as any condition is, and its else", () => {
     const s = store();
     s.run(ops.addEndpoint, { operationId: "pay", method: "post", path: "/pay", returns: { type: "object", properties: { status: { type: "string" } } } }, { origin: "ai" });
     s.run(ops.addPart, { slug: "button", id: "b", screen: "home", at: { x: 16, y: 40 } }, { origin: "ai" });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const answer = { do: "call", operationId: "pay", then: { to: "none", transition: "none", when: { expr: "response.status == 'paid'" } } };
-    fails(() => s.run(ops.setAction, { id: "b", action: stay([answer as never]) }, { origin: "ai" }), /then takes no when: it runs whenever the call answers 2XX/);
+    const answer = { do: "call", operationId: "pay", then: { to: "none", transition: "none", when: { expr: "response.status == 'paid'" }, else: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Pending" }] } } };
+    s.run(ops.setAction, { id: "b", action: stay([answer as never]) }, { origin: "ai" });
+    expect(s.get().doc.groups.flatMap((g) => g.items).find((x) => x.id === "b")?.action?.effects?.[0]).toMatchObject(answer);
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    const broken = { do: "call", operationId: "pay", then: { to: "none", transition: "none", when: { var: "nope", op: "eq", value: 1 } } };
+    fails(() => s.run(ops.setAction, { id: "b", action: stay([broken as never]) }, { origin: "ai" }), /then: when: there is no variable "nope"/);
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    const elseGoes = { do: "call", operationId: "pay", catch: { to: "none", transition: "none", when: { expr: "status == 409" }, else: { to: "nowhere", transition: "none" } } };
+    fails(() => s.run(ops.setAction, { id: "b", action: stay([elseGoes as never]) }, { origin: "ai" }), /catch: else: there is no screen "nowhere"/);
   });
 
   it("send a call's fields in args, saying so when a body is written as an object", () => {

@@ -11,6 +11,7 @@ const SOURCES = import.meta.glob(
     "/lib/mocks/formats/*.ts",
     "/lib/bindings/{expr,format,messages,rules,sources,form}.ts",
     "/lib/app/*.ts",
+    "/lib/actions/*.ts",
     "/lib/api/types.ts",
     "/lib/api/schema.ts",
     "/lib/api/transport.ts",

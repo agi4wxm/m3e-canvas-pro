@@ -140,7 +140,12 @@ export type FormHandle = {
   /** enters a value */
   set: (field: string, value: unknown) => void;
   submitting: boolean;
+  /** checks and sends it, then runs the form's `then` or `catch` (`FormOptions`) */
   submit: () => Promise<void>;
+  /** Checks and sends it and gives back what came of it, running neither `then` nor `catch`: for an app that runs what
+   *  follows itself (the interpreter of lib/actions, which runs the design's own then and catch). `invalid` when nothing
+   *  was sent (a field is wrong, or it is being sent already). */
+  send: () => Promise<CallResult<unknown> | { ok: false; invalid: true }>;
   reset: () => void;
   controller: FormController;
 };
@@ -185,15 +190,24 @@ export function useForm<T>(o: FormOptions<T>): FormHandle {
       submitting: state.run.submitting,
       submit: async () => {
         const now = latest.current;
+        const epoch = runtime.epoch.get();
         const out = (await controller.submit(now.send, now.extra?.())) as CallResult<T> | { ok: false; invalid: true };
         if ("invalid" in out) return;
+        /* sent before the runtime started over: the answer belongs to a session that is gone */
+        if (epoch !== runtime.epoch.get() || (!out.ok && out.dropped)) return;
         if (out.ok) now.then?.(out.response, now.status ?? out.status);
         else if (!out.unauthorized) now.catch?.(out.error, out.status);
+      },
+      send: async () => {
+        const now = latest.current;
+        /* the runtime's call says when it was answered into nothing (`dropped`) */
+        const out = (await controller.submit(now.send, now.extra?.())) as CallResult<unknown> | { ok: false; invalid: true };
+        return out.ok ? { ...out, status: now.status ?? out.status } : out;
       },
       reset: () => controller.reset(),
       controller,
     };
-  }, [controller, state]);
+  }, [controller, state, runtime]);
 }
 
 /** a tap's call, with its optimistic change, then and catch (Runtime.call) */

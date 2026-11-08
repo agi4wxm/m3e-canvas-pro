@@ -138,8 +138,8 @@ function cleanKnownEffect(e: Record<string, unknown>, depth: number): Effect | u
       if (typeof e.operationId !== "string" || !e.operationId || depth > MAX_CALL_DEPTH) return undefined;
       const args = cleanExprMap(e.args);
       const body = e.body === undefined ? undefined : cleanExpr(e.body);
-      const then = cleanBody(e.then, depth + 1);
-      const fail = cleanBody(e.catch, depth + 1);
+      const then = cleanAnswer(e.then, depth + 1);
+      const fail = cleanAnswer(e.catch, depth + 1);
       const o = isRecord(e.optimistic) && typeof e.optimistic.source === "string" ? withUnknown(e.optimistic, { source: e.optimistic.source, ...(e.optimistic.remove === true ? { remove: true } : {}), ...(cleanExprMap(e.optimistic.patch) ? { patch: cleanExprMap(e.optimistic.patch) } : {}) }, OPTIMISTIC) : undefined;
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
       return { do: "call", operationId: e.operationId, ...(args ? { args } : {}), ...(body ? { body } : {}), ...(then ? { then } : {}), ...(fail ? { catch: fail } : {}), ...(o && (o.remove || o.patch) ? { optimistic: o } : {}) };
@@ -147,8 +147,8 @@ function cleanKnownEffect(e: Record<string, unknown>, depth: number): Effect | u
     case "invoke": {
       if (typeof e.capability !== "string" || !e.capability || depth > MAX_CALL_DEPTH) return undefined;
       const args = cleanExprMap(e.args);
-      const then = cleanBody(e.then, depth + 1);
-      const fail = cleanBody(e.catch, depth + 1);
+      const then = cleanAnswer(e.then, depth + 1);
+      const fail = cleanAnswer(e.catch, depth + 1);
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
       return { do: "invoke", capability: e.capability.slice(0, 128), ...(args ? { args } : {}), ...(then ? { then } : {}), ...(fail ? { catch: fail } : {}) };
     }
@@ -182,6 +182,11 @@ const cleanEffects = (list: unknown, depth = 0) => (Array.isArray(list) ? list.m
 const PROTOTYPE = { overlay: (v: unknown) => (typeof v === "boolean" ? v : undefined), scrollTo: (v: unknown) => (typeof v === "string" ? v : undefined), motion: (v: unknown) => cleanMotion(v, true), params: cleanExprMap };
 function cleanBody(a: unknown, depth = 0): ActionBody | undefined {
   return isRecord(a) && typeof a.to === "string" ? (cleaned(a, { effects: (l) => cleanEffects(l, depth), ...PROTOTYPE }) as unknown as ActionBody) : undefined;
+}
+/** a call's or an invoke's then or catch: a body that may branch on the answer (`when`, `else`) */
+function cleanAnswer(a: unknown, depth: number): ActionBody | undefined {
+  const body = cleanBody(a, depth);
+  return body ? cleaned(body as unknown as Record<string, unknown>, { when: cleanCondition, else: (v) => cleanBody(v, depth) }) as unknown as ActionBody : undefined;
 }
 const cleanAction = (a: unknown) => (isRecord(a) && typeof a.to === "string" ? cleaned(a, { effects: cleanEffects, when: cleanCondition, else: cleanBody, trigger: (v) => cleanTrigger(v, true), ...PROTOTYPE }) : undefined);
 

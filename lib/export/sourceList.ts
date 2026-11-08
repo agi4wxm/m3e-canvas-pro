@@ -11,6 +11,7 @@ export const EXPORT_SOURCE_GLOBS = [
   "/lib/mocks/formats/*.ts",
   "/lib/bindings/{expr,format,messages,rules,sources,form}.ts",
   "/lib/app/*.ts",
+  "/lib/actions/*.ts",
   "/lib/api/types.ts",
   "/lib/api/schema.ts",
   "/lib/api/transport.ts",

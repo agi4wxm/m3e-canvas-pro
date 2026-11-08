@@ -704,6 +704,72 @@ export const ROWS: KitRow[] = [
   }
  },
  {
+  "id": "call-then-branch",
+  "title": "回答上的条件：then 按回答走本身或 else",
+  "ref": "回答上的条件；交接 4.1 第 6 条",
+  "answers": {
+   "pay": {
+    "status": 200,
+    "body": {
+     "state": "pending"
+    }
+   }
+  },
+  "steps": [
+   {
+    "tap": "Pay now"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "state": "pending"
+   }
+  },
+  "known": {
+   "preview": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）",
+   "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）",
+   "webProduct": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）",
+   "rn": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）",
+   "miniapp": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）"
+  },
+  "vars": [
+   "state"
+  ],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "call-catch-branch",
+  "title": "回答上的条件：catch 按 status 分支",
+  "ref": "回答上的条件",
+  "answers": {
+   "claim": {
+    "status": 500,
+    "body": {}
+   }
+  },
+  "steps": [
+   {
+    "tap": "Claim it"
+   }
+  ],
+  "expect": {
+   "toast": "Failed 500"
+  },
+  "known": {
+   "preview": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）",
+   "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）",
+   "webProduct": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）",
+   "rn": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）",
+   "miniapp": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）"
+  },
+  "vars": [],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
   "id": "call-unauthorized-no-catch",
   "title": "因为没有会话被拒绝（401）：不运行 catch",
   "ref": "调用接口；会话",
@@ -1199,6 +1265,42 @@ export const ROWS: KitRow[] = [
   },
   "vars": [
    "got"
+  ],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "invoke-then-branch",
+  "title": "回答上的条件：能力的 then 按 result 分支",
+  "ref": "回答上的条件；调用能力",
+  "capabilities": {
+   "scan.code": {
+    "result": {
+     "text": "",
+     "format": "qr"
+    }
+   }
+  },
+  "steps": [
+   {
+    "tap": "Scan it"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "read": "nothing"
+   }
+  },
+  "known": {
+   "preview": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）",
+   "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）",
+   "webProduct": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）",
+   "rn": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）",
+   "miniapp": "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）"
+  },
+  "vars": [
+   "read"
   ],
   "screens": {
    "home": "home"
