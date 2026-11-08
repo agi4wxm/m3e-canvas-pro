@@ -325,7 +325,7 @@ npx playwright install chromium
 | `update_var_collection` | 数据与交互 |  |  | Renames a collection of variables, gives it its modes (each {id, name}; one without an id is new, one left out is removed with its values, and the first is the one whose values ar… |
 | `remove_var_collection` | 数据与交互 |  | 是 | Removes a collection of variables and every variable in it; what was bound to them is unbound. |
 | `set_var_mode` | 数据与交互 |  |  | Chooses the mode of a variable collection the document shows (or one screen shows, over the document's choice), by mode id or name; null goes back to the default (a screen follows… |
-| `set_action` | 数据与交互 |  |  | Sets what a tap on a part does (or on one of its places: slot "tab:0", "icon"…): {to: screen id \| "back" \| "link" \| "none", transition, url, effects: [{do: show\|hide\|toggle\|… |
+| `set_action` | 数据与交互 |  |  | Sets what a tap on a part does, or what runs on one of the outlets it declares (describe_node lists them): a place, slot "tab:0" or "icon"; a family of places, slot "tab:*", one a… |
 | `bind_prop` | 数据与交互 |  |  | Binds a prop of a part to a variable (the preview shows the variable's value), or a field of its design: "@fill", "@text" (the words' color) and "@stroke" take a color variable, "… |
 | `reorder_panes` | 搭建 |  |  | Puts a dock's tabs in a new order; what each tab holds follows it. |
 | `add_model` | 数据与交互 |  |  | Adds a data model: a named JSON Schema 2020-12 (usually an object: {type: "object", properties: {id: {type: "string", format: "uuid"}, email: {type: "string", format: "email"}, av… |

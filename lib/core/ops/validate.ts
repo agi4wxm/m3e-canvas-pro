@@ -9,8 +9,9 @@ export type { PartDef };
 import { cleanLook } from "../../look";
 import { styleOwnsProp } from "../../styleRules";
 import { isStrict, styleContext } from "../../styles";
-import { actionSlotsOf, BACK_TARGET, COLOR_TOKENS, MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, transitionOf, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
+import { BACK_TARGET, COLOR_TOKENS, MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, transitionOf, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
 import { cleanMotion, cleanTrigger } from "../../prototype";
+import { EVENT_PREFIX, outletKeysOf } from "../../partContract";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "../../constraints";
 import { OpError } from "../op";
 import { pictureError } from "../images";
@@ -146,9 +147,13 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
   actions: (v, s, it) => {
     if (v === undefined) return null;
     if (!isRecord(v)) return "should be {slot: action}";
-    const slots = actionSlotsOf(it).map((x) => x.key);
+    /* a slot, a family of slots ("tab:*") or a named event ("on:submit"), as the part declares them */
+    const slots = outletKeysOf(it);
     for (const [slot, a] of Object.entries(v)) {
-      if (!slots.includes(slot)) return `${JSON.stringify(slot)} is not a place on this part${slots.length ? ` (it has ${slots.join(", ")})` : "; set action instead"}`;
+      if (!slots.includes(slot)) {
+        const what = slot.startsWith(EVENT_PREFIX) ? "is not an event this part sends" : slot.endsWith(":*") ? "is not a family of places on this part" : "is not a place on this part";
+        return `${JSON.stringify(slot)} ${what}${slots.length ? ` (it has ${slots.join(", ")})` : "; set action instead"}`;
+      }
       const e = actionError(a, s);
       if (e) return `${slot}: ${e}`;
     }
@@ -251,6 +256,10 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
       if (e.optimistic !== undefined && (!isRecord(e.optimistic) || typeof e.optimistic.source !== "string")) return "optimistic should be {source, remove: true} or {source, patch: {field: expression}}";
       for (const k of ["then", "catch"] as const) {
         if (e[k] === undefined) continue;
+        /* an answer's body runs as it is: no host reads a condition on it, so one written there would be ignored and
+           the success shown whatever the answer said */
+        const extra = isRecord(e[k]) ? ["when", "else", "trigger"].filter((x) => (e[k] as Record<string, unknown>)[x] !== undefined) : [];
+        if (extra.length) return `${k} takes no ${extra.join(" or ")}: it runs whenever the call ${k === "then" ? "answers 2XX" : "fails"}. To act on what the answer says, set a variable from it (setVar with expr "response.status") and show the outcome with showWhen, or open a result screen that loads the data itself`;
         const err = bodyError(e[k], s, depth + 1);
         if (err) return `${k}: ${err}`;
       }

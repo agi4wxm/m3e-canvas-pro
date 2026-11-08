@@ -16,6 +16,7 @@ import { authSource } from "./webSources";
 import { MINIAPP_KIT_DIR, MINIAPP_KIT_FILES, kitFileFor } from "../miniapp/kitFiles";
 import { callsModule, iconsModule, pageConfig, pageModule, printMiniApp, screensIndex, specModule, tabBarModule, themeModule } from "../miniapp/app";
 import { generated, seeded, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "../types";
+import { boundaryDifferences } from "../boundary";
 
 /** the packages the app is built with, at the versions the kit is built and checked with (miniapp-kit/package.json) */
 export function miniappDependencies(): { dependencies: Record<string, string>; devDependencies: Record<string, string> } {
@@ -330,8 +331,9 @@ export const miniappTarget: ProductTarget = {
     const files: ProductFiles = {};
     /* what the mini-program does not do as the design says (a part drawn as its atoms or as a placeholder, a tap not
        printed): listed beside the screens for the author, as the React Native printer lists its own */
-    files["src/generated/warnings.json"] = generated(`${JSON.stringify(printed.warnings, null, 1)}\n`);
-    ctx.differences.push(...printed.warnings.map((w) => ({ app: "miniapp" as const, ...w })));
+    const warnings = [...printed.warnings, ...boundaryDifferences(ctx.doc, "miniapp", ctx.widths).map(({ app: _app, ...w }) => w)];
+    files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
+    ctx.differences.push(...warnings.map((w) => ({ app: "miniapp" as const, ...w })));
     for (const path of MINIAPP_KIT_FILES) files[`src/kit/${path}`] = generated(kitFileFor(await ctx.read(`${MINIAPP_KIT_DIR}/${path}`), `${ctx.scope}/app-runtime`));
     for (const s of printed.screens) {
       files[`src/generated/screens/${s.component}.tsx`] = generated(s.source);

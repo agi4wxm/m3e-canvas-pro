@@ -54,6 +54,7 @@ export const mobile: PartDef[] = [
   },
   {
     slug: "action-sheet",
+    overlay: true,
     appearance: { radius: 16 },
     name: "Action sheet",
     labels: { ja: "アクションシート", zh: "操作表", ko: "작업 시트" },
