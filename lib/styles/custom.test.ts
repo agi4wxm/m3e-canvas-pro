@@ -2,9 +2,11 @@ import { readFile } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   APP_SCOPE,
+  CONTRAST_STATES,
   CUSTOM_PREFIX,
   STYLE_PACKS,
   artOf,
+  checkAccess,
   checkSelector,
   checkValue,
   cleanStyles,
@@ -37,6 +39,8 @@ import { kitLookOf, recomposeKits } from "../kits";
 import { openProject, projectFile } from "../project";
 import { readShareHash, shareLink } from "../share";
 import { conformDoc, rulesForModel } from "../styleRules";
+import { repairContrast } from "../tools/generateStyle";
+import { over } from "./access";
 import { DEFAULT_THEME, makeItem, normalizeTheme, paletteOf, type Doc, type Group, type Theme } from "../tokens";
 
 const themed = (key: string, extra: Partial<Theme> = {}): Theme => ({ ...DEFAULT_THEME, ...stylePatch(key), ...extra });
@@ -49,10 +53,13 @@ const valid = (input: unknown): CustomStyle => {
 afterEach(() => setDocStyles(undefined));
 
 describe("a built-in pack as a custom style", () => {
-  it("comes through validation of every pack without a word to say", () => {
+  it("comes through validation of every pack with nothing changed, and only the accessibility check's issues to look at", () => {
     for (const pack of STYLE_PACKS) {
       const { style, problems } = validateCustomStyle(fromPack(pack));
-      expect(problems, pack.key).toEqual([]);
+      expect(problems.filter((p) => p.code !== "contrast"), pack.key).toEqual([]);
+      /* what reads too faintly is listed, one problem to a check that falls short, and kept as written */
+      expect(problems.map((p) => p.check?.id), pack.key).toEqual(checkAccess(pack).issues.map((c) => c.id));
+      expect(problems.every((p) => p.fix === "kept"), pack.key).toBe(true);
       expect(style?.key, pack.key).toBe(`${CUSTOM_PREFIX}${pack.key}`);
     }
   });
@@ -128,7 +135,7 @@ describe("the format", () => {
     const style = copyOfStyle(styleOf("wechat")!);
     const text = JSON.stringify(styleFile(style));
     const { style: back, problems } = readStyleFile(text);
-    expect(problems).toEqual([]);
+    expect(problems.filter((p) => p.code !== "contrast")).toEqual([]);
     expect(back).toEqual(style);
     /* a bare style reads as well; anything else does not */
     expect(readStyleFile(JSON.stringify(style)).style).toEqual(style);
@@ -409,31 +416,116 @@ describe("the CSS a custom style may write", () => {
 describe("contrast", () => {
   const ios = styleOf("ios")!;
 
-  it("is checked on every pair a screen reads words from, as the built-in packs are", () => {
-    const { problems } = validateCustomStyle({ key: "custom:low", extends: "ios", light: { onPrimary: "#3388FF" } });
+  /** Material at its baseline: every check passes, so a test can change one thing and see that one check */
+  const material = (patch: Record<string, unknown> = {}) => valid({ key: "custom:m", name: "M", seed: "#6750A4", ...patch });
+  const find = (s: Parameters<typeof checkAccess>[0], id: string) => checkAccess(s).checks.find((c) => c.id === id);
+
+  it("is checked on every pair a screen reads words from, located, and kept as written", () => {
+    expect(checkAccess(material()).pass).toBe(true);
+    const { style, problems } = validateCustomStyle({ key: "custom:low", extends: "ios", light: { onPrimary: "#3388FF" } });
     const low = problems.filter((p) => p.code === "contrast");
     expect(low.map((p) => p.path)).toContain("light.onPrimary");
     expect(low.every((p) => p.fix === "kept")).toBe(true);
-    expect(low[0].zh).toMatch(/对比度/);
-    expect(low[0].en).toMatch(/reads at/);
+    /* the style is imported all the same, as written */
+    expect(style?.light.onPrimary).toBe("#3388FF");
+    const one = low.find((p) => p.check?.id === "light/default/onPrimary@primary")!;
+    expect(one.check).toMatchObject({ mode: "light", state: "default", use: "text", on: "light.primary", need: 4.5, pass: false });
+    expect(one.zh).toMatch(/正文至少 4.5:1/);
+    /* at the size iOS sets a button label in */
+    expect(one.check?.type).toEqual({ role: "label-large", size: ios.type!["label-large"][0], weight: ios.type!["label-large"][2] ?? 500 });
+    expect(one.en).toMatch(/reads [\d.]+:1; text needs 4.5:1 \(label-large, \d+px \d+\)/);
   });
 
-  it("is held lower where the style says the background is its own (loud)", () => {
-    /* iOS's blue under white reads below 4.5:1, and iOS says so */
-    expect(validateCustomStyle({ key: "custom:a", extends: "ios" }).problems).toEqual([]);
-    const { problems } = validateCustomStyle({ key: "custom:a", extends: "ios", loud: [] });
-    expect(problems.map((p) => p.path)).toContain("light.onPrimary");
+  it("is not lowered by loud: the same faint words do not pass because the style calls their ground its own", () => {
+    const faint = { light: { ...material().light, primary: "#7FA7E0", onPrimary: "#FFFFFF" } };
+    const id = "light/default/onPrimary@primary";
+    const plain = find(material(faint), id)!;
+    const loud = find(material({ ...faint, loud: ["primary"] }), id)!;
+    expect(plain.ratio).toBeLessThan(4.5);
+    expect(plain.ratio).toBeGreaterThan(2);
+    /* the same words, the same bar, the same verdict: loud only says it was kept on purpose */
+    expect(loud).toEqual({ ...plain, loud: true });
+    expect(loud).toMatchObject({ need: 4.5, pass: false });
+    expect(checkAccess(material({ ...faint, loud: ["primary"] })).pass).toBe(false);
+    const said = validateCustomStyle(material({ ...faint, loud: ["primary"] })).problems.find((p) => p.check?.id === id)!;
+    expect(said).toMatchObject({ path: "light.onPrimary", code: "contrast", fix: "kept" });
+    expect(said.en).toContain("primary is loud: kept as the style's own look, and still an accessibility issue");
+    expect(said.zh).toContain("仍算可访问性问题");
+    /* iOS's blue under white is loud, and an issue */
     expect(ios.loud).toContain("primary");
+    expect(find(ios, id)).toMatchObject({ loud: true, pass: false });
+    /* a model's repair puts loud words right like any others */
+    expect(find(repairContrast(material({ ...faint, loud: ["primary"] })).style, id)?.pass).toBe(true);
   });
 
-  it("asks for visible lines and for accent words that read on a panel", () => {
+  it("checks each state, in light and in dark, against the background as it is drawn", () => {
+    const report = checkAccess(material());
+    for (const mode of ["light", "dark"] as const) for (const state of CONTRAST_STATES) expect(report.checks.some((c) => c.mode === mode && c.state === state), `${mode} ${state}`).toBe(true);
+    const m = material().light;
+    /* hover and focus: the words' own color laid over their fill, 8% and 10% */
+    const rest = find(material(), "light/default/onPrimary@primary")!;
+    const hover = find(material(), "light/hover/onPrimary@primary")!;
+    const focus = find(material(), "light/focus/onPrimary@primary")!;
+    expect(hover.bg).toBe(over(m.onPrimary, m.primary, 0.08));
+    expect(focus.bg).toBe(over(m.onPrimary, m.primary, 0.1));
+    expect(hover.ratio).toBeLessThan(rest.ratio);
+    expect(focus.ratio).toBeLessThan(hover.ratio);
+    /* words that pass at rest can fall short under the layer: checked on their own */
+    const edge = material({ light: { ...m, primary: "#2E6FD8", onPrimary: "#FFFFFF" } });
+    expect(find(edge, "light/default/onPrimary@primary")?.pass).toBe(true);
+    expect(find(edge, "light/focus/onPrimary@primary")?.pass).toBe(false);
+    /* focus: the ring is a mark that tells a control's state, 3:1 */
+    expect(find(material({ light: { ...m, secondary: "#D8D0E0" } }), "light/focus/secondary@surface")).toMatchObject({ use: "ui", need: 3, pass: false });
+    /* selected: a switch that is on, and the words on the selected indicator */
+    expect(find(material({ tokens: { toggleOn: "#C8F0C8" } }), "light/selected/tokens.toggleOn@surface")).toMatchObject({ use: "ui", pass: false });
+    expect(find(material({ light: { ...m, onSecondaryContainer: "#B0A0C0" } }), "light/selected/onSecondaryContainer@secondaryContainer")?.pass).toBe(false);
+    /* error: the words under a field, small */
+    expect(find(material({ light: { ...m, error: "#FF8080" } }), "light/error/error@surface")).toMatchObject({ use: "text", type: { role: "body-small", size: 12 }, pass: false });
+    /* disabled: measured over the faded fill, and exempt */
+    const off = find(material(), "light/disabled/onSurface@surface")!;
+    expect(off).toMatchObject({ use: "inactive", need: null, pass: true });
+    expect(off.bg).toBe(over(m.onSurface, m.surface, 0.1));
+    expect(off.fg).toBe(over(m.onSurface, off.bg, 0.38));
+    expect(off.ratio).toBeLessThan(4.5);
+    /* dark is its own scheme */
+    expect(find(material({ dark: { ...material().dark, onSurface: "#3A3A3A" } }), "dark/default/onSurface@surface")?.pass).toBe(false);
+    expect(find(material({ dark: { ...material().dark, onSurface: "#3A3A3A" } }), "light/default/onSurface@surface")?.pass).toBe(true);
+  });
+
+  it("reads a translucent token over what is behind it, and words over a backdrop on its faintest stop", () => {
+    const m = material().light;
+    /* the top bar's title on a bar filled half with black, over the screen */
+    const bar = find(material({ tokens: { barBg: "#00000080", onBar: "#5A5A5A" } }), "light/default/tokens.onBar@tokens.barBg")!;
+    expect(bar.bg).toBe(over("#00000080", m.surface));
+    expect(bar.pass).toBe(false);
+    /* a backdrop that runs from the screen's color to one the words cannot be read on */
+    const screen = find(material({ screen: `linear-gradient(${m.surface}, #3A3A3A)` }), "light/default/onSurface@screen")!;
+    expect(screen.bg).toBe("#3A3A3A");
+    expect(screen.pass).toBe(false);
+    expect(find(material(), "light/default/onSurface@screen")).toBeUndefined();
+  });
+
+  it("takes the size words are drawn at from the style's type ramp", () => {
+    const id = "light/default/onPrimary@primary";
+    expect(find(material(), id)).toMatchObject({ use: "text", need: 4.5, type: { role: "label-large", size: 14, weight: 500 } });
+    /* 24px is large text at any weight; 18.66px only bold */
+    expect(find(material({ type: { "label-large": [24, 30, 400] } }), id)).toMatchObject({ use: "large-text", need: 3, type: { size: 24 } });
+    expect(find(material({ type: { "label-large": [19, 24, 700] } }), id)).toMatchObject({ use: "large-text", need: 3 });
+    expect(find(material({ type: { "label-large": [19, 24, 600] } }), id)).toMatchObject({ use: "text", need: 4.5 });
+    expect(find(material({ type: { "label-large": [18, 24, 700] } }), id)).toMatchObject({ use: "text", need: 4.5 });
+    /* desktop software sets its words smaller */
+    expect(find(material({ compact: true }), "light/default/onSurface@surface")?.type).toEqual({ role: "body-large", size: 14, weight: 400 });
+  });
+
+  it("asks for visible lines and for accent words that read", () => {
     const faint = validateCustomStyle({ key: "custom:a", extends: "ios", light: { outline: ios.light.surface } }).problems;
-    expect(faint.map((p) => p.path)).toContain("light.outline");
+    expect(faint.find((p) => p.path === "light.outline")?.check).toMatchObject({ use: "ui", need: 3 });
     const pale = validateCustomStyle({ key: "custom:a", extends: "ios", light: { primary: "#C8E0FF" }, loud: ["primary"] }).problems;
-    expect(pale.map((p) => p.path)).toContain("light.primary");
+    expect(pale.find((p) => p.check?.id === "light/default/primary@surfaceContainerHigh")?.en).toContain("tokens.primaryText can give them a color of their own");
     /* words of their own color put it right */
     const fixed = validateCustomStyle({ key: "custom:a", extends: "ios", light: { primary: "#C8E0FF" }, loud: ["primary"], tokens: { toggleOn: "#34C759", primaryText: "#0050B0" } }).problems;
-    expect(fixed.map((p) => p.path)).not.toContain("light.primary");
+    expect(fixed.some((p) => p.check?.id.startsWith("light/default/") && p.check.id.includes("primary@surface"))).toBe(false);
+    expect(fixed.find((p) => p.check?.id === "light/default/tokens.primaryText@surfaceContainerHigh")).toBeUndefined();
   });
 });
 
@@ -608,7 +700,12 @@ describe("a style made by a model", () => {
       .find((b) => b.includes('"custom:brand"'));
     expect(block).toBeDefined();
     const doc = JSON.parse(`{${block!.trim().replace(/,\s*$/, "")}}`) as { styles: unknown[]; theme: { style: string } };
-    for (const s of doc.styles) expect(validateCustomStyle(s).problems).toEqual([]);
+    for (const s of doc.styles) {
+      const { problems } = validateCustomStyle(s);
+      expect(problems.filter((p) => p.code !== "contrast")).toEqual([]);
+      /* its words read in every state; what is left is iOS's own green switch, which it extends */
+      expect(problems.filter((p) => p.check?.use === "text" || p.check?.use === "large-text")).toEqual([]);
+    }
     const opened = openProject({ groups: [], frames: [], paletteKey: "purple", frame: "phone", title: "", brief: "", ...doc })!;
     expect(withDocStyles(opened.styles, () => normalizeTheme(opened.theme).style)).toBe("custom:brand");
   });

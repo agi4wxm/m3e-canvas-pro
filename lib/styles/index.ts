@@ -9,6 +9,7 @@
  *   sheet.ts       the stylesheet a theme comes to
  *   custom.ts      a style as data a document carries (`Doc.styles`): its format, validation and compiling
  *   css.ts         the CSS a custom style may write, as rules, and the grammar they are held to
+ *   access.ts      whether a style's colors can be read: an accessibility check, apart from whether it can be imported
  *   book.ts        which document's custom styles a key is read against
  *
  * Every style here is modeled on products people actually use, chosen from download, revenue and concurrent-player
@@ -25,5 +26,6 @@ export { STYLE_GROUPS, STYLE_PACKS, artOf, isStrict, normalizeRecipes, normalize
 export { APP_SCOPE, CANVAS_SCOPE, hasBackdrop, screenBackground, styleCss, styleRoleColors, type StyleSelectors } from "./sheet";
 export { builtInStyleOf, resolveStyle } from "./theme";
 export { customPackOf, customPacks, docStyles, docStylesRevision, setDocStyles, withDocStyles } from "./book";
-export { CUSTOM_PREFIX, OPTIONAL_ROLE_KEYS, READS, ROLE_KEYS, STYLE_FORMAT, STYLE_VERSION, TOKEN_KEYS, cleanStyles, compileCustomStyle, contrastFloor, contrastProblems, contrastRatio, copyOfStyle, fromPack, hexOf, isCustomKey, newStyleKey, readStyleFile, rolesFromSeed, styleFile, styleFileName, validateCustomStyle, withStyle, type CustomStyle, type StyleFile, type StyleProblem, type Validated } from "./custom";
+export { CUSTOM_PREFIX, OPTIONAL_ROLE_KEYS, READS, ROLE_KEYS, STYLE_FORMAT, STYLE_VERSION, TOKEN_KEYS, cleanStyles, compileCustomStyle, contrastProblems, copyOfStyle, fromPack, hexOf, isCustomKey, newStyleKey, readStyleFile, rolesFromSeed, styleFile, styleFileName, validateCustomStyle, withStyle, type CustomStyle, type StyleFile, type StyleProblem, type Validated } from "./custom";
+export { CONTRAST_NEED, CONTRAST_STATES, accessWords, checkAccess, contrastRatio, isLargeText, type AccessReport, type ContrastCheck, type ContrastState, type ContrastUse } from "./access";
 export { FUNCTIONS, PROPERTIES, PSEUDOS, checkRule, checkSelector, checkValue, parseCss, rulesCss, rulesFromCss, type CssRule, type Reason } from "./css";
