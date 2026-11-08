@@ -1,7 +1,7 @@
 /* A screen as the preview shows it, with no editor and no page: its data loaded from the mock library under a
  * scenario (lib/mocks), its repeats drawn from what came back, each region in the state its data is in, the words
- * bound to expressions read in — the same engine (runtime.ts), view (view.ts) and live parts (lib/interact.ts) the
- * preview runs. What comes out is the document with that screen's parts as they would show, for a screenshot of it,
+ * bound to expressions read in — the same engine (lib/app's Runtime, read from the document by lib/bindings/design.ts),
+ * view (view.ts) and live parts (lib/interact.ts) the preview runs, and every exported app runs that engine too. What comes out is the document with that screen's parts as they would show, for a screenshot of it,
  * and a short report of what each data source got. The agent's and MCP's screenshot tool draws a screen this way
  * (`scenario`), the evaluation suite reads the reports, and a region can be drawn in any one of its states instead
  * (`regionsShowing`). Plain TypeScript: the mock library is loaded the first time it is needed. */
@@ -10,7 +10,8 @@ import type { MockTransport } from "../mocks/transport";
 import { conditionHolds, inRow, isHidden, liveItem, screenVars, startState } from "../interact";
 import { groupsInFrame, heldBy, type Doc, type Group, type RegionState } from "../tokens";
 import type { Lang } from "../i18n";
-import { BindingEngine, emptyBindings, screenScope, sourceKey, type BindingState } from "./runtime";
+import { createRuntime } from "../app/runtime";
+import { DesignRuntime, authConfigOf, steadyTransport, type ScreenAt } from "./design";
 import { signedInAtStart } from "./transport";
 import { boundScreen } from "./view";
 
@@ -103,7 +104,6 @@ export async function previewScreen(doc: Doc, screen: string, o: { scenario?: st
   const now = o.now ?? Date.now();
   const report: PreviewReport = { screen, scenario, signedIn: signedInAtStart(doc.mocks, scenario || undefined), params: {}, sources: [], regions: [], calls: [] };
   const groups = groupsInFrame(doc.groups, frame, doc.frames, o.widths);
-  let state: BindingState = emptyBindings(report.signedIn);
   let transport: MockTransport | undefined;
   if (doc.api?.endpoints?.length) {
     const { createMockTransport, fakeClock } = await import("../mocks");
@@ -111,14 +111,17 @@ export async function previewScreen(doc: Doc, screen: string, o: { scenario?: st
   }
   try {
     report.params = transport ? await paramsOf(doc, screen, o.params, transport) : { ...o.params };
-    const engine = transport ? new BindingEngine({ doc: () => doc, transport, get: () => state, set: (n) => (state = n), ctx: () => ({ lang: o.lang, now }) }) : undefined;
+    /* the runtime every exported app runs on, over the mocks, signed in as their session starts */
+    const runtime = createRuntime({ transport: steadyTransport(() => transport), auth: authConfigOf(doc.api), presumed: report.signedIn, lang: o.lang, now: () => now });
+    const data = new DesignRuntime(runtime, () => doc);
     const pv = screenVars(startState(doc.vars, doc.collections, false), doc, frame, false);
     const varNames = (doc.vars ?? []).map((v) => ({ id: v.id, name: v.name }));
-    if (engine && frame.data?.length) {
+    const at: ScreenAt = { frame, params: report.params, vars: pv.vars, varNames, now };
+    if (transport && frame.data?.length) {
       if (frame.auth === "required" && !report.signedIn) report.needsSignIn = true;
-      await engine.enter(frame, screenScope({ frame, state, params: report.params, vars: pv.vars, varNames, now }));
+      await data.enter(at);
     }
-    const bound = boundScreen({ groups, frame, doc, state, params: report.params, vars: pv.vars, fields: {}, widths: o.widths, ctx: { lang: o.lang, now } });
+    const bound = boundScreen({ groups, frame, doc, scope: data.scope(at), form: (form, gs, owner) => data.formView({ form, groups: gs, owner, fields: {} }), vars: pv.vars, widths: o.widths, ctx: { lang: o.lang, now } });
     /* The parts as they are now (bound props read, conditions met), the rest left to whoever draws them: the canvas
        shows each region's pane and lays the flows out from the sizes it measures, as it does for any document. */
     const ps = { ...pv, ctx: bound.ctx };
@@ -151,8 +154,9 @@ export async function previewScreen(doc: Doc, screen: string, o: { scenario?: st
     const keyed = parts.filter((g) => !gone.has(g.id)).map((g) => ({ g, k: (last = order.get(g.id) ?? last + 1e-3) }));
     const placed = [...keyed, ...resting.map((g) => ({ g, k: order.get(g.id)! }))].sort((x, y) => x.k - y.k).map((x) => x.g);
     const live = asDrawn(placed).map((g) => (listsAtRest.has(g.id) ? { ...g, repeat: byId.get(g.id)!.repeat } : g));
-    for (const d of frame.data ?? []) {
-      const s = state.sources[sourceKey(frame.id, d.name)];
+    const sources = data.screen(at).sources;
+    for (const { src: d, spec } of sources) {
+      const s = data.state(spec);
       const items = Array.isArray(s?.items) ? s.items.length : undefined;
       const err = s?.error;
       report.sources.push({
