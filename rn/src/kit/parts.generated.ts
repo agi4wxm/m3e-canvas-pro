@@ -1548,6 +1548,29 @@ export const PARTS: Record<string, PartInfo> = {
    "height": 480
   }
  },
+ "split-view": {
+  "name": "Split view",
+  "tier": "composite",
+  "category": "Layout",
+  "defaults": {
+   "orientation": "horizontal",
+   "split": 50,
+   "minFirst": 0,
+   "maxFirst": 0,
+   "minSecond": 0,
+   "maxSecond": 0,
+   "collapsible": "none",
+   "collapsedSize": 0,
+   "collapsed": false,
+   "divider": "line",
+   "handle": true,
+   "compact": "stack",
+   "breakpoint": 600,
+   "persist": false,
+   "width": 640,
+   "height": 360
+  }
+ },
  "video": {
   "name": "Video",
   "tier": "composite",

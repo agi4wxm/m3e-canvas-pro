@@ -1,12 +1,12 @@
 import { FLOW_PROPS, GRID_PROPS } from "../flow";
 import { h, ic, listSlots } from "../node";
-import type { P, PartDef, PropDef } from "../types";
+import type { Choice, P, PartDef, PropDef } from "../types";
 
 /* Containers: the ground other parts are put on. Dropped wholly inside one, a part moves with it,
  * and the prompt reads it as nested; see `heldBy` in lib/tokens.ts. What they hold is placed by hand,
  * or by the auto layout most of them offer (parts/flow.ts). The set follows JetSquirrel/gpui-kit-canvas
- * (MIT); each is drawn from scratch on M3E's roles. A split view is the shadcn M3E Resizable, which
- * holds parts too. */
+ * (MIT); each is drawn from scratch on M3E's roles. A split view lays out two panes of its own, drawn with the
+ * shadcn M3E Resizable (react-resizable-panels). */
 
 const WIDTH = (value: number): PropDef => ({ key: "width", label: "Width", kind: "number", default: value, min: 40, max: 2400, step: 4, unit: "px" });
 const HEIGHT = (value: number): PropDef => ({ key: "height", label: "Height", kind: "number", default: value, min: 40, max: 2400, step: 4, unit: "px" });
@@ -30,6 +30,79 @@ const tabbed = (d: PartDef): PartDef => ({
   slots: (p) => listSlots(p.list("items")),
   props: d.props.map((x) => (x.key === "layout" ? ({ ...x, default: "column" } as PropDef) : x)),
 });
+
+const opt = (value: string, label: string, zh: string, ja: string, ko: string): Choice => ({ value, label, labels: { zh, ja, ko } });
+const px = (key: string, label: string, labels: NonNullable<PropDef["labels"]>, when?: PropDef["when"]): PropDef => ({ key, label, labels, kind: "number", default: 0, min: 0, max: 2400, step: 4, unit: "px", ...(when ? { when } : {}) });
+const folds = (p: P) => p.s("collapsible") !== "none";
+
+/** Two panes side by side, or one over the other, both showing, with a divider the visitor drags (lib/split.ts). The
+ *  panes are boxes of their own, made with it, that hold any parts; the split view says only how long each is. */
+const splitView: PartDef = {
+  slug: "split-view",
+  name: "Split view",
+  labels: { ja: "分割ビュー", zh: "分栏视图", ko: "분할 보기" },
+  category: "Layout",
+  icon: "vertical_split",
+  holds: true,
+  w: 640,
+  h: 360,
+  appearance: { radius: 0 },
+  /* the visitor's own share of the first pane, which a drag changes (UI state, never the design's `split`) */
+  input: { prop: "split", kind: "number", resets: ["collapsed"] },
+  events: [{ name: "resize", label: "Divider moved", labels: { ja: "区切りを動かした", zh: "拖动了分隔条", ko: "구분선을 옮김" }, payload: { split: "number", collapsed: "bool" } }],
+  props: [
+    { key: "orientation", label: "Orientation", labels: { ja: "向き", zh: "方向", ko: "방향" }, kind: "enum", default: "horizontal", options: [opt("horizontal", "Side by side", "左右并排", "横に並べる", "나란히"), opt("vertical", "One over the other", "上下排列", "上下に並べる", "위아래로")] },
+    { key: "split", label: "First pane share", labels: { ja: "第 1 ペインの割合", zh: "第一栏占比", ko: "첫째 창 비율" }, kind: "number", default: 50, min: 0, max: 100, step: 1, unit: "%" },
+    px("minFirst", "First pane at least", { ja: "第 1 ペインの最小", zh: "第一栏最小", ko: "첫째 창 최소" }),
+    px("maxFirst", "First pane at most", { ja: "第 1 ペインの最大", zh: "第一栏最大", ko: "첫째 창 최대" }),
+    px("minSecond", "Second pane at least", { ja: "第 2 ペインの最小", zh: "第二栏最小", ko: "둘째 창 최소" }),
+    px("maxSecond", "Second pane at most", { ja: "第 2 ペインの最大", zh: "第二栏最大", ko: "둘째 창 최대" }),
+    {
+      key: "collapsible",
+      label: "Folds away",
+      labels: { ja: "折りたためる", zh: "可折叠", ko: "접기" },
+      kind: "enum",
+      default: "none",
+      options: [opt("none", "Neither", "不可折叠", "なし", "없음"), opt("first", "First pane", "第一栏", "第 1 ペイン", "첫째 창"), opt("second", "Second pane", "第二栏", "第 2 ペイン", "둘째 창")],
+    },
+    { key: "collapsedSize", label: "Size folded", labels: { ja: "折りたたみ時の大きさ", zh: "折叠后尺寸", ko: "접었을 때 크기" }, kind: "number", default: 0, min: 0, max: 80, step: 4, unit: "px", when: folds },
+    { key: "collapsed", label: "Starts folded", labels: { ja: "最初は折りたたむ", zh: "开始时折叠", ko: "처음에 접힘" }, kind: "bool", default: false, when: folds },
+    { key: "divider", label: "Divider", labels: { ja: "区切り", zh: "分隔条", ko: "구분선" }, kind: "enum", default: "line", options: [opt("line", "Hairline", "细线", "細線", "가는 선"), opt("gap", "Gap", "间隙", "すき間", "간격")] },
+    { key: "handle", label: "Grip on the divider", labels: { ja: "区切りのつまみ", zh: "分隔条握把", ko: "구분선 손잡이" }, kind: "bool", default: true },
+    {
+      key: "compact",
+      label: "When narrow",
+      labels: { ja: "狭いとき", zh: "窄屏时", ko: "좁을 때" },
+      kind: "enum",
+      default: "stack",
+      options: [opt("stack", "One over the other", "上下堆叠", "上下に重ねる", "위아래로 쌓기"), opt("keep", "As it is", "保持不变", "そのまま", "그대로")],
+    },
+    { key: "breakpoint", label: "Narrow below", labels: { ja: "狭いとみなす幅", zh: "窄屏断点", ko: "좁은 너비 기준" }, kind: "number", default: 600, min: 0, max: 2400, step: 8, unit: "px", when: (p) => p.s("compact") !== "keep" },
+    { key: "persist", label: "Remember the visitor's share", labels: { ja: "訪問者の割合を記憶", zh: "记住访客拖动的比例", ko: "방문자 비율 기억" }, kind: "bool", default: false },
+    WIDTH(640),
+    HEIGHT(360),
+  ],
+  tree: (p) =>
+    h("SplitView", {
+      orientation: p.s("orientation") === "vertical" ? "vertical" : undefined,
+      defaultSplit: Math.round(p.n("split") * 100) / 100,
+      minFirst: Math.round(p.n("minFirst")) || undefined,
+      maxFirst: Math.round(p.n("maxFirst")) || undefined,
+      minSecond: Math.round(p.n("minSecond")) || undefined,
+      maxSecond: Math.round(p.n("maxSecond")) || undefined,
+      collapsible: folds(p) ? p.s("collapsible") : undefined,
+      collapsedSize: folds(p) && p.n("collapsedSize") ? Math.round(p.n("collapsedSize")) : undefined,
+      defaultCollapsed: folds(p) && p.b("collapsed") ? true : undefined,
+      divider: p.s("divider") === "gap" ? "gap" : undefined,
+      handle: p.b("handle") ? undefined : false,
+      compact: p.s("compact") === "stack" ? undefined : p.s("compact"),
+      breakpoint: p.s("compact") === "keep" || p.n("breakpoint") === 600 ? undefined : Math.round(p.n("breakpoint")),
+      /* where the visitor's share is kept on their device: the same name wherever the part is printed */
+      persist: p.b("persist") && p.scope ? `m3e-split:${p.scope}` : undefined,
+      label: p.say("Resize panes"),
+      style: box(p),
+    }),
+};
 
 const FILLS = ["none", "surface", "surface-container-low", "surface-container", "surface-container-high", "surface-container-highest", "primary-container", "secondary-container", "tertiary-container"];
 const BORDER: Record<string, string> = { none: "", solid: "border border-outline-variant", dashed: "border border-dashed border-outline-variant" };
@@ -147,4 +220,5 @@ export const containers: PartDef[] = [
       ),
     { inset: (p) => ({ t: p.s("note") ? 96 : 48 }) },
   ),
+  splitView,
 ];

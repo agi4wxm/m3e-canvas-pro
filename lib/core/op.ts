@@ -5,6 +5,8 @@
 import { isStrict, styleContext, withDocStyles } from "../styles";
 import { conformDoc, conformGroups } from "../styleRules";
 import { defaultMeasures } from "../../parts/templates/kit";
+import { arrangeFlows } from "../flow";
+import { withSplitPanes } from "../split";
 import type { Group } from "../tokens";
 import type { Lang } from "../i18n";
 import type { CoreState, Origin, Widths } from "./state";
@@ -179,7 +181,16 @@ export function runOp<A, R>(o: Op<A, R>, state: CoreState, args: A, ctx: OpCtx):
   /* An operation is synchronous, and what it calls reads a style without being handed one (the layout, the kits): the
      document's own styles are in reach while it runs. What it leaves is held to its rules in the styles it left. */
   const out = withDocStyles(styleContext(state.doc.styles), () => o.run(state, args, ctx));
-  return { ...out, state: conformed(out.state, state) };
+  return { ...out, state: withPanes(conformed(out.state, state), state, ctx) };
+}
+
+/** Every split view the operation left with both its panes: one just added (from the palette, a tree, a template) is
+ *  given the panes it is made with, laid out at once (lib/split.ts). */
+function withPanes(s: CoreState, before: CoreState, ctx: OpCtx): CoreState {
+  if (s.doc.groups === before.doc.groups) return s;
+  const groups = withSplitPanes(s.doc.groups, ctx.newId, ctx.lang);
+  if (groups === s.doc.groups) return s;
+  return { ...s, doc: { ...s.doc, groups: arrangeFlows(groups, ctx.widths) } };
 }
 
 /** a state as its theme's rules allow it, when the operation changed its parts, read in its own styles */

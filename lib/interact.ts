@@ -64,6 +64,12 @@ export function screenVars(s: PreviewState, doc: Pick<Doc, "vars" | "varCollecti
 /** the prop of an input the visitor changes by using it, by slug: every part that declares an `input` (PartDef) */
 export const INPUT_PROP: Record<string, string> = Object.fromEntries(PARTS.flatMap((d) => (d.input ? [[d.slug, d.input.prop]] : [])));
 
+/** the design's starting props a visitor's value takes over from, back to their defaults once there is one (a split
+ *  view's `collapsed`: the share says whether a pane is folded), by slug */
+const INPUT_RESETS: Record<string, Record<string, unknown>> = Object.fromEntries(
+  PARTS.flatMap((d) => (d.input?.resets?.length ? [[d.slug, Object.fromEntries(d.input.resets.map((k) => [k, d.props.find((x) => x.key === k)?.default]))]] : [])),
+);
+
 /** an overlay with no trigger of its own stands on the screen only while it is open; one with a
  *  trigger (a menu) stays on the screen and its popup opens from it */
 const standsOnlyWhileOpen = (it: Item) => {
@@ -193,7 +199,7 @@ export function liveItem(source: Item, s: PreviewState): Item {
     return value === undefined ? [] : [[prop, value] as const];
   });
   if (!changed && field === undefined && !bound.length) return it;
-  return { ...it, props: { ...it.props, ...changed, ...(field !== undefined ? { [key]: field } : {}), ...Object.fromEntries(bound) } };
+  return { ...it, props: { ...it.props, ...changed, ...(field !== undefined ? { ...INPUT_RESETS[it.component ?? ""], [key]: field } : {}), ...Object.fromEntries(bound) } };
 }
 
 /** whether an input holds something: words, a tick, a choice */

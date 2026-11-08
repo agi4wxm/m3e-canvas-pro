@@ -283,6 +283,7 @@ const cleanGroup = (g: Group) =>
       hidden: (v) => (typeof v === "boolean" ? v : undefined),
       showWhen: cleanCondition,
       pane: (v) => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : undefined),
+      splitPane: (v) => (v === "first" || v === "second" ? v : undefined),
       instanceOf: (v) => (typeof v === "string" ? v : undefined),
       overrides: cleanOverrides,
       properties: cleanOverrides,

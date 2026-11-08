@@ -211,7 +211,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 164 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 166 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -297,6 +297,8 @@ npx playwright install chromium
 | `wrap_in_auto_layout` | 搭建 |  |  | Puts the given parts into nested auto layout boxes that keep them where they stand (rows, columns, grids read off their places); one container takes a layout itself. |
 | `auto_layout_screen` | 搭建 |  |  | Turns a screen's body into nested auto layouts; bars, FABs, dialogs, rails, its picture and locked parts keep their places. |
 | `split_into_atoms` | 搭建 |  |  | Replaces a composite part where it stands with the tree of atoms it is made of (boxes, text, icons…), composed the way the style composes it. |
+| `set_split` | 搭建 |  |  | Sets a split view's design: split (the first pane's share, 0–100, of the room the divider leaves) and collapsed (its folding pane starts folded; the pane that folds is its `collap… |
+| `convert_to_split_view` | 搭建 |  |  | Turns a legacy resizable into a split view (two panes that hold parts): the same size, orientation and share; the parts lying over each panel (by their centre) move into that pane… |
 | `place_in_screen` | 搭建 |  |  | Puts the given parts, as one block, at one of nine spots in their screen's body (between the bars, inside the margins), clear of what is there. |
 | `combine_buttons` | 搭建 |  |  | Joins buttons that stand side by side on a screen into button groups. |
 | `relayout` | 搭建 |  |  | Lays every screen out the way the document's style lays screens out. |

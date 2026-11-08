@@ -85,10 +85,12 @@ export function useCommands({ store, runOp, didOp, showToast, selectedIds, selec
     if (selectedIds.length === 0) return;
     const before = store.get().doc.groups;
     /* nothing deletable when every selected part sits in a locked group: no step, the selection kept */
-    const out = runOp(ops.removeNodes, { ids: selectedIds }, { history: "step", refused: () => showToast(lockedGroupMsg()) });
+    /* a split view's pane goes with its split view: deleting it alone says so */
+    const out = runOp(ops.removeNodes, { ids: selectedIds }, { history: "step", refused: (e) => showToast(e.code === "refused" ? t("splitPaneKept", getLang()) : lockedGroupMsg()) });
     if (!out) return;
     /* some of the selection sits in a locked group: the rest went, and the author is told why that part stayed */
-    if (out.kept) showToast(t("lockedKept", getLang()));
+    if (out.panesKept) showToast(t("splitPaneKept", getLang()));
+    else if (out.kept) showToast(t("lockedKept", getLang()));
     /* a run whose first part went has a new anchor: it is drawn there at once */
     for (const id of movedGroups(before, store.get().doc.groups)) instantRef.current.add(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
