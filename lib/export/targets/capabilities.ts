@@ -193,7 +193,9 @@ export const capabilitiesTarget: ProductTarget = {
           ),
           merge: "package.json",
         },
-        "tsconfig.json": generated(jsonFile({ extends: "../../tsconfig.base.json", compilerOptions: { lib: ["ES2022"], types: [], verbatimModuleSyntax: true }, include: ["src"] })),
+        /* the registry's timeouts and the mocks' delays use the timers every platform has; DOM's lib types them, as
+           for packages/mocks */
+        "tsconfig.json": generated(jsonFile({ extends: "../../tsconfig.base.json", compilerOptions: { lib: ["ES2022", "DOM"], types: [], verbatimModuleSyntax: true }, include: ["src"] })),
         "README.md": generated(README(ctx.scope)),
         "src/index.ts": generated(INDEX),
         "src/mocks.ts": generated(MOCKS_INDEX),

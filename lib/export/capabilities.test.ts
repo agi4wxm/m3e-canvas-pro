@@ -142,6 +142,31 @@ describe("the capabilities a product uses", () => {
 
 });
 
+describe("a product that only pays", () => {
+  /* what check:product's proof caught: a package that typechecks on its own, and no import left unused */
+  it("imports nothing for the platform's defaults, and types the timers its package uses", async () => {
+    const doc = payingDoc();
+    doc.groups = doc.groups.filter((g) => g.id === "g1");
+    const p = await build(doc);
+    for (const app of ["web", "mobile", "miniapp"]) {
+      const defaults = text(p, `apps/${app}/src/generated/platformCapabilities.ts`);
+      expect(defaults.split("\n").filter((l) => l.startsWith("import ")), app).toEqual([`import type { Capabilities } from "@paying/capabilities"`]);
+    }
+    expect(JSON.parse(text(p, "packages/capabilities/tsconfig.json")).compilerOptions.lib).toContain("DOM");
+    expect(text(p, "packages/capabilities/src/engine/capabilities/registry.ts")).toContain("setTimeout");
+  }, 60_000);
+
+  it("imports only what the defaults it uses reach", async () => {
+    const doc = payingDoc();
+    const share = { ...makeItem("button"), id: "share", props: { label: "Share" }, action: { to: "none", transition: "none" as const, effects: [{ do: "invoke" as const, capability: "share.open", args: { url: "'https://example.com'" } }] } };
+    doc.groups = [...doc.groups.filter((g) => g.id === "g1"), { id: "g4", x: 16, y: 600, axis: "x", items: [share] }];
+    const mobile = text(await build(doc), "apps/mobile/src/generated/platformCapabilities.ts");
+    expect(mobile).toContain('import { Share } from "react-native"');
+    expect(mobile).not.toContain("Linking");
+    expect(mobile).not.toContain("DocumentPicker");
+  }, 60_000);
+});
+
 describe("a product that uses no capability", () => {
   it("has none of it", async () => {
     const doc: Doc = { title: "Plain", brief: "", paletteKey: "purple", frame: "phone", frames: [{ id: "f", name: "Home", x: 0, y: 0 }], groups: [{ id: "g", x: 16, y: 100, axis: "x", items: [{ ...makeItem("button"), id: "b", props: { label: "Hi" } }] }] };

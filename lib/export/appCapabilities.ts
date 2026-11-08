@@ -191,11 +191,14 @@ const DEFAULT_CODE: Record<AppPlatform, Record<string, string>> = {
   },
 };
 
-const DEFAULT_IMPORTS: Record<AppPlatform, string> = {
-  web: "",
-  mobile: 'import { Linking, Share } from "react-native"\nimport * as DocumentPicker from "expo-document-picker"\n',
-  miniapp: 'import Taro from "@tarojs/taro"\n',
-};
+/** What the defaults' code imports, for the defaults a design uses: only what they reach, so a product with none of
+ *  them imports nothing (a lint that denies unused imports passes). */
+function defaultImports(platform: AppPlatform, mine: string[]): string {
+  if (platform === "miniapp") return mine.length ? 'import Taro from "@tarojs/taro"\n' : "";
+  if (platform !== "mobile") return "";
+  const native = [...(mine.includes("link.open") ? ["Linking"] : []), ...(mine.includes("share.open") ? ["Share"] : [])];
+  return (native.length ? `import { ${native.join(", ")} } from "react-native"\n` : "") + (mine.includes("file.pick") ? 'import * as DocumentPicker from "expo-document-picker"\n' : "");
+}
 
 /** where a development build is told it is one */
 const DEV: Record<AppPlatform, string> = { web: "import.meta.env.DEV", mobile: "__DEV__", miniapp: 'process.env.NODE_ENV !== "production"' };
@@ -222,7 +225,7 @@ ${list}
 export const capabilities: Capabilities = {}
 `;
   const defaults = `${GENERATED}
-${DEFAULT_IMPORTS[platform]}import { fail, type Capabilities } from ${str(pkg)}
+${defaultImports(platform, mine)}import { fail, type Capabilities } from ${str(pkg)}
 
 /** What the platform does for the generic capabilities with no SDK and no permission to declare; an adapter of the same
  *  name in src/custom/capabilities.ts takes its place. */
