@@ -66,6 +66,7 @@ import { MockLogPanel, MockScenarioSwitch, PreviewMocksContext, usePreviewMocks 
 import { PRESETS, variantFor } from "@/lib/variants";
 import { flowStarts } from "@/lib/prototype";
 import { EASE, SLIDE_S as SLIDE_MS, screenPoses, type ScreenMove } from "@/lib/screenMotion";
+import type { BindingContext } from "@/lib/bindings/scope";
 import { composing, goesBack } from "./previewKeys";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
@@ -75,6 +76,14 @@ const PHONE_BAR_H = 56;
 
 /** how the current screen was reached, so "back" can play it in reverse, and what it was opened with */
 type Entry = { id: string; t: Transition; m?: Motion; params?: Record<string, unknown> };
+
+/** the screen a tap lands on: the one on show or the overlay laid over it, and what it was opened with */
+type TapScreen = { frame: Frame; params?: Record<string, unknown> };
+
+/** A tap, kept for everything it starts, the `then` and `catch` of its calls among them: the screen it landed on and
+ *  that screen's params, the part tapped (its row, its element, its form), the bindings the screen showed then, and
+ *  where the visitor was once the tap had gone where it goes (`at.nav`, counted by `moves`; shared by what it starts). */
+type Tap = TapScreen & { it?: Item; ctx?: BindingContext; at: { nav: number } };
 
 const pct = (v: number) => `${v * 100}%`;
 
@@ -270,7 +279,7 @@ function Screen({
   p: Palette;
   /** the theme in the mode this preview shows, for what the style draws behind a screen */
   styled: Theme;
-  /** a tap on a part: its row, its element and its form go with it */
+  /** a tap on a part: its row, its element and its form go with it; the preview adds the screen it is on */
   onAction: (a: Action, it?: Item) => void;
   values: Record<string, number>;
   onValue: (id: string, v: number) => void;
@@ -640,11 +649,23 @@ export function Preview({
   const mocks = usePreviewMocks(doc);
   const [logOpen, setLogOpen] = useState(false);
   /* with no screen chosen, the preview starts where the first flow does */
-  const [stack, setStack] = useState<Entry[]>(() => [{ id: startId ?? flowStarts(frames)[0]?.id ?? frames[0]?.id ?? "", t: "none" }]);
+  const [stack, setStackNow] = useState<Entry[]>(() => [{ id: startId ?? flowStarts(frames)[0]?.id ?? frames[0]?.id ?? "", t: "none" }]);
   /** a screen laid over the one on show by an interaction, and how it came in */
-  const [overlay, setOverlay] = useState<Entry | null>(null);
+  const [overlay, setOverlayNow] = useState<Entry | null>(null);
   const overlayRef = useRef(overlay);
   overlayRef.current = overlay;
+  /* How many times the visitor has gone somewhere: a screen opened, gone back from, laid over or closed, picked, swiped
+     to. A call's answer runs its `then` or `catch` only while the visitor is where its tap left them: one that comes
+     after they have moved on only puts its data right (an optimistic change undone). */
+  const moves = useRef(0);
+  const setStack = useCallback((next: Entry[] | ((cur: Entry[]) => Entry[])) => {
+    moves.current++;
+    setStackNow(next);
+  }, []);
+  const setOverlay = useCallback((next: Entry | null) => {
+    if (next !== null || overlayRef.current !== null) moves.current++;
+    setOverlayNow(next);
+  }, []);
   const [anim, setAnim] = useState<ScreenMove>({ transition: "none", backwards: false });
   const theme = normalizeTheme(doc.theme);
   const spring = theme.motion === "expressive";
@@ -682,9 +703,7 @@ export function Preview({
   const top = stack[stack.length - 1];
   const current = frames.find((f) => f.id === (top ? shownId(top.id) : undefined)) ?? frames[0];
   const peekFrame = peek ? frames.find((f) => f.id === peek.frameId) : undefined;
-  /* what a tap reads, whenever it comes: the screen on show and the mode the preview is in */
-  const frameRef = useRef(current);
-  frameRef.current = current;
+  /* what a tap reads, whenever it comes: the mode the preview is in (the screen is the tap's own, `Tap`) */
   const darkRef = useRef(dark);
   darkRef.current = dark;
   const { w: frameW, h: frameH } = current ? frameSizeOf(current) : { w: PHONE_W, h: PHONE_H };
@@ -777,7 +796,7 @@ export function Preview({
     const same = sameSize(from.id, to.id);
     setAnim({ transition: same ? from.t : "fade", backwards: true, spring, ...(same && from.m ? { motion: from.m } : {}) });
     setStack(s.slice(0, -1));
-  }, [spring, sameSize]);
+  }, [spring, sameSize, setStack, setOverlay]);
 
   const go = useCallback(
     (a: ActionBody, params?: Record<string, unknown>) => {
@@ -820,7 +839,7 @@ export function Preview({
       setAnim({ transition: t, backwards: false, spring, ...(m ? { motion: m } : {}) });
       setStack((cur) => [...cur, { id: a.to, t, ...(m ? { m } : {}), ...(params ? { params } : {}) }]);
     },
-    [frames, back, spring, sameSize],
+    [frames, back, spring, sameSize, setStack, setOverlay],
   );
 
   /** once signed in: back to where a 401 left the app, or on to the screen that needed the session */
@@ -835,15 +854,28 @@ export function Preview({
     setAnim({ transition: "fade", backwards: false, spring });
     setStack((cur) => [...cur.slice(0, -1), p.entry]);
     return true;
-  }, [back, spring]);
+  }, [back, spring, setStack]);
+
+  /** The bindings a step of a tap reads. The tap itself reads its screen as it was drawn; its calls' `then` and `catch`
+   *  read the same screen with the same params, row and form, its data and the session as they are once the answer is
+   *  in (the answer may have changed them), never whatever screen is on show by then. */
+  const ctxOf = (tap: Tap, depth: number): BindingContext | undefined => (depth === 0 || !tap.ctx ? tap.ctx : { ...tap.ctx, scope: scopeNow(tap.frame, tap.params) });
+
+  /** the latest request of each kind (a part's call to an operation): an answer to an older one is dropped */
+  const latest = useRef(new Map<string, number>());
+  const ask = (key: string) => {
+    const n = (latest.current.get(key) ?? 0) + 1;
+    latest.current.set(key, n);
+    return () => latest.current.get(key) === n;
+  };
 
   /** what a tap runs: its effects in order (those that reach the API sent off, not waited for), then where it goes,
    *  with the params it gives; `extra` is what a call's answer adds to the scope (`response`, `error`) */
-  const runBody = useRef<(body: ActionBody, it: Item | undefined, extra: Scope | undefined, depth: number) => void>(() => {});
-  runBody.current = (body, it, extra, depth) => {
+  const runBody = useRef<(body: ActionBody, tap: Tap, extra: Scope | undefined, depth: number) => void>(() => {});
+  runBody.current = (body, tap, extra, depth) => {
     if (depth > 6) return;
-    const f = frameRef.current;
-    const ctx = boundRef.current[f.id]?.ctx;
+    const { frame: f, it } = tap;
+    const ctx = ctxOf(tap, depth);
     const row = it?.row;
     const scoped: PreviewState = { ...inRow(screenVars(stateRef.current, doc, f, darkRef.current), row), ...(ctx ? { ctx } : {}) };
     const env = { it, extra };
@@ -852,42 +884,46 @@ export function Preview({
     /* an effect has just said which tab is chosen: an earlier tap on the tabs no longer speaks for it */
     const told = (body.effects ?? []).flatMap((e) => (e.do === "setProp" ? [e.part] : []));
     if (told.length) setValues((m) => ({ ...m, ...Object.fromEntries(told.map((id) => [id, -1])) }));
-    for (const e of body.effects ?? []) reach(e, it, extra, depth);
+    for (const e of body.effects ?? []) reach(e, tap, extra, depth);
     const scope = scopeOf({ ...next, ...(ctx ? { ctx } : {}) }, it, extra);
     const params = body.params ? Object.fromEntries(Object.entries(body.params).map(([k, x]) => [k, evaluate(x, scope, ctx?.eval)])) : undefined;
     go(body, params);
+    /* where the tap (or its answer) went is where it leaves the visitor: its other answers still run there */
+    tap.at.nav = moves.current;
   };
 
-  /** an effect that reaches the API: a call, a load, a page, a form's submit, a sign-out */
-  const reach = (e: Effect, it: Item | undefined, extra: Scope | undefined, depth: number) => {
-    const f = frameRef.current;
+  /** an effect that reaches the API: a call, a load, a page, a form's submit, a sign-out; a source is the tap's screen's */
+  const reach = (e: Effect, tap: Tap, extra: Scope | undefined, depth: number) => {
+    const f = tap.frame;
     const src = "source" in e ? f.data?.find((d) => d.name === e.source) : undefined;
-    const params = stackRef.current[stackRef.current.length - 1]?.params;
     switch (e.do) {
       case "refresh":
-        if (src) void engine.load(f, src, scopeNow(f, params), { force: true }).catch(() => {});
+        if (src) void engine.load(f, src, scopeNow(f, tap.params), { force: true }).catch(() => {});
         return;
       case "loadMore":
-        if (src) void engine.load(f, src, scopeNow(f, params), { more: true }).catch(() => {});
+        if (src) void engine.load(f, src, scopeNow(f, tap.params), { more: true }).catch(() => {});
         return;
       case "signOut":
         pending.current = null;
         engine.signOut();
         return;
       case "call":
-        void callNow(e, it, extra, depth).catch(() => {});
+        void callNow(e, tap, extra, depth).catch(() => {});
         return;
       case "submit":
-        void submitNow(e.form, it, depth).catch(() => {});
+        void submitNow(e.form, tap, depth).catch(() => {});
         return;
       default:
         return;
     }
   };
 
-  const callNow = async (e: Extract<Effect, { do: "call" }>, it: Item | undefined, extra: Scope | undefined, depth: number) => {
-    const f = frameRef.current;
-    const ctx = boundRef.current[f.id]?.ctx;
+  /** whether the visitor is still where the tap left them: an answer that comes after they moved on runs no `then` or `catch` */
+  const stillThere = (tap: Tap) => tap.at.nav === moves.current;
+
+  const callNow = async (e: Extract<Effect, { do: "call" }>, tap: Tap, extra: Scope | undefined, depth: number) => {
+    const { frame: f, it } = tap;
+    const ctx = ctxOf(tap, depth);
     const scope = scopeOf({ ...stateRef.current, ...(ctx ? { ctx } : {}) }, it, extra);
     const ep = endpointOf(doc.api, e.operationId);
     const takes = new Set(doc.api && ep ? endpointParamsOf(doc.api, ep).map((x) => x.name) : []);
@@ -896,60 +932,72 @@ export function Preview({
     for (const [k, x] of Object.entries(e.args ?? {})) (takes.has(k) ? params : fields)[k] = evaluate(x, scope, ctx?.eval);
     const body = e.body ? evaluate(e.body, scope, ctx?.eval) : Object.keys(fields).length ? fields : undefined;
     const undo = e.optimistic && it?.scope?.item !== undefined ? engine.optimistic(f.id, e.optimistic, it.scope.item, scope) : null;
+    const newest = ask(`call:${f.id}|${it?.id ?? ""}|${e.operationId}`);
     const out = await engine.call(e.operationId, { params, body });
+    /* an answer to a session started over (another scenario) lands nowhere, not even to undo: that data is gone; one
+       to a call the same part has made again since gives way to the newer one */
+    if ((!out.ok && out.dropped) || !newest()) return;
+    if (!out.ok) undo?.();
+    if (!stillThere(tap)) return;
     if (out.ok) {
       if (doc.api?.auth?.login === e.operationId && afterSignIn()) return;
-      if (e.then) runBody.current(e.then, it, { ...extra, response: out.body, status: out.status }, depth + 1);
+      if (e.then) runBody.current(e.then, tap, { ...extra, response: out.body, status: out.status }, depth + 1);
       return;
     }
-    undo?.();
     if (out.unauthorized) return;
-    if (e.catch) runBody.current(e.catch, it, { ...extra, error: out.problem, status: out.status }, depth + 1);
+    if (e.catch) runBody.current(e.catch, tap, { ...extra, error: out.problem, status: out.status }, depth + 1);
   };
 
-  const submitNow = async (formId: string | undefined, it: Item | undefined, depth: number) => {
-    const f = frameRef.current;
+  const submitNow = async (formId: string | undefined, tap: Tap, depth: number) => {
+    const { frame: f, it } = tap;
     const bound = boundRef.current[f.id];
     if (!bound) return;
     const owner = formsOf(bound.groups);
     const id = formId ?? it?.scope?.form ?? (it ? owner.get(bound.groups.find((g) => g.items.some((x) => x.id === it.id))?.id ?? "") : undefined);
     const form = bound.groups.find((g) => g.id === id) ?? (id ? doc.groups.find((g) => g.id === id) : undefined);
     if (!form?.form) return;
-    const scope = scopeOf({ ...stateRef.current, ctx: bound.ctx }, it);
-    const read = readForm({ form, groups: bound.groups, owner, doc, fields: stateRef.current.fields, files: files.current, scope, ctx: bound.ctx.eval });
+    /* a second press while it is out is no new submission, nor a failed one */
+    if (engine.formState(form.id).submitting) return;
+    const ctx = ctxOf(tap, depth) ?? bound.ctx;
+    const scope = scopeOf({ ...stateRef.current, ctx }, it);
+    const read = readForm({ form, groups: bound.groups, owner, doc, fields: stateRef.current.fields, files: files.current, scope, ctx: ctx.eval });
     if (Object.keys(read.errors).length) {
       engine.setForm(form.id, { errors: read.errors, submitted: true, error: null });
       return;
     }
-    const params = Object.fromEntries(Object.entries(form.form.params ?? {}).map(([k, x]) => [k, evaluate(x, scope, bound.ctx.eval)]));
+    const params = Object.fromEntries(Object.entries(form.form.params ?? {}).map(([k, x]) => [k, evaluate(x, scope, ctx.eval)]));
     const tick = (fn: () => void) => {
       const t = window.setInterval(fn, 120);
       return () => window.clearInterval(t);
     };
     const out = await engine.submit(form.id, form.form.operationId, { params, body: read.body }, { files: read.files, tick });
+    if ((!out.ok && out.dropped) || !stillThere(tap)) return;
+    /* the form's `then` and `catch` read it as `form`, whichever part sent it (a button outside it too) */
+    const sent: Tap = it && it.scope?.form !== form.id ? { ...tap, it: { ...it, scope: { ...it.scope, form: form.id } } } : tap;
     if (out.ok) {
       if (doc.api?.auth?.login === form.form.operationId && afterSignIn()) {
-        if (form.form.then?.effects?.length) runBody.current({ ...form.form.then, to: STAY_TARGET }, it, { response: out.body, status: out.status }, depth + 1);
+        if (form.form.then?.effects?.length) runBody.current({ ...form.form.then, to: STAY_TARGET }, sent, { response: out.body, status: out.status }, depth + 1);
         return;
       }
-      if (form.form.then) runBody.current(form.form.then, it, { response: out.body, status: out.status }, depth + 1);
+      if (form.form.then) runBody.current(form.form.then, sent, { response: out.body, status: out.status }, depth + 1);
       return;
     }
     if (out.unauthorized) return;
-    if (form.form.catch) runBody.current(form.form.catch, it, { error: out.problem, status: out.status }, depth + 1);
+    if (form.form.catch) runBody.current(form.form.catch, sent, { error: out.problem, status: out.status }, depth + 1);
   };
 
-  /* A tap: its condition picks what runs, its effects run in order, and then it goes where it goes. */
+  /* A tap on a screen (the one on show, or the overlay over it): its condition picks what runs, its effects run in
+     order, and then it goes where it goes. Everything it starts reads that screen, whatever is on show by then. */
   const fire = useCallback(
-    (a: Action, it?: Item) => {
+    (a: Action, it: Item | undefined, on: TapScreen) => {
       if (swiped.current) return;
+      const tap: Tap = { ...on, it, ctx: boundRef.current[on.frame.id]?.ctx, at: { nav: moves.current } };
       /* a tap from a repeated part reads its row's fields as `row.field`, and only for this tap; the variables read as
-         the screen on show has them */
-      const ctx = boundRef.current[frameRef.current.id]?.ctx;
-      const scoped: PreviewState = { ...inRow(screenVars(stateRef.current, doc, frameRef.current, darkRef.current), it?.row), ...(ctx ? { ctx } : {}) };
+         its screen has them */
+      const scoped: PreviewState = { ...inRow(screenVars(stateRef.current, doc, on.frame, darkRef.current), it?.row), ...(tap.ctx ? { ctx: tap.ctx } : {}) };
       const body = chooseBranch(a, scoped, doc, it);
       if (!body) return;
-      runBody.current(body, it, undefined, 0);
+      runBody.current(body, tap, undefined, 0);
     },
     [doc],
   );
@@ -1266,7 +1314,6 @@ export function Preview({
     onWordHeights,
     p,
     styled: { ...theme, dark },
-    onAction: fire,
     values,
     onValue: (id: string, v: number) => setValues((m) => ({ ...m, [id]: v })),
     opened: state.opened,
@@ -1398,7 +1445,7 @@ export function Preview({
                   exit="exit"
                   style={{ position: "absolute", inset: 0 }}
                 >
-                  <Screen frame={current} groups={groups} {...screenProps} widths={live.widths} {...dataHandlers(current, top?.params)} active={!overlayFrame} bound={boundFor(current)} />
+                  <Screen frame={current} groups={groups} {...screenProps} onAction={(a, it) => fire(a, it, { frame: current, params: top?.params })} widths={live.widths} {...dataHandlers(current, top?.params)} active={!overlayFrame} bound={boundFor(current)} />
                 </motion.div>
               </AnimatePresence>
             </motion.div>
@@ -1413,7 +1460,7 @@ export function Preview({
                     animate="animate"
                     style={{ position: "relative", width: frameSizeOf(overlayFrame).w, height: frameSizeOf(overlayFrame).h, borderRadius: frameRadius(overlayFrame) / 2, overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }}
                   >
-                    <Screen frame={overlayFrame} groups={overlayLive.groups} {...screenProps} widths={overlayLive.widths} {...dataHandlers(overlayFrame, overlay?.params)} bound={boundFor(overlayFrame)} />
+                    <Screen frame={overlayFrame} groups={overlayLive.groups} {...screenProps} onAction={(a, it) => fire(a, it, { frame: overlayFrame, params: overlay.params })} widths={overlayLive.widths} {...dataHandlers(overlayFrame, overlay?.params)} bound={boundFor(overlayFrame)} />
                   </motion.div>
                 </motion.div>
               )}
@@ -1429,7 +1476,7 @@ export function Preview({
                   pointerEvents: "none",
                 }}
               >
-                <Screen {...screenProps} active={false} frame={peekFrame} groups={peekLive.groups} widths={peekLive.widths} bound={boundFor(peekFrame)} />
+                <Screen {...screenProps} onAction={(a, it) => fire(a, it, { frame: peekFrame })} active={false} frame={peekFrame} groups={peekLive.groups} widths={peekLive.widths} bound={boundFor(peekFrame)} />
               </motion.div>
             )}
             <AnimatePresence>
