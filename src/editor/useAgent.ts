@@ -16,7 +16,8 @@ import { hasKey, isSecureUrl, type AiSettings } from "@/lib/ai";
 import { frameOfPart } from "@/lib/tokens";
 import type { DocStore } from "@/lib/core";
 import { aiErrorText } from "@/components/AiPanel";
-import { t, type Lang } from "@/lib/i18n";
+import { t, type Lang, type UIKey } from "@/lib/i18n";
+import type { Limit } from "@/lib/llm/errors";
 import { loadMemory, saveMemory, type KeptTurn } from "./agentMemory";
 import type { PickedImage } from "./attachImage";
 
@@ -74,6 +75,10 @@ const keptOf = (x: TurnView): KeptTurn => {
   return { ...rest, log: log.filter((l) => l.kind !== "review").map((l) => (l.kind === "ask" && l.state === "waiting" ? { ...l, state: "declined" } : l)), ...(images?.length ? { images } : {}), ...(x.status === "running" ? { status: "stopped" } : {}) } as unknown as KeptTurn;
 };
 const viewOf = (k: KeptTurn): TurnView => ({ shots: [], log: [], reasoning: "", usage: noUsage(), ms: 0, drawings: 0, before: 0, status: "done", ...(k as unknown as Partial<TurnView>), canTakeBack: false }) as TurnView;
+
+/** which of a turn's limits it reached (lib/agent/budget.ts), in the editor's words */
+const LIMIT_WORDS: Record<Limit, UIKey> = { tokens: "agentLimitTokens", tool_calls: "agentLimitCalls", deadline: "agentLimitTime", tool_bytes: "agentLimitBytes", attachments: "agentLimitPictures" };
+const limitText = (e: unknown, lang: Lang) => t("agentLimit", lang).replace("{what}", t(LIMIT_WORDS[(e as { limit?: Limit } | undefined)?.limit ?? "tokens"] ?? "agentLimitTokens", lang));
 
 /** what the panel keeps of a revert's report */
 const reportOf = (r: RevertReport): NonNullable<TurnView["revert"]> => ({ outcome: r.outcome, authorEdited: r.authorEdited, kept: r.kept.slice(0, 8).map((k) => ({ name: k.name, why: k.why })) });
@@ -242,9 +247,9 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
         sets.current = r.sets;
       }
       const failed = r.stop === "error" || r.stop === "refusal" || r.stop === "max_tokens";
-      const error = r.stop === "error" ? aiErrorText(r.error, lang) : r.stop === "refusal" ? t("aiErrorRefusal", lang) : r.stop === "max_tokens" ? t("aiErrorLong", lang) : r.stop === "max_steps" ? t("agentStepLimit", lang) : undefined;
+      const error = r.stop === "error" ? aiErrorText(r.error, lang) : r.stop === "refusal" ? t("aiErrorRefusal", lang) : r.stop === "max_tokens" ? t("aiErrorLong", lang) : r.stop === "max_steps" ? t("agentStepLimit", lang) : r.stop === "limit" ? limitText(r.error, lang) : undefined;
       if (r.takeBack) takeBacks.current.set(id, r.takeBack);
-      patch(id, (x) => ({ ...x, status: r.stop === "aborted" ? "stopped" : failed ? "error" : "done", diff: r.diff, usage: r.usage, ms: r.ms, drawings: r.drawings, stop: r.stop, ...(error ? { error } : {}), ...(r.step ? { step: r.step } : {}), rolledBack: r.rolledBack, ...(r.revert ? { revert: reportOf(r.revert) } : {}), canTakeBack: !!r.takeBack }));
+      patch(id, (x) => ({ ...x, status: r.stop === "aborted" ? "stopped" : failed ? "error" : "done", diff: r.diff, usage: r.spent, ms: r.ms, drawings: r.drawings, stop: r.stop, ...(error ? { error } : {}), ...(r.step ? { step: r.step } : {}), rolledBack: r.rolledBack, ...(r.revert ? { revert: reportOf(r.revert) } : {}), canTakeBack: !!r.takeBack }));
     } catch (e) {
       patch(id, (x) => ({ ...x, status: "error", error: aiErrorText(e, lang), ms: Date.now() - t0 }));
     } finally {

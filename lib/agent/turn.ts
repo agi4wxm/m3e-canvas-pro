@@ -15,6 +15,7 @@ import type { Lang } from "../i18n";
 import { diffDocs, isEmptyDiff, touchedScreens, type DocDiff } from "./diff";
 import { changedMeanwhile, declined, namedIn, plainlyAsksToRemove, removalOf, unchecked, type ConfirmRemoval, type RemovalAsk } from "./guard";
 import { TurnLedger, type RevertReport } from "./ledger";
+import { TurnBudget, type TurnLimits } from "./budget";
 import { prunePictures } from "./pictures";
 import { agentSystem, turnContext } from "./prompt";
 import { loadTools, setsFor, setsGuide, toolsIn, TOOL_SETS, type ToolSet } from "./toolsets";
@@ -60,6 +61,8 @@ export type TurnOptions = {
   maxSteps?: number;
   /** how many times the runner shows the model its changed screens when it did not look itself (1 by default) */
   reviews?: number;
+  /** what else the turn may spend: tokens, tool calls, bytes, time (budget.ts; its defaults when left out) */
+  limits?: Partial<TurnLimits>;
   /** a word for the model in front of the request (the author undid the last turn…) */
   note?: string;
   /** Asks the author whether a call that would take away much of their work, which the request does not plainly ask
@@ -76,7 +79,10 @@ export type TurnResult = {
   error?: unknown;
   /** the model's last words to the author */
   text: string;
+  /** what the agent's own model calls spent */
   usage: Usage;
+  /** what every model call of the turn spent, the tools' own (a style written, an SVG drawn as code) included */
+  spent: Usage;
   steps: number;
   ms: number;
   diff: DocDiff;
@@ -144,6 +150,21 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   };
   const before = store.get();
   const label = `AI: ${o.request.trim().replace(/\s+/g, " ").slice(0, 40)}`;
+  const budget = new TurnBudget(o.limits);
+  /* pictures too large to send end the turn before it asks anything */
+  const tooLarge = budget.attachments(o.images ?? []);
+  if (tooLarge) {
+    const none = diffDocs(savedDoc(before), savedDoc(before));
+    return { messages: o.history, stop: "limit", error: tooLarge, text: "", usage: emptyUsage(), spent: emptyUsage(), steps: 0, ms: Date.now() - t0, diff: none, changed: false, rolledBack: false, drawings: 0, sets: [...new Set(["build" as const, ...(o.sets ?? [])])] };
+  }
+  /* the turn's own signal: the author's stop, or one of its limits (the deadline, the bytes its tools hand back) */
+  const ac = new AbortController();
+  const stopped = () => ac.abort(o.signal?.reason);
+  if (o.signal?.aborted) ac.abort(o.signal.reason);
+  else o.signal?.addEventListener("abort", stopped, { once: true });
+  const deadline = setTimeout(() => ac.abort(budget.deadline()), budget.limits.deadlineMs);
+  const signal = ac.signal;
+  const adapter = budget.adapter(o.adapter);
   /* what the turn changes, apart from what the author changes meanwhile */
   const ledger = new TurnLedger(store);
   let step: { label: string; depth: number } | undefined;
@@ -164,7 +185,8 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
 
   const drawings = o.drawings ?? 2;
   const styles = o.styles ?? 2;
-  const gen: GenerateEnv | undefined = o.gen ? { ...o.gen, budget: { left: drawings }, styles: { left: styles, of: styles } } : undefined;
+  /* what the tools ask a model for is spent from the turn's budget too */
+  const gen: GenerateEnv | undefined = o.gen ? { ...o.gen, ...(o.gen.adapter ? { adapter: budget.adapter(o.gen.adapter) } : {}), budget: { left: drawings }, styles: { left: styles, of: styles } } : undefined;
   const images = o.images ?? [];
   const attachments = o.attachments ?? images;
   /* the sets loaded so far, those this request calls for, and those the model loads as it goes */
@@ -185,8 +207,6 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
     : { role: "user", content: words };
 
   let usage = emptyUsage();
-  /* what the readout shows while the turn runs: every model call so far */
-  let spent = emptyUsage();
   const outcomes = new Map<string, ToolOutcome>();
   let stepsUsed = 0;
   const maxSteps = o.maxSteps ?? 30;
@@ -227,67 +247,77 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
     }
   };
 
-  for (;;) {
-    const offset = stepsUsed;
-    last = await runAgent({
-      adapter: o.adapter,
-      system,
-      messages,
-      tools,
-      prepare: (m) => prunePictures(m),
-      maxSteps: Math.max(1, maxSteps - stepsUsed),
-      signal: o.signal,
-      execute: async (call, ctx) => {
-        const held = await guard(call, ctx.signal);
-        if (held) {
-          outcomes.set(call.id, held);
-          return outputOf(held, call.name);
-        }
-        const out = await executeTool(store, call.name, call.args, { origin: "ai", history: "none", onWrite, renderer: o.renderer, signal: ctx.signal, gen, registry, attachments, ...(o.pixels ? { pixels: o.pixels } : {}) });
-        if (out.ok && (call.name === "screenshot" || call.name === "compare_to_reference")) dirty = false;
-        outcomes.set(call.id, out);
-        return outputOf(out, call.name);
-      },
-      onEvent: (e) => {
-        const at = offset + e.step;
-        atStep = at;
-        if (e.type === "step") emit({ type: "step", step: at });
-        else if (e.type === "text") emit({ type: "text", step: at, delta: e.delta });
-        else if (e.type === "reasoning") emit({ type: "reasoning", step: at, delta: e.delta });
-        else if (e.type === "tool_start") emit({ type: "tool_start", step: at, id: e.call.id, name: e.call.name, args: e.call.args });
-        else if (e.type === "tool_end") {
-          const out = outcomes.get(e.call.id);
-          const words = e.result.content.map((p) => (p.type === "text" ? p.text : "")).join(" ");
-          emit({ type: "tool_end", step: at, id: e.call.id, name: e.call.name, ok: out ? out.ok : !e.result.isError, summary: out ? summaryOf(e.call.name, out) : words.slice(0, 200), images: out?.ok ? (out.images ?? []) : [], ms: e.ms });
-        } else if (e.type === "retry") emit({ type: "retry", attempt: e.attempt, delayMs: e.delayMs });
-        else if (e.type === "done") {
-          spent = addUsage(spent, e.usage);
-          emit({ type: "usage", usage: spent });
-        }
-      },
-    });
-    usage = addUsage(usage, last.usage);
-    stepsUsed += last.steps;
-    messages = last.messages;
-    /* the model finished without looking at what it changed: it is shown, once, and may fix what it sees */
-    if (last.stop !== "end_turn" || !reviews || !o.renderer || !dirty || stepsUsed >= maxSteps || o.signal?.aborted) break;
-    reviews--;
-    const now = store.get();
-    const diff = diffDocs(savedDoc(before), savedDoc(now));
-    const screens = touchedScreens(diff, now.doc as never, (id) => {
-      const g = now.doc.groups.find((x) => x.items.some((it) => it.id === id));
-      return g ? frameOfPart(g, now.doc.groups, now.doc.frames, store.ctx("ai").widths)?.id : undefined;
-    }).slice(0, 2);
-    if (!screens.length) break;
-    const shots: string[] = [];
-    try {
-      for (const id of screens) shots.push(await o.renderer.screenshot(id, { signal: o.signal }));
-    } catch {
-      break;
+  /* what a tool hands back, held to the turn's byte limits; past them the turn ends after this call */
+  const sent = (out: ToolOutcome, name: string) => {
+    const r = budget.output(outputOf(out, name));
+    if (r.over) ac.abort(r.over);
+    return r.out;
+  };
+
+  try {
+    for (;;) {
+      const offset = stepsUsed;
+      last = await runAgent({
+        adapter,
+        system,
+        messages,
+        tools,
+        prepare: (m) => prunePictures(m),
+        maxSteps: Math.max(1, maxSteps - stepsUsed),
+        toolCalls: budget.calls,
+        signal,
+        execute: async (call, ctx) => {
+          const held = await guard(call, ctx.signal);
+          if (held) {
+            outcomes.set(call.id, held);
+            return sent(held, call.name);
+          }
+          const out = await executeTool(store, call.name, call.args, { origin: "ai", history: "none", onWrite, renderer: o.renderer, signal: ctx.signal, gen, registry, attachments, ...(o.pixels ? { pixels: o.pixels } : {}) });
+          if (out.ok && (call.name === "screenshot" || call.name === "compare_to_reference")) dirty = false;
+          outcomes.set(call.id, out);
+          return sent(out, call.name);
+        },
+        onEvent: (e) => {
+          const at = offset + e.step;
+          atStep = at;
+          if (e.type === "step") emit({ type: "step", step: at });
+          else if (e.type === "text") emit({ type: "text", step: at, delta: e.delta });
+          else if (e.type === "reasoning") emit({ type: "reasoning", step: at, delta: e.delta });
+          else if (e.type === "tool_start") emit({ type: "tool_start", step: at, id: e.call.id, name: e.call.name, args: e.call.args });
+          else if (e.type === "tool_end") {
+            const out = outcomes.get(e.call.id);
+            const words = e.result.content.map((p) => (p.type === "text" ? p.text : "")).join(" ");
+            emit({ type: "tool_end", step: at, id: e.call.id, name: e.call.name, ok: out ? out.ok : !e.result.isError, summary: out ? summaryOf(e.call.name, out) : words.slice(0, 200), images: out?.ok ? (out.images ?? []) : [], ms: e.ms });
+          } else if (e.type === "retry") emit({ type: "retry", attempt: e.attempt, delayMs: e.delayMs });
+          else if (e.type === "done") emit({ type: "usage", usage: budget.usage });
+        },
+      });
+      usage = addUsage(usage, last.usage);
+      stepsUsed += last.steps;
+      messages = last.messages;
+      /* the model finished without looking at what it changed: it is shown, once, and may fix what it sees */
+      if (last.stop !== "end_turn" || !reviews || !o.renderer || !dirty || stepsUsed >= maxSteps || signal.aborted) break;
+      reviews--;
+      const now = store.get();
+      const diff = diffDocs(savedDoc(before), savedDoc(now));
+      const screens = touchedScreens(diff, now.doc as never, (id) => {
+        const g = now.doc.groups.find((x) => x.items.some((it) => it.id === id));
+        return g ? frameOfPart(g, now.doc.groups, now.doc.frames, store.ctx("ai").widths)?.id : undefined;
+      }).slice(0, 2);
+      if (!screens.length) break;
+      const shots: string[] = [];
+      try {
+        for (const id of screens) shots.push(await o.renderer.screenshot(id, { signal }));
+      } catch {
+        break;
+      }
+      dirty = false;
+      emit({ type: "review", screens, images: shots });
+      messages = [...messages, { role: "user", content: [{ type: "text", text: REVIEW }, ...shots.map((dataUrl, i): UserPart => ({ type: "image", dataUrl, detail: "auto", name: `the review picture of ${screens[i]}` }))] }];
     }
-    dirty = false;
-    emit({ type: "review", screens, images: shots });
-    messages = [...messages, { role: "user", content: [{ type: "text", text: REVIEW }, ...shots.map((dataUrl, i): UserPart => ({ type: "image", dataUrl, detail: "auto", name: `the review picture of ${screens[i]}` }))] }];
+  } finally {
+    clearTimeout(deadline);
+    o.signal?.removeEventListener("abort", stopped);
   }
 
   const aborted = last.stop === "aborted";
@@ -306,6 +336,7 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
     ...(last.error !== undefined ? { error: last.error } : {}),
     text: last.text,
     usage,
+    spent: budget.usage,
     steps: stepsUsed,
     ms: Date.now() - t0,
     diff,
