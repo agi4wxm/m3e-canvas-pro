@@ -151,6 +151,10 @@ export type PartDef = {
   overlay?: boolean;
   /** a destination bar: a tap on a destination is shared with the bar of the same entries on every other screen */
   nav?: boolean;
+  /** A capability view (lib/capabilities: `map`, `camera`, `rtc.view`): the canvas and the preview draw it as a stand-in,
+   *  an exported app hands it to a slot written once (`src/custom/slots/<Name>.tsx`) that draws the real thing. Its
+   *  events are the capability's. */
+  capability?: string;
   /** A container: what lies wholly inside it moves with it, the way a screen carries its parts.
    *  It keeps no list of them; see `heldBy`. */
   holds?: boolean;

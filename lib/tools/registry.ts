@@ -10,11 +10,12 @@ import { READ_TOOLS } from "./read";
 import { API_READ_TOOLS } from "./apiRead";
 import { BINDINGS_READ_TOOLS } from "./bindingsRead";
 import { MOCK_READ_TOOLS } from "./mocksRead";
+import { CAPABILITY_READ_TOOLS } from "./capabilitiesRead";
 import { REFERENCE_TOOLS } from "./reference";
 import { TOOL_GROUPS, ToolFailure, type Tool, type ToolEnv, type ToolError, type ToolGroup, type ToolOutcome } from "./types";
 
 /** every tool that needs nothing but a document: reading, building, styling, data */
-export const CORE_TOOLS: Tool<never>[] = [...READ_TOOLS, ...API_READ_TOOLS, ...MOCK_READ_TOOLS, ...BINDINGS_READ_TOOLS, ...REFERENCE_TOOLS, applyOps as unknown as Tool<never>, ...(OP_TOOLS as unknown as Tool<never>[])];
+export const CORE_TOOLS: Tool<never>[] = [...READ_TOOLS, ...API_READ_TOOLS, ...MOCK_READ_TOOLS, ...CAPABILITY_READ_TOOLS, ...BINDINGS_READ_TOOLS, ...REFERENCE_TOOLS, applyOps as unknown as Tool<never>, ...(OP_TOOLS as unknown as Tool<never>[])];
 
 export type Registry = {
   tools: Tool<never>[];
@@ -101,7 +102,8 @@ export const BOUNDARY_GUIDE = [
   "- The boundary: a design draws state and sends what the user means; results come from the other side (the API, the game, the platform).",
   "  - Variables hold UI state only (a tab, a toggle, a draft, the dark mode, a copy of data for display): never a balance, stock, score, points, an order's status, or whether a claim, a payment or a draw went through. Those come from the API as data.* or response.*.",
   "  - Never decide a result on the screen: no button that goes straight to a \"success\", \"paid\" or \"claimed\" screen or state, no random or computed outcome (prizes, wins, prices). The button calls the endpoint (effects [{do: \"call\", operationId, then, catch}]) or submits a form; `then` shows what the answer says, `catch` shows the failure, each with a design of its own.",
-  "  - Platform capabilities (payment, maps, camera, scanning, location, push, third-party sign-in, calls) are not built here: no SDK, key or permission. Show them as a call or a placeholder part whose note says what the capability must do and return, and design its cancelled, failed, denied and unavailable states; never act out its success.",
+  "  - Platform capabilities (payment, in-app purchase, third-party sign-in, location, scanning, push, share, clipboard, links, files, analytics, biometrics, calls) are capability calls, never built here (no SDK, key or permission): the effect {do: \"invoke\", capability, args, then, catch} (list_capabilities says what each takes and returns). Maps, the camera and a call's picture are capability views: the parts map, camera and video-call, wired by their events. Every invoke has a catch that shows its failures (error.type: cancelled, failed, unavailable, not-implemented, denied, timeout); never act out a success.",
+  "  - A payment: the button calls the order endpoint (createOrder), its then invokes payment.pay with the order the back end made (response.id, response.amount), and payment.pay's then only means submitted: it opens a result screen that loads the order (params.orderId) and shows paid, processing or failed by the order's status from the API (showWhen data.order.value.status), with a way to load it again; its catch shows cancelled and failed. Never a button straight to a \"paid\" screen.",
   "  - When the document has an API, do not make a real feature of a part that keeps its data to itself (auth-form, cart-list, todo-list, settings-group, chat-composer, contact-list): compose atoms and kits with make_form, set_repeat and calls instead.",
   "  - A part with a `demo` (describe_part) acts out a domain behaviour only in a prototype: for a product, bind the props it names or wire its events.",
   "- Events: a part that declares events (describe_part, describe_node) runs set_action {slot: \"on:<name>\"} when it sends one, its expressions reading event.<field> (a number pad's on:submit: event.value). A family slot such as \"tab:*\" is one action for every row, reading slot.index.",

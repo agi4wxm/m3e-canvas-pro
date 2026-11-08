@@ -221,6 +221,12 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["remove_mock_realtime", { id: "chat-script" }],
     ["set_mock_auth", { signedIn: false, tokenTtl: 60 }],
     ["set_mock_route", { operationId: "listItems", kind: "list", model: "Item" }],
+    /* the platform capabilities (lib/core/ops/capabilities.ts) */
+    ["declare_capability", { name: "acme.ticket.scan", kind: "call", args: { type: "object", properties: { gate: { type: "string" } } }, result: { type: "object", properties: { ticket: { type: "string" } } }, failures: ["cancelled"] }],
+    ["use_capabilities", { add: ["push.opened", "acme.ticket.scan"] }],
+    ["set_mock_capability", { capability: "payment.pay", fail: "cancelled" }],
+    ["set_mock_capability", { capability: "payment.pay", clear: true }],
+    ["remove_capability", { name: "acme.ticket.scan" }],
     ["clear_mocks", {}],
     ["remove_channel", { id: "chat" }],
     /* screens bound to the contract (lib/core/ops/bindings.ts) */

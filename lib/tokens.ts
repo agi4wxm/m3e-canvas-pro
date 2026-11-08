@@ -9,6 +9,7 @@ import { STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, t
 import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleContext, type StyleUX } from "./styles";
 import type { ApiSpec } from "./api/types";
 import type { MockSpec } from "./mocks/types";
+import type { CapabilitySpec } from "./capabilities/types";
 import { fields, withUnknown } from "./keep";
 import { mapAction, mapBody, mapCondition, type RefMap } from "./refs";
 
@@ -1464,6 +1465,9 @@ export type Doc = {
   /** the mock library (lib/mocks, docs/模拟库.md): how the API is answered while the product is designed: seed and
    *  locale, hints and counts per model, pinned records, scenarios, files, realtime scripts, sign-in */
   mocks?: MockSpec;
+  /** the platform capabilities the product uses beyond those its designs invoke, and its own (lib/capabilities,
+   *  docs/平台能力.md); the standard ones are the catalog's */
+  capabilities?: CapabilitySpec;
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));

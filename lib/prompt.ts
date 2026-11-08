@@ -270,6 +270,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "setProp": return `${part}の ${e.prop} を ${valueText(e.value, lang)} にする`;
         case "snackbar": return `${qj(e.message)}とスナックバーで知らせる`;
         case "call": return `${e.operationId} を呼び出す`;
+        case "invoke": return `プラットフォーム機能 ${e.capability} を呼び出す`;
         case "refresh": return `データ ${e.source} を読み込み直す`;
         case "loadMore": return `データ ${e.source} の続きを読み込む`;
         case "submit": return "フォームを送信する";
@@ -289,6 +290,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "setProp": return `sets ${e.prop} of ${part} to ${valueText(e.value, lang)}`;
         case "snackbar": return `shows a snackbar saying ${qe(e.message)}`;
         case "call": return `calls ${e.operationId}`;
+        case "invoke": return `invokes the platform capability ${e.capability}`;
         case "refresh": return `reloads data ${e.source}`;
         case "loadMore": return `loads more of data ${e.source}`;
         case "submit": return "submits the form";
@@ -308,6 +310,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "setProp": return `把${part}的 ${e.prop} 设为 ${valueText(e.value, lang)}`;
         case "snackbar": return `用 Snackbar 提示${qz(e.message)}`;
         case "call": return `调用接口 ${e.operationId}`;
+        case "invoke": return `调用平台能力 ${e.capability}`;
         case "refresh": return `重新加载数据 ${e.source}`;
         case "loadMore": return `加载数据 ${e.source} 的下一页`;
         case "submit": return "提交表单";
@@ -327,6 +330,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "setProp": return `${part}의 ${e.prop}을(를) ${valueText(e.value, lang)}(으)로 설정`;
         case "snackbar": return `스낵바로 ${qe(e.message)} 표시`;
         case "call": return `${e.operationId} 호출`;
+        case "invoke": return `플랫폼 기능 ${e.capability} 호출`;
         case "refresh": return `데이터 ${e.source} 다시 불러오기`;
         case "loadMore": return `데이터 ${e.source}의 다음 페이지 불러오기`;
         case "submit": return "양식 제출";
@@ -480,7 +484,19 @@ function notes(g: Group, scope: Scope, lang: Lang): string[] {
     }
     /* a domain result the prototype only acts out: the product takes it from the back end (docs/边界与契约.md) */
     const demo = partBySlug(it.component)?.demo;
-    if (demo && !demoTakenOver(it)) {
+    const view = partBySlug(it.component)?.capability;
+    /* a capability view's stand-in: the real one is the product's slot to write (lib/capabilities) */
+    if (view) {
+      parts.push(
+        lang === "ja"
+          ? `プラットフォーム機能 ${view} の表示の代わり：本物は製品側のスロット（src/custom/slots）で描き、操作はこの部品のイベントとして送る`
+          : lang === "zh"
+            ? `是平台能力 ${view} 的视图占位：真实的视图写在产品的插槽（src/custom/slots）里，操作作为这个组件的事件发出`
+            : lang === "ko"
+              ? `플랫폼 기능 ${view} 뷰의 자리표시자: 실제 뷰는 제품의 슬롯(src/custom/slots)에서 그리고, 조작은 이 부품의 이벤트로 보낸다`
+              : `stands in for the platform's ${view} view: the real one is drawn by the product's slot (src/custom/slots), and what the visitor does to it goes out as this part's events`,
+      );
+    } else if (demo && !demoTakenOver(it)) {
       const props = demo.takenOverBy.map((k) => `\`${k}\``).join(lang === "en" ? " / " : "、");
       parts.push(
         lang === "ja"
