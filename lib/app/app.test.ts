@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import type { Transport, TransportRequest, TransportResponse } from "../api/transport";
 import { paginationOf } from "../api/types";
 import { sampleProducts, shopTransport } from "../bindings/fixture";
-import { Bindings, RuntimeProvider, createRuntime, keyOf, memoryStorage, sourceKey, useBindings, useDataSource, useForm, useRegion, useSession, type AuthConfig, type SourceSpec } from "./index";
+import { Bindings, RuntimeProvider, callKey, createRuntime, keyOf, memoryStorage, sourceKey, useBindings, useDataSource, useForm, useRegion, useSession, type AuthConfig, type SourceSpec } from "./index";
 
 /** what the generated client throws for an answer outside 2xx */
 class ApiError extends Error {
@@ -294,6 +294,110 @@ describe("calls", () => {
     expect(ok).toMatchObject({ ok: true, status: 204 });
     expect(rt.sources.state(spec.key).items).toHaveLength(2);
     expect(said).toEqual(["catch 500", 'then {"done":true}']);
+  });
+});
+
+describe("late answers (docs/交互规则.md, 迟到的回答)", () => {
+  /** an answer held until it is let go */
+  const held = <T>() => {
+    let let_go: (v: T) => void = () => {};
+    const p = new Promise<T>((r) => (let_go = r));
+    return { p, answer: (v: T) => let_go(v) };
+  };
+
+  it("drop every answer after a restart, undoing nothing, and say so", async () => {
+    const rt = createRuntime({ transport: shopTransport() });
+    const said: string[] = [];
+    const undone: string[] = [];
+    const a = held<{ ok: true }>();
+    // eslint-disable-next-line unicorn/no-thenable -- a call's options, never awaited
+    const out = rt.call(() => a.p, { optimistic: () => () => undone.push("undo"), then: () => said.push("then") });
+    rt.restart();
+    a.answer({ ok: true });
+    expect(await out).toMatchObject({ ok: false, dropped: true });
+    const failing = held<never>();
+    const lost = rt.call(() => failing.p.then(() => Promise.reject(new ApiError(500, {}))), { optimistic: () => () => undone.push("undo"), catch: () => said.push("catch") });
+    rt.restart();
+    failing.answer(undefined as never);
+    expect(await lost).toMatchObject({ ok: false, dropped: true });
+    expect(said).toEqual([]);
+    expect(undone).toEqual([]);
+  });
+
+  it("let the newest call of a kind speak for it: an older answer runs nothing and undoes nothing", async () => {
+    const rt = createRuntime({ transport: shopTransport() });
+    const said: string[] = [];
+    const undone: string[] = [];
+    const key = callKey("home", "like", "like");
+    const first = held<string>();
+    const second = held<string>();
+    // eslint-disable-next-line unicorn/no-thenable -- a call's options, never awaited
+    const one = rt.call(() => first.p, { key, optimistic: () => () => undone.push("one"), then: (r) => said.push(r) });
+    // eslint-disable-next-line unicorn/no-thenable -- a call's options, never awaited
+    const two = rt.call(() => second.p, { key, then: (r) => said.push(r) });
+    /* another part's call of the same operation is another kind */
+    // eslint-disable-next-line unicorn/no-thenable -- a call's options, never awaited
+    const other = rt.call(async () => "other", { key: callKey("home", "save", "like"), then: (r) => said.push(r) });
+    second.answer("second");
+    await two;
+    await other;
+    first.answer("first");
+    expect(await one).toMatchObject({ ok: false, dropped: true });
+    expect(said).toEqual(["other", "second"]);
+    expect(undone).toEqual([]);
+    /* an invoke likewise */
+    const answers = [held<string>(), held<string>()];
+    let n = 0;
+    rt.setCapabilities({ invoke: async () => ({ ok: true, result: await answers[n++].p }) });
+    // eslint-disable-next-line unicorn/no-thenable -- an invoke's options, never awaited
+    const older = rt.invoke("scan.code", {}, { key: "scan", then: (r) => said.push(`scan ${String(r)}`) });
+    // eslint-disable-next-line unicorn/no-thenable -- an invoke's options, never awaited
+    const newest = rt.invoke("scan.code", {}, { key: "scan", then: (r) => said.push(`scan ${String(r)}`) });
+    await tick();
+    answers[1].answer("new");
+    await newest;
+    answers[0].answer("old");
+    expect(await older).toMatchObject({ ok: false, dropped: true });
+    expect(said).toEqual(["other", "second", "scan new"]);
+  });
+
+  it("tell an answer whether the visitor is still where the tap left them, the tap's own move not counted", async () => {
+    const rt = createRuntime({ transport: shopTransport() });
+    const seen: boolean[] = [];
+    const a = held<string>();
+    // eslint-disable-next-line unicorn/no-thenable -- a call's options, never awaited
+    const stayed = rt.call(() => a.p, { then: (_r, _s, at) => seen.push(at.here) });
+    /* the tap goes where it goes after making the call: still the tap */
+    rt.moved();
+    await tick();
+    a.answer("x");
+    await stayed;
+    const b = held<string>();
+    // eslint-disable-next-line unicorn/no-thenable -- a call's options, never awaited
+    const left = rt.call(() => b.p.then(() => Promise.reject(new ApiError(500, {}))), { catch: (_e, _s, at) => seen.push(at.here) });
+    await tick();
+    rt.moved();
+    b.answer("x");
+    await left;
+    expect(seen).toEqual([true, false]);
+  });
+
+  it("run a form's then and catch only for the session that sent it", async () => {
+    const rt = createRuntime({ transport: shopTransport(), lang: "en" });
+    const said: string[] = [];
+    let handle: ReturnType<typeof useForm> | undefined;
+    const a = held<{ id: string }>();
+    function Screen() {
+      // eslint-disable-next-line unicorn/no-thenable -- a form's options, never awaited
+      handle = useForm({ fields: {}, send: () => a.p, then: () => said.push("then"), catch: () => said.push("catch") });
+      return null;
+    }
+    renderToString(createElement(RuntimeProvider, { runtime: rt }, createElement(Screen)));
+    const sent = handle!.submit();
+    rt.restart();
+    a.answer({ id: "1" });
+    await sent;
+    expect(said).toEqual([]);
   });
 });
 

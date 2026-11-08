@@ -636,6 +636,11 @@ function readmeSource(doc: Doc, screens: ScreenCode[], copied: string[], missing
   const title = oneLine(doc.title || "") || "App";
   const flows = runtime.flows ?? [];
   const flowList = flows.map((f) => `- \`?flow=${f.key}\`${oneLine(f.name) ? `: ${oneLine(f.name)}` : ""}`).join("\n");
+  /* what the taps ask of an API a prototype does not have: said here, and once in the console when a tap reaches it */
+  const unreached = (runtime.acts?.unreached ?? []).map((u) => {
+    const [kind, what] = [u.slice(0, u.indexOf(":") < 0 ? u.length : u.indexOf(":")), u.includes(":") ? oneLine(u.slice(u.indexOf(":") + 1)) : ""];
+    return `- ${kind === "call" ? `the call of \`${what}\`` : kind === "refresh" ? `loading \`${what}\` again` : kind === "loadMore" ? `loading more of \`${what}\`` : kind === "submit" ? "sending a form" : "signing out"}`;
+  });
   return `# ${title}
 
 Exported from M3E Canvas: ${screens.length} ${screens.length === 1 ? "screen" : "screens"}, working as they did in the preview.
@@ -658,12 +663,12 @@ bun run typecheck
 ## What is where
 
 - \`src/screens/\`: one component per screen. Edit these first.
-- \`src/runtime.tsx\`: what the running app remembers. \`useApp()\` holds the current screen and its history, the variables and what is shown; \`go("cart")\`, \`back()\`, \`setVar(…)\`, \`show(…)\` and the rest are plain calls on it.
+- \`src/runtime.tsx\`: what the running app remembers. \`useApp()\` holds the current screen and its history, the variables and what is shown; \`go("cart")\`, \`back()\`, \`setVar(…)\`, \`show(…)\` and the rest are plain calls on it.${runtime.acts ? " What a tap does is data at the top of each screen (`…Actions`), which `useActions` runs with the editor's own interpreter (`src/lib/actions/`), the rules the preview follows." : ""}
 - \`src/App.tsx\`: draws the current screen, with the transition between screens.${runtime.proto ? "\n- `src/lib/screenMotion.ts`: how one screen gives way to another, the same moves the editor's preview plays. What starts when the pointer comes over a part, or some time after its screen shows, is in `Pressable` (`src/runtime.tsx`); a screen laid over another opens with `openOverlay(…)`." : ""}${runtime.modes ? "\n- Variables with modes: `src/runtime.tsx` lists the mode each screen shows and each variable's value in every mode. A design field bound to a variable (a fill, a stroke, the words' color, the opacity, a radius, the rotation) reads a CSS variable `--m3e-v-…` that each screen defines, so setting the variable changes it wherever it is bound." : ""}
 - \`src/theme.tsx\` and \`src/index.css\`: the palette, corners, type and motion.
 - \`public/images/\`: the pictures picked in the editor.
 - Copied from the editor, only what these screens use: ${dirs.map((d) => `\`${d}/\``).join(", ")}.
-${flows.length ? `\n## Flows\n\nThe app starts where the first flow does. Add one of these to the address to start at another:\n\n${flowList}\n` : ""}${missing.length ? `\n## Before you ship\n\nThese icons could not be fetched when this was exported, so they draw blank: ${missing.join(", ")}. Add their Iconify data to \`src/components/m3e/icon-data.app.ts\`.\n` : ""}
+${unreached.length ? `\n## Not in this prototype\n\nThis prototype has no API. These taps reach for one, and are not run: each says so once in the browser's console. Export the full product to run them.\n\n${[...new Set(unreached)].join("\n")}\n` : ""}${flows.length ? `\n## Flows\n\nThe app starts where the first flow does. Add one of these to the address to start at another:\n\n${flowList}\n` : ""}${missing.length ? `\n## Before you ship\n\nThese icons could not be fetched when this was exported, so they draw blank: ${missing.join(", ")}. Add their Iconify data to \`src/components/m3e/icon-data.app.ts\`.\n` : ""}
 Icons a widget only knows while running are fetched from Iconify, as they are in the editor. The fonts come from Google Fonts, and a face Google does not have (the pixel face with Chinese) from jsDelivr: see \`index.html\`. When the document wears a style, that style's own icon set is bundled in \`src/style-icons.ts\`, so it draws offline.
 
 ## License

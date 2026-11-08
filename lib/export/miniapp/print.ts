@@ -24,6 +24,7 @@ import {
   type Item,
   type ScreenParam,
 } from "../../tokens";
+import type { Answer } from "../../actions/model";
 import { partBySlug, reader, treeOf } from "../../../parts/registry";
 import type { PartDef, PropDef } from "../../../parts/types";
 import { formStateProps } from "../../../parts/fieldState";
@@ -279,7 +280,7 @@ function cleanEffect(e: Effect, depth: number, names: Names): Record<string, unk
     const v = (e as Record<string, unknown>)[k];
     if (v === undefined) continue;
     if ((k === "then" || k === "catch") && depth >= 4) continue;
-    out[k] = k === "then" || k === "catch" ? cleanBody(v as ActionBody, names, depth + 1) : k === "part" && typeof v === "string" && VISIBILITY.has(e.do) ? names.shown(v) : (k === "part" || k === "form") && typeof v === "string" ? names.part(v) : v;
+    out[k] = k === "then" || k === "catch" ? cleanAnswer(v as Answer, names, depth + 1) : k === "part" && typeof v === "string" && VISIBILITY.has(e.do) ? names.shown(v) : (k === "part" || k === "form") && typeof v === "string" ? names.part(v) : v;
   }
   return out;
 }
@@ -287,6 +288,11 @@ function cleanEffect(e: Effect, depth: number, names: Names): Record<string, unk
 function cleanBody(b: ActionBody, names: Names, depth = 0): Record<string, unknown> {
   const effects = (b.effects ?? []).map((e) => cleanEffect(e, depth, names)).filter((e): e is Record<string, unknown> => !!e);
   return { to: names.screen(b.to), ...(b.url ? { url: b.url } : {}), ...(effects.length ? { effects } : {}), ...(b.overlay ? { overlay: true } : {}), ...(b.params ? { params: b.params } : {}) };
+}
+
+/** a call's or an invoke's then or catch: a body, with the branch the answer picks (docs/交互规则.md, 回答上的条件) */
+function cleanAnswer(a: Answer, names: Names, depth: number): Record<string, unknown> {
+  return { ...cleanBody(a, names, depth), ...(a.when ? { when: cleanCondition(a.when, names) } : {}), ...(a.else ? { else: cleanBody(a.else, names, depth) } : {}) };
 }
 
 function cleanAction(a: Action, names: Names): Record<string, unknown> {

@@ -19,7 +19,7 @@ export const APP_RUNTIME_FILES = [
   /* the interpreter of the design's taps (lib/actions), and the screen moves its model names */
   "lib/screenMotion.ts",
   ...["model", "host", "run"].map((n) => `lib/actions/${n}.ts`),
-  ...["store", "session", "sources", "forms", "scope", "runtime", "react", "index"].map((n) => `lib/app/${n}.ts`),
+  ...["store", "session", "sources", "forms", "scope", "runtime", "react", "actions", "index"].map((n) => `lib/app/${n}.ts`),
 ];
 
 const INDEX = `${GENERATED}

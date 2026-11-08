@@ -76,8 +76,11 @@ const button = (id: string, label: string, action: Action): Item => ({ ...makeIt
 describe("the prototype in printed code", () => {
   it("starts an action on the pointer or on time instead of a tap", () => {
     const { code } = buildCode(doc([button("h", "Hover", { to: "sheet", transition: "fade", trigger: { on: "hover" } }), button("d", "Later", { to: "back", transition: "none", trigger: { on: "delay", ms: 1500 } })]), {});
-    expect(code).toContain(`<Pressable onHover={() => go("sheet", "fade")}>`);
-    expect(code).toContain(`<Pressable after={1500} onAfter={() => back()}>`);
+    expect(code).toContain(`<Pressable onHover={() => act(homeScreenActions.hover, { part: "hover" })}>`);
+    expect(code).toContain(`<Pressable after={1500} onAfter={() => act(homeScreenActions.later, { part: "later" })}>`);
+    /* what starts it is the Pressable's: the data says what it does */
+    expect(code).toContain(`hover: { to: "sheet", transition: "fade" },`);
+    expect(code).toContain(`later: { to: "back", transition: "none" },`);
     /* neither is a tap */
     expect(code).not.toContain("onClick");
     expect(code).not.toContain("onPress");
@@ -85,21 +88,21 @@ describe("the prototype in printed code", () => {
 
   it("lays a screen over the one on show, with its animation", () => {
     const { code } = buildCode(doc([button("o", "Open", { to: "sheet", transition: "slideUp", overlay: true, motion: { kind: "push", dir: "up", easing: "inOut", ms: 300 } })]), {});
-    expect(code).toContain(`onClick={() => openOverlay("sheet", "slideUp", { kind: "push", dir: "up", easing: "inOut", ms: 300 })}`);
-    expect(code).toContain("const { openOverlay } = useApp()");
+    expect(code).toContain(`open: { to: "sheet", transition: "slideUp", motion: { kind: "push", dir: "up", easing: "inOut", ms: 300 }, overlay: true },`);
+    expect(code).toContain(`onClick={() => act(homeScreenActions.open, { part: "open" })}`);
   });
 
   it("goes to a screen with its animation, also on the branch a condition does not take", () => {
     const vars = [{ id: "c", name: "Count", type: "number" as const, value: 0 }];
     const action: Action = { to: "sheet", transition: "slide", motion: { kind: "move", dir: "down", ms: 250 }, when: { var: "c", op: "eq", value: 1 }, else: { to: "sheet", transition: "fade", overlay: true, motion: { kind: "dissolve" } } };
     const { code } = buildCode(doc([button("g", "Go", action)], { vars }), {});
-    expect(code).toContain(`if (vars.count === 1) { go("sheet", "slide", { kind: "move", dir: "down", ms: 250 }) } else { openOverlay("sheet", "fade", { kind: "dissolve" }) }`);
+    expect(code).toContain(`go: { to: "sheet", transition: "slide", motion: { kind: "move", dir: "down", ms: 250 }, when: { var: "count", op: "eq", value: 1 }, else: { to: "sheet", transition: "fade", motion: { kind: "dissolve" }, overlay: true } },`);
   });
 
   it("scrolls to a part it marks, before going anywhere", () => {
     const target: Item = { ...makeItem("text"), id: "far", props: { text: "Far below" } };
     const { code } = buildCode(doc([button("s", "Scroll", { to: "sheet", transition: "none", scrollTo: "far" }), target]), {});
-    expect(code).toContain(`onClick={() => { scrollTo("farBelow"); go("sheet", "none") }}`);
+    expect(code).toContain(`scroll: { to: "sheet", transition: "none", scrollTo: "farBelow" },`);
     expect(code).toContain(`data-part="farBelow"`);
     /* a part that is not there is no part to scroll to */
     expect(buildCode(doc([button("s", "Scroll", { to: "none", transition: "none", scrollTo: "gone" })]), {}).code).not.toContain("scrollTo");
@@ -108,7 +111,7 @@ describe("the prototype in printed code", () => {
   it("prints only what an animation can be, whatever the document holds", () => {
     const hostile = { kind: "push", dir: `left"});alert(1);//`, easing: "in", ms: 1e9, extra: "x" } as never;
     const { code } = buildCode(doc([button("o", "Open", { to: "sheet", transition: "nope" as never, motion: hostile })]), {});
-    expect(code).toContain(`go("sheet", "slide", { kind: "push", easing: "in", ms: 10000 })`);
+    expect(code).toContain(`open: { to: "sheet", transition: "slide", motion: { kind: "push", easing: "in", ms: 10000 } },`);
     expect(code).not.toContain("alert");
   });
 });
@@ -150,7 +153,34 @@ describe("the exported app's prototype", () => {
     /* the variable that drives the dark mode is the dark the modes follow */
     expect(runtime).toContain("const darkOn = state.vars.night");
     expect(runtime).toContain("const shownOn = (on: ScreenId) => varsOn(state, on, darkOn)");
-    expect(text(files, "src/screens/HomeScreen.tsx")).toContain(`onClick={() => setVar("accent", "#c62828")}`);
+    expect(text(files, "src/screens/HomeScreen.tsx")).toMatch(/\{ do: "setVar", var: "accent", value: "#c62828" \}/);
+    /* what a tap reads of a variable with modes is what the screen on show shows */
+    expect(runtime).toContain("const varsNow = (): Vars => varsOn(live.current, top(), !!live.current.vars.night)");
+  });
+});
+
+describe("the taps of an exported prototype (lib/actions)", () => {
+  it("runs them with the editor's own interpreter, over the state as each step leaves it", async () => {
+    const files = await exported(doc([button("b", "Go", { to: "sheet", transition: "none", effects: [{ do: "addVar", var: "n", by: 1 }, { do: "setVar", var: "m", value: 0, expr: "vars.n * 10" }] })], { vars: [{ id: "n", name: "n", type: "number", value: 1 }, { id: "m", name: "m", type: "number", value: 0 }] }));
+    const runtime = text(files, "src/runtime.tsx");
+    expect(runtime).toContain('import { run } from "@/lib/actions/run"');
+    expect(runtime).toContain("const act = useCallback((action: Action, tap: Tap) => void run(action, host, { ...tap, current: live.current.current }), [host])");
+    /* what a step writes the next one reads, before anything is drawn again */
+    expect(runtime).toContain("live.current = typeof next === \"function\" ? next(was) : next");
+    expect(text(files, "src/lib/actions/run.ts")).toBe(await fromDisk("lib/actions/run.ts"));
+    expect(text(files, "src/screens/HomeScreen.tsx")).toContain('go: { to: "sheet", transition: "none", effects: [{ do: "addVar", var: "n", by: 1 }, { do: "setVar", var: "m", value: 0, expr: "vars.n * 10" }] },');
+  });
+
+  it("says what reaches for an API it does not have, and answers the capabilities with the mocks, as the preview does", async () => {
+    const files = await exported(doc([button("s", "Save", { to: "none", transition: "none", effects: [{ do: "call", operationId: "save" }, { do: "invoke", capability: "clipboard.write", args: { text: "'x'" } }, { do: "signOut" }] })]));
+    expect(text(files, "README.md")).toContain("## Not in this prototype");
+    expect(text(files, "README.md")).toContain("- the call of `save`\n- signing out\n");
+    const runtime = text(files, "src/runtime.tsx");
+    expect(runtime).toContain("unreached(`the call of ${operation}`)");
+    expect(runtime).toContain('console.warn(`This prototype has no API: ${what} is not run. Export the product to run it.`)');
+    expect(runtime).toContain("const answers = useRef<CapabilityHost>(capabilities ?? createMockCapabilities(MOCK_CAPABILITIES, CAPABILITY_SPEC))");
+    expect(text(files, "src/screens/HomeScreen.tsx")).toContain('{ do: "call", operationId: "save" }');
+    expect("src/lib/capabilities/mock.ts" in files).toBe(true);
   });
 });
 
@@ -180,10 +210,12 @@ describe("a document with no prototype interactions, flows or variables in modes
   it("exports as it did before them, byte for byte", async () => {
     const proof = await exported(proofDoc().doc, proofDoc().widths);
     for (const name of ["screenMotion", "ScreenContext", "openOverlay", "FLOWS", "varStyle", "onHover"]) expect(text(proof, "src/App.tsx") + text(proof, "src/runtime.tsx"), name).not.toContain(name);
-    expect("src/lib/screenMotion.ts" in proof).toBe(false);
+    /* the moves are not played: only the interpreter's model names them (src/lib/actions/model.ts) */
+    expect(Object.entries(proof).filter(([p, t]) => p.startsWith("src/") && typeof t === "string" && !p.startsWith("src/lib/actions/") && t.includes("screenMotion")).map(([p]) => p)).toEqual([]);
     /* Digests of what these documents exported before prototypes, flows and modes reached the app. A change here means
-       documents that use none of them now export differently: if that is meant, update the digests (last: the platform
-       capabilities: the shop flow pays through createOrder and payment.pay and shows the order's status, its checkout's
+       documents that use none of them now export differently: if that is meant, update the digests (last: the taps are
+       the data they are, lib/actions' Action, which src/runtime.tsx runs with the interpreter, and the widgets' copy
+       goes through the host's capabilities; before that the platform capabilities: the shop flow pays through createOrder and payment.pay and shows the order's status, its checkout's
        body one column with the payment notices among its rows, and the checkout bar, the map and the camera take their
        state as props; before that the field
        states and accessible names, docs/组件规范.md: the button's own loading spinner, a rating's arrow keys and its name
@@ -194,9 +226,9 @@ describe("a document with no prototype interactions, flows or variables in modes
        parts declare theirs, so it reads and writes a variable of its own). */
     expect({ proof: digestOf(proof), reuse: digestOf(await exported(reuseDoc().doc, reuseDoc().widths)), sweep: digestOf(await exported(sweepDoc().doc, sweepDoc().widths)) }).toMatchInlineSnapshot(`
       {
-        "proof": "c036f1fbe3a2b559",
-        "reuse": "aeba42efb325c141",
-        "sweep": "a084c408f3d46537",
+        "proof": "4ecf5e986d1ee538",
+        "reuse": "98e65cd031d5d5af",
+        "sweep": "3c3de885fbd556b6",
       }
     `);
   }, 60_000);

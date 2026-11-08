@@ -329,17 +329,21 @@ describe("printed behaviour", () => {
 
   it("goes to a screen by a plain name, on the button itself", () => {
     const { code } = buildCode(single([buttonWith({ to: "cart", transition: "slide" })]), {});
-    expect(code).toContain(`import { useApp } from "@/runtime"`);
-    expect(code).toContain("const { go } = useApp()");
-    expect(code).toMatch(/<Button [^>]*onClick=\{\(\) => go\("yourCart"\)\}/);
+    /* the tap is data, which the runtime runs with the editor's own interpreter (lib/actions) */
+    expect(code).toContain(`import { type Action, useActions } from "@/runtime"`);
+    expect(code).toContain(`const act = useActions("home")`);
+    expect(code).toContain(`  go: { to: "yourCart", transition: "slide" },\n} satisfies Record<string, Action>`);
+    expect(code).toMatch(/<Button [^>]*onClick=\{\(\) => act\(homeScreenActions\.go, \{ part: "go" \}\)\}/);
     expect(code).toContain("src/runtime.tsx");
   });
 
   it("says a transition only when it is not the usual one", () => {
     const { code } = buildCode(single([buttonWith({ to: "cart", transition: "fade" })]), {});
-    expect(code).toContain(`go("yourCart", "fade")`);
-    expect(buildCode(single([buttonWith({ to: "back", transition: "slide" })]), {}).code).toContain("onClick={() => back()}");
-    expect(buildCode(single([buttonWith({ to: "link", transition: "none", url: "example.com" })]), {}).code).toContain(`openLink("https://example.com/")`);
+    expect(code).toContain(`go: { to: "yourCart", transition: "fade" }`);
+    expect(buildCode(single([buttonWith({ to: "back", transition: "slide" })]), {}).code).toContain(`go: { to: "back", transition: "slide" }`);
+    /* only a web page is ever opened: the address is read as the interpreter reads it */
+    expect(buildCode(single([buttonWith({ to: "link", transition: "none", url: "example.com" })]), {}).code).toContain(`go: { to: "link", transition: "none", url: "https://example.com/" }`);
+    expect(buildCode(single([buttonWith({ to: "link", transition: "none", url: "javascript:alert(1)" })]), {}).code).not.toContain("javascript");
   });
 
   it("runs effects in order, then goes", () => {
@@ -355,18 +359,19 @@ describe("printed behaviour", () => {
       ],
     };
     const { code } = buildCode(single([buttonWith(action)], { vars }), {});
-    expect(code).toContain(`addVar("count", 2); toggleVar("flag"); setVar("count", 5); snackbar("Done"); go("yourCart")`);
-    for (const name of ["addVar", "go", "setVar", "snackbar", "toggleVar"]) expect(code).toMatch(new RegExp(`const \\{[^}]*\\b${name}\\b[^}]*\\} = useApp`));
+    /* in the document's order, each in the app's names; the interpreter runs them in that order, then goes */
+    expect(code).toContain(`go: { to: "yourCart", transition: "slide", effects: [{ do: "addVar", var: "count", by: 2 }, { do: "toggleVar", var: "flag" }, { do: "setVar", var: "count", value: "5" }, { do: "snackbar", message: "Done" }] },`);
+    expect(code).not.toContain("= useApp()");
   });
 
   it("honours when and else", () => {
     const vars = [{ id: "c", name: "Count", type: "number" as const, value: 0 }];
     const action: Item["action"] = { to: "cart", transition: "slide", when: { var: "c", op: "neq", value: "3" }, else: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "No" }] } };
     const { code } = buildCode(single([buttonWith(action)], { vars }), {});
-    expect(code).toContain(`if (vars.count !== 3) { go("yourCart") } else { snackbar("No") }`);
-    /* an answer of the wrong type is simply never the same */
-    const wrong: Item["action"] = { to: "cart", transition: "slide", when: { var: "c", op: "eq", value: "abc" } };
-    expect(buildCode(single([buttonWith(wrong)], { vars }), {}).code).toContain("if (false)");
+    expect(code).toContain(`go: { to: "yourCart", transition: "slide", when: { var: "count", op: "neq", value: "3" }, else: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "No" }] } },`);
+    /* a variable that is gone never holds */
+    const gone: Item["action"] = { to: "cart", transition: "slide", when: { var: "nope", op: "eq", value: "abc" } };
+    expect(buildCode(single([buttonWith(gone)], { vars }), {}).code).toContain(`when: { expr: "false" }`);
   });
 
   it("does nothing for a reference that is gone, as the preview does", () => {
@@ -379,8 +384,8 @@ describe("printed behaviour", () => {
   it("delegates a part's slots from around it, keeping the marks it tells them apart by", () => {
     const nav: Item = { ...makeItem("navigation-bar"), id: "n", actions: { "tab:1": { to: "cart", transition: "slide" } } };
     const { code } = buildCode(single([nav]), {});
-    expect(code).toContain(`import { Pressable, useApp } from "@/runtime"`);
-    expect(code).toContain(`"tab:1": () => { leaveTab("navigationBar", 1, "yourCart"); go("yourCart") }`);
+    expect(code).toContain(`import { Pressable, type Action, useActions, useApp } from "@/runtime"`);
+    expect(code).toContain(`"tab:1": () => { leaveTab("navigationBar", 1, "yourCart"); act(homeScreenActions.navigationBarTab1, { part: "navigationBar" }) }`);
     expect(code).toContain(`data-tap="tab:1"`);
     expect(code).toContain(`active={tab("navigationBar", undefined, 0) === 1 || undefined}`);
   });
@@ -388,12 +393,14 @@ describe("printed behaviour", () => {
   it("sends each half of a split button its own way; the arrow of one with a menu only opens it", () => {
     const withMenu: Item = { ...makeItem("split-button"), id: "s", actions: { main: { to: "cart", transition: "slide" } } };
     const code = buildCode(single([withMenu]), {}).code;
-    expect(code).toContain(`main: () => go("yourCart")`);
+    expect(code).toMatch(/main: \(\) => act\(homeScreenActions\.splitButtonMain, \{ part: "splitButton" \}\)/);
+    expect(code).toContain(`splitButtonMain: { to: "yourCart", transition: "slide" },`);
     expect(code).toContain(`data-tap-lead="main"`);
     expect(code).toContain(`data-tap-trail="self"`);
     const noMenu: Item = { ...makeItem("split-button"), id: "s", props: { menu: false }, actions: { main: { to: "cart", transition: "slide" }, more: { to: "back", transition: "slide" } } };
     const both = buildCode(single([noMenu]), {}).code;
-    expect(both).toContain(`more: () => back()`);
+    expect(both).toMatch(/more: \(\) => act\(homeScreenActions\.splitButtonMore, \{ part: "splitButton" \}\)/);
+    expect(both).toContain(`splitButtonMore: { to: "back", transition: "slide" },`);
     expect(both).toContain(`data-tap-trail="more"`);
     /* with nothing to tell apart, the marks stay out of the code */
     expect(buildCode(single([{ ...makeItem("split-button"), id: "s" }]), {}).code).not.toContain("data-tap");
@@ -430,7 +437,7 @@ describe("printed behaviour", () => {
     const { code } = buildCode(doc, {});
     expect(code).toContain(`tab("navigationBar", 0)`);
     expect(code).toContain(`tab("navigationBar", 1)`);
-    expect(code).not.toContain("navigationBar2");
+    expect(code).not.toMatch(/tab\("navigationBar2"/);
   });
 
   it("turns hidden and showWhen into conditional rendering, on its own line", () => {
@@ -439,7 +446,7 @@ describe("printed behaviour", () => {
     doc.groups[0] = { ...doc.groups[0], name: "Promo banner", hidden: true, showWhen: { var: "on", op: "eq", value: true } };
     const { code } = buildCode(doc, {});
     expect(code).toMatch(/\n\s+\{visible\("promoBanner"\) && vars\.on && \(\n/);
-    expect(code).toContain(`toggle("promoBanner")`);
+    expect(code).toContain(`{ do: "toggle", part: "promoBanner" }`);
   });
 
   it("gates what a hidden container holds with it", () => {
@@ -481,7 +488,7 @@ describe("printed behaviour", () => {
   it("asks an input the document asks about through a variable of its own", () => {
     const action: Item["action"] = { to: "cart", transition: "slide", when: { filled: "f" } };
     const { code } = buildCode(single([{ ...makeItem("input"), id: "f", props: { placeholder: "Email" } }, buttonWith(action)]), {});
-    expect(code).toContain(`if (hasValue(vars.email)) { go("yourCart") }`);
+    expect(code).toContain(`when: { filled: "email" }`);
     expect(code).toContain("value={vars.email}");
   });
 
@@ -490,7 +497,7 @@ describe("printed behaviour", () => {
     const doc = single([{ ...makeItem("text"), id: "t", props: { text: "Soon" } }, { ...makeItem("button"), id: "bb", props: { label: "B", icon: "", variant: "filled" } }, buttonWith(action)]);
     const { code } = buildCode(doc, {});
     expect(code).toContain(`{prop("soon", "text", "Soon")}`);
-    expect(code).toContain(`setProp("soon", "text", "Later"); setProp("b", "variant", "tonal")`);
+    expect(code).toContain(`[{ do: "setProp", part: "soon", prop: "text", value: "Later" }, { do: "setProp", part: "b", prop: "variant", value: "tonal" }]`);
     expect(code).toMatch(/prop\("b", "variant", "filled"\)/);
   });
 
@@ -501,7 +508,8 @@ describe("printed behaviour", () => {
     expect(code).toContain(`open={isOpen("sure")}`);
     expect(code).toContain(`onOpenChange={(next) => (next ? open("sure") : close("sure"))}`);
     expect(code).not.toContain("DialogTrigger");
-    expect(code).toContain(`slots={{ confirm: () => go("yourCart") }}`);
+    expect(code).toContain(`slots={{ confirm: () => act(homeScreenActions.sureConfirm, { part: "sure" }) }}`);
+    expect(code).toContain(`{ do: "open", part: "sure" }`);
     expect(code).toContain(`data-tap="confirm"`);
   });
 

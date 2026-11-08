@@ -26,6 +26,7 @@ import {
   type Item,
   type ScreenParam,
 } from "../../tokens";
+import type { Answer } from "../../actions/model";
 import { partBySlug, reader, treeOf } from "../../../parts/registry";
 import type { PartDef } from "../../../parts/types";
 import { fullWidth, roleOf } from "../../../parts/role";
@@ -481,7 +482,7 @@ class ScreenPrinter {
         case "call":
         case "invoke":
           // eslint-disable-next-line unicorn/no-thenable -- an action body as data, never a function: nothing awaits it
-          return [{ ...e, then: this.bodyData(e.then, depth + 1), catch: this.bodyData(e.catch, depth + 1) }];
+          return [{ ...e, then: this.answerData(e.then, depth + 1), catch: this.answerData(e.catch, depth + 1) }];
         default:
           return [e as unknown as Record<string, unknown>];
       }
@@ -493,6 +494,14 @@ class ScreenPrinter {
       ...(b.params && Object.keys(b.params).length && this.runtime ? { params: b.params } : {}),
       ...(effects.length ? { effects } : {}),
     };
+  }
+
+  /** a call's or an invoke's then or catch as data, with the branch the answer picks (docs/交互规则.md, 回答上的条件) */
+  answerData(a: Answer | undefined, depth: number): Record<string, unknown> | undefined {
+    const body = this.bodyData(a, depth);
+    if (!body || !a?.when) return body;
+    /* its condition as a tap's is printed (the kit's host reads it the same way) */
+    return { ...body, when: a.when, ...(a.else ? { else: this.bodyData(a.else, depth) } : {}) };
   }
 
   /** whether a tap reads expressions: a condition on one, a value set from one, words with {{one}}, a call, a form */

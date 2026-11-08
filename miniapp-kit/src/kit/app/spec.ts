@@ -17,8 +17,8 @@ export type Effect =
   | { do: "addVar"; var: string; by: number }
   | { do: "setProp"; part: string; prop: string; value: VarValue }
   | { do: "snackbar"; message: string }
-  | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: ActionBody; catch?: ActionBody; optimistic?: Optimistic }
-  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: ActionBody; catch?: ActionBody }
+  | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: Answer; catch?: Answer; optimistic?: Optimistic }
+  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: Answer; catch?: Answer }
   | { do: "refresh"; source: string }
   | { do: "loadMore"; source: string }
   | { do: "submit"; form?: string }
@@ -28,6 +28,8 @@ export type Effect =
 export type ActionBody = { to: string; transition?: string; url?: string; effects?: Effect[]; overlay?: boolean; scrollTo?: string; params?: Record<string, string> };
 
 export type Action = ActionBody & { when?: Condition; else?: ActionBody };
+/** what runs when a call or an invoke is answered: a body that may branch on the answer (docs/交互规则.md, 回答上的条件) */
+export type Answer = ActionBody & { when?: Condition; else?: ActionBody };
 
 export type ParamSpec = { name: string; type?: string; example?: unknown };
 

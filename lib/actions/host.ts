@@ -7,7 +7,7 @@
 import type { EvalContext, Scope } from "../bindings/expr";
 import type { InvokeOutcome } from "../capabilities/types";
 import type { Motion, Transition } from "../screenMotion";
-import type { ActionBody, VarType, VarValue } from "./model";
+import type { Answer, VarType, VarValue } from "./model";
 
 /** Where a tap was made, fixed when it happens: everything it starts reads it, the `then` and `catch` of its calls
  *  too, whatever is on show by the time they run. What it names (the screen, the row, the form) is fixed; what those
@@ -54,7 +54,7 @@ export type CallArgs = { args: Record<string, unknown>; body?: unknown };
 export type Change = { remove: true } | { patch: (row: unknown) => Record<string, unknown> };
 
 /** a form a tap submits: its group id, its operation, what runs after */
-export type FormRef = { id: string; operationId: string; then?: ActionBody; catch?: ActionBody };
+export type FormRef = { id: string; operationId: string; then?: Answer; catch?: Answer };
 
 export interface Host {
   /** What expressions read now for this tap: the data of its screen, its params, the variables (by name and id), its

@@ -39,8 +39,8 @@ export type Effect =
   | { do: "addVar"; var: string; by: number }
   | { do: "setProp"; part: string; prop: string; value: VarValue }
   | { do: "snackbar"; message: string }
-  | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: ActionBody; catch?: ActionBody; optimistic?: { source: string; remove?: boolean; patch?: Record<string, string> } }
-  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: ActionBody; catch?: ActionBody }
+  | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: Answer; catch?: Answer; optimistic?: { source: string; remove?: boolean; patch?: Record<string, string> } }
+  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: Answer; catch?: Answer }
   | { do: "refresh"; source: string }
   | { do: "loadMore"; source: string }
   | { do: "submit"; form?: string }
@@ -49,6 +49,8 @@ export type Effect =
 /** where a tap goes after its effects: a screen by its key, "back", "link" (to `url`) or "none" */
 export type ActionBody = { to: string; params?: Record<string, string>; overlay?: boolean; url?: string; effects?: Effect[] };
 export type Action = ActionBody & { when?: Condition; else?: ActionBody };
+/** what runs when a call or an invoke is answered: a body that may branch on the answer (docs/交互规则.md, 回答上的条件) */
+export type Answer = ActionBody & { when?: Condition; else?: ActionBody };
 
 /** What a tap knows of where it was made: the scope of its expressions, the form it is in, the element of the list its
  *  row was drawn for and its place, the part tapped; the place of a family it was run for (`slot`), what the event that

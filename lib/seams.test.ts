@@ -195,7 +195,7 @@ describe("what reaches for a part that becomes, or stops being, part of a compon
     const drawn = expandDoc(doc, m).groups;
     expect(drawn.some((g) => g.items.some((it) => it.id === inside))).toBe(true);
     const { screens } = buildScreens(doc, m, { live: true });
-    expect(screens[0].source).toMatch(/toggle\("/);
+    expect(screens[0].source).toMatch(/\{ do: "toggle", part: "/);
     expect(screens[0].source).toMatch(/visible\("/);
   });
 
@@ -251,18 +251,20 @@ describe("the row a tap came from, in printed code", () => {
   const list = built.screens.find((s) => s.key === "list")!.source;
   const detail = built.screens.find((s) => s.key === "detail")!.source;
 
-  it("reads the row at run time, never printing the token", () => {
-    expect(detail).not.toContain("{{current");
+  it("reads the row at run time: its words through the runtime's current row, a tap's through the interpreter", () => {
+    expect(detail).not.toContain("You chose {{current");
     expect(detail).toContain("current.name");
     expect(detail).toContain("current.price");
     expect(detail).toMatch(/useApp\(\)/);
-    expect(detail).toMatch(/snackbar\(`Said \$\{current\.name \?\? ""\}`\)/);
+    /* the interpreter fills {{current.field}} from the row last tapped, which the runtime hands every tap */
+    expect(detail).toContain('{ do: "snackbar", message: "Said {{current.name}}" }');
+    expect(runtimeSource(built.runtime)).toContain("void run(action, host, { ...tap, current: live.current.current })");
   });
 
   it("a tap on a row says which row it was, before it goes", () => {
     expect(list).toContain('pickRow({"name":"Apple","price":"1"})');
     expect(list).toContain('pickRow({"name":"Pear","price":"2"})');
-    expect(list.indexOf("pickRow")).toBeLessThan(list.indexOf('go("detail")'));
+    expect(list).toMatch(/pickRow\(\{"name":"Apple","price":"1"\}\); act\(listScreenActions\.\w+, /);
   });
 
   it("starts on the first row, so a screen opened directly is not blank", () => {
@@ -286,8 +288,9 @@ describe("the row a tap came from, in printed code", () => {
       frames: [doc.frames[0]],
     };
     const source = buildScreens(asks, { "say-b": 80, "say-b:h": 40, "tag-t": 40, "tag-t:h": 20 }, { live: true }).screens[0].source;
-    expect(source).toContain('snackbar("Not Apple")');
-    expect(source).toContain('snackbar("Pear only")');
+    expect(source).toContain('{ do: "snackbar", message: "Not Apple" }');
+    expect(source).toContain('{ do: "snackbar", message: "Pear only" }');
+    expect(source).not.toContain("when:");
     expect(source).not.toContain("vars");
     expect(source).not.toContain("false &&");
   });

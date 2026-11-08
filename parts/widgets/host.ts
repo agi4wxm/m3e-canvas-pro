@@ -21,7 +21,15 @@ export type PartHost = {
    *  something, an action on that slot or what the host itself does with it. Left out, nothing does, and the press
    *  stays the control's own instead of counting as a press on the whole part. */
   wired?: (slot: string) => boolean;
+  /** Invokes a platform capability the part needs for a control of its own (a copy button's `clipboard.write`): an
+   *  exported product hands its registry of capabilities (lib/capabilities, docs/平台能力.md), so the app decides what
+   *  it does on each platform. Left out, the browser's own does it (`useCapability`). Never rejects. */
+  invoke?: (capability: string, args: Record<string, unknown>) => Promise<CapabilityOutcome>;
 };
+
+/** What an invoke of a capability came to, as lib/capabilities' `InvokeOutcome` says it (written out here: an exported
+ *  app carries this file without the capabilities') */
+export type CapabilityOutcome = { ok: true; result: unknown } | { ok: false; error: { type: string; capability: string; message?: string } };
 
 export const PartHostContext = createContext<PartHost>({});
 
@@ -70,4 +78,34 @@ export function useHost(p: HostProps): Host {
       run?.();
     },
   };
+}
+
+/** What a part asks of the platform for a control of its own goes through the host's capabilities when it has some (an
+ *  exported product's registry), else through the browser's own way of doing it: the editor's preview and a prototype
+ *  have no registry. Either way the part only learns whether it was done. */
+export function useCapability(): (capability: string, args: Record<string, unknown>) => Promise<CapabilityOutcome> {
+  return useContext(PartHostContext).invoke ?? browserCapability;
+}
+
+/** The browser's way of doing the capabilities a part's own controls ask for (copying, opening a web page): what a part
+ *  does with no registry handed down, and what an app's registry with no adapter for one falls back on. */
+export async function browserCapability(capability: string, args: Record<string, unknown>): Promise<CapabilityOutcome> {
+  const failed = (type: "unavailable" | "denied" | "failed" | "not-implemented") => ({ ok: false as const, error: { type, capability } });
+  if (capability === "clipboard.write") {
+    if (typeof navigator === "undefined" || !navigator.clipboard) return failed("unavailable");
+    try {
+      await navigator.clipboard.writeText(typeof args.text === "string" ? args.text : String(args.text ?? ""));
+      return { ok: true, result: {} };
+    } catch {
+      /* a page that is not focused, or not served over https */
+      return failed("denied");
+    }
+  }
+  if (capability === "link.open") {
+    const url = typeof args.url === "string" ? args.url : "";
+    if (!/^https?:\/\//i.test(url) || typeof window === "undefined") return failed("failed");
+    window.open(url, "_blank", "noopener,noreferrer");
+    return { ok: true, result: {} };
+  }
+  return failed("not-implemented");
 }

@@ -12,8 +12,10 @@ import { Store } from "./store";
 /** the rules of a form's fields, by field ("email", "price.amount") */
 export type FormFields = Readonly<Record<string, FieldRule>>;
 
-/** what a call came to: its answer, or the problem it is (`unauthorized` when a 401 has sent the app to sign in) */
-export type CallResult<T = unknown> = { ok: true; response: T; status: number } | { ok: false; error: Problem; status: number; unauthorized: boolean };
+/** What a call came to: its answer, or the problem it is (`unauthorized` when a 401 has sent the app to sign in).
+ *  `dropped` when it was answered into nothing: the runtime started over while it was out, or a newer call of the same
+ *  kind (`CallOptions.key`) speaks for it now (docs/交互规则.md, “迟到的回答”). */
+export type CallResult<T = unknown> = { ok: true; response: T; status: number } | { ok: false; error: Problem; status: number; unauthorized: boolean; dropped?: boolean };
 
 /** what a form's send is given beyond its body: what hears how its upload goes */
 export type SendInit = Pick<TransportRequest, "onUploadProgress">;
@@ -109,6 +111,10 @@ export class FormController {
     const onUploadProgress = files ? (sent: number, total: number) => this.setRun({ progress: total > 0 ? Math.min(99, Math.round((sent / total) * 100)) : null }) : undefined;
     const out = await this.o.call(() => send(read.body, onUploadProgress ? { onUploadProgress } : {}));
     if (out.ok) this.setRun({ submitting: false, errors: {}, error: null, progress: files ? 100 : null, response: out.response });
+    else if (out.dropped) {
+      /* answered into nothing (the runtime started over): what it says is no one's to show */
+      this.setRun({ submitting: false, progress: null });
+    }
     else this.setRun({ submitting: false, errors: problemFieldErrors(out.error), error: out.error, progress: null });
     return out;
   }

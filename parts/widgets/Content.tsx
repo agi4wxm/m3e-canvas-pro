@@ -3,7 +3,7 @@ import type { Look } from "./look";
 import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { WidgetIcon } from "./WidgetIcon";
-import { useHost, type HostProps } from "./host";
+import { useCapability, useHost, type HostProps } from "./host";
 import { keysOf, useValue } from "./seed";
 
 /* Text the author wrote, shown the way its kind asks: code, Markdown, a list to reorder. After
@@ -12,14 +12,12 @@ import { keysOf, useValue } from "./seed";
 
 export function CodeBlock({ code = "", language = "", width = 420, className, style }: { code?: string; language?: string; width?: number } & Look) {
   const [copied, setCopied] = useState(false);
+  const invoke = useCapability();
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* the browser refused: the button simply does not say it copied */
-    }
+    /* through the platform's clipboard.write; refused, the button simply does not say it copied */
+    if (!(await invoke("clipboard.write", { text: code })).ok) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   };
   return (
     <div data-slot="code-block" data-copied={copied || undefined} className={cn("bg-surface-container-highest overflow-hidden rounded-xl", className)} style={{ width, ...style }}>

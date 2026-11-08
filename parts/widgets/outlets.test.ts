@@ -41,7 +41,8 @@ const { Rating } = await import("./Rating");
 const { QuantityStepper } = await import("./QuantityStepper");
 const { ColorField } = await import("./ColorField");
 const { Joystick } = await import("./Joystick");
-const { SortableList } = await import("./Content");
+const { CodeBlock, SortableList } = await import("./Content");
+const { ClipboardRow } = await import("./ClipboardRow");
 const Motion = await import("./Motion");
 const Draws = await import("./Draws");
 const Game = await import("./GameParts");
@@ -50,7 +51,7 @@ const App = await import("./AppParts");
 const Tools = await import("./AppTools");
 const More = await import("./AppMore");
 
-type Host = { demo?: boolean; input?: (v: unknown) => void; emit?: (name: string, payload?: Record<string, unknown>) => void; wired?: (slot: string) => boolean };
+type Host = { demo?: boolean; input?: (v: unknown) => void; emit?: (name: string, payload?: Record<string, unknown>) => void; wired?: (slot: string) => boolean; invoke?: (capability: string, args: Record<string, unknown>) => Promise<{ ok: true; result: unknown } | { ok: false; error: { type: "denied"; capability: string } }> };
 type Widget = (p: never) => unknown;
 type Press = { stopped: boolean };
 
@@ -574,6 +575,47 @@ describe("what report 3.5 found", () => {
 });
 
 /* ---------- the preview's side ---------- */
+
+describe("a copy of the part's own", () => {
+  /* the platform's clipboard is a capability (docs/平台能力.md): an app's registry decides what a copy does */
+  it("goes through the host's capabilities, and says it copied only when they did", async () => {
+    const asked: [string, Record<string, unknown>][] = [];
+    let ok = true;
+    const invoke = async (capability: string, args: Record<string, unknown>) => {
+      asked.push([capability, args]);
+      return ok ? { ok: true as const, result: {} } : { ok: false as const, error: { type: "denied" as const, capability } };
+    };
+    const clipboard = vi.fn();
+    vi.stubGlobal("navigator", { clipboard: { writeText: clipboard } });
+    const row = mount(ClipboardRow as Widget, { text: "abc" }, { invoke });
+    row.press(row.by("aria-label", "Copy"));
+    await new Promise((r) => setTimeout(r, 0));
+    row.draw();
+    expect(row.root("clipboard")["data-state"]).toBe("copied");
+    ok = false;
+    const code = mount(CodeBlock as Widget, { code: "x = 1" }, { invoke });
+    code.press(code.by("aria-label", "Copy"));
+    await new Promise((r) => setTimeout(r, 0));
+    code.draw();
+    expect(code.root("code-block")["data-copied"]).toBeUndefined();
+    const qr = mount(Tools.QrCode as Widget, { text: "hi", copy: "Copy" }, { invoke });
+    qr.press(qr.one((e) => e.props.children === "Copy" || e.props["aria-label"] === "Copy", "the copy button"));
+    expect(asked).toEqual([["clipboard.write", { text: "abc" }], ["clipboard.write", { text: "x = 1" }], ["clipboard.write", { text: "hi" }]]);
+    /* never the browser's own while the host has capabilities */
+    expect(clipboard).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("goes to the browser's own clipboard where no host hands capabilities down", async () => {
+    const clipboard = vi.fn(async () => {});
+    vi.stubGlobal("navigator", { clipboard: { writeText: clipboard } });
+    const row = mount(ClipboardRow as Widget, { text: "abc" });
+    row.press(row.by("aria-label", "Copy"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(clipboard).toHaveBeenCalledWith("abc");
+    vi.unstubAllGlobals();
+  });
+});
 
 describe("in the preview", () => {
   it("an input it draws again with what the visitor entered, and with the variable's value when that is turned down", async () => {

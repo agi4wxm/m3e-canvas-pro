@@ -112,13 +112,20 @@ describe("the operations", () => {
     fails(() => s.run(ops.setAction, { id: "pad", slot: "tab:*", action: stay() }, { origin: "ai" }), /not a family of places/);
   });
 
-  it("refuse a condition on a call's answer, which no host would read", () => {
+  it("take a condition on a call's answer, checked as any condition is, and its else", () => {
     const s = store();
     s.run(ops.addEndpoint, { operationId: "pay", method: "post", path: "/pay", returns: { type: "object", properties: { status: { type: "string" } } } }, { origin: "ai" });
     s.run(ops.addPart, { slug: "button", id: "b", screen: "home", at: { x: 16, y: 40 } }, { origin: "ai" });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const answer = { do: "call", operationId: "pay", then: { to: "none", transition: "none", when: { expr: "response.status == 'paid'" } } };
-    fails(() => s.run(ops.setAction, { id: "b", action: stay([answer as never]) }, { origin: "ai" }), /then takes no when: it runs whenever the call answers 2XX/);
+    const answer = { do: "call", operationId: "pay", then: { to: "none", transition: "none", when: { expr: "response.status == 'paid'" }, else: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Pending" }] } } };
+    s.run(ops.setAction, { id: "b", action: stay([answer as never]) }, { origin: "ai" });
+    expect(s.get().doc.groups.flatMap((g) => g.items).find((x) => x.id === "b")?.action?.effects?.[0]).toMatchObject(answer);
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    const broken = { do: "call", operationId: "pay", then: { to: "none", transition: "none", when: { var: "nope", op: "eq", value: 1 } } };
+    fails(() => s.run(ops.setAction, { id: "b", action: stay([broken as never]) }, { origin: "ai" }), /then: when: there is no variable "nope"/);
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    const elseGoes = { do: "call", operationId: "pay", catch: { to: "none", transition: "none", when: { expr: "status == 409" }, else: { to: "nowhere", transition: "none" } } };
+    fails(() => s.run(ops.setAction, { id: "b", action: stay([elseGoes as never]) }, { origin: "ai" }), /catch: else: there is no screen "nowhere"/);
   });
 
   it("send a call's fields in args, saying so when a body is written as an object", () => {
@@ -187,7 +194,7 @@ describe("the exports", () => {
     expect(screen).toMatch(/<Rating[^>]*value=\{vars\.score\}[^>]*onValueChange=\{\(value\) => setVar\("score", Number\(value\) \|\| 0\)\}/);
   }, 60_000);
 
-  it("never run a demo in the product, and report it, the event, the missing interface and the capability on every app", async () => {
+  it("never run a demo in the product, run the event, and report the demo, the missing interface and the capability on every app", async () => {
     const product = await buildProduct(demoDoc(), {}, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
     const web = Object.entries(product.files).filter(([p]) => p.startsWith("apps/web/src/generated/screens/") && p.endsWith(".tsx"));
     expect(web.length).toBeGreaterThan(0);
@@ -195,9 +202,9 @@ describe("the exports", () => {
     const counts = differenceCounts(product.differences);
     for (const app of ["web", "mobile", "miniapp"] as const) {
       const kinds = Object.fromEntries(counts.find((c) => c.app === app)?.kinds ?? []);
-      /* the phone and the mini-program run the event (lib/actions): only the web reports it */
-      expect(kinds, app).toMatchObject({ demo: 1, interface: 1, capability: 1, ...(app === "web" ? { event: 1 } : {}) });
-      if (app !== "web") expect(kinds.event, app).toBeUndefined();
+      /* every app runs the event with lib/actions: none reports it */
+      expect(kinds, app).toMatchObject({ demo: 1, interface: 1, capability: 1 });
+      expect(kinds.event, app).toBeUndefined();
       /* every app wires the stars to their variable: none has an input to report */
       expect(kinds.input, app).toBeUndefined();
     }
@@ -206,8 +213,10 @@ describe("the exports", () => {
     expect(screenOf("miniapp")).toMatch(/<Rating[^>]*value=\{s\.value<number>\([^)]*\)\}[^>]*onChange=\{s\.setter\(/);
     const warnings = JSON.parse(String(product.files["apps/web/src/generated/warnings.json"].body)) as { kind: string; detail: string }[];
     expect(warnings.find((w) => w.kind === "interface")?.detail).toContain('"payNow"');
-    expect(warnings.find((w) => w.kind === "event")?.detail).toContain('"submit"');
     /* the mobile printers wire it to the pad's own callback */
+    /* on the web the pad's event runs an action whose only call is to an operation the contract lacks (reported above):
+       it does nothing, so nothing is wired */
+    expect(screenOf("web")).not.toContain("onEvent");
     expect(screenOf("mobile")).toMatch(/<NumberPad[\s\S]*onSubmit=\{\(value: string\) => act\(A\d+, \{ scope: \$\.scope, part: "\w+", event: eventOf\(E\d+, \{ value \}\) \}\)\}/);
     expect(screenOf("miniapp")).toMatch(/<NumberPad[\s\S]*onSubmit=\{\(value: string\) => s\.run\(A\d+, \{ \$: \$, part: "\w+", event: eventOf\(E\d+, \{ value \}\) \}\)\}/);
   }, 120_000);
