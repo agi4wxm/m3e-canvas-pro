@@ -77,6 +77,8 @@ type ScreenBind = {
   dollar: boolean;
   /** it makes calls */
   call: boolean;
+  /** it invokes a platform capability (useInvoke) */
+  invoke?: boolean;
   /** it reads its params */
   params: boolean;
   react: Set<string>;
@@ -88,7 +90,7 @@ type ScreenBind = {
   scopes: Set<string>;
 };
 
-const RESERVED = new Set(["$", "scope", "params", "vars", "call", "api", "item", "index", "row", "response", "status", "error", "body", "init", "args", "query", "path", "page", "signal", "event", "value", "on", "go", "back", "navigate", "snackbar", "setVar", "signOut", "afterSignIn", "React", "Fragment"]);
+const RESERVED = new Set(["$", "scope", "params", "vars", "call", "invoke", "result", "api", "item", "index", "row", "response", "status", "error", "body", "init", "args", "query", "path", "page", "signal", "event", "value", "on", "go", "back", "navigate", "snackbar", "setVar", "signOut", "afterSignIn", "React", "Fragment"]);
 
 const pascal = (s: string) => s[0].toUpperCase() + s.slice(1);
 const constName = (s: string) => s.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toUpperCase();
@@ -376,6 +378,7 @@ export class BoundPrint {
   /** The statement of an effect that reaches the bindings, or undefined for an effect that is not one of them.
    *  `body` prints a then or catch body in the scope given. */
   effect(e: Effect, body: (b: NonNullable<Extract<Effect, { do: "call" }>["then"]>, scope: string) => string[]): string | null | undefined {
+    if (e.do === "invoke") return this.invoke(e, body);
     if (!isApiEffect(e)) return undefined;
     switch (e.do) {
       case "refresh":
@@ -419,6 +422,27 @@ export class BoundPrint {
       default:
         return undefined;
     }
+  }
+
+  /** An invoke of a platform capability through the runtime (lib/app `Runtime.invoke`): its arguments read at the tap,
+   *  `then` reading `result`, `catch` reading `error` (its `type`). */
+  private invoke(e: Extract<Effect, { do: "invoke" }>, body: (b: NonNullable<Extract<Effect, { do: "invoke" }>["then"]>, scope: string) => string[]): string {
+    const $ = this.use();
+    this.s.invoke = true;
+    this.s.runtime.add("useInvoke");
+    const args = Object.entries(e.args ?? {}).map(([k, x]) => `${propName(k)}: ${$}.ev(${str(x)})`);
+    const opts: string[] = [];
+    if (e.then) {
+      const r = this.fresh("done");
+      const lines = body(e.then, r);
+      opts.push(`then: (result) => { ${uses(lines, r) ? `const ${r} = ${$}.with({ result }); ` : ""}${lines.join("; ")} }`);
+    }
+    if (e.catch) {
+      const r = this.fresh("failure");
+      const lines = body(e.catch, r);
+      opts.push(`catch: (error) => { ${uses(lines, r) ? `const ${r} = ${$}.with({ error }); ` : ""}${lines.join("; ")} }`);
+    }
+    return `void invoke(${str(e.capability)}, { ${args.join(", ")} }${opts.length ? `, { ${opts.join(", ")} }` : ""})`;
   }
 
   /** a sign-in's then: back to where the app was sent from, if anywhere, else on as it says; its effects run either way */
@@ -533,6 +557,7 @@ export class BoundPrint {
       s.runtime.add("useRegion");
     }
     if (s.call) lines.push("const call = useCall()");
+    if (s.invoke) lines.push("const invoke = useInvoke()");
     lines.push(...forms);
     return { lines, app };
   }

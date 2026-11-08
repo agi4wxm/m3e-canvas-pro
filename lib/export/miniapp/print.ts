@@ -24,7 +24,7 @@ import {
   type Item,
   type ScreenParam,
 } from "../../tokens";
-import { partBySlug, reader } from "../../../parts/registry";
+import { partBySlug, reader, treeOf } from "../../../parts/registry";
 import type { PartDef, PropDef } from "../../../parts/types";
 import { fullWidth, roleOf } from "../../../parts/role";
 import { sanitizeSvg } from "../../../parts/svg";
@@ -118,6 +118,9 @@ export type MiniPrintOptions = {
   image?: (data: string) => string;
   /** false: no tab bar, a shared navigation bar is drawn on each screen as it stands (the kit's own app) */
   tabBar?: boolean;
+  /** the capability views drawn by the product's slots: where a screen imports them from, and each one's component by
+   *  item id (lib/export/appCapabilities.ts) */
+  slots?: { from: string; names: Record<string, string> };
 };
 
 /* ---------- code as data ---------- */
@@ -241,6 +244,7 @@ const EFFECT_KEYS: Record<string, string[]> = {
   setProp: ["part", "prop", "value"],
   snackbar: ["message"],
   call: ["operationId", "args", "body", "then", "catch", "optimistic"],
+  invoke: ["capability", "args", "then", "catch"],
   refresh: ["source"],
   loadMore: ["source"],
   submit: ["form"],
@@ -294,7 +298,7 @@ function effectsOf(doc: Doc): Effect[] {
   const body = (b: ActionBody | undefined, depth: number) => {
     for (const e of b?.effects ?? []) {
       out.push(e);
-      if (e.do === "call" && depth < 4) {
+      if ((e.do === "call" || e.do === "invoke") && depth < 4) {
         body(e.then, depth + 1);
         body(e.catch, depth + 1);
       }
@@ -331,6 +335,8 @@ const keyOfGroup = (g: Group) => g.items[0]?.id ?? g.id;
 
 class ScreenPrinter {
   kit = new Set<string>(["Screen", "useScreen"]);
+  /** the slots the screen draws its capability views with */
+  slots = new Set<string>();
   runtime = new Set<string>();
   react = new Set<string>();
   icons = new Set<string>();
@@ -571,6 +577,15 @@ class ScreenPrinter {
       this.warn("unknown", "a part no definition stands for", it.id);
       this.kit.add("Placeholder");
       return el("Placeholder", [["part", str(typeof it.component === "string" ? it.component.replace(/[^\w-]+/g, "").slice(0, 60) : "")]]);
+    }
+    /* a capability view is its slot (src/custom/slots), handed what the design's stand-in is and drawing it until written */
+    const slot = def.capability ? this.o.slots?.names[it.id] : undefined;
+    if (slot) {
+      this.slots.add(slot);
+      const size = this.size(it);
+      const given = Object.entries(treeOf(def, it.props).props ?? {}).filter(([k, v]) => /^[a-z][A-Za-z0-9]*$/.test(k) && k !== "className" && k !== "style" && k !== "width" && k !== "height" && (v === null || ["string", "number", "boolean", "object"].includes(typeof v)));
+      this.kit.add("Placeholder");
+      return el(slot, [...given.map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)]], [el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]])]);
     }
     if (isNative(def.slug)) {
       const name = NATIVE[def.slug];
@@ -1015,6 +1030,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
       ...(runtimeValues.length || runtimeTypes.length ? [`import { ${[...runtimeValues, ...runtimeTypes.sort().map((t) => `type ${t}`)].join(", ")} } from ${str(runtimeImport)};`] : []),
       `import { ${[...kitValues, ...kitTypes.sort().map((t) => `type ${t}`)].join(", ")} } from ${str(kitImport)};`,
       ...(p.usesCalls ? [`import { CALLS } from ${str(o.callsImport ?? "../calls")};`] : []),
+      ...(p.slots.size && o.slots ? [`import { ${[...p.slots].sort().join(", ")} } from ${str(o.slots.from)};`] : []),
       ...(usesBody ? ['import { TabBar } from "../tabBar";'] : []),
     ];
     const src = [

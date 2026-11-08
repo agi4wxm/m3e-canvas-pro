@@ -47,18 +47,21 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the icons reading their
+     before the product existed; one that changes on purpose is written again here (last: the platform capabilities,
+     docs/平台能力.md: the shop flow pays through createOrder and payment.pay and shows the order's status, so the proof's
+     checkout reads expressions; checkout-bar, video-call, map and camera take their state as props, the map and the
+     camera drawn by widgets of their own, parts/widgets/Platform.tsx. Before that: the icons reading their
      family from a root's provider and drawn again when it changes, components/m3e/icon.tsx and symbols.tsx, and the
      loader asking for each root's family; with it the widgets' host contract, parts/widgets/host.ts, copied beside
      them, and a rating an input wired to its variable; before them an icon counted as drawn only with both its glyphs, the components saying their own words in Chinese, Japanese and Korean too, the
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [78, "7fada9a30ec5cdd94ef8ff591abae2bf0f9b62575bd0629fe0f7197416281314"],
+    proof: [80, "1350c4a444bc2b142835f72ae853eed7731c8827fe0c4bd45bf5f85867053174"],
     systems: [40, "58807e81f5714322a5a6a60c6bd52007dd8f794c6d8e51804d642a637d315fef"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [84, "3b0ac95ebcbc15899e056cdd48566f3041df0b35a3c721f61e5ca45829df2630"],
-    parts: [137, "0a7cb7c8aedcda26c5de7e729720e280e961b110977918bb69222a8256890428"],
+    sweep: [85, "90e6c0bc79fb60ebd3440a7957399fac1fa720db8a3e35426375556ac83bd227"],
+    parts: [138, "d958c9d8c2fbbabe6a73977aa6db7c573316b0a1a9044b724db2a596547487d0"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
@@ -76,7 +79,8 @@ describe("the product of a document", () => {
   it("is a monorepo of workspaces, with the root's settings", () => {
     const root = JSON.parse(text(proof, "package.json"));
     expect(proof.name).toBe("proof-app");
-    expect(root.workspaces).toEqual(["packages/api", "packages/mocks", "packages/app-runtime", "apps/web", "server", "contract-tests", "apps/mobile", "apps/miniapp"]);
+    /* the proof's checkout pays (payment.pay, the shop flow's): its capabilities are a package of their own */
+    expect(root.workspaces).toEqual(["packages/api", "packages/mocks", "packages/app-runtime", "packages/capabilities", "apps/web", "server", "contract-tests", "apps/mobile", "apps/miniapp"]);
     expect(Object.keys(root.scripts)).toEqual(expect.arrayContaining(["dev", "build", "typecheck", "lint", "test"]));
     for (const ws of root.workspaces) expect(JSON.parse(text(proof, `${ws}/package.json`)).name).toMatch(/^@proof-app\//);
     for (const path of ["tsconfig.base.json", "eslint.config.js", ".prettierrc.json", ".prettierignore", ".gitignore", "README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "NOTICE", "scripts/dev.mjs", "apps/mobile/README.md", "apps/miniapp/README.md"]) expect(proof.files[path], path).toBeTruthy();
@@ -155,10 +159,13 @@ describe("the product of a document", () => {
       "apps/miniapp/project.config.json",
       "apps/miniapp/project.tt.json",
       "apps/miniapp/src/custom/Providers.tsx",
+      "apps/miniapp/src/custom/capabilities.ts",
       "apps/miniapp/src/custom/setup.ts",
       "apps/mobile/src/custom/Providers.tsx",
+      "apps/mobile/src/custom/capabilities.ts",
       "apps/mobile/src/custom/setup.ts",
       "apps/web/src/custom/Providers.tsx",
+      "apps/web/src/custom/capabilities.ts",
       "apps/web/src/custom/setup.ts",
       "server/src/custom/auth.ts",
       "server/src/custom/db.ts",
@@ -378,10 +385,12 @@ describe("the mobile app", () => {
     expect(proof.differences.filter((d) => d.app === "mobile").map(({ app: _app, ...d }) => d)).toEqual(listed);
     expect(proof.differences.filter((d) => d.app === "miniapp").map(({ app: _app, ...d }) => d)).toEqual(JSON.parse(text(proof, "apps/miniapp/src/generated/warnings.json")));
     const counts = differenceCounts(proof.differences);
-    expect(counts.map((c) => c.app)).toEqual(["mobile", "miniapp"]);
-    expect(counts[0]).toMatchObject({ total: listed.length, file: "apps/mobile/src/generated/warnings.json" });
-    expect(counts[0].kinds.reduce((n, [, k]) => n + k, 0)).toBe(listed.length);
-    expect(differenceLines(proof.differences)[0]).toMatch(/^mobile: \d+ drawn differently from the design \(\d+ \w+/);
+    /* the web app draws as the design says, but leans on what is not there yet: the payment's adapter */
+    expect(counts.map((c) => c.app)).toEqual(["web", "mobile", "miniapp"]);
+    expect(proof.differences.filter((d) => d.app === "web").map((d) => d.kind)).toEqual(expect.arrayContaining(["capability"]));
+    expect(counts[1]).toMatchObject({ total: listed.length, file: "apps/mobile/src/generated/warnings.json" });
+    expect(counts[1].kinds.reduce((n, [, k]) => n + k, 0)).toBe(listed.length);
+    expect(differenceLines(proof.differences)[1]).toMatch(/^mobile: \d+ drawn differently from the design \(\d+ \w+/);
     /* a product with nothing drawn differently says so with an empty list */
     expect(JSON.parse(text(shop, "apps/mobile/src/generated/warnings.json"))).toEqual(shop.differences.filter((d) => d.app === "mobile").map(({ app: _app, ...d }) => d));
   });

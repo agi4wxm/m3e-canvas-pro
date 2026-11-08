@@ -37,6 +37,8 @@ export const MOCK_ENGINE_FILES = [
   ...["table", "content", "deflate", "huffman", "zip", "raster", "codecs", "svg", "pdf", "media", "clips", "text", "office", "mesh", "index"].map((n) => `formats/${n}`),
 ].map((n) => `lib/mocks/${n}.ts`);
 export const MOCK_ENGINE_API_FILES = ["types", "schema", "transport"].map((n) => `lib/api/${n}.ts`);
+/** what the mock settings say of the capabilities (lib/mocks/types.ts reads the types only) */
+export const MOCK_ENGINE_CAPABILITY_FILES = ["lib/capabilities/types.ts"];
 
 const ROUTES = (scope: string) => `${GENERATED}
 import type { HttpMethod, TransportRequest, TransportResponse } from ${str(`${scope}/api`)}
@@ -392,7 +394,7 @@ export const mocksTarget: ProductTarget = {
     const kept = files.filter((f) => bytesOf(f) !== null);
     const fileNames = new Map(kept.map((f, i) => [f.id, `${safeSegment(f.id, `file-${i + 1}`)}.${extensionOf(f.type)}`]));
     const engine: Record<string, ReturnType<typeof generated>> = {};
-    for (const path of [...MOCK_ENGINE_FILES, ...MOCK_ENGINE_API_FILES]) engine[`src/engine/${path.slice(4)}`] = generated(await ctx.read(path));
+    for (const path of [...MOCK_ENGINE_FILES, ...MOCK_ENGINE_API_FILES, ...MOCK_ENGINE_CAPABILITY_FILES]) engine[`src/engine/${path.slice(4)}`] = generated(await ctx.read(path));
     const assets: Record<string, ReturnType<typeof generated>> = {};
     for (const f of kept) assets[`files/${fileNames.get(f.id)}`] = generated(bytesOf(f)!);
     const fixtures = Object.fromEntries((models ?? []).filter((m) => m.fixtures?.length).map((m) => [m.name, m.fixtures!]));

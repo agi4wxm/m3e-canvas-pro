@@ -6,26 +6,27 @@
  *   send part events yet (the preview does): the action is not printed. lib/actions, the single interpreter, will run
  *   them on every app.
  * - `interface`: what the screens call or load that the API contract does not have.
- * - `capability`: a part that stands in for a platform capability (maps, camera, calls, payment or third-party sign-in):
- *   it is drawn as a placeholder, and the capability's adapter is the product's own code to write.
+ * - `capability`: a platform capability the app leans on (lib/capabilities, docs/平台能力.md): a capability view (a map, a
+ *   camera, a call) drawn by its stand-in until the product's slot draws the real one, an invoke whose adapter is the
+ *   product's own to write (it answers `not-implemented` until then), one the catalog and the product do not declare,
+ *   and a sign-in or payment button whose tap invokes nothing.
  *
  * The printers report what they draw differently themselves; this is what holds for the design whatever the printer. */
 
 import { partBySlug } from "../../parts/registry";
+import { capabilityOf } from "../capabilities/catalog";
+import { invokesOfItem } from "../capabilities/doc";
 import { endpointOf } from "../bindings/contract";
 import { expandDoc } from "../expand";
 import { eventOfKey, familyOfKey, untakenDemos } from "../partContract";
 import { groupsInFrame, type ActionBody, type Doc, type Effect, type Item } from "../tokens";
 import type { DesignDifference } from "./types";
 
-/** The parts that stand in for a platform capability, and the capability. The capability catalog (report 2.3) is
- *  to replace this list with a declaration on the part. */
-export const PLATFORM_PARTS: Record<string, string> = {
-  map: "maps",
-  camera: "camera and scanning",
-  "video-call": "audio and video calls",
-  "voice-message": "audio playback",
-  "brand-button": "third-party sign-in or payment",
+/** the generic capabilities each app has a default adapter for (lib/export/appCapabilities.ts) */
+const DEFAULT_ADAPTERS: Record<DesignDifference["app"], Set<string>> = {
+  web: new Set(["link.open", "clipboard.write", "share.open", "file.pick", "location.current"]),
+  mobile: new Set(["link.open", "share.open", "file.pick"]),
+  miniapp: new Set(["clipboard.write", "link.open", "file.pick"]),
 };
 
 /** a part as a difference names it: its label, else its id, as letters and digits */
@@ -68,8 +69,15 @@ export function boundaryDifferences(given: Doc, app: DesignDifference["app"], wi
         operationsOf(a, missing);
         operationsOf(a?.else, missing);
       }
-      const platform = PLATFORM_PARTS[it.component ?? ""];
-      if (platform) add("capability", f.name, it, `stands in for a platform capability (${platform}): the app draws a placeholder, and the adapter is the product's own code to write`);
+      const view = partBySlug(it.component)?.capability;
+      if (view) add("capability", f.name, it, `a capability view (${view}): the app draws the design's stand-in until its slot (src/custom/slots) draws the real one`);
+      const invoked = new Set(invokesOfItem(it).map((e) => e.capability));
+      for (const name of invoked) {
+        const def = capabilityOf(doc.capabilities, name);
+        if (!def) add("capability", f.name, it, `invokes "${name}", which neither the capability catalog nor the product declares`);
+        else if (!def.silent && !DEFAULT_ADAPTERS[app].has(name)) add("capability", f.name, it, `invokes ${name}: it answers not-implemented until its adapter is written (src/custom/capabilities.ts)`);
+      }
+      if (it.component === "brand-button" && !invoked.has("auth.oauth") && !invoked.has("payment.pay")) add("capability", f.name, it, "a sign-in or payment button whose tap invokes neither auth.oauth nor payment.pay");
       /* the web prints what the mobile printers report for themselves */
       if (app !== "web") continue;
       const def = partBySlug(it.component);

@@ -27,7 +27,8 @@ export type Reader = { ev: (expr: string, scope: Scope) => unknown; fill: (templ
 export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string } | { expr: string };
 
 /** One step of a tap, as the design writes it (lib/tokens `Effect`): a part to show or hide by its key, a variable to
- *  set, a prop to set, a snackbar; and the API's (call, refresh, loadMore, submit, signOut), which the app runs. */
+ *  set, a prop to set, a snackbar; and the API's (call, refresh, loadMore, submit, signOut) and a platform capability's
+ *  (invoke), which the app runs. */
 export type Effect =
   | { do: "show" | "hide" | "toggle" | "open" | "close"; part: string }
   | { do: "setVar"; var: string; value: VarValue; expr?: string }
@@ -36,6 +37,7 @@ export type Effect =
   | { do: "setProp"; part: string; prop: string; value: VarValue }
   | { do: "snackbar"; message: string }
   | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: ActionBody; catch?: ActionBody; optimistic?: { source: string; remove?: boolean; patch?: Record<string, string> } }
+  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: ActionBody; catch?: ActionBody }
   | { do: "refresh"; source: string }
   | { do: "loadMore"; source: string }
   | { do: "submit"; form?: string }
