@@ -755,8 +755,12 @@ class ScreenPrinter {
       this.slots.add(slot);
       const size = this.size(it);
       const given = Object.entries(treeOf(def, it.props).props ?? {}).filter(([k, v]) => /^[a-z][A-Za-z0-9]*$/.test(k) && k !== "className" && k !== "style" && k !== "width" && k !== "height" && (v === null || ["string", "number", "boolean", "object"].includes(typeof v)));
-      this.kit.add("Placeholder");
-      return el(slot, [...given.map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)]], [el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]])]);
+      /* the stand-in is the kit's own drawing of the view where it has one (the camera's, the map's, the call's), its
+         props the part's as the kit takes them */
+      const standIn = isNative(def.slug) ? NATIVE[def.slug] : "Placeholder";
+      this.kit.add(standIn);
+      const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it), ...this.extras(it)]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
+      return el(slot, [...given.map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)]], [drawn]);
     }
     if (isNative(def.slug)) {
       const name = NATIVE[def.slug];
