@@ -980,6 +980,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         {/* hidden measuring layer for text-sized kinds */}
         <div
           aria-hidden
+          data-measure-layer=""
           style={{
             position: "fixed",
             left: -99999,
