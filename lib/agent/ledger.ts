@@ -4,8 +4,10 @@
  * would either leave earlier changes of the turn in place or take the author's edits away with it.
  *
  * The ledger listens to the store from the start of the turn. Changes the turn made itself (origin `ai`) form runs;
- * a change of the author's, or a step the author took, ends a run. The editor's own upkeep that follows a change (a
- * layout pass, origin `system`) belongs to the run before it. Each run of the turn is a patch over the document's
+ * anything else, or a step the author took, ends a run. Of the rest, what the author edited is told by the store: an
+ * edit takes an undo step, or follows the step taken for it; the editor's own upkeep (a layout pass after a measure,
+ * the canvas settling what it draws) takes none, whatever origin it carries, and counts as nobody's edit apart from
+ * the pieces the author was already editing. Each run of the turn is a patch over the document's
  * pieces: screens, groups of parts, definitions, collections, variables, styles, icons and the other fields, each by
  * id. Taking the turn back applies the patches in reverse:
  * - a piece the author did not touch after the turn changed it goes back to what it was;
@@ -134,6 +136,10 @@ type Plan = { doc: Rec; changed: Set<string>; reverted: Set<string>; kept: Kept[
 export class TurnLedger {
   private runs: Run[] = [];
   private cur: Run | null = null;
+  /** the author took a step and has not changed anything since: what comes next is their edit */
+  private checkpoint = false;
+  /** every piece the author changed while the turn ran */
+  private authorKeys = new Set<string>();
   private marks: number[] = [];
   private broken = false;
   private off: (() => void) | null;
@@ -181,28 +187,37 @@ export class TurnLedger {
       this.cur = null;
       return;
     }
-    const own = e.origin === "ai" && (e.kind === "edit" || e.kind === "history");
     if (e.kind === "history") {
-      /* a step of the author's ends a run of the turn's: what it keeps is the document as it stands */
-      if (!own && this.cur?.own) this.cur = null;
+      /* a step of the author's ends a run of the turn's (what it keeps is the document as it stands), and what comes
+         next is their edit, made in pieces (a drag, a field typed into) */
+      if (e.origin !== "ai") {
+        this.checkpoint = true;
+        if (this.cur?.own) this.cur = null;
+      }
       return;
     }
     if (e.state.doc === e.prev.doc && e.state.editing === e.prev.editing) return;
     const to = savedDoc(e.state) as unknown as Rec;
-    if (e.origin === "system" && e.kind === "edit") {
-      /* upkeep belongs to the change before it */
-      if (this.cur) this.grow(this.cur, to, i);
-      return;
-    }
-    if (own) {
-      if (this.cur?.own) this.grow(this.cur, to, i);
-      else this.runs.push((this.cur = { own: true, from: savedDoc(e.prev) as unknown as Rec, to, first: i, last: i, touched: new Set() }));
-      return;
-    }
     const from = savedDoc(e.prev) as unknown as Rec;
+    if (e.origin === "ai" && e.kind === "edit") {
+      this.checkpoint = false;
+      if (this.cur?.own) this.grow(this.cur, to, i);
+      else this.runs.push((this.cur = { own: true, from, to, first: i, last: i, touched: new Set() }));
+      return;
+    }
     if (!this.cur || this.cur.own) this.runs.push((this.cur = { own: false, from, to, first: i, last: i, touched: new Set() }));
     else this.grow(this.cur, to, i);
-    for (const key of diff(piecesOf(from), piecesOf(to)).keys()) this.cur.touched.add(key);
+    /* An edit of the author's takes a step, or follows the step they took for it. The editor's own upkeep (a layout
+       pass after a measure, the canvas settling what it draws) takes none, whatever origin it carries: it is nobody's
+       edit, apart from the pieces the author was already editing. */
+    const authored = e.origin !== "system" && (e.kind === "undo" || e.kind === "redo" || !!e.step || this.checkpoint);
+    this.checkpoint = false;
+    if (e.origin === "system" && !this.authorKeys.size) return;
+    for (const key of diff(piecesOf(from), piecesOf(to)).keys()) {
+      if (!authored && !this.authorKeys.has(key)) continue;
+      this.cur.touched.add(key);
+      this.authorKeys.add(key);
+    }
   }
 
   /** a run goes on: what was worked out of it so far is out of date */
@@ -452,8 +467,11 @@ export class TurnLedger {
       const run = this.runs[i];
       if (!run.own || run.last >= upTo) continue;
       this.patched(run);
+      /* what the author touched between the run and the step is taken back only where the step still holds the run's */
+      const between = new Set<string>();
+      for (const r of this.runs.slice(i + 1)) if (!r.own && r.first < upTo) for (const k of r.touched) between.add(k);
       for (const [key, c] of run.patch!) {
-        if (!plan.reverted.has(key) || !inScope(key) || !same(key, p.map.get(key), c.after)) continue;
+        if (!plan.reverted.has(key) || !inScope(key) || (between.has(key) && !same(key, p.map.get(key), c.after))) continue;
         if (c.before === undefined) p.map.delete(key);
         else p.map.set(key, c.before);
         changed.add(key);

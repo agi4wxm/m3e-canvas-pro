@@ -115,6 +115,37 @@ describe("stopping a turn the author edited in", () => {
     expect(s.get().doc.frames.map((f) => f.id)).toEqual(["home"]);
   });
 
+  it("counts the editor's own upkeep as nobody's edit, and a gesture after a step as the author's", async () => {
+    const move = (s: DocStore, id: string, dx: number) => s.update("Canvas", "user", (st) => ({ ...st, doc: { ...st.doc, groups: st.doc.groups.map((g) => (g.items.some((it) => it.id === id) ? { ...g, x: g.x + dx } : g)) } }));
+    /* the canvas settling what the turn added (no step taken: it is not the author's) */
+    const s = store();
+    const { adapter, signal } = interleaved(
+      s,
+      { calls: [call("c1", "add_part", { slug: "button", id: "theirs", screen: "home", at: { x: 16, y: 300 } })] },
+      () => move(s, "theirs", 4),
+      { calls: [call("c2", "add_screen", { id: "c", name: "C" })] },
+    );
+    const r = await runTurn({ store: s, adapter, history: [], request: "x", lang: "en", signal });
+    expect(r.revert).toMatchObject({ outcome: "full", authorEdited: false });
+    expect(has(s, "theirs")).toBe(false);
+    /* the author dragging it (a step taken first) is theirs: it stays */
+    const t = store();
+    const two = interleaved(
+      t,
+      { calls: [call("c1", "add_part", { slug: "button", id: "theirs", screen: "home", at: { x: 16, y: 300 } })] },
+      () => {
+        t.checkpoint("Move");
+        move(t, "theirs", 40);
+        move(t, "theirs", 40);
+      },
+      { calls: [call("c2", "add_screen", { id: "c", name: "C" })] },
+    );
+    const r2 = await runTurn({ store: t, adapter: two.adapter, history: [], request: "x", lang: "en", signal: two.signal });
+    expect(r2.revert).toMatchObject({ outcome: "partial", authorEdited: true });
+    expect(has(t, "theirs")).toBe(true);
+    expect(t.get().doc.frames.map((f) => f.id)).toEqual(["home"]);
+  });
+
   it("does not hand the stopped work to the next request", async () => {
     const s = store();
     const history = [{ role: "user" as const, content: "earlier" }];

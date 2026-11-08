@@ -159,14 +159,8 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   }
   /* the turn's own signal: the author's stop, or one of its limits (the deadline, the bytes its tools hand back) */
   const ac = new AbortController();
-  const stopped = () => ac.abort(o.signal?.reason);
-  if (o.signal?.aborted) ac.abort(o.signal.reason);
-  else o.signal?.addEventListener("abort", stopped, { once: true });
-  const deadline = setTimeout(() => ac.abort(budget.deadline()), budget.limits.deadlineMs);
   const signal = ac.signal;
   const adapter = budget.adapter(o.adapter);
-  /* what the turn changes, apart from what the author changes meanwhile */
-  const ledger = new TurnLedger(store);
   let step: { label: string; depth: number } | undefined;
   const onTop = () => {
     if (!step) return false;
@@ -254,6 +248,12 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
     return r.out;
   };
 
+  const stopped = () => ac.abort(o.signal?.reason);
+  if (o.signal?.aborted) ac.abort(o.signal.reason);
+  else o.signal?.addEventListener("abort", stopped, { once: true });
+  const deadline = setTimeout(() => ac.abort(budget.deadline()), budget.limits.deadlineMs);
+  /* what the turn changes, apart from what the author changes meanwhile */
+  const ledger = new TurnLedger(store);
   try {
     for (;;) {
       const offset = stepsUsed;
@@ -315,6 +315,9 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
       emit({ type: "review", screens, images: shots });
       messages = [...messages, { role: "user", content: [{ type: "text", text: REVIEW }, ...shots.map((dataUrl, i): UserPart => ({ type: "image", dataUrl, detail: "auto", name: `the review picture of ${screens[i]}` }))] }];
     }
+  } catch (e) {
+    ledger.close();
+    throw e;
   } finally {
     clearTimeout(deadline);
     o.signal?.removeEventListener("abort", stopped);
