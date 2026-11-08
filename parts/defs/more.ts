@@ -1,5 +1,7 @@
 import { h, ic, listSlots } from "../node";
 import type { Labels, ListItem, P, PartDef, PartSlot, PropDef, TableData } from "../types";
+import { FIELD, fieldFrame, fieldValues } from "../fieldState";
+import { ariaLabelProp } from "../a11y";
 
 /* Parts common kinds of app and game ask for that the rest of the catalog could not say: pictures looked
  * at and cropped, places and seats chosen, reviews, voice and calls, funnels and schedules; a game's bars,
@@ -182,7 +184,8 @@ export const more: PartDef[] = [
   /* ---------- choosing ---------- */
   {
     slug: "region-picker",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "RegionPicker", radius: 12 },
     name: "Region picker",
     labels: { ja: "地域選択", zh: "地区选择", ko: "지역 선택" },
     category: "Pickers",
@@ -211,11 +214,12 @@ export const more: PartDef[] = [
       WIDTH(380, 240),
     ],
     slots: (p) => slot("confirm", p.s("action"), !!p.s("action")),
-    tree: (p) => h("RegionPicker", { label: p.s("label"), placeholder: p.s("placeholder"), rows: p.table("data").rows, action: p.s("action"), height: px(p, "height"), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("RegionPicker", { label: p.s("label"), placeholder: p.s("placeholder"), rows: p.table("data").rows, action: p.s("action"), height: px(p, "height"), width: px(p) })),
   },
   {
     slug: "seat-map",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "SeatMap", radius: 12 },
     name: "Seat map",
     labels: { ja: "座席表", zh: "选座", ko: "좌석 배치도" },
     category: "Pickers",
@@ -234,9 +238,10 @@ export const more: PartDef[] = [
       text("pickedText", "With nothing chosen", "Choose your seats", "请选择座位"),
       text("action", "Action", "Confirm seats", "确认选座"),
       WIDTH(380, 240),
+      ariaLabelProp(),
     ],
     slots: (p) => slot("confirm", p.s("action"), !!p.s("action")),
-    tree: (p) => h("SeatMap", { rows: Math.round(p.n("rows")), columns: Math.round(p.n("columns")), aisle: Math.round(p.n("aisle")), taken: p.s("taken"), price: p.n("price"), currency: p.s("currency"), most: Math.round(p.n("most")), screen: p.s("screen"), pickedText: p.s("pickedText"), action: p.s("action"), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("SeatMap", { rows: Math.round(p.n("rows")), columns: Math.round(p.n("columns")), aisle: Math.round(p.n("aisle")), taken: p.s("taken"), price: p.n("price"), currency: p.s("currency"), most: Math.round(p.n("most")), screen: p.s("screen"), pickedText: p.s("pickedText"), action: p.s("action"), width: px(p) })),
   },
   /* ---------- reading ---------- */
   {

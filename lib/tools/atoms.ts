@@ -6,6 +6,7 @@
 import { defaultValues, partBySlug } from "../../parts/registry";
 import { choiceValueOf } from "../../parts/labels";
 import type { PartDef, PropDef } from "../../parts/types";
+import { FIELD_STATES } from "../../parts/fieldState";
 import { actionSlotsOf, makeItem, type Item } from "../tokens";
 
 /** the parts the reference covers, in the order a screen is usually built from them */
@@ -48,7 +49,9 @@ function range(min: number | undefined, max: number | undefined): string {
  *  lists with how many rows (a value outside is refused, which costs a round trip), then its tap places. */
 export function partLine(def: PartDef): string {
   const values = defaultValues(def);
-  const props = def.props.filter((d) => !SKIP.has(d.key));
+  /* its field states in one word each, under their own names (parts/fieldState.ts): every input has the same ones */
+  const states = FIELD_STATES.filter((s) => def.field?.[s] === s);
+  const props = def.props.filter((d) => !SKIP.has(d.key) && d.key !== "ariaLabel" && !(states as string[]).includes(d.key));
   const of = (kind: PropDef["kind"]) => props.filter((d) => d.kind === kind).map((d) => d.key);
   const enums = props.filter((d): d is Extract<PropDef, { kind: "enum" }> => d.kind === "enum").map((d) => `${d.key} ${choices(d, values[d.key])}`);
   const lists = props
@@ -66,6 +69,8 @@ export function partLine(def: PartDef): string {
     ...enums,
     numbers.length ? `numbers: ${numbers.join(", ")}` : "",
     of("bool").length ? `true/false: ${of("bool").join(", ")}` : "",
+    states.length === FIELD_STATES.length ? "field states" : states.length ? `states: ${states.join("/")}` : "",
+    def.props.some((d) => d.key === "ariaLabel") ? "ariaLabel" : "",
   ].filter(Boolean);
   const taps = tapsOf(def);
   return `- ${def.slug}: ${bits.join("; ")}${taps ? `. Tap places: ${taps}` : ""}`;
@@ -77,6 +82,7 @@ export function atomsReference(slugs: readonly string[] = REFERENCE_PARTS): stri
   return [
     "## The parts used most: every prop with the values it takes (enum choices with the default first, number ranges, rows a list takes) and the tap places",
     "These lines hold what describe_part would say about these parts' props: build with them straight away, without describing them first; describe_part is for other parts and kits. A part with no tap places takes one tap on the whole part (set_action without slot); with places, set_action {slot} or set_item {actions: {place: …}}. Sizes are dp.",
+    "field states: the true/false disabled, readOnly, required, loading, error and the words errorText (a form sets error, errorText and required itself). ariaLabel: the name a screen reader says where the part shows no words.",
     ...lines,
   ].join("\n");
 }

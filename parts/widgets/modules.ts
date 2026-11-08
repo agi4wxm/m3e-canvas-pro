@@ -3,6 +3,7 @@
 
 export const WIDGET_MODULES: Record<string, () => Promise<Record<string, unknown>>> = {
   Rating: () => import("./Rating"),
+  FieldFrame: () => import("./FieldFrame"),
   ColorField: () => import("./ColorField"),
   ClipboardRow: () => import("./ClipboardRow"),
   Joystick: () => import("./Joystick"),

@@ -49,11 +49,18 @@ export type PropDef = {
   /** rows the author adds and removes; `icons` gives each row an icon as well, `images` a
    *  picture, `fields` one more choice per row */
   | { kind: "list"; default: ListItem[]; min?: number; max?: number; icons?: boolean; images?: boolean; fields?: ListField[] }
-  /** rows of cells under named columns: the data a table or a chart shows */
-  | { kind: "table"; default: TableData }
+  /** rows of cells under named columns: the data a table or a chart shows. `columns` is the structure the part reads
+   *  its cells by (parts/tables.ts), one for each of the default's columns. */
+  | { kind: "table"; default: TableData; columns?: TableColumn[]; /** the author lays out its columns' structure (a table of data) */ structure?: boolean }
 );
 
-export type TableData = { columns: string[]; rows: string[][] };
+/** A table's column (parts/tables.ts): the key data names it by, the kind of value it holds and how that is written
+ *  (`format`: a number's decimals, a currency's code), its width in px and where its words stand. Its header's words are
+ *  the table's own `columns`. */
+export type TableColumn = { key: string; label?: string; type?: "text" | "number" | "currency" | "percent" | "date" | "bool"; width?: number; align?: "start" | "center" | "end"; format?: string };
+
+/** a table: the headers of its columns, its rows of cells, and, where the author laid it out, its columns' structure */
+export type TableData = { columns: string[]; rows: string[][]; spec?: TableColumn[] };
 
 /** the prop values of one part, read by key with the part's own defaults filled in */
 export type P = {
@@ -145,6 +152,9 @@ export type PartDef = {
   events?: PartEvent[];
   /** what the visitor enters into it, when it is an input */
   input?: PartInput;
+  /** The field states it shows (parts/fieldState.ts): disabled, read-only, required, loading, in error and its
+   *  message, each by the prop that holds it. The registry adds the props for those it does not write itself. */
+  field?: Partial<Record<"disabled" | "readOnly" | "required" | "loading" | "error" | "errorText", string>>;
   /** the domain behaviour it acts out in a prototype, and what takes it over */
   demo?: PartDemo;
   /** it floats over a screen when opened: an open or close effect acts on it */

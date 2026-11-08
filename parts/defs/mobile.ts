@@ -1,5 +1,6 @@
 import { h, ic } from "../node";
 import type { PartDef } from "../types";
+import { FIELD, fieldFrame, fieldValues } from "../fieldState";
 
 /* What iOS screens have and Material does not, after greycode/m3e-canvas (MIT). Drawn on M3E's roles
  * like everything else: this says what the part is on a screen, it does not imitate Apple's look,
@@ -110,7 +111,8 @@ export const mobile: PartDef[] = [
   },
   {
     slug: "wheel-picker",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "div", radius: 12 },
     name: "Wheel picker",
     labels: { ja: "ホイールピッカー", zh: "滚轮选择器", ko: "휠 선택기" },
     category: "Pickers",
@@ -126,11 +128,14 @@ export const mobile: PartDef[] = [
     selectKey: "selected",
     tree: (p) => {
       const selected = Math.round(p.n("selected"));
-      return h(
-        "div",
-        { "data-slot": "wheel-picker", className: "flex flex-col gap-1", style: { width: Math.round(p.n("width")) } },
-        p.s("label") && h("div", { className: "text-label-large text-on-surface-variant" }, p.s("label")),
-        h("div", { className: "flex flex-col" }, ...p.list("items").map((it, i) => { const d = Math.abs(i - selected); return h("div", { className: `text-body-large rounded-md py-1 text-center ${d === 0 ? "bg-surface-container-high text-on-surface" : "text-on-surface-variant"}`, style: { opacity: Math.max(0.25, 1 - d * 0.3) } }, it.label); })),
+      return fieldFrame(
+        fieldValues(p),
+        h(
+          "div",
+          { "data-slot": "wheel-picker", className: "flex flex-col gap-1", style: { width: Math.round(p.n("width")) } },
+          p.s("label") && h("div", { className: "text-label-large text-on-surface-variant" }, p.s("label")),
+          h("div", { className: "flex flex-col" }, ...p.list("items").map((it, i) => { const d = Math.abs(i - selected); return h("div", { className: `text-body-large rounded-md py-1 text-center ${d === 0 ? "bg-surface-container-high text-on-surface" : "text-on-surface-variant"}`, style: { opacity: Math.max(0.25, 1 - d * 0.3) } }, it.label); })),
+        ),
       );
     },
   },

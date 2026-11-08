@@ -1,5 +1,7 @@
 import { h, ic } from "../node";
 import type { ListItem, P, PartDef, TableData } from "../types";
+import { FIELD, fieldFrame, fieldValues } from "../fieldState";
+import { ariaLabelProp } from "../a11y";
 
 /* The game parts, after 17722797729/m3e-canvas game-ui (MIT): a definition below and a widget in
  * parts/widgets for each. */
@@ -204,8 +206,9 @@ export const game: PartDef[] = [
   },
   {
     slug: "quantity-stepper",
+    field: FIELD,
     input: { prop: "value", kind: "number" },
-    appearance: { radius: 999 },
+    appearance: { target: "QuantityStepper", radius: 999 },
     name: "Quantity stepper",
     labels: { ja: "数量ステッパー", zh: "数量加减器", ko: "수량 스테퍼" },
     category: "Forms",
@@ -217,7 +220,8 @@ export const game: PartDef[] = [
       { key: "min", label: "Minimum", labels: { ja: "最小値", zh: "最小值", ko: "최솟값" }, kind: "number", default: 0, min: 0, max: 999, step: 1 },
       { key: "max", label: "Maximum", labels: { ja: "最大値", zh: "最大值", ko: "최댓값" }, kind: "number", default: 99, min: 0, max: 999, step: 1 },
       { key: "width", label: "Width", kind: "number", default: 200, min: 120, max: 400, step: 4, unit: "px" },
+      ariaLabelProp(),
     ],
-    tree: (p) => h("QuantityStepper", { value: Math.round(p.n("value")), min: Math.round(p.n("min")), max: Math.round(p.n("max")), width: Math.round(p.n("width")) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("QuantityStepper", { value: Math.round(p.n("value")), min: Math.round(p.n("min")), max: Math.round(p.n("max")), width: Math.round(p.n("width")) })),
   },
 ];

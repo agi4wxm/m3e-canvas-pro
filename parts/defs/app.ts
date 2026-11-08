@@ -1,5 +1,7 @@
 import { h, ic, listSlots } from "../node";
 import type { Labels, ListItem, P, PartDef, PartSlot, PropDef, TableData } from "../types";
+import { FIELD, fieldFrame, fieldValues } from "../fieldState";
+import { ariaLabelProp } from "../a11y";
 
 /* The parts whole kinds of app are built from and nothing else here could say: a shop's cards and
  * cart, a chat's conversations, a back office's table and board, a bank's balance, the forms and pads
@@ -788,11 +790,12 @@ export const app: PartDef[] = [
   },
   {
     slug: "transfer-list",
+    field: FIELD,
     name: "Transfer list",
     labels: { ja: "トランスファーリスト", zh: "穿梭框", ko: "전송 목록" },
     category: "Pickers",
     icon: "swap_horiz",
-    appearance: { radius: 20 },
+    appearance: { target: "TransferList", radius: 20 },
     w: 380,
     h: 220,
     props: [
@@ -802,8 +805,9 @@ export const app: PartDef[] = [
       text("to", "Right title", "Granted", "已选"),
       WIDTH(380, 280, 960),
       HEIGHT(220, 120, 800),
+      ariaLabelProp(),
     ],
-    tree: (p) => h("TransferList", { items: words(p.list("items")), chosen: p.s("chosen").split(",").map((x) => Number(x) - 1).filter((n) => Number.isInteger(n) && n >= 0), from: p.s("from"), to: p.s("to"), width: px(p), height: px(p, "height") }),
+    tree: (p) => fieldFrame(fieldValues(p), h("TransferList", { items: words(p.list("items")), chosen: p.s("chosen").split(",").map((x) => Number(x) - 1).filter((n) => Number.isInteger(n) && n >= 0), from: p.s("from"), to: p.s("to"), width: px(p), height: px(p, "height") })),
   },
 
   /* ---------- getting in and getting around ---------- */
@@ -867,46 +871,49 @@ export const app: PartDef[] = [
   },
   {
     slug: "number-pad",
+    field: FIELD,
     name: "Number pad",
     labels: { ja: "数字パッド", zh: "数字键盘", ko: "숫자 패드" },
     category: "Forms",
     icon: "dialpad",
-    appearance: { radius: 20 },
+    appearance: { target: "NumberPad", radius: 20 },
     w: 320,
     h: 440,
-    props: [pick("mode", "Mode", "amount", ["amount", "pin", "phone"]), text("prefix", "Prefix", "$", "¥"), num("length", "Digits", 6, 1, 20), text("action", "Action", "Confirm", "确认"), text("done", "When pressed", "Sent", "已发送"), text("value", "Entered", ""), flag("sent", "Sent", false), WIDTH(320, 200, 480)],
+    props: [pick("mode", "Mode", "amount", ["amount", "pin", "phone"]), text("prefix", "Prefix", "$", "¥"), num("length", "Digits", 6, 1, 20), text("action", "Action", "Confirm", "确认"), text("done", "When pressed", "Sent", "已发送"), text("value", "Entered", ""), flag("sent", "Sent", false), WIDTH(320, 200, 480), ariaLabelProp()],
     slots: (p) => slot("confirm", p.s("action") || "Confirm", !!p.s("action")),
     /* what is typed is a draft: it starts at `value`, starts over when `value` changes, and confirming hands it out */
     input: { prop: "value", kind: "text" },
     events: [{ name: "submit", label: "Confirm with the value", labels: { ja: "値を添えて確定", zh: "带着输入的值确认", ko: "값과 함께 확인" }, payload: { value: "text" } }],
     /* whether it went through is the other side's to say: only a prototype says "sent" by itself */
     demo: { what: "says it was sent as soon as it is confirmed", takenOverBy: ["sent"] },
-    tree: (p) => h("NumberPad", { mode: p.s("mode"), prefix: p.s("prefix"), length: px(p, "length"), action: p.s("action"), done: p.s("done"), value: p.s("value") || undefined, sent: p.b("sent") || undefined, width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("NumberPad", { mode: p.s("mode"), prefix: p.s("prefix"), length: px(p, "length"), action: p.s("action"), done: p.s("done"), value: p.s("value") || undefined, sent: p.b("sent") || undefined, width: px(p) })),
   },
   {
     slug: "signature-pad",
+    field: FIELD,
     name: "Signature pad",
     labels: { ja: "署名パッド", zh: "签名板", ko: "서명 패드" },
     category: "Forms",
     icon: "draw",
-    appearance: { radius: 20 },
+    appearance: { target: "SignaturePad", radius: 20 },
     w: 360,
     h: 260,
-    props: [text("hint", "Hint", "Sign here", "请在此签名"), text("clear", "Clear button text", "Clear", "清除"), text("action", "Action", "Done", "完成"), text("done", "When pressed", "Signed", "已签名"), HEIGHT(180, 80, 480), WIDTH(360, 200, 800)],
+    props: [text("hint", "Hint", "Sign here", "请在此签名"), text("clear", "Clear button text", "Clear", "清除"), text("action", "Action", "Done", "完成"), text("done", "When pressed", "Signed", "已签名"), HEIGHT(180, 80, 480), WIDTH(360, 200, 800), ariaLabelProp()],
     slots: (p) => slot("done", p.s("action") || "Done", !!p.s("action")),
-    tree: (p) => h("SignaturePad", { hint: p.s("hint"), clear: p.s("clear"), action: p.s("action"), done: p.s("done"), height: px(p, "height"), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("SignaturePad", { hint: p.s("hint"), clear: p.s("clear"), action: p.s("action"), done: p.s("done"), height: px(p, "height"), width: px(p) })),
   },
   {
     slug: "rich-text-editor",
+    field: FIELD,
     name: "Rich text editor",
     labels: { ja: "リッチテキストエディタ", zh: "富文本编辑器", ko: "서식 있는 텍스트 편집기" },
     category: "Forms",
     icon: "format_bold",
-    appearance: { radius: 20 },
+    appearance: { target: "RichTextEditor", radius: 20 },
     w: 380,
     h: 300,
     props: [text("text", "Text", "Select some of this text and try the buttons above.", "选中这段文字，试试上面的按钮。", true), text("placeholder", "Placeholder", "Write something", "写点什么"), flag("counter", "Character count", true), HEIGHT(200, 80, 800), WIDTH(380, 280, 1280)],
-    tree: (p) => h("RichTextEditor", { text: p.s("text"), placeholder: p.s("placeholder"), counter: p.b("counter"), height: px(p, "height"), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("RichTextEditor", { text: p.s("text"), placeholder: p.s("placeholder"), counter: p.b("counter"), height: px(p, "height"), width: px(p) })),
   },
   {
     slug: "icon-grid",

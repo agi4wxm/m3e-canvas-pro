@@ -26,6 +26,7 @@ import { applyAppearance, type Appearance } from "./appearance";
 import { h, mapNodes, type PNode } from "./node";
 import { COMMON_TEXT, choiceValueOf, defaultTextOf, listTextOf } from "./labels";
 import { getLang, type Lang } from "../lib/i18n";
+import { fieldProps } from "./fieldState";
 
 /* ---------- what a part is for, and what it is made of ----------
  * Parts come in two tiers. An atom cannot be split any further: a box, a line of text, an icon, a
@@ -142,8 +143,11 @@ export const TIER_TEXT: Record<PartTier, Required<Labels>> = {
 
 export const categoryName = (c: PartCategory, lang: Lang) => CATEGORY_TEXT[c][lang];
 
-/* the composites that split are handed their trees of atoms here, where the two meet */
-export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((d) => {
+/* the composites that split are handed their trees of atoms here, where the two meet; an input is handed the props of
+   the field states it declares and does not write itself (parts/fieldState.ts) */
+export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((given) => {
+  const states = fieldProps(given);
+  const d = states.length ? { ...given, props: [...given.props, ...states] } : given;
   const split = SPLITS[d.slug] as (typeof SPLITS)[string] | undefined;
   /* the look a split is handed is the document's KitLook, which PartDef cannot name */
   return split && !d.atoms ? { ...d, atoms: (p: P, look?: object) => split(p, look as KitLook | undefined) } : d;
@@ -190,7 +194,9 @@ function read(def: PropDef, values: PropValues | undefined): unknown {
         const lang = getLang();
         return { columns: def.default.columns.map((c) => listTextOf(c, lang)), rows: def.default.rows.map((r) => r.map((c) => listTextOf(c, lang))) };
       }
-      return { columns: t.columns.map(String), rows: t.rows.filter(Array.isArray).map((r) => r.map(String)) };
+      /* the author's column structure, where it is one: records with a key each */
+      const spec = Array.isArray(t.spec) && t.spec.every((c) => !!c && typeof c === "object" && typeof (c as { key?: unknown }).key === "string") ? { spec: t.spec } : {};
+      return { columns: t.columns.map(String), rows: t.rows.filter(Array.isArray).map((r) => r.map(String)), ...spec };
     }
   }
 }

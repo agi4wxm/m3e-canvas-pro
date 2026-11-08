@@ -4,6 +4,7 @@ import { Pressable, Text as RNText, TextInput, View } from "react-native";
 
 import type { PartBase } from "../atoms/basics";
 import { Button, Checkbox, RadioMark } from "../atoms/controls";
+import { starred, withField, type FieldProps } from "../field";
 import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
 import { withAlpha } from "../look";
@@ -28,7 +29,7 @@ export type RadioGroupProps = PartBase & {
   disabled?: boolean;
   /** told of the option chosen; given, `selected` says which is chosen (a form's field holds it) */
   onSelect?: (index: number, label: string) => void;
-};
+} & FieldProps;
 
 export function RadioGroup(props: RadioGroupProps) {
   const p = withDefaults<RadioGroupProps>("radio-group", props);
@@ -40,14 +41,15 @@ export function RadioGroup(props: RadioGroupProps) {
     setOwn(i);
     p.onSelect?.(i, items[i]?.label ?? "");
   };
-  return (
-    <View testID={p.testID} accessibilityRole="radiogroup" style={{ flexDirection: p.layout === "row" ? "row" : "column", gap: p.layout === "row" ? 16 : 12, alignSelf: "flex-start" }}>
+  return withField(
+    p,
+    <View testID={p.testID} accessibilityRole="radiogroup" accessibilityLabel={p.ariaLabel} style={{ flexDirection: p.layout === "row" ? "row" : "column", gap: p.layout === "row" ? 16 : 12, alignSelf: "flex-start" }}>
       {items.map((it, i) => (
         <Pressable
           key={i}
           accessibilityRole="radio"
           accessibilityState={{ checked: i === chosen, disabled: !!p.disabled }}
-          disabled={p.disabled}
+          disabled={p.disabled || p.readOnly}
           onPress={() => {
             setChosen(i);
             tapOf(p, `tab:${i}`)?.();
@@ -58,11 +60,11 @@ export function RadioGroup(props: RadioGroupProps) {
           <RNText style={{ ...typeStyle(kit, "body-large"), color: c(kit, p.error ? "error" : "on-surface") }}>{it.label}</RNText>
         </Pressable>
       ))}
-    </View>
+    </View>,
   );
 }
 
-export type InputGroupProps = PartBase & { placeholder?: string; leadingIcon?: string; leadingText?: string; trailingText?: string; button?: string; error?: boolean; disabled?: boolean; width?: number };
+export type InputGroupProps = PartBase & FieldProps & { placeholder?: string; leadingIcon?: string; leadingText?: string; trailingText?: string; button?: string; error?: boolean; disabled?: boolean; width?: number };
 
 export function InputGroup(props: InputGroupProps) {
   const p = withDefaults<InputGroupProps>("input-group", props);
@@ -71,14 +73,15 @@ export function InputGroup(props: InputGroupProps) {
   const [text, setText] = useState("");
   const { box } = fieldStyle(kit, "outlined");
   const muted = c(kit, "on-surface-variant");
-  return (
+  return withField(
+    p,
     <View testID={p.testID} style={[{ width: Math.round(p.width ?? 320), height: 56, flexDirection: "row", alignItems: "center", columnGap: 8, paddingHorizontal: 12, opacity: p.disabled ? 0.38 : 1, ...box, ...(p.error ? { borderColor: c(kit, "error") } : null) }, fill]}>
       {p.leadingIcon ? <Glyph name={p.leadingIcon} size={20} color={muted} /> : null}
       {p.leadingText ? <RNText style={{ ...typeStyle(kit, "body-large"), color: muted }}>{p.leadingText}</RNText> : null}
-      <TextInput accessibilityLabel={p.placeholder} editable={!p.disabled} value={text} onChangeText={setText} placeholder={p.placeholder} placeholderTextColor={muted} style={{ flex: 1, minWidth: 0, ...typeStyle(kit, "body-large"), color: c(kit, "on-surface"), paddingVertical: 0 }} />
+      <TextInput accessibilityLabel={p.ariaLabel || p.placeholder} editable={!p.disabled && !p.readOnly} value={text} onChangeText={setText} placeholder={p.placeholder} placeholderTextColor={muted} style={{ flex: 1, minWidth: 0, ...typeStyle(kit, "body-large"), color: c(kit, "on-surface"), paddingVertical: 0 }} />
       {p.trailingText ? <RNText style={{ ...typeStyle(kit, "body-large"), color: muted }}>{p.trailingText}</RNText> : null}
-      {p.button ? <Button label={p.button} size="xs" variant="tonal" onPress={tapOf(p, "button")} /> : null}
-    </View>
+      {p.button ? <Button label={p.button} size="xs" variant="tonal" disabled={p.disabled || p.readOnly} onPress={tapOf(p, "button")} /> : null}
+    </View>,
   );
 }
 
@@ -162,7 +165,8 @@ export type FileUploadProps = PartBase & {
   /** the names of the files chosen, shown in place of the hint */
   chosen?: string;
   error?: boolean;
-};
+  disabled?: boolean;
+} & FieldProps;
 
 /** where files are dropped: a dashed panel with a button that picks them (the app wires the picker it uses) */
 export function FileUpload(props: FileUploadProps) {
@@ -170,13 +174,15 @@ export function FileUpload(props: FileUploadProps) {
   const kit = useKit();
   const fill = useFill();
   const hint = p.chosen || p.hint;
-  return (
-    <Surface base={{ width: Math.round(p.width ?? 360), padding: 24, rowGap: 8, alignItems: "center", borderRadius: corner(kit, "lg"), borderWidth: 2, borderStyle: "dashed", borderColor: c(kit, p.error ? "error" : "outline-variant"), backgroundColor: c(kit, "surface-container-low") }} style={fill} appearance={p} testID={p.testID}>
+  const held = !!p.disabled || !!p.readOnly;
+  return withField(
+    p,
+    <Surface base={{ width: Math.round(p.width ?? 360), padding: 24, rowGap: 8, alignItems: "center", borderRadius: corner(kit, "lg"), borderWidth: 2, borderStyle: "dashed", borderColor: c(kit, p.error ? "error" : "outline-variant"), backgroundColor: c(kit, "surface-container-low"), opacity: p.disabled ? 0.38 : 1 }} style={fill} appearance={p} testID={p.testID}>
       <Glyph name={p.chosen ? "task" : "upload_file"} size={32} color={c(kit, "primary")} />
-      <RNText style={{ ...typeStyle(kit, "title-medium"), color: c(kit, "on-surface") }}>{p.title}</RNText>
+      <RNText style={{ ...typeStyle(kit, "title-medium"), color: c(kit, "on-surface") }}>{starred(p.title, p.required)}</RNText>
       {hint ? <RNText style={{ ...typeStyle(kit, "body-small"), color: c(kit, p.chosen ? "on-surface" : "on-surface-variant") }}>{hint}</RNText> : null}
-      {p.action ? <Button label={p.action} variant="tonal" size="sm" onPress={tapOf(p, "action") ?? p.onPress} /> : null}
-    </Surface>
+      {p.action ? <Button label={p.action} variant="tonal" size="sm" disabled={held} onPress={held ? undefined : (tapOf(p, "action") ?? p.onPress)} /> : null}
+    </Surface>,
   );
 }
 

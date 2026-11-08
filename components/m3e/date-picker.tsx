@@ -540,6 +540,10 @@ export type DatePickerProps = {
   placeholder?: string
   locale?: string
   disabled?: boolean
+  /** in error as the form it is in says: its field is drawn in the error color */
+  invalid?: boolean
+  /** a date must be given: its field says so */
+  required?: boolean
   /** dates that can not be picked */
   disabledDates?: Matcher | Matcher[]
   className?: string
@@ -556,6 +560,8 @@ function DatePicker({
   label = say("Date"),
   placeholder = "mm/dd/yyyy",
   disabled,
+  invalid,
+  required,
   disabledDates,
   className,
 }: DatePickerProps) {
@@ -590,8 +596,9 @@ function DatePicker({
           placeholder={placeholder}
           inputMode="numeric"
           disabled={disabled}
+          required={required}
           value={text}
-          error={text !== "" && !parseDateInput(text)}
+          error={!!invalid || (text !== "" && !parseDateInput(text))}
           errorText="Invalid date format."
           onChange={(e) => {
             const next = e.target.value

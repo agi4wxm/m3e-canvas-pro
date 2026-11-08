@@ -3,6 +3,7 @@ import { BLEND_MODES } from "@/lib/look";
 import { Frame, Item, PHONE_W, Palette, frameSizeOf, uniformRadii, type BlendMode, type FlowSizing } from "@/lib/tokens";
 import { t, useLang, type UIKey } from "@/lib/i18n";
 import { partBySlug } from "@/parts/registry";
+import { isStateProp } from "@/parts/fieldState";
 import { axisValue, axisWrite, resizeOf, type PartAxis } from "@/parts/resize";
 import type { PartDef } from "@/parts/types";
 import { childLayoutOf, type Flow } from "@/lib/flow";
@@ -228,8 +229,10 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
   const loose = childLayoutOf(item).absolute;
   const placed = inFlow && !loose;
   const axes = resizeOf(def, item.props);
-  /* W and H stand in the layout section, a pin in the position one: the properties leave them out */
-  const shownElsewhere = (d: { key: string; kind: string; screen?: boolean }) => !!d.screen || (d.kind === "number" && (d.key === axes?.width?.key || d.key === axes?.height?.key));
+  /* W and H stand in the layout section, a pin in the position one, the field states in their own: the properties
+     leave them out */
+  const isState = (d: { key: string }) => isStateProp(def, d.key);
+  const shownElsewhere = (d: { key: string; kind: string; screen?: boolean }) => !!d.screen || isState(d) || (d.kind === "number" && (d.key === axes?.width?.key || d.key === axes?.height?.key));
   const hasProps = def.props.some((d) => !shownElsewhere(d));
   const fx = frame?.x ?? 0;
   const fy = frame?.y ?? 0;
@@ -251,6 +254,12 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
       {hasProps && (
         <DesignSection id="props" title={t("dzProperties", lang)} p={p}>
           <ComponentProps item={item} palette={p} onChange={onChange} frame={frame} layoutApart inFlow={inFlow} skip={shownElsewhere} />
+        </DesignSection>
+      )}
+      {def.field && (
+        <DesignSection id="field-state" title={t("dzFieldState", lang)} p={p}>
+          <ComponentProps item={item} palette={p} onChange={onChange} frame={frame} layoutApart inFlow={inFlow} only={isState} />
+          <div style={{ fontSize: 12, lineHeight: "16px", color: p.onSurfaceVariant, padding: "8px 4px 0" }}>{t("dzFieldStateNote", lang)}</div>
         </DesignSection>
       )}
 

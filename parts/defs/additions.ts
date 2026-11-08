@@ -1,6 +1,8 @@
 import { FLOW_PROPS } from "../flow";
 import { h, ic, listSlots } from "../node";
 import type { ListItem, P, PartDef, TableData } from "../types";
+import { BUTTON_FIELD, FIELD, fieldFrame, fieldValues } from "../fieldState";
+import { ariaLabelProp, iconMeaning, nameFor } from "../a11y";
 
 /* The parts that complete the set: what the source libraries have that nothing else here covered
  * (docs/组件盘点.md says which source each answers). Each is drawn on shadcn M3E components and
@@ -145,6 +147,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "icon-button",
+    field: BUTTON_FIELD,
     appearance: { radius: 20 },
     name: "Icon button",
     labels: { ja: "アイコンボタン", zh: "图标按钮", ko: "아이콘 버튼" },
@@ -160,7 +163,16 @@ export const additions: PartDef[] = [
       { key: "disabled", label: "Disabled", labels: { zh: "禁用" }, kind: "bool", default: false },
       { key: "iconFill", label: "Filled icon", labels: { ja: "塗りのアイコン", zh: "实心图标", ko: "채운 아이콘" }, kind: "bool", default: false },
     ],
-    tree: (p) => h("Button", { variant: p.s("variant"), size: ICON_BUTTON_SIZES[p.s("size")], "aria-label": p.s("label"), disabled: p.b("disabled") || undefined }, p.s("icon") ? ic(p.s("icon"), p.b("iconFill") ? { fill: true } : undefined) : null),
+    /* its name is its `label`; left empty, what its icon means */
+    tree: (p) => {
+      const loading = p.b("loading");
+      return h(
+        "Button",
+        { variant: p.s("variant"), size: ICON_BUTTON_SIZES[p.s("size")], "aria-label": p.s("label") || iconMeaning(p, p.s("icon")) || undefined, disabled: p.b("disabled") || undefined, loading: loading || undefined },
+        /* loading, the button's own spinner takes the icon's place */
+        p.s("icon") ? ic(p.s("icon"), { ...(p.b("iconFill") ? { fill: true } : {}), ...(loading ? { className: "hidden" } : {}) }) : null,
+      );
+    },
     guess: (p) => {
       const side = ICON_BUTTON_DP[p.s("size")] ?? 40;
       return { w: side, h: side };
@@ -224,7 +236,8 @@ export const additions: PartDef[] = [
   /* ---------- picking and entering ---------- */
   {
     slug: "tag-input",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "TagInput", radius: 12 },
     name: "Tag input",
     labels: { ja: "タグ入力", zh: "标签输入", ko: "태그 입력" },
     category: "Forms",
@@ -235,12 +248,14 @@ export const additions: PartDef[] = [
       { key: "items", label: "Tags", labels: { ja: "タグ", zh: "标签", ko: "태그" }, kind: "list", default: [{ label: "Design" }, { label: "Prototype" }], max: 20 },
       { key: "placeholder", label: "Placeholder", labels: { ja: "プレースホルダー", zh: "占位文字", ko: "자리표시자" }, kind: "text", default: "Add a tag", defaults: { zh: "添加标签" } },
       WIDTH(320, 160),
+      ariaLabelProp(),
     ],
-    tree: (p) => h("TagInput", { items: words(p.list("items")), placeholder: p.s("placeholder"), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("TagInput", { items: words(p.list("items")), placeholder: p.s("placeholder"), width: px(p) })),
   },
   {
     slug: "phone-input",
-    appearance: { radius: 4 },
+    field: FIELD,
+    appearance: { target: "InputGroup", radius: 4 },
     name: "Phone number",
     labels: { ja: "電話番号", zh: "手机号输入", ko: "전화번호" },
     category: "Forms",
@@ -251,12 +266,26 @@ export const additions: PartDef[] = [
       { key: "code", label: "Country code", labels: { ja: "国番号", zh: "国家区号", ko: "국가 코드" }, kind: "text", default: "+86" },
       { key: "placeholder", label: "Placeholder", labels: { ja: "プレースホルダー", zh: "占位文字", ko: "자리표시자" }, kind: "text", default: "Phone number", defaults: { zh: "手机号" } },
       WIDTH(320, 160, 640),
+      ariaLabelProp(),
     ],
-    tree: (p) => h("InputGroup", { "data-slot": "phone-input", style: { width: px(p) } }, h("InputGroupAddon", null, h("InputGroupText", null, p.s("code"))), h("InputGroupInput", { type: "tel", placeholder: p.s("placeholder") || undefined })),
+    tree: (p) => {
+      const v = fieldValues(p);
+      return fieldFrame(
+        v,
+        h(
+          "InputGroup",
+          { "data-slot": "phone-input", style: { width: px(p) } },
+          h("InputGroupAddon", null, h("InputGroupText", null, p.s("code"))),
+          h("InputGroupInput", { type: "tel", placeholder: p.s("placeholder") || undefined, "aria-label": nameFor(p) || undefined, "aria-invalid": v.invalid || undefined, required: v.required || undefined, readOnly: v.readOnly || undefined, disabled: v.disabled || undefined }),
+        ),
+        { holds: true },
+      );
+    },
   },
   {
     slug: "file-upload",
-    appearance: { radius: 16 },
+    field: FIELD,
+    appearance: { target: "FileUpload", radius: 16 },
     name: "File upload",
     labels: { ja: "ファイルアップロード", zh: "文件上传", ko: "파일 업로드" },
     category: "Forms",
@@ -271,11 +300,12 @@ export const additions: PartDef[] = [
       { key: "accept", label: "File types", labels: { ja: "ファイル形式", zh: "文件类型", ko: "파일 형식" }, kind: "text", default: "" },
       WIDTH(360, 200, 800),
     ],
-    tree: (p) => h("FileUpload", { title: p.s("title"), hint: p.s("hint"), action: p.s("action"), multiple: p.b("multiple"), accept: p.s("accept"), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("FileUpload", { title: p.s("title"), hint: p.s("hint"), action: p.s("action"), multiple: p.b("multiple"), accept: p.s("accept"), width: px(p) })),
   },
   {
     slug: "item-picker",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "ItemPicker", radius: 12 },
     name: "Item picker",
     labels: { ja: "アイテムピッカー", zh: "图标选择", ko: "항목 선택" },
     category: "Pickers",
@@ -287,13 +317,15 @@ export const additions: PartDef[] = [
       { key: "columns", label: "Columns", labels: { ja: "列", zh: "列数", ko: "열" }, kind: "number", default: 4, min: 1, max: 8, step: 1 },
       { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中项", ko: "선택" }, kind: "number", default: 0, min: 0, max: 23, step: 1 },
       WIDTH(320, 120, 800),
+      ariaLabelProp(),
     ],
     selectKey: "selected",
-    tree: (p) => h("ItemPicker", { items: p.list("items").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}) })), columns: Math.round(p.n("columns")), selected: Math.round(p.n("selected")), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("ItemPicker", { items: p.list("items").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}) })), columns: Math.round(p.n("columns")), selected: Math.round(p.n("selected")), width: px(p) })),
   },
   {
     slug: "multi-select",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "MultiSelect", radius: 12 },
     name: "Multiple choice",
     labels: { ja: "複数選択", zh: "多选", ko: "다중 선택" },
     category: "Pickers",
@@ -304,12 +336,14 @@ export const additions: PartDef[] = [
       { key: "items", label: "Options", labels: { zh: "选项" }, kind: "list", default: [{ label: "Email" }, { label: "Push" }, { label: "SMS" }], min: 1, max: 24 },
       { key: "selected", label: "Selected rows (1,3)", labels: { ja: "選択中の行（1,3）", zh: "选中第几项（如 1,3）", ko: "선택한 행 (1,3)" }, kind: "text", default: "1" },
       WIDTH(320, 120, 800),
+      ariaLabelProp(),
     ],
-    tree: (p) => h("MultiSelect", { items: words(p.list("items")), selected: p.s("selected").split(",").map((x) => Number(x) - 1).filter((n) => Number.isInteger(n) && n >= 0), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("MultiSelect", { items: words(p.list("items")), selected: p.s("selected").split(",").map((x) => Number(x) - 1).filter((n) => Number.isInteger(n) && n >= 0), width: px(p) })),
   },
   {
     slug: "color-palette",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "ColorPalette", radius: 12 },
     name: "Color palette",
     labels: { ja: "カラーパレット", zh: "调色板", ko: "색상 팔레트" },
     category: "Pickers",
@@ -320,12 +354,14 @@ export const additions: PartDef[] = [
       { key: "colors", label: "Colors (comma separated)", labels: { ja: "色（カンマ区切り）", zh: "颜色（逗号分隔）", ko: "색상 (쉼표로 구분)" }, kind: "text", default: "#6750A4,#625B71,#7D5260,#B3261E,#386A20,#006A6A" },
       { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中项", ko: "선택" }, kind: "number", default: 0, min: 0, max: 63, step: 1 },
       WIDTH(320, 120, 800),
+      ariaLabelProp(),
     ],
-    tree: (p) => h("ColorPalette", { colors: p.s("colors").split(",").map((x) => x.trim()), selected: Math.round(p.n("selected")), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("ColorPalette", { colors: p.s("colors").split(",").map((x) => x.trim()), selected: Math.round(p.n("selected")), width: px(p) })),
   },
   {
     slug: "number-picker",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "NumberPicker", radius: 12 },
     name: "Number picker",
     labels: { ja: "数値ピッカー", zh: "数字选择器", ko: "숫자 선택기" },
     category: "Pickers",
@@ -339,8 +375,9 @@ export const additions: PartDef[] = [
       { key: "step", label: "Step", labels: { ja: "刻み", zh: "步长", ko: "단계" }, kind: "number", default: 1, min: 1, max: 1000, step: 1 },
       { key: "unit", label: "Unit", labels: { ja: "単位", zh: "单位", ko: "단위" }, kind: "text", default: "" },
       WIDTH(96, 56, 240),
+      ariaLabelProp(),
     ],
-    tree: (p) => h("NumberPicker", { value: Math.round(p.n("value")), min: Math.round(p.n("min")), max: Math.round(p.n("max")), step: Math.round(p.n("step")), unit: p.s("unit"), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("NumberPicker", { value: Math.round(p.n("value")), min: Math.round(p.n("min")), max: Math.round(p.n("max")), step: Math.round(p.n("step")), unit: p.s("unit"), width: px(p) })),
   },
 
   /* ---------- getting around ---------- */

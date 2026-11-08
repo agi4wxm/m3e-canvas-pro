@@ -3,6 +3,7 @@
 
 const FILES: Record<string, string[]> = {
   Rating: ["Rating"],
+  FieldFrame: ["FieldFrame"],
   ColorField: ["ColorField"],
   ClipboardRow: ["ClipboardRow"],
   Joystick: ["Joystick"],

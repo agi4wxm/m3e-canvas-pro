@@ -1,5 +1,6 @@
 import { h, ic, listSlots, type PNode } from "../node";
 import type { P, PartDef } from "../types";
+import { iconMeaning } from "../a11y";
 
 const DESTINATIONS = [
   { label: "Home", icon: "home" },
@@ -94,13 +95,14 @@ export const navigation: PartDef[] = [
     ],
     tree: (p) => {
       const slot = (name: string, aria: string, key: string) => (name ? h("Button", { variant: "text", size: "icon", "aria-label": aria, "data-tap": key }, ic(name)) : undefined);
-      const one = slot(p.s("trailing"), p.say("More"), "icon2");
-      const two = slot(p.s("trailing2"), "Action", "icon3");
+      /* each icon is named by what it means ("Search", "More"), whatever icon it is */
+      const one = slot(p.s("trailing"), iconMeaning(p, p.s("trailing")), "icon2");
+      const two = slot(p.s("trailing2"), iconMeaning(p, p.s("trailing2")), "icon3");
       return h("AppBar", {
         size: p.s("size"),
         title: p.s("title"),
         subtitle: p.s("subtitle") || undefined,
-        leading: slot(p.s("leading"), p.say("Navigate"), "icon"),
+        leading: slot(p.s("leading"), iconMeaning(p, p.s("leading")), "icon"),
         /* two actions ride as a small row inside the bar's trailing spot */
         trailing: one && two ? h("span", { className: "flex items-center" }, one, two) : (one ?? two),
         centered: p.b("centered") || undefined,

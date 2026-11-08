@@ -12,6 +12,7 @@ import { fieldStyle, panelStyle } from "../recipes";
 import { Surface } from "../Surface";
 import { controlRadius, corner, recipeOf, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
 import { tapOf } from "./bars";
+import { starred, withField, type FieldProps } from "../field";
 
 /* Fields and pickers: a text field with its label, a select, a date picker and a time picker (the platform's own pickers
  * on a phone, a calendar the kit draws on the web, where there is none), segmented buttons, a group of buttons and a
@@ -44,9 +45,10 @@ export type TextFieldProps = PartBase & {
   error?: boolean;
   multiline?: boolean;
   width?: number;
+  disabled?: boolean;
   /** told of what is typed; given, `value` is what the field shows (a form's field holds it) */
   onChangeText?: (text: string) => void;
-};
+} & FieldProps;
 
 /** Material's text field: its label inside until there is something typed, then above the words; the style's own field
  *  where it has one (the label then stays inside the box, as the web's recipes do) */
@@ -66,8 +68,11 @@ export function TextField(props: TextFieldProps) {
   const up = focused || !!text;
   const tint = p.error ? c(kit, "error") : focused ? c(kit, "primary") : c(kit, "on-surface-variant");
   const outlinedLabel = p.variant !== "filled" && !own && up;
-  return (
-    <View testID={p.testID} style={[{ width: Math.round(p.width ?? 280), rowGap: 4 }, fill]}>
+  /* the message of its error stands where its supporting words were */
+  const supporting = p.error && p.errorText ? p.errorText : p.supporting;
+  return withField(
+    { loading: p.loading },
+    <View testID={p.testID} style={[{ width: Math.round(p.width ?? 280), rowGap: 4, opacity: p.disabled ? 0.38 : 1 }, fill]}>
       <View style={{ minHeight: p.multiline ? 96 : 56, flexDirection: "row", alignItems: p.multiline ? "flex-start" : "center", paddingHorizontal: 16, columnGap: 12, ...box, ...(focused ? focus : null), ...(p.error ? { borderColor: c(kit, "error"), borderBottomColor: c(kit, "error") } : null) }}>
         {p.leadingIcon ? <Glyph name={p.leadingIcon} size={24} color={c(kit, "on-surface-variant")} /> : null}
         <View style={{ flex: 1, justifyContent: "center", paddingTop: up && !outlinedLabel ? 16 : 0 }}>
@@ -82,15 +87,15 @@ export function TextField(props: TextFieldProps) {
                     : { position: "absolute", ...typeStyle(kit, "body-large"), color: c(kit, "on-surface-variant") }
               }
             >
-              {p.label}
+              {starred(p.label, p.required)}
             </RNText>
           ) : null}
-          <TextInput accessibilityLabel={p.label} value={text} onChangeText={setText} multiline={p.multiline} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={{ ...typeStyle(kit, "body-large"), color: c(kit, "on-surface"), paddingVertical: 0, minHeight: 24 }} />
+          <TextInput accessibilityLabel={p.label || p.ariaLabel} value={text} onChangeText={setText} editable={!p.disabled && !p.readOnly} multiline={p.multiline} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={{ ...typeStyle(kit, "body-large"), color: c(kit, "on-surface"), paddingVertical: 0, minHeight: 24 }} />
         </View>
         {p.trailingIcon || p.error ? <Glyph name={p.error ? "error" : p.trailingIcon!} size={24} color={p.error ? c(kit, "error") : c(kit, "on-surface-variant")} /> : null}
       </View>
-      {p.supporting ? <RNText style={{ ...typeStyle(kit, "body-small"), color: p.error ? c(kit, "error") : c(kit, "on-surface-variant"), paddingHorizontal: 16 }}>{p.supporting}</RNText> : null}
-    </View>
+      {supporting ? <RNText accessibilityRole={p.error && p.errorText ? "alert" : undefined} style={{ ...typeStyle(kit, "body-small"), color: p.error ? c(kit, "error") : c(kit, "on-surface-variant"), paddingHorizontal: 16 }}>{supporting}</RNText> : null}
+    </View>,
   );
 }
 
@@ -109,7 +114,7 @@ export type SelectProps = PartBase & {
   /** told of the option chosen; given, `selected` says which is chosen (a form's field holds it) */
   onSelect?: (index: number, label: string) => void;
   error?: boolean;
-};
+} & FieldProps;
 
 export function Select(props: SelectProps) {
   const p = withDefaults<SelectProps>("select", props);
@@ -126,19 +131,21 @@ export function Select(props: SelectProps) {
   /* Material's outlined field carries its label in a notch of its outline, as the web's select does; a style's own
      field (and the filled one) has it above */
   const notched = !!p.label && p.variant !== "filled" && recipeOf(kit, "field") === "m3" && recipeOf(kit, "input") === "m3" && !kit.theme.extras?.fieldFill;
-  return (
+  const supporting = p.error && p.errorText ? p.errorText : p.supporting;
+  return withField(
+    { loading: p.loading },
     <View testID={p.testID} style={[{ width: Math.round(p.width ?? 224), rowGap: 4 }, fill]}>
-      {p.label && !notched ? <RNText style={{ ...typeStyle(kit, "body-small"), color: c(kit, "on-surface-variant") }}>{p.label}</RNText> : null}
-      <Pressable accessibilityRole="combobox" accessibilityLabel={p.label || p.placeholder} disabled={p.disabled} onPress={() => setOpen(true)} style={{ height: p.size === "sm" ? 40 : 56, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, columnGap: 8, opacity: p.disabled ? 0.38 : 1, ...box }}>
+      {p.label && !notched ? <RNText style={{ ...typeStyle(kit, "body-small"), color: c(kit, "on-surface-variant") }}>{starred(p.label, p.required)}</RNText> : null}
+      <Pressable accessibilityRole="combobox" accessibilityLabel={p.label || p.ariaLabel || p.placeholder} disabled={p.disabled || p.readOnly} onPress={() => setOpen(true)} style={{ height: p.size === "sm" ? 40 : 56, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, columnGap: 8, opacity: p.disabled ? 0.38 : 1, ...box }}>
         {notched ? (
           <RNText pointerEvents="none" style={{ position: "absolute", top: -8, left: 12, paddingHorizontal: 4, backgroundColor: c(kit, "surface"), ...typeStyle(kit, "body-small"), color: p.error ? c(kit, "error") : c(kit, "on-surface-variant") }}>
-            {p.label}
+            {starred(p.label, p.required)}
           </RNText>
         ) : null}
         <RNText numberOfLines={1} style={{ flex: 1, ...typeStyle(kit, "body-large"), color: value ? c(kit, "on-surface") : c(kit, "on-surface-variant") }}>{value ?? p.placeholder}</RNText>
         <Glyph name={ios ? "unfold_more" : "arrow_drop_down"} size={24} color={c(kit, "on-surface-variant")} />
       </Pressable>
-      {p.supporting ? <RNText style={{ ...typeStyle(kit, "body-small"), color: c(kit, "on-surface-variant"), paddingHorizontal: 16 }}>{p.supporting}</RNText> : null}
+      {supporting ? <RNText accessibilityRole={p.error && p.errorText ? "alert" : undefined} style={{ ...typeStyle(kit, "body-small"), color: c(kit, p.error && p.errorText ? "error" : "on-surface-variant"), paddingHorizontal: 16 }}>{supporting}</RNText> : null}
       <Popup open={open} onClose={() => setOpen(false)}>
         {items.map((it, i) => (
           <MenuRow
@@ -155,7 +162,7 @@ export function Select(props: SelectProps) {
           />
         ))}
       </Popup>
-    </View>
+    </View>,
   );
 }
 
@@ -174,7 +181,7 @@ export type DatePickerProps = PartBase & {
   value?: string;
   onChange?: (day: string) => void;
   error?: boolean;
-};
+} & FieldProps;
 
 /** a field that opens the platform's date picker */
 export function DatePicker(props: DatePickerProps) {
@@ -190,18 +197,19 @@ export function DatePicker(props: DatePickerProps) {
   const { box: field } = fieldStyle(kit, "outlined");
   const box = p.error ? { ...field, borderColor: c(kit, "error") } : field;
   const shown = date ? `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}` : undefined;
-  return (
+  return withField(
+    p,
     <View testID={p.testID} style={[{ width: Math.round(p.width ?? 256) }, fill]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={p.label} disabled={p.disabled} onPress={picker.show} style={{ height: 56, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, columnGap: 8, opacity: p.disabled ? 0.38 : 1, ...box }}>
-        <RNText numberOfLines={1} style={{ flex: 1, ...typeStyle(kit, "body-large"), color: shown ? c(kit, "on-surface") : c(kit, "on-surface-variant") }}>{shown ?? (p.label || p.placeholder)}</RNText>
+      <Pressable accessibilityRole="button" accessibilityLabel={starred(p.label, p.required) || p.ariaLabel} disabled={p.disabled || p.readOnly} onPress={picker.show} style={{ height: 56, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, columnGap: 8, opacity: p.disabled ? 0.38 : 1, ...box }}>
+        <RNText numberOfLines={1} style={{ flex: 1, ...typeStyle(kit, "body-large"), color: shown ? c(kit, "on-surface") : c(kit, "on-surface-variant") }}>{shown ?? (starred(p.label, p.required) || p.placeholder)}</RNText>
         <Glyph name="calendar_today" size={24} color={recipeOf(kit, "picker") === "ios" ? c(kit, "primary") : c(kit, "on-surface-variant")} />
       </Pressable>
       {picker.sheet}
-    </View>
+    </View>,
   );
 }
 
-export type TimePickerProps = PartBase & { title?: string; hours?: number; minutes?: number; hour24?: boolean; mode?: "dial" | "input"; width?: number };
+export type TimePickerProps = PartBase & FieldProps & { title?: string; hours?: number; minutes?: number; hour24?: boolean; mode?: "dial" | "input"; width?: number; disabled?: boolean; error?: boolean };
 
 /** The time picker drawn open, as the design shows it: Material's dial, or the style's wheels (iOS, WeChat). A tap on
  *  the time opens the platform's own picker. */

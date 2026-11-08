@@ -9,8 +9,8 @@ import { atomsReference, REFERENCE_PARTS } from "./atoms";
 
 beforeAll(() => setGlobalLang("en"));
 
-/** what the reference may weigh: about 1.2k tokens at ~4 bytes a token */
-const MAX_BYTES = 5500;
+/** what the reference may weigh: about 1.4k tokens at ~4 bytes a token (the field states and accessible names, said once) */
+const MAX_BYTES = 5800;
 
 describe("the parts reference", () => {
   it("covers parts that exist, one line each", () => {
