@@ -68,7 +68,6 @@ export const NATIVE = {
   "file-upload": "FileUpload",
   scene: "Scene",
   sidebar: "Sidebar",
-  "auth-form": "AuthForm",
 } as const;
 
 export type NativeSlug = keyof typeof NATIVE;

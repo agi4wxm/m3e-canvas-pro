@@ -35,7 +35,7 @@ import { expandDoc } from "../../expand";
 import { getLang } from "../../i18n";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "../../flow";
 import { cleanLook } from "../../look";
-import { kitLookOf } from "../../kits";
+import { kitLookOf, splitTaps } from "../../kits";
 import { kindsIn, styleContext, styleDifferences, withDocStyles, type StyleScreen } from "../../styles";
 import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
@@ -45,7 +45,7 @@ import { endpointOf } from "../../bindings/contract";
 import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
 import { NATIVE, INPUT_PROPS, isNative, kitPropName } from "../../../miniapp-kit/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../miniapp-kit/src/kit/parts.generated";
-import { SET_ONLY, plainTree, propValues, type PlainNode } from "../rn/data";
+import { SET_ONLY, plainTree, propValues, type AtomTaps, type PlainNode } from "../rn/data";
 import { iconNamesOf } from "../rn/print";
 
 /* The Taro code of a document: one screen component per screen, built from the mini-program kit (miniapp-kit/src/kit),
@@ -412,8 +412,9 @@ class ScreenPrinter {
     return `s.tap(${this.constant("A", cleanAction(a, this.names), "Action")}, ${this.env(at)})`;
   }
 
-  /** what an item carries beside its props: its look and its taps */
-  extras(it: Item, at: At, slots = true, close?: string): [string, string][] {
+  /** What an item carries beside its props: its look and its taps. A part drawn as atoms takes no taps of places:
+   *  `slots` is then the places whose taps went to the atoms that show them, and any other is lost and said so. */
+  extras(it: Item, at: At, slots: boolean | ReadonlySet<string> = true, close?: string): [string, string][] {
     const out: [string, string][] = [];
     if (it.fill && COLOR_TOKENS.some((t) => t.key === it.fill)) out.push(["fill", str(it.fill)]);
     if (it.textColor) out.push(["textColor", str(it.textColor)]);
@@ -427,8 +428,9 @@ class ScreenPrinter {
     if (tap) out.push(["onPress", tap]);
     /* an event or a family of places is not printed yet: lib/export/boundary.ts reports it */
     const wired = Object.entries(it.actions ?? {}).filter(([k, a]) => !!a && isPlaceKey(k));
-    if (wired.length && !slots) this.warn("slot", "a tap on a place inside a part drawn as atoms is not kept", it.id);
-    const taps = slots ? wired.map(([slot, a]) => [slot, this.tap(a, it.id, at)] as const).filter((x): x is readonly [string, string] => !!x[1]) : [];
+    const lost = slots === true ? [] : wired.filter(([k]) => !(slots instanceof Set && slots.has(k)));
+    if (lost.length) this.warn("slot", "a tap on a place inside a part drawn as atoms is not kept", it.id);
+    const taps = slots === true ? wired.map(([slot, a]) => [slot, this.tap(a, it.id, at)] as const).filter((x): x is readonly [string, string] => !!x[1]) : [];
     /* a part open over the screen closes once one of its places is tapped */
     const closing = close ? taps.map(([slot, f]) => [slot, `() => (${f}(), s.close(${str(close)}))`] as const) : taps;
     const all = close && !closing.some(([slot]) => slot === "dismiss") ? [...closing, ["dismiss", `() => s.close(${str(close)})`] as const] : closing;
@@ -539,8 +541,9 @@ class ScreenPrinter {
     return { skip: key, props: [[prop, `s.value<${typed}>(${id}, ${start}${def.slug === "file-upload" ? " as PickedFile | undefined" : ""})`], ["onChange", `s.setter(${id})`]] };
   }
 
-  /** a tree of atoms (a split) as elements, the root wearing the item's look and taps */
-  tree(n: PlainNode, at: At, root?: Item, dir = "column", stretch = false): J {
+  /** A tree of atoms (a split) as elements, the root wearing the item's look and taps. `taps` walks the tree it was
+   *  drawn from beside it, so each tap of a place lands on the atom the split gives it (lib/kits.ts `splitTaps`). */
+  tree(n: PlainNode, at: At, root?: Item, dir = "column", stretch = false, taps?: AtomTaps): J {
     const name = (NATIVE as Record<string, string>)[n.slug];
     if (!name) {
       this.kit.add("Placeholder");
@@ -553,9 +556,12 @@ class ScreenPrinter {
     if (n.textColor) props.push(["textColor", str(n.textColor)]);
     if (n.corners) props.push(["corners", expr(n.corners)]);
     if (n.look) props.push(["look", expr(cleanLook(n.look))]);
-    if (root) props.push(...this.extras(root, at, false), ["testID", str(this.names.part(root.id))]);
+    if (root) props.push(...this.extras(root, at, taps?.placed ?? false), ["testID", str(this.names.part(root.id))]);
+    const placed = taps && taps.actions.get(taps.node);
+    const tap = placed && this.tap(placed, taps.owner, at);
+    if (tap) props.push(["onPress", tap]);
     const own = (n.props.layout as string | undefined) ?? (n.slug === "box" ? "column" : "free");
-    const kids = (n.kids ?? []).map((k) => this.tree(k, at, undefined, own, n.props.align === "stretch"));
+    const kids = (n.kids ?? []).map((k, i) => this.tree(k, at, undefined, own, n.props.align === "stretch", taps && taps.node.kids?.[i] ? { ...taps, node: taps.node.kids[i] } : undefined));
     const self = el(name, props, kids);
     const across = dir !== "row" && stretch;
     const tall = dir === "row" && stretch;
@@ -590,8 +596,10 @@ class ScreenPrinter {
     if (def.atoms && !kids.length) {
       this.warn("atoms", `drawn as the atoms it splits into (${def.slug})`, it.id);
       const styles = styleContext(this.doc.styles);
-      const tree = def.atoms(reader(def, it.props), kitLookOf(normalizeTheme(this.doc.theme, styles), styles)) as Node;
-      return this.tree(plainTree(tree, getLang()), at, it);
+      const p = reader(def, it.props);
+      const tree = def.atoms(p, kitLookOf(normalizeTheme(this.doc.theme, styles), styles)) as Node;
+      const taps = splitTaps(def, p, tree, it);
+      return this.tree(plainTree(tree, getLang()), at, it, "column", false, { node: tree, actions: taps.actions, placed: taps.placed, owner: it.id });
     }
     this.kit.add("Placeholder");
     this.warn(kids.length ? "holder" : "placeholder", `${def.slug} has no component in the mini-program kit`, it.id);
