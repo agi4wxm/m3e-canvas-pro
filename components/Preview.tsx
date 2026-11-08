@@ -1042,6 +1042,29 @@ export function Preview({
     void engine.enter(f, scopeNow(f, overlayParams)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlay?.id, overlayKey, engine, answering, mockSession]);
+  /* What a source is asked with can change while its screen is up: its params read a variable a search field writes,
+     another source's answer, the session. Read as the screen's scope has them now, they are the key it loads by, as in
+     the exported app: a change loads it again with them, and one that holds what the same arguments gave stays as it is.
+     The bindings set no wait before a load, so each change asks at once; an older answer gives way to the newest. */
+  const argsKey = (f: Frame | undefined, params: Record<string, unknown> | undefined): string => {
+    const loads = (f?.data ?? []).filter((d) => (d.load ?? "enter") === "enter");
+    if (!f || !loads.length) return "";
+    /* the time is read when the load is made: a key that changed every moment would never stop loading */
+    const scope = screenScope({ frame: f, state: bindings, params, vars: screenVars(state, doc, f, dark).vars, varNames, now: 0 });
+    return JSON.stringify(loads.map((d) => engine.argsOf(d, scope)));
+  };
+  const reload = (f: Frame | undefined, params: Record<string, unknown> | undefined) => {
+    if (!answering || !f) return;
+    for (const d of f.data ?? []) if ((d.load ?? "enter") === "enter") void engine.load(f, d, scopeNow(f, params)).catch(() => {});
+  };
+  const currentArgs = argsKey(current, topParams);
+  // the arguments are read through their key: the screen coming on show is loaded just above
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => reload(current, topParams), [currentArgs]);
+  const overlayShown = overlay ? frames.find((x) => x.id === shownId(overlay.id)) : undefined;
+  const overlayArgs = argsKey(overlayShown, overlayParams);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => reload(overlayShown, overlayParams), [overlayArgs]);
 
   const snack = state.snack;
   useEffect(() => {
