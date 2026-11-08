@@ -301,7 +301,7 @@ export function carryFrame(groups: Group[], frame: Frame, to: Frame, frames: Fra
    * stand in the middle of a taller screen, or off the end of a shorter one */
   const carryLayoutHeight = (it: Item): Item => {
     const def = partBySlug(it.component);
-    const ax = def?.holds ? resizeOf(def, it.props)?.height : undefined;
+    const ax = def?.holds === true ? resizeOf(def, it.props)?.height : undefined;
     return ax && axisValue(ax, it.props) === fromLength.h ? { ...it, props: { ...it.props, [ax.key]: axisWrite(ax, toLength.h) } } : it;
   };
   /* what was measured is of the old size: what has just been given a new one goes by that until it is
@@ -553,7 +553,7 @@ export function bodyRect(groups: Group[], frame: Frame, frames: Frame[], widths:
 export function isScreenLayout(g: Group, frame: Frame, widths: Record<string, number>): boolean {
   const it = g.items[0];
   const def = partBySlug(it.component);
-  if (g.items.length !== 1 || !def?.holds || roleOf(it) === "backdrop") return false;
+  if (g.items.length !== 1 || def?.holds !== true || roleOf(it) === "backdrop") return false;
   /* how big it was made, where it says: a measure may still be of the last screen, and a layout taken for a row while it lags is moved off its edge for good */
   const axes = resizeOf(def, it.props);
   const bb = groupBounds(g, widths);

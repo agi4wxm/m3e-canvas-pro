@@ -162,8 +162,10 @@ export type PartDef = {
   /** a destination bar: a tap on a destination is shared with the bar of the same entries on every other screen */
   nav?: boolean;
   /** A container: what lies wholly inside it moves with it, the way a screen carries its parts.
-   *  It keeps no list of them; see `heldBy`. */
-  holds?: boolean;
+   *  It keeps no list of them; see `heldBy`. "laidOut": it holds parts only while its auto layout is on, and then
+   *  draws them in a content area of its own (an overlay's body, which floats apart from the screen it stands on), so
+   *  what merely lies over it stays a part of the screen (`holdsNow`). */
+  holds?: boolean | "laidOut";
   /** The container can lay out what it holds (parts/flow.ts): it carries the props for it, `grid` when it
    *  is always a grid, and `inset` for what it draws around the room it lays out in (a tab bar, a title). */
   flow?: { grid?: boolean; inset?: (p: P) => Partial<{ t: number; r: number; b: number; l: number }> };

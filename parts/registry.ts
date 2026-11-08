@@ -162,6 +162,11 @@ export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInpu
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);
 
+/** Whether a part with these props holds the parts in it now: a container always, one that holds only laid out
+ *  (`PartDef.holds` "laidOut": a dialog, a sheet) while its auto layout is on. */
+export const holdsNow = (def: Pick<PartDef, "holds"> | undefined, props: PropValues | undefined): boolean =>
+  def?.holds === true || (def?.holds === "laidOut" && typeof props?.layout === "string" && props.layout !== "free");
+
 /** the fields of a row a tree reads. A row comes from the document, so one that holds anything but words
  *  there (a node, code to print) is read with those fields left out. */
 const ROW_FIELDS = ["icon", "variant", "width", "image"] as const;

@@ -1,6 +1,8 @@
 import { View } from "@tarojs/components";
+import { Children, type ReactNode } from "react";
 
-import type { PartBase } from "../atoms/basics";
+import { Held, type PartBase } from "../atoms/basics";
+import { flowStyle, type FlowProps } from "../layout";
 import { Button } from "../atoms/controls";
 import { Words } from "../atoms/words";
 import { c, ca } from "../color";
@@ -31,7 +33,16 @@ function SplitActions({ kit, actions }: { kit: Kit; actions: { label: string; on
   );
 }
 
-type Dialogish = { icon?: string; title?: string; description?: string; dismiss?: string; confirm?: string; stacked?: boolean; closeButton?: boolean; filled?: boolean };
+type Dialogish = FlowProps & { icon?: string; title?: string; description?: string; dismiss?: string; confirm?: string; stacked?: boolean; closeButton?: boolean; filled?: boolean; /** the parts laid out in it, in place of its description */ children?: ReactNode };
+
+/** the parts an overlay holds, laid out as its auto layout says, where its description would be */
+function Body({ p }: { p: FlowProps & { children?: ReactNode } }) {
+  return (
+    <View style={sx(flowStyle(p), { alignSelf: "stretch" })}>
+      <Held>{p.children}</Held>
+    </View>
+  );
+}
 
 /** a dialog's card under the style's dialog recipe */
 function DialogCard({ p, base }: { p: PartBase & Dialogish; base?: CSS }) {
@@ -45,7 +56,7 @@ function DialogCard({ p, base }: { p: PartBase & Dialogish; base?: CSS }) {
         <View style={sx({ display: "flex", flexDirection: "column", alignItems: "center", paddingLeft: weui ? 24 : 16, paddingRight: weui ? 24 : 16, paddingTop: weui ? 32 : 20, paddingBottom: weui ? 32 : 20, rowGap: weui ? 16 : 4 })}>
           {p.icon ? <Glyph name={p.icon} size={24} color="secondary" /> : null}
           <Words text={p.title} style={{ ...typeStyle(kit, "title-medium"), fontSize: 17, lineHeight: "22px", fontWeight: 600, color: c("on-surface"), textAlign: "center" }} />
-          {p.description ? <Words text={p.description} style={{ ...typeStyle(kit, "body-small"), fontSize: weui ? 15 : 13, lineHeight: weui ? "22px" : "18px", color: c("on-surface-variant"), textAlign: "center", marginTop: weui ? 0 : 8 }} /> : null}
+          {Children.count(p.children) ? <Body p={p} /> : p.description ? <Words text={p.description} style={{ ...typeStyle(kit, "body-small"), fontSize: weui ? 15 : 13, lineHeight: weui ? "22px" : "18px", color: c("on-surface-variant"), textAlign: "center", marginTop: weui ? 0 : 8 }} /> : null}
         </View>
         <SplitActions kit={kit} actions={actions} />
       </Surface>
@@ -65,7 +76,7 @@ function DialogCard({ p, base }: { p: PartBase & Dialogish; base?: CSS }) {
         </View>
       ) : null}
       <Words text={p.title} style={{ ...typeStyle(kit, "headline-small"), color: c("on-surface"), textAlign: p.icon ? "center" : "left" }} />
-      {p.description ? <Words text={p.description} style={{ ...typeStyle(kit, "body-medium"), color: c("on-surface-variant") }} /> : null}
+      {Children.count(p.children) ? <Body p={p} /> : p.description ? <Words text={p.description} style={{ ...typeStyle(kit, "body-medium"), color: c("on-surface-variant") }} /> : null}
       <View style={sx({ display: "flex", flexDirection: p.stacked ? "column" : "row", justifyContent: "flex-end", alignItems: p.stacked ? "flex-end" : "center", gap: 8, marginTop: 8 })}>
         {actions.map((a, i) => (
           <Button key={i} label={a.label} variant={(modal || p.filled) && a.main ? "filled" : "text"} size="sm" onPress={a.onPress} />
@@ -90,14 +101,14 @@ export function Dialog(props: DialogProps) {
           <Words text={p.title} style={{ flex: 1, ...typeStyle(kit, "title-large"), color: c("on-surface") }} />
           {p.confirm ? <Button label={p.confirm} variant="text" size="sm" onPress={tapOf(p, "confirm")} /> : null}
         </View>
-        {p.description ? <Words text={p.description} style={{ ...typeStyle(kit, "body-medium"), color: c("on-surface-variant"), padding: 24 }} /> : null}
+        {Children.count(p.children) ? <Body p={p} /> : p.description ? <Words text={p.description} style={{ ...typeStyle(kit, "body-medium"), color: c("on-surface-variant"), padding: 24 }} /> : null}
       </Surface>
     );
   const recipe = recipeOf(kit, "dialog");
   return <DialogCard p={p} base={recipe === "alert" || recipe === "weui" ? undefined : { width: Math.max(280, Math.min(560, Math.round(p.dialogWidth ?? 412) - 48)) }} />;
 }
 
-export type AlertDialogProps = PartBase & { icon?: string; title?: string; description?: string; cancel?: string; action?: string; size?: "default" | "sm" };
+export type AlertDialogProps = PartBase & FlowProps & { icon?: string; title?: string; description?: string; cancel?: string; action?: string; size?: "default" | "sm"; children?: ReactNode };
 
 export function AlertDialog(props: AlertDialogProps) {
   const p = withDefaults<AlertDialogProps>("alert-dialog", props);
@@ -106,7 +117,7 @@ export function AlertDialog(props: AlertDialogProps) {
   return <DialogCard p={{ ...p, dismiss: p.cancel, confirm: p.action, filled: true, taps: { dismiss: tapOf(p, "cancel") ?? tapOf(p, "dismiss"), confirm: tapOf(p, "action") ?? tapOf(p, "confirm") } }} base={recipe !== "alert" && recipe !== "weui" ? { width: p.size === "sm" ? 280 : 364 } : undefined} />;
 }
 
-export type SheetProps = PartBase & { side?: "right" | "left" | "bottom" | "top"; title?: string; description?: string; footer?: boolean; /** the words of its two buttons, the part's own */ confirm?: string; dismiss?: string };
+export type SheetProps = PartBase & FlowProps & { side?: "right" | "left" | "bottom" | "top"; title?: string; description?: string; footer?: boolean; children?: ReactNode; /** the words of its two buttons, the part's own */ confirm?: string; dismiss?: string };
 
 /** a sheet from an edge: a panel down a side, or one rising from the foot with the style's handle */
 export function Sheet(props: SheetProps) {
@@ -125,12 +136,13 @@ export function Sheet(props: SheetProps) {
       <View style={sx(ROW, { alignItems: "flex-start", padding: 24, columnGap: 12 })}>
         <View style={sx({ flex: 1, display: "flex", flexDirection: "column", rowGap: 4 })}>
           <Words text={p.title} style={merge(typeStyle(kit, "title-large"), typeof title === "number" ? { fontSize: title, lineHeight: `${title + 5}px`, fontWeight: 600 } : null, { color: c("on-surface") })} />
-          {p.description ? <Words text={p.description} style={{ ...typeStyle(kit, "body-medium"), color: c("on-surface-variant") }} /> : null}
+          {!Children.count(p.children) && p.description ? <Words text={p.description} style={{ ...typeStyle(kit, "body-medium"), color: c("on-surface-variant") }} /> : null}
         </View>
         <View ariaLabel="Close" onClick={(e) => (e.stopPropagation(), tapOf(p, "dismiss")?.())}>
           <Glyph name="close" size={24} color="on-surface-variant" />
         </View>
       </View>
+      {Children.count(p.children) ? <Body p={p} /> : null}
       {p.footer ? (
         <View style={sx(ROW, { justifyContent: "flex-end", columnGap: 8, paddingLeft: 24, paddingRight: 24, marginTop: bottom ? 0 : "auto", paddingBottom: bottom ? 0 : 24 })}>
           {p.dismiss ? <Button label={p.dismiss} variant="outlined" size="sm" onPress={tapOf(p, "dismiss")} /> : null}

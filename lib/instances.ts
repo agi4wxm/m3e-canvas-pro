@@ -278,7 +278,7 @@ export function overridableParts(def: ComponentDef, components: ComponentDef[] |
     return g.items.flatMap((it) => {
       const part = partBySlug(it.component);
       /* a container's switches are how it lays out, not what it shows */
-      const props = part?.holds ? [] : (part?.props.filter((d) => OVERRIDABLE.has(d.kind)) ?? []);
+      const props = part?.holds === true ? [] : (part?.props.filter((d) => OVERRIDABLE.has(d.kind)) ?? []);
       return props.length ? [{ path: `${prefix}${it.id}`, item: it, props }] : [];
     });
   });

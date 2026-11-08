@@ -159,7 +159,7 @@ const listParts = tool<{ tier?: "atom" | "composite"; category?: string; query?:
   run(a) {
     const hit = matcher(a.query);
     const rows = PARTS.filter((d) => (!a.tier || tierOf(d) === a.tier) && (!a.category || d.category === a.category) && hit(d.slug, d.name, labelsOf(d.labels), d.category));
-    return { result: { count: rows.length, parts: rows.map((d) => `${d.slug} | ${d.name} | ${tierOf(d)}/${d.category}${d.holds ? " | holds parts" : ""}${d.atoms ? " | splits" : ""} | props: ${d.props.map((p) => p.key).join(", ")}${outletsLine(d)}`) } };
+    return { result: { count: rows.length, parts: rows.map((d) => `${d.slug} | ${d.name} | ${tierOf(d)}/${d.category}${d.holds === "laidOut" ? " | holds parts with an auto layout" : d.holds ? " | holds parts" : ""}${d.atoms ? " | splits" : ""} | props: ${d.props.map((p) => p.key).join(", ")}${outletsLine(d)}`) } };
   },
 });
 

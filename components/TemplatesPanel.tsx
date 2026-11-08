@@ -44,7 +44,7 @@ function planOf(template: Template): Plan {
     const def = partBySlug(it.component);
     if (!def) continue;
     let ink: Box["ink"] = INK_OF[def.slug] ?? "surfaceContainerHighest";
-    if (def.holds && def.slug !== "scene") {
+    if (def.holds === true && def.slug !== "scene") {
       /* a bare layout draws nothing of its own */
       const fill = reader(def, it.props).s("fill");
       if (!fill || fill === "none") continue;

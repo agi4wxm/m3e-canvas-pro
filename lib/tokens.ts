@@ -1,6 +1,6 @@
 import { Lang, NAV_TABS, TAB_LABELS, getLang } from "./i18n";
 import { Contrast, schemeFromSeed } from "./color";
-import { partBySlug, reader } from "../parts/registry";
+import { holdsNow, partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem, TableData } from "../parts/types";
@@ -1257,7 +1257,7 @@ export function retarget(g: Group, ids: Map<string, string> | ((id: string) => s
 
 /** a part that can hold others, standing alone. An instance is drawn from its definition and holds
  *  nothing of the document's, though the item standing in for it is a container. */
-export const holdsParts = (g: Group) => !g.free && !g.instanceOf && g.items.length === 1 && !!partBySlug(g.items[0].component)?.holds;
+export const holdsParts = (g: Group) => !g.free && !g.instanceOf && g.items.length === 1 && holdsNow(partBySlug(g.items[0].component), g.items[0].props);
 
 /** The group an expanded id belongs to: `inst/g` to the instance `inst`, `inst/inner/g` to the nested
  *  `inst/inner`, and `host#2/g` (a repeated row) to the host. A plain id belongs to nobody. */
