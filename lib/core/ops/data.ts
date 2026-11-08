@@ -3,10 +3,11 @@
  * part shows, and a dock's tabs. */
 
 import { panesAfterReorder } from "../../flow";
-import { actionWithoutScreen, frameOfPart, type Action, type Collection, type DocVar, type Frame, type Group, type Transition, type VarCollection, type VarValue } from "../../tokens";
+import { actionWithoutScreen, frameOfPart, type Action, type ActionBody, type Collection, type DocVar, type Frame, type Group, type Transition, type VarCollection, type VarValue } from "../../tokens";
 import { exprPlaceError } from "../../bindings/check";
 import { shapeFor } from "../../bindings/complete";
 import { BIND_FIELDS, collectionsOf, DEFAULT_COLLECTION, fitsType, isBindField, startValueOf } from "../../variables";
+import { cleanMotion, motionOf } from "../../prototype";
 import { partBySlug } from "../../../parts/registry";
 import { t } from "../../i18n";
 import { op, OpError, S } from "../op";
@@ -343,12 +344,25 @@ function patchLink(s: CoreState, linkId: string, fn: (a: Action) => Action | und
   );
 }
 
+/** A tap given another transition. Its motion, where it has one, plays over `transition`, so it follows: the same kind
+ *  of move (move in, push, slide in) from the new side, its easing and duration kept where the new one has them. An
+ *  expand has no motion that plays it: the motion goes and the transition plays. */
+export function withTransition<B extends ActionBody>(a: B, t: Transition): B {
+  if (!a.motion) return { ...a, transition: t };
+  const { motion: was, ...rest } = a;
+  if (t === "expand") return { ...rest, transition: t } as B;
+  const base = motionOf({ transition: t });
+  const kind = base.kind === "slide" && (was.kind === "move" || was.kind === "push") ? was.kind : base.kind;
+  const motion = cleanMotion({ ...base, kind, easing: was.easing, ms: was.ms }) ?? base;
+  return { ...rest, transition: t, motion } as B;
+}
+
 export const setLinkTransition = op<{ links: string[]; transition: Transition }>({
   name: "set_link_transition",
-  summary: "Sets the transition of the taps behind link lines (`itemId|slot`).",
+  summary: "Sets the transition of the taps behind link lines (`itemId|slot`); a tap's motion follows it.",
   args: S.obj({ links: S.arr(S.str()), transition: S.enum(["slide", "slideLeft", "slideUp", "slideDown", "fade", "expand", "none"]) }, ["links", "transition"]),
   label: () => "Transition",
-  run: (s, a) => ({ state: a.links.reduce((st, id) => patchLink(st, id, (x) => ({ ...x, transition: a.transition })), s) }),
+  run: (s, a) => ({ state: a.links.reduce((st, id) => patchLink(st, id, (x) => withTransition(x, a.transition)), s) }),
 });
 
 export const removeLinks = op<{ links: string[] }>({
