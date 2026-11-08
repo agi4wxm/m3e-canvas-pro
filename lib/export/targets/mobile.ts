@@ -926,6 +926,9 @@ function draw(Screen: ComponentType) {
 /** lets the mocks answer and the screen draw what they said */
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 20)))
 
+/* Expo Router stands outside Jest's reach (its stack is ESM): where taps go is a stand-in here, as it is for the screens */
+jest.mock("./routing", () => ({ routerNav: { go: jest.fn(), back: jest.fn(), open: jest.fn(), todo: jest.fn() } }))
+
 /* the custom setup, held until the test lets it finish */
 let mockFinishSetup: () => void = () => {}
 jest.mock("../custom/setup", () => ({
