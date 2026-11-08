@@ -180,6 +180,18 @@ describe("every part", () => {
     expect(wrong).toEqual([]);
   });
 
+  it("names every picture it shows a screen reader, or keeps it from one", () => {
+    const unnamed: string[] = [];
+    for (const d of PARTS)
+      for (const el of all(markup(d))) {
+        if (hidden(el)) continue;
+        /* an <img> with alt="" is a picture said to be decoration, which is a choice; a picture role with no name is not */
+        const pictured = el.attrs.role === "img" || (el.tag === "img" && !("alt" in el.attrs));
+        if (pictured && !el.attrs["aria-label"]?.trim() && !el.attrs["aria-labelledby"] && !el.attrs.alt?.trim() && !el.attrs.title?.trim()) unnamed.push(`${d.slug}: <${el.tag} data-slot="${el.attrs["data-slot"] ?? ""}">`);
+      }
+    expect([...new Set(unnamed)]).toEqual([]);
+  });
+
   it("that takes input offers a way to be named: a label it shows, or its accessible name", () => {
     const VISIBLE = ["label", "title", "text"];
     for (const d of PARTS.filter((x) => x.input || x.field?.required))

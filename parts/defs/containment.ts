@@ -33,7 +33,7 @@ function cardTree(p: P): PNode {
   const side = pos === "leading" || pos === "trailing";
   const extent = Math.round(p.n("imageSize"));
   const inner = src
-    ? h("img", { src, alt: "", className: "size-full object-cover" })
+    ? h("img", { src, alt: p.s("alt"), className: "size-full object-cover" })
     : h("div", { className: "grid size-full place-items-center bg-gradient-to-br from-primary-container to-tertiary-container text-on-primary-container" }, ic(p.s("imageIcon") || "image", { size: 34 }));
   const media =
     pos === "none"
@@ -126,6 +126,8 @@ export const containment: PartDef[] = [
         ],
       },
       { key: "image", label: "Image", kind: "image", when: (p) => p.s("imagePos") !== "none" },
+      /* what a screen reader says for the picture; empty, it is decoration */
+      { key: "alt", label: "Alt text", labels: { ja: "代替テキスト", zh: "替代文字", ko: "대체 텍스트" }, kind: "text", default: "", when: (p) => p.s("imagePos") !== "none" && !!p.s("image") },
       { key: "imageIcon", label: "Placeholder icon", kind: "icon", default: "image", when: (p) => p.s("imagePos") !== "none" && !p.s("image") },
       { key: "imageSize", label: "Image size", kind: "number", default: 96, min: 40, max: 320, step: 4, unit: "px", when: (p) => ["top", "bottom", "leading", "trailing"].includes(p.s("imagePos")) },
       { key: "textAlign", label: "Text align", kind: "enum", default: "start", options: ["start", "center", "end"] },

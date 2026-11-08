@@ -203,7 +203,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     /* the media runs to the card's edges; with no picture of its own it is the part's gradient with its icon */
     const media = (w: number | undefined, h: number): Node =>
       p.s("image")
-        ? image({ src: p.s("image"), height: h, radius: 0, ...(w ? { width: w } : {}) })
+        ? image({ src: p.s("image"), ...(p.s("alt") ? { alt: p.s("alt") } : {}), height: h, radius: 0, ...(w ? { width: w } : {}) })
         : box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: w ?? width, height: h }, [icon(p.s("imageIcon") || "image", { size: 34 })], {
             fill: "primaryContainer",
             textColor: "onPrimaryContainer",

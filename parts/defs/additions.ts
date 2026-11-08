@@ -131,7 +131,8 @@ export const additions: PartDef[] = [
     h: 160,
     props: [
       { key: "src", label: "Image", labels: { ja: "画像", zh: "图片", ko: "이미지" }, kind: "image" },
-      { key: "alt", label: "Description", labels: { ja: "説明", zh: "说明", ko: "설명" }, kind: "text", default: "" },
+      /* what a screen reader says for it, not words it shows: empty, it is decoration */
+      { key: "alt", label: "Alt text", labels: { ja: "代替テキスト", zh: "替代文字", ko: "대체 텍스트" }, kind: "text", default: "" },
       { key: "fit", label: "Fit", labels: { ja: "合わせ方", zh: "填充方式", ko: "맞춤" }, kind: "enum", default: "cover", options: Object.keys(FIT) },
       { key: "radius", label: "Corner", labels: { ja: "角丸", zh: "圆角", ko: "모서리" }, kind: "number", default: 12, min: 0, max: 120, step: 2, unit: "px" },
       WIDTH(240, 24, 1600),
@@ -142,7 +143,7 @@ export const additions: PartDef[] = [
       const style = { width: px(p), height: px(p, "height"), borderRadius: p.n("radius") === 12 ? "var(--md-sys-shape-corner-medium)" : px(p, "radius") };
       return p.s("src")
         ? h("img", { "data-slot": "image", src: p.s("src"), alt: p.s("alt"), className: FIT[p.s("fit")], style })
-        : h("div", { "data-slot": "image", role: "img", "aria-label": p.s("alt") || undefined, className: "bg-surface-container-high text-outline flex items-center justify-center", style }, ic("image", { className: "size-8" }));
+        : h("div", { "data-slot": "image", role: p.s("alt") ? "img" : undefined, "aria-label": p.s("alt") || undefined, "aria-hidden": p.s("alt") ? undefined : true, className: "bg-surface-container-high text-outline flex items-center justify-center", style }, ic("image", { className: "size-8" }));
     },
   },
   {

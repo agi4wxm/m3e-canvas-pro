@@ -89,7 +89,9 @@ const INK: Record<string, string> = {
 /** the drawing of the vector part: a shape of the library, one path, or cleaned markup */
 function svgTree(p: P): PNode {
   const mode = p.s("mode");
-  const own = { "data-slot": "svg", role: "img", "aria-label": p.s("label") || undefined, className: INK[p.s("color")] || undefined, width: px(p, "width"), height: px(p, "height"), preserveAspectRatio: p.b("stretch") ? "none" : undefined };
+  /* a drawing it names is a picture to a screen reader; one it does not is decoration, kept from it */
+  const named = p.s("label").trim();
+  const own = { "data-slot": "svg", role: named ? "img" : undefined, "aria-label": named || undefined, "aria-hidden": named ? undefined : true, className: INK[p.s("color")] || undefined, width: px(p, "width"), height: px(p, "height"), preserveAspectRatio: p.b("stretch") ? "none" : undefined };
   const stroke = (w: number) => ({ fill: "none", stroke: "currentColor", strokeWidth: w, strokeLinecap: "round", strokeLinejoin: "round" });
   if (mode === "markup") {
     const clean = sanitizeSvg(p.s("markup"), p.scope);
