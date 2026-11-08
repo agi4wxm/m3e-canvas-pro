@@ -55,6 +55,8 @@ export const MOCK_KINDS = [
   "file",
   "audio",
   "video",
+  "fileName",
+  "mimeType",
   "date",
   "dateTime",
   "time",
@@ -88,6 +90,9 @@ export type MockHint = {
   value?: unknown;
   /** image, file, audio, video: the mock files (ids) to draw from; any of the right kind when left out */
   files?: string[];
+  /** image, file, audio, video: the format of the file, as a media type or an extension (text/csv, xlsx,
+   *  model/gltf-binary); the schema's contentMediaType, else the kind's usual one, when left out */
+  type?: string;
   /** how often an optional or nullable field is left empty, 0–1 */
   nullRate?: number;
 };
@@ -148,13 +153,13 @@ export type MockScenario = {
   signedIn?: boolean;
 };
 
-/** A file of the mock library: an image, a PDF, audio, video or any other bytes, as a data URL. Kept like the
- *  project's pictures: large ones are stored apart in the browser (`m3e-asset:`) and beside a project folder
- *  (`m3e-assets/`). */
+/** A file of the mock library: a picture, a PDF, an Office file, a table, data, text, an archive, audio, video, a 3D
+ *  model or any other bytes, as a data URL. Kept like the project's pictures: large ones are stored apart in the
+ *  browser (`m3e-asset:`) and beside a project folder (`m3e-assets/`). */
 export type MockFile = {
   id: string;
   name: string;
-  /** its media type: image/png, application/pdf, audio/wav, video/mp4… */
+  /** its media type: image/png, application/pdf, text/csv, model/gltf-binary, audio/wav, video/mp4… */
   type: string;
   /** data:<type>;base64,… */
   data: string;

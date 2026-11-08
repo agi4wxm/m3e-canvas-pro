@@ -146,6 +146,75 @@ export const tests: E2ETest[] = [
       equal((await mocksOf(page))?.files?.map((f) => f.type), ["image/png", "image/svg+xml", "application/pdf", "audio/wav", "video/mp4", "application/octet-stream"], "and placeholders of every kind");
       await page.screenshot({ path: join(out, "mocks-4-files.png") });
 
+      /* files of other formats, made in the panel: Chromium decodes the pictures and plays the sounds, the previews
+         show a table, a deck's words, an archive's files and a 3D model */
+      const formats = ["xlsx", "pptx", "zip", "glb", "jpg", "webp", "gif", "avif", "ico", "bmp", "mp3", "ogg", "webm"];
+      for (const ext of formats) {
+        const before = (await mocksOf(page))?.files?.length ?? 0;
+        await pickIn(page, "[data-mocks-panel]", "Make this format", `${ext.toUpperCase()} ·`);
+        await page.locator("[data-mocks-make-format]").first().click();
+        for (let i = 0; i < 40 && ((await mocksOf(page))?.files?.length ?? 0) <= before; i++) await settle(page, 150);
+      }
+      mocks = await mocksOf(page);
+      const made = (mocks?.files ?? []).slice(-formats.length);
+      equal(made.map((f) => f.name.split(".").pop()), formats, "a file of each format chosen");
+      const idOf = (ext: string) => made.find((f) => f.name.endsWith(`.${ext}`))!.id;
+      await page.waitForSelector(`[data-mocks-file="${idOf("xlsx")}"] [data-mocks-preview-table]`, { timeout: 15_000 });
+      await settle(page, 1200);
+      const decoded = await page.evaluate(
+        (ids: string[]) =>
+          ids.map((id) => {
+            const img = document.querySelector(`[data-mocks-file="${id}"] img`) as HTMLImageElement | null;
+            return img ? img.complete && img.naturalWidth > 0 : false;
+          }),
+        ["jpg", "webp", "gif", "avif", "ico", "bmp"].map(idOf),
+      );
+      equal(decoded, [true, true, true, true, true, true], "Chromium decodes the JPEG, WebP, GIF, AVIF, ICO and BMP");
+      const played = await page.evaluate(
+        async (srcs: string[]) =>
+          Promise.all(
+            srcs.map(
+              (src) =>
+                new Promise<number>((done) => {
+                  const a = document.createElement("audio");
+                  a.onloadedmetadata = () => done(a.duration);
+                  a.onerror = () => done(-1);
+                  a.src = src;
+                }),
+            ),
+          ),
+        ["mp3", "ogg", "webm"].map((ext) => made.find((f) => f.name.endsWith(`.${ext}`))!.data),
+      );
+      check(played.every((d) => d > 0.5), `Chromium plays the MP3, the Ogg and the WebM (${played.join(", ")})`);
+      const meshInk = await page.evaluate((id: string) => {
+        const c = document.querySelector(`[data-mocks-file="${id}"] [data-mocks-mesh-canvas]`) as HTMLCanvasElement | null;
+        if (!c) return 0;
+        const d = c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data;
+        const bg = [d[0], d[1], d[2]];
+        let ink = 0;
+        for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]) > 30) ink++;
+        return ink / (c.width * c.height);
+      }, idOf("glb"));
+      check(meshInk > 0.05, `the 3D model is drawn (${(meshInk * 100).toFixed(1)}% of its preview)`);
+      const facts = await page.evaluate((ids: string[]) => ids.map((id) => document.querySelector(`[data-mocks-file="${id}"] [data-mocks-file-facts]`)?.textContent ?? ""), [idOf("xlsx"), idOf("pptx"), idOf("zip"), idOf("glb")]);
+      check(/rows/.test(facts[0]) && /slides/.test(facts[1]) && /4 files/.test(facts[2]) && /vertices/.test(facts[3]), `each card says what its file holds (${facts.join(" | ")})`);
+      await page.evaluate((id: string) => document.querySelector(`[data-mocks-file="${id}"]`)?.scrollIntoView({ block: "start" }), idOf("xlsx"));
+      await page.screenshot({ path: join(out, "mocks-4b-formats.png") });
+      /* a file's preview, larger, in a dialog that Escape closes */
+      await page.locator(`[data-mocks-file="${idOf("xlsx")}"] [data-mocks-file-thumb]`).first().click();
+      await page.waitForSelector(`[data-mocks-preview="${idOf("xlsx")}"] [data-mocks-preview-table] tbody tr`);
+      check((await page.locator(`[data-mocks-preview="${idOf("xlsx")}"] [data-mocks-preview-table] tbody tr`).count()) >= 2, "the preview shows the workbook's rows");
+      await page.screenshot({ path: join(out, "mocks-4c-preview.png") });
+      await page.keyboard.press("Escape");
+      await settle(page, 300);
+      check((await page.locator("[data-mocks-preview]").count()) === 0, "Escape closes the preview");
+      await page.locator(`[data-mocks-file="${idOf("glb")}"] [data-mocks-file-thumb]`).first().click();
+      await page.waitForSelector(`[data-mocks-preview="${idOf("glb")}"] [data-mocks-mesh-canvas]`);
+      await settle(page, 400);
+      await page.screenshot({ path: join(out, "mocks-4d-model.png") });
+      await page.locator("[data-mocks-preview-close]").first().click();
+      await settle(page, 300);
+
       /* the users' avatars drawn from it */
       await page.locator('[data-mocks-panel] [role="radio"]').nth(1).click();
       await settle(page, 300);

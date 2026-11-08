@@ -118,6 +118,27 @@ describe("files", () => {
     expect(out.hints).toEqual(["User.avatar"]);
     expect(s.get().doc.mocks!.models![0].hints!.avatar.files).toBeUndefined();
   });
+
+  it("makes files of any format once what makes them has loaded, and refuses a format it does not know", async () => {
+    const s = store();
+    /* the editor's first bundle has only the basic placeholders: the first ask for another format is busy, and loads it */
+    fails(() => s.run(ops.generateMockFiles, { types: ["xlsx"] }, ai), "busy", /again/);
+    await ops.loadMockMakers();
+    const made = s.run(ops.generateMockFiles, { kinds: ["spreadsheet", "model"], types: ["csv", "image/webp", "glb"], title: "Q3" }, ai) as { ids: string[] };
+    expect(made.ids).toHaveLength(5);
+    expect(s.get().doc.mocks!.files!.map((f) => [f.name, f.type])).toEqual([
+      ["Q3.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+      ["Q3.glb", "model/gltf-binary"],
+      ["Q3.csv", "text/csv"],
+      ["Q3.webp", "image/webp"],
+      ["Q3.glb", "model/gltf-binary"],
+    ]);
+    fails(() => s.run(ops.generateMockFiles, { types: ["heic"] }, ai), "invalid_value", /no "heic" file/);
+    fails(() => s.run(ops.generateMockFiles, {}, ai), "invalid_value", /kinds|types/);
+    /* a hint may name the format of a field's file */
+    s.run(ops.setMockModel, { model: "Product", hints: { "images[]": { kind: "image", type: "image/png" } } }, ai);
+    expect(s.get().doc.mocks!.models!.find((m) => m.name === "Product")!.hints!["images[]"]).toEqual({ kind: "image", type: "image/png" });
+  });
 });
 
 describe("realtime, sign-in, routes and clearing", () => {

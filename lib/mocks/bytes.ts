@@ -45,6 +45,30 @@ export function utf8(text: string): Uint8Array {
   return Uint8Array.from(out);
 }
 
+/** UTF-8 bytes as text; a byte that is not UTF-8 reads as U+FFFD */
+export function fromUtf8(bytes: Uint8Array): string {
+  let out = "";
+  for (let i = 0; i < bytes.length; ) {
+    const b = bytes[i];
+    const need = b < 0x80 ? 0 : b >= 0xf0 && b < 0xf8 ? 3 : b >= 0xe0 ? 2 : b >= 0xc2 && b < 0xe0 ? 1 : -1;
+    let c = need === 0 ? b : need === 1 ? b & 31 : need === 2 ? b & 15 : b & 7;
+    let ok = need >= 0 && i + need < bytes.length + (need ? 0 : 1);
+    for (let k = 1; ok && k <= need; k++) {
+      const x = bytes[i + k];
+      if ((x & 0xc0) !== 0x80) ok = false;
+      else c = (c << 6) | (x & 63);
+    }
+    if (!ok || c > 0x10ffff || (c >= 0xd800 && c < 0xe000)) {
+      out += "\ufffd";
+      i++;
+      continue;
+    }
+    out += String.fromCodePoint(c);
+    i += need + 1;
+  }
+  return out;
+}
+
 /** a data URL of bytes */
 export const dataUrl = (type: string, bytes: Uint8Array) => `data:${type};base64,${toBase64(bytes)}`;
 

@@ -280,3 +280,77 @@ describe("placeholder files", () => {
     expect(placeholderFile("pdf", { seed: "s", title: "x" }).name).toBe("x.pdf");
   });
 });
+
+describe("files of a record", () => {
+  const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  const typeOf = (v: unknown) => parseDataUrl(String(v))?.type;
+
+  it("are made in the format the schema names: a data URL, base64 for contentEncoding, the text itself for text", () => {
+    const spec: ApiSpec = {
+      models: [
+        {
+          name: "Report",
+          schema: {
+            type: "object",
+            required: ["title", "sheet", "thumb", "csv", "raw", "model"],
+            properties: {
+              title: { type: "string" },
+              sheet: { type: "string", format: "uri", contentMediaType: XLSX_TYPE },
+              thumb: { type: "string", contentEncoding: "base64", contentMediaType: "image/png" },
+              csv: { type: "string", contentMediaType: "text/csv" },
+              raw: { type: "string", format: "byte" },
+              model: { type: "string", format: "uri", contentMediaType: "model/gltf-binary" },
+            },
+          },
+        },
+      ],
+    };
+    const r = new MockData({ api: spec, mocks: { models: [{ name: "Report", hints: { title: { kind: "constant", value: "Quarterly" } } }] } }, { now: NOW }).records("Report")[0];
+    expect(typeOf(r.sheet)).toBe(XLSX_TYPE);
+    expect(typeOf(r.model)).toBe("model/gltf-binary");
+    const png = Uint8Array.from(atob(String(r.thumb)), (c) => c.charCodeAt(0));
+    expect([...png.subarray(1, 4)].map((b) => String.fromCharCode(b)).join("")).toBe("PNG");
+    /* the CSV is of the record itself, its title among its cells */
+    expect(String(r.csv).split("\r\n")[0]).toContain("title");
+    expect(String(r.csv)).toContain("Quarterly");
+    expect(String(r.raw)).toMatch(/^[A-Za-z0-9+/]+=*$/);
+    expect(atob(String(r.raw)).startsWith("%PDF-")).toBe(true);
+    for (const [name, sub] of Object.entries((spec.models![0].schema as { properties: Record<string, JsonSchema> }).properties)) expect(checkValue(spec, sub, r[name], { locale: "en" }), name).toEqual([]);
+  });
+
+  it("follow a hint's type and the record's file name, and the record's name, media type and size agree", () => {
+    const spec: ApiSpec = {
+      models: [
+        { name: "Attachment", schema: { type: "object", required: ["id", "fileName", "mimeType", "size", "file"], properties: { id: { type: "string" }, fileName: { type: "string" }, mimeType: { type: "string" }, size: { type: "integer" }, file: { type: "string", format: "uri" } } } },
+        { name: "Scan", schema: { type: "object", required: ["fileName", "file"], properties: { fileName: { type: "string" }, file: { type: "string", format: "uri" } } } },
+      ],
+    };
+    expect(inferHint("fileName", { type: "string" }).kind).toBe("fileName");
+    expect(inferHint("mimeType", { type: "string" }).kind).toBe("mimeType");
+    expect(inferHint("contentType", { type: "string" }).kind).toBe("mimeType");
+    expect(inferHint("reportCsv", { type: "string", format: "uri" })).toEqual({ kind: "file", type: "text/csv" });
+    expect(inferHint("logoPng", { type: "string", format: "uri" })).toEqual({ kind: "image", type: "image/png" });
+    expect(inferHint("modelGlb", { type: "string" })).toEqual({ kind: "file", type: "model/gltf-binary" });
+    const data = new MockData({ api: spec, mocks: { models: [{ name: "Scan", hints: { fileName: { kind: "constant", value: "page-1.jpg" } } }] } }, { now: NOW });
+    for (const a of data.records("Attachment")) {
+      const file = parseDataUrl(String(a.file))!;
+      expect(a.mimeType).toBe(file.type);
+      expect(a.size).toBe(file.bytes.length);
+    }
+    /* a record whose file name says JPEG gets a JPEG */
+    expect(typeOf(data.records("Scan")[0].file)).toBe("image/jpeg");
+    const hinted = new MockData({ api: spec, mocks: { models: [{ name: "Attachment", hints: { file: { kind: "file", type: "xlsx" } } }] } }, { now: NOW }).records("Attachment")[0];
+    expect(typeOf(hinted.file)).toBe(XLSX_TYPE);
+    expect(hinted.mimeType).toBe(XLSX_TYPE);
+    expect(String(hinted.fileName).endsWith(".xlsx")).toBe(true);
+  });
+
+  it("fit the length the schema allows, and pictures stay the SVG placeholder they were", () => {
+    const short = generateValue({ type: "string", format: "uri", contentMediaType: "image/png", maxLength: 3000 }, opts(), { key: "k", name: "photo" });
+    expect(String(short).length).toBeLessThanOrEqual(3000);
+    expect(typeOf(short)).toBe("image/png");
+    const tiny = generateValue({ type: "string", format: "uri", contentMediaType: "application/pdf", maxLength: 80 }, opts(), { key: "k", name: "receipt" });
+    expect(tiny).toMatch(/^https:\/\/files\.example\.com\/.+\.pdf$/);
+    expect(typeOf(generateValue({ type: "string", format: "uri" }, opts(), { key: "k", name: "photo" }))).toBe("image/svg+xml");
+  });
+});

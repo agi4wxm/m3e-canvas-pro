@@ -351,7 +351,7 @@ npx playwright install chromium
 | `update_mock_scenario` | 数据与交互 |  |  | Changes a scenario: its name, words, what every operation does (all), how single operations answer (ops: merged by operationId; null removes one), latency, error rate, record coun… |
 | `remove_mock_scenario` | 数据与交互 |  | 是 | Removes a scenario. |
 | `add_mock_file` | 数据与交互 |  |  | Adds a file to the mock library: a picture, a PDF, audio, video or any other file, as a data URL (data:&lt;type>;base64,…, up to about 12 MB). |
-| `generate_mock_files` | 数据与交互 |  |  | Makes placeholder files for the mock library without a model: image (an SVG picture with the title), avatar (initials on a circle), pdf (a one-page PDF with the title), audio (a s… |
+| `generate_mock_files` | 数据与交互 |  |  | Makes placeholder files for the mock library without a model. |
 | `update_mock_file` | 数据与交互 |  |  | Renames a file of the mock library or changes its tags. |
 | `remove_mock_file` | 数据与交互 |  | 是 | Removes a file from the mock library; hints that named it no longer do. |
 | `set_mock_realtime` | 数据与交互 |  |  | Adds or replaces (by id) a realtime script: the messages the server sends over a channel, each at a time in ms after it starts, e.g. |
