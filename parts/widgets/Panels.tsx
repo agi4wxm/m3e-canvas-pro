@@ -5,7 +5,7 @@ import { Button } from "@/components/m3e/button";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 import { useHost, type HostProps } from "./host";
-import { secondsLeft, useSeeded } from "./seed";
+import { keysOf, secondsLeft, usePicked, useSeeded } from "./seed";
 
 /* The game panels, after 17722797729/m3e-canvas game-ui (MIT). What is claimed, checked in or picked is the game's to
  * say and comes in as props; a press only asks, and only a prototype's demo marks things done by itself. A rarity's
@@ -61,12 +61,14 @@ export function TaskBar({ title = "", action = "", done = "", width = 380, class
 const rowsIn = (words: string) => new Set(words.split(/[\s,，]+/).map((x) => Number(x) - 1).filter((n) => Number.isInteger(n) && n >= 0));
 
 /* Which rewards are claimed is the game's to say (`claimed`, the rows counted from 1): a press on a ready one asks (one
- * action for every reward, `slot.index` is the row). A prototype's demo marks it claimed itself. */
+ * action for every reward, `slot.index` is the row). A prototype's demo marks it claimed itself, by the reward (where
+ * it stands and what it is), so a claim stays with its reward when the rows move and goes when the reward does. */
 export function RewardTrack({ rewards = [], value = 0, max = 60, claimed = "", action = "", width = 380, demo, onValueChange, onEvent, wired, className, style }: { rewards?: { at: number; label: string; icon?: string }[]; value?: number; max?: number; claimed?: string; action?: string; width?: number } & HostProps & Look) {
   const host = useHost({ demo, onValueChange, onEvent, wired });
-  const [mine, setMine] = useSeeded<number[]>([]);
+  const keys = keysOf(rewards.map((r) => `${r.at}\u0001${r.label}`));
+  const [mine, setMine] = usePicked(keys);
   const given = rowsIn(claimed);
-  const done = (i: number) => given.has(i) || (host.demo && mine.includes(i));
+  const done = (i: number) => given.has(i) || (host.demo && mine.includes(keys[i]));
   const share = Math.min(100, Math.max(0, (value / Math.max(1, max)) * 100));
   return (
     <div data-slot="reward-track" data-claimed={rewards.filter((_, i) => done(i)).length} className={cn("flex flex-col gap-2", className)} style={{ width, ...style }}>
@@ -74,7 +76,7 @@ export function RewardTrack({ rewards = [], value = 0, max = 60, claimed = "", a
         {rewards.map((r, i) => {
           const ready = value >= r.at && !done(i);
           return (
-            <Tap key={i} disabled={!ready} data-tap={`tab:${i}`} data-ready={ready || undefined} data-claimed={done(i) || undefined} data-slot="reward-track-cell" className={`text-label-small flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg p-2 ${ready ? "bg-primary-container text-on-primary-container" : "bg-surface-container text-on-surface-variant"}`} onClick={() => host.demo && setMine((c) => [...c, i])}>
+            <Tap key={i} disabled={!ready} data-tap={`tab:${i}`} data-ready={ready || undefined} data-claimed={done(i) || undefined} data-slot="reward-track-cell" className={`text-label-small flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg p-2 ${ready ? "bg-primary-container text-on-primary-container" : "bg-surface-container text-on-surface-variant"}`} onClick={() => host.demo && setMine((c) => [...c, keys[i]])}>
               {r.icon && <WidgetIcon name={done(i) ? "check" : r.icon} className="size-5" />}
               <span className="truncate">{r.label}</span>
               {ready && action && <span className="truncate">{action}</span>}

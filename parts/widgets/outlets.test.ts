@@ -443,6 +443,27 @@ describe("rows that keep who they are", () => {
     expect(m.all().some((e) => e.props["data-tap"] === "remove:0")).toBe(false);
   });
 
+  it("a reward the demo claimed stays claimed with its reward when the rows move, and goes with it", () => {
+    const rewards = [{ at: 10, label: "a" }, { at: 20, label: "b" }, { at: 30, label: "c" }];
+    const m = mount(Panels.RewardTrack as Widget, { value: 30, rewards }, { demo: true });
+    m.tap("data-tap", "tab:1");
+    const claimed = () => m.all().filter((e) => e.props["data-slot"] === "reward-track-cell" && e.props["data-claimed"]).map((e) => e.props["data-tap"]);
+    expect(claimed()).toEqual(["tab:1"]);
+    m.set({ rewards: [rewards[1], rewards[0], rewards[2]] });
+    expect(claimed()).toEqual(["tab:0"]);
+    m.set({ rewards: [rewards[0], rewards[2]] });
+    expect(claimed()).toEqual([]);
+  });
+
+  it("a leaderboard's open row is the one it is given, never one of its own", () => {
+    const m = mount(App.Leaderboard as Widget, { rows: [["Ada", "9"], ["Bo", "7"]], selected: -1 });
+    /* a press on a row only reaches whoever draws it, which moves `selected` */
+    expect(m.by("data-tap", "tab:0").props.onClick).toBeUndefined();
+    expect(m.root("leaderboard")["data-selected"]).toBe(-1);
+    m.set({ selected: 1 });
+    expect(m.root("leaderboard")["data-selected"]).toBe(1);
+  });
+
   it("two rows that read the same keep keys of their own", () => {
     expect(keysOf(["a", "b", "a"])).toHaveLength(3);
     expect(new Set(keysOf(["a", "b", "a"])).size).toBe(3);

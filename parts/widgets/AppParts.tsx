@@ -821,15 +821,17 @@ export function Playlist({ title = "", rows = [], selected = 0, playing: given =
 
 const PODIUM = ["bg-primary text-on-primary", "bg-secondary-container text-on-secondary-container", "bg-tertiary-container text-on-tertiary-container"];
 
+/* The open row is `selected`, which whoever draws the board moves when a row is tapped (`selectKey`): a copy of its
+ * own would keep showing a row the other side never opened. */
 export function Leaderboard({ title = "", rows = [], faces = true, selected = -1, width = 380, className, style }: { title?: string; rows?: string[][]; faces?: boolean; selected?: number; width?: number } & Look) {
-  const [on, setOn] = useSeeded(selected);
+  const on = selected;
   return (
     <div data-slot="leaderboard" data-selected={on} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-0.5 rounded-xl p-2", className)} style={{ width, ...style }}>
       {title && <div className="text-title-medium px-2 py-1">{title}</div>}
       {rows.map((r, i) => {
         const change = amountOf(r[2]);
         return (
-          <Tap key={i} data-tap={`tab:${i}`} aria-current={i === on || undefined} className={cn("flex w-full items-center gap-3 rounded-lg p-2 text-left", i === on && "bg-secondary-container text-on-secondary-container")} onClick={() => setOn(i)}>
+          <Tap key={i} data-tap={`tab:${i}`} aria-current={i === on || undefined} className={cn("flex w-full items-center gap-3 rounded-lg p-2 text-left", i === on && "bg-secondary-container text-on-secondary-container")}>
             <span className={cn("text-label-large flex size-7 shrink-0 items-center justify-center rounded-full tabular-nums", PODIUM[i])}>{i + 1}</span>
             {faces && <Face name={r[0] ?? ""} size="sm" />}
             <span className="text-body-large min-w-0 flex-1 truncate">{r[0] ?? ""}</span>
