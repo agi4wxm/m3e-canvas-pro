@@ -5,6 +5,7 @@ import { GENERATED } from "./code";
 import { FILES_DIR, MOBILE_FILES_DIR, productFile } from "./copy";
 import { buildProduct } from "./product";
 import type { Product } from "./types";
+import { makeItem, type Doc, type Item } from "../tokens";
 import { productDoc } from "./product.fixture";
 
 const fromDisk = (path: string) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
@@ -40,7 +41,6 @@ describe("the files an export copies as they are (lib/export/files)", () => {
       "apps/mobile/src/generated/transport.ts": `${MOBILE_FILES_DIR}/transport.ts`,
       "apps/mobile/jest.setup.tsx": `${MOBILE_FILES_DIR}/jest.setup.tsx`,
       "apps/mobile/src/generated/api.ts": `${MOBILE_FILES_DIR}/api.ts`,
-      "apps/mobile/src/generated/bind.ts": `${MOBILE_FILES_DIR}/bind.ts`,
       "apps/mobile/src/generated/files.ts": `${MOBILE_FILES_DIR}/files.ts`,
       "apps/mobile/src/generated/mocks.ts": `${MOBILE_FILES_DIR}/mocks.ts`,
       "apps/mobile/src/generated/DevMenu.tsx": `${MOBILE_FILES_DIR}/DevMenu.tsx`,
@@ -59,7 +59,7 @@ describe("the files an export copies as they are (lib/export/files)", () => {
 
 describe("the mobile app's own files filled in for the design (rn/src/app, lib/export/regions.ts)", () => {
   const MARKS = /\/\/#|\/\/\||\/\*#|#end\*\/|\/\*\$|@@|\/\/!/;
-  const FILLED = ["root.tsx", "routing.tsx", "runtime.ts", "contract.ts", "effects.ts"];
+  const FILLED = ["root.tsx", "routing.tsx", "runtime.ts", "contract.ts", "effects.ts", "bind.ts"];
 
   it("keep no mark, name the product's scope, and hold the design's own tables", () => {
     for (const file of FILLED) {
@@ -87,6 +87,24 @@ describe("the mobile app's own files filled in for the design (rn/src/app, lib/e
     expect(root).toContain('const dark = app.vars["night"]');
     expect(root).not.toContain("light or dark as the device is");
     expect(text("apps/mobile/src/generated/root.tsx")).toContain("light or dark as the device is");
+  });
+});
+
+describe("a copy button on a phone", () => {
+  it("copies through the app's capabilities (clipboard.write), which bind.ts has only where a screen copies", async () => {
+    const doc = (items: Item[]): Doc => ({ groups: items.map((it, i) => ({ id: `g${i}`, x: 16, y: 80 + i * 60, axis: "x", items: [it] })), frames: [{ id: "home", name: "Home", x: 0, y: 0 }], paletteKey: "purple", frame: "phone", title: "Copy", brief: "" });
+    const built = async (items: Item[]) => (await buildProduct(doc(items), {}, { read: fromDisk, fetchIcons: noNetwork, lang: "en" })).files;
+    const copies = await built([{ ...makeItem("copy-row"), id: "c", props: { text: "npm run deploy" } }]);
+    const screenFile = Object.entries(copies).find(([p]) => p.startsWith("apps/mobile/src/generated/screens/"))![1].body as string;
+    expect(screenFile).toContain("onCopy={copyText}");
+    expect(screenFile).toMatch(/import \{[^}]*copyText[^}]*\} from "\.\.\/bind"/);
+    const bind = copies["apps/mobile/src/generated/bind.ts"].body as string;
+    expect(bind).toContain('import { runtime } from "./runtime"');
+    expect(bind).toContain('const out = await runtime.invoke("clipboard.write", { text })');
+    /* a design with no copy button: bind.ts as it always was */
+    const plain = (await built([{ ...makeItem("text"), id: "t", props: { text: "Hi" } }]))["apps/mobile/src/generated/bind.ts"].body as string;
+    expect(plain).not.toContain("copyText");
+    expect(plain).not.toContain('from "./runtime"');
   });
 });
 

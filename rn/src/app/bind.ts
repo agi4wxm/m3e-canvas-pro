@@ -1,4 +1,4 @@
-//! Copied as it is (lib/export/copy.ts) into apps/mobile/src/generated/bind.ts of every product with a mobile app (lib/export/targets/mobile.ts):
+//! Filled in for the product (lib/export/regions.ts, lib/export/copy.ts filledFile) into apps/mobile/src/generated/bind.ts of every product with a mobile app (lib/export/targets/mobile.ts):
 //! the mobile app's own code, typechecked and linted with the kit (rn/types/app.d.ts stands in for the Expo packages
 //! the kit does not install). Written in the product's style (Prettier, no semicolons); the lines starting with //!
 //! are the editor's only.
@@ -7,12 +7,25 @@ import { screenParams, sourceKey, useBindings, useDataSource, useForm, type Bind
 import { useApp, type ActionBody } from "../kit"
 import { call } from "./api"
 import { FORMS, OPERATIONS } from "./contract"
+//#if copies
+import { runtime } from "./runtime"
+//#end
 
 /* What a printed screen's bindings stand on (lib/export/rn/print.ts writes the screens): its params, the scope its
  * expressions read, its data sources and its forms, each made of packages/app-runtime's hooks. */
 
 export { keyOf, regionOf, type ParamSpec } from "@m3e/app-runtime"
 export { pickFile, fileName } from "./files"
+//#if copies
+
+/** Copies words through the app's capabilities (clipboard.write: the app's adapter in src/custom/capabilities.ts, else
+ *  the platform's), and says whether they were. A phone has no clipboard the app reaches without a package the product
+ *  adds, so with no adapter the kit's copy button says it did not copy, never that it did. */
+export async function copyText(text: string): Promise<boolean> {
+  const out = await runtime.invoke("clipboard.write", { text })
+  return out.ok
+}
+//#end
 
 /** a data source of a screen, as the design has it (Frame.data) */
 export type SourceDef = { name: string; operationId: string; params?: Record<string, string>; body?: string; load?: "enter" | "demand"; pageSize?: number }

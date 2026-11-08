@@ -416,7 +416,7 @@ export const mobileTarget: ProductTarget = {
     Object.assign(files, capabilities?.files ?? {}, slotFiles(scope, slots, "mobile"));
     files["src/generated/api.ts"] = generated(await copiedFile(ctx, app("api.ts")));
     files["src/generated/contract.ts"] = generated(await filledFile(ctx, app("contract.ts"), {}, { operations: jsonCode(operationsOf(doc.api)), auth: authSource(doc.api ?? {}), forms: jsonCode(formRulesOf(doc)) }));
-    files["src/generated/bind.ts"] = generated(await copiedFile(ctx, app("bind.ts")));
+    files["src/generated/bind.ts"] = generated(await filledFile(ctx, app("bind.ts"), { copies: !!screens.copies }));
     files["src/generated/effects.ts"] = generated(await filledFile(ctx, app("effects.ts"), {}));
     files["src/generated/transport.ts"] = generated(await copiedFile(ctx, app("transport.ts")));
     files["src/generated/files.ts"] = generated(await copiedFile(ctx, app("files.ts")));
