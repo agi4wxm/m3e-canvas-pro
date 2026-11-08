@@ -68,6 +68,44 @@ export function splitsDoc(): { doc: Doc; widths: Record<string, number> } {
   return { doc: { groups: laid, frames: [desk, phone], paletteKey: "purple", frame: "phone", title: "Splits", brief: "" }, widths };
 }
 
+/** D1: the media parts, the capability views' stand-ins and the parts that talk and keep time, as the kits draw them
+ *  natively: three phone screens of them, each with props of its own (markers and a route, a playlist's rows, stories
+ *  seen and not, a call under way), so what the printer writes for them is held to the kits' props. */
+export function mediaDoc(): { doc: Doc; widths: Record<string, number> } {
+  const frames: Frame[] = [
+    { id: "media-watch", name: "Media watch", x: 0, y: 0 },
+    { id: "media-listen", name: "Media listen", x: 480, y: 0 },
+    { id: "media-talk", name: "Media talk", x: 960, y: 0 },
+  ];
+  const item = (id: string, slug: string, props: Record<string, unknown>) => ({ ...makeItem(slug), id, props });
+  const at = (frame: number, x: number, y: number, it: Item): Group => ({ id: `g-${it.id}`, x: frames[frame].x + x, y: frames[frame].y + y, axis: "x", items: [it] });
+  const markers = { columns: ["Id", "Title", "Lat", "Lng"], rows: [["a", "Harbour", "31.2", "121.4"], ["b", "Old town", "31.25", "121.5"]] };
+  const groups: Group[] = [
+    at(0, 0, 16, item("carousel-x", "expressive-carousel", { width: 412, height: 140, slides: [{ label: "Sunrise" }, { label: "Forest" }, { label: "Ocean" }, { label: "Desert" }] })),
+    at(0, 16, 170, item("video", "video", { width: 380, title: "Trailer", time: "00:30" })),
+    at(0, 16, 400, item("map", "map", { width: 380, height: 180, markers, selected: "a", route: true, label: "Stores" })),
+    at(0, 16, 600, item("photos", "photo-grid", { count: 6, columns: 3, width: 180 })),
+    at(0, 212, 600, item("qr", "qr-code", { text: "https://m3e.dev", size: 120, caption: "Scan to open" })),
+    at(0, 16, 800, item("marquee", "marquee", { text: "Doors open at six", seconds: 8, width: 380 })),
+    at(1, 16, 16, item("player", "audio-player", { title: "Morning song", artist: "Ada", seconds: 200, position: 30, playing: true, width: 380 })),
+    at(1, 16, 130, item("lessons", "playlist", { title: "Getting started", selected: 1, playing: true, width: 380 })),
+    at(1, 16, 450, item("viewer", "image-viewer", { height: 160, width: 380, images: [{ label: "Harbour" }, { label: "Old town" }] })),
+    at(1, 16, 700, item("ticker", "number-ticker", { value: 1280, prefix: "$" })),
+    at(1, 200, 700, item("timer", "timer", { seconds: 90, width: 196 })),
+    at(1, 16, 780, item("shimmer", "shimmer-text", { text: "Thinking…" })),
+    at(1, 16, 820, item("animation", "animation", { size: 56, file: "spin.json" })),
+    at(2, 0, 16, item("stories", "story-row", { width: 412, items: [{ label: "Your story" }, { label: "Ada" }, { label: "Grace", variant: "seen" }] })),
+    at(2, 16, 120, item("today", "marker", { text: "Today", width: 380 })),
+    at(2, 16, 150, item("scroller", "message-scroller", { width: 380, height: 200 })),
+    at(2, 16, 360, item("voice", "voice-message", { seconds: 9, mine: true, width: 240 })),
+    at(2, 16, 440, item("quiz", "questionnaire", { question: "Which do you use?", steps: 2, width: 380 })),
+    at(2, 16, 640, item("call", "video-call", { name: "Ada", width: 240, height: 240, mic: false })),
+    at(2, 264, 640, item("camera", "camera", { mode: "scan", width: 132, height: 240 })),
+  ];
+  const widths = defaultMeasures(groups);
+  return { doc: { groups, frames, paletteKey: "purple", frame: "phone", title: "Media", brief: "" }, widths };
+}
+
 /** a printed document's files, under rn/src/printed/<name>: its pictures as files beside it, as an exported app has them */
 async function printed(name: string, doc: Doc, widths: Record<string, number>): Promise<Record<string, string | Uint8Array>> {
   const at = `rn/src/printed/${name}`;
@@ -95,6 +133,7 @@ export async function printedFixture(): Promise<Record<string, string | Uint8Arr
   const proof = withIds(next, proofDoc);
   const kits = withIds(next, kitsDoc);
   const splits = withIds(next, splitsDoc);
-  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)) };
+  const media = withIds(next, mediaDoc);
+  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("media", media.doc, media.widths)) };
 }
 

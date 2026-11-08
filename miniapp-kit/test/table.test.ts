@@ -52,7 +52,7 @@ mock.module("@tarojs/taro", () => {
   };
   return { default: taro, ...taro };
 });
-mock.module("@tarojs/components", () => ({ View: "View", Image: "Image", Input: "Input", Picker: "Picker", Slider: "Slider", Textarea: "Textarea", Text: "Text" }));
+mock.module("@tarojs/components", () => ({ View: "View", Image: "Image", Input: "Input", Picker: "Picker", Slider: "Slider", Textarea: "Textarea", Text: "Text", ScrollView: "ScrollView" }));
 
 const { RuntimeProvider } = await import("@m3e/app-runtime");
 const { AppSpecProvider } = await import("../src/kit/app/screen");

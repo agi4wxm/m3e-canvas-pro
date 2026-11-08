@@ -38,6 +38,9 @@ export const MINIAPP_KIT_FILES = [
   "theme.generated.ts",
   "theme.ts",
   "value.ts",
+  /* D1: media, capability views' stand-ins, what talks and keeps time */
+  "composites/live.tsx",
+  "composites/media.tsx",
 ] as const;
 
 export const MINIAPP_KIT_DIR = "miniapp-kit/src/kit";

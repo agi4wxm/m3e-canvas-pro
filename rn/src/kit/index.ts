@@ -26,3 +26,6 @@ export { NATIVE, isNative, kitPropName } from "./coverage";
 export { BY_NAME, COMPONENTS } from "./registry";
 export { TreeView, type TreeNode } from "./tree";
 export { PARTS, type PartInfo } from "./parts.generated";
+/* D1: media, capability views' stand-ins, what talks and keeps time */
+export { Animation, AudioPlayer, CameraStandIn, ExpressiveCarousel, ImageCropper, ImageViewer, MapStandIn, Marquee, PhotoGrid, Playlist, QrCode, Video, WebPage, qrMatrix, type MapStandInProps } from "./composites/media";
+export { CallStandIn, Marker, MessageScroller, NumberTicker, Questionnaire, ShimmerText, StoryRow, Timer, VoiceMessage, timerSeconds } from "./composites/live";

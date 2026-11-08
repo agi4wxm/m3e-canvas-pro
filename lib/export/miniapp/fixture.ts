@@ -1,7 +1,7 @@
 import { proofDoc } from "../../exportProject.fixture";
 import { withIds, type Doc } from "../../tokens";
 import { str } from "../../../parts/print";
-import { kitsDoc, splitsDoc } from "../rn/fixture";
+import { kitsDoc, mediaDoc, splitsDoc } from "../rn/fixture";
 import { callsModule, iconsModule, pageConfig, pageModule, printMiniApp, screensIndex, specModule, themeModule } from "./app";
 
 /* Documents printed into the kit's own app (miniapp-kit/src/printed), so that what the printer writes is type-checked,
@@ -70,10 +70,13 @@ export async function printedFixture(): Promise<Record<string, string>> {
   const a = await printed("proof", proof.doc, proof.widths);
   const b = await printed("kits", kits.doc, kits.widths);
   const c = await printed("splits", splits.doc, splits.widths);
+  const media = withIds(next, mediaDoc);
+  const d = await printed("media", media.doc, media.widths);
   return {
     ...a.files,
     ...b.files,
     ...c.files,
-    "miniapp-kit/src/printed/pages.ts": `${HEAD}\n\n/** the pages of the printed documents, for the app's config */\nexport const PRINTED_PAGES: string[] = ${JSON.stringify([...a.pages, ...b.pages, ...c.pages], null, 2)};\n`,
+    ...d.files,
+    "miniapp-kit/src/printed/pages.ts": `${HEAD}\n\n/** the pages of the printed documents, for the app's config */\nexport const PRINTED_PAGES: string[] = ${JSON.stringify([...a.pages, ...b.pages, ...c.pages, ...d.pages], null, 2)};\n`,
   };
 }

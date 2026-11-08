@@ -40,7 +40,7 @@ mock.module("@tarojs/taro", () => {
 /* the components draw nothing here: only the pure pieces are under test */
 mock.module("@tarojs/components", () => {
   const none = () => null;
-  return { View: none, Image: none, Text: none, Input: none, Textarea: none, Slider: none, Picker: none };
+  return { View: none, Image: none, Text: none, Input: none, Textarea: none, Slider: none, Picker: none, ScrollView: none };
 });
 
 const { c, ca, css, inkVars } = await import("../src/kit/color");

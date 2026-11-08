@@ -31,3 +31,6 @@ export { optionIndex, rowsOf } from "./app/values";
 export { KIT_ICONS } from "./iconNames";
 export { createTaroTransport, queryString, readAsDataUrl, taroStorage, withFileData, type PlatformFile, type TaroTransportOptions } from "./app/transport";
 export type { Action, ActionBody, AppSpec, CallFn, Condition, Effect, ScreenSpec, VarSpec } from "./app/spec";
+/* D1: media, capability views' stand-ins, what talks and keeps time */
+export { Animation, AudioPlayer, CameraStandIn, Carousel, ExpressiveCarousel, ImageCropper, ImageViewer, MapStandIn, Marquee, PhotoGrid, Playlist, QrCode, Scene, Video, WebPage, qrMatrix, type MapStandInProps } from "./composites/media";
+export { CallStandIn, Marker, MessageScroller, NumberTicker, Questionnaire, ShimmerText, StoryRow, Timer, VoiceMessage, timerSeconds } from "./composites/live";
