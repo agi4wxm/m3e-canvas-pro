@@ -361,7 +361,7 @@ npx playwright install chromium
 | `set_mock_route` | 数据与交互 |  |  | Says how the mocks answer an operation when its method and path do not say it plainly: kind auto, list, get, create, update, replace, delete, singleton, upload, download, login, r… |
 | `fill_mocks` | 数据与交互 |  |  | Fills the mock library for the API in one step: every model's fields get the hint their names, formats and enums say (written down, to change), each listed model a record count, t… |
 | `clear_mocks` | 数据与交互 |  | 是 | Takes every mock setting away (hints, counts, pinned records, scenarios, files, scripts): the API is then answered with data made from its schemas alone. |
-| `set_mock_capability` | 数据与交互 |  |  | Says how the mock library answers a capability in the preview and the exported apps' development builds: in every scenario, or in one (scenario). |
+| `set_mock_capability` | 数据与交互 |  |  | Says how the mock library answers a capability in the preview (and in an exported app's tests or development build that puts its createMockCapabilities in place): in every scenari… |
 | `declare_capability` | 数据与交互 |  |  | Declares a platform capability of the product's own, beside the catalog's (list_capabilities): name (dotted, e.g. |
 | `remove_capability` | 数据与交互 |  | 是 | Removes a capability the product declared (declare_capability). |
 | `use_capabilities` | 数据与交互 |  |  | Says the product uses these capabilities beyond the ones its designs invoke or draw (those count anyway): an event such as push.opened, or one only the code will invoke. |

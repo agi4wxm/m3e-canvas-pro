@@ -86,7 +86,7 @@ export const useCapabilities = op<{ add?: string[]; remove?: string[] }>({
 export const setMockCapability = op<{ capability: string; scenario?: string; result?: unknown; fail?: FailureKind | null; message?: string | null; delayMs?: number | null; clear?: boolean }>({
   name: "set_mock_capability",
   summary:
-    'Says how the mock library answers a capability in the preview and the exported apps\' development builds: in every scenario, or in one (scenario). result: an object laid over the catalog\'s example ({status: "submitted"} for payment.pay); fail: how it fails instead (cancelled, failed, unavailable, not-implemented, denied, timeout; null: it does what it is asked); message; delayMs. clear: true drops the rule. A scenario describes a situation ("payment cancelled"), never a rule: whether an order is paid stays the back end\'s answer (its order status).',
+    'Says how the mock library answers a capability in the preview (and in an exported app\'s tests or development build that puts its createMockCapabilities in place): in every scenario, or in one (scenario). result: an object laid over the catalog\'s example ({status: "submitted"} for payment.pay); fail: how it fails instead (cancelled, failed, unavailable, not-implemented, denied, timeout; null: it does what it is asked); message; delayMs. clear: true drops the rule. A scenario describes a situation ("payment cancelled"), never a rule: whether an order is paid stays the back end\'s answer (its order status).',
   args: S.obj(
     {
       capability: S.str(),
