@@ -38,8 +38,9 @@ import { op, OpError, S } from "../op";
 import { withGroups, withSession, type CoreState, type Widths } from "../state";
 import { componentById, copiedIds, freshId, freshPart, frameById, groupById, groupOfItem, itemById, itemRects, landNewPart, laidOut, onItsEdge, selectionUnits, spotOn, unlocked, withHeld } from "./common";
 import { checkItemPatch, checkProps, cleanedLook, conditionError } from "./validate";
-import { paneGroups, refusePanes } from "./split";
-import { splitOf } from "../../split";
+import { paneGroups, panesOf, refusePanes } from "./split";
+import { SPLIT_SLUG, splitOf, withSplitPanes, type PaneSide } from "../../split";
+import { arrangeFlows } from "../../flow";
 
 /** the groups whose anchor moved, for a canvas that draws them there at once rather than easing them */
 export const movedGroups = (before: Group[], after: Group[]): string[] => {
@@ -107,7 +108,7 @@ export type AddPartArgs = {
   backdrop?: { screen?: string; x: number; y: number };
 };
 
-export const addPart = op<AddPartArgs, { itemId: string; groupId: string }>({
+export const addPart = op<AddPartArgs, { itemId: string; groupId: string; panes?: Partial<Record<PaneSide, string>> }>({
   name: "add_part",
   summary: "Adds a part (an atom or a composite) to a screen: at a point, into a container's auto layout at a place in its run, or where there is room.",
   args: S.obj(
@@ -133,7 +134,13 @@ export const addPart = op<AddPartArgs, { itemId: string; groupId: string }>({
     const base = freshPart(a.slug, !!a.seed);
     const item: Item = { ...base, id, ...(a.props ? { props: { ...base.props, ...a.props } } : {}) };
     const groupId = freshId(s, a.groupId, ctx.newId);
-    const done = (state: CoreState) => ({ state: withSession(state, { selection: [id], frameId: null }), result: { itemId: id, groupId } });
+    const done = (state: CoreState) => {
+      if (a.slug !== SPLIT_SLUG) return { state: withSession(state, { selection: [id], frameId: null }), result: { itemId: id, groupId } };
+      /* a split view comes with its two panes (lib/split.ts), made here rather than after the operation so that the
+         caller is told what to put parts into */
+      const whole = withGroups(state, arrangeFlows(withSplitPanes(state.doc.groups, ctx.newId, ctx.lang), ctx.widths));
+      return { state: withSession(whole, { selection: [id], frameId: null }), result: { itemId: id, groupId, panes: panesOf(whole.doc.groups, groupId) } };
+    };
     if (a.into) {
       const host = groupById(s, a.into.container);
       const groups = intoFlow(s.doc.groups, { id: groupId, x: host.x, y: host.y, axis: "x", items: [item] }, host.id, a.into.index);

@@ -63,7 +63,7 @@ const centreOf = (g: Group, widths: Widths) => {
 /** A legacy `resizable` (two panels of words, with parts laid over them) turned into a split view of the same size,
  *  orientation and share: what lay over each panel, by its centre, goes into that pane's layout in reading order, and
  *  a panel's own words, where they were changed, stay as a line of text in its pane. One step; undo puts it back. */
-export const convertToSplitView = op<{ id: string }, { itemId: string; groupId: string }>({
+export const convertToSplitView = op<{ id: string }, { itemId: string; groupId: string; panes: Partial<Record<PaneSide, string>> }>({
   name: "convert_to_split_view",
   summary:
     "Turns a legacy resizable into a split view (two panes that hold parts): the same size, orientation and share; the parts lying over each panel (by their centre) move into that pane's layout, in reading order.",
@@ -126,7 +126,7 @@ export const convertToSplitView = op<{ id: string }, { itemId: string; groupId: 
     const before = s.doc.groups.slice(0, at).filter((g) => !carried.has(g.id)).length;
     const groups = [...rest.slice(0, before), ...block, ...rest.slice(before)];
     const state = withSession(withGroups(s, groups), { selection: [item.id] });
-    return { state: laidOut(state, ctx.widths), result: { itemId: item.id, groupId } };
+    return { state: laidOut(state, ctx.widths), result: { itemId: item.id, groupId, panes: { first: panes.first.items[0].id, second: panes.second.items[0].id } } };
   },
 });
 
