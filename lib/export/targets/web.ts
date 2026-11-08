@@ -15,7 +15,8 @@ import { GENERATED, jsonFile, sortedObject } from "../code";
 import { generated, seeded, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "../types";
 import { specOf } from "./mocks";
 import { boundaryDifferences } from "../boundary";
-import { API_CLIENT, DATA_SCROLL, ENV, MAIN, MOCKS, PLATFORM, ROUTER, ROUTER_TEST, SCENARIO_PICKER, routesSource } from "./webSources";
+import { API_CLIENT, ENV, MAIN, MOCKS, ROUTER, ROUTER_TEST, SCENARIO_PICKER, routesSource } from "./webSources";
+import { copiedFile } from "../copy";
 
 /** the prototype's own files that move into src/generated/ */
 const MOVED: Record<string, string> = {
@@ -198,8 +199,9 @@ export const webTarget: ProductTarget = {
     Object.assign(files, capabilities?.files ?? {}, slotFiles(ctx.scope, slots, "web"));
     files["src/generated/mocks.ts"] = generated(MOCKS(ctx.scope));
     files["src/generated/ScenarioPicker.tsx"] = generated(SCENARIO_PICKER(ctx.scope));
-    files["src/generated/platform.ts"] = generated(PLATFORM(ctx.scope));
-    files["src/generated/DataScroll.tsx"] = generated(DATA_SCROLL);
+    /* what only a browser has: real files of this repo, copied as they are (lib/export/copy.ts) */
+    files["src/generated/platform.ts"] = generated(await copiedFile(ctx, "web/platform.ts"));
+    files["src/generated/DataScroll.tsx"] = generated(await copiedFile(ctx, "web/DataScroll.tsx"));
     files["src/generated/env.d.ts"] = generated(ENV);
     /* what the web app leans on that is not there yet (a prototype demo, a part event, an interface, a capability),
        and what it prints differently: listed beside the screens, as the mobile apps list theirs */

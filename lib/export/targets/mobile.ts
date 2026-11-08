@@ -752,9 +752,9 @@ export function ScreenRoute({ screen, overlay, render }: { screen: string; overl
 `;
 
 const ROOT = (scope: string, vars: unknown, hidden: unknown, triggers: unknown, dark: string | undefined) => `${GENERATED}
-import { useEffect, type ComponentType, type ReactNode } from "react"
+import type { ComponentType, ReactNode } from "react"
 import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context"
-import { RuntimeProvider } from ${str(`${scope}/app-runtime`)}
+import { RuntimeProvider, SetupGate } from ${str(`${scope}/app-runtime`)}
 import { AppProvider, NavProvider, SnackHost, ThemeProvider, registerIcons, ${dark ? "useApp, " : ""}type AppVar } from "../kit"
 import { Providers } from "../custom/Providers"
 import { setup } from "../custom/setup"
@@ -798,18 +798,19 @@ function Themed({ children }: { children: ReactNode }) {
 }
 
 /** The app around its routes: the safe area, the runtime (session, data, language), the app's memory (variables, what
- *  taps showed, the snackbar) with the API's effects, the theme, where taps go, the custom providers. */
+ *  taps showed, the snackbar) with the API's effects, the theme, where taps go, the custom providers. The routes are
+ *  drawn once the custom setup has run (SetupGate: nothing before; a setup that fails is reported and the app drawn
+ *  all the same), as the web app and the mini-program draw theirs. */
 export function AppRoot({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    void setup()
-  }, [])
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <RuntimeProvider runtime={runtime}>
         <AppProvider vars={VARS} hidden={HIDDEN} triggers={TRIGGERS} reader={reader} interpret={interpret}>
           <Themed>
             <NavProvider value={routerNav}>
-              <Providers>{children}</Providers>
+              <SetupGate setup={setup}>
+                <Providers>{children}</Providers>
+              </SetupGate>
               <SnackHost />
               {DevMenu ? <DevMenu /> : null}
             </NavProvider>
@@ -967,16 +968,19 @@ export default function Index() {
 }
 `;
 
-/* the app's own tests: every screen draws, its data comes, a form checks what is entered before it sends */
+/* the app's own tests: it waits for the custom setup, every screen draws, its data comes, a form checks what is entered
+   before it sends */
 const TEST = (scope: string, screens: RnScreen[], forms: { screen: string; operationId: string; required: boolean }[]) => `${GENERATED}
 import { act, fireEvent, render, screen } from "@testing-library/react-native"
 import type { ComponentType } from "react"
+import { Text } from "react-native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 import { RuntimeProvider, type TransportRequest } from ${str(`${scope}/app-runtime`)}
 import { createMockTransport } from ${str(`${scope}/mocks`)}
 import { AppProvider, NavProvider, ThemeProvider, registerIcons } from "../kit"
 import { interpret, reader } from "./effects"
 import { icons } from "./icons"
+import { AppRoot } from "./root"
 import { runtime } from "./runtime"
 ${screens.map((s) => `import { ${s.component} } from ${str(`./screens/${s.component}`)}`).join("\n")}
 import { theme } from "./theme"
@@ -1017,8 +1021,28 @@ function draw(Screen: ComponentType) {
 /** lets the mocks answer and the screen draw what they said */
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 20)))
 
+/* the custom setup, held until the test lets it finish */
+let mockFinishSetup: () => void = () => {}
+jest.mock("../custom/setup", () => ({
+  setup: () =>
+    new Promise<void>((resolve) => {
+      mockFinishSetup = resolve
+    }),
+}))
+
 it("starts its runtime on the contract's session", () => {
   expect(runtime.auth).toBeDefined()
+})
+
+it("draws its routes only once the custom setup has run (SetupGate)", async () => {
+  await render(
+    <AppRoot>
+      <Text>the routes</Text>
+    </AppRoot>,
+  )
+  expect(screen.queryByText("the routes")).toBeNull()
+  await act(async () => mockFinishSetup())
+  expect(screen.getByText("the routes")).toBeTruthy()
 })
 
 if (SCREENS.length) describe("the screens", () => {

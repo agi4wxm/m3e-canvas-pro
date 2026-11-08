@@ -1,7 +1,8 @@
 /* The files of apps/web that are the product's own, beside the screens the printer writes: the entry, the API client
  * on the shared runtime (packages/app-runtime) with the session the contract asks for, the mocks in development with a
- * picker of their scenarios, the router with each screen's params in its address, and what only a browser has (the
- * scroll body that pulls to refresh and pages, file inputs, date inputs, sessionStorage, uploads with progress). */
+ * picker of their scenarios, the router with each screen's params in its address. What only a browser has (the scroll
+ * body that pulls to refresh and pages, file inputs, date inputs, sessionStorage, uploads with progress) is real files
+ * of this repo, lib/export/files/web, copied as they are. */
 
 import { tokenPlacement } from "../../bindings/contract";
 import { authFields, type ApiSpec } from "../../api/types";
@@ -11,7 +12,7 @@ import { GENERATED, literal, propKey, str } from "../code";
 export const MAIN = (scope: string) => `${GENERATED}
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
-import { RuntimeProvider } from ${str(`${scope}/app-runtime`)}
+import { RuntimeProvider, SetupGate } from ${str(`${scope}/app-runtime`)}
 import { App } from "./generated/App"
 import { runtime } from "./generated/api"
 import { RouterSync } from "./generated/router"
@@ -22,20 +23,23 @@ import { setup } from "./custom/setup"
 import "./generated/index.css"
 
 /* In development the API answers from the mocks (${scope}/mocks) unless VITE_API_MOCKS is "off", with a picker of
- * their scenarios; a production build has none of them: the branch is dropped with what it imports. */
+ * their scenarios; a production build has none of them: the branch is dropped with what it imports. The app is drawn
+ * once the custom setup has run (SetupGate: nothing before; a setup that fails is reported and the app drawn all the
+ * same), as the mobile app and the mini-program draw theirs. */
 async function start() {
   const picker = import.meta.env.DEV && import.meta.env.VITE_API_MOCKS !== "off" ? await (await import("./generated/mocks")).startMocks(import.meta.env.VITE_API_MOCKS) : null
-  await setup()
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <Theme>
         <RuntimeProvider runtime={runtime}>
-          <AppProvider>
-            <Providers>
-              <RouterSync />
-              <App />
-            </Providers>
-          </AppProvider>
+          <SetupGate setup={setup}>
+            <AppProvider>
+              <Providers>
+                <RouterSync />
+                <App />
+              </Providers>
+            </AppProvider>
+          </SetupGate>
         </RuntimeProvider>
         {picker}
       </Theme>
@@ -202,186 +206,6 @@ export async function startMocks(mode?: string): Promise<ReactNode> {
       setTransport(withDataFiles(mock), { presumed: startsSignedIn(mock.scenario) })
     },
   })
-}
-`;
-
-export const PLATFORM = (scope: string) => `${GENERATED}
-import type { ChangeEvent } from "react"
-import { queryString, readBody, type Transport, type TransportRequest, type TransportResponse } from ${str(`${scope}/api`)}
-import type { TokenStorage } from ${str(`${scope}/app-runtime`)}
-
-/** the session's tokens in this tab's sessionStorage: kept across reloads, gone when the tab is closed */
-export function webStorage(): TokenStorage {
-  return {
-    get: (key) => {
-      try {
-        return window.sessionStorage.getItem(key)
-      } catch {
-        return null
-      }
-    },
-    set: (key, value) => {
-      try {
-        window.sessionStorage.setItem(key, value)
-      } catch {
-        /* storage refused (a private window): the session lasts as long as the page */
-      }
-    },
-    remove: (key) => {
-      try {
-        window.sessionStorage.removeItem(key)
-      } catch {
-        /* nothing kept to remove */
-      }
-    },
-  }
-}
-
-const isFile = (v: unknown): v is Blob => typeof Blob !== "undefined" && v instanceof Blob
-
-/** whether a request's body goes as a multipart form: its content type says so, or files are in it */
-function multipart(request: TransportRequest): boolean {
-  const type = Object.entries(request.headers ?? {}).find(([k]) => k.toLowerCase() === "content-type")?.[1] ?? ""
-  if (/multipart\\/form-data/i.test(type)) return true
-  const body = request.body
-  return !!body && typeof body === "object" && Object.values(body).some((v) => isFile(v) || (Array.isArray(v) && v.some(isFile)))
-}
-
-/** a multipart body as form data: files as they are, lists as repeated fields, objects as JSON, the rest as words */
-function formData(body: unknown): FormData {
-  const form = new FormData()
-  for (const [key, value] of Object.entries((body ?? {}) as Record<string, unknown>))
-    for (const one of Array.isArray(value) ? value : [value]) {
-      if (one === undefined || one === null) continue
-      if (isFile(one)) form.append(key, one, (one as File).name)
-      else form.append(key, typeof one === "object" ? JSON.stringify(one) : String(one))
-    }
-  return form
-}
-
-/** Sends what carries files over XMLHttpRequest, so the upload's progress can be told (\`onUploadProgress\`); everything
- *  else goes through \`inner\`. */
-export function withUploads(inner: Transport, baseUrl: string): Transport {
-  return {
-    request(request) {
-      if (!multipart(request)) return inner.request(request)
-      return new Promise<TransportResponse>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        const search = queryString(request.query)
-        xhr.open(request.method, \`\${baseUrl.replace(/\\/$/, "")}\${request.path}\${search ? \`?\${search}\` : ""}\`)
-        for (const [k, v] of Object.entries(request.headers ?? {})) if (k.toLowerCase() !== "content-type") xhr.setRequestHeader(k, v)
-        xhr.setRequestHeader("accept", "application/json")
-        xhr.upload.onprogress = (event) => request.onUploadProgress?.(event.loaded, event.lengthComputable ? event.total : 0)
-        xhr.onerror = () => reject(new Error("The network failed"))
-        /* the answer's bytes as they came, read as the fetch transport reads every answer (JSON, text or a file) */
-        xhr.responseType = "arraybuffer"
-        xhr.onload = () => {
-          const headers: Record<string, string> = {}
-          for (const line of xhr.getAllResponseHeaders().trim().split(/[\\r\\n]+/)) {
-            const at = line.indexOf(":")
-            if (at > 0) headers[line.slice(0, at).trim().toLowerCase()] = line.slice(at + 1).trim()
-          }
-          const bytes = xhr.response instanceof ArrayBuffer ? new Uint8Array(xhr.response) : new Uint8Array(0)
-          resolve({ status: xhr.status, headers, body: readBody({ method: request.method, path: request.path, status: xhr.status, headers, bytes }) })
-        }
-        xhr.send(formData(request.body))
-      })
-    },
-  }
-}
-
-/** what a file input inside a part picked, handed to \`take\`: its file, or its files for one that takes several */
-export const pickFiles = (many: boolean, take: (files: File | File[]) => void) => (event: ChangeEvent<HTMLElement>) => {
-  const input = event.target as HTMLInputElement
-  if (input.type !== "file" || !input.files?.length) return
-  take(many ? [...input.files] : input.files[0])
-}
-
-/** a date and time the contract writes (ISO 8601) as a datetime-local input shows it, in this place's time */
-export function localDateTime(iso: string): string {
-  const d = new Date(iso)
-  if (!iso || Number.isNaN(d.getTime())) return ""
-  const pad = (n: number) => String(n).padStart(2, "0")
-  return \`\${d.getFullYear()}-\${pad(d.getMonth() + 1)}-\${pad(d.getDate())}T\${pad(d.getHours())}:\${pad(d.getMinutes())}\`
-}
-
-/** what a datetime-local input holds, as the contract writes a date and time */
-export function isoDateTime(local: string): string {
-  const d = new Date(local)
-  return !local || Number.isNaN(d.getTime()) ? "" : d.toISOString()
-}
-
-`;
-
-export const DATA_SCROLL = `${GENERATED}
-import { useEffect, useRef, useState, type ReactNode, type UIEvent } from "react"
-
-/** how far a pull must go to load again, in px */
-const PULL = 64
-
-/** The body of a screen that loads data: it scrolls under what stays put; a pull down from its top (a finger, the mouse
- *  dragged, or the wheel) loads again what loads on a pull, a spinner showing while it does; coming near its end (or a
- *  body too short to scroll) loads the next page of what pages on scroll. */
-export function DataScroll({ onRefresh, refreshing = false, onEnd, onScroll, children, ...aria }: { onRefresh?: () => void; refreshing?: boolean; onEnd?: () => void; onScroll?: (event: UIEvent<HTMLDivElement>) => void; children: ReactNode; "aria-label"?: string }) {
-  const box = useRef<HTMLDivElement>(null)
-  const pull = useRef<number | null>(null)
-  const wheel = useRef(0)
-  const [drag, setDrag] = useState(0)
-  /* a body that does not fill the screen pages on by itself */
-  useEffect(() => {
-    const el = box.current
-    if (el && onEnd && el.scrollHeight - el.clientHeight < 160) onEnd()
-  })
-  const atTop = () => (box.current?.scrollTop ?? 0) <= 0
-  return (
-    <div
-      ref={box}
-      role="region"
-      tabIndex={0}
-      {...aria}
-      data-scroll-body
-      data-refreshing={refreshing || undefined}
-      className="absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain"
-      onScroll={(event) => {
-        onScroll?.(event)
-        const el = event.currentTarget
-        if (onEnd && el.scrollHeight - el.scrollTop - el.clientHeight < 160) onEnd()
-      }}
-      onPointerDown={onRefresh ? (event) => (pull.current = atTop() ? event.clientY : null) : undefined}
-      onPointerMove={onRefresh ? (event) => pull.current !== null && setDrag(Math.max(0, Math.min(PULL * 1.5, event.clientY - pull.current))) : undefined}
-      onPointerUp={
-        onRefresh
-          ? () => {
-              if (drag >= PULL) onRefresh()
-              pull.current = null
-              setDrag(0)
-            }
-          : undefined
-      }
-      onPointerCancel={onRefresh ? () => ((pull.current = null), setDrag(0)) : undefined}
-      onWheel={
-        onRefresh
-          ? (event) => {
-              if (!atTop() || event.deltaY >= 0) return
-              wheel.current += -event.deltaY
-              if (wheel.current > 240) {
-                wheel.current = 0
-                onRefresh()
-              }
-            }
-          : undefined
-      }
-    >
-      {(refreshing || drag > 0) && (
-        <div aria-hidden className="pointer-events-none sticky top-0 z-20 flex h-0 justify-center">
-          <div className="bg-surface-container-high shadow-elevation-2 mt-3 grid size-9 place-items-center rounded-full" style={{ transform: \`translateY(\${refreshing ? 0 : drag - PULL}px)\`, opacity: refreshing ? 1 : drag / PULL }}>
-            <div className={\`border-primary size-5 rounded-full border-2 border-t-transparent \${refreshing ? "animate-spin" : ""}\`} style={refreshing ? undefined : { transform: \`rotate(\${drag * 4}deg)\` }} />
-          </div>
-        </div>
-      )}
-      {children}
-    </div>
-  )
 }
 `;
 

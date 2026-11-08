@@ -3,7 +3,12 @@ import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
-    alias: [{ find: /^@\//, replacement: fileURLToPath(new URL("./", import.meta.url)) }],
+    alias: [
+      { find: /^@\//, replacement: fileURLToPath(new URL("./", import.meta.url)) },
+      /* the product's packages, as the files an export copies as they are name them (lib/export/copy.ts) */
+      { find: /^@m3e\/api$/, replacement: fileURLToPath(new URL("./lib/export/files/api/index.ts", import.meta.url)) },
+      { find: /^@m3e\/app-runtime$/, replacement: fileURLToPath(new URL("./lib/export/files/appRuntime/index.ts", import.meta.url)) },
+    ],
   },
   test: {
     // agent worktrees are full copies of the project; their tests are not this checkout's. rn/ is a package of its own with its own runner (jest), miniapp-kit/ too (its own vitest)

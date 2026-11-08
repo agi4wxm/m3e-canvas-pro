@@ -7,6 +7,7 @@
  * preview behave alike, from one implementation. docs/导出.md lists its API. */
 
 import { GENERATED, jsonFile } from "../code";
+import { copiedFile } from "../copy";
 import { generated, type ProductContext, type ProductTarget, type Workspace } from "../types";
 
 /** the editor's files the runtime is made of: the bindings' pure pieces, the three of lib/api they read (body.ts: how a
@@ -25,123 +26,12 @@ export const APP_RUNTIME_FILES = [
 const INDEX = `${GENERATED}
 /* The runtime of the product's front ends: see src/engine/app/index.ts, and docs/导出.md in the design editor. */
 export * from "./engine/app/index"
+export * from "./setup"
 `;
 
-/* The runtime's own test, as the product runs it: no contract of its own, a back end made up here */
-const TEST = `${GENERATED}
-import { createElement } from "react"
-import { renderToString } from "react-dom/server"
-import { describe, expect, it } from "vitest"
-import {
-  Bindings,
-  FormController,
-  RuntimeProvider,
-  createRuntime,
-  memoryStorage,
-  regionOf,
-  sourceKey,
-  sourceView,
-  useBindings,
-  useDataSource,
-  useSession,
-  type AuthConfig,
-  type SourceSpec,
-  type Transport,
-  type TransportRequest,
-} from "./index"
-
-class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly body: unknown,
-    readonly operationId?: string,
-  ) {
-    super(\`\${operationId} failed with status \${status}\`)
-  }
-}
-
-/** one call as the generated client makes it: the answer's body, or an ApiError */
-async function send<T>(t: Transport, r: TransportRequest): Promise<T> {
-  const res = await t.request(r)
-  if (res.status < 200 || res.status > 299) throw new ApiError(res.status, res.body, r.operationId)
-  return res.body as T
-}
-
-const ITEMS = Array.from({ length: 25 }, (_, i) => ({ id: \`p\${i + 1}\`, name: \`Product \${i + 1}\` }))
-
-/** a back end of products in pages, a sign-in, and a list that wants its token */
-function backEnd(log: TransportRequest[] = []): Transport {
-  return {
-    async request(r) {
-      log.push(r)
-      if (r.operationId === "login") {
-        const ok = (r.body as { password?: string }).password === "secret"
-        return ok ? { status: 200, headers: {}, body: { accessToken: "t1", refreshToken: "r1", user: { name: "ada" } } } : { status: 401, headers: {}, body: { title: "Wrong password", status: 401 } }
-      }
-      if (r.operationId === "create") return { status: 422, headers: {}, body: { title: "Unprocessable Content", status: 422, errors: [{ pointer: "#/name", detail: "That name is taken" }] } }
-      if (r.headers?.Authorization !== "Bearer t1") return { status: 401, headers: {}, body: { title: "Unauthorized", status: 401 } }
-      const from = Number(r.query?.cursor ?? 0)
-      const size = Number(r.query?.limit ?? 10)
-      return { status: 200, headers: {}, body: { items: ITEMS.slice(from, from + size), nextCursor: from + size < ITEMS.length ? String(from + size) : null } }
-    },
-  }
-}
-
-const AUTH: AuthConfig = { login: "login", security: { list: { header: "Authorization", prefix: "Bearer " }, login: null, create: null } }
-
-const listSpec = (t: Transport): SourceSpec => ({
-  key: sourceKey("list"),
-  operation: "list",
-  list: { field: "items" },
-  paging: { style: "cursor", items: "items", cursorParam: "cursor", nextField: "nextCursor", limitParam: "limit" },
-  pageSize: 10,
-  load: ({ page, signal }) => send(t, { operationId: "list", method: "GET", path: "/items", query: page as Record<string, string | number>, signal }),
-})
-
-describe("the app runtime", () => {
-  it("signs in, puts the token on the calls that need one, and pages a list", async () => {
-    const log: TransportRequest[] = []
-    const rt = createRuntime({ transport: backEnd(log), auth: AUTH, storage: memoryStorage() })
-    const spec = listSpec(rt.transport)
-    await rt.sources.enter(spec)
-    expect(regionOf(sourceView(rt.sources.state(spec.key)))).toBe("forbidden")
-    await send(rt.transport, { operationId: "login", method: "POST", path: "/login", body: { password: "secret" } })
-    expect(rt.session.signedIn).toBe(true)
-    await rt.sources.refresh(spec)
-    await rt.sources.loadMore(spec)
-    expect(rt.sources.state(spec.key).items).toHaveLength(20)
-    expect(log.at(-1)?.headers?.Authorization).toBe("Bearer t1")
-  })
-
-  it("checks a form by its rules and puts the server's errors on its fields", async () => {
-    const rt = createRuntime({ transport: backEnd(), auth: AUTH, lang: "zh" })
-    const form = new FormController({ name: { kind: "text", required: true, schema: { type: "string", minLength: 2 } } }, { lang: () => rt.lang, call: (fn) => rt.call(fn) })
-    expect(await form.submit((body) => send(rt.transport, { operationId: "create", method: "POST", path: "/items", body }))).toEqual({ ok: false, invalid: true })
-    expect(form.view().errors).toEqual({ name: "必填" })
-    form.set("name", "Lamp")
-    await form.submit((body) => send(rt.transport, { operationId: "create", method: "POST", path: "/items", body }))
-    expect(form.view().errors).toEqual({ name: "That name is taken" })
-  })
-
-  it("reads expressions as the design editor's preview does", () => {
-    const $ = new Bindings({ item: { price: 12.5, name: "Lamp" } }, { lang: "en" })
-    expect($.text("currency(item.price, 'USD')")).toBe("$12.50")
-    expect($.fill("{{upper(item.name)}}!")).toBe("LAMP!")
-    expect($.text("item.constructor")).toBe("")
-  })
-
-  it("draws a screen's first state with its hooks", () => {
-    const rt = createRuntime({ transport: backEnd(), auth: AUTH, presumed: true })
-    function Screen() {
-      const list = useDataSource(listSpec(rt.transport))
-      const session = useSession()
-      const $ = useBindings({ data: { list } })
-      return createElement("p", null, \`\${list.status} \${session.signedIn} \${$.text("auth.signedIn")}\`)
-    }
-    expect(renderToString(createElement(RuntimeProvider, { runtime: rt }, createElement(Screen)))).toContain("idle true true")
-  })
-})
-`;
+/** the runtime's own pieces beside the editor's: real files of this repo, copied as they are (lib/export/copy.ts). The
+ *  app's setup (`SetupGate`, which every front end puts around its screens), and the runtime's test as the product runs it. */
+const COPIED = { "src/setup.ts": "appRuntime/setup.ts", "src/runtime.test.ts": "appRuntime/runtime.spec.ts" } as const;
 
 const TSCONFIG = jsonFile({ extends: "../../tsconfig.base.json", compilerOptions: { lib: ["ES2022"], types: [], jsx: "react-jsx", verbatimModuleSyntax: true }, include: ["src"], exclude: ["src/**/*.test.ts"] });
 
@@ -166,7 +56,9 @@ the app is sent to sign in), the data sources' cache and the language; \`Runtime
 hooks (\`useDataSource\`, \`useForm\`, \`useSession\`, \`useBindings\`, \`useRegion\`, \`useRequireAuth\`, \`useCall\`) are what a
 screen uses. Expressions are the design's own, evaluated by the design editor's evaluator (never \`eval\`). It is copied
 from the design editor (\`src/engine/\`): **never edit it**. Custom code may use it (\`useRuntime()\`, \`useSession()\`), for
-example to read the signed-in user in a third-party SDK's setup.
+example to read the signed-in user in a third-party SDK's setup. \`SetupGate\` (\`src/setup.ts\`) is how every front end runs
+its \`src/custom/setup.ts\`: once, before its first screen is drawn (nothing is drawn meanwhile); a setup that fails is
+reported on the console and the app is drawn all the same.
 `;
 
 export const appRuntimeTarget: ProductTarget = {
@@ -201,7 +93,7 @@ export const appRuntimeTarget: ProductTarget = {
         "tsconfig.test.json": generated(TSCONFIG_TEST),
         "README.md": generated(README(ctx.scope)),
         "src/index.ts": generated(INDEX),
-        "src/runtime.test.ts": generated(TEST),
+        ...Object.fromEntries(await Promise.all(Object.entries(COPIED).map(async ([at, from]) => [at, generated(await copiedFile(ctx, from))] as const))),
         ...engine,
       },
     };

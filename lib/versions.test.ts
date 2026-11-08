@@ -8,7 +8,7 @@ import { proofDoc } from "./exportProject.fixture";
 import { buildProject, importsIn, type ProjectFiles } from "./exportProject";
 import { SOURCE_PATHS } from "./exportSources";
 import { setGlobalLang } from "./i18n";
-import { VERSIONS } from "./versions.generated";
+import { PRODUCT_VERSIONS, VERSIONS } from "./versions.generated";
 import rnPackage from "../rn/package.json";
 import miniPackage from "../miniapp-kit/package.json";
 
@@ -57,7 +57,10 @@ describe("the version table", () => {
     for (const path of SOURCE_PATHS.filter((p) => /\.(ts|tsx)$/.test(p)))
       for (const spec of importsIn(text(path))) {
         if (spec.startsWith("@/") || spec.startsWith(".")) continue;
-        expect((path.startsWith("rn/") ? rn : path.startsWith("miniapp-kit/") ? mini : VERSIONS)[packageOf(spec)], `${path} imports ${spec}`).toBeTruthy();
+        /* the files a product copies as they are (lib/export/copy.ts) name its own packages, and what it pins */
+        if (path.startsWith("lib/export/files/") && /^@m3e\/(api|app-runtime|mocks)$/.test(packageOf(spec))) continue;
+        const table = path.startsWith("rn/") ? rn : path.startsWith("miniapp-kit/") ? mini : path.startsWith("lib/export/files/") ? PRODUCT_VERSIONS : VERSIONS;
+        expect(table[packageOf(spec)], `${path} imports ${spec}`).toBeTruthy();
       }
     for (const name of [...EXPORT_ALWAYS, ...EXPORT_DEV]) expect(VERSIONS[name], name).toBeTruthy();
   });
