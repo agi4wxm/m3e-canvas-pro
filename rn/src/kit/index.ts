@@ -36,6 +36,9 @@ export { DRAW_START, EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, M
 export { AspectRatio, Collapsible, CustomComponent, Dock, DockPane, GridView, ScrollArea, Stack, SupportingPane, onPane, ratioOf, useDraft, type DockProps, type GridViewProps } from "./composites/layouts";
 export { FloatingNav, MiniProgramHeader, NavigationMenu, NavigationRail, Onboarding, Pagination, SlideGroup, TableOfContents, pagesShown, tocRow, type OnboardingProps } from "./composites/navs";
 export { Drawer, HoverCard, Popover, SideSheet, Tooltip, around, sideSheetWindow } from "./composites/floating";
+/* D2: data and charts, lists and desktop parts */
+export { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table } from "./composites/data";
+export { FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Window } from "./composites/desk";
 /* D1: media, capability views' stand-ins, what talks and keeps time */
 export { Animation, AudioPlayer, CameraStandIn, ExpressiveCarousel, ImageCropper, ImageViewer, MapStandIn, Marquee, PhotoGrid, Playlist, QrCode, Video, WebPage, qrMatrix, type MapStandInProps } from "./composites/media";
 export { CallStandIn, Marker, MessageScroller, NumberTicker, Questionnaire, ShimmerText, StoryRow, Timer, VoiceMessage, timerSeconds } from "./composites/live";

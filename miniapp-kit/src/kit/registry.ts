@@ -19,6 +19,9 @@ import { EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, Pr
 import { Accordion, AspectRatio, Collapsible, CustomComponent, Dock, GridView, ScrollArea, Stack, SupportingPane } from "./composites/layouts";
 import { FloatingNav, IconGrid, NavigationMenu, NavigationRail, Onboarding, Pagination, Sidebar, SlideGroup, TableOfContents } from "./composites/navs";
 import { Drawer, HoverCard, Popover, SideSheet, Tooltip } from "./composites/floating";
+/* D2: data and charts, lists and desktop parts */
+import { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table } from "./composites/data";
+import { CodeBlock, FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Window } from "./composites/desk";
 /* D1: media, capability views' stand-ins, what talks and keeps time */
 import { CallStandIn, Marker, MessageScroller, NumberTicker, Questionnaire, ShimmerText, StoryRow, Timer, VoiceMessage } from "./composites/live";
 import { Animation, AudioPlayer, CameraStandIn, Carousel, ExpressiveCarousel, ImageCropper, ImageViewer, MapStandIn, Marquee, PhotoGrid, Playlist, QrCode, Scene, Video, WebPage } from "./composites/media";
@@ -149,6 +152,29 @@ export const BY_NAME = {
   Drawer,
   Popover,
   HoverCard,
+  /* D2: data and charts, lists and desktop parts */
+  Chart,
+  ScatterPlot,
+  Heatmap,
+  Gauge,
+  Table,
+  Markdown,
+  Sparkline,
+  BarList,
+  DataTable,
+  Kanban,
+  Agenda,
+  FunnelChart,
+  GanttChart,
+  Tracker,
+  SortableList,
+  SwipeRow,
+  FileList,
+  Menubar,
+  Tree,
+  Window,
+  CodeBlock,
+  FileDiff,
   /* D1: media, capability views' stand-ins, what talks and keeps time */
   Carousel,
   ExpressiveCarousel,

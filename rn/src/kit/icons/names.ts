@@ -59,9 +59,21 @@ export const KIT_ICONS = [
   /* D5: the rail's compose button, the mini-program header's capsule */
   "edit",
   "radio_button_checked",
+  /* D2: what the data, list and desktop parts draw by themselves (sort arrows, a drag handle, a file's kind, a window's buttons) */
+  "arrow_downward",
+  "arrow_forward",
+  "arrow_upward",
+  "audio_file",
+  "crop_square",
+  "description",
+  "drag_indicator",
+  "folder",
+  "folder_zip",
+  "movie",
+  "picture_as_pdf",
+  "table_chart",
   /* D1: what the media parts, the capability views' stand-ins and the parts that talk and keep time draw */
   "animation",
-  "arrow_downward",
   "call_end",
   "fullscreen",
   "language",

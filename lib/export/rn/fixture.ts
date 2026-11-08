@@ -1,6 +1,6 @@
 import { proofDoc } from "../../exportProject.fixture";
 import { kitGroups, kitLookOf } from "../../kits";
-import { makeItem, normalizeTheme, withIds, type Doc, type DocVar, type Frame, type Group, type Item } from "../../tokens";
+import { FRAME_GAP, PHONE_W, makeItem, normalizeTheme, withIds, type Action, type Doc, type DocVar, type Frame, type Group, type Item } from "../../tokens";
 import { arrangeFlows } from "../../flow";
 import { defaultMeasures } from "../../../parts/templates/kit";
 import { KITS } from "../../../parts/kits";
@@ -151,6 +151,55 @@ export function inputsDoc(): { doc: Doc; widths: Record<string, number> } {
   return { doc: { groups, frames: [pickers, entry], vars, paletteKey: "purple", frame: "phone", title: "Inputs", brief: "" }, widths: {} };
 }
 
+/* D2: the data, list and desktop parts */
+
+/** The data, list and desktop parts as an author places them: charts down a long phone screen, tables, a board and a
+ *  month down another, the lists that do more than show rows on a third (a tap on a file and on a table's row going on to
+ *  the next screen), and on a desktop screen a menu bar over a window whose auto layout holds a tree, code and a diff. */
+export function dataDoc(): { doc: Doc; widths: Record<string, number> } {
+  const at = (i: number) => i * (PHONE_W + FRAME_GAP);
+  const frames: Frame[] = [
+    { id: "d-charts", name: "Charts", x: at(0), y: 0, length: 2000 },
+    { id: "d-tables", name: "Tables", x: at(1), y: 0, length: 2400 },
+    { id: "d-lists", name: "Lists", x: at(2), y: 0 },
+    { id: "d-desk", name: "Desk", x: at(3), y: 0, w: 1280, h: 800 },
+  ];
+  const go = (to: string): Action => ({ to, transition: "none" });
+  const item = (id: string, slug: string, props: Record<string, unknown> = {}, more: Partial<Item> = {}): Item => ({ ...makeItem(slug), id, props, ...more });
+  const place = (frame: number, y: number, it: Item, more: Partial<Group> = {}): Group => ({ id: `g-${it.id}`, x: at(frame) + 16, y, axis: "x", items: [it], ...more });
+  const sales = { columns: ["Day", "Shop", "Web"], rows: [["Mon", "3", "5"], ["Tue", "4", "6"], ["Wed", "2", "7"]] };
+  const groups: Group[] = [
+    place(0, 24, item("bars", "chart", { width: 380 })),
+    place(0, 340, item("areas", "chart", { type: "area", title: "Sales", subtitle: "", data: sales, width: 380, height: 180 })),
+    place(0, 580, item("ring", "chart", { type: "pie", title: "Share", data: sales, width: 380, height: 200 })),
+    place(0, 840, item("points", "scatter-plot", { width: 380 })),
+    place(0, 1100, item("heat", "heatmap", { width: 380 })),
+    place(0, 1320, item("battery", "gauge", { value: 40, label: "Fuel" })),
+    place(0, 1460, item("trend", "sparkline", { values: "3,5,2,8", kind: "bar", width: 380 })),
+    place(0, 1620, item("funnel", "funnel-chart", { width: 380 })),
+    place(1, 24, item("invoices", "table", { data: { columns: ["Invoice", "Amount", "Paid"], rows: [["INV-1", "250", "yes"], ["INV-2", "1200.5", "no"]], spec: [{ key: "invoice", width: 120 }, { key: "amount", type: "currency", format: "EUR" }, { key: "paid", type: "bool" }] }, caption: "Q3", selected: 1, width: 380 })),
+    place(1, 280, item("orders", "data-table", { pageSize: 3, width: 380 }, { actions: { "row:0": go("d-lists") } })),
+    place(1, 760, item("sources", "bar-list", { selected: 1, width: 380 })),
+    place(1, 1000, item("notes", "markdown", { text: "## Notes\n\nShip **today**, run `deploy`.\n\n- Check\n- Ship", width: 380 })),
+    place(1, 1200, item("month", "agenda", { width: 380 })),
+    place(1, 1700, item("board", "kanban", { width: 380 })),
+    place(1, 2060, item("plan", "gantt-chart", { width: 380 })),
+    place(2, 24, item("uptime", "tracker", { width: 380 })),
+    place(2, 120, item("order", "sortable-list", { items: [{ label: "Wash" }, { label: "Dry" }, { label: "Fold" }], width: 380 })),
+    place(2, 320, item("swipe", "swipe-row", { title: "Invoice 42", note: "Due today", open: true, width: 380 })),
+    place(2, 420, item("files", "file-list", { selected: 0, width: 380 }, { actions: { "tab:1": go("d-desk") } })),
+    { ...place(3, 16, item("menus", "menubar")), x: at(3) + 16 },
+    { ...place(3, 80, item("window", "window", { title: "Project", controls: "windows", layout: "column", gap: 12, padX: 16, padY: 16, align: "stretch", width: 900, height: 640 })), x: at(3) + 16 },
+    { id: "g-files-tree", x: 0, y: 0, axis: "x", items: [item("tree", "tree", { width: 300 })], inFlow: "g-window" },
+    { id: "g-code", x: 0, y: 0, axis: "x", items: [item("code", "code-block", { width: 600 })], inFlow: "g-window" },
+    { id: "g-diff", x: 0, y: 0, axis: "x", items: [item("diff", "file-diff", { width: 600 })], inFlow: "g-window" },
+  ];
+  const widths = defaultMeasures(groups);
+  let laid = groups;
+  for (let i = 0; i < 4; i++) laid = arrangeFlows(laid, widths);
+  return { doc: { groups: laid, frames, paletteKey: "purple", frame: "phone", title: "Data", brief: "" }, widths };
+}
+
 /** D1: the media parts, the capability views' stand-ins and the parts that talk and keep time, as the kits draw them
  *  natively: three phone screens of them, each with props of its own (markers and a route, a playlist's rows, stories
  *  seen and not, a call under way), so what the printer writes for them is held to the kits' props. */
@@ -220,8 +269,10 @@ export async function printedFixture(): Promise<Record<string, string | Uint8Arr
   const layouts = withIds(next, layoutsDoc);
   /* D3 */
   const inputs = withIds(next, inputsDoc);
+  /* D2: the data, list and desktop parts */
+  const data = withIds(next, dataDoc);
   /* D1: the media parts, the capability views' stand-ins, what talks and keeps time */
   const media = withIds(next, mediaDoc);
-  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)), ...(await printed("layouts", layouts.doc, layouts.widths)), ...(await printed("inputs", inputs.doc, inputs.widths)), ...(await printed("media", media.doc, media.widths)) };
+  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)), ...(await printed("layouts", layouts.doc, layouts.widths)), ...(await printed("inputs", inputs.doc, inputs.widths)), ...(await printed("data", data.doc, data.widths)), ...(await printed("media", media.doc, media.widths)) };
 }
 
