@@ -354,7 +354,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `split-button` | Split button | `label` text; `icon` icon; `variant` filled / tonal / elevated / outlined / text; `size` xs / sm / md / lg / xl; `menu` true / false; `menuItems` rows of `{ "label", "icon" }` |
 | `fab-menu` | FAB menu | `items` rows of `{ "label", "icon" }`; `icon` icon; `open` true / false |
 | `function-button` | Function button | `label` text; `icon` icon; `timer` 0–999; `unit` second / minute / hour; `size` 32–120 |
-| `brand-button` | Sign-in or pay button | `label` text; `width` 120–800 |
+| `brand-button` | Sign-in or pay button | `provider` apple / google / wechat / alipay / paypal / stripe / github / facebook / x / line / kakao / other; `intent` signin / pay; `label` text; `width` 120–800 |
 
 ##### Forms
 
@@ -512,12 +512,12 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `subscription` | Subscription plans *(splits)* | `title` text; `description` text; `plans` rows of `{ "label" }`; `action` text; `width` 200–640 |
+| `subscription` | Subscription plans *(splits)* *(`tab:*` for every entry: slot.index)* | `title` text; `description` text; `plans` rows of `{ "label" }`; `selected` -1–5; `action` text; `width` 200–640 |
 | `product-card` | Product card *(splits)* | `image` https address; `title` text; `subtitle` text; `price` text; `original` text; `badge` text; `rating` 0–5; `action` text; `done` text; `layout` vertical / horizontal; `liked` true / false; `width` 140–640 |
 | `price-tag` | Price *(splits)* | `currency` text; `amount` text; `original` text; `discount` text; `size` small / medium / large |
 | `cart-list` | Shopping cart | `data` `{ "columns": ["Name", "Variant", "Price", "Quantity"], "rows": [[…]] }`; `currency` text; `selectAll` text; `total` text; `action` text; `empty` text; `width` 280–800 |
 | `coupon` | Coupon *(splits)* *(prototype demo until `claimed` is bound)* | `amount` text; `condition` text; `title` text; `expiry` text; `action` text; `done` text; `claimed` true / false; `width` 260–640 |
-| `checkout-bar` | Checkout bar *(splits)* | `label` text; `amount` text; `note` text; `icons` rows of `{ "label", "icon" }`; `action` text; `done` text; `width` 240–1280 |
+| `checkout-bar` | Checkout bar *(splits)* *(prototype demo until `placed` is bound)* | `label` text; `amount` text; `note` text; `icons` rows of `{ "label", "icon" }`; `action` text; `done` text; `placed` true / false; `width` 240–1280 |
 | `balance-card` | Balance card *(splits)* | `title` text; `amount` text; `change` text; `actions` rows of `{ "label", "icon" }`; `hidden` true / false; `width` 240–800 |
 | `transaction-list` | Transactions *(splits)* | `data` `{ "columns": ["Name", "Detail", "Amount"], "rows": [[…]] }`; `filters` rows of `{ "label" }`; `width` 240–800 |
 | `route-card` | Route card *(splits)* | `icon` icon; `from` text; `fromTime` text; `to` text; `toTime` text; `duration` text; `note` text; `price` text; `action` text; `done` text; `width` 240–800 |
@@ -535,7 +535,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `story-row` | Stories *(`tab:*` for every entry: slot.index)* | `items` rows of `{ "label" }`; `add` true / false; `width` 160–1280 |
 | `chat-composer` | Message composer *(splits)* | `placeholder` text; `attach` true / false; `emoji` true / false; `width` 200–1280 |
 | `voice-message` | Voice message | `seconds` 1–600; `mine` true / false; `transcript` text; `transcribe` text; `width` 160–480 |
-| `video-call` | Video call | `name` text; `connected` true / false; `status` text; `image` https address; `icon` icon; `height` 240–960; `width` 240–960 |
+| `video-call` | Video call *(event `on:muted`: event.muted)* *(event `on:ended`)* *(prototype demo until `mic` or `camera` or `speaker` or `startedAt` is bound)* | `name` text; `connected` true / false; `status` text; `mic` true / false; `camera` true / false; `speaker` true / false; `startedAt` text; `image` https address; `icon` icon; `height` 240–960; `width` 240–960 |
 
 ##### AI
 
@@ -558,8 +558,8 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `video` | Video | `src` text; `title` text; `time` text; `width` 160–1280 |
 | `web-view` | Web page | `address` text; `load` true / false; `width` 160–1280; `height` 96–900 |
 | `animation` | Animation placeholder | `file` text; `size` 48–640 |
-| `camera` | Camera placeholder | `width` 120–1280; `height` 120–1280 |
-| `map` | Map placeholder | `label` text; `width` 120–1280; `height` 96–1280 |
+| `camera` | Camera placeholder *(event `on:captured`: event.file)* *(event `on:scanned`: event.text, event.format)* *(prototype demo until `state` is bound)* | `facing` back / front; `mode` photo / video / scan; `state` live / denied / unavailable; `denied` text; `width` 120–1280; `height` 120–1280 |
+| `map` | Map placeholder *(event `on:markerTap`: event.id)* *(event `on:regionChange`: event.center, event.zoom)* *(event `on:longPress`: event.lat, event.lng)* | `label` text; `center` text; `zoom` 1–20; `markers` `{ "columns": ["Id", "Title", "Lat", "Lng"], "rows": [[…]] }`; `selected` text; `route` true / false; `width` 120–1280; `height` 96–1280 |
 | `photo-grid` | Photo grid | `count` 1–30; `columns` 1–6; `width` 120–800 |
 | `audio-player` | Audio player | `title` text; `artist` text; `src` text; `seconds` 1–36000; `width` 200–800 |
 | `marquee` | Marquee | `text` text; `seconds` 2–120; `width` 80–1600 |
@@ -632,7 +632,7 @@ The editor's Templates tab adds these as new screens, in auto layout. A document
 - `product-detail`: Product detail, phone
 - `cart`: Cart, phone
 - `checkout`: Checkout, phone
-- `order-success`: Order success, phone
+- `order-success`: Payment result, phone
 - `order-list`: Orders, phone
 - `order-detail`: Order detail, phone
 - `refund-request`: Refund request, phone
@@ -732,7 +732,8 @@ For a game or an immersive screen, the picture and the interface are separate th
 The design draws what the user sees and sends what they mean; what actually happens is decided on the other side, by the back end, the game or the platform.
 
 - Never decide a result on a screen: a "Pay" or "Claim" button does not go straight to a "Paid" or "Claimed" screen, and nothing picks a prize, a winner or a price at random or by sum. The button asks (with an API: an effect `{ "do": "call", "operationId": …, "then": …, "catch": … }`; without one, a `note` saying what it asks for), and the screens show the answer: a pending or processing state, the success the answer says, and a failure. Design the failure too.
-- Platform capabilities (payment, maps, camera, scanning, location, push, third-party sign-in, calls) are not built into a design: no SDK, key or permission. Use the placeholder part (`map`, `camera`, `video-call`, `brand-button`) or a button, say in its `note` what the capability must do and return, and design what happens when it is cancelled, refused, denied or unavailable.
+- Platform capabilities are capability calls, never built into a design (no SDK, key or permission): payment (`payment.pay`), in-app purchase (`iap.purchase`), sign-in with another service (`auth.oauth`), location (`location.current`), scanning (`scan.code`), push (`push.register`), share (`share.open`), the clipboard (`clipboard.write`), links (`link.open`), files (`file.pick`), analytics (`analytics.track`), biometrics (`biometric.verify`) and calls (`rtc.call`). A tap invokes one with the effect `{ "do": "invoke", "capability": "payment.pay", "args": { "orderId": "response.id" }, "then": …, "catch": … }`: the arguments are expressions, `then` reads `result`, `catch` reads `error.type` (`cancelled`, `failed`, `unavailable`, `not-implemented`, `denied`, `timeout`). Give every invoke a `catch` with a design of its own. Maps, the camera and a call's picture are capability views: the parts `map`, `camera` and `video-call`, whose events (`on:markerTap`, `on:captured`, `on:ended`…) take actions. The document's own capabilities, and the ones it uses beyond those it invokes, go in `capabilities` (`{ "uses": […], "own": [{ "name", "kind", "args", "result", "failures" }] }`); how the mocks answer each goes in `mocks.capabilities` and a scenario's `capabilities` (`{ "payment.pay": { "fail": "cancelled" } }`).
+- A payment is three steps: the button calls the endpoint that creates the order (`createOrder`); its `then` invokes `payment.pay` with what the back end returned; `payment.pay`'s `then` only means the payment was submitted, so it opens a result screen that loads the order (a data source with `params.orderId`) and shows paid, processing or failed by the order's `status` from the API, with a button that loads it again. Its `catch` shows cancelled and failed. A `brand-button` takes `provider` and `intent` (`signin` or `pay`) and is wired the same way (`auth.oauth` or `payment.pay`).
 - Parts marked *prototype demo* in the catalog act out a result by themselves in a prototype (a coupon that says it was claimed, a wheel that picks a prize). That is fine for a sketch; in a product they only ask and wait, so for a real feature bind the prop they name to data, or give their tap an API call.
 - When the document has an `api`, build real features from atoms and kits with data, not from a part that keeps what is entered to itself (`auth-form`, `cart-list`, `todo-list`, `settings-group`, `chat-composer`, `contact-list`).
 
