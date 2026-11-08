@@ -1,6 +1,6 @@
 /* What a tap points at, found the same way wherever references are kept up (report 8.6): the screen it goes to, the
- * parts it shows, hides, opens, sets, scrolls to or asks about, the form it submits, in its `else`, in a call's `then`
- * and `catch` as deep as they go, and in a form's own `then` and `catch`. Copying a part retargets with it
+ * parts it shows, hides, opens, sets, scrolls to or asks about, the form it submits, in its `else`, in a call's (or an
+ * invoke's) `then` and `catch` as deep as they go, and in a form's own `then` and `catch`. Copying a part retargets with it
  * (lib/tokens.ts `retarget`), deleting a screen unlinks with it (lib/core/ops/screens.ts `remove_screen`).
  *
  * Not here yet, on purpose: names that expressions read (a variable by its name, a data source in `{{data.x}}`, a
@@ -28,7 +28,7 @@ function mapEffect(e: Effect, f: RefMap, depth: number): Effect {
   };
   if (f.part && typeof r.part === "string") set("part", f.part(r.part));
   if (f.form && r.do === "submit" && typeof r.form === "string") set("form", f.form(r.form));
-  if (r.do === "call" && depth < MAX_DEPTH) {
+  if ((r.do === "call" || r.do === "invoke") && depth < MAX_DEPTH) {
     if (isRecord(r.then)) set("then", mapBody(r.then as unknown as ActionBody, f, depth + 1));
     if (isRecord(r.catch)) set("catch", mapBody(r.catch as unknown as ActionBody, f, depth + 1));
   }
@@ -68,15 +68,15 @@ export function mapAction(a: Action, f: RefMap): Action {
   return out;
 }
 
-/** The bodies a tap holds below its own: its `else`, and every call's `then` and `catch`, at any depth. What deleting
+/** The bodies a tap holds below its own: its `else`, and every call's and invoke's `then` and `catch`, at any depth. What deleting
  *  a screen sends somewhere else when it went there (the tap itself is the caller's to decide about). */
 export function mapNestedBodies(a: Action, fn: (b: ActionBody) => ActionBody): Action {
   const inner = (b: ActionBody, depth: number): ActionBody => {
     if (!Array.isArray(b.effects) || depth >= MAX_DEPTH) return b;
     let changed = false;
     const effects = b.effects.map((e) => {
-      if (!isRecord(e) || e.do !== "call") return e;
-      const c = e as Extract<Effect, { do: "call" }>;
+      if (!isRecord(e) || (e.do !== "call" && e.do !== "invoke")) return e;
+      const c = e as Extract<Effect, { do: "call" | "invoke" }>;
       const then = c.then && fn(inner(c.then, depth + 1));
       const fail = c.catch && fn(inner(c.catch, depth + 1));
       if (then === c.then && fail === c.catch) return e;

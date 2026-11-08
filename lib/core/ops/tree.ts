@@ -170,7 +170,7 @@ function toNode(n: TreeNode, parent?: TreeNode): Node {
   const pane = parent?.part === SPLIT_SLUG ? (parent.children?.indexOf(n) === 0 ? "first" : "second") : undefined;
   const base = n.part === "box" ? (pane ? { surface: "none", layout: "column", padX: 16, padY: 16, gap: 8, align: "stretch" } : { surface: "none", layout: "column", padX: 0, padY: 0, gap: 8 }) : {};
   /* a pane is as big as its split gives it, never as what it holds */
-  return { slug: n.part, props: { ...base, ...n.props, ...(fit ? { fit } : {}), ...(pane ? { hugWidth: false, hugHeight: false } : {}) }, ...(name ? { name } : {}), ...(n.grow ? { grow: true } : {}), ...(pane ? { pane } : {}), kids: (n.children ?? []).map((k) => toNode(k, n)) };
+  return { slug: n.part, props: { ...base, ...n.props, ...(fit ? { fit } : {}), ...(pane ? { hugWidth: false, hugHeight: false } : {}) }, ...(name ? { name } : {}), ...(n.grow ? { grow: true } : {}), ...(pane ? { splitPane: pane } : {}), kids: (n.children ?? []).map((k) => toNode(k, n)) };
 }
 
 /** The tree as groups, outermost first, laid out by a guess at each part's size, its top left at 0,0. */

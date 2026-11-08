@@ -24,7 +24,7 @@ export function afterSignIn(rt: Runtime, signedIn: string | undefined, then: Act
 }
 
 /** The effects of a tap that are the API's: a call (with its optimistic change, then and catch), loading a data source
- *  again or its next page, submitting a form, signing out. */
+ *  again or its next page, submitting a form, signing out; and an invoke of a platform capability. */
 export const handleEffect: EffectHandler = (e, { here, screen, nav, run }) => {
   const $ = new Bindings(here.scope ?? {}, runtime.ctx())
   const source = (name: string) => screen.sources?.[name] as SourceHandle | undefined
@@ -52,6 +52,19 @@ export const handleEffect: EffectHandler = (e, { here, screen, nav, run }) => {
         ...(optimistic ? { optimistic } : {}),
         then: (response, status) => afterSignIn(runtime, e.operationId, e.then, { ...here, scope: { ...here.scope, response, status } }, run, nav),
         catch: (error, status) => run(e.catch, { ...here, scope: { ...here.scope, error, status } }),
+      })
+      return
+    }
+    case "invoke": {
+      /* a platform capability, through the app's registry (src/generated/capabilities.ts): then reads result, catch error */
+      const args: Record<string, unknown> = {}
+      for (const [k, x] of Object.entries(e.args ?? {})) {
+        const v = $.ev(x)
+        if (v !== undefined) args[k] = v
+      }
+      void runtime.invoke(e.capability, args, {
+        then: (result) => run(e.then, { ...here, scope: { ...here.scope, result } }),
+        catch: (error) => run(e.catch, { ...here, scope: { ...here.scope, error } }),
       })
       return
     }

@@ -323,6 +323,22 @@ function runEffect(e: Effect, env: Env, ctx: RunCtx) {
     }
     case "signOut":
       return runtime.signOut();
+    case "invoke": {
+      /* a platform capability, through the app's registry (src/generated/capabilities.ts): then reads result, catch error;
+         nothing once the runtime has started over */
+      const args: Record<string, unknown> = {};
+      for (const [k, x] of Object.entries(e.args ?? {})) {
+        const v = env.$.ev(x);
+        if (v !== undefined) args[k] = v;
+      }
+      void runtime.invoke(e.capability, args).then((out) => {
+        if (!out.ok && out.dropped) return;
+        if (out.ok) {
+          if (e.then) runBody(e.then, { ...env, $: env.$.with({ result: out.result }) }, ctx);
+        } else if (e.catch) runBody(e.catch, { ...env, $: env.$.with({ error: out.error }) }, ctx);
+      });
+      return;
+    }
     case "call": {
       const fn = spec.calls[e.operationId];
       if (!fn) return;

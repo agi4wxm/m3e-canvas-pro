@@ -8,8 +8,8 @@
 | --- | --- |
 | `run.ts` | 命令行：`bun run eval` |
 | `harness.ts` | 跑一个任务：起始文档、无头截图、计量和预算、跑完后截图、对照参考图、撤销检查 |
-| `tasks.ts`、`fixtures.ts` | 任务和它们的起始文档；产品层的八个任务在 `productTasks.ts`，边界的三个负例在 `boundaryTasks.ts`，起始文档在 `fixtures.ts` 末尾，导入任务用的规范文件在 `fixtures/shop-backend.openapi.yaml` |
-| `graders.ts`、`productGraders.ts`、`boundaryTasks.ts` | 确定性的检查和打分；产品层的检查（契约、绑定、状态、模拟库、预览、导出）；边界负例的检查（结果是不是在屏幕上自己定的） |
+| `tasks.ts`、`fixtures.ts` | 任务和它们的起始文档；产品层的八个任务在 `productTasks.ts`，边界的三个负例和支付流程在 `boundaryTasks.ts`，起始文档在 `fixtures.ts` 末尾，导入任务用的规范文件在 `fixtures/shop-backend.openapi.yaml` |
+| `graders.ts`、`productGraders.ts`、`boundaryTasks.ts` | 确定性的检查和打分；产品层的检查（契约、绑定、状态、模拟库、预览、导出）；边界任务的检查（结果是不是在屏幕上自己定的，支付是不是按订单状态显示） |
 | `product.ts` | 文档有接口时，回合结束后算一次：每个绑定了数据的屏幕在每个场景下的预览、用模拟库试登录、导出完整产品并类型检查生成的代码 |
 | `judge.ts` | 可选的视觉评分 |
 | `record.ts`、`replay.ts`、`keep-recorded.ts` | 写下和读回一次运行、重新评分、挑几次运行给单元测试 |
@@ -149,6 +149,23 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 “停止时用户插入编辑”（AI 改 A → 作者改 B → AI 改 C → 停止）是回合生命周期的行为，不靠模型，由 `lib/agent/stop.test.ts` 在 `bun run test` 里确定地检查：B 保留，A 和 C 按停止的契约收回。`evals/boundary.test.ts` 用操作把每个负例“做一遍好的”和“照作者说的走捷径”，前者全部通过，后者和起始文档的关键检查不通过。
 
+### 支付流程
+
+`payment-flow` 也在 `boundaryTasks.ts`，对照[平台能力](../docs/平台能力.md)的“支付：以订单状态为准”：起始文档 `wxpay-zh` 是咖啡小铺的结算页（一个 `brand-button`，服务方微信、用途支付）、空的支付结果页和订单契约（`createOrder` 返回订单和签好的支付参数，`getOrder` 读订单状态，状态由后端按支付平台的回调设置）。作者只说“把结算页的「微信支付」按钮接上微信支付，付完在支付结果页显示这笔订单的结果”，没有说怎么做：三步走、按订单状态显示、取消和失败的设计都要智能体从工具指南里知道。
+
+| 检查 | 看什么 |
+| --- | --- |
+| **`asks-api`** | 结算页的点击调用 `createOrder` |
+| **`invokes-payment`** | `createOrder` 的 `then` 调用平台能力 `payment.pay`，`orderId` 读回答（`response.…`） |
+| **`result-after-payment`** | 读订单的结果页只在 `payment.pay` 的 `then` 里打开，并带上数据源要的订单号；点击时、订单刚创建时就去结果页都不行 |
+| **`payment-caught`** | `payment.pay` 有 `catch`，并且做了点什么（取消、失败的设计） |
+| **`status-from-order`** | 有屏幕按打开时的参数（`params.…`）加载 `getOrder`，并读订单的 `status`（条件、绑定或文字里） |
+| `order-states` | 结果页分别设计了已支付和失败或处理中 |
+| `failure-kinds` | `catch` 读 `error.type`，把取消和失败分开 |
+| `failure-designed` | `createOrder` 失败也有设计 |
+
+`evals/boundary.test.ts` 用操作做一遍好的（全部通过），以及几种走捷径的：订单一创建就去结果页、不调用 `payment.pay`、`payment.pay` 没有 `catch`、结果页不看订单状态一律写“支付成功”，各自的关键检查不通过，起始文档也不通过。
+
 ## 加一个任务
 
 1. 起始文档：在 `fixtures.ts` 的 `FIXTURES` 里用操作搭一个（推荐：确定、可读、跟着代码一起变），或者把编辑器“保存到文件”得到的项目文件放进 `evals/fixtures/`，用文件名引用。
@@ -177,4 +194,6 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 - [2026-11-06-residuals](baselines/2026-11-06-residuals/notes.md)：修完遗留问题（改组件定义的 `edit_component`、速查表的数值范围和行数、单个部件的参数别名、删除前先问扩大到改写数据和替换风格图标）后，只重跑受影响的四个任务各一次：4/4 通过，失败的调用 2 → 0，平均 token 81k → 76k；prompt-box-component 从 11 步降到 5 步。
 - [2026-11-06-product](baselines/2026-11-06-product/notes.md)：产品层的八个任务（推出接口并绑定、建表单、详情带参数、登录守卫、导入 OpenAPI、场景和状态、实时聊天、中文的三屏小应用）各两次，原来的二十个任务各一次：产品层 16/16（按当时的检查 14/16，实时通道的检查过严，已改），原来的 19/20；修了看到的问题（点击带的参数自动声明到目标屏幕、数据集合的详情读 `{{current}}`、不给模拟数据画图、带场景截图的排版）后重跑受影响的五个任务 5/5，detail-params 193k → 143k，scenarios-states 156k → 57k。
 - [2026-11-08-batch1](baselines/2026-11-08-batch1/summary.md)：第一批整改合并后整套 28 个任务各一次，28/28。
-- [2026-11-08-stage1](baselines/2026-11-08-stage1/summary.md)（最新）：阶段 1 定规矩后，边界的三个负例各两次，6/6。第一次运行暴露了两件事：检查把“抽奖中”“领取中”这类界面自己的等待状态也算成假结果、没认数据源加载的写法（已改检查，记录按 `--replay` 重新评分）；模型两次把“仅当回答说已支付才跳成功页”写成调用 `then` 里的 `when`，而没有宿主读它（现在严格操作拒绝 `then`/`catch` 上的条件并说明怎么做）。[2026-11-08-stage1-suite](baselines/2026-11-08-stage1-suite/summary.md) 是同一版本原有 28 个任务各一次：27/28，平均 token 113k → 130k（工具指南多了边界一节）；没过的 shop-api-wire 是一次模拟文件调用失败后没补上，单独再跑两次都通过；ledger-app-zh 第一次截图时无头浏览器崩溃（同时在跑完整产品检查），单独重跑。
+- [2026-11-08-stage1](baselines/2026-11-08-stage1/summary.md)：阶段 1 定规矩后，边界的三个负例各两次，6/6。第一次运行暴露了两件事：检查把“抽奖中”“领取中”这类界面自己的等待状态也算成假结果、没认数据源加载的写法（已改检查，记录按 `--replay` 重新评分）；模型两次把“仅当回答说已支付才跳成功页”写成调用 `then` 里的 `when`，而没有宿主读它（现在严格操作拒绝 `then`/`catch` 上的条件并说明怎么做）。[2026-11-08-stage1-suite](baselines/2026-11-08-stage1-suite/summary.md) 是同一版本原有 28 个任务各一次：27/28，平均 token 113k → 130k（工具指南多了边界一节）；没过的 shop-api-wire 是一次模拟文件调用失败后没补上，单独再跑两次都通过；ledger-app-zh 第一次截图时无头浏览器崩溃（同时在跑完整产品检查），单独重跑。
+- [2026-11-08-batch2](baselines/2026-11-08-batch2/summary.md)：第二批整改合并后整套 31 个任务各一次（含三项边界负例），31/31。
+- [2026-11-08-stage3](baselines/2026-11-08-stage3/summary.md)（最新）：阶段 3 能力契约后，边界的四个任务（三个负例和新的支付流程 `payment-flow`）各两次，8/8，支付流程两次都是 `createOrder` → `payment.pay` → 按订单状态显示的结果页，`catch` 读 `error.type`。写这项任务时的试跑暴露了一处工具问题：嵌在调用回答里的 `payment.pay` 的 `then` / `catch` 只写了 `effects` 就被拒绝，现在和顶层的点击一样当作 `to: "none"`。这里的记录之前还有一次同样 8/8 的运行，八次里有三次先把调用的 `body` 写成对象（`"{productId: 'latte', quantity: 2}"`，表达式没有对象字面量）再改用 `args`，现在拒绝时直接说明改用 `args`，重跑后这类失败没有再出现。

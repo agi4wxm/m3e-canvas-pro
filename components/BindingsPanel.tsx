@@ -26,7 +26,7 @@ import { Field, IconBtn, Section, Segmented, Select, Toggle } from "./ui";
  * one step back, and what the AI and MCP do through the same operations shows here. */
 
 export type Bindings = {
-  doc: Pick<Doc, "api" | "vars" | "groups" | "collections" | "frames">;
+  doc: Pick<Doc, "api" | "vars" | "groups" | "collections" | "frames" | "capabilities">;
   widths: Record<string, number>;
   /** runs an operation of the panels: what it reported, or undefined when it was refused (a toast says why) */
   run: <A>(o: Op<A, unknown>, args: A, coalesce?: string) => unknown;

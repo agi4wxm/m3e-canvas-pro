@@ -18,6 +18,7 @@ export type Effect =
   | { do: "setProp"; part: string; prop: string; value: VarValue }
   | { do: "snackbar"; message: string }
   | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: ActionBody; catch?: ActionBody; optimistic?: Optimistic }
+  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: ActionBody; catch?: ActionBody }
   | { do: "refresh"; source: string }
   | { do: "loadMore"; source: string }
   | { do: "submit"; form?: string }

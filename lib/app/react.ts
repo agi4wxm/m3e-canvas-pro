@@ -202,6 +202,12 @@ export function useCall(): Runtime["call"] {
   return useMemo(() => runtime.call.bind(runtime), [runtime]);
 }
 
+/** a tap's invoke of a platform capability, with its then and catch (Runtime.invoke) */
+export function useInvoke(): Runtime["invoke"] {
+  const runtime = useRuntime();
+  return useMemo(() => runtime.invoke.bind(runtime), [runtime]);
+}
+
 /** The expressions of a screen: its scope (data, params, vars, and the session as `auth`, the time as `now`) read in the
  *  app's language. Inner scopes come from `.with({ item, index })`, `.with({ form })`, `.with({ response, status })`. */
 export function useBindings(scope: Scope): Bindings {

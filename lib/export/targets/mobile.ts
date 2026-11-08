@@ -6,6 +6,7 @@
  * app.json; in development the mocks (packages/mocks) answer it, a scenario chosen in a dev menu. Everything here is
  * generated but src/custom/, written once. docs/手机端.md says how it fits together. */
 
+import { capabilityFiles, slotFiles, slotNames, slotsOf } from "../appCapabilities";
 import rnPackage from "../../../rn/package.json";
 import { KIT_FILES } from "../rn/kitFiles.generated";
 import { RnPictures, iconsModule, rnDependencies, themeModule } from "../rn/app";
@@ -158,8 +159,8 @@ jest.mock("expo-secure-store", () => {
 
 /* ---------- the app's own modules ---------- */
 
-const RUNTIME = (scope: string, name: string, lang: string) => `${GENERATED}
-import Constants from "expo-constants"
+const RUNTIME = (scope: string, name: string, lang: string, capabilities = false) => `${GENERATED}
+${capabilities ? 'import { registry } from "./capabilities"\n' : ""}import Constants from "expo-constants"
 import * as SecureStore from "expo-secure-store"
 import { Platform } from "react-native"
 import { createRuntime, type TokenStorage } from ${str(`${scope}/app-runtime`)}
@@ -186,7 +187,7 @@ export const runtime = createRuntime({
   storage: tokenStorage(),
   storageKey: ${str(`${name.replace(/[^A-Za-z0-9]/g, "_")}.session`)},
   lang: ${str(lang)},
-})
+${capabilities ? "  capabilities: registry,\n" : ""}})
 `;
 
 const API = (scope: string) => `${GENERATED}
@@ -495,7 +496,7 @@ export function afterSignIn(rt: Runtime, signedIn: string | undefined, then: Act
 }
 
 /** The effects of a tap that are the API's: a call (with its optimistic change, then and catch), loading a data source
- *  again or its next page, submitting a form, signing out. */
+ *  again or its next page, submitting a form, signing out; and an invoke of a platform capability. */
 export const handleEffect: EffectHandler = (e, { here, screen, nav, run }) => {
   const $ = new Bindings(here.scope ?? {}, runtime.ctx())
   const source = (name: string) => screen.sources?.[name] as SourceHandle | undefined
@@ -523,6 +524,19 @@ export const handleEffect: EffectHandler = (e, { here, screen, nav, run }) => {
         ...(optimistic ? { optimistic } : {}),
         then: (response, status) => afterSignIn(runtime, e.operationId, e.then, { ...here, scope: { ...here.scope, response, status } }, run, nav),
         catch: (error, status) => run(e.catch, { ...here, scope: { ...here.scope, error, status } }),
+      })
+      return
+    }
+    case "invoke": {
+      /* a platform capability, through the app's registry (src/generated/capabilities.ts): then reads result, catch error */
+      const args: Record<string, unknown> = {}
+      for (const [k, x] of Object.entries(e.args ?? {})) {
+        const v = $.ev(x)
+        if (v !== undefined) args[k] = v
+      }
+      void runtime.invoke(e.capability, args, {
+        then: (result) => run(e.then, { ...here, scope: { ...here.scope, result } }),
+        catch: (error) => run(e.catch, { ...here, scope: { ...here.scope, error } }),
       })
       return
     }
@@ -1039,7 +1053,10 @@ export const mobileTarget: ProductTarget = {
     const { doc, scope } = ctx;
     /* the pictures the design holds as data: files under assets/images, which Metro bundles from src/generated/images.ts */
     const pictures = new RnPictures("assets/images", "../../assets/images");
-    const screens = printRnScreens(doc, ctx.widths, { kitImport: "../../kit", runtime: { bind: "../bind" }, images: { from: "../images", name: pictures.name } });
+    /* the capability views are drawn by slots the product writes once (lib/export/appCapabilities.ts) */
+    const slots = slotsOf(doc, ctx.widths);
+    const capabilities = capabilityFiles(ctx, "mobile");
+    const screens = printRnScreens(doc, ctx.widths, { kitImport: "../../kit", runtime: { bind: "../bind" }, images: { from: "../images", name: pictures.name }, ...(slots.length ? { slots: { from: "../slots", names: slotNames(slots) } } : {}) });
     const theme = rnThemeOf(doc);
     const iconData = await rnIconData([theme.icons], [...screens.icons, ...KIT_ICONS]);
     for (const [id, markup] of Object.entries(doc.icons ?? {})) {
@@ -1077,7 +1094,8 @@ export const mobileTarget: ProductTarget = {
     const dark = darkVarOf(doc.vars)?.id;
     files["src/generated/root.tsx"] = generated(ROOT(scope, screens.vars, screens.hidden, dark));
     files["src/generated/routing.tsx"] = generated(ROUTING(scope, routes, screens.initial, login));
-    files["src/generated/runtime.ts"] = generated(RUNTIME(scope, ctx.name, ctx.lang));
+    files["src/generated/runtime.ts"] = generated(RUNTIME(scope, ctx.name, ctx.lang, !!capabilities));
+    Object.assign(files, capabilities?.files ?? {}, slotFiles(scope, slots, "mobile"));
     files["src/generated/api.ts"] = generated(API(scope));
     files["src/generated/contract.ts"] = generated(CONTRACT(scope, operationsOf(doc.api), authSource(doc.api ?? {}), formRulesOf(doc)));
     files["src/generated/bind.ts"] = generated(BIND(scope));
@@ -1145,7 +1163,7 @@ export const mobileTarget: ProductTarget = {
             "export:web": "expo export --platform web --output-dir dist/web",
             "export:android": "expo export --platform android --output-dir dist/android",
           },
-          dependencies: sortedObject({ ...dependencies, ...MOBILE_PINS, [`${scope}/api`]: "0.1.0", [`${scope}/app-runtime`]: "0.1.0" }),
+          dependencies: sortedObject({ ...dependencies, ...MOBILE_PINS, [`${scope}/api`]: "0.1.0", [`${scope}/app-runtime`]: "0.1.0", ...capabilities?.dependency }),
           devDependencies: sortedObject({
             ...Object.fromEntries(TEST_DEV.filter((d) => dev[d]).map((d) => [d, dev[d]])),
             "@types/node": ctx.version("@types/node"),

@@ -18,6 +18,7 @@ const FILES: Record<string, string[]> = {
   AppMore: ["ImageViewer", "ImageCropper", "RegionPicker", "SeatMap", "ReviewSummary", "FunnelChart", "GanttChart", "VoiceMessage", "VideoCall"],
   GameParts: ["SkillButton", "LevelMap", "DialogueBox", "GameBoard"],
   Scene: ["Scene"],
+  Platform: ["MapView", "CameraView"],
   Split: ["SplitView"],
 };
 

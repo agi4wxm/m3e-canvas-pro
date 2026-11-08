@@ -1,7 +1,9 @@
 import { arrangeFlows } from "../../lib/flow";
 import type { Lang } from "../../lib/i18n";
 import { MATERIAL_METRICS, fillRest, lengthToHold, tidyFrame } from "../../lib/tidy";
-import { BACK_TARGET, DESKTOP_H, DESKTOP_W, FRAME_GAP, PHONE_H, PHONE_W, TABLET_H, TABLET_W, makeItem, uid, type Action, type ColorToken, type Frame, type Group, type Item, type ItemLook, type Place, type Radii, type TextToken, type Transition } from "../../lib/tokens";
+import { BACK_TARGET, DESKTOP_H, DESKTOP_W, FRAME_GAP, PHONE_H, PHONE_W, TABLET_H, TABLET_W, makeItem, uid, type Action, type ApiSpec, type ColorToken, type Condition, type DataSource, type DocVar, type Frame, type Group, type Item, type ItemLook, type Place, type Radii, type RegionBinding, type ScreenParam, type TextToken, type Transition } from "../../lib/tokens";
+import type { MockSpec } from "../../lib/mocks/types";
+import { mapAction } from "../../lib/refs";
 import { partBySlug, reader } from "../registry";
 import { axisValue, axisWrite, resizeOf } from "../resize";
 import { fullWidth, roleOf } from "../role";
@@ -13,15 +15,23 @@ import { fullWidth, roleOf } from "../role";
 
 export type Say = Record<Lang, string>;
 export const say = (en: string, zh: string, ja: string, ko: string): Say => ({ en, zh, ja, ko });
+/** words an action says (a snackbar's), in every language: the screen is added in one of them, and they read as it */
+export const sayInAction = (en: string, zh: string, ja: string, ko: string): string => say(en, zh, ja, ko) as unknown as string;
 
 export type TemplateFrame = "phone" | "landscape" | "tablet" | "desktop";
 export type TemplateCategory = "flow" | "auth" | "shop" | "social" | "content" | "tools" | "game" | "desktop";
 
 type Props = Record<string, unknown>;
-/** where a tap goes: the id of a screen in the same template, or back */
-type Link = { to: string; transition: Transition };
+/** What a tap does: where it goes (the id of a screen in the same template, or back), and its effects (a call, an
+ *  invoke of a capability, a variable set) with their answers' bodies, whose screens are named the same way. */
+type Link = Action;
 export const go = (to: string, transition: Transition = "slide"): Link => ({ to, transition });
 export const back = (): Link => ({ to: BACK_TARGET, transition: "slide" });
+
+/** The contract a template's screens lean on, added to the document with them where it has none of its own: the
+ *  endpoints and models they call and load, the mock scenarios that show each outcome, the variables their states read.
+ *  What the document has already (an endpoint, a model, a scenario or a variable of the same name) stays. */
+export type TemplateContract = { api?: ApiSpec; mocks?: MockSpec; vars?: DocVar[] };
 
 /** where a part stands on a picture, by its distance from the edges; with neither edge of an axis it is centered on it,
  *  with both it spans between them */
@@ -44,13 +54,21 @@ export type Node = {
   note?: Say;
   at?: Anchor;
   screenMain?: boolean;
+  /** shown only while this holds (an order's status, a variable a catch set) */
+  showWhen?: Condition;
+  /** a container whose content comes from data: its states' designs are the kids with a `pane` */
+  states?: RegionBinding;
+  /** the state of the region around it this design is for (REGION_STATES: 1 loading, 3 error…) */
+  pane?: number;
+  /** props bound to expressions, by prop: "=data.order.value.id" (in every language where it holds words) */
+  bind?: Record<string, string | Say>;
   /** a box that draws its first child once per row of a data collection (`Group.repeat`), by the collection's id */
   repeat?: { collection: string };
   /** one of the two panes of the split view it is in (`split`) */
-  pane?: "first" | "second";
+  splitPane?: "first" | "second";
   kids?: Node[];
 };
-type Extra = Pick<Node, "name" | "fill" | "grow" | "textColor" | "corners" | "look" | "action" | "actions" | "note" | "at" | "screenMain">;
+type Extra = Pick<Node, "name" | "fill" | "grow" | "textColor" | "corners" | "look" | "action" | "actions" | "note" | "at" | "screenMain" | "showWhen" | "states" | "pane" | "bind">;
 
 export const part = (slug: string, props: Props = {}, extra: Extra = {}): Node => ({ slug, props, ...extra });
 
@@ -80,14 +98,14 @@ export const panel = (props: Props, kids: Node[], extra: Extra = {}): Node => co
  *  drags: a split view, whose panes are the two containers given (`col`, `panel`…), each laying out what it holds. */
 export const split = (props: Props, first: Node, second: Node, extra: Extra = {}): Node => {
   /* a pane is as big as the split gives it, never as what it holds */
-  const pane = (n: Node, side: "first" | "second"): Node => ({ ...n, props: { ...n.props, hugWidth: false, hugHeight: false }, pane: side });
+  const pane = (n: Node, side: "first" | "second"): Node => ({ ...n, props: { ...n.props, hugWidth: false, hugHeight: false }, splitPane: side });
   return { slug: "split-view", props, name: NAME.split, ...extra, kids: [pane(first, "first"), pane(second, "second")] };
 };
 
 export const txt = (text: Say | string, style = "body", more: Props = {}, extra: Extra = {}): Node => part("text", { text, style, ...more }, extra);
 
-/** one screen of a template: its parts in the order they read */
-export type ScreenSeed = { id: string; name: Say; frame: TemplateFrame; length?: number; note?: Say; bg?: ColorToken; place?: Place; roots: Node[] };
+/** one screen of a template: its parts in the order they read, and the data it loads, by what it is opened with */
+export type ScreenSeed = { id: string; name: Say; frame: TemplateFrame; length?: number; note?: Say; bg?: ColorToken; place?: Place; data?: DataSource[]; params?: ScreenParam[]; roots: Node[] };
 
 export type Template = {
   slug: string;
@@ -99,6 +117,8 @@ export type Template = {
   icon: string;
   /** the screens it adds; every link in them points at one of them, or back */
   build: () => ScreenSeed[];
+  /** what its screens call, load and read, in the language they are added in */
+  contract?: (lang: Lang) => TemplateContract;
 };
 
 type Size = { w: number; h: number };
@@ -110,12 +130,12 @@ const sizeIn = (frame: TemplateFrame, phone: Size): Size => (frame === "phone" ?
 /** the frame fields a screen's size comes down to: the usual phone is what a frame is by default */
 const frameFields = ({ w, h }: Size): Pick<Frame, "w" | "h"> => (w === PHONE_W && h === PHONE_H ? {} : { w, h });
 
-type Screen = { id: string; name: Say; frame?: TemplateFrame; length?: number; note?: Say; bg?: ColorToken; place?: Place; scene?: Node; top?: Node[]; body?: Node[]; spots?: Node[]; bottom?: Node[] };
+type Screen = { id: string; name: Say; frame?: TemplateFrame; length?: number; note?: Say; bg?: ColorToken; place?: Place; data?: DataSource[]; params?: ScreenParam[]; scene?: Node; top?: Node[]; body?: Node[]; spots?: Node[]; bottom?: Node[] };
 
 /** A screen: a picture behind it if it has one, the bars at its ends, the rows of its body between them, and what is
  *  placed on the picture by its edges. Bars and rows stand on the screen itself, so a style reaches them. */
-export function screen({ id, name, frame = "phone", length, note, bg, place, scene, top = [], body = [], spots = [], bottom = [] }: Screen): ScreenSeed {
-  return { id, name, frame, length, note, bg, place, roots: [...(scene ? [scene] : []), ...top, ...body, ...spots, ...bottom] };
+export function screen({ id, name, frame = "phone", length, note, bg, place, data, params, scene, top = [], body = [], spots = [], bottom = [] }: Screen): ScreenSeed {
+  return { id, name, frame, length, note, bg, place, ...(data ? { data } : {}), ...(params ? { params } : {}), roots: [...(scene ? [scene] : []), ...top, ...body, ...spots, ...bottom] };
 }
 
 /** A desktop screen: what stands at its side, and a main column beside it, in one layout as big as the window. */
@@ -129,7 +149,7 @@ export function deskScreen({ id, name, length, note, side, body, bodyProps }: { 
 /* ---------- from seed to document ---------- */
 
 /** a group as a template keeps it: words still in every language, links still by screen id */
-export type SeedGroup = Omit<Group, "items" | "name"> & { name?: Say; at?: Anchor; items: (Omit<Item, "note"> & { note?: Say })[] };
+export type SeedGroup = Omit<Group, "items" | "name"> & { name?: Say; at?: Anchor; items: (Omit<Item, "note" | "bind"> & { note?: Say; bind?: Record<string, string | Say> })[] };
 
 /** The tree flattened into groups, outermost first: the array is the order a layout goes by, and a
  *  container has to be drawn under what it holds. Ids are stable within a build, not across adds. */
@@ -153,8 +173,9 @@ export function seedGroups(seed: ScreenSeed): SeedGroup[] {
       ...(node.action ? { action: node.action } : {}),
       ...(Object.keys(actions).length ? { actions } : {}),
       ...(node.note ? { note: node.note } : {}),
+      ...(node.bind ? { bind: node.bind } : {}),
     };
-    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), ...(node.pane && inFlow ? { splitPane: node.pane } : {}), ...(node.at ? { at: node.at } : {}), ...(node.screenMain ? { screenMain: true } : {}), ...(node.repeat ? { repeat: { collection: node.repeat.collection } } : {}), items: [item] });
+    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), ...(node.at ? { at: node.at } : {}), ...(node.screenMain ? { screenMain: true } : {}), ...(node.showWhen ? { showWhen: node.showWhen } : {}), ...(node.states ? { states: node.states } : {}), ...(node.pane !== undefined ? { pane: node.pane } : {}), ...(node.splitPane && inFlow ? { splitPane: node.splitPane } : {}), ...(node.repeat ? { repeat: { collection: node.repeat.collection } } : {}), items: [item] });
     for (const kid of node.kids ?? []) visit(kid, id);
   };
   for (const root of seed.roots) visit(root);
@@ -277,11 +298,14 @@ export function instantiate(template: Pick<Template, "build">, lang: Lang, at: {
       ...(seed.note ? { note: seed.note[lang] } : {}),
       ...(seed.bg ? { bg: seed.bg } : {}),
       ...(seed.place ? { place: seed.place } : {}),
+      ...(seed.data?.length ? { data: seed.data } : {}),
+      ...(seed.params?.length ? { params: seed.params } : {}),
     };
     const seeded = seedGroups(seed);
     const groupIds = new Map(seeded.map((g) => [g.id, uid()]));
     const anchors = new Map<string, Anchor>();
-    const link = (a: Action): Action => ({ ...a, to: frameIds.get(a.to) ?? a.to });
+    /* a tap names screens of the template, in its answers' bodies too */
+    const link = (a: Action): Action => mapAction(a, { screen: (to) => frameIds.get(to) ?? to });
     /* apart from each other until they are placed: a part let go on a layout is taken in by it */
     let apart = 0;
     let mine: Group[] = seeded.map((g) => {
@@ -297,14 +321,16 @@ export function instantiate(template: Pick<Template, "build">, lang: Lang, at: {
         ...(groupName ? { name: groupName[lang] } : {}),
         ...(inFlow ? { inFlow: groupIds.get(inFlow)! } : {}),
         items: items.map((it) => {
-          const { note, ...item } = it;
+          const { note, bind, ...item } = it;
           return {
             ...item,
             id: uid(),
             props: inLang(it.props, lang),
+            ...(bind ? { bind: inLang(bind, lang) as Record<string, string> } : {}),
             ...(note ? { note: note[lang] } : {}),
-            ...(it.action ? { action: link(it.action) } : {}),
-            ...(it.actions ? { actions: Object.fromEntries(Object.entries(it.actions).map(([k, a]) => [k, link(a)])) } : {}),
+            /* an action's words (a snackbar's) come in every language too */
+            ...(it.action ? { action: link(inLang(it.action, lang)) } : {}),
+            ...(it.actions ? { actions: Object.fromEntries(Object.entries(it.actions).map(([k, a]) => [k, link(inLang(a, lang))])) } : {}),
           };
         }),
       };

@@ -524,6 +524,37 @@ const BOUNDARY_FIXTURES: Record<string, Fixture> = {
         tx.run(ops.addPart, { slug: "text", id: "paid-words", screen: "paid", at: { x: 16, y: 120 }, props: { text: "支付成功，咖啡马上就好" } });
       }),
   },
+  /** a café's checkout with a WeChat Pay button, an empty result screen, and the orders contract (an order the back end
+   *  signs for the payment sheet, its status set from the payment service's callback): the payment flow's task */
+  "wxpay-zh": {
+    lang: "zh",
+    doc: () =>
+      made("zh", (tx) => {
+        tx.run(ops.setTitle, { title: "咖啡小铺" });
+        tx.run(ops.addModel, {
+          name: "Order",
+          schema: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid", readOnly: true },
+              amount: { type: "number", minimum: 0, readOnly: true, title: "金额" },
+              currency: { type: "string", readOnly: true, examples: ["CNY"] },
+              status: { type: "string", enum: ["pending", "processing", "paid", "failed", "cancelled"], title: "状态", readOnly: true, description: "后端收到支付平台的回调后设置" },
+              payment: { type: "object", readOnly: true, description: "后端为支付界面签好的参数" },
+            },
+            required: ["id", "amount", "currency", "status"],
+          },
+        });
+        tx.run(ops.addEndpoint, { operationId: "createOrder", method: "post", path: "/orders", summary: "创建订单，返回订单和签好的支付参数", body: { type: "object", properties: { productId: { type: "string" }, quantity: { type: "integer", minimum: 1 } }, required: ["productId", "quantity"] }, returns: { $ref: "#/components/schemas/Order" }, status: "201" });
+        tx.run(ops.addEndpoint, { operationId: "getOrder", method: "get", path: "/orders/{orderId}", summary: "订单和它的支付状态", returns: { $ref: "#/components/schemas/Order" } });
+        tx.run(ops.addScreen, { id: "checkout", name: "结算" });
+        tx.run(ops.addPart, { slug: "app-bar", id: "bar", screen: "checkout", at: { x: 0, y: 0 }, props: { title: "确认订单" } });
+        tx.run(ops.addPart, { slug: "text", id: "total", screen: "checkout", at: { x: 16, y: 96 }, props: { text: "拿铁 × 2　合计 ¥36" } });
+        tx.run(ops.addPart, { slug: "brand-button", id: "wxpay", screen: "checkout", at: { x: 16, y: 760 }, props: { provider: "wechat", intent: "pay", label: "微信支付", width: 380 } });
+        tx.run(ops.addScreen, { id: "result", name: "支付结果" });
+        tx.run(ops.addPart, { slug: "app-bar", id: "result-bar", screen: "result", at: { x: 0, y: 0 }, props: { title: "支付结果" } });
+      }),
+  },
   /** a lottery page with its draw contract and nothing on it yet */
   "draw-zh": {
     lang: "zh",

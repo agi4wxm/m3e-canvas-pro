@@ -1,4 +1,5 @@
 
+import { capabilityCalls } from "@/lib/capabilities/doc";
 import {
   lazy,
   Suspense,
@@ -1231,7 +1232,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                 ) : leftTab === "mocks" ? (
                   <Suspense fallback={null}>
                     {/* the mock library: how the API answers while the product is designed (components/MocksPanel.tsx) */}
-                    <MocksPanel p={p} api={core.doc.api} mocks={core.doc.mocks} collections={collections ?? []} run={runApi} paint={canPaint ? (prompt) => generateImage(aiSettings, `${prompt}. No text, letters, logos or user interface in the picture.`, { w: 640, h: 480 }) : null} />
+                    <MocksPanel p={p} api={core.doc.api} mocks={core.doc.mocks} collections={collections ?? []} run={runApi} capabilities={capabilityCalls(core.doc)} paint={canPaint ? (prompt) => generateImage(aiSettings, `${prompt}. No text, letters, logos or user interface in the picture.`, { w: 640, h: 480 }) : null} />
                   </Suspense>
                 ) : leftTab === "data" ? (
                   <DataPanel

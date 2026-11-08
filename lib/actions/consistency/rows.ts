@@ -24,6 +24,12 @@ function call(operationId: string, more: { args?: Record<string, string>; ok?: A
   // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
   return { do: "call", operationId, ...rest, ...(ok ? { then: ok } : {}), ...(fail ? { catch: fail } : {}) };
 }
+/** an invoke of a capability; `ok` is its `then`, `fail` its `catch` */
+function invoke(capability: string, more: { args?: Record<string, string>; ok?: ActionBody; fail?: ActionBody } = {}): Effect {
+  const { ok, fail, ...rest } = more;
+  // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+  return { do: "invoke", capability, ...rest, ...(ok ? { then: ok } : {}), ...(fail ? { catch: fail } : {}) };
+}
 const toast = (message: string): Effect => ({ do: "snackbar", message });
 const setVar = (v: string, value: string | number | boolean, expr?: string): Effect => ({ do: "setVar", var: v, value, ...(expr ? { expr } : {}) });
 const num = (id: string, value: number) => ({ id, name: id, type: "number" as const, value });
@@ -37,6 +43,8 @@ const RENDER_SCOPE = "接口参数读的是屏幕渲染时的作用域，看不�
 const NO_LATEST = "lib/app 的 Runtime.call 只在重新开始后丢弃回答，同一组件同一接口的旧回答照样运行（报告 7.2，整改计划第一批遗留）";
 const NAV_AFTER_MOVE = "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）";
 const EXPORTS_NO_OUTLETS = "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项";
+const PREVIEW_BATCH = "预览先整批执行本地效果、再发出接口调用和能力调用，调用读到后面才写的值（报告 6.2：`Preview.tsx` runBody）";
+const WEB_PROTO_NO_CAPABILITIES = "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）";
 const PREVIEW_DROPS ="预览在访客离开后整个丢弃 then/catch（第一批 W5 的规则），效果也不再运行，状态跟不上后端（报告 7.1）";
 
 export const ROWS: Row[] = [
@@ -57,7 +65,7 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], vars: [num("qty", 1)], api: [op("create", { body: { qty: { title: "Qty", type: "number" } } })], parts: [btn("go", "Order then set", stay(call("create", { args: { qty: "vars.qty" } }), setVar("qty", 5)))] },
     steps: [{ tap: "Order then set" }],
     expect: { vars: { qty: 5 }, calls: [{ op: "create", in: { qty: 1 } }] },
-    known: { preview: "预览先整批执行本地效果、再发出接口调用，调用读到后面才写的值（报告 6.2：`Preview.tsx` runBody）", webPrototype: WEB_PROTO_NO_API },
+    known: { preview: PREVIEW_BATCH, webPrototype: WEB_PROTO_NO_API },
   },
   {
     id: "order-local-reads-previous",
@@ -506,6 +514,96 @@ export const ROWS: Row[] = [
       webPrototype: WEB_PROTO_NO_API,
       webProduct: "产品 Web 只在进入屏幕时检查登录，退出登录后仍停在需要登录的屏幕上（报告 6.2）",
     },
+  },
+
+  /* ---------- invoking a capability ---------- */
+  {
+    id: "invoke-then-result",
+    title: "调用能力：完成后运行 then，读 result",
+    ref: "调用能力；报告 2.3",
+    design: { screens: [HOME], vars: [words("got", "")], parts: [btn("pay", "Pay", stay(invoke("payment.pay", { args: { orderId: "'o1'", amount: "12.5" }, ok: body("none", setVar("got", "", "result.status")) })))] },
+    capabilities: { "payment.pay": { result: { status: "submitted" } } },
+    steps: [{ tap: "Pay" }],
+    expect: { vars: { got: "submitted" }, invokes: [{ op: "payment.pay", in: { orderId: "o1", amount: 12.5 } }] },
+    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
+  },
+  {
+    id: "invoke-catch-type",
+    title: "调用能力失败：运行 catch，读 error.type",
+    ref: "调用能力；报告 2.3、2.4",
+    design: { screens: [HOME], vars: [words("why", "")], parts: [btn("pay", "Pay", stay(invoke("payment.pay", { args: { orderId: "'o1'" }, fail: body("none", setVar("why", "", "error.type"), toast("Not paid: {{error.type}}")) })))] },
+    capabilities: { "payment.pay": { fail: "cancelled" } },
+    steps: [{ tap: "Pay" }],
+    expect: { vars: { why: "cancelled" }, toast: "Not paid: cancelled", invokes: [{ op: "payment.pay", in: { orderId: "o1" } }] },
+    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
+  },
+  {
+    id: "invoke-not-implemented",
+    title: "能力的适配还没写：catch 读到 not-implemented",
+    ref: "调用能力；报告 2.3",
+    design: { screens: [HOME], vars: [words("why", "")], parts: [btn("share", "Share", stay(invoke("share.open", { args: { url: "'https://example.com'" }, fail: body("none", setVar("why", "", "error.type")) })))] },
+    capabilities: { "share.open": { fail: "not-implemented" } },
+    steps: [{ tap: "Share" }],
+    expect: { vars: { why: "not-implemented" } },
+    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
+  },
+  {
+    id: "invoke-not-awaited",
+    title: "调用能力不等结果：后面的效果和跳转立刻进行",
+    ref: "调用能力；顺序",
+    design: { screens: [HOME, NEXT], vars: [bool("done", false)], parts: [btn("scan", "Scan and go", goTo("next", invoke("scan.code"), setVar("done", true)))] },
+    hold: ["scan.code"],
+    steps: [{ tap: "Scan and go" }],
+    expect: { vars: { done: true }, screen: "next", invokes: [{ op: "scan.code", in: {} }] },
+    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
+  },
+  {
+    id: "invoke-args-at-step",
+    title: "能力的参数在它那一步读",
+    ref: "调用能力；顺序",
+    design: { screens: [HOME], vars: [words("text", "")], parts: [btn("copy", "Copy", stay(setVar("text", "copied words"), invoke("clipboard.write", { args: { text: "vars.text" } }), setVar("text", "later")))] },
+    steps: [{ tap: "Copy" }],
+    expect: { vars: { text: "later" }, invokes: [{ op: "clipboard.write", in: { text: "copied words" } }] },
+    known: { preview: PREVIEW_BATCH, webPrototype: WEB_PROTO_NO_CAPABILITIES, webProduct: RENDER_SCOPE, rn: RENDER_SCOPE, miniapp: RENDER_SCOPE },
+  },
+  {
+    id: "invoke-in-call-then",
+    title: "下单后调用支付：能力的参数和 then 都读得到接口的回答，完成后跳转",
+    ref: "调用能力；报告 2.4",
+    design: {
+      screens: [HOME, DONE],
+      vars: [words("order", "")],
+      api: [op("createOrder", { returns: { id: "string" } })],
+      parts: [btn("place", "Place order", stay(call("createOrder", { ok: body("none", invoke("payment.pay", { args: { orderId: "response.id" }, ok: body("done", setVar("order", "", "response.id")) })) })))],
+    },
+    answers: { createOrder: { status: 200, body: { id: "o42" } } },
+    steps: [{ tap: "Place order" }],
+    expect: { screen: "done", vars: { order: "o42" }, calls: [{ op: "createOrder", in: {} }], invokes: [{ op: "payment.pay", in: { orderId: "o42" } }] },
+    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
+  },
+  {
+    id: "invoke-late-moved",
+    title: "访客已离开：能力 then 的效果照常运行，跳转不再发生",
+    ref: "调用能力；迟到的回答",
+    design: {
+      screens: [HOME, NEXT, OTHER],
+      vars: [words("got", "")],
+      parts: [btn("pay", "Pay", stay(invoke("payment.pay", { args: { orderId: "'o1'" }, ok: body("next", setVar("got", "", "result.status")) }))), btn("away", "Elsewhere", goTo("other"))],
+    },
+    hold: ["payment.pay"],
+    steps: [{ tap: "Pay" }, { tap: "Elsewhere" }, { answer: "payment.pay", body: { status: "submitted" } }],
+    expect: { vars: { got: "submitted" }, screen: "other" },
+    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES, webProduct: NAV_AFTER_MOVE, rn: NAV_AFTER_MOVE, miniapp: NAV_AFTER_MOVE },
+  },
+  {
+    id: "invoke-late-restart",
+    title: "重新开始后到达的能力结果什么都不做",
+    ref: "调用能力；迟到的回答",
+    design: { screens: [HOME], vars: [words("got", "")], parts: [btn("pay", "Pay", stay(invoke("payment.pay", { args: { orderId: "'o1'" }, ok: body("none", setVar("got", "", "result.status")) })))] },
+    hold: ["payment.pay"],
+    steps: [{ tap: "Pay" }, { restart: true }, { answer: "payment.pay", body: { status: "submitted" } }],
+    expect: { vars: { got: "" } },
+    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
   },
 
   /* ---------- where a tap goes ---------- */

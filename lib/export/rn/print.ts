@@ -26,7 +26,8 @@ import {
   type Item,
   type ScreenParam,
 } from "../../tokens";
-import { partBySlug, reader } from "../../../parts/registry";
+import { partBySlug, reader, treeOf } from "../../../parts/registry";
+import { capabilitiesUsed } from "../../capabilities/doc";
 import type { PartDef } from "../../../parts/types";
 import { fullWidth, roleOf } from "../../../parts/role";
 import { sanitizeSvg } from "../../../parts/svg";
@@ -128,6 +129,9 @@ export type RnPrintOptions = {
    *  beside the screens (its data sources, forms, scope; see lib/export/rn/mobile.ts). Left out (the kit's test bed),
    *  the bindings keep the design's values and are reported. */
   runtime?: { bind: string };
+  /** the capability views drawn by the product's slots: where a screen imports them from, and each one's component by
+   *  item id (lib/export/appCapabilities.ts) */
+  slots?: { from: string; names: Record<string, string> };
 };
 
 /* ---------- JSX as data ---------- */
@@ -277,7 +281,7 @@ function eachBody(doc: Doc, fn: (b: ActionBody & { when?: Condition }, item?: It
     fn(b, item);
     visit(b.else, item, depth + 1);
     for (const e of b.effects ?? []) {
-      if (e.do !== "call") continue;
+      if (e.do !== "call" && e.do !== "invoke") continue;
       visit(e.then, item, depth + 1);
       visit(e.catch, item, depth + 1);
     }
@@ -348,6 +352,8 @@ const RESERVED = new Set(["app", "act", "nav", "params", "given", "item", "index
 class ScreenPrinter {
   /** the kit's components this screen names */
   kit = new Set<string>(["Screen"]);
+  /** the slots the screen draws its capability views with */
+  slots = new Set<string>();
   /** what the screen imports from its data layer, and from React Native */
   bind = new Set<string>();
   rn = new Set<string>();
@@ -382,7 +388,7 @@ class ScreenPrinter {
     readonly o: RnPrintOptions,
     readonly facts: DocFacts,
   ) {
-    this.runtime = !!o.runtime && !!doc.api;
+    this.runtime = !!o.runtime && (!!doc.api || capabilitiesUsed(doc).length > 0);
     this.ctx = { $: "$" };
     this.owner = formsOf(all);
     if (this.runtime) {
@@ -422,8 +428,9 @@ class ScreenPrinter {
     const url = to === "link" ? linkUrlOf(b) : null;
     const effects = (b.effects ?? []).flatMap((e): Record<string, unknown>[] => {
       /* what the API does runs only in an app with its runtime (the exported app, not the kit's test bed) */
-      if (isApiEffect(e) && !this.runtime) {
+      if ((isApiEffect(e) || e.do === "invoke") && !this.runtime) {
         if (e.do === "call") this.warn("binding", "a call to the API runs only in an app with its runtime");
+        if (e.do === "invoke") this.warn("binding", "an invoke of a platform capability runs only in an app with its runtime");
         return [];
       }
       switch (e.do) {
@@ -436,6 +443,7 @@ class ScreenPrinter {
           return g ? [{ do: e.do, part: g }] : [];
         }
         case "call":
+        case "invoke":
           // eslint-disable-next-line unicorn/no-thenable -- an action body as data, never a function: nothing awaits it
           return [{ ...e, then: this.bodyData(e.then, depth + 1), catch: this.bodyData(e.catch, depth + 1) }];
         default:
@@ -454,7 +462,7 @@ class ScreenPrinter {
   /** whether a tap reads expressions: a condition on one, a value set from one, words with {{one}}, a call, a form */
   private readsScope(a: Action): boolean {
     if (!this.runtime) return false;
-    const reads = (b: ActionBody | undefined): boolean => !!b && (!!(b.params && Object.keys(b.params).length) || (b.effects ?? []).some((e: Effect) => (e.do === "setVar" && typeof e.expr === "string") || (e.do === "snackbar" && e.message.includes("{{")) || e.do === "call" || e.do === "submit"));
+    const reads = (b: ActionBody | undefined): boolean => !!b && (!!(b.params && Object.keys(b.params).length) || (b.effects ?? []).some((e: Effect) => (e.do === "setVar" && typeof e.expr === "string") || (e.do === "snackbar" && e.message.includes("{{")) || e.do === "call" || e.do === "invoke" || e.do === "submit"));
     return (!!a.when && "expr" in a.when) || reads(a) || reads(a.else);
   }
 
@@ -740,6 +748,15 @@ class ScreenPrinter {
       this.warn("unknown", "a part no definition stands for", it.id);
       this.kit.add("Placeholder");
       return el("Placeholder", [["part", str(typeof it.component === "string" ? it.component.replace(/[^\w-]+/g, "").slice(0, 60) : "")]]);
+    }
+    /* a capability view is its slot (src/custom/slots), handed what the design's stand-in is and drawing it until written */
+    const slot = def.capability ? this.o.slots?.names[it.id] : undefined;
+    if (slot) {
+      this.slots.add(slot);
+      const size = this.size(it);
+      const given = Object.entries(treeOf(def, it.props).props ?? {}).filter(([k, v]) => /^[a-z][A-Za-z0-9]*$/.test(k) && k !== "className" && k !== "style" && k !== "width" && k !== "height" && (v === null || ["string", "number", "boolean", "object"].includes(typeof v)));
+      this.kit.add("Placeholder");
+      return el(slot, [...given.map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)]], [el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]])]);
     }
     if (isNative(def.slug)) {
       const name = NATIVE[def.slug];
@@ -1143,7 +1160,7 @@ export function printRnScreens(source: Doc, widths: Record<string, number>, o: R
 function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOptions): RnScreens {
   const doc = expandDoc(withoutMarks(source), widths);
   const kitImport = o.kitImport ?? "../../kit";
-  const runtime = !!o.runtime && !!doc.api;
+  const runtime = !!o.runtime && (!!doc.api || capabilitiesUsed(doc).length > 0);
   let frames = doc.frame === "phone" ? doc.frames : [];
   if (!frames.length && doc.groups.length) {
     const { l, t, r, b } = unionRect(doc.groups.map((g) => groupBounds(g, widths)));
@@ -1187,6 +1204,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
     const imports = [
       ...(p.rn.size ? [`import { ${[...p.rn].sort().join(", ")} } from "react-native";`] : []),
       `import { ${kitNames.join(", ")} } from ${str(kitImport)};`,
+      ...(p.slots.size && o.slots ? [`import { ${[...p.slots].sort().join(", ")} } from ${str(o.slots.from)};`] : []),
       ...(bindNames.length && o.runtime ? [`import { ${bindNames.join(", ")} } from ${str(o.runtime.bind)};`] : []),
       ...(p.pictures && o.images ? [`import { IMAGES } from ${str(o.images.from)};`] : []),
     ];

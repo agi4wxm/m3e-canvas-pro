@@ -14,6 +14,8 @@ import { generated, type ProductContext, type ProductTarget, type Workspace } fr
 export const APP_RUNTIME_FILES = [
   ...["expr", "format", "messages", "rules", "sources", "form"].map((n) => `lib/bindings/${n}.ts`),
   ...["types", "transport", "body"].map((n) => `lib/api/${n}.ts`),
+  /* what an invoke comes to (lib/app reads the types only) */
+  "lib/capabilities/types.ts",
   ...["store", "session", "sources", "forms", "scope", "runtime", "react", "index"].map((n) => `lib/app/${n}.ts`),
 ];
 

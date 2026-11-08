@@ -4,7 +4,39 @@ import { FIELD, fieldFrame, fieldValues } from "../fieldState";
 
 /* What iOS screens have and Material does not, after greycode/m3e-canvas (MIT). Drawn on M3E's roles
  * like everything else: this says what the part is on a screen, it does not imitate Apple's look,
- * and a brand button carries no logo. */
+ * and a brand button carries no logo: the service's own SDK draws its mark in the product. */
+
+/* What each service's button looks like, after the service's own rules for its sign-in and payment buttons: its
+   colors and words. The service's mark is the real SDK's to draw (most require their own button there). */
+const BRAND_LOOK: Record<string, { className: string; style?: Record<string, string> }> = {
+  apple: { className: "", style: { background: "#000000", color: "#ffffff" } },
+  google: { className: "border border-outline", style: { background: "#ffffff", color: "#1f1f1f" } },
+  wechat: { className: "", style: { background: "#07c160", color: "#ffffff" } },
+  alipay: { className: "", style: { background: "#1677ff", color: "#ffffff" } },
+  paypal: { className: "", style: { background: "#ffc439", color: "#003087" } },
+  stripe: { className: "", style: { background: "#635bff", color: "#ffffff" } },
+  github: { className: "", style: { background: "#24292f", color: "#ffffff" } },
+  facebook: { className: "", style: { background: "#1877f2", color: "#ffffff" } },
+  x: { className: "", style: { background: "#000000", color: "#ffffff" } },
+  line: { className: "", style: { background: "#06c755", color: "#ffffff" } },
+  kakao: { className: "", style: { background: "#fee500", color: "#191919" } },
+  other: { className: "bg-inverse-surface text-inverse-on-surface" },
+};
+
+/** the services a sign-in or payment button names, in the order the catalog's PROVIDERS has them
+ *  (lib/capabilities/catalog.ts: a definition imports no lib, the capabilities test holds the two together) */
+export const BRAND_PROVIDERS = Object.keys(BRAND_LOOK);
+
+const BRAND_NAMES: Record<string, string> = { apple: "Apple", google: "Google", wechat: "WeChat", alipay: "Alipay", paypal: "PayPal", stripe: "Stripe", github: "GitHub", facebook: "Facebook", x: "X", line: "LINE", kakao: "Kakao" };
+
+/** the words a service's button says when the author gave none, in the editor's language */
+function brandWords(provider: string, intent: string, say: (words: string) => string): string {
+  const name = BRAND_NAMES[provider];
+  if (!name) return say(intent === "pay" ? "Pay" : "Continue");
+  /* the two the Chinese name differently */
+  const local = say(name);
+  return say(intent === "pay" ? "Pay with {name}" : "Sign in with {name}").replace("{name}", local);
+}
 
 export const mobile: PartDef[] = [
   {
@@ -47,11 +79,24 @@ export const mobile: PartDef[] = [
     icon: "payments",
     w: 380,
     h: 48,
+    /* who it is for and what it does: drawn in the service's own colors and words. Its tap invokes auth.oauth {provider}
+       or payment.pay (lib/capabilities): the button decides nothing, the service and the back end do */
     props: [
+      { key: "provider", label: "Service", labels: { ja: "サービス", zh: "服务方", ko: "서비스" }, kind: "enum", default: "other", options: BRAND_PROVIDERS },
+      { key: "intent", label: "Does", labels: { ja: "用途", zh: "用途", ko: "용도" }, kind: "enum", default: "signin", options: ["signin", "pay"] },
       { key: "label", label: "Label", kind: "text", default: "Continue", defaults: { zh: "继续" } },
       { key: "width", label: "Width", kind: "number", default: 380, min: 120, max: 800, step: 4, unit: "px" },
     ],
-    tree: (p) => h("Button", { variant: "filled", "data-slot": "brand-button", className: "bg-inverse-surface text-inverse-on-surface", style: { width: Math.round(p.n("width")) } }, p.s("label")),
+    tree: (p) => {
+      const look = BRAND_LOOK[p.s("provider")] ?? BRAND_LOOK.other;
+      const words = p.s("label") || brandWords(p.s("provider"), p.s("intent"), p.say);
+      return h(
+        "Button",
+        { variant: "filled", "data-slot": "brand-button", "data-provider": p.s("provider"), "data-intent": p.s("intent"), className: look.className, style: { width: Math.round(p.n("width")), ...look.style } },
+        ic(p.s("intent") === "pay" ? "payments" : "login", { className: "size-5" }),
+        words,
+      );
+    },
   },
   {
     slug: "action-sheet",
@@ -98,17 +143,35 @@ export const mobile: PartDef[] = [
       { key: "title", label: "Title", kind: "text", default: "Premium", defaults: { zh: "高级版" } },
       { key: "description", label: "Description", labels: { ja: "説明", zh: "说明", ko: "설명" }, kind: "text", default: "Every feature, unlocked.", defaults: { zh: "解锁全部功能" } },
       { key: "plans", label: "Plans", labels: { ja: "プラン", zh: "方案", ko: "요금제" }, kind: "list", default: [{ label: "Monthly" }, { label: "Yearly" }], min: 1, max: 6 },
+      { key: "selected", label: "Chosen plan (-1: none)", labels: { ja: "選んだプラン（-1：なし）", zh: "选中的方案（-1：无）", ko: "선택한 요금제(-1: 없음)" }, kind: "number", default: 0, min: -1, max: 5, step: 1 },
       { key: "action", label: "Button", labels: { ja: "ボタン", zh: "按钮文字", ko: "버튼" }, kind: "text", default: "Subscribe", defaults: { zh: "订阅" } },
       { key: "width", label: "Width", kind: "number", default: 380, min: 200, max: 640, step: 4, unit: "px" },
     ],
+    /* the plan chosen is the visitor's choice (UI state): it goes out as the part's value, and the button's action takes
+       it to the store (iap.purchase) or the back end; which plan is bought is theirs to say */
+    input: { prop: "selected", kind: "choice", options: "plans" },
+    selectKey: "selected",
+    families: [{ prefix: "tab", label: "Every plan", labels: { ja: "どのプラン", zh: "每个方案", ko: "모든 요금제" } }],
+    slots: (p) => [...p.list("plans").map((plan, i) => ({ key: `tab:${i}`, label: plan.label || `${i + 1}` })), ...(p.s("action") ? [{ key: "action", label: p.s("action") }] : [])],
     tree: (p) =>
       h(
         "div",
         { "data-slot": "subscription", className: "bg-surface-container-low flex flex-col gap-2 rounded-2xl p-4", style: { width: Math.round(p.n("width")) } },
         h("div", { "data-slot": "subscription-title", className: "text-title-large text-on-surface" }, p.s("title")),
         p.s("description") && h("div", { "data-slot": "subscription-description", className: "text-body-medium text-on-surface-variant" }, p.s("description")),
-        ...p.list("plans").map((plan) => h("div", { "data-slot": "subscription-plan", className: "border-outline-variant text-body-large text-on-surface rounded-xl border p-3" }, plan.label)),
-        p.s("action") && h("Button", { variant: "filled", "data-slot": "subscription-action", className: "w-full" }, p.s("action")),
+        ...p.list("plans").map((plan, i) =>
+          h(
+            "div",
+            {
+              "data-slot": "subscription-plan",
+              "data-tap": `tab:${i}`,
+              "aria-selected": i === Math.round(p.n("selected")) ? "true" : "false",
+              className: i === Math.round(p.n("selected")) ? "border-primary bg-secondary-container text-body-large text-on-secondary-container rounded-xl border-2 p-3" : "border-outline-variant text-body-large text-on-surface rounded-xl border p-3",
+            },
+            plan.label,
+          ),
+        ),
+        p.s("action") && h("Button", { variant: "filled", "data-slot": "subscription-action", "data-tap": "action", className: "w-full" }, p.s("action")),
       ),
   },
   {

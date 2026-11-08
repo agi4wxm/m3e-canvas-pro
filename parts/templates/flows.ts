@@ -1,7 +1,7 @@
 import { back, go, type Template } from "./kit";
 import { forgotScreen, loginScreen, onboardingScreen, resetScreen, signUpScreen, splashScreen, verifyScreen } from "./auth";
 import { battleHudScreen, levelSelectScreen, lobbyScreen, titleScreen, victoryScreen } from "./game";
-import { cartScreen, checkoutScreen, orderSuccessScreen, productDetailScreen, productListScreen } from "./shop";
+import { cartScreen, checkoutScreen, orderSuccessScreen, paymentContract, placeOrder, productDetailScreen, productListScreen } from "./shop";
 
 /* Sets of screens added together, their links already in place. A flow holds what belongs to it and nothing else:
  * where the app goes after it is the app's own business. */
@@ -32,7 +32,9 @@ export const flows: Template[] = [
     category: "flow",
     frame: "phone",
     icon: "shopping_bag",
-    build: () => [productListScreen(go("product")), productDetailScreen({ cart: go("cart"), back: back() }), cartScreen({ checkout: go("checkout"), back: back() }), checkoutScreen({ place: go("success"), back: back() }), orderSuccessScreen({ more: go("products", "fade") })],
+    /* placing the order is the payment flow: the order from the back end, the payment sheet, the order's status */
+    build: () => [productListScreen(go("product")), productDetailScreen({ cart: go("cart"), back: back() }), cartScreen({ checkout: go("checkout"), back: back() }), checkoutScreen({ place: placeOrder("success"), back: back() }), orderSuccessScreen({ more: go("products", "fade") })],
+    contract: paymentContract,
   },
   {
     slug: "game-flow",

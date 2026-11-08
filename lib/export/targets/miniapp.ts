@@ -5,6 +5,7 @@
  * (packages/api) through a Taro.request transport, tokens in Taro's storage, and the mocks (packages/mocks) answering in
  * development only. src/custom is the custom code's. docs/小程序.md says all of it. */
 
+import { capabilityFiles, slotFiles, slotNames, slotsOf } from "../appCapabilities";
 import miniPackage from "../../../miniapp-kit/package.json";
 import { str } from "../../../parts/print";
 import { fromBase64 } from "../../mocks/bytes";
@@ -177,10 +178,10 @@ export function Root({ children }: { children?: ReactNode }) {
 }
 `;
 
-const RUNTIME = (ctx: ProductContext, auth: string) => `${GENERATED}
+const RUNTIME = (ctx: ProductContext, auth: string, capabilities = false) => `${GENERATED}
 import { createRuntime, type AuthConfig } from ${str(`${ctx.scope}/app-runtime`)}
 import { createTaroTransport, taroStorage } from "../kit"
-
+${capabilities ? 'import { registry } from "./capabilities"\n' : ""}
 /** where the API is: TARO_APP_API_BASE_URL when the app is built, else the server on this computer (on the web its
  *  /api, which the dev server passes on to it, as the web app's does). A mini-program asks only https addresses its
  *  admin put on the request domain list (AGENTS.md). */
@@ -196,7 +197,7 @@ export const runtime = createRuntime({
   storage: taroStorage,
   storageKey: ${str(`${ctx.name}:session`)},
   lang: ${str(ctx.lang)},
-})
+${capabilities ? "  capabilities: registry,\n" : ""}})
 
 /* Development only: the API answers from the mocks (${ctx.scope}/mocks) unless TARO_APP_API_MOCKS is "off". A
    production build has none of it: the branch is dropped with the module it reads. */
@@ -323,7 +324,10 @@ export const miniappTarget: ProductTarget = {
       images[name] = data;
       return `/${name}`;
     };
-    const app = await printMiniApp(ctx.doc, ctx.widths, { kitImport: "../../kit", runtimeImport: `${ctx.scope}/app-runtime`, callsImport: "../calls", image });
+    /* the capability views are drawn by slots the product writes once (lib/export/appCapabilities.ts) */
+    const slots = slotsOf(ctx.doc, ctx.widths);
+    const capabilities = capabilityFiles(ctx, "miniapp");
+    const app = await printMiniApp(ctx.doc, ctx.widths, { kitImport: "../../kit", runtimeImport: `${ctx.scope}/app-runtime`, callsImport: "../calls", image, ...(slots.length ? { slots: { from: "../slots", names: slotNames(slots) } } : {}) });
     const { printed } = app;
     /* the design's mode, as the web app has it: light or dark, or the device's when the design is drawn in both */
     const look = normalizeTheme(ctx.doc.theme, styleContext(ctx.doc.styles));
@@ -346,7 +350,8 @@ export const miniappTarget: ProductTarget = {
     files["src/generated/icons.ts"] = generated(iconsModule(app.icons, "../kit"));
     files["src/generated/calls.ts"] = generated(callsModule(ctx.api, { apiImport: `${ctx.scope}/api`, kitImport: "../kit", runtimeFrom: "./runtime" }));
     files["src/generated/spec.ts"] = generated(specModule(ctx.doc, printed, ctx.api, { kitImport: "../kit", callsFrom: "./calls" }));
-    files["src/generated/runtime.ts"] = generated(RUNTIME(ctx, authSource(specOf(ctx))));
+    files["src/generated/runtime.ts"] = generated(RUNTIME(ctx, authSource(specOf(ctx)), !!capabilities));
+    Object.assign(files, capabilities?.files ?? {}, slotFiles(ctx.scope, slots, "miniapp"));
     files["src/generated/mocks.ts"] = generated(MOCKS(ctx.scope));
     files["src/generated/root.tsx"] = generated(ROOT(ctx.scope, dark));
     if (printed.tabBar) {
@@ -397,7 +402,7 @@ export const miniappTarget: ProductTarget = {
             typecheck: "tsc --noEmit -p .",
           },
           browserslist: miniPackage.browserslist,
-          dependencies: sortedObject({ ...deps.dependencies, [`${ctx.scope}/api`]: "0.1.0", [`${ctx.scope}/app-runtime`]: "0.1.0" }),
+          dependencies: sortedObject({ ...deps.dependencies, [`${ctx.scope}/api`]: "0.1.0", [`${ctx.scope}/app-runtime`]: "0.1.0", ...capabilities?.dependency }),
           devDependencies: sortedObject({ ...deps.devDependencies, "@types/node": ctx.version("@types/node"), typescript: ctx.version("typescript"), [`${ctx.scope}/mocks`]: "0.1.0" }),
         }),
       ),

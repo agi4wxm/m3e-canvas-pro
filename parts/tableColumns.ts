@@ -38,6 +38,8 @@ export const TABLE_COLUMNS: Record<string, TableColumn[]> = {
   "agenda.data": [{ key: "date", type: "date" }, text("time"), text("title")],
   "onboarding.data": [text("icon"), text("title"), text("text")],
   "scene.hotspots": [text("label"), num("x"), num("y"), num("w"), num("h")],
+  /* the map capability view's markers, as the catalog names them (lib/capabilities/catalog.ts): data of places binds here */
+  "map.markers": [text("id"), text("title"), num("lat"), num("lng")],
   "region-picker.data": [text("province"), text("city"), text("district")],
   "funnel-chart.data": [text("step"), num("value")],
   "gantt-chart.data": [text("task"), num("start"), num("length"), num("done")],

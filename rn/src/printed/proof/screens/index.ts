@@ -14,10 +14,10 @@ import { ProductsScreen } from "./ProductsScreen";
 import { ProductScreen } from "./ProductScreen";
 import { CartScreen } from "./CartScreen";
 import { CheckoutScreen } from "./CheckoutScreen";
-import { OrderPlacedScreen } from "./OrderPlacedScreen";
+import { PaymentResultScreen } from "./PaymentResultScreen";
 
 /** every screen, by the key a tap goes to it by */
-export const SCREENS: Record<string, ComponentType<{ params?: Record<string, unknown> }>> = { "Menu": MenuScreen, "Form": FormScreen, "Welcome": WelcomeScreen, "Counter": CounterScreen, "Inputs": InputsScreen, "Dock": DockScreen, "Bars": BarsScreen, "BarsTwo": BarsTwoScreen, "Long": LongScreen, "Products": ProductsScreen, "Product": ProductScreen, "Cart": CartScreen, "Checkout": CheckoutScreen, "OrderPlaced": OrderPlacedScreen };
+export const SCREENS: Record<string, ComponentType<{ params?: Record<string, unknown> }>> = { "Menu": MenuScreen, "Form": FormScreen, "Welcome": WelcomeScreen, "Counter": CounterScreen, "Inputs": InputsScreen, "Dock": DockScreen, "Bars": BarsScreen, "BarsTwo": BarsTwoScreen, "Long": LongScreen, "Products": ProductsScreen, "Product": ProductScreen, "Cart": CartScreen, "Checkout": CheckoutScreen, "PaymentResult": PaymentResultScreen };
 
 /** the screen the app opens on: the first flow's, else the first screen */
 export const INITIAL = "Menu";

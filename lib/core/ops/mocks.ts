@@ -58,7 +58,7 @@ const HINT: Schema = {
   description: `how one field is made: {kind} plus what narrows it. kind: ${MOCK_KINDS.join(", ")}. min/max for numbers and list lengths; from/to for dates ("-30d", "+7d", "now", an ISO date); weights {value: weight} for an enum or status; values: words to pick from; value for constant; files: mock file ids for image/file/audio/video; type: the file's format for image/file/audio/video, a media type or an extension (text/csv, xlsx, model/gltf-binary, png); nullRate 0-1. null removes the hint (back to what the field's name says)`,
 };
 const RULE_WORDS =
-  '{status (an error to answer with: 401, 404, 500…), body (the body to answer with), latencyMs, network (true: no answer arrives), empty (lists start empty, details 404), fixtures ("all" or record ids: only pinned records), sequence ([steps] answered in turn for retries; the last repeats)}';
+  '{status (an error to answer with: 401, 404, 500…), body (the body to answer with), patch (fields laid over the answer as it would be: {status: "paid"} for an order), latencyMs, network (true: no answer arrives), empty (lists start empty, details 404), fixtures ("all" or record ids: only pinned records), sequence ([steps] answered in turn for retries; the last repeats)}';
 const RULE: Schema = { type: ["object", "null"], description: `how an operation answers in the scenario: ${RULE_WORDS}` };
 const RANGE = (d: string): Schema => ({ type: ["object", "null"], properties: { min: { type: "number", minimum: 0 }, max: { type: "number", minimum: 0 } }, required: ["min", "max"], additionalProperties: false, description: d });
 

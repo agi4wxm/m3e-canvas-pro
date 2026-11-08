@@ -6,25 +6,51 @@
 import type { Expect, HostName, Observed, Row, SeenCall, Step } from "./types";
 
 type Held = { op: string; answer: (a: { status: number; body: unknown }) => void };
+/** the operation an invoke goes under where a test bed sends it over the row's transport (the kits' runners do) */
+export const CAPABILITY_OP = "capability:";
+
+/** what a capability came to at the back end: its result, or how it failed */
+export type Invoked = { ok: true; result: unknown } | { ok: false; type: string };
+type HeldInvoke = { op: string; answer: (a: Invoked) => void };
 
 /** The back end of a row: every call is kept as it was received; those of the operations the row holds wait for an
  *  `answer` step, the rest are answered at once as the row says (200 and `{}` unless it says otherwise). */
 export class Backend {
   readonly calls: SeenCall[] = [];
+  /** the capabilities invoked, as the platform's adapters saw them */
+  readonly invokes: SeenCall[] = [];
   private held: Held[] = [];
+  private heldInvokes: HeldInvoke[] = [];
 
-  constructor(private readonly row: Pick<Row, "hold" | "answers">) {}
+  constructor(private readonly row: Pick<Row, "hold" | "answers" | "capabilities">) {}
 
-  /** a call: its operation, and what it was given (query and JSON body fields together) */
+  /** an invoke of a capability: its arguments; held when the row holds it, else answered as the row says */
+  invoke(capability: string, args: Record<string, unknown>): Promise<Invoked> {
+    this.invokes.push({ op: capability, in: args });
+    if (this.row.hold?.includes(capability)) return new Promise((answer) => this.heldInvokes.push({ op: capability, answer }));
+    const a = this.row.capabilities?.[capability];
+    return Promise.resolve(a?.fail ? { ok: false, type: a.fail } : { ok: true, result: a?.result ?? {} });
+  }
+
+  /** A call: its operation, and what it was given (query and JSON body fields together). The kits' test beds send an
+   *  invoke the same way, under `CAPABILITY_OP` and the capability's name, and read its answer back (`answerOfInvoke`). */
   receive(op: string, given: Record<string, unknown>): Promise<{ status: number; body: unknown }> {
+    if (op.startsWith(CAPABILITY_OP)) return this.invoke(op.slice(CAPABILITY_OP.length), given).then((a) => (a.ok ? { status: 200, body: a.result } : { status: 409, body: { type: a.type } }));
     this.calls.push({ op, in: given });
     if (this.row.hold?.includes(op)) return new Promise((answer) => this.held.push({ op, answer }));
     const a = this.row.answers?.[op];
     return Promise.resolve({ status: a?.status ?? 200, body: a?.body ?? {} });
   }
 
-  /** answers a held call; false when there was none to answer */
+  /** answers a held call (or invoke); false when there was none to answer */
   release(step: Extract<Step, { answer: string }>): boolean {
+    const invoked = this.heldInvokes.filter((h) => h.op === step.answer);
+    const pick = step.which === "newest" ? invoked[invoked.length - 1] : invoked[0];
+    if (pick) {
+      this.heldInvokes = this.heldInvokes.filter((x) => x !== pick);
+      pick.answer(step.fail ? { ok: false, type: step.fail } : { ok: true, result: step.body ?? {} });
+      return true;
+    }
     const mine = this.held.filter((h) => h.op === step.answer);
     const h = step.which === "newest" ? mine[mine.length - 1] : mine[0];
     if (!h) return false;
@@ -49,14 +75,17 @@ export function differences(expect: Expect, seen: Observed): string[] {
   for (const [words, on] of Object.entries(expect.shown ?? {})) if (seen.words.includes(words) !== on) out.push(`"${words}" ${on ? "should be on show" : "should not be on show"}`);
   if (expect.toast !== undefined && seen.toast !== expect.toast) out.push(`snackbar: expected ${JSON.stringify(expect.toast)}, got ${JSON.stringify(seen.toast)}`);
   if (expect.screen !== undefined && seen.screen !== expect.screen) out.push(`screen: expected ${expect.screen}, got ${seen.screen}`);
-  if (expect.calls) {
+  const compare = (what: string, wanted: SeenCall[] | undefined, got: SeenCall[]) => {
+    if (!wanted) return;
     const ops = (list: SeenCall[]) => list.map((c) => c.op).join(", ") || "none";
-    if (expect.calls.length !== seen.calls.length || expect.calls.some((c, i) => c.op !== seen.calls[i].op)) out.push(`calls: expected ${ops(expect.calls)}, got ${ops(seen.calls)}`);
+    if (wanted.length !== got.length || wanted.some((c, i) => c.op !== got[i].op)) out.push(`${what}s: expected ${ops(wanted)}, got ${ops(got)}`);
     else
-      expect.calls.forEach((c, i) => {
-        for (const [k, v] of Object.entries(c.in)) if (!same(seen.calls[i].in[k], v)) out.push(`call ${c.op}: ${k} expected ${JSON.stringify(v)}, got ${JSON.stringify(seen.calls[i].in[k])}`);
+      wanted.forEach((c, i) => {
+        for (const [k, v] of Object.entries(c.in)) if (!same(got[i].in[k], v)) out.push(`${what} ${c.op}: ${k} expected ${JSON.stringify(v)}, got ${JSON.stringify(got[i].in[k])}`);
       });
-  }
+  };
+  compare("call", expect.calls, seen.calls);
+  compare("invoke", expect.invokes, seen.invokes ?? []);
   return out;
 }
 
@@ -102,6 +131,8 @@ export async function drive(row: Omit<Row, "design">, make: (backend: Backend) =
     await d.settle();
   }
   const seen = await d.observe();
+  /* what reached the platform is the back end's to say, whatever the host's runner shows */
+  if (!seen.invokes) seen.invokes = backend.invokes;
   return { problems: differences(row.expect, seen), seen };
 }
 

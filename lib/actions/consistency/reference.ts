@@ -5,7 +5,8 @@
 import { endpointOf, formFields, paramsOf } from "../../bindings/contract";
 import { eventAction, eventsOf, payloadOf, slotAction } from "../../partContract";
 import { groupsInFrame, type Doc, type Frame, type Group, type Item } from "../../tokens";
-import type { CallArgs, Change, FormRef, Host, Outcome, Tap } from "../host";
+import type { CallArgs, Change, FormRef, Host, InvokeOutcome, Outcome, Tap } from "../host";
+import type { FailureKind } from "../../capabilities/types";
 import type { VarValue } from "../model";
 import { run, startOf } from "../run";
 import { Backend, givenOf } from "./check";
@@ -271,6 +272,13 @@ export class ReferenceHost implements Host {
       return { ok: false, status: 401, error: { status: 401 }, unauthorized: true };
     }
     return { ok: false, status: answer.status, error: { status: answer.status } };
+  }
+
+  async invoke(capability: string, args: Record<string, unknown>): Promise<InvokeOutcome> {
+    const epoch = this.epoch;
+    const a = await this.backend.invoke(capability, args);
+    if (epoch !== this.epoch) return { ok: false, error: { type: "failed", capability }, dropped: true };
+    return a.ok ? { ok: true, result: a.result } : { ok: false, error: { type: a.type as FailureKind, capability } };
   }
 
   call(operationId: string, a: CallArgs): Promise<Outcome> {

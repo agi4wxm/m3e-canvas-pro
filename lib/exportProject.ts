@@ -38,6 +38,8 @@ export type ExportOptions = {
   /** the bindings printed against the product's runtime and client: the product's web app (lib/export/targets/web.ts)
    *  writes its own api, platform and runtime package beside the screens, which this project does not have */
   binds?: BindPrintOptions;
+  /** the capability views drawn by the product's slots, their components by item id (lib/export/appCapabilities.ts) */
+  slots?: Record<string, string>;
 };
 
 export type Project = {
@@ -714,7 +716,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
      whatever is in reach: another export running beside this one, or the editor's document, cannot come between, even
      across the awaits below */
   const { screens, theme, runtime } = (() => {
-    const { screens, runtime, usesToast } = buildScreens(doc, widths, { onlyFrameId: o.onlyFrameId, live: true, image, binds: o.binds });
+    const { screens, runtime, usesToast } = buildScreens(doc, widths, { onlyFrameId: o.onlyFrameId, live: true, image, binds: o.binds, ...(o.slots ? { slots: o.slots } : {}) });
     if (!screens.length) throw new Error("there is no screen to export");
 
     const seen = new Set<string>();
@@ -753,7 +755,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
   /* the walk starts from what was just written, so it copies what they reach and nothing else */
   const written = Object.keys(files).filter((p) => p.endsWith(".tsx")).map((p) => files[p] as string);
   const roots = new Set<string>(["@/styles/m3e.css", "@/react-css.d.ts"]);
-  const here = new Set(["@/runtime", "@/theme", "@/style-icons", "@/doc-icons", "@/api", "@/platform", "@/DataScroll"]);
+  const here = new Set(["@/runtime", "@/theme", "@/style-icons", "@/doc-icons", "@/api", "@/platform", "@/DataScroll", "@/slots"]);
   /* the product's own packages (its runtime, its client) are its workspaces, not this project's to copy or pin */
   const own = (spec: string) => !!o.binds && spec.startsWith(`${o.binds.runtime.split("/")[0]}/`);
   for (const source of written) for (const spec of importsIn(source)) if (!spec.startsWith(".") && !here.has(spec) && !own(spec)) roots.add(spec);

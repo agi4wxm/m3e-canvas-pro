@@ -54,6 +54,12 @@ export type Effect =
    *  effects after it do not wait for it. `optimistic` changes a data source's list at once and puts it back if the
    *  call fails: the tapped row taken out, or fields of it set. */
   | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: ActionBody; catch?: ActionBody; optimistic?: Optimistic }
+  /** Invokes a platform capability (lib/capabilities, docs/平台能力.md): `payment.pay`, `location.current`,
+   *  `clipboard.write`… `args` gives its arguments by name, each an expression. `then` runs when it does what was
+   *  asked, with `result` to read; `catch` when it does not, with `error` (`error.type`: cancelled, failed,
+   *  unavailable, not-implemented, denied, timeout). The effects after it do not wait for it. It never decides a
+   *  domain result: a payment's `then` only knows it was submitted, the order's status comes from the API. */
+  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: ActionBody; catch?: ActionBody }
   /** loads a data source of the screen on show again */
   | { do: "refresh"; source: string }
   /** loads the next page of a paged data source of the screen on show */
@@ -82,6 +88,13 @@ export const MAX_CALL_DEPTH = 4;
 
 /** the effects that reach the API (or the session): the rest only change what the app shows */
 export const API_EFFECTS = new Set<Effect["do"]>(["call", "refresh", "loadMore", "submit", "signOut"]);
+
+/** the effects that are answered later and run a `then` or a `catch` then: a call of the API, an invoke of a capability */
+export const ANSWERED_EFFECTS = new Set<Effect["do"]>(["call", "invoke"]);
+
+/** an effect that is answered later: its `then` and `catch` */
+export type AnsweredEffect = Extract<Effect, { do: "call" | "invoke" }>;
+export const isAnswered = (e: unknown): e is AnsweredEffect => typeof e === "object" && e !== null && (ANSWERED_EFFECTS as Set<unknown>).has((e as { do?: unknown }).do);
 
 /* The keys of `Item.actions` (docs/交互规则.md, “事件与槽位族”): a place inside the part ("tab:2", "icon"), a family of
    places ("tab:*": one action for every row, which reads the row as `slot`), or a named event the part sends

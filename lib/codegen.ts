@@ -117,6 +117,8 @@ class Ctx {
     readonly b: Behaviour,
     readonly frame: Frame,
     readonly widths: Record<string, number>,
+    /** the slots that draw the capability views, by item id */
+    readonly slots: Record<string, string> = {},
   ) {}
   /** the files of this repo's own the screen's code needs over the registry's, with what needs them */
   local = new Map<string, Set<string>>();
@@ -147,6 +149,13 @@ function jsx(it: Item, c: Ctx, insideTap = false): string {
   if (!partBySlug(it.component)) return `{/* unknown component${unknownName(it.component) ? ` ${unknownName(it.component)}` : ""} */}`;
   const { tree, keepTap, wrap } = c.b.printPart(it, c.uses, insideTap);
   c.useTree(tree);
+  /* a capability view is its slot, handed what the stand-in is and drawing the stand-in until it is written */
+  const slot = c.slots[it.id];
+  if (slot) {
+    c.imports.set("@/slots", new Set([...(c.imports.get("@/slots") ?? []), slot]));
+    const props = Object.fromEntries(Object.entries(tree.props ?? {}).filter(([k]) => !k.startsWith("data-") && k !== "className" && k !== "style"));
+    return wrap(inlineNode({ type: slot, props, children: [tree] }, keepTap));
+  }
   return wrap(inlineNode(tree, keepTap));
 }
 
@@ -513,6 +522,8 @@ export type ScreenCode = {
 };
 
 type BuildOptions = {
+  /** the capability views drawn by a slot of the product's (lib/export/appCapabilities.ts): its component by item id */
+  slots?: Record<string, string>;
   onlyFrameId?: string;
   /** a whole app: parts behave as they do in the preview even with no action of their own */
   live?: boolean;
@@ -559,7 +570,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
   const offTab = new Set([...outOfPane(doc.groups, widths)].filter((id) => !b.keepsOffTab(id)));
   let usesToast = false;
   const screens = shown.map((frame, i): ScreenCode => {
-    const c = new Ctx(b, frame, widths);
+    const c = new Ctx(b, frame, widths, o.slots);
     /* A design field bound to a variable is printed with the variable's value on this screen. In a whole app it reads the
      * variable's CSS variable, which the runtime defines for the screen in the mode it shows and with what taps set
      * (src/runtime.tsx), that value standing in until it does */

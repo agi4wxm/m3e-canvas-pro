@@ -18,6 +18,7 @@ import { pictureError } from "../images";
 import { docIconId, docIconName, isDocIconName } from "../../docIcons";
 import type { CoreState } from "../state";
 import { exprSyntaxError } from "../../bindings/check";
+import { allCapabilities, argNamesOf as argNames, capabilityOf, requiredArgsOf as requiredArgs } from "../../capabilities/catalog";
 import { bindRule, conditionRule, ROW_FIELD } from "../../rules";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -281,6 +282,8 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
         }
       }
       if (e.body !== undefined) {
+        /* the expressions have no object literals: models reach for one to send a few fields, which args does */
+        if (typeof e.body === "string" && e.body.trim().startsWith("{")) return `body is one expression that reads a whole body (form.values, vars.draft), not an object: give the fields in args instead, each an expression ({productId: "'latte'", quantity: "2"})`;
         const err = exprSyntaxError(e.body);
         if (err) return `body: ${err}`;
       }
@@ -291,6 +294,31 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
            the success shown whatever the answer said */
         const extra = isRecord(e[k]) ? ["when", "else", "trigger"].filter((x) => (e[k] as Record<string, unknown>)[x] !== undefined) : [];
         if (extra.length) return `${k} takes no ${extra.join(" or ")}: it runs whenever the call ${k === "then" ? "answers 2XX" : "fails"}. To act on what the answer says, set a variable from it (setVar with expr "response.status") and show the outcome with showWhen, or open a result screen that loads the data itself`;
+        const err = bodyError(e[k], s, depth + 1);
+        if (err) return `${k}: ${err}`;
+      }
+      return null;
+    }
+    case "invoke": {
+      const def = typeof e.capability === "string" ? capabilityOf(s.doc.capabilities, e.capability) : undefined;
+      if (!def) return `there is no capability ${JSON.stringify(e.capability)} (list_capabilities lists them: ${allCapabilities(s.doc.capabilities).filter((c) => c.kind === "call").map((c) => c.name).join(", ")}; declare_capability declares one of the product's own)`;
+      if (def.kind !== "call") return `${def.name} is a ${def.kind === "view" ? "view: put the part that stands for it on the screen and wire its events" : "platform event: it is not invoked"}, not a call`;
+      if (depth > 3) return "a call's or an invoke's then and catch may hold calls and invokes only 4 deep";
+      if (e.args !== undefined) {
+        if (!isRecord(e.args)) return "args should be {name: expression}";
+        const takes = argNames(def);
+        for (const [name, x] of Object.entries(e.args)) {
+          if (takes && !takes.includes(name)) return `${def.name} takes no argument ${JSON.stringify(name)} (it takes ${takes.join(", ") || "none"})`;
+          const err = exprSyntaxError(x);
+          if (err) return `args.${name}: ${err}`;
+        }
+      }
+      const missing = requiredArgs(def).filter((k) => !isRecord(e.args) || (e.args as Record<string, unknown>)[k] === undefined);
+      if (missing.length) return `${def.name} needs ${missing.map((k) => `args.${k}`).join(" and ")}`;
+      for (const k of ["then", "catch"] as const) {
+        if (e[k] === undefined) continue;
+        const extra = isRecord(e[k]) ? ["when", "else", "trigger"].filter((x) => (e[k] as Record<string, unknown>)[x] !== undefined) : [];
+        if (extra.length) return `${k} takes no ${extra.join(" or ")}: it runs whenever the capability ${k === "then" ? "does what was asked" : "fails"}. To show each failure its own way, set a variable from error.type in catch and show the designs with showWhen`;
         const err = bodyError(e[k], s, depth + 1);
         if (err) return `${k}: ${err}`;
       }
@@ -307,7 +335,7 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
     case "signOut":
       return null;
     default:
-      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, refresh, loadMore, submit, signOut)`;
+      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, invoke, refresh, loadMore, submit, signOut)`;
   }
 }
 
@@ -349,7 +377,7 @@ export function withTapParams(s: CoreState, a: unknown): CoreState {
     if (!isRecord(b) || depth > 6) return;
     if (typeof b.to === "string" && isRecord(b.params)) for (const name of Object.keys(b.params)) if (/^[A-Za-z_]\w{0,63}$/.test(name)) (wanted.get(b.to) ?? wanted.set(b.to, new Set()).get(b.to)!).add(name);
     for (const e of Array.isArray(b.effects) ? b.effects : [])
-      if (isRecord(e) && e.do === "call") {
+      if (isRecord(e) && (e.do === "call" || e.do === "invoke")) {
         visit(e.then, depth + 1);
         visit(e.catch, depth + 1);
       }

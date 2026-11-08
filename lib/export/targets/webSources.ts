@@ -66,10 +66,10 @@ export function authSource(api: ApiSpec): string {
   return `{\n${lines.map((l) => `  ${l}\n`).join("")}  security: {\n${security.join("\n")}${security.length ? "\n" : ""}  },\n}`;
 }
 
-export const API_CLIENT = (scope: string, name: string, lang: string, api: ApiSpec) => `${GENERATED}
+export const API_CLIENT = (scope: string, name: string, lang: string, api: ApiSpec, capabilities = false) => `${GENERATED}
 import { createApi, createFetchTransport, type Transport } from ${str(`${scope}/api`)}
 import { createRuntime, type AuthConfig } from ${str(`${scope}/app-runtime`)}
-import { webStorage, withUploads } from "./platform"
+${capabilities ? 'import { registry } from "./capabilities"\n' : ""}import { webStorage, withUploads } from "./platform"
 
 /** where the API is: VITE_API_BASE_URL, else /api on this site (the dev server forwards it to the server) */
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api"
@@ -86,7 +86,7 @@ export const runtime = createRuntime({
   storage: webStorage(),
   storageKey: ${str(`${name}:session`)},
   lang: ${str(lang)},
-})
+${capabilities ? "  capabilities: registry,\n" : ""}})
 
 /** Answers the app's calls another way from now on: the mocks in development, or a transport of the custom code's. The
  *  data and the session start over; \`presumed\` counts the app as signed in without a token (the mocks' session). */

@@ -13,6 +13,7 @@ import { Icon } from "./Icon";
 import { ArgFields, BindingsContext, NavParams, endpointOptions, usePartShape } from "./BindingsPanel";
 import { ExprField } from "./ExprField";
 import { endpointOf, responseSchema } from "@/lib/bindings/contract";
+import { allCapabilities, argNamesOf, capabilityOf } from "@/lib/capabilities/catalog";
 
 /* The panels that say what a prototype does beyond going to another screen: what else a tap runs, when
  * it runs, what hides, and the variables behind it all. What they need of the document comes by context,
@@ -160,6 +161,7 @@ const KINDS: { key: Effect["do"]; text: UIKey; icon: string }[] = [
   { key: "setProp", text: "effSetProp", icon: "tune" },
   { key: "snackbar", text: "effSnackbar", icon: "chat_bubble" },
   { key: "call", text: "bdEffCall", icon: "cloud_upload" },
+  { key: "invoke", text: "capEffInvoke", icon: "extension" },
   { key: "refresh", text: "bdEffRefresh", icon: "refresh" },
   { key: "loadMore", text: "bdEffLoadMore", icon: "expand_more" },
   { key: "submit", text: "bdEffSubmit", icon: "send" },
@@ -199,6 +201,8 @@ function changedKind(kind: Effect["do"], was: Effect | null, b: Behavior, bindin
       return { do: kind, message: "" };
     case "call":
       return { do: kind, operationId: bindings?.doc.api?.endpoints?.[0]?.operationId ?? "" };
+    case "invoke":
+      return { do: kind, capability: "payment.pay" };
     case "refresh":
     case "loadMore":
       return { do: kind, source: sourceNames(bindings?.doc.frames)[0] ?? "" };
@@ -334,6 +338,44 @@ function EffectRow({ effect, index, onChange, onRemove, onUp, p, depth = 0 }: { 
       );
       break;
     }
+    case "invoke": {
+      const calls = allCapabilities(bindings?.doc.capabilities).filter((c) => c.kind === "call");
+      const def = capabilityOf(bindings?.doc.capabilities, effect.capability);
+      const names = (def && argNamesOf(def)) ?? [];
+      const put = (k: string, v: string) => {
+        const next = { ...effect.args };
+        if (v) next[k] = v;
+        else delete next[k];
+        onChange({ ...effect, args: Object.keys(next).length ? next : undefined });
+      };
+      body = (
+        <div data-invoke-effect style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Select options={calls.map((c) => ({ key: c.name, label: c.name, icon: "extension" }))} value={effect.capability} onChange={(capability) => onChange({ ...effect, capability, args: undefined })} p={p} label={t("capCapability", lang)} />
+          {def?.summary && <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "0 4px" }}>{def.summary}</div>}
+          {effect.capability === "payment.pay" && <div style={{ fontSize: 12, color: p.onTertiaryContainer, padding: "0 4px" }}>{t("capNotSuccess", lang)}</div>}
+          {names.length > 0 && (
+            <div data-arg-fields style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>{t("capArgs", lang)}</div>
+              {names.map((k) => (
+                <div key={k} style={{ display: "grid", gridTemplateColumns: "84px minmax(0, 1fr)", gap: 6, alignItems: "start" }}>
+                  <span title={k} style={{ fontSize: 12, fontFamily: "ui-monospace, monospace", color: p.onSurfaceVariant, paddingTop: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {k}
+                  </span>
+                  <ExprField name={`arg:${k}`} value={effect.args?.[k] ?? ""} onCommit={(v) => put(k, v)} shape={shape} api={bindings?.doc.api} p={p} label={k} />
+                </div>
+              ))}
+            </div>
+          )}
+          {depth < 2 && (
+            <>
+              <BodyEditor title={t("capThen", lang)} body={effect.then} onChange={(next) => onChange(withBranch(effect, "then", next))} p={p} depth={depth + 1} />
+              <BodyEditor title={t("capCatch", lang)} body={effect.catch} onChange={(next) => onChange(withBranch(effect, "catch", next))} p={p} depth={depth + 1} error />
+            </>
+          )}
+        </div>
+      );
+      break;
+    }
     case "refresh":
     case "loadMore": {
       const names = sourceNames(bindings?.doc.frames);
@@ -383,8 +425,8 @@ function AddButton({ label, onClick, p }: { label: string; onClick: () => void; 
   );
 }
 
-/** a call with what runs after its answer changed: `then` or `catch` */
-const withBranch = (e: Extract<Effect, { do: "call" }>, branch: "then" | "catch", body: ActionBody | undefined): Effect => {
+/** a call (or an invoke) with what runs after its answer changed: `then` or `catch` */
+const withBranch = (e: Extract<Effect, { do: "call" | "invoke" }>, branch: "then" | "catch", body: ActionBody | undefined): Effect => {
   const next: Record<string, unknown> = { ...e };
   if (body) next[branch] = body;
   else delete next[branch];

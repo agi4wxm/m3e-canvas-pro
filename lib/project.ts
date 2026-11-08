@@ -5,6 +5,7 @@ import { cleanStyles } from "./styles";
 import { cleanDocIcons } from "./docIcons";
 import { cleanApi } from "./api/clean";
 import { cleanMocks } from "./mocks/clean";
+import { cleanCapabilities } from "./capabilities/clean";
 import { fitsType, startValueOf } from "./variables";
 import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
@@ -94,6 +95,7 @@ const EFFECT_FIELDS: Record<string, ReadonlySet<string>> = {
   setProp: fields("do", "part", "prop", "value"),
   snackbar: fields("do", "message"),
   call: fields("do", "operationId", "args", "body", "then", "catch", "optimistic"),
+  invoke: fields("do", "capability", "args", "then", "catch"),
   refresh: fields("do", "source"),
   loadMore: fields("do", "source"),
   submit: fields("do", "form"),
@@ -141,6 +143,14 @@ function cleanKnownEffect(e: Record<string, unknown>, depth: number): Effect | u
       const o = isRecord(e.optimistic) && typeof e.optimistic.source === "string" ? withUnknown(e.optimistic, { source: e.optimistic.source, ...(e.optimistic.remove === true ? { remove: true } : {}), ...(cleanExprMap(e.optimistic.patch) ? { patch: cleanExprMap(e.optimistic.patch) } : {}) }, OPTIMISTIC) : undefined;
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
       return { do: "call", operationId: e.operationId, ...(args ? { args } : {}), ...(body ? { body } : {}), ...(then ? { then } : {}), ...(fail ? { catch: fail } : {}), ...(o && (o.remove || o.patch) ? { optimistic: o } : {}) };
+    }
+    case "invoke": {
+      if (typeof e.capability !== "string" || !e.capability || depth > MAX_CALL_DEPTH) return undefined;
+      const args = cleanExprMap(e.args);
+      const then = cleanBody(e.then, depth + 1);
+      const fail = cleanBody(e.catch, depth + 1);
+      // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+      return { do: "invoke", capability: e.capability.slice(0, 128), ...(args ? { args } : {}), ...(then ? { then } : {}), ...(fail ? { catch: fail } : {}) };
     }
     case "refresh":
     case "loadMore":
@@ -487,6 +497,12 @@ export function cleanBehavior(doc: Doc): Doc {
     const mocks = cleanMocks(out.mocks);
     if (mocks) out.mocks = mocks;
     else delete out.mocks;
+  }
+  /* the capabilities it uses and the ones it declares (lib/capabilities/clean.ts) */
+  if (out.capabilities !== undefined) {
+    const capabilities = cleanCapabilities(out.capabilities);
+    if (capabilities) out.capabilities = capabilities;
+    else delete out.capabilities;
   }
   const instances = (list: Group[]) => list.map((g) => cleanInstance(g, out.components)).filter((g): g is Group => g !== undefined && g.items.length > 0);
   out.groups = instances(out.groups);

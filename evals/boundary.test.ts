@@ -66,6 +66,62 @@ describe("paying", () => {
   it("is not done in the starting document", () => expect(criticalFailed(observe("pay-straight-success", () => {}))).toContain("asks-api"));
 });
 
+describe("the payment flow", () => {
+  /** the result screen: the order loaded by the id it is opened with, a design per status */
+  const resultScreen = (tx: Tx) => {
+    run(tx, "add_data_source", { screen: "result", operationId: "getOrder", name: "order", params: { orderId: "params.orderId" } });
+    const said = (id: string, text: string, expr: string) => ({ part: "text", id, props: { text }, showWhen: { expr } });
+    run(tx, "add_tree", {
+      screen: "result",
+      at: { x: 16, y: 96 },
+      tree: { part: "box", id: "states", props: { layout: "column", gap: 12 }, children: [said("paid", "支付成功", "data.order.value.status == 'paid'"), said("processing", "支付处理中", "data.order.value.status == 'pending' || data.order.value.status == 'processing'"), said("failed", "支付失败", "data.order.value.status == 'failed'")] },
+    });
+  };
+  // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+  const pay = (then: Record<string, unknown>, c?: Record<string, unknown>) => ({ do: "invoke", capability: "payment.pay", args: { orderId: "response.id", amount: "response.amount", payload: "response.payment" }, then, ...(c ? { catch: c } : {}) });
+  // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+  const order = (then: Record<string, unknown>) => ({ do: "call", operationId: "createOrder", args: { productId: "'latte'", quantity: "2" }, then, catch: stay([{ do: "snackbar", message: "订单没有创建成功" }]) });
+  /** the catch keeps the failure's kind for the checkout's notices */
+  const issue = stay([{ do: "setVar", var: "payIssue", value: "", expr: "error.type" }]);
+  const issueVar = (tx: Tx) => run(tx, "add_var", { id: "payIssue", name: "payIssue", type: "text", value: "" });
+  const good = (tx: Tx) => {
+    resultScreen(tx);
+    issueVar(tx);
+    run(tx, "set_action", { id: "wxpay", action: stay([order(stay([pay({ to: "result", transition: "slide", params: { orderId: "response.id" } }, issue)]))]) });
+  };
+  it("the order made, handed to payment.pay, the result read from the order, passes", () => expect(failed(observe("payment-flow", good))).toEqual([]));
+  it("the result screen opened by the order's answer, before the payment, fails", () => {
+    const early = observe("payment-flow", (tx) => {
+      resultScreen(tx);
+      issueVar(tx);
+      run(tx, "set_action", { id: "wxpay", action: stay([order({ to: "result", transition: "slide", params: { orderId: "response.id" }, effects: [pay(stay([]), issue)] })]) });
+    });
+    expect(criticalFailed(early)).toEqual(["result-after-payment"]);
+  });
+  it("no payment.pay, or one with no catch, fails", () => {
+    const noPay = observe("payment-flow", (tx) => {
+      resultScreen(tx);
+      run(tx, "set_action", { id: "wxpay", action: stay([order({ to: "result", transition: "slide", params: { orderId: "response.id" } })]) });
+    });
+    expect(criticalFailed(noPay)).toEqual(expect.arrayContaining(["invokes-payment", "result-after-payment", "payment-caught"]));
+    const uncaught = observe("payment-flow", (tx) => {
+      resultScreen(tx);
+      run(tx, "set_action", { id: "wxpay", action: stay([order(stay([pay({ to: "result", transition: "slide", params: { orderId: "response.id" } })]))]) });
+    });
+    expect(criticalFailed(uncaught)).toEqual(["payment-caught"]);
+  });
+  it("a result screen that says paid whatever the order's status fails", () => {
+    const o = observe("payment-flow", (tx) => {
+      run(tx, "add_data_source", { screen: "result", operationId: "getOrder", name: "order", params: { orderId: "params.orderId" } });
+      run(tx, "add_part", { slug: "text", id: "paid", screen: "result", at: { x: 16, y: 96 }, props: { text: "支付成功" } });
+      issueVar(tx);
+      run(tx, "set_action", { id: "wxpay", action: stay([order(stay([pay({ to: "result", transition: "slide", params: { orderId: "response.id" } }, issue)]))]) });
+    });
+    expect(criticalFailed(o)).toEqual(["status-from-order"]);
+  });
+  it("is not done in the starting document", () => expect(criticalFailed(observe("payment-flow", () => {}))).toEqual(expect.arrayContaining(["asks-api", "invokes-payment", "status-from-order"])));
+});
+
 describe("drawing a prize", () => {
   const wheel = (tx: Tx) => run(tx, "add_part", { slug: "prize-wheel", id: "wheel", screen: "lottery", at: { x: 96, y: 200 } });
   it("asked of the API, the wheel showing its answer, passes", () => {

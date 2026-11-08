@@ -18,5 +18,6 @@ export const WIDGET_MODULES: Record<string, () => Promise<Record<string, unknown
   AppMore: () => import("./AppMore"),
   GameParts: () => import("./GameParts"),
   Scene: () => import("./Scene"),
+  Platform: () => import("./Platform"),
   Split: () => import("./Split"),
 };

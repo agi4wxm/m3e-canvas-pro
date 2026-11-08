@@ -5,7 +5,8 @@ import { arrangeFlows } from "../../lib/flow";
 import { buildPrompt } from "../../lib/prompt";
 import { LANGS, type Lang } from "../../lib/i18n";
 import { PROJECT_FORMAT, PROJECT_VERSION, isProject, openProject } from "../../lib/project";
-import { BACK_TARGET, frameRect, PHONE_MODELS, type Doc, type Group, type Item } from "../../lib/tokens";
+import { BACK_TARGET, STAY_TARGET, frameRect, PHONE_MODELS, type Action, type Doc, type Group, type Item } from "../../lib/tokens";
+import { mapAction } from "../../lib/refs";
 import { defaultTextOf, listTextOf } from "../labels";
 import { partBySlug, reader } from "../registry";
 import { lengthToHold } from "../../lib/tidy";
@@ -70,17 +71,17 @@ describe.each(TEMPLATES.map((t) => [t.slug, t] as const))("template %s", (_slug,
         for (const it of g.items) {
           const def = partBySlug(it.component)!;
           const slots = def.slots?.(reader(def, inLang(it.props, "en"))).map((s) => s.key) ?? [];
-          if (it.action) expect([...screens, BACK_TARGET], it.id).toContain(it.action.to);
+          for (const to of targetsOf(it.action)) expect([...screens, BACK_TARGET, STAY_TARGET], it.id).toContain(to);
           for (const [slot, a] of Object.entries(it.actions ?? {})) {
             expect(slots, `${it.component} slot ${slot}`).toContain(slot);
-            expect([...screens, BACK_TARGET], it.id).toContain(a.to);
+            for (const to of targetsOf(a)) expect([...screens, BACK_TARGET, STAY_TARGET], it.id).toContain(to);
           }
         }
-    /* what an added document links to is a screen in it */
+    /* what an added document links to is a screen in it, in a call's or an invoke's answer too */
     const doc = docOf(t, "en");
     const frames = doc.frames.map((f) => f.id);
     for (const g of doc.groups)
-      for (const it of g.items) for (const a of [it.action, ...Object.values(it.actions ?? {})]) if (a) expect([...frames, BACK_TARGET], it.id).toContain(a.to);
+      for (const it of g.items) for (const a of [it.action, ...Object.values(it.actions ?? {})]) for (const to of targetsOf(a)) expect([...frames, BACK_TARGET, STAY_TARGET], it.id).toContain(to);
   });
 
   it("opens as a project", () => {
@@ -144,6 +145,15 @@ describe.each(TEMPLATES.map((t) => [t.slug, t] as const))("template %s", (_slug,
   });
 });
 
+
+/** every screen a tap goes to: its own, its else's, and its calls' and invokes' answers' as deep as they go */
+function targetsOf(a: Action | undefined): string[] {
+  if (!a) return [];
+  const out: string[] = [];
+  mapAction(a, { screen: (to) => (out.push(to), to) });
+  return out;
+}
+
 describe("the set of templates", () => {
   it("has a slug of its own for each, and a name in every language", () => {
     expect(new Set(TEMPLATES.map((t) => t.slug)).size).toBe(TEMPLATES.length);
@@ -155,9 +165,10 @@ describe("the set of templates", () => {
     const again = instantiate(shop, "en", { x: 0, y: 0 }, instantiate(shop, "en").frames.map((f) => f.name));
     expect(new Set(again.frames.map((f) => f.name)).size).toBe(again.frames.length);
     expect(again.frames[0].name).toMatch(/ 2$/);
+    /* a screen alone goes nowhere else: it may stay where it is (load again, invoke a capability) or go back */
     for (const t of TEMPLATES.filter((x) => x.category !== "flow")) {
       expect(t.build().length, t.slug).toBe(1);
-      expect(seedsOf(t).flatMap(({ groups }) => groups.flatMap((g) => g.items.flatMap((it) => [it.action, ...Object.values(it.actions ?? {})].filter(Boolean)))), t.slug).toEqual([]);
+      expect(seedsOf(t).flatMap(({ groups }) => groups.flatMap((g) => g.items.flatMap((it) => [it.action, ...Object.values(it.actions ?? {})].flatMap((a) => targetsOf(a).filter((to) => to !== STAY_TARGET && to !== BACK_TARGET))))), t.slug).toEqual([]);
     }
   });
 

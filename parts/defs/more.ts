@@ -385,17 +385,47 @@ export const more: PartDef[] = [
     icon: "videocam",
     w: 380,
     h: 560,
+    /* a capability view (lib/capabilities `rtc.view`): how the call goes comes in as props from its adapter (rtc.call) */
+    capability: "rtc.view",
     props: [
       text("name", "Name", "Ada Lovelace", "阿达·洛芙莱斯"),
       flag("connected", "Connected", true),
       text("status", "Status when not connected", "Calling…", "正在呼叫…"),
+      { ...flag("mic", "Microphone on", true), labels: { ja: "マイク オン", zh: "麦克风开", ko: "마이크 켜짐" } },
+      { ...flag("camera", "Camera on", true), labels: { ja: "カメラ オン", zh: "摄像头开", ko: "카메라 켜짐" } },
+      { ...flag("speaker", "Speaker on", true), labels: { ja: "スピーカー オン", zh: "扬声器开", ko: "스피커 켜짐" } },
+      { key: "startedAt", label: "Connected at (ISO time)", labels: { ja: "接続した時刻（ISO）", zh: "接通时间（ISO）", ko: "연결된 시각(ISO)" }, kind: "text", default: "" },
       image("image", "Picture"),
       icon("icon", "Icon", "person"),
       HEIGHT(560, 240),
       WIDTH(380, 240),
     ],
-    slots: () => [{ key: "end", label: "End call", icon: "call_end" }],
-    tree: (p) => h("VideoCall", { name: p.s("name"), connected: p.b("connected"), status: p.s("status"), image: p.s("image"), icon: p.s("icon"), height: px(p, "height"), width: px(p) }),
+    slots: () => [
+      { key: "mic", label: "Microphone", icon: "mic" },
+      { key: "camera", label: "Camera", icon: "videocam" },
+      { key: "speaker", label: "Speaker", icon: "volume_up" },
+      { key: "end", label: "End call", icon: "call_end" },
+    ],
+    events: [
+      { name: "muted", label: "Microphone switched", labels: { ja: "マイクを切り替えた", zh: "切换了麦克风", ko: "마이크를 전환함" }, payload: { muted: "bool" } },
+      { name: "ended", label: "Hung up", labels: { ja: "通話を終えた", zh: "挂断了", ko: "통화를 끝냄" } },
+    ],
+    /* the time and the controls are the call's: only a prototype counts and flips them by itself */
+    demo: { what: "counts the call's time from when it is drawn and flips its controls by itself", takenOverBy: ["mic", "camera", "speaker", "startedAt"] },
+    tree: (p) =>
+      h("VideoCall", {
+        name: p.s("name"),
+        connected: p.b("connected"),
+        status: p.s("status"),
+        mic: p.b("mic"),
+        camera: p.b("camera"),
+        speaker: p.b("speaker"),
+        startedAt: p.s("startedAt") || undefined,
+        image: p.s("image"),
+        icon: p.s("icon"),
+        height: px(p, "height"),
+        width: px(p),
+      }),
   },
   /* ---------- a game's screens ---------- */
   {

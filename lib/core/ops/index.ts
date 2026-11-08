@@ -13,10 +13,11 @@ import * as icons from "./icons";
 import * as api from "./api";
 import * as mocks from "./mocks";
 import * as bindings from "./bindings";
+import * as capabilities from "./capabilities";
 import * as splits from "./split";
 import { editComponentOp } from "./definition";
 
-export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks, bindings, splits };
+export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks, bindings, capabilities, splits };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -29,6 +30,7 @@ export * from "./icons";
 export * from "./api";
 export * from "./mocks";
 export * from "./bindings";
+export * from "./capabilities";
 export * from "./split";
 export { DEFINITION_OPS, definitionOpened } from "./definition";
 export { OpError } from "../op";
@@ -159,6 +161,10 @@ export const OPS: Op<never, unknown>[] = [
   mocks.setMockRoute,
   mocks.fillMocksOp,
   mocks.clearMocks,
+  capabilities.setMockCapability,
+  capabilities.declareCapability,
+  capabilities.removeCapability,
+  capabilities.useCapabilities,
   bindings.addDataSource,
   bindings.updateDataSource,
   bindings.removeDataSource,

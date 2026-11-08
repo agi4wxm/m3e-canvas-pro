@@ -78,7 +78,7 @@ export const ROWS: (KitRow & {
    ]
   },
   "known": {
-   "preview": "预览先整批执行本地效果、再发出接口调用，调用读到后面才写的值（报告 6.2：`Preview.tsx` runBody）",
+   "preview": "预览先整批执行本地效果、再发出接口调用和能力调用，调用读到后面才写的值（报告 6.2：`Preview.tsx` runBody）",
    "webPrototype": "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）"
   },
   "vars": [
@@ -1530,6 +1530,398 @@ export const ROWS: (KitRow & {
    "Account": "required",
    "Login": "login"
   }
+ },
+ {
+  "id": "invoke-then-result",
+  "title": "调用能力：完成后运行 then，读 result",
+  "ref": "调用能力；报告 2.3",
+  "capabilities": {
+   "payment.pay": {
+    "result": {
+     "status": "submitted"
+    }
+   }
+  },
+  "steps": [
+   {
+    "tap": "Pay"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "got": "submitted"
+   },
+   "invokes": [
+    {
+     "op": "payment.pay",
+     "in": {
+      "orderId": "o1",
+      "amount": 12.5
+     }
+    }
+   ]
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）"
+  },
+  "vars": [
+   "got"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "got",
+    "name": "got",
+    "type": "text",
+    "value": ""
+   }
+  ],
+  "hidden": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "invoke-catch-type",
+  "title": "调用能力失败：运行 catch，读 error.type",
+  "ref": "调用能力；报告 2.3、2.4",
+  "capabilities": {
+   "payment.pay": {
+    "fail": "cancelled"
+   }
+  },
+  "steps": [
+   {
+    "tap": "Pay"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "why": "cancelled"
+   },
+   "toast": "Not paid: cancelled",
+   "invokes": [
+    {
+     "op": "payment.pay",
+     "in": {
+      "orderId": "o1"
+     }
+    }
+   ]
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）"
+  },
+  "vars": [
+   "why"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "why",
+    "name": "why",
+    "type": "text",
+    "value": ""
+   }
+  ],
+  "hidden": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "invoke-not-implemented",
+  "title": "能力的适配还没写：catch 读到 not-implemented",
+  "ref": "调用能力；报告 2.3",
+  "capabilities": {
+   "share.open": {
+    "fail": "not-implemented"
+   }
+  },
+  "steps": [
+   {
+    "tap": "Share"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "why": "not-implemented"
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）"
+  },
+  "vars": [
+   "why"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "why",
+    "name": "why",
+    "type": "text",
+    "value": ""
+   }
+  ],
+  "hidden": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "invoke-not-awaited",
+  "title": "调用能力不等结果：后面的效果和跳转立刻进行",
+  "ref": "调用能力；顺序",
+  "hold": [
+   "scan.code"
+  ],
+  "steps": [
+   {
+    "tap": "Scan and go"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "done": true
+   },
+   "screen": "next",
+   "invokes": [
+    {
+     "op": "scan.code",
+     "in": {}
+    }
+   ]
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）"
+  },
+  "vars": [
+   "done"
+  ],
+  "screens": {
+   "Home": "home",
+   "Next": "next"
+  },
+  "appVars": [
+   {
+    "id": "done",
+    "name": "done",
+    "type": "bool",
+    "value": false
+   }
+  ],
+  "hidden": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "invoke-args-at-step",
+  "title": "能力的参数在它那一步读",
+  "ref": "调用能力；顺序",
+  "steps": [
+   {
+    "tap": "Copy"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "text": "later"
+   },
+   "invokes": [
+    {
+     "op": "clipboard.write",
+     "in": {
+      "text": "copied words"
+     }
+    }
+   ]
+  },
+  "known": {
+   "preview": "预览先整批执行本地效果、再发出接口调用和能力调用，调用读到后面才写的值（报告 6.2：`Preview.tsx` runBody）",
+   "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）",
+   "webProduct": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）",
+   "rn": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）",
+   "miniapp": "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）"
+  },
+  "vars": [
+   "text"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "text",
+    "name": "text",
+    "type": "text",
+    "value": ""
+   }
+  ],
+  "hidden": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "invoke-in-call-then",
+  "title": "下单后调用支付：能力的参数和 then 都读得到接口的回答，完成后跳转",
+  "ref": "调用能力；报告 2.4",
+  "answers": {
+   "createOrder": {
+    "status": 200,
+    "body": {
+     "id": "o42"
+    }
+   }
+  },
+  "steps": [
+   {
+    "tap": "Place order"
+   }
+  ],
+  "expect": {
+   "screen": "done",
+   "vars": {
+    "order": "o42"
+   },
+   "calls": [
+    {
+     "op": "createOrder",
+     "in": {}
+    }
+   ],
+   "invokes": [
+    {
+     "op": "payment.pay",
+     "in": {
+      "orderId": "o42"
+     }
+    }
+   ]
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）"
+  },
+  "vars": [
+   "order"
+  ],
+  "screens": {
+   "Home": "home",
+   "Done": "done"
+  },
+  "appVars": [
+   {
+    "id": "order",
+    "name": "order",
+    "type": "text",
+    "value": ""
+   }
+  ],
+  "hidden": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "invoke-late-moved",
+  "title": "访客已离开：能力 then 的效果照常运行，跳转不再发生",
+  "ref": "调用能力；迟到的回答",
+  "hold": [
+   "payment.pay"
+  ],
+  "steps": [
+   {
+    "tap": "Pay"
+   },
+   {
+    "tap": "Elsewhere"
+   },
+   {
+    "answer": "payment.pay",
+    "body": {
+     "status": "submitted"
+    }
+   }
+  ],
+  "expect": {
+   "vars": {
+    "got": "submitted"
+   },
+   "screen": "other"
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）",
+   "webProduct": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）",
+   "rn": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）",
+   "miniapp": "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）"
+  },
+  "vars": [
+   "got"
+  ],
+  "screens": {
+   "Home": "home",
+   "Next": "next",
+   "Other": "other"
+  },
+  "appVars": [
+   {
+    "id": "got",
+    "name": "got",
+    "type": "text",
+    "value": ""
+   }
+  ],
+  "hidden": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
+  "id": "invoke-late-restart",
+  "title": "重新开始后到达的能力结果什么都不做",
+  "ref": "调用能力；迟到的回答",
+  "hold": [
+   "payment.pay"
+  ],
+  "steps": [
+   {
+    "tap": "Pay"
+   },
+   {
+    "restart": true
+   },
+   {
+    "answer": "payment.pay",
+    "body": {
+     "status": "submitted"
+    }
+   }
+  ],
+  "expect": {
+   "vars": {
+    "got": ""
+   }
+  },
+  "known": {
+   "webPrototype": "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）"
+  },
+  "vars": [
+   "got"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "got",
+    "name": "got",
+    "type": "text",
+    "value": ""
+   }
+  ],
+  "hidden": [],
+  "initial": "Home",
+  "auth": {}
  },
  {
   "id": "go-and-back",

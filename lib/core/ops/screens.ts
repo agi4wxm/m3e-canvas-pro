@@ -34,6 +34,7 @@ import {
   type Place,
 } from "../../tokens";
 import { t } from "../../i18n";
+import { withContract } from "./templateContract";
 import { op, OpError, S } from "../op";
 import { MAX_SCREEN, withFrames, withGroups, withSession, type CoreState } from "../state";
 import { frameById, freshId } from "./common";
@@ -83,7 +84,9 @@ export const addTemplate = op<{ slug: string; x?: number; y?: number }, { frames
     /* on a blank canvas it brings the screens back: they are what it adds */
     const shown = s.doc.frame === "phone" ? s : ensureScreen({ ...s, doc: { ...s.doc, frame: "phone" } }, ctx.widths, ctx.newId(), t("home", ctx.lang));
     const added = instantiate(template, ctx.lang, { x: a.x ?? nextFrameX(fs), y: a.y ?? fs[0]?.y ?? 0 }, fs.map((f) => f.name), phoneSizeOf(fs));
-    const state = { ...shown, doc: { ...shown.doc, frames: [...shown.doc.frames, ...added.frames], groups: [...shown.doc.groups, ...added.groups] } };
+    /* what its screens call and load comes with them, where the document has none of its own (templateContract.ts) */
+    const doc = withContract({ ...shown.doc, frames: [...shown.doc.frames, ...added.frames], groups: [...shown.doc.groups, ...added.groups] }, template.contract?.(ctx.lang));
+    const state = { ...shown, doc };
     return { state: withSession(state, { selection: [], frameId: added.frames[0]?.id ?? null }), result: { frames: added.frames.map((f) => f.id) } };
   },
 });

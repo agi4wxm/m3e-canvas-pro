@@ -83,8 +83,8 @@ export function treeGroups(root: Node, lang: Lang, at: At = { x: 0, y: 0 }, maxW
       ...(name ? { name: name[lang] } : {}),
       ...(inFlow ? { inFlow: ids.get(inFlow)! } : {}),
       items: items.map((it): Item => {
-        const { note, ...item } = it;
-        return { ...item, id: uid(), props: inLang(it.props, lang), ...(note ? { note: note[lang] } : {}) };
+        const { note, bind, ...item } = it;
+        return { ...item, id: uid(), props: inLang(it.props, lang), ...(bind ? { bind: inLang(bind, lang) as Record<string, string> } : {}), ...(note ? { note: note[lang] } : {}) };
       }),
     };
   });

@@ -93,19 +93,20 @@ export function declarationsOf(def: PartDef): Record<string, unknown> {
     ...(def.field ? { fieldStates: { ...def.field, setBy: "a form: its contract's check sets the error and message, its required fields required, a submit loading" } } : {}),
     ...(def.families?.length ? { families: def.families.map((f) => ({ key: familyKey(f.prefix), label: f.label, reads: "slot.index" })) } : {}),
     ...(def.events?.length ? { events: def.events.map((e) => ({ key: eventKey(e.name), label: e.label, payload: Object.fromEntries(Object.entries(e.payload ?? {}).map(([k, kind]) => [`event.${k}`, kind])) })) } : {}),
-    ...(def.demo ? { demo: { what: def.demo.what, onlyInPrototype: true, takenOverBy: def.demo.takenOverBy.map((k) => `bind ${k}`).concat("an action of the part that calls the API") } } : {}),
+    ...(def.demo ? { demo: { what: def.demo.what, onlyInPrototype: true, takenOverBy: def.demo.takenOverBy.map((k) => `bind ${k}`).concat("an action of the part that calls the API or invokes a capability") } } : {}),
     ...(def.overlay ? { overlay: true } : {}),
     ...(def.nav ? { nav: true } : {}),
+    ...(def.capability ? { capabilityView: { capability: def.capability, note: "a stand-in for a platform view: the exported app hands it to a slot (src/custom/slots) the product writes once; its events are the capability's" } } : {}),
   };
 }
 
 /* ---------- the demo ---------- */
 
-/** whether a body reaches the API: a call, or a form's submit */
-const reachesApi = (b: ActionBody | undefined): boolean => (b?.effects ?? []).some((e: Effect) => e.do === "call" || e.do === "submit");
+/** whether a body reaches the other side: a call, a form's submit, an invoke of a capability (a payment, a sign-in) */
+const reachesApi = (b: ActionBody | undefined): boolean => (b?.effects ?? []).some((e: Effect) => e.do === "call" || e.do === "submit" || e.do === "invoke");
 
 /** Whether something real stands where the part's demo would act: one of the props its demo names is bound (to a
- *  variable or an expression), or an action of the part reaches the API (a call, a form's submit). */
+ *  variable or an expression), or an action of the part reaches the other side (a call, a form's submit, an invoke). */
 export function demoTakenOver(it: Item): boolean {
   const demo = defOf(it)?.demo;
   if (!demo) return false;

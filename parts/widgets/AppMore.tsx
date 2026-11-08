@@ -433,38 +433,60 @@ export function VoiceMessage({ seconds = 12, mine = false, transcript = "", tran
   );
 }
 
-export function VideoCall({ name = "", status = "", image = "", icon = "person", connected = true, width = 380, height = 560, className, style }: { name?: string; status?: string; image?: string; icon?: string; connected?: boolean; width?: number; height?: number } & Look) {
-  const [mic, setMic] = useState(true);
-  const [camera, setCamera] = useState(true);
-  const [speaker, setSpeaker] = useState(true);
-  const [time, setTime] = useState(0);
+/* A call's picture, a capability view (lib/capabilities `rtc.view`): what the call is doing (connected, when it started,
+   whether the microphone, the camera and the speaker are on) comes in as props, from the adapter of the real call; a
+   press on a control is a slot of its own and an event (`muted`, `ended`). Only a prototype counts the time from when it
+   is drawn and flips the controls by itself. */
+export function VideoCall({ name = "", status = "", image = "", icon = "person", connected = true, mic: micGiven = true, camera: cameraGiven = true, speaker: speakerGiven = true, startedAt = "", width = 380, height = 560, demo, onValueChange, onEvent, className, style }: { name?: string; status?: string; image?: string; icon?: string; connected?: boolean; mic?: boolean; camera?: boolean; speaker?: boolean; startedAt?: string; width?: number; height?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent });
+  const [own, setOwn] = useState<{ mic?: boolean; camera?: boolean; speaker?: boolean }>({});
+  const mic = host.demo ? (own.mic ?? micGiven) : micGiven;
+  const camera = host.demo ? (own.camera ?? cameraGiven) : cameraGiven;
+  const speaker = host.demo ? (own.speaker ?? speakerGiven) : speakerGiven;
+  const [now, setNow] = useState(() => Date.now());
+  const [drawnAt] = useState(() => Date.now());
+  const started = Date.parse(startedAt);
   const root = useRef<HTMLDivElement>(null);
+  /* the time shown runs from when the call started (the adapter says), or for a prototype from when it was drawn */
+  const ticks = connected && (Number.isFinite(started) || host.demo);
   useEffect(() => {
-    if (!connected || isInert(root.current)) return;
-    const id = setInterval(() => setTime((t) => t + 1), 1000);
+    if (!ticks || isInert(root.current)) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [connected]);
+  }, [ticks]);
+  const time = Number.isFinite(started) ? Math.max(0, (now - started) / 1000) : host.demo ? Math.max(0, (now - drawnAt) / 1000) : 0;
   const src = pictureOf(image);
-  const toggle = (on: boolean, set: (v: boolean) => void, yes: string, no: string, label: string) => (
-    <Tap aria-label={label} aria-pressed={on} className={cn("flex size-12 items-center justify-center rounded-full", on ? "bg-surface-container-high text-on-surface" : "bg-inverse-on-surface text-inverse-surface")} onClick={() => set(!on)}>
+  const toggle = (key: "mic" | "camera" | "speaker", on: boolean, yes: string, no: string, label: string) => (
+    <Tap
+      aria-label={label}
+      aria-pressed={on}
+      data-tap={key}
+      className={cn("flex size-12 items-center justify-center rounded-full", on ? "bg-surface-container-high text-on-surface" : "bg-inverse-on-surface text-inverse-surface")}
+      onClick={() => {
+        if (key === "mic") host.emit("muted", { muted: on });
+        if (host.demo) setOwn((o) => ({ ...o, [key]: !on }));
+      }}
+    >
       <WidgetIcon name={on ? yes : no} className="size-6" />
     </Tap>
   );
   return (
-    <div ref={root} data-slot="video-call" data-mic={mic} data-camera={camera} data-time={time} className={cn("relative flex flex-col overflow-hidden rounded-2xl bg-inverse-surface text-inverse-on-surface", className)} style={{ width, height, ...style }}>
+    <div ref={root} data-slot="video-call" data-mic={mic} data-camera={camera} data-time={Math.floor(time)} className={cn("relative flex flex-col overflow-hidden rounded-2xl bg-inverse-surface text-inverse-on-surface", className)} style={{ width, height, ...style }}>
       <div className="absolute inset-0">{src ? <img src={src} alt="" className="size-full object-cover" /> : <Placeholder icon={icon} />}</div>
       <div className="relative flex flex-col items-center gap-0.5 p-4" style={{ background: `linear-gradient(${SCRIM}, transparent)` }}>
         <div className="text-title-large">{name}</div>
-        <div className="text-body-small tabular-nums">{connected ? clock(time) : status}</div>
+        <div className="text-body-small tabular-nums">{connected ? (Number.isFinite(started) || host.demo ? clock(time) : status) : status}</div>
       </div>
       <div className="absolute top-20 right-3 flex h-28 w-20 items-center justify-center overflow-hidden rounded-lg bg-surface-container text-on-surface-variant">
         <WidgetIcon name={camera ? "person" : "videocam_off"} className="size-7" />
       </div>
       <div className="relative mt-auto flex items-center justify-center gap-3 p-4" style={{ background: `linear-gradient(transparent, ${SCRIM})` }}>
-        {toggle(mic, setMic, "mic", "mic_off", "Microphone")}
-        {toggle(camera, setCamera, "videocam", "videocam_off", "Camera")}
-        {toggle(speaker, setSpeaker, "volume_up", "volume_off", "Speaker")}
-        <Tap aria-label="End call" data-tap="end" className="flex size-12 items-center justify-center rounded-full bg-error text-on-error"><WidgetIcon name="call_end" className="size-6" /></Tap>
+        {toggle("mic", mic, "mic", "mic_off", "Microphone")}
+        {toggle("camera", camera, "videocam", "videocam_off", "Camera")}
+        {toggle("speaker", speaker, "volume_up", "volume_off", "Speaker")}
+        <Tap aria-label="End call" data-tap="end" className="flex size-12 items-center justify-center rounded-full bg-error text-on-error" onClick={() => host.emit("ended", {})}>
+          <WidgetIcon name="call_end" className="size-6" />
+        </Tap>
       </div>
     </div>
   );

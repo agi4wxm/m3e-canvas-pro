@@ -573,7 +573,7 @@ export function createMockTransport(source: MockSource, options: MockOptions = {
     const n = session.calls.get(route.operationId) ?? 0;
     session.calls.set(route.operationId, n + 1);
     const seqStep = rule.sequence?.length ? rule.sequence[Math.min(n, rule.sequence.length - 1)] : undefined;
-    const step: MockStep = seqStep ? { ...seqStep } : { status: rule.status, body: rule.body, latencyMs: rule.latencyMs, network: rule.network };
+    const step: MockStep = seqStep ? { ...seqStep } : { status: rule.status, body: rule.body, patch: rule.patch, latencyMs: rule.latencyMs, network: rule.network };
     const latency = latencyFor(step);
     const done = (response: TransportResponse, note?: string) => ({ response, route, latency, note });
 
@@ -626,7 +626,9 @@ export function createMockTransport(source: MockSource, options: MockOptions = {
       if (route.success && !isJsonType(route.success.type)) return { status, headers: { "content-type": contentTypeOf(route.success.type) }, body: typeof v === "string" ? v : JSON.stringify(v) };
       return json(status, v);
     };
-    const withBody = (v: unknown, note?: string) => done(step.body !== undefined ? json(status, clone(step.body)) : route.success ? answerOf(v) : { status: status === 200 && route.method === "DELETE" ? 204 : status, headers: {}, body: undefined }, note);
+    /* a scenario's patch lays its fields over the answer as it would be: the record stays the session's own */
+    const patched = (v: unknown) => (step.patch && isRecord(v) ? { ...v, ...clone(step.patch) } : v);
+    const withBody = (v: unknown, note?: string) => done(step.body !== undefined ? json(status, clone(step.body)) : route.success ? answerOf(patched(v)) : { status: status === 200 && route.method === "DELETE" ? 204 : status, headers: {}, body: undefined }, note);
 
     switch (route.kind) {
       case "list": {
