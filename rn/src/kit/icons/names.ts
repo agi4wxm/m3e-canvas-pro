@@ -51,4 +51,9 @@ export const KIT_ICONS = [
   "format_list_numbered",
   "format_quote",
   "format_clear",
+  /* D4: a money tree, a locked level, the sign-in and pay buttons */
+  "park",
+  "lock",
+  "login",
+  "payments",
 ] as const;

@@ -12,6 +12,9 @@ import { SplitView } from "./split";
 /* D3: pickers and entry parts */
 import { CopyRow, Field, Form, InputGroup, InputOtp, NumberPad, PhoneInput, QuantityStepper, RichTextEditor, SignaturePad, TagInput } from "./composites/entry";
 import { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker } from "./composites/pickers";
+/* D4: the game parts, and a group of buttons, actions, menus and search */
+import { BrandButton, ButtonGroup, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SplitButton } from "./composites/actions";
+import { EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, PrizeWheel, SkillButton, SlotMachine } from "./composites/games";
 
 /* Every component the kit draws a part with, by the name coverage.ts gives it, and by the part's id. */
 
@@ -96,6 +99,25 @@ export const BY_NAME = {
   NumberPad,
   SignaturePad,
   RichTextEditor,
+  /* D4: the game parts, and a group of buttons, actions, menus and search */
+  PrizeWheel,
+  GridDraw,
+  Gacha,
+  SlotMachine,
+  MoneyTree,
+  EggSmash,
+  Joystick,
+  SkillButton,
+  LevelMap,
+  GameBoard,
+  ButtonGroup,
+  SplitButton,
+  FabMenu,
+  BrandButton,
+  Command,
+  ContextMenu,
+  FilterBar,
+  CascadingMenu,
 } satisfies Record<NativeName, ComponentType<never>>;
 
 /** the component that draws each part the kit covers, by the part's id */

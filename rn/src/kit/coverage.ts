@@ -93,6 +93,24 @@ export const NATIVE = {
   "number-pad": "NumberPad",
   "signature-pad": "SignaturePad",
   "rich-text-editor": "RichTextEditor",
+  /* D4: the game parts (composites/games.tsx), and actions, menus and search (composites/actions.tsx) */
+  "prize-wheel": "PrizeWheel",
+  "grid-draw": "GridDraw",
+  gacha: "Gacha",
+  "slot-machine": "SlotMachine",
+  "money-tree": "MoneyTree",
+  "egg-smash": "EggSmash",
+  joystick: "Joystick",
+  "skill-button": "SkillButton",
+  "level-map": "LevelMap",
+  "game-board": "GameBoard",
+  "split-button": "SplitButton",
+  "fab-menu": "FabMenu",
+  "brand-button": "BrandButton",
+  command: "Command",
+  "context-menu": "ContextMenu",
+  "filter-bar": "FilterBar",
+  "cascading-menu": "CascadingMenu",
 } as const;
 
 export type NativeSlug = keyof typeof NATIVE;

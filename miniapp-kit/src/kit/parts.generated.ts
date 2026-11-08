@@ -164,6 +164,77 @@ export const PARTS: Record<string, PartInfo> = {
    "disabled": false
   }
  },
+ "button-group": {
+  "name": "Button group",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Rewind",
+     "icon": "fast_rewind"
+    },
+    {
+     "label": "Play",
+     "icon": "play_arrow"
+    },
+    {
+     "label": "Forward",
+     "icon": "fast_forward"
+    }
+   ],
+   "variant": "connected",
+   "orientation": "horizontal",
+   "buttonVariant": "tonal",
+   "size": "sm"
+  }
+ },
+ "split-button": {
+  "name": "Split button",
+  "tier": "composite",
+  "defaults": {
+   "label": "Edit",
+   "icon": "edit",
+   "variant": "filled",
+   "size": "sm",
+   "menu": true,
+   "menuItems": [
+    {
+     "label": "Duplicate",
+     "icon": "content_copy"
+    },
+    {
+     "label": "Share",
+     "icon": "share"
+    },
+    {
+     "label": "Delete",
+     "icon": "delete"
+    }
+   ]
+  }
+ },
+ "fab-menu": {
+  "name": "FAB menu",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Mail",
+     "icon": "mail"
+    },
+    {
+     "label": "Event",
+     "icon": "event"
+    },
+    {
+     "label": "Task",
+     "icon": "task_alt"
+    }
+   ],
+   "icon": "add",
+   "open": false
+  }
+ },
  "switch": {
   "name": "Switch",
   "tier": "atom",
@@ -769,6 +840,29 @@ export const PARTS: Record<string, PartInfo> = {
    "width": 360
   }
  },
+ "command": {
+  "name": "Command",
+  "tier": "composite",
+  "defaults": {
+   "placeholder": "Type a command or search...",
+   "heading": "Suggestions",
+   "items": [
+    {
+     "label": "Calendar",
+     "icon": "calendar_month"
+    },
+    {
+     "label": "Search emoji",
+     "icon": "mood"
+    },
+    {
+     "label": "Calculator",
+     "icon": "calculate"
+    }
+   ],
+   "width": 384
+  }
+ },
  "dropdown-menu": {
   "name": "Dropdown menu",
   "tier": "composite",
@@ -790,6 +884,29 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "destructive": "Delete"
+  }
+ },
+ "context-menu": {
+  "name": "Context menu",
+  "tier": "composite",
+  "defaults": {
+   "label": "Right click here",
+   "items": [
+    {
+     "label": "Back",
+     "icon": "arrow_back"
+    },
+    {
+     "label": "Forward",
+     "icon": "arrow_forward"
+    },
+    {
+     "label": "Reload",
+     "icon": "refresh"
+    }
+   ],
+   "width": 256,
+   "height": 128
   }
  },
  "calendar": {
@@ -999,12 +1116,308 @@ export const PARTS: Record<string, PartInfo> = {
    "height": 360
   }
  },
+ "filter-bar": {
+  "name": "Filter bar",
+  "tier": "composite",
+  "defaults": {
+   "placeholder": "Search invoices",
+   "filters": [
+    {
+     "label": "Status"
+    },
+    {
+     "label": "Due date"
+    },
+    {
+     "label": "Currency"
+    }
+   ],
+   "width": 420
+  }
+ },
  "copy-row": {
   "name": "Copy row",
   "tier": "composite",
   "defaults": {
    "text": "npm run deploy",
    "width": 280
+  }
+ },
+ "prize-wheel": {
+  "name": "Prize wheel",
+  "tier": "composite",
+  "defaults": {
+   "label": "Spin",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "size": 220
+  }
+ },
+ "grid-draw": {
+  "name": "Grid draw",
+  "tier": "composite",
+  "defaults": {
+   "label": "Draw",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "size": 240
+  }
+ },
+ "gacha": {
+  "name": "Gacha",
+  "tier": "composite",
+  "defaults": {
+   "label": "Draw once",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "size": 170
+  }
+ },
+ "slot-machine": {
+  "name": "Slot machine",
+  "tier": "composite",
+  "defaults": {
+   "label": "Shake",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "reels": "",
+   "size": 280
+  }
+ },
+ "money-tree": {
+  "name": "Money tree",
+  "tier": "composite",
+  "defaults": {
+   "label": "Shake",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "size": 190
+  }
+ },
+ "egg-smash": {
+  "name": "Egg smash",
+  "tier": "composite",
+  "defaults": {
+   "label": "Pick an egg",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "size": 260
+  }
+ },
+ "joystick": {
+  "name": "Joystick",
+  "tier": "composite",
+  "defaults": {
+   "size": 132,
+   "angle": 0,
+   "autoCenter": true,
+   "value": "",
+   "ariaLabel": "",
+   "disabled": false
   }
  },
  "quantity-stepper": {
@@ -1031,6 +1444,16 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "count": 4,
    "current": 0
+  }
+ },
+ "brand-button": {
+  "name": "Sign-in or pay button",
+  "tier": "composite",
+  "defaults": {
+   "provider": "other",
+   "intent": "signin",
+   "label": "Continue",
+   "width": 380
   }
  },
  "action-sheet": {
@@ -1281,6 +1704,32 @@ export const PARTS: Record<string, PartInfo> = {
    "helperText": ""
   }
  },
+ "cascading-menu": {
+  "name": "Cascading menu",
+  "tier": "composite",
+  "defaults": {
+   "label": "Open menu",
+   "items": [
+    {
+     "label": "Edit",
+     "icon": "edit"
+    },
+    {
+     "label": "Share",
+     "icon": "share"
+    }
+   ],
+   "subLabel": "More",
+   "subItems": [
+    {
+     "label": "Sort"
+    },
+    {
+     "label": "Filter"
+    }
+   ]
+  }
+ },
  "mini-program-header": {
   "name": "Mini program header",
   "tier": "composite",
@@ -1501,6 +1950,50 @@ export const PARTS: Record<string, PartInfo> = {
    "error": false,
    "errorText": "",
    "helperText": ""
+  }
+ },
+ "skill-button": {
+  "name": "Skill button",
+  "tier": "composite",
+  "defaults": {
+   "icon": "bolt",
+   "label": "Dash",
+   "cooldown": 5,
+   "endsAt": 0,
+   "clockSkew": 0,
+   "disabled": false,
+   "size": 72
+  }
+ },
+ "level-map": {
+  "name": "Level map",
+  "tier": "composite",
+  "defaults": {
+   "levels": 12,
+   "current": 5,
+   "selected": -1,
+   "stars": "3,3,2,1",
+   "perRow": 4,
+   "width": 380
+  }
+ },
+ "game-board": {
+  "name": "Game board",
+  "tier": "composite",
+  "defaults": {
+   "mode": "mark",
+   "rows": 3,
+   "columns": 3,
+   "cells": "",
+   "status": "",
+   "picked": "",
+   "marks": "X,O",
+   "need": 3,
+   "turnText": "{mark} to play",
+   "winText": "{mark} wins",
+   "drawText": "A draw",
+   "reset": "Play again",
+   "width": 320
   }
  }
 };

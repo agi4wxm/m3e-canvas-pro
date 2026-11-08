@@ -30,7 +30,6 @@ export const KIT_ICONS = [
   /* D3: the pickers' and the entry parts' own (arrows, the pad's backspace, the copy button, the editor's marks) */
   "add",
   "expand_more",
-  "keyboard_arrow_down",
   "keyboard_arrow_up",
   "backspace",
   "content_copy",
@@ -42,4 +41,9 @@ export const KIT_ICONS = [
   "format_list_numbered",
   "format_quote",
   "format_clear",
+  /* D4: a money tree, a split button's arrow, the sign-in and pay buttons */
+  "park",
+  "keyboard_arrow_down",
+  "login",
+  "payments",
 ] as const;
