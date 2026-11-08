@@ -35,6 +35,7 @@ import { isNode, type PNode } from "../../../parts/node";
 import { str } from "../../../parts/print";
 import type { Node } from "../../../parts/templates/kit";
 import { expandDoc } from "../../expand";
+import { cleanMotion } from "../../prototype";
 import { getLang } from "../../i18n";
 import { childLayoutOf, flowOf, sizingOf, type Flow } from "../../flow";
 import { PANE_SIDES, panesOfSplit, splitOf } from "../../split";
@@ -493,6 +494,8 @@ class ScreenPrinter {
       ...(b.overlay && to !== "back" && to !== "link" && to !== "none" ? { overlay: true } : {}),
       ...(b.params && Object.keys(b.params).length && this.runtime ? { params: b.params } : {}),
       ...(effects.length ? { effects } : {}),
+      /* a back action's own motion, for the interpreter to hand the navigator (Host.back) */
+      ...(to === "back" && cleanMotion(b.motion) ? { motion: cleanMotion(b.motion) } : {}),
     };
   }
 
@@ -567,7 +570,11 @@ class ScreenPrinter {
 
   /** a plain move as an expression: back, out to an address, to a screen (over this one when it is an overlay) */
   call(a: Action): string | undefined {
-    if (a.to === BACK_TARGET) return "nav.back()";
+    if (a.to === BACK_TARGET) {
+      /* a back action's own motion goes to the navigator (Nav.back), which the platform's stack plays its way */
+      const motion = cleanMotion(a.motion);
+      return motion ? `nav.back(${expr({ motion })})` : "nav.back()";
+    }
     if (a.to === LINK_TARGET) {
       const url = linkUrlOf(a);
       return url ? `nav.open(${str(url)})` : undefined;

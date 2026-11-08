@@ -38,7 +38,7 @@ import {
   type Palette,
   type Transition,
 } from "@/lib/tokens";
-import { chooseBranch, run, type GoOptions } from "@/lib/actions";
+import { chooseBranch, run, type BackOptions, type GoOptions } from "@/lib/actions";
 import { createRuntime } from "@/lib/app/runtime";
 import { partBySlug } from "@/parts/registry";
 import { PartThemeContext, usePartTheme } from "@/parts/theme";
@@ -253,7 +253,7 @@ export function Preview({
 
   /** a swipe under way (its peek), which going back waits for */
   const peeking = useRef<{ current: unknown }>({ current: null });
-  const back = useCallback(() => {
+  const back = useCallback((o?: BackOptions) => {
     /* an overlay is what going back closes first */
     if (overlayRef.current) {
       setOverlay(null);
@@ -264,7 +264,9 @@ export function Preview({
     const from = s[s.length - 1];
     const to = s[s.length - 2];
     const same = sameSize(from.id, to.id);
-    setAnim({ transition: same ? from.t : "fade", backwards: true, spring, ...(same && from.m ? { motion: from.m } : {}) });
+    /* a back action's own motion, played backwards, in place of the way the screen came in */
+    const m = same ? (o?.motion ?? from.m) : undefined;
+    setAnim({ transition: same ? from.t : "fade", backwards: true, spring, ...(m ? { motion: m } : {}) });
     setStack(s.slice(0, -1));
   }, [spring, sameSize, setStack, setOverlay]);
 
@@ -333,7 +335,7 @@ export function Preview({
       bound: (id) => boundRef.current[id],
       files: () => files.current,
       go: (to, o) => nav.current.go(to, o),
-      back: () => nav.current.back(),
+      back: (o) => nav.current.back(o),
       /* a link leaves the sketch: the page opens in a tab of its own, and the preview stays put */
       openLink: (url) => {
         const href = linkUrlOf({ url });
@@ -764,7 +766,7 @@ export function Preview({
         p={p}
         wide={wide}
         canGoBack={stack.length >= 2 || !!overlay}
-        onBack={back}
+        onBack={() => back()}
         picker={picker}
         setPicker={setPicker}
         onPick={pick}

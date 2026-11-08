@@ -287,7 +287,7 @@ ${when(bd, "        for (const s of Object.values(screens.current)) {\n         
       go: (to, o) => {
 ${when(p?.overlay, "        if (o.overlay) return app().openOverlay(to as ScreenId, o.transition, o.motion)\n")}        ${bd ? `app().navigate(to as ScreenId, o.params, o.transition${when(p, ", o.motion")})` : `app().go(to as ScreenId, o.transition${when(p, ", o.motion")})`}
       },
-      back: () => app().back(),
+      back: (${p ? "o" : ""}) => app().back(${p ? "o?.motion" : ""}),
       openLink: (url) => app().openLink(url),
       scrollTo: (${p?.scroll ? "part" : ""}) => ${p?.scroll ? `app().scrollTo(${id("part")})` : "{}"},
 ${
@@ -469,7 +469,7 @@ export type App = {
   canGoBack: boolean
   move: Move
   go: (screen: ScreenId, transition?: Transition${when(p, ", motion?: Motion")}) => void
-  back: () => void
+${p ? "  /** back, an overlay closing first: a motion given is played backwards in place of the way the screen came in */\n  back: (motion?: Motion) => void" : "  back: () => void"}
 ${when(
   bd,
   `  /** the params the screen on show was opened with */
@@ -610,12 +610,13 @@ ${when(
 )}${when(exprs, '      holds: (expr) => holdsExpr(expr, { vars: ' + (varNames ? "scopeVars(state.vars)" : "{}") + ', now: new Date().toISOString() }, { lang: document.documentElement.lang || "en" }),\n')}${
   p
     ? `      go: (to, transition = "slide", motion) => setState((s) => ${bd ? "opened(s, { screen: to, transition, motion }, runtime.session.signedIn, remember)" : `({ ...s, ${overlayGone}move: { transition, backwards: false, motion }, stack: [...s.stack, { screen: to, transition, motion }] })`}),
-      /* an overlay is what going back closes first */
-      back: () =>
+      /* an overlay is what going back closes first; a back action's own motion, played backwards, takes the place of
+         the way the screen came in */
+      back: (own) =>
         setState((s) => {
 ${when(p.overlay, "          if (s.overlay) return { ...s, overlay: null }\n")}          if (s.stack.length < 2) return s
           const { transition, motion } = s.stack[s.stack.length - 1]
-          return { ...s, move: { transition, backwards: true, motion }, stack: s.stack.slice(0, -1) }
+          return { ...s, move: { transition, backwards: true, motion: own ?? motion }, stack: s.stack.slice(0, -1) }
         }),
 `
     : `      go: (to, transition = "slide") => setState((s) => ${bd ? "opened(s, { screen: to, transition }, runtime.session.signedIn, remember)" : "({ ...s, move: { transition, backwards: false }, stack: [...s.stack, { screen: to, transition }] })"}),

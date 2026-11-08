@@ -554,7 +554,8 @@ const host: ActionHost = {
   setProp: (part, prop, value) => kit?.setProp(part, prop, value),
   toast: (text) => kit?.toast(text),
   go: (to, o) => nav?.go(to, { ...(o.overlay ? { overlay: true } : {}), ...(o.params ? { params: o.params } : {}) }),
-  back: () => nav?.back(),
+  /* a back action's own motion goes to the navigator with it */
+  back: (o) => nav?.back(o),
   openLink: (url) => void openLink(url),
   scrollTo: () => {},
   call: async (operationId, given): Promise<Outcome> => {
@@ -697,6 +698,8 @@ export const routerNav: Nav = {
     else if (ROUTES[key]?.tab) router.navigate(href)
     else router.push(href)
   },
+  /* the native stack plays the platform's own animation going back, as it does going forward: a back action's motion
+     (Nav.back's options) has no say there (docs/手机端.md) */
   back: () => {
     if (router.canGoBack()) router.back()
     else router.replace(hrefOf(INITIAL) ?? "/")

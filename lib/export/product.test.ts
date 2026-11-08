@@ -73,10 +73,10 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [90, "4f8f16219d277a278c304543106101f457bb51558524d838d75f4f628f8fc12c"],
-    systems: [47, "7fc80791613dd1512780b4b65b682343d404419113ccd0a605afe6a0a5201ad7"],
-    reuse: [38, "f7e04c27dfd1f2fc34d728474ef0c76cc7ba9cca3395793db1dd331ea72149f2"],
-    sweep: [100, "86a4d14876dd9666d7d1dd996e4e0cb2f147d4936dd54e4f690d2368c07754d4"],
+    proof: [90, "c464beada075102b493f03385e786a2ccddd7bf28118141db83277c305a5eeab"],
+    systems: [47, "e7ff2759b207bda928431634f428e527959a4f46717ec9923ebe221248db82b5"],
+    reuse: [38, "96f30985cda9ab89862682ab51b77da26207296ddd8f8f3d7a617fe589184d47"],
+    sweep: [100, "fe04935736ab7e2a326e01b3866e7afee6ee0f83a4c6be19a0eed42c59b495ed"],
     parts: [140, "295c3c85b06eab798e6bb08867328a8cd975cd1ce8f55cb46c9beb2d442f19d3"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };

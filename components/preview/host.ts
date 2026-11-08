@@ -6,7 +6,7 @@
  * library's, the catalog's examples). Navigation is the preview's own and is handed in. No React and no page here:
  * the preview's click-path tests run this file as it is. */
 
-import type { CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Outcome, Tap } from "@/lib/actions";
+import type { BackOptions, CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Outcome, Tap } from "@/lib/actions";
 import type { Runtime } from "@/lib/app/runtime";
 import type { TransportFile } from "@/lib/api/transport";
 import { endpointOf, paramsOf } from "@/lib/bindings/contract";
@@ -40,7 +40,7 @@ export type PreviewHostDeps = {
   files: () => Record<string, TransportFile[]>;
   /* where the visitor goes: the preview's own */
   go: (to: string, o: GoOptions) => void;
-  back: () => void;
+  back: (o?: BackOptions) => void;
   openLink: (url: string) => void;
   scrollTo: (part: string) => void;
   /** how many times the visitor has gone somewhere */
@@ -131,7 +131,7 @@ export function createPreviewHost(d: PreviewHostDeps): Host {
     toast: (text) => write((s) => ({ ...s, snack: { id: (s.snack?.id ?? 0) + 1, message: text } })),
 
     go: (to, o) => d.go(to, o),
-    back: () => d.back(),
+    back: (o) => d.back(o),
     openLink: (url) => d.openLink(url),
     scrollTo: (part) => d.scrollTo(part),
 

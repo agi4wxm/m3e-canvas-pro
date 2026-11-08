@@ -107,7 +107,14 @@ export type Expect = {
   calls?: SeenCall[];
   /** the capabilities invoked, in order (`op` the capability, `in` its arguments); each compared on the fields given */
   invokes?: SeenCall[];
+  /** the last screen move the host made, or asked its navigator for */
+  move?: Move;
 };
+
+/** A screen move: whether it went back, and the kind of motion it plays (`Motion.kind`), "none" when it has none (an
+ *  older transition, or the platform's own animation). A phone's or a mini-program's navigator plays the platform's
+ *  own animation: what the table reads there is the motion the host handed it. */
+export type Move = { back: boolean; motion: string };
 
 export type Row = {
   id: string;
@@ -139,6 +146,8 @@ export type Observed = {
   calls: SeenCall[];
   /** the capabilities invoked (the table's runner fills it from the back end when a host's runner does not) */
   invokes?: SeenCall[];
+  /** the last screen move, where the host's runner can tell it */
+  move?: Move;
 };
 
 /** a row as a kit's runner has it (lib/actions/consistency/kits.ts): no design, which the kit's printer has printed
