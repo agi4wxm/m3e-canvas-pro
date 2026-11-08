@@ -9,7 +9,6 @@ export function MediaListenScreen() {
         <AudioPlayer
           title="Morning song"
           artist="Ada"
-          src=""
           seconds={200}
           playing
           position={30}
@@ -18,33 +17,19 @@ export function MediaListenScreen() {
         />
       </At>
       <At x={16} y={130}>
-        <Playlist
-          title="Getting started"
-          data={{ columns: ["Title", "Detail", "Length", "State"], rows: [["Welcome", "Chapter 1", "03:12", "done"], ["First steps", "Chapter 1", "08:45", "done"], ["Going further", "Chapter 2", "12:30", ""], ["Final project", "Chapter 3", "24:00", "locked"]] }}
-          selected={1}
-          playing
-          width={380}
-          testID="playlistOrLessons"
-        />
+        <Playlist selected={1} playing testID="playlistOrLessons" />
       </At>
       <At x={16} y={450}>
-        <ImageViewer
-          images={[{ label: "Harbour" }, { label: "Old town" }]}
-          height={160}
-          thumbnails
-          index={0}
-          width={380}
-          testID="imageViewer"
-        />
+        <ImageViewer images={[{ label: "Harbour" }, { label: "Old town" }]} height={160} testID="imageViewer" />
       </At>
       <At x={16} y={700}>
-        <NumberTicker value={1280} prefix={"$"} suffix="" size="headline" testID="numberTicker" />
+        <NumberTicker prefix={"$"} testID="numberTicker" />
       </At>
       <At x={200} y={700}>
-        <Timer seconds={90} countdown running={false} endsAt={0} startedAt={0} clockSkew={0} width={196} testID="timer" />
+        <Timer seconds={90} width={196} testID="timer" />
       </At>
       <At x={16} y={780}>
-        <ShimmerText text={"Thinking…"} testID="shimmerText" />
+        <ShimmerText testID="shimmerText" />
       </At>
       {s.layer}
     </Screen>
