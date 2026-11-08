@@ -70,6 +70,7 @@ export const EXPORT_UI = {
   exportDiff_hidden: { ja: "非表示", en: "hidden parts", zh: "隐藏" },
   exportDiff_condition: { ja: "条件", en: "conditions", zh: "条件" },
   exportDiff_unknown: { ja: "不明な部品", en: "unknown parts", zh: "未知组件" },
+  exportDiff_style: { ja: "描けないスタイルの部分", en: "parts of the style not drawn", zh: "带不过去的风格部分" },
 } as const satisfies Record<string, Str>;
 
 export const EXPORT_KO: Record<keyof typeof EXPORT_UI, string> = {
@@ -112,4 +113,5 @@ export const EXPORT_KO: Record<keyof typeof EXPORT_UI, string> = {
   exportDiff_hidden: "숨김",
   exportDiff_condition: "조건",
   exportDiff_unknown: "알 수 없는 부품",
+  exportDiff_style: "옮겨지지 않는 스타일 부분",
 };

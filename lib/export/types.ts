@@ -16,10 +16,12 @@ import type { ApiModel } from "./api";
 export type DesignDifference = {
   /** the app: `mobile` (React Native) or `miniapp` (Taro) */
   app: "mobile" | "miniapp";
-  /** what kind of difference: placeholder, atoms, binding, trigger, look… (the printer's own word) */
+  /** what kind of difference: placeholder, atoms, binding, trigger, look, style… (the printer's own word) */
   kind: string;
   /** the screen, by its name */
   screen?: string;
+  /** what touches more than one screen (what of the style an app does not draw): every screen it touches */
+  screens?: string[];
   /** the part */
   part?: string;
   detail: string;

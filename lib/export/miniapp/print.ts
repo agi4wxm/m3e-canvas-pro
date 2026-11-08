@@ -36,7 +36,7 @@ import { getLang } from "../../i18n";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "../../flow";
 import { cleanLook } from "../../look";
 import { kitLookOf } from "../../kits";
-import { styleContext, withDocStyles } from "../../styles";
+import { kindsIn, styleContext, styleDifferences, withDocStyles, type StyleScreen } from "../../styles";
 import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
 import { isOverlayPart } from "../../interact";
@@ -62,8 +62,10 @@ import { iconNamesOf } from "../rn/print";
 
 /** something the printed app does not do as the design says, for the exporter to list */
 export type MiniWarning = {
-  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "look" | "image" | "unknown" | "binding" | "scroll" | "link";
+  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "look" | "image" | "unknown" | "binding" | "scroll" | "link" | "style";
   screen?: string;
+  /** what touches more than one (what of the style is not drawn), every screen it touches */
+  screens?: string[];
   part?: string;
   detail: string;
 };
@@ -1037,6 +1039,10 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
     };
   });
   const flows = frames.filter((f) => typeof f.flow === "string" && f.flow).map((f) => ({ name: f.flow!, screen: screens.keys.get(f.id)! }));
+  /* what of the document's style a mini-program does not draw (lib/styles/support.ts), with the screens it touches */
+  const styles = styleContext(source.styles);
+  const kinds = frames.map((f): StyleScreen => ({ name: f.name, slugs: kindsIn(groupsOf(f)) }));
+  warnings.push(...styleDifferences({ theme: normalizeTheme(doc.theme, styles), styles, docStyles: source.styles, screens: kinds }, "miniapp"));
   let tabBar: MiniTabBar | undefined;
   if (tab.bar) {
     const def = partBySlug("navigation-bar")!;
