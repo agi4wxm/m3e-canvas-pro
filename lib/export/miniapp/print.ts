@@ -24,8 +24,9 @@ import {
   type Item,
   type ScreenParam,
 } from "../../tokens";
-import { partBySlug, reader } from "../../../parts/registry";
+import { partBySlug, reader, treeOf } from "../../../parts/registry";
 import type { PartDef, PropDef } from "../../../parts/types";
+import { formStateProps } from "../../../parts/fieldState";
 import { fullWidth, roleOf } from "../../../parts/role";
 import { sanitizeSvg } from "../../../parts/svg";
 import { isNode, type PNode } from "../../../parts/node";
@@ -34,17 +35,20 @@ import type { Node } from "../../../parts/templates/kit";
 import { expandDoc } from "../../expand";
 import { getLang } from "../../i18n";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "../../flow";
+import { PANE_SIDES, panesOfSplit, splitOf } from "../../split";
 import { cleanLook } from "../../look";
-import { kitLookOf } from "../../kits";
-import { withDocStyles } from "../../styles";
+import { kitLookOf, splitTaps } from "../../kits";
+import { kindsIn, styleContext, styleDifferences, withDocStyles, type StyleScreen } from "../../styles";
 import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
 import { isOverlayPart } from "../../interact";
+import { isPlaceKey } from "../../partContract";
 import { endpointOf } from "../../bindings/contract";
+import { messagesShown } from "../../bindings/view";
 import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
 import { NATIVE, INPUT_PROPS, isNative, kitPropName } from "../../../miniapp-kit/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../miniapp-kit/src/kit/parts.generated";
-import { SET_ONLY, plainTree, propValues, type PlainNode } from "../rn/data";
+import { SET_ONLY, plainTree, propValues, type AtomTaps, type PlainNode } from "../rn/data";
 import { iconNamesOf } from "../rn/print";
 
 /* The Taro code of a document: one screen component per screen, built from the mini-program kit (miniapp-kit/src/kit),
@@ -62,8 +66,10 @@ import { iconNamesOf } from "../rn/print";
 
 /** something the printed app does not do as the design says, for the exporter to list */
 export type MiniWarning = {
-  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "look" | "image" | "unknown" | "binding" | "scroll" | "link";
+  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "look" | "image" | "unknown" | "binding" | "scroll" | "link" | "input" | "style";
   screen?: string;
+  /** what touches more than one (what of the style is not drawn), every screen it touches */
+  screens?: string[];
   part?: string;
   detail: string;
 };
@@ -115,6 +121,9 @@ export type MiniPrintOptions = {
   image?: (data: string) => string;
   /** false: no tab bar, a shared navigation bar is drawn on each screen as it stands (the kit's own app) */
   tabBar?: boolean;
+  /** the capability views drawn by the product's slots: where a screen imports them from, and each one's component by
+   *  item id (lib/export/appCapabilities.ts) */
+  slots?: { from: string; names: Record<string, string> };
 };
 
 /* ---------- code as data ---------- */
@@ -238,6 +247,7 @@ const EFFECT_KEYS: Record<string, string[]> = {
   setProp: ["part", "prop", "value"],
   snackbar: ["message"],
   call: ["operationId", "args", "body", "then", "catch", "optimistic"],
+  invoke: ["capability", "args", "then", "catch"],
   refresh: ["source"],
   loadMore: ["source"],
   submit: ["form"],
@@ -291,7 +301,7 @@ function effectsOf(doc: Doc): Effect[] {
   const body = (b: ActionBody | undefined, depth: number) => {
     for (const e of b?.effects ?? []) {
       out.push(e);
-      if (e.do === "call" && depth < 4) {
+      if ((e.do === "call" || e.do === "invoke") && depth < 4) {
         body(e.then, depth + 1);
         body(e.catch, depth + 1);
       }
@@ -328,6 +338,8 @@ const keyOfGroup = (g: Group) => g.items[0]?.id ?? g.id;
 
 class ScreenPrinter {
   kit = new Set<string>(["Screen", "useScreen"]);
+  /** the slots the screen draws its capability views with */
+  slots = new Set<string>();
   runtime = new Set<string>();
   react = new Set<string>();
   icons = new Set<string>();
@@ -409,8 +421,9 @@ class ScreenPrinter {
     return `s.tap(${this.constant("A", cleanAction(a, this.names), "Action")}, ${this.env(at)})`;
   }
 
-  /** what an item carries beside its props: its look and its taps */
-  extras(it: Item, at: At, slots = true, close?: string): [string, string][] {
+  /** What an item carries beside its props: its look and its taps. A part drawn as atoms takes no taps of places:
+   *  `slots` is then the places whose taps went to the atoms that show them, and any other is lost and said so. */
+  extras(it: Item, at: At, slots: boolean | ReadonlySet<string> = true, close?: string): [string, string][] {
     const out: [string, string][] = [];
     if (it.fill && COLOR_TOKENS.some((t) => t.key === it.fill)) out.push(["fill", str(it.fill)]);
     if (it.textColor) out.push(["textColor", str(it.textColor)]);
@@ -422,9 +435,11 @@ class ScreenPrinter {
     }
     const tap = this.tap(it.action, it.id, at);
     if (tap) out.push(["onPress", tap]);
-    const wired = Object.entries(it.actions ?? {}).filter(([, a]) => !!a);
-    if (wired.length && !slots) this.warn("slot", "a tap on a place inside a part drawn as atoms is not kept", it.id);
-    const taps = slots ? wired.map(([slot, a]) => [slot, this.tap(a, it.id, at)] as const).filter((x): x is readonly [string, string] => !!x[1]) : [];
+    /* an event or a family of places is not printed yet: lib/export/boundary.ts reports it */
+    const wired = Object.entries(it.actions ?? {}).filter(([k, a]) => !!a && isPlaceKey(k));
+    const lost = slots === true ? [] : wired.filter(([k]) => !(slots instanceof Set && slots.has(k)));
+    if (lost.length) this.warn("slot", "a tap on a place inside a part drawn as atoms is not kept", it.id);
+    const taps = slots === true ? wired.map(([slot, a]) => [slot, this.tap(a, it.id, at)] as const).filter((x): x is readonly [string, string] => !!x[1]) : [];
     /* a part open over the screen closes once one of its places is tapped */
     const closing = close ? taps.map(([slot, f]) => [slot, `() => (${f}(), s.close(${str(close)}))`] as const) : taps;
     const all = close && !closing.some(([slot]) => slot === "dismiss") ? [...closing, ["dismiss", `() => s.close(${str(close)})`] as const] : closing;
@@ -478,8 +493,11 @@ class ScreenPrinter {
       if (def.slug === "svg" && d.key === "markup" && typeof v === "string" && v) v = svgMarkup(v, it.id) ?? "";
       const bind = it.bind?.[d.key];
       let code = expr(v);
-      if (typeof bind === "string" && bind.startsWith("=")) code = this.boundExpr(d, bind.slice(1), code, at.$);
-      else if (typeof bind === "string" && bind) {
+      if (typeof bind === "string" && bind.startsWith("=")) {
+        code = this.boundExpr(d, bind.slice(1), code, at.$);
+        /* as the app for phones says: a table is not read from data yet */
+        if (d.kind === "table") this.warn("binding", "a table bound to an expression keeps the design's rows", it.id);
+      } else if (typeof bind === "string" && bind) {
         const labels = d.key === "selected" ? listLabels(def, it) : undefined;
         code = `s.bound(${str(bind)}, ${code}${labels ? `, ${expr(labels)}` : ""})`;
       } else if (typeof v === "string" && v.includes("{{") && (d.kind === "text" || d.kind === "image")) {
@@ -497,9 +515,16 @@ class ScreenPrinter {
    *  bound to), so a condition can read it */
   input(def: PartDef, it: Item, at: At): { skip?: string; props: [string, string][] } {
     const key = INPUT_PROPS[def.slug];
-    if (!key) return { props: [] };
+    if (!key) {
+      /* a part that declares an input the kit does not wire keeps its value to itself here, and says so where it is read */
+      const own = def.input?.prop;
+      if (own && ((it.field && at.form) || (typeof it.bind?.[own] === "string" && !it.bind[own].startsWith("=")))) this.warn("input", "what is entered here does not reach its variable or form in a mini-program", it.id);
+      return { props: [] };
+    }
     const prop = kitPropName(def.slug, key);
     const values = propValues(def, it.props);
+    /* set read-only (a product's stars), it takes nothing in: only a field or a binding makes it follow something */
+    if (values.readOnly === true && !it.field && it.bind?.[key] === undefined) return { props: [] };
     const labels = key === "selected" ? listLabels(def, it) : undefined;
     const form = it.field && at.form ? at.form : undefined;
     if (form) {
@@ -510,12 +535,17 @@ class ScreenPrinter {
         this.kit.add("optionIndex");
         out.push([prop, `optionIndex(${expr(labels)}, ${h}.value(${f}))`], ["onChange", `(i: number) => ${h}.set(${f}, ${expr(labels)}[i])`]);
       } else if (key === "checked") out.push([prop, `!!${h}.value(${f})`], ["onChange", `(v: boolean) => ${h}.set(${f}, v)`]);
-      else if (def.slug === "slider") out.push([prop, `Number(${h}.value(${f}) ?? ${expr(values.value ?? 0)})`], ["onChange", `(v: number) => ${h}.set(${f}, v)`]);
+      else if (def.input?.kind === "number") out.push([prop, `Number(${h}.value(${f}) ?? ${expr(values.value ?? 0)})`], ["onChange", `(v: number) => ${h}.set(${f}, v)`]);
       else if (def.slug === "file-upload") {
         this.kit.add("PickedFile");
         out.push([prop, `${h}.value(${f}) as PickedFile | PickedFile[] | undefined`], ["onChange", `(v?: PickedFile | PickedFile[]) => ${h}.set(${f}, v)`]);
       } else out.push([prop, `${h}.text(${f})`], ["onChange", `(v: string) => ${h}.set(${f}, v)`]);
-      if (def.props.some((d) => d.key === "error") || def.slug === "select" || def.slug === "file-upload") out.push(["error", `!!${h}.error(${f})`]);
+      /* its error and message, and required as the contract says, by its field states (parts/fieldState.ts); the
+         kit's select and file upload show an error of their own */
+      const apart = (this.messagesApart ??= messagesShown(this.all)).has(`${form.id}:${it.field}`);
+      const set = formStateProps(def, { invalid: `!!${h}.error(${f})`, ...(apart ? {} : { message: `${h}.error(${f}) ?? ""` }), required: this.requiredField(form.id, it.field!) });
+      if (!set.length && (def.slug === "select" || def.slug === "file-upload")) set.push(["error", `!!${h}.error(${f})`]);
+      out.push(...set.map(([k, v]): [string, string] => [kitPropName(def.slug, k), v === true ? "true" : v]));
       return { skip: key, props: out };
     }
     if (it.field) this.warn("binding", "an input with a field outside a form is entered but sent nowhere", it.id);
@@ -530,8 +560,9 @@ class ScreenPrinter {
     return { skip: key, props: [[prop, `s.value<${typed}>(${id}, ${start}${def.slug === "file-upload" ? " as PickedFile | undefined" : ""})`], ["onChange", `s.setter(${id})`]] };
   }
 
-  /** a tree of atoms (a split) as elements, the root wearing the item's look and taps */
-  tree(n: PlainNode, at: At, root?: Item, dir = "column", stretch = false): J {
+  /** A tree of atoms (a split) as elements, the root wearing the item's look and taps. `taps` walks the tree it was
+   *  drawn from beside it, so each tap of a place lands on the atom the split gives it (lib/kits.ts `splitTaps`). */
+  tree(n: PlainNode, at: At, root?: Item, dir = "column", stretch = false, taps?: AtomTaps): J {
     const name = (NATIVE as Record<string, string>)[n.slug];
     if (!name) {
       this.kit.add("Placeholder");
@@ -544,9 +575,12 @@ class ScreenPrinter {
     if (n.textColor) props.push(["textColor", str(n.textColor)]);
     if (n.corners) props.push(["corners", expr(n.corners)]);
     if (n.look) props.push(["look", expr(cleanLook(n.look))]);
-    if (root) props.push(...this.extras(root, at, false), ["testID", str(this.names.part(root.id))]);
+    if (root) props.push(...this.extras(root, at, taps?.placed ?? false), ["testID", str(this.names.part(root.id))]);
+    const placed = taps && taps.actions.get(taps.node);
+    const tap = placed && this.tap(placed, taps.owner, at);
+    if (tap) props.push(["onPress", tap]);
     const own = (n.props.layout as string | undefined) ?? (n.slug === "box" ? "column" : "free");
-    const kids = (n.kids ?? []).map((k) => this.tree(k, at, undefined, own, n.props.align === "stretch"));
+    const kids = (n.kids ?? []).map((k, i) => this.tree(k, at, undefined, own, n.props.align === "stretch", taps && taps.node.kids?.[i] ? { ...taps, node: taps.node.kids[i] } : undefined));
     const self = el(name, props, kids);
     const across = dir !== "row" && stretch;
     const tall = dir === "row" && stretch;
@@ -563,6 +597,15 @@ class ScreenPrinter {
       this.kit.add("Placeholder");
       return el("Placeholder", [["part", str(typeof it.component === "string" ? it.component.replace(/[^\w-]+/g, "").slice(0, 60) : "")]]);
     }
+    /* a capability view is its slot (src/custom/slots), handed what the design's stand-in is and drawing it until written */
+    const slot = def.capability ? this.o.slots?.names[it.id] : undefined;
+    if (slot) {
+      this.slots.add(slot);
+      const size = this.size(it);
+      const given = Object.entries(treeOf(def, it.props).props ?? {}).filter(([k, v]) => /^[a-z][A-Za-z0-9]*$/.test(k) && k !== "className" && k !== "style" && k !== "width" && k !== "height" && (v === null || ["string", "number", "boolean", "object"].includes(typeof v)));
+      this.kit.add("Placeholder");
+      return el(slot, [...given.map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)]], [el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]])]);
+    }
     if (isNative(def.slug)) {
       const name = NATIVE[def.slug];
       this.kit.add(name);
@@ -571,17 +614,24 @@ class ScreenPrinter {
       const props = this.props(def, it, at, input.skip).filter(([k]) => !own.has(k));
       /* a form's submit is held while it submits */
       const submits = at.form && [it.action, ...Object.values(it.actions ?? {})].some((a) => a?.effects?.some((e) => e.do === "submit"));
-      if (submits && def.props.some((d) => d.key === "disabled")) {
-        const was = props.findIndex(([k]) => k === "disabled");
-        const design = was >= 0 ? props.splice(was, 1)[0][1] : "false";
-        props.push(["disabled", design === "false" ? `${at.form!.handle}.submitting` : `${at.form!.handle}.submitting || ${design}`]);
+      if (submits) {
+        /* held, and loading, by its field states (parts/fieldState.ts), as long as what the design says holds too */
+        for (const [k] of formStateProps(def, { submitting: "" })) {
+          const key = kitPropName(def.slug, k);
+          const was = props.findIndex(([x]) => x === key);
+          const design = was >= 0 ? props.splice(was, 1)[0][1] : "false";
+          props.push([key, design === "false" ? `${at.form!.handle}.submitting` : `${at.form!.handle}.submitting || ${design}`]);
+        }
       }
       return el(name, [...props, ...input.props, ...layout, ...this.extras(it, at, true, close), ["testID", str(this.names.part(it.id))]], kids);
     }
     if (def.atoms && !kids.length) {
       this.warn("atoms", `drawn as the atoms it splits into (${def.slug})`, it.id);
-      const tree = def.atoms(reader(def, it.props), kitLookOf(normalizeTheme(this.doc.theme))) as Node;
-      return this.tree(plainTree(tree, getLang()), at, it);
+      const styles = styleContext(this.doc.styles);
+      const p = reader(def, it.props);
+      const tree = def.atoms(p, kitLookOf(normalizeTheme(this.doc.theme, styles), styles)) as Node;
+      const taps = splitTaps(def, p, tree, it);
+      return this.tree(plainTree(tree, getLang()), at, it, "column", false, { node: tree, actions: taps.actions, placed: taps.placed, owner: it.id });
     }
     this.kit.add("Placeholder");
     this.warn(kids.length ? "holder" : "placeholder", `${def.slug} has no component in the mini-program kit`, it.id);
@@ -672,6 +722,14 @@ class ScreenPrinter {
     if (run.expandedFrom !== undefined && parent) return this.instance(run, at);
     const asked = parent ? this.cell(run, parent, origin) : [];
     const boxed = (j: J): J => (asked.length ? (this.kit.add("Cell"), el("Cell", asked, [j])) : j);
+    /* a split view: the kit's, its two panes in it, each a box filling its pane (both show: no tab's visibility rule) */
+    if (run.items.length === 1 && splitOf(run)) {
+      const it = run.items[0];
+      const panes = panesOfSplit(this.all, run.id);
+      const held = PANE_SIDES.flatMap((side) => (panes[side] ? [this.flow(panes[side]!, at, undefined, { x: panes[side]!.x, y: panes[side]!.y })] : []));
+      const kept: [string, string][] = it.props?.persist === true ? [["persistKey", str(`m3e-split:${it.id}`)]] : [];
+      return this.shown(run, at, boxed(this.part(it, at, held, kept)));
+    }
     const flow = run.items.length === 1 ? flowOf(run) : null;
     if (!flow) {
       if (run.items.length === 1) return this.shown(run, at, boxed(this.part(run.items[0], at)));
@@ -729,6 +787,16 @@ class ScreenPrinter {
     if (st.emptyWhen) this.uses$ = true;
     this.hooks.push(`const ${name} = regionOf(${src ? identOf(src.name) : "undefined"}, { ${regionOptions(src?.load, st.emptyWhen, at.$, true).join(", ")} });`);
     return name;
+  }
+
+  /** the fields whose error the design shows in a line of its own, by `<form id>:<field>` */
+  messagesApart?: Set<string>;
+
+  /** whether a form's contract requires one of its fields */
+  requiredField(formId: string, field: string): boolean {
+    const g = this.all.find((x) => x.id === formId);
+    const e = g?.form ? endpointOf(this.api, g.form.operationId) : undefined;
+    return !!e && !!formRules(this.api, e)[field]?.required;
   }
 
   /** a form over an operation's body: its hook at the top of the screen, and the scope its parts read */
@@ -813,7 +881,7 @@ class ScreenPrinter {
   /** the screen's body: every run on it, the bars pinned to their edge */
   body(): J[] {
     const at: At = { $: "$" };
-    const hosts = new Set(this.all.filter((r) => flowOf(r)).map((r) => r.id));
+    const hosts = new Set(this.all.filter((r) => flowOf(r) || splitOf(r)).map((r) => r.id));
     const runs = [...this.all].sort((a, b) => a.y - b.y || a.x - b.x);
     const { h } = frameSizeOf(this.frame);
     const out: J[] = [];
@@ -881,7 +949,9 @@ export function identOf(name: string): string {
 
 /** Every screen of a document as Taro code on the kit, read in the document's own styles */
 export function printMiniScreens(source: Doc, widths: Record<string, number>, o: MiniPrintOptions = {}): MiniScreens {
-  return withDocStyles(source.styles, () => screensOf(source, widths, o));
+  /* what the printer calls further down (the layout, the parts) may read a style without being handed one: the
+     document's are in reach for this one synchronous call */
+  return withDocStyles(styleContext(source.styles), () => screensOf(source, widths, o));
 }
 
 /** the screens a pinned navigation bar switches between: the tabs of the app's tab bar */
@@ -1003,6 +1073,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
       ...(runtimeValues.length || runtimeTypes.length ? [`import { ${[...runtimeValues, ...runtimeTypes.sort().map((t) => `type ${t}`)].join(", ")} } from ${str(runtimeImport)};`] : []),
       `import { ${[...kitValues, ...kitTypes.sort().map((t) => `type ${t}`)].join(", ")} } from ${str(kitImport)};`,
       ...(p.usesCalls ? [`import { CALLS } from ${str(o.callsImport ?? "../calls")};`] : []),
+      ...(p.slots.size && o.slots ? [`import { ${[...p.slots].sort().join(", ")} } from ${str(o.slots.from)};`] : []),
       ...(usesBody ? ['import { TabBar } from "../tabBar";'] : []),
     ];
     const src = [
@@ -1034,6 +1105,10 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
     };
   });
   const flows = frames.filter((f) => typeof f.flow === "string" && f.flow).map((f) => ({ name: f.flow!, screen: screens.keys.get(f.id)! }));
+  /* what of the document's style a mini-program does not draw (lib/styles/support.ts), with the screens it touches */
+  const styles = styleContext(source.styles);
+  const kinds = frames.map((f): StyleScreen => ({ name: f.name, slugs: kindsIn(groupsOf(f)) }));
+  warnings.push(...styleDifferences({ theme: normalizeTheme(doc.theme, styles), styles, docStyles: source.styles, screens: kinds }, "miniapp"));
   let tabBar: MiniTabBar | undefined;
   if (tab.bar) {
     const def = partBySlug("navigation-bar")!;

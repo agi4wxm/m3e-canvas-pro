@@ -1,4 +1,5 @@
 
+import { capabilityCalls } from "@/lib/capabilities/doc";
 import {
   lazy,
   Suspense,
@@ -71,7 +72,7 @@ import { PANEL_FADE_H } from "@/components/ui";
 import { generateImage, loadAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
 import { maxFrameLength } from "@/lib/tidy";
 import { joinTargetOf } from "@/lib/combine";
-import { flowHostAt, flowOf, showingGroups } from "@/lib/flow";
+import { flowHostAt, flowOf, ownSize, paneClips } from "@/lib/flow";
 import { targetRects } from "@/lib/guides";
 import { InsertionMark, SmartGuides } from "@/components/SmartGuides";
 import { expandInstances } from "@/lib/instances";
@@ -92,11 +93,13 @@ import { DropCover, FileConflictDialog, OpenFileDialog, ProjectMenu, ProjectPill
 import { LoadingIndicator } from "@/components/Loading";
 import { ShortcutsSheet } from "@/components/ShortcutsSheet";
 import { LayoutHandles } from "@/components/LayoutHandles";
+import { SplitHandles, type SplitHandle } from "@/components/SplitHandles";
+import { panesOfSplit, shareRange, splitOf, splitSizes } from "@/lib/split";
 import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
-import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
-import { artOf, isStrict, screenBackground, setDocStyles } from "@/lib/styles";
+import { DocStylesProvider, PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
+import { artOf, isStrict, screenBackground, styleContext } from "@/lib/styles";
 import { StyleGate, StylePanel } from "@/components/StylePanel";
 import { partBySlug, reader } from "@/parts/registry";
 import { kitOfKey } from "@/parts/kits";
@@ -116,7 +119,7 @@ import { useProject } from "./editor/useProject";
 import { useShortcuts } from "./editor/useShortcuts";
 import { seed, SEED_FRAMES } from "./editor/seed";
 import { ThinkingRing } from "./editor/ThinkingRing";
-import { drawnParts, renderExport, renderGroup as drawGroup, type GroupView } from "./editor/render";
+import { drawnParts, renderExport, renderGroup as drawGroup, type GroupActs, type GroupView } from "./editor/render";
 import { useGap } from "./editor/useGap";
 import { useGuides } from "./editor/useGuides";
 import { useNotes } from "./editor/useNotes";
@@ -152,6 +155,8 @@ import { usePhoneLayout } from "./editor/usePhoneLayout";
 import { usePanels } from "./editor/usePanels";
 import { useOutsideImages } from "./editor/useOutsideImages";
 import { OutsideBanner } from "@/components/OutsideBanner";
+import { RetiredBanner } from "@/components/RetiredBanner";
+import { retireText } from "@/lib/i18n/retire";
 import { isOutside } from "@/lib/outside";
 import { useRememberUi } from "./editor/useRememberUi";
 import {
@@ -181,8 +186,14 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
    * the selection and the measures, and the history. Everything here reads it and changes it through it. */
   const [store] = useState(() => editorStore(seed(initialLang), [{ ...SEED_FRAMES[0], name: t("home", initialLang) }]));
   const { state: core, history } = useStore(store);
-  /* the document's own styles in reach (lib/styles/book.ts) before anything below reads a style by its key */
-  setDocStyles(core.doc.styles);
+  /* a document a newer version of the editor wrote is shown read-only, never written back (lib/project.ts `Loaded.newer`) */
+  const newerFormat = store.readOnlyVersion();
+  useEffect(() => {
+    if (newerFormat !== null) setEditAccess("readonly");
+  }, [newerFormat]);
+  /* what a style's key is read against here: the document's own styles, handed to everything drawn below
+     (DocStylesProvider); the store keeps them in reach for the code that is not handed them (src/editor/store.ts) */
+  const docStyles = styleContext(core.doc.styles);
   const { groups, frames, paletteKey, theme, vars, components, collections, frame } = core.doc;
   const customPalette = core.doc.customPalette ?? null;
   const dynamicColor = !!core.doc.dynamicColor;
@@ -299,7 +310,6 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const layersRef = useRef<LayerTree | null>(null);
   /** the row under the pointer in the layers panel, outlined on the canvas */
   const [hoverLayer, setHoverLayer] = useState<string | null>(null);
-  const measureEls = useRef<Map<string, HTMLElement>>(new Map());
   const dragRef = useRef<DragState | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
   const groupsRef = useRef(groups);
@@ -392,7 +402,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
 
   /* ---------- ai ---------- */
   /* the author's model writing a field or painting a scene (src/editor/useAi.ts) */
-  const { aiSettings, setAiSettings, updateAiSettings, aiReady, aiBusy, aiFrameId, runAi, cancelAi, canPaint, paintingScene, sceneItem, paintScenes, stopPainting } = useAi({ store, lang, theme, doc, groupsRef, widthsRef, snapshot, setGroups, setFrames, showToast, showAiNote });
+  const { aiSettings, setAiSettings, updateAiSettings, aiReady, aiBusy, aiFrameId, runAi, cancelAi, canPaint, paintingScene, sceneItem, paintScenes, stopPainting } = useAi({ store, lang, theme, doc, groupsRef, widthsRef, didOp, showToast, showAiNote });
 
   /* ---------- persistence ---------- */
   /** What a whole document arriving does to what was open over the one it replaces: the preview closes (or an opening
@@ -464,10 +474,6 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
 
   /* the editor's own settings written down as they change (src/editor/useRememberUi.ts) */
   useRememberUi({ loadedRef, view, leftOpen, rightOpen, leftW, rightW, favorites, mode, lang, showAllLinks, p, frame, projectId: loaded && persist instanceof ProjectsPersist ? persist.id : null });
-
-  /* ---------- measurement ---------- */
-  /* every part measured as drawn; screens whose parts came out another size laid out again by what they came to */
-  const { retidyRef, freshFramesRef, newPhoneRef } = useMeasure({ store, measureEls, groupsRef, framesRef, widthsRef, themeRef });
 
   /* ---------- coordinates ---------- */
   /* only the open left panel accepts a drop for deletion; the narrow rail never does */
@@ -556,6 +562,10 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const { lengthRun, setFrameLength, lengthDragId, onLengthHandleDown, onLengthHandleKey } = useScreenLength({ store, didOp, framesRef, groupsRef, viewRef, tidyRef });
   /* instances, repeats and container layouts worked out, and the screen each part is on (src/editor/useCanvasView.ts) */
   const { canvas, allItems, offTab, startsHidden, frameOf, screenByItem } = useCanvasView({ carrying, groups, frames, frame, components, collections, widths, drag, instantRef, tidyRef, lengthRun, setGroups });
+
+  /* ---------- measurement ---------- */
+  /* the parts measured as drawn, only those drawn anew; screens whose parts came out another size laid out again by what they came to */
+  const { measureRef, retidyRef, freshFramesRef, newPhoneRef } = useMeasure({ store, items: allItems, screens: screenByItem, groupsRef, framesRef, themeRef });
 
   /* ---------- editing ---------- */
   /* what the selection is, read off the document (src/editor/useSelection.ts) */
@@ -681,6 +691,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const project = useProject({ store, persist, docRef, framesRef, lang, loaded, editable: editAccess === "editable", frameThumb, importDoc, pickFallback: () => projectFileRef.current?.click(), showToast });
   /* pictures from other sites in a project from elsewhere wait for the author to allow them */
   const outside = useOutsideImages(store, persist);
+  /* an old design's retired parts are split into atoms only when the author asks, in one step (components/RetiredBanner.tsx) */
+  const splitRetired = () => {
+    const out = runOp(ops.splitRetired, {}, { history: "step", refused: () => {} });
+    if (out) showToast(retireText("splitDone", lang).replace("{n}", String(out.split.length)));
+  };
 
   /* the in-app agent: its eyes (src/editor/useScreenshots.ts), its conversation and turns (src/editor/useAgent.ts) */
   const { shotFrame, shotDoc, shotWidths, renderer: shotRenderer } = useScreenshots(store);
@@ -872,22 +887,16 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     return null;
   }, [primaryId, selectedIds, groups]);
 
-  /* the same elements while nothing in them changes, so that a drag does not attach every ref again on each move */
+  /* the same elements while nothing in them changes; each box keeps its own ref (src/editor/useMeasure.ts), so the layer
+   * drawn again takes no box out and puts none back */
   const measuringLayer = useMemo(
     () =>
       allItems.map((it) => (
-        <div
-          key={it.id}
-          ref={(el) => {
-            if (el) measureEls.current.set(it.id, el);
-            else measureEls.current.delete(it.id);
-          }}
-          style={{ display: "inline-flex", boxSizing: "border-box" }}
-        >
+        <div key={it.id} ref={measureRef(it.id)} style={{ display: "inline-flex", boxSizing: "border-box" }}>
           <PartView item={it} screen={screenByItem.get(it.id)} />
         </div>
       )),
-    [allItems, screenByItem],
+    [allItems, screenByItem, measureRef],
   );
 
   /* the Layers panel: the screen it lists and what its rows do (src/editor/useLayers.ts) */
@@ -895,6 +904,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   selectAllRef.current = selectAll;
   layersRef.current = layers;
 
+  /** what a press on a part of the canvas does: groups that are not drawn again still reach the current handlers */
+  const groupActs = useRef<GroupActs>({ onItemPointerDown, editDefinition });
   /** a run or a free group on the canvas, drawn as src/editor/render.tsx says */
   const renderGroup = (g: Group, ox: number, oy: number, screen?: { w: number; h: number }) => drawGroup(g, ox, oy, screen, groupView);
 
@@ -951,14 +962,34 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     const kids = groups.filter((g) => g.inFlow === group.id && !offTab.has(g.id) && !(g.items.length === 1 && g.items[0].flowAbsolute)).map((g) => groupBounds(g, widths));
     return { group, flow, box: groupBounds(group, widths), kids };
   })();
-  const groupView: GroupView = { instantRef, selectedSet, startsHidden, widths, canvas, p, handMode, onItemPointerDown, view, gapOut, widthShift, pressedId, widthDragId, editDefinition };
+  groupActs.current = { onItemPointerDown, editDefinition };
+  const clips = useMemo(() => paneClips(groups, widths), [groups, widths]);
+  /* the dividers of the split view selected, and of every split view the selection is in */
+  const splitHandles = ((): SplitHandle[] => {
+    if (isMobile || selectedIds.length !== 1 || !selected) return [];
+    const byId = new Map(groups.map((g) => [g.id, g]));
+    const out: SplitHandle[] = [];
+    let at = groups.find((g) => g.items.some((it) => it.id === selected.id));
+    for (let i = 0; at && i < 32; at = at.inFlow ? byId.get(at.inFlow) : undefined, i++) {
+      const sp = at.locked || offTab.has(at.id) ? null : splitOf(at);
+      if (!sp) continue;
+      const s = ownSize(at, widths);
+      const length = sp.vertical ? s.h : s.w;
+      const sizes = splitSizes(sp, length);
+      const panes = panesOfSplit(groups, at.id);
+      out.push({ id: at.items[0].id, box: { l: at.x, t: at.y, r: at.x + s.w, b: at.y + s.h }, split: sp, share: sp.share, at: Math.round(sizes.first), range: shareRange(sp, length), names: [panes.first?.name ?? "1", panes.second?.name ?? "2"], folded: sizes.collapsed !== null });
+    }
+    return out;
+  })();
+  const groupView: GroupView = { instantRef, selectedSet, startsHidden, widths, canvas, p, handMode, acts: groupActs, view, gapOut, widthShift, pressedId, widthDragId, clips };
 
   return (
     <LangContext.Provider value={lang}>
+    <DocStylesProvider styles={docStyles} icons={theme.icons ?? "rounded"}>
     <PartThemeContext.Provider value={partTheme}>
     <BehaviorContext.Provider value={behavior}>
     <BindingsContext.Provider value={bindingsPanel}>
-    <StyleRulesContext.Provider value={isStrict(theme)}>
+    <StyleRulesContext.Provider value={isStrict(theme, docStyles)}>
       <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
       <PartStyleSheet theme={theme} />
       <div
@@ -980,6 +1011,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         {/* hidden measuring layer for text-sized kinds */}
         <div
           aria-hidden
+          data-measure-layer=""
           style={{
             position: "fixed",
             left: -99999,
@@ -1200,7 +1232,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                 ) : leftTab === "mocks" ? (
                   <Suspense fallback={null}>
                     {/* the mock library: how the API answers while the product is designed (components/MocksPanel.tsx) */}
-                    <MocksPanel p={p} api={core.doc.api} mocks={core.doc.mocks} collections={collections ?? []} run={runApi} paint={canPaint ? (prompt) => generateImage(aiSettings, `${prompt}. No text, letters, logos or user interface in the picture.`, { w: 640, h: 480 }) : null} />
+                    <MocksPanel p={p} api={core.doc.api} mocks={core.doc.mocks} collections={collections ?? []} run={runApi} capabilities={capabilityCalls(core.doc)} paint={canPaint ? (prompt) => generateImage(aiSettings, `${prompt}. No text, letters, logos or user interface in the picture.`, { w: 640, h: 480 }) : null} />
                   </Suspense>
                 ) : leftTab === "data" ? (
                   <DataPanel
@@ -1275,13 +1307,9 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                     }}
                     onSelect={(ids, how) => {
                       setSelectedIds((cur) => (how === "toggle" ? (ids.every((x) => cur.includes(x)) ? cur.filter((x) => !ids.includes(x)) : [...cur.filter((x) => !ids.includes(x)), ...ids]) : ids));
-                      /* picked on a dock's other tab: the dock comes round to it, or there would be no ring and nothing to work on */
-                      const picked = new Set(groupsRef.current.filter((g) => g.items.some((it) => ids.includes(it.id))).map((g) => g.id));
-                      const showing = showingGroups(groupsRef.current, picked, widthsRef.current);
-                      if (showing !== groupsRef.current) {
-                        snapshot();
-                        setGroups(showing);
-                      }
+                      /* picked on a dock's other tab: the dock comes round to it, or there would be no ring and nothing to work on;
+                       * one step, as `show_nodes` is for the agent (one already showing is nothing to do) */
+                      runOp(ops.showNodes, { ids }, { refused: () => {} });
                       setSelectedFrameId(null);
                       setSelectedLinkId(null);
                       setRightTab("edit");
@@ -1368,7 +1396,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
               {frame === "phone" &&
                 frames.map((f) => {
                   const on = f.id === selectedFrameId;
-                  const bg = screenBackground(p[f.bg ?? "surface"], theme);
+                  const bg = screenBackground(p[f.bg ?? "surface"], theme, docStyles);
                   const { w, h: fold } = frameSizeOf(f);
                   const h = frameLengthOf(f);
                   const radius = frameRadius(f);
@@ -1567,6 +1595,22 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                       else props[k] = v;
                     }
                     runOp(ops.setItem, { id: it.id, patch: { props } }, { history: { coalesce: `spacing:${it.id}:${key}` } });
+                  }}
+                />
+              )}
+
+              {/* the dividers of the split views the selection is or is in, pulled on the canvas (components/SplitHandles.tsx) */}
+              {!handMode && !drag && !gesture && splitHandles.length > 0 && (
+                <SplitHandles
+                  handles={splitHandles}
+                  z={view.z}
+                  p={p}
+                  onChange={(id, share, step) => runOp(ops.setSplit, { id, split: share }, { history: { coalesce: `split:${id}:${step}` } })}
+                  onFold={(id, folded) => {
+                    const h = splitHandles.find((x) => x.id === id);
+                    /* a pane folded by its share alone unfolds to its least */
+                    const share = !folded && h && !h.split.collapsed ? (h.split.collapsible === "first" ? h.range.min : h.range.max) : undefined;
+                    runOp(ops.setSplit, { id, collapsed: folded, ...(share !== undefined ? { split: Math.round(share * 100) / 100 } : {}) }, { history: "step" });
                   }}
                 />
               )}
@@ -2001,6 +2045,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
           </AnimatePresence>
 
           {outside.show && <OutsideBanner p={p} lang={lang} onAllow={outside.allow} onLater={outside.later} />}
+          {editAccess === "editable" && previewId === null && <RetiredBanner p={p} lang={lang} groups={doc.groups} design={(loaded && persist instanceof ProjectsPersist ? persist.id : null) ?? "doc"} top={outside.show ? 148 : 76} onSplit={splitRetired} />}
           {toast && (
             <div
               role="status"
@@ -2202,7 +2247,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   shared={sharedSelection}
                   onEach={setEachSelected}
                   onExport={selectedPartFrame ? exportSelected : undefined}
-                  strict={isStrict(theme)}
+                  strict={isStrict(theme, docStyles)}
                   partTab={partTab}
                   onPartTab={setPartTab}
                 />
@@ -2388,11 +2433,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
             >
               <Icon name="lock" size={28} />
               {/* read-only from the start (another tab holds the project), or since another tab saved it over this one's edits */}
-              <h1 id="edit-access-title" data-edit-conflict={project.save?.status === "conflict" ? "" : undefined} style={{ margin: "16px 0 8px", fontSize: 22, lineHeight: 1.25 }}>
-                {t(project.save?.status === "conflict" ? "conflictTabTitle" : "readOnlyTitle", lang)}
+              <h1 id="edit-access-title" data-edit-conflict={project.save?.status === "conflict" ? "" : undefined} data-newer-doc={newerFormat !== null ? newerFormat : undefined} style={{ margin: "16px 0 8px", fontSize: 22, lineHeight: 1.25 }}>
+                {t(newerFormat !== null ? "newerDocTitle" : project.save?.status === "conflict" ? "conflictTabTitle" : "readOnlyTitle", lang)}
               </h1>
               <p style={{ margin: 0, color: p.onSurfaceVariant, fontSize: 14, lineHeight: 1.5 }}>
-                {t(project.save?.status === "conflict" ? "conflictTabBody" : "readOnlyBody", lang)}
+                {newerFormat !== null ? t("newerDocBody", lang).replace("{version}", String(newerFormat)) : t(project.save?.status === "conflict" ? "conflictTabBody" : "readOnlyBody", lang)}
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, marginTop: 24 }}>
                 {project.save?.status === "conflict" && (
@@ -2440,6 +2485,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     </BindingsContext.Provider>
     </BehaviorContext.Provider>
     </PartThemeContext.Provider>
+    </DocStylesProvider>
     </LangContext.Provider>
   );
 }

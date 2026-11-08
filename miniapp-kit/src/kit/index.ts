@@ -11,6 +11,7 @@ export { Alert, Card, ListItem, Snackbar } from "./composites/content";
 export { DatePicker, FileUpload, Menu, RadioGroup, SegmentedButton, Select, TextField, TimePicker, pickFiles, type PickedFile } from "./composites/forms";
 export { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 export { Placeholder } from "./Placeholder";
+export { SplitView, type SplitViewProps } from "./split";
 export { At, Layer, Pin, Screen, ThemeRoot, chrome, useChrome, type Chrome } from "./screen";
 export { Glyph, base64, glyphFor, hasGlyph, registerIcons, svgUrl, type IconData } from "./icons";
 export { Surface, tagOf } from "./Surface";

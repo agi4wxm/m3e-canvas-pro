@@ -14,6 +14,8 @@ export const EXPORT_SOURCE_GLOBS = [
   "/lib/api/types.ts",
   "/lib/api/schema.ts",
   "/lib/api/transport.ts",
+  "/lib/api/body.ts",
+  "/lib/capabilities/{types,catalog,registry,mock}.ts",
   "/miniapp-kit/src/kit/*.{ts,tsx,css}",
   "/miniapp-kit/src/kit/app/*.{ts,tsx}",
   "/miniapp-kit/src/kit/atoms/*.tsx",

@@ -1,4 +1,5 @@
 import { MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, transitionOf, type Action, type ActionBody, type Frame, type Motion, type Transition, type Trigger } from "./tokens";
+import { fields, withUnknown } from "./keep";
 
 /* The prototype the way Figma has it, over the taps the document always had: what starts an interaction (a tap, the
  * pointer coming over a part, time since its screen showed), what it does (go to a screen, lay one over the screen on
@@ -13,22 +14,28 @@ const oneOf = <T extends string>(v: unknown, list: readonly T[]): T | undefined 
 /** the longest an animation or a delay runs, in ms */
 export const MAX_MS = 10_000;
 
-/** a motion as the document keeps it, or nothing when it is no motion */
-export function cleanMotion(v: unknown): Motion | undefined {
+const MOTION = fields("kind", "dir", "easing", "ms");
+const TRIGGER = fields("on", "ms");
+
+/** a motion as the document keeps it, or nothing when it is no motion; read from a document (`keep`), what it holds
+ *  that this version does not know stays, and printed or checked it is only what is known of it */
+export function cleanMotion(v: unknown, keep = false): Motion | undefined {
   if (!isRecord(v)) return undefined;
   const kind = oneOf(v.kind, MOTION_KINDS);
   if (!kind) return undefined;
   const dir = oneOf(v.dir, MOTION_DIRS);
   const easing = oneOf(v.easing, MOTION_EASINGS);
   const ms = typeof v.ms === "number" && Number.isFinite(v.ms) ? Math.max(0, Math.min(MAX_MS, Math.round(v.ms))) : undefined;
-  return { kind, ...(dir && kind !== "instant" && kind !== "dissolve" ? { dir } : {}), ...(easing && kind !== "instant" ? { easing } : {}), ...(ms !== undefined && kind !== "instant" ? { ms } : {}) };
+  const built: Motion = { kind, ...(dir && kind !== "instant" && kind !== "dissolve" ? { dir } : {}), ...(easing && kind !== "instant" ? { easing } : {}), ...(ms !== undefined && kind !== "instant" ? { ms } : {}) };
+  return keep ? withUnknown(v, built, MOTION) : built;
 }
 
-/** a trigger as the document keeps it, or nothing when it is none */
-export function cleanTrigger(v: unknown): Trigger | undefined {
+/** a trigger as the document keeps it, or nothing when it is none; `keep` as for a motion */
+export function cleanTrigger(v: unknown, keep = false): Trigger | undefined {
+  const out = (t: Trigger) => (keep ? withUnknown(v, t, TRIGGER) : t);
   if (!isRecord(v)) return undefined;
-  if (v.on === "hover") return { on: "hover" };
-  if (v.on === "delay" && typeof v.ms === "number" && Number.isFinite(v.ms)) return { on: "delay", ms: Math.max(0, Math.min(MAX_MS, Math.round(v.ms))) };
+  if (v.on === "hover") return out({ on: "hover" });
+  if (v.on === "delay" && typeof v.ms === "number" && Number.isFinite(v.ms)) return out({ on: "delay", ms: Math.max(0, Math.min(MAX_MS, Math.round(v.ms))) });
   return undefined;
 }
 

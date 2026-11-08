@@ -13,6 +13,8 @@ import { controlRadius, corner, extra, pillRadius, recipeOf, typeStyle, useKit, 
 import { useValue } from "../value";
 import type { PartBase } from "./basics";
 import { Words } from "./words";
+import { Spinner } from "./indicators";
+import { starred, withField, type FieldProps } from "../field";
 
 /* The controls: buttons, a toggle, chips, a switch, a check box, a radio button, a slider, inputs, a label, a link and a
  * rating. Each holds its own state from the value the design gives it, or the one it is handed with `onChange` (a form,
@@ -96,6 +98,12 @@ export type ButtonProps = PartBase & {
   onIcon?: string;
   onLabel?: string;
   onLook?: string;
+  /** a toggle that starts on */
+  pressed?: boolean;
+  /** what it started is under way: a spinner where its icon was, and it cannot be pressed again */
+  loading?: boolean;
+  /** what a screen reader calls it where its words do not say (an icon only) */
+  ariaLabel?: string;
 };
 
 /** A button: M3 Expressive's sizes and variants under the style's corners and recipe. As a toggle it holds its state. */
@@ -103,11 +111,12 @@ export function Button(props: ButtonProps) {
   const p = withDefaults<ButtonProps>("button", props);
   const kit = useKit();
   const fill = useFill();
-  const [on, setOn] = useState(false);
+  const [on, setOn] = useState(!!p.pressed);
   const size = SIZES[p.size ?? "sm"] ?? SIZES.sm;
   const lit = p.toggle && on;
   const variant = lit && p.onLook && p.onLook !== "same" ? p.onLook : (p.variant ?? "filled");
-  const look = buttonColors(kit, variant, !!p.disabled);
+  const held = !!p.disabled || !!p.loading;
+  const look = buttonColors(kit, variant, held);
   const label = lit && p.onLabel ? p.onLabel : p.label;
   const icon = lit && p.onIcon ? p.onIcon : p.icon;
   const iconOnly = !label && !!icon;
@@ -126,18 +135,18 @@ export function Button(props: ButtonProps) {
     ...look.box,
     ...(!iconOnly && p.width !== 96 && p.width !== undefined ? { width: Math.round(p.width) } : null),
     ...(iconOnly ? { width: p.iconWidth === "narrow" ? Math.round(size.h * 0.8) : p.iconWidth === "wide" ? Math.round(size.h * 1.3) : size.h } : null),
-    ...(p.disabled ? { pointerEvents: "none" } : null),
+    ...(held ? { pointerEvents: "none" } : null),
     ...fill,
   };
-  const press = p.disabled
+  const press = held
     ? undefined
     : () => {
         if (p.toggle) setOn((v) => !v);
         p.onPress?.();
       };
   return (
-    <Surface base={base} appearance={p} onPress={press ?? (() => {})} testID={p.testID} label={label || icon} ink={look.ink}>
-      {icon ? <Glyph name={icon} size={size.icon} filled={!!lit} color={look.ink} /> : null}
+    <Surface base={base} appearance={p} onPress={press ?? (() => {})} testID={p.testID} label={label || p.ariaLabel || icon} ink={look.ink}>
+      {p.loading ? <Spinner size="sm" /> : icon ? <Glyph name={icon} size={size.icon} filled={!!lit} color={look.ink} /> : null}
       {label ? <Words text={label} lines={1} style={merge(typeStyle(kit, size.type), { color: inkCss(look.ink) }, look.weight ? { fontWeight: look.weight } : null, capsOf(kit))} /> : null}
       {label && p.trailingIcon ? <Glyph name={p.trailingIcon} size={size.icon} color={look.ink} /> : null}
     </Surface>
@@ -146,25 +155,26 @@ export function Button(props: ButtonProps) {
 
 const ICON_SIZES: Record<string, { side: number; icon: number }> = { xs: { side: 32, icon: 20 }, sm: { side: 40, icon: 24 }, default: { side: 40, icon: 24 }, md: { side: 56, icon: 24 }, lg: { side: 96, icon: 32 }, xl: { side: 136, icon: 40 } };
 
-export type IconButtonProps = PartBase & { icon?: string; label?: string; variant?: "filled" | "tonal" | "elevated" | "outlined" | "text" | "ghost"; size?: string; disabled?: boolean; iconFill?: boolean };
+export type IconButtonProps = PartBase & { icon?: string; label?: string; variant?: "filled" | "tonal" | "elevated" | "outlined" | "text" | "ghost"; size?: string; disabled?: boolean; iconFill?: boolean; loading?: boolean; ariaLabel?: string };
 
 export function IconButton(props: IconButtonProps) {
   const p = withDefaults<IconButtonProps>("icon-button", props);
   const kit = useKit();
   const s = ICON_SIZES[p.size ?? "default"] ?? ICON_SIZES.default;
   const variant = p.variant ?? "text";
-  const look = buttonColors(kit, variant, !!p.disabled);
-  const ink = variant === "ghost" && !p.disabled ? "on-surface-variant" : look.ink;
+  const held = !!p.disabled || !!p.loading;
+  const look = buttonColors(kit, variant, held);
+  const ink = variant === "ghost" && !held ? "on-surface-variant" : look.ink;
   return (
-    <Surface base={{ ...ROW, width: s.side, height: s.side, borderRadius: pillRadius(kit, s.side), justifyContent: "center", flexShrink: 0, ...look.box }} appearance={p} onPress={p.disabled ? undefined : (p.onPress ?? (() => {}))} testID={p.testID} label={p.label || p.icon}>
-      {p.icon ? <Glyph name={p.icon} size={s.icon} filled={!!p.iconFill} color={ink} /> : null}
+    <Surface base={{ ...ROW, width: s.side, height: s.side, borderRadius: pillRadius(kit, s.side), justifyContent: "center", flexShrink: 0, ...look.box }} appearance={p} onPress={held ? undefined : (p.onPress ?? (() => {}))} testID={p.testID} label={p.ariaLabel || p.label || p.icon}>
+      {p.loading ? <Spinner size="sm" /> : p.icon ? <Glyph name={p.icon} size={s.icon} filled={!!p.iconFill} color={ink} /> : null}
     </Surface>
   );
 }
 
 const TOGGLE_SIZES: Record<string, number> = { xs: 32, sm: 36, default: 40, md: 48, lg: 56 };
 
-export type ToggleProps = PartBase & { icon?: string; label?: string; variant?: string; size?: string; shape?: "round" | "square"; pressed?: boolean; disabled?: boolean };
+export type ToggleProps = PartBase & { icon?: string; label?: string; variant?: string; size?: string; shape?: "round" | "square"; pressed?: boolean; disabled?: boolean; ariaLabel?: string };
 
 /** a button that stays pressed: tonal while on, its icon filled */
 export function Toggle(props: ToggleProps) {
@@ -187,7 +197,7 @@ export function Toggle(props: ToggleProps) {
             }
       }
       testID={p.testID}
-      label={p.label || p.icon}
+      label={p.label || p.ariaLabel || p.icon}
     >
       {p.icon ? <Glyph name={p.icon} size={24} filled={on} color={ink} /> : null}
       {p.label ? <Words text={p.label} style={{ ...typeStyle(kit, "label-large"), color: c(ink) }} /> : null}
@@ -199,7 +209,7 @@ export function Toggle(props: ToggleProps) {
 
 const CHIP_H: Record<string, number> = { default: 32, md: 40, lg: 48 };
 
-export type ChipProps = PartBase & { items?: ListRow[]; kind?: "assist" | "filter" | "input"; selected?: number; variant?: "flat" | "elevated"; size?: string; onChange?: (i: number) => void };
+export type ChipProps = PartBase & { items?: ListRow[]; kind?: "assist" | "filter" | "input"; selected?: number; variant?: "flat" | "elevated"; size?: string; disabled?: boolean; onChange?: (i: number) => void };
 
 /** a row of chips: assist, filter (one chosen) or input (each with a close) */
 export function Chip(props: ChipProps) {
@@ -211,7 +221,7 @@ export function Chip(props: ChipProps) {
   const radius = recipe === "pill" ? h / 2 : recipe === "tag" ? corner(kit, "xs") : Math.min(corner(kit, "sm"), controlRadius(kit, h));
   const items = p.items ?? [];
   return (
-    <View {...tagOf(p.testID)} style={sx(ROW, { flexWrap: "wrap", gap: 8 })}>
+    <View {...tagOf(p.testID)} style={sx(ROW, { flexWrap: "wrap", gap: 8 }, p.disabled ? { opacity: 0.38, pointerEvents: "none" } : null)}>
       {items.map((it, i) => {
         const on = p.kind === "filter" && i === chosen;
         const bg = extraColor(kit, "chipBg");
@@ -300,22 +310,23 @@ export function SwitchTrack({ on, small, disabled }: { on: boolean; small: boole
   );
 }
 
-export type SwitchProps = PartBase & { label?: string; checked?: boolean; size?: "default" | "sm"; disabled?: boolean; width?: number; onChange?: (on: boolean) => void };
+export type SwitchProps = PartBase & FieldProps & { label?: string; checked?: boolean; size?: "default" | "sm"; disabled?: boolean; error?: boolean; width?: number; onChange?: (on: boolean) => void };
 
 export function Switch(props: SwitchProps) {
   const p = withDefaults<SwitchProps>("switch", props);
   const kit = useKit();
   const fill = useFill();
   const [on, setOn] = useValue(!!p.checked, p.onChange);
-  return (
+  return withField(
+    p,
     <Surface
       base={{ ...ROW, columnGap: 12, alignSelf: "flex-start", ...fill }}
       appearance={p}
       role="switch"
-      label={p.label}
+      label={p.label || p.ariaLabel}
       testID={p.testID}
       onPress={
-        p.disabled
+        p.disabled || p.readOnly
           ? undefined
           : () => {
               setOn(!on);
@@ -323,9 +334,9 @@ export function Switch(props: SwitchProps) {
             }
       }
     >
-      {p.label ? <Words text={p.label} style={{ ...typeStyle(kit, "body-large"), color: c("on-surface"), flexShrink: 1, flexGrow: fill.width ? 1 : 0 }} /> : null}
+      {p.label ? <Words text={starred(p.label, p.required)} style={{ ...typeStyle(kit, "body-large"), color: c(p.error ? "error" : "on-surface"), flexShrink: 1, flexGrow: fill.width ? 1 : 0 }} /> : null}
       <SwitchTrack on={on} small={p.size === "sm"} disabled={!!p.disabled} />
-    </Surface>
+    </Surface>,
   );
 }
 
@@ -356,21 +367,22 @@ export function CheckMark({ on, mixed, error, disabled }: { on: boolean; mixed?:
   );
 }
 
-export type CheckboxProps = PartBase & { label?: string; checked?: boolean; indeterminate?: boolean; error?: boolean; disabled?: boolean; onChange?: (on: boolean) => void };
+export type CheckboxProps = PartBase & FieldProps & { label?: string; checked?: boolean; indeterminate?: boolean; error?: boolean; disabled?: boolean; onChange?: (on: boolean) => void };
 
 export function Checkbox(props: CheckboxProps) {
   const p = withDefaults<CheckboxProps>("checkbox", props);
   const kit = useKit();
   const [on, setOn] = useValue(!!p.checked, p.onChange);
-  return (
+  return withField(
+    p,
     <Surface
       base={{ ...ROW, columnGap: 12, alignSelf: "flex-start" }}
       appearance={p}
       role="checkbox"
-      label={p.label}
+      label={p.label || p.ariaLabel}
       testID={p.testID}
       onPress={
-        p.disabled
+        p.disabled || p.readOnly
           ? undefined
           : () => {
               setOn(!on);
@@ -379,8 +391,8 @@ export function Checkbox(props: CheckboxProps) {
       }
     >
       <CheckMark on={on} mixed={p.indeterminate} error={p.error} disabled={p.disabled} />
-      {p.label ? <Words text={p.label} style={{ ...typeStyle(kit, "body-large"), color: c(p.error ? "error" : "on-surface") }} /> : null}
-    </Surface>
+      {p.label ? <Words text={starred(p.label, p.required)} style={{ ...typeStyle(kit, "body-large"), color: c(p.error ? "error" : "on-surface") }} /> : null}
+    </Surface>,
   );
 }
 
@@ -393,21 +405,22 @@ export function RadioMark({ on, disabled }: { on: boolean; disabled?: boolean })
   );
 }
 
-export type RadioProps = PartBase & { label?: string; checked?: boolean; disabled?: boolean; onChange?: (on: boolean) => void };
+export type RadioProps = PartBase & FieldProps & { label?: string; checked?: boolean; disabled?: boolean; error?: boolean; onChange?: (on: boolean) => void };
 
 export function Radio(props: RadioProps) {
   const p = withDefaults<RadioProps>("radio", props);
   const kit = useKit();
   const [on, setOn] = useValue(!!p.checked, p.onChange);
-  return (
+  return withField(
+    p,
     <Surface
       base={{ ...ROW, columnGap: 12, alignSelf: "flex-start" }}
       appearance={p}
       role="radio"
-      label={p.label || "Option"}
+      label={p.label || p.ariaLabel || "Option"}
       testID={p.testID}
       onPress={
-        p.disabled
+        p.disabled || p.readOnly
           ? undefined
           : () => {
               setOn(true);
@@ -416,14 +429,14 @@ export function Radio(props: RadioProps) {
       }
     >
       <RadioMark on={on} disabled={p.disabled} />
-      {p.label ? <Words text={p.label} style={{ ...typeStyle(kit, "body-large"), color: c("on-surface") }} /> : null}
-    </Surface>
+      {p.label ? <Words text={starred(p.label, p.required)} style={{ ...typeStyle(kit, "body-large"), color: c(p.error ? "error" : "on-surface") }} /> : null}
+    </Surface>,
   );
 }
 
 /* ---------- a slider ---------- */
 
-export type SliderProps = PartBase & { label?: string; value?: number; range?: boolean; end?: number; disabled?: boolean; width?: number; onChange?: (v: number) => void };
+export type SliderProps = PartBase & FieldProps & { label?: string; value?: number; range?: boolean; end?: number; disabled?: boolean; error?: boolean; width?: number; onChange?: (v: number) => void };
 
 /** The platform's own slider, painted with the theme's colors: a mini-program draws its track and knob itself, so a
  *  range (two knobs) is one knob here and M3 Expressive's bar handle is the platform's round one. */
@@ -433,15 +446,16 @@ export function Slider(props: SliderProps) {
   const fill = useFill();
   const [value, setValue] = useValue(clampInt(p.value ?? 40, 0, 100), p.onChange);
   const thin = recipeOf(kit, "slider") === "thin";
-  return (
+  return withField(
+    p,
     <View {...tagOf(p.testID)} style={sx(ROW, { columnGap: 12, width: Math.round(p.width ?? 280), flexShrink: 0 }, fill)}>
-      {p.label ? <Words text={p.label} style={{ ...typeStyle(kit, "label-large"), color: c("on-surface") }} /> : null}
+      {p.label ? <Words text={starred(p.label, p.required)} style={{ ...typeStyle(kit, "label-large"), color: c(p.error ? "error" : "on-surface") }} /> : null}
       <TaroSlider
         style={sx({ flexGrow: 1, margin: "0 10px" })}
         min={0}
         max={100}
         value={value}
-        disabled={!!p.disabled}
+        disabled={!!p.disabled || !!p.readOnly}
         activeColor={kit.paint(p.disabled ? "on-surface/38" : "primary")}
         backgroundColor={kit.paint(thin ? "on-surface/12" : "secondary-container")}
         blockColor={thin ? "#FFFFFF" : kit.paint("primary")}
@@ -449,7 +463,7 @@ export function Slider(props: SliderProps) {
         onChanging={(e) => setValue(e.detail.value)}
         onChange={(e) => setValue(e.detail.value)}
       />
-    </View>
+    </View>,
   );
 }
 
@@ -465,7 +479,7 @@ export type InputProps = PartBase & {
   disabled?: boolean;
   width?: number;
   onChange?: (text: string) => void;
-};
+} & FieldProps;
 
 /** the keyboard a field asks for: a mini-program has text, number, digit (a decimal point) and idcard */
 export const keyboardOf = (type: string | undefined): "text" | "number" | "digit" | "idcard" => (type === "number" ? "digit" : type === "tel" ? "number" : "text");
@@ -491,15 +505,17 @@ export function Input(props: InputProps) {
     plain ? null : { width: Math.round(p.width ?? 280) },
     fill,
   );
-  return (
+  return withField(
+    p,
     <View {...tagOf(p.testID)} style={sx(frame)}>
       <TaroInput
         value={text}
         placeholder={p.placeholder}
         placeholderStyle={placeholderStyle(kit)}
+        ariaLabel={p.ariaLabel || p.placeholder}
         password={p.type === "password"}
         type={keyboardOf(p.type)}
-        disabled={!!p.disabled}
+        disabled={!!p.disabled || !!p.readOnly}
         /* no limit of the platform's (140 by default): the form's rules say how long a field may be */
         maxlength={-1}
         onInput={(e) => setText(e.detail.value)}
@@ -507,11 +523,11 @@ export function Input(props: InputProps) {
         onBlur={() => setFocused(false)}
         style={sx(typeStyle(kit, "body-large"), BARE, { color: c("on-surface"), width: "100%", height: 24, minHeight: 24 })}
       />
-    </View>
+    </View>,
   );
 }
 
-export type TextareaProps = PartBase & { placeholder?: string; value?: string; variant?: "outlined" | "filled" | "plain"; rows?: number; autoGrow?: boolean; error?: boolean; disabled?: boolean; width?: number; onChange?: (text: string) => void };
+export type TextareaProps = PartBase & FieldProps & { placeholder?: string; value?: string; variant?: "outlined" | "filled" | "plain"; rows?: number; autoGrow?: boolean; error?: boolean; disabled?: boolean; width?: number; onChange?: (text: string) => void };
 
 export function Textarea(props: TextareaProps) {
   const p = withDefaults<TextareaProps>("textarea", props);
@@ -528,19 +544,21 @@ export function Textarea(props: TextareaProps) {
     p.disabled ? { opacity: 0.38 } : null,
     fill,
   );
-  return (
+  return withField(
+    p,
     <View {...tagOf(p.testID)} style={sx(frame)}>
       <TaroTextarea
         value={text}
         placeholder={p.placeholder}
         placeholderStyle={placeholderStyle(kit)}
-        disabled={!!p.disabled}
+        ariaLabel={p.ariaLabel || p.placeholder}
+        disabled={!!p.disabled || !!p.readOnly}
         autoHeight={!!p.autoGrow}
         maxlength={-1}
         onInput={(e) => setText(e.detail.value)}
         style={sx(typeStyle(kit, "body-large"), BARE, { color: c("on-surface"), width: "100%", minHeight: rows * 24, height: p.autoGrow ? undefined : rows * 24 })}
       />
-    </View>
+    </View>,
   );
 }
 
@@ -595,19 +613,28 @@ export function Link(props: LinkProps) {
   );
 }
 
-export type RatingProps = PartBase & { value?: number; count?: number; readOnly?: boolean };
+export type RatingProps = PartBase & FieldProps & { value?: number; count?: number; readOnly?: boolean; disabled?: boolean; error?: boolean; onChange?: (value: number) => void };
 
+/** A score that follows `value`: a press shows at once and is handed out (`onChange`, which the screen's runtime keeps
+ *  for the form field or variable the stars fill), and whenever `value` itself changes the stars start over from it. */
 export function Rating(props: RatingProps) {
   const p = withDefaults<RatingProps>("rating", props);
-  const [value, setValue] = useState(Math.round(p.value ?? 4));
+  const given = Math.round(p.value ?? 4);
+  const [own, setOwn] = useState({ from: given, value: given });
+  const value = own.from === given ? own.value : given;
+  const setValue = (v: number) => {
+    setOwn({ from: given, value: v });
+    p.onChange?.(v);
+  };
   const count = clampInt(p.count ?? 5, 1, 10);
-  return (
-    <View {...tagOf(p.testID)} style={sx(ROW, { columnGap: 8, alignSelf: "flex-start" })}>
+  return withField(
+    p,
+    <View {...tagOf(p.testID)} ariaRole="radiogroup" ariaLabel={p.ariaLabel || "Rating"} style={sx(ROW, { columnGap: 8, alignSelf: "flex-start", opacity: p.disabled ? 0.38 : 1 })}>
       {Array.from({ length: count }, (_, i) => (
-        <View key={i} onClick={p.readOnly ? undefined : () => setValue(i + 1)}>
-          <Glyph name="star" size={22} filled color={i < value ? "st:primaryText" : "outline-variant"} />
+        <View key={i} onClick={p.readOnly || p.disabled ? undefined : () => setValue(i + 1)}>
+          <Glyph name="star" size={22} filled color={i < value ? (p.error ? "error" : "st:primaryText") : "outline-variant"} />
         </View>
       ))}
-    </View>
+    </View>,
   );
 }

@@ -2,7 +2,7 @@
 /** how many shards each set is split into; a name's shard is `shardOf(name, count)` */
 export const SHARDS = {
   "rounded": 7,
-  "light": 8,
+  "light": 9,
   "sharp": 4,
   "sf": 4,
   "fluentui": 4,
@@ -38,4 +38,4 @@ export const SOURCES: Record<keyof typeof SHARDS, string> = {
 }
 
 /** the Material names bundled in every set */
-export const BUNDLED = 536
+export const BUNDLED = 615

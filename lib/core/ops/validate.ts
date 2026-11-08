@@ -8,15 +8,18 @@ import type { PartDef, PropDef } from "../../../parts/types";
 export type { PartDef };
 import { cleanLook } from "../../look";
 import { styleOwnsProp } from "../../styleRules";
-import { isStrict } from "../../styles";
-import { actionSlotsOf, BACK_TARGET, COLOR_TOKENS, MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, transitionOf, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
+import { isStrict, styleContext } from "../../styles";
+import { BACK_TARGET, COLOR_TOKENS, MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, transitionOf, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
 import { cleanMotion, cleanTrigger } from "../../prototype";
+import { EVENT_PREFIX, outletKeysOf } from "../../partContract";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "../../constraints";
 import { OpError } from "../op";
 import { pictureError } from "../images";
 import { docIconId, docIconName, isDocIconName } from "../../docIcons";
 import type { CoreState } from "../state";
 import { exprSyntaxError } from "../../bindings/check";
+import { allCapabilities, argNamesOf as argNames, capabilityOf, requiredArgsOf as requiredArgs } from "../../capabilities/catalog";
+import { bindRule, conditionRule, ROW_FIELD } from "../../rules";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -90,6 +93,20 @@ export function propValueError(d: PropDef, v: unknown): string | null {
       if (!isRecord(v) || !Array.isArray(v.columns) || !Array.isArray(v.rows)) return 'should be {"columns": [...], "rows": [[...]]}';
       if (!v.columns.every((c) => typeof c === "string")) return "columns should be text";
       if (!v.rows.every((r) => Array.isArray(r) && r.every((c) => typeof c === "string"))) return "rows should be lists of text";
+      /* a row of more cells than the table has columns would lose them */
+      const wide = (v.rows as unknown[][]).findIndex((r) => r.length > (v.columns as unknown[]).length);
+      if (wide >= 0) return `row ${wide} has ${(v.rows as unknown[][])[wide].length} cells, the table ${(v.columns as unknown[]).length} columns`;
+      if (v.spec !== undefined) {
+        const TYPES = ["text", "number", "currency", "percent", "date", "bool"];
+        if (!Array.isArray(v.spec) || v.spec.length > v.columns.length) return "spec should be one entry for each column";
+        for (const [i, c] of (v.spec as unknown[]).entries()) {
+          if (!isRecord(c) || typeof c.key !== "string" || !/^[A-Za-z_$][\w$]{0,63}$/.test(c.key)) return `spec ${i} should have a key: letters and digits, starting with a letter`;
+          if (c.type !== undefined && !TYPES.includes(c.type as string)) return `spec ${i}: type should be one of ${TYPES.join(", ")}`;
+          if (c.align !== undefined && !["start", "center", "end"].includes(c.align as string)) return `spec ${i}: align should be start, center or end`;
+          if (c.width !== undefined && (typeof c.width !== "number" || !(c.width >= 24 && c.width <= 960))) return `spec ${i}: width should be a number from 24 to 960`;
+          if (c.format !== undefined && typeof c.format !== "string") return `spec ${i}: format should be text`;
+        }
+      }
       return null;
     }
   }
@@ -109,7 +126,7 @@ export function checkProps(def: PartDef, props: Record<string, unknown>, s: Core
       const own = Object.keys(s.doc.icons ?? {}).map(docIconName);
       throw new OpError("invalid_value", `The document has no icon ${v}. ${own.length ? `Its own icons are: ${own.join(", ")}.` : "It has none of its own yet:"} set_icon (or generate_svg with icon) adds one.`, key);
     }
-    if (isStrict(s.doc.theme) && styleOwnsProp(def.slug, key)) throw new OpError("refused", `The document is held to its style, which decides ${def.slug}.${key}.`, key);
+    if (isStrict(s.doc.theme, styleContext(s.doc.styles)) && styleOwnsProp(def.slug, key)) throw new OpError("refused", `The document is held to its style, which decides ${def.slug}.${key}.`, key);
   }
 }
 
@@ -125,7 +142,7 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
   textColor: (v) => (v === undefined || isTextToken(v) ? null : `should be a text color role: ${TEXT_TOKENS.map((t) => t.key).join(", ")} (other colors go in the look: {"text": {"color": "#hex"}})`),
   corners: (v, s) => {
     if (v === undefined) return null;
-    if (isStrict(s.doc.theme)) return "are decided by the style the document is held to";
+    if (isStrict(s.doc.theme, styleContext(s.doc.styles))) return "are decided by the style the document is held to";
     return isRecord(v) && ["tl", "tr", "bl", "br"].every((k) => typeof v[k] === "number" && Number.isFinite(v[k]) && (v[k] as number) >= 0) ? null : "should be {tl, tr, bl, br} in dp";
   },
   look: (v) => (v === undefined || isRecord(v) ? null : "should be an object (see the look fields)"),
@@ -146,9 +163,13 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
   actions: (v, s, it) => {
     if (v === undefined) return null;
     if (!isRecord(v)) return "should be {slot: action}";
-    const slots = actionSlotsOf(it).map((x) => x.key);
+    /* a slot, a family of slots ("tab:*") or a named event ("on:submit"), as the part declares them */
+    const slots = outletKeysOf(it);
     for (const [slot, a] of Object.entries(v)) {
-      if (!slots.includes(slot)) return `${JSON.stringify(slot)} is not a place on this part${slots.length ? ` (it has ${slots.join(", ")})` : "; set action instead"}`;
+      if (!slots.includes(slot)) {
+        const what = slot.startsWith(EVENT_PREFIX) ? "is not an event this part sends" : slot.endsWith(":*") ? "is not a family of places on this part" : "is not a place on this part";
+        return `${JSON.stringify(slot)} ${what}${slots.length ? ` (it has ${slots.join(", ")})` : "; set action instead"}`;
+      }
       const e = actionError(a, s);
       if (e) return `${slot}: ${e}`;
     }
@@ -160,6 +181,9 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
     const def = partBySlug(it.component);
     for (const [prop, id] of Object.entries(v)) {
       if (!def?.props.some((d) => d.key === prop)) return `${it.component} has no prop "${prop}" to bind`;
+      /* held to what reading a file holds a binding to (lib/rules.ts) */
+      const shape = bindRule(id);
+      if (shape) return `${prop}: ${shape}`;
       /* "=…" is an expression over the bindings */
       if (typeof id === "string" && id.startsWith("=")) {
         const e = exprSyntaxError(id.slice(1));
@@ -200,13 +224,16 @@ export function cleanedLook(v: unknown) {
 
 const isValue = (v: unknown): v is VarValue => typeof v === "string" || typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v));
 
+/** A condition as the one rule for conditions has it (lib/rules.ts, what reading a file holds it to too), then what it
+ *  points at: the part it asks about, the variable it reads (a field of the row, `row.<field>`, is one, as the guide
+ *  says), and an expression that parses. */
 export function conditionError(c: unknown, s: CoreState): string | null {
-  if (!isRecord(c)) return "should be {var, op, value}, {filled} or {expr}";
-  if (c.expr !== undefined) return exprSyntaxError(c.expr);
-  if (typeof c.filled === "string") return s.doc.groups.some((g) => g.items.some((it) => it.id === c.filled)) ? null : `there is no part ${JSON.stringify(c.filled)}`;
-  if (typeof c.var !== "string" || !(s.doc.vars ?? []).some((v) => v.id === c.var)) return `there is no variable ${JSON.stringify(c.var)}`;
-  if (c.op !== "eq" && c.op !== "neq") return 'op should be "eq" or "neq"';
-  return isValue(c.value) ? null : "value should be text, a number or true/false";
+  const shape = conditionRule(c);
+  if (shape) return shape;
+  const r = c as Record<string, unknown>;
+  if (typeof r.filled === "string") return s.doc.groups.some((g) => g.items.some((it) => it.id === r.filled)) ? null : `there is no part ${JSON.stringify(r.filled)}`;
+  if (r.expr !== undefined) return exprSyntaxError(r.expr);
+  return ROW_FIELD.test(r.var as string) || (s.doc.vars ?? []).some((v) => v.id === r.var) ? null : `there is no variable ${JSON.stringify(r.var)}`;
 }
 
 const TRANSITIONS = ["slide", "slideLeft", "slideUp", "slideDown", "fade", "expand", "none"];
@@ -228,8 +255,18 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
       return v(e.var);
     case "addVar":
       return v(e.var) ?? (typeof e.by === "number" && Number.isFinite(e.by) ? null : "by should be a number");
-    case "setProp":
-      return part(e.part) ?? (typeof e.prop === "string" && isValue(e.value) ? null : "prop and value are required");
+    case "setProp": {
+      const bad = part(e.part) ?? (typeof e.prop === "string" && isValue(e.value) ? null : "prop and value are required");
+      if (bad) return bad;
+      /* the prop is one the part has, and the value one it takes: a preview would show nothing else */
+      const def = partBySlug(s.doc.groups.flatMap((g) => g.items).find((it) => it.id === e.part)?.component);
+      if (!def) return null;
+      const d = def.props.find((x) => x.key === e.prop);
+      if (!d) return `${def.slug} has no prop ${JSON.stringify(e.prop)} (it has ${def.props.map((x) => x.key).slice(0, 16).join(", ")})`;
+      if (d.kind === "list" || d.kind === "table") return `${d.key} is a ${d.kind}: an effect sets words, a number, true/false or a choice`;
+      const wrong = propValueError(d, e.value);
+      return wrong ? `${d.key} ${wrong}` : null;
+    }
     case "snackbar":
       return typeof e.message === "string" ? null : "message should be text";
     case "call": {
@@ -245,12 +282,43 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
         }
       }
       if (e.body !== undefined) {
+        /* the expressions have no object literals: models reach for one to send a few fields, which args does */
+        if (typeof e.body === "string" && e.body.trim().startsWith("{")) return `body is one expression that reads a whole body (form.values, vars.draft), not an object: give the fields in args instead, each an expression ({productId: "'latte'", quantity: "2"})`;
         const err = exprSyntaxError(e.body);
         if (err) return `body: ${err}`;
       }
       if (e.optimistic !== undefined && (!isRecord(e.optimistic) || typeof e.optimistic.source !== "string")) return "optimistic should be {source, remove: true} or {source, patch: {field: expression}}";
       for (const k of ["then", "catch"] as const) {
         if (e[k] === undefined) continue;
+        /* an answer's body runs as it is: no host reads a condition on it, so one written there would be ignored and
+           the success shown whatever the answer said */
+        const extra = isRecord(e[k]) ? ["when", "else", "trigger"].filter((x) => (e[k] as Record<string, unknown>)[x] !== undefined) : [];
+        if (extra.length) return `${k} takes no ${extra.join(" or ")}: it runs whenever the call ${k === "then" ? "answers 2XX" : "fails"}. To act on what the answer says, set a variable from it (setVar with expr "response.status") and show the outcome with showWhen, or open a result screen that loads the data itself`;
+        const err = bodyError(e[k], s, depth + 1);
+        if (err) return `${k}: ${err}`;
+      }
+      return null;
+    }
+    case "invoke": {
+      const def = typeof e.capability === "string" ? capabilityOf(s.doc.capabilities, e.capability) : undefined;
+      if (!def) return `there is no capability ${JSON.stringify(e.capability)} (list_capabilities lists them: ${allCapabilities(s.doc.capabilities).filter((c) => c.kind === "call").map((c) => c.name).join(", ")}; declare_capability declares one of the product's own)`;
+      if (def.kind !== "call") return `${def.name} is a ${def.kind === "view" ? "view: put the part that stands for it on the screen and wire its events" : "platform event: it is not invoked"}, not a call`;
+      if (depth > 3) return "a call's or an invoke's then and catch may hold calls and invokes only 4 deep";
+      if (e.args !== undefined) {
+        if (!isRecord(e.args)) return "args should be {name: expression}";
+        const takes = argNames(def);
+        for (const [name, x] of Object.entries(e.args)) {
+          if (takes && !takes.includes(name)) return `${def.name} takes no argument ${JSON.stringify(name)} (it takes ${takes.join(", ") || "none"})`;
+          const err = exprSyntaxError(x);
+          if (err) return `args.${name}: ${err}`;
+        }
+      }
+      const missing = requiredArgs(def).filter((k) => !isRecord(e.args) || (e.args as Record<string, unknown>)[k] === undefined);
+      if (missing.length) return `${def.name} needs ${missing.map((k) => `args.${k}`).join(" and ")}`;
+      for (const k of ["then", "catch"] as const) {
+        if (e[k] === undefined) continue;
+        const extra = isRecord(e[k]) ? ["when", "else", "trigger"].filter((x) => (e[k] as Record<string, unknown>)[x] !== undefined) : [];
+        if (extra.length) return `${k} takes no ${extra.join(" or ")}: it runs whenever the capability ${k === "then" ? "does what was asked" : "fails"}. To show each failure its own way, set a variable from error.type in catch and show the designs with showWhen`;
         const err = bodyError(e[k], s, depth + 1);
         if (err) return `${k}: ${err}`;
       }
@@ -267,7 +335,7 @@ function effectError(e: unknown, s: CoreState, depth = 0): string | null {
     case "signOut":
       return null;
     default:
-      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, refresh, loadMore, submit, signOut)`;
+      return `"${String(e.do)}" is not an effect (show, hide, toggle, open, close, setVar, toggleVar, addVar, setProp, snackbar, call, invoke, refresh, loadMore, submit, signOut)`;
   }
 }
 
@@ -309,7 +377,7 @@ export function withTapParams(s: CoreState, a: unknown): CoreState {
     if (!isRecord(b) || depth > 6) return;
     if (typeof b.to === "string" && isRecord(b.params)) for (const name of Object.keys(b.params)) if (/^[A-Za-z_]\w{0,63}$/.test(name)) (wanted.get(b.to) ?? wanted.set(b.to, new Set()).get(b.to)!).add(name);
     for (const e of Array.isArray(b.effects) ? b.effects : [])
-      if (isRecord(e) && e.do === "call") {
+      if (isRecord(e) && (e.do === "call" || e.do === "invoke")) {
         visit(e.then, depth + 1);
         visit(e.catch, depth + 1);
       }

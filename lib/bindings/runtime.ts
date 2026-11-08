@@ -7,7 +7,7 @@
 
 import type { Transport, TransportFile, TransportRequest } from "../api/transport";
 import { paginationOf, type ApiEndpoint, type ApiSpec } from "../api/types";
-import type { DataSource, Doc, Frame, Optimistic } from "../tokens";
+import type { Collection, DataSource, Doc, Frame, Optimistic } from "../tokens";
 import { authFields, endpointOf, listOf, paramsOf, problemFieldErrors, problemOf, requestOf, tokenPlacement, type Problem } from "./contract";
 import { evaluate, truthy, type EvalContext, type Scope } from "./expr";
 import { appMessage } from "./messages";
@@ -307,7 +307,7 @@ export class BindingEngine {
 export const paramsFor = (frame: Pick<Frame, "params">, given: Record<string, unknown> | undefined): Record<string, unknown> => screenParams(frame.params, given);
 
 /** The scope of a screen: its data, its params, the variables by name (and id), the session, the time. */
-export function screenScope(o: { frame: Frame; state: BindingState; params?: Record<string, unknown>; vars?: Record<string, unknown>; varNames?: { id: string; name: string }[]; now?: number }): Scope {
+export function screenScope(o: { frame: Frame; state: BindingState; params?: Record<string, unknown>; vars?: Record<string, unknown>; varNames?: { id: string; name: string }[]; now?: number; collections?: Collection[] }): Scope {
   const data: Record<string, SourceView> = {};
   for (const d of o.frame.data ?? []) data[d.name] = sourceView(o.state.sources[sourceKey(o.frame.id, d.name)]);
   const vars: Record<string, unknown> = { ...o.vars };
@@ -319,6 +319,8 @@ export function screenScope(o: { frame: Frame; state: BindingState; params?: Rec
     vars,
     auth: { signedIn: !!session || !!o.state.presumed, user: session?.user ?? null },
     now: new Date(o.now ?? Date.now()).toISOString(),
+    /* the document's data sets as lists of records, by name: what a table or a list can be bound to */
+    ...(o.collections?.length ? { collections: Object.fromEntries(o.collections.map((c) => [c.name, c.rows.map((r) => Object.fromEntries(c.fields.map((f, i) => [f, r[i] ?? ""])))])) } : {}),
   };
 }
 

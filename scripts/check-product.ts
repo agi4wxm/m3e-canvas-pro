@@ -18,6 +18,7 @@
 // mini-program may not run, no mocks), and the shop's H5 build is driven the same way on the mocks and on the server
 // (scripts/check-miniapp-app.ts).
 import { execSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statfsSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -28,7 +29,9 @@ import { allPartsDoc } from "../lib/codegen.fixture";
 import { systemsDoc } from "../lib/exportProject.fixture";
 import { exportToFolder, reportLines } from "../lib/export/nodeWriter";
 import { buildProduct } from "../lib/export/product";
-import { boundShopDoc, productDoc } from "../lib/export/product.fixture";
+import { boundShopDoc, productDoc, RECEIPT_ORDER } from "../lib/export/product.fixture";
+import { fromBase64 } from "../lib/mocks/bytes";
+import { createMockTransport } from "../lib/mocks/transport";
 import { miniappBuilt, miniappOnMocks, miniappOnServer, serveMiniappH5, type MiniBrowser } from "./check-miniapp-app";
 import { shopOnMocks, shopOnServer, type ShopBrowser } from "./check-shop-app";
 import { checkMobile } from "./check-mobile";
@@ -437,6 +440,23 @@ if (pw && WHICH === "shop") {
       ok(answer.includes(PROBE.answer), `the mocks' service worker answers the API (${answer.slice(0, 80)})`);
       ok(madeUp(answer), "with data the mock library made from the contract's schemas");
       ok(await page.waitForFunction(`document.querySelectorAll('[data-screen] [data-scroll-body] [role="button"]').length > 3`, undefined, { timeout: 10_000 }).then(() => true, () => false), "and the list draws it, through the service worker");
+      /* a download (an order's receipt, a PDF of the mocks' library): the service worker sends its bytes, and the app's
+         own client (the fetch transport) gives them back whole, as the file the mocks answer with */
+      const want = (await createMockTransport(fixture.doc, { latency: false }).request({ operationId: "getOrderReceipt", method: "GET", path: `/orders/${RECEIPT_ORDER}/receipt` })).body as { name: string; type: string; dataUrl: string; size: number };
+      const wantSha = createHash("sha256").update(fromBase64(want.dataUrl.slice(want.dataUrl.indexOf(",") + 1))).digest("hex");
+      const got = await page.evaluate<{ name?: string; type?: string; size?: number; sha?: string; raw?: string; error?: string }>(`(async () => {
+        const sha = async (bytes) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map((b) => b.toString(16).padStart(2, "0")).join("")
+        const raw = new Uint8Array(await (await fetch("/api/orders/${RECEIPT_ORDER}/receipt")).arrayBuffer())
+        const { api } = await import("/src/generated/api.ts")
+        const file = await api.getOrderReceipt({ params: { orderId: "${RECEIPT_ORDER}" } })
+        if (!file || typeof file.dataUrl !== "string") return { error: "not a file: " + JSON.stringify(file).slice(0, 80) }
+        const bin = atob(file.dataUrl.slice(file.dataUrl.indexOf(",") + 1))
+        return { name: file.name, type: file.type, size: file.size, sha: await sha(Uint8Array.from(bin, (c) => c.charCodeAt(0))), raw: await sha(raw) }
+      })()`);
+      ok(
+        got.raw === wantSha && got.sha === wantSha && got.name === want.name && got.type === "application/pdf" && got.size === want.size,
+        `a download (${want.name}, ${want.size} bytes) arrives whole through the service worker and the app's client (${JSON.stringify({ ...got, want: wantSha.slice(0, 12) })})`,
+      );
     } finally {
       msw.child.kill();
     }

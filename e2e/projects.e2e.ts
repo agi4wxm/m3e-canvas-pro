@@ -330,6 +330,34 @@ export const tests: E2ETest[] = [
     },
   },
   {
+    name: "projects: a design a newer version wrote opens read-only, and nothing is written over what was kept",
+    async run({ page }) {
+      await clickAdd(page, "Rating");
+      await settle(page, 1500);
+      const kept = JSON.stringify(await savedDoc(page));
+      const later = {
+        format: "m3e-project",
+        version: 99,
+        document: {
+          groups: [{ id: "g1", x: 40, y: 120, axis: "y", items: [{ id: "later-button", kind: "component", component: "button", label: "Button", icon: null, variant: "filled", props: { label: "From later" } }] }],
+          frames: [{ id: "f1", name: "Later", x: 0, y: 0 }],
+          title: "Later",
+          paletteKey: "purple",
+          frame: "phone",
+          brief: "",
+          nextSection: { a: 1 },
+        },
+      };
+      await page.evaluate((h) => (location.hash = h), `#doc=${encodeURIComponent(JSON.stringify(later))}`);
+      /* shown as this version understands it, behind a notice that says why it cannot be changed */
+      await page.waitForSelector('[data-node="later-button"]', { timeout: 30_000 });
+      await page.waitForSelector('[data-newer-doc="99"]', { timeout: 10_000 });
+      check(((await page.locator("#edit-access-title").textContent()) ?? "").includes("newer version"), "the notice says a newer version saved it");
+      await settle(page, 2500);
+      equal(JSON.stringify(await savedDoc(page)), kept, "the project's own copy is as it was");
+    },
+  },
+  {
     name: "projects: a link from someone else fetches no outside picture until the author allows it, and the project remembers",
     async run({ page, base }) {
       const asked: string[] = [];
@@ -543,7 +571,8 @@ export const tests: E2ETest[] = [
         await page.waitForSelector("[data-share-size]", { timeout: 10_000 });
         const link = await page.locator("[data-share-link]").inputValue();
         const packed = new URL(link).hash.slice("#docz=".length);
-        return JSON.parse(inflateRawSync(Buffer.from(packed, "base64url")).toString("utf8")) as Doc & { api?: { endpoints?: unknown[]; models?: unknown[] }; mocks?: { models?: { fixtures?: unknown[] }[] } };
+        /* the design in its envelope, which says the format version it is written in */
+        return (JSON.parse(inflateRawSync(Buffer.from(packed, "base64url")).toString("utf8")) as { document: Doc & { api?: { endpoints?: unknown[]; models?: unknown[] }; mocks?: { models?: { fixtures?: unknown[] }[] } } }).document;
       };
       /* the design alone, by default: the collection listed, nothing of the API or the mock library */
       check(await page.locator('[data-share-item="collection:people"][data-included="1"]').count(), "the collection is listed and carried");

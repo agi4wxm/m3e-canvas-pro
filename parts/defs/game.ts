@@ -1,5 +1,7 @@
-import { h, ic } from "../node";
+import { h, ic, listSlots } from "../node";
 import type { ListItem, P, PartDef, TableData } from "../types";
+import { FIELD, fieldFrame, fieldValues } from "../fieldState";
+import { ariaLabelProp } from "../a11y";
 
 /* The game parts, after 17722797729/m3e-canvas game-ui (MIT): a definition below and a widget in
  * parts/widgets for each. */
@@ -14,6 +16,10 @@ const PRIZES: ListItem[] = [
   { label: "Lucky", icon: "star" },
   { label: "Coins", icon: "paid" },
 ];
+const EVERY_ENTRY = { prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } };
+const ENDS_AT = { label: "Ends at (ms, 0: none)", labels: { ja: "終了時刻（ミリ秒、0: なし）", zh: "结束时刻（毫秒，0 为无）", ko: "종료 시각 (밀리초, 0: 없음)" } };
+const SKEW = { label: "Clock ahead of the device (ms)", labels: { ja: "端末より進んでいる時計（ミリ秒）", zh: "时钟比设备快多少（毫秒）", ko: "기기보다 앞선 시계 (밀리초)" } };
+
 const REWARDS: TableData = { columns: ["At", "Label", "Icon"], rows: [["10", "4 h", "redeem"], ["20", "8 h", "savings"], ["30", "50", "inventory_2"], ["60", "1", "workspace_premium"]] };
 
 /** one machine of the six: they differ in what they draw, not in what they hold */
@@ -30,10 +36,26 @@ function drawDef(slug: string, component: string, name: string, labels: PartDef[
     props: [
       { key: "label", label: "Label", kind: "text", default: buttonDefault },
       { key: "prizes", label: "Prizes", labels: { ja: "賞品", zh: "奖品", ko: "상품" }, kind: "list", icons: true, default: PRIZES, min: 1, max: 12 },
-      { key: "result", label: "Forced result (-1: random)", labels: { ja: "固定の結果（-1: ランダム）", zh: "固定结果（-1 为随机）", ko: "고정 결과 (-1: 무작위)" }, kind: "number", default: -1, min: -1, max: 11, step: 1 },
+      { key: "result", label: "Result (-1: none yet)", labels: { ja: "結果（-1: まだない）", zh: "结果（-1 为还没有）", ko: "결과 (-1: 아직 없음)" }, kind: "number", default: -1, min: -1, max: 11, step: 1 },
+      { key: "pending", label: "Waiting for the result", labels: { ja: "結果を待っている", zh: "正在等待结果", ko: "결과 기다리는 중" }, kind: "bool", default: false },
+      ...(slug === "slot-machine" ? [{ key: "reels", label: "Reels to stop on (0,2,1)", labels: { ja: "止まる絵柄（0,2,1）", zh: "停在哪些图案（如 0,2,1）", ko: "멈출 그림 (0,2,1)" }, kind: "text", default: "" } as const] : []),
       { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "number", default: side, min: 120, max: 480, step: 4, unit: "px" },
     ],
-    tree: (p: P) => h(component, { prizes: p.list("prizes").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}) })), label: p.s("label"), result: Math.round(p.n("result")), size: Math.round(p.n("size")) }),
+    /* a press asks: the button, or one of the eggs (one action for all three) */
+    slots: (p: P) => (slug === "egg-smash" ? [0, 1, 2].map((i) => ({ key: `egg:${i}`, label: `${p.s("label") || "Egg"} ${i + 1}` })) : [{ key: "action", label: p.s("label") || "Draw" }]),
+    ...(slug === "egg-smash" ? { families: [{ prefix: "egg", label: "Every egg", labels: { ja: "すべての卵", zh: "每一个蛋", ko: "모든 알" } }] } : {}),
+    /* the prize is the other side's to decide: a press asks, `result` brings the answer in, and the machine settles on it */
+    events: [{ name: "settled", label: "Shown the result", labels: { ja: "結果を表示した", zh: "结果展示完", ko: "결과를 보여 줌" }, payload: { index: "number", label: "text" } }],
+    demo: { what: "picks a prize at random when pressed and nothing else gives one", takenOverBy: ["result", "pending"] },
+    tree: (p: P) =>
+      h(component, {
+        prizes: p.list("prizes").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}) })),
+        label: p.s("label"),
+        result: Math.round(p.n("result")),
+        ...(p.b("pending") ? { pending: true } : {}),
+        ...(slug === "slot-machine" && p.s("reels") ? { reels: p.s("reels") } : {}),
+        size: Math.round(p.n("size")),
+      }),
   };
 }
 
@@ -73,8 +95,24 @@ export const game: PartDef[] = [
       { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中项", ko: "선택" }, kind: "number", default: 0, min: 0, max: 11, step: 1 },
       { key: "width", label: "Width", kind: "number", default: 120, min: 80, max: 320, step: 4, unit: "px" },
     ],
+    /* a tap on a tab picks it: whoever draws the part moves `selected`. Plain M3E buttons, so every app draws it */
     selectKey: "selected",
-    tree: (p) => h("SideTabs", { items: p.list("items").map((x) => ({ label: x.label })), selected: Math.round(p.n("selected")), width: Math.round(p.n("width")) }),
+    slots: (p) => listSlots(p.list("items")),
+    families: [EVERY_ENTRY],
+    tree: (p) => {
+      const on = Math.round(p.n("selected"));
+      return h(
+        "div",
+        { "data-slot": "side-tabs", "data-selected": on, className: "bg-surface-container flex flex-col gap-1 rounded-xl p-1", style: { width: Math.round(p.n("width")) } },
+        ...p.list("items").map((t, i) =>
+          h(
+            "Button",
+            { variant: i === on ? "tonal" : "ghost", "aria-pressed": i === on, "data-slot": "side-tabs-item", "data-active": i === on || undefined, "data-tap": `tab:${i}`, className: "h-9 w-full justify-start truncate px-3 text-left [--btn-r-pressed:8px] [--btn-r:8px] hover:shadow-none" },
+            t.label,
+          ),
+        ),
+      );
+    },
   },
   {
     slug: "inventory",
@@ -109,9 +147,10 @@ export const game: PartDef[] = [
       { key: "rarity", label: "Rarity", labels: { ja: "レア度", zh: "稀有度", ko: "희귀도" }, kind: "text", default: "" },
       { key: "rarityColor", label: "Rarity color", labels: { ja: "レア度の色", zh: "稀有度颜色", ko: "희귀도 색상" }, kind: "text", default: "#7BAE7A" },
       { key: "badge", label: "Badge", labels: { ja: "バッジ", zh: "角标", ko: "배지" }, kind: "text", default: "" },
+      { key: "selected", label: "Selected", labels: { ja: "選択中", zh: "选中", ko: "선택됨" }, kind: "bool", default: false },
       { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "number", default: 60, min: 32, max: 160, step: 4, unit: "px" },
     ],
-    tree: (p) => h("ItemCell", { icon: p.s("icon"), name: p.s("name"), count: p.s("count"), rarity: p.s("rarity"), rarityColor: p.s("rarityColor"), badge: p.s("badge"), size: Math.round(p.n("size")) }),
+    tree: (p) => h("ItemCell", { icon: p.s("icon"), name: p.s("name"), count: p.s("count"), rarity: p.s("rarity"), rarityColor: p.s("rarityColor"), badge: p.s("badge"), ...(p.b("selected") ? { selected: true } : {}), size: Math.round(p.n("size")) }),
   },
   {
     slug: "task-row",
@@ -143,10 +182,15 @@ export const game: PartDef[] = [
       { key: "data", label: "Rewards", labels: { ja: "報酬", zh: "奖励", ko: "보상" }, kind: "table", default: REWARDS },
       { key: "value", label: "Progress", labels: { ja: "進捗", zh: "进度", ko: "진행" }, kind: "number", default: 20, min: 0, max: 100000, step: 1 },
       { key: "max", label: "Goal", labels: { ja: "目標", zh: "目标值", ko: "목표" }, kind: "number", default: 60, min: 1, max: 100000, step: 1 },
+      { key: "claimed", label: "Claimed rows (1,2)", labels: { ja: "受け取り済みの行（1,2）", zh: "已领取第几项（如 1,2）", ko: "받은 행 (1,2)" }, kind: "text", default: "" },
       { key: "action", label: "Claim label", labels: { ja: "受け取りの文言", zh: "领取文字", ko: "받기 문구" }, kind: "text", default: "Claim", defaults: { zh: "领取" } },
       { key: "width", label: "Width", kind: "number", default: 380, min: 200, max: 800, step: 4, unit: "px" },
     ],
-    tree: (p) => h("RewardTrack", { rewards: p.table("data").rows.map((r) => ({ at: Number(r[0]) || 0, label: r[1] ?? "", icon: r[2] ?? "" })), value: Math.round(p.n("value")), max: Math.round(p.n("max")), action: p.s("action"), width: Math.round(p.n("width")) }),
+    /* a press on a reward that is ready asks to claim it; what is claimed is the game's to say */
+    slots: (p) => p.table("data").rows.map((r, i) => ({ key: `tab:${i}`, label: r[1] || `${i + 1}` })),
+    families: [EVERY_ENTRY],
+    demo: { what: "marks a reward claimed as soon as it is pressed", takenOverBy: ["claimed"] },
+    tree: (p) => h("RewardTrack", { rewards: p.table("data").rows.map((r) => ({ at: Number(r[0]) || 0, label: r[1] ?? "", icon: r[2] ?? "" })), value: Math.round(p.n("value")), max: Math.round(p.n("max")), ...(p.s("claimed") ? { claimed: p.s("claimed") } : {}), action: p.s("action"), width: Math.round(p.n("width")) }),
   },
   {
     slug: "check-in",
@@ -161,9 +205,13 @@ export const game: PartDef[] = [
       { key: "title", label: "Title", kind: "text", default: "Check in", defaults: { zh: "签到" } },
       { key: "days", label: "Days", labels: { ja: "日数", zh: "天数", ko: "일수" }, kind: "number", default: 30, min: 7, max: 31, step: 1 },
       { key: "signed", label: "Days checked in", labels: { ja: "チェックイン済み", zh: "已签到天数", ko: "출석한 일수" }, kind: "number", default: 3, min: 0, max: 31, step: 1 },
+      { key: "today", label: "Today (0: the next day)", labels: { ja: "今日（0: 次の日）", zh: "今天是第几天（0 为下一天）", ko: "오늘 (0: 다음 날)" }, kind: "number", default: 0, min: 0, max: 31, step: 1 },
       { key: "width", label: "Width", kind: "number", default: 300, min: 200, max: 640, step: 4, unit: "px" },
     ],
-    tree: (p) => h("CheckIn", { title: p.s("title"), days: Math.round(p.n("days")), signed: Math.round(p.n("signed")), width: Math.round(p.n("width")) }),
+    /* a press on today asks to check in; how many days are checked in is the other side's to say */
+    slots: (p) => [{ key: "today", label: p.s("title") || "Today" }],
+    demo: { what: "checks today in as soon as it is pressed", takenOverBy: ["signed", "today"] },
+    tree: (p) => h("CheckIn", { title: p.s("title"), days: Math.round(p.n("days")), signed: Math.round(p.n("signed")), ...(p.n("today") > 0 ? { today: Math.round(p.n("today")) } : {}), width: Math.round(p.n("width")) }),
   },
   {
     slug: "function-button",
@@ -179,12 +227,25 @@ export const game: PartDef[] = [
       { key: "icon", label: "Icon", kind: "icon", default: "bolt" },
       { key: "timer", label: "Countdown (0: none)", labels: { ja: "カウントダウン（0: なし）", zh: "倒计时（0 为无）", ko: "카운트다운 (0: 없음)" }, kind: "number", default: 3, min: 0, max: 999, step: 1 },
       { key: "unit", label: "Unit", labels: { ja: "単位", zh: "单位", ko: "단위" }, kind: "enum", default: "minute", options: ["second", "minute", "hour"] },
+      { key: "endsAt", ...ENDS_AT, kind: "number", default: 0, min: 0, max: 1e14, step: 1 },
+      { key: "clockSkew", ...SKEW, kind: "number", default: 0, min: -1e10, max: 1e10, step: 1 },
       { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "number", default: 50, min: 32, max: 120, step: 2, unit: "px" },
     ],
-    tree: (p) => h("FunctionButton", { label: p.s("label"), icon: p.s("icon"), timer: Math.round(p.n("timer")), unit: p.s("unit"), size: Math.round(p.n("size")) }),
+    tree: (p) =>
+      h("FunctionButton", {
+        label: p.s("label"),
+        icon: p.s("icon"),
+        timer: Math.round(p.n("timer")),
+        unit: p.s("unit"),
+        ...(p.n("endsAt") > 0 ? { endsAt: Math.round(p.n("endsAt")) } : {}),
+        ...(p.n("clockSkew") ? { clockSkew: Math.round(p.n("clockSkew")) } : {}),
+        size: Math.round(p.n("size")),
+      }),
   },
   {
     slug: "joystick",
+    /* a pad can be held still; it is named for a screen reader as any input is */
+    field: { disabled: "disabled" },
     appearance: { radius: 999 },
     name: "Joystick",
     labels: { ja: "方向ホイール", zh: "方向轮盘", ko: "방향 휠" },
@@ -196,12 +257,19 @@ export const game: PartDef[] = [
       { key: "size", label: "Size", labels: { zh: "尺寸" }, kind: "number", default: 132, min: 64, max: 320, step: 4, unit: "px" },
       { key: "angle", label: "Direction when drawn", labels: { ja: "静止時の方向", zh: "静止时的方向", ko: "정지 시 방향" }, kind: "number", default: 0, min: 0, max: 360, step: 1, unit: "°" },
       { key: "autoCenter", label: "Back to the middle on release", labels: { ja: "指を離したら中央へ", zh: "松手回中", ko: "손을 떼면 중앙으로" }, kind: "bool", default: true },
+      { key: "value", label: "Direction (x,y from -1 to 1)", labels: { ja: "方向（x,y は -1 から 1）", zh: "方向（x,y 在 -1 到 1 之间）", ko: "방향 (x,y는 -1에서 1)" }, kind: "text", default: "" },
+      ariaLabelProp(),
     ],
-    tree: (p) => h("Joystick", { size: Math.round(p.n("size")), angle: Math.round(p.n("angle")), autoCenter: p.b("autoCenter") }),
+    /* the direction the finger pushes is what the visitor enters; letting go is also sent */
+    input: { prop: "value", kind: "vec2" },
+    events: [{ name: "release", label: "Let go", labels: { ja: "指を離した", zh: "松开了", ko: "손을 뗌" }, payload: { x: "number", y: "number" } }],
+    tree: (p) => h("Joystick", { size: Math.round(p.n("size")), angle: Math.round(p.n("angle")), autoCenter: p.b("autoCenter"), ...(p.s("value") ? { value: p.s("value") } : {}), ...(p.b("disabled") ? { disabled: true } : {}), ...(p.s("ariaLabel").trim() ? { label: p.s("ariaLabel").trim() } : {}) }),
   },
   {
     slug: "quantity-stepper",
-    appearance: { radius: 999 },
+    field: FIELD,
+    input: { prop: "value", kind: "number" },
+    appearance: { target: "QuantityStepper", radius: 999 },
     name: "Quantity stepper",
     labels: { ja: "数量ステッパー", zh: "数量加减器", ko: "수량 스테퍼" },
     category: "Forms",
@@ -213,7 +281,13 @@ export const game: PartDef[] = [
       { key: "min", label: "Minimum", labels: { ja: "最小値", zh: "最小值", ko: "최솟값" }, kind: "number", default: 0, min: 0, max: 999, step: 1 },
       { key: "max", label: "Maximum", labels: { ja: "最大値", zh: "最大值", ko: "최댓값" }, kind: "number", default: 99, min: 0, max: 999, step: 1 },
       { key: "width", label: "Width", kind: "number", default: 200, min: 120, max: 400, step: 4, unit: "px" },
+      ariaLabelProp(),
     ],
-    tree: (p) => h("QuantityStepper", { value: Math.round(p.n("value")), min: Math.round(p.n("min")), max: Math.round(p.n("max")), width: Math.round(p.n("width")) }),
+    /* the minus and the plus, for an action that changes the number somewhere else as well */
+    slots: () => [
+      { key: "dec", label: "Decrease" },
+      { key: "inc", label: "Increase" },
+    ],
+    tree: (p) => fieldFrame(fieldValues(p), h("QuantityStepper", { value: Math.round(p.n("value")), min: Math.round(p.n("min")), max: Math.round(p.n("max")), width: Math.round(p.n("width")) })),
   },
 ];

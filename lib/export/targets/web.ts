@@ -8,11 +8,13 @@
  * The prototype's own files are not changed to get here: they are moved, and the few imports that name a moved file
  * are rewritten line by line in the import blocks (never in the code a document's words reach). */
 
+import { capabilityFiles, slotFiles, slotNames, slotsOf } from "../appCapabilities";
 import { buildProject, type ProjectFiles } from "../../exportProject";
 import { PRODUCT_WEB_DEV } from "../../exportPackages";
 import { GENERATED, jsonFile, sortedObject } from "../code";
 import { generated, seeded, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "../types";
 import { specOf } from "./mocks";
+import { boundaryDifferences } from "../boundary";
 import { API_CLIENT, DATA_SCROLL, ENV, MAIN, MOCKS, PLATFORM, ROUTER, ROUTER_TEST, SCENARIO_PICKER, routesSource } from "./webSources";
 
 /** the prototype's own files that move into src/generated/ */
@@ -28,7 +30,7 @@ const MOVED: Record<string, string> = {
 /** what the workspace writes its own way */
 const REPLACED = new Set(["package.json", "README.md", "LICENSE", "NOTICE", ".gitignore", "src/main.tsx", "vite.config.ts", "tsconfig.json"]);
 /** the generated modules the prototype names by their old place */
-const RENAMED_IMPORTS: Record<string, string> = { "@/runtime": "@/generated/runtime", "@/theme": "@/generated/theme", "@/style-icons": "@/generated/style-icons", "@/doc-icons": "@/generated/doc-icons", "@/api": "@/generated/api", "@/platform": "@/generated/platform", "@/DataScroll": "@/generated/DataScroll" };
+const RENAMED_IMPORTS: Record<string, string> = { "@/slots": "@/generated/slots", "@/runtime": "@/generated/runtime", "@/theme": "@/generated/theme", "@/style-icons": "@/generated/style-icons", "@/doc-icons": "@/generated/doc-icons", "@/api": "@/generated/api", "@/platform": "@/generated/platform", "@/DataScroll": "@/generated/DataScroll" };
 
 /** An import line with its module renamed, when it names one of `map`; any other line as it is. */
 function renamedImport(line: string, map: Record<string, string>): string {
@@ -150,7 +152,9 @@ export const webTarget: ProductTarget = {
   id: "web",
   async build(ctx: ProductContext): Promise<Workspace> {
     const api = specOf(ctx);
-    const project = await buildProject(ctx.doc, ctx.widths, { lang: ctx.lang, read: ctx.read, fetchIcons: ctx.fetchIcons, onProgress: ctx.onProgress, binds: { runtime: `${ctx.scope}/app-runtime`, api, operations: ctx.api.operations } });
+    /* the capability views are drawn by slots the product writes once (lib/export/appCapabilities.ts) */
+    const slots = slotsOf(ctx.doc, ctx.widths);
+    const project = await buildProject(ctx.doc, ctx.widths, { lang: ctx.lang, read: ctx.read, fetchIcons: ctx.fetchIcons, onProgress: ctx.onProgress, binds: { runtime: `${ctx.scope}/app-runtime`, api, operations: ctx.api.operations }, ...(slots.length ? { slots: slotNames(slots) } : {}) });
     ctx.warnings.push(...project.warnings);
     const proto: ProjectFiles = project.files;
     const files: ProductFiles = {};
@@ -189,12 +193,19 @@ export const webTarget: ProductTarget = {
     files["src/generated/routes.ts"] = generated(routesSource(keys, start, project.spec?.bound?.params ?? {}));
     files["src/generated/routes.test.ts"] = generated(ROUTER_TEST);
     files["src/generated/router.ts"] = generated(ROUTER);
-    files["src/generated/api.ts"] = generated(API_CLIENT(ctx.scope, ctx.name, ctx.lang, api));
+    const capabilities = capabilityFiles(ctx, "web");
+    files["src/generated/api.ts"] = generated(API_CLIENT(ctx.scope, ctx.name, ctx.lang, api, !!capabilities));
+    Object.assign(files, capabilities?.files ?? {}, slotFiles(ctx.scope, slots, "web"));
     files["src/generated/mocks.ts"] = generated(MOCKS(ctx.scope));
     files["src/generated/ScenarioPicker.tsx"] = generated(SCENARIO_PICKER(ctx.scope));
     files["src/generated/platform.ts"] = generated(PLATFORM(ctx.scope));
     files["src/generated/DataScroll.tsx"] = generated(DATA_SCROLL);
     files["src/generated/env.d.ts"] = generated(ENV);
+    /* what the web app leans on that is not there yet (a prototype demo, a part event, an interface, a capability),
+       and what it prints differently: listed beside the screens, as the mobile apps list theirs */
+    const warnings = boundaryDifferences(ctx.doc, "web", ctx.widths).map(({ app: _app, ...w }) => w);
+    files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
+    ctx.differences.push(...warnings.map((w) => ({ app: "web" as const, ...w })));
     files["src/main.tsx"] = generated(MAIN(ctx.scope));
     files["src/custom/setup.ts"] = seeded(CUSTOM_SETUP);
     files["src/custom/Providers.tsx"] = seeded(CUSTOM_PROVIDERS);
@@ -211,7 +222,7 @@ export const webTarget: ProductTarget = {
           private: true,
           type: "module",
           scripts: { dev: "vite", build: "vite build", preview: "vite preview", typecheck: "tsc --noEmit -p .", test: "vitest run" },
-          dependencies: sortedObject({ ...Object.fromEntries(used.map((d) => [d, ctx.version(d)])), [`${ctx.scope}/api`]: "0.1.0", [`${ctx.scope}/app-runtime`]: "0.1.0" }),
+          dependencies: sortedObject({ ...Object.fromEntries(used.map((d) => [d, ctx.version(d)])), [`${ctx.scope}/api`]: "0.1.0", [`${ctx.scope}/app-runtime`]: "0.1.0", ...capabilities?.dependency }),
           devDependencies: sortedObject({ ...Object.fromEntries(PRODUCT_WEB_DEV.map((d) => [d, ctx.version(d)])), [`${ctx.scope}/mocks`]: "0.1.0" }),
         }),
       ),

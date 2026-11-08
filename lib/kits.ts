@@ -6,13 +6,15 @@ import { partBySlug, reader } from "../parts/registry";
 import { resizeOf } from "../parts/resize";
 import { fullWidth, roleOf } from "../parts/role";
 import { SPLIT_TAPS, nodesOf } from "../parts/defs/splits";
+import { RETIRED_TAPS } from "../parts/defs/retired";
 import type { P, PartDef } from "../parts/types";
 import { childLayoutFields } from "./flow";
 import type { Lang } from "./i18n";
+import { collectionName, foldRows, retiredRows } from "./retire";
 import { conformGroups } from "./styleRules";
-import { recipesOf, styleOf, uxOf } from "./styles";
+import { recipesOf, styleOf, uxOf, type StyleContext } from "./styles";
 import { barSlotOf } from "./tidy";
-import { PHONE_MARGIN, frameOfGroup, frameOfPart, frameRect, frameSizeOf, groupBounds, isPhoneFrame, safeAreaOf, uid, type Action, type ActionBody, type ComponentDef, type Condition, type Frame, type Group, type Item, type KitMark, type Theme } from "./tokens";
+import { PHONE_MARGIN, frameOfGroup, frameOfPart, frameRect, frameSizeOf, groupBounds, isPhoneFrame, safeAreaOf, uid, type Action, type ActionBody, type Collection, type ComponentDef, type Condition, type Frame, type Group, type Item, type KitMark, type Theme } from "./tokens";
 
 /* Trees of atoms on the canvas: a kit added from the palette, a composite split into what it is
  * made of. Both come down to the same thing: the tree flattened into groups, outermost first, each
@@ -21,10 +23,10 @@ import { PHONE_MARGIN, frameOfGroup, frameOfPart, frameRect, frameSizeOf, groupB
 
 /** What the document's style is like, for choosing how a kit is composed. Read from the theme
  *  here, so that no kit has to know a style by name. */
-export function kitLookOf(theme: Theme): KitLook {
-  const r = recipesOf(theme);
-  const ux = uxOf(theme);
-  const pack = styleOf(theme.style);
+export function kitLookOf(theme: Theme, styles?: StyleContext): KitLook {
+  const r = recipesOf(theme, styles);
+  const ux = uxOf(theme, styles);
+  const pack = styleOf(theme.style, styles);
   const group = pack?.group ?? "app";
   return {
     group,
@@ -81,8 +83,8 @@ export function treeGroups(root: Node, lang: Lang, at: At = { x: 0, y: 0 }, maxW
       ...(name ? { name: name[lang] } : {}),
       ...(inFlow ? { inFlow: ids.get(inFlow)! } : {}),
       items: items.map((it): Item => {
-        const { note, ...item } = it;
-        return { ...item, id: uid(), props: inLang(it.props, lang), ...(note ? { note: note[lang] } : {}) };
+        const { note, bind, ...item } = it;
+        return { ...item, id: uid(), props: inLang(it.props, lang), ...(bind ? { bind: inLang(bind, lang) as Record<string, string> } : {}), ...(note ? { note: note[lang] } : {}) };
       }),
     };
   });
@@ -284,12 +286,14 @@ function onlyOne<T>(nodes: Node[], pick: (n: Node) => T | undefined): [Node, T] 
  *  (parts/defs/splits.ts `SPLIT_TAPS`); else a slot goes to the one button saying its words or showing its icon, and a
  *  variable to the one atom showing the prop's words. What finds no single atom is not kept. The root is never one:
  *  it keeps the part's own tap. */
-export function splitTaps(def: PartDef, p: P, tree: Node, it: Pick<Item, "actions" | "bind">): { actions: Map<Node, Action>; binds: Map<Node, Record<string, string>> } {
-  const map = SPLIT_TAPS[def.slug];
+export function splitTaps(def: PartDef, p: P, tree: Node, it: Pick<Item, "actions" | "bind">): { actions: Map<Node, Action>; binds: Map<Node, Record<string, string>>; placed: Set<string> } {
+  const map = SPLIT_TAPS[def.slug] ?? RETIRED_TAPS[def.slug];
   const nodes = nodesOf(tree).slice(1);
   const inside = new Set(nodes);
   const actions = new Map<Node, Action>();
   const binds = new Map<Node, Record<string, string>>();
+  /* the slots whose taps found an atom: what is not among them is lost, and a printer says so */
+  const placed = new Set<string>();
   const slots = def.slots?.(p) ?? [];
   const mapped = map?.slots?.(p, tree) ?? {};
   for (const [key, action] of Object.entries(it.actions ?? {})) {
@@ -297,7 +301,10 @@ export function splitTaps(def: PartDef, p: P, tree: Node, it: Pick<Item, "action
     if (!action || !slot) continue;
     const said = (n: Node) => (TAPPABLE.has(n.slug) && ((!!slot.label && n.props.label === slot.label) || (!!slot.icon && n.props.icon === slot.icon))) || undefined;
     const to = key in mapped ? mapped[key] : onlyOne(nodes, said)?.[0];
-    if (to && inside.has(to) && !actions.has(to)) actions.set(to, action);
+    if (to && inside.has(to) && !actions.has(to)) {
+      actions.set(to, action);
+      placed.add(key);
+    }
   }
   const named = map?.binds?.(p, tree) ?? {};
   for (const [key, id] of Object.entries(it.bind ?? {})) {
@@ -310,7 +317,7 @@ export function splitTaps(def: PartDef, p: P, tree: Node, it: Pick<Item, "action
     if (!to || !inside.has(to[0])) continue;
     binds.set(to[0], { ...binds.get(to[0]), [to[1]]: id });
   }
-  return { actions, binds };
+  return { actions, binds, placed };
 }
 
 /** The document with one composite replaced, in place, by the atoms it is made of: the same place on
@@ -321,7 +328,11 @@ export function splitTaps(def: PartDef, p: P, tree: Node, it: Pick<Item, "action
 /** the pin a split bar's box takes, by the screen role of the part it replaces */
 const SPLIT_PIN: Record<string, string | undefined> = { top: "top", bottom: "bottom", floatingBottom: "floatingBottom" };
 
-export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widths: Record<string, number> = {}, look?: KitLook): { groups: Group[]; rootItemId: string } | null {
+/** What a split of a retired list may make of its rows (lib/retire.ts): the id a new data collection takes, and the
+ *  collections there are, so its name is one of its own. */
+export type SplitData = { id: string; collections?: Collection[] };
+
+export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widths: Record<string, number> = {}, look?: KitLook, data?: SplitData): { groups: Group[]; rootItemId: string; collection?: Collection } | null {
   const at = groups.findIndex((g) => g.items.length === 1 && g.items[0].id === itemId && !g.instanceOf && !g.free);
   if (at < 0) return null;
   const g = groups[at];
@@ -330,10 +341,16 @@ export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widt
   if (!def?.atoms) return null;
   const p = reader(def, it.props);
   /* composed the way the document's style composes the part: the split looks like the part it replaces */
-  const tree = def.atoms(p, look) as Node;
+  const plain = def.atoms(p, look) as Node;
   /* the taps on its slots and the variables its props follow go to the atoms that now show them; the groups come
    * in the order of the tree, each node before what it holds */
-  const taps = splitTaps(def, p, tree, it);
+  const found = splitTaps(def, p, plain, it);
+  /* a retired list's rows, when they are alike, become one row repeated over a collection of their own */
+  const rows = data ? retiredRows(def, p, lang) : null;
+  const folded = rows && data ? foldRows(plain, rows, data.id, found) : null;
+  const collection: Collection | undefined = folded && rows && data ? { id: data.id, name: collectionName(nameOf(def, lang), data.collections), fields: rows.fields, rows: rows.rows } : undefined;
+  const tree = folded?.tree ?? plain;
+  const taps = folded ?? found;
   const order = nodesOf(tree);
   const laidOut = treeGroups(tree, lang, { x: g.x, y: g.y });
   const made = laidOut.map((x, i) => {
@@ -354,7 +371,7 @@ export function splitIntoAtoms(groups: Group[], itemId: string, lang: Lang, widt
    * among these, so it is set aside meanwhile rather than let go */
   const { inFlow, ...loose } = root;
   const laid = moveTo(arranged([loose, ...inside]), { x: g.x, y: g.y }).map((x, i) => (i === 0 && inFlow ? { ...x, inFlow } : x));
-  return { groups: [...groups.slice(0, at), ...laid, ...groups.slice(at + 1)], rootItemId: it.id };
+  return { groups: [...groups.slice(0, at), ...laid, ...groups.slice(at + 1)], rootItemId: it.id, ...(collection ? { collection } : {}) };
 }
 
 /* ---------- a kit composed again for another style ---------- */

@@ -6,7 +6,8 @@ import "fake-indexeddb/auto";
 import { IDBDatabase, IDBFactory } from "fake-indexeddb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stripAssets } from "../assets";
-import { BEFORE_KEY, DOC_KEY, PersistFullError } from "../core/persist";
+import { BEFORE_KEY, DOC_KEY, DOC_VERSION_KEY, localPersist, PersistFullError } from "../core/persist";
+import { loadDocument, newerVersionOf, PROJECT_FORMAT, PROJECT_VERSION } from "../project";
 import type { Doc } from "../tokens";
 import { getAssets, getKv, listProjects, openDb, pruneAssets, putKv, readProjectRecords, useIndexedDb } from "./db";
 import { LEGACY_MARK, migrateLegacy } from "./migrate";
@@ -481,5 +482,70 @@ describe("two tabs and closing", () => {
     const next = await resolveOpening(env("?project=p", items));
     expect(next.mode === "projects" && next.recovered).toBeFalsy();
     expect(items[unsavedKey("p")]).toBeUndefined();
+  });
+});
+
+describe("the format version of what is kept (lib/migrations.ts)", () => {
+  it("is written with every document, and the one read back is brought up to this version from it", async () => {
+    await createProject({ id: "p", name: "P", doc: doc("P"), now: 1 });
+    expect((await readProjectRecords("p")).docVersion).toBe(PROJECT_VERSION);
+    const persist = new ProjectsPersist(resolveOpening(env("?project=p", {}, 2)));
+    await persist.read();
+    await persist.write(doc("Next", 2));
+    expect((await readProjectRecords("p")).docVersion).toBe(PROJECT_VERSION);
+    persist.writeBefore(doc("Before"));
+    await vi.waitFor(async () => expect((await readProjectRecords("p")).beforeVersion).toBe(PROJECT_VERSION));
+  });
+
+  it("is read as the bare version where a record says none, as every record written before did", async () => {
+    await createProject({ id: "p", name: "P", doc: doc("P"), now: 1 });
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const t = db.transaction("docs", "readwrite");
+      t.objectStore("docs").put({ json: JSON.stringify({ ...doc("Old"), futureField: 1 }) }, "p");
+      t.oncomplete = () => resolve();
+      t.onerror = () => reject(t.error);
+    });
+    const o = await resolveOpening(env("?project=p"));
+    expect(o.mode === "projects" && (o.stored.doc as Doc).title).toBe("Old");
+    expect(o.mode === "projects" && newerVersionOf(o.stored.doc)).toBeUndefined();
+    /* read as any document is: what this version does not know is kept */
+    expect(o.mode === "projects" && (o.stored.doc as Record<string, unknown>).futureField).toBe(1);
+  });
+
+  it("of a newer version marks what is read back, and a project made of a newer file keeps the file as it came", async () => {
+    const later = loadDocument({ format: PROJECT_FORMAT, version: PROJECT_VERSION + 1, document: { ...doc("Later"), nextSection: { a: 1 } } })!.doc;
+    await createProject({ id: "n", name: "N", doc: later, now: 1 });
+    const rec = await readProjectRecords("n");
+    expect(rec.docVersion).toBe(PROJECT_VERSION + 1);
+    expect(JSON.parse(rec.doc!)).toEqual({ ...doc("Later"), nextSection: { a: 1 } });
+    const o = await resolveOpening(env("?project=n"));
+    expect(o.mode === "projects" && newerVersionOf(o.stored.doc)).toBe(PROJECT_VERSION + 1);
+  });
+
+  it("goes with a note of a version not kept, and the note is read from it", async () => {
+    await createProject({ id: "p", name: "P", doc: doc("P"), now: 1 });
+    const items: Record<string, string> = {};
+    const persist = new ProjectsPersist(resolveOpening(env("?project=p", items)), { storage: storage(items) });
+    await persist.read();
+    refuse = () => new DOMException("gone", "UnknownError");
+    const write = persist.write(doc("Last edit", 2))!.catch(() => {});
+    persist.commitNow();
+    expect(JSON.parse(items[unsavedKey("p")]).version).toBe(PROJECT_VERSION);
+    await write;
+    refuse = null;
+    items[unsavedKey("p")] = JSON.stringify({ at: 5, version: PROJECT_VERSION + 1, doc: doc("From later") });
+    const next = await resolveOpening(env("?project=p", items));
+    expect(next.mode === "projects" && newerVersionOf(next.recovered?.doc)).toBe(PROJECT_VERSION + 1);
+  });
+
+  it("is noted beside the earlier way's document in localStorage, and read from there", () => {
+    const items: Record<string, string> = {};
+    vi.stubGlobal("localStorage", storage(items));
+    localPersist.write(doc("Here"));
+    expect(items[DOC_VERSION_KEY]).toBe(String(PROJECT_VERSION));
+    expect((localPersist.read() as { doc: Doc }).doc.title).toBe("Here");
+    items[DOC_VERSION_KEY] = String(PROJECT_VERSION + 1);
+    expect(newerVersionOf((localPersist.read() as { doc: Doc }).doc)).toBe(PROJECT_VERSION + 1);
   });
 });

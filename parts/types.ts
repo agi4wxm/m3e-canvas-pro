@@ -49,11 +49,18 @@ export type PropDef = {
   /** rows the author adds and removes; `icons` gives each row an icon as well, `images` a
    *  picture, `fields` one more choice per row */
   | { kind: "list"; default: ListItem[]; min?: number; max?: number; icons?: boolean; images?: boolean; fields?: ListField[] }
-  /** rows of cells under named columns: the data a table or a chart shows */
-  | { kind: "table"; default: TableData }
+  /** rows of cells under named columns: the data a table or a chart shows. `columns` is the structure the part reads
+   *  its cells by (parts/tables.ts), one for each of the default's columns. */
+  | { kind: "table"; default: TableData; columns?: TableColumn[]; /** the author lays out its columns' structure (a table of data) */ structure?: boolean }
 );
 
-export type TableData = { columns: string[]; rows: string[][] };
+/** A table's column (parts/tables.ts): the key data names it by, the kind of value it holds and how that is written
+ *  (`format`: a number's decimals, a currency's code), its width in px and where its words stand. Its header's words are
+ *  the table's own `columns`. */
+export type TableColumn = { key: string; label?: string; type?: "text" | "number" | "currency" | "percent" | "date" | "bool"; width?: number; align?: "start" | "center" | "end"; format?: string };
+
+/** a table: the headers of its columns, its rows of cells, and, where the author laid it out, its columns' structure */
+export type TableData = { columns: string[]; rows: string[][]; spec?: TableColumn[] };
 
 /** the prop values of one part, read by key with the part's own defaults filled in */
 export type P = {
@@ -77,7 +84,72 @@ export type Screen = { w: number; h: number };
 /** a place inside a part a tap can be sent from: a destination, a menu item, an icon at a bar's
  *  end. `key` is what the item's `actions` map stores under ("tab:2", "icon"); the nodes that
  *  answer to it carry `data-tap` so the preview can tell the places of one part apart. */
-export type PartSlot = { key: string; label: string; icon?: string };
+export type PartSlot = {
+  key: string;
+  label: string;
+  icon?: string;
+  /** A control of the part's own (a heart, a close button): a press on it counts as a press on the whole part only
+   *  where something is wired to it, so an unwired heart never opens what a tap on the card opens. The printers hand
+   *  the widget the own slots they wire (`wired`). */
+  own?: boolean;
+};
+
+/** The kind of value an input hands out: words, a number, yes or no, one row of a list or several, files, a date, a
+ *  direction (x and y from -1 to 1). Every host reads and writes an input by this, never by the part's slug. */
+export type InputKind = "text" | "number" | "bool" | "choice" | "choices" | "files" | "date" | "vec2";
+
+/** What the visitor enters into a part: the prop that holds it, and its kind. The value is UI state (a draft until
+ *  something submits it): a host keeps it, binds it to a variable or a form field, and draws the part with it again. */
+export type PartInput = {
+  prop: string;
+  kind: InputKind;
+  /** props of the design's start that the visitor's value takes over from (a split view's `collapsed`: once the divider
+   *  has been moved, the share says whether a pane is folded) */
+  resets?: string[];
+  /** For a choice: the prop whose entries it picks from, a list (its rows' labels) or words separated by commas
+   *  (a palette's colors). `items` when left out. A form field and a text variable hold the words of what is picked. */
+  options?: string;
+};
+
+/** the kind of a field of an event's payload */
+export type PayloadKind = "text" | "number" | "bool" | "list" | "object";
+
+/** A named event the part sends out with a payload, beside a tap: an action stored under `Item.actions["on:<name>"]`
+ *  runs when it is sent, and its expressions read the payload as `event.<field>`. */
+export type PartEvent = {
+  /** an identifier: the key is `on:<name>` */
+  name: string;
+  label: string;
+  labels?: Labels;
+  /** what `event` carries, field by field */
+  payload?: Record<string, PayloadKind>;
+};
+
+/** A slot family: one action for every slot whose key starts with `<prefix>:` (the rows of a list, the cells of a
+ *  grid), stored under `Item.actions["<prefix>:*"]`. A slot's own action wins over it; its expressions read the slot
+ *  tapped as `slot.index` (and `slot.key`). */
+export type SlotFamily = { prefix: string; label: string; labels?: Labels };
+
+/** A domain behaviour the part only acts out for a prototype (a prize drawn at random, a coupon that says it was
+ *  claimed): it runs only in an explicit prototype mode, and stops as soon as the part is wired to the real thing,
+ *  one of `takenOverBy` bound or an action of the part reaching the API. A product never runs it. */
+export type PartDemo = { what: string; takenOverBy: string[] };
+
+/** A whole-screen part that keeps its data and its behaviour to itself (a cart that adds up its own rows, a sign-in
+ *  form that checks its own fields), retired in favour of the same look built from atoms with bindings. It still draws,
+ *  so an old document looks the same, but the palette and the AI's catalog no longer offer it, and adding one is
+ *  refused; splitting it (lib/retire.ts) turns it into atoms, its rows into a data collection where they are alike. */
+export type PartRetired = {
+  /** what to build instead, in a sentence: the kits and atoms, where the data goes, what the taps call */
+  use: string;
+  /** the kits and parts that replace it, by slug: what the palette shows for a search by the retired part's name */
+  with?: string[];
+  /** why it retired, where that is not that it keeps its data to itself */
+  why?: string;
+  /** the operation that turns an old one into what replaces it, where that is no split into atoms (a resizable
+   *  becomes a split view whose panes hold parts) */
+  convert?: string;
+};
 
 /** the part's place on a screen: a bar pinned to an edge, a corner FAB, a centered overlay.
  *  Tidy pins it and the prompt describes it by this. A box takes `top`, `bottom` or `floatingBottom` from its `pin`. */
@@ -107,9 +179,32 @@ export type PartDef = {
   /** the places inside the part a tap can be sent from, for the panel's slot strip and the
    *  preview's `data-tap` delegation */
   slots?: (p: P) => PartSlot[];
+  /** slots that come in families, one action for all of them (see `SlotFamily`) */
+  families?: SlotFamily[];
+  /** the named events it sends out (see `PartEvent`) */
+  events?: PartEvent[];
+  /** what the visitor enters into it, when it is an input */
+  input?: PartInput;
+  /** The field states it shows (parts/fieldState.ts): disabled, read-only, required, loading, in error and its
+   *  message, each by the prop that holds it. The registry adds the props for those it does not write itself. */
+  field?: Partial<Record<"disabled" | "readOnly" | "required" | "loading" | "error" | "errorText" | "helperText", string>>;
+  /** the domain behaviour it acts out in a prototype, and what takes it over */
+  demo?: PartDemo;
+  /** it floats over a screen when opened: an open or close effect acts on it */
+  overlay?: boolean;
+  /** a destination bar: a tap on a destination is shared with the bar of the same entries on every other screen */
+  nav?: boolean;
+  /** A capability view (lib/capabilities: `map`, `camera`, `rtc.view`): the canvas and the preview draw it as a stand-in,
+   *  an exported app hands it to a slot written once (`src/custom/slots/<Name>.tsx`) that draws the real thing. Its
+   *  events are the capability's. */
+  capability?: string;
+  /** retired: still drawn, no longer offered (see `PartRetired`); parts/defs/retired.ts says it for each */
+  retired?: PartRetired;
   /** A container: what lies wholly inside it moves with it, the way a screen carries its parts.
-   *  It keeps no list of them; see `heldBy`. */
-  holds?: boolean;
+   *  It keeps no list of them; see `heldBy`. "laidOut": it holds parts only while its auto layout is on, and then
+   *  draws them in a content area of its own (an overlay's body, which floats apart from the screen it stands on), so
+   *  what merely lies over it stays a part of the screen (`holdsNow`). */
+  holds?: boolean | "laidOut";
   /** The container can lay out what it holds (parts/flow.ts): it carries the props for it, `grid` when it
    *  is always a grid, and `inset` for what it draws around the room it lays out in (a tab bar, a title). */
   flow?: { grid?: boolean; inset?: (p: P) => Partial<{ t: number; r: number; b: number; l: number }> };

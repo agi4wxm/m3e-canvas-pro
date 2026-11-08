@@ -1,5 +1,7 @@
 import { h, ic } from "../node";
 import type { P, PartDef } from "../types";
+import { FIELD, fieldFrame, fieldValues, requiredMark } from "../fieldState";
+import { ariaLabelProp, nameFor } from "../a11y";
 
 /** The id a part's own label points its control at: one of its own on a screen of several (from the part's id, as
  *  `p.scope` gives it), the bare name where the part is drawn for no item. */
@@ -11,6 +13,9 @@ const PLAIN = { value: "plain", label: "Plain", labels: { ja: "装飾なし", zh
 export const textInputs: PartDef[] = [
   {
     slug: "text-field",
+    input: { prop: "value", kind: "text" },
+    /* its line of help has always been its supporting text */
+    field: { ...FIELD, helperText: "supporting" },
     appearance: { target: "TextField", radius: 4 },
     name: "Text field",
     category: "Forms",
@@ -21,34 +26,59 @@ export const textInputs: PartDef[] = [
     props: [
       { key: "label", label: "Label", kind: "text", default: "Label" },
       { key: "value", label: "Value", kind: "text", default: "" },
+      { key: "placeholder", label: "Placeholder", kind: "text", default: "" },
+      /* the keyboard and how the words show; a form's field of a format says the same */
+      { key: "type", label: "Type", kind: "enum", default: "text", options: ["text", "email", "password", "number", "search", "tel", "url"] },
       { key: "supporting", label: "Supporting text", kind: "text", default: "" },
       { key: "variant", label: "Variant", kind: "enum", default: "outlined", options: ["outlined", "filled"] },
+      { key: "prefix", label: "Prefix", labels: { ja: "接頭辞", zh: "前缀", ko: "접두사" }, kind: "text", default: "" },
+      { key: "suffix", label: "Suffix", labels: { ja: "接尾辞", zh: "后缀", ko: "접미사" }, kind: "text", default: "" },
       { key: "leadingIcon", label: "Leading icon", kind: "icon", default: "" },
       { key: "trailingIcon", label: "Trailing icon", kind: "icon", default: "" },
       { key: "error", label: "Error", kind: "bool", default: false },
       { key: "multiline", label: "Multiline", kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 280, min: 120, max: 520, step: 4, unit: "px" },
+      ariaLabelProp((p) => !p.s("label")),
     ],
-    tree: (p) =>
-      h(
-        "div",
-        { style: { width: Math.round(p.n("width")) } },
-        h("TextField", {
-          label: p.s("label"),
-          defaultValue: p.s("value") || undefined,
-          variant: p.s("variant") === "filled" ? "filled" : undefined,
-          supportingText: p.s("supporting") || undefined,
-          leadingIcon: p.s("leadingIcon") ? ic(p.s("leadingIcon")) : undefined,
-          trailingIcon: p.s("trailingIcon") ? ic(p.s("trailingIcon")) : undefined,
-          error: p.b("error") || undefined,
-          multiline: p.b("multiline") || undefined,
-          containerClassName: "w-full",
-        }),
-      ),
+    tree: (p) => {
+      const v = fieldValues(p);
+      const label = p.s("label");
+      /* a required field says so after its label, as M3 marks one */
+      return fieldFrame(
+        v,
+        h(
+          "div",
+          { style: { width: Math.round(p.n("width")) } },
+          h("TextField", {
+            label: requiredMark(label, v.required),
+            "aria-label": label ? undefined : nameFor(p) || undefined,
+            defaultValue: p.s("value") || undefined,
+            placeholder: p.s("placeholder") || undefined,
+            type: p.s("type") === "text" ? undefined : p.s("type"),
+            prefix: p.s("prefix") || undefined,
+            suffix: p.s("suffix") || undefined,
+            variant: p.s("variant") === "filled" ? "filled" : undefined,
+            supportingText: p.s("supporting") || undefined,
+            leadingIcon: p.s("leadingIcon") ? ic(p.s("leadingIcon")) : undefined,
+            trailingIcon: p.s("trailingIcon") ? ic(p.s("trailingIcon")) : undefined,
+            error: v.invalid || undefined,
+            errorText: v.message || undefined,
+            required: v.required || undefined,
+            readOnly: v.readOnly || undefined,
+            disabled: v.disabled || undefined,
+            multiline: p.b("multiline") || undefined,
+            containerClassName: "w-full",
+          }),
+        ),
+        { holds: true, marksRequired: !!label, showsMessage: true },
+      );
+    },
   },
   {
     slug: "input",
-    appearance: { radius: 4 },
+    input: { prop: "value", kind: "text" },
+    field: FIELD,
+    appearance: { target: "Input", radius: 4 },
     name: "Input",
     category: "Controls",
     icon: "edit_note",
@@ -64,23 +94,35 @@ export const textInputs: PartDef[] = [
       { key: "error", label: "Error", kind: "bool", default: false },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 280, min: 120, max: 1280, step: 4, unit: "px" },
+      ariaLabelProp(),
     ],
-    tree: (p) =>
-      h("Input", {
-        type: p.s("type") === "text" ? undefined : p.s("type"),
-        placeholder: p.s("placeholder") || undefined,
-        defaultValue: p.s("value") || undefined,
-        variant: p.s("variant") === "outlined" ? undefined : p.s("variant"),
-        size: p.s("size") === "sm" ? "sm" : undefined,
-        "aria-invalid": p.b("error") || undefined,
-        disabled: p.b("disabled") || undefined,
-        style: { width: Math.round(p.n("width")) },
-      }),
+    tree: (p) => {
+      const v = fieldValues(p);
+      return fieldFrame(
+        v,
+        h("Input", {
+          type: p.s("type") === "text" ? undefined : p.s("type"),
+          placeholder: p.s("placeholder") || undefined,
+          "aria-label": nameFor(p) || undefined,
+          defaultValue: p.s("value") || undefined,
+          variant: p.s("variant") === "outlined" ? undefined : p.s("variant"),
+          size: p.s("size") === "sm" ? "sm" : undefined,
+          "aria-invalid": v.invalid || undefined,
+          required: v.required || undefined,
+          readOnly: v.readOnly || undefined,
+          disabled: v.disabled || undefined,
+          style: { width: Math.round(p.n("width")) },
+        }),
+        { holds: true },
+      );
+    },
     guess: (p) => ({ h: p.s("variant") === PLAIN.value ? 24 : p.s("size") === "sm" ? 40 : 56 }),
   },
   {
     slug: "textarea",
-    appearance: { radius: 4 },
+    input: { prop: "value", kind: "text" },
+    field: FIELD,
+    appearance: { target: "Textarea", radius: 4 },
     name: "Textarea",
     category: "Controls",
     icon: "notes",
@@ -96,24 +138,35 @@ export const textInputs: PartDef[] = [
       { key: "error", label: "Error", kind: "bool", default: false },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 280, min: 120, max: 1280, step: 4, unit: "px" },
+      ariaLabelProp(),
     ],
-    tree: (p) =>
-      h("Textarea", {
-        placeholder: p.s("placeholder") || undefined,
-        defaultValue: p.s("value") || undefined,
-        variant: p.s("variant") === "outlined" ? undefined : p.s("variant"),
-        rows: p.n("rows"),
-        /* growing, it starts at its rows and takes more as the words come; fixed, it keeps its rows and scrolls */
-        className: p.b("autoGrow") ? undefined : "field-sizing-fixed",
-        "aria-invalid": p.b("error") || undefined,
-        disabled: p.b("disabled") || undefined,
-        style: { width: Math.round(p.n("width")), ...(p.s("variant") === PLAIN.value ? { minHeight: Math.round(p.n("rows")) * 24 } : {}) },
-      }),
+    tree: (p) => {
+      const v = fieldValues(p);
+      return fieldFrame(
+        v,
+        h("Textarea", {
+          placeholder: p.s("placeholder") || undefined,
+          "aria-label": nameFor(p) || undefined,
+          defaultValue: p.s("value") || undefined,
+          variant: p.s("variant") === "outlined" ? undefined : p.s("variant"),
+          rows: p.n("rows"),
+          /* growing, it starts at its rows and takes more as the words come; fixed, it keeps its rows and scrolls */
+          className: p.b("autoGrow") ? undefined : "field-sizing-fixed",
+          "aria-invalid": v.invalid || undefined,
+          required: v.required || undefined,
+          readOnly: v.readOnly || undefined,
+          disabled: v.disabled || undefined,
+          style: { width: Math.round(p.n("width")), ...(p.s("variant") === PLAIN.value ? { minHeight: Math.round(p.n("rows")) * 24 } : {}) },
+        }),
+        { holds: true },
+      );
+    },
     guess: (p) => (p.s("variant") === PLAIN.value ? { h: Math.round(p.n("rows")) * 24 } : {}),
   },
   {
     slug: "input-group",
-    appearance: { radius: 4 },
+    field: FIELD,
+    appearance: { target: "InputGroup", radius: 4 },
     name: "Input group",
     category: "Forms",
     icon: "input",
@@ -128,24 +181,38 @@ export const textInputs: PartDef[] = [
       { key: "error", label: "Error", kind: "bool", default: false },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 320, min: 160, max: 520, step: 4, unit: "px" },
+      ariaLabelProp(),
     ],
     tree: (p) => {
+      const v = fieldValues(p);
       const leadingIcon = p.s("leadingIcon");
       const leadingText = p.s("leadingText");
       const trailingText = p.s("trailingText");
       const button = p.s("button");
-      return h(
-        "InputGroup",
-        { style: { width: Math.round(p.n("width")) } },
-        !!(leadingIcon || leadingText) && h("InputGroupAddon", null, !!leadingIcon && ic(leadingIcon, { size: 20 }), !!leadingText && h("InputGroupText", null, leadingText)),
-        h("InputGroupInput", { placeholder: p.s("placeholder") || undefined, "aria-invalid": p.b("error") || undefined, disabled: p.b("disabled") || undefined }),
-        !!(trailingText || button) &&
-          h("InputGroupAddon", { align: "inline-end" }, !!trailingText && h("InputGroupText", null, trailingText), !!button && h("InputGroupButton", { variant: "tonal", disabled: p.b("disabled") || undefined }, button)),
+      return fieldFrame(
+        v,
+        h(
+          "InputGroup",
+          { style: { width: Math.round(p.n("width")) } },
+          !!(leadingIcon || leadingText) && h("InputGroupAddon", null, !!leadingIcon && ic(leadingIcon, { size: 20 }), !!leadingText && h("InputGroupText", null, leadingText)),
+          h("InputGroupInput", {
+            placeholder: p.s("placeholder") || undefined,
+            "aria-label": nameFor(p) || undefined,
+            "aria-invalid": v.invalid || undefined,
+            required: v.required || undefined,
+            readOnly: v.readOnly || undefined,
+            disabled: v.disabled || undefined,
+          }),
+          !!(trailingText || button) &&
+            h("InputGroupAddon", { align: "inline-end" }, !!trailingText && h("InputGroupText", null, trailingText), !!button && h("InputGroupButton", { variant: "tonal", disabled: v.disabled || v.readOnly || undefined }, button)),
+        ),
+        { holds: true },
       );
     },
   },
   {
     slug: "input-otp",
+    field: FIELD,
     appearance: { target: "InputOTPSlot", radius: 8 },
     name: "Input OTP",
     category: "Forms",
@@ -158,21 +225,40 @@ export const textInputs: PartDef[] = [
       { key: "value", label: "Value", kind: "text", default: "" },
       { key: "error", label: "Error", kind: "bool", default: false },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
+      ariaLabelProp(),
     ],
     tree: (p) => {
+      const v = fieldValues(p);
       const length = Math.round(p.n("length"));
       const size = Math.round(p.n("group")) || length;
-      const slot = (index: number) => h("InputOTPSlot", { index, "aria-invalid": p.b("error") || undefined });
+      const slot = (index: number) => h("InputOTPSlot", { index, "aria-invalid": v.invalid || undefined });
       const parts: ReturnType<typeof h>[] = [];
       for (let from = 0; from < length; from += size) {
         if (from > 0) parts.push(h("InputOTPSeparator"));
         parts.push(h("InputOTPGroup", null, ...Array.from({ length: Math.min(size, length - from) }, (_, i) => slot(from + i))));
       }
-      return h("InputOTP", { maxLength: length, defaultValue: p.s("value").slice(0, length) || undefined, disabled: p.b("disabled") || undefined }, ...parts);
+      return fieldFrame(
+        v,
+        h(
+          "InputOTP",
+          {
+            maxLength: length,
+            defaultValue: p.s("value").slice(0, length) || undefined,
+            "aria-label": nameFor(p, p.say("Verification code")),
+            required: v.required || undefined,
+            readOnly: v.readOnly || undefined,
+            disabled: v.disabled || undefined,
+          },
+          ...parts,
+        ),
+        { holds: true },
+      );
     },
   },
   {
     slug: "field",
+    /* its message has always been `error`: the message is the error, and saying one puts the field in error */
+    field: { disabled: "disabled", readOnly: "readOnly", required: "required", loading: "loading", errorText: "error", helperText: "description" },
     appearance: { target: "Input", radius: 4 },
     name: "Field",
     category: "Forms",
@@ -193,24 +279,31 @@ export const textInputs: PartDef[] = [
       const error = p.s("error");
       const invalid = !!error || undefined;
       const disabled = p.b("disabled") || undefined;
+      const required = p.b("required") || undefined;
+      const readOnly = p.b("readOnly") || undefined;
       const id = controlId("field-control", p);
-      const field = { id, "aria-invalid": invalid, disabled };
+      const field = { id, "aria-invalid": invalid, disabled, required };
       const horizontal = control === "checkbox" || control === "switch";
-      const label = h("FieldLabel", { htmlFor: id }, p.s("label"));
+      const label = h("FieldLabel", { htmlFor: id }, p.s("label"), required && h("span", { "aria-hidden": true, className: "text-error" }, " *"));
       const input =
         control === "checkbox"
-          ? h("Checkbox", field)
+          ? h("Checkbox", { ...field, readOnly })
           : control === "switch"
-            ? h("Switch", { id, disabled })
+            ? h("Switch", { id, disabled, required, readOnly })
             : control === "textarea"
-              ? h("Textarea", { ...field, placeholder: p.s("placeholder") || undefined })
-              : h("Input", { ...field, placeholder: p.s("placeholder") || undefined });
+              ? h("Textarea", { ...field, readOnly, placeholder: p.s("placeholder") || undefined })
+              : h("Input", { ...field, readOnly, placeholder: p.s("placeholder") || undefined });
       const description = !!p.s("description") && h("FieldDescription", null, p.s("description"));
       const message = !!error && h("FieldError", null, error);
-      return h(
-        "Field",
-        { orientation: horizontal ? "horizontal" : undefined, "data-invalid": invalid, "data-disabled": disabled, style: { width: Math.round(p.n("width")) } },
-        ...(horizontal ? [input, h("FieldContent", null, label, description, message)] : [label, input, description, message]),
+      /* its own label, description and error line say the rest; the frame only shows that it loads */
+      return fieldFrame(
+        { ...fieldValues(p, (k) => k !== "error" && k !== "errorText"), invalid: !!error },
+        h(
+          "Field",
+          { orientation: horizontal ? "horizontal" : undefined, "data-invalid": invalid, "data-disabled": disabled, style: { width: Math.round(p.n("width")) } },
+          ...(horizontal ? [input, h("FieldContent", null, label, description, message)] : [label, input, description, message]),
+        ),
+        { holds: true, marksRequired: true, showsMessage: true },
       );
     },
   },

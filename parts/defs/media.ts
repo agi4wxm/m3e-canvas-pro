@@ -88,17 +88,24 @@ export const media: PartDef[] = [
     icon: "photo_camera",
     w: 360,
     h: 480,
+    /* a capability view (lib/capabilities `camera`): the real camera is the exported app's slot; here a stand-in */
+    capability: "camera",
     props: [
+      { key: "facing", label: "Lens", labels: { ja: "レンズ", zh: "镜头", ko: "렌즈" }, kind: "enum", default: "back", options: ["back", "front"] },
+      { key: "mode", label: "Takes", labels: { ja: "撮るもの", zh: "拍摄", ko: "촬영" }, kind: "enum", default: "photo", options: ["photo", "video", "scan"] },
+      { key: "state", label: "Shown as", labels: { ja: "表示", zh: "显示为", ko: "표시" }, kind: "enum", default: "live", options: ["live", "denied", "unavailable"] },
+      { key: "denied", label: "When refused", labels: { ja: "拒否されたとき", zh: "被拒绝时文字", ko: "거부되었을 때" }, kind: "text", default: "" },
       { key: "width", label: "Width", kind: "number", default: 360, min: 120, max: 1280, step: 4, unit: "px" },
       { key: "height", label: "Height", kind: "number", default: 480, min: 120, max: 1280, step: 4, unit: "px" },
     ],
-    tree: (p) =>
-      h(
-        "div",
-        { "data-slot": "camera-placeholder", className: "bg-inverse-surface text-inverse-on-surface relative flex items-center justify-center overflow-hidden rounded-xl", style: { width: Math.round(p.n("width")), height: Math.round(p.n("height")) } },
-        ic("photo_camera", { className: "size-12" }),
-        h("span", { className: "border-inverse-on-surface absolute bottom-4 left-1/2 size-14 -translate-x-1/2 rounded-full border-4" }),
-      ),
+    slots: () => [{ key: "shutter", label: "Shutter", icon: "radio_button_checked" }],
+    events: [
+      { name: "captured", label: "Took a picture or a video", labels: { ja: "撮影した", zh: "拍到了照片或视频", ko: "촬영함" }, payload: { file: "object" } },
+      { name: "scanned", label: "Scanned a code", labels: { ja: "コードを読み取った", zh: "扫到了码", ko: "코드를 읽음" }, payload: { text: "text", format: "text" } },
+    ],
+    /* a prototype hands out a stand-in picture or a sample scan; the product's camera is the slot's */
+    demo: { what: "hands out a stand-in picture, or a sample scan, when its shutter is pressed", takenOverBy: ["state"] },
+    tree: (p) => h("CameraView", { facing: p.s("facing"), mode: p.s("mode"), state: p.s("state"), denied: p.s("denied"), width: Math.round(p.n("width")), height: Math.round(p.n("height")) }),
   },
   {
     slug: "map",
@@ -109,20 +116,43 @@ export const media: PartDef[] = [
     icon: "map",
     w: 380,
     h: 240,
+    /* a capability view (lib/capabilities `map`): the markers (bindable to data), the one chosen and the route are props;
+       the real map is the exported app's slot, here a still stand-in */
+    capability: "map",
     props: [
       { key: "label", label: "Place", labels: { ja: "場所", zh: "地点", ko: "장소" }, kind: "text", default: "Current location", defaults: { zh: "当前位置" } },
+      { key: "center", label: "Centre (lat,lng)", labels: { ja: "中心（緯度,経度）", zh: "中心（纬度,经度）", ko: "중심(위도,경도)" }, kind: "text", default: "" },
+      { key: "zoom", label: "Zoom", labels: { ja: "ズーム", zh: "缩放", ko: "확대" }, kind: "number", default: 14, min: 1, max: 20, step: 1 },
+      { key: "markers", label: "Markers", labels: { ja: "マーカー", zh: "标记点", ko: "마커" }, kind: "table", default: { columns: ["Id", "Title", "Lat", "Lng"], rows: [] } },
+      { key: "selected", label: "Chosen marker", labels: { ja: "選んだマーカー", zh: "选中的标记", ko: "선택한 마커" }, kind: "text", default: "" },
+      { key: "route", label: "Route through the markers", labels: { ja: "マーカーを結ぶルート", zh: "连成路线", ko: "마커를 잇는 경로" }, kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 380, min: 120, max: 1280, step: 4, unit: "px" },
       { key: "height", label: "Height", kind: "number", default: 240, min: 96, max: 1280, step: 4, unit: "px" },
     ],
-    tree: (p) =>
-      h(
-        "div",
-        { "data-slot": "map-placeholder", className: "bg-surface-container-high relative flex flex-col items-center justify-center gap-1 overflow-hidden rounded-xl", style: { width: Math.round(p.n("width")), height: Math.round(p.n("height")) } },
-        h("span", { className: "bg-surface-container absolute inset-x-0 top-1/3 h-3" }),
-        h("span", { className: "bg-surface-container absolute inset-y-0 left-1/4 w-3" }),
-        h("span", { className: "bg-surface-container absolute inset-y-0 right-1/5 w-2" }),
-        ic("location_on", { className: "text-primary relative size-10" }),
-        p.s("label") && h("span", { className: "text-label-medium text-on-surface relative" }, p.s("label")),
-      ),
+    /* the marker chosen is the visitor's choice: it goes out as the part's value and with markerTap */
+    input: { prop: "selected", kind: "text" },
+    events: [
+      { name: "markerTap", label: "A marker tapped", labels: { ja: "マーカーをタップ", zh: "点了标记", ko: "마커를 탭함" }, payload: { id: "text" } },
+      { name: "regionChange", label: "Moved or zoomed", labels: { ja: "移動・ズームした", zh: "拖动或缩放了", ko: "이동·확대함" }, payload: { center: "object", zoom: "number" } },
+      { name: "longPress", label: "Pressed and held", labels: { ja: "長押しした", zh: "长按了", ko: "길게 누름" }, payload: { lat: "number", lng: "number" } },
+    ],
+    /* what the stand-in is given is the capability's props (lib/capabilities `map`), as a slot is given them */
+    tree: (p) => {
+      const markers = p
+        .table("markers")
+        .rows.map((r) => ({ id: r[0] ?? "", title: r[1] ?? "", lat: Number(r[2]), lng: Number(r[3]) }))
+        .filter((m) => m.id && Number.isFinite(m.lat) && Number.isFinite(m.lng));
+      const at = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(p.s("center"));
+      return h("MapView", {
+        label: p.s("label"),
+        center: at ? { lat: Number(at[1]), lng: Number(at[2]) } : undefined,
+        zoom: Math.round(p.n("zoom")),
+        markers,
+        selected: p.s("selected"),
+        route: p.b("route") && markers.length > 1 ? markers.map((m) => ({ lat: m.lat, lng: m.lng })) : [],
+        width: Math.round(p.n("width")),
+        height: Math.round(p.n("height")),
+      });
+    },
   },
 ];

@@ -47,16 +47,34 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: an icon counted as drawn only
-     with both its glyphs; before it the components saying their own words in Chinese, Japanese and Korean too, the
+     before the product existed; one that changes on purpose is written again here (last: the platform capabilities,
+     docs/平台能力.md, beside the retired parts, the split view and the widgets' outlets: the shop flow pays through
+     createOrder and payment.pay and shows the order's status, the checkout's body one column with its payment notices
+     among its rows; checkout-bar, video-call, map and camera take their state as props, the map and the camera drawn by
+     parts/widgets/Platform.tsx, and the subscription's plans are its choice. Before that: the field states and the
+     accessible names, docs/组件规范.md: the M3E button's own loading spinner (spinner.tsx copied beside it), the widgets'
+     arrow keys (parts/widgets/roving.ts) and a rating named in the page's language, icon-only controls named by what
+     their icon means, a picture with no name kept from a screen reader, a field's line of help in its frame; before them
+     retired parts, parts/types.ts,
+     which ships, saying what `retired` is and what replaces one, and the shop template's cart as the atoms the retired
+     cart-list splits into; before them the split view, whose
+     widget contract copied beside the widgets says whether a part may keep the visitor's UI state on the device
+     (parts/widgets/host.ts `remember`) and which design props an input's value takes over from (parts/types.ts
+     `PartInput.resets`), and in parts the split view itself, its widget file and react-resizable-panels 4.19.1; before it: the reward track and the leaderboard copied with the widgets, a
+     claim the demo made kept by its reward and the open row only the one given; before them the widgets' state and
+     outlets, report 3.3 and 3.4: inputs controlled through the host, demos printed where a part acts out a result, the
+     sweep's parts with a selectKey now including the level map, the side tabs and the review summary; before them the icons reading their
+     family from a root's provider and drawn again when it changes, components/m3e/icon.tsx and symbols.tsx, and the
+     loader asking for each root's family; with it the widgets' host contract, parts/widgets/host.ts, copied beside
+     them, and a rating an input wired to its variable; before them an icon counted as drawn only with both its glyphs, the components saying their own words in Chinese, Japanese and Korean too, the
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [77, "2bae1a0adb2d1d8db283cfd81f3cd0b791f572efcf480e963773f12806ca1586"],
-    systems: [40, "fe350b28dee0e667c6a33665a619f74599695020dda85b6107a334d8079e82af"],
-    reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [83, "4721ce71e7d1b8a4421053a71447302a9edf4ee71ca04643820f05f7c09f30b4"],
-    parts: [136, "df679b82e1002f41595256cb49817659e933830f24672ccf97f575c7d0835508"],
+    proof: [83, "e2ff344877174acc8f0e589982ebee10e7133a762d7132d0f04de35a085c9e0a"],
+    systems: [41, "992987b9634db0e617a98539279765cae5163f7caa5fe8ecdbc9aa5dc3ca56cb"],
+    reuse: [31, "bf3a590479d5cbc75c4c9fcd91fa094350452f6190f2690665cefe7aecff44aa"],
+    sweep: [93, "72606d0118218ffec85eb98ef83ff4364f01252b10723b5c862693a848aa8da0"],
+    parts: [140, "f51e43fefb97a4b7514e156127b081644ef8ccd904782826b0c55e6b1984e2a2"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
@@ -74,7 +92,8 @@ describe("the product of a document", () => {
   it("is a monorepo of workspaces, with the root's settings", () => {
     const root = JSON.parse(text(proof, "package.json"));
     expect(proof.name).toBe("proof-app");
-    expect(root.workspaces).toEqual(["packages/api", "packages/mocks", "packages/app-runtime", "apps/web", "server", "contract-tests", "apps/mobile", "apps/miniapp"]);
+    /* the proof's checkout pays (payment.pay, the shop flow's): its capabilities are a package of their own */
+    expect(root.workspaces).toEqual(["packages/api", "packages/mocks", "packages/app-runtime", "packages/capabilities", "apps/web", "server", "contract-tests", "apps/mobile", "apps/miniapp"]);
     expect(Object.keys(root.scripts)).toEqual(expect.arrayContaining(["dev", "build", "typecheck", "lint", "test"]));
     for (const ws of root.workspaces) expect(JSON.parse(text(proof, `${ws}/package.json`)).name).toMatch(/^@proof-app\//);
     for (const path of ["tsconfig.base.json", "eslint.config.js", ".prettierrc.json", ".prettierignore", ".gitignore", "README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "NOTICE", "scripts/dev.mjs", "apps/mobile/README.md", "apps/miniapp/README.md"]) expect(proof.files[path], path).toBeTruthy();
@@ -135,7 +154,8 @@ describe("the product of a document", () => {
     for (const path of APP_RUNTIME_FILES) {
       const source = text(proof, `packages/app-runtime/src/engine/${path.slice(4)}`);
       for (const spec of importsIn(source)) expect(spec.startsWith(".") || spec === "react", `${path} imports ${spec}`).toBe(true);
-      const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+      /* the code, without its comments and the words of its strings (a media type such as …wordprocessingml.document) */
+      const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").replace(/"(?:[^"\\\n]|\\.)*"/g, '""');
       expect(code, path).not.toMatch(/\b(window|document|localStorage|sessionStorage|navigator|fetch|XMLHttpRequest)\b|react-native|@tarojs/);
     }
     expect(text(proof, "AGENTS.md")).toContain("## The app runtime (packages/app-runtime)");
@@ -152,10 +172,13 @@ describe("the product of a document", () => {
       "apps/miniapp/project.config.json",
       "apps/miniapp/project.tt.json",
       "apps/miniapp/src/custom/Providers.tsx",
+      "apps/miniapp/src/custom/capabilities.ts",
       "apps/miniapp/src/custom/setup.ts",
       "apps/mobile/src/custom/Providers.tsx",
+      "apps/mobile/src/custom/capabilities.ts",
       "apps/mobile/src/custom/setup.ts",
       "apps/web/src/custom/Providers.tsx",
+      "apps/web/src/custom/capabilities.ts",
       "apps/web/src/custom/setup.ts",
       "server/src/custom/auth.ts",
       "server/src/custom/db.ts",
@@ -375,10 +398,13 @@ describe("the mobile app", () => {
     expect(proof.differences.filter((d) => d.app === "mobile").map(({ app: _app, ...d }) => d)).toEqual(listed);
     expect(proof.differences.filter((d) => d.app === "miniapp").map(({ app: _app, ...d }) => d)).toEqual(JSON.parse(text(proof, "apps/miniapp/src/generated/warnings.json")));
     const counts = differenceCounts(proof.differences);
-    expect(counts.map((c) => c.app)).toEqual(["mobile", "miniapp"]);
-    expect(counts[0]).toMatchObject({ total: listed.length, file: "apps/mobile/src/generated/warnings.json" });
-    expect(counts[0].kinds.reduce((n, [, k]) => n + k, 0)).toBe(listed.length);
-    expect(differenceLines(proof.differences)[0]).toMatch(/^mobile: \d+ drawn differently from the design \(\d+ \w+/);
+    /* the web lists the product cards' prototype demo (a heart and a cart count they act out), which a product never
+       runs, and leans on what is not there yet: the payment's adapter */
+    expect(counts.map((c) => c.app)).toEqual(["web", "mobile", "miniapp"]);
+    expect(proof.differences.filter((d) => d.app === "web").map((d) => d.kind)).toEqual(expect.arrayContaining(["demo", "capability"]));
+    expect(counts[1]).toMatchObject({ total: listed.length, file: "apps/mobile/src/generated/warnings.json" });
+    expect(counts[1].kinds.reduce((n, [, k]) => n + k, 0)).toBe(listed.length);
+    expect(differenceLines(proof.differences)[1]).toMatch(/^mobile: \d+ drawn differently from the design \(\d+ \w+/);
     /* a product with nothing drawn differently says so with an empty list */
     expect(JSON.parse(text(shop, "apps/mobile/src/generated/warnings.json"))).toEqual(shop.differences.filter((d) => d.app === "mobile").map(({ app: _app, ...d }) => d));
   });

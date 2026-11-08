@@ -29,7 +29,7 @@ import {
   COLOR_TOKENS,
   type ColorToken,
 } from "./tokens";
-import { hasBackdrop, withDocStyles } from "./styles";
+import { hasBackdrop, styleContext, withDocStyles } from "./styles";
 import { EXTERNAL } from "../parts/externals";
 import { FILE_OF } from "../parts/files.generated";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
@@ -39,6 +39,7 @@ import { mapNodes, type PNode, type PValue } from "../parts/node";
 import { expandDoc } from "./expand";
 import { boundItem, bindsFields, varValues } from "./variables";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "./flow";
+import { PANE_SIDES, panesOfSplit, splitOf } from "./split";
 import { Behaviour, type RuntimeSpec, type Uses } from "./printBehaviour";
 import { BoundPrint, type BindPrintOptions } from "./printBindings";
 import { templateOf } from "./collections";
@@ -116,6 +117,8 @@ class Ctx {
     readonly b: Behaviour,
     readonly frame: Frame,
     readonly widths: Record<string, number>,
+    /** the slots that draw the capability views, by item id */
+    readonly slots: Record<string, string> = {},
   ) {}
   /** the files of this repo's own the screen's code needs over the registry's, with what needs them */
   local = new Map<string, Set<string>>();
@@ -146,6 +149,13 @@ function jsx(it: Item, c: Ctx, insideTap = false): string {
   if (!partBySlug(it.component)) return `{/* unknown component${unknownName(it.component) ? ` ${unknownName(it.component)}` : ""} */}`;
   const { tree, keepTap, wrap } = c.b.printPart(it, c.uses, insideTap);
   c.useTree(tree);
+  /* a capability view is its slot, handed what the stand-in is and drawing the stand-in until it is written */
+  const slot = c.slots[it.id];
+  if (slot) {
+    c.imports.set("@/slots", new Set([...(c.imports.get("@/slots") ?? []), slot]));
+    const props = Object.fromEntries(Object.entries(tree.props ?? {}).filter(([k]) => !k.startsWith("data-") && k !== "className" && k !== "style"));
+    return wrap(inlineNode({ type: slot, props, children: [tree] }, keepTap));
+  }
   return wrap(inlineNode(tree, keepTap));
 }
 
@@ -195,8 +205,9 @@ function itemClasses(run: Group, parent: Flow, origin: { x: number; y: number })
 
 /** The JSX of a run laid out by a container: nested, the way the browser will lay it out. The classes
  *  of the layout go on the node the container keeps for it, or on its root. */
-function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new Set<string>(), insideTap = false, origin = { x: 0, y: 0 }, /** the axes the screen gives a layout standing on it (a bar spans it) */ spans: ("width" | "height")[] = []): string {
+function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new Set<string>(), insideTap = false, origin = { x: 0, y: 0 }, /** the axes the screen gives a layout standing on it (a bar spans it) */ spans: ("width" | "height")[] = [], /** a pane of a split view: as big as its panel, whatever it holds */ pane = false): string {
   if (parent && run.expandedFrom !== undefined) return instanceJsx(run, c, all, inside);
+  if (run.items.length === 1 && splitOf(run)) return splitJsx(run, c, all, parent, inside, insideTap, origin, spans);
   const it = run.items[0];
   const def = partBySlug(it.component);
   const flow = run.items.length === 1 ? flowOf(run) : null;
@@ -220,7 +231,7 @@ function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new S
   /* a layout takes the size of what it holds only when it holds something that flows: an empty one, or one whose
    * parts all stand loose, keeps its own size, as it does on the canvas */
   const flowing = kids.some((k) => !childLayoutOf(k.items.length === 1 ? k.items[0] : undefined).absolute);
-  const fit = flowing ? [...(sizedByContents(run, flow, parent, "w") ? ["width"] : []), ...(sizedByContents(run, flow, parent, "h") ? ["height"] : [])] : [];
+  const fit = flowing && !pane ? [...(sizedByContents(run, flow, parent, "w") ? ["width"] : []), ...(sizedByContents(run, flow, parent, "h") ? ["height"] : [])] : [];
   const style = Object.fromEntries(Object.entries((tree.props?.style as Record<string, PValue> | undefined) ?? {}).filter(([k]) => !fit.includes(k)));
   tree = { ...tree, props: { ...tree.props, style } };
   const marked = (n: PNode): boolean => !!n.props?.["data-flow"] || !!n.children?.some((x) => typeof x !== "string" && marked(x));
@@ -249,6 +260,24 @@ function flowJsx(run: Group, c: Ctx, all: Group[], parent?: Flow, inside = new S
   };
   const held = (form && bound ? bound.within(form.scope, form, () => kids.map(kid)) : kids.map(kid)).join("");
   /* a function: a `$` in a part's words is not a replacement pattern */
+  return boxed(part.wrap(inlineNode(placed, part.keepTap).replace(HOLE, () => held)));
+}
+
+/** A split view: the part (the library's panel group, parts/widgets/Split.tsx), and in its two panels the two panes,
+ *  each as big as its panel and laying out what it holds the way the canvas does. The split stands in a layout as any
+ *  part does. */
+function splitJsx(run: Group, c: Ctx, all: Group[], parent: Flow | undefined, inside: Set<string>, insideTap: boolean, origin: { x: number; y: number }, spans: ("width" | "height")[]): string {
+  const it = run.items[0];
+  const asked = parent ? itemClasses(run, parent, origin) : { classes: "", fill: spans };
+  const boxed = (source: string) => (asked.classes ? `<div className=${str(asked.classes)}>${source}</div>` : source);
+  const part = c.b.printPart(it, c.uses, insideTap);
+  const tapped = insideTap || !!it.action || !!Object.keys(it.actions ?? {}).length;
+  const within = new Set(inside).add(run.id);
+  const panes = panesOfSplit(all, run.id);
+  const placed = { ...fluid(part.tree, asked.fill), children: [HOLE] };
+  c.useTree(placed);
+  const paneJsx = (g: Group | undefined) => (g ? gated(c.b.gates(g, within, c.uses), flowJsx(g, c, all, undefined, within, tapped, { x: g.x, y: g.y }, ["width", "height"], true)) : "<div />");
+  const held = PANE_SIDES.map((side) => paneJsx(panes[side])).join("");
   return boxed(part.wrap(inlineNode(placed, part.keepTap).replace(HOLE, () => held)));
 }
 
@@ -289,7 +318,7 @@ function screenBody(frame: Frame, runs: Group[], c: Ctx, widths: Record<string, 
   const { h } = frameSizeOf(frame);
   const out: string[] = [];
   const end = room > 0 ? `<span aria-hidden className="pointer-events-none absolute top-full left-0 w-px" style={{ height: ${room} }} />` : "";
-  const hosts = new Set(all.filter((r) => flowOf(r)).map((r) => r.id));
+  const hosts = new Set(all.filter((r) => flowOf(r) || splitOf(r)).map((r) => r.id));
   const byId = new Map(all.map((g) => [g.id, g]));
   for (const run of runs) {
     /* what a layout holds is printed inside it */
@@ -493,6 +522,8 @@ export type ScreenCode = {
 };
 
 type BuildOptions = {
+  /** the capability views drawn by a slot of the product's (lib/export/appCapabilities.ts): its component by item id */
+  slots?: Record<string, string>;
   onlyFrameId?: string;
   /** a whole app: parts behave as they do in the preview even with no action of their own */
   live?: boolean;
@@ -513,7 +544,9 @@ export const importLines = (imports: Imports) =>
 
 /** Every screen of a document as a React component, read in the document's own styles (a custom style is resolved from `doc.styles`) */
 export function buildScreens(source: Doc, widths: Record<string, number>, o: BuildOptions = {}): { screens: ScreenCode[]; runtime: RuntimeSpec; usesToast: boolean } {
-  return withDocStyles(source.styles, () => screensOf(source, widths, o));
+  /* what it calls further down (the layout, the parts) may read a style without being handed one: the document's are
+     in reach for this one synchronous call */
+  return withDocStyles(styleContext(source.styles), () => screensOf(source, widths, o));
 }
 
 function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions): { screens: ScreenCode[]; runtime: RuntimeSpec; usesToast: boolean } {
@@ -537,7 +570,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
   const offTab = new Set([...outOfPane(doc.groups, widths)].filter((id) => !b.keepsOffTab(id)));
   let usesToast = false;
   const screens = shown.map((frame, i): ScreenCode => {
-    const c = new Ctx(b, frame, widths);
+    const c = new Ctx(b, frame, widths, o.slots);
     /* A design field bound to a variable is printed with the variable's value on this screen. In a whole app it reads the
      * variable's CSS variable, which the runtime defines for the screen in the mode it shows and with what taps set
      * (src/runtime.tsx), that value standing in until it does */
@@ -577,7 +610,8 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
     } else body = screenBody(frame, runs, c, widths, all);
     const bg = frame.bg && COLOR_TOKENS.some((t) => t.key === frame.bg) ? `bg-${role(frame.bg)}` : "bg-surface";
     /* a style may draw something behind its screens (src/style.css) */
-    const open = `<div${hasBackdrop(normalizeTheme(doc.theme)) ? " data-backdrop" : ""} className=${str(`relative overflow-hidden ${bg} w-[${w}px] h-[${h}px]`)}>`;
+    const styles = styleContext(doc.styles);
+    const open = `<div${hasBackdrop(normalizeTheme(doc.theme, styles), styles) ? " data-backdrop" : ""} className=${str(`relative overflow-hidden ${bg} w-[${w}px] h-[${h}px]`)}>`;
     const inner = [open, ...body, "</div>"].join("");
     if (folds) c.imports.set("react", new Set([...(c.imports.get("react") ?? []), "useRef", "useState"]));
     /* the bindings' hooks: params, data, the scope, the regions' states, the forms (they say what else they use) */
@@ -613,14 +647,15 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
 
 /** the code of a document, or of one of its screens, read in the document's own styles */
 export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?: string): CodeResult {
-  return withDocStyles(doc.styles, () => codeOf(doc, widths, onlyFrameId));
+  return withDocStyles(styleContext(doc.styles), () => codeOf(doc, widths, onlyFrameId));
 }
 
 function codeOf(doc: Doc, widths: Record<string, number>, onlyFrameId?: string): CodeResult {
-  const palette = paletteOf(doc.paletteKey, doc.customPalette, doc.theme);
+  const styles = styleContext(doc.styles);
+  const palette = paletteOf(doc.paletteKey, doc.customPalette, doc.theme, styles);
   /* the header is comments: what it says of the document is only ever a color and a word it knows */
   const seed = [palette.seed, palette.primary].find((c): c is string => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c)) ?? "#6750A4";
-  const contrast = normalizeTheme(doc.theme).contrast;
+  const contrast = normalizeTheme(doc.theme, styles).contrast;
   const { screens, usesToast } = buildScreens(doc, widths, { onlyFrameId });
   const imports: Imports = new Map();
   for (const s of screens) for (const [source, set] of s.imports) imports.set(source, new Set([...(imports.get(source) ?? []), ...set]));

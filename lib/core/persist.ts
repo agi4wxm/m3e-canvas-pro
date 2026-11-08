@@ -6,7 +6,7 @@
  * time by a Web Lock. */
 
 import { assetRefsIn, getAssets, pruneAssets, putAssets, restoreAssets, stripAssets } from "../assets";
-import { isProject } from "../project";
+import { loadDocument, loadStored, PROJECT_VERSION } from "../project";
 import type { Doc } from "../tokens";
 
 /** what a store held when the editor opened */
@@ -80,6 +80,13 @@ export const DOC_KEY = "m3e:doc";
 /** the design a draft or a link replaced, until the author keeps or undoes it */
 export const BEFORE_KEY = "m3e:doc:before";
 export const DOC_LOCK = "m3e:doc:editor";
+/** the format version the document under DOC_KEY is written in (lib/migrations.ts); absent before it was noted */
+export const DOC_VERSION_KEY = "m3e:doc:version";
+
+const storedVersion = (raw: string | null): number | undefined => {
+  const n = raw === null ? NaN : Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+};
 
 /** writes a document down, its large pictures kept apart (lib/assets.ts) */
 function saveAt(key: string, doc: unknown) {
@@ -92,13 +99,14 @@ function saveAt(key: string, doc: unknown) {
 export const localPersist: PersistAdapter = {
   read() {
     const d = localStorage.getItem(DOC_KEY);
-    const doc = d ? (JSON.parse(d) as Partial<Doc>) : null;
+    /* brought up to this version and cleaned as any document is, from the version noted beside it */
+    const doc = d ? loadStored(JSON.parse(d), storedVersion(localStorage.getItem(DOC_VERSION_KEY))) : null;
     const raw = d ? localStorage.getItem(BEFORE_KEY) : null;
     if (!d) localStorage.removeItem(BEFORE_KEY);
     let before: Doc | null = null;
     if (raw) {
-      const value: unknown = JSON.parse(raw);
-      if (isProject(value)) before = value;
+      const value = loadDocument(JSON.parse(raw));
+      if (value) before = value.doc;
       else localStorage.removeItem(BEFORE_KEY);
     }
     return { doc, before };
@@ -106,6 +114,7 @@ export const localPersist: PersistAdapter = {
   write(doc) {
     try {
       saveAt(DOC_KEY, doc);
+      localStorage.setItem(DOC_VERSION_KEY, String(PROJECT_VERSION));
     } catch (err) {
       if (isStorageFull(err)) throw new PersistFullError(String(err));
       throw asPersistError(err);

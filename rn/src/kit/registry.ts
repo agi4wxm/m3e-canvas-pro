@@ -6,15 +6,17 @@ import { Avatar, Badge, CircularProgress, Dot, Kbd, LoadingIndicator, PageDots, 
 import { AppBar, Fab, NavigationBar, Search, Tabs } from "./composites/bars";
 import { Alert, Card, Carousel, ListItem, Snackbar } from "./composites/content";
 import { ButtonGroup, DatePicker, Menu, SegmentedButton, Select, TextField, TimePicker } from "./composites/forms";
-import { Accordion, AuthForm, CodeBlock, FileUpload, IconGrid, InputGroup, RadioGroup, Scene, Sidebar } from "./composites/more";
+import { Accordion, CodeBlock, FileUpload, IconGrid, InputGroup, RadioGroup, Scene, Sidebar } from "./composites/more";
 import { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 import { NATIVE, type NativeName, type NativeSlug } from "./coverage";
+import { SplitView } from "./split";
 
 /* Every component the kit draws a part with, by the name coverage.ts gives it, and by the part's id. */
 
 export const BY_NAME = {
   Box,
   Container,
+  SplitView,
   Text,
   Icon,
   Svg: Svg_,
@@ -75,7 +77,6 @@ export const BY_NAME = {
   FileUpload,
   Scene,
   Sidebar,
-  AuthForm,
 } satisfies Record<NativeName, ComponentType<never>>;
 
 /** the component that draws each part the kit covers, by the part's id */

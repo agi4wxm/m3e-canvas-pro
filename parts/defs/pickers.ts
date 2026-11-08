@@ -1,10 +1,13 @@
 import { h, ic } from "../node";
 import type { PartDef } from "../types";
+import { FIELD, fieldFrame, fieldValues } from "../fieldState";
+import { ariaLabelProp } from "../a11y";
 
 export const pickers: PartDef[] = [
   {
     slug: "calendar",
-    appearance: { radius: 16 },
+    field: FIELD,
+    appearance: { target: "Calendar", radius: 16 },
     name: "Calendar",
     category: "Pickers",
     icon: "calendar_month",
@@ -15,17 +18,23 @@ export const pickers: PartDef[] = [
       { key: "months", label: "Months shown", kind: "number", default: 1, min: 1, max: 2, step: 1 },
       { key: "outside", label: "Days of other months", kind: "bool", default: true },
       { key: "weekStart", label: "Week starts on", kind: "enum", default: "sunday", options: ["sunday", "monday"] },
+      ariaLabelProp(),
     ],
+    /* its days are buttons a frame can hold: disabled, read-only, its message under it */
     tree: (p) =>
-      h("Calendar", {
-        mode: p.s("mode"),
-        numberOfMonths: Math.round(p.n("months")) > 1 ? Math.round(p.n("months")) : undefined,
-        showOutsideDays: p.b("outside") ? undefined : false,
-        weekStartsOn: p.s("weekStart") === "monday" ? 1 : undefined,
-      }),
+      fieldFrame(
+        fieldValues(p),
+        h("Calendar", {
+          mode: p.s("mode"),
+          numberOfMonths: Math.round(p.n("months")) > 1 ? Math.round(p.n("months")) : undefined,
+          showOutsideDays: p.b("outside") ? undefined : false,
+          weekStartsOn: p.s("weekStart") === "monday" ? 1 : undefined,
+        }),
+      ),
   },
   {
     slug: "date-picker",
+    field: FIELD,
     appearance: { target: ["DatePicker", "Calendar"], radius: 16 },
     name: "Date picker",
     category: "Pickers",
@@ -60,21 +69,32 @@ export const pickers: PartDef[] = [
         ),
       ),
     tree: (p) => {
+      const v = fieldValues(p);
       if (p.s("variant") === "modal") {
         const range = p.s("mode") === "range";
-        return h("DatePickerModal", {
-          mode: range ? "range" : undefined,
-          title: p.s("title") || undefined,
-          defaultView: p.s("defaultView") === "input" ? "input" : undefined,
-          trigger: h("Button", { variant: "tonal" }, ic(range ? "date_range" : "calendar_today"), p.s("label") || "Pick a date"),
-        });
+        /* the button that opens it is held by the frame */
+        return fieldFrame(
+          v,
+          h("DatePickerModal", {
+            mode: range ? "range" : undefined,
+            title: p.s("title") || undefined,
+            defaultView: p.s("defaultView") === "input" ? "input" : undefined,
+            trigger: h("Button", { variant: "tonal" }, ic(range ? "date_range" : "calendar_today"), p.s("label") || "Pick a date"),
+          }),
+        );
       }
-      return h("DatePicker", { label: p.s("label") || undefined, placeholder: p.s("placeholder") || undefined, disabled: p.b("disabled") || undefined, className: `w-[${Math.round(p.n("width"))}px]` });
+      const label = p.s("label");
+      return fieldFrame(
+        v,
+        h("DatePicker", { label: (v.required && label ? `${label} *` : label) || undefined, placeholder: p.s("placeholder") || undefined, invalid: v.invalid || undefined, required: v.required || undefined, disabled: v.disabled || undefined, className: `w-[${Math.round(p.n("width"))}px]` }),
+        { holds: "disabled", showsError: true, marksRequired: !!label },
+      );
     },
   },
   {
     slug: "time-picker",
-    appearance: { radius: 28 },
+    field: FIELD,
+    appearance: { target: "TimePicker", radius: 28 },
     name: "Time picker",
     category: "Pickers",
     icon: "schedule",
@@ -89,12 +109,15 @@ export const pickers: PartDef[] = [
       { key: "width", label: "Width", kind: "number", default: 328, min: 296, max: 560, step: 4, unit: "px" },
     ],
     tree: (p) =>
-      h("TimePicker", {
-        title: p.s("title") || undefined,
-        defaultValue: { hours: Math.round(p.n("hours")), minutes: Math.round(p.n("minutes")) },
-        hour24: p.b("hour24") || undefined,
-        mode: p.s("mode") === "input" ? "input" : undefined,
-        style: { width: Math.round(p.n("width")) },
-      }),
+      fieldFrame(
+        fieldValues(p),
+        h("TimePicker", {
+          title: p.s("title") || undefined,
+          defaultValue: { hours: Math.round(p.n("hours")), minutes: Math.round(p.n("minutes")) },
+          hour24: p.b("hour24") || undefined,
+          mode: p.s("mode") === "input" ? "input" : undefined,
+          style: { width: Math.round(p.n("width")) },
+        }),
+      ),
   },
 ];

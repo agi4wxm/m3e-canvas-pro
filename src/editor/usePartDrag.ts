@@ -9,6 +9,7 @@ import { Axis, ComponentDef, Frame, GAP, Group, heldBy, Item, sizeOf } from "@/l
 import type { Mode, NoteAction } from "@/components/Toolbar";
 import { canNest, standIn } from "@/lib/instances";
 import { treeSize } from "@/lib/kits";
+import { splitOf } from "@/lib/split";
 import { defaultMeasures } from "@/parts/templates/kit";
 import { getLang, t } from "@/lib/i18n";
 import { ops, type CoreState, type Op, type TxOptions } from "@/lib/core";
@@ -106,6 +107,14 @@ export function usePartDrag({ dragRef, gestureRef, setGesture, startPan, modeRef
     const pick = (cur: string[]) => (!e.shiftKey ? (cur.length === ids.length && ids.every((x, i) => cur[i] === x) ? cur : ids) : ids.every((x) => cur.includes(x)) ? cur.filter((x) => !ids.includes(x)) : [...cur.filter((x) => !ids.includes(x)), ...ids]);
     /* A press on a part of a selection of several carries all of them, as in Figma: the part pressed leads and the rest,
        with what they hold, keep their distance to it. Parts a layout places stay to it unless their layout comes too. */
+    /* a split view's pane is its split's: pressed, it is picked, never carried off on its own */
+    if (g.splitPane && g.inFlow && groupsRef.current.some((x) => x.id === g.inFlow && !!splitOf(x))) {
+      setSelectedIds(pick);
+      setSelectedFrameId(null);
+      setSelectedLinkId(null);
+      setRightTab("edit");
+      return;
+    }
     const sel = selectionNow?.() ?? [];
     if (!e.shiftKey && wasSelected && sel.length > ids.length && !g.locked) {
       const chosen = new Set(sel);

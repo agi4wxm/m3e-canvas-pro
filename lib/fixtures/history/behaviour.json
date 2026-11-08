@@ -1,0 +1,3314 @@
+{
+ "2026-11-04-bf2463d-all-parts": {
+  "screens": [
+   "f-all",
+   "f-2"
+  ],
+  "vars": {},
+  "gone": [],
+  "taps": {}
+ },
+ "2026-11-05-65278cb-proof": {
+  "screens": [
+   "f-menu",
+   "f-form",
+   "f-welcome",
+   "f-counter",
+   "f-inputs",
+   "f-dock",
+   "f-bars",
+   "f-bars-two",
+   "f-long",
+   "p1jj1nd7",
+   "upl854zc",
+   "yyi28knn",
+   "fymin8u8",
+   "87y6j9p5"
+  ],
+  "vars": {
+   "v-email": "",
+   "v-count": 0,
+   "v-flag": false,
+   "v-fruit": "Apple",
+   "v-volume": 40,
+   "v-city": "Oslo"
+  },
+  "gone": [
+   "g-confirm",
+   "g-flag-on",
+   "g-noted",
+   "g-secret",
+   "g-tab-b",
+   "g-tab-c",
+   "g-thanks",
+   "g-three"
+  ],
+  "taps": {
+   "to-shop/tap": {
+    "to": "p1jj1nd7",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "to-form/tap": {
+    "to": "f-form",
+    "motion": {
+     "kind": "slide",
+     "dir": "up"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "to-counter/tap": {
+    "to": "f-counter",
+    "motion": {
+     "kind": "dissolve"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "to-inputs/tap": {
+    "to": "f-inputs",
+    "motion": {
+     "kind": "dissolve"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "to-dock/tap": {
+    "to": "f-dock",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "to-bars/tap": {
+    "to": "f-bars",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "to-long/tap": {
+    "to": "f-long",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "continue/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Accept the terms first",
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "welcome-back/tap": {
+    "to": "back",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "add/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 1,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "reset/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "reveal/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {
+     "g-secret": false
+    },
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "retitle/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {
+     "title": {
+      "text": "New title"
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "flip/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": true,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "ask/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {
+     "g-confirm": false
+    },
+    "props": {},
+    "opened": {
+     "confirm": true
+    },
+    "snack": null,
+    "gone": [
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "confirm/confirm": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 100,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "more/tab:0": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 7,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "more/tab:1": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Hi",
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "large/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {
+     "size": {
+      "selected": 1
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "tab-c/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Pressed three",
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "bar-one/tab:1": {
+    "to": "f-bars-two",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "bars-back/tap": {
+    "to": "back",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "bar-two/tab:0": {
+    "to": "f-bars",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "low/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Reached",
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "i3myl6sm/open": {
+    "to": "upl854zc",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "wchyn2bi/open": {
+    "to": "upl854zc",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "1n7e81ex/open": {
+    "to": "upl854zc",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "fq2f212l/open": {
+    "to": "upl854zc",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "68ekafm9/icon": {
+    "to": "back",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "t309hk3i/action": {
+    "to": "yyi28knn",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "pv8g52yl/icon": {
+    "to": "back",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "ycq91kv4/action": {
+    "to": "fymin8u8",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "by0mr4ho/icon": {
+    "to": "back",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "5vp26ewy/action": {
+    "to": "87y6j9p5",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   },
+   "uy1uu3as/tap": {
+    "to": "p1jj1nd7",
+    "motion": {
+     "kind": "dissolve"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-email": "",
+     "v-count": 0,
+     "v-flag": false,
+     "v-fruit": "Apple",
+     "v-volume": 40,
+     "v-city": "Oslo"
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "g-confirm",
+     "g-flag-on",
+     "g-noted",
+     "g-secret",
+     "g-tab-b",
+     "g-tab-c",
+     "g-thanks",
+     "g-three"
+    ]
+   }
+  }
+ },
+ "2026-11-06-55ab801-systems": {
+  "screens": [
+   "s-intro",
+   "s-home",
+   "s-dark",
+   "s-sheet",
+   "s-pushed",
+   "s-long"
+  ],
+  "vars": {
+   "v-brand": "#ffd8e4",
+   "v-fade": 100,
+   "v-accent": "#1565c0",
+   "v-round": 8,
+   "v-tilt": 0,
+   "v-count": 0,
+   "v-night": false
+  },
+  "gone": [],
+  "taps": {
+   "open-b/tap": {
+    "to": "s-sheet",
+    "motion": {
+     "kind": "push",
+     "dir": "up",
+     "easing": "inOut",
+     "ms": 300
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": true,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-brand": "#ffd8e4",
+     "v-fade": 100,
+     "v-accent": "#1565c0",
+     "v-round": 8,
+     "v-tilt": 0,
+     "v-count": 0,
+     "v-night": false
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "hover-b/tap": {
+    "to": "s-dark",
+    "motion": {
+     "kind": "dissolve",
+     "ms": 200
+    },
+    "trigger": {
+     "on": "hover"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-brand": "#ffd8e4",
+     "v-fade": 100,
+     "v-accent": "#1565c0",
+     "v-round": 8,
+     "v-tilt": 0,
+     "v-count": 0,
+     "v-night": false
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "paint-b/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-brand": "#ffd8e4",
+     "v-fade": 100,
+     "v-accent": "#c62828",
+     "v-round": 8,
+     "v-tilt": 0,
+     "v-count": 0,
+     "v-night": false
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "push-b/tap": {
+    "to": "s-pushed",
+    "motion": {
+     "kind": "push",
+     "dir": "left",
+     "easing": "linear",
+     "ms": 900
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-brand": "#ffd8e4",
+     "v-fade": 100,
+     "v-accent": "#1565c0",
+     "v-round": 8,
+     "v-tilt": 0,
+     "v-count": 0,
+     "v-night": false
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "to-long-b/tap": {
+    "to": "s-long",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-brand": "#ffd8e4",
+     "v-fade": 100,
+     "v-accent": "#1565c0",
+     "v-round": 8,
+     "v-tilt": 0,
+     "v-count": 0,
+     "v-night": false
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "dark-back-b/tap": {
+    "to": "back",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-brand": "#ffd8e4",
+     "v-fade": 100,
+     "v-accent": "#1565c0",
+     "v-round": 8,
+     "v-tilt": 0,
+     "v-count": 0,
+     "v-night": false
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "sheet-later-b/tap": {
+    "to": "back",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "delay",
+     "ms": 1500
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-brand": "#ffd8e4",
+     "v-fade": 100,
+     "v-accent": "#1565c0",
+     "v-round": 8,
+     "v-tilt": 0,
+     "v-count": 0,
+     "v-night": false
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "pushed-back-b/tap": {
+    "to": "back",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {
+     "v-brand": "#ffd8e4",
+     "v-fade": 100,
+     "v-accent": "#1565c0",
+     "v-round": 8,
+     "v-tilt": 0,
+     "v-count": 0,
+     "v-night": false
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": []
+   },
+   "scroll-b/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": "bottom-t",
+    "params": null,
+    "vars": {
+     "v-brand": "#ffd8e4",
+     "v-fade": 100,
+     "v-accent": "#1565c0",
+     "v-round": 8,
+     "v-tilt": 0,
+     "v-count": 0,
+     "v-night": false
+    },
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": []
+   }
+  }
+ },
+ "2026-11-06-79ec9e7-reuse": {
+  "screens": [
+   "r-home",
+   "r-big",
+   "r-detail",
+   "r-instances",
+   "r-docked"
+  ],
+  "vars": {},
+  "gone": [
+   "h56",
+   "home-plum",
+   "i-c"
+  ],
+  "taps": {
+   "home-open-b/tap": {
+    "to": "r-detail",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "home-say-b/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Not pear {{name}}",
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "home-go-b/tap": {
+    "to": "r-instances",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "det-say-b/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Said Apple",
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "det-back-b/tap": {
+    "to": "back",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "show-c-b/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {
+     "i-c": false
+    },
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum"
+    ]
+   },
+   "hide-before-b/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {
+     "inst-before": true
+    },
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c",
+     "inst-before"
+    ]
+   },
+   "to-docked-b/tap": {
+    "to": "r-docked",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "to-big-b/tap": {
+    "to": "r-big",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "h51/tap": {
+    "to": "r-detail",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "h53/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Not pear {{name}}",
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "h57/tap": {
+    "to": "r-instances",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "p-more-b/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "p-rename-b/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "t-pick-b/tap": {
+    "to": "r-detail",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   },
+   "d-b-b/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Pressed pane",
+    "gone": [
+     "h56",
+     "home-plum",
+     "i-c"
+    ]
+   }
+  }
+ },
+ "2026-11-06-cf3fa45-bound-shop": {
+  "screens": [
+   "products",
+   "detail",
+   "create",
+   "login",
+   "orders",
+   "photo"
+  ],
+  "vars": {},
+  "gone": [
+   "n116",
+   "n117",
+   "n118",
+   "n119",
+   "n130",
+   "n131",
+   "n132",
+   "n133",
+   "n134",
+   "n135",
+   "n148",
+   "n149",
+   "n150",
+   "n151",
+   "n152",
+   "n153",
+   "n166",
+   "n167",
+   "n168",
+   "n169",
+   "n170",
+   "n171",
+   "n248",
+   "n281",
+   "n307",
+   "n308",
+   "n309",
+   "n310",
+   "n321",
+   "n322",
+   "n323",
+   "n324",
+   "n325",
+   "n326",
+   "n339",
+   "n34",
+   "n340",
+   "n341",
+   "n342",
+   "n343",
+   "n344",
+   "n35",
+   "n357",
+   "n358",
+   "n359",
+   "n36",
+   "n360",
+   "n361",
+   "n362",
+   "n380",
+   "n399",
+   "n46",
+   "n47",
+   "n48",
+   "n49",
+   "n50",
+   "n64",
+   "n65",
+   "n66",
+   "n67",
+   "n68",
+   "n69",
+   "n82",
+   "n83",
+   "n84",
+   "n85",
+   "n86",
+   "n87"
+  ],
+  "taps": {
+   "n75/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "n93/tap": {
+    "to": "login",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "n107/tap": {
+    "to": "detail",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": {
+     "productId": "item.id"
+    },
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "n141/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "n159/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "n177/tap": {
+    "to": "login",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "n252/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "n285/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "add/tap": {
+    "to": "create",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "n332/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "n350/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "instant"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "n368/tap": {
+    "to": "login",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "to-orders/tap": {
+    "to": "orders",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "n403/tap": {
+    "to": "none",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   },
+   "add-photo/tap": {
+    "to": "photo",
+    "motion": {
+     "kind": "slide",
+     "dir": "left"
+    },
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": {
+     "productId": "params.productId"
+    },
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "n116",
+     "n117",
+     "n118",
+     "n119",
+     "n130",
+     "n131",
+     "n132",
+     "n133",
+     "n134",
+     "n135",
+     "n148",
+     "n149",
+     "n150",
+     "n151",
+     "n152",
+     "n153",
+     "n166",
+     "n167",
+     "n168",
+     "n169",
+     "n170",
+     "n171",
+     "n248",
+     "n281",
+     "n307",
+     "n308",
+     "n309",
+     "n310",
+     "n321",
+     "n322",
+     "n323",
+     "n324",
+     "n325",
+     "n326",
+     "n339",
+     "n34",
+     "n340",
+     "n341",
+     "n342",
+     "n343",
+     "n344",
+     "n35",
+     "n357",
+     "n358",
+     "n359",
+     "n36",
+     "n360",
+     "n361",
+     "n362",
+     "n380",
+     "n399",
+     "n46",
+     "n47",
+     "n48",
+     "n49",
+     "n50",
+     "n64",
+     "n65",
+     "n66",
+     "n67",
+     "n68",
+     "n69",
+     "n82",
+     "n83",
+     "n84",
+     "n85",
+     "n86",
+     "n87"
+    ]
+   }
+  }
+ }
+}

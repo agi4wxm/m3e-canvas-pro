@@ -1,13 +1,13 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LangContext, setGlobalLang, type Lang } from "@/lib/i18n";
 import { ensureFontLoaded, ensureLangFontLoaded } from "@/lib/theme";
-import { STYLE_GROUPS, STYLE_PACKS, cleanStyles, screenBackground, setDocStyles, styleOf, styleTextOf, type CustomStyle } from "@/lib/styles";
+import { STYLE_GROUPS, STYLE_PACKS, cleanStyles, screenBackground, setDocStyles, styleContext, styleOf, styleTextOf, type CustomStyle } from "@/lib/styles";
 import { DEFAULT_THEME, PHONE_H, PHONE_W, fontFamilyOf, makeItem, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Group, type Item, type Palette, type Theme } from "@/lib/tokens";
 import { useIconFamily } from "@/parts/icons";
 import { CATEGORIES, PARTS, categoryName, reader, type PartCategory } from "@/parts/registry";
 import { nameIn, nameOf } from "@/parts/labels";
 import { FIT_OVERLAY, REMEASURE } from "@/parts/contained";
-import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
+import { DocStylesProvider, PartStyleSheet, PartThemeContext, PartThemeStyle, useDocStyles, type PartTheme } from "@/parts/theme";
 import { defaultMeasures, type Node } from "@/parts/templates/kit";
 import { KITS, pickVariant, type KitDef, type KitLook, type KitVariant } from "@/parts/kits";
 import { kitGroups, kitLookOf, treeGroups } from "@/lib/kits";
@@ -102,6 +102,7 @@ function sectionsOf(parts: PartDef[], kits: KitDef[]): string[] {
 const sectionName = (c: string, lang: Lang) => ((CATEGORIES as readonly string[]).includes(c) ? categoryName(c as PartCategory, lang) : c);
 
 function Cell({ label, sub, p, theme, children }: { label: string; sub?: string; p: Palette; theme: Theme; children: ReactNode }) {
+  const styles = useDocStyles();
   return (
     <figure data-gallery-cell style={{ margin: 0, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
       <figcaption style={{ font: "500 12px/16px Roboto, system-ui, sans-serif", color: "#5f6368", display: "flex", gap: 6, alignItems: "baseline" }}>
@@ -109,7 +110,7 @@ function Cell({ label, sub, p, theme, children }: { label: string; sub?: string;
         {sub && <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11 }}>{sub}</span>}
       </figcaption>
       {/* the part stands on its style's screen, as it would on the canvas, in the words' color the editor gives the page */}
-      <div style={{ background: screenBackground(p.surface, theme), color: p.onSurface, padding: 16, borderRadius: 12, outline: "1px solid rgb(0 0 0 / 0.08)", width: "fit-content", maxWidth: "100%", overflow: "hidden" }}>{children}</div>
+      <div style={{ background: screenBackground(p.surface, theme, styles), color: p.onSurface, padding: 16, borderRadius: 12, outline: "1px solid rgb(0 0 0 / 0.08)", width: "fit-content", maxWidth: "100%", overflow: "hidden" }}>{children}</div>
     </figure>
   );
 }
@@ -347,15 +348,18 @@ export function Gallery({ search }: { search: GallerySearch }) {
     };
   }, [search.custom]);
   const customs = useMemo(() => (search.custom ? readStyles(search.custom) : kept), [search.custom, kept]);
-  setDocStyles(customs);
-  const pack = styleOf(search.style);
+  /* the gallery's styles, handed to what it draws; and in reach, for the cells that read a style without being handed
+     one (the gallery is a page of its own: nothing else is drawn beside it) */
+  const styles = useMemo(() => styleContext(customs), [customs]);
+  setDocStyles(styles);
+  const pack = styleOf(search.style, styles);
   /* a style opens in its own mode unless the address says which */
   const theme = useMemo<Theme>(() => {
-    const t = normalizeTheme(pack ? { style: pack.key } : DEFAULT_THEME);
+    const t = normalizeTheme(pack ? { style: pack.key } : DEFAULT_THEME, styles);
     return search.dark === "1" ? { ...t, dark: true } : search.dark === "0" ? { ...t, dark: false } : t;
-  }, [pack, search.dark]);
-  const p = useMemo(() => paletteOf("purple", null, theme), [theme]);
-  const partTheme = useMemo<PartTheme>(() => ({ seed: seedOf("purple", null, theme), dark: theme.dark, contrast: theme.contrast, shape: shapeScaleOf(theme.shape) }), [theme]);
+  }, [pack, search.dark, styles]);
+  const p = useMemo(() => paletteOf("purple", null, theme, styles), [theme, styles]);
+  const partTheme = useMemo<PartTheme>(() => ({ seed: seedOf("purple", null, theme, styles), dark: theme.dark, contrast: theme.contrast, shape: shapeScaleOf(theme.shape) }), [theme, styles]);
   useIconFamily(theme.icons ?? "rounded");
   const [, faces] = useState(0);
   useEffect(() => {
@@ -384,6 +388,7 @@ export function Gallery({ search }: { search: GallerySearch }) {
 
   return (
     <LangContext.Provider value={lang}>
+    <DocStylesProvider styles={styles} icons={theme.icons ?? "rounded"}>
       <PartThemeContext.Provider value={partTheme}>
         <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
         <PartStyleSheet theme={theme} />
@@ -415,6 +420,7 @@ export function Gallery({ search }: { search: GallerySearch }) {
           </main>
         </div>
       </PartThemeContext.Provider>
+    </DocStylesProvider>
     </LangContext.Provider>
   );
 }

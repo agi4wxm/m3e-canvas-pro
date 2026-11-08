@@ -117,20 +117,23 @@ describe("the screens", () => {
     expect(warnings.map((w) => w.kind).sort()).toEqual(["atoms", "placeholder"]);
   });
 
-  it("gives a sign-in form's buttons their actions under the slot names the part and the kit both use", () => {
+  it("prints the retired sign-in form as the atoms it splits into, each button with its slot's action", () => {
     const def = partBySlug("auth-form")!;
     const slots = def.slots!(reader(def, {})).map((s) => s.key);
     expect(slots).toEqual(["submit", "forgot", "switch", "other:0"]);
-    const form = item("auth-form", {}, { actions: Object.fromEntries(slots.map((k) => [k, { to: "f2", transition: "slide" as const }])) });
+    /* the kit's own AuthForm kept no field values and checked nothing: the form is its atoms now, as in a mini-program */
+    expect(slots.length && "auth-form" in NATIVE).toBe(false);
+    expect(readFileSync(new URL("../../../rn/src/kit/composites/more.tsx", import.meta.url), "utf8")).not.toContain("function AuthForm");
+    const go = (to: string) => ({ to, transition: "slide" as const });
+    const form = item("auth-form", {}, { actions: { submit: go("f2"), forgot: go("f1"), switch: go("f2"), "other:0": go("f1") } });
     const { screens, warnings } = printRnScreens(docOf([{ id: "g", x: 16, y: 40, axis: "x", items: [form] }]), {});
     const src = screens[0].source.replace(/\n\s*/g, " ");
-    expect(src).toContain('taps={{ "submit": () => nav.go("DetailPage"), "forgot": () => nav.go("DetailPage"), "switch": () => nav.go("DetailPage"), "other:0": () => nav.go("DetailPage") }}');
-    expect(warnings.filter((w) => w.kind === "slot")).toEqual([]);
-    /* the kit's AuthForm presses each by the same name (rn/__tests__/composites.test.tsx presses them) */
-    const kit = readFileSync(new URL("../../../rn/src/kit/composites/more.tsx", import.meta.url), "utf8");
-    const authForm = kit.slice(kit.indexOf("export function AuthForm("));
-    for (const k of ["submit", "forgot", "switch"]) expect(authForm).toContain(`tapOf(p, "${k}")`);
-    expect(authForm).toContain("tapOf(p, `other:${i}`)");
+    const pressed = (label: string) => src.match(new RegExp(`<Button label=(?:"${label}"|\\{"${label}"\\})[^>]*onPress=\\{\\(\\) => nav\\.go\\("(\\w+)"\\)\\}`))?.[1];
+    expect([pressed("Sign in"), pressed("Forgot password\\?"), pressed("New here\\? Create an account"), pressed("Continue with phone")]).toEqual(["DetailPage", "Home", "DetailPage", "Home"]);
+    /* what is typed stays in real entries */
+    expect(src).toContain('<Input type="email" />');
+    expect(src).toContain('<Input variant="plain" placeholder="Password" type="password" />');
+    expect(warnings.filter((w) => w.kind === "slot" || w.kind === "placeholder")).toEqual([]);
   });
 
   it("never names a screen's component as the kit's Screen, nor its key where a tap goes beside a screen", () => {

@@ -58,6 +58,8 @@ export class FileBackend implements Backend {
     if (doc) this.store.load(doc, true);
     this.opened = true;
     this.o.log.info(doc ? `Opened ${this.o.path}: ${doc.frames.length} screen(s), ${doc.groups.length} group(s).` : `${this.o.path} does not exist yet: it is written on the first change.`);
+    const newer = this.store.readOnlyVersion();
+    if (newer !== null) this.o.log.warn(`${this.o.path} was written by a newer version of M3E Canvas (format ${newer}): it is open read-only, and nothing is written to it.`);
   }
 
   access(): Access {
@@ -71,7 +73,8 @@ export class FileBackend implements Backend {
   }
 
   status() {
-    return { mode: "file", file: this.o.path, layout: this.file.layout === "folder" ? "folder (m3e-project.json, pictures in m3e-assets/)" : "one file", access: this.access(), writes: this.writes, screenshots: this.renderer ? "headless Chromium, when Playwright is installed" : "off" };
+    const newer = this.store.readOnlyVersion();
+    return { mode: "file", file: this.o.path, ...(newer !== null ? { newerFormat: newer } : {}), layout: this.file.layout === "folder" ? "folder (m3e-project.json, pictures in m3e-assets/)" : "one file", access: this.access(), writes: this.writes, screenshots: this.renderer ? "headless Chromium, when Playwright is installed" : "off" };
   }
 
   /** the file read again when it changed on disk; what that means for the call, or null when it had not changed */
@@ -101,6 +104,10 @@ export class FileBackend implements Backend {
       }
       const writes = !!t && !t.readOnly;
       if (writes && this.o.readOnly) return failure("refused", "This session is read-only.", "Read and screenshot only; ask the author to start the server without --read-only to edit.");
+      /* a file a newer version wrote is read, never written: what this version would write back could lose what it
+         does not understand (lib/project.ts `Loaded.newer`) */
+      const newer = this.store.readOnlyVersion();
+      if (writes && newer !== null) return failure("refused", `${this.o.path} was written by a newer version of M3E Canvas (format ${newer}), so this server only reads it: writing it back could lose what this version does not understand.`, "Read and screenshot only; edit it with the newer version of M3E Canvas (and its MCP server).");
       if (writes && notice) return { ...failure("refused", `Not done: ${notice}`, "Read the outline again, then make the change on the document as it is now."), notice };
       /* a call that takes work away under a name that does not say so (rows rewritten, modes left out, a style
          replaced) is asked about as a destructive one is; one whose takes cannot be found out is not done. Nothing but

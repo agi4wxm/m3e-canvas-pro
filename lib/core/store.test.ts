@@ -4,6 +4,7 @@ import { counterIds, DocStore, HISTORY_MAX, type ChangeEvent } from "./store";
 import { MAX_SCREEN, MAX_SCREEN_LENGTH, savedDoc, stateOf, withGroups, type CoreState } from "./state";
 import { addPart, addScreen, applyStyle, patchTheme, removeNodes, setItem, setTitle, makeComponentOp, OpError } from "./ops";
 import { guessMeasurer } from "./op";
+import { loadDocument, PROJECT_FORMAT, PROJECT_VERSION } from "../project";
 
 const part = (id: string, slug = "button", x = 16, y = 100): Group => ({ id: `g-${id}`, x, y, axis: "x", items: [{ ...makeItem(slug), id }] });
 const screen = { id: "F1", name: "Home", x: 0, y: 0 };
@@ -284,5 +285,31 @@ describe("opening a document", () => {
     const same = [{ id: "p", name: "Phone", x: 0, y: 0 }];
     store.load({ frames: same });
     expect(store.get().doc.frames).toBe(same);
+  });
+});
+
+describe("a document a newer version wrote", () => {
+  const later = () => ({ format: PROJECT_FORMAT, version: PROJECT_VERSION + 1, document: { groups: [part("b")], frames: [screen], nextSection: { a: 1 } } });
+
+  it("opens read-only: no change but the editor's own layout passes, no undo back over it", () => {
+    const store = new DocStore(stateOf({ groups: [], frames: [screen] }));
+    store.run(setTitle, { title: "Mine" });
+    store.replace(later());
+    expect(store.readOnlyVersion()).toBe(PROJECT_VERSION + 1);
+    expect(savedDoc(store.get())).toMatchObject({ nextSection: { a: 1 } });
+    for (const origin of ["user", "ai", "mcp"] as const) expect(() => store.run(setTitle, { title: "No" }, { origin })).toThrow(/newer version/);
+    expect(() => store.update("Layout", "system", (s) => s)).not.toThrow();
+    expect(store.canUndo()).toBe(false);
+    expect(store.undo()).toBeNull();
+    expect(savedDoc(store.get()).title).not.toBe("No");
+  });
+
+  it("is read-only when the browser's copy says so too, and stops being once another document comes in", () => {
+    const store = new DocStore(stateOf({ groups: [], frames: [] }));
+    store.load(loadDocument(later())!.doc, true);
+    expect(store.readOnlyVersion()).toBe(PROJECT_VERSION + 1);
+    store.replace({ groups: [], frames: [screen] });
+    expect(store.readOnlyVersion()).toBeNull();
+    expect(() => store.run(setTitle, { title: "Yes" })).not.toThrow();
   });
 });

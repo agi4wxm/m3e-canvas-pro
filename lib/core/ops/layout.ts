@@ -2,7 +2,8 @@
  * and spreading, nine spots in a screen's body, auto layout suggested from where parts stand, a composite split into
  * atoms, neighbouring buttons joined, and a style's layout put on every screen. */
 
-import { partBySlug } from "../../../parts/registry";
+import { isRetired, partBySlug } from "../../../parts/registry";
+import { RETIRED_SLUGS, retiredParts } from "../../retire";
 import { FLOW_KEYS } from "../../../parts/flow";
 import { roleOf } from "../../../parts/role";
 import { alignParts, distributeParts, tidyUpParts, type AlignHow } from "../../align";
@@ -14,10 +15,11 @@ import { bodyRect, holdsEdgeBar, isScreenLayout, tidyFrame } from "../../tidy";
 import { frameOfGroup, frameOfPart, frameRect, groupBounds, heldBy, type Group } from "../../tokens";
 import { holdsFreely } from "../../constraints";
 import { nudge } from "./nodes";
-import { op, OpError, S } from "../op";
-import { withGroups, withSession, type CoreState } from "../state";
+import { op, OpError, S, type OpCtx } from "../op";
+import { withDoc, withFrames, withGroups, withSession, type CoreState } from "../state";
 import { frameById, itemById, laidOut, spacingScale } from "./common";
 import { checkProps } from "./validate";
+import { convertToSplitView, refusePanes } from "./split";
 
 const changed = (s: CoreState, next: Group[] | null, what: string) => {
   if (!next) throw new OpError("nothing_to_do", what);
@@ -131,6 +133,7 @@ export const autoLayout = op<{ ids: string[]; id?: string }, { itemId: string }>
   label: () => "Auto layout",
   run(s, a, ctx) {
     const ids = new Set(a.ids);
+    refusePanes(s, ids, "wrapped in another layout");
     const groupIds = new Set(s.doc.groups.filter((g) => g.items.some((it) => ids.has(it.id)) || ids.has(g.id)).map((g) => g.id));
     if (!groupIds.size) throw new OpError("not_found", "None of those parts is on the canvas.");
     if (a.id && s.doc.groups.some((g) => g.id === a.id || g.items.some((it) => it.id === a.id))) throw new OpError("invalid_value", `The id ${JSON.stringify(a.id)} is taken already.`, a.id);
@@ -163,19 +166,102 @@ export const autoLayoutScreen = op<{ screen: string }, { itemId: string }>({
   },
 });
 
+/** what a split of one part made: the root's id, a data collection its rows became, the data sources it set to
+ *  refresh, and the part it became where a retired part converts rather than splits (a resizable: a split view) */
+type SplitOne = { rootItemId: string; collection?: string; refreshes?: string[]; became?: string };
+
+/** the operations a retired part converts by (`PartRetired.convert`), by name */
+const CONVERTS: Record<string, typeof convertToSplitView> = { [convertToSplitView.name]: convertToSplitView };
+
+/** One part split in the document: a retired list's alike rows becoming a data collection the rows repeat over
+ *  (lib/retire.ts), any other part its plain tree of atoms. A retired pull-to-refresh hands its pull to the data its
+ *  screen loads: what it only acted out is that data's own pull to refresh (`DataSource.pullToRefresh`). */
+function splitOne(s: CoreState, id: string, ctx: OpCtx): ({ state: CoreState } & SplitOne) | null {
+  const { group, item } = itemById(s, id);
+  const retired = isRetired(partBySlug(item.component));
+  const collections = s.doc.collections ?? [];
+  const out = splitIntoAtoms(s.doc.groups, id, ctx.lang, ctx.widths, kitLookOf(s.doc.theme), retired ? { id: freshCollectionId(s, ctx), collections } : undefined);
+  if (!out) return null;
+  let state = out.collection ? withDoc(withGroups(s, out.groups), { collections: [...collections, out.collection] }) : withGroups(s, out.groups);
+  const screen = retired && item.component === "pull-to-refresh" ? frameOfGroup(group, s.doc.frames, ctx.widths) : undefined;
+  const refreshes = (screen?.data ?? []).filter((d) => !d.pullToRefresh).map((d) => d.name);
+  if (screen && refreshes.length) state = withFrames(state, state.doc.frames.map((f) => (f.id === screen.id ? { ...f, data: (f.data ?? []).map((d) => ({ ...d, pullToRefresh: true })) } : f)));
+  return { state, rootItemId: out.rootItemId, ...(out.collection ? { collection: out.collection.id } : {}), ...(refreshes.length ? { refreshes } : {}) };
+}
+
+/** an id for a new collection that no collection of the document has */
+function freshCollectionId(s: CoreState, ctx: OpCtx): string {
+  const taken = new Set((s.doc.collections ?? []).map((c) => c.id));
+  for (;;) {
+    const id = ctx.newId();
+    if (!taken.has(id)) return id;
+  }
+}
+
 /** a composite replaced where it stands by the atoms it is made of, composed the way the document's look composes it */
-export const split = op<{ id: string }, { rootItemId: string }>({
+export const split = op<{ id: string }, SplitOne>({
   name: "split_into_atoms",
-  summary: "Replaces a composite part where it stands with the tree of atoms it is made of (boxes, text, icons…), composed the way the style composes it.",
+  summary: "Replaces a composite part where it stands with the tree of atoms it is made of (boxes, text, icons…), composed the way the style composes it. A retired part's alike rows become a data collection its rows repeat over.",
   args: S.obj({ id: S.str("the item id of the one composite part to split (the outline and find_nodes give it)") }, ["id"]),
   label: () => "Split into atoms",
   run(s, a, ctx) {
     const { item } = itemById(s, a.id);
-    if (!partBySlug(item.component)?.atoms) throw new OpError("refused", `${item.component} cannot be split into atoms.`, a.id);
-    const out = splitIntoAtoms(s.doc.groups, a.id, ctx.lang, ctx.widths, kitLookOf(s.doc.theme));
+    const def = partBySlug(item.component);
+    if (def?.retired?.convert) throw new OpError("refused", `${item.component} is no split into atoms: ${def.retired.convert} (or split_retired) turns it into a ${def.retired.with?.[0] ?? "part that replaces it"}.`, a.id);
+    if (!def?.atoms) throw new OpError("refused", `${item.component} cannot be split into atoms.`, a.id);
+    const out = splitOne(s, a.id, ctx);
     if (!out) throw new OpError("nothing_to_do", "That part cannot be split here.", a.id);
-    const state = withSession(withGroups(s, out.groups), { selection: [out.rootItemId] });
-    return { state: ctx.origin === "user" ? state : laidOut(state, ctx.widths), result: { rootItemId: out.rootItemId } };
+    const { state: made, ...result } = out;
+    const state = withSession(made, { selection: [out.rootItemId] });
+    return { state: ctx.origin === "user" ? state : laidOut(state, ctx.widths), result };
+  },
+});
+
+/** Every retired part on the screens (or the ones named) split into atoms in one step: what the editor's notice
+ *  offers an old document, and what the AI and an MCP client call. A retired part that converts instead (a resizable
+ *  into a split view) is converted in the same step. Nothing splits a document by itself. */
+export const splitRetired = op<{ ids?: string[] }, { split: ({ id: string; slug: string } & SplitOne)[]; left: { id: string; slug: string; why: string }[] }>({
+  name: "split_retired",
+  summary: `Splits the retired parts (${RETIRED_SLUGS.join(", ")}) into atoms in one step: the same look, the taps on the atoms that show them, a list's alike rows as a new data collection they repeat over, and a pull to refresh as the pull of the data its screen loads; a resizable becomes a split view (convert_to_split_view). Every one on the screens, or those in ids.`,
+  args: S.obj({ ids: S.arr(S.str(), "the item ids of retired parts to split; every retired part on the screens when left out", { minItems: 1 }) }),
+  label: () => "Split retired parts",
+  run(s, a, ctx) {
+    const wanted = a.ids ? new Set(a.ids) : null;
+    const on = retiredParts(s.doc.groups);
+    if (wanted)
+      for (const id of wanted) {
+        const { item } = itemById(s, id);
+        if (!isRetired(partBySlug(item.component))) throw new OpError("refused", `${id} is a ${item.component}, which is not retired: split_into_atoms splits it.`, id);
+      }
+    const todo = on.filter((r) => !wanted || wanted.has(r.item.id));
+    if (!todo.length) throw new OpError("nothing_to_do", "There is no retired part on the screens.");
+    let state = s;
+    const split: ({ id: string; slug: string } & SplitOne)[] = [];
+    const left: { id: string; slug: string; why: string }[] = [];
+    for (const { item, def } of todo) {
+      const convert = def.retired?.convert ? CONVERTS[def.retired.convert] : undefined;
+      if (convert) {
+        try {
+          state = convert.run(state, { id: item.id }, ctx).state;
+          split.push({ id: item.id, slug: def.slug, rootItemId: item.id, ...(def.retired?.with?.[0] ? { became: def.retired.with[0] } : {}) });
+        } catch (e) {
+          if (!(e instanceof OpError)) throw e;
+          left.push({ id: item.id, slug: def.slug, why: e.message });
+        }
+        continue;
+      }
+      const out = splitOne(state, item.id, ctx);
+      if (!out) {
+        left.push({ id: item.id, slug: def.slug, why: "it shares its group with other parts, or is inside a hand-made group: split it after ungrouping" });
+        continue;
+      }
+      const { state: next, ...made } = out;
+      state = next;
+      split.push({ id: item.id, slug: def.slug, ...made });
+    }
+    if (!split.length) throw new OpError("nothing_to_do", `None of them can be split where they stand: ${left.map((l) => `${l.id} (${l.why})`).join("; ")}.`);
+    const selected = withSession(state, { selection: split.map((x) => x.rootItemId) });
+    return { state: ctx.origin === "user" ? selected : laidOut(selected, ctx.widths), result: { split, left } };
   },
 });
 

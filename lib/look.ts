@@ -17,6 +17,7 @@ import {
   type TextToken,
   type TextureKind,
 } from "./tokens";
+import { fields, withUnknown } from "./keep";
 
 /* A part's effects, as data and as CSS. The data is what a document saves, a model writes and the panel edits; the CSS is
  * what parts/appearance.ts paints onto the part's tree, so the canvas, the preview, the printed code and the prompt all
@@ -205,22 +206,41 @@ export const MAX_FILLS = 8;
 export const MAX_STOPS = 10;
 export const MAX_SHADOWS = 10;
 
+/* What each part of a look has. Read from a document (`keep`, lib/project.ts), a field it holds that this version does
+   not know stays as it came (lib/keep.ts): a newer version's, kept for it. Painted, printed or set by an operation, a
+   look is only what is known of it, so nothing unknown reaches a style or an exported app. */
+const STOP = fields("color", "at");
+const PAINT = fields("type", "color", "cssVar", "stops", "angle", "x", "y", "circle", "hidden");
+const SHADOW = fields("x", "y", "blur", "spread", "color", "inset", "hidden");
+const STROKE = fields("width", "color", "style", "position", "sides", "cssVar");
+const SIDES = fields("t", "r", "b", "l");
+const TEXT_STROKE = fields("width", "color");
+const TEXTURE = fields("kind", "color", "opacity", "size", "blend");
+const TEXT = fields("color", "size", "weight", "letterSpacing", "lineHeight", "case", "italic", "decoration", "shadows", "stroke", "gradient", "cssVar");
+const FILTER = fields("brightness", "contrast", "saturate", "hueRotate", "grayscale", "sepia", "invert");
+const TRANSFORM = fields("scaleX", "scaleY", "skewX", "skewY", "flipX", "flipY");
+const LOOK_VARS = fields("opacity", "rotate", "radius");
+/** the fields a look has */
+export const LOOK_FIELDS = fields("borderWidth", "borderColor", "shadow", "opacity", "glass", "rotate", "gradientTo", "gradientAngle", "font", "fills", "stroke", "shadows", "elevation", "blur", "glassSaturate", "blend", "filter", "transform", "text", "texture", "clip", "clearFill", "vars");
+/** `built`, with what `raw` holds that this version does not know when it is read from a document */
+const kept = <T extends object>(keep: boolean, raw: unknown, built: T, known: ReadonlySet<string>): T => (keep ? withUnknown(raw, built, known) : built);
+
 /* ---------- paint ---------- */
 
-function cleanStops(v: unknown): GradientStop[] | undefined {
+function cleanStops(v: unknown, keep = false): GradientStop[] | undefined {
   if (!Array.isArray(v)) return undefined;
   const stops = v
     .slice(0, MAX_STOPS)
     .flatMap((s) => {
       if (!isRecord(s) || !isColorRef(s.color)) return [];
-      return [{ color: s.color, at: lim(s.at, "at") ?? 0 }];
+      return [kept(keep, s, { color: s.color, at: lim(s.at, "at") ?? 0 }, STOP)];
     })
     .sort((a, b) => a.at - b.at);
   return stops.length ? stops : undefined;
 }
 
 /** one layer of paint as it may be kept, or nothing */
-export function cleanPaint(v: unknown): PaintLayer | undefined {
+export function cleanPaint(v: unknown, keep = false): PaintLayer | undefined {
   if (!isRecord(v)) return undefined;
   const type = oneOf(v.type, PAINT_TYPES);
   if (!type) return undefined;
@@ -230,7 +250,7 @@ export function cleanPaint(v: unknown): PaintLayer | undefined {
     out.color = v.color;
     if (isVarName(v.cssVar)) out.cssVar = v.cssVar;
   } else {
-    const stops = cleanStops(v.stops);
+    const stops = cleanStops(v.stops, keep);
     if (!stops || stops.length < 2) return undefined;
     out.stops = stops;
     const angle = lim(v.angle, "angle");
@@ -244,7 +264,7 @@ export function cleanPaint(v: unknown): PaintLayer | undefined {
     if (type === "radial" && v.circle === true) out.circle = true;
   }
   if (v.hidden === true) out.hidden = true;
-  return out;
+  return kept(keep, v, out, PAINT);
 }
 
 const stopsCss = (stops: GradientStop[]) =>
@@ -274,7 +294,7 @@ export function paintCss(layer: PaintLayer | undefined): string | undefined {
 
 /* ---------- shadows ---------- */
 
-export function cleanShadow(v: unknown): LookShadow | undefined {
+export function cleanShadow(v: unknown, keep = false): LookShadow | undefined {
   if (!isRecord(v) || !isColorRef(v.color)) return undefined;
   const out: LookShadow = {
     x: lim(v.x, "shadowOffset") ?? 0,
@@ -285,10 +305,10 @@ export function cleanShadow(v: unknown): LookShadow | undefined {
   };
   if (v.inset === true) out.inset = true;
   if (v.hidden === true) out.hidden = true;
-  return out;
+  return kept(keep, v, out, SHADOW);
 }
 
-const cleanShadows = (v: unknown): LookShadow[] | undefined => (Array.isArray(v) ? v.slice(0, MAX_SHADOWS).map(cleanShadow).filter((s): s is LookShadow => !!s) : undefined);
+const cleanShadows = (v: unknown, keep = false): LookShadow[] | undefined => (Array.isArray(v) ? v.slice(0, MAX_SHADOWS).map((s) => cleanShadow(s, keep)).filter((s): s is LookShadow => !!s) : undefined);
 
 /** one shadow as CSS; on words there is no spread and no inside */
 export function shadowCss(s: LookShadow | undefined, words = false): string | undefined {
@@ -387,7 +407,7 @@ export function elevationCss(surface: string | undefined, at: { scope: string })
 
 /* ---------- stroke ---------- */
 
-export function cleanStroke(v: unknown): LookStroke | undefined {
+export function cleanStroke(v: unknown, keep = false): LookStroke | undefined {
   if (!isRecord(v) || !isColorRef(v.color)) return undefined;
   const width = lim(v.width, "strokeWidth");
   if (width === undefined) return undefined;
@@ -398,10 +418,10 @@ export function cleanStroke(v: unknown): LookStroke | undefined {
   if (position && position !== "inside") out.position = position;
   if (isRecord(v.sides)) {
     const s = v.sides;
-    out.sides = { t: lim(s.t, "strokeWidth") ?? 0, r: lim(s.r, "strokeWidth") ?? 0, b: lim(s.b, "strokeWidth") ?? 0, l: lim(s.l, "strokeWidth") ?? 0 };
+    out.sides = kept(keep, s, { t: lim(s.t, "strokeWidth") ?? 0, r: lim(s.r, "strokeWidth") ?? 0, b: lim(s.b, "strokeWidth") ?? 0, l: lim(s.l, "strokeWidth") ?? 0 }, SIDES);
   }
   if (isVarName(v.cssVar)) out.cssVar = v.cssVar;
-  return out;
+  return kept(keep, v, out, STROKE);
 }
 
 /** A stroke takes no room, so it is drawn rather than laid out. A solid line is a ring of shadow (inside, outside, or half
@@ -438,7 +458,7 @@ export function strokeCss(stroke: LookStroke | undefined): { shadows: string[]; 
 
 /* ---------- texture ---------- */
 
-export function cleanTexture(v: unknown): LookTexture | undefined {
+export function cleanTexture(v: unknown, keep = false): LookTexture | undefined {
   if (!isRecord(v)) return undefined;
   const kind = oneOf(v.kind, TEXTURE_KINDS);
   if (!kind) return undefined;
@@ -450,7 +470,7 @@ export function cleanTexture(v: unknown): LookTexture | undefined {
   if (size !== undefined) out.size = size;
   const blend = oneOf(v.blend, BLEND_MODES);
   if (blend && blend !== "normal") out.blend = blend;
-  return out;
+  return kept(keep, v, out, TEXTURE);
 }
 
 /** the tile each pattern is drawn at when the author has not said */
@@ -529,7 +549,7 @@ export function textureLayers(texture: LookTexture | undefined): { image: string
 
 /* ---------- text ---------- */
 
-export function cleanText(v: unknown): LookText | undefined {
+export function cleanText(v: unknown, keep = false): LookText | undefined {
   if (!isRecord(v)) return undefined;
   const out: LookText = {};
   if (isColorRef(v.color)) out.color = v.color;
@@ -546,16 +566,17 @@ export function cleanText(v: unknown): LookText | undefined {
   if (v.italic === true) out.italic = true;
   const decoration = oneOf(v.decoration, ["underline", "line-through", "overline"] as const);
   if (decoration) out.decoration = decoration;
-  const shadows = cleanShadows(v.shadows);
+  const shadows = cleanShadows(v.shadows, keep);
   if (shadows?.length) out.shadows = shadows;
   if (isRecord(v.stroke) && isColorRef(v.stroke.color)) {
     const width = lim(v.stroke.width, "textStroke");
-    if (width) out.stroke = { width, color: v.stroke.color };
+    if (width) out.stroke = kept(keep, v.stroke, { width, color: v.stroke.color }, TEXT_STROKE);
   }
-  const gradient = cleanPaint(v.gradient);
+  const gradient = cleanPaint(v.gradient, keep);
   if (gradient && gradient.type !== "solid") out.gradient = gradient;
   if (out.color && isVarName(v.cssVar)) out.cssVar = v.cssVar;
-  return Object.keys(out).length ? out : undefined;
+  const all = kept(keep, v, out, TEXT);
+  return Object.keys(all).length ? all : undefined;
 }
 
 const FONT_OF: Record<NonNullable<ItemLook["font"]>, string> = {
@@ -632,17 +653,18 @@ export function lookGradientTextStyle(look: ItemLook | undefined): Record<string
 
 /* ---------- the whole look ---------- */
 
-function cleanFilter(v: unknown): LookFilter | undefined {
+function cleanFilter(v: unknown, keep = false): LookFilter | undefined {
   if (!isRecord(v)) return undefined;
   const out: LookFilter = {};
   for (const k of ["brightness", "contrast", "saturate", "hueRotate", "grayscale", "sepia", "invert"] as const) {
     const n = lim(v[k], k);
     if (n !== undefined) out[k] = n;
   }
-  return Object.keys(out).length ? out : undefined;
+  const all = kept(keep, v, out, FILTER);
+  return Object.keys(all).length ? all : undefined;
 }
 
-function cleanTransform(v: unknown): LookTransform | undefined {
+function cleanTransform(v: unknown, keep = false): LookTransform | undefined {
   if (!isRecord(v)) return undefined;
   const out: LookTransform = {};
   for (const k of ["scaleX", "scaleY"] as const) {
@@ -655,7 +677,8 @@ function cleanTransform(v: unknown): LookTransform | undefined {
   }
   if (v.flipX === true) out.flipX = true;
   if (v.flipY === true) out.flipY = true;
-  return Object.keys(out).length ? out : undefined;
+  const all = kept(keep, v, out, TRANSFORM);
+  return Object.keys(all).length ? all : undefined;
 }
 
 /* read when asked: lib/tokens.ts may still be loading when this module is */
@@ -663,7 +686,7 @@ const isFillToken = (v: unknown): v is ColorToken => typeof v === "string" && CO
 
 /** A look as a document may keep it: every field of its own type and within its limits, the rest dropped. Nothing when
  *  nothing is left. This is what a file, a link and a model's answer go through. */
-export function cleanLook(v: unknown): ItemLook | undefined {
+export function cleanLook(v: unknown, keep = false): ItemLook | undefined {
   if (!isRecord(v)) return undefined;
   const out: ItemLook = {};
   const borderWidth = lim(v.borderWidth, "borderWidth");
@@ -683,10 +706,10 @@ export function cleanLook(v: unknown): ItemLook | undefined {
   const font = oneOf(v.font, ["display", "mono"] as const);
   if (font) out.font = font;
 
-  if (Array.isArray(v.fills)) out.fills = v.fills.slice(0, MAX_FILLS).map(cleanPaint).filter((p): p is PaintLayer => !!p);
-  const stroke = cleanStroke(v.stroke);
+  if (Array.isArray(v.fills)) out.fills = v.fills.slice(0, MAX_FILLS).map((p) => cleanPaint(p, keep)).filter((p): p is PaintLayer => !!p);
+  const stroke = cleanStroke(v.stroke, keep);
   if (stroke) out.stroke = stroke;
-  const shadows = cleanShadows(v.shadows);
+  const shadows = cleanShadows(v.shadows, keep);
   if (shadows) out.shadows = shadows;
   if (typeof v.elevation === "number" && Number.isFinite(v.elevation)) out.elevation = Math.round(Math.min(4, Math.max(0, v.elevation))) as ItemLook["elevation"];
   const blur = lim(v.blur, "blur");
@@ -695,13 +718,13 @@ export function cleanLook(v: unknown): ItemLook | undefined {
   if (glassSaturate !== undefined) out.glassSaturate = glassSaturate;
   const blend = oneOf(v.blend, BLEND_MODES);
   if (blend) out.blend = blend;
-  const filter = cleanFilter(v.filter);
+  const filter = cleanFilter(v.filter, keep);
   if (filter) out.filter = filter;
-  const transform = cleanTransform(v.transform);
+  const transform = cleanTransform(v.transform, keep);
   if (transform) out.transform = transform;
-  const text = cleanText(v.text);
+  const text = cleanText(v.text, keep);
   if (text) out.text = text;
-  const texture = cleanTexture(v.texture);
+  const texture = cleanTexture(v.texture, keep);
   if (texture) out.texture = texture;
   if (v.clip === true) out.clip = true;
   if (v.clearFill === true) out.clearFill = true;
@@ -709,9 +732,11 @@ export function cleanLook(v: unknown): ItemLook | undefined {
     const named = v.vars;
     const vars: NonNullable<ItemLook["vars"]> = {};
     for (const k of ["opacity", "rotate", "radius"] as const) if (isVarName(named[k])) vars[k] = named[k];
-    if (Object.keys(vars).length) out.vars = vars;
+    const keptVars = kept(keep, named, vars, LOOK_VARS);
+    if (Object.keys(keptVars).length) out.vars = keptVars;
   }
-  return Object.keys(out).length ? out : undefined;
+  const all = kept(keep, v, out, LOOK_FIELDS);
+  return Object.keys(all).length ? all : undefined;
 }
 
 /** the look with what is undefined taken out, or nothing when it is empty: what the panel writes back */
@@ -730,7 +755,9 @@ export function strictLook(l: ItemLook | undefined): ItemLook | undefined {
   if (!l) return undefined;
   const out: ItemLook = {};
   for (const k of STRICT_LOOK_KEYS) if (l[k] !== undefined) (out as Record<string, unknown>)[k] = l[k];
-  return Object.keys(out).length ? out : undefined;
+  /* what a style decides goes; a field this version does not know is not one of those, and stays */
+  const all = withUnknown(l, out, LOOK_FIELDS);
+  return Object.keys(all).length ? all : undefined;
 }
 
 const LEGACY_FILL_ROLE = (t: ColorToken) => tokenRole(t);

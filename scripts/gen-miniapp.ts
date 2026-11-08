@@ -6,10 +6,11 @@
 // lib/export/miniapp into its own app (miniapp-kit/src/printed) so the printer's output is type-checked, linted and
 // built for WeChat, Douyin and H5 there. The kit is its own package and never imports the editor; `check:miniapp` fails
 // when what is written here is behind.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setGlobalLang, type Lang } from "../lib/i18n";
+import { TABLE_DIRS, miniappTable, staleTableFiles } from "../lib/actions/consistency/kits";
 import { PARTS, tierOf } from "../parts/registry";
 import { SVG_PRESETS } from "../parts/svg";
 import { SHAPE_NAMES, shapeClipPath } from "../lib/m3e/shape-library";
@@ -102,8 +103,18 @@ async function main() {
     "miniapp-kit/src/kit/theme.generated.ts": defaultThemeModule(),
     ...(await galleryModules()),
     ...(await printedFixture()),
+    /* the consistency table (lib/actions/consistency) as the kit's own tests run it */
+    ...(await miniappTable()),
   };
   const stale: string[] = [];
+  /* a row taken out of the table leaves nothing behind */
+  for (const path of staleTableFiles(root, TABLE_DIRS.miniapp, files)) {
+    if (check) stale.push(path);
+    else {
+      rmSync(join(root, path));
+      console.log(`removed ${path}`);
+    }
+  }
   for (const [path, text] of Object.entries(files)) {
     const at = join(root, path);
     const now = existsSync(at) ? readFileSync(at, "utf8") : "";

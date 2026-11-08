@@ -5,12 +5,14 @@ import { arrangeFlows } from "../../lib/flow";
 import { buildPrompt } from "../../lib/prompt";
 import { LANGS, type Lang } from "../../lib/i18n";
 import { PROJECT_FORMAT, PROJECT_VERSION, isProject, openProject } from "../../lib/project";
-import { BACK_TARGET, frameRect, PHONE_MODELS, type Doc, type Group, type Item } from "../../lib/tokens";
+import { BACK_TARGET, STAY_TARGET, frameRect, PHONE_MODELS, type Action, type Doc, type Group, type Item } from "../../lib/tokens";
+import { mapAction } from "../../lib/refs";
 import { defaultTextOf, listTextOf } from "../labels";
 import { partBySlug, reader } from "../registry";
 import { lengthToHold } from "../../lib/tidy";
 import { defaultMeasures, inLang, instantiate, seedGroups } from "./kit";
 import { TEMPLATES, templateCatalog } from "./index";
+import { panesOfSplit, splitOf } from "../../lib/split";
 
 const seedsOf = (t: (typeof TEMPLATES)[number]) => t.build().map((s) => ({ seed: s, groups: seedGroups(s) }));
 const docOf = (t: (typeof TEMPLATES)[number], lang: Lang): Doc => {
@@ -69,17 +71,17 @@ describe.each(TEMPLATES.map((t) => [t.slug, t] as const))("template %s", (_slug,
         for (const it of g.items) {
           const def = partBySlug(it.component)!;
           const slots = def.slots?.(reader(def, inLang(it.props, "en"))).map((s) => s.key) ?? [];
-          if (it.action) expect([...screens, BACK_TARGET], it.id).toContain(it.action.to);
+          for (const to of targetsOf(it.action)) expect([...screens, BACK_TARGET, STAY_TARGET], it.id).toContain(to);
           for (const [slot, a] of Object.entries(it.actions ?? {})) {
             expect(slots, `${it.component} slot ${slot}`).toContain(slot);
-            expect([...screens, BACK_TARGET], it.id).toContain(a.to);
+            for (const to of targetsOf(a)) expect([...screens, BACK_TARGET, STAY_TARGET], it.id).toContain(to);
           }
         }
-    /* what an added document links to is a screen in it */
+    /* what an added document links to is a screen in it, in a call's or an invoke's answer too */
     const doc = docOf(t, "en");
     const frames = doc.frames.map((f) => f.id);
     for (const g of doc.groups)
-      for (const it of g.items) for (const a of [it.action, ...Object.values(it.actions ?? {})]) if (a) expect([...frames, BACK_TARGET], it.id).toContain(a.to);
+      for (const it of g.items) for (const a of [it.action, ...Object.values(it.actions ?? {})]) for (const to of targetsOf(a)) expect([...frames, BACK_TARGET, STAY_TARGET], it.id).toContain(to);
   });
 
   it("opens as a project", () => {
@@ -143,6 +145,15 @@ describe.each(TEMPLATES.map((t) => [t.slug, t] as const))("template %s", (_slug,
   });
 });
 
+
+/** every screen a tap goes to: its own, its else's, and its calls' and invokes' answers' as deep as they go */
+function targetsOf(a: Action | undefined): string[] {
+  if (!a) return [];
+  const out: string[] = [];
+  mapAction(a, { screen: (to) => (out.push(to), to) });
+  return out;
+}
+
 describe("the set of templates", () => {
   it("has a slug of its own for each, and a name in every language", () => {
     expect(new Set(TEMPLATES.map((t) => t.slug)).size).toBe(TEMPLATES.length);
@@ -154,17 +165,21 @@ describe("the set of templates", () => {
     const again = instantiate(shop, "en", { x: 0, y: 0 }, instantiate(shop, "en").frames.map((f) => f.name));
     expect(new Set(again.frames.map((f) => f.name)).size).toBe(again.frames.length);
     expect(again.frames[0].name).toMatch(/ 2$/);
+    /* a screen alone goes nowhere else: it may stay where it is (load again, invoke a capability) or go back */
     for (const t of TEMPLATES.filter((x) => x.category !== "flow")) {
       expect(t.build().length, t.slug).toBe(1);
-      expect(seedsOf(t).flatMap(({ groups }) => groups.flatMap((g) => g.items.flatMap((it) => [it.action, ...Object.values(it.actions ?? {})].filter(Boolean)))), t.slug).toEqual([]);
+      expect(seedsOf(t).flatMap(({ groups }) => groups.flatMap((g) => g.items.flatMap((it) => [it.action, ...Object.values(it.actions ?? {})].flatMap((a) => targetsOf(a).filter((to) => to !== STAY_TARGET && to !== BACK_TARGET))))), t.slug).toEqual([]);
     }
   });
 
   it("is described by the names its groups carry, and a name the author gives wins", () => {
     const doc = docOf(TEMPLATES.find((t) => t.slug === "login")!, "en");
-    const form = doc.groups.find((g) => g.items[0].component === "auth-form")!;
+    /* the sign-in form is a box of atoms, called what the form part was */
+    const form = doc.groups.find((g) => g.name === "Sign-in form" && g.items[0].component === "box")!;
+    const prompt = (d: Doc) => buildPrompt(d, defaultMeasures(d.groups), d.frames[0].id, "en");
+    expect(prompt(doc)).toContain('Box "Sign-in form"');
     /* the code a part prints still has its own words: it is what the part is called that changes */
-    const called = (d: Doc) => buildPrompt(d, defaultMeasures(d.groups), d.frames[0].id, "en").includes('form "Front door"');
+    const called = (d: Doc) => prompt(d).includes('Box "Front door"');
     expect(called(doc)).toBe(false);
     expect(called({ ...doc, groups: doc.groups.map((g) => (g === form ? { ...g, name: "Front door" } : g)) })).toBe(true);
   });
@@ -219,5 +234,45 @@ describe("the set of templates", () => {
   it("is named in the guide an AI agent reads (bun run gen:agent)", () => {
     const guide = readFileSync(new URL("../../public/agent.md", import.meta.url), "utf8").replaceAll("\r\n", "\n");
     expect(guide).toContain(templateCatalog());
+  });
+
+  it("splits a desktop window's panes with split views the reader drags, not rows of fixed widths", () => {
+    /* the mail's list and message, the files and the details, the editor's files, editors and terminal */
+    const want: Record<string, { splits: number; words: string[][] }> = {
+      "mail-inbox": { splits: 1, words: [["Search"], ["Notes from the review", "Reply"]] },
+      "file-manager": { splits: 1, words: [["Report.pdf"], ["Open", "Share"]] },
+      "editor-workspace": { splits: 3, words: [["Files"], []] },
+    };
+    for (const [slug, w] of Object.entries(want)) {
+      const doc = docOf(TEMPLATES.find((t) => t.slug === slug)!, "en");
+      const groups = arrangeFlows(doc.groups, defaultMeasures(doc.groups));
+      const splits = groups.filter((g) => !!splitOf(g));
+      expect(splits.length, slug).toBe(w.splits);
+      for (const s of splits) {
+        const panes = panesOfSplit(groups, s.id);
+        expect(panes.first && panes.second, slug).toBeTruthy();
+        /* each pane as big as its split gives it, beside (or under) the other */
+        const sp = splitOf(s)!;
+        const size = (g: Group) => g.items[0].props as { width: number; height: number };
+        const along = (g: Group) => (sp.vertical ? size(g).height : size(g).width);
+        expect(along(panes.first!) + along(panes.second!) + sp.divider, slug).toBe(sp.vertical ? size(s).height : size(s).width);
+      }
+      /* the outer split's panes hold what they did as fixed columns */
+      const outer = panesOfSplit(groups, splits[0].id);
+      const textIn = (pane: Group) => {
+        const inside = new Set([pane.id]);
+        for (let grew = true; grew; ) {
+          grew = false;
+          for (const g of groups)
+            if (g.inFlow && inside.has(g.inFlow) && !inside.has(g.id)) {
+              inside.add(g.id);
+              grew = true;
+            }
+        }
+        return JSON.stringify(groups.filter((g) => inside.has(g.id)).map((g) => g.items[0].props));
+      };
+      w.words[0].forEach((x) => expect(textIn(outer.first!), `${slug}: ${x}`).toContain(x));
+      w.words[1].forEach((x) => expect(textIn(outer.second!), `${slug}: ${x}`).toContain(x));
+    }
   });
 });

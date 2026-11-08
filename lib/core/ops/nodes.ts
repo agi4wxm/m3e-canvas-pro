@@ -16,6 +16,7 @@ import { tidyLook } from "../../look";
 import { updateRail } from "../../rail";
 import { boxWithProps, constrainedIn, holdsFreely, withConstraints } from "../../constraints";
 import { onScreenAsBackdrop } from "../../settle";
+import { retiredRefusal } from "../../retire";
 import {
   collapseFree,
   explodeGroup,
@@ -38,6 +39,9 @@ import { op, OpError, S } from "../op";
 import { withGroups, withSession, type CoreState, type Widths } from "../state";
 import { componentById, copiedIds, freshId, freshPart, frameById, groupById, groupOfItem, itemById, itemRects, landNewPart, laidOut, onItsEdge, selectionUnits, spotOn, unlocked, withHeld } from "./common";
 import { checkItemPatch, checkProps, cleanedLook, conditionError } from "./validate";
+import { paneGroups, panesOf, refusePanes } from "./split";
+import { SPLIT_SLUG, splitOf, withSplitPanes, type PaneSide } from "../../split";
+import { arrangeFlows } from "../../flow";
 
 /** the groups whose anchor moved, for a canvas that draws them there at once rather than easing them */
 export const movedGroups = (before: Group[], after: Group[]): string[] => {
@@ -66,6 +70,7 @@ const flowSubtree = (groups: Group[], id: string): Set<string> => {
  *  `index`-th part already in it, with what that part holds, or first. */
 export function intoFlow(groups: Group[], g: Group, hostId: string, index: number | undefined): Group[] {
   const host = groups.find((x) => x.id === hostId);
+  if (host && splitOf(host)) throw new OpError("invalid_value", `${hostId} is a split view: put it into one of its panes (the outline lists them as its first and second pane).`, hostId);
   if (!host || !flowOf(host)) throw new OpError("invalid_value", `${hostId} is not a container with an auto layout: turn its layout on (layout: "column", "row" or "grid") first.`, hostId);
   const rest = groups.filter((x) => x.id !== g.id);
   const kids = rest.filter((x) => x.inFlow === hostId && !(x.items.length === 1 && childLayoutOf(x.items[0]).absolute));
@@ -104,7 +109,7 @@ export type AddPartArgs = {
   backdrop?: { screen?: string; x: number; y: number };
 };
 
-export const addPart = op<AddPartArgs, { itemId: string; groupId: string }>({
+export const addPart = op<AddPartArgs, { itemId: string; groupId: string; panes?: Partial<Record<PaneSide, string>> }>({
   name: "add_part",
   summary: "Adds a part (an atom or a composite) to a screen: at a point, into a container's auto layout at a place in its run, or where there is room.",
   args: S.obj(
@@ -125,12 +130,19 @@ export const addPart = op<AddPartArgs, { itemId: string; groupId: string }>({
   run(s, a, ctx) {
     const def = partBySlug(a.slug);
     if (!def) throw new OpError("not_found", `There is no part "${a.slug}". The parts catalog lists every slug.`, a.slug);
+    if (def.retired) throw new OpError("refused", retiredRefusal(def), a.slug);
     if (a.props && ctx.strict) checkProps(def, a.props, s);
     const id = freshId(s, a.id, ctx.newId);
     const base = freshPart(a.slug, !!a.seed);
     const item: Item = { ...base, id, ...(a.props ? { props: { ...base.props, ...a.props } } : {}) };
     const groupId = freshId(s, a.groupId, ctx.newId);
-    const done = (state: CoreState) => ({ state: withSession(state, { selection: [id], frameId: null }), result: { itemId: id, groupId } });
+    const done = (state: CoreState) => {
+      if (a.slug !== SPLIT_SLUG) return { state: withSession(state, { selection: [id], frameId: null }), result: { itemId: id, groupId } };
+      /* a split view comes with its two panes (lib/split.ts), made here rather than after the operation so that the
+         caller is told what to put parts into */
+      const whole = withGroups(state, arrangeFlows(withSplitPanes(state.doc.groups, ctx.newId, ctx.lang), ctx.widths));
+      return { state: withSession(whole, { selection: [id], frameId: null }), result: { itemId: id, groupId, panes: panesOf(whole.doc.groups, groupId) } };
+    };
     if (a.into) {
       const host = groupById(s, a.into.container);
       const groups = intoFlow(s.doc.groups, { id: groupId, x: host.x, y: host.y, axis: "x", items: [item] }, host.id, a.into.index);
@@ -343,19 +355,24 @@ export const settleGroup = op<{ id: string; loose?: boolean }, { itemId?: string
 /* ---------- removing ---------- */
 
 /** Removes parts. A part taken out of a run leaves the run where it was; a locked group keeps its parts. */
-export const removeNodes = op<{ ids: string[] }, { kept: boolean }>({
+export const removeNodes = op<{ ids: string[] }, { kept: boolean; panesKept?: boolean }>({
   name: "remove_nodes",
-  summary: "Removes parts from the canvas (what a container holds stays where it is). Parts in a locked group are kept.",
+  summary: "Removes parts from the canvas (what a container holds stays where it is). Parts in a locked group are kept, and so is a split view's pane (it goes with its split view).",
   args: S.obj({ ids: S.arr(S.str(), "the parts' ids", { minItems: 1 }) }, ["ids"]),
   label: () => "Delete",
   run(s, a, ctx) {
-    const ids = new Set(a.ids);
     const groups = s.doc.groups;
+    /* a pane goes with its split view, never by itself: it is kept, as a locked group's parts are */
+    const panes = paneGroups(groups);
+    const asked = new Set(a.ids);
+    const ids = new Set([...asked].filter((id) => !groups.some((g) => panes.has(g.id) && g.items.some((it) => it.id === id))));
+    if (asked.size && !ids.size) refusePanes(s, asked, "removed");
     if (groups.every((g) => g.locked || !g.items.some((it) => ids.has(it.id)))) {
       if (groups.some((g) => g.items.some((it) => ids.has(it.id)))) throw new OpError("locked", "Every one of those parts is in a locked group.");
       throw new OpError("not_found", `There is no part ${[...ids].map((x) => JSON.stringify(x)).join(", ")} on the canvas.`);
     }
-    const kept = groups.some((g) => g.locked && g.items.some((it) => ids.has(it.id)));
+    const panesKept = ids.size < asked.size;
+    const kept = panesKept || groups.some((g) => g.locked && g.items.some((it) => ids.has(it.id)));
     const next = groups
       .map((g) => {
         /* Delete / Backspace leaves a locked group and its parts alone */
@@ -374,7 +391,7 @@ export const removeNodes = op<{ ids: string[] }, { kept: boolean }>({
       })
       .filter((g) => g.items.length > 0);
     const state = withSession(withGroups(s, next), { selection: [] });
-    return { state: ctx.origin === "user" ? state : laidOut(state, ctx.widths), result: { kept } };
+    return { state: ctx.origin === "user" ? state : laidOut(state, ctx.widths), result: { kept, ...(panesKept ? { panesKept } : {}) } };
   },
 });
 
@@ -399,7 +416,11 @@ export const duplicateNodes = op<{ ids: string[]; primary?: string; dx?: number;
   args: S.obj({ ids: S.arr(S.str(), undefined, { minItems: 1 }), primary: S.str("the part whose copy the panel shows"), dx: S.num(), dy: S.num() }, ["ids"]),
   label: () => "Duplicate",
   run(s, a, ctx) {
-    const units = selectionUnits(s.doc.groups, new Set(a.ids), ctx.widths);
+    /* a pane comes with a copy of its split view; on its own it would be a third pane */
+    const panes = paneGroups(s.doc.groups);
+    const chosen = selectionUnits(s.doc.groups, new Set(a.ids), ctx.widths);
+    const units = chosen.filter((u) => !panes.has(u.id) || !chosen.some((o) => o.id === s.doc.groups.find((g) => g.id === u.id)?.inFlow));
+    if (units.some((u) => panes.has(u.id))) refusePanes(s, units.filter((u) => panes.has(u.id)).map((u) => u.id), "duplicated");
     if (!units.length) throw new OpError("not_found", "None of those parts is on the canvas.");
     const whole = withHeld(units, s.doc.groups, ctx.widths);
     const copies = rekeyedAll(whole, a.dx ?? 24, a.dy ?? 24);
@@ -606,6 +627,7 @@ export const moveNode = op<{ id: string; x: number; y: number; screen?: string }
   args: S.obj({ id: S.str(), x: S.num(), y: S.num(), screen: S.str("the screen x and y are measured from") }, ["id", "x", "y"]),
   label: () => "Move",
   run(s, a, ctx) {
+    refusePanes(s, [a.id], "moved");
     const g = unlocked(groupById(s, a.id), "That part");
     const f = a.screen !== undefined ? frameById(s, a.screen) : undefined;
     const b = groupBounds(g, ctx.widths);
@@ -631,6 +653,7 @@ export const moveInto = op<{ id: string; container: string; index?: number }>({
   args: S.obj({ id: S.str(), container: S.str(), index: S.int() }, ["id", "container"]),
   label: () => "Move",
   run(s, a, ctx) {
+    refusePanes(s, [a.id], "moved");
     const g = unlocked(groupById(s, a.id), "That part");
     const host = groupById(s, a.container);
     if (host.id === g.id || heldBy(g, s.doc.groups, ctx.widths).some((x) => x.id === host.id)) throw new OpError("refused", "A part cannot go inside itself.", a.container);
@@ -729,6 +752,7 @@ export const groupNodes = op<{ ids: string[]; id?: string }, { ids: string[]; gr
   run(s, a, ctx) {
     const ids = new Set(a.ids);
     if (ids.size < 2) throw new OpError("nothing_to_do", "Grouping takes two parts or more.");
+    refusePanes(s, ids, "grouped");
     const groups = s.doc.groups;
     /* regrouping would carry a locked group's parts into an unlocked group */
     if (groups.some((g) => g.locked && g.items.some((it) => ids.has(it.id)))) throw new OpError("locked", "Some of those parts are in a locked group.");

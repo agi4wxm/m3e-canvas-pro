@@ -1,5 +1,6 @@
 import { BOX_CSS, SCREEN_TEXTURE, headingRules, recipeRules, RECIPE_KEYS } from "./recipes";
 import { BUTTON, CHIPS, CORNERED, HEADING_TYPE, role } from "./recipes/shared";
+import type { StyleContext } from "./book";
 import { colorsOf, recipesOf, styleOf, uxOf, type Styled } from "./theme";
 import { ERRORS_DARK, ERRORS_LIGHT, type StylePack, type StyleRoles, type TypeRamp } from "./types";
 
@@ -115,10 +116,10 @@ type StyleInput = Styled & { fontFamily?: string; displayFamily?: string };
  *  A rule later in the list wins over one before it only while it weighs as much, so the lists recipes and packs
  *  select by (recipes/shared.ts) each weigh one attribute, and what only narrows one down goes in `:where()`.
  *  styles.test.ts holds them to it, and holds every rule to no id's weight. */
-export function styleCss(t: StyleInput, at: StyleSelectors = CANVAS_SCOPE): string {
-  const pack = styleOf(t.style);
+export function styleCss(t: StyleInput, at: StyleSelectors = CANVAS_SCOPE, styles?: StyleContext): string {
+  const pack = styleOf(t.style, styles);
   const squared = t.shape === "square" || t.shape === "none" || t.shape === "soft";
-  const recipes = recipesOf(t);
+  const recipes = recipesOf(t, styles);
   const anyRecipe = RECIPE_KEYS.some((k) => recipes[k] !== "m3");
   const display = t.displayFamily;
   if (!pack && !squared && !anyRecipe && !display) return "";
@@ -132,7 +133,7 @@ export function styleCss(t: StyleInput, at: StyleSelectors = CANVAS_SCOPE): stri
   const vars = [
     `--st-line:${role("outline")};--st-edge:${edge}px;--st-edge-thin:${Math.max(1, edge - 1)}px;--st-bar-line:${pack?.compact ? 1 : edge}px;--st-control-r:${controlR};`,
     `--st-rim:${tk.rim ?? role("outline")};--st-rim-dark:${tk.rimDark ?? role("on-surface")};--st-stroke:${tk.stroke ?? "rgb(0 0 0/.75)"};`,
-    `--st-margin:${uxOf(t).margin}px;--st-toned-line:${tk.tonedLine ?? "transparent"};--st-toggle-on:${tk.toggleOn ?? role("primary")};--st-nav-on:${tk.navOn ?? role("primary")};--st-tab-on:${tk.tabOn ?? role("primary")};`,
+    `--st-margin:${uxOf(t, styles).margin}px;--st-toned-line:${tk.tonedLine ?? "transparent"};--st-toggle-on:${tk.toggleOn ?? role("primary")};--st-nav-on:${tk.navOn ?? role("primary")};--st-tab-on:${tk.tabOn ?? role("primary")};`,
     `--st-nav-bg:${tk.navBg ?? role("surface-container")};--st-nav-active:${tk.navActive ?? role("secondary-container")};--st-bar-bg:${tk.barBg ?? role("surface-container")};--st-on-bar:${tk.onBar ?? role("on-surface")};`,
     pack?.compact ? COMPACT_VARS : "",
     pack?.type ? ramp(pack.type) : "",
@@ -149,7 +150,7 @@ export function styleCss(t: StyleInput, at: StyleSelectors = CANVAS_SCOPE): stri
   ];
   /* words a part sets no size for are body text, by this style's ramp. On a whole page that is said of its body: the root's size is what rem counts from */
   const plainWords = pack?.type ? `${at === APP_SCOPE ? `${at.scope} body` : at.scope}{font-size:var(--text-body-large);line-height:var(--text-body-large--line-height)}` : "";
-  const bleed = uxOf(t).bleed ?? [];
+  const bleed = uxOf(t, styles).bleed ?? [];
   const rules = [
     pack ? `.rounded{border-radius:var(--md-sys-shape-corner-extra-small)}` : "",
     bleed.includes("video") ? `:is([data-slot=video],[data-slot=video-placeholder]){border-radius:0}` : "",
@@ -171,26 +172,26 @@ export function styleCss(t: StyleInput, at: StyleSelectors = CANVAS_SCOPE): stri
   ].filter(Boolean);
   /* an exported screen and a style's sample are drawn by class, so a rule reaches them; on the canvas and in the
      preview a screen paints itself inline: see screenBackground */
-  const light = screenImageOf({ ...t, dark: false });
-  const dark = screenImageOf({ ...t, dark: true });
+  const light = screenImageOf({ ...t, dark: false }, styles);
+  const dark = screenImageOf({ ...t, dark: true }, styles);
   const backdrop = [light ? `${at.scope} [data-backdrop]{background-image:${light}}` : "", dark ? `${at.dark} [data-backdrop]{background-image:${dark}}` : ""];
   return [...top, plainWords, `${at.scope}{\n${rules.join("\n")}\n}`, ...backdrop].filter(Boolean).join("\n");
 }
 
 /** what lies behind a screen of this style, if it is more than the screen's color: the texture its screen recipe lays
  *  over everything, then the style's own picture, which goes with its colors */
-function screenImageOf(t: Styled): string | undefined {
-  const pack = colorsOf(t);
-  const texture = SCREEN_TEXTURE[recipesOf(t).screen];
+function screenImageOf(t: Styled, styles?: StyleContext): string | undefined {
+  const pack = colorsOf(t, styles);
+  const texture = SCREEN_TEXTURE[recipesOf(t, styles).screen];
   const image = pack && (t.dark ? (pack.screenDark ?? pack.screen) : pack.screen);
   return [texture, image].filter(Boolean).join(", ") || undefined;
 }
 
 /** the screen's background, for where it is drawn inline: the style's picture over the screen's color */
-export const screenBackground = (color: string, t: Styled) => {
-  const image = screenImageOf(t);
+export const screenBackground = (color: string, t: Styled, styles?: StyleContext) => {
+  const image = screenImageOf(t, styles);
   return image ? `${image}, ${color}` : color;
 };
 
 /** whether an exported screen has anything to draw behind itself */
-export const hasBackdrop = (t: Styled) => !!(screenImageOf({ ...t, dark: false }) ?? screenImageOf({ ...t, dark: true }));
+export const hasBackdrop = (t: Styled, styles?: StyleContext) => !!(screenImageOf({ ...t, dark: false }, styles) ?? screenImageOf({ ...t, dark: true }, styles));

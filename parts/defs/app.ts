@@ -1,5 +1,7 @@
 import { h, ic, listSlots } from "../node";
 import type { Labels, ListItem, P, PartDef, PartSlot, PropDef, TableData } from "../types";
+import { FIELD, fieldFrame, fieldValues } from "../fieldState";
+import { ariaLabelProp } from "../a11y";
 
 /* The parts whole kinds of app are built from and nothing else here could say: a shop's cards and
  * cart, a chat's conversations, a back office's table and board, a bank's balance, the forms and pads
@@ -10,6 +12,9 @@ import type { Labels, ListItem, P, PartDef, PartSlot, PropDef, TableData } from 
 const WORDS: Record<string, Labels> = {
   Action: { ja: "ボタン", zh: "按钮文字", ko: "버튼" },
   "When pressed": { ja: "押した後", zh: "按下后文字", ko: "누른 후" },
+  Claimed: { ja: "受け取り済み", zh: "已领取", ko: "받음" },
+  Entered: { ja: "入力済みの値", zh: "已输入的值", ko: "입력한 값" },
+  Sent: { ja: "送信済み", zh: "已发送", ko: "보냄" },
   Badge: { ja: "バッジ", zh: "角标", ko: "배지" },
   Original: { ja: "元の価格", zh: "原价", ko: "원래 가격" },
   Price: { ja: "価格", zh: "价格", ko: "가격" },
@@ -110,7 +115,24 @@ const WORDS: Record<string, Labels> = {
   "Copy button": { ja: "コピーボタン", zh: "复制按钮文字", ko: "복사 버튼" },
   "When copied": { ja: "コピー後", zh: "复制后文字", ko: "복사 후" },
   "When too long": { ja: "長すぎるとき", zh: "内容过长提示", ko: "너무 길 때" },
+  "In the cart": { ja: "カート内の数", zh: "已加购数量", ko: "장바구니 수량" },
+  Booked: { ja: "予約済み", zh: "已预订", ko: "예약됨" },
+  Saved: { ja: "保存済み", zh: "已收藏", ko: "저장됨" },
+  "Filter on": { ja: "選択中のフィルター", zh: "当前筛选", ko: "선택한 필터" },
+  Playing: { ja: "再生中", zh: "正在播放", ko: "재생 중" },
+  Search: { ja: "検索語", zh: "搜索词", ko: "검색어" },
+  "Sort by column (-1: none)": { ja: "並べ替えの列（-1: なし）", zh: "按第几列排序（-1 为不排序）", ko: "정렬 열 (-1: 없음)" },
+  "Sort order": { ja: "並び順", zh: "排序方向", ko: "정렬 순서" },
+  "Page (from 0)": { ja: "ページ（0 から）", zh: "页码（从 0 开始）", ko: "페이지 (0부터)" },
+  "Rows in all (0: the rows given)": { ja: "全体の行数（0: 与えた行）", zh: "总行数（0 为给出的行）", ko: "전체 행 수 (0: 주어진 행)" },
+  Signature: { ja: "署名", zh: "签名", ko: "서명" },
+  Signed: { ja: "署名済み", zh: "已签名", ko: "서명함" },
+  "Page on show": { ja: "表示中のページ", zh: "当前页", ko: "표시 중인 페이지" },
 };
+
+const EVERY_ENTRY = { prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } };
+/** a control of the part's own: a press on it is no press on the part unless something is wired to it */
+const own = (key: string, label: string): PartSlot => ({ key, label, own: true });
 
 type Seed = Labels["zh"];
 const say = (label: string) => (WORDS[label] ? { labels: WORDS[label] } : {});
@@ -157,10 +179,13 @@ export const app: PartDef[] = [
       text("done", "When pressed", "In cart", "已加购"),
       pick("layout", "Layout", "vertical", ["vertical", "horizontal"]),
       flag("liked", "Liked", false),
+      num("added", "In the cart", 0, 0, 999),
       WIDTH(200, 140, 640),
     ],
-    slots: (p) => [...slot("open", p.s("title") || "Open"), ...slot("action", p.s("action") || "Action", !!p.s("action"))],
-    tree: (p) => h("ProductCard", { image: p.s("image"), title: p.s("title"), subtitle: p.s("subtitle"), price: p.s("price"), original: p.s("original"), badge: p.s("badge"), rating: p.n("rating"), action: p.s("action"), done: p.s("done"), layout: p.s("layout"), liked: p.b("liked"), width: px(p) }),
+    slots: (p) => [...slot("open", p.s("title") || "Open"), ...slot("action", p.s("action") || "Action", !!p.s("action")), own("like", p.say("Favorite"))],
+    /* whether it is liked and how many are in the cart are the shop's to say */
+    demo: { what: "flips its heart and counts what is added to the cart by itself", takenOverBy: ["liked", "added"] },
+    tree: (p) => h("ProductCard", { image: p.s("image"), title: p.s("title"), subtitle: p.s("subtitle"), price: p.s("price"), original: p.s("original"), badge: p.s("badge"), rating: p.n("rating"), action: p.s("action"), done: p.s("done"), layout: p.s("layout"), liked: p.b("liked"), ...(p.n("added") > 0 ? { added: px(p, "added") } : {}), width: px(p) }),
   },
   {
     slug: "price-tag",
@@ -222,9 +247,11 @@ export const app: PartDef[] = [
     appearance: { radius: 16 },
     w: 340,
     h: 96,
-    props: [text("amount", "Amount", "$10"), text("condition", "Condition", "Over $50", "满 50 可用"), text("title", "Title", "New member offer", "新人专享"), text("expiry", "Expiry", "Until Dec 31", "12 月 31 日前有效"), text("action", "Action", "Claim", "领取"), text("done", "When pressed", "Claimed", "已领取"), WIDTH(340, 260, 640)],
+    props: [text("amount", "Amount", "$10"), text("condition", "Condition", "Over $50", "满 50 可用"), text("title", "Title", "New member offer", "新人专享"), text("expiry", "Expiry", "Until Dec 31", "12 月 31 日前有效"), text("action", "Action", "Claim", "领取"), text("done", "When pressed", "Claimed", "已领取"), flag("claimed", "Claimed", false), WIDTH(340, 260, 640)],
     slots: (p) => slot("action", p.s("action") || "Action", !!p.s("action")),
-    tree: (p) => h("Coupon", { amount: p.s("amount"), condition: p.s("condition"), title: p.s("title"), expiry: p.s("expiry"), action: p.s("action"), done: p.s("done"), width: px(p) }),
+    /* whether it was claimed is the back end's to say: a prototype only acts it out until `claimed` is bound or its tap calls the API */
+    demo: { what: "shows itself claimed as soon as its button is pressed", takenOverBy: ["claimed"] },
+    tree: (p) => h("Coupon", { amount: p.s("amount"), condition: p.s("condition"), title: p.s("title"), expiry: p.s("expiry"), action: p.s("action"), done: p.s("done"), claimed: p.b("claimed") || undefined, width: px(p) }),
   },
   {
     slug: "checkout-bar",
@@ -240,13 +267,16 @@ export const app: PartDef[] = [
       text("label", "Label", "Total", "合计"),
       text("amount", "Amount", "$48.00", "¥336"),
       text("note", "Note", "Free delivery", "免运费"),
-      list("icons", "Icon actions", [{ label: "Save", icon: "favorite" }], 3, true),
+      { key: "icons", label: "Icon actions", ...say("Icon actions"), kind: "list", default: [{ label: "Save", icon: "favorite" }], max: 3, icons: true, fields: [{ key: "variant", label: "State", options: ["off", "on"] }] },
       text("action", "Action", "Buy now", "立即购买"),
       text("done", "When pressed", "", ""),
+      { ...flag("placed", "Placed", false), labels: { ja: "注文済み", zh: "已下单", ko: "주문됨" } },
       WIDTH(412, 240, 1280),
     ],
     slots: (p) => [...listSlots(p.list("icons")), ...slot("action", p.s("action") || "Action", !!p.s("action"))],
-    tree: (p) => h("CheckoutBar", { label: p.s("label"), amount: p.s("amount"), note: p.s("note"), icons: withIcons(p.list("icons")), action: p.s("action"), done: p.s("done"), width: px(p) }),
+    /* whether the order was placed, and an icon's state, are the back end's to say: only a prototype flips them by itself */
+    demo: { what: "says the order is placed, and flips its icons, as soon as they are pressed", takenOverBy: ["placed"] },
+    tree: (p) => h("CheckoutBar", { label: p.s("label"), amount: p.s("amount"), note: p.s("note"), icons: p.list("icons").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}), ...(x.variant === "on" ? { variant: "on" } : {}) })), action: p.s("action"), done: p.s("done"), placed: p.b("placed") || undefined, width: px(p) }),
   },
 
   /* ---------- money and journeys ---------- */
@@ -268,6 +298,8 @@ export const app: PartDef[] = [
       flag("hidden", "Hide the amount", false),
       WIDTH(380, 240, 800),
     ],
+    /* whether the amount is hidden is the visitor's: the eye flips it */
+    input: { prop: "hidden", kind: "bool" },
     slots: (p) => listSlots(p.list("actions")),
     tree: (p) => h("BalanceCard", { title: p.s("title"), amount: p.s("amount"), change: p.s("change"), actions: withIcons(p.list("actions")), hidden: p.b("hidden"), width: px(p) }),
   },
@@ -283,19 +315,24 @@ export const app: PartDef[] = [
     h: 320,
     props: [
       table("data", "Rows", {
-        columns: ["Name", "Detail", "Amount"],
+        /* Direction: in or out, as the data says (a table with no such column falls back to the amount's sign) */
+        columns: ["Name", "Detail", "Amount", "Direction"],
         rows: [
-          ["Salary", "Nov 1 · Bank transfer", "+3,200.00"],
-          ["Groceries", "Nov 2 · Card", "-86.40"],
-          ["Refund", "Nov 3 · Card", "+24.00"],
-          ["Electricity", "Nov 4 · Direct debit", "-112.75"],
+          ["Salary", "Nov 1 · Bank transfer", "+3,200.00", "in"],
+          ["Groceries", "Nov 2 · Card", "-86.40", "out"],
+          ["Refund", "Nov 3 · Card", "+24.00", "in"],
+          ["Electricity", "Nov 4 · Direct debit", "-112.75", "out"],
         ],
       }),
       list("filters", "Filters: all, in, out", [{ label: "All" }, { label: "Income" }, { label: "Spending" }], 3),
+      num("filter", "Filter on", 0, 0, 2),
       WIDTH(380, 240, 800),
     ],
+    /* the filter on is the visitor's, which a data source can take as a parameter; the rows are the data's */
+    input: { prop: "filter", kind: "choice", options: "filters" },
+    demo: { what: "filters its own rows by their direction", takenOverBy: ["data"] },
     slots: (p) => rowSlots(rowsOf(p)),
-    tree: (p) => h("TransactionList", { rows: rowsOf(p), filters: words(p.list("filters")), width: px(p) }),
+    tree: (p) => h("TransactionList", { rows: rowsOf(p), filters: words(p.list("filters")), ...(p.n("filter") > 0 ? { filter: px(p, "filter") } : {}), width: px(p) }),
   },
   {
     slug: "route-card",
@@ -318,10 +355,12 @@ export const app: PartDef[] = [
       text("price", "Price", "$18.00", "¥126"),
       text("action", "Action", "Book", "预订"),
       text("done", "When pressed", "Booked", "已预订"),
+      flag("booked", "Booked", false),
       WIDTH(380, 240, 800),
     ],
     slots: (p) => slot("action", p.s("action") || "Action", !!p.s("action")),
-    tree: (p) => h("RouteCard", { icon: p.s("icon"), from: p.s("from"), fromTime: p.s("fromTime"), to: p.s("to"), toTime: p.s("toTime"), duration: p.s("duration"), note: p.s("note"), price: p.s("price"), action: p.s("action"), done: p.s("done"), width: px(p) }),
+    demo: { what: "shows itself booked as soon as its button is pressed", takenOverBy: ["booked"] },
+    tree: (p) => h("RouteCard", { ...(p.b("booked") ? { booked: true } : {}), icon: p.s("icon"), from: p.s("from"), fromTime: p.s("fromTime"), to: p.s("to"), toTime: p.s("toTime"), duration: p.s("duration"), note: p.s("note"), price: p.s("price"), action: p.s("action"), done: p.s("done"), width: px(p) }),
   },
 
   /* ---------- people ---------- */
@@ -348,6 +387,7 @@ export const app: PartDef[] = [
       WIDTH(380, 240, 800),
     ],
     slots: (p) => [...listSlots(p.list("stats")), ...slot("action", p.s("action") || "Action", !!p.s("action"))],
+    demo: { what: "follows as soon as its button is pressed", takenOverBy: ["following"] },
     tree: (p) => h("ProfileHeader", { cover: p.s("cover"), showCover: p.b("showCover"), avatar: p.s("avatar"), name: p.s("name"), bio: p.s("bio"), stats: words(p.list("stats")), action: p.s("action"), done: p.s("done"), following: p.b("following"), width: px(p) }),
   },
   {
@@ -369,10 +409,13 @@ export const app: PartDef[] = [
       num("likes", "Likes", 128, 0, 1000000),
       num("comments", "Comment count", 24, 0, 1000000),
       num("shares", "Shares", 6, 0, 1000000),
+      flag("liked", "Liked", false),
+      flag("saved", "Saved", false),
       WIDTH(380, 240, 800),
     ],
-    slots: (p) => [...slot("author", p.s("author") || "Author"), ...slot("comment", p.say("Comment")), ...slot("share", p.say("Share"))],
-    tree: (p) => h("PostCard", { author: p.s("author"), time: p.s("time"), text: p.s("text"), image: p.s("image"), showImage: p.b("showImage"), likes: px(p, "likes"), comments: px(p, "comments"), shares: px(p, "shares"), width: px(p) }),
+    slots: (p) => [...slot("author", p.s("author") || "Author"), own("like", p.say("Like")), ...slot("comment", p.say("Comment")), ...slot("share", p.say("Share")), own("save", p.say("Save"))],
+    demo: { what: "flips its heart and its bookmark by itself, counting its own like", takenOverBy: ["liked", "saved", "likes"] },
+    tree: (p) => h("PostCard", { author: p.s("author"), time: p.s("time"), text: p.s("text"), image: p.s("image"), showImage: p.b("showImage"), likes: px(p, "likes"), comments: px(p, "comments"), shares: px(p, "shares"), ...(p.b("liked") ? { liked: true } : {}), ...(p.b("saved") ? { saved: true } : {}), width: px(p) }),
   },
   {
     slug: "leaderboard",
@@ -487,6 +530,7 @@ export const app: PartDef[] = [
   },
   {
     slug: "story-row",
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     name: "Stories",
     labels: { ja: "ストーリー", zh: "故事头像行", ko: "스토리" },
     category: "Social & chat",
@@ -494,9 +538,15 @@ export const app: PartDef[] = [
     appearance: { radius: 16 },
     w: 380,
     h: 96,
-    props: [list("items", "Items", [{ label: "Your story" }, { label: "Ada" }, { label: "Grace" }, { label: "Alan" }, { label: "Katherine" }, { label: "Linus" }], 30), flag("add", "Add button first", true), WIDTH(380, 160, 1280)],
+    props: [
+      { key: "items", label: "Items", ...say("Items"), kind: "list", default: [{ label: "Your story" }, { label: "Ada" }, { label: "Grace" }, { label: "Alan" }, { label: "Katherine" }, { label: "Linus" }], max: 30, icons: false, fields: [{ key: "variant", label: "State", options: ["", "seen"] }] },
+      flag("add", "Add button first", true),
+      WIDTH(380, 160, 1280),
+    ],
     slots: (p) => listSlots(p.list("items")),
-    tree: (p) => h("StoryRow", { items: words(p.list("items")), add: p.b("add"), width: px(p) }),
+    /* whether a story is seen is the data's, a row's state */
+    demo: { what: "marks a story seen once it is opened", takenOverBy: ["items"] },
+    tree: (p) => h("StoryRow", { items: p.list("items").map((x) => (x.variant === "seen" ? { label: x.label, seen: true } : x.label)), add: p.b("add"), width: px(p) }),
   },
   {
     slug: "chat-composer",
@@ -566,7 +616,10 @@ export const app: PartDef[] = [
       WIDTH(380, 240, 800),
     ],
     selectKey: "selected",
-    slots: (p) => rowSlots(rowsOf(p)),
+    /* the rows, and a remove button on each (one action for all of them) that only asks */
+    slots: (p) => [...rowSlots(rowsOf(p)), ...(p.b("removable") ? rowsOf(p).map((r, i) => own(`remove:${i}`, `${p.say("Remove")} ${r[0] || i + 1}`)) : [])],
+    families: [EVERY_ENTRY, { prefix: "remove", label: "Every remove button", labels: { ja: "すべての削除ボタン", zh: "每个删除按钮", ko: "모든 삭제 버튼" } }],
+    demo: { what: "hides a file once its remove button is pressed", takenOverBy: ["data"] },
     tree: (p) => h("FileList", { rows: rowsOf(p), removable: p.b("removable"), selected: px(p, "selected"), width: px(p) }),
   },
   {
@@ -620,11 +673,15 @@ export const app: PartDef[] = [
         ],
       }),
       { ...SELECTED, default: 2 } as PropDef,
+      flag("playing", "Playing", false),
       WIDTH(380, 240, 800),
     ],
     selectKey: "selected",
     slots: (p) => rowSlots(rowsOf(p)),
-    tree: (p) => h("Playlist", { title: p.s("title"), rows: rowsOf(p), selected: px(p, "selected"), width: px(p) }),
+    /* a press on a row asks to play it (or to pause the one playing); whether it plays is the other side's */
+    events: [{ name: "play", label: "Asked to play or pause", labels: { ja: "再生・一時停止を求めた", zh: "请求播放或暂停", ko: "재생 또는 일시 정지를 요청함" }, payload: { index: "number", playing: "bool" } }],
+    demo: { what: "plays and pauses by itself when a row is pressed", takenOverBy: ["playing"] },
+    tree: (p) => h("Playlist", { title: p.s("title"), rows: rowsOf(p), selected: px(p, "selected"), ...(p.b("playing") ? { playing: true } : {}), width: px(p) }),
   },
 
   /* ---------- small measures ---------- */
@@ -662,12 +719,13 @@ export const app: PartDef[] = [
     props: [
       text("title", "Title", "Traffic by source", "流量来源"),
       table("data", "Rows", {
-        columns: ["Label", "Value"],
+        /* Share: the row's share of the whole, as the data gives it */
+        columns: ["Label", "Value", "Share"],
         rows: [
-          ["Search", "4,820"],
-          ["Direct", "2,140"],
-          ["Social", "1,360"],
-          ["Email", "640"],
+          ["Search", "4,820", "54%"],
+          ["Direct", "2,140", "24%"],
+          ["Social", "1,360", "15%"],
+          ["Email", "640", "7%"],
         ],
       }),
       flag("sorted", "Largest first", true),
@@ -707,9 +765,36 @@ export const app: PartDef[] = [
       text("search", "Search hint (empty: no search)", "Search", "搜索"),
       flag("selectable", "Checkboxes", true),
       num("pageSize", "Rows per page", 5, 1, 100),
+      text("query", "Search", ""),
+      num("sortColumn", "Sort by column (-1: none)", -1, -1, 50),
+      pick("sortDir", "Sort order", "asc", ["asc", "desc"]),
+      num("page", "Page (from 0)", 0, 0, 10000),
+      num("total", "Rows in all (0: the rows given)", 0, 0, 100000000),
       WIDTH(560, 280, 1600),
     ],
-    tree: (p) => h("DataTable", { title: p.s("title"), columns: p.table("data").columns, rows: rowsOf(p), search: p.s("search"), selectable: p.b("selectable"), pageSize: px(p, "pageSize"), width: px(p) }),
+    /* each row, by its place in the data (one action for all of them); what is asked of the table is sent */
+    slots: (p) => rowsOf(p).map((r, i) => ({ key: `row:${i}`, label: r[0] || `${i + 1}`, own: true })),
+    families: [{ prefix: "row", label: "Every row", labels: { ja: "すべての行", zh: "每一行", ko: "모든 행" } }],
+    events: [
+      { name: "search", label: "Searched", labels: { ja: "検索した", zh: "搜索了", ko: "검색함" }, payload: { query: "text" } },
+      { name: "sort", label: "Sorted", labels: { ja: "並べ替えた", zh: "排序了", ko: "정렬함" }, payload: { column: "number", dir: "text" } },
+      { name: "page", label: "Turned the page", labels: { ja: "ページを移動した", zh: "翻页了", ko: "페이지를 넘김" }, payload: { page: "number" } },
+      { name: "select", label: "Checked rows", labels: { ja: "行を選んだ", zh: "勾选了行", ko: "행을 선택함" }, payload: { rows: "list" } },
+    ],
+    tree: (p) =>
+      h("DataTable", {
+        title: p.s("title"),
+        columns: p.table("data").columns,
+        rows: rowsOf(p),
+        search: p.s("search"),
+        selectable: p.b("selectable"),
+        pageSize: px(p, "pageSize"),
+        ...(p.s("query") ? { query: p.s("query") } : {}),
+        ...(p.n("sortColumn") >= 0 ? { sortColumn: px(p, "sortColumn"), sortDir: p.s("sortDir") } : {}),
+        ...(p.n("page") > 0 ? { page: px(p, "page") } : {}),
+        ...(p.n("total") > 0 ? { total: px(p, "total") } : {}),
+        width: px(p),
+      }),
   },
   {
     slug: "kanban",
@@ -731,6 +816,13 @@ export const app: PartDef[] = [
       text("add", "Add a card", "Add card", "添加卡片"),
       WIDTH(560, 240, 1920),
     ],
+    /* which card is in which lane is the data's: moving, adding and opening a card are sent, the card by its row */
+    events: [
+      { name: "move", label: "Moved a card", labels: { ja: "カードを移動した", zh: "移动了卡片", ko: "카드를 옮김" }, payload: { row: "number", from: "number", to: "number", before: "number" } },
+      { name: "add", label: "Added a card", labels: { ja: "カードを追加した", zh: "添加了卡片", ko: "카드를 추가함" }, payload: { lane: "number", text: "text" } },
+      { name: "open", label: "Opened a card", labels: { ja: "カードを開いた", zh: "打开了卡片", ko: "카드를 엶" }, payload: { row: "number", lane: "number" } },
+    ],
+    demo: { what: "moves and adds its own cards", takenOverBy: ["data"] },
     tree: (p) => h("Kanban", { columns: p.table("data").columns, rows: rowsOf(p), add: p.s("add"), width: px(p) }),
   },
   {
@@ -760,6 +852,11 @@ export const app: PartDef[] = [
       WIDTH(360, 260, 800),
     ],
     slots: (p) => rowSlots(rowsOf(p), 2),
+    /* the month on show and the day picked are the visitor's browsing, sent so a data source can follow it */
+    events: [
+      { name: "day", label: "Picked a day", labels: { ja: "日を選んだ", zh: "选了一天", ko: "날짜를 고름" }, payload: { year: "number", month: "number", day: "number", date: "text" } },
+      { name: "month", label: "Turned the month", labels: { ja: "月を移動した", zh: "翻到别的月份", ko: "달을 넘김" }, payload: { year: "number", month: "number" } },
+    ],
     tree: (p) => h("Agenda", { year: px(p, "year"), month: px(p, "month"), day: px(p, "day"), rows: rowsOf(p), weekStart: p.s("weekStart"), empty: p.s("empty"), width: px(p) }),
   },
   {
@@ -782,11 +879,12 @@ export const app: PartDef[] = [
   },
   {
     slug: "transfer-list",
+    field: FIELD,
     name: "Transfer list",
     labels: { ja: "トランスファーリスト", zh: "穿梭框", ko: "전송 목록" },
     category: "Pickers",
     icon: "swap_horiz",
-    appearance: { radius: 20 },
+    appearance: { target: "TransferList", radius: 20 },
     w: 380,
     h: 220,
     props: [
@@ -796,8 +894,11 @@ export const app: PartDef[] = [
       text("to", "Right title", "Granted", "已选"),
       WIDTH(380, 280, 960),
       HEIGHT(220, 120, 800),
+      ariaLabelProp(),
     ],
-    tree: (p) => h("TransferList", { items: words(p.list("items")), chosen: p.s("chosen").split(",").map((x) => Number(x) - 1).filter((n) => Number.isInteger(n) && n >= 0), from: p.s("from"), to: p.s("to"), width: px(p), height: px(p, "height") }),
+    /* what is on the right, the rows counted from 1, is what the visitor enters */
+    input: { prop: "chosen", kind: "choices" },
+    tree: (p) => fieldFrame(fieldValues(p), h("TransferList", { items: words(p.list("items")), chosen: p.s("chosen"), from: p.s("from"), to: p.s("to"), width: px(p), height: px(p, "height") })),
   },
 
   /* ---------- getting in and getting around ---------- */
@@ -861,44 +962,57 @@ export const app: PartDef[] = [
   },
   {
     slug: "number-pad",
+    field: FIELD,
     name: "Number pad",
     labels: { ja: "数字パッド", zh: "数字键盘", ko: "숫자 패드" },
     category: "Forms",
     icon: "dialpad",
-    appearance: { radius: 20 },
+    appearance: { target: "NumberPad", radius: 20 },
     w: 320,
     h: 440,
-    props: [pick("mode", "Mode", "amount", ["amount", "pin", "phone"]), text("prefix", "Prefix", "$", "¥"), num("length", "Digits", 6, 1, 20), text("action", "Action", "Confirm", "确认"), text("done", "When pressed", "Sent", "已发送"), WIDTH(320, 200, 480)],
+    props: [pick("mode", "Mode", "amount", ["amount", "pin", "phone"]), text("prefix", "Prefix", "$", "¥"), num("length", "Digits", 6, 1, 20), text("action", "Action", "Confirm", "确认"), text("done", "When pressed", "Sent", "已发送"), text("value", "Entered", ""), flag("sent", "Sent", false), WIDTH(320, 200, 480), ariaLabelProp()],
     slots: (p) => slot("confirm", p.s("action") || "Confirm", !!p.s("action")),
-    tree: (p) => h("NumberPad", { mode: p.s("mode"), prefix: p.s("prefix"), length: px(p, "length"), action: p.s("action"), done: p.s("done"), width: px(p) }),
+    /* what is typed is a draft: it starts at `value`, starts over when `value` changes, and confirming hands it out */
+    input: { prop: "value", kind: "text" },
+    events: [{ name: "submit", label: "Confirm with the value", labels: { ja: "値を添えて確定", zh: "带着输入的值确认", ko: "값과 함께 확인" }, payload: { value: "text" } }],
+    /* whether it went through is the other side's to say: only a prototype says "sent" by itself */
+    demo: { what: "says it was sent as soon as it is confirmed", takenOverBy: ["sent"] },
+    tree: (p) => fieldFrame(fieldValues(p), h("NumberPad", { mode: p.s("mode"), prefix: p.s("prefix"), length: px(p, "length"), action: p.s("action"), done: p.s("done"), value: p.s("value") || undefined, sent: p.b("sent") || undefined, width: px(p) })),
   },
   {
     slug: "signature-pad",
+    field: FIELD,
     name: "Signature pad",
     labels: { ja: "署名パッド", zh: "签名板", ko: "서명 패드" },
     category: "Forms",
     icon: "draw",
-    appearance: { radius: 20 },
+    appearance: { target: "SignaturePad", radius: 20 },
     w: 360,
     h: 260,
-    props: [text("hint", "Hint", "Sign here", "请在此签名"), text("clear", "Clear button text", "Clear", "清除"), text("action", "Action", "Done", "完成"), text("done", "When pressed", "Signed", "已签名"), HEIGHT(180, 80, 480), WIDTH(360, 200, 800)],
-    slots: (p) => slot("done", p.s("action") || "Done", !!p.s("action")),
-    tree: (p) => h("SignaturePad", { hint: p.s("hint"), clear: p.s("clear"), action: p.s("action"), done: p.s("done"), height: px(p, "height"), width: px(p) }),
+    props: [text("hint", "Hint", "Sign here", "请在此签名"), text("clear", "Clear button text", "Clear", "清除"), text("action", "Action", "Done", "完成"), text("done", "When pressed", "Signed", "已签名"), text("value", "Signature", ""), flag("signed", "Signed", false), HEIGHT(180, 80, 480), WIDTH(360, 200, 800), ariaLabelProp()],
+    /* the strokes are what the visitor enters; whether the signature is taken is the other side's to say */
+    input: { prop: "value", kind: "text" },
+    slots: (p) => [...slot("done", p.s("action") || "Done", !!p.s("action")), ...(p.s("clear") ? [own("clear", p.s("clear"))] : [])],
+    demo: { what: "locks itself as signed as soon as its button is pressed", takenOverBy: ["signed"] },
+    tree: (p) => fieldFrame(fieldValues(p), h("SignaturePad", { hint: p.s("hint"), clear: p.s("clear"), action: p.s("action"), done: p.s("done"), ...(p.s("value") ? { value: p.s("value") } : {}), ...(p.b("signed") ? { signed: true } : {}), height: px(p, "height"), width: px(p) })),
   },
   {
     slug: "rich-text-editor",
+    field: FIELD,
     name: "Rich text editor",
     labels: { ja: "リッチテキストエディタ", zh: "富文本编辑器", ko: "서식 있는 텍스트 편집기" },
     category: "Forms",
     icon: "format_bold",
-    appearance: { radius: 20 },
+    appearance: { target: "RichTextEditor", radius: 20 },
     w: 380,
     h: 300,
     props: [text("text", "Text", "Select some of this text and try the buttons above.", "选中这段文字，试试上面的按钮。", true), text("placeholder", "Placeholder", "Write something", "写点什么"), flag("counter", "Character count", true), HEIGHT(200, 80, 800), WIDTH(380, 280, 1280)],
-    tree: (p) => h("RichTextEditor", { text: p.s("text"), placeholder: p.s("placeholder"), counter: p.b("counter"), height: px(p, "height"), width: px(p) }),
+    input: { prop: "text", kind: "text" },
+    tree: (p) => fieldFrame(fieldValues(p), h("RichTextEditor", { text: p.s("text"), placeholder: p.s("placeholder"), counter: p.b("counter"), height: px(p, "height"), width: px(p) })),
   },
   {
     slug: "icon-grid",
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     name: "Icon grid",
     labels: { ja: "アイコングリッド", zh: "宫格导航", ko: "아이콘 격자" },
     category: "Navigation",
@@ -932,6 +1046,8 @@ export const app: PartDef[] = [
       WIDTH(380, 160, 960),
     ],
     slots: (p) => listSlots(p.list("items")),
+    /* an entry's mark is the data's, its row's state */
+    demo: { what: "clears an entry's mark once it is opened", takenOverBy: ["items"] },
     tree: (p) => h("IconGrid", { items: p.list("items").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}), ...(x.variant ? { mark: x.variant } : {}) })), columns: px(p, "columns"), badge: p.s("badge"), width: px(p) }),
   },
   {
@@ -975,11 +1091,15 @@ export const app: PartDef[] = [
       text("skip", "Skip button", "Skip", "跳过"),
       text("next", "Next button", "Next", "下一步"),
       text("done", "Last button", "Get started", "开始使用"),
+      num("page", "Page on show", 0, 0, 50),
       WIDTH(360, 240, 800),
       HEIGHT(520, 280, 1200),
     ],
-    slots: (p) => [...slot("skip", p.s("skip") || "Skip", !!p.s("skip")), ...slot("done", p.s("done") || "Done")],
-    tree: (p) => h("Onboarding", { rows: rowsOf(p), skip: p.s("skip"), next: p.s("next"), done: p.s("done"), width: px(p), height: px(p, "height") }),
+    /* the page on show is the visitor's; every turn is sent too */
+    input: { prop: "page", kind: "number" },
+    slots: (p) => [...slot("skip", p.s("skip") || "Skip", !!p.s("skip")), ...slot("next", p.s("next") || "Next", rowsOf(p).length > 1), ...slot("done", p.s("done") || "Done")],
+    events: [{ name: "page", label: "Turned the page", labels: { ja: "ページを移動した", zh: "翻页了", ko: "페이지를 넘김" }, payload: { page: "number" } }],
+    tree: (p) => h("Onboarding", { rows: rowsOf(p), skip: p.s("skip"), next: p.s("next"), done: p.s("done"), ...(p.n("page") > 0 ? { page: px(p, "page") } : {}), width: px(p), height: px(p, "height") }),
   },
 
   /* ---------- being told things ---------- */
@@ -994,7 +1114,7 @@ export const app: PartDef[] = [
     w: 412,
     h: 112,
     props: [icon("icon", "Icon", "wifi_off"), text("text", "Text", "You are offline. Changes will sync when you reconnect.", "当前离线，联网后会自动同步。", true), text("action", "Action", "Retry", "重试"), text("secondary", "Second action", "Dismiss", "忽略"), flag("closable", "Close button", false), WIDTH(412, 200, 1280)],
-    slots: (p) => [...slot("action", p.s("action") || "Action", !!p.s("action")), ...slot("secondary", p.s("secondary") || "Second action", !!p.s("secondary"))],
+    slots: (p) => [...slot("action", p.s("action") || "Action", !!p.s("action")), ...slot("secondary", p.s("secondary") || "Second action", !!p.s("secondary")), ...(p.b("closable") ? [own("close", p.say("Close"))] : [])],
     tree: (p) => h("Banner", { icon: p.s("icon"), text: p.s("text"), action: p.s("action"), secondary: p.s("secondary"), closable: p.b("closable"), width: px(p) }),
   },
   {
@@ -1008,7 +1128,7 @@ export const app: PartDef[] = [
     w: 380,
     h: 40,
     props: [icon("icon", "Icon", "campaign"), list("items", "Notices", [{ label: "Free delivery on orders over $50 this week." }, { label: "Maintenance on Sunday from 02:00 to 04:00." }, { label: "New: pay with your phone at checkout." }], 12), num("seconds", "Seconds each", 3, 1, 30), flag("closable", "Close button", true), WIDTH(380, 160, 1280)],
-    slots: (p) => listSlots(p.list("items")),
+    slots: (p) => [...listSlots(p.list("items")), ...(p.b("closable") ? [own("close", p.say("Close"))] : [])],
     tree: (p) => h("NoticeBar", { icon: p.s("icon"), items: words(p.list("items")), seconds: px(p, "seconds"), closable: p.b("closable"), width: px(p) }),
   },
 

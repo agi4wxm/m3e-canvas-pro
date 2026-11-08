@@ -2,6 +2,7 @@ import { deflateRawSync, inflateRawSync } from "node:zlib";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DOC_PARAM, DOCZ_PARAM, hasShareHash, readShareHash, readShareLink, SHARE_LIMITS, shareable, shareItems, shareLink, ShareLinkError } from "./share";
 import type { Doc, Item } from "./tokens";
+import { newerVersionOf, PROJECT_VERSION, projectFile } from "./project";
 
 const doc = (): Doc => ({
   title: "設計 中文 한국어 🎨 + & # %", brief: "First line\nSecond line", paletteKey: "purple", frame: "phone",
@@ -120,7 +121,8 @@ describe("shareLink and readShareHash", () => {
     expect(link).toMatch(/^https:\/\/example\.test\/canvas\/\?mode=edit#docz=[A-Za-z0-9_-]+$/);
     const hash = new URL(link).hash;
     const bytes = Buffer.from(hash.slice("#docz=".length), "base64url");
-    expect(JSON.parse(inflateRawSync(bytes).toString("utf8"))).toEqual(shareable(value));
+    /* the design in its envelope, which says the format version it is written in */
+    expect(JSON.parse(inflateRawSync(bytes).toString("utf8"))).toEqual(projectFile(shareable(value)));
     await expect(readShareHash(hash)).resolves.toEqual(shareable(value));
     expect(value).toEqual(before);
   });
@@ -131,7 +133,7 @@ describe("shareLink and readShareHash", () => {
     const value = doc();
     const base = "https://example.test/subdir/?keep=1";
     const link = await shareLink(value, base);
-    expect(link).toBe(`${base}#doc=${encodeURIComponent(JSON.stringify(shareable(value)))}`);
+    expect(link).toBe(`${base}#doc=${encodeURIComponent(JSON.stringify(projectFile(shareable(value))))}`);
     await expect(readShareHash(new URL(link).hash)).resolves.toEqual(shareable(value));
   });
 
@@ -146,7 +148,7 @@ describe("shareLink and readShareHash", () => {
     const before = structuredClone(value);
     const base = "https://example.test/subdir/?keep=1";
     const link = await shareLink(value, base);
-    expect(link).toBe(`${base}#doc=${encodeURIComponent(JSON.stringify(shareable(value)))}`);
+    expect(link).toBe(`${base}#doc=${encodeURIComponent(JSON.stringify(projectFile(shareable(value))))}`);
     await expect(readShareHash(new URL(link).hash)).resolves.toEqual(shareable(value));
     expect(value).toEqual(before);
   });
@@ -377,5 +379,19 @@ describe("hasShareHash", () => {
 
   it.each(["", "#", "#other=doc", "#document=x", "#DOC=x", "#other=docz%3Dx", "#mydoc=x"])("does not mistake unrelated hash %s for a project", (hash) => {
     expect(hasShareHash(hash)).toBe(false);
+  });
+});
+
+describe("the format version a link carries (lib/migrations.ts)", () => {
+  it("opens a bare document, as links written before carried, as one of the bare version", async () => {
+    await expect(readShareHash(plainHash(doc()))).resolves.toEqual(doc());
+  });
+
+  it("marks a design a newer version wrote, so the editor opens it read-only", async () => {
+    const link = plainHash({ format: "m3e-project", version: PROJECT_VERSION + 1, document: { ...doc(), nextSection: [1] } });
+    const read = await readShareHash(link);
+    expect(newerVersionOf(read)).toBe(PROJECT_VERSION + 1);
+    expect((read as unknown as { nextSection: number[] }).nextSection).toEqual([1]);
+    expect(newerVersionOf(await readShareHash(plainHash(projectFile(doc()))))).toBeUndefined();
   });
 });

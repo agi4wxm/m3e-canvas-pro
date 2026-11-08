@@ -1,5 +1,7 @@
 import { h, ic, listSlots } from "../node";
 import type { Labels, ListItem, P, PartDef, PartSlot, PropDef, TableData } from "../types";
+import { FIELD, fieldFrame, fieldValues } from "../fieldState";
+import { ariaLabelProp } from "../a11y";
 
 /* Parts common kinds of app and game ask for that the rest of the catalog could not say: pictures looked
  * at and cropped, places and seats chosen, reviews, voice and calls, funnels and schedules; a game's bars,
@@ -78,7 +80,26 @@ const WORDS: Record<string, Labels> = {
   Name: { ja: "名前", zh: "名称", ko: "이름" },
   Cooldown: { ja: "クールダウン", zh: "冷却", ko: "쿨다운" },
   "Size in px": { ja: "サイズ", zh: "尺寸", ko: "크기" },
+  "Cooldown ends at (ms, 0: ready)": { ja: "クールダウン終了時刻（ミリ秒、0: 使用可）", zh: "冷却结束时刻（毫秒，0 为可用）", ko: "쿨다운 종료 시각 (밀리초, 0: 사용 가능)" },
+  "Clock ahead of the device (ms)": { ja: "端末より進んでいる時計（ミリ秒）", zh: "时钟比设备快多少（毫秒）", ko: "기기보다 앞선 시계 (밀리초)" },
+  Disabled: { ja: "無効", zh: "禁用", ko: "사용 안 함" },
+  "Picked level (-1: none)": { ja: "選んだレベル（-1: なし）", zh: "选中的关卡（-1 为无）", ko: "선택한 레벨 (-1: 없음)" },
+  "Line on show": { ja: "表示中のセリフ", zh: "当前台词", ko: "표시 중인 대사" },
+  "Cells now (comma separated)": { ja: "現在のマス（カンマ区切り）", zh: "当前格子（逗号分隔）", ko: "현재 칸 (쉼표로 구분)" },
+  "Status words": { ja: "状況の文言", zh: "状态文字", ko: "상태 문구" },
+  "Picked cells (1,5)": { ja: "選んだマス（1,5）", zh: "选中的格子（如 1,5）", ko: "선택한 칸 (1,5)" },
+  "Picture on show": { ja: "表示中の画像", zh: "当前图片", ko: "표시 중인 이미지" },
+  "Crop (x,y,w,h from 0 to 1)": { ja: "トリミング枠（x,y,幅,高さ を 0〜1）", zh: "裁剪框（x,y,宽,高，0 到 1）", ko: "자르기 영역 (x,y,너비,높이 0~1)" },
+  "Turn (degrees)": { ja: "回転（度）", zh: "旋转（度）", ko: "회전 (도)" },
+  Cropped: { ja: "トリミング済み", zh: "已裁剪", ko: "자름" },
+  "Place picked (a/b/c)": { ja: "選んだ地域（a/b/c）", zh: "已选地区（如 省/市/区）", ko: "선택한 지역 (a/b/c)" },
+  "Seats picked (A3,B5)": { ja: "選んだ席（A3,B5）", zh: "已选座位（如 A3,B5）", ko: "선택한 좌석 (A3,B5)" },
+  "Total to show": { ja: "表示する合計", zh: "显示的总价", ko: "표시할 합계" },
+  "Tag picked (-1: none)": { ja: "選んだタグ（-1: なし）", zh: "选中的标签（-1 为无）", ko: "선택한 태그 (-1: 없음)" },
 };
+
+const EVERY_CELL = { prefix: "cell", label: "Every cell", labels: { ja: "すべてのマス", zh: "每一格", ko: "모든 칸" } };
+const EVERY_ENTRY = { prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } };
 
 type Seed = Labels["zh"];
 const say = (label: string) => (WORDS[label] ? { labels: WORDS[label] } : {});
@@ -154,9 +175,18 @@ export const more: PartDef[] = [
       list("images", "Pictures", [{ label: "Harbour at dawn" }, { label: "Old town" }, { label: "Night market" }], 12, { images: true }),
       num("height", "Height", 260, 120, 720, 4),
       flag("thumbnails", "Thumbnails", true),
+      num("index", "Picture on show", 0, 0, 11),
       WIDTH(380),
     ],
-    tree: (p) => h("ImageViewer", { images: p.list("images").map((x) => ({ label: x.label, ...(x.image ? { image: x.image } : {}) })), height: px(p, "height"), width: px(p), thumbnails: p.b("thumbnails") }),
+    /* the picture on show is the visitor's; each change and the full-screen view are sent too */
+    input: { prop: "index", kind: "number" },
+    slots: (p) => (p.b("thumbnails") && p.list("images").length > 1 ? listSlots(p.list("images")) : []),
+    families: [EVERY_ENTRY],
+    events: [
+      { name: "change", label: "Showed another picture", labels: { ja: "別の画像を表示した", zh: "换了一张图片", ko: "다른 이미지를 보여 줌" }, payload: { index: "number" } },
+      { name: "fullscreen", label: "Opened or shut full screen", labels: { ja: "全画面を開いた・閉じた", zh: "打开或关闭全屏", ko: "전체 화면을 열거나 닫음" }, payload: { open: "bool" } },
+    ],
+    tree: (p) => h("ImageViewer", { images: p.list("images").map((x) => ({ label: x.label, ...(x.image ? { image: x.image } : {}) })), height: px(p, "height"), width: px(p), thumbnails: p.b("thumbnails"), ...(p.n("index") > 0 ? { index: px(p, "index") } : {}) }),
   },
   {
     slug: "image-cropper",
@@ -173,16 +203,35 @@ export const more: PartDef[] = [
       text("action", "Action", "Done", "完成"),
       text("reset", "Reset button", "Reset", "重置"),
       text("doneText", "When done", "Cropped", "已裁剪"),
+      text("crop", "Crop (x,y,w,h from 0 to 1)", ""),
+      num("turn", "Turn (degrees)", 0, 0, 270, 90),
+      flag("cropped", "Cropped", false),
       HEIGHT(300),
       WIDTH(380, 200),
     ],
+    /* the button asks for the crop: cutting the picture, and saying it is done, are the other side's */
     slots: (p) => slot("done", p.s("action"), !!p.s("action")),
-    tree: (p) => h("ImageCropper", { image: p.s("image"), aspect: p.s("aspect"), action: p.s("action"), reset: p.s("reset"), doneText: p.s("doneText"), height: px(p, "height"), width: px(p) }),
+    events: [{ name: "crop", label: "Asked for the crop", labels: { ja: "トリミングを求めた", zh: "请求裁剪", ko: "자르기를 요청함" }, payload: { x: "number", y: "number", w: "number", h: "number", turn: "number" } }],
+    demo: { what: "says it is cropped as soon as its button is pressed", takenOverBy: ["cropped"] },
+    tree: (p) =>
+      h("ImageCropper", {
+        image: p.s("image"),
+        aspect: p.s("aspect"),
+        action: p.s("action"),
+        reset: p.s("reset"),
+        doneText: p.s("doneText"),
+        ...(p.s("crop") ? { crop: p.s("crop") } : {}),
+        ...(p.n("turn") > 0 ? { turn: px(p, "turn") } : {}),
+        ...(p.b("cropped") ? { cropped: true } : {}),
+        height: px(p, "height"),
+        width: px(p),
+      }),
   },
   /* ---------- choosing ---------- */
   {
     slug: "region-picker",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "RegionPicker", radius: 12 },
     name: "Region picker",
     labels: { ja: "地域選択", zh: "地区选择", ko: "지역 선택" },
     category: "Pickers",
@@ -207,15 +256,19 @@ export const more: PartDef[] = [
         ],
       }),
       text("action", "Action", "Confirm", "确认"),
+      text("value", "Place picked (a/b/c)", ""),
       num("height", "Height", 240, 120, 480, 4),
       WIDTH(380, 240),
     ],
+    /* the place picked, its levels joined with "/", is what the visitor enters */
+    input: { prop: "value", kind: "text" },
     slots: (p) => slot("confirm", p.s("action"), !!p.s("action")),
-    tree: (p) => h("RegionPicker", { label: p.s("label"), placeholder: p.s("placeholder"), rows: p.table("data").rows, action: p.s("action"), height: px(p, "height"), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("RegionPicker", { label: p.s("label"), placeholder: p.s("placeholder"), rows: p.table("data").rows, action: p.s("action"), ...(p.s("value") ? { value: p.s("value") } : {}), height: px(p, "height"), width: px(p) })),
   },
   {
     slug: "seat-map",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "SeatMap", radius: 12 },
     name: "Seat map",
     labels: { ja: "座席表", zh: "选座", ko: "좌석 배치도" },
     category: "Pickers",
@@ -233,10 +286,16 @@ export const more: PartDef[] = [
       text("screen", "Screen words", "Screen", "银幕"),
       text("pickedText", "With nothing chosen", "Choose your seats", "请选择座位"),
       text("action", "Action", "Confirm seats", "确认选座"),
+      text("picked", "Seats picked (A3,B5)", ""),
+      text("total", "Total to show", ""),
       WIDTH(380, 240),
+      ariaLabelProp(),
     ],
+    /* the seats picked are what the visitor enters; which are taken, and what they cost in all, are the data's */
+    input: { prop: "picked", kind: "choices" },
     slots: (p) => slot("confirm", p.s("action"), !!p.s("action")),
-    tree: (p) => h("SeatMap", { rows: Math.round(p.n("rows")), columns: Math.round(p.n("columns")), aisle: Math.round(p.n("aisle")), taken: p.s("taken"), price: p.n("price"), currency: p.s("currency"), most: Math.round(p.n("most")), screen: p.s("screen"), pickedText: p.s("pickedText"), action: p.s("action"), width: px(p) }),
+    demo: { what: "works out an example total from the price of a seat", takenOverBy: ["total"] },
+    tree: (p) => fieldFrame(fieldValues(p), h("SeatMap", { ...(p.s("picked") ? { picked: p.s("picked") } : {}), ...(p.s("total") ? { total: p.s("total") } : {}), rows: Math.round(p.n("rows")), columns: Math.round(p.n("columns")), aisle: Math.round(p.n("aisle")), taken: p.s("taken"), price: p.n("price"), currency: p.s("currency"), most: Math.round(p.n("most")), screen: p.s("screen"), pickedText: p.s("pickedText"), action: p.s("action"), width: px(p) })),
   },
   /* ---------- reading ---------- */
   {
@@ -253,11 +312,15 @@ export const more: PartDef[] = [
       text("count", "How many", "1,284 reviews", "1,284 条评价"),
       text("values", "Stars, 5 to 1 (comma separated)", "820,260,120,50,34"),
       list("tags", "Tags", [{ label: "Good value" }, { label: "Fast delivery" }, { label: "As described" }], 12),
+      num("selected", "Tag picked (-1: none)", -1, -1, 11),
       text("action", "Action", "See all reviews", "查看全部评价"),
       WIDTH(380, 240),
     ],
-    slots: (p) => slot("action", p.s("action"), !!p.s("action")),
-    tree: (p) => h("ReviewSummary", { score: p.s("score"), count: p.s("count"), values: numbers(p.s("values")), tags: words(p.list("tags")), action: p.s("action"), width: px(p) }),
+    /* a tap on a tag picks it: whoever draws the part moves `selected` */
+    selectKey: "selected",
+    slots: (p) => [...listSlots(p.list("tags")), ...slot("action", p.s("action"), !!p.s("action"))],
+    families: [EVERY_ENTRY],
+    tree: (p) => h("ReviewSummary", { score: p.s("score"), count: p.s("count"), values: numbers(p.s("values")), tags: words(p.list("tags")), action: p.s("action"), ...(p.n("selected") >= 0 ? { selected: px(p, "selected") } : {}), width: px(p) }),
   },
   {
     slug: "funnel-chart",
@@ -322,17 +385,47 @@ export const more: PartDef[] = [
     icon: "videocam",
     w: 380,
     h: 560,
+    /* a capability view (lib/capabilities `rtc.view`): how the call goes comes in as props from its adapter (rtc.call) */
+    capability: "rtc.view",
     props: [
       text("name", "Name", "Ada Lovelace", "阿达·洛芙莱斯"),
       flag("connected", "Connected", true),
       text("status", "Status when not connected", "Calling…", "正在呼叫…"),
+      { ...flag("mic", "Microphone on", true), labels: { ja: "マイク オン", zh: "麦克风开", ko: "마이크 켜짐" } },
+      { ...flag("camera", "Camera on", true), labels: { ja: "カメラ オン", zh: "摄像头开", ko: "카메라 켜짐" } },
+      { ...flag("speaker", "Speaker on", true), labels: { ja: "スピーカー オン", zh: "扬声器开", ko: "스피커 켜짐" } },
+      { key: "startedAt", label: "Connected at (ISO time)", labels: { ja: "接続した時刻（ISO）", zh: "接通时间（ISO）", ko: "연결된 시각(ISO)" }, kind: "text", default: "" },
       image("image", "Picture"),
       icon("icon", "Icon", "person"),
       HEIGHT(560, 240),
       WIDTH(380, 240),
     ],
-    slots: () => [{ key: "end", label: "End call", icon: "call_end" }],
-    tree: (p) => h("VideoCall", { name: p.s("name"), connected: p.b("connected"), status: p.s("status"), image: p.s("image"), icon: p.s("icon"), height: px(p, "height"), width: px(p) }),
+    slots: () => [
+      { key: "mic", label: "Microphone", icon: "mic" },
+      { key: "camera", label: "Camera", icon: "videocam" },
+      { key: "speaker", label: "Speaker", icon: "volume_up" },
+      { key: "end", label: "End call", icon: "call_end" },
+    ],
+    events: [
+      { name: "muted", label: "Microphone switched", labels: { ja: "マイクを切り替えた", zh: "切换了麦克风", ko: "마이크를 전환함" }, payload: { muted: "bool" } },
+      { name: "ended", label: "Hung up", labels: { ja: "通話を終えた", zh: "挂断了", ko: "통화를 끝냄" } },
+    ],
+    /* the time and the controls are the call's: only a prototype counts and flips them by itself */
+    demo: { what: "counts the call's time from when it is drawn and flips its controls by itself", takenOverBy: ["mic", "camera", "speaker", "startedAt"] },
+    tree: (p) =>
+      h("VideoCall", {
+        name: p.s("name"),
+        connected: p.b("connected"),
+        status: p.s("status"),
+        mic: p.b("mic"),
+        camera: p.b("camera"),
+        speaker: p.b("speaker"),
+        startedAt: p.s("startedAt") || undefined,
+        image: p.s("image"),
+        icon: p.s("icon"),
+        height: px(p, "height"),
+        width: px(p),
+      }),
   },
   /* ---------- a game's screens ---------- */
   {
@@ -378,12 +471,28 @@ export const more: PartDef[] = [
       icon("icon", "Icon", "bolt"),
       text("label", "Label", "Dash", "冲刺"),
       num("cooldown", "Cooldown seconds", 5, 0, 600),
+      num("endsAt", "Cooldown ends at (ms, 0: ready)", 0, 0, 1e14),
+      num("clockSkew", "Clock ahead of the device (ms)", 0, -1e10, 1e10),
+      flag("disabled", "Disabled", false),
       num("size", "Size in px", 72, 40, 160, 4),
     ],
-    tree: (p) => h("SkillButton", { icon: p.s("icon"), label: p.s("label"), cooldown: Math.round(p.n("cooldown")), size: Math.round(p.n("size")) }),
+    /* a press asks to use the skill; when it can be used again is the game's to say (`endsAt`) */
+    slots: (p) => [{ key: "action", label: p.s("label") || "Skill" }],
+    demo: { what: "starts a cooldown of its own when pressed", takenOverBy: ["endsAt", "disabled"] },
+    tree: (p) =>
+      h("SkillButton", {
+        icon: p.s("icon"),
+        label: p.s("label"),
+        cooldown: Math.round(p.n("cooldown")),
+        ...(p.n("endsAt") > 0 ? { endsAt: Math.round(p.n("endsAt")) } : {}),
+        ...(p.n("clockSkew") ? { clockSkew: Math.round(p.n("clockSkew")) } : {}),
+        ...(p.b("disabled") ? { disabled: true } : {}),
+        size: Math.round(p.n("size")),
+      }),
   },
   {
     slug: "level-map",
+    families: [EVERY_ENTRY],
     appearance: { radius: 12 },
     name: "Level map",
     labels: { ja: "レベルマップ", zh: "关卡选择", ko: "레벨 맵" },
@@ -394,12 +503,15 @@ export const more: PartDef[] = [
     props: [
       num("levels", "Levels", 12, 1, 60),
       num("current", "Current level", 5, 1, 60),
+      num("selected", "Picked level (-1: none)", -1, -1, 59),
       text("stars", "Stars per level (3,2,3)", "3,3,2,1"),
       num("perRow", "Levels in a row", 4, 2, 8),
       WIDTH(380, 200),
     ],
+    /* a tap on a level picks it: whoever draws the map moves `selected` */
+    selectKey: "selected",
     slots: (p) => Array.from({ length: Math.min(Math.round(p.n("levels")), Math.round(p.n("current"))) }, (_, i) => ({ key: `tab:${i}`, label: `${i + 1}` })),
-    tree: (p) => h("LevelMap", { levels: Math.round(p.n("levels")), current: Math.round(p.n("current")), stars: p.s("stars"), perRow: Math.round(p.n("perRow")), width: px(p) }),
+    tree: (p) => h("LevelMap", { levels: Math.round(p.n("levels")), current: Math.round(p.n("current")), selected: Math.round(p.n("selected")), stars: p.s("stars"), perRow: Math.round(p.n("perRow")), width: px(p) }),
   },
   {
     slug: "character-card",
@@ -497,12 +609,16 @@ export const more: PartDef[] = [
       icon("icon", "Icon", "person"),
       image("image", "Picture"),
       list("lines", "Lines", [{ label: "You came at last." }, { label: "The gate opens only once." }, { label: "Which way will you go?" }], 30),
+      num("line", "Line on show", 0, 0, 29),
       list("choices", "Choices", [{ label: "Through the forest" }, { label: "Over the mountain" }], 6),
       text("next", "Next hint", "Tap to continue", "点击继续"),
       WIDTH(380, 220),
     ],
-    slots: (p) => listSlots(p.list("choices")),
-    tree: (p) => h("DialogueBox", { speaker: p.s("speaker"), icon: p.s("icon"), image: p.s("image"), lines: words(p.list("lines")), choices: words(p.list("choices")), next: p.s("next"), width: px(p) }),
+    /* a press on the words asks for the next line; which line is on show is the story's to say */
+    slots: (p) => [{ key: "next", label: p.s("next") || "Next" }, ...listSlots(p.list("choices"))],
+    events: [{ name: "settled", label: "Told a line", labels: { ja: "セリフを表示し終えた", zh: "一句台词显示完", ko: "대사를 다 보여 줌" }, payload: { line: "number", last: "bool" } }],
+    demo: { what: "moves on to the next line itself when its words are pressed", takenOverBy: ["line"] },
+    tree: (p) => h("DialogueBox", { speaker: p.s("speaker"), icon: p.s("icon"), image: p.s("image"), lines: words(p.list("lines")), ...(p.n("line") > 0 ? { line: Math.round(p.n("line")) } : {}), choices: words(p.list("choices")), next: p.s("next"), width: px(p) }),
   },
   {
     slug: "game-board",
@@ -517,7 +633,9 @@ export const more: PartDef[] = [
       pick("mode", "Play", "mark", ["mark", "select"]),
       num("rows", "Seat rows", 3, 1, 20),
       num("columns", "Seat columns", 3, 1, 20),
-      text("cells", "Opening cells (comma separated)", ""),
+      text("cells", "Cells now (comma separated)", ""),
+      text("status", "Status words", ""),
+      text("picked", "Picked cells (1,5)", ""),
       text("marks", "Marks (X,O)", "X,O"),
       num("need", "In a row to win", 3, 2, 10),
       text("turnText", "Turn words ({mark})", "{mark} to play", "轮到 {mark}", false),
@@ -526,6 +644,25 @@ export const more: PartDef[] = [
       text("reset", "Reset button", "Play again", "再来一局"),
       WIDTH(320, 160, 720),
     ],
-    tree: (p) => h("GameBoard", { mode: p.s("mode"), rows: Math.round(p.n("rows")), columns: Math.round(p.n("columns")), cells: p.s("cells"), marks: p.s("marks"), need: Math.round(p.n("need")), turnText: p.s("turnText"), winText: p.s("winText"), drawText: p.s("drawText"), reset: p.s("reset"), width: px(p) }),
+    /* a press on a cell asks (one action for every cell, `slot.index` is the cell); the board is the game's to say */
+    slots: (p) => [...Array.from({ length: Math.min(400, Math.round(p.n("rows")) * Math.round(p.n("columns"))) }, (_, i) => ({ key: `cell:${i}`, label: `${i + 1}` })), ...(p.s("reset") ? [{ key: "reset", label: p.s("reset") }] : [])],
+    families: [EVERY_CELL],
+    demo: { what: "plays by itself: takes turns, finds a line, keeps its picks", takenOverBy: ["cells", "status", "picked"] },
+    tree: (p) =>
+      h("GameBoard", {
+        mode: p.s("mode"),
+        rows: Math.round(p.n("rows")),
+        columns: Math.round(p.n("columns")),
+        cells: p.s("cells"),
+        ...(p.s("status") ? { status: p.s("status") } : {}),
+        ...(p.s("picked") ? { picked: p.s("picked") } : {}),
+        marks: p.s("marks"),
+        need: Math.round(p.n("need")),
+        turnText: p.s("turnText"),
+        winText: p.s("winText"),
+        drawText: p.s("drawText"),
+        reset: p.s("reset"),
+        width: px(p),
+      }),
   },
 ];

@@ -11,7 +11,7 @@
 
 import { DocStore, counterIds, guessMeasurer, ops, savedDoc, stateOf } from "../lib/core";
 import { setGlobalLang } from "../lib/i18n";
-import type { Doc } from "../lib/tokens";
+import { makeItem, type Doc } from "../lib/tokens";
 import { check, equal, selectScreen, settle, type E2ETest, type Page } from "./lib";
 import { installLab, labDoc, type Lab } from "./previewLab";
 
@@ -68,12 +68,17 @@ async function onNotes(page: Page, base: string, hold: string[]) {
   await settle(page, 400);
 }
 
-/** a desktop screen with three resizables, each as wide and split as given */
+/** a desktop screen with three resizables, each as wide and split as given: an old design's, since the resizable is
+ *  retired and no operation adds one any more */
 function splitsDoc(cases: { id: string; w: number; split: number }[]): Doc {
   const store = new DocStore(stateOf({ groups: [], frames: [] }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => "en" });
   store.transact("Splits", "mcp", (tx) => {
     tx.run(ops.addScreen, { id: "splits", name: "Splits", preset: "desktop" });
-    cases.forEach((c, i) => tx.run(ops.addPart, { slug: "resizable", id: c.id, screen: "splits", at: { x: 16, y: 24 + i * 200 }, props: { width: c.w, height: 160, split: c.split } }));
+    tx.set((s) => {
+      const f = s.doc.frames.find((x) => x.id === "splits")!;
+      const old = cases.map((c, i) => ({ id: `g-${c.id}`, x: f.x + 16, y: f.y + 24 + i * 200, axis: "x" as const, items: [{ ...makeItem("resizable"), id: c.id, props: { width: c.w, height: 160, split: c.split } }] }));
+      return { ...s, doc: { ...s.doc, groups: [...s.doc.groups, ...old] } };
+    });
   });
   return savedDoc(store.get());
 }

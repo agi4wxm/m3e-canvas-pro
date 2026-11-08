@@ -66,10 +66,10 @@ export function authSource(api: ApiSpec): string {
   return `{\n${lines.map((l) => `  ${l}\n`).join("")}  security: {\n${security.join("\n")}${security.length ? "\n" : ""}  },\n}`;
 }
 
-export const API_CLIENT = (scope: string, name: string, lang: string, api: ApiSpec) => `${GENERATED}
+export const API_CLIENT = (scope: string, name: string, lang: string, api: ApiSpec, capabilities = false) => `${GENERATED}
 import { createApi, createFetchTransport, type Transport } from ${str(`${scope}/api`)}
 import { createRuntime, type AuthConfig } from ${str(`${scope}/app-runtime`)}
-import { webStorage, withUploads } from "./platform"
+${capabilities ? 'import { registry } from "./capabilities"\n' : ""}import { webStorage, withUploads } from "./platform"
 
 /** where the API is: VITE_API_BASE_URL, else /api on this site (the dev server forwards it to the server) */
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api"
@@ -86,7 +86,7 @@ export const runtime = createRuntime({
   storage: webStorage(),
   storageKey: ${str(`${name}:session`)},
   lang: ${str(lang)},
-})
+${capabilities ? "  capabilities: registry,\n" : ""}})
 
 /** Answers the app's calls another way from now on: the mocks in development, or a transport of the custom code's. The
  *  data and the session start over; \`presumed\` counts the app as signed in without a token (the mocks' session). */
@@ -207,7 +207,7 @@ export async function startMocks(mode?: string): Promise<ReactNode> {
 
 export const PLATFORM = (scope: string) => `${GENERATED}
 import type { ChangeEvent } from "react"
-import { queryString, type Transport, type TransportRequest, type TransportResponse } from ${str(`${scope}/api`)}
+import { queryString, readBody, type Transport, type TransportRequest, type TransportResponse } from ${str(`${scope}/api`)}
 import type { TokenStorage } from ${str(`${scope}/app-runtime`)}
 
 /** the session's tokens in this tab's sessionStorage: kept across reloads, gone when the tab is closed */
@@ -273,21 +273,16 @@ export function withUploads(inner: Transport, baseUrl: string): Transport {
         xhr.setRequestHeader("accept", "application/json")
         xhr.upload.onprogress = (event) => request.onUploadProgress?.(event.loaded, event.lengthComputable ? event.total : 0)
         xhr.onerror = () => reject(new Error("The network failed"))
+        /* the answer's bytes as they came, read as the fetch transport reads every answer (JSON, text or a file) */
+        xhr.responseType = "arraybuffer"
         xhr.onload = () => {
           const headers: Record<string, string> = {}
           for (const line of xhr.getAllResponseHeaders().trim().split(/[\\r\\n]+/)) {
             const at = line.indexOf(":")
             if (at > 0) headers[line.slice(0, at).trim().toLowerCase()] = line.slice(at + 1).trim()
           }
-          let body: unknown = xhr.responseText === "" ? undefined : xhr.responseText
-          if (typeof body === "string" && /json/i.test(headers["content-type"] ?? "")) {
-            try {
-              body = JSON.parse(body)
-            } catch {
-              /* words that only claim to be JSON stay words */
-            }
-          }
-          resolve({ status: xhr.status, headers, body })
+          const bytes = xhr.response instanceof ArrayBuffer ? new Uint8Array(xhr.response) : new Uint8Array(0)
+          resolve({ status: xhr.status, headers, body: readBody({ method: request.method, path: request.path, status: xhr.status, headers, bytes }) })
         }
         xhr.send(formData(request.body))
       })

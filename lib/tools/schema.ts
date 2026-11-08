@@ -5,6 +5,7 @@
 
 import { choiceValueOf } from "../../parts/labels";
 import { FLOW_PROPS } from "../../parts/flow";
+import { isStateProp } from "../../parts/fieldState";
 import type { PartDef, PropDef } from "../../parts/types";
 import { COLOR_TOKENS, FONTS, ICON_FAMILIES, TEXT_TOKENS } from "../tokens";
 import type { Schema } from "../core";
@@ -35,12 +36,36 @@ export function propSchema(d: PropDef): Schema {
       return { type: "array", items: { type: "object", properties: row, required: ["label"] }, ...(d.min !== undefined ? { minItems: d.min } : {}), ...(d.max !== undefined ? { maxItems: d.max } : {}), description };
     }
     case "table":
-      return { type: "object", properties: { columns: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } } }, required: ["columns", "rows"], description };
+      return {
+        type: "object",
+        properties: {
+          columns: { type: "array", items: { type: "string" }, description: "the headers" },
+          rows: { type: "array", items: { type: "array", items: { type: "string" } }, description: "cells, one per column" },
+          /* the columns' structure, one per column (parts/tables.ts): what data names each column by and how it is written */
+          spec: {
+            type: "array",
+            description: "optional: each column's key (what a bound list's records name it by), type, width (px), align and format (a number's decimals, a currency code)",
+            items: { type: "object", properties: { key: { type: "string" }, type: { type: "string", enum: ["text", "number", "currency", "percent", "date", "bool"] }, width: { type: "number", minimum: 24, maximum: 960 }, align: { type: "string", enum: ["start", "center", "end"] }, format: { type: "string" } }, required: ["key"] },
+          },
+        },
+        required: ["columns", "rows"],
+        description: d.columns ? `${description}; its columns are read by key: ${d.columns.map((c) => c.key).join(", ")}` : description,
+      };
   }
 }
 
 /** every prop of a part as one object schema, closed: a key it does not have is not one of its props */
-export const partPropsSchema = (def: PartDef): Schema => ({ type: "object", properties: Object.fromEntries(def.props.map((d) => [d.key, propSchema(d)])), additionalProperties: false });
+export const partPropsSchema = (def: PartDef): Schema => ({
+  type: "object",
+  properties: Object.fromEntries(
+    def.props.map((d) => {
+      const s = propSchema(d);
+      /* a field state is the design's; in a form, the form sets it as it runs (parts/fieldState.ts) */
+      return [d.key, isStateProp(def, d.key) ? { ...s, description: `${s.description} (field state; in a form, its check and submit set it)` } : s];
+    }),
+  ),
+  additionalProperties: false,
+});
 
 const FILL = COLOR_TOKENS.map((t) => t.key);
 const TEXT = TEXT_TOKENS.map((t) => t.key);
@@ -59,8 +84,8 @@ const ACTION: Schema = {
     effects: {
       type: "array",
       description:
-        "{do: show|hide|toggle|open|close, part} | {do: setVar, var, value, expr?} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message ({{expressions}} allowed)} | {do: call, operationId, args?: {name: expression}, body?: expression, then?: action body (reads response), catch?: action body (reads error), optimistic?: {source, remove: true}} | {do: refresh, source} | {do: loadMore, source} | {do: submit, form?} | {do: signOut}",
-      items: { type: "object", properties: { do: { type: "string", enum: ["show", "hide", "toggle", "open", "close", "setVar", "toggleVar", "addVar", "setProp", "snackbar", "call", "refresh", "loadMore", "submit", "signOut"] } }, required: ["do"] },
+        "{do: show|hide|toggle|open|close, part} | {do: setVar, var, value, expr?} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message ({{expressions}} allowed)} | {do: call, operationId, args?: {name: expression} (a body field or a param each), body?: one expression for the whole body (form.values), never an object, then?: {to, transition, effects} run on any 2XX (reads response; no when or else), catch?: the same on a failure (reads error), optimistic?: {source, remove: true}} | {do: invoke, capability (list_capabilities: payment.pay, auth.oauth, location.current, scan.code, share.open, clipboard.write, link.open, file.pick…), args?: {name: expression}, then?: the same, on success (reads result), catch?: the same, on a failure (reads error.type: cancelled, failed, unavailable, not-implemented, denied, timeout)} | {do: refresh, source} | {do: loadMore, source} | {do: submit, form?} | {do: signOut}",
+      items: { type: "object", properties: { do: { type: "string", enum: ["show", "hide", "toggle", "open", "close", "setVar", "toggleVar", "addVar", "setProp", "snackbar", "call", "invoke", "refresh", "loadMore", "submit", "signOut"] } }, required: ["do"] },
     },
     params: { type: "object", description: "what the screen it opens is given, by its params' names: each an expression (\"item.id\")" },
     when: { type: "object", description: "{var, op: eq|neq, value}, {filled: a text field's part id} or {expr: an expression}" },
@@ -80,7 +105,7 @@ const ITEM_PATCH: Schema = {
     look: nullable({ type: "object", description: LOOK }),
     note: nullable({ type: "string", description: "what the part does, for the prompt" }),
     action: nullable(ACTION),
-    actions: nullable({ type: "object", description: "{slot: action} for parts with places of their own (describe_node lists its slots)" }),
+    actions: nullable({ type: "object", description: "{key: action} for what the part declares (describe_node lists them): a place (\"tab:0\"), a family of places (\"tab:*\", reads slot.index) or an event (\"on:submit\", reads event.<field>)" }),
     flowSize: nullable(wh({ type: "string", enum: ["fixed", "hug", "fill"] })),
     alignSelf: nullable({ type: "string", enum: ["start", "center", "end", "stretch", "baseline"] }),
     flowAbsolute: nullable({ type: "boolean", description: "out of its container's layout, drawn over it" }),

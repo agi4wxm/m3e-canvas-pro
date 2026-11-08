@@ -3,6 +3,10 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
 
+import { KITS } from "../../../parts/kits"
+import { CATEGORY_ICON, PARTS } from "../../../parts/registry"
+import { TEMPLATES } from "../../../parts/templates"
+import { candidatesIn } from "../../../scripts/icon-names"
 import { FAMILIES, RENAMED, TABLES, type TableFamily } from "../../../scripts/icon-tables"
 import { setIconFamily, symbolName } from "../icon"
 import { familyIds } from "../icon-family"
@@ -160,5 +164,26 @@ describe("the picker's preview", () => {
       expect(own.length, family).toBeGreaterThanOrEqual(family === "game" || family === "emoji" || family === "codicon" ? 3 : 5)
       for (const k of own) expect(isKnownIcon(preview!.map![k][0]), k).toBe(true)
     }
+  })
+})
+
+describe("the editor's own icons", () => {
+  /* drawn from the bundled Rounded glyphs when the icon font cannot be had (components/Icon.tsx): every name a panel
+   * names, that Material Symbols has, is in a Rounded shard under both keys Icon asks for */
+  it("are all bundled, so the editor reads offline", () => {
+    const root = fileURLToPath(new URL("../../..", import.meta.url))
+    const material = JSON.parse(readFileSync(join(root, "node_modules/@iconify-json/material-symbols/icons.json"), "utf8")) as { icons: Record<string, unknown>; aliases?: Record<string, unknown> }
+    const known = (n: string) => [`${n}-rounded`, `${n}-outline-rounded`].some((k) => k in material.icons || k in (material.aliases ?? {}))
+    const names = new Set<string>()
+    for (const dir of ["components", "src"])
+      for (const f of readdirSync(join(root, dir), { recursive: true, encoding: "utf8" }))
+        if (/\.tsx?$/.test(f) && !f.startsWith("m3e") && !/\.test\./.test(f)) for (const n of candidatesIn(readFileSync(join(root, dir, f), "utf8"))) names.add(n.replaceAll("_", "-"))
+    /* and the palettes' tiles and headings: every part's, kit's and template's icon, and every category's */
+    for (const n of [...PARTS.map((d) => d.icon), ...KITS.map((k) => k.icon), ...TEMPLATES.map((x) => x.icon), ...Object.values(CATEGORY_ICON)]) if (n) names.add(n.replaceAll("_", "-"))
+    const editor = [...names].filter(known)
+    expect(editor.length).toBeGreaterThan(200)
+    const rounded = shardFiles.filter((f) => f.startsWith("rounded-")).map(read)
+    const missing = editor.filter((n) => ![`material-symbols:${n}-outline-rounded`, `material-symbols:${n}-rounded`].every((id) => rounded.some((s) => has(s, id))))
+    expect(missing).toEqual([])
   })
 })

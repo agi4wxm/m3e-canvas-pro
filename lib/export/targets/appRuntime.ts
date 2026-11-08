@@ -9,10 +9,13 @@
 import { GENERATED, jsonFile } from "../code";
 import { generated, type ProductContext, type ProductTarget, type Workspace } from "../types";
 
-/** the editor's files the runtime is made of: the bindings' pure pieces, the two of lib/api they read, and lib/app */
+/** the editor's files the runtime is made of: the bindings' pure pieces, the three of lib/api they read (body.ts: how a
+ *  transport reads an answer, for the mini-program's), and lib/app */
 export const APP_RUNTIME_FILES = [
   ...["expr", "format", "messages", "rules", "sources", "form"].map((n) => `lib/bindings/${n}.ts`),
-  ...["types", "transport"].map((n) => `lib/api/${n}.ts`),
+  ...["types", "transport", "body"].map((n) => `lib/api/${n}.ts`),
+  /* what an invoke comes to (lib/app reads the types only) */
+  "lib/capabilities/types.ts",
   ...["store", "session", "sources", "forms", "scope", "runtime", "react", "index"].map((n) => `lib/app/${n}.ts`),
 ];
 

@@ -21,7 +21,7 @@ export const SET_ABOUT: Record<ToolSet, string> = {
   screens: "screens and the document: templates, sizes, variants, places, title, brief, clearing",
   components: "reusable components and their instances: variants, component properties, swapping an instance",
   style: "styles, themes, palettes, looks, custom styles",
-  data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, bindings",
+  data: "variables (collections, modes such as light and dark, color variables bound to fills), data collections, repeats, taps and their effects, triggers and animations, bindings; platform capabilities (payment, sign-in with another service, location, scanning, push, share, clipboard, links, files, calls) invoked from a tap",
   api: "the contract with the back end: data models (JSON Schema), endpoints (OpenAPI 3.1) with paging and uploads, auth, realtime channels (AsyncAPI 3.0), servers, importing and reading specs",
   mocks: "the mock library answering the API while it is designed: made-up data (hints per field, counts, pinned records), scenarios (empty, errors, slow, signed out, retries), mock files, realtime scripts, mock sign-in; reading records, trying endpoints",
   bindings:
@@ -56,7 +56,7 @@ const API = new Set([
 /** the mock library: its operations and the tools that read and try it */
 const MOCKS = new Set([
   "get_mocks", "list_mock_records", "try_mock",
-  "set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks",
+  "set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks", "set_mock_capability",
 ]);
 
 /** the set a tool belongs to */
@@ -113,8 +113,8 @@ const CUES: [ToolSet, Cue][] = [
     "data",
     {
       yes: any(
-        /\b(?:variables?|data[- ]?(?:collections?|sets?|driven|binding|source)|collections?|datasets?|repeat(?:s|ed|ing)? (?:for|over) (?:each|every|the)|bind(?:s|ing)?|bound to|unbind|prototyp\w*|interactions?|interactive|navigat\w*|go(?:es)? back|go(?:es)? to (?:the |a )?\w+(?: \w+)? (?:screen|page|tab)|opens? (?:the |a )?\w+(?: \w+)? (?:screen|page|dialog|sheet|menu)|taps?|tapp(?:ed|ing)|clicks?|click(?:ed|ing)|press(?:es|ed|ing)?|link(?:s|ed)? (?:to|it to|them to)|(?:dark|light|theme|mode)\s+(?:mode\s+)?(?:toggle|switch)(?:es)?|toggles? (?:between|the (?:dark|light|theme|mode)|dark|light)|switch(?:es)? between|counters?|show (?:and|or) hide|conditional(?:ly)?|(?:login|log[- ]in|sign[- ]?in|sign[- ]?up|checkout|onboarding|user|purchase|payment|booking|registration) flows?)\b/,
-        /变量|数据(?:集|集合|驱动|绑定|源)|示例数据|集合|绑定|交互|跳转|点击|点一下|轻点|点按|按下|原型|流程|计数|显示隐藏|显示或隐藏|返回上一|切换(?!风格|主题|成|为)|(?:深色|浅色|暗色|夜间|主题|模式)[^，。,.]{0,4}开关|开关[^，。,.]{0,4}(?:深色|浅色|暗色|夜间|主题|模式|变量)|打开(?=[^，。,.]{0,6}(?:页|屏|弹窗|菜单|对话框))/,
+        /\b(?:variables?|data[- ]?(?:collections?|sets?|driven|binding|source)|collections?|datasets?|repeat(?:s|ed|ing)? (?:for|over) (?:each|every|the)|bind(?:s|ing)?|bound to|unbind|prototyp\w*|interactions?|interactive|navigat\w*|go(?:es)? back|go(?:es)? to (?:the |a )?\w+(?: \w+)? (?:screen|page|tab)|opens? (?:the |a )?\w+(?: \w+)? (?:screen|page|dialog|sheet|menu)|taps?|tapp(?:ed|ing)|clicks?|click(?:ed|ing)|press(?:es|ed|ing)?|link(?:s|ed)? (?:to|it to|them to)|(?:dark|light|theme|mode)\s+(?:mode\s+)?(?:toggle|switch)(?:es)?|toggles? (?:between|the (?:dark|light|theme|mode)|dark|light)|switch(?:es)? between|counters?|show (?:and|or) hide|conditional(?:ly)?|(?:login|log[- ]in|sign[- ]?in|sign[- ]?up|checkout|onboarding|user|purchase|payment|booking|registration) flows?|pay(?:s|ing|ment)?|wechat pay|alipay|apple pay|google pay|in-app purchases?|scan(?:s|ning)? (?:a |the )?(?:qr|bar)? ?codes?|qr codes?|(?:current |my )?location|geolocation|push notifications?|share sheets?|copy to (?:the )?clipboard|biometric\w*|face id|touch id|video calls?|capabilit(?:y|ies))\b/,
+        /变量|数据(?:集|集合|驱动|绑定|源)|示例数据|集合|绑定|交互|跳转|点击|点一下|轻点|点按|按下|原型|流程|计数|显示隐藏|显示或隐藏|返回上一|支付|付款|微信支付|支付宝|内购|扫码|二维码|定位|当前位置|推送|分享|复制到剪贴板|指纹|人脸识别|视频通话|平台能力|切换(?!风格|主题|成|为)|(?:深色|浅色|暗色|夜间|主题|模式)[^，。,.]{0,4}开关|开关[^，。,.]{0,4}(?:深色|浅色|暗色|夜间|主题|模式|变量)|打开(?=[^，。,.]{0,6}(?:页|屏|弹窗|菜单|对话框))/,
         /変数|データ(?:コレクション|セット|バインド)|コレクション|バインド|タップ(?:し|す|で|した)|クリック|押(?:す|し|した)と|遷移|切り替え(?!ボタン)|プロトタイプ|インタラクション|(?:ダーク|ライト)モード(?:の|を)?(?:切り替え|スイッチ|トグル)|カウンター|フロー/,
         /변수|데이터 ?(?:컬렉션|세트|바인딩)|컬렉션|바인딩|바인드|탭하면|탭할 때|누르면|클릭|이동(?:하|해|시)|전환(?!\s*버튼)|프로토타입|인터랙션|상호작용|(?:다크|라이트) ?모드 ?(?:전환|토글|스위치)|카운터|플로우/,
       ),

@@ -6,6 +6,7 @@
  * app.json; in development the mocks (packages/mocks) answer it, a scenario chosen in a dev menu. Everything here is
  * generated but src/custom/, written once. docs/手机端.md says how it fits together. */
 
+import { capabilityFiles, slotFiles, slotNames, slotsOf } from "../appCapabilities";
 import rnPackage from "../../../rn/package.json";
 import { KIT_FILES } from "../rn/kitFiles.generated";
 import { RnPictures, iconsModule, rnDependencies, themeModule } from "../rn/app";
@@ -18,6 +19,7 @@ import { KIT_ICONS } from "../../../rn/src/kit/icons/names";
 import { darkVarOf } from "../../tokens";
 import { GENERATED, jsonCode, jsonFile, propKey, sortedObject, str } from "../code";
 import { kebab } from "../paths";
+import { boundaryDifferences } from "../boundary";
 import { generated, seeded, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "../types";
 
 /** The Expo packages the app needs beyond the kit's (rn/package.json): the router and what it stands on, the secure
@@ -157,8 +159,8 @@ jest.mock("expo-secure-store", () => {
 
 /* ---------- the app's own modules ---------- */
 
-const RUNTIME = (scope: string, name: string, lang: string) => `${GENERATED}
-import Constants from "expo-constants"
+const RUNTIME = (scope: string, name: string, lang: string, capabilities = false) => `${GENERATED}
+${capabilities ? 'import { registry } from "./capabilities"\n' : ""}import Constants from "expo-constants"
 import * as SecureStore from "expo-secure-store"
 import { Platform } from "react-native"
 import { createRuntime, type TokenStorage } from ${str(`${scope}/app-runtime`)}
@@ -185,7 +187,7 @@ export const runtime = createRuntime({
   storage: tokenStorage(),
   storageKey: ${str(`${name.replace(/[^A-Za-z0-9]/g, "_")}.session`)},
   lang: ${str(lang)},
-})
+${capabilities ? "  capabilities: registry,\n" : ""}})
 `;
 
 const API = (scope: string) => `${GENERATED}
@@ -260,7 +262,7 @@ export const FORMS: Record<string, Record<string, FieldRule>> = ${jsonCode(forms
 
 const TRANSPORT = (scope: string) => `${GENERATED}
 import { Platform } from "react-native"
-import { createFetchTransport, queryString, type Transport, type TransportRequest, type TransportResponse } from ${str(`${scope}/api`)}
+import { createFetchTransport, queryString, readBody, type Transport, type TransportRequest, type TransportResponse } from ${str(`${scope}/api`)}
 
 /** a file a picker gave (./files): what the transport sends for a file field, as the mocks read one too */
 export type PickedFile = { name: string; type: string; size?: number; dataUrl: string; uri?: string }
@@ -300,24 +302,20 @@ async function upload(baseUrl: string, r: TransportRequest): Promise<TransportRe
     xhr.setRequestHeader("accept", "application/json")
     for (const [h, v] of Object.entries(r.headers ?? {})) if (h.toLowerCase() !== "content-type") xhr.setRequestHeader(h, v)
     if (r.onUploadProgress) xhr.upload.onprogress = (e) => r.onUploadProgress?.(e.loaded, e.total)
+    /* the answer's bytes as they came, read as packages/api reads every answer (JSON, text or a file) */
+    xhr.responseType = "arraybuffer"
     xhr.onload = () => {
-      const text = xhr.responseText
-      let body: unknown = text === "" ? undefined : text
-      if (text && /json/i.test(xhr.getResponseHeader("content-type") ?? "")) {
-        try {
-          body = JSON.parse(text) as unknown
-        } catch {
-          /* words, then */
-        }
-      }
-      resolve({ status: xhr.status, headers: headersOf(xhr.getAllResponseHeaders()), body })
+      const headers = headersOf(xhr.getAllResponseHeaders())
+      const bytes = xhr.response ? new Uint8Array(xhr.response as ArrayBuffer) : new Uint8Array(0)
+      resolve({ status: xhr.status, headers, body: readBody({ method: r.method, path: r.path, status: xhr.status, headers, bytes }) })
     }
     xhr.onerror = () => reject(new Error("Network request failed"))
     xhr.send(form)
   })
 }
 
-/** The API over React Native's fetch: JSON as JSON, a multipart form (an upload) with its progress. */
+/** The API over React Native's fetch: JSON as JSON, a multipart form (an upload) with its progress; every answer read
+ *  the same way (JSON, text, or a file such as a PDF as its bytes). */
 export function createNativeTransport(options: { baseUrl: string }): Transport {
   const json = createFetchTransport({ baseUrl: options.baseUrl })
   return { request: (r) => (multipart(r) ? upload(options.baseUrl, r) : json.request(r)) }
@@ -452,7 +450,8 @@ export function useFormFor(def: FormDef, $: Bindings, run: (body: ActionBody | u
     return out
   }, [def])
   const scope = $.scope
-  return useForm({
+  /* what follows the answer reads the form it sent as \`form\`, as the screen's own expressions do */
+  const form: FormHandle = useForm({
     /* kept by the runtime: what is typed stays while the app signs in and comes back */
     id: def.id,
     fields,
@@ -464,9 +463,10 @@ export function useFormFor(def: FormDef, $: Bindings, run: (body: ActionBody | u
       return call(def.operationId, { params, body }, init)
     },
     extra: () => Object.fromEntries(Object.entries(def.values ?? {}).map(([k, e]) => [k, $.ev(e)])),
-    then: (response, status) => afterSignIn(runtime, def.login ? def.operationId : undefined, def.then, { scope: { ...scope, response, status } }, run, nav),
-    catch: (error, status) => run(def.catch, { scope: { ...scope, error, status } }),
+    then: (response, status) => afterSignIn(runtime, def.login ? def.operationId : undefined, def.then, { scope: { ...scope, form: form.view, response, status }, form }, run, nav),
+    catch: (error, status) => run(def.catch, { scope: { ...scope, form: form.view, error, status }, form }),
   })
+  return form
 }
 `;
 
@@ -496,7 +496,7 @@ export function afterSignIn(rt: Runtime, signedIn: string | undefined, then: Act
 }
 
 /** The effects of a tap that are the API's: a call (with its optimistic change, then and catch), loading a data source
- *  again or its next page, submitting a form, signing out. */
+ *  again or its next page, submitting a form, signing out; and an invoke of a platform capability. */
 export const handleEffect: EffectHandler = (e, { here, screen, nav, run }) => {
   const $ = new Bindings(here.scope ?? {}, runtime.ctx())
   const source = (name: string) => screen.sources?.[name] as SourceHandle | undefined
@@ -524,6 +524,19 @@ export const handleEffect: EffectHandler = (e, { here, screen, nav, run }) => {
         ...(optimistic ? { optimistic } : {}),
         then: (response, status) => afterSignIn(runtime, e.operationId, e.then, { ...here, scope: { ...here.scope, response, status } }, run, nav),
         catch: (error, status) => run(e.catch, { ...here, scope: { ...here.scope, error, status } }),
+      })
+      return
+    }
+    case "invoke": {
+      /* a platform capability, through the app's registry (src/generated/capabilities.ts): then reads result, catch error */
+      const args: Record<string, unknown> = {}
+      for (const [k, x] of Object.entries(e.args ?? {})) {
+        const v = $.ev(x)
+        if (v !== undefined) args[k] = v
+      }
+      void runtime.invoke(e.capability, args, {
+        then: (result) => run(e.then, { ...here, scope: { ...here.scope, result } }),
+        catch: (error) => run(e.catch, { ...here, scope: { ...here.scope, error } }),
       })
       return
     }
@@ -1040,7 +1053,10 @@ export const mobileTarget: ProductTarget = {
     const { doc, scope } = ctx;
     /* the pictures the design holds as data: files under assets/images, which Metro bundles from src/generated/images.ts */
     const pictures = new RnPictures("assets/images", "../../assets/images");
-    const screens = printRnScreens(doc, ctx.widths, { kitImport: "../../kit", runtime: { bind: "../bind" }, images: { from: "../images", name: pictures.name } });
+    /* the capability views are drawn by slots the product writes once (lib/export/appCapabilities.ts) */
+    const slots = slotsOf(doc, ctx.widths);
+    const capabilities = capabilityFiles(ctx, "mobile");
+    const screens = printRnScreens(doc, ctx.widths, { kitImport: "../../kit", runtime: { bind: "../bind" }, images: { from: "../images", name: pictures.name }, ...(slots.length ? { slots: { from: "../slots", names: slotNames(slots) } } : {}) });
     const theme = rnThemeOf(doc);
     const iconData = await rnIconData([theme.icons], [...screens.icons, ...KIT_ICONS]);
     for (const [id, markup] of Object.entries(doc.icons ?? {})) {
@@ -1057,8 +1073,9 @@ export const mobileTarget: ProductTarget = {
     for (const [path, bytes] of Object.entries(pictures.files)) files[path] = generated(bytes);
     /* what the app does not do as the design says (a part drawn as its atoms or as a placeholder, a binding the kit
        keeps at the design's value): listed beside the screens for the author, as the mini-program lists its own */
-    files["src/generated/warnings.json"] = generated(`${JSON.stringify(screens.warnings, null, 1)}\n`);
-    ctx.differences.push(...screens.warnings.map((w) => ({ app: "mobile" as const, ...w })));
+    const warnings = [...screens.warnings, ...boundaryDifferences(doc, "mobile", ctx.widths).map(({ app: _app, ...w }) => w)];
+    files["src/generated/warnings.json"] = generated(`${JSON.stringify(warnings, null, 1)}\n`);
+    ctx.differences.push(...warnings.map((w) => ({ app: "mobile" as const, ...w })));
 
     /* the routes */
     const routes = routesOf(screens);
@@ -1077,7 +1094,8 @@ export const mobileTarget: ProductTarget = {
     const dark = darkVarOf(doc.vars)?.id;
     files["src/generated/root.tsx"] = generated(ROOT(scope, screens.vars, screens.hidden, dark));
     files["src/generated/routing.tsx"] = generated(ROUTING(scope, routes, screens.initial, login));
-    files["src/generated/runtime.ts"] = generated(RUNTIME(scope, ctx.name, ctx.lang));
+    files["src/generated/runtime.ts"] = generated(RUNTIME(scope, ctx.name, ctx.lang, !!capabilities));
+    Object.assign(files, capabilities?.files ?? {}, slotFiles(scope, slots, "mobile"));
     files["src/generated/api.ts"] = generated(API(scope));
     files["src/generated/contract.ts"] = generated(CONTRACT(scope, operationsOf(doc.api), authSource(doc.api ?? {}), formRulesOf(doc)));
     files["src/generated/bind.ts"] = generated(BIND(scope));
@@ -1145,7 +1163,7 @@ export const mobileTarget: ProductTarget = {
             "export:web": "expo export --platform web --output-dir dist/web",
             "export:android": "expo export --platform android --output-dir dist/android",
           },
-          dependencies: sortedObject({ ...dependencies, ...MOBILE_PINS, [`${scope}/api`]: "0.1.0", [`${scope}/app-runtime`]: "0.1.0" }),
+          dependencies: sortedObject({ ...dependencies, ...MOBILE_PINS, [`${scope}/api`]: "0.1.0", [`${scope}/app-runtime`]: "0.1.0", ...capabilities?.dependency }),
           devDependencies: sortedObject({
             ...Object.fromEntries(TEST_DEV.filter((d) => dev[d]).map((d) => [d, dev[d]])),
             "@types/node": ctx.version("@types/node"),

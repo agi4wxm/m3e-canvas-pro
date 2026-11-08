@@ -3,12 +3,13 @@
 
 const FILES: Record<string, string[]> = {
   Rating: ["Rating"],
+  FieldFrame: ["FieldFrame"],
   ColorField: ["ColorField"],
   ClipboardRow: ["ClipboardRow"],
   Joystick: ["Joystick"],
   QuantityStepper: ["QuantityStepper"],
   Draws: ["Wheel", "GridWheel", "Gacha", "SlotMachine", "MoneyTree", "EggSmash"],
-  Panels: ["SideTabs", "Inventory", "ItemCell", "TaskBar", "RewardTrack", "CheckIn", "FunctionButton"],
+  Panels: ["Inventory", "ItemCell", "TaskBar", "RewardTrack", "CheckIn", "FunctionButton"],
   Inputs: ["TagInput", "FileUpload", "ItemPicker", "MultiSelect", "ColorPalette", "NumberPicker"],
   Content: ["CodeBlock", "Markdown", "SortableList"],
   Motion: ["NumberTicker", "Marquee", "Timer", "PullToRefresh", "SlideGroup", "SwipeRow", "AudioPlayer"],
@@ -17,6 +18,8 @@ const FILES: Record<string, string[]> = {
   AppMore: ["ImageViewer", "ImageCropper", "RegionPicker", "SeatMap", "ReviewSummary", "FunnelChart", "GanttChart", "VoiceMessage", "VideoCall"],
   GameParts: ["SkillButton", "LevelMap", "DialogueBox", "GameBoard"],
   Scene: ["Scene"],
+  Platform: ["MapView", "CameraView"],
+  Split: ["SplitView"],
 };
 
 /** where printed code imports each widget from */

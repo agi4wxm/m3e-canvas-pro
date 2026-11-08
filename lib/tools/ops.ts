@@ -15,19 +15,21 @@ const STYLE_OPS = new Set(["set_theme", "apply_style", "set_custom_styles", "add
 /** the operations on the API section (lib/core/ops/api.ts): data too, the contract the data comes through */
 export const API_OPS = new Set(["add_model", "update_model", "rename_model", "remove_model", "add_endpoint", "update_endpoint", "remove_endpoint", "set_auth", "add_channel", "update_channel", "remove_channel", "set_servers", "set_api_info", "import_openapi", "import_asyncapi"]);
 /** the operations on the mock library (lib/core/ops/mocks.ts): data too, what the API answers with */
-export const MOCK_OPS = new Set(["set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks"]);
+export const MOCK_OPS = new Set(["set_mocks", "set_mock_model", "pin_mock_records", "unpin_mock_records", "add_mock_scenario", "update_mock_scenario", "remove_mock_scenario", "add_mock_file", "generate_mock_files", "update_mock_file", "remove_mock_file", "set_mock_realtime", "remove_mock_realtime", "set_mock_auth", "set_mock_route", "fill_mocks", "clear_mocks", "set_mock_capability"]);
+/** the operations on the platform capabilities (lib/core/ops/capabilities.ts): the product's own, the ones it uses */
+export const CAPABILITY_OPS = new Set(["declare_capability", "remove_capability", "use_capabilities"]);
 /** the operations that bind screens to the contract (lib/core/ops/bindings.ts) */
 export const BINDING_OPS = new Set(["add_data_source", "update_data_source", "remove_data_source", "set_screen_params", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
-const DATA_OPS = new Set([...BINDING_OPS, "add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS, ...MOCK_OPS]);
+const DATA_OPS = new Set([...BINDING_OPS, "add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS, ...MOCK_OPS, ...CAPABILITY_OPS]);
 /** what takes away something the author made: a client asks the author first */
-export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel", "unpin_mock_records", "remove_mock_scenario", "remove_mock_file", "remove_mock_realtime", "clear_mocks", "remove_data_source", "remove_region"]);
+export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel", "unpin_mock_records", "remove_mock_scenario", "remove_mock_file", "remove_mock_realtime", "clear_mocks", "remove_data_source", "remove_region", "remove_capability"]);
 
 const groupOf = (name: string): ToolGroup => (STYLE_OPS.has(name) ? "style" : DATA_OPS.has(name) ? "data" : "edit");
 
 /** what a model should know about an operation that its one-line summary does not say */
 const MORE: Record<string, string> = {
   add_part:
-    "Compose with `into` (a box's auto layout, at `index`); `at` places it freely on the screen. Give `id` when later calls name the part. A `box` is the container atom: surface (none, card, panel, field, bar, chip, button, sheet, overlay, well), layout (row, column, grid), gap, padding. Returns {itemId, groupId}.",
+    "Compose with `into` (a box's auto layout, at `index`); `at` places it freely on the screen. Give `id` when later calls name the part. A `box` is the container atom: surface (none, card, panel, field, bar, chip, button, sheet, overlay, well), layout (row, column, grid), gap, padding. Returns {itemId, groupId}; a split-view also {panes: {first, second}}, the ids of its two panes, the boxes to put parts into.",
   add_tree:
     "Compose with nested boxes the way Figma's auto layout does: a box's props set surface, layout (row, column, grid), gap, padding, align, justify and its size; children are laid out in order. Give ids to the nodes later calls name. Text hugs its words in a row and wraps at the column's width in a column with align stretch. To keep it as a reusable component, follow it with make_component {ids: [root id]}. Returns {itemId: the root, groupId, parts}.",
   add_kit: "Prefer a kit over composing the same by hand. Returns {itemId, groupId}; the kit's root box is itemId.",
@@ -39,7 +41,7 @@ const MORE: Record<string, string> = {
   set_style_rules: "Off frees colors, shapes and every look field; on removes what the style decides. Only when the author asks for it.",
   clear: "Removes everything the canvas holds. Only when the author asks for a fresh start.",
   remove_nodes: "A container's children are not removed with it: remove them too when the whole block should go.",
-  set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here. The API: {do: "call", operationId, args: {param or body field: expression}, then: {to, params, effects}, catch: {...}} (then reads response, catch reads error), {do: "refresh", source}, {do: "loadMore", source}, {do: "submit"} (the form the part is in), {do: "signOut"}; params: {name: expression} gives the screen it opens its params (declared there if missing; for API data, while a detail opened from a row of a data collection reads {{current.field}}); when: {expr} tests an expression; setVar {expr} sets a variable from one.',
+  set_action: 'Screens are named by id; {"to": "back"} goes back. A tap that only has effects (set or toggle a variable, show or hide a part) may leave "to" out. To make a switch or checkbox drive a variable, bind its prop with bind_prop and toggle the variable here. The API: {do: "call", operationId, args: {param or body field: expression}, then: {to, params, effects}, catch: {...}} (then reads response, catch reads error), {do: "refresh", source}, {do: "loadMore", source}, {do: "submit"} (the form the part is in), {do: "signOut"}. A platform capability (list_capabilities): {do: "invoke", capability: "payment.pay", args: {orderId: "response.id"}, then: {...} (reads result), catch: {...} (reads error.type: cancelled, failed, unavailable, not-implemented, denied, timeout)}; a payment\'s then only means submitted: go to a screen that loads the order and shows its status. params: {name: expression} gives the screen it opens its params (declared there if missing; for API data, while a detail opened from a row of a data collection reads {{current.field}}); when: {expr} tests an expression; setVar {expr} sets a variable from one.',
   wrap_in_auto_layout: "Returns {itemId}: the new outer box.",
   make_component: "Its parts then live in the component's definition, no longer on the screen: change them with edit_component (every instance follows); an instance's own words with set_instance_props or set_overrides. Returns {id, instanceId, itemId}.",
   edit_component:
@@ -55,7 +57,10 @@ const MORE: Record<string, string> = {
   update_var_collection: "Give every mode that stays its id, or its values go.",
   set_var_mode: "A screen's own choice wins over the document's; list_data lists the collections and their modes.",
   bind_prop: "A fill bound to a color variable shows its value in the mode on show; to drive a switch's checked prop by a bool variable, bind it and toggle the variable with set_action.",
-  split_into_atoms: "Returns {rootItemId}.",
+  split_into_atoms: "Returns {rootItemId, collection?}: a retired list whose rows are alike gets a data collection its rows repeat over (list_data shows it).",
+  split_retired: "Use it before changing a retired part, or when the author asks to modernize an old design. Returns {split: [{id, slug, rootItemId, collection?, refreshes?}], left}: refreshes names the screen's data sources a pull-to-refresh turned pull to refresh on for.",
+  set_split: "The visitor's own drag in an app never changes this: it starts from it each time (or from what they left, with persist).",
+  convert_to_split_view: "Returns {itemId, groupId, panes: {first, second}}.",
   add_model: "get_api shows the models there are. Name fields in camelCase; required lists what is always there. Returns {name}.",
   update_model: "To rename a model use rename_model (references follow).",
   remove_model: "Refused while something refers to the model; the error lists what.",
@@ -74,6 +79,8 @@ const MORE: Record<string, string> = {
   add_mock_file: "Returns {id}; a hint's files: [id] makes a field use it.",
   generate_mock_files: "Returns {ids}.",
   set_mock_realtime: "get_api lists each channel's messages. Returns {id}.",
+  set_mock_capability: "list_capabilities lists the capabilities and how the mocks answer them now. For a shop: one scenario per outcome of a payment (cancelled, failed) and the order's status from the API per scenario (its getOrder answering status paid, pending or failed).",
+  declare_capability: "Only for a capability the catalog does not have (list_capabilities): the standard ones are used as they are.",
   wire_screen:
     "The quickest way to a working screen: one call per screen and endpoint (a list with detail: the screen a row opens, given the row's id as its params, in either order). It composes a region of its own below what the screen holds: a list already designed is bound in place instead (set_repeat, bind_expression, set_region). Restyle what it made like any parts. Returns {source, region, template, states}.",
   add_data_source: "Returns {name, addedParams}. The screen then reads data.<name>.value (the body), .items (a list, every page so far), .status, .loading, .error, .hasMore, .empty.",
@@ -97,8 +104,14 @@ type Rec = Record<string, unknown>;
 const isRec = (v: unknown): v is Rec => !!v && typeof v === "object" && !Array.isArray(v);
 
 /** A tap that only has effects (set a variable, show a part) goes nowhere: models leave `to` out for it, which the
- *  document spells "none". */
-const tapOf = (a: unknown): unknown => (isRec(a) ? { ...a, ...(a.to === undefined ? { to: "none" } : {}), ...(isRec(a.else) ? { else: tapOf(a.else) } : {}) } : a);
+ *  document spells "none". So do the answers of its calls and invokes (a payment's `then` inside an order's), as deep
+ *  as the nesting limit lets them go. */
+const tapOf = (a: unknown, depth = 0): unknown => {
+  if (!isRec(a) || depth > 8) return a;
+  // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+  const effects = Array.isArray(a.effects) ? a.effects.map((e) => (isRec(e) && (e.do === "call" || e.do === "invoke") ? { ...e, ...(isRec(e.then) ? { then: tapOf(e.then, depth + 1) } : {}), ...(isRec(e.catch) ? { catch: tapOf(e.catch, depth + 1) } : {}) } : e)) : a.effects;
+  return { ...a, ...(a.to === undefined ? { to: "none" } : {}), ...(effects !== a.effects ? { effects } : {}), ...(isRec(a.else) ? { else: tapOf(a.else, depth + 1) } : {}) };
+};
 
 /** arguments as a model writes them, read the way the operation means them, against the state they will run on: the
  *  names it got nearly right (aliases.ts), pictures cleaned (an SVG goes through the sanitizer), taps filled in */

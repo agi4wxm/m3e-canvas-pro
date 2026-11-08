@@ -4,7 +4,8 @@
  * style added to the document (and worn) through `add_custom_style`. The agent then looks at a screen in it and calls
  * again with `refine` and what to change. */
 
-import { contrastRatio, ROLE_KEYS, READS, STYLE_PACKS, contrastFloor, validateCustomStyle, type CustomStyle, type StyleProblem } from "../styles";
+import { CONTRAST_NEED, checkAccess, contrastRatio, ROLE_KEYS, READS, STYLE_PACKS, validateCustomStyle, type CustomStyle, type StyleProblem } from "../styles";
+import { over } from "../styles/access";
 import { RECIPES } from "../styles/recipes";
 import { FONTS, ICON_FAMILIES, SHAPES } from "../tokens";
 import { onColorFor } from "../color";
@@ -37,7 +38,9 @@ export function styleSystemPrompt(): string {
     "- light as shadows: text-shadow and box-shadow glows in the accent (neon), soft emboss and deboss (leather, metal), a backdrop-filter blur (glass);",
     "- aim them at named parts: & (the style's scope), [data-slot=card], [data-surface=card], [data-surface=field], [data-button], [data-slot=input], [data-slot=navigation-bar], [data-slot=tabs-trigger]. Keep words legible over a texture: lines and grain faint (alpha 1F or less).",
     "",
-    "Legibility is checked and must hold in both modes: every pair reads at 4.5:1 at least — " + READS.map(([bg, fg]) => `${fg} on ${bg}`).join(", ") + "; outline on surface 2.8:1; primary on surfaceContainerHigh 3:1.",
+    "Legibility is checked in both modes and in the hover, focus, selected, error and disabled states, against the background as it is drawn: words at 4.5:1 (3:1 only where your type ramp sets them at 24px, or 18.66px bold) — " +
+      READS.map(([bg, fg]) => `${fg} on ${bg}`).join(", ") +
+      ", primary words (text buttons, links, the selected tab) on surface and surfaceContainerHigh (or give them tokens.primaryText / primaryTextDark), error on surface, onError on error; and 3:1 for what shows a control or its state: outline on surface, secondary (the focus ring) on surface, tokens.toggleOn (or primary) on surface. `loud` does not lower any of it: a pair you keep faint on purpose is reported as an issue all the same.",
     "Make the palette coherent: surfaces in a few close steps (surface lightest in light mode, darkest in dark), on- colors that read on their grounds, containers as soft tints of their accent.",
   ].join("\n");
 }
@@ -55,35 +58,69 @@ function jsonOf(text: string): Record<string, unknown> | null {
   }
 }
 
-/** what is worth sending back to the model: faint colors and rules taken out */
-const worth = (problems: StyleProblem[]) => problems.filter((p) => p.code === "contrast" || p.code === "rule" || p.code === "recipe" || p.code === "font" || p.code === "color");
+/** What is worth sending back to the model: faint colors and rules taken out. A check its base style already fails with
+ *  the same colors (iOS's own green switch) is not the model's to answer for, and costs no round of its own. */
+const worth = (problems: StyleProblem[], extended: string | undefined) => {
+  const base = STYLE_PACKS.find((p) => p.key === extended);
+  const inherited = new Set(base ? checkAccess(base).issues.map((c) => `${c.id} ${c.ratio}`) : []);
+  return problems.filter((p) => (p.code === "contrast" && !(p.check && inherited.has(`${p.check.id} ${p.check.ratio}`))) || p.code === "rule" || p.code === "recipe" || p.code === "font" || p.code === "color");
+};
 
-/** The pairs that still read too faintly, put right by rule: the words take the color that reads on their ground,
- *  an outline is darkened (or lightened) toward the words until it shows. What it changed, in words. */
+/** The words that still read too faintly, put right by rule, as far as a rule can without changing what the style
+ *  fills things with: words on a fill take the color that reads on it (in its hover and focus layers too), whatever
+ *  `loud` says, since loud lowers nothing; an outline is darkened (or lightened) toward the words until it shows; words
+ *  in the accent that do not read take a color of their own (`tokens.primaryText`), mixed from the accent toward the
+ *  words. What is left (a focus ring, a switch that is on) is for the model, which is told. What it changed, in words. */
 export function repairContrast(style: CustomStyle): { style: CustomStyle; changed: string[] } {
   const changed: string[] = [];
+  const TEXT = CONTRAST_NEED.text!;
+  const UI = CONTRAST_NEED.ui!;
+  const best = (ground: string, need: number, first: string) => [first, "#000000", "#FFFFFF"].find((c) => contrastRatio(ground, c) >= need) ?? (contrastRatio(ground, "#000000") > contrastRatio(ground, "#FFFFFF") ? "#000000" : "#FFFFFF");
   const fix = (mode: "light" | "dark") => {
     const roles = { ...style[mode] };
     for (const [bg, fg] of READS) {
-      const floor = contrastFloor(bg, style.loud);
-      if (contrastRatio(roles[bg] as string, roles[fg] as string) >= floor) continue;
-      const on = onColorFor(roles[bg] as string).toUpperCase();
-      const pick = [on, "#000000", "#FFFFFF"].find((c) => contrastRatio(roles[bg] as string, c) >= floor) ?? on;
+      if (contrastRatio(roles[bg] as string, roles[fg] as string) >= TEXT) continue;
+      const pick = best(roles[bg] as string, TEXT, onColorFor(roles[bg] as string).toUpperCase());
       changed.push(`${mode}.${fg} ${roles[fg]} → ${pick} (on ${bg})`);
       roles[fg] = pick;
     }
     const surface = roles.surface;
     let outline = roles.outline;
-    for (let i = 0; i < 12 && contrastRatio(surface, outline) < 2.8; i++) outline = mix(outline, roles.onSurface, 0.2);
+    for (let i = 0; i < 12 && contrastRatio(surface, outline) < UI; i++) outline = mix(outline, roles.onSurface, 0.2);
     if (outline !== roles.outline) {
       changed.push(`${mode}.outline ${roles.outline} → ${outline}`);
       roles.outline = outline;
     }
     return roles;
   };
-  const light = fix("light");
-  const dark = fix("dark");
-  return { style: { ...style, light, dark }, changed };
+  let out: CustomStyle = { ...style, light: fix("light"), dark: fix("dark") };
+  /* the words on a fill under its hover and focus layers: the layer is the words' own color laid over the fill, so
+     black or white, whichever reads better over the fill it darkens or lightens, is the one to take */
+  for (const c of checkAccess(out).issues) {
+    if ((c.state !== "hover" && c.state !== "focus") || (c.use !== "text" && c.use !== "large-text") || !c.on.includes(".")) continue;
+    const [mode, role] = c.path.split(".") as ["light" | "dark", keyof CustomStyle["light"]];
+    const ground = out[mode][c.on.split(".")[1] as keyof CustomStyle["light"]] as string;
+    const layer = c.state === "hover" ? 0.08 : 0.1;
+    const [pick, ratio] = ["#000000", "#FFFFFF"].map((w) => [w, contrastRatio(over(w, ground, layer), w)] as const).sort((a, b) => b[1] - a[1])[0];
+    if (pick === out[mode][role] || ratio <= c.ratio) continue;
+    changed.push(`${mode}.${String(role)} ${out[mode][role]} → ${pick} (${c.state})`);
+    out = { ...out, [mode]: { ...out[mode], [role]: pick } };
+  }
+  /* words in the accent: a color of their own, so the fill keeps its own */
+  const tokens = { ...out.tokens };
+  for (const mode of ["light", "dark"] as const) {
+    const token = mode === "light" ? "primaryText" : "primaryTextDark";
+    const roles = out[mode];
+    const reads = (c: string) => contrastRatio(roles.surface, c) >= TEXT && contrastRatio(roles.surfaceContainerHigh, c) >= TEXT;
+    const now = (tokens[token] && /^#[0-9a-f]{6}$/i.test(tokens[token]!) ? tokens[token] : roles.primary)!;
+    if (reads(now)) continue;
+    let words = now;
+    for (let i = 0; i < 12 && !reads(words); i++) words = mix(words, roles.onSurface, 0.2);
+    changed.push(`tokens.${token} ${now} → ${words} (words in the accent)`);
+    tokens[token] = words;
+  }
+  if (Object.keys(tokens).length) out = { ...out, tokens };
+  return { style: out, changed };
 }
 
 const mix = (a: string, b: string, t: number) => {
@@ -166,7 +203,7 @@ export const generateStyle = tool<Args>({
       const v = validateCustomStyle({ ...json, ...(was ? { key: was.key } : {}) });
       made = v.style;
       problems = v.problems;
-      const fixes = worth(problems);
+      const fixes = worth(problems, made?.extends);
       if (!made || !fixes.length || attempt === 2) break;
       messages.push(turn.message, { role: "user", content: `Validation found these problems:\n${problemLines(fixes).map((l) => `- ${l}`).join("\n")}\nReply with the whole corrected style as JSON only.` });
     }

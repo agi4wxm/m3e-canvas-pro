@@ -2,7 +2,8 @@
 import { useContext } from "react";
 import { motion, useDragControls } from "motion/react";
 import { CONTRASTS, Contrast, FONTS, Item, PALETTES, Palette, SHAPES, ShapeScale, Theme, paletteIconOf } from "@/lib/tokens";
-import { STYLE_PACKS, customPacks, styleTextOf } from "@/lib/styles";
+import { STYLE_PACKS, styleTextOf } from "@/lib/styles";
+import { useDocStyles } from "@/parts/theme";
 import { partBySlug } from "@/parts/registry";
 import { listTextOf, nameOf } from "@/parts/labels";
 import { ComponentProps } from "./ComponentInspector";
@@ -204,6 +205,8 @@ export function MobileSettings({
   onStyle: (key: string) => void;
 }) {
   const lang = useLang();
+  /* the document's own styles, after the built-in ones */
+  const own = useDocStyles().customs;
   const shapeLabel = (k: ShapeScale) => (k === "none" ? t("shapeNone", lang) : k === "soft" ? t("shapeSoft", lang) : k === "square" ? t("shapeSquare", lang) : k === "full" ? t("shapeFull", lang) : t("shapeRounded", lang));
   return (
     <div>
@@ -234,7 +237,7 @@ export function MobileSettings({
       <Row icon="style" label={t("styleTab", lang)} p={p}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "2px 0" }}>
           {/* the built-in styles, then the document's own */}
-          {[{ key: "", label: "Material" }, ...[...STYLE_PACKS, ...customPacks()].map((s) => ({ key: s.key, label: styleTextOf(s.name, lang) }))].map((s) => {
+          {[{ key: "", label: "Material" }, ...[...STYLE_PACKS, ...own].map((s) => ({ key: s.key, label: styleTextOf(s.name, lang) }))].map((s) => {
             const on = (theme.style ?? "") === s.key;
             return (
               <button

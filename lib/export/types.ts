@@ -11,15 +11,19 @@ import type { Doc } from "../tokens";
 import type { ApiModel } from "./api";
 
 /** Where an app draws or does something other than the design says (a part drawn as the atoms it splits into, a
- *  placeholder, a tap that is not printed): what its printer reports, written beside its screens as
- *  `src/generated/warnings.json` and listed in the export's report. */
+ *  placeholder, a tap that is not printed, a prototype demo the product does not run): what its printer and the
+ *  boundary check report, written beside its screens as `src/generated/warnings.json` and listed in the export's report. */
 export type DesignDifference = {
-  /** the app: `mobile` (React Native) or `miniapp` (Taro) */
-  app: "mobile" | "miniapp";
-  /** what kind of difference: placeholder, atoms, binding, trigger, look… (the printer's own word) */
+  /** the app: `web` (React), `mobile` (React Native) or `miniapp` (Taro) */
+  app: "web" | "mobile" | "miniapp";
+  /** what kind of difference: placeholder, atoms, binding, trigger, look, style (what of the style the app does not
+   *  draw, lib/styles/support.ts)… (the printer's own word); on every app also demo, event, interface and capability
+   *  (lib/export/boundary.ts) */
   kind: string;
   /** the screen, by its name */
   screen?: string;
+  /** what touches more than one screen (what of the style an app does not draw): every screen it touches */
+  screens?: string[];
   /** the part */
   part?: string;
   detail: string;

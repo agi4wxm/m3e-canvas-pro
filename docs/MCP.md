@@ -140,8 +140,8 @@ bearer_token_env_var = "M3E_MCP_TOKEN"
 npx -y m3e-canvas-mcp --file "m3e-canvas Shop.json"
 ```
 
-- 读写的格式和编辑器保存的完全相同，都经过 `lib/core/projectFile.ts`（格式见 [项目文件](项目文件.md)）：键排序、一个组件一行，同一份文档总是写出相同的字节，放进版本库时只有真正的改动。打开、校验和迁移经过 `openProject`。服务器只通过 `mcp/src/fileStore.ts` 的 `ProjectFormat` 接口接触格式。
-- 单个文件时图片以 data URL 留在文件里；文件夹（`m3e-project.json`）时较大的图片放在旁边的 `m3e-assets/`，文档里写 `m3e-file:m3e-assets/<哈希>.<扩展名>`。每次写回后，服务器删掉 `m3e-assets/` 里文档不再用到的图片，但只删它自己写的，或者名字正是内容哈希的（格式自己起的名字）；别人放进去的文件不碰，别的程序一分钟内刚写的图片也先不删（可能是它正在保存的）。撤销把图片带回来时会重新写出。
+- 读写的格式和编辑器保存的完全相同，都经过 `lib/core/projectFile.ts`（格式见 [项目文件](项目文件.md)）：键排序、一个组件一行，同一份文档总是写出相同的字节，放进版本库时只有真正的改动。打开、校验和迁移经过 `loadDocument`（`lib/project.ts`），和编辑器的每条读入路径相同；文件里不认识的字段写回时原样保留。更新版本的编辑器写的文件只读：能读、能截图，会写文件的调用都被拒绝并说明原因（见 [项目文件](项目文件.md#更新版本写的文档)）。服务器只通过 `mcp/src/fileStore.ts` 的 `ProjectFormat` 接口接触格式。
+- 单个文件时图片以 data URL 留在文件里；文件夹（`m3e-project.json`）时较大的图片和模拟库的文件（每种格式）放在旁边的 `m3e-assets/`，文档里写 `m3e-file:m3e-assets/<哈希>.<扩展名>`。写文件夹和编辑器的顺序一样（[项目文件](项目文件.md#图片)）：先写文档引用的每个文件并读回核对，已有同名文件的核对内容，内容不对（损坏的副本）就重写，任何一个写不成项目文件就不动；然后原子写入项目文件；最后删掉 `m3e-assets/` 里文档不再用到的文件，但只删它自己写的、之后没被改过的，或者名字正是内容哈希的（格式自己起的名字）；别人放进去的文件（名字不像哈希，或者内容对不上名字）不碰，别的程序一分钟内刚写的也先不删（可能是它正在保存的）。撤销把文件带回来时会重新写出。
 - 图片只在项目所在的文件夹里读、写、删（`mcp/src/inside.ts`，和导出产品时的约束一致）：路径先按文字检查，再逐段检查磁盘，路上有符号链接（Windows 的 junction 也算）就拒绝，不跟过去；有别的名字的硬链接也拒绝；文件夹固定为第一次打开时的真实位置，之后被移走并换成别的文件夹或链接，就不再读写。读不了的图片留空并在日志里说明，写不了时这次修改不保存并说明原因。检查和使用之间被调包的情况也处理了：读取时用打开的句柄再核对一次是不是检查过的那个文件，写入先写在旁边再核对文件夹后改名覆盖，删除前再核对文件夹（只剩核对和删除之间的一瞬，Node 没有 `unlinkat` 无法完全消除）。项目文件本身按你给的路径读写，写入是改名覆盖，不会穿过链接写到别处。
 - 每次改动成功后立刻写回文件。写入是原子的：先写同目录下的临时文件，再改名覆盖；文件夹里先写图片，再写项目文件。覆盖时保留原文件的权限，只有自己能读的项目文件写完仍然只有自己能读。
 - 编辑器绑定了同一个文件时也不会互相覆盖：两边都会在写之前检查文件是否被对方改过。
@@ -211,7 +211,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 164 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 172 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -238,6 +238,7 @@ npx playwright install chromium
 | `get_mocks` | 读取 | 是 |  | The mock library in a few lines: seed, locale, latency, sign-in; how each operation is answered (list, get, create, update, delete, singleton, upload, download, login…, the model … |
 | `list_mock_records` | 读取 | 是 |  | The records the mocks have for a model, pinned ones first, as the app would get them (files shortened). |
 | `try_mock` | 读取 | 是 |  | Calls the API the way the app would, answered by the mocks on a fresh session (what one call makes, the next sees: create then list), with no waiting: each call by operationId wit… |
+| `list_capabilities` | 读取 | 是 |  | The platform capabilities (payment, sign-in with another service, location, scanning, push, share, clipboard, links, files, analytics, biometrics, calls; the views of a map, a cam… |
 | `describe_bindings` | 读取 | 是 |  | How a screen is bound to the API: its params and sign-in, each data source (endpoint, params, paging, and the paths it offers: data.&lt;name>.items[], value fields), its regions w… |
 | `sample_colors` | 读取 | 是 |  | Measures the colors of a picture: an attached reference (ref1…) or a screen or part of the canvas. |
 | `compare_to_reference` | 读取 | 是 |  | Holds a screen of the canvas against the reference picture it copies: draws the screen, hands back both pictures (the reference first), and lays them over each other in a grid, gi… |
@@ -297,6 +298,9 @@ npx playwright install chromium
 | `wrap_in_auto_layout` | 搭建 |  |  | Puts the given parts into nested auto layout boxes that keep them where they stand (rows, columns, grids read off their places); one container takes a layout itself. |
 | `auto_layout_screen` | 搭建 |  |  | Turns a screen's body into nested auto layouts; bars, FABs, dialogs, rails, its picture and locked parts keep their places. |
 | `split_into_atoms` | 搭建 |  |  | Replaces a composite part where it stands with the tree of atoms it is made of (boxes, text, icons…), composed the way the style composes it. |
+| `split_retired` | 搭建 |  |  | Splits the retired parts (inventory, task-row, pull-to-refresh, cart-list, contact-list, comment-list, notification-list, settings-group, todo-list, auth-form, chat-composer, resi… |
+| `set_split` | 搭建 |  |  | Sets a split view's design: split (the first pane's share, 0–100, of the room the divider leaves) and collapsed (its folding pane starts folded; the pane that folds is its `collap… |
+| `convert_to_split_view` | 搭建 |  |  | Turns a legacy resizable into a split view (two panes that hold parts): the same size, orientation and share; the parts lying over each panel (by their centre) move into that pane… |
 | `place_in_screen` | 搭建 |  |  | Puts the given parts, as one block, at one of nine spots in their screen's body (between the bars, inside the margins), clear of what is there. |
 | `combine_buttons` | 搭建 |  |  | Joins buttons that stand side by side on a screen into button groups. |
 | `relayout` | 搭建 |  |  | Lays every screen out the way the document's style lays screens out. |
@@ -325,7 +329,7 @@ npx playwright install chromium
 | `update_var_collection` | 数据与交互 |  |  | Renames a collection of variables, gives it its modes (each {id, name}; one without an id is new, one left out is removed with its values, and the first is the one whose values ar… |
 | `remove_var_collection` | 数据与交互 |  | 是 | Removes a collection of variables and every variable in it; what was bound to them is unbound. |
 | `set_var_mode` | 数据与交互 |  |  | Chooses the mode of a variable collection the document shows (or one screen shows, over the document's choice), by mode id or name; null goes back to the default (a screen follows… |
-| `set_action` | 数据与交互 |  |  | Sets what a tap on a part does (or on one of its places: slot "tab:0", "icon"…): {to: screen id \| "back" \| "link" \| "none", transition, url, effects: [{do: show\|hide\|toggle\|… |
+| `set_action` | 数据与交互 |  |  | Sets what a tap on a part does, or what runs on one of the outlets it declares (describe_node lists them): a place, slot "tab:0" or "icon"; a family of places, slot "tab:*", one a… |
 | `bind_prop` | 数据与交互 |  |  | Binds a prop of a part to a variable (the preview shows the variable's value), or a field of its design: "@fill", "@text" (the words' color) and "@stroke" take a color variable, "… |
 | `reorder_panes` | 搭建 |  |  | Puts a dock's tabs in a new order; what each tab holds follows it. |
 | `add_model` | 数据与交互 |  |  | Adds a data model: a named JSON Schema 2020-12 (usually an object: {type: "object", properties: {id: {type: "string", format: "uuid"}, email: {type: "string", format: "email"}, av… |
@@ -360,6 +364,10 @@ npx playwright install chromium
 | `set_mock_route` | 数据与交互 |  |  | Says how the mocks answer an operation when its method and path do not say it plainly: kind auto, list, get, create, update, replace, delete, singleton, upload, download, login, r… |
 | `fill_mocks` | 数据与交互 |  |  | Fills the mock library for the API in one step: every model's fields get the hint their names, formats and enums say (written down, to change), each listed model a record count, t… |
 | `clear_mocks` | 数据与交互 |  | 是 | Takes every mock setting away (hints, counts, pinned records, scenarios, files, scripts): the API is then answered with data made from its schemas alone. |
+| `set_mock_capability` | 数据与交互 |  |  | Says how the mock library answers a capability in the preview (and in an exported app's tests or development build that puts its createMockCapabilities in place): in every scenari… |
+| `declare_capability` | 数据与交互 |  |  | Declares a platform capability of the product's own, beside the catalog's (list_capabilities): name (dotted, e.g. |
+| `remove_capability` | 数据与交互 |  | 是 | Removes a capability the product declared (declare_capability). |
+| `use_capabilities` | 数据与交互 |  |  | Says the product uses these capabilities beyond the ones its designs invoke or draw (those count anyway): an event such as push.opened, or one only the code will invoke. |
 | `add_data_source` | 数据与交互 |  |  | Makes a screen load data from an endpoint: read as data.&lt;name> (value, items, status, loading, error, hasMore, empty). |
 | `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions foll… |
 | `remove_data_source` | 数据与交互 |  | 是 | Stops a screen loading a data source; what reads data.&lt;name> reads nothing. |

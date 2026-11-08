@@ -106,6 +106,13 @@ export const PROJECTS_UI = {
     en: "So as not to write over it, this tab stopped saving and is read-only now. Download this tab's latest version as a copy; reloading opens what was saved.",
     zh: "为了不覆盖它，这个标签页停止了保存，现在是只读的。可以把这个标签页最新的内容下载为副本；重新加载会打开已保存的内容。",
   },
+  /* a document a newer version of the editor wrote: shown, never written back (lib/project.ts `Loaded.newer`) */
+  newerDocTitle: { ja: "新しいバージョンで保存されたプロジェクトです", en: "Saved by a newer version", zh: "这个项目由更新的版本保存" },
+  newerDocBody: {
+    ja: "このプロジェクトは M3E Canvas の新しいバージョン（形式 {version}）で保存されています。このバージョンが理解できない内容を失わないよう、読み取り専用で開いています。編集するには新しいバージョンで開いてください。",
+    en: "This project was saved by a newer version of M3E Canvas (format {version}). So that nothing this version does not understand is lost, it is open read-only. Open it in the newer version to edit it.",
+    zh: "这个项目由更新版本的 M3E Canvas 保存（格式 {version}）。为了不丢失这个版本不认识的内容，它以只读方式打开。要修改，请用新版本打开。",
+  },
   /* a version a tab could not keep before it went */
   recoveryTitle: { ja: "保存されていない変更があります", en: "Unsaved changes found", zh: "发现没保存的修改" },
   recoveryBody: {
@@ -238,6 +245,8 @@ export const PROJECTS_KO: Record<keyof typeof PROJECTS_UI, string> = {
   saveDownloadCopy: "사본 다운로드",
   saveLeaveAnyway: "그래도 이동",
   saveStay: "머무르기",
+  newerDocTitle: "새 버전에서 저장된 프로젝트입니다",
+  newerDocBody: "이 프로젝트는 M3E Canvas의 새 버전(형식 {version})에서 저장되었습니다. 이 버전이 이해하지 못하는 내용을 잃지 않도록 읽기 전용으로 열었습니다. 편집하려면 새 버전에서 여세요.",
   conflictTabTitle: "다른 탭이 이 프로젝트를 저장했습니다",
   conflictTabBody: "덮어쓰지 않도록 이 탭은 저장을 멈추고 읽기 전용이 되었습니다. 이 탭의 최신 내용을 사본으로 다운로드할 수 있고, 새로고침하면 저장된 내용이 열립니다.",
   recoveryTitle: "저장되지 않은 변경 사항이 있습니다",

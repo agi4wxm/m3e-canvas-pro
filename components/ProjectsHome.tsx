@@ -12,7 +12,8 @@ import { downloadProject } from "@/lib/projects/download";
 import { readStored } from "@/lib/projects/persist";
 import { duplicateProject, freeName, onProjectsChanged, projectsInUse, projectUrl, purgeProject, renameProject, restoreProject, trashProject, UNDO_DELETE_MS, visibleProjects, type ProjectSort } from "@/lib/projects/projects";
 import type { Doc } from "@/lib/tokens";
-import { styleOf, styleTextOf } from "@/lib/styles";
+import { NO_DOC_STYLES, styleOf, styleTextOf, type StyleContext } from "@/lib/styles";
+import { useDocStyles } from "@/parts/theme";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
 import { IconBtn, Segmented, useDismiss } from "./ui";
@@ -39,9 +40,9 @@ function ago(at: number, lang: Lang, now = Date.now()): string {
   return rtf.format(Math.round(v), "year");
 }
 
-/** the name of the style a project wears, when it is one of the editor's own (a project's own styles are its own) */
-const styleName = (key: string | undefined, lang: Lang) => {
-  const pack = key ? styleOf(key) : undefined;
+/** the name of the style a project wears: a built-in one, or one of the styles of the document it is read in */
+const styleName = (key: string | undefined, lang: Lang, styles: StyleContext) => {
+  const pack = key ? styleOf(key, styles) : undefined;
   return pack ? styleTextOf(pack.name, lang) : "";
 };
 
@@ -304,6 +305,8 @@ function Home({ p, onClose, current, currentDoc, onOpen, onNew, onOpenFile, bloc
 type CardActions = { rename: () => void; duplicate: () => void; download: () => void; remove: () => void };
 
 function Card({ p, lang, m, here, elsewhere, menuOpen, onMenu, renaming, onRename, onOpen, actions }: { p: Palette; lang: Lang; m: ProjectMeta; here: boolean; elsewhere: boolean; menuOpen: boolean; onMenu: (open: boolean) => void; renaming: boolean; onRename: (name: string | null) => void; onOpen: (newTab: boolean) => void; actions: CardActions }) {
+  /* this tab's project is read in its own styles; another project's custom key means nothing here */
+  const styles = useDocStyles();
   const [hover, setHover] = useState(false);
   const [wide, setWide] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -388,7 +391,7 @@ function Card({ p, lang, m, here, elsewhere, menuOpen, onMenu, renaming, onRenam
             </div>
           )}
           <div style={{ fontSize: 12, color: p.onSurfaceVariant, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {[fill(t("projectEdited", lang), { when: ago(m.updated, lang) }), m.screens === 1 ? t("projectOneScreen", lang) : fill(t("projectScreens", lang), { n: String(m.screens) }), styleName(m.style, lang)].filter(Boolean).join(" · ")}
+            {[fill(t("projectEdited", lang), { when: ago(m.updated, lang) }), m.screens === 1 ? t("projectOneScreen", lang) : fill(t("projectScreens", lang), { n: String(m.screens) }), styleName(m.style, lang, here ? styles : NO_DOC_STYLES)].filter(Boolean).join(" · ")}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4, minHeight: 24 }}>
             {here && chip("check", t("projectHere", lang), "primary")}

@@ -1,5 +1,5 @@
 import { pageLocale } from "@/components/m3e/say";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { Checkbox } from "@/components/m3e/checkbox";
@@ -7,7 +7,8 @@ import { Input } from "@/components/m3e/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/m3e/table";
 import { TextField } from "@/components/m3e/text-field";
 import type { Look } from "./look";
-import { amountOf, stop, useSeeded } from "./seed";
+import { amountOf, keysOf, stop, usePicked, useSeeded, useValue } from "./seed";
+import { useHost, type HostProps } from "./host";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 
@@ -25,32 +26,54 @@ function Tick({ on }: { on: boolean }) {
 
 const NUMERIC = /^[^\p{L}\d\s-]{0,2}\s?[-+]?[\d,]+(\.\d+)?\s?[^\p{L}\d\s]{0,2}$/u;
 
-export function DataTable({ title = "", columns = [], rows = [], search = "", selectable = true, pageSize = 5, width = 560, className, style }: { title?: string; columns?: string[]; rows?: string[][]; search?: string; selectable?: boolean; pageSize?: number; width?: number } & Look) {
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<{ column: number; down: boolean } | null>(null);
-  const [page, setPage] = useState(0);
-  const [picked, setPicked] = useState<number[]>([]);
+/* What the visitor asks of the table is a draft of its own that starts at the props and starts over when they change:
+ * the search (`query`), the sort (`sortColumn`, `sortDir`), the page (`page`). Each change is sent (`search`, `sort`,
+ * `page`), and so is what is checked (`select`, the rows by their place in the data). Given `total`, the rows are one
+ * page the other side has already searched, sorted and cut, and the table only asks for others; without it, it is
+ * the design's own rows and the table does that itself. A row is a place of its own (`row:*`, by its place in the
+ * data, whatever the order shown); checked rows are kept by what they say, so they stay checked when rows move. */
+export function DataTable({ title = "", columns = [], rows = [], search = "", selectable = true, pageSize = 5, query: queryGiven = "", sortColumn = -1, sortDir = "asc", page: pageGiven = 0, total = 0, width = 560, demo, onValueChange, onEvent, wired, className, style }: { title?: string; columns?: string[]; rows?: string[][]; search?: string; selectable?: boolean; pageSize?: number; query?: string; sortColumn?: number; sortDir?: string; page?: number; total?: number; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [query, setQuery] = useSeeded(queryGiven);
+  const [sort, setSort] = useSeeded<{ column: number; down: boolean } | null>(sortColumn >= 0 ? { column: sortColumn, down: sortDir === "desc" } : null);
+  const [page, setPage] = useSeeded(Math.max(0, pageGiven));
+  const remote = total > 0;
+  const keys = keysOf(rows.map((r) => r.join("\u0001")));
+  const [picked, setPicked] = usePicked(keys);
   const numeric = columns.map((_, c) => rows.length > 0 && rows.every((r) => NUMERIC.test((r[c] ?? "").trim())));
   const lines = useMemo(() => {
+    const all = rows.map((cells, id) => ({ cells, id, key: keys[id] }));
+    if (remote) return all;
     const needle = query.trim().toLowerCase();
-    const found = rows.map((cells, id) => ({ cells, id })).filter((l) => !needle || l.cells.some((c) => c.toLowerCase().includes(needle)));
+    const found = all.filter((l) => !needle || l.cells.some((c) => c.toLowerCase().includes(needle)));
     if (!sort) return found;
     const { column, down } = sort;
     const order = numeric[column] ? (a: string, b: string) => amountOf(a) - amountOf(b) : (a: string, b: string) => a.localeCompare(b);
     return found.toSorted((a, b) => (down ? -1 : 1) * order(a.cells[column] ?? "", b.cells[column] ?? ""));
     /* `rows` is a new array whenever the part draws; its words are what matter */
-  }, [JSON.stringify(rows), query, sort]);
-  const pages = Math.max(1, Math.ceil(lines.length / pageSize));
+  }, [JSON.stringify(rows), query, sort, remote]); // eslint-disable-line react-hooks/exhaustive-deps
+  const count = remote ? total : lines.length;
+  const pages = Math.max(1, Math.ceil(count / pageSize));
   const current = Math.min(page, pages - 1);
-  const shown = lines.slice(current * pageSize, current * pageSize + pageSize);
-  const allOn = shown.length > 0 && shown.every((l) => picked.includes(l.id));
+  const shown = remote ? lines.slice(0, pageSize) : lines.slice(current * pageSize, current * pageSize + pageSize);
+  const allOn = shown.length > 0 && shown.every((l) => picked.includes(l.key));
+  const turn = (to: number) => {
+    setPage(to);
+    host.emit("page", { page: to });
+  };
+  const pick = (next: string[]) => {
+    setPicked(next);
+    host.emit("select", { rows: rows.flatMap((_, i) => (next.includes(keys[i]) ? [i] : [])) });
+  };
   const press = (column: number) => {
     /* ascending, descending, then back to the author's order */
-    setSort((s) => (s?.column !== column ? { column, down: false } : s.down ? null : { column, down: true }));
-    setPage(0);
+    const next = sort?.column !== column ? { column, down: false } : sort.down ? null : { column, down: true };
+    setSort(next);
+    host.emit("sort", { column: next ? next.column : -1, dir: next?.down ? "desc" : next ? "asc" : "" });
+    if (current !== 0) turn(0);
   };
   return (
-    <div data-slot="data-table" data-rows={lines.length} data-page={current} data-picked={picked.join(",")} data-sort={sort ? `${sort.column}:${sort.down ? "down" : "up"}` : undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-2 overflow-hidden rounded-xl p-3", className)} style={{ width, ...style }} onClick={stop}>
+    <div data-slot="data-table" data-rows={count} data-page={current} data-picked={rows.flatMap((_, i) => (picked.includes(keys[i]) ? [i] : [])).join(",")} data-sort={sort ? `${sort.column}:${sort.down ? "down" : "up"}` : undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-2 overflow-hidden rounded-xl p-3", className)} style={{ width, ...style }} onClick={(e) => !(e.target as Element).closest?.("[data-tap]") && stop(e)}>
       {(title || search) && (
         <div data-slot="data-table-header" className="flex flex-wrap items-center gap-2">
           {title && <div data-slot="data-table-title" className="text-title-medium min-w-0 flex-1 truncate">{picked.length ? `${title} · ${picked.length}` : title}</div>}
@@ -64,7 +87,8 @@ export function DataTable({ title = "", columns = [], rows = [], search = "", se
                 aria-label={search}
                 onChange={(e) => {
                   setQuery(e.target.value);
-                  setPage(0);
+                  host.emit("search", { query: e.target.value });
+                  if (current !== 0) turn(0);
                 }}
               />
             </div>
@@ -76,7 +100,7 @@ export function DataTable({ title = "", columns = [], rows = [], search = "", se
           <TableRow>
             {selectable && (
               <TableHead className="w-10">
-                <Checkbox aria-label="All" checked={allOn} disabled={!shown.length} onCheckedChange={(on: boolean) => setPicked((all) => (on ? [...new Set([...all, ...shown.map((l) => l.id)])] : all.filter((id) => !shown.some((l) => l.id === id))))} />
+                <Checkbox aria-label="All" checked={allOn} disabled={!shown.length} onCheckedChange={(on: boolean) => pick(on ? [...new Set([...picked, ...shown.map((l) => l.key)])] : picked.filter((k) => !shown.some((l) => l.key === k)))} />
               </TableHead>
             )}
             {columns.map((c, i) => (
@@ -91,10 +115,10 @@ export function DataTable({ title = "", columns = [], rows = [], search = "", se
         </TableHeader>
         <TableBody>
           {shown.map((l) => (
-            <TableRow key={l.id} data-state={picked.includes(l.id) ? "selected" : undefined}>
+            <TableRow key={l.key} data-tap={`row:${l.id}`} data-state={picked.includes(l.key) ? "selected" : undefined} onClick={host.own(`row:${l.id}`)}>
               {selectable && (
-                <TableCell>
-                  <Checkbox aria-label={l.cells[0]} checked={picked.includes(l.id)} onCheckedChange={(on: boolean) => setPicked((all) => (on ? [...all, l.id] : all.filter((id) => id !== l.id)))} />
+                <TableCell onClick={stop}>
+                  <Checkbox aria-label={l.cells[0]} checked={picked.includes(l.key)} onCheckedChange={(on: boolean) => pick(on ? [...picked, l.key] : picked.filter((k) => k !== l.key))} />
                 </TableCell>
               )}
               {columns.map((_, i) => (
@@ -108,12 +132,12 @@ export function DataTable({ title = "", columns = [], rows = [], search = "", se
       </Table>
       <div data-slot="data-table-footer" className="text-label-medium flex items-center justify-end gap-1">
         <span className={`mr-2 tabular-nums ${Soft}`}>
-          {lines.length ? current * pageSize + 1 : 0}–{Math.min(lines.length, (current + 1) * pageSize)} / {lines.length}
+          {count ? current * pageSize + 1 : 0}–{Math.min(count, (current + 1) * pageSize)} / {count}
         </span>
-        <Button variant="text" size="icon-sm" aria-label="Previous" disabled={current === 0} onClick={() => setPage(current - 1)}>
+        <Button variant="text" size="icon-sm" aria-label="Previous" disabled={current === 0} onClick={() => turn(current - 1)}>
           <WidgetIcon name="chevron_left" />
         </Button>
-        <Button variant="text" size="icon-sm" aria-label="Next" disabled={current >= pages - 1} onClick={() => setPage(current + 1)}>
+        <Button variant="text" size="icon-sm" aria-label="Next" disabled={current >= pages - 1} onClick={() => turn(current + 1)}>
           <WidgetIcon name="chevron_right" />
         </Button>
       </div>
@@ -123,35 +147,54 @@ export function DataTable({ title = "", columns = [], rows = [], search = "", se
 
 /* ---------- a board ---------- */
 
-type Lane = { title: string; cards: { id: number; text: string }[] };
+type Lane = { title: string; cards: { id: string; row: number; text: string }[] };
 
-export function Kanban({ columns = [], rows = [], add = "", width = 720, className, style }: { columns?: string[]; rows?: string[][]; add?: string; width?: number } & Look) {
+/* Which card is in which lane is the data's: a card moved (by dragging, or with the arrows under a picked card), a card
+ * added and a card opened are sent (`move`, `add`, `open`) with the card by its place in the data. Only a prototype's
+ * demo moves and adds cards itself. Cards keep who they are by their lane and words, so the one picked stays picked
+ * when the data moves. */
+export function Kanban({ columns = [], rows = [], add = "", width = 720, demo, onValueChange, onEvent, wired, className, style }: { columns?: string[]; rows?: string[][]; add?: string; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
   /* each column of the author's table is a lane, and its filled cells are the cards */
-  const seed: Lane[] = columns.map((title, c) => ({ title, cards: rows.flatMap((r, i) => (r[c] ? [{ id: i * columns.length + c, text: r[c] }] : [])) }));
-  const [lanes, setLanes] = useSeeded(seed);
-  const [picked, setPicked] = useState<number | null>(null);
+  const given: Lane[] = columns.map((title, c) => {
+    const cells = rows.flatMap((r, i) => (r[c] ? [{ row: i, text: r[c] }] : []));
+    const keys = keysOf(cells.map((x) => `${c}\u0001${x.text}`));
+    return { title, cards: cells.map((x, k) => ({ id: keys[k], row: x.row, text: x.text })) };
+  });
+  const [mine, setMine] = useSeeded(given);
+  const lanes = host.demo ? mine : given;
+  const [picked, setPicked] = useState<string | null>(null);
   const [adding, setAdding] = useState(-1);
   const [draft, setDraft] = useState("");
-  const dragged = useRef<number | null>(null);
-  const nextId = useRef(100000);
-  /** puts a card in a lane, before another card or at the end */
-  const move = (id: number, to: number, before?: number) =>
-    setLanes((all) => {
-      const card = all.flatMap((l) => l.cards).find((x) => x.id === id);
-      if (!card || id === before) return all;
-      return all.map((l, i) => {
+  const dragged = useRef<string | null>(null);
+  const nextId = useRef(0);
+  const laneOf = (id: string) => lanes.findIndex((l) => l.cards.some((x) => x.id === id));
+  /** puts a card in a lane, before another card or at the end: the demo does it, everything sends it */
+  const move = (id: string, to: number, before?: string) => {
+    const from = laneOf(id);
+    const card = lanes[from]?.cards.find((x) => x.id === id);
+    if (!card || id === before) return;
+    host.emit("move", { row: card.row, from, to, before: lanes[to]?.cards.find((x) => x.id === before)?.row ?? -1 });
+    if (!host.demo) return;
+    setMine((all) =>
+      all.map((l, i) => {
         const cards = l.cards.filter((x) => x.id !== id);
         if (i !== to) return { ...l, cards };
         const at = before === undefined ? cards.length : cards.findIndex((x) => x.id === before);
         return { ...l, cards: [...cards.slice(0, at < 0 ? cards.length : at), card, ...cards.slice(at < 0 ? cards.length : at)] };
-      });
-    });
+      }),
+    );
+  };
   const commit = (lane: number) => {
     const text = draft.trim();
-    if (text) setLanes((all) => all.map((l, i) => (i === lane ? { ...l, cards: [...l.cards, { id: nextId.current++, text }] } : l)));
+    if (text) {
+      host.emit("add", { lane, text });
+      if (host.demo) setMine((all) => all.map((l, i) => (i === lane ? { ...l, cards: [...l.cards, { id: `new\u0001${nextId.current++}`, row: -1, text }] } : l)));
+    }
     setDraft("");
     setAdding(-1);
   };
+  const shown = lanes.some((l) => l.cards.some((x) => x.id === picked)) ? picked : null;
   return (
     <div data-slot="kanban" data-counts={lanes.map((l) => l.cards.length).join(",")} className={cn("bg-surface-container-lowest text-on-surface flex items-start gap-2 overflow-x-auto rounded-xl p-2", className)} style={{ width, ...style }} onClick={stop}>
       {lanes.map((lane, l) => (
@@ -174,11 +217,11 @@ export function Kanban({ columns = [], rows = [], add = "", width = 720, classNa
           {lane.cards.map((card) => (
             <div
               key={card.id}
-              data-card={card.id}
+              data-card={card.row}
               data-slot="kanban-card"
-              data-active={picked === card.id ? "" : undefined}
+              data-active={shown === card.id ? "" : undefined}
               draggable
-              className={cn("flex cursor-grab flex-col rounded-md", picked === card.id ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-lowest")}
+              className={cn("flex cursor-grab flex-col rounded-md", shown === card.id ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-lowest")}
               onDragStart={(e) => {
                 dragged.current = card.id;
                 e.dataTransfer.setData("text/plain", card.text);
@@ -190,11 +233,18 @@ export function Kanban({ columns = [], rows = [], add = "", width = 720, classNa
                 dragged.current = null;
               }}
             >
-              <Tap aria-pressed={picked === card.id} className="text-body-medium rounded-md p-2 text-left" onClick={() => setPicked(picked === card.id ? null : card.id)}>
+              <Tap
+                aria-pressed={shown === card.id}
+                className="text-body-medium rounded-md p-2 text-left"
+                onClick={() => {
+                  if (shown !== card.id) host.emit("open", { row: card.row, lane: l });
+                  setPicked(shown === card.id ? null : card.id);
+                }}
+              >
                 {card.text}
               </Tap>
               {/* moving without dragging: what a touch screen and a keyboard have */}
-              {picked === card.id && (
+              {shown === card.id && (
                 <div className="flex justify-between px-1 pb-1">
                   <Button variant="text" size="icon-xs" className="text-inherit" aria-label="Move left" disabled={l === 0} onClick={() => move(card.id, l - 1)}>
                     <WidgetIcon name="arrow_back" />
@@ -241,7 +291,11 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const weekdayName = (d: Date) => new Intl.DateTimeFormat(pageLocale(), { weekday: "narrow" }).format(d);
 const monthName = (d: Date) => new Intl.DateTimeFormat(pageLocale(), { year: "numeric", month: "long" }).format(d);
 
-export function Agenda({ year = 2026, month = 1, day = 1, rows = [], weekStart = "sunday", empty = "", width = 360, className, style }: { year?: number; month?: number; day?: number; rows?: string[][]; weekStart?: string; empty?: string; width?: number } & Look) {
+/* The month on show and the day picked are the visitor's browsing, a draft that starts at `year`, `month` and `day`
+ * and starts over when they change; each turn of the month and each day picked is sent (`month`, `day`), so a data
+ * source can follow it. */
+export function Agenda({ year = 2026, month = 1, day = 1, rows = [], weekStart = "sunday", empty = "", width = 360, demo, onValueChange, onEvent, wired, className, style }: { year?: number; month?: number; day?: number; rows?: string[][]; weekStart?: string; empty?: string; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
   const [view, setView] = useSeeded({ year, month });
   const [on, setOn] = useSeeded(day);
   const first = new Date(view.year, view.month - 1, 1);
@@ -255,7 +309,13 @@ export function Agenda({ year = 2026, month = 1, day = 1, rows = [], weekStart =
   const events = rows.map((r, i) => ({ r, i })).filter(({ r }) => dayOf(r[0] ?? "") === today);
   const turn = (by: number) => {
     const next = new Date(view.year, view.month - 1 + by, 1);
-    setView({ year: next.getFullYear(), month: next.getMonth() + 1 });
+    const to = { year: next.getFullYear(), month: next.getMonth() + 1 };
+    setView(to);
+    host.emit("month", to);
+  };
+  const pick = (d: number) => {
+    setOn(d);
+    host.emit("day", { year: view.year, month: view.month, day: d, date: `${prefix}${pad(d)}` });
   };
   /* 2023-01-01 was a Sunday: any week would do */
   const names = Array.from({ length: 7 }, (_, i) => weekdayName(new Date(2023, 0, 1 + i + shift)));
@@ -282,7 +342,7 @@ export function Agenda({ year = 2026, month = 1, day = 1, rows = [], weekStart =
         {Array.from({ length: days }, (_, i) => {
           const d = i + 1;
           return (
-            <Tap key={d} data-slot="agenda-day" aria-pressed={d === today} aria-label={`${prefix}${pad(d)}`} className={cn("text-body-medium flex aspect-square flex-col items-center justify-center rounded-full", d === today && "bg-primary text-on-primary")} onClick={() => setOn(d)}>
+            <Tap key={d} data-slot="agenda-day" aria-pressed={d === today} aria-label={`${prefix}${pad(d)}`} className={cn("text-body-medium flex aspect-square flex-col items-center justify-center rounded-full", d === today && "bg-primary text-on-primary")} onClick={() => pick(d)}>
               {d}
               <span className={cn("size-1 rounded-full", busy.has(d) ? (d === today ? "bg-on-primary" : "bg-primary") : "bg-transparent")} />
             </Tap>
@@ -356,28 +416,38 @@ export function TodoList({ title = "", items = [], placeholder = "", width = 360
   );
 }
 
-export function TransferList({ items = [], chosen = [], from = "", to = "", width = 460, height = 220, className, style }: { items?: string[]; chosen?: number[]; from?: string; to?: string; width?: number; height?: number } & Look) {
-  const [right, setRight] = useSeeded(chosen.filter((i) => i >= 0 && i < items.length));
-  const [marked, setMarked] = useState<number[]>([]);
+/** rows counted from 1 in words like "3,4" (or places from 0, as code may give them), as places from 0 */
+const placesIn = (chosen: string | number[], count: number) => (Array.isArray(chosen) ? chosen : String(chosen).split(/[\s,，]+/).map((x) => Number(x) - 1)).filter((n, i, all) => Number.isInteger(n) && n >= 0 && n < count && all.indexOf(n) === i);
+
+/* What is on the right is the value (`chosen`, the rows counted from 1), handed out on every move. Which rows are ticked
+ * for moving is a draft of the list's own, kept by what the rows say, so a tick stays with its row when the rows move. */
+export function TransferList({ items = [], chosen = "", from = "", to = "", width = 460, height = 220, demo, onValueChange, onEvent, wired, className, style }: { items?: string[]; chosen?: string | number[]; from?: string; to?: string; width?: number; height?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [value, setValue] = useValue(Array.isArray(chosen) ? chosen.map((n) => n + 1).join(",") : String(chosen), host);
+  const right = placesIn(value, items.length);
+  const keys = keysOf(items);
+  const [marked, setMarked] = usePicked(keys);
+  const isMarked = (i: number) => marked.includes(keys[i]);
   const left = items.map((_, i) => i).filter((i) => !right.includes(i));
   const send = (group: number[], toRight: boolean) => {
-    const moving = group.filter((i) => marked.includes(i));
-    setRight((all) => (toRight ? [...all, ...moving] : all.filter((i) => !moving.includes(i))));
-    setMarked((all) => all.filter((i) => !moving.includes(i)));
+    const moving = group.filter(isMarked);
+    const next = toRight ? [...right, ...moving] : right.filter((i) => !moving.includes(i));
+    setValue(next.map((n) => n + 1).join(","));
+    setMarked((all) => all.filter((k) => !moving.some((i) => keys[i] === k)));
   };
   const pane = (title: string, group: number[]) => (
     <div className="bg-surface-container flex min-w-0 flex-1 flex-col rounded-lg">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
         <span className="text-title-small truncate">{title}</span>
         <span className={`text-label-small shrink-0 tabular-nums ${Soft}`}>
-          {group.filter((i) => marked.includes(i)).length} / {group.length}
+          {group.filter(isMarked).length} / {group.length}
         </span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-1">
         {group.map((i) => {
-          const on = marked.includes(i);
+          const on = isMarked(i);
           return (
-            <Tap key={i} role="checkbox" aria-checked={on} data-row={i} className="text-body-medium flex w-full items-center gap-2 rounded-md p-2 text-left" onClick={() => setMarked((all) => (on ? all.filter((x) => x !== i) : [...all, i]))}>
+            <Tap key={keys[i]} role="checkbox" aria-checked={on} data-row={i} className="text-body-medium flex w-full items-center gap-2 rounded-md p-2 text-left" onClick={() => setMarked((all) => (on ? all.filter((x) => x !== keys[i]) : [...all, keys[i]]))}>
               <Tick on={on} />
               <span className="min-w-0 flex-1 truncate">{items[i]}</span>
             </Tap>
@@ -390,10 +460,10 @@ export function TransferList({ items = [], chosen = [], from = "", to = "", widt
     <div data-slot="transfer-list" data-right={right.join(",")} className={cn("bg-surface-container-low text-on-surface flex items-stretch gap-2 rounded-xl p-2", className)} style={{ width, height, ...style }} onClick={stop}>
       {pane(from, left)}
       <div className="flex shrink-0 flex-col justify-center gap-2">
-        <Button variant="tonal" size="icon-sm" aria-label="Move right" disabled={!left.some((i) => marked.includes(i))} onClick={() => send(left, true)}>
+        <Button variant="tonal" size="icon-sm" aria-label="Move right" disabled={!left.some(isMarked)} onClick={() => send(left, true)}>
           <WidgetIcon name="chevron_right" />
         </Button>
-        <Button variant="tonal" size="icon-sm" aria-label="Move left" disabled={!right.some((i) => marked.includes(i))} onClick={() => send(right, false)}>
+        <Button variant="tonal" size="icon-sm" aria-label="Move left" disabled={!right.some(isMarked)} onClick={() => send(right, false)}>
           <WidgetIcon name="chevron_left" />
         </Button>
       </div>
@@ -524,21 +594,33 @@ export function AuthForm({ mode = "sign-in", title = "", subtitle = "", upTitle 
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
-export function NumberPad({ mode = "amount", prefix = "", length = 6, action = "", done = "", width = 320, className, style }: { mode?: string; prefix?: string; length?: number; action?: string; done?: string; width?: number } & Look) {
-  const [entry, setEntry] = useState("");
-  const [sent, setSent] = useState(false);
+/* The pad is an input with a draft: what is typed is `value` while someone takes it, else a draft that starts at
+ * `value` and starts over whenever `value` changes; it is handed out on every key, and confirming sends `submit` with it. Whether it went through (`sent`) is the other side's to
+ * say: only a prototype's demo says so by itself, and a product shows `sent` as it is given. */
+export function NumberPad({ mode = "amount", prefix = "", length = 6, action = "", done = "", value = "", sent = false, width = 320, demo, onValueChange, onEvent, wired, className, style }: { mode?: string; prefix?: string; length?: number; action?: string; done?: string; value?: string; sent?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [entry, setEntry] = useValue(value, host);
+  const [sentHere, setSentHere] = useState(false);
+  const shownSent = sent || (host.demo && sentHere);
   const money = mode === "amount";
+  const next = (v: string, key: string) => {
+    if (key === "back") return v.slice(0, -1);
+    if (key === ".") return !money || v.includes(".") ? v : `${v || "0"}.`;
+    if (money) {
+      if (/\.\d\d$/.test(v) || (v.replace(".", "").length >= 12 && !v.includes("."))) return v;
+      return v === "0" ? key : v + key;
+    }
+    return v.length >= length ? v : v + key;
+  };
   const press = (key: string) => {
-    setSent(false);
-    setEntry((v) => {
-      if (key === "back") return v.slice(0, -1);
-      if (key === ".") return !money || v.includes(".") ? v : `${v || "0"}.`;
-      if (money) {
-        if (/\.\d\d$/.test(v) || (v.replace(".", "").length >= 12 && !v.includes("."))) return v;
-        return v === "0" ? key : v + key;
-      }
-      return v.length >= length ? v : v + key;
-    });
+    setSentHere(false);
+    const typed = next(entry, key);
+    if (typed === entry) return;
+    setEntry(typed);
+  };
+  const confirm = () => {
+    host.emit("submit", { value: entry });
+    if (host.demo) setSentHere(true);
   };
   const ready = money ? Number(entry) > 0 : mode === "pin" ? entry.length === length : entry.length > 0;
   return (
@@ -546,7 +628,7 @@ export function NumberPad({ mode = "amount", prefix = "", length = 6, action = "
       data-slot="number-pad"
       data-entry={entry}
       data-ready={ready || undefined}
-      data-sent={sent || undefined}
+      data-sent={shownSent || undefined}
       tabIndex={0}
       className={cn("bg-surface-container-low text-on-surface flex flex-col gap-3 rounded-xl p-3 outline-none", className)}
       style={{ width, ...style }}
@@ -588,17 +670,25 @@ export function NumberPad({ mode = "amount", prefix = "", length = 6, action = "
         </Tap>
       </div>
       {action && (
-        <Button variant={sent ? "tonal" : "filled"} data-tap="confirm" className="w-full" disabled={!ready} onClick={() => setSent(true)}>
-          {sent && done ? done : action}
+        <Button variant={shownSent ? "tonal" : "filled"} data-tap="confirm" className="w-full" disabled={!ready} onClick={confirm}>
+          {shownSent && done ? done : action}
         </Button>
       )}
     </div>
   );
 }
 
-export function SignaturePad({ hint = "", clear = "", action = "", done = "", height = 180, width = 360, className, style }: { hint?: string; clear?: string; action?: string; done?: string; height?: number; width?: number } & Look) {
-  const [strokes, setStrokes] = useState<string[]>([]);
-  const [signed, setSigned] = useState(false);
+/* An input of a drawing: the strokes are `value`, as the path an SVG draws ("M10 20 L30 40 ..."), handed out when a
+ * stroke ends. Whether the signature is accepted (`signed`) is the other side's: the button only asks (the `done`
+ * slot), and only a prototype's demo locks the pad itself. Clearing is the visitor's (the `clear` slot is the same
+ * button, for an action of its own). */
+export function SignaturePad({ hint = "", clear = "", action = "", done = "", value = "", signed: given = false, height = 180, width = 360, demo, onValueChange, onEvent, wired, className, style }: { hint?: string; clear?: string; action?: string; done?: string; value?: string; signed?: boolean; height?: number; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [path, setPath] = useValue(value, host);
+  /* the stroke under the pen, until it is lifted */
+  const [stroke, setStroke] = useState("");
+  const [mine, setMine] = useSeeded({ from: given, signed: false });
+  const signed = given || (host.demo && mine.signed);
   const drawing = useRef(false);
   const at = (e: { clientX: number; clientY: number; currentTarget: Element }) => {
     const box = e.currentTarget.getBoundingClientRect();
@@ -606,31 +696,39 @@ export function SignaturePad({ hint = "", clear = "", action = "", done = "", he
     const scale = box.width / (e.currentTarget.clientWidth || box.width || 1);
     return `${((e.clientX - box.left) / scale).toFixed(1)} ${((e.clientY - box.top) / scale).toFixed(1)}`;
   };
+  const lift = () => {
+    if (!drawing.current) return;
+    drawing.current = false;
+    if (stroke) setPath(`${path} ${stroke}`.trim());
+    setStroke("");
+  };
+  const all = `${path} ${stroke}`.trim();
+  const strokes = all ? all.split(/(?=M)/).length : 0;
   return (
-    <div data-slot="signature-pad" data-strokes={strokes.length} data-signed={signed || undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-2 rounded-xl p-3", className)} style={{ width, ...style }}>
+    <div data-slot="signature-pad" data-strokes={strokes} data-signed={signed || undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-2 rounded-xl p-3", className)} style={{ width, ...style }}>
       <div className="border-outline-variant bg-surface-container-lowest relative overflow-hidden rounded-md border" style={{ height }} onClick={stop}>
-        {strokes.length === 0 && <div className={`text-body-medium pointer-events-none absolute inset-0 flex items-center justify-center ${Soft}`}>{hint}</div>}
+        {!all && <div className={`text-body-medium pointer-events-none absolute inset-0 flex items-center justify-center ${Soft}`}>{hint}</div>}
         <span className="border-outline-variant pointer-events-none absolute inset-x-6 bottom-8 border-b border-dashed" />
         <svg
           className={cn("absolute inset-0 size-full touch-none", signed ? "cursor-default" : "cursor-crosshair")}
+          role="img"
+          aria-label={hint || "Signature"}
           onPointerDown={(e) => {
             if (signed) return;
             drawing.current = true;
             e.currentTarget.setPointerCapture(e.pointerId);
             const point = at(e);
-            setStrokes((all) => [...all, `M${point} L${point}`]);
+            setStroke(`M${point} L${point}`);
           }}
           onPointerMove={(e) => {
             if (!drawing.current) return;
             const point = at(e);
-            setStrokes((all) => [...all.slice(0, -1), `${all[all.length - 1]} L${point}`]);
+            setStroke((s) => `${s} L${point}`);
           }}
-          onPointerUp={() => (drawing.current = false)}
-          onPointerCancel={() => (drawing.current = false)}
+          onPointerUp={lift}
+          onPointerCancel={lift}
         >
-          {strokes.map((d, i) => (
-            <path key={i} d={d} fill="none" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="stroke-current" />
-          ))}
+          {all && <path d={all} fill="none" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="stroke-current" />}
         </svg>
       </div>
       <div className="flex justify-end gap-2">
@@ -638,18 +736,18 @@ export function SignaturePad({ hint = "", clear = "", action = "", done = "", he
           <Button
             variant="text"
             size="xs"
-            disabled={!strokes.length}
-            onClick={(e) => {
-              stop(e);
-              setStrokes([]);
-              setSigned(false);
-            }}
+            data-tap="clear"
+            disabled={!all || signed}
+            onClick={host.own("clear", () => {
+              setPath("");
+              setStroke("");
+            })}
           >
             {clear}
           </Button>
         )}
         {action && (
-          <Button variant={signed ? "tonal" : "filled"} size="xs" data-tap="done" disabled={!strokes.length} onClick={() => setSigned(true)}>
+          <Button variant={signed ? "tonal" : "filled"} size="xs" data-tap="done" disabled={!all} onClick={() => host.demo && setMine((m) => ({ ...m, signed: true }))}>
             {signed && done ? done : action}
           </Button>
         )}
@@ -671,11 +769,16 @@ const MARKS = [
   { label: "Clear formatting", icon: "format_clear", command: "removeFormat" },
 ] as const;
 
-export function RichTextEditor({ text = "", placeholder = "", counter = true, height = 200, width = 420, className, style }: { text?: string; placeholder?: string; counter?: boolean; height?: number; width?: number } & Look) {
+/* An input of words: `text` is the value, handed out as the visitor writes. What is written stays put while it comes
+ * back as the prop: the editable area is filled from the prop only when the prop says something else, so the caret and
+ * the browser's undo stay whole. */
+export function RichTextEditor({ text = "", placeholder = "", counter = true, height = 200, width = 420, demo, onValueChange, onEvent, wired, className, style }: { text?: string; placeholder?: string; counter?: boolean; height?: number; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [value, setValue] = useValue(text, host);
   const area = useRef<HTMLDivElement>(null);
+  const [first] = useState(value);
   const [active, setActive] = useState<string[]>([]);
-  const [count, setCount] = useState(text.trim().length);
-  const measure = () => setCount(area.current?.textContent?.trim().length ?? 0);
+  const count = value.trim().length;
   const read = () => {
     if (!area.current?.contains(document.getSelection()?.anchorNode ?? null)) return;
     setActive(MARKS.filter((m) => ("value" in m ? document.queryCommandValue(m.command).toLowerCase() === m.value : m.command !== "removeFormat" && document.queryCommandState(m.command))).map((m) => m.command));
@@ -684,14 +787,19 @@ export function RichTextEditor({ text = "", placeholder = "", counter = true, he
     document.addEventListener("selectionchange", read);
     return () => document.removeEventListener("selectionchange", read);
   }, []);
-  useEffect(() => setCount(text.trim().length), [text]);
+  /* words from outside (a reset, another value) replace what the area holds; words the visitor typed are there already */
+  useLayoutEffect(() => {
+    const el = area.current;
+    if (el && (el.textContent ?? "") !== value) el.textContent = value;
+  }, [value]);
+  const took = () => setValue(area.current?.textContent ?? "");
   /* the browser's own editing commands: the only ones that keep the caret and the undo stack whole */
   const apply = (mark: (typeof MARKS)[number]) => {
     area.current?.focus();
     if ("value" in mark) document.execCommand(mark.command, false, active.includes(mark.command) ? "p" : mark.value);
     else document.execCommand(mark.command);
     read();
-    measure();
+    took();
   };
   return (
     <div data-slot="rich-text-editor" data-active={active.join(",")} data-count={count} className={cn("bg-surface-container-low text-on-surface flex flex-col overflow-hidden rounded-xl", className)} style={{ width, ...style }} onClick={stop}>
@@ -705,7 +813,6 @@ export function RichTextEditor({ text = "", placeholder = "", counter = true, he
       <div className="relative" style={{ height }}>
         {count === 0 && <div className={`text-body-medium pointer-events-none absolute inset-x-3 top-3 ${Soft}`}>{placeholder}</div>}
         <div
-          key={text}
           ref={area}
           role="textbox"
           aria-multiline="true"
@@ -713,9 +820,9 @@ export function RichTextEditor({ text = "", placeholder = "", counter = true, he
           contentEditable
           suppressContentEditableWarning
           className="text-body-medium [&_blockquote]:border-outline-variant size-full overflow-y-auto p-3 break-words whitespace-pre-wrap outline-none [&_blockquote]:border-l-4 [&_blockquote]:pl-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
-          onInput={measure}
+          onInput={took}
         >
-          {text}
+          {first}
         </div>
       </div>
       {counter && <div className={`text-label-small px-3 pb-2 text-right tabular-nums ${Soft}`}>{count}</div>}
@@ -769,16 +876,23 @@ export function ChatComposer({ placeholder = "", attach = true, emoji = true, wi
 
 /* ---------- the first run ---------- */
 
-export function Onboarding({ rows = [], skip = "", next = "", done = "", width = 360, height = 520, className, style }: { rows?: string[][]; skip?: string; next?: string; done?: string; width?: number; height?: number } & Look) {
-  const [page, setPage] = useState(0);
+/* The page on show is `page`, an input (the visitor's own while nobody takes it), handed out and sent as `page` on
+ * every turn: a swipe, a dot, the button (the `next` slot until the last page, `done` there). Skip (`skip`) jumps to
+ * the last page only while nothing is wired to it; wired, it does what its action does. */
+export function Onboarding({ rows = [], skip = "", next = "", done = "", page: given = 0, width = 360, height = 520, demo, onValueChange, onEvent, wired, className, style }: { rows?: string[][]; skip?: string; next?: string; done?: string; page?: number; width?: number; height?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [page, setPage] = useValue(given, host);
   const [turned, setTurned] = useState(false);
   const from = useRef<number | null>(null);
   const last = Math.max(0, rows.length - 1);
-  const at = Math.min(page, last);
+  const at = Math.min(Math.max(0, page), last);
   const r = rows[at] ?? [];
   const go = (to: number) => {
+    const next = Math.min(last, Math.max(0, to));
     setTurned(true);
-    setPage(Math.min(last, Math.max(0, to)));
+    if (next === at) return;
+    setPage(next);
+    host.emit("page", { page: next });
   };
   return (
     <div
@@ -798,7 +912,7 @@ export function Onboarding({ rows = [], skip = "", next = "", done = "", width =
     >
       <div className="flex h-10 justify-end">
         {skip && at < last && (
-          <Button variant="text" size="xs" data-tap="skip" onClick={() => go(last)}>
+          <Button variant="text" size="xs" data-tap="skip" onClick={() => !host.wired("skip") && go(last)}>
             {skip}
           </Button>
         )}
@@ -815,7 +929,7 @@ export function Onboarding({ rows = [], skip = "", next = "", done = "", width =
           </Tap>
         ))}
       </div>
-      <Button variant="filled" data-tap={at === last ? "done" : undefined} className="w-full" onClick={() => go(at + 1)}>
+      <Button variant="filled" data-tap={at === last ? "done" : "next"} className="w-full" onClick={() => go(at + 1)}>
         {at === last ? done : next}
       </Button>
     </div>

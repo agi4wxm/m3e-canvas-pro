@@ -13,6 +13,7 @@ import { Icon } from "./Icon";
 import { ArgFields, BindingsContext, NavParams, endpointOptions, usePartShape } from "./BindingsPanel";
 import { ExprField } from "./ExprField";
 import { endpointOf, responseSchema } from "@/lib/bindings/contract";
+import { allCapabilities, argNamesOf, capabilityOf } from "@/lib/capabilities/catalog";
 
 /* The panels that say what a prototype does beyond going to another screen: what else a tap runs, when
  * it runs, what hides, and the variables behind it all. What they need of the document comes by context,
@@ -160,6 +161,7 @@ const KINDS: { key: Effect["do"]; text: UIKey; icon: string }[] = [
   { key: "setProp", text: "effSetProp", icon: "tune" },
   { key: "snackbar", text: "effSnackbar", icon: "chat_bubble" },
   { key: "call", text: "bdEffCall", icon: "cloud_upload" },
+  { key: "invoke", text: "capEffInvoke", icon: "extension" },
   { key: "refresh", text: "bdEffRefresh", icon: "refresh" },
   { key: "loadMore", text: "bdEffLoadMore", icon: "expand_more" },
   { key: "submit", text: "bdEffSubmit", icon: "send" },
@@ -199,6 +201,8 @@ function changedKind(kind: Effect["do"], was: Effect | null, b: Behavior, bindin
       return { do: kind, message: "" };
     case "call":
       return { do: kind, operationId: bindings?.doc.api?.endpoints?.[0]?.operationId ?? "" };
+    case "invoke":
+      return { do: kind, capability: "payment.pay" };
     case "refresh":
     case "loadMore":
       return { do: kind, source: sourceNames(bindings?.doc.frames)[0] ?? "" };
@@ -334,6 +338,44 @@ function EffectRow({ effect, index, onChange, onRemove, onUp, p, depth = 0 }: { 
       );
       break;
     }
+    case "invoke": {
+      const calls = allCapabilities(bindings?.doc.capabilities).filter((c) => c.kind === "call");
+      const def = capabilityOf(bindings?.doc.capabilities, effect.capability);
+      const names = (def && argNamesOf(def)) ?? [];
+      const put = (k: string, v: string) => {
+        const next = { ...effect.args };
+        if (v) next[k] = v;
+        else delete next[k];
+        onChange({ ...effect, args: Object.keys(next).length ? next : undefined });
+      };
+      body = (
+        <div data-invoke-effect style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Select options={calls.map((c) => ({ key: c.name, label: c.name, icon: "extension" }))} value={effect.capability} onChange={(capability) => onChange({ ...effect, capability, args: undefined })} p={p} label={t("capCapability", lang)} />
+          {def?.summary && <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "0 4px" }}>{def.summary}</div>}
+          {effect.capability === "payment.pay" && <div style={{ fontSize: 12, color: p.onTertiaryContainer, padding: "0 4px" }}>{t("capNotSuccess", lang)}</div>}
+          {names.length > 0 && (
+            <div data-arg-fields style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>{t("capArgs", lang)}</div>
+              {names.map((k) => (
+                <div key={k} style={{ display: "grid", gridTemplateColumns: "84px minmax(0, 1fr)", gap: 6, alignItems: "start" }}>
+                  <span title={k} style={{ fontSize: 12, fontFamily: "ui-monospace, monospace", color: p.onSurfaceVariant, paddingTop: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {k}
+                  </span>
+                  <ExprField name={`arg:${k}`} value={effect.args?.[k] ?? ""} onCommit={(v) => put(k, v)} shape={shape} api={bindings?.doc.api} p={p} label={k} />
+                </div>
+              ))}
+            </div>
+          )}
+          {depth < 2 && (
+            <>
+              <BodyEditor title={t("capThen", lang)} body={effect.then} onChange={(next) => onChange(withBranch(effect, "then", next))} p={p} depth={depth + 1} />
+              <BodyEditor title={t("capCatch", lang)} body={effect.catch} onChange={(next) => onChange(withBranch(effect, "catch", next))} p={p} depth={depth + 1} error />
+            </>
+          )}
+        </div>
+      );
+      break;
+    }
     case "refresh":
     case "loadMore": {
       const names = sourceNames(bindings?.doc.frames);
@@ -383,8 +425,8 @@ function AddButton({ label, onClick, p }: { label: string; onClick: () => void; 
   );
 }
 
-/** a call with what runs after its answer changed: `then` or `catch` */
-const withBranch = (e: Extract<Effect, { do: "call" }>, branch: "then" | "catch", body: ActionBody | undefined): Effect => {
+/** a call (or an invoke) with what runs after its answer changed: `then` or `catch` */
+const withBranch = (e: Extract<Effect, { do: "call" | "invoke" }>, branch: "then" | "catch", body: ActionBody | undefined): Effect => {
   const next: Record<string, unknown> = { ...e };
   if (body) next[branch] = body;
   else delete next[branch];
@@ -396,7 +438,7 @@ const BINDING_KINDS = new Set<string>(["call", "refresh", "loadMore", "submit", 
 
 /** What a call does once it is answered: where it goes, with what params, and its effects. `response` or `error` is
  *  what its expressions can read. */
-function BodyEditor({ title, body, onChange, p, depth, response, error }: { title: string; body: ActionBody | undefined; onChange: (b: ActionBody | undefined) => void; p: Palette; depth: number; response?: unknown; error?: boolean }) {
+export function BodyEditor({ title, body, onChange, p, depth, response, error }: { title: string; body: ActionBody | undefined; onChange: (b: ActionBody | undefined) => void; p: Palette; depth: number; response?: unknown; error?: boolean }) {
   const lang = useLang();
   const bindings = useContext(BindingsContext);
   const frames = bindings?.doc.frames ?? [];
@@ -580,6 +622,10 @@ const bindable = (d: PropDef) => (d.kind === "text" || d.kind === "number" || d.
 
 const typeOfProp = (d: PropDef): VarType => (d.kind === "bool" ? "bool" : d.kind === "number" ? "number" : "text");
 
+/** whether a variable of a type can stand for a prop: a number for a number, yes or no for a switch, and words (or a
+ *  number, a yes or no read as words) for words and choices */
+const fitsProp = (type: VarType, d: PropDef): boolean => (d.kind === "bool" ? type === "bool" : d.kind === "number" ? type === "number" : type !== "color" || d.kind === "text");
+
 /** A prop's row with a small control beside it that ties the prop to a variable. Quiet until it is
  *  used: the row stays what it was for anyone who never touches it. */
 export function BindRow({ def, item, onChange, p, children }: { def: PropDef; item: Item; onChange: (patch: Partial<Item>) => void; p: Palette; children: React.ReactNode }) {
@@ -607,7 +653,8 @@ export function BindRow({ def, item, onChange, p, children }: { def: PropDef; it
       {bound && !open && <div style={{ fontSize: 12, color: p.primary, padding: "0 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bound.name}</div>}
       {open && (
         <Select
-          options={[{ key: "", label: t("noVariable", lang), icon: "link_off" }, ...b.vars.map((v) => ({ key: v.id, label: v.name || v.id, icon: "data_object" })), { key: NEW_VAR, label: t("newVariable", lang), icon: "add" }]}
+          /* the variables that can stand for this prop: of its kind of value (words take any, as they read as words) */
+          options={[{ key: "", label: t("noVariable", lang), icon: "link_off" }, ...b.vars.filter((v) => fitsProp(v.type, def) || v.id === bound?.id).map((v) => ({ key: v.id, label: v.name || v.id, icon: "data_object" })), { key: NEW_VAR, label: t("newVariable", lang), icon: "add" }]}
           value={bound?.id ?? ""}
           onChange={(k) => put(k === NEW_VAR ? addVar(b, typeOfProp(def), labelOf(def, lang)).id : k || undefined)}
           p={p}

@@ -1,6 +1,8 @@
 import { proofDoc } from "../../exportProject.fixture";
 import { kitGroups, kitLookOf } from "../../kits";
-import { normalizeTheme, withIds, type Doc, type Frame, type Group } from "../../tokens";
+import { makeItem, normalizeTheme, withIds, type Doc, type Frame, type Group, type Item } from "../../tokens";
+import { arrangeFlows } from "../../flow";
+import { defaultMeasures } from "../../../parts/templates/kit";
 import { KITS } from "../../../parts/kits";
 import { KIT_ICONS } from "../../../rn/src/kit/icons/names";
 import { RnPictures, appModule, iconsModule, themeModule } from "./app";
@@ -10,8 +12,9 @@ import { rnThemeOf } from "./theme";
 
 /* Documents printed into the kit's test bed (rn/src/printed), so that what the printer writes is type-checked, linted,
  * rendered by the kit's tests and bundled by Metro there, exactly as an exported app would be: the export's proof
- * document (every system of the web export) under Material, and a screen of kits under iOS (bars pinned to their edges,
- * grouped rows, a search box: atoms in auto layout all the way down). */
+ * document (every system of the web export) under Material, a screen of kits under iOS (bars pinned to their edges,
+ * grouped rows, a search box: atoms in auto layout all the way down), and split views (two panes and a divider, nested,
+ * and stacked on a phone). */
 
 /** a screen of kits as the editor adds them, stacked down an iOS screen with its tab bar at the foot */
 export function kitsDoc(): { doc: Doc; widths: Record<string, number> } {
@@ -31,6 +34,38 @@ export function kitsDoc(): { doc: Doc; widths: Record<string, number> } {
   add("button-stack", 480, undefined, 16);
   add("tab-bar", 892 - 90);
   return { doc: { groups, frames: [frame], paletteKey: "purple", frame: "phone", title: "Kits", brief: "", theme }, widths: {} };
+}
+
+/** Split views as the editor lays them out: on a desktop screen a split whose second pane holds a split of its own (one
+ *  over the other, its second pane folding), each pane holding parts; on a phone a split narrower than its breakpoint,
+ *  which stacks its panes. */
+export function splitsDoc(): { doc: Doc; widths: Record<string, number> } {
+  const desk: Frame = { id: "split-desk", name: "Split desk", x: 0, y: 0, w: 1280, h: 800 };
+  const phone: Frame = { id: "split-phone", name: "Split phone", x: 1360, y: 0 };
+  const item = (id: string, slug: string, props: Record<string, unknown>) => ({ ...makeItem(slug), id, props });
+  const pane = (id: string, props: Record<string, unknown> = {}) => item(id, "box", { surface: "none", layout: "column", gap: 8, padX: 16, padY: 16, align: "stretch", hugWidth: false, hugHeight: false, ...props });
+  const g = (id: string, it: Item, more: Partial<Group> = {}): Group => ({ id, x: 0, y: 0, axis: "x", items: [it], ...more });
+  const groups: Group[] = [
+    g("g-outer", item("outer", "split-view", { width: 1280, height: 800, split: 35, minFirst: 240, persist: true })),
+    g("g-left", pane("left"), { inFlow: "g-outer", splitPane: "first", name: "Folders" }),
+    g("g-folders", item("folders", "text", { text: "Folders", style: "title" }), { inFlow: "g-left" }),
+    g("g-new", item("new-folder", "button", { label: "New folder" }), { inFlow: "g-left" }),
+    g("g-right", pane("right", { padX: 0, padY: 0 }), { inFlow: "g-outer", splitPane: "second", name: "Reading" }),
+    g("g-inner", { ...item("inner", "split-view", { orientation: "vertical", split: 60, collapsible: "second", minSecond: 120, width: 832, height: 800 }), flowSize: { w: "fill", h: "fill" } }, { inFlow: "g-right" }),
+    g("g-top", pane("top"), { inFlow: "g-inner", splitPane: "first", name: "Message" }),
+    g("g-message", item("message", "text", { text: "Message", style: "title" }), { inFlow: "g-top" }),
+    g("g-bottom", pane("bottom", { surface: "panel" }), { inFlow: "g-inner", splitPane: "second", name: "Terminal" }),
+    g("g-terminal", item("terminal", "text", { text: "Terminal", style: "title" }), { inFlow: "g-bottom" }),
+    { ...g("g-stack", item("stacked", "split-view", { width: 380, height: 640, split: 40 })), x: 1376, y: 120 },
+    g("g-list", pane("list"), { inFlow: "g-stack", splitPane: "first", name: "List" }),
+    g("g-list-title", item("list-title", "text", { text: "List", style: "title" }), { inFlow: "g-list" }),
+    g("g-detail", pane("detail", { surface: "panel" }), { inFlow: "g-stack", splitPane: "second", name: "Detail" }),
+    g("g-detail-title", item("detail-title", "text", { text: "Detail", style: "title" }), { inFlow: "g-detail" }),
+  ];
+  const widths = defaultMeasures(groups);
+  let laid = groups;
+  for (let i = 0; i < 4; i++) laid = arrangeFlows(laid, widths);
+  return { doc: { groups: laid, frames: [desk, phone], paletteKey: "purple", frame: "phone", title: "Splits", brief: "" }, widths };
 }
 
 /** a printed document's files, under rn/src/printed/<name>: its pictures as files beside it, as an exported app has them */
@@ -59,6 +94,7 @@ export async function printedFixture(): Promise<Record<string, string | Uint8Arr
   const next = () => `id${++n}`;
   const proof = withIds(next, proofDoc);
   const kits = withIds(next, kitsDoc);
-  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)) };
+  const splits = withIds(next, splitsDoc);
+  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)) };
 }
 

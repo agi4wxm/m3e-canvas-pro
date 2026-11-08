@@ -5,6 +5,7 @@ import { instantiate, templateBySlug } from "../../../parts/templates";
 import { metricsOf } from "../../styleLayout";
 import { carryFrame, lengthToHold, minFrameLength, stretchFrame, tidyFrame } from "../../tidy";
 import { actionToSibling, createVariant, familyOf, framesWithout } from "../../variants";
+import { mapNestedBodies } from "../../refs";
 import { loosenedCopies } from "../../flow";
 import { rekeyedAll } from "../../instances";
 import {
@@ -24,13 +25,16 @@ import {
   phoneSizeOf,
   PHONE_W,
   unionRect,
+  STAY_TARGET,
   type Action,
+  type ActionBody,
   type Frame,
   type FramePreset,
   type Group,
   type Place,
 } from "../../tokens";
 import { t } from "../../i18n";
+import { withContract } from "./templateContract";
 import { op, OpError, S } from "../op";
 import { MAX_SCREEN, withFrames, withGroups, withSession, type CoreState } from "../state";
 import { frameById, freshId } from "./common";
@@ -80,7 +84,9 @@ export const addTemplate = op<{ slug: string; x?: number; y?: number }, { frames
     /* on a blank canvas it brings the screens back: they are what it adds */
     const shown = s.doc.frame === "phone" ? s : ensureScreen({ ...s, doc: { ...s.doc, frame: "phone" } }, ctx.widths, ctx.newId(), t("home", ctx.lang));
     const added = instantiate(template, ctx.lang, { x: a.x ?? nextFrameX(fs), y: a.y ?? fs[0]?.y ?? 0 }, fs.map((f) => f.name), phoneSizeOf(fs));
-    const state = { ...shown, doc: { ...shown.doc, frames: [...shown.doc.frames, ...added.frames], groups: [...shown.doc.groups, ...added.groups] } };
+    /* what its screens call and load comes with them, where the document has none of its own (templateContract.ts) */
+    const doc = withContract({ ...shown.doc, frames: [...shown.doc.frames, ...added.frames], groups: [...shown.doc.groups, ...added.groups] }, template.contract?.(ctx.lang));
+    const state = { ...shown, doc };
     return { state: withSession(state, { selection: [], frameId: added.frames[0]?.id ?? null }), result: { frames: added.frames.map((f) => f.id) } };
   },
 });
@@ -226,10 +232,21 @@ export const removeScreen = op<{ id: string }>({
       const swipe = Object.fromEntries(Object.entries(f.swipe).flatMap(([dir, to]) => (to !== id ? [[dir, to]] : sibling ? [[dir, sibling]] : [])));
       return { ...f, swipe: Object.keys(swipe).length ? swipe : undefined };
     });
-    const kept = (x: Action) => (sibling ? actionToSibling(x, id, sibling) : actionWithoutScreen(x, id));
+    /* what a call goes on to do when it answers goes there too, or stays (lib/refs.ts) */
+    const nested = (b: ActionBody): ActionBody => (b.to !== id ? b : sibling ? { ...b, to: sibling } : { ...b, to: STAY_TARGET, transition: "none" });
+    const kept = (x: Action) => {
+      const inner = mapNestedBodies(x, nested);
+      return sibling ? actionToSibling(inner, id, sibling) : actionWithoutScreen(inner, id);
+    };
+    /* and so does what a form does once it is sent */
+    const keptForm = (g: Group): Group => {
+      if (!g.form || (g.form.then?.to !== id && g.form.catch?.to !== id)) return g;
+      // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+      return { ...g, form: { ...g.form, ...(g.form.then ? { then: nested(g.form.then) } : {}), ...(g.form.catch ? { catch: nested(g.form.catch) } : {}) } };
+    };
     /* what a part or a definition's part said about that screen */
     const withoutLinks = (g: Group): Group => ({
-      ...g,
+      ...keptForm(g),
       items: g.items.map((it) => {
         const next = { ...it };
         if (next.action) next.action = kept(next.action);

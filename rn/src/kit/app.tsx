@@ -27,7 +27,8 @@ export type Reader = { ev: (expr: string, scope: Scope) => unknown; fill: (templ
 export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string } | { expr: string };
 
 /** One step of a tap, as the design writes it (lib/tokens `Effect`): a part to show or hide by its key, a variable to
- *  set, a prop to set, a snackbar; and the API's (call, refresh, loadMore, submit, signOut), which the app runs. */
+ *  set, a prop to set, a snackbar; and the API's (call, refresh, loadMore, submit, signOut) and a platform capability's
+ *  (invoke), which the app runs. */
 export type Effect =
   | { do: "show" | "hide" | "toggle" | "open" | "close"; part: string }
   | { do: "setVar"; var: string; value: VarValue; expr?: string }
@@ -36,6 +37,7 @@ export type Effect =
   | { do: "setProp"; part: string; prop: string; value: VarValue }
   | { do: "snackbar"; message: string }
   | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: ActionBody; catch?: ActionBody; optimistic?: { source: string; remove?: boolean; patch?: Record<string, string> } }
+  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: ActionBody; catch?: ActionBody }
   | { do: "refresh"; source: string }
   | { do: "loadMore"; source: string }
   | { do: "submit"; form?: string }
@@ -325,13 +327,14 @@ export function SnackHost() {
 }
 
 /** Rows for a part's list prop out of what an expression read: each element's words (its label, name or title), its
- *  icon and its picture; the design's own when it reads no list. */
+ *  icon, its picture and its state (`variant`); the design's own when it reads no list. */
 export function rowsOf<T>(v: unknown, design: T, max = 50): T {
   if (!Array.isArray(v)) return design;
   return v.slice(0, max).map((x) => {
     if (!x || typeof x !== "object" || Array.isArray(x)) return { label: asWords(x) };
     const r = x as Record<string, unknown>;
-    return { label: asWords(r.label ?? r.name ?? r.title ?? ""), ...(typeof r.icon === "string" ? { icon: r.icon } : {}), ...(typeof r.image === "string" ? { image: r.image } : {}) };
+    /* a row keeps the state its part reads from `variant` and `width`, as the editor's preview does */
+    return { label: asWords(r.label ?? r.name ?? r.title ?? ""), ...(typeof r.icon === "string" ? { icon: r.icon } : {}), ...(typeof r.image === "string" ? { image: r.image } : {}), ...(typeof r.variant === "string" ? { variant: r.variant } : {}), ...(typeof r.width === "string" ? { width: r.width } : {}) };
   }) as T;
 }
 

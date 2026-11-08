@@ -3,8 +3,10 @@ import { isNode, isRaw, isWrap, mapNodes, raw, type PNode, type PValue } from ".
 import { EXPR_NODE, namesIn, printValue, str } from "../parts/print";
 import { OVERLAY_ROOTS, partBySlug, reader, treeOf, withoutPickedImages } from "../parts/registry";
 import type { PartDef, PropDef } from "../parts/types";
+import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { type Row, CURRENT_TOKEN, fillCurrent, firstRows, markCurrent } from "./collections";
 import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
+import { demoRuns, isPlaceKey, optionsOf } from "./partContract";
 import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn, varValues } from "./variables";
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
 import type { BoundPrint } from "./printBindings";
@@ -156,11 +158,13 @@ function leafCode(vals: PValue[], f: Folding): string {
   if (samples.length === 2 && typeof samples[0] === "boolean") {
     const on = vals[samples[0] ? 0 : 1];
     const off = vals[samples[0] ? 1 : 0];
+    /* where only its truth counts (a test, a negation), `!!x` is `x`: ESLint calls the other redundant */
+    const test = /^!![\w$.]+(?:\((?:[^()]|\([^()]*\))*\))?$/.test(expr) ? expr.slice(2) : expr;
     if (on === true && off === undefined) return `${expr} || undefined`;
     if (on === true && off === false) return expr;
-    if (off === true && on === undefined) return `!${expr} || undefined`;
-    if (off === true && on === false) return `!${expr}`;
-    return `${expr} ? ${lit(on)} : ${lit(off)}`;
+    if (off === true && on === undefined) return `!${test} || undefined`;
+    if (off === true && on === false) return `!${test}`;
+    return `${test} ? ${lit(on)} : ${lit(off)}`;
   }
   /* the value most of the samples agree on goes last: "only the second tab looks like this" */
   const count = (v: PValue) => vals.filter((x) => same(x, v)).length;
@@ -276,8 +280,8 @@ function samplesOf(d: PropDef, def: PartDef, it: Item): VarValue[] {
   return [...new Set([now, Math.min(d.max, now + step), Math.max(d.min, now - step)])];
 }
 
-/* the destination bars: on every screen, the bar of the same entries is one bar */
-const NAV_PARTS = new Set(["navigation-bar", "navigation-rail", "tabs"]);
+/* the destination bars (`PartDef.nav`): on every screen, the bar of the same entries is one bar */
+const isNavBar = (def: PartDef) => !!def.nav;
 
 /** where a part's click can go straight on its root: these pass it on to their button */
 const CLICKS_ON_ROOT = new Set(["Button", "Fab", "ExtendedFab"]);
@@ -563,7 +567,7 @@ export class Behaviour {
   }
 
   private barKey(it: Item, def: PartDef): string {
-    if (!NAV_PARTS.has(def.slug)) return this.partKeys.get(it.id)!;
+    if (!isNavBar(def)) return this.partKeys.get(it.id)!;
     const nav = `${def.slug}:${actionSlotsOf(it).map((s) => s.label).join("|")}`;
     if (!this.bars.has(nav)) this.bars.set(nav, this.partKeys.get(it.id)!);
     return this.bars.get(nav)!;
@@ -586,10 +590,11 @@ export class Behaviour {
     const d = def.props.find((x) => x.key === key);
     const name = this.partKeys.get(it.id);
     let info: VarInfo;
-    if (key === "selected") {
-      const rows = p.list("items");
-      info = { key: camel(name, "field", this.varKeys), type: "text", start: rows[Math.min(p.n(key), rows.length - 1)]?.label ?? "" };
-    } else if (d?.kind === "bool") info = { key: camel(name, "field", this.varKeys), type: "bool", start: p.b(key) };
+    if (def.input?.kind === "choice" && d?.kind === "number") {
+      const options = optionsOf(it);
+      info = { key: camel(name, "field", this.varKeys), type: "text", start: options[Math.min(p.n(key), options.length - 1)] ?? "" };
+    } else if (d?.kind === "list") info = { key: camel(name, "field", this.varKeys), type: "text", start: p.list(key).map((r) => r.label).join("\n") };
+    else if (d?.kind === "bool") info = { key: camel(name, "field", this.varKeys), type: "bool", start: p.b(key) };
     else if (d?.kind === "number") info = { key: camel(name, "field", this.varKeys), type: "number", start: p.n(key) };
     else info = { key: camel(name, "field", this.varKeys), type: "text", start: p.s(key) };
     this.inputs.set(it.id, info);
@@ -717,8 +722,8 @@ export class Behaviour {
     if (INPUT_PROP[def.slug] === e.prop) {
       const v = this.inputVar(it);
       if (!v) return null;
-      const rows = e.prop === "selected" ? reader(def, it.props).list("items") : [];
-      const value = e.prop === "selected" && v.type === "text" ? (rows[Number(e.value)]?.label ?? "") : coerce(e.value, v.type);
+      const choice = def.input?.kind === "choice" && d.kind === "number";
+      const value = choice && v.type === "text" ? (optionsOf(it)[Number(e.value)] ?? "") : coerce(e.value, v.type);
       return value === null ? null : call("setVar", json(v.key), json(value));
     }
     if (e.prop === def.selectKey && this.selecting(it, def)) {
@@ -857,7 +862,7 @@ export class Behaviour {
         uses.app.add("tab");
         /* a bar the author chose nothing on lights the destination that opened its screen */
         const own = it.props?.[d.key];
-        out.push({ d, expr: NAV_PARTS.has(def.slug) && own === undefined ? `tab(${json(bar)}, undefined, ${p.n(d.key)})` : `tab(${json(bar)}, ${p.n(d.key)})` });
+        out.push({ d, expr: isNavBar(def) && own === undefined ? `tab(${json(bar)}, undefined, ${p.n(d.key)})` : `tab(${json(bar)}, ${p.n(d.key)})` });
       } else if ((d.key === "expanded" && this.railToggles(it, def)) || this.propTargets.get(it.id)?.has(d.key)) {
         const start = d.kind === "text" ? p.s(d.key) : d.kind === "enum" ? p.s(d.key) : d.kind === "number" ? p.n(d.key) : p.b(d.key);
         uses.app.add("prop");
@@ -872,7 +877,9 @@ export class Behaviour {
     const look = appearanceOf(it);
     /* the row last tapped is only known at run time: its fields go through the tree as words do */
     const fields = new Map<string, string>();
-    const base = markCurrent(withoutPickedImages(def, it.props ?? {}, this.image), (field) => {
+    /* what a form fixes on it (required, as its contract says) is drawn as the design's own */
+    const fixed = this.bound ? this.bound.formFixed(it, def) : {};
+    const base = markCurrent(withoutPickedImages(def, { ...it.props, ...fixed }, this.image), (field) => {
       fields.set(`current.${field}`, currentField(field));
       uses.app.add("current");
       return markOf(`current.${field}`);
@@ -925,8 +932,33 @@ export class Behaviour {
         const write = place ? this.toVar(v, `${json(rows)}.indexOf(String(value))`, "number") : `String(value ?? "")`;
         return patch(def.slug === "select" ? "Select" : "RadioGroup", ["defaultValue"], { value: raw(def.slug === "select" ? `${words} || null` : words), onValueChange: raw(`(value) => ${set(write)}`) });
       }
-      default:
-        return tree;
+      default: {
+        /* a widget that declares an input takes its value as a prop and hands it out through onValueChange
+           (parts/widgets/host.ts), whatever the widget is */
+        const input = def.input;
+        /* the widget itself, inside the frame its field states may draw around it (parts/fieldState.ts) */
+        const widget = tree.type === "FieldFrame" ? tree.children?.find((c): c is PNode => typeof c !== "string" && c.type in WIDGET_SOURCES) : tree;
+        if (!input || !widget || !(widget.type in WIDGET_SOURCES)) return tree;
+        const inFrame = (wired: PNode): PNode => (widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) });
+        const d = def.props.find((x) => x.key === input.prop);
+        /* a choice is its place among the options, which a text variable holds as their words */
+        if (input.kind === "choice" && d?.kind === "number") {
+          const options = json(optionsOf(it));
+          const read = v.type === "text" ? `${options}.indexOf(${this.readVar(v, "text", uses)})` : this.readVar(v, "number", uses);
+          const write = v.type === "text" ? `${options}[Number(value)] ?? ""` : this.toVar(v, "Number(value)", "number");
+          return inFrame({ ...widget, props: { ...widget.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${set(write)}`) } });
+        }
+        /* a list's rows are its words, a line each */
+        if (d?.kind === "list") {
+          const read = `${this.readVar(v, "text", uses)}.split("\\n").filter(Boolean)`;
+          const write = 'Array.isArray(value) ? value.join("\\n") : String(value ?? "")';
+          return inFrame({ ...widget, props: { ...widget.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${set(this.toVar(v, write, "text"))}`) } });
+        }
+        const kind = input.kind === "number" ? "number" : input.kind === "bool" ? "bool" : "text";
+        const given = kind === "number" ? "Number(value) || 0" : kind === "bool" ? "!!value" : 'String(value ?? "")';
+        const wired = { ...widget, props: { ...widget.props, [input.prop]: raw(this.readVar(v, kind, uses)), onValueChange: raw(`(value) => ${set(this.toVar(v, given, kind))}`) } };
+        return widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) };
+      }
     }
   }
 
@@ -960,13 +992,14 @@ export class Behaviour {
         /* a destination that opens a screen leaves the choice to that screen's own bar; one that only runs effects lights up */
         const opens = a.to !== STAY_TARGET;
         const target = opens ? this.screens.get(a.to) : undefined;
-        const lead = opens ? `leaveTab(${bar}, ${m[1]}${NAV_PARTS.has(def.slug) && target ? `, ${json(target)}` : ""})` : `selectTab(${bar}, ${m[1]})`;
+        const lead = opens ? `leaveTab(${bar}, ${m[1]}${isNavBar(def) && target ? `, ${json(target)}` : ""})` : `selectTab(${bar}, ${m[1]})`;
         uses.app.add(opens ? "leaveTab" : "selectTab");
         slots[key] = raw(this.handler([lead, ...this.statements(a, uses)])!);
       }
     }
     for (const [slot, a] of Object.entries(it.actions ?? {})) {
-      if (!a || slot in slots) continue;
+      /* an event or a family of places is not printed yet: lib/export/boundary.ts reports it */
+      if (!a || slot in slots || !isPlaceKey(slot)) continue;
       const code = this.handler(this.statements(a, uses));
       if (code) slots[slot] = raw(code);
     }
@@ -984,6 +1017,12 @@ export class Behaviour {
     const direct = !!onPress && !hasSlots && !selfSelecting && !closes && !insideTap && CLICKS_ON_ROOT.has(root.type) && !root.props?.onClick;
     const pressable = !direct && (!!onPress || !!onHover || !!after || hasSlots || selfSelecting || closes);
     let tree = this.liveTree(it, def, uses, pressable);
+    /* A prototype acts out a domain demo where nothing takes it over; a product (printed with bindings) never does,
+       which is the widgets' own default (parts/widgets/host.ts) */
+    if (!this.bound && demoRuns(it, "prototype") && tree.type in WIDGET_SOURCES) tree = { ...tree, props: { ...tree.props, demo: true } };
+    /* a control of the widget's own (a heart) keeps a press to itself unless told something is wired to it */
+    const wired = tree.type in WIDGET_SOURCES ? (def.slots?.(reader(def, it.props)) ?? []).filter((s) => s.own && slots[s.key]).map((s) => s.key) : [];
+    if (wired.length) tree = { ...tree, props: { ...tree.props, wired } };
     /* a part an action scrolls to is marked, so the runtime finds it on the screen in use */
     if (this.scrollTargets.has(it.id)) {
       const key = this.partKeys.get(it.id)!;

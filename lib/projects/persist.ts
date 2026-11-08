@@ -17,7 +17,7 @@
 
 import { assetRefsIn, getAssets as getLegacyAssets, restoreAssets } from "../assets";
 import { asPersistError, localPersist, PersistError, type PersistAdapter, type SaveErrorKind, type Stored } from "../core/persist";
-import { isProject } from "../project";
+import { isProject, loadDocument, loadStored, PROJECT_VERSION } from "../project";
 import type { Doc } from "../tokens";
 import { DocConflict, getAssets, getFileRecord, getProject, listProjects, patchProject, pruneAssets, putFileRecord, deleteFileRecord, readProjectRecords, writeBeforeRecord, writeDocRecord, type FileRecord, type ProjectMeta } from "./db";
 import { FileLink, type LinkState } from "./fileLink";
@@ -70,14 +70,17 @@ async function picturesFor(refs: Set<string>): Promise<Map<string, string>> {
   return found;
 }
 
-/** what a project holds, read back whole: its document and kept design with their pictures put back */
+/** What a project holds, read back whole: its document and kept design with their pictures put back, each brought up
+ *  to this version and cleaned as any document is (lib/project.ts `loadStored`), from the version its record says. */
 export async function readStored(id: string): Promise<{ meta?: ProjectMeta; stored: Stored; json: string | null; stamp: string | null }> {
   const rec = await readProjectRecords(id);
-  const doc = parse(rec.doc) as Partial<Doc> | null;
-  const beforeValue = doc ? parse(rec.before) : null;
-  const before = isProject(beforeValue) ? beforeValue : null;
-  const pictures = await picturesFor(new Set([...assetRefsIn(doc), ...assetRefsIn(before)]));
-  return { meta: rec.meta, json: rec.doc, stamp: rec.stamp, stored: { doc: pictures.size ? restoreAssets(doc, pictures) : doc, before: before && pictures.size ? restoreAssets(before, pictures) : before } };
+  const raw = parse(rec.doc) as Partial<Doc> | null;
+  const beforeValue = raw ? parse(rec.before) : null;
+  const beforeRaw = isProject(beforeValue) ? beforeValue : null;
+  const pictures = await picturesFor(new Set([...assetRefsIn(raw), ...assetRefsIn(beforeRaw)]));
+  const doc = loadStored(raw && pictures.size ? restoreAssets(raw, pictures) : raw, rec.docVersion);
+  const before = beforeRaw ? (loadDocument(pictures.size ? restoreAssets(beforeRaw, pictures) : beforeRaw, { version: rec.beforeVersion })?.doc ?? null) : null;
+  return { meta: rec.meta, json: rec.doc, stamp: rec.stamp, stored: { doc, before } };
 }
 
 /** The version a tab noted as not kept, when it is not what the project holds: offered back. One that is (the write
@@ -88,7 +91,7 @@ async function unsavedFor(storage: Storage_, id: string, storedJson: string | nu
     raw = storage.getItem(unsavedKey(id));
   } catch {}
   if (!raw) return undefined;
-  const entry = parse(raw) as { at?: unknown; doc?: unknown } | null;
+  const entry = parse(raw) as { at?: unknown; doc?: unknown; version?: unknown } | null;
   const doc = entry && isProject(entry.doc) ? entry.doc : null;
   if (!doc || storedForm(doc).json === storedJson) {
     try {
@@ -97,7 +100,9 @@ async function unsavedFor(storage: Storage_, id: string, storedJson: string | nu
     return undefined;
   }
   const refs = assetRefsIn(doc);
-  return { doc: refs.size ? restoreAssets(doc, await picturesFor(refs)) : doc, at: typeof entry?.at === "number" ? entry.at : 0 };
+  const whole = refs.size ? restoreAssets(doc, await picturesFor(refs)) : doc;
+  const loaded = loadDocument(whole, { version: typeof entry?.version === "number" ? entry.version : undefined });
+  return loaded ? { doc: loaded.doc, at: typeof entry?.at === "number" ? entry.at : 0 } : undefined;
 }
 
 /** The document of the project a tab of the editor last opened, as stored, without opening, moving in or making
@@ -350,7 +355,7 @@ export class ProjectsPersist implements PersistAdapter {
       while (this.pending && !this.conflict) {
         const { doc, rev } = this.pending;
         this.pending = null;
-        const { json, refs, assets } = storedForm(doc);
+        const { json, refs, assets, version } = storedForm(doc);
         /* An edit moves the project's time on; a layout pass after opening, or the first write that only brings the
            document to how this version writes it, does not. */
         const edit = this.lastJson === null || (this.editSignals ? this.edited : this.seenWrite);
@@ -365,7 +370,7 @@ export class ProjectsPersist implements PersistAdapter {
         this.writing = rev;
         this.tellSave();
         try {
-          const meta = await writeDocRecord(o.id, { json, refs, assets, stamp, expect: this.stamp, meta: (old) => (old ? { ...old, ...summaryOf(doc), ...(edit ? { updated: at } : {}) } : undefined) });
+          const meta = await writeDocRecord(o.id, { json, refs, assets, version, stamp, expect: this.stamp, meta: (old) => (old ? { ...old, ...summaryOf(doc), ...(edit ? { updated: at } : {}) } : undefined) });
           this.setMeta(meta);
         } catch (e) {
           this.writing = null;
@@ -441,7 +446,7 @@ export class ProjectsPersist implements PersistAdapter {
       try {
         const text = form();
         if (text.length > NOTE_MAX_CHARS) continue;
-        this.storage.setItem(unsavedKey(id), `{"at":${at},"doc":${text}}`);
+        this.storage.setItem(unsavedKey(id), `{"at":${at},"version":${PROJECT_VERSION},"doc":${text}}`);
         this.noted = this.handed;
         return;
       } catch {}

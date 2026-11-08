@@ -43,6 +43,7 @@ import {
 import { DeviceBars } from "./DeviceBars";
 import { Icon } from "./Icon";
 import { PartView } from "./PartView";
+import { PartHostContext, type PartHost } from "@/parts/widgets/host";
 import { partBySlug, reader } from "@/parts/registry";
 import { PartThemeContext, usePartTheme } from "@/parts/theme";
 import { roleOf } from "@/parts/role";
@@ -51,9 +52,10 @@ import { screenBackground } from "@/lib/styles";
 import { t, useLang } from "@/lib/i18n";
 import { pinOf } from "@/lib/tidy";
 import { FOOT_GAP, footOf } from "@/lib/foot";
-import { INPUT_PROP, PreviewState, applyEffects, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, scopeOf, screenVars, startState, writeField } from "@/lib/interact";
+import { INPUT_PROP, PreviewState, applyEffects, fieldValueOf, type FieldValue, chooseBranch, closeOpened, inRow, isOverlayPart, leftRow, liveGroups, scopeOf, screenVars, startState, writeField } from "@/lib/interact";
 import type { Effect, Group as DocGroup } from "@/lib/tokens";
 import { groupBounds } from "@/lib/tokens";
+import { paneClips } from "@/lib/flow";
 import type { Transport, TransportFile } from "@/lib/api/transport";
 import { BindingEngine, emptyBindings, screenScope, type BindingState } from "@/lib/bindings/runtime";
 import { boundScreen, formsOf, readForm, type BoundScreen } from "@/lib/bindings/view";
@@ -63,11 +65,14 @@ import { fallbackTransport, signedInAtStart } from "@/lib/bindings/transport";
 import { BoundValues } from "./boundValues";
 import { boundTextIds, wordsHeight } from "./previewText";
 import { MockLogPanel, MockScenarioSwitch, PreviewMocksContext, usePreviewMocks } from "./MockPreview";
+import { createMockCapabilities } from "@/lib/capabilities/mock";
+import type { CapabilityHost, InvokeOutcome } from "@/lib/capabilities/types";
 import { PRESETS, variantFor } from "@/lib/variants";
 import { flowStarts } from "@/lib/prototype";
 import { EASE, SLIDE_S as SLIDE_MS, screenPoses, type ScreenMove } from "@/lib/screenMotion";
 import type { BindingContext } from "@/lib/bindings/scope";
 import { composing, goesBack } from "./previewKeys";
+import { demoRuns, eventAction, eventOfKey, eventsOf, payloadOf, slotAction } from "@/lib/partContract";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
 const WIDE_CONTROL_SPACE = 220;
@@ -95,9 +100,6 @@ const screenVariants: Variants = {
   exit: (c: ScreenMove) => screenPoses(c).exit,
 };
 
-/* the destination bars: a tap on their destination is shared with the bar of the same entries on
- * every other screen */
-const NAV_PARTS = new Set(["navigation-bar", "navigation-rail", "tabs"]);
 
 /** the buttons inside an overlay that dismiss it, whichever overlay it is */
 const CLOSERS = '[data-slot$="-close"], [data-slot="alert-dialog-cancel"], [data-slot="alert-dialog-action"]';
@@ -151,7 +153,7 @@ async function readFiles(root: HTMLElement): Promise<TransportFile[]> {
  *  on a place the part marked `data-tap` (a destination, a menu item) it fires that slot's
  *  action; anywhere else it is the part's own tap. An input says what it now holds, a button
  *  inside an overlay that dismisses it closes it. */
-function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onFiles, onClose, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: VarValue) => void; /** a file input took files */ onFiles?: (files: TransportFile[]) => void; onClose?: () => void; held?: boolean }) {
+function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onField, onFiles, onClose, onEvent, demo = false, held }: { item: Item; widths: Record<string, number>; screen?: { w: number; h: number }; onTap?: () => void; onSlot?: (slot: string) => void; /** the pointer came over it: an interaction that starts so */ onHover?: () => void; easeWidth?: boolean; onField?: (value: FieldValue) => void; /** a file input took files */ onFiles?: (files: TransportFile[]) => void; onClose?: () => void; /** the part sent one of its named events */ onEvent?: (name: string, payload?: Record<string, unknown>) => void; /** its prototype demo runs (lib/partContract.ts demoRuns) */ demo?: boolean; held?: boolean }) {
   const size = sizeOf(item, widths);
   const input = !!INPUT_PROP[item.component ?? ""];
   const click = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -168,8 +170,8 @@ function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onF
     if ((onTap || onSlot) && !input) e.preventDefault();
   };
   const box = useRef<HTMLDivElement>(null);
-  const live = useRef({ item, onField });
-  live.current = { item, onField };
+  const live = useRef({ item, onField, onEvent });
+  live.current = { item, onField, onEvent };
   /* the value this input last reported, told apart from one a button put in its variable: an input
    * is uncontrolled, so that one only reaches it by drawing it afresh */
   const key = INPUT_PROP[item.component ?? ""];
@@ -177,13 +179,36 @@ function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onF
   const own = useRef(value);
   const seen = useRef(value);
   const redraw = useRef(0);
-  if (value !== seen.current) {
+  /* a list input's rows are drawn afresh each time from what holds them: the same rows are the same value */
+  const same = (a: unknown, b: unknown) => a === b || (Array.isArray(a) && Array.isArray(b) && JSON.stringify(a) === JSON.stringify(b));
+  if (!same(value, seen.current)) {
     seen.current = value;
-    if (value !== own.current) {
+    if (!same(value, own.current)) {
       own.current = value;
       redraw.current++;
     }
   }
+  /* What a widget is handed (parts/widgets/host.ts): the preview is an explicit prototype, so a demo runs where nothing
+     takes it over; an input says what it holds, an event goes to the part's on:<name> action. */
+  const host = useMemo<PartHost>(
+    () => ({
+      demo,
+      /* each opening of the preview is a first visit: nothing the visitor does here is kept on the device */
+      remember: false,
+      input: input
+        ? (raw) => {
+            const v = fieldValueOf(live.current.item, raw);
+            if (v === undefined) return;
+            own.current = v;
+            live.current.onField?.(v);
+          }
+        : undefined,
+      emit: (name, payload) => live.current.onEvent?.(name, payload),
+      /* a control of the part's own reaches the slot's action, or its family's */
+      wired: (slot) => !!slotAction(live.current.item, slot),
+    }),
+    [demo, input],
+  );
   const slug = item.component;
   const files = useRef(onFiles);
   files.current = onFiles;
@@ -234,7 +259,9 @@ function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWidth, onF
           : undefined
       }
       style={{ position: "relative", display: "flex", flex: "0 0 auto", width: easeWidth ? "max-content" : size.w, height: size.h }}>
-      <PartView key={`${redraw.current}:${held ? 1 : 0}`} item={item} live screen={screen} held={held} />
+      <PartHostContext.Provider value={host}>
+        <PartView key={`${redraw.current}:${held ? 1 : 0}`} item={item} live screen={screen} held={held} />
+      </PartHostContext.Provider>
     </div>
   );
 }
@@ -280,12 +307,12 @@ function Screen({
   /** the theme in the mode this preview shows, for what the style draws behind a screen */
   styled: Theme;
   /** a tap on a part: its row, its element and its form go with it; the preview adds the screen it is on */
-  onAction: (a: Action, it?: Item) => void;
+  onAction: (a: Action, it?: Item, extra?: Scope) => void;
   values: Record<string, number>;
   onValue: (id: string, v: number) => void;
   /** the overlays an effect holds open, by item id */
   opened: Record<string, boolean>;
-  onField: (it: Item, value: VarValue) => void;
+  onField: (it: Item, value: FieldValue) => void;
   onCloseOverlay: (id: string) => void;
   onScrim: () => void;
 }) {
@@ -364,6 +391,8 @@ function Screen({
   if (seen.ids) for (const g of groups) if (g.inFlow && !seen.ids.has(g.id)) seen.at.set(g.id, now);
   seen.ids = new Set(groups.map((g) => g.id));
   const entering = (g: Group) => now - (seen.at.get(g.id) ?? -Infinity) < 400;
+  /* what a split's pane holds is seen within the pane, as in the exported app */
+  const clips = useMemo(() => paneClips(groups, widths), [groups, widths]);
   const hasFoldingFab = groups.some((g) => g.items.some((it) => canCollapseFab(it) && it.collapseOnScroll));
   const onBodyScroll = (e: { currentTarget: { scrollTop: number; scrollHeight?: number; clientHeight?: number } }) => {
     const top = e.currentTarget.scrollTop;
@@ -493,12 +522,16 @@ function Screen({
           data-in-flow={g.inFlow ? "" : undefined}
           style={
             g.free
-              ? { position: "absolute", left: g.x - frame.x, top: g.y - frame.y - lift(g), zIndex: isOpen(g) ? 2 : undefined }
+              ? { position: "absolute", left: g.x - frame.x, top: g.y - frame.y - lift(g), zIndex: isOpen(g) ? 2 : undefined, clipPath: clips.get(g.id) }
               : {
                   position: "absolute",
                   left: g.x - frame.x,
                   top: g.y - frame.y - lift(g),
                   zIndex: isOpen(g) ? 2 : undefined,
+                  clipPath: clips.get(g.id),
+                  /* a split's pane is drawn over the split, not inside it: a press near the divider goes through it to
+                     the divider, unless the pane does something of its own when tapped */
+                  pointerEvents: g.splitPane && !g.items.some((it) => it.action || it.actions) ? "none" : undefined,
                   display: "flex",
                   flexDirection: g.axis === "x" ? "row" : "column",
                   alignItems: g.axis === "x" ? "center" : "stretch",
@@ -517,15 +550,16 @@ function Screen({
             const on = act?.trigger?.on;
             /* a part that does nothing of its own, inside a container that is tapped (a list's row), is a press on that
                container, as it is in the exported app where it is inside it */
-            const held = !act && !it.actions ? heldTap(g) : undefined;
+            /* an event's action is no tap: what is wired to a place in the part is */
+            const slotActions = it.actions && Object.keys(it.actions).some((k) => eventOfKey(k) === null) ? it.actions : undefined;
+            const held = !act && !slotActions ? heldTap(g) : undefined;
             const tap = act && !on ? () => onAction(act, it) : held ? () => onAction(held.action, held.item) : undefined;
             const hover = act && on === "hover" ? () => onAction(act, it) : undefined;
-            const slotActions = it.actions;
             /* a part says which prop is its chosen entry (`selectKey`): a tap moves it. Destination
              *  bars share the choice across screens */
             const def = partBySlug(it.component);
             const selectKey = def?.selectKey;
-            const navKey = def && selectKey && NAV_PARTS.has(def.slug) ? `nav:${def.slug}:${actionSlotsOf(it).map((s) => s.label).join("|")}` : "";
+            const navKey = def && selectKey && def.nav ? `nav:${def.slug}:${actionSlotsOf(it).map((s) => s.label).join("|")}` : "";
             if (selectKey) {
               const live = navKey
                 ? values[navKey] !== undefined && values[navKey] >= 0
@@ -553,6 +587,17 @@ function Screen({
                 /* an overlay with its own trigger opens by itself; only one an effect opened is held */
                 held={!!opened[it.id] && !!def?.open && def.open.trigger !== "hide"}
                 onClose={isOverlayPart(it) ? () => onCloseOverlay(it.id) : undefined}
+                demo={demoRuns(it, "prototype")}
+                onEvent={
+                  eventsOf(it).length
+                    ? (name, payload) => {
+                        const e = eventsOf(it).find((x) => x.name === name);
+                        const a = eventAction(it, name);
+                        /* an action that runs on an event reads its payload as `event` (B3's interpreter takes this over) */
+                        if (e && a) onAction(a, it, { event: payloadOf(e, payload) });
+                      }
+                    : undefined
+                }
                 onTap={tap}
                 onHover={hover}
                 onSlot={
@@ -564,7 +609,9 @@ function Screen({
                           onValue(`${it.id}:expanded`, shown.props?.expanded === true ? 0 : 1);
                           return;
                         }
-                        const a = slotActions?.[slot];
+                        /* the slot's own action, else its family's, which reads the slot as `slot` */
+                        const wired = slotAction(it, slot);
+                        const a = wired?.action;
                         /* a tapped destination lights up where it opens nothing; where it opens a
                            screen, that screen's bar shows the destination its author chose, or the
                            tapped one when the author chose none */
@@ -574,7 +621,7 @@ function Screen({
                           onValue(navKey || it.id, opens ? -1 : Number(slot.slice(4)));
                           if (opens && navKey) onValue(`${navKey}:opened:${a.to}`, Number(slot.slice(4)));
                         }
-                        if (a) onAction(a, it);
+                        if (wired) onAction(wired.action, it, wired.scope);
                         else tap?.();
                       }
                     : undefined
@@ -634,6 +681,7 @@ export function Preview({
   startId,
   onClose,
   transport,
+  capabilities,
 }: {
   doc: Doc;
   widths: Record<string, number>;
@@ -642,6 +690,9 @@ export function Preview({
   onClose: () => void;
   /** what the preview's calls to the API go through (the mock library); a stand-in when none is given */
   transport?: Transport;
+  /** what the preview's invokes of platform capabilities go through (the mock library's); the catalog's examples when
+   *  none is given */
+  capabilities?: CapabilityHost;
 }) {
   const lang = useLang();
   const frames = doc.frames;
@@ -913,9 +964,47 @@ export function Preview({
       case "submit":
         void submitNow(e.form, tap, depth).catch(() => {});
         return;
+      case "invoke":
+        void invokeNow(e, tap, extra, depth).catch(() => {});
+        return;
       default:
         return;
     }
+  };
+
+  /** An invoke of a platform capability (docs/交互规则.md, “调用能力”): its arguments read now, the mocks (or what the
+   *  preview is handed) answer; `then` reads `result`, `catch` reads `error`. An answer to a session started over is
+   *  dropped, one the same part has asked again since gives way; once the visitor has moved on its effects still run,
+   *  but it goes nowhere. */
+  const invokeNow = async (e: Extract<Effect, { do: "invoke" }>, tap: Tap, extra: Scope | undefined, depth: number) => {
+    if (depth > 4) return;
+    const { frame: f, it } = tap;
+    const ctx = ctxOf(tap, depth);
+    const scope = scopeOf({ ...stateRef.current, ...(ctx ? { ctx } : {}) }, it, extra);
+    const args: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(e.args ?? {})) {
+      const v = typeof x === "string" ? evaluate(x, scope, ctx?.eval) : undefined;
+      if (v !== undefined) args[k] = v;
+    }
+    const newest = ask(`invoke:${f.id}|${it?.id ?? ""}|${e.capability}`);
+    const epoch = capabilityEpoch.current;
+    let out: InvokeOutcome;
+    try {
+      out = await capabilityRef.current.invoke(e.capability, args);
+    } catch (err) {
+      out = { ok: false, error: { type: "failed", capability: e.capability, ...(err instanceof Error ? { message: err.message.slice(0, 200) } : {}) } };
+    }
+    if ((!out.ok && out.dropped) || epoch !== capabilityEpoch.current || !newest()) return;
+    /* the link a link.open was given leaves the sketch the way a link action does */
+    if (out.ok && e.capability === "link.open") {
+      const href = linkUrlOf({ url: typeof args.url === "string" ? args.url : undefined });
+      if (href) window.open(href, "_blank", "noopener,noreferrer");
+    }
+    const branch = out.ok ? e.then : e.catch;
+    if (!branch) return;
+    const here = stillThere(tap);
+    const body = here ? branch : { ...branch, to: STAY_TARGET, transition: "none" as const, scrollTo: undefined };
+    runBody.current(body, tap, out.ok ? { ...extra, result: out.result } : { ...extra, error: out.error }, depth + 1);
   };
 
   /** whether the visitor is still where the tap left them: an answer that comes after they moved on runs no `then` or `catch` */
@@ -989,15 +1078,15 @@ export function Preview({
   /* A tap on a screen (the one on show, or the overlay over it): its condition picks what runs, its effects run in
      order, and then it goes where it goes. Everything it starts reads that screen, whatever is on show by then. */
   const fire = useCallback(
-    (a: Action, it: Item | undefined, on: TapScreen) => {
+    (a: Action, it: Item | undefined, on: TapScreen, extra?: Scope) => {
       if (swiped.current) return;
       const tap: Tap = { ...on, it, ctx: boundRef.current[on.frame.id]?.ctx, at: { nav: moves.current } };
       /* a tap from a repeated part reads its row's fields as `row.field`, and only for this tap; the variables read as
          its screen has them */
       const scoped: PreviewState = { ...inRow(screenVars(stateRef.current, doc, on.frame, darkRef.current), it?.row), ...(tap.ctx ? { ctx: tap.ctx } : {}) };
-      const body = chooseBranch(a, scoped, doc, it);
+      const body = chooseBranch(a, scoped, doc, it, extra);
       if (!body) return;
-      runBody.current(body, tap, undefined, 0);
+      runBody.current(body, tap, extra, 0);
     },
     [doc],
   );
@@ -1017,7 +1106,20 @@ export function Preview({
   const pageTransport = typeof window !== "undefined" ? window.m3ePreviewTransport : undefined;
   const api = doc.api;
   const standIn = useMemo(() => fallbackTransport({ api }), [api]);
-  const answering: Transport | null = pageTransport ?? transport ?? mocks?.transport ?? (api?.endpoints?.length ? null : standIn);
+  const hasApi = !!api?.endpoints?.length || !!api?.channels?.length;
+  const answering: Transport | null = pageTransport ?? transport ?? (hasApi ? mocks?.transport : undefined) ?? (api?.endpoints?.length ? null : standIn);
+  /* The capabilities: what the preview is handed, else the mocks' (in the scenario on show), else the catalog's examples.
+     Another one is another session: what the one before answers late lands nowhere. */
+  const mockCapabilities = doc.mocks;
+  const ownCapabilities = doc.capabilities;
+  const standInCapabilities = useMemo(() => createMockCapabilities({ ...mockCapabilities, locale: mockCapabilities?.locale ?? lang }, ownCapabilities, { scenario: mockCapabilities?.scenario }), [mockCapabilities, ownCapabilities, lang]);
+  const capabilityHost: CapabilityHost = capabilities ?? mocks?.capabilities ?? standInCapabilities;
+  const capabilityRef = useRef(capabilityHost);
+  const capabilityEpoch = useRef(0);
+  if (capabilityRef.current !== capabilityHost) {
+    capabilityRef.current = capabilityHost;
+    capabilityEpoch.current++;
+  }
   const transportRef = useRef<Transport | null>(answering);
   transportRef.current = answering;
   const langRef = useRef(lang);
@@ -1204,6 +1306,9 @@ export function Preview({
 
   const onScreenPointerDown = (e: React.PointerEvent) => {
     if (peekRef.current || e.button !== 0) return;
+    /* a split view's divider is dragged, not swiped: the library takes the press (and marks it) where it lands near one */
+    const at = e.target as Element;
+    if (at.closest?.('[role="separator"]') || (e.nativeEvent.defaultPrevented && at.closest?.('[data-slot="resizable-panel-group"]'))) return;
     gesture.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, phase: "idle", size: frameW, last: 0, lastT: e.timeStamp, vel: 0, body: e.pointerType !== "mouse" && !!(e.target as Element).closest("[data-scroll-body]") };
     swiped.current = false;
   };
@@ -1317,7 +1422,7 @@ export function Preview({
     values,
     onValue: (id: string, v: number) => setValues((m) => ({ ...m, [id]: v })),
     opened: state.opened,
-    onField: (it: Item, value: VarValue) => setState(writeField(stateRef.current, it, value, doc)),
+    onField: (it: Item, value: FieldValue) => setState(writeField(stateRef.current, it, value, doc)),
     onCloseOverlay: (id: string) => setState(applyEffects(stateRef.current, [{ do: "close", part: id }], doc)),
     onScrim: () => setState(closeOpened(stateRef.current, doc)),
     onFiles: (it: Item, list: TransportFile[]) => {
@@ -1445,7 +1550,7 @@ export function Preview({
                   exit="exit"
                   style={{ position: "absolute", inset: 0 }}
                 >
-                  <Screen frame={current} groups={groups} {...screenProps} onAction={(a, it) => fire(a, it, { frame: current, params: top?.params })} widths={live.widths} {...dataHandlers(current, top?.params)} active={!overlayFrame} bound={boundFor(current)} />
+                  <Screen frame={current} groups={groups} {...screenProps} onAction={(a, it, extra) => fire(a, it, { frame: current, params: top?.params }, extra)} widths={live.widths} {...dataHandlers(current, top?.params)} active={!overlayFrame} bound={boundFor(current)} />
                 </motion.div>
               </AnimatePresence>
             </motion.div>
@@ -1460,7 +1565,7 @@ export function Preview({
                     animate="animate"
                     style={{ position: "relative", width: frameSizeOf(overlayFrame).w, height: frameSizeOf(overlayFrame).h, borderRadius: frameRadius(overlayFrame) / 2, overflow: "hidden", boxShadow: "0 12px 40px rgba(0,0,0,0.3)" }}
                   >
-                    <Screen frame={overlayFrame} groups={overlayLive.groups} {...screenProps} onAction={(a, it) => fire(a, it, { frame: overlayFrame, params: overlay.params })} widths={overlayLive.widths} {...dataHandlers(overlayFrame, overlay?.params)} bound={boundFor(overlayFrame)} />
+                    <Screen frame={overlayFrame} groups={overlayLive.groups} {...screenProps} onAction={(a, it, extra) => fire(a, it, { frame: overlayFrame, params: overlay.params }, extra)} widths={overlayLive.widths} {...dataHandlers(overlayFrame, overlay?.params)} bound={boundFor(overlayFrame)} />
                   </motion.div>
                 </motion.div>
               )}
@@ -1476,7 +1581,7 @@ export function Preview({
                   pointerEvents: "none",
                 }}
               >
-                <Screen {...screenProps} onAction={(a, it) => fire(a, it, { frame: peekFrame })} active={false} frame={peekFrame} groups={peekLive.groups} widths={peekLive.widths} bound={boundFor(peekFrame)} />
+                <Screen {...screenProps} onAction={(a, it, extra) => fire(a, it, { frame: peekFrame }, extra)} active={false} frame={peekFrame} groups={peekLive.groups} widths={peekLive.widths} bound={boundFor(peekFrame)} />
               </motion.div>
             )}
             <AnimatePresence>

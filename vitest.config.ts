@@ -10,6 +10,8 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, ".claude/**", "rn/**", "miniapp-kit/**"],
     // several tests draw every part, kit or template in every language; on a busy machine 5s is not enough for them
     testTimeout: 20_000,
+    // a file's setup (beforeAll) loads every part's modules once; with several suites sharing the machine 10s is not enough
+    hookTimeout: 60_000,
     // its ESM imports have no file extension, which Node cannot resolve; the bundler can
     server: { deps: { inline: [/material-color-utilities/] } },
   },

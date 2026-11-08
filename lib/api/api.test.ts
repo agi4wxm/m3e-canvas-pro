@@ -15,7 +15,7 @@ const base = (): ApiSpec => ({
 const errors = (api: ApiSpec) => apiProblems(api).filter((p) => p.level === "error").map((p) => `${p.at}: ${p.message}`);
 
 describe("loading an API section", () => {
-  it("keeps what has the model's shape, in its order, and drops what is unusable", () => {
+  it("keeps what has the model's shape, in its order, drops what is unusable and keeps what it does not know", () => {
     const api = cleanApi({
       info: { title: "T", version: 2 },
       models: [user, { name: "bad name", schema: {} }, { name: "User", schema: { type: "string" } }, { name: "NoSchema" }],
@@ -39,7 +39,9 @@ describe("loading an API section", () => {
     expect(api.channels![0].messages.map((m) => m.name)).toEqual(["m"]);
     expect(api.channels![0].operations).toEqual([]);
     expect(api.tags).toEqual([{ name: "A" }]);
-    expect("junk" in api).toBe(false);
+    /* a field this version does not know stays, after the ones it does */
+    expect((api as Record<string, unknown>).junk).toBe(1);
+    expect(Object.keys(api).at(-1)).toBe("junk");
     expect(cleanApi({})).toBeUndefined();
     expect(cleanApi("x")).toBeUndefined();
   });

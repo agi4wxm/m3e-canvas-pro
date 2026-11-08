@@ -1,13 +1,17 @@
 import { Lang, NAV_TABS, TAB_LABELS, getLang } from "./i18n";
 import { Contrast, schemeFromSeed } from "./color";
-import { partBySlug, reader } from "../parts/registry";
+import { holdsNow, partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
-import type { ListItem } from "../parts/types";
+import type { ListItem, TableData } from "../parts/types";
 import type { Motion, Transition } from "./screenMotion";
-import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleUX } from "./styles";
+import { STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, type VarType, type VarValue } from "./actions/model";
+import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleContext, type StyleUX } from "./styles";
 import type { ApiSpec } from "./api/types";
 import type { MockSpec } from "./mocks/types";
+import type { CapabilitySpec } from "./capabilities/types";
+import { fields, withUnknown } from "./keep";
+import { mapAction, mapBody, mapCondition, type RefMap } from "./refs";
 
 /* the API section's model (lib/api): data models, endpoints, auth, channels, servers */
 export type * from "./api/types";
@@ -496,19 +500,23 @@ export const DEFAULT_THEME: Theme = { dark: false, bothModes: false, contrast: "
 
 export const ICON_FAMILIES: IconFamily[] = ["rounded", "filled", "light", "sharp", "pixel", "sf", "fluentui", "codicon", "phosphor", "lucide", "remix", "ant", "tabler", "mingcute", "game", "emoji"];
 
-/** a stored theme with any missing or unknown field replaced by its default */
-export function normalizeTheme(t: Partial<Theme> | undefined): Theme {
+/** the fields a theme has */
+const THEME_FIELDS = fields("dark", "bothModes", "contrast", "shape", "font", "emphasized", "motion", "style", "ownColors", "recipes", "displayFont", "icons", "ux", "strict");
+
+/** A stored theme with any missing field, or one of a value it cannot take, replaced by its default. A field a theme
+ *  does not have (a newer version's) is kept as it came, after the others. */
+export function normalizeTheme(t: Partial<Theme> | undefined, styles?: StyleContext): Theme {
   if (!t) return DEFAULT_THEME;
-  const pack = styleOf(t.style);
+  const pack = styleOf(t.style, styles);
   /* a theme that only names a style (one written by hand, or by a model) gets what the style brings */
-  const d: Theme = pack ? { ...DEFAULT_THEME, ...stylePatch(t.style!) } : DEFAULT_THEME;
+  const d: Theme = pack ? { ...DEFAULT_THEME, ...stylePatch(t.style!, styles) } : DEFAULT_THEME;
   const strict = typeof t.strict === "boolean" ? t.strict : !!pack;
   /* held to a style, the theme has no say in what the style decides, whoever wrote it. Android's rules are Material's,
      and Material leaves the colors and how lively things are to the author */
   const held: Theme | null = !strict ? null : pack ? d : { ...DEFAULT_THEME, ...stylePatch("") };
   const recipes = held ? undefined : normalizeRecipes(t.recipes);
   const ux = held ? undefined : normalizeUx(t.ux);
-  return {
+  const built: Theme = {
     dark: typeof t.dark === "boolean" ? t.dark : d.dark,
     bothModes: typeof t.bothModes === "boolean" ? t.bothModes : d.bothModes,
     contrast: CONTRASTS.some((c) => c.key === t.contrast) ? (t.contrast as Contrast) : d.contrast,
@@ -524,6 +532,7 @@ export function normalizeTheme(t: Partial<Theme> | undefined): Theme {
     ...(held ? (held.displayFont ? { displayFont: held.displayFont } : {}) : FONTS.some((c) => c.key === t.displayFont) ? { displayFont: t.displayFont } : d.displayFont ? { displayFont: d.displayFont } : {}),
     ...(held ? (held.icons ? { icons: held.icons } : {}) : ICON_FAMILIES.includes(t.icons as IconFamily) ? { icons: t.icons } : d.icons ? { icons: d.icons } : {}),
   };
+  return withUnknown(t, built, THEME_FIELDS);
 }
 
 export const SHAPES: { key: ShapeScale; label: string; icon: string }[] = [
@@ -639,11 +648,11 @@ export const draftGradient = (p: Palette) =>
 /** The scheme the document renders with. Hand-written presets and the author's
  *  fine-tuned custom scheme are light and standard contrast; dark mode and the
  *  other contrast levels are generated from the same seed. */
-export function paletteOf(key: string, custom?: Palette | null, theme?: Theme): Palette {
-  const styled = stylePalette(theme);
+export function paletteOf(key: string, custom?: Palette | null, theme?: Theme, styles?: StyleContext): Palette {
+  const styled = stylePalette(theme, styles);
   if (styled) return styled;
   const base = (key === "custom" && custom) || PALETTES.find((p) => p.key === key) || PALETTES[0];
-  const fromStyle = styleSeed(theme);
+  const fromStyle = styleSeed(theme, styles);
   if (!theme || (!fromStyle && !theme.dark && theme.contrast === "standard")) return base;
   const seed = fromStyle ?? base.seed ?? base.primary;
   /* a preset's hue and chroma are deliberate (Mono is nearly grey), so they are kept as they are */
@@ -738,26 +747,9 @@ export type Item = {
   [railExpansionSide]?: "left" | "right";
 };
 
-/** target id that pops the preview stack instead of opening a frame */
-export const BACK_TARGET = "back";
-
-/** target id that opens a web page in the browser instead of a screen */
-export const LINK_TARGET = "link";
-
-/** target id of an action that goes nowhere and only runs its effects */
-export const STAY_TARGET = "none";
-
-/** the address a link action opens, once it is one a browser may follow; a bare host is read as https */
-export function linkUrlOf(a: ActionBody | undefined): string | null {
-  const raw = a?.url?.trim();
-  if (!raw) return null;
-  try {
-    const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
-    return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
-  } catch {
-    return null;
-  }
-}
+/* What a tap does is the interpreter's model (lib/actions/model.ts): the targets, the link a tap opens, and the types
+   below are its own, re-exported here under the names the document has always used. */
+export { BACK_TARGET, LINK_TARGET, STAY_TARGET, linkUrlOf } from "./actions/model";
 
 /** the host the small browser in the trigger tab shows */
 export function linkHostOf(a: Action | undefined): string | null {
@@ -790,33 +782,9 @@ export function transitionOf(m: Motion): Transition {
   return m.dir === "right" ? "slideLeft" : m.dir === "up" ? "slideUp" : m.dir === "down" ? "slideDown" : "slide";
 }
 
-/** what starts an interaction other than a tap: the pointer coming over the part, or time since its screen showed */
-export type Trigger = { on: "hover" } | { on: "delay"; ms: number };
+export type { Action, ActionBody, Trigger } from "./actions/model";
 
-/** what a tap does once it has been decided to do it: its effects in order, then where it goes */
-export type ActionBody = {
-  to: string;
-  transition: Transition;
-  /** the address a `LINK_TARGET` action opens */
-  url?: string;
-  effects?: Effect[];
-  /** the screen it goes to is laid over the one on show instead of taking its place; going back closes it */
-  overlay?: boolean;
-  /** a part (item id) the body of the screen on show scrolls to */
-  scrollTo?: string;
-  /** how the screen comes in, over `transition` where both are given */
-  motion?: Motion;
-  /** what the screen it opens is given, by its param names (`Frame.params`): each an expression read at the tap
-   *  (`{ productId: "item.id" }`); that screen reads them as `params.productId` */
-  params?: Record<string, string>;
-};
-/** A tap. Without `when` it always runs; with one it runs when that holds, and `else` runs when it
- *  does not. `trigger` starts it on something other than a tap. Printed code reads this too, so it stays plain data. */
-export type Action = ActionBody & { when?: Condition; else?: ActionBody; trigger?: Trigger };
-
-/** what a variable can hold */
-export type VarValue = string | number | boolean;
-export type VarType = "text" | "number" | "bool" | "color";
+export type { VarType, VarValue } from "./actions/model";
 /** `drives: "dark"` makes a bool variable the app's light/dark mode: true is dark. The preview and the exported app
  *  start it at the mode they open in, and setting or toggling it (an effect, a bound switch) switches the theme.
  *  A color variable holds a color reference (a role or a hex, as `ColorRef`). `value` is its value in the first mode
@@ -830,39 +798,7 @@ export type VarCollection = { id: string; name: string; modes: { id: string; nam
 /** the variable that is the app's dark mode, if one is */
 export const darkVarOf = (vars: DocVar[] | undefined): DocVar | undefined => (Array.isArray(vars) ? vars.find((v) => v.drives === "dark" && v.type === "bool") : undefined);
 
-/** a test on the preview's state: a variable against a value, a form field (by item id) that has something in it, or an
- *  expression (lib/bindings/expr.ts) that comes out truthy */
-export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string } | { expr: string };
-
-/** one step of a tap. `part` is an item id, the name that survives grouping and regrouping. */
-export type Effect =
-  | { do: "show" | "hide" | "toggle" | "open" | "close"; part: string }
-  /** `expr` (an expression, lib/bindings/expr.ts) is read when the tap runs, over `value` */
-  | { do: "setVar"; var: string; value: VarValue; expr?: string }
-  | { do: "toggleVar"; var: string }
-  /** a counter has to count: "set" alone can only ever land on one number */
-  | { do: "addVar"; var: string; by: number }
-  | { do: "setProp"; part: string; prop: string; value: VarValue }
-  /** `message` may hold `{{expressions}}` */
-  | { do: "snackbar"; message: string }
-  /** Calls an endpoint of the API (lib/bindings): `args` gives its parameters by name and, under any other name, fields
-   *  of the JSON body, each an expression; `body` an expression for the whole body. `then` runs when it answers 2XX,
-   *  with `response` (the body) and `status` to read; `catch` when it does not, with `error` (problem details). The
-   *  effects after it do not wait for it. `optimistic` changes a data source's list at once and puts it back if the
-   *  call fails: the tapped row taken out, or fields of it set. */
-  | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: ActionBody; catch?: ActionBody; optimistic?: Optimistic }
-  /** loads a data source of the screen on show again */
-  | { do: "refresh"; source: string }
-  /** loads the next page of a paged data source of the screen on show */
-  | { do: "loadMore"; source: string }
-  /** submits a form (`Group.form`): the one given by its group id, else the one the tapped part is in */
-  | { do: "submit"; form?: string }
-  /** ends the session: the token is forgotten (and the API's logout endpoint called, when it has one) */
-  | { do: "signOut" };
-
-/** What a call changes before it is answered: the tapped row taken out of a data source's list, or fields of it set
- *  (each an expression). Put back when the call fails. */
-export type Optimistic = { source: string; remove?: boolean; patch?: Record<string, string> };
+export type { Condition, Effect, Optimistic } from "./actions/model";
 
 /** the scope a part drawn by the bindings carries (runtime only) */
 export type ItemScope = { item?: unknown; index?: number; form?: string };
@@ -984,6 +920,44 @@ export function listRowsPatch(it: Item, key: string, rows: ListItem[], order: nu
     for (const [slot, action] of Object.entries(it.actions)) {
       const m = /^tab:(\d+)$/.exec(slot);
       const at = m ? to(Number(m[1])) : 0;
+      if (at >= 0) actions[m ? `tab:${at}` : slot] = action;
+    }
+    patch.actions = Object.keys(actions).length ? actions : undefined;
+  }
+  return patch;
+}
+
+/** The patch that gives a table prop new rows, its taps and its choice going with them as a list's do: a table is
+ *  edited as text, so a row is followed by its cells (the first unclaimed row of the same cells is the one it was). */
+export function tableRowsPatch(it: Item, key: string, table: TableData): Partial<Item> {
+  const patch: Partial<Item> = { props: { ...it.props, [key]: table } };
+  const def = partBySlug(it.component);
+  if (!def) return patch;
+  const was = reader(def, it.props).table(key).rows;
+  const used = new Set<number>();
+  const order = table.rows.map((row) => {
+    const at = was.findIndex((r, i) => !used.has(i) && r.length === row.length && r.every((c, j) => c === row[j]));
+    if (at >= 0) used.add(at);
+    return at;
+  });
+  if (order.every((o, i) => o === i) && was.length === table.rows.length) return patch;
+  /* the moves as a list's: the choice and the row taps of a part whose rows are this table's */
+  const rowsAreList = def.props.find((d) => d.kind === "table")?.key === key && !def.props.some((d) => d.kind === "list");
+  if (!rowsAreList) return patch;
+  const select = def.props.find((d) => d.key === def.selectKey);
+  if (select?.kind === "number") {
+    const sel = reader(def, it.props).n(select.key);
+    if (sel >= 0 && sel < was.length) {
+      const at = order.indexOf(sel);
+      const next = at >= 0 ? at : Math.min(sel, Math.max(0, table.rows.length - 1));
+      if (next !== sel) patch.props![select.key] = next;
+    }
+  }
+  if (it.actions && def.slots) {
+    const actions: NonNullable<Item["actions"]> = {};
+    for (const [slot, action] of Object.entries(it.actions)) {
+      const m = /^tab:(\d+)$/.exec(slot);
+      const at = m ? (Number(m[1]) >= was.length ? Number(m[1]) + table.rows.length - was.length : order.indexOf(Number(m[1]))) : 0;
       if (at >= 0) actions[m ? `tab:${at}` : slot] = action;
     }
     patch.actions = Object.keys(actions).length ? actions : undefined;
@@ -1258,27 +1232,33 @@ export function groupBounds(g: Group, widths: Record<string, number>) {
   return { l, t, r, b };
 }
 
-/** a tap's reach, for copies: what a copied part points at follows the copy when that was copied too */
+/** A tap's reach, for copies: what a copied part points at follows the copy when that was copied too. Every reference
+ *  a tap holds is followed (lib/refs.ts): the parts its effects and its condition name, the part it scrolls to, the
+ *  form it submits, in its `else`, in a call's `then` and `catch`, and in a form's own `then` and `catch`. */
 export function retarget(g: Group, ids: Map<string, string> | ((id: string) => string)): Group {
-  const part = typeof ids === "function" ? ids : (id: string) => ids.get(id) ?? id;
-  const when = (c: Condition | undefined): Condition | undefined => (c && "filled" in c ? { filled: part(c.filled) } : c);
-  const effects = (list: Effect[] | undefined) => list?.map((e) => ("part" in e ? { ...e, part: part(e.part) } : e));
-  const body = <T extends ActionBody>(a: T): T => ({ ...a, ...(a.effects ? { effects: effects(a.effects) } : {}) });
-  const action = (a: Action): Action => ({ ...body(a), ...(a.when ? { when: when(a.when) } : {}), ...(a.else ? { else: body(a.else) } : {}) });
+  const to = typeof ids === "function" ? ids : (id: string) => ids.get(id) ?? id;
+  const f: RefMap = { part: to, form: to };
+  const form = g.form && {
+    ...g.form,
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    ...(g.form.then ? { then: mapBody(g.form.then, f) } : {}),
+    ...(g.form.catch ? { catch: mapBody(g.form.catch, f) } : {}),
+  };
   return {
     ...g,
-    ...(g.showWhen ? { showWhen: when(g.showWhen) } : {}),
+    ...(g.showWhen ? { showWhen: mapCondition(g.showWhen, f) } : {}),
+    ...(form ? { form } : {}),
     items: g.items.map((it) => ({
       ...it,
-      ...(it.action ? { action: action(it.action) } : {}),
-      ...(it.actions ? { actions: Object.fromEntries(Object.entries(it.actions).map(([k, a]) => [k, action(a)])) } : {}),
+      ...(it.action ? { action: mapAction(it.action, f) } : {}),
+      ...(it.actions ? { actions: Object.fromEntries(Object.entries(it.actions).map(([k, a]) => [k, mapAction(a, f)])) } : {}),
     })),
   };
 }
 
 /** a part that can hold others, standing alone. An instance is drawn from its definition and holds
  *  nothing of the document's, though the item standing in for it is a container. */
-export const holdsParts = (g: Group) => !g.free && !g.instanceOf && g.items.length === 1 && !!partBySlug(g.items[0].component)?.holds;
+export const holdsParts = (g: Group) => !g.free && !g.instanceOf && g.items.length === 1 && holdsNow(partBySlug(g.items[0].component), g.items[0].props);
 
 /** The group an expanded id belongs to: `inst/g` to the instance `inst`, `inst/inner/g` to the nested
  *  `inst/inner`, and `host#2/g` (a repeated row) to the host. A plain id belongs to nobody. */
@@ -1413,6 +1393,9 @@ export type Group = {
   showWhen?: Condition;
   /** the tab of the dock it was dropped in */
   pane?: number;
+  /** One of the two panes of the split view its `inFlow` names (lib/split.ts): a box laid out by the split view, which
+   *  holds parts of its own. Both panes show at once; nothing hides one for the other, as a dock's tab (`pane`) does. */
+  splitPane?: "first" | "second";
   /** An instance of a reusable component (lib/instances.ts): the group is one unit on the canvas and
    *  `items` holds a single empty container standing in for it, so that moving, selecting and
    *  measuring it work as for any part. What it shows comes from the definition. */
@@ -1523,6 +1506,9 @@ export type Doc = {
   /** the mock library (lib/mocks, docs/模拟库.md): how the API is answered while the product is designed: seed and
    *  locale, hints and counts per model, pinned records, scenarios, files, realtime scripts, sign-in */
   mocks?: MockSpec;
+  /** the platform capabilities the product uses beyond those its designs invoke, and its own (lib/capabilities,
+   *  docs/平台能力.md); the standard ones are the catalog's */
+  capabilities?: CapabilitySpec;
 };
 
 export const defaultTabs = (): NavTab[] => NAV_TABS[getLang()].map((t) => ({ ...t }));
@@ -1539,8 +1525,8 @@ export function makeItem(slug?: string): Item {
 export const paletteIconOf = (it: Item) => partBySlug(it.component)?.icon ?? "widgets";
 
 /** the color a sketch's scheme is generated from: the custom scheme's seed, or the preset's color */
-export function seedOf(key: string, custom?: Palette | null, theme?: Theme): string {
-  const fromStyle = styleSeed(theme);
+export function seedOf(key: string, custom?: Palette | null, theme?: Theme, styles?: StyleContext): string {
+  const fromStyle = styleSeed(theme, styles);
   if (fromStyle) return fromStyle;
   const base = (key === "custom" && custom) || PALETTES.find((p) => p.key === key) || PALETTES[0];
   return base.seed ?? base.primary;

@@ -3,6 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/m3e/cn"
 
 import { Ripple } from "@/components/m3e/ripple"
+import { Spinner } from "@/components/m3e/spinner"
 
 /*
  * M3 Expressive button.
@@ -102,6 +103,8 @@ const buttonVariants = cva(
 type ButtonProps = ButtonPrimitive.Props &
   VariantProps<typeof buttonVariants> & {
     disableRipple?: boolean
+    /** what it started is under way: a spinner before what it shows, and it cannot be pressed again */
+    loading?: boolean
   }
 
 function Button({
@@ -111,6 +114,8 @@ function Button({
   shape = "round",
   width = "default",
   disableRipple,
+  loading,
+  disabled,
   children,
   ...props
 }: ButtonProps) {
@@ -120,10 +125,14 @@ function Button({
       data-button=""
       data-variant={variant}
       data-size={size}
+      data-loading={loading || undefined}
+      aria-busy={loading || undefined}
+      disabled={disabled || loading}
       className={cn(buttonVariants({ variant, size, shape, width, className }))}
       {...props}
     >
       <Ripple disabled={disableRipple || variant === "link"} />
+      {loading && <Spinner aria-hidden className="size-[1.125rem] text-current" />}
       {children}
     </ButtonPrimitive>
   )

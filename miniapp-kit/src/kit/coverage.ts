@@ -39,6 +39,8 @@ export const NATIVE = {
   "typing-indicator": "TypingIndicator",
   /* the plain container "add auto layout" makes, and the composites screens use most */
   container: "Container",
+  /* a split view: two panes and a divider a finger drags (split.tsx) */
+  "split-view": "SplitView",
   "app-bar": "AppBar",
   "mini-program-header": "MiniProgramHeader",
   "navigation-bar": "NavigationBar",
@@ -85,6 +87,7 @@ export const INPUT_PROPS: Record<string, string> = {
   slider: "value",
   select: "selected",
   "radio-group": "selected",
+  rating: "value",
   "file-upload": "value",
   "date-picker": "value",
   "time-picker": "value",

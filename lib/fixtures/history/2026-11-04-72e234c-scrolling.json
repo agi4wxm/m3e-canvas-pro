@@ -1,0 +1,106 @@
+{
+  "format": "m3e-project",
+  "version": 2,
+  "packs": {},
+  "document": {
+    "groups": [
+      {
+        "id": "top",
+        "x": 0,
+        "y": 0,
+        "axis": "x",
+        "items": [
+          {
+            "id": "top",
+            "kind": "topAppBar",
+            "label": "Title",
+            "icon": "menu",
+            "variant": "filled",
+            "icon2": "more_vert",
+            "size": 412
+          }
+        ]
+      },
+      {
+        "id": "body",
+        "x": 16,
+        "y": 1200,
+        "axis": "x",
+        "items": [
+          {
+            "id": "body",
+            "kind": "button",
+            "label": "Below the fold",
+            "icon": "add",
+            "variant": "filled"
+          }
+        ]
+      },
+      {
+        "id": "fab",
+        "x": 200,
+        "y": 1604,
+        "axis": "x",
+        "items": [
+          {
+            "id": "fab",
+            "kind": "extendedFab",
+            "label": "Create",
+            "icon": "add",
+            "variant": "tonal",
+            "collapseOnScroll": true
+          }
+        ]
+      },
+      {
+        "id": "nav",
+        "x": 0,
+        "y": 1680,
+        "axis": "x",
+        "items": [
+          {
+            "id": "nav",
+            "kind": "bottomNav",
+            "label": "",
+            "icon": null,
+            "variant": "filled",
+            "size": 412,
+            "tabs": [
+              {
+                "icon": "home",
+                "label": "Home"
+              },
+              {
+                "icon": "search",
+                "label": "Search"
+              },
+              {
+                "icon": "favorite",
+                "label": "Saved"
+              },
+              {
+                "icon": "settings",
+                "label": "Settings"
+              }
+            ],
+            "radiusTop": 0,
+            "radiusBottom": 0
+          }
+        ]
+      }
+    ],
+    "frames": [
+      {
+        "id": "long",
+        "name": "Long",
+        "x": 0,
+        "y": 0,
+        "length": 1784
+      }
+    ],
+    "paletteKey": "purple",
+    "frame": "phone",
+    "title": "Scrolling",
+    "brief": ""
+  }
+}

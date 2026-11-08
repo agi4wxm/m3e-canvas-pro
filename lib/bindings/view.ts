@@ -4,8 +4,10 @@
  * out and draws like any other (lib/interact.ts `liveGroups`), and the context expressions on them read. */
 
 import { partBySlug, reader } from "../../parts/registry";
+import { formStateProps } from "../../parts/fieldState";
 import { expandRepeats, measuresFor } from "../collections";
-import { INPUT_PROP } from "../interact";
+import { INPUT_PROP, type FieldValue } from "../interact";
+import { optionsOf } from "../partContract";
 import type { Doc, Frame, Group, Item, ItemScope, VarValue } from "../tokens";
 import type { TransportFile } from "../api/transport";
 import { endpointOf, formFields, type FieldSpec } from "./contract";
@@ -36,8 +38,27 @@ export function formsOf(groups: Group[]): Map<string, string> {
   return out;
 }
 
+/** a form's errors as a design reads them: `form.errors.email`, `form.errors["address.city"]` */
+const ERRORS_READ = /form\.errors(?:\.([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)|\[\s*["']([^"']+)["']\s*\])/g;
+
+/** The fields whose error a form's design shows by itself (a helper line bound to `form.errors.<field>`, as make_form
+ *  writes one), as `<form id>:<field>`: their inputs are not handed the message again, so a design that shows it once
+ *  still shows it once. */
+export function messagesShown(groups: Group[], owner: Map<string, string> = formsOf(groups)): Set<string> {
+  const out = new Set<string>();
+  for (const g of groups) {
+    const form = owner.get(g.id);
+    if (!form) continue;
+    for (const it of g.items) {
+      const read = [...Object.values(it.bind ?? {}), ...Object.values(it.props ?? {}).filter((v): v is string => typeof v === "string" && v.includes("{{"))];
+      for (const text of read) for (const m of String(text).matchAll(ERRORS_READ)) out.add(`${form}:${m[1] ?? m[2]}`);
+    }
+  }
+  return out;
+}
+
 /** what an input holds now, as its field's value: the words, the tick, the option chosen, the file */
-export function inputValue(it: Item, fields: Record<string, VarValue>, files?: Record<string, TransportFile[]>): unknown {
+export function inputValue(it: Item, fields: Record<string, FieldValue>, files?: Record<string, TransportFile[]>): unknown {
   if (it.component === "file-upload") {
     const f = files?.[it.id];
     return f?.length ? (f.length === 1 ? f[0] : f) : undefined;
@@ -47,17 +68,16 @@ export function inputValue(it: Item, fields: Record<string, VarValue>, files?: R
   const def = partBySlug(it.component);
   const d = def?.props.find((x) => x.key === key);
   const r = def ? reader(def, it.props) : undefined;
-  const raw = fields[it.id] !== undefined ? fields[it.id] : !r || !d ? undefined : d.kind === "bool" ? r.b(key) : d.kind === "number" ? r.n(key) : r.s(key);
-  if ((key === "selected" || it.component === "radio-group") && typeof raw === "number" && def) {
-    const rows = reader(def, it.props).list("items");
-    return raw >= 0 ? rows[raw]?.label : undefined;
-  }
+  const raw = fields[it.id] !== undefined ? fields[it.id] : !r || !d ? undefined : d.kind === "bool" ? r.b(key) : d.kind === "number" ? r.n(key) : d.kind === "list" ? r.list(key) : r.s(key);
+  /* a choice sends the words of what is picked, a list the words of its rows */
+  if (def?.input?.kind === "choice" && typeof raw === "number") return raw >= 0 ? optionsOf(it)[raw] : undefined;
+  if (Array.isArray(raw)) return raw.map((r) => r.label);
   return raw;
 }
 
 /** A form's inputs read: the body they make (each field as its schema's type has it, the form's `values` added), what
  *  the schema says is wrong with each, and whether a file is among them. */
-export function readForm(o: { form: Group; groups: Group[]; owner: Map<string, string>; doc: Pick<Doc, "api">; fields: Record<string, VarValue>; files?: Record<string, TransportFile[]>; scope: Scope; ctx: EvalContext }): { body: Record<string, unknown>; values: Record<string, unknown>; errors: Record<string, string>; files: boolean; specs: FieldSpec[] } {
+export function readForm(o: { form: Group; groups: Group[]; owner: Map<string, string>; doc: Pick<Doc, "api">; fields: Record<string, FieldValue>; files?: Record<string, TransportFile[]>; scope: Scope; ctx: EvalContext }): { body: Record<string, unknown>; values: Record<string, unknown>; errors: Record<string, string>; files: boolean; specs: FieldSpec[] } {
   const api = o.doc.api ?? {};
   const e = o.form.form ? endpointOf(api, o.form.form.operationId) : undefined;
   const specs = e ? formFields(api, e) : [];
@@ -92,26 +112,29 @@ export type BoundScreen = { groups: Group[]; ctx: BindingContext; widths: Widths
 export function boundScreen(o: {
   groups: Group[];
   frame: Frame;
-  doc: Pick<Doc, "api" | "vars" | "frames">;
+  doc: Pick<Doc, "api" | "vars" | "frames" | "collections">;
   state: BindingState;
   params?: Record<string, unknown>;
   vars: Record<string, VarValue>;
-  fields: Record<string, VarValue>;
+  fields: Record<string, FieldValue>;
   files?: Record<string, TransportFile[]>;
   widths: Widths;
   ctx: EvalContext;
 }): BoundScreen {
   const varNames = (o.doc.vars ?? []).map((v) => ({ id: v.id, name: v.name }));
-  const scope = screenScope({ frame: o.frame, state: o.state, params: o.params, vars: o.vars, varNames, now: o.ctx.now });
+  const scope = screenScope({ frame: o.frame, state: o.state, params: o.params, vars: o.vars, varNames, now: o.ctx.now, collections: o.doc.collections });
   const base: BindingContext = { scope, varNames, forms: {}, eval: o.ctx };
   if (!o.groups.some((g) => g.repeat || g.states || g.form || g.items.some((it) => it.bind || it.field)) && !o.frame.data?.length) return { groups: o.groups, ctx: base, widths: o.widths };
   /* the forms first: what is typed in them is read before the repeats copy anything */
   let owner = formsOf(o.groups);
   const forms: Record<string, FormView> = {};
+  /* the fields each form's contract requires: they show as required */
+  const required: Record<string, Set<string>> = {};
   for (const g of o.groups) {
     if (!g.form) continue;
     const read = readForm({ form: g, groups: o.groups, owner, doc: o.doc, fields: o.fields, files: o.files, scope: scopeFor(base, o.vars), ctx: o.ctx });
     forms[g.id] = formViewOf(read, o.state.forms[g.id]);
+    required[g.id] = new Set(read.specs.filter((s) => s.required).map((s) => s.name));
   }
   const ctx: BindingContext = { ...base, forms };
   /* the repeats over data, each element its copy's `item` */
@@ -124,6 +147,7 @@ export function boundScreen(o: {
   const widths = groups === o.groups ? o.widths : measuresFor(groups, o.widths);
   owner = groups === o.groups ? owner : formsOf(groups);
   const loads = new Map((o.frame.data ?? []).map((d) => [d.name, d.load]));
+  const shownApart = Object.keys(forms).length ? messagesShown(groups, owner) : new Set<string>();
   groups = groups.map((g) => {
     let out = g;
     /* a part in a form reads it as `form` */
@@ -132,9 +156,15 @@ export function boundScreen(o: {
       out = { ...out, items: out.items.map((it) => ({ ...it, scope: { ...it.scope, form: formId } })) };
       const view = forms[formId];
       out.items.forEach((it, i) => {
-        const def = partBySlug(it.component);
-        if (it.field && view.errors[it.field] && def?.props.some((d) => d.key === "error")) out = withProps(out, i, { error: true });
-        if (view.submitting && submits(it) && def?.props.some((d) => d.key === "disabled")) out = withProps(out, i, { disabled: true });
+        /* by the part's field states (parts/fieldState.ts): its error and message, required as the contract says, a
+           submit button held and loading while the form submits */
+        const message = it.field ? view.errors[it.field] : undefined;
+        const set = formStateProps<string | boolean>(partBySlug(it.component), {
+          ...(message ? { invalid: true, ...(shownApart.has(`${formId}:${it.field}`) ? {} : { message }) } : {}),
+          required: !!it.field && !!required[formId]?.has(it.field),
+          ...(view.submitting && submits(it) ? { submitting: true } : {}),
+        });
+        if (set.length) out = withProps(out, i, Object.fromEntries(set));
       });
     }
     /* a region shows the state its data is in */

@@ -1,5 +1,7 @@
 import { h, ic, listSlots, raw, wrap } from "../node";
 import type { P, PartDef, PropDef } from "../types";
+import { BUTTON_FIELD } from "../fieldState";
+import { ariaLabelProp, iconMeaning, nameFor } from "../a11y";
 
 const VARIANTS = ["filled", "tonal", "elevated", "outlined", "text"];
 /** the height of each named size, for a guess before the button is drawn */
@@ -12,9 +14,10 @@ const SIZES = [
   { value: "xl", label: "XL · 136" },
 ];
 
-/** the props a tappable "toggle" button carries: marked as a toggle, plus what it looks like on */
+/** the props a tappable "toggle" button carries: marked as a toggle, whether it starts on, plus what it looks like on */
 const TOGGLE_PROPS: PropDef[] = [
   { key: "toggle", label: "Toggle button", kind: "bool", default: false },
+  { key: "pressed", label: "Selected", labels: { ja: "選択中", zh: "已选中", ko: "선택됨" }, kind: "bool", default: false, when: (p: P) => p.b("toggle") },
   { key: "onIcon", label: "Icon when on", kind: "icon", default: "", when: (p: P) => p.b("toggle") },
   { key: "onLabel", label: "Label when on", kind: "text", default: "", when: (p: P) => p.b("toggle") },
 ];
@@ -38,7 +41,11 @@ const ON_LOOK: Record<string, string | undefined> = {
 /** the button part's tree: a `Button` normally, a `Toggle` when it flips on tap */
 function buttonTree(p: P) {
   const label = p.s("label");
+  const loading = p.b("loading");
+  /* loading, the button's own spinner stands where its icon was (before its words), and it cannot be pressed again; the
+     icon is only hidden, so the tree keeps its shape and printed code holds one button that loads */
   const icon = p.s("icon");
+  const lead = icon && ic(icon, loading ? { className: "hidden" } : undefined);
   const iconOnly = !label && !!icon;
   /* a model picker's chevron, an arrow after "Next": an icon after the words */
   const trailing = label ? p.s("trailingIcon") : "";
@@ -58,13 +65,15 @@ function buttonTree(p: P) {
         size: TOGGLE_SIZE[p.s("size")] ?? "sm",
         shape: p.s("shape") === "square" ? "square" : undefined,
         className: ON_LOOK[p.s("onLook")],
-        disabled: p.b("disabled") || undefined,
+        disabled: p.b("disabled") || loading || undefined,
+        "aria-busy": loading || undefined,
+        defaultPressed: p.b("pressed") || undefined,
         selectedIcon: onIcon ? ic(onIcon, { fill: "auto" }) : onLabel && icon ? ic(icon, { fill: "auto" }) : undefined,
         selectedLabel: onLabel || (onIcon && label ? label : undefined),
-        "aria-label": iconOnly && !onIcon ? icon : undefined,
+        "aria-label": iconOnly && !onIcon ? nameFor(p, iconMeaning(p, icon)) : undefined,
         ...width,
       },
-      icon && ic(icon, { fill: "auto" }),
+      icon && ic(icon, loading ? { fill: "auto", className: "hidden" } : { fill: "auto" }),
       label,
       trailing && ic(trailing, { fill: "auto", "data-icon": "inline-end" }),
     );
@@ -76,10 +85,12 @@ function buttonTree(p: P) {
       size: iconOnly ? `icon-${p.s("size")}` : p.s("size"),
       shape: p.s("shape") === "square" ? "square" : undefined,
       disabled: p.b("disabled") || undefined,
-      "aria-label": iconOnly ? icon : undefined,
+      loading: loading || undefined,
+      /* an icon is named by what it means ("Back"), never by its Material Symbols name */
+      "aria-label": iconOnly ? nameFor(p, iconMeaning(p, icon)) : undefined,
       ...width,
     },
-    icon && ic(icon),
+    lead,
     label,
     trailing && ic(trailing, { "data-icon": "inline-end" }),
   );
@@ -88,6 +99,7 @@ function buttonTree(p: P) {
 export const actions: PartDef[] = [
   {
     slug: "button",
+    field: BUTTON_FIELD,
     appearance: { radius: 20 },
     name: "Button",
     category: "Controls",
@@ -104,6 +116,7 @@ export const actions: PartDef[] = [
       { key: "width", label: "Width", kind: "number", default: 96, min: 48, max: 640, step: 4, unit: "px", when: (p) => !!p.s("label") },
       { key: "iconWidth", label: "Width", kind: "enum", default: "default", options: ["default", "narrow", "wide"], when: (p) => !p.s("label") && !!p.s("icon") },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
+      ariaLabelProp((p) => !p.s("label") && !!p.s("icon")),
       ...TOGGLE_PROPS,
       { key: "onLook", label: "Variant when on", labels: { ja: "オンのときのスタイル", zh: "开启时的样式", ko: "켜졌을 때 스타일" }, kind: "enum", default: "same", options: Object.keys(ON_LOOK), when: (p: P) => p.b("toggle") },
     ],
@@ -112,6 +125,8 @@ export const actions: PartDef[] = [
   },
   {
     slug: "fab",
+    /* it can be held, and wait on what it started, as a button can */
+    field: BUTTON_FIELD,
     appearance: { radius: 16 },
     name: "FAB",
     category: "Actions",
@@ -132,27 +147,40 @@ export const actions: PartDef[] = [
       },
       { key: "lowered", label: "Lowered", kind: "bool", default: false },
       { key: "collapsed", label: "Collapsed (extended)", kind: "bool", default: false, when: (p) => !!p.s("label") },
+      ariaLabelProp((p) => !p.s("label")),
       ...TOGGLE_PROPS,
     ],
     tree: (p) => {
       const color = p.s("color");
       const size = p.s("size");
       const label = p.s("label");
-      const common = { color: color === "primary-container" ? undefined : color, size: size === "default" ? undefined : size, lowered: p.b("lowered") || undefined };
+      const loading = p.b("loading");
+      const common = {
+        color: color === "primary-container" ? undefined : color,
+        size: size === "default" ? undefined : size,
+        lowered: p.b("lowered") || undefined,
+        /* loading, it cannot be pressed again, and a spinner stands where its icon was */
+        disabled: p.b("disabled") || loading || undefined,
+        "aria-busy": loading || undefined,
+      };
+      const glyph = (name: string) => (loading ? h("Spinner", { className: "size-6" }) : ic(name));
       /* a FAB that flips on tap keeps its look but swaps what it shows (add ↔ close,
        * play ↔ pause); the on-state fills its icon even when it stays the same */
       const toggle = p.b("toggle")
         ? {
             selectedIcon: p.s("onIcon") || p.s("icon") ? ic(p.s("onIcon") || p.s("icon"), { fill: "auto" }) : undefined,
             selectedLabel: p.s("onLabel") || label || undefined,
+            defaultSelected: p.b("pressed") || undefined,
           }
         : undefined;
-      if (label) return h("ExtendedFab", { ...common, collapsed: p.b("collapsed") || undefined, icon: p.s("icon") ? ic(p.s("icon")) : undefined, ...toggle }, label);
-      return h("Fab", { ...common, "aria-label": p.s("icon") || "Action", selectedIcon: toggle?.selectedIcon }, ic(p.s("icon") || "add"));
+      if (label) return h("ExtendedFab", { ...common, collapsed: p.b("collapsed") || undefined, icon: p.s("icon") || loading ? glyph(p.s("icon")) : undefined, ...toggle }, label);
+      return h("Fab", { ...common, "aria-label": nameFor(p, iconMeaning(p, p.s("icon") || "add")), selectedIcon: toggle?.selectedIcon, defaultSelected: toggle?.defaultSelected }, glyph(p.s("icon") || "add"));
     },
   },
   {
     slug: "chip",
+    /* a filter chip is a choice: it can be held */
+    field: { disabled: "disabled" },
     appearance: { target: ["Chip", "FilterChip", "InputChip"], radius: 8 },
     name: "Chip",
     category: "Controls",
@@ -176,7 +204,7 @@ export const actions: PartDef[] = [
       /* an input chip's remove button does nothing in the sketch; the code it prints
        *  calls the handler it is given a name for */
       const chip = (it: { label: string; icon?: string }, i: number) => {
-        const props = { variant, size, icon: it.icon || undefined, "data-tap": `tab:${i}` };
+        const props = { variant, size, icon: it.icon || undefined, disabled: p.b("disabled") || undefined, "data-tap": `tab:${i}` };
         if (p.s("kind") === "filter") return h("FilterChip", { ...props, defaultPressed: i === p.n("selected") || undefined }, it.label);
         if (p.s("kind") === "input") return h("InputChip", { ...props, onRemove: raw("() => {}") }, it.label);
         return h("Chip", props, it.label);
@@ -192,6 +220,7 @@ export const actions: PartDef[] = [
   },
   {
     slug: "toggle",
+    field: { disabled: "disabled" },
     appearance: { radius: 20 },
     name: "Toggle",
     category: "Controls",
@@ -206,6 +235,7 @@ export const actions: PartDef[] = [
       { key: "shape", label: "Shape", kind: "enum", default: "round", options: ["round", "square"] },
       { key: "pressed", label: "Selected", kind: "bool", default: false },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
+      ariaLabelProp((p) => !p.s("label")),
     ],
     tree: (p) => {
       const label = p.s("label");
@@ -218,7 +248,7 @@ export const actions: PartDef[] = [
           shape: p.s("shape") === "square" ? "square" : undefined,
           defaultPressed: p.b("pressed") || undefined,
           disabled: p.b("disabled") || undefined,
-          "aria-label": !label ? icon || "Toggle" : undefined,
+          "aria-label": !label ? nameFor(p, iconMeaning(p, icon), p.say("Toggle")) : undefined,
         },
         !!icon && ic(icon, { fill: "auto" }),
         label,
@@ -227,6 +257,8 @@ export const actions: PartDef[] = [
   },
   {
     slug: "toggle-group",
+    /* a choice of one or several: it can be held */
+    field: { disabled: "disabled" },
     appearance: { target: "ToggleGroupItem", radius: 20 },
     name: "Toggle group",
     category: "Actions",
@@ -254,14 +286,16 @@ export const actions: PartDef[] = [
           variant: p.s("variant") !== "default" ? p.s("variant") : p.b("connected") ? "filled" : undefined,
           size: p.s("size") === "default" ? undefined : p.s("size"),
           multiple: p.b("multiple") || undefined,
+          disabled: p.b("disabled") || undefined,
           defaultValue: items.length ? [value(items[Math.min(p.n("selected"), items.length - 1)], Math.min(p.n("selected"), items.length - 1))] : undefined,
         },
-        ...items.map((it, i) => h("ToggleGroupItem", { value: value(it, i), "aria-label": it.label ? undefined : it.icon || value(it, i), "data-tap": `tab:${i}` }, !!it.icon && ic(it.icon, { size: 20, fill: "auto" }), it.label)),
+        ...items.map((it, i) => h("ToggleGroupItem", { value: value(it, i), "aria-label": it.label ? undefined : iconMeaning(p, it.icon ?? "") || value(it, i), "data-tap": `tab:${i}` }, !!it.icon && ic(it.icon, { size: 20, fill: "auto" }), it.label)),
       );
     },
   },
   {
     slug: "button-group",
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     appearance: { target: "Button", radius: 20 },
     name: "Button group",
     category: "Actions",
@@ -305,7 +339,7 @@ export const actions: PartDef[] = [
               variant: it.variant || p.s("buttonVariant"),
               width: it.width || undefined,
               size: iconOnly ? `icon-${p.s("size")}` : p.s("size"),
-              "aria-label": iconOnly ? it.icon : undefined,
+              "aria-label": iconOnly ? iconMeaning(p, it.icon!) : undefined,
               "data-tap": `tab:${i}`,
             },
             !!it.icon && ic(it.icon),
@@ -360,6 +394,7 @@ export const actions: PartDef[] = [
   },
   {
     slug: "fab-menu",
+    overlay: true,
     appearance: { target: "FabMenuTrigger", radius: 16 },
     name: "FAB menu",
     category: "Actions",

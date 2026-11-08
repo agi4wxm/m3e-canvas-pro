@@ -5,9 +5,10 @@
 
 import { outline } from "../core/query";
 import { describeNode } from "../core/query";
+import { retiredParts } from "../retire";
 import { STRICT_LOOK_KEYS } from "../look";
 import { rulesForModel } from "../styleRules";
-import { isStrict, styleOf, withDocStyles } from "../styles";
+import { isStrict, styleContext, styleOf, withDocStyles } from "../styles";
 import type { Lang } from "../i18n";
 import type { Doc } from "../tokens";
 
@@ -45,6 +46,7 @@ export function agentSystem(o: SystemOptions): string {
     "- Write every word on the canvas in the language the context names, unless the author asks for another. Answer the author in the language they wrote in.",
     "- Selects, dropdown menus and date pickers are laid out at their closed size; on the canvas their open menu hangs over whatever is below them (the preview opens it on tap). That is how the canvas draws them: do not move, shrink or reorder parts to get out from under an open menu.",
     "- Prefer kits and composites to composing by hand, and icons (list_icons) to drawings. What the catalog has no kit for (a prompt box like Claude's or Codex's, a game HUD, a custom card), compose with add_tree: one nested tree of boxes (surface, layout row|column|grid, gap, padding, align, justify) and atoms, each with its props, colors and look, in one call. Save a composition worth reusing with make_component; its parts then live in the component's definition, not on the screen: change them with edit_component {id, ops} (every instance follows), and one instance's words with set_instance_props or set_overrides.",
+    "- You design what the user sees and what they ask for; the back end, the game or the platform decides what happens. Keep to the boundary in the guide below even when a request asks for a working payment, a prize draw or a claim: a button sends the request (a call, a form) and the screen shows the answer, the failure included; a variable never stands in for data, a random or a jump to a success screen never stands in for a result, and a platform capability is a capability call (invoke, with its catch designed) or a capability view, never faked. Say in your answer what the back end has to provide.",
     "- A dark-mode toggle: add_var {type: bool, drives: \"dark\"} makes the variable the app's dark mode; bind a switch's checked prop to it (bind_prop) or toggle it in a tap's effects. The preview and the exported app then switch light and dark.",
     "",
     "When the author attaches a picture to copy (a screenshot, a mock-up):",
@@ -71,7 +73,10 @@ const OUTLINE_BUDGET = 9000;
  *  what the style's rules leave to the model. */
 export function turnContext(o: { doc: Doc; widths: Record<string, number>; selection: string[]; frameId: string | null; lang: Lang }): string {
   const { doc, widths } = o;
-  return withDocStyles(doc.styles, () => {
+  /* read in this document's own styles; the outline reads them further down without being handed them, so they are
+     in reach for this one synchronous call too */
+  const styles = styleContext(doc.styles);
+  return withDocStyles(styles, () => {
     let text = outline(doc, widths, { props: "set" });
     for (const depth of [3, 2, 1]) {
       if (text.length <= OUTLINE_BUDGET) break;
@@ -82,19 +87,24 @@ export function turnContext(o: { doc: Doc; widths: Record<string, number>; selec
     if (cut) text = `${text.slice(0, OUTLINE_BUDGET)}\n…`;
     const shallow = text !== outline(doc, widths, { props: "set" });
     const theme = doc.theme;
-    const strict = !!theme && isStrict(theme);
-    const pack = theme ? styleOf(theme.style) : undefined;
+    const strict = !!theme && isStrict(theme, styles);
+    const pack = theme ? styleOf(theme.style, styles) : undefined;
     const sel = o.selection
       .map((id) => describeNode(doc, widths, id))
       .filter((d): d is NonNullable<typeof d> => !!d)
       .map((d) => `${d.id} (${d.slug}${d.name ? ` "${d.name}"` : ""}) on ${d.screen ? `${d.screen.id} "${d.screen.name}"` : "no screen"}`);
     const screen = o.frameId ? doc.frames.find((f) => f.id === o.frameId) : undefined;
+    /* an old design's retired parts: the model is told what they are before it touches one */
+    const retired = retiredParts(doc.groups);
     return [
       "<context>",
       `Language for words on the canvas: ${LANG_NAME[o.lang]}.`,
       sel.length ? `Selected: ${sel.join("; ")}.` : screen ? `Selected screen: ${screen.id} "${screen.name}".` : "Nothing is selected.",
+      ...(retired.length
+        ? [`Retired parts on the screens, drawn as before but no longer built with: ${retired.slice(0, 12).map((r) => `${r.item.id} (${r.def.slug})`).join(", ")}${retired.length > 12 ? ` and ${retired.length - 12} more` : ""}. Before changing one, split_retired turns them into atoms (a resizable into a split view).`]
+        : []),
       strict
-        ? `The document is held to its style's rules.\n${rulesForModel(theme!)}\nSo of a part's look only ${STRICT_LOOK_KEYS.join(", ")} survive; corners and a button's shape are the style's.`
+        ? `The document is held to its style's rules.\n${rulesForModel(theme!, styles)}\nSo of a part's look only ${STRICT_LOOK_KEYS.join(", ")} survive; corners and a button's shape are the style's.`
         : `The document wears ${pack ? `the ${pack.name.en} style` : "Material 3"} but is not held to its rules: colors, corners, shapes and every look field are yours to set where they help (look_reference lists them).`,
       "",
       `Outline${shallow ? " (shortened: get_outline {screen} shows a screen in full)" : ""}:`,

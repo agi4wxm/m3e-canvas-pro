@@ -203,7 +203,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     /* the media runs to the card's edges; with no picture of its own it is the part's gradient with its icon */
     const media = (w: number | undefined, h: number): Node =>
       p.s("image")
-        ? image({ src: p.s("image"), height: h, radius: 0, ...(w ? { width: w } : {}) })
+        ? image({ src: p.s("image"), ...(p.s("alt") ? { alt: p.s("alt") } : {}), height: h, radius: 0, ...(w ? { width: w } : {}) })
         : box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, hugWidth: false, hugHeight: false, width: w ?? width, height: h }, [icon(p.s("imageIcon") || "image", { size: 34 })], {
             fill: "primaryContainer",
             textColor: "onPrimaryContainer",
@@ -237,6 +237,25 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       hbox({ gap: 12, align: "start" }, some(p.s("icon") && box({ surface: "button", layout: "row", align: "center", justify: "center", padX: 10, padY: 10 }, [icon(p.s("icon"), { size: 20, color: "on-primary" })], { fill: "primaryContainer", corners: round(20) }), para(p.s("text"), "body", {}, { grow: true }), p.b("closable") && iconButton("close", p.say("Close"), { variant: "ghost", size: "sm" }))),
       ...some((p.s("action") || p.s("secondary")) && hbox({ justify: "end", gap: 8 }, some(p.s("secondary") && button(p.s("secondary"), { variant: "text", size: "xs" }), p.s("action") && button(p.s("action"), { variant: "tonal", size: "xs" })))),
     ]),
+
+  "side-tabs": (p) =>
+    vbox(
+      { surface: "panel", width: px(p), hugWidth: false, padX: 4, padY: 4, gap: 4 },
+      p.list("items").map((t, i) => (i === Math.round(p.n("selected")) ? hbox({ padX: 12, padY: 8, hugWidth: false, width: px(p) - 8 }, [para(t.label, "label", { maxLines: 1 })], { fill: "secondaryContainer", corners: round(8) }) : hbox({ padX: 12, padY: 8, hugWidth: false, width: px(p) - 8 }, [para(t.label, "label", { color: "muted", maxLines: 1 })], { corners: round(8) }))),
+      { fill: "surfaceContainer", corners: round(12) },
+    ),
+
+  "function-button": (p) => {
+    const size = Math.round(p.n("size"));
+    const seconds = Math.round(p.n("timer")) * ({ second: 1, minute: 60, hour: 3600 }[p.s("unit")] ?? 60);
+    const two = (n: number) => String(n).padStart(2, "0");
+    const clock = seconds >= 3600 ? `${two(Math.floor(seconds / 3600))}:${two(Math.floor(seconds / 60) % 60)}:${two(seconds % 60)}` : `${two(Math.floor(seconds / 60))}:${two(seconds % 60)}`;
+    return vbox({ gap: 2, align: "center", width: size + 24, hugWidth: false }, [
+      box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: size, height: size, hugWidth: false, hugHeight: false }, some(p.s("icon") && icon(p.s("icon"), { size: 24 })), { fill: "secondaryContainer", corners: round(size / 2) }),
+      para(p.s("label"), "tiny", { align: "center", maxLines: 1, width: size + 24 }),
+      ...some(seconds > 0 && text(clock, "tiny", { color: "muted" })),
+    ]);
+  },
 
   "notice-bar": (p) =>
     hbox(
@@ -462,6 +481,8 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
           ),
         ),
       ],
+      /* the part's own padding and gap (p-2, gap-1) */
+      8,
       4,
     );
   },
@@ -494,7 +515,8 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const kids: Node[] = some(p.s("search") && hbox({ padX: 4, padY: 4 }, [atom("input", { placeholder: p.s("search"), type: "search", variant: "outlined", size: "sm" }, { grow: true })]));
     ordered.forEach((c, k) => {
       const letter = initialsOf(c.name).slice(0, 1);
-      if (grouped && (k === 0 || initialsOf(ordered[k - 1].name).slice(0, 1) !== letter)) kids.push(hbox({ padX: 8, padY: 4 }, [text(letter, "caption", { color: "muted" })]));
+      /* a letter stands close over its first row, as the part draws it (pt-2 pb-1, less the gap the column puts between) */
+      if (grouped && (k === 0 || initialsOf(ordered[k - 1].name).slice(0, 1) !== letter)) kids.push(hbox({ padX: 8, padTop: 8, padBottom: 2 }, [text(letter, "caption", { color: "muted" })]));
       kids.push(hbox({ padX: 8, padY: 8, gap: 12 }, some(avatar(initialsOf(c.name)), vbox({ gap: 0, hugWidth: false, width: 160 }, some(para(c.name, "lead", { maxLines: 1 }), c.note && para(c.note, "caption", { color: "muted", maxLines: 1 })), { grow: true }), end && { ...end })));
     });
     return listPanel(px(p), kids);
@@ -525,9 +547,9 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     return listPanel(
       px(p),
       [
-        ...some(filters.length > 0 && hbox({ padX: 4, padY: 4, gap: 8, wrap: true }, filters.map((f, i) => atom("chip", { items: [{ label: f.label }], kind: "filter", selected: i === 0 ? 0 : -1 })))),
-        ...p.table("data").rows.map(([name = "", detail = "", sum = ""]) => {
-          const income = amount(sum) > 0;
+        ...some(filters.length > 0 && hbox({ padX: 4, padY: 4, gap: 8, wrap: true }, filters.map((f, i) => atom("chip", { items: [{ label: f.label }], kind: "filter", selected: i === Math.round(p.n("filter")) ? 0 : -1 })))),
+        ...p.table("data").rows.map(([name = "", detail = "", sum = "", way = ""]) => {
+          const income = way.trim() ? ["in", "income"].includes(way.trim().toLowerCase()) : amount(sum) > 0;
           return hbox({ padX: 8, padY: 8, gap: 12 }, [
             box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 40, height: 40, hugWidth: false, hugHeight: false }, [icon(income ? "south_west" : "north_east", { size: 20, color: income ? "default" : "muted" })], { fill: income ? "primaryContainer" : "surfaceContainerHigh", corners: round(20) }),
             vbox({ gap: 0, hugWidth: false, width: 160 }, some(para(name, "lead", { maxLines: 1 }), detail && para(detail, "caption", { color: "muted", maxLines: 1 })), { grow: true }),
@@ -594,7 +616,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       ...some(p.s("subtitle") && para(p.s("subtitle"), "caption", { color: "muted", maxLines: 1 })),
       ...some(p.n("rating") > 0 && hbox({ gap: 2 }, [icon("star", { size: 16, filled: true, color: "tertiary" }), text(p.n("rating").toFixed(1), "caption")])),
       hbox({ gap: 4 }, some(text(p.s("price"), "heading", { color: "primary" }), p.s("original") && text(p.s("original"), "caption", { color: "muted" }, { look: { text: { decoration: "line-through" } } }), spacer(), iconButton("favorite", "Favorite", { size: "sm", iconFill: p.b("liked") }))),
-      ...some(p.s("action") && button(p.s("action"), { variant: "filled", size: "xs" })),
+      ...some(p.s("action") && button(p.n("added") > 0 ? `${p.s("done") || p.s("action")} · ${Math.round(p.n("added"))}` : p.s("action"), { variant: p.n("added") > 0 ? "tonal" : "filled", size: "xs" })),
     ], across ? { grow: true } : {});
     return across
       ? hbox({ width: px(p), hugWidth: false, padX: 0, padY: 0, gap: 0, align: "start" }, [image({ src: p.s("image"), width: 112, height: 160, radius: 0 }), body], { fill: "surfaceContainerLow", corners: round(16) })
@@ -620,7 +642,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
       [
         vbox({ width: 104, hugWidth: false, padX: 8, padY: 8, gap: 2, align: "center", justify: "center" }, some(text(p.s("amount"), "headline"), p.s("condition") && text(p.s("condition"), "tiny", { color: "muted" }))),
         rule(96, true, "primary"),
-        hbox({ padX: 12, padY: 12, gap: 8, hugWidth: false, width: 120 }, some(vbox({ gap: 0, hugWidth: false, width: 100 }, some(para(p.s("title"), "subtitle", { maxLines: 2 }), p.s("expiry") && para(p.s("expiry"), "caption", { color: "muted", maxLines: 1 })), { grow: true }), p.s("action") && button(p.s("action"), { variant: "filled", size: "xs" })), { grow: true }),
+        hbox({ padX: 12, padY: 12, gap: 8, hugWidth: false, width: 120 }, some(vbox({ gap: 0, hugWidth: false, width: 100 }, some(para(p.s("title"), "subtitle", { maxLines: 2 }), p.s("expiry") && para(p.s("expiry"), "caption", { color: "muted", maxLines: 1 })), { grow: true }), p.s("action") && button(p.b("claimed") ? p.s("done") || p.s("action") : p.s("action"), { variant: p.b("claimed") ? "tonal" : "filled", size: "xs" })), { grow: true }),
       ],
       { fill: "primaryContainer", corners: round(12) },
     ),
@@ -657,7 +679,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
           vbox({ gap: 4, align: "center", padY: 6 }, [box({ layout: "row", padX: 0, padY: 0, width: 10, height: 10, hugWidth: false, hugHeight: false }, [], { corners: round(5), look: { stroke: { width: 2, color: "primary" } } }), box({ layout: "row", padX: 0, padY: 0, width: 2, height: 40, hugWidth: false, hugHeight: false }, [], { fill: "surfaceContainerHighest" }), atom("dot", { color: "primary", size: 10 })]),
           vbox({ gap: 8, hugWidth: false, width: 160 }, some(para(p.s("from"), "lead", { maxLines: 1 }), p.s("duration") && hbox({ gap: 4 }, some(p.s("icon") && icon(p.s("icon"), { size: 16, color: "muted" }), text(p.s("duration"), "caption", { color: "muted" }))), para(p.s("to"), "lead", { maxLines: 1 })), { grow: true }),
         ]),
-        hbox({ gap: 8 }, some(vbox({ gap: 0, hugWidth: false, width: 160 }, some(p.s("price") && text(p.s("price"), "heading", { color: "primary" }), p.s("note") && para(p.s("note"), "caption", { color: "muted", maxLines: 1 })), { grow: true }), p.s("action") && button(p.s("action"), { variant: "filled", size: "sm" }))),
+        hbox({ gap: 8 }, some(vbox({ gap: 0, hugWidth: false, width: 160 }, some(p.s("price") && text(p.s("price"), "heading", { color: "primary" }), p.s("note") && para(p.s("note"), "caption", { color: "muted", maxLines: 1 })), { grow: true }), p.s("action") && button(p.b("booked") ? p.s("done") || p.s("action") : p.s("action"), { variant: p.b("booked") ? "tonal" : "filled", size: "sm" }))),
       ],
       16,
       12,
@@ -687,7 +709,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
           vbox({ gap: 0, align: "center" }, [text(p.s("score"), "display"), hbox({ gap: 0 }, Array.from({ length: 5 }, (_, i) => icon("star", { size: 16, color: i < stars ? "tertiary" : "outline" }))), text(p.s("count"), "tiny", { color: "muted" })]),
           vbox({ gap: 4, hugWidth: false, width: 160 }, values.map((v, i) => hbox({ gap: 8 }, [text(String(values.length - i), "tiny", { color: "muted" }), atom("progress", { value: Math.round((v / most) * 100), thickness: 8 }, { grow: true })])), { grow: true }),
         ]),
-        ...some(p.list("tags").length > 0 && hbox({ gap: 8, wrap: true }, p.list("tags").map((t) => hbox({ surface: "chip", padX: 12, padY: 4 }, [text(t.label, "label", { color: "muted" })], { corners: round(8) })))),
+        ...some(p.list("tags").length > 0 && hbox({ gap: 8, wrap: true }, p.list("tags").map((t, i) => (i === Math.round(p.n("selected")) ? hbox({ padX: 12, padY: 4 }, [text(t.label, "label")], { fill: "secondaryContainer", corners: round(8) }) : hbox({ surface: "chip", padX: 12, padY: 4 }, [text(t.label, "label", { color: "muted" })], { corners: round(8) }))))),
         ...some(p.s("action") && button(p.s("action"), { variant: "tonal" })),
       ],
       16,
@@ -718,14 +740,14 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     ),
 
   "post-card": (p) => {
-    const tally = (glyph: string, count: number) => hbox({ padX: 8, padY: 4, gap: 4 }, [icon(glyph, { size: 20 }), text(String(Math.round(count)), "caption")]);
+    const tally = (glyph: string, count: number, on = false) => hbox({ padX: 8, padY: 4, gap: 4 }, [icon(glyph, { size: 20, ...(on ? { filled: true, color: "error" } : {}) }), text(String(Math.round(count)), "caption", on ? { color: "error" } : {})]);
     return listPanel(
       px(p),
       [
         hbox({ gap: 12 }, [avatar(initialsOf(p.s("author"))), vbox({ gap: 0 }, some(text(p.s("author"), "subtitle"), p.s("time") && text(p.s("time"), "caption", { color: "muted" })))]),
         ...some(p.s("text") && para(p.s("text"), "body")),
         ...some(p.b("showImage") && image({ src: p.s("image"), height: 176 })),
-        hbox({ gap: 4 }, [tally("favorite", p.n("likes")), tally("chat_bubble", p.n("comments")), tally("share", p.n("shares")), spacer(), iconButton("bookmark", "Save", { size: "sm" })]),
+        hbox({ gap: 4 }, [tally("favorite", p.n("likes"), p.b("liked")), tally("chat_bubble", p.n("comments")), tally("share", p.n("shares")), spacer(), iconButton("bookmark", "Save", { size: "sm", iconFill: p.b("saved") })]),
       ],
       16,
       12,
@@ -763,18 +785,19 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
   "item-cell": (p) => {
     const size = Math.round(p.n("size"));
     return vbox({ gap: 2, align: "center", width: size, hugWidth: false }, [
-      box({ surface: "chip", layout: "column", align: "center", justify: "center", gap: 0, padX: 0, padY: 0, width: size, height: size, hugWidth: false, hugHeight: false }, some(p.s("rarity") && atom("badge", { kind: "label", label: p.s("rarity"), variant: "default" }), p.s("icon") && icon(p.s("icon"), { size: 28 }), p.s("count") && text(p.s("count"), "tiny"), p.s("badge") && atom("badge", { kind: "label", label: p.s("badge"), variant: "destructive" })), { fill: "surfaceContainerHigh", corners: round(8) }),
+      box({ surface: "chip", layout: "column", align: "center", justify: "center", gap: 0, padX: 0, padY: 0, width: size, height: size, hugWidth: false, hugHeight: false }, some(p.s("rarity") && atom("badge", { kind: "label", label: p.s("rarity"), variant: "default" }), p.s("icon") && icon(p.s("icon"), { size: 28 }), p.s("count") && text(p.s("count"), "tiny"), p.s("badge") && atom("badge", { kind: "label", label: p.s("badge"), variant: "destructive" })), { fill: "surfaceContainerHigh", corners: round(8), ...(p.b("selected") ? { look: { stroke: { width: 2, color: "primary" } } } : {}) }),
       ...some(p.s("name") && para(p.s("name"), "tiny", { color: "muted", align: "center", maxLines: 1, width: size })),
     ]);
   },
 
   "reward-track": (p) => {
-    const rows = p.table("data").rows.map((r) => ({ at: Number(r[0]) || 0, label: r[1] ?? "", glyph: r[2] ?? "" }));
+    const claimed = new Set(p.s("claimed").split(/[\s,，]+/).map((x) => Number(x) - 1));
+    const rows = p.table("data").rows.map((r, i) => ({ at: Number(r[0]) || 0, label: r[1] ?? "", glyph: claimed.has(i) ? "check" : (r[2] ?? ""), claimed: claimed.has(i) }));
     const value = Math.round(p.n("value"));
     const share = Math.min(100, Math.max(0, (value / Math.max(1, p.n("max"))) * 100));
     return vbox({ width: px(p), hugWidth: false, gap: 8 }, [
       hbox({ gap: 8, align: "start" }, rows.map((r) => {
-        const ready = value >= r.at;
+        const ready = value >= r.at && !r.claimed;
         return vbox({ gap: 2, align: "center", padX: 8, padY: 8, hugWidth: false, width: 60 }, some(r.glyph && icon(r.glyph, { size: 20 }), text(r.label, "tiny", { color: ready ? "default" : "muted" }), ready && p.s("action") && text(p.s("action"), "tiny")), { grow: true, fill: ready ? "primaryContainer" : "surfaceContainer", corners: round(8) });
       })),
       atom("progress", { value: Math.round(share), thickness: 6 }),
@@ -784,6 +807,7 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
 
   "check-in": (p) => {
     const signed = Math.round(p.n("signed"));
+    const today = p.n("today") > 0 ? Math.round(p.n("today")) - 1 : signed;
     const days = Math.round(p.n("days"));
     const cell = Math.max(24, Math.floor((px(p) - 24 - 24) / 7));
     return listPanel(
@@ -793,9 +817,9 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
         box(
           { layout: "grid", columns: 7, gap: 4, padX: 0, padY: 0, align: "stretch" },
           Array.from({ length: days }, (_, i) =>
-            box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: cell, height: cell, hugWidth: false, hugHeight: false }, [i < signed ? icon("check", { size: 16, color: "on-primary" }) : text(String(i + 1), "tiny", { color: i === signed ? "primary" : "muted" })], {
+            box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: cell, height: cell, hugWidth: false, hugHeight: false }, [i < signed ? icon("check", { size: 16, color: "on-primary" }) : text(String(i + 1), "tiny", { color: i === today ? "primary" : "muted" })], {
               corners: round(cell / 2),
-              ...(i < signed ? { fill: "primary" as const } : i === signed ? { look: { stroke: { width: 2, color: "primary" } } } : {}),
+              ...(i < signed ? { fill: "primary" as const } : i === today ? { look: { stroke: { width: 2, color: "primary" } } } : {}),
             }),
           ),
         ),
@@ -854,12 +878,13 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
 
   "dialogue-box": (p) => {
     const lines = p.list("lines");
-    const last = lines.length <= 1;
+    const at = Math.min(Math.max(0, Math.round(p.n("line"))), Math.max(0, lines.length - 1));
+    const last = at >= lines.length - 1;
     return vbox(
       { surface: "chip", width: px(p), hugWidth: false, padX: 12, padY: 12, gap: 8 },
       [
         hbox({ gap: 8 }, [box({ layout: "row", align: "center", justify: "center", padX: 0, padY: 0, width: 40, height: 40, hugWidth: false, hugHeight: false }, [p.s("image") ? image({ src: p.s("image"), width: 40, height: 40, radius: 20 }) : icon(p.s("icon") || "person")], { fill: "primaryContainer", corners: round(20) }), para(p.s("speaker"), "subtitle", { color: "primary", maxLines: 1 }, { grow: true })]),
-        vbox({ padX: 4, padY: 4, gap: 0, height: 64, hugHeight: false }, [para(lines[0]?.label ?? "", "lead")]),
+        vbox({ padX: 4, padY: 4, gap: 0, height: 64, hugHeight: false }, [para(lines[at]?.label ?? "", "lead")]),
         ...(last && p.list("choices").length ? [vbox({ gap: 4 }, p.list("choices").map((c) => button(c.label, { variant: "tonal" })))] : some(p.s("next") && hbox({ justify: "end", gap: 4 }, [text(p.s("next"), "tiny", { color: "muted" }), icon("keyboard_arrow_down", { size: 16, color: "muted" })]))),
       ],
       { fill: "surfaceContainerHigh", corners: round(16) },
@@ -898,6 +923,26 @@ export const SPLIT_TAPS: Record<string, SplitTaps> = {
     /* what is typed, and what stands there before, are the entry's */
     binds: (_p, t) => ({ value: entryOf(t, "value"), placeholder: entryOf(t, "placeholder") }),
   },
+  breadcrumb: {
+    /* each crumb's words, past the separators between them (and the ellipsis a collapsed trail puts after the first) */
+    slots: (p, t) => {
+      const n = p.list("items").length;
+      const collapsed = p.b("collapse") && n > 3;
+      const kids = t.kids ?? [];
+      const out: Record<string, Node | undefined> = {};
+      let at = 0;
+      Array.from({ length: n }, (_, i) => i)
+        .filter((i) => !collapsed || i === 0 || i >= n - 2)
+        .forEach((i, shown) => {
+          if (shown > 0) at++;
+          out[`tab:${i}`] = kids[at++];
+          if (collapsed && i === 0) at += 2;
+        });
+      return out;
+    },
+  },
+  /* its actions, under its header and between the lines that part them; its cancel is its own button */
+  "action-sheet": { slots: (_p, t) => tabs((t.kids?.[0]?.kids ?? []).slice(1).filter((k) => (k.kids?.length ?? 0) > 0)) },
   "app-bar": {
     /* its buttons, in order: what leads (an iPhone's says where it goes), then what trails */
     slots: (p, t) => {
@@ -919,8 +964,31 @@ export const SPLIT_TAPS: Record<string, SplitTaps> = {
   tabs: { slots: (p, t) => tabs(p.s("variant") === "segmented" ? t.kids : t.kids?.[0]?.kids) },
   toolbar: { slots: (_p, t) => tabs(t.kids) },
   /* only the first notice is split out */
-  "notice-bar": { slots: (_p, t) => ({ "tab:0": firstOf(t, "text") }) },
+  "notice-bar": { slots: (_p, t) => ({ "tab:0": firstOf(t, "text"), close: firstOf(t, "icon-button") }) },
+  banner: { slots: (_p, t) => ({ close: firstOf(t, "icon-button") }) },
+  /* the button says what it did once it is claimed or booked */
+  coupon: { slots: (_p, t) => ({ action: firstOf(t, "button") }) },
+  "route-card": { slots: (_p, t) => ({ action: firstOf(t, "button") }) },
+  "side-tabs": { slots: (_p, t) => tabs(t.kids) },
+  "reward-track": { slots: (_p, t) => tabs(t.kids?.[0]?.kids) },
+  "check-in": {
+    slots: (p, t) => {
+      const today = p.n("today") > 0 ? Math.round(p.n("today")) - 1 : Math.round(p.n("signed"));
+      return { today: t.kids?.[p.s("title") ? 1 : 0]?.kids?.[today] };
+    },
+  },
+  "dialogue-box": { slots: (_p, t) => ({ next: t.kids?.[1] }) },
+  "review-summary": { slots: (p, t) => ({ ...tabs(p.list("tags").length ? t.kids?.[1]?.kids : []), ...(p.s("action") ? { action: firstOf(t, "button") } : {}) }) },
   "checkout-bar": { slots: (p, t) => tabs((t.kids ?? []).slice(0, p.list("icons").length)) },
+  /* the plans after the title (and the words under it), then the button */
+  subscription: {
+    slots: (p, t) => {
+      const kids = t.kids ?? [];
+      const first = p.s("description") ? 2 : 1;
+      const n = p.list("plans").length;
+      return { ...tabs(kids.slice(first, first + n)), ...(p.s("action") ? { action: firstOf(t, "button") } : {}) };
+    },
+  },
   "balance-card": { slots: (p, t) => tabs(p.list("actions").length ? t.kids?.[2]?.kids : []) },
   "profile-header": {
     slots: (p, t) => {
@@ -931,10 +999,10 @@ export const SPLIT_TAPS: Record<string, SplitTaps> = {
   "post-card": {
     slots: (_p, t) => {
       const tallies = t.kids?.[(t.kids?.length ?? 1) - 1]?.kids;
-      return { author: t.kids?.[0], comment: tallies?.[1], share: tallies?.[2] };
+      return { author: t.kids?.[0], like: tallies?.[0], comment: tallies?.[1], share: tallies?.[2], save: tallies?.[4] };
     },
   },
-  "product-card": { slots: (_p, t) => ({ open: firstOf(t, "image") }) },
+  "product-card": { slots: (_p, t) => ({ open: firstOf(t, "image"), like: firstOf(t, "icon-button") }) },
   "settings-group": { slots: (p, t) => tabs(rowsAfter(t, p.s("title"))) },
   "notification-list": { slots: (p, t) => tabs(rowsAfter(t, p.s("title") || p.s("markAll"))) },
   "conversation-list": { slots: (_p, t) => tabs(t.kids) },
@@ -976,7 +1044,7 @@ function amount(s: string): number {
 }
 
 /** one or two letters that stand for a name */
-function initialsOf(name: string): string {
+export function initialsOf(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length > 1) return `${Array.from(words[0])[0]}${Array.from(words[1])[0]}`.toUpperCase();
   return (Array.from(words[0] ?? "?")[0] ?? "?").toUpperCase();

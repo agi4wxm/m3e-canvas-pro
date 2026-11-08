@@ -1,5 +1,6 @@
 import { h, type PNode } from "../node";
 import type { P, PartDef, TableData } from "../types";
+import { alignOf, columnsOf, formatCell } from "../tables";
 
 /* The dashboard parts, after Skufu/m3e-canvas feat/dashboard-kit (MIT), and the chart kinds, after
  * greycode/m3e-canvas (MIT). Every part draws the author's own rows, with the shadcn M3E Table and
@@ -257,15 +258,22 @@ export const data: PartDef[] = [
     h: 200,
     props: [
       { key: "title", label: "Title", labels: { zh: "标题" }, kind: "text", default: "Invoices", defaults: { zh: "发票列表" } },
-      { key: "data", label: "Data", labels: { ja: "データ", zh: "数据", ko: "데이터" }, kind: "table", default: { columns: COLUMNS, rows: ROWS } },
+      { key: "data", label: "Data", labels: { ja: "データ", zh: "数据", ko: "데이터" }, kind: "table", default: { columns: COLUMNS, rows: ROWS }, structure: true },
       { key: "caption", label: "Caption", labels: { ja: "キャプション", zh: "说明文字", ko: "캡션" }, kind: "text", default: "" },
       { key: "selected", label: "Selected row (0 for none)", kind: "number", default: 0, min: 0, max: 100, step: 1 },
       { key: "alignLast", label: "Right-align the last column", labels: { ja: "最後の列を右揃え", zh: "最后一列右对齐", ko: "마지막 열 오른쪽 정렬" }, kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 420, min: 200, max: 960, step: 4, unit: "px" },
     ],
     tree: (p) => {
-      const { columns, rows } = p.table("data");
-      const align = (c: number) => (p.b("alignLast") && c === columns.length - 1 ? "text-right" : undefined);
+      const data = p.table("data");
+      const { columns, rows } = data;
+      /* each column by its structure (parts/tables.ts): its width, where its words stand, how its values are written;
+         a table with no structure of its own draws as it always did */
+      const spec = data.spec ? columnsOf(data) : undefined;
+      const ALIGN = { start: undefined, center: "text-center", end: "text-right" } as const;
+      const align = (c: number) => (spec ? ALIGN[alignOf(spec[c])] : p.b("alignLast") && c === columns.length - 1 ? "text-right" : undefined);
+      const width = (c: number) => (spec?.[c]?.width ? { width: Math.round(spec[c].width!) } : undefined);
+      const cell = (v: string, c: number) => (spec ? formatCell(v, spec[c]) : v);
       return h(
         "div",
         { "data-slot": "dashboard-table", style: { width: Math.round(p.n("width")) } },
@@ -274,8 +282,8 @@ export const data: PartDef[] = [
           "Table",
           null,
           p.s("caption") && h("TableCaption", null, p.s("caption")),
-          h("TableHeader", null, h("TableRow", null, ...columns.map((c, i) => h("TableHead", { className: align(i) }, c)))),
-          h("TableBody", null, ...rows.map((row, r) => h("TableRow", { "data-state": p.n("selected") === r + 1 ? "selected" : undefined }, ...columns.map((_, i) => h("TableCell", { className: align(i) }, row[i] ?? ""))))),
+          h("TableHeader", null, h("TableRow", null, ...columns.map((c, i) => h("TableHead", { className: align(i), style: width(i), "data-key": spec?.[i]?.key }, c)))),
+          h("TableBody", null, ...rows.map((row, r) => h("TableRow", { "data-state": p.n("selected") === r + 1 ? "selected" : undefined }, ...columns.map((_, i) => h("TableCell", { className: align(i) }, cell(row[i] ?? "", i)))))),
         ),
       );
     },

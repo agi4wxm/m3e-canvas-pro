@@ -10,7 +10,8 @@ import { nameOf } from "../parts/labels";
 import { roleOf } from "../parts/role";
 import { inlineNode } from "../parts/print";
 import { Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
-import { isStrict, styleOf, styleTextOf, uxOf, withDocStyles } from "./styles";
+import { isStrict, styleContext, styleOf, styleTextOf, uxOf, withDocStyles, type StyleContext } from "./styles";
+import { demoTakenOver, outletsOf } from "./partContract";
 import {
   Place,
   Action,
@@ -198,6 +199,13 @@ const MENU_PARTS = new Set(["context-menu", "dropdown-menu", "menubar", "split-b
 function slotName(it: Item, slot: string, lang: Lang): string {
   const s = actionSlotsOf(it).find((x) => x.key === slot);
   const q = quote(lang);
+  /* an event the part sends, with what it carries; a family of places, any of them (lib/partContract.ts) */
+  const outlet = outletsOf(it, lang).find((o) => o.key === slot && o.kind !== "slot");
+  if (outlet?.kind === "event") {
+    const reads = Object.keys(outlet.event?.payload ?? {}).map((k) => `event.${k}`).join(", ");
+    return { ja: `イベント ${q(outlet.label)}（${slot}${reads ? `、${reads}` : ""}）`, en: `the ${q(outlet.label)} event (${slot}${reads ? `, reading ${reads}` : ""})`, zh: `${q(outlet.label)}事件（${slot}${reads ? `，可读 ${reads}` : ""}）`, ko: `${q(outlet.label)} 이벤트(${slot}${reads ? `, ${reads}` : ""})` }[lang];
+  }
+  if (outlet?.kind === "family") return { ja: `どの項目（${slot}、slot.index）`, en: `any entry (${slot}, reading slot.index)`, zh: `任意一项（${slot}，可读 slot.index）`, ko: `모든 항목(${slot}, slot.index)` }[lang];
   /* slots that carry no destination label name their button instead */
   if (slot === "icon" || slot === "icon2" || slot === "menu" || slot === "rail") {
     const named = s?.label && s.label !== "Menu" && s.label !== "More" ? ` ${q(s.label)}` : "";
@@ -262,6 +270,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "setProp": return `${part}の ${e.prop} を ${valueText(e.value, lang)} にする`;
         case "snackbar": return `${qj(e.message)}とスナックバーで知らせる`;
         case "call": return `${e.operationId} を呼び出す`;
+        case "invoke": return `プラットフォーム機能 ${e.capability} を呼び出す`;
         case "refresh": return `データ ${e.source} を読み込み直す`;
         case "loadMore": return `データ ${e.source} の続きを読み込む`;
         case "submit": return "フォームを送信する";
@@ -281,6 +290,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "setProp": return `sets ${e.prop} of ${part} to ${valueText(e.value, lang)}`;
         case "snackbar": return `shows a snackbar saying ${qe(e.message)}`;
         case "call": return `calls ${e.operationId}`;
+        case "invoke": return `invokes the platform capability ${e.capability}`;
         case "refresh": return `reloads data ${e.source}`;
         case "loadMore": return `loads more of data ${e.source}`;
         case "submit": return "submits the form";
@@ -300,6 +310,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "setProp": return `把${part}的 ${e.prop} 设为 ${valueText(e.value, lang)}`;
         case "snackbar": return `用 Snackbar 提示${qz(e.message)}`;
         case "call": return `调用接口 ${e.operationId}`;
+        case "invoke": return `调用平台能力 ${e.capability}`;
         case "refresh": return `重新加载数据 ${e.source}`;
         case "loadMore": return `加载数据 ${e.source} 的下一页`;
         case "submit": return "提交表单";
@@ -319,6 +330,7 @@ function effectText(e: Effect, s: Scope, lang: Lang): string | null {
         case "setProp": return `${part}의 ${e.prop}을(를) ${valueText(e.value, lang)}(으)로 설정`;
         case "snackbar": return `스낵바로 ${qe(e.message)} 표시`;
         case "call": return `${e.operationId} 호출`;
+        case "invoke": return `플랫폼 기능 ${e.capability} 호출`;
         case "refresh": return `데이터 ${e.source} 다시 불러오기`;
         case "loadMore": return `데이터 ${e.source}의 다음 페이지 불러오기`;
         case "submit": return "양식 제출";
@@ -469,6 +481,32 @@ function notes(g: Group, scope: Scope, lang: Lang): string[] {
         if (look) changes.push(`the variant becomes ${look}`);
         parts.push(`is a toggle button that flips on / off with every tap${changes.length ? ` (when on, ${changes.join(" and ")})` : ""}`);
       }
+    }
+    /* a domain result the prototype only acts out: the product takes it from the back end (docs/边界与契约.md) */
+    const demo = partBySlug(it.component)?.demo;
+    const view = partBySlug(it.component)?.capability;
+    /* a capability view's stand-in: the real one is the product's slot to write (lib/capabilities) */
+    if (view) {
+      parts.push(
+        lang === "ja"
+          ? `プラットフォーム機能 ${view} の表示の代わり：本物は製品側のスロット（src/custom/slots）で描き、操作はこの部品のイベントとして送る`
+          : lang === "zh"
+            ? `是平台能力 ${view} 的视图占位：真实的视图写在产品的插槽（src/custom/slots）里，操作作为这个组件的事件发出`
+            : lang === "ko"
+              ? `플랫폼 기능 ${view} 뷰의 자리표시자: 실제 뷰는 제품의 슬롯(src/custom/slots)에서 그리고, 조작은 이 부품의 이벤트로 보낸다`
+              : `stands in for the platform's ${view} view: the real one is drawn by the product's slot (src/custom/slots), and what the visitor does to it goes out as this part's events`,
+      );
+    } else if (demo && !demoTakenOver(it)) {
+      const props = demo.takenOverBy.map((k) => `\`${k}\``).join(lang === "en" ? " / " : "、");
+      parts.push(
+        lang === "ja"
+          ? `プロトタイプでは結果を自分で演じる（${demo.what}）が、製品では ${props} をバックエンドの値にし、押したら API を呼んで答えを待つ`
+          : lang === "zh"
+            ? `原型里它自己演示结果（${demo.what}），产品里 ${props} 要来自后端，按下时调用接口、等回答`
+            : lang === "ko"
+              ? `프로토타입에서는 결과를 스스로 연출하지만(${demo.what}), 제품에서는 ${props}를 백엔드 값으로 하고 누르면 API를 호출해 응답을 기다린다`
+              : `only acts out its result in the prototype (${demo.what}): in the product ${props} comes from the back end, and a press calls the API and waits for the answer`,
+      );
     }
     if (hasText(it.note)) parts.push(trimEnd(it.note!));
     if (!parts.length) continue;
@@ -1054,15 +1092,15 @@ const THEME_NOTES: Record<Lang, { shape: Record<Theme["shape"], string>; emphasi
   },
 };
 
-function themeLines(th: Theme, lang: Lang): string[] {
+function themeLines(th: Theme, lang: Lang, styles: StyleContext): string[] {
   const n = THEME_NOTES[lang];
   const font = FONTS.find((f) => f.key === th.font);
   const fontName = font?.key === "system" ? (lang === "ja" ? "端末のシステムフォント" : lang === "zh" ? "设备的系统字体" : lang === "ko" ? "기기의 시스템 글꼴" : "the device's system font") : (font?.label ?? "Roboto");
   const sp = lang === "en" || lang === "ko" ? " " : "";
-  const pack = styleOf(th.style);
+  const pack = styleOf(th.style, styles);
   return [
     ...(pack ? [`- ${STYLE_NOTE[lang](styleTextOf(pack.name, lang), styleTextOf(pack.hint, lang))}`, `- ${styleTextOf(pack.layout, lang)}`] : []),
-    ...(isStrict(th) ? [`- ${RULES_NOTE[lang](uxOf(th).margin, uxOf(th).gap, uxOf(th).tight)}`] : []),
+    ...(isStrict(th, styles) ? [`- ${RULES_NOTE[lang](uxOf(th, styles).margin, uxOf(th, styles).gap, uxOf(th, styles).tight)}`] : []),
     `- ${n.shape[th.shape]}`,
     `- ${FONT_NOTE[lang](fontName)}${sp}${th.emphasized ? n.emphasized : n.plainType}`,
     `- ${n.motion[th.motion]}`,
@@ -1363,14 +1401,15 @@ export function promptMarks(text: string, frames: Frame[], lang: Lang = getLang(
 
 /** what a coding agent is told to build, read in the document's own styles (a custom style is resolved from `doc.styles`) */
 export function buildPrompt(source: Doc, widths: Record<string, number>, onlyFrameId?: string, lang: Lang = getLang()): string {
-  return withDocStyles(source.styles, () => promptOf(source, widths, onlyFrameId, lang));
+  return withDocStyles(styleContext(source.styles), () => promptOf(source, widths, onlyFrameId, lang));
 }
 
 function promptOf(source: Doc, widths: Record<string, number>, onlyFrameId: string | undefined, lang: Lang): string {
   /* instances are written out, each saying what it is an instance of; repeats are not drawn out, the first child stands for its rows */
   const doc: Doc = { ...source, groups: describeRepeats(expandInstances(source, widths, { rows: false }), source.collections) };
-  const th = normalizeTheme(doc.theme);
-  const pal = paletteOf(doc.paletteKey, doc.customPalette, th);
+  const styles = styleContext(doc.styles);
+  const th = normalizeTheme(doc.theme, styles);
+  const pal = paletteOf(doc.paletteKey, doc.customPalette, th, styles);
   const phone = doc.frame === "phone";
   const allFrames = phone ? doc.frames : [];
   const only = onlyFrameId ? allFrames.find((f) => f.id === onlyFrameId) : undefined;
@@ -1404,8 +1443,8 @@ function promptOf(source: Doc, widths: Record<string, number>, onlyFrameId: stri
   if (doc.dynamicColor) lines.push(ph.dynamic);
   lines.push(ph.colorIntro(pal.label, !!doc.dynamicColor, th));
   if (th.bothModes) {
-    const light = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: false });
-    const dark = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: true });
+    const light = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: false }, styles);
+    const dark = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: true }, styles);
     lines.push(ph.schemeHead(false));
     lines.push(...paletteLines(light));
     lines.push(ph.schemeHead(true));
@@ -1416,7 +1455,7 @@ function promptOf(source: Doc, widths: Record<string, number>, onlyFrameId: stri
 
   lines.push("");
   lines.push(ph.hTheme);
-  lines.push(...themeLines(th, lang));
+  lines.push(...themeLines(th, lang, styles));
   if (groups.some((g) => g.items.some((it) => it.look))) lines.push(LOOK_NOTE[lang]);
 
   lines.push("");

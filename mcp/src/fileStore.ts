@@ -7,9 +7,13 @@
  * read or written is never overwritten: the caller is told, and reads it again. The format writes the same document as
  * the same bytes, so comparing what is on disk with what was last read or written is exact.
  *
- * In a folder, a picture the saved document no longer refers to is taken away from m3e-assets/ after each write, but
- * only one this server wrote itself, or one whose name is the hash of what it holds (as the format names them): a file
- * someone put there by hand is never touched, and one another program wrote a moment ago is left for its own save.
+ * A folder is written in the order the editor's folder sync uses (lib/projects/fileLink.ts), which leaves a whole
+ * version on disk at every point: every file of m3e-assets/ the new version refers to, there and holding exactly what
+ * its name says (one of that name holding something else is written again) and read back; then the project file; then
+ * the files nothing refers to any more are taken away, of those provably the format's own: one this server wrote and
+ * nothing changed since, or one whose name is the hash of what it holds (lib/core/projectFile.ts `isFormatAsset`) and
+ * that another program did not write a moment ago (its own save may be under way). A file someone put there by hand is
+ * never touched. Pictures and the mock library's files of every format are kept and taken away alike.
  *
  * The pictures are read, written and taken away only inside the project's folder (inside.ts): a link on the way (a
  * symbolic link, a junction, a hard link) is refused rather than followed, and so is a folder replaced since the
@@ -18,7 +22,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { open, readFile, rename, stat, unlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { bytesToBase64, digest, FOLDER_ASSET_DIR, FOLDER_MAIN_FILE, fileRefsIn, isAssetPath, readProjectText, serializeProject, type ProjectAssetFile } from "../../lib/core/projectFile";
+import { ASSET_GRACE_MS, FOLDER_ASSET_DIR, FOLDER_MAIN_FILE, fileRefsIn, isAssetFileName, isAssetPath, isFormatAsset, readProjectText, serializeProject, type ProjectAssetFile } from "../../lib/core/projectFile";
 import type { Doc } from "../../lib/tokens";
 import { Folder, OutsideFolder } from "./inside";
 
@@ -38,7 +42,7 @@ export class NotAProject extends Error {}
 export const editorProject: ProjectFormat = {
   async parse(text, load) {
     const doc = await readProjectText(text, load);
-    if (!doc) throw new NotAProject("It is not an M3E Canvas project (or not JSON), or it was saved by a newer version.");
+    if (!doc) throw new NotAProject("It is not an M3E Canvas project (or not JSON), or it was saved by a newer version in a shape this one cannot read.");
     return doc;
   },
   serialize: (doc, layout) => serializeProject(doc, { assets: layout === "folder" ? "files" : "inline" }),
@@ -56,10 +60,10 @@ const exists = (p: string) => stat(p).then(
 /** the file changed on disk since it was last read or written */
 export class FileConflict extends Error {}
 
-/** a picture's file name as the format gives it: its hash and an extension */
-const HASH_NAME = /^([a-z0-9]+)\.(?:png|jpg|webp|gif|avif|svg)$/;
-/** a picture another program wrote this recently may belong to a save of its own still under way */
-export const ASSET_GRACE_MS = 60_000;
+/** a file of m3e-assets/ as this server last wrote or checked it: what it was then, and whether it wrote it */
+type Mark = { size: number; mtimeMs: number; own: boolean };
+
+const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
 
 /** writes bytes all at once: beside the target first, then over it */
 async function atomicWrite(path: string, data: string | Uint8Array) {
@@ -85,8 +89,8 @@ async function atomicWrite(path: string, data: string | Uint8Array) {
 
 export class ProjectFileStore {
   private seen: Seen | null = null;
-  /** the pictures this server wrote into m3e-assets/, by file name */
-  private readonly wrote = new Set<string>();
+  /** the files of m3e-assets/ this server wrote or found holding what they should, by file name */
+  private readonly marks = new Map<string, Mark>();
   /** the project file itself (in a folder, its m3e-project.json) and how pictures are kept */
   private main: string;
   layout: "file" | "folder";
@@ -169,17 +173,14 @@ export class ProjectFileStore {
   }
 
   /** Writes the document over the file, all at once, unless the file changed since it was last read or written. In
-   *  a folder its pictures go first: each is named by what it holds, so one already there is the same picture. */
+   *  a folder the files it refers to go first, each checked (`put`); any that cannot be leaves the project file as it
+   *  was. Then what nothing refers to any more is taken away (`prune`). */
   async write(doc: Doc): Promise<void> {
     if (await this.changed()) throw new FileConflict(`${basename(this.main)} changed on disk since it was read.`);
     const { text, files } = this.format.serialize(doc, this.layout);
     const folder = this.dir();
     await folder.root(this.layout === "folder");
-    for (const f of files) {
-      if (await folder.isFile(f.path)) continue;
-      await folder.write(f.path, f.bytes);
-      this.wrote.add(f.path.slice(FOLDER_ASSET_DIR.length + 1));
-    }
+    for (const f of files) await this.put(folder, f);
     /* still the folder it was opened in, just before the file goes over its place */
     await folder.root();
     await atomicWrite(this.main, text);
@@ -188,8 +189,32 @@ export class ProjectFileStore {
     if (this.layout === "folder") await this.prune(new Set(files.map((f) => f.path.slice(FOLDER_ASSET_DIR.length + 1)))).catch(() => []);
   }
 
-  /** Takes away the pictures of m3e-assets/ the document no longer refers to: those this server wrote, and those
-   *  whose name is the hash of what they hold, unless another program wrote them a moment ago. What went, by name. */
+  /** A file the document refers to, in m3e-assets/ and holding exactly its bytes: one this server wrote or checked and
+   *  that nothing changed since is left as it is; one of that name holding anything else (a broken or partial copy)
+   *  is written again, and whatever is written is read back. Throws when it cannot be, or when a link is in the way. */
+  private async put(folder: Folder, f: ProjectAssetFile) {
+    const name = f.path.slice(FOLDER_ASSET_DIR.length + 1);
+    const st = await folder.stat(f.path);
+    if (st && !st.isFile()) throw new OutsideFolder(`refusing ${JSON.stringify(f.path)}: it is not a file`);
+    const mark = this.marks.get(name);
+    if (st && mark && st.size === mark.size && st.mtimeMs === mark.mtimeMs) return;
+    if (st && st.size === f.bytes.length) {
+      /* a hard link there is not read: written again, its name is this folder's own file */
+      const there = await folder.read(f.path).catch(() => null);
+      if (there && sameBytes(there, f.bytes)) {
+        this.marks.set(name, { size: st.size, mtimeMs: st.mtimeMs, own: mark?.own ?? false });
+        return;
+      }
+    }
+    await folder.write(f.path, f.bytes);
+    if (!sameBytes(await folder.read(f.path), f.bytes)) throw new Error(`${f.path} does not read back as it was written.`);
+    const back = await folder.stat(f.path);
+    if (back) this.marks.set(name, { size: back.size, mtimeMs: back.mtimeMs, own: true });
+  }
+
+  /** Takes away the files of m3e-assets/ the document no longer refers to, of those provably the format's own: one
+   *  this server wrote that nothing changed since, or one named by the hash of exactly what it holds that another
+   *  program did not write a moment ago. A file named any other way, or holding anything else, stays. What went. */
   async prune(wanted: ReadonlySet<string>, now = Date.now()): Promise<string[]> {
     const folder = this.dir();
     let names: string[];
@@ -199,20 +224,25 @@ export class ProjectFileStore {
     } catch {
       return [];
     }
+    for (const name of this.marks.keys()) if (!names.includes(name)) this.marks.delete(name);
     const gone: string[] = [];
     for (const name of names) {
-      const m = HASH_NAME.exec(name);
-      if (!m || wanted.has(name)) continue;
+      if (wanted.has(name) || !isAssetFileName(name)) continue;
       const rel = `${FOLDER_ASSET_DIR}/${name}`;
-      if (!this.wrote.has(name)) {
-        const st = await folder.stat(rel).catch(() => null);
-        if (!st?.isFile() || now - st.mtimeMs < ASSET_GRACE_MS) continue;
+      const st = await folder.stat(rel).catch(() => null);
+      if (!st?.isFile()) continue;
+      const mark = this.marks.get(name);
+      const ours = !!mark?.own && st.size === mark.size && st.mtimeMs === mark.mtimeMs;
+      if (!ours) {
+        if (now - st.mtimeMs < ASSET_GRACE_MS) continue;
         /* named like one of the format's, but holding something else: someone's own file */
         const bytes = await folder.read(rel).catch(() => null);
-        if (!bytes || digest(bytesToBase64(bytes)) !== m[1]) continue;
+        if (!bytes || !isFormatAsset(name, bytes)) continue;
       }
-      if (await folder.remove(rel).catch(() => false)) gone.push(name);
-      this.wrote.delete(name);
+      if (await folder.remove(rel).catch(() => false)) {
+        gone.push(name);
+        this.marks.delete(name);
+      }
     }
     return gone;
   }

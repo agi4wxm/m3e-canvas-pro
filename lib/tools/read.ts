@@ -2,7 +2,7 @@
  * selection, the catalogs a model writes from (parts with their props schema, kits, templates, styles, looks, icons),
  * the reusable components and the data, and a picture of a screen. None of them changes anything. */
 
-import { PARTS, partBySlug, tierOf, TIERS, CATEGORIES, defaultValues } from "../../parts/registry";
+import { OFFERED_PARTS, partBySlug, tierOf, TIERS, CATEGORIES, defaultValues } from "../../parts/registry";
 import { KITS, kitBySlug, pickVariant } from "../../parts/kits";
 import { TEMPLATES, templateBySlug } from "../../parts/templates";
 import { searchTerms } from "../../parts/keywords";
@@ -12,11 +12,14 @@ import { propKindText } from "../core/ops/validate";
 import { kitLookOf } from "../kits";
 import { COLOR_ROLES, LOOK_PRESETS, STRICT_LOOK_KEYS, lookForModel } from "../look";
 import { rulesForModel } from "../styleRules";
-import { STYLE_PACKS, isStrict, recipesOf, styleOf, uxOf, withDocStyles } from "../styles";
+import { STYLE_PACKS, isStrict, recipesOf, styleContext, styleOf, uxOf } from "../styles";
 import { COLOR_TOKENS, ICON_FAMILIES, REGION_STATES, TEXT_TOKENS, frameLengthOf, frameSizeOf, type ComponentDef, type Doc, type RegionState } from "../tokens";
 import { overridableParts } from "../instances";
 import { FAMILY_LACKS, ICON_NAMES } from "./icons.generated";
 import { partPropsSchema } from "./schema";
+import { declarationsOf } from "../partContract";
+import { retiredWayOut } from "../retire";
+import type { PartDef } from "../../parts/types";
 import { tool, ToolFailure, type Tool, type ToolEnv } from "./types";
 
 const obj = (properties: Record<string, Schema>, required: string[] = []): Schema => ({ type: "object", properties, required, additionalProperties: false });
@@ -142,25 +145,30 @@ const getSelection = tool<Record<string, never>>({
 
 /* ---------- the catalogs ---------- */
 
+/** a part's input, events and demo, briefly, for its row in the catalog */
+const outletsLine = (d: PartDef) =>
+  [d.input ? ` | input: ${d.input.prop} (${d.input.kind})` : "", d.events?.length ? ` | events: ${d.events.map((e) => `on:${e.name}`).join(", ")}` : "", d.families?.length ? ` | families: ${d.families.map((f) => `${f.prefix}:*`).join(", ")}` : "", d.demo ? " | prototype demo" : ""].join("");
+
 const listParts = tool<{ tier?: "atom" | "composite"; category?: string; query?: string }>({
   name: "list_parts",
   group: "read",
   description:
-    "The catalog of parts: atoms (box, text, icon, svg, image, button, input… compose them in boxes) and ready-made composites. Filter by tier, category or a word. Each row: slug, name, category, and its prop keys. describe_part gives one part's props with their kinds, defaults and schema.",
+    "The catalog of parts: atoms (box, text, icon, svg, image, button, input… compose them in boxes) and ready-made composites. Filter by tier, category or a word. Each row: slug, name, category, its prop keys, and its input, events, slot families and prototype demo when it has them. describe_part gives one part's props with their kinds, defaults and schema.",
   input: obj({ tier: { type: "string", enum: [...TIERS] }, category: { type: "string", enum: [...CATEGORIES] }, query: str("a word to look for in slugs, names and categories") }),
   readOnly: true,
   destructive: false,
   run(a) {
     const hit = matcher(a.query);
-    const rows = PARTS.filter((d) => (!a.tier || tierOf(d) === a.tier) && (!a.category || d.category === a.category) && hit(d.slug, d.name, labelsOf(d.labels), d.category));
-    return { result: { count: rows.length, parts: rows.map((d) => `${d.slug} | ${d.name} | ${tierOf(d)}/${d.category}${d.holds ? " | holds parts" : ""}${d.atoms ? " | splits" : ""} | props: ${d.props.map((p) => p.key).join(", ")}`) } };
+    /* the retired parts are not there to build with: an old design's are described by describe_node */
+    const rows = OFFERED_PARTS.filter((d) => (!a.tier || tierOf(d) === a.tier) && (!a.category || d.category === a.category) && hit(d.slug, d.name, labelsOf(d.labels), d.category));
+    return { result: { count: rows.length, parts: rows.map((d) => `${d.slug} | ${d.name} | ${tierOf(d)}/${d.category}${d.holds === "laidOut" ? " | holds parts with an auto layout" : d.holds ? " | holds parts" : ""}${d.atoms ? " | splits" : ""} | props: ${d.props.map((p) => p.key).join(", ")}${outletsLine(d)}`) } };
   },
 });
 
 const describePart = tool<{ slug: string }>({
   name: "describe_part",
   group: "read",
-  description: "One part (or kit) of the catalog in full: its tier and category, default size, whether it holds parts, has an auto layout or splits into atoms, and each prop with its kind, default and the values it takes, plus `propsSchema` (JSON Schema of its props). For a kit: what it is made of and its variants, with the one the document's style would pick.",
+  description: "One part (or kit) of the catalog in full: its tier and category, default size, whether it holds parts, has an auto layout or splits into atoms, and each prop with its kind, default and the values it takes, plus `propsSchema` (JSON Schema of its props), and what it declares: `input` (the prop the visitor's value goes in), `events` (on:<name> keys of set_action, their payload read as event.<field>), `families` (tab:* keys, read slot.index), `demo` (a domain behaviour it only acts out in a prototype until bound or wired to the API). For a kit: what it is made of and its variants, with the one the document's style would pick.",
   input: obj({ slug: str("a part slug, or a kit slug") }, ["slug"]),
   readOnly: true,
   destructive: false,
@@ -183,6 +191,8 @@ const describePart = tool<{ slug: string }>({
           appearance: !!def.appearance,
           props: def.props.map((d) => ({ key: d.key, label: d.label, kind: d.kind, default: defaults[d.key], takes: propKindText(d) })),
           propsSchema: partPropsSchema(def),
+          ...declarationsOf(def),
+          ...(def.retired ? { retired: { use: def.retired.use, add: "refused: build what it did from what use says instead", old: `an old design keeps it; ${retiredWayOut(def)}` } } : {}),
         },
       };
     }
@@ -237,13 +247,15 @@ const listStyles = tool<Record<string, never>>({
   run(_a, env) {
     const s = env.store.get();
     const theme = s.doc.theme;
-    return withDocStyles(s.doc.styles, () => ({
+    /* read in this document's own styles, whatever another has in reach */
+    const styles = styleContext(s.doc.styles);
+    return {
       result: {
-        current: { style: theme.style ?? "", name: styleOf(theme.style)?.name.en ?? "Material 3", strict: isStrict(theme), dark: theme.dark },
+        current: { style: theme.style ?? "", name: styleOf(theme.style, styles)?.name.en ?? "Material 3", strict: isStrict(theme, styles), dark: theme.dark },
         builtIn: STYLE_PACKS.map((p) => `${p.key} | ${p.name.en} | ${p.refs.join(", ")}`),
         custom: (s.doc.styles ?? []).map((c) => ({ key: c.key, name: c.name.en ?? c.key, ...(c.extends ? { extends: c.extends } : {}) })),
       },
-    }));
+    };
   },
 });
 
@@ -259,24 +271,24 @@ const getStyle = tool<{ key?: string }>({
     const s = env.store.get();
     const theme = s.doc.theme;
     const key = a.key ?? theme.style ?? "";
-    return withDocStyles(s.doc.styles, () => {
-      const pack = styleOf(key);
-      if (key && !pack) throw new ToolFailure("not_found", `There is no style ${JSON.stringify(key)}.`, "list_styles gives the keys.");
-      const wearing = key === (theme.style ?? "");
-      const custom = s.doc.styles?.find((c) => c.key === key);
-      const look = wearing ? theme : { ...theme, style: key || undefined, strict: undefined, recipes: undefined, ux: undefined };
-      return {
-        result: {
-          key,
-          name: pack?.name.en ?? "Material 3",
-          ...(pack ? { refs: pack.refs, layout: pack.layout.en, font: pack.font, display: pack.display, icons: pack.icons, shape: pack.shape, mode: pack.mode, light: pack.light, dark: pack.dark } : {}),
-          recipes: recipesOf(look),
-          ux: uxOf(look),
-          ...(wearing ? { worn: true, strict: isStrict(theme), rules: isStrict(theme) ? rulesForModel(theme) : "Not held to its rules: colors, shapes and every look field are yours to set." } : {}),
-          ...(custom ? { custom } : {}),
-        },
-      };
-    });
+    const styles = styleContext(s.doc.styles);
+    const pack = styleOf(key, styles);
+    if (key && !pack) throw new ToolFailure("not_found", `There is no style ${JSON.stringify(key)}.`, "list_styles gives the keys.");
+    const wearing = key === (theme.style ?? "");
+    const custom = s.doc.styles?.find((c) => c.key === key);
+    const look = wearing ? theme : { ...theme, style: key || undefined, strict: undefined, recipes: undefined, ux: undefined };
+    const strict = isStrict(theme, styles);
+    return {
+      result: {
+        key,
+        name: pack?.name.en ?? "Material 3",
+        ...(pack ? { refs: pack.refs, layout: pack.layout.en, font: pack.font, display: pack.display, icons: pack.icons, shape: pack.shape, mode: pack.mode, light: pack.light, dark: pack.dark } : {}),
+        recipes: recipesOf(look, styles),
+        ux: uxOf(look, styles),
+        ...(wearing ? { worn: true, strict, rules: strict ? rulesForModel(theme, styles) : "Not held to its rules: colors, shapes and every look field are yours to set." } : {}),
+        ...(custom ? { custom } : {}),
+      },
+    };
   },
 });
 
@@ -288,7 +300,8 @@ const lookReference = tool<Record<string, never>>({
   readOnly: true,
   destructive: false,
   run(_a, env) {
-    const strict = isStrict(env.store.get().doc.theme);
+    const { doc } = env.store.get();
+    const strict = isStrict(doc.theme, styleContext(doc.styles));
     return {
       result: {
         strict,
