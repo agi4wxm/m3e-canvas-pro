@@ -42,6 +42,7 @@ import { checkItemPatch, checkProps, cleanedLook, conditionError } from "./valid
 import { paneGroups, panesOf, refusePanes } from "./split";
 import { SPLIT_SLUG, splitOf, withSplitPanes, type PaneSide } from "../../split";
 import { arrangeFlows } from "../../flow";
+import { propsPatch } from "./rows";
 
 /** the groups whose anchor moved, for a canvas that draws them there at once rather than easing them */
 export const movedGroups = (before: Group[], after: Group[]): string[] => {
@@ -521,7 +522,7 @@ export const setItem = op<{ id: string; patch: Partial<Item> }>({
 /** Sets props of a part over what it has; a prop set to null goes back to its default. */
 export const setProps = op<{ id: string; props: Record<string, unknown> }>({
   name: "set_props",
-  summary: "Sets prop values of a part (checked against its PropDefs); null resets one to its default.",
+  summary: "Sets prop values of a part (checked against its PropDefs); null resets one to its default. A list's rows given again in another order take their taps (slot \"tab:N\") and the part's choice with them, as set_rows does.",
   args: S.obj({ id: S.str(), props: S.any() }, ["id", "props"]),
   label: () => "Edit",
   run(s, a, ctx) {
@@ -530,9 +531,9 @@ export const setProps = op<{ id: string; props: Record<string, unknown> }>({
     if (!def) throw new OpError("invalid_value", `${item.component} is not a known part.`, a.id);
     const set = Object.fromEntries(Object.entries(a.props).filter(([, v]) => v !== null));
     if (ctx.strict) checkProps(def, set, s);
-    const props = { ...item.props, ...set };
-    for (const [k, v] of Object.entries(a.props)) if (v === null) delete props[k];
-    return setItem.run(s, { id: a.id, patch: { props } }, { ...ctx, strict: false });
+    const cleared = Object.entries(a.props).flatMap(([k, v]) => (v === null ? [k] : []));
+    /* rows given again in another order take their taps and the part's choice with them, as set_rows does */
+    return setItem.run(s, { id: a.id, patch: propsPatch(item, set, cleared) }, { ...ctx, strict: false });
   },
 });
 

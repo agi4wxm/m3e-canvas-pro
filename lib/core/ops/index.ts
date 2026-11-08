@@ -15,9 +15,10 @@ import * as mocks from "./mocks";
 import * as bindings from "./bindings";
 import * as capabilities from "./capabilities";
 import * as splits from "./split";
+import * as rows from "./rows";
 import { editComponentOp } from "./definition";
 
-export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks, bindings, capabilities, splits };
+export { document, screens, nodes, layout, components, data, tree, styles, icons, api, mocks, bindings, capabilities, splits, rows };
 export * from "./document";
 export * from "./screens";
 export * from "./nodes";
@@ -32,6 +33,7 @@ export * from "./mocks";
 export * from "./bindings";
 export * from "./capabilities";
 export * from "./split";
+export * from "./rows";
 export { DEFINITION_OPS, definitionOpened } from "./definition";
 export { OpError } from "../op";
 
@@ -75,6 +77,7 @@ export const OPS: Op<never, unknown>[] = [
   nodes.duplicateNodes,
   nodes.setItem,
   nodes.setProps,
+  rows.setRows,
   nodes.setGroup,
   nodes.toggleLock,
   nodes.nudge,

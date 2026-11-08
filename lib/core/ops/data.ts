@@ -15,6 +15,7 @@ import { withDoc, withFrames, withGroups, type CoreState } from "../state";
 import { collectionById, groupById, itemById, unlocked } from "./common";
 import { actionError, fullAction, varError, withTapParams } from "./validate";
 import { setItem } from "./nodes";
+import { renameVarReads } from "../../refs";
 
 /* ---------- collections ---------- */
 
@@ -233,7 +234,12 @@ export const updateVar = op<{ id: string; name?: string; type?: DocVar["type"]; 
     const next = withModeValues(merged, c, a.values);
     const e = varError(next);
     if (e) throw new OpError("invalid_value", e);
-    return { state: withDoc(s, { vars: soleDark(vars.map((x) => (x.id === a.id ? next : x)), next) }), history: "whole" };
+    const after = soleDark(vars.map((x) => (x.id === a.id ? next : x)), next);
+    /* A variable is kept by its key, the id, wherever a part, a condition or an effect names it, so a new name changes
+       none of those. Expressions read it by name (`vars.<name>`): every one that read it reads it under its new name,
+       and one that read another variable by that name is written by that one's key (lib/refs.ts). */
+    const read = next.name === v.name ? s.doc : renameVarReads(s.doc, after);
+    return { state: withDoc(s, { vars: after, groups: read.groups, frames: read.frames, components: read.components }), history: "whole" };
   },
 });
 

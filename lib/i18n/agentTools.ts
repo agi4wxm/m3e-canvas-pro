@@ -62,6 +62,7 @@ const L: Record<string, Four> = {
   duplicate_nodes: ["Duplicate parts", "复制组件", "部品を複製", "부품 복제"],
   set_item: ["Change a part's look", "修改组件外观", "部品の見た目を変更", "부품 모양 변경"],
   set_props: ["Change a part", "修改组件属性", "部品を変更", "부품 변경"],
+  set_rows: ["Set a list's rows", "设置列表的行", "リストの行を設定", "목록 행 설정"],
   set_group: ["Change a group", "修改分组", "グループを変更", "그룹 변경"],
   toggle_lock: ["Lock or unlock", "锁定或解锁", "ロック／解除", "잠금 전환"],
   nudge: ["Nudge parts", "微移组件", "部品を少し動かす", "부품 살짝 이동"],

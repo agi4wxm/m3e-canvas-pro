@@ -19,6 +19,7 @@ import { frameById, groupById, itemById, laidOut, unlocked } from "./common";
 import { addKit, buildKit, setItem } from "./nodes";
 import { addTree, type TreeNode } from "./tree";
 import { actionError, FIELD_PATH, fullAction } from "./validate";
+import { mapFrameExprs, mapGroupExprs, namesMap, renamedName } from "../../refs";
 
 /* ---------- finding ---------- */
 
@@ -140,17 +141,22 @@ function sourceFields(a: Partial<Record<keyof SourceArgs, unknown>>): SourceArgs
   };
 }
 
-/** every expression of the parts on a screen, `data.<from>` read as `data.<to>` */
+/** What reads a data source of a screen, once it is called `to` instead of `from`: every expression of the parts on
+ *  the screen (bound props, conditions, taps, the list a layout repeats over, a form's fields and answers, a region's
+ *  test) and of its other data sources, the words with `{{data.<from>…}}` in them (in props and labels, in a snackbar),
+ *  and the effects and regions that name it (`refresh`, `loadMore`, an optimistic change, a region's source). The
+ *  expressions are read by their tokens (lib/refs.ts), so `'data.<from>'` in a string literal stays as written. */
 function renamedSource(s: CoreState, f: Frame, from: string, to: string, ctx: OpCtx): CoreState {
-  const re = new RegExp(`\\bdata(\\s*\\??\\.\\s*)${from.replace(/\$/g, "\\$")}\\b`, "g");
-  const swap = (x: string) => x.replace(re, `data$1${to}`);
-  const deep = <T>(v: T): T => (typeof v === "string" ? (swap(v) as T) : Array.isArray(v) ? (v.map(deep) as T) : v && typeof v === "object" ? (Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === "source" && x === from ? to : deep(x)])) as T) : v);
+  const m = namesMap(renamedName("data", from, to));
+  /* the effects and the region that name the source rather than read it */
+  const named = <T>(v: T): T => (Array.isArray(v) ? (v.map(named) as T) : v && typeof v === "object" ? (Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === "source" && x === from ? to : named(x)])) as T) : v);
   const groups = s.doc.groups.map((g) => {
     if (screenOf(s, g, ctx)?.id !== f.id) return g;
-    const items = g.items.map((it) => ({ ...it, ...(it.bind ? { bind: deep(it.bind) } : {}), ...(it.action ? { action: deep(it.action) } : {}), ...(it.actions ? { actions: deep(it.actions) } : {}) }));
-    return { ...g, items, ...(g.showWhen ? { showWhen: deep(g.showWhen) } : {}), ...(g.repeat?.data !== undefined ? { repeat: { ...g.repeat, data: swap(g.repeat.data) } } : {}), ...(g.states?.source === from ? { states: { ...g.states, source: to } } : {}), ...(g.form ? { form: deep(g.form) } : {}) };
+    const read = mapGroupExprs(g, m);
+    const items = read.items.map((it) => ({ ...it, ...(it.action ? { action: named(it.action) } : {}), ...(it.actions ? { actions: named(it.actions) } : {}) }));
+    return { ...read, items, ...(read.states?.source === from ? { states: { ...read.states, source: to } } : {}), ...(read.form ? { form: named(read.form) } : {}) };
   });
-  return withGroups(s, groups);
+  return withFrame(withGroups(s, groups), mapFrameExprs(frameById(s, f.id), m));
 }
 
 export const updateDataSource = op<{ screen: string; name: string; rename?: string; operationId?: string } & { [K in keyof SourceArgs]?: SourceArgs[K] | null }>({
