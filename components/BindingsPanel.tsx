@@ -402,6 +402,7 @@ export function PartDataSection({ item, frame, p }: { item: Item; frame: Frame |
                 <FormValues api={api} form={group.form} group={group} groups={b.doc.groups} shape={shape} p={p} onChange={(values) => run(ops.setForm, { id: group.id, form: { ...group.form!, values } })} />
                 {/* what runs once it is answered: where it goes, what it sets, what it says */}
                 <div style={label(p)}>{t("bdFormAnswer", lang)}</div>
+                {/* eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it */}
                 <BodyEditor title={t("bdThen", lang)} body={group.form.then} onChange={(then) => run(ops.setForm, { id: group.id, form: { ...group.form!, then } })} p={p} depth={1} response={(() => { const e = api ? endpointOf(api, group.form!.operationId) : undefined; return api && e ? (responseSchema(api, e) ?? true) : true; })()} />
                 <BodyEditor title={t("bdCatch", lang)} body={group.form.catch} onChange={(next) => run(ops.setForm, { id: group.id, form: { ...group.form!, catch: next } })} p={p} depth={1} error />
                 <button onClick={() => run(ops.setForm, { id: group.id, form: null })} className="m3-press" style={actionBtn(p)}>

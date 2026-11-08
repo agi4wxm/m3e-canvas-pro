@@ -8,6 +8,8 @@ import { isColorRef } from "./look";
 import { display, evaluate, fillTemplate, holds, toNumber, truthy, type Scope } from "./bindings/expr";
 import { NO_BINDINGS, exprOfBind, scopeFor, type BindingContext } from "./bindings/scope";
 import { tableOfData } from "../parts/tables";
+import { optionsOf } from "./partContract";
+import type { ListItem } from "../parts/types";
 
 export { retarget } from "./tokens";
 
@@ -17,6 +19,9 @@ export { retarget } from "./tokens";
 
 type DocScope = Pick<Doc, "groups" | "vars">;
 type Widths = Record<string, number>;
+
+/** what an input holds: words, a number, yes or no, or the rows of a list (tags, an order) */
+export type FieldValue = VarValue | ListItem[];
 
 export type PreviewState = {
   /** each variable's value now, by id */
@@ -28,7 +33,7 @@ export type PreviewState = {
   /** overlays held open by an effect, by item id */
   opened: Record<string, boolean>;
   /** what the visitor entered into each input, by item id: it outlives the screen it was typed on */
-  fields: Record<string, VarValue>;
+  fields: Record<string, FieldValue>;
   snack: { id: number; message: string } | null;
   /** The row the last tap on a repeated part came from: what `{{current.field}}` reads. Until a row
    *  has been tapped, the first row of the data, so a detail screen opened directly is not blank. */
@@ -119,15 +124,17 @@ const groupOf = (groups: Group[], id: string) => groups.find((g) => g.items.some
 export const isHidden = (s: PreviewState, g: Group) => s.hidden[g.id] ?? !!g.hidden;
 
 /** what a bound prop reads as, in the kind of value the prop takes; undefined when it cannot be that */
-function boundValue(it: Item, key: string, v: VarValue): VarValue | undefined {
+function boundValue(it: Item, key: string, v: VarValue): VarValue | ListItem[] | undefined {
   const def = partBySlug(it.component);
   const d = def?.props.find((x) => x.key === key);
   if (!def || !d) return undefined;
   if (d.kind === "bool") return asBool(v);
+  /* a list bound to words: a row for each line, as a list input writes its rows */
+  if (d.kind === "list") return fieldValueOf(it, String(v).split("\n").filter((w) => w.trim()));
   if (d.kind === "number") {
     /* a choice bound to a text variable holds the words of the row chosen */
-    if (typeof v === "string" && INPUT_PROP[def.slug] === key && key === "selected") {
-      const at = reader(def, it.props).list("items").findIndex((row) => row.label === v);
+    if (typeof v === "string" && def.input?.prop === key && def.input.kind === "choice") {
+      const at = optionsOf(it).indexOf(v);
       if (at >= 0) return at;
     }
     return asNumber(v) ?? undefined;
@@ -293,16 +300,34 @@ export function applyEffects(s: PreviewState, effects: Effect[] | undefined, doc
 /** closes everything held open: a tap on the scrim */
 export const closeOpened = (s: PreviewState, doc: DocScope) => applyEffects(s, Object.keys(s.opened).map((part) => ({ do: "close" as const, part })), doc);
 
+/** What a widget handed out, as its input's prop holds it (undefined: nothing it can hold). A list prop holds rows: the
+ *  words a widget hands out for one become rows, each keeping what the row of the same words had (its icon, its
+ *  state), so reordering rows loses nothing. */
+export function fieldValueOf(it: Item, raw: unknown): FieldValue | undefined {
+  if (typeof raw === "string" || typeof raw === "boolean" || (typeof raw === "number" && Number.isFinite(raw))) return raw;
+  const def = partBySlug(it.component);
+  const d = def?.props.find((x) => x.key === def.input?.prop);
+  if (!def || d?.kind !== "list" || !Array.isArray(raw) || !raw.every((w) => typeof w === "string")) return undefined;
+  const had = reader(def, it.props).list(d.key);
+  const used = new Set<number>();
+  return (raw as string[]).slice(0, d.max ?? 50).map((label) => {
+    const at = had.findIndex((r, i) => !used.has(i) && r.label === label);
+    if (at < 0) return { label };
+    used.add(at);
+    return had[at];
+  });
+}
+
 /** the visitor changed an input: it remembers, and the variable its value is bound to follows */
-export function writeField(s: PreviewState, it: Item, value: VarValue, doc: DocScope): PreviewState {
+export function writeField(s: PreviewState, it: Item, value: FieldValue, doc: DocScope): PreviewState {
   const key = INPUT_PROP[it.component ?? ""];
   if (key === undefined) return s;
   const id = it.bind?.[key];
   const type = id ? doc.vars?.find((v) => v.id === id)?.type : undefined;
   const def = partBySlug(it.component);
-  /* a choice written to a text variable is the row's words, not its place in the list */
-  const words = type === "text" && key === "selected" && def && typeof value === "number" ? (reader(def, it.props).list("items")[value]?.label ?? "") : undefined;
-  const next = type ? coerce(words ?? value, type) : null;
+  /* a choice written to a text variable is the row's words, not its place in the list; rows are their words, one a line */
+  const words = Array.isArray(value) ? value.map((r) => r.label).join("\n") : type === "text" && def?.input?.kind === "choice" && typeof value === "number" ? (optionsOf(it)[value] ?? "") : undefined;
+  const next = type ? coerce(words ?? (value as VarValue), type) : null;
   const sameVar = !id || !type || next === null || s.vars[id] === next;
   if (s.fields[it.id] === value && sameVar) return s;
   return sameVar ? { ...s, fields: { ...s.fields, [it.id]: value } } : { ...wrote(s, id!, next!), fields: { ...s.fields, [it.id]: value } };

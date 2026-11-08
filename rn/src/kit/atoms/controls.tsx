@@ -596,12 +596,20 @@ export function Link(props: LinkProps) {
   );
 }
 
-export type RatingProps = PartBase & FieldProps & { value?: number; count?: number; readOnly?: boolean; disabled?: boolean; error?: boolean };
+export type RatingProps = PartBase & FieldProps & { value?: number; count?: number; readOnly?: boolean; disabled?: boolean; error?: boolean; onValueChange?: (value: number) => void };
 
+/** A score that follows `value`: a press shows at once and is handed out (`onValueChange`, which the app writes to the
+ *  variable the stars are bound to), and whenever `value` itself changes the stars start over from it. */
 export function Rating(props: RatingProps) {
   const p = withDefaults<RatingProps>("rating", props);
   const kit = useKit();
-  const [value, setValue] = useState(Math.round(p.value ?? 4));
+  const given = Math.round(p.value ?? 4);
+  const [own, setOwn] = useState({ from: given, value: given });
+  const value = own.from === given ? own.value : given;
+  const setValue = (v: number) => {
+    setOwn({ from: given, value: v });
+    p.onValueChange?.(v);
+  };
   const count = clampInt(p.count ?? 5, 1, 10);
   return withField(
     p,

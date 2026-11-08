@@ -251,6 +251,12 @@ export const additions: PartDef[] = [
       WIDTH(320, 160),
       ariaLabelProp(),
     ],
+    /* the tags are what the visitor enters; each one added or removed is also sent on its own */
+    input: { prop: "items", kind: "choices" },
+    events: [
+      { name: "add", label: "Added a tag", labels: { ja: "タグを追加した", zh: "添加了标签", ko: "태그를 추가함" }, payload: { value: "text" } },
+      { name: "remove", label: "Removed a tag", labels: { ja: "タグを削除した", zh: "删除了标签", ko: "태그를 삭제함" }, payload: { value: "text" } },
+    ],
     tree: (p) => fieldFrame(fieldValues(p), h("TagInput", { items: words(p.list("items")), placeholder: p.s("placeholder"), width: px(p) })),
   },
   {
@@ -302,6 +308,8 @@ export const additions: PartDef[] = [
       { key: "accept", label: "File types", labels: { ja: "ファイル形式", zh: "文件类型", ko: "파일 형식" }, kind: "text", default: "" },
       WIDTH(360, 200, 800),
     ],
+    /* the button that opens the file picker, the place both apps' kits answer to */
+    slots: (p) => (p.s("action") ? [{ key: "action", label: p.s("action") }] : []),
     tree: (p) => fieldFrame(fieldValues(p), h("FileUpload", { title: p.s("title"), hint: p.s("hint"), action: p.s("action"), multiple: p.b("multiple"), accept: p.s("accept"), width: px(p) })),
   },
   {
@@ -321,7 +329,7 @@ export const additions: PartDef[] = [
       WIDTH(320, 120, 800),
       ariaLabelProp(),
     ],
-    selectKey: "selected",
+    input: { prop: "selected", kind: "choice" },
     tree: (p) => fieldFrame(fieldValues(p), h("ItemPicker", { items: p.list("items").map((x) => ({ label: x.label, ...(x.icon ? { icon: x.icon } : {}) })), columns: Math.round(p.n("columns")), selected: Math.round(p.n("selected")), width: px(p) })),
   },
   {
@@ -340,7 +348,9 @@ export const additions: PartDef[] = [
       WIDTH(320, 120, 800),
       ariaLabelProp(),
     ],
-    tree: (p) => fieldFrame(fieldValues(p), h("MultiSelect", { items: words(p.list("items")), selected: p.s("selected").split(",").map((x) => Number(x) - 1).filter((n) => Number.isInteger(n) && n >= 0), width: px(p) })),
+    /* the rows picked, counted from 1: the words a variable or a form field holds */
+    input: { prop: "selected", kind: "choices" },
+    tree: (p) => fieldFrame(fieldValues(p), h("MultiSelect", { items: words(p.list("items")), selected: p.s("selected"), width: px(p) })),
   },
   {
     slug: "color-palette",
@@ -358,6 +368,8 @@ export const additions: PartDef[] = [
       WIDTH(320, 120, 800),
       ariaLabelProp(),
     ],
+    /* the color picked: its place among the colors (a variable or a form field holds the color itself) */
+    input: { prop: "selected", kind: "choice", options: "colors" },
     tree: (p) => fieldFrame(fieldValues(p), h("ColorPalette", { colors: p.s("colors").split(",").map((x) => x.trim()), selected: Math.round(p.n("selected")), width: px(p) })),
   },
   {
@@ -379,6 +391,7 @@ export const additions: PartDef[] = [
       WIDTH(96, 56, 240),
       ariaLabelProp(),
     ],
+    input: { prop: "value", kind: "number" },
     tree: (p) => fieldFrame(fieldValues(p), h("NumberPicker", { value: Math.round(p.n("value")), min: Math.round(p.n("min")), max: Math.round(p.n("max")), step: Math.round(p.n("step")), unit: p.s("unit"), width: px(p) })),
   },
 
@@ -568,9 +581,29 @@ export const additions: PartDef[] = [
     props: [
       { key: "seconds", label: "Seconds", labels: { ja: "秒", zh: "秒数", ko: "초" }, kind: "number", default: 60, min: 1, max: 86400, step: 1 },
       { key: "countdown", label: "Count down", labels: { ja: "カウントダウン", zh: "倒计时", ko: "카운트다운" }, kind: "bool", default: true },
+      { key: "running", label: "Running", labels: { ja: "動作中", zh: "正在计时", ko: "작동 중" }, kind: "bool", default: false },
+      { key: "endsAt", label: "Ends at (ms, 0: none)", labels: { ja: "終了時刻（ミリ秒、0: なし）", zh: "结束时刻（毫秒，0 为无）", ko: "종료 시각 (밀리초, 0: 없음)" }, kind: "number", default: 0, min: 0, max: 1e14, step: 1 },
+      { key: "startedAt", label: "Started at (ms, 0: none)", labels: { ja: "開始時刻（ミリ秒、0: なし）", zh: "开始时刻（毫秒，0 为无）", ko: "시작 시각 (밀리초, 0: 없음)" }, kind: "number", default: 0, min: 0, max: 1e14, step: 1 },
+      { key: "clockSkew", label: "Clock ahead of the device (ms)", labels: { ja: "端末より進んでいる時計（ミリ秒）", zh: "时钟比设备快多少（毫秒）", ko: "기기보다 앞선 시계 (밀리초)" }, kind: "number", default: 0, min: -1e10, max: 1e10, step: 1 },
       WIDTH(200, 160, 480),
     ],
-    tree: (p) => h("Timer", { seconds: Math.round(p.n("seconds")), countdown: p.b("countdown"), width: px(p) }),
+    /* its buttons ask to start, stop or reset it; when it ends is the clock's the other side keeps */
+    slots: () => [
+      { key: "toggle", label: "Start or pause" },
+      { key: "reset", label: "Reset" },
+    ],
+    events: [{ name: "ended", label: "Reached the end", labels: { ja: "終わりに達した", zh: "计时结束", ko: "끝에 도달함" } }],
+    demo: { what: "runs and stops a clock of its own when its buttons are pressed", takenOverBy: ["running", "endsAt", "startedAt"] },
+    tree: (p) =>
+      h("Timer", {
+        seconds: Math.round(p.n("seconds")),
+        countdown: p.b("countdown"),
+        ...(p.b("running") ? { running: true } : {}),
+        ...(p.n("endsAt") > 0 ? { endsAt: Math.round(p.n("endsAt")) } : {}),
+        ...(p.n("startedAt") > 0 ? { startedAt: Math.round(p.n("startedAt")) } : {}),
+        ...(p.n("clockSkew") ? { clockSkew: Math.round(p.n("clockSkew")) } : {}),
+        width: px(p),
+      }),
   },
 
   /* ---------- rows and records ---------- */
@@ -682,7 +715,9 @@ export const additions: PartDef[] = [
   },
   {
     slug: "sortable-list",
-    appearance: { radius: 12 },
+    /* an order the visitor enters, as a form's field can take it */
+    field: FIELD,
+    appearance: { target: "SortableList", radius: 12 },
     name: "Sortable list",
     labels: { ja: "並べ替えリスト", zh: "可排序列表", ko: "정렬 가능한 목록" },
     category: "Lists",
@@ -692,8 +727,12 @@ export const additions: PartDef[] = [
     props: [
       { key: "items", label: "Rows", labels: { ja: "行", zh: "行", ko: "행" }, kind: "list", default: [{ label: "First" }, { label: "Second" }, { label: "Third" }], min: 1, max: 30 },
       WIDTH(320, 160, 800),
+      ariaLabelProp(),
     ],
-    tree: (p) => h("SortableList", { items: words(p.list("items")), width: px(p) }),
+    /* the rows in the order shown are what the visitor enters; each move is also sent on its own */
+    input: { prop: "items", kind: "choices" },
+    events: [{ name: "reorder", label: "Moved a row", labels: { ja: "行を移動した", zh: "移动了一行", ko: "행을 옮김" }, payload: { from: "number", to: "number" } }],
+    tree: (p) => fieldFrame(fieldValues(p), h("SortableList", { items: words(p.list("items")), width: px(p) })),
   },
   {
     slug: "swipe-row",
@@ -708,9 +747,14 @@ export const additions: PartDef[] = [
       { key: "title", label: "Title", kind: "text", default: "Swipe me left", defaults: { zh: "向左滑动" } },
       { key: "note", label: "Description", labels: { ja: "説明", zh: "说明", ko: "설명" }, kind: "text", default: "" },
       { key: "action", label: "Action", labels: { ja: "操作", zh: "操作", ko: "작업" }, kind: "text", default: "Delete", defaults: { zh: "删除" } },
+      { key: "open", label: "Action showing", labels: { ja: "操作を表示中", zh: "露出操作", ko: "작업 표시 중" }, kind: "bool", default: false },
       WIDTH(360, 160, 800),
     ],
-    tree: (p) => h("SwipeRow", { title: p.s("title"), note: p.s("note"), action: p.s("action"), width: px(p) }),
+    /* whether the action shows is the visitor's; the action only asks, and the row goes when its data goes */
+    input: { prop: "open", kind: "bool" },
+    slots: (p) => (p.s("action") ? [{ key: "action", label: p.s("action") }] : []),
+    events: [{ name: "open", label: "Opened or shut", labels: { ja: "開いた・閉じた", zh: "展开或收起", ko: "열거나 닫음" }, payload: { open: "bool" } }],
+    tree: (p) => h("SwipeRow", { title: p.s("title"), note: p.s("note"), action: p.s("action"), ...(p.b("open") ? { open: true } : {}), width: px(p) }),
   },
 
   /* ---------- sound and movement ---------- */
@@ -728,9 +772,29 @@ export const additions: PartDef[] = [
       { key: "artist", label: "Artist", labels: { ja: "アーティスト", zh: "艺术家", ko: "아티스트" }, kind: "text", default: "Artist", defaults: { zh: "艺术家" } },
       { key: "src", label: "Audio address", labels: { ja: "音声のアドレス", zh: "音频地址", ko: "오디오 주소" }, kind: "text", default: "" },
       { key: "seconds", label: "Length in seconds", labels: { ja: "長さ（秒）", zh: "时长（秒）", ko: "길이(초)" }, kind: "number", default: 180, min: 1, max: 36000, step: 1 },
+      { key: "playing", label: "Playing", labels: { ja: "再生中", zh: "正在播放", ko: "재생 중" }, kind: "bool", default: false },
+      { key: "position", label: "Position in seconds", labels: { ja: "再生位置（秒）", zh: "播放位置（秒）", ko: "재생 위치(초)" }, kind: "number", default: 0, min: 0, max: 36000, step: 1 },
       WIDTH(360, 200, 800),
     ],
-    tree: (p) => h("AudioPlayer", { title: p.s("title"), artist: p.s("artist"), src: p.s("src"), seconds: Math.round(p.n("seconds")), width: px(p) }),
+    /* whether it plays is the visitor's; each start and stop and the end are also sent */
+    input: { prop: "playing", kind: "bool" },
+    slots: () => [{ key: "toggle", label: "Play or pause" }],
+    events: [
+      { name: "play", label: "Started playing", labels: { ja: "再生を始めた", zh: "开始播放", ko: "재생 시작" }, payload: { position: "number" } },
+      { name: "pause", label: "Paused", labels: { ja: "一時停止した", zh: "暂停了", ko: "일시 정지함" }, payload: { position: "number" } },
+      { name: "ended", label: "Played to the end", labels: { ja: "最後まで再生した", zh: "播放完毕", ko: "끝까지 재생함" } },
+    ],
+    demo: { what: "moves its bar with no file to play, as if it played", takenOverBy: ["playing", "position"] },
+    tree: (p) =>
+      h("AudioPlayer", {
+        title: p.s("title"),
+        artist: p.s("artist"),
+        src: p.s("src"),
+        seconds: Math.round(p.n("seconds")),
+        ...(p.b("playing") ? { playing: true } : {}),
+        ...(p.n("position") > 0 ? { position: Math.round(p.n("position")) } : {}),
+        width: px(p),
+      }),
   },
   {
     slug: "marquee",

@@ -115,7 +115,7 @@ export const chat: PartDef[] = [
       { key: "remove", label: "Remove button", kind: "bool", default: false },
     ],
     /* its remove button asks for the file to go (the API says when it has) */
-    slots: (p) => (p.b("remove") ? [{ key: "remove", label: p.say("Remove"), icon: "close" }] : []),
+    slots: (p) => (p.b("remove") ? [{ key: "remove", label: p.say("Remove"), icon: "close", own: true }] : []),
     tree: (p) =>
       h(
         "Attachment",

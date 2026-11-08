@@ -50,18 +50,22 @@ describe("the prototype export", () => {
      before the product existed; one that changes on purpose is written again here (last: the field states and the
      accessible names, docs/组件规范.md: the M3E button's own loading spinner (spinner.tsx copied beside it), the widgets'
      arrow keys (parts/widgets/roving.ts) and a rating named in the page's language, icon-only controls named by what
-     their icon means; before them the icons reading their
+     their icon means, a picture with no name kept from a screen reader, a field's line of help in its frame; before them
+     the reward track and the leaderboard copied with the widgets, a
+     claim the demo made kept by its reward and the open row only the one given; before them the widgets' state and
+     outlets, report 3.3 and 3.4: inputs controlled through the host, demos printed where a part acts out a result, the
+     sweep's parts with a selectKey now including the level map, the side tabs and the review summary; before them the icons reading their
      family from a root's provider and drawn again when it changes, components/m3e/icon.tsx and symbols.tsx, and the
      loader asking for each root's family; with it the widgets' host contract, parts/widgets/host.ts, copied beside
      them, and a rating an input wired to its variable; before them an icon counted as drawn only with both its glyphs, the components saying their own words in Chinese, Japanese and Korean too, the
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [81, "96ee35a498550f4a112acb2090db1560ae8e288a538a90175676281af36bfda6"],
+    proof: [81, "60a25d2ce60e17bb0e54fd41559fbac10f028be768958abfeb0ac12d3f75496e"],
     systems: [41, "992987b9634db0e617a98539279765cae5163f7caa5fe8ecdbc9aa5dc3ca56cb"],
     reuse: [31, "bf3a590479d5cbc75c4c9fcd91fa094350452f6190f2690665cefe7aecff44aa"],
-    sweep: [85, "1130d6a1283f0eea3a43046504daa27709c1934732e5465a1660c0b422620871"],
-    parts: [138, "b2bd770af4d6e7b2e64514de6ad4a73178a6782f93b7bc7931eee8d011f0d78d"],
+    sweep: [92, "18c50f952370b325ef72ebb50b94a01b3929039ba5f8907ce6e3388dd5b79110"],
+    parts: [138, "9e5e4e52e80a7ee65dbacc1a387547211cf3068bc623c1e5affc159dd0c52844"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
@@ -381,10 +385,12 @@ describe("the mobile app", () => {
     expect(proof.differences.filter((d) => d.app === "mobile").map(({ app: _app, ...d }) => d)).toEqual(listed);
     expect(proof.differences.filter((d) => d.app === "miniapp").map(({ app: _app, ...d }) => d)).toEqual(JSON.parse(text(proof, "apps/miniapp/src/generated/warnings.json")));
     const counts = differenceCounts(proof.differences);
-    expect(counts.map((c) => c.app)).toEqual(["mobile", "miniapp"]);
-    expect(counts[0]).toMatchObject({ total: listed.length, file: "apps/mobile/src/generated/warnings.json" });
-    expect(counts[0].kinds.reduce((n, [, k]) => n + k, 0)).toBe(listed.length);
-    expect(differenceLines(proof.differences)[0]).toMatch(/^mobile: \d+ drawn differently from the design \(\d+ \w+/);
+    /* the web lists the product cards' prototype demo (a heart and a cart count they act out), which a product never runs */
+    expect(counts.map((c) => c.app)).toEqual(["web", "mobile", "miniapp"]);
+    expect(proof.differences.filter((d) => d.app === "web").map((d) => d.kind)).toEqual(expect.arrayContaining(["demo"]));
+    expect(counts[1]).toMatchObject({ total: listed.length, file: "apps/mobile/src/generated/warnings.json" });
+    expect(counts[1].kinds.reduce((n, [, k]) => n + k, 0)).toBe(listed.length);
+    expect(differenceLines(proof.differences)[1]).toMatch(/^mobile: \d+ drawn differently from the design \(\d+ \w+/);
     /* a product with nothing drawn differently says so with an empty list */
     expect(JSON.parse(text(shop, "apps/mobile/src/generated/warnings.json"))).toEqual(shop.differences.filter((d) => d.app === "mobile").map(({ app: _app, ...d }) => d));
   });

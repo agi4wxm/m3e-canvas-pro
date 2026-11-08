@@ -325,7 +325,7 @@ export function SnackHost() {
 }
 
 /** Rows for a part's list prop out of what an expression read: each element's words (its label, name or title), its
- *  icon and its picture; the design's own when it reads no list. */
+ *  icon, its picture and its state (`variant`); the design's own when it reads no list. */
 export function rowsOf<T>(v: unknown, design: T, max = 50): T {
   if (!Array.isArray(v)) return design;
   return v.slice(0, max).map((x) => {

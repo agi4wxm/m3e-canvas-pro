@@ -21,6 +21,7 @@ import type { PartDef, PropDef } from "../parts/types";
 import { mapNodes, raw, type PNode, type PValue } from "../parts/node";
 import { str } from "../parts/print";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
+import { optionsOf } from "./partContract";
 import { identifierOf } from "./export/paths";
 import { literal } from "./export/code";
 import { commentText } from "./export/server/comments";
@@ -325,6 +326,17 @@ export class BoundPrint {
         /* the widget itself, inside the frame its field states may draw around it (parts/fieldState.ts) */
         const widget = tree.type === "FieldFrame" ? tree.children?.find((c): c is PNode => typeof c !== "string" && c.type in WIDGET_SOURCES) : tree;
         if (!input || !widget || !(widget.type in WIDGET_SOURCES)) return null;
+        const inFrame = (wired: PNode): PNode => (widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) });
+        const d = def.props.find((x) => x.key === input.prop);
+        /* a choice sends the words of what is picked, and a list its rows' words */
+        if (input.kind === "choice" && d?.kind === "number") {
+          const options = str(optionsOf(it));
+          return { tree: inFrame({ ...widget, props: { ...widget.props, [input.prop]: raw(`${options}.indexOf(${f.name}.text(${field}))`), onValueChange: raw(`(value) => ${f.name}.set(${field}, ${options}[Number(value)] ?? "")`) } }) };
+        }
+        if (d?.kind === "list") {
+          const now = `${f.name}.value(${field})`;
+          return { tree: inFrame({ ...widget, props: { ...widget.props, [input.prop]: raw(`Array.isArray(${now}) ? ${now} : []`), onValueChange: raw(`(value) => ${f.name}.set(${field}, value)`) } }) };
+        }
         const read = input.kind === "number" ? `Number(${f.name}.value(${field}) ?? 0)` : input.kind === "bool" ? `!!${f.name}.value(${field})` : `${f.name}.text(${field})`;
         const wired = { ...widget, props: { ...widget.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${f.name}.set(${field}, value)`) } };
         return { tree: widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) } };

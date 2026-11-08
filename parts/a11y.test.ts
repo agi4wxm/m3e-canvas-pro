@@ -194,7 +194,9 @@ describe("every part", () => {
 
   it("that takes input offers a way to be named: a label it shows, or its accessible name", () => {
     const VISIBLE = ["label", "title", "text"];
-    for (const d of PARTS.filter((x) => x.input || x.field?.required))
+    /* a part whose input is what it shows (a row swiped open, a page turned to) is named by what it shows */
+    const VIEW_STATE = new Set(["swipe-row", "audio-player", "balance-card", "transaction-list", "onboarding", "image-viewer"]);
+    for (const d of PARTS.filter((x) => (x.input && !VIEW_STATE.has(x.slug)) || x.field?.required))
       expect(d.props.some((p) => p.key === ARIA_LABEL || VISIBLE.includes(p.key)), `${d.slug} has no way to be named`).toBe(true);
   });
 });
@@ -243,7 +245,7 @@ describe("the arrows of a group", () => {
     const root = markup(partBySlug("rating")!, { value: 3 });
     const stars = all(root).filter((e) => e.attrs.role === "radio");
     expect(stars.map((s) => s.attrs.tabindex)).toEqual(["-1", "-1", "0", "-1", "-1"]);
-    const tabs = all(markup(partBySlug("side-tabs")!, {})).filter((e) => e.attrs.role === "tab");
-    expect(tabs.filter((t) => t.attrs.tabindex === "0")).toHaveLength(1);
+    const colors = all(markup(partBySlug("color-palette")!, {})).filter((e) => e.attrs.role === "radio");
+    expect(colors.filter((t) => t.attrs.tabindex === "0")).toHaveLength(1);
   });
 });

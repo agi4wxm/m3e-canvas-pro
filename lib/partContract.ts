@@ -3,7 +3,7 @@
  * prototype demo it runs until something takes it over. Validation, the panel, the preview, the tools and the exports
  * all ask here, so a declaration is the one place this is said (docs/组件规范.md, docs/边界与契约.md). */
 
-import { partBySlug } from "../parts/registry";
+import { partBySlug, reader } from "../parts/registry";
 import type { PartDef, PartEvent, PartInput, PartLang, SlotFamily } from "../parts/types";
 import { labelOf } from "../parts/labels";
 import { actionSlotsOf, type Action, type ActionBody, type Effect, type Item } from "./tokens";
@@ -27,6 +27,17 @@ export const familiesOf = (it: Pick<Item, "component">): SlotFamily[] => defOf(i
 export const eventsOf = (it: Pick<Item, "component">): PartEvent[] => defOf(it)?.events ?? [];
 /** the input a part is, if it is one */
 export const inputOf = (it: Pick<Item, "component">): PartInput | undefined => defOf(it)?.input;
+
+/** The words a choice input picks from, in order (`PartInput.options`): the labels of a list's rows, or the words of a
+ *  prop that lists them with commas. A text variable or a form field holds these words, the part its place among them. */
+export function optionsOf(it: Pick<Item, "component" | "props">): string[] {
+  const def = defOf(it);
+  const key = def?.input?.options ?? "items";
+  const d = def?.props.find((p) => p.key === key);
+  if (!def || !d) return [];
+  const p = reader(def, it.props);
+  return d.kind === "list" ? p.list(key).map((r) => r.label) : d.kind === "text" ? p.s(key).split(",").map((w) => w.trim()) : [];
+}
 
 /** Every key the part's `actions` may hold: its slots, then its families, then its events. */
 export function outletsOf(it: Item, lang: PartLang = "en"): Outlet[] {

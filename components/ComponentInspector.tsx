@@ -11,7 +11,7 @@ import { AiHooks } from "./Inspector";
 import { BehaviorContext, BindRow, StyleRulesContext, VisibilitySection } from "./EffectsPanel";
 import { styleOwnsProp } from "@/lib/styleRules";
 import { EntryList, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, SlotStrip, Tab, TriggerSection, WidthRows, actionOutletsOf } from "./PartPanel";
-import { demoTakenOver } from "@/lib/partContract";
+import { demoTakenOver, optionsOf } from "@/lib/partContract";
 import { segmentedFits } from "@/lib/choices";
 import { tableOf, tableText } from "@/lib/collections";
 import { FlowControl } from "./FlowPanel";
@@ -213,6 +213,9 @@ export function ComponentProps({ item, palette: p, onChange, frame, layoutApart,
   /* a part whose rows are a table's picks its row by the row's first cell */
   const firstTable = firstList ? undefined : def.props.find((d) => d.kind === "table");
   const rowsToPick = tabs?.map((s) => s.label) ?? (firstList ? values.list(firstList.key).map((r) => r.label) : firstTable ? values.table(firstTable.key).rows.map((r) => r[0] ?? "") : undefined);
+  /* a choice input is picked among the options it declares (a palette's colors), the way a chosen row is */
+  const choice = def.input?.kind === "choice" ? def.input.prop : undefined;
+  const rowsOf = (d: PropDef) => (d.key === choice ? optionsOf(item) : d.key === def.selectKey ? rowsToPick : undefined);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {def.props
@@ -220,13 +223,13 @@ export function ComponentProps({ item, palette: p, onChange, frame, layoutApart,
         .filter((d) => shownProp(def, d, values, strict, inFlow) && !skip?.(d) && (!only || only(d)))
         .map((d) =>
           /* the row a part has chosen is picked by its name, not by counting: a dock's tab is also what the canvas shows and what a drop lands on */
-          d.key === def.selectKey && d.kind === "number" && rowsToPick ? (
+          d.kind === "number" && rowsOf(d) ? (
             <BindRow key={d.key} def={d} item={item} onChange={onChange} p={p}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant, padding: "0 4px 6px" }}>{labelOf(d, lang)}</div>
                 <Select
-                  options={[...((d.min ?? 0) < 0 ? [{ key: "-1", label: t("none", lang) }] : []), ...rowsToPick.map((label, i) => ({ key: String(i), label: label || String(i + 1) }))]}
-                  value={String(Math.min(values.n(d.key), rowsToPick.length - 1))}
+                  options={[...((d.min ?? 0) < 0 ? [{ key: "-1", label: t("none", lang) }] : []), ...rowsOf(d)!.map((label, i) => ({ key: String(i), label: label || String(i + 1) }))]}
+                  value={String(Math.min(values.n(d.key), rowsOf(d)!.length - 1))}
                   onChange={(k) => set(d.key, Number(k))}
                   p={p}
                   label={labelOf(d, lang)}

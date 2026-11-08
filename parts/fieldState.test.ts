@@ -20,6 +20,10 @@ beforeAll(async () => {
 const draw = (slug: string, props: Record<string, unknown>) => renderToStaticMarkup(createElement("div", null, renderNode(treeOf(partBySlug(slug)!, { ...defaultValues(partBySlug(slug)!), ...props }))));
 const inputs = PARTS.filter((d) => d.field && stateKey(d, "required"));
 
+/** the parts whose input is what they show, not what a visitor enters for a form: a row swiped open, a player playing,
+ *  a balance hidden, a list's filter, a page or a picture turned to; they have no field to be required or wrong */
+const VIEW_STATE = new Set(["swipe-row", "audio-player", "balance-card", "transaction-list", "onboarding", "image-viewer"]);
+
 /** what each state says in the markup, natively or through the frame */
 const SIGNS: Record<(typeof FIELD_STATES)[number], RegExp> = {
   disabled: /\sdisabled=""|data-disabled="(true|)"|aria-disabled="true"/,
@@ -33,7 +37,7 @@ const SIGNS: Record<(typeof FIELD_STATES)[number], RegExp> = {
 
 describe("the field state package", () => {
   it("is declared by every input, each state a prop of the kind it takes", () => {
-    for (const d of PARTS.filter((x) => x.input)) expect(d.field, `${d.slug} takes input but declares no field states`).toBeTruthy();
+    for (const d of PARTS.filter((x) => x.input && !VIEW_STATE.has(x.slug))) expect(d.field, `${d.slug} takes input but declares no field states`).toBeTruthy();
     for (const d of PARTS.filter((x) => x.field))
       for (const [state, key] of Object.entries(d.field!)) {
         const prop = d.props.find((x) => x.key === key);

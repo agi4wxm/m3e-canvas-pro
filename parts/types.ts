@@ -84,7 +84,15 @@ export type Screen = { w: number; h: number };
 /** a place inside a part a tap can be sent from: a destination, a menu item, an icon at a bar's
  *  end. `key` is what the item's `actions` map stores under ("tab:2", "icon"); the nodes that
  *  answer to it carry `data-tap` so the preview can tell the places of one part apart. */
-export type PartSlot = { key: string; label: string; icon?: string };
+export type PartSlot = {
+  key: string;
+  label: string;
+  icon?: string;
+  /** A control of the part's own (a heart, a close button): a press on it counts as a press on the whole part only
+   *  where something is wired to it, so an unwired heart never opens what a tap on the card opens. The printers hand
+   *  the widget the own slots they wire (`wired`). */
+  own?: boolean;
+};
 
 /** The kind of value an input hands out: words, a number, yes or no, one row of a list or several, files, a date, a
  *  direction (x and y from -1 to 1). Every host reads and writes an input by this, never by the part's slug. */
@@ -92,7 +100,13 @@ export type InputKind = "text" | "number" | "bool" | "choice" | "choices" | "fil
 
 /** What the visitor enters into a part: the prop that holds it, and its kind. The value is UI state (a draft until
  *  something submits it): a host keeps it, binds it to a variable or a form field, and draws the part with it again. */
-export type PartInput = { prop: string; kind: InputKind };
+export type PartInput = {
+  prop: string;
+  kind: InputKind;
+  /** For a choice: the prop whose entries it picks from, a list (its rows' labels) or words separated by commas
+   *  (a palette's colors). `items` when left out. A form field and a text variable hold the words of what is picked. */
+  options?: string;
+};
 
 /** the kind of a field of an event's payload */
 export type PayloadKind = "text" | "number" | "bool" | "list" | "object";

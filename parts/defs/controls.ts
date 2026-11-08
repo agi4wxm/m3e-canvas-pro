@@ -53,6 +53,8 @@ export const controls: PartDef[] = [
   {
     slug: "color-field",
     field: FIELD,
+    /* the color is what the visitor enters, from the well or the screen */
+    input: { prop: "value", kind: "text" },
     appearance: { target: "ColorField", radius: 12 },
     name: "Color field",
     labels: { ja: "カラー選択", zh: "颜色选择", ko: "색상 선택" },

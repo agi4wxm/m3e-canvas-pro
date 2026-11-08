@@ -6,7 +6,7 @@ import type { PartDef, PropDef } from "../parts/types";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { type Row, CURRENT_TOKEN, fillCurrent, firstRows, markCurrent } from "./collections";
 import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
-import { demoRuns, isPlaceKey } from "./partContract";
+import { demoRuns, isPlaceKey, optionsOf } from "./partContract";
 import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn, varValues } from "./variables";
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
 import type { BoundPrint } from "./printBindings";
@@ -588,10 +588,11 @@ export class Behaviour {
     const d = def.props.find((x) => x.key === key);
     const name = this.partKeys.get(it.id);
     let info: VarInfo;
-    if (key === "selected") {
-      const rows = p.list("items");
-      info = { key: camel(name, "field", this.varKeys), type: "text", start: rows[Math.min(p.n(key), rows.length - 1)]?.label ?? "" };
-    } else if (d?.kind === "bool") info = { key: camel(name, "field", this.varKeys), type: "bool", start: p.b(key) };
+    if (def.input?.kind === "choice" && d?.kind === "number") {
+      const options = optionsOf(it);
+      info = { key: camel(name, "field", this.varKeys), type: "text", start: options[Math.min(p.n(key), options.length - 1)] ?? "" };
+    } else if (d?.kind === "list") info = { key: camel(name, "field", this.varKeys), type: "text", start: p.list(key).map((r) => r.label).join("\n") };
+    else if (d?.kind === "bool") info = { key: camel(name, "field", this.varKeys), type: "bool", start: p.b(key) };
     else if (d?.kind === "number") info = { key: camel(name, "field", this.varKeys), type: "number", start: p.n(key) };
     else info = { key: camel(name, "field", this.varKeys), type: "text", start: p.s(key) };
     this.inputs.set(it.id, info);
@@ -719,8 +720,8 @@ export class Behaviour {
     if (INPUT_PROP[def.slug] === e.prop) {
       const v = this.inputVar(it);
       if (!v) return null;
-      const rows = e.prop === "selected" ? reader(def, it.props).list("items") : [];
-      const value = e.prop === "selected" && v.type === "text" ? (rows[Number(e.value)]?.label ?? "") : coerce(e.value, v.type);
+      const choice = def.input?.kind === "choice" && d.kind === "number";
+      const value = choice && v.type === "text" ? (optionsOf(it)[Number(e.value)] ?? "") : coerce(e.value, v.type);
       return value === null ? null : call("setVar", json(v.key), json(value));
     }
     if (e.prop === def.selectKey && this.selecting(it, def)) {
@@ -936,6 +937,21 @@ export class Behaviour {
         /* the widget itself, inside the frame its field states may draw around it (parts/fieldState.ts) */
         const widget = tree.type === "FieldFrame" ? tree.children?.find((c): c is PNode => typeof c !== "string" && c.type in WIDGET_SOURCES) : tree;
         if (!input || !widget || !(widget.type in WIDGET_SOURCES)) return tree;
+        const inFrame = (wired: PNode): PNode => (widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) });
+        const d = def.props.find((x) => x.key === input.prop);
+        /* a choice is its place among the options, which a text variable holds as their words */
+        if (input.kind === "choice" && d?.kind === "number") {
+          const options = json(optionsOf(it));
+          const read = v.type === "text" ? `${options}.indexOf(${this.readVar(v, "text", uses)})` : this.readVar(v, "number", uses);
+          const write = v.type === "text" ? `${options}[Number(value)] ?? ""` : this.toVar(v, "Number(value)", "number");
+          return inFrame({ ...widget, props: { ...widget.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${set(write)}`) } });
+        }
+        /* a list's rows are its words, a line each */
+        if (d?.kind === "list") {
+          const read = `${this.readVar(v, "text", uses)}.split("\\n").filter(Boolean)`;
+          const write = 'Array.isArray(value) ? value.join("\\n") : String(value ?? "")';
+          return inFrame({ ...widget, props: { ...widget.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${set(this.toVar(v, write, "text"))}`) } });
+        }
         const kind = input.kind === "number" ? "number" : input.kind === "bool" ? "bool" : "text";
         const given = kind === "number" ? "Number(value) || 0" : kind === "bool" ? "!!value" : 'String(value ?? "")';
         const wired = { ...widget, props: { ...widget.props, [input.prop]: raw(this.readVar(v, kind, uses)), onValueChange: raw(`(value) => ${set(this.toVar(v, given, kind))}`) } };
@@ -1002,6 +1018,9 @@ export class Behaviour {
     /* A prototype acts out a domain demo where nothing takes it over; a product (printed with bindings) never does,
        which is the widgets' own default (parts/widgets/host.ts) */
     if (!this.bound && demoRuns(it, "prototype") && tree.type in WIDGET_SOURCES) tree = { ...tree, props: { ...tree.props, demo: true } };
+    /* a control of the widget's own (a heart) keeps a press to itself unless told something is wired to it */
+    const wired = tree.type in WIDGET_SOURCES ? (def.slots?.(reader(def, it.props)) ?? []).filter((s) => s.own && slots[s.key]).map((s) => s.key) : [];
+    if (wired.length) tree = { ...tree, props: { ...tree.props, wired } };
     /* a part an action scrolls to is marked, so the runtime finds it on the screen in use */
     if (this.scrollTargets.has(it.id)) {
       const key = this.partKeys.get(it.id)!;

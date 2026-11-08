@@ -6,10 +6,13 @@ import { Button } from "@/components/m3e/button";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 import { rove } from "./roving";
+import { useHost, type HostProps } from "./host";
+import { useSeeded, useValue } from "./seed";
 
 /* What several kinds of app need and nothing else here draws: a picture looked at or cropped, a place
- * or a seat chosen, what reviews add up to, a voice note and a call, a funnel and a schedule. Each
- * holds its own state, so it works in the preview and in an exported project. */
+ * or a seat chosen, what reviews add up to, a voice note and a call, a funnel and a schedule. What the visitor picks
+ * is an input handed out through the host (parts/widgets/host.ts); what is true (the seats taken, a total, whether a
+ * crop is done) comes in as props. */
 
 const PICTURE = /^(https?:|data:image\/)/i;
 const pictureOf = (src: string | undefined) => (src && PICTURE.test(src) ? src : "");
@@ -43,23 +46,34 @@ function OnScreen({ from, children }: { from: Element | null; children: ReactNod
 
 /* ---------- pictures ---------- */
 
-export function ImageViewer({ images = [], height = 260, width = 380, thumbnails = true, className, style }: { images?: { label: string; image?: string }[]; height?: number; width?: number; thumbnails?: boolean } & Look) {
+/* The picture on show is `index`, an input (the viewer's own while nobody takes it), handed out and sent as `change`
+ * whenever the arrows, a thumbnail (`tab:*`) or the keys move it; opening and shutting the full-screen view is sent as
+ * `fullscreen`. Zooming is the viewer's own. */
+export function ImageViewer({ images = [], height = 260, width = 380, thumbnails = true, index = 0, demo, onValueChange, onEvent, wired, className, style }: { images?: { label: string; image?: string }[]; height?: number; width?: number; thumbnails?: boolean; index?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
   const rows = images.length ? images : [{ label: "" }];
-  const [at, setAt] = useState(0);
+  const [at, setAt] = useValue(index, host);
   const [full, setFull] = useState(false);
   const [zoom, setZoom] = useState(1);
   const root = useRef<HTMLDivElement>(null);
-  const current = Math.min(at, rows.length - 1);
-  const go = (d: number) => {
+  const current = Math.min(Math.max(0, at), rows.length - 1);
+  const show = (to: number) => {
     setZoom(1);
-    setAt((current + d + rows.length) % rows.length);
+    if (to === current) return;
+    setAt(to);
+    host.emit("change", { index: to });
+  };
+  const go = (d: number) => show((current + d + rows.length) % rows.length);
+  const fill = (open: boolean) => {
+    setFull(open);
+    host.emit("fullscreen", { open });
   };
   useEffect(() => {
     if (!full) return;
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        setFull(false);
+        fill(false);
       }
       if (e.key === "ArrowRight") {
         e.stopPropagation();
@@ -85,14 +99,14 @@ export function ImageViewer({ images = [], height = 260, width = 380, thumbnails
             <Button variant="tonal" size="icon" aria-label="Next" className="absolute top-1/2 right-2 -translate-y-1/2" onClick={() => go(1)}><WidgetIcon name="chevron_right" /></Button>
           </>
         )}
-        <Button variant="tonal" size="icon" aria-label="Full screen" data-full className="absolute top-2 right-2" onClick={() => setFull(true)}><WidgetIcon name="fullscreen" /></Button>
+        <Button variant="tonal" size="icon" aria-label="Full screen" data-full className="absolute top-2 right-2" onClick={() => fill(true)}><WidgetIcon name="fullscreen" /></Button>
         {many && <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-inverse-surface px-2 py-0.5 text-label-small text-inverse-on-surface">{current + 1} / {rows.length}</span>}
       </div>
       {rows[current].label && <div className="px-3 text-body-medium text-on-surface">{rows[current].label}</div>}
       {thumbnails && many && (
         <div className="flex gap-2 overflow-x-auto px-3 pb-3">
           {rows.map((row, i) => (
-            <Tap key={i} aria-label={row.label || `${i + 1}`} aria-pressed={i === current} className={cn("size-14 shrink-0 rounded-md border-2", i === current ? "border-primary" : "border-transparent")} onClick={() => { setZoom(1); setAt(i); }}>
+            <Tap key={i} data-tap={`tab:${i}`} aria-label={row.label || `${i + 1}`} aria-pressed={i === current} className={cn("size-14 shrink-0 rounded-md border-2", i === current ? "border-primary" : "border-transparent")} onClick={() => show(i)}>
               {pictureOf(row.image) ? <img src={pictureOf(row.image)} alt="" className="size-full rounded-sm object-cover" /> : <Placeholder className="rounded-sm [&_svg]:size-5" />}
             </Tap>
           ))}
@@ -102,7 +116,7 @@ export function ImageViewer({ images = [], height = 260, width = 380, thumbnails
         <OnScreen from={root.current}>
           <div data-slot="image-viewer-full" className="absolute inset-0 z-50 flex flex-col overflow-hidden bg-inverse-surface text-inverse-on-surface" onClick={(e) => e.stopPropagation()}>
             <div className="flex shrink-0 items-center gap-1 p-2">
-              <Button variant="text" size="icon" aria-label="Close" className="text-inverse-on-surface" onClick={() => setFull(false)}><WidgetIcon name="close" /></Button>
+              <Button variant="text" size="icon" aria-label="Close" className="text-inverse-on-surface" onClick={() => fill(false)}><WidgetIcon name="close" /></Button>
               <span className="min-w-0 flex-1 truncate text-title-medium">{rows[current].label}</span>
               <Button variant="text" size="icon" aria-label="Zoom out" disabled={zoom <= 1} className="text-inverse-on-surface" onClick={() => setZoom((z) => Math.max(1, z - 0.5))}><WidgetIcon name="zoom_out" /></Button>
               <Button variant="text" size="icon" aria-label="Zoom in" disabled={zoom >= 3} className="text-inverse-on-surface" onClick={() => setZoom((z) => Math.min(3, z + 0.5))}><WidgetIcon name="zoom_in" /></Button>
@@ -129,20 +143,34 @@ export function ImageViewer({ images = [], height = 260, width = 380, thumbnails
 const ASPECTS: Record<string, number> = { "1:1": 1, "4:3": 4 / 3, "3:4": 3 / 4, "16:9": 16 / 9 };
 type Crop = { x: number; y: number; w: number; h: number };
 
-export function ImageCropper({ image = "", aspect = "1:1", width = 380, height = 300, action = "", reset = "", doneText = "", className, style }: { image?: string; aspect?: string; width?: number; height?: number; action?: string; reset?: string; doneText?: string } & Look) {
-  /* a crop in fractions of the picture, centred to start */
+/** a crop given as "x,y,w,h" in fractions of the picture, if it is one */
+const cropOf = (words: string): Crop | null => {
+  const [x, y, w, h, more] = words.split(",").map((n) => Number(n.trim()));
+  return more === undefined && [x, y, w, h].every((n) => Number.isFinite(n) && n >= 0 && n <= 1) && w > 0 && h > 0 ? { x, y, w, h } : null;
+};
+
+/* Where the frame stands and how far the picture turns are the visitor's draft: they start at `crop` ("x,y,w,h" in
+ * fractions of the picture) and `turn`, and start over when those change. Pressing the button sends `crop` with the
+ * frame and the turn: cutting the picture is the other side's, and whether it is done (`cropped`) is theirs to say.
+ * Only a prototype's demo says it is done itself. */
+export function ImageCropper({ image = "", aspect = "1:1", width = 380, height = 300, action = "", reset = "", doneText = "", crop: cropGiven = "", turn: turnGiven = 0, cropped = false, demo, onValueChange, onEvent, wired, className, style }: { image?: string; aspect?: string; width?: number; height?: number; action?: string; reset?: string; doneText?: string; crop?: string; turn?: number; cropped?: boolean } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  /* a crop in fractions of the picture: the one given, else centred */
   const start = (): Crop => {
+    const given = cropOf(cropGiven);
+    if (given) return given;
     const ratio = ASPECTS[aspect];
     if (!ratio) return { x: 0.15, y: 0.15, w: 0.7, h: 0.7 };
     const w = Math.min(0.7, (0.7 * height * ratio) / width);
     const h = (w * width) / ratio / height;
     return { x: (1 - w) / 2, y: (1 - h) / 2, w, h };
   };
-  const [crop, setCrop] = useState<Crop>(start);
-  const [turn, setTurn] = useState(0);
-  const [done, setDone] = useState(false);
+  const [crop, setCrop] = useSeeded<Crop>(start());
+  const [turn, setTurn] = useSeeded(((Math.round(turnGiven / 90) * 90) % 360 + 360) % 360);
+  const [mine, setMine] = useSeeded({ from: cropped, done: false });
+  const done = cropped || (host.demo && mine.done);
+  const setDone = (on: boolean) => setMine((m) => ({ ...m, done: on }));
   const area = useRef<HTMLDivElement>(null);
-  useEffect(() => setCrop(start()), [aspect, width, height]); // eslint-disable-line react-hooks/exhaustive-deps
   const drag = (kind: "move" | "size") => (e: ReactPointerEvent<HTMLElement>) => {
     const box = area.current?.getBoundingClientRect();
     if (!box) return;
@@ -182,7 +210,7 @@ export function ImageCropper({ image = "", aspect = "1:1", width = 380, height =
   const src = pictureOf(image);
   const percent = (n: number) => `${n * 100}%`;
   return (
-    <div data-slot="image-cropper" data-crop={`${crop.x.toFixed(3)},${crop.y.toFixed(3)},${crop.w.toFixed(3)},${crop.h.toFixed(3)}`} data-turn={turn} className={cn("flex flex-col gap-2 overflow-hidden rounded-xl bg-surface-container p-2", className)} style={{ width, ...style }}>
+    <div data-slot="image-cropper" data-done={done || undefined} data-crop={`${crop.x.toFixed(3)},${crop.y.toFixed(3)},${crop.w.toFixed(3)},${crop.h.toFixed(3)}`} data-turn={turn} className={cn("flex flex-col gap-2 overflow-hidden rounded-xl bg-surface-container p-2", className)} style={{ width, ...style }}>
       <div ref={area} className="relative touch-none overflow-hidden rounded-lg select-none" style={{ height }}>
         <div className="size-full transition-transform" style={{ transform: `rotate(${turn}deg)` }}>{src ? <img src={src} alt="" draggable={false} className="size-full object-cover" /> : <Placeholder />}</div>
         <div data-crop-box onPointerDown={drag("move")} className="absolute cursor-move border-2 border-on-primary" style={{ left: percent(crop.x), top: percent(crop.y), width: percent(crop.w), height: percent(crop.h), boxShadow: `0 0 0 9999px ${SCRIM}` }}>
@@ -193,7 +221,17 @@ export function ImageCropper({ image = "", aspect = "1:1", width = 380, height =
         <Button variant="text" size="icon" aria-label="Rotate" onClick={() => { setDone(false); setTurn((t) => (t + 90) % 360); }}><WidgetIcon name="rotate_right" /></Button>
         {reset && <Button variant="text" onClick={() => { setDone(false); setTurn(0); setCrop(start()); }}>{reset}</Button>}
         <span className="min-w-0 flex-1 truncate text-right text-label-medium text-on-surface-variant">{done ? doneText : `${Math.round(crop.w * width)} × ${Math.round(crop.h * height)}`}</span>
-        {action && <Button data-tap="done" onClick={() => setDone(true)}>{action}</Button>}
+        {action && (
+          <Button
+            data-tap="done"
+            onClick={() => {
+              host.emit("crop", { x: crop.x, y: crop.y, w: crop.w, h: crop.h, turn });
+              if (host.demo) setDone(true);
+            }}
+          >
+            {action}
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -201,8 +239,13 @@ export function ImageCropper({ image = "", aspect = "1:1", width = 380, height =
 
 /* ---------- choosing ---------- */
 
-export function RegionPicker({ label = "", rows = [], placeholder = "", action = "", width = 380, height = 240, className, style }: { label?: string; rows?: string[][]; placeholder?: string; action?: string; width?: number; height?: number } & Look) {
-  const [path, setPath] = useState<string[]>([]);
+/* An input of a place: `value` is the path picked, its levels joined with "/" ("Guangdong/Shenzhen/Nanshan"), handed out
+ * at every level picked. */
+export function RegionPicker({ label = "", rows = [], placeholder = "", action = "", value = "", width = 380, height = 240, demo, onValueChange, onEvent, wired, className, style }: { label?: string; rows?: string[][]; placeholder?: string; action?: string; value?: string; width?: number; height?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [words, setWords] = useValue(value, host);
+  const path = words.split("/").filter(Boolean);
+  const setPath = (next: string[]) => setWords(next.join("/"));
   const depth = Math.max(1, ...rows.map((r) => r.length));
   const columns = Array.from({ length: depth }, (_, level) => {
     const seen = rows.filter((r) => path.slice(0, level).every((p, i) => r[i] === p)).map((r) => r[level]).filter(Boolean);
@@ -235,13 +278,18 @@ export function RegionPicker({ label = "", rows = [], placeholder = "", action =
 
 const seatId = (row: number, col: number) => `${String.fromCharCode(65 + row)}${col + 1}`;
 
-export function SeatMap({ rows = 6, columns = 8, aisle = 4, taken = "", price = 0, currency = "", most = 4, screen = "", action = "", pickedText = "", width = 380, className, style }: { rows?: number; columns?: number; aisle?: number; taken?: string; price?: number; currency?: string; most?: number; screen?: string; action?: string; pickedText?: string; width?: number } & Look) {
-  const [picked, setPicked] = useState<string[]>([]);
+/* An input of seats: `picked` is the seats chosen ("A3,B5"), handed out on every change. Which seats are taken is the
+ * data's (`taken`), and so is what they cost: the total shown is the one given (`total`). Only a prototype's demo
+ * works out an example total from `price` itself. */
+export function SeatMap({ rows = 6, columns = 8, aisle = 4, taken = "", price = 0, currency = "", most = 4, screen = "", action = "", pickedText = "", picked: pickedGiven = "", total: totalGiven = "", width = 380, demo, onValueChange, onEvent, wired, className, style }: { rows?: number; columns?: number; aisle?: number; taken?: string; price?: number; currency?: string; most?: number; screen?: string; action?: string; pickedText?: string; picked?: string; total?: string; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [value, setValue] = useValue(pickedGiven, host);
   const gone = new Set(taken.split(/[\s,，]+/).filter(Boolean).map((s) => s.toUpperCase()));
-  const toggle = (id: string) => setPicked((now) => (now.includes(id) ? now.filter((x) => x !== id) : now.length >= most ? now : [...now, id]));
-  const total = picked.length * price;
+  const picked = [...new Set(value.split(/[\s,，]+/).filter(Boolean).map((s) => s.toUpperCase()))].filter((id) => !gone.has(id));
+  const toggle = (id: string) => setValue((picked.includes(id) ? picked.filter((x) => x !== id) : picked.length >= most ? picked : [...picked, id]).join(","));
+  const total = totalGiven || (host.demo && price > 0 && picked.length ? `${currency}${picked.length * price}` : "");
   return (
-    <div data-slot="seat-map" data-picked={picked.join(",")} className={cn("flex flex-col gap-3 rounded-xl bg-surface-container-low p-3", className)} style={{ width, ...style }}>
+    <div data-slot="seat-map" data-picked={picked.join(",")} data-total={total || undefined} className={cn("flex flex-col gap-3 rounded-xl bg-surface-container-low p-3", className)} style={{ width, ...style }}>
       {screen && <div className="mx-auto w-3/4 rounded-b-xl bg-surface-container-high py-1 text-center text-label-small text-on-surface-variant">{screen}</div>}
       <div className="flex flex-col items-stretch gap-1">
         {Array.from({ length: rows }, (_, r) => (
@@ -261,7 +309,7 @@ export function SeatMap({ rows = 6, columns = 8, aisle = 4, taken = "", price = 
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="truncate text-body-medium text-on-surface">{picked.length ? picked.join(" ") : pickedText}</div>
-          {picked.length > 0 && price > 0 && <div className="text-title-medium text-primary">{currency}{total}</div>}
+          {picked.length > 0 && total && <div data-slot="seat-map-total" className="text-title-medium text-primary">{total}</div>}
         </div>
         {action && <Button data-tap="confirm" disabled={!picked.length}>{action}</Button>}
       </div>
@@ -271,8 +319,10 @@ export function SeatMap({ rows = 6, columns = 8, aisle = 4, taken = "", price = 
 
 /* ---------- reading ---------- */
 
-export function ReviewSummary({ score = "", count = "", values = [], tags = [], action = "", width = 380, className, style }: { score?: string; count?: string; values?: number[]; tags?: string[]; action?: string; width?: number } & Look) {
-  const [on, setOn] = useState<string | null>(null);
+/* The tag picked is `selected` (its place, -1: none), which whoever draws the part moves when a tag (`tab:*`) is
+ * pressed. */
+export function ReviewSummary({ score = "", count = "", values = [], tags = [], action = "", selected = -1, width = 380, className, style }: { score?: string; count?: string; values?: number[]; tags?: string[]; action?: string; selected?: number; width?: number } & Look) {
+  const on = tags[selected] ?? null;
   const most = Math.max(1, ...values);
   const stars = Math.round(Number(score) || 0);
   return (
@@ -294,8 +344,8 @@ export function ReviewSummary({ score = "", count = "", values = [], tags = [], 
       </div>
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {tags.map((tag) => (
-            <Tap key={tag} aria-pressed={on === tag} className={cn("rounded-md border px-3 py-1 text-label-large", on === tag ? "border-transparent bg-secondary-container text-on-secondary-container" : "border-outline-variant text-on-surface-variant")} onClick={() => setOn(on === tag ? null : tag)}>{tag}</Tap>
+          {tags.map((tag, i) => (
+            <Tap key={i} data-tap={`tab:${i}`} aria-pressed={i === selected} className={cn("rounded-md border px-3 py-1 text-label-large", i === selected ? "border-transparent bg-secondary-container text-on-secondary-container" : "border-outline-variant text-on-surface-variant")}>{tag}</Tap>
           ))}
         </div>
       )}

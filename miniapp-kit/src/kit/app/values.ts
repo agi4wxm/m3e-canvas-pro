@@ -5,7 +5,7 @@ import type { ListRow } from "../parts";
 
 const words = (v: unknown): string => (v === undefined || v === null ? "" : typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : "");
 
-/** a list an expression reads, as a part's rows (each its label, icon and picture); anything else keeps the design's */
+/** a list an expression reads, as a part's rows (each its label, icon, picture and state); anything else keeps the design's */
 export function rowsOf(v: unknown, design: ListRow[], max = 50): ListRow[] {
   if (!Array.isArray(v)) return design;
   return v.slice(0, max).map((x) => {

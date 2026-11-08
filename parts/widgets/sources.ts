@@ -9,7 +9,7 @@ const FILES: Record<string, string[]> = {
   Joystick: ["Joystick"],
   QuantityStepper: ["QuantityStepper"],
   Draws: ["Wheel", "GridWheel", "Gacha", "SlotMachine", "MoneyTree", "EggSmash"],
-  Panels: ["SideTabs", "Inventory", "ItemCell", "TaskBar", "RewardTrack", "CheckIn", "FunctionButton"],
+  Panels: ["Inventory", "ItemCell", "TaskBar", "RewardTrack", "CheckIn", "FunctionButton"],
   Inputs: ["TagInput", "FileUpload", "ItemPicker", "MultiSelect", "ColorPalette", "NumberPicker"],
   Content: ["CodeBlock", "Markdown", "SortableList"],
   Motion: ["NumberTicker", "Marquee", "Timer", "PullToRefresh", "SlideGroup", "SwipeRow", "AudioPlayer"],
