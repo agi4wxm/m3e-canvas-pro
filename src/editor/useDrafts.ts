@@ -8,7 +8,7 @@ import { AiSettings, draftDesign, scenesToPaint } from "@/lib/ai";
 import type { Progress } from "@/lib/agent/complete";
 import type { NoteAction } from "@/components/Toolbar";
 import { aiErrorText } from "@/components/AiPanel";
-import { hasShareHash, readShareHash } from "@/lib/share";
+import { hasShareHash, readShareLink } from "@/lib/share";
 import { holdOutside } from "./useOutsideImages";
 import { isStrict, withDocStyles, withStyle, type CustomStyle } from "@/lib/styles";
 import { conformDoc, rulesForModel } from "@/lib/styleRules";
@@ -78,7 +78,7 @@ export function useDrafts({ store, persist, editAccess, lang, aiSettings, mobile
     let active = true;
     const offer = () => {
       if (!hasShareHash(window.location.hash)) return;
-      void readShareHash(window.location.hash).then((next) => {
+      void readShareLink(window.location.hash).then(({ doc: next, problem }) => {
         if (!active) return;
         if (next) {
           setShareOpen(false);
@@ -88,7 +88,9 @@ export function useDrafts({ store, persist, editAccess, lang, aiSettings, mobile
           clearShareHash();
         } else {
           clearShareHash();
-          showToast(t("invalidProject", getLang()), 3000, "error");
+          /* one past the limits (lib/share.ts) is stopped before it costs the tab: said apart from a broken one */
+          const tooMuch = problem && problem !== "broken";
+          showToast(t(tooMuch ? "shareLinkTooLarge" : "invalidProject", getLang()), tooMuch ? 6000 : 3000, "error");
         }
       });
     };

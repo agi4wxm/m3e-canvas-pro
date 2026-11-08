@@ -52,10 +52,21 @@ export type FileRecord = {
   name: string;
   /** the file as it was right after the editor last wrote it: what tells a change made elsewhere */
   written?: { size: number; modified: number; digest: string };
+  /** A folder's pictures (m3e-assets/) as each was right after the editor wrote it (`own`) or read it and found what
+   *  the document needs: one unchanged since needs no reading again, and only one the editor wrote, or one named by
+   *  the hash of what it holds, is ever taken away. */
+  assets?: Record<string, AssetMark>;
 };
 
-/** the record a document is kept in */
-export type DocRecord = { json: string };
+export type AssetMark = { size: number; modified: number; own?: boolean };
+
+/** The record a document is kept in. `stamp` is new with every write of the editor: a tab that finds another stamp
+ *  than the one it read or wrote last knows another tab saved the project meanwhile (absent in what earlier
+ *  versions, and the other ways a project is made, wrote). */
+export type DocRecord = { json: string; stamp?: string };
+
+/** another tab wrote the project since this one read or wrote it */
+export class DocConflict extends Error {}
 
 export const beforeKey = (id: string) => `${id}#before`;
 
@@ -114,12 +125,23 @@ export function openDb(): Promise<IDBDatabase> {
 /** Runs one transaction: `body` makes its requests (callbacks, no awaits) and says what it comes to with `set`. The
  *  promise settles once the transaction has committed, or rejects with why it did not. */
 export async function transact<T = void>(stores: StoreName[], mode: IDBTransactionMode, body: (t: IDBTransaction, set: (value: T) => void) => void): Promise<T> {
-  const db = await openDb();
+  let db = await openDb();
+  let t: IDBTransaction;
+  try {
+    t = db.transaction(stores, mode);
+  } catch (e) {
+    /* the connection closed under the tab without saying so (the browser shut it): one more try on a fresh one */
+    if (!(e instanceof DOMException && e.name === "InvalidStateError")) throw e;
+    const was = cached;
+    if (was && (await was.catch(() => null)) === db && cached === was) cached = null;
+    db = await openDb();
+    t = db.transaction(stores, mode);
+  }
   return new Promise<T>((resolve, reject) => {
     let value: T | undefined;
-    const t = db.transaction(stores, mode);
     t.oncomplete = () => resolve(value as T);
-    t.onerror = () => reject(t.error);
+    /* a request's failure reaches here before the transaction has an error of its own */
+    t.onerror = (e) => reject((e.target as IDBRequest | null)?.error ?? t.error ?? new DOMException("The transaction failed.", "UnknownError"));
     t.onabort = () => reject(t.error ?? new DOMException("The transaction was aborted.", "AbortError"));
     try {
       body(t, (v) => {
@@ -144,13 +166,17 @@ export const getProject = (id: string) => transact<ProjectMeta | undefined>(["pr
   t.objectStore("projects").get(id).onsuccess = (e) => set((e.target as IDBRequest<ProjectMeta | undefined>).result);
 });
 
-/** a project's listing, its document and the design a draft replaced, as stored (JSON) */
+/** a project's listing, its document (and the stamp of its last write) and the design a draft replaced, as stored */
 export const readProjectRecords = (id: string) =>
-  transact<{ meta?: ProjectMeta; doc: string | null; before: string | null }>(["projects", "docs", "befores"], "readonly", (t, set) => {
-    const out: { meta?: ProjectMeta; doc: string | null; before: string | null } = { doc: null, before: null };
+  transact<{ meta?: ProjectMeta; doc: string | null; stamp: string | null; before: string | null }>(["projects", "docs", "befores"], "readonly", (t, set) => {
+    const out: { meta?: ProjectMeta; doc: string | null; stamp: string | null; before: string | null } = { doc: null, stamp: null, before: null };
     set(out);
     t.objectStore("projects").get(id).onsuccess = (e) => (out.meta = (e.target as IDBRequest<ProjectMeta | undefined>).result);
-    t.objectStore("docs").get(id).onsuccess = (e) => (out.doc = (e.target as IDBRequest<DocRecord | undefined>).result?.json ?? null);
+    t.objectStore("docs").get(id).onsuccess = (e) => {
+      const rec = (e.target as IDBRequest<DocRecord | undefined>).result;
+      out.doc = rec?.json ?? null;
+      out.stamp = rec?.stamp ?? null;
+    };
     t.objectStore("befores").get(id).onsuccess = (e) => (out.before = (e.target as IDBRequest<DocRecord | undefined>).result?.json ?? null);
   });
 
@@ -189,19 +215,36 @@ function putMissing(store: IDBObjectStore, assets: ReadonlyMap<string, string>) 
 }
 
 /** Keeps a project's document with the pictures it refers to and its listing as `meta` makes it from the one
- *  stored (absent for a project not listed yet), in one transaction. */
-export const writeDocRecord = (id: string, o: { json: string; refs: string[]; assets: ReadonlyMap<string, string>; meta: (old: ProjectMeta | undefined) => ProjectMeta | undefined }) =>
-  transact<ProjectMeta | undefined>(["projects", "docs", "refs", "assets"], "readwrite", (t, set) => {
-    putMissing(t.objectStore("assets"), o.assets);
-    t.objectStore("docs").put({ json: o.json } satisfies DocRecord, id);
-    t.objectStore("refs").put(o.refs, id);
-    const projects = t.objectStore("projects");
-    projects.get(id).onsuccess = (e) => {
-      const next = o.meta((e.target as IDBRequest<ProjectMeta | undefined>).result);
-      if (next) projects.put(next);
-      set(next);
-    };
-  });
+ *  stored (absent for a project not listed yet), in one transaction. With `expect`, only if the document stored
+ *  still carries that stamp (null: none): else nothing is written and it rejects with a `DocConflict`. */
+export async function writeDocRecord(id: string, o: { json: string; refs: string[]; assets: ReadonlyMap<string, string>; meta: (old: ProjectMeta | undefined) => ProjectMeta | undefined; stamp?: string; expect?: string | null }): Promise<ProjectMeta | undefined> {
+  let clash = false;
+  try {
+    return await transact<ProjectMeta | undefined>(["projects", "docs", "refs", "assets"], "readwrite", (t, set) => {
+      const docs = t.objectStore("docs");
+      const write = () => {
+        putMissing(t.objectStore("assets"), o.assets);
+        docs.put({ json: o.json, ...(o.stamp ? { stamp: o.stamp } : {}) } satisfies DocRecord, id);
+        t.objectStore("refs").put(o.refs, id);
+        const projects = t.objectStore("projects");
+        projects.get(id).onsuccess = (e) => {
+          const next = o.meta((e.target as IDBRequest<ProjectMeta | undefined>).result);
+          if (next) projects.put(next);
+          set(next);
+        };
+      };
+      if (o.expect === undefined) return write();
+      docs.get(id).onsuccess = (e) => {
+        if (((e.target as IDBRequest<DocRecord | undefined>).result?.stamp ?? null) === o.expect) return write();
+        clash = true;
+        t.abort();
+      };
+    });
+  } catch (e) {
+    if (clash) throw new DocConflict("Another tab saved this project after this one opened it.");
+    throw e;
+  }
+}
 
 /** keeps, or forgets (null), the design a draft or a link replaced */
 export const writeBeforeRecord = (id: string, o: { json: string; refs: string[]; assets: ReadonlyMap<string, string> } | null) =>

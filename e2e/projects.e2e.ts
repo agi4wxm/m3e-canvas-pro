@@ -1,8 +1,12 @@
 /* Projects: the earlier version's single document moved in as the first project with nothing lost; projects made,
  * switched, renamed, deleted and taken back, and still there after a reload; two tabs on one project and on two;
  * a project saved to a file (the browser's own private file system stands in for the picker) and kept up to date,
- * reconnected after a reload, opened back as a project, and not written over when the file changed elsewhere. */
+ * reconnected after a reload, opened back as a project, and not written over when the file changed elsewhere; a save
+ * the browser refuses shown and holding the tab on its project until tried again; two tabs without Web Locks never
+ * writing over each other; an edit whose save the page did not live to finish offered back; a share link carrying
+ * what the author chose. */
 
+import { inflateRawSync } from "node:zlib";
 import { check, clickAdd, equal, projectId, ready, savedDoc, settle, type Doc, type E2ETest, type Page } from "./lib";
 
 const pill = (page: Page) => page.locator("[data-project-pill]").first();
@@ -36,6 +40,7 @@ async function cardAction(page: Page, id: string, action: string) {
 /** the keep button a design that arrived over the canvas offers */
 const keepButton = (page: Page) => page.locator('button[title="Keep this design"], button[aria-label="Keep this design"]');
 const cardIds = (page: Page) => page.evaluate(() => [...document.querySelectorAll("[data-project-card]")].map((e) => e.getAttribute("data-project-card")));
+const hasPart = (doc: Doc, component: string) => doc.groups.some((g) => g.items.some((it) => it.component === component));
 
 /** the private file system's file, as text */
 const fileText = (page: Page, name: string) => page.evaluate(async (n) => (await (await (await navigator.storage.getDirectory()).getFileHandle(n)).getFile()).text(), name);
@@ -390,6 +395,179 @@ export const tests: E2ETest[] = [
       await settle(slow, 1200);
       equal(await savedDoc(slow), kept, "the project as it was: nothing written over it while it was read");
       check((await slow.locator("[data-node]").count()) > 0, "its parts drawn");
+    },
+  },
+  {
+    name: "projects: a last edit the browser will not keep holds the tab on its project, says so, and is kept once tried again",
+    async run({ page, base }) {
+      const from = await projectId(page);
+      /* from now on the browser gives up every write of the document (as on a disk error) */
+      await page.evaluate(() => {
+        const w = window as unknown as { refuse?: boolean };
+        w.refuse = true;
+        const put = IDBObjectStore.prototype.put;
+        IDBObjectStore.prototype.put = function (this: IDBObjectStore, ...a: Parameters<IDBObjectStore["put"]>) {
+          const r = put.apply(this, a);
+          const t = this.transaction;
+          /* once the write has made its requests, as a failing disk would */
+          if (w.refuse && this.name === "docs")
+            void Promise.resolve().then(() => {
+              try {
+                t.abort();
+              } catch {}
+            });
+          return r;
+        };
+      });
+      await clickAdd(page, "Chip");
+      await page.waitForSelector('[data-project-pill][data-save-status="error"] [data-save-error="io"]', { timeout: 10_000 });
+      check(!hasPart(await savedDoc(page), "chip"), "the chip is not kept yet");
+
+      /* going to another project: the tab says what is not saved, and stays */
+      await openHome(page);
+      await page.locator("[data-new-project]").click();
+      await page.waitForSelector("[data-save-state]", { timeout: 10_000 });
+      equal(await projectId(page), from, "still on its project");
+      check(await page.locator('[data-save-row="browser"][data-ok="0"]').count(), "the browser's copy is said not to be saved");
+      check(await page.locator("[data-save-leave]").count(), "leaving anyway is the person's choice");
+
+      /* tried again while the browser still refuses: said so again, and the tab stays */
+      await page.locator("[data-save-retry]").click();
+      await settle(page, 500);
+      equal(await projectId(page), from, "still on its project after a failed try");
+      check(await page.locator('[data-save-row="browser"][data-ok="0"]').count(), "and still said not to be saved");
+      /* the browser takes it again: tried again (by the person, or by itself a moment later), kept, and the tab goes on */
+      await page.evaluate(() => ((window as unknown as { refuse?: boolean }).refuse = false));
+      await page
+        .locator("[data-save-retry]")
+        .click({ timeout: 2000 })
+        .catch(() => {});
+      await arrived(page, from);
+      await page.goto(`${base}/?project=${from}`, { waitUntil: "load" });
+      await ready(page);
+      check(hasPart(await savedDoc(page), "chip"), "the last edit was kept");
+      equal(await page.locator("[data-save-error]").count(), 0, "nothing said to be unsaved");
+    },
+  },
+  {
+    name: "projects: without Web Locks two tabs on one project never write over each other, and the stopped tab's version is offered back",
+    async run({ page, base }) {
+      await page.context().addInitScript(() => {
+        Object.defineProperty(Navigator.prototype, "locks", { configurable: true, get: () => undefined });
+      }, null);
+      await page.reload({ waitUntil: "load" });
+      await ready(page);
+      const id = await projectId(page);
+      const second = await page.context().newPage();
+      await second.goto(`${base}/?project=${id}`, { waitUntil: "load" });
+      await ready(second);
+      equal(await second.locator("#edit-access-title").count(), 0, "with no lock to ask for, the second tab edits too");
+
+      await clickAdd(page, "Switch");
+      check(hasPart(await savedDoc(page), "switch"), "the first tab's change is kept");
+      await clickAdd(second, "Chip");
+      await second.waitForSelector("#edit-access-title[data-edit-conflict]", { timeout: 10_000 });
+      check(await second.locator("[data-conflict-download]").isVisible(), "the stopped tab offers its version as a copy");
+      const kept = await savedDoc(page);
+      check(hasPart(kept, "switch") && !hasPart(kept, "chip"), "the first tab's save is not written over");
+      await second.close();
+
+      /* the next time the project opens, the stopped tab's version is offered back, and restored on asking */
+      await page.reload({ waitUntil: "load" });
+      await ready(page);
+      await page.waitForSelector("[data-recovery]", { timeout: 10_000 });
+      await page.locator("[data-recovery-restore]").click();
+      await settle(page, 1500);
+      check(hasPart(await savedDoc(page), "chip"), "the restored version is kept");
+      await page.reload({ waitUntil: "load" });
+      await ready(page);
+      await settle(page, 800);
+      equal(await page.locator("[data-recovery]").count(), 0, "and not offered again");
+    },
+  },
+  {
+    name: "projects: an edit whose save the page did not live to finish is offered back when the project opens again",
+    async run({ page, base }) {
+      const id = await projectId(page);
+      /* from now on a write of the document never finishes while this page lives */
+      await page.evaluate(() => {
+        const tx = IDBDatabase.prototype.transaction;
+        IDBDatabase.prototype.transaction = function (this: IDBDatabase, ...a: Parameters<IDBDatabase["transaction"]>) {
+          const t = tx.apply(this, a);
+          if (a[1] === "readwrite" && [a[0]].flat().includes("docs")) {
+            const hold = () => {
+              t.objectStore("docs").get("hold").onsuccess = hold;
+            };
+            hold();
+          }
+          return t;
+        } as IDBDatabase["transaction"];
+      });
+      await clickAdd(page, "Chip");
+      /* and the page goes at once */
+      await page.goto(`${base}/?project=${id}`, { waitUntil: "load" });
+      await ready(page);
+      await page.waitForSelector("[data-recovery]", { timeout: 10_000 });
+      check(!hasPart(await savedDoc(page), "chip"), "the edit never reached the store");
+      await page.locator("[data-recovery-restore]").click();
+      await settle(page, 1500);
+      check(hasPart(await savedDoc(page), "chip"), "restored, and kept");
+    },
+  },
+  {
+    name: "projects: a link carries what the author chose, listed and shown before it is copied",
+    async run({ page }) {
+      /* a design with a contract and sample data, one record of which must not leave this computer */
+      const starter = await savedDoc(page);
+      const product = {
+        ...starter,
+        title: "Shop",
+        collections: [{ id: "people", name: "People", fields: ["name"], rows: [["Ann"], ["Bo"]] }],
+        api: {
+          info: { title: "Shop" },
+          servers: [{ name: "prod", url: "https://internal.private.test/v1" }],
+          models: [{ name: "User", schema: { type: "object", properties: { email: { type: "string" } } } }],
+          endpoints: [{ operationId: "me", method: "get", path: "/me", responses: { "200": { description: "OK" } } }],
+        },
+        mocks: { seed: 2, models: [{ name: "User", count: 3, fixtures: [{ email: "SENSITIVE-FIXTURE@private.test" }] }] },
+      };
+      await page.evaluate((h) => (location.hash = h), `#doc=${encodeURIComponent(JSON.stringify(product))}`);
+      await settle(page, 1500);
+      await keepButton(page).first().click();
+      await settle(page, 600);
+      await page.locator("button").filter({ hasText: "Ask an AI" }).first().click();
+      await page.locator('[role="dialog"] button').filter({ hasText: "Copy link" }).first().click();
+      await page.waitForSelector("[data-share-link-dialog]", { timeout: 10_000 });
+      /** the document the link shown in the dialog carries */
+      const carried = async () => {
+        await page.waitForSelector("[data-share-size]", { timeout: 10_000 });
+        const link = await page.locator("[data-share-link]").inputValue();
+        const packed = new URL(link).hash.slice("#docz=".length);
+        return JSON.parse(inflateRawSync(Buffer.from(packed, "base64url")).toString("utf8")) as Doc & { api?: { endpoints?: unknown[]; models?: unknown[] }; mocks?: { models?: { fixtures?: unknown[] }[] } };
+      };
+      /* the design alone, by default: the collection listed, nothing of the API or the mock library */
+      check(await page.locator('[data-share-item="collection:people"][data-included="1"]').count(), "the collection is listed and carried");
+      equal(await page.locator('[data-share-item^="api:"], [data-share-item^="mocks:"]').count(), 0, "nothing of the contract is listed");
+      let doc = await carried();
+      check(!doc.api && !doc.mocks, "the link carries no contract and no mock library");
+      equal(doc.collections?.[0]?.rows?.length, 2, "it carries the collection's rows");
+
+      /* the whole contract, one record left out */
+      await page.locator('[data-share-link-dialog] [role="radio"]').filter({ hasText: "Full contract" }).first().click();
+      await page.waitForSelector('[data-share-item="api:endpoints"][data-included="1"]', { timeout: 5000 });
+      await page.locator('[data-share-item="mocks:fixtures:User"] button').first().click();
+      await page.waitForSelector('[data-share-item="mocks:fixtures:User"][data-included="0"]', { timeout: 5000 });
+      await settle(page, 400);
+      doc = await carried();
+      equal(doc.api?.endpoints?.length, 1, "the endpoints are carried");
+      check(!JSON.stringify(doc).includes("SENSITIVE-FIXTURE"), "the record left out is not in the link");
+      await page.locator("[data-share-preview] summary").click();
+      const shown = (await page.locator("[data-share-preview] pre").textContent()) ?? "";
+      check(shown.includes('"operationId": "me"') && !shown.includes("SENSITIVE-FIXTURE"), "the preview shows what the link carries");
+      await page.keyboard.press("Escape");
+      await settle(page, 300);
+      equal(await page.locator("[data-share-link-dialog]").count(), 0, "Escape closes the link dialog");
+      check(await page.locator('[role="dialog"]').filter({ hasText: "Ask an AI" }).count(), "and only it");
     },
   },
   {

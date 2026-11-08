@@ -8,8 +8,9 @@
 
 import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { withGroups, withFrames, type DocStore } from "@/lib/core";
-import { PersistFullError, withAssets, type PersistAdapter, type Stored } from "@/lib/core/persist";
+import { PersistFullError, saveErrorKind, withAssets, type PersistAdapter, type SaveErrorKind, type Stored } from "@/lib/core/persist";
 import { getLang, setGlobalLang, t, type Lang } from "@/lib/i18n";
+import { saveKindKey } from "@/lib/i18n/projects";
 import type { Doc, Frame, Group } from "@/lib/tokens";
 
 type Live<T> = MutableRefObject<T>;
@@ -105,23 +106,27 @@ export function usePersistence(o: PersistenceInputs) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const saveFullToldRef = useRef(false);
+  /** the kind of failure the author was last told of, until a write goes through */
+  const toldRef = useRef<SaveErrorKind | null>(null);
   useEffect(() => {
     if (!o.loadedRef.current || o.editAccess !== "editable") return;
-    /* the author keeps working; said once, since every later change would fail the same way */
-    const full = (err: unknown) => {
-      if (err instanceof PersistFullError && !saveFullToldRef.current) {
-        saveFullToldRef.current = true;
-        o.showToast(t("saveFull", getLang()), 9000, "warning");
-      }
+    /* The author keeps working; told once per kind of failure, since every later change would fail the same way (the
+       chrome keeps saying it, lib/projects/persist.ts tries again). Another tab's save turns the tab read-only,
+       which says it. */
+    const failed = (err: unknown) => {
+      const kind = saveErrorKind(err);
+      if (kind === "conflict" || toldRef.current === kind) return;
+      toldRef.current = kind;
+      const lang = getLang();
+      o.showToast(err instanceof PersistFullError ? t("saveFull", lang) : t("saveFailedToast", lang).replace("{why}", t(saveKindKey(kind), lang)), 9000, "warning");
     };
     try {
       /* the document, even while a definition is open: a reload then finds its screens, and the definition as far as it got */
       const done = persist.write(o.docRef.current);
-      if (done) done.then(() => (saveFullToldRef.current = false), full);
-      else saveFullToldRef.current = false;
+      if (done) done.then(() => (toldRef.current = null), failed);
+      else toldRef.current = null;
     } catch (err) {
-      full(err);
+      failed(err);
     }
     /* whatever in the document changed, or the definition opened or closed; not the selection or the measures */
     // eslint-disable-next-line react-hooks/exhaustive-deps
