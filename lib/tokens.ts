@@ -5,6 +5,7 @@ import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
 import type { Motion, Transition } from "./screenMotion";
+import { STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, type Effect, type VarType, type VarValue } from "./actions/model";
 import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleUX } from "./styles";
 import type { ApiSpec } from "./api/types";
 import type { MockSpec } from "./mocks/types";
@@ -738,26 +739,9 @@ export type Item = {
   [railExpansionSide]?: "left" | "right";
 };
 
-/** target id that pops the preview stack instead of opening a frame */
-export const BACK_TARGET = "back";
-
-/** target id that opens a web page in the browser instead of a screen */
-export const LINK_TARGET = "link";
-
-/** target id of an action that goes nowhere and only runs its effects */
-export const STAY_TARGET = "none";
-
-/** the address a link action opens, once it is one a browser may follow; a bare host is read as https */
-export function linkUrlOf(a: ActionBody | undefined): string | null {
-  const raw = a?.url?.trim();
-  if (!raw) return null;
-  try {
-    const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
-    return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
-  } catch {
-    return null;
-  }
-}
+/* What a tap does is the interpreter's model (lib/actions/model.ts): the targets, the link a tap opens, and the types
+   below are its own, re-exported here under the names the document has always used. */
+export { BACK_TARGET, LINK_TARGET, STAY_TARGET, linkUrlOf } from "./actions/model";
 
 /** the host the small browser in the trigger tab shows */
 export function linkHostOf(a: Action | undefined): string | null {
@@ -790,33 +774,9 @@ export function transitionOf(m: Motion): Transition {
   return m.dir === "right" ? "slideLeft" : m.dir === "up" ? "slideUp" : m.dir === "down" ? "slideDown" : "slide";
 }
 
-/** what starts an interaction other than a tap: the pointer coming over the part, or time since its screen showed */
-export type Trigger = { on: "hover" } | { on: "delay"; ms: number };
+export type { Action, ActionBody, Trigger } from "./actions/model";
 
-/** what a tap does once it has been decided to do it: its effects in order, then where it goes */
-export type ActionBody = {
-  to: string;
-  transition: Transition;
-  /** the address a `LINK_TARGET` action opens */
-  url?: string;
-  effects?: Effect[];
-  /** the screen it goes to is laid over the one on show instead of taking its place; going back closes it */
-  overlay?: boolean;
-  /** a part (item id) the body of the screen on show scrolls to */
-  scrollTo?: string;
-  /** how the screen comes in, over `transition` where both are given */
-  motion?: Motion;
-  /** what the screen it opens is given, by its param names (`Frame.params`): each an expression read at the tap
-   *  (`{ productId: "item.id" }`); that screen reads them as `params.productId` */
-  params?: Record<string, string>;
-};
-/** A tap. Without `when` it always runs; with one it runs when that holds, and `else` runs when it
- *  does not. `trigger` starts it on something other than a tap. Printed code reads this too, so it stays plain data. */
-export type Action = ActionBody & { when?: Condition; else?: ActionBody; trigger?: Trigger };
-
-/** what a variable can hold */
-export type VarValue = string | number | boolean;
-export type VarType = "text" | "number" | "bool" | "color";
+export type { VarType, VarValue } from "./actions/model";
 /** `drives: "dark"` makes a bool variable the app's light/dark mode: true is dark. The preview and the exported app
  *  start it at the mode they open in, and setting or toggling it (an effect, a bound switch) switches the theme.
  *  A color variable holds a color reference (a role or a hex, as `ColorRef`). `value` is its value in the first mode
@@ -830,39 +790,7 @@ export type VarCollection = { id: string; name: string; modes: { id: string; nam
 /** the variable that is the app's dark mode, if one is */
 export const darkVarOf = (vars: DocVar[] | undefined): DocVar | undefined => (Array.isArray(vars) ? vars.find((v) => v.drives === "dark" && v.type === "bool") : undefined);
 
-/** a test on the preview's state: a variable against a value, a form field (by item id) that has something in it, or an
- *  expression (lib/bindings/expr.ts) that comes out truthy */
-export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string } | { expr: string };
-
-/** one step of a tap. `part` is an item id, the name that survives grouping and regrouping. */
-export type Effect =
-  | { do: "show" | "hide" | "toggle" | "open" | "close"; part: string }
-  /** `expr` (an expression, lib/bindings/expr.ts) is read when the tap runs, over `value` */
-  | { do: "setVar"; var: string; value: VarValue; expr?: string }
-  | { do: "toggleVar"; var: string }
-  /** a counter has to count: "set" alone can only ever land on one number */
-  | { do: "addVar"; var: string; by: number }
-  | { do: "setProp"; part: string; prop: string; value: VarValue }
-  /** `message` may hold `{{expressions}}` */
-  | { do: "snackbar"; message: string }
-  /** Calls an endpoint of the API (lib/bindings): `args` gives its parameters by name and, under any other name, fields
-   *  of the JSON body, each an expression; `body` an expression for the whole body. `then` runs when it answers 2XX,
-   *  with `response` (the body) and `status` to read; `catch` when it does not, with `error` (problem details). The
-   *  effects after it do not wait for it. `optimistic` changes a data source's list at once and puts it back if the
-   *  call fails: the tapped row taken out, or fields of it set. */
-  | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: ActionBody; catch?: ActionBody; optimistic?: Optimistic }
-  /** loads a data source of the screen on show again */
-  | { do: "refresh"; source: string }
-  /** loads the next page of a paged data source of the screen on show */
-  | { do: "loadMore"; source: string }
-  /** submits a form (`Group.form`): the one given by its group id, else the one the tapped part is in */
-  | { do: "submit"; form?: string }
-  /** ends the session: the token is forgotten (and the API's logout endpoint called, when it has one) */
-  | { do: "signOut" };
-
-/** What a call changes before it is answered: the tapped row taken out of a data source's list, or fields of it set
- *  (each an expression). Put back when the call fails. */
-export type Optimistic = { source: string; remove?: boolean; patch?: Record<string, string> };
+export type { Condition, Effect, Optimistic } from "./actions/model";
 
 /** the scope a part drawn by the bindings carries (runtime only) */
 export type ItemScope = { item?: unknown; index?: number; form?: string };

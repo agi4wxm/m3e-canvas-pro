@@ -1,0 +1,106 @@
+/* What every host's runner of the table shares: the back end a row's calls reach, and how what a host ended with is
+ * held against what the row expects. Nothing but the table's types, so scripts/gen-rn.ts and scripts/gen-miniapp.ts
+ * can write this file into the kits' test beds as it is. */
+
+import type { Expect, HostName, Observed, Row, SeenCall, Step } from "./types";
+
+type Held = { op: string; answer: (a: { status: number; body: unknown }) => void };
+
+/** The back end of a row: every call is kept as it was received; those of the operations the row holds wait for an
+ *  `answer` step, the rest are answered at once as the row says (200 and `{}` unless it says otherwise). */
+export class Backend {
+  readonly calls: SeenCall[] = [];
+  private held: Held[] = [];
+
+  constructor(private readonly row: Pick<Row, "hold" | "answers">) {}
+
+  /** a call: its operation, and what it was given (query and JSON body fields together) */
+  receive(op: string, given: Record<string, unknown>): Promise<{ status: number; body: unknown }> {
+    this.calls.push({ op, in: given });
+    if (this.row.hold?.includes(op)) return new Promise((answer) => this.held.push({ op, answer }));
+    const a = this.row.answers?.[op];
+    return Promise.resolve({ status: a?.status ?? 200, body: a?.body ?? {} });
+  }
+
+  /** answers a held call; false when there was none to answer */
+  release(step: Extract<Step, { answer: string }>): boolean {
+    const mine = this.held.filter((h) => h.op === step.answer);
+    const h = step.which === "newest" ? mine[mine.length - 1] : mine[0];
+    if (!h) return false;
+    this.held = this.held.filter((x) => x !== h);
+    h.answer({ status: step.status ?? 200, body: step.body ?? {} });
+    return true;
+  }
+}
+
+/** what a request's query and JSON body give, as one object: what the table compares a call on */
+export function givenOf(query: unknown, body: unknown): Record<string, unknown> {
+  const plain = (v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+  return { ...plain(query), ...plain(body) };
+}
+
+const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+
+/** where what a host ended with differs from what the row expects; nothing when it does as the row says */
+export function differences(expect: Expect, seen: Observed): string[] {
+  const out: string[] = [];
+  for (const [id, v] of Object.entries(expect.vars ?? {})) if (!same(seen.vars[id], v)) out.push(`vars.${id}: expected ${JSON.stringify(v)}, got ${JSON.stringify(seen.vars[id])}`);
+  for (const [words, on] of Object.entries(expect.shown ?? {})) if (seen.words.includes(words) !== on) out.push(`"${words}" ${on ? "should be on show" : "should not be on show"}`);
+  if (expect.toast !== undefined && seen.toast !== expect.toast) out.push(`snackbar: expected ${JSON.stringify(expect.toast)}, got ${JSON.stringify(seen.toast)}`);
+  if (expect.screen !== undefined && seen.screen !== expect.screen) out.push(`screen: expected ${expect.screen}, got ${seen.screen}`);
+  if (expect.calls) {
+    const ops = (list: SeenCall[]) => list.map((c) => c.op).join(", ") || "none";
+    if (expect.calls.length !== seen.calls.length || expect.calls.some((c, i) => c.op !== seen.calls[i].op)) out.push(`calls: expected ${ops(expect.calls)}, got ${ops(seen.calls)}`);
+    else
+      expect.calls.forEach((c, i) => {
+        for (const [k, v] of Object.entries(c.in)) if (!same(seen.calls[i].in[k], v)) out.push(`call ${c.op}: ${k} expected ${JSON.stringify(v)}, got ${JSON.stringify(seen.calls[i].in[k])}`);
+      });
+  }
+  return out;
+}
+
+/** What a host's runner gives the table: a visitor's hands on the host, and a look at what it ends with. */
+export type Driver = {
+  tap(words: string): void | Promise<void>;
+  type(words: string, value: string): void | Promise<void>;
+  restart(): void | Promise<void>;
+  /** lets what is under way settle: answers already given run, the host draws again */
+  settle(): Promise<void>;
+  observe(): Observed | Promise<Observed>;
+};
+
+/** a few turns of the event loop: what an answer starts gets to run */
+export async function turns(n = 4) {
+  for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0));
+}
+
+/** Runs a row's steps on a host and says where it ends up differing from what the row expects. */
+export async function drive(row: Row, make: (backend: Backend) => Driver | Promise<Driver>): Promise<{ problems: string[]; seen: Observed }> {
+  const backend = new Backend(row);
+  const d = await make(backend);
+  await d.settle();
+  for (const step of row.steps) {
+    if ("tap" in step) await d.tap(step.tap);
+    else if ("type" in step) await d.type(step.type, step.value);
+    else if ("answer" in step) {
+      if (!backend.release(step)) {
+        const seen = await d.observe();
+        return { problems: [`no call of ${step.answer} was waiting for its answer`], seen };
+      }
+    } else await d.restart();
+    await d.settle();
+  }
+  const seen = await d.observe();
+  return { problems: differences(row.expect, seen), seen };
+}
+
+/** What a run of a row on a host comes to: as the row says; a divergence the row records (expected); or a failure — it
+ *  differs and the row does not say so, or it now does as the row says while the row still lists it. */
+export type Verdict = { ok: true; known?: string } | { ok: false; why: string };
+
+export function verdict(row: Row, host: HostName, problems: string[]): Verdict {
+  const known = row.known?.[host];
+  if (!problems.length) return known ? { ok: false, why: `${row.id} now passes on ${host}: take it out of the row's known divergences ("${known}")` } : { ok: true };
+  if (known) return { ok: true, known };
+  return { ok: false, why: `${row.id} (${row.title}) on ${host}:\n  ${problems.join("\n  ")}` };
+}
