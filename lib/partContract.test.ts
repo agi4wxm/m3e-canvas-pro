@@ -196,6 +196,19 @@ describe("the exports", () => {
     for (const [p, f] of Object.entries(product.files)) if (/^apps\/(mobile|miniapp)\/src\/generated\/screens\//.test(p)) expect(String(f.body), p).not.toContain("on:submit");
   }, 120_000);
 
+  it("wire a widget's input to the form field it fills, on the web", async () => {
+    const s = store();
+    const ai = { origin: "ai" as const };
+    s.run(ops.addEndpoint, { operationId: "review", method: "post", path: "/reviews", body: { type: "object", properties: { stars: { type: "integer", minimum: 1, maximum: 5 } }, required: ["stars"] }, returns: { type: "object", properties: { ok: { type: "boolean" } } } }, ai);
+    s.run(ops.addPart, { slug: "box", id: "form", screen: "home", at: { x: 16, y: 40 } }, ai);
+    s.run(ops.setForm, { id: s.get().doc.groups.find((g) => g.items[0]?.id === "form")!.id, form: { operationId: "review" } }, ai);
+    s.run(ops.addPart, { slug: "rating", id: "stars", screen: "home", into: { container: "form", index: 0 } }, ai);
+    s.run(ops.bindField, { id: "stars", field: "stars" }, ai);
+    const product = await buildProduct(savedDoc(s.get()), {}, { read: fromDisk, fetchIcons: noNetwork, lang: "en" });
+    const screen = Object.entries(product.files).find(([p]) => /^apps\/web\/src\/generated\/screens\/[^/]+\.tsx$/.test(p))![1].body as string;
+    expect(screen).toMatch(/<Rating[^>]*value=\{Number\((\w+)\.value\("stars"\) \?\? 0\)\}[^>]*onValueChange=\{\(value\) => \1\.set\("stars", value\)\}/);
+  }, 120_000);
+
   it("report nothing of the kind for a design that leans on nothing", () => {
     const s = store();
     s.run(ops.addPart, { slug: "button", id: "b", screen: "home", at: { x: 16, y: 40 } }, { origin: "ai" });
