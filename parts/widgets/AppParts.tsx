@@ -47,7 +47,7 @@ function Face({ name, image = "", size }: { name: string; image?: string; size?:
 function Picture({ src = "", alt = "", icon = "image", className }: { src?: string; alt?: string; icon?: string; className?: string }) {
   if (src) return <img src={src} alt={alt} className={cn("object-cover", className)} />;
   return (
-    <span role="img" aria-label={alt || undefined} className={cn("bg-surface-container-high text-outline flex items-center justify-center", className)}>
+    <span role={alt ? "img" : undefined} aria-label={alt || undefined} aria-hidden={alt ? undefined : true} className={cn("bg-surface-container-high text-outline flex items-center justify-center", className)}>
       <WidgetIcon name={icon} className="size-8" />
     </span>
   );

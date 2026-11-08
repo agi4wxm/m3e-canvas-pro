@@ -1,5 +1,6 @@
 import { h, ic, listSlots, type PNode } from "../node";
 import type { P, PartDef } from "../types";
+import { iconMeaning } from "../a11y";
 
 const DESTINATIONS = [
   { label: "Home", icon: "home" },
@@ -11,6 +12,21 @@ const DESTINATIONS = [
 /** the search bar or view; `open` draws a view with its results showing */
 /** the leading icons that go back, which a style may label with where they lead */
 const BACK_ICONS = ["arrow_back", "arrow_back_ios", "arrow_back_ios_new", "chevron_left"];
+
+/** the crumbs a trail shows: all of them, or, collapsed, the first and the last two */
+function crumbsShown(p: P): number[] {
+  const n = p.list("items").length;
+  const collapsed = p.b("collapse") && n > 3;
+  return Array.from({ length: n }, (_, i) => i).filter((i) => !collapsed || i === 0 || i >= n - 2);
+}
+
+/** the pages a pagination shows: the first, the last and the current with a neighbour either side, a gap of one page filled */
+function pagesShown(p: P): number[] {
+  const pages = Math.max(1, Math.round(p.n("pages")));
+  const current = Math.min(pages, Math.max(1, Math.round(p.n("current"))));
+  const wanted = [...new Set([1, current - 1, current, current + 1, pages])].filter((n) => n >= 1 && n <= pages).toSorted((a, b) => a - b);
+  return wanted.flatMap((n, i) => (wanted[i - 1] !== undefined && n - wanted[i - 1] === 2 ? [n - 1, n] : [n]));
+}
 
 function searchTree(p: P, open: boolean): PNode {
   const leading = p.s("leading") ? ic(p.s("leading")) : undefined;
@@ -94,13 +110,14 @@ export const navigation: PartDef[] = [
     ],
     tree: (p) => {
       const slot = (name: string, aria: string, key: string) => (name ? h("Button", { variant: "text", size: "icon", "aria-label": aria, "data-tap": key }, ic(name)) : undefined);
-      const one = slot(p.s("trailing"), p.say("More"), "icon2");
-      const two = slot(p.s("trailing2"), "Action", "icon3");
+      /* each icon is named by what it means ("Search", "More"), whatever icon it is */
+      const one = slot(p.s("trailing"), iconMeaning(p, p.s("trailing")), "icon2");
+      const two = slot(p.s("trailing2"), iconMeaning(p, p.s("trailing2")), "icon3");
       return h("AppBar", {
         size: p.s("size"),
         title: p.s("title"),
         subtitle: p.s("subtitle") || undefined,
-        leading: slot(p.s("leading"), p.say("Navigate"), "icon"),
+        leading: slot(p.s("leading"), iconMeaning(p, p.s("leading")), "icon"),
         /* two actions ride as a small row inside the bar's trailing spot */
         trailing: one && two ? h("span", { className: "flex items-center" }, one, two) : (one ?? two),
         centered: p.b("centered") || undefined,
@@ -253,6 +270,8 @@ export const navigation: PartDef[] = [
       { key: "separator", label: "Separator", kind: "enum", default: "chevron", options: ["chevron", "slash"] },
       { key: "collapse", label: "Collapse the middle", kind: "bool", default: false },
     ],
+    /* each crumb it shows before the page it is on goes somewhere of its own */
+    slots: (p) => crumbsShown(p).filter((i) => i < p.list("items").length - 1).map((i) => ({ key: `tab:${i}`, label: p.list("items")[i].label })),
     tree: (p) => {
       const trail = p.list("items");
       const last = trail.length - 1;
@@ -263,7 +282,7 @@ export const navigation: PartDef[] = [
       trail.forEach((it, i) => {
         if (collapsed && i > 0 && i < last - 1) return;
         if (children.length) children.push(separator());
-        children.push(h("BreadcrumbItem", null, i === last ? h("BreadcrumbPage", null, it.label) : h("BreadcrumbLink", { href: "#" }, it.label)));
+        children.push(h("BreadcrumbItem", null, i === last ? h("BreadcrumbPage", null, it.label) : h("BreadcrumbLink", { href: "#", "data-tap": `tab:${i}` }, it.label)));
         if (collapsed && i === 0) children.push(separator(), h("BreadcrumbItem", null, h("BreadcrumbEllipsis")));
       });
       return h("Breadcrumb", null, h("BreadcrumbList", null, ...children));
@@ -284,6 +303,13 @@ export const navigation: PartDef[] = [
       { key: "next", label: "Next label", kind: "text", default: "Next" },
       { key: "width", label: "Width", kind: "number", default: 480, min: 240, max: 1280, step: 4, unit: "px" },
     ],
+    /* the way back and on, and each page it shows (`tab:N` is page N + 1; one action for every page reads slot.index) */
+    slots: (p) => [
+      { key: "previous", label: p.s("previous") || p.say("Previous") },
+      ...pagesShown(p).map((n) => ({ key: `tab:${n - 1}`, label: String(n) })),
+      { key: "next", label: p.s("next") || p.say("Next") },
+    ],
+    families: [{ prefix: "tab", label: "Every page", labels: { ja: "すべてのページ", zh: "每一页", ko: "모든 페이지" } }],
     tree: (p) => {
       const pages = Math.max(1, Math.round(p.n("pages")));
       const current = Math.min(pages, Math.max(1, Math.round(p.n("current"))));
@@ -292,9 +318,9 @@ export const navigation: PartDef[] = [
       const cells: PNode[] = [];
       wanted.forEach((n, i) => {
         const before = wanted[i - 1];
-        if (before !== undefined && n - before === 2) cells.push(h("PaginationItem", null, h("PaginationLink", { href: "#" }, String(n - 1))));
+        if (before !== undefined && n - before === 2) cells.push(h("PaginationItem", null, h("PaginationLink", { href: "#", "data-tap": `tab:${n - 2}` }, String(n - 1))));
         else if (before !== undefined && n - before > 2) cells.push(h("PaginationItem", null, h("PaginationEllipsis")));
-        cells.push(h("PaginationItem", null, h("PaginationLink", { href: "#", isActive: n === current || undefined }, String(n))));
+        cells.push(h("PaginationItem", null, h("PaginationLink", { href: "#", isActive: n === current || undefined, "data-tap": `tab:${n - 1}` }, String(n))));
       });
       return h(
         "Pagination",
@@ -302,9 +328,9 @@ export const navigation: PartDef[] = [
         h(
           "PaginationContent",
           null,
-          h("PaginationItem", null, h("PaginationPrevious", { href: "#", text: p.s("previous") || undefined })),
+          h("PaginationItem", null, h("PaginationPrevious", { href: "#", text: p.s("previous") || undefined, "data-tap": "previous" })),
           ...cells,
-          h("PaginationItem", null, h("PaginationNext", { href: "#", text: p.s("next") || undefined })),
+          h("PaginationItem", null, h("PaginationNext", { href: "#", text: p.s("next") || undefined, "data-tap": "next" })),
         ),
       );
     },

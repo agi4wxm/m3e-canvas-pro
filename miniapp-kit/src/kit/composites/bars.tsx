@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 
 import type { PartBase } from "../atoms/basics";
 import { Words } from "../atoms/words";
+import { Spinner } from "../atoms/indicators";
 import { c, ca, st } from "../color";
 import { Glyph } from "../icons";
 import { useFill } from "../layout";
@@ -358,12 +359,29 @@ const FAB_COLORS: Record<string, [string, string]> = {
   surface: ["surface-container-high", "primary"],
 };
 
-export type FabProps = PartBase & { icon?: string; label?: string; size?: string; color?: string; lowered?: boolean; collapsed?: boolean; toggle?: boolean; onIcon?: string; onLabel?: string };
+export type FabProps = PartBase & {
+  icon?: string;
+  label?: string;
+  size?: string;
+  color?: string;
+  lowered?: boolean;
+  collapsed?: boolean;
+  toggle?: boolean;
+  onIcon?: string;
+  onLabel?: string;
+  /** a toggle that starts on */
+  pressed?: boolean;
+  disabled?: boolean;
+  /** what it started is under way: a spinner where its icon was, and it cannot be pressed again */
+  loading?: boolean;
+  ariaLabel?: string;
+};
 
 export function Fab(props: FabProps) {
   const p = withDefaults<FabProps>("fab", props);
   const kit = useKit();
-  const [on, setOn] = useState(false);
+  const [on, setOn] = useState(!!p.pressed);
+  const held = !!p.disabled || !!p.loading;
   const s = FAB[p.size ?? "default"] ?? FAB.default;
   const recipe = recipeOf(kit, "fab");
   const forced = extra(kit, "fabColor");
@@ -374,16 +392,17 @@ export function Fab(props: FabProps) {
   const radius = recipe === "round" ? s.side / 2 : recipe === "square" ? corner(kit, "md") : recipe === "flat" ? corner(kit, "lg") : corner(kit, s.radius) || controlRadius(kit, s.side);
   return (
     <Surface
-      base={{ ...ROW, height: s.side, minWidth: s.side, paddingLeft: extended ? 16 : 0, paddingRight: extended ? 16 : 0, justifyContent: "center", columnGap: 12, borderRadius: radius, backgroundColor: c(bg), boxShadow: recipe === "flat" ? "none" : p.lowered ? "0px 1px 2px 0px rgba(0,0,0,0.3), 0px 1px 3px 1px rgba(0,0,0,0.15)" : "0px 1px 3px 0px rgba(0,0,0,0.3), 0px 4px 8px 3px rgba(0,0,0,0.15)", alignSelf: "flex-start", boxSizing: "border-box", transition: "width 200ms" }}
+      base={{ ...ROW, height: s.side, minWidth: s.side, paddingLeft: extended ? 16 : 0, paddingRight: extended ? 16 : 0, justifyContent: "center", columnGap: 12, borderRadius: radius, backgroundColor: c(bg), boxShadow: recipe === "flat" ? "none" : p.lowered ? "0px 1px 2px 0px rgba(0,0,0,0.3), 0px 1px 3px 1px rgba(0,0,0,0.15)" : "0px 1px 3px 0px rgba(0,0,0,0.3), 0px 4px 8px 3px rgba(0,0,0,0.15)", alignSelf: "flex-start", boxSizing: "border-box", transition: "width 200ms", opacity: p.disabled ? 0.38 : 1 }}
       appearance={p}
       onPress={() => {
+        if (held) return;
         if (p.toggle) setOn((v) => !v);
         p.onPress?.();
       }}
       testID={p.testID}
-      label={label || icon}
+      label={label || p.ariaLabel || icon}
     >
-      {icon ? <Glyph name={icon} size={s.icon} color={ink} /> : null}
+      {p.loading ? <Spinner size="sm" /> : icon ? <Glyph name={icon} size={s.icon} color={ink} /> : null}
       {extended ? <Words text={label} lines={1} style={{ ...typeStyle(kit, "title-medium"), color: c(ink) }} /> : null}
     </Surface>
   );

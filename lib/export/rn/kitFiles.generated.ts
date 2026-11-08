@@ -14,6 +14,7 @@ export const KIT_FILES: string[] = [
  "composites/more.tsx",
  "composites/overlays.tsx",
  "coverage.ts",
+ "field.tsx",
  "icons/Icon.tsx",
  "icons/names.ts",
  "index.ts",

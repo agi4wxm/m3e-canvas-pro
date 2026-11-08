@@ -215,6 +215,19 @@ describe("a form", () => {
     const nameShown = shown.flatMap((g) => g.items).find((it) => it.id === name.id)!;
     expect(nameShown.props?.error).toBe(true);
     expect(texts(shown)).toContain("That name is taken");
+    /* the field states (parts/fieldState.ts): the contract's required fields say so; the design shows the message in
+       a helper line of its own (form.errors.name), so the input is not handed it again */
+    expect(nameShown.props?.required).toBe(true);
+    expect(shown.flatMap((g) => g.items).find((it) => it.id === email.id)!.props?.required).toBeUndefined();
+    expect(nameShown.props?.errorText).toBeUndefined();
+    expect(texts(shown).filter((t) => t === "That name is taken")).toHaveLength(1);
+    /* with no line of its own for it, the input shows the message itself */
+    const bare: Doc = { ...doc, groups: doc.groups.map((g) => ({ ...g, items: g.items.map((it) => (it.bind && Object.values(it.bind).some((b) => b.includes("form.errors")) ? { ...it, bind: undefined } : it)) })) };
+    const hb = harness(bare, shopTransport());
+    await hb.engine.submit(form.id, "createProduct", { body: { name: "taken", price: 1 } });
+    const own = hb.shown("create", { fields: { [name.id]: "taken", [price.id]: "1" } }).flatMap((g) => g.items).find((it) => it.id === name.id)!;
+    expect(own.props?.error).toBe(true);
+    expect(own.props?.errorText).toBe("That name is taken");
     const done = await h.engine.submit(form.id, "createProduct", { body: ok.body });
     expect(done.ok && (done.body as { name: string }).name).toBe("Tea");
     expect(h.state.forms[form.id].errors).toEqual({});
@@ -228,10 +241,12 @@ describe("a form", () => {
     const going = h.engine.submit(form.id, "createProduct", { body: { name: "Tea", price: 1 } });
     const button = h.bound("create").groups.flatMap((g) => g.items).find((it) => it.component === "button" && it.action?.effects?.some((e) => e.do === "submit"))!;
     expect(button.props?.disabled).toBe(true);
+    expect(button.props?.loading).toBe(true);
     /* a second submit while the first goes is refused */
     expect((await h.engine.submit(form.id, "createProduct", { body: {} })).ok).toBe(false);
     await going;
     expect(h.bound("create").groups.flatMap((g) => g.items).find((it) => it.id === button.id)!.props?.disabled).toBeFalsy();
+    expect(h.bound("create").groups.flatMap((g) => g.items).find((it) => it.id === button.id)!.props?.loading).toBeFalsy();
   });
 });
 

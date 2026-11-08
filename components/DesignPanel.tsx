@@ -4,6 +4,7 @@ import { Frame, Item, PHONE_W, Palette, frameSizeOf, uniformRadii, type BlendMod
 import { t, useLang, type UIKey } from "@/lib/i18n";
 import { retireText } from "@/lib/i18n/retire";
 import { partBySlug } from "@/parts/registry";
+import { isStateProp } from "@/parts/fieldState";
 import { axisValue, axisWrite, resizeOf, type PartAxis } from "@/parts/resize";
 import type { PartDef } from "@/parts/types";
 import { childLayoutOf, type Flow } from "@/lib/flow";
@@ -229,8 +230,10 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
   const loose = childLayoutOf(item).absolute;
   const placed = inFlow && !loose;
   const axes = resizeOf(def, item.props);
-  /* W and H stand in the layout section, a pin in the position one: the properties leave them out */
-  const shownElsewhere = (d: { key: string; kind: string; screen?: boolean }) => !!d.screen || (d.kind === "number" && (d.key === axes?.width?.key || d.key === axes?.height?.key));
+  /* W and H stand in the layout section, a pin in the position one, the field states in their own: the properties
+     leave them out */
+  const isState = (d: { key: string }) => isStateProp(def, d.key);
+  const shownElsewhere = (d: { key: string; kind: string; screen?: boolean }) => !!d.screen || isState(d) || (d.kind === "number" && (d.key === axes?.width?.key || d.key === axes?.height?.key));
   const hasProps = def.props.some((d) => !shownElsewhere(d));
   const fx = frame?.x ?? 0;
   const fy = frame?.y ?? 0;
@@ -244,6 +247,8 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
   const group = behavior.group;
   const effects: LookBlockKey[] = strict ? ["shadows", "blur", "distort"] : ["shadows", "blur", "filters", "texture", "distort"];
   const textual = def.slug === "text" || def.category === "Basics" && def.props.some((d) => d.key === "text");
+  /* every part can be turned, faded, outlined and given effects: the look lands on its root where it paints no surface
+     of its own (an image, a shape, an icon); a fill, a text role, corners and presets are for the parts that do */
   const boundRotation = useBoundNumber(item, "@rotation");
   const widthAxis = axes?.width?.kind === "number" ? axes.width : undefined;
 
@@ -254,6 +259,12 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
           <ComponentProps item={item} palette={p} onChange={onChange} frame={frame} layoutApart inFlow={inFlow} skip={shownElsewhere} />
         </DesignSection>
       )}
+      {def.field && (
+        <DesignSection id="field-state" title={t("dzFieldState", lang)} p={p}>
+          <ComponentProps item={item} palette={p} onChange={onChange} frame={frame} layoutApart inFlow={inFlow} only={isState} />
+          <div style={{ fontSize: 12, lineHeight: "16px", color: p.onSurfaceVariant, padding: "8px 4px 0" }}>{t("dzFieldStateNote", lang)}</div>
+        </DesignSection>
+      )}
 
       <DesignSection id="position" title={t("dzPosition", lang)} p={p}>
         <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
@@ -261,12 +272,12 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
           <div style={{ ...grid2, flex: 1, minWidth: 0 }}>
             <NumberField name="x" word="X" value={selfRect ? Math.round(selfRect.x - fx) : undefined} disabled={!onMoveTo || !selfRect || placed} title={placed ? `X · ${t("dzSetByLayout", lang)}` : "X"} onChange={(v) => selfRect && onMoveTo?.(v + fx, selfRect.y)} p={p} />
             <NumberField name="y" word="Y" value={selfRect ? Math.round(selfRect.y - fy) : undefined} disabled={!onMoveTo || !selfRect || placed} title={placed ? `Y · ${t("dzSetByLayout", lang)}` : "Y"} onChange={(v) => selfRect && onMoveTo?.(selfRect.x, v + fy)} p={p} />
-            {def.appearance && (
+            {(
               <BoundNumber item={item} field="@rotation" onChange={onChange} p={p}>
                 <NumberField name="rotation" icon="rotate_right" value={boundRotation ?? look.rotate ?? 0} disabled={boundRotation !== undefined} min={-180} max={180} unit="°" title={t("dzRotation", lang)} onChange={(v) => setLook({ rotate: v || undefined })} p={p} />
               </BoundNumber>
             )}
-            {def.appearance && (
+            {(
               <div style={{ display: "flex", gap: 2 }}>
                 <FieldToggle icon="flip" name="flipX" on={!!tr.flipX} title={t("dzFlipH", lang)} p={p} onClick={() => setTr({ flipX: !tr.flipX || undefined })} />
                 <span style={{ display: "inline-flex", transform: "rotate(90deg)" }}>
@@ -308,7 +319,7 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
 
       <PartDataSection item={item} frame={frame ?? null} p={p} />
 
-      {def.appearance && (
+      {(
         <DesignSection
           id="appearance"
           title={t("dzAppearance", lang)}
@@ -355,7 +366,7 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
         </DesignSection>
       )}
 
-      {def.appearance && !strict && (
+      {!strict && (
         <LookPanel
           key={`${item.id}:stroke`}
           item={item}
@@ -371,7 +382,7 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
         />
       )}
 
-      {def.appearance && (
+      {(
         <DesignSection id="effects" title={t("dzEffects", lang)} p={p}>
           <LookPanel key={`${item.id}:effects`} item={item} onChange={onChange} p={p} strict={strict} only={effects} />
         </DesignSection>

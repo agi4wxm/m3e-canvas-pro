@@ -254,6 +254,7 @@ export const content: PartDef[] = [
       { key: "bordered", label: "Dashed border", kind: "bool", default: false },
       { key: "width", label: "Width", kind: "number", default: 360, min: 200, max: 640, step: 4, unit: "px" },
     ],
+    slots: (p) => (p.s("action") ? [{ key: "action", label: p.s("action") }] : []),
     tree: (p) =>
       h(
         "Empty",
@@ -265,7 +266,7 @@ export const content: PartDef[] = [
           h("EmptyTitle", null, p.s("title")),
           p.s("description") && h("EmptyDescription", null, p.s("description")),
         ),
-        p.s("action") && h("EmptyContent", null, h("Button", { variant: "tonal" }, p.s("action"))),
+        p.s("action") && h("EmptyContent", null, h("Button", { variant: "tonal", "data-tap": "action" }, p.s("action"))),
       ),
   },
   {

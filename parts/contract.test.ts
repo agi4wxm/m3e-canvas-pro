@@ -87,7 +87,8 @@ describe("every part", () => {
     for (const { name, text } of sourceFiles("defs")) {
       const imports = [...text.matchAll(/^import (?!type )[^;]*from "([^"]+)"/gm)].map((m) => m[1]);
       /* the look's traits (kits/types) are plain functions of a look, so a split composes by the same ones a kit does */
-      for (const from of imports) expect(from, `defs/${name} imports ${from}`).toMatch(/^\.\.\/(node|labels|types|flow|atoms|svg|kits\/types)$/);
+      /* the field states and the accessible names are plain data and plain functions too (parts/fieldState.ts, parts/a11y.ts) */
+      for (const from of imports) expect(from, `defs/${name} imports ${from}`).toMatch(/^\.\.\/(node|labels|types|flow|atoms|svg|kits\/types|fieldState|a11y|tables)$/);
     }
   });
 
@@ -172,7 +173,9 @@ describe("one way of writing a part", () => {
 
 describe("the widgets", () => {
   it("are all used by a part", () => {
-    const used = new Set(PARTS.flatMap((d) => [...componentsIn(treeOf(d, defaultValues(d)))]));
+    /* the frame a field state draws around an input is used once a state is on */
+    const states = { disabled: true, readOnly: true, required: true, loading: true, error: true, errorText: "Required" };
+    const used = new Set(PARTS.flatMap((d) => [...componentsIn(treeOf(d, defaultValues(d))), ...(d.field ? componentsIn(treeOf(d, { ...defaultValues(d), ...states })) : [])]));
     for (const name of Object.keys(WIDGET_SOURCES)) expect(used.has(name), `${name} is not used`).toBe(true);
   });
 

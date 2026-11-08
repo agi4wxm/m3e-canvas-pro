@@ -15,6 +15,7 @@ import { BARE, merge, sx, ROW, type CSS } from "../styles";
 import { controlRadius, corner, recipeOf, typeStyle, useKit } from "../theme";
 import { useValue } from "../value";
 import { tapOf } from "./bars";
+import { starred, withField, type FieldProps } from "../field";
 
 /* Fields and pickers: a text field with its label, a select, a date picker and a time picker (the platform's own
  * pickers: Taro's <Picker>, a wheel on WeChat and Douyin and a sheet on the web), segmented buttons, a menu (the
@@ -32,10 +33,15 @@ export type TextFieldProps = PartBase & {
   error?: boolean;
   multiline?: boolean;
   width?: number;
-  /** the keyboard and how the words show: email, password, number, tel, url (a form's field says) */
+  /** the keyboard and how the words show: email, password, number, tel, url (the part or a form's field says) */
   type?: string;
+  disabled?: boolean;
+  placeholder?: string;
+  /** words before and after what is typed (a currency, a unit) */
+  prefix?: string;
+  suffix?: string;
   onChange?: (text: string) => void;
-};
+} & FieldProps;
 
 /** Material's text field: its label inside until there is something typed, then above the words; the style's own field
  *  where it has one (the label then stays inside the box) */
@@ -51,14 +57,18 @@ export function TextField(props: TextFieldProps) {
   const tint = p.error ? c("error") : focused ? c("primary") : c("on-surface-variant");
   const outlinedLabel = p.variant !== "filled" && !own && up;
   const words = sx(typeStyle(kit, "body-large"), BARE, { color: c("on-surface"), width: "100%", minHeight: 24 }, p.multiline ? { height: 72 } : { height: 24 });
-  return (
-    <View {...tagOf(p.testID)} style={sx({ display: "flex", flexDirection: "column", rowGap: 4, width: Math.round(p.width ?? 280), flexShrink: 0 }, fill)}>
+  const held = !!p.disabled || !!p.readOnly;
+  /* the message of its error stands where its supporting words were */
+  const supporting = p.error && p.errorText ? p.errorText : p.supporting;
+  return withField(
+    { loading: p.loading },
+    <View {...tagOf(p.testID)} style={sx({ display: "flex", flexDirection: "column", rowGap: 4, width: Math.round(p.width ?? 280), flexShrink: 0, opacity: p.disabled ? 0.38 : 1 }, fill)}>
       <View style={sx(merge({ ...ROW, position: "relative", boxSizing: "border-box", minHeight: p.multiline ? 96 : 56, alignItems: p.multiline ? "flex-start" : "center", paddingLeft: 16, paddingRight: 16, columnGap: 12 }, box, focused ? focus : null, p.error ? { borderColor: c("error"), boxShadow: `inset 0 0 0 1px ${c("error")}` } : null))}>
         {p.leadingIcon ? <Glyph name={p.leadingIcon} size={24} color="on-surface-variant" /> : null}
         <View style={sx({ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", paddingTop: up && !outlinedLabel ? 16 : 0, alignSelf: "stretch" })}>
           {p.label ? (
             <Words
-              text={p.label}
+              text={starred(p.label, p.required)}
               lines={1}
               style={
                 outlinedLabel
@@ -70,21 +80,25 @@ export function TextField(props: TextFieldProps) {
             />
           ) : null}
           {p.multiline ? (
-            <TaroTextarea value={text} maxlength={-1} onInput={(e) => setText(e.detail.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={words} />
+            <TaroTextarea value={text} ariaLabel={p.label || p.ariaLabel} disabled={held} maxlength={-1} onInput={(e) => setText(e.detail.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={words} />
           ) : (
-            <TaroInput value={text} password={p.type === "password"} type={keyboardOf(p.type)} maxlength={-1} onInput={(e) => setText(e.detail.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={words} />
+            <View style={sx(ROW, { columnGap: 4 })}>
+              {p.prefix && up ? <Words text={p.prefix} lines={1} style={{ ...typeStyle(kit, "body-large"), color: c("on-surface-variant") }} /> : null}
+              <TaroInput value={text} ariaLabel={p.label || p.ariaLabel} disabled={held} password={p.type === "password"} type={keyboardOf(p.type)} placeholder={up || !p.label ? p.placeholder : undefined} maxlength={-1} onInput={(e) => setText(e.detail.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={words} />
+              {p.suffix && up ? <Words text={p.suffix} lines={1} style={{ ...typeStyle(kit, "body-large"), color: c("on-surface-variant") }} /> : null}
+            </View>
           )}
         </View>
         {p.trailingIcon || p.error ? <Glyph name={p.error ? "error" : p.trailingIcon!} size={24} color={p.error ? "error" : "on-surface-variant"} /> : null}
       </View>
-      {p.supporting ? <Words text={p.supporting} style={{ ...typeStyle(kit, "body-small"), color: p.error ? c("error") : c("on-surface-variant"), paddingLeft: 16, paddingRight: 16 }} /> : null}
-    </View>
+      {supporting ? <Words text={supporting} style={{ ...typeStyle(kit, "body-small"), color: p.error ? c("error") : c("on-surface-variant"), paddingLeft: 16, paddingRight: 16 }} /> : null}
+    </View>,
   );
 }
 
 /* ---------- a select ---------- */
 
-export type SelectProps = PartBase & { items?: ListRow[]; selected?: number; variant?: "outlined" | "filled"; label?: string; placeholder?: string; supporting?: string; size?: "default" | "sm"; disabled?: boolean; width?: number; error?: boolean; onChange?: (i: number) => void };
+export type SelectProps = PartBase & FieldProps & { items?: ListRow[]; selected?: number; variant?: "outlined" | "filled"; label?: string; placeholder?: string; supporting?: string; size?: "default" | "sm"; disabled?: boolean; width?: number; error?: boolean; onChange?: (i: number) => void };
 
 /** a field that opens the platform's picker of its options */
 export function Select(props: SelectProps) {
@@ -98,29 +112,31 @@ export function Select(props: SelectProps) {
   const value = items[chosen]?.label;
   /* M3's outlined field carries its label in a notch of its border, as the editor draws it; other fields over it */
   const notched = !!p.label && (p.variant ?? "outlined") === "outlined" && recipeOf(kit, "field") === "m3";
-  const notch = notched ? <Words text={p.label} lines={1} style={{ position: "absolute", left: 12, top: -8, paddingLeft: 4, paddingRight: 4, ...typeStyle(kit, "body-small"), lineHeight: "16px", backgroundColor: c("surface"), color: c("on-surface-variant") }} /> : null;
-  return (
+  const notch = notched ? <Words text={starred(p.label, p.required)} lines={1} style={{ position: "absolute", left: 12, top: -8, paddingLeft: 4, paddingRight: 4, ...typeStyle(kit, "body-small"), lineHeight: "16px", backgroundColor: c("surface"), color: c("on-surface-variant") }} /> : null;
+  const supporting = p.error && p.errorText ? p.errorText : p.supporting;
+  return withField(
+    { loading: p.loading },
     <View {...tagOf(p.testID)} style={sx({ display: "flex", flexDirection: "column", rowGap: 4, width: Math.round(p.width ?? 224), flexShrink: 0 }, fill)}>
-      {p.label && !notched ? <Words text={p.label} style={{ ...typeStyle(kit, "body-small"), color: c("on-surface-variant") }} /> : null}
+      {p.label && !notched ? <Words text={starred(p.label, p.required)} style={{ ...typeStyle(kit, "body-small"), color: c("on-surface-variant") }} /> : null}
       <Picker
         mode="selector"
         range={items.map((it) => it.label)}
         value={Math.max(0, chosen)}
-        disabled={!!p.disabled}
+        disabled={!!p.disabled || !!p.readOnly}
         onChange={(e) => {
           const i = Number(e.detail.value);
           setChosen(i);
           tapOf(p, `tab:${i}`)?.();
         }}
       >
-        <View ariaRole="combobox" ariaLabel={p.label || p.placeholder} style={sx(merge({ ...ROW, position: "relative", boxSizing: "border-box", height: p.size === "sm" ? 40 : 56, paddingLeft: 16, paddingRight: 16, columnGap: 8, opacity: p.disabled ? 0.38 : 1 }, box, p.error ? { borderColor: c("error"), boxShadow: `inset 0 0 0 1px ${c("error")}` } : null))}>
+        <View ariaRole="combobox" ariaLabel={p.label || p.ariaLabel || p.placeholder} style={sx(merge({ ...ROW, position: "relative", boxSizing: "border-box", height: p.size === "sm" ? 40 : 56, paddingLeft: 16, paddingRight: 16, columnGap: 8, opacity: p.disabled ? 0.38 : 1 }, box, p.error ? { borderColor: c("error"), boxShadow: `inset 0 0 0 1px ${c("error")}` } : null))}>
           {notch}
           <Words text={value ?? p.placeholder} lines={1} style={{ flex: 1, ...typeStyle(kit, "body-large"), color: value ? c("on-surface") : c("on-surface-variant") }} />
           <Glyph name={ios ? "unfold_more" : "arrow_drop_down"} size={24} color="on-surface-variant" />
         </View>
       </Picker>
-      {p.supporting ? <Words text={p.supporting} style={{ ...typeStyle(kit, "body-small"), color: p.error ? c("error") : c("on-surface-variant"), paddingLeft: 16, paddingRight: 16 }} /> : null}
-    </View>
+      {supporting ? <Words text={supporting} style={{ ...typeStyle(kit, "body-small"), color: p.error ? c("error") : c("on-surface-variant"), paddingLeft: 16, paddingRight: 16 }} /> : null}
+    </View>,
   );
 }
 
@@ -128,7 +144,7 @@ export function Select(props: SelectProps) {
 
 const two = (n: number) => String(n).padStart(2, "0");
 
-export type DatePickerProps = PartBase & { variant?: "docked" | "modal"; label?: string; placeholder?: string; width?: number; mode?: "single" | "range"; title?: string; defaultView?: string; disabled?: boolean; value?: string; onChange?: (date: string) => void };
+export type DatePickerProps = PartBase & FieldProps & { variant?: "docked" | "modal"; label?: string; placeholder?: string; width?: number; mode?: "single" | "range"; title?: string; defaultView?: string; disabled?: boolean; error?: boolean; value?: string; onChange?: (date: string) => void };
 
 /** a field that opens the platform's date picker; the date is YYYY-MM-DD */
 export function DatePicker(props: DatePickerProps) {
@@ -138,19 +154,20 @@ export function DatePicker(props: DatePickerProps) {
   const [date, setDate] = useValue(p.value ?? "", p.onChange);
   const { box } = fieldStyle(kit, "outlined");
   const today = new Date();
-  return (
+  return withField(
+    p,
     <View {...tagOf(p.testID)} style={sx({ width: Math.round(p.width ?? 256), flexShrink: 0 }, fill)}>
-      <Picker mode="date" value={date || `${today.getFullYear()}-${two(today.getMonth() + 1)}-${two(today.getDate())}`} disabled={!!p.disabled} onChange={(e) => setDate(String(e.detail.value))}>
-        <View ariaRole="button" ariaLabel={p.label} style={sx(merge({ ...ROW, boxSizing: "border-box", height: 56, paddingLeft: 16, paddingRight: 16, columnGap: 8, opacity: p.disabled ? 0.38 : 1 }, box))}>
-          <Words text={date || p.label || p.placeholder} lines={1} style={{ flex: 1, ...typeStyle(kit, "body-large"), color: date ? c("on-surface") : c("on-surface-variant") }} />
+      <Picker mode="date" value={date || `${today.getFullYear()}-${two(today.getMonth() + 1)}-${two(today.getDate())}`} disabled={!!p.disabled || !!p.readOnly} onChange={(e) => setDate(String(e.detail.value))}>
+        <View ariaRole="button" ariaLabel={p.label || p.ariaLabel} style={sx(merge({ ...ROW, boxSizing: "border-box", height: 56, paddingLeft: 16, paddingRight: 16, columnGap: 8, opacity: p.disabled ? 0.38 : 1 }, box, p.error ? { borderColor: c("error"), boxShadow: `inset 0 0 0 1px ${c("error")}` } : null))}>
+          <Words text={date || starred(p.label, p.required) || p.placeholder} lines={1} style={{ flex: 1, ...typeStyle(kit, "body-large"), color: date ? c("on-surface") : c("on-surface-variant") }} />
           <Glyph name="calendar_today" size={24} color={recipeOf(kit, "picker") === "ios" ? "primary" : "on-surface-variant"} />
         </View>
       </Picker>
-    </View>
+    </View>,
   );
 }
 
-export type TimePickerProps = PartBase & { title?: string; hours?: number; minutes?: number; hour24?: boolean; mode?: "dial" | "input"; width?: number; value?: string; onChange?: (time: string) => void };
+export type TimePickerProps = PartBase & FieldProps & { title?: string; hours?: number; minutes?: number; hour24?: boolean; mode?: "dial" | "input"; width?: number; disabled?: boolean; error?: boolean; value?: string; onChange?: (time: string) => void };
 
 /** The time picker drawn open, as the design shows it: Material's two boxes and dial, or the style's wheels (iOS,
  *  WeChat). A tap on the time opens the platform's own picker; the time is HH:mm. */
@@ -241,7 +258,7 @@ export function TimePicker(props: TimePickerProps) {
 
 const SEG_H: Record<string, number> = { xs: 32, sm: 36, default: 40, md: 56 };
 
-export type SegmentedButtonProps = PartBase & { items?: ListRow[]; selected?: number; connected?: boolean; variant?: string; size?: string; multiple?: boolean };
+export type SegmentedButtonProps = PartBase & { items?: ListRow[]; selected?: number; connected?: boolean; variant?: string; size?: string; multiple?: boolean; disabled?: boolean };
 
 /** M3 Expressive's connected button group as a choice; iOS's segmented control; capsules apart */
 export function SegmentedButton(props: SegmentedButtonProps) {
@@ -252,12 +269,13 @@ export function SegmentedButton(props: SegmentedButtonProps) {
   const recipe = recipeOf(kit, "segmented");
   const h = SEG_H[p.size ?? "default"] ?? 40;
   const pick = (i: number) => {
+    if (p.disabled) return;
     setChosen((now) => (p.multiple ? (now.includes(i) ? now.filter((x) => x !== i) : [...now, i]) : [i]));
     tapOf(p, `tab:${i}`)?.();
   };
   if (recipe === "ios")
     return (
-      <Surface base={{ ...ROW, alignItems: "stretch", height: 32, padding: 2, borderRadius: 9, backgroundColor: ca("on-surface", kit.dark ? 0.16 : 0.07), alignSelf: "flex-start" }} appearance={p} testID={p.testID}>
+      <Surface base={{ ...ROW, alignItems: "stretch", height: 32, padding: 2, borderRadius: 9, backgroundColor: ca("on-surface", kit.dark ? 0.16 : 0.07), alignSelf: "flex-start", opacity: p.disabled ? 0.38 : 1 }} appearance={p} testID={p.testID}>
         {items.map((it, i) => {
           const on = chosen.includes(i);
           return (
@@ -271,7 +289,7 @@ export function SegmentedButton(props: SegmentedButtonProps) {
   const capsules = recipe === "capsules";
   const apart = capsules || p.connected === false;
   return (
-    <Surface base={{ ...ROW, columnGap: apart ? 8 : 2, alignSelf: "flex-start" }} appearance={p} testID={p.testID}>
+    <Surface base={{ ...ROW, columnGap: apart ? 8 : 2, alignSelf: "flex-start", opacity: p.disabled ? 0.38 : 1 }} appearance={p} testID={p.testID}>
       {items.map((it, i) => {
         const on = chosen.includes(i);
         const end = h / 2;
@@ -316,15 +334,16 @@ export function Menu(props: MenuProps) {
 
 /* ---------- a radio group ---------- */
 
-export type RadioGroupProps = PartBase & { items?: ListRow[]; selected?: number; layout?: "column" | "row"; disabled?: boolean; error?: boolean; onChange?: (i: number) => void };
+export type RadioGroupProps = PartBase & FieldProps & { items?: ListRow[]; selected?: number; layout?: "column" | "row"; disabled?: boolean; error?: boolean; onChange?: (i: number) => void };
 
 export function RadioGroup(props: RadioGroupProps) {
   const p = withDefaults<RadioGroupProps>("radio-group", props);
   const kit = useKit();
   const items = p.items ?? [];
   const [chosen, setChosen] = useValue(clampInt(p.selected ?? 0, -1, Math.max(0, items.length - 1)), p.onChange);
-  return (
-    <View {...tagOf(p.testID)} ariaRole="radiogroup" style={sx({ display: "flex", flexDirection: p.layout === "row" ? "row" : "column", gap: p.layout === "row" ? 16 : 12, alignSelf: "flex-start" })}>
+  return withField(
+    p,
+    <View {...tagOf(p.testID)} ariaRole="radiogroup" ariaLabel={p.ariaLabel} style={sx({ display: "flex", flexDirection: p.layout === "row" ? "row" : "column", gap: p.layout === "row" ? 16 : 12, alignSelf: "flex-start" })}>
       {items.map((it, i) => (
         <View
           key={i}
@@ -332,7 +351,7 @@ export function RadioGroup(props: RadioGroupProps) {
           ariaChecked={i === chosen}
           onClick={(e) => {
             e.stopPropagation();
-            if (p.disabled) return;
+            if (p.disabled || p.readOnly) return;
             setChosen(i);
             tapOf(p, `tab:${i}`)?.();
           }}
@@ -342,7 +361,7 @@ export function RadioGroup(props: RadioGroupProps) {
           <Words text={it.label} style={{ ...typeStyle(kit, "body-large"), color: c(p.error ? "error" : "on-surface") }} />
         </View>
       ))}
-    </View>
+    </View>,
   );
 }
 
@@ -351,7 +370,7 @@ export function RadioGroup(props: RadioGroupProps) {
 /** a file as the platform hands one over: its temporary path, name, type and size */
 export type PickedFile = { path: string; name: string; type: string; size: number };
 
-export type FileUploadProps = PartBase & { title?: string; hint?: string; action?: string; multiple?: boolean; accept?: string; width?: number; error?: boolean; value?: PickedFile | PickedFile[]; onChange?: (files: PickedFile | PickedFile[] | undefined) => void };
+export type FileUploadProps = PartBase & FieldProps & { title?: string; hint?: string; action?: string; multiple?: boolean; accept?: string; width?: number; error?: boolean; disabled?: boolean; value?: PickedFile | PickedFile[]; onChange?: (files: PickedFile | PickedFile[] | undefined) => void };
 
 const mimeOf = (path: string) => {
   const ext = /\.([a-z0-9]+)(?:\?|$)/i.exec(path)?.[1]?.toLowerCase();
@@ -387,21 +406,23 @@ export function FileUpload(props: FileUploadProps) {
       })
       .catch(() => {});
   };
-  return (
+  const held = !!p.disabled || !!p.readOnly;
+  return withField(
+    p,
     <Surface
-      base={merge({ display: "flex", flexDirection: "column", width: Math.round(p.width ?? 360), padding: 24, rowGap: 8, alignItems: "center", borderRadius: corner(kit, "lg"), border: `2px dashed ${p.error ? c("error") : c("outline-variant")}`, backgroundColor: c("surface-container-low") }, fill)}
+      base={merge({ display: "flex", flexDirection: "column", width: Math.round(p.width ?? 360), padding: 24, rowGap: 8, alignItems: "center", borderRadius: corner(kit, "lg"), border: `2px dashed ${p.error ? c("error") : c("outline-variant")}`, backgroundColor: c("surface-container-low"), opacity: p.disabled ? 0.38 : 1 }, fill)}
       appearance={p}
       testID={p.testID}
     >
       <Glyph name="upload_file" size={32} color="primary" />
-      <Words text={list.length ? list.map((f) => f.name).join(", ") : p.title} style={{ ...typeStyle(kit, "title-medium"), color: c("on-surface"), textAlign: "center" }} />
+      <Words text={list.length ? list.map((f) => f.name).join(", ") : starred(p.title, p.required)} style={{ ...typeStyle(kit, "title-medium"), color: c("on-surface"), textAlign: "center" }} />
       {p.hint ? <Words text={p.hint} style={{ ...typeStyle(kit, "body-small"), color: c("on-surface-variant") }} /> : null}
       {/* the button in the middle, as the editor centres it (a button keeps to the start of its row by itself) */}
       {p.action ? (
         <View style={sx({ display: "flex", flexDirection: "row", justifyContent: "center", alignSelf: "stretch" })}>
-          <Button label={p.action} variant="tonal" size="sm" onPress={choose} />
+          <Button label={p.action} variant="tonal" size="sm" disabled={held} onPress={held ? undefined : choose} />
         </View>
       ) : null}
-    </Surface>
+    </Surface>,
   );
 }

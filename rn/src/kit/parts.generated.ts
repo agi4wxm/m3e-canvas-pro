@@ -51,7 +51,14 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "label": "Option A",
    "checked": true,
-   "disabled": false
+   "disabled": false,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "dot": {
@@ -78,10 +85,13 @@ export const PARTS: Record<string, PartInfo> = {
    "width": 96,
    "iconWidth": "default",
    "disabled": false,
+   "ariaLabel": "",
    "toggle": false,
+   "pressed": false,
    "onIcon": "",
    "onLabel": "",
-   "onLook": "same"
+   "onLook": "same",
+   "loading": false
   }
  },
  "fab": {
@@ -95,9 +105,13 @@ export const PARTS: Record<string, PartInfo> = {
    "color": "primary-container",
    "lowered": false,
    "collapsed": false,
+   "ariaLabel": "",
    "toggle": false,
+   "pressed": false,
    "onIcon": "",
-   "onLabel": ""
+   "onLabel": "",
+   "disabled": false,
+   "loading": false
   }
  },
  "chip": {
@@ -113,7 +127,8 @@ export const PARTS: Record<string, PartInfo> = {
    "kind": "assist",
    "selected": 0,
    "variant": "flat",
-   "size": "default"
+   "size": "default",
+   "disabled": false
   }
  },
  "toggle": {
@@ -127,7 +142,8 @@ export const PARTS: Record<string, PartInfo> = {
    "size": "default",
    "shape": "round",
    "pressed": false,
-   "disabled": false
+   "disabled": false,
+   "ariaLabel": ""
   }
  },
  "toggle-group": {
@@ -153,7 +169,8 @@ export const PARTS: Record<string, PartInfo> = {
    "connected": true,
    "variant": "default",
    "size": "default",
-   "multiple": false
+   "multiple": false,
+   "disabled": false
   }
  },
  "button-group": {
@@ -239,7 +256,14 @@ export const PARTS: Record<string, PartInfo> = {
    "checked": true,
    "size": "default",
    "disabled": false,
-   "width": 140
+   "width": 140,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "checkbox": {
@@ -251,7 +275,13 @@ export const PARTS: Record<string, PartInfo> = {
    "checked": true,
    "indeterminate": false,
    "error": false,
-   "disabled": false
+   "disabled": false,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "radio-group": {
@@ -273,7 +303,13 @@ export const PARTS: Record<string, PartInfo> = {
    "selected": 1,
    "layout": "column",
    "error": false,
-   "disabled": false
+   "disabled": false,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "slider": {
@@ -286,7 +322,14 @@ export const PARTS: Record<string, PartInfo> = {
    "range": false,
    "end": 70,
    "disabled": false,
-   "width": 280
+   "width": 280,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "select": {
@@ -312,7 +355,13 @@ export const PARTS: Record<string, PartInfo> = {
    "supporting": "",
    "size": "default",
    "disabled": false,
-   "width": 224
+   "width": 224,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": ""
   }
  },
  "native-select": {
@@ -334,7 +383,14 @@ export const PARTS: Record<string, PartInfo> = {
    "selected": 1,
    "size": "default",
    "disabled": false,
-   "width": 224
+   "width": 224,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "combobox": {
@@ -363,7 +419,14 @@ export const PARTS: Record<string, PartInfo> = {
    "placeholder": "Select a framework",
    "clear": false,
    "disabled": false,
-   "width": 256
+   "width": 256,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "text-field": {
@@ -373,13 +436,23 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "label": "Label",
    "value": "",
+   "placeholder": "",
+   "type": "text",
    "supporting": "",
    "variant": "outlined",
+   "prefix": "",
+   "suffix": "",
    "leadingIcon": "",
    "trailingIcon": "",
    "error": false,
    "multiline": false,
-   "width": 280
+   "width": 280,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "errorText": ""
   }
  },
  "input": {
@@ -394,7 +467,13 @@ export const PARTS: Record<string, PartInfo> = {
    "size": "default",
    "error": false,
    "disabled": false,
-   "width": 280
+   "width": 280,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "textarea": {
@@ -409,7 +488,13 @@ export const PARTS: Record<string, PartInfo> = {
    "autoGrow": true,
    "error": false,
    "disabled": false,
-   "width": 280
+   "width": 280,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "input-group": {
@@ -424,7 +509,13 @@ export const PARTS: Record<string, PartInfo> = {
    "button": "",
    "error": false,
    "disabled": false,
-   "width": 320
+   "width": 320,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "input-otp": {
@@ -436,7 +527,13 @@ export const PARTS: Record<string, PartInfo> = {
    "group": 3,
    "value": "",
    "error": false,
-   "disabled": false
+   "disabled": false,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "field": {
@@ -450,7 +547,10 @@ export const PARTS: Record<string, PartInfo> = {
    "description": "We will never share it.",
    "error": "",
    "disabled": false,
-   "width": 320
+   "width": 320,
+   "readOnly": false,
+   "required": false,
+   "loading": false
   }
  },
  "label": {
@@ -576,6 +676,7 @@ export const PARTS: Record<string, PartInfo> = {
    "variant": "filled",
    "imagePos": "top",
    "image": "",
+   "alt": "",
    "imageIcon": "image",
    "imageSize": 96,
    "textAlign": "start",
@@ -624,7 +725,18 @@ export const PARTS: Record<string, PartInfo> = {
    "closeButton": false,
    "dialogWidth": 412,
    "width": 412,
-   "height": 640
+   "height": 640,
+   "dialogHeight": 320,
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false
   }
  },
  "alert-dialog": {
@@ -637,7 +749,18 @@ export const PARTS: Record<string, PartInfo> = {
    "description": "This action cannot be undone.",
    "cancel": "Cancel",
    "action": "Delete",
-   "size": "default"
+   "size": "default",
+   "dialogHeight": 280,
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false
   }
  },
  "sheet": {
@@ -648,7 +771,20 @@ export const PARTS: Record<string, PartInfo> = {
    "side": "right",
    "title": "Filters",
    "description": "Narrow down the results.",
-   "footer": false
+   "footer": false,
+   "confirm": "Save",
+   "dismiss": "Cancel",
+   "sheetHeight": 320,
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false
   }
  },
  "side-sheet": {
@@ -662,6 +798,8 @@ export const PARTS: Record<string, PartInfo> = {
    "detached": false,
    "closeButton": true,
    "footer": true,
+   "confirm": "Apply",
+   "dismiss": "Cancel",
    "width": 360,
    "height": 320
   }
@@ -1130,7 +1268,15 @@ export const PARTS: Record<string, PartInfo> = {
    "mode": "single",
    "months": 1,
    "outside": true,
-   "weekStart": "sunday"
+   "weekStart": "sunday",
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "date-picker": {
@@ -1145,7 +1291,13 @@ export const PARTS: Record<string, PartInfo> = {
    "mode": "single",
    "title": "Select date",
    "defaultView": "calendar",
-   "disabled": false
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "time-picker": {
@@ -1158,7 +1310,14 @@ export const PARTS: Record<string, PartInfo> = {
    "minutes": 30,
    "hour24": false,
    "mode": "dial",
-   "width": 328
+   "width": 328,
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "icon": {
@@ -1420,7 +1579,14 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "value": 4,
    "count": 5,
-   "readOnly": false
+   "readOnly": false,
+   "ariaLabel": "",
+   "disabled": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "color-field": {
@@ -1429,7 +1595,14 @@ export const PARTS: Record<string, PartInfo> = {
   "category": "Pickers",
   "defaults": {
    "label": "Theme color",
-   "value": "#6750A4"
+   "value": "#6750A4",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "link": {
@@ -2390,7 +2563,9 @@ export const PARTS: Record<string, PartInfo> = {
    "size": 132,
    "angle": 0,
    "autoCenter": true,
-   "value": ""
+   "value": "",
+   "ariaLabel": "",
+   "disabled": false
   }
  },
  "quantity-stepper": {
@@ -2401,7 +2576,15 @@ export const PARTS: Record<string, PartInfo> = {
    "value": 1,
    "min": 0,
    "max": 99,
-   "width": 200
+   "width": 200,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "page-dots": {
@@ -2497,7 +2680,14 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "selected": 2,
-   "width": 380
+   "width": 380,
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "text": {
@@ -2538,7 +2728,8 @@ export const PARTS: Record<string, PartInfo> = {
    "variant": "text",
    "size": "default",
    "disabled": false,
-   "iconFill": false
+   "iconFill": false,
+   "loading": false
   }
  },
  "custom": {
@@ -2597,7 +2788,15 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "placeholder": "Add a tag",
-   "width": 320
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "phone-input": {
@@ -2607,7 +2806,15 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "code": "+86",
    "placeholder": "Phone number",
-   "width": 320
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "file-upload": {
@@ -2620,7 +2827,13 @@ export const PARTS: Record<string, PartInfo> = {
    "action": "Choose files",
    "multiple": true,
    "accept": "",
-   "width": 360
+   "width": 360,
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": ""
   }
  },
  "item-picker": {
@@ -2648,7 +2861,15 @@ export const PARTS: Record<string, PartInfo> = {
    ],
    "columns": 4,
    "selected": 0,
-   "width": 320
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "multi-select": {
@@ -2668,7 +2889,15 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "selected": "1",
-   "width": 320
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "color-palette": {
@@ -2678,7 +2907,15 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "colors": "#6750A4,#625B71,#7D5260,#B3261E,#386A20,#006A6A",
    "selected": 0,
-   "width": 320
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "number-picker": {
@@ -2691,7 +2928,15 @@ export const PARTS: Record<string, PartInfo> = {
    "max": 10,
    "step": 1,
    "unit": "",
-   "width": 96
+   "width": 96,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "floating-nav": {
@@ -2937,7 +3182,15 @@ export const PARTS: Record<string, PartInfo> = {
      "label": "Third"
     }
    ],
-   "width": 320
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "swipe-row": {
@@ -3829,7 +4082,15 @@ export const PARTS: Record<string, PartInfo> = {
    "from": "Available",
    "to": "Granted",
    "width": 380,
-   "height": 220
+   "height": 220,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "auth-form": {
@@ -3876,7 +4137,15 @@ export const PARTS: Record<string, PartInfo> = {
    "done": "Sent",
    "value": "",
    "sent": false,
-   "width": 320
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "signature-pad": {
@@ -3891,7 +4160,15 @@ export const PARTS: Record<string, PartInfo> = {
    "value": "",
    "signed": false,
    "height": 180,
-   "width": 360
+   "width": 360,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "rich-text-editor": {
@@ -3903,7 +4180,14 @@ export const PARTS: Record<string, PartInfo> = {
    "placeholder": "Write something",
    "counter": true,
    "height": 200,
-   "width": 380
+   "width": 380,
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "icon-grid": {
@@ -4188,7 +4472,14 @@ export const PARTS: Record<string, PartInfo> = {
    "action": "Confirm",
    "value": "",
    "height": 240,
-   "width": 380
+   "width": 380,
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "seat-map": {
@@ -4208,7 +4499,15 @@ export const PARTS: Record<string, PartInfo> = {
    "action": "Confirm seats",
    "picked": "",
    "total": "",
-   "width": 380
+   "width": 380,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "review-summary": {

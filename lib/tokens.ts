@@ -1,9 +1,9 @@
 import { Lang, NAV_TABS, TAB_LABELS, getLang } from "./i18n";
 import { Contrast, schemeFromSeed } from "./color";
-import { partBySlug, reader } from "../parts/registry";
+import { holdsNow, partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
-import type { ListItem } from "../parts/types";
+import type { ListItem, TableData } from "../parts/types";
 import type { Motion, Transition } from "./screenMotion";
 import { STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Condition, type VarType, type VarValue } from "./actions/model";
 import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleContext, type StyleUX } from "./styles";
@@ -927,6 +927,44 @@ export function listRowsPatch(it: Item, key: string, rows: ListItem[], order: nu
   return patch;
 }
 
+/** The patch that gives a table prop new rows, its taps and its choice going with them as a list's do: a table is
+ *  edited as text, so a row is followed by its cells (the first unclaimed row of the same cells is the one it was). */
+export function tableRowsPatch(it: Item, key: string, table: TableData): Partial<Item> {
+  const patch: Partial<Item> = { props: { ...it.props, [key]: table } };
+  const def = partBySlug(it.component);
+  if (!def) return patch;
+  const was = reader(def, it.props).table(key).rows;
+  const used = new Set<number>();
+  const order = table.rows.map((row) => {
+    const at = was.findIndex((r, i) => !used.has(i) && r.length === row.length && r.every((c, j) => c === row[j]));
+    if (at >= 0) used.add(at);
+    return at;
+  });
+  if (order.every((o, i) => o === i) && was.length === table.rows.length) return patch;
+  /* the moves as a list's: the choice and the row taps of a part whose rows are this table's */
+  const rowsAreList = def.props.find((d) => d.kind === "table")?.key === key && !def.props.some((d) => d.kind === "list");
+  if (!rowsAreList) return patch;
+  const select = def.props.find((d) => d.key === def.selectKey);
+  if (select?.kind === "number") {
+    const sel = reader(def, it.props).n(select.key);
+    if (sel >= 0 && sel < was.length) {
+      const at = order.indexOf(sel);
+      const next = at >= 0 ? at : Math.min(sel, Math.max(0, table.rows.length - 1));
+      if (next !== sel) patch.props![select.key] = next;
+    }
+  }
+  if (it.actions && def.slots) {
+    const actions: NonNullable<Item["actions"]> = {};
+    for (const [slot, action] of Object.entries(it.actions)) {
+      const m = /^tab:(\d+)$/.exec(slot);
+      const at = m ? (Number(m[1]) >= was.length ? Number(m[1]) + table.rows.length - was.length : order.indexOf(Number(m[1]))) : 0;
+      if (at >= 0) actions[m ? `tab:${at}` : slot] = action;
+    }
+    patch.actions = Object.keys(actions).length ? actions : undefined;
+  }
+  return patch;
+}
+
 /** a free group down to one part is just that part again */
 export function collapseFree(g: Group, widths: Record<string, number>): Group {
   if (!g.free || g.items.length !== 1) return g;
@@ -1220,7 +1258,7 @@ export function retarget(g: Group, ids: Map<string, string> | ((id: string) => s
 
 /** a part that can hold others, standing alone. An instance is drawn from its definition and holds
  *  nothing of the document's, though the item standing in for it is a container. */
-export const holdsParts = (g: Group) => !g.free && !g.instanceOf && g.items.length === 1 && !!partBySlug(g.items[0].component)?.holds;
+export const holdsParts = (g: Group) => !g.free && !g.instanceOf && g.items.length === 1 && holdsNow(partBySlug(g.items[0].component), g.items[0].props);
 
 /** The group an expanded id belongs to: `inst/g` to the instance `inst`, `inst/inner/g` to the nested
  *  `inst/inner`, and `host#2/g` (a repeated row) to the host. A plain id belongs to nobody. */

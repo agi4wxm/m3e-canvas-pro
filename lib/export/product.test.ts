@@ -51,7 +51,11 @@ describe("the prototype export", () => {
      docs/平台能力.md, beside the retired parts, the split view and the widgets' outlets: the shop flow pays through
      createOrder and payment.pay and shows the order's status, the checkout's body one column with its payment notices
      among its rows; checkout-bar, video-call, map and camera take their state as props, the map and the camera drawn by
-     parts/widgets/Platform.tsx, and the subscription's plans are its choice. Before that: retired parts, parts/types.ts,
+     parts/widgets/Platform.tsx, and the subscription's plans are its choice. Before that: the field states and the
+     accessible names, docs/组件规范.md: the M3E button's own loading spinner (spinner.tsx copied beside it), the widgets'
+     arrow keys (parts/widgets/roving.ts) and a rating named in the page's language, icon-only controls named by what
+     their icon means, a picture with no name kept from a screen reader, a field's line of help in its frame; before them
+     retired parts, parts/types.ts,
      which ships, saying what `retired` is and what replaces one, and the shop template's cart as the atoms the retired
      cart-list splits into; before them the split view, whose
      widget contract copied beside the widgets says whether a part may keep the visitor's UI state on the device
@@ -66,11 +70,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [80, "4761f893e234cb23b962a94320de35b321f963c7d02999cc9a4c5d26c16e3dc1"],
-    systems: [40, "58807e81f5714322a5a6a60c6bd52007dd8f794c6d8e51804d642a637d315fef"],
-    reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [90, "cf17bd0fab031f3accde8b13cd8f04bb559a9ce4cddc8f5667751f3a82c15129"],
-    parts: [139, "0f97f4fd7a861d9f258ba7985ed4b80b6fa616df7c8863c63ccafc1d948a567f"],
+    proof: [83, "e2ff344877174acc8f0e589982ebee10e7133a762d7132d0f04de35a085c9e0a"],
+    systems: [41, "992987b9634db0e617a98539279765cae5163f7caa5fe8ecdbc9aa5dc3ca56cb"],
+    reuse: [31, "bf3a590479d5cbc75c4c9fcd91fa094350452f6190f2690665cefe7aecff44aa"],
+    sweep: [93, "72606d0118218ffec85eb98ef83ff4364f01252b10723b5c862693a848aa8da0"],
+    parts: [140, "f51e43fefb97a4b7514e156127b081644ef8ccd904782826b0c55e6b1984e2a2"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

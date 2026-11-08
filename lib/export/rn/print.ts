@@ -46,9 +46,10 @@ import { footOf } from "../../foot";
 import { templateOf } from "../../collections";
 import { INPUT_PROP } from "../../interact";
 import { isPlaceKey } from "../../partContract";
-import { endpointOf, formFields } from "../../bindings/contract";
+import { endpointOf, formFields, type FieldSpec } from "../../bindings/contract";
+import { formStateProps } from "../../../parts/fieldState";
 import { fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
-import { formsOf } from "../../bindings/view";
+import { formsOf, messagesShown } from "../../bindings/view";
 import { NATIVE, isNative, kitPropName } from "../../../rn/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../rn/src/kit/parts.generated";
 import { SET_ONLY, plainTree, propValues, type AtomTaps, type PlainNode } from "./data";
@@ -657,7 +658,6 @@ class ScreenPrinter {
       return [];
     }
     const key = known ? INPUT_PROP[slug] : undefined;
-    const has = (k: string) => def.props.some((d) => d.key === k);
     const form = this.ctx.form;
     if (it.field && form && (key !== undefined || FILE_INPUTS.has(slug) || slug === "date-picker")) {
       const f = `${form.v}`;
@@ -679,7 +679,9 @@ class ScreenPrinter {
         const kind = this.fieldKind(form.id, it.field);
         if (slug === "input" && (kind === "date" || kind === "datetime")) out.push(["type", str(kind)]);
       }
-      if (has("error")) out.push(["error", `!!${f}.error(${field})`]);
+      /* its error and message, and required as the contract says, by its field states (parts/fieldState.ts) */
+      const apart = (this.shown ??= messagesShown(this.all)).has(`${form.id}:${it.field}`);
+      for (const [k, v] of formStateProps(def, { invalid: `!!${f}.error(${field})`, ...(apart ? {} : { message: `${f}.error(${field}) ?? ""` }), required: !!this.fieldSpec(form.id, it.field)?.required })) out.push([kitPropName(slug, k), v === true ? "true" : v]);
       out.push(["testID", str(`field:${it.field}`)]);
       return out;
     }
@@ -697,9 +699,17 @@ class ScreenPrinter {
 
   /** how a form's field is entered, as its operation's body says */
   fieldKind(formId: string, field: string): string | undefined {
+    return this.fieldSpec(formId, field)?.kind;
+  }
+
+  /** the fields whose error the design shows in a line of its own, by `<form id>:<field>` */
+  shown?: Set<string>;
+
+  /** a form's field as its operation's body says it is entered and checked */
+  fieldSpec(formId: string, field: string): FieldSpec | undefined {
     const g = this.all.find((x) => x.id === formId);
     const e = g?.form ? endpointOf(this.doc.api, g.form.operationId) : undefined;
-    return e && this.doc.api ? formFields(this.doc.api, e).find((s) => s.name === field)?.kind : undefined;
+    return e && this.doc.api ? formFields(this.doc.api, e).find((s) => s.name === field) : undefined;
   }
 
   /** A tree of atoms (a split) as elements, the root wearing the item's look and taps. `at` walks the tree it was
@@ -758,9 +768,11 @@ class ScreenPrinter {
       const replaced = new Set(wired.map(([k]) => k));
       const extras = this.extras(it).filter(([k]) => !replaced.has(k));
       const submits = !!this.ctx.form && this.submits(it);
-      const submitting: [string, string][] = submits && this.ctx.form && def.props.some((d) => d.key === "disabled") ? [["disabled", `${this.ctx.form.v}.submitting`]] : [];
+      /* a submit button is held, and loads, while its form submits (parts/fieldState.ts) */
+      const submitting: [string, string][] = submits && this.ctx.form ? formStateProps(def, { submitting: `${this.ctx.form.v}.submitting` }).map(([k, v]) => [kitPropName(def.slug, k), v === true ? "true" : v]) : [];
+      const held = new Set(submitting.map(([k]) => k));
       if (submits && this.ctx.form && !replaced.has("testID")) submitting.push(["testID", str(`submit:${this.ctx.form.id}`)]);
-      return el(name, [...props.filter(([k]) => !replaced.has(k) && !(submitting.length && k === "disabled")), ...layout, ...extras, ...wired, ...submitting], kids);
+      return el(name, [...props.filter(([k]) => !replaced.has(k) && !held.has(k)), ...layout, ...extras, ...wired, ...submitting], kids);
     }
     if (it.bind && Object.keys(it.bind).length) this.warn("binding", "a bound prop of a part drawn as atoms keeps the design's value", it.id);
     if (def.atoms && !kids.length) {

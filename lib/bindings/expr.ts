@@ -44,8 +44,8 @@ export const EXPR_LIMITS = {
   text: 20_000,
 };
 
-/** the names a path may start at, besides the helpers'; `event` is the payload of the event an action runs on (`on:<name>`), `slot` the slot of a family that was tapped, `result` what a capability an action invoked gave back */
-export const ROOTS = ["data", "params", "vars", "item", "index", "form", "auth", "response", "error", "status", "row", "now", "event", "slot", "result"] as const;
+/** the names a path may start at, besides the helpers'; `event` is the payload of the event an action runs on (`on:<name>`), `slot` the slot of a family that was tapped, `result` what a capability an action invoked gave back, `collections` the document's data sets by name, each a list of records */
+export const ROOTS = ["data", "params", "vars", "item", "index", "form", "auth", "response", "error", "status", "row", "now", "event", "slot", "result", "collections"] as const;
 export type Root = (typeof ROOTS)[number];
 
 /** keys a path never reads, whatever the data holds */

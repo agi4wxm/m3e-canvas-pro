@@ -1,5 +1,26 @@
 import { h, ic, listSlots, type PNode } from "../node";
-import { around, type P, type PartDef } from "../types";
+import { around, type P, type PartDef, type PropDef } from "../types";
+import { iconMeaning } from "../a11y";
+import { FLOW_PROPS } from "../flow";
+
+/* An overlay that holds parts (`holds: "laidOut"`): with its auto layout on, what it shows between its title and its
+ * buttons is the parts laid out in it, not a fixed description. Its body is drawn at a size it says, and its title on
+ * one line, so where the body starts and ends is known as it is drawn (`flow.inset`), and the printed code nests the
+ * parts in the body itself, inside the dialog that opens. Off, it draws as it always did. */
+const laidOut = (p: P) => p.s("layout") !== "free";
+/** a dialog's padding, the line its title takes and the gap after it, its icon's, and its buttons' row (M3E dialog) */
+const DIALOG = { pad: 24, gap: 16, title: 32, icon: 24, buttons: 8 + 40 };
+const dialogTop = (icon: boolean, title: boolean) => DIALOG.pad + (icon ? DIALOG.icon + DIALOG.gap : 0) + (title ? DIALOG.title + DIALOG.gap : 0);
+const dialogFoot = (buttons: boolean) => DIALOG.pad + (buttons ? DIALOG.gap + DIALOG.buttons : 0);
+/** an alert dialog's foot is always there, its buttons or none */
+const alertFoot = (buttons: boolean) => DIALOG.pad + DIALOG.gap + 8 + (buttons ? 40 : 0);
+/** the height of a laid-out dialog's card: the body is what is left inside it */
+const cardHeight = (key: string, value: number): PropDef => ({ key, label: "Height", kind: "number", default: value, min: 120, max: 900, step: 4, unit: "px", axis: "height", when: laidOut });
+/** a sheet's header round its title, and its footer round its buttons (M3E sheet) */
+const SHEET_HEAD = 24 + 28 + 24;
+const SHEET_FOOT = 1 + 16 + 40 + 16;
+/** the body a laid-out overlay lays its parts out in */
+const body = (height: number) => h("div", { "data-flow": "body", "data-slot": "overlay-body", className: "min-h-0 overflow-y-auto", style: { height: Math.max(0, Math.round(height)) } });
 
 const BUTTON_VARIANTS = ["filled", "tonal", "elevated", "outlined", "text"];
 
@@ -32,7 +53,7 @@ function cardTree(p: P): PNode {
   const side = pos === "leading" || pos === "trailing";
   const extent = Math.round(p.n("imageSize"));
   const inner = src
-    ? h("img", { src, alt: "", className: "size-full object-cover" })
+    ? h("img", { src, alt: p.s("alt"), className: "size-full object-cover" })
     : h("div", { className: "grid size-full place-items-center bg-gradient-to-br from-primary-container to-tertiary-container text-on-primary-container" }, ic(p.s("imageIcon") || "image", { size: 34 }));
   const media =
     pos === "none"
@@ -59,7 +80,7 @@ function cardTree(p: P): PNode {
     h("CardTitle", { className: [ink, textCls].filter(Boolean).join(" ") || undefined }, p.s("title")),
     p.s("description") && h("CardDescription", { className: [body, textCls].filter(Boolean).join(" ") || undefined }, p.s("description")),
   );
-  const footer = p.s("action") && h("CardFooter", { className: bg ? "relative" : undefined }, h("Button", { variant: "text", size: "sm" }, p.s("action")));
+  const footer = p.s("action") && h("CardFooter", { className: bg ? "relative" : undefined }, h("Button", { variant: "text", size: "sm", "data-tap": "action" }, p.s("action")));
   return h(
     "Card",
     {
@@ -125,6 +146,8 @@ export const containment: PartDef[] = [
         ],
       },
       { key: "image", label: "Image", kind: "image", when: (p) => p.s("imagePos") !== "none" },
+      /* what a screen reader says for the picture; empty, it is decoration */
+      { key: "alt", label: "Alt text", labels: { ja: "代替テキスト", zh: "替代文字", ko: "대체 텍스트" }, kind: "text", default: "", when: (p) => p.s("imagePos") !== "none" && !!p.s("image") },
       { key: "imageIcon", label: "Placeholder icon", kind: "icon", default: "image", when: (p) => p.s("imagePos") !== "none" && !p.s("image") },
       { key: "imageSize", label: "Image size", kind: "number", default: 96, min: 40, max: 320, step: 4, unit: "px", when: (p) => ["top", "bottom", "leading", "trailing"].includes(p.s("imagePos")) },
       { key: "textAlign", label: "Text align", kind: "enum", default: "start", options: ["start", "center", "end"] },
@@ -135,6 +158,8 @@ export const containment: PartDef[] = [
       { key: "width", label: "Width", kind: "number", default: 280, min: 160, max: 520, step: 4, unit: "px" },
       { key: "height", label: "Height (0: auto)", kind: "number", default: 0, min: 0, max: 480, step: 4, unit: "px" },
     ],
+    /* its button does something of its own; a tap anywhere else is the whole card's */
+    slots: (p) => (p.s("action") ? [{ key: "action", label: p.s("action") }] : []),
     tree: (p) => cardTree(p),
   },
   {
@@ -165,17 +190,18 @@ export const containment: PartDef[] = [
       const trailing = p.s("trailing");
       const color = ICON_DISCS[p.s("iconFill")];
       const disc = color ? `size-10 rounded-full group-data-[size=sm]/item:size-8 group-data-[size=xs]/item:size-6 ${color}` : "";
-      const end =
+      /* a control at a row's end is named by its row; an icon there by what it means */
+      const end = (name: string) =>
         trailing === "switch"
-          ? h("ItemActions", null, h("Switch", { defaultChecked: p.b("checked") || undefined }))
+          ? h("ItemActions", null, h("Switch", { defaultChecked: p.b("checked") || undefined, "aria-label": name || undefined }))
           : trailing === "checkbox"
-            ? h("ItemActions", null, h("Checkbox", { defaultChecked: p.b("checked") || undefined }))
+            ? h("ItemActions", null, h("Checkbox", { defaultChecked: p.b("checked") || undefined, "aria-label": name || undefined }))
             : trailing === "radio"
-              ? h("ItemActions", null, h("RadioGroup", { defaultValue: p.b("checked") ? "on" : undefined }, h("RadioGroupItem", { value: "on" })))
+              ? h("ItemActions", null, h("RadioGroup", { defaultValue: p.b("checked") ? "on" : undefined }, h("RadioGroupItem", { value: "on", "aria-label": name || undefined })))
               : trailing === "slider"
-                ? h("ItemActions", { className: "w-32" }, h("Slider", { defaultValue: [50] }))
+                ? h("ItemActions", { className: "w-32" }, h("Slider", { defaultValue: [50], "aria-label": name || undefined }))
                 : trailing === "icon" && p.s("trailingIcon")
-            ? h("ItemActions", null, h("Button", { variant: "text", size: "icon", "aria-label": p.say("Open") }, ic(p.s("trailingIcon"))))
+            ? h("ItemActions", null, h("Button", { variant: "text", size: "icon", "aria-label": iconMeaning(p, p.s("trailingIcon")) }, ic(p.s("trailingIcon"))))
             : trailing === "text" && p.s("trailingText")
               ? h("ItemActions", null, h("span", { "data-slot": "item-value", className: "text-body-medium text-on-surface-variant" }, p.s("trailingText")))
               : null;
@@ -187,7 +213,7 @@ export const containment: PartDef[] = [
           { variant: p.s("variant") === "default" ? undefined : p.s("variant"), size: p.s("size") === "default" ? undefined : p.s("size"), "data-flush": p.s("variant") === "default" ? true : undefined, "data-tap": `tab:${i}` },
           it.icon && h("ItemMedia", { variant: "icon", className: disc || undefined }, ic(it.icon)),
           h("ItemContent", null, h("ItemTitle", null, it.label), p.s("description") && h("ItemDescription", null, p.s("description"))),
-          end,
+          end(it.label),
           chevron,
         );
       const rows = p.list("items").map(row);
@@ -197,6 +223,14 @@ export const containment: PartDef[] = [
   {
     slug: "dialog",
     overlay: true,
+    holds: "laidOut",
+    flow: {
+      inset: (p) => {
+        if (!laidOut(p)) return {};
+        if (p.s("style") === "fullscreen") return { t: 56 + 16, r: 24, b: 16, l: 24 };
+        return { t: dialogTop(!!p.s("icon"), !!p.s("title")), r: DIALOG.pad, b: dialogFoot(!!(p.s("dismiss") || p.s("confirm"))), l: DIALOG.pad };
+      },
+    },
     appearance: { target: "DialogContent", radius: 28 },
     name: "Dialog",
     category: "Overlays",
@@ -208,7 +242,8 @@ export const containment: PartDef[] = [
       { key: "style", label: "Style", kind: "enum", default: "basic", options: [{ value: "basic", label: "Basic" }, { value: "fullscreen", label: "Full-screen" }] },
       { key: "icon", label: "Icon", kind: "icon", default: "", when: (p) => p.s("style") === "basic" },
       { key: "title", label: "Title", kind: "text", default: "Reset settings?" },
-      { key: "description", label: "Description", kind: "text", default: "This will reset your app preferences back to their default settings.", multiline: true },
+      /* laid out, its parts say what it says */
+      { key: "description", label: "Description", kind: "text", default: "This will reset your app preferences back to their default settings.", multiline: true, when: (p) => !laidOut(p) },
       { key: "dismiss", label: "Dismiss action", kind: "text", default: "Cancel", when: (p) => p.s("style") === "basic" },
       { key: "confirm", label: "Confirm action", kind: "text", default: "Accept" },
       { key: "stacked", label: "Stacked actions", kind: "bool", default: false, when: (p) => p.s("style") === "basic" },
@@ -218,6 +253,8 @@ export const containment: PartDef[] = [
       { key: "dialogWidth", label: "Width", kind: "number", default: 412, min: 280, max: 560, step: 4, unit: "px", axis: "width", when: (p) => p.s("style") === "basic" },
       { key: "width", label: "Width", kind: "number", default: 412, min: 280, max: 1280, step: 4, unit: "px", when: (p) => p.s("style") === "fullscreen" },
       { key: "height", label: "Height", kind: "number", default: 640, min: 320, max: 900, step: 4, unit: "px", when: (p) => p.s("style") === "fullscreen" },
+      { ...cardHeight("dialogHeight", 320), when: (p) => p.s("style") === "basic" && laidOut(p) },
+      ...FLOW_PROPS,
     ],
     // a basic dialog is only its card: the box is a screen the card floats in, and the part
     // stands where the card lands (fit). A full-screen one fills a screen of its own size.
@@ -241,10 +278,12 @@ export const containment: PartDef[] = [
               h("DialogTitle", null, p.s("title")),
               p.s("confirm") && h("DialogClose", { render: h("Button", { variant: "text" }), "data-tap": "confirm" }, p.s("confirm")),
             ),
-            h("DialogBody", null, p.s("description") && h("DialogDescription", null, p.s("description"))),
+            h("DialogBody", null, laidOut(p) ? body(p.n("height") - 56 - 32) : p.s("description") && h("DialogDescription", null, p.s("description"))),
           ),
         );
       }
+      const icon = !!p.s("icon");
+      const buttons = !!(p.s("dismiss") || p.s("confirm"));
       return h(
         "Dialog",
         null,
@@ -252,9 +291,12 @@ export const containment: PartDef[] = [
         h(
           "DialogContent",
           { showCloseButton: p.b("closeButton") ? undefined : false, style: p.n("dialogWidth") === 412 ? undefined : { width: Math.min(560, Math.round(p.n("dialogWidth"))) } },
-          p.s("icon") && h("DialogIcon", null, ic(p.s("icon"))),
-          h("DialogHeader", null, h("DialogTitle", null, p.s("title")), p.s("description") && h("DialogDescription", null, p.s("description"))),
-          (p.s("dismiss") || p.s("confirm")) &&
+          icon && h("DialogIcon", null, ic(p.s("icon"))),
+          laidOut(p)
+            ? p.s("title") && h("DialogHeader", null, h("DialogTitle", { className: "truncate" }, p.s("title")))
+            : h("DialogHeader", null, h("DialogTitle", null, p.s("title")), p.s("description") && h("DialogDescription", null, p.s("description"))),
+          laidOut(p) && body(p.n("dialogHeight") - dialogTop(icon, !!p.s("title")) - dialogFoot(buttons)),
+          buttons &&
             h(
               "DialogFooter",
               { stacked: p.b("stacked") || undefined },
@@ -268,6 +310,9 @@ export const containment: PartDef[] = [
   {
     slug: "alert-dialog",
     overlay: true,
+    holds: "laidOut",
+    /* its media and title stand together in its header, its buttons in its foot */
+    flow: { inset: (p) => (laidOut(p) ? { t: dialogTop(!!p.s("icon"), true), r: DIALOG.pad, b: alertFoot(!!(p.s("cancel") || p.s("action"))), l: DIALOG.pad } : {}) },
     appearance: { target: "AlertDialogContent", radius: 28 },
     name: "Alert dialog",
     category: "Overlays",
@@ -278,10 +323,12 @@ export const containment: PartDef[] = [
     props: [
       { key: "icon", label: "Icon", kind: "icon", default: "" },
       { key: "title", label: "Title", kind: "text", default: "Delete your account?" },
-      { key: "description", label: "Description", kind: "text", default: "This action cannot be undone.", multiline: true },
+      { key: "description", label: "Description", kind: "text", default: "This action cannot be undone.", multiline: true, when: (p) => !laidOut(p) },
       { key: "cancel", label: "Cancel action", kind: "text", default: "Cancel" },
       { key: "action", label: "Confirm action", kind: "text", default: "Delete" },
       { key: "size", label: "Size", kind: "enum", default: "default", options: ["default", "sm"] },
+      cardHeight("dialogHeight", 280),
+      ...FLOW_PROPS,
     ],
     open: { box: () => ({ w: 560, h: 360 }), trigger: "hide", fit: true },
     slots: (p) => [...(p.s("cancel") ? [{ key: "dismiss", label: p.s("cancel") }] : []), ...(p.s("action") ? [{ key: "confirm", label: p.s("action") }] : [])],
@@ -297,9 +344,10 @@ export const containment: PartDef[] = [
             "AlertDialogHeader",
             null,
             p.s("icon") && h("AlertDialogMedia", null, ic(p.s("icon"))),
-            h("AlertDialogTitle", null, p.s("title")),
-            p.s("description") && h("AlertDialogDescription", null, p.s("description")),
+            h("AlertDialogTitle", laidOut(p) ? { className: "truncate" } : null, p.s("title")),
+            !laidOut(p) && p.s("description") && h("AlertDialogDescription", null, p.s("description")),
           ),
+          laidOut(p) && body(p.n("dialogHeight") - dialogTop(!!p.s("icon"), true) - alertFoot(!!(p.s("cancel") || p.s("action")))),
           h("AlertDialogFooter", null, p.s("cancel") && h("AlertDialogCancel", { "data-tap": "dismiss" }, p.s("cancel")), p.s("action") && h("AlertDialogAction", { "data-tap": "confirm" }, p.s("action"))),
         ),
       ),
@@ -307,6 +355,9 @@ export const containment: PartDef[] = [
   {
     slug: "sheet",
     overlay: true,
+    holds: "laidOut",
+    /* under its title (its padding round a line of title-large), above its footer (a hairline, its padding round a row of buttons) */
+    flow: { inset: (p) => (laidOut(p) ? { t: SHEET_HEAD, b: p.b("footer") ? SHEET_FOOT : 0 } : {}) },
     name: "Sheet",
     category: "Overlays",
     icon: "side_navigation",
@@ -316,9 +367,15 @@ export const containment: PartDef[] = [
     props: [
       { key: "side", label: "Side", kind: "enum", default: "right", options: ["right", "left", "bottom", "top"] },
       { key: "title", label: "Title", kind: "text", default: "Filters" },
-      { key: "description", label: "Description", kind: "text", default: "Narrow down the results.", multiline: true },
+      { key: "description", label: "Description", kind: "text", default: "Narrow down the results.", multiline: true, when: (p) => !laidOut(p) },
       { key: "footer", label: "Save and Cancel", kind: "bool", default: false },
+      { key: "confirm", label: "Confirm button", labels: { ja: "確定ボタン", zh: "确认按钮", ko: "확인 버튼" }, kind: "text", default: "Save", when: (p) => p.b("footer") },
+      { key: "dismiss", label: "Dismiss button", labels: { ja: "閉じるボタン", zh: "关闭按钮", ko: "닫기 버튼" }, kind: "text", default: "Cancel", when: (p) => p.b("footer") },
+      /* a sheet down a side is as tall as its window; one from the top or the foot is as tall as it says */
+      { ...cardHeight("sheetHeight", 320), when: (p) => laidOut(p) && (p.s("side") === "bottom" || p.s("side") === "top") },
+      ...FLOW_PROPS,
     ],
+    slots: (p) => (p.b("footer") ? [...(p.s("confirm") ? [{ key: "confirm", label: p.s("confirm") }] : []), ...(p.s("dismiss") ? [{ key: "dismiss", label: p.s("dismiss") }] : [])] : []),
     /* the look belongs to the panel inside the portal, not the root that opens it */
     appearance: { target: "SheetContent", radius: 16 },
     // the sheet docks to an edge of the screen the box stands in for; the part is the sheet itself
@@ -331,8 +388,20 @@ export const containment: PartDef[] = [
         h(
           "SheetContent",
           { side: p.s("side") === "right" ? undefined : p.s("side") },
-          h("SheetHeader", null, h("SheetTitle", null, p.s("title")), p.s("description") && h("SheetDescription", null, p.s("description"))),
-          p.b("footer") && h("SheetFooter", null, h("SheetClose", { render: h("Button") }, p.say("Save")), h("SheetClose", { render: h("Button", { variant: "outlined" }) }, p.say("Cancel"))),
+          laidOut(p)
+            ? h("SheetHeader", null, h("SheetTitle", { className: "truncate" }, p.s("title")))
+            : h("SheetHeader", null, h("SheetTitle", null, p.s("title")), p.s("description") && h("SheetDescription", null, p.s("description"))),
+          laidOut(p) &&
+            (p.s("side") === "bottom" || p.s("side") === "top"
+              ? body(p.n("sheetHeight") - SHEET_HEAD - (p.b("footer") ? SHEET_FOOT : 0))
+              : h("div", { "data-flow": "body", "data-slot": "overlay-body", className: "min-h-0 flex-1 overflow-y-auto" })),
+          p.b("footer") &&
+            h(
+              "SheetFooter",
+              null,
+              p.s("confirm") && h("SheetClose", { render: h("Button", { "data-tap": "confirm" }) }, p.s("confirm")),
+              p.s("dismiss") && h("SheetClose", { render: h("Button", { variant: "outlined", "data-tap": "dismiss" }) }, p.s("dismiss")),
+            ),
         ),
       ),
   },
@@ -351,12 +420,19 @@ export const containment: PartDef[] = [
       { key: "detached", label: "Detached", kind: "bool", default: false },
       { key: "closeButton", label: "Close button", kind: "bool", default: true },
       { key: "footer", label: "Apply and Cancel", kind: "bool", default: true },
+      { key: "confirm", label: "Confirm button", labels: { ja: "確定ボタン", zh: "确认按钮", ko: "확인 버튼" }, kind: "text", default: "Apply", when: (p) => p.b("footer") },
+      { key: "dismiss", label: "Dismiss button", labels: { ja: "閉じるボタン", zh: "关闭按钮", ko: "닫기 버튼" }, kind: "text", default: "Cancel", when: (p) => p.b("footer") },
       { key: "width", label: "Sheet width", kind: "number", default: 360, min: 256, max: 400, step: 4, unit: "px" },
       { key: "height", label: "Frame height", kind: "number", default: 320, min: 200, max: 560, step: 8, unit: "px" },
     ],
     appearance: { target: "SideSheet", radius: 16 },
     /* the box stands in for the app window the sheet docks to; on a screen it never outgrows
      * the real one (the layout margins are 16dp on each side) */
+    slots: (p) => [
+      ...(p.b("closeButton") ? [{ key: "close", label: p.say("Close"), icon: "close" }] : []),
+      ...(p.b("footer") && p.s("confirm") ? [{ key: "confirm", label: p.s("confirm") }] : []),
+      ...(p.b("footer") && p.s("dismiss") ? [{ key: "dismiss", label: p.s("dismiss") }] : []),
+    ],
     view: (p, s) => sideSheetTree(p, Math.min(Math.round(p.n("width")) + 280, s ? Math.max(200, s.w - 32) : Number.POSITIVE_INFINITY)),
     tree: (p) => sideSheetTree(p, Math.round(p.n("width")) + 280),
   },
@@ -376,6 +452,7 @@ export const containment: PartDef[] = [
       { key: "swipeHandle", label: "Swipe handle", kind: "bool", default: true },
       { key: "inline", label: "Inline (standard sheet)", kind: "bool", default: false },
     ],
+    slots: (p) => (p.s("close") ? [{ key: "close", label: p.s("close") }] : []),
     appearance: { target: "DrawerContent", radius: 28 },
     open: { box: () => ({ w: 412, h: 560 }), trigger: "hide", fit: true },
     tree: (p) =>
@@ -387,7 +464,7 @@ export const containment: PartDef[] = [
           "DrawerContent",
           null,
           h("DrawerHeader", null, h("DrawerTitle", null, p.s("title")), p.s("description") && h("DrawerDescription", null, p.s("description"))),
-          p.s("close") && h("DrawerFooter", null, h("DrawerClose", { render: h("Button", { variant: "text" }) }, p.s("close"))),
+          p.s("close") && h("DrawerFooter", null, h("DrawerClose", { render: h("Button", { variant: "text", "data-tap": "close" }) }, p.s("close"))),
         ),
       ),
   },
@@ -609,9 +686,9 @@ const sideSheetTree = (p: P, w: number) => {
       "SideSheet",
       { side: p.s("side") === "right" ? undefined : p.s("side"), detached: p.b("detached") || undefined, width: width === 360 ? undefined : width },
       // onClose is a handler the canvas cannot run, so the close button is a child of the header
-      h("SideSheetHeader", { title: p.s("title") }, p.b("closeButton") && h("Button", { variant: "ghost", size: "icon", "aria-label": p.say("Close"), className: "text-on-surface-variant" }, ic("close"))),
+      h("SideSheetHeader", { title: p.s("title") }, p.b("closeButton") && h("Button", { variant: "ghost", size: "icon", "aria-label": p.say("Close"), "data-tap": "close", className: "text-on-surface-variant" }, ic("close"))),
       h("SideSheetContent", null, h("p", null, p.s("content"))),
-      p.b("footer") && h("SideSheetFooter", null, h("Button", null, p.say("Apply")), h("Button", { variant: "outlined" }, p.say("Cancel"))),
+      p.b("footer") && h("SideSheetFooter", null, p.s("confirm") && h("Button", { "data-tap": "confirm" }, p.s("confirm")), p.s("dismiss") && h("Button", { variant: "outlined", "data-tap": "dismiss" }, p.s("dismiss"))),
     ),
   );
 };

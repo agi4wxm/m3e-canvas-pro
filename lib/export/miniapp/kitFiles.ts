@@ -20,6 +20,7 @@ export const MINIAPP_KIT_FILES = [
   "composites/forms.tsx",
   "composites/overlays.tsx",
   "coverage.ts",
+  "field.tsx",
   "iconNames.ts",
   "icons.tsx",
   "index.ts",
