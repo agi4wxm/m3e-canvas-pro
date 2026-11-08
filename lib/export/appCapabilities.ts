@@ -31,8 +31,8 @@ const pascal = (words: string) =>
     .replace(/^\d+/, "")
     .slice(0, 40);
 
-/** names no slot takes: what a screen's file already names */
-const TAKEN = new Set(["Screen", "View", "Text", "Image", "Placeholder", "Slot", "Fragment", "React"]);
+/** names no slot takes: what a screen's file already names, the kits' stand-ins a slot draws until it is written among them */
+const TAKEN = new Set(["Screen", "View", "Text", "Image", "Placeholder", "Slot", "Fragment", "React", "MapStandIn", "CameraStandIn", "CallStandIn"]);
 
 /** Every capability view of the document, screen by screen, each with a slot's name of its own: the part's name (its
  *  group's, else its label), else the view's (MapView, CameraView); the same name for the same design on every

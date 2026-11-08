@@ -112,8 +112,13 @@ describe("the capabilities a product uses", () => {
     expect(slot).toContain('markers={[{ id: "s1", title: "Store", lat: 31.2, lng: 121.4 }]}');
     expect(slot).toContain("onValueChange=");
     expect(slot).toContain("<MapView");
-    expect(text(p, "apps/mobile/src/generated/screens/CheckoutScreen.tsx")).toMatch(/<StoreMap\s[^>]*>\s*<Placeholder part="map"/);
-    expect(text(p, "apps/miniapp/src/generated/screens/CheckoutScreen.tsx")).toMatch(/<StoreMap\s[^>]*>\s*<Placeholder part="map"/);
+    /* the phone's and the mini-program's stand-in is the kit's own drawing of the map, with the design's markers */
+    for (const app of ["mobile", "miniapp"]) {
+      const screen = text(p, `apps/${app}/src/generated/screens/CheckoutScreen.tsx`);
+      expect(screen, app).toMatch(/<StoreMap\s[^>]*>\s*<MapStandIn\s/);
+      expect(screen.slice(screen.indexOf("<MapStandIn"), screen.indexOf("</StoreMap>")), app).toContain('markers={{ columns: ["Id", "Title", "Lat", "Lng"], rows: [["s1", "Store", "31.2", "121.4"]] }}');
+      expect(screen, app).not.toContain('<Placeholder part="map"');
+    }
   });
 
   it("run the invoke on every app", () => {

@@ -18,5 +18,22 @@ export const PRINTED_PAGES: string[] = [
   "printed/proof/pages/paymentResult/index",
   "printed/kits/pages/kits/index",
   "printed/splits/pages/splitDesk/index",
-  "printed/splits/pages/splitPhone/index"
+  "printed/splits/pages/splitPhone/index",
+  "printed/play/pages/draws/index",
+  "printed/play/pages/machines/index",
+  "printed/play/pages/play/index",
+  "printed/play/pages/menus/index",
+  "printed/layouts/pages/layouts/index",
+  "printed/layouts/pages/around/index",
+  "printed/layouts/pages/floating/index",
+  "printed/layouts/pages/rail/index",
+  "printed/inputs/pages/pickers/index",
+  "printed/inputs/pages/entry/index",
+  "printed/data/pages/charts/index",
+  "printed/data/pages/tables/index",
+  "printed/data/pages/lists/index",
+  "printed/data/pages/desk/index",
+  "printed/media/pages/mediaWatch/index",
+  "printed/media/pages/mediaListen/index",
+  "printed/media/pages/mediaTalk/index"
 ];

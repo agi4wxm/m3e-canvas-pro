@@ -164,6 +164,77 @@ export const PARTS: Record<string, PartInfo> = {
    "disabled": false
   }
  },
+ "button-group": {
+  "name": "Button group",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Rewind",
+     "icon": "fast_rewind"
+    },
+    {
+     "label": "Play",
+     "icon": "play_arrow"
+    },
+    {
+     "label": "Forward",
+     "icon": "fast_forward"
+    }
+   ],
+   "variant": "connected",
+   "orientation": "horizontal",
+   "buttonVariant": "tonal",
+   "size": "sm"
+  }
+ },
+ "split-button": {
+  "name": "Split button",
+  "tier": "composite",
+  "defaults": {
+   "label": "Edit",
+   "icon": "edit",
+   "variant": "filled",
+   "size": "sm",
+   "menu": true,
+   "menuItems": [
+    {
+     "label": "Duplicate",
+     "icon": "content_copy"
+    },
+    {
+     "label": "Share",
+     "icon": "share"
+    },
+    {
+     "label": "Delete",
+     "icon": "delete"
+    }
+   ]
+  }
+ },
+ "fab-menu": {
+  "name": "FAB menu",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Mail",
+     "icon": "mail"
+    },
+    {
+     "label": "Event",
+     "icon": "event"
+    },
+    {
+     "label": "Task",
+     "icon": "task_alt"
+    }
+   ],
+   "icon": "add",
+   "open": false
+  }
+ },
  "switch": {
   "name": "Switch",
   "tier": "atom",
@@ -276,6 +347,69 @@ export const PARTS: Record<string, PartInfo> = {
    "errorText": ""
   }
  },
+ "native-select": {
+  "name": "Native select",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Option A"
+    },
+    {
+     "label": "Option B"
+    },
+    {
+     "label": "Option C"
+    }
+   ],
+   "selected": 1,
+   "size": "default",
+   "disabled": false,
+   "width": 224,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "combobox": {
+  "name": "Combobox",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Next.js"
+    },
+    {
+     "label": "SvelteKit"
+    },
+    {
+     "label": "Nuxt"
+    },
+    {
+     "label": "Remix"
+    },
+    {
+     "label": "Astro"
+    }
+   ],
+   "selected": -1,
+   "placeholder": "Select a framework",
+   "clear": false,
+   "disabled": false,
+   "width": 256,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
  "text-field": {
   "name": "Text field",
   "tier": "composite",
@@ -339,6 +473,59 @@ export const PARTS: Record<string, PartInfo> = {
    "loading": false,
    "errorText": "",
    "helperText": ""
+  }
+ },
+ "input-group": {
+  "name": "Input group",
+  "tier": "composite",
+  "defaults": {
+   "placeholder": "Search...",
+   "leadingIcon": "search",
+   "leadingText": "",
+   "trailingText": "",
+   "button": "",
+   "error": false,
+   "disabled": false,
+   "width": 320,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "input-otp": {
+  "name": "Input OTP",
+  "tier": "composite",
+  "defaults": {
+   "length": 6,
+   "group": 3,
+   "value": "",
+   "error": false,
+   "disabled": false,
+   "ariaLabel": "",
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "field": {
+  "name": "Field",
+  "tier": "composite",
+  "defaults": {
+   "label": "Email",
+   "control": "input",
+   "placeholder": "you@example.com",
+   "description": "We will never share it.",
+   "error": "",
+   "disabled": false,
+   "width": 320,
+   "readOnly": false,
+   "required": false,
+   "loading": false
   }
  },
  "label": {
@@ -421,6 +608,16 @@ export const PARTS: Record<string, PartInfo> = {
    "message": "Message sent",
    "action": "",
    "closeButton": false
+  }
+ },
+ "tooltip": {
+  "name": "Tooltip",
+  "tier": "composite",
+  "defaults": {
+   "label": "Hover me",
+   "variant": "outlined",
+   "text": "Add to library",
+   "side": "top"
   }
  },
  "alert": {
@@ -550,6 +747,87 @@ export const PARTS: Record<string, PartInfo> = {
    "hugHeight": false
   }
  },
+ "side-sheet": {
+  "name": "Side sheet",
+  "tier": "composite",
+  "defaults": {
+   "title": "Filters",
+   "content": "Narrow the messages down by sender, date or label.",
+   "side": "right",
+   "detached": false,
+   "closeButton": true,
+   "footer": true,
+   "confirm": "Apply",
+   "dismiss": "Cancel",
+   "width": 360,
+   "height": 320
+  }
+ },
+ "drawer": {
+  "name": "Drawer",
+  "tier": "composite",
+  "defaults": {
+   "title": "Share",
+   "description": "Choose where to send this.",
+   "close": "Close",
+   "swipeHandle": true,
+   "inline": false
+  }
+ },
+ "popover": {
+  "name": "Popover",
+  "tier": "composite",
+  "defaults": {
+   "trigger": "Open popover",
+   "variant": "outlined",
+   "title": "Dimensions",
+   "description": "Set the size of the layer.",
+   "side": "bottom"
+  }
+ },
+ "hover-card": {
+  "name": "Hover card",
+  "tier": "composite",
+  "defaults": {
+   "trigger": "@material",
+   "avatar": "M",
+   "title": "Material Design",
+   "description": "Google's open-source design system.",
+   "side": "bottom"
+  }
+ },
+ "accordion": {
+  "name": "Accordion",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "What is M3 Expressive?"
+    },
+    {
+     "label": "Where do the values come from?"
+    },
+    {
+     "label": "Can I use it with shadcn?"
+    }
+   ],
+   "content": "An expansion of Material 3 with richer shapes, springier motion and bolder type.",
+   "openFirst": true,
+   "multiple": false,
+   "width": 360
+  }
+ },
+ "collapsible": {
+  "name": "Collapsible",
+  "tier": "composite",
+  "defaults": {
+   "trigger": "Toggle details",
+   "variant": "tonal",
+   "content": "Here are the details that were hidden.",
+   "open": true,
+   "width": 256
+  }
+ },
  "separator": {
   "name": "Separator",
   "tier": "atom",
@@ -558,6 +836,17 @@ export const PARTS: Record<string, PartInfo> = {
    "length": 280,
    "thickness": 1,
    "color": "default"
+  }
+ },
+ "scroll-area": {
+  "name": "Scroll area",
+  "tier": "composite",
+  "defaults": {
+   "scrollbars": "vertical",
+   "label": "Item",
+   "count": 30,
+   "width": 256,
+   "height": 192
   }
  },
  "navigation-bar": {
@@ -626,6 +915,100 @@ export const PARTS: Record<string, PartInfo> = {
    "width": 360
   }
  },
+ "navigation-rail": {
+  "name": "Navigation rail",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Home",
+     "icon": "home"
+    },
+    {
+     "label": "Search",
+     "icon": "search"
+    },
+    {
+     "label": "Saved",
+     "icon": "favorite"
+    }
+   ],
+   "selected": 0,
+   "expanded": false,
+   "narrow": false,
+   "modal": false,
+   "compact": false,
+   "menu": true,
+   "fab": true,
+   "height": 400
+  }
+ },
+ "pagination": {
+  "name": "Pagination",
+  "tier": "composite",
+  "defaults": {
+   "pages": 10,
+   "current": 2,
+   "previous": "Previous",
+   "next": "Next",
+   "width": 480
+  }
+ },
+ "navigation-menu": {
+  "name": "Navigation menu",
+  "tier": "composite",
+  "defaults": {
+   "menus": [
+    {
+     "label": "Getting started"
+    },
+    {
+     "label": "Components"
+    }
+   ],
+   "pages": [
+    {
+     "label": "Introduction"
+    },
+    {
+     "label": "Installation"
+    },
+    {
+     "label": "Theming"
+    }
+   ],
+   "links": [
+    {
+     "label": "Docs"
+    }
+   ]
+  }
+ },
+ "sidebar": {
+  "name": "Sidebar",
+  "tier": "composite",
+  "defaults": {
+   "label": "Application",
+   "items": [
+    {
+     "label": "Home",
+     "icon": "home"
+    },
+    {
+     "label": "Inbox",
+     "icon": "inbox"
+    },
+    {
+     "label": "Settings",
+     "icon": "settings"
+    }
+   ],
+   "selected": 0,
+   "size": "default",
+   "width": 288,
+   "height": 400
+  }
+ },
  "search": {
   "name": "Search",
   "tier": "composite",
@@ -653,6 +1036,29 @@ export const PARTS: Record<string, PartInfo> = {
    "width": 360
   }
  },
+ "command": {
+  "name": "Command",
+  "tier": "composite",
+  "defaults": {
+   "placeholder": "Type a command or search...",
+   "heading": "Suggestions",
+   "items": [
+    {
+     "label": "Calendar",
+     "icon": "calendar_month"
+    },
+    {
+     "label": "Search emoji",
+     "icon": "mood"
+    },
+    {
+     "label": "Calculator",
+     "icon": "calculate"
+    }
+   ],
+   "width": 384
+  }
+ },
  "dropdown-menu": {
   "name": "Dropdown menu",
   "tier": "composite",
@@ -674,6 +1080,78 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "destructive": "Delete"
+  }
+ },
+ "context-menu": {
+  "name": "Context menu",
+  "tier": "composite",
+  "defaults": {
+   "label": "Right click here",
+   "items": [
+    {
+     "label": "Back",
+     "icon": "arrow_back"
+    },
+    {
+     "label": "Forward",
+     "icon": "arrow_forward"
+    },
+    {
+     "label": "Reload",
+     "icon": "refresh"
+    }
+   ],
+   "width": 256,
+   "height": 128
+  }
+ },
+ "menubar": {
+  "name": "Menubar",
+  "tier": "composite",
+  "defaults": {
+   "menus": [
+    {
+     "label": "File"
+    },
+    {
+     "label": "Edit"
+    },
+    {
+     "label": "View"
+    }
+   ],
+   "items": [
+    {
+     "label": "New tab",
+     "icon": "tab"
+    },
+    {
+     "label": "New window",
+     "icon": "open_in_new"
+    },
+    {
+     "label": "Print",
+     "icon": "print"
+    }
+   ]
+  }
+ },
+ "calendar": {
+  "name": "Calendar",
+  "tier": "composite",
+  "defaults": {
+   "mode": "single",
+   "months": 1,
+   "outside": true,
+   "weekStart": "sunday",
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "date-picker": {
@@ -735,6 +1213,66 @@ export const PARTS: Record<string, PartInfo> = {
    "count": 1
   }
  },
+ "carousel": {
+  "name": "Carousel (Embla)",
+  "tier": "composite",
+  "defaults": {
+   "slides": [
+    {
+     "label": "Sunrise"
+    },
+    {
+     "label": "Forest"
+    },
+    {
+     "label": "Ocean"
+    },
+    {
+     "label": "Desert"
+    },
+    {
+     "label": "Glacier"
+    }
+   ],
+   "arrows": true,
+   "orientation": "horizontal",
+   "itemWidth": 0,
+   "gap": 16,
+   "width": 320,
+   "height": 200
+  }
+ },
+ "expressive-carousel": {
+  "name": "Expressive carousel",
+  "tier": "composite",
+  "defaults": {
+   "variant": "multi-browse",
+   "slides": [
+    {
+     "label": "Sunrise"
+    },
+    {
+     "label": "Forest"
+    },
+    {
+     "label": "Ocean"
+    },
+    {
+     "label": "Desert"
+    },
+    {
+     "label": "Glacier"
+    },
+    {
+     "label": "Canyon"
+    }
+   ],
+   "itemWidth": 186,
+   "gap": 8,
+   "height": 180,
+   "width": 420
+  }
+ },
  "kbd": {
   "name": "Kbd",
   "tier": "atom",
@@ -750,6 +1288,15 @@ export const PARTS: Record<string, PartInfo> = {
    "caption": ""
   }
  },
+ "aspect-ratio": {
+  "name": "Aspect ratio",
+  "tier": "composite",
+  "defaults": {
+   "ratio": "16:9",
+   "label": "16:9",
+   "width": 288
+  }
+ },
  "shape": {
   "name": "Shape",
   "tier": "atom",
@@ -758,6 +1305,80 @@ export const PARTS: Record<string, PartInfo> = {
    "color": "primary",
    "width": 96,
    "height": 96
+  }
+ },
+ "marker": {
+  "name": "Marker",
+  "tier": "composite",
+  "defaults": {
+   "text": "Today",
+   "variant": "separator",
+   "icon": "",
+   "width": 320
+  }
+ },
+ "message-scroller": {
+  "name": "Message scroller",
+  "tier": "composite",
+  "defaults": {
+   "messages": [
+    {
+     "label": "Hi! Ask me anything."
+    },
+    {
+     "label": "What is a spatial spring?"
+    },
+    {
+     "label": "One that moves things, and may overshoot a little."
+    },
+    {
+     "label": "Thanks!"
+    }
+   ],
+   "button": true,
+   "width": 360,
+   "height": 288
+  }
+ },
+ "questionnaire": {
+  "name": "Questionnaire",
+  "tier": "composite",
+  "defaults": {
+   "question": "Which framework do you use?",
+   "description": "Pick one.",
+   "choices": [
+    {
+     "label": "React"
+    },
+    {
+     "label": "Svelte"
+    },
+    {
+     "label": "Vue"
+    }
+   ],
+   "multiple": false,
+   "steps": 2,
+   "width": 400
+  }
+ },
+ "form": {
+  "name": "Form",
+  "tier": "composite",
+  "defaults": {
+   "fields": [
+    {
+     "label": "Name"
+    },
+    {
+     "label": "Email"
+    },
+    {
+     "label": "Role"
+    }
+   ],
+   "submit": "Submit",
+   "width": 360
   }
  },
  "rating": {
@@ -769,6 +1390,21 @@ export const PARTS: Record<string, PartInfo> = {
    "readOnly": false,
    "ariaLabel": "",
    "disabled": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "color-field": {
+  "name": "Color field",
+  "tier": "composite",
+  "defaults": {
+   "label": "Theme color",
+   "value": "#6750A4",
+   "disabled": false,
+   "readOnly": false,
    "required": false,
    "loading": false,
    "error": false,
@@ -809,6 +1445,83 @@ export const PARTS: Record<string, PartInfo> = {
    "height": 200
   }
  },
+ "stack": {
+  "name": "Stack",
+  "tier": "composite",
+  "defaults": {
+   "label": "Stack",
+   "note": "Layers, one over another",
+   "width": 380,
+   "height": 200
+  }
+ },
+ "grid-view": {
+  "name": "Grid",
+  "tier": "composite",
+  "defaults": {
+   "label": "Grid",
+   "note": "Two columns",
+   "columns": 2,
+   "rows": 2,
+   "gap": 8,
+   "padX": 12,
+   "padY": 12,
+   "align": "start",
+   "width": 380,
+   "height": 280
+  }
+ },
+ "dock": {
+  "name": "Dock",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Overview"
+    },
+    {
+     "label": "Activity"
+    },
+    {
+     "label": "Settings"
+    }
+   ],
+   "selected": 0,
+   "layout": "column",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false,
+   "width": 640,
+   "height": 360
+  }
+ },
+ "supporting-pane": {
+  "name": "Supporting pane",
+  "tier": "composite",
+  "defaults": {
+   "label": "Details",
+   "note": "More about what is selected.",
+   "icon": "info",
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false,
+   "width": 360,
+   "height": 480
+  }
+ },
  "split-view": {
   "name": "Split view",
   "tier": "composite",
@@ -831,12 +1544,635 @@ export const PARTS: Record<string, PartInfo> = {
    "height": 360
   }
  },
+ "video": {
+  "name": "Video",
+  "tier": "composite",
+  "defaults": {
+   "src": "",
+   "title": "Video title",
+   "time": "01:24 / 03:45",
+   "width": 380
+  }
+ },
+ "web-view": {
+  "name": "Web page",
+  "tier": "composite",
+  "defaults": {
+   "address": "https://example.com",
+   "load": false,
+   "width": 380,
+   "height": 280
+  }
+ },
+ "animation": {
+  "name": "Animation placeholder",
+  "tier": "composite",
+  "defaults": {
+   "file": "animation.json",
+   "size": 180
+  }
+ },
+ "camera": {
+  "name": "Camera placeholder",
+  "tier": "composite",
+  "defaults": {
+   "facing": "back",
+   "mode": "photo",
+   "state": "live",
+   "denied": "",
+   "width": 360,
+   "height": 480
+  }
+ },
+ "map": {
+  "name": "Map placeholder",
+  "tier": "composite",
+  "defaults": {
+   "label": "Current location",
+   "center": "",
+   "zoom": 14,
+   "markers": {
+    "columns": [
+     "Id",
+     "Title",
+     "Lat",
+     "Lng"
+    ],
+    "rows": []
+   },
+   "selected": "",
+   "route": false,
+   "width": 380,
+   "height": 240
+  }
+ },
+ "chart": {
+  "name": "Chart",
+  "tier": "composite",
+  "defaults": {
+   "type": "bar",
+   "title": "Visitors",
+   "subtitle": "Last 6 months",
+   "data": {
+    "columns": [
+     "Month",
+     "Desktop",
+     "Mobile"
+    ],
+    "rows": [
+     [
+      "Jan",
+      "186",
+      "80"
+     ],
+     [
+      "Feb",
+      "305",
+      "200"
+     ],
+     [
+      "Mar",
+      "237",
+      "120"
+     ],
+     [
+      "Apr",
+      "173",
+      "190"
+     ],
+     [
+      "May",
+      "209",
+      "130"
+     ],
+     [
+      "Jun",
+      "214",
+      "140"
+     ]
+    ]
+   },
+   "width": 420,
+   "height": 220
+  }
+ },
+ "scatter-plot": {
+  "name": "Scatter plot",
+  "tier": "composite",
+  "defaults": {
+   "title": "Steps and sleep",
+   "subtitle": "",
+   "data": {
+    "columns": [
+     "X",
+     "Y"
+    ],
+    "rows": [
+     [
+      "10",
+      "30"
+     ],
+     [
+      "22",
+      "48"
+     ],
+     [
+      "35",
+      "41"
+     ],
+     [
+      "48",
+      "66"
+     ],
+     [
+      "60",
+      "58"
+     ],
+     [
+      "74",
+      "82"
+     ],
+     [
+      "88",
+      "76"
+     ]
+    ]
+   },
+   "width": 320,
+   "height": 200
+  }
+ },
+ "heatmap": {
+  "name": "Heatmap",
+  "tier": "composite",
+  "defaults": {
+   "title": "Activity",
+   "subtitle": "",
+   "data": {
+    "columns": [
+     "Mon",
+     "Tue",
+     "Wed",
+     "Thu",
+     "Fri"
+    ],
+    "rows": [
+     [
+      "2",
+      "5",
+      "1",
+      "7",
+      "4"
+     ],
+     [
+      "6",
+      "3",
+      "8",
+      "2",
+      "5"
+     ],
+     [
+      "1",
+      "9",
+      "4",
+      "6",
+      "3"
+     ],
+     [
+      "7",
+      "2",
+      "5",
+      "8",
+      "6"
+     ]
+    ]
+   },
+   "width": 320
+  }
+ },
+ "gauge": {
+  "name": "Gauge",
+  "tier": "composite",
+  "defaults": {
+   "label": "Battery",
+   "value": 72
+  }
+ },
+ "filter-bar": {
+  "name": "Filter bar",
+  "tier": "composite",
+  "defaults": {
+   "placeholder": "Search invoices",
+   "filters": [
+    {
+     "label": "Status"
+    },
+    {
+     "label": "Due date"
+    },
+    {
+     "label": "Currency"
+    }
+   ],
+   "width": 420
+  }
+ },
+ "table": {
+  "name": "Table",
+  "tier": "composite",
+  "defaults": {
+   "title": "Invoices",
+   "data": {
+    "columns": [
+     "Invoice",
+     "Status",
+     "Amount"
+    ],
+    "rows": [
+     [
+      "INV-001",
+      "Paid",
+      "$250.00"
+     ],
+     [
+      "INV-002",
+      "Pending",
+      "$150.00"
+     ],
+     [
+      "INV-003",
+      "Unpaid",
+      "$350.00"
+     ]
+    ]
+   },
+   "caption": "",
+   "selected": 0,
+   "alignLast": false,
+   "width": 420
+  }
+ },
+ "tree": {
+  "name": "Tree",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "src",
+     "icon": "folder_open"
+    },
+    {
+     "label": "  main.rs",
+     "icon": "draft"
+    },
+    {
+     "label": "  ui",
+     "icon": "folder"
+    },
+    {
+     "label": "Cargo.toml",
+     "icon": "draft"
+    }
+   ],
+   "selected": 0,
+   "width": 260
+  }
+ },
+ "copy-row": {
+  "name": "Copy row",
+  "tier": "composite",
+  "defaults": {
+   "text": "npm run deploy",
+   "width": 280
+  }
+ },
+ "shimmer-text": {
+  "name": "Shimmer text",
+  "tier": "composite",
+  "defaults": {
+   "text": "Thinking…"
+  }
+ },
+ "prize-wheel": {
+  "name": "Prize wheel",
+  "tier": "composite",
+  "defaults": {
+   "label": "Spin",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "size": 220
+  }
+ },
+ "grid-draw": {
+  "name": "Grid draw",
+  "tier": "composite",
+  "defaults": {
+   "label": "Draw",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "size": 240
+  }
+ },
+ "gacha": {
+  "name": "Gacha",
+  "tier": "composite",
+  "defaults": {
+   "label": "Draw once",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "size": 170
+  }
+ },
+ "slot-machine": {
+  "name": "Slot machine",
+  "tier": "composite",
+  "defaults": {
+   "label": "Shake",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "reels": "",
+   "size": 280
+  }
+ },
+ "money-tree": {
+  "name": "Money tree",
+  "tier": "composite",
+  "defaults": {
+   "label": "Shake",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "size": 190
+  }
+ },
+ "egg-smash": {
+  "name": "Egg smash",
+  "tier": "composite",
+  "defaults": {
+   "label": "Pick an egg",
+   "prizes": [
+    {
+     "label": "First prize",
+     "icon": "trophy"
+    },
+    {
+     "label": "Try again",
+     "icon": "refresh"
+    },
+    {
+     "label": "Second prize",
+     "icon": "military_tech"
+    },
+    {
+     "label": "No luck",
+     "icon": "sentiment_dissatisfied"
+    },
+    {
+     "label": "Third prize",
+     "icon": "workspace_premium"
+    },
+    {
+     "label": "Gift",
+     "icon": "redeem"
+    },
+    {
+     "label": "Lucky",
+     "icon": "star"
+    },
+    {
+     "label": "Coins",
+     "icon": "paid"
+    }
+   ],
+   "result": -1,
+   "pending": false,
+   "size": 260
+  }
+ },
+ "joystick": {
+  "name": "Joystick",
+  "tier": "composite",
+  "defaults": {
+   "size": 132,
+   "angle": 0,
+   "autoCenter": true,
+   "value": "",
+   "ariaLabel": "",
+   "disabled": false
+  }
+ },
+ "quantity-stepper": {
+  "name": "Quantity stepper",
+  "tier": "composite",
+  "defaults": {
+   "value": 1,
+   "min": 0,
+   "max": 99,
+   "width": 200,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
  "page-dots": {
   "name": "Page dots",
   "tier": "atom",
   "defaults": {
    "count": 4,
    "current": 0
+  }
+ },
+ "photo-grid": {
+  "name": "Photo grid",
+  "tier": "composite",
+  "defaults": {
+   "count": 9,
+   "columns": 3,
+   "width": 380
+  }
+ },
+ "brand-button": {
+  "name": "Sign-in or pay button",
+  "tier": "composite",
+  "defaults": {
+   "provider": "other",
+   "intent": "signin",
+   "label": "Continue",
+   "width": 380
   }
  },
  "action-sheet": {
@@ -855,6 +2191,39 @@ export const PARTS: Record<string, PartInfo> = {
    ],
    "cancel": "Cancel",
    "width": 380
+  }
+ },
+ "wheel-picker": {
+  "name": "Wheel picker",
+  "tier": "composite",
+  "defaults": {
+   "label": "Minutes",
+   "items": [
+    {
+     "label": "5"
+    },
+    {
+     "label": "10"
+    },
+    {
+     "label": "15"
+    },
+    {
+     "label": "30"
+    },
+    {
+     "label": "60"
+    }
+   ],
+   "selected": 2,
+   "width": 380,
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
   }
  },
  "text": {
@@ -896,6 +2265,87 @@ export const PARTS: Record<string, PartInfo> = {
    "loading": false
   }
  },
+ "custom": {
+  "name": "Custom component",
+  "tier": "composite",
+  "defaults": {
+   "name": "Custom component",
+   "description": "Describe what goes here.",
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false,
+   "width": 320,
+   "height": 160
+  }
+ },
+ "window": {
+  "name": "Window",
+  "tier": "composite",
+  "defaults": {
+   "title": "Window",
+   "controls": "mac",
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false,
+   "width": 640,
+   "height": 400
+  }
+ },
+ "tag-input": {
+  "name": "Tag input",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Design"
+    },
+    {
+     "label": "Prototype"
+    }
+   ],
+   "placeholder": "Add a tag",
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "phone-input": {
+  "name": "Phone number",
+  "tier": "composite",
+  "defaults": {
+   "code": "+86",
+   "placeholder": "Phone number",
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
  "file-upload": {
   "name": "File upload",
   "tier": "composite",
@@ -914,6 +2364,153 @@ export const PARTS: Record<string, PartInfo> = {
    "errorText": ""
   }
  },
+ "item-picker": {
+  "name": "Item picker",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Home",
+     "icon": "home"
+    },
+    {
+     "label": "Work",
+     "icon": "work"
+    },
+    {
+     "label": "Travel",
+     "icon": "flight"
+    },
+    {
+     "label": "Food",
+     "icon": "restaurant"
+    }
+   ],
+   "columns": 4,
+   "selected": 0,
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "multi-select": {
+  "name": "Multiple choice",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Email"
+    },
+    {
+     "label": "Push"
+    },
+    {
+     "label": "SMS"
+    }
+   ],
+   "selected": "1",
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "color-palette": {
+  "name": "Color palette",
+  "tier": "composite",
+  "defaults": {
+   "colors": "#6750A4,#625B71,#7D5260,#B3261E,#386A20,#006A6A",
+   "selected": 0,
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "number-picker": {
+  "name": "Number picker",
+  "tier": "composite",
+  "defaults": {
+   "value": 5,
+   "min": 0,
+   "max": 10,
+   "step": 1,
+   "unit": "",
+   "width": 96,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "floating-nav": {
+  "name": "Floating navigation",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Home",
+     "icon": "home"
+    },
+    {
+     "label": "Search",
+     "icon": "search"
+    },
+    {
+     "label": "Saved",
+     "icon": "favorite"
+    }
+   ],
+   "selected": 0,
+   "width": 320
+  }
+ },
+ "cascading-menu": {
+  "name": "Cascading menu",
+  "tier": "composite",
+  "defaults": {
+   "label": "Open menu",
+   "items": [
+    {
+     "label": "Edit",
+     "icon": "edit"
+    },
+    {
+     "label": "Share",
+     "icon": "share"
+    }
+   ],
+   "subLabel": "More",
+   "subItems": [
+    {
+     "label": "Sort"
+    },
+    {
+     "label": "Filter"
+    }
+   ]
+  }
+ },
  "mini-program-header": {
   "name": "Mini program header",
   "tier": "composite",
@@ -923,11 +2520,655 @@ export const PARTS: Record<string, PartInfo> = {
    "width": 412
   }
  },
+ "toc": {
+  "name": "Table of contents",
+  "tier": "composite",
+  "defaults": {
+   "title": "On this page",
+   "items": [
+    {
+     "label": "Overview"
+    },
+    {
+     "label": "  Install"
+    },
+    {
+     "label": "  Usage"
+    },
+    {
+     "label": "API"
+    }
+   ],
+   "selected": 0,
+   "width": 220
+  }
+ },
+ "slide-group": {
+  "name": "Slide group",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "All"
+    },
+    {
+     "label": "Music"
+    },
+    {
+     "label": "Podcasts"
+    },
+    {
+     "label": "Live"
+    },
+    {
+     "label": "News"
+    },
+    {
+     "label": "Sports"
+    }
+   ],
+   "width": 320
+  }
+ },
  "typing-indicator": {
   "name": "Typing indicator",
   "tier": "atom",
   "defaults": {
    "label": ""
+  }
+ },
+ "number-ticker": {
+  "name": "Number ticker",
+  "tier": "composite",
+  "defaults": {
+   "value": 1280,
+   "prefix": "",
+   "suffix": "",
+   "size": "headline"
+  }
+ },
+ "timer": {
+  "name": "Timer",
+  "tier": "composite",
+  "defaults": {
+   "seconds": 60,
+   "countdown": true,
+   "running": false,
+   "endsAt": 0,
+   "startedAt": 0,
+   "clockSkew": 0,
+   "width": 200
+  }
+ },
+ "tracker": {
+  "name": "Status tracker",
+  "tier": "composite",
+  "defaults": {
+   "title": "Uptime",
+   "states": "ok,ok,ok,warn,ok,ok,bad,ok,ok,ok,ok,none",
+   "width": 360
+  }
+ },
+ "code-block": {
+  "name": "Code block",
+  "tier": "composite",
+  "defaults": {
+   "code": "const greeting = \"Hello\";\nconsole.log(greeting);",
+   "language": "TypeScript",
+   "width": 420
+  }
+ },
+ "markdown": {
+  "name": "Markdown",
+  "tier": "composite",
+  "defaults": {
+   "text": "# Heading\n\nSome **bold** text with `code`.\n\n- First\n- Second\n\n> A note",
+   "width": 420
+  }
+ },
+ "file-diff": {
+  "name": "File diff",
+  "tier": "composite",
+  "defaults": {
+   "file": "main.ts",
+   "diff": " const a = 1;\n-const b = 2;\n+const b = 3;\n console.log(a + b);",
+   "width": 420
+  }
+ },
+ "sortable-list": {
+  "name": "Sortable list",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "First"
+    },
+    {
+     "label": "Second"
+    },
+    {
+     "label": "Third"
+    }
+   ],
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "swipe-row": {
+  "name": "Swipe row",
+  "tier": "composite",
+  "defaults": {
+   "title": "Swipe me left",
+   "note": "",
+   "action": "Delete",
+   "open": false,
+   "width": 360
+  }
+ },
+ "audio-player": {
+  "name": "Audio player",
+  "tier": "composite",
+  "defaults": {
+   "title": "Song title",
+   "artist": "Artist",
+   "src": "",
+   "seconds": 180,
+   "playing": false,
+   "position": 0,
+   "width": 360
+  }
+ },
+ "marquee": {
+  "name": "Marquee",
+  "tier": "composite",
+  "defaults": {
+   "text": "A line that keeps moving past.",
+   "seconds": 12,
+   "width": 320
+  }
+ },
+ "story-row": {
+  "name": "Stories",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Your story"
+    },
+    {
+     "label": "Ada"
+    },
+    {
+     "label": "Grace"
+    },
+    {
+     "label": "Alan"
+    },
+    {
+     "label": "Katherine"
+    },
+    {
+     "label": "Linus"
+    }
+   ],
+   "add": true,
+   "width": 380
+  }
+ },
+ "file-list": {
+  "name": "Files",
+  "tier": "composite",
+  "defaults": {
+   "data": {
+    "columns": [
+     "Name",
+     "Size",
+     "Date"
+    ],
+    "rows": [
+     [
+      "Projects",
+      "12 items",
+      "Nov 3"
+     ],
+     [
+      "Q3 report.pdf",
+      "2.4 MB",
+      "Oct 28"
+     ],
+     [
+      "Team photo.jpg",
+      "4.1 MB",
+      "Oct 12"
+     ],
+     [
+      "Budget.xlsx",
+      "86 KB",
+      "Sep 30"
+     ]
+    ]
+   },
+   "removable": true,
+   "selected": -1,
+   "width": 380
+  }
+ },
+ "playlist": {
+  "name": "Playlist or lessons",
+  "tier": "composite",
+  "defaults": {
+   "title": "Getting started",
+   "data": {
+    "columns": [
+     "Title",
+     "Detail",
+     "Length",
+     "State"
+    ],
+    "rows": [
+     [
+      "Welcome",
+      "Chapter 1",
+      "03:12",
+      "done"
+     ],
+     [
+      "First steps",
+      "Chapter 1",
+      "08:45",
+      "done"
+     ],
+     [
+      "Going further",
+      "Chapter 2",
+      "12:30",
+      ""
+     ],
+     [
+      "Final project",
+      "Chapter 3",
+      "24:00",
+      "locked"
+     ]
+    ]
+   },
+   "selected": 2,
+   "playing": false,
+   "width": 380
+  }
+ },
+ "sparkline": {
+  "name": "Sparkline",
+  "tier": "composite",
+  "defaults": {
+   "title": "Weekly visitors",
+   "value": "1,284",
+   "trend": "+12%",
+   "values": "420,512,480,610,590,720,840",
+   "kind": "line",
+   "height": 48,
+   "width": 200
+  }
+ },
+ "bar-list": {
+  "name": "Bar list",
+  "tier": "composite",
+  "defaults": {
+   "title": "Traffic by source",
+   "data": {
+    "columns": [
+     "Label",
+     "Value",
+     "Share"
+    ],
+    "rows": [
+     [
+      "Search",
+      "4,820",
+      "54%"
+     ],
+     [
+      "Direct",
+      "2,140",
+      "24%"
+     ],
+     [
+      "Social",
+      "1,360",
+      "15%"
+     ],
+     [
+      "Email",
+      "640",
+      "7%"
+     ]
+    ]
+   },
+   "sorted": true,
+   "selected": -1,
+   "width": 360
+  }
+ },
+ "data-table": {
+  "name": "Data table",
+  "tier": "composite",
+  "defaults": {
+   "title": "Orders",
+   "data": {
+    "columns": [
+     "Order",
+     "Customer",
+     "Status",
+     "Total"
+    ],
+    "rows": [
+     [
+      "A-1001",
+      "Ada Lovelace",
+      "Paid",
+      "$250.00"
+     ],
+     [
+      "A-1002",
+      "Grace Hopper",
+      "Pending",
+      "$150.00"
+     ],
+     [
+      "A-1003",
+      "Alan Turing",
+      "Paid",
+      "$1,350.00"
+     ],
+     [
+      "A-1004",
+      "Katherine Johnson",
+      "Refunded",
+      "$75.50"
+     ],
+     [
+      "A-1005",
+      "Linus Pauling",
+      "Pending",
+      "$420.00"
+     ],
+     [
+      "A-1006",
+      "Marie Curie",
+      "Paid",
+      "$98.00"
+     ],
+     [
+      "A-1007",
+      "Rosalind Franklin",
+      "Paid",
+      "$610.00"
+     ]
+    ]
+   },
+   "search": "Search",
+   "selectable": true,
+   "pageSize": 5,
+   "query": "",
+   "sortColumn": -1,
+   "sortDir": "asc",
+   "page": 0,
+   "total": 0,
+   "width": 560
+  }
+ },
+ "kanban": {
+  "name": "Kanban board",
+  "tier": "composite",
+  "defaults": {
+   "data": {
+    "columns": [
+     "To do",
+     "In progress",
+     "Done"
+    ],
+    "rows": [
+     [
+      "Write the brief",
+      "Draw the screens",
+      "Pick a name"
+     ],
+     [
+      "Book the room",
+      "",
+      "Set up the repo"
+     ]
+    ]
+   },
+   "add": "Add card",
+   "width": 560
+  }
+ },
+ "agenda": {
+  "name": "Event calendar",
+  "tier": "composite",
+  "defaults": {
+   "year": 2026,
+   "month": 11,
+   "day": 4,
+   "data": {
+    "columns": [
+     "Date",
+     "Time",
+     "Title"
+    ],
+    "rows": [
+     [
+      "2026-11-04",
+      "09:30",
+      "Team stand-up"
+     ],
+     [
+      "2026-11-04",
+      "14:00",
+      "Design review"
+     ],
+     [
+      "2026-11-12",
+      "All day",
+      "Company holiday"
+     ],
+     [
+      "2026-11-20",
+      "18:30",
+      "Dinner with Ada"
+     ]
+    ]
+   },
+   "weekStart": "sunday",
+   "empty": "Nothing planned",
+   "width": 360
+  }
+ },
+ "transfer-list": {
+  "name": "Transfer list",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "View reports"
+    },
+    {
+     "label": "Edit members"
+    },
+    {
+     "label": "Manage billing"
+    },
+    {
+     "label": "Export data"
+    },
+    {
+     "label": "Delete projects"
+    }
+   ],
+   "chosen": "4",
+   "from": "Available",
+   "to": "Granted",
+   "width": 380,
+   "height": 220,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "number-pad": {
+  "name": "Number pad",
+  "tier": "composite",
+  "defaults": {
+   "mode": "amount",
+   "prefix": "$",
+   "length": 6,
+   "action": "Confirm",
+   "done": "Sent",
+   "value": "",
+   "sent": false,
+   "width": 320,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "signature-pad": {
+  "name": "Signature pad",
+  "tier": "composite",
+  "defaults": {
+   "hint": "Sign here",
+   "clear": "Clear",
+   "action": "Done",
+   "done": "Signed",
+   "value": "",
+   "signed": false,
+   "height": 180,
+   "width": 360,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "rich-text-editor": {
+  "name": "Rich text editor",
+  "tier": "composite",
+  "defaults": {
+   "text": "Select some of this text and try the buttons above.",
+   "placeholder": "Write something",
+   "counter": true,
+   "height": 200,
+   "width": 380,
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "icon-grid": {
+  "name": "Icon grid",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Deals",
+     "icon": "local_offer",
+     "variant": "new"
+    },
+    {
+     "label": "Orders",
+     "icon": "receipt_long",
+     "variant": "dot"
+    },
+    {
+     "label": "Wallet",
+     "icon": "account_balance_wallet"
+    },
+    {
+     "label": "Saved",
+     "icon": "favorite"
+    },
+    {
+     "label": "Delivery",
+     "icon": "local_shipping"
+    },
+    {
+     "label": "Coupons",
+     "icon": "confirmation_number"
+    },
+    {
+     "label": "Support",
+     "icon": "support_agent"
+    },
+    {
+     "label": "More",
+     "icon": "more_horiz"
+    }
+   ],
+   "columns": 4,
+   "badge": "New",
+   "width": 380
+  }
+ },
+ "onboarding": {
+  "name": "Onboarding",
+  "tier": "composite",
+  "defaults": {
+   "data": {
+    "columns": [
+     "Icon",
+     "Title",
+     "Text"
+    ],
+    "rows": [
+     [
+      "explore",
+      "Find what you need",
+      "Everything in one place, a tap away."
+     ],
+     [
+      "bolt",
+      "Get it done faster",
+      "Shortcuts that learn how you work."
+     ],
+     [
+      "verified_user",
+      "Stay in control",
+      "Your data stays yours. Always."
+     ]
+    ]
+   },
+   "skip": "Skip",
+   "next": "Next",
+   "done": "Get started",
+   "page": 0,
+   "width": 360,
+   "height": 520
   }
  },
  "spacer": {
@@ -936,6 +3177,331 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "height": 24,
    "width": 380
+  }
+ },
+ "qr-code": {
+  "name": "QR code",
+  "tier": "composite",
+  "defaults": {
+   "text": "https://example.com",
+   "level": "M",
+   "caption": "Scan to open",
+   "copy": "Copy link",
+   "copied": "Copied",
+   "tooLong": "Too much text for a QR code",
+   "size": 200
+  }
+ },
+ "scene": {
+  "name": "Scene",
+  "tier": "composite",
+  "defaults": {
+   "prompt": "",
+   "styleVariant": "",
+   "motion": "still",
+   "frames": 9,
+   "frameMs": 200,
+   "image": "",
+   "scrim": "none",
+   "hotspots": {
+    "columns": [
+     "Label",
+     "x",
+     "y",
+     "w",
+     "h"
+    ],
+    "rows": []
+   },
+   "icon": "landscape",
+   "height": 892,
+   "width": 412
+  }
+ },
+ "image-viewer": {
+  "name": "Image viewer",
+  "tier": "composite",
+  "defaults": {
+   "images": [
+    {
+     "label": "Harbour at dawn"
+    },
+    {
+     "label": "Old town"
+    },
+    {
+     "label": "Night market"
+    }
+   ],
+   "height": 260,
+   "thumbnails": true,
+   "index": 0,
+   "width": 380
+  }
+ },
+ "image-cropper": {
+  "name": "Image cropper",
+  "tier": "composite",
+  "defaults": {
+   "image": "",
+   "aspect": "1:1",
+   "action": "Done",
+   "reset": "Reset",
+   "doneText": "Cropped",
+   "crop": "",
+   "turn": 0,
+   "cropped": false,
+   "height": 300,
+   "width": 380
+  }
+ },
+ "region-picker": {
+  "name": "Region picker",
+  "tier": "composite",
+  "defaults": {
+   "label": "Delivery area",
+   "placeholder": "Choose an area",
+   "data": {
+    "columns": [
+     "Province",
+     "City",
+     "District"
+    ],
+    "rows": [
+     [
+      "Guangdong",
+      "Shenzhen",
+      "Nanshan"
+     ],
+     [
+      "Guangdong",
+      "Shenzhen",
+      "Futian"
+     ],
+     [
+      "Guangdong",
+      "Guangzhou",
+      "Tianhe"
+     ],
+     [
+      "Guangdong",
+      "Guangzhou",
+      "Yuexiu"
+     ],
+     [
+      "Zhejiang",
+      "Hangzhou",
+      "Xihu"
+     ],
+     [
+      "Zhejiang",
+      "Hangzhou",
+      "Binjiang"
+     ],
+     [
+      "Zhejiang",
+      "Ningbo",
+      "Haishu"
+     ],
+     [
+      "Beijing",
+      "Beijing",
+      "Chaoyang"
+     ],
+     [
+      "Beijing",
+      "Beijing",
+      "Haidian"
+     ]
+    ]
+   },
+   "action": "Confirm",
+   "value": "",
+   "height": 240,
+   "width": 380,
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "seat-map": {
+  "name": "Seat map",
+  "tier": "composite",
+  "defaults": {
+   "rows": 6,
+   "columns": 8,
+   "aisle": 4,
+   "taken": "A3,A4,C5,D2,D3",
+   "price": 45,
+   "currency": "$",
+   "most": 4,
+   "screen": "Screen",
+   "pickedText": "Choose your seats",
+   "action": "Confirm seats",
+   "picked": "",
+   "total": "",
+   "width": 380,
+   "ariaLabel": "",
+   "disabled": false,
+   "readOnly": false,
+   "required": false,
+   "loading": false,
+   "error": false,
+   "errorText": "",
+   "helperText": ""
+  }
+ },
+ "funnel-chart": {
+  "name": "Funnel chart",
+  "tier": "composite",
+  "defaults": {
+   "title": "Sign-up funnel",
+   "data": {
+    "columns": [
+     "Step",
+     "Value"
+    ],
+    "rows": [
+     [
+      "Visits",
+      "5200"
+     ],
+     [
+      "Sign-ups",
+      "2100"
+     ],
+     [
+      "Activated",
+      "1300"
+     ],
+     [
+      "Paid",
+      "480"
+     ]
+    ]
+   },
+   "width": 380
+  }
+ },
+ "gantt-chart": {
+  "name": "Gantt chart",
+  "tier": "composite",
+  "defaults": {
+   "title": "Release plan",
+   "data": {
+    "columns": [
+     "Task",
+     "Start",
+     "Length",
+     "Done"
+    ],
+    "rows": [
+     [
+      "Research",
+      "0",
+      "2",
+      "100"
+     ],
+     [
+      "Design",
+      "1",
+      "3",
+      "70"
+     ],
+     [
+      "Build",
+      "3",
+      "4",
+      "30"
+     ],
+     [
+      "Launch",
+      "7",
+      "1",
+      "0"
+     ]
+    ]
+   },
+   "units": 8,
+   "unit": "w",
+   "today": 4,
+   "width": 380
+  }
+ },
+ "voice-message": {
+  "name": "Voice message",
+  "tier": "composite",
+  "defaults": {
+   "seconds": 12,
+   "mine": false,
+   "transcript": "See you at the station at six.",
+   "transcribe": "Show text",
+   "width": 240
+  }
+ },
+ "video-call": {
+  "name": "Video call",
+  "tier": "composite",
+  "defaults": {
+   "name": "Ada Lovelace",
+   "connected": true,
+   "status": "Calling…",
+   "mic": true,
+   "camera": true,
+   "speaker": true,
+   "startedAt": "",
+   "image": "",
+   "icon": "person",
+   "height": 560,
+   "width": 380
+  }
+ },
+ "skill-button": {
+  "name": "Skill button",
+  "tier": "composite",
+  "defaults": {
+   "icon": "bolt",
+   "label": "Dash",
+   "cooldown": 5,
+   "endsAt": 0,
+   "clockSkew": 0,
+   "disabled": false,
+   "size": 72
+  }
+ },
+ "level-map": {
+  "name": "Level map",
+  "tier": "composite",
+  "defaults": {
+   "levels": 12,
+   "current": 5,
+   "selected": -1,
+   "stars": "3,3,2,1",
+   "perRow": 4,
+   "width": 380
+  }
+ },
+ "game-board": {
+  "name": "Game board",
+  "tier": "composite",
+  "defaults": {
+   "mode": "mark",
+   "rows": 3,
+   "columns": 3,
+   "cells": "",
+   "status": "",
+   "picked": "",
+   "marks": "X,O",
+   "need": 3,
+   "turnText": "{mark} to play",
+   "winText": "{mark} wins",
+   "drawText": "A draw",
+   "reset": "Play again",
+   "width": 320
   }
  }
 };

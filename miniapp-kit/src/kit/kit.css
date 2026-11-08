@@ -50,3 +50,25 @@
   resize: none;
   padding: 0;
 }
+
+/* D1: a marquee's line, two copies of its words in a row, moving left one copy at a time (its duration is the part's
+   seconds, set on the line); held still where the system asks for less motion */
+@keyframes m3e-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.m3e-marquee {
+  animation: m3e-marquee 12s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m3e-marquee,
+  .m3e-shimmer {
+    animation: none;
+  }
+}

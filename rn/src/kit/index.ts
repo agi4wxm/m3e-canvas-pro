@@ -26,3 +26,19 @@ export { NATIVE, isNative, kitPropName } from "./coverage";
 export { BY_NAME, COMPONENTS } from "./registry";
 export { TreeView, type TreeNode } from "./tree";
 export { PARTS, type PartInfo } from "./parts.generated";
+/* D3: pickers and entry parts */
+export { Calendar, ColorField, ColorPalette, Combobox, ItemPicker, MultiSelect, NativeSelect, NumberPicker, RegionPicker, SeatMap, TransferList, WheelPicker, daysOf, hexOf, keysOf, levelsOf, pickDay, placesOf, seatsOf, toggleSeat, useEntry, weeksOf, wordsOfPlaces, type TableData } from "./composites/pickers";
+export { CopyRow, Field, Form, InputOtp, MARKS, NumberPad, PhoneInput, QuantityStepper, RichTextEditor, SignaturePad, TagInput, markNext, padNext, padReady, tagsOf } from "./composites/entry";
+/* D4: the game parts, and actions, menus and search */
+export { BrandButton, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SplitButton, brandCapability, brandWords, commandMatches, toggled, type BrandButtonProps, type CascadingMenuProps, type CommandProps, type ContextMenuProps, type FabMenuProps, type FilterBarProps, type SplitButtonProps } from "./composites/actions";
+export { DRAW_START, EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, PrizeWheel, SPIN_MS, SkillButton, SlotMachine, angleOf, boardOf, boardStatus, cooldownLeft, drawAnswer, drawBusy, drawPress, drawRun, drawShown, fromAngle, givenOf, levelAt, litOf, pickedOf, pushOf, reelAt, reelsOf, starsOf, vecOf, wheelTurn, wordsOfVec, type DrawProps, type DrawState, type GameBoardProps, type JoystickProps, type LevelMapProps, type SkillButtonProps, type SlotMachineProps, type Vec } from "./composites/games";
+/* D5: layouts, ways of getting around, what floats */
+export { AspectRatio, Collapsible, CustomComponent, Dock, DockPane, GridView, ScrollArea, Stack, SupportingPane, onPane, ratioOf, useDraft, type DockProps, type GridViewProps } from "./composites/layouts";
+export { FloatingNav, MiniProgramHeader, NavigationMenu, NavigationRail, Onboarding, Pagination, SlideGroup, TableOfContents, pagesShown, tocRow, type OnboardingProps } from "./composites/navs";
+export { Drawer, HoverCard, Popover, SideSheet, Tooltip, around, sideSheetWindow } from "./composites/floating";
+/* D2: data and charts, lists and desktop parts */
+export { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table } from "./composites/data";
+export { FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Window } from "./composites/desk";
+/* D1: media, capability views' stand-ins, what talks and keeps time */
+export { Animation, AudioPlayer, CameraStandIn, ExpressiveCarousel, ImageCropper, ImageViewer, MapStandIn, Marquee, PhotoGrid, Playlist, QrCode, Video, WebPage, qrMatrix, type MapStandInProps } from "./composites/media";
+export { CallStandIn, Marker, MessageScroller, NumberTicker, Questionnaire, ShimmerText, StoryRow, Timer, VoiceMessage, timerSeconds } from "./composites/live";
