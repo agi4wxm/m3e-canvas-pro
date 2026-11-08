@@ -62,7 +62,9 @@ describe("the version table", () => {
         if (spec.startsWith("@/") || spec.startsWith(".")) continue;
         /* the files a product copies as they are (lib/export/copy.ts) name its own packages, and what it pins */
         if ((path.startsWith("lib/export/files/") || path.startsWith("rn/src/app/")) && /^@m3e\/(api|app-runtime|mocks)$/.test(packageOf(spec))) continue;
-        const table = path.startsWith("rn/") ? rn : path.startsWith("miniapp-kit/") ? mini : path.startsWith("lib/export/files/") ? PRODUCT_VERSIONS : VERSIONS;
+        /* the mobile app's own files (rn/src/app, rn/src/custom) go into the app, which pins the Expo packages it needs
+           beyond the kit's (lib/exportPackages.ts MOBILE_PACKAGES) */
+        const table = /^rn\/src\/(app|custom)\//.test(path) ? { ...rn, ...MOBILE_PINS } : path.startsWith("rn/") ? rn : path.startsWith("miniapp-kit/") ? mini : path.startsWith("lib/export/files/") ? PRODUCT_VERSIONS : VERSIONS;
         expect(table[packageOf(spec)], `${path} imports ${spec}`).toBeTruthy();
       }
     for (const name of [...EXPORT_ALWAYS, ...EXPORT_DEV]) expect(VERSIONS[name], name).toBeTruthy();

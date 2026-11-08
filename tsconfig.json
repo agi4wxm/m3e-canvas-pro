@@ -16,6 +16,7 @@
     "incremental": true,
     "paths": {
       "@/*": ["./*"],
+      "@/components/widgets/*": ["./parts/widgets/*"],
       "@m3e/api": ["./lib/export/files/api/index.ts"],
       "@m3e/app-runtime": ["./lib/export/files/appRuntime/index.ts"]
     }

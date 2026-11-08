@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { RuntimeProvider, useRequireAuth, type Runtime } from "@m3e/app-runtime";
 
-import { AppProvider, MATERIAL, NavProvider, SnackHost, ThemeProvider, useApp, type AppState, type Interpreter, type Nav, type Reader } from "../src/kit";
+import { AppProvider, MATERIAL, NavProvider, SnackHost, ThemeProvider, movesSoFar, screenShown, useApp, useNav, type AppState, type Interpreter, type Nav, type Reader } from "../src/kit";
 import { answerWith } from "./table/backend";
 import { Backend, drive, turns, verdict, type Driver } from "./table/check";
 import { ROWS } from "./table/rows";
@@ -30,7 +30,7 @@ const load = (id: string): Modules => ({
 });
 
 /** what the app's memory is, read by a part inside it */
-const probe: { app?: AppState; place?: Place; move?: { back: boolean; motion: string } } = {};
+const probe: { app?: AppState; place?: Place; move?: { back: boolean; motion: string }; platformBack?: () => void } = {};
 function Probe() {
   const app = useApp();
   useEffect(() => {
@@ -47,6 +47,17 @@ function Routes({ row, m }: { row: Row; m: Modules }) {
   useEffect(() => {
     live.current = { stack, overlay };
     probe.place = stack[stack.length - 1];
+  });
+  /* the screen on show, as the app's ScreenRoute tells the kit when Expo Router focuses one */
+  const shown = overlay ?? stack[stack.length - 1];
+  const shownKey = `${shown.key}:${JSON.stringify(shown.params ?? {})}`;
+  useEffect(() => screenShown(shownKey), [shownKey]);
+  /* the platform's own back (the system's button, a swipe): the router pops what is on top, asking no Nav */
+  useEffect(() => {
+    probe.platformBack = () => {
+      if (live.current.overlay) return setOverlay(null);
+      setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
+    };
   });
   const login = Object.keys(row.auth).find((k) => row.auth[k] === "login");
   const nav = useMemo<Nav>(
@@ -159,6 +170,9 @@ describe("the consistency table on the React Native kit", () => {
         restart: async () => {
           await flush(async () => m.runtime.restart());
         },
+        platformBack: async () => {
+          await flush(async () => probe.platformBack?.());
+        },
         settle: async () => {
           await flush(async () => turns(4));
         },
@@ -177,3 +191,36 @@ describe("the consistency table on the React Native kit", () => {
     expect(v.ok ? "" : v.why).toBe("");
   });
 });
+
+describe("the visitor's moves on the React Native kit", () => {
+  it("count a screen the router shows by itself (the system's back, a tab bar of its own), and not twice one asked for", async () => {
+    const grabbed: { nav?: Nav } = {};
+    function Grab() {
+      const nav = useNav();
+      useEffect(() => {
+        grabbed.nav = nav;
+      });
+      return null;
+    }
+    await render(
+      <NavProvider value={{}}>
+        <Grab />
+      </NavProvider>,
+    );
+    screenShown("home:{}");
+    const at = movesSoFar();
+    /* the app asks to go: one move, and the screen coming on show is that move */
+    grabbed.nav!.go("item");
+    screenShown("item:{}");
+    expect(movesSoFar()).toBe(at + 1);
+    /* the router shows another screen by itself: the system's back button, a tab switched by the router's bar */
+    screenShown("home:{}");
+    expect(movesSoFar()).toBe(at + 2);
+    screenShown("deals:{}");
+    expect(movesSoFar()).toBe(at + 3);
+    /* the same screen focused again (the app back from the background) is no move */
+    screenShown("deals:{}");
+    expect(movesSoFar()).toBe(at + 3);
+  });
+});
+

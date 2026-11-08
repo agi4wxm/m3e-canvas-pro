@@ -1,6 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildScreens } from "./codegen";
-import { runtimeSource } from "./runtimeSource";
+import { RUNTIME_TEMPLATE, runtimeSource } from "./runtimeSource";
 import type { Doc } from "./tokens";
 
 /* The exported app's link opener, run as the app runs it: a link can be made from data (a collection row's words, a
@@ -8,7 +9,7 @@ import type { Doc } from "./tokens";
 const doc = { groups: [], frames: [{ id: "home", name: "Home", x: 0, y: 0 }], title: "Links", paletteKey: "purple", frame: "phone", brief: "" } as unknown as Doc;
 
 function opener(): (url: string) => void {
-  const source = runtimeSource(buildScreens(doc, {}, { live: true }).runtime);
+  const source = runtimeSource(buildScreens(doc, {}, { live: true }).runtime, readFileSync(RUNTIME_TEMPLATE, "utf8"));
   const start = source.indexOf("openLink: (url) => {");
   expect(start).toBeGreaterThan(-1);
   /* the function's body, up to the line that closes it */

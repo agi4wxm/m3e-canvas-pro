@@ -189,9 +189,18 @@ export type CopyRowProps = PartBase & {
   text?: string;
   width?: number;
   /** Copies the words: the app's clipboard (its `clipboard.write` capability), which the kit does not reach by itself.
-   *  What it returns says whether it did: a promise that settles, or nothing (done). */
-  onCopy?: (text: string) => void | Promise<unknown>;
+   *  What it returns says whether it did (`copiedBy`): nothing or true (done), false or an outcome that is not ok (not
+   *  copied: a phone has no clipboard without an adapter the product adds), or a promise of one of them. */
+  onCopy?: (text: string) => void | boolean | Promise<unknown>;
 };
+
+/** Whether what a copy gave back says the words were copied: false, and an outcome that is not ok (`{ ok: false }`, a
+ *  capability that answered "not-implemented" or "denied"), say they were not; anything else that came back did. A
+ *  button says "copied" only then, never before and never for a copy that did not happen. */
+export function copiedBy(answer: unknown): boolean {
+  if (answer === false) return false;
+  return !(answer && typeof answer === "object" && (answer as { ok?: unknown }).ok === false);
+}
 
 /** A line of words with a button that copies them: it says so when they are copied, and that they were not when the
  *  copy failed; with nothing given to copy with, the button only runs the tap. */
@@ -212,8 +221,8 @@ export function CopyRow(props: CopyRowProps) {
     if (!p.onCopy) return;
     try {
       const done = p.onCopy(p.text ?? "");
-      if (done && typeof (done as Promise<unknown>).then === "function") (done as Promise<unknown>).then(() => settle("copied"), () => settle("failed"));
-      else settle("copied");
+      if (done && typeof (done as Promise<unknown>).then === "function") (done as Promise<unknown>).then((answer) => settle(copiedBy(answer) ? "copied" : "failed"), () => settle("failed"));
+      else settle(copiedBy(done) ? "copied" : "failed");
     } catch {
       settle("failed");
     }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { Animation, AudioPlayer, CameraStandIn, ExpressiveCarousel, ImageCropper, ImageViewer, MapStandIn, Marquee, NavProvider, PhotoGrid, Playlist, QrCode, registerIcons, ThemeProvider, Video, WebPage, qrMatrix } from "../src/kit";
@@ -177,6 +177,11 @@ describe("a QR code", () => {
     await fireEvent.press(screen.getByText("Copy link"));
     expect(copy).toHaveBeenCalledWith("https://m3e.dev");
     expect(await screen.findByText("Copied")).toBeTruthy();
+    /* the app's clipboard answered it could not (no adapter on a phone): it never says it copied */
+    await draw(<QrCode text="https://m3e.dev" copy="Copy link" copied="Copied" onCopy={async () => ({ ok: false, error: { type: "not-implemented", capability: "clipboard.write" } })} />);
+    await fireEvent.press(screen.getByText("Copy link"));
+    await act(async () => {});
+    expect(screen.queryByText("Copied")).toBeNull();
     /* nothing copies: it never says it copied */
     await draw(<QrCode text="https://m3e.dev" copy="Copy link" copied="Copied" />);
     await fireEvent.press(screen.getByText("Copy link"));

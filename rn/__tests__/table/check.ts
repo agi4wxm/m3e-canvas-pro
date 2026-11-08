@@ -99,6 +99,9 @@ export type Driver = {
    *  step does nothing there */
   tapSlot?(words: string, slot: string): void | Promise<void>;
   emit?(words: string, event: string, payload?: Record<string, unknown>): void | Promise<void>;
+  /** the platform's own back (the step `platformBack`), which the app's routes see and no tap asks for; every host of the
+   *  table has one, a runner that drives only some rows may leave it out */
+  platformBack?(): void | Promise<void>;
   type(words: string, value: string): void | Promise<void>;
   restart(): void | Promise<void>;
   /** lets what is under way settle: answers already given run, the host draws again */
@@ -128,6 +131,7 @@ export async function drive(row: Omit<Row, "design">, make: (backend: Backend) =
     else if ("wait" in step) await new Promise((r) => setTimeout(r, step.wait));
     else if ("tapSlot" in step) await d.tapSlot?.(step.tapSlot, step.slot);
     else if ("emit" in step) await d.emit?.(step.emit, step.event, step.payload);
+    else if ("platformBack" in step) await d.platformBack?.();
     else await d.restart();
     await d.settle();
   }

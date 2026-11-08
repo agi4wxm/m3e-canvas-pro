@@ -130,6 +130,10 @@ export type RnRow = KitRow & {
  *  Each row is the exported phone app's own code for its design (lib/export/targets/mobile.ts): its screens, its
  *  bindings, its effects, its contract and its API module, with the platform's pieces (the runtime's storage and
  *  transport, the file pickers, the typed client) stood in for. */
+/** what the phone app's build reads: its own modules are real files of the kit (rn/src/app, rn/src/custom); the rest of
+ *  what it copies (the kit's own files, which the test bed has where they are) is not needed here */
+const appFile = async (path: string) => (/^rn\/src\/(app|custom)\//.test(path) ? readFileSync(new URL(`../../../${path}`, import.meta.url), "utf8") : "");
+
 export async function rnTable(): Promise<Record<string, string>> {
   const { mobileTarget } = await import("../../export/targets/mobile");
   const { printRnScreens, screensIndex } = await import("../../export/rn/print");
@@ -145,7 +149,7 @@ export async function rnTable(): Promise<Record<string, string>> {
   for (const row of ROWS) {
     const { doc } = designDoc(row.design);
     const api = apiModelOf("Consistency", contractOf(doc, "Consistency"));
-    const ctx = { doc, widths: {}, lang: "en" as const, name: "consistency", scope: "@m3e", title: "Consistency", api, version: productVersion, read: async () => "", warnings: [], differences: [] };
+    const ctx = { doc, widths: {}, lang: "en" as const, name: "consistency", scope: "@m3e", title: "Consistency", api, version: productVersion, read: appFile, warnings: [], differences: [] };
     const app = await mobileTarget.build(ctx);
     if (!app) throw new Error("the phone app was not built");
     const dir = `${at}/${row.id}`;
