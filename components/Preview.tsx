@@ -11,7 +11,7 @@
  * What stays the preview's own is navigation (the stack of screens, an overlay over them, the slides between them),
  * the prototype's demos, the mock library's answers, scenarios and request log, and the look of all of it. */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, animate, motion, useMotionValue, useTransform } from "motion/react";
 import type { Variants } from "motion/react";
 import {
@@ -47,9 +47,8 @@ import { screenBackground } from "@/lib/styles";
 import { useLang } from "@/lib/i18n";
 import { applyEffects, closeOpened, liveGroups, screenVars, writeField, type FieldValue } from "@/lib/interact";
 import type { Transport, TransportFile } from "@/lib/api/transport";
-import { BindingEngine, emptyBindings, screenScope, type BindingState } from "@/lib/bindings/runtime";
+import { DesignRuntime, liveAuth, steadyTransport, type ScreenAt } from "@/lib/bindings/design";
 import { boundScreen, type BoundScreen } from "@/lib/bindings/view";
-import type { Scope } from "@/lib/bindings/expr";
 import { fallbackTransport, signedInAtStart } from "@/lib/bindings/transport";
 import { MockLogPanel, PreviewMocksContext, usePreviewMocks } from "./MockPreview";
 import { createMockCapabilities } from "@/lib/capabilities/mock";
@@ -168,13 +167,7 @@ export function Preview({
   const top = stack[stack.length - 1];
   const current = frames.find((f) => f.id === (top ? shownId(top.id) : undefined)) ?? frames[0];
 
-  /* ---------- the bindings: data, calls, forms, the session (lib/bindings) ---------- */
-  const [bindings, setBindingsNow] = useState<BindingState>(emptyBindings);
-  const bindingsRef = useRef(bindings);
-  const setBindings = useCallback((next: BindingState) => {
-    bindingsRef.current = next;
-    setBindingsNow(next);
-  }, []);
+  /* ---------- the data, the calls, the forms, the session: the runtime every exported app runs on (lib/app) ---------- */
   /* What the calls go through: a page's own back end (a test's fake, an embedding app's), the transport the preview is
      handed, else the mock library's in the scenario the bar has chosen. A document with endpoints waits for the mocks
      to load rather than show answers they would take back; one without has nothing to call but the stand-in. */
@@ -193,28 +186,31 @@ export function Preview({
   const capabilityHost: CapabilityHost = capabilities ?? mocks?.capabilities ?? standInCapabilities;
   const docRef = useRef(doc);
   docRef.current = doc;
-  /* The runtime every exported app runs on (lib/app): here it says when the preview has started over (an answer to a
-     session gone lands nowhere), keeps where a sign-in goes back to, and invokes the capabilities. */
-  const [runtime] = useState(() => createRuntime({ transport: { request: (r) => transportRef.current?.request(r) ?? Promise.resolve({ status: 0, headers: {}, body: undefined }) }, lang, capabilities: capabilityHost }));
+  /* The runtime every exported app runs on (lib/app), the preview's one data engine: its data sources, forms, session
+     and calls, read from the document by lib/bindings/design.ts; it also says when the preview has started over (an answer
+     to a session gone lands nowhere), keeps where a sign-in goes back to, and invokes the capabilities. */
+  const [runtime] = useState(() => createRuntime({ transport: steadyTransport(() => transportRef.current), auth: liveAuth(() => docRef.current.api), lang, capabilities: capabilityHost }));
   runtime.setLang(lang);
-  const unauthorized = useRef<() => void>(() => {});
-  const [engine] = useState(
+  const [data] = useState(
     () =>
-      new BindingEngine({
-        doc: () => docRef.current,
-        transport: { request: (r) => transportRef.current?.request(r) ?? Promise.resolve({ status: 0, headers: {}, body: undefined }) },
-        get: () => bindingsRef.current,
-        set: setBindings,
-        ctx: () => ({ lang: runtime.lang }),
-        unauthorized: () => unauthorized.current(),
+      new DesignRuntime(runtime, () => docRef.current, {
+        /* the transports of the preview cannot say how an upload goes: a stand-in steps it toward the end */
+        tick: (fn) => {
+          const t = window.setInterval(fn, 120);
+          return () => window.clearInterval(t);
+        },
       }),
   );
+  /* what the screens read of it changed: they are drawn again */
+  const dataVersion = useSyncExternalStore(data.subscribe, data.version, data.version);
+  const unauthorized = useRef<() => void>(() => {});
+  useEffect(() => runtime.whenUnauthorized(() => unauthorized.current()), [runtime]);
   const files = useRef<Record<string, TransportFile[]>>({});
   /** each screen as its bindings had it when last drawn: what a tap reads */
   const boundRef = useRef<Record<string, BoundScreen>>({});
   const varNames = useMemo(() => (doc.vars ?? []).map((v) => ({ id: v.id, name: v.name })), [doc.vars]);
-  /** the scope of a screen as it is now: its data, its params, the variables, the session */
-  const scopeNow = (f: Frame, params?: Record<string, unknown>): Scope => screenScope({ frame: f, state: bindingsRef.current, params, vars: screenVars(store.get(), doc, f, dark).vars, varNames });
+  /** where a screen's data is read now: its params, the variables as it shows them */
+  const atNow = (f: Frame, params?: Record<string, unknown>): ScreenAt => ({ frame: f, params, vars: screenVars(store.get(), doc, f, dark).vars, varNames });
 
   /* ---------- navigation ---------- */
   /* a slide between a phone and a desktop screen would drag one shape through the
@@ -274,8 +270,7 @@ export function Preview({
   const go = (to: string, o: GoOptions) => {
     const target = frames.find((f) => f.id === to);
     if (!target) return;
-    const b = bindingsRef.current;
-    if (target.auth === "required" && !b.session && !b.presumed && loginFrame && loginFrame.id !== target.id) {
+    if (target.auth === "required" && !data.signedIn && loginFrame && loginFrame.id !== target.id) {
       runtime.rememberReturn({ entry: { id: to, t: o.transition, ...(o.params ? { params: o.params } : {}) } } satisfies Return);
       setOverlay(null);
       setAnim({ transition: "fade", backwards: false, spring });
@@ -314,12 +309,13 @@ export function Preview({
      sign-in screen, which brings the visitor back once signed in again. */
   const afterSignOut = () => {
     const f = onShow();
-    const b = bindingsRef.current;
-    if (!f || f.auth !== "required" || b.session || b.presumed || !loginFrame || f.id === loginFrame.id) return;
+    if (!f || f.auth !== "required" || data.signedIn || !loginFrame || f.id === loginFrame.id) return;
     toSignIn();
   };
 
   /* ---------- the interpreter's host: made once, reading the preview as it is now ---------- */
+  /** how many times the capabilities were handed over: an invoke out across it answers into nothing */
+  const capabilitySession = useRef(0);
   const nav = useRef({ go, back, returnAfterSignIn, afterSignOut, onShow, dark });
   nav.current = { go, back, returnAfterSignIn, afterSignOut, onShow, dark };
   const [host] = useState(() =>
@@ -328,10 +324,8 @@ export function Preview({
       store,
       dark: () => nav.current.dark,
       onShow: () => nav.current.onShow(),
-      engine,
-      bindings: () => bindingsRef.current,
-      setBindings,
-      runtime,
+      data,
+      capabilitySession: () => capabilitySession.current,
       bound: (id) => boundRef.current[id],
       files: () => files.current,
       go: (to, o) => nav.current.go(to, o),
@@ -348,16 +342,12 @@ export function Preview({
       /* an effect has just said which tab is chosen: an earlier tap on the tabs no longer speaks for it */
       told: (part) => setValues((m) => (m[part] === -1 ? m : { ...m, [part]: -1 })),
       signedOut: () => queueMicrotask(() => nav.current.afterSignOut()),
-      tick: (fn) => {
-        const t = window.setInterval(fn, 120);
-        return () => window.clearInterval(t);
-      },
     }),
   );
 
   /* ---------- starting over ---------- */
   /* Another transport, or another session of the mocks (a scenario chosen in the bar, the log's start over): the
-     bindings and the runtime start over with it, signed in as the mocks' session starts (`auth.signedIn`, true unless
+     runtime (its data, forms and session) starts over with it, signed in as the mocks' session starts (`auth.signedIn`, true unless
      the scenario says not), and the screens on show load again just below. */
   const mockSession = mocks?.session ?? 0;
   const presumed = !!mocks && answering === mocks.transport && signedInAtStart(doc.mocks, mocks.scenario);
@@ -369,17 +359,17 @@ export function Preview({
     if (was && was.t === answering && was.session === mockSession) return;
     startedWith.current = { t: answering, session: mockSession };
     runtime.restart(presumed);
-    engine.reset(emptyBindings(presumed));
     // the scenario `presumed` reads comes with a session of its own
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answering, mockSession, engine]);
-  /* another capability host is another session of the capabilities */
+  }, [answering, mockSession, runtime]);
+  /* Another capability host is another session of the capabilities: what one before it answers late lands nowhere
+     (the host drops it), while the data and the session, the back end's, stay as they are. */
   const capabilitiesNow = useRef(capabilityHost);
   useEffect(() => {
     if (capabilitiesNow.current === capabilityHost) return;
     capabilitiesNow.current = capabilityHost;
+    capabilitySession.current++;
     runtime.setCapabilities(capabilityHost);
-    runtime.restart(bindingsRef.current.presumed ?? false);
   }, [capabilityHost, runtime]);
 
   /* ---------- loading what the screens on show read ---------- */
@@ -388,32 +378,32 @@ export function Preview({
   const paramsKey = JSON.stringify(topParams ?? null);
   useEffect(() => {
     if (!answering || !current?.data?.length) return;
-    void engine.enter(current, scopeNow(current, topParams)).catch(() => {});
+    void data.enter(atNow(current, topParams));
     // the params are read through their key: a new object with the same values loads nothing again
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id, paramsKey, engine, answering, mockSession]);
+  }, [current?.id, paramsKey, data, answering, mockSession]);
   const overlayParams = overlay?.params;
   const overlayKey = JSON.stringify(overlayParams ?? null);
   useEffect(() => {
     const f = overlay ? frames.find((x) => x.id === shownId(overlay.id)) : undefined;
     if (!answering || !f?.data?.length) return;
-    void engine.enter(f, scopeNow(f, overlayParams)).catch(() => {});
+    void data.enter(atNow(f, overlayParams));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlay?.id, overlayKey, engine, answering, mockSession]);
+  }, [overlay?.id, overlayKey, data, answering, mockSession]);
   /* What a source is asked with can change while its screen is up: its params read a variable a search field writes,
      another source's answer, the session. Read as the screen's scope has them now, they are the key it loads by, as in
-     the exported app: a change loads it again with them, and one that holds what the same arguments gave stays as it is.
-     The bindings set no wait before a load, so each change asks at once; an older answer gives way to the newest. */
+     the exported app (lib/app/react.ts `useDataSource`): a change enters it again with them, a key that holds what it
+     gave showing that while it loads behind it. The bindings set no wait before a load, so each change asks at once; an
+     older answer gives way to the newest. */
   const argsKey = (f: Frame | undefined, params: Record<string, unknown> | undefined): string => {
-    const loads = (f?.data ?? []).filter((d) => (d.load ?? "enter") === "enter");
-    if (!f || !loads.length) return "";
+    if (!f || !(f.data ?? []).some((d) => (d.load ?? "enter") === "enter")) return "";
     /* the time is read when the load is made: a key that changed every moment would never stop loading */
-    const scope = screenScope({ frame: f, state: bindings, params, vars: screenVars(state, doc, f, dark).vars, varNames, now: 0 });
-    return JSON.stringify(loads.map((d) => engine.argsOf(d, scope)));
+    void dataVersion;
+    return data.keysOf({ frame: f, params, vars: screenVars(state, doc, f, dark).vars, varNames, now: 0 });
   };
   const reload = (f: Frame | undefined, params: Record<string, unknown> | undefined) => {
     if (!answering || !f) return;
-    for (const d of f.data ?? []) if ((d.load ?? "enter") === "enter") void engine.load(f, d, scopeNow(f, params)).catch(() => {});
+    void data.enter(atNow(f, params), { changed: true });
   };
   const currentArgs = argsKey(current, topParams);
   // the arguments are read through their key: the screen coming on show is loaded just above
@@ -560,7 +550,9 @@ export function Preview({
       });
       const vars = screenVars(state, doc, f, dark);
       try {
-        const bound = boundScreen({ groups: tabbed, frame: f, doc, state: bindings, params, vars: vars.vars, fields: state.fields, files: files.current, widths, ctx: { lang } });
+        const scope = data.scope({ frame: f, params, vars: vars.vars, varNames });
+        const form = (g: DocGroup, gs: DocGroup[], owner: Map<string, string>) => data.formView({ form: g, groups: gs, owner, fields: state.fields, files: files.current });
+        const bound = boundScreen({ groups: tabbed, frame: f, doc, scope, form, vars: vars.vars, widths, ctx: { lang } });
         boundRef.current[f.id] = bound;
         const laid = { ...bound.widths, ...wordHeights };
         return { groups: liveGroups(bound.groups, { ...vars, ctx: bound.ctx }, doc, laid), widths: laid };
@@ -569,7 +561,9 @@ export function Preview({
         return { groups: liveGroups(tabbed, vars, doc, widths), widths };
       }
     },
-    [doc, frames, widths, values, state, dark, bindings, lang, wordHeights],
+    // what the runtime holds is read through its version
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [doc, frames, widths, values, state, dark, dataVersion, data, varNames, lang, wordHeights],
   );
   /** the variables as a screen shows them, for the design fields bound to them */
   const boundFor = useCallback((f: Frame | undefined) => (doc.vars?.length && f ? screenVars(state, doc, f, dark).vars : null), [doc, state, dark]);
@@ -606,9 +600,13 @@ export function Preview({
     const pulls = (f.data ?? []).filter((d) => d.pullToRefresh);
     const pages = (f.data ?? []).filter((d) => d.paging === "scroll");
     return {
-      onPull: pulls.length ? () => pulls.forEach((d) => void engine.load(f, d, scopeNow(f, params), { force: true }).catch(() => {})) : undefined,
-      onNearEnd: pages.length ? () => pages.forEach((d) => void engine.load(f, d, scopeNow(f, params), { more: true }).catch(() => {})) : undefined,
-      refreshing: pulls.some((d) => bindings.sources[`${f.id}/${d.name}`]?.loading && bindings.sources[`${f.id}/${d.name}`]?.value !== undefined),
+      onPull: pulls.length ? () => pulls.forEach((d) => void data.load(atNow(f, params), d.name)) : undefined,
+      onNearEnd: pages.length ? () => pages.forEach((d) => void data.load(atNow(f, params), d.name, { more: true })) : undefined,
+      refreshing: pulls.some((d) => {
+        const spec = data.sourceOf(atNow(f, params), d.name);
+        const s = spec ? data.state(spec) : undefined;
+        return !!s?.loading && s.value !== undefined && s.key === spec?.key;
+      }),
     };
   };
   /* a snackbar sits over the content, above a bar at the foot of the screen */
