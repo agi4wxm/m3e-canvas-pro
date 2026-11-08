@@ -11,75 +11,30 @@ export function TablesScreen() {
     <Screen screen="tables" width={412} height={892} length={2400}>
       <At x={16} y={24}>
         <Table
-          title="Invoices"
           data={{ columns: ["Invoice", "Amount", "Paid"], rows: [["INV-1", "250", "yes"], ["INV-2", "1200.5", "no"]], spec: [{ key: "invoice", width: 120 }, { key: "amount", type: "currency", format: "EUR" }, { key: "paid", type: "bool" }] }}
           caption="Q3"
           selected={1}
-          alignLast={false}
           width={380}
           testID="table"
         />
       </At>
       <At x={16} y={280}>
-        <DataTable
-          title="Orders"
-          data={{ columns: ["Order", "Customer", "Status", "Total"], rows: [["A-1001", "Ada Lovelace", "Paid", "$250.00"], ["A-1002", "Grace Hopper", "Pending", "$150.00"], ["A-1003", "Alan Turing", "Paid", "$1,350.00"], ["A-1004", "Katherine Johnson", "Refunded", "$75.50"], ["A-1005", "Linus Pauling", "Pending", "$420.00"], ["A-1006", "Marie Curie", "Paid", "$98.00"], ["A-1007", "Rosalind Franklin", "Paid", "$610.00"]] }}
-          search="Search"
-          selectable
-          pageSize={3}
-          query=""
-          sortColumn={-1}
-          sortDir="asc"
-          page={0}
-          total={0}
-          width={380}
-          taps={{ "row:0": s.tap(A1, { $: $ }) }}
-          testID="dataTable"
-        />
+        <DataTable pageSize={3} width={380} taps={{ "row:0": s.tap(A1, { $: $ }) }} testID="dataTable" />
       </At>
       <At x={16} y={760}>
-        <BarList
-          title="Traffic by source"
-          data={{ columns: ["Label", "Value", "Share"], rows: [["Search", "4,820", "54%"], ["Direct", "2,140", "24%"], ["Social", "1,360", "15%"], ["Email", "640", "7%"]] }}
-          sorted
-          selected={1}
-          width={380}
-          testID="barList"
-        />
+        <BarList selected={1} width={380} testID="barList" />
       </At>
       <At x={16} y={1000}>
         <Markdown text={"## Notes\n\nShip **today**, run `deploy`.\n\n- Check\n- Ship"} width={380} testID="markdown" />
       </At>
       <At x={16} y={1200}>
-        <Agenda
-          year={2026}
-          month={11}
-          day={4}
-          data={{ columns: ["Date", "Time", "Title"], rows: [["2026-11-04", "09:30", "Team stand-up"], ["2026-11-04", "14:00", "Design review"], ["2026-11-12", "All day", "Company holiday"], ["2026-11-20", "18:30", "Dinner with Ada"]] }}
-          weekStart="sunday"
-          empty="Nothing planned"
-          width={380}
-          testID="eventCalendar"
-        />
+        <Agenda width={380} testID="eventCalendar" />
       </At>
       <At x={16} y={1700}>
-        <Kanban
-          data={{ columns: ["To do", "In progress", "Done"], rows: [["Write the brief", "Draw the screens", "Pick a name"], ["Book the room", "", "Set up the repo"]] }}
-          add="Add card"
-          width={380}
-          testID="kanbanBoard"
-        />
+        <Kanban width={380} testID="kanbanBoard" />
       </At>
       <At x={16} y={2060}>
-        <GanttChart
-          title="Release plan"
-          data={{ columns: ["Task", "Start", "Length", "Done"], rows: [["Research", "0", "2", "100"], ["Design", "1", "3", "70"], ["Build", "3", "4", "30"], ["Launch", "7", "1", "0"]] }}
-          units={8}
-          unit="w"
-          today={4}
-          width={380}
-          testID="ganttChart"
-        />
+        <GanttChart testID="ganttChart" />
       </At>
       {s.layer}
     </Screen>

@@ -6,11 +6,7 @@ export function DeskScreen() {
   return (
     <Screen screen="desk" width={1280} height={800}>
       <At x={16} y={16}>
-        <Menubar
-          menus={[{ label: "File" }, { label: "Edit" }, { label: "View" }]}
-          items={[{ label: "New tab", icon: "tab" }, { label: "New window", icon: "open_in_new" }, { label: "Print", icon: "print" }]}
-          testID="menubar"
-        />
+        <Menubar testID="menubar" />
       </At>
       <At x={16} y={80}>
         <Window
@@ -18,41 +14,19 @@ export function DeskScreen() {
           controls="windows"
           layout="column"
           gap={12}
-          padX={16}
-          padY={16}
           align="stretch"
-          justify="start"
-          wrap={false}
-          columns={2}
           width={900}
           height={640}
-          hugWidth={false}
-          hugHeight={false}
           testID="window"
         >
           <Cell dir="column" fillWidth>
-            <Tree
-              items={[{ label: "src", icon: "folder_open" }, { label: "  main.rs", icon: "draft" }, { label: "  ui", icon: "folder" }, { label: "Cargo.toml", icon: "draft" }]}
-              selected={0}
-              width={640}
-              testID="tree"
-            />
+            <Tree width={640} testID="tree" />
           </Cell>
           <Cell dir="column" fillWidth>
-            <CodeBlock
-              code={"const greeting = \"Hello\";\nconsole.log(greeting);"}
-              language="TypeScript"
-              width={868}
-              testID="codeBlock"
-            />
+            <CodeBlock width={868} testID="codeBlock" />
           </Cell>
           <Cell dir="column" fillWidth>
-            <FileDiff
-              file="main.ts"
-              diff={" const a = 1;\n-const b = 2;\n+const b = 3;\n console.log(a + b);"}
-              width={868}
-              testID="fileDiff"
-            />
+            <FileDiff width={868} testID="fileDiff" />
           </Cell>
         </Window>
       </At>
