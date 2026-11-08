@@ -12,7 +12,7 @@ import { layoutForStyle, metricsOf } from "@/lib/styleLayout";
 import { standingTogether } from "@/lib/tidy";
 import { pushApart } from "@/lib/settle";
 import { getLang, t } from "@/lib/i18n";
-import { ops, withDoc, withFrames, withGroups, type CoreState, type DocStore, type Op, type TxOptions } from "@/lib/core";
+import { ops, withFrames, withGroups, type CoreState, type DocStore, type Op, type TxOptions } from "@/lib/core";
 import type { DragState, Gesture } from "./model";
 
 type RunOp = <A, R>(o: Op<A, R>, args: A, opts?: TxOptions & { label?: string }) => R | undefined;
@@ -159,10 +159,12 @@ export function useStyleLayout({ store, runOp, didOp, undo, showToast, theme, gr
   const relayout = () => {
     if (didOp(ops.relayout, {}, { history: "step" })) tidyRef.current = null;
   };
-  /** one layout setting changed, and the screens follow it */
+  /** One layout setting changed, and the screens follow it: `set_style_layout`, as the agent and MCP change it. The
+   *  setting and the layout it brings are one step, which one undo takes back together. */
   const patchUx = (patch: Partial<StyleUX>) => {
-    store.update("Style layout", "user", (st) => withDoc(st, { theme: { ...st.doc.theme, ux: { ...st.doc.theme.ux, ...patch } as Theme["ux"] } }));
-    relayout();
+    const was = store.get().doc.groups;
+    didOp(ops.patchUx, { patch }, { label: "Style layout" });
+    if (store.get().doc.groups !== was) tidyRef.current = null;
   };
   return { relayoutRef, applyStyle, pickStyle, setRules, changeStyles, relayout, patchUx };
 }

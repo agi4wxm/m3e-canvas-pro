@@ -71,7 +71,7 @@ import { PANEL_FADE_H } from "@/components/ui";
 import { generateImage, loadAiSettings, scenePrompt, scenesToPaint } from "@/lib/ai";
 import { maxFrameLength } from "@/lib/tidy";
 import { joinTargetOf } from "@/lib/combine";
-import { flowHostAt, flowOf, showingGroups } from "@/lib/flow";
+import { flowHostAt, flowOf } from "@/lib/flow";
 import { targetRects } from "@/lib/guides";
 import { InsertionMark, SmartGuides } from "@/components/SmartGuides";
 import { expandInstances } from "@/lib/instances";
@@ -116,7 +116,7 @@ import { useProject } from "./editor/useProject";
 import { useShortcuts } from "./editor/useShortcuts";
 import { seed, SEED_FRAMES } from "./editor/seed";
 import { ThinkingRing } from "./editor/ThinkingRing";
-import { drawnParts, renderExport, renderGroup as drawGroup, type GroupView } from "./editor/render";
+import { drawnParts, renderExport, renderGroup as drawGroup, type GroupActs, type GroupView } from "./editor/render";
 import { useGap } from "./editor/useGap";
 import { useGuides } from "./editor/useGuides";
 import { useNotes } from "./editor/useNotes";
@@ -300,7 +300,6 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const layersRef = useRef<LayerTree | null>(null);
   /** the row under the pointer in the layers panel, outlined on the canvas */
   const [hoverLayer, setHoverLayer] = useState<string | null>(null);
-  const measureEls = useRef<Map<string, HTMLElement>>(new Map());
   const dragRef = useRef<DragState | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
   const groupsRef = useRef(groups);
@@ -393,7 +392,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
 
   /* ---------- ai ---------- */
   /* the author's model writing a field or painting a scene (src/editor/useAi.ts) */
-  const { aiSettings, setAiSettings, updateAiSettings, aiReady, aiBusy, aiFrameId, runAi, cancelAi, canPaint, paintingScene, sceneItem, paintScenes, stopPainting } = useAi({ store, lang, theme, doc, groupsRef, widthsRef, snapshot, setGroups, setFrames, showToast, showAiNote });
+  const { aiSettings, setAiSettings, updateAiSettings, aiReady, aiBusy, aiFrameId, runAi, cancelAi, canPaint, paintingScene, sceneItem, paintScenes, stopPainting } = useAi({ store, lang, theme, doc, groupsRef, widthsRef, didOp, showToast, showAiNote });
 
   /* ---------- persistence ---------- */
   /** What a whole document arriving does to what was open over the one it replaces: the preview closes (or an opening
@@ -465,10 +464,6 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
 
   /* the editor's own settings written down as they change (src/editor/useRememberUi.ts) */
   useRememberUi({ loadedRef, view, leftOpen, rightOpen, leftW, rightW, favorites, mode, lang, showAllLinks, p, frame, projectId: loaded && persist instanceof ProjectsPersist ? persist.id : null });
-
-  /* ---------- measurement ---------- */
-  /* every part measured as drawn; screens whose parts came out another size laid out again by what they came to */
-  const { retidyRef, freshFramesRef, newPhoneRef } = useMeasure({ store, measureEls, groupsRef, framesRef, widthsRef, themeRef });
 
   /* ---------- coordinates ---------- */
   /* only the open left panel accepts a drop for deletion; the narrow rail never does */
@@ -557,6 +552,10 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const { lengthRun, setFrameLength, lengthDragId, onLengthHandleDown, onLengthHandleKey } = useScreenLength({ store, didOp, framesRef, groupsRef, viewRef, tidyRef });
   /* instances, repeats and container layouts worked out, and the screen each part is on (src/editor/useCanvasView.ts) */
   const { canvas, allItems, offTab, startsHidden, frameOf, screenByItem } = useCanvasView({ carrying, groups, frames, frame, components, collections, widths, drag, instantRef, tidyRef, lengthRun, setGroups });
+
+  /* ---------- measurement ---------- */
+  /* the parts measured as drawn, only those drawn anew; screens whose parts came out another size laid out again by what they came to */
+  const { measureRef, retidyRef, freshFramesRef, newPhoneRef } = useMeasure({ store, items: allItems, screens: screenByItem, groupsRef, framesRef, themeRef });
 
   /* ---------- editing ---------- */
   /* what the selection is, read off the document (src/editor/useSelection.ts) */
@@ -873,22 +872,16 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     return null;
   }, [primaryId, selectedIds, groups]);
 
-  /* the same elements while nothing in them changes, so that a drag does not attach every ref again on each move */
+  /* the same elements while nothing in them changes; each box keeps its own ref (src/editor/useMeasure.ts), so the layer
+   * drawn again takes no box out and puts none back */
   const measuringLayer = useMemo(
     () =>
       allItems.map((it) => (
-        <div
-          key={it.id}
-          ref={(el) => {
-            if (el) measureEls.current.set(it.id, el);
-            else measureEls.current.delete(it.id);
-          }}
-          style={{ display: "inline-flex", boxSizing: "border-box" }}
-        >
+        <div key={it.id} ref={measureRef(it.id)} style={{ display: "inline-flex", boxSizing: "border-box" }}>
           <PartView item={it} screen={screenByItem.get(it.id)} />
         </div>
       )),
-    [allItems, screenByItem],
+    [allItems, screenByItem, measureRef],
   );
 
   /* the Layers panel: the screen it lists and what its rows do (src/editor/useLayers.ts) */
@@ -896,6 +889,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   selectAllRef.current = selectAll;
   layersRef.current = layers;
 
+  /** what a press on a part of the canvas does: groups that are not drawn again still reach the current handlers */
+  const groupActs = useRef<GroupActs>({ onItemPointerDown, editDefinition });
   /** a run or a free group on the canvas, drawn as src/editor/render.tsx says */
   const renderGroup = (g: Group, ox: number, oy: number, screen?: { w: number; h: number }) => drawGroup(g, ox, oy, screen, groupView);
 
@@ -952,7 +947,8 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     const kids = groups.filter((g) => g.inFlow === group.id && !offTab.has(g.id) && !(g.items.length === 1 && g.items[0].flowAbsolute)).map((g) => groupBounds(g, widths));
     return { group, flow, box: groupBounds(group, widths), kids };
   })();
-  const groupView: GroupView = { instantRef, selectedSet, startsHidden, widths, canvas, p, handMode, onItemPointerDown, view, gapOut, widthShift, pressedId, widthDragId, editDefinition };
+  groupActs.current = { onItemPointerDown, editDefinition };
+  const groupView: GroupView = { instantRef, selectedSet, startsHidden, widths, canvas, p, handMode, acts: groupActs, view, gapOut, widthShift, pressedId, widthDragId };
 
   return (
     <LangContext.Provider value={lang}>
@@ -982,6 +978,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         {/* hidden measuring layer for text-sized kinds */}
         <div
           aria-hidden
+          data-measure-layer=""
           style={{
             position: "fixed",
             left: -99999,
@@ -1277,13 +1274,9 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                     }}
                     onSelect={(ids, how) => {
                       setSelectedIds((cur) => (how === "toggle" ? (ids.every((x) => cur.includes(x)) ? cur.filter((x) => !ids.includes(x)) : [...cur.filter((x) => !ids.includes(x)), ...ids]) : ids));
-                      /* picked on a dock's other tab: the dock comes round to it, or there would be no ring and nothing to work on */
-                      const picked = new Set(groupsRef.current.filter((g) => g.items.some((it) => ids.includes(it.id))).map((g) => g.id));
-                      const showing = showingGroups(groupsRef.current, picked, widthsRef.current);
-                      if (showing !== groupsRef.current) {
-                        snapshot();
-                        setGroups(showing);
-                      }
+                      /* picked on a dock's other tab: the dock comes round to it, or there would be no ring and nothing to work on;
+                       * one step, as `show_nodes` is for the agent (one already showing is nothing to do) */
+                      runOp(ops.showNodes, { ids }, { refused: () => {} });
                       setSelectedFrameId(null);
                       setSelectedLinkId(null);
                       setRightTab("edit");

@@ -1,7 +1,7 @@
 /* What the canvas draws of the document: a run of parts or a free group on its screen, what an instance or a repeat
  * draws on a group, and a screen drawn with plain parts for the PNG export. Pure drawing: everything it reads is given. */
 
-import type { RefObject } from "react";
+import { memo, type RefObject } from "react";
 import { motion } from "motion/react";
 import { Doc, Frame, frameLengthOf, frameOfPart, frameSizeOf, GAP, Group, groupBounds, Item, layoutOf, Palette, sizeOf, Theme } from "@/lib/tokens";
 import { ComponentNode, StaticPart } from "@/components/ComponentNode";
@@ -26,12 +26,17 @@ export type GroupView = {
   canvas: CanvasView;
   p: Palette;
   handMode: boolean;
-  onItemPointerDown: (e: React.PointerEvent, g: Group, index: number, item: Item) => void;
+  /** what a press on a part does, as of the editor's last render: a group not drawn again still calls the current one */
+  acts: RefObject<GroupActs>;
   view: View;
   gapOut: Gap | null;
   widthShift: { gid: string; dx: number; dy: number } | null;
   pressedId: string | null;
   widthDragId: string | null;
+};
+
+export type GroupActs = {
+  onItemPointerDown: (e: React.PointerEvent, g: Group, index: number, item: Item) => void;
   editDefinition: (id: string) => void;
 };
 
@@ -47,10 +52,52 @@ export const drawnParts = (parts: DrawnPart[] | undefined, screen?: { w: number;
     </div>
   ) : undefined;
 
-/** One group on the canvas. A free group (or an instance) is drawn part by part where each stands; a run is a flex row
- *  or column, with the hole it keeps for a part being carried in or out of it. */
+/** One group on the canvas, drawn again only when what it shows changed (`sameGroup`): the editor renders for a
+ *  selection, a panel or a pointer move, and a canvas of a thousand parts must not be drawn again for each. */
 export function renderGroup(g: Group, ox: number, oy: number, screen: { w: number; h: number } | undefined, v: GroupView) {
-  const { instantRef, selectedSet, startsHidden, widths, canvas, p, handMode, onItemPointerDown, view, gapOut, widthShift, pressedId, widthDragId, editDefinition } = v;
+  return <CanvasGroup key={g.id} g={g} ox={ox} oy={oy} sw={screen?.w} sh={screen?.h} v={v} />;
+}
+
+type CanvasGroupProps = { g: Group; ox: number; oy: number; sw?: number; sh?: number; v: GroupView };
+
+/** Whether a group would be drawn the same: the same group where it was, on a screen of the same size, and for each of
+ *  its parts the same measures, item shown, selection and press; the hole, the shift, the dimming and what rides on it
+ *  its own. Everything else the editor passes is about other groups. */
+export function sameGroup(a: CanvasGroupProps, b: CanvasGroupProps): boolean {
+  const { g } = b;
+  if (a.g !== g || a.ox !== b.ox || a.oy !== b.oy || a.sw !== b.sw || a.sh !== b.sh) return false;
+  const x = a.v;
+  const y = b.v;
+  if (x === y) return true;
+  if (x.p !== y.p || x.handMode !== y.handMode || x.acts !== y.acts || x.instantRef !== y.instantRef) return false;
+  if (x.startsHidden.has(g.id) !== y.startsHidden.has(g.id)) return false;
+  if (x.canvas.drawn.get(g.id) !== y.canvas.drawn.get(g.id)) return false;
+  if ((x.gapOut?.gid === g.id ? x.gapOut : null) !== (y.gapOut?.gid === g.id ? y.gapOut : null)) return false;
+  if ((x.widthShift?.gid === g.id ? x.widthShift : null) !== (y.widthShift?.gid === g.id ? y.widthShift : null)) return false;
+  let allOn = true;
+  for (const it of g.items) {
+    const id = it.id;
+    if (x.canvas.shown.get(id) !== y.canvas.shown.get(id)) return false;
+    if (x.widths[id] !== y.widths[id] || x.widths[`${id}:h`] !== y.widths[`${id}:h`]) return false;
+    const on = y.selectedSet.has(id);
+    if (x.selectedSet.has(id) !== on) return false;
+    allOn &&= on;
+    if ((x.pressedId === id) !== (y.pressedId === id) || (x.widthDragId === id) !== (y.widthDragId === id)) return false;
+  }
+  /* a free group fully selected is outlined at a width that follows the zoom */
+  return !(g.free && allOn && x.view.z !== y.view.z);
+}
+
+const CanvasGroup = memo(function CanvasGroup({ g, ox, oy, sw, sh, v }: CanvasGroupProps) {
+  return drawGroup(g, ox, oy, sw === undefined || sh === undefined ? undefined : { w: sw, h: sh }, v);
+}, sameGroup);
+
+/** A free group (or an instance) is drawn part by part where each stands; a run is a flex row or column, with the hole
+ *  it keeps for a part being carried in or out of it. */
+function drawGroup(g: Group, ox: number, oy: number, screen: { w: number; h: number } | undefined, v: GroupView) {
+  const { instantRef, selectedSet, startsHidden, widths, canvas, p, handMode, acts, view, gapOut, widthShift, pressedId, widthDragId } = v;
+  const onItemPointerDown: GroupActs["onItemPointerDown"] = (e, group, index, item) => acts.current?.onItemPointerDown(e, group, index, item);
+  const editDefinition = (id: string) => acts.current?.editDefinition(id);
   if (g.free) {
     const instantG = instantRef.current.has(g.id);
     const allOn = g.items.every((it) => selectedSet.has(it.id));
