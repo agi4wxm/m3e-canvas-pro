@@ -5,6 +5,7 @@
  * last wrote it is never written over without asking (`conflict`). */
 
 import { ASSET_GRACE_MS, FOLDER_ASSET_DIR, FOLDER_MAIN_FILE, digest, isAssetFileName, isAssetPath, isFormatAsset, readProjectText, serializeProject } from "../core/projectFile";
+import { saveErrorKind, type SaveErrorKind } from "../core/persist";
 import type { Doc } from "../tokens";
 import type { FileRecord } from "./db";
 
@@ -120,7 +121,7 @@ export async function readFromDisk(handle: FileSystemHandle): Promise<{ doc: Doc
 /* ---------- keeping a project in sync ---------- */
 
 export type LinkStatus = "saved" | "pending" | "saving" | "reconnect" | "conflict" | "error";
-export type LinkState = { kind: "file" | "folder"; name: string; status: LinkStatus; at?: number; error?: string };
+export type LinkState = { kind: "file" | "folder"; name: string; status: LinkStatus; at?: number; error?: string; errorKind?: SaveErrorKind };
 
 /** how long after the last change the file is written, and how long a stream of changes may hold it back */
 const QUIET_MS = 700;
@@ -195,7 +196,7 @@ export class FileLink {
       .catch((e: unknown) => {
         /* written next time: the document is kept for it */
         this.doc ??= doc;
-        this.set({ status: "error", error: e instanceof Error ? e.message : String(e) });
+        this.set({ status: "error", error: e instanceof Error ? e.message : String(e), errorKind: saveErrorKind(e) });
       })
       .finally(() => {
         this.running = null;
@@ -312,7 +313,7 @@ export class FileLink {
       throw e;
     }
     await this.record(main, text);
-    this.set({ status: "saved", at: Date.now(), error: undefined });
+    this.set({ status: "saved", at: Date.now(), error: undefined, errorKind: undefined });
     /* the version that refers to them is on disk: what it does not refer to may go; a failure leaves it for next time */
     if (assets) await this.prunePictures(assets, wanted).catch(() => {});
   }

@@ -3,14 +3,14 @@
  * project the address names, writing it, and keeping each project's pictures apart from the document. */
 
 import "fake-indexeddb/auto";
-import { IDBFactory } from "fake-indexeddb";
-import { beforeEach, describe, expect, it } from "vitest";
+import { IDBDatabase, IDBFactory } from "fake-indexeddb";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stripAssets } from "../assets";
-import { BEFORE_KEY, DOC_KEY } from "../core/persist";
+import { BEFORE_KEY, DOC_KEY, PersistFullError } from "../core/persist";
 import type { Doc } from "../tokens";
-import { getAssets, getKv, listProjects, pruneAssets, putKv, readProjectRecords, useIndexedDb } from "./db";
+import { getAssets, getKv, listProjects, openDb, pruneAssets, putKv, readProjectRecords, useIndexedDb } from "./db";
 import { LEGACY_MARK, migrateLegacy } from "./migrate";
-import { ProjectsPersist, resolveOpening, type OpeningEnv } from "./persist";
+import { ProjectsPersist, resolveOpening, unsavedKey, type OpeningEnv } from "./persist";
 import { agentConversationKey, createProject, duplicateProject, freeName, purgeProject, purgeTrashed, renameProject, restoreProject, trashProject, UNDO_DELETE_MS, visibleProjects } from "./projects";
 
 beforeEach(() => {
@@ -32,7 +32,33 @@ const storage = (items: Record<string, string> = {}) => ({
   setItem: (k: string, v: string) => {
     items[k] = v;
   },
+  removeItem: (k: string) => {
+    delete items[k];
+  },
 });
+
+/* A store that refuses to keep a document: a transaction that writes one fails with `refuse()` while it is set, after
+   `onPut` (a write handed over while one is under way) has run, the way the browser refuses one (a closed connection,
+   storage blocked, no room, a disk error). */
+let refuse: (() => DOMException) | null = null;
+let onPut: (() => void) | null = null;
+const transaction = IDBDatabase.prototype.transaction;
+IDBDatabase.prototype.transaction = function (this: IDBDatabase, ...a: Parameters<IDBDatabase["transaction"]>) {
+  const [stores, mode] = a;
+  if (mode === "readwrite" && [stores].flat().includes("docs")) {
+    const hook = onPut;
+    onPut = null;
+    hook?.();
+    if (refuse) throw refuse();
+  }
+  return transaction.apply(this, a);
+} as IDBDatabase["transaction"];
+afterEach(() => {
+  refuse = null;
+  onPut = null;
+  vi.unstubAllGlobals();
+});
+const titleKept = async (id: string) => (JSON.parse((await readProjectRecords(id)).doc ?? "null") as Doc | null)?.title;
 
 const env = (search = "", items: Record<string, string> = {}, now = 1000): OpeningEnv & { urls: string[]; store: ReturnType<typeof storage> } => {
   const urls: string[] = [];
@@ -264,5 +290,180 @@ describe("the editor's adapter", () => {
     const persist = new ProjectsPersist(resolveOpening(env()));
     const said = await new Promise<string>((resolve) => persist.lock(resolve));
     expect(said).toBe("editable");
+  });
+});
+
+describe("a save that fails", () => {
+  const opened = async (id = "p", o: { items?: Record<string, string>; retryMs?: number[] } = {}) => {
+    await createProject({ id, name: "P", doc: doc("P"), now: 1 });
+    const store = storage(o.items ?? {});
+    const persist = new ProjectsPersist(resolveOpening(env(`?project=${id}`, store.items)), { storage: store, retryMs: o.retryMs ?? [60_000] });
+    await persist.read();
+    return { persist, store };
+  };
+
+  it("keeps the last edit waiting when nothing comes after it, says so, and writes it once the store takes it again", async () => {
+    const { persist } = await opened();
+    refuse = () => new DOMException("The disk said no.", "UnknownError");
+    await expect(persist.write(doc("Last", 2))).rejects.toMatchObject({ kind: "io" });
+    expect(persist.save).toMatchObject({ status: "error", handed: 1, kept: 0, writing: null, error: { kind: "io", rev: 1 } });
+    expect(await titleKept("p")).toBe("P");
+    /* switching projects now would be told the truth */
+    const still = await persist.flush();
+    expect(still.ok).toBe(false);
+    expect(still.browser.status).toBe("error");
+
+    refuse = null;
+    const report = await persist.flush();
+    expect(report).toMatchObject({ ok: true, browser: { status: "saved", kept: 1 } });
+    expect(report.browser.error).toBeUndefined();
+    expect(await titleKept("p")).toBe("Last");
+  });
+
+  it("is tried again by itself a moment later", async () => {
+    const { persist } = await opened("p", { retryMs: [20] });
+    refuse = () => new DOMException("busy", "UnknownError");
+    await expect(persist.write(doc("Later", 2))).rejects.toBeTruthy();
+    refuse = null;
+    await new Promise((r) => setTimeout(r, 80));
+    expect(persist.save.status).toBe("saved");
+    expect(await titleKept("p")).toBe("Later");
+  });
+
+  it.each([
+    ["QuotaExceededError", "quota"],
+    ["InvalidStateError", "closed"],
+    ["SecurityError", "permission"],
+    ["UnknownError", "io"],
+    ["NotReadableError", "io"],
+  ])("tells a %s apart (%s)", async (name, kind) => {
+    const { persist } = await opened();
+    refuse = () => new DOMException("no", name);
+    const err = await persist.write(doc("X", 2))!.then(() => null, (e: unknown) => e);
+    expect(err).toMatchObject({ kind });
+    expect(err instanceof PersistFullError).toBe(kind === "quota");
+    expect(persist.save.error?.kind).toBe(kind);
+    refuse = null;
+    await persist.flush();
+  });
+
+  it("never lets an older version that failed take the place of a newer one handed over meanwhile", async () => {
+    const { persist } = await opened();
+    void persist.write(doc("Old", 2))!.catch(() => {});
+    /* the newer one comes while the old one is being written, which then fails */
+    let newer: Promise<void> | void;
+    onPut = () => {
+      newer = persist.write(doc("New", 3));
+    };
+    refuse = () => {
+      refuse = null;
+      return new DOMException("once", "UnknownError");
+    };
+    await new Promise((r) => setTimeout(r, 20));
+    expect(newer!).toBeTruthy();
+    expect(persist.save).toMatchObject({ status: "error", handed: 2, error: { rev: 1 } });
+    const report = await persist.flush();
+    expect(report.browser).toMatchObject({ status: "saved", kept: 2 });
+    expect(await titleKept("p")).toBe("New");
+    /* and no try later brings the old one back */
+    await persist.retry();
+    expect(await titleKept("p")).toBe("New");
+  });
+
+  it("finds its way back when the browser closed the database under the tab", async () => {
+    const { persist } = await opened();
+    (await openDb()).close();
+    await persist.write(doc("After close", 2));
+    expect(await titleKept("p")).toBe("After close");
+    expect(persist.save.status).toBe("saved");
+  });
+});
+
+describe("two tabs and closing", () => {
+  it.each([
+    ["no Web Locks", undefined],
+    ["Web Locks that refuse", { request: () => Promise.reject(new DOMException("no", "SecurityError")) }],
+  ])("with %s, the second tab to write finds the first one's save and turns read-only instead of writing over it", async (_, locks) => {
+    vi.stubGlobal("navigator", { locks });
+    await createProject({ id: "p", name: "P", doc: doc("P"), now: 1 });
+    const first = new ProjectsPersist(resolveOpening(env("?project=p")), { storage: null });
+    const items: Record<string, string> = {};
+    const secondStore = storage(items);
+    const second = new ProjectsPersist(resolveOpening(env("?project=p", items)), { storage: secondStore });
+    const saidFirst: string[] = [];
+    const saidSecond: string[] = [];
+    first.lock((s) => saidFirst.push(s));
+    second.lock((s) => saidSecond.push(s));
+    await first.read();
+    await second.read();
+    await new Promise((r) => setTimeout(r, 0));
+    expect([saidFirst, saidSecond]).toEqual([["editable"], ["editable"]]);
+
+    await first.write(doc("From the first", 2));
+    await expect(second.write(doc("From the second", 3))).rejects.toMatchObject({ kind: "conflict" });
+    expect(saidSecond).toEqual(["editable", "readonly"]);
+    expect(second.save.status).toBe("conflict");
+    expect(await titleKept("p")).toBe("From the first");
+    /* the first goes on writing; the second writes nothing more */
+    await first.write(doc("First again", 2));
+    second.write(doc("Second again", 3));
+    await second.flush();
+    expect(await titleKept("p")).toBe("First again");
+
+    /* the second tab's version is not lost: the next tab on the project offers it */
+    const next = await resolveOpening(env("?project=p", items));
+    expect(next.mode === "projects" && next.recovered?.doc.title).toBe("Second again");
+  });
+
+  it("writes an edit handed over just before the tab goes to another project, before saying all is kept", async () => {
+    await createProject({ id: "p", name: "P", doc: doc("P"), now: 1 });
+    const persist = new ProjectsPersist(resolveOpening(env("?project=p")), { storage: null });
+    await persist.read();
+    void persist.write(doc("Edited", 2));
+    void persist.write(doc("Edited again", 3));
+    const report = await persist.flush();
+    expect(report).toMatchObject({ ok: true, file: null, browser: { status: "saved", handed: 2, kept: 2 } });
+    expect(await titleKept("p")).toBe("Edited again");
+  });
+
+  it("notes the last edit at once when the page goes before it is written, and the next tab offers it back", async () => {
+    await createProject({ id: "p", name: "P", doc: doc("P"), now: 1 });
+    const items: Record<string, string> = {};
+    const persist = new ProjectsPersist(resolveOpening(env("?project=p", items)), { storage: storage(items) });
+    await persist.read();
+    /* the write cannot land before the page is gone */
+    refuse = () => new DOMException("gone", "UnknownError");
+    const write = persist.write(doc("Last edit", 2))!.catch(() => {});
+    persist.commitNow();
+    expect(JSON.parse(items[unsavedKey("p")]).doc.title).toBe("Last edit");
+    await write;
+    refuse = null;
+
+    const next = await resolveOpening(env("?project=p", items));
+    expect(next.mode === "projects" && next.recovered?.doc.title).toBe("Last edit");
+    const again = new ProjectsPersist(Promise.resolve(next), { storage: storage(items) });
+    await again.read();
+    expect(again.recovered?.doc.title).toBe("Last edit");
+    again.dropRecovered();
+    expect(items[unsavedKey("p")]).toBeUndefined();
+    expect(again.recovered).toBeNull();
+  });
+
+  it("forgets the note once the write it was for lands, and offers nothing when what is kept is that version", async () => {
+    await createProject({ id: "p", name: "P", doc: doc("P"), now: 1 });
+    const items: Record<string, string> = {};
+    const persist = new ProjectsPersist(resolveOpening(env("?project=p", items)), { storage: storage(items) });
+    await persist.read();
+    const done = persist.write(doc("Landed", 2));
+    persist.commitNow();
+    expect(items[unsavedKey("p")]).toBeTruthy();
+    await done;
+    expect(items[unsavedKey("p")]).toBeUndefined();
+
+    /* a note left by a page that went just after its write landed */
+    items[unsavedKey("p")] = JSON.stringify({ at: 5, doc: doc("Landed", 2) });
+    const next = await resolveOpening(env("?project=p", items));
+    expect(next.mode === "projects" && next.recovered).toBeFalsy();
+    expect(items[unsavedKey("p")]).toBeUndefined();
   });
 });
