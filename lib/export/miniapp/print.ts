@@ -63,7 +63,7 @@ import { iconNamesOf } from "../rn/print";
 
 /** something the printed app does not do as the design says, for the exporter to list */
 export type MiniWarning = {
-  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "look" | "image" | "unknown" | "binding" | "scroll" | "link";
+  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "look" | "image" | "unknown" | "binding" | "scroll" | "link" | "input";
   screen?: string;
   part?: string;
   detail: string;
@@ -499,7 +499,12 @@ class ScreenPrinter {
    *  bound to), so a condition can read it */
   input(def: PartDef, it: Item, at: At): { skip?: string; props: [string, string][] } {
     const key = INPUT_PROPS[def.slug];
-    if (!key) return { props: [] };
+    if (!key) {
+      /* a part that declares an input the kit does not wire keeps its value to itself here, and says so where it is read */
+      const own = def.input?.prop;
+      if (own && ((it.field && at.form) || (typeof it.bind?.[own] === "string" && !it.bind[own].startsWith("=")))) this.warn("input", "what is entered here does not reach its variable or form in a mini-program", it.id);
+      return { props: [] };
+    }
     const prop = kitPropName(def.slug, key);
     const values = propValues(def, it.props);
     const labels = key === "selected" ? listLabels(def, it) : undefined;

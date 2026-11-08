@@ -186,6 +186,8 @@ describe("the exports", () => {
     for (const app of ["web", "mobile", "miniapp"] as const) {
       const kinds = Object.fromEntries(counts.find((c) => c.app === app)?.kinds ?? []);
       expect(kinds, app).toMatchObject({ demo: 1, event: 1, interface: 1, capability: 1 });
+      /* the web wires a widget's input to its variable; the phone apps' kits do not yet, and say so */
+      expect(kinds.input, app).toBe(app === "web" ? undefined : 1);
     }
     const warnings = JSON.parse(String(product.files["apps/web/src/generated/warnings.json"].body)) as { kind: string; detail: string }[];
     expect(warnings.find((w) => w.kind === "interface")?.detail).toContain('"payNow"');

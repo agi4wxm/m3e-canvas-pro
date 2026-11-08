@@ -70,7 +70,7 @@ import { SET_ONLY, plainTree, propValues, type PlainNode } from "./data";
 
 /** something the printed app does not do as the design says, for the exporter to list */
 export type RnWarning = {
-  kind: "placeholder" | "atoms" | "holder" | "effects" | "condition" | "hidden" | "trigger" | "slot" | "look" | "image" | "unknown" | "binding";
+  kind: "placeholder" | "atoms" | "holder" | "effects" | "condition" | "hidden" | "trigger" | "slot" | "look" | "image" | "unknown" | "binding" | "input";
   /** the screen, by its name */
   screen?: string;
   /** the part, by its id */
@@ -263,6 +263,8 @@ const NAV_BARS = new Set(["navigation-bar", "tab-bar", "floating-nav", "navigati
 
 /** the inputs a form fills: what each enters a field with */
 const FILE_INPUTS = new Set(["file-upload"]);
+/** the inputs whose kit control the printer wires to a form field or a variable */
+const RN_INPUTS = new Set(["input", "text-field", "textarea", "switch", "checkbox", "slider", "select", "radio-group"]);
 
 /** Every action body the document holds: each part's taps, their else, the then and catch of their calls, and a form's. */
 function eachBody(doc: Doc, fn: (b: ActionBody & { when?: Condition }, item?: Item) => void) {
@@ -633,8 +635,15 @@ class ScreenPrinter {
   /** An input's wiring: the form field it fills, the variable it is bound to, or what a condition asks of it. What it
    *  says takes the place of the design's value and error. */
   input(def: PartDef, it: Item, props: [string, string][]): [string, string][] {
-    const key = INPUT_PROP[def.slug];
     const slug = def.slug;
+    /* the inputs the kit's own controls take a value and a change for; another part that declares an input keeps its
+       value to itself on a phone, and says so where something reads it */
+    const known = INPUT_PROP[slug] !== undefined && RN_INPUTS.has(slug);
+    if (INPUT_PROP[slug] !== undefined && !known && ((it.field && this.ctx.form) || (typeof it.bind?.[INPUT_PROP[slug]] === "string" && !it.bind[INPUT_PROP[slug]].startsWith("=")) || this.facts.filled.has(it.id))) {
+      this.warn("input", "what is entered here does not reach its variable or form on a phone", it.id);
+      return [];
+    }
+    const key = known ? INPUT_PROP[slug] : undefined;
     const has = (k: string) => def.props.some((d) => d.key === k);
     const form = this.ctx.form;
     if (it.field && form && (key !== undefined || FILE_INPUTS.has(slug) || slug === "date-picker")) {
