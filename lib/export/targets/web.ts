@@ -182,12 +182,11 @@ export const webTarget: ProductTarget = {
       files[to] = generated(text);
     }
 
-    /* the screens' keys, in order, out of the runtime the prototype wrote (its ScreenId type) */
-    const runtime = proto["src/runtime.tsx"] as string;
-    const ids = /^export type ScreenId = (.*)$/m.exec(runtime)?.[1] ?? "";
-    const keys = [...ids.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`) as string);
-    const start = /^const START_SCREEN: ScreenId = (".*")$/m.exec(runtime)?.[1];
-    files["src/generated/routes.ts"] = generated(routesSource(keys, start ? (JSON.parse(start) as string) : keys[0], project.spec?.bound?.params ?? {}));
+    /* the screens' keys, in order, and the one the app starts on, from what the runtime was written for: the first
+       flow's starting screen, else the first screen (lib/runtimeSource.ts START_SCREEN) */
+    const keys = project.spec?.screens ?? [];
+    const start = project.spec?.flows?.[0]?.screen ?? keys[0];
+    files["src/generated/routes.ts"] = generated(routesSource(keys, start, project.spec?.bound?.params ?? {}));
     files["src/generated/routes.test.ts"] = generated(ROUTER_TEST);
     files["src/generated/router.ts"] = generated(ROUTER);
     files["src/generated/api.ts"] = generated(API_CLIENT(ctx.scope, ctx.name, ctx.lang, api));
