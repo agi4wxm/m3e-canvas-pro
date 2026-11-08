@@ -64,6 +64,8 @@ import { fallbackTransport, signedInAtStart } from "@/lib/bindings/transport";
 import { BoundValues } from "./boundValues";
 import { boundTextIds, wordsHeight } from "./previewText";
 import { MockLogPanel, MockScenarioSwitch, PreviewMocksContext, usePreviewMocks } from "./MockPreview";
+import { createMockCapabilities } from "@/lib/capabilities/mock";
+import type { CapabilityHost, InvokeOutcome } from "@/lib/capabilities/types";
 import { PRESETS, variantFor } from "@/lib/variants";
 import { flowStarts } from "@/lib/prototype";
 import { EASE, SLIDE_S as SLIDE_MS, screenPoses, type ScreenMove } from "@/lib/screenMotion";
@@ -665,6 +667,7 @@ export function Preview({
   startId,
   onClose,
   transport,
+  capabilities,
 }: {
   doc: Doc;
   widths: Record<string, number>;
@@ -673,6 +676,9 @@ export function Preview({
   onClose: () => void;
   /** what the preview's calls to the API go through (the mock library); a stand-in when none is given */
   transport?: Transport;
+  /** what the preview's invokes of platform capabilities go through (the mock library's); the catalog's examples when
+   *  none is given */
+  capabilities?: CapabilityHost;
 }) {
   const lang = useLang();
   const frames = doc.frames;
@@ -944,9 +950,47 @@ export function Preview({
       case "submit":
         void submitNow(e.form, tap, depth).catch(() => {});
         return;
+      case "invoke":
+        void invokeNow(e, tap, extra, depth).catch(() => {});
+        return;
       default:
         return;
     }
+  };
+
+  /** An invoke of a platform capability (docs/交互规则.md, “调用能力”): its arguments read now, the mocks (or what the
+   *  preview is handed) answer; `then` reads `result`, `catch` reads `error`. An answer to a session started over is
+   *  dropped, one the same part has asked again since gives way; once the visitor has moved on its effects still run,
+   *  but it goes nowhere. */
+  const invokeNow = async (e: Extract<Effect, { do: "invoke" }>, tap: Tap, extra: Scope | undefined, depth: number) => {
+    if (depth > 4) return;
+    const { frame: f, it } = tap;
+    const ctx = ctxOf(tap, depth);
+    const scope = scopeOf({ ...stateRef.current, ...(ctx ? { ctx } : {}) }, it, extra);
+    const args: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(e.args ?? {})) {
+      const v = typeof x === "string" ? evaluate(x, scope, ctx?.eval) : undefined;
+      if (v !== undefined) args[k] = v;
+    }
+    const newest = ask(`invoke:${f.id}|${it?.id ?? ""}|${e.capability}`);
+    const epoch = capabilityEpoch.current;
+    let out: InvokeOutcome;
+    try {
+      out = await capabilityRef.current.invoke(e.capability, args);
+    } catch (err) {
+      out = { ok: false, error: { type: "failed", capability: e.capability, ...(err instanceof Error ? { message: err.message.slice(0, 200) } : {}) } };
+    }
+    if ((!out.ok && out.dropped) || epoch !== capabilityEpoch.current || !newest()) return;
+    /* the link a link.open was given leaves the sketch the way a link action does */
+    if (out.ok && e.capability === "link.open") {
+      const href = linkUrlOf({ url: typeof args.url === "string" ? args.url : undefined });
+      if (href) window.open(href, "_blank", "noopener,noreferrer");
+    }
+    const branch = out.ok ? e.then : e.catch;
+    if (!branch) return;
+    const here = stillThere(tap);
+    const body = here ? branch : { ...branch, to: STAY_TARGET, transition: "none" as const, scrollTo: undefined };
+    runBody.current(body, tap, out.ok ? { ...extra, result: out.result } : { ...extra, error: out.error }, depth + 1);
   };
 
   /** whether the visitor is still where the tap left them: an answer that comes after they moved on runs no `then` or `catch` */
@@ -1048,7 +1092,20 @@ export function Preview({
   const pageTransport = typeof window !== "undefined" ? window.m3ePreviewTransport : undefined;
   const api = doc.api;
   const standIn = useMemo(() => fallbackTransport({ api }), [api]);
-  const answering: Transport | null = pageTransport ?? transport ?? mocks?.transport ?? (api?.endpoints?.length ? null : standIn);
+  const hasApi = !!api?.endpoints?.length || !!api?.channels?.length;
+  const answering: Transport | null = pageTransport ?? transport ?? (hasApi ? mocks?.transport : undefined) ?? (api?.endpoints?.length ? null : standIn);
+  /* The capabilities: what the preview is handed, else the mocks' (in the scenario on show), else the catalog's examples.
+     Another one is another session: what the one before answers late lands nowhere. */
+  const mockCapabilities = doc.mocks;
+  const ownCapabilities = doc.capabilities;
+  const standInCapabilities = useMemo(() => createMockCapabilities({ ...mockCapabilities, locale: mockCapabilities?.locale ?? lang }, ownCapabilities, { scenario: mockCapabilities?.scenario }), [mockCapabilities, ownCapabilities, lang]);
+  const capabilityHost: CapabilityHost = capabilities ?? mocks?.capabilities ?? standInCapabilities;
+  const capabilityRef = useRef(capabilityHost);
+  const capabilityEpoch = useRef(0);
+  if (capabilityRef.current !== capabilityHost) {
+    capabilityRef.current = capabilityHost;
+    capabilityEpoch.current++;
+  }
   const transportRef = useRef<Transport | null>(answering);
   transportRef.current = answering;
   const langRef = useRef(lang);

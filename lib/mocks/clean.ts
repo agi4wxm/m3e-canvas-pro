@@ -6,6 +6,7 @@
 import { cleanJson, compact } from "../api/clean";
 import { isRecord } from "../api/schema";
 import { fields, withUnknown } from "../keep";
+import { CAPABILITY_NAME, FAILURE_KINDS, type FailureKind, type MockCapabilityRule } from "../capabilities/types";
 import { MAX_COUNT, MOCK_KINDS, MOCK_LOCALES, MOCK_ROUTE_KINDS, type MockAuth, type MockFile, type MockHint, type MockKind, type MockLocale, type MockModelConfig, type MockOpRule, type MockRealtimeScript, type MockRealtimeTrigger, type MockRouteRule, type MockScenario, type MockSpec, type MockStep } from "./types";
 
 /** how much the mock settings may hold */
@@ -36,13 +37,14 @@ type Budget = { nodes: number };
 
 /* What each object of the settings has. A field this version does not know is kept as it came, copied as plain JSON
    within the budget (lib/keep.ts), after the fields it knows. */
-const SPEC = fields("seed", "locale", "scenario", "latency", "errorRate", "models", "scenarios", "files", "realtime", "auth", "routes");
+const SPEC = fields("seed", "locale", "scenario", "latency", "errorRate", "models", "scenarios", "files", "realtime", "auth", "routes", "capabilities");
 const RANGE = fields("min", "max");
 const HINT = fields("kind", "min", "max", "from", "to", "weights", "values", "value", "files", "type", "nullRate");
 const MODEL = fields("name", "count", "seed", "hints", "fixtures");
-const STEP = fields("status", "body", "latencyMs", "network", "empty");
-const RULE = fields("status", "body", "latencyMs", "network", "empty", "fixtures", "sequence");
-const SCENARIO = fields("id", "name", "description", "all", "ops", "latency", "errorRate", "counts", "signedIn");
+const STEP = fields("status", "body", "patch", "latencyMs", "network", "empty");
+const RULE = fields("status", "body", "patch", "latencyMs", "network", "empty", "fixtures", "sequence");
+const SCENARIO = fields("id", "name", "description", "all", "ops", "latency", "errorRate", "counts", "signedIn", "capabilities");
+const CAPABILITY_RULE = fields("result", "fail", "message", "delayMs");
 const FILE = fields("id", "name", "type", "data", "tags");
 const TRIGGER = fields("on", "operationId", "message");
 const SCRIPT = fields("id", "channel", "trigger", "steps", "repeat");
@@ -111,6 +113,7 @@ function cleanStep(v: unknown, b: Budget, known: ReadonlySet<string> = STEP): Mo
   return withUnknown(v, compact({
     status: num(v.status, 0, 599) !== undefined ? Math.round(num(v.status, 0, 599)!) : undefined,
     body: json(v.body, b),
+    patch: isRecord(v.patch) ? (json(v.patch, b) as Record<string, unknown>) : undefined,
     latencyMs: num(v.latencyMs, 0, 120_000),
     network: typeof v.network === "boolean" ? v.network : undefined,
     empty: typeof v.empty === "boolean" ? v.empty : undefined,
@@ -122,6 +125,20 @@ function cleanRule(v: unknown, b: Budget): MockOpRule | undefined {
   const fixtures: "all" | string[] | undefined = v.fixtures === "all" ? "all" : Array.isArray(v.fixtures) ? v.fixtures.filter((x): x is string => typeof x === "string").map((x) => x.slice(0, 200)).slice(0, 500) : undefined;
   const sequence = Array.isArray(v.sequence) ? v.sequence.slice(0, MOCK_LIMITS.sequence).map((s) => cleanStep(s, b)) : undefined;
   return compact({ ...cleanStep(v, b, RULE), fixtures, sequence: sequence?.length ? sequence : undefined });
+}
+
+/** how the capabilities answer, by capability name (lib/capabilities): a result laid over the catalog's example, or a
+ *  failure, after a delay */
+function cleanCapabilityRules(v: unknown, b: Budget): Record<string, MockCapabilityRule> | undefined {
+  if (!isRecord(v)) return undefined;
+  const out: Record<string, MockCapabilityRule> = {};
+  for (const [name, r] of Object.entries(v).slice(0, 200)) {
+    if (!CAPABILITY_NAME.test(name) || !isRecord(r)) continue;
+    const fail = typeof r.fail === "string" && (FAILURE_KINDS as readonly string[]).includes(r.fail) ? (r.fail as FailureKind) : undefined;
+    const rule = withUnknown(r, compact({ result: json(r.result, b), fail, message: str(r.message, 200), delayMs: num(r.delayMs, 0, 60_000) !== undefined ? Math.round(num(r.delayMs, 0, 60_000)!) : undefined }), CAPABILITY_RULE, kept(b));
+    if (Object.keys(rule).length) out[name] = rule;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 function cleanScenario(v: unknown, b: Budget): MockScenario | undefined {
@@ -144,6 +161,7 @@ function cleanScenario(v: unknown, b: Budget): MockScenario | undefined {
     errorRate: num(v.errorRate, 0, 1),
     counts: counts && Object.keys(counts).length ? counts : undefined,
     signedIn: typeof v.signedIn === "boolean" ? v.signedIn : undefined,
+    capabilities: cleanCapabilityRules(v.capabilities, b),
   }), SCENARIO, kept(b));
 }
 
@@ -244,6 +262,7 @@ export function cleanMocks(v: unknown): MockSpec | undefined {
     realtime: Array.isArray(v.realtime) ? unique(v.realtime.slice(0, MOCK_LIMITS.realtime * 2).map((s) => cleanScript(s, b)), (s) => s.id, MOCK_LIMITS.realtime) : undefined,
     auth: cleanAuth(v.auth),
     routes: Array.isArray(v.routes) ? unique(v.routes.slice(0, MOCK_LIMITS.routes * 2).map(cleanRoute), (r) => r.operationId, MOCK_LIMITS.routes) : undefined,
+    capabilities: cleanCapabilityRules(v.capabilities, b),
   });
   const out = withUnknown(v, built, SPEC, kept(b));
   /* an empty list of scripts says "none", where no list at all plays the channels' defaults */

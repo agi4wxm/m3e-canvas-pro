@@ -1,3 +1,5 @@
+import type { MockCapabilityRule } from "../capabilities/types";
+
 /* The mock library of a document (`Doc.mocks`): how the API (Doc.api) is answered while the product is designed, with
  * no back end. Everything here is optional: a document with an API and no mock settings is answered with data made
  * from its schemas, seed 1, in the editor's language. What is kept is only what the author (or the AI) chose: a seed
@@ -5,7 +7,8 @@
  * named scenarios (new user, lots of data, network error, slow network, signed out…), a library of files of every
  * kind, scripts of realtime messages, and how signing in behaves. docs/模拟库.md describes it.
  *
- * Plain data, no imports but the API's types: the editor, the MCP server and the exported packages/mocks read it. */
+ * Plain data, no imports but the API's and the capabilities' types: the editor, the MCP server and the exported
+ * packages/mocks read it. */
 
 /** the languages made-up words, names, addresses and phone numbers come in */
 export const MOCK_LOCALES = ["zh", "en", "ja", "ko"] as const;
@@ -117,6 +120,8 @@ export type MockStep = {
   status?: number;
   /** the body to answer with, in place of the generated one */
   body?: unknown;
+  /** fields laid over the answer as it would be (an order's `status` in a scenario of its own), when it is an object */
+  patch?: Record<string, unknown>;
   /** how long it takes, in ms, in place of the scenario's latency */
   latencyMs?: number;
   /** the network fails: no answer arrives (status 0) */
@@ -151,6 +156,9 @@ export type MockScenario = {
   counts?: Record<string, number>;
   /** whether the session starts signed in, in place of the auth setting */
   signedIn?: boolean;
+  /** how the platform capabilities answer in this situation, by capability (lib/capabilities): a payment cancelled,
+   *  the location denied; over the document's own `capabilities` */
+  capabilities?: Record<string, MockCapabilityRule>;
 };
 
 /** A file of the mock library: a picture, a PDF, an Office file, a table, data, text, an archive, audio, video, a 3D
@@ -223,6 +231,8 @@ export type MockSpec = {
   realtime?: MockRealtimeScript[];
   auth?: MockAuth;
   routes?: MockRouteRule[];
+  /** how the platform capabilities answer, by capability, in every scenario that says nothing of its own */
+  capabilities?: Record<string, MockCapabilityRule>;
 };
 
 /** the most records a model may have */

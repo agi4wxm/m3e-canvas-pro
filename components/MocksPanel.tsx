@@ -1,4 +1,6 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { FAILURE_KINDS, type FailureKind, type MockCapabilityRule } from "@/lib/capabilities/types";
+import { FAILURE_WORDS } from "@/lib/i18n/capabilities";
 import type { Collection, Palette } from "@/lib/tokens";
 import type { ApiSpec, JsonSchema, JsonSchemaObject } from "@/lib/api";
 import { ops } from "@/lib/core";
@@ -19,7 +21,39 @@ const FileFacts = lazy(() => import("./MockFilePreview").then((m) => ({ default:
  * placeholders); the realtime scripts; seed, language, latency and sign-in. Every change is an operation of the core
  * (lib/core/ops/mocks.ts), one undo step each, so the panel writes exactly what the in-app agent and MCP write. */
 
-type Props = { p: Palette; api: ApiSpec | undefined; mocks: MockSpec | undefined; collections: Collection[]; run: ApiRun; paint: ((prompt: string) => Promise<string>) | null };
+type Props = { p: Palette; api: ApiSpec | undefined; mocks: MockSpec | undefined; collections: Collection[]; run: ApiRun; paint: ((prompt: string) => Promise<string>) | null; capabilities?: string[] };
+
+/** the platform capabilities the document invokes (lib/capabilities): the ones whose answers the mocks can be told */
+const CapabilitiesContext = createContext<string[]>([]);
+
+/** How the mocks answer each capability the design invokes: done (the catalog's example) or failing one way, after a
+ *  delay; in every scenario, or in one (docs/平台能力.md). Each change is set_mock_capability, one undo step. */
+function CapabilityRules({ rules, scenario, run, p }: { rules: Record<string, MockCapabilityRule> | undefined; scenario?: string; run: ApiRun; p: Palette }) {
+  const lang = useLang();
+  const names = useContext(CapabilitiesContext);
+  if (!names.length) return null;
+  const options = [{ key: "", label: t("capAnswerOk", lang) }, ...FAILURE_KINDS.map((k) => ({ key: k, label: t(FAILURE_WORDS[k], lang) }))];
+  return (
+    <div data-mocks-capabilities={scenario ?? ""} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={label(p)} title={t("capMocksHint", lang)}>
+        {t("capMocks", lang)}
+      </div>
+      {names.map((name) => {
+        const r = rules?.[name];
+        const set = (patch: Record<string, unknown>) => run(ops.setMockCapability, { capability: name, ...(scenario ? { scenario } : {}), ...patch });
+        return (
+          <div key={name} data-mocks-capability={name} style={{ ...row, gap: 6 }}>
+            <span style={{ ...mono, color: p.onSurface, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+            <div style={{ width: 132 }}>
+              <Select options={options} value={r?.fail ?? ""} onChange={(k) => set({ fail: (k || null) as FailureKind | null })} p={p} label={name} height={28} />
+            </div>
+            <Cell value={r?.delayMs !== undefined ? String(r.delayMs) : ""} onCommit={(v) => set({ delayMs: num(v) === undefined ? null : Math.max(0, Math.min(60000, Math.round(num(v)!))) })} label={t("capDelay", lang)} p={p} width={56} numeric data={`capability-delay-${name}`} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 type Tab = "scenarios" | "data" | "files" | "realtime" | "settings";
 const TAB_KEY = "m3e:mocks:tab";
@@ -123,6 +157,7 @@ function ScenarioEditor({ s, api, run, p }: { s: MockScenario; api: ApiSpec; run
         <Cell value={s.counts?.["*"] !== undefined ? String(s.counts["*"]) : ""} onCommit={(v) => update({ counts: num(v) === undefined ? null : { ...s.counts, "*": Math.max(0, Math.min(5000, Math.round(num(v)!))) } })} label={t("mocksDefault", lang)} p={p} width={64} numeric data="scenario-count" />
       </div>
       <Toggle on={s.signedIn === false} onChange={(v) => update({ signedIn: v ? false : null })} p={p} label={t("mocksSignedOut", lang)} grow />
+      <CapabilityRules rules={s.capabilities} scenario={s.id} run={run} p={p} />
       <div style={label(p)}>{t("mocksOps", lang)}</div>
       {Object.entries(s.ops ?? {}).map(([id, r]) => (
         <div key={id} style={{ display: "flex", flexDirection: "column", gap: 4, padding: 6, borderRadius: 8, background: p.surfaceContainer }}>
@@ -674,6 +709,7 @@ function SettingsTab({ api, mocks, run, p }: { api: ApiSpec; mocks: MockSpec; ru
         <span style={{ ...label(p), flex: 1 }}>{t("mocksErrorRate", lang)}</span>
         <Cell value={String(Math.round((mocks.errorRate ?? 0) * 100))} onCommit={(v) => num(v) !== undefined && run(ops.setMocks, { errorRate: Math.max(0, Math.min(1, num(v)! / 100)) || null })} label="%" p={p} width={64} numeric />
       </div>
+      <CapabilityRules rules={mocks.capabilities} run={run} p={p} />
       {secured && (
         <div style={{ ...card(p), gap: 6 }}>
           <span style={label(p)}>{t("mocksAuth", lang)}</span>
@@ -723,7 +759,15 @@ function SettingsTab({ api, mocks, run, p }: { api: ApiSpec; mocks: MockSpec; ru
 
 /* ---------- the tab ---------- */
 
-export function MocksPanel({ p, api: given, mocks: givenMocks, collections, run, paint }: Props) {
+export function MocksPanel(props: Props) {
+  return (
+    <CapabilitiesContext.Provider value={props.capabilities ?? []}>
+      <MocksPanelBody {...props} />
+    </CapabilitiesContext.Provider>
+  );
+}
+
+function MocksPanelBody({ p, api: given, mocks: givenMocks, collections, run, paint }: Props) {
   const lang = useLang();
   const api = given ?? {};
   const mocks = givenMocks ?? {};

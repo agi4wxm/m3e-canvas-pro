@@ -2,16 +2,24 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import type { Doc, Palette } from "@/lib/tokens";
 import type { Transport } from "@/lib/api/transport";
 import type { MockLogEntry, MockTransport, Route } from "@/lib/mocks";
+import { createMockCapabilities, type CapabilityLogEntry, type MockCapabilities } from "@/lib/capabilities/mock";
+import { FAILURE_WORDS } from "@/lib/i18n/capabilities";
 import { t, useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
 
 /* The preview's mock library (lib/mocks, docs/模拟库.md): one mock transport per preview session, which the preview's
- * runtime calls the API through (`useMockTransport`), a switch of scenario in the preview's bar, and a log of the
- * requests with a way to try an endpoint by hand. The mocks load with the first preview of a document that has an
- * API, never with the editor. A scenario switched here is the preview's own: the document keeps its choice. */
+ * runtime calls the API through (`useMockTransport`), the platform capabilities answered the same way
+ * (lib/capabilities/mock.ts: a payment submitted or cancelled, the location denied), a switch of scenario in the
+ * preview's bar, and a log of the requests and the invokes with a way to try an endpoint by hand. The mocks load with
+ * the first preview of a document that has an API or scenarios, never with the editor. A scenario switched here is the
+ * preview's own: the document keeps its choice. */
 
 export type PreviewMocks = {
   transport: MockTransport;
+  /** what the preview's invokes go through, in the same scenario and session */
+  capabilities: MockCapabilities;
+  /** the invokes, as the log lists them beside the requests */
+  invocations: CapabilityLogEntry[];
   scenario: string | undefined;
   setScenario: (id: string | undefined) => void;
   /** starts the data over in the same scenario */
@@ -33,13 +41,15 @@ export const PreviewMocksContext = createContext<PreviewMocks | null>(null);
 export const useMockTransport = (): Transport | null => useContext(PreviewMocksContext)?.transport ?? null;
 
 /** the preview's mocks, made from the document's API and mock settings when the preview opens */
-export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections">): PreviewMocks | null {
+export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections" | "capabilities">): PreviewMocks | null {
   const lang = useLang();
-  const has = !!doc.api?.endpoints?.length || !!doc.api?.channels?.length;
-  const [made, setMade] = useState<{ transport: MockTransport; routes: Route[] } | null>(null);
+  /* a document with no API may still have scenarios that say how its capabilities answer */
+  const has = !!doc.api?.endpoints?.length || !!doc.api?.channels?.length || !!doc.mocks?.scenarios?.length || !!doc.mocks?.capabilities;
+  const [made, setMade] = useState<{ transport: MockTransport; capabilities: MockCapabilities; routes: Route[] } | null>(null);
   const [scenario, setScenarioNow] = useState<string | undefined>(undefined);
   const [session, setSession] = useState(0);
   const [log, setLog] = useState<MockLogEntry[]>([]);
+  const [invocations, setInvocations] = useState<CapabilityLogEntry[]>([]);
   const answers = useRef(new Map<number, string>());
   useEffect(() => {
     if (!has) return;
@@ -58,35 +68,43 @@ export function usePreviewMocks(doc: Pick<Doc, "api" | "mocks" | "collections">)
         return out;
       };
       transport = made;
-      setMade({ transport: made, routes: m.compileRoutes(doc.api ?? {}, doc.mocks) });
+      const capabilities = createMockCapabilities({ ...doc.mocks, locale: doc.mocks?.locale ?? lang }, doc.capabilities, { scenario: made.scenario, onLog: (e) => setInvocations((l) => [...l.slice(-199), e]) });
+      setMade({ transport: made, capabilities, routes: m.compileRoutes(doc.api ?? {}, doc.mocks) });
       setScenarioNow(made.scenario);
     });
     return () => {
       live = false;
       transport?.close();
     };
-  }, [has, doc.api, doc.mocks, doc.collections, lang]);
+  }, [has, doc.api, doc.mocks, doc.collections, doc.capabilities, lang]);
   return useMemo(
     () =>
       made && {
         transport: made.transport,
+        capabilities: made.capabilities,
+        invocations,
         routes: made.routes,
         scenario,
         setScenario: (id) => {
           made.transport.setScenario(id);
+          made.capabilities.setScenario(made.transport.scenario);
           setScenarioNow(made.transport.scenario);
           setSession((n) => n + 1);
         },
         reset: () => {
           made.transport.reset();
+          made.capabilities.reset();
           setSession((n) => n + 1);
         },
         session,
         log,
-        clearLog: () => setLog([]),
+        clearLog: () => {
+          setLog([]);
+          setInvocations([]);
+        },
         answers: answers.current,
       },
-    [made, scenario, log, session],
+    [made, scenario, log, invocations, session],
   );
 }
 
@@ -176,7 +194,6 @@ export function MockLogPanel({ mocks, p, onClose }: { mocks: PreviewMocks; p: Pa
   const lang = useLang();
   const tryable = mocks.routes.filter((r) => r.method === "GET");
   const [pick, setPick] = useState(tryable[0]?.operationId ?? "");
-  const mono: React.CSSProperties = { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11 };
   return (
     <div data-preview-log style={{ position: "absolute", left: 12, top: 12, width: 340, maxWidth: "calc(100vw - 24px)", maxHeight: "calc(100% - 96px)", display: "flex", flexDirection: "column", borderRadius: 20, background: p.surfaceContainerLow, boxShadow: "0 6px 24px rgba(0,0,0,0.18)", overflow: "hidden", pointerEvents: "auto", zIndex: 3 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 8px 6px 14px" }}>
@@ -216,8 +233,49 @@ export function MockLogPanel({ mocks, p, onClose }: { mocks: PreviewMocks; p: Pa
         </div>
       )}
       <div className="no-scrollbar" style={{ overflowY: "auto", padding: "0 6px 8px", display: "flex", flexDirection: "column", gap: 2 }}>
-        {mocks.log.length === 0 && <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "6px 8px" }}>{t("mocksLogEmpty", lang)}</div>}
-        {[...mocks.log].reverse().map((e) => (
+        {mocks.log.length === 0 && mocks.invocations.length === 0 && <div style={{ fontSize: 12, color: p.onSurfaceVariant, padding: "6px 8px" }}>{t("mocksLogEmpty", lang)}</div>}
+        {[...mocks.log.map((e): LogRow => ({ at: e.at, request: e })), ...mocks.invocations.map((e): LogRow => ({ at: e.at, invoke: e }))]
+          .sort((a, b) => b.at - a.at)
+          .map((x) => (x.invoke ? <InvokeRow key={`i${x.invoke.id}`} e={x.invoke} p={p} /> : x.request ? <RequestRow key={`r${x.request.id}`} e={x.request} mocks={mocks} p={p} /> : null))}
+      </div>
+    </div>
+  );
+}
+
+/** a line of the log: a request, or an invoke */
+type LogRow = { at: number; request?: MockLogEntry; invoke?: CapabilityLogEntry };
+
+const MONO: React.CSSProperties = { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11 };
+
+/** what a capability gave back, in a few words */
+const resultWords = (v: unknown) => {
+  if (v === undefined || v === null) return "";
+  const text = typeof v === "string" ? v : JSON.stringify(v);
+  return text === "{}" ? "" : text.slice(0, 80);
+};
+
+/** One invoke of a capability: its name, what it came to (a failure by its kind), how long it took. */
+function InvokeRow({ e, p }: { e: CapabilityLogEntry; p: Palette }) {
+  const lang = useLang();
+  return (
+    <div data-preview-log-invoke={e.capability} data-outcome={e.ok ? "ok" : e.failure} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", columnGap: 8, alignItems: "center", padding: "6px 8px", borderRadius: 10, background: p.surfaceContainer }}>
+      <span style={{ ...MONO, fontWeight: 700, color: p.onSurfaceVariant }}>{t("capLogInvoke", lang)}</span>
+      <span style={{ ...MONO, color: p.onSurface, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={JSON.stringify(e.args)}>
+        {e.capability}
+      </span>
+      <span style={{ ...MONO, fontWeight: 700, color: e.ok ? p.primary : p.error }}>{e.ok ? "ok" : e.failure}</span>
+      <span />
+      <span style={{ fontSize: 11, color: p.onSurfaceVariant, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.ok ? resultWords(e.result) : t(FAILURE_WORDS[e.failure ?? "failed"], lang)}</span>
+      <span style={{ ...MONO, color: p.onSurfaceVariant }}>{e.ms} ms</span>
+    </div>
+  );
+}
+
+/** one request to the API and what it answered */
+function RequestRow({ e, mocks, p }: { e: MockLogEntry; mocks: PreviewMocks; p: Palette }) {
+  const lang = useLang();
+  const mono = MONO;
+  return (
           <div key={e.id} data-preview-log-entry={e.operationId ?? ""} data-status={e.status} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", columnGap: 8, alignItems: "center", padding: "6px 8px", borderRadius: 10, background: p.surfaceContainer }}>
             <span style={{ ...mono, fontWeight: 700, color: p.onSurfaceVariant }}>{e.method}</span>
             <span style={{ ...mono, color: p.onSurface, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={e.path}>
@@ -230,8 +288,5 @@ export function MockLogPanel({ mocks, p, onClose }: { mocks: PreviewMocks; p: Pa
             </span>
             <span style={{ ...mono, color: p.onSurfaceVariant }}>{e.ms} ms</span>
           </div>
-        ))}
-      </div>
-    </div>
   );
 }
