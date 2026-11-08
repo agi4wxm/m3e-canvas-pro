@@ -3,8 +3,10 @@
  * a project saved to a file (the browser's own private file system stands in for the picker) and kept up to date,
  * reconnected after a reload, opened back as a project, and not written over when the file changed elsewhere; a save
  * the browser refuses shown and holding the tab on its project until tried again; two tabs without Web Locks never
- * writing over each other; an edit whose save the page did not live to finish offered back. */
+ * writing over each other; an edit whose save the page did not live to finish offered back; a share link carrying
+ * what the author chose. */
 
+import { inflateRawSync } from "node:zlib";
 import { check, clickAdd, equal, projectId, ready, savedDoc, settle, type Doc, type E2ETest, type Page } from "./lib";
 
 const pill = (page: Page) => page.locator("[data-project-pill]").first();
@@ -510,6 +512,62 @@ export const tests: E2ETest[] = [
       await page.locator("[data-recovery-restore]").click();
       await settle(page, 1500);
       check(hasPart(await savedDoc(page), "chip"), "restored, and kept");
+    },
+  },
+  {
+    name: "projects: a link carries what the author chose, listed and shown before it is copied",
+    async run({ page }) {
+      /* a design with a contract and sample data, one record of which must not leave this computer */
+      const starter = await savedDoc(page);
+      const product = {
+        ...starter,
+        title: "Shop",
+        collections: [{ id: "people", name: "People", fields: ["name"], rows: [["Ann"], ["Bo"]] }],
+        api: {
+          info: { title: "Shop" },
+          servers: [{ name: "prod", url: "https://internal.private.test/v1" }],
+          models: [{ name: "User", schema: { type: "object", properties: { email: { type: "string" } } } }],
+          endpoints: [{ operationId: "me", method: "get", path: "/me", responses: { "200": { description: "OK" } } }],
+        },
+        mocks: { seed: 2, models: [{ name: "User", count: 3, fixtures: [{ email: "SENSITIVE-FIXTURE@private.test" }] }] },
+      };
+      await page.evaluate((h) => (location.hash = h), `#doc=${encodeURIComponent(JSON.stringify(product))}`);
+      await settle(page, 1500);
+      await keepButton(page).first().click();
+      await settle(page, 600);
+      await page.locator("button").filter({ hasText: "Ask an AI" }).first().click();
+      await page.locator('[role="dialog"] button').filter({ hasText: "Copy link" }).first().click();
+      await page.waitForSelector("[data-share-link-dialog]", { timeout: 10_000 });
+      /** the document the link shown in the dialog carries */
+      const carried = async () => {
+        await page.waitForSelector("[data-share-size]", { timeout: 10_000 });
+        const link = await page.locator("[data-share-link]").inputValue();
+        const packed = new URL(link).hash.slice("#docz=".length);
+        return JSON.parse(inflateRawSync(Buffer.from(packed, "base64url")).toString("utf8")) as Doc & { api?: { endpoints?: unknown[]; models?: unknown[] }; mocks?: { models?: { fixtures?: unknown[] }[] } };
+      };
+      /* the design alone, by default: the collection listed, nothing of the API or the mock library */
+      check(await page.locator('[data-share-item="collection:people"][data-included="1"]').count(), "the collection is listed and carried");
+      equal(await page.locator('[data-share-item^="api:"], [data-share-item^="mocks:"]').count(), 0, "nothing of the contract is listed");
+      let doc = await carried();
+      check(!doc.api && !doc.mocks, "the link carries no contract and no mock library");
+      equal(doc.collections?.[0]?.rows?.length, 2, "it carries the collection's rows");
+
+      /* the whole contract, one record left out */
+      await page.locator('[data-share-link-dialog] [role="radio"]').filter({ hasText: "Full contract" }).first().click();
+      await page.waitForSelector('[data-share-item="api:endpoints"][data-included="1"]', { timeout: 5000 });
+      await page.locator('[data-share-item="mocks:fixtures:User"] button').first().click();
+      await page.waitForSelector('[data-share-item="mocks:fixtures:User"][data-included="0"]', { timeout: 5000 });
+      await settle(page, 400);
+      doc = await carried();
+      equal(doc.api?.endpoints?.length, 1, "the endpoints are carried");
+      check(!JSON.stringify(doc).includes("SENSITIVE-FIXTURE"), "the record left out is not in the link");
+      await page.locator("[data-share-preview] summary").click();
+      const shown = (await page.locator("[data-share-preview] pre").textContent()) ?? "";
+      check(shown.includes('"operationId": "me"') && !shown.includes("SENSITIVE-FIXTURE"), "the preview shows what the link carries");
+      await page.keyboard.press("Escape");
+      await settle(page, 300);
+      equal(await page.locator("[data-share-link-dialog]").count(), 0, "Escape closes the link dialog");
+      check(await page.locator('[role="dialog"]').filter({ hasText: "Ask an AI" }).count(), "and only it");
     },
   },
   {

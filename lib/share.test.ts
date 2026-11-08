@@ -1,6 +1,6 @@
 import { deflateRawSync, inflateRawSync } from "node:zlib";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DOC_PARAM, DOCZ_PARAM, hasShareHash, readShareHash, shareable, shareLink } from "./share";
+import { DOC_PARAM, DOCZ_PARAM, hasShareHash, readShareHash, readShareLink, SHARE_LIMITS, shareable, shareItems, shareLink, ShareLinkError } from "./share";
 import type { Doc, Item } from "./tokens";
 
 const doc = (): Doc => ({
@@ -214,6 +214,151 @@ describe("shareLink and readShareHash", () => {
   it("returns null for compressed input when decompression is unavailable", async () => {
     vi.stubGlobal("DecompressionStream", undefined);
     await expect(readShareHash(packedHash(JSON.stringify(doc())))).resolves.toBeNull();
+  });
+});
+
+describe("what a link carries", () => {
+  /** a product: a list repeating a collection, an API whose examples and a mock library whose records hold
+   *  something that must not leave the author's machine */
+  const product = (): Doc =>
+    ({
+      ...doc(),
+      groups: [{ id: "list", x: 0, y: 0, axis: "y", repeat: { collection: "people" }, items: [{ id: "row", kind: "component", component: "text", label: "", icon: null, variant: "filled", props: { text: "{{name}}" } }] }],
+      collections: [{ id: "people", name: "People", fields: ["name", "email"], rows: [["Ann", "ann@private.test"]] }],
+      api: {
+        info: { title: "Shop" },
+        servers: [{ name: "prod", url: "https://internal.private.test/v1" }],
+        models: [{ name: "User", schema: { type: "object", properties: { email: { type: "string", example: "SENSITIVE-EXAMPLE@private.test" }, examples: { type: "array" } } } }],
+        endpoints: [{ operationId: "me", method: "get", path: "/me", responses: { "200": { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/User" }, examples: { real: { value: { token: "SENSITIVE-TOKEN" } } } } } } } }],
+        auth: { schemes: { bearer: { type: "http", scheme: "bearer" } } },
+      },
+      mocks: {
+        seed: 3,
+        models: [{ name: "User", count: 5, fixtures: [{ email: "SENSITIVE-FIXTURE@private.test" }] }],
+        files: [{ id: "f", name: "contract.pdf", type: "application/pdf", data: "data:application/pdf;base64,AAAA" }],
+        auth: { accept: [{ email: "me@private.test", password: "SENSITIVE-PASSWORD" }] },
+      },
+    }) as unknown as Doc;
+  const keys = (d: Doc, o?: Parameters<typeof shareItems>[1]) => shareItems(d, o).filter((i) => i.included).map((i) => i.key);
+
+  it("lists what beyond the screens a link could carry, with how much of each and which scope carries it", () => {
+    expect(shareItems(product()).map(({ key, count, scope }) => [key, count, scope])).toEqual([
+      ["collection:people", 1, "look"],
+      ["api:models", 1, "samples"],
+      ["api:endpoints", 1, "full"],
+      ["api:auth", 1, "full"],
+      ["api:servers", 1, "full"],
+      ["api:examples", 2, "samples"],
+      ["mocks:fixtures:User", 1, "samples"],
+      ["mocks:files", 1, "samples"],
+      ["mocks:auth", 1, "samples"],
+    ]);
+  });
+
+  it("carries the design alone, with its sample data, or with the whole contract, as chosen", () => {
+    const look = shareable(product(), { scope: "look" });
+    expect(look.api).toBeUndefined();
+    expect(look.mocks).toBeUndefined();
+    expect(look.collections).toEqual(product().collections);
+    expect(keys(product(), { scope: "look" })).toEqual(["collection:people"]);
+
+    const samples = shareable(product(), { scope: "samples" });
+    expect(Object.keys(samples.api!)).toEqual(["info", "models"]);
+    expect(samples.mocks).toEqual(product().mocks);
+    expect(keys(product(), { scope: "samples" })).toEqual(["collection:people", "api:models", "api:examples", "mocks:fixtures:User", "mocks:files", "mocks:auth"]);
+
+    expect(shareable(product(), { scope: "full" })).toEqual(shareable(product()));
+    expect(shareable(product()).api).toEqual(product().api);
+  });
+
+  it("leaves out the examples, records and sign-in values asked, and nothing else", () => {
+    const omit = ["api:examples", "mocks:fixtures:User", "mocks:auth", "api:servers"];
+    const out = shareable(product(), { scope: "full", omit });
+    const text = JSON.stringify(out);
+    expect(text).not.toContain("SENSITIVE");
+    expect(text).not.toContain("internal.private.test");
+    /* a property that is called "examples" is a name, not an example */
+    expect(out.api!.models![0].schema).toEqual({ type: "object", properties: { email: { type: "string" }, examples: { type: "array" } } });
+    expect(out.api!.endpoints![0].responses["200"]).toEqual({ description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/User" } } } });
+    expect(out.mocks).toEqual({ seed: 3, models: [{ name: "User", count: 5 }], files: product().mocks!.files, auth: {} });
+    expect(out.api!.auth).toEqual(product().api!.auth);
+    expect(keys(product(), { scope: "full", omit })).toEqual(["collection:people", "api:models", "api:endpoints", "api:auth", "mocks:files"]);
+  });
+
+  it("keeps what the rest needs: a collection's fields for the list that repeats it, the models the endpoints refer to", () => {
+    const out = shareable(product(), { omit: ["collection:people", "api:models"] });
+    expect(out.collections).toEqual([{ id: "people", name: "People", fields: ["name", "email"], rows: [] }]);
+    expect(out.groups[0].repeat).toEqual({ collection: "people" });
+    expect(out.api!.models).toEqual(product().api!.models);
+    expect(shareItems(product(), { omit: ["api:models"] }).find((i) => i.key === "api:models")).toMatchObject({ included: true, locked: true });
+    /* without the endpoints, the models can go */
+    expect(shareable(product(), { omit: ["api:models", "api:endpoints"] }).api!.models).toBeUndefined();
+  });
+
+  it("goes through a link and back as chosen", async () => {
+    const link = await shareLink(product(), "https://example.test/", { scope: "samples", omit: ["mocks:fixtures:User"] });
+    const back = await readShareHash(new URL(link).hash);
+    expect(back?.api?.endpoints).toBeUndefined();
+    expect(JSON.stringify(back)).not.toContain("SENSITIVE-FIXTURE");
+    expect(back?.collections).toEqual(product().collections);
+  });
+});
+
+describe("limits on a link", () => {
+  const small = { ...SHARE_LIMITS, linkChars: 50_000, packedBytes: 20_000, jsonBytes: 200_000, depth: 32, nodes: 5_000 };
+
+  it("stops inflating a link that would come to more than allowed, long before it would all be held", async () => {
+    /* 16 MB of the same byte, some 16 kB compressed */
+    const bomb = deflateRawSync(Buffer.alloc(16 * 1024 * 1024, 0x20));
+    expect(bomb.length).toBeLessThan(small.packedBytes);
+    let produced = 0;
+    const Real = DecompressionStream;
+    vi.stubGlobal(
+      "DecompressionStream",
+      class {
+        readable: ReadableStream<Uint8Array>;
+        writable: WritableStream;
+        constructor(format: CompressionFormat) {
+          const inner = new Real(format);
+          this.writable = inner.writable;
+          this.readable = inner.readable.pipeThrough(
+            new TransformStream<Uint8Array, Uint8Array>({
+              transform(chunk, c) {
+                produced += chunk.byteLength;
+                c.enqueue(chunk);
+              },
+            }),
+          );
+        }
+      },
+    );
+    await expect(readShareLink(`#docz=${bomb.toString("base64url")}`, small)).resolves.toEqual({ doc: null, problem: "too-large" });
+    expect(produced).toBeLessThan(4 * 1024 * 1024);
+  });
+
+  it("refuses a link nested too deep, holding too many values, too long, or too large before reading it", async () => {
+    const deep = `{"groups":[],"frames":[],"x":${"[".repeat(500)}${"]".repeat(500)}}`;
+    await expect(readShareLink(plainHash(JSON.parse(deep)), small)).resolves.toEqual({ doc: null, problem: "too-deep" });
+    await expect(readShareLink(packedHash(deep), small)).resolves.toEqual({ doc: null, problem: "too-deep" });
+    const many = { groups: [], frames: [], x: Array.from({ length: 20_000 }, () => 0) };
+    await expect(readShareLink(packedHash(JSON.stringify(many)), small)).resolves.toEqual({ doc: null, problem: "too-many" });
+    await expect(readShareLink(`#doc=${"x".repeat(60_000)}`, small)).resolves.toEqual({ doc: null, problem: "too-long" });
+    const packed = Buffer.from(Array.from({ length: 30_000 }, (_, i) => (i * 7919) & 0xff)).toString("base64url");
+    await expect(readShareLink(`#docz=${packed}`, small)).resolves.toEqual({ doc: null, problem: "too-large" });
+    /* brackets inside strings are words, not nesting */
+    await expect(readShareLink(plainHash({ ...doc(), brief: "[".repeat(500) }), small)).resolves.toMatchObject({ doc: { brief: "[".repeat(500) } });
+  });
+
+  it("says a broken link is broken, and one without a design carries none", async () => {
+    await expect(readShareLink("#docz=!!!")).resolves.toEqual({ doc: null, problem: "broken" });
+    await expect(readShareLink("#doc=%7B")).resolves.toEqual({ doc: null, problem: "broken" });
+    await expect(readShareLink("#other=1")).resolves.toEqual({ doc: null });
+  });
+
+  it("will not make a link longer than a link can be", async () => {
+    const big = { ...doc(), brief: Array.from({ length: 40_000 }, (_, i) => String.fromCharCode(0x4e00 + ((i * 7919) % 20000))).join("") };
+    await expect(shareLink(big, "https://example.test/", {}, small)).rejects.toBeInstanceOf(ShareLinkError);
+    await expect(shareLink(doc(), "https://example.test/", {}, small)).resolves.toMatch(/#docz=/);
   });
 });
 
