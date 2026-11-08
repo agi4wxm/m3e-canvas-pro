@@ -101,13 +101,15 @@ describe("a custom style with tokens, a pseudo-element and a state, exported", (
 });
 
 describe("what of a style each app draws", () => {
-  const screens = [{ name: "Home", slugs: new Set(["card", "tabs"]) }, { name: "Pay", slugs: new Set(["button"]) }];
+  const screens = [{ name: "Home", slugs: new Set(["card", "tabs", "tooltip"]) }, { name: "Pay", slugs: new Set(["button", "separator"]) }];
   const read = (s: CustomStyle, app: "mobile" | "miniapp") => styleDifferences({ theme: normalizeTheme({ style: s.key }, styleContext([s])), styles: styleContext([s]), docStyles: [s], screens }, app);
 
   it("reports the recipes a kit has no build for, a screen's backdrop, and the CSS a custom style extends", () => {
-    const extending: CustomStyle = { ...style, key: "custom:more", extends: "ios", rules: [], recipes: { ...style.recipes, tooltip: "dark", screen: "paper", divider: "dashed" }, screen: "linear-gradient(#FFF, #EEE)" };
+    const extending: CustomStyle = { ...style, key: "custom:more", extends: "ios", rules: [], recipes: { ...style.recipes, tooltip: "dark", screen: "paper", divider: "dashed", meter: "thin" }, screen: "linear-gradient(#FFF, #EEE)" };
     const phone = read(extending, "mobile").map((d) => d.detail);
     expect(phone.some((d) => d.startsWith("recipe tooltip: dark is drawn on the web only"))).toBe(true);
+    /* a recipe for a kind of part no screen has changes nothing to look at */
+    expect(phone.some((d) => d.startsWith("recipe meter:"))).toBe(false);
     expect(phone.some((d) => d.startsWith("recipe screen: paper") && d.includes("screens: Home, Pay"))).toBe(true);
     /* the mini-program's kit builds dividers its recipe's way; the phone's does not */
     expect(phone.some((d) => d.startsWith("recipe divider:"))).toBe(true);

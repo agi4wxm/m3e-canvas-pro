@@ -162,6 +162,8 @@ export function styleDifferences(o: { theme: Styled; styles: StyleContext; docSt
     /* the screen's texture has no rule: it is laid behind every screen */
     const css = k === "screen" ? "" : ((RECIPE_CSS as Record<string, Record<string, string>>)[k]?.[v] ?? "");
     const screens = screensReached(css, o.screens);
+    /* a recipe for a kind of part no screen has makes no screen look otherwise */
+    if (!screens.length) continue;
     out.push({ kind: "style", ...on(screens), detail: `recipe ${k}: ${v} is drawn on the web only; ${where} the kit builds ${k} as Material does (${plural(screens)})` });
   }
   if (!pack) return out;
