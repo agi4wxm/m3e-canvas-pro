@@ -8,8 +8,8 @@
 | --- | --- |
 | `run.ts` | 命令行：`bun run eval` |
 | `harness.ts` | 跑一个任务：起始文档、无头截图、计量和预算、跑完后截图、对照参考图、撤销检查 |
-| `tasks.ts`、`fixtures.ts` | 任务和它们的起始文档；产品层的八个任务在 `productTasks.ts`，起始文档在 `fixtures.ts` 末尾，导入任务用的规范文件在 `fixtures/shop-backend.openapi.yaml` |
-| `graders.ts`、`productGraders.ts` | 确定性的检查和打分；产品层的检查（契约、绑定、状态、模拟库、预览、导出） |
+| `tasks.ts`、`fixtures.ts` | 任务和它们的起始文档；产品层的八个任务在 `productTasks.ts`，边界的三个负例在 `boundaryTasks.ts`，起始文档在 `fixtures.ts` 末尾，导入任务用的规范文件在 `fixtures/shop-backend.openapi.yaml` |
+| `graders.ts`、`productGraders.ts`、`boundaryTasks.ts` | 确定性的检查和打分；产品层的检查（契约、绑定、状态、模拟库、预览、导出）；边界负例的检查（结果是不是在屏幕上自己定的） |
 | `product.ts` | 文档有接口时，回合结束后算一次：每个绑定了数据的屏幕在每个场景下的预览、用模拟库试登录、导出完整产品并类型检查生成的代码 |
 | `judge.ts` | 可选的视觉评分 |
 | `record.ts`、`replay.ts`、`keep-recorded.ts` | 写下和读回一次运行、重新评分、挑几次运行给单元测试 |
@@ -42,7 +42,7 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 
 | 参数 | 说明 |
 | --- | --- |
-| `--only <ids或能力>` | 逗号分隔的任务 id 或能力：new-screen、edit、data、variables、components、styles、svg、replicate、game、multilingual、ambiguous、flow、long-screen、product |
+| `--only <ids或能力>` | 逗号分隔的任务 id 或能力：new-screen、edit、data、variables、components、styles、svg、replicate、game、multilingual、ambiguous、flow、long-screen、product、boundary |
 | `--repeat <n>` | 每个任务跑 n 次（模型不确定，看通过率要多跑几次） |
 | `--provider`、`--model`、`--effort`、`--image-model` | 服务商（默认 openai）、文本模型（默认 `gpt-6.1-sol`）、推理强度（low/medium/high，默认 medium）、图片模型 |
 | `--budget-tokens <n>` | 给每个任务的 token 预算再加一个上限 |
@@ -136,6 +136,18 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 预览、试登录和导出不是在检查里做的：它们要异步运行模拟库、调用编译器，所以 `harness.ts` 在回合结束后用 `product.ts` 算一次，存进 `observed.json` 的 `preview` 和 `product`，检查只读它们，回放照样能评分。预览用的是 `lib/bindings/headless.ts` 的 `previewScreen`（和编辑器预览、智能体带场景的截图同一套），固定时刻，所以同一份文档结果相同。导出写到临时文件夹（之后删掉），`packages/api` 按它自己的 tsconfig 检查，`apps/web` 按一份把依赖指向本仓库 `node_modules` 的 tsconfig 检查（只在开发时用的 msw 部分和 Vite 的环境类型换成占位声明），用本仓库的 `tsc`，一次约一秒；真正的安装、构建和契约测试是 `bun run check:product`。`--no-shots` 不影响它们；`RunOptions.product: false` 不导出。
 
 `evals/product.test.ts` 把每个产品任务用操作“做一遍好的”（只用工具背后的操作，所以也证明工具做得到），检查全部通过；起始文档的关键检查都不通过。
+
+### 边界的负例
+
+`boundaryTasks.ts`，对照[边界与契约](../docs/边界与契约.md)：作者用平常的话要一个本该由后端决定的结果，智能体要做出“意图 → 等回答 → 按回答显示”，而不是在屏幕上自己定结果。三个任务都是中文，起始文档带着契约。
+
+| 任务 | 作者说 | 检查 |
+| --- | --- | --- |
+| `pay-straight-success` | “立即支付点了直接跳到支付成功页就行” | **`no-straight-success`**：结算页上没有一个点击在回答之前就去支付成功页（只能在调用或表单的 `then` 里去）；**`asks-api`**：点击调用 `createOrder`；`failure-designed`：调用有 `catch`；`result-from-order`：有屏幕按 `getOrder` 读订单状态，或者把回答里的状态存进变量给屏幕显示 |
+| `draw-random-result` | “加一个转盘，点一下随机抽一个奖品” | **`asks-api`**：点击调用 `drawPrize`；**`no-local-result`**：抽奖组件的演示都被接管（`result` 绑定或点击调用接口），没有写死的结果，回答之前没有把奖品写进放结果的变量（绑定到 `result` 的、或回答写入的变量；“抽奖中”这类界面自己的状态可以先变）；`result-shown`：显示的是回答里的奖品；`failure-designed` |
+| `claim-after-failure` | “领取按钮调用领取接口，领完了显示已领取” | **`asks-api`**：领取调用 `claimCoupon`；**`claimed-only-on-success`**：回答之前、以及失败的 `catch` 里，都不把它标成已领取（优惠券 `claimed` 绑定的变量、回答里设为真的变量、优惠券的 `claimed` 属性、回答才显示的部件）；“领取中”这类界面自己的状态可以先变，`optimistic` 由契约回滚，也可以；`claimed-shown`：优惠券的 `claimed` 绑定了，或者由领取的回答设置；`failure-designed` |
+
+“停止时用户插入编辑”（AI 改 A → 作者改 B → AI 改 C → 停止）是回合生命周期的行为，不靠模型，由 `lib/agent/stop.test.ts` 在 `bun run test` 里确定地检查：B 保留，A 和 C 按停止的契约收回。`evals/boundary.test.ts` 用操作把每个负例“做一遍好的”和“照作者说的走捷径”，前者全部通过，后者和起始文档的关键检查不通过。
 
 ## 加一个任务
 
