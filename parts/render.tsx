@@ -159,7 +159,10 @@ function Controlled({ node, shape }: { node: PNode; shape: Shape }) {
       const given = shape.given(node, shown);
       if (given === undefined) return;
       setDraft({ shown, given, over: drawnWith });
-      take(given);
+      /* Handed on once the event it came in has run its course: a press on the control is a press on the part too, and
+       * the part's own tap runs first (a switch bound to a variable whose tap toggles that variable toggles it once),
+       * as when the value was read off the page after the press. The draft shows it meanwhile. */
+      queueMicrotask(() => take(given));
     };
   }
   return createElement(componentOf(node.type), props, ...childrenOf(node, true));

@@ -48,6 +48,7 @@ const VARS: DocVar[] = [
   { id: "on", name: "on", type: "bool", value: true },
   { id: "level", name: "level", type: "number", value: 10 },
   { id: "fruit", name: "fruit", type: "number", value: 0 },
+  { id: "dark", name: "dark", type: "bool", value: false },
 ];
 
 type Case = { id: string; slug: string; props?: Record<string, unknown>; bind?: Record<string, string>; effects?: Effect[] };
@@ -62,6 +63,8 @@ const CASES: Case[] = [
   { id: "range", slug: "slider", props: { range: true, value: 20, end: 70 } },
   { id: "density", slug: "radio-group", props: { selected: 1 } },
   { id: "fruit", slug: "select", bind: { selected: "fruit" } },
+  /* bound to a variable, with a tap that toggles that variable too (what the agent writes for a dark mode switch) */
+  { id: "darkSwitch", slug: "switch", bind: { checked: "dark" }, effects: [{ do: "toggleVar", var: "dark" }] },
   { id: "set", slug: "button", props: { label: "Set" }, effects: [{ do: "setVar", var: "name", value: "From a button" }, { do: "toggleVar", var: "on" }, { do: "setVar", var: "level", value: 80 }, { do: "setVar", var: "fruit", value: 2 }, { do: "setProp", part: "agree", prop: "checked", value: true }] },
   { id: "clear", slug: "button", props: { label: "Clear" }, effects: [{ do: "setVar", var: "name", value: "" }] },
 ];
@@ -115,11 +118,20 @@ function open(doc: Doc) {
     draw();
   };
   /** the visitor uses a control: its callback, called as the component calls it */
-  const use = (id: string, type: string, callback: string, ...args: unknown[]) => {
+  const use = async (id: string, type: string, callback: string, ...args: unknown[]) => {
     (control(id, type).props[callback] as (...a: unknown[]) => void)(...args);
+    /* the value goes to the state once the event it came in is over (parts/render.tsx) */
+    await Promise.resolve();
     draw();
   };
-  return { draw, state, control, drawing, tap, use };
+  /** a press on a control that is also the part's tap: the control's callback, then the tap, in one event */
+  const press = async (id: string, type: string, callback: string, ...args: unknown[]) => {
+    (control(id, type).props[callback] as (...a: unknown[]) => void)(...args);
+    tap(id);
+    await Promise.resolve();
+    draw();
+  };
+  return { draw, state, control, drawing, tap, use, press };
 }
 
 describe("the preview's built-in inputs", () => {
@@ -158,34 +170,34 @@ describe("the preview's built-in inputs", () => {
 
   it("hand what the visitor does to the state through the control's own callback", async () => {
     const p = await opened();
-    p.use("name", "TextField", "onChange", { target: { value: "Typed" } });
+    await p.use("name", "TextField", "onChange", { target: { value: "Typed" } });
     expect(p.state().vars.name).toBe("Typed");
     expect(p.state().fields.name).toBe("Typed");
     expect(p.control("name", "TextField").props.value).toBe("Typed");
-    p.use("notes", "Textarea", "onChange", { target: { value: "first\nsecond" } });
+    await p.use("notes", "Textarea", "onChange", { target: { value: "first\nsecond" } });
     expect(p.state().fields.notes).toBe("first\nsecond");
-    p.use("wifi", "Switch", "onCheckedChange", false);
+    await p.use("wifi", "Switch", "onCheckedChange", false);
     expect(p.state().vars.on).toBe(false);
     expect(p.control("wifi", "Switch").props.checked).toBe(false);
-    p.use("agree", "Checkbox", "onCheckedChange", true);
+    await p.use("agree", "Checkbox", "onCheckedChange", true);
     expect(p.state().fields.agree).toBe(true);
-    p.use("volume", "Slider", "onValueChange", [42]);
+    await p.use("volume", "Slider", "onValueChange", [42]);
     expect(p.state().vars.level).toBe(42);
     expect(p.control("volume", "Slider").props.value).toEqual([42]);
     /* a choice is its row's place in the list */
-    p.use("density", "RadioGroup", "onValueChange", "Compact");
+    await p.use("density", "RadioGroup", "onValueChange", "Compact");
     expect(p.state().fields.density).toBe(2);
     expect(p.control("density", "RadioGroup").props.value).toBe("Compact");
-    p.use("fruit", "Select", "onValueChange", "Cherry");
+    await p.use("fruit", "Select", "onValueChange", "Cherry");
     expect(p.state().vars.fruit).toBe(2);
     expect(p.control("fruit", "Select").props.value).toBe("Cherry");
   });
 
   it("show a value set from elsewhere at once, without drawing the part afresh", async () => {
     const p = await opened();
-    p.use("name", "TextField", "onChange", { target: { value: "Typed" } });
-    p.use("wifi", "Switch", "onCheckedChange", false);
-    p.use("fruit", "Select", "onValueChange", "Banana");
+    await p.use("name", "TextField", "onChange", { target: { value: "Typed" } });
+    await p.use("wifi", "Switch", "onCheckedChange", false);
+    await p.use("fruit", "Select", "onValueChange", "Banana");
     const before = ["name", "wifi", "volume", "fruit", "agree"].map(p.drawing);
     /* an effect sets the variables the inputs are bound to, and a prop of an unbound one */
     p.tap("set");
@@ -196,7 +208,7 @@ describe("the preview's built-in inputs", () => {
     expect(p.control("fruit", "Select").props.value).toBe("Cherry");
     expect(["name", "wifi", "volume", "fruit", "agree"].map(p.drawing)).toEqual(before);
     /* cleared from elsewhere: back to nothing typed, though the visitor had typed something */
-    p.use("name", "TextField", "onChange", { target: { value: "From a button!" } });
+    await p.use("name", "TextField", "onChange", { target: { value: "From a button!" } });
     p.tap("clear");
     expect(p.control("name", "TextField").props.value).toBe("");
     expect(p.state().vars.name).toBe("");
@@ -204,25 +216,35 @@ describe("the preview's built-in inputs", () => {
 
   it("show what the visitor typed in one input in another bound to the same variable", async () => {
     const p = await opened();
-    p.use("name", "TextField", "onChange", { target: { value: "Ada" } });
+    await p.use("name", "TextField", "onChange", { target: { value: "Ada" } });
     expect(p.control("twin", "TextField").props.value).toBe("Ada");
-    p.use("count", "Input", "onChange", { target: { value: "33" } });
+    await p.use("count", "Input", "onChange", { target: { value: "33" } });
     expect(p.control("volume", "Slider").props.value).toEqual([33]);
   });
 
   it("keep what the visitor did that the state does not hold, until a value comes from elsewhere", async () => {
     const p = await opened();
     /* letters in a field bound to a number: the variable stays, the field shows what was typed */
-    p.use("count", "Input", "onChange", { target: { value: "10x" } });
+    await p.use("count", "Input", "onChange", { target: { value: "10x" } });
     expect(p.state().vars.level).toBe(10);
     expect(p.control("count", "Input").props.value).toBe("10x");
     p.tap("set");
     expect(p.control("count", "Input").props.value).toBe("80");
     /* a range's value is its first thumb: the second stays where the visitor put it */
-    p.use("range", "Slider", "onValueChange", [20, 75]);
+    await p.use("range", "Slider", "onValueChange", [20, 75]);
     expect(p.control("range", "Slider").props.value).toEqual([20, 75]);
-    p.use("range", "Slider", "onValueChange", [25, 75]);
+    await p.use("range", "Slider", "onValueChange", [25, 75]);
     expect(p.state().fields.range).toBe(25);
     expect(p.control("range", "Slider").props.value).toEqual([25, 75]);
+  });
+
+  it("count a press on a control that is also the part's tap once: a switch whose tap toggles its own variable toggles it", async () => {
+    const p = await opened();
+    await p.press("darkSwitch", "Switch", "onCheckedChange", true);
+    expect(p.state().vars.dark).toBe(true);
+    expect(p.control("darkSwitch", "Switch").props.checked).toBe(true);
+    await p.press("darkSwitch", "Switch", "onCheckedChange", false);
+    expect(p.state().vars.dark).toBe(false);
+    expect(p.control("darkSwitch", "Switch").props.checked).toBe(false);
   });
 });
