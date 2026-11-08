@@ -11,7 +11,7 @@ import { nodeTree, type TreeNode } from "../lib/core/query";
 import { stateOf } from "../lib/core/state";
 import { getLang, setGlobalLang, type Lang } from "../lib/i18n";
 import { conformItem } from "../lib/styleRules";
-import { contrastProblems, isStrict, withDocStyles } from "../lib/styles";
+import { checkAccess, isStrict, withDocStyles } from "../lib/styles";
 import { frameLengthOf, frameSizeOf, type Doc, type Group, type Item } from "../lib/tokens";
 import { partBySlug, reader, tierOf } from "../parts/registry";
 import { roleOf } from "../parts/role";
@@ -598,10 +598,12 @@ export const instances = (o: { min: number; component?: string; screen?: string;
   },
 });
 
-/** a custom style the document now wears, readable, warm when asked */
+/** A custom style the document now wears, warm when asked, whose words the style checker (lib/styles/access.ts) finds
+ *  readable in every state it checks. It reuses that checker and says no more than it does: passing is not a WCAG
+ *  audit of the screens. The marks of a control (outline, focus ring, a switch that is on) are counted in the detail. */
 export const customStyle = (o: { warm?: boolean } = {}): Check => ({
   id: "custom-style",
-  label: `a custom style worn${o.warm ? ", warm" : ""}, contrast kept`,
+  label: `a custom style worn${o.warm ? ", warm" : ""}, its words readable by the style checker`,
   critical: true,
   run(g) {
     const key = g.o.final.theme?.style;
@@ -609,11 +611,13 @@ export const customStyle = (o: { warm?: boolean } = {}): Check => ({
     if (!key?.startsWith("custom:") || !s) return ok(false, `wears ${key ?? "Material"}; ${g.o.final.styles?.length ?? 0} custom styles`);
     const was = (g.o.start.styles ?? []).find((x) => x.key === key);
     if (was && JSON.stringify(was) === JSON.stringify(s)) return ok(false, `${key} was already there unchanged`);
-    const contrast = contrastProblems(s);
+    const { issues } = checkAccess(s);
+    const words = issues.filter((c) => c.use === "text" || c.use === "large-text");
+    const marks = issues.length - words.length;
     const hex = (s.light as unknown as Record<string, string>).surface ?? "#888888";
     const [r, , b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
     const warm = !o.warm || r >= b + 6;
-    return ok(!contrast.length && warm, `${key} "${typeof s.name === "string" ? s.name : (s.name as { en?: string }).en}", surface ${hex}${warm ? "" : " (not warm)"}${contrast.length ? `, ${contrast.length} contrast problems` : ""}`);
+    return ok(!words.length && warm, `${key} "${typeof s.name === "string" ? s.name : (s.name as { en?: string }).en}", surface ${hex}${warm ? "" : " (not warm)"}${words.length ? `, ${words.length} faint words (${words.slice(0, 3).map((c) => c.id).join(", ")})` : ""}${marks ? `, ${marks} faint control marks` : ""}`);
   },
 });
 

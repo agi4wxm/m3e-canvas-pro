@@ -10,7 +10,7 @@ import type { P, PartDef } from "../parts/types";
 import { childLayoutFields } from "./flow";
 import type { Lang } from "./i18n";
 import { conformGroups } from "./styleRules";
-import { recipesOf, styleOf, uxOf } from "./styles";
+import { recipesOf, styleOf, uxOf, type StyleContext } from "./styles";
 import { barSlotOf } from "./tidy";
 import { PHONE_MARGIN, frameOfGroup, frameOfPart, frameRect, frameSizeOf, groupBounds, isPhoneFrame, safeAreaOf, uid, type Action, type ActionBody, type ComponentDef, type Condition, type Frame, type Group, type Item, type KitMark, type Theme } from "./tokens";
 
@@ -21,10 +21,10 @@ import { PHONE_MARGIN, frameOfGroup, frameOfPart, frameRect, frameSizeOf, groupB
 
 /** What the document's style is like, for choosing how a kit is composed. Read from the theme
  *  here, so that no kit has to know a style by name. */
-export function kitLookOf(theme: Theme): KitLook {
-  const r = recipesOf(theme);
-  const ux = uxOf(theme);
-  const pack = styleOf(theme.style);
+export function kitLookOf(theme: Theme, styles?: StyleContext): KitLook {
+  const r = recipesOf(theme, styles);
+  const ux = uxOf(theme, styles);
+  const pack = styleOf(theme.style, styles);
   const group = pack?.group ?? "app";
   return {
     group,

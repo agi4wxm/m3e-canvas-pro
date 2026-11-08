@@ -7,7 +7,7 @@ import { outline } from "../core/query";
 import { describeNode } from "../core/query";
 import { STRICT_LOOK_KEYS } from "../look";
 import { rulesForModel } from "../styleRules";
-import { isStrict, styleOf, withDocStyles } from "../styles";
+import { isStrict, styleContext, styleOf, withDocStyles } from "../styles";
 import type { Lang } from "../i18n";
 import type { Doc } from "../tokens";
 
@@ -72,7 +72,10 @@ const OUTLINE_BUDGET = 9000;
  *  what the style's rules leave to the model. */
 export function turnContext(o: { doc: Doc; widths: Record<string, number>; selection: string[]; frameId: string | null; lang: Lang }): string {
   const { doc, widths } = o;
-  return withDocStyles(doc.styles, () => {
+  /* read in this document's own styles; the outline reads them further down without being handed them, so they are
+     in reach for this one synchronous call too */
+  const styles = styleContext(doc.styles);
+  return withDocStyles(styles, () => {
     let text = outline(doc, widths, { props: "set" });
     for (const depth of [3, 2, 1]) {
       if (text.length <= OUTLINE_BUDGET) break;
@@ -83,8 +86,8 @@ export function turnContext(o: { doc: Doc; widths: Record<string, number>; selec
     if (cut) text = `${text.slice(0, OUTLINE_BUDGET)}\n…`;
     const shallow = text !== outline(doc, widths, { props: "set" });
     const theme = doc.theme;
-    const strict = !!theme && isStrict(theme);
-    const pack = theme ? styleOf(theme.style) : undefined;
+    const strict = !!theme && isStrict(theme, styles);
+    const pack = theme ? styleOf(theme.style, styles) : undefined;
     const sel = o.selection
       .map((id) => describeNode(doc, widths, id))
       .filter((d): d is NonNullable<typeof d> => !!d)
@@ -95,7 +98,7 @@ export function turnContext(o: { doc: Doc; widths: Record<string, number>; selec
       `Language for words on the canvas: ${LANG_NAME[o.lang]}.`,
       sel.length ? `Selected: ${sel.join("; ")}.` : screen ? `Selected screen: ${screen.id} "${screen.name}".` : "Nothing is selected.",
       strict
-        ? `The document is held to its style's rules.\n${rulesForModel(theme!)}\nSo of a part's look only ${STRICT_LOOK_KEYS.join(", ")} survive; corners and a button's shape are the style's.`
+        ? `The document is held to its style's rules.\n${rulesForModel(theme!, styles)}\nSo of a part's look only ${STRICT_LOOK_KEYS.join(", ")} survive; corners and a button's shape are the style's.`
         : `The document wears ${pack ? `the ${pack.name.en} style` : "Material 3"} but is not held to its rules: colors, corners, shapes and every look field are yours to set where they help (look_reference lists them).`,
       "",
       `Outline${shallow ? " (shortened: get_outline {screen} shows a screen in full)" : ""}:`,

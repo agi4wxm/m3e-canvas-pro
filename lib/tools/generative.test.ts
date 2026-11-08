@@ -200,7 +200,7 @@ describe("add_custom_style and generate_style", () => {
     const out = ok(await executeTool(s, "generate_style", { description: "warm paper notebook" }, { origin: "ai", registry: reg, gen: { settings: SETTINGS, adapter } }), "generate_style");
     expect(out).toMatchObject({ key: "custom:notebook", worn: true });
     expect(adapter.requests).toHaveLength(2);
-    expect(JSON.stringify(adapter.requests[1].messages.at(-1))).toContain("reads at");
+    expect(JSON.stringify(adapter.requests[1].messages.at(-1))).toMatch(/light.onSurface on light.surface reads [\d.]+:1; text needs 4.5:1/);
     expect(adapter.requests[0].system).toBe(styleSystemPrompt());
     expect((out.repaired as string[]).some((r) => r.startsWith("light.onSurface"))).toBe(true);
     const style = s.get().doc.styles![0];
@@ -272,7 +272,8 @@ describe("add_custom_style and generate_style", () => {
     const { style, changed } = repairContrast(made);
     expect(changed.some((c) => c.startsWith("light.onSurface"))).toBe(true);
     expect(contrastRatio(style.light.surface, style.light.onSurface)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(style.light.surface, style.light.outline)).toBeGreaterThanOrEqual(2.8);
+    /* a field's border is a mark that tells a control apart: 3:1 */
+    expect(contrastRatio(style.light.surface, style.light.outline)).toBeGreaterThanOrEqual(3);
     expect(contrastProblems(style).filter((p) => p.path === "light.onSurface")).toEqual([]);
   });
 });

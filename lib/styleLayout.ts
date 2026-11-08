@@ -2,7 +2,7 @@ import { partBySlug, reader } from "../parts/registry";
 import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { fullWidth, roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
-import { isStrict, recipesOf, uxOf, type StyleUX } from "./styles";
+import { isStrict, recipesOf, uxOf, type StyleContext, type StyleUX } from "./styles";
 import { fillRest, fitLength, isScreenLayout, MATERIAL_METRICS, tidyFrame, type LayoutMetrics } from "./tidy";
 import { frameLengthOf, frameOfGroup, frameRect, frameSizeOf, groupBounds, isExpanded, railWidth, type Frame, type Group, type Item, type Theme } from "./tokens";
 
@@ -11,11 +11,11 @@ import { frameLengthOf, frameOfGroup, frameRect, frameSizeOf, groupBounds, isExp
  * what is locked, and what a layout holds, stays as it is. Rules only, as Tidy is: nothing here is guessed by a model. */
 
 /** what Tidy spaces a screen by under a theme */
-export function metricsOf(theme: Theme): LayoutMetrics {
-  const ux = uxOf(theme);
+export function metricsOf(theme: Theme, styles?: StyleContext): LayoutMetrics {
+  const ux = uxOf(theme, styles);
   /* lists that run from edge to edge have nowhere to keep a margin */
-  const edgeToEdge = new Set<string>([...(recipesOf(theme).list === "flush" ? ["item"] : []), ...(ux.bleed ?? [])]);
-  return { margin: ux.margin, gap: ux.gap, tight: ux.tight, sitsOn: isStrict(theme), flush: edgeToEdge.size ? (it) => edgeToEdge.has(it.component ?? "") : undefined };
+  const edgeToEdge = new Set<string>([...(recipesOf(theme, styles).list === "flush" ? ["item"] : []), ...(ux.bleed ?? [])]);
+  return { margin: ux.margin, gap: ux.gap, tight: ux.tight, sitsOn: isStrict(theme, styles), flush: edgeToEdge.size ? (it) => edgeToEdge.has(it.component ?? "") : undefined };
 }
 
 const isBar = (it: Item) => it.component === "navigation-bar";
@@ -164,9 +164,9 @@ function layoutScreen(state: Result, frame: Frame, measures: Record<string, numb
 }
 
 /** Every screen laid out the way a theme's style lays them out, or null when nothing would move. */
-export function layoutForStyle(groups: Group[], frames: Frame[], widths: Record<string, number>, theme: Theme, opts: { together?: string[][]; pick?: boolean } = {}): Result | null {
-  const ux = uxOf(theme);
-  const m = { ...metricsOf(theme), together: opts.together };
+export function layoutForStyle(groups: Group[], frames: Frame[], widths: Record<string, number>, theme: Theme, opts: { together?: string[][]; pick?: boolean; /** the document's styles; left out, those in reach */ styles?: StyleContext } = {}): Result | null {
+  const ux = uxOf(theme, opts.styles);
+  const m = { ...metricsOf(theme, opts.styles), together: opts.together };
   /* the sizes given here hold until the parts are drawn at them, for every screen after this one too */
   const measures = { ...widths };
   let state: Result = { groups, frames };

@@ -2,7 +2,7 @@
  * as JSON Schema (for the tools the in-app agent and MCP are given) and checked before it runs. An operation that
  * cannot do what it was asked throws an `OpError`: a code a program can act on, and words a person can read. */
 
-import { isStrict, withDocStyles } from "../styles";
+import { isStrict, styleContext, withDocStyles } from "../styles";
 import { conformDoc, conformGroups } from "../styleRules";
 import { defaultMeasures } from "../../parts/templates/kit";
 import type { Group } from "../tokens";
@@ -176,17 +176,19 @@ export function runOp<A, R>(o: Op<A, R>, state: CoreState, args: A, ctx: OpCtx):
     const e = schemaError(o.args, args ?? {});
     if (e) throw new OpError("bad_args", `${o.name}: ${e}`);
   }
-  /* the document's own styles are in reach while it runs, and the ones it leaves while it is held to its rules */
-  const out = withDocStyles(state.doc.styles, () => o.run(state, args, ctx));
-  return { ...out, state: withDocStyles(out.state.doc.styles, () => conformed(out.state, state)) };
+  /* An operation is synchronous, and what it calls reads a style without being handed one (the layout, the kits): the
+     document's own styles are in reach while it runs. What it leaves is held to its rules in the styles it left. */
+  const out = withDocStyles(styleContext(state.doc.styles), () => o.run(state, args, ctx));
+  return { ...out, state: conformed(out.state, state) };
 }
 
-/** a state as its theme's rules allow it, when the operation changed its parts */
+/** a state as its theme's rules allow it, when the operation changed its parts, read in its own styles */
 export function conformed(s: CoreState, before: CoreState): CoreState {
-  if (!isStrict(s.doc.theme)) return s;
-  const groups = s.doc.groups === before.doc.groups && s.doc.theme === before.doc.theme ? s.doc.groups : conformGroups(s.doc.groups, s.doc.theme);
+  const styles = styleContext(s.doc.styles);
+  if (!isStrict(s.doc.theme, styles)) return s;
+  const groups = s.doc.groups === before.doc.groups && s.doc.theme === before.doc.theme ? s.doc.groups : conformGroups(s.doc.groups, s.doc.theme, styles);
   const components =
-    s.doc.components === before.doc.components && s.doc.theme === before.doc.theme ? s.doc.components : s.doc.components && conformDoc({ groups: [] as Group[], components: s.doc.components }, s.doc.theme).components;
+    s.doc.components === before.doc.components && s.doc.theme === before.doc.theme ? s.doc.components : s.doc.components && conformDoc({ groups: [] as Group[], components: s.doc.components }, s.doc.theme, styles).components;
   if (groups === s.doc.groups && components === s.doc.components) return s;
   return { ...s, doc: { ...s.doc, groups, ...(components ? { components } : {}) } };
 }

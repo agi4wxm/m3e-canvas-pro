@@ -7,7 +7,7 @@ import { getLang, type Lang } from "./i18n";
 import { BASELINE_SEED } from "./m3e/color";
 import { runtimeSource } from "./runtimeSource";
 import { SLIDE_SPEC, faceSheetsOf, fontFamilyOf, normalizeTheme, seedOf, shapeScaleOf, type Doc } from "./tokens";
-import { APP_SCOPE, recipesOf, styleCss, withDocStyles } from "./styles";
+import { APP_SCOPE, recipesOf, styleContext, styleCss } from "./styles";
 import { elevationCss } from "./look";
 import { iconSubset, setsOf } from "../components/m3e/icon-sets/load";
 import { SOURCES } from "../components/m3e/icon-sets/manifest";
@@ -500,8 +500,9 @@ export default data
 `;
 
 function themeSource(doc: Doc, name: string): string {
-  const theme = normalizeTheme(doc.theme);
-  const asked = seedOf(doc.paletteKey, doc.customPalette, theme);
+  const styles = styleContext(doc.styles);
+  const theme = normalizeTheme(doc.theme, styles);
+  const asked = seedOf(doc.paletteKey, doc.customPalette, theme, styles);
   /* a color, or M3's own: whatever else a file says is not printed */
   const seed = typeof asked === "string" && /^#[0-9a-f]{6}$/i.test(asked) ? asked : BASELINE_SEED;
   /* M3's baseline is a fixed purple whatever the seed: any other seed needs a variant that reads it */
@@ -537,12 +538,13 @@ export function Theme({ children }: { children: ReactNode }) {
 
 /** the document's style as a stylesheet of its own, or "" when it has none */
 function styleCssOf(doc: Doc, lang: Lang): string {
-  const theme = normalizeTheme(doc.theme);
-  return [styleCss({ ...theme, displayFamily: theme.displayFont ? fontFamilyOf(theme.displayFont, lang) : undefined }, APP_SCOPE), elevationCss(recipesOf(theme).surface, APP_SCOPE)].filter(Boolean).join("\n");
+  const styles = styleContext(doc.styles);
+  const theme = normalizeTheme(doc.theme, styles);
+  return [styleCss({ ...theme, displayFamily: theme.displayFont ? fontFamilyOf(theme.displayFont, lang) : undefined }, APP_SCOPE, styles), elevationCss(recipesOf(theme, styles).surface, APP_SCOPE)].filter(Boolean).join("\n");
 }
 
 function cssSource(doc: Doc, lang: Lang): string {
-  const theme = normalizeTheme(doc.theme);
+  const theme = normalizeTheme(doc.theme, styleContext(doc.styles));
   return `@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -570,7 +572,7 @@ body {
 }
 
 function htmlSource(doc: Doc, lang: Lang): string {
-  const theme = normalizeTheme(doc.theme);
+  const theme = normalizeTheme(doc.theme, styleContext(doc.styles));
   const { google: families, css: sheets } = faceSheetsOf(theme, lang);
   const links = (families.length ? `\n    <link rel="preconnect" href="https://fonts.googleapis.com" />\n    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />\n    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?${families.map((f) => `family=${f}`).join("&")}&display=swap" />` : "") + sheets.map((href) => `\n    <link rel="stylesheet" href="${href}" />`).join("");
   const title = (doc.title || "App").replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -708,9 +710,10 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     }
     return images.get(data)!;
   };
-  /* Everything that reads the document's style is written first, in one go, with the document's own styles in reach
-     (a custom style is resolved from `doc.styles`): nothing in it waits, so no other document's styles can come between */
-  const { screens, theme, runtime } = withDocStyles(doc.styles, () => {
+  /* Everything that reads the document's style reads it in the document's own (`styleContext(doc.styles)`), never in
+     whatever is in reach: another export running beside this one, or the editor's document, cannot come between, even
+     across the awaits below */
+  const { screens, theme, runtime } = (() => {
     const { screens, runtime, usesToast } = buildScreens(doc, widths, { onlyFrameId: o.onlyFrameId, live: true, image, binds: o.binds });
     if (!screens.length) throw new Error("there is no screen to export");
 
@@ -725,7 +728,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     }
     for (const [data, path] of images) files[`public${path}`] = dataToBytes(data);
 
-    const theme = normalizeTheme(doc.theme);
+    const theme = normalizeTheme(doc.theme, styleContext(doc.styles));
     const keyOf = new Map(screens.map((s) => [s.id, s.key]));
     const families = familiesOf(doc.frames)
       .map((family) => family.flatMap((f) => keyOf.get(f.id) ?? []))
@@ -742,7 +745,7 @@ export async function buildProject(doc: Doc, widths: Record<string, number>, o: 
     if (styleSheet) files["src/style.css"] = `/* The document's style. It is not in a layer, so it wins over what the components say about themselves. */\n${styleSheet}\n`;
     files["index.html"] = htmlSource(doc, lang);
     return { screens, theme, runtime };
-  });
+  })();
   files["vite.config.ts"] = VITE_CONFIG;
   files["tsconfig.json"] = TSCONFIG;
   files[".gitignore"] = GITIGNORE;

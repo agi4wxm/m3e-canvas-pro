@@ -4,7 +4,7 @@
 import { kitLookOf, recomposeKits, sameKitLook } from "../../kits";
 import type { KitLook } from "../../../parts/kits";
 import { conformDoc, conformGroups } from "../../styleRules";
-import { cleanStyles, isCustomKey, isStrict, styleOf, stylePatch, withDocStyles, type CustomStyle, type StyleUX } from "../../styles";
+import { cleanStyles, isCustomKey, isStrict, styleContext, styleOf, stylePatch, withDocStyles, type CustomStyle, type StyleContext, type StyleUX } from "../../styles";
 import { layoutForStyle } from "../../styleLayout";
 import { normalizeTheme, PALETTES, type ComponentDef, type FrameMode, type Group, type Item, type Palette, type Theme } from "../../tokens";
 import { t } from "../../i18n";
@@ -78,9 +78,10 @@ export const patchTheme = op<{ patch: Partial<Theme> }, { recomposed: boolean }>
   label: () => "Theme",
   run(s, a, ctx) {
     const from = s.doc.theme;
-    const next = normalizeTheme({ ...from, ...a.patch });
+    const styles = styleContext(s.doc.styles);
+    const next = normalizeTheme({ ...from, ...a.patch }, styles);
     if (ctx.strict) {
-      const strict = isStrict(from) && from.style;
+      const strict = isStrict(from, styles) && from.style;
       const touched = Object.keys(a.patch).filter((k) => k !== "dark" && k !== "bothModes" && k !== "contrast");
       if (strict && touched.length) throw new OpError("refused", `The document is held to its style, which decides ${touched.join(", ")}: switch its rules off first (set_style_rules).`);
     }
@@ -99,23 +100,25 @@ export const applyStyle = op<{ style: string; styles?: CustomStyle[] | null }, {
   label: (a) => `Style ${a.style || "Material"}`,
   run(before, a, ctx) {
     /* what the kits were composed for is read while the styles are as they were: the one worn may change with them */
-    const fromLook = a.styles === undefined ? undefined : kitLookOf(before.doc.theme);
+    const fromLook = a.styles === undefined ? undefined : kitLookOf(before.doc.theme, styleContext(before.doc.styles));
     const s = a.styles === undefined ? before : withDoc(before, { styles: (ctx.strict ? cleanStyles(a.styles) : a.styles) ?? undefined });
-    return withDocStyles(s.doc.styles, () => putStyle(s, a.style, ctx, fromLook));
+    const styles = styleContext(s.doc.styles);
+    /* composing the kits again reads a style further down without being handed one: in reach for this call too */
+    return withDocStyles(styles, () => putStyle(s, a.style, ctx, fromLook, styles));
   },
 });
 
-/** apply_style's work, with the document's own styles in reach */
-function putStyle(s: CoreState, style: string, ctx: OpCtx, fromLook: KitLook | undefined) {
-  if (style && !styleOf(style)) throw new OpError("not_found", `There is no style "${style}".`, style);
+/** apply_style's work, read in the document's own styles */
+function putStyle(s: CoreState, style: string, ctx: OpCtx, fromLook: KitLook | undefined, styles: StyleContext) {
+  if (style && !styleOf(style, styles)) throw new OpError("not_found", `There is no style "${style}".`, style);
   const from = s.doc.theme;
-  const next = normalizeTheme({ ...from, ...stylePatch(style) });
+  const next = normalizeTheme({ ...from, ...stylePatch(style, styles) }, styles);
   /* the kits nobody has changed are composed the new style's way first, then everything is held to its rules */
   const kits = recomposed(s, from, next, ctx, fromLook);
   const base = kits.changed ? kits.state : s;
-  const groups = conformGroups(base.doc.groups, next);
+  const groups = conformGroups(base.doc.groups, next, styles);
   const defs = base.doc.components;
-  const components = defs ? conformDoc({ groups: [] as Group[], components: defs }, next).components : defs;
+  const components = defs ? conformDoc({ groups: [] as Group[], components: defs }, next, styles).components : defs;
   /* what the author had on their parts and the rules took off; a kit composed anew had nothing of the author's on it */
   const had = new Set([...s.doc.groups, ...(s.doc.components ?? []).flatMap((c) => c.groups)].flatMap((g) => g.items));
   const stripped = changedItems(base.doc.groups, groups, had) + (defs ?? []).reduce((n, c, i) => n + changedItems(c.groups, components?.[i]?.groups ?? c.groups, had), 0);
@@ -136,11 +139,14 @@ export const setStyles = op<{ styles: CustomStyle[] | null }>({
     const next = (ctx.strict ? cleanStyles(a.styles) : a.styles) ?? undefined;
     const from = s.doc.theme;
     /* what the kits were composed for, read while the style is still as it was */
-    const fromLook = kitLookOf(from);
-    const before = styleOf(from.style);
+    const was = styleContext(s.doc.styles);
+    const now = styleContext(next);
+    const fromLook = kitLookOf(from, was);
+    const before = styleOf(from.style, was);
     const set = withDoc(s, { styles: next });
-    return withDocStyles(next, () => {
-      const after = styleOf(from.style);
+    /* composing the kits again reads a style further down without being handed one: in reach for this call too */
+    return withDocStyles(now, () => {
+      const after = styleOf(from.style, now);
       /* the style worn is as it was (another one changed): nothing on the document changes with it */
       if (after === before) return { state: set, history: "whole" as const };
       const patch: Partial<Theme> = {};
@@ -152,11 +158,11 @@ export const setStyles = op<{ styles: CustomStyle[] | null }>({
         if (before.motion !== after.motion) patch.motion = after.motion;
       }
       /* a new theme object either way: what is worked out from the style is worked out again */
-      const to = normalizeTheme({ ...from, ...patch });
+      const to = normalizeTheme({ ...from, ...patch }, now);
       let state = withDoc(set, { theme: to });
-      if (JSON.stringify(kitLookOf(to)) !== JSON.stringify(fromLook)) {
+      if (JSON.stringify(kitLookOf(to, now)) !== JSON.stringify(fromLook)) {
         const kits = recomposed(state, from, to, ctx, fromLook);
-        if (kits.changed) state = withDoc(kits.state, { groups: conformGroups(kits.state.doc.groups, to) });
+        if (kits.changed) state = withDoc(kits.state, { groups: conformGroups(kits.state.doc.groups, to, now) });
       }
       return { state, history: "whole" as const };
     });
@@ -165,7 +171,7 @@ export const setStyles = op<{ styles: CustomStyle[] | null }>({
 
 /** the screens laid out a style's way, for a document no editor will lay out after it is measured */
 function styled(s: CoreState, widths: Record<string, number>): CoreState {
-  const laid = layoutForStyle(s.doc.groups, s.doc.frames, widths, s.doc.theme, { pick: true });
+  const laid = layoutForStyle(s.doc.groups, s.doc.frames, widths, s.doc.theme, { pick: true, styles: styleContext(s.doc.styles) });
   return laid ? { ...s, doc: { ...s.doc, groups: laid.groups, frames: laid.frames } } : s;
 }
 
@@ -177,7 +183,7 @@ export const setRules = op<{ on: boolean }, { stripped: number }>({
   label: (a) => (a.on ? "Style rules on" : "Style rules off"),
   run(s, a, ctx) {
     if (a.on) return applyStyle.run(s, { style: s.doc.theme.style ?? "" }, ctx);
-    return { state: withDoc(s, { theme: normalizeTheme({ ...s.doc.theme, strict: false }) }), result: { stripped: 0 }, history: "whole" };
+    return { state: withDoc(s, { theme: normalizeTheme({ ...s.doc.theme, strict: false }, styleContext(s.doc.styles)) }), result: { stripped: 0 }, history: "whole" };
   },
 });
 
@@ -189,7 +195,7 @@ export const patchUx = op<{ patch: Partial<StyleUX> }>({
   label: () => "Style layout",
   run(s, a, ctx) {
     const theme: Theme = { ...s.doc.theme, ux: { ...s.doc.theme.ux, ...a.patch } as Theme["ux"] };
-    const laid = layoutForStyle(s.doc.groups, s.doc.frames, ctx.widths, theme, { pick: true });
+    const laid = layoutForStyle(s.doc.groups, s.doc.frames, ctx.widths, theme, { pick: true, styles: styleContext(s.doc.styles) });
     const state = withDoc(s, { theme });
     return { state: laid ? { ...state, doc: { ...state.doc, groups: laid.groups, frames: laid.frames } } : state };
   },
@@ -202,7 +208,7 @@ export const setPalette = op<{ key: string }>({
   args: S.obj({ key: S.str() }, ["key"]),
   label: () => "Colors",
   run(s, a, ctx) {
-    if (s.doc.theme.style && isStrict(s.doc.theme)) throw new OpError("refused", "The document is held to its style, which decides its colors.");
+    if (s.doc.theme.style && isStrict(s.doc.theme, styleContext(s.doc.styles))) throw new OpError("refused", "The document is held to its style, which decides its colors.");
     if (ctx.strict && a.key !== "custom" && !PALETTES.some((p) => p.key === a.key)) throw new OpError("not_found", `There is no color scheme "${a.key}" (${PALETTES.map((p) => p.key).join(", ")}).`, a.key);
     const state = withDoc(s, { paletteKey: a.key });
     return s.doc.theme.style ? patchTheme.run(state, { patch: { ownColors: true } }, ctx) : { state, history: "none" };
@@ -215,7 +221,7 @@ export const setCustomPalette = op<{ palette: Palette | null }>({
   args: S.obj({ palette: { type: ["object", "null"] } }, ["palette"]),
   label: () => "Colors",
   run(s, a, ctx) {
-    if (s.doc.theme.style && isStrict(s.doc.theme)) throw new OpError("refused", "The document is held to its style, which decides its colors.");
+    if (s.doc.theme.style && isStrict(s.doc.theme, styleContext(s.doc.styles))) throw new OpError("refused", "The document is held to its style, which decides its colors.");
     if (ctx.strict && a.palette && Object.entries(a.palette).some(([k, v]) => k !== "key" && k !== "label" && (typeof v !== "string" || !/^#[0-9a-f]{3,8}$/i.test(v)))) throw new OpError("invalid_value", "A custom scheme holds hex colors only.");
     const state = withDoc(s, { customPalette: a.palette ?? undefined });
     return s.doc.theme.style ? patchTheme.run(state, { patch: { ownColors: true } }, ctx) : { state, history: "none" };

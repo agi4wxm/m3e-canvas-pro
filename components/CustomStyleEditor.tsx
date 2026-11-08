@@ -8,7 +8,6 @@ import {
   STYLE_GROUPS,
   STYLE_PACKS,
   builtInStyleOf,
-  contrastFloor,
   contrastRatio,
   copyOfStyle,
   readStyleFile,
@@ -84,7 +83,7 @@ function Problems({ problems, p, lang }: { problems: StyleProblem[]; p: Palette;
 }
 
 /** The roles in the pairs they are read in: a fill and the words on it, shown together, with how well the words read
- *  (every pair of READS, against the floor validation holds it to). Every role is in one row. */
+ *  (every pair of READS, flagged where the accessibility check finds the words too faint). Every role is in one row. */
 const ROWS: [keyof StyleRoles, (keyof StyleRoles)?][] = [
   ["primary", "onPrimary"],
   ["primaryContainer", "onPrimaryContainer"],
@@ -104,13 +103,13 @@ const ROWS: [keyof StyleRoles, (keyof StyleRoles)?][] = [
 
 const swatch = (p: Palette) => ({ width: 22, height: 22, padding: 0, border: `1px solid ${p.outlineVariant}`, borderRadius: 6, background: "none", flexShrink: 0, cursor: "pointer" }) as const;
 
-/** a fill, the words on it, a sample of the two, and the least they read at where they are words */
-function PairRow({ bg, fg, roles, loud, p, lang, onChange }: { bg: keyof StyleRoles; fg?: keyof StyleRoles; roles: StyleRoles; loud: CustomStyle["loud"]; p: Palette; lang: Lang; onChange: (role: keyof StyleRoles, hex: string) => void }) {
+/** a fill, the words on it, a sample of the two, and the least they read at where they are words; `low` when the
+ *  accessibility check finds these words too faint anywhere they are read (loud or not) */
+function PairRow({ bg, fg, roles, low, p, lang, onChange }: { bg: keyof StyleRoles; fg?: keyof StyleRoles; roles: StyleRoles; low: boolean; p: Palette; lang: Lang; onChange: (role: keyof StyleRoles, hex: string) => void }) {
   const fill = roles[bg] as string;
   const words = fg ? (roles[fg] as string) : undefined;
   const pairs = fg ? READS.filter(([, f]) => f === fg) : [];
   const ratio = pairs.length ? Math.min(...pairs.map(([b]) => contrastRatio(roles[b] as string, words!))) : null;
-  const low = pairs.some(([b]) => contrastRatio(roles[b] as string, words!) < contrastFloor(b, loud));
   return (
     <div data-style-role={bg} style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: 11, color: p.onSurface }}>
       <input type="color" value={fill.toLowerCase()} onChange={(e) => onChange(bg, e.target.value.toUpperCase())} aria-label={bg} title={bg} style={swatch(p)} />
@@ -137,6 +136,8 @@ function StyleEditor({ style, styles, p, lang, preview, iconLabels, onStyles, no
   const [rulesText, setRulesText] = useState<string | null>(null);
   const [ruleNotes, setRuleNotes] = useState<StyleProblem[]>([]);
   const problems = useMemo(() => validateCustomStyle(style).problems, [style]);
+  /* where words (or marks) read too faintly, in any state: the colors the accessibility check takes them from */
+  const faint = useMemo(() => new Set(problems.flatMap((x) => (x.check ? [x.check.path] : []))), [problems]);
   /* every change is validated before it reaches the document */
   const update = (patch: Partial<CustomStyle>) => {
     const { style: next, problems: said } = validateCustomStyle({ ...style, ...patch });
@@ -201,7 +202,7 @@ function StyleEditor({ style, styles, p, lang, preview, iconLabels, onStyles, no
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {ROWS.map(([bg, fg]) => (
-          <PairRow key={`${mode}-${bg}`} bg={bg} fg={fg} roles={roles} loud={style.loud} p={p} lang={lang} onChange={setRole} />
+          <PairRow key={`${mode}-${bg}`} bg={bg} fg={fg} roles={roles} low={!!fg && faint.has(`${mode}.${fg}`)} p={p} lang={lang} onChange={setRole} />
         ))}
       </div>
 
@@ -285,6 +286,10 @@ function StyleEditor({ style, styles, p, lang, preview, iconLabels, onStyles, no
         <Slider icon="density_small" title={t("styleTight", lang)} value={ux.tight} min={0} max={24} step={2} onChange={(tight) => setUx({ tight })} p={p} />
       </Labeled>
 
+      {/* whether the colors can be read, apart from whether the style can be used: a style that falls short is kept */}
+      <div data-style-access={faint.size ? "issues" : "pass"} style={{ fontSize: 11, lineHeight: 1.45, padding: "0 4px", color: p.onSurfaceVariant }}>
+        {faint.size ? t("styleAccessIssues", lang).replace("{n}", String(problems.filter((x) => x.check).length)) : t("styleAccessPass", lang)}
+      </div>
       <Problems problems={[...notes, ...ruleNotes, ...problems]} p={p} lang={lang} />
 
       <details data-style-rules style={{ fontSize: 12, color: p.onSurface }}>
