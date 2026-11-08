@@ -54,7 +54,8 @@ export const PARTS: Record<string, PartInfo> = {
    "required": false,
    "loading": false,
    "error": false,
-   "errorText": ""
+   "errorText": "",
+   "helperText": ""
   }
  },
  "dot": {
@@ -81,6 +82,7 @@ export const PARTS: Record<string, PartInfo> = {
    "disabled": false,
    "ariaLabel": "",
    "toggle": false,
+   "pressed": false,
    "onIcon": "",
    "onLabel": "",
    "onLook": "same",
@@ -99,8 +101,11 @@ export const PARTS: Record<string, PartInfo> = {
    "collapsed": false,
    "ariaLabel": "",
    "toggle": false,
+   "pressed": false,
    "onIcon": "",
-   "onLabel": ""
+   "onLabel": "",
+   "disabled": false,
+   "loading": false
   }
  },
  "chip": {
@@ -115,7 +120,8 @@ export const PARTS: Record<string, PartInfo> = {
    "kind": "assist",
    "selected": 0,
    "variant": "flat",
-   "size": "default"
+   "size": "default",
+   "disabled": false
   }
  },
  "toggle": {
@@ -154,7 +160,8 @@ export const PARTS: Record<string, PartInfo> = {
    "connected": true,
    "variant": "default",
    "size": "default",
-   "multiple": false
+   "multiple": false,
+   "disabled": false
   }
  },
  "switch": {
@@ -171,7 +178,8 @@ export const PARTS: Record<string, PartInfo> = {
    "required": false,
    "loading": false,
    "error": false,
-   "errorText": ""
+   "errorText": "",
+   "helperText": ""
   }
  },
  "checkbox": {
@@ -187,7 +195,8 @@ export const PARTS: Record<string, PartInfo> = {
    "readOnly": false,
    "required": false,
    "loading": false,
-   "errorText": ""
+   "errorText": "",
+   "helperText": ""
   }
  },
  "radio-group": {
@@ -213,7 +222,8 @@ export const PARTS: Record<string, PartInfo> = {
    "readOnly": false,
    "required": false,
    "loading": false,
-   "errorText": ""
+   "errorText": "",
+   "helperText": ""
   }
  },
  "slider": {
@@ -231,7 +241,8 @@ export const PARTS: Record<string, PartInfo> = {
    "required": false,
    "loading": false,
    "error": false,
-   "errorText": ""
+   "errorText": "",
+   "helperText": ""
   }
  },
  "select": {
@@ -271,8 +282,12 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "label": "Label",
    "value": "",
+   "placeholder": "",
+   "type": "text",
    "supporting": "",
    "variant": "outlined",
+   "prefix": "",
+   "suffix": "",
    "leadingIcon": "",
    "trailingIcon": "",
    "error": false,
@@ -302,7 +317,8 @@ export const PARTS: Record<string, PartInfo> = {
    "readOnly": false,
    "required": false,
    "loading": false,
-   "errorText": ""
+   "errorText": "",
+   "helperText": ""
   }
  },
  "textarea": {
@@ -321,7 +337,8 @@ export const PARTS: Record<string, PartInfo> = {
    "readOnly": false,
    "required": false,
    "loading": false,
-   "errorText": ""
+   "errorText": "",
+   "helperText": ""
   }
  },
  "label": {
@@ -426,6 +443,7 @@ export const PARTS: Record<string, PartInfo> = {
    "variant": "filled",
    "imagePos": "top",
    "image": "",
+   "alt": "",
    "imageIcon": "image",
    "imageSize": 96,
    "textAlign": "start",
@@ -472,7 +490,18 @@ export const PARTS: Record<string, PartInfo> = {
    "closeButton": false,
    "dialogWidth": 412,
    "width": 412,
-   "height": 640
+   "height": 640,
+   "dialogHeight": 320,
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false
   }
  },
  "alert-dialog": {
@@ -484,7 +513,18 @@ export const PARTS: Record<string, PartInfo> = {
    "description": "This action cannot be undone.",
    "cancel": "Cancel",
    "action": "Delete",
-   "size": "default"
+   "size": "default",
+   "dialogHeight": 280,
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false
   }
  },
  "sheet": {
@@ -496,7 +536,18 @@ export const PARTS: Record<string, PartInfo> = {
    "description": "Narrow down the results.",
    "footer": false,
    "confirm": "Save",
-   "dismiss": "Cancel"
+   "dismiss": "Cancel",
+   "sheetHeight": 320,
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false
   }
  },
  "separator": {
@@ -641,7 +692,8 @@ export const PARTS: Record<string, PartInfo> = {
    "required": false,
    "loading": false,
    "error": false,
-   "errorText": ""
+   "errorText": "",
+   "helperText": ""
   }
  },
  "time-picker": {
@@ -659,7 +711,8 @@ export const PARTS: Record<string, PartInfo> = {
    "required": false,
    "loading": false,
    "error": false,
-   "errorText": ""
+   "errorText": "",
+   "helperText": ""
   }
  },
  "icon": {
@@ -719,7 +772,8 @@ export const PARTS: Record<string, PartInfo> = {
    "required": false,
    "loading": false,
    "error": false,
-   "errorText": ""
+   "errorText": "",
+   "helperText": ""
   }
  },
  "link": {
