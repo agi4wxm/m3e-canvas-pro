@@ -156,3 +156,96 @@ describe("a turn that would wipe the author's work", () => {
     expect(asks).toBe(0);
   });
 });
+
+describe("what an answer allows (report 13.3 AI-1)", () => {
+  it("reads a request that says not to remove as not asking for it", () => {
+    for (const r of ["不要删除现有内容，在旁边加一个设置页", "别删任何东西，只改颜色", "Don't delete anything, just add a button", "Do not remove the old screens", "既存の画面は削除しないで", "기존 화면은 삭제하지 마세요"]) expect(plainlyAsksToRemove(r), r).toBe(false);
+  });
+
+  it("asks for a removal under a request that says not to remove", async () => {
+    const s = app();
+    let asks = 0;
+    await runTurn({ store: s, adapter: scriptedAdapter([{ calls: [call("c1", "apply_ops", { ops: [{ op: "remove_screen", args: { id: "me" } }] })] }, { text: "Asked." }]), history: [], request: "不要删除现有内容，把“我的”页面做好看", lang: "zh", confirm: () => (asks++, false) });
+    expect(asks).toBe(1);
+    expect(s.get().doc.frames.map((f) => f.id)).toEqual(["login", "home", "me"]);
+  });
+
+  it("lets a plain request remove only what it names", async () => {
+    const s = app();
+    const asked: RemovalAsk[] = [];
+    const calls = [call("c1", "apply_ops", { ops: [{ op: "remove_screen", args: { id: "me" } }] }), call("c2", "apply_ops", { ops: [{ op: "remove_screen", args: { id: "login" } }] })];
+    await runTurn({ store: s, adapter: scriptedAdapter([{ calls }, { text: "Done." }]), history: [], request: "删除“我的”页面", lang: "zh", confirm: (ask) => (asked.push(ask), false) });
+    expect(asked.map((a) => a.screens.map((x) => x.name))).toEqual([["登录"]]);
+    expect(s.get().doc.frames.map((f) => f.id)).toEqual(["login", "home"]);
+  });
+
+  it("allows only what was allowed: a later removal of something else is asked about again", async () => {
+    const s = app();
+    const asked: RemovalAsk[] = [];
+    const adapter = scriptedAdapter([{ calls: [call("c1", "apply_ops", { ops: [{ op: "remove_screen", args: { id: "login" } }] })] }, { calls: [call("c2", "apply_ops", { ops: [{ op: "remove_screen", args: { id: "me" } }] })] }, { text: "Done." }]);
+    await runTurn({ store: s, adapter, history: [], request: "redo it all", lang: "zh", confirm: (ask) => (asked.push(ask), asked.length === 1) });
+    expect(asked.map((a) => a.screens.map((x) => x.id))).toEqual([["login"], ["me"]]);
+    expect(s.get().doc.frames.map((f) => f.id)).toEqual(["home", "me"]);
+  });
+
+  it("asks again when the author's work grew while they were asked, and binds the answer to what they saw", async () => {
+    for (const second of [true, false]) {
+      const s = app();
+      const asked: RemovalAsk[] = [];
+      await runTurn({
+        store: s,
+        adapter: scriptedAdapter([{ calls: [call("c1", "apply_ops", { ops: [{ op: "clear", args: {} }] })] }, { text: "Done." }]),
+        history: [],
+        request: "redo it all",
+        lang: "zh",
+        confirm: (ask) => {
+          asked.push(ask);
+          /* the author adds a screen while the question is open */
+          if (asked.length === 1) s.run(ops.addScreen, { id: "late", name: "新的" }, { origin: "user" });
+          return asked.length === 1 || second;
+        },
+      });
+      expect(asked.map((a) => a.screens.map((x) => x.id))).toEqual([["login", "home", "me"], ["late"]]);
+      expect(s.get().doc.frames.map((f) => f.id)).toEqual(second ? [] : ["login", "home", "me", "late"]);
+    }
+  });
+
+  it("does not run a call whose check failed, and tells the model why", async () => {
+    const s = app();
+    /* a value the check cannot read (no document holds one: it stands in for a check that throws) */
+    s.update("Odd", "user", (st) => ({ ...st, doc: { ...st.doc, varCollections: [{ id: "theme", name: "Theme", modes: "broken" } as never] } }));
+    const adapter = scriptedAdapter([{ calls: [call("c1", "apply_ops", { ops: [{ op: "set_title", args: { title: "New" } }] })] }, { text: "Could not." }]);
+    await runTurn({ store: s, adapter, history: [], request: "rename it", lang: "zh", confirm: () => true });
+    expect(s.get().doc.title).toBe("");
+    const result = adapter.requests[1].messages.at(-1) as { results: { content: { text: string }[]; isError?: boolean }[] };
+    expect(result.results[0].isError).toBe(true);
+    expect(result.results[0].content[0].text).toContain("could not be checked");
+    await expect(removalOf(s, s.get(), "set_title", { title: "New" }, { registry: createRegistry() })).rejects.toThrow();
+  });
+
+  it("counts what the turn made itself as its own however many calls made it", async () => {
+    const s = app();
+    let asks = 0;
+    const adapter = scriptedAdapter([
+      { calls: [call("c1", "add_screen", { id: "x", name: "X" })] },
+      { calls: [call("c2", "add_screen", { id: "y", name: "Y" })] },
+      { calls: [call("c3", "apply_ops", { ops: [{ op: "remove_screen", args: { id: "x" } }, { op: "remove_screen", args: { id: "y" } }] })] },
+      { text: "Tried and took them away again." },
+    ]);
+    await runTurn({ store: s, adapter, history: [], request: "try two screens", lang: "zh", confirm: () => (asks++, false) });
+    expect(asks).toBe(0);
+    expect(s.get().doc.frames.map((f) => f.id)).toEqual(["login", "home", "me"]);
+  });
+
+  it("names rows written over as many as there were, and not rows edited or reordered", async () => {
+    const s = app();
+    s.run(ops.addCollection, { id: "fruit", name: "Fruit", fields: ["name", "price"], rows: [["Apple", "1"], ["Pear", "2"], ["Fig", "3"]] }, { origin: "user" });
+    const start = s.get();
+    const registry = createRegistry();
+    const replaced = await removalOf(s, start, "update_collection", { id: "fruit", rows: [["Kiwi", "4"], ["Plum", "5"], ["Lime", "6"]] }, { registry });
+    expect(replaced?.takes).toEqual([{ kind: "rows", of: "Fruit", n: 3, total: 3, replaced: true }]);
+    expect(removalText(replaced!)).toMatch(/3 of the 3 rows of "Fruit" \(written over/);
+    expect(await removalOf(s, start, "update_collection", { id: "fruit", rows: [["Apple", "1.5"], ["Pear", "2.5"], ["Fig", "3"]] }, { registry })).toBeNull();
+    expect(await removalOf(s, start, "update_collection", { id: "fruit", rows: [["Fig", "3"], ["Apple", "1"], ["Pear", "2"]] }, { registry })).toBeNull();
+  });
+});

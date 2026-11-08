@@ -159,7 +159,7 @@ describe("a turn of the agent", () => {
     expect(JSON.stringify(adapter.requests[3].messages.at(-1))).toContain("add_custom_style");
   });
 
-  it("gives a turn after the author's own edit a step of its own", async () => {
+  it("takes back a turn the author edited in, both of its changes, and keeps the author's", async () => {
     const s = store();
     const adapter = scriptedAdapter([
       { calls: [call("c1", "add_screen", { id: "a" })] },
@@ -172,10 +172,18 @@ describe("a turn of the agent", () => {
       { text: "Two screens." },
     ]);
     const r = await runTurn({ store: s, adapter, history: [], request: "two screens", lang: "en" });
-    expect(r.step?.depth).toBe(s.history().length);
-    s.undo();
-    expect(s.get().doc.frames.map((f) => f.id)).toEqual(["home", "a"]);
+    /* one undo step would take back only the second screen: the turn offers none, and a way to take it back whole */
+    expect(r.step).toBeUndefined();
+    expect(r.takeBack).toBeDefined();
+    const back = r.takeBack!.run();
+    expect(back).toMatchObject({ outcome: "full", authorEdited: true });
+    expect(s.get().doc.frames.map((f) => f.id)).toEqual(["home"]);
     expect(s.get().doc.groups.some((g) => g.items[0].id === "mine")).toBe(true);
+    /* nothing of the turn comes back with undo or redo; undo takes back the author's own part */
+    expect(s.redo()).toBeNull();
+    s.undo();
+    expect(s.get().doc.frames.map((f) => f.id)).toEqual(["home"]);
+    expect(s.get().doc.groups).toEqual([]);
   });
 });
 

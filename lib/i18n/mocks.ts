@@ -194,6 +194,7 @@ export const MOCKS_UI = {
   mocksAskScenario: { ja: "モックのシナリオ「{name}」", en: "the mock scenario “{name}”", zh: "模拟场景“{name}”" },
   mocksAskFile: { ja: "モックファイル「{name}」", en: "the mock file “{name}”", zh: "模拟文件“{name}”" },
   mocksAskRecords: { ja: "「{of}」の固定レコード {n} 件", en: "{n} pinned records of “{of}”", zh: "“{of}”的 {n} 条固定记录" },
+  mocksAskRecordsReplaced: { ja: "「{of}」の固定レコード {n} 件（別のレコードに置き換わります）", en: "{n} pinned records of “{of}” (written over with other records)", zh: "“{of}”的 {n} 条固定记录（被换成别的记录）" },
   mocksAskScript: { ja: "リアルタイムのスクリプト「{name}」", en: "the realtime script “{name}”", zh: "实时脚本“{name}”" },
 } satisfies Record<string, Str>;
 
@@ -370,5 +371,6 @@ export const MOCKS_KO: Record<keyof typeof MOCKS_UI, string> = {
   mocksAskScenario: "목업 시나리오 “{name}”",
   mocksAskFile: "목업 파일 “{name}”",
   mocksAskRecords: "“{of}”의 고정 레코드 {n}건",
+  mocksAskRecordsReplaced: "“{of}”의 고정 레코드 {n}건(다른 레코드로 바뀝니다)",
   mocksAskScript: "실시간 스크립트 “{name}”",
 };
