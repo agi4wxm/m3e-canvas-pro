@@ -10,8 +10,8 @@ export { ButtonGroup, DatePicker, Menu, SegmentedButton, Select, TextField, Time
 export { Accordion, CodeBlock, FileUpload, IconGrid, InputGroup, RadioGroup, Scene, Sidebar } from "./composites/more";
 export { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 export { Placeholder } from "./Placeholder";
-export { At, NavProvider, OverlayFrame, Pin, Screen, ScreenStack, useNav, type GoOptions, type Nav, type ScreenComponent } from "./runtime";
-export { AppProvider, SnackHost, optionOf, rowsOf, useAct, useAfter, useApp, type Action, type ActionBody, type AppState, type AppVar, type Condition, type Effect, type EffectHandler, type Here, type Reader, type Scope, type ScreenParts, type VarValue } from "./app";
+export { At, NavProvider, OverlayFrame, Pin, Screen, ScreenStack, moved, movesSoFar, useNav, type GoOptions, type Nav, type ScreenComponent } from "./runtime";
+export { AppProvider, SnackHost, eventOf, optionOf, rowsOf, slotTaps, useAct, useAfter, useApp, type Action, type ActionBody, type AppState, type AppVar, type Condition, type Effect, type EventFields, type Here, type Interpreter, type KitHost, type Reader, type Scope, type ScreenParts, type VarValue } from "./app";
 export { Repeat, type RepeatProps } from "./list";
 export { SplitView, type SplitViewProps } from "./split";
 export { dateOfValue, dayOf, timeOf, usePicker } from "./picker";

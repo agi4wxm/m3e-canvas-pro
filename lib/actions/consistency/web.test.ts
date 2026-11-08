@@ -109,10 +109,10 @@ function wordsIn(node: unknown, out: string[] = [], closed = false): string[] {
 
 /** The handler a tap on these words reaches: the nearest element around them that takes a press; a no-op where none
  *  does (the printer left the tap out). Null when the words are not on show. */
-function handlerOf(node: unknown, words: string, around: Element[] = [], props = ["onClick", "onPress"]): (() => void) | null {
+function handlerOf(node: unknown, words: string, around: Element[] = [], props = ["onClick", "onPress"], slot: string | null = null): (() => void) | null {
   if (Array.isArray(node)) {
     for (const x of node) {
-      const h = handlerOf(x, words, around, props);
+      const h = handlerOf(x, words, around, props, slot);
       if (h) return h;
     }
     return null;
@@ -120,11 +120,13 @@ function handlerOf(node: unknown, words: string, around: Element[] = [], props =
   if (typeof node === "string" && node === words) {
     for (const e of [...around].reverse()) {
       const h = props.map((k) => e.props[k]).find((f) => typeof f === "function") as ((ev: unknown) => void) | undefined;
-      if (typeof h === "function") return () => h({ preventDefault() {}, stopPropagation() {}, nativeEvent: {}, target: { closest: () => null } });
+      /* a press on a place of the part is one on the element that carries its mark (`data-tap`) */
+      const target = { closest: (selector: string) => (slot !== null && selector === "[data-tap]" ? { getAttribute: () => slot } : null) };
+      if (typeof h === "function") return () => h({ preventDefault() {}, stopPropagation() {}, nativeEvent: {}, target });
     }
     return () => {};
   }
-  return isElement(node) ? handlerOf(node.props.children, words, [...around, node], props) : null;
+  return isElement(node) ? handlerOf(node.props.children, words, [...around, node], props, slot) : null;
 }
 
 function inputOf(node: unknown, words: string): Element | null {
@@ -190,6 +192,19 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
       const h = handlerOf(top(), words, [], ["onPointerEnter"]);
       if (!h) throw new Error(`no words "${words}" on show`);
       h();
+      draw();
+    },
+    tapSlot: (words, slot) => {
+      const h = handlerOf(top(), words, [], ["onClick", "onPress"], slot);
+      if (!h) throw new Error(`no words "${words}" on show`);
+      h();
+      draw();
+    },
+    /* a widget sends its events through its host's onEvent (parts/widgets/host.ts): the part is the one showing the words */
+    emit: (words, event, payload) => {
+      const part = tiny.elements(top()).find((e) => typeof e.props.onEvent === "function" && Object.values(e.props).includes(words));
+      if (!part) throw new Error(`no part that sends events with the words "${words}"`);
+      (part.props.onEvent as (name: string, payload?: unknown) => void)(event, payload);
       draw();
     },
     type: (words, value) => {

@@ -6,11 +6,11 @@ const A1: Action = { to: "Next", effects: [{ do: "invoke", capability: "scan.cod
 
 export function HomeScreen() {
   const $ = useScreenScope({});
-  const act = useAct();
+  const act = useAct({ key: "Home" });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Scan and go" onPress={() => act(A1, { scope: $.scope })} />
+        <Button label="Scan and go" onPress={() => act(A1, { scope: $.scope, part: "button" })} />
       </At>
     </Screen>
   );

@@ -35,6 +35,9 @@ export function writeVar(id: string, value: VarValue) {
 
 export const readVar = (id: string): VarValue | undefined => values[id];
 
+/** the variables now, by id: what a tap's step reads, whatever the last render drew */
+export const varValues = (): Record<string, VarValue> => values;
+
 /** the variables now, by id; the component reading them draws again when one changes */
 export const useVarValues = () => useSyncExternalStore(subscribe, snapshot, snapshot);
 

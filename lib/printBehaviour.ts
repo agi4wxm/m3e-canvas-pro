@@ -11,7 +11,7 @@ import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
 import type { BoundPrint } from "./printBindings";
 import { BACK_TARGET, LINK_TARGET, STAY_TARGET, actionSlotsOf, actionsOf, darkVarOf, heldBy, holdsParts, linkUrlOf, type Action, type ActionBody, type Condition, type Doc, type Effect, type Frame, type Group, type Item, type Transition, type VarType, type VarValue } from "./tokens";
-import type { Answer } from "./actions/model";
+import { eventKey, familyKey, type Answer } from "./actions/model";
 import { literal } from "./export/code";
 
 /* What a tap does and what state a part reads, as source text over the generated runtime
@@ -367,6 +367,8 @@ export class Behaviour {
   private screenActs = new Map<string, Action>();
   private actKeys = new Set<string>();
   private screenTapped = false;
+  /** the key each action printed on the screen has in its table, by what it was printed for */
+  private actNamed = new Map<string, string | null>();
   private actsName = "screenActions";
   /** the key of the part being printed: what its taps say they were made on */
   private partNow = "part";
@@ -880,14 +882,19 @@ export class Behaviour {
 
   /** what a tap runs, as statements: the row it was made on picked first (the screen it opens may read it), then the
    *  action run by the interpreter (`act`, src/runtime.tsx `useActions`) */
-  private statements(a: Action, uses: Uses, name: string): string[] {
-    const data = this.actionData(a, uses);
-    if (!data) return [];
-    const key = this.actKey(name);
-    this.screenActs.set(key, data);
+  private statements(a: Action, uses: Uses, name: string, more: string[] = []): string[] {
+    /* one action reached from several places (a family's, for each of its entries) is in the table once */
+    let key = this.actNamed.get(name);
+    if (key === undefined) {
+      const data = this.actionData(a, uses);
+      key = data ? this.actKey(name) : null;
+      if (key && data) this.screenActs.set(key, data);
+      this.actNamed.set(name, key);
+    }
+    if (!key) return [];
     this.screenTapped = true;
     const at = this.bound?.tapAt() ?? [];
-    const run = `act(${this.actsName}.${key}, { ${[`part: ${json(this.partNow)}`, ...at].join(", ")} })`;
+    const run = `act(${this.actsName}.${key}, { ${[`part: ${json(this.partNow)}`, ...at, ...more].join(", ")} })`;
     if (!this.rowNow || !this.readsCurrent) return [run];
     uses.app.add("pickRow");
     return [`pickRow(${json(this.rowNow)})`, run];
@@ -908,6 +915,7 @@ export class Behaviour {
   /** Starts a screen: its table of actions is its own. */
   beginScreen(component: string) {
     this.screenActs = new Map();
+    this.actNamed = new Map();
     this.screenTapped = false;
     this.actKeys = new Set();
     this.actsName = `${component[0].toLowerCase()}${component.slice(1)}Actions`;
@@ -1098,12 +1106,21 @@ export class Behaviour {
     const selecting = this.selecting(it, def);
     const slots: Record<string, PValue> = {};
     let selfSelecting = false;
+    /* A family's action (`tab:*`) runs for each of its entries that has none of its own, reading the entry as `slot`
+       (docs/交互规则.md, 事件与槽位族) */
+    const places = def.slots ? def.slots(reader(def, it.props)).map((x) => x.key) : [];
+    const ofFamily = (key: string): { a: Action; more: string[]; name: string } | undefined => {
+      const m = /^(.+):(\d+)$/.exec(key);
+      const a = m && !it.actions?.[key] ? it.actions?.[familyKey(m[1])] : undefined;
+      return a && m ? { a, more: [`slot: { key: ${json(key)}, index: ${m[2]} }`], name: `${this.partNow} ${m[1]} each` } : undefined;
+    };
     if (selecting) {
       const bar = json(this.barKey(it, def));
-      for (const { key } of def.slots!(reader(def, it.props))) {
+      for (const key of places) {
         const m = /^tab:(\d+)$/.exec(key);
         if (!m) continue;
-        const a = it.actions?.[key];
+        const family = ofFamily(key);
+        const a = it.actions?.[key] ?? family?.a;
         if (!a) {
           selfSelecting = true;
           continue;
@@ -1113,15 +1130,26 @@ export class Behaviour {
         const target = opens ? this.screens.get(a.to) : undefined;
         const lead = opens ? `leaveTab(${bar}, ${m[1]}${isNavBar(def) && target ? `, ${json(target)}` : ""})` : `selectTab(${bar}, ${m[1]})`;
         uses.app.add(opens ? "leaveTab" : "selectTab");
-        slots[key] = raw(this.handler([lead, ...this.statements(a, uses, `${this.partNow} ${key}`)])!);
+        slots[key] = raw(this.handler([lead, ...(family ? this.statements(family.a, uses, family.name, family.more) : this.statements(a, uses, `${this.partNow} ${key}`))])!);
       }
     }
     for (const [slot, a] of Object.entries(it.actions ?? {})) {
-      /* an event or a family of places is not printed yet: lib/export/boundary.ts reports it */
       if (!a || slot in slots || !isPlaceKey(slot)) continue;
       const code = this.handler(this.statements(a, uses, `${this.partNow} ${slot}`));
       if (code) slots[slot] = raw(code);
     }
+    for (const key of places) {
+      const family = key in slots ? undefined : ofFamily(key);
+      const code = family && this.handler(this.statements(family.a, uses, family.name, family.more));
+      if (code) slots[key] = raw(code);
+    }
+    /* A named event the part sends (`on:<name>`) runs its action with what the event carries, as the part declares it
+       (`event.*`): a widget hands its events out through \`onEvent\` (parts/widgets/host.ts) */
+    const events = (def.events ?? []).flatMap((e) => {
+      const a = it.actions?.[eventKey(e.name)];
+      const run = a ? this.statements(a, uses, `${this.partNow} on ${e.name}`, [`event: payload`, `declared: ${literal(e.payload ?? {})}`]) : [];
+      return run.length ? [`if (name === ${json(e.name)}) { ${run.join("; ")} }`] : [];
+    });
     this.rowNow = undefined;
     if (this.railToggles(it, def)) {
       const start = reader(def, it.props).b("expanded");
@@ -1147,6 +1175,13 @@ export class Behaviour {
       const key = this.partKeys.get(it.id)!;
       this.usedParts.add(key);
       tree = { ...tree, props: { ...tree.props, "data-part": key } };
+    }
+    if (events.length) {
+      const widget = tree.type === "FieldFrame" ? tree.children?.find((c): c is PNode => typeof c !== "string" && c.type in WIDGET_SOURCES) : tree;
+      if (widget && widget.type in WIDGET_SOURCES) {
+        const wired = { ...widget, props: { ...widget.props, onEvent: raw(`(name, payload) => { ${events.join(" else ")} }`) } };
+        tree = widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) };
+      }
     }
     const inputVar = this.inputVar(it);
     if (inputVar) tree = this.wireInput(tree, it, def, inputVar, uses);

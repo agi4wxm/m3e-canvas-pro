@@ -68,6 +68,9 @@ function untypedBody(openapi: Record<string, unknown>, op: ApiOperation): boolea
  *  them (its path, its query, its headers, the rest as fields of its JSON body), sent with the typed client. */
 export function callsModule(api: ApiModel | undefined, o: { apiImport: string; kitImport: string; runtimeFrom: string }): string {
   const ops = api?.operations ?? [];
+  /* the helpers the calls use, as each call is printed: never by looking for their names in the code, which an
+     operation of the same name (\`pick\`, \`omit\`) would match */
+  const uses = { seg: false, segment: false, pick: false, omit: false, headers: false };
   const lines = ops.map((op) => {
     const places = api ? paramPlaces(api.openapi, op) : { query: [], header: [] };
     const known = [...op.params, ...places.query, ...places.header];
@@ -76,7 +79,12 @@ export function callsModule(api: ApiModel | undefined, o: { apiImport: string; k
     if (op.query) parts.push(`query: pick(a, ${expr(places.query)})`);
     if (op.body) parts.push(`body: (b ?? omit(a, ${expr(known)})) as In<${str(op.name)}>["body"]`);
     const init = places.header.length ? `{ ...i, headers: headers(a, ${expr(places.header)}) }` : "i";
+    uses.headers ||= places.header.length > 0;
     if (untypedBody(api!.openapi, op)) {
+      uses.pick ||= !!op.query;
+      uses.omit = true;
+      uses.seg ||= op.path.includes("{");
+      uses.segment ||= op.path.includes("{");
       /* the path's words as strings, each parameter's value between them as one segment of it, as the typed client keeps
          one ("." and ".." refused: they would send the call, and the session's token, to another address) */
       const path = op.path
@@ -86,14 +94,13 @@ export function callsModule(api: ApiModel | undefined, o: { apiImport: string; k
         .join(" + ");
       return `  ${str(op.operationId)}: (a, b, i) => api.request({ operationId: ${str(op.operationId)}, method: ${str(op.method)}, path: ${path || '""'}, ${op.query ? `query: pick(a, ${expr(places.query)}), ` : ""}body: b ?? omit(a, ${expr(known)}), ...${init} }),`;
     }
+    uses.seg ||= op.params.length > 0;
+    uses.pick ||= !!op.query;
+    uses.omit ||= !!op.body;
     const input = parts.length ? `{ ${parts.join(", ")} }` : op.query ? "{}" : undefined;
     return `  ${str(op.operationId)}: (${parts.length || op.query ? "a" : "_a"}, ${op.body ? "b" : "_b"}, i) => ${clientCallCode("api", op, input, init)},`;
   });
-  const usesSeg = lines.some((l) => l.includes("seg("));
-  const usesSegment = lines.some((l) => l.includes("segment("));
-  const usesPick = lines.some((l) => l.includes("pick("));
-  const usesOmit = lines.some((l) => l.includes("omit("));
-  const usesHeaders = lines.some((l) => l.includes("headers("));
+  const { seg: usesSeg, segment: usesSegment, pick: usesPick, omit: usesOmit, headers: usesHeaders } = uses;
   return [
     HEAD,
     api && ops.length ? `import { createApi${usesSegment ? ", segment" : ""}${ops.some((op) => op.body) ? ", type Api" : ""} } from ${str(o.apiImport)};` : "",

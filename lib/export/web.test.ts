@@ -93,7 +93,7 @@ describe("the web app of a document bound to its contract", () => {
 
   it("opens a link and lends the parts' own copy buttons the app's capabilities, the browser's way where it has no adapter", () => {
     const runtime = web(shop, "runtime.tsx");
-    expect(runtime).toContain('void runtime.invoke("link.open", { url: page.href })');
+    expect(runtime).toContain('void runtime.invoke("link.open", { url: page.href }).then((out) => {');
     expect(runtime).toContain("<PartHostContext.Provider value={parts}>{children}</PartHostContext.Provider>");
     expect(runtime).toContain('!out.ok && out.error.type === "not-implemented" ? browserCapability(name, args) : out');
     expect(runtime).not.toContain("window.open");

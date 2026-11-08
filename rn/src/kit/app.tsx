@@ -3,15 +3,18 @@ import { View } from "react-native";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
 import { Snackbar } from "./composites/content";
-import { useNav, type Nav } from "./runtime";
+import { movesSoFar, useNav, type Nav } from "./runtime";
 
-/* What a running app remembers beside the screen on show, and what a tap does with it, as the editor's preview does
- * (lib/interact.ts): the variables, the parts a tap has shown or hidden, the props a tap has set, what an input holds
- * when a condition asks whether it is filled, and the snackbar. A tap is the design's action as data (`Action`): its
- * condition, its effects in order, then where it goes. Expressions (a condition, a variable set from one, a snackbar's
- * {{words}}, the params a screen is opened with) are read by the `Reader` the app hands over: the exported app's is
- * the design editor's own evaluator (packages/app-runtime), never `eval`. Effects the kit has no say over (calling the
- * API, loading data, submitting a form, signing out) go to the app's `EffectHandler`. */
+/* What a running app remembers beside the screen on show, and what a tap does with it: the variables, the parts a tap
+ * has shown or hidden, the overlays it has opened, the props a tap has set, what an input holds when a condition asks
+ * whether it is filled, and the snackbar. A tap is the design's action as data (`Action`): its condition, its effects in
+ * order, then where it goes.
+ *
+ * An exported app runs it with the one interpreter every host of the design runs (lib/actions, in packages/app-runtime,
+ * docs/交互规则.md): it hands `AppProvider` an `Interpreter` that makes a host of this memory (`KitHost`), the app's
+ * runtime (the API, the session, the capabilities) and where taps go. The kit on its own (its gallery, its printed test
+ * beds, which have no runtime) runs the effects that are its own with the small runner below: no API, and expressions
+ * read by the `Reader` the app hands over, if any. */
 
 export type VarValue = string | number | boolean;
 
@@ -36,8 +39,8 @@ export type Effect =
   | { do: "addVar"; var: string; by: number }
   | { do: "setProp"; part: string; prop: string; value: VarValue }
   | { do: "snackbar"; message: string }
-  | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: ActionBody; catch?: ActionBody; optimistic?: { source: string; remove?: boolean; patch?: Record<string, string> } }
-  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: ActionBody; catch?: ActionBody }
+  | { do: "call"; operationId: string; args?: Record<string, string>; body?: string; then?: Answer; catch?: Answer; optimistic?: { source: string; remove?: boolean; patch?: Record<string, string> } }
+  | { do: "invoke"; capability: string; args?: Record<string, string>; then?: Answer; catch?: Answer }
   | { do: "refresh"; source: string }
   | { do: "loadMore"; source: string }
   | { do: "submit"; form?: string }
@@ -46,21 +49,45 @@ export type Effect =
 /** where a tap goes after its effects: a screen by its key, "back", "link" (to `url`) or "none" */
 export type ActionBody = { to: string; params?: Record<string, string>; overlay?: boolean; url?: string; effects?: Effect[] };
 export type Action = ActionBody & { when?: Condition; else?: ActionBody };
+/** what runs when a call or an invoke is answered: a body that may branch on the answer (docs/交互规则.md, 回答上的条件) */
+export type Answer = ActionBody & { when?: Condition; else?: ActionBody };
 
-/** what a tap knows of where it was made: the scope of its expressions, the form it is in, the element of the list
- *  its row was drawn for */
-export type Here = { scope?: Scope; form?: unknown; item?: unknown };
+/** What a tap knows of where it was made: the scope of its expressions, the form it is in, the element of the list its
+ *  row was drawn for and its place, the part tapped; the place of a family it was run for (`slot`), what the event that
+ *  started it carries (`event`). */
+export type Here = { scope?: Scope; form?: unknown; item?: unknown; index?: number; part?: string; slot?: { key: string; index: number }; event?: unknown };
 
-/** what a screen holds that its taps can act on: its data sources and its forms, by name */
-export type ScreenParts = { sources?: Record<string, unknown>; forms?: Record<string, unknown> };
+/** What a screen holds that its taps can act on: its key and what it was opened with, its data sources and its forms by
+ *  name (a form by its group's id), and what each input a form keeps holds (by the input's id), for a condition that
+ *  asks whether it is filled. */
+export type ScreenParts = { key?: string; params?: Record<string, unknown>; sources?: Record<string, unknown>; forms?: Record<string, unknown>; inputs?: Record<string, () => unknown> };
 
-/** Runs an effect the kit leaves to the app (the API's). `run` runs an action body afterwards (a call's then or catch)
- *  in the same screen. */
-export type EffectHandler = (effect: Effect, at: { here: Here; screen: ScreenParts; nav: Nav; run: (body: ActionBody | undefined, here: Here) => void }) => void;
+/** The app's memory as an interpreter's host reads and writes it (lib/actions `Host`): the variables, what a part shows,
+ *  what an input holds, the snackbar, and how many times the visitor has gone somewhere. Parts are named by their key. */
+export type KitHost = {
+  variable: (id: string) => { type: AppVar["type"]; value: VarValue } | undefined;
+  setVar: (id: string, value: VarValue) => void;
+  /** the variables as expressions read them: by name and by id */
+  varScope: () => Record<string, VarValue>;
+  /** whether an input holds something: words, a tick, a choice, a file; one a form keeps is read from it */
+  filled: (part: string, screen?: ScreenParts) => boolean;
+  shown: (key: string) => boolean;
+  setShown: (key: string, on: boolean) => void;
+  /** opens or closes an overlay: one with a trigger of its own (a menu) keeps the trigger on show when closed */
+  setOpen: (key: string, on: boolean) => void;
+  setProp: (part: string, prop: string, value: VarValue) => void;
+  toast: (text: string) => void;
+  /** the visitor's moves so far (a screen opened, gone back from, laid over or closed) */
+  moves: () => number;
+};
+
+/** Runs a tap of the design: the exported app's, through the interpreter every host runs (lib/actions). */
+export type Interpreter = (action: Action, at: { here: Here; screen: ScreenParts; nav: Nav; kit: KitHost }) => void;
 
 type State = {
   vars: Record<string, VarValue>;
   hidden: Record<string, boolean>;
+  opened: Record<string, boolean>;
   props: Record<string, Record<string, VarValue>>;
   fields: Record<string, VarValue>;
   snack: { id: number; message: string } | null;
@@ -73,8 +100,14 @@ export type AppState = {
   varScope: Record<string, VarValue>;
   /** whether a part (by its key) is on show: hidden at the start unless a tap has shown it, or the other way round */
   shown: (key: string, hiddenAtStart?: boolean) => boolean;
+  /** whether an overlay with a trigger of its own (a menu, by its key) is open */
+  opened: (key: string) => boolean;
+  /** the visitor opened or shut such an overlay */
+  setOpened: (key: string, on: boolean) => void;
   /** a prop of a part as a tap has set it, else as the design has it */
   prop: <T>(part: string, prop: string, design: T) => T;
+  /** the visitor changed a prop of a part by using it (a row picked): what `prop` reads from now on */
+  setProp: (part: string, prop: string, value: VarValue) => void;
   /** a prop that follows a variable, in the kind of value the prop takes; the design's own when it cannot be that */
   bound: <T extends VarValue>(varId: string, design: T) => T;
   /** what an input holds that a condition asks about */
@@ -87,8 +120,12 @@ export type AppState = {
   fill: (template: string, here?: Here) => string;
   snack: { id: number; message: string } | null;
   dismiss: () => void;
-  /** runs one action body's effects and goes where it says, the variables as they stand */
+  /** runs one action body's effects and goes where it says, the variables as they stand (the kit's own runner) */
   run: (body: ActionBody | undefined, here: Here, screen: ScreenParts, nav: Nav) => void;
+  /** the app's memory as an interpreter's host reads it */
+  kit: KitHost;
+  /** the exported app's interpreter, when it has one */
+  interpret?: Interpreter;
   reader?: Reader;
 };
 
@@ -108,8 +145,9 @@ function coerce(v: VarValue, type: AppVar["type"]): VarValue | null {
   return isNumber(v);
 }
 
-/** what holds something: words, a tick, a choice */
-const holdsValue = (v: unknown) => (typeof v === "string" ? v.trim() !== "" : typeof v === "boolean" ? v : typeof v === "number" ? v >= 0 : false);
+/** what holds something: words, a tick, a choice, a file (a picked one has a name) */
+const holdsValue = (v: unknown) =>
+  typeof v === "string" ? v.trim() !== "" : typeof v === "boolean" ? v : typeof v === "number" ? v >= 0 : Array.isArray(v) ? v.length > 0 : !!v && typeof v === "object" && typeof (v as { name?: unknown }).name === "string";
 
 /** a value as words, for what is not one of a variable's kinds */
 const asWords = (v: unknown): string => (v === undefined || v === null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v));
@@ -119,23 +157,48 @@ const AppContext = createContext<AppState | null>(null);
 const NO_VARS: AppVar[] = [];
 const NO_KEYS: string[] = [];
 
-/** the app's memory under the screens; `vars` are the design's variables, `hidden` the parts (by key) hidden until a
- *  tap shows them, `reader` reads its expressions, `handle` runs the API's effects */
-export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, reader, handle, children }: { vars?: AppVar[]; hidden?: string[]; reader?: Reader; handle?: EffectHandler; children?: ReactNode }) {
+/** The app's memory under the screens. `vars` are the design's variables, `hidden` the parts (by key) hidden until a tap
+ *  shows them, `triggers` the overlays (by key) that keep a trigger of their own on the screen while shut (a menu),
+ *  `reader` reads its expressions, `interpret` runs its taps (the exported app's interpreter). */
+export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, triggers = NO_KEYS, reader, interpret, children }: { vars?: AppVar[]; hidden?: string[]; triggers?: string[]; reader?: Reader; interpret?: Interpreter; children?: ReactNode }) {
   const startHidden = useMemo(() => new Set(hidden), [hidden]);
+  const triggered = useMemo(() => new Set(triggers), [triggers]);
   const types = useMemo(() => new Map(vars.map((v) => [v.id, v])), [vars]);
-  const [state, setState] = useState<State>(() => ({ vars: Object.fromEntries(vars.map((v) => [v.id, v.value])), hidden: {}, props: {}, fields: {}, snack: null }));
+  const [state, setState] = useState<State>(() => ({ vars: Object.fromEntries(vars.map((v) => [v.id, v.value])), hidden: {}, opened: {}, props: {}, fields: {}, snack: null }));
   /* the state as the last tap left it: effects in a row each see what the one before did */
   const latest = useRef(state);
   const update = useCallback((fn: (s: State) => State) => {
     latest.current = fn(latest.current);
     setState(latest.current);
   }, []);
-  const varScope = useMemo(() => {
-    const out: Record<string, VarValue> = { ...state.vars };
-    for (const v of vars) if (v.name && v.id in state.vars) out[v.name] = state.vars[v.id];
-    return out;
-  }, [state.vars, vars]);
+  const varScope = useMemo(() => varsOf(state.vars, vars), [state.vars, vars]);
+
+  /* the memory as a host reads and writes it: always what the last step left, never what the last render drew */
+  const kit = useMemo<KitHost>(() => {
+    const write = (id: string, value: VarValue) => update((s) => ({ ...s, vars: { ...s.vars, [id]: value } }));
+    const shown = (key: string) => !(latest.current.hidden[key] ?? startHidden.has(key));
+    return {
+      variable: (id) => {
+        const v = types.get(id);
+        return v ? { type: v.type, value: latest.current.vars[id] ?? v.value } : undefined;
+      },
+      setVar: write,
+      varScope: () => varsOf(latest.current.vars, vars),
+      filled: (part, screen) => holdsValue(screen?.inputs?.[part] ? screen.inputs[part]() : latest.current.fields[part]),
+      shown,
+      setShown: (key, on) => update((s) => ({ ...s, hidden: { ...s.hidden, [key]: !on } })),
+      setOpen: (key, on) =>
+        update((s) => ({
+          ...s,
+          opened: { ...s.opened, [key]: on },
+          /* an overlay with no trigger of its own stands only while it is open; a menu's trigger stays */
+          ...(on || !triggered.has(key) ? { hidden: { ...s.hidden, [key]: !on } } : {}),
+        })),
+      setProp: (part, prop, value) => update((s) => ({ ...s, props: { ...s.props, [part]: { ...s.props[part], [prop]: value } } })),
+      toast: (message) => update((s) => ({ ...s, snack: { id: (s.snack?.id ?? 0) + 1, message } })),
+      moves: movesSoFar,
+    };
+  }, [types, vars, startHidden, triggered, update]);
 
   const app = useMemo<AppState>(() => {
     const scopeOf = (here?: Here): Scope => ({ ...here?.scope, vars: { ...varsOf(latest.current.vars, vars) } });
@@ -149,57 +212,47 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, reader, handle, 
       return c.op === "neq" ? !same : same;
     };
     const fill = (template: string, here?: Here) => (reader && template.includes("{{") ? reader.fill(template, scopeOf(here)) : template);
-    const write = (s: State, id: string, value: VarValue): State => ({ ...s, vars: { ...s.vars, [id]: value } });
+    /* the kit's own runner: the effects that are the app's memory, for a kit with no interpreter (no API there) */
     const effect = (e: Effect, here: Here) => {
       switch (e.do) {
         case "show":
         case "hide":
+          return kit.setShown(e.part, e.do === "show");
         case "toggle":
+          return kit.setShown(e.part, !kit.shown(e.part));
         case "open":
         case "close":
-          update((s) => {
-            const now = s.hidden[e.part] ?? startHidden.has(e.part);
-            const hide = e.do === "toggle" ? !now : e.do === "hide" || e.do === "close";
-            return { ...s, hidden: { ...s.hidden, [e.part]: hide } };
-          });
-          return true;
+          return kit.setOpen(e.part, e.do === "open");
         case "setVar": {
-          const type = types.get(e.var)?.type;
+          const v = kit.variable(e.var);
           const raw = typeof e.expr === "string" ? (reader ? reader.ev(e.expr, scopeOf(here)) : undefined) : e.value;
           const given: VarValue | undefined = raw === undefined || raw === null ? undefined : typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean" ? raw : asWords(raw);
-          const value = type && given !== undefined ? coerce(given, type) : null;
-          if (value !== null) update((s) => write(s, e.var, value));
-          return true;
+          const value = v && given !== undefined ? coerce(given, v.type) : null;
+          if (value !== null) kit.setVar(e.var, value);
+          return;
         }
         case "toggleVar": {
-          const v = types.get(e.var);
-          if (v) update((s) => write(s, e.var, v.type === "bool" ? !asBool(s.vars[e.var] ?? v.value) : (s.vars[e.var] ?? v.value)));
-          return true;
+          const v = kit.variable(e.var);
+          if (v) kit.setVar(e.var, v.type === "bool" ? !asBool(v.value) : v.value);
+          return;
         }
         case "addVar": {
-          const v = types.get(e.var);
-          if (v && Number.isFinite(e.by))
-            update((s) => {
-              const next = Math.round(((isNumber(s.vars[e.var] ?? v.value) ?? 0) + e.by) * 1e6) / 1e6;
-              return write(s, e.var, coerce(next, v.type) ?? next);
-            });
-          return true;
+          const v = kit.variable(e.var);
+          if (!v || !Number.isFinite(e.by)) return;
+          const next = Math.round(((isNumber(v.value) ?? 0) + e.by) * 1e6) / 1e6;
+          return kit.setVar(e.var, coerce(next, v.type) ?? next);
         }
         case "setProp":
-          update((s) => ({ ...s, props: { ...s.props, [e.part]: { ...s.props[e.part], [e.prop]: e.value } } }));
-          return true;
+          return kit.setProp(e.part, e.prop, e.value);
         case "snackbar":
-          update((s) => ({ ...s, snack: { id: (s.snack?.id ?? 0) + 1, message: fill(e.message, here) } }));
-          return true;
+          return kit.toast(fill(e.message, here));
         default:
-          return false;
+          return;
       }
     };
-    const run = (body: ActionBody | undefined, here: Here, screen: ScreenParts, nav: Nav) => {
+    const run = (body: ActionBody | undefined, here: Here, _screen: ScreenParts, nav: Nav) => {
       if (!body) return;
-      for (const e of body.effects ?? []) {
-        if (!effect(e, here)) handle?.(e, { here, screen, nav, run: (next, at) => run(next, at, screen, nav) });
-      }
+      for (const e of body.effects ?? []) effect(e, here);
       if (body.to === "back") nav.back();
       else if (body.to === "link") {
         if (body.url) nav.open(body.url);
@@ -212,6 +265,8 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, reader, handle, 
       vars: state.vars,
       varScope,
       shown: (key, hiddenAtStart = startHidden.has(key)) => !(state.hidden[key] ?? hiddenAtStart),
+      opened: (key) => !!state.opened[key],
+      setOpened: (key, on) => update((s) => ({ ...s, opened: { ...s.opened, [key]: on } })),
       prop: <T,>(part: string, prop: string, design: T): T => {
         const v = state.props[part]?.[prop];
         if (v === undefined) return design;
@@ -219,6 +274,7 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, reader, handle, 
         if (typeof design === "boolean") return asBool(v) as T;
         return String(v) as T;
       },
+      setProp: kit.setProp,
       bound: <T extends VarValue>(varId: string, design: T): T => {
         const v = state.vars[varId];
         if (v === undefined) return design;
@@ -238,9 +294,11 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, reader, handle, 
       snack: state.snack,
       dismiss: () => update((s) => ({ ...s, snack: null })),
       run,
+      kit,
+      ...(interpret ? { interpret } : {}),
       reader,
     };
-  }, [state, varScope, vars, types, startHidden, reader, handle, update]);
+  }, [state, varScope, vars, types, startHidden, reader, interpret, kit, update]);
 
   return <AppContext.Provider value={app}>{children}</AppContext.Provider>;
 }
@@ -256,11 +314,26 @@ function varsOf(values: Record<string, VarValue>, vars: AppVar[]): Record<string
 const truthy = (v: unknown) => !(v === undefined || v === null || v === false || v === 0 || v === "" || (typeof v === "number" && Number.isNaN(v)) || (Array.isArray(v) && !v.length));
 
 /** an app with nothing remembered: what a screen drawn on its own reads */
+const NOTHING_KIT: KitHost = {
+  variable: () => undefined,
+  setVar: () => {},
+  varScope: () => ({}),
+  filled: () => false,
+  shown: () => true,
+  setShown: () => {},
+  setOpen: () => {},
+  setProp: () => {},
+  toast: () => {},
+  moves: movesSoFar,
+};
 const NOTHING: AppState = {
   vars: {},
   varScope: {},
   shown: (_key, hiddenAtStart = false) => !hiddenAtStart,
+  opened: () => false,
+  setOpened: () => {},
   prop: (_part, _prop, design) => design,
+  setProp: () => {},
   bound: (_id, design) => design,
   field: () => undefined,
   input: () => {},
@@ -269,13 +342,15 @@ const NOTHING: AppState = {
   snack: null,
   dismiss: () => {},
   run: () => {},
+  kit: NOTHING_KIT,
 };
 
 /** the app's memory (see `AppProvider`); a screen drawn outside one reads the design as it is */
 export const useApp = (): AppState => useContext(AppContext) ?? NOTHING;
 
-/** A screen's taps: `act(action, here)` checks the action's condition, then runs the branch it takes (its effects in
- *  order, then where it goes). `screen` is what the screen's taps can act on: its data sources and forms. */
+/** A screen's taps: `act(action, here)` runs the action where it was made. An exported app's interpreter runs it as
+ *  every host does (lib/actions); the kit on its own checks its condition and runs the branch it takes. `screen` is
+ *  what the screen's taps can act on: its key and params, its data sources, forms and form inputs. */
 export function useAct(screen: ScreenParts = {}): (action: Action | undefined, here?: Here) => void {
   const app = useApp();
   const nav = useNav();
@@ -286,6 +361,7 @@ export function useAct(screen: ScreenParts = {}): (action: Action | undefined, h
   return useCallback(
     (action: Action | undefined, here: Here = {}) => {
       if (!action) return;
+      if (app.interpret) return app.interpret(action, { here, screen: latest.current, nav, kit: app.kit });
       const body = app.holds(action.when, here) ? action : action.else;
       app.run(body, here, latest.current, nav);
     },
@@ -293,7 +369,7 @@ export function useAct(screen: ScreenParts = {}): (action: Action | undefined, h
   );
 }
 
-/** runs a tap of the design's on its own, `ms` after its screen came on show (a delayed trigger) */
+/** runs a tap of the design on its own, `ms` after its screen came on show (a delayed trigger) */
 export function useAfter(ms: number, fn: () => void) {
   const latest = useRef(fn);
   useEffect(() => {
@@ -303,6 +379,45 @@ export function useAfter(ms: number, fn: () => void) {
     const t = setTimeout(() => latest.current(), Math.max(0, ms));
     return () => clearTimeout(t);
   }, [ms]);
+}
+
+/** The kinds of the fields an event declares (`PartDef.events`), by field: what the printed app cuts a part's
+ *  callback down to (lib/partContract.ts `payloadOf`). */
+export type EventFields = Record<string, "text" | "number" | "bool" | "list" | "object">;
+
+/** What an event carries, as its part declares it: only the declared fields, each of its kind (what a widget says is
+ *  not trusted to be the right shape). The same rule as lib/partContract.ts `payloadOf`. */
+export function eventOf(fields: EventFields, raw: unknown): Record<string, unknown> {
+  const given = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const out: Record<string, unknown> = {};
+  for (const [k, kind] of Object.entries(fields)) {
+    const v = given[k];
+    if (kind === "text" && typeof v === "string") out[k] = v.slice(0, 20_000);
+    else if (kind === "number" && typeof v === "number" && Number.isFinite(v)) out[k] = v;
+    else if (kind === "bool" && typeof v === "boolean") out[k] = v;
+    else if (kind === "list" && Array.isArray(v)) out[k] = v.slice(0, 1000);
+    else if (kind === "object" && v && typeof v === "object" && !Array.isArray(v)) out[k] = v;
+  }
+  return out;
+}
+
+type SlotTap = (() => void) | undefined;
+
+/** A part's taps on its places (`taps`), with its families (`tab:*`): a place's own tap, else its family's, which is
+ *  told the place (`"tab:2"`, `2`). A part asks for a place by its key, so the families answer whatever it asks. */
+export function slotTaps(own: Record<string, SlotTap>, families: Record<string, (slot: { key: string; index: number }) => void>): Record<string, SlotTap> {
+  return new Proxy(own, {
+    get(target, key) {
+      if (typeof key !== "string") return undefined;
+      if (Object.prototype.hasOwnProperty.call(target, key)) return target[key];
+      const m = /^(.+):(\d+)$/.exec(key);
+      const family = m ? families[m[1]] : undefined;
+      return family && m ? () => family({ key, index: Number(m[2]) }) : undefined;
+    },
+    has(target, key) {
+      return typeof key === "string" && (key in target || (/^(.+):(\d+)$/.test(key) && !!families[key.replace(/:\d+$/, "")]));
+    },
+  });
 }
 
 /** how long a snackbar stands: Material's short duration */

@@ -183,6 +183,15 @@ describe("the shop bound to its contract", () => {
     expect(calls).not.toContain("encodeURIComponent");
   });
 
+  it("prints only the helpers its calls use, whatever its operations are called", () => {
+    /* an operation called pick (or omit, headers) with no query: no helper of that name */
+    const openapi = { openapi: "3.1.0", info: { title: "T", version: "1" }, paths: { "/pick": { post: { operationId: "pick", responses: { "204": { description: "picked" } } } }, "/omit": { post: { operationId: "omit", responses: { "204": { description: "left" } } } } } };
+    const ops = ["pick", "omit"].map((name) => ({ name, operationId: name, method: "POST" as const, path: `/${name}`, params: [], query: false, body: false, bodyType: "void", responseType: "void", status: 204 }));
+    const calls = callsModule({ openapi, asyncapi: null, types: "", operations: ops }, { apiImport: "@t/api", kitImport: "../kit", runtimeFrom: "./runtime" });
+    expect(calls).toContain('"pick": (_a, _b, i) => api.pick(');
+    expect(calls).not.toMatch(/const (pick|omit|seg|headers) = /);
+  });
+
   it("comes out the same each time", async () => {
     const { doc, widths } = boundShopDoc();
     const again = await buildProduct(doc, widths, { lang: "en", read: fromDisk });

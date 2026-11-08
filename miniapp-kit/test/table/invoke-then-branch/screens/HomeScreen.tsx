@@ -2,7 +2,7 @@
 import { useBindings } from "@m3e/app-runtime";
 import { At, Button, Screen, useScreen, type Action } from "../../../../src/kit";
 
-const A1: Action = { to: "none", effects: [{ do: "invoke", capability: "scan.code", then: { to: "none", effects: [{ do: "setVar", var: "read", value: "", expr: "result.text" }] } }] };
+const A1: Action = { to: "none", effects: [{ do: "invoke", capability: "scan.code", then: { to: "none", effects: [{ do: "setVar", var: "read", value: "", expr: "result.text" }], when: { expr: "result.text" }, else: { to: "none", effects: [{ do: "setVar", var: "read", value: "nothing" }] } } }] };
 
 export function HomeScreen() {
   const s = useScreen("home");
@@ -10,7 +10,7 @@ export function HomeScreen() {
   return (
     <Screen screen="home" width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Scan it" onPress={s.tap(A1, { $: $ })} testID="button" />
+        <Button label="Scan it" onPress={() => s.run(A1, { $: $, part: "button" })} testID="button" />
       </At>
       {s.layer}
     </Screen>

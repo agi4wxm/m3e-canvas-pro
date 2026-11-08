@@ -90,7 +90,7 @@ describe("the layouts document", () => {
     expect(around).toContain('taps={{ "tab:3": () => nav.go("Layouts") }}');
     expect(around).toContain('taps={{ "tab:0": () => nav.go("Layouts"), "tab:2": () => nav.go("Floating") }}');
     const mini = printMiniScreens(doc, widths).screens.find((s) => s.key === "around")!.source;
-    expect(mini).toMatch(/<Pagination [^>]*taps=\{\{ "tab:3": s\.tap\(A\d, \{ \$: \$ \}\) \}\}/);
+    expect(mini).toMatch(/<Pagination [^>]*taps=\{\{ "tab:3": \(\) => s\.run\(A\d, \{ \$: \$ \}\) \}\}/);
   });
 });
 

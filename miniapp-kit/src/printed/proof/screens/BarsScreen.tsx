@@ -18,7 +18,7 @@ export function BarsScreen() {
       <Pin edge="bottom">
         <NavigationBar
           items={[{ label: "Home", icon: "home" }, { label: "Search", icon: "search" }, { label: "Inbox", icon: "inbox" }]}
-          taps={{ "tab:1": s.tap(A1, { $: $ }) }}
+          taps={{ "tab:1": () => s.run(A1, { $: $ }) }}
           testID="navigationBar"
         />
       </Pin>

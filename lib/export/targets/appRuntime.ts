@@ -16,9 +16,9 @@ export const APP_RUNTIME_FILES = [
   ...["types", "transport", "body"].map((n) => `lib/api/${n}.ts`),
   /* what an invoke comes to (lib/app reads the types only) */
   "lib/capabilities/types.ts",
-  /* the interpreter every host runs what a tap does with (docs/交互规则.md), and the moves its model names */
-  ...["model", "host", "run", "index"].map((n) => `lib/actions/${n}.ts`),
+  /* the interpreter of the design's taps (lib/actions), and the screen moves its model names */
   "lib/screenMotion.ts",
+  ...["model", "host", "run"].map((n) => `lib/actions/${n}.ts`),
   ...["store", "session", "sources", "forms", "scope", "runtime", "react", "actions", "index"].map((n) => `lib/app/${n}.ts`),
 ];
 

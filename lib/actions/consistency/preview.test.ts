@@ -12,8 +12,8 @@ import type { Element } from "./tinyReact";
 import type { Observed } from "./types";
 
 /* The table on the editor's preview: the real `Preview` component (components/Preview.tsx) and everything a tap goes
- * through there (its `fire`, its effects, its calls through the bindings engine, its forms, its navigation), run headless
- * on a small stand-in for React (tinyReact.ts). A tap is the screen's own `onAction` with the part as the screen drew it,
+ * through there (its `fire`, the interpreter on its host, its calls through the bindings engine, its forms, its
+ * navigation), run headless on a small stand-in for React (tinyReact.ts). A tap is the screen's own `onAction` with the part as the screen drew it,
  * typing its `onField`; what is on show is read off the screens it renders. */
 
 vi.mock("react", async () => (await import("./tiny")).tiny.react);
@@ -29,8 +29,10 @@ vi.mock("@/components/PartView", () => ({ PartView: "part-view" }));
 vi.mock("@/components/DeviceBars", () => ({ DeviceBars: "device-bars" }));
 
 const { Preview } = await import("../../../components/Preview");
+const { PreviewStore } = await import("../../../components/preview/store");
 
-const isPreviewState = (v: unknown): v is PreviewState => !!v && typeof v === "object" && "vars" in v && "hidden" in v && "opened" in v && "fields" in v && "snack" in v;
+/** the preview's interaction state: what its store holds now */
+const stateOf = (): PreviewState | undefined => (tiny.states().find((v) => v instanceof PreviewStore) as InstanceType<typeof PreviewStore> | undefined)?.get();
 
 /** what the stand-in draws: the preview, and its screens (what a screen starts on its own, a delay, is theirs) */
 const drawn = (t: unknown) => t === Preview || (typeof t === "function" && t.name === "Screen");
@@ -109,7 +111,7 @@ function previewOf(doc: Doc, backend: Backend): Driver {
       }
     },
     observe: (): Observed => {
-      const state = tiny.states().find(isPreviewState);
+      const state = stateOf();
       const shown = screens();
       const words: string[] = [];
       for (const s of shown) {

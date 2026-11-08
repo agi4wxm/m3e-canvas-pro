@@ -168,8 +168,28 @@ function actsSource(spec: RuntimeSpec): string {
   const tabs = Object.entries(a.tabs);
   return `
 export type { Action }
-/** where a tap was made, as its screen says it: the part, the row of data it was drawn for, the form it is in */
-export type TapAt = { part?: string; item?: unknown; index?: number; form?: string }
+/** Where a tap was made, as its screen says it: the part, the row of data it was drawn for, the form it is in, the
+ *  entry of a family of places it was made on (\`slot\`), or the event that started it (\`event\`, cut down to what the
+ *  part \`declared\` of it) */
+export type TapAt = { part?: string; item?: unknown; index?: number; form?: string; slot?: { key: string; index: number }; event?: unknown; declared?: Record<string, string> }
+
+/** what an event carries as its part declares it: only the fields declared, each of its kind (lib/partContract.ts \`payloadOf\`) */
+function eventOf(raw: unknown, declared: Record<string, string>): Record<string, unknown> {
+  const given = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+  const out: Record<string, unknown> = {}
+  for (const [k, kind] of Object.entries(declared)) {
+    const v = given[k]
+    if (kind === "text" && typeof v === "string") out[k] = v.slice(0, 20000)
+    else if (kind === "number" && typeof v === "number" && Number.isFinite(v)) out[k] = v
+    else if (kind === "bool" && typeof v === "boolean") out[k] = v
+    else if (kind === "list" && Array.isArray(v)) out[k] = v.slice(0, 1000)
+    else if (kind === "object" && v && typeof v === "object" && !Array.isArray(v)) out[k] = v
+  }
+  return out
+}
+
+/** a tap as the interpreter takes it: the event cut down to what the part declares */
+const tapOf = ({ declared, ...at }: TapAt): Omit<TapAt, "declared"> => (declared ? { ...at, event: eventOf(at.event, declared) } : at)
 ${when(
   bd,
   `/** What a screen gives the taps made on it: its scope as it was last drawn (its data, its params), the calls its taps
@@ -338,9 +358,9 @@ ${
     ? `  const params = useScreenParams()
   app.screenActions(screen, parts)
   const act = app.act
-  return useCallback((action: Action, at: TapAt = {}) => act(action, { screen, params, ...at }), [act, screen, params])`
+  return useCallback((action: Action, at: TapAt = {}) => act(action, { screen, params, ...tapOf(at) }), [act, screen, params])`
     : `  const act = app.act
-  return useCallback((action: Action, at: TapAt = {}) => act(action, { screen, ...at }), [act, screen])`
+  return useCallback((action: Action, at: TapAt = {}) => act(action, { screen, ...tapOf(at) }), [act, screen])`
 }
 }
 `;
@@ -621,7 +641,7 @@ ${when(p.overlay, "          if (s.overlay) return { ...s, overlay: null }\n")} 
         const raw = url.trim()
         try {
           const page = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : "https://" + raw)
-          if (page.protocol === "http:" || page.protocol === "https:") ${bd ? 'void runtime.invoke("link.open", { url: page.href }).then((out) => !out.ok && out.error.type === "not-implemented" && browserCapability("link.open", { url: page.href }))' : 'window.open(page.href, "_blank", "noopener,noreferrer")'}
+          if (page.protocol === "http:" || page.protocol === "https:") ${bd ? 'void runtime.invoke("link.open", { url: page.href }).then((out) => { if (!out.ok && out.error.type === "not-implemented") void browserCapability("link.open", { url: page.href }) })' : 'window.open(page.href, "_blank", "noopener,noreferrer")'}
         } catch {
           /* not a link at all */
         }

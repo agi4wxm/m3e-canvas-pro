@@ -24,6 +24,7 @@ import {
   type Item,
   type ScreenParam,
 } from "../../tokens";
+import type { Answer } from "../../actions/model";
 import { partBySlug, reader, treeOf } from "../../../parts/registry";
 import type { PartDef, PropDef } from "../../../parts/types";
 import { formStateProps } from "../../../parts/fieldState";
@@ -43,7 +44,8 @@ import { kindsIn, styleContext, styleDifferences, withDocStyles, type StyleScree
 import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
 import { isOverlayPart } from "../../interact";
-import { isPlaceKey, optionsOf } from "../../partContract";
+import { eventOfKey, eventsOf, familiesOf, familyOfKey, isPlaceKey, optionsOf } from "../../partContract";
+import { eventProp } from "../partEvents";
 import { endpointOf } from "../../bindings/contract";
 import { messagesShown } from "../../bindings/view";
 import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
@@ -67,7 +69,7 @@ import { iconNamesOf } from "../rn/print";
 
 /** something the printed app does not do as the design says, for the exporter to list */
 export type MiniWarning = {
-  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "look" | "image" | "unknown" | "binding" | "scroll" | "link" | "input" | "style";
+  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "event" | "look" | "image" | "unknown" | "binding" | "scroll" | "link" | "input" | "style";
   screen?: string;
   /** what touches more than one (what of the style is not drawn), every screen it touches */
   screens?: string[];
@@ -142,9 +144,6 @@ const NAME = /^[A-Za-z][A-Za-z0-9]*$/;
 
 /** an object literal of printed `key: value` entries; `{}` with none */
 const objOf = (entries: string[]) => (entries.length ? `{ ${entries.join(", ")} }` : "{}");
-
-/** a key of an object literal: bare when it can be */
-const keyName = (k: string) => (NAME.test(k) ? k : str(k));
 
 /** a value as an expression: numbers, words (as strings), lists and objects of them */
 export function expr(v: unknown): string {
@@ -281,7 +280,7 @@ function cleanEffect(e: Effect, depth: number, names: Names): Record<string, unk
     const v = (e as Record<string, unknown>)[k];
     if (v === undefined) continue;
     if ((k === "then" || k === "catch") && depth >= 4) continue;
-    out[k] = k === "then" || k === "catch" ? cleanBody(v as ActionBody, names, depth + 1) : k === "part" && typeof v === "string" && VISIBILITY.has(e.do) ? names.shown(v) : (k === "part" || k === "form") && typeof v === "string" ? names.part(v) : v;
+    out[k] = k === "then" || k === "catch" ? cleanAnswer(v as Answer, names, depth + 1) : k === "part" && typeof v === "string" && VISIBILITY.has(e.do) ? names.shown(v) : (k === "part" || k === "form") && typeof v === "string" ? names.part(v) : v;
   }
   return out;
 }
@@ -289,6 +288,11 @@ function cleanEffect(e: Effect, depth: number, names: Names): Record<string, unk
 function cleanBody(b: ActionBody, names: Names, depth = 0): Record<string, unknown> {
   const effects = (b.effects ?? []).map((e) => cleanEffect(e, depth, names)).filter((e): e is Record<string, unknown> => !!e);
   return { to: names.screen(b.to), ...(b.url ? { url: b.url } : {}), ...(effects.length ? { effects } : {}), ...(b.overlay ? { overlay: true } : {}), ...(b.params ? { params: b.params } : {}) };
+}
+
+/** a call's or an invoke's then or catch: a body, with the branch the answer picks (docs/交互规则.md, 回答上的条件) */
+function cleanAnswer(a: Answer, names: Names, depth: number): Record<string, unknown> {
+  return { ...cleanBody(a, names, depth), ...(a.when ? { when: cleanCondition(a.when, names) } : {}), ...(a.else ? { else: cleanBody(a.else, names, depth) } : {}) };
 }
 
 function cleanAction(a: Action, names: Names): Record<string, unknown> {
@@ -330,7 +334,23 @@ function effectsOf(doc: Doc): Effect[] {
 type Screens = { keys: Map<string, string>; names: Map<string, string> };
 
 /** where a part stands as the code reads it: the expressions' scope, and what a tap from it is run with */
-type At = { $: string; item?: string; form?: { id: string; handle: string } };
+type At = { $: string; item?: string; index?: string; form?: { id: string; handle: string } };
+
+/** an overlay that keeps its trigger on the screen while shut (a menu): closing it shuts its popup only */
+function keepsTrigger(it: Item | undefined): boolean {
+  const def = it ? partBySlug(it.component) : undefined;
+  return !!def?.overlay && !!def.open && def.open.trigger !== "hide";
+}
+
+/** the parts whose chosen row is `selected` and which say so when one is tapped (`onSelect`), without moving it
+ *  themselves: the screen moves it, as the preview does, unless it is bound to something */
+const selects = (def: PartDef, it: Item) => ["bar-list", "file-list", "tree"].includes(def.slug) && it.bind?.selected === undefined;
+
+/** the kit's components that open and close as their prop says, a tap's open and close effects too */
+const OPENS_BY_PROP = new Set(["dropdown-menu", "tooltip", "popover", "hover-card"]);
+
+/** whether an action (or its else) makes a call or an invoke, or submits: what its answer is told apart by is the part */
+const answers = (a: Action) => [a, a.else].some((b) => (b?.effects ?? []).some((e) => e.do === "call" || e.do === "invoke" || e.do === "submit"));
 
 const kebab = (s: string) => s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 
@@ -352,6 +372,10 @@ class ScreenPrinter {
   inputs: Record<string, string> = {};
   /** lines at the top of the component: hooks and scopes */
   hooks: string[] = [];
+  /** the delayed taps, after every scope they read */
+  after: string[] = [];
+  /** the inputs a form keeps that a condition asks whether they are filled, by their printed name */
+  formFields: Record<string, { form: string; field: string }> = {};
   /** forms by their group id */
   forms = new Map<string, { handle: string; scope: string; op: string }>();
   repeats = 0;
@@ -373,7 +397,7 @@ class ScreenPrinter {
     readonly tabBar: { screens: Set<string>; bars: Set<string> },
     readonly parts: Map<string, string>,
     /** the document's group of each part, and the groups an effect shows or hides */
-    readonly visibility: { owner: Map<string, Group>; toggled: Set<string> },
+    readonly visibility: { owner: Map<string, Group>; toggled: Set<string>; opened: Set<string>; filled: Set<string> },
   ) {}
 
   get api(): ApiSpec {
@@ -407,19 +431,37 @@ class ScreenPrinter {
 
   /* ---------- taps ---------- */
 
-  env(at: At): string {
-    return `{ $: ${at.$}${at.item ? `, item: ${at.item}` : ""}${at.form ? `, form: ${str(at.form.id)}` : ""} }`;
+  /** where a tap is made, as the screen's runtime runs it: the scope, the row's element and its place, the form, the part
+   *  (what a call's answer is told apart by), and `more` (the place of a family, an event) */
+  env(at: At, more: string[] = []): string {
+    return `{ ${[`$: ${at.$}`, ...(at.item ? [`item: ${at.item}`, ...(at.index ? [`index: ${at.index}`] : [])] : []), ...(at.form ? [`form: ${str(at.form.id)}`] : []), ...more].join(", ")} }`;
   }
 
-  /** a tap as a handler, run by the screen's runtime with where the part stands */
+  /** a tap as a handler, run by the screen's runtime with where the part stands; a delayed one runs by itself */
   tap(a: Action | undefined, part: string, at: At): string | undefined {
     if (!a) return undefined;
-    if (a.trigger) this.warn("trigger", "a hover or delayed trigger is printed as a tap", part);
+    if (a.trigger?.on === "hover") this.warn("trigger", "a hover trigger is printed as a tap", part);
     if (a.scrollTo) this.warn("scroll", "scrolling to a part is not printed", part);
     if (a.to === "link") this.warn("link", "a mini-program copies the address (WeChat and Douyin open no outside page without a web-view domain); H5 opens it", part);
+    const run = this.run(a, part, at);
+    if (a.trigger?.on === "delay") {
+      if (at.item) this.warn("trigger", "a delayed tap inside a list runs as a tap", part);
+      else {
+        this.kit.add("useAfter");
+        this.after.push(`useAfter(${Math.max(0, Math.round(a.trigger.ms))}, () => ${run});`);
+        return undefined;
+      }
+    }
+    return `() => ${run}`;
+  }
+
+  /** an action run by the screen's runtime where the part stands, as an expression (`more`: the place of a family, an
+   *  event) */
+  run(a: Action, part: string, at: At, more: string[] = []): string {
     this.kit.add("Action");
     this.uses$ = true;
-    return `s.tap(${this.constant("A", cleanAction(a, this.names), "Action")}, ${this.env(at)})`;
+    const where = answers(a) ? [`part: ${str(this.names.part(part))}`, ...more] : more;
+    return `s.run(${this.constant("A", cleanAction(a, this.names), "Action")}, ${this.env(at, where)})`;
   }
 
   /** What an item carries beside its props: its look and its taps. A part drawn as atoms takes no taps of places:
@@ -442,10 +484,55 @@ class ScreenPrinter {
     if (lost.length) this.warn("slot", "a tap on a place inside a part drawn as atoms is not kept", it.id);
     const taps = slots === true ? wired.map(([slot, a]) => [slot, this.tap(a, it.id, at)] as const).filter((x): x is readonly [string, string] => !!x[1]) : [];
     /* a part open over the screen closes once one of its places is tapped */
-    const closing = close ? taps.map(([slot, f]) => [slot, `() => (${f}(), s.close(${str(close)}))`] as const) : taps;
+    const closing = close ? taps.map(([slot, f]) => [slot, `() => (${f.startsWith("() => ") ? f.slice(6) : `(${f})()`}, s.close(${str(close)}))`] as const) : taps;
     const all = close && !closing.some(([slot]) => slot === "dismiss") ? [...closing, ["dismiss", `() => s.close(${str(close)})`] as const] : closing;
-    if (all.length) out.push(["taps", `{ ${all.map(([s, f]) => `${str(s)}: ${f}`).join(", ")} }`]);
+    /* a family's action runs for every place of it that has none of its own, told which (`slot`) */
+    const prefixes = new Set(familiesOf(it).map((f) => f.prefix));
+    const families = slots === true ? Object.entries(it.actions ?? {}).flatMap(([k, a]) => (a && familyOfKey(k) !== null && prefixes.has(familyOfKey(k)!) ? [[familyOfKey(k)!, this.run(a, it.id, at, ["slot"])] as const] : [])) : [];
+    if (slots !== true && Object.keys(it.actions ?? {}).some((k) => familyOfKey(k) !== null)) this.warn("slot", "the action for every entry of a part drawn as atoms is not kept", it.id);
+    const own = `{ ${all.map(([s, f]) => `${str(s)}: ${f}`).join(", ")} }`;
+    if (families.length) {
+      this.kit.add("slotTaps");
+      const done = close ? `, s.close(${str(close)})` : "";
+      out.push(["taps", `slotTaps(${own}, { ${families.map(([prefix, f]) => `${str(prefix)}: (slot) => (${f}${done})`).join(", ")} })`]);
+    } else if (all.length) out.push(["taps", own]);
+    out.push(...this.events(it, at));
     return out;
+  }
+
+  /** The part's events as the kit component hands them out (`onSettled`, `onReorder`…), each running the design's action
+   *  on it with what it carries (`event`), cut down to what the part declares. */
+  events(it: Item, at: At): [string, string][] {
+    const out: [string, string][] = [];
+    const def = partBySlug(it.component);
+    for (const [key, a] of Object.entries(it.actions ?? {})) {
+      const name = eventOfKey(key);
+      const declared = name !== null ? eventsOf(it).find((e) => e.name === name) : undefined;
+      if (!a || !declared || !def) continue;
+      const ep = isNative(def.slug) ? eventProp(def.slug, declared.name) : null;
+      if (!ep) {
+        /* a capability view's slot sends its events itself (`onEvent`) */
+        if (!this.o.slots?.names[it.id]) this.warn("event", `the part does not send its event "${declared.name}" in a mini-program: the action on it is not run`, it.id);
+        continue;
+      }
+      this.kit.add("eventOf").add("EventFields");
+      const fields = this.constant("E", declared.payload ?? {}, "EventFields");
+      out.push([ep.prop, `(${ep.params}) => ${this.run(a, it.id, at, [`event: eventOf(${fields}, ${ep.payload})`])}`]);
+    }
+    return out;
+  }
+
+  /** what a capability view's slot sends (`onEvent(name, payload)`), each event running the design's action on it */
+  slotEvents(it: Item, at: At): [string, string][] {
+    const cases = Object.entries(it.actions ?? {}).flatMap(([key, a]) => {
+      const name = eventOfKey(key);
+      const declared = name !== null ? eventsOf(it).find((e) => e.name === name) : undefined;
+      if (!a || !declared) return [];
+      this.kit.add("eventOf").add("EventFields");
+      const fields = this.constant("E", declared.payload ?? {}, "EventFields");
+      return [`if (name === ${str(declared.name)}) ${this.run(a, it.id, at, [`event: eventOf(${fields}, payload)`])};`];
+    });
+    return cases.length ? [["onEvent", `(name: string, payload: unknown) => { ${cases.join(" ")} }`]] : [];
   }
 
   /* ---------- props ---------- */
@@ -504,8 +591,9 @@ class ScreenPrinter {
       } else if (typeof v === "string" && v.includes("{{") && (d.kind === "text" || d.kind === "image")) {
         this.uses$ = true;
         code = fillCode(at.$, v);
-      } else if (!this.setProps.has(`${it.id}:${d.key}`) && !SET_ONLY.has(d.key) && same(v, defaults[key])) continue;
-      if (this.setProps.has(`${it.id}:${d.key}`)) code = `s.prop(${str(this.names.part(it.id))}, ${str(d.key)}, ${code})`;
+      } else if (!this.setProps.has(`${it.id}:${d.key}`) && !(d.key === "selected" && selects(def, it)) && !SET_ONLY.has(d.key) && same(v, defaults[key])) continue;
+      /* a row picked moves the chosen one where the part leaves that to whoever draws it (`selects`) */
+      if (this.setProps.has(`${it.id}:${d.key}`) || (d.key === "selected" && selects(def, it))) code = `s.prop(${str(this.names.part(it.id))}, ${str(d.key)}, ${code})`;
       out.push([key, code]);
     }
     for (const n of iconNamesOf(def.slug, values)) this.icons.add(n);
@@ -536,10 +624,11 @@ class ScreenPrinter {
       const f = str(it.field!);
       const h = form.handle;
       const out: [string, string][] = [];
+      if (this.visibility.filled.has(it.id)) this.formFields[this.names.part(it.id)] = { form: form.id, field: it.field! };
       if (labels) {
         this.kit.add("optionIndex");
         out.push([prop, `optionIndex(${expr(labels)}, ${h}.value(${f}))`], ["onChange", `(i: number) => ${h}.set(${f}, ${expr(labels)}[i])`]);
-      } else if (key === "checked") out.push([prop, `!!${h}.value(${f})`], ["onChange", `(v: boolean) => ${h}.set(${f}, v)`]);
+      } else if (key === "checked" || def.input?.kind === "bool") out.push([prop, `!!${h}.value(${f})`], ["onChange", `(v: boolean) => ${h}.set(${f}, v)`]);
       else if (list) out.push([prop, `(${h}.value(${f}) as string[] | undefined) ?? ${expr(linesOf(values[key]))}`], ["onChange", `(v: string[]) => ${h}.set(${f}, v)`]);
       else if (def.input?.kind === "number") out.push([prop, `Number(${h}.value(${f}) ?? ${expr(values.value ?? 0)})`], ["onChange", `(v: number) => ${h}.set(${f}, v)`]);
       else if (def.slug === "file-upload") {
@@ -615,7 +704,7 @@ class ScreenPrinter {
       const standIn = isNative(def.slug) ? NATIVE[def.slug] : "Placeholder";
       this.kit.add(standIn);
       const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it, at), ...this.extras(it, at, true, close), ["testID", str(this.names.part(it.id))]]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
-      return el(slot, [...given.map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)]], [drawn]);
+      return el(slot, [...given.map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(it, at)], [drawn]);
     }
     if (isNative(def.slug)) {
       const name = NATIVE[def.slug];
@@ -634,7 +723,13 @@ class ScreenPrinter {
           props.push([key, design === "false" ? `${at.form!.handle}.submitting` : `${at.form!.handle}.submitting || ${design}`]);
         }
       }
-      return el(name, [...props, ...input.props, ...layout, ...this.extras(it, at, true, close), ["testID", str(this.names.part(it.id))]], kids);
+      /* a menu a tap opens or closes: its sheet follows the screen's runtime, the visitor's own opening kept there */
+      const owner = this.visibility.owner.get(it.id);
+      const opens: [string, string][] = owner && this.visibility.opened.has(owner.id) && OPENS_BY_PROP.has(def.slug) ? [["open", `s.opened(${str(this.names.shown(it.id))})`], ["onOpenChange", `(on: boolean) => s.setOpened(${str(this.names.shown(it.id))}, on)`]] : [];
+      const picks: [string, string][] = selects(def, it) ? [["onSelect", `(i: number) => s.setProp(${str(this.names.part(it.id))}, "selected", i)`]] : [];
+      /* files are asked for through the capability registry (file.pick) */
+      if (def.slug === "file-upload") picks.push(["pick", "s.pickFiles"]);
+      return el(name, [...props, ...input.props, ...layout, ...this.extras(it, at, true, close), ...opens, ...picks, ["testID", str(this.names.part(it.id))]], kids);
     }
     if (def.atoms && !kids.length) {
       this.warn("atoms", `drawn as the atoms it splits into (${def.slug})`, it.id);
@@ -785,7 +880,7 @@ class ScreenPrinter {
     this.runtime.add("keyOf");
     this.react.add("Fragment");
     this.uses$ = true;
-    const each: J = { each: listCode(at.$, run.repeat!.data!, run.repeat?.limit), item, index, pre: [`const ${$r} = ${at.$}.with({ item: ${item}, index: ${index} });`], body: print([template], { ...at, $: $r, item }) };
+    const each: J = { each: listCode(at.$, run.repeat!.data!, run.repeat?.limit), item, index, pre: [`const ${$r} = ${at.$}.with({ item: ${item}, index: ${index} });`], body: print([template], { ...at, $: $r, item, index }) };
     return [each, ...print(rest, at)];
   }
 
@@ -837,7 +932,8 @@ class ScreenPrinter {
     };
     walk(run.id);
     const R = this.constant("F", formRules(this.api, e, { only: owned, whole: true }), "FormFields");
-    this.runtime.add("useForm").add("type FormFields");
+    this.runtime.add("type FormFields");
+    this.kit.add("useScreenForm");
     this.usesCalls = true;
     this.uses$ = true;
     const params = Object.entries(f.params ?? {}).map(([k, x]) => `${NAME.test(k) ? k : str(k)}: ${at.$}.ev(${str(x)})`);
@@ -845,17 +941,18 @@ class ScreenPrinter {
     const then = f.then ? this.constant("A", cleanBody(f.then, this.names), "ActionBody") : "undefined";
     const caught = f.catch ? this.constant("A", cleanBody(f.catch, this.names), "ActionBody") : "undefined";
     if (f.then || f.catch) this.kit.add("ActionBody");
-    const env = (extra: string) => `{ $: ${scope}.with({ ${extra} }), form: ${str(this.names.part(run.id))} }`;
+    /* what runs after its answer is the design's, run by the screen's runtime as a call's then and catch are */
     this.hooks.push(
       [
-        `const ${handle} = useForm({`,
+        `const ${handle} = useScreenForm(s, ${str(this.names.part(run.id))}, {`,
         `  id: ${str(`${this.key}/${this.names.part(run.id)}`)},`,
         `  fields: ${R},`,
+        `  operationId: ${str(f.operationId)},`,
         `  send: (body, init) => CALLS[${str(f.operationId)}](${objOf(params)}, body, init),`,
         ...(values.length ? [`  extra: () => ({ ${values.join(", ")} }),`] : []),
         `  status: ${expr(okStatus(e))},`,
-        `  then: (response, status) => s.answered(${str(f.operationId)}, ${then}, ${env("response, status")}, true),`,
-        `  catch: (error, status) => s.answered(${str(f.operationId)}, ${caught}, ${env("error, status")}, false),`,
+        ...(f.then ? [`  then: ${then},`] : []),
+        ...(f.catch ? [`  catch: ${caught},`] : []),
         `});`,
         `const ${scope} = ${at.$}.with({ form: ${handle}.view });`,
       ].join("\n"),
@@ -1041,10 +1138,20 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
      hidden or not */
   const owner = new Map(doc.groups.flatMap((g) => g.items.map((it) => [it.id, g] as const)));
   const toggled = new Set(effectsOf(doc).flatMap((e) => (VISIBILITY.has(e.do) && "part" in e && owner.has(e.part) ? [owner.get(e.part)!.id] : [])));
+  const opened = new Set(effectsOf(doc).flatMap((e) => ((e.do === "open" || e.do === "close") && owner.has(e.part) ? [owner.get(e.part)!.id] : [])));
+  /* the inputs a condition asks whether they are filled */
+  const filled = new Set<string>();
+  const asked = (c: Condition | undefined) => {
+    if (c && "filled" in c && typeof c.filled === "string") filled.add(c.filled);
+  };
+  for (const g of doc.groups) {
+    asked(g.showWhen);
+    for (const it of g.items) for (const a of [it.action, ...Object.values(it.actions ?? {})]) asked(a?.when);
+  }
   const tab = o.tabBar === false ? { tabs: new Map<string, number>(), bars: new Set<string>(), items: [] } : tabBarOf(doc, frames, screens, groupsOf, widths);
   const printed = frames.map((frame): MiniScreen => {
     const key = screens.keys.get(frame.id)!;
-    const p = new ScreenPrinter(doc, frame, key, widths, groupsOf(frame), screens, warnings, o, setProps, { screens: new Set(tab.tabs.keys()), bars: tab.bars }, parts, { owner, toggled });
+    const p = new ScreenPrinter(doc, frame, key, widths, groupsOf(frame), screens, warnings, o, setProps, { screens: new Set(tab.tabs.keys()), bars: tab.bars }, parts, { owner, toggled, opened, filled });
     const body = p.body();
     p.icons.forEach((n) => icons.add(n));
     const { w, h } = frameSizeOf(frame);
@@ -1058,6 +1165,13 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
     const init: string[] = [];
     if (p.hidden.length) init.push(`hidden: ${expr([...new Set(p.hidden)])}`);
     if (Object.keys(p.inputs).length) init.push(`inputs: { ${Object.entries(p.inputs).map(([k, v]) => `${str(k)}: ${v}`).join(", ")} }`);
+    if (Object.keys(p.formFields).length) init.push(`fields: ${expr(p.formFields)}`);
+    /* the menus on this screen a tap opens or closes */
+    const triggers = [...opened].flatMap((g) => {
+      const first = doc.groups.find((x) => x.id === g)?.items[0];
+      return first && keepsTrigger(first) && p.all.some((x) => x.id === g) ? [p.names.shown(first.id)] : [];
+    });
+    if (triggers.length) init.push(`triggers: ${expr(triggers)}`);
     top.push(`const s = useScreen(${str(key)}${init.length ? `, { ${init.join(", ")} }` : ""});`);
     if (sources.length) {
       p.runtime.add("useBindings").add("useDataSource").add("sourceKey");
@@ -1071,16 +1185,16 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
       p.runtime.add("useBindings");
       top.push(`const $ = useBindings({ ${names.length ? `data: { ${names.join(", ")} }, ` : ""}params: s.params, vars: s.vars });`);
     }
-    top.push(...p.hooks);
+    top.push(...p.hooks, ...p.after);
     const paged = sources.filter((x) => x.pull || x.more);
     if (paged.length) {
       p.kit.add("usePageData");
       top.push(`usePageData([${paged.map((x) => `{ source: ${x.name}${x.pull ? ", pull: true" : ""}${x.more ? ", more: true" : ""} }`).join(", ")}]);`);
     }
-    if (sources.length || p.forms.size) top.push(`s.register({ ${sources.length ? `sources: { ${sources.map((x) => (x.name === identOf(x.source) && x.name === x.source ? x.name : `${str(x.source)}: ${x.name}`)).join(", ")} }` : ""}${sources.length && p.forms.size ? ", " : ""}${p.forms.size ? `forms: { ${[...p.forms].map(([id, f]) => `${keyName(p.names.part(id))}: ${f.handle}`).join(", ")} }` : ""} });`);
+    if (sources.length) top.push(`s.register({ sources: { ${sources.map((x) => (x.name === identOf(x.source) && x.name === x.source ? x.name : `${str(x.source)}: ${x.name}`)).join(", ")} } });`);
     const screen = el("Screen", [["screen", str(key)], ...(bg ? ([["bg", str(bg)]] as [string, string][]) : []), ["width", expr(w)], ["height", expr(h)], ...(length > h ? ([["length", expr(length)]] as [string, string][]) : []), ...(p.room > 0 ? ([["room", expr(p.room)]] as [string, string][]) : [])], [...body, { code: "s.layer" }]);
     const component = screens.names.get(frame.id)!;
-    const kitTypes = ["Action", "ActionBody", "Condition", "PickedFile"].filter((t) => p.kit.has(t));
+    const kitTypes = ["Action", "ActionBody", "Condition", "EventFields", "PickedFile"].filter((t) => p.kit.has(t));
     const kitValues = [...p.kit].filter((k) => !kitTypes.includes(k)).sort();
     const runtimeTypes = [...p.runtime].filter((k) => k.startsWith("type ")).map((k) => k.slice(5));
     const runtimeValues = [...p.runtime].filter((k) => !k.startsWith("type ")).sort();

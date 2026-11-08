@@ -13,7 +13,7 @@ export function LongScreen() {
         <Text text="Top of the page" testID="text18" />
       </At>
       <At x={16} y={1292}>
-        <Button label="Below the fold" width={160} onPress={s.tap(A1, { $: $ })} testID="button19" />
+        <Button label="Below the fold" width={160} onPress={() => s.run(A1, { $: $ })} testID="button19" />
       </At>
       <At x={200} y={1604}>
         <Fab icon="add" label="Compose" testID="fAB" />

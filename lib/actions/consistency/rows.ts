@@ -41,14 +41,7 @@ const op = (operationId: string, more: Partial<Design["api"] extends (infer O)[]
 
 /* reasons the hosts share, with the report's sections */
 const WEB_PROTO_NO_API = "原型 Web 导出没有接口：调用、刷新、提交、退出登录不发出，运行时在控制台说一次、导出的 README 里列出（要运行它们请导出完整产品；报告 6.2、9.4）";
-const RENDER_SCOPE = "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）";
-const NO_LATEST = "lib/app 的 Runtime.call 只在重新开始后丢弃回答，同一组件同一接口的旧回答照样运行（报告 7.2，整改计划第一批遗留）";
-const NAV_AFTER_MOVE = "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）";
-const EXPORTS_NO_OUTLETS = "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项";
-const PREVIEW_BATCH = "预览先整批执行本地效果、再发出接口调用和能力调用，调用读到后面才写的值（报告 6.2：`Preview.tsx` runBody）";
 const WEB_PROTO_NO_RESTART = "原型 Web 导出不会重新开始：它没有模拟库的场景，也不换后端，表的“重新开始”在它上面不发生（能力由模拟库按预览的方式回答）";
-const ANSWER_BRANCH = "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）";
-const PREVIEW_DROPS ="预览在访客离开后整个丢弃 then/catch（第一批 W5 的规则），效果也不再运行，状态跟不上后端（报告 7.1）";
 
 export const ROWS: Row[] = [
   /* ---------- order ---------- */
@@ -59,7 +52,7 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], vars: [num("qty", 1)], api: [op("create", { body: { qty: { title: "Qty", type: "number" } } })], parts: [btn("go", "Order five", stay(setVar("qty", 5), call("create", { args: { qty: "vars.qty" } })))] },
     steps: [{ tap: "Order five" }],
     expect: { vars: { qty: 5 }, calls: [{ op: "create", in: { qty: 5 } }] },
-    known: { webPrototype: WEB_PROTO_NO_API, rn: RENDER_SCOPE, miniapp: RENDER_SCOPE },
+    known: { webPrototype: WEB_PROTO_NO_API },
   },
   {
     id: "order-call-then-setvar",
@@ -68,7 +61,7 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], vars: [num("qty", 1)], api: [op("create", { body: { qty: { title: "Qty", type: "number" } } })], parts: [btn("go", "Order then set", stay(call("create", { args: { qty: "vars.qty" } }), setVar("qty", 5)))] },
     steps: [{ tap: "Order then set" }],
     expect: { vars: { qty: 5 }, calls: [{ op: "create", in: { qty: 1 } }] },
-    known: { preview: PREVIEW_BATCH, webPrototype: WEB_PROTO_NO_API },
+    known: { webPrototype: WEB_PROTO_NO_API },
   },
   {
     id: "order-local-reads-previous",
@@ -77,9 +70,6 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], vars: [num("n", 1), num("m", 0)], parts: [btn("go", "Count", stay({ do: "addVar", var: "n", by: 1 }, setVar("m", 0, "vars.n * 10")))] },
     steps: [{ tap: "Count" }],
     expect: { vars: { n: 2, m: 20 } },
-    known: {
-      miniapp: "小程序的“设为变量”表达式读屏幕渲染时的作用域（`env.$`），读不到同一次点击里前面效果写入的值（报告 6.2）",
-    },
   },
   {
     id: "order-nav-params-after-effects",
@@ -94,8 +84,6 @@ export const ROWS: Row[] = [
     expect: { screen: "next", toast: "Id p7" },
     known: {
       webPrototype: "原型 Web 导出没有屏幕参数（参数只属于绑定接口的产品）",
-      rn: "手机端：没有接口的设计不打印屏幕参数和跳转参数（`lib/export/rn/print.ts` 只在 `doc.api` 存在时打印绑定）",
-      miniapp: "小程序的跳转参数读屏幕渲染时的作用域（`env.$`），读不到同一次点击里写入的值（报告 6.3）",
     },
   },
   {
@@ -160,10 +148,6 @@ export const ROWS: Row[] = [
     },
     steps: [{ type: "Note", value: "hi" }, { tap: "Check note" }],
     expect: { vars: { r: "filled" } },
-    known: {
-      rn: "手机端表单里的输入框由表单保管，“已填写”读的是套件自己的输入记录，读不到（`rn/src/kit/app.tsx` holds）",
-      miniapp: "小程序表单里的输入框由表单保管，“已填写”读的是屏幕自己的输入记录，读不到（`screen.tsx` holdsOver）",
-    },
   },
 
   /* ---------- what starts an action ---------- */
@@ -174,7 +158,6 @@ export const ROWS: Row[] = [
     design: { screens: [HOME, NEXT], parts: [text("splash", "Welcome", { action: { ...goTo("next"), trigger: { on: "delay", ms: 40 } } })] },
     steps: [{ wait: 120 }],
     expect: { screen: "next" },
-    known: { miniapp: "小程序把延迟触发印成点击，不点就不运行（报告 6.2：`lib/export/miniapp/print.ts` trigger）" },
   },
   {
     id: "trigger-hover",
@@ -193,7 +176,6 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], vars: [words("entered", "")], parts: [{ id: "pad", kind: "numpad", label: "Pay now", actions: { "on:submit": stay(setVar("entered", "", "event.value"), toast("Paid {{event.value}}")) } }] },
     steps: [{ emit: "Pay now", event: "submit", payload: { value: "42", extra: "ignored" } }],
     expect: { vars: { entered: "42" }, toast: "Paid 42" },
-    known: { webPrototype: EXPORTS_NO_OUTLETS, webProduct: EXPORTS_NO_OUTLETS, rn: EXPORTS_NO_OUTLETS, miniapp: EXPORTS_NO_OUTLETS },
   },
   {
     id: "family-runs-action",
@@ -206,7 +188,6 @@ export const ROWS: Row[] = [
     },
     steps: [{ tapSlot: "Small", slot: "tab:2" }, { tapSlot: "Small", slot: "tab:0" }],
     expect: { vars: { picked: 2, own: "small" } },
-    known: { webPrototype: EXPORTS_NO_OUTLETS, webProduct: EXPORTS_NO_OUTLETS, rn: EXPORTS_NO_OUTLETS, miniapp: EXPORTS_NO_OUTLETS },
   },
 
   /* ---------- show, hide, open, close ---------- */
@@ -244,10 +225,6 @@ export const ROWS: Row[] = [
     },
     steps: [{ tap: "Open options" }, { tap: "Close options" }],
     expect: { shown: { Options: true, Rename: false } },
-    known: {
-      rn: "手机端把“关闭”当成隐藏整个部件，下拉菜单连触发按钮一起消失（报告 6.2：`rn/src/kit/app.tsx`）",
-      miniapp: "小程序把“关闭”当成隐藏整个部件，下拉菜单连触发按钮一起消失（`miniapp-kit/src/kit/app/screen.tsx` close）",
-    },
   },
   {
     id: "open-menu",
@@ -256,10 +233,6 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], parts: [{ id: "menu", kind: "menu", label: "Choices", items: ["Duplicate"] }, btn("open", "Show choices", stay({ do: "open", part: "menu" }))] },
     steps: [{ tap: "Show choices" }],
     expect: { shown: { Choices: true, Duplicate: true } },
-    known: {
-      rn: "手机端的“打开”只让部件出现，不打开菜单的弹出层（套件的 Menu 自己管开合，不读 opened）",
-      miniapp: "小程序的“打开”只让部件出现，不打开菜单的弹出层（套件的 Menu 自己管开合，不读 opened）",
-    },
   },
 
   /* ---------- variables, props, words ---------- */
@@ -341,7 +314,7 @@ export const ROWS: Row[] = [
     answers: { pay: { status: 200, body: { state: "pending" } } },
     steps: [{ tap: "Pay now" }],
     expect: { vars: { state: "pending" } },
-    known: { preview: ANSWER_BRANCH, webPrototype: WEB_PROTO_NO_API, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
+    known: { webPrototype: WEB_PROTO_NO_API, },
   },
   {
     id: "call-catch-branch",
@@ -351,7 +324,7 @@ export const ROWS: Row[] = [
     answers: { claim: { status: 500, body: {} } },
     steps: [{ tap: "Claim it" }],
     expect: { toast: "Failed 500" },
-    known: { preview: ANSWER_BRANCH, webPrototype: WEB_PROTO_NO_API, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
+    known: { webPrototype: WEB_PROTO_NO_API, },
   },
   {
     id: "call-unauthorized-no-catch",
@@ -389,7 +362,7 @@ export const ROWS: Row[] = [
     hold: ["ping"],
     steps: [{ tap: "Ping later" }, { tap: "Bump n" }, { answer: "ping" }],
     expect: { vars: { n: 2, seen: 2 } },
-    known: { webPrototype: WEB_PROTO_NO_API, miniapp: RENDER_SCOPE },
+    known: { webPrototype: WEB_PROTO_NO_API },
   },
   {
     id: "call-nesting-limit",
@@ -410,9 +383,7 @@ export const ROWS: Row[] = [
     steps: [{ tap: "Chain" }],
     expect: { calls: [{ op: "c0", in: {} }, { op: "c1", in: {} }, { op: "c2", in: {} }, { op: "c3", in: {} }, { op: "c4", in: {} }] },
     known: {
-      preview: "预览嵌套到第 6 层（`Preview.tsx` depth > 6），比读文件的 4 层多（报告 6.2）",
       webPrototype: WEB_PROTO_NO_API,
-      rn: "手机端打印到第 6 层（`rn/print.ts` depth > 6）（报告 6.2）",
     },
   },
 
@@ -435,7 +406,7 @@ export const ROWS: Row[] = [
     hold: ["pick"],
     steps: [{ tap: "Pick" }, { tap: "Pick" }, { answer: "pick", which: "newest", body: { n: 2 } }, { answer: "pick", body: { n: 1 } }],
     expect: { vars: { last: 2 } },
-    known: { webPrototype: WEB_PROTO_NO_API, rn: NO_LATEST, miniapp: NO_LATEST },
+    known: { webPrototype: WEB_PROTO_NO_API },
   },
   {
     id: "late-moved-then",
@@ -450,7 +421,7 @@ export const ROWS: Row[] = [
     hold: ["save"],
     steps: [{ tap: "Save it" }, { tap: "Leave" }, { answer: "save" }],
     expect: { vars: { saved: true }, screen: "other" },
-    known: { preview: PREVIEW_DROPS, webPrototype: WEB_PROTO_NO_API, rn: NAV_AFTER_MOVE, miniapp: NAV_AFTER_MOVE },
+    known: { webPrototype: WEB_PROTO_NO_API },
   },
   {
     id: "late-moved-catch",
@@ -460,7 +431,7 @@ export const ROWS: Row[] = [
     hold: ["save"],
     steps: [{ tap: "Save badly" }, { tap: "Leave" }, { answer: "save", status: 500 }],
     expect: { toast: "Could not save", screen: "other" },
-    known: { preview: PREVIEW_DROPS, webPrototype: WEB_PROTO_NO_API },
+    known: { webPrototype: WEB_PROTO_NO_API },
   },
 
   /* ---------- forms ---------- */
@@ -526,7 +497,6 @@ export const ROWS: Row[] = [
     steps: [{ tap: "Sign in" }, { tap: "Account" }, { tap: "Sign out" }],
     expect: { screen: "login" },
     known: {
-      preview: "预览只在进入屏幕时检查登录，退出登录后仍停在需要登录的屏幕上（报告 6.2）",
       webPrototype: WEB_PROTO_NO_API,
     },
   },
@@ -549,7 +519,6 @@ export const ROWS: Row[] = [
     capabilities: { "scan.code": { result: { text: "", format: "qr" } } },
     steps: [{ tap: "Scan it" }],
     expect: { vars: { read: "nothing" } },
-    known: { preview: ANSWER_BRANCH, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
   },
   {
     id: "invoke-catch-type",
@@ -585,7 +554,6 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], vars: [words("text", "")], parts: [btn("copy", "Copy", stay(setVar("text", "copied words"), invoke("clipboard.write", { args: { text: "vars.text" } }), setVar("text", "later")))] },
     steps: [{ tap: "Copy" }],
     expect: { vars: { text: "later" }, invokes: [{ op: "clipboard.write", in: { text: "copied words" } }] },
-    known: { preview: PREVIEW_BATCH, rn: RENDER_SCOPE, miniapp: RENDER_SCOPE },
   },
   {
     id: "invoke-in-call-then",
@@ -614,7 +582,6 @@ export const ROWS: Row[] = [
     hold: ["payment.pay"],
     steps: [{ tap: "Pay" }, { tap: "Elsewhere" }, { answer: "payment.pay", body: { status: "submitted" } }],
     expect: { vars: { got: "submitted" }, screen: "other" },
-    known: { rn: NAV_AFTER_MOVE, miniapp: NAV_AFTER_MOVE },
   },
   {
     id: "invoke-late-restart",

@@ -2,7 +2,7 @@
 import { useBindings } from "@m3e/app-runtime";
 import { At, Button, Screen, useScreen, type Action } from "../../../../src/kit";
 
-const A1: Action = { to: "none", effects: [{ do: "call", operationId: "claim", catch: { to: "none", effects: [{ do: "snackbar", message: "Taken" }] } }] };
+const A1: Action = { to: "none", effects: [{ do: "call", operationId: "claim", catch: { to: "none", effects: [{ do: "snackbar", message: "Taken" }], when: { expr: "status == 409" }, else: { to: "none", effects: [{ do: "snackbar", message: "Failed {{status}}" }] } } }] };
 
 export function HomeScreen() {
   const s = useScreen("home");
@@ -10,7 +10,7 @@ export function HomeScreen() {
   return (
     <Screen screen="home" width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Claim it" onPress={s.tap(A1, { $: $ })} testID="button" />
+        <Button label="Claim it" onPress={() => s.run(A1, { $: $, part: "button" })} testID="button" />
       </At>
       {s.layer}
     </Screen>

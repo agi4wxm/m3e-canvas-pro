@@ -5,7 +5,7 @@ const A1: Action = { to: "none", effects: [{ do: "show", part: "n2" }] };
 
 export function HomeScreen() {
   const app = useApp();
-  const act = useAct();
+  const act = useAct({ key: "Home" });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>

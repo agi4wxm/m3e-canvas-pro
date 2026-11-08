@@ -20,7 +20,12 @@ export function DeskScreen() {
           testID="window"
         >
           <Cell dir="column" fillWidth>
-            <Tree width={640} testID="tree" />
+            <Tree
+              selected={s.prop("tree", "selected", 0)}
+              width={640}
+              onSelect={(i: number) => s.setProp("tree", "selected", i)}
+              testID="tree"
+            />
           </Cell>
           <Cell dir="column" fillWidth>
             <CodeBlock width={868} testID="codeBlock" />

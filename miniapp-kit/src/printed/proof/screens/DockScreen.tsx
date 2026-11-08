@@ -18,7 +18,7 @@ export function DockScreen() {
             <Text text="Content two" testID="text15" />
           </DockPane>
           <DockPane pane={2}>
-            <Button label="Content three" width={160} onPress={s.tap(A1, { $: $ })} testID="button17" />
+            <Button label="Content three" width={160} onPress={() => s.run(A1, { $: $ })} testID="button17" />
           </DockPane>
         </Dock>
       </At>

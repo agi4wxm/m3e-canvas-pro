@@ -40,3 +40,9 @@ export { formViewOf, readFields, setPath, type FormRun, type FormView } from "..
 export type { AbortSignalLike, HttpMethod, Transport, TransportFile, TransportRequest, TransportResponse } from "../api/transport";
 /* how a transport of the platform's reads an answer (the mini-program's does; packages/api has the same file) */
 export { readBody, textBody, utf8Bytes, type RawResponse, type ResponseFile } from "../api/body";
+/* The interpreter every host runs the design's taps with (lib/actions, docs/交互规则.md): the exported phone app and
+ * mini-program hand it a host made of their own state and this runtime, so a tap means the same on every one. */
+export { run, startOf, chooseBranch, conditionHolds } from "../actions/run";
+export { linkUrlOf, MAX_CALL_DEPTH } from "../actions/model";
+export type { Host as ActionHost, Tap, Outcome, CallArgs, Change, FormRef, GoOptions as ActionGoOptions } from "../actions/host";
+export type { Action, ActionBody, Effect, Condition } from "../actions/model";

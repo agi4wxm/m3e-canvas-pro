@@ -72,10 +72,10 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [90, "eb7abc6f42cf338dfe8ea38fced3cb4157cd5e4cf8f473ae0277b69301c78245"],
-    systems: [47, "f80a35984abaefc15f14bdd288077d625b986c5295278bbf699cd30b1e4dd62c"],
-    reuse: [38, "fc63b4335aaad16e4ed342b163b74840e313987f710642e44474e4d91bb19821"],
-    sweep: [100, "0f8855e76ccb817c2e59efc36c41c09d7ec9ee16fb317f462966b980394fd1ca"],
+    proof: [90, "4f8f16219d277a278c304543106101f457bb51558524d838d75f4f628f8fc12c"],
+    systems: [47, "7fc80791613dd1512780b4b65b682343d404419113ccd0a605afe6a0a5201ad7"],
+    reuse: [38, "f7e04c27dfd1f2fc34d728474ef0c76cc7ba9cca3395793db1dd331ea72149f2"],
+    sweep: [100, "86a4d14876dd9666d7d1dd996e4e0cb2f147d4936dd54e4f690d2368c07754d4"],
     parts: [140, "295c3c85b06eab798e6bb08867328a8cd975cd1ce8f55cb46c9beb2d442f19d3"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
@@ -332,6 +332,9 @@ describe("the mobile app", () => {
     expect(form).toContain("disabled={form1.submitting}");
     const photo = text(shop, "apps/mobile/src/generated/screens/PhotoScreen.tsx");
     expect(photo).toContain('onPress={() => void pickFile("").then((file) => file && form1.set("file", file))}');
+    /* the file is asked for through the capability registry (file.pick), the device's pickers without an adapter */
+    expect(text(shop, "apps/mobile/src/generated/files.ts")).toContain('const asked = await runtime.invoke("file.pick", { accept })');
+    expect(text(shop, "apps/miniapp/src/generated/screens/PhotoScreen.tsx")).toMatch(/<FileUpload[\s\S]*pick=\{s\.pickFiles\}/);
     expect(photo).toContain('params: { productId: "params.productId" }');
     expect(text(shop, "apps/mobile/src/generated/screens/SignInScreen.tsx")).toContain("login: true");
     expect(text(shop, "apps/mobile/src/generated/contract.ts")).toContain('"media": "multipart/form-data"');

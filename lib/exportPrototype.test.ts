@@ -226,9 +226,9 @@ describe("a document with no prototype interactions, flows or variables in modes
        parts declare theirs, so it reads and writes a variable of its own). */
     expect({ proof: digestOf(proof), reuse: digestOf(await exported(reuseDoc().doc, reuseDoc().widths)), sweep: digestOf(await exported(sweepDoc().doc, sweepDoc().widths)) }).toMatchInlineSnapshot(`
       {
-        "proof": "6bfb08649cae70d2",
-        "reuse": "fab93f7c6f07118a",
-        "sweep": "308750af6e4b1c3d",
+        "proof": "4ecf5e986d1ee538",
+        "reuse": "98e65cd031d5d5af",
+        "sweep": "3c3de885fbd556b6",
       }
     `);
   }, 60_000);

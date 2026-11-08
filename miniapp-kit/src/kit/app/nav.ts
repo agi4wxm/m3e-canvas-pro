@@ -9,6 +9,19 @@ import type { AppSpec } from "./spec";
 /** where the app is, or is to go: a screen and what it was opened with */
 export type Place = { screen: string; params?: Record<string, unknown> };
 
+/* How many times the visitor has gone somewhere (a page opened or gone back from, a screen laid over another or taken
+   off it): an answer that comes after one runs its effects but goes nowhere (lib/actions, docs/交互规则.md “迟到的回答”).
+   Counted as each move is asked for. */
+let moves = 0;
+
+/** the visitor's moves so far */
+export const movesSoFar = () => moves;
+
+/** a move that is not a page's (a screen laid over this one, or taken off it) */
+export const moved = () => {
+  moves++;
+};
+
 /** the most pages a mini-program keeps on its stack */
 const MAX_STACK = 10;
 
@@ -65,6 +78,7 @@ export function currentPlace(spec: AppSpec): Place | undefined {
 export function openPlace(spec: AppSpec, place: Place, o: { replace?: boolean } = {}): Promise<unknown> {
   const url = urlOf(spec, place);
   if (!url) return Promise.resolve();
+  moved();
   if (spec.screens[place.screen].tab !== undefined) return Taro.switchTab({ url }).catch(() => Taro.reLaunch({ url }));
   const full = Taro.getCurrentPages().length >= MAX_STACK - 1;
   return (o.replace || full ? Taro.redirectTo({ url }) : Taro.navigateTo({ url })).catch(() => Taro.reLaunch({ url }));
@@ -72,6 +86,7 @@ export function openPlace(spec: AppSpec, place: Place, o: { replace?: boolean } 
 
 /** back a page; from the first page, to where the app starts */
 export function goBack(spec: AppSpec): Promise<unknown> {
+  moved();
   if (Taro.getCurrentPages().length > 1) return Taro.navigateBack({ delta: 1 });
   return Taro.reLaunch({ url: urlOf(spec, { screen: spec.start }) ?? "/" });
 }

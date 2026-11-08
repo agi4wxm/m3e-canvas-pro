@@ -10,7 +10,7 @@ export function DrawsScreen() {
   return (
     <Screen screen="draws" width={412} height={892}>
       <At x={16} y={40}>
-        <PrizeWheel result={2} taps={{ "action": s.tap(A1, { $: $ }) }} testID="prizeWheel" />
+        <PrizeWheel result={2} taps={{ "action": () => s.run(A1, { $: $ }) }} testID="prizeWheel" />
       </At>
       <At x={16} y={320}>
         <GridDraw testID="gridDraw" />

@@ -138,6 +138,8 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["split_retired", {}],
     ["add_part", { slug: dock, id: "dock", screen: "detail", at: { x: 16, y: 500 } }],
     ["reorder_panes", { id: "dock", order: [1, 0] }],
+    ["add_part", { slug: "navigation-bar", id: "navb", screen: "detail", at: { x: 0, y: 760 }, props: { items: [{ label: "A" }, { label: "B" }, { label: "C" }] } }],
+    ["set_rows", { id: "navb", prop: "items", rows: [{ label: "C" }, { label: "A" }, { label: "B" }] }],
     ["add_part", { slug: "split-view", id: "sv", screen: "detail", at: { x: 16, y: 560 }, props: { width: 380, height: 160, collapsible: "second" } }],
     ["set_split", { id: "sv", split: 30, collapsed: true }],
     /* a resizable is retired: an old design holds one, no tool adds it */

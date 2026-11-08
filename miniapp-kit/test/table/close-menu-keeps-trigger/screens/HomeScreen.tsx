@@ -6,20 +6,27 @@ const A1: Action = { to: "none", effects: [{ do: "open", part: "dropdownMenu" }]
 const A2: Action = { to: "none", effects: [{ do: "close", part: "dropdownMenu" }] };
 
 export function HomeScreen() {
-  const s = useScreen("home");
+  const s = useScreen("home", { triggers: ["dropdownMenu"] });
   const $ = useBindings({ params: s.params, vars: s.vars });
   return (
     <Screen screen="home" width={412} height={892}>
       <At x={16} y={88}>
         {s.shows("dropdownMenu") ? (
-          <Menu label="Options" items={[{ label: "Rename" }]} destructive="" testID="dropdownMenu" />
+          <Menu
+            label="Options"
+            items={[{ label: "Rename" }]}
+            destructive=""
+            open={s.opened("dropdownMenu")}
+            onOpenChange={(on: boolean) => s.setOpened("dropdownMenu", on)}
+            testID="dropdownMenu"
+          />
         ) : null}
       </At>
       <At x={16} y={152}>
-        <Button label="Open options" onPress={s.tap(A1, { $: $ })} testID="button" />
+        <Button label="Open options" onPress={() => s.run(A1, { $: $ })} testID="button" />
       </At>
       <At x={16} y={216}>
-        <Button label="Close options" onPress={s.tap(A2, { $: $ })} testID="button2" />
+        <Button label="Close options" onPress={() => s.run(A2, { $: $ })} testID="button2" />
       </At>
       {s.layer}
     </Screen>

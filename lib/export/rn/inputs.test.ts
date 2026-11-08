@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { setGlobalLang } from "../../i18n";
-import { withIds, type Doc, type Item } from "../../tokens";
+import { makeItem, withIds, type Doc, type Item } from "../../tokens";
 import { boundShopDoc } from "../product.fixture";
 import { inputsDoc } from "./fixture";
 import { printRnScreens } from "./print";
@@ -67,5 +67,18 @@ describe("the D3 inputs on a phone", () => {
     expect(entry).toContain('onValueChange={(v: number) => app.input("quantity-stepper", v, "count")}');
     expect(entry).toContain('onChangeText={(v: string) => app.input("rich-text-editor", v, "notes")}');
     expect(warnings.filter((w) => w.kind === "input" || w.kind === "placeholder")).toEqual([]);
+  });
+
+  it("move a picked row where the part leaves it to the app, and write a sorted list and a swipe row out", () => {
+    const { doc, widths } = boundShopDoc();
+    const home = doc.frames[0];
+    const add = (id: string, component: string, props: Record<string, unknown>, bind?: Record<string, string>) => ({ id: `g-${id}`, x: home.x + 16, y: home.y + 400, axis: "x" as const, items: [{ ...makeItem(component), id, label: id, props, ...(bind ? { bind } : {}) }] });
+    const vars = [...(doc.vars ?? []), { id: "order", name: "order", type: "text" as const, value: "" }, { id: "swiped", name: "swiped", type: "bool" as const, value: false }];
+    const more = { ...doc, vars, groups: [...doc.groups, add("bars", "bar-list", { selected: 1 }), add("rows", "sortable-list", { items: [{ label: "A" }, { label: "B" }] }, { items: "order" }), add("swipe", "swipe-row", {}, { open: "swiped" })] };
+    const screen = printRnScreens(more, widths, { kitImport: "../../kit", runtime: { bind: "../bind" } }).screens.find((s) => s.id === home.id)!.source;
+    expect(screen).toContain('selected={app.prop("bars", "selected", 1)}');
+    expect(screen).toContain('onSelect={(i: number) => app.setProp("bars", "selected", i)}');
+    expect(screen).toContain('onChange={(v: string[]) => app.input("rows", v.join("\\n"), "order")}');
+    expect(screen).toContain('onValueChange={(v: boolean) => app.input("swipe", v, "swiped")}');
   });
 });

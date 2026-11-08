@@ -2,15 +2,15 @@
 import { type Action, At, Button, Screen, useAct } from "../../../../src/kit";
 import { useScreenScope } from "../bind";
 
-const A1: Action = { to: "none", effects: [{ do: "call", operationId: "claim", catch: { to: "none", effects: [{ do: "snackbar", message: "Taken" }] } }] };
+const A1: Action = { to: "none", effects: [{ do: "call", operationId: "claim", catch: { to: "none", effects: [{ do: "snackbar", message: "Taken" }], when: { expr: "status == 409" }, else: { to: "none", effects: [{ do: "snackbar", message: "Failed {{status}}" }] } } }] };
 
 export function HomeScreen() {
   const $ = useScreenScope({});
-  const act = useAct();
+  const act = useAct({ key: "Home" });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Claim it" onPress={() => act(A1, { scope: $.scope })} />
+        <Button label="Claim it" onPress={() => act(A1, { scope: $.scope, part: "button" })} />
       </At>
     </Screen>
   );

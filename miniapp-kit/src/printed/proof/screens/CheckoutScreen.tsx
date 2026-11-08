@@ -18,7 +18,7 @@ export function CheckoutScreen() {
           title="Checkout"
           leading="arrow_back"
           trailing=""
-          taps={{ "icon": s.tap(A1, { $: $ }) }}
+          taps={{ "icon": () => s.run(A1, { $: $ }) }}
           testID="appBar4"
         />
       </Pin>
@@ -331,7 +331,7 @@ export function CheckoutScreen() {
             </Box>
             <Text text="Free delivery" styleVariant="tiny" fit="auto" color="muted" />
           </Box>
-          <Button label="Place order" onPress={s.tap(A5, { $: $ })} />
+          <Button label="Place order" onPress={() => s.run(A5, { $: $, part: "checkoutBar2" })} />
         </Box>
       </At>
       {s.layer}

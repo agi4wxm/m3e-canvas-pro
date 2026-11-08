@@ -222,6 +222,15 @@ describe("forms and pickers", () => {
     await draw(<Scene testID="sc" width={200} height={300} />);
     expect(styleOf(screen.getByTestId("sc"))).toMatchObject({ width: 200, height: 300 });
   });
+
+  it("a scene answers a tap on each of its places, as the mini-program's does", async () => {
+    const door = jest.fn();
+    await draw(<Scene width={200} height={300} hotspots={{ columns: ["Label", "x", "y", "w", "h"], rows: [["Door", "10", "20", "30", "40%"]] }} taps={{ "tab:0": door }} />);
+    const spot = screen.getByRole("button", { name: "Door" });
+    expect(styleOf(spot)).toMatchObject({ position: "absolute", left: "10%", top: "20%", width: "30%", height: "40%" });
+    await fireEvent.press(spot);
+    expect(door).toHaveBeenCalled();
+  });
 });
 
 describe("overlays", () => {
