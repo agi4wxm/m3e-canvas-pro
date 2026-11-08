@@ -2,48 +2,21 @@
  * was aimed, an input saying what it now holds, an overlay's own dismiss button closing it, a widget's events handed
  * on. What an input shows is the preview's: the value in the preview's state is drawn into the part's prop
  * (lib/interact.ts `liveItem`), and what the visitor does to it comes back through `onField`, so the state is the one
- * place its value lives (a widget hands its value out through the part host, a base-ui control is read off the page). */
+ * place its value lives. Every input is controlled: a widget takes its value as that prop and hands it out through the
+ * part host, and a base-ui control (a text field, a switch, a select…) is drawn controlled by parts/render.tsx with the
+ * same prop and the same host. */
 
 import { useEffect, useMemo, useRef } from "react";
-import type { Item, VarValue } from "@/lib/tokens";
+import type { Item } from "@/lib/tokens";
 import { sizeOf } from "@/lib/tokens";
 import type { TransportFile } from "@/lib/api/transport";
 import { INPUT_PROP, fieldValueOf, type FieldValue } from "@/lib/interact";
 import { slotAction } from "@/lib/partContract";
-import { partBySlug, reader } from "@/parts/registry";
 import { PartHostContext, type PartHost } from "@/parts/widgets/host";
 import { PartView } from "../PartView";
 
 /** the buttons inside an overlay that dismiss it, whichever overlay it is */
 const CLOSERS = '[data-slot$="-close"], [data-slot="alert-dialog-cancel"], [data-slot="alert-dialog-action"]';
-
-/** what an input part holds right now, read off the page: a base-ui control keeps its value to itself,
- *  so the page is the one place every kind of input can be asked the same way */
-function readInput(root: HTMLElement, it: Item): VarValue | undefined {
-  const def = partBySlug(it.component);
-  switch (it.component) {
-    case "input":
-    case "text-field":
-    case "textarea":
-      return root.querySelector<HTMLInputElement | HTMLTextAreaElement>("input, textarea")?.value;
-    case "switch":
-      return root.querySelector('[role="switch"]')?.getAttribute("aria-checked") === "true";
-    case "checkbox":
-      return root.querySelector('[role="checkbox"]')?.getAttribute("aria-checked") === "true";
-    case "slider": {
-      const v = Number(root.querySelector<HTMLInputElement>('input[type="range"]')?.value);
-      return Number.isFinite(v) ? v : undefined;
-    }
-    case "radio-group":
-      return [...root.querySelectorAll('[role="radio"]')].findIndex((r) => r.getAttribute("aria-checked") === "true");
-    case "select": {
-      const text = root.querySelector('[data-slot="select-value"]')?.textContent?.trim();
-      return def ? reader(def, it.props).list("items").findIndex((row) => row.label === text) : undefined;
-    }
-    default:
-      return undefined;
-  }
-}
 
 /** the files a file input holds, as the transport carries them: their bytes as data URLs, at most 25 MB each */
 async function readFiles(root: HTMLElement): Promise<TransportFile[]> {
@@ -85,26 +58,9 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
   const box = useRef<HTMLDivElement>(null);
   const live = useRef({ item, onField, onEvent });
   live.current = { item, onField, onEvent };
-  /* The preview's state holds the input's value and the part shows what it holds (the prop it is drawn with). A base-ui
-   * control keeps what it shows to itself once drawn, so a value that reaches the state from elsewhere (a button that
-   * sets the variable, a form reset) is put into it by drawing it afresh; the value it reported itself it shows
-   * already. So the value this input last reported is told apart from any other. */
-  const key = INPUT_PROP[item.component ?? ""];
-  const value = key ? item.props?.[key] : undefined;
-  const own = useRef(value);
-  const seen = useRef(value);
-  const redraw = useRef(0);
-  /* a list input's rows are drawn afresh each time from what holds them: the same rows are the same value */
-  const same = (a: unknown, b: unknown) => a === b || (Array.isArray(a) && Array.isArray(b) && JSON.stringify(a) === JSON.stringify(b));
-  if (!same(value, seen.current)) {
-    seen.current = value;
-    if (!same(value, own.current)) {
-      own.current = value;
-      redraw.current++;
-    }
-  }
-  /* What a widget is handed (parts/widgets/host.ts): the preview is an explicit prototype, so a demo runs where nothing
-     takes it over; an input says what it holds, an event goes to the part's on:<name> action. */
+  /* What a part is handed (parts/widgets/host.ts): the preview is an explicit prototype, so a demo runs where nothing
+     takes it over; an input, a widget or a base-ui control drawn controlled, says what it holds; an event goes to the
+     part's on:<name> action. */
   const host = useMemo<PartHost>(
     () => ({
       demo,
@@ -113,9 +69,7 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
       input: input
         ? (raw) => {
             const v = fieldValueOf(live.current.item, raw);
-            if (v === undefined) return;
-            own.current = v;
-            live.current.onField?.(v);
+            if (v !== undefined) live.current.onField?.(v);
           }
         : undefined,
       emit: (name, payload) => live.current.onEvent?.(name, payload),
@@ -134,26 +88,6 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
     root.addEventListener("change", took);
     return () => root.removeEventListener("change", took);
   }, [slug]);
-  useEffect(() => {
-    const root = box.current;
-    if (!root || !input) return;
-    const sync = () => {
-      const now = readInput(root, live.current.item);
-      if (now === undefined) return;
-      own.current = now;
-      live.current.onField?.(now);
-    };
-    /* typing is an event; a slider's thumb, a switch and a chosen row show only on the page */
-    const watch = new MutationObserver(sync);
-    watch.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["aria-checked", "aria-valuenow"] });
-    root.addEventListener("input", sync);
-    root.addEventListener("change", sync);
-    return () => {
-      watch.disconnect();
-      root.removeEventListener("input", sync);
-      root.removeEventListener("change", sync);
-    };
-  }, [input, slug]);
   return (
     <div
       ref={box}
@@ -175,7 +109,7 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
       }
       style={{ position: "relative", display: "flex", flex: "0 0 auto", width: easeWidth ? "max-content" : size.w, height: size.h }}>
       <PartHostContext.Provider value={host}>
-        <PartView key={`${redraw.current}:${held ? 1 : 0}`} item={item} live screen={screen} held={held} />
+        <PartView key={held ? "held" : "free"} item={item} live screen={screen} held={held} />
       </PartHostContext.Provider>
     </div>
   );
