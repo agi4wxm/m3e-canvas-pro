@@ -330,6 +330,15 @@ function TimePicker({
                   type="button"
                   data-slot="time-picker-period-item"
                   data-active={on || undefined}
+                  /* a radio group: one stop in the Tab order, the arrows switch AM and PM */
+                  tabIndex={on ? 0 : -1}
+                  onKeyDown={(e) => {
+                    if (!e.key.startsWith("Arrow")) return
+                    e.preventDefault()
+                    setPeriod(!pm)
+                    const other = e.currentTarget.parentElement?.querySelector<HTMLElement>(`[data-slot="time-picker-period-item"]:not([data-active])`)
+                    other?.focus()
+                  }}
                   onClick={() => setPeriod(p === "PM")}
                   className={cn(
                     "flex-1 cursor-pointer text-title-medium focus-ring-inset transition-colors motion-effects-fast outline-none",
@@ -494,6 +503,8 @@ function TimePicker({
                 data-distance={Math.abs(i - 2)}
                 data-active={i === 2 || undefined}
                 disabled={!word}
+                /* a cell with no word only keeps the wheel's rows in place */
+                aria-hidden={!word || undefined}
                 onClick={() => word && setPeriod(word === "PM")}
               >
                 {word && say(word)}

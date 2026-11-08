@@ -5,6 +5,7 @@ import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
+import { rove } from "./roving";
 
 /* What several kinds of app need and nothing else here draws: a picture looked at or cropped, a place
  * or a seat chosen, what reviews add up to, a voice note and a call, a funnel and a schedule. Each
@@ -214,9 +215,13 @@ export function RegionPicker({ label = "", rows = [], placeholder = "", action =
       <div data-region-value className={cn("truncate text-body-large", path.length ? "text-on-surface" : "text-on-surface-variant")}>{path.length ? path.join(" / ") : placeholder}</div>
       <div className="flex gap-1 overflow-hidden" style={{ height }}>
         {columns.map((options, level) => (
-          <div key={level} role="listbox" className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-            {options.map((name) => (
-              <Tap key={name} role="option" aria-selected={path[level] === name} className={cn("shrink-0 truncate rounded-md px-2 py-2 text-left text-body-medium", path[level] === name ? "bg-secondary-container text-on-secondary-container" : "text-on-surface hover:bg-on-surface/8")} onClick={() => setPath([...path.slice(0, level), name])}>
+          <div key={level} role="listbox" aria-label={label ? `${label} ${level + 1}` : undefined} className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-y-auto">
+            {options.map((name, i, all) => (
+              <Tap
+                key={name}
+                role="option"
+                aria-selected={path[level] === name}
+                {...rove(all.length, all.indexOf(path[level] ?? ""), { orientation: "vertical", onMove: (at) => setPath([...path.slice(0, level), all[at]]) })(i)} className={cn("shrink-0 truncate rounded-md px-2 py-2 text-left text-body-medium", path[level] === name ? "bg-secondary-container text-on-secondary-container" : "text-on-surface hover:bg-on-surface/8")} onClick={() => setPath([...path.slice(0, level), name])}>
                 {name}
               </Tap>
             ))}

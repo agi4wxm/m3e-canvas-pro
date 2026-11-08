@@ -6,6 +6,7 @@ import { FilterChip, InputChip } from "@/components/m3e/chip";
 import { Input } from "@/components/m3e/input";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
+import { rove } from "./roving";
 
 /* What a person picks or enters beyond a plain field. Written here on the shadcn M3E controls, after
  * flutter_shadcn_kit's chip input, dropzone, item picker and multiple choice, and Miuix's number picker
@@ -87,10 +88,11 @@ export function FileUpload({ title = "", hint = "", action = "", multiple = true
 
 export function ItemPicker({ items = [], columns = 4, selected = 0, width = 320, className, style }: { items?: { label: string; icon?: string }[]; columns?: number; selected?: number; width?: number } & Look) {
   const [on, setOn] = useState(selected);
+  const keys = rove(items.length, on, { onMove: setOn });
   return (
     <div data-slot="item-picker" data-selected={on} role="radiogroup" className={cn("grid gap-2", className)} style={{ width, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, ...style }}>
       {items.map((it, i) => (
-        <Tap key={i} role="radio" aria-checked={i === on} className={`text-label-small flex flex-col items-center gap-1 rounded-xl p-2 ${i === on ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-low text-on-surface-variant"}`} onClick={() => setOn(i)}>
+        <Tap key={i} role="radio" aria-checked={i === on} {...keys(i)} className={`text-label-small flex flex-col items-center gap-1 rounded-xl p-2 ${i === on ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-low text-on-surface-variant"}`} onClick={() => setOn(i)}>
           {it.icon && <WidgetIcon name={it.icon} className="size-6" />}
           <span className="w-full truncate">{it.label}</span>
         </Tap>
@@ -115,10 +117,11 @@ export function MultiSelect({ items = [], selected = [], width = 320, className,
 export function ColorPalette({ colors = [], selected = 0, width = 320, className, style }: { colors?: string[]; selected?: number; width?: number } & Look) {
   const shown = colors.filter((c) => HEX.test(c));
   const [on, setOn] = useState(selected);
+  const keys = rove(shown.length, on, { onMove: setOn });
   return (
     <div data-slot="color-palette" data-selected={shown[on] ?? ""} role="radiogroup" className={cn("flex flex-wrap gap-2", className)} style={{ width, ...style }}>
       {shown.map((color, i) => (
-        <Tap key={`${color}-${i}`} role="radio" aria-checked={i === on} aria-label={color} className={`flex size-10 items-center justify-center rounded-full ${i === on ? "border-on-surface border-2" : "border-outline-variant border"}`} style={{ background: color }} onClick={() => setOn(i)}>
+        <Tap key={`${color}-${i}`} role="radio" aria-checked={i === on} aria-label={color} {...keys(i)} className={`flex size-10 items-center justify-center rounded-full ${i === on ? "border-on-surface border-2" : "border-outline-variant border"}`} style={{ background: color }} onClick={() => setOn(i)}>
           {i === on && <WidgetIcon name="check" className="text-on-primary size-5" />}
         </Tap>
       ))}

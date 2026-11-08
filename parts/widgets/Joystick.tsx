@@ -20,6 +20,9 @@ const angleOf = (dx: number, dy: number) => {
   return Math.round(((deg % 360) + 360) % 360);
 };
 
+/** the way each arrow pushes it, as an angle; Escape lets it go back to the middle */
+const PUSH: Record<string, number> = { ArrowUp: 360, ArrowRight: 90, ArrowDown: 180, ArrowLeft: 270, Escape: 0 };
+
 export function Joystick({ size = 132, angle = 0, autoCenter = true, className, style }: { size?: number; angle?: number; autoCenter?: boolean } & Look) {
   const ref = useRef<HTMLDivElement>(null);
   /* null: nobody has moved it, so it shows the angle it was given */
@@ -65,6 +68,16 @@ export function Joystick({ size = 132, angle = 0, autoCenter = true, className, 
       onPointerCancel={() => {
         setDragging(false);
         if (autoCenter) setHeld(0);
+      }}
+      /* the arrows push it that way while held (up is 360, not 0, which is the middle); Escape lets it go */
+      onKeyDown={(e) => {
+        const to = PUSH[e.key];
+        if (to === undefined) return;
+        e.preventDefault();
+        setHeld(to);
+      }}
+      onKeyUp={(e) => {
+        if (autoCenter && e.key.startsWith("Arrow")) setHeld(0);
       }}
     >
       <span data-slot="joystick-dot" className="bg-outline-variant absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" />

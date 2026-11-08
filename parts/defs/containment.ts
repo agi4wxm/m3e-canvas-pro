@@ -1,5 +1,6 @@
 import { h, ic, listSlots, type PNode } from "../node";
 import { around, type P, type PartDef } from "../types";
+import { iconMeaning } from "../a11y";
 
 const BUTTON_VARIANTS = ["filled", "tonal", "elevated", "outlined", "text"];
 
@@ -165,17 +166,18 @@ export const containment: PartDef[] = [
       const trailing = p.s("trailing");
       const color = ICON_DISCS[p.s("iconFill")];
       const disc = color ? `size-10 rounded-full group-data-[size=sm]/item:size-8 group-data-[size=xs]/item:size-6 ${color}` : "";
-      const end =
+      /* a control at a row's end is named by its row; an icon there by what it means */
+      const end = (name: string) =>
         trailing === "switch"
-          ? h("ItemActions", null, h("Switch", { defaultChecked: p.b("checked") || undefined }))
+          ? h("ItemActions", null, h("Switch", { defaultChecked: p.b("checked") || undefined, "aria-label": name || undefined }))
           : trailing === "checkbox"
-            ? h("ItemActions", null, h("Checkbox", { defaultChecked: p.b("checked") || undefined }))
+            ? h("ItemActions", null, h("Checkbox", { defaultChecked: p.b("checked") || undefined, "aria-label": name || undefined }))
             : trailing === "radio"
-              ? h("ItemActions", null, h("RadioGroup", { defaultValue: p.b("checked") ? "on" : undefined }, h("RadioGroupItem", { value: "on" })))
+              ? h("ItemActions", null, h("RadioGroup", { defaultValue: p.b("checked") ? "on" : undefined }, h("RadioGroupItem", { value: "on", "aria-label": name || undefined })))
               : trailing === "slider"
-                ? h("ItemActions", { className: "w-32" }, h("Slider", { defaultValue: [50] }))
+                ? h("ItemActions", { className: "w-32" }, h("Slider", { defaultValue: [50], "aria-label": name || undefined }))
                 : trailing === "icon" && p.s("trailingIcon")
-            ? h("ItemActions", null, h("Button", { variant: "text", size: "icon", "aria-label": p.say("Open") }, ic(p.s("trailingIcon"))))
+            ? h("ItemActions", null, h("Button", { variant: "text", size: "icon", "aria-label": iconMeaning(p, p.s("trailingIcon")) }, ic(p.s("trailingIcon"))))
             : trailing === "text" && p.s("trailingText")
               ? h("ItemActions", null, h("span", { "data-slot": "item-value", className: "text-body-medium text-on-surface-variant" }, p.s("trailingText")))
               : null;
@@ -187,7 +189,7 @@ export const containment: PartDef[] = [
           { variant: p.s("variant") === "default" ? undefined : p.s("variant"), size: p.s("size") === "default" ? undefined : p.s("size"), "data-flush": p.s("variant") === "default" ? true : undefined, "data-tap": `tab:${i}` },
           it.icon && h("ItemMedia", { variant: "icon", className: disc || undefined }, ic(it.icon)),
           h("ItemContent", null, h("ItemTitle", null, it.label), p.s("description") && h("ItemDescription", null, p.s("description"))),
-          end,
+          end(it.label),
           chevron,
         );
       const rows = p.list("items").map(row);
@@ -318,7 +320,10 @@ export const containment: PartDef[] = [
       { key: "title", label: "Title", kind: "text", default: "Filters" },
       { key: "description", label: "Description", kind: "text", default: "Narrow down the results.", multiline: true },
       { key: "footer", label: "Save and Cancel", kind: "bool", default: false },
+      { key: "confirm", label: "Confirm button", labels: { ja: "確定ボタン", zh: "确认按钮", ko: "확인 버튼" }, kind: "text", default: "Save", when: (p) => p.b("footer") },
+      { key: "dismiss", label: "Dismiss button", labels: { ja: "閉じるボタン", zh: "关闭按钮", ko: "닫기 버튼" }, kind: "text", default: "Cancel", when: (p) => p.b("footer") },
     ],
+    slots: (p) => (p.b("footer") ? [...(p.s("confirm") ? [{ key: "confirm", label: p.s("confirm") }] : []), ...(p.s("dismiss") ? [{ key: "dismiss", label: p.s("dismiss") }] : [])] : []),
     /* the look belongs to the panel inside the portal, not the root that opens it */
     appearance: { target: "SheetContent", radius: 16 },
     // the sheet docks to an edge of the screen the box stands in for; the part is the sheet itself
@@ -332,7 +337,13 @@ export const containment: PartDef[] = [
           "SheetContent",
           { side: p.s("side") === "right" ? undefined : p.s("side") },
           h("SheetHeader", null, h("SheetTitle", null, p.s("title")), p.s("description") && h("SheetDescription", null, p.s("description"))),
-          p.b("footer") && h("SheetFooter", null, h("SheetClose", { render: h("Button") }, p.say("Save")), h("SheetClose", { render: h("Button", { variant: "outlined" }) }, p.say("Cancel"))),
+          p.b("footer") &&
+            h(
+              "SheetFooter",
+              null,
+              p.s("confirm") && h("SheetClose", { render: h("Button", { "data-tap": "confirm" }) }, p.s("confirm")),
+              p.s("dismiss") && h("SheetClose", { render: h("Button", { variant: "outlined", "data-tap": "dismiss" }) }, p.s("dismiss")),
+            ),
         ),
       ),
   },
@@ -351,12 +362,19 @@ export const containment: PartDef[] = [
       { key: "detached", label: "Detached", kind: "bool", default: false },
       { key: "closeButton", label: "Close button", kind: "bool", default: true },
       { key: "footer", label: "Apply and Cancel", kind: "bool", default: true },
+      { key: "confirm", label: "Confirm button", labels: { ja: "確定ボタン", zh: "确认按钮", ko: "확인 버튼" }, kind: "text", default: "Apply", when: (p) => p.b("footer") },
+      { key: "dismiss", label: "Dismiss button", labels: { ja: "閉じるボタン", zh: "关闭按钮", ko: "닫기 버튼" }, kind: "text", default: "Cancel", when: (p) => p.b("footer") },
       { key: "width", label: "Sheet width", kind: "number", default: 360, min: 256, max: 400, step: 4, unit: "px" },
       { key: "height", label: "Frame height", kind: "number", default: 320, min: 200, max: 560, step: 8, unit: "px" },
     ],
     appearance: { target: "SideSheet", radius: 16 },
     /* the box stands in for the app window the sheet docks to; on a screen it never outgrows
      * the real one (the layout margins are 16dp on each side) */
+    slots: (p) => [
+      ...(p.b("closeButton") ? [{ key: "close", label: p.say("Close"), icon: "close" }] : []),
+      ...(p.b("footer") && p.s("confirm") ? [{ key: "confirm", label: p.s("confirm") }] : []),
+      ...(p.b("footer") && p.s("dismiss") ? [{ key: "dismiss", label: p.s("dismiss") }] : []),
+    ],
     view: (p, s) => sideSheetTree(p, Math.min(Math.round(p.n("width")) + 280, s ? Math.max(200, s.w - 32) : Number.POSITIVE_INFINITY)),
     tree: (p) => sideSheetTree(p, Math.round(p.n("width")) + 280),
   },
@@ -376,6 +394,7 @@ export const containment: PartDef[] = [
       { key: "swipeHandle", label: "Swipe handle", kind: "bool", default: true },
       { key: "inline", label: "Inline (standard sheet)", kind: "bool", default: false },
     ],
+    slots: (p) => (p.s("close") ? [{ key: "close", label: p.s("close") }] : []),
     appearance: { target: "DrawerContent", radius: 28 },
     open: { box: () => ({ w: 412, h: 560 }), trigger: "hide", fit: true },
     tree: (p) =>
@@ -387,7 +406,7 @@ export const containment: PartDef[] = [
           "DrawerContent",
           null,
           h("DrawerHeader", null, h("DrawerTitle", null, p.s("title")), p.s("description") && h("DrawerDescription", null, p.s("description"))),
-          p.s("close") && h("DrawerFooter", null, h("DrawerClose", { render: h("Button", { variant: "text" }) }, p.s("close"))),
+          p.s("close") && h("DrawerFooter", null, h("DrawerClose", { render: h("Button", { variant: "text", "data-tap": "close" }) }, p.s("close"))),
         ),
       ),
   },
@@ -609,9 +628,9 @@ const sideSheetTree = (p: P, w: number) => {
       "SideSheet",
       { side: p.s("side") === "right" ? undefined : p.s("side"), detached: p.b("detached") || undefined, width: width === 360 ? undefined : width },
       // onClose is a handler the canvas cannot run, so the close button is a child of the header
-      h("SideSheetHeader", { title: p.s("title") }, p.b("closeButton") && h("Button", { variant: "ghost", size: "icon", "aria-label": p.say("Close"), className: "text-on-surface-variant" }, ic("close"))),
+      h("SideSheetHeader", { title: p.s("title") }, p.b("closeButton") && h("Button", { variant: "ghost", size: "icon", "aria-label": p.say("Close"), "data-tap": "close", className: "text-on-surface-variant" }, ic("close"))),
       h("SideSheetContent", null, h("p", null, p.s("content"))),
-      p.b("footer") && h("SideSheetFooter", null, h("Button", null, p.say("Apply")), h("Button", { variant: "outlined" }, p.say("Cancel"))),
+      p.b("footer") && h("SideSheetFooter", null, p.s("confirm") && h("Button", { "data-tap": "confirm" }, p.s("confirm")), p.s("dismiss") && h("Button", { variant: "outlined", "data-tap": "dismiss" }, p.s("dismiss"))),
     ),
   );
 };

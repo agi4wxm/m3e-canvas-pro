@@ -4,6 +4,7 @@ import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
+import { rove } from "./roving";
 
 /* The game panels, after 17722797729/m3e-canvas game-ui (MIT), each holding its own state. A rarity's color is the author's data, not a theme role, so it is written as given. */
 
@@ -11,10 +12,11 @@ const HEX = /^#[0-9a-f]{3,8}$/i;
 
 export function SideTabs({ items = [], selected = 0, width = 120, className, style }: { items?: { label: string }[]; selected?: number; width?: number } & Look) {
   const [on, setOn] = useState(selected);
+  const keys = rove(items.length, on, { orientation: "vertical", onMove: setOn });
   return (
     <div data-slot="side-tabs" data-selected={on} role="tablist" aria-orientation="vertical" className={cn("bg-surface-container flex flex-col gap-1 rounded-xl p-1", className)} style={{ width, ...style }}>
       {items.map((t, i) => (
-        <Tap key={i} role="tab" aria-selected={i === on} data-slot="side-tabs-item" data-active={i === on || undefined} className={`text-label-large truncate rounded-lg px-3 py-2 text-left ${i === on ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant"}`} onClick={() => setOn(i)}>
+        <Tap key={i} role="tab" aria-selected={i === on} {...keys(i)} data-slot="side-tabs-item" data-active={i === on || undefined} className={`text-label-large truncate rounded-lg px-3 py-2 text-left ${i === on ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant"}`} onClick={() => setOn(i)}>
           {t.label}
         </Tap>
       ))}
@@ -105,7 +107,7 @@ export function CheckIn({ title = "", days = 30, signed = 3, width = 300, classN
         {Array.from({ length: days }, (_, i) => {
           const today = i === count;
           return (
-            <Tap key={i} disabled={!today} aria-current={today ? "date" : undefined} data-slot="check-in-cell" data-state={i < count ? "done" : today ? "today" : undefined} className={`text-label-small flex aspect-square items-center justify-center rounded-full ${i < count ? "bg-primary text-on-primary" : today ? "border-primary text-primary border-2" : "text-on-surface-variant"}`} onClick={() => setCount((c) => c + 1)}>
+            <Tap key={i} disabled={!today} aria-current={today ? "date" : undefined} data-slot="check-in-cell" aria-label={`${i + 1}`} data-state={i < count ? "done" : today ? "today" : undefined} className={`text-label-small flex aspect-square items-center justify-center rounded-full ${i < count ? "bg-primary text-on-primary" : today ? "border-primary text-primary border-2" : "text-on-surface-variant"}`} onClick={() => setCount((c) => c + 1)}>
               {i < count ? <WidgetIcon name="check" className="size-3" /> : i + 1}
             </Tap>
           );
