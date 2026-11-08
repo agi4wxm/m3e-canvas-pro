@@ -1,9 +1,10 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 import type { Look } from "./look";
 import { cn } from "@/lib/m3e/cn";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 import { useHost, type HostProps } from "./host";
+import { useValue } from "./seed";
 
 /* The capability views (lib/capabilities, docs/平台能力.md): a map and a camera, drawn here as stand-ins. No map is
  * rendered and no camera is opened: an exported app hands the same props to a slot the product writes once
@@ -33,8 +34,8 @@ function projection(points: { lat: number; lng: number }[], w: number, h: number
  *  marker chooses it (`selected`, the view's input) and sends `markerTap`; a long press sends `longPress` with where. */
 export function MapView({ label = "", center, zoom = 14, markers = [], selected = "", route = [], width = 380, height = 240, demo, onValueChange, onEvent, className, style }: { label?: string; center?: { lat: number; lng: number }; zoom?: number; markers?: MapMarker[]; selected?: string; route?: { lat: number; lng: number }[]; width?: number; height?: number } & HostProps & Look) {
   const host = useHost({ demo, onValueChange, onEvent });
-  const [chosen, setChosen] = useState<string | null>(null);
-  const shown = chosen ?? selected;
+  /* the chosen marker is the view's input: the prop while someone takes it, else a draft that starts over with the prop */
+  const [shown, choose] = useValue(selected, host);
   const pressed = useRef<{ t: ReturnType<typeof setTimeout> } | null>(null);
   const points = [...markers, ...route, ...(center ? [center] : [])];
   const proj = points.length ? projection(points, width, height) : null;
@@ -74,8 +75,7 @@ export function MapView({ label = "", center, zoom = 14, markers = [], selected 
               style={{ left: Math.round(at.x), top: Math.round(at.y) }}
               onClick={(e) => {
                 e.stopPropagation();
-                setChosen(m.id);
-                host.input(m.id);
+                choose(m.id);
                 host.emit("markerTap", { id: m.id });
               }}
             >
