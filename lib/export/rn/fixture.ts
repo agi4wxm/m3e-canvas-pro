@@ -13,8 +13,8 @@ import { rnThemeOf } from "./theme";
 /* Documents printed into the kit's test bed (rn/src/printed), so that what the printer writes is type-checked, linted,
  * rendered by the kit's tests and bundled by Metro there, exactly as an exported app would be: the export's proof
  * document (every system of the web export) under Material, a screen of kits under iOS (bars pinned to their edges,
- * grouped rows, a search box: atoms in auto layout all the way down), and split views (two panes and a divider, nested,
- * and stacked on a phone). */
+ * grouped rows, a search box: atoms in auto layout all the way down), split views (two panes and a divider, nested,
+ * and stacked on a phone), and the game parts, actions and menus (D4). */
 
 /** a screen of kits as the editor adds them, stacked down an iOS screen with its tab bar at the foot */
 export function kitsDoc(): { doc: Doc; widths: Record<string, number> } {
@@ -66,6 +66,37 @@ export function splitsDoc(): { doc: Doc; widths: Record<string, number> } {
   let laid = groups;
   for (let i = 0; i < 4; i++) laid = arrangeFlows(laid, widths);
   return { doc: { groups: laid, frames: [desk, phone], paletteKey: "purple", frame: "phone", title: "Splits", brief: "" }, widths };
+}
+
+/** D4: the game parts and the actions and menus a phone draws with components of their own, as the editor adds them
+ *  to phone screens: the six prize machines, a pad, a skill, a level map and a board, and a group of buttons, a split
+ *  button, a FAB menu, a sign-in button, a command list, a context menu, a bar of filters and a cascading menu. A tap
+ *  on a place of each (a machine's button, an egg, a level, a cell, a menu's row) goes to another screen. */
+export function playDoc(): { doc: Doc; widths: Record<string, number> } {
+  const frames: Frame[] = ["Draws", "Machines", "Play", "Menus"].map((name, i) => ({ id: name.toLowerCase(), name, x: i * 500, y: 0 }));
+  const go = (to: string) => ({ to, transition: "slide" as const });
+  const part = (id: string, slug: string, at: [screen: number, x: number, y: number], props: Record<string, unknown> = {}, actions: Item["actions"] = {}): Group => ({ id: `g-${id}`, x: at[0] * 500 + at[1], y: at[2], axis: "x", items: [{ ...makeItem(slug), id, props, actions }] });
+  const groups: Group[] = [
+    part("wheel", "prize-wheel", [0, 16, 40], { result: 2 }, { action: go("menus") }),
+    part("grid", "grid-draw", [0, 16, 320]),
+    part("gacha", "gacha", [0, 16, 620], { pending: true }),
+    part("slot", "slot-machine", [1, 16, 40], { reels: "0,2,1" }),
+    part("tree", "money-tree", [1, 16, 220]),
+    part("eggs", "egg-smash", [1, 16, 420], {}, { "egg:1": go("draws") }),
+    part("pad", "joystick", [2, 16, 40], { ariaLabel: "Move" }),
+    part("skill", "skill-button", [2, 180, 40], { label: "Dash" }, { action: go("draws") }),
+    part("levels", "level-map", [2, 16, 200], { selected: 1 }, { "tab:0": go("draws") }),
+    part("board", "game-board", [2, 16, 500], { cells: "X,,O,,X", status: "O to play", width: 280 }, { "cell:1": go("menus"), reset: go("draws") }),
+    part("split", "split-button", [3, 16, 40], {}, { main: go("draws"), "tab:1": go("play") }),
+    part("brand", "brand-button", [3, 16, 100], { provider: "google", label: "" }),
+    part("command", "command", [3, 16, 160], { width: 380 }, { "tab:2": go("play") }),
+    part("context", "context-menu", [3, 16, 400], {}, { "tab:0": go("draws") }),
+    part("filters", "filter-bar", [3, 16, 548], { width: 380 }),
+    part("cascade", "cascading-menu", [3, 16, 680], {}, { "sub:1": go("machines") }),
+    part("buttons", "button-group", [3, 16, 740], {}, { "tab:1": go("play") }),
+    part("fab", "fab-menu", [3, 340, 820], {}, { "tab:0": go("draws") }),
+  ];
+  return { doc: { groups, frames, paletteKey: "purple", frame: "phone", title: "Play", brief: "" }, widths: defaultMeasures(groups) };
 }
 
 /* D2: the data, list and desktop parts */
@@ -144,8 +175,9 @@ export async function printedFixture(): Promise<Record<string, string | Uint8Arr
   const proof = withIds(next, proofDoc);
   const kits = withIds(next, kitsDoc);
   const splits = withIds(next, splitsDoc);
+  const play = withIds(next, playDoc);
   /* D2: the data, list and desktop parts */
   const data = withIds(next, dataDoc);
-  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("data", data.doc, data.widths)) };
+  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)), ...(await printed("data", data.doc, data.widths)) };
 }
 

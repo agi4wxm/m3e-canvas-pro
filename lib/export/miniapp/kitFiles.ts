@@ -38,6 +38,9 @@ export const MINIAPP_KIT_FILES = [
   "theme.generated.ts",
   "theme.ts",
   "value.ts",
+  /* D4: the game parts, and a group of buttons, actions, menus and search */
+  "composites/actions.tsx",
+  "composites/games.tsx",
   /* D2: data and charts, lists and desktop parts */
   "composites/data.tsx",
   "composites/desk.tsx",

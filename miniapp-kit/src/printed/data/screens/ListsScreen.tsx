@@ -10,16 +10,35 @@ export function ListsScreen() {
   return (
     <Screen screen="lists" width={412} height={892}>
       <At x={16} y={24}>
-        <Tracker width={380} testID="statusTracker" />
+        <Tracker title="Uptime" states="ok,ok,ok,warn,ok,ok,bad,ok,ok,ok,ok,none" width={380} testID="statusTracker" />
       </At>
       <At x={16} y={120}>
-        <SortableList items={[{ label: "Wash" }, { label: "Dry" }, { label: "Fold" }]} width={380} testID="sortableList" />
+        <SortableList
+          items={[{ label: "Wash" }, { label: "Dry" }, { label: "Fold" }]}
+          width={380}
+          ariaLabel=""
+          disabled={false}
+          readOnly={false}
+          required={false}
+          loading={false}
+          error={false}
+          errorText=""
+          helperText=""
+          testID="sortableList"
+        />
       </At>
       <At x={16} y={320}>
-        <SwipeRow title="Invoice 42" note="Due today" open width={380} testID="swipeRow" />
+        <SwipeRow title="Invoice 42" note="Due today" action="Delete" open width={380} testID="swipeRow" />
       </At>
       <At x={16} y={420}>
-        <FileList selected={0} taps={{ "tab:1": s.tap(A1, { $: $ }) }} testID="files" />
+        <FileList
+          data={{ columns: ["Name", "Size", "Date"], rows: [["Projects", "12 items", "Nov 3"], ["Q3 report.pdf", "2.4 MB", "Oct 28"], ["Team photo.jpg", "4.1 MB", "Oct 12"], ["Budget.xlsx", "86 KB", "Sep 30"]] }}
+          removable
+          selected={0}
+          width={380}
+          taps={{ "tab:1": s.tap(A1, { $: $ }) }}
+          testID="files"
+        />
       </At>
       {s.layer}
     </Screen>

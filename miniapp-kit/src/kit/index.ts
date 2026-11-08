@@ -31,6 +31,9 @@ export { optionIndex, rowsOf } from "./app/values";
 export { KIT_ICONS } from "./iconNames";
 export { createTaroTransport, queryString, readAsDataUrl, taroStorage, withFileData, type PlatformFile, type TaroTransportOptions } from "./app/transport";
 export type { Action, ActionBody, AppSpec, CallFn, Condition, Effect, ScreenSpec, VarSpec } from "./app/spec";
+/* D4: the game parts, and a group of buttons, actions, menus and search */
+export { BrandButton, ButtonGroup, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SHEET_ROWS, SplitButton, brandCapability, brandLook, brandWords, cascadeSheet, commandMatches, toggled, type BrandButtonProps, type ButtonGroupProps, type CascadingMenuProps, type CommandProps, type ContextMenuProps, type FabMenuProps, type FilterBarProps, type SplitButtonProps } from "./composites/actions";
+export { DRAW_START, EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, PrizeWheel, SPIN_MS, SkillButton, SlotMachine, angleOf, boardOf, boardStatus, cooldownLeft, drawAnswer, drawBusy, drawPress, drawRun, drawShown, fromAngle, givenOf, levelAt, litOf, pickedOf, pushOf, reelAt, reelsOf, restingOf, starsOf, vecOf, wheelStops, wheelTurn, wordsOfVec, type DrawProps, type DrawState, type GameBoardProps, type JoystickProps, type LevelMapProps, type SkillButtonProps, type SlotMachineProps, type Vec } from "./composites/games";
 /* D2: data and charts, lists and desktop parts */
 export { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table, type TableData } from "./composites/data";
 export { CodeBlock, FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Window } from "./composites/desk";

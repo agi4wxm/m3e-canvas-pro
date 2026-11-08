@@ -6,7 +6,15 @@ export function ChartsScreen() {
   return (
     <Screen screen="charts" width={412} height={892} length={2000}>
       <At x={16} y={24}>
-        <Chart width={380} testID="chart" />
+        <Chart
+          type="bar"
+          title="Visitors"
+          subtitle="Last 6 months"
+          data={{ columns: ["Month", "Desktop", "Mobile"], rows: [["Jan", "186", "80"], ["Feb", "305", "200"], ["Mar", "237", "120"], ["Apr", "173", "190"], ["May", "209", "130"], ["Jun", "214", "140"]] }}
+          width={380}
+          height={220}
+          testID="chart"
+        />
       </At>
       <At x={16} y={340}>
         <Chart
@@ -23,6 +31,7 @@ export function ChartsScreen() {
         <Chart
           type="pie"
           title="Share"
+          subtitle="Last 6 months"
           data={{ columns: ["Day", "Shop", "Web"], rows: [["Mon", "3", "5"], ["Tue", "4", "6"], ["Wed", "2", "7"]] }}
           width={380}
           height={200}
@@ -30,19 +39,46 @@ export function ChartsScreen() {
         />
       </At>
       <At x={16} y={840}>
-        <ScatterPlot width={380} testID="scatterPlot" />
+        <ScatterPlot
+          title="Steps and sleep"
+          subtitle=""
+          data={{ columns: ["X", "Y"], rows: [["10", "30"], ["22", "48"], ["35", "41"], ["48", "66"], ["60", "58"], ["74", "82"], ["88", "76"]] }}
+          width={380}
+          height={200}
+          testID="scatterPlot"
+        />
       </At>
       <At x={16} y={1100}>
-        <Heatmap width={380} testID="heatmap" />
+        <Heatmap
+          title="Activity"
+          subtitle=""
+          data={{ columns: ["Mon", "Tue", "Wed", "Thu", "Fri"], rows: [["2", "5", "1", "7", "4"], ["6", "3", "8", "2", "5"], ["1", "9", "4", "6", "3"], ["7", "2", "5", "8", "6"]] }}
+          width={380}
+          testID="heatmap"
+        />
       </At>
       <At x={16} y={1320}>
         <Gauge label="Fuel" value={40} testID="gauge" />
       </At>
       <At x={16} y={1460}>
-        <Sparkline values="3,5,2,8" kind="bar" width={380} testID="sparkline" />
+        <Sparkline
+          title="Weekly visitors"
+          value="1,284"
+          trend="+12%"
+          values="3,5,2,8"
+          kind="bar"
+          height={48}
+          width={380}
+          testID="sparkline"
+        />
       </At>
       <At x={16} y={1620}>
-        <FunnelChart testID="funnelChart" />
+        <FunnelChart
+          title="Sign-up funnel"
+          data={{ columns: ["Step", "Value"], rows: [["Visits", "5200"], ["Sign-ups", "2100"], ["Activated", "1300"], ["Paid", "480"]] }}
+          width={380}
+          testID="funnelChart"
+        />
       </At>
       {s.layer}
     </Screen>

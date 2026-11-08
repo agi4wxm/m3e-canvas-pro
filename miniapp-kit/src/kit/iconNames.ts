@@ -27,6 +27,11 @@ export const KIT_ICONS = [
   "star",
   "unfold_more",
   "upload_file",
+  /* D4: a money tree, a split button's arrow, the sign-in and pay buttons */
+  "park",
+  "keyboard_arrow_down",
+  "login",
+  "payments",
   /* D2: what the data, list and desktop parts draw by themselves (sort arrows, a drag handle, a file's kind, a window's buttons, a copy button) */
   "add",
   "arrow_downward",

@@ -26,6 +26,9 @@ export { NATIVE, isNative, kitPropName } from "./coverage";
 export { BY_NAME, COMPONENTS } from "./registry";
 export { TreeView, type TreeNode } from "./tree";
 export { PARTS, type PartInfo } from "./parts.generated";
+/* D4: the game parts, and actions, menus and search */
+export { BrandButton, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SplitButton, brandCapability, brandWords, commandMatches, toggled, type BrandButtonProps, type CascadingMenuProps, type CommandProps, type ContextMenuProps, type FabMenuProps, type FilterBarProps, type SplitButtonProps } from "./composites/actions";
+export { DRAW_START, EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, PrizeWheel, SPIN_MS, SkillButton, SlotMachine, angleOf, boardOf, boardStatus, cooldownLeft, drawAnswer, drawBusy, drawPress, drawRun, drawShown, fromAngle, givenOf, levelAt, litOf, pickedOf, pushOf, reelAt, reelsOf, starsOf, vecOf, wheelTurn, wordsOfVec, type DrawProps, type DrawState, type GameBoardProps, type JoystickProps, type LevelMapProps, type SkillButtonProps, type SlotMachineProps, type Vec } from "./composites/games";
 /* D2: data and charts, lists and desktop parts */
 export { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table, type TableData } from "./composites/data";
 export { FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Window } from "./composites/desk";

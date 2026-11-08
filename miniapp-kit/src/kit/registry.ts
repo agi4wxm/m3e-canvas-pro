@@ -9,6 +9,9 @@ import { DatePicker, FileUpload, Menu, RadioGroup, SegmentedButton, Select, Text
 import { ActionSheet, AlertDialog, Dialog, Sheet } from "./composites/overlays";
 import { NATIVE, type NativeName, type NativeSlug } from "./coverage";
 import { SplitView } from "./split";
+/* D4: the game parts, and a group of buttons, actions, menus and search */
+import { BrandButton, ButtonGroup, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SplitButton } from "./composites/actions";
+import { EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, PrizeWheel, SkillButton, SlotMachine } from "./composites/games";
 /* D2: data and charts, lists and desktop parts */
 import { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table } from "./composites/data";
 import { CodeBlock, FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Window } from "./composites/desk";
@@ -72,6 +75,25 @@ export const BY_NAME = {
   Alert,
   RadioGroup,
   FileUpload,
+  /* D4: the game parts, and a group of buttons, actions, menus and search */
+  PrizeWheel,
+  GridDraw,
+  Gacha,
+  SlotMachine,
+  MoneyTree,
+  EggSmash,
+  Joystick,
+  SkillButton,
+  LevelMap,
+  GameBoard,
+  ButtonGroup,
+  SplitButton,
+  FabMenu,
+  BrandButton,
+  Command,
+  ContextMenu,
+  FilterBar,
+  CascadingMenu,
   /* D2: data and charts, lists and desktop parts */
   Chart,
   ScatterPlot,
