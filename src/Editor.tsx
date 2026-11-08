@@ -392,7 +392,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
 
   /* ---------- ai ---------- */
   /* the author's model writing a field or painting a scene (src/editor/useAi.ts) */
-  const { aiSettings, setAiSettings, updateAiSettings, aiReady, aiBusy, aiFrameId, runAi, cancelAi, canPaint, paintingScene, sceneItem, paintScenes, stopPainting } = useAi({ lang, theme, doc, groupsRef, widthsRef, snapshot, setGroups, setFrames, showToast, showAiNote });
+  const { aiSettings, setAiSettings, updateAiSettings, aiReady, aiBusy, aiFrameId, runAi, cancelAi, canPaint, paintingScene, sceneItem, paintScenes, stopPainting } = useAi({ store, lang, theme, doc, groupsRef, widthsRef, snapshot, setGroups, setFrames, showToast, showAiNote });
 
   /* ---------- persistence ---------- */
   /** What a whole document arriving does to what was open over the one it replaces: the preview closes (or an opening
