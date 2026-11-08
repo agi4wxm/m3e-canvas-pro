@@ -20,13 +20,15 @@ import { mobile } from "./defs/mobile";
 import { more } from "./defs/more";
 import { atoms } from "./defs/atoms";
 import { SPLITS } from "./defs/splits";
-import type { Labels, ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
+import type { Labels, ListItem, P, PartDef, PropDef, PropValues, Screen, TableColumn, TableData } from "./types";
 import type { KitLook } from "./kits/types";
 import { applyAppearance, type Appearance } from "./appearance";
 import { h, mapNodes, type PNode } from "./node";
 import { COMMON_TEXT, choiceValueOf, defaultTextOf, listTextOf } from "./labels";
 import { getLang, type Lang } from "../lib/i18n";
 import { fieldProps } from "./fieldState";
+import { TABLE_COLUMNS } from "./tableColumns";
+import { lineUp } from "./tables";
 
 /* ---------- what a part is for, and what it is made of ----------
  * Parts come in two tiers. An atom cannot be split any further: a box, a line of text, an icon, a
@@ -144,10 +146,14 @@ export const TIER_TEXT: Record<PartTier, Required<Labels>> = {
 export const categoryName = (c: PartCategory, lang: Lang) => CATEGORY_TEXT[c][lang];
 
 /* the composites that split are handed their trees of atoms here, where the two meet; an input is handed the props of
-   the field states it declares and does not write itself (parts/fieldState.ts) */
+   the field states it declares and does not write itself (parts/fieldState.ts), and a table prop the column structure
+   its part reads it by (parts/tableColumns.ts) */
 export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((given) => {
   const states = fieldProps(given);
-  const d = states.length ? { ...given, props: [...given.props, ...states] } : given;
+  const withColumns = given.props.some((x) => x.kind === "table" && !x.columns && TABLE_COLUMNS[`${given.slug}.${x.key}`])
+    ? given.props.map((x) => (x.kind === "table" && !x.columns && TABLE_COLUMNS[`${given.slug}.${x.key}`] ? { ...x, columns: TABLE_COLUMNS[`${given.slug}.${x.key}`] } : x))
+    : given.props;
+  const d = states.length || withColumns !== given.props ? { ...given, props: [...withColumns, ...states] } : given;
   const split = SPLITS[d.slug] as (typeof SPLITS)[string] | undefined;
   /* the look a split is handed is the document's KitLook, which PartDef cannot name */
   return split && !d.atoms ? { ...d, atoms: (p: P, look?: object) => split(p, look as KitLook | undefined) } : d;
@@ -195,8 +201,9 @@ function read(def: PropDef, values: PropValues | undefined): unknown {
         return { columns: def.default.columns.map((c) => listTextOf(c, lang)), rows: def.default.rows.map((r) => r.map((c) => listTextOf(c, lang))) };
       }
       /* the author's column structure, where it is one: records with a key each */
-      const spec = Array.isArray(t.spec) && t.spec.every((c) => !!c && typeof c === "object" && typeof (c as { key?: unknown }).key === "string") ? { spec: t.spec } : {};
-      return { columns: t.columns.map(String), rows: t.rows.filter(Array.isArray).map((r) => r.map(String)), ...spec };
+      const spec = Array.isArray(t.spec) && t.spec.every((c) => !!c && typeof c === "object" && typeof (c as { key?: unknown }).key === "string") ? { spec: t.spec as TableColumn[] } : {};
+      /* read by key: an author's structure is lined up with the columns the part reads */
+      return lineUp({ columns: t.columns.map(String), rows: t.rows.filter(Array.isArray).map((r) => r.map(String)), ...spec }, def.columns);
     }
   }
 }

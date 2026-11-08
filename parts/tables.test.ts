@@ -6,8 +6,9 @@ import { liveItem, startState, type PreviewState } from "../lib/interact";
 import { propValueError } from "../lib/core/ops/validate";
 import { makeItem, tableRowsPatch, type Item } from "../lib/tokens";
 import { loadAllModules } from "./components";
-import { columnsOf, formatCell, keyOfHeader, rowsByKey, tableOfData } from "./tables";
-import { defaultValues, partBySlug, treeOf } from "./registry";
+import { columnsOf, formatCell, keyOfHeader, lineUp, rowsByKey, tableOfData } from "./tables";
+import { PARTS, defaultValues, partBySlug, reader, treeOf } from "./registry";
+import { TABLE_COLUMNS } from "./tableColumns";
 import { renderNode } from "./render";
 import type { TableData } from "./types";
 
@@ -58,6 +59,47 @@ describe("a table's columns", () => {
     expect(propValueError(d, { ...INVOICES, spec: [{ key: "1x" }] })).toMatch(/key/);
     expect(propValueError(d, { ...INVOICES, spec: [{ key: "id", type: "money" }] })).toMatch(/type/);
     expect(propValueError(d, { ...INVOICES, spec: [{ key: "id", type: "number", align: "end", width: 80, format: "2" }] })).toBeNull();
+  });
+});
+
+describe("the columns each part reads", () => {
+  it("are declared for every table prop, by key, as many as its table has or fewer", () => {
+    const KEY = /^[A-Za-z_$][\w$]{0,63}$/;
+    for (const d of PARTS)
+      for (const t of d.props) {
+        if (t.kind !== "table") continue;
+        /* the table part's columns are its author's own */
+        if (t.structure) continue;
+        expect(t.columns, `${d.slug}.${t.key} declares no column structure`).toBeTruthy();
+        expect(t.columns!.length, `${d.slug}.${t.key}`).toBeLessThanOrEqual(t.default.columns.length + 1);
+        const keys = t.columns!.map((c) => c.key);
+        expect(keys.every((k) => KEY.test(k)) && new Set(keys).size === keys.length, `${d.slug}.${t.key} keys ${keys}`).toBe(true);
+      }
+    /* each declaration names a table prop there is */
+    for (const at of Object.keys(TABLE_COLUMNS)) {
+      const [slug, key] = at.split(".");
+      expect(partBySlug(slug)?.props.find((x) => x.key === key)?.kind, at).toBe("table");
+    }
+  });
+
+  it("line up an author's table with a structure of its own, so the part reads each cell by its key", () => {
+    const declared = TABLE_COLUMNS["leaderboard.data"];
+    const author: TableData = { columns: ["Points", "Player", "Move"], rows: [["9,820", "Ada", "+2"]], spec: [{ key: "score" }, { key: "name" }, { key: "change" }] };
+    expect(lineUp(author, declared)).toEqual({ columns: ["Player", "Points", "Move"], rows: [["Ada", "9,820", "+2"]], spec: [{ key: "name" }, { key: "score" }, { key: "change" }] });
+    /* the part reads it that way */
+    expect(reader(partBySlug("leaderboard")!, { data: author }).table("data").rows[0][0]).toBe("Ada");
+    /* a table with no structure of its own, or one that lacks a key the part reads, stays as it is */
+    const plain = { columns: author.columns, rows: author.rows };
+    expect(lineUp(plain, declared)).toBe(plain);
+    const short = { ...author, spec: [{ key: "score" }, { key: "player" }, { key: "change" }] };
+    expect(lineUp(short, declared)).toBe(short);
+  });
+
+  it("lay out records from data by the part's keys, whatever order their fields come in", () => {
+    const def = partBySlug("leaderboard")!;
+    const d = def.props.find((x) => x.key === "data")!;
+    const design = reader(def, {}).table("data");
+    expect(tableOfData([{ change: "-1", name: "Lin", score: 7 }], design, d.kind === "table" ? d.columns : undefined)?.rows).toEqual([["Lin", "7", "-1"]]);
   });
 });
 

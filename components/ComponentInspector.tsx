@@ -33,7 +33,7 @@ const fromRows = (rows: NavTab[], icons: boolean): ListItem[] =>
 
 /** a table prop as the text it is edited in (lib/collections.ts): the words stay as typed while the rows follow them,
  *  so a line just started, a space after a comma and a quoted "$1,350.00" all survive the typing */
-function TableField({ value, onChange, label, p, structured }: { value: TableData; onChange: (v: TableData) => void; label: string; p: Palette; /** the author lays out its columns (the table part) */ structured?: boolean }) {
+function TableField({ value, onChange, label, p, structured, declared }: { value: TableData; onChange: (v: TableData) => void; label: string; p: Palette; /** the author lays out its columns (the table part) */ structured?: boolean; /** the columns the part reads it by (parts/tableColumns.ts) */ declared?: TableColumn[] }) {
   const lang = useLang();
   const [draft, type] = useDraft(value, tableText, tableOf);
   /* the text holds the headers and the cells; the columns' structure stays with the table as it is retyped */
@@ -44,6 +44,12 @@ function TableField({ value, onChange, label, p, structured }: { value: TableDat
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <Field value={draft} onChange={(text) => onChange(keep(type(text)))} placeholder={label} label={label} p={p} multiline rows={6} height={44} />
+      {/* what each column is called in data, so the table can be bound to it */}
+      {!structured && (
+        <div data-table-keys style={small}>
+          {t("tableKeys", lang).replace("{keys}", columnsOf(value, declared).map((c) => c.key).join(" · "))}
+        </div>
+      )}
       {structured && (
         <div data-table-columns style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant, padding: "0 4px" }}>{t("tableColumns", lang)}</div>
@@ -135,7 +141,7 @@ function PropRow({ def, value, onChange, onRows, item, p, frameW, lang }: { def:
       return (
         <div>
           {label}
-          <TableField value={value as TableData} onChange={onChange} label={labelText} p={p} structured={def.structure} />
+          <TableField value={value as TableData} onChange={onChange} label={labelText} p={p} structured={def.structure} declared={def.columns} />
         </div>
       );
     case "list": {

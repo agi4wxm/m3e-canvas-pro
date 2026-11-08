@@ -484,8 +484,11 @@ class ScreenPrinter {
       if (def.slug === "svg" && d.key === "markup" && typeof v === "string" && v) v = svgMarkup(v, it.id) ?? "";
       const bind = it.bind?.[d.key];
       let code = expr(v);
-      if (typeof bind === "string" && bind.startsWith("=")) code = this.boundExpr(d, bind.slice(1), code, at.$);
-      else if (typeof bind === "string" && bind) {
+      if (typeof bind === "string" && bind.startsWith("=")) {
+        code = this.boundExpr(d, bind.slice(1), code, at.$);
+        /* as the app for phones says: a table is not read from data yet */
+        if (d.kind === "table") this.warn("binding", "a table bound to an expression keeps the design's rows", it.id);
+      } else if (typeof bind === "string" && bind) {
         const labels = d.key === "selected" ? listLabels(def, it) : undefined;
         code = `s.bound(${str(bind)}, ${code}${labels ? `, ${expr(labels)}` : ""})`;
       } else if (typeof v === "string" && v.includes("{{") && (d.kind === "text" || d.kind === "image")) {

@@ -30,6 +30,24 @@ export function columnsOf(t: Pick<TableData, "columns" | "spec">, declared?: Tab
   });
 }
 
+/** An author's table with a structure of its own, its columns in the order the part reads them: each declared key where
+ *  the author put it, then the rest as they were. A part reads its cells by key this way, though it reads them by place.
+ *  A table without a structure of its own, or one that lacks a declared key, is as it was. */
+export function lineUp(t: TableData, declared: TableColumn[] | undefined): TableData {
+  if (!declared?.length || !Array.isArray(t.spec)) return t;
+  const cols = columnsOf(t);
+  const order: number[] = [];
+  for (const d of declared) {
+    const at = cols.findIndex((c, i) => c.key === d.key && !order.includes(i));
+    if (at < 0) return t;
+    order.push(at);
+  }
+  for (let i = 0; i < cols.length; i++) if (!order.includes(i)) order.push(i);
+  if (order.every((o, i) => o === i)) return t;
+  const spec = t.spec;
+  return { columns: order.map((i) => t.columns[i]), rows: t.rows.map((r) => order.map((i) => r[i] ?? "")), spec: order.map((i) => spec[i] ?? { key: cols[i].key }) };
+}
+
 /** a table's rows as records by its columns' keys */
 export function rowsByKey(t: TableData, declared?: TableColumn[]): Record<string, string>[] {
   const cols = columnsOf(t, declared);
