@@ -44,9 +44,8 @@ export const tests: E2ETest[] = [
   },
   {
     name: "icons: with the icon font out of reach, the editor's own icons are drawn from the bundled glyphs, not as clipped words",
-    async run({ page: first, base, errors, out }) {
-      const page = await first.context().newPage();
-      page.on("pageerror", (e) => errors.push(e.message));
+    async run({ page, base, out }) {
+      /* the same tab opened again with the font refused: a second tab could look but not edit, and the panels are its */
       await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
       await page.goto(base + "/", { waitUntil: "load" });
       await ready(page);
@@ -59,8 +58,16 @@ export const tests: E2ETest[] = [
       equal(seen.ligatures, 0, "no icon is left as a ligature of a font that is not there");
       check(seen.drawn > 50, `the editor's icons are drawn from the bundled glyphs: ${seen.drawn}`);
       check(seen.undo, "Undo shows its arrow");
+      /* every icon the editor draws is bundled: none is left an empty box, on the toolbars and in the panels */
+      const blank = () => page.evaluate(() => [...new Set([...document.querySelectorAll("[data-icon-fallback]")].filter((e) => !e.querySelector("svg")).map((e) => e.getAttribute("data-icon-fallback")))]);
+      const empty: string[] = [];
+      for (const tab of ["Parts", "Layers", "Style", "Colors"]) {
+        await page.locator(`aside button[title="${tab}"]`).first().click();
+        await page.waitForTimeout(1500);
+        for (const n of (await blank()) as string[]) if (!empty.includes(n)) empty.push(n);
+      }
+      equal(empty, [], "no icon of the editor's left blank");
       await page.screenshot({ path: join(out, "icons-offline-font.png") });
-      await page.close();
     },
   },
 ];
