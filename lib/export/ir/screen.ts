@@ -55,6 +55,7 @@ import { plainTree, type AtomTaps, type PlainNode } from "../rn/data";
 import { kitPropName } from "../../../rn/src/kit/coverage";
 import { exprOf, nameOf, str, withoutMarks } from "./code";
 import { factsOf, type DocFacts } from "./facts";
+import { screenNameParts } from "./names";
 
 /* ---------- the plan ---------- */
 
@@ -172,10 +173,12 @@ export function planScreens(source: Doc, widths: Record<string, number>, o: Plan
   const keyed = new Set<string>(o.names.reservedKeys ?? []);
   const keys = new Map<string, string>();
   const components = new Map<string, string>();
-  frames.forEach((f, i) => {
-    components.set(f.id, nameOf(f.name, `Screen${i + 1}`, taken, "Screen"));
-    keys.set(f.id, nameOf(f.name, `screen${i + 1}`, keyed, "", o.names.lower));
-  });
+  for (const f of frames) {
+    const component = screenNameParts(f, false);
+    components.set(f.id, nameOf(component.words, component.fallback, taken, "Screen"));
+    const key = screenNameParts(f, true);
+    keys.set(f.id, nameOf(key.words, key.fallback, keyed, "", o.names.lower));
+  }
   /* what a dock's other tabs hold is left out, unless the dock lays it out and so switches its tabs itself
      (../panes.ts); a region's other states are its own to switch between where the kit draws them */
   const offTab = offTabOf(o.regions ? doc.groups.map((g) => (g.states ? { ...g, states: undefined } : g)) : doc.groups, widths);

@@ -48,7 +48,9 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the taps printed as the data they are, lib/actions'
+     before the product existed; one that changes on purpose is written again here (last: a screen whose name has no
+     ASCII words, the parts' "日本語", named after its id and no longer its place among the screens, lib/export/ir/names.ts;
+     before that the taps printed as the data they are, lib/actions'
      Action, and run in src/runtime.tsx by the interpreter copied into src/lib/actions (docs/交互规则.md), which the
      README names; before that the platform capabilities,
      docs/平台能力.md, beside the retired parts, the split view and the widgets' outlets: the shop flow pays through
@@ -77,7 +79,7 @@ describe("the prototype export", () => {
     systems: [47, "7fc80791613dd1512780b4b65b682343d404419113ccd0a605afe6a0a5201ad7"],
     reuse: [38, "f7e04c27dfd1f2fc34d728474ef0c76cc7ba9cca3395793db1dd331ea72149f2"],
     sweep: [100, "86a4d14876dd9666d7d1dd996e4e0cb2f147d4936dd54e4f690d2368c07754d4"],
-    parts: [140, "295c3c85b06eab798e6bb08867328a8cd975cd1ce8f55cb46c9beb2d442f19d3"],
+    parts: [140, "3f611c66bc87878ffb9e1241ee81c1c57c2000c230cd5997338ffe4b9fa8d36b"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
