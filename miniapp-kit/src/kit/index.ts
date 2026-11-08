@@ -42,5 +42,5 @@ export { Accordion, AspectRatio, Collapsible, CustomComponent, Dock, DockPane, G
 export { FloatingNav, IconGrid, NavigationMenu, NavigationRail, Onboarding, Pagination, Sidebar, SlideGroup, TableOfContents, pagesShown, railWidths, tocRow, type OnboardingProps } from "./composites/navs";
 export { Drawer, HoverCard, Popover, SideSheet, Tooltip, around, placeOf } from "./composites/floating";
 /* D2: data and charts, lists and desktop parts */
-export { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table, type TableData } from "./composites/data";
+export { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table } from "./composites/data";
 export { CodeBlock, FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Window } from "./composites/desk";

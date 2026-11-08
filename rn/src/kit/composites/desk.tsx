@@ -10,7 +10,7 @@ import { Popup } from "../picker";
 import { Surface } from "../Surface";
 import { corner, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
 import { tapOf } from "./bars";
-import { tableOf, useDraft, type TableData } from "./data";
+import { keysOf, tableOf, useDraft, type TableData } from "./data";
 
 /* Lists that do more than show rows (a strip of states, rows to reorder, a row with an action under it, files) and the
  * parts of desktop software (a menu bar, a tree of rows, a window, a diff), drawn as the canvas draws them
@@ -70,25 +70,33 @@ export function moved<T>(list: readonly T[], from: number, to: number): T[] {
 /** a row and the gap under it: what a finger's travel is counted in */
 const ROW = 52;
 
+/** a list input's rows as their words: rows, words, or words one a line (as the kit's tag input reads its tags) */
+export const rowWords = (items: unknown): string[] =>
+  Array.isArray(items) ? items.map((x) => (typeof x === "string" ? x : x && typeof x === "object" ? String((x as { label?: unknown }).label ?? "") : String(x ?? ""))) : String(items ?? "").split("\n").filter((w) => w.trim());
+
 export type SortableListProps = PartBase &
   FieldProps & {
-    items?: ListRow[];
+    /** the rows: rows, words, or words one a line */
+    items?: (ListRow | string)[] | string;
     width?: number;
     disabled?: boolean;
     error?: boolean;
-    /** the rows in their new order, after each move (a form's field or a variable holds them) */
-    onValueChange?: (items: ListRow[]) => void;
+    /** the rows' words in their new order, after each move (a form's field or a variable holds them, as a tag input's) */
+    onChange?: (items: string[]) => void;
     /** each move on its own: from where to where */
     onReorder?: (e: { from: number; to: number }) => void;
   };
 
-/** An order the visitor enters: the rows in the order shown are the value, handed out on every move, each move also sent
- *  on its own (`onReorder`). A finger drags a row by its handle; a screen reader moves the row it is on up or down. */
+/** An order the visitor enters: the rows' words in the order shown are the value, handed out on every move (`onChange`,
+ *  as the kit's tag input hands out its tags), each move also sent on its own (`onReorder`). A finger drags a row by its
+ *  handle; a screen reader moves the row it is on up or down. */
 export function SortableList(props: SortableListProps) {
   const p = withDefaults<SortableListProps>("sortable-list", props);
   const kit = useKit();
   const fill = useFill();
-  const [order, setOrder] = useValue<ListRow[]>(Array.isArray(p.items) ? p.items : [], p.onValueChange);
+  const [order, setOrder] = useValue(rowWords(p.items), p.onChange);
+  /* two rows with the same words keep apart: each is its words and which of the rows saying them it is */
+  const keys = keysOf(order);
   const [drag, setDrag] = useState<{ from: number; dy: number } | null>(null);
   const held = !!p.disabled || !!p.readOnly;
   const move = (from: number, to: number) => {
@@ -121,9 +129,9 @@ export function SortableList(props: SortableListProps) {
         const dragged = drag?.from === i;
         return (
           <View
-            key={`${i}:${row.label}`}
+            key={keys[i]}
             accessible
-            accessibilityLabel={row.label}
+            accessibilityLabel={row}
             accessibilityActions={held ? [] : [...(i > 0 ? [{ name: "moveUp", label: "Move up" }] : []), ...(i < order.length - 1 ? [{ name: "moveDown", label: "Move down" }] : [])]}
             onAccessibilityAction={onAction(i)}
             style={{ height: 48, flexDirection: "row", alignItems: "center", columnGap: 8, paddingHorizontal: 8, borderRadius: corner(kit, "lg"), backgroundColor: c(kit, dragged ? "secondary-container" : "surface-container-low"), ...(p.error ? { borderWidth: 1, borderColor: c(kit, "error") } : null), ...(dragged ? { transform: [{ translateY: drag!.dy }], zIndex: 1 } : null) }}
@@ -131,7 +139,7 @@ export function SortableList(props: SortableListProps) {
             <View testID={`sortable-handle-${i}`} hitSlop={8} {...handle(i).panHandlers}>
               <Glyph name="drag_indicator" size={20} color={c(kit, "on-surface-variant")} />
             </View>
-            <RNText numberOfLines={1} style={{ flex: 1, ...typeStyle(kit, "body-medium"), color: c(kit, "on-surface") }}>{row.label}</RNText>
+            <RNText numberOfLines={1} style={{ flex: 1, ...typeStyle(kit, "body-medium"), color: c(kit, "on-surface") }}>{row}</RNText>
           </View>
         );
       })}

@@ -2,9 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import type { ComponentType, ReactElement } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { Agenda, BarList, Chart, DataTable, FileDiff, FileList, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, Menubar, NavProvider, registerIcons, ScatterPlot, SortableList, Sparkline, SwipeRow, Table, Text, ThemeProvider, Tracker, Tree, Window, type TableData } from "../src/kit";
-import { amountOf, formatCell, lanesOf, markdownBlocks, markdownSpans, monthOf, niceTop, seriesOf, sparkValues, tableLines, tableOf } from "../src/kit/composites/data";
-import { depthOf, diffLines, fileIcon, moved, swipeOpens } from "../src/kit/composites/desk";
+import { Agenda, BarList, Chart, DataTable, FileDiff, FileList, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, Menubar, NavProvider, registerIcons, ScatterPlot, SortableList, Sparkline, SwipeRow, Table, Text, ThemeProvider, Tracker, Tree, Window } from "../src/kit";
+import { amountOf, formatCell, lanesOf, markdownBlocks, markdownSpans, monthOf, niceTop, seriesOf, sparkValues, tableLines, tableOf, type TableData } from "../src/kit/composites/data";
+import { depthOf, diffLines, fileIcon, moved, rowWords, swipeOpens } from "../src/kit/composites/desk";
 import { App as DataApp } from "../src/printed/data/App";
 import { icons as dataIcons } from "../src/printed/data/icons";
 import { SCREENS as DATA } from "../src/printed/data/screens";
@@ -268,17 +268,22 @@ describe("lists", () => {
   it("a sortable list hands out the new order and the move, and a screen reader moves a row", async () => {
     expect(moved(["a", "b", "c"], 0, 2)).toEqual(["b", "c", "a"]);
     expect(moved(["a", "b"], 0, 5)).toEqual(["a", "b"]);
-    const onValueChange = jest.fn();
+    expect(rowWords([{ label: "a" }, "b"])).toEqual(["a", "b"]);
+    expect(rowWords("a\n\nb")).toEqual(["a", "b"]);
+    const onChange = jest.fn();
     const onReorder = jest.fn();
-    await draw(<SortableList onValueChange={onValueChange} onReorder={onReorder} />);
+    await draw(<SortableList onChange={onChange} onReorder={onReorder} />);
     await fireEvent(screen.getByLabelText("First"), "accessibilityAction", action("moveDown"));
     expect(onReorder).toHaveBeenCalledWith({ from: 0, to: 1 });
-    expect(onValueChange).toHaveBeenCalledWith([{ label: "Second" }, { label: "First" }, { label: "Third" }]);
+    expect(onChange).toHaveBeenCalledWith(["Second", "First", "Third"]);
     /* controlled: the order is the prop's, which nobody changed */
     expect(screen.getAllByText(/First|Second|Third/).map((t) => t.props.children)).toEqual(["First", "Second", "Third"]);
   });
 
-  it("a sortable list nobody takes the order of keeps a draft, and a held one does not move", async () => {
+  it("a sortable list nobody takes the order of keeps a draft, two rows with the same words apart, and a held one does not move", async () => {
+    await draw(<SortableList items={["Same", "Same", "Other"]} />);
+    await fireEvent(screen.getByLabelText("Other"), "accessibilityAction", action("moveUp"));
+    expect(screen.getAllByText(/Same|Other/).map((t) => t.props.children)).toEqual(["Same", "Other", "Same"]);
     await draw(<SortableList />);
     await fireEvent(screen.getByLabelText("Third"), "accessibilityAction", action("moveUp"));
     expect(screen.getAllByText(/First|Second|Third/).map((t) => t.props.children)).toEqual(["First", "Third", "Second"]);

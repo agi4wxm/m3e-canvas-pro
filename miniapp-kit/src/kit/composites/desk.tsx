@@ -13,7 +13,7 @@ import { Surface, tagOf } from "../Surface";
 import { COL, merge, ROW, sx, type CSS } from "../styles";
 import { corner, typeStyle, useKit } from "../theme";
 import { tapOf } from "./bars";
-import { tableOf, useDraft, type TableData } from "./data";
+import { keysOf, tableOf, useDraft, type TableData } from "./data";
 
 /* Lists that do more than show rows (a strip of states, rows to reorder, a row with an action under it, files) and the
  * parts of desktop software (a menu bar, a tree of rows, a window, a block of code, a diff) in a mini-program, drawn as
@@ -93,28 +93,36 @@ export function moved<T>(list: readonly T[], from: number, to: number): T[] {
 /** a row and the gap under it: what a finger's travel is counted in */
 const ROW_STEP = 52;
 
+/** a list input's rows as their words: rows, words, or words one a line (as the kit's tag input reads its tags) */
+export const rowWords = (items: unknown): string[] =>
+  Array.isArray(items) ? items.map((x) => (typeof x === "string" ? x : x && typeof x === "object" ? String((x as { label?: unknown }).label ?? "") : String(x ?? ""))) : String(items ?? "").split("\n").filter((w) => w.trim());
+
 /** where a row dragged `dy` from `from` lands, among `count` rows */
 export const dragTarget = (from: number, dy: number, count: number) => Math.max(0, Math.min(count - 1, from + Math.round(dy / ROW_STEP)));
 
 export type SortableListProps = PartBase &
   FieldProps & {
-    items?: ListRow[];
+    /** the rows: rows, words, or words one a line */
+    items?: (ListRow | string)[] | string;
     width?: number;
     disabled?: boolean;
     error?: boolean;
-    /** the rows in their new order, after each move (a form's field or a variable holds them) */
-    onChange?: (items: ListRow[]) => void;
+    /** the rows' words in their new order, after each move (a form's field or a variable holds them, as a tag input's) */
+    onChange?: (items: string[]) => void;
     /** each move on its own: from where to where */
     onReorder?: (e: { from: number; to: number }) => void;
   };
 
-/** An order the visitor enters: the rows in the order shown are the value, handed out on every move, each move also sent
- *  on its own (`onReorder`). A finger drags a row by its handle; a tapped row shows arrows that move it up and down. */
+/** An order the visitor enters: the rows' words in the order shown are the value, handed out on every move (`onChange`,
+ *  as the kit's tag input hands out its tags), each move also sent on its own (`onReorder`). A finger drags a row by its
+ *  handle; a tapped row shows arrows that move it up and down. */
 export function SortableList(props: SortableListProps) {
   const p = withDefaults<SortableListProps>("sortable-list", props);
   const kit = useKit();
   const fill = useFill();
-  const [order, setOrder] = useValue<ListRow[]>(Array.isArray(p.items) ? p.items : [], p.onChange);
+  const [order, setOrder] = useValue(rowWords(p.items), p.onChange);
+  /* two rows with the same words keep apart: each is its words and which of the rows saying them it is */
+  const keys = keysOf(order);
   const [drag, setDrag] = useState<{ from: number; y: number; dy: number } | null>(null);
   const [picked, setPicked] = useState(-1);
   const held = !!p.disabled || !!p.readOnly;
@@ -133,9 +141,9 @@ export function SortableList(props: SortableListProps) {
         const on = picked === i && !held;
         return (
           <View
-            key={`${i}:${row.label}`}
+            key={keys[i]}
             ariaRole="listitem"
-            ariaLabel={row.label}
+            ariaLabel={row}
             ariaSelected={on}
             onClick={held ? undefined : () => setPicked(on ? -1 : i)}
             style={sx(ROW, { boxSizing: "border-box", height: 48, columnGap: 8, padding: "0 8px", borderRadius: corner(kit, "lg"), backgroundColor: c(dragged || on ? "secondary-container" : "surface-container-low") }, p.error ? { border: `1px solid ${c("error")}` } : null, dragged ? { transform: `translateY(${drag!.dy}px)`, zIndex: "1", position: "relative" } : null)}
@@ -161,7 +169,7 @@ export function SortableList(props: SortableListProps) {
             >
               <Glyph name="drag_indicator" size={20} color="on-surface-variant" />
             </View>
-            <Words text={row.label} lines={1} style={{ flex: 1, ...typeStyle(kit, "body-medium"), color: c(on || dragged ? "on-secondary-container" : "on-surface") }} />
+            <Words text={row} lines={1} style={{ flex: 1, ...typeStyle(kit, "body-medium"), color: c(on || dragged ? "on-secondary-container" : "on-surface") }} />
             {on ? <IconTap icon="arrow_upward" label="Move up" size={32} disabled={i === 0} onPress={() => move(i, i - 1)} /> : null}
             {on ? <IconTap icon="arrow_downward" label="Move down" size={32} disabled={i === order.length - 1} onPress={() => move(i, i + 1)} /> : null}
           </View>

@@ -251,7 +251,8 @@ describe("lists", () => {
   it("a sortable list moves a tapped row with its arrows, hands out the order, and holds it when controlled", () => {
     const orders: string[][] = [];
     const moves: unknown[] = [];
-    draw(h(SortableList, { onChange: (v: { label: string }[]) => orders.push(v.map((r) => r.label)), onReorder: (e: unknown) => moves.push(e) }));
+    expect(desk.rowWords("a\n\nb")).toEqual(["a", "b"]);
+    draw(h(SortableList, { onChange: (v: string[]) => orders.push(v), onReorder: (e: unknown) => moves.push(e) }));
     tap("First");
     tap("Move down");
     expect(moves).toEqual([{ from: 0, to: 1 }]);
