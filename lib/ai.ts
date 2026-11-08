@@ -28,6 +28,9 @@ export type AiSettings = {
   imageKey?: string;
   /** how hard the text model thinks in the agent and the drafts; medium when left out */
   effort?: Effort;
+  /** The keys are kept in this browser's storage. Left out, they last as long as this tab: they are kept for the
+   *  session only, and asked for again in a new one. */
+  rememberKey?: boolean;
 };
 
 export type Effort = "low" | "medium" | "high";
@@ -57,31 +60,48 @@ export const providerSpec = (k: Provider) => PROVIDERS.find((p) => p.key === k) 
 export const DEFAULT_AI: AiSettings = { provider: PROVIDERS[0].key, baseUrl: PROVIDERS[0].baseUrl, model: PROVIDERS[0].model, key: "" };
 
 const STORE_KEY = "m3e:ai";
+/** where the keys wait for this tab's session when they are not remembered */
+const SESSION_KEY = "m3e:ai:keys";
 
+const readJson = (store: () => Storage, key: string): Record<string, unknown> => {
+  try {
+    const v = JSON.parse(store().getItem(key) ?? "null");
+    return v && typeof v === "object" ? v : {};
+  } catch {
+    return {};
+  }
+};
+
+/** The settings as this browser keeps them. The keys come from this tab's session unless the author chose to have
+ *  them remembered; a key saved before there was that choice was remembered, and stays so until they say otherwise. */
 export function loadAiSettings(): AiSettings {
   const s = { ...DEFAULT_AI };
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) {
-      const v = JSON.parse(raw) as Partial<AiSettings>;
-      if (PROVIDERS.some((p) => p.key === v.provider)) s.provider = v.provider as Provider;
-      if (typeof v.baseUrl === "string") s.baseUrl = v.baseUrl;
-      if (typeof v.model === "string") s.model = v.model;
-      if (typeof v.key === "string") s.key = v.key;
-      if (IMAGE_PROVIDERS.some((p) => p.key === v.imageProvider)) s.imageProvider = v.imageProvider;
-      if (typeof v.imageBaseUrl === "string") s.imageBaseUrl = v.imageBaseUrl;
-      if (typeof v.imageModel === "string") s.imageModel = v.imageModel;
-      if (typeof v.imageKey === "string") s.imageKey = v.imageKey;
-      if (EFFORTS.includes(v.effort as Effort)) s.effort = v.effort;
-    }
-  } catch {}
+  const v = readJson(() => localStorage, STORE_KEY) as Partial<AiSettings>;
+  if (PROVIDERS.some((p) => p.key === v.provider)) s.provider = v.provider as Provider;
+  if (typeof v.baseUrl === "string") s.baseUrl = v.baseUrl;
+  if (typeof v.model === "string") s.model = v.model;
+  if (IMAGE_PROVIDERS.some((p) => p.key === v.imageProvider)) s.imageProvider = v.imageProvider;
+  if (typeof v.imageBaseUrl === "string") s.imageBaseUrl = v.imageBaseUrl;
+  if (typeof v.imageModel === "string") s.imageModel = v.imageModel;
+  if (EFFORTS.includes(v.effort as Effort)) s.effort = v.effort;
+  const older = v.rememberKey === undefined && ((typeof v.key === "string" && !!v.key) || (typeof v.imageKey === "string" && !!v.imageKey));
+  s.rememberKey = v.rememberKey === true || older;
+  const keys = s.rememberKey ? v : (readJson(() => sessionStorage, SESSION_KEY) as Partial<AiSettings>);
+  if (typeof keys.key === "string") s.key = keys.key;
+  if (typeof keys.imageKey === "string") s.imageKey = keys.imageKey;
   return s;
 }
 
-/** Settings live in this browser only, like the document itself. */
+/** Settings live in this browser only, like the document itself, and never in a document. The keys go to this tab's
+ *  session, and to the browser's storage only when the author chose to have them remembered; choosing not to takes
+ *  them out of it. */
 export function saveAiSettings(s: AiSettings) {
+  const { key, imageKey, ...rest } = s;
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(s));
+    localStorage.setItem(STORE_KEY, JSON.stringify(s.rememberKey ? s : { ...rest, rememberKey: false }));
+  } catch {}
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ key, ...(imageKey !== undefined ? { imageKey } : {}) }));
   } catch {}
 }
 
@@ -111,7 +131,7 @@ export async function complete(s: AiSettings, system: string, user: string, sign
       },
       body: JSON.stringify({ model, max_tokens: Math.min(maxTokens, 16000), system, messages: [{ role: "user", content: user }], ...(fallback ? { fallbacks: "default" } : {}) }),
     });
-    if (!res.ok) throw await readError(res);
+    if (!res.ok) throw await readError(res, s.key);
     const j = await res.json();
     if (j.stop_reason === "refusal") throw new Error("refusal");
     if (j.stop_reason === "max_tokens") throw new Error("long");
@@ -137,7 +157,7 @@ export async function complete(s: AiSettings, system: string, user: string, sign
       ],
     }),
   });
-  if (!res.ok) throw await readError(res);
+  if (!res.ok) throw await readError(res, s.key);
   const j = await res.json();
   if (j.choices?.[0]?.finish_reason === "length") throw new Error("long");
   const c = j.choices?.[0]?.message?.content;
@@ -176,7 +196,7 @@ export async function generateImage(s: AiSettings, prompt: string, box: { w: num
     /* OpenAI's models always answer in base64 and refuse the old switch; Gemini needs it. A JPEG at medium quality keeps a scene small. */
     body: JSON.stringify({ model, prompt, n: 1, size, ...(s.imageProvider === "gemini" ? { response_format: "b64_json" } : moving ? { quality: "medium", output_format: "gif", frame_count: moving.frames, frame_duration_ms: moving.ms } : { quality: "medium", output_format: "jpeg" }) }),
   });
-  if (!res.ok) throw await readError(res);
+  if (!res.ok) throw await readError(res, key);
   const first = (await res.json())?.data?.[0];
   if (typeof first?.b64_json === "string" && first.b64_json) return `data:${mimeOf(first.b64_json)};base64,${first.b64_json}`;
   if (typeof first?.url === "string" && /^https:\/\//i.test(first.url)) return first.url;

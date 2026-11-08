@@ -7,6 +7,7 @@ import type { Lang } from "../i18n";
 
 type Words = {
   askRows: string;
+  askRowsReplaced: string;
   askFields: string;
   askVariables: string;
   askVarCollection: string;
@@ -27,6 +28,7 @@ type Words = {
 export const SAFETY_TEXT: Record<Lang, Words> = {
   en: {
     askRows: "{n} of the {total} rows of “{of}”",
+    askRowsReplaced: "{n} of the {total} rows of “{of}” (written over with other rows)",
     askFields: "the fields {names} of “{of}”",
     askVariables: "the variables {names}",
     askVarCollection: "the variable collection “{name}”",
@@ -45,6 +47,7 @@ export const SAFETY_TEXT: Record<Lang, Words> = {
   },
   zh: {
     askRows: "“{of}”的 {total} 行中的 {n} 行",
+    askRowsReplaced: "“{of}”的 {total} 行中的 {n} 行（被整批换成别的行）",
     askFields: "“{of}”的字段 {names}",
     askVariables: "变量 {names}",
     askVarCollection: "变量集合“{name}”",
@@ -63,6 +66,7 @@ export const SAFETY_TEXT: Record<Lang, Words> = {
   },
   ja: {
     askRows: "「{of}」の {total} 行のうち {n} 行",
+    askRowsReplaced: "「{of}」の {total} 行のうち {n} 行（別の行にまとめて置き換わります）",
     askFields: "「{of}」のフィールド {names}",
     askVariables: "変数 {names}",
     askVarCollection: "変数コレクション「{name}」",
@@ -81,6 +85,7 @@ export const SAFETY_TEXT: Record<Lang, Words> = {
   },
   ko: {
     askRows: "“{of}”의 {total}행 중 {n}행",
+    askRowsReplaced: "“{of}”의 {total}행 중 {n}행(다른 행으로 한꺼번에 바뀝니다)",
     askFields: "“{of}”의 필드 {names}",
     askVariables: "변수 {names}",
     askVarCollection: "변수 컬렉션 “{name}”",

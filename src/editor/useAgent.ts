@@ -8,14 +8,16 @@ import { useEffect, useRef, useState } from "react";
 import type { Message, Usage } from "@/lib/llm/types";
 import type { AgentStop } from "@/lib/llm/loop";
 import type { DocDiff } from "@/lib/agent/diff";
-import type { TurnEvent } from "@/lib/agent/turn";
+import type { RevertReport } from "@/lib/agent/ledger";
+import type { TurnEvent, TurnResult } from "@/lib/agent/turn";
 import type { Taken } from "@/lib/tools/removals";
 import type { Attachment, Renderer } from "@/lib/tools/types";
 import { hasKey, isSecureUrl, type AiSettings } from "@/lib/ai";
 import { frameOfPart } from "@/lib/tokens";
 import type { DocStore } from "@/lib/core";
 import { aiErrorText } from "@/components/AiPanel";
-import { t, type Lang } from "@/lib/i18n";
+import { t, type Lang, type UIKey } from "@/lib/i18n";
+import type { Limit } from "@/lib/llm/errors";
 import { loadMemory, saveMemory, type KeptTurn } from "./agentMemory";
 import type { PickedImage } from "./attachImage";
 
@@ -46,6 +48,10 @@ export type TurnView = {
   step?: { label: string; depth: number };
   verdict?: "kept" | "undone";
   rolledBack?: boolean;
+  /** what stopping it, or undoing it later, took back: all, part (and what stayed, and why), or none */
+  revert?: Pick<RevertReport, "outcome" | "authorEdited"> & { kept: { name: string; why: string }[] };
+  /** it can be taken back keeping what the author changed in between and after, though one undo step would not do it */
+  canTakeBack?: boolean;
   /** how long the conversation was before it */
   before: number;
 };
@@ -68,7 +74,14 @@ const keptOf = (x: TurnView): KeptTurn => {
   const { shots: _s, log, images, ...rest } = x;
   return { ...rest, log: log.filter((l) => l.kind !== "review").map((l) => (l.kind === "ask" && l.state === "waiting" ? { ...l, state: "declined" } : l)), ...(images?.length ? { images } : {}), ...(x.status === "running" ? { status: "stopped" } : {}) } as unknown as KeptTurn;
 };
-const viewOf = (k: KeptTurn): TurnView => ({ shots: [], log: [], reasoning: "", usage: noUsage(), ms: 0, drawings: 0, before: 0, status: "done", ...(k as unknown as Partial<TurnView>) }) as TurnView;
+const viewOf = (k: KeptTurn): TurnView => ({ shots: [], log: [], reasoning: "", usage: noUsage(), ms: 0, drawings: 0, before: 0, status: "done", ...(k as unknown as Partial<TurnView>), canTakeBack: false }) as TurnView;
+
+/** which of a turn's limits it reached (lib/agent/budget.ts), in the editor's words */
+const LIMIT_WORDS: Record<Limit, UIKey> = { tokens: "agentLimitTokens", tool_calls: "agentLimitCalls", deadline: "agentLimitTime", tool_bytes: "agentLimitBytes", attachments: "agentLimitPictures" };
+const limitText = (e: unknown, lang: Lang) => t("agentLimit", lang).replace("{what}", t(LIMIT_WORDS[(e as { limit?: Limit } | undefined)?.limit ?? "tokens"] ?? "agentLimitTokens", lang));
+
+/** what the panel keeps of a revert's report */
+const reportOf = (r: RevertReport): NonNullable<TurnView["revert"]> => ({ outcome: r.outcome, authorEdited: r.authorEdited, kept: r.kept.slice(0, 8).map((k) => ({ name: k.name, why: k.why })) });
 
 export function useAgent({ store, settings, lang, renderer, editable, showToast, project = null }: AgentInputs) {
   const [turns, setTurns] = useState<TurnView[]>([]);
@@ -86,6 +99,13 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
   const runningRef = useRef(false);
   /** the answer the running turn waits on, when it asked whether it may take away the author's work */
   const answerRef = useRef<((allow: boolean) => void) | null>(null);
+  /** finished turns that can still be taken back keeping the author's edits, by turn id (one at most: the next turn
+   *  starts afresh) */
+  const takeBacks = useRef(new Map<string, NonNullable<TurnResult["takeBack"]>>());
+  const releaseAll = () => {
+    for (const h of takeBacks.current.values()) h.release();
+    takeBacks.current.clear();
+  };
 
   const ready = hasKey(settings) && settings.model.trim().length > 0 && isSecureUrl(settings.baseUrl);
 
@@ -127,7 +147,13 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
       }),
     [store],
   );
-  useEffect(() => () => abort.current?.abort(), []);
+  useEffect(
+    () => () => {
+      abort.current?.abort();
+      releaseAll();
+    },
+    [],
+  );
 
   const patch = (id: string, fn: (t: TurnView) => TurnView) => setTurns((ts) => ts.map((x) => (x.id === id ? fn(x) : x)));
 
@@ -193,6 +219,9 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
     }
     if (!editable) return;
     const id = `turn-${Date.now().toString(36)}`;
+    /* a turn before this one is no longer followed: what it changed is the starting point of this one */
+    releaseAll();
+    setTurns((ts) => ts.map((x) => (x.canTakeBack ? { ...x, canTakeBack: false } : x)));
     const ac = new AbortController();
     abort.current = ac;
     runningRef.current = true;
@@ -218,8 +247,9 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
         sets.current = r.sets;
       }
       const failed = r.stop === "error" || r.stop === "refusal" || r.stop === "max_tokens";
-      const error = r.stop === "error" ? aiErrorText(r.error, lang) : r.stop === "refusal" ? t("aiErrorRefusal", lang) : r.stop === "max_tokens" ? t("aiErrorLong", lang) : r.stop === "max_steps" ? t("agentStepLimit", lang) : undefined;
-      patch(id, (x) => ({ ...x, status: r.stop === "aborted" ? "stopped" : failed ? "error" : "done", diff: r.diff, usage: r.usage, ms: r.ms, drawings: r.drawings, stop: r.stop, ...(error ? { error } : {}), ...(r.step ? { step: r.step } : {}), rolledBack: r.rolledBack }));
+      const error = r.stop === "error" ? aiErrorText(r.error, lang) : r.stop === "refusal" ? t("aiErrorRefusal", lang) : r.stop === "max_tokens" ? t("aiErrorLong", lang) : r.stop === "max_steps" ? t("agentStepLimit", lang) : r.stop === "limit" ? limitText(r.error, lang) : undefined;
+      if (r.takeBack) takeBacks.current.set(id, r.takeBack);
+      patch(id, (x) => ({ ...x, status: r.stop === "aborted" ? "stopped" : failed ? "error" : "done", diff: r.diff, usage: r.spent, ms: r.ms, drawings: r.drawings, stop: r.stop, ...(error ? { error } : {}), ...(r.step ? { step: r.step } : {}), rolledBack: r.rolledBack, ...(r.revert ? { revert: reportOf(r.revert) } : {}), canTakeBack: !!r.takeBack }));
     } catch (e) {
       patch(id, (x) => ({ ...x, status: "error", error: aiErrorText(e, lang), ms: Date.now() - t0 }));
     } finally {
@@ -239,18 +269,32 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
     return h.length === x.step.depth && h[h.length - 1] === x.step.label;
   };
 
-  const settle = (id: string, verdict: "kept" | "undone") => patch(id, (y) => ({ ...y, verdict }));
+  const settle = (id: string, verdict: "kept" | "undone", report?: RevertReport) => {
+    takeBacks.current.get(id)?.release();
+    takeBacks.current.delete(id);
+    patch(id, (y) => ({ ...y, verdict, canTakeBack: false, ...(report ? { revert: reportOf(report) } : {}) }));
+  };
+
+  /** Takes a finished turn back: one undo step when it is the last and nothing of the author's came in between, else
+   *  its own changes alone, keeping what the author changed in between and after. */
+  const takeBack = (x: TurnView): RevertReport | "undone" | null => {
+    if (x.step && onTop(x)) {
+      store.undo();
+      return "undone";
+    }
+    return takeBacks.current.get(x.id)?.run() ?? null;
+  };
 
   const undoTurn = (id: string) => {
     const x = turns.find((y) => y.id === id);
-    if (!x?.step || x.verdict) return;
-    if (!onTop(x)) {
+    if (!x || x.verdict || (!x.step && !x.canTakeBack)) return;
+    const r = takeBack(x);
+    if (!r) {
       showToast(t("agentCannotUndo", lang), 4000);
       return;
     }
-    store.undo();
     undone.current = true;
-    settle(id, "undone");
+    settle(id, "undone", r === "undone" ? undefined : r);
   };
 
   const keepTurn = (id: string) => settle(id, "kept");
@@ -259,12 +303,13 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
   const retry = (id: string) => {
     const x = turns[turns.length - 1];
     if (!x || x.id !== id || runningRef.current) return;
-    if (x.step && !x.verdict) {
-      if (!onTop(x)) {
+    if ((x.step || x.canTakeBack) && !x.verdict) {
+      if (x.step && onTop(x)) store.undo("user", { forget: true });
+      else if (!takeBacks.current.get(x.id)?.run()) {
         showToast(t("agentCannotUndo", lang), 4000);
         return;
       }
-      store.undo("user", { forget: true });
+      takeBacks.current.delete(x.id);
     }
     messages.current = messages.current.slice(0, x.before);
     const pictures = (x.images ?? []).map((im) => {
@@ -278,6 +323,7 @@ export function useAgent({ store, settings, lang, renderer, editable, showToast,
 
   const reset = () => {
     if (runningRef.current) return;
+    releaseAll();
     messages.current = [];
     attachments.current = [];
     sets.current = [];

@@ -1,7 +1,8 @@
 /* One turn of the in-app agent: the author's request goes to the model with the document's context, the model plans,
  * acts with the tools, looks at what it made and fixes it, and the turn ends as one undo step with a summary of what
- * changed. Stopping it mid-turn takes back everything it did. Built on lib/llm's `runAgent` (streaming, any provider)
- * and lib/tools (every change through the document core, origin `ai`). */
+ * changed. Stopping it mid-turn takes back what it did and keeps what the author changed meanwhile (ledger.ts); the
+ * result says whether all of it went back, part of it (and what stayed), or none. Built on lib/llm's `runAgent`
+ * (streaming, any provider) and lib/tools (every change through the document core, origin `ai`). */
 
 import { savedDoc, type CoreState, type DocStore } from "../core";
 import { frameOfPart } from "../tokens";
@@ -12,7 +13,9 @@ import { atomsReference } from "../tools/atoms";
 import type { Pixels } from "../tools/pixels";
 import type { Lang } from "../i18n";
 import { diffDocs, isEmptyDiff, touchedScreens, type DocDiff } from "./diff";
-import { declined, plainlyAsksToRemove, removalOf, type ConfirmRemoval, type RemovalAsk } from "./guard";
+import { changedMeanwhile, declined, namedIn, plainlyAsksToRemove, removalOf, unchecked, type ConfirmRemoval, type RemovalAsk } from "./guard";
+import { TurnLedger, type RevertReport } from "./ledger";
+import { TurnBudget, type TurnLimits } from "./budget";
 import { prunePictures } from "./pictures";
 import { agentSystem, turnContext } from "./prompt";
 import { loadTools, setsFor, setsGuide, toolsIn, TOOL_SETS, type ToolSet } from "./toolsets";
@@ -58,6 +61,8 @@ export type TurnOptions = {
   maxSteps?: number;
   /** how many times the runner shows the model its changed screens when it did not look itself (1 by default) */
   reviews?: number;
+  /** what else the turn may spend: tokens, tool calls, bytes, time (budget.ts; its defaults when left out) */
+  limits?: Partial<TurnLimits>;
   /** a word for the model in front of the request (the author undid the last turn…) */
   note?: string;
   /** Asks the author whether a call that would take away much of their work, which the request does not plainly ask
@@ -74,15 +79,23 @@ export type TurnResult = {
   error?: unknown;
   /** the model's last words to the author */
   text: string;
+  /** what the agent's own model calls spent */
   usage: Usage;
+  /** what every model call of the turn spent, the tools' own (a style written, an SVG drawn as code) included */
+  spent: Usage;
   steps: number;
   ms: number;
   diff: DocDiff;
   changed: boolean;
-  /** the undo step the turn is, while it is the last one in the history */
+  /** the undo step the turn is, while it is the last one in the history and the author did not edit in between */
   step?: { label: string; depth: number };
   /** everything stopped was taken back */
   rolledBack: boolean;
+  /** what taking a stopped turn back did: all of it, part of it (and what stayed, and why), or none */
+  revert?: RevertReport;
+  /** Takes a finished turn back later, keeping what the author changed meanwhile and after (the panel's undo when one
+   *  undo step would not do it); `release` once the turn is kept or another starts. */
+  takeBack?: { run: () => RevertReport; release: () => void };
   /** drawings made with a model */
   drawings: number;
   /** the tool sets loaded by the end of the turn: what the next turn starts with */
@@ -137,6 +150,17 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   };
   const before = store.get();
   const label = `AI: ${o.request.trim().replace(/\s+/g, " ").slice(0, 40)}`;
+  const budget = new TurnBudget(o.limits);
+  /* pictures too large to send end the turn before it asks anything */
+  const tooLarge = budget.attachments(o.images ?? []);
+  if (tooLarge) {
+    const none = diffDocs(savedDoc(before), savedDoc(before));
+    return { messages: o.history, stop: "limit", error: tooLarge, text: "", usage: emptyUsage(), spent: emptyUsage(), steps: 0, ms: Date.now() - t0, diff: none, changed: false, rolledBack: false, drawings: 0, sets: [...new Set(["build" as const, ...(o.sets ?? [])])] };
+  }
+  /* the turn's own signal: the author's stop, or one of its limits (the deadline, the bytes its tools hand back) */
+  const ac = new AbortController();
+  const signal = ac.signal;
+  const adapter = budget.adapter(o.adapter);
   let step: { label: string; depth: number } | undefined;
   const onTop = () => {
     if (!step) return false;
@@ -155,7 +179,8 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
 
   const drawings = o.drawings ?? 2;
   const styles = o.styles ?? 2;
-  const gen: GenerateEnv | undefined = o.gen ? { ...o.gen, budget: { left: drawings }, styles: { left: styles, of: styles } } : undefined;
+  /* what the tools ask a model for is spent from the turn's budget too */
+  const gen: GenerateEnv | undefined = o.gen ? { ...o.gen, ...(o.gen.adapter ? { adapter: budget.adapter(o.gen.adapter) } : {}), budget: { left: drawings }, styles: { left: styles, of: styles } } : undefined;
   const images = o.images ?? [];
   const attachments = o.attachments ?? images;
   /* the sets loaded so far, those this request calls for, and those the model loads as it goes */
@@ -176,8 +201,6 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
     : { role: "user", content: words };
 
   let usage = emptyUsage();
-  /* what the readout shows while the turn runs: every model call so far */
-  let spent = emptyUsage();
   const outcomes = new Map<string, ToolOutcome>();
   let stepsUsed = 0;
   const maxSteps = o.maxSteps ?? 30;
@@ -186,96 +209,128 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
   let last: Awaited<ReturnType<typeof runAgent>>;
   let atStep = 0;
 
-  /* A call that would take away much of the author's work waits for their answer, unless the request plainly asks
-     for it or they allowed one already this turn; with no one to ask, it is declined. */
-  let allowed = plainlyAsksToRemove(o.request);
+  /* A call that would take away much of the author's work waits for their answer; with no one to ask, it is declined.
+     What may go is bound to exactly what goes (guard.ts): what the author allowed, and what a plain request names. A
+     check that fails is an error, never a pass; an answer given while the document changed holds only for what was
+     shown, so the call is checked again and asked about again when it would now take more. */
+  const named = plainlyAsksToRemove(o.request);
+  const allowed = new Set<string>();
+  const covered = (k: { key: string; names: string[] }) => allowed.has(k.key) || (named && namedIn(o.request, k.names));
   const guard = async (call: { id: string; name: string; args: unknown }, signal?: AbortSignal): Promise<ToolOutcome | null> => {
-    if (allowed) return null;
-    const ask = await removalOf(store, before, call.name, call.args, { registry, selection: before.session.selection }).catch(() => null);
-    if (!ask) return null;
-    emit({ type: "ask", step: atStep, id: call.id, ask });
-    let yes = false;
-    try {
-      yes = !!o.confirm && !signal?.aborted && (await o.confirm(ask, signal)) === true;
-    } catch {
-      yes = false;
+    for (let asked = 0; ; asked++) {
+      let ask: RemovalAsk | null;
+      try {
+        ask = await removalOf(store, ledger.baseline(), call.name, call.args, { registry, selection: before.session.selection, covered });
+      } catch (e) {
+        return unchecked(e);
+      }
+      if (!ask) return null;
+      if (asked >= 3) return changedMeanwhile(ask);
+      const seen = store.get().doc;
+      emit({ type: "ask", step: atStep, id: call.id, ask });
+      let yes = false;
+      try {
+        yes = !!o.confirm && !signal?.aborted && (await o.confirm(ask, signal)) === true;
+      } catch {
+        yes = false;
+      }
+      emit({ type: "answer", step: atStep, id: call.id, allow: yes });
+      if (!yes) return declined(ask);
+      for (const k of ask.keys) allowed.add(k);
+      if (store.get().doc === seen) return null;
     }
-    emit({ type: "answer", step: atStep, id: call.id, allow: yes });
-    if (!yes) return declined(ask);
-    allowed = true;
-    return null;
   };
 
-  for (;;) {
-    const offset = stepsUsed;
-    last = await runAgent({
-      adapter: o.adapter,
-      system,
-      messages,
-      tools,
-      prepare: (m) => prunePictures(m),
-      maxSteps: Math.max(1, maxSteps - stepsUsed),
-      signal: o.signal,
-      execute: async (call, ctx) => {
-        const held = await guard(call, ctx.signal);
-        if (held) {
-          outcomes.set(call.id, held);
-          return outputOf(held, call.name);
-        }
-        const out = await executeTool(store, call.name, call.args, { origin: "ai", history: "none", onWrite, renderer: o.renderer, signal: ctx.signal, gen, registry, attachments, ...(o.pixels ? { pixels: o.pixels } : {}) });
-        if (out.ok && (call.name === "screenshot" || call.name === "compare_to_reference")) dirty = false;
-        outcomes.set(call.id, out);
-        return outputOf(out, call.name);
-      },
-      onEvent: (e) => {
-        const at = offset + e.step;
-        atStep = at;
-        if (e.type === "step") emit({ type: "step", step: at });
-        else if (e.type === "text") emit({ type: "text", step: at, delta: e.delta });
-        else if (e.type === "reasoning") emit({ type: "reasoning", step: at, delta: e.delta });
-        else if (e.type === "tool_start") emit({ type: "tool_start", step: at, id: e.call.id, name: e.call.name, args: e.call.args });
-        else if (e.type === "tool_end") {
-          const out = outcomes.get(e.call.id);
-          const words = e.result.content.map((p) => (p.type === "text" ? p.text : "")).join(" ");
-          emit({ type: "tool_end", step: at, id: e.call.id, name: e.call.name, ok: out ? out.ok : !e.result.isError, summary: out ? summaryOf(e.call.name, out) : words.slice(0, 200), images: out?.ok ? (out.images ?? []) : [], ms: e.ms });
-        } else if (e.type === "retry") emit({ type: "retry", attempt: e.attempt, delayMs: e.delayMs });
-        else if (e.type === "done") {
-          spent = addUsage(spent, e.usage);
-          emit({ type: "usage", usage: spent });
-        }
-      },
-    });
-    usage = addUsage(usage, last.usage);
-    stepsUsed += last.steps;
-    messages = last.messages;
-    /* the model finished without looking at what it changed: it is shown, once, and may fix what it sees */
-    if (last.stop !== "end_turn" || !reviews || !o.renderer || !dirty || stepsUsed >= maxSteps || o.signal?.aborted) break;
-    reviews--;
-    const now = store.get();
-    const diff = diffDocs(savedDoc(before), savedDoc(now));
-    const screens = touchedScreens(diff, now.doc as never, (id) => {
-      const g = now.doc.groups.find((x) => x.items.some((it) => it.id === id));
-      return g ? frameOfPart(g, now.doc.groups, now.doc.frames, store.ctx("ai").widths)?.id : undefined;
-    }).slice(0, 2);
-    if (!screens.length) break;
-    const shots: string[] = [];
-    try {
-      for (const id of screens) shots.push(await o.renderer.screenshot(id, { signal: o.signal }));
-    } catch {
-      break;
+  /* what a tool hands back, held to the turn's byte limits; past them the turn ends after this call */
+  const sent = (out: ToolOutcome, name: string) => {
+    const r = budget.output(outputOf(out, name));
+    if (r.over) ac.abort(r.over);
+    return r.out;
+  };
+
+  const stopped = () => ac.abort(o.signal?.reason);
+  if (o.signal?.aborted) ac.abort(o.signal.reason);
+  else o.signal?.addEventListener("abort", stopped, { once: true });
+  const deadline = setTimeout(() => ac.abort(budget.deadline()), budget.limits.deadlineMs);
+  /* what the turn changes, apart from what the author changes meanwhile */
+  const ledger = new TurnLedger(store);
+  try {
+    for (;;) {
+      const offset = stepsUsed;
+      last = await runAgent({
+        adapter,
+        system,
+        messages,
+        tools,
+        prepare: (m) => prunePictures(m),
+        maxSteps: Math.max(1, maxSteps - stepsUsed),
+        toolCalls: budget.calls,
+        signal,
+        execute: async (call, ctx) => {
+          const held = await guard(call, ctx.signal);
+          if (held) {
+            outcomes.set(call.id, held);
+            return sent(held, call.name);
+          }
+          const out = await executeTool(store, call.name, call.args, { origin: "ai", history: "none", onWrite, renderer: o.renderer, signal: ctx.signal, gen, registry, attachments, ...(o.pixels ? { pixels: o.pixels } : {}) });
+          if (out.ok && (call.name === "screenshot" || call.name === "compare_to_reference")) dirty = false;
+          outcomes.set(call.id, out);
+          return sent(out, call.name);
+        },
+        onEvent: (e) => {
+          const at = offset + e.step;
+          atStep = at;
+          if (e.type === "step") emit({ type: "step", step: at });
+          else if (e.type === "text") emit({ type: "text", step: at, delta: e.delta });
+          else if (e.type === "reasoning") emit({ type: "reasoning", step: at, delta: e.delta });
+          else if (e.type === "tool_start") emit({ type: "tool_start", step: at, id: e.call.id, name: e.call.name, args: e.call.args });
+          else if (e.type === "tool_end") {
+            const out = outcomes.get(e.call.id);
+            const words = e.result.content.map((p) => (p.type === "text" ? p.text : "")).join(" ");
+            emit({ type: "tool_end", step: at, id: e.call.id, name: e.call.name, ok: out ? out.ok : !e.result.isError, summary: out ? summaryOf(e.call.name, out) : words.slice(0, 200), images: out?.ok ? (out.images ?? []) : [], ms: e.ms });
+          } else if (e.type === "retry") emit({ type: "retry", attempt: e.attempt, delayMs: e.delayMs });
+          else if (e.type === "done") emit({ type: "usage", usage: budget.usage });
+        },
+      });
+      usage = addUsage(usage, last.usage);
+      stepsUsed += last.steps;
+      messages = last.messages;
+      /* the model finished without looking at what it changed: it is shown, once, and may fix what it sees */
+      if (last.stop !== "end_turn" || !reviews || !o.renderer || !dirty || stepsUsed >= maxSteps || signal.aborted) break;
+      reviews--;
+      const now = store.get();
+      const diff = diffDocs(savedDoc(before), savedDoc(now));
+      const screens = touchedScreens(diff, now.doc as never, (id) => {
+        const g = now.doc.groups.find((x) => x.items.some((it) => it.id === id));
+        return g ? frameOfPart(g, now.doc.groups, now.doc.frames, store.ctx("ai").widths)?.id : undefined;
+      }).slice(0, 2);
+      if (!screens.length) break;
+      const shots: string[] = [];
+      try {
+        for (const id of screens) shots.push(await o.renderer.screenshot(id, { signal }));
+      } catch {
+        break;
+      }
+      dirty = false;
+      emit({ type: "review", screens, images: shots });
+      messages = [...messages, { role: "user", content: [{ type: "text", text: REVIEW }, ...shots.map((dataUrl, i): UserPart => ({ type: "image", dataUrl, detail: "auto", name: `the review picture of ${screens[i]}` }))] }];
     }
-    dirty = false;
-    emit({ type: "review", screens, images: shots });
-    messages = [...messages, { role: "user", content: [{ type: "text", text: REVIEW }, ...shots.map((dataUrl, i): UserPart => ({ type: "image", dataUrl, detail: "auto", name: `the review picture of ${screens[i]}` }))] }];
+  } catch (e) {
+    ledger.close();
+    throw e;
+  } finally {
+    clearTimeout(deadline);
+    o.signal?.removeEventListener("abort", stopped);
   }
 
   const aborted = last.stop === "aborted";
-  let rolledBack = false;
-  /* a stopped turn is discarded, not undone: nothing waits to be redone */
-  if (aborted && step && onTop()) {
-    store.undo("ai", { forget: true });
-    rolledBack = true;
-  }
+  /* a stopped turn is discarded, not undone: its own changes go, the author's stay, and nothing waits to be redone */
+  const revert = aborted ? ledger.revert(label) : undefined;
+  const rolledBack = revert?.outcome === "full" || revert?.outcome === "none";
+  /* one undo step takes the turn back only when nothing of the author's came in between */
+  const single = !ledger.authorEdited;
+  const takeBack = !aborted && ledger.changed ? { run: () => ledger.revert(label), release: () => ledger.close() } : undefined;
+  if (!takeBack) ledger.close();
   const after = store.get();
   const diff = diffDocs(savedDoc(before), savedDoc(after));
   return {
@@ -284,12 +339,15 @@ export async function runTurn(o: TurnOptions): Promise<TurnResult> {
     ...(last.error !== undefined ? { error: last.error } : {}),
     text: last.text,
     usage,
+    spent: budget.usage,
     steps: stepsUsed,
     ms: Date.now() - t0,
     diff,
     changed: !isEmptyDiff(diff),
-    ...(step && onTop() ? { step } : {}),
+    ...(step && onTop() && single ? { step } : {}),
     rolledBack,
+    ...(revert ? { revert } : {}),
+    ...(takeBack ? { takeBack } : {}),
     drawings: gen ? drawings - (gen.budget?.left ?? drawings) : 0,
     sets: aborted ? [...new Set(["build" as const, ...(o.sets ?? [])])] : TOOL_SETS.filter((x) => loaded.has(x)),
   };
