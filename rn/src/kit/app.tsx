@@ -327,13 +327,13 @@ export function SnackHost() {
 }
 
 /** Rows for a part's list prop out of what an expression read: each element's words (its label, name or title), its
- *  icon and its picture; the design's own when it reads no list. */
+ *  icon, its picture and its state (`variant`); the design's own when it reads no list. */
 export function rowsOf<T>(v: unknown, design: T, max = 50): T {
   if (!Array.isArray(v)) return design;
   return v.slice(0, max).map((x) => {
     if (!x || typeof x !== "object" || Array.isArray(x)) return { label: asWords(x) };
     const r = x as Record<string, unknown>;
-    return { label: asWords(r.label ?? r.name ?? r.title ?? ""), ...(typeof r.icon === "string" ? { icon: r.icon } : {}), ...(typeof r.image === "string" ? { image: r.image } : {}) };
+    return { label: asWords(r.label ?? r.name ?? r.title ?? ""), ...(typeof r.icon === "string" ? { icon: r.icon } : {}), ...(typeof r.image === "string" ? { image: r.image } : {}), ...(typeof r.variant === "string" ? { variant: r.variant } : {}) };
   }) as T;
 }
 

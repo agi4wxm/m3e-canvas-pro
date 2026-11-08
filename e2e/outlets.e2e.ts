@@ -7,6 +7,9 @@
  *     unclaimed when the call is refused (the same path a product takes: a product never runs a demo)
  *   - result from outside: a wheel whose result is bound waits for the answer, settles on it and sends on:settled
  *   - slot family: one tab:* action answers every row of a list, reading slot.index
+ *   - a control of the part's own: a product card's heart runs only its own action when wired, and no press on the
+ *     card when not; a data table's rows answer one row:* action by their place in the data
+ *   - a choice of several bound to a variable: a pick writes it, setting the variable moves the chips
  * Screenshots of failures go to e2e/.out. */
 
 import { DocStore, counterIds, guessMeasurer, ops, savedDoc, stateOf } from "../lib/core";
@@ -68,6 +71,35 @@ function outletsDoc(): Doc {
   return savedDoc(store.get());
 }
 
+/** the second screen: controls of a part's own, a row family on a table, a controlled choice of several */
+function ownDoc(): Doc {
+  const store = new DocStore(stateOf({ groups: [], frames: [] }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => "en" });
+  store.transact("Build the controls", "mcp", (tx) => {
+    tx.run(ops.setTitle, { title: "Own" });
+    tx.run(ops.addScreen, { id: SCREEN, name: "Own", w: 412, h: 1600 });
+    tx.run(ops.addVar, { id: "picks", name: "picks", type: "text", value: "1" });
+    const at = (y: number) => ({ x: 16, y });
+    const say = (message: string) => ({ to: "none", transition: "none", effects: [{ do: "snackbar", message }] }) as never;
+    /* two cards whose tap says so; the first one's heart has an action of its own */
+    tx.run(ops.addPart, { slug: "product-card", id: "wired-card", screen: SCREEN, at: at(20), props: { title: "Wired" } });
+    tx.run(ops.setAction, { id: "wired-card", action: say("Opened the wired card") });
+    tx.run(ops.setAction, { id: "wired-card", slot: "like", action: say("Liked") });
+    tx.run(ops.addPart, { slug: "product-card", id: "loose-card", screen: SCREEN, at: { x: 220, y: 20 }, props: { title: "Loose" } });
+    tx.run(ops.setAction, { id: "loose-card", action: say("Opened the loose card") });
+    /* a table whose rows share one action */
+    tx.run(ops.addPart, { slug: "data-table", id: "orders", screen: SCREEN, at: at(400), props: { width: 380, search: "", selectable: false } });
+    tx.run(ops.setAction, { id: "orders", slot: "row:*", action: say("Row {{slot.index}}") });
+    /* a choice of several, bound both ways */
+    tx.run(ops.addPart, { slug: "multi-select", id: "chips", screen: SCREEN, at: at(900) });
+    tx.run(ops.bindProp, { id: "chips", prop: "selected", var: "picks" });
+    tx.run(ops.addPart, { slug: "text", id: "picks-shown", screen: SCREEN, at: at(960), props: { text: "-" } });
+    tx.run(ops.bindProp, { id: "picks-shown", prop: "text", var: "picks" });
+    tx.run(ops.addPart, { slug: "button", id: "pick-three", screen: SCREEN, at: at(1000), props: { label: "Pick the third" } });
+    tx.run(ops.setAction, { id: "pick-three", action: { to: "none", transition: "none", effects: [{ do: "setVar", var: "picks", value: "3" }] } as never });
+  });
+  return savedDoc(store.get());
+}
+
 /** the back end on the page: a claim is refused, a draw answers the prize `drawn` once the test lets it */
 function installBackEnd(drawn: number) {
   type Res = { status: number; headers: Record<string, string>; body?: unknown };
@@ -104,9 +136,9 @@ const snackSays = (page: Page, text: string) => until(`the snackbar says ${JSON.
 const attr = (page: Page, id: string, slot: string, name: string) => part(page, id).locator(`[data-slot="${slot}"]`).first().getAttribute(name);
 const textOf = async (page: Page, id: string) => ((await part(page, id).textContent()) ?? "").trim();
 
-async function openPreview(page: Page, base: string) {
+async function openPreview(page: Page, base: string, doc: Doc = outletsDoc()) {
   await page.context().addInitScript(installBackEnd, 2);
-  await page.goto(`${base}/#doc=${encodeURIComponent(JSON.stringify(outletsDoc()))}`, { waitUntil: "load" });
+  await page.goto(`${base}/#doc=${encodeURIComponent(JSON.stringify(doc))}`, { waitUntil: "load" });
   await page.waitForSelector(".m3e-boot", { state: "detached", timeout: 90_000 });
   await page.waitForSelector(`[data-screen="${SCREEN}"]`, { timeout: 30_000 });
   await settle(page, 1500);
@@ -174,6 +206,35 @@ export const tests: E2ETest[] = [
       /* a slot family: one action, every row, reading which */
       await part(page, "rows").locator('[data-tap="tab:2"]').first().click();
       await snackSays(page, "Row 2");
+      await page.keyboard.press("Escape");
+      await settle(page, 600);
+    },
+  },
+  {
+    name: "preview outlets: a card's heart answers only its own action; a table's rows share one; a bound choice of several follows its variable",
+    async run({ page, base }) {
+      await openPreview(page, base, ownDoc());
+      /* wired: the heart runs its action, and the card's tap does not run with it */
+      await part(page, "wired-card").locator('[data-tap="like"]').click();
+      await snackSays(page, "Liked");
+      /* not wired: the heart is no press on the card (its demo still flips it in the prototype) */
+      await part(page, "loose-card").locator('[data-tap="like"]').click();
+      await settle(page, 500);
+      check((await snack(page)) !== "Opened the loose card", "an unwired heart is no press on the card");
+      equal(await attr(page, "loose-card", "product-card", "data-liked"), "true", "the prototype's demo flips the heart");
+      await part(page, "loose-card").locator('[data-slot="product-card-title"]').click();
+      await snackSays(page, "Opened the loose card");
+
+      /* one action for every row, by its place in the data */
+      await part(page, "orders").locator('[data-tap="row:2"]').first().click();
+      await snackSays(page, "Row 2");
+
+      /* a controlled choice of several: the variable reaches the chips, a pick writes it */
+      equal(await attr(page, "chips", "multi-select", "data-selected"), "0", "the chips start at the variable");
+      await part(page, "pick-three").click();
+      await until("the chips follow the variable", async () => (await attr(page, "chips", "multi-select", "data-selected")) === "2");
+      await part(page, "chips").locator("button").nth(1).click();
+      await until("a pick writes the variable", async () => (await textOf(page, "picks-shown")) === "2,3");
       await page.keyboard.press("Escape");
       await settle(page, 600);
     },

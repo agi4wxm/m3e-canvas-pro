@@ -9,7 +9,7 @@ import { Input } from "@/components/m3e/input";
 import { Switch } from "@/components/m3e/switch";
 import { ensureIcons, useIconVersion } from "../icons";
 import type { Look } from "./look";
-import { amountOf, stop, useSeeded } from "./seed";
+import { amountOf, keysOf, stop, usePicked, useSeeded, useValue } from "./seed";
 import { useHost, type HostProps } from "./host";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
@@ -55,9 +55,13 @@ function Picture({ src = "", alt = "", icon = "image", className }: { src?: stri
 
 /* ---------- selling ---------- */
 
-export function ProductCard({ image = "", title = "", subtitle = "", price = "", original = "", badge = "", rating = 0, action = "", done = "", layout = "vertical", liked = false, width = 200, className, style }: { image?: string; title?: string; subtitle?: string; price?: string; original?: string; badge?: string; rating?: number; action?: string; done?: string; layout?: string; liked?: boolean; width?: number } & Look) {
-  const [heart, setHeart] = useSeeded(liked);
-  const [added, setAdded] = useState(0);
+/* Whether it is liked, and how many are in the cart, are the shop's to say (`liked`, `added`): the heart (the `like`
+ * slot) and the button only ask. A prototype's demo flips the heart and counts additions itself. */
+export function ProductCard({ image = "", title = "", subtitle = "", price = "", original = "", badge = "", rating = 0, action = "", done = "", layout = "vertical", liked = false, added: given = 0, width = 200, demo, onValueChange, onEvent, wired, className, style }: { image?: string; title?: string; subtitle?: string; price?: string; original?: string; badge?: string; rating?: number; action?: string; done?: string; layout?: string; liked?: boolean; added?: number; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [mine, setMine] = useSeeded({ from: [liked, given], heart: liked, added: given });
+  const heart = host.demo ? mine.heart : liked;
+  const added = host.demo ? mine.added : given;
   const across = layout === "horizontal";
   return (
     <div data-slot="product-card" data-liked={heart || undefined} data-added={added || undefined} className={cn("bg-surface-container-low text-on-surface relative flex overflow-hidden rounded-xl", across ? "flex-row" : "flex-col", className)} style={{ width, ...style }}>
@@ -77,22 +81,12 @@ export function ProductCard({ image = "", title = "", subtitle = "", price = "",
         <div className="flex items-center gap-1">
           <span data-slot="product-card-price" className="text-title-medium text-primary">{price}</span>
           {original && <span data-slot="product-card-original" className={`text-body-small line-through ${Soft}`}>{original}</span>}
-          <Button
-            variant="text"
-            size="icon-sm"
-            aria-label="Favorite"
-            aria-pressed={heart}
-            className={cn("ml-auto", heart && "text-error")}
-            onClick={(e) => {
-              stop(e);
-              setHeart((h) => !h);
-            }}
-          >
+          <Button variant="text" size="icon-sm" aria-label="Favorite" aria-pressed={heart} data-tap="like" className={cn("ml-auto", heart && "text-error")} onClick={host.own("like", () => host.demo && setMine((m) => ({ ...m, heart: !m.heart })))}>
             <Glyph name="favorite" filled={heart} />
           </Button>
         </div>
         {action && (
-          <Button variant={added ? "tonal" : "filled"} size="xs" data-tap="action" className="w-full" onClick={() => setAdded((n) => n + 1)}>
+          <Button variant={added ? "tonal" : "filled"} size="xs" data-tap="action" className="w-full" onClick={() => host.demo && setMine((m) => ({ ...m, added: m.added + 1 }))}>
             {added ? `${done || action} · ${added}` : action}
           </Button>
         )}
@@ -231,8 +225,10 @@ export function CheckoutBar({ label = "", amount = "", note = "", icons = [], ac
 
 /* ---------- money ---------- */
 
-export function BalanceCard({ title = "", amount = "", change = "", actions = [], hidden = false, width = 380, className, style }: { title?: string; amount?: string; change?: string; actions?: { label: string; icon?: string }[]; hidden?: boolean; width?: number } & Look) {
-  const [masked, setMasked] = useSeeded(hidden);
+/* Whether the amount is hidden is the visitor's (`hidden`, an input): the eye hands the other one out. */
+export function BalanceCard({ title = "", amount = "", change = "", actions = [], hidden = false, width = 380, demo, onValueChange, onEvent, wired, className, style }: { title?: string; amount?: string; change?: string; actions?: { label: string; icon?: string }[]; hidden?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [masked, setMasked] = useValue(hidden, host);
   return (
     <div data-slot="balance-card" data-masked={masked || undefined} className={cn("bg-primary-container text-on-primary-container flex flex-col gap-3 rounded-xl p-4", className)} style={{ width, ...style }}>
       <div data-slot="balance-card-header" className="flex items-center gap-1">
@@ -245,7 +241,7 @@ export function BalanceCard({ title = "", amount = "", change = "", actions = []
           className="text-inherit"
           onClick={(e) => {
             stop(e);
-            setMasked((m) => !m);
+            setMasked(!masked);
           }}
         >
           <WidgetIcon name={masked ? "visibility_off" : "visibility"} />
@@ -269,10 +265,19 @@ export function BalanceCard({ title = "", amount = "", change = "", actions = []
   );
 }
 
-export function TransactionList({ rows = [], filters = [], width = 380, className, style }: { rows?: string[][]; filters?: string[]; width?: number } & Look) {
-  const [on, setOn] = useState(0);
+/** whether a row is money in: its own column says so ("in", "out"); an older table with no such column, its sign */
+const incoming = (r: string[]) => {
+  const kind = (r[3] ?? "").trim().toLowerCase();
+  return kind ? kind === "in" || kind === "income" : amountOf(r[2]) > 0;
+};
+
+/* Which filter is on is the visitor's (`filter`, an input, which a data source can read as a parameter): the rows are
+ * the ones given. Only a prototype's demo filters the design's own rows, by their in/out column. */
+export function TransactionList({ rows = [], filters = [], filter = 0, width = 380, demo, onValueChange, onEvent, wired, className, style }: { rows?: string[][]; filters?: string[]; filter?: number; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [on, setOn] = useValue(filter, host);
   /* the first filter is everything, the second money in, the third money out */
-  const shown = rows.map((r, i) => ({ r, i })).filter(({ r }) => on === 0 || (on === 1 ? amountOf(r[2]) > 0 : amountOf(r[2]) < 0));
+  const shown = rows.map((r, i) => ({ r, i })).filter(({ r }) => !host.demo || on <= 0 || on > 2 || (on === 1 ? incoming(r) : !incoming(r)));
   return (
     <div data-slot="transaction-list" data-filter={on} data-shown={shown.length} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-1 rounded-xl p-2", className)} style={{ width, ...style }}>
       {filters.length > 0 && (
@@ -285,7 +290,7 @@ export function TransactionList({ rows = [], filters = [], width = 380, classNam
         </div>
       )}
       {shown.map(({ r, i }) => {
-        const income = amountOf(r[2]) > 0;
+        const income = incoming(r);
         return (
           <Tap key={i} data-tap={`tab:${i}`} data-slot="transaction-row" className="flex w-full items-center gap-3 rounded-lg p-2 text-left">
             <span data-slot="transaction-row-glyph" className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", income ? "bg-primary-container text-on-primary-container" : "bg-surface-container-high text-on-surface-variant")}>
@@ -305,8 +310,11 @@ export function TransactionList({ rows = [], filters = [], width = 380, classNam
 
 /* ---------- getting somewhere ---------- */
 
-export function RouteCard({ icon = "", from = "", fromTime = "", to = "", toTime = "", duration = "", note = "", price = "", action = "", done = "", width = 380, className, style }: { icon?: string; from?: string; fromTime?: string; to?: string; toTime?: string; duration?: string; note?: string; price?: string; action?: string; done?: string; width?: number } & Look) {
-  const [booked, setBooked] = useState(false);
+/* Whether it is booked is the other side's (`booked`): the button only asks. A prototype's demo books it itself. */
+export function RouteCard({ icon = "", from = "", fromTime = "", to = "", toTime = "", duration = "", note = "", price = "", action = "", done = "", booked: given = false, width = 380, demo, onValueChange, onEvent, wired, className, style }: { icon?: string; from?: string; fromTime?: string; to?: string; toTime?: string; duration?: string; note?: string; price?: string; action?: string; done?: string; booked?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [mine, setMine] = useSeeded(given);
+  const booked = host.demo ? mine : given;
   return (
     <div data-slot="route-card" data-booked={booked || undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-3 rounded-xl p-4", className)} style={{ width, ...style }}>
       <div className="flex items-stretch gap-3">
@@ -336,8 +344,8 @@ export function RouteCard({ icon = "", from = "", fromTime = "", to = "", toTime
           {note && <div data-slot="route-card-meta" className={`text-body-small truncate ${Soft}`}>{note}</div>}
         </div>
         {action && (
-          <Button variant={booked ? "tonal" : "filled"} size="sm" data-tap="action" className="shrink-0" onClick={() => done && setBooked((b) => !b)}>
-            {booked ? done : action}
+          <Button variant={booked ? "tonal" : "filled"} size="sm" data-tap="action" className="shrink-0" onClick={() => host.demo && done && setMine((b) => !b)}>
+            {booked ? done || action : action}
           </Button>
         )}
       </div>
@@ -347,8 +355,11 @@ export function RouteCard({ icon = "", from = "", fromTime = "", to = "", toTime
 
 /* ---------- people ---------- */
 
-export function ProfileHeader({ cover = "", showCover = true, avatar = "", name = "", bio = "", stats = [], action = "", done = "", following = false, width = 380, className, style }: { cover?: string; showCover?: boolean; avatar?: string; name?: string; bio?: string; stats?: string[]; action?: string; done?: string; following?: boolean; width?: number } & Look) {
-  const [on, setOn] = useSeeded(following);
+/* Whether it is followed is the other side's (`following`): the button only asks. A prototype's demo flips it itself. */
+export function ProfileHeader({ cover = "", showCover = true, avatar = "", name = "", bio = "", stats = [], action = "", done = "", following = false, width = 380, demo, onValueChange, onEvent, wired, className, style }: { cover?: string; showCover?: boolean; avatar?: string; name?: string; bio?: string; stats?: string[]; action?: string; done?: string; following?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [mine, setMine] = useSeeded(following);
+  const on = host.demo ? mine : following;
   return (
     <div data-slot="profile-header" data-following={on || undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col overflow-hidden rounded-xl", className)} style={{ width, ...style }}>
       {showCover && (
@@ -362,7 +373,7 @@ export function ProfileHeader({ cover = "", showCover = true, avatar = "", name 
             <Face name={name} image={avatar} size="lg" />
           </span>
           {action && (
-            <Button variant={on ? "tonal" : "filled"} size="xs" data-tap="action" onClick={() => setOn((f) => !f)}>
+            <Button variant={on ? "tonal" : "filled"} size="xs" data-tap="action" onClick={() => host.demo && setMine((f) => !f)}>
               {on ? done || action : action}
             </Button>
           )}
@@ -390,17 +401,20 @@ export function ProfileHeader({ cover = "", showCover = true, avatar = "", name 
 }
 
 /** a count beside an icon, at the foot of a post or a comment */
-function Tally({ icon, count, on, label, tap, onPress }: { icon: string; count?: number; on?: boolean; label: string; tap?: string; onPress?: () => void }) {
+function Tally({ icon, count, on, label, tap, onPress, onClick }: { icon: string; count?: number; on?: boolean; label: string; tap?: string; onPress?: () => void; onClick?: (e: MouseEvent) => void }) {
   return (
     <Tap
       data-tap={tap}
       aria-label={label}
       aria-pressed={on}
       className={cn("text-label-medium flex items-center gap-1 rounded-full px-2 py-1 tabular-nums", on && "text-error")}
-      onClick={(e) => {
-        if (!tap) stop(e);
-        onPress?.();
-      }}
+      onClick={
+        onClick ??
+        ((e) => {
+          if (!tap) stop(e);
+          onPress?.();
+        })
+      }
     >
       <Glyph name={icon} filled={on} className="size-5" />
       {count !== undefined && count}
@@ -408,11 +422,18 @@ function Tally({ icon, count, on, label, tap, onPress }: { icon: string; count?:
   );
 }
 
-export function PostCard({ author = "", time = "", text = "", image = "", showImage = true, likes = 0, comments = 0, shares = 0, width = 380, className, style }: { author?: string; time?: string; text?: string; image?: string; showImage?: boolean; likes?: number; comments?: number; shares?: number; width?: number } & Look) {
-  const [liked, setLiked] = useState(false);
-  const [kept, setKept] = useState(false);
+/* Whether it is liked or saved, and how many like it, are the other side's (`liked`, `saved`, `likes`): the heart and
+ * the bookmark are places of their own (`like`, `save`) that only ask. A prototype's demo flips them itself and counts
+ * its own like. */
+export function PostCard({ author = "", time = "", text = "", image = "", showImage = true, likes = 0, comments = 0, shares = 0, liked = false, saved = false, width = 380, demo, onValueChange, onEvent, wired, className, style }: { author?: string; time?: string; text?: string; image?: string; showImage?: boolean; likes?: number; comments?: number; shares?: number; liked?: boolean; saved?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [mine, setMine] = useSeeded({ from: [liked, saved, likes], liked, saved });
+  const heart = host.demo ? mine.liked : liked;
+  const kept = host.demo ? mine.saved : saved;
+  /* the demo's own like counts once */
+  const count = host.demo ? likes + (mine.liked ? 1 : 0) - (liked ? 1 : 0) : likes;
   return (
-    <div data-slot="post-card" data-liked={liked || undefined} data-kept={kept || undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-3 rounded-xl p-4", className)} style={{ width, ...style }}>
+    <div data-slot="post-card" data-liked={heart || undefined} data-kept={kept || undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-3 rounded-xl p-4", className)} style={{ width, ...style }}>
       <Tap data-tap="author" data-slot="post-card-header" className="flex items-center gap-3 self-start rounded-md text-left">
         <Face name={author} />
         <span className="flex min-w-0 flex-col">
@@ -427,20 +448,10 @@ export function PostCard({ author = "", time = "", text = "", image = "", showIm
         </span>
       )}
       <div data-slot="post-card-actions" className="flex items-center gap-1">
-        <Tally icon="favorite" label="Like" count={likes + (liked ? 1 : 0)} on={liked} onPress={() => setLiked((l) => !l)} />
+        <Tally icon="favorite" label="Like" tap="like" count={Math.max(0, count)} on={heart} onClick={host.own("like", () => host.demo && setMine((m) => ({ ...m, liked: !m.liked })))} />
         <Tally icon="chat_bubble" label="Comment" count={comments} tap="comment" />
         <Tally icon="share" label="Share" count={shares} tap="share" />
-        <Button
-          variant="text"
-          size="icon-sm"
-          aria-label="Save"
-          aria-pressed={kept}
-          className="ml-auto"
-          onClick={(e) => {
-            stop(e);
-            setKept((k) => !k);
-          }}
-        >
+        <Button variant="text" size="icon-sm" aria-label="Save" aria-pressed={kept} data-tap="save" className="ml-auto" onClick={host.own("save", () => host.demo && setMine((m) => ({ ...m, saved: !m.saved })))}>
           <Glyph name="bookmark" filled={kept} />
         </Button>
       </div>
@@ -448,25 +459,16 @@ export function PostCard({ author = "", time = "", text = "", image = "", showIm
   );
 }
 
+/* The open conversation is `selected`, which whoever draws the list moves when a row is tapped, and how many are unread
+ * is the data's: opening a row asks, and its count goes when the data says so. */
 export function ConversationList({ rows = [], selected = -1, width = 380, className, style }: { rows?: string[][]; selected?: number; width?: number } & Look) {
-  const [on, setOn] = useSeeded(selected);
-  const [read, setRead] = useState<number[]>([]);
+  const on = selected;
   return (
-    <div data-slot="conversation-list" data-selected={on} data-read={read.join(",")} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-0.5 rounded-xl p-2", className)} style={{ width, ...style }}>
+    <div data-slot="conversation-list" data-selected={on} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-0.5 rounded-xl p-2", className)} style={{ width, ...style }}>
       {rows.map((r, i) => {
-        const unread = read.includes(i) ? 0 : Math.round(amountOf(r[3]));
+        const unread = Math.max(0, Math.round(amountOf(r[3])));
         return (
-          <Tap
-            key={i}
-            data-tap={`tab:${i}`}
-            aria-current={i === on || undefined}
-            data-slot="conversation-row"
-            className={cn("flex w-full items-center gap-3 rounded-lg p-2 text-left", i === on && "bg-secondary-container text-on-secondary-container")}
-            onClick={() => {
-              setOn(i);
-              setRead((all) => (all.includes(i) ? all : [...all, i]));
-            }}
-          >
+          <Tap key={i} data-tap={`tab:${i}`} aria-current={i === on || undefined} data-slot="conversation-row" className={cn("flex w-full items-center gap-3 rounded-lg p-2 text-left", i === on && "bg-secondary-container text-on-secondary-container")}>
             <Face name={r[0] ?? ""} />
             <span className="flex min-w-0 flex-1 flex-col">
               <span data-slot="conversation-row-title" className={cn("text-body-large truncate", unread > 0 && "font-medium")}>{r[0] ?? ""}</span>
@@ -601,24 +603,29 @@ export function CommentList({ rows = [], you = "", now = "", reply = "", placeho
   );
 }
 
-export function StoryRow({ items = [], add = true, width = 380, className, style }: { items?: string[]; add?: boolean; width?: number } & Look) {
-  const [seen, setSeen] = useState<number[]>([]);
+/* Which stories are seen is the data's (a row's state, `seen`): opening one asks. A prototype's demo marks a story seen
+ * itself, by the story's name, so a story keeps its ring when the row moves. */
+export function StoryRow({ items = [], add = true, width = 380, demo, onValueChange, onEvent, wired, className, style }: { items?: (string | { label: string; seen?: boolean })[]; add?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const rows = items.map((x) => (typeof x === "string" ? { label: x, seen: false } : { label: x.label, seen: !!x.seen }));
+  const keys = keysOf(rows.map((r) => r.label));
+  const [seen, setSeen] = usePicked(keys);
   return (
-    <div data-slot="story-row" data-seen={seen.join(",")} className={cn("text-on-surface flex gap-3 overflow-x-auto rounded-lg p-2", className)} style={{ width, scrollbarWidth: "none", ...style }}>
-      {items.map((name, i) => {
+    <div data-slot="story-row" data-seen={rows.flatMap((r, i) => (r.seen || (host.demo && seen.includes(keys[i])) ? [i] : [])).join(",")} className={cn("text-on-surface flex gap-3 overflow-x-auto rounded-lg p-2", className)} style={{ width, scrollbarWidth: "none", ...style }}>
+      {rows.map((r, i) => {
         const own = add && i === 0;
-        const viewed = seen.includes(i);
+        const viewed = r.seen || (host.demo && seen.includes(keys[i]));
         return (
-          <Tap key={i} data-tap={`tab:${i}`} className="text-label-small flex w-16 shrink-0 flex-col items-center gap-1.5 rounded-md p-1" onClick={() => own || setSeen((all) => (viewed ? all : [...all, i]))}>
+          <Tap key={keys[i]} data-tap={`tab:${i}`} className="text-label-small flex w-16 shrink-0 flex-col items-center gap-1.5 rounded-md p-1" onClick={() => host.demo && !own && !viewed && setSeen((all) => [...all, keys[i]])}>
             <span data-slot="story-row-ring" data-seen={viewed || undefined} data-own={own || undefined} className={cn("relative flex rounded-full p-0.5 ring-2", own ? "ring-transparent" : viewed ? "ring-outline-variant" : "ring-primary")}>
-              <Face name={name} />
+              <Face name={r.label} />
               {own && (
                 <span className="bg-primary text-on-primary absolute -right-0.5 -bottom-0.5 flex size-4 items-center justify-center rounded-full">
                   <WidgetIcon name="add" className="size-3" />
                 </span>
               )}
             </span>
-            <span className="w-full truncate text-center">{name}</span>
+            <span className="w-full truncate text-center">{r.label}</span>
           </Tap>
         );
       })}
@@ -683,15 +690,21 @@ const fileIcon = (name: string) => {
   return dot > 0 ? (KIND_ICONS[name.slice(dot + 1).toLowerCase()] ?? "description") : "folder";
 };
 
-export function FileList({ rows = [], selected = -1, removable = true, width = 380, className, style }: { rows?: string[][]; selected?: number; removable?: boolean; width?: number } & Look) {
-  const [on, setOn] = useSeeded(selected);
-  const [gone, setGone] = useState<number[]>([]);
+/* The open file is `selected`, which whoever draws the list moves, and which files there are is the data's: a remove
+ * button (one action for all of them, `slot.index` is the row) only asks, and the row goes when the data says so. A
+ * prototype's demo hides a removed file itself, by its name, so it stays hidden when the rows move. */
+export function FileList({ rows = [], selected = -1, removable = true, width = 380, demo, onValueChange, onEvent, wired, className, style }: { rows?: string[][]; selected?: number; removable?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const on = selected;
+  const keys = keysOf(rows.map((r) => r[0] ?? ""));
+  const [gone, setGone] = usePicked(keys);
+  const hidden = (i: number) => host.demo && gone.includes(keys[i]);
   return (
-    <div data-slot="file-list" data-selected={on} data-count={rows.length - gone.length} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-0.5 rounded-xl p-2", className)} style={{ width, ...style }}>
+    <div data-slot="file-list" data-selected={on} data-count={rows.filter((_, i) => !hidden(i)).length} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-0.5 rounded-xl p-2", className)} style={{ width, ...style }}>
       {rows.map((r, i) =>
-        gone.includes(i) ? null : (
-          <div key={i} data-slot="file-row" className={cn("flex items-center gap-1 rounded-lg", i === on && "bg-secondary-container text-on-secondary-container")}>
-            <Tap data-tap={`tab:${i}`} aria-current={i === on || undefined} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 text-left" onClick={() => setOn(i)}>
+        hidden(i) ? null : (
+          <div key={keys[i]} data-slot="file-row" className={cn("flex items-center gap-1 rounded-lg", i === on && "bg-secondary-container text-on-secondary-container")}>
+            <Tap data-tap={`tab:${i}`} aria-current={i === on || undefined} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 text-left">
               <span data-slot="file-row-glyph" className="flex shrink-0">
                 <WidgetIcon name={fileIcon(r[0] ?? "")} className="size-6 shrink-0" />
               </span>
@@ -701,15 +714,7 @@ export function FileList({ rows = [], selected = -1, removable = true, width = 3
               </span>
             </Tap>
             {removable && (
-              <Button
-                variant="text"
-                size="icon-sm"
-                aria-label="Remove"
-                onClick={(e) => {
-                  stop(e);
-                  setGone((all) => [...all, i]);
-                }}
-              >
+              <Button variant="text" size="icon-sm" aria-label="Remove" data-tap={`remove:${i}`} onClick={host.own(`remove:${i}`, () => host.demo && setGone((all) => [...all, keys[i]]))}>
                 <WidgetIcon name="delete" />
               </Button>
             )}
@@ -771,9 +776,14 @@ export function SettingsGroup({ title = "", rows = [], width = 380, className, s
   );
 }
 
-export function Playlist({ title = "", rows = [], selected = 0, width = 380, className, style }: { title?: string; rows?: string[][]; selected?: number; width?: number } & Look) {
-  const [on, setOn] = useSeeded(selected);
-  const [playing, setPlaying] = useState(false);
+/* The current row is `selected` (whoever draws the list moves it) and whether it plays is the other side's
+ * (`playing`): a press on a row sends `play` with the row and whether it should play now. A prototype's demo plays and
+ * pauses by itself. */
+export function Playlist({ title = "", rows = [], selected = 0, playing: given = false, width = 380, demo, onValueChange, onEvent, wired, className, style }: { title?: string; rows?: string[][]; selected?: number; playing?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const on = selected;
+  const [mine, setMine] = useSeeded(given);
+  const playing = host.demo ? mine : given;
   const done = rows.filter((r) => r[3] === "done").length;
   return (
     <div data-slot="playlist" data-selected={on} data-playing={playing || undefined} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-0.5 rounded-xl p-2", className)} style={{ width, ...style }}>
@@ -794,8 +804,9 @@ export function Playlist({ title = "", rows = [], selected = 0, width = 380, cla
             aria-current={current || undefined}
             className={cn("flex w-full items-center gap-3 rounded-lg p-2 text-left", current && "bg-secondary-container text-on-secondary-container", locked && "opacity-50")}
             onClick={() => {
-              setPlaying(current ? !playing : true);
-              setOn(i);
+              const next = current ? !playing : true;
+              host.emit("play", { index: i, playing: next });
+              if (host.demo) setMine(next);
             }}
           >
             <span className="text-label-large flex size-8 shrink-0 items-center justify-center tabular-nums">
@@ -815,15 +826,17 @@ export function Playlist({ title = "", rows = [], selected = 0, width = 380, cla
 
 const PODIUM = ["bg-primary text-on-primary", "bg-secondary-container text-on-secondary-container", "bg-tertiary-container text-on-tertiary-container"];
 
+/* The open row is `selected`, which whoever draws the board moves when a row is tapped (`selectKey`): a copy of its
+ * own would keep showing a row the other side never opened. */
 export function Leaderboard({ title = "", rows = [], faces = true, selected = -1, width = 380, className, style }: { title?: string; rows?: string[][]; faces?: boolean; selected?: number; width?: number } & Look) {
-  const [on, setOn] = useSeeded(selected);
+  const on = selected;
   return (
     <div data-slot="leaderboard" data-selected={on} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-0.5 rounded-xl p-2", className)} style={{ width, ...style }}>
       {title && <div className="text-title-medium px-2 py-1">{title}</div>}
       {rows.map((r, i) => {
         const change = amountOf(r[2]);
         return (
-          <Tap key={i} data-tap={`tab:${i}`} aria-current={i === on || undefined} className={cn("flex w-full items-center gap-3 rounded-lg p-2 text-left", i === on && "bg-secondary-container text-on-secondary-container")} onClick={() => setOn(i)}>
+          <Tap key={i} data-tap={`tab:${i}`} aria-current={i === on || undefined} className={cn("flex w-full items-center gap-3 rounded-lg p-2 text-left", i === on && "bg-secondary-container text-on-secondary-container")}>
             <span className={cn("text-label-large flex size-7 shrink-0 items-center justify-center rounded-full tabular-nums", PODIUM[i])}>{i + 1}</span>
             {faces && <Face name={r[0] ?? ""} size="sm" />}
             <span className="text-body-large min-w-0 flex-1 truncate">{r[0] ?? ""}</span>
@@ -838,20 +851,22 @@ export function Leaderboard({ title = "", rows = [], faces = true, selected = -1
 
 /* ---------- small measures ---------- */
 
+/* The open row is `selected` (whoever draws the list moves it). A row's share is the data's: its third column ("54%")
+ * is what shows, and the bars stand in it; an older table with no shares draws the bars by their values. */
 export function BarList({ title = "", rows = [], sorted = true, selected = -1, width = 360, className, style }: { title?: string; rows?: string[][]; sorted?: boolean; selected?: number; width?: number } & Look) {
-  const [on, setOn] = useSeeded(selected);
-  const lines = rows.map((r, i) => ({ label: r[0] ?? "", shown: r[1] ?? "", value: Math.max(0, amountOf(r[1])), i }));
+  const on = selected;
+  const shares = rows.every((r) => (r[2] ?? "").trim() !== "");
+  const lines = rows.map((r, i) => ({ label: r[0] ?? "", shown: r[1] ?? "", share: r[2] ?? "", value: Math.max(0, amountOf(shares ? r[2] : r[1])), i }));
   const order = sorted ? lines.toSorted((a, b) => b.value - a.value) : lines;
   const top = Math.max(1, ...lines.map((l) => l.value));
-  const sum = lines.reduce((s, l) => s + l.value, 0) || 1;
   return (
     <div data-slot="bar-list" data-selected={on} className={cn("bg-surface-container-low text-on-surface flex flex-col gap-1 rounded-xl p-3", className)} style={{ width, ...style }}>
       {title && <div className="text-title-small pb-1">{title}</div>}
       {order.map((l) => (
-        <Tap key={l.i} data-tap={`tab:${l.i}`} aria-current={l.i === on || undefined} className={cn("flex w-full flex-col gap-1 rounded-md px-1 py-1.5 text-left", l.i === on && "bg-surface-container-high")} onClick={() => setOn(l.i === on ? -1 : l.i)}>
+        <Tap key={l.i} data-tap={`tab:${l.i}`} aria-current={l.i === on || undefined} className={cn("flex w-full flex-col gap-1 rounded-md px-1 py-1.5 text-left", l.i === on && "bg-surface-container-high")}>
           <span className="flex items-baseline gap-2">
             <span className="text-body-medium min-w-0 flex-1 truncate">{l.label}</span>
-            <span className="text-label-large shrink-0 tabular-nums">{l.i === on ? `${Math.round((l.value / sum) * 100)}%` : l.shown}</span>
+            <span className="text-label-large shrink-0 tabular-nums">{l.i === on && l.share ? l.share : l.shown}</span>
           </span>
           <span className="bg-surface-container-highest block h-1.5 overflow-hidden rounded-full">
             <span className="bg-primary block h-full rounded-full" style={{ width: `${(l.value / top) * 100}%` }} />
@@ -922,14 +937,18 @@ export function Sparkline({ title = "", value = "", trend = "", values = [], kin
 
 /* ---------- finding your way, and being told things ---------- */
 
-export function IconGrid({ items = [], columns = 4, badge = "", width = 380, className, style }: { items?: { label: string; icon?: string; mark?: string }[]; columns?: number; badge?: string; width?: number } & Look) {
-  const [opened, setOpened] = useState<number[]>([]);
+/* An entry's mark (a dot, "New") is the data's, its row's state: opening it asks, and the mark goes when the data
+ * says so. A prototype's demo clears the mark itself, by the entry's name. */
+export function IconGrid({ items = [], columns = 4, badge = "", width = 380, demo, onValueChange, onEvent, wired, className, style }: { items?: { label: string; icon?: string; mark?: string }[]; columns?: number; badge?: string; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const keys = keysOf(items.map((it) => it.label));
+  const [opened, setOpened] = usePicked(keys);
   return (
-    <div data-slot="icon-grid" data-opened={opened.join(",")} className={cn("bg-surface-container-low text-on-surface grid gap-1 rounded-xl p-2", className)} style={{ width, gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`, ...style }}>
+    <div data-slot="icon-grid" data-opened={items.flatMap((_, i) => (host.demo && opened.includes(keys[i]) ? [i] : [])).join(",")} className={cn("bg-surface-container-low text-on-surface grid gap-1 rounded-xl p-2", className)} style={{ width, gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))`, ...style }}>
       {items.map((it, i) => {
-        const mark: ReactNode = opened.includes(i) ? null : it.mark === "dot" ? <span data-slot="icon-grid-dot" className="bg-error absolute top-1 right-1 size-2 rounded-full" /> : it.mark === "new" && badge ? <span data-slot="icon-grid-badge" className="bg-error text-on-error text-label-small absolute -top-0.5 -right-1 rounded-full px-1">{badge}</span> : null;
+        const mark: ReactNode = host.demo && opened.includes(keys[i]) ? null : it.mark === "dot" ? <span data-slot="icon-grid-dot" className="bg-error absolute top-1 right-1 size-2 rounded-full" /> : it.mark === "new" && badge ? <span data-slot="icon-grid-badge" className="bg-error text-on-error text-label-small absolute -top-0.5 -right-1 rounded-full px-1">{badge}</span> : null;
         return (
-          <Tap key={i} data-tap={`tab:${i}`} data-slot="icon-grid-cell" className="text-label-medium flex min-w-0 flex-col items-center gap-1 rounded-lg p-2" onClick={() => setOpened((all) => (all.includes(i) ? all : [...all, i]))}>
+          <Tap key={keys[i]} data-tap={`tab:${i}`} data-slot="icon-grid-cell" className="text-label-medium flex min-w-0 flex-col items-center gap-1 rounded-lg p-2" onClick={() => host.demo && setOpened((all) => (all.includes(keys[i]) ? all : [...all, keys[i]]))}>
             <span data-slot="icon-grid-glyph" className="bg-secondary-container text-on-secondary-container relative flex size-12 items-center justify-center rounded-lg">
               {it.icon && <WidgetIcon name={it.icon} className="size-6" />}
               {mark}
@@ -942,12 +961,17 @@ export function IconGrid({ items = [], columns = 4, badge = "", width = 380, cla
   );
 }
 
-export function Banner({ icon = "", text = "", action = "", secondary = "", closable = true, width = 412, className, style }: { icon?: string; text?: string; action?: string; secondary?: string; closable?: boolean; width?: number } & Look) {
-  const [closed, setClosed] = useState(false);
+/* The close button is a place of its own (`close`): wired, it does what its action does (a hide effect on the banner,
+ * which a show effect undoes); with nothing wired the banner closes by itself, as do its buttons with nothing wired to
+ * them, and opens again once it is drawn afresh or its words change. */
+export function Banner({ icon = "", text = "", action = "", secondary = "", closable = true, width = 412, demo, onValueChange, onEvent, wired, className, style }: { icon?: string; text?: string; action?: string; secondary?: string; closable?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [shut, setShut] = useSeeded({ words: [text, action, secondary], closed: false });
+  const closed = shut.closed;
+  const setClosed = (on: boolean) => setShut((s) => ({ ...s, closed: on }));
   if (closed) return <div data-slot="banner" data-closed="true" style={{ width }} />;
-  const close = (e: MouseEvent, slot: boolean) => {
-    if (!slot) stop(e);
-    setClosed(true);
+  const close = (slot: string) => () => {
+    if (!host.wired(slot)) setClosed(true);
   };
   return (
     <div data-slot="banner" role="status" className={cn("bg-surface-container-high text-on-surface flex flex-col gap-2 rounded-lg p-3", className)} style={{ width, ...style }}>
@@ -959,7 +983,7 @@ export function Banner({ icon = "", text = "", action = "", secondary = "", clos
         )}
         <div className="text-body-medium min-w-0 flex-1 self-center">{text}</div>
         {closable && (
-          <Button variant="text" size="icon-sm" aria-label="Close" className="shrink-0" onClick={(e) => close(e, false)}>
+          <Button variant="text" size="icon-sm" aria-label="Close" data-tap="close" className="shrink-0" onClick={host.own("close", close("close"))}>
             <WidgetIcon name="close" />
           </Button>
         )}
@@ -967,12 +991,12 @@ export function Banner({ icon = "", text = "", action = "", secondary = "", clos
       {(action || secondary) && (
         <div className="flex justify-end gap-2">
           {secondary && (
-            <Button variant="text" size="xs" data-tap="secondary" onClick={(e) => close(e, true)}>
+            <Button variant="text" size="xs" data-tap="secondary" onClick={close("secondary")}>
               {secondary}
             </Button>
           )}
           {action && (
-            <Button variant="tonal" size="xs" data-tap="action" onClick={(e) => close(e, true)}>
+            <Button variant="tonal" size="xs" data-tap="action" onClick={close("action")}>
               {action}
             </Button>
           )}
@@ -982,9 +1006,15 @@ export function Banner({ icon = "", text = "", action = "", secondary = "", clos
   );
 }
 
-export function NoticeBar({ icon = "", items = [], seconds = 3, closable = true, width = 380, className, style }: { icon?: string; items?: string[]; seconds?: number; closable?: boolean; width?: number } & Look) {
+/* The close button is a place of its own (`close`): wired, it does what its action does (a hide effect on the bar);
+ * with nothing wired the bar closes by itself until it is drawn afresh or its notices change. It moves on through its
+ * notices by itself, and holds still under the pointer. */
+export function NoticeBar({ icon = "", items = [], seconds = 3, closable = true, width = 380, demo, onValueChange, onEvent, wired, className, style }: { icon?: string; items?: string[]; seconds?: number; closable?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
   const [at, setAt] = useState(0);
-  const [closed, setClosed] = useState(false);
+  const [shut, setShut] = useSeeded({ words: items, closed: false });
+  const closed = shut.closed;
+  const setClosed = (on: boolean) => setShut((s) => ({ ...s, closed: on }));
   const [held, setHeld] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -1007,16 +1037,7 @@ export function NoticeBar({ icon = "", items = [], seconds = 3, closable = true,
         </div>
       </div>
       {closable && (
-        <Button
-          variant="text"
-          size="icon-xs"
-          aria-label="Close"
-          className="shrink-0 text-inherit"
-          onClick={(e) => {
-            stop(e);
-            setClosed(true);
-          }}
-        >
+        <Button variant="text" size="icon-xs" aria-label="Close" data-tap="close" className="shrink-0 text-inherit" onClick={host.own("close", () => !host.wired("close") && setClosed(true))}>
           <WidgetIcon name="close" />
         </Button>
       )}

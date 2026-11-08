@@ -47,22 +47,25 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the checkout's body in one column, its payment notices
-     among its rows, so the hidden ones leave no hole in the preview; before that, the platform capabilities,
-     docs/平台能力.md: the shop flow pays through createOrder and payment.pay and shows the order's status, so the proof's
-     checkout reads expressions; checkout-bar, video-call, map and camera take their state as props, the map and the
-     camera drawn by widgets of their own, parts/widgets/Platform.tsx. Before that: the icons reading their
+     before the product existed; one that changes on purpose is written again here (last: the platform capabilities,
+     docs/平台能力.md, beside the widgets' outlets: the shop flow pays through createOrder and payment.pay and shows the
+     order's status, the checkout's body one column with its payment notices among its rows; checkout-bar, video-call,
+     map and camera take their state as props, the map and the camera drawn by parts/widgets/Platform.tsx, and the
+     subscription's plans are its choice. Before that: the reward track and the leaderboard copied with the widgets, a
+     claim the demo made kept by its reward and the open row only the one given; before them the widgets' state and
+     outlets, report 3.3 and 3.4: inputs controlled through the host, demos printed where a part acts out a result, the
+     sweep's parts with a selectKey now including the level map, the side tabs and the review summary; before them the icons reading their
      family from a root's provider and drawn again when it changes, components/m3e/icon.tsx and symbols.tsx, and the
      loader asking for each root's family; with it the widgets' host contract, parts/widgets/host.ts, copied beside
      them, and a rating an input wired to its variable; before them an icon counted as drawn only with both its glyphs, the components saying their own words in Chinese, Japanese and Korean too, the
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [80, "48150a14b0e8b06b936da52cd3e182b474cfbc5edf7fa54491657476a23c7128"],
+    proof: [80, "fca3a66e45f080d3da0ef6713d59e108c26caf8b12f1ad9101249f74176b4dd5"],
     systems: [40, "58807e81f5714322a5a6a60c6bd52007dd8f794c6d8e51804d642a637d315fef"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [85, "90e6c0bc79fb60ebd3440a7957399fac1fa720db8a3e35426375556ac83bd227"],
-    parts: [138, "5782eef19cbc45f416ceeb9373ccb877a20f845da18ed4705917fec100393cf2"],
+    sweep: [90, "d915ea4dc21e821ba637711a1edab790048405f696f4d61e63f6dce35cca69fa"],
+    parts: [138, "30f14406e28f0fa457e701c7cd94eb1fe937627bcc75b031e0bce1f6175d6687"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
@@ -386,9 +389,10 @@ describe("the mobile app", () => {
     expect(proof.differences.filter((d) => d.app === "mobile").map(({ app: _app, ...d }) => d)).toEqual(listed);
     expect(proof.differences.filter((d) => d.app === "miniapp").map(({ app: _app, ...d }) => d)).toEqual(JSON.parse(text(proof, "apps/miniapp/src/generated/warnings.json")));
     const counts = differenceCounts(proof.differences);
-    /* the web app draws as the design says, but leans on what is not there yet: the payment's adapter */
+    /* the web lists the product cards' prototype demo (a heart and a cart count they act out), which a product never
+       runs, and leans on what is not there yet: the payment's adapter */
     expect(counts.map((c) => c.app)).toEqual(["web", "mobile", "miniapp"]);
-    expect(proof.differences.filter((d) => d.app === "web").map((d) => d.kind)).toEqual(expect.arrayContaining(["capability"]));
+    expect(proof.differences.filter((d) => d.app === "web").map((d) => d.kind)).toEqual(expect.arrayContaining(["demo", "capability"]));
     expect(counts[1]).toMatchObject({ total: listed.length, file: "apps/mobile/src/generated/warnings.json" });
     expect(counts[1].kinds.reduce((n, [, k]) => n + k, 0)).toBe(listed.length);
     expect(differenceLines(proof.differences)[1]).toMatch(/^mobile: \d+ drawn differently from the design \(\d+ \w+/);

@@ -146,7 +146,7 @@ export const mobile: PartDef[] = [
     ],
     /* the plan chosen is the visitor's choice (UI state): it goes out as the part's value, and the button's action takes
        it to the store (iap.purchase) or the back end; which plan is bought is theirs to say */
-    input: { prop: "selected", kind: "choice" },
+    input: { prop: "selected", kind: "choice", options: "plans" },
     selectKey: "selected",
     families: [{ prefix: "tab", label: "Every plan", labels: { ja: "どのプラン", zh: "每个方案", ko: "모든 요금제" } }],
     slots: (p) => [...p.list("plans").map((plan, i) => ({ key: `tab:${i}`, label: plan.label || `${i + 1}` })), ...(p.s("action") ? [{ key: "action", label: p.s("action") }] : [])],

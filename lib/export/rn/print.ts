@@ -270,7 +270,7 @@ const NAV_BARS = new Set(["navigation-bar", "tab-bar", "floating-nav", "navigati
 /** the inputs a form fills: what each enters a field with */
 const FILE_INPUTS = new Set(["file-upload"]);
 /** the inputs whose kit control the printer wires to a form field or a variable */
-const RN_INPUTS = new Set(["input", "text-field", "textarea", "switch", "checkbox", "slider", "select", "radio-group"]);
+const RN_INPUTS = new Set(["input", "text-field", "textarea", "switch", "checkbox", "slider", "select", "radio-group", "rating"]);
 
 /** Every action body the document holds: each part's taps, their else, the then and catch of their calls, and a form's. */
 function eachBody(doc: Doc, fn: (b: ActionBody & { when?: Condition }, item?: Item) => void) {
@@ -666,7 +666,7 @@ class ScreenPrinter {
         out.push(["onPress", `() => void pickFile(${expr(typeof accept === "string" ? accept : "")}).then((file) => file && ${f}.set(${field}, file))`], ["chosen", `fileName(${f}.value(${field}))`]);
       } else if (slug === "date-picker") out.push(["value", `${f}.text(${field})`], ["onChange", `(v: string) => ${f}.set(${field}, v)`]);
       else if (slug === "switch" || slug === "checkbox") out.push(["checked", `!!${f}.value(${field})`], ["onValueChange", `(v: boolean) => ${f}.set(${field}, v)`]);
-      else if (slug === "slider") out.push(["value", `Number(${f}.value(${field}) ?? 0)`], ["onValueChange", `(v: number) => ${f}.set(${field}, v)`]);
+      else if (def.input?.kind === "number") out.push(["value", `Number(${f}.value(${field}) ?? 0)`], ["onValueChange", `(v: number) => ${f}.set(${field}, v)`]);
       else if (slug === "select" || slug === "radio-group") {
         this.kit.add("optionOf");
         const items = props.find(([k]) => k === "items")?.[1] ?? expr(propValues(def, it.props).items);
@@ -687,7 +687,7 @@ class ScreenPrinter {
     this.uses.app = true;
     const write = (type: string) => `(v: ${type}) => app.input(${str(it.id)}, v${toVar ? `, ${str(varId)}` : ""})`;
     if (slug === "switch" || slug === "checkbox") return [["onValueChange", write("boolean")]];
-    if (slug === "slider") return [["onValueChange", write("number")]];
+    if (def.input?.kind === "number") return [["onValueChange", write("number")]];
     if (slug === "select" || slug === "radio-group") return [["onSelect", `(_i: number, label: string) => app.input(${str(it.id)}, label${toVar ? `, ${str(varId)}` : ""})`]];
     return [["onChangeText", write("string")]];
   }

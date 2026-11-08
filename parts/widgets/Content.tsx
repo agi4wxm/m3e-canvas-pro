@@ -3,6 +3,8 @@ import type { Look } from "./look";
 import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
 import { WidgetIcon } from "./WidgetIcon";
+import { useHost, type HostProps } from "./host";
+import { keysOf, useValue } from "./seed";
 
 /* Text the author wrote, shown the way its kind asks: code, Markdown, a list to reorder. After
  * flutter_shadcn_kit's code snippet, markdown and sortable. No HTML passes through: what a saved file
@@ -73,33 +75,48 @@ export function Markdown({ text = "", width = 420, className, style }: { text?: 
   );
 }
 
-export function SortableList({ items = [], width = 320, className, style }: { items?: string[]; width?: number } & Look) {
-  const [order, setOrder] = useState(items);
+/* An input of an order: `items` in the order shown is the value, handed out on every move, each move also sent as
+ * `reorder` (from where, to where). Rows keep who they are by their words and their place among rows with the same
+ * words, so two rows that read the same never take each other's place. A row moves by dragging, or by Alt and an
+ * arrow key. */
+export function SortableList({ items = [], width = 320, demo, onValueChange, onEvent, wired, className, style }: { items?: string[] | string; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [order, setOrder] = useValue(Array.isArray(items) ? items : String(items).split("\n").filter((w) => w.trim()), host);
   const [dragged, setDragged] = useState(-1);
-  const moveTo = (to: number) => {
-    if (dragged < 0 || dragged === to) return;
-    setOrder((rows) => {
-      const next = [...rows];
-      const [row] = next.splice(dragged, 1);
-      next.splice(to, 0, row);
-      return next;
-    });
-    setDragged(to);
+  const keys = keysOf(order);
+  const move = (from: number, to: number) => {
+    if (from < 0 || from === to || to < 0 || to >= order.length) return false;
+    const next = [...order];
+    const [row] = next.splice(from, 1);
+    next.splice(to, 0, row);
+    setOrder(next);
+    host.emit("reorder", { from, to });
+    return true;
   };
   return (
     <div data-slot="sortable-list" data-order={order.join("|")} role="list" className={cn("flex flex-col gap-1", className)} style={{ width, ...style }}>
       {order.map((row, i) => (
         <div
-          key={row}
+          key={keys[i]}
           role="listitem"
           draggable
+          tabIndex={0}
+          aria-label={row}
           data-slot="sortable-list-row"
           data-dragging={i === dragged || undefined}
           className={`text-body-medium text-on-surface flex h-12 cursor-grab items-center gap-2 rounded-lg px-2 ${i === dragged ? "bg-secondary-container" : "bg-surface-container-low"}`}
           onDragStart={() => setDragged(i)}
-          onDragEnter={() => moveTo(i)}
+          onDragEnter={() => {
+            if (move(dragged, i)) setDragged(i);
+          }}
           onDragOver={(e) => e.preventDefault()}
           onDragEnd={() => setDragged(-1)}
+          onKeyDown={(e) => {
+            if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+            e.preventDefault();
+            const to = i + (e.key === "ArrowUp" ? -1 : 1);
+            if (move(i, to)) (e.currentTarget.parentElement?.children[to] as HTMLElement | undefined)?.focus();
+          }}
         >
           <WidgetIcon name="drag_indicator" className="text-on-surface-variant size-5" />
           <span data-slot="sortable-list-title" className="min-w-0 flex-1 truncate">{row}</span>

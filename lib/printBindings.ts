@@ -19,6 +19,7 @@ import type { PartDef, PropDef } from "../parts/types";
 import { mapNodes, raw, type PNode, type PValue } from "../parts/node";
 import { str } from "../parts/print";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
+import { optionsOf } from "./partContract";
 import { identifierOf } from "./export/paths";
 import { literal } from "./export/code";
 import { commentText } from "./export/server/comments";
@@ -304,6 +305,16 @@ export class BoundPrint {
         /* a widget that declares an input takes the field's value as a prop and hands changes out (parts/widgets/host.ts) */
         const input = def.input;
         if (!input || !(tree.type in WIDGET_SOURCES)) return null;
+        const d = def.props.find((x) => x.key === input.prop);
+        /* a choice sends the words of what is picked, and a list its rows' words */
+        if (input.kind === "choice" && d?.kind === "number") {
+          const options = str(optionsOf(it));
+          return { tree: { ...tree, props: { ...tree.props, [input.prop]: raw(`${options}.indexOf(${f.name}.text(${field}))`), onValueChange: raw(`(value) => ${f.name}.set(${field}, ${options}[Number(value)] ?? "")`) } } };
+        }
+        if (d?.kind === "list") {
+          const now = `${f.name}.value(${field})`;
+          return { tree: { ...tree, props: { ...tree.props, [input.prop]: raw(`Array.isArray(${now}) ? ${now} : []`), onValueChange: raw(`(value) => ${f.name}.set(${field}, value)`) } } };
+        }
         const read = input.kind === "number" ? `Number(${f.name}.value(${field}) ?? 0)` : input.kind === "bool" ? `!!${f.name}.value(${field})` : `${f.name}.text(${field})`;
         return { tree: { ...tree, props: { ...tree.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${f.name}.set(${field}, value)`) } } };
       }
