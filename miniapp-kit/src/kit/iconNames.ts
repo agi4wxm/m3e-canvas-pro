@@ -50,7 +50,6 @@ export const KIT_ICONS = [
   "apps",
   "edit",
   "expand_less",
-  "expand_more",
   "menu",
   /* D2: what the data, list and desktop parts draw by themselves (sort arrows, a drag handle, a file's kind, a window's buttons, a copy button) */
   "arrow_downward",
