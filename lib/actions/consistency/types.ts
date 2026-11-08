@@ -24,12 +24,16 @@ export type PartSpec = {
   id: string;
   /** the screen it is on (the first when left out) */
   screen?: string;
-  /** a button (the default), words, a text field, a dropdown menu (the words are its trigger's), a dialog */
-  kind?: "button" | "text" | "field" | "menu" | "dialog";
+  /** a button (the default), words, a text field, a dropdown menu (the words are its trigger's), a dialog, a number pad
+   *  (the words are its confirm button's; it sends `submit` with the value), a button group (the words are its first
+   *  entry, `items` the rest; its entries are a family of places, `tab:*`) */
+  kind?: "button" | "text" | "field" | "menu" | "dialog" | "numpad" | "buttons";
   label: string;
   /** a menu's entries, a dialog's confirm button */
   items?: string[];
   action?: Action;
+  /** actions on the part's outlets, by key: a place ("tab:1"), a family ("tab:*"), an event ("on:submit") */
+  actions?: Record<string, Action>;
   /** the action is written into the document as it is, past the editor's own checks (calls nested deeper than it
    *  lets an author nest them) */
   unchecked?: boolean;
@@ -79,7 +83,11 @@ export type Step =
   /** the pointer comes over the part with these words; a host with no pointer taps it instead (docs/交互规则.md 触发方式) */
   | { hover: string }
   /** this many milliseconds pass */
-  | { wait: number };
+  | { wait: number }
+  /** a tap on one place of the part with these words (`slot` "tab:1"): its own action, else its family's */
+  | { tapSlot: string; slot: string }
+  /** the part with these words sends one of its events, with this payload */
+  | { emit: string; event: string; payload?: Record<string, unknown> };
 
 /** a call as the back end saw it: its operation and what it was given (query and JSON body fields together) */
 export type SeenCall = { op: string; in: Record<string, unknown> };

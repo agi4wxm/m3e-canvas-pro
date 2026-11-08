@@ -36,7 +36,8 @@ const WEB_PROTO_NO_API = "原型 Web 导出没有接口：调用、刷新、提�
 const RENDER_SCOPE = "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）";
 const NO_LATEST = "lib/app 的 Runtime.call 只在重新开始后丢弃回答，同一组件同一接口的旧回答照样运行（报告 7.2，整改计划第一批遗留）";
 const NAV_AFTER_MOVE = "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）";
-const PREVIEW_DROPS = "预览在访客离开后整个丢弃 then/catch（第一批 W5 的规则），效果也不再运行，状态跟不上后端（报告 7.1）";
+const EXPORTS_NO_OUTLETS = "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项";
+const PREVIEW_DROPS ="预览在访客离开后整个丢弃 then/catch（第一批 W5 的规则），效果也不再运行，状态跟不上后端（报告 7.1）";
 
 export const ROWS: Row[] = [
   /* ---------- order ---------- */
@@ -175,6 +176,30 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], parts: [btn("peek", "Peek", { ...stay(toast("Peeked")), trigger: { on: "hover" } })] },
     steps: [{ hover: "Peek" }],
     expect: { toast: "Peeked" },
+  },
+
+  /* ---------- a part's events and families of places ---------- */
+  {
+    id: "event-runs-action",
+    title: "组件的事件运行它的动作，读事件带来的 event",
+    ref: "事件与槽位族；第二批 B1 的部件声明",
+    design: { screens: [HOME], vars: [words("entered", "")], parts: [{ id: "pad", kind: "numpad", label: "Pay now", actions: { "on:submit": stay(setVar("entered", "", "event.value"), toast("Paid {{event.value}}")) } }] },
+    steps: [{ emit: "Pay now", event: "submit", payload: { value: "42", extra: "ignored" } }],
+    expect: { vars: { entered: "42" }, toast: "Paid 42" },
+    known: { webPrototype: EXPORTS_NO_OUTLETS, webProduct: EXPORTS_NO_OUTLETS, rn: EXPORTS_NO_OUTLETS, miniapp: EXPORTS_NO_OUTLETS },
+  },
+  {
+    id: "family-runs-action",
+    title: "槽位族的动作对每一项都运行，读被点的那一项 slot；某一项自己的动作优先",
+    ref: "事件与槽位族；第二批 B1 的部件声明",
+    design: {
+      screens: [HOME],
+      vars: [num("picked", -1), words("own", "")],
+      parts: [{ id: "row", kind: "buttons", label: "Small", items: ["Medium", "Large"], actions: { "tab:*": stay(setVar("picked", 0, "slot.index")), "tab:0": stay(setVar("own", "small")) } }],
+    },
+    steps: [{ tapSlot: "Small", slot: "tab:2" }, { tapSlot: "Small", slot: "tab:0" }],
+    expect: { vars: { picked: 2, own: "small" } },
+    known: { webPrototype: EXPORTS_NO_OUTLETS, webProduct: EXPORTS_NO_OUTLETS, rn: EXPORTS_NO_OUTLETS, miniapp: EXPORTS_NO_OUTLETS },
   },
 
   /* ---------- show, hide, open, close ---------- */

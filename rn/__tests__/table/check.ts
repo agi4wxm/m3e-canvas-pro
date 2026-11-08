@@ -65,6 +65,10 @@ export type Driver = {
   tap(words: string): void | Promise<void>;
   /** the pointer over the part; a host with no pointer leaves this out, and a hover is a tap there */
   hover?(words: string): void | Promise<void>;
+  /** a tap on a place of the part, and an event the part sends: a host that runs neither yet leaves them out, and the
+   *  step does nothing there */
+  tapSlot?(words: string, slot: string): void | Promise<void>;
+  emit?(words: string, event: string, payload?: Record<string, unknown>): void | Promise<void>;
   type(words: string, value: string): void | Promise<void>;
   restart(): void | Promise<void>;
   /** lets what is under way settle: answers already given run, the host draws again */
@@ -92,6 +96,8 @@ export async function drive(row: Omit<Row, "design">, make: (backend: Backend) =
       }
     } else if ("hover" in step) await (d.hover ? d.hover(step.hover) : d.tap(step.hover));
     else if ("wait" in step) await new Promise((r) => setTimeout(r, step.wait));
+    else if ("tapSlot" in step) await d.tapSlot?.(step.tapSlot, step.slot);
+    else if ("emit" in step) await d.emit?.(step.emit, step.event, step.payload);
     else await d.restart();
     await d.settle();
   }

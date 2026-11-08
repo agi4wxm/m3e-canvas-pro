@@ -5,7 +5,7 @@ import { Backend } from "./consistency/check";
 import { designDoc } from "./consistency/design";
 import { ReferenceHost } from "./consistency/reference";
 import type { CallArgs, Change, Host, Outcome, Tap } from "./host";
-import { MAX_CALL_DEPTH, eventOfSlot, eventSlot, type Action, type Effect } from "./model";
+import { MAX_CALL_DEPTH, eventKey, eventOfKey, familyKey, familyOfKey, type Action, type Effect } from "./model";
 import { coerce, fillCurrent, run, startOf, tapScope } from "./run";
 
 /* The interpreter's edges the consistency table does not reach: what starts an action, the event's payload, an answer
@@ -40,15 +40,18 @@ describe("lib/actions", () => {
     expect(startOf({}, { pointer: true })).toEqual({ on: "tap" });
   });
 
-  it("names a part's event slots and hands what the event carries to its expressions as event", () => {
-    expect(eventSlot("change")).toBe("on:change");
-    expect(eventOfSlot("on:change")).toBe("change");
-    expect(eventOfSlot("tab:1")).toBeNull();
-    expect(eventOfSlot("on:")).toBeNull();
+  it("names a part's events and families, and hands what an event carries and the place a family ran for to expressions", () => {
+    expect(eventKey("change")).toBe("on:change");
+    expect(eventOfKey("on:change")).toBe("change");
+    expect(eventOfKey("tab:1")).toBeNull();
+    expect(familyKey("tab")).toBe("tab:*");
+    expect(familyOfKey("tab:*")).toBe("tab");
+    expect(familyOfKey("on:*")).toBeNull();
     const { doc } = designDoc({ screens: [{ id: "home", name: "Home" }], parts: [] });
     const { h } = recording(doc, () => ({ ok: true, status: 200, response: {} }));
     expect((tapScope(h, { ...tap, event: { value: 21 } }) as { event?: unknown }).event).toEqual({ value: 21 });
     expect("event" in tapScope(h, tap)).toBe(false);
+    expect((tapScope(h, { ...tap, slot: { key: "tab:2", index: 2 } }) as { slot?: unknown }).slot).toEqual({ key: "tab:2", index: 2 });
   });
 
   it("keeps a value to its variable's type", () => {

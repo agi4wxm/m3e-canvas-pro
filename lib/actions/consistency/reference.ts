@@ -3,6 +3,7 @@
  * It is what the interpreter's own run of the table uses, and a model of what every host's side of `Host` has to do. */
 
 import { endpointOf, formFields, paramsOf } from "../../bindings/contract";
+import { eventAction, eventsOf, payloadOf, slotAction } from "../../partContract";
 import { groupsInFrame, type Doc, type Frame, type Group, type Item } from "../../tokens";
 import type { CallArgs, Change, FormRef, Host, Outcome, Tap } from "../host";
 import type { VarValue } from "../model";
@@ -15,7 +16,9 @@ type Entry = { id: string; params?: Record<string, unknown> };
 /** the words a part shows: its label, its text, a dialog's headline, an input's placeholder */
 export const wordsOf = (it: Item): string => {
   const p = (it.props ?? {}) as Record<string, unknown>;
-  const w = p.label ?? p.text ?? p.headline ?? p.placeholder;
+  /* a number pad by its confirm button, a group of buttons by its first */
+  const first = Array.isArray(p.items) ? (p.items[0] as { label?: unknown } | undefined)?.label : undefined;
+  const w = p.label ?? p.text ?? p.headline ?? p.placeholder ?? (it.component === "number-pad" ? p.action : it.component === "button-group" ? first : undefined);
   return typeof w === "string" ? w : "";
 };
 
@@ -81,6 +84,25 @@ export class ReferenceHost implements Host {
     this.start(words, "hover");
   }
 
+  /** a tap on a place of the part: its own action, else its family's, which reads the place as `slot` */
+  tapSlot(words: string, slot: string) {
+    const on = this.overlay ?? this.top();
+    const it = this.partsOn(on.id).find((x) => wordsOf(x) === words);
+    if (!it) throw new Error(`no words "${words}" on show`);
+    const wired = slotAction(it, slot);
+    if (wired) this.runOn(it, on, wired.action, wired.scope?.slot ? { slot: wired.scope.slot } : {});
+  }
+
+  /** the part sends one of its events: what it declares of the payload is what the action reads as `event` */
+  emit(words: string, name: string, payload?: Record<string, unknown>) {
+    const on = this.overlay ?? this.top();
+    const it = this.partsOn(on.id).find((x) => wordsOf(x) === words);
+    if (!it) throw new Error(`no words "${words}" on show`);
+    const declared = eventsOf(it).find((e) => e.name === name);
+    const a = eventAction(it, name);
+    if (declared && a) this.runOn(it, on, a, { event: payloadOf(declared, payload) });
+  }
+
   /** the part's action, if it starts this way (a part whose action starts on a hover does nothing on a tap) */
   private start(words: string, how: "tap" | "hover") {
     const on = this.overlay ?? this.top();
@@ -89,11 +111,11 @@ export class ReferenceHost implements Host {
     if (it.action && startOf(it.action, { pointer: true }).on === how) this.runOn(it, on);
   }
 
-  private runOn(it: Item, on: Entry) {
-    if (!it.action) return;
+  private runOn(it: Item, on: Entry, action = it.action, more: Partial<Tap> = {}) {
+    if (!action) return;
     const g = this.groupOfItem.get(it.id);
     const form = g ? this.formOf(g)?.id : undefined;
-    void run(it.action, this, { screen: on.id, ...(on.params ? { params: on.params } : {}), part: it.id, ...(form ? { form } : {}) });
+    void run(action, this, { screen: on.id, ...(on.params ? { params: on.params } : {}), part: it.id, ...(form ? { form } : {}), ...more });
   }
 
   /* what starts some time after its screen comes into use: timed again each time one does */

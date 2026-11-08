@@ -323,6 +323,73 @@ export const ROWS: KitRow[] = [
   }
  },
  {
+  "id": "event-runs-action",
+  "title": "组件的事件运行它的动作，读事件带来的 event",
+  "ref": "事件与槽位族；第二批 B1 的部件声明",
+  "steps": [
+   {
+    "emit": "Pay now",
+    "event": "submit",
+    "payload": {
+     "value": "42",
+     "extra": "ignored"
+    }
+   }
+  ],
+  "expect": {
+   "vars": {
+    "entered": "42"
+   },
+   "toast": "Paid 42"
+  },
+  "known": {
+   "webPrototype": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
+   "webProduct": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
+   "rn": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
+   "miniapp": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项"
+  },
+  "vars": [
+   "entered"
+  ],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
+  "id": "family-runs-action",
+  "title": "槽位族的动作对每一项都运行，读被点的那一项 slot；某一项自己的动作优先",
+  "ref": "事件与槽位族；第二批 B1 的部件声明",
+  "steps": [
+   {
+    "tapSlot": "Small",
+    "slot": "tab:2"
+   },
+   {
+    "tapSlot": "Small",
+    "slot": "tab:0"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "picked": 2,
+    "own": "small"
+   }
+  },
+  "known": {
+   "webPrototype": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
+   "webProduct": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
+   "rn": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项",
+   "miniapp": "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项"
+  },
+  "vars": [
+   "picked",
+   "own"
+  ],
+  "screens": {
+   "home": "home"
+  }
+ },
+ {
   "id": "hide-visible",
   "title": "隐藏一开始可见的部件",
   "ref": "显示与隐藏；报告 6.2、6.3",

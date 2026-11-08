@@ -105,9 +105,14 @@ export function chooseBranch(a: Action, host: Host, tap: Tap): ActionBody | null
 /* ---------- running ---------- */
 
 /** What expressions read at this step of a tap: the host's scope for it, what an answer adds (`response`, `status`,
- *  `error`), and the payload of the event that started it as `event` (expressions read `event.*` once the expression
- *  language lets them, with the parts' events). */
-export const tapScope = (host: Host, tap: Tap, extra?: Scope): Scope => ({ ...host.scope(tap), ...extra, ...(tap.event !== undefined ? ({ event: tap.event } as Scope) : {}) });
+ *  `error`), the payload of the event that started it as `event`, and the place a family's action was run for as
+ *  `slot`. */
+export const tapScope = (host: Host, tap: Tap, extra?: Scope): Scope => ({
+  ...host.scope(tap),
+  ...extra,
+  ...(tap.event !== undefined ? { event: tap.event } : {}),
+  ...(tap.slot ? { slot: tap.slot } : {}),
+});
 const scopeOf = tapScope;
 
 /** the latest call of each kind, per host: a part's call to an operation on a screen; an older answer gives way */

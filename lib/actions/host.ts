@@ -27,6 +27,9 @@ export type Tap = {
   current?: Record<string, string>;
   /** the form (group id) the part is in */
   form?: string;
+  /** The place of the part a family's action was run for (`Item.actions["tab:*"]`), read as `slot.key` and
+   *  `slot.index`. A part's own action, or a place's own, carries none. */
+  slot?: { key: string; index: number };
   /** What the event that started the action carries, read as `event.*` (a part's events, `Item.actions["on:<name>"]`).
    *  A tap carries none. */
   event?: unknown;

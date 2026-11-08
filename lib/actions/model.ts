@@ -83,11 +83,20 @@ export const MAX_CALL_DEPTH = 4;
 /** the effects that reach the API (or the session): the rest only change what the app shows */
 export const API_EFFECTS = new Set<Effect["do"]>(["call", "refresh", "loadMore", "submit", "signOut"]);
 
-/** Where an event of a part puts its action: `Item.actions["on:<name>"]` (docs/交互规则.md, “事件”). A slot key that is
- *  not one of these is a tap on a place inside the part (`PartDef.slots`). */
-export const EVENT_SLOT = "on:";
-export const eventSlot = (name: string) => `${EVENT_SLOT}${name}`;
-export const eventOfSlot = (slot: string): string | null => (slot.startsWith(EVENT_SLOT) && slot.length > EVENT_SLOT.length ? slot.slice(EVENT_SLOT.length) : null);
+/* The keys of `Item.actions` (docs/交互规则.md, “事件与槽位族”): a place inside the part ("tab:2", "icon"), a family of
+   places ("tab:*": one action for every row, which reads the row as `slot`), or a named event the part sends
+   ("on:submit", which reads its payload as `event`). lib/partContract.ts reads them off the part's definition. */
+
+/** the start of an event's key in `Item.actions` */
+export const EVENT_PREFIX = "on:";
+/** the key an event's action is stored under */
+export const eventKey = (name: string) => `${EVENT_PREFIX}${name}`;
+/** the key a slot family's action is stored under */
+export const familyKey = (prefix: string) => `${prefix}:*`;
+/** an event's name, when the key is one */
+export const eventOfKey = (key: string): string | null => (key.startsWith(EVENT_PREFIX) ? key.slice(EVENT_PREFIX.length) : null);
+/** a family's prefix, when the key is one */
+export const familyOfKey = (key: string): string | null => (key.endsWith(":*") && !key.startsWith(EVENT_PREFIX) ? key.slice(0, -2) : null);
 
 /** the address a link action opens, once it is one a browser may follow; a bare host is read as https */
 export function linkUrlOf(a: Pick<ActionBody, "url"> | undefined): string | null {

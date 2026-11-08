@@ -5,7 +5,7 @@ import { DocStore, counterIds, guessMeasurer, ops, savedDoc, stateOf } from "../
 import type { Doc } from "../../tokens";
 import type { Design, OperationSpec, PartSpec } from "./types";
 
-const SLUG = { button: "button", text: "text", field: "text-field", menu: "dropdown-menu", dialog: "dialog" } as const;
+const SLUG = { button: "button", text: "text", field: "text-field", menu: "dropdown-menu", dialog: "dialog", numpad: "number-pad", buttons: "button-group" } as const;
 
 function endpointArgs(o: OperationSpec) {
   const props = (fields: Record<string, "string" | "number">) => Object.fromEntries(Object.entries(fields).map(([k, t]) => [k, { type: t }]));
@@ -54,10 +54,15 @@ export function designDoc(d: Design): { doc: Doc; widths: Record<string, number>
             ? { label: p.label, items: (p.items ?? []).map((label) => ({ label })), destructive: "" }
             : kind === "dialog"
               ? { headline: p.label, supporting: "", confirm: p.items?.[0] ?? "OK", dismiss: "" }
-              : { label: p.label };
+              : kind === "numpad"
+                ? { action: p.label }
+                : kind === "buttons"
+                  ? { items: [p.label, ...(p.items ?? [])].map((label) => ({ label })) }
+                  : { label: p.label };
       const out = tx.run(ops.addPart, { slug: SLUG[kind], id: p.id, screen, at, props }) as { groupId: string };
       groupOf[p.id] = out.groupId;
       if (p.action && !p.unchecked) tx.run(ops.setAction, { id: p.id, action: p.action as never });
+      for (const [slot, action] of Object.entries(p.actions ?? {})) tx.run(ops.setAction, { id: p.id, slot, action: action as never });
     }
     for (const f of d.forms ?? []) {
       // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it

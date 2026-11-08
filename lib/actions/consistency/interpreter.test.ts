@@ -17,6 +17,8 @@ describe("the consistency table on the interpreter", () => {
       return {
         tap: (w) => h.tap(w),
         hover: (w) => h.hover(w),
+        tapSlot: (w, slot) => h.tapSlot(w, slot),
+        emit: (w, name, payload) => h.emit(w, name, payload),
         type: (w, v) => h.type(w, v),
         restart: () => h.restart(),
         settle: () => turns(),

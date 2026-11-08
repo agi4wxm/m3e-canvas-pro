@@ -57,6 +57,11 @@ function previewOf(doc: Doc, backend: Backend): Driver {
     }
     throw new Error(`no part with the words "${words}" on show`);
   };
+  /** the part as its screen drew it, with what it does when used that way (`onHover`, `onSlot`, `onEvent`) */
+  const drawnPart = (words: string, handler: string): Element | undefined => {
+    const { it } = find(words);
+    return tiny.elements(tree).find((e) => (e.props.item as Item | undefined)?.id === it.id && handler in e.props);
+  };
   draw();
   return {
     tap: (words) => {
@@ -66,10 +71,15 @@ function previewOf(doc: Doc, backend: Backend): Driver {
       draw();
     },
     hover: (words) => {
-      const { it } = find(words);
-      /* the part as its screen drew it, with what the pointer coming over it does */
-      const part = tiny.elements(tree).find((e) => (e.props.item as Item | undefined)?.id === it.id && "onHover" in e.props);
-      (part?.props.onHover as (() => void) | undefined)?.();
+      (drawnPart(words, "onHover")?.props.onHover as (() => void) | undefined)?.();
+      draw();
+    },
+    tapSlot: (words, slot) => {
+      (drawnPart(words, "onSlot")?.props.onSlot as ((slot: string) => void) | undefined)?.(slot);
+      draw();
+    },
+    emit: (words, name, payload) => {
+      (drawnPart(words, "onEvent")?.props.onEvent as ((name: string, payload?: Record<string, unknown>) => void) | undefined)?.(name, payload);
       draw();
     },
     type: (words, value) => {
