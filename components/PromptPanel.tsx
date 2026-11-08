@@ -6,6 +6,7 @@ import { Doc, Palette } from "@/lib/tokens";
 import { DownloadProject } from "./DownloadProject";
 import { Icon } from "./Icon";
 import { Field, IconBtn, Segmented } from "./ui";
+import { useLayer } from "./layers";
 import { t, useLang } from "@/lib/i18n";
 
 /* The prompt tab: what the sketch says to a model, and the few things said about the app as a
@@ -430,18 +431,8 @@ export function PromptPanel({
     const id = setTimeout(() => setCover("off"), COVER_MS);
     return () => clearTimeout(id);
   }, [cover]);
-  /* the cover closes on Escape, the way every cover in the editor does */
-  useEffect(() => {
-    if (cover !== "on") return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      e.stopPropagation();
-      close();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [cover]);
+  /* the cover closes on Escape while it is the topmost layer (components/layers.ts), the way every cover in the editor does */
+  useLayer(cover === "on", close, true);
 
   const copy = async () => {
     try {

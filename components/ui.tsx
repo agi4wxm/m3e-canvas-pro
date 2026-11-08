@@ -5,34 +5,28 @@ import { PLACES, Palette, Place, R_INNER, SETTLE_MS, clamp, draftGradient } from
 import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react";
 import { t, useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
+import { useLayer } from "./layers";
 
 /** Set over the design panel: its controls come out at Figma's density (28px rows, 12px words, hairline sections)
  *  rather than the roomy touch sizes the other panels keep. */
 export const DenseContext = createContext(false);
 
-/** Closes what is open: on Escape, which goes no further (the editor also clears its selection on
- *  it), and, given what counts as inside, on a press anywhere else. Both are heard on their way down,
- *  so nothing on the page can stop a press from closing it. */
+/** Closes what is open: on Escape while it is the topmost layer (components/layers.ts: one press
+ *  closes one layer, and the canvas, which also clears its selection on it, does not hear it), and,
+ *  given what counts as inside, on a press anywhere else. A press is heard on its way down, so
+ *  nothing on the page can stop it from closing what is open. */
 export function useDismiss(active: boolean, close: (by: "escape" | "press") => void, inside?: React.RefObject<HTMLElement | null>[]) {
   const latest = useRef({ close, inside });
   latest.current = { close, inside };
+  useLayer(active, () => latest.current.close("escape"));
   useEffect(() => {
     if (!active) return;
     const onDown = (e: PointerEvent) => {
       const { close, inside } = latest.current;
       if (inside && !inside.some((r) => r.current?.contains(e.target as Node))) close("press");
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      latest.current.close("escape");
-    };
     window.addEventListener("pointerdown", onDown, true);
-    window.addEventListener("keydown", onKey, true);
-    return () => {
-      window.removeEventListener("pointerdown", onDown, true);
-      window.removeEventListener("keydown", onKey, true);
-    };
+    return () => window.removeEventListener("pointerdown", onDown, true);
   }, [active]);
 }
 

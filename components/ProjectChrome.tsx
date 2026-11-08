@@ -10,6 +10,7 @@ import { t, useLang } from "@/lib/i18n";
 import type { LinkState } from "@/lib/projects/fileLink";
 import { Icon } from "./Icon";
 import { Toggle } from "./ui";
+import { useLayer } from "./layers";
 
 const fill = (s: string, vars: Record<string, string>) => s.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m);
 
@@ -141,16 +142,8 @@ export function ProjectMenu({ p, close, a }: { p: Palette; close: () => void; a:
 /* ---------- the questions ---------- */
 
 function Dialog({ p, open, label, icon, iconColor, title, body, children, onCancel }: { p: Palette; open: boolean; label: string; icon: string; iconColor: string; title: string; body: string; children: React.ReactNode; onCancel: () => void }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      onCancel();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onCancel]);
+  /* Escape cancels while it is the topmost layer (components/layers.ts), and the canvas hears no keys meanwhile */
+  useLayer(open, onCancel, true);
   return (
     <AnimatePresence>
       {open && (
