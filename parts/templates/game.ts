@@ -1,4 +1,5 @@
 import { col, deskScreen, go, grid, panel, part, row, say, screen, txt, type Anchor, type Node, type Say, type ScreenSeed, type Template } from "./kit";
+import { atomsOf } from "./atoms";
 
 /* The screens games have in common, whatever the game. Nothing here belongs to one title: the names are the genre's own
  * words, and the picture behind a screen is a scene whose prompt the author replaces. The interface is real parts standing
@@ -36,7 +37,7 @@ const cell = (icon: string, name: Say | string, count: string, rarity: Say | str
 const skill = (icon: string, label: Say, size = 64, cooldown = 0): Node => part("skill-button", { icon, label, size, cooldown });
 /** in the heat of a fight a skill is its icon: no words standing on the picture */
 const hudSkill = (icon: string, name: Say, size = 64, cooldown = 0): Node => part("skill-button", { icon, label: "", size, cooldown }, { name });
-const task = (words: Say, action: Say): Node => part("task-row", { title: words, action, done: say("Done", "已完成", "完了", "완료") });
+const task = (words: Say, action: Say): Node => atomsOf("task-row", { title: words, action, done: say("Done", "已完成", "完了", "완료") });
 const shortcut = (icon: string, label: Say, size = 40, timer = 0): Node => part("function-button", { icon, label, size, timer, unit: "hour" });
 const heading = (words: Say): Node => part("section-header", { title: words, action: "" });
 const both = (a: Say, b: Say): Say => say(`${a.en} · ${b.en}`, `${a.zh} · ${b.zh}`, `${a.ja} · ${b.ja}`, `${a.ko} · ${b.ko}`);
@@ -259,7 +260,7 @@ const inventoryScreen = (): ScreenSeed =>
     top: [title(say("Inventory", "背包", "持ち物", "가방"))],
     body: [
       tabsOf(say("All", "全部", "すべて", "전체"), say("Gear", "装备", "装備", "장비"), say("Materials", "材料", "素材", "재료"), say("Items", "道具", "道具", "도구")),
-      grow({}, [part("inventory", { columns: 5, rows: 7, filled: 23 })]),
+      grow({}, [atomsOf("inventory", { columns: 5, rows: 7, filled: 23 })]),
       itemDetail(),
     ],
   });
@@ -449,7 +450,7 @@ const guildScreen = (): ScreenSeed =>
         part("progress", { value: 64, label: say("Guild experience", "公会经验", "ギルド経験値", "길드 경험치"), showValue: true }),
       ]),
       tabsOf(say("Members", "成员", "メンバー", "멤버"), say("Chat", "聊天", "チャット", "채팅"), say("Events", "活动", "イベント", "이벤트")),
-      part("contact-list", {
+      atomsOf("contact-list", {
         search: "",
         grouped: false,
         trailing: "none",
@@ -470,7 +471,7 @@ const friendsScreen = (): ScreenSeed =>
     body: [
       tabsOf(say("Friends 8/50", "好友 8/50", "フレンド 8/50", "친구 8/50"), say("Requests", "申请", "申請", "신청"), say("Recent", "最近", "最近", "최근")),
       grow({}, [
-        part("contact-list", {
+        atomsOf("contact-list", {
           search: say("Search by name or ID", "搜索名称或 ID", "名前か ID で検索", "이름 또는 ID 검색"),
           grouped: false,
           trailing: "follow",
@@ -492,7 +493,7 @@ const mailScreen = (): ScreenSeed =>
     top: [title(say("Mail", "邮件", "メール", "우편함"))],
     body: [
       grow({}, [
-        part("notification-list", {
+        atomsOf("notification-list", {
           title: say("Inbox", "收件箱", "受信箱", "받은 편지함"),
           unread: 2,
           markAll: say("Read all", "全部已读", "すべて既読", "모두 읽음"),
@@ -541,7 +542,7 @@ const gameSettingsScreen = (): ScreenSeed =>
     top: [title(say("Settings", "设置", "設定", "설정"))],
     body: [
       panel({ gap: 12 }, [txt(say("Sound", "声音", "サウンド", "소리"), "label", { color: "muted" }), part("slider", { label: say("Music", "音乐", "音楽", "음악"), value: 70 }), part("slider", { label: say("Effects", "音效", "効果音", "효과음"), value: 85 })]),
-      part("settings-group", {
+      atomsOf("settings-group", {
         title: say("Game", "游戏", "ゲーム", "게임"),
         data: {
           columns: ["Icon", "Label", "Control", "Value"],
@@ -554,7 +555,7 @@ const gameSettingsScreen = (): ScreenSeed =>
           ],
         },
       }),
-      part("settings-group", {
+      atomsOf("settings-group", {
         title: say("Account", "账号", "アカウント", "계정"),
         data: {
           columns: ["Icon", "Label", "Control", "Value"],
@@ -679,7 +680,7 @@ const upgradeScreen = (): ScreenSeed =>
         row({ gap: 12 }, [cell("person", "", "", say("Epic", "史诗", "エピック", "에픽"), 96), col({ gap: 4 }, [txt(say("Hero name", "角色名称", "キャラ名", "캐릭터 이름"), "title"), txt(say("Warrior", "战士", "戦士", "전사"), "caption", { color: "muted" }), txt(say("Lv. 24 → Lv. 25", "24 级 → 25 级", "Lv. 24 → Lv. 25", "Lv. 24 → Lv. 25"), "label")], { fill: true })]),
         part("stat-bar", { icon: "trending_up", label: say("EXP", "经验", "EXP", "EXP"), value: 640, max: 1000, color: "primary", numbers: true }),
       ]),
-      part("settings-group", {
+      atomsOf("settings-group", {
         title: say("Next level", "下一级", "次のレベル", "다음 레벨"),
         data: { columns: ["Icon", "Label", "Control", "Value"], rows: [STEP(say("HP", "生命", "HP", "HP"), "favorite", "980", "1,020"), STEP(say("Attack", "攻击", "攻撃", "공격"), "swords", "860", "900"), STEP(say("Defense", "防御", "防御", "방어"), "shield", "540", "565")] },
       }),
@@ -734,7 +735,7 @@ const pcInventoryScreen = (): ScreenSeed =>
     body: [
       row({ justify: "between" }, [txt(say("Bag", "背包", "持ち物", "가방"), "headline"), part("icon-button", { icon: "close", label: say("Close", "关闭", "閉じる", "닫기"), variant: "text" })]),
       row({ gap: 24, align: "start" }, [
-        col({ gap: 12 }, [tabsOf(say("All", "全部", "すべて", "전체"), say("Weapons", "武器", "武器", "무기"), say("Armor", "防具", "防具", "방어구"), say("Items", "道具", "道具", "도구")), part("inventory", { columns: 8, rows: 6, filled: 21 })], { fill: true }),
+        col({ gap: 12 }, [tabsOf(say("All", "全部", "すべて", "전체"), say("Weapons", "武器", "武器", "무기"), say("Armor", "防具", "防具", "방어구"), say("Items", "道具", "道具", "도구")), atomsOf("inventory", { columns: 8, rows: 6, filled: 21, width: 728 })], { fill: true }),
         col({ gap: 12, width: 320 }, [HERO(""), itemDetail()]),
       ]),
     ],

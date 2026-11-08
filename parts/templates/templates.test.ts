@@ -162,9 +162,12 @@ describe("the set of templates", () => {
 
   it("is described by the names its groups carry, and a name the author gives wins", () => {
     const doc = docOf(TEMPLATES.find((t) => t.slug === "login")!, "en");
-    const form = doc.groups.find((g) => g.items[0].component === "auth-form")!;
+    /* the sign-in form is a box of atoms, called what the form part was */
+    const form = doc.groups.find((g) => g.name === "Sign-in form" && g.items[0].component === "box")!;
+    const prompt = (d: Doc) => buildPrompt(d, defaultMeasures(d.groups), d.frames[0].id, "en");
+    expect(prompt(doc)).toContain('Box "Sign-in form"');
     /* the code a part prints still has its own words: it is what the part is called that changes */
-    const called = (d: Doc) => buildPrompt(d, defaultMeasures(d.groups), d.frames[0].id, "en").includes('form "Front door"');
+    const called = (d: Doc) => prompt(d).includes('Box "Front door"');
     expect(called(doc)).toBe(false);
     expect(called({ ...doc, groups: doc.groups.map((g) => (g === form ? { ...g, name: "Front door" } : g)) })).toBe(true);
   });

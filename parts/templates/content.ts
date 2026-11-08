@@ -1,4 +1,5 @@
 import { col, panel, part, row, say, screen, txt, type Template } from "./kit";
+import { atomsOf } from "./atoms";
 import { homeNav, PEOPLE, WORDS } from "./words";
 
 /* Reading, finding and playing things. */
@@ -78,7 +79,7 @@ export const content: Template[] = [
               { label: say("Share", "分享", "共有", "공유"), icon: "share" },
             ],
           }),
-          part("comment-list", {
+          atomsOf("comment-list", {
             you: say("You", "我", "自分", "나"),
             now: say("Now", "刚刚", "たった今", "방금"),
             reply: say("Reply", "回复", "返信", "답글"),

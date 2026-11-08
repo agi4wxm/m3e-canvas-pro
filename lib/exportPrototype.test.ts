@@ -183,10 +183,11 @@ describe("a document with no prototype interactions, flows or variables in modes
     expect("src/lib/screenMotion.ts" in proof).toBe(false);
     /* Digests of what these documents exported before prototypes, flows and modes reached the app. A change here means
        documents that use none of them now export differently: if that is meant, update the digests (last: proof's rating
-       is an input since parts declare theirs, so it reads and writes a variable of its own). */
+       is an input since parts declare theirs, so it reads and writes a variable of its own; then the shop template's cart is
+       the atoms the retired cart-list splits into, looking as it did). */
     expect({ proof: digestOf(proof), reuse: digestOf(await exported(reuseDoc().doc, reuseDoc().widths)), sweep: digestOf(await exported(sweepDoc().doc, sweepDoc().widths)) }).toMatchInlineSnapshot(`
       {
-        "proof": "4002d7ae349af5ba",
+        "proof": "c3fedcf662e899b4",
         "reuse": "aeba42efb325c141",
         "sweep": "9df164afde516432",
       }

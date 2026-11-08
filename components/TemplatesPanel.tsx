@@ -45,8 +45,9 @@ function planOf(template: Template): Plan {
     if (!def) continue;
     let ink: Box["ink"] = INK_OF[def.slug] ?? "surfaceContainerHighest";
     if (def.holds && def.slug !== "scene") {
-      /* a bare layout draws nothing of its own */
-      const fill = reader(def, it.props).s("fill");
+      /* a bare layout draws nothing of its own; a box of atoms is painted by its fill role or its surface */
+      const p = reader(def, it.props);
+      const fill = def.props.some((d) => d.key === "fill") ? p.s("fill") : (it.fill ?? (def.props.some((d) => d.key === "surface") && p.s("surface") !== "none" ? "surfaceContainerHigh" : ""));
       if (!fill || fill === "none") continue;
       ink = fill.includes("primary") ? "primaryContainer" : fill.includes("secondary") ? "secondaryContainer" : "surfaceContainerHigh";
     } else if (roleOf(it) === "top" || roleOf(it) === "bottom") ink = "surfaceContainerHigh";

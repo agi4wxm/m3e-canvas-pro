@@ -1,4 +1,5 @@
 import { col, go, part, row, say, screen, txt, type Node, type Say, type ScreenSeed, type Template } from "./kit";
+import { atomsOf } from "./atoms";
 import { AUTH_WORDS } from "./words";
 
 /* Getting into an app. Each builder takes the links a flow gives it; on its own a screen has none, so that adding one
@@ -8,7 +9,8 @@ import { AUTH_WORDS } from "./words";
 type Link = ReturnType<typeof go>;
 type Links = Partial<Record<"submit" | "switch" | "forgot", Link>>;
 
-const authForm = (mode: "sign-in" | "sign-up", links: Links): Node => part("auth-form", { mode, ...AUTH_WORDS }, { actions: links });
+/** the sign-in or sign-up form, in atoms: its entries keep what is typed, its buttons go where the flow says */
+const authForm = (mode: "sign-in" | "sign-up", links: Links): Node => atomsOf("auth-form", { mode, ...AUTH_WORDS }, { actions: links });
 /** where the app's mark goes, above the form */
 const mark = (): Node => row({ justify: "center" }, [part("shape", { name: "sunny", color: "primary", width: 72, height: 72 })]);
 const backBar = (title: Say, link?: Link): Node => part("app-bar", { title, leading: "arrow_back", trailing: "" }, { actions: { icon: link } });
