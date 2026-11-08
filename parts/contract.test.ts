@@ -87,8 +87,9 @@ describe("every part", () => {
     for (const { name, text } of sourceFiles("defs")) {
       const imports = [...text.matchAll(/^import (?!type )[^;]*from "([^"]+)"/gm)].map((m) => m[1]);
       /* the look's traits (kits/types) are plain functions of a look, so a split composes by the same ones a kit does */
-      /* the field states and the accessible names are plain data and plain functions too (parts/fieldState.ts, parts/a11y.ts) */
-      for (const from of imports) expect(from, `defs/${name} imports ${from}`).toMatch(/^\.\.\/(node|labels|types|flow|atoms|svg|kits\/types|fieldState|a11y|tables)$/);
+      /* the field states and the accessible names are plain data and plain functions too (parts/fieldState.ts, parts/a11y.ts),
+         and so is the mark on the control that holds an input (parts/inputNode.ts) */
+      for (const from of imports) expect(from, `defs/${name} imports ${from}`).toMatch(/^\.\.\/(node|labels|types|flow|atoms|svg|kits\/types|fieldState|a11y|tables|inputNode)$/);
     }
   });
 

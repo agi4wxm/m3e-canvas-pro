@@ -87,6 +87,8 @@ export type RnScreens = {
   tabs: string[];
   /** the overlays (by key) a tap opens or closes that keep a trigger of their own on the screen while shut (a menu) */
   triggers: string[];
+  /** a screen copies words through the app's capabilities (copyText, which bind.ts then has) */
+  copies?: true;
 };
 
 export type RnPrintOptions = {
@@ -127,7 +129,10 @@ type Ctx = { $: string; form?: { v: string; id: string }; item?: string; locals?
 type SourceInfo = { v: string; def: DataSource };
 
 /** the words a reserved name of the printed screen cannot be a data source's variable */
-const RESERVED = new Set(["app", "act", "nav", "params", "given", "item", "index", "keyOf", "regionOf", "rowsOf", "optionOf", "pickFile", "fileName", "useSource", "useFormFor", "useParams", "useScreenScope", "View", "IMAGES"]);
+/** the kit's parts with a copy button of their own, which take `onCopy` */
+const COPIES = new Set(["copy-row", "qr-code"]);
+
+const RESERVED = new Set(["app", "act", "nav", "params", "given", "item", "index", "keyOf", "regionOf", "rowsOf", "optionOf", "pickFile", "fileName", "copyText", "useSource", "useFormFor", "useParams", "useScreenScope", "View", "IMAGES"]);
 
 class ScreenPrinter {
   /** the kit's components this screen names */
@@ -136,6 +141,8 @@ class ScreenPrinter {
   slots = new Set<string>();
   /** what the screen imports from its data layer, and from React Native */
   bind = new Imports();
+  /** a copy button on the screen copies through the app's capabilities (bind's copyText) */
+  copies = false;
   rn = new Set<string>();
   /** the module's constants: actions, data sources, forms, params */
   consts: string[] = [];
@@ -675,6 +682,13 @@ class ScreenPrinter {
         this.uses.app = true;
         extras.push(["onSelect", `(i: number) => app.setProp(${str(it.id)}, "selected", i)`]);
       }
+      /* a copy button copies through the app's capabilities (clipboard.write), and the kit says "copied" only once it was
+         (a phone has no clipboard without an adapter the product adds: it then says it was not) */
+      if (COPIES.has(def.slug) && this.o.runtime && !replaced.has("onCopy")) {
+        this.bind.add("copyText");
+        this.copies = true;
+        extras.push(["onCopy", "copyText"]);
+      }
       /* a menu a tap opens or closes: its popup follows the app's memory, and the visitor's own opening is kept there */
       const group = this.facts.groupOf.get(it.id);
       if (group && this.facts.opened.has(group) && OPENS_BY_PROP.has(def.slug)) {
@@ -992,12 +1006,14 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
   const icons = new Set<string>();
   /* the kinds of part on each screen: what of the style is not drawn here is reported with the screens it touches */
   const kinds: StyleScreen[] = [];
+  let copies = false;
   const printed = plan.screens.map((sp): RnScreen => {
     const { frame } = sp;
     kinds.push({ name: frame.name, slugs: kindsIn(sp.groups) });
     const p = new ScreenPrinter(doc, sp, widths, screens, warnings, o, facts);
     const body = p.body();
     p.icons.forEach((n) => icons.add(n));
+    copies ||= p.copies;
     const { width: w, height: h, length } = sp;
     const bg = frame.bg && COLOR_TOKENS.some((t) => t.key === frame.bg) ? frame.bg : undefined;
     const screen = el("Screen", [...(bg ? ([["bg", str(bg)]] as [string, string][]) : []), ["width", expr(w)], ["height", expr(h)], ...(length > h ? ([["length", expr(length)]] as [string, string][]) : [])], body);
@@ -1045,6 +1061,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
     overlays: [...facts.overlays].flatMap((id) => keyOf(id) ?? []).sort(),
     tabs: [...facts.tabs].flatMap((id) => keyOf(id) ?? []).sort(),
     triggers: [...facts.opened].filter((g) => keepsTrigger(doc.groups.find((x) => x.id === g)?.items[0])).sort(),
+    ...(copies ? { copies: true as const } : {}),
   };
 }
 

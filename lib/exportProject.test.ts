@@ -407,7 +407,7 @@ describe("printed behaviour", () => {
   });
 
   it("counts a press on a place with no action of its own as a press on the part, in the export as in the preview", () => {
-    const source = readFileSync("lib/runtimeSource.ts", "utf8");
+    const source = readFileSync("lib/export/files/web/runtime.tsx", "utf8");
     expect(source).toMatch(/if \(row\) onTab\?\.\(Number\(row\[1\]\)\)\s+\/\*[^*]*\*\/\s+onPress\?\.\(\)/);
     expect(source).toContain(`if (slot === "self") return`);
   });

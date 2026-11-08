@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { TEMPLATES, instantiate, templateBySlug } from "../parts/templates";
 import { defaultMeasures } from "../parts/templates/kit";
@@ -7,7 +8,7 @@ import { showingGroups } from "./flow";
 import { chooseBranch, goneIds, inRow, startState } from "./interact";
 import { definitionFrom, detachInstance, expandInstances, makeComponent, rekeyedAll, removeComponent, standIn } from "./instances";
 import { openProject, projectFile } from "./project";
-import { runtimeSource } from "./runtimeSource";
+import { RUNTIME_TEMPLATE, runtimeSource } from "./runtimeSource";
 import { readShareHash, shareLink, shareable } from "./share";
 import { carryFrame, tidyFrame } from "./tidy";
 import { type Action, type ComponentDef, type Doc, type Frame, type Group, DESKTOP_H, DESKTOP_W, GESTURE_BAR_H, STATUS_BAR_H, TABLET_H, TABLET_W, frameRect, frameSizeOf, groupBounds, makeItem, safeAreaOf } from "./tokens";
@@ -258,7 +259,7 @@ describe("the row a tap came from, in printed code", () => {
     expect(detail).toMatch(/useApp\(\)/);
     /* the interpreter fills {{current.field}} from the row last tapped, which the runtime hands every tap */
     expect(detail).toContain('{ do: "snackbar", message: "Said {{current.name}}" }');
-    expect(runtimeSource(built.runtime)).toContain("void run(action, host, { ...tap, current: live.current.current })");
+    expect(runtimeSource(built.runtime, readFileSync(RUNTIME_TEMPLATE, "utf8"))).toContain("void run(action, host, { ...tap, current: live.current.current })");
   });
 
   it("a tap on a row says which row it was, before it goes", () => {
@@ -269,7 +270,7 @@ describe("the row a tap came from, in printed code", () => {
 
   it("starts on the first row, so a screen opened directly is not blank", () => {
     expect(built.runtime.current).toEqual({ name: "Apple", price: "1" });
-    expect(runtimeSource(built.runtime)).toContain('START_CURRENT: Record<string, string> = {"name":"Apple","price":"1"}');
+    expect(runtimeSource(built.runtime, readFileSync(RUNTIME_TEMPLATE, "utf8"))).toContain('START_CURRENT: Record<string, string> = {"name":"Apple","price":"1"}');
   });
 
   it("has nothing to say where nothing reads it", () => {

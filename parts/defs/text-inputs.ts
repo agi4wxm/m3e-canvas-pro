@@ -1,4 +1,5 @@
 import { h, ic } from "../node";
+import { inputNode } from "../inputNode";
 import type { P, PartDef } from "../types";
 import { FIELD, fieldFrame, fieldValues, requiredMark } from "../fieldState";
 import { ariaLabelProp, nameFor } from "../a11y";
@@ -49,7 +50,7 @@ export const textInputs: PartDef[] = [
         h(
           "div",
           { style: { width: Math.round(p.n("width")) } },
-          h("TextField", {
+          inputNode(h("TextField", {
             label: requiredMark(label, v.required),
             "aria-label": label ? undefined : nameFor(p) || undefined,
             defaultValue: p.s("value") || undefined,
@@ -68,7 +69,7 @@ export const textInputs: PartDef[] = [
             disabled: v.disabled || undefined,
             multiline: p.b("multiline") || undefined,
             containerClassName: "w-full",
-          }),
+          })),
         ),
         { holds: true, marksRequired: !!label, showsMessage: true },
       );
@@ -100,7 +101,7 @@ export const textInputs: PartDef[] = [
       const v = fieldValues(p);
       return fieldFrame(
         v,
-        h("Input", {
+        inputNode(h("Input", {
           type: p.s("type") === "text" ? undefined : p.s("type"),
           placeholder: p.s("placeholder") || undefined,
           "aria-label": nameFor(p) || undefined,
@@ -112,7 +113,7 @@ export const textInputs: PartDef[] = [
           readOnly: v.readOnly || undefined,
           disabled: v.disabled || undefined,
           style: { width: Math.round(p.n("width")) },
-        }),
+        })),
         { holds: true },
       );
     },
@@ -144,7 +145,7 @@ export const textInputs: PartDef[] = [
       const v = fieldValues(p);
       return fieldFrame(
         v,
-        h("Textarea", {
+        inputNode(h("Textarea", {
           placeholder: p.s("placeholder") || undefined,
           "aria-label": nameFor(p) || undefined,
           defaultValue: p.s("value") || undefined,
@@ -157,7 +158,7 @@ export const textInputs: PartDef[] = [
           readOnly: v.readOnly || undefined,
           disabled: v.disabled || undefined,
           style: { width: Math.round(p.n("width")), ...(p.s("variant") === PLAIN.value ? { minHeight: Math.round(p.n("rows")) * 24 } : {}) },
-        }),
+        })),
         { holds: true },
       );
     },

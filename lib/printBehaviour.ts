@@ -6,7 +6,7 @@ import type { PartDef, PropDef } from "../parts/types";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { type Row, fillCurrent, firstRows, markCurrent } from "./collections";
 import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
-import { demoRuns, isPlaceKey, optionsOf } from "./partContract";
+import { demoRuns, familiesOf, isPlaceKey, optionsOf } from "./partContract";
 import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn, varValues } from "./variables";
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
 import type { BoundPrint } from "./printBindings";
@@ -58,6 +58,9 @@ export type RuntimeSpec = {
   bound?: BoundSpec;
   /** the taps are printed as data the runtime runs with lib/actions: what it needs to know of the app for them */
   acts?: ActsSpec;
+  /** a part hands its Pressable a family's action as a function of the entry (`families`), for the entries the design's
+   *  props do not hold */
+  families?: true;
 };
 
 /** What the runtime runs the taps over (lib/actions' `Host`, src/runtime.tsx): where each part an effect reaches stands,
@@ -349,6 +352,8 @@ export class Behaviour {
   private readonly boundNames = new Map<string, string>();
   /** what of the prototype has been printed so far */
   private readonly printed = { motion: false, overlay: false, scroll: false, hover: false, delay: false };
+  /** a part's family of places has been printed with its action as a function of the entry (`families`) */
+  private printedFamilies = false;
   /** the bindings, printed against the product's runtime */
   readonly bound?: BoundPrint;
   private readonly groupById: Map<string, Group>;
@@ -560,6 +565,7 @@ export class Behaviour {
       ...(this.readsExprs || this.bound || this.acts ? { exprs: { vars: this.varNames() } } : {}),
       ...(this.bound ? { bound: this.boundSpec() } : {}),
       ...(this.acts ? { acts: this.actsSpec() } : {}),
+      ...(this.printedFamilies ? { families: true as const } : {}),
     };
   }
 
@@ -1168,6 +1174,28 @@ export class Behaviour {
       const code = family && this.handler(this.statements(family.a, uses, family.name, family.more));
       if (code) slots[key] = raw(code);
     }
+    /* The entries above are the ones the design's props hold; an entry bound data or a tap adds at run time has no
+       handler of its own there, so the family's action is also handed over as a function of the entry (`families`),
+       which the Pressable runs for any entry of the family it has no handler for, told which (`slot`) */
+    const families: string[] = [];
+    for (const f of familiesOf(it)) {
+      const a = it.actions?.[familyKey(f.prefix)];
+      if (!a) continue;
+      const run = this.statements(a, uses, `${this.partNow} ${f.prefix} each`, ["slot"]);
+      if (!run.length) continue;
+      const lead: string[] = [];
+      if (selecting && f.prefix === "tab") {
+        /* as for an entry the props hold: a destination that opens a screen leaves the choice to that screen's bar */
+        const bar = json(this.barKey(it, def));
+        const opens = a.to !== STAY_TARGET;
+        const target = opens ? this.screens.get(a.to) : undefined;
+        lead.push(opens ? `leaveTab(${bar}, slot.index${isNavBar(def) && target ? `, ${json(target)}` : ""})` : `selectTab(${bar}, slot.index)`);
+        uses.app.add(opens ? "leaveTab" : "selectTab");
+      }
+      const all = [...lead, ...run];
+      families.push(`${json(f.prefix)}: (slot) => ${all.length === 1 && !all[0].startsWith("if ") ? all[0] : `{ ${all.join("; ")} }`}`);
+    }
+    if (families.length) this.printedFamilies = true;
     /* A named event the part sends (`on:<name>`) runs its action with what the event carries, as the part declares it
        (`event.*`): a widget hands its events out through \`onEvent\` (parts/widgets/host.ts) */
     const events = (def.events ?? []).flatMap((e) => {
@@ -1186,8 +1214,8 @@ export class Behaviour {
     const root = treeOf(def, withoutPickedImages(def, it.props ?? {}, this.image), appearanceOf(it), it.id);
     /* an overlay that only shows and hides has nothing of its own to shut it: its close button says so here */
     const closes = !!g && isOverlayPart(it) && standingOf(def) === "plain" && this.gatedByVisible(g);
-    const direct = !!onPress && !hasSlots && !selfSelecting && !closes && !insideTap && CLICKS_ON_ROOT.has(root.type) && !root.props?.onClick;
-    const pressable = !direct && (!!onPress || !!onHover || !!after || hasSlots || selfSelecting || closes);
+    const direct = !!onPress && !hasSlots && !families.length && !selfSelecting && !closes && !insideTap && CLICKS_ON_ROOT.has(root.type) && !root.props?.onClick;
+    const pressable = !direct && (!!onPress || !!onHover || !!after || hasSlots || families.length > 0 || selfSelecting || closes);
     let tree = this.liveTree(it, def, uses, pressable);
     /* A prototype acts out a domain demo where nothing takes it over; a product (printed with bindings) never does,
        which is the widgets' own default (parts/widgets/host.ts) */
@@ -1236,6 +1264,7 @@ export class Behaviour {
       onHover ? `onHover={${onHover}}` : "",
       after ? `after={${after.ms}} onAfter={${after.run}}` : "",
       hasSlots ? `slots={${printValue(slots)}}` : "",
+      families.length ? `families={{ ${families.join(", ")} }}` : "",
       selecting && selfSelecting ? `onTab={(index) => ${(uses.app.add("selectTab"), `selectTab(${json(this.barKey(it, def))}, index)`)}}` : "",
       closes ? `onClose={() => ${(uses.app.add("hide"), `hide(${this.part(g!.items[0].id)})`)}}` : "",
     ].filter(Boolean);

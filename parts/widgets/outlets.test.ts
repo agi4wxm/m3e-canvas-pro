@@ -50,6 +50,7 @@ const Panels = await import("./Panels");
 const App = await import("./AppParts");
 const Tools = await import("./AppTools");
 const More = await import("./AppMore");
+const { MapView } = await import("./Platform");
 
 type Host = { demo?: boolean; input?: (v: unknown) => void; emit?: (name: string, payload?: Record<string, unknown>) => void; wired?: (slot: string) => boolean; invoke?: (capability: string, args: Record<string, unknown>) => Promise<{ ok: true; result: unknown } | { ok: false; error: { type: "denied"; capability: string } }> };
 type Widget = (p: never) => unknown;
@@ -149,6 +150,7 @@ const CASES: InputCase[] = [
   { name: "swipe row", W: Motion.SwipeRow as Widget, slot: "swipe-row", attr: "data-open", prop: "open", a: false, b: true, shown: (v) => (v ? true : undefined), base: { title: "Row", action: "Delete" }, act: (m) => (m.press(m.by("data-slot", "swipe-row-face"), "onKeyDown", { key: "ArrowLeft", preventDefault() {} }), true) },
   { name: "audio player", W: Motion.AudioPlayer as Widget, slot: "audio-player", attr: "data-playing", prop: "playing", a: false, b: true, shown: (v) => (v ? true : undefined), act: (m) => (m.tap("data-tap", "toggle"), true) },
   { name: "number pad", W: Tools.NumberPad as Widget, slot: "number-pad", attr: "data-entry", prop: "value", a: "1", b: "42", shown: (v) => v, base: { mode: "phone" }, act: (m) => (m.tap("data-key", "7"), "17") },
+  { name: "map", W: MapView as Widget, slot: "map-placeholder", attr: "data-selected", prop: "selected", a: "a", b: "c", base: { markers: [{ id: "a", title: "A", lat: 1, lng: 1 }, { id: "b", title: "B", lat: 2, lng: 2 }, { id: "c", title: "C", lat: 3, lng: 3 }] }, act: (m) => (m.tap("data-marker", "b"), "b") },
   { name: "joystick", W: Joystick as Widget, slot: "joystick", attr: "data-value", prop: "value", a: "0,0", b: "0,-1", shown: (v) => v, act: () => undefined },
 ];
 

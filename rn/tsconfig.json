@@ -1,5 +1,5 @@
 {
-  "//": "Expo's tsconfig.base (expo 58) written out rather than extended, so tools outside rn/ (the editor's tests, which import the kit's data files) can read this file without rn/node_modules installed. Keep in step with expo/tsconfig.base.json when Expo is upgraded. `paths`: the shared runtime the consistency table's rows run on (__tests__/table) is the editor's lib/app, as the mini-program kit reads it (jest.config.js maps it, and React, the same way); the product's API client, which src/app (the mobile app's files every export copies as they are) uses, is the editor's lib/export/files/api.",
+  "//": "Expo's tsconfig.base (expo 58) written out rather than extended, so tools outside rn/ (the editor's tests, which import the kit's data files) can read this file without rn/node_modules installed. Keep in step with expo/tsconfig.base.json when Expo is upgraded. `paths`: the shared runtime the consistency table's rows run on (__tests__/table) is the editor's lib/app (lib/export/files/appRuntime adds the app's setup to it, as packages/app-runtime does), as the mini-program kit reads it (jest.config.js maps it, and React, the same way); the product's API client, which src/app (the mobile app's files every export copies or fills in) uses, is the editor's lib/export/files/api. types/ declares the Expo packages src/app uses that the kit does not install.",
   "compilerOptions": {
     "allowJs": true,
     "esModuleInterop": true,
@@ -18,7 +18,7 @@
     "noUnusedParameters": true,
     "types": ["jest"],
     "paths": {
-      "@m3e/app-runtime": ["../lib/app/index.ts"],
+      "@m3e/app-runtime": ["../lib/export/files/appRuntime/index.ts"],
       "@m3e/api": ["../lib/export/files/api/index.ts"]
     }
   },
