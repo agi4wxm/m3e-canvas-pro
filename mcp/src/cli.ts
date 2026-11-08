@@ -34,6 +34,9 @@ Options:
   --confirm-timeout <s>  live mode: how long the editor waits for the author to allow a destructive call (default 60)
   --lang <ja|en|zh|ko>   the language new words are written in (file mode; default: the system's)
   --app <dir|url>        the app build, or a running editor, that file-mode screenshots are drawn with
+  --allow-outside <origin>
+                         let file-mode screenshots load pictures and pages from this origin (repeatable; "*" for any
+                         web address). By default they load only the app's own build and what the project holds
   --log <file>           also write the log to this file
   --quiet                log only what must be seen (the pairing code, the token)
   --debug                log every call
@@ -89,6 +92,7 @@ async function main() {
     origins,
     lang: langOf(v.lang),
     app: v.app,
+    allowOutside: v["allow-outside"],
     confirmMs: confirm !== undefined && Number.isFinite(confirm) ? Math.max(5, confirm) * 1000 : undefined,
     env: process.env,
     version: pkg.version,
@@ -143,6 +147,7 @@ function parse() {
       "confirm-timeout": { type: "string" },
       lang: { type: "string" },
       app: { type: "string" },
+      "allow-outside": { type: "string", multiple: true },
       log: { type: "string" },
       quiet: { type: "boolean" },
       debug: { type: "boolean" },

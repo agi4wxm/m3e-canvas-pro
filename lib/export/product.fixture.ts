@@ -75,6 +75,9 @@ export function shopProductDoc(): { doc: Doc; widths: Record<string, number> } {
 /** the sign-in the shop's mocks accept (and the handler scripts/check-mobile.ts writes): any other is turned down */
 export const SHOP_SIGN_IN = { email: "ada@example.com", password: "correct horse" };
 
+/** the shop's logo, a 24 × 24 PNG the document holds as data (a picture the author picked from a file) */
+export const SHOP_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAATElEQVR42mNgGAwgPWDJf2yYJoZSxTJSDSfJEnINJ8oSSg3Hawm1DMdpydC2gNqGY1gyasEIsGA0o9G9PBq44pouFQ5dqky6VPrUAgA4n4cu8KHOCAAAAABJRU5ErkJggg==";
+
 /** a scenario of the shop's mocks where the server turns a new product's name down, on its field */
 export const NAME_TAKEN = { id: "name-taken", name: "Name taken", ops: { createProduct: { status: 422, body: { type: "about:blank", title: "Unprocessable Content", status: 422, detail: "That name is taken.", errors: [{ pointer: "#/name", detail: "That name is taken" }] } } } };
 
@@ -102,6 +105,8 @@ export function boundShopDoc(lang: Lang = "en"): { doc: Doc; widths: Record<stri
     tx.run(ops.makeForm, { screen: "create", operationId: "createProduct", then: { to: "products", transition: "slide", effects: [{ do: "snackbar", message: "Added {{response.name}}" }] } });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
     tx.run(ops.makeForm, { screen: "login", operationId: "login", then: { to: "products", transition: "fade" } });
+    /* the shop's logo under the sign-in form: a picture held as data, which each app writes as a file of its own */
+    tx.run(ops.addPart, { slug: "image", id: "logo", screen: "login", at: { x: 174, y: 420 }, props: { src: SHOP_LOGO, alt: "Shop logo", width: 64, height: 64 } });
     tx.run(ops.addPart, { slug: "button", id: "add", screen: "products", at: { x: 16, y: 820 }, props: { label: "Add product" } });
     tx.run(ops.setAction, { id: "add", action: { to: "create", transition: "slide" } });
     /* the orders, which need a session; a picture of a product, uploaded with its progress (multipart/form-data) */

@@ -102,6 +102,8 @@ export type AdapterOptions = {
   fetch?: typeof fetch;
   /** waits between attempts; tests replace it */
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  /** how long a stream may send nothing before it is cut off as stalled (http.ts `IDLE_MS` when left out) */
+  idleMs?: number;
 };
 
 export const textOf = (m: AssistantMessage) =>

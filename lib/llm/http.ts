@@ -49,17 +49,56 @@ function retryAfter(h: Headers): number | undefined {
   return Number.isFinite(at) ? Math.max(0, at - Date.now()) : undefined;
 }
 
-/** POSTs a JSON body and hands back the event stream, or throws what the provider said */
+/** how long a stream may send nothing at all (no event, no keep-alive) before it is given up as stalled */
+export const IDLE_MS = 180_000;
+
+/** POSTs a JSON body and hands back the event stream, or throws what the provider said. A provider that sends nothing
+ *  for `idleMs` (the answer's headers included) is cut off with a 408, which is tried again like any busy provider
+ *  while nothing has been shown. */
 export async function postSse(opts: AdapterOptions, url: string, headers: Record<string, string>, body: unknown, signal?: AbortSignal): Promise<AsyncGenerator<SseMessage>> {
   if (!isSecureUrl(url)) throw new Error("insecure");
   const f = opts.fetch ?? globalThis.fetch;
-  const res = await f(url, { method: "POST", headers: { "content-type": "application/json", accept: "text/event-stream", ...headers }, body: JSON.stringify(body), signal });
-  if (!res.ok) {
-    const e = await readError(res);
-    throw new LlmHttpError(e.status, e.message, retryAfter(res.headers));
+  const idle = opts.idleMs ?? IDLE_MS;
+  const ac = new AbortController();
+  let stalled: LlmHttpError | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => ac.abort(signal?.reason);
+  const arm = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      stalled = new LlmHttpError(408, `408: the provider sent nothing for ${Math.round(idle / 1000)} s`);
+      ac.abort(stalled);
+    }, idle);
+  };
+  const done = () => {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", stop);
+  };
+  if (signal?.aborted) ac.abort(signal.reason);
+  else signal?.addEventListener("abort", stop, { once: true });
+  arm();
+  let res: Response;
+  try {
+    res = await f(url, { method: "POST", headers: { "content-type": "application/json", accept: "text/event-stream", ...headers }, body: JSON.stringify(body), signal: ac.signal });
+    if (!res.ok) {
+      const e = await readError(res, opts.key);
+      throw new LlmHttpError(e.status, e.message, retryAfter(res.headers));
+    }
+    if (!res.body) throw new Error("empty");
+  } catch (e) {
+    done();
+    throw stalled ?? e;
   }
-  if (!res.body) throw new Error("empty");
-  return readSse(res.body);
+  const events = readSse(res.body, arm);
+  return (async function* () {
+    try {
+      yield* events;
+    } catch (e) {
+      throw stalled ?? e;
+    } finally {
+      done();
+    }
+  })();
 }
 
 export const isAbortError = (e: unknown) => e instanceof Error && (e.name === "AbortError" || e.name === "TimeoutError");

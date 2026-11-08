@@ -10,13 +10,32 @@
  * library's files (files.ts, and the files themselves under files/). */
 
 import { fromOpenApi, type ApiSpec } from "../../api";
+import { extensionOf } from "../../mocks/files";
 import type { MockFile, MockModelConfig, MockScenario, MockSpec } from "../../mocks/types";
 import { GENERATED, jsonCode, jsonFile, sortedObject, str } from "../code";
 import { safeSegment } from "../paths";
 import { generated, type ProductContext, type ProductTarget, type Workspace } from "../types";
 
 /** the files of the editor's mock library the engine is made of, and of lib/api what they read */
-export const MOCK_ENGINE_FILES = ["types", "rng", "bytes", "locales", "hints", "pattern", "shape", "generate", "data", "files", "routes", "check", "clock", "realtime", "transport"].map((n) => `lib/mocks/${n}.ts`);
+export const MOCK_ENGINE_FILES = [
+  "types",
+  "rng",
+  "bytes",
+  "locales",
+  "hints",
+  "pattern",
+  "shape",
+  "generate",
+  "data",
+  "files",
+  "routes",
+  "check",
+  "clock",
+  "realtime",
+  "transport",
+  /* the file formats the generator and the transport make (lib/mocks/formats) */
+  ...["table", "content", "deflate", "huffman", "zip", "raster", "codecs", "svg", "pdf", "media", "clips", "text", "office", "mesh", "index"].map((n) => `formats/${n}`),
+].map((n) => `lib/mocks/${n}.ts`);
 export const MOCK_ENGINE_API_FILES = ["types", "schema", "transport"].map((n) => `lib/api/${n}.ts`);
 
 const ROUTES = (scope: string) => `${GENERATED}
@@ -191,8 +210,11 @@ export function mswHandlers(options: MockOptions & { baseUrl?: string } = {}): (
         body,
       })
       if (out.status === 0) return HttpResponse.error()
+      /* a file goes as its bytes, with the type and the name the transport gave it (Content-Type, Content-Disposition) */
       if (isFile(out.body)) return new HttpResponse(fromBase64(out.body.dataUrl.slice(out.body.dataUrl.indexOf(",") + 1)), { status: out.status, headers: out.headers })
       if (out.body === undefined || out.status === 204 || out.status === 304) return new HttpResponse(null, { status: out.status, headers: out.headers })
+      /* text the operation answers with (text/plain) goes as it is, under its own type */
+      if (typeof out.body === "string" && !/json/i.test(out.headers["content-type"] ?? "")) return new HttpResponse(out.body, { status: out.status, headers: out.headers })
       return HttpResponse.json(out.body, { status: out.status, headers: out.headers })
     }),
   ]
@@ -326,7 +348,6 @@ export function specOf(ctx: ProductContext): ApiSpec {
   }
 }
 
-const extOf = (type: string) => ({ "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "image/svg+xml": "svg", "application/pdf": "pdf", "audio/wav": "wav", "audio/mpeg": "mp3", "audio/ogg": "ogg", "video/mp4": "mp4", "video/webm": "webm" })[type] ?? "bin";
 
 /** a file's bytes from its data URL; null when it holds none (a reference the editor could not resolve) */
 function bytesOf(f: MockFile): Uint8Array | null {
@@ -369,7 +390,7 @@ export const mocksTarget: ProductTarget = {
     const collections = (ctx.doc.collections ?? []).filter((c) => c.model);
     /* the files with their bytes beside them; one that has none (an unresolved reference) is left out */
     const kept = files.filter((f) => bytesOf(f) !== null);
-    const fileNames = new Map(kept.map((f, i) => [f.id, `${safeSegment(f.id, `file-${i + 1}`)}.${extOf(f.type)}`]));
+    const fileNames = new Map(kept.map((f, i) => [f.id, `${safeSegment(f.id, `file-${i + 1}`)}.${extensionOf(f.type)}`]));
     const engine: Record<string, ReturnType<typeof generated>> = {};
     for (const path of [...MOCK_ENGINE_FILES, ...MOCK_ENGINE_API_FILES]) engine[`src/engine/${path.slice(4)}`] = generated(await ctx.read(path));
     const assets: Record<string, ReturnType<typeof generated>> = {};
@@ -438,7 +459,7 @@ export type ScenarioName = ${scenarioType(scenarios)}
         "src/generated/files.ts": generated(`${GENERATED}
 import type { MockFile } from "../engine/mocks/types"
 
-/** the design's mock files (pictures, PDFs, sounds, clips), as data URLs so they work without a file loader; the same
+/** the design's mock files (pictures, documents, tables, archives, sounds, clips, 3D models), as data URLs so they work without a file loader; the same
  *  files are in packages/mocks/files */
 export const FILES: MockFile[] = ${jsonCode(kept.map((f) => ({ ...f, name: f.name })))}
 `),

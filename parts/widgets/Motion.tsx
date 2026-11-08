@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Look } from "./look";
 import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
+import { prefersReducedMotion } from "@/components/m3e/reduced-motion";
 import { Chip } from "@/components/m3e/chip";
 import { LoadingIndicator } from "@/components/m3e/loading-indicator";
 import { Progress } from "@/components/m3e/progress";
@@ -12,7 +13,7 @@ import { WidgetIcon } from "./WidgetIcon";
  * number ticker, overflow marquee and refresh trigger, the web components' slide group and swipe reveal,
  * and Android's chronometer. */
 
-const still = (el: Element | null) => !!el?.closest("[inert]") || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+const still = (el: Element | null) => !!el?.closest("[inert]") || prefersReducedMotion();
 
 /** seconds as a clock */
 const clock = (seconds: number) => {

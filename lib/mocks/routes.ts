@@ -37,6 +37,8 @@ export type Route = {
   /** the successful answer: its status and its body */
   status: number;
   success?: Media;
+  /** every media type the successful answer comes in (its content's keys), the JSON one first when there is one */
+  types: string[];
   body?: Media;
   /** the field of the answer that holds the list, and how it pages */
   pagination?: Required<ApiPagination> | { style: "page"; items: string; pageParam: string; limitParam: string; totalField?: string };
@@ -53,6 +55,14 @@ export function mediaOf(api: ApiSpec, v: unknown): Media | undefined {
   const entries = Object.entries(target.content as Record<string, unknown>);
   const [type, media] = entries.find(([t]) => isJson(t)) ?? entries[0] ?? [];
   return type ? { type, schema: isRecord(media) ? (media.schema as JsonSchema | undefined) : undefined } : undefined;
+}
+
+/** the media types a response comes in, references followed: the JSON one first, then the rest as written */
+export function mediaTypesOf(api: ApiSpec, v: unknown): string[] {
+  const target = isRecord(v) && typeof v.$ref === "string" ? resolvePointer(pointerRoot(api), v.$ref) : v;
+  if (!isRecord(target) || !isRecord(target.content)) return [];
+  const all = Object.keys(target.content as Record<string, unknown>);
+  return [...all.filter(isJson), ...all.filter((t) => !isJson(t))];
 }
 
 /** the parameters of an endpoint, references followed */
@@ -209,6 +219,7 @@ export function compileRoutes(api: ApiSpec, spec: MockSpec = {}): Route[] {
       collection,
       status: ok && /^\d{3}$/.test(ok) ? Number(ok) : e.method === "post" ? 201 : 200,
       success,
+      types: ok ? mediaTypesOf(api, e.responses[ok]) : [],
       body,
       pagination,
       parameters,

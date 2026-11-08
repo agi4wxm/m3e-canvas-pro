@@ -1,8 +1,32 @@
 /* The editor's keyboard: undo and redo, copy, cut, paste and duplicate, select all, group, Figma's layout keys,
- * delete, nudges, layer steps, going into and out of boxes and along siblings, the tools and the zoom. What is typed into a field is the field's, and a dialog, the
- * preview or the prompt's full-screen cover own the keyboard while they are up. */
+ * delete, nudges, layer steps, going into and out of boxes and along siblings, the tools and the zoom. What is typed into a field is the field's, a key a
+ * control has answered (or one with keys of its own has the focus) and a key in the middle of a composition are not the canvas's, Escape is the topmost
+ * open layer's (components/layers.ts), and a dialog, the preview or the prompt's full-screen cover own the keyboard while they are up. */
 
 import { useEffect, useRef } from "react";
+import { modalOpen } from "@/components/layers";
+
+/** Focused controls that move with keys of their own: a button that opens a list (a select), a slider, a list of
+ *  options, a menu, a run of radios, tabs, a grid. Their arrows, Home, End and the page keys are theirs; every other
+ *  key (Delete, a tool's letter, P for the preview) still reaches the canvas past them, as past any button. */
+const OWN_KEYS = "[aria-haspopup=listbox], [role=slider], [role=spinbutton], [role=listbox], [role=option], [role=menu], [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], [role=radiogroup], [role=radio], [role=tablist], [role=tab], [role=combobox], [role=grid], [data-own-keys]";
+const MOVES = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"]);
+
+type KeyLike = Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "defaultPrevented" | "isComposing"> & { target: EventTarget | null };
+
+/** Whether a key is not the canvas's to answer: something on the page has answered it already, an IME is composing,
+ *  a text field (or a native select, which takes letters to find an option) has the focus, a control that moves with
+ *  the arrows has it and this is one of its keys, or a dialog that asks something is up. */
+export function keyIsNotOurs(e: KeyLike): boolean {
+  if (e.defaultPrevented) return true;
+  /* a key pressed while an IME composes (Chrome names it "Process") belongs to the composition */
+  if (e.isComposing || e.key === "Process") return true;
+  if (modalOpen()) return true;
+  const t = e.target as HTMLElement | null;
+  if (!t || typeof t.closest !== "function") return false;
+  if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable) return true;
+  return MOVES.has(e.key) && !(e.ctrlKey || e.metaKey) && !!t.closest(OWN_KEYS);
+}
 
 export type ShortcutInputs = {
   /** this tab may edit the document */
@@ -63,8 +87,8 @@ export function useShortcuts(inputs: ShortcutInputs) {
       if (e.key === "Tab") tabbedRef.current = true;
       if (!k.editable) return;
       const t = e.target as HTMLElement;
-      const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
-      if (typing) return;
+      /* what is typed into a field is the field's, a focused select's or slider's keys are its own, and so on */
+      if (keyIsNotOurs(e)) return;
       // dialogs, the preview and the prompt's full-screen cover own the keyboard while they are up
       if (k.blocked) return;
       const mod = e.ctrlKey || e.metaKey;

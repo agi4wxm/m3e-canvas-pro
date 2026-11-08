@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Look } from "./look";
 import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
+import { prefersReducedMotion } from "@/components/m3e/reduced-motion";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 
@@ -10,7 +11,7 @@ import { WidgetIcon } from "./WidgetIcon";
  * the board knows only taking turns and N in a row. */
 
 const isInert = (el: Element | null) => !el || !!el.closest("[inert]");
-const calm = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const calm = prefersReducedMotion;
 
 export function SkillButton({ icon = "bolt", label = "", cooldown = 5, size = 72, className, style }: { icon?: string; label?: string; cooldown?: number; size?: number } & Look) {
   const [left, setLeft] = useState(0);

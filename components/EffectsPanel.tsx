@@ -116,7 +116,7 @@ function ValueField({ type, value, onChange, p }: { type: VarType; value: VarVal
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>{t("effectValue", lang)}</span>
-        <Num value={n} min={-99999} max={99999} title={t("effectValue", lang)} onChange={onChange} p={p} />
+        <Num value={n} min={-99999} max={99999} step="any" title={t("effectValue", lang)} onChange={onChange} p={p} />
       </div>
     );
   }
@@ -133,7 +133,7 @@ function PropValueField({ def, value, onChange, p }: { def: PropDef; value: VarV
       return (
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>{t("effectValue", lang)}</span>
-          <Num value={typeof value === "number" ? value : def.default} min={def.min} max={def.max} title={labelOf(def, lang)} onChange={onChange} p={p} />
+          <Num value={typeof value === "number" ? value : def.default} min={def.min} max={def.max} step={def.step ?? 1} title={labelOf(def, lang)} onChange={onChange} p={p} />
         </div>
       );
     case "enum":
@@ -284,7 +284,7 @@ function EffectRow({ effect, index, onChange, onRemove, onUp, p, depth = 0 }: { 
           <VarSelect value={effect.var} onPick={(v) => onChange({ ...effect, var: v.id })} p={p} />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant }}>{t("effectBy", lang)}</span>
-            <Num value={effect.by} min={-99999} max={99999} title={t("effectBy", lang)} onChange={(by) => onChange({ ...effect, by })} p={p} />
+            <Num value={effect.by} min={-99999} max={99999} step="any" title={t("effectBy", lang)} onChange={(by) => onChange({ ...effect, by })} p={p} />
           </div>
         </>
       );

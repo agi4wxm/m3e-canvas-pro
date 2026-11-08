@@ -8,6 +8,7 @@ export const EXPORT_SOURCE_GLOBS = [
   "/lib/m3e/*.ts",
   "/lib/screenMotion.ts",
   "/lib/mocks/*.ts",
+  "/lib/mocks/formats/*.ts",
   "/lib/bindings/{expr,format,messages,rules,sources,form}.ts",
   "/lib/app/*.ts",
   "/lib/api/types.ts",

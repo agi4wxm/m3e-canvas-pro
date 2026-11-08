@@ -7,6 +7,7 @@ import { readFile } from "node:fs/promises";
 import { parse } from "@babel/parser";
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildProject } from "../exportProject";
+import { systemsDoc } from "../exportProject.fixture";
 import { setGlobalLang } from "../i18n";
 import type { Doc } from "../tokens";
 import { buildProduct } from "./product";
@@ -104,6 +105,20 @@ describe("the web app of a document bound to its contract", () => {
     expect(web(shop, "router.ts")).toContain("navigate(asked.screen, asked.params");
     expect(text(shop, "apps/web/package.json")).toContain('"@shop/app-runtime": "0.1.0"');
   });
+
+  it("starts where the runtime does: the first flow's screen, which need not be the first screen", async () => {
+    /* the systems document's first screen (Intro) starts no flow; Home starts the first, Main */
+    const p = await build(systemsDoc().doc);
+    const routes = web(p, "routes.ts");
+    const runtime = web(p, "runtime.tsx");
+    const first = /^export const FLOWS = \{\n {2}\w+: \{ name: "Main", screen: "(\w+)" \},$/m.exec(runtime)?.[1];
+    expect(first).toBe("home");
+    expect(routes).toContain(`export const START: ScreenId = "${first}"`);
+    expect(routes).toContain('  home: "/home",');
+    expect(/^export type ScreenId = "intro" \| /m.test(runtime)).toBe(true);
+    /* without a flow, the first screen */
+    expect(web(shop, "routes.ts")).toContain('export const START: ScreenId = "products"');
+  }, 60_000);
 
   it("starts the mocks signed in as their session does, a scenario chosen by the address, never in a production build", () => {
     const mocks = web(shop, "mocks.ts");

@@ -114,6 +114,34 @@ describe("the operations", () => {
     expect(s.get().doc.groups[0].items[0].bind).toBeUndefined();
   });
 
+  it("hands the dark mode to another variable without losing the first one's collection and mode values", () => {
+    const s = store();
+    const { modes } = s.run(ops.addVarCollection, { id: "t", name: "Theme", modes: ["Light", "Dark"] }, ai);
+    s.run(ops.addVar, { id: "night", name: "night", type: "bool", value: false, drives: "dark", collection: "t", values: { Dark: true } }, ai);
+    const was = s.get().doc.vars![0];
+    expect(was).toEqual({ id: "night", name: "night", type: "bool", value: false, drives: "dark", collection: "t", modes: { [modes[1]]: true } });
+    /* a new variable takes it over: the old one only stops driving it */
+    s.run(ops.addVar, { id: "dim", name: "dim", type: "bool", value: false, drives: "dark" }, ai);
+    const { drives: _drives, ...rest } = was;
+    expect(s.get().doc.vars![0]).toEqual(rest);
+    /* and so does one that is changed to drive it */
+    const { drives: _was, ...dim } = s.get().doc.vars!.find((v) => v.id === "dim")!;
+    s.run(ops.addVar, { id: "late", name: "late", type: "bool", value: true, collection: "t", values: { Dark: false } }, ai);
+    s.run(ops.updateVar, { id: "late", drives: "dark" }, ai);
+    expect(s.get().doc.vars!.find((v) => v.id === "dim")).toEqual(dim);
+    expect(s.get().doc.vars!.find((v) => v.id === "late")).toEqual({ id: "late", name: "late", type: "bool", value: true, drives: "dark", collection: "t", modes: { [modes[1]]: false } });
+  });
+
+  it("reads a file with two dark-mode variables as one, the other keeping its collection and mode values", () => {
+    const night: DocVar = { id: "night", name: "night", type: "bool", value: false, drives: "dark", collection: "theme", modes: { dark: true } };
+    const dim: DocVar = { id: "dim", name: "dim", type: "bool", value: true, drives: "dark", collection: "theme", modes: { dark: false } };
+    const back = openProject(JSON.parse(JSON.stringify(projectFile(docOf({ vars: [night, dim] })))))!;
+    const { drives: _drives, ...dimRest } = dim;
+    expect(back.vars).toEqual([night, dimRest]);
+    /* read again, it stays as it is */
+    expect(openProject(JSON.parse(JSON.stringify(projectFile(back))))!.vars).toEqual(back.vars);
+  });
+
   it("reads a file back with its collections and modes, and an old one as it was", () => {
     const doc = docOf({ varModes: { theme: "dark" }, frames: [{ id: "f", name: "Home", x: 0, y: 0, varModes: { theme: "light" } }] });
     const back = openProject(JSON.parse(JSON.stringify(projectFile(doc))))!;

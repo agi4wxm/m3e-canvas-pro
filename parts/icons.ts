@@ -68,6 +68,9 @@ const isDoc = (name: string) => name.startsWith(DOC_ICON_PREFIX);
 
 const base = (name: string) => name.replaceAll("_", "-");
 const rounded = (name: string) => [`material-symbols:${base(name)}-outline-rounded`, `material-symbols:${base(name)}-rounded`];
+/* Both glyphs, outlined and filled: a part draws either, and the components' own icons (icon-data.ts) carry only
+ * some names' filled glyph -- a name with one of the two is still to be fetched, from its shard or Iconify. */
+const whole = (name: string) => rounded(name).every(isKnownIcon);
 /** the glyphs a name is drawn with now, outlined and filled: the family's once they are here, else Rounded's once they are, else none */
 const drawnWith = (name: string) => (isDoc(name) ? `doc:${hashOf(docDrawn[name.slice(DOC_ICON_PREFIX.length)] ?? "")}` : [false, true].map((filled) => familyGlyph(name, filled) ?? (isKnownIcon(rounded(name)[filled ? 1 : 0]) ? "r" : "")).join("|"));
 /** a short hash of a drawing, so a tree draws again when one of its document icons is drawn anew */
@@ -101,14 +104,48 @@ async function fromIconify(names: string[]) {
   }
 }
 
+/* A name still not drawn once its shard was asked for (the chunk did not come: offline, or a new deploy replaced the
+ * chunks) is asked for again: by the next draw that names it, and on its own a few times, further apart each time, and
+ * when the browser is back online. A shard that came is never fetched twice (components/m3e/icon-sets/load.ts). */
+const RETRY_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 32_000];
+let retries = 0;
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
+let retrying = new Set<string>();
+
+function retryNow() {
+  if (retryTimer !== undefined) clearTimeout(retryTimer);
+  retryTimer = undefined;
+  const again = retrying;
+  retrying = new Set();
+  ensureIcons(again);
+}
+
+function retryLater(names: string[], drawn: IconFamily) {
+  for (const n of names) {
+    asked.delete(`${drawn}:${base(n)}`);
+    retrying.add(n);
+  }
+  if (retryTimer !== undefined || retries >= RETRY_MS.length) return;
+  retryTimer = setTimeout(retryNow, RETRY_MS[retries++]);
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function")
+  window.addEventListener("online", () => {
+    retries = 0;
+    if (retrying.size) retryNow();
+  });
+
 async function flush() {
   const names = [...pending];
   pending.clear();
   const drawn = family;
   if (await loadIcons(drawn, names)) changed();
-  const missing = names.filter((n) => !fetched.has(n) && !rounded(n).some(isKnownIcon));
+  const missing = names.filter((n) => !fetched.has(n) && !whole(n));
   missing.forEach((n) => fetched.add(n));
   if (missing.length) await fromIconify(missing);
+  const undrawn = names.filter((n) => !whole(n));
+  if (undrawn.length) retryLater(undrawn, drawn);
+  else retries = 0;
 }
 
 /** load the icons a part uses, in the current family; the ones already loaded are skipped */

@@ -3,9 +3,11 @@
  * get answers that look real. Within one session it remembers: what is made with POST is there on the next GET,
  * PATCH changes it, DELETE takes it away. Lists page the way their endpoint says (cursor, offset, page), filter by
  * their query parameters, search and sort. Requests are checked against the contract (400 problem+json, a pointer
- * per field), files can be uploaded and downloaded, secured endpoints want a token the sign-in endpoint gave (and
- * that expires, so refreshing can be tried), and a scenario can make anything slow, empty or failing. Every call is
- * logged. It never throws: whatever goes wrong is an answer (status 0 is a network failure).
+ * per field), files can be uploaded and downloaded (a download is a real file of the type the operation says, or the
+ * request's Accept picks among those it offers: a CSV or an XLSX of a list, a PDF of a record), secured endpoints
+ * want a token the sign-in endpoint gave (and that expires, so refreshing can be tried), and a scenario can make
+ * anything slow, empty or failing. Every call is logged. It never throws: whatever goes wrong is an answer (status 0
+ * is a network failure).
  *
  * docs/模拟库.md describes what each endpoint does; lib/mocks/routes.ts reads that from the contract. */
 
@@ -16,8 +18,10 @@ import { dataUrlSize, fromBase64, toBase64, utf8 } from "./bytes";
 import { checkValue, isFileValue, paramValue, type FieldError } from "./check";
 import { realClock, type MockClock } from "./clock";
 import { clone, MockData, modelShape, type MockSource } from "./data";
-import { inferHint } from "./hints";
-import { extensionOf, placeholderFile } from "./files";
+import { inferHint, wordsOf } from "./hints";
+import { bareType, contentDisposition, contentTypeOf, extensionOf, formatOf, kindOfType, typeOfName } from "./files";
+import { mockFile } from "./formats";
+import { titleOfRecord } from "./formats/content";
 import { Realtime, type MockConnection, type MockMessage } from "./realtime";
 import { base36Of, rngOf, uuidOf } from "./rng";
 import { compileRoutes, matchRoute, type Route } from "./routes";
@@ -106,6 +110,41 @@ const WORDS: Record<MockLocale, Record<"notFound" | "noRoute" | "method" | "unau
 const REASON: Record<number, string> = { 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 405: "Method Not Allowed", 409: "Conflict", 413: "Content Too Large", 415: "Unsupported Media Type", 422: "Unprocessable Content", 429: "Too Many Requests", 500: "Internal Server Error", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout" };
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}): TransportResponse => ({ status, headers: body === undefined ? headers : { "content-type": "application/json", ...headers }, body });
+
+const isJsonType = (type: string) => /^application\/(?:[\w.-]+\+)?json\b/i.test(type) || type === "*/*";
+
+/** The media type a request's Accept header prefers among those an operation offers: each offered type takes the
+ *  quality of the most specific range that matches it (RFC 9110 12.5.1), the first offered wins a tie. Undefined
+ *  when the header accepts none of them. */
+export function negotiate(accept: string | undefined, offered: readonly string[]): string | undefined {
+  if (!offered.length) return undefined;
+  if (!accept?.trim()) return offered[0];
+  const ranges = accept.split(",").flatMap((part) => {
+    const [range, ...params] = part.split(";").map((x) => x.trim().toLowerCase());
+    const q = params.find((x) => x.startsWith("q="));
+    const quality = q ? Number(q.slice(2)) : 1;
+    return range && Number.isFinite(quality) ? [{ range, q: quality }] : [];
+  });
+  let best: string | undefined;
+  let bestQ = 0;
+  for (const type of offered) {
+    const t = bareType(type);
+    let q = -1;
+    let spec = -1;
+    for (const r of ranges) {
+      const s = r.range === t ? 2 : r.range.endsWith("/*") && t.startsWith(r.range.slice(0, -1)) ? 1 : r.range === "*/*" ? 0 : -1;
+      if (s > spec) {
+        spec = s;
+        q = r.q;
+      }
+    }
+    if (q > bestQ) {
+      best = type;
+      bestQ = q;
+    }
+  }
+  return best;
+}
 
 function problem(status: number, detail: string, extra: Record<string, unknown> = {}, headers: Record<string, string> = {}): TransportResponse {
   return { status, headers: { "content-type": "application/problem+json", ...headers }, body: { type: "about:blank", title: REASON[status] ?? (status >= 500 ? "Server Error" : "Error"), status, detail, ...extra } };
@@ -513,7 +552,7 @@ export function createMockTransport(source: MockSource, options: MockOptions = {
       const f = session.uploads.get(id) ?? spec.files?.find((x) => x.id === id);
       if (!f) return { response: problem(404, words.notFound), latency: 0 };
       const file: TransportFile = { name: f.name, type: f.type, dataUrl: f.data, size: dataUrlSize(f.data) };
-      return { response: { status: 200, headers: { "content-type": f.type, "content-disposition": `attachment; filename="${encodeURIComponent(f.name)}"` }, body: method === "HEAD" ? undefined : file }, latency: 0 };
+      return { response: { status: 200, headers: { "content-type": contentTypeOf(f.type), "content-disposition": contentDisposition(f.name, true) }, body: method === "HEAD" ? undefined : file }, latency: 0 };
     }
 
     const match = matchRoute(routes, method, path, req.operationId);
@@ -577,7 +616,17 @@ export function createMockTransport(source: MockSource, options: MockOptions = {
     const kept: { url: string; name: string }[] = [];
     const body = withFiles(req.body, kept);
     const status = typeof step.status === "number" ? step.status : route.status;
-    const withBody = (v: unknown, note?: string) => done(step.body !== undefined ? json(status, clone(step.body)) : route.success ? json(status, v) : { status: status === 200 && route.method === "DELETE" ? 204 : status, headers: {}, body: undefined }, note);
+    /* a GET whose answer also comes in another type (a list as CSV or XLSX) answers in the one the request prefers */
+    const offered = route.types.filter((t) => t !== "*/*");
+    const wanted = route.method === "GET" ? negotiate(header(req, "accept"), offered) : undefined;
+    const asFile = wanted && !isJsonType(wanted) && route.success && isJsonType(route.success.type) ? wanted : undefined;
+    const answerOf = (v: unknown): TransportResponse => {
+      if (asFile) return fileAnswer(route, path, status, asFile, v);
+      /* text the operation answers with (text/plain) goes as text, under its own type */
+      if (route.success && !isJsonType(route.success.type)) return { status, headers: { "content-type": contentTypeOf(route.success.type) }, body: typeof v === "string" ? v : JSON.stringify(v) };
+      return json(status, v);
+    };
+    const withBody = (v: unknown, note?: string) => done(step.body !== undefined ? json(status, clone(step.body)) : route.success ? answerOf(v) : { status: status === 200 && route.method === "DELETE" ? 204 : status, headers: {}, body: undefined }, note);
 
     switch (route.kind) {
       case "list": {
@@ -688,13 +737,19 @@ export function createMockTransport(source: MockSource, options: MockOptions = {
         return withBody(out, `${urls.length} file${urls.length === 1 ? "" : "s"}`);
       }
       case "download": {
-        const type = route.success?.type && route.success.type !== "*/*" ? route.success.type : "application/octet-stream";
-        const kind = type === "application/pdf" ? "pdf" : type.startsWith("image/") ? "image" : type.startsWith("audio/") ? "audio" : type.startsWith("video/") ? "video" : "file";
-        const fromLibrary = spec.files?.find((f) => f.type === type) ?? spec.files?.find((f) => f.type.split("/")[0] === type.split("/")[0] && type !== "application/octet-stream");
-        const title = Object.values(params).join(" ") || route.operationId;
-        const f = fromLibrary ?? placeholderFile(kind, { seed: `${seed}:${route.operationId}:${path}`, title });
+        /* the record the file is of (/invoices/{id}/pdf, /files/{id}), or the list it is an export of (/orders/export) */
+        const owner = routes.find((r) => r.kind === "get" && r.model && route.path.startsWith(`${r.path}/`)) ?? (route.idParam ? routes.find((r) => r.kind === "list" && r.model && r.path === route.collection) : undefined);
+        let record: Record<string, unknown> | undefined;
+        if (owner?.model && owner.idField) {
+          const id = owner.kind === "get" && owner.idParam ? params[owner.idParam] : route.idParam ? params[route.idParam] : undefined;
+          record = id === undefined ? undefined : store(owner.model).find((r) => String(r[owner.idField!]) === id);
+          if (id !== undefined && !record) return done(problem(404, words.notFound), "not found");
+        }
+        const lister = record ? undefined : routes.filter((r) => r.kind === "list" && r.model && route.path.startsWith(`${r.path}/`)).sort((a, b) => b.path.length - a.path.length)[0];
+        const rows = lister ? store(lister.model!).slice(0, 1000) : undefined;
+        const f = fileOf(route, req, path, params, record, rows, lister?.model ?? owner?.model);
         const file: TransportFile = { name: f.name, type: f.type, dataUrl: f.data, size: dataUrlSize(f.data) };
-        return done({ status: 200, headers: { "content-type": f.type, "content-disposition": `attachment; filename="${encodeURIComponent(f.name)}"` }, body: file }, f.name);
+        return done({ status: 200, headers: { "content-type": contentTypeOf(f.type), "content-disposition": contentDisposition(f.name) }, body: method === "HEAD" ? undefined : file }, f.name);
       }
       case "login": {
         const accept = spec.auth?.accept;
@@ -755,6 +810,37 @@ export function createMockTransport(source: MockSource, options: MockOptions = {
         return withBody(out);
       }
     }
+  }
+
+  /** The file a download answers with: of the type the request accepts among those the operation offers; for one
+   *  that says only "bytes", the type the record's file name or media type names, else the operation's words
+   *  (exportCsv); the library's file of that type when it has one, else one made from the record or the rows, as
+   *  small as the response's schema allows. */
+  function fileOf(route: Route, req: TransportRequest, path: string, params: Record<string, string>, record: Record<string, unknown> | undefined, rows: Record<string, unknown>[] | undefined, model: string | undefined): MockFile {
+    const offered = route.types.filter((t) => t !== "*/*");
+    let type = negotiate(header(req, "accept"), offered) ?? offered[0];
+    const text = (v: unknown) => (typeof v === "string" ? v : "");
+    const fileName = record ? [record.fileName, record.filename, record.file_name, record.name].map(text).find((v) => typeOfName(v)) : undefined;
+    if (!type || type === "application/octet-stream" || !formatOf(type)) {
+      const named = (fileName ? typeOfName(fileName) : undefined) ?? (record ? [record.mimeType, record.contentType, record.mediaType, record.mime].map(text).find((v) => formatOf(v)) : undefined) ?? wordsOf(`${route.operationId} ${route.path.replace(/[{}]/g, "")}`).map((w) => formatOf(w)).find((f) => f && f.family !== "file")?.type;
+      if (named && (!type || type === "application/octet-stream" || kindOfType(named) === kindOfType(type))) type = named;
+    }
+    type ??= "application/octet-stream";
+    const fromLibrary = spec.files?.find((f) => bareType(f.type) === bareType(type!)) ?? (kindOfType(type) !== "file" ? spec.files?.find((f) => kindOfType(f.type) === kindOfType(type!)) : undefined);
+    if (fromLibrary) return fromLibrary;
+    const schema = route.success?.schema;
+    const maxBytes = isRecord(schema) && typeof (schema as JsonSchemaObject).maxLength === "number" ? (schema as JsonSchemaObject).maxLength : undefined;
+    const title = titleOfRecord(record) ?? (Object.values(params).join(" ") || route.operationId);
+    return mockFile(type, { seed: `${seed}:${route.operationId}:${path}`, title, record, rows, model, locale, name: fileName && formatOf(typeOfName(fileName)) === formatOf(type) ? fileName : undefined, maxBytes });
+  }
+
+  /** an answer in another type than JSON, made from what the JSON answer would have been: a list's rows, a record */
+  function fileAnswer(route: Route, path: string, status: number, type: string, v: unknown): TransportResponse {
+    const listed = isRecord(v) ? Object.values(v).find((x) => Array.isArray(x) && x.length > 0 && x.every(isRecord)) : undefined;
+    const rows = Array.isArray(v) ? v.filter(isRecord) : (listed as Record<string, unknown>[] | undefined);
+    const record = !rows && isRecord(v) ? v : undefined;
+    const f = mockFile(type, { seed: `${seed}:${route.operationId}:${path}:${type}`, title: titleOfRecord(record) ?? route.endpoint.summary ?? route.operationId, rows, record, model: route.model, locale });
+    return { status, headers: { "content-type": contentTypeOf(f.type), "content-disposition": contentDisposition(f.name) }, body: { name: f.name, type: f.type, dataUrl: f.data, size: dataUrlSize(f.data) } satisfies TransportFile };
   }
 
   /** a value with its lists emptied: an empty result of an action */

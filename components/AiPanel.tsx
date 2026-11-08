@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { Palette } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
 import { AiHttpError, AiSettings, IMAGE_PROVIDERS, ImageProvider, PROVIDERS, Provider, imageSpec, providerSpec } from "@/lib/ai";
+import { Toggle } from "./ui";
 
 /** the message shown for a failed request, mapped from the error codes lib/ai throws */
 export function aiErrorText(e: unknown, lang: ReturnType<typeof useLang>): string {
@@ -166,7 +167,10 @@ export function AiPanel({ p, settings, onSettings }: { p: Palette; settings: AiS
               {t("aiKey", lang)}
             </Label>
             <Input label={t("aiKey", lang)} value={settings.key} onChange={(key) => onSettings({ ...settings, key })} placeholder="sk-…" p={p} type="password" />
-            <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, marginTop: 8, padding: "0 4px" }}>{t("aiKeyHint", lang)}</div>
+            <div style={{ marginTop: 10, padding: "0 4px" }} data-ai-remember>
+              <Toggle p={p} grow on={!!settings.rememberKey} onChange={(rememberKey) => onSettings({ ...settings, rememberKey })} label={t("aiRememberKeys", lang)} />
+            </div>
+            <div style={{ fontSize: 12, lineHeight: 1.5, color: p.onSurfaceVariant, marginTop: 8, padding: "0 4px" }}>{t(settings.rememberKey ? "aiKeyRememberedHint" : "aiKeySessionHint", lang)}</div>
           </div>
         </div>
         <div data-image-settings style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 24 }}>

@@ -2,16 +2,22 @@
  * server's file backend, which has no editor open. Headless Chromium loads it from the app build the server serves
  * and calls two functions on the page:
  *
- *   m3eMeasure({doc, lang})                 the sizes the parts come out at, as the canvas measures them
- *   m3eRender({doc, widths, id, scale, lang})  a PNG of a screen (or a part cut out of its screen) as a data URL, with
- *                                            the addresses of pictures that would not draw and were left out
+ *   m3eMeasure({doc, lang, outside})                 the sizes the parts come out at, as the canvas measures them
+ *   m3eRender({doc, widths, id, scale, lang, outside})  a PNG of a screen (or a part cut out of its screen) as a data
+ *                                                     URL, with the addresses of pictures that would not draw and were
+ *                                                     left out, and of those held back
  *
- * Both take the document as the store holds it (the canvas as shown), with the theme always present. */
+ * Both take the document as the store holds it (the canvas as shown), with the theme always present. `outside: false`
+ * holds back what the document would load from other sites, as the editor does for a project from elsewhere
+ * (lib/outside.ts): the parts draw their placeholder, and the addresses come back as `blocked`. The server decides it,
+ * and its browser refuses those addresses as well. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CoreState } from "@/lib/core";
 import { canvasView } from "@/lib/expand";
 import { LangContext, setGlobalLang, type Lang } from "@/lib/i18n";
+import { outsideInDoc } from "@/lib/outside";
+import { setOutsideBlocked } from "@/lib/outsidePolicy";
 import { setDocStyles } from "@/lib/styles";
 import { setDocIcons } from "./docIcons";
 import { fontFamilyOf, frameOfGroup, frameSizeOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Doc, type Item } from "@/lib/tokens";
@@ -22,9 +28,10 @@ import { firstBaseline } from "./model";
 import { capture, layerDrawn, shotTarget, ShotLayer, themeFacesLoaded } from "./screenShot";
 
 type Widths = Record<string, number>;
-export type MeasureJob = { doc: CoreState["doc"]; lang: Lang };
-export type RenderJob = { doc: CoreState["doc"]; widths: Widths; id: string; scale?: number; lang: Lang };
-export type RenderOut = { png: string; skipped: string[] };
+/** `outside`: whether pictures and pages at outside addresses may load (absent: as they always did) */
+export type MeasureJob = { doc: CoreState["doc"]; lang: Lang; outside?: boolean };
+export type RenderJob = { doc: CoreState["doc"]; widths: Widths; id: string; scale?: number; lang: Lang; outside?: boolean };
+export type RenderOut = { png: string; skipped: string[]; blocked: string[] };
 
 declare global {
   interface Window {
@@ -57,6 +64,8 @@ export function RenderPage() {
 
   useEffect(() => {
     const take = (w: Work) => {
+      /* one server's policy for every job it sends; set before the parts are drawn for it */
+      if (typeof w.job.outside === "boolean") setOutsideBlocked(!w.job.outside);
       queue.current.push(w);
       setWork((cur) => cur ?? queue.current.shift() ?? null);
     };
@@ -107,7 +116,7 @@ export function RenderPage() {
           if (!target) throw new Error(`There is no screen or part ${JSON.stringify(work.job.id)} to draw.`);
           const skipped: string[] = [];
           const png = await capture(layer.current!, target.frame, work.job.scale ?? 1, target.crop, undefined, undefined, skipped);
-          work.done({ png, skipped });
+          work.done({ png, skipped, blocked: work.job.outside === false ? outsideInDoc(doc) : [] });
         }
       } catch (e) {
         work.fail(e instanceof Error ? e.message : String(e));

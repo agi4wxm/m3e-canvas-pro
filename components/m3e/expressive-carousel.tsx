@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "@/lib/m3e/cn"
+import { prefersReducedMotion } from "@/components/m3e/reduced-motion"
 
 /*
  * M3 Expressive carousel (m3.material.io/components/carousel).
@@ -178,14 +179,14 @@ function ExpressiveCarousel({
           if (e.key === "ArrowRight")
             el.scrollBy({
               left: step,
-              behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+              behavior: prefersReducedMotion()
                 ? "auto"
                 : "smooth",
             })
           else if (e.key === "ArrowLeft")
             el.scrollBy({
               left: -step,
-              behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+              behavior: prefersReducedMotion()
                 ? "auto"
                 : "smooth",
             })

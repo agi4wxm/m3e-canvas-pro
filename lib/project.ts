@@ -157,7 +157,12 @@ const cleanBind = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.e
 /** one variable at most is the dark mode: the first that says so */
 function onlyOneDark(vars: DocVar[]): DocVar[] {
   const first = vars.findIndex((v) => v.drives === "dark");
-  return vars.map((v, i) => (v.drives && i !== first ? { id: v.id, name: v.name, type: v.type, value: v.value } : v));
+  /* only the flag goes: the others keep their collection and their values in its modes */
+  return vars.map((v, i) => {
+    if (!v.drives || i === first) return v;
+    const { drives: _drives, ...rest } = v;
+    return rest;
+  });
 }
 
 function cleanVar(v: unknown): DocVar | undefined {

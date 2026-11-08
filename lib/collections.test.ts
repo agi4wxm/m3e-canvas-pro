@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CURRENT_TOKEN, collectionOf, collectionText, expandRepeats, fillCurrent, fillText, markCurrent, repeatAround, rowOf, rowsOfRepeat } from "./collections";
+import { CURRENT_TOKEN, collectionOf, collectionText, expandRepeats, fillCurrent, fillText, markCurrent, repeatAround, rowOf, rowsOfRepeat, tableOf, tableText } from "./collections";
 import { canvasView, expandDoc } from "./expand";
 import { arrangeFlows } from "./flow";
 import { expandInstances, rekeyedAll, standIn } from "./instances";
@@ -50,6 +50,55 @@ describe("rows", () => {
   it("edits a collection as the table text a table prop uses", () => {
     expect(collectionText(posts).split("\n")[1]).toBe("One, a");
     expect(collectionOf("name, age\nAda, 36\n\n")).toEqual({ fields: ["name", "age"], rows: [["Ada", "36"]] });
+  });
+});
+
+describe("a table as text", () => {
+  /* the defaults the parts carry: an amount with a comma used to come back from the editor as two cells */
+  const money = { columns: ["Item", "Amount"], rows: [["Desk", "$1,350.00"], ["Credit", "+3,200.00"], ["Views", "9,820"]] };
+
+  it("keeps a cell with a comma in one cell, in quotes", () => {
+    const text = tableText(money);
+    expect(text.split("\n")[1]).toBe('Desk, "$1,350.00"');
+    expect(tableOf(text)).toEqual(money);
+    expect(tableOf('Item, Amount\nDesk, "$1,350.00"').rows[0]).toEqual(["Desk", "$1,350.00"]);
+  });
+
+  it("writes a plain table as it always did", () => {
+    expect(tableText({ columns: ["a", "b"], rows: [["1", "2"]] })).toBe("a, b\n1, 2");
+    expect(tableOf("a,b\n 1 ,2 ")).toEqual({ columns: ["a", "b"], rows: [["1", "2"]] });
+  });
+
+  it("reads CSV quotes: a doubled quote, a line break and a comma inside, space kept inside", () => {
+    expect(tableOf('q\n"He said ""hi"""')).toEqual({ columns: ["q"], rows: [['He said "hi"']] });
+    expect(tableOf('q, r\n"two\nlines", x')).toEqual({ columns: ["q", "r"], rows: [["two\nlines", "x"]] });
+    expect(tableOf('q\n" padded "')).toEqual({ columns: ["q"], rows: [[" padded "]] });
+    expect(tableOf("q\r\na\r\nb")).toEqual({ columns: ["q"], rows: [["a"], ["b"]] });
+  });
+
+  it("takes a quote no other closes as a letter, so one just typed swallows nothing", () => {
+    expect(tableOf('Item, Amount\nDesk, "$1,350\nLamp, 20')).toEqual({ columns: ["Item", "Amount"], rows: [["Desk", '"$1', "350"], ["Lamp", "20"]] });
+    expect(tableOf('a\n5" screen')).toEqual({ columns: ["a"], rows: [['5" screen']] });
+  });
+
+  it("drops blank lines but keeps a row whose one cell is empty, written as quotes", () => {
+    expect(tableOf("a\n\n   \nx\n")).toEqual({ columns: ["a"], rows: [["x"]] });
+    const lone = { columns: ["a"], rows: [[""], ["x"]] };
+    expect(tableText(lone)).toBe('a\n""\nx');
+    expect(tableOf(tableText(lone))).toEqual(lone);
+  });
+
+  it("reads back every table it writes", () => {
+    const pieces = ["", " ", "a", "b c", ",", '"', '""', "\n", "x,y", ' lead', "trail ", "$1,350.00", '5" screen', "a\nb", "\t", "中文，逗号", "é"];
+    let seed = 7;
+    const next = () => (seed = (seed * 48271) % 2147483647);
+    const word = () => Array.from({ length: next() % 3 }, () => pieces[next() % pieces.length]).join("");
+    for (let n = 0; n < 400; n++) {
+      const width = 1 + (next() % 4);
+      const row = () => Array.from({ length: width }, word);
+      const table = { columns: row(), rows: Array.from({ length: next() % 4 }, row) };
+      expect(tableOf(tableText(table)), JSON.stringify(table)).toEqual(table);
+    }
   });
 });
 

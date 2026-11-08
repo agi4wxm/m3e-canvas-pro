@@ -32,7 +32,9 @@ export const HISTORY_MAX = 100;
 /** edits of one field closer together than this are one step */
 export const COALESCE_MS = 800;
 
-export type HistoryEntry = { snap: Snapshot; label: string; origin: Origin };
+/** A step of the history. `seq` numbers the steps in the order they were taken, undone and redone ones included:
+ *  what `rebaseHistory` reads to know which steps came after a moment. */
+export type HistoryEntry = { snap: Snapshot; label: string; origin: Origin; seq?: number };
 
 /** What a change did, for whoever listens: who asked, what it is called, and the ids it touched (screens, groups,
  *  parts, definitions, collections, variables, and `doc:<field>` for the rest of the document). */
@@ -89,7 +91,7 @@ export type Tx = {
 };
 
 /** what the document's history does while a definition is open: it waits here */
-type Stash = { past: HistoryEntry[]; future: HistoryEntry[]; before: Snapshot; selection: string[] };
+type Stash = { past: HistoryEntry[]; future: HistoryEntry[]; before: Snapshot; selection: string[]; seq?: number };
 
 /** the ids a change touched, by comparing what it left with what was there */
 export function changedIds(prev: CoreState, next: CoreState): string[] {
@@ -160,6 +162,8 @@ export class DocStore {
   private pinMode: FrameMode | null = null;
   /** a step was taken since the last change was told */
   private stepped = false;
+  /** the number of the last step taken (`HistoryEntry.seq`) */
+  private seq = 0;
   readonly options: Required<Omit<StoreOptions, "ids">> & { ids?: () => string };
 
   constructor(state: CoreState, options: StoreOptions = {}) {
@@ -313,7 +317,7 @@ export class DocStore {
       this.past = this.stash.past;
       this.stash.future = [];
     }
-    this.past.push({ snap: snapshotOf(from, whole), label, origin });
+    this.past.push({ snap: snapshotOf(from, whole), label, origin, seq: ++this.seq });
     this.stepped = true;
     if (this.past.length > HISTORY_MAX) this.past.shift();
     this.future = [];
@@ -330,7 +334,7 @@ export class DocStore {
     /* a whole document's step taken back from inside a definition ends the definition: the steps of its own waiting
        to be redone were steps of a screen that is no longer there, and would put its parts on the document's */
     if (prev.snap.meta && this.stash) this.future = [];
-    if (!o.forget) this.future.push({ snap: snapshotOf(this.state, !!prev.snap.meta), label: prev.label, origin: prev.origin });
+    if (!o.forget) this.future.push({ snap: snapshotOf(this.state, !!prev.snap.meta), label: prev.label, origin: prev.origin, seq: ++this.seq });
     this.restore(prev, "undo", origin);
     return prev.label;
   }
@@ -347,12 +351,38 @@ export class DocStore {
     this.emit(this.state, "history", origin, "Clear history");
   }
 
+  /** The number of the last step taken: a step taken after this moment has a larger `seq`. */
+  historySeq = (): number => this.seq;
+
+  /** Rewrites the steps taken after `since` (a `historySeq()`), done and undone alike, those of a definition open
+   *  for editing included: `fn` gives each its snapshot again, or null to forget it. What an agent's turn that was
+   *  stopped leaves behind: its own steps gone, and the author's steps taken meanwhile without its changes in them,
+   *  so neither undo nor redo brings back what it was stopped from doing. Nothing in the document changes. */
+  rebaseHistory(since: number, fn: (e: { snap: Snapshot; label: string; origin: Origin; seq: number }) => Snapshot | null) {
+    if (this.tx) throw new OpError("busy", "the history cannot be rewritten inside a transaction");
+    const rebase = (list: HistoryEntry[]) =>
+      list.flatMap((e) => {
+        if (e.seq === undefined || e.seq <= since) return [e];
+        const snap = fn({ snap: e.snap, label: e.label, origin: e.origin, seq: e.seq });
+        return snap ? [snap === e.snap ? e : { ...e, snap }] : [];
+      });
+    this.past = rebase(this.past);
+    this.future = rebase(this.future);
+    if (this.stash) {
+      const st = this.stash;
+      const before = st.seq !== undefined && st.seq > since ? fn({ snap: st.before, label: "Edit component", origin: "user", seq: st.seq }) : st.before;
+      this.stash = { ...st, past: rebase(st.past), future: rebase(st.future), before: before ?? st.before };
+    }
+    this.last = { key: "", at: 0 };
+    this.emit(this.state, "history", "system", "Rewrite history");
+  }
+
   /** takes the last step undone again; its label, or null */
   redo(origin: Origin = "user"): string | null {
     if (this.tx) throw new OpError("busy", "redo inside a transaction");
     const next = this.future.pop();
     if (!next) return null;
-    this.past.push({ snap: snapshotOf(this.state, !!next.snap.meta), label: next.label, origin: next.origin });
+    this.past.push({ snap: snapshotOf(this.state, !!next.snap.meta), label: next.label, origin: next.origin, seq: ++this.seq });
     this.restore(next, "redo", origin);
     return next.label;
   }
@@ -427,7 +457,7 @@ export class DocStore {
     if (this.state.editing) this.closeDefinition(origin);
     const prev = this.state;
     const s = this.state;
-    this.stash = { past: this.past, future: this.future, before: snapshotOf(s, false), selection: s.session.selection };
+    this.stash = { past: this.past, future: this.future, before: snapshotOf(s, false), selection: s.session.selection, seq: ++this.seq };
     this.past = [];
     this.future = [];
     this.state = {
@@ -468,7 +498,7 @@ export class DocStore {
       session: { ...s.session, selection: stash?.selection ?? [], frameId: null },
     };
     if (stash) {
-      this.past = changed ? [...stash.past, { snap: stash.before, label: "Edit component", origin }] : stash.past;
+      this.past = changed ? [...stash.past, { snap: stash.before, label: "Edit component", origin, seq: stash.seq }] : stash.past;
       this.future = changed ? [] : stash.future;
     }
     this.stash = null;

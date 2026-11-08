@@ -194,6 +194,30 @@ export const tests: E2ETest[] = [
     },
   },
   {
+    name: "the agent stopped after the author edited in between takes back its own change and keeps the author's",
+    async run({ page }) {
+      const { release } = await withAgent(page, [toolTurn("call_1", "apply_ops", LOGIN, "I'll add a login screen."), "hang"]);
+      await ask(page, "make a login screen");
+      await until(page, async () => (await savedDoc(page)).frames.some((f) => f.id === "login"), "the first change to land");
+      /* the author deletes a part of their own while the agent thinks */
+      const ids = await page.locator("[data-node]").evaluateAll((els) => els.map((e) => e.getAttribute("data-node") ?? ""));
+      const mine = ids.find((id) => id && !["form", "welcome", "signin"].includes(id));
+      check(!!mine, "the canvas has a part of the author's");
+      await page.locator(`[data-node="${mine}"]`).first().click();
+      await page.keyboard.press("Delete");
+      const gone = async () => !(await savedDoc(page)).groups.some((g) => g.items.some((it) => it.id === mine));
+      await until(page, gone, "the author's deletion");
+      await page.locator("[data-agent-stop]").first().click();
+      await until(page, async () => (await page.locator('[data-agent-turn="stopped"]').count()) > 0, "the turn to stop");
+      release();
+      await settle(page);
+      check(!(await savedDoc(page)).frames.some((f) => f.id === "login"), "the agent's screen is gone");
+      check(await gone(), "the author's deletion stays");
+      check((await page.locator('[data-agent-stopped="full"]').first().textContent())?.includes("your own edits stay"), "the panel says the agent's changes went back and the author's stayed");
+      check(!(await redoButton(page).isEnabled()), "redo has nothing to bring back");
+    },
+  },
+  {
     name: "a picture attached to the agent is sent with the request, and the tree it builds is one undo step",
     async run({ page, out }) {
       const { asked } = await withAgent(page, [toolTurn("call_1", "add_tree", CHAT_TREE, "I'll rebuild the chat screen from atoms."), textTurn("Rebuilt the chat screen."), textTurn("It matches.")]);

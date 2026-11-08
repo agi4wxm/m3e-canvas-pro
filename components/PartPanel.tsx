@@ -27,6 +27,7 @@ import { Lang } from "@/lib/i18n";
 import { Icon } from "./Icon";
 import { IconPicker } from "./IconPicker";
 import { segmentedFits } from "@/lib/choices";
+import { decimalsOf, inputStep, typedNumber, type Step } from "@/lib/numbers";
 import { Field, IconBtn, ImageRow, RUN_CELL, Section, Segmented, Select, SelectOption, Slider, Toggle, useDismiss } from "./ui";
 import { AiHooks } from "./Inspector";
 import { LinkStage, TapStage } from "./TapStage";
@@ -977,28 +978,31 @@ function EntryRow({
   );
 }
 
-/** a whole number typed into a small box: it follows the field while the number is in range
- *  and settles when the field is left, the way the slider's own number does */
-export function Num({ value, min, max, title, onChange, p, lazy }: { value: number; min: number; max: number; title: string; onChange: (v: number) => void; p: Palette; /** only once the number is finished: for what is costly to change, or wrong halfway through */ lazy?: boolean }) {
+/** a number typed into a small box: it follows the field while the number is in range and settles
+ *  when the field is left, the way the slider's own number does. It keeps the precision of its
+ *  `step` (lib/numbers.ts): whole numbers by default, a prop's own step, or what was typed ("any")
+ *  for a value with no step of its own, a variable's say. */
+export function Num({ value, min, max, title, onChange, p, lazy, step = 1 }: { value: number; min: number; max: number; title: string; onChange: (v: number) => void; p: Palette; /** only once the number is finished: for what is costly to change, or wrong halfway through */ lazy?: boolean; step?: Step }) {
   const [text, setText] = useState(String(value));
   const [editing, setEditing] = useState(false);
   useEffect(() => {
     if (!editing) setText(String(value));
   }, [value, editing]);
   const commit = () => {
-    const n = Math.round(Number(text));
-    if (Number.isFinite(n) && text.trim() !== "" && Math.max(min, Math.min(max, n)) !== value) onChange(Math.max(min, Math.min(max, n)));
+    const n = typedNumber(text, step);
+    if (n !== undefined && Math.max(min, Math.min(max, n)) !== value) onChange(Math.max(min, Math.min(max, n)));
     setEditing(false);
     setText(String(value));
   };
   return (
     <input
       type="number"
-      inputMode="numeric"
+      inputMode={decimalsOf(step) === 0 ? "numeric" : "decimal"}
       aria-label={title}
       title={title}
       min={min}
       max={max}
+      step={inputStep(step)}
       value={editing ? text : String(value)}
       onFocus={(e) => {
         setEditing(true);
@@ -1008,8 +1012,8 @@ export function Num({ value, min, max, title, onChange, p, lazy }: { value: numb
       onChange={(e) => {
         setText(e.target.value);
         if (lazy) return;
-        const n = Math.round(Number(e.target.value));
-        if (e.target.value.trim() !== "" && Number.isFinite(n) && n >= min && n <= max) onChange(n);
+        const n = typedNumber(e.target.value, step);
+        if (n !== undefined && n >= min && n <= max) onChange(n);
       }}
       onBlur={commit}
       onKeyDown={(e) => {

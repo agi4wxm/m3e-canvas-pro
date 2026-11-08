@@ -9,7 +9,7 @@ import type { JsonSchemaObject } from "../../api/types";
 import { cleanFile, cleanHint, cleanMocks, MOCK_ID, MOCK_LIMITS } from "../../mocks/clean";
 import { modelShape } from "../../mocks/shape";
 import { fillMocks } from "../../mocks/fill";
-import { placeholderFile, type FileKind } from "../../mocks/files";
+import { FILE_KINDS, formatOf, FORMATS, placeholderFile, type BasicKind, type FileKind } from "../../mocks/files";
 import { MOCK_KINDS, MOCK_LOCALES, MOCK_ROUTE_KINDS, type MockAuth, type MockFile, type MockHint, type MockLocale, type MockModelConfig, type MockOpRule, type MockRealtimeScript, type MockRouteKind, type MockScenario, type MockSpec } from "../../mocks/types";
 import { op, OpError, S, type Schema } from "../op";
 import { withDoc, type CoreState } from "../state";
@@ -55,7 +55,7 @@ function needField(s: CoreState, model: string, path: string) {
 
 const HINT: Schema = {
   type: ["object", "null"],
-  description: `how one field is made: {kind} plus what narrows it. kind: ${MOCK_KINDS.join(", ")}. min/max for numbers and list lengths; from/to for dates ("-30d", "+7d", "now", an ISO date); weights {value: weight} for an enum or status; values: words to pick from; value for constant; files: mock file ids for image/file/audio/video; nullRate 0-1. null removes the hint (back to what the field's name says)`,
+  description: `how one field is made: {kind} plus what narrows it. kind: ${MOCK_KINDS.join(", ")}. min/max for numbers and list lengths; from/to for dates ("-30d", "+7d", "now", an ISO date); weights {value: weight} for an enum or status; values: words to pick from; value for constant; files: mock file ids for image/file/audio/video; type: the file's format for image/file/audio/video, a media type or an extension (text/csv, xlsx, model/gltf-binary, png); nullRate 0-1. null removes the hint (back to what the field's name says)`,
 };
 const RULE_WORDS =
   '{status (an error to answer with: 401, 404, 500…), body (the body to answer with), latencyMs, network (true: no answer arrives), empty (lists start empty, details 404), fixtures ("all" or record ids: only pinned records), sequence ([steps] answered in turn for retries; the last repeats)}';
@@ -336,21 +336,47 @@ export const addMockFile = op<{ id?: string; name: string; type?: string; data: 
   },
 });
 
-export const generateMockFiles = op<{ kinds: FileKind[]; title?: string; count?: number; tags?: string[] }, { ids: string[] }>({
+/* What makes the files of the other formats (lib/mocks/formats) is too large for the editor's first bundle: it loads
+   with the engine (the Mocks tab and the preview load it), or the first time an operation asks for one of them. Until
+   then such an operation is turned down as busy, and the same call succeeds once it has loaded. */
+let makers: typeof import("../../mocks/formats") | undefined;
+let loadingMakers: Promise<unknown> | undefined;
+/** loads what makes the mock library's files of every format; resolves once operations can make them */
+export function loadMockMakers(): Promise<unknown> {
+  loadingMakers ??= import("../../mocks/formats").then((m) => (makers = m));
+  return loadingMakers;
+}
+const BASIC = new Set<FileKind>(["image", "avatar", "pdf", "audio", "video", "file"]);
+
+export const generateMockFiles = op<{ kinds?: FileKind[]; types?: string[]; title?: string; count?: number; tags?: string[] }, { ids: string[] }>({
   name: "generate_mock_files",
-  summary: "Makes placeholder files for the mock library without a model: image (an SVG picture with the title), avatar (initials on a circle), pdf (a one-page PDF with the title), audio (a short WAV tone), video (a two-second MP4 clip), file (a few bytes). count of each (1–10).",
-  args: S.obj({ kinds: S.arr(S.enum(["image", "avatar", "pdf", "audio", "video", "file"]), undefined, { minItems: 1 }), title: S.str("the words the picture or the PDF shows"), count: S.int(undefined, { minimum: 1, maximum: 10 }), tags: S.arr(S.str()) }, ["kinds"]),
+  summary:
+    "Makes placeholder files for the mock library without a model. kinds: image (an SVG picture with the title), avatar (initials on a circle), pdf (a PDF of a few pages), audio (a short WAV tone), video (a two-second MP4 clip), document (DOCX), spreadsheet (XLSX), presentation (PPTX), data (JSON), text (TXT), archive (ZIP), model (a GLB 3D model), file (a few bytes). types: exact formats, as media types or extensions: png, jpg, webp, gif, svg, bmp, ico, tif, avif, pdf, docx, xlsx, pptx, csv, tsv, json, ndjson, xml, yaml, geojson, gpx, kml, ics, vcf, txt, md, html, rtf, zip, gz, tar, wav, mp3, ogg, weba, m4a, mp4, webm, glb, gltf, obj, stl, ply. count of each (1–10).",
+  args: S.obj({ kinds: S.arr(S.enum([...FILE_KINDS])), types: S.arr(S.str("a media type or an extension: text/csv, xlsx, model/gltf-binary")), title: S.str("the words the picture or the document shows"), count: S.int(undefined, { minimum: 1, maximum: 10 }), tags: S.arr(S.str()) }),
   label: () => "Make mock files",
   run(s, a) {
     const m = mocksOf(s);
     const taken = new Set((m.files ?? []).map((f) => f.id));
     const made: MockFile[] = [];
     const count = Math.max(1, Math.min(10, a.count ?? 1));
-    for (const kind of a.kinds)
+    const unknown = (a.types ?? []).filter((t) => !formatOf(t));
+    if (unknown.length) throw new OpError("invalid_value", `The mock library makes no ${unknown.map((t) => JSON.stringify(t)).join(", ")} file: types are media types or extensions of ${FORMATS.map((f) => f.ext).join(", ")}.`);
+    if (!a.kinds?.length && !a.types?.length) throw new OpError("invalid_value", "Say which files to make: kinds (image, pdf, spreadsheet, model…) or types (png, xlsx, glb, text/csv…).");
+    const engine = makers;
+    if (!engine && ((a.kinds ?? []).some((k) => !BASIC.has(k)) || a.types?.length)) {
+      void loadMockMakers();
+      throw new OpError("busy", "The mock library is still loading what makes files of that format: call generate_mock_files again in a moment.");
+    }
+    type Make = (o: { seed: string; title: string; id: string }) => MockFile;
+    const asks: { label: string; make: Make }[] = [
+      ...(a.kinds ?? []).map((kind) => ({ label: kind as string, make: ((o) => (BASIC.has(kind) ? placeholderFile(kind as BasicKind, o) : engine!.placeholderFile(kind, o))) as Make })),
+      ...(a.types ?? []).map((t) => ({ label: formatOf(t)!.ext, make: ((o) => engine!.mockFile(formatOf(t)!.type, o)) as Make })),
+    ];
+    for (const ask of asks)
       for (let i = 0; i < count; i++) {
-        const title = a.title ? (count > 1 ? `${a.title} ${i + 1}` : a.title) : `${kind} ${(m.files?.length ?? 0) + made.length + 1}`;
-        const id = fileIdFor(`${kind}-${title}`, new Set([...taken, ...made.map((f) => f.id)]));
-        const f = placeholderFile(kind, { seed: `${id}:${s.doc.mocks?.seed ?? 1}`, title, id });
+        const title = a.title ? (count > 1 ? `${a.title} ${i + 1}` : a.title) : `${ask.label} ${(m.files?.length ?? 0) + made.length + 1}`;
+        const id = fileIdFor(`${ask.label}-${title}`, new Set([...taken, ...made.map((f) => f.id)]));
+        const f = ask.make({ seed: `${id}:${s.doc.mocks?.seed ?? 1}`, title, id });
         made.push(a.tags?.length ? { ...f, tags: [...new Set([...(f.tags ?? []), ...a.tags])] } : f);
       }
     if ((m.files?.length ?? 0) + made.length > MOCK_LIMITS.files) throw new OpError("refused", `The mock library holds at most ${MOCK_LIMITS.files} files.`);

@@ -1,5 +1,9 @@
 import { h, ic } from "../node";
-import type { PartDef } from "../types";
+import type { P, PartDef } from "../types";
+
+/** The id a part's own label points its control at: one of its own on a screen of several (from the part's id, as
+ *  `p.scope` gives it), the bare name where the part is drawn for no item. */
+const controlId = (base: string, p: P) => (p.scope ? `${base}-${p.scope.replace(/\s+/g, "_")}` : base);
 
 /** an entry with no chrome of its own: the box it stands in is its field */
 const PLAIN = { value: "plain", label: "Plain", labels: { ja: "装飾なし", zh: "无边框", ko: "꾸밈 없음" } };
@@ -189,14 +193,15 @@ export const textInputs: PartDef[] = [
       const error = p.s("error");
       const invalid = !!error || undefined;
       const disabled = p.b("disabled") || undefined;
-      const field = { id: "field-control", "aria-invalid": invalid, disabled };
+      const id = controlId("field-control", p);
+      const field = { id, "aria-invalid": invalid, disabled };
       const horizontal = control === "checkbox" || control === "switch";
-      const label = h("FieldLabel", { htmlFor: "field-control" }, p.s("label"));
+      const label = h("FieldLabel", { htmlFor: id }, p.s("label"));
       const input =
         control === "checkbox"
           ? h("Checkbox", field)
           : control === "switch"
-            ? h("Switch", { id: "field-control", disabled })
+            ? h("Switch", { id, disabled })
             : control === "textarea"
               ? h("Textarea", { ...field, placeholder: p.s("placeholder") || undefined })
               : h("Input", { ...field, placeholder: p.s("placeholder") || undefined });
@@ -226,11 +231,12 @@ export const textInputs: PartDef[] = [
     tree: (p) => {
       const control = p.s("control");
       const disabled = p.b("disabled") || undefined;
+      const id = controlId("label-control", p);
       return h(
         "Label",
-        { htmlFor: control === "none" ? undefined : "label-control" },
-        control === "checkbox" && h("Checkbox", { id: "label-control", disabled }),
-        control === "switch" && h("Switch", { id: "label-control", disabled }),
+        { htmlFor: control === "none" ? undefined : id },
+        control === "checkbox" && h("Checkbox", { id, disabled }),
+        control === "switch" && h("Switch", { id, disabled }),
         p.s("text"),
       );
     },

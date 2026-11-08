@@ -1,7 +1,7 @@
 import * as React from "react"
 import { cn } from "@/lib/m3e/cn"
 
-import { say } from "@/components/m3e/say"
+import { useSay } from "@/components/m3e/say"
 import { Button } from "@/components/m3e/button"
 import { Icon } from "@/components/m3e/icon"
 
@@ -37,6 +37,21 @@ function polar(angleDeg: number, radius: number) {
   }
 }
 
+/** the words of the picker: the hours and minutes (a selector's label is
+ *  "Hours: 09"), the captions of the two fields, the AM/PM run, the button
+ *  that switches between dial and fields, Cancel and OK */
+type TimePickerLabels = {
+  hours: string
+  minutes: string
+  hour: string
+  minute: string
+  period: string
+  toInput: string
+  toDial: string
+  cancel: string
+  ok: string
+}
+
 type TimePickerProps = Omit<
   React.ComponentProps<"div">,
   "onChange" | "defaultValue"
@@ -48,7 +63,10 @@ type TimePickerProps = Omit<
   hour24?: boolean
   mode?: Mode
   onModeChange?: (mode: Mode) => void
+  /** the heading; "Select time" in the page's language when left out */
   title?: string
+  /** the other words it shows or gives a screen reader, each in the page's language when left out */
+  labels?: Partial<TimePickerLabels>
   onCancel?: () => void
   onConfirm?: (value: TimeValue) => void
 }
@@ -60,12 +78,31 @@ function TimePicker({
   hour24 = false,
   mode: modeProp,
   onModeChange,
-  title = "Select time",
+  title: titleProp,
+  labels: given,
   onCancel,
   onConfirm,
   className,
   ...props
 }: TimePickerProps) {
+  const say = useSay()
+  const title = titleProp ?? say("Select time")
+  const words: TimePickerLabels = {
+    hours: given?.hours ?? say("Hours"),
+    minutes: given?.minutes ?? say("Minutes"),
+    hour: given?.hour ?? say("Hour"),
+    minute: given?.minute ?? say("Minute"),
+    period: given?.period ?? say("AM or PM"),
+    toInput: given?.toInput ?? say("Switch to text input"),
+    toDial: given?.toDial ?? say("Switch to dial"),
+    cancel: given?.cancel ?? say("Cancel"),
+    ok: given?.ok ?? say("OK"),
+  }
+  /** a selector's label: the field and its value */
+  const valueLabel = (field: Field, value: string) =>
+    given?.[field]
+      ? `${given[field]}: ${value}`
+      : say(field === "hours" ? "Hours: {value}" : "Minutes: {value}", { value })
   const [inner, setInner] = React.useState(defaultValue)
   const [innerMode, setInnerMode] = React.useState<Mode>("dial")
   const [field, setField] = React.useState<Field>("hours")
@@ -198,7 +235,7 @@ function TimePicker({
               data-slot="time-picker-segment"
               data-active={field === "hours" || undefined}
               className={box("hours")}
-              aria-label={`Hours: ${pad(shownHours)}`}
+              aria-label={valueLabel("hours", pad(shownHours))}
               aria-pressed={field === "hours"}
               onClick={() => setField("hours")}
             >
@@ -208,7 +245,7 @@ function TimePicker({
             <div className="flex flex-col gap-1">
               <input
                 inputMode="numeric"
-                aria-label="Hour"
+                aria-label={words.hour}
                 className={cn(box("hours"), "w-24 text-center")}
                 value={pad(shownHours)}
                 onFocus={() => setField("hours")}
@@ -222,7 +259,7 @@ function TimePicker({
                 }}
               />
               <span className="text-body-small text-on-surface-variant">
-                Hour
+                {words.hour}
               </span>
             </div>
           )}
@@ -243,7 +280,7 @@ function TimePicker({
               data-slot="time-picker-segment"
               data-active={field === "minutes" || undefined}
               className={box("minutes")}
-              aria-label={`Minutes: ${pad(value.minutes)}`}
+              aria-label={valueLabel("minutes", pad(value.minutes))}
               aria-pressed={field === "minutes"}
               onClick={() => setField("minutes")}
             >
@@ -253,7 +290,7 @@ function TimePicker({
             <div className="flex flex-col gap-1">
               <input
                 inputMode="numeric"
-                aria-label="Minute"
+                aria-label={words.minute}
                 className={cn(box("minutes"), "w-24 text-center")}
                 value={pad(value.minutes)}
                 onFocus={() => setField("minutes")}
@@ -267,7 +304,7 @@ function TimePicker({
                 }}
               />
               <span className="text-body-small text-on-surface-variant">
-                Minute
+                {words.minute}
               </span>
             </div>
           )}
@@ -276,7 +313,7 @@ function TimePicker({
         {!hour24 && (
           <div
             role="radiogroup"
-            aria-label="AM or PM"
+            aria-label={words.period}
             data-slot="time-picker-period"
             className={cn(
               "flex w-[52px] flex-col overflow-hidden rounded-sm border border-outline",
@@ -316,7 +353,7 @@ function TimePicker({
           data-slot="time-picker-dial"
           role="slider"
           tabIndex={0}
-          aria-label={field === "hours" ? "Hours" : "Minutes"}
+          aria-label={field === "hours" ? words.hours : words.minutes}
           aria-valuenow={field === "hours" ? shownHours : value.minutes}
           aria-valuemin={field === "hours" ? (hour24 ? 0 : 1) : 0}
           aria-valuemax={field === "hours" ? (hour24 ? 23 : 12) : 59}
@@ -420,7 +457,7 @@ function TimePicker({
               data-slot="time-picker-item"
               data-distance={Math.abs(i - 2)}
               data-active={i === 2 || undefined}
-              aria-label={`Hours: ${pad(h)}`}
+              aria-label={valueLabel("hours", pad(h))}
               onClick={() =>
                 hour24 ? commit({ ...value, hours: h }) : setHour(h)
               }
@@ -437,7 +474,7 @@ function TimePicker({
               data-slot="time-picker-item"
               data-distance={Math.abs(i - 2)}
               data-active={i === 2 || undefined}
-              aria-label={`Minutes: ${pad(m)}`}
+              aria-label={valueLabel("minutes", pad(m))}
               onClick={() => commit({ ...value, minutes: m })}
             >
               {pad(m)}
@@ -472,7 +509,7 @@ function TimePicker({
           variant="text"
           size="icon"
           aria-label={
-            mode === "dial" ? "Switch to text input" : "Switch to dial"
+            mode === "dial" ? words.toInput : words.toDial
           }
           className="text-on-surface-variant"
           onClick={() => {
@@ -487,10 +524,10 @@ function TimePicker({
         {(onCancel || onConfirm) && (
           <div className="flex gap-2">
             <Button variant="text" onClick={onCancel}>
-              Cancel
+              {words.cancel}
             </Button>
             <Button variant="text" onClick={() => onConfirm?.(value)}>
-              OK
+              {words.ok}
             </Button>
           </div>
         )}
@@ -500,3 +537,4 @@ function TimePicker({
 }
 
 export { TimePicker }
+export type { TimePickerLabels }

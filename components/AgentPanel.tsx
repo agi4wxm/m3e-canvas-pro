@@ -83,6 +83,32 @@ function Step({ entry, p }: { entry: Extract<LogEntry, { kind: "tool" }>; p: Pal
   );
 }
 
+/** the names of what a revert left in place, in a line */
+const keptNames = (turn: TurnView, lang: ReturnType<typeof useLang>) => {
+  const kept = turn.revert?.kept ?? [];
+  return kept.slice(0, 3).map((k) => `“${k.name}”`).join(lang === "zh" || lang === "ja" ? "、" : ", ") + (kept.length > 3 ? "…" : "");
+};
+
+/** What stopping a turn took back: all of it (the author's own edits meanwhile kept), part of it and what stayed, or
+ *  none of it. */
+export function stoppedText(turn: TurnView, lang: ReturnType<typeof useLang>): string {
+  const r = turn.revert;
+  if (!r) return turn.rolledBack ? t("agentStopped", lang) : t("agentStoppedKept", lang);
+  const fill = (key: UIKey) => t(key, lang).replace("{n}", String(r.kept.length)).replace("{names}", keptNames(turn, lang));
+  if (r.outcome === "unavailable") return t("agentStoppedElsewhere", lang);
+  if (r.outcome === "partial") return fill("agentStoppedPartly");
+  if (r.outcome === "kept") return fill("agentStoppedNone");
+  return r.authorEdited ? t("agentStoppedYours", lang) : t("agentStopped", lang);
+}
+
+/** what the author decided about a finished turn, and what undoing it left in place */
+export function verdictText(turn: TurnView, lang: ReturnType<typeof useLang>): string {
+  if (turn.verdict === "kept") return t("agentKept", lang);
+  const r = turn.revert;
+  if (r && (r.outcome === "partial" || r.outcome === "kept")) return t("agentUndonePartly", lang).replace("{n}", String(r.kept.length)).replace("{names}", keptNames(turn, lang));
+  return t("agentUndone", lang);
+}
+
 /** what a removal would take, in a line */
 export function askText(a: Extract<LogEntry, { kind: "ask" }>, lang: ReturnType<typeof useLang>): string {
   const names = (xs: string[]) => xs.slice(0, 3).join(lang === "zh" || lang === "ja" ? "、" : ", ") + (xs.length > 3 ? "…" : "");
@@ -95,7 +121,7 @@ export function takenWords(x: Taken, lang: ReturnType<typeof useLang>): string {
   const list = (xs: string[]) => xs.slice(0, 3).map((n) => `“${n}”`).join(lang === "zh" || lang === "ja" ? "、" : ", ") + (xs.length > 3 ? "…" : "");
   switch (x.kind) {
     case "rows":
-      return safetyText("askRows", lang, { n: x.n, total: x.total, of: x.of });
+      return safetyText(x.replaced ? "askRowsReplaced" : "askRows", lang, { n: x.n, total: x.total, of: x.of });
     case "fields":
       return safetyText("askFields", lang, { names: list(x.names), of: x.of });
     case "variables":
@@ -133,7 +159,7 @@ export function takenWords(x: Taken, lang: ReturnType<typeof useLang>): string {
     case "mockFile":
       return t("mocksAskFile", lang).replace("{name}", x.name);
     case "mockRecords":
-      return t("mocksAskRecords", lang).replace("{n}", String(x.n)).replace("{of}", x.of);
+      return t(x.replaced ? "mocksAskRecordsReplaced" : "mocksAskRecords", lang).replace("{n}", String(x.n)).replace("{of}", x.of);
     case "mockScript":
       return t("mocksAskScript", lang).replace("{name}", x.name);
   }
@@ -254,12 +280,16 @@ function Turn({ turn, last, agent, p }: { turn: TurnView; last: boolean; agent: 
             {turn.error}
           </div>
         )}
-        {turn.status === "stopped" && <div style={{ fontSize: 12, color: p.onSurfaceVariant, margin: "4px 0" }}>{turn.rolledBack ? t("agentStopped", lang) : t("agentStoppedKept", lang)}</div>}
+        {turn.status === "stopped" && (
+          <div data-agent-stopped={turn.revert?.outcome ?? (turn.rolledBack ? "full" : "kept")} style={{ fontSize: 12, lineHeight: 1.45, color: p.onSurfaceVariant, margin: "4px 0" }}>
+            {stoppedText(turn, lang)}
+          </div>
+        )}
         {!live && turn.status !== "stopped" && (
           <div data-agent-result style={{ marginTop: 4, padding: "10px 12px", borderRadius: 14, background: p.surfaceContainerHigh, display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ fontSize: 12, lineHeight: 1.45, color: p.onSurface }}>{changed || t("agentNothingChanged", lang)}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              {turn.step && !turn.verdict && (
+              {(turn.step || turn.canTakeBack) && !turn.verdict && (
                 <>
                   <button type="button" data-agent-keep className="m3-press" style={pill(p, true)} onClick={() => agent.keepTurn(turn.id)}>
                     <Icon name="check" size={16} />
@@ -271,7 +301,7 @@ function Turn({ turn, last, agent, p }: { turn: TurnView; last: boolean; agent: 
                   </button>
                 </>
               )}
-              {turn.verdict && <span style={{ fontSize: 12, color: p.onSurfaceVariant }}>{t(turn.verdict === "kept" ? "agentKept" : "agentUndone", lang)}</span>}
+              {turn.verdict && <span data-agent-verdict={turn.verdict} style={{ fontSize: 12, color: p.onSurfaceVariant }}>{verdictText(turn, lang)}</span>}
               {last && !agent.running && (turn.status === "error" || !turn.verdict) && (
                 <button type="button" data-agent-retry className="m3-press" style={pill(p)} onClick={() => agent.retry(turn.id)}>
                   <Icon name="refresh" size={16} />
