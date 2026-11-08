@@ -152,7 +152,8 @@ describe("the screens", () => {
     const doc = docOf([]);
     doc.frames = [{ id: "a", name: "Home */ evil", x: 0, y: 0, flow: "Main" }, { id: "b", name: "Home */ evil", x: 600, y: 0 }, { id: "c", name: "合计", x: 1200, y: 0 }];
     const printed = printRnScreens(doc, {});
-    expect(printed.screens.map((s) => s.component)).toEqual(["HomeEvilScreen", "HomeEvilScreen2", "Screen3"]);
+    /* a name with no ASCII words (and none the templates give in English) is named after the screen's id, never its place */
+    expect(printed.screens.map((s) => s.component)).toEqual(["HomeEvilScreen", "HomeEvilScreen2", "ScreenC"]);
     expect(printed.initial).toBe(printed.screens[0].key);
     const index = screensIndex(printed);
     parses("index.ts", index);

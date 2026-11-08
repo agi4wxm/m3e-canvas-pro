@@ -48,7 +48,9 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the taps printed as the data they are, lib/actions'
+     before the product existed; one that changes on purpose is written again here (last: a screen whose name has no
+     ASCII words, the parts' "日本語", named after its id and no longer its place among the screens, lib/export/ir/names.ts;
+     before that a back action's own motion, which the prototype's back now plays; before that the taps printed as the data they are, lib/actions'
      Action, and run in src/runtime.tsx by the interpreter copied into src/lib/actions (docs/交互规则.md), which the
      README names; before that the platform capabilities,
      docs/平台能力.md, beside the retired parts, the split view and the widgets' outlets: the shop flow pays through
@@ -77,7 +79,7 @@ describe("the prototype export", () => {
     systems: [47, "e7ff2759b207bda928431634f428e527959a4f46717ec9923ebe221248db82b5"],
     reuse: [38, "96f30985cda9ab89862682ab51b77da26207296ddd8f8f3d7a617fe589184d47"],
     sweep: [100, "fe04935736ab7e2a326e01b3866e7afee6ee0f83a4c6be19a0eed42c59b495ed"],
-    parts: [140, "295c3c85b06eab798e6bb08867328a8cd975cd1ce8f55cb46c9beb2d442f19d3"],
+    parts: [140, "3f611c66bc87878ffb9e1241ee81c1c57c2000c230cd5997338ffe4b9fa8d36b"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
@@ -165,6 +167,7 @@ describe("the product of a document", () => {
     expect(text(proof, "eslint.config.js")).toContain('"packages/app-runtime/src/engine/"');
   });
 
+  /* the slots are the two parts the proof product marks as its own (lib/export/product.fixture.ts) */
   it("is generated whole: every file is generated but the extension points, which are seeded", () => {
     const seededPaths = Object.entries(proof.files)
       .filter(([, f]) => f.kind === "seeded")
@@ -177,12 +180,18 @@ describe("the product of a document", () => {
       "apps/miniapp/src/custom/Providers.tsx",
       "apps/miniapp/src/custom/capabilities.ts",
       "apps/miniapp/src/custom/setup.ts",
+      "apps/miniapp/src/custom/slots/FlipButton.tsx",
+      "apps/miniapp/src/custom/slots/Visits.tsx",
       "apps/mobile/src/custom/Providers.tsx",
       "apps/mobile/src/custom/capabilities.ts",
       "apps/mobile/src/custom/setup.ts",
+      "apps/mobile/src/custom/slots/FlipButton.tsx",
+      "apps/mobile/src/custom/slots/Visits.tsx",
       "apps/web/src/custom/Providers.tsx",
       "apps/web/src/custom/capabilities.ts",
       "apps/web/src/custom/setup.ts",
+      "apps/web/src/custom/slots/FlipButton.tsx",
+      "apps/web/src/custom/slots/Visits.tsx",
       "server/src/custom/auth.ts",
       "server/src/custom/db.ts",
       "server/src/custom/setup.ts",

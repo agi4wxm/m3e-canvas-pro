@@ -38,10 +38,11 @@ describe("buildCode", () => {
     }
   });
 
-  it("names screens from their names, falling back to Screen<N>", () => {
+  it("names screens from their names, falling back to the screen's id", () => {
     const { code } = buildCode(allPartsDoc(), {});
     expect(code).toContain("export function AllPartsScreen()");
-    expect(code).toContain("export function Screen2()");
+    /* "日本語" has no ASCII words and is no template's: the screen "f-2" is named after its id, not its place */
+    expect(code).toContain("export function ScreenF2()");
   });
 
   it("maps a button to the M3E button props", () => {

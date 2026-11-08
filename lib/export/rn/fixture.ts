@@ -10,6 +10,7 @@ import { rnIconData } from "./icons";
 import { printRnScreens, screensIndex } from "./print";
 import { rnThemeOf } from "./theme";
 import { layoutsDoc } from "./layoutsFixture";
+import { slotFiles, slotNames, slotsOf, type SlotPaths } from "../appCapabilities";
 
 /* Documents printed into the kit's test bed (rn/src/printed), so that what the printer writes is type-checked, linted,
  * rendered by the kit's tests and bundled by Metro there, exactly as an exported app would be: the export's proof
@@ -238,11 +239,36 @@ export function mediaDoc(): { doc: Doc; widths: Record<string, number> } {
   return { doc: { groups, frames, paletteKey: "purple", frame: "phone", title: "Media", brief: "" }, widths };
 }
 
+/** Parts the product draws itself (`Item.slot`, report 9.3): a button the kit has a component for, by the name the
+ *  design gives its slot, and a stat card the kit draws as its atoms; their slots are written beside the screens as an
+ *  exported app has them (src/generated/slots.tsx, src/custom/slots), so that what they are handed type-checks. */
+export function slotsDoc(): { doc: Doc; widths: Record<string, number> } {
+  const home: Frame = { id: "slots-home", name: "Slots", x: 0, y: 0, flow: "Slots" };
+  const done: Frame = { id: "slots-done", name: "Bought", x: PHONE_W + FRAME_GAP, y: 0 };
+  const groups: Group[] = [
+    { id: "g-buy", x: 16, y: 120, axis: "x", items: [{ ...makeItem("button"), id: "buy", props: { label: "Buy" }, slot: "BuyButton", action: { to: done.id, transition: "slide" } }] },
+    { id: "g-stat", x: 16, y: 200, axis: "x", name: "Sales today", items: [{ ...makeItem("stat-card"), id: "stat", slot: true }] },
+    { id: "g-done", x: 16, y: 120, axis: "x", items: [{ ...makeItem("text"), id: "thanks", props: { text: "Thank you" } }] },
+  ];
+  return { doc: { groups: groups.map((g) => (g.id === "g-done" ? { ...g, x: g.x + done.x } : g)), frames: [home, done], paletteKey: "purple", frame: "phone", title: "Slots", brief: "" }, widths: defaultMeasures(groups) };
+}
+
+/** where a test bed's slots reach the kit and each other: beside its screens */
+export const TEST_BED_SLOTS: SlotPaths = { kit: "../../kit", custom: "./custom/slots", kitFromCustom: "../../../../kit" };
+
+/** the slots of a printed document, at their places beside its screens (`at`) */
+export function testBedSlots(at: string, doc: Doc, platform: "mobile" | "miniapp"): Record<string, string> {
+  const files = slotFiles("@m3e", slotsOf(doc).filter((s) => !s.view), platform, TEST_BED_SLOTS);
+  return Object.fromEntries(Object.entries(files).map(([path, f]) => [`${at}/${path.replace(/^src\/generated\//, "").replace(/^src\//, "")}`, f.body as string]));
+}
+
 /** a printed document's files, under rn/src/printed/<name>: its pictures as files beside it, as an exported app has them */
 async function printed(name: string, doc: Doc, widths: Record<string, number>): Promise<Record<string, string | Uint8Array>> {
   const at = `rn/src/printed/${name}`;
   const pictures = new RnPictures("assets", "./assets");
-  const screens = printRnScreens(doc, widths, { kitImport: "../../../kit", images: { from: "../images", name: pictures.name } });
+  /* the parts the design marks as the product's own: a capability view's slot types come from a package the test bed has not */
+  const slots = slotsOf(doc).filter((s) => !s.view);
+  const screens = printRnScreens(doc, widths, { kitImport: "../../../kit", images: { from: "../images", name: pictures.name }, ...(slots.length ? { slots: { from: "../slots", names: slotNames(slots) } } : {}) });
   const theme = rnThemeOf(doc);
   const icons = await rnIconData([theme.icons], [...screens.icons, ...KIT_ICONS]);
   return {
@@ -253,6 +279,7 @@ async function printed(name: string, doc: Doc, widths: Record<string, number>): 
     [`${at}/App.tsx`]: appModule("../../kit", screens),
     [`${at}/warnings.json`]: `${JSON.stringify(screens.warnings, null, 1)}\n`,
     ...(pictures.any ? { [`${at}/images.ts`]: pictures.module() } : {}),
+    ...testBedSlots(at, doc, "mobile"),
     ...Object.fromEntries(Object.entries(pictures.files).map(([path, bytes]) => [`${at}/${path}`, bytes])),
   };
 }
@@ -273,6 +300,8 @@ export async function printedFixture(): Promise<Record<string, string | Uint8Arr
   const data = withIds(next, dataDoc);
   /* D1: the media parts, the capability views' stand-ins, what talks and keeps time */
   const media = withIds(next, mediaDoc);
-  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)), ...(await printed("layouts", layouts.doc, layouts.widths)), ...(await printed("inputs", inputs.doc, inputs.widths)), ...(await printed("data", data.doc, data.widths)), ...(await printed("media", media.doc, media.widths)) };
+  /* the parts the product draws itself (report 9.3) */
+  const slots = withIds(next, slotsDoc);
+  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)), ...(await printed("layouts", layouts.doc, layouts.widths)), ...(await printed("inputs", inputs.doc, inputs.widths)), ...(await printed("data", data.doc, data.widths)), ...(await printed("media", media.doc, media.widths)), ...(await printed("slots", slots.doc, slots.widths)) };
 }
 

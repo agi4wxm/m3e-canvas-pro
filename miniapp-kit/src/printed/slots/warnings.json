@@ -1,0 +1,8 @@
+[
+ {
+  "kind": "atoms",
+  "screen": "Slots",
+  "part": "salesToday",
+  "detail": "drawn as the atoms it splits into (stat-card)"
+ }
+]

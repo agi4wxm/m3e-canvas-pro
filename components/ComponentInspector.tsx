@@ -259,6 +259,8 @@ export function ComponentProps({ item, palette: p, onChange, frame, layoutApart,
       {def.slug === "scene" && <ScenePaint item={item} values={values} p={p} />}
       {def.flow && !layoutApart && <FlowControl item={item} onChange={onChange} p={p} />}
       {def.slug === "fab" && !!values.s("label") && !!values.s("icon") && <Toggle on={!!item.collapseOnScroll} onChange={(collapseOnScroll) => onChange({ collapseOnScroll: collapseOnScroll || undefined })} label={t("fabScrollSwitch", lang)} p={p} />}
+      {/* the exported apps draw the part with a slot of the product's own (docs/平台能力.md 插槽); a capability view always has one */}
+      {!def.capability && <Toggle on={!!item.slot} onChange={(on) => onChange({ slot: on ? (item.slot ?? true) : undefined })} label={t("partSlot", lang)} p={p} />}
     </div>
   );
 }
