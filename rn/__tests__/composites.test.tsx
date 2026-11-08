@@ -6,7 +6,6 @@ import {
   Alert,
   AlertDialog,
   AppBar,
-  AuthForm,
   ButtonGroup,
   Card,
   Carousel,
@@ -214,30 +213,6 @@ describe("forms and pickers", () => {
     expect(screen.getAllByText("Answer")).toHaveLength(1);
     await draw(<FileUpload title="Drop" action="Choose" />);
     expect(screen.getByText("Choose")).toBeTruthy();
-  });
-
-  it("a sign-in form switches to sign-up", async () => {
-    await draw(<AuthForm />);
-    expect(screen.getByText("Welcome back")).toBeTruthy();
-    await fireEvent.press(screen.getByText("New here? Create an account"));
-    expect(screen.getByText("Create your account")).toBeTruthy();
-  });
-
-  it("a sign-in form runs each button's own action, by the part's slot names (submit, forgot, switch, other:<i>)", async () => {
-    const taps = { submit: jest.fn(), forgot: jest.fn(), switch: jest.fn(), "other:0": jest.fn() };
-    const whole = jest.fn();
-    await draw(<AuthForm taps={taps} onPress={whole} />);
-    await fireEvent.press(screen.getByText("Sign in"));
-    await fireEvent.press(screen.getByText("Forgot password?"));
-    await fireEvent.press(screen.getByText("Continue with phone"));
-    await fireEvent.press(screen.getByText("New here? Create an account"));
-    for (const f of Object.values(taps)) expect(f).toHaveBeenCalledTimes(1);
-    expect(whole).not.toHaveBeenCalled();
-    /* the switch still switches, and a place with no action of its own is a tap on the whole part */
-    expect(screen.getByText("Create your account")).toBeTruthy();
-    await draw(<AuthForm onPress={whole} />);
-    await fireEvent.press(screen.getByText("Sign in"));
-    expect(whole).toHaveBeenCalledTimes(1);
   });
 
   it("a side bar and a scene", async () => {

@@ -94,6 +94,7 @@ export const OPS: Op<never, unknown>[] = [
   layout.autoLayout,
   layout.autoLayoutScreen,
   layout.split,
+  layout.splitRetired,
   splits.setSplit,
   splits.convertToSplitView,
   layout.placeInScreen,

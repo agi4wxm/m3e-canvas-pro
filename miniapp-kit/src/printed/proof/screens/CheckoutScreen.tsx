@@ -6,6 +6,7 @@ const A1: Action = { to: "back" };
 const C2: Condition = { var: "payIssue", op: "eq", value: "cancelled" };
 const C3: Condition = { var: "payIssue", op: "eq", value: "order" };
 const C4: Condition = { expr: "vars.payIssue != '' && vars.payIssue != 'cancelled' && vars.payIssue != 'order'" };
+const A5: Action = { to: "none", effects: [{ do: "setVar", var: "payIssue", value: "" }, { do: "setVar", var: "paying", value: true }, { do: "call", operationId: "createOrder", args: { method: "'card'" }, then: { to: "none", effects: [{ do: "invoke", capability: "payment.pay", args: { orderId: "response.id", amount: "response.amount", currency: "response.currency", method: "response.method", payload: "response.payment" }, then: { to: "paymentResult", effects: [{ do: "setVar", var: "paying", value: false }], params: { orderId: "response.id" } }, catch: { to: "none", effects: [{ do: "setVar", var: "paying", value: false }, { do: "setVar", var: "payIssue", value: "", expr: "error.type" }] } }] }, catch: { to: "none", effects: [{ do: "setVar", var: "paying", value: false }, { do: "setVar", var: "payIssue", value: "order" }] } }] };
 
 export function CheckoutScreen() {
   const s = useScreen("checkout", { inputs: { "radioGroup2": { value: 0, labels: ["Card ending 4242", "Bank transfer", "Cash on delivery"] } } });
@@ -67,7 +68,7 @@ export function CheckoutScreen() {
                     testID="column5"
                   >
                     <Cell dir="column" fillWidth>
-                      <Text text="Payment cancelled" styleVariant="label" width={312} testID="text23" />
+                      <Text text="Payment cancelled" styleVariant="label" width={312} testID="text40" />
                     </Cell>
                     <Cell dir="column" fillWidth>
                       <Text
@@ -75,7 +76,7 @@ export function CheckoutScreen() {
                         styleVariant="caption"
                         color="muted"
                         width={312}
-                        testID="text24"
+                        testID="text41"
                       />
                     </Cell>
                   </Container>
@@ -114,7 +115,7 @@ export function CheckoutScreen() {
                     testID="column6"
                   >
                     <Cell dir="column" fillWidth>
-                      <Text text="The order was not created" styleVariant="label" width={312} testID="text25" />
+                      <Text text="The order was not created" styleVariant="label" width={312} testID="text42" />
                     </Cell>
                     <Cell dir="column" fillWidth>
                       <Text
@@ -122,7 +123,7 @@ export function CheckoutScreen() {
                         styleVariant="caption"
                         color="muted"
                         width={312}
-                        testID="text26"
+                        testID="text43"
                       />
                     </Cell>
                   </Container>
@@ -161,7 +162,7 @@ export function CheckoutScreen() {
                     testID="column7"
                   >
                     <Cell dir="column" fillWidth>
-                      <Text text="The payment did not go through" styleVariant="label" width={312} testID="text27" />
+                      <Text text="The payment did not go through" styleVariant="label" width={312} testID="text44" />
                     </Cell>
                     <Cell dir="column" fillWidth>
                       <Text
@@ -169,7 +170,7 @@ export function CheckoutScreen() {
                         styleVariant="caption"
                         color="muted"
                         width={312}
-                        testID="text28"
+                        testID="text45"
                       />
                     </Cell>
                   </Container>
@@ -189,7 +190,7 @@ export function CheckoutScreen() {
               testID="panel"
             >
               <Cell dir="column" fillWidth>
-                <Text text="Deliver to" styleVariant="label" color="muted" width={348} testID="text29" />
+                <Text text="Deliver to" styleVariant="label" color="muted" width={348} testID="text46" />
               </Cell>
               <Cell dir="column" fillWidth>
                 <ListItem
@@ -229,11 +230,11 @@ export function CheckoutScreen() {
                   hugHeight
                   testID="row5"
                 >
-                  <Image alt="Everyday canvas tote" width={56} height={56} testID="image3" />
-                  <Image alt="Ceramic mug" width={56} height={56} testID="image4" />
-                  <Image alt="Steel bottle" width={56} height={56} testID="image5" />
+                  <Image alt="Everyday canvas tote" width={56} height={56} testID="image6" />
+                  <Image alt="Ceramic mug" width={56} height={56} testID="image7" />
+                  <Image alt="Steel bottle" width={56} height={56} testID="image8" />
                   <Cell dir="row" grow>
-                    <Text text="4 items" color="muted" align="end" width={156} testID="text30" />
+                    <Text text="4 items" color="muted" align="end" width={156} testID="text47" />
                   </Cell>
                 </Container>
               </Cell>
@@ -251,7 +252,7 @@ export function CheckoutScreen() {
               testID="panel3"
             >
               <Cell dir="column" fillWidth>
-                <Text text="Pay with" styleVariant="label" color="muted" width={348} testID="text31" />
+                <Text text="Pay with" styleVariant="label" color="muted" width={348} testID="text48" />
               </Cell>
               <Cell dir="column" fillWidth>
                 <RadioGroup
@@ -278,7 +279,7 @@ export function CheckoutScreen() {
               testID="panel4"
             >
               <Cell dir="column" fillWidth>
-                <Text text="Summary" styleVariant="label" color="muted" width={348} testID="text32" />
+                <Text text="Summary" styleVariant="label" color="muted" width={348} testID="text49" />
               </Cell>
               <Cell dir="column" fillWidth>
                 <Box padX={0} padY={0} align="stretch" hugWidth={false} width={348} testID="descriptionList">
@@ -330,7 +331,7 @@ export function CheckoutScreen() {
             </Box>
             <Text text="Free delivery" styleVariant="tiny" fit="auto" color="muted" />
           </Box>
-          <Button label="Place order" />
+          <Button label="Place order" onPress={s.tap(A5, { $: $ })} />
         </Box>
       </At>
       {s.layer}

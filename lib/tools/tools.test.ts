@@ -12,6 +12,7 @@ import type { AiSettings } from "../ai";
 import { CORE_REGISTRY, createRegistry, executeTool, isDestructiveCall, toolDefs, toolGuide, TOOL_GROUPS, type Renderer, type ToolOutcome } from ".";
 import { GENERATE_TOOLS, stripBackdrop, toCurrentColor } from "./generate";
 import { iconSource } from "../../scripts/gen-tool-icons";
+import { makeItem } from "../tokens";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -83,6 +84,16 @@ describe("the registry", () => {
   });
 });
 
+/** A part an old design holds that no tool adds any more (a retired one), put on a screen the way a file has it: the
+ *  `old_part` step of `opCalls`. */
+function oldPart(store: DocStore, a: Record<string, unknown>) {
+  const { slug, id, screen, at, props } = a as { slug: string; id: string; screen: string; at: { x: number; y: number }; props: Record<string, unknown> };
+  store.update("An old part", "system", (s) => {
+    const f = s.doc.frames.find((x) => x.id === screen)!;
+    return { ...s, doc: { ...s.doc, groups: [...s.doc.groups, { id: `g-${id}`, x: f.x + at.x, y: f.y + at.y, axis: "x", items: [{ ...makeItem(slug), id, props }] }] } };
+  });
+}
+
 /** a call per operation, in an order that leaves each one something to work on */
 function opCalls(): [string, Record<string, unknown>][] {
   const splittable = PARTS.find((d) => d.atoms && d.category !== "Basics")!.slug;
@@ -123,11 +134,14 @@ function opCalls(): [string, Record<string, unknown>][] {
     ["add_tree", { screen: "detail", at: { x: 16, y: 120 }, tree: { part: "box", id: "tree", props: { layout: "row", gap: 8 }, children: [{ part: "icon", props: { name: "star" } }, { part: "text", props: { text: "Starred" } }] } }],
     ["add_part", { slug: splittable, id: "comp", screen: "detail", at: { x: 16, y: 200 } }],
     ["split_into_atoms", { id: "comp" }],
+    /* an old design's retired parts: there are none in one built by the tools, which cannot add them (lib/retire.test.ts splits some) */
+    ["split_retired", {}],
     ["add_part", { slug: dock, id: "dock", screen: "detail", at: { x: 16, y: 500 } }],
     ["reorder_panes", { id: "dock", order: [1, 0] }],
     ["add_part", { slug: "split-view", id: "sv", screen: "detail", at: { x: 16, y: 560 }, props: { width: 380, height: 160, collapsible: "second" } }],
     ["set_split", { id: "sv", split: 30, collapsed: true }],
-    ["add_part", { slug: "resizable", id: "rz", screen: "detail", at: { x: 16, y: 740 }, props: { width: 380 } }],
+    /* a resizable is retired: an old design holds one, no tool adds it */
+    ["old_part", { slug: "resizable", id: "rz", screen: "detail", at: { x: 16, y: 740 }, props: { width: 380 } }],
     ["convert_to_split_view", { id: "rz" }],
     ["wrap_in_auto_layout", { ids: ["b4"], id: "wrap" }],
     ["auto_layout_screen", { screen: "detail" }],
@@ -268,6 +282,10 @@ describe("every tool, headless", () => {
     const store = fresh();
     const called = new Set<string>();
     for (const [name, args] of opCalls()) {
+      if (name === "old_part") {
+        oldPart(store, args);
+        continue;
+      }
       const steps = store.history().length;
       const out = await executeTool(store, name, args, { origin: "mcp" });
       ok(out, name);
@@ -288,7 +306,10 @@ describe("every tool, headless", () => {
   it("runs every read tool", async () => {
     const store = fresh();
     const calls = opCalls();
-    for (const [name, args] of calls.slice(0, calls.findIndex(([n]) => n === "make_component"))) await executeTool(store, name, args, { origin: "mcp" });
+    for (const [name, args] of calls.slice(0, calls.findIndex(([n]) => n === "make_component"))) {
+      if (name === "old_part") oldPart(store, args);
+      else await executeTool(store, name, args, { origin: "mcp" });
+    }
     const shots: string[] = [];
     const renderer: Renderer = { screenshot: async (id) => (shots.push(id), "data:image/png;base64,iVBORw0KGgo=") };
     const reads: [string, Record<string, unknown>][] = [

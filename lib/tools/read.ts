@@ -2,7 +2,7 @@
  * selection, the catalogs a model writes from (parts with their props schema, kits, templates, styles, looks, icons),
  * the reusable components and the data, and a picture of a screen. None of them changes anything. */
 
-import { PARTS, partBySlug, tierOf, TIERS, CATEGORIES, defaultValues } from "../../parts/registry";
+import { OFFERED_PARTS, partBySlug, tierOf, TIERS, CATEGORIES, defaultValues } from "../../parts/registry";
 import { KITS, kitBySlug, pickVariant } from "../../parts/kits";
 import { TEMPLATES, templateBySlug } from "../../parts/templates";
 import { searchTerms } from "../../parts/keywords";
@@ -18,6 +18,7 @@ import { overridableParts } from "../instances";
 import { FAMILY_LACKS, ICON_NAMES } from "./icons.generated";
 import { partPropsSchema } from "./schema";
 import { declarationsOf } from "../partContract";
+import { retiredWayOut } from "../retire";
 import type { PartDef } from "../../parts/types";
 import { tool, ToolFailure, type Tool, type ToolEnv } from "./types";
 
@@ -158,7 +159,8 @@ const listParts = tool<{ tier?: "atom" | "composite"; category?: string; query?:
   destructive: false,
   run(a) {
     const hit = matcher(a.query);
-    const rows = PARTS.filter((d) => (!a.tier || tierOf(d) === a.tier) && (!a.category || d.category === a.category) && hit(d.slug, d.name, labelsOf(d.labels), d.category));
+    /* the retired parts are not there to build with: an old design's are described by describe_node */
+    const rows = OFFERED_PARTS.filter((d) => (!a.tier || tierOf(d) === a.tier) && (!a.category || d.category === a.category) && hit(d.slug, d.name, labelsOf(d.labels), d.category));
     return { result: { count: rows.length, parts: rows.map((d) => `${d.slug} | ${d.name} | ${tierOf(d)}/${d.category}${d.holds ? " | holds parts" : ""}${d.atoms ? " | splits" : ""} | props: ${d.props.map((p) => p.key).join(", ")}${outletsLine(d)}`) } };
   },
 });
@@ -190,6 +192,7 @@ const describePart = tool<{ slug: string }>({
           props: def.props.map((d) => ({ key: d.key, label: d.label, kind: d.kind, default: defaults[d.key], takes: propKindText(d) })),
           propsSchema: partPropsSchema(def),
           ...declarationsOf(def),
+          ...(def.retired ? { retired: { use: def.retired.use, add: "refused: build what it did from what use says instead", old: `an old design keeps it; ${retiredWayOut(def)}` } } : {}),
         },
       };
     }

@@ -197,6 +197,8 @@ export function outline(doc: Doc, widths: Widths, o: OutlineOptions = {}): strin
       g?.states ? `region of ${g.states.source ?? "no source"}${g.states.show ? `, showing ${g.states.show}` : ""}` : "",
       host?.states && g?.pane ? `${PANE_STATE[g.pane] ?? "state"} design` : "",
       g?.form ? `form of ${g.form.operationId}` : "",
+      /* an old design's retired part: drawn as before, split_retired turns it into atoms */
+      partBySlug(it?.component)?.retired ? "retired" : "",
       roleOf(it ?? {}) && ["top", "bottom", "floatingBottom", "fab", "overlay", "rail"].includes(roleOf(it ?? {})!) ? `role=${roleOf(it ?? {})}` : "",
     ].filter(Boolean);
     lines.push(`${"  ".repeat(depth)}- ${n.id} ${n.slug} "${clip(n.name, 32)}" @${n.x},${n.y} ${n.w}×${n.h}${flags.length ? ` [${flags.join(", ")}]` : ""}${it ? propsLine(it, o.props ?? "set") + fieldsLine(it) : ""}`);
@@ -315,6 +317,8 @@ export function describeNode(doc: Doc, widths: Widths, id: string) {
     ...(def ? declarationsOf(def) : {}),
     ...(def?.demo ? { demoRunsInPrototype: !demoTakenOver(it) } : {}),
     canSplit: !!def?.atoms,
+    /* an old design's retired part: it draws as before, but is built anew from atoms (split_retired) */
+    ...(def?.retired ? { retired: { use: def.retired.use, split: "split_retired" } } : {}),
     canHold: !!def?.holds,
     appearance: !!def?.appearance,
     look: doc.theme ? kitLookOf(doc.theme).group : undefined,

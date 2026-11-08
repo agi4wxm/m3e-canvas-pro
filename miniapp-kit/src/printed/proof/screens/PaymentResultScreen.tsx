@@ -76,7 +76,7 @@ export function PaymentResultScreen() {
                       </Container>
                     </Cell>
                     <Cell dir="column" fillWidth>
-                      <Text text="Payment received" styleVariant="headline" align="center" width={380} testID="text33" />
+                      <Text text="Payment received" styleVariant="headline" align="center" width={380} testID="text50" />
                     </Cell>
                     <Cell dir="column" fillWidth>
                       <Text
@@ -84,7 +84,7 @@ export function PaymentResultScreen() {
                         color="muted"
                         align="center"
                         width={380}
-                        testID="text34"
+                        testID="text51"
                       />
                     </Cell>
                     <Cell dir="column" fillWidth>
@@ -150,7 +150,7 @@ export function PaymentResultScreen() {
                         testID="column10"
                       >
                         <Cell dir="column" fillWidth>
-                          <Button label="Track order" icon="local_shipping" width={380} testID="button20" />
+                          <Button label="Track order" icon="local_shipping" width={380} testID="button21" />
                         </Cell>
                         <Cell dir="column" fillWidth>
                           <Button
@@ -158,7 +158,7 @@ export function PaymentResultScreen() {
                             variant="text"
                             width={380}
                             onPress={s.tap(A1, { $: $ })}
-                            testID="button21"
+                            testID="button22"
                           />
                         </Cell>
                       </Container>
@@ -200,7 +200,7 @@ export function PaymentResultScreen() {
                       </Container>
                     </Cell>
                     <Cell dir="column" fillWidth>
-                      <Text text="Payment processing" styleVariant="headline" align="center" width={380} testID="text35" />
+                      <Text text="Payment processing" styleVariant="headline" align="center" width={380} testID="text52" />
                     </Cell>
                     <Cell dir="column" fillWidth>
                       <Text
@@ -208,7 +208,7 @@ export function PaymentResultScreen() {
                         color="muted"
                         align="center"
                         width={380}
-                        testID="text36"
+                        testID="text53"
                       />
                     </Cell>
                     <Cell dir="column" fillWidth>
@@ -218,7 +218,7 @@ export function PaymentResultScreen() {
                         variant="tonal"
                         width={380}
                         onPress={s.tap(A3, { $: $ })}
-                        testID="button22"
+                        testID="button23"
                       />
                     </Cell>
                   </Container>
@@ -258,7 +258,7 @@ export function PaymentResultScreen() {
                       </Container>
                     </Cell>
                     <Cell dir="column" fillWidth>
-                      <Text text="Payment failed" styleVariant="headline" align="center" width={380} testID="text37" />
+                      <Text text="Payment failed" styleVariant="headline" align="center" width={380} testID="text54" />
                     </Cell>
                     <Cell dir="column" fillWidth>
                       <Text
@@ -266,11 +266,11 @@ export function PaymentResultScreen() {
                         color="muted"
                         align="center"
                         width={380}
-                        testID="text38"
+                        testID="text55"
                       />
                     </Cell>
                     <Cell dir="column" fillWidth>
-                      <Button label="Back to checkout" width={380} onPress={s.tap(A5, { $: $ })} testID="button23" />
+                      <Button label="Back to checkout" width={380} onPress={s.tap(A5, { $: $ })} testID="button24" />
                     </Cell>
                   </Container>
                 </Cell>
@@ -293,7 +293,7 @@ export function PaymentResultScreen() {
                 testID="column13"
               >
                 <LoadingIndicator testID="loadingIndicator" />
-                <Text text={"Checking the payment…"} color="muted" testID="text39" />
+                <Text text={"Checking the payment…"} color="muted" testID="text56" />
               </Container>
             </Cell>
           ) : null}
@@ -312,8 +312,8 @@ export function PaymentResultScreen() {
                 hugHeight
                 testID="column14"
               >
-                <Text text="The order could not be loaded" styleVariant="label" testID="text40" />
-                <Button label="Try again" variant="tonal" onPress={s.tap(A3, { $: $ })} testID="button24" />
+                <Text text="The order could not be loaded" styleVariant="label" testID="text57" />
+                <Button label="Try again" variant="tonal" onPress={s.tap(A3, { $: $ })} testID="button25" />
               </Container>
             </Cell>
           ) : null}

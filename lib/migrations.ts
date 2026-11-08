@@ -13,8 +13,9 @@
  * (lib/migrations.test.ts runs the contract below on every step listed here).
  *
  * Versions 0, 1 and 2 are one shape of document: 1 was the envelope other tools wrote, 2 added `packs` beside the
- * document, and neither changed the document itself. Version 3 is reserved for the first real step (the retirement of
- * whole-screen components into atoms, or the convergence of bindings, conditions, rows and transitions). */
+ * document, and neither changed the document itself. Version 3 is reserved for the first real step (the convergence of
+ * bindings, conditions, rows and transitions). The retired whole-screen parts are no step: they still draw, and are
+ * split into atoms only when someone asks (lib/retire.ts), an undoable operation rather than a rewrite on opening. */
 
 export type MigrationDoc = Record<string, unknown>;
 

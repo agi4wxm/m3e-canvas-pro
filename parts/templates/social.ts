@@ -1,4 +1,5 @@
 import { col, panel, part, row, say, screen, txt, type Node, type Say, type ScreenSeed, type Template } from "./kit";
+import { atomsOf } from "./atoms";
 import { homeNav, PEOPLE, WORDS } from "./words";
 
 /* People: a feed, a profile, messages and what comes in. */
@@ -95,7 +96,7 @@ export const social: Template[] = [
         /* reached from the chats: the navigation has no entry of its own for it */
         top: [part("app-bar", { title: say("Contacts", "通讯录", "連絡先", "연락처"), leading: "arrow_back", trailing: "person_add" })],
         body: [
-          part("contact-list", {
+          atomsOf("contact-list", {
             search: say("Search", "搜索", "検索", "검색"),
             grouped: false,
             trailing: "message",
@@ -135,7 +136,7 @@ export const social: Template[] = [
         name: say("AI assistant", "AI 助手", "AI アシスタント", "AI 어시스턴트"),
         place: "bottom",
         top: [part("app-bar", { title: say("Assistant", "助手", "アシスタント", "어시스턴트"), leading: "menu", trailing: "edit_square" })],
-        bottom: [part("chat-composer", { placeholder: say("Ask anything", "有问题尽管问", "何でも聞いてください", "무엇이든 물어보세요") })],
+        bottom: [atomsOf("chat-composer", { placeholder: say("Ask anything", "有问题尽管问", "何でも聞いてください", "무엇이든 물어보세요") })],
         body: [
           col({ gap: 12 }, [
             part("message", { align: "end", variant: "default", avatar: "", header: "", footer: "", text: say("Help me plan a three-day trip.", "帮我规划一次三天的旅行。", "3 日間の旅行を計画して。", "3일 여행 계획을 도와줘.") }),
@@ -196,7 +197,7 @@ export const social: Template[] = [
         top: [part("app-bar", { title: say("Post", "动态", "投稿", "게시물"), leading: "arrow_back", trailing: "more_vert" })],
         body: [
           part("post-card", { author: PEOPLE.ada, time: say("2 hours ago", "2 小时前", "2 時間前", "2시간 전"), text: say("A few lines about what this post shares.", "用几句话说说这条动态想分享什么。", "この投稿で伝えたいことを数行で。", "이 게시물에서 나누고 싶은 내용을 몇 줄로 적습니다."), likes: 128, comments: 3, shares: 6 }),
-          part("comment-list", {
+          atomsOf("comment-list", {
             you: say("You", "我", "自分", "나"),
             now: say("Now", "刚刚", "たった今", "방금"),
             reply: say("Reply", "回复", "返信", "답글"),
@@ -291,7 +292,7 @@ export const social: Template[] = [
         id: "thread",
         name: say("Chat thread", "聊天会话", "チャット画面", "채팅 대화"),
         top: [part("app-bar", { title: PEOPLE.grace, subtitle: say("Online", "在线", "オンライン", "온라인"), leading: "arrow_back", trailing: "call" })],
-        bottom: [part("chat-composer", { placeholder: MESSAGE })],
+        bottom: [atomsOf("chat-composer", { placeholder: MESSAGE })],
         place: "bottom",
         body: [
           col({ gap: 8 }, [
@@ -322,7 +323,7 @@ export const social: Template[] = [
         id: "group",
         name: say("Group chat", "群聊", "グループチャット", "그룹 채팅"),
         top: [part("app-bar", { title: say("Group name", "群聊名称", "グループ名", "그룹 이름"), subtitle: say("8 members", "8 位成员", "メンバー 8 人", "멤버 8명"), leading: "arrow_back", trailing: "more_vert" })],
-        bottom: [part("chat-composer", { placeholder: MESSAGE })],
+        bottom: [atomsOf("chat-composer", { placeholder: MESSAGE })],
         place: "bottom",
         body: [
           col({ gap: 12 }, [
@@ -352,7 +353,7 @@ export const social: Template[] = [
         name: say("Notifications", "通知", "通知", "알림"),
         top: [part("app-bar", { title: say("Notifications", "通知", "通知", "알림"), leading: "arrow_back", trailing: "tune" })],
         body: [
-          part("notification-list", {
+          atomsOf("notification-list", {
             title: WORDS.today,
             unread: 2,
             markAll: say("Mark all read", "全部已读", "すべて既読", "모두 읽음"),
@@ -366,7 +367,7 @@ export const social: Template[] = [
               ],
             },
           }),
-          part("notification-list", {
+          atomsOf("notification-list", {
             title: say("Earlier", "更早", "以前", "이전"),
             unread: 0,
             markAll: "",

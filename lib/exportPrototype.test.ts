@@ -183,15 +183,16 @@ describe("a document with no prototype interactions, flows or variables in modes
     expect("src/lib/screenMotion.ts" in proof).toBe(false);
     /* Digests of what these documents exported before prototypes, flows and modes reached the app. A change here means
        documents that use none of them now export differently: if that is meant, update the digests (last: the platform
-       capabilities beside the widgets' outlets: the shop flow pays through createOrder and payment.pay and shows the
-       order's status, its checkout's body one column with the payment notices among its rows, and the checkout bar, the
-       map and the camera take their state as props; before that the widgets' outlets, report 3.3 and 3.4: the product
-       cards act out their demo, the widgets carry the host's controlled value and own controls, and the sweep has more
-       parts with a selectKey; before them proof's rating is an input since
+       capabilities: the shop flow pays through createOrder and payment.pay and shows the order's status, its checkout's
+       body one column with the payment notices among its rows, and the checkout bar, the map and the camera take their
+       state as props; before that the shop
+       template's cart is the atoms the retired cart-list splits into, looking as it did; before it the widgets'
+       outlets, report 3.3 and 3.4: the product cards act out their demo, the widgets carry the host's controlled value
+       and own controls, and the sweep has more parts with a selectKey; before them proof's rating is an input since
        parts declare theirs, so it reads and writes a variable of its own). */
     expect({ proof: digestOf(proof), reuse: digestOf(await exported(reuseDoc().doc, reuseDoc().widths)), sweep: digestOf(await exported(sweepDoc().doc, sweepDoc().widths)) }).toMatchInlineSnapshot(`
       {
-        "proof": "0eb78785e5978829",
+        "proof": "d8835a9bd479927d",
         "reuse": "aeba42efb325c141",
         "sweep": "53429e0eaae7334b",
       }

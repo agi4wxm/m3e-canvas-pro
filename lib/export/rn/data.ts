@@ -3,6 +3,7 @@ import type { PartDef, PropValues } from "../../../parts/types";
 import type { Node, Say } from "../../../parts/templates/kit";
 import { settleSizes } from "../../../parts/atoms";
 import type { Lang } from "../../i18n";
+import type { Action } from "../../tokens";
 import { kitPropName } from "../../../rn/src/kit/coverage";
 
 /* Parts as plain data for the React Native kit: every prop of a part with its value read the way the canvas reads it
@@ -46,6 +47,11 @@ function words(v: unknown, lang: Lang): unknown {
 /** A tree of atoms as the kit draws it: settled sizes (lib/kits.ts does the same when it adds one), words in one
  *  language, props under the kit's names, and only what is drawn (no names, notes or links). */
 export type PlainNode = { slug: string; props: Record<string, unknown>; grow?: boolean; fill?: string; textColor?: string; corners?: Record<string, number>; look?: Record<string, unknown>; kids?: PlainNode[] };
+
+/** Where a printer is in the tree of atoms a part was split into (`node`, beside the PlainNode it prints), and where the
+ *  part's taps of places went in it (lib/kits.ts `splitTaps`): an atom with a tap prints it, and the places that found
+ *  no atom are the ones the export reports as lost. `owner` is the part's id, for what the printer reports. */
+export type AtomTaps = { node: Node; actions: Map<Node, Action>; placed: ReadonlySet<string>; owner: string };
 
 /** the layout props that count only when they are set (parts/flow.ts): left out, `gap`, `padX` and `padY` say them */
 export const SET_ONLY = new Set(["gapY", "padTop", "padRight", "padBottom", "padLeft"]);

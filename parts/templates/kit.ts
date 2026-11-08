@@ -62,6 +62,8 @@ export type Node = {
   pane?: number;
   /** props bound to expressions, by prop: "=data.order.value.id" (in every language where it holds words) */
   bind?: Record<string, string | Say>;
+  /** a box that draws its first child once per row of a data collection (`Group.repeat`), by the collection's id */
+  repeat?: { collection: string };
   /** one of the two panes of the split view it is in (`split`) */
   splitPane?: "first" | "second";
   kids?: Node[];
@@ -173,7 +175,7 @@ export function seedGroups(seed: ScreenSeed): SeedGroup[] {
       ...(node.note ? { note: node.note } : {}),
       ...(node.bind ? { bind: node.bind } : {}),
     };
-    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), ...(node.at ? { at: node.at } : {}), ...(node.screenMain ? { screenMain: true } : {}), ...(node.showWhen ? { showWhen: node.showWhen } : {}), ...(node.states ? { states: node.states } : {}), ...(node.pane !== undefined ? { pane: node.pane } : {}), ...(node.splitPane && inFlow ? { splitPane: node.splitPane } : {}), items: [item] });
+    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), ...(node.at ? { at: node.at } : {}), ...(node.screenMain ? { screenMain: true } : {}), ...(node.showWhen ? { showWhen: node.showWhen } : {}), ...(node.states ? { states: node.states } : {}), ...(node.pane !== undefined ? { pane: node.pane } : {}), ...(node.splitPane && inFlow ? { splitPane: node.splitPane } : {}), ...(node.repeat ? { repeat: { collection: node.repeat.collection } } : {}), items: [item] });
     for (const kid of node.kids ?? []) visit(kid, id);
   };
   for (const root of seed.roots) visit(root);

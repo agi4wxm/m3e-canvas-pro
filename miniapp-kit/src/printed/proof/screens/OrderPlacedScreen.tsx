@@ -27,10 +27,10 @@ export function OrderPlacedScreen() {
         </Container>
       </At>
       <At x={16} y={334}>
-        <Text text="Thank you for your order" styleVariant="headline" align="center" width={380} testID="text27" />
+        <Text text="Thank you for your order" styleVariant="headline" align="center" width={380} testID="text44" />
       </At>
       <At x={16} y={374}>
-        <Text text="We will email you when it ships." color="muted" align="center" width={380} testID="text28" />
+        <Text text="We will email you when it ships." color="muted" align="center" width={380} testID="text45" />
       </At>
       <At x={16} y={414}>
         <Container
@@ -95,10 +95,10 @@ export function OrderPlacedScreen() {
           testID="column4"
         >
           <Cell dir="column" fillWidth>
-            <Button label="Track order" icon="local_shipping" width={380} testID="button20" />
+            <Button label="Track order" icon="local_shipping" width={380} testID="button21" />
           </Cell>
           <Cell dir="column" fillWidth>
-            <Button label="Continue shopping" variant="text" width={380} onPress={s.tap(A1, { $: $ })} testID="button21" />
+            <Button label="Continue shopping" variant="text" width={380} onPress={s.tap(A1, { $: $ })} testID="button22" />
           </Cell>
         </Container>
       </At>

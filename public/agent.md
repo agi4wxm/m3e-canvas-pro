@@ -385,7 +385,6 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `tag-input` | Tag input *(event `on:add`: event.value)* *(event `on:remove`: event.value)* | `items` rows of `{ "label" }`; `placeholder` text; `width` 160–1280 |
 | `phone-input` | Phone number | `code` text; `placeholder` text; `width` 160–640 |
 | `file-upload` | File upload | `title` text; `hint` text; `action` text; `multiple` true / false; `accept` text; `width` 200–800 |
-| `auth-form` | Sign-in form | `mode` sign-in / sign-up; `title` text; `subtitle` text; `upTitle` text; `nameLabel` text; `emailLabel` text; `passwordLabel` text; `confirmLabel` text; `remember` text; `forgot` text; `action` text; `upAction` text; `toUp` text; `toIn` text; `others` rows of `{ "label" }`; `minLength` 1–32; `badEmail` text; `badPassword` text; `badConfirm` text; `success` text; `width` 240–640 |
 | `number-pad` | Number pad *(event `on:submit`: event.value)* *(prototype demo until `sent` is bound)* | `mode` amount / pin / phone; `prefix` text; `length` 1–20; `action` text; `done` text; `value` text; `sent` true / false; `width` 200–480 |
 | `signature-pad` | Signature pad *(prototype demo until `signed` is bound)* | `hint` text; `clear` text; `action` text; `done` text; `value` text; `signed` true / false; `height` 80–480; `width` 200–800 |
 | `rich-text-editor` | Rich text editor | `text` text; `placeholder` text; `counter` true / false; `height` 80–800; `width` 280–1280 |
@@ -464,7 +463,6 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `sonner` | Snackbar *(splits)* | `label` text; `variant` filled / tonal / elevated / outlined / text; `message` text; `action` text; `closeButton` true / false |
 | `alert` | Alert *(splits)* | `variant` default / info / tertiary / destructive; `icon` icon; `title` text; `description` text; `width` 200–640 |
 | `empty` | Empty *(splits)* | `title` text; `description` text; `icon` icon; `action` text; `bordered` true / false; `width` 200–640 |
-| `pull-to-refresh` | Pull to refresh | `hint` text; `width` 160–800; `height` 80–1200 |
 | `number-ticker` | Number ticker | `value` -1000000000–1000000000; `prefix` text; `suffix` text; `size` title / headline / display |
 | `timer` | Timer *(event `on:ended`)* *(prototype demo until `running` or `endsAt` or `startedAt` is bound)* | `seconds` 1–86400; `countdown` true / false; `running` true / false; `endsAt` 0–100000000000000; `startedAt` 0–100000000000000; `clockSkew` -10000000000–10000000000; `width` 160–480 |
 | `banner` | Banner *(splits)* | `icon` icon; `text` text; `action` text; `secondary` text; `closable` true / false; `width` 200–1280 |
@@ -498,10 +496,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `tracker` | Status tracker | `title` text; `states` text; `width` 120–1280 |
 | `sortable-list` | Sortable list *(event `on:reorder`: event.from, event.to)* | `items` rows of `{ "label" }`; `width` 160–800 |
 | `swipe-row` | Swipe row *(event `on:open`: event.open)* | `title` text; `note` text; `action` text; `open` true / false; `width` 160–800 |
-| `notification-list` | Notifications *(splits)* | `title` text; `data` `{ "columns": ["Title", "Body", "Time", "Icon"], "rows": [[…]] }`; `unread` 0–99; `markAll` text; `width` 240–800 |
 | `file-list` | Files *(`tab:*` for every entry: slot.index)* *(`remove:*` for every entry: slot.index)* *(prototype demo until `data` is bound)* | `data` `{ "columns": ["Name", "Size", "Date"], "rows": [[…]] }`; `removable` true / false; `selected` -1–99; `width` 240–800 |
-| `settings-group` | Settings group *(splits)* | `title` text; `data` `{ "columns": ["Icon", "Label", "Control", "Value"], "rows": [[…]] }`; `width` 240–800 |
-| `todo-list` | To-do list | `title` text; `items` rows of `{ "label" }`; `placeholder` text; `width` 200–800 |
 
 ##### Data & charts
 
@@ -530,7 +525,6 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `subscription` | Subscription plans *(splits)* *(`tab:*` for every entry: slot.index)* | `title` text; `description` text; `plans` rows of `{ "label" }`; `selected` -1–5; `action` text; `width` 200–640 |
 | `product-card` | Product card *(splits)* *(prototype demo until `liked` or `added` is bound)* | `image` https address; `title` text; `subtitle` text; `price` text; `original` text; `badge` text; `rating` 0–5; `action` text; `done` text; `layout` vertical / horizontal; `liked` true / false; `added` 0–999; `width` 140–640 |
 | `price-tag` | Price *(splits)* | `currency` text; `amount` text; `original` text; `discount` text; `size` small / medium / large |
-| `cart-list` | Shopping cart | `data` `{ "columns": ["Name", "Variant", "Price", "Quantity"], "rows": [[…]] }`; `currency` text; `selectAll` text; `total` text; `action` text; `empty` text; `width` 280–800 |
 | `coupon` | Coupon *(splits)* *(prototype demo until `claimed` is bound)* | `amount` text; `condition` text; `title` text; `expiry` text; `action` text; `done` text; `claimed` true / false; `width` 260–640 |
 | `checkout-bar` | Checkout bar *(splits)* *(prototype demo until `placed` is bound)* | `label` text; `amount` text; `note` text; `icons` rows of `{ "label", "icon" }`; `action` text; `done` text; `placed` true / false; `width` 240–1280 |
 | `balance-card` | Balance card *(splits)* | `title` text; `amount` text; `change` text; `actions` rows of `{ "label", "icon" }`; `hidden` true / false; `width` 240–800 |
@@ -545,10 +539,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `post-card` | Post *(splits)* *(prototype demo until `liked` or `saved` or `likes` is bound)* | `author` text; `time` text; `text` text; `image` https address; `showImage` true / false; `likes` 0–1000000; `comments` 0–1000000; `shares` 0–1000000; `liked` true / false; `saved` true / false; `width` 240–800 |
 | `leaderboard` | Leaderboard *(splits)* | `title` text; `data` `{ "columns": ["Name", "Score", "Change"], "rows": [[…]] }`; `faces` true / false; `selected` -1–99; `width` 240–800 |
 | `conversation-list` | Conversations *(splits)* | `data` `{ "columns": ["Name", "Last message", "Time", "Unread"], "rows": [[…]] }`; `selected` -1–99; `width` 240–800 |
-| `contact-list` | Contacts *(splits)* | `data` `{ "columns": ["Name", "Note"], "rows": [[…]] }`; `search` text; `grouped` true / false; `trailing` follow / call / message / none; `action` text; `done` text; `width` 240–800 |
-| `comment-list` | Comments *(splits)* | `data` `{ "columns": ["Name", "Time", "Comment", "Likes"], "rows": [[…]] }`; `you` text; `now` text; `reply` text; `placeholder` text; `width` 240–800 |
 | `story-row` | Stories *(`tab:*` for every entry: slot.index)* *(prototype demo until `items` is bound)* | `items` rows of `{ "label" }`; `add` true / false; `width` 160–1280 |
-| `chat-composer` | Message composer *(splits)* | `placeholder` text; `attach` true / false; `emoji` true / false; `width` 200–1280 |
 | `voice-message` | Voice message | `seconds` 1–600; `mine` true / false; `transcript` text; `transcribe` text; `width` 160–480 |
 | `video-call` | Video call *(event `on:muted`: event.muted)* *(event `on:ended`)* *(prototype demo until `mic` or `camera` or `speaker` or `startedAt` is bound)* | `name` text; `connected` true / false; `status` text; `mic` true / false; `camera` true / false; `speaker` true / false; `startedAt` text; `image` https address; `icon` icon; `height` 240–960; `width` 240–960 |
 
@@ -595,9 +586,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `money-tree` | Money tree *(event `on:settled`: event.index, event.label)* *(prototype demo until `result` or `pending` is bound)* | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `pending` true / false; `size` 120–480 |
 | `egg-smash` | Egg smash *(event `on:settled`: event.index, event.label)* *(`egg:*` for every entry: slot.index)* *(prototype demo until `result` or `pending` is bound)* | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `pending` true / false; `size` 120–480 |
 | `asset-pill` | Asset pill *(splits)* | `value` text; `icon` icon |
-| `inventory` | Inventory | `columns` 1–12; `rows` 1–12; `filled` 0–144; `width` 160–800 |
 | `item-cell` | Item cell *(splits)* | `icon` icon; `name` text; `count` text; `rarity` text; `rarityColor` text; `badge` text; `selected` true / false; `size` 32–160 |
-| `task-row` | Task row *(splits)* | `title` text; `action` text; `done` text; `width` 200–800 |
 | `reward-track` | Reward track *(splits)* *(`tab:*` for every entry: slot.index)* *(prototype demo until `claimed` is bound)* | `data` `{ "columns": ["At", "Label", "Icon"], "rows": [[…]] }`; `value` 0–100000; `max` 1–100000; `claimed` text; `action` text; `width` 200–800 |
 | `check-in` | Daily check-in *(splits)* *(prototype demo until `signed` or `today` is bound)* | `title` text; `days` 7–31; `signed` 0–31; `today` 0–31; `width` 200–640 |
 | `joystick` | Joystick *(event `on:release`: event.x, event.y)* | `size` 64–320; `angle` 0–360; `autoCenter` true / false; `value` text |
@@ -613,7 +602,6 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `resizable` | Resizable | `orientation` horizontal / vertical; `first` text; `second` text; `split` 10–90; `handle` true / false; `width` 160–2400; `height` 80–2400 |
 | `menubar` | Menubar | `menus` rows of `{ "label" }`; `items` rows of `{ "label", "icon" }` |
 | `title-bar` | Title bar *(splits)* | `title` text; `controls` mac / windows / none; `width` 240–1920 |
 | `status-bar` | Status bar *(splits)* | `text` text; `icon` icon; `trailing` text; `width` 240–1920 |
@@ -621,6 +609,25 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `window` | Window | `title` text; `controls` mac / windows / none; `layout` free / row / column / grid; `gap` 0–96; `gapY` 0–96; `padX` 0–96; `padY` 0–96; `padTop` 0–96; `padRight` 0–96; `padBottom` 0–96; `padLeft` 0–96; `align` start / center / end / stretch / baseline; `justify` start / center / end / between / around / evenly; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false; `width` 200–2400; `height` 120–2400 |
 | `code-block` | Code block | `code` text; `language` text; `width` 200–1280 |
 | `file-diff` | File diff | `file` text; `diff` text; `width` 200–1280 |
+
+#### Retired
+
+Old designs may still hold these parts; they draw as they did, but never write one. Build what each did from atoms and kits, its rows as data and its taps as actions, and a resizable's panes with a split-view. In the editor, `split_retired` turns an old design's into atoms, and a resizable into a split view.
+
+| component | what it was | build instead |
+|---|---|---|
+| `resizable` | Resizable | the split-view part: two panes that hold parts, with a divider the visitor drags (set_split sets the share) |
+| `inventory` | Inventory | a grid box of item cells (the item-cell part, or atoms), repeated over the inventory's data; the item a tap picks is the screen's to say |
+| `task-row` | Task row | the quest-row kit, repeated over the tasks' data; Claim calls the API and the row shows the claimed state the answer gives |
+| `pull-to-refresh` | Pull to refresh | turn on pull to refresh on the screen's data source (pullToRefresh): every target refreshes natively |
+| `cart-list` | Shopping cart | cart-row kits repeated over the cart's data with a buy-bar kit at the foot; each check, step, remove and select-all calls the API, and the total and count come from the cart's data |
+| `contact-list` | Contacts | a search-bar kit over contact-row kits repeated over the contacts' data; the search words go into a variable the data source reads, and follow calls the API |
+| `comment-list` | Comments | rows of atoms (an avatar, name, time and words, a like button) repeated over the comments' data, then the chat-input kit; like and send call the API, reply sets a variable |
+| `chat-composer` | Message composer | the chat-input kit: the entry's words go into a variable, send calls the API and then clears it |
+| `notification-list` | Notifications | a header row over notification-row kits repeated over the notifications' data; a tap opens one and calls mark-read, mark-all-read calls the API and refreshes |
+| `settings-group` | Settings group | settings-row kits in an inset-group kit; each switch and check is a real input whose value goes into a variable or a form |
+| `todo-list` | To-do list | rows of a checkbox, words and a remove button repeated over the tasks' data, and an input with an add button (or make_form) for a new one |
+| `auth-form` | Sign-in form | the login-form kit (with password-field and terms-row) bound with make_form to the sign-in endpoint, a sign-up screen of its own; the rules come from the API's schema |
 
 <!-- parts:end -->
 

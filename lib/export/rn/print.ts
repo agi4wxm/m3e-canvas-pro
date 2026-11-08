@@ -39,7 +39,7 @@ import { getLang } from "../../i18n";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "../../flow";
 import { PANE_SIDES, panesOfSplit, splitOf } from "../../split";
 import { cleanLook } from "../../look";
-import { kitLookOf } from "../../kits";
+import { kitLookOf, splitTaps } from "../../kits";
 import { kindsIn, styleContext, styleDifferences, withDocStyles, type StyleScreen } from "../../styles";
 import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
@@ -51,7 +51,7 @@ import { fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, part
 import { formsOf } from "../../bindings/view";
 import { NATIVE, isNative, kitPropName } from "../../../rn/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../rn/src/kit/parts.generated";
-import { SET_ONLY, plainTree, propValues, type PlainNode } from "./data";
+import { SET_ONLY, plainTree, propValues, type AtomTaps, type PlainNode } from "./data";
 
 /* The React Native code of a document: one screen component per screen, built from the kit (rn/src/kit), the way
  * lib/codegen.ts prints the web's. A screen is the design's: what stands loose is placed where it stands (`At`), the bars
@@ -537,8 +537,9 @@ class ScreenPrinter {
     return tests.length ? when(tests.join(" && "), j) : j;
   }
 
-  /** what an item carries beside its props: its look and its taps */
-  extras(it: Item, slots = true): [string, string][] {
+  /** What an item carries beside its props: its look and its taps. A part drawn as atoms takes no taps of places:
+   *  `slots` is then the places whose taps went to the atoms that show them, and any other is lost and said so. */
+  extras(it: Item, slots: boolean | ReadonlySet<string> = true): [string, string][] {
     const out: [string, string][] = [];
     if (it.fill && COLOR_TOKENS.some((t) => t.key === it.fill)) out.push(["fill", str(it.fill)]);
     if (it.textColor) out.push(["textColor", str(it.textColor)]);
@@ -552,8 +553,9 @@ class ScreenPrinter {
     if (tap) out.push(["onPress", tap]);
     /* an event or a family of places is not printed yet: lib/export/boundary.ts reports it */
     const wired = Object.entries(it.actions ?? {}).filter(([k, a]) => !!a && isPlaceKey(k));
-    if (wired.length && !slots) this.warn("slot", "a tap on a place inside a part drawn as atoms is not kept", it.id);
-    const taps = slots
+    const lost = slots === true ? [] : wired.filter(([k]) => !(slots instanceof Set && slots.has(k)));
+    if (lost.length) this.warn("slot", "a tap on a place inside a part drawn as atoms is not kept", it.id);
+    const taps = slots === true
       ? wired.map(([slot, a]) => [slot, this.action(a, it.id)] as const).filter((x): x is readonly [string, string] => !!x[1])
       : [];
     if (taps.length) out.push(["taps", `{ ${taps.map(([s, f]) => `${str(s)}: ${f}`).join(", ")} }`]);
@@ -700,8 +702,9 @@ class ScreenPrinter {
     return e && this.doc.api ? formFields(this.doc.api, e).find((s) => s.name === field)?.kind : undefined;
   }
 
-  /** a tree of atoms (a split) as elements, the root wearing the item's look and taps */
-  tree(n: PlainNode, root?: Item, dir = "column", stretch = false): J {
+  /** A tree of atoms (a split) as elements, the root wearing the item's look and taps. `at` walks the tree it was
+   *  drawn from beside it, so each tap of a place lands on the atom the split gives it (lib/kits.ts `splitTaps`). */
+  tree(n: PlainNode, root?: Item, dir = "column", stretch = false, at?: AtomTaps): J {
     const name = (NATIVE as Record<string, string>)[n.slug];
     if (!name) {
       this.kit.add("Placeholder");
@@ -714,9 +717,12 @@ class ScreenPrinter {
     if (n.textColor) props.push(["textColor", str(n.textColor)]);
     if (n.corners) props.push(["corners", expr(n.corners)]);
     if (n.look) props.push(["look", expr(cleanLook(n.look))]);
-    if (root) props.push(...this.extras(root, false));
+    if (root) props.push(...this.extras(root, at?.placed ?? false));
+    const placed = at && at.actions.get(at.node);
+    const tap = placed && this.action(placed, at.owner);
+    if (tap) props.push(["onPress", tap]);
     const own = (n.props.layout as string | undefined) ?? (n.slug === "box" ? "column" : "free");
-    const kids = (n.kids ?? []).map((k) => this.tree(k, undefined, own, n.props.align === "stretch"));
+    const kids = (n.kids ?? []).map((k, i) => this.tree(k, undefined, own, n.props.align === "stretch", at && at.node.kids?.[i] ? { ...at, node: at.node.kids[i] } : undefined));
     const self = el(name, props, kids);
     const across = dir !== "row" && stretch;
     const tall = dir === "row" && stretch;
@@ -760,8 +766,10 @@ class ScreenPrinter {
     if (def.atoms && !kids.length) {
       this.warn("atoms", `drawn as the atoms it splits into (${def.slug})`, it.id);
       const styles = styleContext(this.doc.styles);
-      const tree = def.atoms(reader(def, it.props), kitLookOf(normalizeTheme(this.doc.theme, styles), styles)) as Node;
-      return this.tree(plainTree(tree, getLang()), it);
+      const p = reader(def, it.props);
+      const tree = def.atoms(p, kitLookOf(normalizeTheme(this.doc.theme, styles), styles)) as Node;
+      const taps = splitTaps(def, p, tree, it);
+      return this.tree(plainTree(tree, getLang()), it, "column", false, { node: tree, actions: taps.actions, placed: taps.placed, owner: it.id });
     }
     this.kit.add("Placeholder");
     this.warn(kids.length ? "holder" : "placeholder", `${def.slug} has no component in the kit`, it.id);
