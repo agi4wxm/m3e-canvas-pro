@@ -1,12 +1,13 @@
 /* The author's own model at work on the canvas: the settings it is reached with, the one field it writes at a time (a
- * screen's description, a part's behaviour note), and the pictures it paints for scenes. What it writes goes in as
- * one undo step; the field remembers what it said before (lib/ai `pushHistory`). An answer lands only where it was
- * asked for (aiLanding.ts): if the author edited that field meanwhile it is set aside for them to apply or leave, and
- * if the part or the document is gone it is dropped. */
+ * screen's description, a part's behaviour note), and the pictures it paints for scenes. What it writes goes in through
+ * the document's operations (lib/core/ops), as one undo step, held to what any edit is held to (a locked part is turned
+ * away); the field remembers what it said before (lib/ai `pushHistory`). An answer lands only where it was asked for
+ * (aiLanding.ts): if the author edited that field meanwhile it is set aside for them to apply or leave, and if the part
+ * or the document is gone it is dropped. */
 
 import { useEffect, useRef, useState } from "react";
 import { Doc, Frame, Group, Item, Theme } from "@/lib/tokens";
-import type { DocStore } from "@/lib/core";
+import { ops, type DocStore, type Op, type OpError, type TxOptions } from "@/lib/core";
 import { AiSettings, DEFAULT_AI, generateImage, hasImageKey, hasKey, imageSpec, isSecureUrl, proposeBehavior, proposeDescription, pushHistory, saveAiSettings, scenePrompt } from "@/lib/ai";
 import { AiActionKey, aiErrorText } from "@/components/AiPanel";
 import type { NoteAction } from "@/components/Toolbar";
@@ -23,9 +24,7 @@ export type AiInputs = {
   doc: Doc;
   groupsRef: { current: Group[] };
   widthsRef: { current: Record<string, number> };
-  snapshot: () => void;
-  setGroups: (next: (g: Group[]) => Group[]) => void;
-  setFrames: (next: (f: Frame[]) => Frame[]) => void;
+  didOp: <A>(o: Op<A, unknown>, args: A, opts?: TxOptions & { label?: string; refused?: (e: OpError) => void }) => boolean;
   showToast: (msg: string, ms?: number, icon?: string, action?: NoteAction) => void;
   showAiNote: (text: string, icon?: string, ms?: number, action?: NoteAction) => void;
 };
@@ -33,7 +32,7 @@ export type AiInputs = {
 /** what a scene's picture is painted from, and the picture: an answer lands only while these are as they were */
 const SCENE_FIELDS = ["image", "prompt", "style", "width", "height", "motion", "frames", "frameMs"];
 
-export function useAi({ store, lang, theme, doc, groupsRef, widthsRef, snapshot, setGroups, setFrames, showToast, showAiNote }: AiInputs) {
+export function useAi({ store, lang, theme, doc, groupsRef, widthsRef, didOp, showToast, showAiNote }: AiInputs) {
   const [aiSettings, setAiSettings] = useState<AiSettings>(DEFAULT_AI);
   const [aiBusy, setAiBusy] = useState(false);
   /** the screen the model is working on, which wears the animated ring meanwhile */
@@ -92,12 +91,12 @@ export function useAi({ store, lang, theme, doc, groupsRef, widthsRef, snapshot,
         /* a scene that names no style of its own is painted in the document's */
         const image = await generateImage(aiSettings, scenePrompt(p.s("prompt"), p.s("style").trim() || artOf(look), moving), { w: p.n("width"), h: p.n("height") }, ac.signal, moving ? { frames: Math.round(p.n("frames")), ms: Math.round(p.n("frameMs")) } : undefined);
         if (ac.signal.aborted) return;
-        const put = () => setGroups((gs) => gs.map((g) => (g.items.some((it) => it.id === id) ? { ...g, items: g.items.map((it) => (it.id === id ? { ...it, props: { ...it.props, image } } : it)) } : g)));
+        /* the picture belongs to the step that asked for it (a draft, the panel's button): no step of its own */
+        const put = () => didOp(ops.setProps, { id, props: { image } }, { history: "none" });
         const where = deskNow().check(ticket);
         if (where === "land") {
           deskNow().close(ticket);
-          put();
-          painted++;
+          if (put()) painted++;
         } else if (where === "edited") setAside(ticket, put);
         else deskNow().close(ticket);
       }
@@ -149,9 +148,8 @@ export function useAi({ store, lang, theme, doc, groupsRef, widthsRef, snapshot,
         const r = await proposeDescription(aiSettings, curDoc, widthsRef.current, f, lang, ac.signal);
         if (ac.signal.aborted) return;
         land(() => {
-          snapshot();
-          setFrames((fs) => fs.map((x) => (x.id === f.id ? { ...x, note: r.note, noteHistory: pushHistory(x.noteHistory, x.note), name: r.name ?? x.name } : x)));
-          showAiNote(t("aiApplied", lang));
+          const x = screenIn(store.get(), f.id);
+          if (x && didOp(ops.patchScreen, { id: f.id, patch: { note: r.note, noteHistory: pushHistory(x.noteHistory, x.note), name: r.name ?? x.name } }, { label: "Edit" })) showAiNote(t("aiApplied", lang));
         });
         return;
       }
@@ -164,9 +162,8 @@ export function useAi({ store, lang, theme, doc, groupsRef, widthsRef, snapshot,
         return;
       }
       land(() => {
-        snapshot();
-        setGroups((gs) => gs.map((g) => (g.items.some((it) => it.id === itemId) ? { ...g, items: g.items.map((it) => (it.id === itemId ? { ...it, note, noteHistory: pushHistory(it.noteHistory, it.note) } : it)) } : g)));
-        showAiNote(t("aiApplied", lang));
+        const it = partIn(store.get(), itemId);
+        if (it && didOp(ops.setItem, { id: itemId, patch: { note, noteHistory: pushHistory(it.noteHistory, it.note) } }, { label: "Edit" })) showAiNote(t("aiApplied", lang));
       });
     } catch (e) {
       if (!ac.signal.aborted) showToast(aiErrorText(e, lang), 4000, "error");

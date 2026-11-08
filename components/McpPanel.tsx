@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { DocStore } from "@/lib/core";
-import { useStore } from "@/lib/core/react";
+import { useStoreSelector } from "@/lib/core/react";
 import type { Lang } from "@/lib/i18n";
 import { mcpText, type McpKey } from "@/lib/i18n/mcp";
 import type { BridgeAsk, BridgeConn, BridgeEntry, RememberedClient } from "@/lib/mcp/editorBridge";
@@ -198,7 +198,8 @@ function LogRow({ e, p, lang }: { e: BridgeEntry; p: Palette; lang: Lang }) {
 /** The MCP button, its panel and asks, mounted at the foot of the left rail. */
 export function McpConnect({ store, p, theme, lang, enabled, size = 44 }: { store: DocStore; p: Palette; theme: Theme; lang: Lang; enabled: boolean; size?: number }) {
   const { bridge, view, on, setOn, shot, shotDone } = useMcpBridge({ store, enabled });
-  const { state } = useStore(store);
+  /* the document as it is, while a screenshot is being taken; the rest of the time the button draws nothing of it */
+  const state = useStoreSelector(store, (v) => (shot ? v.state : null));
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -213,7 +214,7 @@ export function McpConnect({ store, p, theme, lang, enabled, size = 44 }: { stor
     let gone = false;
     void (async () => {
       try {
-        await layerDrawn(shot.doc ?? (state.doc as Doc));
+        await layerDrawn(shot.doc ?? (store.get().doc as Doc));
         if (gone || !layer.current) return;
         shot.resolve(await capture(layer.current, shot.frame, shot.scale, shot.crop));
       } catch (e) {
@@ -292,7 +293,7 @@ export function McpConnect({ store, p, theme, lang, enabled, size = 44 }: { stor
           </div>,
           document.body,
         )}
-      {shot && createPortal(<ShotLayer layer={layer} frame={shot.frame} doc={shot.doc ?? (state.doc as Doc)} widths={shot.widths ?? state.session.widths} p={p} theme={theme} lang={lang} />, document.body)}
+      {shot && state && createPortal(<ShotLayer layer={layer} frame={shot.frame} doc={shot.doc ?? (state.doc as Doc)} widths={shot.widths ?? state.session.widths} p={p} theme={theme} lang={lang} />, document.body)}
     </>
   );
 }

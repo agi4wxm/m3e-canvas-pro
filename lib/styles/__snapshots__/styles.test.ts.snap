@@ -22,9 +22,7 @@ exports[`the styles > are recorded with what the accessibility check finds in ea
   ],
   "blocks": [
     "light/default/primary@surface 4.31:1 < 4.5",
-    "light/error/error@surface 1.05:1 < 4.5",
     "dark/default/primary@surface 4.31:1 < 4.5",
-    "dark/error/error@surface 2.72:1 < 4.5",
   ],
   "casual": [
     "light/default/onPrimary@primary 3.56:1 < 4.5 (loud)",

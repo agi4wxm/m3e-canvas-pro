@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { memo, useEffect, useSyncExternalStore } from "react";
 import { Icon as Iconify } from "@iconify/react/offline";
 import { Icon as PartIcon } from "@/components/m3e/icon";
 import { ensureIcons, useIconVersion } from "@/parts/icons";
@@ -44,7 +44,8 @@ const useFont = () =>
 /** a name drawn from the bundled Rounded glyphs, once they have been loaded */
 function BundledGlyph({ name, size, color, fill }: { name: string; size: number; color?: string; fill?: boolean }) {
   const version = useIconVersion();
-  useEffect(() => ensureIcons([name]), [name]);
+  /* the editor draws its own in Rounded, whatever family the document wears */
+  useEffect(() => ensureIcons([name], "rounded"), [name]);
   const glyph = `material-symbols:${name.replaceAll("_", "-")}${fill ? "" : "-outline"}-rounded`;
   return (
     <span aria-hidden data-icon-fallback={name} style={{ display: "inline-flex", width: size, height: size, color, flex: "0 0 auto" }}>
@@ -53,7 +54,8 @@ function BundledGlyph({ name, size, color, fill }: { name: string; size: number;
   );
 }
 
-export function Icon({
+/* the panels draw a few hundred of these and render with the editor: one whose props are the same is not drawn again */
+export const Icon = memo(function Icon({
   name,
   size = 24,
   color,
@@ -85,4 +87,4 @@ export function Icon({
       {name}
     </span>
   );
-}
+});

@@ -20,6 +20,7 @@
     "lint": "vp lint --deny-warnings",
     "test": "vitest run",
     "test:e2e": "bun e2e/run.ts",
+    "bench:editor": "bun scripts/bench-editor.ts",
     "eval": "bun evals/run.ts",
     "eval:refs": "bun evals/make-refs.ts",
     "gen:parts": "node scripts/gen-parts-components.mjs",

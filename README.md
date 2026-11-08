@@ -145,6 +145,7 @@ bun run dev
 | `bun run test` | 运行测试 |
 | `bun run lint` | 代码检查，有警告也算失败 |
 | `bun run test:e2e` | 端到端测试：构建后在无头 Chromium 里用编辑器自己的控件操作（Playwright 需另装，见 `e2e/run.ts`） |
+| `bun run bench:editor` | 大文档（默认 40 屏 1000 个部件）下每种交互的提交、渲染、测量次数和到下一帧的时间，见 [编辑器性能](docs/编辑器性能.md) |
 | `bun run gen:parts` | 重新生成组件索引（每个组件模块一个按需加载的分块） |
 | `bun run gen:versions` | 依赖升级后，按 `package.json` 和 `bun.lock` 重写导出项目用的版本表 `lib/versions.generated.ts`（`check:versions` 只检查，测试也会检查） |
 | `bun run gen:agent` | 把组件清单写进 `public/agent.md` |
