@@ -16,7 +16,14 @@ import {
   InputGroupInput,
 } from "@/components/m3e/input-group"
 import { usePortalContainer } from "@/components/m3e/portal-container"
+import { useSay } from "@/components/m3e/say"
 
+/*
+ * The words the combobox gives a screen reader are said in the page's language
+ * (or the one `SayLanguage` passes down, components/m3e/say.ts); each can be
+ * set instead: `aria-label` on the trigger and the clear button,
+ * `triggerLabel` and `clearLabel` on ComboboxInput, `removeLabel` on a chip.
+ */
 const Combobox = ComboboxPrimitive.Root
 
 function ComboboxValue({ ...props }: ComboboxPrimitive.Value.Props) {
@@ -28,9 +35,10 @@ function ComboboxTrigger({
   children,
   ...props
 }: ComboboxPrimitive.Trigger.Props) {
+  const say = useSay()
   return (
     <ComboboxPrimitive.Trigger
-      aria-label={children ? undefined : "Show options"}
+      aria-label={children ? undefined : say("Show options")}
       data-slot="combobox-trigger"
       className={cn("[&_svg:not([class*='size-'])]:size-5", className)}
       {...props}
@@ -42,9 +50,10 @@ function ComboboxTrigger({
 }
 
 function ComboboxClear({ className, ...props }: ComboboxPrimitive.Clear.Props) {
+  const say = useSay()
   return (
     <ComboboxPrimitive.Clear
-      aria-label="Clear selection"
+      aria-label={say("Clear selection")}
       data-slot="combobox-clear"
       render={<InputGroupButton variant="ghost" size="icon-xs" />}
       className={cn(className)}
@@ -61,11 +70,18 @@ function ComboboxInput({
   disabled = false,
   showTrigger = true,
   showClear = false,
+  triggerLabel,
+  clearLabel,
   ...props
 }: ComboboxPrimitive.Input.Props & {
   showTrigger?: boolean
   showClear?: boolean
+  /** what a screen reader calls the button that shows the options; "Show options" in the page's language when left out */
+  triggerLabel?: string
+  /** what it calls the clear button; "Clear selection" in the page's language when left out */
+  clearLabel?: string
 }) {
+  const say = useSay()
   return (
     <InputGroup className={cn("w-auto", className)}>
       <ComboboxPrimitive.Input
@@ -75,7 +91,7 @@ function ComboboxInput({
       <InputGroupAddon align="inline-end">
         {showTrigger && (
           <InputGroupButton
-            aria-label="Show options"
+            aria-label={triggerLabel ?? say("Show options")}
             size="icon-xs"
             variant="ghost"
             render={<ComboboxTrigger />}
@@ -84,7 +100,12 @@ function ComboboxInput({
             disabled={disabled}
           />
         )}
-        {showClear && <ComboboxClear disabled={disabled} />}
+        {showClear && (
+          <ComboboxClear
+            disabled={disabled}
+            {...(clearLabel ? { "aria-label": clearLabel } : {})}
+          />
+        )}
       </InputGroupAddon>
       {children}
     </InputGroup>
@@ -248,10 +269,14 @@ function ComboboxChip({
   className,
   children,
   showRemove = true,
+  removeLabel,
   ...props
 }: ComboboxPrimitive.Chip.Props & {
   showRemove?: boolean
+  /** what a screen reader calls the chip's remove button; "Remove <the chip's words>" in the page's language when left out */
+  removeLabel?: string
 }) {
+  const say = useSay()
   return (
     <ComboboxPrimitive.Chip
       data-slot="combobox-chip"
@@ -265,9 +290,10 @@ function ComboboxChip({
       {showRemove && (
         <ComboboxPrimitive.ChipRemove
           aria-label={
-            typeof children === "string"
-              ? `Remove ${children}`
-              : "Remove selection"
+            removeLabel ??
+            (typeof children === "string"
+              ? say("Remove {name}", { name: children })
+              : say("Remove selection"))
           }
           render={<Button variant="ghost" size="icon-xs" />}
           className="-ml-1 opacity-50 hover:opacity-100"

@@ -43,14 +43,14 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: parts/icons.ts asking again
-     for icons whose shard did not come, after the ripple holding still under reduced motion). */
+     before the product existed; one that changes on purpose is written again here (last: the components saying their
+     own words in Chinese, Japanese and Korean too, after the icons asking again and the ripple under reduced motion). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [77, "9a7e6c9b1b4af0b29ee508aca8d15f7dc60292feeec375738319dc6239268692"],
+    proof: [77, "bd31acaf13e5190fe39d7bb10aa87686e5b0aa073db287b93329b255625716de"],
     systems: [40, "fe350b28dee0e667c6a33665a619f74599695020dda85b6107a334d8079e82af"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
     sweep: [83, "f6689151ca84fb6fa95dd7cd234d1bcb1e46823abf1e883d0ad175305326ef7b"],
-    parts: [136, "f82db8d05f359184598eccfb283dcd62ce5a2ac0b26a68ea197fe67df7df1527"],
+    parts: [136, "d9630f1a2ba15252d7e3c4b33a6d714692f9c8db91c4b8e757dcf8382d121abb"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

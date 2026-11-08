@@ -60,6 +60,7 @@ function TextField({
   id,
   disabled,
   placeholder,
+  "aria-describedby": describedBy,
   ...props
 }: TextFieldProps) {
   const autoId = React.useId()
@@ -67,6 +68,10 @@ function TextField({
   const supportId = `${inputId}-support`
   const outlined = variant === "outlined"
   const support = error && errorText ? errorText : supportingText
+  /* what describes the field from outside (a form's hint, say) and its own supporting or error text, both */
+  const described =
+    [describedBy, support ? supportId : undefined].filter(Boolean).join(" ") ||
+    undefined
 
   // floating: focused, or holding a value (the placeholder is not shown).
   // text-box-trim cuts the box to the glyph range so the label centers on the
@@ -99,7 +104,7 @@ function TextField({
       disabled={disabled}
       placeholder={placeholder ?? " "}
       aria-invalid={error || undefined}
-      aria-describedby={support ? supportId : undefined}
+      aria-describedby={described}
       className={inputClass}
       // ref differs per element; the multiline branch swaps input for textarea
       // oxlint-disable-next-line no-unsafe-type-assertion
@@ -111,7 +116,7 @@ function TextField({
       disabled={disabled}
       placeholder={placeholder ?? " "}
       aria-invalid={error || undefined}
-      aria-describedby={support ? supportId : undefined}
+      aria-describedby={described}
       className={inputClass}
       {...props}
     />
