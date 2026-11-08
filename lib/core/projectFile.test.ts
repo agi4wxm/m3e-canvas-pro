@@ -175,6 +175,55 @@ describe("pictures", () => {
   });
 });
 
+describe("keys that mean something to JavaScript", () => {
+  /* JSON.parse makes `__proto__` an own key like any other; rebuilding an object by assignment instead sets the
+     copy's prototype and loses the key */
+  const special = () => JSON.parse('{"zeta":1,"__proto__":{"b":1,"__proto__":{"deep":true},"a":2},"constructor":{"prototype":{"x":1}},"prototype":3,"日本語":{"é":1,"🎨":2},"alpha":[{"__proto__":0}]}') as Record<string, unknown>;
+  const ownKeys = (o: unknown) => Object.keys(o as object);
+
+  it("are kept as keys, sorted with the rest, at every depth", () => {
+    const sorted = sortKeys(special()) as Record<string, unknown>;
+    expect(ownKeys(sorted)).toEqual(["__proto__", "alpha", "constructor", "prototype", "zeta", "日本語"]);
+    expect(Object.getPrototypeOf(sorted)).toBe(Object.prototype);
+    const proto = Object.getOwnPropertyDescriptor(sorted, "__proto__")?.value as Record<string, unknown>;
+    expect(ownKeys(proto)).toEqual(["__proto__", "a", "b"]);
+    expect(Object.getOwnPropertyDescriptor(proto, "__proto__")?.value).toEqual({ deep: true });
+    expect(ownKeys((sorted.alpha as unknown[])[0])).toEqual(["__proto__"]);
+    expect(JSON.parse(JSON.stringify(sorted))).toEqual(special());
+    expect(({} as Record<string, unknown>).deep).toBeUndefined();
+  });
+
+  it("go into a project file and come back out of it the same", () => {
+    const extra = special();
+    const text = formatProject({ format: "m3e-project", version: 2, document: { frames: [], groups: [], extra }, ...JSON.parse('{"__proto__":{"envelope":1}}') });
+    const back = JSON.parse(text) as { document: { extra: Record<string, unknown> } } & Record<string, unknown>;
+    expect(back.document.extra).toEqual(extra);
+    expect(ownKeys(back.document.extra)[0]).toBe("__proto__");
+    expect(ownKeys(back)).toEqual(["format", "version", "document", "__proto__"]);
+  });
+
+  it("keep the API's own order, special or not", () => {
+    const api = JSON.parse('{"models":[{"name":"M","schema":{"type":"object","properties":{"zeta":{"type":"string"},"__proto__":{"type":"string"},"constructor":{"type":"number"},"alpha":{"type":"string"}}}}]}') as unknown;
+    const text = formatProject({ format: "m3e-project", version: 2, document: { frames: [], groups: [], api } });
+    expect(text).toContain('"properties":{"zeta":{"type":"string"},"__proto__":{"type":"string"},"constructor":{"type":"number"},"alpha":{"type":"string"}}');
+    expect((JSON.parse(text) as { document: { api: unknown } }).document.api).toEqual(api);
+  });
+
+  it("survive a folder's pictures being taken out and put back", async () => {
+    const pic = picture(9);
+    const doc = withPictures(builtDoc(), [pic]);
+    const props = JSON.parse(`{"src":${JSON.stringify(pic)},"__proto__":{"src":${JSON.stringify(pic)}},"constructor":{"prototype":"x"}}`) as Record<string, unknown>;
+    doc.groups.find((g) => g.id === "pic0")!.items[0].props = props;
+    const { text, files } = serializeProject(doc, { assets: "files" });
+    expect(text).toContain('"__proto__":{"src":"m3e-file:m3e-assets/');
+    const back = await readProjectText(text, async (p) => files.find((f) => f.path === p)?.bytes ?? null);
+    const got = back!.groups.find((g) => g.id === "pic0")!.items[0].props!;
+    expect(ownKeys(got).sort()).toEqual(["__proto__", "constructor", "src"]);
+    expect(Object.getOwnPropertyDescriptor(got, "__proto__")?.value).toEqual({ src: pic });
+    expect(serializeProject(back!, { assets: "files" }).text).toBe(text);
+  });
+});
+
 describe("a project's name from its file", () => {
   it.each([
     ["m3e-canvas Shop.json", "Shop"],

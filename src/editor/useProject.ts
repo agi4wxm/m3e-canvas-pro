@@ -1,7 +1,8 @@
 /* The project the editor has open (lib/projects): its name in the chrome and the page title, its picture for the
  * projects list, the file it is saved to as it changes, and the ways to another project: the projects home, a file or
  * folder opened or dropped, a new one. Going to another project is going to its address, so everything the editor
- * holds starts afresh for it. */
+ * holds starts afresh for it; the tab goes only once what it holds is kept, or the person says to go anyway. Also
+ * what failed to save and why, and a version an earlier tab could not keep, offered back. */
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { DocStore } from "@/lib/core";
@@ -11,7 +12,7 @@ import { t, type Lang } from "@/lib/i18n";
 import { listProjects, putFileRecord, type FileRecord, type ProjectMeta } from "@/lib/projects/db";
 import { downloadProject } from "@/lib/projects/download";
 import { canPickFolder, canSyncFile, mayWrite, pickFolder, pickOpenFile, pickSaveFile, readFromDisk, type LinkState } from "@/lib/projects/fileLink";
-import { ProjectsPersist } from "@/lib/projects/persist";
+import { ProjectsPersist, type Recovered, type SaveReport, type SaveState } from "@/lib/projects/persist";
 import { createProject, freeName, projectUrl } from "@/lib/projects/projects";
 import { projectFileName } from "@/lib/project";
 import type { Doc, Frame } from "@/lib/tokens";
@@ -43,6 +44,8 @@ const THUMB_QUIET_MS = 4000;
 const THUMB_EVERY_MS = 30_000;
 const PAGE_TITLE = "M3E Canvas";
 
+const problemOf = (s: SaveState | null) => (s && (s.status === "error" || s.status === "conflict") ? s : null);
+
 const idle = (fn: () => void) => (typeof requestIdleCallback === "function" ? requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 200));
 
 export function useProject(o: ProjectInputs) {
@@ -55,6 +58,14 @@ export function useProject(o: ProjectInputs) {
   const [pendingOpen, setPendingOpen] = useState<PendingOpen | null>(null);
   const [conflictOpen, setConflictOpen] = useState(false);
   const [dropping, setDropping] = useState(false);
+  /** What is wrong with the browser's copy (lib/projects/persist.ts): a failed write or another tab's save, else
+   *  null. Only that is held here, so the editor draws again when a save fails or recovers, not on every save. */
+  const [save, setSave] = useState<SaveState | null>(problemOf(projects?.save ?? null));
+  /** The save state dialog: opened from the chrome, or by going to another project with something not kept, which
+   *  then waits there (`leaving`) for the person to try again, take a copy, leave anyway or stay. */
+  const [saveDialog, setSaveDialog] = useState<{ report: SaveReport; leaving?: string } | null>(null);
+  /** a version an earlier tab could not keep, offered back once the tab may edit */
+  const [recovered, setRecovered] = useState<Recovered | null>(null);
   const live = useRef(o);
   live.current = o;
 
@@ -64,11 +75,18 @@ export function useProject(o: ProjectInputs) {
     let active = true;
     const offMeta = projects.onMeta((m) => setMeta(m));
     const offLink = projects.onLink((s) => setLink(s));
+    const offSave = projects.onSave((s) =>
+      setSave((was) => {
+        const next = problemOf(s);
+        return next?.status === was?.status && next?.error === was?.error ? was : next;
+      }),
+    );
     void projects.opening.then((opened) => {
       if (!active) return;
       setMode(opened.mode);
       setMeta(projects.meta);
       setLink(projects.link?.state ?? null);
+      setSave(problemOf(projects.save));
       if (opened.mode === "legacy") live.current.showToast(t("projectsBlocked", live.current.lang), 9000, "warning");
       else if (opened.missing) live.current.showToast(t("projectMissing", live.current.lang), 6000, "info");
     });
@@ -76,8 +94,25 @@ export function useProject(o: ProjectInputs) {
       active = false;
       offMeta();
       offLink();
+      offSave();
     };
   }, [projects]);
+  useEffect(() => {
+    if (o.loaded && o.editable && projects?.recovered) setRecovered(projects.recovered);
+  }, [o.loaded, o.editable, projects]);
+  /* The dialog follows what is saved while it is open. On the way to another project, a save that goes through by
+     itself (tried again a moment later) lets the tab go on, as asked. */
+  useEffect(() => {
+    if (!projects || !saveDialog) return;
+    const report = projects.report();
+    if (report.ok && saveDialog.leaving) {
+      setSaveDialog(null);
+      window.location.assign(saveDialog.leaving);
+      return;
+    }
+    setSaveDialog({ ...saveDialog, report });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects, save, link]);
 
   /* a file changed elsewhere asks once, on its own; afterwards the chip in the chrome asks again */
   const askedRef = useRef(false);
@@ -140,7 +175,8 @@ export function useProject(o: ProjectInputs) {
 
   /* ---------- going to another project ---------- */
 
-  /** what is in hand kept (the store, the file, a fresh picture), then the tab goes to the project */
+  /** What is in hand kept (the store, the file, a fresh picture), then the tab goes to the project. When not all of
+   *  it could be kept, the tab stays and says so: try again, download a copy, or leave anyway. */
   const goTo = async (id: string, newTab = false) => {
     const url = projectUrl(id);
     if (newTab) {
@@ -149,9 +185,50 @@ export function useProject(o: ProjectInputs) {
     }
     if (projects) {
       await Promise.race([drawThumb(), new Promise((r) => setTimeout(r, 1500))]);
-      await projects.flush();
+      const report = await projects.flush();
+      if (!report.ok) {
+        setHomeOpen(false);
+        setSaveDialog({ report, leaving: url });
+        return;
+      }
     }
     window.location.assign(url);
+  };
+
+  /** tries the failed saves again; on the way to another project, goes once all is kept */
+  const retrySave = async () => {
+    if (!projects) return;
+    const report = await projects.retry();
+    const leaving = saveDialog?.leaving;
+    if (report.ok && leaving) {
+      setSaveDialog(null);
+      window.location.assign(leaving);
+      return;
+    }
+    setSaveDialog((d) => (d ? { ...d, report } : d));
+  };
+
+  /** goes on although not all is kept: what is not is noted, and the project offers it back when it opens again */
+  const leaveAnyway = () => {
+    const leaving = saveDialog?.leaving;
+    setSaveDialog(null);
+    if (!leaving) return;
+    projects?.commitNow();
+    window.location.assign(leaving);
+  };
+
+  const openSaveState = () => projects && setSaveDialog({ report: projects.report() });
+
+  /** the version an earlier tab could not keep: over the canvas (one undo away), or let go */
+  const restoreRecovered = () => {
+    const r = recovered;
+    setRecovered(null);
+    projects?.dropRecovered();
+    if (r) live.current.importDoc(r.doc);
+  };
+  const discardRecovered = () => {
+    setRecovered(null);
+    projects?.dropRecovered();
   };
 
   const newProject = async () => {
@@ -339,6 +416,16 @@ export function useProject(o: ProjectInputs) {
     setPendingOpen,
     conflictOpen,
     setConflictOpen,
+    save,
+    saveDialog,
+    closeSaveDialog: () => setSaveDialog(null),
+    openSaveState,
+    retrySave,
+    leaveAnyway,
+    recovered,
+    restoreRecovered,
+    discardRecovered,
+    laterRecovered: () => setRecovered(null),
     dropping,
     goTo,
     newProject,
