@@ -92,6 +92,20 @@ describe("data sources", () => {
     const taps = JSON.stringify(doc().groups.flatMap((g) => g.items.map((it) => it.action)));
     expect(taps).toContain('"source":"goods"');
   });
+
+  it("are renamed in the words of the screen too, {{data.x}} in a prop, a label and a snackbar, and nowhere else", () => {
+    const { run, doc } = shop();
+    run(ops.wireScreen, { screen: "products", operationId: "listProducts" });
+    const part = doc().groups.find((g) => g.items.some((it) => it.component === "text"))!.items.find((it) => it.component === "text")!;
+    run(ops.setItem, { id: part.id, patch: { label: "{{ data.products.total }} in all", props: { ...part.props, text: "{{data.products.items[0].name}} and 'data.products' and {{ 'data.products' }}" } } });
+    run(ops.setAction, { id: part.id, action: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Loaded {{data.products?.total}}" }, { do: "refresh", source: "products" }] } });
+    run(ops.updateDataSource, { screen: "products", name: "products", rename: "goods" });
+    const it = doc().groups.flatMap((g) => g.items).find((x) => x.id === part.id)!;
+    expect(it.label).toBe("{{ data.goods.total }} in all");
+    /* the words outside the braces and a string literal inside them are no reads */
+    expect(it.props?.text).toBe("{{data.goods.items[0].name}} and 'data.products' and {{ 'data.products' }}");
+    expect(it.action?.effects).toEqual([{ do: "snackbar", message: "Loaded {{data.goods?.total}}" }, { do: "refresh", source: "goods" }]);
+  });
 });
 
 describe("screens", () => {
