@@ -101,8 +101,13 @@ type Rec = Record<string, unknown>;
 const isRec = (v: unknown): v is Rec => !!v && typeof v === "object" && !Array.isArray(v);
 
 /** A tap that only has effects (set a variable, show a part) goes nowhere: models leave `to` out for it, which the
- *  document spells "none". */
-const tapOf = (a: unknown): unknown => (isRec(a) ? { ...a, ...(a.to === undefined ? { to: "none" } : {}), ...(isRec(a.else) ? { else: tapOf(a.else) } : {}) } : a);
+ *  document spells "none". So do the answers of its calls and invokes (a payment's `then` inside an order's), as deep
+ *  as the nesting limit lets them go. */
+const tapOf = (a: unknown, depth = 0): unknown => {
+  if (!isRec(a) || depth > 8) return a;
+  const effects = Array.isArray(a.effects) ? a.effects.map((e) => (isRec(e) && (e.do === "call" || e.do === "invoke") ? { ...e, ...(isRec(e.then) ? { then: tapOf(e.then, depth + 1) } : {}), ...(isRec(e.catch) ? { catch: tapOf(e.catch, depth + 1) } : {}) } : e)) : a.effects;
+  return { ...a, ...(a.to === undefined ? { to: "none" } : {}), ...(effects !== a.effects ? { effects } : {}), ...(isRec(a.else) ? { else: tapOf(a.else, depth + 1) } : {}) };
+};
 
 /** arguments as a model writes them, read the way the operation means them, against the state they will run on: the
  *  names it got nearly right (aliases.ts), pictures cleaned (an SVG goes through the sanitizer), taps filled in */

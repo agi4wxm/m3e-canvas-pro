@@ -413,6 +413,13 @@ describe("errors a model can act on", () => {
     expect(tap()).toMatchObject({ to: "none", effects: [{ do: "toggleVar", var: "dark" }] });
     ok(await executeTool(store, "set_item", { id: "sw", patch: { action: { effects: [{ do: "setVar", var: "dark", value: true }] } } }, { origin: "ai" }));
     expect(tap()).toMatchObject({ to: "none" });
+    /* the answers of an invoke inside a call's answer too */
+    ok(await executeTool(store, "apply_ops", { ops: [{ op: "add_endpoint", args: { operationId: "createOrder", method: "post", path: "/orders", returns: { type: "object", properties: { id: { type: "string" } } } } }] }, { origin: "ai" }));
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    const pay = { do: "invoke", capability: "payment.pay", args: { orderId: "response.id" }, then: { effects: [{ do: "setVar", var: "dark", value: false }] }, catch: { effects: [{ do: "snackbar", message: "x" }] } };
+    // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+    ok(await executeTool(store, "set_action", { id: "sw", action: { effects: [{ do: "call", operationId: "createOrder", then: { effects: [pay] } }] } }, { origin: "ai" }));
+    expect(tap()).toMatchObject({ to: "none", effects: [{ do: "call", then: { to: "none", effects: [{ do: "invoke", then: { to: "none" }, catch: { to: "none" } }] } }] });
   });
 
   it("reports nothing to do as done, not as an error", async () => {
