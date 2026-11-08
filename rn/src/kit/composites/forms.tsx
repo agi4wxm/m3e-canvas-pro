@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, Text as RNText, TextInput, View, type ViewStyle } from "react-native";
 
 import type { PartBase } from "../atoms/basics";
-import { buttonColors } from "../atoms/controls";
+import { KEYBOARD, buttonColors } from "../atoms/controls";
 import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
 import { withAlpha } from "../look";
@@ -46,6 +46,12 @@ export type TextFieldProps = PartBase & {
   multiline?: boolean;
   width?: number;
   disabled?: boolean;
+  placeholder?: string;
+  /** the keyboard and how the words show: email, password, number, tel, url, search */
+  type?: string;
+  /** words before and after what is typed (a currency, a unit) */
+  prefix?: string;
+  suffix?: string;
   /** told of what is typed; given, `value` is what the field shows (a form's field holds it) */
   onChangeText?: (text: string) => void;
 } & FieldProps;
@@ -90,7 +96,11 @@ export function TextField(props: TextFieldProps) {
               {starred(p.label, p.required)}
             </RNText>
           ) : null}
-          <TextInput accessibilityLabel={p.label || p.ariaLabel} value={text} onChangeText={setText} editable={!p.disabled && !p.readOnly} multiline={p.multiline} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={{ ...typeStyle(kit, "body-large"), color: c(kit, "on-surface"), paddingVertical: 0, minHeight: 24 }} />
+          <View style={{ flexDirection: "row", alignItems: "center", columnGap: 4 }}>
+            {p.prefix && up ? <RNText style={{ ...typeStyle(kit, "body-large"), color: c(kit, "on-surface-variant") }}>{p.prefix}</RNText> : null}
+            <TextInput accessibilityLabel={p.label || p.ariaLabel} value={text} onChangeText={setText} editable={!p.disabled && !p.readOnly} multiline={p.multiline} placeholder={up || !p.label ? p.placeholder : undefined} placeholderTextColor={c(kit, "on-surface-variant")} secureTextEntry={p.type === "password"} keyboardType={KEYBOARD[p.type ?? "text"] ?? "default"} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={{ flex: 1, ...typeStyle(kit, "body-large"), color: c(kit, "on-surface"), paddingVertical: 0, minHeight: 24 }} />
+            {p.suffix && up ? <RNText style={{ ...typeStyle(kit, "body-large"), color: c(kit, "on-surface-variant") }}>{p.suffix}</RNText> : null}
+          </View>
         </View>
         {p.trailingIcon || p.error ? <Glyph name={p.error ? "error" : p.trailingIcon!} size={24} color={p.error ? c(kit, "error") : c(kit, "on-surface-variant")} /> : null}
       </View>
@@ -306,7 +316,7 @@ export function TimePicker(props: TimePickerProps) {
 
 const SEG_H: Record<string, number> = { xs: 32, sm: 36, default: 40, md: 56 };
 
-export type SegmentedButtonProps = PartBase & { items?: ListRow[]; selected?: number; connected?: boolean; variant?: string; size?: string; multiple?: boolean };
+export type SegmentedButtonProps = PartBase & { items?: ListRow[]; selected?: number; connected?: boolean; variant?: string; size?: string; multiple?: boolean; disabled?: boolean };
 
 /** M3 Expressive's connected button group as a choice; iOS's segmented control; capsules apart */
 export function SegmentedButton(props: SegmentedButtonProps) {
@@ -317,12 +327,13 @@ export function SegmentedButton(props: SegmentedButtonProps) {
   const recipe = recipeOf(kit, "segmented");
   const h = SEG_H[p.size ?? "default"] ?? 40;
   const pick = (i: number) => {
+    if (p.disabled) return;
     setChosen((now) => (p.multiple ? (now.includes(i) ? now.filter((x) => x !== i) : [...now, i]) : [i]));
     tapOf(p, `tab:${i}`)?.();
   };
   if (recipe === "ios")
     return (
-      <Surface base={{ flexDirection: "row", height: 32, padding: 2, borderRadius: 9, backgroundColor: withAlpha(c(kit, "on-surface"), kit.dark ? 0.16 : 0.07), alignSelf: "flex-start" }} appearance={p} testID={p.testID}>
+      <Surface base={{ flexDirection: "row", height: 32, padding: 2, borderRadius: 9, backgroundColor: withAlpha(c(kit, "on-surface"), kit.dark ? 0.16 : 0.07), alignSelf: "flex-start", opacity: p.disabled ? 0.38 : 1 }} appearance={p} testID={p.testID}>
         {items.map((it, i) => {
           const on = chosen.includes(i);
           return (
@@ -337,7 +348,7 @@ export function SegmentedButton(props: SegmentedButtonProps) {
   const capsules = recipe === "capsules";
   const apart = capsules || p.connected === false;
   return (
-    <Surface base={{ flexDirection: "row", columnGap: apart ? 8 : 2, alignSelf: "flex-start" }} appearance={p} testID={p.testID}>
+    <Surface base={{ flexDirection: "row", columnGap: apart ? 8 : 2, alignSelf: "flex-start", opacity: p.disabled ? 0.38 : 1 }} appearance={p} testID={p.testID}>
       {items.map((it, i) => {
         const on = chosen.includes(i);
         const end = h / 2;

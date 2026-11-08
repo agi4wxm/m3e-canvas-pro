@@ -284,7 +284,8 @@ export const additions: PartDef[] = [
   },
   {
     slug: "file-upload",
-    field: FIELD,
+    /* its line of help is the hint it has always shown */
+    field: { ...FIELD, helperText: "hint" },
     appearance: { target: "FileUpload", radius: 16 },
     name: "File upload",
     labels: { ja: "ファイルアップロード", zh: "文件上传", ko: "파일 업로드" },

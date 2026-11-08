@@ -33,9 +33,13 @@ export type TextFieldProps = PartBase & {
   error?: boolean;
   multiline?: boolean;
   width?: number;
-  /** the keyboard and how the words show: email, password, number, tel, url (a form's field says) */
+  /** the keyboard and how the words show: email, password, number, tel, url (the part or a form's field says) */
   type?: string;
   disabled?: boolean;
+  placeholder?: string;
+  /** words before and after what is typed (a currency, a unit) */
+  prefix?: string;
+  suffix?: string;
   onChange?: (text: string) => void;
 } & FieldProps;
 
@@ -78,7 +82,11 @@ export function TextField(props: TextFieldProps) {
           {p.multiline ? (
             <TaroTextarea value={text} ariaLabel={p.label || p.ariaLabel} disabled={held} maxlength={-1} onInput={(e) => setText(e.detail.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={words} />
           ) : (
-            <TaroInput value={text} ariaLabel={p.label || p.ariaLabel} disabled={held} password={p.type === "password"} type={keyboardOf(p.type)} maxlength={-1} onInput={(e) => setText(e.detail.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={words} />
+            <View style={sx(ROW, { columnGap: 4 })}>
+              {p.prefix && up ? <Words text={p.prefix} lines={1} style={{ ...typeStyle(kit, "body-large"), color: c("on-surface-variant") }} /> : null}
+              <TaroInput value={text} ariaLabel={p.label || p.ariaLabel} disabled={held} password={p.type === "password"} type={keyboardOf(p.type)} placeholder={up || !p.label ? p.placeholder : undefined} maxlength={-1} onInput={(e) => setText(e.detail.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} style={words} />
+              {p.suffix && up ? <Words text={p.suffix} lines={1} style={{ ...typeStyle(kit, "body-large"), color: c("on-surface-variant") }} /> : null}
+            </View>
           )}
         </View>
         {p.trailingIcon || p.error ? <Glyph name={p.error ? "error" : p.trailingIcon!} size={24} color={p.error ? "error" : "on-surface-variant"} /> : null}
@@ -250,7 +258,7 @@ export function TimePicker(props: TimePickerProps) {
 
 const SEG_H: Record<string, number> = { xs: 32, sm: 36, default: 40, md: 56 };
 
-export type SegmentedButtonProps = PartBase & { items?: ListRow[]; selected?: number; connected?: boolean; variant?: string; size?: string; multiple?: boolean };
+export type SegmentedButtonProps = PartBase & { items?: ListRow[]; selected?: number; connected?: boolean; variant?: string; size?: string; multiple?: boolean; disabled?: boolean };
 
 /** M3 Expressive's connected button group as a choice; iOS's segmented control; capsules apart */
 export function SegmentedButton(props: SegmentedButtonProps) {
@@ -261,12 +269,13 @@ export function SegmentedButton(props: SegmentedButtonProps) {
   const recipe = recipeOf(kit, "segmented");
   const h = SEG_H[p.size ?? "default"] ?? 40;
   const pick = (i: number) => {
+    if (p.disabled) return;
     setChosen((now) => (p.multiple ? (now.includes(i) ? now.filter((x) => x !== i) : [...now, i]) : [i]));
     tapOf(p, `tab:${i}`)?.();
   };
   if (recipe === "ios")
     return (
-      <Surface base={{ ...ROW, alignItems: "stretch", height: 32, padding: 2, borderRadius: 9, backgroundColor: ca("on-surface", kit.dark ? 0.16 : 0.07), alignSelf: "flex-start" }} appearance={p} testID={p.testID}>
+      <Surface base={{ ...ROW, alignItems: "stretch", height: 32, padding: 2, borderRadius: 9, backgroundColor: ca("on-surface", kit.dark ? 0.16 : 0.07), alignSelf: "flex-start", opacity: p.disabled ? 0.38 : 1 }} appearance={p} testID={p.testID}>
         {items.map((it, i) => {
           const on = chosen.includes(i);
           return (
@@ -280,7 +289,7 @@ export function SegmentedButton(props: SegmentedButtonProps) {
   const capsules = recipe === "capsules";
   const apart = capsules || p.connected === false;
   return (
-    <Surface base={{ ...ROW, columnGap: apart ? 8 : 2, alignSelf: "flex-start" }} appearance={p} testID={p.testID}>
+    <Surface base={{ ...ROW, columnGap: apart ? 8 : 2, alignSelf: "flex-start", opacity: p.disabled ? 0.38 : 1 }} appearance={p} testID={p.testID}>
       {items.map((it, i) => {
         const on = chosen.includes(i);
         const end = h / 2;

@@ -21,12 +21,13 @@ export function FieldFrame({
   invalid,
   mark,
   message,
+  helper,
   loading,
   label,
   children,
   className,
   style,
-}: { disabled?: boolean; readOnly?: boolean; required?: boolean; invalid?: boolean; mark?: boolean; message?: string; loading?: boolean; label?: string; children?: ReactNode } & Look) {
+}: { disabled?: boolean; readOnly?: boolean; required?: boolean; invalid?: boolean; mark?: boolean; message?: string; helper?: string; loading?: boolean; label?: string; children?: ReactNode } & Look) {
   const say = useSay();
   const id = useId();
   /* loading only says so: what it waits for (options, a check) does not stop the visitor */
@@ -39,8 +40,9 @@ export function FieldFrame({
   const keys = (e: KeyboardEvent) => {
     if (held && CHANGING.has(e.key)) stop(e);
   };
-  /* the message shows while the field is in error */
-  const note = invalid ? (message ?? "") : "";
+  /* the message shows while the field is in error, where its line of help stands otherwise (as M3's supporting text) */
+  const error = invalid && !!message;
+  const note = error ? message : (helper ?? "");
   return (
     <div
       data-slot="field-frame"
@@ -74,7 +76,7 @@ export function FieldFrame({
         {loading && <Spinner aria-label={say("Loading")} className="size-5 shrink-0" />}
       </div>
       {note && (
-        <p id={`${id}-note`} data-slot="field-frame-note" role={message ? "alert" : undefined} className={cn("text-body-small px-4", message ? "text-error" : "text-on-surface-variant")}>
+        <p id={`${id}-note`} data-slot="field-frame-note" role={error ? "alert" : undefined} className={cn("text-body-small px-4", error ? "text-error" : "text-on-surface-variant")}>
           {note}
         </p>
       )}

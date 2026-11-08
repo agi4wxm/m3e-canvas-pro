@@ -92,8 +92,12 @@ export type ButtonProps = PartBase & {
   onIcon?: string;
   onLabel?: string;
   onLook?: string;
+  /** a toggle that starts on */
+  pressed?: boolean;
   /** what it started is under way: a spinner where its icon was, and it cannot be pressed again */
   loading?: boolean;
+  /** what a screen reader calls it where its words do not say (an icon only) */
+  ariaLabel?: string;
 };
 
 /** A button: M3 Expressive's sizes and variants under the style's corners and recipe. As a toggle it holds its state. */
@@ -101,7 +105,7 @@ export function Button(props: ButtonProps) {
   const p = withDefaults<ButtonProps>("button", props);
   const kit = useKit();
   const fill = useFill();
-  const [on, setOn] = useState(false);
+  const [on, setOn] = useState(!!p.pressed);
   const size = SIZES[p.size ?? "sm"] ?? SIZES.sm;
   const lit = p.toggle && on;
   const variant = lit && p.onLook && p.onLook !== "same" ? p.onLook : (p.variant ?? "filled");
@@ -130,7 +134,7 @@ export function Button(props: ButtonProps) {
     p.onPress?.();
   };
   return (
-    <Surface base={base} appearance={p} onPress={press ?? (() => {})} testID={p.testID} accessibilityLabel={label || icon}>
+    <Surface base={base} appearance={p} onPress={press ?? (() => {})} testID={p.testID} accessibilityLabel={label || p.ariaLabel || icon}>
       {p.loading ? <ActivityIndicator size="small" color={look.ink} /> : icon ? <Glyph name={icon} size={size.icon} filled={!!lit} color={look.ink} /> : null}
       {label ? <RNText numberOfLines={1} style={{ ...typeStyle(kit, size.type), color: look.ink, ...(look.weight ? { fontWeight: look.weight } : null), ...capsOf(kit) }}>{label}</RNText> : null}
       {label && p.trailingIcon ? <Glyph name={p.trailingIcon} size={size.icon} color={look.ink} /> : null}
@@ -140,7 +144,7 @@ export function Button(props: ButtonProps) {
 
 const ICON_SIZES: Record<string, { side: number; icon: number }> = { xs: { side: 32, icon: 20 }, sm: { side: 40, icon: 24 }, default: { side: 40, icon: 24 }, md: { side: 56, icon: 24 }, lg: { side: 96, icon: 32 }, xl: { side: 136, icon: 40 } };
 
-export type IconButtonProps = PartBase & { icon?: string; label?: string; variant?: "filled" | "tonal" | "elevated" | "outlined" | "text" | "ghost"; size?: string; disabled?: boolean; iconFill?: boolean; loading?: boolean };
+export type IconButtonProps = PartBase & { icon?: string; label?: string; variant?: "filled" | "tonal" | "elevated" | "outlined" | "text" | "ghost"; size?: string; disabled?: boolean; iconFill?: boolean; loading?: boolean; ariaLabel?: string };
 
 export function IconButton(props: IconButtonProps) {
   const p = withDefaults<IconButtonProps>("icon-button", props);
@@ -157,7 +161,7 @@ export function IconButton(props: IconButtonProps) {
       appearance={p}
       onPress={held ? undefined : (p.onPress ?? (() => {}))}
       testID={p.testID}
-      accessibilityLabel={p.label}
+      accessibilityLabel={p.ariaLabel || p.label}
     >
       {p.loading ? <ActivityIndicator size="small" color={ink} /> : p.icon ? <Glyph name={p.icon} size={s.icon} filled={!!p.iconFill} color={ink} /> : null}
     </Surface>
@@ -166,7 +170,7 @@ export function IconButton(props: IconButtonProps) {
 
 const TOGGLE_SIZES: Record<string, number> = { xs: 32, sm: 36, default: 40, md: 48, lg: 56 };
 
-export type ToggleProps = PartBase & { icon?: string; label?: string; variant?: string; size?: string; shape?: "round" | "square"; pressed?: boolean; disabled?: boolean };
+export type ToggleProps = PartBase & { icon?: string; label?: string; variant?: string; size?: string; shape?: "round" | "square"; pressed?: boolean; disabled?: boolean; ariaLabel?: string };
 
 /** a button that stays pressed: tonal while on, its icon filled */
 export function Toggle(props: ToggleProps) {
@@ -185,7 +189,7 @@ export function Toggle(props: ToggleProps) {
         p.onPress?.();
       }}
       testID={p.testID}
-      accessibilityLabel={p.label || p.icon}
+      accessibilityLabel={p.label || p.ariaLabel || p.icon}
     >
       {p.icon ? <Glyph name={p.icon} size={24} filled={on} color={ink} /> : null}
       {p.label ? <RNText style={{ ...typeStyle(kit, "label-large"), color: ink }}>{p.label}</RNText> : null}
@@ -197,7 +201,7 @@ export function Toggle(props: ToggleProps) {
 
 const CHIP_H: Record<string, number> = { default: 32, md: 40, lg: 48 };
 
-export type ChipProps = PartBase & { items?: ListRow[]; kind?: "assist" | "filter" | "input"; selected?: number; variant?: "flat" | "elevated"; size?: string };
+export type ChipProps = PartBase & { items?: ListRow[]; kind?: "assist" | "filter" | "input"; selected?: number; variant?: "flat" | "elevated"; size?: string; disabled?: boolean };
 
 /** a row of chips: assist, filter (one chosen) or input (each with a close) */
 export function Chip(props: ChipProps) {
@@ -209,7 +213,7 @@ export function Chip(props: ChipProps) {
   const radius = recipe === "pill" ? h / 2 : recipe === "tag" ? corner(kit, "xs") : Math.min(corner(kit, "sm"), controlRadius(kit, h));
   const items = p.items ?? [];
   return (
-    <View testID={p.testID} style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+    <View testID={p.testID} pointerEvents={p.disabled ? "none" : undefined} style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, opacity: p.disabled ? 0.38 : 1 }}>
       {items.map((it, i) => {
         const on = p.kind === "filter" && i === chosen;
         const bg = extraColor(kit, "chipBg");
@@ -464,7 +468,7 @@ export type InputProps = PartBase & {
   onChangeText?: (text: string) => void;
 } & FieldProps;
 
-const KEYBOARD: Record<string, "default" | "email-address" | "numeric" | "phone-pad" | "url" | "web-search"> = { email: "email-address", number: "numeric", tel: "phone-pad", url: "url", search: "web-search" };
+export const KEYBOARD: Record<string, "default" | "email-address" | "numeric" | "phone-pad" | "url" | "web-search"> = { email: "email-address", number: "numeric", tel: "phone-pad", url: "url", search: "web-search" };
 
 /** the inputs that take a day or a time: the platform's own picker opens on them */
 const PICKED: Record<string, "date" | "time" | "datetime"> = { date: "date", time: "time", datetime: "datetime", "datetime-local": "datetime" };

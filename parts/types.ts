@@ -154,7 +154,7 @@ export type PartDef = {
   input?: PartInput;
   /** The field states it shows (parts/fieldState.ts): disabled, read-only, required, loading, in error and its
    *  message, each by the prop that holds it. The registry adds the props for those it does not write itself. */
-  field?: Partial<Record<"disabled" | "readOnly" | "required" | "loading" | "error" | "errorText", string>>;
+  field?: Partial<Record<"disabled" | "readOnly" | "required" | "loading" | "error" | "errorText" | "helperText", string>>;
   /** the domain behaviour it acts out in a prototype, and what takes it over */
   demo?: PartDemo;
   /** it floats over a screen when opened: an open or close effect acts on it */

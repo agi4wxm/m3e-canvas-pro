@@ -69,7 +69,8 @@ export function partLine(def: PartDef): string {
     ...enums,
     numbers.length ? `numbers: ${numbers.join(", ")}` : "",
     of("bool").length ? `true/false: ${of("bool").join(", ")}` : "",
-    states.length === FIELD_STATES.length ? "field states" : states.length ? `states: ${states.join("/")}` : "",
+    /* the whole package, some of it perhaps under older names that are listed with the words */
+    FIELD_STATES.every((s) => def.field?.[s]) ? "field states" : states.length ? `states: ${states.join("/")}` : "",
     def.props.some((d) => d.key === "ariaLabel") ? "ariaLabel" : "",
   ].filter(Boolean);
   const taps = tapsOf(def);
@@ -82,7 +83,7 @@ export function atomsReference(slugs: readonly string[] = REFERENCE_PARTS): stri
   return [
     "## The parts used most: every prop with the values it takes (enum choices with the default first, number ranges, rows a list takes) and the tap places",
     "These lines hold what describe_part would say about these parts' props: build with them straight away, without describing them first; describe_part is for other parts and kits. A part with no tap places takes one tap on the whole part (set_action without slot); with places, set_action {slot} or set_item {actions: {place: …}}. Sizes are dp.",
-    "field states: the true/false disabled, readOnly, required, loading, error and the words errorText (a form sets error, errorText and required itself). ariaLabel: the name a screen reader says where the part shows no words.",
+    "field states: the true/false disabled, readOnly, required, loading, error and the words errorText and helperText (a form sets error, errorText and required itself). ariaLabel: the name a screen reader says where the part shows no words.",
     ...lines,
   ].join("\n");
 }

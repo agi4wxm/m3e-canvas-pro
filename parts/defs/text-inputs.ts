@@ -14,7 +14,8 @@ export const textInputs: PartDef[] = [
   {
     slug: "text-field",
     input: { prop: "value", kind: "text" },
-    field: FIELD,
+    /* its line of help has always been its supporting text */
+    field: { ...FIELD, helperText: "supporting" },
     appearance: { target: "TextField", radius: 4 },
     name: "Text field",
     category: "Forms",
@@ -25,8 +26,13 @@ export const textInputs: PartDef[] = [
     props: [
       { key: "label", label: "Label", kind: "text", default: "Label" },
       { key: "value", label: "Value", kind: "text", default: "" },
+      { key: "placeholder", label: "Placeholder", kind: "text", default: "" },
+      /* the keyboard and how the words show; a form's field of a format says the same */
+      { key: "type", label: "Type", kind: "enum", default: "text", options: ["text", "email", "password", "number", "search", "tel", "url"] },
       { key: "supporting", label: "Supporting text", kind: "text", default: "" },
       { key: "variant", label: "Variant", kind: "enum", default: "outlined", options: ["outlined", "filled"] },
+      { key: "prefix", label: "Prefix", labels: { ja: "接頭辞", zh: "前缀", ko: "접두사" }, kind: "text", default: "" },
+      { key: "suffix", label: "Suffix", labels: { ja: "接尾辞", zh: "后缀", ko: "접미사" }, kind: "text", default: "" },
       { key: "leadingIcon", label: "Leading icon", kind: "icon", default: "" },
       { key: "trailingIcon", label: "Trailing icon", kind: "icon", default: "" },
       { key: "error", label: "Error", kind: "bool", default: false },
@@ -47,6 +53,10 @@ export const textInputs: PartDef[] = [
             label: requiredMark(label, v.required),
             "aria-label": label ? undefined : nameFor(p) || undefined,
             defaultValue: p.s("value") || undefined,
+            placeholder: p.s("placeholder") || undefined,
+            type: p.s("type") === "text" ? undefined : p.s("type"),
+            prefix: p.s("prefix") || undefined,
+            suffix: p.s("suffix") || undefined,
             variant: p.s("variant") === "filled" ? "filled" : undefined,
             supportingText: p.s("supporting") || undefined,
             leadingIcon: p.s("leadingIcon") ? ic(p.s("leadingIcon")) : undefined,
@@ -248,7 +258,7 @@ export const textInputs: PartDef[] = [
   {
     slug: "field",
     /* its message has always been `error`: the message is the error, and saying one puts the field in error */
-    field: { disabled: "disabled", readOnly: "readOnly", required: "required", loading: "loading", errorText: "error" },
+    field: { disabled: "disabled", readOnly: "readOnly", required: "required", loading: "loading", errorText: "error", helperText: "description" },
     appearance: { target: "Input", radius: 4 },
     name: "Field",
     category: "Forms",

@@ -181,7 +181,7 @@ export const selection: PartDef[] = [
   {
     slug: "select",
     input: { prop: "selected", kind: "choice" },
-    field: FIELD,
+    field: { ...FIELD, helperText: "supporting" },
     appearance: { target: "SelectTrigger", radius: 4 },
     name: "Select",
     category: "Pickers",

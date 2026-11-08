@@ -8,7 +8,7 @@ import type { P, PartDef, PropDef } from "./types";
  * part's schema, and every host goes by the declaration, never by a list of parts: a form's check turns `error` on
  * and writes the message, a schema's required field shows as required, a submit holds its button as loading. */
 
-export const FIELD_STATES = ["disabled", "readOnly", "required", "loading", "error", "errorText"] as const;
+export const FIELD_STATES = ["disabled", "readOnly", "required", "loading", "error", "errorText", "helperText"] as const;
 export type FieldState = (typeof FIELD_STATES)[number];
 
 /** The states a part shows, each by the prop that holds it. An older part keeps one under a name of its own (the
@@ -16,7 +16,7 @@ export type FieldState = (typeof FIELD_STATES)[number];
 export type FieldDecl = Partial<Record<FieldState, string>>;
 
 /** the whole package, under its own names: what an input declares */
-export const FIELD: FieldDecl = { disabled: "disabled", readOnly: "readOnly", required: "required", loading: "loading", error: "error", errorText: "errorText" };
+export const FIELD: FieldDecl = { disabled: "disabled", readOnly: "readOnly", required: "required", loading: "loading", error: "error", errorText: "errorText", helperText: "helperText" };
 
 /** a button's share of it: held while it cannot be pressed, or while what it started is under way */
 export const BUTTON_FIELD: FieldDecl = { disabled: "disabled", loading: "loading" };
@@ -37,6 +37,9 @@ function template(state: FieldState, errorKey: string | undefined): PropDef {
     case "errorText":
       /* the message only means something while the part is in error */
       return { key: "errorText", label: "Error message", kind: "text", default: "", ...(errorKey ? { when: (p: P) => p.b(errorKey) } : {}) };
+    case "helperText":
+      /* M3's supporting text: what the field is for, under it; the error's message stands there while it is in error */
+      return { key: "helperText", label: "Helper text", labels: { ja: "補足テキスト", zh: "说明文字", ko: "도움말" }, kind: "text", default: "" };
   }
 }
 
@@ -86,7 +89,18 @@ export function formStateProps<T>(def: Pick<PartDef, "field" | "props"> | undefi
 }
 
 /** a part's states as a tree reads them: only what its declaration has, each under the package's name */
-export type FieldValues = { disabled: boolean; readOnly: boolean; required: boolean; loading: boolean; invalid: boolean; message: string; /** the name its author gave it for a screen reader (`ariaLabel`), where it has one */ name: string };
+export type FieldValues = {
+  disabled: boolean;
+  readOnly: boolean;
+  required: boolean;
+  loading: boolean;
+  invalid: boolean;
+  message: string;
+  /** the line of help under it (`helperText`), where it has one under the package's name */
+  helper: string;
+  /** the name its author gave it for a screen reader (`ariaLabel`), where it has one */
+  name: string;
+};
 
 /** a prop of words the part may not have: "" then */
 const wordsOf = (p: P, key: string) => {
@@ -104,7 +118,7 @@ export function fieldValues(p: P, has: (key: string) => boolean = () => true): F
   const message = has("errorText") ? p.s("errorText") : "";
   /* the message is kept whether or not the part is in error now: what shows it shows it only while it is, so a form's
      printed code holds one control whose error comes and goes */
-  return { disabled: b("disabled"), readOnly: b("readOnly"), required: b("required"), loading: b("loading"), invalid: b("error"), message, name: wordsOf(p, "ariaLabel").trim() };
+  return { disabled: b("disabled"), readOnly: b("readOnly"), required: b("required"), loading: b("loading"), invalid: b("error"), message, helper: has("helperText") ? wordsOf(p, "helperText") : "", name: wordsOf(p, "ariaLabel").trim() };
 }
 
 /** A label with M3's star after it while its field is required. The star is for the eye: a screen reader is told by
@@ -123,6 +137,8 @@ type FrameOptions = {
   marksRequired?: boolean;
   /** the control shows its own error message (a text field's supporting line) */
   showsMessage?: boolean;
+  /** the control shows its own line of help (a select's supporting line) */
+  showsHelper?: boolean;
 };
 
 /** A control with what its states say around it: its message under it while it is in error, a sign that it is
@@ -137,6 +153,7 @@ export function fieldFrame(v: FieldValues, control: PNode, o: FrameOptions = {})
   const disabled = o.holds !== true && o.holds !== "disabled" && v.disabled;
   const readOnly = o.holds !== true && o.holds !== "readOnly" && v.readOnly;
   const message = o.showsMessage ? "" : v.message;
+  const helper = o.showsHelper ? "" : v.helper;
   /* required is said by the control where it can be (an M3E control's own `required`, a star on its label), so a
      contract that requires a field adds no line under an input; a control that can say neither gets a star beside it */
   const required = v.required && !o.marksRequired && o.holds !== true;
@@ -144,7 +161,7 @@ export function fieldFrame(v: FieldValues, control: PNode, o: FrameOptions = {})
   const mark = v.invalid && !(o.showsError ?? o.holds === true);
   /* a widget that names nothing itself is named as a group, by the frame */
   const name = !o.holds && v.name;
-  if (!disabled && !readOnly && !required && !message && !v.loading && !mark && !name) return control;
+  if (!disabled && !readOnly && !required && !message && !helper && !v.loading && !mark && !name) return control;
   return h(
     "FieldFrame",
     {
@@ -154,6 +171,7 @@ export function fieldFrame(v: FieldValues, control: PNode, o: FrameOptions = {})
       invalid: v.invalid || undefined,
       mark: mark || undefined,
       message: message || undefined,
+      helper: helper || undefined,
       loading: v.loading || undefined,
       label: name || undefined,
     },
