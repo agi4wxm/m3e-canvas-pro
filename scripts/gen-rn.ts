@@ -4,10 +4,11 @@
 // shapes, Material's theme as the kit's default, and for the kit's gallery the themes of the styles it is checked under,
 // the glyphs it draws and the trees of atoms the composites without a component of the kit's own split into. The kit is
 // its own package and never imports the editor; what it needs is written here, and `check:rn` fails when it is behind.
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setGlobalLang, type Lang } from "../lib/i18n";
+import { TABLE_DIRS, rnTable, staleTableFiles } from "../lib/actions/consistency/kits";
 import { CATEGORIES, PARTS, reader, tierOf } from "../parts/registry";
 import { KITS, pickVariant } from "../parts/kits";
 import { SVG_PRESETS } from "../parts/svg";
@@ -164,8 +165,18 @@ async function main() {
     "lib/export/rn/kitFiles.generated.ts": kitFilesModule(),
     ...(await galleryModules()),
     ...(await printedFixture()),
+    /* the consistency table (lib/actions/consistency) as the kit's own tests run it */
+    ...(await rnTable()),
   };
   const stale: string[] = [];
+  /* a row taken out of the table leaves nothing behind */
+  for (const path of staleTableFiles(root, TABLE_DIRS.rn, files)) {
+    if (check) stale.push(path);
+    else {
+      rmSync(join(root, path));
+      console.log(`removed ${path}`);
+    }
+  }
   for (const [path, text] of Object.entries(files)) {
     const at = join(root, path);
     /* a picture of the printed documents is a file of its own, compared byte for byte */

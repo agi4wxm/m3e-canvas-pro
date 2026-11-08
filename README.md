@@ -149,8 +149,8 @@ bun run dev
 | `bun run gen:versions` | 依赖升级后，按 `package.json` 和 `bun.lock` 重写导出项目用的版本表 `lib/versions.generated.ts`（`check:versions` 只检查，测试也会检查） |
 | `bun run gen:agent` | 把组件清单写进 `public/agent.md` |
 | `bun run gen:icon-sets` | 按图标对照表重新打包各风格的图标集（`check:icon-sets` 只检查） |
-| `bun run gen:rn` | 重新生成手机端组件套件（`rn/`）用的数据和打印器的样例输出（`check:rn` 只检查），见 [手机端](docs/手机端.md) |
-| `bun run gen:miniapp` | 重新生成小程序组件套件（`miniapp-kit/`）用的数据、画廊的主题和图标，以及打印器的样例页面（`check:miniapp` 只检查），见 [小程序](docs/小程序.md) |
+| `bun run gen:rn` | 重新生成手机端组件套件（`rn/`）用的数据、打印器的样例输出和交互一致性表的测试台（`check:rn` 只检查），见 [手机端](docs/手机端.md)、[交互规则](docs/交互规则.md) |
+| `bun run gen:miniapp` | 重新生成小程序组件套件（`miniapp-kit/`）用的数据、画廊的主题和图标、打印器的样例页面和交互一致性表的测试台（`check:miniapp` 只检查），见 [小程序](docs/小程序.md)、[交互规则](docs/交互规则.md) |
 | `bun run mcp:build` | 把 MCP 服务器打包成 `mcp/dist/m3e-canvas-mcp.js`（先 `bun run build`，编辑器的构建会一起复制过去给截图用）；`mcp:dev` 直接运行源码，`mcp:docs` 按注册表重写 [MCP](docs/MCP.md) 里的工具表 |
 | `bun scripts/style-shots.ts --base <地址> --out <文件夹>` | 把风格画廊按风格、分类截图，用来核对每套风格（先另开 `bun run dev`） |
 | `bun scripts/export.ts <项目文件> <输出文件夹>` | 把项目导出成完整产品（monorepo），再次导出到同一个文件夹时保留自定义代码、报告冲突，见 [导出](docs/导出.md) |
@@ -171,6 +171,7 @@ lib/core/      文档核心：存储、操作、事务和撤销、查询、项�
 lib/api/       接口：模型、校验、OpenAPI / AsyncAPI 的读写、YAML、TypeScript 类型（docs/接口.md）
 lib/mocks/     模拟库：按 Schema 生成数据、模拟传输层、场景、文件、实时脚本（docs/模拟库.md）
 lib/bindings/  数据绑定：表达式、数据源和调用的运行时、表单校验、区域的状态（docs/数据绑定.md）
+lib/actions/   交互：点击的数据模型、宿主接口、唯一的解释器和各宿主的一致性表（docs/交互规则.md）
 lib/app/       导出的前端共用的运行时和 React hooks（packages/app-runtime，docs/导出.md）
 lib/llm/       AI 服务商层：流式适配器、智能体循环、SVG 生成
 lib/tools/     AI 和 MCP 共用的工具注册表

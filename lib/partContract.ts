@@ -8,16 +8,9 @@ import type { PartDef, PartEvent, PartInput, PartLang, SlotFamily } from "../par
 import { labelOf } from "../parts/labels";
 import { actionSlotsOf, type Action, type ActionBody, type Effect, type Item } from "./tokens";
 
-/** the start of an event's key in `Item.actions` */
-export const EVENT_PREFIX = "on:";
-/** the key an event's action is stored under */
-export const eventKey = (name: string) => `${EVENT_PREFIX}${name}`;
-/** the key a slot family's action is stored under */
-export const familyKey = (prefix: string) => `${prefix}:*`;
-/** an event's name, when the key is one */
-export const eventOfKey = (key: string): string | null => (key.startsWith(EVENT_PREFIX) ? key.slice(EVENT_PREFIX.length) : null);
-/** a family's prefix, when the key is one */
-export const familyOfKey = (key: string): string | null => (key.endsWith(":*") && !key.startsWith(EVENT_PREFIX) ? key.slice(0, -2) : null);
+/* the keys themselves are the interaction model's (lib/actions/model.ts), which every host's interpreter reads too */
+import { eventKey, eventOfKey, familyKey, familyOfKey } from "./actions/model";
+export { EVENT_PREFIX, eventKey, eventOfKey, familyKey, familyOfKey } from "./actions/model";
 
 /** an event's or a family's name: words and digits, starting with a letter */
 export const OUTLET_NAME = /^[A-Za-z][A-Za-z0-9]{0,39}$/;
