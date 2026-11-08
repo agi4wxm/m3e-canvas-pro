@@ -1,15 +1,21 @@
 /* The MCP server and a real editor tab: the server started as a client starts it (stdio), the author turning on
  * "Connect to MCP" and approving the code the server gave, a tool call changing the canvas live, a screenshot drawn by
  * the tab, one undo taking the call back, and a destructive call the author declines; a client the author told the
- * editor to remember comes back after its server restarts without asking, until it is forgotten. */
+ * editor to remember comes back after its server restarts without asking, until it is forgotten. Headless screenshots
+ * load nothing from other sites unless told, against a local server that records what reaches it, and a screenshot
+ * that hangs or is stopped ends without taking the next one with it. */
 
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { DocStore, guessMeasurer, ops, stateOf, type CoreState } from "../lib/core";
+import { silentLog } from "../mcp/src/log";
+import { findPlaywright, HeadlessRenderer, type AppSource } from "../mcp/src/render";
 import { check, equal, itemsOf, redo, savedDoc, settle, undo, type E2ETest, type Page } from "./lib";
 
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
@@ -237,6 +243,85 @@ export const tests: E2ETest[] = [
         check(pimg && pngSize(pimg.data).w > 300, `the part cut out at twice the size: ${text(part).slice(0, 200)}`);
       } finally {
         await client.close();
+      }
+    },
+  },
+  {
+    name: "headless screenshots load nothing from other sites unless told, and one that hangs or is stopped does not hold the next",
+    async run({ base }) {
+      /* a server of pictures that writes down every request that reaches it; /slow never answers */
+      const hits: string[] = [];
+      const PIXEL = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
+      const recorder: Server = createServer((req, res) => {
+        hits.push(req.url ?? "");
+        if ((req.url ?? "").startsWith("/slow")) return;
+        res.writeHead(200, { "content-type": "image/png", "access-control-allow-origin": "*" }).end(PIXEL);
+      });
+      await new Promise<void>((ok) => recorder.listen(0, "127.0.0.1", () => ok()));
+      const port = (recorder.address() as { port: number }).port;
+      const elsewhere = `http://127.0.0.1:${port}`;
+      const app: AppSource = existsSync(join(root, "dist", "index.html")) ? { dir: join(root, "dist") } : { url: base };
+      const screen = (src: string): CoreState => {
+        const store = new DocStore(stateOf({ groups: [], frames: [] }), { measurer: guessMeasurer, lang: () => "en" });
+        /* as a file from elsewhere holds it: the tools would not take an outside address */
+        store.transact("Start", "user", (tx) => {
+          tx.run(ops.addScreen, { id: "home", name: "Home" });
+          tx.run(ops.addPart, { slug: "image", id: "pic", screen: "home", at: { x: 16, y: 80 }, props: { src } });
+          tx.run(ops.addPart, { slug: "text", id: "words", screen: "home", at: { x: 16, y: 400 }, props: { text: "Hello" } });
+        });
+        return store.get();
+      };
+      const made: HeadlessRenderer[] = [];
+      const renderer = (o: { outside?: string[]; deadlineMs?: number } = {}) => {
+        const r = new HeadlessRenderer(app, "en", silentLog, findPlaywright, o);
+        made.push(r);
+        return r;
+      };
+      try {
+        /* by default: the picture's address is never asked for, and it is said to be left out */
+        const held = renderer();
+        let skipped: string[] = [];
+        const png = await held.shoot(screen(`${elsewhere}/pic.png?held`), "home", 1, undefined, (u) => (skipped = u));
+        check(png.startsWith("data:image/png"), "a picture came back");
+        equal(hits.length, 0, `nothing reached the other site: ${hits.join(", ")}`);
+        check(skipped.some((u) => u.includes("/pic.png?held")), `the held-back address is reported: ${skipped.join(", ")}`);
+        if ("dir" in app) {
+          /* a malformed address on the app's own server is a 400, and the server still serves */
+          const served = await held.shoot(screen("/%E0%A4%A.png"), "home", 1);
+          check(served.startsWith("data:image/png"), "the next screenshot drew after a malformed address");
+        }
+
+        /* told to let that origin load: the picture is fetched from it */
+        const allowed = renderer({ outside: [elsewhere] });
+        await allowed.shoot(screen(`${elsewhere}/pic.png?allowed`), "home", 1);
+        check(hits.some((h) => h.includes("/pic.png?allowed")), `the allowed origin was asked: ${hits.join(", ")}`);
+
+        /* a picture that never comes: the screenshot is given up at its deadline, and the next one is drawn */
+        const timed = renderer({ outside: [elsewhere], deadlineMs: 4000 });
+        const t0 = Date.now();
+        const late = await timed.shoot(screen(`${elsewhere}/slow.png?a`), "home", 1).then(
+          () => "drawn",
+          (e: Error) => e.message,
+        );
+        check(/given up/.test(late), `the hanging screenshot was given up: ${late}`);
+        check(Date.now() - t0 < 9000, `within its deadline (${Date.now() - t0} ms)`);
+        check((await timed.shoot(screen(`${elsewhere}/pic.png?after-timeout`), "home", 1)).startsWith("data:image/png"), "the next screenshot was drawn after the timeout");
+
+        /* stopped by its caller: it ends at once, and the next one is drawn */
+        const stop = new AbortController();
+        setTimeout(() => stop.abort(), 600);
+        const t1 = Date.now();
+        const stopped = await timed.shoot(screen(`${elsewhere}/slow.png?b`), "home", 1, undefined, undefined, stop.signal).then(
+          () => "drawn",
+          (e: Error) => e.message,
+        );
+        check(/Stopped by the client/.test(stopped), `the screenshot stopped: ${stopped}`);
+        check(Date.now() - t1 < 3000, `at once (${Date.now() - t1} ms)`);
+        check((await timed.shoot(screen(`${elsewhere}/pic.png?after-stop`), "home", 1)).startsWith("data:image/png"), "the next screenshot was drawn after the stop");
+      } finally {
+        for (const r of made) await r.close();
+        recorder.closeAllConnections();
+        await new Promise((ok) => recorder.close(ok));
       }
     },
   },
