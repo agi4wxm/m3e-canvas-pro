@@ -13,6 +13,8 @@ import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, clea
 import { BARE_VERSION, PROJECT_VERSION, migrate, versionOf, type Migration } from "./migrations";
 import { fields, withUnknown } from "./keep";
 import { bindRule, conditionRule } from "./rules";
+/* how deep a call's `then` and `catch` may hold calls of their own: the interpreter's own limit */
+import { MAX_CALL_DEPTH } from "./actions/model";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -78,9 +80,6 @@ function cleanCondition(c: unknown): Condition | undefined {
   if (c.expr !== undefined) return keep({ expr: c.expr as string });
   return keep({ var: c.var as string, op: c.op as "eq" | "neq", value: c.value as VarValue });
 }
-
-/** how deep a call's `then` and `catch` may hold calls of their own */
-const MAX_CALL_DEPTH = 4;
 
 /** the fields each kind of effect has: what `cleanEffect` checks, the rest of an effect kept as it came */
 const EFFECT_FIELDS: Record<string, ReadonlySet<string>> = {
