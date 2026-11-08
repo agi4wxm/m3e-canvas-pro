@@ -1,5 +1,6 @@
 import { onColorFor, schemeFromSeed } from "../color";
 import { FONTS, ICON_FAMILIES, SHAPES, type FontKey, type IconFamily, type MotionScheme, type ShapeScale } from "../tokens";
+import { accessWords, checkAccess, type AccessInput, type ContrastCheck } from "./access";
 import { checkRule, checkValue, rulesCss, rulesFromCss, LIMITS, type CssRule, type Reason } from "./css";
 import { PACKS } from "./packs";
 import { RECIPES, RECIPE_KEYS, type RecipeKey, type Recipes } from "./recipes";
@@ -51,6 +52,8 @@ export type StyleProblem = {
   fix: "dropped" | "replaced" | "kept";
   zh: string;
   en: string;
+  /** for colors that read too faintly: the accessibility check they fail (access.ts), its state and its background */
+  check?: ContrastCheck;
 };
 
 /** the color roles a style has to name, in the order the editor shows them */
@@ -64,8 +67,8 @@ export const ROLE_KEYS = [
 /** the ones it may name, and otherwise takes Material's */
 export const OPTIONAL_ROLE_KEYS = ["error", "onError", "errorContainer", "onErrorContainer"] as const satisfies readonly (keyof StyleRoles)[];
 
-/** The pairs a screen reads its words from, background first: every one has to be legible, 4.5:1, or 2:1 where the
- *  style says the background is one it is known for (`loud`). The same pairs the built-in packs are tested on. */
+/** The pairs of roles a screen reads its words from, background first: the pairs the style editor shows side by side.
+ *  What each has to reach, in which state and at which size, is the accessibility check's (access.ts `checkAccess`). */
 export const READS: [keyof StyleRoles, keyof StyleRoles][] = [
   ["primary", "onPrimary"],
   ["primaryContainer", "onPrimaryContainer"],
@@ -102,18 +105,6 @@ export function hexOf(v: unknown): string | undefined {
   if (/^#[0-9a-f]{3}$/i.test(s)) return `#${s[1]}${s[1]}${s[2]}${s[2]}${s[3]}${s[3]}`.toUpperCase();
   return undefined;
 }
-
-const luminance = (hex: string) => {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-};
-/** WCAG's contrast ratio between two #RRGGBB colors */
-export function contrastRatio(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
-}
-/** the least a pair of roles has to read at, under a style */
-export const contrastFloor = (bg: keyof StyleRoles, loud: readonly (keyof StyleRoles)[] | null | undefined) => (loud?.includes(bg) ? 2 : 4.5);
 
 /** a token's color: #hex (with alpha), or a role's variable */
 const tokenColorOf = (v: unknown): string | undefined => {
@@ -480,23 +471,11 @@ export function validateCustomStyle(input: unknown): Validated {
   return { style, problems };
 }
 
-/** What a style's colors would make hard to read: the checks the built-in packs are tested on, as problems to look at */
-export function contrastProblems(s: { light: StyleRoles; dark: StyleRoles; loud?: readonly (keyof StyleRoles)[] | null; tokens?: Partial<Record<StyleToken, string>> | null }): StyleProblem[] {
-  const out: StyleProblem[] = [];
-  for (const [mode, roles, own] of [["light", s.light, s.tokens?.primaryText], ["dark", s.dark, s.tokens?.primaryTextDark]] as const) {
-    for (const [bg, fg] of READS) {
-      const ratio = contrastRatio(roles[bg] as string, roles[fg] as string);
-      const floor = contrastFloor(bg, s.loud);
-      if (ratio < floor)
-        out.push({ path: `${mode}.${fg}`, code: "contrast", fix: "kept", zh: `${mode === "light" ? "浅色" : "深色"}：${fg} 在 ${bg} 上的对比度只有 ${ratio.toFixed(2)}:1，至少要 ${floor}:1`, en: `${mode}: ${fg} on ${bg} reads at ${ratio.toFixed(2)}:1, under ${floor}:1` });
-    }
-    const line = contrastRatio(roles.surface, roles.outline);
-    if (line < 2.8) out.push({ path: `${mode}.outline`, code: "contrast", fix: "kept", zh: `${mode === "light" ? "浅色" : "深色"}：outline 在 surface 上只有 ${line.toFixed(2)}:1，边线会看不见（至少 2.8:1）`, en: `${mode}: outline on surface is ${line.toFixed(2)}:1, too faint to see (2.8:1 at least)` });
-    const accent = hexOf(own) ?? roles.primary;
-    const words = contrastRatio(roles.surfaceContainerHigh, accent);
-    if (words < 3) out.push({ path: own ? `tokens.${mode === "light" ? "primaryText" : "primaryTextDark"}` : `${mode}.primary`, code: "contrast", fix: "kept", zh: `${mode === "light" ? "浅色" : "深色"}：主色文字在面板上只有 ${words.toFixed(2)}:1（至少 3:1）；可以在 tokens.${mode === "light" ? "primaryText" : "primaryTextDark"} 给文字另一个颜色`, en: `${mode}: words in the accent read at ${words.toFixed(2)}:1 on a panel (3:1 at least); tokens.${mode === "light" ? "primaryText" : "primaryTextDark"} can give them a color of their own` });
-  }
-  return out;
+/** What a style's colors would make hard to read: every accessibility check it fails (access.ts), as a problem to look
+ *  at. The style stays as written ("kept"): whether a style can be imported never depends on it. A pair the style calls
+ *  `loud` is listed like any other, and says it was kept on purpose. */
+export function contrastProblems(s: AccessInput): StyleProblem[] {
+  return checkAccess(s).issues.map((c) => ({ path: c.path, code: "contrast", fix: "kept", ...accessWords(c), check: c }));
 }
 
 /* ---------- compiling ---------- */

@@ -95,8 +95,8 @@ import { LayoutHandles } from "@/components/LayoutHandles";
 import { ShareDialog } from "@/components/ShareMenu";
 import { ColorPanel } from "@/components/ColorPanel";
 import { MotionPanel, ShapePanel, TypePanel } from "@/components/ThemePanel";
-import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
-import { artOf, isStrict, screenBackground, setDocStyles } from "@/lib/styles";
+import { DocStylesProvider, PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
+import { artOf, isStrict, screenBackground, styleContext } from "@/lib/styles";
 import { StyleGate, StylePanel } from "@/components/StylePanel";
 import { partBySlug, reader } from "@/parts/registry";
 import { kitOfKey } from "@/parts/kits";
@@ -186,8 +186,9 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   useEffect(() => {
     if (newerFormat !== null) setEditAccess("readonly");
   }, [newerFormat]);
-  /* the document's own styles in reach (lib/styles/book.ts) before anything below reads a style by its key */
-  setDocStyles(core.doc.styles);
+  /* what a style's key is read against here: the document's own styles, handed to everything drawn below
+     (DocStylesProvider); the store keeps them in reach for the code that is not handed them (src/editor/store.ts) */
+  const docStyles = styleContext(core.doc.styles);
   const { groups, frames, paletteKey, theme, vars, components, collections, frame } = core.doc;
   const customPalette = core.doc.customPalette ?? null;
   const dynamicColor = !!core.doc.dynamicColor;
@@ -960,10 +961,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
 
   return (
     <LangContext.Provider value={lang}>
+    <DocStylesProvider styles={docStyles} icons={theme.icons ?? "rounded"}>
     <PartThemeContext.Provider value={partTheme}>
     <BehaviorContext.Provider value={behavior}>
     <BindingsContext.Provider value={bindingsPanel}>
-    <StyleRulesContext.Provider value={isStrict(theme)}>
+    <StyleRulesContext.Provider value={isStrict(theme, docStyles)}>
       <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
       <PartStyleSheet theme={theme} />
       <div
@@ -1373,7 +1375,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
               {frame === "phone" &&
                 frames.map((f) => {
                   const on = f.id === selectedFrameId;
-                  const bg = screenBackground(p[f.bg ?? "surface"], theme);
+                  const bg = screenBackground(p[f.bg ?? "surface"], theme, docStyles);
                   const { w, h: fold } = frameSizeOf(f);
                   const h = frameLengthOf(f);
                   const radius = frameRadius(f);
@@ -2207,7 +2209,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   shared={sharedSelection}
                   onEach={setEachSelected}
                   onExport={selectedPartFrame ? exportSelected : undefined}
-                  strict={isStrict(theme)}
+                  strict={isStrict(theme, docStyles)}
                   partTab={partTab}
                   onPartTab={setPartTab}
                 />
@@ -2445,6 +2447,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
     </BindingsContext.Provider>
     </BehaviorContext.Provider>
     </PartThemeContext.Provider>
+    </DocStylesProvider>
     </LangContext.Provider>
   );
 }

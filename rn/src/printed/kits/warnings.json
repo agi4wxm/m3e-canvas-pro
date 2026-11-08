@@ -1,1 +1,10 @@
-[]
+[
+ {
+  "kind": "style",
+  "screen": "Kits",
+  "screens": [
+   "Kits"
+  ],
+  "detail": "recipe feedback: dim is drawn on the web only; on a phone the kit builds feedback as Material does (screens: Kits)"
+ }
+]

@@ -3,6 +3,7 @@ import { isStrict } from "@/lib/styles";
 import type { Palette, Theme } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
 import { whenStarted } from "@/parts/prefetch";
+import { useDocStyles } from "@/parts/theme";
 import type { StylePanelProps } from "./StylePanelBody";
 
 /* The styles panel draws every style with real M3E controls (StylePanelBody.tsx). Those come when the panel is first
@@ -25,7 +26,8 @@ export function StylePanel(props: StylePanelProps) {
  *  Android's rules leave the colors and how lively things are to the author, as Material does. */
 export function StyleGate({ p, theme, what, onFree, children }: { p: Palette; theme: Theme; what: "color" | "shape" | "type" | "motion"; onFree: () => void; children: React.ReactNode }) {
   const lang = useLang();
-  const held = isStrict(theme) && (!!theme.style || what === "shape" || what === "type");
+  const styles = useDocStyles();
+  const held = isStrict(theme, styles) && (!!theme.style || what === "shape" || what === "type");
   if (!held) return <>{children}</>;
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>

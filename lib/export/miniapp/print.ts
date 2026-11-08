@@ -36,7 +36,7 @@ import { getLang } from "../../i18n";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "../../flow";
 import { cleanLook } from "../../look";
 import { kitLookOf } from "../../kits";
-import { withDocStyles } from "../../styles";
+import { kindsIn, styleContext, styleDifferences, withDocStyles, type StyleScreen } from "../../styles";
 import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
 import { isOverlayPart } from "../../interact";
@@ -63,8 +63,10 @@ import { iconNamesOf } from "../rn/print";
 
 /** something the printed app does not do as the design says, for the exporter to list */
 export type MiniWarning = {
-  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "look" | "image" | "unknown" | "binding" | "scroll" | "link" | "input";
+  kind: "placeholder" | "atoms" | "holder" | "trigger" | "hidden" | "slot" | "look" | "image" | "unknown" | "binding" | "scroll" | "link" | "input" | "style";
   screen?: string;
+  /** what touches more than one (what of the style is not drawn), every screen it touches */
+  screens?: string[];
   part?: string;
   detail: string;
 };
@@ -587,7 +589,8 @@ class ScreenPrinter {
     }
     if (def.atoms && !kids.length) {
       this.warn("atoms", `drawn as the atoms it splits into (${def.slug})`, it.id);
-      const tree = def.atoms(reader(def, it.props), kitLookOf(normalizeTheme(this.doc.theme))) as Node;
+      const styles = styleContext(this.doc.styles);
+      const tree = def.atoms(reader(def, it.props), kitLookOf(normalizeTheme(this.doc.theme, styles), styles)) as Node;
       return this.tree(plainTree(tree, getLang()), at, it);
     }
     this.kit.add("Placeholder");
@@ -888,7 +891,9 @@ export function identOf(name: string): string {
 
 /** Every screen of a document as Taro code on the kit, read in the document's own styles */
 export function printMiniScreens(source: Doc, widths: Record<string, number>, o: MiniPrintOptions = {}): MiniScreens {
-  return withDocStyles(source.styles, () => screensOf(source, widths, o));
+  /* what the printer calls further down (the layout, the parts) may read a style without being handed one: the
+     document's are in reach for this one synchronous call */
+  return withDocStyles(styleContext(source.styles), () => screensOf(source, widths, o));
 }
 
 /** the screens a pinned navigation bar switches between: the tabs of the app's tab bar */
@@ -1041,6 +1046,10 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
     };
   });
   const flows = frames.filter((f) => typeof f.flow === "string" && f.flow).map((f) => ({ name: f.flow!, screen: screens.keys.get(f.id)! }));
+  /* what of the document's style a mini-program does not draw (lib/styles/support.ts), with the screens it touches */
+  const styles = styleContext(source.styles);
+  const kinds = frames.map((f): StyleScreen => ({ name: f.name, slugs: kindsIn(groupsOf(f)) }));
+  warnings.push(...styleDifferences({ theme: normalizeTheme(doc.theme, styles), styles, docStyles: source.styles, screens: kinds }, "miniapp"));
   let tabBar: MiniTabBar | undefined;
   if (tab.bar) {
     const def = partBySlug("navigation-bar")!;

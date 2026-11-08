@@ -29,7 +29,7 @@ import {
   COLOR_TOKENS,
   type ColorToken,
 } from "./tokens";
-import { hasBackdrop, withDocStyles } from "./styles";
+import { hasBackdrop, styleContext, withDocStyles } from "./styles";
 import { EXTERNAL } from "../parts/externals";
 import { FILE_OF } from "../parts/files.generated";
 import { WIDGET_SOURCES } from "../parts/widgets/sources";
@@ -513,7 +513,9 @@ export const importLines = (imports: Imports) =>
 
 /** Every screen of a document as a React component, read in the document's own styles (a custom style is resolved from `doc.styles`) */
 export function buildScreens(source: Doc, widths: Record<string, number>, o: BuildOptions = {}): { screens: ScreenCode[]; runtime: RuntimeSpec; usesToast: boolean } {
-  return withDocStyles(source.styles, () => screensOf(source, widths, o));
+  /* what it calls further down (the layout, the parts) may read a style without being handed one: the document's are
+     in reach for this one synchronous call */
+  return withDocStyles(styleContext(source.styles), () => screensOf(source, widths, o));
 }
 
 function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions): { screens: ScreenCode[]; runtime: RuntimeSpec; usesToast: boolean } {
@@ -577,7 +579,8 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
     } else body = screenBody(frame, runs, c, widths, all);
     const bg = frame.bg && COLOR_TOKENS.some((t) => t.key === frame.bg) ? `bg-${role(frame.bg)}` : "bg-surface";
     /* a style may draw something behind its screens (src/style.css) */
-    const open = `<div${hasBackdrop(normalizeTheme(doc.theme)) ? " data-backdrop" : ""} className=${str(`relative overflow-hidden ${bg} w-[${w}px] h-[${h}px]`)}>`;
+    const styles = styleContext(doc.styles);
+    const open = `<div${hasBackdrop(normalizeTheme(doc.theme, styles), styles) ? " data-backdrop" : ""} className=${str(`relative overflow-hidden ${bg} w-[${w}px] h-[${h}px]`)}>`;
     const inner = [open, ...body, "</div>"].join("");
     if (folds) c.imports.set("react", new Set([...(c.imports.get("react") ?? []), "useRef", "useState"]));
     /* the bindings' hooks: params, data, the scope, the regions' states, the forms (they say what else they use) */
@@ -613,14 +616,15 @@ function screensOf(source: Doc, widths: Record<string, number>, o: BuildOptions)
 
 /** the code of a document, or of one of its screens, read in the document's own styles */
 export function buildCode(doc: Doc, widths: Record<string, number>, onlyFrameId?: string): CodeResult {
-  return withDocStyles(doc.styles, () => codeOf(doc, widths, onlyFrameId));
+  return withDocStyles(styleContext(doc.styles), () => codeOf(doc, widths, onlyFrameId));
 }
 
 function codeOf(doc: Doc, widths: Record<string, number>, onlyFrameId?: string): CodeResult {
-  const palette = paletteOf(doc.paletteKey, doc.customPalette, doc.theme);
+  const styles = styleContext(doc.styles);
+  const palette = paletteOf(doc.paletteKey, doc.customPalette, doc.theme, styles);
   /* the header is comments: what it says of the document is only ever a color and a word it knows */
   const seed = [palette.seed, palette.primary].find((c): c is string => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c)) ?? "#6750A4";
-  const contrast = normalizeTheme(doc.theme).contrast;
+  const contrast = normalizeTheme(doc.theme, styles).contrast;
   const { screens, usesToast } = buildScreens(doc, widths, { onlyFrameId });
   const imports: Imports = new Map();
   for (const s of screens) for (const [source, set] of s.imports) imports.set(source, new Set([...(imports.get(source) ?? []), ...set]));

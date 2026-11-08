@@ -1,6 +1,6 @@
 import { BASELINE_SEED, generateScheme } from "../../m3e/color";
 import { FONTS, normalizeTheme, seedOf, shapeScaleOf, type Doc, type FontKey, type Theme } from "../../tokens";
-import { recipesOf, resolveStyle, styleRoleColors, uxOf, type StylePack } from "../../styles";
+import { recipesOf, styleContext, styleOf, styleRoleColors, uxOf, type StylePack } from "../../styles";
 
 /* The theme an exported React Native app wears: the document's colors in light and dark, its type ramp, corners, faces,
  * icon family and the recipes its style builds each kind of control with. The web wears the same theme as CSS variables
@@ -194,11 +194,13 @@ function modeOf(pack: StylePack | undefined, theme: Theme, seed: string, dark: b
 
 const familyOf = (f: FontKey | undefined) => (f ? FONTS.find((x) => x.key === f) : undefined);
 
-/** the theme of a document (or of a bare theme, for the kit's own gallery) as the React Native kit reads it */
+/** the theme of a document (or of a bare theme, for the kit's own gallery) as the React Native kit reads it, in the document's
+ *  own styles (`source.styles`), whatever another document has in reach while it runs */
 export function rnThemeOf(source: Pick<Doc, "theme" | "paletteKey" | "customPalette" | "styles">): RnTheme {
-  const theme = normalizeTheme(source.theme);
-  const pack = resolveStyle(theme.style, source.styles);
-  const seed = seedOf(source.paletteKey ?? "purple", source.customPalette, theme);
+  const styles = styleContext(source.styles);
+  const theme = normalizeTheme(source.theme, styles);
+  const pack = styleOf(theme.style, styles);
+  const seed = seedOf(source.paletteKey ?? "purple", source.customPalette, theme, styles);
   const scale = shapeScaleOf(theme.shape);
   const type: Record<string, RnTypeStep> = {};
   for (const [k, [size, line, weight, track]] of Object.entries(M3_TYPE)) {
@@ -212,7 +214,7 @@ export function rnThemeOf(source: Pick<Doc, "theme" | "paletteKey" | "customPale
   const body = familyOf(theme.font);
   const display = familyOf(theme.displayFont);
   const google = [theme.font === "roboto" ? "Roboto:wght@400;500;600;700" : body?.google, display?.google].filter((g): g is string => !!g);
-  const ux = uxOf(theme);
+  const ux = uxOf(theme, styles);
   return {
     key: pack?.key ?? "material",
     group: pack?.group ?? "app",
@@ -224,7 +226,7 @@ export function rnThemeOf(source: Pick<Doc, "theme" | "paletteKey" | "customPale
     control: { radius: control === "pill" ? 999 : corners[CONTROL_STEP[control]], follow: pack?.pill === "follow" || (theme.shape === "none" && !pack) },
     font: { web: (body ?? FONTS[0]).family, ...(display ? { webDisplay: display.family } : {}), google: [...new Set(google)] },
     icons: theme.icons ?? "rounded",
-    recipes: { ...recipesOf(theme) },
+    recipes: { ...recipesOf(theme, styles) },
     edge: pack?.edge ?? 2,
     compact: !!pack?.compact,
     capsLabels: !!pack?.capsLabels,

@@ -43,7 +43,7 @@ function knobValues(): Map<string, string> {
     for (const p of d.props) if (p.kind === "enum") for (const o of p.options) walk(treeOf(d, { ...base, [p.key]: typeof o === "string" ? o : o.value }), `${d.slug} ${p.key}`, (type) => type in LOCAL_M3E);
   }
   /* a kit is built from what a style is like, not from its name: each different look once */
-  const looks = new Map([DEFAULT_THEME, ...STYLE_PACKS.map((s) => ({ ...DEFAULT_THEME, style: s.key }))].map(kitLookOf).map((l) => [JSON.stringify(l), l]));
+  const looks = new Map([DEFAULT_THEME, ...STYLE_PACKS.map((s) => ({ ...DEFAULT_THEME, style: s.key }))].map((t) => kitLookOf(t)).map((l) => [JSON.stringify(l), l]));
   /* what each atom of a kit's tree prints, as it would once added */
   const atoms = (n: KitNode, from: string): void => {
     walk(treeOf(partBySlug(n.slug)!, inLang(n.props, "en")), from);

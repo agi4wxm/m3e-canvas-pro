@@ -1,6 +1,6 @@
 import { Icon, type IconProps } from "@iconify/react/offline"
 
-import { familyGlyph, iconFamily } from "./icon"
+import { familyGlyph, useIconFamilyHere } from "./icon"
 import { warnIfMissing } from "./icon-registry"
 
 /*
@@ -16,13 +16,14 @@ function symbol(icon: string, styled = true) {
   warnIfMissing(`material-symbols:${icon}`)
   const name = icon.replace(/(-outline)?-rounded$/, "")
   const Component = (props: SymbolProps) => {
-    const own = styled ? familyGlyph(name, false) : undefined
+    const of = useIconFamilyHere()
+    const own = styled ? familyGlyph(name, false, of) : undefined
     return (
       <Icon
         icon={own ?? `material-symbols:${icon}`}
         aria-hidden
         data-icon={icon}
-        data-family={own ? iconFamily() : undefined}
+        data-family={own ? of : undefined}
         {...props}
       />
     )

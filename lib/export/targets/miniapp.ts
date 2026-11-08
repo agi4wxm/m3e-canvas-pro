@@ -8,6 +8,7 @@
 import miniPackage from "../../../miniapp-kit/package.json";
 import { str } from "../../../parts/print";
 import { fromBase64 } from "../../mocks/bytes";
+import { styleContext } from "../../styles";
 import { normalizeTheme } from "../../tokens";
 import { GENERATED, jsonFile, sortedObject } from "../code";
 import { specOf } from "./mocks";
@@ -325,7 +326,7 @@ export const miniappTarget: ProductTarget = {
     const app = await printMiniApp(ctx.doc, ctx.widths, { kitImport: "../../kit", runtimeImport: `${ctx.scope}/app-runtime`, callsImport: "../calls", image });
     const { printed } = app;
     /* the design's mode, as the web app has it: light or dark, or the device's when the design is drawn in both */
-    const look = normalizeTheme(ctx.doc.theme);
+    const look = normalizeTheme(ctx.doc.theme, styleContext(ctx.doc.styles));
     const dark = look.bothModes ? undefined : look.dark;
     const files: ProductFiles = {};
     /* what the mini-program does not do as the design says (a part drawn as its atoms or as a placeholder, a tap not
