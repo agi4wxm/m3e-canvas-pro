@@ -19,6 +19,7 @@ import { boundaryDifferences } from "./export/boundary";
 import { differenceCounts } from "./export/differences";
 import { toolGuide } from "./tools/registry";
 import { agentSystem } from "./agent/prompt";
+import { buildPrompt } from "./prompt";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -208,6 +209,12 @@ describe("the exports", () => {
     const screen = Object.entries(product.files).find(([p]) => /^apps\/web\/src\/generated\/screens\/[^/]+\.tsx$/.test(p))![1].body as string;
     expect(screen).toMatch(/<Rating[^>]*value=\{Number\((\w+)\.value\("stars"\) \?\? 0\)\}[^>]*onValueChange=\{\(value\) => \1\.set\("stars", value\)\}/);
   }, 120_000);
+
+  it("tell the coding tool which parts only act out their result in the prototype", () => {
+    const prompt = buildPrompt(demoDoc(), {}, undefined, "en");
+    expect(prompt.match(/only acts out its result in the prototype/g)).toHaveLength(1);
+    expect(prompt).toContain("in the product `claimed` comes from the back end");
+  });
 
   it("report nothing of the kind for a design that leans on nothing", () => {
     const s = store();

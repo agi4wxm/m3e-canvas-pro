@@ -11,7 +11,7 @@ import { roleOf } from "../parts/role";
 import { inlineNode } from "../parts/print";
 import { Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
 import { isStrict, styleOf, styleTextOf, uxOf, withDocStyles } from "./styles";
-import { outletsOf } from "./partContract";
+import { demoTakenOver, outletsOf } from "./partContract";
 import {
   Place,
   Action,
@@ -477,6 +477,20 @@ function notes(g: Group, scope: Scope, lang: Lang): string[] {
         if (look) changes.push(`the variant becomes ${look}`);
         parts.push(`is a toggle button that flips on / off with every tap${changes.length ? ` (when on, ${changes.join(" and ")})` : ""}`);
       }
+    }
+    /* a domain result the prototype only acts out: the product takes it from the back end (docs/边界与契约.md) */
+    const demo = partBySlug(it.component)?.demo;
+    if (demo && !demoTakenOver(it)) {
+      const props = demo.takenOverBy.map((k) => `\`${k}\``).join(lang === "en" ? " / " : "、");
+      parts.push(
+        lang === "ja"
+          ? `プロトタイプでは結果を自分で演じる（${demo.what}）が、製品では ${props} をバックエンドの値にし、押したら API を呼んで答えを待つ`
+          : lang === "zh"
+            ? `原型里它自己演示结果（${demo.what}），产品里 ${props} 要来自后端，按下时调用接口、等回答`
+            : lang === "ko"
+              ? `프로토타입에서는 결과를 스스로 연출하지만(${demo.what}), 제품에서는 ${props}를 백엔드 값으로 하고 누르면 API를 호출해 응답을 기다린다`
+              : `only acts out its result in the prototype (${demo.what}): in the product ${props} comes from the back end, and a press calls the API and waits for the answer`,
+      );
     }
     if (hasText(it.note)) parts.push(trimEnd(it.note!));
     if (!parts.length) continue;
