@@ -9,7 +9,7 @@
  * Plain TypeScript with the WebSocket and the storage handed in, so it runs in tests as it does in the tab;
  * src/editor/useMcpBridge.ts puts it in the editor and components/McpPanel.tsx shows it. */
 
-import type { ChangeEvent, DocStore } from "../core";
+import { changedIds, counterIds, DocStore, type ChangeEvent, type CoreState } from "../core";
 import { createRegistry, executeTool, isDestructiveCall, type Registry } from "../tools";
 import { wrote } from "../tools/ops";
 import { wouldTakeAway } from "../tools/removals";
@@ -44,7 +44,8 @@ export type BridgeEntry = { id: string; port: number; at: number; client: string
 export type BridgeAsk =
   /** `left`: the last code typed was wrong, and this many tries are left */
   | { kind: "pair"; port: number; client: ClientInfo | null; offered: Access; server: Hello["server"]; canRemember: boolean; left?: number }
-  | { kind: "confirm"; id: string; port: number; client: ClientInfo | null; name: string; summary: string; until: number };
+  /** `changed`: asked again, because the document changed while the author was asked and so did what the call does */
+  | { kind: "confirm"; id: string; port: number; client: ClientInfo | null; name: string; summary: string; until: number; changed?: boolean };
 
 /** a remembered client, as the panel lists it (never its secret) */
 export type RememberedClient = Omit<TrustedServer, "secret" | "forgotten">;
@@ -92,6 +93,8 @@ export function summarize(name: string, args: unknown): string {
 
 type Conn = BridgeConn & {
   ws: Socket | null;
+  /** which socket this is, counted up with each one opened: a call belongs to the socket it came on */
+  gen: number;
   retry: ReturnType<typeof setTimeout> | null;
   confirmMs: number;
   askTimer: ReturnType<typeof setTimeout> | null;
@@ -104,14 +107,63 @@ type Conn = BridgeConn & {
   /** the server's own challenge (its hello): what this tab signs to be let in through a remembered pairing */
   serverChallenge?: string;
 };
-type Running = { abort: AbortController; port: number; draws: Map<string, { resolve: (v: DrawResult) => void; reject: (e: ToolError) => void }> };
+/** why a call was stopped before it finished */
+type StopWhy = "cancelled" | "lost" | "off" | "disconnected";
+
+/** One call from the moment it arrives until its result goes back. Waiting its turn, being checked for what it takes
+ *  away, waiting for the author and running all share its signal, so a cancel, a lost connection or the bridge turned
+ *  off reaches it wherever it is, and it is checked again after every wait. It belongs to the connection it came on
+ *  (`gen`) and the access that connection was given: it never runs on a later one. */
+type Call = {
+  key: string;
+  id: string;
+  conn: Conn;
+  gen: number;
+  access: Access | undefined;
+  name: string;
+  args: unknown;
+  /** the arguments in a few words, before what it takes away is put in front */
+  said: string;
+  stage: "queued" | "review" | "asking" | "running";
+  abort: AbortController;
+  why?: StopWhy;
+  done: boolean;
+  entry: BridgeEntry;
+  draws: Map<string, { resolve: (v: DrawResult) => void; reject: (e: ToolError) => void }>;
+};
+
+/** What a call would do to the document as it was at `base`: what it takes away, in words, and the ids of what it
+ *  removes outright (from a run on a copy, when the author is to be asked). An approval holds for this, not for
+ *  whatever the call would do later. */
+type Review = { base: CoreState; takes: string[]; gone: Set<string> };
+
+/** how many times a call is checked again, because the document changed meanwhile, before it is given up */
+const MAX_REVIEWS = 4;
+
+/** The piece of a state an id of `changedIds` names (a group, a part, a screen, a definition, a collection, a variable,
+ *  a field of the document), to compare by what it holds: a layout pass makes new objects of the same thing. A group
+ *  is its parts, not where the layout put it. */
+function pieceOf(s: CoreState, id: string): unknown {
+  const d = s.doc;
+  if (id === "doc:editing") return s.editing;
+  if (id.startsWith("doc:")) return (d as Record<string, unknown>)[id.slice(4)];
+  for (const g of d.groups) {
+    if (g.id === id) {
+      const { x: _x, y: _y, ...rest } = g;
+      return rest;
+    }
+    const it = g.items.find((x) => x.id === id);
+    if (it) return it;
+  }
+  return d.frames.find((f) => f.id === id) ?? d.components?.find((c) => c.id === id) ?? d.collections?.find((c) => c.id === id) ?? d.vars?.find((v) => v.id === id);
+}
 
 export class EditorBridge {
   private on = false;
   private conns = new Map<number, Conn>();
   private log: BridgeEntry[] = [];
   private asks: BridgeAsk[] = [];
-  private running = new Map<string, Running>();
+  private calls = new Map<string, Call>();
   private confirms = new Map<string, (allow: boolean) => void>();
   private listeners = new Set<() => void>();
   private current: BridgeView = { on: false, conns: [], log: [], asks: [], remembered: [] };
@@ -135,7 +187,7 @@ export class EditorBridge {
   private changed() {
     this.current = {
       on: this.on,
-      conns: [...this.conns.values()].filter((c) => c.phase !== "closed" || c.server).map(({ ws: _ws, retry: _r, confirmMs: _c, askTimer: _a, canRemember: _m, giving: _g, challenge: _ch, serverChallenge: _sc, ...c }) => c),
+      conns: [...this.conns.values()].filter((c) => c.phase !== "closed" || c.server).map(({ ws: _ws, gen: _gen, retry: _r, confirmMs: _c, askTimer: _a, canRemember: _m, giving: _g, challenge: _ch, serverChallenge: _sc, ...c }) => c),
       log: [...this.log],
       asks: [...this.asks],
       remembered: this.remembered,
@@ -236,12 +288,8 @@ export class EditorBridge {
       ws?.close(1000, "off");
     }
     this.conns.clear();
-    for (const r of this.running.values()) r.abort.abort();
+    for (const call of this.calls.values()) this.stopCall(call, "off");
     for (const e of this.log) if (e.state === "running" || e.state === "asking") e.state = "error";
-    for (const [id, answer] of this.confirms) {
-      answer(false);
-      this.confirms.delete(id);
-    }
     this.asks = [];
     this.changed();
   }
@@ -253,8 +301,10 @@ export class EditorBridge {
     if (c.retry) clearTimeout(c.retry);
     c.phase = "refused";
     c.reason = "disconnected";
-    c.ws?.close(1000, "disconnected");
+    const ws = c.ws;
     c.ws = null;
+    ws?.close(1000, "disconnected");
+    for (const call of this.calls.values()) if (call.conn === c) this.stopCall(call, "disconnected");
     this.asks = this.asks.filter((a) => a.port !== port);
     this.changed();
   }
@@ -264,8 +314,11 @@ export class EditorBridge {
   private connect(port: number) {
     if (!this.on) return;
     const was = this.conns.get(port);
-    const c: Conn = was ?? { port, phase: "connecting", client: null, ws: null, retry: null, confirmMs: CONFIRM_MS, askTimer: null };
+    const c: Conn = was ?? { port, phase: "connecting", client: null, ws: null, gen: 0, retry: null, confirmMs: CONFIRM_MS, askTimer: null };
     c.phase = was?.server ? "closed" : "connecting";
+    /* what came on the socket before is not this one's */
+    c.gen++;
+    for (const call of this.calls.values()) if (call.conn === c) this.stopCall(call, "lost");
     c.retry = null;
     this.conns.set(port, c);
     let ws: Socket;
@@ -289,8 +342,7 @@ export class EditorBridge {
   private lost(c: Conn) {
     if (c.askTimer) clearTimeout(c.askTimer);
     this.asks = this.asks.filter((a) => a.port !== c.port);
-    for (const r of this.running.values()) if (r.port === c.port) r.abort.abort();
-    for (const e of this.log) if (e.port === c.port && (e.state === "running" || e.state === "asking")) e.state = "error";
+    for (const call of this.calls.values()) if (call.conn === c) this.stopCall(call, "lost");
     if (c.phase !== "refused") {
       c.phase = c.server ? "closed" : "connecting";
       this.again(c);
@@ -380,18 +432,19 @@ export class EditorBridge {
         this.changed();
         return;
       case "call":
-        if (c.phase === "paired") void this.queue(() => this.run(c, msg));
+        if (c.phase === "paired" && typeof msg.id === "string") this.receive(c, msg);
         return;
       case "cancel": {
-        this.running.get(`${c.port}:${msg.id}`)?.abort.abort();
-        this.confirms.get(`${c.port}:${msg.id}`)?.(false);
+        /* wherever the call is: waiting its turn, being checked, waiting for the author, or running */
+        const call = typeof msg.id === "string" ? this.calls.get(this.callKey(c, msg.id)) : undefined;
+        if (call) this.stopCall(call, "cancelled");
         return;
       }
       case "drawn": {
-        for (const r of this.running.values()) {
-          const d = r.port === c.port ? r.draws.get(msg.id) : undefined;
+        for (const call of this.calls.values()) {
+          const d = call.conn === c && call.gen === c.gen ? call.draws.get(msg.id) : undefined;
           if (!d) continue;
-          r.draws.delete(msg.id);
+          call.draws.delete(msg.id);
           if (msg.ok) d.resolve(msg.value);
           else d.reject(msg.error);
         }
@@ -447,7 +500,7 @@ export class EditorBridge {
     return next;
   }
 
-  private registryFor(c: Conn): Registry {
+  private registryFor(c: Pick<Conn, "generate" | "access">): Registry {
     return createRegistry({ extra: c.generate ? GENERATE_TOOLS : [], readOnly: c.access !== "edit" });
   }
 
@@ -457,38 +510,137 @@ export class EditorBridge {
     return e;
   }
 
-  /** asks the author whether a destructive call may go ahead; no answer in time is no */
-  private confirm(c: Conn, key: string, e: BridgeEntry): Promise<"allow" | "deny" | "timeout"> {
+  /** a call's key: its server's request id on this connection's socket */
+  private callKey = (c: Conn, id: string) => `${c.port}:${c.gen}:${id}`;
+
+  /** A call as it arrives: it is given its lifecycle (and signal) now, before it waits for its turn, so a cancel that
+   *  comes while it waits is not lost. */
+  private receive(c: Conn, msg: Extract<ServerMsg, { t: "call" }>) {
+    const key = this.callKey(c, msg.id);
+    if (this.calls.has(key)) return;
+    if (msg.client) c.client = msg.client;
+    const call: Call = { key, id: msg.id, conn: c, gen: c.gen, access: c.access, name: msg.name, args: msg.args, said: summarize(msg.name, msg.args), stage: "queued", abort: new AbortController(), done: false, entry: this.entry(c, key, msg.name, msg.args), draws: new Map() };
+    this.calls.set(key, call);
+    /* stopped before it ran: answered at once (a call waiting for the author is answered by the confirmation) */
+    call.abort.signal.addEventListener("abort", () => {
+      if (call.stage === "queued" || call.stage === "review") this.drop(call);
+    });
+    this.changed();
+    void this.queue(() => this.run(call)).catch((e) => this.finish(call, { ok: false, error: { code: "failed", message: e instanceof Error ? e.message : String(e) } }));
+  }
+
+  private stopCall(call: Call, why: StopWhy) {
+    if (call.done || call.abort.signal.aborted) return;
+    call.why = why;
+    call.abort.abort();
+  }
+
+  /** whether a call may still go on: not stopped, its connection the same socket, still paired with the same access */
+  private live(call: Call): boolean {
+    const c = call.conn;
+    return !call.done && !call.abort.signal.aborted && this.on && this.conns.get(c.port) === c && c.gen === call.gen && !!c.ws && c.phase === "paired" && c.access === call.access;
+  }
+
+  /** a call that may not go on, answered (when its connection is still there to hear it) with why */
+  private drop(call: Call) {
+    if (call.done) return;
+    const why = call.why ?? "lost";
+    const message =
+      why === "cancelled"
+        ? call.stage === "running"
+          ? "Stopped by the client."
+          : `Stopped by the client before ${call.name} ran; nothing was done.`
+        : why === "off"
+          ? "The author turned the MCP connection off in the editor."
+          : why === "disconnected"
+            ? "The author disconnected this server in the editor."
+            : "The connection to the editor was lost before the call ran.";
+    this.finish(call, { ok: false, error: { code: why === "cancelled" ? "aborted" : "unavailable", message } });
+  }
+
+  /** a call's result: logged, and sent back on the socket it came on (never on a later one) */
+  private finish(call: Call, outcome: ToolOutcome) {
+    if (call.done) return;
+    call.done = true;
+    this.calls.delete(call.key);
+    const e = call.entry;
+    e.ms = this.now() - e.at;
+    e.state = outcome.ok ? "ok" : e.state === "denied" ? "denied" : "error";
+    if (!outcome.ok) e.error = outcome.error.message;
+    if (call.conn.gen === call.gen) this.send(call.conn, { t: "result", id: call.id, outcome });
+    this.changed();
+  }
+
+  /** What the call would do to the document as it is now. Its takes are found by running it on a copy
+   *  (lib/tools/removals.ts); when the author is to be asked, what it removes outright is kept too (from a run on a copy
+   *  of its own), so an approval is held to it. Throws when that cannot be found out. */
+  private async review(call: Call, registry: Registry, destructive: boolean): Promise<Review> {
+    const base = this.o.store.get();
+    const takes = await wouldTakeAway(this.o.store, call.name, call.args, { registry });
+    if (!Array.isArray(takes)) throw new Error("the review gave no answer");
+    const gone = new Set<string>();
+    const t = registry.byName(call.name);
+    /* a generative call is not run twice (it reaches a provider): what it replaces is in its takes */
+    if ((destructive || takes.length) && t && !t.readOnly && t.group !== "generate") {
+      const scratch = new DocStore(base, { measurer: this.o.store.options.measurer, lang: this.o.store.options.lang, ids: counterIds("dry") });
+      const out = await executeTool(scratch, call.name, call.args, { origin: "mcp", history: "none", registry });
+      const after = scratch.get();
+      if (out.ok) for (const id of changedIds(base, after)) if (pieceOf(after, id) === undefined && pieceOf(base, id) !== undefined) gone.add(id);
+    }
+    return { base, takes, gone };
+  }
+
+  /** Whether what the author approved (`was`) still stands for what the call would do now: it takes away the same,
+   *  removes nothing more, and what it removes holds what it held when they were asked. */
+  private sameScope(was: Review, now: Review): boolean {
+    if (was.takes.join("\n") !== now.takes.join("\n")) return false;
+    for (const id of now.gone) if (!was.gone.has(id)) return false;
+    for (const id of was.gone) if (JSON.stringify(pieceOf(was.base, id) ?? null) !== JSON.stringify(pieceOf(now.base, id) ?? null)) return false;
+    return true;
+  }
+
+  /** asks the author whether a call that takes something away may go ahead; no answer in time is no, and a call
+   *  stopped meanwhile takes its ask away */
+  private confirm(call: Call, again: boolean): Promise<"allow" | "deny" | "timeout" | "cancelled"> {
+    const { conn: c, key, entry: e } = call;
+    const signal = call.abort.signal;
     return new Promise((resolve) => {
+      if (signal.aborted) return resolve("cancelled");
       const until = this.now() + c.confirmMs;
-      const finish = (answer: "allow" | "deny" | "timeout") => {
+      let settled = false;
+      const finish = (answer: "allow" | "deny" | "timeout" | "cancelled") => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
+        signal.removeEventListener("abort", stopped);
         this.confirms.delete(key);
         this.asks = this.asks.filter((a) => !(a.kind === "confirm" && a.id === key));
         this.changed();
         resolve(answer);
       };
-      const done = (allow: boolean) => finish(allow ? "allow" : "deny");
+      const stopped = () => finish("cancelled");
       const timer = setTimeout(() => finish("timeout"), c.confirmMs);
-      this.confirms.set(key, done);
-      this.asks = [...this.asks, { kind: "confirm", id: key, port: c.port, client: c.client, name: e.name, summary: e.summary, until }];
+      signal.addEventListener("abort", stopped, { once: true });
+      this.confirms.set(key, (allow) => finish(allow ? "allow" : "deny"));
+      this.asks = [...this.asks.filter((a) => !(a.kind === "confirm" && a.id === key)), { kind: "confirm", id: key, port: c.port, client: c.client, name: e.name, summary: e.summary, until, ...(again ? { changed: true } : {}) }];
       this.changed();
     });
   }
 
   /** what a generative tool draws with here: the server draws, with its key, and only the drawing comes back */
-  private genFor(c: Conn, run: Running, callId: string): GenerateEnv {
+  private genFor(call: Call): GenerateEnv {
+    const c = call.conn;
     const ask = (req: DrawRequest, signal?: AbortSignal) =>
       new Promise<DrawResult>((resolve, reject) => {
         const id = `d${++this.seq}`;
         const stop = () => {
-          run.draws.delete(id);
+          call.draws.delete(id);
           reject(Object.assign(new Error("Stopped."), { name: "AbortError" }));
         };
-        if (signal?.aborted) return stop();
+        if (signal?.aborted || !this.live(call)) return stop();
         signal?.addEventListener("abort", stop, { once: true });
-        run.draws.set(id, { resolve, reject: (e) => reject(Object.assign(new Error(e.message), { code: e.code, hint: e.hint })) });
-        this.send(c, { t: "draw", id, call: callId, ...req } as EditorMsg);
+        call.draws.set(id, { resolve, reject: (e) => reject(Object.assign(new Error(e.message), { code: e.code, hint: e.hint })) });
+        this.send(c, { t: "draw", id, call: call.id, ...req } as EditorMsg);
       });
     return {
       settings: DEFAULT_AI,
@@ -507,50 +659,63 @@ export class EditorBridge {
     };
   }
 
-  private async run(c: Conn, msg: Extract<ServerMsg, { t: "call" }>) {
-    const key = `${c.port}:${msg.id}`;
-    if (msg.client) c.client = msg.client;
-    const e = this.entry(c, key, msg.name, msg.args);
-    const reply = (outcome: ToolOutcome) => {
-      e.ms = this.now() - e.at;
-      e.state = outcome.ok ? "ok" : e.state === "denied" ? "denied" : "error";
-      if (!outcome.ok) e.error = outcome.error.message;
-      this.send(c, { t: "result", id: msg.id, outcome });
-      this.changed();
-    };
+  /** A call's turn: checked for what it takes away, asked about when it does, checked again when the document
+   *  changed while the author was asked, then run. After every wait it goes on only while it is still live. */
+  private async run(call: Call) {
+    if (!this.live(call)) return this.drop(call);
+    const { conn: c, name, args, entry: e } = call;
     const registry = this.registryFor(c);
-    const t = registry.byName(msg.name);
+    const t = registry.byName(name);
     if (!t) {
       /* a writing tool on a read-only session is refused, not unknown */
-      const exists = this.registryFor({ ...c, access: "edit" }).byName(msg.name);
-      return reply({ ok: false, error: exists ? { code: "refused", message: "The author gave this session read-only access.", hint: "Read and screenshot only, or ask the author for edit access." } : { code: "unknown_tool", message: `The editor has no tool "${msg.name}".`, hint: "The editor and the MCP server may be different versions." } });
+      const exists = this.registryFor({ generate: c.generate, access: "edit" }).byName(name);
+      return this.finish(call, { ok: false, error: exists ? { code: "refused", message: "The author gave this session read-only access.", hint: "Read and screenshot only, or ask the author for edit access." } : { code: "unknown_tool", message: `The editor has no tool "${name}".`, hint: "The editor and the MCP server may be different versions." } });
     }
+    const destructive = isDestructiveCall(name, args);
     /* a call that takes work away under a name that does not say so (rows rewritten, modes left out, a style replaced)
-       is asked about as a destructive one is */
-    const takes = await wouldTakeAway(this.o.store, msg.name, msg.args, { registry }).catch(() => []);
-    if (takes.length) e.summary = `takes away ${takes.join("; ")}${e.summary ? ` (${e.summary})` : ""}`;
-    if (isDestructiveCall(msg.name, msg.args) || takes.length) {
-      e.state = "asking";
-      this.changed();
-      const answer = await this.confirm(c, key, e);
-      if (answer !== "allow") {
-        e.state = "denied";
-        const why = answer === "timeout" ? `The author did not confirm ${msg.name} in the editor within ${Math.round(c.confirmMs / 1000)} s, so it was not done.` : `The author declined ${msg.name} in the editor.`;
-        return reply({ ok: false, error: { code: "refused", message: why, hint: "Leave it as it is, or ask the author what to do instead, then try again while they watch the editor." } });
+       is asked about as a destructive one is; one whose takes cannot be found out is not done */
+    const reviewed = async (): Promise<Review | null> => {
+      call.stage = "review";
+      try {
+        return await this.review(call, registry, destructive);
+      } catch (err) {
+        this.finish(call, { ok: false, error: { code: "refused", message: `Not done: what ${name} would take away could not be checked (${err instanceof Error ? err.message : String(err)}).`, hint: "Try again; if it fails again, make the change in smaller steps or ask the author to make it." } });
+        return null;
       }
-      e.state = "running";
-      this.changed();
+    };
+    let r = await reviewed();
+    if (!r) return;
+    if (!this.live(call)) return this.drop(call);
+    let approved: Review | null = null;
+    for (let round = 0; ; round++) {
+      if ((destructive || r.takes.length) && !(approved && this.sameScope(approved, r))) {
+        e.summary = r.takes.length ? `takes away ${r.takes.join("; ")}${call.said ? ` (${call.said})` : ""}` : call.said;
+        e.state = "asking";
+        call.stage = "asking";
+        this.changed();
+        const answer = await this.confirm(call, !!approved);
+        if (answer === "cancelled" || !this.live(call)) return this.drop(call);
+        if (answer !== "allow") {
+          e.state = "denied";
+          const why = answer === "timeout" ? `The author did not confirm ${name} in the editor within ${Math.round(c.confirmMs / 1000)} s, so it was not done.` : `The author declined ${name} in the editor.`;
+          return this.finish(call, { ok: false, error: { code: "refused", message: why, hint: "Leave it as it is, or ask the author what to do instead, then try again while they watch the editor." } });
+        }
+        approved = r;
+        e.state = "running";
+        this.changed();
+      }
+      /* the author may edit while they are asked: what they approved holds only for the document they saw */
+      if (this.o.store.get().doc === r.base.doc) break;
+      if (round >= MAX_REVIEWS) return this.finish(call, { ok: false, error: { code: "refused", message: `Not done: the document kept changing while ${name} was checked.`, hint: "Try again once the author has stopped editing." } });
+      r = await reviewed();
+      if (!r) return;
+      if (!this.live(call)) return this.drop(call);
     }
-    const run: Running = { abort: new AbortController(), port: c.port, draws: new Map() };
-    this.running.set(key, run);
-    try {
-      const prev = this.o.store.get();
-      const outcome = await executeTool(this.o.store, msg.name, msg.args, { origin: "mcp", registry, renderer: this.o.renderer, signal: run.abort.signal, ...(c.generate ? { gen: this.genFor(c, run, msg.id) } : {}) });
-      if (outcome.ok && wrote(prev, this.o.store.get())) await this.o.settle?.();
-      reply(outcome);
-    } finally {
-      this.running.delete(key);
-    }
+    call.stage = "running";
+    const prev = this.o.store.get();
+    const outcome = await executeTool(this.o.store, name, args, { origin: "mcp", registry, renderer: this.o.renderer, signal: call.abort.signal, ...(c.generate ? { gen: this.genFor(call) } : {}) });
+    if (outcome.ok && wrote(prev, this.o.store.get())) await this.o.settle?.();
+    this.finish(call, outcome);
   }
 
   /* ---------- telling the servers ---------- */

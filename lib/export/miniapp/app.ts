@@ -77,11 +77,12 @@ export function callsModule(api: ApiModel | undefined, o: { apiImport: string; k
     if (op.body) parts.push(`body: (b ?? omit(a, ${expr(known)})) as In<${str(op.name)}>["body"]`);
     const init = places.header.length ? `{ ...i, headers: headers(a, ${expr(places.header)}) }` : "i";
     if (untypedBody(api!.openapi, op)) {
-      /* the path's words as strings, each parameter's value between them */
+      /* the path's words as strings, each parameter's value between them as one segment of it, as the typed client keeps
+         one ("." and ".." refused: they would send the call, and the session's token, to another address) */
       const path = op.path
         .split(/(\{[^{}/]+\})/)
         .filter(Boolean)
-        .map((part) => (/^\{[^{}/]+\}$/.test(part) ? `encodeURIComponent(String(seg(a[${str(part.slice(1, -1))}])))` : str(part)))
+        .map((part) => (/^\{[^{}/]+\}$/.test(part) ? `segment(seg(a[${str(part.slice(1, -1))}]))` : str(part)))
         .join(" + ");
       return `  ${str(op.operationId)}: (a, b, i) => api.request({ operationId: ${str(op.operationId)}, method: ${str(op.method)}, path: ${path || '""'}, ${op.query ? `query: pick(a, ${expr(places.query)}), ` : ""}body: b ?? omit(a, ${expr(known)}), ...${init} }),`;
     }
@@ -89,12 +90,13 @@ export function callsModule(api: ApiModel | undefined, o: { apiImport: string; k
     return `  ${str(op.operationId)}: (${parts.length || op.query ? "a" : "_a"}, ${op.body ? "b" : "_b"}, i) => ${clientCallCode("api", op, input, init)},`;
   });
   const usesSeg = lines.some((l) => l.includes("seg("));
+  const usesSegment = lines.some((l) => l.includes("segment("));
   const usesPick = lines.some((l) => l.includes("pick("));
   const usesOmit = lines.some((l) => l.includes("omit("));
   const usesHeaders = lines.some((l) => l.includes("headers("));
   return [
     HEAD,
-    api && ops.length ? `import { createApi${ops.some((op) => op.body) ? ", type Api" : ""} } from ${str(o.apiImport)};` : "",
+    api && ops.length ? `import { createApi${usesSegment ? ", segment" : ""}${ops.some((op) => op.body) ? ", type Api" : ""} } from ${str(o.apiImport)};` : "",
     `import type { CallFn } from ${str(o.kitImport)};`,
     api && ops.length ? `import { runtime } from ${str(o.runtimeFrom)};` : "",
     "",

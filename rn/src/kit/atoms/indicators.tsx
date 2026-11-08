@@ -6,7 +6,7 @@ import Svg, { Circle, Path } from "react-native-svg";
 import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
 import { withAlpha } from "../look";
-import { clampInt, withDefaults, type ListRow } from "../parts";
+import { clampInt, sourceOf, withDefaults, type ListRow, type Picture } from "../parts";
 import { extraColor } from "../recipes";
 import { SHAPE_PATHS } from "../shapes.generated";
 import { Surface } from "../Surface";
@@ -82,16 +82,16 @@ export function Badge(props: BadgeProps) {
 const AVATAR: Record<string, number> = { sm: 32, default: 40, lg: 56 };
 const INITIALS = ["AB", "CD", "EF", "GH", "IJ"];
 
-export type AvatarProps = PartBase & { initials?: string; size?: "sm" | "default" | "lg"; image?: string; count?: number };
+export type AvatarProps = PartBase & { initials?: string; size?: "sm" | "default" | "lg"; image?: Picture; count?: number };
 
-function Face({ s, initials, image }: { s: number; initials: string; image?: string }) {
+function Face({ s, initials, image }: { s: number; initials: string; image?: Picture }) {
   const kit = useKit();
   const recipe = recipeOf(kit, "avatar");
   const radius = recipe === "square" ? Math.round(s * 0.2) : s / 2;
   const bg = extraColor(kit, "avatarBg") ?? c(kit, "primary-container");
   return (
     <View style={{ width: s, height: s, borderRadius: radius, overflow: "hidden", backgroundColor: bg, alignItems: "center", justifyContent: "center", borderWidth: recipe === "framed" ? 2 : 0, borderColor: kit.st.rim }}>
-      {image ? <ExpoImage source={{ uri: image }} style={{ width: s, height: s }} accessibilityLabel={initials || "Avatar"} /> : <RNText style={{ ...typeStyle(kit, s >= 56 ? "title-large" : s <= 32 ? "label-medium" : "title-small"), color: extraColor(kit, "avatarBg") ? c(kit, "on-surface-variant") : c(kit, "on-primary-container") }}>{initials}</RNText>}
+      {image ? <ExpoImage source={sourceOf(image)} style={{ width: s, height: s }} accessibilityLabel={initials || "Avatar"} /> : <RNText style={{ ...typeStyle(kit, s >= 56 ? "title-large" : s <= 32 ? "label-medium" : "title-small"), color: extraColor(kit, "avatarBg") ? c(kit, "on-surface-variant") : c(kit, "on-primary-container") }}>{initials}</RNText>}
     </View>
   );
 }

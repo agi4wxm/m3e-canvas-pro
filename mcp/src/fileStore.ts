@@ -9,13 +9,20 @@
  *
  * In a folder, a picture the saved document no longer refers to is taken away from m3e-assets/ after each write, but
  * only one this server wrote itself, or one whose name is the hash of what it holds (as the format names them): a file
- * someone put there by hand is never touched, and one another program wrote a moment ago is left for its own save. */
+ * someone put there by hand is never touched, and one another program wrote a moment ago is left for its own save.
+ *
+ * The pictures are read, written and taken away only inside the project's folder (inside.ts): a link on the way (a
+ * symbolic link, a junction, a hard link) is refused rather than followed, and so is a folder replaced since the
+ * project was opened. The project file itself is the one named: written by a rename beside it, never through a link. */
 
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, open, readdir, readFile, rename, stat, unlink } from "node:fs/promises";
+import { open, readFile, rename, stat, unlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { bytesToBase64, digest, FOLDER_ASSET_DIR, FOLDER_MAIN_FILE, fileRefsIn, isAssetPath, readProjectText, serializeProject, type ProjectAssetFile } from "../../lib/core/projectFile";
 import type { Doc } from "../../lib/tokens";
+import { Folder, OutsideFolder } from "./inside";
+
+export { OutsideFolder };
 
 /** what a project file's bytes hold */
 export interface ProjectFormat {
@@ -83,10 +90,14 @@ export class ProjectFileStore {
   /** the project file itself (in a folder, its m3e-project.json) and how pictures are kept */
   private main: string;
   layout: "file" | "folder";
+  /** the folder the project file is in, where its pictures are */
+  private folder: Folder | null = null;
 
   constructor(
     readonly path: string,
     readonly format: ProjectFormat = editorProject,
+    /** told about a picture that was not read because it is not inside the folder */
+    private readonly warn: (m: string) => void = () => {},
   ) {
     this.layout = basename(path) === FOLDER_MAIN_FILE ? "folder" : "file";
     this.main = path;
@@ -101,9 +112,15 @@ export class ProjectFileStore {
     }
   }
 
+  private dir(): Folder {
+    const dir = dirname(this.main);
+    if (this.folder?.dir !== dir) this.folder = new Folder(dir);
+    return this.folder;
+  }
+
   /** Reads the project. Null when there is none yet (the first write creates it). */
   async read(): Promise<Doc | null> {
-    await this.locate();
+    if (!this.folder) await this.locate();
     let text: string;
     let st: Awaited<ReturnType<typeof stat>>;
     try {
@@ -115,9 +132,21 @@ export class ProjectFileStore {
       }
       throw e;
     }
-    const dir = dirname(this.main);
-    const load = async (p: string) => (isAssetPath(p) ? new Uint8Array(await readFile(join(dir, p))) : null);
+    const folder = this.dir();
+    /* the folder it was opened in, and no other: one replaced since is not read from */
+    await folder.root();
+    const refused: string[] = [];
+    const load = async (p: string) => {
+      if (!isAssetPath(p)) return null;
+      try {
+        return await folder.read(p);
+      } catch (e) {
+        if (e instanceof OutsideFolder) refused.push(e.message);
+        throw e;
+      }
+    };
     const doc = await this.format.parse(text, load);
+    for (const m of refused) this.warn(`A picture was left empty: ${m}.`);
     /* a single file that refers to pictures beside it is kept that way */
     if (this.layout === "file" && fileRefsIn(JSON.parse(text)).length) this.layout = "folder";
     this.seen = { hash: hashOf(text), mtimeMs: st.mtimeMs, size: st.size };
@@ -144,14 +173,15 @@ export class ProjectFileStore {
   async write(doc: Doc): Promise<void> {
     if (await this.changed()) throw new FileConflict(`${basename(this.main)} changed on disk since it was read.`);
     const { text, files } = this.format.serialize(doc, this.layout);
-    const dir = dirname(this.main);
-    if (this.layout === "folder") await mkdir(dir, { recursive: true });
-    if (files.length) await mkdir(join(dir, FOLDER_ASSET_DIR), { recursive: true });
+    const folder = this.dir();
+    await folder.root(this.layout === "folder");
     for (const f of files) {
-      if (await exists(join(dir, f.path))) continue;
-      await atomicWrite(join(dir, f.path), f.bytes);
+      if (await folder.isFile(f.path)) continue;
+      await folder.write(f.path, f.bytes);
       this.wrote.add(f.path.slice(FOLDER_ASSET_DIR.length + 1));
     }
+    /* still the folder it was opened in, just before the file goes over its place */
+    await folder.root();
     await atomicWrite(this.main, text);
     const st = await stat(this.main);
     this.seen = { hash: hashOf(text), mtimeMs: st.mtimeMs, size: st.size };
@@ -161,10 +191,11 @@ export class ProjectFileStore {
   /** Takes away the pictures of m3e-assets/ the document no longer refers to: those this server wrote, and those
    *  whose name is the hash of what they hold, unless another program wrote them a moment ago. What went, by name. */
   async prune(wanted: ReadonlySet<string>, now = Date.now()): Promise<string[]> {
-    const assets = join(dirname(this.main), FOLDER_ASSET_DIR);
+    const folder = this.dir();
     let names: string[];
     try {
-      names = (await readdir(assets, { withFileTypes: true })).filter((e) => e.isFile()).map((e) => e.name);
+      /* a link where m3e-assets/ should be is refused: what it leads to is not this project's */
+      names = await folder.files(FOLDER_ASSET_DIR);
     } catch {
       return [];
     }
@@ -172,17 +203,15 @@ export class ProjectFileStore {
     for (const name of names) {
       const m = HASH_NAME.exec(name);
       if (!m || wanted.has(name)) continue;
-      const path = join(assets, name);
+      const rel = `${FOLDER_ASSET_DIR}/${name}`;
       if (!this.wrote.has(name)) {
-        const st = await stat(path).catch(() => null);
-        if (!st || now - st.mtimeMs < ASSET_GRACE_MS) continue;
+        const st = await folder.stat(rel).catch(() => null);
+        if (!st?.isFile() || now - st.mtimeMs < ASSET_GRACE_MS) continue;
         /* named like one of the format's, but holding something else: someone's own file */
-        if (digest(bytesToBase64(new Uint8Array(await readFile(path)))) !== m[1]) continue;
+        const bytes = await folder.read(rel).catch(() => null);
+        if (!bytes || digest(bytesToBase64(bytes)) !== m[1]) continue;
       }
-      await unlink(path).then(
-        () => gone.push(name),
-        () => {},
-      );
+      if (await folder.remove(rel).catch(() => false)) gone.push(name);
       this.wrote.delete(name);
     }
     return gone;

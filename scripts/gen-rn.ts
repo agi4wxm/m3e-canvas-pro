@@ -157,7 +157,7 @@ export const KIT_FILES: string[] = ${json(walk(""))};
 
 async function main() {
   const check = process.argv.includes("--check");
-  const files: Record<string, string> = {
+  const files: Record<string, string | Uint8Array> = {
     "rn/src/kit/parts.generated.ts": partsModule(),
     "rn/src/kit/shapes.generated.ts": shapesModule(),
     "rn/src/kit/theme/default.generated.ts": defaultThemeModule(),
@@ -168,8 +168,9 @@ async function main() {
   const stale: string[] = [];
   for (const [path, text] of Object.entries(files)) {
     const at = join(root, path);
-    const now = existsSync(at) ? readFileSync(at, "utf8") : "";
-    if (now === text) continue;
+    /* a picture of the printed documents is a file of its own, compared byte for byte */
+    const same = typeof text === "string" ? (existsSync(at) ? readFileSync(at, "utf8") : "") === text : existsSync(at) && Buffer.from(text).equals(readFileSync(at));
+    if (same) continue;
     if (check) stale.push(path);
     else {
       mkdirSync(dirname(at), { recursive: true });

@@ -7,7 +7,7 @@ import { Button, Checkbox, RadioMark } from "../atoms/controls";
 import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
 import { withAlpha } from "../look";
-import { clampInt, withDefaults, type ListRow } from "../parts";
+import { clampInt, sourceOf, withDefaults, type ListRow, type Picture } from "../parts";
 import { accentText, fieldStyle } from "../recipes";
 import { Surface } from "../Surface";
 import { corner, recipeOf, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
@@ -180,7 +180,7 @@ export function FileUpload(props: FileUploadProps) {
   );
 }
 
-export type SceneProps = PartBase & { image?: string; scrim?: string; icon?: string; width?: number; height?: number; children?: ReactNode };
+export type SceneProps = PartBase & { image?: Picture; scrim?: string; icon?: string; width?: number; height?: number; children?: ReactNode };
 
 /** the picture a game screen stands on, with what is laid over it; a motion the editor animates is still here */
 export function Scene(props: SceneProps & Record<string, unknown>) {
@@ -188,7 +188,7 @@ export function Scene(props: SceneProps & Record<string, unknown>) {
   const kit = useKit();
   return (
     <Surface base={{ width: Math.round(p.width ?? 412), height: Math.round(p.height ?? 892), backgroundColor: c(kit, "surface-container-high"), overflow: "hidden", alignItems: "center", justifyContent: "center" }} appearance={p} testID={p.testID}>
-      {p.image ? <ExpoImage source={{ uri: p.image }} contentFit="cover" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} /> : <Glyph name={p.icon || "landscape"} size={48} color={c(kit, "outline")} />}
+      {p.image ? <ExpoImage source={sourceOf(p.image)} contentFit="cover" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} /> : <Glyph name={p.icon || "landscape"} size={48} color={c(kit, "outline")} />}
       {p.scrim && p.scrim !== "none" ? <View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: withAlpha("#000000", 0.35) }} /> : null}
       {p.children}
     </Surface>
@@ -243,7 +243,9 @@ export type AuthFormProps = PartBase & {
   width?: number;
 };
 
-/** a sign-in (or sign-up) form: its fields, its main button, other ways in and the switch between the two */
+/** A sign-in (or sign-up) form: its fields, its main button, other ways in and the switch between the two. Each button is
+ *  a place with an action of its own, under the part's slot names (parts/defs/app.ts): `submit`, `forgot`, `switch` and
+ *  `other:<i>`; one with none is a tap on the whole part, as on the web. */
 export function AuthForm(props: AuthFormProps & Record<string, unknown>) {
   const p = withDefaults<AuthFormProps>("auth-form", props);
   const kit = useKit();
@@ -263,14 +265,25 @@ export function AuthForm(props: AuthFormProps & Record<string, unknown>) {
       {!up ? (
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Checkbox label={p.remember} checked={false} />
-          <RNText style={{ ...typeStyle(kit, "label-large"), color: accentText(kit) }}>{p.forgot}</RNText>
+          {p.forgot ? (
+            <Pressable accessibilityRole="button" onPress={tapOf(p, "forgot")}>
+              <RNText style={{ ...typeStyle(kit, "label-large"), color: accentText(kit) }}>{p.forgot}</RNText>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
-      <Button label={up ? p.upAction : p.action} width={w} onPress={tapOf(p, "action") ?? p.onPress} />
+      <Button label={up ? p.upAction : p.action} width={w} onPress={tapOf(p, "submit")} />
       {(p.others ?? []).map((o, i) => (
-        <Button key={i} label={o.label} variant="outlined" width={w} onPress={tapOf(p, `tab:${i}`)} />
+        <Button key={i} label={o.label} variant="outlined" width={w} onPress={tapOf(p, `other:${i}`)} />
       ))}
-      <Pressable accessibilityRole="button" onPress={() => setUp((v) => !v)} style={{ alignSelf: "center" }}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => {
+          setUp((v) => !v);
+          tapOf(p, "switch")?.();
+        }}
+        style={{ alignSelf: "center" }}
+      >
         <RNText style={{ ...typeStyle(kit, "label-large"), color: accentText(kit) }}>{up ? p.toIn : p.toUp}</RNText>
       </Pressable>
     </View>
