@@ -87,6 +87,11 @@ export const tests: E2ETest[] = [
       const key = doc.theme?.style ?? "";
       check(key.startsWith("custom:"), `the copy is worn (${key})`);
       equal(doc.styles?.map((s) => s.key), [key], "and kept in the document");
+      /* iOS's white on its blue is loud: the copy is a style all the same, and the accessibility check says it falls short */
+      const editor = page.locator(`[data-custom-style-editor="${key}"]`).first();
+      equal(await editor.locator("[data-style-access]").getAttribute("data-style-access"), "issues", "the colors do not pass the accessibility check");
+      check(/fall short/.test(await editor.locator("[data-style-access]").innerText()), "and it says so, the style still usable");
+      equal(await editor.locator('[data-style-role="primary"] [data-contrast]').first().getAttribute("data-contrast"), "low", "the button's words marked faint, loud as they are");
 
       /* two edits in a row, a moment apart: one step */
       await page.locator("[data-style-name]").first().fill("Mine");
