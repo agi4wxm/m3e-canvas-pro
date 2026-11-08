@@ -1,14 +1,20 @@
 /* The project file as text: laid out for version control, the same bytes every time it is written, and the same bytes
  * again when what was read back is written; pictures kept in the text or beside it in files. Runs in Node. */
 
+import { createHash } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { setGlobalLang } from "../i18n";
+import { dataUrl } from "../mocks/bytes";
+import { placeholderFile } from "../mocks/files";
+import { mockFile } from "../mocks/formats";
+import { FORMATS } from "../mocks/formats/table";
+import type { MockFile } from "../mocks/types";
 import { makeItem, type Doc } from "../tokens";
 import { counterIds, DocStore } from "./store";
 import { savedDoc, stateOf } from "./state";
 import { guessMeasurer } from "./op";
 import * as ops from "./ops";
-import { attachFiles, base64ToBytes, bytesToBase64, FILE_REF, fileRefsIn, formatProject, isAssetPath, parseProject, projectNameFromFile, readProjectText, serializeProject, sortKeys } from "./projectFile";
+import { attachFiles, base64ToBytes, bytesToBase64, dataUrlOf, FILE_MIN_CHARS, FILE_REF, fileRefsIn, formatProject, isAssetFileName, isAssetPath, isFormatAsset, parseProject, projectNameFromFile, readProjectText, serializeProject, sortKeys } from "./projectFile";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -172,6 +178,84 @@ describe("pictures", () => {
   it("round-trips bytes through base64", () => {
     const bytes = new Uint8Array(70_000).map((_, i) => (i * 7) & 0xff);
     expect(base64ToBytes(bytesToBase64(bytes))).toEqual(bytes);
+  });
+});
+
+/** a document whose mock library holds these files */
+const withMockFiles = (doc: Doc, files: MockFile[]): Doc => ({ ...doc, mocks: { files } });
+
+/** bytes enough for a file of their own, different for each seed */
+const bytesOf = (seed: number, n = 3000) => new Uint8Array(n).map((_, i) => (i * 13 + seed * 7) & 0xff);
+
+const sha = (s: string) => createHash("sha256").update(s).digest("hex");
+
+/** rows enough to make a table or a document larger than what stays in the text */
+const ROWS = Array.from({ length: 80 }, (_, i) => ({ id: `r${i}`, name: `Product ${i}`, price: i * 3.5, note: "a row long enough to make the file larger" }));
+
+describe("the mock library's files", () => {
+  it("go beside a folder's project in every format the library makes, and come back as the same data URL", async () => {
+    /* one of each format by its own media type, as the library makes it (lib/mocks/formats/table.ts) */
+    const files = FORMATS.map((f, i): MockFile => ({ id: `f${i}`, name: `file.${f.ext}`, type: f.type, data: dataUrl(f.type, bytesOf(i)) }));
+    const doc = withMockFiles(builtDoc(), files);
+    const { text, files: written } = serializeProject(doc, { assets: "files" });
+    expect(text).not.toContain(";base64,");
+    expect(written.map((f) => f.path.slice(f.path.lastIndexOf(".") + 1)).sort()).toEqual(FORMATS.map((f) => f.ext).sort());
+    for (const f of written) {
+      expect(isAssetPath(f.path)).toBe(true);
+      expect(isFormatAsset(f.path.slice("m3e-assets/".length), f.bytes)).toBe(true);
+      expect(dataUrlOf(f.path, f.bytes)).toBe(dataUrl(f.mime, f.bytes));
+    }
+    const disk = new Map(written.map((f) => [f.path, f.bytes]));
+    const back = await readProjectText(text, async (p) => disk.get(p));
+    expect(back!.mocks!.files).toEqual(files);
+    expect(serializeProject(back!, { assets: "files" }).text).toBe(text);
+  });
+
+  it("go beside it as the library really makes them: a spreadsheet, a model, a table, a document", async () => {
+    const made = ["xlsx", "glb", "csv", "docx", "pptx", "zip", "json"].map((ext, i) => mockFile(ext, { seed: `asset:${ext}`, title: "Receipt", rows: ROWS, id: `m${i}` }));
+    for (const f of made) expect(f.data.length).toBeGreaterThanOrEqual(FILE_MIN_CHARS);
+    const { text, files } = serializeProject(withMockFiles(builtDoc(), made), { assets: "files" });
+    expect(files.map((f) => f.mime).sort()).toEqual(made.map((f) => f.type).sort());
+    const back = await readProjectText(text, async (p) => files.find((f) => f.path === p)?.bytes);
+    expect(back!.mocks!.files).toEqual(made);
+  });
+
+  it("stay in the text when they would not come back the same: another name for the type, parameters, small, unknown", () => {
+    const sheet = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    const files: MockFile[] = [
+      { id: "alias", name: "a.zip", type: "application/x-zip-compressed", data: dataUrl("application/x-zip-compressed", bytesOf(1)) },
+      { id: "params", name: "b.csv", type: "text/csv", data: `data:text/csv;charset=utf-8;base64,${bytesToBase64(bytesOf(2))}` },
+      { id: "small", name: "c.xlsx", type: sheet, data: dataUrl(sheet, bytesOf(3, 100)) },
+      { id: "unknown", name: "d.foo", type: "application/x-foo", data: dataUrl("application/x-foo", bytesOf(4)) },
+    ];
+    const { text, files: written } = serializeProject(withMockFiles(builtDoc(), files), { assets: "files" });
+    expect(written).toEqual([]);
+    for (const f of files) expect(text).toContain(f.data);
+  });
+
+  it("leave a project without the new formats as it was, to the byte", () => {
+    /* pictures, and the files earlier versions already kept beside the project (PDF, WAV, MP4, bytes, a picture):
+       these digests were taken before the library's other formats went into files of their own */
+    const library = [placeholderFile("pdf", { seed: "s", title: "Receipt" }), placeholderFile("audio", { seed: "s" }), placeholderFile("video", { seed: "s" }), placeholderFile("file", { seed: "s" }), placeholderFile("image", { seed: "s" })];
+    const doc = withMockFiles(withPictures(builtDoc(), [picture(1), picture(2)]), library);
+    const folder = serializeProject(doc, { assets: "files" });
+    expect([sha(folder.text), folder.files.map((f) => f.path).join(" ")]).toEqual(["77c94d7fcc867654fb336b1950e19cd9714ad370a8c4ca835618a4192d4ab075", "m3e-assets/1e41tg2xf7q.mp4 m3e-assets/1y1bf5v6vc7.png m3e-assets/25db4hja7vr.pdf m3e-assets/f4ylufh7t8.png m3e-assets/rxttrpxzqt.wav"]);
+    expect(sha(serializeProject(doc).text)).toBe("6c046eb1fc026de9a6a66bee51d2f79ba435ace3e09f33f140291ecb55eae106");
+  });
+
+  it("are read from a project an earlier version wrote: a spreadsheet kept in the text, a PDF beside it", async () => {
+    const xlsx = mockFile("xlsx", { seed: "old", title: "Sheet", rows: ROWS, id: "xlsx" });
+    const pdf = { ...placeholderFile("pdf", { seed: "old", title: "Receipt" }), id: "pdf" };
+    const pdfBytes = base64ToBytes(pdf.data.slice(pdf.data.indexOf(",") + 1));
+    const pdfPath = serializeProject(withMockFiles(builtDoc(), [pdf]), { assets: "files" }).files[0].path;
+    /* as an earlier version wrote it: the PDF by reference, the spreadsheet as its data URL */
+    const old = serializeProject(withMockFiles(builtDoc(), [{ ...pdf, data: `${FILE_REF}${pdfPath}` }, xlsx])).text;
+    const back = await readProjectText(old, async (p) => (p === pdfPath ? pdfBytes : null));
+    expect(back!.mocks!.files).toEqual([pdf, xlsx]);
+    /* saved again, the spreadsheet goes beside it too */
+    const again = serializeProject(back!, { assets: "files" });
+    expect(again.files.map((f) => f.mime).sort()).toEqual(["application/pdf", xlsx.type].sort());
+    expect(isAssetFileName(again.files.find((f) => f.mime === xlsx.type)!.path.slice("m3e-assets/".length))).toBe(true);
   });
 });
 
