@@ -19,11 +19,12 @@ export const starred = (words: string | undefined, required?: boolean): string |
 
 /** A control with what its states say around it: the message of its error under it (where its line of help stands
  *  otherwise), a spinner while it loads. Bare when it has none of these, so a part as it always was draws as it always
- *  did. */
+ *  did. A field a form gives a message to ("" while it has none) is framed all along: the control stays where it is when
+ *  its error comes and goes, and is not drawn anew (what is typed into it, its focus, stay). */
 export function withField(p: FieldProps & { error?: boolean }, control: ReactNode): ReactNode {
   const message = p.error === false ? "" : (p.errorText ?? "");
   const help = p.helperText ?? "";
-  if (!message && !help && !p.loading) return control;
+  if (p.errorText === undefined && !help && !p.loading) return control;
   return <FieldNote control={control} message={message} help={help} loading={!!p.loading} />;
 }
 

@@ -158,11 +158,13 @@ function leafCode(vals: PValue[], f: Folding): string {
   if (samples.length === 2 && typeof samples[0] === "boolean") {
     const on = vals[samples[0] ? 0 : 1];
     const off = vals[samples[0] ? 1 : 0];
+    /* where only its truth counts (a test, a negation), `!!x` is `x`: ESLint calls the other redundant */
+    const test = /^!![\w$.]+(?:\((?:[^()]|\([^()]*\))*\))?$/.test(expr) ? expr.slice(2) : expr;
     if (on === true && off === undefined) return `${expr} || undefined`;
     if (on === true && off === false) return expr;
-    if (off === true && on === undefined) return `!${expr} || undefined`;
-    if (off === true && on === false) return `!${expr}`;
-    return `${expr} ? ${lit(on)} : ${lit(off)}`;
+    if (off === true && on === undefined) return `!${test} || undefined`;
+    if (off === true && on === false) return `!${test}`;
+    return `${test} ? ${lit(on)} : ${lit(off)}`;
   }
   /* the value most of the samples agree on goes last: "only the second tab looks like this" */
   const count = (v: PValue) => vals.filter((x) => same(x, v)).length;

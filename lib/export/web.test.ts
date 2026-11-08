@@ -77,6 +77,9 @@ describe("the web app of a document bound to its contract", () => {
     expect(screen).toContain('value={createProductForm.text("name")}');
     expect(screen).toContain('onChange={(event) => createProductForm.set("name", event.target.value)}');
     expect(screen).toContain('aria-invalid={!!createProductForm.error("name") || undefined}');
+    /* a select's error where its supporting words stand: tested by truth alone, with no redundant !! (ESLint) */
+    expect(screen).toContain('supporting={createProductForm.error("category") ? "" : undefined}');
+    expect(screen).not.toMatch(/!![\w.]+\([^)]*\) \?/);
     expect(screen).toContain("const $form = $.with({ form: createProductForm.view })");
     /* the form's own error shows while there is one: its condition is read, never taken as holding */
     expect(screen).toContain('{$form.holds("form.error") && (');
