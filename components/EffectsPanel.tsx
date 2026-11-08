@@ -396,7 +396,7 @@ const BINDING_KINDS = new Set<string>(["call", "refresh", "loadMore", "submit", 
 
 /** What a call does once it is answered: where it goes, with what params, and its effects. `response` or `error` is
  *  what its expressions can read. */
-function BodyEditor({ title, body, onChange, p, depth, response, error }: { title: string; body: ActionBody | undefined; onChange: (b: ActionBody | undefined) => void; p: Palette; depth: number; response?: unknown; error?: boolean }) {
+export function BodyEditor({ title, body, onChange, p, depth, response, error }: { title: string; body: ActionBody | undefined; onChange: (b: ActionBody | undefined) => void; p: Palette; depth: number; response?: unknown; error?: boolean }) {
   const lang = useLang();
   const bindings = useContext(BindingsContext);
   const frames = bindings?.doc.frames ?? [];
@@ -580,6 +580,10 @@ const bindable = (d: PropDef) => (d.kind === "text" || d.kind === "number" || d.
 
 const typeOfProp = (d: PropDef): VarType => (d.kind === "bool" ? "bool" : d.kind === "number" ? "number" : "text");
 
+/** whether a variable of a type can stand for a prop: a number for a number, yes or no for a switch, and words (or a
+ *  number, a yes or no read as words) for words and choices */
+const fitsProp = (type: VarType, d: PropDef): boolean => (d.kind === "bool" ? type === "bool" : d.kind === "number" ? type === "number" : type !== "color" || d.kind === "text");
+
 /** A prop's row with a small control beside it that ties the prop to a variable. Quiet until it is
  *  used: the row stays what it was for anyone who never touches it. */
 export function BindRow({ def, item, onChange, p, children }: { def: PropDef; item: Item; onChange: (patch: Partial<Item>) => void; p: Palette; children: React.ReactNode }) {
@@ -607,7 +611,8 @@ export function BindRow({ def, item, onChange, p, children }: { def: PropDef; it
       {bound && !open && <div style={{ fontSize: 12, color: p.primary, padding: "0 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bound.name}</div>}
       {open && (
         <Select
-          options={[{ key: "", label: t("noVariable", lang), icon: "link_off" }, ...b.vars.map((v) => ({ key: v.id, label: v.name || v.id, icon: "data_object" })), { key: NEW_VAR, label: t("newVariable", lang), icon: "add" }]}
+          /* the variables that can stand for this prop: of its kind of value (words take any, as they read as words) */
+          options={[{ key: "", label: t("noVariable", lang), icon: "link_off" }, ...b.vars.filter((v) => fitsProp(v.type, def) || v.id === bound?.id).map((v) => ({ key: v.id, label: v.name || v.id, icon: "data_object" })), { key: NEW_VAR, label: t("newVariable", lang), icon: "add" }]}
           value={bound?.id ?? ""}
           onChange={(k) => put(k === NEW_VAR ? addVar(b, typeOfProp(def), labelOf(def, lang)).id : k || undefined)}
           p={p}

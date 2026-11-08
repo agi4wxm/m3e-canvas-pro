@@ -28,7 +28,7 @@ vi.mock("@/components/m3e/icon", () => ({ Icon: "Icon" }));
 vi.mock("@/components/m3e/progress", () => ({ Progress: "Progress" }));
 vi.mock("@/components/m3e/loading-indicator", () => ({ LoadingIndicator: "LoadingIndicator" }));
 vi.mock("@/components/m3e/ripple", () => ({ Ripple: "Ripple" }));
-vi.mock("@/components/m3e/say", () => ({ pageLocale: () => "en" }));
+vi.mock("@/components/m3e/say", () => ({ pageLocale: () => "en", useSay: () => (words: string) => words }));
 vi.mock("@/components/m3e/reduced-motion", () => ({ prefersReducedMotion: () => true }));
 vi.mock("../icons", () => ({ ensureIcons: () => {}, useIconVersion: () => 0 }));
 

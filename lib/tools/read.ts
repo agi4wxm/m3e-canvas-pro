@@ -161,7 +161,7 @@ const listParts = tool<{ tier?: "atom" | "composite"; category?: string; query?:
     const hit = matcher(a.query);
     /* the retired parts are not there to build with: an old design's are described by describe_node */
     const rows = OFFERED_PARTS.filter((d) => (!a.tier || tierOf(d) === a.tier) && (!a.category || d.category === a.category) && hit(d.slug, d.name, labelsOf(d.labels), d.category));
-    return { result: { count: rows.length, parts: rows.map((d) => `${d.slug} | ${d.name} | ${tierOf(d)}/${d.category}${d.holds ? " | holds parts" : ""}${d.atoms ? " | splits" : ""} | props: ${d.props.map((p) => p.key).join(", ")}${outletsLine(d)}`) } };
+    return { result: { count: rows.length, parts: rows.map((d) => `${d.slug} | ${d.name} | ${tierOf(d)}/${d.category}${d.holds === "laidOut" ? " | holds parts with an auto layout" : d.holds ? " | holds parts" : ""}${d.atoms ? " | splits" : ""} | props: ${d.props.map((p) => p.key).join(", ")}${outletsLine(d)}`) } };
   },
 });
 

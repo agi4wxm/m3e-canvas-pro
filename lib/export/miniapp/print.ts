@@ -26,6 +26,7 @@ import {
 } from "../../tokens";
 import { partBySlug, reader } from "../../../parts/registry";
 import type { PartDef, PropDef } from "../../../parts/types";
+import { formStateProps } from "../../../parts/fieldState";
 import { fullWidth, roleOf } from "../../../parts/role";
 import { sanitizeSvg } from "../../../parts/svg";
 import { isNode, type PNode } from "../../../parts/node";
@@ -43,6 +44,7 @@ import { footOf } from "../../foot";
 import { isOverlayPart } from "../../interact";
 import { isPlaceKey } from "../../partContract";
 import { endpointOf } from "../../bindings/contract";
+import { messagesShown } from "../../bindings/view";
 import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
 import { NATIVE, INPUT_PROPS, isNative, kitPropName } from "../../../miniapp-kit/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../miniapp-kit/src/kit/parts.generated";
@@ -485,8 +487,11 @@ class ScreenPrinter {
       if (def.slug === "svg" && d.key === "markup" && typeof v === "string" && v) v = svgMarkup(v, it.id) ?? "";
       const bind = it.bind?.[d.key];
       let code = expr(v);
-      if (typeof bind === "string" && bind.startsWith("=")) code = this.boundExpr(d, bind.slice(1), code, at.$);
-      else if (typeof bind === "string" && bind) {
+      if (typeof bind === "string" && bind.startsWith("=")) {
+        code = this.boundExpr(d, bind.slice(1), code, at.$);
+        /* as the app for phones says: a table is not read from data yet */
+        if (d.kind === "table") this.warn("binding", "a table bound to an expression keeps the design's rows", it.id);
+      } else if (typeof bind === "string" && bind) {
         const labels = d.key === "selected" ? listLabels(def, it) : undefined;
         code = `s.bound(${str(bind)}, ${code}${labels ? `, ${expr(labels)}` : ""})`;
       } else if (typeof v === "string" && v.includes("{{") && (d.kind === "text" || d.kind === "image")) {
@@ -529,7 +534,12 @@ class ScreenPrinter {
         this.kit.add("PickedFile");
         out.push([prop, `${h}.value(${f}) as PickedFile | PickedFile[] | undefined`], ["onChange", `(v?: PickedFile | PickedFile[]) => ${h}.set(${f}, v)`]);
       } else out.push([prop, `${h}.text(${f})`], ["onChange", `(v: string) => ${h}.set(${f}, v)`]);
-      if (def.props.some((d) => d.key === "error") || def.slug === "select" || def.slug === "file-upload") out.push(["error", `!!${h}.error(${f})`]);
+      /* its error and message, and required as the contract says, by its field states (parts/fieldState.ts); the
+         kit's select and file upload show an error of their own */
+      const apart = (this.messagesApart ??= messagesShown(this.all)).has(`${form.id}:${it.field}`);
+      const set = formStateProps(def, { invalid: `!!${h}.error(${f})`, ...(apart ? {} : { message: `${h}.error(${f}) ?? ""` }), required: this.requiredField(form.id, it.field!) });
+      if (!set.length && (def.slug === "select" || def.slug === "file-upload")) set.push(["error", `!!${h}.error(${f})`]);
+      out.push(...set.map(([k, v]): [string, string] => [kitPropName(def.slug, k), v === true ? "true" : v]));
       return { skip: key, props: out };
     }
     if (it.field) this.warn("binding", "an input with a field outside a form is entered but sent nowhere", it.id);
@@ -589,10 +599,14 @@ class ScreenPrinter {
       const props = this.props(def, it, at, input.skip).filter(([k]) => !own.has(k));
       /* a form's submit is held while it submits */
       const submits = at.form && [it.action, ...Object.values(it.actions ?? {})].some((a) => a?.effects?.some((e) => e.do === "submit"));
-      if (submits && def.props.some((d) => d.key === "disabled")) {
-        const was = props.findIndex(([k]) => k === "disabled");
-        const design = was >= 0 ? props.splice(was, 1)[0][1] : "false";
-        props.push(["disabled", design === "false" ? `${at.form!.handle}.submitting` : `${at.form!.handle}.submitting || ${design}`]);
+      if (submits) {
+        /* held, and loading, by its field states (parts/fieldState.ts), as long as what the design says holds too */
+        for (const [k] of formStateProps(def, { submitting: "" })) {
+          const key = kitPropName(def.slug, k);
+          const was = props.findIndex(([x]) => x === key);
+          const design = was >= 0 ? props.splice(was, 1)[0][1] : "false";
+          props.push([key, design === "false" ? `${at.form!.handle}.submitting` : `${at.form!.handle}.submitting || ${design}`]);
+        }
       }
       return el(name, [...props, ...input.props, ...layout, ...this.extras(it, at, true, close), ["testID", str(this.names.part(it.id))]], kids);
     }
@@ -758,6 +772,16 @@ class ScreenPrinter {
     if (st.emptyWhen) this.uses$ = true;
     this.hooks.push(`const ${name} = regionOf(${src ? identOf(src.name) : "undefined"}, { ${regionOptions(src?.load, st.emptyWhen, at.$, true).join(", ")} });`);
     return name;
+  }
+
+  /** the fields whose error the design shows in a line of its own, by `<form id>:<field>` */
+  messagesApart?: Set<string>;
+
+  /** whether a form's contract requires one of its fields */
+  requiredField(formId: string, field: string): boolean {
+    const g = this.all.find((x) => x.id === formId);
+    const e = g?.form ? endpointOf(this.api, g.form.operationId) : undefined;
+    return !!e && !!formRules(this.api, e)[field]?.required;
   }
 
   /** a form over an operation's body: its hook at the top of the screen, and the scope its parts read */

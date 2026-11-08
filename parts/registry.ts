@@ -21,12 +21,15 @@ import { more } from "./defs/more";
 import { atoms } from "./defs/atoms";
 import { SPLITS } from "./defs/splits";
 import { RETIRED, RETIRED_SPLITS } from "./defs/retired";
-import type { Labels, ListItem, P, PartDef, PropDef, PropValues, Screen, TableData } from "./types";
+import type { Labels, ListItem, P, PartDef, PropDef, PropValues, Screen, TableColumn, TableData } from "./types";
 import type { KitLook } from "./kits/types";
 import { applyAppearance, type Appearance } from "./appearance";
 import { h, mapNodes, type PNode } from "./node";
 import { COMMON_TEXT, choiceValueOf, defaultTextOf, listTextOf } from "./labels";
 import { getLang, type Lang } from "../lib/i18n";
+import { fieldProps } from "./fieldState";
+import { TABLE_COLUMNS } from "./tableColumns";
+import { lineUp } from "./tables";
 
 /* ---------- what a part is for, and what it is made of ----------
  * Parts come in two tiers. An atom cannot be split any further: a box, a line of text, an icon, a
@@ -144,8 +147,14 @@ export const TIER_TEXT: Record<PartTier, Required<Labels>> = {
 export const categoryName = (c: PartCategory, lang: Lang) => CATEGORY_TEXT[c][lang];
 
 /* the composites that split are handed their trees of atoms here, where the two meet, and the retired parts what
- * replaces them (parts/defs/retired.ts) */
-export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((d) => {
+ * replaces them (parts/defs/retired.ts); an input is handed the props of the field states it declares and does not
+ * write itself (parts/fieldState.ts), and a table prop the column structure its part reads it by (parts/tableColumns.ts) */
+export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInputs, ...communication, ...containment, ...navigation, ...menus, ...pickers, ...content, ...chat, ...controls, ...containers, ...media, ...data, ...desktop, ...game, ...mobile, ...additions, ...app, ...more].map((given) => {
+  const states = fieldProps(given);
+  const withColumns = given.props.some((x) => x.kind === "table" && !x.columns && TABLE_COLUMNS[`${given.slug}.${x.key}`])
+    ? given.props.map((x) => (x.kind === "table" && !x.columns && TABLE_COLUMNS[`${given.slug}.${x.key}`] ? { ...x, columns: TABLE_COLUMNS[`${given.slug}.${x.key}`] } : x))
+    : given.props;
+  const d = states.length || withColumns !== given.props ? { ...given, props: [...withColumns, ...states] } : given;
   const split = (SPLITS[d.slug] ?? RETIRED_SPLITS[d.slug]) as (typeof SPLITS)[string] | undefined;
   const retired = RETIRED[d.slug];
   /* the look a split is handed is the document's KitLook, which PartDef cannot name */
@@ -156,6 +165,10 @@ export const PARTS: PartDef[] = [...atoms, ...actions, ...selection, ...textInpu
 const BY_SLUG = new Map(PARTS.map((d) => [d.slug, d]));
 export const partBySlug = (slug: string | undefined): PartDef | undefined => (slug ? BY_SLUG.get(slug) : undefined);
 
+/** Whether a part with these props holds the parts in it now: a container always, one that holds only laid out
+ *  (`PartDef.holds` "laidOut": a dialog, a sheet) while its auto layout is on. */
+export const holdsNow = (def: Pick<PartDef, "holds"> | undefined, props: PropValues | undefined): boolean =>
+  def?.holds === true || (def?.holds === "laidOut" && typeof props?.layout === "string" && props.layout !== "free");
 /** whether a part is retired: still drawn, no longer offered (`PartDef.retired`) */
 export const isRetired = (d: PartDef | undefined): boolean => !!d?.retired;
 
@@ -201,7 +214,10 @@ function read(def: PropDef, values: PropValues | undefined): unknown {
         const lang = getLang();
         return { columns: def.default.columns.map((c) => listTextOf(c, lang)), rows: def.default.rows.map((r) => r.map((c) => listTextOf(c, lang))) };
       }
-      return { columns: t.columns.map(String), rows: t.rows.filter(Array.isArray).map((r) => r.map(String)) };
+      /* the author's column structure, where it is one: records with a key each */
+      const spec = Array.isArray(t.spec) && t.spec.every((c) => !!c && typeof c === "object" && typeof (c as { key?: unknown }).key === "string") ? { spec: t.spec as TableColumn[] } : {};
+      /* read by key: an author's structure is lined up with the columns the part reads */
+      return lineUp({ columns: t.columns.map(String), rows: t.rows.filter(Array.isArray).map((r) => r.map(String)), ...spec }, def.columns);
     }
   }
 }

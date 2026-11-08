@@ -51,6 +51,7 @@ export function HomeScreen() {
             label="Save note"
             onPress={() => act(A2, { scope: $form1.scope, form: form1 })}
             disabled={form1.submitting}
+            loading={form1.submitting}
             testID="submit:n4"
           />
         </Box>

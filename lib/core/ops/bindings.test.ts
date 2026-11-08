@@ -233,6 +233,18 @@ describe("taps that reach the API", () => {
     refused(() => set({ to: "none", when: { expr: "a ==" }, effects: [{ do: "signOut" }] }), /no expression/);
     set({ to: "none", when: { expr: "auth.signedIn" }, effects: [{ do: "signOut" }, { do: "setVar", var: "v", value: 0 }].slice(0, 1) });
   });
+
+  it("set a prop the part has, to a value it takes", () => {
+    const { run } = shop();
+    run(ops.addPart, { slug: "button", id: "b", screen: "products", at: { x: 16, y: 700 } });
+    run(ops.addPart, { slug: "switch", id: "sw", screen: "products", at: { x: 16, y: 760 } });
+    const set = (effect: unknown) => run(ops.setAction, { id: "b", action: { to: "none", effects: [effect] } });
+    set({ do: "setProp", part: "sw", prop: "checked", value: true });
+    set({ do: "setProp", part: "sw", prop: "disabled", value: true });
+    refused(() => set({ do: "setProp", part: "sw", prop: "colour", value: "red" }), /switch has no prop "colour"/);
+    refused(() => set({ do: "setProp", part: "sw", prop: "checked", value: "yes" }), /checked/);
+    refused(() => set({ do: "setProp", part: "sw", prop: "size", value: "huge" }), /size/);
+  });
 });
 
 describe("wire_screen", () => {

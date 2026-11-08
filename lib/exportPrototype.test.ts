@@ -182,16 +182,18 @@ describe("a document with no prototype interactions, flows or variables in modes
     for (const name of ["screenMotion", "ScreenContext", "openOverlay", "FLOWS", "varStyle", "onHover"]) expect(text(proof, "src/App.tsx") + text(proof, "src/runtime.tsx"), name).not.toContain(name);
     expect("src/lib/screenMotion.ts" in proof).toBe(false);
     /* Digests of what these documents exported before prototypes, flows and modes reached the app. A change here means
-       documents that use none of them now export differently: if that is meant, update the digests (last: the shop
+       documents that use none of them now export differently: if that is meant, update the digests (last: the field
+       states and accessible names, docs/组件规范.md: the button's own loading spinner, a rating's arrow keys and its name
+       in the page's language, a picture with no name kept from a screen reader; before them the shop
        template's cart is the atoms the retired cart-list splits into, looking as it did; before it the widgets'
        outlets, report 3.3 and 3.4: the product cards act out their demo, the widgets carry the host's controlled value
        and own controls, and the sweep has more parts with a selectKey; before them proof's rating is an input since
        parts declare theirs, so it reads and writes a variable of its own). */
     expect({ proof: digestOf(proof), reuse: digestOf(await exported(reuseDoc().doc, reuseDoc().widths)), sweep: digestOf(await exported(sweepDoc().doc, sweepDoc().widths)) }).toMatchInlineSnapshot(`
       {
-        "proof": "51a0ebf26606271e",
+        "proof": "054b474ffa88901a",
         "reuse": "aeba42efb325c141",
-        "sweep": "be16823a899611c0",
+        "sweep": "8d5036f40271cb39",
       }
     `);
   }, 60_000);

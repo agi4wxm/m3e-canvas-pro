@@ -15,6 +15,10 @@ const WORDS: Record<string, Words> = {
   Submit: { zh: "提交", ja: "送信", ko: "제출" },
   Cancel: { zh: "取消", ja: "キャンセル", ko: "취소" },
   OK: { zh: "确定", ja: "OK", ko: "확인" },
+  /* a field's states (parts/widgets/FieldFrame.tsx) */
+  Loading: { zh: "加载中", ja: "読み込み中", ko: "로딩 중" },
+  /* a rating's name for a screen reader, where its part gives none */
+  Rating: { zh: "评分", ja: "評価", ko: "평점" },
   AM: { zh: "上午", ja: "午前", ko: "오전" },
   PM: { zh: "下午", ja: "午後", ko: "오후" },
   Date: { zh: "日期", ja: "日付", ko: "날짜" },

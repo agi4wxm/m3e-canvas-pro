@@ -125,7 +125,9 @@ function handlerOf(node: unknown, words: string, around: Element[] = [], props =
 }
 
 function inputOf(node: unknown, words: string): Element | null {
-  for (const e of tiny.elements(node)) if ((e.props.label === words || e.props.placeholder === words) && typeof e.props.onChange === "function") return e;
+  /* a required field's label carries a star after its words (parts/fieldState.ts `requiredMark`) */
+  const said = (v: unknown) => (typeof v === "string" ? v : v && typeof v === "object" ? wordsIn(v).join("").replace(/\s*\*$/, "") : undefined);
+  for (const e of tiny.elements(node)) if ((said(e.props.label) === words || e.props.placeholder === words) && typeof e.props.onChange === "function") return e;
   return null;
 }
 

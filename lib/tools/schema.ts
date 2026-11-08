@@ -5,6 +5,7 @@
 
 import { choiceValueOf } from "../../parts/labels";
 import { FLOW_PROPS } from "../../parts/flow";
+import { isStateProp } from "../../parts/fieldState";
 import type { PartDef, PropDef } from "../../parts/types";
 import { COLOR_TOKENS, FONTS, ICON_FAMILIES, TEXT_TOKENS } from "../tokens";
 import type { Schema } from "../core";
@@ -35,12 +36,36 @@ export function propSchema(d: PropDef): Schema {
       return { type: "array", items: { type: "object", properties: row, required: ["label"] }, ...(d.min !== undefined ? { minItems: d.min } : {}), ...(d.max !== undefined ? { maxItems: d.max } : {}), description };
     }
     case "table":
-      return { type: "object", properties: { columns: { type: "array", items: { type: "string" } }, rows: { type: "array", items: { type: "array", items: { type: "string" } } } }, required: ["columns", "rows"], description };
+      return {
+        type: "object",
+        properties: {
+          columns: { type: "array", items: { type: "string" }, description: "the headers" },
+          rows: { type: "array", items: { type: "array", items: { type: "string" } }, description: "cells, one per column" },
+          /* the columns' structure, one per column (parts/tables.ts): what data names each column by and how it is written */
+          spec: {
+            type: "array",
+            description: "optional: each column's key (what a bound list's records name it by), type, width (px), align and format (a number's decimals, a currency code)",
+            items: { type: "object", properties: { key: { type: "string" }, type: { type: "string", enum: ["text", "number", "currency", "percent", "date", "bool"] }, width: { type: "number", minimum: 24, maximum: 960 }, align: { type: "string", enum: ["start", "center", "end"] }, format: { type: "string" } }, required: ["key"] },
+          },
+        },
+        required: ["columns", "rows"],
+        description: d.columns ? `${description}; its columns are read by key: ${d.columns.map((c) => c.key).join(", ")}` : description,
+      };
   }
 }
 
 /** every prop of a part as one object schema, closed: a key it does not have is not one of its props */
-export const partPropsSchema = (def: PartDef): Schema => ({ type: "object", properties: Object.fromEntries(def.props.map((d) => [d.key, propSchema(d)])), additionalProperties: false });
+export const partPropsSchema = (def: PartDef): Schema => ({
+  type: "object",
+  properties: Object.fromEntries(
+    def.props.map((d) => {
+      const s = propSchema(d);
+      /* a field state is the design's; in a form, the form sets it as it runs (parts/fieldState.ts) */
+      return [d.key, isStateProp(def, d.key) ? { ...s, description: `${s.description} (field state; in a form, its check and submit set it)` } : s];
+    }),
+  ),
+  additionalProperties: false,
+});
 
 const FILL = COLOR_TOKENS.map((t) => t.key);
 const TEXT = TEXT_TOKENS.map((t) => t.key);

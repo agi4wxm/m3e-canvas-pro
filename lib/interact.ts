@@ -7,6 +7,7 @@ import { heldBy } from "./tokens";
 import { isColorRef } from "./look";
 import { display, evaluate, fillTemplate, holds, toNumber, truthy, type Scope } from "./bindings/expr";
 import { NO_BINDINGS, exprOfBind, scopeFor, type BindingContext } from "./bindings/scope";
+import { tableOfData } from "../parts/tables";
 import { optionsOf } from "./partContract";
 import type { ListItem } from "../parts/types";
 
@@ -166,11 +167,19 @@ function exprValue(it: Item, key: string, v: unknown): unknown {
       return v.slice(0, d.max ?? 50).map((x) => {
         if (!x || typeof x !== "object" || Array.isArray(x)) return { label: display(x) };
         const r = x as Record<string, unknown>;
-        /* a row's state (seen, a mark, done) is its `variant`, which the parts that show one read */
-        return { label: display(r.label ?? r.name ?? r.title ?? ""), ...(typeof r.icon === "string" ? { icon: r.icon } : {}), ...(typeof r.image === "string" ? { image: r.image } : {}), ...(typeof r.variant === "string" ? { variant: r.variant } : {}) };
+        /* a row keeps what it says of itself: its icon, its picture, and the state its part reads from `variant` (a
+           to-do's status, a tile's mark) and `width` */
+        return {
+          label: display(r.label ?? r.name ?? r.title ?? ""),
+          ...(typeof r.icon === "string" ? { icon: r.icon } : {}),
+          ...(typeof r.image === "string" ? { image: r.image } : {}),
+          ...(typeof r.variant === "string" ? { variant: r.variant } : {}),
+          ...(typeof r.width === "string" ? { width: r.width } : {}),
+        };
       });
     case "table":
-      return undefined;
+      /* records laid out by the columns' keys (an API list, a collection's rows), lists cell by cell, a table */
+      return tableOfData(v, reader(partBySlug(it.component)!, it.props).table(key), d.columns) ?? undefined;
     default:
       return display(v);
   }

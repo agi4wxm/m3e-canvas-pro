@@ -86,10 +86,14 @@ export const desktop: PartDef[] = [
       { key: "width", label: "Width", kind: "number", default: 260, min: 120, max: 640, step: 4, unit: "px" },
     ],
     selectKey: "selected",
+    /* each row is a place to tap: a tap chooses it in the preview, and can go somewhere of its own */
+    slots: (p) => p.list("items").map((row, i) => ({ key: `tab:${i}`, label: row.label.trim() || `${i + 1}`, ...(row.icon ? { icon: row.icon } : {}) })),
+    families: [{ prefix: "tab", label: "Every row", labels: { ja: "すべての行", zh: "每一行", ko: "모든 행" } }],
     tree: (p) =>
       h(
         "div",
-        { "data-slot": "tree", role: "tree", className: "flex flex-col gap-0.5", style: { width: Math.round(p.n("width")) } },
+        /* it draws rows at their levels and opens nothing, so it is a list of them, not a tree a keyboard could walk */
+        { "data-slot": "tree", role: "list", className: "flex flex-col gap-0.5", style: { width: Math.round(p.n("width")) } },
         ...p.list("items").map((row, i, rows) => {
           const depthOf = (label = "") => Math.floor((label.length - label.trimStart().length) / 2);
           const depth = depthOf(row.label);
@@ -100,7 +104,7 @@ export const desktop: PartDef[] = [
           const twisty = open ? "expand_more" : /folder/.test(row.icon ?? "") ? "chevron_right" : "";
           return h(
             "div",
-            { role: "treeitem", "data-slot": "tree-row", "data-active": on ? "" : undefined, "data-depth": depth, className: `text-body-medium flex items-center gap-2 rounded-md py-1 pr-2 ${on ? "bg-secondary-container text-on-secondary-container" : "text-on-surface"}`, style: { paddingLeft: 8 + depth * 16 } },
+            { role: "listitem", "aria-level": depth + 1, "aria-current": on || undefined, "data-tap": `tab:${i}`, "data-slot": "tree-row", "data-active": on ? "" : undefined, "data-depth": depth, className: `text-body-medium flex items-center gap-2 rounded-md py-1 pr-2 ${on ? "bg-secondary-container text-on-secondary-container" : "text-on-surface"}`, style: { paddingLeft: 8 + depth * 16 } },
             h("span", { "data-slot": "tree-twisty", "aria-hidden": true, className: "hidden" }, twisty && ic(twisty, { className: "size-4" })),
             row.icon && ic(row.icon, { className: "size-4 shrink-0" }),
             h("span", { "data-slot": "tree-label", className: "truncate" }, row.label.trim()),

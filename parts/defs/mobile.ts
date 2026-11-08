@@ -1,5 +1,6 @@
-import { h, ic } from "../node";
+import { h, ic, listSlots } from "../node";
 import type { PartDef } from "../types";
+import { FIELD, fieldFrame, fieldValues } from "../fieldState";
 
 /* What iOS screens have and Material does not, after greycode/m3e-canvas (MIT). Drawn on M3E's roles
  * like everything else: this says what the part is on a screen, it does not imitate Apple's look,
@@ -69,6 +70,8 @@ export const mobile: PartDef[] = [
       { key: "cancel", label: "Cancel", labels: { ja: "キャンセル", zh: "取消文字", ko: "취소" }, kind: "text", default: "Cancel", defaults: { zh: "取消" } },
       { key: "width", label: "Width", kind: "number", default: 380, min: 200, max: 640, step: 4, unit: "px" },
     ],
+    /* each action does something of its own, and so does its cancel (as the kits for phones always had them) */
+    slots: (p) => [...listSlots(p.list("actions")), ...(p.s("cancel") ? [{ key: "cancel", label: p.s("cancel") }] : [])],
     tree: (p) =>
       h(
         "div",
@@ -77,9 +80,9 @@ export const mobile: PartDef[] = [
           "div",
           { "data-slot": "action-sheet-group", className: "bg-surface-container-high divide-outline-variant flex flex-col divide-y overflow-hidden rounded-2xl" },
           h("div", { "data-slot": "action-sheet-header", className: "p-3 text-center" }, h("div", { "data-slot": "action-sheet-title", className: "text-label-large text-on-surface" }, p.s("title")), p.s("message") && h("div", { "data-slot": "action-sheet-message", className: "text-body-small text-on-surface-variant" }, p.s("message"))),
-          ...p.list("actions").map((a) => h("Button", { variant: "text", "data-slot": "action-sheet-action", className: "w-full rounded-none" }, a.label)),
+          ...p.list("actions").map((a, i) => h("Button", { variant: "text", "data-slot": "action-sheet-action", "data-tap": `tab:${i}`, className: "w-full rounded-none" }, a.label)),
         ),
-        p.s("cancel") && h("Button", { variant: "tonal", "data-slot": "action-sheet-cancel", className: "w-full" }, p.s("cancel")),
+        p.s("cancel") && h("Button", { variant: "tonal", "data-slot": "action-sheet-cancel", "data-tap": "cancel", className: "w-full" }, p.s("cancel")),
       ),
   },
   {
@@ -110,7 +113,8 @@ export const mobile: PartDef[] = [
   },
   {
     slug: "wheel-picker",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "div", radius: 12 },
     name: "Wheel picker",
     labels: { ja: "ホイールピッカー", zh: "滚轮选择器", ko: "휠 선택기" },
     category: "Pickers",
@@ -126,11 +130,14 @@ export const mobile: PartDef[] = [
     selectKey: "selected",
     tree: (p) => {
       const selected = Math.round(p.n("selected"));
-      return h(
-        "div",
-        { "data-slot": "wheel-picker", className: "flex flex-col gap-1", style: { width: Math.round(p.n("width")) } },
-        p.s("label") && h("div", { className: "text-label-large text-on-surface-variant" }, p.s("label")),
-        h("div", { className: "flex flex-col" }, ...p.list("items").map((it, i) => { const d = Math.abs(i - selected); return h("div", { className: `text-body-large rounded-md py-1 text-center ${d === 0 ? "bg-surface-container-high text-on-surface" : "text-on-surface-variant"}`, style: { opacity: Math.max(0.25, 1 - d * 0.3) } }, it.label); })),
+      return fieldFrame(
+        fieldValues(p),
+        h(
+          "div",
+          { "data-slot": "wheel-picker", className: "flex flex-col gap-1", style: { width: Math.round(p.n("width")) } },
+          p.s("label") && h("div", { className: "text-label-large text-on-surface-variant" }, p.s("label")),
+          h("div", { className: "flex flex-col" }, ...p.list("items").map((it, i) => { const d = Math.abs(i - selected); return h("div", { className: `text-body-large rounded-md py-1 text-center ${d === 0 ? "bg-surface-container-high text-on-surface" : "text-on-surface-variant"}`, style: { opacity: Math.max(0.25, 1 - d * 0.3) } }, it.label); })),
+        ),
       );
     },
   },

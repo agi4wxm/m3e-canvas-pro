@@ -113,7 +113,7 @@ export function CheckIn({ title = "", days = 30, signed = 3, today = 0, width = 
         {Array.from({ length: days }, (_, i) => {
           const here = i === now && i >= count;
           return (
-            <Tap key={i} disabled={!here} data-tap={here ? "today" : undefined} aria-current={i === now ? "date" : undefined} data-slot="check-in-cell" data-state={i < count ? "done" : here ? "today" : undefined} className={`text-label-small flex aspect-square items-center justify-center rounded-full ${i < count ? "bg-primary text-on-primary" : here ? "border-primary text-primary border-2" : "text-on-surface-variant"}`} onClick={() => host.demo && setMore((m) => ({ ...m, by: m.by + 1 }))}>
+            <Tap key={i} disabled={!here} data-tap={here ? "today" : undefined} aria-current={i === now ? "date" : undefined} data-slot="check-in-cell" aria-label={`${i + 1}`} data-state={i < count ? "done" : here ? "today" : undefined} className={`text-label-small flex aspect-square items-center justify-center rounded-full ${i < count ? "bg-primary text-on-primary" : here ? "border-primary text-primary border-2" : "text-on-surface-variant"}`} onClick={() => host.demo && setMore((m) => ({ ...m, by: m.by + 1 }))}>
               {i < count ? <WidgetIcon name="check" className="size-3" /> : i + 1}
             </Tap>
           );

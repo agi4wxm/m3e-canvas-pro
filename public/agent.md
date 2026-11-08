@@ -318,25 +318,25 @@ They cannot be split. Compose them in `box`es to build anything the composites d
 | `icon` | Icon | `name` icon; `size` 16–96; `filled` true / false; `color` default / primary / secondary / tertiary / error / muted / on-surface / on-primary / inverse |
 | `shape` | Shape | `name` 4-leaf-clover / 4-sided-cookie / 6-sided-cookie / 7-sided-cookie / 8-leaf-clover / 9-sided-cookie / 12-sided-cookie / burst / oval / pentagon / pill / soft-burst / sunny / very-sunny / bun / boom / arch / arrow / diamond / fan / flower / gem / ghost-ish / heart / hexagon / pixel-circle / pixel-triangle / puffy / puffy-diamond / semicircle / slanted / soft-boom / square / circle / triangle; `color` primary / secondary / tertiary / primary-container / secondary-container / tertiary-container / surface-container / surface-container-high / outline / error; `width` 8–800; `height` 8–800 |
 | `text` | Text | `text` text; `style` display / headline / title / heading / subtitle / lead / body / label / caption / tiny; `color` default / muted / primary / secondary / tertiary / error / outline / on-primary / inverse; `align` start / center / end; `bold` true / false; `fit` auto / fixed; `width` 40–1600; `maxLines` 0–6 |
-| `image` | Image | `src` https address; `alt` text; `fit` cover / contain; `radius` 0–120; `width` 24–1600; `height` 24–1600 |
+| `image` | Image | `src` a data:image picture (generate_image paints one; outside addresses are refused); `alt` text; `fit` cover / contain; `radius` 0–120; `width` 24–1600; `height` 24–1600 |
 | `spacer` | Spacer | `height` 4–800; `width` 4–1920 |
 
 ##### Controls
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `radio` | Radio button | `label` text; `checked` true / false; `disabled` true / false |
-| `button` | Button | `label` text; `icon` icon; `variant` filled / tonal / elevated / outlined / text / ghost; `size` xs / sm / md / lg / xl; `trailingIcon` icon; `shape` round / square; `width` 48–640; `iconWidth` default / narrow / wide; `disabled` true / false; `toggle` true / false; `onIcon` icon; `onLabel` text; `onLook` same / filled / tonal / elevated / outlined / text |
-| `chip` | Chip | `items` rows of `{ "label", "icon" }`; `kind` assist / filter / input; `selected` -1–7; `variant` flat / elevated; `size` default / md / lg |
-| `toggle` | Toggle | `icon` icon; `label` text; `variant` default / filled / tonal / outline / elevated; `size` xs / sm / default / md / lg; `shape` round / square; `pressed` true / false; `disabled` true / false |
-| `switch` | Switch | `label` text; `checked` true / false; `size` default / sm; `disabled` true / false; `width` 52–520 |
-| `checkbox` | Checkbox | `label` text; `checked` true / false; `indeterminate` true / false; `error` true / false; `disabled` true / false |
-| `slider` | Slider | `label` text; `value` 0–100; `range` true / false; `end` 0–100; `disabled` true / false; `width` 120–800 |
-| `input` | Input | `placeholder` text; `value` text; `type` text / email / password / number / search / tel / url; `variant` outlined / filled / plain; `size` default / sm; `error` true / false; `disabled` true / false; `width` 120–1280 |
-| `textarea` | Textarea | `placeholder` text; `value` text; `variant` outlined / filled / plain; `rows` 1–10; `autoGrow` true / false; `error` true / false; `disabled` true / false; `width` 120–1280 |
-| `rating` | Rating | `value` 0–10; `count` 1–10; `readOnly` true / false |
+| `radio` | Radio button | `label` text; `checked` true / false; `disabled` true / false; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `button` | Button | `label` text; `icon` icon; `variant` filled / tonal / elevated / outlined / text / ghost; `size` xs / sm / md / lg / xl; `trailingIcon` icon; `shape` round / square; `width` 48–640; `iconWidth` default / narrow / wide; `disabled` true / false; `ariaLabel` text; `toggle` true / false; `pressed` true / false; `onIcon` icon; `onLabel` text; `onLook` same / filled / tonal / elevated / outlined / text; `loading` true / false |
+| `chip` | Chip | `items` rows of `{ "label", "icon" }`; `kind` assist / filter / input; `selected` -1–7; `variant` flat / elevated; `size` default / md / lg; `disabled` true / false |
+| `toggle` | Toggle | `icon` icon; `label` text; `variant` default / filled / tonal / outline / elevated; `size` xs / sm / default / md / lg; `shape` round / square; `pressed` true / false; `disabled` true / false; `ariaLabel` text |
+| `switch` | Switch | `label` text; `checked` true / false; `size` default / sm; `disabled` true / false; `width` 52–520; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `checkbox` | Checkbox | `label` text; `checked` true / false; `indeterminate` true / false; `error` true / false; `disabled` true / false; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `errorText` text; `helperText` text |
+| `slider` | Slider | `label` text; `value` 0–100; `range` true / false; `end` 0–100; `disabled` true / false; `width` 120–800; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `input` | Input | `placeholder` text; `value` text; `type` text / email / password / number / search / tel / url; `variant` outlined / filled / plain; `size` default / sm; `error` true / false; `disabled` true / false; `width` 120–1280; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `errorText` text; `helperText` text |
+| `textarea` | Textarea | `placeholder` text; `value` text; `variant` outlined / filled / plain; `rows` 1–10; `autoGrow` true / false; `error` true / false; `disabled` true / false; `width` 120–1280; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `errorText` text; `helperText` text |
+| `rating` | Rating | `value` 0–10; `count` 1–10; `readOnly` true / false; `ariaLabel` text; `disabled` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
 | `link` | Link | `label` text; `href` text |
-| `icon-button` | Icon button | `icon` icon; `label` text; `variant` filled / tonal / elevated / outlined / text / ghost; `size` xs / sm / default / md / lg / xl; `disabled` true / false; `iconFill` true / false |
+| `icon-button` | Icon button | `icon` icon; `label` text; `variant` filled / tonal / elevated / outlined / text / ghost; `size` xs / sm / default / md / lg / xl; `disabled` true / false; `iconFill` true / false; `loading` true / false |
 
 ##### Indicators
 
@@ -349,7 +349,7 @@ They cannot be split. Compose them in `box`es to build anything the composites d
 | `loading-indicator` | Loading indicator | `variant` default / contained; `size` 24–128; `speed` 0–3 |
 | `spinner` | Spinner | `size` xs / sm / md / lg; `color` primary / secondary / tertiary / error / on-surface |
 | `skeleton` | Skeleton | `layout` profile / text / card / block; `lines` 1–8; `width` 80–560; `height` 8–320 |
-| `avatar` | Avatar | `initials` text; `size` sm / default / lg; `image` https address; `count` 1–5 |
+| `avatar` | Avatar | `initials` text; `size` sm / default / lg; `image` a data:image picture (generate_image paints one; outside addresses are refused); `count` 1–5 |
 | `kbd` | Kbd | `keys` rows of `{ "label" }`; `caption` text |
 | `page-dots` | Page dots | `count` 1–12; `current` 0–11 |
 | `typing-indicator` | Typing indicator | `label` text |
@@ -362,8 +362,8 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `fab` | FAB | `icon` icon; `label` text; `size` sm / default / md / lg; `color` primary-container / secondary-container / tertiary-container / primary / secondary / tertiary / surface; `lowered` true / false; `collapsed` true / false; `toggle` true / false; `onIcon` icon; `onLabel` text |
-| `toggle-group` | Toggle group | `items` rows of `{ "label", "icon" }`; `selected` 0–5; `connected` true / false; `variant` default / filled / tonal / outline / elevated; `size` xs / sm / default / md; `multiple` true / false |
+| `fab` | FAB | `icon` icon; `label` text; `size` sm / default / md / lg; `color` primary-container / secondary-container / tertiary-container / primary / secondary / tertiary / surface; `lowered` true / false; `collapsed` true / false; `ariaLabel` text; `toggle` true / false; `pressed` true / false; `onIcon` icon; `onLabel` text; `disabled` true / false; `loading` true / false |
+| `toggle-group` | Toggle group | `items` rows of `{ "label", "icon" }`; `selected` 0–5; `connected` true / false; `variant` default / filled / tonal / outline / elevated; `size` xs / sm / default / md; `multiple` true / false; `disabled` true / false |
 | `button-group` | Button group *(`tab:*` for every entry: slot.index)* | `items` rows of `{ "label", "icon" }`; `variant` connected / standard; `orientation` horizontal / vertical; `buttonVariant` filled / tonal / elevated / outlined / text; `size` xs / sm / md / lg / xl |
 | `split-button` | Split button | `label` text; `icon` icon; `variant` filled / tonal / elevated / outlined / text; `size` xs / sm / md / lg / xl; `menu` true / false; `menuItems` rows of `{ "label", "icon" }` |
 | `fab-menu` | FAB menu | `items` rows of `{ "label", "icon" }`; `icon` icon; `open` true / false |
@@ -374,40 +374,40 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `radio-group` | Radio group | `items` rows of `{ "label" }`; `selected` 0–5; `layout` column / row; `error` true / false; `disabled` true / false |
-| `text-field` | Text field | `label` text; `value` text; `supporting` text; `variant` outlined / filled; `leadingIcon` icon; `trailingIcon` icon; `error` true / false; `multiline` true / false; `width` 120–520 |
-| `input-group` | Input group | `placeholder` text; `leadingIcon` icon; `leadingText` text; `trailingText` text; `button` text; `error` true / false; `disabled` true / false; `width` 160–520 |
-| `input-otp` | Input OTP | `length` 2–8; `group` 0–8; `value` text; `error` true / false; `disabled` true / false |
-| `field` | Field | `label` text; `control` input / textarea / checkbox / switch; `placeholder` text; `description` text; `error` text; `disabled` true / false; `width` 160–520 |
+| `radio-group` | Radio group | `items` rows of `{ "label" }`; `selected` 0–5; `layout` column / row; `error` true / false; `disabled` true / false; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `errorText` text; `helperText` text |
+| `text-field` | Text field | `label` text; `value` text; `placeholder` text; `type` text / email / password / number / search / tel / url; `supporting` text; `variant` outlined / filled; `prefix` text; `suffix` text; `leadingIcon` icon; `trailingIcon` icon; `error` true / false; `multiline` true / false; `width` 120–520; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `errorText` text |
+| `input-group` | Input group | `placeholder` text; `leadingIcon` icon; `leadingText` text; `trailingText` text; `button` text; `error` true / false; `disabled` true / false; `width` 160–520; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `errorText` text; `helperText` text |
+| `input-otp` | Input OTP | `length` 2–8; `group` 0–8; `value` text; `error` true / false; `disabled` true / false; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `errorText` text; `helperText` text |
+| `field` | Field | `label` text; `control` input / textarea / checkbox / switch; `placeholder` text; `description` text; `error` text; `disabled` true / false; `width` 160–520; `readOnly` true / false; `required` true / false; `loading` true / false |
 | `form` | Form | `fields` rows of `{ "label" }`; `submit` text; `width` 200–800 |
 | `copy-row` | Copy row | `text` text; `width` 120–800 |
-| `quantity-stepper` | Quantity stepper | `value` 0–999; `min` 0–999; `max` 0–999; `width` 120–400 |
-| `tag-input` | Tag input *(event `on:add`: event.value)* *(event `on:remove`: event.value)* | `items` rows of `{ "label" }`; `placeholder` text; `width` 160–1280 |
-| `phone-input` | Phone number | `code` text; `placeholder` text; `width` 160–640 |
-| `file-upload` | File upload | `title` text; `hint` text; `action` text; `multiple` true / false; `accept` text; `width` 200–800 |
-| `number-pad` | Number pad *(event `on:submit`: event.value)* *(prototype demo until `sent` is bound)* | `mode` amount / pin / phone; `prefix` text; `length` 1–20; `action` text; `done` text; `value` text; `sent` true / false; `width` 200–480 |
-| `signature-pad` | Signature pad *(prototype demo until `signed` is bound)* | `hint` text; `clear` text; `action` text; `done` text; `value` text; `signed` true / false; `height` 80–480; `width` 200–800 |
-| `rich-text-editor` | Rich text editor | `text` text; `placeholder` text; `counter` true / false; `height` 80–800; `width` 280–1280 |
+| `quantity-stepper` | Quantity stepper | `value` 0–999; `min` 0–999; `max` 0–999; `width` 120–400; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `tag-input` | Tag input *(event `on:add`: event.value)* *(event `on:remove`: event.value)* | `items` rows of `{ "label" }`; `placeholder` text; `width` 160–1280; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `phone-input` | Phone number | `code` text; `placeholder` text; `width` 160–640; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `file-upload` | File upload | `title` text; `hint` text; `action` text; `multiple` true / false; `accept` text; `width` 200–800; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text |
+| `number-pad` | Number pad *(event `on:submit`: event.value)* *(prototype demo until `sent` is bound)* | `mode` amount / pin / phone; `prefix` text; `length` 1–20; `action` text; `done` text; `value` text; `sent` true / false; `width` 200–480; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `signature-pad` | Signature pad *(prototype demo until `signed` is bound)* | `hint` text; `clear` text; `action` text; `done` text; `value` text; `signed` true / false; `height` 80–480; `width` 200–800; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `rich-text-editor` | Rich text editor | `text` text; `placeholder` text; `counter` true / false; `height` 80–800; `width` 280–1280; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
 
 ##### Pickers
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `select` | Select | `items` rows of `{ "label" }`; `selected` -1–7; `variant` outlined / filled; `label` text; `placeholder` text; `supporting` text; `size` default / sm; `disabled` true / false; `width` 120–520 |
-| `native-select` | Native select | `items` rows of `{ "label" }`; `selected` 0–7; `size` default / sm; `disabled` true / false; `width` 120–520 |
-| `combobox` | Combobox | `items` rows of `{ "label" }`; `selected` -1–9; `placeholder` text; `clear` true / false; `disabled` true / false; `width` 120–520 |
-| `calendar` | Calendar | `mode` single / multiple / range; `months` 1–2; `outside` true / false; `weekStart` sunday / monday |
-| `date-picker` | Date picker | `variant` docked / modal; `label` text; `placeholder` text; `width` 160–480; `mode` single / range; `title` text; `defaultView` calendar / input; `disabled` true / false |
-| `time-picker` | Time picker | `title` text; `hours` 0–23; `minutes` 0–59; `hour24` true / false; `mode` dial / input; `width` 296–560 |
-| `color-field` | Color field | `label` text; `value` text |
-| `wheel-picker` | Wheel picker | `label` text; `items` rows of `{ "label" }`; `selected` 0–19; `width` 120–640 |
-| `item-picker` | Item picker | `items` rows of `{ "label", "icon" }`; `columns` 1–8; `selected` 0–23; `width` 120–800 |
-| `multi-select` | Multiple choice | `items` rows of `{ "label" }`; `selected` text; `width` 120–800 |
-| `color-palette` | Color palette | `colors` text; `selected` 0–63; `width` 120–800 |
-| `number-picker` | Number picker | `value` -100000–100000; `min` -100000–100000; `max` -100000–100000; `step` 1–1000; `unit` text; `width` 56–240 |
-| `transfer-list` | Transfer list | `items` rows of `{ "label" }`; `chosen` text; `from` text; `to` text; `width` 280–960; `height` 120–800 |
-| `region-picker` | Region picker | `label` text; `placeholder` text; `data` `{ "columns": ["Province", "City", "District"], "rows": [[…]] }`; `action` text; `value` text; `height` 120–480; `width` 240–960 |
-| `seat-map` | Seat map *(prototype demo until `total` is bound)* | `rows` 1–20; `columns` 1–20; `aisle` 0–20; `taken` text; `price` 0–100000; `currency` text; `most` 1–20; `screen` text; `pickedText` text; `action` text; `picked` text; `total` text; `width` 240–960 |
+| `select` | Select | `items` rows of `{ "label" }`; `selected` -1–7; `variant` outlined / filled; `label` text; `placeholder` text; `supporting` text; `size` default / sm; `disabled` true / false; `width` 120–520; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text |
+| `native-select` | Native select | `items` rows of `{ "label" }`; `selected` 0–7; `size` default / sm; `disabled` true / false; `width` 120–520; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `combobox` | Combobox | `items` rows of `{ "label" }`; `selected` -1–9; `placeholder` text; `clear` true / false; `disabled` true / false; `width` 120–520; `ariaLabel` text; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `calendar` | Calendar | `mode` single / multiple / range; `months` 1–2; `outside` true / false; `weekStart` sunday / monday; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `date-picker` | Date picker | `variant` docked / modal; `label` text; `placeholder` text; `width` 160–480; `mode` single / range; `title` text; `defaultView` calendar / input; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `time-picker` | Time picker | `title` text; `hours` 0–23; `minutes` 0–59; `hour24` true / false; `mode` dial / input; `width` 296–560; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `color-field` | Color field | `label` text; `value` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `wheel-picker` | Wheel picker | `label` text; `items` rows of `{ "label" }`; `selected` 0–19; `width` 120–640; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `item-picker` | Item picker | `items` rows of `{ "label", "icon" }`; `columns` 1–8; `selected` 0–23; `width` 120–800; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `multi-select` | Multiple choice | `items` rows of `{ "label" }`; `selected` text; `width` 120–800; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `color-palette` | Color palette | `colors` text; `selected` 0–63; `width` 120–800; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `number-picker` | Number picker | `value` -100000–100000; `min` -100000–100000; `max` -100000–100000; `step` 1–1000; `unit` text; `width` 56–240; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `transfer-list` | Transfer list | `items` rows of `{ "label" }`; `chosen` text; `from` text; `to` text; `width` 280–960; `height` 120–800; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `region-picker` | Region picker | `label` text; `placeholder` text; `data` `{ "columns": ["Province", "City", "District"], "rows": [[…]] }`; `action` text; `value` text; `height` 120–480; `width` 240–960; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
+| `seat-map` | Seat map *(prototype demo until `total` is bound)* | `rows` 1–20; `columns` 1–20; `aisle` 0–20; `taken` text; `price` 0–100000; `currency` text; `most` 1–20; `screen` text; `pickedText` text; `action` text; `picked` text; `total` text; `width` 240–960; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
 
 ##### Bars & navigation
 
@@ -419,7 +419,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `navigation-rail` | Navigation rail | `items` rows of `{ "label", "icon" }`; `selected` 0–6; `expanded` true / false; `narrow` true / false; `modal` true / false; `compact` true / false; `menu` true / false; `fab` true / false; `height` 240–10000 |
 | `toolbar` | Toolbar *(splits)* *(`tab:*` for every entry: slot.index)* | `kind` floating / docked; `color` standard / vibrant; `orientation` horizontal / vertical; `items` rows of `{ "label", "icon" }`; `toggles` true / false; `width` 240–1280 |
 | `breadcrumb` | Breadcrumb *(splits)* | `items` rows of `{ "label" }`; `separator` chevron / slash; `collapse` true / false |
-| `pagination` | Pagination | `pages` 1–99; `current` 1–99; `previous` text; `next` text; `width` 240–1280 |
+| `pagination` | Pagination *(`tab:*` for every entry: slot.index)* | `pages` 1–99; `current` 1–99; `previous` text; `next` text; `width` 240–1280 |
 | `navigation-menu` | Navigation menu | `menus` rows of `{ "label" }`; `pages` rows of `{ "label" }`; `links` rows of `{ "label" }` |
 | `sidebar` | Sidebar | `label` text; `items` rows of `{ "label", "icon" }`; `selected` 0–7; `size` default / sm / lg; `width` 200–400; `height` 200–800 |
 | `steps` | Steps *(splits)* | `items` rows of `{ "label" }`; `current` 0–7; `width` 160–1200 |
@@ -447,10 +447,10 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | component | what it is | props (all optional) |
 |---|---|---|
 | `tooltip` | Tooltip | `label` text; `variant` filled / tonal / elevated / outlined / text; `text` text; `side` top / right / bottom / left |
-| `dialog` | Dialog *(splits)* | `style` basic / fullscreen; `icon` icon; `title` text; `description` text; `dismiss` text; `confirm` text; `stacked` true / false; `closeButton` true / false; `dialogWidth` 280–560; `width` 280–1280; `height` 320–900 |
-| `alert-dialog` | Alert dialog *(splits)* | `icon` icon; `title` text; `description` text; `cancel` text; `action` text; `size` default / sm |
-| `sheet` | Sheet | `side` right / left / bottom / top; `title` text; `description` text; `footer` true / false |
-| `side-sheet` | Side sheet | `title` text; `content` text; `side` right / left; `detached` true / false; `closeButton` true / false; `footer` true / false; `width` 256–400; `height` 200–560 |
+| `dialog` | Dialog *(splits)* | `style` basic / fullscreen; `icon` icon; `title` text; `description` text; `dismiss` text; `confirm` text; `stacked` true / false; `closeButton` true / false; `dialogWidth` 280–560; `width` 280–1280; `height` 320–900; `dialogHeight` 120–900; `layout` free / row / column / grid; `gap` 0–96; `gapY` 0–96; `padX` 0–96; `padY` 0–96; `padTop` 0–96; `padRight` 0–96; `padBottom` 0–96; `padLeft` 0–96; `align` start / center / end / stretch / baseline; `justify` start / center / end / between / around / evenly; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false |
+| `alert-dialog` | Alert dialog *(splits)* | `icon` icon; `title` text; `description` text; `cancel` text; `action` text; `size` default / sm; `dialogHeight` 120–900; `layout` free / row / column / grid; `gap` 0–96; `gapY` 0–96; `padX` 0–96; `padY` 0–96; `padTop` 0–96; `padRight` 0–96; `padBottom` 0–96; `padLeft` 0–96; `align` start / center / end / stretch / baseline; `justify` start / center / end / between / around / evenly; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false |
+| `sheet` | Sheet | `side` right / left / bottom / top; `title` text; `description` text; `footer` true / false; `confirm` text; `dismiss` text; `sheetHeight` 120–900; `layout` free / row / column / grid; `gap` 0–96; `gapY` 0–96; `padX` 0–96; `padY` 0–96; `padTop` 0–96; `padRight` 0–96; `padBottom` 0–96; `padLeft` 0–96; `align` start / center / end / stretch / baseline; `justify` start / center / end / between / around / evenly; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false |
+| `side-sheet` | Side sheet | `title` text; `content` text; `side` right / left; `detached` true / false; `closeButton` true / false; `footer` true / false; `confirm` text; `dismiss` text; `width` 256–400; `height` 200–560 |
 | `drawer` | Drawer | `title` text; `description` text; `close` text; `swipeHandle` true / false; `inline` true / false |
 | `popover` | Popover | `trigger` text; `variant` filled / tonal / elevated / outlined / text; `title` text; `description` text; `side` bottom / top / right / left |
 | `hover-card` | Hover card | `trigger` text; `avatar` text; `title` text; `description` text; `side` bottom / top / right / left |
@@ -472,7 +472,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `card` | Card *(splits)* | `title` text; `description` text; `variant` filled / elevated / outlined; `imagePos` none / top / bottom / leading / trailing / background; `image` https address; `imageIcon` icon; `imageSize` 40–320; `textAlign` start / center / end; `contentAlign` start / center / end; `size` sm / default / lg; `interactive` true / false; `action` text; `width` 160–520; `height` 0–480 |
+| `card` | Card *(splits)* | `title` text; `description` text; `variant` filled / elevated / outlined; `imagePos` none / top / bottom / leading / trailing / background; `image` a data:image picture (generate_image paints one; outside addresses are refused); `alt` text; `imageIcon` icon; `imageSize` 40–320; `textAlign` start / center / end; `contentAlign` start / center / end; `size` sm / default / lg; `interactive` true / false; `action` text; `width` 160–520; `height` 0–480 |
 | `accordion` | Accordion | `items` rows of `{ "label" }`; `content` text; `openFirst` true / false; `multiple` true / false; `width` 200–640 |
 | `collapsible` | Collapsible | `trigger` text; `variant` filled / tonal / elevated / outlined / text; `content` text; `open` true / false; `width` 160–520 |
 | `scroll-area` | Scroll area | `scrollbars` vertical / horizontal / both; `label` text; `count` 1–100; `width` 120–560; `height` 80–480 |
@@ -494,7 +494,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `description-list` | Description list *(splits)* | `data` `{ "columns": ["Name", "Value"], "rows": [[…]] }`; `width` 160–960 |
 | `timeline` | Timeline *(splits)* | `data` `{ "columns": ["Time", "Title", "Detail"], "rows": [[…]] }`; `current` 0–100; `width` 160–960 |
 | `tracker` | Status tracker | `title` text; `states` text; `width` 120–1280 |
-| `sortable-list` | Sortable list *(event `on:reorder`: event.from, event.to)* | `items` rows of `{ "label" }`; `width` 160–800 |
+| `sortable-list` | Sortable list *(event `on:reorder`: event.from, event.to)* | `items` rows of `{ "label" }`; `width` 160–800; `ariaLabel` text; `disabled` true / false; `readOnly` true / false; `required` true / false; `loading` true / false; `error` true / false; `errorText` text; `helperText` text |
 | `swipe-row` | Swipe row *(event `on:open`: event.open)* | `title` text; `note` text; `action` text; `open` true / false; `width` 160–800 |
 | `file-list` | Files *(`tab:*` for every entry: slot.index)* *(`remove:*` for every entry: slot.index)* *(prototype demo until `data` is bound)* | `data` `{ "columns": ["Name", "Size", "Date"], "rows": [[…]] }`; `removable` true / false; `selected` -1–99; `width` 240–800 |
 
@@ -523,7 +523,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | component | what it is | props (all optional) |
 |---|---|---|
 | `subscription` | Subscription plans *(splits)* | `title` text; `description` text; `plans` rows of `{ "label" }`; `action` text; `width` 200–640 |
-| `product-card` | Product card *(splits)* *(prototype demo until `liked` or `added` is bound)* | `image` https address; `title` text; `subtitle` text; `price` text; `original` text; `badge` text; `rating` 0–5; `action` text; `done` text; `layout` vertical / horizontal; `liked` true / false; `added` 0–999; `width` 140–640 |
+| `product-card` | Product card *(splits)* *(prototype demo until `liked` or `added` is bound)* | `image` a data:image picture (generate_image paints one; outside addresses are refused); `title` text; `subtitle` text; `price` text; `original` text; `badge` text; `rating` 0–5; `action` text; `done` text; `layout` vertical / horizontal; `liked` true / false; `added` 0–999; `width` 140–640 |
 | `price-tag` | Price *(splits)* | `currency` text; `amount` text; `original` text; `discount` text; `size` small / medium / large |
 | `coupon` | Coupon *(splits)* *(prototype demo until `claimed` is bound)* | `amount` text; `condition` text; `title` text; `expiry` text; `action` text; `done` text; `claimed` true / false; `width` 260–640 |
 | `checkout-bar` | Checkout bar *(splits)* | `label` text; `amount` text; `note` text; `icons` rows of `{ "label", "icon" }`; `action` text; `done` text; `width` 240–1280 |
@@ -535,13 +535,13 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `profile-header` | Profile header *(splits)* *(prototype demo until `following` is bound)* | `cover` https address; `showCover` true / false; `avatar` https address; `name` text; `bio` text; `stats` rows of `{ "label" }`; `action` text; `done` text; `following` true / false; `width` 240–800 |
-| `post-card` | Post *(splits)* *(prototype demo until `liked` or `saved` or `likes` is bound)* | `author` text; `time` text; `text` text; `image` https address; `showImage` true / false; `likes` 0–1000000; `comments` 0–1000000; `shares` 0–1000000; `liked` true / false; `saved` true / false; `width` 240–800 |
+| `profile-header` | Profile header *(splits)* *(prototype demo until `following` is bound)* | `cover` a data:image picture (generate_image paints one; outside addresses are refused); `showCover` true / false; `avatar` a data:image picture (generate_image paints one; outside addresses are refused); `name` text; `bio` text; `stats` rows of `{ "label" }`; `action` text; `done` text; `following` true / false; `width` 240–800 |
+| `post-card` | Post *(splits)* *(prototype demo until `liked` or `saved` or `likes` is bound)* | `author` text; `time` text; `text` text; `image` a data:image picture (generate_image paints one; outside addresses are refused); `showImage` true / false; `likes` 0–1000000; `comments` 0–1000000; `shares` 0–1000000; `liked` true / false; `saved` true / false; `width` 240–800 |
 | `leaderboard` | Leaderboard *(splits)* | `title` text; `data` `{ "columns": ["Name", "Score", "Change"], "rows": [[…]] }`; `faces` true / false; `selected` -1–99; `width` 240–800 |
 | `conversation-list` | Conversations *(splits)* | `data` `{ "columns": ["Name", "Last message", "Time", "Unread"], "rows": [[…]] }`; `selected` -1–99; `width` 240–800 |
 | `story-row` | Stories *(`tab:*` for every entry: slot.index)* *(prototype demo until `items` is bound)* | `items` rows of `{ "label" }`; `add` true / false; `width` 160–1280 |
 | `voice-message` | Voice message | `seconds` 1–600; `mine` true / false; `transcript` text; `transcribe` text; `width` 160–480 |
-| `video-call` | Video call | `name` text; `connected` true / false; `status` text; `image` https address; `icon` icon; `height` 240–960; `width` 240–960 |
+| `video-call` | Video call | `name` text; `connected` true / false; `status` text; `image` a data:image picture (generate_image paints one; outside addresses are refused); `icon` icon; `height` 240–960; `width` 240–960 |
 
 ##### AI
 
@@ -571,9 +571,9 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `marquee` | Marquee | `text` text; `seconds` 2–120; `width` 80–1600 |
 | `playlist` | Playlist or lessons *(event `on:play`: event.index, event.playing)* *(prototype demo until `playing` is bound)* | `title` text; `data` `{ "columns": ["Title", "Detail", "Length", "State"], "rows": [[…]] }`; `selected` -1–99; `playing` true / false; `width` 240–800 |
 | `qr-code` | QR code | `text` text; `level` L / M / Q / H; `caption` text; `copy` text; `copied` text; `tooLong` text; `size` 64–640 |
-| `scene` | Scene | `prompt` text; `style` text; `motion` still / animated; `frames` 2–64; `frameMs` 20–2000; `image` https address; `scrim` none / top / bottom / both / full; `hotspots` `{ "columns": ["Label", "x", "y", "w", "h"], "rows": [[…]] }`; `icon` icon; `height` 120–2400; `width` 120–1600 |
+| `scene` | Scene | `prompt` text; `style` text; `motion` still / animated; `frames` 2–64; `frameMs` 20–2000; `image` a data:image picture (generate_image paints one; outside addresses are refused); `scrim` none / top / bottom / both / full; `hotspots` `{ "columns": ["Label", "x", "y", "w", "h"], "rows": [[…]] }`; `icon` icon; `height` 120–2400; `width` 120–1600 |
 | `image-viewer` | Image viewer *(event `on:change`: event.index)* *(event `on:fullscreen`: event.open)* *(`tab:*` for every entry: slot.index)* | `images` rows of `{ "label" }`; `height` 120–720; `thumbnails` true / false; `index` 0–11; `width` 160–960 |
-| `image-cropper` | Image cropper *(event `on:crop`: event.x, event.y, event.w, event.h, event.turn)* *(prototype demo until `cropped` is bound)* | `image` https address; `aspect` free / 1:1 / 4:3 / 3:4 / 16:9; `action` text; `reset` text; `doneText` text; `crop` text; `turn` 0–270; `cropped` true / false; `height` 120–960; `width` 200–960 |
+| `image-cropper` | Image cropper *(event `on:crop`: event.x, event.y, event.w, event.h, event.turn)* *(prototype demo until `cropped` is bound)* | `image` a data:image picture (generate_image paints one; outside addresses are refused); `aspect` free / 1:1 / 4:3 / 3:4 / 16:9; `action` text; `reset` text; `doneText` text; `crop` text; `turn` 0–270; `cropped` true / false; `height` 120–960; `width` 200–960 |
 
 ##### Game
 
@@ -589,13 +589,13 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `item-cell` | Item cell *(splits)* | `icon` icon; `name` text; `count` text; `rarity` text; `rarityColor` text; `badge` text; `selected` true / false; `size` 32–160 |
 | `reward-track` | Reward track *(splits)* *(`tab:*` for every entry: slot.index)* *(prototype demo until `claimed` is bound)* | `data` `{ "columns": ["At", "Label", "Icon"], "rows": [[…]] }`; `value` 0–100000; `max` 1–100000; `claimed` text; `action` text; `width` 200–800 |
 | `check-in` | Daily check-in *(splits)* *(prototype demo until `signed` or `today` is bound)* | `title` text; `days` 7–31; `signed` 0–31; `today` 0–31; `width` 200–640 |
-| `joystick` | Joystick *(event `on:release`: event.x, event.y)* | `size` 64–320; `angle` 0–360; `autoCenter` true / false; `value` text |
+| `joystick` | Joystick *(event `on:release`: event.x, event.y)* | `size` 64–320; `angle` 0–360; `autoCenter` true / false; `value` text; `ariaLabel` text; `disabled` true / false |
 | `stat-bar` | Stat bar *(splits)* | `icon` icon; `label` text; `value` 0–1000000; `max` 1–1000000; `color` error / primary / secondary / tertiary; `numbers` true / false; `width` 80–800 |
 | `skill-button` | Skill button *(prototype demo until `endsAt` or `disabled` is bound)* | `icon` icon; `label` text; `cooldown` 0–600; `endsAt` 0–100000000000000; `clockSkew` -10000000000–10000000000; `disabled` true / false; `size` 40–160 |
 | `level-map` | Level map *(`tab:*` for every entry: slot.index)* | `levels` 1–60; `current` 1–60; `selected` -1–59; `stars` text; `perRow` 2–8; `width` 200–960 |
-| `character-card` | Character card *(splits)* | `image` https address; `icon` icon; `name` text; `role` text; `level` text; `rarity` text; `data` `{ "columns": ["Stat", "Value", "Max"], "rows": [[…]] }`; `action` text; `width` 200–480 |
+| `character-card` | Character card *(splits)* | `image` a data:image picture (generate_image paints one; outside addresses are refused); `icon` icon; `name` text; `role` text; `level` text; `rarity` text; `data` `{ "columns": ["Stat", "Value", "Max"], "rows": [[…]] }`; `action` text; `width` 200–480 |
 | `game-result` | Game result *(splits)* | `title` text; `stars` 0–3; `scoreLabel` text; `score` text; `rewards` rows of `{ "label", "icon" }`; `retry` text; `next` text; `width` 220–520 |
-| `dialogue-box` | Dialogue box *(splits)* *(event `on:settled`: event.line, event.last)* *(prototype demo until `line` is bound)* | `speaker` text; `icon` icon; `image` https address; `lines` rows of `{ "label" }`; `line` 0–29; `choices` rows of `{ "label" }`; `next` text; `width` 220–960 |
+| `dialogue-box` | Dialogue box *(splits)* *(event `on:settled`: event.line, event.last)* *(prototype demo until `line` is bound)* | `speaker` text; `icon` icon; `image` a data:image picture (generate_image paints one; outside addresses are refused); `lines` rows of `{ "label" }`; `line` 0–29; `choices` rows of `{ "label" }`; `next` text; `width` 220–960 |
 | `game-board` | Game board *(`cell:*` for every entry: slot.index)* *(prototype demo until `cells` or `status` or `picked` is bound)* | `mode` mark / select; `rows` 1–20; `columns` 1–20; `cells` text; `status` text; `picked` text; `marks` text; `need` 2–10; `turnText` text; `winText` text; `drawText` text; `reset` text; `width` 160–720 |
 
 ##### Desktop
@@ -605,7 +605,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `menubar` | Menubar | `menus` rows of `{ "label" }`; `items` rows of `{ "label", "icon" }` |
 | `title-bar` | Title bar *(splits)* | `title` text; `controls` mac / windows / none; `width` 240–1920 |
 | `status-bar` | Status bar *(splits)* | `text` text; `icon` icon; `trailing` text; `width` 240–1920 |
-| `tree` | Tree | `items` rows of `{ "label", "icon" }`; `selected` 0–19; `width` 120–640 |
+| `tree` | Tree *(`tab:*` for every entry: slot.index)* | `items` rows of `{ "label", "icon" }`; `selected` 0–19; `width` 120–640 |
 | `window` | Window | `title` text; `controls` mac / windows / none; `layout` free / row / column / grid; `gap` 0–96; `gapY` 0–96; `padX` 0–96; `padY` 0–96; `padTop` 0–96; `padRight` 0–96; `padBottom` 0–96; `padLeft` 0–96; `align` start / center / end / stretch / baseline; `justify` start / center / end / between / around / evenly; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false; `width` 200–2400; `height` 120–2400 |
 | `code-block` | Code block | `code` text; `language` text; `width` 200–1280 |
 | `file-diff` | File diff | `file` text; `diff` text; `width` 200–1280 |

@@ -1,5 +1,7 @@
 import { h, ic, listSlots } from "../node";
 import type { Labels, ListItem, P, PartDef, PartSlot, PropDef, TableData } from "../types";
+import { FIELD, fieldFrame, fieldValues } from "../fieldState";
+import { ariaLabelProp } from "../a11y";
 
 /* Parts common kinds of app and game ask for that the rest of the catalog could not say: pictures looked
  * at and cropped, places and seats chosen, reviews, voice and calls, funnels and schedules; a game's bars,
@@ -228,7 +230,8 @@ export const more: PartDef[] = [
   /* ---------- choosing ---------- */
   {
     slug: "region-picker",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "RegionPicker", radius: 12 },
     name: "Region picker",
     labels: { ja: "地域選択", zh: "地区选择", ko: "지역 선택" },
     category: "Pickers",
@@ -260,11 +263,12 @@ export const more: PartDef[] = [
     /* the place picked, its levels joined with "/", is what the visitor enters */
     input: { prop: "value", kind: "text" },
     slots: (p) => slot("confirm", p.s("action"), !!p.s("action")),
-    tree: (p) => h("RegionPicker", { label: p.s("label"), placeholder: p.s("placeholder"), rows: p.table("data").rows, action: p.s("action"), ...(p.s("value") ? { value: p.s("value") } : {}), height: px(p, "height"), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("RegionPicker", { label: p.s("label"), placeholder: p.s("placeholder"), rows: p.table("data").rows, action: p.s("action"), ...(p.s("value") ? { value: p.s("value") } : {}), height: px(p, "height"), width: px(p) })),
   },
   {
     slug: "seat-map",
-    appearance: { radius: 12 },
+    field: FIELD,
+    appearance: { target: "SeatMap", radius: 12 },
     name: "Seat map",
     labels: { ja: "座席表", zh: "选座", ko: "좌석 배치도" },
     category: "Pickers",
@@ -285,12 +289,13 @@ export const more: PartDef[] = [
       text("picked", "Seats picked (A3,B5)", ""),
       text("total", "Total to show", ""),
       WIDTH(380, 240),
+      ariaLabelProp(),
     ],
     /* the seats picked are what the visitor enters; which are taken, and what they cost in all, are the data's */
     input: { prop: "picked", kind: "choices" },
     slots: (p) => slot("confirm", p.s("action"), !!p.s("action")),
     demo: { what: "works out an example total from the price of a seat", takenOverBy: ["total"] },
-    tree: (p) => h("SeatMap", { ...(p.s("picked") ? { picked: p.s("picked") } : {}), ...(p.s("total") ? { total: p.s("total") } : {}), rows: Math.round(p.n("rows")), columns: Math.round(p.n("columns")), aisle: Math.round(p.n("aisle")), taken: p.s("taken"), price: p.n("price"), currency: p.s("currency"), most: Math.round(p.n("most")), screen: p.s("screen"), pickedText: p.s("pickedText"), action: p.s("action"), width: px(p) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("SeatMap", { ...(p.s("picked") ? { picked: p.s("picked") } : {}), ...(p.s("total") ? { total: p.s("total") } : {}), rows: Math.round(p.n("rows")), columns: Math.round(p.n("columns")), aisle: Math.round(p.n("aisle")), taken: p.s("taken"), price: p.n("price"), currency: p.s("currency"), most: Math.round(p.n("most")), screen: p.s("screen"), pickedText: p.s("pickedText"), action: p.s("action"), width: px(p) })),
   },
   /* ---------- reading ---------- */
   {

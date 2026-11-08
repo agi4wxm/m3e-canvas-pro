@@ -158,11 +158,13 @@ function leafCode(vals: PValue[], f: Folding): string {
   if (samples.length === 2 && typeof samples[0] === "boolean") {
     const on = vals[samples[0] ? 0 : 1];
     const off = vals[samples[0] ? 1 : 0];
+    /* where only its truth counts (a test, a negation), `!!x` is `x`: ESLint calls the other redundant */
+    const test = /^!![\w$.]+(?:\((?:[^()]|\([^()]*\))*\))?$/.test(expr) ? expr.slice(2) : expr;
     if (on === true && off === undefined) return `${expr} || undefined`;
     if (on === true && off === false) return expr;
-    if (off === true && on === undefined) return `!${expr} || undefined`;
-    if (off === true && on === false) return `!${expr}`;
-    return `${expr} ? ${lit(on)} : ${lit(off)}`;
+    if (off === true && on === undefined) return `!${test} || undefined`;
+    if (off === true && on === false) return `!${test}`;
+    return `${test} ? ${lit(on)} : ${lit(off)}`;
   }
   /* the value most of the samples agree on goes last: "only the second tab looks like this" */
   const count = (v: PValue) => vals.filter((x) => same(x, v)).length;
@@ -875,7 +877,9 @@ export class Behaviour {
     const look = appearanceOf(it);
     /* the row last tapped is only known at run time: its fields go through the tree as words do */
     const fields = new Map<string, string>();
-    const base = markCurrent(withoutPickedImages(def, it.props ?? {}, this.image), (field) => {
+    /* what a form fixes on it (required, as its contract says) is drawn as the design's own */
+    const fixed = this.bound ? this.bound.formFixed(it, def) : {};
+    const base = markCurrent(withoutPickedImages(def, { ...it.props, ...fixed }, this.image), (field) => {
       fields.set(`current.${field}`, currentField(field));
       uses.app.add("current");
       return markOf(`current.${field}`);
@@ -932,24 +936,28 @@ export class Behaviour {
         /* a widget that declares an input takes its value as a prop and hands it out through onValueChange
            (parts/widgets/host.ts), whatever the widget is */
         const input = def.input;
-        if (!input || !(tree.type in WIDGET_SOURCES)) return tree;
+        /* the widget itself, inside the frame its field states may draw around it (parts/fieldState.ts) */
+        const widget = tree.type === "FieldFrame" ? tree.children?.find((c): c is PNode => typeof c !== "string" && c.type in WIDGET_SOURCES) : tree;
+        if (!input || !widget || !(widget.type in WIDGET_SOURCES)) return tree;
+        const inFrame = (wired: PNode): PNode => (widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) });
         const d = def.props.find((x) => x.key === input.prop);
         /* a choice is its place among the options, which a text variable holds as their words */
         if (input.kind === "choice" && d?.kind === "number") {
           const options = json(optionsOf(it));
           const read = v.type === "text" ? `${options}.indexOf(${this.readVar(v, "text", uses)})` : this.readVar(v, "number", uses);
           const write = v.type === "text" ? `${options}[Number(value)] ?? ""` : this.toVar(v, "Number(value)", "number");
-          return { ...tree, props: { ...tree.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${set(write)}`) } };
+          return inFrame({ ...widget, props: { ...widget.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${set(write)}`) } });
         }
         /* a list's rows are its words, a line each */
         if (d?.kind === "list") {
           const read = `${this.readVar(v, "text", uses)}.split("\\n").filter(Boolean)`;
           const write = 'Array.isArray(value) ? value.join("\\n") : String(value ?? "")';
-          return { ...tree, props: { ...tree.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${set(this.toVar(v, write, "text"))}`) } };
+          return inFrame({ ...widget, props: { ...widget.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${set(this.toVar(v, write, "text"))}`) } });
         }
         const kind = input.kind === "number" ? "number" : input.kind === "bool" ? "bool" : "text";
         const given = kind === "number" ? "Number(value) || 0" : kind === "bool" ? "!!value" : 'String(value ?? "")';
-        return { ...tree, props: { ...tree.props, [input.prop]: raw(this.readVar(v, kind, uses)), onValueChange: raw(`(value) => ${set(this.toVar(v, given, kind))}`) } };
+        const wired = { ...widget, props: { ...widget.props, [input.prop]: raw(this.readVar(v, kind, uses)), onValueChange: raw(`(value) => ${set(this.toVar(v, given, kind))}`) } };
+        return widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) };
       }
     }
   }

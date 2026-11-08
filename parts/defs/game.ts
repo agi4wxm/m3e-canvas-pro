@@ -1,5 +1,7 @@
 import { h, ic, listSlots } from "../node";
 import type { ListItem, P, PartDef, TableData } from "../types";
+import { FIELD, fieldFrame, fieldValues } from "../fieldState";
+import { ariaLabelProp } from "../a11y";
 
 /* The game parts, after 17722797729/m3e-canvas game-ui (MIT): a definition below and a widget in
  * parts/widgets for each. */
@@ -242,6 +244,8 @@ export const game: PartDef[] = [
   },
   {
     slug: "joystick",
+    /* a pad can be held still; it is named for a screen reader as any input is */
+    field: { disabled: "disabled" },
     appearance: { radius: 999 },
     name: "Joystick",
     labels: { ja: "方向ホイール", zh: "方向轮盘", ko: "방향 휠" },
@@ -254,16 +258,18 @@ export const game: PartDef[] = [
       { key: "angle", label: "Direction when drawn", labels: { ja: "静止時の方向", zh: "静止时的方向", ko: "정지 시 방향" }, kind: "number", default: 0, min: 0, max: 360, step: 1, unit: "°" },
       { key: "autoCenter", label: "Back to the middle on release", labels: { ja: "指を離したら中央へ", zh: "松手回中", ko: "손을 떼면 중앙으로" }, kind: "bool", default: true },
       { key: "value", label: "Direction (x,y from -1 to 1)", labels: { ja: "方向（x,y は -1 から 1）", zh: "方向（x,y 在 -1 到 1 之间）", ko: "방향 (x,y는 -1에서 1)" }, kind: "text", default: "" },
+      ariaLabelProp(),
     ],
     /* the direction the finger pushes is what the visitor enters; letting go is also sent */
     input: { prop: "value", kind: "vec2" },
     events: [{ name: "release", label: "Let go", labels: { ja: "指を離した", zh: "松开了", ko: "손을 뗌" }, payload: { x: "number", y: "number" } }],
-    tree: (p) => h("Joystick", { size: Math.round(p.n("size")), angle: Math.round(p.n("angle")), autoCenter: p.b("autoCenter"), ...(p.s("value") ? { value: p.s("value") } : {}) }),
+    tree: (p) => h("Joystick", { size: Math.round(p.n("size")), angle: Math.round(p.n("angle")), autoCenter: p.b("autoCenter"), ...(p.s("value") ? { value: p.s("value") } : {}), ...(p.b("disabled") ? { disabled: true } : {}), ...(p.s("ariaLabel").trim() ? { label: p.s("ariaLabel").trim() } : {}) }),
   },
   {
     slug: "quantity-stepper",
+    field: FIELD,
     input: { prop: "value", kind: "number" },
-    appearance: { radius: 999 },
+    appearance: { target: "QuantityStepper", radius: 999 },
     name: "Quantity stepper",
     labels: { ja: "数量ステッパー", zh: "数量加减器", ko: "수량 스테퍼" },
     category: "Forms",
@@ -275,12 +281,13 @@ export const game: PartDef[] = [
       { key: "min", label: "Minimum", labels: { ja: "最小値", zh: "最小值", ko: "최솟값" }, kind: "number", default: 0, min: 0, max: 999, step: 1 },
       { key: "max", label: "Maximum", labels: { ja: "最大値", zh: "最大值", ko: "최댓값" }, kind: "number", default: 99, min: 0, max: 999, step: 1 },
       { key: "width", label: "Width", kind: "number", default: 200, min: 120, max: 400, step: 4, unit: "px" },
+      ariaLabelProp(),
     ],
     /* the minus and the plus, for an action that changes the number somewhere else as well */
     slots: () => [
       { key: "dec", label: "Decrease" },
       { key: "inc", label: "Increase" },
     ],
-    tree: (p) => h("QuantityStepper", { value: Math.round(p.n("value")), min: Math.round(p.n("min")), max: Math.round(p.n("max")), width: Math.round(p.n("width")) }),
+    tree: (p) => fieldFrame(fieldValues(p), h("QuantityStepper", { value: Math.round(p.n("value")), min: Math.round(p.n("min")), max: Math.round(p.n("max")), width: Math.round(p.n("width")) })),
   },
 ];

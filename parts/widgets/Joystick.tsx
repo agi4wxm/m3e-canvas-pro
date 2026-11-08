@@ -38,7 +38,10 @@ const vecOf = (value: string): Vec | undefined => {
 };
 const wordsOf = (v: Vec) => `${round2(v.x)},${round2(v.y)}`;
 
-export function Joystick({ size = 132, angle = 0, autoCenter = true, value = "", demo, onValueChange, onEvent, wired, className, style }: { size?: number; angle?: number; autoCenter?: boolean; value?: string } & HostProps & Look) {
+/** the way each arrow pushes it, at full travel */
+const PUSH: Record<string, Vec> = { ArrowUp: { x: 0, y: -1 }, ArrowRight: { x: 1, y: 0 }, ArrowDown: { x: 0, y: 1 }, ArrowLeft: { x: -1, y: 0 } };
+
+export function Joystick({ size = 132, angle = 0, autoCenter = true, value = "", disabled = false, label, demo, onValueChange, onEvent, wired, className, style }: { size?: number; angle?: number; autoCenter?: boolean; value?: string; disabled?: boolean; label?: string } & HostProps & Look) {
   const host = useHost({ demo, onValueChange, onEvent, wired });
   const ref = useRef<HTMLDivElement>(null);
   /* where the finger holds the knob, while it does: the pad's own, however fast the value comes back */
@@ -54,6 +57,7 @@ export function Joystick({ size = 132, angle = 0, autoCenter = true, value = "",
   const side = Math.max(24, Math.round(size * 0.34));
 
   const move = (e: React.PointerEvent) => {
+    if (disabled) return;
     const box = ref.current?.getBoundingClientRect();
     if (!box) return;
     const travel = Math.min(box.width, box.height) * TRAVEL;
@@ -81,13 +85,14 @@ export function Joystick({ size = 132, angle = 0, autoCenter = true, value = "",
       data-angle={out ? angleOf(shown) : 0}
       data-value={wordsOf(shown)}
       role="slider"
-      aria-label="Joystick"
+      aria-label={label || "Joystick"}
+      aria-disabled={disabled || undefined}
       aria-valuemin={0}
       aria-valuemax={360}
       aria-valuenow={out ? angleOf(shown) : 0}
       aria-valuetext={wordsOf(shown)}
-      tabIndex={0}
-      className={cn("bg-surface-container-high relative rounded-full", className)}
+      tabIndex={disabled ? -1 : 0}
+      className={cn("bg-surface-container-high relative rounded-full", disabled && "opacity-38", className)}
       style={{ width: size, height: size, touchAction: "none", ...style }}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -96,6 +101,18 @@ export function Joystick({ size = 132, angle = 0, autoCenter = true, value = "",
       onPointerMove={(e) => held && move(e)}
       onPointerUp={release}
       onPointerCancel={release}
+      /* the arrows push it that way while they are held, as a finger would; letting go, or Escape, lets it go */
+      onKeyDown={(e) => {
+        const to = PUSH[e.key];
+        if (disabled || (!to && e.key !== "Escape")) return;
+        e.preventDefault();
+        if (!to) return release();
+        setHeld(to);
+        host.input(wordsOf(to));
+      }}
+      onKeyUp={(e) => {
+        if (PUSH[e.key]) release();
+      }}
     >
       <span data-slot="joystick-dot" className="bg-outline-variant absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" />
       <span

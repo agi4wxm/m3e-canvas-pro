@@ -11,10 +11,12 @@
 import type { ApiOperation } from "./export/api";
 import { answerShape, clientCallCode, fieldRule, fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, paramPlaces, placeArgs, readCode, readOf, regionOptions } from "./export/bindCode";
 import { endpointOf, formFields, type FieldSpec } from "./bindings/contract";
+import { messagesShown } from "./bindings/view";
 import { hasTemplate, parseExpr, type Expr } from "./bindings/expr";
 import { exprOfBind } from "./bindings/scope";
 import type { ApiSpec } from "./api/types";
 import { partBySlug, reader } from "../parts/registry";
+import { formStateProps } from "../parts/fieldState";
 import type { PartDef, PropDef } from "../parts/types";
 import { mapNodes, raw, type PNode, type PValue } from "../parts/node";
 import { str } from "../parts/print";
@@ -49,6 +51,8 @@ export type FormInfo = {
   specs: Map<string, FieldSpec>;
   /** its inputs: the field each fills, what it starts with */
   inputs: { field: string; start?: unknown }[];
+  /** the fields whose error the design shows in a line of its own (lib/bindings/view.ts `messagesShown`) */
+  shown?: Set<string>;
 };
 
 /** a data source of the screen: its variable and hook, and what its arguments read (the screen's scope, its params, the
@@ -171,6 +175,11 @@ export class BoundPrint {
         at = at.inFlow ? byId.get(at.inFlow) : undefined;
       }
     }
+    for (const key of messagesShown(groups, formOf)) {
+      const [id, field] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
+      const info = forms.get(id);
+      if (info) (info.shown ??= new Set()).add(field);
+    }
     for (const g of groups)
       for (const it of g.items) {
         const f = formOf.get(g.id);
@@ -256,10 +265,22 @@ export class BoundPrint {
   formProps(it: Item, def: PartDef): { key: string; expr: string }[] {
     const f = this.form;
     if (!f) return [];
-    const out: { key: string; expr: string }[] = [];
-    if (it.field && def.props.some((d) => d.key === "error")) out.push({ key: "error", expr: `!!${f.name}.error(${str(it.field)})` });
-    if (submits(it) && def.props.some((d) => d.key === "disabled")) out.push({ key: "disabled", expr: `${f.name}.submitting` });
-    return out;
+    /* by the part's field states (parts/fieldState.ts): its error and message, required as the contract says, a submit
+       button held and loading while the form submits */
+    const field = it.field ? str(it.field) : undefined;
+    const set = formStateProps(def, {
+      /* a message the design shows apart is "": the control keeps one shape while its error comes and goes */
+      ...(field ? { invalid: `!!${f.name}.error(${field})`, message: f.shown?.has(it.field!) ? '""' : `${f.name}.error(${field}) ?? ""` } : {}),
+      ...(submits(it) ? { submitting: `${f.name}.submitting` } : {}),
+    });
+    return set.flatMap(([key, v]) => (v === true ? [] : [{ key, expr: v }]));
+  }
+
+  /** what a form fixes on a part as it is printed: required, where the contract requires its field */
+  formFixed(it: Item, def: PartDef): Record<string, boolean> {
+    const f = this.form;
+    if (!f || !it.field) return {};
+    return Object.fromEntries(formStateProps(def, { required: !!f.specs.get(it.field)?.required }));
   }
 
   /** An input of a form, kept by the form: its value, what it writes. Null when it is no field of a form. */
@@ -302,19 +323,23 @@ export class BoundPrint {
       default: {
         /* a widget that declares an input takes the field's value as a prop and hands changes out (parts/widgets/host.ts) */
         const input = def.input;
-        if (!input || !(tree.type in WIDGET_SOURCES)) return null;
+        /* the widget itself, inside the frame its field states may draw around it (parts/fieldState.ts) */
+        const widget = tree.type === "FieldFrame" ? tree.children?.find((c): c is PNode => typeof c !== "string" && c.type in WIDGET_SOURCES) : tree;
+        if (!input || !widget || !(widget.type in WIDGET_SOURCES)) return null;
+        const inFrame = (wired: PNode): PNode => (widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) });
         const d = def.props.find((x) => x.key === input.prop);
         /* a choice sends the words of what is picked, and a list its rows' words */
         if (input.kind === "choice" && d?.kind === "number") {
           const options = str(optionsOf(it));
-          return { tree: { ...tree, props: { ...tree.props, [input.prop]: raw(`${options}.indexOf(${f.name}.text(${field}))`), onValueChange: raw(`(value) => ${f.name}.set(${field}, ${options}[Number(value)] ?? "")`) } } };
+          return { tree: inFrame({ ...widget, props: { ...widget.props, [input.prop]: raw(`${options}.indexOf(${f.name}.text(${field}))`), onValueChange: raw(`(value) => ${f.name}.set(${field}, ${options}[Number(value)] ?? "")`) } }) };
         }
         if (d?.kind === "list") {
           const now = `${f.name}.value(${field})`;
-          return { tree: { ...tree, props: { ...tree.props, [input.prop]: raw(`Array.isArray(${now}) ? ${now} : []`), onValueChange: raw(`(value) => ${f.name}.set(${field}, value)`) } } };
+          return { tree: inFrame({ ...widget, props: { ...widget.props, [input.prop]: raw(`Array.isArray(${now}) ? ${now} : []`), onValueChange: raw(`(value) => ${f.name}.set(${field}, value)`) } }) };
         }
         const read = input.kind === "number" ? `Number(${f.name}.value(${field}) ?? 0)` : input.kind === "bool" ? `!!${f.name}.value(${field})` : `${f.name}.text(${field})`;
-        return { tree: { ...tree, props: { ...tree.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${f.name}.set(${field}, value)`) } } };
+        const wired = { ...widget, props: { ...widget.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${f.name}.set(${field}, value)`) } };
+        return { tree: widget === tree ? wired : { ...tree, children: tree.children?.map((c) => (c === widget ? wired : c)) } };
       }
     }
   }

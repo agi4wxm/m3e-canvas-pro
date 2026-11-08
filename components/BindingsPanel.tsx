@@ -1,17 +1,18 @@
 import { createContext, useContext, useMemo, useState } from "react";
 import type { ApiSpec } from "@/lib/api/types";
-import { endpointOf, paramsOf, requestOf } from "@/lib/bindings/contract";
+import { endpointOf, paramsOf, requestOf, responseSchema } from "@/lib/bindings/contract";
 import { listPaths, shapeFor, type ScopeShape } from "@/lib/bindings/complete";
 import { exprOfBind } from "@/lib/bindings/scope";
 import { formAround, regionDesigns } from "@/lib/core/ops/bindings";
 import type { Op } from "@/lib/core";
 import * as ops from "@/lib/core/ops";
 import { INPUT_PROP } from "@/lib/interact";
+import { SAMPLE_ROWS } from "@/lib/collections";
 import { REGION_STATES, frameOfPart, type DataSource, type Doc, type Frame, type Group, type Item, type Palette, type RegionState } from "@/lib/tokens";
 import { t, useLang, type UIKey } from "@/lib/i18n";
 import { partBySlug } from "@/parts/registry";
 import { labelOf } from "@/parts/labels";
-import { BehaviorContext } from "./EffectsPanel";
+import { BehaviorContext, BodyEditor } from "./EffectsPanel";
 import { DesignSection, actionBtn } from "./DesignPanel";
 import { ExprField } from "./ExprField";
 import { Icon } from "./Icon";
@@ -118,6 +119,36 @@ export function ArgFields({ api, operationId, value, onChange, shape, p, body }:
   );
 }
 
+/** A form's body fields that no input in it fills, each an expression (`FormBinding.values`): what the visitor does not
+ *  type, sent all the same (the signed-in user's id, a screen param). */
+function FormValues({ api, form, group, groups, shape, p, onChange }: { api: ApiSpec | undefined; form: NonNullable<Group["form"]>; group: Group; groups: Group[]; shape: ScopeShape; p: Palette; onChange: (v: Record<string, string> | undefined) => void }) {
+  const lang = useLang();
+  const e = endpointOf(api, form.operationId);
+  if (!e || !api) return null;
+  const filled = new Set(groups.filter((g) => formAround(groups, g)?.id === group.id).flatMap((g) => g.items.map((it) => it.field).filter((f): f is string => !!f)));
+  const fields = Object.keys(requestOf(api, e)?.schema?.properties ?? {}).filter((f) => !filled.has(f) || form.values?.[f] !== undefined);
+  if (!fields.length) return null;
+  const put = (k: string, v: string) => {
+    const next = { ...form.values };
+    if (v) next[k] = v;
+    else delete next[k];
+    onChange(Object.keys(next).length ? next : undefined);
+  };
+  return (
+    <div data-form-values style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={label(p)}>{t("bdFormValues", lang)}</div>
+      {fields.map((k) => (
+        <div key={k} style={{ display: "grid", gridTemplateColumns: "84px minmax(0, 1fr)", gap: 6, alignItems: "start" }}>
+          <span title={k} style={{ fontSize: 12, fontFamily: "ui-monospace, monospace", color: p.onSurfaceVariant, paddingTop: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {k}
+          </span>
+          <ExprField name={`value:${k}`} value={form.values?.[k] ?? ""} onCommit={(v) => put(k, v)} shape={shape} api={api} p={p} label={k} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ---------- a screen ---------- */
 
 function SourceCard({ frame, source, shape, p }: { frame: Frame; source: DataSource; shape: ScopeShape; p: Palette }) {
@@ -197,9 +228,11 @@ export function ScreenDataSection({ frame, p }: { frame: Frame; p: Palette }) {
         )}
         <div style={label(p)}>{t("bdParams", lang)}</div>
         {(frame.params ?? []).map((prm, i) => (
-          <div key={i} data-screen-param={prm.name} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) 28px", gap: 4, alignItems: "center" }}>
+          <div key={i} data-screen-param={prm.name} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) 76px 28px", gap: 4, alignItems: "center" }}>
             <Field value={prm.name} onChange={(name) => name && b.run(ops.setScreenParams, { screen: frame.id, params: (frame.params ?? []).map((x, j) => (j === i ? { ...x, name } : x)) })} label={t("bdParamName", lang)} placeholder={t("bdParamName", lang)} p={p} height={30} />
             <Field value={prm.example ?? ""} onChange={(example) => b.run(ops.setScreenParams, { screen: frame.id, params: (frame.params ?? []).map((x, j) => (j === i ? { ...x, example } : x)) }, `params:${frame.id}:${i}`)} label={t("bdExample", lang)} placeholder={t("bdExample", lang)} p={p} height={30} />
+            {/* what the screen is given: words, a number, yes or no */}
+            <Select height={30} label={t("bdParamType", lang)} p={p} value={prm.type ?? "string"} options={(["string", "number", "boolean"] as const).map((k) => ({ key: k, label: t(`bdParamType_${k}`, lang) }))} onChange={(k) => b.run(ops.setScreenParams, { screen: frame.id, params: (frame.params ?? []).map((x, j) => (j === i ? { ...x, type: k as "string" | "number" | "boolean" } : x)) })} />
             <IconBtn icon="close" p={p} size={28} onClick={() => b.run(ops.setScreenParams, { screen: frame.id, params: (frame.params ?? []).filter((_, j) => j !== i) })} title={t("delete", lang)} />
           </div>
         ))}
@@ -239,7 +272,8 @@ export function ScreenDataSection({ frame, p }: { frame: Frame; p: Palette }) {
 export const STATE_TEXT: Record<RegionState, UIKey> = { ready: "bdStateReady", loading: "bdStateLoading", empty: "bdStateEmpty", error: "bdStateError", forbidden: "bdStateForbidden" };
 
 /** the props a part can bind to an expression: those with a value of one line, or a list */
-const bindable = (it: Item) => (partBySlug(it.component)?.props ?? []).filter((d) => d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum" || d.kind === "image" || d.kind === "icon" || d.kind === "list");
+/** the props an expression can stand for: a table too, from a list of records (an API list, a collection) */
+const bindable = (it: Item) => (partBySlug(it.component)?.props ?? []).filter((d) => d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum" || d.kind === "image" || d.kind === "icon" || d.kind === "list" || d.kind === "table");
 
 /** On a part: its props from expressions, and on a container a repeat from data, the states of a region, a form; on an
  *  input in a form, its field. */
@@ -262,10 +296,15 @@ export function PartDataSection({ item, frame, p }: { item: Item; frame: Frame |
   const hasApi = !!api?.endpoints?.length;
   const form = formAround(b.doc.groups, group);
   const isInput = INPUT_PROP[item.component ?? ""] !== undefined || item.component === "file-upload";
-  if (!hasApi && !exprs.length && !frame?.data?.length) return null;
+  /* a table or a list can read the document's data sets (`collections.<name>`) with no API at all */
+  const readsSets = !!b.doc.collections?.length && !!def?.props.some((d) => d.kind === "table" || d.kind === "list");
+  if (!hasApi && !exprs.length && !frame?.data?.length && !readsSets) return null;
   const props = bindable(item);
   const run = b.run;
   const repeatHost = behavior.repeatHost;
+  /* a repeat over data: its limit and the copies the canvas draws are its own */
+  const byData = repeatHost?.repeat?.data !== undefined ? repeatHost.repeat : undefined;
+  const setByData = (patch: { limit?: number; sample?: number }) => byData && repeatHost && run(ops.setRepeat, { id: repeatHost.id, repeat: { data: byData.data, limit: byData.limit, sample: byData.sample, ...patch } });
   const lists = listPaths(api ?? {}, repeatHost ? shapeFor(b.doc, frame ?? undefined, repeatHost.id, b.widths) : shape);
   const writable = endpointOptions(api, (m) => m === "post" || m === "put" || m === "patch");
   const designs = group.states ? regionDesigns(b.doc.groups, group) : {};
@@ -316,7 +355,16 @@ export function PartDataSection({ item, frame, p }: { item: Item; frame: Frame |
               options={[{ key: "", label: t("bdRepeatNone", lang), icon: "block" }, ...lists.map((l) => ({ key: l.path, label: l.path, icon: "repeat" })), ...(repeatHost.repeat?.data && !lists.some((l) => l.path === repeatHost.repeat?.data) ? [{ key: repeatHost.repeat.data, label: repeatHost.repeat.data, icon: "repeat" }] : [])]}
               onChange={(k) => run(ops.setRepeat, { id: repeatHost.id, repeat: k ? { data: k } : null })}
             />
-            {repeatHost.repeat?.data !== undefined && <div style={hint(p)}>{t("bdRepeatHint", lang)}</div>}
+            {repeatHost.repeat?.data !== undefined && (
+              <>
+                {/* how many it draws at most, and how many copies the canvas shows while it has no data */}
+                <div data-repeat-limits style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  <Num value={byData?.limit ?? 200} min={1} max={200} title={t("bdRepeatLimit", lang)} lazy onChange={(limit) => setByData({ limit: limit < 200 ? limit : undefined })} p={p} />
+                  <Num value={byData?.sample ?? SAMPLE_ROWS} min={1} max={12} title={t("bdRepeatSample", lang)} lazy onChange={(sample) => setByData({ sample })} p={p} />
+                </div>
+                <div style={hint(p)}>{t("bdRepeatHint", lang)}</div>
+              </>
+            )}
           </div>
         )}
 
@@ -328,6 +376,9 @@ export function PartDataSection({ item, frame, p }: { item: Item; frame: Frame |
               <>
                 <Select height={28} label={t("bdRegionSource", lang)} p={p} value={group.states.source ?? ""} options={(frame?.data ?? []).map((d) => ({ key: d.name, label: `data.${d.name}`, icon: "cloud_download" }))} onChange={(k) => run(ops.setRegion, { id: group.id, source: k, designs: false })} />
                 <StateChips group={group} designs={designs} p={p} />
+                {/* when the data counts as empty, over the default (no items, or nothing) */}
+                <div style={label(p)}>{t("bdRegionEmptyWhen", lang)}</div>
+                <ExprField name="emptyWhen" value={group.states.emptyWhen ?? ""} onCommit={(v) => run(ops.setRegion, { id: group.id, emptyWhen: v || null, designs: false })} shape={shape} api={api} p={p} label={t("bdRegionEmptyWhen", lang)} />
                 {REGION_STATES.some((st) => st !== "ready" && !designs[st]?.length) && (
                   <button data-add-designs onClick={() => run(ops.setRegion, { id: group.id })} className="m3-press" style={actionBtn(p)}>
                     <Icon name="auto_awesome" size={16} />
@@ -348,6 +399,12 @@ export function PartDataSection({ item, frame, p }: { item: Item; frame: Frame |
               <>
                 <Select height={28} label={t("bdFormFor", lang)} p={p} value={group.form.operationId} options={writable} onChange={(k) => run(ops.setForm, { id: group.id, form: { ...group.form!, operationId: k } })} />
                 <ArgFields api={api} operationId={group.form.operationId} value={group.form.params} onChange={(params) => run(ops.setForm, { id: group.id, form: { ...group.form!, ...(params ? { params } : { params: undefined }) } })} shape={shape} p={p} />
+                <FormValues api={api} form={group.form} group={group} groups={b.doc.groups} shape={shape} p={p} onChange={(values) => run(ops.setForm, { id: group.id, form: { ...group.form!, values } })} />
+                {/* what runs once it is answered: where it goes, what it sets, what it says */}
+                <div style={label(p)}>{t("bdFormAnswer", lang)}</div>
+                {/* eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it */}
+                <BodyEditor title={t("bdThen", lang)} body={group.form.then} onChange={(then) => run(ops.setForm, { id: group.id, form: { ...group.form!, then } })} p={p} depth={1} response={(() => { const e = api ? endpointOf(api, group.form!.operationId) : undefined; return api && e ? (responseSchema(api, e) ?? true) : true; })()} />
+                <BodyEditor title={t("bdCatch", lang)} body={group.form.catch} onChange={(next) => run(ops.setForm, { id: group.id, form: { ...group.form!, catch: next } })} p={p} depth={1} error />
                 <button onClick={() => run(ops.setForm, { id: group.id, form: null })} className="m3-press" style={actionBtn(p)}>
                   <Icon name="remove_circle_outline" size={16} />
                   {t("bdFormRemove", lang)}

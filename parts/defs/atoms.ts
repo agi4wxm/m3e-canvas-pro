@@ -2,6 +2,8 @@ import { FLOW_PROPS } from "../flow";
 import { h, type PNode } from "../node";
 import { SVG_PRESETS, SVG_PRESET_KEYS, cleanPath, sanitizeSvg } from "../svg";
 import type { P, PartDef, PartRole, PropDef } from "../types";
+import { FIELD, fieldFrame, fieldValues, requiredMark } from "../fieldState";
+import { ariaLabelProp, nameFor } from "../a11y";
 
 /* The atoms nothing else covered: the box everything is composed in, a vector drawing, a single
  * radio button and a status dot. A box is a frame with auto layout and no words of its own; what it
@@ -87,7 +89,9 @@ const INK: Record<string, string> = {
 /** the drawing of the vector part: a shape of the library, one path, or cleaned markup */
 function svgTree(p: P): PNode {
   const mode = p.s("mode");
-  const own = { "data-slot": "svg", role: "img", "aria-label": p.s("label") || undefined, className: INK[p.s("color")] || undefined, width: px(p, "width"), height: px(p, "height"), preserveAspectRatio: p.b("stretch") ? "none" : undefined };
+  /* a drawing it names is a picture to a screen reader; one it does not is decoration, kept from it */
+  const named = p.s("label").trim();
+  const own = { "data-slot": "svg", role: named ? "img" : undefined, "aria-label": named || undefined, "aria-hidden": named ? undefined : true, className: INK[p.s("color")] || undefined, width: px(p, "width"), height: px(p, "height"), preserveAspectRatio: p.b("stretch") ? "none" : undefined };
   const stroke = (w: number) => ({ fill: "none", stroke: "currentColor", strokeWidth: w, strokeLinecap: "round", strokeLinejoin: "round" });
   if (mode === "markup") {
     const clean = sanitizeSvg(p.s("markup"), p.scope);
@@ -178,7 +182,7 @@ export const atoms: PartDef[] = [
   },
   {
     slug: "radio",
-    appearance: { radius: 8 },
+    appearance: { target: "RadioGroup", radius: 8 },
     name: "Radio button",
     labels: { ja: "ラジオボタン", zh: "单选按钮", ko: "라디오 버튼" },
     category: "Controls",
@@ -190,13 +194,21 @@ export const atoms: PartDef[] = [
       { key: "label", label: "Label", kind: "text", default: "Option A" },
       { key: "checked", label: "Checked", kind: "bool", default: true },
       { key: "disabled", label: "Disabled", kind: "bool", default: false },
+      ariaLabelProp((p) => !p.s("label")),
     ],
-    tree: (p) =>
-      h(
-        "RadioGroup",
-        { defaultValue: p.b("checked") ? "on" : "", disabled: p.b("disabled") || undefined, className: "w-fit" },
-        h("Label", null, h("RadioGroupItem", { value: "on", "aria-label": p.s("label") ? undefined : p.say("Option") }), p.s("label")),
-      ),
+    field: FIELD,
+    tree: (p) => {
+      const v = fieldValues(p);
+      return fieldFrame(
+        v,
+        h(
+          "RadioGroup",
+          { defaultValue: p.b("checked") ? "on" : "", required: v.required || undefined, readOnly: v.readOnly || undefined, disabled: v.disabled || undefined, className: "w-fit" },
+          h("Label", null, h("RadioGroupItem", { value: "on", "aria-label": p.s("label") ? undefined : nameFor(p, p.say("Option")), "aria-invalid": v.invalid || undefined }), requiredMark(p.s("label"), v.required)),
+        ),
+        { holds: true, marksRequired: !!p.s("label") },
+      );
+    },
     guess: (p) => (p.s("label") ? { w: 32 + Math.ceil(p.s("label").length * 8), h: 24 } : { w: 20, h: 20 }),
   },
   {

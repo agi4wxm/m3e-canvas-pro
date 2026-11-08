@@ -9,6 +9,8 @@ import { PARTS } from "./parts.generated";
 export function withDefaults<T extends object>(slug: string, props: Partial<T>): T {
   const defaults = (PARTS[slug]?.defaults ?? {}) as Partial<T>;
   const out = { ...defaults } as Record<string, unknown>;
+  /* an error's message is there only where something gives one (a form), so a field shows whether it is in one */
+  delete out.errorText;
   for (const [k, v] of Object.entries(props)) if (v !== undefined) out[k] = v;
   return out as T;
 }

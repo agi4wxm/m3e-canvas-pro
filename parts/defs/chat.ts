@@ -114,6 +114,8 @@ export const chat: PartDef[] = [
       { key: "orientation", label: "Orientation", kind: "enum", default: "horizontal", options: ["horizontal", "vertical"] },
       { key: "remove", label: "Remove button", kind: "bool", default: false },
     ],
+    /* its remove button asks for the file to go (the API says when it has) */
+    slots: (p) => (p.b("remove") ? [{ key: "remove", label: p.say("Remove"), icon: "close", own: true }] : []),
     tree: (p) =>
       h(
         "Attachment",
@@ -124,7 +126,7 @@ export const chat: PartDef[] = [
         },
         h("AttachmentMedia", null, ic(p.s("icon") || "description")),
         h("AttachmentContent", null, h("AttachmentTitle", null, p.s("title")), p.s("description") && h("AttachmentDescription", null, p.s("description"))),
-        p.b("remove") && h("AttachmentActions", null, h("AttachmentAction", { "aria-label": p.say("Remove") }, ic("close"))),
+        p.b("remove") && h("AttachmentActions", null, h("AttachmentAction", { "aria-label": p.say("Remove"), "data-tap": "remove" }, ic("close"))),
       ),
   },
   {

@@ -89,6 +89,8 @@ export function payloadOf(e: PartEvent, raw: unknown): Record<string, unknown> {
 export function declarationsOf(def: PartDef): Record<string, unknown> {
   return {
     ...(def.input ? { input: { prop: def.input.prop, kind: def.input.kind } } : {}),
+    /* the field states it shows, each by its prop (parts/fieldState.ts) */
+    ...(def.field ? { fieldStates: { ...def.field, setBy: "a form: its contract's check sets the error and message, its required fields required, a submit loading" } } : {}),
     ...(def.families?.length ? { families: def.families.map((f) => ({ key: familyKey(f.prefix), label: f.label, reads: "slot.index" })) } : {}),
     ...(def.events?.length ? { events: def.events.map((e) => ({ key: eventKey(e.name), label: e.label, payload: Object.fromEntries(Object.entries(e.payload ?? {}).map(([k, kind]) => [`event.${k}`, kind])) })) } : {}),
     ...(def.demo ? { demo: { what: def.demo.what, onlyInPrototype: true, takenOverBy: def.demo.takenOverBy.map((k) => `bind ${k}`).concat("an action of the part that calls the API") } } : {}),
