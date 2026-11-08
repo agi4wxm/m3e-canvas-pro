@@ -1102,7 +1102,9 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
     const { l, t, r, b } = unionRect(doc.groups.map((g) => groupBounds(g, widths)));
     frames = [{ id: "canvas", name: doc.title || "Screen", x: l, y: t, w: Math.max(PHONE_W, Math.round(r - l)), h: Math.max(PHONE_H / 2, Math.round(b - t)) }];
   }
-  const taken = new Set<string>();
+  /* a screen's component is never the kit's Screen, which its file draws with (its key, "Back" and the like, starts
+     with a capital, so it is never the kit's "back", "link" or "none") */
+  const taken = new Set<string>(["screen"]);
   const keys = new Set<string>();
   const screens: Screens = { keys: new Map(), names: new Map() };
   frames.forEach((f, i) => {

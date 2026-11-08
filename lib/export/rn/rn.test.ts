@@ -133,6 +133,15 @@ describe("the screens", () => {
     expect(authForm).toContain("tapOf(p, `other:${i}`)");
   });
 
+  it("never names a screen's component as the kit's Screen, nor its key where a tap goes beside a screen", () => {
+    const doc = docOf([]);
+    doc.frames = ["Home", "Screen", "Back", "None"].map((name, i) => ({ id: `f${i}`, name, x: i * 600, y: 0 }));
+    const printed = printRnScreens(doc, {});
+    expect(printed.screens.map((s) => [s.component, s.key])).toEqual([["HomeScreen", "Home"], ["Screen2", "Screen"], ["BackScreen", "Back"], ["NoneScreen", "None"]]);
+    expect(printed.screens[1].source).toContain("export function Screen2()");
+    for (const s of printed.screens) parses(`${s.component}.tsx`, s.source);
+  });
+
   it("names screens and keys by the author's words, letters only, and writes the index", () => {
     const doc = docOf([]);
     doc.frames = [{ id: "a", name: "Home */ evil", x: 0, y: 0, flow: "Main" }, { id: "b", name: "Home */ evil", x: 600, y: 0 }, { id: "c", name: "合计", x: 1200, y: 0 }];
