@@ -134,7 +134,8 @@ describe("the product of a document", () => {
     for (const path of APP_RUNTIME_FILES) {
       const source = text(proof, `packages/app-runtime/src/engine/${path.slice(4)}`);
       for (const spec of importsIn(source)) expect(spec.startsWith(".") || spec === "react", `${path} imports ${spec}`).toBe(true);
-      const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+      /* the code, without its comments and the words of its strings (a media type such as …wordprocessingml.document) */
+      const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").replace(/"(?:[^"\\\n]|\\.)*"/g, '""');
       expect(code, path).not.toMatch(/\b(window|document|localStorage|sessionStorage|navigator|fetch|XMLHttpRequest)\b|react-native|@tarojs/);
     }
     expect(text(proof, "AGENTS.md")).toContain("## The app runtime (packages/app-runtime)");
