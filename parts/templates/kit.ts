@@ -46,6 +46,8 @@ export type Node = {
   screenMain?: boolean;
   /** a box that draws its first child once per row of a data collection (`Group.repeat`), by the collection's id */
   repeat?: { collection: string };
+  /** one of the two panes of the split view it is in (`split`) */
+  pane?: "first" | "second";
   kids?: Node[];
 };
 type Extra = Pick<Node, "name" | "fill" | "grow" | "textColor" | "corners" | "look" | "action" | "actions" | "note" | "at" | "screenMain">;
@@ -59,6 +61,7 @@ const NAME = {
   row: say("Row", "横排", "横並び", "가로"),
   grid: say("Grid", "网格", "グリッド", "격자"),
   panel: say("Panel", "面板", "パネル", "패널"),
+  split: say("Split view", "分栏视图", "分割ビュー", "분할 보기"),
 };
 
 /* a container in a layout has no words or paint of its own unless a template asks for them */
@@ -72,6 +75,14 @@ export const row = (props: Props, kids: Node[], extra: Extra = {}): Node => ({ s
 export const grid = (columns: number, props: Props, kids: Node[], extra: Extra = {}): Node => ({ slug: "container", props: { ...BARE, layout: "grid", columns, gap: 12, align: "stretch", hugHeight: true, ...props }, name: NAME.grid, ...extra, kids });
 /** a column on a tinted, rounded ground */
 export const panel = (props: Props, kids: Node[], extra: Extra = {}): Node => col({ fill: "surface-container-low", radius: 16, padX: 16, padY: 16, ...props }, kids, { name: NAME.panel, ...extra });
+
+/** Two panes side by side (one over the other with `orientation: "vertical"`), both showing, with a divider the visitor
+ *  drags: a split view, whose panes are the two containers given (`col`, `panel`…), each laying out what it holds. */
+export const split = (props: Props, first: Node, second: Node, extra: Extra = {}): Node => {
+  /* a pane is as big as the split gives it, never as what it holds */
+  const pane = (n: Node, side: "first" | "second"): Node => ({ ...n, props: { ...n.props, hugWidth: false, hugHeight: false }, pane: side });
+  return { slug: "split-view", props, name: NAME.split, ...extra, kids: [pane(first, "first"), pane(second, "second")] };
+};
 
 export const txt = (text: Say | string, style = "body", more: Props = {}, extra: Extra = {}): Node => part("text", { text, style, ...more }, extra);
 
@@ -143,7 +154,7 @@ export function seedGroups(seed: ScreenSeed): SeedGroup[] {
       ...(Object.keys(actions).length ? { actions } : {}),
       ...(node.note ? { note: node.note } : {}),
     };
-    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), ...(node.at ? { at: node.at } : {}), ...(node.screenMain ? { screenMain: true } : {}), ...(node.repeat ? { repeat: { collection: node.repeat.collection } } : {}), items: [item] });
+    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), ...(node.pane && inFlow ? { splitPane: node.pane } : {}), ...(node.at ? { at: node.at } : {}), ...(node.screenMain ? { screenMain: true } : {}), ...(node.repeat ? { repeat: { collection: node.repeat.collection } } : {}), items: [item] });
     for (const kid of node.kids ?? []) visit(kid, id);
   };
   for (const root of seed.roots) visit(root);

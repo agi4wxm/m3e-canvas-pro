@@ -114,6 +114,12 @@ export function useAdding({ store, runOp, showToast, selectedIds, selectedFrameI
   const splitSelected = () => {
     const id = selectedIds[0];
     if (!id) return;
+    /* a legacy resizable splits into a split view whose panes hold parts */
+    const it = store.get().doc.groups.flatMap((g) => g.items).find((x) => x.id === id);
+    if (it?.component === "resizable") {
+      runOp(ops.convertToSplitView, { id }, { history: "step", refused: () => {} });
+      return;
+    }
     if (!runOp(ops.split, { id }, { history: "step", refused: () => {} })) return;
     showToast(t("splitDone", getLang()));
   };

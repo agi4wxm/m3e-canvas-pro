@@ -50,6 +50,7 @@ const { createTaroTransport, queryString, taroStorage } = await import("../src/k
 const { readQuery, urlOf } = await import("../src/kit/app/nav");
 const { coerce } = await import("../src/kit/app/vars");
 const { optionIndex, rowsOf } = await import("../src/kit/app/values");
+const { firstOf } = await import("../src/kit/split");
 
 describe("colors", () => {
   it("names a role, a role with an opacity and a hex as CSS", () => {
@@ -172,5 +173,23 @@ describe("variables and values", () => {
     expect(rowsOf("no", [{ label: "x" }])).toEqual([{ label: "x" }]);
     expect(optionIndex(["CNY", "USD"], "USD")).toBe(1);
     expect(optionIndex(["CNY"], undefined)).toBe(-1);
+  });
+});
+
+describe("a split view", () => {
+  const none = { min: [0, 0] as [number, number], max: [0, 0] as [number, number], collapsible: "none" as const, collapsedSize: 0, collapsed: false };
+
+  it("sizes its first pane as the editor's layout does: the share, inside both panes' limits", () => {
+    expect(firstOf(30, 1000, none)).toEqual({ first: 300, folded: false });
+    expect(firstOf(10, 1000, { ...none, min: [240, 0] })).toEqual({ first: 240, folded: false });
+    expect(firstOf(90, 1000, { ...none, min: [0, 300] })).toEqual({ first: 700, folded: false });
+    expect(firstOf(90, 1000, { ...none, max: [400, 0] })).toEqual({ first: 400, folded: false });
+  });
+
+  it("folds the pane that folds, below half way to its least", () => {
+    const rail = { ...none, min: [200, 0] as [number, number], collapsible: "first" as const, collapsedSize: 64 };
+    expect(firstOf(12, 1000, rail)).toEqual({ first: 64, folded: true });
+    expect(firstOf(15, 1000, rail)).toEqual({ first: 200, folded: false });
+    expect(firstOf(30, 1000, { ...rail, collapsed: true })).toEqual({ first: 64, folded: true });
   });
 });

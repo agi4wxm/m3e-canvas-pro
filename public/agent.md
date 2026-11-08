@@ -150,7 +150,7 @@ Fields any part may carry beside `props`:
 - `look`: the part's effects, for a crafted look (a game button, a glass panel, a title); most parts need none. Colors in it are an M3 role in kebab case (`primary`, `on-surface`, `surface-container-high`), a role at a share (`primary/40`) or a hex (`#rrggbb`, `#rrggbbaa`), nothing else. Fields: `fills` (paint layers, top first: `{ "type": "solid", "color" }` or `{ "type": "linear" | "radial" | "conic", "stops": [{ "color", "at" }], "angle", "x", "y" }`), `clearFill`, `stroke` (`{ "width", "color", "style", "position" }`), `shadows` (`[{ "x", "y", "blur", "spread", "color", "inset" }]`), `elevation` (0–4, the style's own shadow), `opacity`, `blur`, `glass`, `blend`, `filter`, `rotate`, `transform` (`scaleX`, `scaleY`, `skewX`, `skewY`, `flipX`, `flipY`), `text` (`color`, `size`, `weight`, `letterSpacing`, `lineHeight`, `case`, `italic`, `decoration`, `shadows`, `stroke`, `gradient`) and `texture` (`{ "kind": "noise" | "paper" | "dots" | "grid" | "stripes" | "diagonal" | "checker" | "carbon" | "scanlines" | "crosshatch" | "halftone", "color", "opacity", "size" }`). Anything malformed is dropped when the document arrives.
 - In an auto layout, also: `flowSize: { "w": "fixed" | "hug" | "fill", "h": … }` sizes the part on each axis (`hug` only for a container with a layout of its own); `alignSelf: "start" | "center" | "end" | "stretch" | "baseline"` overrides the container's `align` for this part; `flowAbsolute: true` leaves it where it is put, over the layout (a badge on a card); `flowMin` / `flowMax: { "w", "h" }` bound what the layout makes it; `flowSpan: 2` takes two columns of a grid.
 
-Fields a group may carry: `name`, what the layers and the prompt call it; `hidden: true` starts it hidden, with no hole left in an auto layout; `showWhen`, a condition, shows it only while that holds; `pane`, a number, is the tab of the `dock` it stands on; `inFlow`, see below.
+Fields a group may carry: `name`, what the layers and the prompt call it; `hidden: true` starts it hidden, with no hole left in an auto layout; `showWhen`, a condition, shows it only while that holds; `pane`, a number, is the tab of the `dock` it stands on; `inFlow`, see below; `splitPane`, `first` or `second`, makes it a pane of the split view its `inFlow` names (see Split view).
 
 #### Auto layout
 
@@ -162,6 +162,20 @@ Each part in it names it by group id with `inFlow`, in the order the parts come 
 { "id": "col", "x": 0, "y": 64, "axis": "x", "items": [ { "id": "c", "kind": "component", "component": "container", "label": "", "icon": null, "variant": "filled", "props": { "layout": "column", "gap": 12, "padX": 16, "padY": 16, "align": "stretch", "fill": "none", "border": "none", "width": 412, "height": 400 } } ] }
 { "id": "a", "x": 0, "y": 0, "axis": "x", "inFlow": "col", "items": [ { "id": "t", "kind": "component", "component": "text-field", "label": "", "icon": null, "variant": "filled", "props": { "label": "Email" } } ] }
 { "id": "b", "x": 0, "y": 0, "axis": "x", "inFlow": "col", "items": [ { "id": "s", "kind": "component", "component": "button", "label": "", "icon": null, "variant": "filled", "props": { "label": "Sign in" } } ] }
+```
+
+#### Split view
+
+Two panes side by side (`"orientation": "vertical"`: one over the other), both always showing, with a divider the person using the app drags: a list and its detail, a file tree beside an editor, a terminal under it. A `split-view` lays out exactly two panes. Each pane is a `box` (or `container`) with a layout of its own, after the split view in the document, naming it with `inFlow` and saying which pane it is with `"splitPane": "first"` or `"second"`; the parts go in a pane, naming the pane with `inFlow`, never the split view. The split view sizes its panes (their `x`, `y`, `width` and `height` are worked out), so give a pane only its layout and padding. For three or more panes, put a split view in a pane.
+
+`split` is the design's share of the first pane, in percent of the room the divider leaves. `minFirst`, `maxFirst`, `minSecond`, `maxSecond` bound each pane in px (0: no limit). `collapsible` (`first` or `second`) lets that pane fold away, to `collapsedSize` (0, or 56–80 for a strip of icons), and `collapsed: true` starts it folded. Narrower than `breakpoint` (600) it lays the panes one over the other unless `compact` is `keep`. What a person drags is theirs: the app starts from `split` each time, or, with `persist: true`, from where they left it on that device. Want one pane at a time? That is tabs or a `dock`, not a split view. (`resizable` is an old demo whose panels hold only words: use `split-view`.)
+
+```json
+{ "id": "sv", "x": 0, "y": 0, "axis": "x", "items": [ { "id": "split", "kind": "component", "component": "split-view", "label": "", "icon": null, "variant": "filled", "props": { "split": 30, "minFirst": 240, "width": 1280, "height": 800 } } ] }
+{ "id": "p1", "x": 0, "y": 0, "axis": "x", "inFlow": "sv", "splitPane": "first", "items": [ { "id": "list", "kind": "component", "component": "box", "label": "", "icon": null, "variant": "filled", "props": { "layout": "column", "gap": 8, "padX": 16, "padY": 16, "align": "stretch", "hugWidth": false, "hugHeight": false } } ] }
+{ "id": "l1", "x": 0, "y": 0, "axis": "x", "inFlow": "p1", "items": [ { "id": "inbox", "kind": "component", "component": "text", "label": "", "icon": null, "variant": "filled", "props": { "text": "Inbox", "style": "title" } } ] }
+{ "id": "p2", "x": 0, "y": 0, "axis": "x", "inFlow": "sv", "splitPane": "second", "items": [ { "id": "detail", "kind": "component", "component": "box", "label": "", "icon": null, "variant": "filled", "props": { "layout": "column", "gap": 8, "padX": 24, "padY": 16, "align": "stretch", "hugWidth": false, "hugHeight": false } } ] }
+{ "id": "d1", "x": 0, "y": 0, "axis": "x", "inFlow": "p2", "items": [ { "id": "subject", "kind": "component", "component": "text", "label": "", "icon": null, "variant": "filled", "props": { "text": "Notes from the review", "style": "headline" } } ] }
 ```
 
 #### Composing from atoms
@@ -468,6 +482,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `grid-view` | Grid | `label` text; `note` text; `columns` 1–12; `rows` 1–12; `gap` 0–96; `gapY` 0–96; `padX` 0–96; `padY` 0–96; `padTop` 0–96; `padRight` 0–96; `padBottom` 0–96; `padLeft` 0–96; `align` start / center / end / stretch / baseline; `width` 40–2400; `height` 40–2400 |
 | `dock` | Dock | `items` rows of `{ "label" }`; `selected` 0–11; `layout` free / row / column / grid; `gap` 0–96; `gapY` 0–96; `padX` 0–96; `padY` 0–96; `padTop` 0–96; `padRight` 0–96; `padBottom` 0–96; `padLeft` 0–96; `align` start / center / end / stretch / baseline; `justify` start / center / end / between / around / evenly; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false; `width` 40–2400; `height` 40–2400 |
 | `supporting-pane` | Supporting pane | `label` text; `note` text; `icon` icon; `layout` free / row / column / grid; `gap` 0–96; `gapY` 0–96; `padX` 0–96; `padY` 0–96; `padTop` 0–96; `padRight` 0–96; `padBottom` 0–96; `padLeft` 0–96; `align` start / center / end / stretch / baseline; `justify` start / center / end / between / around / evenly; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false; `width` 40–2400; `height` 40–2400 |
+| `split-view` | Split view *(event `on:resize`: event.split, event.collapsed)* | `orientation` horizontal / vertical; `split` 0–100; `minFirst` 0–2400; `maxFirst` 0–2400; `minSecond` 0–2400; `maxSecond` 0–2400; `collapsible` none / first / second; `collapsedSize` 0–80; `collapsed` true / false; `divider` line / gap; `handle` true / false; `compact` stack / keep; `breakpoint` 0–2400; `persist` true / false; `width` 40–2400; `height` 40–2400 |
 | `custom` | Custom component | `name` text; `description` text; `layout` free / row / column / grid; `gap` 0–96; `gapY` 0–96; `padX` 0–96; `padY` 0–96; `padTop` 0–96; `padRight` 0–96; `padBottom` 0–96; `padLeft` 0–96; `align` start / center / end / stretch / baseline; `justify` start / center / end / between / around / evenly; `wrap` true / false; `columns` 1–12; `hugWidth` true / false; `hugHeight` true / false; `width` 40–2400; `height` 40–2400 |
 | `section-header` | Section header *(splits)* | `title` text; `subtitle` text; `action` text; `width` 120–1280 |
 
@@ -587,7 +602,6 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `resizable` | Resizable | `orientation` horizontal / vertical; `first` text; `second` text; `split` 10–90; `handle` true / false; `width` 160–2400; `height` 80–2400 |
 | `menubar` | Menubar | `menus` rows of `{ "label" }`; `items` rows of `{ "label", "icon" }` |
 | `title-bar` | Title bar *(splits)* | `title` text; `controls` mac / windows / none; `width` 240–1920 |
 | `status-bar` | Status bar *(splits)* | `text` text; `icon` icon; `trailing` text; `width` 240–1920 |
@@ -598,10 +612,11 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 #### Retired
 
-Old designs may still hold these whole-screen parts; they draw as they did, but never write one. Build what each did from atoms and kits, its rows as data and its taps as actions. In the editor, `split_retired` turns an old design's into atoms.
+Old designs may still hold these parts; they draw as they did, but never write one. Build what each did from atoms and kits, its rows as data and its taps as actions, and a resizable's panes with a split-view. In the editor, `split_retired` turns an old design's into atoms, and a resizable into a split view.
 
 | component | what it was | build instead |
 |---|---|---|
+| `resizable` | Resizable | the split-view part: two panes that hold parts, with a divider the visitor drags (set_split sets the share) |
 | `inventory` | Inventory | a grid box of item cells (the item-cell part, or atoms), repeated over the inventory's data; the item a tap picks is the screen's to say |
 | `task-row` | Task row | the quest-row kit, repeated over the tasks' data; Claim calls the API and the row shows the claimed state the answer gives |
 | `pull-to-refresh` | Pull to refresh | turn on pull to refresh on the screen's data source (pullToRefresh): every target refreshes natively |

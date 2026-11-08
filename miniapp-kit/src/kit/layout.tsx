@@ -71,6 +71,12 @@ export function FillWidth({ children }: { children?: ReactNode }) {
   return <FillContext.Provider value={ACROSS}>{children}</FillContext.Provider>;
 }
 
+const BOTH: Fill = { w: true, h: true };
+/** what a split view's pane holds fills the pane both ways (split.tsx) */
+export function FillBoth({ children }: { children?: ReactNode }) {
+  return <FillContext.Provider value={BOTH}>{children}</FillContext.Provider>;
+}
+
 export type CellProps = {
   /** take the room left along the run */
   grow?: boolean;

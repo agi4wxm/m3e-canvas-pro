@@ -63,9 +63,9 @@ const drawn = (groups: Group[], skip = new Set<string>()) =>
     });
 
 describe("the retired parts", () => {
-  it("are the eleven whole-screen parts, each with a split and a word on what to build instead", () => {
-    expect(PARTS.filter((d) => d.retired).map((d) => d.slug).sort()).toEqual([...SLUGS].sort());
-    expect([...RETIRED_SLUGS].sort()).toEqual([...SLUGS].sort());
+  it("are the eleven whole-screen parts, each with a split and a word on what to build instead, and the resizable", () => {
+    expect(PARTS.filter((d) => d.retired).map((d) => d.slug).sort()).toEqual([...SLUGS, "resizable"].sort());
+    expect([...RETIRED_SLUGS].sort()).toEqual([...SLUGS, "resizable"].sort());
     for (const slug of SLUGS) {
       const def = partBySlug(slug)!;
       expect(def.atoms, slug).toBeTruthy();
@@ -321,5 +321,53 @@ describe("a split retired part, exported", () => {
       for (const sc of printed.screens) expect(sc.source).not.toContain("<Placeholder");
       expect(printed.warnings.filter((w) => w.kind === "placeholder" || w.kind === "slot")).toEqual([]);
     }
+  });
+});
+
+describe("the retired resizable", () => {
+  /** an old design: a resizable with a button over its second panel, and a retired cart on a screen of its own */
+  const oldDoc = (): Doc => {
+    const doc = docOf([item("resizable", "rz", { width: 360, height: 160, split: 40, first: "Folders" }), item("cart-list", "cart")]);
+    const rz = doc.groups[0];
+    doc.groups.push({ id: "g-b", x: rz.x + 240, y: rz.y + 60, axis: "x", items: [item("button", "b", { label: "Go" })] });
+    return doc;
+  };
+
+  it("is retired like the others: drawn and opened as before, not offered, refused when added, a split view in its place", async () => {
+    const def = partBySlug("resizable")!;
+    expect(def.retired).toMatchObject({ with: ["split-view"], convert: "convert_to_split_view" });
+    expect(OFFERED_PARTS.includes(def)).toBe(false);
+    expect(viewOf(def, {}).type).toBe("ResizablePanelGroup");
+    const doc = oldDoc();
+    expect(openProject({ format: "m3e-project", version: 2, document: doc })!.groups).toEqual(doc.groups);
+    const [offered, retired] = partCatalog().split("#### Retired");
+    expect(offered).not.toContain("| `resizable` |");
+    expect(retired).toContain("| `resizable` |");
+    const s = storeOf(docOf([]));
+    const listed = (await executeTool(s, "list_parts", {}, { origin: "mcp" })) as { ok: true; result: { parts: string[] } };
+    expect(listed.result.parts.some((row) => row.startsWith("resizable |"))).toBe(false);
+    const added = await executeTool(s, "add_part", { slug: "resizable", screen: "s0" }, { origin: "ai" });
+    expect(!added.ok && added.error.code).toBe("refused");
+    expect(!added.ok && added.error.message).toContain("convert_to_split_view");
+  });
+
+  it("converts to a split view in split_retired, in the one step that splits the others, its parts in their pane; one undo puts all back", async () => {
+    const doc = oldDoc();
+    const s = storeOf(doc);
+    expect(retiredParts(doc.groups).map((r) => r.item.id)).toEqual(["rz", "cart"]);
+    /* it is no split into atoms */
+    const atoms = await executeTool(s, "split_into_atoms", { id: "rz" }, { origin: "mcp" });
+    expect(!atoms.ok && atoms.error.message).toContain("convert_to_split_view");
+    const out = s.run(ops.splitRetired, {}, { origin: "user" });
+    expect(out.split.map((x) => [x.id, x.became])).toEqual([["rz", "split-view"], ["cart", undefined]]);
+    const after = savedDoc(s.get());
+    expect(retiredParts(after.groups)).toEqual([]);
+    const host = after.groups.find((g) => g.items[0]?.id === "rz")!;
+    expect(host.items[0]).toMatchObject({ component: "split-view", props: { split: 40, width: 360, height: 160 } });
+    const pane = after.groups.find((g) => g.id === after.groups.find((x) => x.items[0]?.id === "b")!.inFlow)!;
+    expect(pane).toMatchObject({ inFlow: host.id, splitPane: "second" });
+    expect(after.groups.find((g) => g.items[0]?.id === "cart")!.items[0].component).toBe("box");
+    s.undo("user");
+    expect(savedDoc(s.get()).groups).toEqual(doc.groups);
   });
 });

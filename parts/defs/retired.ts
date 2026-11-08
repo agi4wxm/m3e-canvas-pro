@@ -9,7 +9,10 @@ import type { P, PartRetired } from "../types";
  *
  * Here are, for each, what to build instead (read by the AI's catalog and the editor's notice), and the trees of
  * atoms of those that had none yet (the rest are in splits.ts). lib/retire.ts does the splitting: these trees as they
- * are, or, where a list's rows are alike, one row repeated over a data collection that holds them. */
+ * are, or, where a list's rows are alike, one row repeated over a data collection that holds them.
+ *
+ * The legacy `resizable` is retired too, for another reason: its panels hold only words. It is no split into atoms but
+ * converts to a split view (`convert`, lib/core/ops/split.ts), whose panes take what lay over its panels. */
 
 export const RETIRED: Record<string, PartRetired> = {
   inventory: { use: "a grid box of item cells (the item-cell part, or atoms), repeated over the inventory's data; the item a tap picks is the screen's to say", with: ["item-cell"] },
@@ -23,6 +26,13 @@ export const RETIRED: Record<string, PartRetired> = {
   "todo-list": { use: "rows of a checkbox, words and a remove button repeated over the tasks' data, and an input with an add button (or make_form) for a new one", with: ["checkbox", "input"] },
   "auth-form": { use: "the login-form kit (with password-field and terms-row) bound with make_form to the sign-in endpoint, a sign-up screen of its own; the rules come from the API's schema", with: ["login-form", "password-field", "terms-row"] },
   "chat-composer": { use: "the chat-input kit: the entry's words go into a variable, send calls the API and then clears it", with: ["chat-input"] },
+  /* panels of words with a handle, no parts in them: the split view's panes hold parts, so an old one converts to it */
+  resizable: {
+    use: "the split-view part: two panes that hold parts, with a divider the visitor drags (set_split sets the share)",
+    with: ["split-view"],
+    why: "its panels hold only words, never parts",
+    convert: "convert_to_split_view",
+  },
 };
 
 const px = (p: P, key = "width") => Math.round(p.n(key));

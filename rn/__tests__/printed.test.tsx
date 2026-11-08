@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import type { ComponentType } from "react";
+import { StyleSheet } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { NavProvider, registerIcons, ThemeProvider, type KitTheme } from "../src/kit";
@@ -12,12 +13,17 @@ import { icons as proofIcons } from "../src/printed/proof/icons";
 import { IMAGES } from "../src/printed/proof/images";
 import { INITIAL, SCREENS as PROOF } from "../src/printed/proof/screens";
 import { theme as proofTheme } from "../src/printed/proof/theme";
+import { App as SplitsApp } from "../src/printed/splits/App";
+import { icons as splitsIcons } from "../src/printed/splits/icons";
+import { SCREENS as SPLITS } from "../src/printed/splits/screens";
+import { theme as splitsTheme } from "../src/printed/splits/theme";
 
 /* What the code printer (lib/export/rn) wrote for the export's proof document and a screen of kits, drawn as an exported
  * app draws it: every screen renders, its words are there, and a tap goes where the design sends it. */
 
 registerIcons(proofIcons);
 registerIcons(kitsIcons);
+registerIcons(splitsIcons);
 
 const nav = { go: jest.fn(), back: jest.fn(), open: jest.fn(), todo: jest.fn() };
 
@@ -109,5 +115,33 @@ describe("a screen of kits, printed under iOS", () => {
   it("runs as an app", async () => {
     await render(<KitsApp dark />);
     expect(screen.getByText("Title")).toBeTruthy();
+  });
+});
+
+describe("split views, printed", () => {
+  it("draws both panes of each split, nested, with a divider each", async () => {
+    await screenOf(SPLITS.SplitDesk, splitsTheme);
+    for (const words of ["Folders", "New folder", "Message", "Terminal"]) expect(screen.getByText(words)).toBeTruthy();
+    expect(screen.getAllByRole("adjustable")).toHaveLength(2);
+    expect(screen.queryAllByTestId(/^placeholder-/)).toHaveLength(0);
+  });
+
+  it("lays its panes side by side on a desktop, one over the other on a phone", async () => {
+    await screenOf(SPLITS.SplitDesk, splitsTheme);
+    expect(StyleSheet.flatten(screen.getAllByRole("adjustable")[0].props.style)).toMatchObject({ width: 1 });
+    await screenOf(SPLITS.SplitPhone, splitsTheme);
+    expect(StyleSheet.flatten(screen.getAllByRole("adjustable")[0].props.style)).toMatchObject({ height: 1 });
+  });
+
+  it("moves the divider when a screen reader adjusts it", async () => {
+    await screenOf(SPLITS.SplitPhone, splitsTheme);
+    expect(screen.getAllByRole("adjustable")[0].props.accessibilityValue).toMatchObject({ now: 40 });
+    await fireEvent(screen.getAllByRole("adjustable")[0], "accessibilityAction", { nativeEvent: { actionName: "increment" } });
+    expect(screen.getAllByRole("adjustable")[0].props.accessibilityValue).toMatchObject({ now: 45 });
+  });
+
+  it("runs as an app", async () => {
+    await render(<SplitsApp dark={false} />);
+    expect(screen.getByText("Folders")).toBeTruthy();
   });
 });

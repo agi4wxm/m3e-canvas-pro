@@ -18,6 +18,7 @@ import { overridableParts } from "../instances";
 import { FAMILY_LACKS, ICON_NAMES } from "./icons.generated";
 import { partPropsSchema } from "./schema";
 import { declarationsOf } from "../partContract";
+import { retiredWayOut } from "../retire";
 import type { PartDef } from "../../parts/types";
 import { tool, ToolFailure, type Tool, type ToolEnv } from "./types";
 
@@ -191,7 +192,7 @@ const describePart = tool<{ slug: string }>({
           props: def.props.map((d) => ({ key: d.key, label: d.label, kind: d.kind, default: defaults[d.key], takes: propKindText(d) })),
           propsSchema: partPropsSchema(def),
           ...declarationsOf(def),
-          ...(def.retired ? { retired: { use: def.retired.use, add: "refused: build it from atoms and kits instead", old: "an old design keeps it; split_retired turns it into atoms" } } : {}),
+          ...(def.retired ? { retired: { use: def.retired.use, add: "refused: build what it did from what use says instead", old: `an old design keeps it; ${retiredWayOut(def)}` } } : {}),
         },
       };
     }

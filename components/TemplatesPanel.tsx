@@ -45,7 +45,8 @@ function planOf(template: Template): Plan {
     if (!def) continue;
     let ink: Box["ink"] = INK_OF[def.slug] ?? "surfaceContainerHighest";
     if (def.holds && def.slug !== "scene") {
-      /* a bare layout draws nothing of its own; a box of atoms is painted by its fill role or its surface */
+      /* a bare layout draws nothing of its own, nor does a holder with no ground (a split view: its panes draw); a box
+       * of atoms is painted by its fill role or its surface */
       const p = reader(def, it.props);
       const fill = def.props.some((d) => d.key === "fill") ? p.s("fill") : (it.fill ?? (def.props.some((d) => d.key === "surface") && p.s("surface") !== "none" ? "surfaceContainerHigh" : ""));
       if (!fill || fill === "none") continue;

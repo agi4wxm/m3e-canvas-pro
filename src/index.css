@@ -82,6 +82,12 @@ body {
   transform: scale(0.94);
 }
 
+/* a split view's divider on the canvas (components/SplitHandles.tsx): a ring while the keyboard holds it */
+[data-split-handle]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
 /* parts palette tiles: the star only shows on hover or while the tile has keyboard focus */
 .m3-tile {
   transition: transform 140ms cubic-bezier(0.2, 0, 0, 1), background 120ms;

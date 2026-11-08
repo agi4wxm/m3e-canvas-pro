@@ -101,7 +101,7 @@ export function turnContext(o: { doc: Doc; widths: Record<string, number>; selec
       `Language for words on the canvas: ${LANG_NAME[o.lang]}.`,
       sel.length ? `Selected: ${sel.join("; ")}.` : screen ? `Selected screen: ${screen.id} "${screen.name}".` : "Nothing is selected.",
       ...(retired.length
-        ? [`Retired parts on the screens, drawn as before but no longer built with: ${retired.slice(0, 12).map((r) => `${r.item.id} (${r.def.slug})`).join(", ")}${retired.length > 12 ? ` and ${retired.length - 12} more` : ""}. Before changing one, split_retired turns them into atoms.`]
+        ? [`Retired parts on the screens, drawn as before but no longer built with: ${retired.slice(0, 12).map((r) => `${r.item.id} (${r.def.slug})`).join(", ")}${retired.length > 12 ? ` and ${retired.length - 12} more` : ""}. Before changing one, split_retired turns them into atoms (a resizable into a split view).`]
         : []),
       strict
         ? `The document is held to its style's rules.\n${rulesForModel(theme!, styles)}\nSo of a part's look only ${STRICT_LOOK_KEYS.join(", ")} survive; corners and a button's shape are the style's.`

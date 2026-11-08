@@ -126,4 +126,33 @@ export const tests: E2ETest[] = [
       check(!split.includes("{{"), "every field of a repeated row is filled in");
     },
   },
+  {
+    name: "retired parts: an old resizable is offered a split view, by the notice and by its old name in the palette; one undo back",
+    async run({ page, base }) {
+      const it: Item = { id: "rz", kind: "component", label: "", icon: null, variant: "filled", component: "resizable", props: { width: 600, height: 240, split: 40 } };
+      const doc: Doc = { groups: [{ id: "g-rz", x: 40, y: 40, axis: "x", items: [it] }], frames: [{ id: "old", name: "Old design", x: 0, y: 0, w: 1280, h: 800 }], paletteKey: "purple", frame: "phone", title: "Old design", brief: "" };
+      await page.goto(`${base}/#doc=${encodeURIComponent(JSON.stringify(doc))}`, { waitUntil: "load" });
+      await page.waitForSelector(".m3e-boot", { state: "detached", timeout: 90_000 });
+      await page.waitForSelector('[data-screen="old"]', { timeout: 30_000 });
+      await settle(page, 1500);
+      const banner = page.locator("[data-retired-banner]");
+      equal(await banner.getAttribute("data-retired-banner"), "1", "the notice counts the resizable");
+      equal(((await page.locator("[data-retired-split]").textContent()) ?? "").trim(), "Convert to split view", "and offers to convert it");
+      /* the palette offers the split view for its old name, never the resizable */
+      equal(await (await tile(page, "Resizable")).count(), 0, "no tile for the retired resizable");
+      check((await page.locator('[data-tile="split-view"]').count()) > 0, "the search for it finds the split view");
+      await page.locator('input[aria-label="Search"]').first().fill("");
+      await settle(page, 200);
+      await page.locator("[data-retired-split]").click();
+      await settle(page, 1500);
+      let saved = await savedDoc(page);
+      equal(bySlug(saved, "resizable").length, 0, "the resizable is converted");
+      check(saved.groups.some((g) => g.items[0]?.id === "rz" && g.items[0].component === "split-view"), "into a split view that keeps its id");
+      equal(await banner.count(), 0, "the notice is gone with it");
+      await undo(page);
+      await settle(page, 800);
+      saved = await savedDoc(page);
+      equal(bySlug(saved, "resizable").length, 1, "one undo puts the resizable back");
+    },
+  },
 ];

@@ -45,7 +45,7 @@ function retiredCatalog(): string {
   return [
     "#### Retired",
     "",
-    "Old designs may still hold these whole-screen parts; they draw as they did, but never write one. Build what each did from atoms and kits, its rows as data and its taps as actions. In the editor, `split_retired` turns an old design's into atoms.",
+    "Old designs may still hold these parts; they draw as they did, but never write one. Build what each did from atoms and kits, its rows as data and its taps as actions, and a resizable's panes with a split-view. In the editor, `split_retired` turns an old design's into atoms, and a resizable into a split view.",
     "",
     "| component | what it was | build instead |",
     "|---|---|---|",

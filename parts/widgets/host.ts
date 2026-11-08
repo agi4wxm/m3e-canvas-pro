@@ -14,6 +14,9 @@ export type PartHost = {
   input?: (value: unknown) => void;
   /** a named event sent out with its payload (the part's `events` declare them) */
   emit?: (name: string, payload?: Record<string, unknown>) => void;
+  /** The part may keep the visitor's UI state on their device (the share a split view was dragged to, when it asks to
+   *  remember it). An exported app may; the editor's preview says no, so each opening of it is a first visit. */
+  remember?: boolean;
   /** Whether a press on one of the part's own controls (a heart, a close button: a slot declared `own`) reaches
    *  something, an action on that slot or what the host itself does with it. Left out, nothing does, and the press
    *  stays the control's own instead of counting as a press on the whole part. */
@@ -42,6 +45,9 @@ export type Host = {
    *  only where something is wired to it; otherwise it goes no further than the control. */
   own: (slot: string, run?: () => void) => (e: SyntheticEvent) => void;
 };
+
+/** whether the host lets a part keep the visitor's UI state on their device: unless it says no, it does */
+export const useRemember = (): boolean => useContext(PartHostContext).remember !== false;
 
 /** What the widget may do: run its demo or not, hand out its value, send an event. Props and context both reach it. */
 export function useHost(p: HostProps): Host {

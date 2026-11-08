@@ -245,4 +245,8 @@ export const RETIRED_SLUGS: string[] = Object.keys(RETIRED);
 
 /** what an add operation says when it is asked for a retired part: what to build instead, and how an old one goes */
 export const retiredRefusal = (def: PartDef): string =>
-  `${def.slug} is retired: it keeps its data to itself, so a product cannot wire it. Build it instead from ${def.retired?.use ?? "atoms and kits"}. A design that already has one keeps it; split_retired turns it into atoms.`;
+  `${def.slug} is retired: ${def.retired?.why ?? "it keeps its data to itself, so a product cannot wire it"}. Build it instead from ${def.retired?.use ?? "atoms and kits"}. A design that already has one keeps it; ${retiredWayOut(def)}.`;
+
+/** what turns an old design's retired part into what replaces it, in words: a split into atoms, or a conversion */
+export const retiredWayOut = (def: PartDef): string =>
+  def.retired?.convert ? `${def.retired.convert} (or split_retired) turns it into a ${def.retired.with?.[0] ?? "part that replaces it"}` : "split_retired turns it into atoms";

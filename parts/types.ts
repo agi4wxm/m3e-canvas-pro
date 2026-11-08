@@ -96,6 +96,9 @@ export type InputKind = "text" | "number" | "bool" | "choice" | "choices" | "fil
 export type PartInput = {
   prop: string;
   kind: InputKind;
+  /** props of the design's start that the visitor's value takes over from (a split view's `collapsed`: once the divider
+   *  has been moved, the share says whether a pane is folded) */
+  resets?: string[];
   /** For a choice: the prop whose entries it picks from, a list (its rows' labels) or words separated by commas
    *  (a palette's colors). `items` when left out. A form field and a text variable hold the words of what is picked. */
   options?: string;
@@ -134,6 +137,11 @@ export type PartRetired = {
   use: string;
   /** the kits and parts that replace it, by slug: what the palette shows for a search by the retired part's name */
   with?: string[];
+  /** why it retired, where that is not that it keeps its data to itself */
+  why?: string;
+  /** the operation that turns an old one into what replaces it, where that is no split into atoms (a resizable
+   *  becomes a split view whose panes hold parts) */
+  convert?: string;
 };
 
 /** the part's place on a screen: a bar pinned to an edge, a corner FAB, a centered overlay.

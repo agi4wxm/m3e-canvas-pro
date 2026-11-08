@@ -27,7 +27,7 @@ const groupOf = (name: string): ToolGroup => (STYLE_OPS.has(name) ? "style" : DA
 /** what a model should know about an operation that its one-line summary does not say */
 const MORE: Record<string, string> = {
   add_part:
-    "Compose with `into` (a box's auto layout, at `index`); `at` places it freely on the screen. Give `id` when later calls name the part. A `box` is the container atom: surface (none, card, panel, field, bar, chip, button, sheet, overlay, well), layout (row, column, grid), gap, padding. Returns {itemId, groupId}.",
+    "Compose with `into` (a box's auto layout, at `index`); `at` places it freely on the screen. Give `id` when later calls name the part. A `box` is the container atom: surface (none, card, panel, field, bar, chip, button, sheet, overlay, well), layout (row, column, grid), gap, padding. Returns {itemId, groupId}; a split-view also {panes: {first, second}}, the ids of its two panes, the boxes to put parts into.",
   add_tree:
     "Compose with nested boxes the way Figma's auto layout does: a box's props set surface, layout (row, column, grid), gap, padding, align, justify and its size; children are laid out in order. Give ids to the nodes later calls name. Text hugs its words in a row and wraps at the column's width in a column with align stretch. To keep it as a reusable component, follow it with make_component {ids: [root id]}. Returns {itemId: the root, groupId, parts}.",
   add_kit: "Prefer a kit over composing the same by hand. Returns {itemId, groupId}; the kit's root box is itemId.",
@@ -57,6 +57,8 @@ const MORE: Record<string, string> = {
   bind_prop: "A fill bound to a color variable shows its value in the mode on show; to drive a switch's checked prop by a bool variable, bind it and toggle the variable with set_action.",
   split_into_atoms: "Returns {rootItemId, collection?}: a retired list whose rows are alike gets a data collection its rows repeat over (list_data shows it).",
   split_retired: "Use it before changing a retired part, or when the author asks to modernize an old design. Returns {split: [{id, slug, rootItemId, collection?, refreshes?}], left}: refreshes names the screen's data sources a pull-to-refresh turned pull to refresh on for.",
+  set_split: "The visitor's own drag in an app never changes this: it starts from it each time (or from what they left, with persist).",
+  convert_to_split_view: "Returns {itemId, groupId, panes: {first, second}}.",
   add_model: "get_api shows the models there are. Name fields in camelCase; required lists what is always there. Returns {name}.",
   update_model: "To rename a model use rename_model (references follow).",
   remove_model: "Refused while something refers to the model; the error lists what.",
