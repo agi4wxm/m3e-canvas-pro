@@ -295,6 +295,14 @@ describe("what a link carries", () => {
     expect(shareable(product(), { omit: ["api:models", "api:endpoints"] }).api!.models).toBeUndefined();
   });
 
+  it("carries a document without a contract, or with an empty one, as it is", () => {
+    const plain = { ...doc(), frames: [], groups: [] };
+    expect(shareable(plain)).toEqual(plain);
+    const empty = { ...plain, api: {}, mocks: {} } as Doc;
+    expect(shareable(empty)).toEqual(empty);
+    expect(shareItems(empty)).toEqual([]);
+  });
+
   it("goes through a link and back as chosen", async () => {
     const link = await shareLink(product(), "https://example.test/", { scope: "samples", omit: ["mocks:fixtures:User"] });
     const back = await readShareHash(new URL(link).hash);

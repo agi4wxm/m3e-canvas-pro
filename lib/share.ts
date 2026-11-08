@@ -164,7 +164,8 @@ export function shareable(doc: Doc, o: ShareOptions = {}): Doc {
       if (rank < SCOPE_RANK.full) api = { ...(api.info ? { info: api.info } : {}), ...(api.models ? { models: api.models } : {}) };
       for (const part of API_PARTS) if (!has(`api:${part}`)) delete api[part];
       if (!has("api:examples")) api = withoutExamples(api);
-      if (Object.keys(api).length) out.api = api;
+      /* an API that had something and has nothing left goes; one the author left empty stays as it was */
+      if (Object.keys(api).length || !Object.keys(doc.api).length) out.api = api;
       else delete out.api;
     }
   }
