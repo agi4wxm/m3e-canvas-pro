@@ -59,20 +59,31 @@ export function slotsOf(doc: Doc, widths: Record<string, number> = {}): SlotSpec
 /** the slots by the item they draw */
 export const slotNames = (slots: SlotSpec[]): Record<string, string> => Object.fromEntries(slots.map((s) => [s.item, s.name]));
 
+/** An import as Prettier prints it at the product's width (.prettierrc.json, 100): on one line when it fits, else one
+ *  name a line (a single name stays on its line, as Prettier leaves it). The files written once are custom code, which
+ *  the product's lint holds to Prettier. */
+const importLine = (names: string[], from: string, type = false) => {
+  const kind = type ? "type " : "";
+  const one = `import ${kind}{ ${names.join(", ")} } from ${str(from)};`;
+  return one.length <= 100 || names.length < 2 ? one : `import ${kind}{\n${names.map((n) => `  ${n},`).join("\n")}\n} from ${str(from)};`;
+};
+
 /** a slot written once: what it is handed and how it sends the view's events, the design's stand-in until then */
 const SLOT = (scope: string, s: SlotSpec, platform: AppPlatform) => {
   const t = typeBase(s.view);
   const where = platform === "web" ? "a web map library, the browser's camera (getUserMedia), a WebRTC call" : platform === "mobile" ? "react-native-maps, expo-camera, a WebRTC or vendor call SDK" : "Taro's <Map>, <Camera>, <LivePusher>/<LivePlayer> or a vendor plugin";
-  return `import type { ReactNode } from "react"
-import type { ${t}Events, ${t}Props, ViewSlotProps } from ${str(`${scope}/capabilities`)}
+  return `import type { ReactNode } from "react";
+${importLine([`${t}Events`, `${t}Props`, "ViewSlotProps"], `${scope}/capabilities`, true)}
 
 /* The ${s.view} view the design places on the screen "${s.screen.replace(/[^\p{L}\p{N} _-]/gu, "")}" (written once by the export, never
    overwritten: it is the product's own). Draw the real one here with the platform's own component (${where}), from the
    props the design hands it, and send what the visitor does with onEvent: the design's actions on the part's events
    run on them. M3E embeds no SDK, key or permission declaration: add the package, its keys and the permissions this
    app needs yourself. Until then it draws the design's stand-in (children). */
-export default function ${s.name}({ children }: ViewSlotProps<${t}Props, ${t}Events, ReactNode>) {
-  return <>{children}</>
+type Props = ViewSlotProps<${t}Props, ${t}Events, ReactNode>;
+
+export default function ${s.name}({ children }: Props) {
+  return <>{children}</>;
 }
 `;
 };
@@ -212,7 +223,7 @@ export function capabilityFiles(ctx: ProductContext, platform: AppPlatform): { f
   const mine = DEFAULTS[platform].filter((n) => calls.some((d) => d.name === n));
   const pkg = `${ctx.scope}/capabilities`;
   const list = calls.map((d) => ` *   ${d.name}: ${(d.summary ?? "").split(". ")[0].replace(/\*\//g, "")}`).join("\n");
-  const custom = `import type { Capabilities } from ${str(pkg)}
+  const custom = `${importLine(["Capabilities"], pkg, true)}
 
 /* The adapters of the platform capabilities the design uses (written once by the export, never overwritten: they are
  * the product's own). Each takes what the design gives it and gives back the result, or throws fail("cancelled")
@@ -222,7 +233,7 @@ ${list}
  *
  * M3E embeds no SDK, key or permission declaration: add the SDK's package and its keys, and declare what the
  * platform asks for, yourself. A payment's adapter only submits it: the back end decides whether the order is paid. */
-export const capabilities: Capabilities = {}
+export const capabilities: Capabilities = {};
 `;
   const defaults = `${GENERATED}
 ${defaultImports(platform, mine)}import { fail, type Capabilities } from ${str(pkg)}

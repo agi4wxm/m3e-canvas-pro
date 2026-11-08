@@ -69,7 +69,7 @@ describe("the capabilities a product uses", () => {
     expect(text(p, "apps/miniapp/src/generated/runtime.ts")).toContain("capabilities: registry,");
     for (const app of ["web", "mobile", "miniapp"]) {
       expect(p.files[`apps/${app}/src/custom/capabilities.ts`].kind, app).toBe("seeded");
-      expect(text(p, `apps/${app}/src/custom/capabilities.ts`), app).toContain("export const capabilities: Capabilities = {}");
+      expect(text(p, `apps/${app}/src/custom/capabilities.ts`), app).toContain("export const capabilities: Capabilities = {};");
       expect(text(p, `apps/${app}/src/generated/capabilities.ts`), app).toContain("createAppCapabilities({ adapters: capabilities, defaults: PLATFORM_CAPABILITIES");
       expect(JSON.parse(text(p, `apps/${app}/package.json`)).dependencies["@paying/capabilities"], app).toBe("0.1.0");
     }
@@ -101,7 +101,8 @@ describe("the capabilities a product uses", () => {
     for (const app of ["web", "mobile", "miniapp"]) {
       const slot = p.files[`apps/${app}/src/custom/slots/StoreMap.tsx`];
       expect(slot?.kind, app).toBe("seeded");
-      expect(slot.body as string, app).toContain("export default function StoreMap({ children }: ViewSlotProps<MapProps, MapEvents, ReactNode>)");
+      /* custom code, which the product's lint holds to Prettier: semicolons, and a line it would not break */
+      expect(slot.body as string, app).toContain("type Props = ViewSlotProps<MapProps, MapEvents, ReactNode>;\n\nexport default function StoreMap({ children }: Props) {\n  return <>{children}</>;\n}");
       expect(text(p, `apps/${app}/src/generated/slots.ts`), app).toContain('export { default as StoreMap } from "../custom/slots/StoreMap"');
     }
     const web = text(p, "apps/web/src/generated/screens/CheckoutScreen.tsx");
