@@ -5,7 +5,7 @@
  * screen (data, params, vars, auth, now) and grows inward: a repeat adds `item` and `index`, a form `form`, a call's
  * answer `response`, `status` or `error`. */
 
-import { display, evaluate, fillTemplate, toNumber, truthy, type EvalContext, type Scope } from "../bindings/expr";
+import { display, evaluate, fillTemplate, propValueOf, truthy, type EvalContext, type Scope } from "../bindings/expr";
 
 export type { EvalContext, Scope };
 
@@ -36,23 +36,25 @@ export class Bindings {
     return fillTemplate(template, this.scope, this.ctx);
   }
 
+  /* A bound prop's value is made the kind of value the prop takes by the one rule the preview follows too
+     (lib/bindings/expr.ts `propValueOf`); what it cannot make keeps the design's own. */
+
   /** a number, kept to its range; what is no number keeps the design's own */
   num(expr: string, design: number, min = -Infinity, max = Infinity): number {
-    const n = toNumber(this.ev(expr));
-    return n === undefined ? design : Math.min(max, Math.max(min, n));
+    const n = propValueOf(this.ev(expr), { kind: "number", min, max });
+    return typeof n === "number" ? n : design;
   }
 
-  /** yes or no; nothing at all keeps the design's own */
+  /** yes or no (words that say no, "", "false" and "0", are no); nothing at all keeps the design's own */
   bool(expr: string, design = false): boolean {
-    const v = this.ev(expr);
-    return v === undefined ? design : truthy(v);
+    const b = propValueOf(this.ev(expr), { kind: "bool" });
+    return typeof b === "boolean" ? b : design;
   }
 
   /** one of a prop's choices; anything else keeps the design's own */
   pick<T extends string>(expr: string, options: readonly T[], design: T): T {
-    const v = this.ev(expr);
-    const s = typeof v === "string" || typeof v === "number" ? String(v) : undefined;
-    return s !== undefined && (options as readonly string[]).includes(s) ? (s as T) : design;
+    const s = propValueOf(this.ev(expr), { kind: "enum", options });
+    return typeof s === "string" ? (s as T) : design;
   }
 
   /** whether a condition holds: null, false, 0, "", NaN and an empty list do not */

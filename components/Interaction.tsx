@@ -27,6 +27,7 @@ const KINDS: { key: Motion["kind"]; text: UIKey; icon: string }[] = [
   { key: "move", text: "prMove", icon: "input" },
   { key: "push", text: "prPush", icon: "double_arrow" },
   { key: "slide", text: "prSlide", icon: "slideshow" },
+  { key: "expand", text: "prExpand", icon: "open_in_full" },
 ];
 
 const DIRS: { key: NonNullable<Motion["dir"]>; icon: string; text: UIKey }[] = [
@@ -42,6 +43,9 @@ const EASINGS: { key: NonNullable<Motion["easing"]>; text: UIKey }[] = [
   { key: "inOut", text: "prEaseInOut" },
   { key: "linear", text: "prLinear" },
   { key: "spring", text: "prSpring" },
+  /* Material's emphasized curve; the theme's own, a spring in the expressive motion scheme (lib/screenMotion.ts) */
+  { key: "emphasized", text: "prEmphasized" },
+  { key: "theme", text: "prThemeEasing" },
 ];
 
 const label = (p: Palette): React.CSSProperties => ({ fontSize: 12, fontWeight: 600, color: p.onSurfaceVariant, padding: "0 4px" });

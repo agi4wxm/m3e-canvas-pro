@@ -1,4 +1,8 @@
-/* Version 3 of the document format (lib/migrations.ts): what a tap, a condition and a binding say is written one way.
+/* Versions 3 and 4 of the document format (lib/migrations.ts). Version 3 (this first half) wrote what a tap, a condition
+ * and a binding say in the forms every reader of the time read alike; version 4 (the second half, below) leaves one form
+ * of each and moved every reader onto it.
+ *
+ * Version 3: what a tap, a condition and a binding say is written one way.
  *
  * Every reader of a document (the preview, the web prototype and product printers, the React Native and mini-program
  * kits, the AI's tools) is being moved onto the one interpreter (lib/actions) while this step lands, so the step only

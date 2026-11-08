@@ -772,10 +772,10 @@ const ROWS_TEXT: Record<Lang, (r: Rows) => string> = {
 
 /** what the tokens in a template and in another screen read, said once under the behaviour */
 const ROW_NOTE: Record<Lang, string> = {
-  ja: "テンプレート内の {{項目名}} はその行の値を表示する。行をタップすると、その行が現在の行になり、別の画面の {{current.項目名}} はその行の値を表示する。条件の row.項目名 はタップされた行の値で、読み取り専用。",
-  en: "{{field}} in a template shows that row's value. Tapping a row makes it the current row: {{current.field}} on another screen shows its value, and row.field in a condition reads it, read-only.",
-  zh: "模板中的 {{字段名}} 显示该行的值。点击某行后它成为当前行：其他屏幕上的 {{current.字段名}} 显示它的值，条件中的 row.字段名 读取它，只读。",
-  ko: "템플릿의 {{필드}}는 그 행의 값을 표시한다. 행을 탭하면 현재 행이 되어 다른 화면의 {{current.필드}}가 그 값을 표시하고, 조건의 row.필드는 그 값을 읽는다(읽기 전용).",
+  ja: "テンプレート内の {{row.項目名}} はその行の値を表示する。行をタップすると、その行が現在の行になり、別の画面の {{current.項目名}} はその行の値を表示する。条件の row.項目名 はその行の値で、読み取り専用。",
+  en: "{{row.field}} in a template shows that row's value. Tapping a row makes it the current row: {{current.field}} on another screen shows its value, and row.field in a condition reads the row, read-only.",
+  zh: "模板中的 {{row.字段名}} 显示该行的值。点击某行后它成为当前行：其他屏幕上的 {{current.字段名}} 显示它的值，条件中的 row.字段名 读取这一行，只读。",
+  ko: "템플릿의 {{row.필드}}는 그 행의 값을 표시한다. 행을 탭하면 현재 행이 되어 다른 화면의 {{current.필드}}가 그 값을 표시하고, 조건의 row.필드는 그 행을 읽는다(읽기 전용).",
 };
 
 /** a screen that is another size of one written before it */

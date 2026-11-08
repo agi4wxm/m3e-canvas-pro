@@ -151,7 +151,7 @@ const holdsValue = (v: unknown) =>
   typeof v === "string" ? v.trim() !== "" : typeof v === "boolean" ? v : typeof v === "number" ? v >= 0 : Array.isArray(v) ? v.length > 0 : !!v && typeof v === "object" && typeof (v as { name?: unknown }).name === "string";
 
 /** a value as words, for what is not one of a variable's kinds */
-const asWords = (v: unknown): string => (v === undefined || v === null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v));
+const asWords = (v: unknown): string => (v === undefined || v === null ? "" : typeof v === "object" ? JSON.stringify(v) : typeof v === "number" ? String(Math.round(v * 1e10) / 1e10) : String(v));
 
 const AppContext = createContext<AppState | null>(null);
 
@@ -283,12 +283,15 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, triggers = NO_KE
         return String(v) as T;
       },
       setProp: kit.setProp,
+      /* a prop bound to a plain read of a variable, as the design's one rule makes it (lib/bindings/expr.ts
+         `propValueOf`): a number as it reads, yes or no where words that say no are no, words where a number is
+         written as an expression writes it */
       bound: <T extends VarValue>(varId: string, design: T): T => {
         const v = state.vars[varId];
         if (v === undefined) return design;
         if (typeof design === "number") return (isNumber(v) ?? design) as T;
         if (typeof design === "boolean") return asBool(v) as T;
-        return String(v) as T;
+        return asWords(v) as T;
       },
       field: (part) => state.fields[part],
       input: (part, value, varId) =>
