@@ -243,7 +243,9 @@ export type AuthFormProps = PartBase & {
   width?: number;
 };
 
-/** a sign-in (or sign-up) form: its fields, its main button, other ways in and the switch between the two */
+/** A sign-in (or sign-up) form: its fields, its main button, other ways in and the switch between the two. Each button is
+ *  a place with an action of its own, under the part's slot names (parts/defs/app.ts): `submit`, `forgot`, `switch` and
+ *  `other:<i>`; one with none is a tap on the whole part, as on the web. */
 export function AuthForm(props: AuthFormProps & Record<string, unknown>) {
   const p = withDefaults<AuthFormProps>("auth-form", props);
   const kit = useKit();
@@ -263,14 +265,25 @@ export function AuthForm(props: AuthFormProps & Record<string, unknown>) {
       {!up ? (
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Checkbox label={p.remember} checked={false} />
-          <RNText style={{ ...typeStyle(kit, "label-large"), color: accentText(kit) }}>{p.forgot}</RNText>
+          {p.forgot ? (
+            <Pressable accessibilityRole="button" onPress={tapOf(p, "forgot")}>
+              <RNText style={{ ...typeStyle(kit, "label-large"), color: accentText(kit) }}>{p.forgot}</RNText>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
-      <Button label={up ? p.upAction : p.action} width={w} onPress={tapOf(p, "action") ?? p.onPress} />
+      <Button label={up ? p.upAction : p.action} width={w} onPress={tapOf(p, "submit")} />
       {(p.others ?? []).map((o, i) => (
-        <Button key={i} label={o.label} variant="outlined" width={w} onPress={tapOf(p, `tab:${i}`)} />
+        <Button key={i} label={o.label} variant="outlined" width={w} onPress={tapOf(p, `other:${i}`)} />
       ))}
-      <Pressable accessibilityRole="button" onPress={() => setUp((v) => !v)} style={{ alignSelf: "center" }}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => {
+          setUp((v) => !v);
+          tapOf(p, "switch")?.();
+        }}
+        style={{ alignSelf: "center" }}
+      >
         <RNText style={{ ...typeStyle(kit, "label-large"), color: accentText(kit) }}>{up ? p.toIn : p.toUp}</RNText>
       </Pressable>
     </View>
