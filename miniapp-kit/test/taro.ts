@@ -47,3 +47,11 @@ export function fakeTaro(own: Record<string, unknown> = {}): Record<string, unkn
   const taro = { ...TARO_DEFAULTS, ...own };
   return { default: taro, ...taro };
 }
+
+/** every component the kit and the printed pages take from @tarojs/components, as the tag names the tiny renderer
+ *  draws; the same rule as for Taro above: each file's fake starts from the full set */
+export const COMPONENT_NAMES = ["View", "Text", "Image", "Input", "Textarea", "Slider", "Picker", "ScrollView"] as const;
+
+export function fakeComponents(own: Record<string, unknown> = {}): Record<string, unknown> {
+  return { ...Object.fromEntries(COMPONENT_NAMES.map((n) => [n, n])), ...own };
+}

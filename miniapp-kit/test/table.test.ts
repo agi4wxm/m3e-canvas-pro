@@ -6,7 +6,7 @@
 import { describe, expect, it, mock } from "bun:test";
 
 import { createTinyReact, type Element } from "./table/tinyReact";
-import { fakeTaro } from "./taro";
+import { fakeComponents, fakeTaro } from "./taro";
 
 const tiny = createTinyReact();
 /* the kit's React, and the one the shared runtime (lib/app, outside this package) resolves */
@@ -53,7 +53,7 @@ mock.module("@tarojs/taro", () => {
   };
   return fakeTaro(taro);
 });
-mock.module("@tarojs/components", () => ({ View: "View", Image: "Image", Input: "Input", Picker: "Picker", Slider: "Slider", Textarea: "Textarea", Text: "Text", ScrollView: "ScrollView" }));
+mock.module("@tarojs/components", () => fakeComponents());
 
 const { RuntimeProvider } = await import("@m3e/app-runtime");
 const { AppSpecProvider } = await import("../src/kit/app/screen");
