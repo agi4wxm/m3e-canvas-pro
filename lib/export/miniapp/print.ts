@@ -43,7 +43,7 @@ import { kindsIn, styleContext, styleDifferences, withDocStyles, type StyleScree
 import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
 import { isOverlayPart } from "../../interact";
-import { isPlaceKey } from "../../partContract";
+import { isPlaceKey, optionsOf } from "../../partContract";
 import { endpointOf } from "../../bindings/contract";
 import { messagesShown } from "../../bindings/view";
 import { answerShape, fillCode, formRules, listCode, okStatus, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
@@ -526,7 +526,11 @@ class ScreenPrinter {
     const values = propValues(def, it.props);
     /* set read-only (a product's stars), it takes nothing in: only a field or a binding makes it follow something */
     if (values.readOnly === true && !it.field && it.bind?.[key] === undefined) return { props: [] };
-    const labels = key === "selected" ? listLabels(def, it) : undefined;
+    /* a choice picks among words (a list's rows, or words with commas: a palette's colors) and holds the words of what
+       it picks; several picks of a text prop (a multi-select's "1,3") are words of their own */
+    const labels = def.input?.kind === "choice" ? optionsOf(it) : def.input ? undefined : key === "selected" ? listLabels(def, it) : undefined;
+    /* D3: a list of words (the tags) is held as its words in a form, and one a line in the screen's runtime and its variable */
+    const list = def.input?.kind === "choices" && def.props.find((d) => d.key === key)?.kind === "list";
     const form = it.field && at.form ? at.form : undefined;
     if (form) {
       const f = str(it.field!);
@@ -536,6 +540,7 @@ class ScreenPrinter {
         this.kit.add("optionIndex");
         out.push([prop, `optionIndex(${expr(labels)}, ${h}.value(${f}))`], ["onChange", `(i: number) => ${h}.set(${f}, ${expr(labels)}[i])`]);
       } else if (key === "checked") out.push([prop, `!!${h}.value(${f})`], ["onChange", `(v: boolean) => ${h}.set(${f}, v)`]);
+      else if (list) out.push([prop, `(${h}.value(${f}) as string[] | undefined) ?? ${expr(linesOf(values[key]))}`], ["onChange", `(v: string[]) => ${h}.set(${f}, v)`]);
       else if (def.input?.kind === "number") out.push([prop, `Number(${h}.value(${f}) ?? ${expr(values.value ?? 0)})`], ["onChange", `(v: number) => ${h}.set(${f}, v)`]);
       else if (def.slug === "file-upload") {
         this.kit.add("PickedFile");
@@ -550,7 +555,7 @@ class ScreenPrinter {
       return { skip: key, props: out };
     }
     if (it.field) this.warn("binding", "an input with a field outside a form is entered but sent nowhere", it.id);
-    const design = values[key];
+    const design = list ? linesOf(values[key]) : values[key];
     const bind = it.bind?.[key];
     const varId = typeof bind === "string" && bind && !bind.startsWith("=") ? bind : undefined;
     const start = typeof bind === "string" && bind.startsWith("=") ? this.boundExpr(def.props.find((d) => d.key === key)!, bind.slice(1), expr(design), at.$) : expr(design ?? (def.slug === "file-upload" ? undefined : ""));
@@ -558,7 +563,8 @@ class ScreenPrinter {
     const id = str(this.names.part(it.id));
     const typed = def.slug === "file-upload" ? "PickedFile | PickedFile[] | undefined" : typeof design === "boolean" ? "boolean" : typeof design === "number" ? "number" : "string";
     if (def.slug === "file-upload") this.kit.add("PickedFile");
-    return { skip: key, props: [[prop, `s.value<${typed}>(${id}, ${start}${def.slug === "file-upload" ? " as PickedFile | undefined" : ""})`], ["onChange", `s.setter(${id})`]] };
+    const change = list ? `(v: string[]) => s.setter(${id})(v.join("\\n"))` : `s.setter(${id})`;
+    return { skip: key, props: [[prop, `s.value<${typed}>(${id}, ${start}${def.slug === "file-upload" ? " as PickedFile | undefined" : ""})`], ["onChange", change]] };
   }
 
   /** A tree of atoms (a split) as elements, the root wearing the item's look and taps. `taps` walks the tree it was
@@ -938,6 +944,9 @@ class ScreenPrinter {
 }
 
 /** the labels of a part's rows, for a choice that holds a row's words */
+/** a list input's value as the screen's runtime and a text variable hold it: one row a line */
+const linesOf = (rows: unknown) => (Array.isArray(rows) ? rows.map((r) => (r && typeof r === "object" ? String((r as { label?: unknown }).label ?? "") : String(r))).join("\n") : "");
+
 function listLabels(def: PartDef, it: Item): string[] | undefined {
   if (!def.props.some((d) => d.key === "items" && d.kind === "list")) return undefined;
   return reader(def, it.props)

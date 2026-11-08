@@ -1,7 +1,7 @@
 import { proofDoc } from "../../exportProject.fixture";
 import { withIds, type Doc } from "../../tokens";
 import { str } from "../../../parts/print";
-import { kitsDoc, mediaDoc, playDoc, splitsDoc } from "../rn/fixture";
+import { inputsDoc, kitsDoc, mediaDoc, playDoc, splitsDoc } from "../rn/fixture";
 import { layoutsDoc } from "../rn/layoutsFixture";
 import { callsModule, iconsModule, pageConfig, pageModule, printMiniApp, screensIndex, specModule, themeModule } from "./app";
 
@@ -77,9 +77,11 @@ export async function printedFixture(): Promise<Record<string, string>> {
   /* D5: layouts, ways of getting around, what floats */
   const layouts = withIds(next, layoutsDoc);
   const e = await printed("layouts", layouts.doc, layouts.widths);
+  /* D3 */
+  const f = await printed("inputs", withIds(next, inputsDoc).doc, {});
   /* D1: the media parts, the capability views' stand-ins, what talks and keeps time */
   const media = withIds(next, mediaDoc);
-  const f = await printed("media", media.doc, media.widths);
+  const g = await printed("media", media.doc, media.widths);
   return {
     ...a.files,
     ...b.files,
@@ -87,6 +89,7 @@ export async function printedFixture(): Promise<Record<string, string>> {
     ...d.files,
     ...e.files,
     ...f.files,
-    "miniapp-kit/src/printed/pages.ts": `${HEAD}\n\n/** the pages of the printed documents, for the app's config */\nexport const PRINTED_PAGES: string[] = ${JSON.stringify([...a.pages, ...b.pages, ...c.pages, ...d.pages, ...e.pages, ...f.pages], null, 2)};\n`,
+    ...g.files,
+    "miniapp-kit/src/printed/pages.ts": `${HEAD}\n\n/** the pages of the printed documents, for the app's config */\nexport const PRINTED_PAGES: string[] = ${JSON.stringify([...a.pages, ...b.pages, ...c.pages, ...d.pages, ...e.pages, ...f.pages, ...g.pages], null, 2)};\n`,
   };
 }

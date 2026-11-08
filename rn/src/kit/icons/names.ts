@@ -40,6 +40,17 @@ export const KIT_ICONS = [
   "unfold_more",
   "upload_file",
   "warning",
+  /* D3: the pickers' and the entry parts' own (the pad's backspace, the copy button, the editor's marks) */
+  "backspace",
+  "content_copy",
+  "format_bold",
+  "format_italic",
+  "format_underlined",
+  "strikethrough_s",
+  "format_list_bulleted",
+  "format_list_numbered",
+  "format_quote",
+  "format_clear",
   /* D4: a money tree, a locked level, the sign-in and pay buttons */
   "park",
   "lock",

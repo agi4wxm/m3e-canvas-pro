@@ -27,6 +27,8 @@ export const PRINTED_PAGES: string[] = [
   "printed/layouts/pages/around/index",
   "printed/layouts/pages/floating/index",
   "printed/layouts/pages/rail/index",
+  "printed/inputs/pages/pickers/index",
+  "printed/inputs/pages/entry/index",
   "printed/media/pages/mediaWatch/index",
   "printed/media/pages/mediaListen/index",
   "printed/media/pages/mediaTalk/index"
