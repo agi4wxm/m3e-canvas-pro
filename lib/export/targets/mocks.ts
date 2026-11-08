@@ -34,7 +34,7 @@ export const MOCK_ENGINE_FILES = [
   "realtime",
   "transport",
   /* the file formats the generator and the transport make (lib/mocks/formats) */
-  ...["table", "content", "deflate", "huffman", "zip", "raster", "images", "svg", "pdf", "media", "clips", "text", "office", "mesh", "index"].map((n) => `formats/${n}`),
+  ...["table", "content", "deflate", "huffman", "zip", "raster", "codecs", "svg", "pdf", "media", "clips", "text", "office", "mesh", "index"].map((n) => `formats/${n}`),
 ].map((n) => `lib/mocks/${n}.ts`);
 export const MOCK_ENGINE_API_FILES = ["types", "schema", "transport"].map((n) => `lib/api/${n}.ts`);
 

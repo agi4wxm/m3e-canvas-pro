@@ -12,7 +12,7 @@ import { hash53 } from "../rng";
 import type { MockFile } from "../types";
 import { titleOf, type FileContent } from "./content";
 import { gzip } from "./deflate";
-import { encodeBmp, encodeGif, encodeIco, encodeJpeg, encodePng, encodeTiff, encodeWebp } from "./images";
+import { encodeBmp, encodeGif, encodeIco, encodeJpeg, encodePng, encodeTiff, encodeWebp } from "./codecs";
 import { CLIP_WEBM, STILL_AVIF, TONE_M4A, TONE_MP3, TONE_OGG, TONE_WEBA } from "./clips";
 import { CLIP_MP4, wavTone } from "./media";
 import { glbOf, gltfOf, meshOf, objOf, plyOf, stlOf } from "./mesh";

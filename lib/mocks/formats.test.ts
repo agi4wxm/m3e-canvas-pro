@@ -20,7 +20,7 @@ import { contentDisposition, extensionOf, kindOfType, typeOfName } from "./files
 import { FORMATS, formatOf, nearestFormat } from "./formats/table";
 import { makeBytes, mockFile, placeholderFile } from "./formats";
 import { deflateRaw, gzip, zlib } from "./formats/deflate";
-import { encodeBmp, encodeGif, encodeJpeg, encodePng, encodeTiff, encodeWebp } from "./formats/images";
+import { encodeBmp, encodeGif, encodeJpeg, encodePng, encodeTiff, encodeWebp } from "./formats/codecs";
 import { meshOf, SHAPES } from "./formats/mesh";
 import { paintPicture } from "./formats/raster";
 import { rngOf } from "./rng";
