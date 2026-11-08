@@ -9,6 +9,8 @@ export type Locator = {
   nth(i: number): Locator;
   filter(o: { hasText?: string | RegExp }): Locator;
   click(o?: { timeout?: number }): Promise<void>;
+  focus(): Promise<void>;
+  hover(): Promise<void>;
   dblclick(): Promise<void>;
   fill(v: string): Promise<void>;
   press(key: string): Promise<void>;

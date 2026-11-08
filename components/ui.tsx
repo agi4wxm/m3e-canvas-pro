@@ -1,5 +1,5 @@
 
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PLACES, Palette, Place, R_INNER, SETTLE_MS, clamp, draftGradient } from "@/lib/tokens";
 import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react";
@@ -1741,7 +1741,43 @@ export function TidyButton({
   );
 }
 
-/** M3 basic dialog for a destructive confirmation. */
+/** what Tab reaches inside `box`, in its order */
+const focusablesIn = (box: HTMLElement) =>
+  Array.from(box.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter((el) => !el.matches(":disabled") && !el.closest("[inert]"));
+
+/** While `open`, a modal dialog holds the focus: it starts on `first` (the safe answer), the rest of the page is inert
+ *  to the pointer, the keyboard and a screen reader, and on closing the focus goes back to what held it before. `box`
+ *  has to sit in a child of the body of its own (a portal); `trapTab` keeps Tab inside it. */
+export function useModalFocus(open: boolean, box: React.RefObject<HTMLElement | null>, first: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!open) return;
+    const held = document.activeElement;
+    const opener = held instanceof HTMLElement && held !== document.body ? held : null;
+    const own = box.current?.closest("body > *");
+    const quieted = Array.from(document.body.children).filter((el): el is HTMLElement => el instanceof HTMLElement && el !== own && !el.inert);
+    for (const el of quieted) el.inert = true;
+    first.current?.focus();
+    return () => {
+      for (const el of quieted) el.inert = false;
+      if (opener?.isConnected && !opener.closest("[inert]")) opener.focus();
+    };
+  }, [open]);
+}
+
+/** Tab and Shift+Tab inside a modal dialog: from the last control round to the first and back, never out of it */
+export function trapTab(e: React.KeyboardEvent<HTMLElement>) {
+  if (e.key !== "Tab") return;
+  const items = focusablesIn(e.currentTarget);
+  if (!items.length) return;
+  const at = items.indexOf(document.activeElement as HTMLElement);
+  e.preventDefault();
+  items[e.shiftKey ? (at <= 0 ? items.length - 1 : at - 1) : at < 0 || at === items.length - 1 ? 0 : at + 1].focus();
+}
+
+/** M3 basic dialog for a destructive confirmation, with an alert dialog's manners: the focus starts on Cancel, Enter
+ *  presses only the button that has the focus (once, however long it is held), Tab stays inside, Escape and a press on
+ *  the scrim cancel, and on closing the focus goes back where it was. It answers once: a second press while it fades
+ *  out does nothing. */
 export function ConfirmDialog({
   open,
   title,
@@ -1760,23 +1796,28 @@ export function ConfirmDialog({
   onConfirm: () => void;
 }) {
   const lang = useLang();
+  const box = useRef<HTMLDivElement | null>(null);
+  const cancelRef = useRef<HTMLButtonElement | null>(null);
+  const titleId = useId();
+  const bodyId = useId();
+  /* the answer given since it last opened, so the button pressed again on its way out does nothing */
+  const answered = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onCancel();
-      }
-      if (e.key === "Enter") {
-        e.stopPropagation();
-        onConfirm();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onCancel, onConfirm]);
-  const btn = (label: string, primary: boolean, onClick: () => void) => (
+    if (open) answered.current = false;
+  }, [open]);
+  const once = (then: () => void) => () => {
+    if (answered.current) return;
+    answered.current = true;
+    then();
+  };
+  const cancel = once(onCancel);
+  const confirm = once(onConfirm);
+  useLayer(open, cancel, true);
+  useModalFocus(open, box, cancelRef);
+  const btn = (label: string, primary: boolean, onClick: () => void, ref?: React.Ref<HTMLButtonElement>) => (
     <button
+      ref={ref}
+      data-dialog-answer={primary ? "confirm" : "cancel"}
       onClick={onClick}
       className="m3-press"
       style={{
@@ -1794,7 +1835,7 @@ export function ConfirmDialog({
       {label}
     </button>
   );
-  return (
+  const dialog = (
     <AnimatePresence>
       {open && (
         <motion.div
@@ -1803,7 +1844,7 @@ export function ConfirmDialog({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.16 }}
-          onClick={onCancel}
+          onClick={cancel}
           style={{
             position: "fixed",
             inset: 0,
@@ -1815,14 +1856,21 @@ export function ConfirmDialog({
           }}
         >
           <motion.div
+            ref={box}
             role="alertdialog"
             aria-modal
-            aria-label={title}
+            aria-labelledby={titleId}
+            aria-describedby={bodyId}
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.96, opacity: 0 }}
             transition={{ type: "spring", stiffness: 520, damping: 34, mass: 0.7 }}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              trapTab(e);
+              /* Enter is the focused button's own, which the browser presses; held down, or ending a composition, it presses nothing */
+              if (e.key === "Enter" && (e.repeat || e.nativeEvent.isComposing)) e.preventDefault();
+            }}
             style={{
               width: "min(100%, 340px)",
               padding: 24,
@@ -1838,15 +1886,21 @@ export function ConfirmDialog({
             <div style={{ textAlign: "center", color: p.error }}>
               <Icon name={icon} size={28} />
             </div>
-            <div style={{ fontSize: 22, textAlign: "center" }}>{title}</div>
-            <div style={{ fontSize: 14, lineHeight: 1.5, color: p.onSurfaceVariant, whiteSpace: "pre-line" }}>{body}</div>
+            <div id={titleId} style={{ fontSize: 22, textAlign: "center" }}>
+              {title}
+            </div>
+            <div id={bodyId} style={{ fontSize: 14, lineHeight: 1.5, color: p.onSurfaceVariant, whiteSpace: "pre-line" }}>
+              {body}
+            </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              {btn(t("cancel", lang), false, onCancel)}
-              {btn(t("ok", lang), true, onConfirm)}
+              {btn(t("cancel", lang), false, cancel, cancelRef)}
+              {btn(t("ok", lang), true, confirm)}
             </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
   );
+  /* in a child of the body of its own, so that everything else can go inert while it asks */
+  return typeof document === "undefined" ? dialog : createPortal(dialog, document.body);
 }
