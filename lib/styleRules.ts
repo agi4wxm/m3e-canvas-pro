@@ -1,5 +1,5 @@
 import { partBySlug } from "../parts/registry";
-import { isStrict, styleOf, uxOf, recipesOf, RECIPE_KEYS } from "./styles";
+import { isStrict, styleOf, uxOf, recipesOf, RECIPE_KEYS, type StyleContext } from "./styles";
 import { fontFamilyOf, type Doc, type Group, type Item, type Theme } from "./tokens";
 import { STRICT_LOOK_KEYS, strictLook } from "./look";
 
@@ -25,8 +25,8 @@ export function conformItem(it: Item): Item {
 }
 
 /** the parts of a document as the rules of its theme allow them; the same array when none had to change */
-export function conformGroups(groups: Group[], theme: Theme): Group[] {
-  if (!isStrict(theme)) return groups;
+export function conformGroups(groups: Group[], theme: Theme, styles?: StyleContext): Group[] {
+  if (!isStrict(theme, styles)) return groups;
   let changed = false;
   const out = groups.map((g) => {
     const items = g.items.map(conformItem);
@@ -38,20 +38,20 @@ export function conformGroups(groups: Group[], theme: Theme): Group[] {
 }
 
 /** a whole document as the rules of its theme allow it */
-export function conformDoc<D extends Pick<Doc, "groups"> & Partial<Pick<Doc, "components">>>(doc: D, theme: Theme): D {
-  if (!isStrict(theme)) return doc;
-  const groups = conformGroups(doc.groups, theme);
-  const components = doc.components?.map((c) => ({ ...c, groups: conformGroups(c.groups, theme) }));
+export function conformDoc<D extends Pick<Doc, "groups"> & Partial<Pick<Doc, "components">>>(doc: D, theme: Theme, styles?: StyleContext): D {
+  if (!isStrict(theme, styles)) return doc;
+  const groups = conformGroups(doc.groups, theme, styles);
+  const components = doc.components?.map((c) => ({ ...c, groups: conformGroups(c.groups, theme, styles) }));
   return { ...doc, groups, ...(components ? { components } : {}) };
 }
 
 /** What a model is told when the document it writes is held to a style. It is told so it can compose well; what it does
  *  regardless is taken away when the document arrives. */
-export function rulesForModel(theme: Theme): string {
-  if (!isStrict(theme)) return "";
-  const pack = styleOf(theme.style);
-  const ux = uxOf(theme);
-  const recipes = recipesOf(theme);
+export function rulesForModel(theme: Theme, styles?: StyleContext): string {
+  if (!isStrict(theme, styles)) return "";
+  const pack = styleOf(theme.style, styles);
+  const ux = uxOf(theme, styles);
+  const recipes = recipesOf(theme, styles);
   const name = pack ? `the ${pack.name.en} style` : "Android's Material 3";
   return [
     `This document is held to ${name}, and you may not change it.`,

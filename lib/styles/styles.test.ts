@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { APP_SCOPE, RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, variantLabel, STYLE_PACKS, artOf, hasBackdrop, normalizeRecipes, recipesOf, screenBackground, styleCatalog, styleCss, styleOf, stylePalette, stylePatch, styleSeed, type StyleRoles } from ".";
+import { APP_SCOPE, RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, variantLabel, STYLE_PACKS, artOf, checkAccess, hasBackdrop, normalizeRecipes, recipesOf, screenBackground, styleCatalog, styleCss, styleOf, stylePalette, stylePatch, styleSeed, type StyleRoles } from ".";
 import { DEFAULT_THEME, FONTS, ICON_FAMILIES, SHAPES, fontFamilyOf, langFaceOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Theme } from "../tokens";
 import { RECIPE_CSS } from "./recipes";
 import * as shared from "./recipes/shared";
@@ -60,14 +60,31 @@ describe("the styles", () => {
     for (const g of STYLE_GROUPS) expect(STYLE_PACKS.filter((s) => s.group === g).length, g).toBeGreaterThanOrEqual(5);
   });
 
-  it("can be read in both modes, except what the product itself is known for and says so", () => {
-    for (const s of STYLE_PACKS)
+  /* What follows is the styles' own guard: what a pack may not drift into without anyone seeing. It is not an
+     accessibility claim; that is the accessibility check's (access.ts), whose verdict on each pack is recorded below. */
+  it("can be read in both modes, except what the product itself is known for and says so, which still counts against it", () => {
+    for (const s of STYLE_PACKS) {
+      const issues = checkAccess(s).issues;
       for (const [mode, roles] of [["light", s.light], ["dark", s.dark]] as const)
         for (const [bg, fg] of READS) {
           const ratio = contrast(roles[bg] as string, roles[fg] as string);
-          const floor = s.loud?.includes(bg) ? 2 : 4.5;
-          expect(ratio, `${s.key} ${mode}: ${String(fg)} on ${String(bg)} is ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(floor);
+          const at = `${s.key} ${mode}: ${String(fg)} on ${String(bg)} is ${ratio.toFixed(2)}`;
+          if (ratio >= 4.5) continue;
+          /* a pair below 4.5:1 is one the pack says is its own look, and not so faint it cannot be made out */
+          expect(s.loud, at).toContain(bg);
+          expect(ratio, at).toBeGreaterThanOrEqual(2);
+          /* and saying so passes nothing: the accessibility check lists it, marked loud */
+          expect(issues.some((c) => c.mode === mode && c.path === `${mode}.${String(fg)}` && c.on === `${mode}.${String(bg)}` && c.loud), at).toBe(true);
         }
+      if (issues.length) expect(checkAccess(s).pass, s.key).toBe(false);
+    }
+  });
+
+  it("are recorded with what the accessibility check finds in each, in every state", () => {
+    /* products reproduced as they are fall short in places (iOS's green switch, WeChat's white on green): what each pack
+       fails is kept here, so a change to a pack's colors or to the check shows up in review */
+    const found = Object.fromEntries(STYLE_PACKS.map((s) => [s.key, checkAccess(s).issues.map((c) => `${c.id} ${c.ratio}:1 < ${c.need}${c.loud ? " (loud)" : ""}`)]));
+    expect(found).toMatchSnapshot();
   });
 
   it("keep the outlines visible on the screen itself", () => {

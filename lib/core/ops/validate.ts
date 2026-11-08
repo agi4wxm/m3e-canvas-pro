@@ -8,7 +8,7 @@ import type { PartDef, PropDef } from "../../../parts/types";
 export type { PartDef };
 import { cleanLook } from "../../look";
 import { styleOwnsProp } from "../../styleRules";
-import { isStrict } from "../../styles";
+import { isStrict, styleContext } from "../../styles";
 import { BACK_TARGET, COLOR_TOKENS, MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, transitionOf, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
 import { cleanMotion, cleanTrigger } from "../../prototype";
 import { EVENT_PREFIX, outletKeysOf } from "../../partContract";
@@ -110,7 +110,7 @@ export function checkProps(def: PartDef, props: Record<string, unknown>, s: Core
       const own = Object.keys(s.doc.icons ?? {}).map(docIconName);
       throw new OpError("invalid_value", `The document has no icon ${v}. ${own.length ? `Its own icons are: ${own.join(", ")}.` : "It has none of its own yet:"} set_icon (or generate_svg with icon) adds one.`, key);
     }
-    if (isStrict(s.doc.theme) && styleOwnsProp(def.slug, key)) throw new OpError("refused", `The document is held to its style, which decides ${def.slug}.${key}.`, key);
+    if (isStrict(s.doc.theme, styleContext(s.doc.styles)) && styleOwnsProp(def.slug, key)) throw new OpError("refused", `The document is held to its style, which decides ${def.slug}.${key}.`, key);
   }
 }
 
@@ -126,7 +126,7 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
   textColor: (v) => (v === undefined || isTextToken(v) ? null : `should be a text color role: ${TEXT_TOKENS.map((t) => t.key).join(", ")} (other colors go in the look: {"text": {"color": "#hex"}})`),
   corners: (v, s) => {
     if (v === undefined) return null;
-    if (isStrict(s.doc.theme)) return "are decided by the style the document is held to";
+    if (isStrict(s.doc.theme, styleContext(s.doc.styles))) return "are decided by the style the document is held to";
     return isRecord(v) && ["tl", "tr", "bl", "br"].every((k) => typeof v[k] === "number" && Number.isFinite(v[k]) && (v[k] as number) >= 0) ? null : "should be {tl, tr, bl, br} in dp";
   },
   look: (v) => (v === undefined || isRecord(v) ? null : "should be an object (see the look fields)"),

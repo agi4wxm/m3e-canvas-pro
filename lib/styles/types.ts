@@ -82,7 +82,8 @@ export type StylePack = {
   capsLabels?: boolean;
   /** headings lean */
   italicDisplay?: boolean;
-  /** the pairs of roles that are this product's own even though they read below 4.5:1, kept because they are what it looks like */
+  /** the backgrounds that are this product's own even though words on them read below 4.5:1, kept because they are what
+   *  it looks like. It lowers no check: the accessibility check (access.ts) lists them like any other, marked loud */
   loud?: (keyof StyleRoles)[];
   /** colors of a control that no role names */
   tokens?: Partial<Record<StyleToken, string>>;

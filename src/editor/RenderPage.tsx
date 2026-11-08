@@ -18,12 +18,12 @@ import { canvasView } from "@/lib/expand";
 import { LangContext, setGlobalLang, type Lang } from "@/lib/i18n";
 import { outsideInDoc } from "@/lib/outside";
 import { setOutsideBlocked } from "@/lib/outsidePolicy";
-import { setDocStyles } from "@/lib/styles";
+import { setDocStyles, styleContext } from "@/lib/styles";
 import { setDocIcons } from "./docIcons";
 import { fontFamilyOf, frameOfGroup, frameSizeOf, normalizeTheme, paletteOf, seedOf, shapeScaleOf, type Doc, type Item } from "@/lib/tokens";
 import { PartView } from "@/components/PartView";
 import { FIT_OVERLAY } from "@/parts/contained";
-import { PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
+import { DocStylesProvider, PartStyleSheet, PartThemeContext, PartThemeStyle, type PartTheme } from "@/parts/theme";
 import { firstBaseline } from "./model";
 import { capture, layerDrawn, shotTarget, ShotLayer, themeFacesLoaded } from "./screenShot";
 
@@ -80,14 +80,18 @@ export function RenderPage() {
 
   const doc = work?.job.doc as Doc | undefined;
   const lang = work?.job.lang ?? "en";
-  const theme = useMemo(() => normalizeTheme(doc?.theme), [doc]);
+  /* the job's document is read in its own styles: its theme is worked out against them, not against whatever the last
+     job left in reach */
+  const styles = useMemo(() => styleContext(doc?.styles), [doc]);
+  const theme = useMemo(() => normalizeTheme(doc?.theme, styles), [doc, styles]);
   if (doc) {
     setGlobalLang(lang);
-    setDocStyles(doc.styles);
+    /* and in reach, for the canvas code that reads a style without being handed one */
+    setDocStyles(styles);
     setDocIcons(doc.icons);
   }
-  const p = useMemo(() => paletteOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme), [doc, theme]);
-  const partTheme = useMemo<PartTheme>(() => ({ seed: seedOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme), dark: theme.dark, contrast: theme.contrast, shape: shapeScaleOf(theme.shape) }), [doc, theme]);
+  const p = useMemo(() => paletteOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme, styles), [doc, theme, styles]);
+  const partTheme = useMemo<PartTheme>(() => ({ seed: seedOf(doc?.paletteKey ?? "purple", doc?.customPalette ?? null, theme, styles), dark: theme.dark, contrast: theme.contrast, shape: shapeScaleOf(theme.shape) }), [doc, theme, styles]);
   const target = work?.kind === "render" && doc ? shotTarget(doc, work.job.widths, work.job.id) : null;
 
   /* once what the work needs is drawn, it is done and the next one comes */
@@ -131,6 +135,7 @@ export function RenderPage() {
   if (!work || !doc) return null;
   return (
     <LangContext.Provider value={lang}>
+    <DocStylesProvider styles={styles}>
       <PartThemeContext.Provider value={partTheme}>
         <PartThemeStyle seed={partTheme.seed} contrast={partTheme.contrast} />
         <PartStyleSheet theme={theme} />
@@ -153,6 +158,7 @@ export function RenderPage() {
           target && <ShotLayer layer={layer} frame={target.frame} doc={doc} widths={work.job.widths} p={p} theme={theme} lang={lang} />
         )}
       </PartThemeContext.Provider>
+    </DocStylesProvider>
     </LangContext.Provider>
   );
 }
