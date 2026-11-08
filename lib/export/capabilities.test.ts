@@ -99,7 +99,7 @@ describe("the capabilities a product uses", () => {
   it("name an unnamed view's slot clear of the web's own widget of that name, and leave every other name as it was", () => {
     const doc = payingDoc();
     /* a map and a camera with no name of their own: their default slot names are the web widgets' (MapView, CameraView) */
-    const bare = { ...doc, groups: [...doc.groups.map((g) => ({ ...g, name: undefined, items: g.items.map((it) => (it.id === "map" ? { ...it, label: undefined } : it)) })), { id: "g9", x: 16, y: 600, axis: "x" as const, items: [{ ...makeItem("camera"), id: "cam", label: undefined }] }] };
+    const bare = { ...doc, groups: [...doc.groups.map((g) => ({ ...g, name: undefined, items: g.items.map((it) => (it.id === "map" ? { ...it, label: "" } : it)) })), { id: "g9", x: 16, y: 600, axis: "x" as const, items: [{ ...makeItem("camera"), id: "cam", label: "" }] }] };
     expect(slotsOf(bare).map((s) => s.name)).toEqual(["MapView2", "CameraView2"]);
     expect(slotsOf(doc).map((s) => s.name)).toEqual(["StoreMap"]);
   });

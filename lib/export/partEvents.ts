@@ -7,7 +7,6 @@
  * declare. */
 
 import { partBySlug } from "../../parts/registry";
-import type { PartEvent } from "../../parts/types";
 
 /** a part's event as a kit component hands it out: the callback prop, its parameters as printed, and the payload made
  *  of them */
@@ -41,6 +40,3 @@ export function eventProp(slug: string, name: string): EventProp | null {
   const single = SINGLE[slug]?.[name];
   return { prop: `on${name.charAt(0).toUpperCase()}${name.slice(1)}`, params: single ? single.params : "e: unknown", payload: single ? single.payload : "e" };
 }
-
-/** what an event declares it carries, by field, as the kits' `eventOf` reads it */
-export const eventFields = (e: PartEvent): Record<string, string> => ({ ...(e.payload ?? {}) });

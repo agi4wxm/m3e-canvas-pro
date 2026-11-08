@@ -12,6 +12,7 @@ import {
   type CallResult,
   type FormFields,
   type FormHandle,
+  type FormRef,
   type Outcome,
   type SendInit,
   type SourceHandle,
@@ -80,8 +81,9 @@ export type ScreenInit = {
 export type ScreenForm = {
   form: FormHandle;
   operationId: string;
-  then?: ActionBody;
-  catch?: ActionBody;
+  /** what runs after a 2XX answer (its `then`), and after any other (its `catch`) */
+  ok?: ActionBody;
+  fail?: ActionBody;
   send: (body: Record<string, unknown>, init: SendInit) => Promise<unknown>;
   extra?: () => Record<string, unknown>;
   status?: number;
@@ -283,7 +285,10 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
       form: (id) => {
         const name = id ?? Object.keys(live.current.forms)[0];
         const f = name ? live.current.forms[name] : undefined;
-        return f && name ? { id: name, operationId: f.operationId, ...(f.then ? { then: f.then as DesignAction } : {}), ...(f.catch ? { catch: f.catch as DesignAction } : {}) } : undefined;
+        if (!f || !name) return undefined;
+        /* what runs after its answer, under the names the interpreter reads them by */
+        const after = Object.fromEntries([["then", f.ok], ["catch", f.fail]].filter(([, b]) => !!b)) as Pick<FormRef, "then" | "catch">;
+        return { id: name, operationId: f.operationId, ...after };
       },
       submit: async (ref) => {
         const f = live.current.forms[ref.id];
@@ -397,7 +402,7 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
  *  for a call). */
 export function useScreenForm(s: ScreenHandle, name: string, o: { id: string; fields: FormFields; operationId: string; send: ScreenForm["send"]; extra?: () => Record<string, unknown>; status?: number; then?: ActionBody; catch?: ActionBody }): FormHandle {
   const form = useForm({ id: o.id, fields: o.fields, send: o.send, ...(o.extra ? { extra: o.extra } : {}), ...(o.status !== undefined ? { status: o.status } : {}) });
-  s.register({ forms: { [name]: { form, operationId: o.operationId, send: o.send, ...(o.extra ? { extra: o.extra } : {}), ...(o.status !== undefined ? { status: o.status } : {}), ...(o.then ? { then: o.then } : {}), ...(o.catch ? { catch: o.catch } : {}) } } });
+  s.register({ forms: { [name]: { form, operationId: o.operationId, send: o.send, ...(o.extra ? { extra: o.extra } : {}), ...(o.status !== undefined ? { status: o.status } : {}), ...(o.then ? { ok: o.then } : {}), ...(o.catch ? { fail: o.catch } : {}) } } });
   return form;
 }
 
