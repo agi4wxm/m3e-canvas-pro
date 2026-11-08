@@ -85,8 +85,10 @@ export function LivePart({ item, widths, screen, onTap, onSlot, onHover, easeWid
   const box = useRef<HTMLDivElement>(null);
   const live = useRef({ item, onField, onEvent });
   live.current = { item, onField, onEvent };
-  /* the value this input last reported, told apart from one a button put in its variable: an input
-   * is uncontrolled, so that one only reaches it by drawing it afresh */
+  /* The preview's state holds the input's value and the part shows what it holds (the prop it is drawn with). A base-ui
+   * control keeps what it shows to itself once drawn, so a value that reaches the state from elsewhere (a button that
+   * sets the variable, a form reset) is put into it by drawing it afresh; the value it reported itself it shows
+   * already. So the value this input last reported is told apart from any other. */
   const key = INPUT_PROP[item.component ?? ""];
   const value = key ? item.props?.[key] : undefined;
   const own = useRef(value);
