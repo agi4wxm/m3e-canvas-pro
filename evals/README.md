@@ -8,8 +8,8 @@
 | --- | --- |
 | `run.ts` | 命令行：`bun run eval` |
 | `harness.ts` | 跑一个任务：起始文档、无头截图、计量和预算、跑完后截图、对照参考图、撤销检查 |
-| `tasks.ts`、`fixtures.ts` | 任务和它们的起始文档；产品层的八个任务在 `productTasks.ts`，边界的三个负例在 `boundaryTasks.ts`，起始文档在 `fixtures.ts` 末尾，导入任务用的规范文件在 `fixtures/shop-backend.openapi.yaml` |
-| `graders.ts`、`productGraders.ts`、`boundaryTasks.ts` | 确定性的检查和打分；产品层的检查（契约、绑定、状态、模拟库、预览、导出）；边界负例的检查（结果是不是在屏幕上自己定的） |
+| `tasks.ts`、`fixtures.ts` | 任务和它们的起始文档；产品层的八个任务在 `productTasks.ts`，边界的三个负例和支付流程在 `boundaryTasks.ts`，起始文档在 `fixtures.ts` 末尾，导入任务用的规范文件在 `fixtures/shop-backend.openapi.yaml` |
+| `graders.ts`、`productGraders.ts`、`boundaryTasks.ts` | 确定性的检查和打分；产品层的检查（契约、绑定、状态、模拟库、预览、导出）；边界任务的检查（结果是不是在屏幕上自己定的，支付是不是按订单状态显示） |
 | `product.ts` | 文档有接口时，回合结束后算一次：每个绑定了数据的屏幕在每个场景下的预览、用模拟库试登录、导出完整产品并类型检查生成的代码 |
 | `judge.ts` | 可选的视觉评分 |
 | `record.ts`、`replay.ts`、`keep-recorded.ts` | 写下和读回一次运行、重新评分、挑几次运行给单元测试 |
@@ -148,6 +148,23 @@ bun run eval:refs                                    # 重画 refs/ 里的参考
 | `claim-after-failure` | “领取按钮调用领取接口，领完了显示已领取” | **`asks-api`**：领取调用 `claimCoupon`；**`claimed-only-on-success`**：回答之前、以及失败的 `catch` 里，都不把它标成已领取（优惠券 `claimed` 绑定的变量、回答里设为真的变量、优惠券的 `claimed` 属性、回答才显示的部件）；“领取中”这类界面自己的状态可以先变，`optimistic` 由契约回滚，也可以；`claimed-shown`：优惠券的 `claimed` 绑定了，或者由领取的回答设置；`failure-designed` |
 
 “停止时用户插入编辑”（AI 改 A → 作者改 B → AI 改 C → 停止）是回合生命周期的行为，不靠模型，由 `lib/agent/stop.test.ts` 在 `bun run test` 里确定地检查：B 保留，A 和 C 按停止的契约收回。`evals/boundary.test.ts` 用操作把每个负例“做一遍好的”和“照作者说的走捷径”，前者全部通过，后者和起始文档的关键检查不通过。
+
+### 支付流程
+
+`payment-flow` 也在 `boundaryTasks.ts`，对照[平台能力](../docs/平台能力.md)的“支付：以订单状态为准”：起始文档 `wxpay-zh` 是咖啡小铺的结算页（一个 `brand-button`，服务方微信、用途支付）、空的支付结果页和订单契约（`createOrder` 返回订单和签好的支付参数，`getOrder` 读订单状态，状态由后端按支付平台的回调设置）。作者只说“把结算页的「微信支付」按钮接上微信支付，付完在支付结果页显示这笔订单的结果”，没有说怎么做：三步走、按订单状态显示、取消和失败的设计都要智能体从工具指南里知道。
+
+| 检查 | 看什么 |
+| --- | --- |
+| **`asks-api`** | 结算页的点击调用 `createOrder` |
+| **`invokes-payment`** | `createOrder` 的 `then` 调用平台能力 `payment.pay`，`orderId` 读回答（`response.…`） |
+| **`result-after-payment`** | 读订单的结果页只在 `payment.pay` 的 `then` 里打开，并带上数据源要的订单号；点击时、订单刚创建时就去结果页都不行 |
+| **`payment-caught`** | `payment.pay` 有 `catch`，并且做了点什么（取消、失败的设计） |
+| **`status-from-order`** | 有屏幕按打开时的参数（`params.…`）加载 `getOrder`，并读订单的 `status`（条件、绑定或文字里） |
+| `order-states` | 结果页分别设计了已支付和失败或处理中 |
+| `failure-kinds` | `catch` 读 `error.type`，把取消和失败分开 |
+| `failure-designed` | `createOrder` 失败也有设计 |
+
+`evals/boundary.test.ts` 用操作做一遍好的（全部通过），以及几种走捷径的：订单一创建就去结果页、不调用 `payment.pay`、`payment.pay` 没有 `catch`、结果页不看订单状态一律写“支付成功”，各自的关键检查不通过，起始文档也不通过。
 
 ## 加一个任务
 

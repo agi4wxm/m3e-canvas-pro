@@ -1,7 +1,9 @@
 /* The boundary's negative tasks (docs/边界与契约.md): an author asks for a result the back end decides, in the words a
  * person would use ("pay goes straight to success", "draw a prize at random", "show it claimed"), and the agent has to
- * build the intent and the answer instead: a call, the screen the answer leads to, its failure. Graded on the document
- * only, deterministically: what a tap does before an answer comes, and where results come from. */
+ * build the intent and the answer instead: a call, the screen the answer leads to, its failure. Beside them the payment
+ * flow (docs/平台能力.md): a pay button wired through the order endpoint, the payment.pay capability and a result
+ * screen that shows the order's status. Graded on the document only, deterministically: what a tap does before an
+ * answer comes, and where results come from. */
 
 import { demoRuns } from "../lib/partContract";
 import { frameOfPart, type Action, type ActionBody, type Effect, type Item } from "../lib/tokens";
@@ -184,6 +186,128 @@ const resultFromOrder = (screen: string): Check =>
     return { pass: reads.length > 0 || kept, detail: reads.length ? `${reads.map((f) => f.name).join(", ")} load the order` : kept ? "the answer's status is kept for the screen" : "nothing shows the order's status" };
   });
 
+/* ---------- the payment flow (docs/平台能力.md, report 2.4) ----------
+   The back end makes the order (createOrder), the payment sheet takes it (invoke payment.pay, whose `then` only means
+   it was submitted), and the result screen shows the order's status as the back end has it. */
+
+type Invoke = Extract<Effect, { do: "invoke" }>;
+type Call = Extract<Effect, { do: "call" }>;
+const invokesIn = (b: ActionBody | undefined): Invoke[] => (b?.effects ?? []).filter((e): e is Invoke => e.do === "invoke");
+
+/** the screens that load the order, with their sources of it */
+const orderScreens = (g: Graded, op: string) => new Map(g.doc.frames.flatMap((f) => (f.data ?? []).some((d) => d.operationId === op) ? [[f.id, (f.data ?? []).filter((d) => d.operationId === op)] as const] : []));
+
+/** each payment a tap on the screen makes once the order is made: the tap, the order's call, the invoke in its `then` */
+function paymentsAfterOrder(g: Graded, screen: string, op: string): { tap: string; call: Call; pay: Invoke }[] {
+  const out: { tap: string; call: Call; pay: Invoke }[] = [];
+  for (const t of tapsOn(g, screen))
+    for (const b of atOnce(t.action))
+      for (const call of callsIn(b)) if (call.operationId === op) for (const pay of invokesIn(call.then)) if (pay.capability === "payment.pay") out.push({ tap: describe(t), call, pay });
+  return out;
+}
+
+/** the order's answer invokes the payment with the order the back end made */
+const invokesPayment = (screen: string, op: string): Check =>
+  custom(
+    "invokes-payment",
+    `the answer of ${op} invokes payment.pay with the order it made`,
+    (g) => {
+      const pays = paymentsAfterOrder(g, screen, op);
+      const withOrder = pays.filter((p) => /\bresponse\./.test(p.pay.args?.orderId ?? ""));
+      const early = tapsOn(g, screen).some((t) => atOnce(t.action).some((b) => invokesIn(b).some((e) => e.capability === "payment.pay")));
+      if (withOrder.length) return { pass: true, detail: `${withOrder[0].tap}: ${op} → payment.pay {orderId: ${withOrder[0].pay.args?.orderId}}` };
+      return { pass: false, detail: pays.length ? `payment.pay follows ${op} without the order's id from its answer` : early ? "payment.pay is invoked before an order is made" : `nothing invokes payment.pay after ${op}` };
+    },
+    { critical: true },
+  );
+
+/** The result screen opens only once the payment was submitted: not on the tap, not on the order's answer alone, but
+ *  in payment.pay's `then`, given the order's id. */
+const resultAfterPayment = (screen: string, op: string, load: string): Check =>
+  custom(
+    "result-after-payment",
+    "the result screen opens after the payment sheet answers, with the order's id, and never before",
+    (g) => {
+      const results = orderScreens(g, load);
+      const bad: string[] = [];
+      for (const t of tapsOn(g, screen))
+        for (const b of atOnce(t.action)) {
+          if (results.has(b.to)) bad.push(`${describe(t)} goes to ${b.to} at once`);
+          for (const c of callsIn(b)) if (c.operationId === op && c.then && results.has(c.then.to)) bad.push(`${describe(t)} goes to ${c.then.to} as soon as the order is made`);
+        }
+      /* the params the result screen's source reads, and what the payment's then gives them */
+      const reached = paymentsAfterOrder(g, screen, op).filter(({ pay }) => {
+        const then = pay.then;
+        if (!then || !results.has(then.to)) return false;
+        const wanted = (results.get(then.to) ?? []).flatMap((d) => Object.values(d.params ?? {}).flatMap((v) => [...v.matchAll(/\bparams\.(\w+)/g)].map((m) => m[1])));
+        return wanted.some((name) => /\b(response|vars)\./.test(then.params?.[name] ?? ""));
+      });
+      if (!reached.length) bad.push(results.size ? `payment.pay's then does not open ${[...results.keys()].join(", ")} with the order's id` : `no screen loads ${load}`);
+      return { pass: !bad.length, detail: bad.length ? bad.join("; ") : `payment.pay's then opens ${reached[0].pay.then!.to} with the order's id` };
+    },
+    { critical: true },
+  );
+
+/** a payment cancelled or failed on the sheet has a design: payment.pay's catch does something */
+const paymentCaught = (screen: string, op: string): Check =>
+  custom(
+    "payment-caught",
+    "a payment cancelled or failed on the sheet has a design (payment.pay's catch)",
+    (g) => {
+      const pays = paymentsAfterOrder(g, screen, op);
+      const caught = pays.find((p) => !!p.pay.catch && ((p.pay.catch.effects?.length ?? 0) > 0 || p.pay.catch.to !== "none"));
+      if (caught) return { pass: true, detail: caught.pay.catch!.to !== "none" ? `its catch goes to ${caught.pay.catch!.to}` : `its catch runs ${caught.pay.catch!.effects!.map((e) => e.do).join(", ")}` };
+      return { pass: false, detail: pays.length ? "payment.pay has no catch" : "there is no payment.pay to catch" };
+    },
+    { critical: true },
+  );
+
+/** the catch tells a cancelled payment from a failed one: it reads error.type, or names the kind */
+const failureKindsTold = (screen: string, op: string): Check =>
+  custom("failure-kinds", "a cancelled payment is told apart from a failed one (the catch reads error.type)", (g) => {
+    const told = paymentsAfterOrder(g, screen, op).some((p) => /error\.type|cancelled/.test(JSON.stringify(p.pay.catch ?? {})));
+    return { pass: told, detail: told ? "the catch reads error.type" : "the catch says the same of every failure" };
+  });
+
+/** everything a screen's groups and parts read, as text: their conditions, bindings and props */
+const readsOf = (g: Graded, screen: string) =>
+  g.doc.groups
+    .filter((grp) => frameOfPart(grp, g.doc.groups, g.doc.frames, g.o.widths)?.id === screen)
+    .map((grp) => JSON.stringify([grp.showWhen ?? null, grp.items.map((it) => [it.bind ?? null, it.props ?? null])]))
+    .join("\n");
+
+/** a screen loads the order by the id it is opened with, and shows its status */
+const statusFromOrder = (load: string): Check =>
+  custom(
+    "status-from-order",
+    "the result screen loads the order by its id and shows the status the back end gives it",
+    (g) => {
+      const screens = orderScreens(g, load);
+      let loaded = "";
+      for (const [id, sources] of screens) {
+        const byParam = sources.filter((d) => Object.values(d.params ?? {}).some((v) => /\bparams\./.test(v)));
+        const reads = byParam.find((d) => new RegExp(`data\\.${d.name}\\.(value\\.)?status`).test(readsOf(g, id)));
+        if (reads) return { pass: true, detail: `${id} loads ${reads.name} by its id and reads its status` };
+        if (byParam.length) loaded = id;
+      }
+      return { pass: false, detail: loaded ? `${loaded} loads the order but shows nothing of its status` : screens.size ? "the order is not loaded by the id the screen is opened with" : `no screen loads ${load}` };
+    },
+    { critical: true },
+  );
+
+/** the result screen has a design for paid, and for failed or still processing */
+const orderStates = (load: string): Check =>
+  custom("order-states", "the result screen shows paid, and failed or processing, each its own way", (g) => {
+    /* in an expression ('paid', \"paid\"), or a condition's value */
+    const said = (text: string, s: string) => text.includes(`'${s}'`) || text.includes(`\\"${s}\\"`) || text.includes(`"value":"${s}"`);
+    for (const id of orderScreens(g, load).keys()) {
+      const text = readsOf(g, id);
+      const others = ["failed", "processing", "pending"].filter((s) => said(text, s));
+      if (said(text, "paid") && others.length) return { pass: true, detail: `${id} tells paid from ${others.join(", ")}` };
+    }
+    return { pass: false, detail: "no result screen tells paid from failed or processing" };
+  });
+
 export const BOUNDARY_TASKS: EvalTask[] = [
   {
     id: "pay-straight-success",
@@ -214,5 +338,25 @@ export const BOUNDARY_TASKS: EvalTask[] = [
     request: "让这张优惠券的「领取」按钮调用领取接口，领完了显示已领取。",
     budget: BUDGET,
     checks: [...basics(), asksApi("coupons", "claimCoupon"), changesOnlyOnAnswer("coupons", "claimCoupon", "coupon"), claimedBound("coupons", "claimCoupon", "coupon"), failureDesigned("coupons", "claimCoupon")],
+  },
+  {
+    id: "payment-flow",
+    ability: "boundary",
+    title: "Wire a WeChat Pay button: the order from the back end, payment.pay, the result by the order's status",
+    lang: "zh",
+    fixture: "wxpay-zh",
+    request: "把结算页的「微信支付」按钮接上微信支付，付完在支付结果页显示这笔订单的结果。",
+    budget: BUDGET,
+    checks: [
+      ...basics(),
+      asksApi("checkout", "createOrder"),
+      invokesPayment("checkout", "createOrder"),
+      resultAfterPayment("checkout", "createOrder", "getOrder"),
+      paymentCaught("checkout", "createOrder"),
+      statusFromOrder("getOrder"),
+      orderStates("getOrder"),
+      failureKindsTold("checkout", "createOrder"),
+      failureDesigned("checkout", "createOrder"),
+    ],
   },
 ];
