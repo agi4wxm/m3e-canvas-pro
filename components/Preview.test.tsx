@@ -30,6 +30,8 @@ vi.mock("react", async (original) => ({
   useLayoutEffect: () => {},
   useMemo: (value: () => unknown) => value(),
   useCallback: (callback: unknown) => callback,
+  /* the preview's interaction state lives in a store of its own: read as it is */
+  useSyncExternalStore: (_subscribe: unknown, get: () => unknown) => get(),
 }));
 vi.mock("motion/react", () => ({
   AnimatePresence: "presence",

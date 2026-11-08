@@ -18,6 +18,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyEffects, chooseBranch, goneIds, startState } from "./interact";
+import { CONVERGE_PARTS } from "./converge";
 import { BARE_VERSION, MIGRATIONS, PROJECT_VERSION, migrate, migrationProblems, versionOf, type Migration, type MigrationDoc } from "./migrations";
 import { isProject, loadDocument, loadStored, newerVersionOf, PROJECT_FORMAT } from "./project";
 import { serializeProject } from "./core/projectFile";
@@ -193,6 +194,8 @@ describe("the list of steps", () => {
 });
 
 contract(MIGRATIONS, "every step of the format");
+/* version 3 is three changes in one step (lib/converge.ts); each keeps the contract on its own as well */
+for (const part of CONVERGE_PARTS) contract([{ to: 3, name: `version 3's ${part.name}, on its own`, up: part.up }], `version 3's ${part.name}`);
 contract(EXAMPLES, "the worked examples keep the same contract");
 
 /* ---------- the worked examples, each on its own ---------- */

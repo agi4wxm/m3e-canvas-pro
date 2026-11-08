@@ -15,6 +15,8 @@ import { withDoc, withFrames, withGroups, type CoreState } from "../state";
 import { collectionById, groupById, itemById, unlocked } from "./common";
 import { actionError, fullAction, varError, withTapParams } from "./validate";
 import { setItem } from "./nodes";
+import { renameVarReads } from "../../refs";
+import { convergedAction } from "../../converge";
 
 /* ---------- collections ---------- */
 
@@ -208,7 +210,7 @@ export const addVar = op<{ id?: string; name: string; type: DocVar["type"]; valu
 export const updateVar = op<{ id: string; name?: string; type?: DocVar["type"]; value?: DocVar["value"]; drives?: "dark" | null; collection?: string; values?: Record<string, VarValue> }>({
   name: "update_var",
   summary:
-    'Changes a variable\'s name, type, value (in the first mode of its collection), its values in the other modes (values, by mode id or name), its collection, or whether it drives the dark mode (drives: "dark" or null). A new type starts every mode at the type\'s own start value unless values are given.',
+    'Changes a variable\'s name, type, value (in the first mode of its collection), its values in the other modes (values, by mode id or name), its collection, or whether it drives the dark mode (drives: "dark" or null). A new type starts every mode at the type\'s own start value unless values are given. Parts, conditions and effects name a variable by its id, which never changes; a new name is followed by every expression that reads vars.<name>.',
   args: S.obj({ id: S.str(), name: S.str(), type: S.enum(TYPES), value: VALUE, drives: DRIVES, collection: S.str(), values: VALUES }, ["id"]),
   label: () => "Variable",
   run(s, a) {
@@ -233,7 +235,12 @@ export const updateVar = op<{ id: string; name?: string; type?: DocVar["type"]; 
     const next = withModeValues(merged, c, a.values);
     const e = varError(next);
     if (e) throw new OpError("invalid_value", e);
-    return { state: withDoc(s, { vars: soleDark(vars.map((x) => (x.id === a.id ? next : x)), next) }), history: "whole" };
+    const after = soleDark(vars.map((x) => (x.id === a.id ? next : x)), next);
+    /* A variable is kept by its key, the id, wherever a part, a condition or an effect names it, so a new name changes
+       none of those. Expressions read it by name (`vars.<name>`): every one that read it reads it under its new name,
+       and one that read another variable by that name is written by that one's key (lib/refs.ts). */
+    const read = next.name === v.name ? s.doc : renameVarReads(s.doc, after);
+    return { state: withDoc(s, { vars: after, groups: read.groups, frames: read.frames, components: read.components }), history: "whole" };
   },
 });
 
@@ -275,7 +282,7 @@ export const removeVar = op<{ id: string }>({
 export const setAction = op<{ id: string; slot?: string; action: Action | null }>({
   name: "set_action",
   summary:
-    'Sets what a tap on a part does, or what runs on one of the outlets it declares (describe_node lists them): a place, slot "tab:0" or "icon"; a family of places, slot "tab:*", one action for every row, which reads the row tapped as slot.index; an event, slot "on:submit", which runs when the part sends it and reads its payload as event.<field> (event.value). The action: {to: screen id | "back" | "link" | "none", transition, url, effects: [{do: show|hide|toggle|open|close, part} | {do: setVar, var, value} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message}], when: {var, op: eq|neq, value} | {filled: part}, else: {...}, trigger: {on: "hover"} | {on: "delay", ms} (starts it without a tap), overlay: true (the screen opens over the one on show; back closes it), scrollTo: part id (with to "none"), motion: {kind: instant|dissolve|move|push|slide, dir: left|right|up|down (the way the new screen moves), easing: out|in|inOut|linear|spring, ms}}. null removes it.',
+    'Sets what a tap on a part does, or what runs on one of the outlets it declares (describe_node lists them): a place, slot "tab:0" or "icon"; a family of places, slot "tab:*", one action for every row, which reads the row tapped as slot.index; an event, slot "on:submit", which runs when the part sends it and reads its payload as event.<field> (event.value). The action: {to: screen id | "back" | "link" | "none", transition, url, effects: [{do: show|hide|toggle|open|close, part} | {do: setVar, var, value} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message}], when: {var, op: eq|neq, value (of the variable type: 3, true, "words")} | {filled: part} | {expr}, else: {...}, trigger: {on: "hover"} | {on: "delay", ms} (starts it without a tap), overlay: true (the screen opens over the one on show; back closes it), scrollTo: part id (with to "none"), motion: {kind: instant|dissolve|move|push|slide, dir: left|right|up|down (the way the new screen moves), easing: out|in|inOut|linear|spring, ms} (how the screen comes in; with a motion, transition is the nearest older kind and may be left out)}. null removes it.',
   args: S.obj({ id: S.str(), slot: S.str('a place ("tab:0"), a family ("tab:*") or an event ("on:submit") the part declares; left out, the tap on the whole part'), action: { type: ["object", "null"] } }, ["id", "action"]),
   label: () => "Tap",
   run(given, a, ctx) {
@@ -287,7 +294,8 @@ export const setAction = op<{ id: string; slot?: string; action: Action | null }
       const e = actionError(a.action, s);
       if (e) throw new OpError("invalid_value", `action: ${e}.`, "action");
     }
-    const action = a.action ? fullAction(a.action) : undefined;
+    /* written the one way version 3 reads (lib/converge.ts): a transition follows the motion, a value its variable */
+    const action = a.action ? convergedAction(fullAction(a.action), s.doc.vars) : undefined;
     if (!a.slot) return setItem.run(s, { id: a.id, patch: { action } }, { ...ctx, strict: false });
     const actions = { ...item.actions };
     if (action) actions[a.slot] = action;
