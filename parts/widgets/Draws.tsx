@@ -5,29 +5,34 @@ import { Button } from "@/components/m3e/button";
 import { prefersReducedMotion } from "@/components/m3e/reduced-motion";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
+import { useHost, type HostProps } from "./host";
 
 /* The prize machines, after 17722797729/m3e-canvas game-ui (MIT): the same draw, six ways to watch it.
- * `result` forces the outcome (a prototype often has to show one particular path); -1 draws at
- * random. Nothing here is a real lottery: the odds are even and nothing is stored. */
+ * The prize is the other side's to decide (docs/边界与契约.md): a press asks, `result` brings the answer in (-1: none
+ * yet), and the machine plays its run, settles on it and sends `settled`. Until the answer comes it waits. Only a
+ * prototype's demo picks a prize itself, at random with even odds, when nothing gives one. */
 
 type Prize = { label: string; icon?: string };
-type DrawProps = { prizes?: Prize[]; label?: string; result?: number; size?: number };
+type DrawProps = { prizes?: Prize[]; label?: string; result?: number; size?: number } & HostProps;
 
 const SPIN_MS = 1200;
 
 const reduced = prefersReducedMotion;
 
-/** one draw at a time: `tick` moves while it runs, so a machine can show something happening */
-function useDraw(prizes: Prize[], result: number) {
-  const [phase, setPhase] = useState<"idle" | "running" | "done">("idle");
+/** One draw at a time: `tick` moves while it runs, so a machine can show something happening. `pending` is a press
+ *  waiting for its result. */
+function useDraw(prizes: Prize[], result: number, contract: HostProps) {
+  const host = useHost(contract);
+  const [phase, setPhase] = useState<"idle" | "pending" | "running" | "done">("idle");
   const [won, setWon] = useState(-1);
   const [tick, setTick] = useState(0);
   const running = useRef<(() => void) | undefined>(undefined);
+  const live = useRef({ prizes, host });
+  live.current = { prizes, host };
   /* leaving the screen mid-draw stops it */
   useEffect(() => () => running.current?.(), []);
-  const start = () => {
-    if (phase === "running" || prizes.length === 0) return;
-    const pick = result >= 0 && result < prizes.length ? result : Math.floor(Math.random() * prizes.length);
+  const given = result >= 0 && result < prizes.length ? result : -1;
+  const run = (pick: number) => {
     setPhase("running");
     setWon(pick);
     const step = setInterval(() => setTick((t) => t + 1), 90);
@@ -36,6 +41,7 @@ function useDraw(prizes: Prize[], result: number) {
         clearInterval(step);
         running.current = undefined;
         setPhase("done");
+        live.current.host.emit("settled", { index: pick, label: live.current.prizes[pick]?.label ?? "" });
       },
       reduced() ? 0 : SPIN_MS,
     );
@@ -44,7 +50,17 @@ function useDraw(prizes: Prize[], result: number) {
       clearTimeout(end);
     };
   };
-  return { phase, won, tick, start, prize: phase === "done" ? prizes[won] : undefined };
+  /* the answer to a press that is waiting has come */
+  useEffect(() => {
+    if (phase === "pending" && given >= 0) run(given);
+  }, [phase, given]);
+  const start = () => {
+    if (phase === "running" || phase === "pending" || prizes.length === 0) return;
+    if (given >= 0) run(given);
+    else if (host.demo) run(Math.floor(Math.random() * prizes.length));
+    else setPhase("pending");
+  };
+  return { phase, won, tick, start, busy: phase === "running" || phase === "pending", prize: phase === "done" ? prizes[won] : undefined };
 }
 
 function Result({ prize }: { prize?: Prize }) {
@@ -60,8 +76,8 @@ function Result({ prize }: { prize?: Prize }) {
   );
 }
 
-export function Wheel({ prizes = [], label = "", result = -1, size = 220, className, style }: DrawProps & Look) {
-  const { phase, won, start, prize } = useDraw(prizes, result);
+export function Wheel({ prizes = [], label = "", result = -1, size = 220, demo, onValueChange, onEvent, className, style }: DrawProps & Look) {
+  const { phase, won, start, busy, prize } = useDraw(prizes, result, { demo, onValueChange, onEvent });
   const sweep = 360 / Math.max(1, prizes.length);
   const stops = prizes.map((_, i) => `var(--md-sys-color-${i % 2 ? "surface-container-high" : "surface-container-low"}) ${i * sweep}deg ${(i + 1) * sweep}deg`).join(", ");
   /* several full turns, ending with the winner's wedge under the pointer at the top */
@@ -77,7 +93,7 @@ export function Wheel({ prizes = [], label = "", result = -1, size = 220, classN
           ))}
         </div>
         <span data-slot="wheel-indicator" className="border-t-primary absolute -top-1 left-1/2 -translate-x-1/2 border-x-8 border-t-12 border-x-transparent" />
-        <Button variant="filled" size="xs" className="absolute! top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" disabled={phase === "running"} onClick={start}>
+        <Button variant="filled" size="xs" className="absolute! top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" disabled={busy} onClick={start}>
           {label}
         </Button>
       </div>
@@ -89,8 +105,8 @@ export function Wheel({ prizes = [], label = "", result = -1, size = 220, classN
 /** the eight cells around the middle, in the order the light walks round them */
 const RING = [0, 1, 2, 5, 8, 7, 6, 3];
 
-export function GridWheel({ prizes = [], label = "", result = -1, size = 240, className, style }: DrawProps & Look) {
-  const { phase, won, tick, start, prize } = useDraw(prizes, result);
+export function GridWheel({ prizes = [], label = "", result = -1, size = 240, demo, onValueChange, onEvent, className, style }: DrawProps & Look) {
+  const { phase, won, tick, start, busy, prize } = useDraw(prizes, result, { demo, onValueChange, onEvent });
   const shown = prizes.slice(0, 8);
   const lit = phase === "running" ? tick % Math.max(1, shown.length) : phase === "done" ? won % Math.max(1, shown.length) : -1;
   return (
@@ -99,7 +115,7 @@ export function GridWheel({ prizes = [], label = "", result = -1, size = 240, cl
         {Array.from({ length: 9 }, (_, cell) => {
           if (cell === 4)
             return (
-              <Button key={cell} variant="filled" size="xs" className="h-full! w-full rounded-md! px-1" disabled={phase === "running"} onClick={start}>
+              <Button key={cell} variant="filled" size="xs" className="h-full! w-full rounded-md! px-1" disabled={busy} onClick={start}>
                 {label}
               </Button>
             );
@@ -118,8 +134,8 @@ export function GridWheel({ prizes = [], label = "", result = -1, size = 240, cl
   );
 }
 
-export function Gacha({ prizes = [], label = "", result = -1, size = 170, className, style }: DrawProps & Look) {
-  const { phase, tick, start, prize } = useDraw(prizes, result);
+export function Gacha({ prizes = [], label = "", result = -1, size = 170, demo, onValueChange, onEvent, className, style }: DrawProps & Look) {
+  const { phase, tick, start, busy, prize } = useDraw(prizes, result, { demo, onValueChange, onEvent });
   const shake = phase === "running" ? (tick % 2 ? -3 : 3) : 0;
   return (
     <div data-slot="gacha" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>
@@ -128,7 +144,7 @@ export function Gacha({ prizes = [], label = "", result = -1, size = 170, classN
           <span key={i} data-slot="gacha-dot" className={`aspect-square rounded-full ${["bg-primary-container", "bg-secondary-container", "bg-tertiary-container"][i % 3]}`} />
         ))}
       </div>
-      <Button variant="filled" size="xs" disabled={phase === "running"} onClick={start}>
+      <Button variant="filled" size="xs" disabled={busy} onClick={start}>
         {label}
       </Button>
       <Result prize={prize} />
@@ -136,8 +152,8 @@ export function Gacha({ prizes = [], label = "", result = -1, size = 170, classN
   );
 }
 
-export function SlotMachine({ prizes = [], label = "", result = -1, size = 280, className, style }: DrawProps & Look) {
-  const { phase, won, tick, start, prize } = useDraw(prizes, result);
+export function SlotMachine({ prizes = [], label = "", result = -1, size = 280, demo, onValueChange, onEvent, className, style }: DrawProps & Look) {
+  const { phase, won, tick, start, busy, prize } = useDraw(prizes, result, { demo, onValueChange, onEvent });
   const at = (reel: number) => (phase === "running" ? prizes[(tick + reel * 2) % Math.max(1, prizes.length)] : phase === "done" ? prizes[won] : prizes[reel % Math.max(1, prizes.length)]);
   return (
     <div data-slot="slot-machine" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>
@@ -151,7 +167,7 @@ export function SlotMachine({ prizes = [], label = "", result = -1, size = 280, 
           );
         })}
       </div>
-      <Button variant="filled" size="xs" disabled={phase === "running"} onClick={start}>
+      <Button variant="filled" size="xs" disabled={busy} onClick={start}>
         {label}
       </Button>
       <Result prize={prize} />
@@ -159,15 +175,15 @@ export function SlotMachine({ prizes = [], label = "", result = -1, size = 280, 
   );
 }
 
-export function MoneyTree({ prizes = [], label = "", result = -1, size = 190, className, style }: DrawProps & Look) {
-  const { phase, tick, start, prize } = useDraw(prizes, result);
+export function MoneyTree({ prizes = [], label = "", result = -1, size = 190, demo, onValueChange, onEvent, className, style }: DrawProps & Look) {
+  const { phase, tick, start, busy, prize } = useDraw(prizes, result, { demo, onValueChange, onEvent });
   const sway = phase === "running" ? (tick % 2 ? -6 : 6) : 0;
   return (
     <div data-slot="money-tree" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>
       <div data-slot="money-tree-media" className="text-primary" style={{ transform: `rotate(${sway}deg)`, transformOrigin: "bottom center" }}>
         <WidgetIcon name="park" className="size-24" />
       </div>
-      <Button variant="filled" size="xs" disabled={phase === "running"} onClick={start}>
+      <Button variant="filled" size="xs" disabled={busy} onClick={start}>
         {label}
       </Button>
       <Result prize={prize} />
@@ -175,8 +191,8 @@ export function MoneyTree({ prizes = [], label = "", result = -1, size = 190, cl
   );
 }
 
-export function EggSmash({ prizes = [], label = "", result = -1, size = 260, className, style }: DrawProps & Look) {
-  const { phase, start, prize } = useDraw(prizes, result);
+export function EggSmash({ prizes = [], label = "", result = -1, size = 260, demo, onValueChange, onEvent, className, style }: DrawProps & Look) {
+  const { phase, start, prize } = useDraw(prizes, result, { demo, onValueChange, onEvent });
   const [chosen, setChosen] = useState(-1);
   return (
     <div data-slot="egg-smash" data-phase={phase} data-result={prize?.label} className={cn("inline-flex flex-col items-center gap-2", className)} style={{ width: size, ...style }}>

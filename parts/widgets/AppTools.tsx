@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TextField } from "@/components/m3e/text-field";
 import type { Look } from "./look";
 import { amountOf, stop, useSeeded } from "./seed";
+import { useHost, type HostProps } from "./host";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 
@@ -524,21 +525,34 @@ export function AuthForm({ mode = "sign-in", title = "", subtitle = "", upTitle 
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
-export function NumberPad({ mode = "amount", prefix = "", length = 6, action = "", done = "", width = 320, className, style }: { mode?: string; prefix?: string; length?: number; action?: string; done?: string; width?: number } & Look) {
-  const [entry, setEntry] = useState("");
-  const [sent, setSent] = useState(false);
+/* The pad is an input with a draft: what is typed starts at `value`, starts over whenever `value` changes, and is
+ * handed out on every key; confirming sends `submit` with it. Whether it went through (`sent`) is the other side's to
+ * say: only a prototype's demo says so by itself, and a product shows `sent` as it is given. */
+export function NumberPad({ mode = "amount", prefix = "", length = 6, action = "", done = "", value = "", sent = false, width = 320, demo, onValueChange, onEvent, className, style }: { mode?: string; prefix?: string; length?: number; action?: string; done?: string; value?: string; sent?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent });
+  const [entry, setEntry] = useSeeded(value);
+  const [sentHere, setSentHere] = useState(false);
+  const shownSent = sent || (host.demo && sentHere);
   const money = mode === "amount";
+  const next = (v: string, key: string) => {
+    if (key === "back") return v.slice(0, -1);
+    if (key === ".") return !money || v.includes(".") ? v : `${v || "0"}.`;
+    if (money) {
+      if (/\.\d\d$/.test(v) || (v.replace(".", "").length >= 12 && !v.includes("."))) return v;
+      return v === "0" ? key : v + key;
+    }
+    return v.length >= length ? v : v + key;
+  };
   const press = (key: string) => {
-    setSent(false);
-    setEntry((v) => {
-      if (key === "back") return v.slice(0, -1);
-      if (key === ".") return !money || v.includes(".") ? v : `${v || "0"}.`;
-      if (money) {
-        if (/\.\d\d$/.test(v) || (v.replace(".", "").length >= 12 && !v.includes("."))) return v;
-        return v === "0" ? key : v + key;
-      }
-      return v.length >= length ? v : v + key;
-    });
+    setSentHere(false);
+    const typed = next(entry, key);
+    if (typed === entry) return;
+    setEntry(typed);
+    host.input(typed);
+  };
+  const confirm = () => {
+    host.emit("submit", { value: entry });
+    if (host.demo) setSentHere(true);
   };
   const ready = money ? Number(entry) > 0 : mode === "pin" ? entry.length === length : entry.length > 0;
   return (
@@ -546,7 +560,7 @@ export function NumberPad({ mode = "amount", prefix = "", length = 6, action = "
       data-slot="number-pad"
       data-entry={entry}
       data-ready={ready || undefined}
-      data-sent={sent || undefined}
+      data-sent={shownSent || undefined}
       tabIndex={0}
       className={cn("bg-surface-container-low text-on-surface flex flex-col gap-3 rounded-xl p-3 outline-none", className)}
       style={{ width, ...style }}
@@ -588,8 +602,8 @@ export function NumberPad({ mode = "amount", prefix = "", length = 6, action = "
         </Tap>
       </div>
       {action && (
-        <Button variant={sent ? "tonal" : "filled"} data-tap="confirm" className="w-full" disabled={!ready} onClick={() => setSent(true)}>
-          {sent && done ? done : action}
+        <Button variant={shownSent ? "tonal" : "filled"} data-tap="confirm" className="w-full" disabled={!ready} onClick={confirm}>
+          {shownSent && done ? done : action}
         </Button>
       )}
     </div>

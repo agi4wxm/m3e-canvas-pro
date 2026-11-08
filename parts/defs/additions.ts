@@ -370,6 +370,7 @@ export const additions: PartDef[] = [
   },
   {
     slug: "cascading-menu",
+    overlay: true,
     appearance: { target: ["DropdownMenuContent", "DropdownMenuSubContent"], radius: 4 },
     name: "Cascading menu",
     labels: { ja: "カスケードメニュー", zh: "级联菜单", ko: "계단식 메뉴" },

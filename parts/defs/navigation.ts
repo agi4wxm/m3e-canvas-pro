@@ -33,6 +33,7 @@ function searchTree(p: P, open: boolean): PNode {
 export const navigation: PartDef[] = [
   {
     slug: "navigation-bar",
+    nav: true,
     appearance: { radius: 0 },
     name: "Navigation bar",
     category: "Navigation",
@@ -112,6 +113,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "tabs",
+    nav: true,
     appearance: { target: "TabsList", radius: 0 },
     name: "Tabs",
     category: "Navigation",
@@ -153,6 +155,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "navigation-rail",
+    nav: true,
     appearance: { radius: 0 },
     name: "Navigation rail",
     category: "Navigation",
@@ -191,6 +194,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "toolbar",
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     appearance: { radius: 28 },
     name: "Toolbar",
     category: "Navigation",
@@ -307,6 +311,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "navigation-menu",
+    overlay: true,
     appearance: { radius: 8 },
     name: "Navigation menu",
     category: "Navigation",
@@ -445,6 +450,7 @@ export const navigation: PartDef[] = [
   },
   {
     slug: "command",
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     appearance: { radius: 12 },
     name: "Command",
     category: "Menus & search",

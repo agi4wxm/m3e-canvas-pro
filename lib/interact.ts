@@ -1,4 +1,4 @@
-import { partBySlug, reader } from "../parts/registry";
+import { PARTS, partBySlug, reader } from "../parts/registry";
 import { arrangeFlows, outOfPane } from "./flow";
 import { type Row, fillCurrent, fillDeep, firstRows, rowVars } from "./collections";
 import type { Action, ActionBody, Collection, Condition, Doc, DocVar, Effect, Frame, Group, Item, VarValue } from "./tokens";
@@ -56,17 +56,8 @@ export function screenVars(s: PreviewState, doc: Pick<Doc, "vars" | "varCollecti
   return { ...s, vars: out };
 }
 
-/** the prop of an input the visitor changes by using it */
-export const INPUT_PROP: Record<string, string> = {
-  input: "value",
-  "text-field": "value",
-  textarea: "value",
-  switch: "checked",
-  checkbox: "checked",
-  slider: "value",
-  select: "selected",
-  "radio-group": "selected",
-};
+/** the prop of an input the visitor changes by using it, by slug: every part that declares an `input` (PartDef) */
+export const INPUT_PROP: Record<string, string> = Object.fromEntries(PARTS.flatMap((d) => (d.input ? [[d.slug, d.input.prop]] : [])));
 
 /** an overlay with no trigger of its own stands on the screen only while it is open; one with a
  *  trigger (a menu) stays on the screen and its popup opens from it */
@@ -75,12 +66,8 @@ const standsOnlyWhileOpen = (it: Item) => {
   return !open || open.trigger === "hide";
 };
 
-/** a part an open or close effect can act on: what floats over a screen when opened */
-export function isOverlayPart(it: Item): boolean {
-  const def = partBySlug(it.component);
-  if (!def) return false;
-  return def.category === "Overlays" || /menu|drawer/.test(def.slug);
-}
+/** a part an open or close effect can act on: what floats over a screen when opened (`PartDef.overlay`) */
+export const isOverlayPart = (it: Item): boolean => !!partBySlug(it.component)?.overlay;
 
 /** The state a preview starts in. A variable that drives the dark mode starts at the mode the preview opens in
  *  (`dark`), whatever it was saved with, so the switch bound to it says what is on show. */
@@ -204,9 +191,11 @@ export function liveItem(source: Item, s: PreviewState): Item {
 /** whether an input holds something: words, a tick, a choice */
 const holdsValue = (v: unknown) => (typeof v === "string" ? v.trim() !== "" : typeof v === "boolean" ? v : typeof v === "number" ? v >= 0 : false);
 
-export function conditionHolds(c: Condition | undefined, s: PreviewState, doc: DocScope, it?: Pick<Item, "scope" | "row">): boolean {
+/** `extra` is what the action that asks reads beyond the screen: an event's payload (`event`), the slot of a family
+ *  that was tapped (`slot`) */
+export function conditionHolds(c: Condition | undefined, s: PreviewState, doc: DocScope, it?: Pick<Item, "scope" | "row">, extra?: Scope): boolean {
   if (!c) return true;
-  if ("expr" in c) return typeof c.expr === "string" && holds(c.expr, scopeOf(s, it), evalCtx(s));
+  if ("expr" in c) return typeof c.expr === "string" && holds(c.expr, scopeOf(s, it, extra), evalCtx(s));
   if ("filled" in c) {
     const it = itemOf(doc.groups, c.filled);
     const def = it && partBySlug(it.component);
@@ -224,8 +213,8 @@ export function conditionHolds(c: Condition | undefined, s: PreviewState, doc: D
 }
 
 /** the part of an action this state runs: itself, its `else`, or nothing when it has no `else` */
-export function chooseBranch(a: Action, s: PreviewState, doc: DocScope, it?: Pick<Item, "scope" | "row">): ActionBody | null {
-  const body = conditionHolds(a.when, s, doc, it) ? a : a.else;
+export function chooseBranch(a: Action, s: PreviewState, doc: DocScope, it?: Pick<Item, "scope" | "row">, extra?: Scope): ActionBody | null {
+  const body = conditionHolds(a.when, s, doc, it, extra) ? a : a.else;
   /* what it says or sets may read the row this tap came from */
   return body ? fillCurrent(body, s.current) : null;
 }

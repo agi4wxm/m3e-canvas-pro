@@ -8,6 +8,7 @@
  * document refers to as `m3e-file:<path>`. Writing the same document twice gives the same bytes, and so does writing
  * what was read back. */
 
+import { FORMATS } from "../mocks/formats/table";
 import { openProject, projectFile } from "../project";
 import type { Doc } from "../tokens";
 
@@ -115,11 +116,15 @@ export function formatProject(file: { format: string; version: number; document:
 /* ---------- pictures as files ---------- */
 
 const MIME_EXT: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "image/avif": "avif", "image/svg+xml": "svg" };
-/** the other files the mock library keeps (document.mocks.files), beside the pictures */
-const MOCK_MIME_EXT: Record<string, string> = { "application/pdf": "pdf", "audio/wav": "wav", "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/mp4": "m4a", "video/mp4": "mp4", "video/webm": "webm", "application/octet-stream": "bin" };
+/** The other files the mock library keeps (document.mocks.files), beside the pictures: every format it makes
+ *  (lib/mocks/formats/table.ts), each under the one media type the library makes it as, so that its extension gives
+ *  back the same data URL. Another name for a type (application/x-zip-compressed) stays in the text. The PDFs,
+ *  sounds, clips and bytes earlier versions kept beside a project keep their extensions. */
+const MOCK_MIME_EXT: Record<string, string> = Object.fromEntries(FORMATS.filter((f) => !(f.type in MIME_EXT)).map((f) => [f.type, f.ext]));
 const EXT_MIME: Record<string, string> = Object.fromEntries([...Object.entries(MIME_EXT), ...Object.entries(MOCK_MIME_EXT)].map(([m, e]) => [e, m]));
 const DATA_URL = /^data:(image\/(?:png|jpeg|webp|gif|avif|svg\+xml));base64,([A-Za-z0-9+/]*={0,2})$/;
-const MOCK_DATA_URL = /^data:(application\/pdf|audio\/(?:wav|mpeg|ogg|mp4)|video\/(?:mp4|webm)|application\/octet-stream);base64,([A-Za-z0-9+/]*={0,2})$/;
+/** a base64 data URL of any media type without parameters; MOCK_MIME_EXT says which are kept as files */
+const MOCK_DATA_URL = /^data:([a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*);base64,([A-Za-z0-9+/]*={0,2})$/;
 const ASSET_EXTS = [...Object.values(MIME_EXT), ...Object.values(MOCK_MIME_EXT)].join("|");
 /** what a picture's path inside the folder may look like: nothing that climbs out of it */
 const ASSET_PATH = new RegExp(`^${FOLDER_ASSET_DIR}/[a-z0-9]+\\.(?:${ASSET_EXTS})$`);
@@ -177,7 +182,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
 function asFile(s: string, mock = false): ProjectAssetFile | null {
   if (s.length < FILE_MIN_CHARS || !s.startsWith("data:")) return null;
   const m = DATA_URL.exec(s) ?? (mock ? MOCK_DATA_URL.exec(s) : null);
-  if (!m) return null;
+  if (!m || !(MIME_EXT[m[1]] ?? MOCK_MIME_EXT[m[1]])) return null;
   let bytes: Uint8Array;
   try {
     bytes = base64ToBytes(m[2]);
@@ -248,7 +253,7 @@ export function serializeProject(doc: Doc, o: SerializeOptions = {}): { text: st
     return FILE_REF + f.path;
   };
   let body = o.assets === "files" ? mapStrings(doc, keep(false)) : doc;
-  /* the mock library's PDFs, sounds and clips go beside the pictures too; nothing else in a document is one of them */
+  /* the mock library's files of every format go beside the pictures too; elsewhere in a document only pictures do */
   if (o.assets === "files" && body.mocks?.files?.length) body = { ...body, mocks: { ...body.mocks, files: body.mocks.files.map((f) => ({ ...f, data: keep(true)(f.data) })) } };
   return { text: formatProject(projectFile(body)), files: [...files.values()].sort((a, b) => byCodePoint(a.path, b.path)) };
 }

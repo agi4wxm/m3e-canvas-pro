@@ -18,6 +18,7 @@ import { partBySlug, reader } from "../parts/registry";
 import type { PartDef, PropDef } from "../parts/types";
 import { mapNodes, raw, type PNode, type PValue } from "../parts/node";
 import { str } from "../parts/print";
+import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { identifierOf } from "./export/paths";
 import { literal } from "./export/code";
 import { commentText } from "./export/server/comments";
@@ -297,8 +298,13 @@ export class BoundPrint {
         /* the file input inside it says what was picked; the form keeps the file (or the files) */
         return { tree, wrap: (source) => `<div className="contents" onChange={pickFiles(${many}, (files) => ${f.name}.set(${field}, files))}>${source}</div>` };
       }
-      default:
-        return null;
+      default: {
+        /* a widget that declares an input takes the field's value as a prop and hands changes out (parts/widgets/host.ts) */
+        const input = def.input;
+        if (!input || !(tree.type in WIDGET_SOURCES)) return null;
+        const read = input.kind === "number" ? `Number(${f.name}.value(${field}) ?? 0)` : input.kind === "bool" ? `!!${f.name}.value(${field})` : `${f.name}.text(${field})`;
+        return { tree: { ...tree, props: { ...tree.props, [input.prop]: raw(read), onValueChange: raw(`(value) => ${f.name}.set(${field}, value)`) } } };
+      }
     }
   }
 

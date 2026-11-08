@@ -20,7 +20,6 @@ import {
   halfWidth,
   isPhoneFrame,
   sizeOf,
-  actionSlotsOf,
   onToken,
 } from "@/lib/tokens";
 import { Lang } from "@/lib/i18n";
@@ -34,6 +33,7 @@ import { LinkStage, TapStage } from "./TapStage";
 import { ActionExtras, BehaviorContext, tidiedAction } from "./EffectsPanel";
 import { InteractionFields, SCROLL_TO } from "./Interaction";
 import { partBySlug } from "@/parts/registry";
+import { outletsOf, type Outlet } from "@/lib/partContract";
 import { COLOR_TOKEN_TEXT, TEXT_TOKEN_TEXT, t, useLang } from "@/lib/i18n";
 import type { AlignHow } from "@/lib/align";
 
@@ -365,16 +365,25 @@ function actionOptionsOf(item: Item, frame: Frame | null, frames: Frame[], lang:
   ];
 }
 
+/** What the behaviour tab offers an action for: the part's places, its families of places and the events it sends
+ *  (lib/partContract.ts). A part with no places of its own but families or events gets "the whole part" first, its
+ *  key "". None when it has nothing but the whole part. */
+export function actionOutletsOf(item: Item, lang: Lang): Outlet[] {
+  const all = outletsOf(item, lang).map((o) => (o.kind === "slot" ? o : { ...o, icon: o.kind === "event" ? "bolt" : "select_all" }));
+  if (!all.length || all.some((o) => o.kind === "slot")) return all;
+  return [{ key: "", kind: "slot", label: t("dzWholePart", lang), icon: "touch_app" }, ...all];
+}
+
 /** the places a bar can be tapped, as one connected run: the icons at its ends, or the entries
  *  along it, each cell the icon the place shows and a mark when a tap has been sent from it */
 export function SlotStrip({ item, selected, onSelect, p }: { item: Item; selected: string; onSelect: (k: string) => void; p: Palette }) {
   const lang = useLang();
-  const slots = actionSlotsOf(item);
+  const slots = actionOutletsOf(item, lang);
   /* a tab's words are too long for a cell: the cell carries its number and the words are the hover text */
   const numbered = item.component === "tabs";
   return (
     <Segmented<string>
-      options={slots.map((s, i) => ({ key: s.key, icon: s.value ?? undefined, label: s.value ? undefined : numbered ? `${i + 1}` : s.label, title: s.label, dot: !!item.actions?.[s.key] }))}
+      options={slots.map((s, i) => ({ key: s.key, icon: s.icon ?? undefined, label: s.icon ? undefined : numbered ? `${i + 1}` : s.label, title: s.label, dot: s.key ? !!item.actions?.[s.key] : !!item.action }))}
       value={selected}
       onChange={onSelect}
       p={p}

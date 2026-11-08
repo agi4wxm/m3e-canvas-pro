@@ -11,6 +11,9 @@ import { GENERATED, jsonCode, jsonFile, str } from "../code";
 import { toYaml } from "../yaml";
 import { generated, type ProductContext, type ProductTarget, type Workspace } from "../types";
 
+/** the editor's file every transport reads an answer with, copied into packages/api (and packages/app-runtime) */
+export const BODY_SOURCE = "lib/api/body.ts";
+
 const TRANSPORT = `${GENERATED}
 /* The one thing the client needs from the platform: a way to send a request and read the answer. fetch, React
  * Native, a mini-program's request API and the mocks each make one (see fetch.ts). No DOM or fetch types here. */
@@ -24,6 +27,9 @@ export type Query = Readonly<Record<string, QueryValue | readonly QueryValue[] |
 export interface AbortSignalLike {
   readonly aborted: boolean
 }
+
+/** a file in a request or an answer: its bytes as a data URL, with its name and type */
+export type TransportFile = { name: string; type: string; dataUrl: string; size?: number }
 
 export interface TransportRequest {
   /** the operation's id in the contract, when the call is one of its operations */
@@ -43,7 +49,8 @@ export interface TransportRequest {
 export interface TransportResponse {
   status: number
   headers: Readonly<Record<string, string>>
-  /** the answer: parsed JSON, else text, else undefined when there is none */
+  /** the answer (body.ts readBody): JSON parsed, text as a string, a file (an attachment, or any type that is not
+   *  text) as a TransportFile, undefined when there is none */
   body: unknown
 }
 
@@ -103,6 +110,7 @@ export async function send<T>(transport: Transport, call: Call, init: CallInit =
 `;
 
 const FETCH = `${GENERATED}
+import { readBody, utf8Bytes } from "./body"
 import { queryString, type Transport, type TransportRequest, type TransportResponse } from "./transport"
 
 /** the little of fetch this transport uses, so the package needs no DOM types */
@@ -112,6 +120,8 @@ type FetchLike = (
 ) => Promise<{
   status: number
   headers: { forEach(fn: (value: string, key: string) => void): void; get(name: string): string | null }
+  /* the bytes as they came: a file (a PDF, a picture) read as text would be broken */
+  arrayBuffer?(): Promise<ArrayBuffer>
   text(): Promise<string>
 }>
 
@@ -164,7 +174,8 @@ export function formDataOf(body: Record<string, unknown>): unknown {
 /** whether a request's body goes as multipart/form-data */
 export const isMultipart = (request: TransportRequest) => Object.entries(request.headers ?? {}).some(([k, v]) => k.toLowerCase() === "content-type" && /multipart\\/form-data/i.test(v))
 
-/** A transport over fetch. JSON goes out as JSON; bytes go out as they are; a multipart body as form data. */
+/** A transport over fetch. JSON goes out as JSON; bytes go out as they are; a multipart body as form data. The answer
+ *  is read as its bytes, then as body.ts says: JSON, text, or a file. */
 export function createFetchTransport(options: FetchTransportOptions): Transport {
   return {
     async request(request: TransportRequest): Promise<TransportResponse> {
@@ -187,10 +198,8 @@ export function createFetchTransport(options: FetchTransportOptions): Transport 
       response.headers.forEach((value, key) => {
         out[key] = value
       })
-      const text = await response.text()
-      let body: unknown = text === "" ? undefined : text
-      if (text !== "" && /json/i.test(response.headers.get("content-type") ?? "")) body = JSON.parse(text)
-      return { status: response.status, headers: out, body }
+      const bytes = response.arrayBuffer ? new Uint8Array(await response.arrayBuffer()) : utf8Bytes(await response.text())
+      return { status: response.status, headers: out, body: readBody({ method: request.method, path: request.path, status: response.status, headers: out, bytes }) }
     },
   }
 }
@@ -254,6 +263,7 @@ const INDEX = `${GENERATED}
 export * from "./transport"
 export * from "./client"
 export * from "./fetch"
+export { readBody, textBody, type RawResponse, type ResponseFile } from "./body"
 export * from "./generated/types"
 export * from "./generated/operations"
 export { CONTRACT, ASYNC_CONTRACT } from "./generated/contract"
@@ -261,7 +271,7 @@ export { CONTRACT, ASYNC_CONTRACT } from "./generated/contract"
 
 const CLIENT_TEST = `${GENERATED}
 import { describe, expect, it } from "vitest"
-import { ApiError, createApi, queryString, type Transport, type TransportRequest } from "../index"
+import { ApiError, createApi, createFetchTransport, queryString, type Transport, type TransportRequest } from "../index"
 import { segment } from "../client"
 import { OPERATIONS } from "./operations"
 
@@ -306,6 +316,18 @@ describe("the API client", () => {
     expect(segment("%2e%2e")).toBe("%252e%252e")
     expect(segment("...")).toBe("...")
   })
+
+  it("reads an answer over fetch by its bytes: a file whole, JSON parsed, text as text, nothing for a HEAD", async () => {
+    type Init = { status: number; headers: Record<string, string> }
+    const { Response } = globalThis as unknown as { Response: new (body: Uint8Array | string | null, init: Init) => never }
+    const over = (body: Uint8Array | string | null, headers: Record<string, string>) => createFetchTransport({ baseUrl: "https://api.example.com", fetch: async () => new Response(body, { status: 200, headers }) })
+    const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0x80])
+    const file = await over(pdf, { "content-type": "application/pdf", "content-disposition": 'attachment; filename="r.pdf"' }).request({ method: "GET", path: "/orders/1/receipt" })
+    expect(file.body).toEqual({ name: "r.pdf", type: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERgD/gA==", size: 7 })
+    expect((await over('{"a":1}', { "content-type": "application/json" }).request({ method: "GET", path: "/a" })).body).toEqual({ a: 1 })
+    expect((await over("id,name", { "content-type": "text/csv" }).request({ method: "GET", path: "/a.csv" })).body).toBe("id,name")
+    expect((await over(null, { "content-type": "application/pdf" }).request({ method: "HEAD", path: "/r" })).body).toBeUndefined()
+  })
 })
 `;
 
@@ -321,7 +343,7 @@ const TSCONFIG_TEST = jsonFile({ extends: "./tsconfig.json", include: ["src"], e
 
 export const apiTarget: ProductTarget = {
   id: "api",
-  build(ctx: ProductContext): Workspace {
+  async build(ctx: ProductContext): Promise<Workspace> {
     const api = ctx.api;
     const asyncapi = api.asyncapi ?? { asyncapi: "3.0.0", info: { title: ctx.title, version: "0.1.0" }, channels: {} };
     return {
@@ -352,6 +374,8 @@ export const apiTarget: ProductTarget = {
         "src/transport.ts": generated(TRANSPORT),
         "src/client.ts": generated(CLIENT),
         "src/fetch.ts": generated(FETCH),
+        /* how every transport reads an answer: the editor's own lib/api/body.ts, as it is */
+        "src/body.ts": generated(await ctx.read(BODY_SOURCE)),
         "src/generated/types.ts": generated(`${GENERATED}\n${api.types.trim() ? `${api.types.trim()}\n` : "/* the contract has no schemas yet */\nexport {}\n"}`),
         "src/generated/operations.ts": generated(operationsSource(api)),
         "src/generated/contract.ts": generated(`${GENERATED}\n/** the OpenAPI 3.1 document of the API, as data (openapi.yaml is the same) */\nexport const CONTRACT: Record<string, unknown> = ${jsonCode(api.openapi)}\n\n/** the AsyncAPI 3.0 document of its realtime channels (asyncapi.yaml is the same) */\nexport const ASYNC_CONTRACT: Record<string, unknown> = ${jsonCode(asyncapi)}\n`),

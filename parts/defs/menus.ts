@@ -13,6 +13,8 @@ const rows = (items: ListItem[], item: string): PNode[] => items.map((it, i) => 
 export const menus: PartDef[] = [
   {
     slug: "dropdown-menu",
+    overlay: true,
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     appearance: { target: "DropdownMenuContent", radius: 4 },
     name: "Dropdown menu",
     category: "Menus & search",
@@ -44,6 +46,8 @@ export const menus: PartDef[] = [
   },
   {
     slug: "context-menu",
+    overlay: true,
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     appearance: { target: "ContextMenuContent", radius: 4 },
     name: "Context menu",
     category: "Menus & search",
@@ -87,6 +91,7 @@ export const menus: PartDef[] = [
   },
   {
     slug: "menubar",
+    overlay: true,
     appearance: { target: ["Menubar", "MenubarContent"], radius: 4 },
     name: "Menubar",
     category: "Desktop",

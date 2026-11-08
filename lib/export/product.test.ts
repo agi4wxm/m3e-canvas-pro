@@ -47,16 +47,17 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: an icon counted as drawn only
-     with both its glyphs; before it the components saying their own words in Chinese, Japanese and Korean too, the
+     before the product existed; one that changes on purpose is written again here (last: the widgets' host contract,
+     parts/widgets/host.ts, copied beside them, and a rating an input wired to its variable; before it an icon counted
+     as drawn only with both its glyphs, the components saying their own words in Chinese, Japanese and Korean too, the
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [77, "2bae1a0adb2d1d8db283cfd81f3cd0b791f572efcf480e963773f12806ca1586"],
+    proof: [78, "2fe49995e1deb5254a8ecd1b24e927d1167fed3e5bfddb34b73736133be3598e"],
     systems: [40, "fe350b28dee0e667c6a33665a619f74599695020dda85b6107a334d8079e82af"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [83, "4721ce71e7d1b8a4421053a71447302a9edf4ee71ca04643820f05f7c09f30b4"],
-    parts: [136, "df679b82e1002f41595256cb49817659e933830f24672ccf97f575c7d0835508"],
+    sweep: [84, "2201e0b00f0c6e7785c26623169fdc78b9e2c7cc71da813502e21c4bf3ed021d"],
+    parts: [137, "3ffccb459dfcd41959054bb037b432388340614d57d816b5c918362f67fc28ba"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {
@@ -135,7 +136,8 @@ describe("the product of a document", () => {
     for (const path of APP_RUNTIME_FILES) {
       const source = text(proof, `packages/app-runtime/src/engine/${path.slice(4)}`);
       for (const spec of importsIn(source)) expect(spec.startsWith(".") || spec === "react", `${path} imports ${spec}`).toBe(true);
-      const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+      /* the code, without its comments and the words of its strings (a media type such as …wordprocessingml.document) */
+      const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").replace(/"(?:[^"\\\n]|\\.)*"/g, '""');
       expect(code, path).not.toMatch(/\b(window|document|localStorage|sessionStorage|navigator|fetch|XMLHttpRequest)\b|react-native|@tarojs/);
     }
     expect(text(proof, "AGENTS.md")).toContain("## The app runtime (packages/app-runtime)");

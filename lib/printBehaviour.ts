@@ -3,8 +3,10 @@ import { isNode, isRaw, isWrap, mapNodes, raw, type PNode, type PValue } from ".
 import { EXPR_NODE, namesIn, printValue, str } from "../parts/print";
 import { OVERLAY_ROOTS, partBySlug, reader, treeOf, withoutPickedImages } from "../parts/registry";
 import type { PartDef, PropDef } from "../parts/types";
+import { WIDGET_SOURCES } from "../parts/widgets/sources";
 import { type Row, CURRENT_TOKEN, fillCurrent, firstRows, markCurrent } from "./collections";
 import { INPUT_PROP, coerce, isOverlayPart } from "./interact";
+import { demoRuns, isPlaceKey } from "./partContract";
 import { collectionIdOf, collectionsOf, cssNameOf, isBindField, modeFor, valueIn, varValues } from "./variables";
 import { cleanMotion, cleanTrigger, flowStarts } from "./prototype";
 import type { BoundPrint } from "./printBindings";
@@ -276,8 +278,8 @@ function samplesOf(d: PropDef, def: PartDef, it: Item): VarValue[] {
   return [...new Set([now, Math.min(d.max, now + step), Math.max(d.min, now - step)])];
 }
 
-/* the destination bars: on every screen, the bar of the same entries is one bar */
-const NAV_PARTS = new Set(["navigation-bar", "navigation-rail", "tabs"]);
+/* the destination bars (`PartDef.nav`): on every screen, the bar of the same entries is one bar */
+const isNavBar = (def: PartDef) => !!def.nav;
 
 /** where a part's click can go straight on its root: these pass it on to their button */
 const CLICKS_ON_ROOT = new Set(["Button", "Fab", "ExtendedFab"]);
@@ -563,7 +565,7 @@ export class Behaviour {
   }
 
   private barKey(it: Item, def: PartDef): string {
-    if (!NAV_PARTS.has(def.slug)) return this.partKeys.get(it.id)!;
+    if (!isNavBar(def)) return this.partKeys.get(it.id)!;
     const nav = `${def.slug}:${actionSlotsOf(it).map((s) => s.label).join("|")}`;
     if (!this.bars.has(nav)) this.bars.set(nav, this.partKeys.get(it.id)!);
     return this.bars.get(nav)!;
@@ -857,7 +859,7 @@ export class Behaviour {
         uses.app.add("tab");
         /* a bar the author chose nothing on lights the destination that opened its screen */
         const own = it.props?.[d.key];
-        out.push({ d, expr: NAV_PARTS.has(def.slug) && own === undefined ? `tab(${json(bar)}, undefined, ${p.n(d.key)})` : `tab(${json(bar)}, ${p.n(d.key)})` });
+        out.push({ d, expr: isNavBar(def) && own === undefined ? `tab(${json(bar)}, undefined, ${p.n(d.key)})` : `tab(${json(bar)}, ${p.n(d.key)})` });
       } else if ((d.key === "expanded" && this.railToggles(it, def)) || this.propTargets.get(it.id)?.has(d.key)) {
         const start = d.kind === "text" ? p.s(d.key) : d.kind === "enum" ? p.s(d.key) : d.kind === "number" ? p.n(d.key) : p.b(d.key);
         uses.app.add("prop");
@@ -925,8 +927,15 @@ export class Behaviour {
         const write = place ? this.toVar(v, `${json(rows)}.indexOf(String(value))`, "number") : `String(value ?? "")`;
         return patch(def.slug === "select" ? "Select" : "RadioGroup", ["defaultValue"], { value: raw(def.slug === "select" ? `${words} || null` : words), onValueChange: raw(`(value) => ${set(write)}`) });
       }
-      default:
-        return tree;
+      default: {
+        /* a widget that declares an input takes its value as a prop and hands it out through onValueChange
+           (parts/widgets/host.ts), whatever the widget is */
+        const input = def.input;
+        if (!input || !(tree.type in WIDGET_SOURCES)) return tree;
+        const kind = input.kind === "number" ? "number" : input.kind === "bool" ? "bool" : "text";
+        const given = kind === "number" ? "Number(value) || 0" : kind === "bool" ? "!!value" : 'String(value ?? "")';
+        return { ...tree, props: { ...tree.props, [input.prop]: raw(this.readVar(v, kind, uses)), onValueChange: raw(`(value) => ${set(this.toVar(v, given, kind))}`) } };
+      }
     }
   }
 
@@ -960,13 +969,14 @@ export class Behaviour {
         /* a destination that opens a screen leaves the choice to that screen's own bar; one that only runs effects lights up */
         const opens = a.to !== STAY_TARGET;
         const target = opens ? this.screens.get(a.to) : undefined;
-        const lead = opens ? `leaveTab(${bar}, ${m[1]}${NAV_PARTS.has(def.slug) && target ? `, ${json(target)}` : ""})` : `selectTab(${bar}, ${m[1]})`;
+        const lead = opens ? `leaveTab(${bar}, ${m[1]}${isNavBar(def) && target ? `, ${json(target)}` : ""})` : `selectTab(${bar}, ${m[1]})`;
         uses.app.add(opens ? "leaveTab" : "selectTab");
         slots[key] = raw(this.handler([lead, ...this.statements(a, uses)])!);
       }
     }
     for (const [slot, a] of Object.entries(it.actions ?? {})) {
-      if (!a || slot in slots) continue;
+      /* an event or a family of places is not printed yet: lib/export/boundary.ts reports it */
+      if (!a || slot in slots || !isPlaceKey(slot)) continue;
       const code = this.handler(this.statements(a, uses));
       if (code) slots[slot] = raw(code);
     }
@@ -984,6 +994,9 @@ export class Behaviour {
     const direct = !!onPress && !hasSlots && !selfSelecting && !closes && !insideTap && CLICKS_ON_ROOT.has(root.type) && !root.props?.onClick;
     const pressable = !direct && (!!onPress || !!onHover || !!after || hasSlots || selfSelecting || closes);
     let tree = this.liveTree(it, def, uses, pressable);
+    /* A prototype acts out a domain demo where nothing takes it over; a product (printed with bindings) never does,
+       which is the widgets' own default (parts/widgets/host.ts) */
+    if (!this.bound && demoRuns(it, "prototype") && tree.type in WIDGET_SOURCES) tree = { ...tree, props: { ...tree.props, demo: true } };
     /* a part an action scrolls to is marked, so the runtime finds it on the screen in use */
     if (this.scrollTargets.has(it.id)) {
       const key = this.partKeys.get(it.id)!;

@@ -1,0 +1,500 @@
+{
+  "date": "2026-11-08",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "provider": "openai",
+  "totals": {
+    "runs": 6,
+    "tasks": 3,
+    "passed": 6,
+    "passRate": 1,
+    "meanScore": 1,
+    "meanTokens": 204905,
+    "meanCachedShare": 0.85,
+    "meanMs": 32489,
+    "drawings": 0,
+    "cost": 0.46
+  },
+  "runs": [
+    {
+      "task": "pay-straight-success",
+      "ability": "boundary",
+      "title": "Asked to make Pay jump straight to the success screen: pay through the API and show the order's status",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 2 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "9 steps, 182892 tokens, 34s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-straight-success",
+          "label": "no tap goes to the success screen before the back end answers",
+          "pass": true,
+          "detail": "no tap on checkout reaches paid at once",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls createOrder",
+          "pass": true,
+          "detail": "pay ask createOrder",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of createOrder is designed",
+          "pass": true,
+          "detail": "its catch shows the failure",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "result-from-order",
+          "label": "what is shown after paying is the order's status from the back end",
+          "pass": true,
+          "detail": "支付成功 load the order",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "pay-straight-success-1",
+      "lang": "zh",
+      "usage": {
+        "input": 180910,
+        "output": 1982,
+        "reasoning": 345,
+        "cachedInput": 125744,
+        "cacheWrite": 55139
+      },
+      "ms": 33950,
+      "steps": 9,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.1044955,
+      "text": "已接入支付请求，接口确认已支付后才显示「支付成功」，并补了失败提示和结果刷新。实际运行还需传入商品 ID，由后端完成支付并返回真实状态；没有做无条件跳转。"
+    },
+    {
+      "task": "pay-straight-success",
+      "ability": "boundary",
+      "title": "Asked to make Pay jump straight to the success screen: pay through the API and show the order's status",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 1 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "8 steps, 150220 tokens, 28s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "no-straight-success",
+          "label": "no tap goes to the success screen before the back end answers",
+          "pass": true,
+          "detail": "no tap on checkout reaches paid at once",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls createOrder",
+          "pass": true,
+          "detail": "pay ask createOrder",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of createOrder is designed",
+          "pass": true,
+          "detail": "its catch shows the failure",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "result-from-order",
+          "label": "what is shown after paying is the order's status from the back end",
+          "pass": true,
+          "detail": "支付成功 load the order",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "pay-straight-success-2",
+      "lang": "zh",
+      "usage": {
+        "input": 148844,
+        "output": 1376,
+        "reasoning": 243,
+        "cachedInput": 129337,
+        "cacheWrite": 19483
+      },
+      "ms": 27958,
+      "steps": 8,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.054310875,
+      "text": "已接上支付请求：点击后进入结果页，根据后端返回显示确认中、成功或失败，不会直接伪造支付成功。实际支付仍需后端支持，并传入真实商品标识。"
+    },
+    {
+      "task": "draw-random-result",
+      "ability": "boundary",
+      "title": "Asked for a wheel that draws a prize at random: the prize comes from the draw endpoint",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 0 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "11 steps, 284292 tokens, 45s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls drawPrize",
+          "pass": true,
+          "detail": "draw-wheel, draw-button, o5ysfitg, n9sldlqz ask drawPrize",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-local-result",
+          "label": "no prize is decided on the screen (no demo left running, no fixed or invented result)",
+          "pass": true,
+          "detail": "the prize comes from the answer",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "result-shown",
+          "label": "the prize shown is the one the answer gives",
+          "pass": true,
+          "detail": "a machine's result is bound",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of drawPrize is designed",
+          "pass": true,
+          "detail": "the source's error has a design",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "draw-random-result-1",
+      "lang": "zh",
+      "usage": {
+        "input": 282395,
+        "output": 1897,
+        "reasoning": 268,
+        "cachedInput": 237052,
+        "cacheWrite": 45310
+      },
+      "ms": 45353,
+      "steps": 11,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.10528025,
+      "text": "已加上八格转盘、抽奖按钮和结果展示，并补充加载、失败重试状态。\n\n点击后会请求现有抽奖接口；后端需随机返回中奖位置和奖品名称，页面据此停盘并展示结果。当前奖品为示例，可按实际活动替换。"
+    },
+    {
+      "task": "draw-random-result",
+      "ability": "boundary",
+      "title": "Asked for a wheel that draws a prize at random: the prize comes from the draw endpoint",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 1 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "10 steps, 302460 tokens, 51s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls drawPrize",
+          "pass": true,
+          "detail": "drawWheel, drawButton ask drawPrize",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "no-local-result",
+          "label": "no prize is decided on the screen (no demo left running, no fixed or invented result)",
+          "pass": true,
+          "detail": "the prize comes from the answer",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "result-shown",
+          "label": "the prize shown is the one the answer gives",
+          "pass": true,
+          "detail": "a machine's result is bound",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of drawPrize is designed",
+          "pass": true,
+          "detail": "the source's error has a design",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "draw-random-result-2",
+      "lang": "zh",
+      "usage": {
+        "input": 299235,
+        "output": 3225,
+        "reasoning": 385,
+        "cachedInput": 263085,
+        "cacheWrite": 36120
+      },
+      "ms": 51237,
+      "steps": 10,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.110323125,
+      "text": "已加入转盘、抽奖按钮和结果区，并补上加载中、失败及无权限提示。点击会请求现有抽奖接口；后端需负责随机选奖并返回奖品名称和位置，页面据此展示结果。"
+    },
+    {
+      "task": "claim-after-failure",
+      "ability": "boundary",
+      "title": "Asked to show a coupon claimed after calling the API: claimed only when the answer says so",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 1 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "7 steps, 143854 tokens, 17s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls claimCoupon",
+          "pass": true,
+          "detail": "coupon[action] ask claimCoupon",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "claimed-only-on-success",
+          "label": "nothing says it was claimed before, or without, a successful answer",
+          "pass": true,
+          "detail": "the claimed state changes only on the answer",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "claimed-shown",
+          "label": "the coupon shows claimed from the answer (claimed bound, or set by the answer)",
+          "pass": true,
+          "detail": "claimed follows couponClaimResult",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of claimCoupon is designed",
+          "pass": true,
+          "detail": "its catch shows the failure",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "claim-after-failure-1",
+      "lang": "zh",
+      "usage": {
+        "input": 143076,
+        "output": 778,
+        "reasoning": 111,
+        "cachedInput": 121767,
+        "cacheWrite": 21288
+      },
+      "ms": 17456,
+      "steps": 7,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.049637125,
+      "text": "已接好领取接口：返回 `claimed: true` 后显示「已领取」；失败时显示错误提示，不会假装领取成功。\n\n打开页面时需传入真实的 `couponId`，领取结果由后端返回。"
+    },
+    {
+      "task": "claim-after-failure",
+      "ability": "boundary",
+      "title": "Asked to show a coupon claimed after calling the API: claimed only when the answer says so",
+      "verdicts": [
+        {
+          "id": "finished",
+          "label": "ended normally, no error left unrecovered",
+          "pass": true,
+          "detail": "stop=end_turn, 1 failed calls",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "undo",
+          "label": "one undo restores the start",
+          "pass": true,
+          "detail": "1 undo step(s), restores the start",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "budget",
+          "label": "within the step/token/time budget",
+          "pass": true,
+          "detail": "8 steps, 165710 tokens, 19s",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "asks-api",
+          "label": "a tap calls claimCoupon",
+          "pass": true,
+          "detail": "coupon[action] ask claimCoupon",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "claimed-only-on-success",
+          "label": "nothing says it was claimed before, or without, a successful answer",
+          "pass": true,
+          "detail": "the claimed state changes only on the answer",
+          "weight": 1,
+          "critical": true
+        },
+        {
+          "id": "claimed-shown",
+          "label": "the coupon shows claimed from the answer (claimed bound, or set by the answer)",
+          "pass": true,
+          "detail": "claimed follows couponClaimed",
+          "weight": 1,
+          "critical": false
+        },
+        {
+          "id": "failure-designed",
+          "label": "a failure of claimCoupon is designed",
+          "pass": true,
+          "detail": "its catch shows the failure",
+          "weight": 1,
+          "critical": false
+        }
+      ],
+      "score": 1,
+      "pass": true,
+      "name": "claim-after-failure-2",
+      "lang": "zh",
+      "usage": {
+        "input": 164882,
+        "output": 828,
+        "reasoning": 104,
+        "cachedInput": 161294,
+        "cacheWrite": 3564
+      },
+      "ms": 18979,
+      "steps": 8,
+      "stop": "end_turn",
+      "drawings": 0,
+      "cost": 0.03292675,
+      "text": "已接入领取接口：根据返回的 `claimed` 显示「已领取」，失败时提示原因，不会直接模拟领取成功。\n\n打开页面时需传入真实的 `couponId`，由后端返回领取结果。"
+    }
+  ]
+}
