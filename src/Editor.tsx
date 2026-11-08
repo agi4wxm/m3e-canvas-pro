@@ -88,7 +88,7 @@ import { downloadProject } from "@/lib/projects/download";
 import { editorProjects } from "@/lib/projects/opening";
 import { ProjectsPersist } from "@/lib/projects/persist";
 import { ProjectsHome } from "@/components/ProjectsHome";
-import { DropCover, FileConflictDialog, OpenFileDialog, ProjectMenu, ProjectPill } from "@/components/ProjectChrome";
+import { DropCover, FileConflictDialog, OpenFileDialog, ProjectMenu, ProjectPill, RecoveryDialog, SaveStateDialog } from "@/components/ProjectChrome";
 import { LoadingIndicator } from "@/components/Loading";
 import { ShortcutsSheet } from "@/components/ShortcutsSheet";
 import { LayoutHandles } from "@/components/LayoutHandles";
@@ -687,7 +687,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const agent = useAgent({ store, settings: aiSettings, lang, renderer: shotRenderer, editable: editAccess === "editable", showToast, project: loaded && persist instanceof ProjectsPersist ? persist.id : null });
   /** the Cmd/Ctrl+K prompt bar is up */
   const [promptBarOpen, setPromptBarOpen] = useState(false);
-  usePromptBarKey(editAccess === "editable" && !isMobile && !confirmClear && project.pendingOpen === null && !project.homeOpen && !project.conflictOpen && !shareOpen && previewId === null && !promptCoverUp, () => setPromptBarOpen(true));
+  usePromptBarKey(editAccess === "editable" && !isMobile && !confirmClear && project.pendingOpen === null && !project.homeOpen && !project.conflictOpen && !project.saveDialog && !project.recovered && !shareOpen && previewId === null && !promptCoverUp, () => setPromptBarOpen(true));
   const askAgent = (words: string, pictures: Parameters<typeof agent.send>[1] = []) => {
     setPromptBarOpen(false);
     setLeftOpen(true);
@@ -699,7 +699,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   /* the keyboard: undo, clipboard, grouping, layout keys, nudges, tools and zoom (src/editor/useShortcuts.ts) */
   useShortcuts({
     editable: editAccess === "editable",
-    blocked: confirmClear || project.pendingOpen !== null || project.homeOpen || project.conflictOpen || shareOpen || previewId !== null || promptCoverUp || promptBarOpen || shortcutsOpen,
+    blocked: confirmClear || project.pendingOpen !== null || project.homeOpen || project.conflictOpen || !!project.saveDialog || !!project.recovered || shareOpen || previewId !== null || promptCoverUp || promptBarOpen || shortcutsOpen,
     selectedIds,
     selectedFrameId,
     canPaste: () => !!clipboardRef.current,
@@ -1831,9 +1831,11 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                 p={p}
                 name={project.meta?.name ?? (doc.title || t("untitledProject", lang))}
                 link={project.link}
+                save={project.save}
                 onHome={() => project.setHomeOpen(true)}
                 onReconnect={() => void project.reconnect()}
                 onConflict={() => project.setConflictOpen(true)}
+                onSaveState={project.openSaveState}
                 /* the toolbar row shares the canvas's width: the name gives way first */
                 size={canvasWidth < 640 ? "icon" : canvasWidth < 860 ? "compact" : "full"}
               />
@@ -1850,6 +1852,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                   onOpenFolder: project.canPickFolder ? () => void project.openFolder() : undefined,
                   onDownload: project.downloadCopy,
                   onStopSaving: project.link ? project.stopSaving : undefined,
+                  onSaveState: project.projects ? project.openSaveState : undefined,
                   canSync: project.canSyncFile && !!project.projects,
                   link: project.link,
                 }}
@@ -2345,6 +2348,17 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
         onLoad={() => void project.loadTheirs()}
         onKeep={() => void project.keepMine()}
       />
+      <SaveStateDialog
+        p={p}
+        open={!!project.saveDialog}
+        report={project.saveDialog?.report ?? null}
+        leaving={!!project.saveDialog?.leaving}
+        onRetry={() => void project.retrySave()}
+        onDownload={project.downloadCopy}
+        onLeave={project.leaveAnyway}
+        onClose={project.closeSaveDialog}
+      />
+      <RecoveryDialog p={p} recovered={project.recovered} onRestore={project.restoreRecovered} onDiscard={project.discardRecovered} onLater={project.laterRecovered} />
       <DropCover p={p} on={project.dropping} />
 
       {editAccess === "readonly" && (
@@ -2373,13 +2387,24 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
               }}
             >
               <Icon name="lock" size={28} />
-              <h1 id="edit-access-title" style={{ margin: "16px 0 8px", fontSize: 22, lineHeight: 1.25 }}>
-                {t("readOnlyTitle", lang)}
+              {/* read-only from the start (another tab holds the project), or since another tab saved it over this one's edits */}
+              <h1 id="edit-access-title" data-edit-conflict={project.save?.status === "conflict" ? "" : undefined} style={{ margin: "16px 0 8px", fontSize: 22, lineHeight: 1.25 }}>
+                {t(project.save?.status === "conflict" ? "conflictTabTitle" : "readOnlyTitle", lang)}
               </h1>
               <p style={{ margin: 0, color: p.onSurfaceVariant, fontSize: 14, lineHeight: 1.5 }}>
-                {t("readOnlyBody", lang)}
+                {t(project.save?.status === "conflict" ? "conflictTabBody" : "readOnlyBody", lang)}
               </p>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 24 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, marginTop: 24 }}>
+                {project.save?.status === "conflict" && (
+                  <button
+                    className="m3-press"
+                    data-conflict-download
+                    onClick={project.downloadCopy}
+                    style={{ minHeight: 40, padding: "0 16px", border: "none", borderRadius: 20, background: p.secondaryContainer, color: p.onSecondaryContainer, fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    {t("saveDownloadCopy", lang)}
+                  </button>
+                )}
                 {project.projects && (
                   <button
                     className="m3-press"
