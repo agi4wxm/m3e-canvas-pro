@@ -6,12 +6,6 @@
   "detail": "a picture held in the document is left out (PNG, JPEG, GIF, WebP and SVG are written as files)"
  },
  {
-  "kind": "holder",
-  "screen": "Dock",
-  "part": "dock",
-  "detail": "dock has no component in the mini-program kit"
- },
- {
   "kind": "atoms",
   "screen": "Products",
   "part": "productCard",

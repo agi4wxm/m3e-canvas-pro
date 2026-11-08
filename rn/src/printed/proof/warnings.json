@@ -1,11 +1,5 @@
 [
  {
-  "kind": "holder",
-  "screen": "Dock",
-  "part": "dock",
-  "detail": "dock has no component in the kit"
- },
- {
   "kind": "atoms",
   "screen": "Products",
   "part": "productCard",

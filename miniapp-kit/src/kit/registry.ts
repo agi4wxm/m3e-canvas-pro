@@ -12,6 +12,10 @@ import { SplitView } from "./split";
 /* D4: the game parts, and a group of buttons, actions, menus and search */
 import { BrandButton, ButtonGroup, CascadingMenu, Command, ContextMenu, FabMenu, FilterBar, SplitButton } from "./composites/actions";
 import { EggSmash, Gacha, GameBoard, GridDraw, Joystick, LevelMap, MoneyTree, PrizeWheel, SkillButton, SlotMachine } from "./composites/games";
+/* D5 */
+import { Accordion, AspectRatio, Collapsible, CustomComponent, Dock, GridView, ScrollArea, Stack, SupportingPane } from "./composites/layouts";
+import { FloatingNav, IconGrid, NavigationMenu, NavigationRail, Onboarding, Pagination, Sidebar, SlideGroup, TableOfContents } from "./composites/navs";
+import { Drawer, HoverCard, Popover, SideSheet, Tooltip } from "./composites/floating";
 
 /* Every component the kit draws a part with, by the name coverage.ts gives it, and by the part's id. */
 
@@ -91,6 +95,30 @@ export const BY_NAME = {
   ContextMenu,
   FilterBar,
   CascadingMenu,
+  /* D5: layouts, ways of getting around, what floats */
+  Accordion,
+  Collapsible,
+  ScrollArea,
+  AspectRatio,
+  Stack,
+  GridView,
+  Dock,
+  SupportingPane,
+  CustomComponent,
+  NavigationRail,
+  Pagination,
+  NavigationMenu,
+  Sidebar,
+  FloatingNav,
+  TableOfContents,
+  SlideGroup,
+  IconGrid,
+  Onboarding,
+  Tooltip,
+  SideSheet,
+  Drawer,
+  Popover,
+  HoverCard,
 } satisfies Record<NativeName, ComponentType<never>>;
 
 /** the component that draws each part the kit covers, by the part's id */

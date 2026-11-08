@@ -82,6 +82,31 @@ export const NATIVE = {
   "context-menu": "ContextMenu",
   "filter-bar": "FilterBar",
   "cascading-menu": "CascadingMenu",
+  /* D5: layouts that fold, scroll, keep a shape or hold parts under a header (composites/layouts.tsx), ways of getting
+     around (composites/navs.tsx), and what floats off a trigger or an edge (composites/floating.tsx) */
+  accordion: "Accordion",
+  collapsible: "Collapsible",
+  "scroll-area": "ScrollArea",
+  "aspect-ratio": "AspectRatio",
+  stack: "Stack",
+  "grid-view": "GridView",
+  dock: "Dock",
+  "supporting-pane": "SupportingPane",
+  custom: "CustomComponent",
+  "navigation-rail": "NavigationRail",
+  pagination: "Pagination",
+  "navigation-menu": "NavigationMenu",
+  sidebar: "Sidebar",
+  "floating-nav": "FloatingNav",
+  toc: "TableOfContents",
+  "slide-group": "SlideGroup",
+  "icon-grid": "IconGrid",
+  onboarding: "Onboarding",
+  tooltip: "Tooltip",
+  "side-sheet": "SideSheet",
+  drawer: "Drawer",
+  popover: "Popover",
+  "hover-card": "HoverCard",
 } as const;
 
 export type NativeSlug = keyof typeof NATIVE;

@@ -494,6 +494,16 @@ export const PARTS: Record<string, PartInfo> = {
    "closeButton": false
   }
  },
+ "tooltip": {
+  "name": "Tooltip",
+  "tier": "composite",
+  "defaults": {
+   "label": "Hover me",
+   "variant": "outlined",
+   "text": "Add to library",
+   "side": "top"
+  }
+ },
  "alert": {
   "name": "Alert",
   "tier": "composite",
@@ -621,6 +631,87 @@ export const PARTS: Record<string, PartInfo> = {
    "hugHeight": false
   }
  },
+ "side-sheet": {
+  "name": "Side sheet",
+  "tier": "composite",
+  "defaults": {
+   "title": "Filters",
+   "content": "Narrow the messages down by sender, date or label.",
+   "side": "right",
+   "detached": false,
+   "closeButton": true,
+   "footer": true,
+   "confirm": "Apply",
+   "dismiss": "Cancel",
+   "width": 360,
+   "height": 320
+  }
+ },
+ "drawer": {
+  "name": "Drawer",
+  "tier": "composite",
+  "defaults": {
+   "title": "Share",
+   "description": "Choose where to send this.",
+   "close": "Close",
+   "swipeHandle": true,
+   "inline": false
+  }
+ },
+ "popover": {
+  "name": "Popover",
+  "tier": "composite",
+  "defaults": {
+   "trigger": "Open popover",
+   "variant": "outlined",
+   "title": "Dimensions",
+   "description": "Set the size of the layer.",
+   "side": "bottom"
+  }
+ },
+ "hover-card": {
+  "name": "Hover card",
+  "tier": "composite",
+  "defaults": {
+   "trigger": "@material",
+   "avatar": "M",
+   "title": "Material Design",
+   "description": "Google's open-source design system.",
+   "side": "bottom"
+  }
+ },
+ "accordion": {
+  "name": "Accordion",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "What is M3 Expressive?"
+    },
+    {
+     "label": "Where do the values come from?"
+    },
+    {
+     "label": "Can I use it with shadcn?"
+    }
+   ],
+   "content": "An expansion of Material 3 with richer shapes, springier motion and bolder type.",
+   "openFirst": true,
+   "multiple": false,
+   "width": 360
+  }
+ },
+ "collapsible": {
+  "name": "Collapsible",
+  "tier": "composite",
+  "defaults": {
+   "trigger": "Toggle details",
+   "variant": "tonal",
+   "content": "Here are the details that were hidden.",
+   "open": true,
+   "width": 256
+  }
+ },
  "separator": {
   "name": "Separator",
   "tier": "atom",
@@ -629,6 +720,17 @@ export const PARTS: Record<string, PartInfo> = {
    "length": 280,
    "thickness": 1,
    "color": "default"
+  }
+ },
+ "scroll-area": {
+  "name": "Scroll area",
+  "tier": "composite",
+  "defaults": {
+   "scrollbars": "vertical",
+   "label": "Item",
+   "count": 30,
+   "width": 256,
+   "height": 192
   }
  },
  "navigation-bar": {
@@ -695,6 +797,100 @@ export const PARTS: Record<string, PartInfo> = {
    "selected": 0,
    "variant": "primary",
    "width": 360
+  }
+ },
+ "navigation-rail": {
+  "name": "Navigation rail",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Home",
+     "icon": "home"
+    },
+    {
+     "label": "Search",
+     "icon": "search"
+    },
+    {
+     "label": "Saved",
+     "icon": "favorite"
+    }
+   ],
+   "selected": 0,
+   "expanded": false,
+   "narrow": false,
+   "modal": false,
+   "compact": false,
+   "menu": true,
+   "fab": true,
+   "height": 400
+  }
+ },
+ "pagination": {
+  "name": "Pagination",
+  "tier": "composite",
+  "defaults": {
+   "pages": 10,
+   "current": 2,
+   "previous": "Previous",
+   "next": "Next",
+   "width": 480
+  }
+ },
+ "navigation-menu": {
+  "name": "Navigation menu",
+  "tier": "composite",
+  "defaults": {
+   "menus": [
+    {
+     "label": "Getting started"
+    },
+    {
+     "label": "Components"
+    }
+   ],
+   "pages": [
+    {
+     "label": "Introduction"
+    },
+    {
+     "label": "Installation"
+    },
+    {
+     "label": "Theming"
+    }
+   ],
+   "links": [
+    {
+     "label": "Docs"
+    }
+   ]
+  }
+ },
+ "sidebar": {
+  "name": "Sidebar",
+  "tier": "composite",
+  "defaults": {
+   "label": "Application",
+   "items": [
+    {
+     "label": "Home",
+     "icon": "home"
+    },
+    {
+     "label": "Inbox",
+     "icon": "inbox"
+    },
+    {
+     "label": "Settings",
+     "icon": "settings"
+    }
+   ],
+   "selected": 0,
+   "size": "default",
+   "width": 288,
+   "height": 400
   }
  },
  "search": {
@@ -867,6 +1063,15 @@ export const PARTS: Record<string, PartInfo> = {
    "caption": ""
   }
  },
+ "aspect-ratio": {
+  "name": "Aspect ratio",
+  "tier": "composite",
+  "defaults": {
+   "ratio": "16:9",
+   "label": "16:9",
+   "width": 288
+  }
+ },
  "shape": {
   "name": "Shape",
   "tier": "atom",
@@ -924,6 +1129,83 @@ export const PARTS: Record<string, PartInfo> = {
    "hugHeight": false,
    "width": 380,
    "height": 200
+  }
+ },
+ "stack": {
+  "name": "Stack",
+  "tier": "composite",
+  "defaults": {
+   "label": "Stack",
+   "note": "Layers, one over another",
+   "width": 380,
+   "height": 200
+  }
+ },
+ "grid-view": {
+  "name": "Grid",
+  "tier": "composite",
+  "defaults": {
+   "label": "Grid",
+   "note": "Two columns",
+   "columns": 2,
+   "rows": 2,
+   "gap": 8,
+   "padX": 12,
+   "padY": 12,
+   "align": "start",
+   "width": 380,
+   "height": 280
+  }
+ },
+ "dock": {
+  "name": "Dock",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Overview"
+    },
+    {
+     "label": "Activity"
+    },
+    {
+     "label": "Settings"
+    }
+   ],
+   "selected": 0,
+   "layout": "column",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false,
+   "width": 640,
+   "height": 360
+  }
+ },
+ "supporting-pane": {
+  "name": "Supporting pane",
+  "tier": "composite",
+  "defaults": {
+   "label": "Details",
+   "note": "More about what is selected.",
+   "icon": "info",
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false,
+   "width": 360,
+   "height": 480
   }
  },
  "split-view": {
@@ -1319,6 +1601,26 @@ export const PARTS: Record<string, PartInfo> = {
    "loading": false
   }
  },
+ "custom": {
+  "name": "Custom component",
+  "tier": "composite",
+  "defaults": {
+   "name": "Custom component",
+   "description": "Describe what goes here.",
+   "layout": "free",
+   "gap": 8,
+   "padX": 16,
+   "padY": 16,
+   "align": "start",
+   "justify": "start",
+   "wrap": false,
+   "columns": 2,
+   "hugWidth": false,
+   "hugHeight": false,
+   "width": 320,
+   "height": 160
+  }
+ },
  "file-upload": {
   "name": "File upload",
   "tier": "composite",
@@ -1335,6 +1637,28 @@ export const PARTS: Record<string, PartInfo> = {
    "loading": false,
    "error": false,
    "errorText": ""
+  }
+ },
+ "floating-nav": {
+  "name": "Floating navigation",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Home",
+     "icon": "home"
+    },
+    {
+     "label": "Search",
+     "icon": "search"
+    },
+    {
+     "label": "Saved",
+     "icon": "favorite"
+    }
+   ],
+   "selected": 0,
+   "width": 320
   }
  },
  "cascading-menu": {
@@ -1372,11 +1696,142 @@ export const PARTS: Record<string, PartInfo> = {
    "width": 412
   }
  },
+ "toc": {
+  "name": "Table of contents",
+  "tier": "composite",
+  "defaults": {
+   "title": "On this page",
+   "items": [
+    {
+     "label": "Overview"
+    },
+    {
+     "label": "  Install"
+    },
+    {
+     "label": "  Usage"
+    },
+    {
+     "label": "API"
+    }
+   ],
+   "selected": 0,
+   "width": 220
+  }
+ },
+ "slide-group": {
+  "name": "Slide group",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "All"
+    },
+    {
+     "label": "Music"
+    },
+    {
+     "label": "Podcasts"
+    },
+    {
+     "label": "Live"
+    },
+    {
+     "label": "News"
+    },
+    {
+     "label": "Sports"
+    }
+   ],
+   "width": 320
+  }
+ },
  "typing-indicator": {
   "name": "Typing indicator",
   "tier": "atom",
   "defaults": {
    "label": ""
+  }
+ },
+ "icon-grid": {
+  "name": "Icon grid",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Deals",
+     "icon": "local_offer",
+     "variant": "new"
+    },
+    {
+     "label": "Orders",
+     "icon": "receipt_long",
+     "variant": "dot"
+    },
+    {
+     "label": "Wallet",
+     "icon": "account_balance_wallet"
+    },
+    {
+     "label": "Saved",
+     "icon": "favorite"
+    },
+    {
+     "label": "Delivery",
+     "icon": "local_shipping"
+    },
+    {
+     "label": "Coupons",
+     "icon": "confirmation_number"
+    },
+    {
+     "label": "Support",
+     "icon": "support_agent"
+    },
+    {
+     "label": "More",
+     "icon": "more_horiz"
+    }
+   ],
+   "columns": 4,
+   "badge": "New",
+   "width": 380
+  }
+ },
+ "onboarding": {
+  "name": "Onboarding",
+  "tier": "composite",
+  "defaults": {
+   "data": {
+    "columns": [
+     "Icon",
+     "Title",
+     "Text"
+    ],
+    "rows": [
+     [
+      "explore",
+      "Find what you need",
+      "Everything in one place, a tap away."
+     ],
+     [
+      "bolt",
+      "Get it done faster",
+      "Shortcuts that learn how you work."
+     ],
+     [
+      "verified_user",
+      "Stay in control",
+      "Your data stays yours. Always."
+     ]
+    ]
+   },
+   "skip": "Skip",
+   "next": "Next",
+   "done": "Get started",
+   "page": 0,
+   "width": 360,
+   "height": 520
   }
  },
  "spacer": {

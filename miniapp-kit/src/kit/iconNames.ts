@@ -32,4 +32,10 @@ export const KIT_ICONS = [
   "keyboard_arrow_down",
   "login",
   "payments",
+  /* D5: a shortcut with no icon, an accordion's and a menu's chevrons, the rail's menu and compose buttons */
+  "apps",
+  "edit",
+  "expand_less",
+  "expand_more",
+  "menu",
 ] as const;

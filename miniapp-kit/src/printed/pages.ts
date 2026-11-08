@@ -22,5 +22,9 @@ export const PRINTED_PAGES: string[] = [
   "printed/play/pages/draws/index",
   "printed/play/pages/machines/index",
   "printed/play/pages/play/index",
-  "printed/play/pages/menus/index"
+  "printed/play/pages/menus/index",
+  "printed/layouts/pages/layouts/index",
+  "printed/layouts/pages/around/index",
+  "printed/layouts/pages/floating/index",
+  "printed/layouts/pages/rail/index"
 ];

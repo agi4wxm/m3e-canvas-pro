@@ -45,4 +45,7 @@ export const KIT_ICONS = [
   "lock",
   "login",
   "payments",
+  /* D5: the rail's compose button, the mini-program header's capsule */
+  "edit",
+  "radio_button_checked",
 ] as const;

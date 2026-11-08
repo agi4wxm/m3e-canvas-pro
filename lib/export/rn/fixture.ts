@@ -9,6 +9,7 @@ import { RnPictures, appModule, iconsModule, themeModule } from "./app";
 import { rnIconData } from "./icons";
 import { printRnScreens, screensIndex } from "./print";
 import { rnThemeOf } from "./theme";
+import { layoutsDoc } from "./layoutsFixture";
 
 /* Documents printed into the kit's test bed (rn/src/printed), so that what the printer writes is type-checked, linted,
  * rendered by the kit's tests and bundled by Metro there, exactly as an exported app would be: the export's proof
@@ -127,6 +128,7 @@ export async function printedFixture(): Promise<Record<string, string | Uint8Arr
   const kits = withIds(next, kitsDoc);
   const splits = withIds(next, splitsDoc);
   const play = withIds(next, playDoc);
-  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)) };
+  const layouts = withIds(next, layoutsDoc);
+  return { ...(await printed("proof", proof.doc, proof.widths)), ...(await printed("kits", kits.doc, kits.widths)), ...(await printed("splits", splits.doc, splits.widths)), ...(await printed("play", play.doc, play.widths)), ...(await printed("layouts", layouts.doc, layouts.widths)) };
 }
 
