@@ -20,7 +20,8 @@ function propOf(d: PropDef): string {
     case "icon":
       return `\`${d.key}\` icon`;
     case "image":
-      return `\`${d.key}\` https address`;
+      /* an outside address is refused (lib/core/images.ts): a picture is painted into the document */
+      return `\`${d.key}\` a data:image picture (generate_image paints one; outside addresses are refused)`;
     case "list":
       return `\`${d.key}\` rows of \`{ "label"${d.icons ? `, "icon"` : ""} }\``;
     case "table":

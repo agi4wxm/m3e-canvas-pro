@@ -197,9 +197,11 @@ export function ScreenDataSection({ frame, p }: { frame: Frame; p: Palette }) {
         )}
         <div style={label(p)}>{t("bdParams", lang)}</div>
         {(frame.params ?? []).map((prm, i) => (
-          <div key={i} data-screen-param={prm.name} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) 28px", gap: 4, alignItems: "center" }}>
+          <div key={i} data-screen-param={prm.name} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) 76px 28px", gap: 4, alignItems: "center" }}>
             <Field value={prm.name} onChange={(name) => name && b.run(ops.setScreenParams, { screen: frame.id, params: (frame.params ?? []).map((x, j) => (j === i ? { ...x, name } : x)) })} label={t("bdParamName", lang)} placeholder={t("bdParamName", lang)} p={p} height={30} />
             <Field value={prm.example ?? ""} onChange={(example) => b.run(ops.setScreenParams, { screen: frame.id, params: (frame.params ?? []).map((x, j) => (j === i ? { ...x, example } : x)) }, `params:${frame.id}:${i}`)} label={t("bdExample", lang)} placeholder={t("bdExample", lang)} p={p} height={30} />
+            {/* what the screen is given: words, a number, yes or no */}
+            <Select height={30} label={t("bdParamType", lang)} p={p} value={prm.type ?? "string"} options={(["string", "number", "boolean"] as const).map((k) => ({ key: k, label: t(`bdParamType_${k}`, lang) }))} onChange={(k) => b.run(ops.setScreenParams, { screen: frame.id, params: (frame.params ?? []).map((x, j) => (j === i ? { ...x, type: k as "string" | "number" | "boolean" } : x)) })} />
             <IconBtn icon="close" p={p} size={28} onClick={() => b.run(ops.setScreenParams, { screen: frame.id, params: (frame.params ?? []).filter((_, j) => j !== i) })} title={t("delete", lang)} />
           </div>
         ))}
@@ -239,7 +241,8 @@ export function ScreenDataSection({ frame, p }: { frame: Frame; p: Palette }) {
 export const STATE_TEXT: Record<RegionState, UIKey> = { ready: "bdStateReady", loading: "bdStateLoading", empty: "bdStateEmpty", error: "bdStateError", forbidden: "bdStateForbidden" };
 
 /** the props a part can bind to an expression: those with a value of one line, or a list */
-const bindable = (it: Item) => (partBySlug(it.component)?.props ?? []).filter((d) => d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum" || d.kind === "image" || d.kind === "icon" || d.kind === "list");
+/** the props an expression can stand for: a table too, from a list of records (an API list, a collection) */
+const bindable = (it: Item) => (partBySlug(it.component)?.props ?? []).filter((d) => d.kind === "text" || d.kind === "number" || d.kind === "bool" || d.kind === "enum" || d.kind === "image" || d.kind === "icon" || d.kind === "list" || d.kind === "table");
 
 /** On a part: its props from expressions, and on a container a repeat from data, the states of a region, a form; on an
  *  input in a form, its field. */
@@ -262,7 +265,9 @@ export function PartDataSection({ item, frame, p }: { item: Item; frame: Frame |
   const hasApi = !!api?.endpoints?.length;
   const form = formAround(b.doc.groups, group);
   const isInput = INPUT_PROP[item.component ?? ""] !== undefined || item.component === "file-upload";
-  if (!hasApi && !exprs.length && !frame?.data?.length) return null;
+  /* a table or a list can read the document's data sets (`collections.<name>`) with no API at all */
+  const readsSets = !!b.doc.collections?.length && !!def?.props.some((d) => d.kind === "table" || d.kind === "list");
+  if (!hasApi && !exprs.length && !frame?.data?.length && !readsSets) return null;
   const props = bindable(item);
   const run = b.run;
   const repeatHost = behavior.repeatHost;
@@ -328,6 +333,9 @@ export function PartDataSection({ item, frame, p }: { item: Item; frame: Frame |
               <>
                 <Select height={28} label={t("bdRegionSource", lang)} p={p} value={group.states.source ?? ""} options={(frame?.data ?? []).map((d) => ({ key: d.name, label: `data.${d.name}`, icon: "cloud_download" }))} onChange={(k) => run(ops.setRegion, { id: group.id, source: k, designs: false })} />
                 <StateChips group={group} designs={designs} p={p} />
+                {/* when the data counts as empty, over the default (no items, or nothing) */}
+                <div style={label(p)}>{t("bdRegionEmptyWhen", lang)}</div>
+                <ExprField name="emptyWhen" value={group.states.emptyWhen ?? ""} onCommit={(v) => run(ops.setRegion, { id: group.id, emptyWhen: v || null, designs: false })} shape={shape} api={api} p={p} label={t("bdRegionEmptyWhen", lang)} />
                 {REGION_STATES.some((st) => st !== "ready" && !designs[st]?.length) && (
                   <button data-add-designs onClick={() => run(ops.setRegion, { id: group.id })} className="m3-press" style={actionBtn(p)}>
                     <Icon name="auto_awesome" size={16} />
