@@ -75,7 +75,8 @@ describe("a document nested very deep", () => {
       const t = performance.now();
       fn();
       const ms = performance.now() - t;
-      expect(ms, what).toBeLessThan(8_000);
+      /* bounded, not fast: the old code took minutes; a busy machine (several suites at once) takes a few seconds */
+      expect(ms, what).toBeLessThan(20_000);
     };
     time("canvas", () => canvasView(doc, {}));
     time("layers", () => expect(layerTree(doc.groups, doc.frames, {}).nodes.size).toBeGreaterThan(2000));

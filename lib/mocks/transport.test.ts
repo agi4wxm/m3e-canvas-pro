@@ -479,7 +479,8 @@ describe("never throws", () => {
     expect(out.status).toBe(200);
     expect(out.body as unknown[]).toHaveLength(5000);
     expect(JSON.stringify(out.body).length).toBeLessThan(20_000_000);
-    expect(performance.now() - started).toBeLessThan(8000);
+    /* bounded, not fast: what matters is that 5000 wide records do not take minutes, on a busy machine too */
+    expect(performance.now() - started).toBeLessThan(20_000);
     /* a model of the usual size keeps its whole budget: its records are as they were */
     const few = createMockTransport({ api, mocks: { models: [{ name: "Wide", count: 3 }] } }, { latency: false });
     const small = (await few.request({ method: "GET", path: "/wide", operationId: "listWide" })).body as Record<string, unknown>[];
