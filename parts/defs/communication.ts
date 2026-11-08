@@ -206,6 +206,7 @@ export const communication: PartDef[] = [
   },
   {
     slug: "tooltip",
+    overlay: true,
     appearance: { target: "TooltipContent", radius: 4 },
     name: "Tooltip",
     category: "Overlays",

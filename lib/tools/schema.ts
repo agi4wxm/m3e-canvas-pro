@@ -59,7 +59,7 @@ const ACTION: Schema = {
     effects: {
       type: "array",
       description:
-        "{do: show|hide|toggle|open|close, part} | {do: setVar, var, value, expr?} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message ({{expressions}} allowed)} | {do: call, operationId, args?: {name: expression}, body?: expression, then?: action body (reads response), catch?: action body (reads error), optimistic?: {source, remove: true}} | {do: refresh, source} | {do: loadMore, source} | {do: submit, form?} | {do: signOut}",
+        "{do: show|hide|toggle|open|close, part} | {do: setVar, var, value, expr?} | {do: toggleVar, var} | {do: addVar, var, by} | {do: setProp, part, prop, value} | {do: snackbar, message ({{expressions}} allowed)} | {do: call, operationId, args?: {name: expression}, body?: expression, then?: {to, transition, effects} run on any 2XX (reads response; no when or else), catch?: the same on a failure (reads error), optimistic?: {source, remove: true}} | {do: refresh, source} | {do: loadMore, source} | {do: submit, form?} | {do: signOut}",
       items: { type: "object", properties: { do: { type: "string", enum: ["show", "hide", "toggle", "open", "close", "setVar", "toggleVar", "addVar", "setProp", "snackbar", "call", "refresh", "loadMore", "submit", "signOut"] } }, required: ["do"] },
     },
     params: { type: "object", description: "what the screen it opens is given, by its params' names: each an expression (\"item.id\")" },
@@ -80,7 +80,7 @@ const ITEM_PATCH: Schema = {
     look: nullable({ type: "object", description: LOOK }),
     note: nullable({ type: "string", description: "what the part does, for the prompt" }),
     action: nullable(ACTION),
-    actions: nullable({ type: "object", description: "{slot: action} for parts with places of their own (describe_node lists its slots)" }),
+    actions: nullable({ type: "object", description: "{key: action} for what the part declares (describe_node lists them): a place (\"tab:0\"), a family of places (\"tab:*\", reads slot.index) or an event (\"on:submit\", reads event.<field>)" }),
     flowSize: nullable(wh({ type: "string", enum: ["fixed", "hug", "fill"] })),
     alignSelf: nullable({ type: "string", enum: ["start", "center", "end", "stretch", "baseline"] }),
     flowAbsolute: nullable({ type: "boolean", description: "out of its container's layout, drawn over it" }),

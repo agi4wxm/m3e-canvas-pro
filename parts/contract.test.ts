@@ -198,3 +198,79 @@ describe("the widgets", () => {
     expect(Object.keys(WIDGET_MODULES).sort()).toEqual([...new Set(Object.values(WIDGET_SOURCES).map((f) => f.slice("@/components/widgets/".length)))].sort());
   });
 });
+
+/* ---------- state and outlets (docs/组件规范.md "组件的状态和出口", docs/边界与契约.md) ---------- */
+
+const LANGS = ["ja", "zh", "ko"] as const;
+/** the prop kinds an input of each kind can be held in */
+const KIND_OF_INPUT: Record<string, string[]> = { text: ["text"], number: ["number"], bool: ["bool"], choice: ["number", "enum", "text"], choices: ["list", "text"], files: ["text"], date: ["text"], vec2: ["text"] };
+
+describe("what a part declares", () => {
+  it("names an input by a prop it has, of a kind that prop can hold", () => {
+    for (const d of PARTS.filter((x) => x.input)) {
+      const prop = d.props.find((p) => p.key === d.input!.prop);
+      expect(prop, `${d.slug}.${d.input!.prop}`).toBeTruthy();
+      expect(KIND_OF_INPUT[d.input!.kind], `${d.slug}: a ${d.input!.kind} input in a ${prop!.kind} prop`).toContain(prop!.kind);
+    }
+  });
+
+  it("names its events and slot families plainly, in every language, apart from its slots", () => {
+    for (const d of PARTS) {
+      const names = (d.events ?? []).map((e) => e.name);
+      expect(new Set(names).size, d.slug).toBe(names.length);
+      for (const e of d.events ?? []) {
+        expect(e.name, d.slug).toMatch(/^[A-Za-z][A-Za-z0-9]{0,39}$/);
+        for (const l of LANGS) expect(e.labels?.[l], `${d.slug} on:${e.name} in ${l}`).toBeTruthy();
+        for (const kind of Object.values(e.payload ?? {})) expect(["text", "number", "bool", "list", "object"]).toContain(kind);
+      }
+      const keys = (d.slots?.(reader(d, {})) ?? []).map((s) => s.key);
+      for (const k of keys) expect(k.startsWith("on:") || k.endsWith(":*"), `${d.slug}: slot ${k} looks like an event or a family`).toBe(false);
+      for (const f of d.families ?? []) {
+        expect(f.prefix, d.slug).toMatch(/^[a-z][a-z0-9-]*$/);
+        for (const l of LANGS) expect(f.labels?.[l], `${d.slug} ${f.prefix}:* in ${l}`).toBeTruthy();
+        /* a family answers slots the part has: tab:0, tab:1… */
+        expect(keys.some((k) => k.startsWith(`${f.prefix}:`)), `${d.slug} has no ${f.prefix}: slots`).toBe(true);
+      }
+    }
+  });
+
+  it("says what its demo is, and which props take it over", () => {
+    for (const d of PARTS.filter((x) => x.demo)) {
+      expect(d.demo!.what.length, d.slug).toBeGreaterThan(10);
+      expect(d.demo!.takenOverBy.length, d.slug).toBeGreaterThan(0);
+      for (const k of d.demo!.takenOverBy) expect(d.props.some((p) => p.key === k), `${d.slug}.${k}`).toBe(true);
+    }
+  });
+});
+
+describe("a widget's state", () => {
+  const widgets = sourceFiles("widgets");
+
+  it("draws no random result outside a prototype's demo", () => {
+    /* a random outcome is a result, and a result is the other side's: only a demo, which a product never runs, picks one */
+    for (const { name, text } of widgets) for (const line of text.split("\n").filter((l) => l.includes("Math.random"))) expect(line, name).toMatch(/\bdemo\b/);
+  });
+
+  it("takes the contract's props where its part declares an input, events or a demo", () => {
+    for (const d of PARTS.filter((x) => x.input || x.events?.length || x.demo)) {
+      const root = treeOf(d, defaultValues(d)).type;
+      const from = WIDGET_SOURCES[root];
+      if (!from) continue;
+      const text = readFileSync(new URL(`widgets/${from.slice("@/components/widgets/".length)}.tsx`, dir), "utf8");
+      /* the widget's own signature, from its name to the end of its props */
+      const own = text.slice(text.indexOf(`export function ${root}(`));
+      expect(own.slice(0, own.indexOf("{\n")), `${root} (${d.slug})`).toMatch(/demo, onValueChange, onEvent/);
+    }
+  });
+
+  it("in a product shows what it is given, not what it would act out", () => {
+    /* drawn with no host is a product: the coupon and the pad say claimed and sent only when told */
+    expect(draw("coupon")).not.toContain('data-claimed="true"');
+    expect(draw("coupon", { claimed: true })).toContain('data-claimed="true"');
+    expect(draw("number-pad")).not.toContain('data-sent="true"');
+    expect(draw("number-pad", { sent: true })).toContain('data-sent="true"');
+    expect(draw("number-pad", { value: "120" })).toContain('data-entry="120"');
+    expect(draw("rating", { value: 3 })).toContain('data-value="3"');
+    expect(draw("prize-wheel")).toContain('data-phase="idle"');
+  });
+});

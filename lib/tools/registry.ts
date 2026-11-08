@@ -95,6 +95,18 @@ const PRODUCT_GUIDE = [
   "  5. Check: screenshot {id, scenario: \"\"} shows a screen with mock data and what each source got, {state} a region's design; try_mock calls endpoints.",
 ].join("\n");
 
+/** What the design is responsible for and what it leaves to the other side (docs/边界与契约.md): the screens draw state
+ *  and send intents; results, platform capabilities and the rules come from the back end, the game or the platform. */
+export const BOUNDARY_GUIDE = [
+  "- The boundary: a design draws state and sends what the user means; results come from the other side (the API, the game, the platform).",
+  "  - Variables hold UI state only (a tab, a toggle, a draft, the dark mode, a copy of data for display): never a balance, stock, score, points, an order's status, or whether a claim, a payment or a draw went through. Those come from the API as data.* or response.*.",
+  "  - Never decide a result on the screen: no button that goes straight to a \"success\", \"paid\" or \"claimed\" screen or state, no random or computed outcome (prizes, wins, prices). The button calls the endpoint (effects [{do: \"call\", operationId, then, catch}]) or submits a form; `then` shows what the answer says, `catch` shows the failure, each with a design of its own.",
+  "  - Platform capabilities (payment, maps, camera, scanning, location, push, third-party sign-in, calls) are not built here: no SDK, key or permission. Show them as a call or a placeholder part whose note says what the capability must do and return, and design its cancelled, failed, denied and unavailable states; never act out its success.",
+  "  - When the document has an API, do not make a real feature of a part that keeps its data to itself (auth-form, cart-list, todo-list, settings-group, chat-composer, contact-list): compose atoms and kits with make_form, set_repeat and calls instead.",
+  "  - A part with a `demo` (describe_part) acts out a domain behaviour only in a prototype: for a product, bind the props it names or wire its events.",
+  "- Events: a part that declares events (describe_part, describe_node) runs set_action {slot: \"on:<name>\"} when it sends one, its expressions reading event.<field> (a number pad's on:submit: event.value). A family slot such as \"tab:*\" is one action for every row, reading slot.index.",
+].join("\n");
+
 /** The short guide to the tools: how a document is built, read and checked with them, then the tools there are by
  *  group. The in-app agent's system prompt starts from it; an MCP server serves it as its instructions. */
 export function toolGuide(tools: Tool<never>[] = CORE_REGISTRY.tools, o: { list?: boolean } = {}): string {
@@ -112,6 +124,7 @@ export function toolGuide(tools: Tool<never>[] = CORE_REGISTRY.tools, o: { list?
     "- Words go in the author's language. Colors are theme roles: fill takes surface, surfaceContainer…, primary, primaryContainer…; textColor takes onSurface, onSurfaceVariant, primary…; a look takes kebab-case roles or hex.",
     "- A document held to its style's rules keeps only what the style allows: no corners, no button shapes, only opacity, rotate, transform, blur, blend and elevation of the look. get_style says what the rules leave you. A document not held to them takes every look field.",
     "- Taps: set_action {id, action: {to: screen id | \"back\", effects…}}; variables (add_var) drive effects, bind_prop and showWhen.",
+    BOUNDARY_GUIDE,
     has("screenshot") ? "- Check by eye: screenshot a screen after changing it, and fix what looks wrong. Open selects, menus and date pickers hang over the parts below them on the canvas by design: leave the layout as it is." : "",
     "- Errors come back as {code, message, hint}; fix the call and try again. nothing_to_do means it already was so.",
     ...(has("wire_screen") ? [PRODUCT_GUIDE] : []),

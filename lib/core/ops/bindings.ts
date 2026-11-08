@@ -527,7 +527,7 @@ export const bindField = op<{ id: string; field: string | null }>({
   run(s, a, ctx) {
     const { item, group } = itemById(s, a.id);
     if (a.field !== null) {
-      if (!isInput(item)) throw new OpError("invalid_value", `${item.component} is no input: a form's field is an input, text field, textarea, select, switch, checkbox, slider, radio group or file upload.`, a.id);
+      if (!isInput(item)) throw new OpError("invalid_value", `${item.component} is no input: a form's field is a part that declares an input (describe_part lists it: a text field, select, switch, slider, rating, number pad…) or a file upload.`, a.id);
       if (!FIELD_PATH.test(a.field)) throw new OpError("invalid_value", `${JSON.stringify(a.field)} is no field name.`, a.field);
       const form = formAround(s.doc.groups, group);
       if (ctx.strict && !form) throw new OpError("invalid_value", "That input is in no form: make_form or set_form makes its container one.", a.id);

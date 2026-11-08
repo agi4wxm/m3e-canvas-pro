@@ -9,6 +9,7 @@ import { labelOfPart } from "../../parts/resize";
 import { flowOf, childLayoutOf } from "../flow";
 import { kitLookOf } from "../kits";
 import { isStrict } from "../styles";
+import { declarationsOf, demoTakenOver } from "../partContract";
 import { actionSlotsOf, frameLengthOf, frameOfPart, frameSizeOf, groupBounds, heldBy, holdsParts, layoutOf, type Doc, type Frame, type Group, type Item } from "../tokens";
 import { propKindText } from "./ops/validate";
 import type { Widths } from "./state";
@@ -310,6 +311,9 @@ export function describeNode(doc: Doc, widths: Widths, id: string) {
       takes: propKindText(d),
     })),
     slots: actionSlotsOf(it).map((s) => s.key),
+    /* what else its actions may be stored under, its input and its demo (lib/partContract.ts) */
+    ...(def ? declarationsOf(def) : {}),
+    ...(def?.demo ? { demoRunsInPrototype: !demoTakenOver(it) } : {}),
     canSplit: !!def?.atoms,
     canHold: !!def?.holds,
     appearance: !!def?.appearance,

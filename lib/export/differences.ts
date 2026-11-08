@@ -6,6 +6,7 @@ import type { DesignDifference } from "./types";
 
 /** the file each app lists its differences in, from the product's root */
 export const DIFFERENCE_FILES: Record<DesignDifference["app"], string> = {
+  web: "apps/web/src/generated/warnings.json",
   mobile: "apps/mobile/src/generated/warnings.json",
   miniapp: "apps/miniapp/src/generated/warnings.json",
 };

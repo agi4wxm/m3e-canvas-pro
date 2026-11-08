@@ -5,6 +5,7 @@
 import { asks, atFoot, autoLayout, barsPinned, collection, component, corners, counter, countShowing, custom, customStyle, darkControl, darkVar, evenSpacing, finished, has, inBounds, inBudget, instances, isA, keepsWork, language, likeness, navFlow, newScreen, noOverlap, partsOn, repeat, scrolls, shows, strictKept, styleTexture, svgPlaced, tapToDetail, undoOne, type Placed } from "./graders";
 import type { Budget, Check, EvalTask } from "./types";
 import { PRODUCT_TASKS } from "./productTasks";
+import { BOUNDARY_TASKS } from "./boundaryTasks";
 import type { Doc, Item } from "../lib/tokens";
 
 const MIN = 60_000;
@@ -280,7 +281,7 @@ export const TASKS: EvalTask[] = [
 ];
 
 /* the product layer (contract, bindings, mocks), added with the product-layer AI work (see productTasks.ts) */
-TASKS.push(...PRODUCT_TASKS);
+TASKS.push(...PRODUCT_TASKS, ...BOUNDARY_TASKS);
 
 export const taskById = (id: string) => TASKS.find((t) => t.id === id);
 

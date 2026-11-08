@@ -384,6 +384,7 @@ export const more: PartDef[] = [
   },
   {
     slug: "level-map",
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     appearance: { radius: 12 },
     name: "Level map",
     labels: { ja: "レベルマップ", zh: "关卡选择", ko: "레벨 맵" },

@@ -1,6 +1,6 @@
 import { choiceValueOf } from "./labels";
 import { CATEGORY_TEXT, TIERS, TIER_TEXT, categoriesOf, PARTS } from "./registry";
-import type { PropDef } from "./types";
+import type { PartDef, PropDef } from "./types";
 
 /* Every part and what it takes, in words an AI agent can write a document from. public/agent.md holds
  * this between its markers (`bun run gen:agent` writes it, parts/catalog.test.ts keeps it in step), so
@@ -28,6 +28,10 @@ function propOf(d: PropDef): string {
   }
 }
 
+/** what a part sends out besides taps, and what it only acts out in a prototype (docs/边界与契约.md) */
+const outletsOf = (d: PartDef) =>
+  [...(d.events ?? []).map((e) => ` *(event \`on:${e.name}\`${Object.keys(e.payload ?? {}).length ? `: ${Object.keys(e.payload!).map((k) => `event.${k}`).join(", ")}` : ""})*`), ...(d.families ?? []).map((f) => ` *(\`${f.prefix}:*\` for every entry: slot.index)*`), d.demo ? ` *(prototype demo until ${d.demo.takenOverBy.map((k) => `\`${k}\``).join(" or ")} is bound)*` : ""].join("");
+
 /** what a tier is, in a line */
 const TIER_NOTE = {
   atom: "They cannot be split. Compose them in `box`es to build anything the composites do not have.",
@@ -37,7 +41,7 @@ const TIER_NOTE = {
 export function partCatalog(): string {
   return TIERS.map((tier) => {
     const sections = categoriesOf(tier).map((category) => {
-      const rows = PARTS.filter((d) => d.category === category).map((d) => `| \`${d.slug}\` | ${d.name}${d.atoms ? " *(splits)*" : ""} | ${d.props.map(propOf).join("; ").replaceAll("|", "\\|")} |`);
+      const rows = PARTS.filter((d) => d.category === category).map((d) => `| \`${d.slug}\` | ${d.name}${d.atoms ? " *(splits)*" : ""}${outletsOf(d)} | ${d.props.map(propOf).join("; ").replaceAll("|", "\\|")} |`);
       return [`##### ${CATEGORY_TEXT[category].en}`, "", "| component | what it is | props (all optional) |", "|---|---|---|", ...rows].join("\n");
     });
     return [`#### ${TIER_TEXT[tier].en}`, "", TIER_NOTE[tier], "", sections.join("\n\n")].join("\n");

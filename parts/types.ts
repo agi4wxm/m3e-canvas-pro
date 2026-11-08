@@ -79,6 +79,38 @@ export type Screen = { w: number; h: number };
  *  answer to it carry `data-tap` so the preview can tell the places of one part apart. */
 export type PartSlot = { key: string; label: string; icon?: string };
 
+/** The kind of value an input hands out: words, a number, yes or no, one row of a list or several, files, a date, a
+ *  direction (x and y from -1 to 1). Every host reads and writes an input by this, never by the part's slug. */
+export type InputKind = "text" | "number" | "bool" | "choice" | "choices" | "files" | "date" | "vec2";
+
+/** What the visitor enters into a part: the prop that holds it, and its kind. The value is UI state (a draft until
+ *  something submits it): a host keeps it, binds it to a variable or a form field, and draws the part with it again. */
+export type PartInput = { prop: string; kind: InputKind };
+
+/** the kind of a field of an event's payload */
+export type PayloadKind = "text" | "number" | "bool" | "list" | "object";
+
+/** A named event the part sends out with a payload, beside a tap: an action stored under `Item.actions["on:<name>"]`
+ *  runs when it is sent, and its expressions read the payload as `event.<field>`. */
+export type PartEvent = {
+  /** an identifier: the key is `on:<name>` */
+  name: string;
+  label: string;
+  labels?: Labels;
+  /** what `event` carries, field by field */
+  payload?: Record<string, PayloadKind>;
+};
+
+/** A slot family: one action for every slot whose key starts with `<prefix>:` (the rows of a list, the cells of a
+ *  grid), stored under `Item.actions["<prefix>:*"]`. A slot's own action wins over it; its expressions read the slot
+ *  tapped as `slot.index` (and `slot.key`). */
+export type SlotFamily = { prefix: string; label: string; labels?: Labels };
+
+/** A domain behaviour the part only acts out for a prototype (a prize drawn at random, a coupon that says it was
+ *  claimed): it runs only in an explicit prototype mode, and stops as soon as the part is wired to the real thing,
+ *  one of `takenOverBy` bound or an action of the part reaching the API. A product never runs it. */
+export type PartDemo = { what: string; takenOverBy: string[] };
+
 /** the part's place on a screen: a bar pinned to an edge, a corner FAB, a centered overlay.
  *  Tidy pins it and the prompt describes it by this. A box takes `top`, `bottom` or `floatingBottom` from its `pin`. */
 export type PartRole = "top" | "bottom" | "floatingBottom" | "fab" | "overlay" | "rail" | "label" | "control" | "listLike" | "fullWidth" | "backdrop";
@@ -107,6 +139,18 @@ export type PartDef = {
   /** the places inside the part a tap can be sent from, for the panel's slot strip and the
    *  preview's `data-tap` delegation */
   slots?: (p: P) => PartSlot[];
+  /** slots that come in families, one action for all of them (see `SlotFamily`) */
+  families?: SlotFamily[];
+  /** the named events it sends out (see `PartEvent`) */
+  events?: PartEvent[];
+  /** what the visitor enters into it, when it is an input */
+  input?: PartInput;
+  /** the domain behaviour it acts out in a prototype, and what takes it over */
+  demo?: PartDemo;
+  /** it floats over a screen when opened: an open or close effect acts on it */
+  overlay?: boolean;
+  /** a destination bar: a tap on a destination is shared with the bar of the same entries on every other screen */
+  nav?: boolean;
   /** A container: what lies wholly inside it moves with it, the way a screen carries its parts.
    *  It keeps no list of them; see `heldBy`. */
   holds?: boolean;
