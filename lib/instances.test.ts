@@ -63,7 +63,7 @@ describe("expanding an instance", () => {
   });
 
   it("carries what it points at among its parts with it", () => {
-    const linked: ComponentDef = { ...card, groups: [run("g1", 0, 0, "card", "cardItem"), { ...run("g2", 0, 60, "button", "btn"), items: [{ ...part("btn", "button"), action: { to: "none", transition: "none", effects: [{ do: "hide", part: "cardItem" }] } }] }] };
+    const linked: ComponentDef = { ...card, groups: [run("g1", 0, 0, "card", "cardItem"), { ...run("g2", 0, 60, "button", "btn"), items: [{ ...part("btn", "button"), action: { to: "none", effects: [{ do: "hide", part: "cardItem" }] } }] }] };
     const out = expandInstances({ groups: [standIn(linked, 0, 0, "i")], components: [linked] }, sizes);
     expect(out[2].items[0].action?.effects?.[0]).toEqual({ do: "hide", part: "i/cardItem" });
   });
@@ -221,7 +221,7 @@ describe("in a file and on a copy", () => {
     const own = { flowSize: { w: "fill" as const, h: "hug" as const }, flowFill: true, alignSelf: "end" as const, flowAbsolute: true, flowMin: { w: 80 }, flowMax: { w: 320, h: 200 }, flowSpan: 2 };
     const host: Group = { id: "host", x: 0, y: 0, axis: "x", items: [{ ...makeItem("box"), id: "host", props: { layout: "grid", columns: 3, width: 412, height: 400 } }] };
     const placed = standIn(card, 16, 100, "i");
-    const inst: Group = { ...placed, inFlow: "host", items: [{ ...placed.items[0], ...own, action: { to: "f2", transition: "slide" }, note: "Opens the card" }] };
+    const inst: Group = { ...placed, inFlow: "host", items: [{ ...placed.items[0], ...own, action: { to: "f2" }, note: "Opens the card" }] };
     const back = openProject(JSON.parse(JSON.stringify(projectFile(doc({ groups: [host, inst] })))))!;
     const it = back.groups.find((g) => g.id === "i")!.items[0];
     expect(it).toMatchObject({ ...own, action: { to: "f2" }, note: "Opens the card", component: "container" });

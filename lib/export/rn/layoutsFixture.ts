@@ -7,7 +7,7 @@ import { defaultMeasures } from "../../../parts/templates/kit";
  * document: containers laying out what they hold (a grid, a dock with something on each tab, a supporting pane, a
  * custom component), the bars and lists of destinations wired to other screens, and what opens off a trigger. */
 
-const go = (to: string): Action => ({ to, transition: "slide" });
+const go = (to: string): Action => ({ to });
 
 export function layoutsDoc(): { doc: Doc; widths: Record<string, number> } {
   const lay: Frame = { id: "f-layouts", name: "Layouts", x: 0, y: 0, length: 1700 };

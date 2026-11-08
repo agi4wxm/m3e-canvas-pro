@@ -27,7 +27,8 @@ export type Scope = Record<string, unknown>;
 /** reads the design's expressions; without one an expression reads as nothing and a condition on one holds */
 export type Reader = { ev: (expr: string, scope: Scope) => unknown; fill: (template: string, scope: Scope) => string };
 
-export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string } | { expr: string };
+/** a condition as the design writes it (lib/actions/model.ts): an expression, or an input that holds something */
+export type Condition = { filled: string } | { expr: string };
 
 /** One step of a tap, as the design writes it (lib/tokens `Effect`): a part to show or hide by its key, a variable to
  *  set, a prop to set, a snackbar; and the API's (call, refresh, loadMore, submit, signOut) and a platform capability's
@@ -204,12 +205,17 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, triggers = NO_KE
     const scopeOf = (here?: Here): Scope => ({ ...here?.scope, vars: { ...varsOf(latest.current.vars, vars) } });
     const holds = (c: Condition | undefined, here?: Here): boolean => {
       if (!c) return true;
-      if ("expr" in c) return reader ? truthy(reader.ev(c.expr, scopeOf(here))) : true;
+      if ("expr" in c) {
+        if (reader) return truthy(reader.ev(c.expr, scopeOf(here)));
+        /* the kit on its own reads the one expression a design writes for a variable compared with a value */
+        const cmp = comparisonOf(c.expr);
+        if (!cmp) return true;
+        const v = varsOf(latest.current.vars, vars)[cmp.name];
+        return v !== undefined && (String(v) === String(cmp.value)) === (cmp.op === "==");
+      }
       if ("filled" in c) return holdsValue(latest.current.fields[c.filled]);
-      const v = latest.current.vars[c.var];
-      if (v === undefined) return false;
-      const same = String(v) === String(c.value);
-      return c.op === "neq" ? !same : same;
+      /* a condition of a form this kit does not know holds never */
+      return false;
     };
     const fill = (template: string, here?: Here) => (reader && template.includes("{{") ? reader.fill(template, scopeOf(here)) : template);
     /* the kit's own runner: the effects that are the app's memory, for a kit with no interpreter (no API there) */
@@ -310,6 +316,22 @@ function varsOf(values: Record<string, VarValue>, vars: AppVar[]): Record<string
   const out: Record<string, VarValue> = { ...values };
   for (const v of vars) if (v.name && v.id in values) out[v.name] = values[v.id];
   return out;
+}
+
+/* `vars.count == 3`, `vars["v-1"] != "x"`: a variable compared with a value of its type, as the design writes one
+   (lib/bindings/bind.ts `comparisonExpr`). Read here only where the app hands the kit no reader of expressions. */
+const COMPARISON = /^\s*vars(?:\.([\p{L}_$][\p{L}\p{N}_$]*)|\["((?:[^"\\]|\\.)*)"\])\s*(==|!=)\s*(true|false|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|"(?:[^"\\]|\\.)*")\s*$/u;
+
+/** a comparison of a variable (by name or key) with a value, read off its expression; null for any other */
+function comparisonOf(expr: string): { name: string; op: "==" | "!="; value: VarValue } | null {
+  const m = COMPARISON.exec(expr);
+  if (!m) return null;
+  try {
+    const name = m[1] ?? (JSON.parse(`"${m[2]}"`) as string);
+    return { name, op: m[3] as "==" | "!=", value: JSON.parse(m[4]) as VarValue };
+  } catch {
+    return null;
+  }
 }
 
 /** null, false, 0, "", NaN and an empty list do not hold */

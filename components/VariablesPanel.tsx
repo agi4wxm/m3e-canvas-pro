@@ -1,3 +1,4 @@
+import { fieldBindOf, fieldVarOf } from "@/lib/bindings/bind";
 import { useContext, useEffect, useState } from "react";
 import type { Doc, DocVar, Item, Palette, VarCollection, VarType, VarValue } from "@/lib/tokens";
 import { BIND_FIELDS, collectionIdOf, collectionsOf, DEFAULT_COLLECTION, startValueOf, valueIn, type BindField } from "@/lib/variables";
@@ -195,11 +196,12 @@ export function BindButton({ field, item, onChange, p }: { field: BindField; ite
   const b = useContext(BehaviorContext);
   const [open, setOpen] = useState(false);
   const kind = BIND_FIELDS[field];
-  const id = item.bind?.[field];
+  /* a field of the design follows its variable by key (lib/bindings/bind.ts) */
+  const id = fieldVarOf(item.bind?.[field]);
   const bound = id ? b.vars.find((v) => v.id === id) : undefined;
   const put = (varId: string | undefined) => {
     const { [field]: _was, ...rest } = item.bind ?? {};
-    const bind = varId ? { ...rest, [field]: varId } : rest;
+    const bind = varId ? { ...rest, [field]: fieldBindOf(varId) } : rest;
     onChange({ bind: Object.keys(bind).length ? bind : undefined });
     setOpen(false);
   };
@@ -233,7 +235,7 @@ const menuRow = (p: Palette): React.CSSProperties => ({ width: "100%", height: 3
 /** the variable a field is bound to, shown where its value would be */
 export function BoundChip({ field, item, p }: { field: BindField; item: Item; p: Palette }) {
   const b = useContext(BehaviorContext);
-  const id = item.bind?.[field];
+  const id = fieldVarOf(item.bind?.[field]);
   const v = id ? b.vars.find((x) => x.id === id) : undefined;
   if (!v) return null;
   const now = b.bound?.[v.id] ?? v.value;

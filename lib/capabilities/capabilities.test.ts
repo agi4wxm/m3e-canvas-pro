@@ -142,7 +142,7 @@ describe("a document's capabilities", () => {
     const doc = openProject({
       groups: [
         // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-        { id: "g", x: 0, y: 0, axis: "x", items: [{ id: "b", kind: "component", component: "button", label: "Pay", icon: null, variant: "filled", action: { to: "none", transition: "none", effects: [{ do: "call", operationId: "createOrder", then: { to: "none", transition: "none", effects: [{ do: "invoke", capability: "payment.pay", args: { orderId: "response.id" } }] } }] } }] },
+        { id: "g", x: 0, y: 0, axis: "x", items: [{ id: "b", kind: "component", component: "button", label: "Pay", icon: null, variant: "filled", action: { to: "none", effects: [{ do: "call", operationId: "createOrder", then: { to: "none", effects: [{ do: "invoke", capability: "payment.pay", args: { orderId: "response.id" } }] } }] } }] },
         { id: "m", x: 0, y: 100, axis: "x", items: [{ id: "map1", kind: "component", component: "map", label: "Map", icon: null, variant: "filled", props: {} }] },
       ],
       frames: [{ id: "f", name: "F", x: 0, y: 0 }],
@@ -158,7 +158,7 @@ describe("the operations", () => {
 
   it("check an invoke against the catalog: the capability, its arguments, its depth", () => {
     const s = store();
-    const tap = (effects: unknown[]) => s.run(ops.setAction, { id: "b", action: { to: "none", transition: "none", effects } as never }, mcp);
+    const tap = (effects: unknown[]) => s.run(ops.setAction, { id: "b", action: { to: "none", effects } as never }, mcp);
     tap([{ do: "invoke", capability: "payment.pay", args: { orderId: "'o1'" }, catch: { to: "none", effects: [{ do: "snackbar", message: "{{error.type}}" }] } }]);
     expect(s.get().doc.groups[0].items[0].action?.effects?.[0]).toMatchObject({ do: "invoke", capability: "payment.pay" });
     fails(() => tap([{ do: "invoke", capability: "payment.payy" }]), "invalid_value", /no capability "payment.payy"/);
@@ -180,7 +180,7 @@ describe("the operations", () => {
     fails(() => s.run(ops.declareCapability, { name: "payment.pay", kind: "call" }, mcp), "refused", /catalog's/);
     fails(() => s.run(ops.declareCapability, { name: "Bad Name", kind: "call" }, mcp), "invalid_value");
     s.run(ops.declareCapability, { name: "acme.ticket.scan", kind: "call", args: { type: "object", properties: { gate: { type: "string" } }, required: ["gate"] }, failures: ["cancelled"] }, mcp);
-    s.run(ops.setAction, { id: "b", action: { to: "none", transition: "none", effects: [{ do: "invoke", capability: "acme.ticket.scan", args: { gate: "'A'" } }] } as never }, mcp);
+    s.run(ops.setAction, { id: "b", action: { to: "none", effects: [{ do: "invoke", capability: "acme.ticket.scan", args: { gate: "'A'" } }] } as never }, mcp);
     s.run(ops.useCapabilities, { add: ["push.opened"] }, mcp);
     fails(() => s.run(ops.useCapabilities, { add: ["push.opened"] }, mcp), "nothing_to_do");
     s.run(ops.setMockCapability, { capability: "acme.ticket.scan", fail: "cancelled", delayMs: 10 }, mcp);

@@ -233,7 +233,7 @@ export const removeScreen = op<{ id: string }>({
       return { ...f, swipe: Object.keys(swipe).length ? swipe : undefined };
     });
     /* what a call goes on to do when it answers goes there too, or stays (lib/refs.ts) */
-    const nested = (b: ActionBody): ActionBody => (b.to !== id ? b : sibling ? { ...b, to: sibling } : { ...b, to: STAY_TARGET, transition: "none" });
+    const nested = (b: ActionBody): ActionBody => (b.to !== id ? b : sibling ? { ...b, to: sibling } : { ...b, to: STAY_TARGET });
     const kept = (x: Action) => {
       const inner = mapNestedBodies(x, nested);
       return sibling ? actionToSibling(inner, id, sibling) : actionWithoutScreen(inner, id);

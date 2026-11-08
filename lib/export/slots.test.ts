@@ -40,7 +40,7 @@ function slottedDoc(): Doc {
       { id: "done", name: "Done", x: 600, y: 0 },
     ],
     groups: [
-      { id: "g1", x: 16, y: 100, axis: "x", items: [part("buy", "button", { props: { label: "Buy" }, slot: "BuyButton", action: { to: "done", transition: "slide" } })] },
+      { id: "g1", x: 16, y: 100, axis: "x", items: [part("buy", "button", { props: { label: "Buy" }, slot: "BuyButton", action: { to: "done" } })] },
       { id: "g2", x: 16, y: 200, axis: "x", name: "Sales today", items: [part("stat", "stat-card", { slot: true })] },
       { id: "g3", x: 16, y: 400, axis: "x", items: [part("plain", "button", { props: { label: "Plain" } })] },
     ],

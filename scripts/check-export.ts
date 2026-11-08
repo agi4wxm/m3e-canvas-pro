@@ -806,7 +806,7 @@ async function sweep() {
 
 /** a rail that opens over the content, a split button's two halves, a menu with no room below it */
 async function modalAndSplit() {
-  const go = (to: string) => ({ to, transition: "none" as const });
+  const go = (to: string) => ({ to, motion: { kind: "instant" as const } });
   const rows = [{ label: "Home", icon: "home" }, { label: "Saved", icon: "star" }, { label: "Search", icon: "search" }];
   const rail = (id: string, x: number, y = 0) => ({ id: `g-${id}`, x, y, axis: "x" as const, items: [{ ...makeItem("navigation-rail"), id, props: { items: rows, modal: true, fab: false, height: 800 }, actions: { "tab:1": go("f1") } }] });
   const split = (id: string, y: number, props: Record<string, unknown>, actions: Record<string, ReturnType<typeof go>>) => ({ id: `g-${id}`, x: 150, y, axis: "x" as const, items: [{ ...makeItem("split-button"), id, props: { ...props, icon: "" }, actions }] });
@@ -977,7 +977,7 @@ async function styled() {
       part("bar", "app-bar", 0, 0, { title: "Styled", leading: "arrow_back", trailing: "settings" }),
       part("tabs", "tabs", 16, 72, { items: [{ label: "One" }, { label: "Two" }], width: 380 }),
       part("tf", "text-field", 16, 134, { label: "Mail", width: 380 }),
-      part("bt", "button", 16, 204, { label: "Onward", size: "md", width: 380 }, { action: { to: "f1", transition: "none" } }),
+      part("bt", "button", 16, 204, { label: "Onward", size: "md", width: 380 }, { action: { to: "f1", motion: { kind: "instant" } } }),
       part("sl", "slider", 16, 280, { width: 380 }),
       part("sw", "item", 16, 340, { items: [{ label: "Sound", icon: "notifications" }], description: "", trailing: "switch", checked: true, width: 380 }),
       part("nav", "navigation-bar", 0, 828, { items: [{ label: "Home", icon: "home" }, { label: "Me", icon: "person" }], selected: 0 }),

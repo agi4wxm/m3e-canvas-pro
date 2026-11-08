@@ -285,7 +285,7 @@ ${when(bd, "        for (const s of Object.values(screens.current)) {\n         
       setProp: (part, prop, value) => (TAB_PROPS[part] === prop ? app().selectTab(${id("part")}, Number(value) || 0) : app().setProp(${id("part")}, prop, value)),
       toast: (words) => app().snackbar(words),
       go: (to, o) => {
-${when(p?.overlay, "        if (o.overlay) return app().openOverlay(to as ScreenId, o.transition, o.motion)\n")}        ${bd ? `app().navigate(to as ScreenId, o.params, o.transition${when(p, ", o.motion")})` : `app().go(to as ScreenId, o.transition${when(p, ", o.motion")})`}
+${when(p?.overlay, "        if (o.overlay) return app().openOverlay(to as ScreenId, undefined, o.motion)\n")}        ${bd ? `app().navigate(to as ScreenId, o.params${when(p, ", undefined, o.motion")})` : `app().go(to as ScreenId${when(p, ", undefined, o.motion")})`}
       },
       back: (${p ? "o" : ""}) => app().back(${p ? "o?.motion" : ""}),
       openLink: (url) => app().openLink(url),

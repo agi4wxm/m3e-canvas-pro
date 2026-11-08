@@ -3,7 +3,7 @@
  * runs it. Plain types with no imports beyond the screen's moves, so the file can be copied into an exported app's
  * runtime as it is. lib/tokens.ts re-exports all of it under the names the document model has always used. */
 
-import type { Motion, Transition } from "../screenMotion";
+import type { Motion } from "../screenMotion";
 
 /** what a variable can hold */
 export type VarValue = string | number | boolean;
@@ -15,7 +15,6 @@ export type Trigger = { on: "hover" } | { on: "delay"; ms: number };
 /** what a tap does once it has been decided to do it: its effects in order, then where it goes */
 export type ActionBody = {
   to: string;
-  transition: Transition;
   /** the address a `LINK_TARGET` action opens */
   url?: string;
   effects?: Effect[];
@@ -23,7 +22,9 @@ export type ActionBody = {
   overlay?: boolean;
   /** a part (item id) the body of the screen on show scrolls to */
   scrollTo?: string;
-  /** how the screen comes in, over `transition` where both are given */
+  /** How the screen it goes to comes in (lib/screenMotion.ts); none plays the default, the older slide. A back action's
+   *  own motion is played backwards in place of the way the screen came in. Version 4 of the format wrote the older
+   *  `transition` of every tap as the motion that plays it, and nothing reads or writes `transition` since. */
   motion?: Motion;
   /** what the screen it opens is given, by its param names (`Frame.params`): each an expression read at the tap
    *  (`{ productId: "item.id" }`); that screen reads them as `params.productId` */
@@ -37,9 +38,10 @@ export type Action = ActionBody & { when?: Condition; else?: ActionBody; trigger
  *  runs, it does not and `else` runs, or nothing without one (docs/交互规则.md, “回答上的条件”). Plain data too. */
 export type Answer = ActionBody & { when?: Condition; else?: ActionBody };
 
-/** a test on the preview's state: a variable against a value, a form field (by item id) that has something in it, or an
- *  expression (lib/bindings/expr.ts) that comes out truthy */
-export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string } | { expr: string };
+/** A test on the app's state: an expression (lib/bindings/expr.ts) that comes out truthy (`vars.count == 3`,
+ *  `row.price != "0"`, `auth.signedIn`), or an input (by item id) that has something in it. Version 4 of the format
+ *  wrote the older `{var, op, value}` as the expression it is (lib/converge.ts). */
+export type Condition = { filled: string } | { expr: string };
 
 /** one step of a tap. `part` is an item id, the name that survives grouping and regrouping. */
 export type Effect =

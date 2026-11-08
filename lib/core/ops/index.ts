@@ -172,6 +172,7 @@ export const OPS: Op<never, unknown>[] = [
   bindings.updateDataSource,
   bindings.removeDataSource,
   bindings.setScreenParams,
+  bindings.renameScreenParam,
   bindings.setScreenAuth,
   bindings.bindExpression,
   bindings.setRegion,

@@ -6,7 +6,7 @@
 
 import type { EvalContext, Scope } from "../bindings/expr";
 import type { InvokeOutcome } from "../capabilities/types";
-import type { Motion, Transition } from "../screenMotion";
+import type { Motion } from "../screenMotion";
 import type { Answer, VarType, VarValue } from "./model";
 
 /** Where a tap was made, fixed when it happens: everything it starts reads it, the `then` and `catch` of its calls
@@ -42,12 +42,12 @@ export type { InvokeOutcome };
  *  `catch` then), `dropped` when the host started over while it was out (another scenario, a restarted runtime) */
 export type Outcome = { ok: true; status: number; response: unknown } | { ok: false; status: number; error: unknown; unauthorized?: boolean; dropped?: boolean };
 
-/** how a screen is opened */
-export type GoOptions = { transition: Transition; motion?: Motion; overlay?: boolean; params?: Record<string, unknown> };
+/** How a screen is opened: the motion it comes in by (none: the default, the older slide, lib/screenMotion.ts
+ *  `DEFAULT_MOTION`), laid over the one on show, with params. */
+export type GoOptions = { motion?: Motion; overlay?: boolean; params?: Record<string, unknown> };
 
 /** How going back moves: the back action's own `motion`, played backwards, in place of the way the screen came in. Left
- *  out (a back action with no motion, the platform's back), the screen goes the way it came, undone. The older
- *  `transition` of a back action is not passed: no host ever played it, and old documents keep going back as they did. */
+ *  out (a back action with no motion, the platform's back), the screen goes the way it came, undone. */
 export type BackOptions = { motion?: Motion };
 
 /** A call's arguments as the tap read them: `args` by name (the host puts each in the path, the query, a header or the

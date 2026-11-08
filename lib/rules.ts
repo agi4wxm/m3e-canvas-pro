@@ -10,7 +10,6 @@
 import { EXPR_LIMITS } from "./bindings/expr";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-const isValue = (v: unknown) => typeof v === "string" || typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v));
 
 /** A field of the row a part repeated over a collection was drawn from, read as a variable (`{var: "row.title"}`,
  *  docs/数据绑定.md): not one of the document's variables, and never refused for not being one. */
@@ -24,20 +23,19 @@ export function exprRule(v: unknown): string | null {
   return null;
 }
 
-/** why a value is not a condition a document may keep, or null: `{filled: part}`, `{expr}`, or `{var, op, value}` */
+/** Why a value is not a condition a document may keep, or null: `{expr}` or `{filled: part}`. A comparison of a variable
+ *  is an expression (`vars.count == 3`, `row.price != "0"`); version 4 wrote the older `{var, op, value}` so. */
 export function conditionRule(c: unknown): string | null {
-  if (!isRecord(c)) return "should be {var, op, value}, {filled} or {expr}";
+  if (!isRecord(c)) return 'should be {expr} or {filled}';
   if (typeof c.filled === "string") return null;
   if (c.expr !== undefined) return exprRule(c.expr);
-  if (typeof c.var !== "string") return "var should be a variable's id, or row.<field> inside a repeat over a collection";
-  if (c.op !== "eq" && c.op !== "neq") return 'op should be "eq" or "neq"';
-  return isValue(c.value) ? null : "value should be text, a number or true/false";
+  return 'should be {expr: an expression} (a variable compared: {expr: "vars.count == 3"}) or {filled: a part}';
 }
 
 /** Why a value is not what a prop (or a field of a part's design, `@fill`…, lib/variables.ts) may be bound to, or
- *  null: a variable's id, or `=` and an expression over the bindings, as long as any other expression may be. */
+ *  null: `=` and an expression over the bindings, as long as any other expression may be. A variable is bound by the
+ *  expression that reads it (`=vars.count`); version 4 wrote the older variable ids so (lib/converge.ts). */
 export function bindRule(v: unknown): string | null {
-  if (typeof v !== "string") return 'should be a variable\'s id or "=expression"';
-  if (v.startsWith("=")) return exprRule(v.slice(1));
-  return null;
+  if (typeof v !== "string" || !v.startsWith("=")) return 'should be "=expression" (a variable is bound as "=vars.<name>")';
+  return exprRule(v.slice(1));
 }

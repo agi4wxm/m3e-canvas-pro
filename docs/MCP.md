@@ -211,7 +211,7 @@ npx playwright install chromium
 
 <!-- tools:start (bun run mcp:docs) -->
 
-共 173 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
+共 174 个工具：服务器环境里没有 OPENAI_API_KEY 时不含“生成”组，只读会话只列出“只读”一栏为“是”的，`undo`、`redo`、`export_product` 只在文件模式里有。说明取自工具给模型看的描述。
 
 | 工具 | 组 | 只读 | 需作者确认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -331,7 +331,7 @@ npx playwright install chromium
 | `remove_var_collection` | 数据与交互 |  | 是 | Removes a collection of variables and every variable in it; what was bound to them is unbound. |
 | `set_var_mode` | 数据与交互 |  |  | Chooses the mode of a variable collection the document shows (or one screen shows, over the document's choice), by mode id or name; null goes back to the default (a screen follows… |
 | `set_action` | 数据与交互 |  |  | Sets what a tap on a part does, or what runs on one of the outlets it declares (describe_node lists them): a place, slot "tab:0" or "icon"; a family of places, slot "tab:*", one a… |
-| `bind_prop` | 数据与交互 |  |  | Binds a prop of a part to a variable (the preview shows the variable's value), or a field of its design: "@fill", "@text" (the words' color) and "@stroke" take a color variable, "… |
+| `bind_prop` | 数据与交互 |  |  | Binds a prop of a part to a variable: it is bound to the expression that reads it ("=vars.&lt;name>"), which an input writes back to as it is used (bind_expression binds any other… |
 | `reorder_panes` | 搭建 |  |  | Puts a dock's tabs in a new order; what each tab holds follows it. |
 | `add_model` | 数据与交互 |  |  | Adds a data model: a named JSON Schema 2020-12 (usually an object: {type: "object", properties: {id: {type: "string", format: "uuid"}, email: {type: "string", format: "email"}, av… |
 | `update_model` | 数据与交互 |  |  | Changes a model: its whole schema, or some of its properties (by name: a schema, or null to remove it; a new one goes last, a changed one stays in its place), its required list, i… |
@@ -373,6 +373,7 @@ npx playwright install chromium
 | `update_data_source` | 数据与交互 |  |  | Changes a screen's data source: its endpoint, params, body, when it loads, pull to refresh, paging, page size (null clears one), or its name (rename: the screen's expressions, the… |
 | `remove_data_source` | 数据与交互 |  | 是 | Stops a screen loading a data source; what reads data.&lt;name> reads nothing. |
 | `set_screen_params` | 数据与交互 |  |  | Declares what a screen is opened with (navigation passes them: set_action {params: {productId: "item.id"}}): each {name, type?: string\|number\|boolean, example?}; the screen read… |
+| `rename_screen_param` | 数据与交互 |  |  | Renames a param a screen is opened with. |
 | `set_screen_auth` | 数据与交互 |  |  | Says a screen needs a session ("required": without one the app goes to the sign-in screen first) or is the sign-in screen ("login": where a 401 and a required screen send the app;… |
 | `bind_expression` | 数据与交互 |  |  | Binds a prop of a part to an expression, read in the preview and the exported app: data.&lt;source>.value.&lt;field>, item.&lt;field> inside a repeat over data, params.&lt;name>, … |
 | `set_region` | 数据与交互 |  |  | Makes a container with an auto layout a region bound to a data source of its screen: it shows its content when the data is there, and a design of its own while it loads, when it i… |

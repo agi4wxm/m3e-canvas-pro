@@ -3,10 +3,12 @@ import {
   Frame,
   FramePreset,
   Item,
+  MOTION_PRESETS,
+  Motion,
   Palette,
-  TRANSITIONS,
   Transition,
   framePresetOf,
+  presetOf,
 } from "@/lib/tokens";
 import { ComponentInspector } from "./ComponentInspector";
 import { InstanceInspector } from "./ReusePanels";
@@ -48,13 +50,15 @@ export function FrameSizePicker({
   );
 }
 
-export function TransitionPicker({ value, onChange, p }: { value: Transition; onChange: (t: Transition) => void; p: Palette }) {
+/** A tap's motion picked in one click from the older moves, each written as the motion that plays it exactly
+ *  (`MOTION_PRESETS`); a motion of its own (set in the prototype tab) shows no preset picked until one is. */
+export function MotionPicker({ value, onChange, p }: { value: Motion | undefined; onChange: (m: Motion) => void; p: Palette }) {
   const lang = useLang();
   return (
     <Segmented<Transition>
-      options={TRANSITIONS.map((tr) => ({ key: tr.key, icon: tr.icon, title: TRANSITION_TEXT[lang][tr.key] }))}
-      value={value}
-      onChange={onChange}
+      options={MOTION_PRESETS.map((tr) => ({ key: tr.key, icon: tr.icon, title: TRANSITION_TEXT[lang][tr.key] }))}
+      value={presetOf(value) ?? ("" as Transition)}
+      onChange={(key) => onChange(MOTION_PRESETS.find((x) => x.key === key)!.motion)}
       p={p}
       height={34}
     />

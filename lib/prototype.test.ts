@@ -6,7 +6,8 @@ import { setGlobalLang } from "./i18n";
 import { counterIds, DocStore, guessMeasurer, ops, stateOf } from "./core";
 import { openProject, projectFile } from "./project";
 import { cleanMotion, cleanTrigger, flowStarts, motionOf, triggerOf, withMotion } from "./prototype";
-import { makeItem, transitionOf, type Doc, type Group, type Transition } from "./tokens";
+import { makeItem, type Doc, type Group, type Motion, type Transition } from "./tokens";
+import { DEFAULT_MOTION, TRANSITION_MOTIONS } from "./screenMotion";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -21,13 +22,11 @@ describe("motions and triggers", () => {
     expect(cleanTrigger({ on: "delay" })).toBeUndefined();
   });
 
-  it("reads an older transition as a motion, and gives a motion the nearest older transition", () => {
-    expect(motionOf({ transition: "slide" })).toEqual({ kind: "slide", dir: "left" });
-    expect(motionOf({ transition: "slideLeft" })).toEqual({ kind: "slide", dir: "right" });
-    expect(motionOf({ transition: "fade" })).toEqual({ kind: "dissolve" });
-    expect(motionOf({ transition: "none" })).toEqual({ kind: "instant" });
-    expect(transitionOf({ kind: "push", dir: "down" })).toBe("slideDown");
-    expect(withMotion({ to: "s", transition: "slide" }, { kind: "move", dir: "up" })).toEqual({ to: "s", transition: "slideUp", motion: { kind: "move", dir: "up" } });
+  it("plays a tap's motion, the default slide where it gives none, and changes it by giving another", () => {
+    expect(motionOf({})).toEqual(DEFAULT_MOTION);
+    expect(motionOf({ motion: { kind: "dissolve" } })).toEqual({ kind: "dissolve" });
+    expect(withMotion({ to: "s" }, { kind: "move", dir: "up" })).toEqual({ to: "s", motion: { kind: "move", dir: "up" } });
+    expect(cleanMotion({ kind: "expand", dir: "up", easing: "theme", ms: 360 })).toEqual({ kind: "expand", easing: "theme", ms: 360 });
     expect(triggerOf(undefined)).toEqual({ on: "tap" });
   });
 });
@@ -44,7 +43,7 @@ describe("set_action and set_flow_start", () => {
   it("takes a trigger, an overlay, a part to scroll to and a motion, filling in the older transition", () => {
     const s = store();
     s.run(ops.setAction, { id: "btn", action: { to: "b", overlay: true, trigger: { on: "delay", ms: 500 }, motion: { kind: "push", dir: "up" } } as never }, ai);
-    expect(action(s)).toEqual({ to: "b", overlay: true, trigger: { on: "delay", ms: 500 }, motion: { kind: "push", dir: "up" }, transition: "slideUp" });
+    expect(action(s)).toEqual({ to: "b", overlay: true, trigger: { on: "delay", ms: 500 }, motion: { kind: "push", dir: "up" } });
     s.run(ops.setAction, { id: "btn", action: { to: "none", scrollTo: "txt" } as never }, ai);
     expect(action(s)).toMatchObject({ to: "none", scrollTo: "txt" });
   });
@@ -57,26 +56,24 @@ describe("set_action and set_flow_start", () => {
     expect(() => s.run(ops.setAction, { id: "btn", action: { to: "none", scrollTo: "gone" } as never }, ai)).toThrow(/scroll/);
   });
 
-  it("changes the transition of a link that has a motion from the canvas picker, the motion following it", () => {
+  it("changes the motion of a link from the canvas picker: a preset is the motion an older move played", () => {
     const s = store();
-    const pick = (transition: Transition) => s.run(ops.setLinkTransition, { links: ["btn|"], transition }, ai);
+    const pick = (motion: Transition | Motion) => s.run(ops.setLinkMotion, { links: ["btn|"], motion }, ai);
     s.run(ops.setAction, { id: "btn", action: { to: "b", motion: { kind: "push", dir: "up", easing: "spring", ms: 400 } } as never }, ai);
-    /* the same kind of move from the side picked, its easing and duration kept; and the preview plays the motion */
     pick("slideLeft");
-    expect(action(s)).toEqual({ to: "b", transition: "slideLeft", motion: { kind: "push", dir: "right", easing: "spring", ms: 400 } });
-    expect(transitionOf(action(s)!.motion!)).toBe("slideLeft");
+    expect(action(s)).toEqual({ to: "b", motion: TRANSITION_MOTIONS.slideLeft });
     pick("fade");
-    expect(action(s)).toEqual({ to: "b", transition: "fade", motion: { kind: "dissolve", easing: "spring", ms: 400 } });
-    pick("slideDown");
-    expect(action(s)).toEqual({ to: "b", transition: "slideDown", motion: { kind: "slide", dir: "down", easing: "spring", ms: 400 } });
+    expect(action(s)).toEqual({ to: "b", motion: { kind: "dissolve", easing: "emphasized", ms: 300 } });
     pick("none");
-    expect(action(s)).toEqual({ to: "b", transition: "none", motion: { kind: "instant" } });
-    /* no motion plays an expand: the transition does */
+    expect(action(s)).toEqual({ to: "b", motion: { kind: "instant" } });
     pick("expand");
-    expect(action(s)).toEqual({ to: "b", transition: "expand" });
-    /* a link without a motion only changes its transition */
-    pick("slideUp");
-    expect(action(s)).toEqual({ to: "b", transition: "slideUp" });
+    expect(action(s)).toEqual({ to: "b", motion: { kind: "expand", easing: "theme", ms: 360 } });
+    /* the default slide is written as none */
+    pick("slide");
+    expect(action(s)).toEqual({ to: "b" });
+    pick({ kind: "push", dir: "down" });
+    expect(action(s)).toEqual({ to: "b", motion: { kind: "push", dir: "down" } });
+    expect(() => pick("zoom" as Transition)).toThrow(/motion should be/);
   });
 
   it("starts a flow at a screen, and no longer", () => {
@@ -90,7 +87,7 @@ describe("set_action and set_flow_start", () => {
 
   it("reads a file back with its interactions and flows, and drops what is of the wrong shape", () => {
     const doc: Doc = {
-      groups: [{ id: "g", x: 0, y: 0, axis: "x", items: [{ ...makeItem("button"), id: "btn", action: { to: "b", transition: "slideUp", overlay: true, trigger: { on: "hover" }, motion: { kind: "push", dir: "up", easing: "spring" } } }] }],
+      groups: [{ id: "g", x: 0, y: 0, axis: "x", items: [{ ...makeItem("button"), id: "btn", action: { to: "b", overlay: true, trigger: { on: "hover" }, motion: { kind: "push", dir: "up", easing: "spring" } } }] }],
       frames: [{ ...screens[0], flow: "Main" }, screens[1]],
       paletteKey: "purple",
       frame: "phone",
@@ -100,7 +97,7 @@ describe("set_action and set_flow_start", () => {
     const back = openProject(JSON.parse(JSON.stringify(projectFile(doc))))!;
     expect(back.groups[0].items[0].action).toEqual(doc.groups[0].items[0].action);
     expect(back.frames[0].flow).toBe("Main");
-    const broken = openProject({ ...doc, groups: [{ ...doc.groups[0], items: [{ ...doc.groups[0].items[0], action: { to: "b", transition: "slide", overlay: "yes", trigger: { on: 3 }, motion: { kind: "nope" } } }] }] })!;
-    expect(broken.groups[0].items[0].action).toEqual({ to: "b", transition: "slide" });
+    const broken = openProject({ ...doc, groups: [{ ...doc.groups[0], items: [{ ...doc.groups[0].items[0], action: { to: "b", overlay: "yes", trigger: { on: 3 }, motion: { kind: "nope" } } }] }] })!;
+    expect(broken.groups[0].items[0].action).toEqual({ to: "b" });
   });
 });

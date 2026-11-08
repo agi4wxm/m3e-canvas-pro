@@ -51,8 +51,8 @@ describe("the screen plan", () => {
   });
 
   it("says what is attached to each part: its taps of places, its families and its events, with what they carry", () => {
-    const tabs: Item = { ...makeItem("button-group"), id: "tabs", actions: { "tab:1": { to: "f2", transition: "none" }, "tab:*": { to: "none", transition: "none", effects: [{ do: "snackbar", message: "{{slot.index}}" }] } } };
-    const pad: Item = { ...makeItem("number-pad"), id: "pad", actions: { "on:submit": { to: "none", transition: "none", effects: [{ do: "snackbar", message: "{{event.value}}" }] } } };
+    const tabs: Item = { ...makeItem("button-group"), id: "tabs", actions: { "tab:1": { to: "f2", motion: { kind: "instant" } }, "tab:*": { to: "none", effects: [{ do: "snackbar", message: "{{slot.index}}" }] } } };
+    const pad: Item = { ...makeItem("number-pad"), id: "pad", actions: { "on:submit": { to: "none", effects: [{ do: "snackbar", message: "{{event.value}}" }] } } };
     const doc = docOf([group("g1", 16, 100, tabs), group("g2", 16, 300, pad)]);
     const plan = rnPlan(doc, {});
     const parts = plan.screens[0].body.map((p) => (p.node.content.kind === "part" ? p.node.content.part : undefined));
@@ -83,7 +83,7 @@ describe("what the document's taps do, read once for both apps", () => {
       id: "ask",
       props: { label: "Ask" },
       // eslint-disable-next-line unicorn/no-thenable -- an action body as data, never a function: nothing awaits it
-      action: { to: "none", transition: "none", effects: [{ do: "call", operationId: "getHealth", then: { to: "none", transition: "none", when: { expr: "response.ok" }, else: { to: "none", transition: "none", effects: [{ do: "hide", part: "note" }] } } }] },
+      action: { to: "none", effects: [{ do: "call", operationId: "getHealth", then: { to: "none", when: { expr: "response.ok" }, else: { to: "none", effects: [{ do: "hide", part: "note" }] } } }] },
     };
     const note: Item = { ...makeItem("text"), id: "note", props: { text: "All good" } };
     return docOf([group("g-ask", 16, 100, ask), group("g-note", 16, 200, note)]);

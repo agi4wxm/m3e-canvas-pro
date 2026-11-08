@@ -10,7 +10,7 @@ import { openProject, projectFile } from "./project";
 import { runtimeSource } from "./runtimeSource";
 import { readShareHash, shareLink, shareable } from "./share";
 import { carryFrame, tidyFrame } from "./tidy";
-import { type ComponentDef, type Doc, type Frame, type Group, DESKTOP_H, DESKTOP_W, GESTURE_BAR_H, STATUS_BAR_H, TABLET_H, TABLET_W, frameRect, frameSizeOf, groupBounds, makeItem, safeAreaOf } from "./tokens";
+import { type Action, type ComponentDef, type Doc, type Frame, type Group, DESKTOP_H, DESKTOP_W, GESTURE_BAR_H, STATUS_BAR_H, TABLET_H, TABLET_W, frameRect, frameSizeOf, groupBounds, makeItem, safeAreaOf } from "./tokens";
 import { actionToSibling, createVariant } from "./variants";
 
 /* Where the pieces meet: templates through Tidy and through a change of size, the copies of what
@@ -115,7 +115,7 @@ describe("copies", () => {
   });
 
   it("what a copied part reaches for follows the copy, on the other side of the screen too", () => {
-    const a: Group = { ...run("a", 0, 0, "button", "a-b", { label: "A" }), items: [{ ...part("a-b", "button", { label: "A" }), action: { to: "none", transition: "none", effects: [{ do: "toggle", part: "b-t" }], when: { filled: "b-t" } } }] };
+    const a: Group = { ...run("a", 0, 0, "button", "a-b", { label: "A" }), items: [{ ...part("a-b", "button", { label: "A" }), action: { to: "none", effects: [{ do: "toggle", part: "b-t" }], when: { filled: "b-t" } } }] };
     const b = run("b", 0, 60, "text-field", "b-t");
     const [ca, cb] = rekeyedAll([a, b], 0, 0, false);
     expect(ca.items[0].action?.effects?.[0]).toEqual({ do: "toggle", part: cb.items[0].id });
@@ -126,7 +126,7 @@ describe("copies", () => {
 describe("a part on a row asks about its row", () => {
   it("a condition on a row's field shows it on that row alone", () => {
     const doc: Doc = {
-      groups: [box("host", 0, 0, { layout: "column" }, { repeat: { collection: "col" } }), run("kid", 0, 0, "text", "kid-t", { text: "{{name}}" }, { inFlow: "host", showWhen: { var: "row.name", op: "eq", value: "B" } })],
+      groups: [box("host", 0, 0, { layout: "column" }, { repeat: { collection: "col" } }), run("kid", 0, 0, "text", "kid-t", { text: "{{row.name}}" }, { inFlow: "host", showWhen: { expr: 'row.name == "B"' } })],
       frames: [{ id: "f", name: "F", x: 0, y: 0 }],
       collections: [{ id: "col", name: "C", fields: ["name"], rows: [["A"], ["B"]] }],
       paletteKey: "purple",
@@ -182,7 +182,7 @@ describe("what stands on a dock's other tab", () => {
 });
 
 describe("what reaches for a part that becomes, or stops being, part of a component", () => {
-  const button: Group = { ...run("btn", 0, 0, "button", "btn-b", { label: "Go" }), items: [part("btn-b", "button", { label: "Go" }, { action: { to: "none", transition: "none", effects: [{ do: "toggle", part: "t-t" }, { do: "setProp", part: "t-t", prop: "text", value: "New" }] } })] };
+  const button: Group = { ...run("btn", 0, 0, "button", "btn-b", { label: "Go" }), items: [part("btn-b", "button", { label: "Go" }, { action: { to: "none", effects: [{ do: "toggle", part: "t-t" }, { do: "setProp", part: "t-t", prop: "text", value: "New" }] } })] };
   const target = run("t", 0, 80, "text", "t-t", { text: "Words" });
   const m = { "btn-b": 80, "btn-b:h": 40, "t-t": 60, "t-t:h": 20 };
 
@@ -223,9 +223,9 @@ describe("what reaches for a part that becomes, or stops being, part of a compon
 
 describe("a screen going that has another size", () => {
   it("sends the way to it on to that size, in the branch that names it too", () => {
-    const a = { to: "gone", transition: "fade" as const, when: { var: "v", op: "eq" as const, value: 1 }, else: { to: "gone", transition: "none" as const } };
-    expect(actionToSibling(a, "gone", "other")).toEqual({ ...a, to: "other", else: { to: "other", transition: "none" } });
-    const elsewhere = { to: "kept", transition: "none" as const };
+    const a: Action = { to: "gone", motion: { kind: "dissolve" }, when: { expr: "vars.v == 1" }, else: { to: "gone", motion: { kind: "instant" } } };
+    expect(actionToSibling(a, "gone", "other")).toEqual({ ...a, to: "other", else: { to: "other", motion: { kind: "instant" } } });
+    const elsewhere: Action = { to: "kept", motion: { kind: "instant" } };
     expect(actionToSibling(elsewhere, "gone", "other")).toEqual(elsewhere);
   });
 });
@@ -235,9 +235,9 @@ describe("the row a tap came from, in printed code", () => {
   const doc: Doc = {
     groups: [
       box("host", 16, 40, {}, { repeat: { collection: "col" } }),
-      row("open", "Open {{name}}", { to: "f2", transition: "slide" }),
+      row("open", "Open {{name}}", { to: "f2" }),
       run("said", 432, 40, "text", "said-t", { text: "You chose {{current.name}} at {{current.price}}" }),
-      { ...run("say", 432, 100, "button", "say-b", { label: "Say" }), items: [part("say-b", "button", { label: "Say" }, { action: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Said {{current.name}}" }] } })] },
+      { ...run("say", 432, 100, "button", "say-b", { label: "Say" }), items: [part("say-b", "button", { label: "Say" }, { action: { to: "none", effects: [{ do: "snackbar", message: "Said {{current.name}}" }] } })] },
     ],
     frames: [{ id: "f", name: "List", x: 0, y: 0 }, { id: "f2", name: "Detail", x: 432, y: 0 }],
     collections: [{ id: "col", name: "C", fields: ["name", "price"], rows: [["Apple", "1"], ["Pear", "2"]] }],
@@ -282,8 +282,8 @@ describe("the row a tap came from, in printed code", () => {
       ...doc,
       groups: [
         box("host", 16, 40, {}, { repeat: { collection: "col" } }),
-        row("say", "Say", { to: "none", transition: "none", when: { var: "row.name", op: "eq", value: "Pear" }, effects: [{ do: "snackbar", message: "Pear only" }], else: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Not {{name}}" }] } }),
-        { ...run("tag", 0, 0, "text", "tag-t", { text: "Tag" }, { inFlow: "host" }), showWhen: { var: "row.name", op: "neq", value: "Apple" } },
+        row("say", "Say", { to: "none", when: { expr: 'row.name == "Pear"' }, effects: [{ do: "snackbar", message: "Pear only" }], else: { to: "none", effects: [{ do: "snackbar", message: "Not {{row.name}}" }] } }),
+        { ...run("tag", 0, 0, "text", "tag-t", { text: "Tag" }, { inFlow: "host" }), showWhen: { expr: 'row.name != "Apple"' } },
       ],
       frames: [doc.frames[0]],
     };
@@ -299,9 +299,9 @@ describe("the row a tap came from, in printed code", () => {
 describe("what a part in a row runs in the preview", () => {
   it("reads the row it came from, in what it says and what it sets", () => {
     const s = inRow(startState([], [{ id: "c", name: "C", fields: ["name"], rows: [["Apple"], ["Pear"]] }]), { name: "Pear" });
-    const a = { to: "none", transition: "none" as const, effects: [{ do: "snackbar" as const, message: "Said {{current.name}}" }] };
+    const a = { to: "none", effects: [{ do: "snackbar" as const, message: "Said {{current.name}}" }] };
     expect(chooseBranch(a, s, { groups: [] })?.effects?.[0]).toEqual({ do: "snackbar", message: "Said Pear" });
-    const plain = { to: "none", transition: "none" as const };
+    const plain = { to: "none" };
     expect(chooseBranch(plain, s, { groups: [] })).toBe(plain);
   });
 });

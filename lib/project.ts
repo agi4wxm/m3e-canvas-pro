@@ -71,15 +71,14 @@ const validFrame = (frame: unknown) =>
 
 const isValue = (v: unknown): v is VarValue => typeof v === "string" || typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v));
 
-const CONDITION = fields("filled", "expr", "var", "op", "value");
+const CONDITION = fields("filled", "expr");
 
 /** a condition as the one rule for conditions has it (lib/rules.ts), which operations hold it to as well */
 function cleanCondition(c: unknown): Condition | undefined {
   if (!isRecord(c) || conditionRule(c)) return undefined;
   const keep = (built: Condition) => withUnknown(c, built, CONDITION);
   if (typeof c.filled === "string") return keep({ filled: c.filled });
-  if (c.expr !== undefined) return keep({ expr: c.expr as string });
-  return keep({ var: c.var as string, op: c.op as "eq" | "neq", value: c.value as VarValue });
+  return keep({ expr: c.expr as string });
 }
 
 /** the fields each kind of effect has: what `cleanEffect` checks, the rest of an effect kept as it came */
@@ -198,8 +197,12 @@ const cleanActions = (map: unknown) => {
   }));
 };
 
-/* a binding to a variable, or to an expression no longer than any other may be (lib/rules.ts) */
-const cleanBind = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, id]) => !bindRule(id))) : undefined);
+/* a binding to an expression no longer than any other may be (lib/rules.ts); a part bound to nothing has no bind */
+const cleanBind = (map: unknown) => {
+  if (!isRecord(map)) return undefined;
+  const kept = Object.entries(map).filter(([, v]) => !bindRule(v));
+  return kept.length ? Object.fromEntries(kept) : undefined;
+};
 
 /** one variable at most is the dark mode: the first that says so */
 function onlyOneDark(vars: DocVar[]): DocVar[] {

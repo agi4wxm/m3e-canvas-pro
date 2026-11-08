@@ -39,7 +39,8 @@ import {
   SETTLE_CSS_VARS,
   SETTLE_MS,
   Transition,
-  TRANSITIONS,
+  MOTION_PRESETS,
+  presetOf,
   takesDeviceBars,
   TRACE_OPACITY,
 } from "@/lib/tokens";
@@ -811,7 +812,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
   const { partTab, setPartTab, noodle, onHandleDown, setLinkActions } = useConnect({ store, runOp, toWorld, framesRef, setSelectedLinkId });
 
   /* the arrows from tappable parts to the screens they open (src/editor/useLinks.ts) */
-  const { visibleLinks, setLinkTransition, removeLink } = useLinks({ frame, groups, frames, widths, itemRects, showAllLinks, selectedIds, selectedFrameId, selectedLinkId, setSelectedLinkId, runOp });
+  const { visibleLinks, setLinkMotion, removeLink } = useLinks({ frame, groups, frames, widths, itemRects, showAllLinks, selectedIds, selectedFrameId, selectedLinkId, setSelectedLinkId, runOp });
 
   /** what the panels that edit behaviour need of the document */
   const behavior = useMemo<Behavior>(() => {
@@ -1732,7 +1733,7 @@ export default function Editor({ initialLang, onReady, persist = editorProjects(
                       return a ? (
                         <ConnectionBox action={a} frames={frames} onChange={(next) => setLinkActions(l.ids, next)} onRemove={() => removeLink(l.id)} p={p} />
                       ) : (
-                        <Segmented<Transition> options={TRANSITIONS.map((x) => ({ key: x.key, icon: x.icon, title: x.label }))} value={l.t} onChange={(x) => setLinkTransition(l.id, x)} p={p} height={36} grow={false} />
+                        <Segmented<Transition> options={MOTION_PRESETS.map((x) => ({ key: x.key, icon: x.icon, title: x.label }))} value={presetOf(l.m) ?? ("" as Transition)} onChange={(x) => setLinkMotion(l.id, x)} p={p} height={36} grow={false} />
                       );
                     })()}
                   </div>

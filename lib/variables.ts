@@ -1,10 +1,12 @@
 import { isColorRef, tidyLook } from "./look";
 import { uniformRadii, type Doc, type DocVar, type Frame, type Item, type VarCollection, type VarValue } from "./tokens";
+import { fieldVarOf } from "./bindings/bind";
 
 /* Variables the way Figma has them: collections of typed variables (color, number, words, on/off), each collection with
  * modes (light and dark, compact and roomy) and a value of every variable in each mode. Which mode shows is chosen for
  * the document and, over that, for a screen; a collection can also follow the app's dark mode. A field of the design
- * (a fill, a stroke, the opacity, a corner radius) is bound to a variable with an `@field` key in `Item.bind`, beside
+ * (a fill, a stroke, the opacity, a corner radius) is bound to a variable with an `@field` key in `Item.bind` (by its
+ * key: `"@fill": "=vars[\"v-brand\"]"`, lib/bindings/bind.ts `fieldVarOf`), beside
  * the props bound by their own keys, and drawn with the variable's value in the mode on show: on the canvas, in the
  * preview, in a saved picture and in the exported app.
  *
@@ -85,8 +87,10 @@ export function boundItem(it: Item, values: Record<string, VarValue>, cssVar?: (
   let look = it.look ? { ...it.look } : {};
   let corners = it.corners;
   let changed = false;
-  for (const [key, id] of Object.entries(it.bind!)) {
+  for (const [key, bind] of Object.entries(it.bind!)) {
     if (!isBindField(key)) continue;
+    const id = fieldVarOf(bind);
+    if (id === undefined) continue;
     const v = values[id];
     if (v === undefined) continue;
     const name = cssVar?.(id, key);

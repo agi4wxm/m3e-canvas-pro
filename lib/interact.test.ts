@@ -23,19 +23,20 @@ describe("a condition", () => {
     expect(conditionHolds(undefined, startState(vars), scope)).toBe(true);
   });
 
-  it("compares a variable by what it reads as, either way", () => {
+  it("compares a variable with a value as an expression, by its name or its key", () => {
     const s = startState(vars);
-    expect(conditionHolds({ var: "n", op: "eq", value: 0 }, s, scope)).toBe(true);
-    expect(conditionHolds({ var: "n", op: "eq", value: "0" }, s, scope)).toBe(true);
-    expect(conditionHolds({ var: "n", op: "neq", value: 0 }, s, scope)).toBe(false);
-    expect(conditionHolds({ var: "b", op: "eq", value: false }, s, scope)).toBe(true);
-    expect(conditionHolds({ var: "t", op: "neq", value: "Bob" }, s, scope)).toBe(true);
+    expect(conditionHolds({ expr: "vars.count == 0" }, s, scope)).toBe(true);
+    expect(conditionHolds({ expr: 'vars["n"] == "0"' }, s, scope)).toBe(true);
+    expect(conditionHolds({ expr: "vars.count != 0" }, s, scope)).toBe(false);
+    expect(conditionHolds({ expr: "vars.on == false" }, s, scope)).toBe(true);
+    expect(conditionHolds({ expr: 'vars.who != "Bob"' }, s, scope)).toBe(true);
+    /* the older form is no condition any more: version 4 wrote it as the expression it is (lib/converge.ts) */
+    expect(conditionHolds({ var: "n", op: "eq", value: 0 } as never, s, scope)).toBe(false);
   });
 
   it("is false about a variable or a field that is gone", () => {
     const s = startState(vars);
-    expect(conditionHolds({ var: "gone", op: "eq", value: 1 }, s, scope)).toBe(false);
-    expect(conditionHolds({ var: "gone", op: "neq", value: 1 }, s, scope)).toBe(false);
+    expect(conditionHolds({ expr: "vars.gone == 1" }, s, scope)).toBe(false);
     expect(conditionHolds({ filled: "gone" }, s, scope)).toBe(false);
     expect(conditionHolds({ filled: "label" }, s, scope)).toBe(false);
   });
@@ -63,10 +64,10 @@ describe("a condition", () => {
 });
 
 describe("the branch a tap runs", () => {
-  const submit: Action = { to: "done", transition: "slide", when: { filled: "email" }, else: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Empty" }] } };
+  const submit: Action = { to: "done", when: { filled: "email" }, else: { to: "none", effects: [{ do: "snackbar", message: "Empty" }] } };
 
   it("is the action itself with no condition", () => {
-    const plain: Action = { to: "x", transition: "fade" };
+    const plain: Action = { to: "x", motion: { kind: "dissolve" } };
     expect(chooseBranch(plain, startState(vars), scope)).toBe(plain);
   });
 
@@ -78,7 +79,7 @@ describe("the branch a tap runs", () => {
   });
 
   it("is nothing when the condition fails and there is no `else`", () => {
-    expect(chooseBranch({ to: "x", transition: "none", when: { filled: "email" } }, startState(vars), scope)).toBeNull();
+    expect(chooseBranch({ to: "x", motion: { kind: "instant" }, when: { filled: "email" } }, startState(vars), scope)).toBeNull();
   });
 });
 
@@ -188,22 +189,24 @@ describe("an overlay", () => {
 });
 
 describe("a bound prop", () => {
-  const label = part("text", "lb", { text: "start" }, { bind: { text: "n" } });
+  const label = part("text", "lb", { text: "start" }, { bind: { text: "=vars.count" } });
 
   it("reads the variable, in the kind of value the prop takes", () => {
     expect(liveItem(label, startState(vars)).props?.text).toBe("0");
-    const count = part("navigation-bar", "nav", {}, { bind: { badge: "t" } });
+    const count = part("navigation-bar", "nav", {}, { bind: { badge: "=vars.who" } });
     const s = { ...startState(vars), vars: { ...startState(vars).vars, t: "12" } };
     expect(liveItem(count, s).props?.badge).toBe(12);
-    const sw = part("switch", "sw", {}, { bind: { checked: "b" } });
+    const sw = part("switch", "sw", {}, { bind: { checked: "=vars.on" } });
     expect(liveItem(sw, startState(vars)).props?.checked).toBe(false);
   });
 
   it("keeps the part's own value where a variable cannot say", () => {
-    const off = part("navigation-bar", "nav", { badge: 3 }, { bind: { badge: "t" } });
+    const off = part("navigation-bar", "nav", { badge: 3 }, { bind: { badge: "=vars.who" } });
     expect(liveItem(off, startState(vars)).props?.badge).toBe(3);
-    const lost = part("text", "lb", { text: "x" }, { bind: { text: "gone", nope: "n" } });
-    expect(liveItem(lost, startState(vars)).props?.text).toBe("x");
+    /* words read nothing as nothing, as any expression's; a prop the part does not have is no binding */
+    const lost = part("text", "lb", { text: "x" }, { bind: { text: "=vars.gone", nope: "=vars.count" } });
+    expect(liveItem(lost, startState(vars)).props?.text).toBe("");
+    expect(liveItem(lost, startState(vars)).props).not.toHaveProperty("nope");
   });
 
   it("leaves a part with nothing live untouched", () => {
@@ -211,7 +214,7 @@ describe("a bound prop", () => {
   });
 
   it("follows the input that writes it", () => {
-    const name = part("input", "name", {}, { bind: { value: "t" } });
+    const name = part("input", "name", {}, { bind: { value: "=vars.who" } });
     const doc = { groups: [group("g", 0, 0, name)], vars };
     const s = writeField(startState(vars), name, "Zed", doc);
     expect(s.vars.t).toBe("Zed");
@@ -220,17 +223,17 @@ describe("a bound prop", () => {
   });
 
   it("is written in the variable's own type", () => {
-    const slider = part("slider", "sl", {}, { bind: { value: "n" } });
+    const slider = part("slider", "sl", {}, { bind: { value: "=vars.count" } });
     const doc = { groups: [group("g", 0, 0, slider)], vars };
     expect(writeField(startState(vars), slider, 42, doc).vars.n).toBe(42);
-    const sw = part("switch", "sw", {}, { bind: { checked: "b" } });
+    const sw = part("switch", "sw", {}, { bind: { checked: "=vars.on" } });
     expect(writeField(startState(vars), sw, true, { groups: [group("g", 0, 0, sw)], vars }).vars.b).toBe(true);
-    const typed = part("input", "i", {}, { bind: { value: "n" } });
+    const typed = part("input", "i", {}, { bind: { value: '=vars["n"]' } });
     expect(writeField(startState(vars), typed, "9", { groups: [group("g", 0, 0, typed)], vars }).vars.n).toBe(9);
   });
 
   it("of a choice holds the row's words in a text variable, and turns them back", () => {
-    const pick = part("select", "pick", { items: [{ label: "Apple" }, { label: "Pear" }] }, { bind: { selected: "t" } });
+    const pick = part("select", "pick", { items: [{ label: "Apple" }, { label: "Pear" }] }, { bind: { selected: "=vars.who" } });
     const doc = { groups: [group("g", 0, 0, pick)], vars };
     const s = writeField(startState(vars), pick, 1, doc);
     expect(s.vars.t).toBe("Pear");
@@ -271,7 +274,7 @@ describe("laying out what is on show", () => {
 
   it("hides on a condition, and what a hidden container holds goes with it", () => {
     const set = [column("col", { }), row("a", 0)];
-    const when = [{ ...set[0], showWhen: { var: "b", op: "eq" as const, value: true } }, set[1]];
+    const when = [{ ...set[0], showWhen: { expr: "vars.on == true" } }, set[1]];
     const doc = { groups: when, vars };
     expect(goneIds(when, startState(vars), doc, measured)).toEqual(new Set(["col", "a"]));
     const on = applyEffects(startState(vars), [{ do: "setVar", var: "b", value: true }], doc);
@@ -348,7 +351,7 @@ describe("a dock's tabs", () => {
 
 describe("copies and deleted screens", () => {
   it("points a copy at the copy of what it reached for", () => {
-    const g = group("g", 0, 0, part("button", "btn", {}, { action: { to: "none", transition: "none", when: { filled: "field" }, effects: [{ do: "hide", part: "field" }, { do: "hide", part: "other" }], else: { to: "none", transition: "none", effects: [{ do: "show", part: "field" }] } } }), { showWhen: { filled: "field" } });
+    const g = group("g", 0, 0, part("button", "btn", {}, { action: { to: "none", when: { filled: "field" }, effects: [{ do: "hide", part: "field" }, { do: "hide", part: "other" }], else: { to: "none", effects: [{ do: "show", part: "field" }] } } }), { showWhen: { filled: "field" } });
     const out = retarget(g, new Map([["field", "field2"]]));
     expect(out.showWhen).toEqual({ filled: "field2" });
     const a = out.items[0].action!;
@@ -358,10 +361,10 @@ describe("copies and deleted screens", () => {
   });
 
   it("drops a plain tap with its screen, and keeps what else one does", () => {
-    expect(actionWithoutScreen({ to: "s", transition: "fade" }, "s")).toBeUndefined();
-    expect(actionWithoutScreen({ to: "s", transition: "fade", effects: [{ do: "snackbar", message: "x" }] }, "s")).toMatchObject({ to: "none", effects: [{ do: "snackbar", message: "x" }] });
-    expect(actionWithoutScreen({ to: "o", transition: "fade", when: { filled: "x" }, else: { to: "s", transition: "fade" } }, "s")).toMatchObject({ to: "o", else: { to: "none" } });
-    const other: Action = { to: "o", transition: "fade" };
+    expect(actionWithoutScreen({ to: "s", motion: { kind: "dissolve" } }, "s")).toBeUndefined();
+    expect(actionWithoutScreen({ to: "s", motion: { kind: "dissolve" }, effects: [{ do: "snackbar", message: "x" }] }, "s")).toMatchObject({ to: "none", effects: [{ do: "snackbar", message: "x" }] });
+    expect(actionWithoutScreen({ to: "o", motion: { kind: "dissolve" }, when: { filled: "x" }, else: { to: "s", motion: { kind: "dissolve" } } }, "s")).toEqual({ to: "o", motion: { kind: "dissolve" }, when: { filled: "x" }, else: { to: "none" } });
+    const other: Action = { to: "o", motion: { kind: "dissolve" } };
     expect(actionWithoutScreen(other, "s")).toBe(other);
   });
 });
@@ -373,7 +376,7 @@ describe("a file with behaviour in it", () => {
     ...base,
     frame: "phone",
     vars,
-    groups: [group("g", 0, 0, part("button", "b", {}, { bind: { label: "t" }, action: { to: "f2", transition: "slide", when: { var: "n", op: "eq", value: 1 }, else: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "no" }] }, effects: [{ do: "addVar", var: "n", by: 1 }] } }), { hidden: true, pane: 1, showWhen: { filled: "b" } })],
+    groups: [group("g", 0, 0, part("button", "b", {}, { bind: { label: "=vars.who" }, action: { to: "f2", when: { expr: "vars.count == 1" }, else: { to: "none", effects: [{ do: "snackbar", message: "no" }] }, effects: [{ do: "addVar", var: "n", by: 1 }] } }), { hidden: true, pane: 1, showWhen: { filled: "b" } })],
   };
 
   it("comes back whole", () => {
@@ -383,7 +386,7 @@ describe("a file with behaviour in it", () => {
   it("keeps it through a shared link", async () => {
     expect(shareable(good).vars).toEqual(vars);
     expect(shareable(good).groups[0]).toMatchObject({ hidden: true, pane: 1, showWhen: { filled: "b" } });
-    expect(shareable(good).groups[0].items[0]).toMatchObject({ bind: { label: "t" }, action: { when: { var: "n" } } });
+    expect(shareable(good).groups[0].items[0]).toMatchObject({ bind: { label: "=vars.who" }, action: { when: { expr: "vars.count == 1" } } });
     const link = await shareLink(good, "https://x.test/");
     expect(await readShareHash(link.slice(link.indexOf("#")))).toEqual(good);
   });
@@ -405,8 +408,8 @@ describe("a file with behaviour in it", () => {
           items: [
             item({
               bind: { label: "t", icon: 4 },
-              action: { to: "f2", transition: "slide", when: "nope", else: { to: 1 }, effects: [null, 3, { do: "nope" }, { do: "show" }, { do: "show", part: "a" }, { do: "setVar", var: "n", value: {} }, { do: "addVar", var: "n", by: "1" }, { do: "snackbar", message: "hi" }] },
-              actions: { "tab:0": 5, "tab:1": { to: "f" , transition: "none", effects: "x" } },
+              action: { to: "f2", when: "nope", else: { to: 1 }, effects: [null, 3, { do: "nope" }, { do: "show" }, { do: "show", part: "a" }, { do: "setVar", var: "n", value: {} }, { do: "addVar", var: "n", by: "1" }, { do: "snackbar", message: "hi" }] },
+              actions: { "tab:0": 5, "tab:1": { to: "f" , motion: { kind: "instant" }, effects: "x" } },
             }),
           ],
         },
@@ -421,10 +424,11 @@ describe("a file with behaviour in it", () => {
     expect(g.pane).toBeUndefined();
     expect(g.showWhen).toBeUndefined();
     const it = g.items[0];
-    expect(it.bind).toEqual({ label: "t" });
+    /* bound to a variable the file does not have, it bound nothing: version 4 left it out (lib/converge.ts) */
+    expect(it.bind).toBeUndefined();
     /* an effect of a kind this version does not know is kept as it came, for the version that wrote it */
-    expect(it.action).toEqual({ to: "f2", transition: "slide", effects: [{ do: "nope" }, { do: "show", part: "a" }, { do: "snackbar", message: "hi" }] });
-    expect(it.actions).toEqual({ "tab:1": { to: "f", transition: "none" } });
+    expect(it.action).toEqual({ to: "f2", effects: [{ do: "nope" }, { do: "show", part: "a" }, { do: "snackbar", message: "hi" }] });
+    expect(it.actions).toEqual({ "tab:1": { to: "f", motion: { kind: "instant" } } });
     expect(h.hidden).toBe(true);
     expect(h.pane).toBeUndefined();
     expect(h.items[0].bind).toBeUndefined();
@@ -437,20 +441,20 @@ describe("a file with behaviour in it", () => {
   });
 
   it("leaves a file with none of it as it was", () => {
-    const plain = { ...base, groups: [group("g", 0, 0, part("button", "b", {}, { action: { to: "f2", transition: "slide" } }))] } as Doc;
+    const plain = { ...base, groups: [group("g", 0, 0, part("button", "b", {}, { action: { to: "f2" } }))] } as Doc;
     expect(openProject(JSON.parse(JSON.stringify(plain)))).toEqual(plain);
   });
 });
 
 describe("the prompt", () => {
   const button = part("button", "b", { label: "Submit" }, {
-    bind: { label: "t" },
+    bind: { label: "=vars.who" },
     action: {
       to: "f2",
-      transition: "none",
+      motion: { kind: "instant" },
       when: { filled: "mail" },
       effects: [{ do: "setVar", var: "n", value: 1 }, { do: "show", part: "tip" }, { do: "open", part: "sh" }, { do: "setProp", part: "mail", prop: "error", value: false }],
-      else: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Fill it in" }, { do: "toggleVar", var: "b" }, { do: "addVar", var: "n", by: 2 }, { do: "hide", part: "tip" }, { do: "toggle", part: "tip" }, { do: "close", part: "sh" }] },
+      else: { to: "none", effects: [{ do: "snackbar", message: "Fill it in" }, { do: "toggleVar", var: "b" }, { do: "addVar", var: "n", by: 2 }, { do: "hide", part: "tip" }, { do: "toggle", part: "tip" }, { do: "close", part: "sh" }] },
     },
   });
   const doc = {
@@ -459,8 +463,8 @@ describe("the prompt", () => {
     groups: [
       group("d", 0, 0, part("dock", "dock", { width: 300, height: 100 })),
       group("k", 0, 40, part("button", "kid", { label: "Inside" }), { inFlow: "d", pane: 1 }),
-      group("g1", 0, 200, part("input", "mail", { placeholder: "Mail" }, { bind: { value: "t" } })),
-      group("g2", 0, 300, part("text", "tip", { text: "Tip" }), { hidden: true, showWhen: { var: "n", op: "neq", value: 0 } }),
+      group("g1", 0, 200, part("input", "mail", { placeholder: "Mail" }, { bind: { value: "=vars.who" } })),
+      group("g2", 0, 300, part("text", "tip", { text: "Tip" }), { hidden: true, showWhen: { expr: "vars.count != 0" } }),
       group("g3", 0, 400, part("sheet", "sh", { title: "More" }), { hidden: true }),
       group("g4", 0, 500, button),
     ],
@@ -480,12 +484,12 @@ describe("the prompt", () => {
   });
 
   it("reads a plain tap exactly as before", () => {
-    const plain = { ...base, groups: [group("g", 0, 0, part("button", "b", { label: "Go" }, { action: { to: "f2", transition: "none" } }))] } as Doc;
+    const plain = { ...base, groups: [group("g", 0, 0, part("button", "b", { label: "Go" }, { action: { to: "f2", motion: { kind: "instant" } } }))] } as Doc;
     expect(buildPrompt(plain, {}, undefined, "en")).toContain('opens the "Done" screen when tapped');
   });
 
   it("leaves out a step whose part or variable is gone", () => {
-    const stale = { ...base, groups: [group("g", 0, 0, part("button", "b", { label: "Go" }, { action: { to: "none", transition: "none", effects: [{ do: "show", part: "gone" }, { do: "setVar", var: "gone", value: 1 }] } }))] } as Doc;
+    const stale = { ...base, groups: [group("g", 0, 0, part("button", "b", { label: "Go" }, { action: { to: "none", effects: [{ do: "show", part: "gone" }, { do: "setVar", var: "gone", value: 1 }] } }))] } as Doc;
     expect(() => buildPrompt(stale, {}, undefined, "en")).not.toThrow();
     expect(buildPrompt(stale, {}, undefined, "en")).not.toContain("gone");
   });

@@ -646,7 +646,7 @@ describe("in the preview", () => {
     const { startState, writeField, liveItem, fieldValueOf } = await import("../../lib/interact");
     const { makeItem } = await import("../../lib/tokens");
     const doc = { groups: [], vars: [{ id: "t", name: "t", type: "text" as const, value: "" }] };
-    const item = { ...makeItem("sortable-list"), id: "s", bind: { items: "t" }, props: { items: [{ label: "a", icon: "star" }, { label: "b" }] } };
+    const item = { ...makeItem("sortable-list"), id: "s", bind: { items: "=vars.t" }, props: { items: [{ label: "a", icon: "star" }, { label: "b" }] } };
     const back = fieldValueOf(item, ["b", "a"]);
     expect(back).toEqual([{ label: "b" }, { label: "a", icon: "star" }]);
     const s = writeField(startState(doc.vars), item, back!, doc);
@@ -660,7 +660,7 @@ describe("in the preview", () => {
     const { startState, writeField } = await import("../../lib/interact");
     const { makeItem } = await import("../../lib/tokens");
     const doc = { groups: [], vars: [{ id: "c", name: "c", type: "text" as const, value: "" }] };
-    const palette = { ...makeItem("color-palette"), id: "p", bind: { selected: "c" }, props: { colors: "#111111,#222222" } };
+    const palette = { ...makeItem("color-palette"), id: "p", bind: { selected: "=vars.c" }, props: { colors: "#111111,#222222" } };
     expect(writeField(startState(doc.vars), palette, 1, doc).vars.c).toBe("#222222");
   });
 });

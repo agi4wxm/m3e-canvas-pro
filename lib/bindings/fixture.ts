@@ -64,11 +64,11 @@ export function shopDoc(o: { lang?: Lang; paging?: "scroll" | "button"; /** the 
     tx.run(ops.wireScreen, { screen: "detail", operationId: "getProduct" });
     tx.run(ops.wireScreen, { screen: "products", operationId: "listProducts", detail: "detail", ...(o.paging ? { paging: o.paging } : {}) });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    tx.run(ops.makeForm, { screen: "create", operationId: "createProduct", then: { to: "products", transition: "slide", effects: [{ do: "snackbar", message: "Added {{response.name}}" }] } });
+    tx.run(ops.makeForm, { screen: "create", operationId: "createProduct", then: { to: "products", effects: [{ do: "snackbar", message: "Added {{response.name}}" }] } });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    tx.run(ops.makeForm, { screen: "login", operationId: "login", then: { to: "products", transition: "fade" } });
+    tx.run(ops.makeForm, { screen: "login", operationId: "login", then: { to: "products", motion: { kind: "dissolve", easing: "emphasized", ms: 300 } } });
     tx.run(ops.addPart, { slug: "button", id: "add", screen: "products", at: { x: 16, y: 800 }, props: { label: "Add product" } });
-    tx.run(ops.setAction, { id: "add", action: { to: "create", transition: "slide" } });
+    tx.run(ops.setAction, { id: "add", action: { to: "create" } });
   });
   return savedDoc(store.get());
 }

@@ -88,13 +88,8 @@ export function conditionHolds(c: Condition | undefined, host: Host, tap: Tap, e
   if (!c) return true;
   if ("expr" in c) return typeof c.expr === "string" && holds(c.expr, scopeOf(host, tap, extra), host.ctx());
   if ("filled" in c) return typeof c.filled === "string" && host.filled(c.filled);
-  if (typeof c.var !== "string") return false;
-  /* a part drawn for a collection's row reads that row's fields as `row.field` */
-  const v = c.var.startsWith("row.") && tap.row ? tap.row[c.var.slice(4)] : host.variable(c.var)?.value;
-  if (v === undefined) return false;
-  /* the panel writes what it was typed as: "3" and 3 are the same answer */
-  const same = String(v) === String(c.value);
-  return c.op === "neq" ? !same : same;
+  /* a condition of a form this version does not know (a later one's) holds never */
+  return false;
 }
 
 /** The body a tap runs: the action itself, its `else`, or nothing; its words read the row last tapped. `extra` is what
@@ -113,10 +108,12 @@ function answerBranch(a: Answer, host: Host, tap: Tap, extra: Scope): ActionBody
 /* ---------- running ---------- */
 
 /** What expressions read at this step of a tap: the host's scope for it, what an answer adds (`response`, `status`,
- *  `error`), the payload of the event that started it as `event`, and the place a family's action was run for as
- *  `slot`. */
+ *  `error`), the row of a collection the part was drawn for as `row`, the payload of the event that started it as
+ *  `event`, and the place a family's action was run for as `slot`. */
 export const tapScope = (host: Host, tap: Tap, extra?: Scope): Scope => ({
   ...host.scope(tap),
+  /* a part drawn for a collection's row reads that row's fields as `row.field` */
+  ...(tap.row ? { row: tap.row } : {}),
   ...extra,
   ...(tap.event !== undefined ? { event: tap.event } : {}),
   ...(tap.slot ? { slot: tap.slot } : {}),
@@ -177,7 +174,7 @@ function navigate(body: ActionBody, host: Host, tap: Tap, extra: Scope | undefin
     const scope = scopeOf(host, tap, extra);
     params = Object.fromEntries(Object.entries(given).map(([k, x]) => [k, typeof x === "string" ? evaluate(x, scope, host.ctx()) : undefined]));
   }
-  host.go(body.to, { transition: body.transition, ...(body.motion ? { motion: body.motion } : {}), ...(body.overlay === true ? { overlay: true } : {}), ...(params ? { params } : {}) });
+  host.go(body.to, { ...(body.motion ? { motion: body.motion } : {}), ...(body.overlay === true ? { overlay: true } : {}), ...(params ? { params } : {}) });
 }
 
 function effect(e: Effect, r: Run, tap: Tap, extra: Scope | undefined, depth: number) {

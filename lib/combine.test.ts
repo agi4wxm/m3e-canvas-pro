@@ -36,7 +36,7 @@ describe("combineButtons", () => {
   });
 
   it("keeps the taps and the notes, one slot per button", () => {
-    const go = { to: "s2", transition: "slide" as const };
+    const go = { to: "s2" };
     const groups = [at("g1", 16, 100, button("a", {}, { action: go, note: "first" })), at("g2", 120, 100, button("b", {}, { note: "second" }))];
     const it = combineButtons(groups, frame, [frame], widths)![0].items[0];
     expect(it.actions).toEqual({ "tab:0": go });

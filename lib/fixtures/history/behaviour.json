@@ -270,7 +270,7 @@
    },
    "continue/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -302,7 +302,7 @@
    },
    "welcome-back/tap": {
     "to": "back",
-    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -334,7 +334,7 @@
    },
    "add/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -366,7 +366,7 @@
    },
    "reset/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -398,7 +398,7 @@
    },
    "reveal/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -431,7 +431,7 @@
    },
    "retitle/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -467,7 +467,7 @@
    },
    "flip/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -498,7 +498,7 @@
    },
    "ask/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -533,7 +533,7 @@
    },
    "confirm/confirm": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -565,7 +565,7 @@
    },
    "more/tab:0": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -597,7 +597,7 @@
    },
    "more/tab:1": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -629,7 +629,7 @@
    },
    "large/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -665,7 +665,7 @@
    },
    "tab-c/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -729,7 +729,7 @@
    },
    "bars-back/tap": {
     "to": "back",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -793,7 +793,7 @@
    },
    "low/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -953,7 +953,7 @@
    },
    "68ekafm9/icon": {
     "to": "back",
-    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1017,7 +1017,7 @@
    },
    "pv8g52yl/icon": {
     "to": "back",
-    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1081,7 +1081,7 @@
    },
    "by0mr4ho/icon": {
     "to": "back",
-    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1247,7 +1247,7 @@
    },
    "paint-b/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1319,7 +1319,7 @@
    },
    "dark-back-b/tap": {
     "to": "back",
-    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1343,7 +1343,7 @@
    },
    "sheet-later-b/tap": {
     "to": "back",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "delay",
      "ms": 1500
@@ -1368,7 +1368,7 @@
    },
    "pushed-back-b/tap": {
     "to": "back",
-    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1392,7 +1392,7 @@
    },
    "scroll-b/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1426,9 +1426,20 @@
   ],
   "vars": {},
   "gone": [
+   "h44#1/h56",
    "h56",
+   "home-col#1/home-plum",
    "home-plum",
-   "i-c"
+   "i-a/p-secret",
+   "i-b/p-secret",
+   "i-c",
+   "i-c/p-col",
+   "i-c/p-more",
+   "i-c/p-rename",
+   "i-c/p-secret",
+   "i-c/p-title",
+   "i-d/d-b",
+   "i-n/o-i/p-secret"
   ],
   "taps": {
    "home-open-b/tap": {
@@ -1446,14 +1457,25 @@
     "opened": {},
     "snack": null,
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
-     "i-c"
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    },
    "home-say-b/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1464,11 +1486,146 @@
     "hidden": {},
     "props": {},
     "opened": {},
-    "snack": "Not pear {{name}}",
+    "snack": "Not pear Apple",
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
-     "i-c"
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "home-col#1/home-open-b/tap": {
+    "to": "r-detail",
+    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "home-col#1/home-say-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Pear only",
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "home-col#2/home-open-b/tap": {
+    "to": "r-detail",
+    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "home-col#2/home-say-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Not pear Plum",
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    },
    "home-go-b/tap": {
@@ -1486,33 +1643,24 @@
     "opened": {},
     "snack": null,
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
-     "i-c"
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    },
-   "det-say-b/tap": {
-    "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
-    "trigger": {
-     "on": "tap"
-    },
-    "overlay": false,
-    "scrollTo": null,
-    "params": null,
-    "vars": {},
-    "hidden": {},
-    "props": {},
-    "opened": {},
-    "snack": "Said Apple",
-    "gone": [
-     "h56",
-     "home-plum",
-     "i-c"
-    ]
-   },
-   "det-back-b/tap": {
-    "to": "back",
+   "tag-i/t-pick-b/tap": {
+    "to": "r-detail",
     "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
     "trigger": {
      "on": "tap"
@@ -1526,14 +1674,320 @@
     "opened": {},
     "snack": null,
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
-     "i-c"
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "tags#1/tag-i/t-pick-b/tap": {
+    "to": "r-detail",
+    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "det-say-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Said Apple",
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "det-back-b/tap": {
+    "to": "back",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "i-a/p-more-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {
+     "i-a/p-secret": false
+    },
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "i-a/p-rename-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {
+     "i-a/p-title-t": {
+      "text": "Promo renamed"
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "i-b/p-more-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {
+     "i-b/p-secret": false
+    },
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "i-b/p-rename-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {
+     "i-b/p-title-t": {
+      "text": "Promo renamed"
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "i-c/p-more-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {
+     "i-c/p-secret": false
+    },
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "i-c/p-rename-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {
+     "i-c/p-title-t": {
+      "text": "Promo renamed"
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    },
    "show-c-b/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1548,13 +2002,20 @@
     "opened": {},
     "snack": null,
     "gone": [
+     "h44#1/h56",
      "h56",
-     "home-plum"
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c/p-secret",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    },
    "hide-before-b/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1569,9 +2030,20 @@
     "opened": {},
     "snack": null,
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
      "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret",
      "inst-before"
     ]
    },
@@ -1590,9 +2062,118 @@
     "opened": {},
     "snack": null,
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
-     "i-c"
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "i-d/d-b-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Pressed pane",
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "i-n/o-i/p-more-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {
+     "i-n/o-i/p-secret": false
+    },
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b"
+    ]
+   },
+   "i-n/o-i/p-rename-b/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {
+     "i-n/o-i/p-title-t": {
+      "text": "Promo renamed"
+     }
+    },
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    },
    "to-big-b/tap": {
@@ -1610,9 +2191,20 @@
     "opened": {},
     "snack": null,
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
-     "i-c"
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    },
    "h51/tap": {
@@ -1630,14 +2222,25 @@
     "opened": {},
     "snack": null,
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
-     "i-c"
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    },
    "h53/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1648,11 +2251,22 @@
     "hidden": {},
     "props": {},
     "opened": {},
-    "snack": "Not pear {{name}}",
+    "snack": "Not pear Apple",
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
-     "i-c"
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    },
    "h57/tap": {
@@ -1670,52 +2284,23 @@
     "opened": {},
     "snack": null,
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
-     "i-c"
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    },
-   "p-more-b/tap": {
-    "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
-    "trigger": {
-     "on": "tap"
-    },
-    "overlay": false,
-    "scrollTo": null,
-    "params": null,
-    "vars": {},
-    "hidden": {},
-    "props": {},
-    "opened": {},
-    "snack": null,
-    "gone": [
-     "h56",
-     "home-plum",
-     "i-c"
-    ]
-   },
-   "p-rename-b/tap": {
-    "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
-    "trigger": {
-     "on": "tap"
-    },
-    "overlay": false,
-    "scrollTo": null,
-    "params": null,
-    "vars": {},
-    "hidden": {},
-    "props": {},
-    "opened": {},
-    "snack": null,
-    "gone": [
-     "h56",
-     "home-plum",
-     "i-c"
-    ]
-   },
-   "t-pick-b/tap": {
+   "h44#1/h51/tap": {
     "to": "r-detail",
     "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
     "trigger": {
@@ -1730,14 +2315,25 @@
     "opened": {},
     "snack": null,
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
-     "i-c"
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    },
-   "d-b-b/tap": {
+   "h44#1/h53/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -1748,11 +2344,208 @@
     "hidden": {},
     "props": {},
     "opened": {},
-    "snack": "Pressed pane",
+    "snack": "Pear only",
     "gone": [
+     "h44#1/h56",
      "h56",
+     "home-col#1/home-plum",
      "home-plum",
-     "i-c"
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "h44#1/h57/tap": {
+    "to": "r-instances",
+    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "h44#2/h51/tap": {
+    "to": "r-detail",
+    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "h44#2/h53/tap": {
+    "to": "none",
+    "moves": null,
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": "Not pear Plum",
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "h44#2/h57/tap": {
+    "to": "r-instances",
+    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "h62/t-pick-b/tap": {
+    "to": "r-detail",
+    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
+    ]
+   },
+   "h60#1/h62/t-pick-b/tap": {
+    "to": "r-detail",
+    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "trigger": {
+     "on": "tap"
+    },
+    "overlay": false,
+    "scrollTo": null,
+    "params": null,
+    "vars": {},
+    "hidden": {},
+    "props": {},
+    "opened": {},
+    "snack": null,
+    "gone": [
+     "h44#1/h56",
+     "h56",
+     "home-col#1/home-plum",
+     "home-plum",
+     "i-a/p-secret",
+     "i-b/p-secret",
+     "i-c",
+     "i-c/p-col",
+     "i-c/p-more",
+     "i-c/p-rename",
+     "i-c/p-secret",
+     "i-c/p-title",
+     "i-d/d-b",
+     "i-n/o-i/p-secret"
     ]
    }
   }
@@ -1840,7 +2633,7 @@
   "taps": {
    "n75/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -2097,7 +2890,7 @@
    },
    "n141/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -2182,7 +2975,7 @@
    },
    "n159/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -2352,7 +3145,7 @@
    },
    "n252/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -2437,7 +3230,7 @@
    },
    "n285/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -2607,7 +3400,7 @@
    },
    "n332/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -2692,7 +3485,7 @@
    },
    "n350/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },
@@ -2947,7 +3740,7 @@
    },
    "n403/tap": {
     "to": "none",
-    "moves": "[{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"duration\":0.42,\"ease\":[0.2,0,0,1],\"zIndex\":{\"duration\":0}}}},{\"initial\":{\"x\":\"-30%\",\"y\":0,\"opacity\":0.6,\"scale\":1,\"zIndex\":1},\"animate\":{\"x\":0,\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":1,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}},\"exit\":{\"x\":\"100%\",\"y\":0,\"opacity\":1,\"scale\":1,\"zIndex\":2,\"transition\":{\"type\":\"spring\",\"stiffness\":360,\"damping\":26,\"mass\":1,\"zIndex\":{\"duration\":0}}}}]",
+    "moves": null,
     "trigger": {
      "on": "tap"
     },

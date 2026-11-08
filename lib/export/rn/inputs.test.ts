@@ -72,7 +72,7 @@ describe("the D3 inputs on a phone", () => {
   it("move a picked row where the part leaves it to the app, and write a sorted list and a swipe row out", () => {
     const { doc, widths } = boundShopDoc();
     const home = doc.frames[0];
-    const add = (id: string, component: string, props: Record<string, unknown>, bind?: Record<string, string>) => ({ id: `g-${id}`, x: home.x + 16, y: home.y + 400, axis: "x" as const, items: [{ ...makeItem(component), id, label: id, props, ...(bind ? { bind } : {}) }] });
+    const add = (id: string, component: string, props: Record<string, unknown>, bind?: Record<string, string>) => ({ id: `g-${id}`, x: home.x + 16, y: home.y + 400, axis: "x" as const, items: [{ ...makeItem(component), id, label: id, props, ...(bind ? { bind: Object.fromEntries(Object.entries(bind).map(([k, v]) => [k, v.startsWith("=") ? v : `=vars.${v}`])) } : {}) }] });
     const vars = [...(doc.vars ?? []), { id: "order", name: "order", type: "text" as const, value: "" }, { id: "swiped", name: "swiped", type: "bool" as const, value: false }];
     const more = { ...doc, vars, groups: [...doc.groups, add("bars", "bar-list", { selected: 1 }), add("rows", "sortable-list", { items: [{ label: "A" }, { label: "B" }] }, { items: "order" }), add("swipe", "swipe-row", {}, { open: "swiped" })] };
     const screen = printRnScreens(more, widths, { kitImport: "../../kit", runtime: { bind: "../bind" } }).screens.find((s) => s.id === home.id)!.source;

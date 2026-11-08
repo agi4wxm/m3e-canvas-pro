@@ -188,6 +188,34 @@ export function namesRead(src: string): NameRead[] {
   return out;
 }
 
+/** words as an expression's string literal: quoted, with what the reader of lib/bindings/expr.ts unescapes escaped */
+// eslint-disable-next-line no-control-regex -- the control characters are what the literal escapes
+export const exprString = (v: string) => `"${v.replace(/[\\"]/g, (c) => `\\${c}`).replace(/[\u0000-\u001f]/g, (c) => (c === "\n" ? "\\n" : c === "\t" ? "\\t" : `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`))}"`;
+
+/** An expression with each read of a field of `root` (`row.price`, `row?.price`, `row["unit price"]`) written as the
+ *  literal it reads: what a printer does with what is fixed when it prints (the row a part was drawn for). A field the
+ *  object does not have reads as `null`, nothing, as it would have; the same string when it reads none. */
+export function inlineReads(src: string, root: string, fields: Record<string, unknown>): string {
+  const toks = typeof src === "string" ? tokens(src) : null;
+  if (!toks) return src;
+  const isOp = (k: number, v: string) => toks[k]?.t === "op" && toks[k].v === v;
+  const spans: { start: number; end: number; name: string }[] = [];
+  for (let k = 0; k < toks.length; k++) {
+    const t = toks[k];
+    if (t.t !== "id" || t.v !== root || isOp(k - 1, ".") || isOp(k - 1, "?.")) continue;
+    if ((isOp(k + 1, ".") || isOp(k + 1, "?.")) && toks[k + 2]?.t === "id") spans.push({ start: t.at, end: toks[k + 2].end, name: toks[k + 2].v });
+    else if (isOp(k + 1, "[") && toks[k + 2]?.t === "str" && isOp(k + 3, "]")) spans.push({ start: t.at, end: toks[k + 3].end, name: toks[k + 2].v });
+    else if (isOp(k + 1, "?.") && isOp(k + 2, "[") && toks[k + 3]?.t === "str" && isOp(k + 4, "]")) spans.push({ start: t.at, end: toks[k + 4].end, name: toks[k + 3].v });
+  }
+  let out = src;
+  for (const r of spans.reverse()) {
+    const v = Object.prototype.hasOwnProperty.call(fields, r.name) ? fields[r.name] : null;
+    const lit = typeof v === "string" ? exprString(v) : typeof v === "number" || typeof v === "boolean" ? String(v) : "null";
+    out = out.slice(0, r.start) + lit + out.slice(r.end);
+  }
+  return out;
+}
+
 /** a step to a name, spelled the way it was where the name allows it: `.name` (or `?.name`), else `["name"]` */
 function stepTo(name: string, how: NameRead["how"]): string {
   const quoted = JSON.stringify(name);

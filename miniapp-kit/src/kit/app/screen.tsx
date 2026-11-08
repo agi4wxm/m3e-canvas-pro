@@ -317,10 +317,8 @@ export function useScreen(key: string, init: ScreenInit = {}): ScreenHandle {
       if (!c) return true;
       if ("expr" in c) return typeof c.expr === "string" && $.holds(c.expr);
       if ("filled" in c) return holdsValue(fieldOf(c.filled, state.fields));
-      const v = readVar(c.var);
-      if (v === undefined) return false;
-      const same = String(v) === String(c.value);
-      return c.op === "neq" ? !same : same;
+      /* a condition of a form this kit does not know holds never */
+      return false;
     },
     [state.fields, fieldOf],
   );

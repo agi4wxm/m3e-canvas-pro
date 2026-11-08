@@ -36,7 +36,6 @@ import {
   type Item,
   type Motion,
   type Palette,
-  type Transition,
 } from "@/lib/tokens";
 import { chooseBranch, run, type BackOptions, type GoOptions } from "@/lib/actions";
 import { createRuntime } from "@/lib/app/runtime";
@@ -55,7 +54,7 @@ import { createMockCapabilities } from "@/lib/capabilities/mock";
 import type { CapabilityHost } from "@/lib/capabilities/types";
 import { variantFor } from "@/lib/variants";
 import { flowStarts } from "@/lib/prototype";
-import { EASE, SLIDE_S as SLIDE_MS, screenPoses, type ScreenMove } from "@/lib/screenMotion";
+import { DEFAULT_MOTION, EASE, SLIDE_S as SLIDE_MS, TRANSITION_MOTIONS, screenPoses, type ScreenMove } from "@/lib/screenMotion";
 import { composing, goesBack } from "./previewKeys";
 import { PreviewControls } from "./preview/Controls";
 import { createPreviewHost, tapOf, type TapExtra } from "./preview/host";
@@ -69,7 +68,12 @@ const WIDE_CONTROL_SPACE = 220;
 const PHONE_BAR_H = 56;
 
 /** how the current screen was reached, so "back" can play it in reverse, and what it was opened with */
-type Entry = { id: string; t: Transition; m?: Motion; params?: Record<string, unknown> };
+type Entry = { id: string; m: Motion; params?: Record<string, unknown> };
+
+/** the moves the preview makes on its own: a fade between screens of different sizes (and to sign in, to a screen picked
+ *  by hand), none at all where a swipe has already moved the screen */
+const FADE = TRANSITION_MOTIONS.fade;
+const INSTANT = TRANSITION_MOTIONS.none;
 
 /** the screen a tap lands on: the one on show or the overlay laid over it, and what it was opened with */
 type TapScreen = { frame: Frame; params?: Record<string, unknown> };
@@ -77,8 +81,8 @@ type TapScreen = { frame: Frame; params?: Record<string, unknown> };
 /** where the app goes once signed in: back to where a refusal or a sign-out left it, or on to the screen that needed it */
 type Return = { back: true } | { entry: Entry };
 
-/* Each change of screen plays the poses an exported app plays too (lib/screenMotion.ts): Figma's animation where the
- * action has one, else its older transition, backwards for going back. */
+/* Each change of screen plays the poses an exported app plays too (lib/screenMotion.ts): the action's motion (the default
+ * slide where it gives none), backwards for going back. */
 const screenVariants: Variants = {
   initial: (c: ScreenMove) => screenPoses(c).initial,
   animate: (c: ScreenMove) => screenPoses(c).animate,
@@ -122,7 +126,7 @@ export function Preview({
 
   /* ---------- where the visitor is: a stack of screens, and an overlay over the top one ---------- */
   /* with no screen chosen, the preview starts where the first flow does */
-  const [stack, setStackNow] = useState<Entry[]>(() => [{ id: startId ?? flowStarts(frames)[0]?.id ?? frames[0]?.id ?? "", t: "none" }]);
+  const [stack, setStackNow] = useState<Entry[]>(() => [{ id: startId ?? flowStarts(frames)[0]?.id ?? frames[0]?.id ?? "", m: INSTANT }]);
   /** a screen laid over the one on show by an interaction, and how it came in */
   const [overlay, setOverlayNow] = useState<Entry | null>(null);
   /* What a tap's steps read of where the visitor is: written as each move is made, ahead of React drawing it, so a
@@ -143,7 +147,7 @@ export function Preview({
     overlayRef.current = next;
     setOverlayNow(next);
   }, []);
-  const [anim, setAnim] = useState<ScreenMove>({ transition: "none", backwards: false });
+  const [anim, setAnim] = useState<ScreenMove>({ motion: INSTANT, backwards: false });
   const theme = normalizeTheme(doc.theme);
   const spring = theme.motion === "expressive";
   const [scale, setScale] = useState(1);
@@ -237,8 +241,8 @@ export function Preview({
     if (!loginFrame) return;
     runtime.rememberReturn({ back: true } satisfies Return);
     setOverlay(null);
-    setAnim({ transition: "fade", backwards: false, spring });
-    setStack((cur) => [...cur, { id: loginFrame.id, t: "fade" }]);
+    setAnim({ motion: FADE, backwards: false, spring });
+    setStack((cur) => [...cur, { id: loginFrame.id, m: FADE }]);
   };
   /* a 401 ends the session and sends the app to the sign-in screen, which goes back to where it was once signed in */
   unauthorized.current = () => {
@@ -261,8 +265,8 @@ export function Preview({
     const to = s[s.length - 2];
     const same = sameSize(from.id, to.id);
     /* a back action's own motion, played backwards, in place of the way the screen came in */
-    const m = same ? (o?.motion ?? from.m) : undefined;
-    setAnim({ transition: same ? from.t : "fade", backwards: true, spring, ...(m ? { motion: m } : {}) });
+    const m = same ? (o?.motion ?? from.m) : FADE;
+    setAnim({ motion: m, backwards: true, spring });
     setStack(s.slice(0, -1));
   }, [spring, sameSize, setStack, setOverlay]);
 
@@ -271,24 +275,23 @@ export function Preview({
     const target = frames.find((f) => f.id === to);
     if (!target) return;
     if (target.auth === "required" && !data.signedIn && loginFrame && loginFrame.id !== target.id) {
-      runtime.rememberReturn({ entry: { id: to, t: o.transition, ...(o.params ? { params: o.params } : {}) } } satisfies Return);
+      runtime.rememberReturn({ entry: { id: to, m: o.motion ?? DEFAULT_MOTION, ...(o.params ? { params: o.params } : {}) } } satisfies Return);
       setOverlay(null);
-      setAnim({ transition: "fade", backwards: false, spring });
-      setStack((cur) => [...cur, { id: loginFrame.id, t: "fade" }]);
+      setAnim({ motion: FADE, backwards: false, spring });
+      setStack((cur) => [...cur, { id: loginFrame.id, m: FADE }]);
       return;
     }
     if (o.overlay) {
-      setOverlay({ id: to, t: o.transition, ...(o.motion ? { m: o.motion } : {}), ...(o.params ? { params: o.params } : {}) });
+      setOverlay({ id: to, m: o.motion ?? DEFAULT_MOTION, ...(o.params ? { params: o.params } : {}) });
       return;
     }
     /* an overlay closes when its screen goes on to another */
     setOverlay(null);
     const s = stackRef.current;
     const same = sameSize(s[s.length - 1].id, to);
-    const t = same ? o.transition : "fade";
-    const m = same ? o.motion : undefined;
-    setAnim({ transition: t, backwards: false, spring, ...(m ? { motion: m } : {}) });
-    setStack((cur) => [...cur, { id: to, t, ...(m ? { m } : {}), ...(o.params ? { params: o.params } : {}) }]);
+    const m = same ? (o.motion ?? DEFAULT_MOTION) : FADE;
+    setAnim({ motion: m, backwards: false, spring });
+    setStack((cur) => [...cur, { id: to, m, ...(o.params ? { params: o.params } : {}) }]);
   };
 
   /** once signed in: back to where a 401 or a sign-out left the app, or on to the screen that needed the session */
@@ -299,7 +302,7 @@ export function Preview({
       back();
       return true;
     }
-    setAnim({ transition: "fade", backwards: false, spring });
+    setAnim({ motion: FADE, backwards: false, spring });
     setStack((cur) => [...cur.slice(0, -1), r.entry]);
     return true;
   };
@@ -430,8 +433,8 @@ export function Preview({
     scale,
     prog,
     onCommit: (pk: Peek) => {
-      setAnim({ transition: "none", backwards: false, spring });
-      setStack((s) => [...s, { id: pk.frameId, t: pk.t }]);
+      setAnim({ motion: INSTANT, backwards: false, spring });
+      setStack((s) => [...s, { id: pk.frameId, m: pk.m }]);
     },
   });
   peeking.current = swipe.peekRef;
@@ -615,8 +618,8 @@ export function Preview({
   const pick = (id: string) => {
     setDevice(null);
     setOverlay(null);
-    setAnim({ transition: "fade", backwards: false, spring });
-    setStack([{ id, t: "fade" }]);
+    setAnim({ motion: FADE, backwards: false, spring });
+    setStack([{ id, m: FADE }]);
   };
 
   return (
@@ -711,7 +714,7 @@ export function Preview({
                 <motion.div key={`overlay:${overlay.id}`} data-preview-overlay={overlay.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} style={{ position: "absolute", inset: 0, zIndex: 4, display: "grid", placeItems: "center" }}>
                   <div aria-hidden onClick={() => setOverlay(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.32)" }} />
                   <motion.div
-                    custom={{ transition: overlay.t, backwards: false, spring, motion: overlay.m } satisfies ScreenMove}
+                    custom={{ motion: overlay.m, backwards: false, spring } satisfies ScreenMove}
                     variants={screenVariants}
                     initial="initial"
                     animate="animate"
@@ -774,7 +777,7 @@ export function Preview({
         dark={dark}
         onToggleDark={toggleDark}
         onSize={(preset) => {
-          setAnim({ transition: "fade", backwards: false, spring });
+          setAnim({ motion: FADE, backwards: false, spring });
           setDevice(preset);
         }}
         onClose={onClose}

@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 import { Action, Item, listRowsPatch, makeItem } from "./tokens";
 
-const to = (id: string): Action => ({ to: id, transition: "slide" });
+const to = (id: string): Action => ({ to: id });
 const rows = (...labels: string[]) => labels.map((label) => ({ label }));
 const part = (slug: string, props: Record<string, unknown>, actions?: Item["actions"]): Item => ({ ...makeItem(slug), id: "p", props, actions });
 const bar = (selected?: number) =>

@@ -42,7 +42,7 @@ describe("collections and modes", () => {
 });
 
 describe("a design field bound to a variable", () => {
-  const item = { ...makeItem("box"), id: "b", bind: { "@fill": "brand", "@opacity": "gap", "@radius": "gap", "@text": "brand", "@stroke": "brand", "@rotation": "gap" } };
+  const item = { ...makeItem("box"), id: "b", bind: { "@fill": '=vars["brand"]', "@opacity": '=vars["gap"]', "@radius": '=vars["gap"]', "@text": '=vars["brand"]', "@stroke": '=vars["brand"]', "@rotation": '=vars["gap"]' } };
 
   it("is drawn with the variable's value", () => {
     const out = boundItem(item, { brand: "#000000", gap: 8 });
@@ -52,9 +52,9 @@ describe("a design field bound to a variable", () => {
   });
 
   it("is left as it is for a value of the wrong kind, and the same item comes back with nothing bound", () => {
-    const out = boundItem({ ...makeItem("box"), id: "b", bind: { "@fill": "gap" } }, { gap: 8 });
+    const out = boundItem({ ...makeItem("box"), id: "b", bind: { "@fill": '=vars["gap"]' } }, { gap: 8 });
     expect(out.look).toBeUndefined();
-    const plain = { ...makeItem("box"), id: "c", bind: { label: "brand" } };
+    const plain = { ...makeItem("box"), id: "c", bind: { label: "=vars.brand" } };
     expect(boundItem(plain, { brand: "#000" })).toBe(plain);
   });
 
@@ -74,7 +74,7 @@ describe("the operations", () => {
     s.run(ops.addVar, { id: "c", name: "surface", type: "color", value: "#ffffff", collection: "t", values: { Dark: "#111111" } }, ai);
     expect(s.get().doc.vars).toEqual([{ id: "c", name: "surface", type: "color", value: "#ffffff", collection: "t", modes: { [modes[1]]: "#111111" } }]);
     s.run(ops.bindProp, { id: "box", prop: "@fill", var: "c" }, ai);
-    expect(s.get().doc.groups[0].items[0].bind).toEqual({ "@fill": "c" });
+    expect(s.get().doc.groups[0].items[0].bind).toEqual({ "@fill": '=vars["c"]' });
     expect(() => s.run(ops.bindProp, { id: "box", prop: "@opacity", var: "c" }, ai)).toThrow(OpError);
     expect(() => s.run(ops.bindProp, { id: "box", prop: "@colour", var: "c" }, ai)).toThrow(OpError);
     expect(() => s.run(ops.addVar, { name: "bad", type: "color", value: "red" }, ai)).toThrow(/a color/);
@@ -174,10 +174,10 @@ describe("the preview", () => {
 });
 
 describe("the exported app", () => {
-  const box: Group = { id: "g", x: 16, y: 100, axis: "x", items: [{ ...makeItem("box"), id: "box", props: { surface: "card", width: 120, height: 80 }, bind: { "@fill": "brand", "@opacity": "gap" } }] };
+  const box: Group = { id: "g", x: 16, y: 100, axis: "x", items: [{ ...makeItem("box"), id: "box", props: { surface: "card", width: 120, height: 80 }, bind: { "@fill": '=vars["brand"]', "@opacity": '=vars["gap"]' } }] };
 
   it("prints every bound field as a read of its variable's CSS variable, the screen's value standing in", () => {
-    const words: Group = { id: "w", x: 16, y: 200, axis: "x", items: [{ ...makeItem("text"), id: "t", props: { text: "Hi" }, look: { stroke: { width: 2, color: "#000000" } }, bind: { "@text": "brand", "@stroke": "brand", "@radius": "gap", "@rotation": "gap" } }] };
+    const words: Group = { id: "w", x: 16, y: 200, axis: "x", items: [{ ...makeItem("text"), id: "t", props: { text: "Hi" }, look: { stroke: { width: 2, color: "#000000" } }, bind: { "@text": '=vars["brand"]', "@stroke": '=vars["brand"]', "@radius": '=vars["gap"]', "@rotation": '=vars["gap"]' } }] };
     const doc = docOf({ groups: [box, words] });
     const { screens, runtime } = buildScreens(doc, { box: 120, "box:h": 80, t: 100, "t:h": 20 }, { live: true });
     const code = screens[0].source;
@@ -222,7 +222,7 @@ describe("the exported app", () => {
   it("gives two variables whose names come out the same two CSS names", () => {
     const a: DocVar = { id: "a-b", name: "x", type: "color", value: "#ffffff" };
     const b: DocVar = { id: "a.b", name: "x", type: "color", value: "#000000" };
-    const two: Group = { id: "g", x: 16, y: 100, axis: "x", items: [{ ...makeItem("box"), id: "box", props: { surface: "card", width: 120, height: 80 }, bind: { "@fill": "a-b", "@stroke": "a.b" } }] };
+    const two: Group = { id: "g", x: 16, y: 100, axis: "x", items: [{ ...makeItem("box"), id: "box", props: { surface: "card", width: 120, height: 80 }, bind: { "@fill": '=vars["a-b"]', "@stroke": '=vars["a.b"]' } }] };
     const { runtime } = buildScreens(docOf({ groups: [two], vars: [a, b] }), { box: 120, "box:h": 80 }, { live: true });
     expect(runtime.modes?.bound.map((x) => x.css)).toEqual(["x-a-b", "x-a-b-2"]);
   });

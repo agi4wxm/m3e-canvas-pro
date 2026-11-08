@@ -6,7 +6,8 @@
 export type VarValue = string | number | boolean;
 export type VarType = "text" | "number" | "bool" | "color";
 
-export type Condition = { var: string; op: "eq" | "neq"; value: VarValue } | { filled: string } | { expr: string };
+/** a condition as the design writes it (lib/actions/model.ts): an expression, or an input that holds something */
+export type Condition = { filled: string } | { expr: string };
 
 export type Optimistic = { source: string; remove?: boolean; patch?: Record<string, string> };
 

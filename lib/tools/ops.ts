@@ -19,7 +19,7 @@ export const MOCK_OPS = new Set(["set_mocks", "set_mock_model", "pin_mock_record
 /** the operations on the platform capabilities (lib/core/ops/capabilities.ts): the product's own, the ones it uses */
 export const CAPABILITY_OPS = new Set(["declare_capability", "remove_capability", "use_capabilities"]);
 /** the operations that bind screens to the contract (lib/core/ops/bindings.ts) */
-export const BINDING_OPS = new Set(["add_data_source", "update_data_source", "remove_data_source", "set_screen_params", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
+export const BINDING_OPS = new Set(["add_data_source", "update_data_source", "remove_data_source", "set_screen_params", "rename_screen_param", "set_screen_auth", "bind_expression", "set_region", "remove_region", "set_form", "make_form", "bind_field", "wire_screen"]);
 const DATA_OPS = new Set([...BINDING_OPS, "add_collection", "update_collection", "remove_collection", "set_repeat", "add_var", "update_var", "remove_var", "set_action", "bind_prop", "add_var_collection", "update_var_collection", "remove_var_collection", "set_var_mode", ...API_OPS, ...MOCK_OPS, ...CAPABILITY_OPS]);
 /** what takes away something the author made: a client asks the author first */
 export const DESTRUCTIVE_OPS = new Set(["clear", "remove_screen", "remove_nodes", "remove_component", "remove_collection", "remove_var", "remove_var_collection", "set_custom_styles", "remove_icon", "remove_model", "remove_endpoint", "remove_channel", "unpin_mock_records", "remove_mock_scenario", "remove_mock_file", "remove_mock_realtime", "clear_mocks", "remove_data_source", "remove_region", "remove_capability"]);

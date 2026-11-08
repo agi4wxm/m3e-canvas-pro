@@ -9,7 +9,7 @@ export type { PartDef };
 import { cleanLook } from "../../look";
 import { styleOwnsProp } from "../../styleRules";
 import { isStrict, styleContext } from "../../styles";
-import { BACK_TARGET, COLOR_TOKENS, MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, transitionOf, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
+import { BACK_TARGET, COLOR_TOKENS, MOTION_DIRS, MOTION_EASINGS, MOTION_KINDS, TEXT_TOKENS, isTextToken, LINK_TARGET, STAY_TARGET, presetOf, type Action, type ActionBody, type Condition, type DocVar, type Effect, type Item, type VarValue } from "../../tokens";
 import { cleanMotion, cleanTrigger } from "../../prototype";
 import { EVENT_PREFIX, outletKeysOf } from "../../partContract";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "../../constraints";
@@ -19,7 +19,10 @@ import { docIconId, docIconName, isDocIconName } from "../../docIcons";
 import type { CoreState } from "../state";
 import { exprSyntaxError } from "../../bindings/check";
 import { allCapabilities, argNamesOf as argNames, capabilityOf, requiredArgsOf as requiredArgs } from "../../capabilities/catalog";
-import { bindRule, conditionRule, ROW_FIELD } from "../../rules";
+import { bindRule, conditionRule } from "../../rules";
+import { mapNestedBodies } from "../../refs";
+import { convergedAction } from "../../converge";
+import { bindOfVar, fieldBindOf } from "../../bindings/bind";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -179,7 +182,7 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
   },
   bind: (v, s, it) => {
     if (v === undefined) return null;
-    if (!isRecord(v)) return "should be {prop: variable id}";
+    if (!isRecord(v)) return 'should be {prop: "=expression"}';
     const def = partBySlug(it.component);
     for (const [prop, id] of Object.entries(v)) {
       if (!def?.props.some((d) => d.key === prop)) return `${it.component} has no prop "${prop}" to bind`;
@@ -187,17 +190,28 @@ const ITEM_FIELDS: Record<string, (v: unknown, s: CoreState, it: Item) => string
       const shape = bindRule(id);
       if (shape) return `${prop}: ${shape}`;
       /* "=…" is an expression over the bindings */
-      if (typeof id === "string" && id.startsWith("=")) {
-        const e = exprSyntaxError(id.slice(1));
-        if (e) return `${prop}: ${e}`;
-        continue;
-      }
-      if (typeof id !== "string" || !(s.doc.vars ?? []).some((x) => x.id === id)) return `there is no variable ${JSON.stringify(id)} for ${prop}`;
+      const e = exprSyntaxError((id as string).slice(1));
+      if (e) return `${prop}: ${e}`;
     }
     return null;
   },
   field: (v) => (v === undefined || (typeof v === "string" && FIELD_PATH.test(v)) ? null : 'should be the name of a field of the form\'s body ("email", "address.city")'),
 };
+
+/** A patch of a part's own fields with what it says in the older forms written as version 4 writes them
+ *  (lib/converge.ts): a tap's transition as its motion and a comparison as an expression, a binding to a variable's id
+ *  as the expression that reads it (a field of the design, `@fill`..., by key). What a model gives as it was taught
+ *  before comes out as the document keeps it, then is checked. */
+export function writtenForms(patch: Record<string, unknown>, vars: DocVar[] | undefined): Record<string, unknown> {
+  let out = patch;
+  if (isRecord(patch.action)) out = { ...out, action: fullAction(convergedAction(patch.action as Action, vars)) };
+  if (isRecord(patch.actions)) out = { ...out, actions: Object.fromEntries(Object.entries(patch.actions).map(([k, a]) => [k, isRecord(a) ? fullAction(convergedAction(a as Action, vars)) : a])) };
+  if (isRecord(patch.bind)) {
+    const list = vars ?? [];
+    out = { ...out, bind: Object.fromEntries(Object.entries(patch.bind).map(([k, v]) => [k, typeof v === "string" && !v.startsWith("=") && list.some((x) => x.id === v) ? (k.startsWith("@") ? fieldBindOf(v) : bindOfVar(list, v)) : v])) };
+  }
+  return out;
+}
 
 /** Checks a patch of a part's own fields. `props` is checked against the definition; `id`, `kind` and `component`
  *  cannot change. */
@@ -234,11 +248,9 @@ export function conditionError(c: unknown, s: CoreState): string | null {
   if (shape) return shape;
   const r = c as Record<string, unknown>;
   if (typeof r.filled === "string") return s.doc.groups.some((g) => g.items.some((it) => it.id === r.filled)) ? null : `there is no part ${JSON.stringify(r.filled)}`;
-  if (r.expr !== undefined) return exprSyntaxError(r.expr);
-  return ROW_FIELD.test(r.var as string) || (s.doc.vars ?? []).some((v) => v.id === r.var) ? null : `there is no variable ${JSON.stringify(r.var)}`;
+  return exprSyntaxError(r.expr);
 }
 
-const TRANSITIONS = ["slide", "slideLeft", "slideUp", "slideDown", "fade", "expand", "none"];
 
 function effectError(e: unknown, s: CoreState, depth = 0): string | null {
   if (!isRecord(e)) return "an effect should be an object";
@@ -355,7 +367,6 @@ function bodyError(a: unknown, s: CoreState, depth = 0): string | null {
   const to = a.to;
   if (typeof to !== "string") return 'to should be a screen id, "back", "link" or "none"';
   if (to !== BACK_TARGET && to !== LINK_TARGET && to !== STAY_TARGET && !s.doc.frames.some((f) => f.id === to)) return `there is no screen ${JSON.stringify(to)}`;
-  if (a.transition !== undefined && !TRANSITIONS.includes(a.transition as string)) return `transition should be one of ${TRANSITIONS.join(", ")}`;
   if (to === LINK_TARGET && (typeof a.url !== "string" || !/^https?:\/\//i.test(a.url))) return "a link needs an http(s) url";
   if (a.overlay !== undefined && (typeof a.overlay !== "boolean" || (a.overlay && !s.doc.frames.some((f) => f.id === to)))) return "overlay is true or false, and only a screen opens as an overlay";
   if (a.scrollTo !== undefined && (typeof a.scrollTo !== "string" || !s.doc.groups.some((g) => g.items.some((it) => it.id === a.scrollTo)))) return `there is no part ${JSON.stringify(a.scrollTo)} to scroll to`;
@@ -423,10 +434,16 @@ export function actionError(a: unknown, s: CoreState): string | null {
   return null;
 }
 
-/** an action with its transition filled in */
+/** An action as it is written: the default slide is no motion (lib/screenMotion.ts `DEFAULT_MOTION`), at any depth. What
+ *  a model may still give in the older forms (a `transition`, a `{var, op, value}`) the operation writes as version 4
+ *  does (lib/converge.ts `convergedAction`). */
 export const fullAction = (a: Action): Action => {
-  const body = <B extends ActionBody>(b: B): B => ({ ...b, transition: b.transition ?? (b.motion ? transitionOf(b.motion) : "slide") });
-  return { ...body(a), ...(a.else ? { else: body(a.else as ActionBody) } : {}) };
+  const plain = <B extends ActionBody>(b: B): B => {
+    if (!b.motion || presetOf(b.motion) !== "slide") return b;
+    const { motion: _default, ...rest } = b;
+    return rest as B;
+  };
+  return plain(mapNestedBodies(a, plain));
 };
 
 const VALUE_WORDS = { text: "text", number: "a number", bool: "true or false", color: "a color (a role such as primary, or a hex such as #6750a4)" } as const;

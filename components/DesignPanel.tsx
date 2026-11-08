@@ -1,3 +1,4 @@
+import { fieldVarOf } from "@/lib/bindings/bind";
 import { useContext, useEffect, useState } from "react";
 import { BLEND_MODES } from "@/lib/look";
 import { Frame, Item, PHONE_W, Palette, frameSizeOf, uniformRadii, type BlendMode, type FlowSizing } from "@/lib/tokens";
@@ -122,7 +123,7 @@ const blendKey = (b: BlendMode) => `lkBlend_${b.replace(/-([a-z])/g, (_, c: stri
 /** what a field bound to a variable shows: the variable's value in the mode on show, when it is a number */
 function useBoundNumber(item: Item, field: BindField): number | undefined {
   const b = useContext(BehaviorContext);
-  const id = item.bind?.[field];
+  const id = fieldVarOf(item.bind?.[field]);
   const v = id !== undefined ? b.bound?.[id] : undefined;
   return typeof v === "number" ? v : undefined;
 }
@@ -375,7 +376,7 @@ export function PartDesign({ item, frame, onChange, inFlow, flowParent, selfRect
           only={["stroke"]}
           wrap={(b) => (
             <DesignSection id="stroke" title={t("dzStroke", lang)} p={p} actions={<><BindButton field="@stroke" item={item} onChange={onChange} p={p} />{b.actions}</>}>
-              {item.bind?.["@stroke"] ? <BoundChip field="@stroke" item={item} p={p} /> : null}
+              {fieldVarOf(item.bind?.["@stroke"]) ? <BoundChip field="@stroke" item={item} p={p} /> : null}
               {b.on ? b.body : null}
             </DesignSection>
           )}

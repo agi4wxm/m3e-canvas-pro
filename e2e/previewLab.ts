@@ -41,29 +41,29 @@ export function labDoc(): { doc: Doc; ids: { search: string; noteForm: string; n
     tx.run(ops.addPart, { slug: "button", id: "rename-p2", screen: "list", at: { x: 16, y: 640 }, props: { label: "Rename p2" } });
     tx.run(ops.setAction, { id: "rename-p2", action: { to: "rename", transition: "fade", overlay: true, params: { productId: "'p2'" } } as never });
     tx.run(ops.addPart, { slug: "button", id: "to-notes", screen: "list", at: { x: 16, y: 700 }, props: { label: "Notes" } });
-    tx.run(ops.setAction, { id: "to-notes", action: { to: "notes", transition: "slide", params: { cat: "'tea'" } } as never });
+    tx.run(ops.setAction, { id: "to-notes", action: { to: "notes", params: { cat: "'tea'" } } as never });
     tx.run(ops.addPart, { slug: "button", id: "to-keys", screen: "list", at: { x: 16, y: 760 }, props: { label: "Keys" } });
-    tx.run(ops.setAction, { id: "to-keys", action: { to: "keys", transition: "slide" } });
+    tx.run(ops.setAction, { id: "to-keys", action: { to: "keys" } });
 
     /* the overlay: a form that renames the product its params name */
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    tx.run(ops.makeForm, { screen: "rename", operationId: "renameProduct", submitLabel: "Save name", params: { productId: "params.productId" }, then: { to: "back", transition: "fade", effects: [{ do: "snackbar", message: "Renamed {{params.productId}} to {{response.name}}" }] } });
+    tx.run(ops.makeForm, { screen: "rename", operationId: "renameProduct", submitLabel: "Save name", params: { productId: "params.productId" }, then: { to: "back", effects: [{ do: "snackbar", message: "Renamed {{params.productId}} to {{response.name}}" }] } });
 
     /* the screen opened with params: calls that stay, and ones whose tap goes on at once */
-    const then = { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Pong {{response.n}} {{params.cat}}" }] };
-    const fail = { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Ping failed {{params.cat}}" }] };
+    const then = { to: "none", effects: [{ do: "snackbar", message: "Pong {{response.n}} {{params.cat}}" }] };
+    const fail = { to: "none", effects: [{ do: "snackbar", message: "Ping failed {{params.cat}}" }] };
     tx.run(ops.addPart, { slug: "button", id: "ping", screen: "notes", at: { x: 16, y: 40 }, props: { label: "Ping" } });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    tx.run(ops.setAction, { id: "ping", action: { to: "none", transition: "none", effects: [{ do: "call", operationId: "ping", then, catch: fail }] } as never });
+    tx.run(ops.setAction, { id: "ping", action: { to: "none", effects: [{ do: "call", operationId: "ping", then, catch: fail }] } as never });
     tx.run(ops.addPart, { slug: "button", id: "ping-go", screen: "notes", at: { x: 16, y: 100 }, props: { label: "Ping and go" } });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    tx.run(ops.setAction, { id: "ping-go", action: { to: "done", transition: "slide", effects: [{ do: "call", operationId: "ping", then, catch: fail }] } as never });
+    tx.run(ops.setAction, { id: "ping-go", action: { to: "done", effects: [{ do: "call", operationId: "ping", then, catch: fail }] } as never });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const form = tx.run(ops.makeForm, { screen: "notes", operationId: "saveNote", submitLabel: "Save note", then: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Saved {{response.n}}: {{form.values.text}} ({{params.cat}})" }] } }) as { formId: string; fields: { field: string; itemId?: string }[] };
+    const form = tx.run(ops.makeForm, { screen: "notes", operationId: "saveNote", submitLabel: "Save note", then: { to: "none", effects: [{ do: "snackbar", message: "Saved {{response.n}}: {{form.values.text}} ({{params.cat}})" }] } }) as { formId: string; fields: { field: string; itemId?: string }[] };
     ids.noteForm = form.formId;
     ids.noteField = form.fields.find((f) => f.field === "text")?.itemId ?? "";
     tx.run(ops.addPart, { slug: "button", id: "save-go", screen: "notes", at: { x: 16, y: 760 }, props: { label: "Save and go" } });
-    tx.run(ops.setAction, { id: "save-go", action: { to: "done", transition: "slide", effects: [{ do: "submit", form: form.formId }] } as never });
+    tx.run(ops.setAction, { id: "save-go", action: { to: "done", effects: [{ do: "submit", form: form.formId }] } as never });
     tx.run(ops.addPart, { slug: "text", id: "done-words", screen: "done", at: { x: 16, y: 40 }, props: { text: "All done" } });
 
     /* a field to type in, one screen into the stack */

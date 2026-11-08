@@ -25,7 +25,7 @@ beforeAll(() => setGlobalLang("en"));
 
 const fromDisk = (path: string) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 const noNetwork = async (ids: string[]) => ({ icons: Object.fromEntries(ids.map((id) => [id, { body: "" }])) });
-const stay = (effects: Action["effects"] = []): Action => ({ to: "none", transition: "none", effects });
+const stay = (effects: Action["effects"] = []): Action => ({ to: "none", effects });
 const part = (slug: string, more: Partial<Item> = {}): Item => ({ ...makeItem(slug), id: slug, ...more });
 
 /** a store with one screen, as the AI and MCP use it */
@@ -117,14 +117,14 @@ describe("the operations", () => {
     s.run(ops.addEndpoint, { operationId: "pay", method: "post", path: "/pay", returns: { type: "object", properties: { status: { type: "string" } } } }, { origin: "ai" });
     s.run(ops.addPart, { slug: "button", id: "b", screen: "home", at: { x: 16, y: 40 } }, { origin: "ai" });
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const answer = { do: "call", operationId: "pay", then: { to: "none", transition: "none", when: { expr: "response.status == 'paid'" }, else: { to: "none", transition: "none", effects: [{ do: "snackbar", message: "Pending" }] } } };
+    const answer = { do: "call", operationId: "pay", then: { to: "none", when: { expr: "response.status == 'paid'" }, else: { to: "none", effects: [{ do: "snackbar", message: "Pending" }] } } };
     s.run(ops.setAction, { id: "b", action: stay([answer as never]) }, { origin: "ai" });
     expect(s.get().doc.groups.flatMap((g) => g.items).find((x) => x.id === "b")?.action?.effects?.[0]).toMatchObject(answer);
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const broken = { do: "call", operationId: "pay", then: { to: "none", transition: "none", when: { var: "nope", op: "eq", value: 1 } } };
-    fails(() => s.run(ops.setAction, { id: "b", action: stay([broken as never]) }, { origin: "ai" }), /then: when: there is no variable "nope"/);
+    const broken = { do: "call", operationId: "pay", then: { to: "none", when: { expr: "vars.(" } } };
+    fails(() => s.run(ops.setAction, { id: "b", action: stay([broken as never]) }, { origin: "ai" }), /then: when: /);
     // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
-    const elseGoes = { do: "call", operationId: "pay", catch: { to: "none", transition: "none", when: { expr: "status == 409" }, else: { to: "nowhere", transition: "none" } } };
+    const elseGoes = { do: "call", operationId: "pay", catch: { to: "none", when: { expr: "status == 409" }, else: { to: "nowhere", motion: { kind: "instant" } } } };
     fails(() => s.run(ops.setAction, { id: "b", action: stay([elseGoes as never]) }, { origin: "ai" }), /catch: else: there is no screen "nowhere"/);
   });
 
@@ -156,7 +156,7 @@ describe("a demo", () => {
     expect(demoRuns(part("coupon"), "product")).toBe(false);
     expect(demoTakenOver(part("coupon", { bind: { claimed: "=data.coupon.value.claimed" } }))).toBe(true);
     expect(demoTakenOver(part("coupon", { actions: { action: claim } }))).toBe(true);
-    expect(demoTakenOver(part("coupon", { actions: { action: { to: "home", transition: "slide" } } }))).toBe(false);
+    expect(demoTakenOver(part("coupon", { actions: { action: { to: "home" } } }))).toBe(false);
     expect(demoTakenOver(part("prize-wheel", { bind: { result: "won" } }))).toBe(true);
     expect(demoRuns(part("text"), "prototype")).toBe(false);
     expect(untakenDemos([part("coupon"), part("coupon", { actions: { action: claim } }), part("text")]).map((x) => x.component)).toEqual(["coupon"]);
