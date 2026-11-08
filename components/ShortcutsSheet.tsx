@@ -4,6 +4,7 @@ import type { Palette } from "@/lib/tokens";
 import { t, useLang, type UIKey } from "@/lib/i18n";
 import { Icon } from "./Icon";
 import { IconBtn } from "./ui";
+import { useLayer } from "./layers";
 
 /* The keyboard shortcuts, the way Figma's `?` sheet lists them: selection (in and out of boxes, siblings), editing,
  * arranging and the view. The modifier is written as the platform has it. */
@@ -91,11 +92,13 @@ function Keys({ keys, p }: { keys: string[]; p: Palette }) {
 export function ShortcutsSheet({ open, onClose, p }: { open: boolean; onClose: () => void; p: Palette }) {
   const lang = useLang();
   const box = useRef<HTMLDivElement>(null);
+  /* Escape closes it while it is the topmost layer (components/layers.ts); so does `?`, the key that opened it */
+  useLayer(open, onClose, true);
   useEffect(() => {
     if (!open) return;
     box.current?.focus();
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "?") {
+      if (e.key === "?") {
         e.preventDefault();
         e.stopPropagation();
         onClose();

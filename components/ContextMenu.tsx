@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Palette } from "@/lib/tokens";
 import { t, useLang } from "@/lib/i18n";
 import { Icon } from "./Icon";
+import { useLayer } from "./layers";
 
 /* The canvas's right-click menu, the way Figma's is: a column of commands at the pointer, with their keys, grouped by
  * dividers, and a submenu for picking a layer further out. It closes on a choice, a press outside, Escape or a scroll;
@@ -106,25 +107,19 @@ function MenuList({ entries, x, y, onDone, p, depth = 0 }: { entries: MenuEntry[
 /** the menu at a point of the window, or nothing; `onClose` when it should go */
 export function ContextMenu({ at, entries, onClose, p }: { at: { x: number; y: number } | null; entries: MenuEntry[]; onClose: () => void; p: Palette }) {
   const lang = useLang();
+  /* Escape closes it while it is the topmost layer (components/layers.ts) */
+  useLayer(!!at, onClose);
   useEffect(() => {
     if (!at) return;
     const away = (e: Event) => {
       if (!(e.target as Element | null)?.closest?.("[data-context-menu]")) onClose();
     };
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    };
     window.addEventListener("pointerdown", away, true);
     window.addEventListener("wheel", onClose, { passive: true });
-    window.addEventListener("keydown", key, true);
     window.addEventListener("blur", onClose);
     return () => {
       window.removeEventListener("pointerdown", away, true);
       window.removeEventListener("wheel", onClose);
-      window.removeEventListener("keydown", key, true);
       window.removeEventListener("blur", onClose);
     };
   }, [at, onClose]);

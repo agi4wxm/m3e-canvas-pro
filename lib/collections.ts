@@ -214,12 +214,65 @@ function drawnOver(out: Group[], host: Group, bare: Group, template: Group, scop
   return filled;
 }
 
-/** a table is edited as text: the column names on the first line, one row per line, cells split by `,` */
-export const tableText = (t: { columns: string[]; rows: string[][] }) => [t.columns, ...t.rows].map((r) => r.join(", ")).join("\n");
-export const tableOf = (text: string): { columns: string[]; rows: string[][] } => {
-  const [head = "", ...rest] = text.split("\n");
-  const cells = (line: string) => line.split(",").map((c) => c.trim());
-  return { columns: cells(head), rows: rest.filter((l) => l.trim()).map(cells) };
+/* A table is edited as text: the column names on the first line, one row per line, cells parted by `,`. As in CSV, a
+ * cell in double quotes may hold commas, line breaks and quotes (written twice), so "$1,350.00" stays one cell. Space
+ * around a cell is not part of it unless it is inside the quotes, and a blank line is no row. A quote that no other
+ * closes is a letter like any other, so one just typed does not take the rest of the text into its cell. */
+
+/** a cell as the text writes it: in quotes when it holds what would part it, or space at either end */
+const cellText = (c: string) => (/[",\r\n]/.test(c) || c !== c.trim() ? `"${c.replaceAll('"', '""')}"` : c);
+
+/** a table as text; it reads back as the same table (`tableOf`) */
+export const tableText = (t: { columns: string[]; rows: string[][] }) =>
+  [t.columns, ...t.rows].map((r, i) => (i > 0 && r.length === 1 && r[0] === "" ? '""' : r.map(cellText).join(", "))).join("\n");
+
+/** the table a text writes out */
+export const tableOf = (input: string): { columns: string[]; rows: string[][] } => {
+  const text = input.replace(/\r\n?/g, "\n");
+  const n = text.length;
+  let i = 0;
+  /** the cell from `i` on, leaving `i` on the comma or the line break after it */
+  const cell = (): string => {
+    let at = i;
+    while (at < n && (text[at] === " " || text[at] === "\t")) at++;
+    if (text[at] === '"') {
+      let words = "";
+      let k = at + 1;
+      for (; k < n; k++) {
+        if (text[k] !== '"') words += text[k];
+        else if (text[k + 1] === '"') words += text[k++];
+        else break;
+      }
+      if (k < n) {
+        /* what follows the closing quote, up to the comma, is the cell's too */
+        let end = k + 1;
+        while (end < n && text[end] !== "," && text[end] !== "\n") end++;
+        const rest = text.slice(k + 1, end).trimEnd();
+        i = end;
+        return words + rest;
+      }
+    }
+    let end = i;
+    while (end < n && text[end] !== "," && text[end] !== "\n") end++;
+    const words = text.slice(i, end).trim();
+    i = end;
+    return words;
+  };
+  const lines: string[][] = [];
+  for (;;) {
+    const start = i;
+    const cells = [cell()];
+    while (text[i] === ",") {
+      i++;
+      cells.push(cell());
+    }
+    /* the first line is the columns, whatever it holds; a blank line after it is no row */
+    if (!lines.length || text.slice(start, i).trim()) lines.push(cells);
+    if (i >= n) break;
+    i++;
+  }
+  const [columns, ...rows] = lines;
+  return { columns, rows };
 };
 
 /** a collection's table, in the text a table prop is edited in */

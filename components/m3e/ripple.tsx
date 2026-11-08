@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { cn } from "@/lib/m3e/cn"
+import { prefersReducedMotion } from "@/components/m3e/reduced-motion"
 
 /*
  * Press feedback for M3 components.
@@ -15,7 +16,13 @@ import { cn } from "@/lib/m3e/cn"
  *    circle starts at 20% of the larger side on the press and grows past the
  *    corners while travelling to the centre, 450ms on the standard easing;
  *    fades in over 105ms, out over 375ms; touches wait 150ms so scrolling
- *    never lights anything up.
+ *    never lights anything up. When the system asks for reduced motion
+ *    (asked at each press, so a change while the page is open counts), the
+ *    press is a still layer over the whole control instead: nothing grows or
+ *    travels, and the pressed state, focus and disabled look stay as they are.
+ *
+ * Every delayed step is kept and cleared when the control goes, and the
+ * document hears a pointer's release only while a press is down.
  */
 const MINIMUM_PRESS_MS = 225
 const PRESS_GROW_MS = 450
@@ -67,7 +74,16 @@ function trackPress(target: HTMLElement) {
     target.setAttribute("data-press", "")
   }
   const release = () => target.removeAttribute("data-press")
+  /* the release of a pointer can happen anywhere on the page, so the document
+     hears it, but only while a press is down: a page of many controls keeps no
+     listener per control on the document */
+  const listen = (on: boolean) => {
+    const method = on ? "addEventListener" : "removeEventListener"
+    document[method]("pointerup", up)
+    document[method]("pointercancel", up)
+  }
   const up = () => {
+    listen(false)
     if (!since) return
     const left = MINIMUM_PRESS_MS - (performance.now() - since)
     since = 0
@@ -79,6 +95,7 @@ function trackPress(target: HTMLElement) {
     if (e.pointerType === "mouse" && e.button > 1) return
     if (isDisabled(target)) return
     down()
+    listen(true)
   }
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.target !== target || e.repeat || isDisabled(target)) return
@@ -106,17 +123,14 @@ function trackPress(target: HTMLElement) {
   target.addEventListener("keydown", onKeyDown)
   target.addEventListener("keyup", onKeyUp)
   target.addEventListener("click", onClick)
-  document.addEventListener("pointerup", up)
-  document.addEventListener("pointercancel", up)
   return () => {
     window.clearTimeout(timer)
+    listen(false)
     target.removeAttribute("data-press")
     target.removeEventListener("pointerdown", onPointerDown)
     target.removeEventListener("keydown", onKeyDown)
     target.removeEventListener("keyup", onKeyUp)
     target.removeEventListener("click", onClick)
-    document.removeEventListener("pointerup", up)
-    document.removeEventListener("pointercancel", up)
   }
 }
 
@@ -127,8 +141,19 @@ function trackRipple(
   press: HTMLElement
 ) {
   let grow: Animation | null = null
+  /** the press under way, by when it began: a release for an earlier one leaves it alone */
+  let pressed: { at: number } | null = null
   let touchTimer = 0
   let pendingTouch: PointerEvent | null = null
+  /* the delayed steps still to come, so none of them touches the ripple after it has gone */
+  const timers = new Set<number>()
+  const later = (step: () => void, ms: number) => {
+    const id = window.setTimeout(() => {
+      timers.delete(id)
+      step()
+    }, ms)
+    timers.add(id)
+  }
 
   const start = (e?: PointerEvent) => {
     const { width, height, left, top } = host.getBoundingClientRect()
@@ -137,17 +162,28 @@ function trackRipple(
       SOFT_EDGE_CONTAINER_RATIO * maxDim,
       SOFT_EDGE_MINIMUM_SIZE
     )
-    const initial = Math.max(1, Math.floor(maxDim * INITIAL_ORIGIN_SCALE))
     const maxRadius = Math.hypot(width, height) + PADDING
+
+    grow?.cancel()
+    grow = null
+    pressed = { at: performance.now() }
+    press.setAttribute("data-pressed", "")
+    if (prefersReducedMotion()) {
+      // a still layer, centred and large enough that its soft edge clears the corners
+      const size = Math.ceil(maxRadius + 2 * softEdge)
+      press.style.width = press.style.height = `${size}px`
+      press.style.transform = `translate(${(width - size) / 2}px, ${(height - size) / 2}px)`
+      return
+    }
+    const initial = Math.max(1, Math.floor(maxDim * INITIAL_ORIGIN_SCALE))
     const scale = (maxRadius + softEdge) / initial
     const from = e
       ? { x: e.clientX - left - initial / 2, y: e.clientY - top - initial / 2 }
       : { x: (width - initial) / 2, y: (height - initial) / 2 }
     const to = { x: (width - initial) / 2, y: (height - initial) / 2 }
 
-    grow?.cancel()
+    press.style.removeProperty("transform")
     press.style.width = press.style.height = `${initial}px`
-    press.setAttribute("data-pressed", "")
     grow = press.animate(
       {
         transform: [
@@ -160,14 +196,14 @@ function trackRipple(
   }
 
   const end = () => {
-    const animation = grow
-    if (!animation) return
-    const played = Number(animation.currentTime ?? Infinity)
+    const mine = pressed
+    if (!mine) return
+    const played = performance.now() - mine.at
     const release = () => {
-      if (grow === animation) press.removeAttribute("data-pressed")
+      if (pressed === mine) press.removeAttribute("data-pressed")
     }
     if (played >= MINIMUM_PRESS_MS) release()
-    else window.setTimeout(release, MINIMUM_PRESS_MS - played)
+    else later(release, MINIMUM_PRESS_MS - played)
   }
 
   const cleanupUp = () => {
@@ -205,7 +241,7 @@ function trackRipple(
     end()
   }
   const onPointerLeave = (e: PointerEvent) => {
-    if (e.pointerType === "mouse" && grow) end()
+    if (e.pointerType === "mouse" && pressed) end()
   }
   const onKeyDown = (e: KeyboardEvent) => {
     if (
@@ -233,7 +269,7 @@ function trackRipple(
   // A control that turns "current" (navigation item, tab) has done its job:
   // let the ripple go at once instead of trailing over the new state.
   const settle = new MutationObserver(() => {
-    if (!grow || !press.hasAttribute("data-pressed")) return
+    if (!pressed || !press.hasAttribute("data-pressed")) return
     if (
       !target.hasAttribute("data-active") &&
       !target.hasAttribute("aria-current")
@@ -241,10 +277,7 @@ function trackRipple(
       return
     press.style.transitionDuration = "90ms"
     press.removeAttribute("data-pressed")
-    window.setTimeout(
-      () => press.style.removeProperty("transition-duration"),
-      120
-    )
+    later(() => press.style.removeProperty("transition-duration"), 120)
   })
   settle.observe(target, {
     attributes: true,
@@ -260,6 +293,8 @@ function trackRipple(
     settle.disconnect()
     cleanupUp()
     window.clearTimeout(touchTimer)
+    timers.forEach((id) => window.clearTimeout(id))
+    timers.clear()
     target.removeEventListener("pointerdown", onPointerDown)
     target.removeEventListener("pointerleave", onPointerLeave)
     target.removeEventListener("keydown", onKeyDown)
@@ -307,4 +342,4 @@ function Ripple({ disabled, className }: RippleProps) {
   )
 }
 
-export { Ripple, trackPress }
+export { Ripple, trackPress, trackRipple }

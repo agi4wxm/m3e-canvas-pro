@@ -26,16 +26,40 @@ export function setsOf(family: IconFamily): IconSetKey[] {
 }
 
 const loading = new Map<string, Promise<IconShard | undefined>>()
+/** the files whose last fetch failed: the address the failure named, and how many times */
+const failed = new Map<string, { url?: string; times: number }>()
 
-/** a file of data/, once; nothing when it cannot be had */
+/** the address a failed module import names in its message (Chromium and Firefox give it) */
+const addressIn = (e: unknown) =>
+  e instanceof Error ? /\bhttps?:\/\/[^\s'"]+/.exec(e.message)?.[0] : undefined
+
+/** A file of data/: asking again while it is on its way, or once it has come, gets the same. When
+ *  it cannot be had there is nothing, and the failure is not kept -- the network may come back, or
+ *  a new deploy may have replaced the chunks -- so the next ask fetches it again. */
 function load(file: string): Promise<IconShard | undefined> {
   let shard = loading.get(file)
   if (!shard) {
     /* a template, so the bundler makes a chunk of each file in data/, and the import walk of an
-     * exported project (which has no data/) does not follow it */
-    shard = import(`./data/${file}.json`)
-      .then((m: { default?: IconShard }) => (m.default ?? m) as IconShard)
-      .catch(() => undefined)
+     * exported project (which has no data/) does not follow it. A browser keeps a failed module's
+     * failure for its address (Chromium does, for good), so a try after one asks at that address
+     * with a query of its own. */
+    const before = failed.get(file)
+    const fetching: Promise<IconShard | undefined> = (
+      before?.url
+        ? import(/* @vite-ignore */ `${before.url}${before.url.includes("?") ? "&" : "?"}retry=${before.times}`)
+        : import(`./data/${file}.json`)
+    )
+      .then((m: { default?: IconShard }) => {
+        failed.delete(file)
+        return (m.default ?? m) as IconShard
+      })
+      .catch((e: unknown) => {
+        if (loading.get(file) === fetching) loading.delete(file)
+        /* the address of the first failure: a later one names the address with the query added */
+        failed.set(file, { url: before?.url ?? addressIn(e), times: (before?.times ?? 0) + 1 })
+        return undefined
+      })
+    shard = fetching
     loading.set(file, shard)
   }
   return shard

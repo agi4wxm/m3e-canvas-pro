@@ -5,6 +5,7 @@ import { boundItem } from "@/lib/variables";
 import { BoundValues } from "./boundValues";
 import { useLang, type Lang } from "@/lib/i18n";
 import { useIcons } from "@/parts/icons";
+import { SayLanguage } from "@/components/m3e/say";
 import { PartSurface } from "@/parts/theme";
 import { appearanceOf } from "@/parts/appearance";
 import { partBySlug, viewOf } from "@/parts/registry";
@@ -150,9 +151,13 @@ function PartViewBody({ item: own, live = false, screen, held = false }: PartVie
       {/* an inline box inside the part's block would sit on the strut's baseline, ~a line's
        *  leading low; top-aligned, the part's content starts at the part's own top */}
       <div key={`${icons}:${starting}`} inert={!live} style={{ display: "inline-flex", verticalAlign: "top", pointerEvents: live ? undefined : "none" }}>
-        {/* until its components have come, its guessed size holds the place; the boundary stays for anything inside a
-         *  component that waits on its own */}
-        {ready ? <Suspense fallback={hold}>{drawn}</Suspense> : hold}
+        {/* the words the components say by themselves (a picker's title, an icon button's name) are in the canvas
+         *  language, passed down rather than read off the page, which takes it only after this has drawn */}
+        <SayLanguage.Provider value={lang}>
+          {/* until its components have come, its guessed size holds the place; the boundary stays for anything inside a
+           *  component that waits on its own */}
+          {ready ? <Suspense fallback={hold}>{drawn}</Suspense> : hold}
+        </SayLanguage.Provider>
       </div>
     </PartSurface>
   );

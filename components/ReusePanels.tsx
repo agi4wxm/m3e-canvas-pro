@@ -15,7 +15,7 @@ import { StaticPart } from "./ComponentNode";
 import { BehaviorContext } from "./EffectsPanel";
 import { Icon } from "./Icon";
 import { AlignBox, IconRow, Num, PartMenu, type PlaceFn } from "./PartPanel";
-import { Field, IconBtn, ImageRow, PanelShell, Section, Select, Toggle } from "./ui";
+import { Field, IconBtn, ImageRow, PanelShell, Section, Select, Toggle, useDraft } from "./ui";
 
 /* The panels of the three things a document can reuse: components (the left tab, and the panel of a
  * placed instance), data (the left tab, and the Repeat section of a layout container) and the sizes of
@@ -536,14 +536,7 @@ function CollectionCard({ c, models, onChange, onDelete, p }: { c: Collection; m
   const lang = useLang();
   /* The words typed are kept as typed: reading them back from the rows would swallow a line just
    * started or a space after a comma. They give way when the rows change from elsewhere, an undo say. */
-  const [draft, setDraft] = useState(() => collectionText(c));
-  const parsed = JSON.stringify(collectionOf(draft));
-  const now = JSON.stringify({ fields: c.fields, rows: c.rows });
-  useEffect(() => {
-    if (parsed !== now) setDraft(collectionText(c));
-    // only a change of the rows themselves can make the draft stale
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [now]);
+  const [draft, type] = useDraft({ fields: c.fields, rows: c.rows }, collectionText, collectionOf);
   return (
     <div data-collection={c.id} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 8, borderRadius: 16, background: p.surfaceContainerLow }}>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -554,10 +547,7 @@ function CollectionCard({ c, models, onChange, onDelete, p }: { c: Collection; m
       </div>
       <Field
         value={draft}
-        onChange={(text) => {
-          setDraft(text);
-          onChange(collectionOf(text));
-        }}
+        onChange={(text) => onChange(type(text))}
         placeholder={t("collectionTable", lang)}
         label={t("collectionTable", lang)}
         p={p}

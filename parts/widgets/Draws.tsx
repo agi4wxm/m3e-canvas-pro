@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Look } from "./look";
 import { cn } from "@/lib/m3e/cn";
 import { Button } from "@/components/m3e/button";
+import { prefersReducedMotion } from "@/components/m3e/reduced-motion";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 
@@ -14,7 +15,7 @@ type DrawProps = { prizes?: Prize[]; label?: string; result?: number; size?: num
 
 const SPIN_MS = 1200;
 
-const reduced = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+const reduced = prefersReducedMotion;
 
 /** one draw at a time: `tick` moves while it runs, so a machine can show something happening */
 function useDraw(prizes: Prize[], result: number) {

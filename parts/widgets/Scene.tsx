@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Look } from "./look";
 import { cn } from "@/lib/m3e/cn";
+import { prefersReducedMotion } from "@/components/m3e/reduced-motion";
 import { Tap } from "./Tap";
 import { WidgetIcon } from "./WidgetIcon";
 
@@ -45,7 +46,7 @@ export function Scene({ image = "", icon = "landscape", scrim = "none", hotspots
   /* it holds on the canvas for good; for someone who asked for less motion, until they ask for this one */
   const [hold, setHold] = useState<"no" | "drawing" | "calm">("no");
   useLayoutEffect(() => {
-    setHold(root.current?.closest("[inert]") ? "drawing" : typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches ? "calm" : "no");
+    setHold(root.current?.closest("[inert]") ? "drawing" : prefersReducedMotion() ? "calm" : "no");
   }, []);
   return (
     <div ref={root} data-slot="scene" data-painted={painted || undefined} className={cn("relative overflow-hidden", className)} style={{ width, height, ...style }}>

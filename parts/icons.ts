@@ -101,6 +101,37 @@ async function fromIconify(names: string[]) {
   }
 }
 
+/* A name still not drawn once its shard was asked for (the chunk did not come: offline, or a new deploy replaced the
+ * chunks) is asked for again: by the next draw that names it, and on its own a few times, further apart each time, and
+ * when the browser is back online. A shard that came is never fetched twice (components/m3e/icon-sets/load.ts). */
+const RETRY_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 32_000];
+let retries = 0;
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
+let retrying = new Set<string>();
+
+function retryNow() {
+  if (retryTimer !== undefined) clearTimeout(retryTimer);
+  retryTimer = undefined;
+  const again = retrying;
+  retrying = new Set();
+  ensureIcons(again);
+}
+
+function retryLater(names: string[], drawn: IconFamily) {
+  for (const n of names) {
+    asked.delete(`${drawn}:${base(n)}`);
+    retrying.add(n);
+  }
+  if (retryTimer !== undefined || retries >= RETRY_MS.length) return;
+  retryTimer = setTimeout(retryNow, RETRY_MS[retries++]);
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function")
+  window.addEventListener("online", () => {
+    retries = 0;
+    if (retrying.size) retryNow();
+  });
+
 async function flush() {
   const names = [...pending];
   pending.clear();
@@ -109,6 +140,9 @@ async function flush() {
   const missing = names.filter((n) => !fetched.has(n) && !rounded(n).some(isKnownIcon));
   missing.forEach((n) => fetched.add(n));
   if (missing.length) await fromIconify(missing);
+  const undrawn = names.filter((n) => !rounded(n).some(isKnownIcon));
+  if (undrawn.length) retryLater(undrawn, drawn);
+  else retries = 0;
 }
 
 /** load the icons a part uses, in the current family; the ones already loaded are skipped */

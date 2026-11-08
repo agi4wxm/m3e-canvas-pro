@@ -1,38 +1,33 @@
 
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PLACES, Palette, Place, R_INNER, SETTLE_MS, clamp, draftGradient } from "@/lib/tokens";
 import { AnimatePresence, animate, motion, useReducedMotion } from "motion/react";
 import { t, useLang } from "@/lib/i18n";
+import { decimalsOf, inputStep, onStep, typedNumber } from "@/lib/numbers";
 import { Icon } from "./Icon";
+import { useLayer } from "./layers";
 
 /** Set over the design panel: its controls come out at Figma's density (28px rows, 12px words, hairline sections)
  *  rather than the roomy touch sizes the other panels keep. */
 export const DenseContext = createContext(false);
 
-/** Closes what is open: on Escape, which goes no further (the editor also clears its selection on
- *  it), and, given what counts as inside, on a press anywhere else. Both are heard on their way down,
- *  so nothing on the page can stop a press from closing it. */
+/** Closes what is open: on Escape while it is the topmost layer (components/layers.ts: one press
+ *  closes one layer, and the canvas, which also clears its selection on it, does not hear it), and,
+ *  given what counts as inside, on a press anywhere else. A press is heard on its way down, so
+ *  nothing on the page can stop it from closing what is open. */
 export function useDismiss(active: boolean, close: (by: "escape" | "press") => void, inside?: React.RefObject<HTMLElement | null>[]) {
   const latest = useRef({ close, inside });
   latest.current = { close, inside };
+  useLayer(active, () => latest.current.close("escape"));
   useEffect(() => {
     if (!active) return;
     const onDown = (e: PointerEvent) => {
       const { close, inside } = latest.current;
       if (inside && !inside.some((r) => r.current?.contains(e.target as Node))) close("press");
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      latest.current.close("escape");
-    };
     window.addEventListener("pointerdown", onDown, true);
-    window.addEventListener("keydown", onKey, true);
-    return () => {
-      window.removeEventListener("pointerdown", onDown, true);
-      window.removeEventListener("keydown", onKey, true);
-    };
+    return () => window.removeEventListener("pointerdown", onDown, true);
   }, [active]);
 }
 
@@ -675,6 +670,28 @@ export function Select({
   );
 }
 
+/** The words of a field that stands for a value read out of them (a table's rows, say), kept as typed: writing them
+ *  out again from the value at each key would swallow a line just started, a space after a comma or a quote still
+ *  open. They give way only when the value changes from elsewhere, an undo or the AI. Returns the words and what to
+ *  call with new ones, which hands back the value they read as. */
+export function useDraft<V>(value: V, write: (v: V) => string, read: (text: string) => V): [string, (text: string) => V] {
+  const [draft, setDraft] = useState(() => write(value));
+  const now = JSON.stringify(value);
+  const drafted = JSON.stringify(read(draft));
+  useEffect(() => {
+    if (drafted !== now) setDraft(write(value));
+    // only a change of the value itself can make the draft stale
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now]);
+  return [
+    draft,
+    (text) => {
+      setDraft(text);
+      return read(text);
+    },
+  ];
+}
+
 /** how wide the band is that a field wears while a model writes into it */
 const RING = 3;
 
@@ -1035,7 +1052,8 @@ export function Field({
 }
 
 /** Slider with a typed-in number beside it. The slider moves in `step`s; the
- *  field accepts any whole number and is clamped to min..max when it commits. */
+ *  field accepts any number to the step's precision (any whole number for a whole
+ *  step, 4.5 for a step of 0.1: lib/numbers.ts) and is clamped to min..max when it commits. */
 export function Slider({
   icon = "tune",
   value,
@@ -1063,8 +1081,8 @@ export function Slider({
     if (!editing) setText(String(value));
   }, [value, editing]);
   const commit = () => {
-    const n = Math.round(Number(text));
-    if (Number.isFinite(n) && text.trim() !== "") onChange(clamp(n, min, max));
+    const n = typedNumber(text, step);
+    if (n !== undefined) onChange(clamp(n, min, max));
     setEditing(false);
     setText(String(value));
   };
@@ -1133,16 +1151,17 @@ export function Slider({
            ticking from one stop to the next; the author's own drag keeps the step */
         step={travelling ? "any" : step}
         value={shown}
-        onChange={(e) => emit(clamp(Math.round(Number(e.target.value) / step) * step, min, max))}
+        onChange={(e) => emit(clamp(onStep(Number(e.target.value), step), min, max))}
         style={{ "--track": p.secondaryContainer, "--thumb": p.primary } as React.CSSProperties}
       />
       <span style={{ position: "relative", flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
         <input
           type="number"
-          inputMode="numeric"
+          inputMode={decimalsOf(step) ? "decimal" : "numeric"}
           aria-label={title}
           min={min}
           max={max}
+          step={inputStep(step)}
           value={editing ? text : String(value)}
           onFocus={(e) => {
             setEditing(true);
@@ -1152,8 +1171,8 @@ export function Slider({
           onChange={(e) => {
             setText(e.target.value);
             // apply as you type once the number is already in range, so the canvas follows
-            const n = Math.round(Number(e.target.value));
-            if (e.target.value.trim() !== "" && Number.isFinite(n) && n >= min && n <= max) emit(n);
+            const n = typedNumber(e.target.value, step);
+            if (n !== undefined && n >= min && n <= max) emit(n);
           }}
           onBlur={commit}
           onKeyDown={(e) => {
@@ -1747,7 +1766,43 @@ export function TidyButton({
   );
 }
 
-/** M3 basic dialog for a destructive confirmation. */
+/** what Tab reaches inside `box`, in its order */
+const focusablesIn = (box: HTMLElement) =>
+  Array.from(box.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter((el) => !el.matches(":disabled") && !el.closest("[inert]"));
+
+/** While `open`, a modal dialog holds the focus: it starts on `first` (the safe answer), the rest of the page is inert
+ *  to the pointer, the keyboard and a screen reader, and on closing the focus goes back to what held it before. `box`
+ *  has to sit in a child of the body of its own (a portal); `trapTab` keeps Tab inside it. */
+export function useModalFocus(open: boolean, box: React.RefObject<HTMLElement | null>, first: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!open) return;
+    const held = document.activeElement;
+    const opener = held instanceof HTMLElement && held !== document.body ? held : null;
+    const own = box.current?.closest("body > *");
+    const quieted = Array.from(document.body.children).filter((el): el is HTMLElement => el instanceof HTMLElement && el !== own && !el.inert);
+    for (const el of quieted) el.inert = true;
+    first.current?.focus();
+    return () => {
+      for (const el of quieted) el.inert = false;
+      if (opener?.isConnected && !opener.closest("[inert]")) opener.focus();
+    };
+  }, [open]);
+}
+
+/** Tab and Shift+Tab inside a modal dialog: from the last control round to the first and back, never out of it */
+export function trapTab(e: React.KeyboardEvent<HTMLElement>) {
+  if (e.key !== "Tab") return;
+  const items = focusablesIn(e.currentTarget);
+  if (!items.length) return;
+  const at = items.indexOf(document.activeElement as HTMLElement);
+  e.preventDefault();
+  items[e.shiftKey ? (at <= 0 ? items.length - 1 : at - 1) : at < 0 || at === items.length - 1 ? 0 : at + 1].focus();
+}
+
+/** M3 basic dialog for a destructive confirmation, with an alert dialog's manners: the focus starts on Cancel, Enter
+ *  presses only the button that has the focus (once, however long it is held), Tab stays inside, Escape and a press on
+ *  the scrim cancel, and on closing the focus goes back where it was. It answers once: a second press while it fades
+ *  out does nothing. */
 export function ConfirmDialog({
   open,
   title,
@@ -1766,23 +1821,28 @@ export function ConfirmDialog({
   onConfirm: () => void;
 }) {
   const lang = useLang();
+  const box = useRef<HTMLDivElement | null>(null);
+  const cancelRef = useRef<HTMLButtonElement | null>(null);
+  const titleId = useId();
+  const bodyId = useId();
+  /* the answer given since it last opened, so the button pressed again on its way out does nothing */
+  const answered = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onCancel();
-      }
-      if (e.key === "Enter") {
-        e.stopPropagation();
-        onConfirm();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onCancel, onConfirm]);
-  const btn = (label: string, primary: boolean, onClick: () => void) => (
+    if (open) answered.current = false;
+  }, [open]);
+  const once = (then: () => void) => () => {
+    if (answered.current) return;
+    answered.current = true;
+    then();
+  };
+  const cancel = once(onCancel);
+  const confirm = once(onConfirm);
+  useLayer(open, cancel, true);
+  useModalFocus(open, box, cancelRef);
+  const btn = (label: string, primary: boolean, onClick: () => void, ref?: React.Ref<HTMLButtonElement>) => (
     <button
+      ref={ref}
+      data-dialog-answer={primary ? "confirm" : "cancel"}
       onClick={onClick}
       className="m3-press"
       style={{
@@ -1800,7 +1860,7 @@ export function ConfirmDialog({
       {label}
     </button>
   );
-  return (
+  const dialog = (
     <AnimatePresence>
       {open && (
         <motion.div
@@ -1809,7 +1869,7 @@ export function ConfirmDialog({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.16 }}
-          onClick={onCancel}
+          onClick={cancel}
           style={{
             position: "fixed",
             inset: 0,
@@ -1821,14 +1881,21 @@ export function ConfirmDialog({
           }}
         >
           <motion.div
+            ref={box}
             role="alertdialog"
             aria-modal
-            aria-label={title}
+            aria-labelledby={titleId}
+            aria-describedby={bodyId}
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.96, opacity: 0 }}
             transition={{ type: "spring", stiffness: 520, damping: 34, mass: 0.7 }}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              trapTab(e);
+              /* Enter is the focused button's own, which the browser presses; held down, or ending a composition, it presses nothing */
+              if (e.key === "Enter" && (e.repeat || e.nativeEvent.isComposing)) e.preventDefault();
+            }}
             style={{
               width: "min(100%, 340px)",
               padding: 24,
@@ -1844,15 +1911,21 @@ export function ConfirmDialog({
             <div style={{ textAlign: "center", color: p.error }}>
               <Icon name={icon} size={28} />
             </div>
-            <div style={{ fontSize: 22, textAlign: "center" }}>{title}</div>
-            <div style={{ fontSize: 14, lineHeight: 1.5, color: p.onSurfaceVariant, whiteSpace: "pre-line" }}>{body}</div>
+            <div id={titleId} style={{ fontSize: 22, textAlign: "center" }}>
+              {title}
+            </div>
+            <div id={bodyId} style={{ fontSize: 14, lineHeight: 1.5, color: p.onSurfaceVariant, whiteSpace: "pre-line" }}>
+              {body}
+            </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              {btn(t("cancel", lang), false, onCancel)}
-              {btn(t("ok", lang), true, onConfirm)}
+              {btn(t("cancel", lang), false, cancel, cancelRef)}
+              {btn(t("ok", lang), true, confirm)}
             </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
   );
+  /* in a child of the body of its own, so that everything else can go inert while it asks */
+  return typeof document === "undefined" ? dialog : createPortal(dialog, document.body);
 }

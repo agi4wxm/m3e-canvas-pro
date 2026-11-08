@@ -3,6 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { LoadingAnimator, morphedShape } from "@/lib/m3e/shapes"
 import { cn } from "@/lib/m3e/cn"
+import { useReducedMotionPreference } from "@/components/m3e/reduced-motion"
 
 /*
  * M3 Expressive loading indicator: seven Material shapes morphing into each
@@ -56,11 +57,12 @@ function LoadingIndicator({
     speedRef.current = speed
   }, [speed])
 
+  /* with reduced motion it is drawn once and holds still; the setting changing while it is up starts or stops it */
+  const reduced = useReducedMotionPreference()
   React.useEffect(() => {
     const path = pathRef.current
     const group = groupRef.current
     if (!path || !group) return undefined
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches
     const animator = new LoadingAnimator()
     const draw = () => {
       path.setAttribute("d", toPath(morphedShape(animator.morph), 1))
@@ -76,7 +78,7 @@ function LoadingIndicator({
       frame = requestAnimationFrame(tick)
     })
     return () => cancelAnimationFrame(frame)
-  }, [])
+  }, [reduced])
 
   // 38dp of 48dp; the shapes are normalised to a radius of 1
   const r = (38 / 48) * 0.5
