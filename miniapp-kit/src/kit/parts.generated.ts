@@ -1213,6 +1213,66 @@ export const PARTS: Record<string, PartInfo> = {
    "count": 1
   }
  },
+ "carousel": {
+  "name": "Carousel (Embla)",
+  "tier": "composite",
+  "defaults": {
+   "slides": [
+    {
+     "label": "Sunrise"
+    },
+    {
+     "label": "Forest"
+    },
+    {
+     "label": "Ocean"
+    },
+    {
+     "label": "Desert"
+    },
+    {
+     "label": "Glacier"
+    }
+   ],
+   "arrows": true,
+   "orientation": "horizontal",
+   "itemWidth": 0,
+   "gap": 16,
+   "width": 320,
+   "height": 200
+  }
+ },
+ "expressive-carousel": {
+  "name": "Expressive carousel",
+  "tier": "composite",
+  "defaults": {
+   "variant": "multi-browse",
+   "slides": [
+    {
+     "label": "Sunrise"
+    },
+    {
+     "label": "Forest"
+    },
+    {
+     "label": "Ocean"
+    },
+    {
+     "label": "Desert"
+    },
+    {
+     "label": "Glacier"
+    },
+    {
+     "label": "Canyon"
+    }
+   ],
+   "itemWidth": 186,
+   "gap": 8,
+   "height": 180,
+   "width": 420
+  }
+ },
  "kbd": {
   "name": "Kbd",
   "tier": "atom",
@@ -1245,6 +1305,61 @@ export const PARTS: Record<string, PartInfo> = {
    "color": "primary",
    "width": 96,
    "height": 96
+  }
+ },
+ "marker": {
+  "name": "Marker",
+  "tier": "composite",
+  "defaults": {
+   "text": "Today",
+   "variant": "separator",
+   "icon": "",
+   "width": 320
+  }
+ },
+ "message-scroller": {
+  "name": "Message scroller",
+  "tier": "composite",
+  "defaults": {
+   "messages": [
+    {
+     "label": "Hi! Ask me anything."
+    },
+    {
+     "label": "What is a spatial spring?"
+    },
+    {
+     "label": "One that moves things, and may overshoot a little."
+    },
+    {
+     "label": "Thanks!"
+    }
+   ],
+   "button": true,
+   "width": 360,
+   "height": 288
+  }
+ },
+ "questionnaire": {
+  "name": "Questionnaire",
+  "tier": "composite",
+  "defaults": {
+   "question": "Which framework do you use?",
+   "description": "Pick one.",
+   "choices": [
+    {
+     "label": "React"
+    },
+    {
+     "label": "Svelte"
+    },
+    {
+     "label": "Vue"
+    }
+   ],
+   "multiple": false,
+   "steps": 2,
+   "width": 400
   }
  },
  "form": {
@@ -1427,6 +1542,68 @@ export const PARTS: Record<string, PartInfo> = {
    "persist": false,
    "width": 640,
    "height": 360
+  }
+ },
+ "video": {
+  "name": "Video",
+  "tier": "composite",
+  "defaults": {
+   "src": "",
+   "title": "Video title",
+   "time": "01:24 / 03:45",
+   "width": 380
+  }
+ },
+ "web-view": {
+  "name": "Web page",
+  "tier": "composite",
+  "defaults": {
+   "address": "https://example.com",
+   "load": false,
+   "width": 380,
+   "height": 280
+  }
+ },
+ "animation": {
+  "name": "Animation placeholder",
+  "tier": "composite",
+  "defaults": {
+   "file": "animation.json",
+   "size": 180
+  }
+ },
+ "camera": {
+  "name": "Camera placeholder",
+  "tier": "composite",
+  "defaults": {
+   "facing": "back",
+   "mode": "photo",
+   "state": "live",
+   "denied": "",
+   "width": 360,
+   "height": 480
+  }
+ },
+ "map": {
+  "name": "Map placeholder",
+  "tier": "composite",
+  "defaults": {
+   "label": "Current location",
+   "center": "",
+   "zoom": 14,
+   "markers": {
+    "columns": [
+     "Id",
+     "Title",
+     "Lat",
+     "Lng"
+    ],
+    "rows": []
+   },
+   "selected": "",
+   "route": false,
+   "width": 380,
+   "height": 240
   }
  },
  "chart": {
@@ -1667,6 +1844,13 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "text": "npm run deploy",
    "width": 280
+  }
+ },
+ "shimmer-text": {
+  "name": "Shimmer text",
+  "tier": "composite",
+  "defaults": {
+   "text": "Thinking…"
   }
  },
  "prize-wheel": {
@@ -1970,6 +2154,15 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "count": 4,
    "current": 0
+  }
+ },
+ "photo-grid": {
+  "name": "Photo grid",
+  "tier": "composite",
+  "defaults": {
+   "count": 9,
+   "columns": 3,
+   "width": 380
   }
  },
  "brand-button": {
@@ -2384,6 +2577,29 @@ export const PARTS: Record<string, PartInfo> = {
    "label": ""
   }
  },
+ "number-ticker": {
+  "name": "Number ticker",
+  "tier": "composite",
+  "defaults": {
+   "value": 1280,
+   "prefix": "",
+   "suffix": "",
+   "size": "headline"
+  }
+ },
+ "timer": {
+  "name": "Timer",
+  "tier": "composite",
+  "defaults": {
+   "seconds": 60,
+   "countdown": true,
+   "running": false,
+   "endsAt": 0,
+   "startedAt": 0,
+   "clockSkew": 0,
+   "width": 200
+  }
+ },
  "tracker": {
   "name": "Status tracker",
   "tier": "composite",
@@ -2456,6 +2672,56 @@ export const PARTS: Record<string, PartInfo> = {
    "width": 360
   }
  },
+ "audio-player": {
+  "name": "Audio player",
+  "tier": "composite",
+  "defaults": {
+   "title": "Song title",
+   "artist": "Artist",
+   "src": "",
+   "seconds": 180,
+   "playing": false,
+   "position": 0,
+   "width": 360
+  }
+ },
+ "marquee": {
+  "name": "Marquee",
+  "tier": "composite",
+  "defaults": {
+   "text": "A line that keeps moving past.",
+   "seconds": 12,
+   "width": 320
+  }
+ },
+ "story-row": {
+  "name": "Stories",
+  "tier": "composite",
+  "defaults": {
+   "items": [
+    {
+     "label": "Your story"
+    },
+    {
+     "label": "Ada"
+    },
+    {
+     "label": "Grace"
+    },
+    {
+     "label": "Alan"
+    },
+    {
+     "label": "Katherine"
+    },
+    {
+     "label": "Linus"
+    }
+   ],
+   "add": true,
+   "width": 380
+  }
+ },
  "file-list": {
   "name": "Files",
   "tier": "composite",
@@ -2491,6 +2757,50 @@ export const PARTS: Record<string, PartInfo> = {
    },
    "removable": true,
    "selected": -1,
+   "width": 380
+  }
+ },
+ "playlist": {
+  "name": "Playlist or lessons",
+  "tier": "composite",
+  "defaults": {
+   "title": "Getting started",
+   "data": {
+    "columns": [
+     "Title",
+     "Detail",
+     "Length",
+     "State"
+    ],
+    "rows": [
+     [
+      "Welcome",
+      "Chapter 1",
+      "03:12",
+      "done"
+     ],
+     [
+      "First steps",
+      "Chapter 1",
+      "08:45",
+      "done"
+     ],
+     [
+      "Going further",
+      "Chapter 2",
+      "12:30",
+      ""
+     ],
+     [
+      "Final project",
+      "Chapter 3",
+      "24:00",
+      "locked"
+     ]
+    ]
+   },
+   "selected": 2,
+   "playing": false,
    "width": 380
   }
  },
@@ -2869,6 +3179,82 @@ export const PARTS: Record<string, PartInfo> = {
    "width": 380
   }
  },
+ "qr-code": {
+  "name": "QR code",
+  "tier": "composite",
+  "defaults": {
+   "text": "https://example.com",
+   "level": "M",
+   "caption": "Scan to open",
+   "copy": "Copy link",
+   "copied": "Copied",
+   "tooLong": "Too much text for a QR code",
+   "size": 200
+  }
+ },
+ "scene": {
+  "name": "Scene",
+  "tier": "composite",
+  "defaults": {
+   "prompt": "",
+   "styleVariant": "",
+   "motion": "still",
+   "frames": 9,
+   "frameMs": 200,
+   "image": "",
+   "scrim": "none",
+   "hotspots": {
+    "columns": [
+     "Label",
+     "x",
+     "y",
+     "w",
+     "h"
+    ],
+    "rows": []
+   },
+   "icon": "landscape",
+   "height": 892,
+   "width": 412
+  }
+ },
+ "image-viewer": {
+  "name": "Image viewer",
+  "tier": "composite",
+  "defaults": {
+   "images": [
+    {
+     "label": "Harbour at dawn"
+    },
+    {
+     "label": "Old town"
+    },
+    {
+     "label": "Night market"
+    }
+   ],
+   "height": 260,
+   "thumbnails": true,
+   "index": 0,
+   "width": 380
+  }
+ },
+ "image-cropper": {
+  "name": "Image cropper",
+  "tier": "composite",
+  "defaults": {
+   "image": "",
+   "aspect": "1:1",
+   "action": "Done",
+   "reset": "Reset",
+   "doneText": "Cropped",
+   "crop": "",
+   "turn": 0,
+   "cropped": false,
+   "height": 300,
+   "width": 380
+  }
+ },
  "region-picker": {
   "name": "Region picker",
   "tier": "composite",
@@ -3043,6 +3429,34 @@ export const PARTS: Record<string, PartInfo> = {
    "units": 8,
    "unit": "w",
    "today": 4,
+   "width": 380
+  }
+ },
+ "voice-message": {
+  "name": "Voice message",
+  "tier": "composite",
+  "defaults": {
+   "seconds": 12,
+   "mine": false,
+   "transcript": "See you at the station at six.",
+   "transcribe": "Show text",
+   "width": 240
+  }
+ },
+ "video-call": {
+  "name": "Video call",
+  "tier": "composite",
+  "defaults": {
+   "name": "Ada Lovelace",
+   "connected": true,
+   "status": "Calling…",
+   "mic": true,
+   "camera": true,
+   "speaker": true,
+   "startedAt": "",
+   "image": "",
+   "icon": "person",
+   "height": 560,
    "width": 380
   }
  },

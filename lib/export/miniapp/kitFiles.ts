@@ -51,6 +51,9 @@ export const MINIAPP_KIT_FILES = [
   /* D2: data and charts, lists and desktop parts */
   "composites/data.tsx",
   "composites/desk.tsx",
+  /* D1: media, capability views' stand-ins, what talks and keeps time */
+  "composites/live.tsx",
+  "composites/media.tsx",
 ] as const;
 
 export const MINIAPP_KIT_DIR = "miniapp-kit/src/kit";

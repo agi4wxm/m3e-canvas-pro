@@ -39,3 +39,6 @@ export { Drawer, HoverCard, Popover, SideSheet, Tooltip, around, sideSheetWindow
 /* D2: data and charts, lists and desktop parts */
 export { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table } from "./composites/data";
 export { FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Window } from "./composites/desk";
+/* D1: media, capability views' stand-ins, what talks and keeps time */
+export { Animation, AudioPlayer, CameraStandIn, ExpressiveCarousel, ImageCropper, ImageViewer, MapStandIn, Marquee, PhotoGrid, Playlist, QrCode, Video, WebPage, qrMatrix, type MapStandInProps } from "./composites/media";
+export { CallStandIn, Marker, MessageScroller, NumberTicker, Questionnaire, ShimmerText, StoryRow, Timer, VoiceMessage, timerSeconds } from "./composites/live";

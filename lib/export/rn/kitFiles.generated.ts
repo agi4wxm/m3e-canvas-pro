@@ -18,6 +18,8 @@ export const KIT_FILES: string[] = [
  "composites/forms.tsx",
  "composites/games.tsx",
  "composites/layouts.tsx",
+ "composites/live.tsx",
+ "composites/media.tsx",
  "composites/more.tsx",
  "composites/navs.tsx",
  "composites/overlays.tsx",

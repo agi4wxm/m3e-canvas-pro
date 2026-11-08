@@ -32,5 +32,8 @@ export const PRINTED_PAGES: string[] = [
   "printed/data/pages/charts/index",
   "printed/data/pages/tables/index",
   "printed/data/pages/lists/index",
-  "printed/data/pages/desk/index"
+  "printed/data/pages/desk/index",
+  "printed/media/pages/mediaWatch/index",
+  "printed/media/pages/mediaListen/index",
+  "printed/media/pages/mediaTalk/index"
 ];
