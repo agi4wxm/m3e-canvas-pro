@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { buildCode } from "../lib/codegen";
-import { PROJECT_FORMAT, PROJECT_VERSION, openProject, projectFile } from "../lib/project";
+import { PROJECT_FORMAT, PROJECT_VERSION, loadDocument, newerVersionOf, openProject, projectFile } from "../lib/project";
 import { makeItem, type Doc, type Group, type Item } from "../lib/tokens";
 import { setGlobalLang } from "../lib/i18n";
 import { PARTS, partBySlug, treeOf } from "./registry";
@@ -96,8 +96,14 @@ describe("the file format", () => {
     expect(openProject({ title: "S", screens: [], parts: [] })).toBeNull();
   });
 
-  it("refuses a file from a later version rather than half understanding it", () => {
-    expect(openProject({ format: PROJECT_FORMAT, version: PROJECT_VERSION + 1, document: json(docOf([makeItem("button")])) })).toBeNull();
+  it("opens a file from a later version as it understands it, marked so that nothing writes it back", () => {
+    const later = { format: PROJECT_FORMAT, version: PROJECT_VERSION + 1, document: json(docOf([makeItem("button")])) };
+    const loaded = loadDocument(later)!;
+    expect(loaded.newer).toBe(PROJECT_VERSION + 1);
+    expect(newerVersionOf(loaded.doc)).toBe(PROJECT_VERSION + 1);
+    /* saved, it is the file as it came, under its own version: a copy loses nothing this version does not know */
+    expect(projectFile(loaded.doc)).toEqual(later);
+    expect(newerVersionOf(openProject(json(docOf([makeItem("button")]))))).toBeUndefined();
   });
 
   it("refuses an envelope with nothing in it", () => {

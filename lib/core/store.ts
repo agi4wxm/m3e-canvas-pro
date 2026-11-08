@@ -8,7 +8,7 @@
  * is open for editing it has a history of its own, and the document's waits until it is closed; closing it is then
  * one step of the document's history if the definition changed. */
 
-import { openProject } from "../project";
+import { newerVersionOf, openProject } from "../project";
 import { definitionFrom } from "../instances";
 import { withIds, type ComponentDef, type Doc, type FrameMode, type Theme } from "../tokens";
 import { getLang, type Lang } from "../i18n";
@@ -162,6 +162,8 @@ export class DocStore {
   private pinMode: FrameMode | null = null;
   /** a step was taken since the last change was told */
   private stepped = false;
+  /** the format version of the document in the store when a newer version wrote it: read-only until another comes */
+  private newer: number | null = null;
   /** the number of the last step taken (`HistoryEntry.seq`) */
   private seq = 0;
   readonly options: Required<Omit<StoreOptions, "ids">> & { ids?: () => string };
@@ -186,6 +188,10 @@ export class DocStore {
   view = (): StoreView => this.current;
   /** the document as it is saved (lib/project.ts) */
   document = (): Doc => savedDoc(this.state);
+  /** The format version of the document when a newer version of the app wrote it (lib/project.ts `Loaded.newer`):
+   *  the store then refuses every change but the editor's own layout passes, and nothing should write it back.
+   *  Null for a document of this version or an older one. */
+  readOnlyVersion = (): number | null => this.newer;
 
   subscribe = (fn: (e: ChangeEvent) => void): (() => void) => {
     this.listeners.add(fn);
@@ -220,6 +226,9 @@ export class DocStore {
   /** Runs `fn` as one change: all of it lands or none of it does (a throw puts the state back as it was and leaves
    *  the history alone). Transactions inside a transaction are part of it. */
   transact<T>(label: string, origin: Origin, fn: (tx: Tx) => T, o: TxOptions = {}): T {
+    /* a document a newer version wrote is shown, never changed: what this version would write back could lose what it
+       does not understand. The editor keeping its own layout in order (system) still may. */
+    if (this.newer !== null && origin !== "system") throw new OpError("refused", `This document was written by a newer version of M3E Canvas (format ${this.newer}); it is open read-only so that nothing in it is lost. Open it in that version to change it.`);
     const outer = !this.tx;
     const start = this.state;
     if (outer) this.tx = { start, origin, label, depth: 0, ran: 0, whole: false, none: false };
@@ -414,6 +423,11 @@ export class DocStore {
       this.future = this.stash.future;
       this.stash = null;
     }
+    this.newer = newerVersionOf(doc) ?? null;
+    if (this.newer !== null) {
+      this.past = [];
+      this.future = [];
+    }
     this.state = loadInto(this.state, doc, reset);
     this.emit(prev, "replace", origin, "Load", true);
   }
@@ -428,11 +442,18 @@ export class DocStore {
     const origin = o.origin ?? "user";
     const label = o.label ?? "Open project";
     const prev = this.state;
-    this.step(this.state, true, label, origin);
+    /* a newer version's document is not this one's to change; neither is the one it replaced to be brought back by
+       an undo over it, nor it brought back over another */
+    this.newer = newerVersionOf(doc) ?? null;
+    if (this.newer === null) this.step(this.state, true, label, origin);
     if (this.stash) {
       this.past = this.stash.past;
       this.future = this.stash.future;
       this.stash = null;
+    }
+    if (this.newer !== null) {
+      this.past = [];
+      this.future = [];
     }
     const loaded = loadInto(this.state, doc, true);
     const mode: FrameMode = this.pinMode ?? (doc.frame === "blank" ? "blank" : "phone");
@@ -451,6 +472,7 @@ export class DocStore {
    *  closed; while it is open every tool works on it as on any screen. */
   openDefinition(id: string, origin: Origin = "user"): void {
     if (this.tx) throw new OpError("busy", "a definition cannot be opened inside a transaction");
+    if (this.newer !== null) throw new OpError("refused", `This document was written by a newer version of M3E Canvas (format ${this.newer}) and is open read-only.`);
     const def = this.state.doc.components?.find((c) => c.id === id);
     if (!def) throw new OpError("not_found", `There is no component ${id}.`, id);
     if (this.state.editing?.id === id) return;

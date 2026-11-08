@@ -1,5 +1,5 @@
 import { Doc, Frame, Group, Item } from "./tokens";
-import { openProject } from "./project";
+import { openProject, projectFile } from "./project";
 import { partBySlug, withoutPickedImages } from "../parts/registry";
 
 /* A design travels in a link: the document as JSON, deflated and base64url-encoded
@@ -284,9 +284,11 @@ async function pipe(bytes: Uint8Array, stream: { readable: ReadableStream<Uint8A
 }
 
 /** The link that opens `doc` at `base` (the app URL without a hash), carrying what `o` says (everything when left
- *  out). Throws a `ShareLinkError` ("too-long") when it would be longer than a link can be. */
+ *  out). Throws a `ShareLinkError` ("too-long") when it would be longer than a link can be. The design goes in its
+ *  envelope, which says the format version it is written in (lib/migrations.ts): a later version reading the link
+ *  migrates it from there, and an earlier one knows it is newer than itself and opens it read-only. */
 export async function shareLink(doc: Doc, base: string, o: ShareOptions = {}, limits: ShareLimits = SHARE_LIMITS): Promise<string> {
-  const json = JSON.stringify(shareable(doc, o));
+  const json = JSON.stringify(projectFile(shareable(doc, o)));
   let link: string | null = null;
   if (typeof CompressionStream !== "undefined") {
     try {

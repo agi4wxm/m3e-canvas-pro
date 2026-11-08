@@ -10,6 +10,7 @@ import { cleanMotion, cleanTrigger } from "./prototype";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "./constraints";
 import { COLOR_TOKENS, type ActionBody, Collection, ComponentDef, ComponentProp, ComponentSet, Condition, VarCollection, Doc, DocVar, Effect, Frame, Group, Item, Palette, VARIANTS, VarValue, isPlace, isTextToken } from "./tokens";
 import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams } from "./bindings/clean";
+import { BARE_VERSION, PROJECT_VERSION, migrate, versionOf, type Migration } from "./migrations";
 import { fields, withUnknown } from "./keep";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
@@ -505,31 +506,97 @@ export const isProject = (value: unknown): value is Doc =>
 
 /** A document may also come bare, with no envelope, from a link or a hand-written file. */
 export const PROJECT_FORMAT = "m3e-project";
-export const PROJECT_VERSION = 2;
+export { BARE_VERSION, PROJECT_VERSION };
 
-/** What changes a document from one version to the next, run in order: a change of format adds its
- *  step here under the version it comes from. Each must leave a field it does not know alone. */
-const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string, unknown>> = {};
+/** the file a document is saved as: a document read from a newer version keeps saying so (see `loadDocument`) */
+export const projectFile = (doc: Doc) => {
+  const newer = newerOf(doc);
+  return { format: PROJECT_FORMAT, version: newer?.version ?? PROJECT_VERSION, document: (newer?.raw as Doc | undefined) ?? doc };
+};
 
-/** the file a document is saved as */
-export const projectFile = (doc: Doc) => ({ format: PROJECT_FORMAT, version: PROJECT_VERSION, document: doc });
+/** What `loadDocument` gives: the document, checked, cleaned and brought up to this version. */
+export type Loaded = {
+  doc: Doc;
+  /** the version it was written at: what its envelope or its record says, else BARE_VERSION */
+  version: number;
+  /** the steps that ran on it, by name */
+  migrated: string[];
+  /** Set when it was written by a newer version than this one. It is shown as this version understands it, and is
+   *  never written back: the editor and the MCP server open it read-only, and a copy of it keeps what it held. */
+  newer?: number;
+};
 
-/** The one way in for a document that comes from outside: a file or a link. Takes it out of its
- *  envelope, brings it up to this version, and returns it only if it then has the shape the editor
- *  relies on. Anything else is refused rather than half understood. */
-export function openProject(value: unknown): Doc | null {
+/** Documents of a newer version, by the object `loadDocument` gave: their version and what they held as written,
+ *  so whatever passes the document on (the editor's store, a new project made of it) knows not to write it back,
+ *  and a copy of it is the document as it came, not as this version understood it. */
+const NEWER = new WeakMap<object, { version: number; raw: Record<string, unknown> }>();
+const newerOf = (doc: object) => NEWER.get(doc);
+
+/** the version of the format a document came in at, when that is newer than this app's (see `Loaded.newer`) */
+export const newerVersionOf = (doc: unknown): number | undefined => (doc && typeof doc === "object" ? NEWER.get(doc)?.version : undefined);
+
+/** a document of a newer version as it came, every field of it, for a copy that must not lose any; null for any other */
+export const newerOriginalOf = (doc: unknown): Record<string, unknown> | null => (doc && typeof doc === "object" ? (NEWER.get(doc)?.raw ?? null) : null);
+
+/** `doc` marked as of a newer version, with `raw` what it held as written: what the document a newer record held is
+ *  taken as when it is read back (lib/projects) */
+export function markNewer<T extends object>(doc: T, version: number, raw: Record<string, unknown>): T {
+  if (version > PROJECT_VERSION) NEWER.set(doc, { version, raw });
+  return doc;
+}
+
+export type LoadOptions = {
+  /** The version a document with no envelope is at, when where it was kept says (the browser's own copy records
+   *  it); BARE_VERSION when nothing does. */
+  version?: number;
+  /** the steps to run and the version they bring a document to: MIGRATIONS and PROJECT_VERSION, but for the tests'
+   *  own worked examples (lib/migrations.test.ts) */
+  steps?: readonly Migration[];
+  target?: number;
+};
+
+/** The one way in for a document, whatever brings it: a project file or folder, a shared link, the browser's own copy,
+ *  an MCP client's file, a model's draft. Takes it out of its envelope, brings it up to this version (lib/migrations.ts),
+ *  and returns it only if it then has the shape the editor relies on, its behaviour cleaned (`cleanBehavior`); anything
+ *  else is refused rather than half understood. What this version does not know of it, at any level, is kept as it
+ *  came. A document of a newer version is not migrated: it opens as this version understands it, marked `newer`. */
+export function loadDocument(value: unknown, o: LoadOptions = {}): Loaded | null {
   if (!isRecord(value)) return null;
   let doc: unknown = value;
-  let version = 0;
+  let version = o.version ?? BARE_VERSION;
   if (value.format !== undefined) {
     if (value.format !== PROJECT_FORMAT) return null;
     doc = value.document;
-    version = typeof value.version === "number" ? value.version : 0;
-    if (version > PROJECT_VERSION) return null;
+    version = versionOf(value);
   }
   if (!isRecord(doc)) return null;
-  for (let v = version; v < PROJECT_VERSION; v++) doc = MIGRATIONS[v]?.(doc as Record<string, unknown>) ?? doc;
-  return isProject(doc) ? cleanBehavior(doc) : null;
+  const raw = doc;
+  const target = o.target ?? PROJECT_VERSION;
+  const { doc: migrated, ran } = migrate(doc, version, { steps: o.steps, target });
+  if (!isProject(migrated)) return null;
+  const out = cleanBehavior(migrated);
+  if (version > target) {
+    markNewer(out, version, raw);
+    return { doc: out, version, migrated: ran, newer: version };
+  }
+  return { doc: out, version, migrated: ran };
+}
+
+/** The document a file or a link holds (`loadDocument`), or null. */
+export const openProject = (value: unknown, o: LoadOptions = {}): Doc | null => loadDocument(value, o)?.doc ?? null;
+
+/** The browser's own copy of a document (a project's record, the earlier version's localStorage), with the version its
+ *  record says: brought up to this version and cleaned as any document is. One that does not have the shape a document
+ *  has (an editor long ago may have kept a part this one cannot draw) is not refused: it is the author's own work, and
+ *  goes in as it is, migrated, for the store to keep what it can draw (lib/core/state.ts `drawableGroups`). */
+export function loadStored(value: unknown, version?: number): Partial<Doc> | null {
+  if (!isRecord(value)) return null;
+  const loaded = loadDocument(value, { version });
+  if (loaded) return loaded.doc;
+  if (value.format !== undefined) return null;
+  const from = version ?? BARE_VERSION;
+  const out = migrate(value, from).doc as Partial<Doc>;
+  return from > PROJECT_VERSION ? markNewer(out, from, value) : out;
 }
 
 /** the file name a project is saved under: m3e-canvas, followed by its name (the project's, else the app's) when it has one */

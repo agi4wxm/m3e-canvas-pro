@@ -4,6 +4,7 @@
 
 import { assetRefsIn, stripAssets } from "../assets";
 import type { Doc } from "../tokens";
+import { PROJECT_VERSION, newerOriginalOf, newerVersionOf } from "../project";
 import { copyProjectRecords, deleteKv, deleteProjectRecords, listProjects, patchProject, pruneAssets, putNewProject, type ProjectMeta } from "./db";
 
 export type { ProjectMeta } from "./db";
@@ -25,10 +26,12 @@ export function newProjectId(): string {
 /** what the listing says of a document: how many screens it has and the style it wears */
 export const summaryOf = (doc: Partial<Doc>): Pick<ProjectMeta, "screens" | "style"> => ({ screens: Array.isArray(doc.frames) ? doc.frames.length : 0, ...(doc.theme?.style ? { style: doc.theme.style } : {}) });
 
-/** a document as the store keeps it: JSON with its large pictures as references, and those pictures */
-export function storedForm(doc: unknown): { json: string; refs: string[]; assets: Map<string, string> } {
-  const { doc: light, found } = stripAssets(doc);
-  return { json: JSON.stringify(light), refs: [...assetRefsIn(light)], assets: found };
+/** A document as the store keeps it: JSON with its large pictures as references, those pictures, and the format
+ *  version it is written in. One a newer version wrote is kept as it came, under its own version, so a project made
+ *  of it loses nothing this version does not understand (lib/project.ts `loadDocument`). */
+export function storedForm(doc: unknown): { json: string; refs: string[]; assets: Map<string, string>; version: number } {
+  const { doc: light, found } = stripAssets(newerOriginalOf(doc) ?? doc);
+  return { json: JSON.stringify(light), refs: [...assetRefsIn(light)], assets: found, version: newerVersionOf(doc) ?? PROJECT_VERSION };
 }
 
 /* ---------- names ---------- */

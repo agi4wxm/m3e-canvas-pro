@@ -46,12 +46,14 @@ export function usePersistence(o: PersistenceInputs) {
   const { store, persist } = o;
   /** what the tab lock said, held until the document is in: only then may the tab edit */
   const accessRef = useRef<"editable" | "readonly" | null>(null);
+  /** a document a newer version wrote is read-only whatever the lock says (lib/core/store.ts `readOnlyVersion`) */
+  const accessFor = (access: "editable" | "readonly") => (store.readOnlyVersion() !== null ? "readonly" : access);
   /* where the document is kept between visits (lib/core/persist.ts): one tab edits, the others wait read-only */
   useEffect(
     () =>
       persist.lock((access) => {
         accessRef.current = access;
-        if (o.loadedRef.current) o.setEditAccess(access);
+        if (o.loadedRef.current) o.setEditAccess(accessFor(access));
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [persist],
@@ -93,7 +95,7 @@ export function usePersistence(o: PersistenceInputs) {
         }
       } catch {}
       o.onLoaded(late);
-      if (accessRef.current) o.setEditAccess(accessRef.current);
+      if (accessRef.current) o.setEditAccess(accessFor(accessRef.current));
     };
     let read: Stored | Promise<Stored>;
     try {
@@ -110,7 +112,8 @@ export function usePersistence(o: PersistenceInputs) {
   /** the kind of failure the author was last told of, until a write goes through */
   const toldRef = useRef<SaveErrorKind | null>(null);
   useEffect(() => {
-    if (!o.loadedRef.current || o.editAccess !== "editable") return;
+    /* a document a newer version wrote is never written back: what this version would write could lose part of it */
+    if (!o.loadedRef.current || o.editAccess !== "editable" || store.readOnlyVersion() !== null) return;
     /* The author keeps working; told once per kind of failure, since every later change would fail the same way (the
        chrome keeps saying it, lib/projects/persist.ts tries again). Another tab's save turns the tab read-only,
        which says it. */

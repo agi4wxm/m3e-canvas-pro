@@ -38,7 +38,7 @@ export class NotAProject extends Error {}
 export const editorProject: ProjectFormat = {
   async parse(text, load) {
     const doc = await readProjectText(text, load);
-    if (!doc) throw new NotAProject("It is not an M3E Canvas project (or not JSON), or it was saved by a newer version.");
+    if (!doc) throw new NotAProject("It is not an M3E Canvas project (or not JSON), or it was saved by a newer version in a shape this one cannot read.");
     return doc;
   },
   serialize: (doc, layout) => serializeProject(doc, { assets: layout === "folder" ? "files" : "inline" }),

@@ -1,0 +1,2679 @@
+{
+  "format": "m3e-project",
+  "version": 2,
+  "document": {
+    "groups": [
+      {
+        "id": "g-button",
+        "x": 16,
+        "y": 24,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-button",
+            "kind": "component",
+            "label": "Button",
+            "icon": null,
+            "variant": "filled",
+            "component": "button",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-fab",
+        "x": 16,
+        "y": 144,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-fab",
+            "kind": "component",
+            "label": "FAB",
+            "icon": null,
+            "variant": "filled",
+            "component": "fab",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-chip",
+        "x": 16,
+        "y": 264,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-chip",
+            "kind": "component",
+            "label": "Chip",
+            "icon": null,
+            "variant": "filled",
+            "component": "chip",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-toggle",
+        "x": 16,
+        "y": 384,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-toggle",
+            "kind": "component",
+            "label": "Toggle",
+            "icon": null,
+            "variant": "filled",
+            "component": "toggle",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-toggle-group",
+        "x": 16,
+        "y": 504,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-toggle-group",
+            "kind": "component",
+            "label": "Toggle group",
+            "icon": null,
+            "variant": "filled",
+            "component": "toggle-group",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-button-group",
+        "x": 16,
+        "y": 624,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-button-group",
+            "kind": "component",
+            "label": "Button group",
+            "icon": null,
+            "variant": "filled",
+            "component": "button-group",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-split-button",
+        "x": 16,
+        "y": 744,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-split-button",
+            "kind": "component",
+            "label": "Split button",
+            "icon": null,
+            "variant": "filled",
+            "component": "split-button",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-fab-menu",
+        "x": 16,
+        "y": 864,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-fab-menu",
+            "kind": "component",
+            "label": "FAB menu",
+            "icon": null,
+            "variant": "filled",
+            "component": "fab-menu",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-switch",
+        "x": 16,
+        "y": 984,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-switch",
+            "kind": "component",
+            "label": "Switch",
+            "icon": null,
+            "variant": "filled",
+            "component": "switch",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-checkbox",
+        "x": 16,
+        "y": 1104,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-checkbox",
+            "kind": "component",
+            "label": "Checkbox",
+            "icon": null,
+            "variant": "filled",
+            "component": "checkbox",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-radio-group",
+        "x": 16,
+        "y": 1224,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-radio-group",
+            "kind": "component",
+            "label": "Radio group",
+            "icon": null,
+            "variant": "filled",
+            "component": "radio-group",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-slider",
+        "x": 16,
+        "y": 1344,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-slider",
+            "kind": "component",
+            "label": "Slider",
+            "icon": null,
+            "variant": "filled",
+            "component": "slider",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-select",
+        "x": 16,
+        "y": 1464,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-select",
+            "kind": "component",
+            "label": "Select",
+            "icon": null,
+            "variant": "filled",
+            "component": "select",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-native-select",
+        "x": 16,
+        "y": 1584,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-native-select",
+            "kind": "component",
+            "label": "Native select",
+            "icon": null,
+            "variant": "filled",
+            "component": "native-select",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-combobox",
+        "x": 16,
+        "y": 1704,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-combobox",
+            "kind": "component",
+            "label": "Combobox",
+            "icon": null,
+            "variant": "filled",
+            "component": "combobox",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-text-field",
+        "x": 16,
+        "y": 1824,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-text-field",
+            "kind": "component",
+            "label": "Text field",
+            "icon": null,
+            "variant": "filled",
+            "component": "text-field",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-input",
+        "x": 16,
+        "y": 1944,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-input",
+            "kind": "component",
+            "label": "Input",
+            "icon": null,
+            "variant": "filled",
+            "component": "input",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-textarea",
+        "x": 16,
+        "y": 2064,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-textarea",
+            "kind": "component",
+            "label": "Textarea",
+            "icon": null,
+            "variant": "filled",
+            "component": "textarea",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-input-group",
+        "x": 16,
+        "y": 2184,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-input-group",
+            "kind": "component",
+            "label": "Input group",
+            "icon": null,
+            "variant": "filled",
+            "component": "input-group",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-input-otp",
+        "x": 16,
+        "y": 2304,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-input-otp",
+            "kind": "component",
+            "label": "Input OTP",
+            "icon": null,
+            "variant": "filled",
+            "component": "input-otp",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-field",
+        "x": 16,
+        "y": 2424,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-field",
+            "kind": "component",
+            "label": "Field",
+            "icon": null,
+            "variant": "filled",
+            "component": "field",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-label",
+        "x": 16,
+        "y": 2544,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-label",
+            "kind": "component",
+            "label": "Label",
+            "icon": null,
+            "variant": "filled",
+            "component": "label",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-badge",
+        "x": 16,
+        "y": 2664,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-badge",
+            "kind": "component",
+            "label": "Badge",
+            "icon": null,
+            "variant": "filled",
+            "component": "badge",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-progress",
+        "x": 16,
+        "y": 2784,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-progress",
+            "kind": "component",
+            "label": "Progress",
+            "icon": null,
+            "variant": "filled",
+            "component": "progress",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-circular-progress",
+        "x": 16,
+        "y": 2904,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-circular-progress",
+            "kind": "component",
+            "label": "Circular progress",
+            "icon": null,
+            "variant": "filled",
+            "component": "circular-progress",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-loading-indicator",
+        "x": 16,
+        "y": 3024,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-loading-indicator",
+            "kind": "component",
+            "label": "Loading indicator",
+            "icon": null,
+            "variant": "filled",
+            "component": "loading-indicator",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-spinner",
+        "x": 16,
+        "y": 3144,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-spinner",
+            "kind": "component",
+            "label": "Spinner",
+            "icon": null,
+            "variant": "filled",
+            "component": "spinner",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-skeleton",
+        "x": 16,
+        "y": 3264,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-skeleton",
+            "kind": "component",
+            "label": "Skeleton",
+            "icon": null,
+            "variant": "filled",
+            "component": "skeleton",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-sonner",
+        "x": 16,
+        "y": 3384,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-sonner",
+            "kind": "component",
+            "label": "Snackbar",
+            "icon": null,
+            "variant": "filled",
+            "component": "sonner",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-tooltip",
+        "x": 16,
+        "y": 3504,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-tooltip",
+            "kind": "component",
+            "label": "Tooltip",
+            "icon": null,
+            "variant": "filled",
+            "component": "tooltip",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-alert",
+        "x": 16,
+        "y": 3624,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-alert",
+            "kind": "component",
+            "label": "Alert",
+            "icon": null,
+            "variant": "filled",
+            "component": "alert",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-card",
+        "x": 16,
+        "y": 3744,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-card",
+            "kind": "component",
+            "label": "Card",
+            "icon": null,
+            "variant": "filled",
+            "component": "card",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-item",
+        "x": 16,
+        "y": 3864,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-item",
+            "kind": "component",
+            "label": "List item",
+            "icon": null,
+            "variant": "filled",
+            "component": "item",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-dialog",
+        "x": 16,
+        "y": 3984,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-dialog",
+            "kind": "component",
+            "label": "Dialog",
+            "icon": null,
+            "variant": "filled",
+            "component": "dialog",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-alert-dialog",
+        "x": 16,
+        "y": 4104,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-alert-dialog",
+            "kind": "component",
+            "label": "Alert dialog",
+            "icon": null,
+            "variant": "filled",
+            "component": "alert-dialog",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-sheet",
+        "x": 16,
+        "y": 4224,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-sheet",
+            "kind": "component",
+            "label": "Sheet",
+            "icon": null,
+            "variant": "filled",
+            "component": "sheet",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-side-sheet",
+        "x": 16,
+        "y": 4344,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-side-sheet",
+            "kind": "component",
+            "label": "Side sheet",
+            "icon": null,
+            "variant": "filled",
+            "component": "side-sheet",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-drawer",
+        "x": 16,
+        "y": 4464,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-drawer",
+            "kind": "component",
+            "label": "Drawer",
+            "icon": null,
+            "variant": "filled",
+            "component": "drawer",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-popover",
+        "x": 16,
+        "y": 4584,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-popover",
+            "kind": "component",
+            "label": "Popover",
+            "icon": null,
+            "variant": "filled",
+            "component": "popover",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-hover-card",
+        "x": 16,
+        "y": 4704,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-hover-card",
+            "kind": "component",
+            "label": "Hover card",
+            "icon": null,
+            "variant": "filled",
+            "component": "hover-card",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-accordion",
+        "x": 16,
+        "y": 4824,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-accordion",
+            "kind": "component",
+            "label": "Accordion",
+            "icon": null,
+            "variant": "filled",
+            "component": "accordion",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-collapsible",
+        "x": 16,
+        "y": 4944,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-collapsible",
+            "kind": "component",
+            "label": "Collapsible",
+            "icon": null,
+            "variant": "filled",
+            "component": "collapsible",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-separator",
+        "x": 16,
+        "y": 5064,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-separator",
+            "kind": "component",
+            "label": "Separator",
+            "icon": null,
+            "variant": "filled",
+            "component": "separator",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-scroll-area",
+        "x": 16,
+        "y": 5184,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-scroll-area",
+            "kind": "component",
+            "label": "Scroll area",
+            "icon": null,
+            "variant": "filled",
+            "component": "scroll-area",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-resizable",
+        "x": 16,
+        "y": 5304,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-resizable",
+            "kind": "component",
+            "label": "Resizable",
+            "icon": null,
+            "variant": "filled",
+            "component": "resizable",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-navigation-bar",
+        "x": 16,
+        "y": 5424,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-navigation-bar",
+            "kind": "component",
+            "label": "Navigation bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "navigation-bar",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-app-bar",
+        "x": 16,
+        "y": 5544,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-app-bar",
+            "kind": "component",
+            "label": "App bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "app-bar",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-tabs",
+        "x": 16,
+        "y": 5664,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-tabs",
+            "kind": "component",
+            "label": "Tabs",
+            "icon": null,
+            "variant": "filled",
+            "component": "tabs",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-navigation-rail",
+        "x": 16,
+        "y": 5784,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-navigation-rail",
+            "kind": "component",
+            "label": "Navigation rail",
+            "icon": null,
+            "variant": "filled",
+            "component": "navigation-rail",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-toolbar",
+        "x": 16,
+        "y": 5904,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-toolbar",
+            "kind": "component",
+            "label": "Toolbar",
+            "icon": null,
+            "variant": "filled",
+            "component": "toolbar",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-breadcrumb",
+        "x": 16,
+        "y": 6024,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-breadcrumb",
+            "kind": "component",
+            "label": "Breadcrumb",
+            "icon": null,
+            "variant": "filled",
+            "component": "breadcrumb",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-pagination",
+        "x": 16,
+        "y": 6144,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-pagination",
+            "kind": "component",
+            "label": "Pagination",
+            "icon": null,
+            "variant": "filled",
+            "component": "pagination",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-navigation-menu",
+        "x": 16,
+        "y": 6264,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-navigation-menu",
+            "kind": "component",
+            "label": "Navigation menu",
+            "icon": null,
+            "variant": "filled",
+            "component": "navigation-menu",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-sidebar",
+        "x": 16,
+        "y": 6384,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-sidebar",
+            "kind": "component",
+            "label": "Sidebar",
+            "icon": null,
+            "variant": "filled",
+            "component": "sidebar",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-search",
+        "x": 16,
+        "y": 6504,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-search",
+            "kind": "component",
+            "label": "Search",
+            "icon": null,
+            "variant": "filled",
+            "component": "search",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-command",
+        "x": 16,
+        "y": 6624,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-command",
+            "kind": "component",
+            "label": "Command",
+            "icon": null,
+            "variant": "filled",
+            "component": "command",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-dropdown-menu",
+        "x": 16,
+        "y": 6744,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-dropdown-menu",
+            "kind": "component",
+            "label": "Dropdown menu",
+            "icon": null,
+            "variant": "filled",
+            "component": "dropdown-menu",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-context-menu",
+        "x": 16,
+        "y": 6864,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-context-menu",
+            "kind": "component",
+            "label": "Context menu",
+            "icon": null,
+            "variant": "filled",
+            "component": "context-menu",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-menubar",
+        "x": 16,
+        "y": 6984,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-menubar",
+            "kind": "component",
+            "label": "Menubar",
+            "icon": null,
+            "variant": "filled",
+            "component": "menubar",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-calendar",
+        "x": 16,
+        "y": 7104,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-calendar",
+            "kind": "component",
+            "label": "Calendar",
+            "icon": null,
+            "variant": "filled",
+            "component": "calendar",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-date-picker",
+        "x": 16,
+        "y": 7224,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-date-picker",
+            "kind": "component",
+            "label": "Date picker",
+            "icon": null,
+            "variant": "filled",
+            "component": "date-picker",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-time-picker",
+        "x": 16,
+        "y": 7344,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-time-picker",
+            "kind": "component",
+            "label": "Time picker",
+            "icon": null,
+            "variant": "filled",
+            "component": "time-picker",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-icon",
+        "x": 16,
+        "y": 7464,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-icon",
+            "kind": "component",
+            "label": "Icon",
+            "icon": null,
+            "variant": "filled",
+            "component": "icon",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-avatar",
+        "x": 16,
+        "y": 7584,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-avatar",
+            "kind": "component",
+            "label": "Avatar",
+            "icon": null,
+            "variant": "filled",
+            "component": "avatar",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-carousel",
+        "x": 16,
+        "y": 7704,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-carousel",
+            "kind": "component",
+            "label": "Carousel (Embla)",
+            "icon": null,
+            "variant": "filled",
+            "component": "carousel",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-expressive-carousel",
+        "x": 16,
+        "y": 7824,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-expressive-carousel",
+            "kind": "component",
+            "label": "Expressive carousel",
+            "icon": null,
+            "variant": "filled",
+            "component": "expressive-carousel",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-kbd",
+        "x": 16,
+        "y": 7944,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-kbd",
+            "kind": "component",
+            "label": "Kbd",
+            "icon": null,
+            "variant": "filled",
+            "component": "kbd",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-aspect-ratio",
+        "x": 16,
+        "y": 8064,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-aspect-ratio",
+            "kind": "component",
+            "label": "Aspect ratio",
+            "icon": null,
+            "variant": "filled",
+            "component": "aspect-ratio",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-empty",
+        "x": 16,
+        "y": 8184,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-empty",
+            "kind": "component",
+            "label": "Empty",
+            "icon": null,
+            "variant": "filled",
+            "component": "empty",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-shape",
+        "x": 16,
+        "y": 8304,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-shape",
+            "kind": "component",
+            "label": "Shape",
+            "icon": null,
+            "variant": "filled",
+            "component": "shape",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-message",
+        "x": 16,
+        "y": 8424,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-message",
+            "kind": "component",
+            "label": "Message",
+            "icon": null,
+            "variant": "filled",
+            "component": "message",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-bubble",
+        "x": 16,
+        "y": 8544,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-bubble",
+            "kind": "component",
+            "label": "Bubble",
+            "icon": null,
+            "variant": "filled",
+            "component": "bubble",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-marker",
+        "x": 16,
+        "y": 8664,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-marker",
+            "kind": "component",
+            "label": "Marker",
+            "icon": null,
+            "variant": "filled",
+            "component": "marker",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-attachment",
+        "x": 16,
+        "y": 8784,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-attachment",
+            "kind": "component",
+            "label": "Attachment",
+            "icon": null,
+            "variant": "filled",
+            "component": "attachment",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-message-scroller",
+        "x": 16,
+        "y": 8904,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-message-scroller",
+            "kind": "component",
+            "label": "Message scroller",
+            "icon": null,
+            "variant": "filled",
+            "component": "message-scroller",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-questionnaire",
+        "x": 16,
+        "y": 9024,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-questionnaire",
+            "kind": "component",
+            "label": "Questionnaire",
+            "icon": null,
+            "variant": "filled",
+            "component": "questionnaire",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-form",
+        "x": 16,
+        "y": 9144,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-form",
+            "kind": "component",
+            "label": "Form",
+            "icon": null,
+            "variant": "filled",
+            "component": "form",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-rating",
+        "x": 16,
+        "y": 9264,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-rating",
+            "kind": "component",
+            "label": "Rating",
+            "icon": null,
+            "variant": "filled",
+            "component": "rating",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-color-field",
+        "x": 16,
+        "y": 9384,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-color-field",
+            "kind": "component",
+            "label": "Color field",
+            "icon": null,
+            "variant": "filled",
+            "component": "color-field",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-link",
+        "x": 16,
+        "y": 9504,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-link",
+            "kind": "component",
+            "label": "Link",
+            "icon": null,
+            "variant": "filled",
+            "component": "link",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-container",
+        "x": 16,
+        "y": 9624,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-container",
+            "kind": "component",
+            "label": "Container",
+            "icon": null,
+            "variant": "filled",
+            "component": "container",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-stack",
+        "x": 16,
+        "y": 9744,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-stack",
+            "kind": "component",
+            "label": "Stack",
+            "icon": null,
+            "variant": "filled",
+            "component": "stack",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-grid-view",
+        "x": 16,
+        "y": 9864,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-grid-view",
+            "kind": "component",
+            "label": "Grid",
+            "icon": null,
+            "variant": "filled",
+            "component": "grid-view",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-dock",
+        "x": 16,
+        "y": 9984,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-dock",
+            "kind": "component",
+            "label": "Dock",
+            "icon": null,
+            "variant": "filled",
+            "component": "dock",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-supporting-pane",
+        "x": 16,
+        "y": 10104,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-supporting-pane",
+            "kind": "component",
+            "label": "Supporting pane",
+            "icon": null,
+            "variant": "filled",
+            "component": "supporting-pane",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-video",
+        "x": 16,
+        "y": 10224,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-video",
+            "kind": "component",
+            "label": "Video",
+            "icon": null,
+            "variant": "filled",
+            "component": "video",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-web-view",
+        "x": 16,
+        "y": 10344,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-web-view",
+            "kind": "component",
+            "label": "Web page",
+            "icon": null,
+            "variant": "filled",
+            "component": "web-view",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-animation",
+        "x": 16,
+        "y": 10464,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-animation",
+            "kind": "component",
+            "label": "Animation placeholder",
+            "icon": null,
+            "variant": "filled",
+            "component": "animation",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-camera",
+        "x": 16,
+        "y": 10584,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-camera",
+            "kind": "component",
+            "label": "Camera placeholder",
+            "icon": null,
+            "variant": "filled",
+            "component": "camera",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-map",
+        "x": 16,
+        "y": 10704,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-map",
+            "kind": "component",
+            "label": "Map placeholder",
+            "icon": null,
+            "variant": "filled",
+            "component": "map",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-chart",
+        "x": 16,
+        "y": 10824,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-chart",
+            "kind": "component",
+            "label": "Chart",
+            "icon": null,
+            "variant": "filled",
+            "component": "chart",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-scatter-plot",
+        "x": 16,
+        "y": 10944,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-scatter-plot",
+            "kind": "component",
+            "label": "Scatter plot",
+            "icon": null,
+            "variant": "filled",
+            "component": "scatter-plot",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-heatmap",
+        "x": 16,
+        "y": 11064,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-heatmap",
+            "kind": "component",
+            "label": "Heatmap",
+            "icon": null,
+            "variant": "filled",
+            "component": "heatmap",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-gauge",
+        "x": 16,
+        "y": 11184,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-gauge",
+            "kind": "component",
+            "label": "Gauge",
+            "icon": null,
+            "variant": "filled",
+            "component": "gauge",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-filter-bar",
+        "x": 16,
+        "y": 11304,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-filter-bar",
+            "kind": "component",
+            "label": "Filter bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "filter-bar",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-description-list",
+        "x": 16,
+        "y": 11424,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-description-list",
+            "kind": "component",
+            "label": "Description list",
+            "icon": null,
+            "variant": "filled",
+            "component": "description-list",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-stat-card",
+        "x": 16,
+        "y": 11544,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-stat-card",
+            "kind": "component",
+            "label": "Stat card",
+            "icon": null,
+            "variant": "filled",
+            "component": "stat-card",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-table",
+        "x": 16,
+        "y": 11664,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-table",
+            "kind": "component",
+            "label": "Table",
+            "icon": null,
+            "variant": "filled",
+            "component": "table",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-title-bar",
+        "x": 16,
+        "y": 11784,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-title-bar",
+            "kind": "component",
+            "label": "Title bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "title-bar",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-status-bar",
+        "x": 16,
+        "y": 11904,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-status-bar",
+            "kind": "component",
+            "label": "Status bar",
+            "icon": null,
+            "variant": "filled",
+            "component": "status-bar",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-tree",
+        "x": 16,
+        "y": 12024,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-tree",
+            "kind": "component",
+            "label": "Tree",
+            "icon": null,
+            "variant": "filled",
+            "component": "tree",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-steps",
+        "x": 16,
+        "y": 12144,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-steps",
+            "kind": "component",
+            "label": "Steps",
+            "icon": null,
+            "variant": "filled",
+            "component": "steps",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-copy-row",
+        "x": 16,
+        "y": 12264,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-copy-row",
+            "kind": "component",
+            "label": "Copy row",
+            "icon": null,
+            "variant": "filled",
+            "component": "copy-row",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-shimmer-text",
+        "x": 16,
+        "y": 12384,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-shimmer-text",
+            "kind": "component",
+            "label": "Shimmer text",
+            "icon": null,
+            "variant": "filled",
+            "component": "shimmer-text",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-prize-wheel",
+        "x": 16,
+        "y": 12504,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-prize-wheel",
+            "kind": "component",
+            "label": "Prize wheel",
+            "icon": null,
+            "variant": "filled",
+            "component": "prize-wheel",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-grid-draw",
+        "x": 16,
+        "y": 12624,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-grid-draw",
+            "kind": "component",
+            "label": "Grid draw",
+            "icon": null,
+            "variant": "filled",
+            "component": "grid-draw",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-gacha",
+        "x": 16,
+        "y": 12744,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-gacha",
+            "kind": "component",
+            "label": "Gacha",
+            "icon": null,
+            "variant": "filled",
+            "component": "gacha",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-slot-machine",
+        "x": 16,
+        "y": 12864,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-slot-machine",
+            "kind": "component",
+            "label": "Slot machine",
+            "icon": null,
+            "variant": "filled",
+            "component": "slot-machine",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-money-tree",
+        "x": 16,
+        "y": 12984,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-money-tree",
+            "kind": "component",
+            "label": "Money tree",
+            "icon": null,
+            "variant": "filled",
+            "component": "money-tree",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-egg-smash",
+        "x": 16,
+        "y": 13104,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-egg-smash",
+            "kind": "component",
+            "label": "Egg smash",
+            "icon": null,
+            "variant": "filled",
+            "component": "egg-smash",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-asset-pill",
+        "x": 16,
+        "y": 13224,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-asset-pill",
+            "kind": "component",
+            "label": "Asset pill",
+            "icon": null,
+            "variant": "filled",
+            "component": "asset-pill",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-side-tabs",
+        "x": 16,
+        "y": 13344,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-side-tabs",
+            "kind": "component",
+            "label": "Side tabs",
+            "icon": null,
+            "variant": "filled",
+            "component": "side-tabs",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-inventory",
+        "x": 16,
+        "y": 13464,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-inventory",
+            "kind": "component",
+            "label": "Inventory",
+            "icon": null,
+            "variant": "filled",
+            "component": "inventory",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-item-cell",
+        "x": 16,
+        "y": 13584,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-item-cell",
+            "kind": "component",
+            "label": "Item cell",
+            "icon": null,
+            "variant": "filled",
+            "component": "item-cell",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-task-row",
+        "x": 16,
+        "y": 13704,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-task-row",
+            "kind": "component",
+            "label": "Task row",
+            "icon": null,
+            "variant": "filled",
+            "component": "task-row",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-reward-track",
+        "x": 16,
+        "y": 13824,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-reward-track",
+            "kind": "component",
+            "label": "Reward track",
+            "icon": null,
+            "variant": "filled",
+            "component": "reward-track",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-check-in",
+        "x": 16,
+        "y": 13944,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-check-in",
+            "kind": "component",
+            "label": "Daily check-in",
+            "icon": null,
+            "variant": "filled",
+            "component": "check-in",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-function-button",
+        "x": 16,
+        "y": 14064,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-function-button",
+            "kind": "component",
+            "label": "Function button",
+            "icon": null,
+            "variant": "filled",
+            "component": "function-button",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-joystick",
+        "x": 16,
+        "y": 14184,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-joystick",
+            "kind": "component",
+            "label": "Joystick",
+            "icon": null,
+            "variant": "filled",
+            "component": "joystick",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-quantity-stepper",
+        "x": 16,
+        "y": 14304,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-quantity-stepper",
+            "kind": "component",
+            "label": "Quantity stepper",
+            "icon": null,
+            "variant": "filled",
+            "component": "quantity-stepper",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-page-dots",
+        "x": 16,
+        "y": 14424,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-page-dots",
+            "kind": "component",
+            "label": "Page dots",
+            "icon": null,
+            "variant": "filled",
+            "component": "page-dots",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-photo-grid",
+        "x": 16,
+        "y": 14544,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-photo-grid",
+            "kind": "component",
+            "label": "Photo grid",
+            "icon": null,
+            "variant": "filled",
+            "component": "photo-grid",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-brand-button",
+        "x": 16,
+        "y": 14664,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-brand-button",
+            "kind": "component",
+            "label": "Sign-in or pay button",
+            "icon": null,
+            "variant": "filled",
+            "component": "brand-button",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-action-sheet",
+        "x": 16,
+        "y": 14784,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-action-sheet",
+            "kind": "component",
+            "label": "Action sheet",
+            "icon": null,
+            "variant": "filled",
+            "component": "action-sheet",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-subscription",
+        "x": 16,
+        "y": 14904,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-subscription",
+            "kind": "component",
+            "label": "Subscription plans",
+            "icon": null,
+            "variant": "filled",
+            "component": "subscription",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-wheel-picker",
+        "x": 16,
+        "y": 15024,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-wheel-picker",
+            "kind": "component",
+            "label": "Wheel picker",
+            "icon": null,
+            "variant": "filled",
+            "component": "wheel-picker",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-text",
+        "x": 16,
+        "y": 15144,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-text",
+            "kind": "component",
+            "label": "Text",
+            "icon": null,
+            "variant": "filled",
+            "component": "text",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-image",
+        "x": 16,
+        "y": 15264,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-image",
+            "kind": "component",
+            "label": "Image",
+            "icon": null,
+            "variant": "filled",
+            "component": "image",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-icon-button",
+        "x": 16,
+        "y": 15384,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-icon-button",
+            "kind": "component",
+            "label": "Icon button",
+            "icon": null,
+            "variant": "filled",
+            "component": "icon-button",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-custom",
+        "x": 16,
+        "y": 15504,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-custom",
+            "kind": "component",
+            "label": "Custom component",
+            "icon": null,
+            "variant": "filled",
+            "component": "custom",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-window",
+        "x": 16,
+        "y": 15624,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-window",
+            "kind": "component",
+            "label": "Window",
+            "icon": null,
+            "variant": "filled",
+            "component": "window",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-tag-input",
+        "x": 16,
+        "y": 15744,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-tag-input",
+            "kind": "component",
+            "label": "Tag input",
+            "icon": null,
+            "variant": "filled",
+            "component": "tag-input",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-phone-input",
+        "x": 16,
+        "y": 15864,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-phone-input",
+            "kind": "component",
+            "label": "Phone number",
+            "icon": null,
+            "variant": "filled",
+            "component": "phone-input",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-file-upload",
+        "x": 16,
+        "y": 15984,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-file-upload",
+            "kind": "component",
+            "label": "File upload",
+            "icon": null,
+            "variant": "filled",
+            "component": "file-upload",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-item-picker",
+        "x": 16,
+        "y": 16104,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-item-picker",
+            "kind": "component",
+            "label": "Item picker",
+            "icon": null,
+            "variant": "filled",
+            "component": "item-picker",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-multi-select",
+        "x": 16,
+        "y": 16224,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-multi-select",
+            "kind": "component",
+            "label": "Multiple choice",
+            "icon": null,
+            "variant": "filled",
+            "component": "multi-select",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-color-palette",
+        "x": 16,
+        "y": 16344,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-color-palette",
+            "kind": "component",
+            "label": "Color palette",
+            "icon": null,
+            "variant": "filled",
+            "component": "color-palette",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-number-picker",
+        "x": 16,
+        "y": 16464,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-number-picker",
+            "kind": "component",
+            "label": "Number picker",
+            "icon": null,
+            "variant": "filled",
+            "component": "number-picker",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-floating-nav",
+        "x": 16,
+        "y": 16584,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-floating-nav",
+            "kind": "component",
+            "label": "Floating navigation",
+            "icon": null,
+            "variant": "filled",
+            "component": "floating-nav",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-cascading-menu",
+        "x": 16,
+        "y": 16704,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-cascading-menu",
+            "kind": "component",
+            "label": "Cascading menu",
+            "icon": null,
+            "variant": "filled",
+            "component": "cascading-menu",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-mini-program-header",
+        "x": 16,
+        "y": 16824,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-mini-program-header",
+            "kind": "component",
+            "label": "Mini program header",
+            "icon": null,
+            "variant": "filled",
+            "component": "mini-program-header",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-toc",
+        "x": 16,
+        "y": 16944,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-toc",
+            "kind": "component",
+            "label": "Table of contents",
+            "icon": null,
+            "variant": "filled",
+            "component": "toc",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-slide-group",
+        "x": 16,
+        "y": 17064,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-slide-group",
+            "kind": "component",
+            "label": "Slide group",
+            "icon": null,
+            "variant": "filled",
+            "component": "slide-group",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-pull-to-refresh",
+        "x": 16,
+        "y": 17184,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-pull-to-refresh",
+            "kind": "component",
+            "label": "Pull to refresh",
+            "icon": null,
+            "variant": "filled",
+            "component": "pull-to-refresh",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-typing-indicator",
+        "x": 16,
+        "y": 17304,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-typing-indicator",
+            "kind": "component",
+            "label": "Typing indicator",
+            "icon": null,
+            "variant": "filled",
+            "component": "typing-indicator",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-number-ticker",
+        "x": 16,
+        "y": 17424,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-number-ticker",
+            "kind": "component",
+            "label": "Number ticker",
+            "icon": null,
+            "variant": "filled",
+            "component": "number-ticker",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-timer",
+        "x": 16,
+        "y": 17544,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-timer",
+            "kind": "component",
+            "label": "Timer",
+            "icon": null,
+            "variant": "filled",
+            "component": "timer",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-timeline",
+        "x": 16,
+        "y": 17664,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-timeline",
+            "kind": "component",
+            "label": "Timeline",
+            "icon": null,
+            "variant": "filled",
+            "component": "timeline",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-tracker",
+        "x": 16,
+        "y": 17784,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-tracker",
+            "kind": "component",
+            "label": "Status tracker",
+            "icon": null,
+            "variant": "filled",
+            "component": "tracker",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-code-block",
+        "x": 16,
+        "y": 17904,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-code-block",
+            "kind": "component",
+            "label": "Code block",
+            "icon": null,
+            "variant": "filled",
+            "component": "code-block",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-markdown",
+        "x": 16,
+        "y": 18024,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-markdown",
+            "kind": "component",
+            "label": "Markdown",
+            "icon": null,
+            "variant": "filled",
+            "component": "markdown",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-file-diff",
+        "x": 16,
+        "y": 18144,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-file-diff",
+            "kind": "component",
+            "label": "File diff",
+            "icon": null,
+            "variant": "filled",
+            "component": "file-diff",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-sortable-list",
+        "x": 16,
+        "y": 18264,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-sortable-list",
+            "kind": "component",
+            "label": "Sortable list",
+            "icon": null,
+            "variant": "filled",
+            "component": "sortable-list",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-swipe-row",
+        "x": 16,
+        "y": 18384,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-swipe-row",
+            "kind": "component",
+            "label": "Swipe row",
+            "icon": null,
+            "variant": "filled",
+            "component": "swipe-row",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-audio-player",
+        "x": 16,
+        "y": 18504,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-audio-player",
+            "kind": "component",
+            "label": "Audio player",
+            "icon": null,
+            "variant": "filled",
+            "component": "audio-player",
+            "props": {}
+          }
+        ]
+      },
+      {
+        "id": "g-marquee",
+        "x": 16,
+        "y": 18624,
+        "axis": "x",
+        "items": [
+          {
+            "id": "i-marquee",
+            "kind": "component",
+            "label": "Marquee",
+            "icon": null,
+            "variant": "filled",
+            "component": "marquee",
+            "props": {}
+          }
+        ]
+      }
+    ],
+    "frames": [
+      {
+        "id": "f-all",
+        "name": "All parts",
+        "x": 0,
+        "y": 0,
+        "h": 18768
+      },
+      {
+        "id": "f-2",
+        "name": "日本語",
+        "x": 600,
+        "y": 0
+      }
+    ],
+    "paletteKey": "purple",
+    "frame": "phone",
+    "title": "All parts",
+    "brief": ""
+  }
+}

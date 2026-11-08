@@ -5,9 +5,9 @@
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { attachFiles, bytesToBase64, digest, parseProject, serializeProject } from "../../lib/core/projectFile";
+import { attachFiles, bytesToBase64, digest, formatProject, parseProject, serializeProject } from "../../lib/core/projectFile";
 import { setGlobalLang } from "../../lib/i18n";
-import { openProject, projectFile } from "../../lib/project";
+import { openProject, PROJECT_FORMAT, PROJECT_VERSION, projectFile } from "../../lib/project";
 import { connect, errorOf, scratchDir, textOf, writeProject } from "./testkit";
 
 /* the review of what a call takes away, broken on purpose */
@@ -264,6 +264,23 @@ describe("the MCP server on a project file", () => {
     expect(written.frames[0]).toMatchObject({ futureFrame: "x" });
     expect(written.groups[0]).toMatchObject({ futureGroup: true });
     expect(written.groups[0].items[0]).toMatchObject({ futureItem: { a: 1 }, props: { futureProp: 3 }, action: { futureTap: 1, effects: [{ do: "invoke", capability: "pay" }] } });
+  });
+
+  it("opens a file a newer version wrote read-only, and never writes it", async () => {
+    const path = join(scratchDir(), "m3e-canvas Newer.json");
+    const doc = writeProject(path);
+    const text = formatProject({ format: PROJECT_FORMAT, version: PROJECT_VERSION + 1, document: { ...doc, futureSection: { a: 1 } } });
+    writeFileSync(path, text);
+    const s = await connect({ file: path });
+    done.push(s.close);
+    /* it reads, and says why it does not write */
+    expect(textOf(await s.call("find_nodes", { text: "hello" }))).toContain('"id":"hello"');
+    const r = await s.call("add_screen", { name: "Nope" });
+    expect(r.isError).toBe(true);
+    expect(errorOf(r)?.code).toBe("refused");
+    expect(errorOf(r)?.message).toContain(`format ${PROJECT_VERSION + 1}`);
+    expect(textOf(await s.call("connection_status"))).toContain("newerFormat");
+    expect(readFileSync(path, "utf8")).toBe(text);
   });
 
   it("keeps a project folder's pictures beside it", async () => {

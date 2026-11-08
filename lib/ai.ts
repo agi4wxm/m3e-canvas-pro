@@ -2,7 +2,7 @@ import { Doc, Frame, Group, Item, frameOfGroup } from "./tokens";
 import { partBySlug } from "../parts/registry";
 import { labelOfPart } from "../parts/resize";
 import { buildPrompt } from "./prompt";
-import { cleanBehavior, isProject } from "./project";
+import { loadDocument } from "./project";
 import { lookForModel } from "./look";
 import { Lang } from "./i18n";
 import { AiHttpError, isLocalUrl as isLocal, isSecureUrl, readError } from "./llm/errors";
@@ -377,8 +377,11 @@ export async function draftDesign(s: AiSettings, guide: string, idea: string, la
   const free = `${lookForModel()}\nThis canvas is not held to a style's rules: if you name a \`theme.style\`, also write \`"strict": false\` in \`theme\`, and these looks stay.`;
   const user = [`Sketch this app: ${idea.trim()}`, `Write every label, title and note in ${LANG_NAME[lang]}.`, "Three to five screens. Keep it simple.", "", rules || free].join("\n");
   const j = parseJsonObject(await ask(s, system, user, signal, 16000));
-  if (!isProject(j)) throw new Error("json");
-  return readableOnScenes(scenesFirst(withoutSampleWords(cleanBehavior(j))));
+  /* the same way in as any document: migrated, checked, cleaned, what this version does not know kept */
+  const loaded = loadDocument(j);
+  /* a model has no newer version to write in: one that says so wrote something else */
+  if (!loaded || loaded.newer) throw new Error("json");
+  return readableOnScenes(scenesFirst(withoutSampleWords(loaded.doc)));
 }
 
 /** Words a model left out are words the app does not need, but a part left to itself shows its sample
