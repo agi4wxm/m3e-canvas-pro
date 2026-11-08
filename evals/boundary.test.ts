@@ -94,6 +94,17 @@ describe("drawing a prize", () => {
     });
     expect(criticalFailed(fixed)).toEqual(["no-local-result"]);
   });
+  it("asked by loading a source of the draw on a tap, the wheel bound to its value, passes", () => {
+    const o = observe("draw-random-result", (tx) => {
+      wheel(tx);
+      run(tx, "add_data_source", { screen: "lottery", operationId: "drawPrize", name: "draw", load: "demand" });
+      run(tx, "bind_expression", { id: "wheel", prop: "result", expr: "data.draw.value.prizeIndex ?? -1" });
+      run(tx, "add_part", { slug: "text", id: "why", screen: "lottery", at: { x: 16, y: 600 }, props: { text: "" } });
+      run(tx, "bind_expression", { id: "why", prop: "text", expr: "data.draw.error.title ?? ''" });
+      run(tx, "set_action", { id: "wheel", action: stay([{ do: "refresh", source: "draw" }]) });
+    });
+    expect(failed(o)).toEqual([]);
+  });
   it("may show its own waiting and failure states before the answer", () => {
     const o = observe("draw-random-result", (tx) => {
       wheel(tx);

@@ -50,24 +50,34 @@ const noStraightSuccess = (screen: string, ids: string[], names: RegExp): Check 
     { critical: true },
   );
 
-/** a tap on the screen (or a form there) asks the operation */
+/** the data sources of a screen that load the operation, by name */
+const sourcesOn = (g: Graded, screen: string, op: string) => new Set((g.doc.frames.find((f) => f.id === screen)?.data ?? []).filter((d) => d.operationId === op).map((d) => d.name));
+
+/** a tap on the screen asks the operation: it calls it, submits a form to it, or loads a source of it again */
 const asksApi = (screen: string, op: string): Check =>
   custom(
     "asks-api",
     `a tap calls ${op}`,
     (g) => {
-      const taps = tapsOn(g, screen).filter((t) => atOnce(t.action).some((b) => callsIn(b).some((c) => c.operationId === op) || ((b.effects ?? []).some((e) => e.do === "submit") && formsOn(g, screen, op).length > 0)));
+      const sources = sourcesOn(g, screen, op);
+      const asks = (b: ActionBody) => callsIn(b).some((c) => c.operationId === op) || (b.effects ?? []).some((e) => (e.do === "submit" && formsOn(g, screen, op).length > 0) || (e.do === "refresh" && sources.has(e.source)));
+      const taps = tapsOn(g, screen).filter((t) => atOnce(t.action).some(asks));
       return { pass: taps.length > 0, detail: taps.length ? `${taps.map(describe).join(", ")} ask ${op}` : `nothing on ${screen} calls ${op}` };
     },
     { critical: true },
   );
 
-/** the call has a failure path: its `catch` (or its form's) does something */
+/** the call has a failure path: its `catch` (or its form's) does something, or the source that loads it has an error
+ *  design (a region on it, or a part reading its error) */
 const failureDesigned = (screen: string, op: string): Check =>
   custom("failure-designed", `a failure of ${op} is designed`, (g) => {
     const caught = tapsOn(g, screen).some((t) => atOnce(t.action).some((b) => callsIn(b).some((c) => c.operationId === op && !!c.catch && ((c.catch.effects?.length ?? 0) > 0 || c.catch.to !== "none"))));
     const form = formsOn(g, screen, op).some((f) => !!f.form?.catch);
-    return { pass: caught || form, detail: caught || form ? "its catch shows the failure" : `no catch on the call to ${op}` };
+    const sources = sourcesOn(g, screen, op);
+    const region = g.doc.groups.some((grp) => !!grp.states?.source && sources.has(grp.states.source));
+    const reads = itemsOn(g, screen).some((it) => Object.values(it.bind ?? {}).some((v) => [...sources].some((name) => v.includes(`data.${name}.error`))));
+    const ok = caught || form || region || reads;
+    return { pass: ok, detail: caught || form ? "its catch shows the failure" : region || reads ? "the source's error has a design" : `no catch on the call to ${op}` };
   });
 
 /** Nothing the tap that asks does at once says the claim went through, and its `catch` does not either: the claimed
