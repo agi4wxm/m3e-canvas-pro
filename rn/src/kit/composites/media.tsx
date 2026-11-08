@@ -605,10 +605,13 @@ export function Marquee(props: MarqueeProps) {
   const words = { ...typeStyle(kit, "body-medium"), color: c(kit, "on-surface"), paddingRight: 32 };
   return (
     <Surface base={{ width: Math.round(p.width ?? 320), overflow: "hidden", ...fill }} appearance={p} onPress={p.onPress} testID={p.testID}>
-      <Animated.View style={{ flexDirection: "row", alignSelf: "flex-start", transform: [{ translateX: x }] }}>
-        <RNText numberOfLines={1} onLayout={(e) => setLine(e.nativeEvent.layout.width)} style={words}>{p.text}</RNText>
-        <RNText numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no" style={words}>{p.text}</RNText>
-      </Animated.View>
+      {/* a sideways scroller that never scrolls: what it holds is measured at its own width, not cut to the part's */}
+      <ScrollView horizontal scrollEnabled={false} showsHorizontalScrollIndicator={false}>
+        <Animated.View style={{ flexDirection: "row", transform: [{ translateX: x }] }}>
+          <RNText onLayout={(e) => setLine(e.nativeEvent.layout.width)} style={words}>{p.text}</RNText>
+          <RNText accessibilityElementsHidden importantForAccessibility="no" style={words}>{p.text}</RNText>
+        </Animated.View>
+      </ScrollView>
     </Surface>
   );
 }
