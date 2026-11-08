@@ -316,15 +316,16 @@ ${list}
  * platform asks for, yourself. A payment's adapter only submits it: the back end decides whether the order is paid. */
 export const capabilities: Capabilities = {};
 `;
+  /* `fail` only where a default can fail with it */
   const defaults = `${GENERATED}
-${defaultImports(platform, mine)}import { fail, type Capabilities } from ${str(pkg)}
+${defaultImports(platform, mine)}${mine.length ? "import { fail, type Capabilities }" : "import type { Capabilities }"} from ${str(pkg)}
 
 /** What the platform does for the generic capabilities with no SDK and no permission to declare; an adapter of the same
  *  name in src/custom/capabilities.ts takes its place. */
 export const PLATFORM_CAPABILITIES: Capabilities = {
 ${mine.map((n) => DEFAULT_CODE[platform][n]).join("\n")}
 }
-`.replace(/import \{ fail, type Capabilities \}/, mine.length ? "import { fail, type Capabilities }" : "import type { Capabilities }");
+`;
   const registry = `${GENERATED}
 import { createAppCapabilities } from ${str(pkg)}
 import { capabilities } from "../custom/capabilities"
