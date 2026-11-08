@@ -25,6 +25,12 @@ export type ProjectAssetFile = { path: string; mime: string; bytes: Uint8Array }
 
 /* ---------- the layout ---------- */
 
+/** Sets an own, enumerable key the way JSON.parse makes one. A plain assignment would run the inherited setter of a
+ *  key such as `__proto__` (changing the copy's prototype and losing the key) instead of keeping it as data. */
+export function setOwn(out: Record<string, unknown>, key: string, value: unknown) {
+  Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
+}
+
 /** A value with every object's keys in code-point order, as JSON would write it: a key whose value is undefined (or a
  *  function) is left out, and in a list it becomes null. */
 export function sortKeys(value: unknown): unknown {
@@ -35,7 +41,7 @@ export function sortKeys(value: unknown): unknown {
   for (const k of Object.keys(o).sort(byCodePoint)) {
     const v = o[k];
     if (v === undefined || typeof v === "function") continue;
-    out[k] = sortKeys(v);
+    setOwn(out, k, sortKeys(v));
   }
   return out;
 }
@@ -49,7 +55,7 @@ function plainJson(value: unknown): unknown {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     if (v === undefined || typeof v === "function") continue;
-    Object.defineProperty(out, k, { value: plainJson(v), enumerable: true, writable: true, configurable: true });
+    setOwn(out, k, plainJson(v));
   }
   return out;
 }
@@ -102,7 +108,7 @@ function write(value: unknown, path: string[], indent: string): string {
 export function formatProject(file: { format: string; version: number; document: unknown }): string {
   const { format, version, document, ...rest } = file;
   const envelope: Record<string, unknown> = { format, version, document: sortedDocument(document) };
-  for (const k of Object.keys(rest).sort(byCodePoint)) envelope[k] = sortKeys(rest[k as keyof typeof rest]);
+  for (const k of Object.keys(rest).sort(byCodePoint)) setOwn(envelope, k, sortKeys(rest[k as keyof typeof rest]));
   return write(envelope, [], "") + "\n";
 }
 
@@ -188,7 +194,7 @@ function mapStrings<T>(value: T, fn: (s: string) => string): T {
     for (const [k, v] of Object.entries(value)) {
       const next = mapStrings(v, fn);
       if (next !== v) changed = true;
-      out[k] = next;
+      setOwn(out, k, next);
     }
     return (changed ? out : value) as T;
   }
