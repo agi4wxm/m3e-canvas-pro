@@ -66,6 +66,7 @@ import { MockLogPanel, MockScenarioSwitch, PreviewMocksContext, usePreviewMocks 
 import { PRESETS, variantFor } from "@/lib/variants";
 import { flowStarts } from "@/lib/prototype";
 import { EASE, SLIDE_S as SLIDE_MS, screenPoses, type ScreenMove } from "@/lib/screenMotion";
+import { composing, goesBack } from "./previewKeys";
 
 /** room reserved for the wide preview controls: panel, right margin and breathing space */
 const WIDE_CONTROL_SPACE = 220;
@@ -1052,13 +1053,16 @@ export function Preview({
   const [picker, setPicker] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      /* an input method putting a character together owns every key, Escape too */
+      if (composing(e)) return;
       if (e.key === "Escape") {
         /* an open menu is the thing Escape dismisses, then an overlay */
         if (picker) setPicker(false);
         else if (overlayRef.current) setOverlay(null);
         else onClose();
       }
-      if (e.key === "Backspace" || e.key === "ArrowLeft") back();
+      /* Backspace in a field deletes, ← in a slider or a row of tabs moves: only elsewhere do they go back */
+      if (goesBack(e)) back();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
