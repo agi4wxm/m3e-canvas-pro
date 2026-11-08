@@ -35,3 +35,5 @@ export { fieldError, isBlank, pointerField, problemFieldErrors, problemMessage, 
 export { MAX_ITEMS, regionOf, screenParams, sourceView, typedParam, type ListAt, type Paging, type ParamSpec, type RegionShows, type SourceState, type SourceStatus, type SourceView } from "../bindings/sources";
 export { formViewOf, readFields, setPath, type FormRun, type FormView } from "../bindings/form";
 export type { AbortSignalLike, HttpMethod, Transport, TransportFile, TransportRequest, TransportResponse } from "../api/transport";
+/* how a transport of the platform's reads an answer (the mini-program's does; packages/api has the same file) */
+export { readBody, textBody, utf8Bytes, type RawResponse, type ResponseFile } from "../api/body";

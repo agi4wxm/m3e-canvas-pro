@@ -35,7 +35,8 @@ export interface TransportRequest {
 export interface TransportResponse {
   status: number;
   headers: Readonly<Record<string, string>>;
-  /** the answer: parsed JSON, else text, else undefined when there is none; a file as a `TransportFile` */
+  /** the answer, as body.ts `readBody` reads one: JSON parsed, text as a string, a file (an attachment, or any type
+   *  that is not text) as a `TransportFile`, undefined when there is none */
   body: unknown;
 }
 

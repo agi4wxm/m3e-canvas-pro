@@ -260,7 +260,7 @@ export const FORMS: Record<string, Record<string, FieldRule>> = ${jsonCode(forms
 
 const TRANSPORT = (scope: string) => `${GENERATED}
 import { Platform } from "react-native"
-import { createFetchTransport, queryString, type Transport, type TransportRequest, type TransportResponse } from ${str(`${scope}/api`)}
+import { createFetchTransport, queryString, readBody, type Transport, type TransportRequest, type TransportResponse } from ${str(`${scope}/api`)}
 
 /** a file a picker gave (./files): what the transport sends for a file field, as the mocks read one too */
 export type PickedFile = { name: string; type: string; size?: number; dataUrl: string; uri?: string }
@@ -300,24 +300,20 @@ async function upload(baseUrl: string, r: TransportRequest): Promise<TransportRe
     xhr.setRequestHeader("accept", "application/json")
     for (const [h, v] of Object.entries(r.headers ?? {})) if (h.toLowerCase() !== "content-type") xhr.setRequestHeader(h, v)
     if (r.onUploadProgress) xhr.upload.onprogress = (e) => r.onUploadProgress?.(e.loaded, e.total)
+    /* the answer's bytes as they came, read as packages/api reads every answer (JSON, text or a file) */
+    xhr.responseType = "arraybuffer"
     xhr.onload = () => {
-      const text = xhr.responseText
-      let body: unknown = text === "" ? undefined : text
-      if (text && /json/i.test(xhr.getResponseHeader("content-type") ?? "")) {
-        try {
-          body = JSON.parse(text) as unknown
-        } catch {
-          /* words, then */
-        }
-      }
-      resolve({ status: xhr.status, headers: headersOf(xhr.getAllResponseHeaders()), body })
+      const headers = headersOf(xhr.getAllResponseHeaders())
+      const bytes = xhr.response ? new Uint8Array(xhr.response as ArrayBuffer) : new Uint8Array(0)
+      resolve({ status: xhr.status, headers, body: readBody({ method: r.method, path: r.path, status: xhr.status, headers, bytes }) })
     }
     xhr.onerror = () => reject(new Error("Network request failed"))
     xhr.send(form)
   })
 }
 
-/** The API over React Native's fetch: JSON as JSON, a multipart form (an upload) with its progress. */
+/** The API over React Native's fetch: JSON as JSON, a multipart form (an upload) with its progress; every answer read
+ *  the same way (JSON, text, or a file such as a PDF as its bytes). */
 export function createNativeTransport(options: { baseUrl: string }): Transport {
   const json = createFetchTransport({ baseUrl: options.baseUrl })
   return { request: (r) => (multipart(r) ? upload(options.baseUrl, r) : json.request(r)) }
