@@ -38,7 +38,7 @@ import { getLang } from "../../i18n";
 import { childLayoutOf, flowOf, outOfPane, sizingOf, type Flow } from "../../flow";
 import { cleanLook } from "../../look";
 import { kitLookOf } from "../../kits";
-import { withDocStyles } from "../../styles";
+import { styleContext, withDocStyles } from "../../styles";
 import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
 import { templateOf } from "../../collections";
@@ -728,7 +728,8 @@ class ScreenPrinter {
     if (it.bind && Object.keys(it.bind).length) this.warn("binding", "a bound prop of a part drawn as atoms keeps the design's value", it.id);
     if (def.atoms && !kids.length) {
       this.warn("atoms", `drawn as the atoms it splits into (${def.slug})`, it.id);
-      const tree = def.atoms(reader(def, it.props), kitLookOf(normalizeTheme(this.doc.theme))) as Node;
+      const styles = styleContext(this.doc.styles);
+      const tree = def.atoms(reader(def, it.props), kitLookOf(normalizeTheme(this.doc.theme, styles), styles)) as Node;
       return this.tree(plainTree(tree, getLang()), it);
     }
     this.kit.add("Placeholder");
@@ -1090,7 +1091,9 @@ class ScreenPrinter {
 
 /** Every screen of a document as React Native code on the kit, read in the document's own styles */
 export function printRnScreens(source: Doc, widths: Record<string, number>, o: RnPrintOptions = {}): RnScreens {
-  return withDocStyles(source.styles, () => screensOf(source, widths, o));
+  /* what the printer calls further down (the layout, the parts) may read a style without being handed one: the
+     document's are in reach for this one synchronous call */
+  return withDocStyles(styleContext(source.styles), () => screensOf(source, widths, o));
 }
 
 function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOptions): RnScreens {

@@ -5,7 +5,7 @@ import { axisValue, axisWrite, resizeOf } from "../parts/resize";
 import { roleOf } from "../parts/role";
 import type { ListItem } from "../parts/types";
 import type { Motion, Transition } from "./screenMotion";
-import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleUX } from "./styles";
+import { normalizeRecipes, normalizeUx, styleOf, stylePalette, stylePatch, styleSeed, type CustomStyle, type Recipes, type StyleContext, type StyleUX } from "./styles";
 import type { ApiSpec } from "./api/types";
 import type { MockSpec } from "./mocks/types";
 
@@ -497,11 +497,11 @@ export const DEFAULT_THEME: Theme = { dark: false, bothModes: false, contrast: "
 export const ICON_FAMILIES: IconFamily[] = ["rounded", "filled", "light", "sharp", "pixel", "sf", "fluentui", "codicon", "phosphor", "lucide", "remix", "ant", "tabler", "mingcute", "game", "emoji"];
 
 /** a stored theme with any missing or unknown field replaced by its default */
-export function normalizeTheme(t: Partial<Theme> | undefined): Theme {
+export function normalizeTheme(t: Partial<Theme> | undefined, styles?: StyleContext): Theme {
   if (!t) return DEFAULT_THEME;
-  const pack = styleOf(t.style);
+  const pack = styleOf(t.style, styles);
   /* a theme that only names a style (one written by hand, or by a model) gets what the style brings */
-  const d: Theme = pack ? { ...DEFAULT_THEME, ...stylePatch(t.style!) } : DEFAULT_THEME;
+  const d: Theme = pack ? { ...DEFAULT_THEME, ...stylePatch(t.style!, styles) } : DEFAULT_THEME;
   const strict = typeof t.strict === "boolean" ? t.strict : !!pack;
   /* held to a style, the theme has no say in what the style decides, whoever wrote it. Android's rules are Material's,
      and Material leaves the colors and how lively things are to the author */
@@ -639,11 +639,11 @@ export const draftGradient = (p: Palette) =>
 /** The scheme the document renders with. Hand-written presets and the author's
  *  fine-tuned custom scheme are light and standard contrast; dark mode and the
  *  other contrast levels are generated from the same seed. */
-export function paletteOf(key: string, custom?: Palette | null, theme?: Theme): Palette {
-  const styled = stylePalette(theme);
+export function paletteOf(key: string, custom?: Palette | null, theme?: Theme, styles?: StyleContext): Palette {
+  const styled = stylePalette(theme, styles);
   if (styled) return styled;
   const base = (key === "custom" && custom) || PALETTES.find((p) => p.key === key) || PALETTES[0];
-  const fromStyle = styleSeed(theme);
+  const fromStyle = styleSeed(theme, styles);
   if (!theme || (!fromStyle && !theme.dark && theme.contrast === "standard")) return base;
   const seed = fromStyle ?? base.seed ?? base.primary;
   /* a preset's hue and chroma are deliberate (Mono is nearly grey), so they are kept as they are */
@@ -1539,8 +1539,8 @@ export function makeItem(slug?: string): Item {
 export const paletteIconOf = (it: Item) => partBySlug(it.component)?.icon ?? "widgets";
 
 /** the color a sketch's scheme is generated from: the custom scheme's seed, or the preset's color */
-export function seedOf(key: string, custom?: Palette | null, theme?: Theme): string {
-  const fromStyle = styleSeed(theme);
+export function seedOf(key: string, custom?: Palette | null, theme?: Theme, styles?: StyleContext): string {
+  const fromStyle = styleSeed(theme, styles);
   if (fromStyle) return fromStyle;
   const base = (key === "custom" && custom) || PALETTES.find((p) => p.key === key) || PALETTES[0];
   return base.seed ?? base.primary;

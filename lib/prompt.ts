@@ -10,7 +10,7 @@ import { nameOf } from "../parts/labels";
 import { roleOf } from "../parts/role";
 import { inlineNode } from "../parts/print";
 import { Lang, SWIPE_TEXT, TRANSITION_TEXT, getLang } from "./i18n";
-import { isStrict, styleOf, styleTextOf, uxOf, withDocStyles } from "./styles";
+import { isStrict, styleContext, styleOf, styleTextOf, uxOf, withDocStyles, type StyleContext } from "./styles";
 import {
   Place,
   Action,
@@ -1054,15 +1054,15 @@ const THEME_NOTES: Record<Lang, { shape: Record<Theme["shape"], string>; emphasi
   },
 };
 
-function themeLines(th: Theme, lang: Lang): string[] {
+function themeLines(th: Theme, lang: Lang, styles: StyleContext): string[] {
   const n = THEME_NOTES[lang];
   const font = FONTS.find((f) => f.key === th.font);
   const fontName = font?.key === "system" ? (lang === "ja" ? "端末のシステムフォント" : lang === "zh" ? "设备的系统字体" : lang === "ko" ? "기기의 시스템 글꼴" : "the device's system font") : (font?.label ?? "Roboto");
   const sp = lang === "en" || lang === "ko" ? " " : "";
-  const pack = styleOf(th.style);
+  const pack = styleOf(th.style, styles);
   return [
     ...(pack ? [`- ${STYLE_NOTE[lang](styleTextOf(pack.name, lang), styleTextOf(pack.hint, lang))}`, `- ${styleTextOf(pack.layout, lang)}`] : []),
-    ...(isStrict(th) ? [`- ${RULES_NOTE[lang](uxOf(th).margin, uxOf(th).gap, uxOf(th).tight)}`] : []),
+    ...(isStrict(th, styles) ? [`- ${RULES_NOTE[lang](uxOf(th, styles).margin, uxOf(th, styles).gap, uxOf(th, styles).tight)}`] : []),
     `- ${n.shape[th.shape]}`,
     `- ${FONT_NOTE[lang](fontName)}${sp}${th.emphasized ? n.emphasized : n.plainType}`,
     `- ${n.motion[th.motion]}`,
@@ -1363,14 +1363,15 @@ export function promptMarks(text: string, frames: Frame[], lang: Lang = getLang(
 
 /** what a coding agent is told to build, read in the document's own styles (a custom style is resolved from `doc.styles`) */
 export function buildPrompt(source: Doc, widths: Record<string, number>, onlyFrameId?: string, lang: Lang = getLang()): string {
-  return withDocStyles(source.styles, () => promptOf(source, widths, onlyFrameId, lang));
+  return withDocStyles(styleContext(source.styles), () => promptOf(source, widths, onlyFrameId, lang));
 }
 
 function promptOf(source: Doc, widths: Record<string, number>, onlyFrameId: string | undefined, lang: Lang): string {
   /* instances are written out, each saying what it is an instance of; repeats are not drawn out, the first child stands for its rows */
   const doc: Doc = { ...source, groups: describeRepeats(expandInstances(source, widths, { rows: false }), source.collections) };
-  const th = normalizeTheme(doc.theme);
-  const pal = paletteOf(doc.paletteKey, doc.customPalette, th);
+  const styles = styleContext(doc.styles);
+  const th = normalizeTheme(doc.theme, styles);
+  const pal = paletteOf(doc.paletteKey, doc.customPalette, th, styles);
   const phone = doc.frame === "phone";
   const allFrames = phone ? doc.frames : [];
   const only = onlyFrameId ? allFrames.find((f) => f.id === onlyFrameId) : undefined;
@@ -1404,8 +1405,8 @@ function promptOf(source: Doc, widths: Record<string, number>, onlyFrameId: stri
   if (doc.dynamicColor) lines.push(ph.dynamic);
   lines.push(ph.colorIntro(pal.label, !!doc.dynamicColor, th));
   if (th.bothModes) {
-    const light = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: false });
-    const dark = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: true });
+    const light = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: false }, styles);
+    const dark = paletteOf(doc.paletteKey, doc.customPalette, { ...th, dark: true }, styles);
     lines.push(ph.schemeHead(false));
     lines.push(...paletteLines(light));
     lines.push(ph.schemeHead(true));
@@ -1416,7 +1417,7 @@ function promptOf(source: Doc, widths: Record<string, number>, onlyFrameId: stri
 
   lines.push("");
   lines.push(ph.hTheme);
-  lines.push(...themeLines(th, lang));
+  lines.push(...themeLines(th, lang, styles));
   if (groups.some((g) => g.items.some((it) => it.look))) lines.push(LOOK_NOTE[lang]);
 
   lines.push("");

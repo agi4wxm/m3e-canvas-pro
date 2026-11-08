@@ -12,7 +12,7 @@ import { propKindText } from "../core/ops/validate";
 import { kitLookOf } from "../kits";
 import { COLOR_ROLES, LOOK_PRESETS, STRICT_LOOK_KEYS, lookForModel } from "../look";
 import { rulesForModel } from "../styleRules";
-import { STYLE_PACKS, isStrict, recipesOf, styleOf, uxOf, withDocStyles } from "../styles";
+import { STYLE_PACKS, isStrict, recipesOf, styleContext, styleOf, uxOf } from "../styles";
 import { COLOR_TOKENS, ICON_FAMILIES, REGION_STATES, TEXT_TOKENS, frameLengthOf, frameSizeOf, type ComponentDef, type Doc, type RegionState } from "../tokens";
 import { overridableParts } from "../instances";
 import { FAMILY_LACKS, ICON_NAMES } from "./icons.generated";
@@ -237,13 +237,15 @@ const listStyles = tool<Record<string, never>>({
   run(_a, env) {
     const s = env.store.get();
     const theme = s.doc.theme;
-    return withDocStyles(s.doc.styles, () => ({
+    /* read in this document's own styles, whatever another has in reach */
+    const styles = styleContext(s.doc.styles);
+    return {
       result: {
-        current: { style: theme.style ?? "", name: styleOf(theme.style)?.name.en ?? "Material 3", strict: isStrict(theme), dark: theme.dark },
+        current: { style: theme.style ?? "", name: styleOf(theme.style, styles)?.name.en ?? "Material 3", strict: isStrict(theme, styles), dark: theme.dark },
         builtIn: STYLE_PACKS.map((p) => `${p.key} | ${p.name.en} | ${p.refs.join(", ")}`),
         custom: (s.doc.styles ?? []).map((c) => ({ key: c.key, name: c.name.en ?? c.key, ...(c.extends ? { extends: c.extends } : {}) })),
       },
-    }));
+    };
   },
 });
 
@@ -259,24 +261,24 @@ const getStyle = tool<{ key?: string }>({
     const s = env.store.get();
     const theme = s.doc.theme;
     const key = a.key ?? theme.style ?? "";
-    return withDocStyles(s.doc.styles, () => {
-      const pack = styleOf(key);
-      if (key && !pack) throw new ToolFailure("not_found", `There is no style ${JSON.stringify(key)}.`, "list_styles gives the keys.");
-      const wearing = key === (theme.style ?? "");
-      const custom = s.doc.styles?.find((c) => c.key === key);
-      const look = wearing ? theme : { ...theme, style: key || undefined, strict: undefined, recipes: undefined, ux: undefined };
-      return {
-        result: {
-          key,
-          name: pack?.name.en ?? "Material 3",
-          ...(pack ? { refs: pack.refs, layout: pack.layout.en, font: pack.font, display: pack.display, icons: pack.icons, shape: pack.shape, mode: pack.mode, light: pack.light, dark: pack.dark } : {}),
-          recipes: recipesOf(look),
-          ux: uxOf(look),
-          ...(wearing ? { worn: true, strict: isStrict(theme), rules: isStrict(theme) ? rulesForModel(theme) : "Not held to its rules: colors, shapes and every look field are yours to set." } : {}),
-          ...(custom ? { custom } : {}),
-        },
-      };
-    });
+    const styles = styleContext(s.doc.styles);
+    const pack = styleOf(key, styles);
+    if (key && !pack) throw new ToolFailure("not_found", `There is no style ${JSON.stringify(key)}.`, "list_styles gives the keys.");
+    const wearing = key === (theme.style ?? "");
+    const custom = s.doc.styles?.find((c) => c.key === key);
+    const look = wearing ? theme : { ...theme, style: key || undefined, strict: undefined, recipes: undefined, ux: undefined };
+    const strict = isStrict(theme, styles);
+    return {
+      result: {
+        key,
+        name: pack?.name.en ?? "Material 3",
+        ...(pack ? { refs: pack.refs, layout: pack.layout.en, font: pack.font, display: pack.display, icons: pack.icons, shape: pack.shape, mode: pack.mode, light: pack.light, dark: pack.dark } : {}),
+        recipes: recipesOf(look, styles),
+        ux: uxOf(look, styles),
+        ...(wearing ? { worn: true, strict, rules: strict ? rulesForModel(theme, styles) : "Not held to its rules: colors, shapes and every look field are yours to set." } : {}),
+        ...(custom ? { custom } : {}),
+      },
+    };
   },
 });
 
@@ -288,7 +290,8 @@ const lookReference = tool<Record<string, never>>({
   readOnly: true,
   destructive: false,
   run(_a, env) {
-    const strict = isStrict(env.store.get().doc.theme);
+    const { doc } = env.store.get();
+    const strict = isStrict(doc.theme, styleContext(doc.styles));
     return {
       result: {
         strict,

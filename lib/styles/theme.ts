@@ -1,5 +1,5 @@
 import type { FontKey, IconFamily, Palette, ShapeScale } from "../tokens";
-import { customPackIn, customPackOf } from "./book";
+import { customPackIn, stylesInReach, type StyleContext } from "./book";
 import type { CustomStyle } from "./custom";
 import { PACKS } from "./packs";
 import { M3, RECIPES, RECIPE_KEYS, type RecipeKey, type Recipes } from "./recipes";
@@ -27,9 +27,10 @@ const BUILT_IN = new Map(STYLE_PACKS.map((s) => [s.key, s]));
 /** a built-in pack by its key */
 export const builtInStyleOf = (key: string | undefined): StylePack | undefined => (key ? BUILT_IN.get(key) : undefined);
 
-/** The pack a key names: a built-in one, or a custom style of the document in reach (book.ts). Everything that reads
- *  a style reads it through here, so a custom style is worn wherever a built-in one is. */
-export const styleOf = (key: string | undefined): StylePack | undefined => (key ? (BUILT_IN.get(key) ?? customPackOf(key)) : undefined);
+/** The pack a key names: a built-in one, or a custom style of the document whose context it is given (book.ts).
+ *  Everything that reads a style reads it through here, so a custom style is worn wherever a built-in one is. Every
+ *  reader below takes the context last; left out, it is the one in reach (the older way, book.ts). */
+export const styleOf = (key: string | undefined, styles: StyleContext = stylesInReach()): StylePack | undefined => (key ? (BUILT_IN.get(key) ?? styles.styleOf(key)) : undefined);
 
 /** a key read against a document's own styles, without changing which are in reach */
 export const resolveStyle = (key: string | undefined, styles: readonly CustomStyle[] | undefined): StylePack | undefined => (key ? (BUILT_IN.get(key) ?? customPackIn(key, styles)) : undefined);
@@ -49,38 +50,38 @@ export type Styled = {
 };
 
 /** the settings a style brings: picking it writes them on the theme, where each can be changed afterwards */
-export function stylePatch(key: string) {
-  const pack = styleOf(key);
+export function stylePatch(key: string, styles?: StyleContext) {
+  const pack = styleOf(key, styles);
   if (!pack) return { style: undefined, strict: true, ownColors: undefined, recipes: undefined, ux: undefined, displayFont: undefined, icons: undefined, shape: "rounded" as const, font: "roboto" as const, motion: "standard" as const, dark: false };
   return { style: pack.key, strict: true, ownColors: undefined, recipes: undefined, ux: undefined, displayFont: pack.display, icons: pack.icons, shape: pack.shape, font: pack.font, motion: pack.motion, dark: pack.mode === "dark" };
 }
 
 /** whether a document is held to its style's rules. A style held by default; Android once the author has picked it. */
-export const isStrict = (t: { style?: string; strict?: boolean }) => t.strict ?? !!styleOf(t.style);
+export const isStrict = (t: { style?: string; strict?: boolean }, styles?: StyleContext) => t.strict ?? !!styleOf(t.style, styles);
 
 /** a style's colors are the document's until the author picks others */
-export const colorsOf = (t: Styled) => (t.ownColors ? undefined : styleOf(t.style));
+export const colorsOf = (t: Styled, styles?: StyleContext) => (t.ownColors ? undefined : styleOf(t.style, styles));
 
 /** the seed the rest of a scheme comes from, when the style is the one coloring the document */
-export const styleSeed = (t: Styled | undefined) => (t ? colorsOf(t)?.seed : undefined);
+export const styleSeed = (t: Styled | undefined, styles?: StyleContext) => (t ? colorsOf(t, styles)?.seed : undefined);
 
 /** The palette the editor and the screens draw with. At a higher contrast the generated scheme is kept, since it is
  *  the one that promises that contrast; a style's own colors are for the standard level. */
-export function stylePalette(t: Styled | undefined): Palette | undefined {
+export function stylePalette(t: Styled | undefined, styles?: StyleContext): Palette | undefined {
   if (!t || (t.contrast && t.contrast !== "standard")) return undefined;
-  const pack = colorsOf(t);
+  const pack = colorsOf(t, styles);
   if (!pack) return undefined;
   const r = t.dark ? pack.dark : pack.light;
   return { key: pack.key, label: pack.name.en, seed: pack.seed, ...(t.dark ? ERRORS_DARK : ERRORS_LIGHT), ...r };
 }
 
-export const recipesOf = (t: Styled): Recipes => ({ ...M3, ...styleOf(t.style)?.recipes, ...t.recipes });
+export const recipesOf = (t: Styled, styles?: StyleContext): Recipes => ({ ...M3, ...styleOf(t.style, styles)?.recipes, ...t.recipes });
 
 /** how a screen is laid out under a theme: Material's, the style's, and what the author changed */
-export const uxOf = (t: Styled): StyleUX => ({ ...DEFAULT_UX, ...styleOf(t.style)?.ux, ...t.ux });
+export const uxOf = (t: Styled, styles?: StyleContext): StyleUX => ({ ...DEFAULT_UX, ...styleOf(t.style, styles)?.ux, ...t.ux });
 
 /** the words a picture is painted with when its scene names no style of its own */
-export const artOf = (t: Styled | undefined) => styleOf(t?.style)?.art ?? "";
+export const artOf = (t: Styled | undefined, styles?: StyleContext) => styleOf(t?.style, styles)?.art ?? "";
 
 const isVariant = <K extends RecipeKey>(k: K, v: unknown): v is Recipes[K] => (RECIPES[k] as readonly unknown[]).includes(v);
 

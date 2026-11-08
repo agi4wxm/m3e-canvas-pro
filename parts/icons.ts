@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { familyGlyph, setIconFamily, type IconFamily } from "@/components/m3e/icon";
+import { familyGlyph, setIconFamily, useIconFamilyHere, type IconFamily } from "@/components/m3e/icon";
 import core from "@/components/m3e/icon-data";
 import { isKnownIcon, registerIcons } from "@/components/m3e/icon-registry";
 import { loadIcons } from "@/components/m3e/icon-sets/load";
@@ -17,7 +17,7 @@ const API = "https://api.iconify.design";
 let version = 0;
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setTimeout> | undefined;
-const pending = new Set<string>();
+const pending = new Map<IconFamily, Set<string>>();
 let family: IconFamily = "rounded";
 /** every name asked for so far: a newly chosen family has to load them too */
 const named = new Set<string>();
@@ -69,7 +69,7 @@ const isDoc = (name: string) => name.startsWith(DOC_ICON_PREFIX);
 const base = (name: string) => name.replaceAll("_", "-");
 const rounded = (name: string) => [`material-symbols:${base(name)}-outline-rounded`, `material-symbols:${base(name)}-rounded`];
 /** the glyphs a name is drawn with now, outlined and filled: the family's once they are here, else Rounded's once they are, else none */
-const drawnWith = (name: string) => (isDoc(name) ? `doc:${hashOf(docDrawn[name.slice(DOC_ICON_PREFIX.length)] ?? "")}` : [false, true].map((filled) => familyGlyph(name, filled) ?? (isKnownIcon(rounded(name)[filled ? 1 : 0]) ? "r" : "")).join("|"));
+const drawnWith = (name: string, of: IconFamily) => (isDoc(name) ? `doc:${hashOf(docDrawn[name.slice(DOC_ICON_PREFIX.length)] ?? "")}` : [false, true].map((filled) => familyGlyph(name, filled, of) ?? (isKnownIcon(rounded(name)[filled ? 1 : 0]) ? "r" : "")).join("|"));
 /** a short hash of a drawing, so a tree draws again when one of its document icons is drawn anew */
 function hashOf(s: string) {
   let h = 0;
@@ -107,21 +107,24 @@ async function fromIconify(names: string[]) {
 const RETRY_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 32_000];
 let retries = 0;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
-let retrying = new Set<string>();
+/** the names to ask for again, by the family they were asked in */
+let retrying = new Map<IconFamily, Set<string>>();
 
 function retryNow() {
   if (retryTimer !== undefined) clearTimeout(retryTimer);
   retryTimer = undefined;
   const again = retrying;
-  retrying = new Set();
-  ensureIcons(again);
+  retrying = new Map();
+  for (const [drawn, names] of again) ensureIcons(names, drawn);
 }
 
 function retryLater(names: string[], drawn: IconFamily) {
+  const set = retrying.get(drawn) ?? new Set<string>();
   for (const n of names) {
     asked.delete(`${drawn}:${base(n)}`);
-    retrying.add(n);
+    set.add(n);
   }
+  retrying.set(drawn, set);
   if (retryTimer !== undefined || retries >= RETRY_MS.length) return;
   retryTimer = setTimeout(retryNow, RETRY_MS[retries++]);
 }
@@ -133,29 +136,41 @@ if (typeof window !== "undefined" && typeof window.addEventListener === "functio
   });
 
 async function flush() {
-  const names = [...pending];
+  const work = [...pending];
   pending.clear();
-  const drawn = family;
-  if (await loadIcons(drawn, names)) changed();
-  const missing = names.filter((n) => !fetched.has(n) && !rounded(n).some(isKnownIcon));
-  missing.forEach((n) => fetched.add(n));
-  if (missing.length) await fromIconify(missing);
-  const undrawn = names.filter((n) => !rounded(n).some(isKnownIcon));
-  if (undrawn.length) retryLater(undrawn, drawn);
-  else retries = 0;
+  for (const [drawn, set] of work) {
+    const names = [...set];
+    if (await loadIcons(drawn, names)) changed();
+    const missing = names.filter((n) => !fetched.has(n) && !rounded(n).some(isKnownIcon));
+    missing.forEach((n) => fetched.add(n));
+    if (missing.length) await fromIconify(missing);
+    const undrawn = names.filter((n) => !rounded(n).some(isKnownIcon));
+    if (undrawn.length) retryLater(undrawn, drawn);
+    else retries = 0;
+  }
 }
 
-/** load the icons a part uses, in the current family; the ones already loaded are skipped */
-export function ensureIcons(names: Iterable<string>) {
+/** the families other than the app's whose drawings of what the components draw inside themselves were asked for */
+const innerAsked = new Set<IconFamily>();
+
+/** Load the icons a part uses, in a family (the app's, or the one a root draws in: components/m3e/icon.tsx
+ *  `IconFamilyProvider`); the ones already loaded are skipped. */
+export function ensureIcons(names: Iterable<string>, of: IconFamily = family) {
   if (typeof window === "undefined") return;
+  if (of !== family && of !== "rounded" && !innerAsked.has(of)) {
+    innerAsked.add(of);
+    void loadIcons(of, INNER).then(changed);
+  }
   for (const name of names) {
     /* the document's own are registered with the document, never fetched */
     if (!name || isDoc(name)) continue;
     named.add(name);
-    const key = `${family}:${base(name)}`;
+    const key = `${of}:${base(name)}`;
     if (asked.has(key)) continue;
     asked.add(key);
-    pending.add(name);
+    const set = pending.get(of) ?? new Set<string>();
+    set.add(name);
+    pending.set(of, set);
   }
   if (pending.size && timer === undefined) {
     timer = setTimeout(() => {
@@ -218,10 +233,12 @@ export function useIconVersion() {
  *  state, and a widget's run-time icons are drawn by WidgetIcon, which sees to itself. */
 export function useIcons(node: PNode) {
   const names = [...iconNamesIn(node)].join(",");
-  useEffect(() => ensureIcons(names ? names.split(",") : []), [names]);
+  /* the family of the root it is drawn in */
+  const of = useIconFamilyHere();
+  useEffect(() => ensureIcons(names ? names.split(",") : [], of), [names, of]);
   /* what this tree's icons are drawn with now, under the family's name: changing family draws the tree again even if nothing is left to
    * load, and so does a glyph taking another's place (Pixel's own arriving over the Sharp one that stood in for it) */
-  const count = () => `${family}${inner === family ? "" : "~"}:${names ? names.split(",").map(drawnWith).join(",") : ""}`;
+  const count = () => `${of}${inner === of ? "" : "~"}:${names ? names.split(",").map((n) => drawnWith(n, of)).join(",") : ""}`;
   return useSyncExternalStore(
     (l) => {
       listeners.add(l);

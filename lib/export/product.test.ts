@@ -47,15 +47,16 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the components saying their
-     own words in Chinese, Japanese and Korean too, after the icons asking again and the ripple under reduced motion; in
-     parts, form fields keyed by their item and resizable sizes as percentages). */
+     before the product existed; one that changes on purpose is written again here (last: the icons reading their
+     family from a root's provider and drawn again when it changes, components/m3e/icon.tsx and symbols.tsx; before
+     that, the components saying their own words in Chinese, Japanese and Korean too, after the icons asking again and
+     the ripple under reduced motion; in parts, form fields keyed by their item and resizable sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [77, "bd31acaf13e5190fe39d7bb10aa87686e5b0aa073db287b93329b255625716de"],
-    systems: [40, "fe350b28dee0e667c6a33665a619f74599695020dda85b6107a334d8079e82af"],
+    proof: [77, "311ea8252be6f796d1974f2ab9ad3f3558936acd0673212a339ddfb457ad9d51"],
+    systems: [40, "58807e81f5714322a5a6a60c6bd52007dd8f794c6d8e51804d642a637d315fef"],
     reuse: [30, "c927332adcf650e2ccfdb707beb22ea9c1064ed2aa51a5ad2f598cf1ae813aa2"],
-    sweep: [83, "f6689151ca84fb6fa95dd7cd234d1bcb1e46823abf1e883d0ad175305326ef7b"],
-    parts: [136, "c806bb12162f2b0408b9f53f2f30c181aed118f064e67430aa5ecafbe3f5b37d"],
+    sweep: [83, "a9b4b8fca6d618591ba06841ee2930f9d02f209a652cf8f7343461c81cb4ed53"],
+    parts: [136, "5c2c38183e8a82e8742dfcc275168daa6705b7b0b727895995f32009004a4bea"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

@@ -12,7 +12,7 @@ import { RECIPES, RECIPE_KEYS, RECIPE_LABELS, STYLE_GROUPS, STYLE_PACKS, isCusto
 import { FONTS, ICON_FAMILIES, Palette, Theme, fontFamilyOf, langFaceOf, shapeScaleOf, type FontKey, type IconFamily } from "@/lib/tokens";
 import { ensureFontLoaded } from "@/lib/theme";
 import { Lang, t, useLang } from "@/lib/i18n";
-import { shapeVars } from "@/parts/theme";
+import { shapeVars, useDocStyles } from "@/parts/theme";
 import { Icon } from "./Icon";
 import { IconFamilyPicker } from "./IconFamilyPicker";
 import { MyStyles } from "./CustomStyleEditor";
@@ -56,6 +56,8 @@ const loadFaces = (pack: StylePack, lang: Lang) => {
 /** the two controls that say the most about a style, drawn in it; its faces come once it scrolls into view. `rich`:
  *  more of them, for the editor of a style of the document's own, where each recipe picked shows at once */
 function Sample({ pack, lang, rich }: { pack: StylePack; lang: Lang; rich?: boolean }) {
+  /* a custom pack is read by its key in the document's own styles */
+  const styles = useDocStyles();
   const selector = `[data-style-sample="${pack.key}"]`;
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -79,9 +81,9 @@ function Sample({ pack, lang, rich }: { pack: StylePack; lang: Lang; rich?: bool
     const at = { scope: `${selector}${selector}`, dark: `.dark${selector}${selector}` };
     return [
       themeCss({ source: { primary: pack.seed }, variant: "tonalSpot", contrast: "standard" }, { light: selector, dark: `.dark${selector}` }),
-      styleCss({ ...stylePatch(pack.key), dark, contrast: "standard", displayFamily: pack.display ? fontFamilyOf(pack.display, lang) : undefined }, at),
+      styleCss({ ...stylePatch(pack.key, styles), dark, contrast: "standard", displayFamily: pack.display ? fontFamilyOf(pack.display, lang) : undefined }, at, styles),
     ].join("\n");
-  }, [pack, selector, lang]);
+  }, [pack, selector, lang, styles]);
   return (
     <div
       ref={ref}
@@ -207,8 +209,9 @@ function SpecRow({ label, p, children }: { label: string; p: Palette; children: 
 
 /** what a document is held to: the same values the rules hold it to, to read */
 function StyleSpec({ theme, pack, p, lang }: { theme: Theme; pack: StylePack | undefined; p: Palette; lang: Lang }) {
-  const recipes = recipesOf(theme);
-  const ux = uxOf(theme);
+  const styles = useDocStyles();
+  const recipes = recipesOf(theme, styles);
+  const ux = uxOf(theme, styles);
   const built = RECIPE_KEYS.filter((k) => recipes[k] !== "m3");
   const nav = { keep: t("styleNavKeep", lang), bottom: t("styleNavBottom", lang), rail: t("styleNavRail", lang), top: t("styleNavTop", lang) }[ux.nav];
   return (
@@ -256,10 +259,11 @@ export type StylePanelProps = {
  *  (StylePanel.tsx), not with the editor. */
 export function StylePanel({ p, theme, onChange, onPick, onUx, onRelayout, onRules, styles, onStyles }: StylePanelProps) {
   const lang = useLang();
-  const strict = isStrict(theme);
-  const recipes = recipesOf(theme);
-  const ux = uxOf(theme);
-  const pack = styleOf(theme.style);
+  const docStyles = useDocStyles();
+  const strict = isStrict(theme, docStyles);
+  const recipes = recipesOf(theme, docStyles);
+  const ux = uxOf(theme, docStyles);
+  const pack = styleOf(theme.style, docStyles);
   /* picking the variant a style already has clears the author's change instead of keeping it */
   const setRecipe = (k: RecipeKey, v: string) => {
     const own = pack?.recipes[k] ?? "m3";

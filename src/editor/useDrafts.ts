@@ -10,7 +10,7 @@ import type { NoteAction } from "@/components/Toolbar";
 import { aiErrorText } from "@/components/AiPanel";
 import { hasShareHash, readShareLink } from "@/lib/share";
 import { holdOutside } from "./useOutsideImages";
-import { isStrict, withDocStyles, withStyle, type CustomStyle } from "@/lib/styles";
+import { isStrict, styleContext, withStyle, type CustomStyle } from "@/lib/styles";
 import { conformDoc, rulesForModel } from "@/lib/styleRules";
 import { Lang, getLang, t } from "@/lib/i18n";
 import type { DocStore } from "@/lib/core";
@@ -142,10 +142,10 @@ export function useDrafts({ store, persist, editAccess, lang, aiSettings, mobile
       const styles = (drafted.styles ?? []).reduce<CustomStyle[] | undefined>((list, s) => withStyle(list, s), store.get().doc.styles);
       /* the model was told; what it wrote regardless does not stand. The document keeps its own strictness: a draft on a
          canvas held to a style is held to it, one on a free canvas keeps the looks it was allowed */
-      const next = withDocStyles(styles, () => {
-        const look = normalizeTheme({ ...drafted.theme, ...(held ? { style: held.style } : {}), strict: !!held });
-        return conformDoc({ ...drafted, theme: look, ...(styles ? { styles } : {}) }, look);
-      });
+      /* read in the styles the draft comes with: they are not the document's until it arrives */
+      const inDraft = styleContext(styles);
+      const look = normalizeTheme({ ...drafted.theme, ...(held ? { style: held.style } : {}), strict: !!held }, inDraft);
+      const next = conformDoc({ ...drafted, theme: look, ...(styles ? { styles } : {}) }, look, inDraft);
       settleDraftRef.current = true;
       arrive(next);
       void paintScenes(scenesToPaint(next.groups), normalizeTheme(next.theme));

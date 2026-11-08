@@ -1,8 +1,9 @@
 
 import { createContext, useContext, useMemo, type CSSProperties, type ReactNode } from "react";
 import { BASELINE_SEED, themeCss } from "@/lib/m3e/color";
-import { CANVAS_SCOPE, recipesOf, styleCss } from "@/lib/styles";
+import { CANVAS_SCOPE, recipesOf, styleContext, styleCss, stylesInReach, type CustomStyle, type StyleContext } from "@/lib/styles";
 import { elevationCss } from "@/lib/look";
+import { IconFamilyProvider, type IconFamily } from "@/components/m3e/icon";
 import { fontFamilyOf, type Theme } from "@/lib/tokens";
 import { getLang } from "@/lib/i18n";
 
@@ -34,13 +35,29 @@ export function PartThemeStyle({ seed, contrast }: Pick<PartTheme, "seed" | "con
   return <style id="m3-part-theme">{`${css}\n${overlays} { display: none; }`}</style>;
 }
 
+/* The document's own styles, for everything drawn under a root: what a style's key is read against there (lib/styles/
+ * book.ts `StyleContext`). Each root that draws a document says whose: the editor, the screenshot page and the gallery
+ * do. Two roots side by side may wear two styles of the same key, each its own. Outside any, what is in reach. */
+const DocStylesContext = createContext<StyleContext | null>(null);
+
+/** draws `children` in a document's own styles, and, given `icons`, its icons in that family (components/m3e/icon.tsx) */
+export function DocStylesProvider({ styles, icons, children }: { styles: readonly CustomStyle[] | StyleContext | undefined; icons?: IconFamily; children: ReactNode }) {
+  const value = styles && !Array.isArray(styles) ? (styles as StyleContext) : styleContext(styles as readonly CustomStyle[] | undefined);
+  const inner = icons ? <IconFamilyProvider family={icons}>{children}</IconFamilyProvider> : children;
+  return <DocStylesContext.Provider value={value}>{inner}</DocStylesContext.Provider>;
+}
+
+/** the styles a key is read against where this is drawn */
+export const useDocStyles = (): StyleContext => useContext(DocStylesContext) ?? stylesInReach();
+
 /** The document's style, as one stylesheet over the scheme. It comes after it, so what it says of a role wins. */
 export function PartStyleSheet({ theme }: { theme: Theme }) {
   const lang = getLang();
+  const styles = useDocStyles();
   const css = useMemo(
     /* a part raised to a level of elevation takes the style's own shadow for it */
-    () => [styleCss({ ...theme, displayFamily: theme.displayFont ? fontFamilyOf(theme.displayFont, lang) : undefined }), elevationCss(recipesOf(theme).surface, CANVAS_SCOPE)].filter(Boolean).join("\n"),
-    [theme, lang],
+    () => [styleCss({ ...theme, displayFamily: theme.displayFont ? fontFamilyOf(theme.displayFont, lang) : undefined }, CANVAS_SCOPE, styles), elevationCss(recipesOf(theme, styles).surface, CANVAS_SCOPE)].filter(Boolean).join("\n"),
+    [theme, lang, styles],
   );
   return css ? <style id="m3-part-style">{css}</style> : null;
 }
