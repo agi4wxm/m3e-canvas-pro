@@ -31,3 +31,6 @@ export { optionIndex, rowsOf } from "./app/values";
 export { KIT_ICONS } from "./iconNames";
 export { createTaroTransport, queryString, readAsDataUrl, taroStorage, withFileData, type PlatformFile, type TaroTransportOptions } from "./app/transport";
 export type { Action, ActionBody, AppSpec, CallFn, Condition, Effect, ScreenSpec, VarSpec } from "./app/spec";
+/* D2: data and charts, lists and desktop parts */
+export { Agenda, BarList, Chart, DataTable, FunnelChart, GanttChart, Gauge, Heatmap, Kanban, Markdown, ScatterPlot, Sparkline, Table, type TableData } from "./composites/data";
+export { CodeBlock, FileDiff, FileList, Menubar, SortableList, SwipeRow, Tracker, Tree, Window } from "./composites/desk";
