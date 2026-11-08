@@ -523,12 +523,25 @@ function handOut(ctx: Ctx, f: MockFile, form: FileForm, limit?: number): { value
   return { value: form === "base64url" ? b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : b64, type: f.type, size };
 }
 
+/** the fields that name a record's file and its media type */
+const NAME_FIELD = /^(file_?name|original_?(file_?)?name)$/i;
+const MIME_FIELD = /^(mime_?type|mime|content_?type|media_?type)$/i;
 const SIZE_FIELD = /^(size|filesize|file_size|bytes|bytesize|byte_size|sizebytes|size_bytes|sizeinbytes|contentlength|content_length|length)$/i;
 
 /** The files of a record, made again from it once its other fields are there: a PDF of an invoice shows the
  *  invoice, in the format the record's file name or media type names; then the file name's extension, the media
  *  type and the size agree with the file. A picture is made again only to carry the record's title, as before. */
 function filesOfRecord(s: JsonSchemaObject, ctx: Ctx, at: At, out: Record<string, unknown>, obj: string): void {
+  /* most objects hold no file and no file's name: nothing to do (and nothing to read their hints for) */
+  let any = false;
+  for (const k in out) {
+    const v = out[k];
+    if ((typeof v === "string" && (v === DEFERRED || v.startsWith("data:"))) || NAME_FIELD.test(k) || MIME_FIELD.test(k)) {
+      any = true;
+      break;
+    }
+  }
+  if (!any) return;
   const props = isRecord(s.properties) ? (s.properties as Record<string, JsonSchema>) : {};
   const required = new Set(Array.isArray(s.required) ? s.required : []);
   const fields = Object.entries(props).flatMap(([name, sub]) => {
@@ -538,8 +551,8 @@ function filesOfRecord(s: JsonSchemaObject, ctx: Ctx, at: At, out: Record<string
     const sub2: At = { key: at.key, model: at.model, path, name, depth: at.depth + 1, refs: at.refs, required: required.has(name), obj };
     return [{ name, subS, sub2, hint: hintAt(ctx, sub2, subS) }];
   });
-  const fileNameField = fields.find((f) => (f.hint.kind === "fileName" || /^(file_?name|original_?(file_?)?name)$/i.test(f.name)) && typeof out[f.name] === "string");
-  const mimeField = fields.find((f) => (f.hint.kind === "mimeType" || /^(mime_?type|mime|content_?type|media_?type)$/i.test(f.name)) && typeof out[f.name] === "string");
+  const fileNameField = fields.find((f) => (f.hint.kind === "fileName" || NAME_FIELD.test(f.name)) && typeof out[f.name] === "string");
+  const mimeField = fields.find((f) => (f.hint.kind === "mimeType" || MIME_FIELD.test(f.name)) && typeof out[f.name] === "string");
   const sizeField = fields.find((f) => SIZE_FIELD.test(f.name) && typeof out[f.name] === "number");
   const nameType = fileNameField ? typeOfName(String(out[fileNameField.name])) : undefined;
   const mime = mimeField && formatOf(String(out[mimeField.name])) ? String(out[mimeField.name]) : undefined;
