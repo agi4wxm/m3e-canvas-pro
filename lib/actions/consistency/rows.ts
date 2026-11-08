@@ -189,6 +189,19 @@ export const ROWS: Row[] = [
     steps: [{ tapSlot: "Small", slot: "tab:2" }, { tapSlot: "Small", slot: "tab:0" }],
     expect: { vars: { picked: 2, own: "small" } },
   },
+  {
+    id: "family-entry-added-later",
+    title: "槽位族的动作也对设计属性里没有、运行时由绑定数据或点击加出来的项运行",
+    ref: "事件与槽位族；第四批第三波 G3",
+    design: {
+      screens: [HOME],
+      vars: [num("picked", -1)],
+      parts: [{ id: "row", kind: "buttons", label: "Small", items: ["Medium", "Large"], actions: { "tab:*": stay(setVar("picked", 0, "slot.index")) } }],
+    },
+    /* the design's props hold three entries (tab:0 to tab:2); the sixth came from data while the app ran */
+    steps: [{ tapSlot: "Small", slot: "tab:5" }],
+    expect: { vars: { picked: 5 } },
+  },
 
   /* ---------- show, hide, open, close ---------- */
   {

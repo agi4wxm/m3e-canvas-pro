@@ -22,7 +22,7 @@ const REPO = fileURLToPath(new URL("../", import.meta.url));
 const code = readFileSync(join(REPO, RUNTIME_TEMPLATE), "utf8");
 
 /** the configuration the file is written in */
-const REFERENCE = { proto: true, overlay: true, scroll: true, hover: true, delay: true, modes: true, boundFields: true, flows: true, product: true, page: true, varNames: true, colorMode: true, acts: true, exprs: false, dark: false, mocks: false };
+const REFERENCE = { proto: true, overlay: true, scroll: true, hover: true, delay: true, modes: true, boundFields: true, flows: true, product: true, page: true, varNames: true, colorMode: true, acts: true, families: true, exprs: false, dark: false, mocks: false };
 
 describe("the web app's runtime as it stands in the repo", () => {
   it("names exactly the flags the export gives it", () => {
@@ -72,11 +72,11 @@ function configurations(): Record<string, RuntimeSpec> {
     "a prototype with no parts and no variables": { ...base, vars: [], parts: [], hidden: [] },
     "a prototype's taps, one variable, mocks, its own expressions": { ...base, vars: [base.vars[0]], acts: { ...acts, mocks: { locale: "en" } }, exprs: { vars: { count: ["Count", "v1"] } } },
     "a prototype with every move, flows and a variable for the dark mode": { ...base, vars: darkVars, dark: "night", proto, flows: [{ key: "main", name: "Main", screen: "home" }], acts, exprs: { vars: {} } },
-    "a prototype in modes, taps but no overlay": { ...base, proto: { overlay: false, scroll: false, hover: false, delay: true }, modes, acts, exprs: { vars: { count: ["Count"] } } },
+    "a prototype in modes, taps but no overlay": { ...base, families: true, proto: { overlay: false, scroll: false, hover: false, delay: true }, modes, acts, exprs: { vars: { count: ["Count"] } } },
     "a prototype with bound fields and no collections": { ...base, modes: { ...modes, collections: [], screens: {}, values: {}, followsDark: false } },
     "a product with no taps": { ...base, bound, exprs: { vars: {} } },
     "a product with taps, no prototype": { ...base, bound, acts, exprs: { vars: { count: ["Count"] } } },
-    "a product with everything and a dark variable": { ...base, vars: darkVars, dark: "night", bound, acts, proto, modes, flows: [{ key: "main", name: "Main", screen: "home" }], exprs: { vars: { count: ["Count"] } } },
+    "a product with everything and a dark variable": { ...base, families: true, vars: darkVars, dark: "night", bound, acts, proto, modes, flows: [{ key: "main", name: "Main", screen: "home" }], exprs: { vars: { count: ["Count"] } } },
     "the systems prototype": buildScreens(systemsDoc().doc, systemsDoc().widths, { live: true }).runtime,
     "the proof prototype": buildScreens(proofDoc().doc, proofDoc().widths, { live: true }).runtime,
     "the proof product": buildScreens(product.doc, product.widths, { live: true, binds: binds(product.doc) }).runtime,

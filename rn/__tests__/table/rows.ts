@@ -543,6 +543,40 @@ export const ROWS: (KitRow & {
   "auth": {}
  },
  {
+  "id": "family-entry-added-later",
+  "title": "槽位族的动作也对设计属性里没有、运行时由绑定数据或点击加出来的项运行",
+  "ref": "事件与槽位族；第四批第三波 G3",
+  "steps": [
+   {
+    "tapSlot": "Small",
+    "slot": "tab:5"
+   }
+  ],
+  "expect": {
+   "vars": {
+    "picked": 5
+   }
+  },
+  "vars": [
+   "picked"
+  ],
+  "screens": {
+   "Home": "home"
+  },
+  "appVars": [
+   {
+    "id": "picked",
+    "name": "picked",
+    "type": "number",
+    "value": -1
+   }
+  ],
+  "hidden": [],
+  "triggers": [],
+  "initial": "Home",
+  "auth": {}
+ },
+ {
   "id": "hide-visible",
   "title": "隐藏一开始可见的部件",
   "ref": "显示与隐藏；报告 6.2、6.3",

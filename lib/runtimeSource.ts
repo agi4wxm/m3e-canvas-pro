@@ -53,6 +53,8 @@ export function runtimeFlags(spec: RuntimeSpec): Record<string, boolean> {
     /* the taps printed as data, run by lib/actions; a prototype answers what they invoke with the mocks */
     acts: !!spec.acts,
     mocks: !!spec.acts?.mocks,
+    /* a part hands its Pressable a family's action for the entries its props do not hold */
+    families: !!spec.families,
   };
 }
 
