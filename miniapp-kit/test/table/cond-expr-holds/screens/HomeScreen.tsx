@@ -10,7 +10,7 @@ export function HomeScreen() {
   return (
     <Screen screen="home" width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Check n" onPress={s.tap(A1, { $: $ })} testID="button" />
+        <Button label="Check n" onPress={() => s.run(A1, { $: $ })} testID="button" />
       </At>
       {s.layer}
     </Screen>

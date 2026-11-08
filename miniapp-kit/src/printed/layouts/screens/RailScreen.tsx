@@ -10,7 +10,7 @@ export function RailScreen() {
   return (
     <Screen screen="rail" width={1024} height={640}>
       <At x={0} y={0}>
-        <NavigationRail height={640} taps={{ "tab:1": s.tap(A1, { $: $ }) }} testID="navigationRail" />
+        <NavigationRail height={640} taps={{ "tab:1": () => s.run(A1, { $: $ }) }} testID="navigationRail" />
       </At>
       {s.layer}
     </Screen>

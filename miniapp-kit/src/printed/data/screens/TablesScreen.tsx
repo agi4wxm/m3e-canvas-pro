@@ -19,7 +19,7 @@ export function TablesScreen() {
         />
       </At>
       <At x={16} y={280}>
-        <DataTable pageSize={3} width={380} taps={{ "row:0": s.tap(A1, { $: $ }) }} testID="dataTable" />
+        <DataTable pageSize={3} width={380} taps={{ "row:0": () => s.run(A1, { $: $ }) }} testID="dataTable" />
       </At>
       <At x={16} y={760}>
         <BarList selected={1} width={380} testID="barList" />

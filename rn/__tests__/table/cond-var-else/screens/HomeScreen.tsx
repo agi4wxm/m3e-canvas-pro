@@ -4,7 +4,7 @@ import { type Action, At, Button, Screen, useAct } from "../../../../src/kit";
 const A1: Action = { to: "none", effects: [{ do: "setVar", var: "r", value: "yes" }], when: { var: "flag", op: "eq", value: true }, else: { to: "none", effects: [{ do: "setVar", var: "r", value: "no" }] } };
 
 export function HomeScreen() {
-  const act = useAct();
+  const act = useAct({ key: "Home" });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>

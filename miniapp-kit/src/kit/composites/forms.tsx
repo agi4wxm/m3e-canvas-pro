@@ -1,6 +1,6 @@
 import { Input as TaroInput, Picker, Textarea as TaroTextarea, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type { PartBase } from "../atoms/basics";
 import { Button, buttonColors, inkCss, keyboardOf, RadioMark } from "../atoms/controls";
@@ -309,7 +309,9 @@ export function SegmentedButton(props: SegmentedButtonProps) {
 
 /* ---------- a menu ---------- */
 
-export type MenuProps = PartBase & { label?: string; variant?: string; items?: ListRow[]; destructive?: string };
+/** `open` with `onOpenChange`: whether its menu is open is the app's (a tap's open and close effects), the visitor's
+ *  opening and its sheet's closing handed to it; without them the button opens the sheet itself */
+export type MenuProps = PartBase & { label?: string; variant?: string; items?: ListRow[]; destructive?: string; open?: boolean; onOpenChange?: (open: boolean) => void };
 
 /** a button that opens the platform's action sheet of the menu's actions */
 export function Menu(props: MenuProps) {
@@ -318,12 +320,22 @@ export function Menu(props: MenuProps) {
   const look = buttonColors(kit, p.variant ?? "outlined");
   const items = p.items ?? [];
   const labels = [...items.map((it) => it.label), ...(p.destructive ? [p.destructive] : [])].slice(0, 6);
-  const open = () => {
-    if (!labels.length) return;
+  const sheet = () => {
+    if (!labels.length) return void p.onOpenChange?.(false);
     Taro.showActionSheet({ itemList: labels })
-      .then((r) => tapOf(p, `tab:${r.tapIndex}`)?.())
-      .catch(() => {});
+      .then((r) => {
+        p.onOpenChange?.(false);
+        tapOf(p, `tab:${r.tapIndex}`)?.();
+      })
+      .catch(() => p.onOpenChange?.(false));
   };
+  const controlled = !!p.onOpenChange;
+  /* the app opened it: the sheet comes up (a sheet the platform shows is not taken down from outside: closing it is
+     the visitor's) */
+  useEffect(() => {
+    if (controlled && p.open) sheet();
+  }, [controlled && p.open]);
+  const open = () => (controlled ? p.onOpenChange?.(true) : sheet());
   return (
     <Surface base={{ ...ROW, height: 40, paddingLeft: 16, paddingRight: 16, borderRadius: controlRadius(kit, 40), columnGap: 8, alignSelf: "flex-start", ...look.box }} appearance={p} testID={p.testID} onPress={open} label={p.label} ink={look.ink}>
       <Words text={p.label} style={{ ...typeStyle(kit, "label-large"), color: inkCss(look.ink) }} />

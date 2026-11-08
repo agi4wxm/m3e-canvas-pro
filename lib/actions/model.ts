@@ -115,8 +115,13 @@ export const familyOfKey = (key: string): string | null => (key.endsWith(":*") &
 export function linkUrlOf(a: Pick<ActionBody, "url"> | undefined): string | null {
   const raw = a?.url?.trim();
   if (!raw) return null;
+  const full = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+  /* a mini-program's engine has no URL (nor does the runtime's own lib): there an address is only checked for its
+     scheme and a host, and kept as it was written */
+  const Url = (globalThis as { URL?: new (s: string) => { protocol: string; href: string } }).URL;
+  if (typeof Url !== "function") return /^https?:\/\/[^\s/?#]+[^\s]*$/i.test(full) ? full : null;
   try {
-    const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+    const u = new Url(full);
     return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
   } catch {
     return null;

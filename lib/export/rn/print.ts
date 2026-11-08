@@ -27,7 +27,6 @@ import {
   type ScreenParam,
 } from "../../tokens";
 import { partBySlug, reader, treeOf } from "../../../parts/registry";
-import { capabilitiesUsed } from "../../capabilities/doc";
 import type { PartDef } from "../../../parts/types";
 import { fullWidth, roleOf } from "../../../parts/role";
 import { sanitizeSvg } from "../../../parts/svg";
@@ -45,7 +44,8 @@ import { pinOf } from "../../tidy";
 import { footOf } from "../../foot";
 import { templateOf } from "../../collections";
 import { INPUT_PROP } from "../../interact";
-import { isPlaceKey, optionsOf } from "../../partContract";
+import { eventOfKey, eventsOf, familiesOf, familyOfKey, isPlaceKey, optionsOf } from "../../partContract";
+import { eventProp } from "../partEvents";
 import { endpointOf, formFields, type FieldSpec } from "../../bindings/contract";
 import { formStateProps } from "../../../parts/fieldState";
 import { fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, partNames, readCode, readOf, regionOptions } from "../bindCode";
@@ -74,7 +74,7 @@ import { dockPanes, isLaidOutDock, offTabOf } from "../panes";
 
 /** something the printed app does not do as the design says, for the exporter to list */
 export type RnWarning = {
-  kind: "placeholder" | "atoms" | "holder" | "effects" | "condition" | "hidden" | "trigger" | "slot" | "look" | "image" | "unknown" | "binding" | "input" | "style";
+  kind: "placeholder" | "atoms" | "holder" | "effects" | "condition" | "hidden" | "trigger" | "slot" | "event" | "look" | "image" | "unknown" | "binding" | "input" | "style";
   /** the screen, by its name */
   screen?: string;
   /** what touches more than one (what of the style is not drawn), every screen it touches */
@@ -117,6 +117,8 @@ export type RnScreens = {
   overlays: string[];
   /** the screens a navigation bar's destinations are: an app's tabs */
   tabs: string[];
+  /** the overlays (by key) a tap opens or closes that keep a trigger of their own on the screen while shut (a menu) */
+  triggers: string[];
 };
 
 export type RnPrintOptions = {
@@ -317,6 +319,8 @@ type DocFacts = {
   filled: Set<string>;
   /** the props taps set, by item */
   setProps: Map<string, Set<string>>;
+  /** the groups a tap opens or closes */
+  opened: Set<string>;
   overlays: Set<string>;
   tabs: Set<string>;
   /** what a warning calls a part: its words (`bindCode.partNames`), not its id */
@@ -326,7 +330,7 @@ type DocFacts = {
 function factsOf(doc: Doc): DocFacts {
   const groupOf = new Map<string, string>();
   for (const g of doc.groups) for (const it of g.items) groupOf.set(it.id, g.id);
-  const facts: DocFacts = { groupOf, toggled: new Set(), hidden: new Set(doc.groups.filter((g) => g.hidden).map((g) => g.id)), filled: new Set(), setProps: new Map(), overlays: new Set(), tabs: new Set(), names: partNames(doc) };
+  const facts: DocFacts = { groupOf, toggled: new Set(), hidden: new Set(doc.groups.filter((g) => g.hidden).map((g) => g.id)), filled: new Set(), setProps: new Map(), opened: new Set(), overlays: new Set(), tabs: new Set(), names: partNames(doc) };
   const conditions = (c: Condition | undefined) => {
     if (c && "filled" in c && typeof c.filled === "string") facts.filled.add(c.filled);
   };
@@ -338,6 +342,7 @@ function factsOf(doc: Doc): DocFacts {
       if (e.do === "show" || e.do === "hide" || e.do === "toggle" || e.do === "open" || e.do === "close") {
         const g = groupOf.get(e.part);
         if (g) facts.toggled.add(g);
+        if (g && (e.do === "open" || e.do === "close")) facts.opened.add(g);
       }
       if (e.do === "setProp") facts.setProps.set(e.part, new Set([...(facts.setProps.get(e.part) ?? []), e.prop]));
     }
@@ -345,6 +350,18 @@ function factsOf(doc: Doc): DocFacts {
   });
   return facts;
 }
+
+/** an overlay that keeps its trigger on the screen while shut (a menu): closing it shuts its popup only */
+function keepsTrigger(it: Item | undefined): boolean {
+  const def = it ? partBySlug(it.component) : undefined;
+  return !!def?.overlay && !!def.open && def.open.trigger !== "hide";
+}
+
+/** the kit's components that open and close as their prop says, a tap's open and close effects too */
+const OPENS_BY_PROP = new Set(["dropdown-menu", "tooltip", "popover", "hover-card"]);
+
+/** whether a body (and its else) makes a call or an invoke, or submits: what its answer is told apart by is the part */
+const answers = (a: Action) => [a, a.else].some((b) => (b?.effects ?? []).some((e) => e.do === "call" || e.do === "invoke" || e.do === "submit"));
 
 /* ---------- one screen ---------- */
 
@@ -376,11 +393,13 @@ class ScreenPrinter {
   sources = new Map<string, SourceInfo>();
   forms = new Map<string, string>();
   formInfos: { id: string; operationId: string; fields: string[] }[] = [];
+  /** the inputs a form keeps that a condition asks whether they are filled: each by its id, what reads it */
+  formInputs: [string, string][] = [];
   icons = new Set<string>();
   /** whether the screen reads a picture the app bundles (the images module) */
   pictures = false;
   ctx: Ctx;
-  private n = { action: 0, form: 0, region: 0, row: 0, source: 0 };
+  private n = { action: 0, event: 0, form: 0, region: 0, row: 0, source: 0 };
   readonly runtime: boolean;
   /** the bottom bars' height: a list that scrolls stops above them */
   private foot = 0;
@@ -399,7 +418,8 @@ class ScreenPrinter {
     readonly o: RnPrintOptions,
     readonly facts: DocFacts,
   ) {
-    this.runtime = !!o.runtime && (!!doc.api || capabilitiesUsed(doc).length > 0);
+    /* the exported app always has its runtime: a design with no API still reads its expressions and params with it */
+    this.runtime = !!o.runtime;
     this.ctx = { $: "$" };
     this.owner = formsOf(all);
     if (this.runtime) {
@@ -477,15 +497,19 @@ class ScreenPrinter {
     return (!!a.when && "expr" in a.when) || reads(a) || reads(a.else);
   }
 
-  /** where a tap was made, for the expressions it reads: the scope, the form, the row's element */
-  here(a: Action): string | undefined {
+  /** Where a tap was made, for the expressions it reads and the interpreter: the scope, the form, the row's element and
+   *  its place, the part (what a call's answer is told apart by), and `more` (the place of a family, an event). */
+  here(a: Action, part?: string, more: string[] = []): string | undefined {
     const parts: string[] = [];
     /* a submit that names its form (a button outside it) submits that one */
     const named = [a, a.else].flatMap((b) => b?.effects ?? []).find((e): e is Extract<Effect, { do: "submit" }> => e.do === "submit" && !!e.form);
     const form = (named?.form && this.forms.get(named.form)) || this.ctx.form?.v;
-    if (this.readsScope(a) || this.ctx.form || this.ctx.item) parts.push(`scope: ${this.$}.scope`);
+    if (this.readsScope(a) || this.ctx.form || this.ctx.item || (more.length && this.runtime)) parts.push(`scope: ${this.$}.scope`);
     if (form) parts.push(`form: ${form}`);
-    if (this.ctx.item) parts.push(this.ctx.item === "item" ? "item" : `item: ${this.ctx.item}`);
+    if (this.ctx.item) parts.push(this.ctx.item === "item" ? "item, index" : `item: ${this.ctx.item}`);
+    /* the part by a name of its own, the same on every export (its id may be new each time a template is used) */
+    if (part && this.runtime && answers(a)) parts.push(`part: ${str(this.facts.names.get(part) ?? part.replace(/[^\w-]/g, ""))}`);
+    parts.push(...more);
     return parts.length ? `{ ${parts.join(", ")} }` : undefined;
   }
 
@@ -495,20 +519,8 @@ class ScreenPrinter {
     if (!a) return undefined;
     if (a.trigger?.on === "hover") this.warn("trigger", "a hover trigger is printed as a tap", part);
     if (a.scrollTo) this.warn("effects", "scrolling to a part is not printed", part);
-    const plain = !a.when && !a.else && !a.effects?.length && !(a.params && Object.keys(a.params).length && this.runtime);
-    let call: string | undefined;
-    if (plain) {
-      call = this.call(a);
-      if (call) this.uses.nav = true;
-    } else {
-      const data = { ...this.bodyData(a), ...(a.when ? { when: a.when } : {}), ...(a.else ? { else: this.bodyData(a.else) } : {}) };
-      const name = `A${++this.n.action}`;
-      this.consts.push(`const ${name}: Action = ${expr(data)};`);
-      this.kit.add("type Action");
-      this.uses.act = true;
-      const here = this.here(a);
-      call = `() => act(${name}${here ? `, ${here}` : ""})`;
-    }
+    const run = this.run(a, part);
+    const call = run ? `() => ${run}` : undefined;
     if (call && a.trigger?.on === "delay") {
       if (this.ctx.item) this.warn("trigger", "a delayed tap inside a list runs as a tap", part);
       else {
@@ -520,14 +532,34 @@ class ScreenPrinter {
     return call;
   }
 
+  /** What runs an action, as an expression: a plain move by itself, else the design's action run where it was made
+   *  (`more`: the place a family's action was run for, the event that started it). */
+  run(a: Action, part: string, more: string[] = []): string | undefined {
+    /* an address outside the app opens through the capability registry (link.open), which the interpreter reaches */
+    const plain = !more.length && !a.when && !a.else && !a.effects?.length && !(a.params && Object.keys(a.params).length && this.runtime) && !(a.to === LINK_TARGET && this.runtime);
+    if (plain) {
+      const call = this.call(a);
+      if (call) this.uses.nav = true;
+      return call;
+    }
+    const data = { ...this.bodyData(a), ...(a.when ? { when: a.when } : {}), ...(a.else ? { else: this.bodyData(a.else) } : {}) };
+    const name = `A${++this.n.action}`;
+    this.consts.push(`const ${name}: Action = ${expr(data)};`);
+    this.kit.add("type Action");
+    this.uses.act = true;
+    const here = this.here(a, part, more);
+    return `act(${name}${here ? `, ${here}` : ""})`;
+  }
+
+  /** a plain move as an expression: back, out to an address, to a screen (over this one when it is an overlay) */
   call(a: Action): string | undefined {
-    if (a.to === BACK_TARGET) return "() => nav.back()";
+    if (a.to === BACK_TARGET) return "nav.back()";
     if (a.to === LINK_TARGET) {
       const url = linkUrlOf(a);
-      return url ? `() => nav.open(${str(url)})` : undefined;
+      return url ? `nav.open(${str(url)})` : undefined;
     }
     const key = this.screens.keys.get(a.to);
-    if (key) return a.overlay ? `() => nav.go(${str(key)}, { overlay: true })` : `() => nav.go(${str(key)})`;
+    if (key) return a.overlay ? `nav.go(${str(key)}, { overlay: true })` : `nav.go(${str(key)})`;
     return undefined;
   }
 
@@ -563,14 +595,62 @@ class ScreenPrinter {
     }
     const tap = this.action(it.action, it.id);
     if (tap) out.push(["onPress", tap]);
-    /* an event or a family of places is not printed yet: lib/export/boundary.ts reports it */
     const wired = Object.entries(it.actions ?? {}).filter(([k, a]) => !!a && isPlaceKey(k));
     const lost = slots === true ? [] : wired.filter(([k]) => !(slots instanceof Set && slots.has(k)));
     if (lost.length) this.warn("slot", "a tap on a place inside a part drawn as atoms is not kept", it.id);
     const taps = slots === true
       ? wired.map(([slot, a]) => [slot, this.action(a, it.id)] as const).filter((x): x is readonly [string, string] => !!x[1])
       : [];
-    if (taps.length) out.push(["taps", `{ ${taps.map(([s, f]) => `${str(s)}: ${f}`).join(", ")} }`]);
+    /* a family's action runs for every place of it that has none of its own, told which (`slot`) */
+    const prefixes = new Set(familiesOf(it).map((f) => f.prefix));
+    const families = slots === true ? Object.entries(it.actions ?? {}).flatMap(([k, a]) => (a && familyOfKey(k) !== null && prefixes.has(familyOfKey(k)!) ? [[familyOfKey(k)!, this.run(a, it.id, ["slot"])] as const] : [])) : [];
+    if (slots !== true && Object.keys(it.actions ?? {}).some((k) => familyOfKey(k) !== null)) this.warn("slot", "the action for every entry of a part drawn as atoms is not kept", it.id);
+    const own = `{ ${taps.map(([s, f]) => `${str(s)}: ${f}`).join(", ")} }`;
+    if (families.length) {
+      this.kit.add("slotTaps");
+      out.push(["taps", `slotTaps(${own}, { ${families.map(([prefix, f]) => `${str(prefix)}: (slot) => ${f}`).join(", ")} })`]);
+    } else if (taps.length) out.push(["taps", own]);
+    out.push(...this.events(it));
+    return out;
+  }
+
+  /** what a capability view's slot sends (`onEvent(name, payload)`), each event running the design's action on it */
+  slotEvents(it: Item): [string, string][] {
+    const cases = Object.entries(it.actions ?? {}).flatMap(([key, a]) => {
+      const name = eventOfKey(key);
+      const declared = name !== null ? eventsOf(it).find((e) => e.name === name) : undefined;
+      if (!a || !declared) return [];
+      const fields = `E${++this.n.event}`;
+      this.consts.push(`const ${fields}: EventFields = ${expr(declared.payload ?? {})};`);
+      this.kit.add("eventOf").add("type EventFields");
+      const run = this.run(a, it.id, [`event: eventOf(${fields}, payload)`]);
+      return run ? [`if (name === ${str(declared.name)}) ${run};`] : [];
+    });
+    return cases.length ? [["onEvent", `(name: string, payload: unknown) => { ${cases.join(" ")} }`]] : [];
+  }
+
+  /** The part's events as the kit component hands them out (`onSettled`, `onReorder`…), each running the design's action
+   *  on it with what it carries (`event`), cut down to what the part declares. */
+  events(it: Item): [string, string][] {
+    const out: [string, string][] = [];
+    const def = partBySlug(it.component);
+    for (const [key, a] of Object.entries(it.actions ?? {})) {
+      const name = eventOfKey(key);
+      const declared = name !== null ? eventsOf(it).find((e) => e.name === name) : undefined;
+      if (!a || !declared || !def) continue;
+      const ep = isNative(def.slug) ? eventProp(def.slug, declared.name) : null;
+      if (!ep) {
+        /* a capability view's slot sends its events itself (`onEvent`) */
+        if (!this.o.slots?.names[it.id]) this.warn("event", `the part does not send its event "${declared.name}" on a phone: the action on it is not run`, it.id);
+        continue;
+      }
+      this.kit.add("eventOf");
+      const fields = `E${++this.n.event}`;
+      this.consts.push(`const ${fields}: EventFields = ${expr(declared.payload ?? {})};`);
+      this.kit.add("type EventFields");
+      const run = this.run(a, it.id, [`event: eventOf(${fields}, ${ep.payload})`]);
+      if (run) out.push([ep.prop, `(${ep.params}) => ${run}`]);
+    }
     return out;
   }
 
@@ -674,6 +754,7 @@ class ScreenPrinter {
       const f = `${form.v}`;
       const field = str(it.field);
       const out: [string, string][] = [];
+      if (this.facts.filled.has(it.id)) this.formInputs.push([it.id, `${f}.value(${field})`]);
       if (slug === "file-upload") {
         this.bind.add("pickFile").add("fileName");
         const accept = propValues(def, it.props).accept;
@@ -807,7 +888,7 @@ class ScreenPrinter {
       const standIn = isNative(def.slug) ? NATIVE[def.slug] : "Placeholder";
       this.kit.add(standIn);
       const drawn = isNative(def.slug) ? el(standIn, [...this.props(def, it), ...this.extras(it)]) : el("Placeholder", [["part", str(def.slug)], ["name", str(def.name)], ["width", expr(size.w)], ["height", expr(size.h)]]);
-      return el(slot, [...given.map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)]], [drawn]);
+      return el(slot, [...given.map(([k, v]) => [k, expr(v)] as [string, string]), ["width", expr(size.w)], ["height", expr(size.h)], ...this.slotEvents(it)], [drawn]);
     }
     if (isNative(def.slug)) {
       const name = NATIVE[def.slug];
@@ -818,6 +899,12 @@ class ScreenPrinter {
       const wired = this.input(def, it, props);
       const replaced = new Set(wired.map(([k]) => k));
       const extras = this.extras(it).filter(([k]) => !replaced.has(k));
+      /* a menu a tap opens or closes: its popup follows the app's memory, and the visitor's own opening is kept there */
+      const group = this.facts.groupOf.get(it.id);
+      if (group && this.facts.opened.has(group) && OPENS_BY_PROP.has(def.slug)) {
+        this.uses.app = true;
+        extras.push(["open", `app.opened(${str(group)})`], ["onOpenChange", `(on: boolean) => app.setOpened(${str(group)}, on)`]);
+      }
       const submits = !!this.ctx.form && this.submits(it);
       /* a submit button is held, and loads, while its form submits (parts/fieldState.ts) */
       const submitting: [string, string][] = submits && this.ctx.form ? formStateProps(def, { submitting: `${this.ctx.form.v}.submitting` }).map(([k, v]) => [kitPropName(def.slug, k), v === true ? "true" : v]) : [];
@@ -1082,9 +1169,8 @@ class ScreenPrinter {
     this.consts.push(`const F${n}: FormDef = ${expr(def)};`);
     this.formInfos.push({ id: run.id, operationId: fb.operationId, fields: def.fields });
     this.bind.add("useFormFor").add("type FormDef");
-    this.uses.act = true;
     const outer = this.$;
-    this.head.forms.push(`const ${v} = useFormFor(F${n}, ${outer}, act);`, `const ${$v} = ${outer}.with({ form: ${v}.view });`);
+    this.head.forms.push(`const ${v} = useFormFor(F${n}, ${outer});`, `const ${$v} = ${outer}.with({ form: ${v}.view });`);
     this.forms.set(run.id, v);
     return { v, $: $v };
   }
@@ -1180,14 +1266,20 @@ class ScreenPrinter {
       });
       if (sources.length) out.push(`const $ = $0.with({ data: { ${sources.map((s) => (s.v === s.def.name ? s.v : `${NAME.test(s.def.name) ? s.def.name : str(s.def.name)}: ${s.v}`)).join(", ")} } });`);
     }
-    /* the screen's taps, before its forms: a form runs its then and catch through them (the form a tap submits is
-       where the tap was made) */
+    out.push(...this.head.forms);
+    /* the screen's taps, after its forms: what they act on is the screen's (its key and params, its data sources, its
+       forms and what their inputs hold), the form a tap submits where the tap was made */
     if (this.uses.act) {
       this.kit.add("useAct");
-      const sources = this.sources.size ? `{ sources: { ${[...this.sources.values()].map((s) => (s.v === s.def.name ? s.v : `${NAME.test(s.def.name) ? s.def.name : str(s.def.name)}: ${s.v}`)).join(", ")} } }` : "";
-      out.push(`const act = useAct(${sources});`);
+      const parts: string[] = [];
+      if (this.runtime) parts.push(`key: ${str(this.screens.keys.get(this.frame.id) ?? "")}`);
+      if (this.runtime && this.frame.params?.length) parts.push("params");
+      if (this.sources.size) parts.push(`sources: { ${[...this.sources.values()].map((s) => (s.v === s.def.name ? s.v : `${NAME.test(s.def.name) ? s.def.name : str(s.def.name)}: ${s.v}`)).join(", ")} }`);
+      if (this.forms.size) parts.push(`forms: { ${[...this.forms].map(([g, v]) => `${str(g)}: ${v}`).join(", ")} }`);
+      if (this.formInputs.length) parts.push(`inputs: { ${this.formInputs.map(([id, code]) => `${str(id)}: () => ${code}`).join(", ")} }`);
+      out.push(`const act = useAct(${parts.length ? `{ ${parts.join(", ")} }` : ""});`);
     }
-    out.push(...this.head.forms, ...this.head.regions);
+    out.push(...this.head.regions);
     if (this.uses.app) this.kit.add("useApp");
     out.push(...this.head.after);
     return out;
@@ -1221,7 +1313,7 @@ export function printRnScreens(source: Doc, widths: Record<string, number>, o: R
 function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOptions): RnScreens {
   const doc = expandDoc(withoutMarks(source), widths);
   const kitImport = o.kitImport ?? "../../kit";
-  const runtime = !!o.runtime && (!!doc.api || capabilitiesUsed(doc).length > 0);
+  const runtime = !!o.runtime;
   let frames = doc.frame === "phone" ? doc.frames : [];
   if (!frames.length && doc.groups.length) {
     const { l, t, r, b } = unionRect(doc.groups.map((g) => groupBounds(g, widths)));
@@ -1300,6 +1392,7 @@ function screensOf(source: Doc, widths: Record<string, number>, o: RnPrintOption
     vars: (doc.vars ?? []).map((v) => ({ id: v.id, name: v.name, type: v.type, value: v.value })),
     overlays: [...facts.overlays].flatMap((id) => keyOf(id) ?? []).sort(),
     tabs: [...facts.tabs].flatMap((id) => keyOf(id) ?? []).sort(),
+    triggers: [...facts.opened].filter((g) => keepsTrigger(doc.groups.find((x) => x.id === g)?.items[0])).sort(),
   };
 }
 

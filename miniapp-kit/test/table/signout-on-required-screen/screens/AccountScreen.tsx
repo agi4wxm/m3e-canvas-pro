@@ -10,7 +10,7 @@ export function AccountScreen() {
   return (
     <Screen screen="account" width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Sign out" onPress={s.tap(A1, { $: $ })} testID="button3" />
+        <Button label="Sign out" onPress={() => s.run(A1, { $: $ })} testID="button3" />
       </At>
       {s.layer}
     </Screen>

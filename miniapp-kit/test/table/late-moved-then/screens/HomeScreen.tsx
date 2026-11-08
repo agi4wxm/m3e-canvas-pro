@@ -11,10 +11,10 @@ export function HomeScreen() {
   return (
     <Screen screen="home" width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Save it" onPress={s.tap(A1, { $: $ })} testID="button" />
+        <Button label="Save it" onPress={() => s.run(A1, { $: $, part: "button" })} testID="button" />
       </At>
       <At x={16} y={152}>
-        <Button label="Leave" onPress={s.tap(A2, { $: $ })} testID="button2" />
+        <Button label="Leave" onPress={() => s.run(A2, { $: $ })} testID="button2" />
       </At>
       {s.layer}
     </Screen>

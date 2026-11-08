@@ -123,7 +123,9 @@ describe("the capabilities a product uses", () => {
 
   it("run the invoke on every app", () => {
     expect(text(p, "apps/web/src/generated/screens/CheckoutScreen.tsx")).toMatch(/void invoke\("payment\.pay", \{ orderId: \$\.ev\("'o1'"\) \}, \{ then: \(result\) =>/);
-    expect(text(p, "apps/mobile/src/generated/effects.ts")).toContain('case "invoke": {');
+    /* the phone and the mini-program run it with the one interpreter, through the runtime's registry */
+    expect(text(p, "apps/mobile/src/generated/effects.ts")).toContain("invoke: (capability, args) => runtime.invoke(capability, args),");
+    expect(text(p, "apps/mobile/src/generated/screens/CheckoutScreen.tsx")).toContain('do: "invoke", capability: "payment.pay"');
   });
 
   it("are reported where the product has code to write", () => {

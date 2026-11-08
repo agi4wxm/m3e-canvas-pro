@@ -7,11 +7,11 @@ const A2: Action = { to: "none", effects: [{ do: "addVar", var: "n", by: 1 }] };
 
 export function HomeScreen() {
   const $ = useScreenScope({});
-  const act = useAct();
+  const act = useAct({ key: "Home" });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>
-        <Button label="Ping later" onPress={() => act(A1, { scope: $.scope })} />
+        <Button label="Ping later" onPress={() => act(A1, { scope: $.scope, part: "button" })} />
       </At>
       <At x={16} y={152}>
         <Button label="Bump n" onPress={() => act(A2)} />

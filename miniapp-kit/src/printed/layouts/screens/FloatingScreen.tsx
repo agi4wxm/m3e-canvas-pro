@@ -19,7 +19,7 @@ export function FloatingScreen() {
         <HoverCard testID="hoverCard" />
       </At>
       <At x={16} y={540}>
-        <SideSheet width={256} height={240} taps={{ "confirm": s.tap(A1, { $: $ }) }} testID="sideSheet" />
+        <SideSheet width={256} height={240} taps={{ "confirm": () => s.run(A1, { $: $ }) }} testID="sideSheet" />
       </At>
       <At x={0} y={652}>
         <Drawer testID="drawer" />

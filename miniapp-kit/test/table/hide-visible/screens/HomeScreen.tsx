@@ -15,7 +15,7 @@ export function HomeScreen() {
         ) : null}
       </At>
       <At x={16} y={152}>
-        <Button label="Hide promo" onPress={s.tap(A1, { $: $ })} testID="button" />
+        <Button label="Hide promo" onPress={() => s.run(A1, { $: $ })} testID="button" />
       </At>
       {s.layer}
     </Screen>

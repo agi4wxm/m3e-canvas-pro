@@ -119,6 +119,8 @@ export function answerWith(fn: typeof send) {
 export type RnRow = KitRow & {
   appVars: { id: string; name: string; type: "text" | "number" | "bool" | "color"; value: string | number | boolean }[];
   hidden: string[];
+  /** the overlays a tap opens or closes that keep their trigger on the screen while shut (a menu), by key */
+  triggers: string[];
   initial: string;
   /** the screens that need a session, and the sign-in screen, by key (the app's routes guard them) */
   auth: Record<string, "required" | "login">;
@@ -169,7 +171,7 @@ export const fileName = (f: { name?: string } | undefined) => f?.name ?? "";
     const printed = printRnScreens(doc, {}, { kitImport: "../../kit", runtime: { bind: "../bind" } });
     files[`${dir}/screens/index.ts`] = screensIndex(printed);
     const auth = Object.fromEntries(printed.screens.flatMap((s) => (s.auth ? [[s.key, s.auth] as const] : [])));
-    rows.push({ ...kitRow(row, doc, Object.fromEntries(printed.screens.map((s) => [s.key, s.id]))), appVars: printed.vars, hidden: printed.hidden, initial: printed.initial, auth });
+    rows.push({ ...kitRow(row, doc, Object.fromEntries(printed.screens.map((s) => [s.key, s.id]))), appVars: printed.vars, hidden: printed.hidden, triggers: printed.triggers, initial: printed.initial, auth });
   }
   files[`${at}/rows.ts`] = `${head}
 import type { KitRow } from "./types";
@@ -179,6 +181,7 @@ import type { KitRow } from "./types";
 export const ROWS: (KitRow & {
   appVars: { id: string; name: string; type: "text" | "number" | "bool" | "color"; value: string | number | boolean }[];
   hidden: string[];
+  triggers: string[];
   initial: string;
   auth: Record<string, "required" | "login">;
 })[] = ${json(rows)};

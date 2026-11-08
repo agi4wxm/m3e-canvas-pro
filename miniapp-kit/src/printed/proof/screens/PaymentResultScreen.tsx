@@ -157,7 +157,7 @@ export function PaymentResultScreen() {
                             label="Continue shopping"
                             variant="text"
                             width={380}
-                            onPress={s.tap(A1, { $: $ })}
+                            onPress={() => s.run(A1, { $: $ })}
                             testID="button22"
                           />
                         </Cell>
@@ -217,7 +217,7 @@ export function PaymentResultScreen() {
                         icon="refresh"
                         variant="tonal"
                         width={380}
-                        onPress={s.tap(A3, { $: $ })}
+                        onPress={() => s.run(A3, { $: $ })}
                         testID="button23"
                       />
                     </Cell>
@@ -270,7 +270,7 @@ export function PaymentResultScreen() {
                       />
                     </Cell>
                     <Cell dir="column" fillWidth>
-                      <Button label="Back to checkout" width={380} onPress={s.tap(A5, { $: $ })} testID="button24" />
+                      <Button label="Back to checkout" width={380} onPress={() => s.run(A5, { $: $ })} testID="button24" />
                     </Cell>
                   </Container>
                 </Cell>
@@ -313,7 +313,7 @@ export function PaymentResultScreen() {
                 testID="column14"
               >
                 <Text text="The order could not be loaded" styleVariant="label" testID="text57" />
-                <Button label="Try again" variant="tonal" onPress={s.tap(A3, { $: $ })} testID="button25" />
+                <Button label="Try again" variant="tonal" onPress={() => s.run(A3, { $: $ })} testID="button25" />
               </Container>
             </Cell>
           ) : null}

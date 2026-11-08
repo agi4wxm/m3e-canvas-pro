@@ -12,28 +12,31 @@ export function MenusScreen() {
   return (
     <Screen screen="menus" width={412} height={892}>
       <At x={16} y={40}>
-        <SplitButton taps={{ "main": s.tap(A1, { $: $ }), "tab:1": s.tap(A2, { $: $ }) }} testID="splitButton" />
+        <SplitButton
+          taps={{ "main": () => s.run(A1, { $: $ }), "tab:1": () => s.run(A2, { $: $ }) }}
+          testID="splitButton"
+        />
       </At>
       <At x={16} y={100}>
         <BrandButton provider="google" label="" testID="signInOrPayButton" />
       </At>
       <At x={16} y={160}>
-        <Command width={380} taps={{ "tab:2": s.tap(A2, { $: $ }) }} testID="command" />
+        <Command width={380} taps={{ "tab:2": () => s.run(A2, { $: $ }) }} testID="command" />
       </At>
       <At x={16} y={400}>
-        <ContextMenu taps={{ "tab:0": s.tap(A1, { $: $ }) }} testID="contextMenu" />
+        <ContextMenu taps={{ "tab:0": () => s.run(A1, { $: $ }) }} testID="contextMenu" />
       </At>
       <At x={16} y={548}>
         <FilterBar width={380} testID="filterBar" />
       </At>
       <At x={16} y={680}>
-        <CascadingMenu taps={{ "sub:1": s.tap(A3, { $: $ }) }} testID="cascadingMenu" />
+        <CascadingMenu taps={{ "sub:1": () => s.run(A3, { $: $ }) }} testID="cascadingMenu" />
       </At>
       <At x={16} y={740}>
-        <ButtonGroup taps={{ "tab:1": s.tap(A2, { $: $ }) }} testID="buttonGroup" />
+        <ButtonGroup taps={{ "tab:1": () => s.run(A2, { $: $ }) }} testID="buttonGroup" />
       </At>
       <At x={340} y={820}>
-        <FabMenu taps={{ "tab:0": s.tap(A1, { $: $ }) }} testID="fABMenu" />
+        <FabMenu taps={{ "tab:0": () => s.run(A1, { $: $ }) }} testID="fABMenu" />
       </At>
       {s.layer}
     </Screen>

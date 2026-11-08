@@ -19,7 +19,7 @@ export function ListsScreen() {
         <SwipeRow title="Invoice 42" note="Due today" open width={380} testID="swipeRow" />
       </At>
       <At x={16} y={420}>
-        <FileList selected={0} taps={{ "tab:1": s.tap(A1, { $: $ }) }} testID="files" />
+        <FileList selected={0} taps={{ "tab:1": () => s.run(A1, { $: $ }) }} testID="files" />
       </At>
       {s.layer}
     </Screen>

@@ -5,7 +5,7 @@ const A1: Action = { to: "none", effects: [{ do: "setVar", var: "n", value: "abc
 const A2: Action = { to: "none", effects: [{ do: "setVar", var: "n", value: "7" }] };
 
 export function HomeScreen() {
-  const act = useAct();
+  const act = useAct({ key: "Home" });
   return (
     <Screen width={412} height={892}>
       <At x={16} y={88}>

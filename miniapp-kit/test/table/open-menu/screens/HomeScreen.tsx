@@ -5,17 +5,24 @@ import { At, Button, Menu, Screen, useScreen, type Action } from "../../../../sr
 const A1: Action = { to: "none", effects: [{ do: "open", part: "dropdownMenu" }] };
 
 export function HomeScreen() {
-  const s = useScreen("home");
+  const s = useScreen("home", { triggers: ["dropdownMenu"] });
   const $ = useBindings({ params: s.params, vars: s.vars });
   return (
     <Screen screen="home" width={412} height={892}>
       <At x={16} y={88}>
         {s.shows("dropdownMenu") ? (
-          <Menu label="Choices" items={[{ label: "Duplicate" }]} destructive="" testID="dropdownMenu" />
+          <Menu
+            label="Choices"
+            items={[{ label: "Duplicate" }]}
+            destructive=""
+            open={s.opened("dropdownMenu")}
+            onOpenChange={(on: boolean) => s.setOpened("dropdownMenu", on)}
+            testID="dropdownMenu"
+          />
         ) : null}
       </At>
       <At x={16} y={152}>
-        <Button label="Show choices" onPress={s.tap(A1, { $: $ })} testID="button" />
+        <Button label="Show choices" onPress={() => s.run(A1, { $: $ })} testID="button" />
       </At>
       {s.layer}
     </Screen>

@@ -13,7 +13,7 @@ export function HomeScreen() {
         <Text text={s.prop("text", "text", "Old title")} testID="text" />
       </At>
       <At x={16} y={152}>
-        <Button label="Retitle" onPress={s.tap(A1, { $: $ })} testID="button" />
+        <Button label="Retitle" onPress={() => s.run(A1, { $: $ })} testID="button" />
       </At>
       {s.layer}
     </Screen>
