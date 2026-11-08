@@ -20,9 +20,9 @@ beforeAll(async () => {
 const draw = (slug: string, props: Record<string, unknown>) => renderToStaticMarkup(createElement("div", null, renderNode(treeOf(partBySlug(slug)!, { ...defaultValues(partBySlug(slug)!), ...props }))));
 const inputs = PARTS.filter((d) => d.field && stateKey(d, "required"));
 
-/** the parts whose input is what they show, not what a visitor enters for a form: a row swiped open, a player playing,
+/** the parts whose input is what they show, not what a visitor enters for a form: a row swiped open, a split view's divider, a player playing,
  *  a balance hidden, a list's filter, a page or a picture turned to; they have no field to be required or wrong */
-const VIEW_STATE = new Set(["swipe-row", "audio-player", "balance-card", "transaction-list", "onboarding", "image-viewer"]);
+const VIEW_STATE = new Set(["swipe-row", "audio-player", "balance-card", "transaction-list", "onboarding", "image-viewer", "split-view"]);
 
 /** what each state says in the markup, natively or through the frame */
 const SIGNS: Record<(typeof FIELD_STATES)[number], RegExp> = {

@@ -195,7 +195,7 @@ describe("every part", () => {
   it("that takes input offers a way to be named: a label it shows, or its accessible name", () => {
     const VISIBLE = ["label", "title", "text"];
     /* a part whose input is what it shows (a row swiped open, a page turned to) is named by what it shows */
-    const VIEW_STATE = new Set(["swipe-row", "audio-player", "balance-card", "transaction-list", "onboarding", "image-viewer"]);
+    const VIEW_STATE = new Set(["swipe-row", "audio-player", "balance-card", "transaction-list", "onboarding", "image-viewer", "split-view"]);
     for (const d of PARTS.filter((x) => (x.input && !VIEW_STATE.has(x.slug)) || x.field?.required))
       expect(d.props.some((p) => p.key === ARIA_LABEL || VISIBLE.includes(p.key)), `${d.slug} has no way to be named`).toBe(true);
   });
