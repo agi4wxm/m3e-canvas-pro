@@ -26,9 +26,10 @@ export default defineConfig([
     languageOptions: { sourceType: "commonjs" },
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
-  /* the printed documents: generated code, checked the way an exported app checks its src/generated */
+  /* the printed documents and the consistency table's rows (test/table): generated code, checked the way an exported app
+     checks its src/generated */
   {
-    files: ["src/printed/**", "types/**"],
+    files: ["src/printed/**", "types/**", "test/table/**"],
     rules: {
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-namespace": "off",
