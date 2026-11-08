@@ -165,6 +165,12 @@ export class FileLink {
     for (const fn of this.listeners) fn(this.state);
   }
 
+  /** a document is waiting to be written to the file (for the person to reconnect or settle a conflict, or after an
+   *  error) */
+  get waiting() {
+    return this.doc !== null;
+  }
+
   /** whether the file can be written now without asking anything */
   get blocked() {
     return this.state.status === "reconnect" || this.state.status === "conflict";

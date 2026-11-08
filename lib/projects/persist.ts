@@ -567,11 +567,15 @@ export class ProjectsPersist implements PersistAdapter {
     return this.flush();
   }
 
-  /** where the browser's copy and the file's stand */
+  /** Where the browser's copy and the file's stand. All is kept when the browser's copy is, and the file holds what
+   *  this tab handed it: a file that waits for the person (reconnect, a change made elsewhere) with nothing of this
+   *  tab's waiting for it (a read-only tab) is no news. */
   report(): SaveReport {
     const browser = this.save;
-    const file = this.link?.state ?? null;
-    return { ok: browser.status === "saved" && (!file || file.status === "saved"), browser, file };
+    const link = this.link;
+    const file = link?.state ?? null;
+    const fileKept = !file || file.status === "saved" || (!link?.waiting && file.status !== "error");
+    return { ok: browser.status === "saved" && fileKept, browser, file };
   }
 
   /** keeps a picture of the first screen for the projects list */
