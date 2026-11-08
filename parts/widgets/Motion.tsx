@@ -7,6 +7,8 @@ import { Chip } from "@/components/m3e/chip";
 import { LoadingIndicator } from "@/components/m3e/loading-indicator";
 import { Progress } from "@/components/m3e/progress";
 import { WidgetIcon } from "./WidgetIcon";
+import { useHost, type HostProps } from "./host";
+import { clockNow, secondsLeft, useSeeded, useValue } from "./seed";
 
 /* What moves over time or under a finger. On the canvas a part is a drawing, so nothing here runs
  * under `inert`; and it holds still when the system asks for reduced motion. After flutter_shadcn_kit's
@@ -66,33 +68,43 @@ export function Marquee({ text = "", seconds = 12, width = 320, className, style
   );
 }
 
-export function Timer({ seconds = 60, countdown = true, width = 200, className, style }: { seconds?: number; countdown?: boolean; width?: number } & Look) {
-  const [left, setLeft] = useState(countdown ? seconds : 0);
-  const [running, setRunning] = useState(false);
+/* A clock read off the one the other side keeps (docs/边界与契约.md): counting down to `endsAt`, or up from
+ * `startedAt` (ms on that clock, `clockSkew` ahead of the device's), while `running` says it runs; with neither given
+ * it shows `seconds` (or nothing yet, counting up) and stands still. Its buttons only ask (`toggle`, `reset`), and a
+ * countdown it shows reaching the end sends `ended` once. Only a prototype's demo runs a clock of its own from a
+ * press, the way a stopwatch app would. */
+export function Timer({ seconds = 60, countdown = true, running = false, endsAt = 0, startedAt = 0, clockSkew = 0, width = 200, demo, onValueChange, onEvent, wired, className, style }: { seconds?: number; countdown?: boolean; running?: boolean; endsAt?: number; startedAt?: number; clockSkew?: number; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const ref = useRef<HTMLDivElement>(null);
+  /* the demo's own clock: what it shows, and whether it runs */
+  const [mine, setMine] = useSeeded({ left: countdown ? seconds : 0, running: false, from: [seconds, countdown] });
+  const [, setTick] = useState(0);
+  const given = countdown ? endsAt > 0 : startedAt > 0;
+  const live = host.demo && !given ? mine.running : running && given;
+  const left = host.demo && !given ? mine.left : !given ? (countdown ? seconds : 0) : countdown ? secondsLeft(endsAt, clockSkew) : Math.max(0, Math.floor((clockNow(clockSkew) - startedAt) / 1000));
   useEffect(() => {
-    if (!running) return;
-    const id = setInterval(() => setLeft((s) => (countdown ? Math.max(0, s - 1) : s + 1)), 1000);
+    if (!live || ref.current?.closest("[inert]")) return;
+    const id = setInterval(() => {
+      if (host.demo && !given) setMine((m) => ({ ...m, left: countdown ? Math.max(0, m.left - 1) : m.left + 1, running: !countdown || m.left > 1 }));
+      else setTick((t) => t + 1);
+    }, 1000);
     return () => clearInterval(id);
-  }, [running, countdown]);
+  }, [live, countdown, given]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* the end of a countdown on show is said once */
+  const before = useRef(left);
   useEffect(() => {
-    if (countdown && left === 0) setRunning(false);
-  }, [countdown, left]);
+    if (countdown && before.current > 0 && left === 0 && !ref.current?.closest("[inert]")) host.emit("ended", {});
+    before.current = left;
+  }, [left]); // eslint-disable-line react-hooks/exhaustive-deps
+  const runs = host.demo && !given ? mine.running : running;
   return (
-    <div data-slot="timer" data-left={left} data-running={running || undefined} className={cn("bg-surface-container-low flex items-center justify-between gap-2 rounded-2xl p-3", className)} style={{ width, ...style }}>
-      <span data-slot="timer-value" className="text-title-large text-on-surface tabular-nums">{clock(left)}</span>
+    <div ref={ref} data-slot="timer" data-left={left} data-running={live || undefined} className={cn("bg-surface-container-low flex items-center justify-between gap-2 rounded-2xl p-3", className)} style={{ width, ...style }}>
+      <span data-slot="timer-value" role="timer" className="text-title-large text-on-surface tabular-nums">{clock(left)}</span>
       <span data-slot="timer-actions" className="flex gap-1">
-        <Button variant="tonal" size="icon-sm" aria-label={running ? "Pause" : "Start"} onClick={() => setRunning((r) => !r)}>
-          <WidgetIcon name={running ? "pause" : "play_arrow"} />
+        <Button variant="tonal" size="icon-sm" aria-label={runs ? "Pause" : "Start"} data-tap="toggle" onClick={() => host.demo && !given && setMine((m) => ({ ...m, running: !m.running && (!countdown || m.left > 0) }))}>
+          <WidgetIcon name={runs ? "pause" : "play_arrow"} />
         </Button>
-        <Button
-          variant="text"
-          size="icon-sm"
-          aria-label="Reset"
-          onClick={() => {
-            setRunning(false);
-            setLeft(countdown ? seconds : 0);
-          }}
-        >
+        <Button variant="text" size="icon-sm" aria-label="Reset" data-tap="reset" onClick={() => host.demo && !given && setMine((m) => ({ ...m, running: false, left: countdown ? seconds : 0 }))}>
           <WidgetIcon name="replay" />
         </Button>
       </span>
@@ -166,35 +178,55 @@ export function SlideGroup({ items = [], width = 320, className, style }: { item
 
 const REVEAL = 88;
 
-export function SwipeRow({ title = "", note = "", action = "", width = 360, className, style }: { title?: string; note?: string; action?: string; width?: number } & Look) {
-  const [dx, setDx] = useState(0);
+/* A row with an action under it: whether the action shows is `open`, an input (the row's own while nobody takes it),
+ * handed out and sent as `open` whenever a swipe, or the left and right arrow keys, open or shut it. The action only
+ * asks (the `action` slot): the row goes when the data it stands for goes, never by itself. */
+export function SwipeRow({ title = "", note = "", action = "", open: given = false, width = 360, demo, onValueChange, onEvent, wired, className, style }: { title?: string; note?: string; action?: string; open?: boolean; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
+  const [open, setOpen] = useValue(given, host);
+  /* how far the finger has the face, while it does */
+  const [dx, setDx] = useState<number | null>(null);
   const from = useRef<{ x: number; dx: number } | null>(null);
-  const [done, setDone] = useState(false);
+  const shut = (to: boolean) => {
+    if (to === open) return;
+    setOpen(to);
+    host.emit("open", { open: to });
+  };
   const release = () => {
     if (!from.current) return;
     from.current = null;
-    setDx((d) => (d < -REVEAL / 2 ? -REVEAL : 0));
+    shut((dx ?? 0) < -REVEAL / 2);
+    setDx(null);
   };
-  if (done) return <div data-slot="swipe-row" data-done="true" style={{ width }} />;
+  const at = dx ?? (open ? -REVEAL : 0);
   return (
     /* the fill belongs on the face that moves: what shows under it is the action's own */
-    <div data-slot="swipe-row" data-open={dx === -REVEAL || undefined} className="bg-error-container relative overflow-hidden rounded-xl" style={{ width, ...style }}>
-      <div data-slot="swipe-row-actions" className="absolute inset-y-0 right-0 flex items-center justify-center" style={{ width: REVEAL }}>
-        <Button variant="text" size="xs" className="text-on-error-container" onClick={() => setDone(true)}>
+    <div data-slot="swipe-row" data-open={open || undefined} className="bg-error-container relative overflow-hidden rounded-xl" style={{ width, ...style }}>
+      <div data-slot="swipe-row-actions" className="absolute inset-y-0 right-0 flex items-center justify-center" style={{ width: REVEAL }} aria-hidden={!open || undefined}>
+        <Button variant="text" size="xs" data-tap="action" tabIndex={open ? 0 : -1} className="text-on-error-container">
           {action}
         </Button>
       </div>
       <div
         data-slot="swipe-row-face"
-        className={cn("bg-surface-container-low relative flex touch-pan-y flex-col gap-0.5 p-3", className)}
-        style={{ transform: `translateX(${dx}px)` }}
+        tabIndex={0}
+        aria-expanded={open}
+        aria-label={title}
+        className={cn("bg-surface-container-low relative flex touch-pan-y flex-col gap-0.5 p-3 outline-none", className)}
+        style={{ transform: `translateX(${at}px)` }}
         onPointerDown={(e) => {
-          from.current = { x: e.clientX, dx };
+          from.current = { x: e.clientX, dx: at };
           e.currentTarget.setPointerCapture(e.pointerId);
         }}
         onPointerMove={(e) => from.current && setDx(Math.min(0, Math.max(-REVEAL, from.current.dx + e.clientX - from.current.x)))}
         onPointerUp={release}
         onPointerCancel={release}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") shut(true);
+          else if (e.key === "ArrowRight" || e.key === "Escape") shut(false);
+          else return;
+          e.preventDefault();
+        }}
       >
         <span data-slot="swipe-row-title" className="text-body-large text-on-surface truncate">{title}</span>
         {note && <span data-slot="swipe-row-subtitle" className="text-body-small text-on-surface-variant truncate">{note}</span>}
@@ -205,25 +237,49 @@ export function SwipeRow({ title = "", note = "", action = "", width = 360, clas
 
 const webAddress = (url: string) => (/^https?:\/\//i.test(url) ? url : "");
 
-export function AudioPlayer({ title = "", artist = "", src = "", seconds = 180, width = 360, className, style }: { title?: string; artist?: string; src?: string; seconds?: number; width?: number } & Look) {
+/* Whether it plays is `playing`, an input (the player's own while nobody takes it): the button hands the other one
+ * out and sends `play` or `pause` (the `toggle` slot is the same button). With a file it plays the file, from
+ * `position` and from wherever `position` is moved to, and sends `ended` at its end. With no file only a prototype's
+ * demo moves the bar, to show what it would do; a product shows `position` as given. */
+export function AudioPlayer({ title = "", artist = "", src = "", seconds = 180, playing: given = false, position = 0, width = 360, demo, onValueChange, onEvent, wired, className, style }: { title?: string; artist?: string; src?: string; seconds?: number; playing?: boolean; position?: number; width?: number } & HostProps & Look) {
+  const host = useHost({ demo, onValueChange, onEvent, wired });
   const audio = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [at, setAt] = useState(0);
-  const [length, setLength] = useState(seconds);
+  const [playing, setPlaying] = useValue(given, host);
+  const [at, setAt] = useSeeded(Math.max(0, position));
+  const [length, setLength] = useSeeded(seconds);
   const address = webAddress(src);
-  /* with no file it plays in name only: the bar moves so a prototype shows what it would do */
-  useEffect(() => {
-    if (!playing || address) return;
-    const id = setInterval(() => setAt((s) => (s + 1 >= length ? (setPlaying(false), 0) : s + 1)), 1000);
-    return () => clearInterval(id);
-  }, [playing, address, length]);
-  const toggle = () => {
-    if (address) void (playing ? audio.current?.pause() : audio.current?.play());
-    setPlaying((p) => !p);
+  const play = (on: boolean) => {
+    setPlaying(on);
+    host.emit(on ? "play" : "pause", { position: Math.round(at) });
   };
+  /* the file follows whether it plays and where it is put */
+  useEffect(() => {
+    const el = audio.current;
+    if (!el || !address) return;
+    if (playing && el.paused) void el.play().catch(() => {});
+    if (!playing && !el.paused) el.pause();
+  }, [playing, address]);
+  useEffect(() => {
+    if (audio.current && address && Math.abs(audio.current.currentTime - position) > 1) audio.current.currentTime = Math.max(0, position);
+  }, [position, address]);
+  /* with no file it plays in name only, and only in a prototype's demo: the bar moves so it shows what it would do */
+  useEffect(() => {
+    if (!playing || address || !host.demo) return;
+    const id = setInterval(
+      () =>
+        setAt((s) => {
+          if (s + 1 < length) return s + 1;
+          setPlaying(false);
+          host.emit("ended", {});
+          return 0;
+        }),
+      1000,
+    );
+    return () => clearInterval(id);
+  }, [playing, address, length, host.demo]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div data-slot="audio-player" data-playing={playing || undefined} className={cn("bg-surface-container-low flex items-center gap-3 rounded-2xl p-3", className)} style={{ width, ...style }}>
-      <Button variant="filled" size="icon" aria-label={playing ? "Pause" : "Play"} className="shrink-0" onClick={toggle}>
+      <Button variant="filled" size="icon" aria-label={playing ? "Pause" : "Play"} aria-pressed={playing} data-tap="toggle" className="shrink-0" onClick={() => play(!playing)}>
         <WidgetIcon name={playing ? "pause" : "play_arrow"} />
       </Button>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -235,7 +291,19 @@ export function AudioPlayer({ title = "", artist = "", src = "", seconds = 180, 
           <span>{clock(length)}</span>
         </div>
       </div>
-      {address && <audio ref={audio} src={address} preload="metadata" onLoadedMetadata={(e) => setLength(e.currentTarget.duration || seconds)} onTimeUpdate={(e) => setAt(e.currentTarget.currentTime)} onEnded={() => setPlaying(false)} />}
+      {address && (
+        <audio
+          ref={audio}
+          src={address}
+          preload="metadata"
+          onLoadedMetadata={(e) => setLength(e.currentTarget.duration || seconds)}
+          onTimeUpdate={(e) => setAt(e.currentTarget.currentTime)}
+          onEnded={() => {
+            setPlaying(false);
+            host.emit("ended", {});
+          }}
+        />
+      )}
     </div>
   );
 }

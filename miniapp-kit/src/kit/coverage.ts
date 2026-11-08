@@ -87,6 +87,7 @@ export const INPUT_PROPS: Record<string, string> = {
   slider: "value",
   select: "selected",
   "radio-group": "selected",
+  rating: "value",
   "file-upload": "value",
   "date-picker": "value",
   "time-picker": "value",

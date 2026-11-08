@@ -182,13 +182,15 @@ describe("a document with no prototype interactions, flows or variables in modes
     for (const name of ["screenMotion", "ScreenContext", "openOverlay", "FLOWS", "varStyle", "onHover"]) expect(text(proof, "src/App.tsx") + text(proof, "src/runtime.tsx"), name).not.toContain(name);
     expect("src/lib/screenMotion.ts" in proof).toBe(false);
     /* Digests of what these documents exported before prototypes, flows and modes reached the app. A change here means
-       documents that use none of them now export differently: if that is meant, update the digests (last: proof's rating
-       is an input since parts declare theirs, so it reads and writes a variable of its own). */
+       documents that use none of them now export differently: if that is meant, update the digests (last: the widgets'
+       outlets, report 3.3 and 3.4: the product cards act out their demo, the widgets carry the host's controlled value
+       and own controls, and the sweep has more parts with a selectKey; before them proof's rating is an input since
+       parts declare theirs, so it reads and writes a variable of its own). */
     expect({ proof: digestOf(proof), reuse: digestOf(await exported(reuseDoc().doc, reuseDoc().widths)), sweep: digestOf(await exported(sweepDoc().doc, sweepDoc().widths)) }).toMatchInlineSnapshot(`
       {
-        "proof": "4002d7ae349af5ba",
+        "proof": "e3ac16fe6173e0ef",
         "reuse": "aeba42efb325c141",
-        "sweep": "9df164afde516432",
+        "sweep": "be16823a899611c0",
       }
     `);
   }, 60_000);

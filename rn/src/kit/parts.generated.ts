@@ -1999,6 +1999,7 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "result": -1,
+   "pending": false,
    "size": 220
   }
  },
@@ -2043,6 +2044,7 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "result": -1,
+   "pending": false,
    "size": 240
   }
  },
@@ -2087,6 +2089,7 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "result": -1,
+   "pending": false,
    "size": 170
   }
  },
@@ -2131,6 +2134,8 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "result": -1,
+   "pending": false,
+   "reels": "",
    "size": 280
   }
  },
@@ -2175,6 +2180,7 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "result": -1,
+   "pending": false,
    "size": 190
   }
  },
@@ -2219,6 +2225,7 @@ export const PARTS: Record<string, PartInfo> = {
     }
    ],
    "result": -1,
+   "pending": false,
    "size": 260
   }
  },
@@ -2276,6 +2283,7 @@ export const PARTS: Record<string, PartInfo> = {
    "rarity": "",
    "rarityColor": "#7BAE7A",
    "badge": "",
+   "selected": false,
    "size": 60
   }
  },
@@ -2326,6 +2334,7 @@ export const PARTS: Record<string, PartInfo> = {
    },
    "value": 20,
    "max": 60,
+   "claimed": "",
    "action": "Claim",
    "width": 380
   }
@@ -2338,6 +2347,7 @@ export const PARTS: Record<string, PartInfo> = {
    "title": "Check in",
    "days": 30,
    "signed": 3,
+   "today": 0,
    "width": 300
   }
  },
@@ -2350,6 +2360,8 @@ export const PARTS: Record<string, PartInfo> = {
    "icon": "bolt",
    "timer": 3,
    "unit": "minute",
+   "endsAt": 0,
+   "clockSkew": 0,
    "size": 50
   }
  },
@@ -2360,7 +2372,8 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "size": 132,
    "angle": 0,
-   "autoCenter": true
+   "autoCenter": true,
+   "value": ""
   }
  },
  "quantity-stepper": {
@@ -2809,6 +2822,10 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "seconds": 60,
    "countdown": true,
+   "running": false,
+   "endsAt": 0,
+   "startedAt": 0,
+   "clockSkew": 0,
    "width": 200
   }
  },
@@ -2911,6 +2928,7 @@ export const PARTS: Record<string, PartInfo> = {
    "title": "Swipe me left",
    "note": "",
    "action": "Delete",
+   "open": false,
    "width": 360
   }
  },
@@ -2923,6 +2941,8 @@ export const PARTS: Record<string, PartInfo> = {
    "artist": "Artist",
    "src": "",
    "seconds": 180,
+   "playing": false,
+   "position": 0,
    "width": 360
   }
  },
@@ -2952,6 +2972,7 @@ export const PARTS: Record<string, PartInfo> = {
    "done": "In cart",
    "layout": "vertical",
    "liked": false,
+   "added": 0,
    "width": 200
   }
  },
@@ -3075,28 +3096,33 @@ export const PARTS: Record<string, PartInfo> = {
     "columns": [
      "Name",
      "Detail",
-     "Amount"
+     "Amount",
+     "Direction"
     ],
     "rows": [
      [
       "Salary",
       "Nov 1 · Bank transfer",
-      "+3,200.00"
+      "+3,200.00",
+      "in"
      ],
      [
       "Groceries",
       "Nov 2 · Card",
-      "-86.40"
+      "-86.40",
+      "out"
      ],
      [
       "Refund",
       "Nov 3 · Card",
-      "+24.00"
+      "+24.00",
+      "in"
      ],
      [
       "Electricity",
       "Nov 4 · Direct debit",
-      "-112.75"
+      "-112.75",
+      "out"
      ]
     ]
    },
@@ -3111,6 +3137,7 @@ export const PARTS: Record<string, PartInfo> = {
      "label": "Spending"
     }
    ],
+   "filter": 0,
    "width": 380
   }
  },
@@ -3129,6 +3156,7 @@ export const PARTS: Record<string, PartInfo> = {
    "price": "$18.00",
    "action": "Book",
    "done": "Booked",
+   "booked": false,
    "width": 380
   }
  },
@@ -3172,6 +3200,8 @@ export const PARTS: Record<string, PartInfo> = {
    "likes": 128,
    "comments": 24,
    "shares": 6,
+   "liked": false,
+   "saved": false,
    "width": 380
   }
  },
@@ -3531,6 +3561,7 @@ export const PARTS: Record<string, PartInfo> = {
     ]
    },
    "selected": 2,
+   "playing": false,
    "width": 380
   }
  },
@@ -3557,24 +3588,29 @@ export const PARTS: Record<string, PartInfo> = {
    "data": {
     "columns": [
      "Label",
-     "Value"
+     "Value",
+     "Share"
     ],
     "rows": [
      [
       "Search",
-      "4,820"
+      "4,820",
+      "54%"
      ],
      [
       "Direct",
-      "2,140"
+      "2,140",
+      "24%"
      ],
      [
       "Social",
-      "1,360"
+      "1,360",
+      "15%"
      ],
      [
       "Email",
-      "640"
+      "640",
+      "7%"
      ]
     ]
    },
@@ -3644,6 +3680,11 @@ export const PARTS: Record<string, PartInfo> = {
    "search": "Search",
    "selectable": true,
    "pageSize": 5,
+   "query": "",
+   "sortColumn": -1,
+   "sortDir": "asc",
+   "page": 0,
+   "total": 0,
    "width": 560
   }
  },
@@ -3826,6 +3867,8 @@ export const PARTS: Record<string, PartInfo> = {
    "clear": "Clear",
    "action": "Done",
    "done": "Signed",
+   "value": "",
+   "signed": false,
    "height": 180,
    "width": 360
   }
@@ -3931,6 +3974,7 @@ export const PARTS: Record<string, PartInfo> = {
    "skip": "Skip",
    "next": "Next",
    "done": "Get started",
+   "page": 0,
    "width": 360,
    "height": 520
   }
@@ -4038,6 +4082,7 @@ export const PARTS: Record<string, PartInfo> = {
    ],
    "height": 260,
    "thumbnails": true,
+   "index": 0,
    "width": 380
   }
  },
@@ -4051,6 +4096,9 @@ export const PARTS: Record<string, PartInfo> = {
    "action": "Done",
    "reset": "Reset",
    "doneText": "Cropped",
+   "crop": "",
+   "turn": 0,
+   "cropped": false,
    "height": 300,
    "width": 380
   }
@@ -4117,6 +4165,7 @@ export const PARTS: Record<string, PartInfo> = {
     ]
    },
    "action": "Confirm",
+   "value": "",
    "height": 240,
    "width": 380
   }
@@ -4136,6 +4185,8 @@ export const PARTS: Record<string, PartInfo> = {
    "screen": "Screen",
    "pickedText": "Choose your seats",
    "action": "Confirm seats",
+   "picked": "",
+   "total": "",
    "width": 380
   }
  },
@@ -4158,6 +4209,7 @@ export const PARTS: Record<string, PartInfo> = {
      "label": "As described"
     }
    ],
+   "selected": -1,
    "action": "See all reviews",
    "width": 380
   }
@@ -4289,6 +4341,9 @@ export const PARTS: Record<string, PartInfo> = {
    "icon": "bolt",
    "label": "Dash",
    "cooldown": 5,
+   "endsAt": 0,
+   "clockSkew": 0,
+   "disabled": false,
    "size": 72
   }
  },
@@ -4299,6 +4354,7 @@ export const PARTS: Record<string, PartInfo> = {
   "defaults": {
    "levels": 12,
    "current": 5,
+   "selected": -1,
    "stars": "3,3,2,1",
    "perRow": 4,
    "width": 380
@@ -4390,6 +4446,7 @@ export const PARTS: Record<string, PartInfo> = {
      "label": "Which way will you go?"
     }
    ],
+   "line": 0,
    "choices": [
     {
      "label": "Through the forest"
@@ -4411,6 +4468,8 @@ export const PARTS: Record<string, PartInfo> = {
    "rows": 3,
    "columns": 3,
    "cells": "",
+   "status": "",
+   "picked": "",
    "marks": "X,O",
    "need": 3,
    "turnText": "{mark} to play",
