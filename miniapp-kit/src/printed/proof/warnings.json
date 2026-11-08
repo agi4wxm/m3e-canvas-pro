@@ -3,7 +3,7 @@
   "kind": "image",
   "screen": "Counter",
   "part": "image",
-  "detail": "a picture held in the document is written to a file"
+  "detail": "a picture held in the document is left out (PNG, JPEG, GIF, WebP and SVG are written as files)"
  },
  {
   "kind": "holder",

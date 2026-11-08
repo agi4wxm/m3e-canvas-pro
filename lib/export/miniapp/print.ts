@@ -246,8 +246,17 @@ const EFFECT_KEYS: Record<string, string[]> = {
 
 /** What the printed code calls the document's things: a screen by its key (a tap names it by its frame's id; back, a
  *  link and nowhere as they are), a part or a form by a name of its own made from its words, the same for the same
- *  design whatever ids it was given (a part a template adds has a random one). */
-type Names = { screen: (frameId: string) => string; part: (id: string) => string };
+ *  design whatever ids it was given (a part a template adds has a random one). `shown` is what the screen's runtime
+ *  shows and hides a part by: its group's, by the name of the group's first part (`keyOfGroup`). */
+type Names = { screen: (frameId: string) => string; part: (id: string) => string; shown: (id: string) => string };
+
+/** the effects that show or hide a part: they reach its whole group, as in the preview (lib/interact.ts) */
+const VISIBILITY = new Set(["show", "hide", "toggle", "open", "close"]);
+
+/** where a tap goes besides a screen, as the kit reads `to` (miniapp-kit/src/kit/app/screen.tsx): no screen's key */
+const RESERVED_KEYS = ["back", "link", "none"];
+/** what a screen's file imports from the kit under a name a screen's component could take ("…Screen") */
+const RESERVED_COMPONENTS = ["screen"];
 
 /** a condition with the part it reads by its printed name */
 const cleanCondition = (c: Condition, names: Names): Condition => ("filled" in c ? { filled: names.part(c.filled) } : c);
@@ -261,7 +270,7 @@ function cleanEffect(e: Effect, depth: number, names: Names): Record<string, unk
     const v = (e as Record<string, unknown>)[k];
     if (v === undefined) continue;
     if ((k === "then" || k === "catch") && depth >= 4) continue;
-    out[k] = k === "then" || k === "catch" ? cleanBody(v as ActionBody, names, depth + 1) : (k === "part" || k === "form") && typeof v === "string" ? names.part(v) : v;
+    out[k] = k === "then" || k === "catch" ? cleanBody(v as ActionBody, names, depth + 1) : k === "part" && typeof v === "string" && VISIBILITY.has(e.do) ? names.shown(v) : (k === "part" || k === "form") && typeof v === "string" ? names.part(v) : v;
   }
   return out;
 }
@@ -350,6 +359,8 @@ class ScreenPrinter {
     readonly setProps: Set<string>,
     readonly tabBar: { screens: Set<string>; bars: Set<string> },
     readonly parts: Map<string, string>,
+    /** the document's group of each part, and the groups an effect shows or hides */
+    readonly visibility: { owner: Map<string, Group>; toggled: Set<string> },
   ) {}
 
   get api(): ApiSpec {
@@ -360,6 +371,10 @@ class ScreenPrinter {
   readonly names: Names = {
     screen: (to: string): string => this.screens.keys.get(to) ?? (to === "back" || to === "link" ? to : "none"),
     part: (id: string): string => this.parts.get(id) ?? id.replace(/[^\w-]/g, ""),
+    shown: (id: string): string => {
+      const g = this.visibility.owner.get(id);
+      return this.names.part(g ? keyOfGroup(g) : id);
+    },
   };
 
   warn(kind: MiniWarning["kind"], detail: string, part?: string) {
@@ -439,6 +454,14 @@ class ScreenPrinter {
     return readCode(read, $, e, extra);
   }
 
+  /** a picture the document holds as data, as the page reads it: the file the export writes it as; one it does not
+   *  write is left out, and reported */
+  picture(data: string, part: string): string {
+    const path = this.o.image?.(data) ?? "";
+    if (!path) this.warn("image", "a picture held in the document is left out (PNG, JPEG, GIF, WebP and SVG are written as files)", part);
+    return path;
+  }
+
   /** a part's own props as the kit takes them: what differs from the kit's defaults, under the kit's names, each read
    *  from what it is bound to; the prop a person enters is left to `input` */
   props(def: PartDef, it: Item, at: At, skip?: string): [string, string][] {
@@ -450,11 +473,8 @@ class ScreenPrinter {
       const key = kitPropName(def.slug, d.key);
       let v = values[d.key];
       if (SET_ONLY.has(d.key) && !(it.props && typeof it.props[d.key] === "number")) continue;
-      if (d.kind === "image" && typeof v === "string" && v.startsWith("data:")) {
-        v = this.o.image ? this.o.image(v) : "";
-        this.warn("image", "a picture held in the document is written to a file", it.id);
-      }
-      if (d.kind === "list" && Array.isArray(v)) v = (v as Record<string, unknown>[]).map((row) => (typeof row.image === "string" && row.image.startsWith("data:") ? { ...row, image: this.o.image ? this.o.image(row.image) : "" } : row));
+      if (d.kind === "image" && typeof v === "string" && v.startsWith("data:")) v = this.picture(v, it.id);
+      if (d.kind === "list" && Array.isArray(v)) v = (v as Record<string, unknown>[]).map((row) => (typeof row.image === "string" && row.image.startsWith("data:") ? { ...row, image: this.picture(row.image, it.id) } : row));
       if (def.slug === "svg" && d.key === "markup" && typeof v === "string" && v) v = svgMarkup(v, it.id) ?? "";
       const bind = it.bind?.[d.key];
       let code = expr(v);
@@ -628,12 +648,16 @@ class ScreenPrinter {
     return out;
   }
 
-  /** a part shown only while the screen's runtime says so: hidden until shown, or on a condition */
+  /** A part shown only while the screen's runtime says so: hidden until shown, shown until a tap hides it, or on a
+   *  condition. What is shown or hidden is the document's group: a piece of a free group goes with the rest. */
   shown(run: Group, at: At, j: J): J {
     const tests: string[] = [];
-    if (run.hidden) {
-      this.hidden.push(this.names.part(keyOfGroup(run)));
-      tests.push(`s.shows(${str(this.names.part(keyOfGroup(run)))})`);
+    const first = run.items[0]?.id ?? run.id;
+    const owner = this.visibility.owner.get(first);
+    if (run.hidden || (owner && this.visibility.toggled.has(owner.id))) {
+      const key = this.names.shown(first);
+      if (run.hidden) this.hidden.push(key);
+      tests.push(`s.shows(${str(key)})`);
     }
     if (run.showWhen) {
       this.uses$ = true;
@@ -778,7 +802,7 @@ class ScreenPrinter {
 
   /** a part open over the screen while the runtime says so: a dialog, a sheet, a menu that starts hidden */
   layer(run: Group, at: At): J {
-    const id = this.names.part(keyOfGroup(run));
+    const id = this.names.shown(run.items[0]?.id ?? run.id);
     this.hidden.push(id);
     this.kit.add("Layer");
     const it = run.items[0];
@@ -904,8 +928,10 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
     const { l, t, r, b } = unionRect(doc.groups.map((g) => groupBounds(g, widths)));
     frames = [{ id: "canvas", name: doc.title || "Screen", x: l, y: t, w: Math.max(PHONE_W, Math.round(r - l)), h: Math.max(PHONE_H / 2, Math.round(b - t)) }];
   }
-  const taken = new Set<string>();
-  const keys = new Set<string>();
+  /* a screen's component is never the kit's Screen, which its file draws with; its key is never where a tap goes beside
+     a screen ("back", "link", "none": miniapp-kit/src/kit/app/screen.tsx), so a screen named Back opens itself */
+  const taken = new Set<string>(RESERVED_COMPONENTS);
+  const keys = new Set<string>(RESERVED_KEYS);
   const screens: Screens = { keys: new Map(), names: new Map() };
   frames.forEach((f, i) => {
     screens.names.set(f.id, nameOf(f.name, `Screen${i + 1}`, taken, "Screen"));
@@ -925,10 +951,14 @@ function screensOf(source: Doc, widths: Record<string, number>, o: MiniPrintOpti
       .map((e) => `${e.part}:${e.prop}`),
   );
   const parts = partNames(doc);
+  /* each part's group, and the groups a tap shows or hides: drawn while the screen's runtime says, whether they start
+     hidden or not */
+  const owner = new Map(doc.groups.flatMap((g) => g.items.map((it) => [it.id, g] as const)));
+  const toggled = new Set(effectsOf(doc).flatMap((e) => (VISIBILITY.has(e.do) && "part" in e && owner.has(e.part) ? [owner.get(e.part)!.id] : [])));
   const tab = o.tabBar === false ? { tabs: new Map<string, number>(), bars: new Set<string>(), items: [] } : tabBarOf(doc, frames, screens, groupsOf, widths);
   const printed = frames.map((frame): MiniScreen => {
     const key = screens.keys.get(frame.id)!;
-    const p = new ScreenPrinter(doc, frame, key, widths, groupsOf(frame), screens, warnings, o, setProps, { screens: new Set(tab.tabs.keys()), bars: tab.bars }, parts);
+    const p = new ScreenPrinter(doc, frame, key, widths, groupsOf(frame), screens, warnings, o, setProps, { screens: new Set(tab.tabs.keys()), bars: tab.bars }, parts, { owner, toggled });
     const body = p.body();
     p.icons.forEach((n) => icons.add(n));
     const { w, h } = frameSizeOf(frame);
