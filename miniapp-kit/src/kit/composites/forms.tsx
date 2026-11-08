@@ -358,14 +358,15 @@ const mimeOf = (path: string) => {
   return ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : ext === "webp" ? "image/webp" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "pdf" ? "application/pdf" : "application/octet-stream";
 };
 
-/** Ask the platform for files: pictures from the album or the camera, or (WeChat) a file from a chat. */
+/** Ask the platform for files: pictures from the album, or (WeChat) a file from a chat. Taking one with the camera is the
+ *  camera capability's (file.pick with source "camera", docs/平台能力.md), as on the web and the phone. */
 export async function pickFiles(o: { multiple?: boolean; accept?: string }): Promise<PickedFile[]> {
   const images = !o.accept || /image/.test(o.accept);
   if (!images && process.env.TARO_ENV === "weapp") {
     const r = await Taro.chooseMessageFile({ count: o.multiple ? 9 : 1, type: "file" });
     return r.tempFiles.map((f) => ({ path: f.path, name: f.name, type: mimeOf(f.name), size: f.size }));
   }
-  const r = await Taro.chooseImage({ count: o.multiple ? 9 : 1, sizeType: ["compressed"], sourceType: ["album", "camera"] });
+  const r = await Taro.chooseImage({ count: o.multiple ? 9 : 1, sizeType: ["compressed"], sourceType: ["album"] });
   return r.tempFiles.map((f, i) => {
     const own = (f as { originalFileObj?: { name?: string; type?: string } }).originalFileObj;
     return { path: f.path, name: own?.name ?? `image-${i + 1}.${mimeOf(f.path).split("/")[1] === "octet-stream" ? "jpg" : mimeOf(f.path).split("/")[1]}`, type: own?.type || (f as { type?: string }).type || mimeOf(f.path), size: f.size };
