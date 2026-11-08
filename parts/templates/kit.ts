@@ -44,6 +44,8 @@ export type Node = {
   note?: Say;
   at?: Anchor;
   screenMain?: boolean;
+  /** a box that draws its first child once per row of a data collection (`Group.repeat`), by the collection's id */
+  repeat?: { collection: string };
   /** one of the two panes of the split view it is in (`split`) */
   pane?: "first" | "second";
   kids?: Node[];
@@ -152,7 +154,7 @@ export function seedGroups(seed: ScreenSeed): SeedGroup[] {
       ...(Object.keys(actions).length ? { actions } : {}),
       ...(node.note ? { note: node.note } : {}),
     };
-    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), ...(node.pane && inFlow ? { splitPane: node.pane } : {}), ...(node.at ? { at: node.at } : {}), ...(node.screenMain ? { screenMain: true } : {}), items: [item] });
+    out.push({ id, x: 0, y: 0, axis: "x", ...(node.name ? { name: node.name } : {}), ...(inFlow ? { inFlow } : {}), ...(node.pane && inFlow ? { splitPane: node.pane } : {}), ...(node.at ? { at: node.at } : {}), ...(node.screenMain ? { screenMain: true } : {}), ...(node.repeat ? { repeat: { collection: node.repeat.collection } } : {}), items: [item] });
     for (const kid of node.kids ?? []) visit(kid, id);
   };
   for (const root of seed.roots) visit(root);

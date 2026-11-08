@@ -12,6 +12,7 @@ import { BINDINGS_READ_TOOLS } from "./bindingsRead";
 import { MOCK_READ_TOOLS } from "./mocksRead";
 import { REFERENCE_TOOLS } from "./reference";
 import { TOOL_GROUPS, ToolFailure, type Tool, type ToolEnv, type ToolError, type ToolGroup, type ToolOutcome } from "./types";
+import { RETIRED_SLUGS } from "../retire";
 
 /** every tool that needs nothing but a document: reading, building, styling, data */
 export const CORE_TOOLS: Tool<never>[] = [...READ_TOOLS, ...API_READ_TOOLS, ...MOCK_READ_TOOLS, ...BINDINGS_READ_TOOLS, ...REFERENCE_TOOLS, applyOps as unknown as Tool<never>, ...(OP_TOOLS as unknown as Tool<never>[])];
@@ -102,7 +103,7 @@ export const BOUNDARY_GUIDE = [
   "  - Variables hold UI state only (a tab, a toggle, a draft, the dark mode, a copy of data for display): never a balance, stock, score, points, an order's status, or whether a claim, a payment or a draw went through. Those come from the API as data.* or response.*.",
   "  - Never decide a result on the screen: no button that goes straight to a \"success\", \"paid\" or \"claimed\" screen or state, no random or computed outcome (prizes, wins, prices). The button calls the endpoint (effects [{do: \"call\", operationId, then, catch}]) or submits a form; `then` shows what the answer says, `catch` shows the failure, each with a design of its own.",
   "  - Platform capabilities (payment, maps, camera, scanning, location, push, third-party sign-in, calls) are not built here: no SDK, key or permission. Show them as a call or a placeholder part whose note says what the capability must do and return, and design its cancelled, failed, denied and unavailable states; never act out its success.",
-  "  - When the document has an API, do not make a real feature of a part that keeps its data to itself (auth-form, cart-list, todo-list, settings-group, chat-composer, contact-list): compose atoms and kits with make_form, set_repeat and calls instead.",
+  `  - The retired parts (${RETIRED_SLUGS.join(", ")}) are not offered and adding one is refused. Each but the resizable keeps its data to itself: compose atoms and kits with make_form, set_repeat and calls instead; a resizable's panels hold only words: use a split-view. An old design's still draw; before changing one, split_retired turns them into atoms (a list's rows into a data collection, a resizable into a split view).`,
   "  - A part with a `demo` (describe_part) acts out a domain behaviour only in a prototype: for a product, bind the props it names or wire its events.",
   "- Events: a part that declares events (describe_part, describe_node) runs set_action {slot: \"on:<name>\"} when it sends one, its expressions reading event.<field> (a number pad's on:submit: event.value). A family slot such as \"tab:*\" is one action for every row, reading slot.index.",
 ].join("\n");

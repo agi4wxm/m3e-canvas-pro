@@ -1,4 +1,5 @@
 import { col, deskScreen, grid, panel, part, row, say, screen, split, txt, type Node, type Say, type Template } from "./kit";
+import { atomsOf } from "./atoms";
 import { AUTH_WORDS, PEOPLE } from "./words";
 
 /* Screens for a window rather than a hand: a dashboard, a back office table, a landing page. */
@@ -125,7 +126,7 @@ export const desktop: Template[] = [
         /* half the window for a picture, kept off its edges, and the form standing in the middle of the other half */
         side: col({ width: 640, padX: 16, padY: 16, hugHeight: false }, [part("image", { alt: say("Brand picture", "品牌图", "ブランド画像", "브랜드 이미지") }, { fill: true })]),
         bodyProps: { align: "center", justify: "center" },
-        body: [part("auth-form", { mode: "sign-in", width: 400, ...AUTH_WORDS })],
+        body: [atomsOf("auth-form", { mode: "sign-in", width: 400, ...AUTH_WORDS })],
       }),
     ],
   },
@@ -158,11 +159,11 @@ export const desktop: Template[] = [
               row({ justify: "end" }, [part("button", { label: say("Save changes", "保存修改", "変更を保存", "변경 저장") })]),
             ], { fill: true }),
             col({ width: 440, gap: 16 }, [
-              part("settings-group", {
+              atomsOf("settings-group", {
                 title: say("Preferences", "偏好", "環境設定", "환경설정"),
                 data: { columns: ["Icon", "Label", "Control", "Value"], rows: [["dark_mode", say("Dark theme", "深色主题", "ダークテーマ", "어두운 테마"), "switch", "off"], ["notifications", say("Email updates", "邮件通知", "メール通知", "이메일 알림"), "switch", "on"], ["language", say("Language", "语言", "言語", "언어"), "arrow", say("English", "简体中文", "日本語", "한국어")], ["schedule", say("Time zone", "时区", "タイムゾーン", "시간대"), "arrow", "UTC+8"]] },
               }),
-              part("settings-group", {
+              atomsOf("settings-group", {
                 title: say("Security", "安全", "セキュリティ", "보안"),
                 data: { columns: ["Icon", "Label", "Control", "Value"], rows: [["lock", say("Password", "密码", "パスワード", "비밀번호"), "arrow", ""], ["shield", say("Two-step sign-in", "两步验证登录", "2 段階ログイン", "2단계 로그인"), "switch", "off"], ["devices", say("Signed-in devices", "已登录设备", "ログイン中のデバイス", "로그인된 기기"), "arrow", "2"]] },
               }),
@@ -478,7 +479,7 @@ export const desktop: Template[] = [
             said(say("Could the title sit a little lower?", "标题能再往下一点吗？", "タイトルをもう少し下げられますか？", "제목을 조금 내릴 수 있을까요?"), true),
             said(say("Done. See you at the review.", "改好了，评审时见。", "直しました。レビューでお会いしましょう。", "수정했어요. 리뷰 때 봬요."), false),
           ], { fill: true }),
-          part("chat-composer", { placeholder: say("Message", "发消息", "メッセージ", "메시지") }),
+          atomsOf("chat-composer", { placeholder: say("Message", "发消息", "メッセージ", "메시지") }, {}, { inLayout: true }),
         ],
       }),
     ],

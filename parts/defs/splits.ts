@@ -481,6 +481,8 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
           ),
         ),
       ],
+      /* the part's own padding and gap (p-2, gap-1) */
+      8,
       4,
     );
   },
@@ -513,7 +515,8 @@ export const SPLITS: Record<string, (p: P, look?: KitLook) => Node> = {
     const kids: Node[] = some(p.s("search") && hbox({ padX: 4, padY: 4 }, [atom("input", { placeholder: p.s("search"), type: "search", variant: "outlined", size: "sm" }, { grow: true })]));
     ordered.forEach((c, k) => {
       const letter = initialsOf(c.name).slice(0, 1);
-      if (grouped && (k === 0 || initialsOf(ordered[k - 1].name).slice(0, 1) !== letter)) kids.push(hbox({ padX: 8, padY: 4 }, [text(letter, "caption", { color: "muted" })]));
+      /* a letter stands close over its first row, as the part draws it (pt-2 pb-1, less the gap the column puts between) */
+      if (grouped && (k === 0 || initialsOf(ordered[k - 1].name).slice(0, 1) !== letter)) kids.push(hbox({ padX: 8, padTop: 8, padBottom: 2 }, [text(letter, "caption", { color: "muted" })]));
       kids.push(hbox({ padX: 8, padY: 8, gap: 12 }, some(avatar(initialsOf(c.name)), vbox({ gap: 0, hugWidth: false, width: 160 }, some(para(c.name, "lead", { maxLines: 1 }), c.note && para(c.note, "caption", { color: "muted", maxLines: 1 })), { grow: true }), end && { ...end })));
     });
     return listPanel(px(p), kids);
@@ -1032,7 +1035,7 @@ function amount(s: string): number {
 }
 
 /** one or two letters that stand for a name */
-function initialsOf(name: string): string {
+export function initialsOf(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length > 1) return `${Array.from(words[0])[0]}${Array.from(words[1])[0]}`.toUpperCase();
   return (Array.from(words[0] ?? "?")[0] ?? "?").toUpperCase();

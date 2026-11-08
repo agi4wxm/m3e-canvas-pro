@@ -1,4 +1,5 @@
 import { col, part, row, say, screen, txt, type Say, type Template } from "./kit";
+import { atomsOf } from "./atoms";
 import { homeNav } from "./words";
 
 /* The screens every app ends up needing: settings, a form, a screen with nothing on it yet. */
@@ -135,7 +136,7 @@ export const tools: Template[] = [
         name: say("Settings", "设置", "設定", "설정"),
         top: [inner(say("Settings", "设置", "設定", "설정"))],
         body: [
-          part("settings-group", {
+          atomsOf("settings-group", {
             title: say("General", "通用", "一般", "일반"),
             data: {
               columns: ["Icon", "Label", "Control", "Value"],
@@ -147,7 +148,7 @@ export const tools: Template[] = [
               ],
             },
           }),
-          part("settings-group", {
+          atomsOf("settings-group", {
             title: say("Account", "账号", "アカウント", "계정"),
             data: {
               columns: ["Icon", "Label", "Control", "Value"],

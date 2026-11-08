@@ -253,8 +253,8 @@ describe("the operations on a split view", () => {
   });
 
   it("turns a legacy resizable into a split view of the same size and share, the parts over each panel moved into its pane", () => {
-    const s = store();
-    s.run(ops.addPart, { slug: "resizable", id: "rz", screen: "F1", at: { x: 0, y: 0 }, props: { width: 801, height: 300, split: 40, first: "Folders" } }, ai);
+    /* an old design's resizable: it is retired, so no operation adds one any more */
+    const s = store([{ id: "g-rz", x: 0, y: 0, axis: "x", items: [{ ...makeItem("resizable"), id: "rz", props: { width: 801, height: 300, split: 40, first: "Folders" } }] }]);
     s.run(ops.addPart, { slug: "button", id: "on-left", screen: "F1", at: { x: 40, y: 40 } }, ai);
     s.run(ops.addPart, { slug: "button", id: "on-right", screen: "F1", at: { x: 500, y: 200 } }, ai);
     s.run(ops.addPart, { slug: "button", id: "also-right", screen: "F1", at: { x: 400, y: 40 } }, ai);

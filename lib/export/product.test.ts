@@ -51,7 +51,9 @@ describe("the prototype export", () => {
      accessible names, docs/组件规范.md: the M3E button's own loading spinner (spinner.tsx copied beside it), the widgets'
      arrow keys (parts/widgets/roving.ts) and a rating named in the page's language, icon-only controls named by what
      their icon means, a picture with no name kept from a screen reader, a field's line of help in its frame; before them
-     the split view, whose
+     retired parts, parts/types.ts,
+     which ships, saying what `retired` is and what replaces one, and the shop template's cart as the atoms the retired
+     cart-list splits into; before them the split view, whose
      widget contract copied beside the widgets says whether a part may keep the visitor's UI state on the device
      (parts/widgets/host.ts `remember`) and which design props an input's value takes over from (parts/types.ts
      `PartInput.resets`), and in parts the split view itself, its widget file and react-resizable-panels 4.19.1; before it: the reward track and the leaderboard copied with the widgets, a
@@ -64,11 +66,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [81, "cbad6fcd02e47bcfd37c72adde674683a64356812cd9d87f5304a449f4c92423"],
+    proof: [81, "33caf468eb854c97af88a142d5c411002c2e4fab537495248f1faf32fb284d11"],
     systems: [41, "992987b9634db0e617a98539279765cae5163f7caa5fe8ecdbc9aa5dc3ca56cb"],
     reuse: [31, "bf3a590479d5cbc75c4c9fcd91fa094350452f6190f2690665cefe7aecff44aa"],
-    sweep: [92, "4699fa3b7919e1c63ade18ed16daa491d9a00195494ae1d43e42d224127d2ab7"],
-    parts: [139, "695c3a2b38c604d85d499bc2fafbf3a34c5016268bffc26ad5249ddaaeee57d7"],
+    sweep: [92, "d2e47c82757941cd1c1113db78d3ec2592d26227271612859a4ce587948b0328"],
+    parts: [139, "3ba2290b41447bd85ebe11bd6571c0904338a2f672e735f5996e4f165ed01e60"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

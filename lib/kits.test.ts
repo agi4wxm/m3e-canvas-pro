@@ -246,8 +246,8 @@ describe("what a split keeps of the part", () => {
         for (const s of slots) if (!tapped(out, `to-${s.key}`).length) lost.push(`${def.slug} ${s.key}`);
       }
     }
-    /* a notice bar's split shows its first notice, and a dialogue box's choices only show at its last line */
-    expect([...new Set(lost)].sort()).toEqual(["dialogue-box tab:0", "dialogue-box tab:1", "notice-bar tab:1", "notice-bar tab:2"]);
+    /* a notice bar's split shows its first notice, a dialogue box's choices only show at its last line, and a sign-up form has no forgot link */
+    expect([...new Set(lost)].sort()).toEqual(["auth-form forgot", "dialogue-box tab:0", "dialogue-box tab:1", "notice-bar tab:1", "notice-bar tab:2"]);
   });
 });
 

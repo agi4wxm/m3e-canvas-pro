@@ -13,7 +13,7 @@ import { componentById } from "./common";
 /** what may run inside a definition: what changes its parts, never screens, the document, data or other components */
 export const DEFINITION_OPS: readonly string[] = [
   "add_part", "add_kit", "add_tree", "add_instance", "remove_nodes", "duplicate_nodes", "set_item", "set_props", "set_group", "toggle_lock", "nudge", "move_node", "move_into", "z_order", "reorder_items", "show_nodes", "group_nodes", "ungroup",
-  "set_layout", "tidy_up", "align", "align_to_parent", "distribute", "wrap_in_auto_layout", "split_into_atoms", "combine_buttons", "relayout",
+  "set_layout", "tidy_up", "align", "align_to_parent", "distribute", "wrap_in_auto_layout", "split_into_atoms", "split_retired", "combine_buttons", "relayout",
   "set_overrides", "swap_instance", "set_instance_props", "reset_overrides", "detach_instance", "set_action", "bind_prop", "set_repeat",
 ];
 

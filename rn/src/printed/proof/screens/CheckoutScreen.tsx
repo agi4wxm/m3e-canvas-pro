@@ -118,7 +118,7 @@ export function CheckoutScreen() {
             </Box>
             <Text text="Free delivery" styleVariant="tiny" fit="auto" color="muted" />
           </Box>
-          <Button label="Place order" />
+          <Button label="Place order" onPress={() => nav.go("OrderPlaced")} />
         </Box>
       </At>
     </Screen>

@@ -3,21 +3,20 @@ import { useState, type ReactNode } from "react";
 import { Pressable, Text as RNText, TextInput, View } from "react-native";
 
 import type { PartBase } from "../atoms/basics";
-import { Button, Checkbox, RadioMark } from "../atoms/controls";
+import { Button, RadioMark } from "../atoms/controls";
 import { starred, withField, type FieldProps } from "../field";
 import { Glyph } from "../icons/Icon";
 import { useFill } from "../layout";
 import { withAlpha } from "../look";
 import { clampInt, sourceOf, withDefaults, type ListRow, type Picture } from "../parts";
-import { accentText, fieldStyle } from "../recipes";
+import { fieldStyle } from "../recipes";
 import { Surface } from "../Surface";
 import { corner, recipeOf, typeStyle, useKit, type Kit } from "../theme/ThemeProvider";
-import { TextField } from "./forms";
 import { tapOf } from "./bars";
 
 /* More of what screens are made of, after the most common: a group of radio buttons, an input with what goes before and
  * after it, a grid of shortcuts, an accordion, a block of code, a place to drop files, a scene behind a game screen, a
- * side bar and a sign-in form. */
+ * side bar. A sign-in form is no part of its own any more: the retired auth-form prints as the atoms it splits into. */
 
 const c = (kit: Kit, role: string) => kit.colors[role] ?? "#000000";
 
@@ -227,71 +226,5 @@ export function Sidebar(props: SidebarProps) {
         </Pressable>
       ))}
     </Surface>
-  );
-}
-
-export type AuthFormProps = PartBase & {
-  mode?: "sign-in" | "sign-up";
-  title?: string;
-  subtitle?: string;
-  upTitle?: string;
-  nameLabel?: string;
-  emailLabel?: string;
-  passwordLabel?: string;
-  confirmLabel?: string;
-  remember?: string;
-  forgot?: string;
-  action?: string;
-  upAction?: string;
-  toUp?: string;
-  toIn?: string;
-  others?: ListRow[];
-  width?: number;
-};
-
-/** A sign-in (or sign-up) form: its fields, its main button, other ways in and the switch between the two. Each button is
- *  a place with an action of its own, under the part's slot names (parts/defs/app.ts): `submit`, `forgot`, `switch` and
- *  `other:<i>`; one with none is a tap on the whole part, as on the web. */
-export function AuthForm(props: AuthFormProps & Record<string, unknown>) {
-  const p = withDefaults<AuthFormProps>("auth-form", props);
-  const kit = useKit();
-  const fill = useFill();
-  const [up, setUp] = useState(p.mode === "sign-up");
-  const w = Math.round(p.width ?? 380);
-  return (
-    <View testID={p.testID} style={[{ width: w, rowGap: 16 }, fill]}>
-      <View style={{ rowGap: 4 }}>
-        <RNText style={{ ...typeStyle(kit, "headline-small"), color: c(kit, "on-surface") }}>{up ? p.upTitle : p.title}</RNText>
-        {p.subtitle && !up ? <RNText style={{ ...typeStyle(kit, "body-medium"), color: c(kit, "on-surface-variant") }}>{p.subtitle}</RNText> : null}
-      </View>
-      {up ? <TextField label={p.nameLabel} width={w} /> : null}
-      <TextField label={p.emailLabel} width={w} />
-      <TextField label={p.passwordLabel} width={w} />
-      {up ? <TextField label={p.confirmLabel} width={w} /> : null}
-      {!up ? (
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Checkbox label={p.remember} checked={false} />
-          {p.forgot ? (
-            <Pressable accessibilityRole="button" onPress={tapOf(p, "forgot")}>
-              <RNText style={{ ...typeStyle(kit, "label-large"), color: accentText(kit) }}>{p.forgot}</RNText>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
-      <Button label={up ? p.upAction : p.action} width={w} onPress={tapOf(p, "submit")} />
-      {(p.others ?? []).map((o, i) => (
-        <Button key={i} label={o.label} variant="outlined" width={w} onPress={tapOf(p, `other:${i}`)} />
-      ))}
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => {
-          setUp((v) => !v);
-          tapOf(p, "switch")?.();
-        }}
-        style={{ alignSelf: "center" }}
-      >
-        <RNText style={{ ...typeStyle(kit, "label-large"), color: accentText(kit) }}>{up ? p.toIn : p.toUp}</RNText>
-      </Pressable>
-    </View>
   );
 }
