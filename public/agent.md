@@ -140,7 +140,7 @@ Fields any part may carry beside `props`:
 
 - `note`: what the part does, in your words. It goes into the prompt verbatim, so say what happens on tap, what is saved, what is validated.
 - `action`: `{ "to": "<frame id>" | "back", "transition": "slide" | "slideLeft" | "slideUp" | "slideDown" | "fade" | "expand" | "none" }`, the screen a tap opens.
-- `actions`: the same per place inside a part that has several, such as `"tab:2"` for the third row of a bar, list or menu, `"dismiss"` and `"confirm"` for the two buttons of a dialog, or `"main"` for the main half of a split button and `"more"` for its arrow when it has no menu.
+- `actions`: the same per place inside a part that has several, such as `"tab:2"` for the third row of a bar, list or menu, `"dismiss"` and `"confirm"` for the two buttons of a dialog, or `"main"` for the main half of a split button and `"more"` for its arrow when it has no menu. A part marked with a family in the catalog also takes one action for every entry, `"tab:*"`, which reads the entry tapped as `slot.index`; a part marked with an event takes `"on:<name>"`, run when the part sends it (a number pad's `"on:submit"` when it is confirmed), which reads what it carries as `event.value` and so on.
 - In an action, `"to": "none"` goes nowhere, and these are optional: `effects`, steps run in order before it goes; `when`, a condition it runs on; `else`, `{ "to", "transition", "effects" }` run when the condition fails.
 - An effect is one of `{ "do": "show" | "hide" | "toggle" | "open" | "close", "part": "<item id>" }`, `{ "do": "setVar", "var": "<variable id>", "value": … }`, `{ "do": "toggleVar", "var" }`, `{ "do": "addVar", "var", "by": 1 }`, `{ "do": "setProp", "part", "prop": "<prop key>", "value": … }`, `{ "do": "snackbar", "message": "…" }`.
 - A condition is `{ "var": "<variable id>", "op": "eq" | "neq", "value": … }` or `{ "filled": "<item id of an input>" }`.
@@ -265,7 +265,7 @@ The kits below are such compositions the person can add from the palette; write 
 
 <!-- kits:end -->
 
-Variables sit on the document: `"vars": [ { "id": "count", "name": "count", "type": "text" | "number" | "bool", "value": 0 } ]`. They live while the prototype runs and start over each time.
+Variables sit on the document: `"vars": [ { "id": "count", "name": "count", "type": "text" | "number" | "bool", "value": 0 } ]`. They live while the prototype runs and start over each time. They hold the interface's own state only (a chosen tab, a switch, a draft, the dark mode); a balance, stock, points, a score or whether something was paid or claimed is the back end's, not a variable's (see "What the design does and does not decide").
 
 #### Reusing parts (optional)
 
@@ -350,7 +350,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 |---|---|---|
 | `fab` | FAB | `icon` icon; `label` text; `size` sm / default / md / lg; `color` primary-container / secondary-container / tertiary-container / primary / secondary / tertiary / surface; `lowered` true / false; `collapsed` true / false; `toggle` true / false; `onIcon` icon; `onLabel` text |
 | `toggle-group` | Toggle group | `items` rows of `{ "label", "icon" }`; `selected` 0–5; `connected` true / false; `variant` default / filled / tonal / outline / elevated; `size` xs / sm / default / md; `multiple` true / false |
-| `button-group` | Button group | `items` rows of `{ "label", "icon" }`; `variant` connected / standard; `orientation` horizontal / vertical; `buttonVariant` filled / tonal / elevated / outlined / text; `size` xs / sm / md / lg / xl |
+| `button-group` | Button group *(`tab:*` for every entry: slot.index)* | `items` rows of `{ "label", "icon" }`; `variant` connected / standard; `orientation` horizontal / vertical; `buttonVariant` filled / tonal / elevated / outlined / text; `size` xs / sm / md / lg / xl |
 | `split-button` | Split button | `label` text; `icon` icon; `variant` filled / tonal / elevated / outlined / text; `size` xs / sm / md / lg / xl; `menu` true / false; `menuItems` rows of `{ "label", "icon" }` |
 | `fab-menu` | FAB menu | `items` rows of `{ "label", "icon" }`; `icon` icon; `open` true / false |
 | `function-button` | Function button | `label` text; `icon` icon; `timer` 0–999; `unit` second / minute / hour; `size` 32–120 |
@@ -372,7 +372,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `phone-input` | Phone number | `code` text; `placeholder` text; `width` 160–640 |
 | `file-upload` | File upload | `title` text; `hint` text; `action` text; `multiple` true / false; `accept` text; `width` 200–800 |
 | `auth-form` | Sign-in form | `mode` sign-in / sign-up; `title` text; `subtitle` text; `upTitle` text; `nameLabel` text; `emailLabel` text; `passwordLabel` text; `confirmLabel` text; `remember` text; `forgot` text; `action` text; `upAction` text; `toUp` text; `toIn` text; `others` rows of `{ "label" }`; `minLength` 1–32; `badEmail` text; `badPassword` text; `badConfirm` text; `success` text; `width` 240–640 |
-| `number-pad` | Number pad | `mode` amount / pin / phone; `prefix` text; `length` 1–20; `action` text; `done` text; `width` 200–480 |
+| `number-pad` | Number pad *(event `on:submit`: event.value)* *(prototype demo until `sent` is bound)* | `mode` amount / pin / phone; `prefix` text; `length` 1–20; `action` text; `done` text; `value` text; `sent` true / false; `width` 200–480 |
 | `signature-pad` | Signature pad | `hint` text; `clear` text; `action` text; `done` text; `height` 80–480; `width` 200–800 |
 | `rich-text-editor` | Rich text editor | `text` text; `placeholder` text; `counter` true / false; `height` 80–800; `width` 280–1280 |
 
@@ -404,7 +404,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `app-bar` | App bar *(splits)* | `title` text; `subtitle` text; `size` small / medium / large; `leading` icon; `trailing` icon; `trailing2` icon; `centered` true / false; `scrolled` true / false; `width` 240–1280 |
 | `tabs` | Tabs *(splits)* | `items` rows of `{ "label", "icon" }`; `selected` 0–7; `variant` primary / secondary / segmented; `width` 160–1280 |
 | `navigation-rail` | Navigation rail | `items` rows of `{ "label", "icon" }`; `selected` 0–6; `expanded` true / false; `narrow` true / false; `modal` true / false; `compact` true / false; `menu` true / false; `fab` true / false; `height` 240–10000 |
-| `toolbar` | Toolbar *(splits)* | `kind` floating / docked; `color` standard / vibrant; `orientation` horizontal / vertical; `items` rows of `{ "label", "icon" }`; `toggles` true / false; `width` 240–1280 |
+| `toolbar` | Toolbar *(splits)* *(`tab:*` for every entry: slot.index)* | `kind` floating / docked; `color` standard / vibrant; `orientation` horizontal / vertical; `items` rows of `{ "label", "icon" }`; `toggles` true / false; `width` 240–1280 |
 | `breadcrumb` | Breadcrumb *(splits)* | `items` rows of `{ "label" }`; `separator` chevron / slash; `collapse` true / false |
 | `pagination` | Pagination | `pages` 1–99; `current` 1–99; `previous` text; `next` text; `width` 240–1280 |
 | `navigation-menu` | Navigation menu | `menus` rows of `{ "label" }`; `pages` rows of `{ "label" }`; `links` rows of `{ "label" }` |
@@ -415,7 +415,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `mini-program-header` | Mini program header | `title` text; `back` true / false; `width` 240–1280 |
 | `toc` | Table of contents | `title` text; `items` rows of `{ "label" }`; `selected` 0–39; `width` 120–480 |
 | `slide-group` | Slide group | `items` rows of `{ "label" }`; `width` 160–1280 |
-| `icon-grid` | Icon grid | `items` rows of `{ "label", "icon" }`; `columns` 1–8; `badge` text; `width` 160–960 |
+| `icon-grid` | Icon grid *(`tab:*` for every entry: slot.index)* | `items` rows of `{ "label", "icon" }`; `columns` 1–8; `badge` text; `width` 160–960 |
 | `onboarding` | Onboarding | `data` `{ "columns": ["Icon", "Title", "Text"], "rows": [[…]] }`; `skip` text; `next` text; `done` text; `width` 240–800; `height` 280–1200 |
 
 ##### Menus & search
@@ -423,9 +423,9 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | component | what it is | props (all optional) |
 |---|---|---|
 | `search` | Search *(splits)* | `kind` view / bar; `style` elevated / outlined; `placeholder` text; `leading` icon; `trailing` icon; `size` default / sm; `results` rows of `{ "label", "icon" }`; `width` 200–640 |
-| `command` | Command | `placeholder` text; `heading` text; `items` rows of `{ "label", "icon" }`; `width` 240–640 |
-| `dropdown-menu` | Dropdown menu | `label` text; `variant` filled / tonal / elevated / outlined / text; `items` rows of `{ "label", "icon" }`; `destructive` text |
-| `context-menu` | Context menu | `label` text; `items` rows of `{ "label", "icon" }`; `width` 120–640; `height` 64–480 |
+| `command` | Command *(`tab:*` for every entry: slot.index)* | `placeholder` text; `heading` text; `items` rows of `{ "label", "icon" }`; `width` 240–640 |
+| `dropdown-menu` | Dropdown menu *(`tab:*` for every entry: slot.index)* | `label` text; `variant` filled / tonal / elevated / outlined / text; `items` rows of `{ "label", "icon" }`; `destructive` text |
+| `context-menu` | Context menu *(`tab:*` for every entry: slot.index)* | `label` text; `items` rows of `{ "label", "icon" }`; `width` 120–640; `height` 64–480 |
 | `filter-bar` | Filter bar | `placeholder` text; `filters` rows of `{ "label" }`; `width` 200–1200 |
 | `cascading-menu` | Cascading menu | `label` text; `items` rows of `{ "label", "icon" }`; `subLabel` text; `subItems` rows of `{ "label" }` |
 
@@ -477,7 +477,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `item` | List item *(splits)* | `items` rows of `{ "label", "icon" }`; `iconFill` none / primary-container / secondary-container / tertiary-container / primary / surface; `description` text; `variant` default / outline / muted / segmented; `size` default / sm / xs; `trailing` none / icon / switch / checkbox / radio / slider / text; `trailingIcon` icon; `checked` true / false; `trailingText` text; `width` 160–520 |
+| `item` | List item *(splits)* *(`tab:*` for every entry: slot.index)* | `items` rows of `{ "label", "icon" }`; `iconFill` none / primary-container / secondary-container / tertiary-container / primary / surface; `description` text; `variant` default / outline / muted / segmented; `size` default / sm / xs; `trailing` none / icon / switch / checkbox / radio / slider / text; `trailingIcon` icon; `checked` true / false; `trailingText` text; `width` 160–520 |
 | `description-list` | Description list *(splits)* | `data` `{ "columns": ["Name", "Value"], "rows": [[…]] }`; `width` 160–960 |
 | `timeline` | Timeline *(splits)* | `data` `{ "columns": ["Time", "Title", "Detail"], "rows": [[…]] }`; `current` 0–100; `width` 160–960 |
 | `tracker` | Status tracker | `title` text; `states` text; `width` 120–1280 |
@@ -516,7 +516,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `product-card` | Product card *(splits)* | `image` https address; `title` text; `subtitle` text; `price` text; `original` text; `badge` text; `rating` 0–5; `action` text; `done` text; `layout` vertical / horizontal; `liked` true / false; `width` 140–640 |
 | `price-tag` | Price *(splits)* | `currency` text; `amount` text; `original` text; `discount` text; `size` small / medium / large |
 | `cart-list` | Shopping cart | `data` `{ "columns": ["Name", "Variant", "Price", "Quantity"], "rows": [[…]] }`; `currency` text; `selectAll` text; `total` text; `action` text; `empty` text; `width` 280–800 |
-| `coupon` | Coupon *(splits)* | `amount` text; `condition` text; `title` text; `expiry` text; `action` text; `done` text; `width` 260–640 |
+| `coupon` | Coupon *(splits)* *(prototype demo until `claimed` is bound)* | `amount` text; `condition` text; `title` text; `expiry` text; `action` text; `done` text; `claimed` true / false; `width` 260–640 |
 | `checkout-bar` | Checkout bar *(splits)* | `label` text; `amount` text; `note` text; `icons` rows of `{ "label", "icon" }`; `action` text; `done` text; `width` 240–1280 |
 | `balance-card` | Balance card *(splits)* | `title` text; `amount` text; `change` text; `actions` rows of `{ "label", "icon" }`; `hidden` true / false; `width` 240–800 |
 | `transaction-list` | Transactions *(splits)* | `data` `{ "columns": ["Name", "Detail", "Amount"], "rows": [[…]] }`; `filters` rows of `{ "label" }`; `width` 240–800 |
@@ -532,7 +532,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `conversation-list` | Conversations *(splits)* | `data` `{ "columns": ["Name", "Last message", "Time", "Unread"], "rows": [[…]] }`; `selected` -1–99; `width` 240–800 |
 | `contact-list` | Contacts *(splits)* | `data` `{ "columns": ["Name", "Note"], "rows": [[…]] }`; `search` text; `grouped` true / false; `trailing` follow / call / message / none; `action` text; `done` text; `width` 240–800 |
 | `comment-list` | Comments *(splits)* | `data` `{ "columns": ["Name", "Time", "Comment", "Likes"], "rows": [[…]] }`; `you` text; `now` text; `reply` text; `placeholder` text; `width` 240–800 |
-| `story-row` | Stories | `items` rows of `{ "label" }`; `add` true / false; `width` 160–1280 |
+| `story-row` | Stories *(`tab:*` for every entry: slot.index)* | `items` rows of `{ "label" }`; `add` true / false; `width` 160–1280 |
 | `chat-composer` | Message composer *(splits)* | `placeholder` text; `attach` true / false; `emoji` true / false; `width` 200–1280 |
 | `voice-message` | Voice message | `seconds` 1–600; `mine` true / false; `transcript` text; `transcribe` text; `width` 160–480 |
 | `video-call` | Video call | `name` text; `connected` true / false; `status` text; `image` https address; `icon` icon; `height` 240–960; `width` 240–960 |
@@ -573,12 +573,12 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 
 | component | what it is | props (all optional) |
 |---|---|---|
-| `prize-wheel` | Prize wheel | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
-| `grid-draw` | Grid draw | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
-| `gacha` | Gacha | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
-| `slot-machine` | Slot machine | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
-| `money-tree` | Money tree | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
-| `egg-smash` | Egg smash | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
+| `prize-wheel` | Prize wheel *(event `on:settled`: event.index, event.label)* *(prototype demo until `result` is bound)* | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
+| `grid-draw` | Grid draw *(event `on:settled`: event.index, event.label)* *(prototype demo until `result` is bound)* | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
+| `gacha` | Gacha *(event `on:settled`: event.index, event.label)* *(prototype demo until `result` is bound)* | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
+| `slot-machine` | Slot machine *(event `on:settled`: event.index, event.label)* *(prototype demo until `result` is bound)* | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
+| `money-tree` | Money tree *(event `on:settled`: event.index, event.label)* *(prototype demo until `result` is bound)* | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
+| `egg-smash` | Egg smash *(event `on:settled`: event.index, event.label)* *(prototype demo until `result` is bound)* | `label` text; `prizes` rows of `{ "label", "icon" }`; `result` -1–11; `size` 120–480 |
 | `asset-pill` | Asset pill *(splits)* | `value` text; `icon` icon |
 | `inventory` | Inventory | `columns` 1–12; `rows` 1–12; `filled` 0–144; `width` 160–800 |
 | `item-cell` | Item cell *(splits)* | `icon` icon; `name` text; `count` text; `rarity` text; `rarityColor` text; `badge` text; `size` 32–160 |
@@ -588,7 +588,7 @@ Ready-made, each one part. The ones marked *(splits)* can be split into atoms in
 | `joystick` | Joystick | `size` 64–320; `angle` 0–360; `autoCenter` true / false |
 | `stat-bar` | Stat bar *(splits)* | `icon` icon; `label` text; `value` 0–1000000; `max` 1–1000000; `color` error / primary / secondary / tertiary; `numbers` true / false; `width` 80–800 |
 | `skill-button` | Skill button | `icon` icon; `label` text; `cooldown` 0–600; `size` 40–160 |
-| `level-map` | Level map | `levels` 1–60; `current` 1–60; `stars` text; `perRow` 2–8; `width` 200–960 |
+| `level-map` | Level map *(`tab:*` for every entry: slot.index)* | `levels` 1–60; `current` 1–60; `stars` text; `perRow` 2–8; `width` 200–960 |
 | `character-card` | Character card *(splits)* | `image` https address; `icon` icon; `name` text; `role` text; `level` text; `rarity` text; `data` `{ "columns": ["Stat", "Value", "Max"], "rows": [[…]] }`; `action` text; `width` 200–480 |
 | `game-result` | Game result *(splits)* | `title` text; `stars` 0–3; `scoreLabel` text; `score` text; `rewards` rows of `{ "label", "icon" }`; `retry` text; `next` text; `width` 220–520 |
 | `dialogue-box` | Dialogue box *(splits)* | `speaker` text; `icon` icon; `image` https address; `lines` rows of `{ "label" }`; `choices` rows of `{ "label" }`; `next` text; `width` 220–960 |
@@ -726,6 +726,15 @@ For a game or an immersive screen, the picture and the interface are separate th
 - `motion`: `animated` paints a looping GIF instead of a still, for a scene where gentle movement adds something (candlelight, rain, water). It is smaller and costs more, so leave the rest `still`. `frames` and `frameMs` set its length.
 - `scrim` darkens part of the picture so what stands on it can be read: `top`, `bottom`, `both` or `full`. Words with no surface of their own (`text`, `stat-bar`…) should stand where it is dark; for long text, use a part with a surface such as `dialogue-box` or `card`.
 - Leave scenes out of ordinary app screens. A scene never reacts to the player: a `still` does not move, and an `animated` one only repeats its loop.
+
+## What the design does and does not decide
+
+The design draws what the user sees and sends what they mean; what actually happens is decided on the other side, by the back end, the game or the platform.
+
+- Never decide a result on a screen: a "Pay" or "Claim" button does not go straight to a "Paid" or "Claimed" screen, and nothing picks a prize, a winner or a price at random or by sum. The button asks (with an API: an effect `{ "do": "call", "operationId": …, "then": …, "catch": … }`; without one, a `note` saying what it asks for), and the screens show the answer: a pending or processing state, the success the answer says, and a failure. Design the failure too.
+- Platform capabilities (payment, maps, camera, scanning, location, push, third-party sign-in, calls) are not built into a design: no SDK, key or permission. Use the placeholder part (`map`, `camera`, `video-call`, `brand-button`) or a button, say in its `note` what the capability must do and return, and design what happens when it is cancelled, refused, denied or unavailable.
+- Parts marked *prototype demo* in the catalog act out a result by themselves in a prototype (a coupon that says it was claimed, a wheel that picks a prize). That is fine for a sketch; in a product they only ask and wait, so for a real feature bind the prop they name to data, or give their tap an API call.
+- When the document has an `api`, build real features from atoms and kits with data, not from a part that keeps what is entered to itself (`auth-form`, `cart-list`, `todo-list`, `settings-group`, `chat-composer`, `contact-list`).
 
 ## Keep it simple
 

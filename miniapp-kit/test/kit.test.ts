@@ -118,6 +118,27 @@ describe("the transport over Taro.request", () => {
     expect(Object.keys(calls[0].o.header as Record<string, string>).map((k) => k.toLowerCase())).not.toContain("content-type");
   });
 
+  it("asks for the answer's bytes and reads them as JSON, text or a file, never as broken text", async () => {
+    const t = createTaroTransport({ baseUrl: "https://api.example.com" });
+    const bytes = (b: Uint8Array | string) => (typeof b === "string" ? new TextEncoder().encode(b) : b).slice().buffer;
+    const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37, 0x0a, 0xe2, 0xe3, 0xcf, 0xd3, 0x00, 0xff, 0x80]);
+    calls.length = 0;
+    answer = { statusCode: 200, data: bytes(pdf), header: { "Content-Type": "application/pdf", "Content-Disposition": "attachment; filename=\"receipt.pdf\"; filename*=UTF-8''%E6%94%B6%E6%8D%AE.pdf" } };
+    const file = await t.request({ method: "GET", path: "/orders/7/receipt" });
+    expect(calls[0].o).toMatchObject({ responseType: "arraybuffer" });
+    expect(file.body).toEqual({ name: "收据.pdf", type: "application/pdf", dataUrl: `data:application/pdf;base64,${Buffer.from(pdf).toString("base64")}`, size: pdf.length });
+    answer = { statusCode: 200, data: bytes(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 1, 2])), header: { "content-type": "image/png" } };
+    expect((await t.request({ method: "GET", path: "/products/1/photo" })).body).toMatchObject({ name: "photo.png", type: "image/png", size: 7 });
+    answer = { statusCode: 422, data: bytes('{"title":"Nope","errors":[{"pointer":"#/name"}]}'), header: { "content-type": "application/problem+json" } };
+    expect((await t.request({ method: "POST", path: "/products", body: {} })).body).toEqual({ title: "Nope", errors: [{ pointer: "#/name" }] });
+    answer = { statusCode: 200, data: bytes("id,名前\n1,ランプ\n"), header: { "content-type": "text/csv; charset=utf-8" } };
+    expect((await t.request({ method: "GET", path: "/orders.csv" })).body).toBe("id,名前\n1,ランプ\n");
+    answer = { statusCode: 200, data: bytes(pdf), header: { "content-type": "application/pdf" } };
+    expect((await t.request({ method: "HEAD", path: "/orders/7/receipt" })).body).toBeUndefined();
+    answer = { statusCode: 204, data: new ArrayBuffer(0), header: {} };
+    expect((await t.request({ method: "DELETE", path: "/products/1" })).body).toBeUndefined();
+  });
+
   it("keeps the session's tokens in Taro's storage", async () => {
     await taroStorage.set("shop:session", "{}");
     expect(await taroStorage.get("shop:session")).toBe("{}");

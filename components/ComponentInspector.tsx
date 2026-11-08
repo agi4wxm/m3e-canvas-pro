@@ -1,6 +1,6 @@
 
 import { useContext, useState } from "react";
-import { Frame, Item, NavTab, PHONE_W, Palette, actionSlotsOf, defaultTabRows, defaultTabs, frameSizeOf, listRowsPatch } from "@/lib/tokens";
+import { Frame, Item, NavTab, PHONE_W, Palette, defaultTabRows, defaultTabs, frameSizeOf, listRowsPatch } from "@/lib/tokens";
 import { t, useLang, type Lang } from "@/lib/i18n";
 import { partBySlug, reader } from "@/parts/registry";
 import { choiceLabelOf, choiceValueOf, labelOf, nameOf } from "@/parts/labels";
@@ -9,7 +9,8 @@ import type { Choice, ListItem, PropDef, TableData } from "@/parts/types";
 import { AiHooks } from "./Inspector";
 import { BehaviorContext, BindRow, StyleRulesContext, VisibilitySection } from "./EffectsPanel";
 import { styleOwnsProp } from "@/lib/styleRules";
-import { EntryList, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, SlotStrip, Tab, TriggerSection, WidthRows } from "./PartPanel";
+import { EntryList, IconRow, NoteSection, PartHeader, PartTabs, PlaceFn, SlotStrip, Tab, TriggerSection, WidthRows, actionOutletsOf } from "./PartPanel";
+import { demoTakenOver } from "@/lib/partContract";
 import { segmentedFits } from "@/lib/choices";
 import { tableOf, tableText } from "@/lib/collections";
 import { FlowControl } from "./FlowPanel";
@@ -280,8 +281,14 @@ export function ComponentInspector({
   const [slot, setSlot] = useState("");
   const def = partBySlug(item.component);
   if (!def) return null;
-  const slots = actionSlotsOf(item);
+  /* the places, families and events an action can be wired to (lib/partContract.ts) */
+  const slots = actionOutletsOf(item, lang);
   const slotKey = slots.some((s) => s.key === slot) ? slot : (slots[0]?.key ?? "");
+  const outlet = slots.find((s) => s.key === slotKey);
+  const fields = Object.keys(outlet?.event?.payload ?? {}).map((k) => `event.${k}`);
+  const outletNote = outlet?.kind === "event" ? t("dzOnEvent", lang).replace("{fields}", fields.join(", ") || "event") : outlet?.kind === "family" ? t("dzOnFamily", lang) : null;
+  const demo = def.demo && !demoTakenOver(item) ? t("dzDemo", lang).replace("{props}", def.demo.takenOverBy.join(", ")) : null;
+  const note = (words: string) => <div style={{ fontSize: 12, lineHeight: "16px", color: p.onSurfaceVariant }}>{words}</div>;
 
   return (
     <PanelShell
@@ -299,9 +306,24 @@ export function ComponentInspector({
       {tab === "behavior" && (
         <div role="tabpanel" id="part-panel-behavior" aria-labelledby="part-tab-behavior">
           {slots.length > 0 ? (
-            <TriggerSection item={item} frame={frame} allFrames={allFrames} selfRect={selfRect} onChange={onChange} p={p} slot={slotKey} head={<SlotStrip item={item} selected={slotKey} onSelect={setSlot} p={p} />} />
+            <TriggerSection
+              item={item}
+              frame={frame}
+              allFrames={allFrames}
+              selfRect={selfRect}
+              onChange={onChange}
+              p={p}
+              slot={slotKey || undefined}
+              head={
+                <>
+                  <SlotStrip item={item} selected={slotKey} onSelect={setSlot} p={p} />
+                  {outletNote && note(outletNote)}
+                  {demo && note(demo)}
+                </>
+              }
+            />
           ) : (
-            <TriggerSection item={item} frame={frame} allFrames={allFrames} selfRect={selfRect} onChange={onChange} p={p} />
+            <TriggerSection item={item} frame={frame} allFrames={allFrames} selfRect={selfRect} onChange={onChange} p={p} head={demo ? note(demo) : undefined} />
           )}
           <VisibilitySection p={p} />
           <NoteSection item={item} ai={ai} onChange={onChange} p={p} />

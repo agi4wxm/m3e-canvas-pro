@@ -11,6 +11,7 @@ const PLAIN = { value: "plain", label: "Plain", labels: { ja: "装飾なし", zh
 export const textInputs: PartDef[] = [
   {
     slug: "text-field",
+    input: { prop: "value", kind: "text" },
     appearance: { target: "TextField", radius: 4 },
     name: "Text field",
     category: "Forms",
@@ -48,6 +49,7 @@ export const textInputs: PartDef[] = [
   },
   {
     slug: "input",
+    input: { prop: "value", kind: "text" },
     appearance: { radius: 4 },
     name: "Input",
     category: "Controls",
@@ -80,6 +82,7 @@ export const textInputs: PartDef[] = [
   },
   {
     slug: "textarea",
+    input: { prop: "value", kind: "text" },
     appearance: { radius: 4 },
     name: "Textarea",
     category: "Controls",

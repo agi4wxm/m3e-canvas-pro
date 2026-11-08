@@ -10,6 +10,9 @@ import type { Labels, ListItem, P, PartDef, PartSlot, PropDef, TableData } from 
 const WORDS: Record<string, Labels> = {
   Action: { ja: "ボタン", zh: "按钮文字", ko: "버튼" },
   "When pressed": { ja: "押した後", zh: "按下后文字", ko: "누른 후" },
+  Claimed: { ja: "受け取り済み", zh: "已领取", ko: "받음" },
+  Entered: { ja: "入力済みの値", zh: "已输入的值", ko: "입력한 값" },
+  Sent: { ja: "送信済み", zh: "已发送", ko: "보냄" },
   Badge: { ja: "バッジ", zh: "角标", ko: "배지" },
   Original: { ja: "元の価格", zh: "原价", ko: "원래 가격" },
   Price: { ja: "価格", zh: "价格", ko: "가격" },
@@ -222,9 +225,11 @@ export const app: PartDef[] = [
     appearance: { radius: 16 },
     w: 340,
     h: 96,
-    props: [text("amount", "Amount", "$10"), text("condition", "Condition", "Over $50", "满 50 可用"), text("title", "Title", "New member offer", "新人专享"), text("expiry", "Expiry", "Until Dec 31", "12 月 31 日前有效"), text("action", "Action", "Claim", "领取"), text("done", "When pressed", "Claimed", "已领取"), WIDTH(340, 260, 640)],
+    props: [text("amount", "Amount", "$10"), text("condition", "Condition", "Over $50", "满 50 可用"), text("title", "Title", "New member offer", "新人专享"), text("expiry", "Expiry", "Until Dec 31", "12 月 31 日前有效"), text("action", "Action", "Claim", "领取"), text("done", "When pressed", "Claimed", "已领取"), flag("claimed", "Claimed", false), WIDTH(340, 260, 640)],
     slots: (p) => slot("action", p.s("action") || "Action", !!p.s("action")),
-    tree: (p) => h("Coupon", { amount: p.s("amount"), condition: p.s("condition"), title: p.s("title"), expiry: p.s("expiry"), action: p.s("action"), done: p.s("done"), width: px(p) }),
+    /* whether it was claimed is the back end's to say: a prototype only acts it out until `claimed` is bound or its tap calls the API */
+    demo: { what: "shows itself claimed as soon as its button is pressed", takenOverBy: ["claimed"] },
+    tree: (p) => h("Coupon", { amount: p.s("amount"), condition: p.s("condition"), title: p.s("title"), expiry: p.s("expiry"), action: p.s("action"), done: p.s("done"), claimed: p.b("claimed") || undefined, width: px(p) }),
   },
   {
     slug: "checkout-bar",
@@ -487,6 +492,7 @@ export const app: PartDef[] = [
   },
   {
     slug: "story-row",
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     name: "Stories",
     labels: { ja: "ストーリー", zh: "故事头像行", ko: "스토리" },
     category: "Social & chat",
@@ -868,9 +874,14 @@ export const app: PartDef[] = [
     appearance: { radius: 20 },
     w: 320,
     h: 440,
-    props: [pick("mode", "Mode", "amount", ["amount", "pin", "phone"]), text("prefix", "Prefix", "$", "¥"), num("length", "Digits", 6, 1, 20), text("action", "Action", "Confirm", "确认"), text("done", "When pressed", "Sent", "已发送"), WIDTH(320, 200, 480)],
+    props: [pick("mode", "Mode", "amount", ["amount", "pin", "phone"]), text("prefix", "Prefix", "$", "¥"), num("length", "Digits", 6, 1, 20), text("action", "Action", "Confirm", "确认"), text("done", "When pressed", "Sent", "已发送"), text("value", "Entered", ""), flag("sent", "Sent", false), WIDTH(320, 200, 480)],
     slots: (p) => slot("confirm", p.s("action") || "Confirm", !!p.s("action")),
-    tree: (p) => h("NumberPad", { mode: p.s("mode"), prefix: p.s("prefix"), length: px(p, "length"), action: p.s("action"), done: p.s("done"), width: px(p) }),
+    /* what is typed is a draft: it starts at `value`, starts over when `value` changes, and confirming hands it out */
+    input: { prop: "value", kind: "text" },
+    events: [{ name: "submit", label: "Confirm with the value", labels: { ja: "値を添えて確定", zh: "带着输入的值确认", ko: "값과 함께 확인" }, payload: { value: "text" } }],
+    /* whether it went through is the other side's to say: only a prototype says "sent" by itself */
+    demo: { what: "says it was sent as soon as it is confirmed", takenOverBy: ["sent"] },
+    tree: (p) => h("NumberPad", { mode: p.s("mode"), prefix: p.s("prefix"), length: px(p, "length"), action: p.s("action"), done: p.s("done"), value: p.s("value") || undefined, sent: p.b("sent") || undefined, width: px(p) }),
   },
   {
     slug: "signature-pad",
@@ -899,6 +910,7 @@ export const app: PartDef[] = [
   },
   {
     slug: "icon-grid",
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     name: "Icon grid",
     labels: { ja: "アイコングリッド", zh: "宫格导航", ko: "아이콘 격자" },
     category: "Navigation",

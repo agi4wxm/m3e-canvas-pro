@@ -262,6 +262,7 @@ export const actions: PartDef[] = [
   },
   {
     slug: "button-group",
+    families: [{ prefix: "tab", label: "Every entry", labels: { ja: "すべての項目", zh: "每一项", ko: "모든 항목" } }],
     appearance: { target: "Button", radius: 20 },
     name: "Button group",
     category: "Actions",
@@ -360,6 +361,7 @@ export const actions: PartDef[] = [
   },
   {
     slug: "fab-menu",
+    overlay: true,
     appearance: { target: "FabMenuTrigger", radius: 16 },
     name: "FAB menu",
     category: "Actions",

@@ -108,6 +108,11 @@ export const DESIGN_UI = {
   /* auto layout handles on the canvas */
   lhGap: { ja: "間隔をドラッグで変更", en: "Drag to change the gap", zh: "拖动以改变间距" },
   lhPad: { ja: "余白をドラッグで変更（Alt で両側、Shift+Alt で四辺）", en: "Drag to change the padding (Alt for both sides, Shift+Alt for all four)", zh: "拖动以改变内边距（按住 Alt 两侧一起，Shift+Alt 四边一起）" },
+  /* the behaviour tab: what a part sends out besides taps, and the demo it only acts out in a prototype */
+  dzWholePart: { ja: "部品全体", en: "The whole part", zh: "整个组件" },
+  dzOnEvent: { ja: "部品がこのイベントを送ると実行されます。動作の式で {fields} が読めます", en: "Runs when the part sends this event; its expressions read {fields}", zh: "组件发出这个事件时运行，动作的表达式里可以读 {fields}" },
+  dzOnFamily: { ja: "自分の動作がない項目すべてで実行されます。動作の式で slot.index（何番目か）が読めます", en: "Runs for every entry with no action of its own; its expressions read slot.index (which one)", zh: "没有单独动作的每一项都运行它，动作的表达式里可以读 slot.index（第几项）" },
+  dzDemo: { ja: "プロトタイプでは、この部品は結果を自分で演じます（受け取り済み、送信済み、ランダムな賞品など）。{props} をバインドするか、動作から API を呼ぶと演じなくなります。書き出した製品では演じません", en: "In a prototype this part acts out a result by itself (claimed, sent, a random prize…). Bind {props}, or call the API from its actions, and it stops; an exported product never acts it out", zh: "原型里这个组件会自己演示结果（已领取、已发送、随机奖品……）。绑定 {props}，或在它的动作里调用接口，演示就停止；导出的产品从不演示" },
 } as const satisfies Record<string, Str>;
 
 export const DESIGN_KO: Record<keyof typeof DESIGN_UI, string> = {
@@ -210,4 +215,8 @@ export const DESIGN_KO: Record<keyof typeof DESIGN_UI, string> = {
   kbHover: "포인터 올리기",
   lhGap: "끌어서 간격 변경",
   lhPad: "끌어서 여백 변경(Alt는 양쪽, Shift+Alt는 네 변 모두)",
+  dzWholePart: "부품 전체",
+  dzOnEvent: "부품이 이 이벤트를 보내면 실행됩니다. 동작의 식에서 {fields}를 읽을 수 있습니다",
+  dzOnFamily: "자체 동작이 없는 모든 항목에서 실행됩니다. 동작의 식에서 slot.index(몇 번째인지)를 읽을 수 있습니다",
+  dzDemo: "프로토타입에서 이 부품은 결과를 스스로 연출합니다(받음, 보냄, 무작위 상품 등). {props}를 바인딩하거나 동작에서 API를 호출하면 멈추며, 내보낸 제품에서는 연출하지 않습니다",
 };

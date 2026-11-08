@@ -141,7 +141,7 @@ npx -y m3e-canvas-mcp --file "m3e-canvas Shop.json"
 ```
 
 - 读写的格式和编辑器保存的完全相同，都经过 `lib/core/projectFile.ts`（格式见 [项目文件](项目文件.md)）：键排序、一个组件一行，同一份文档总是写出相同的字节，放进版本库时只有真正的改动。打开、校验和迁移经过 `loadDocument`（`lib/project.ts`），和编辑器的每条读入路径相同；文件里不认识的字段写回时原样保留。更新版本的编辑器写的文件只读：能读、能截图，会写文件的调用都被拒绝并说明原因（见 [项目文件](项目文件.md#更新版本写的文档)）。服务器只通过 `mcp/src/fileStore.ts` 的 `ProjectFormat` 接口接触格式。
-- 单个文件时图片以 data URL 留在文件里；文件夹（`m3e-project.json`）时较大的图片放在旁边的 `m3e-assets/`，文档里写 `m3e-file:m3e-assets/<哈希>.<扩展名>`。每次写回后，服务器删掉 `m3e-assets/` 里文档不再用到的图片，但只删它自己写的，或者名字正是内容哈希的（格式自己起的名字）；别人放进去的文件不碰，别的程序一分钟内刚写的图片也先不删（可能是它正在保存的）。撤销把图片带回来时会重新写出。
+- 单个文件时图片以 data URL 留在文件里；文件夹（`m3e-project.json`）时较大的图片和模拟库的文件（每种格式）放在旁边的 `m3e-assets/`，文档里写 `m3e-file:m3e-assets/<哈希>.<扩展名>`。写文件夹和编辑器的顺序一样（[项目文件](项目文件.md#图片)）：先写文档引用的每个文件并读回核对，已有同名文件的核对内容，内容不对（损坏的副本）就重写，任何一个写不成项目文件就不动；然后原子写入项目文件；最后删掉 `m3e-assets/` 里文档不再用到的文件，但只删它自己写的、之后没被改过的，或者名字正是内容哈希的（格式自己起的名字）；别人放进去的文件（名字不像哈希，或者内容对不上名字）不碰，别的程序一分钟内刚写的也先不删（可能是它正在保存的）。撤销把文件带回来时会重新写出。
 - 图片只在项目所在的文件夹里读、写、删（`mcp/src/inside.ts`，和导出产品时的约束一致）：路径先按文字检查，再逐段检查磁盘，路上有符号链接（Windows 的 junction 也算）就拒绝，不跟过去；有别的名字的硬链接也拒绝；文件夹固定为第一次打开时的真实位置，之后被移走并换成别的文件夹或链接，就不再读写。读不了的图片留空并在日志里说明，写不了时这次修改不保存并说明原因。检查和使用之间被调包的情况也处理了：读取时用打开的句柄再核对一次是不是检查过的那个文件，写入先写在旁边再核对文件夹后改名覆盖，删除前再核对文件夹（只剩核对和删除之间的一瞬，Node 没有 `unlinkat` 无法完全消除）。项目文件本身按你给的路径读写，写入是改名覆盖，不会穿过链接写到别处。
 - 每次改动成功后立刻写回文件。写入是原子的：先写同目录下的临时文件，再改名覆盖；文件夹里先写图片，再写项目文件。覆盖时保留原文件的权限，只有自己能读的项目文件写完仍然只有自己能读。
 - 编辑器绑定了同一个文件时也不会互相覆盖：两边都会在写之前检查文件是否被对方改过。
@@ -325,7 +325,7 @@ npx playwright install chromium
 | `update_var_collection` | 数据与交互 |  |  | Renames a collection of variables, gives it its modes (each {id, name}; one without an id is new, one left out is removed with its values, and the first is the one whose values ar… |
 | `remove_var_collection` | 数据与交互 |  | 是 | Removes a collection of variables and every variable in it; what was bound to them is unbound. |
 | `set_var_mode` | 数据与交互 |  |  | Chooses the mode of a variable collection the document shows (or one screen shows, over the document's choice), by mode id or name; null goes back to the default (a screen follows… |
-| `set_action` | 数据与交互 |  |  | Sets what a tap on a part does (or on one of its places: slot "tab:0", "icon"…): {to: screen id \| "back" \| "link" \| "none", transition, url, effects: [{do: show\|hide\|toggle\|… |
+| `set_action` | 数据与交互 |  |  | Sets what a tap on a part does, or what runs on one of the outlets it declares (describe_node lists them): a place, slot "tab:0" or "icon"; a family of places, slot "tab:*", one a… |
 | `bind_prop` | 数据与交互 |  |  | Binds a prop of a part to a variable (the preview shows the variable's value), or a field of its design: "@fill", "@text" (the words' color) and "@stroke" take a color variable, "… |
 | `reorder_panes` | 搭建 |  |  | Puts a dock's tabs in a new order; what each tab holds follows it. |
 | `add_model` | 数据与交互 |  |  | Adds a data model: a named JSON Schema 2020-12 (usually an object: {type: "object", properties: {id: {type: "string", format: "uuid"}, email: {type: "string", format: "email"}, av… |

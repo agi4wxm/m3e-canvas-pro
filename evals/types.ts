@@ -22,7 +22,7 @@ export type Budget = {
 };
 
 /** the abilities the tasks are spread over, for the report */
-export type Ability = "new-screen" | "edit" | "data" | "variables" | "components" | "styles" | "svg" | "replicate" | "game" | "multilingual" | "ambiguous" | "flow" | "long-screen" | "product";
+export type Ability = "new-screen" | "edit" | "data" | "variables" | "components" | "styles" | "svg" | "replicate" | "game" | "multilingual" | "ambiguous" | "flow" | "long-screen" | "product" | "boundary";
 
 export type EvalTask = {
   id: string;

@@ -1,5 +1,5 @@
 import Taro from "@tarojs/taro";
-import type { TokenStorage, Transport, TransportRequest, TransportResponse } from "@m3e/app-runtime";
+import { readBody, textBody, type TokenStorage, type Transport, type TransportRequest, type TransportResponse } from "@m3e/app-runtime";
 
 /* The platform's pieces the shared runtime is handed in a mini-program: a transport over Taro.request (Taro.uploadFile
  * for a body that carries a file, which reports how far it has gone), the session's tokens kept with Taro's storage,
@@ -53,18 +53,15 @@ export function queryString(query: TransportRequest["query"]): string {
 /** a header set with every name in lower case */
 const lower = (h: Record<string, unknown> | undefined): Record<string, string> => Object.fromEntries(Object.entries(h ?? {}).map(([k, v]) => [k.toLowerCase(), String(v)]));
 
-/** an answer's words read as the content type says: JSON parsed, else the words, else nothing */
-function bodyOf(data: unknown, headers: Record<string, string>): unknown {
-  if (data === undefined || data === null || data === "") return undefined;
-  if (typeof data !== "string") return data;
-  if (/json/i.test(headers["content-type"] ?? "")) {
-    try {
-      return JSON.parse(data);
-    } catch {
-      return data;
-    }
-  }
-  return data;
+const isBytes = (v: unknown): v is ArrayBuffer => Object.prototype.toString.call(v) === "[object ArrayBuffer]";
+
+/** An answer as Taro hands it over, read as every transport of the product reads one (the runtime's readBody): its
+ *  bytes (responseType "arraybuffer") as JSON, text or a file. A platform that gives text anyway has it read as text
+ *  (JSON parsed); one that parsed it already, as it is. */
+function bodyOf(r: TransportRequest, status: number, data: unknown, headers: Record<string, string>): unknown {
+  if (isBytes(data)) return readBody({ method: r.method, path: r.path, status, headers, bytes: new Uint8Array(data) });
+  if (data === undefined || data === null || r.method === "HEAD") return undefined;
+  return typeof data === "string" ? textBody(data, headers["content-type"] ?? "") : data;
 }
 
 /** the file fields of a body and the rest, as Taro.uploadFile takes them (form fields are words) */
@@ -100,7 +97,8 @@ export function createTaroTransport(o: TaroTransportOptions): Transport {
         if (r.onUploadProgress) task.progress((p) => r.onUploadProgress?.(p.totalBytesSent, p.totalBytesExpectedToSend));
         const res = await task;
         const headers = lower((res as { header?: Record<string, unknown> }).header);
-        return { status: res.statusCode, headers, body: bodyOf(res.data, { "content-type": headers["content-type"] ?? "application/json", ...headers }) };
+        /* uploadFile hands back text only (the platform's limit): an upload's answer is JSON unless it says otherwise */
+        return { status: res.statusCode, headers, body: bodyOf(r, res.statusCode, res.data, { "content-type": headers["content-type"] ?? "application/json", ...headers }) };
       }
       const json = r.body !== undefined;
       if (json) header["content-type"] = header["content-type"] ?? "application/json";
@@ -109,12 +107,13 @@ export function createTaroTransport(o: TaroTransportOptions): Transport {
         method: r.method as "GET",
         header,
         data: json ? JSON.stringify(r.body) : undefined,
+        /* the bytes as they came, never parsed by the platform: a PDF or a picture read as text would be broken */
         dataType: "text",
-        responseType: "text",
+        responseType: "arraybuffer",
         timeout: o.timeout ?? 30000,
       });
       const headers = lower(res.header as Record<string, unknown>);
-      return { status: res.statusCode, headers, body: bodyOf(res.data, headers) };
+      return { status: res.statusCode, headers, body: bodyOf(r, res.statusCode, res.data, headers) };
     },
   };
 }
