@@ -22,6 +22,20 @@ export const moved = () => {
   moves++;
 };
 
+/** how going back moves: the back action's own motion (lib/screenMotion's `Motion`) */
+export type BackOptions = { motion?: { kind: string; dir?: string; easing?: string; ms?: number } };
+
+/** a move between pages as the kit's navigator was told it: whether it went back, and the motion a back action gave */
+export type PageMove = { back: boolean } & BackOptions;
+
+/* The platform's page stack plays its own animation (navigateBack takes none on WeChat, Douyin or Taro's H5 router), as
+   it does opening a page: a back action's motion is handed this far and kept, for what reads it (the consistency table,
+   custom code), and has no say in how the page goes. */
+let last: PageMove | undefined;
+
+/** the last move between pages */
+export const lastMove = () => last;
+
 /** the most pages a mini-program keeps on its stack */
 const MAX_STACK = 10;
 
@@ -79,14 +93,16 @@ export function openPlace(spec: AppSpec, place: Place, o: { replace?: boolean } 
   const url = urlOf(spec, place);
   if (!url) return Promise.resolve();
   moved();
+  last = { back: false };
   if (spec.screens[place.screen].tab !== undefined) return Taro.switchTab({ url }).catch(() => Taro.reLaunch({ url }));
   const full = Taro.getCurrentPages().length >= MAX_STACK - 1;
   return (o.replace || full ? Taro.redirectTo({ url }) : Taro.navigateTo({ url })).catch(() => Taro.reLaunch({ url }));
 }
 
-/** back a page; from the first page, to where the app starts */
-export function goBack(spec: AppSpec): Promise<unknown> {
+/** back a page, with the back action's motion if it gave one; from the first page, to where the app starts */
+export function goBack(spec: AppSpec, o: BackOptions = {}): Promise<unknown> {
   moved();
+  last = { back: true, ...(o.motion ? { motion: o.motion } : {}) };
   if (Taro.getCurrentPages().length > 1) return Taro.navigateBack({ delta: 1 });
   return Taro.reLaunch({ url: urlOf(spec, { screen: spec.start }) ?? "/" });
 }

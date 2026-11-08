@@ -831,8 +831,15 @@ export class Behaviour {
     /* what a document says of the move is checked again here: only its words for one, and a number */
     const transition = TRANSITIONS.includes(b.transition) ? b.transition : "slide";
     const out: ActionBody = { to: STAY_TARGET, transition };
-    if (b.to === BACK_TARGET) out.to = BACK_TARGET;
-    else if (b.to === LINK_TARGET) {
+    if (b.to === BACK_TARGET) {
+      out.to = BACK_TARGET;
+      /* a back action's own motion is played backwards in place of the way the screen came in (Host.back) */
+      const motion = cleanMotion(b.motion);
+      if (motion) {
+        this.printed.motion = true;
+        out.motion = motion;
+      }
+    } else if (b.to === LINK_TARGET) {
       /* an address read off the row last tapped can only be known at run time; the interpreter opens only a web page */
       const url = b.url?.includes("{{current.") ? b.url.trim() : linkUrlOf(b);
       if (url) Object.assign(out, { to: LINK_TARGET, url });

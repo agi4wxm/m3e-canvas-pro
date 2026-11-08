@@ -161,7 +161,8 @@ async function settled(list: Promise<void>[]) {
 }
 
 function navigate(body: ActionBody, host: Host, tap: Tap, extra: Scope | undefined) {
-  if (body.to === BACK_TARGET) return host.back();
+  /* a back action's own motion goes with it; without one the host undoes the way the screen came in */
+  if (body.to === BACK_TARGET) return body.motion ? host.back({ motion: body.motion }) : host.back();
   if (body.to === LINK_TARGET) {
     const href = linkUrlOf(body);
     if (href) host.openLink(href);

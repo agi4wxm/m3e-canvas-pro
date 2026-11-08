@@ -1,5 +1,15 @@
-/* The packages an exported project names besides what its copied files import. Read by the export (exportProject.ts)
- * and by scripts/gen-versions.ts, which writes their exact versions out of this repo's lockfile. */
+/* The packages an exported project names besides what its copied files import, and every version this repo writes by
+ * hand: the one place a version is bumped. scripts/gen-versions.ts (bun run gen:versions) writes the rest from here and
+ * from this repo's own package.json and bun.lock: lib/versions.generated.ts (what the exports pin), and the versions of
+ * rn/package.json and miniapp-kit/package.json (the kits, which the mobile app and the mini-program are built on).
+ * bun run check:versions fails when any of them is behind, or when a kit's package-lock.json is (npm install there).
+ *
+ *   the editor's own packages      package.json and bun.lock (bun install), read off as they are
+ *   PRODUCT_PINS                   what a product pins that the editor does not run; the kits' too, where they share it
+ *   EXPO_PINS                      the Expo SDK line: rn/package.json and an exported mobile app
+ *   TARO_PINS                      the Taro line: miniapp-kit/package.json and an exported mini-program
+ *
+ * A kit's package is pinned at its line's version, else at PRODUCT_PINS' (TypeScript, the mini-program's ESLint). */
 
 /** what an exported project always depends on: what its entry, its stylesheet and its components' CLI name */
 export const EXPORT_ALWAYS = ["react", "react-dom", "motion", "tailwindcss", "tw-animate-css"];
@@ -48,3 +58,82 @@ export const PRODUCT_PINS: Record<string, string> = {
 
 /** what a product's web app builds with, beside the packages its copied files import */
 export const PRODUCT_WEB_DEV = ["@tailwindcss/vite", "@types/react", "@types/react-dom", "@vitejs/plugin-react", "msw", "shadcn", "tailwindcss", "typescript", "vite", "vitest"];
+
+/** The Expo SDK 58 line: every package rn/package.json names (the kit, its gallery and its tests) that PRODUCT_PINS does
+ *  not, and what an exported mobile app needs beyond the kit (MOBILE_PACKAGES: the router and what it stands on, the
+ *  secure store for the session's tokens, the pickers for uploads). Each the version Expo SDK 58's
+ *  bundledNativeModules.json names, `expo` itself the current stable release when it was written here (checked
+ *  against the npm registry). ESLint stays on 9 here: eslint-config-expo 58 is made for it. */
+export const EXPO_PINS: Record<string, string> = {
+  "@expo/metro-runtime": "58.0.17",
+  "@react-native-community/datetimepicker": "9.2.1",
+  "@react-native/jest-preset": "0.88.1",
+  "@testing-library/react-native": "14.1.0",
+  "@types/jest": "30.0.0",
+  "@types/react": "19.3.0",
+  eslint: "9.39.5",
+  "eslint-config-expo": "58.0.4",
+  expo: "58.0.23",
+  "expo-blur": "58.0.5",
+  "expo-constants": "58.0.15",
+  "expo-document-picker": "58.0.4",
+  "expo-image": "58.0.18",
+  "expo-image-picker": "58.0.10",
+  "expo-linear-gradient": "58.0.3",
+  "expo-linking": "58.0.16",
+  "expo-router": "58.0.30",
+  "expo-secure-store": "58.0.2",
+  "expo-status-bar": "58.0.4",
+  jest: "30.5.2",
+  "jest-expo": "58.0.14",
+  nativewind: "4.2.7",
+  react: "19.3.0",
+  "react-dom": "19.3.0",
+  "react-native": "0.88.1",
+  "react-native-reanimated": "4.7.1",
+  "react-native-safe-area-context": "5.11.1",
+  "react-native-screens": "4.30.1",
+  "react-native-svg": "15.16.0",
+  "react-native-web": "0.21.4",
+  "react-native-worklets": "0.13.0",
+  tailwindcss: "3.4.19",
+  "test-renderer": "1.3.0",
+};
+
+/** what an exported mobile app pins beyond the kit's own packages (lib/export/targets/mobile.ts), each at EXPO_PINS' */
+export const MOBILE_PACKAGES = ["expo-constants", "expo-document-picker", "expo-image-picker", "expo-linking", "expo-router", "expo-secure-store", "react-native-screens"] as const;
+
+/** The Taro 4.3 line: every package miniapp-kit/package.json names (the kit, its gallery, its build) that PRODUCT_PINS
+ *  does not. Taro 4 runs on React 18 (docs/小程序.md). */
+export const TARO_PINS: Record<string, string> = {
+  "@babel/core": "7.29.13",
+  "@babel/preset-react": "7.29.7",
+  "@babel/runtime": "7.29.13",
+  "@pmmmwh/react-refresh-webpack-plugin": "0.5.17",
+  "@tarojs/cli": "4.3.2",
+  "@tarojs/components": "4.3.2",
+  "@tarojs/helper": "4.3.2",
+  "@tarojs/plugin-framework-react": "4.3.2",
+  "@tarojs/plugin-platform-h5": "4.3.2",
+  "@tarojs/plugin-platform-tt": "4.3.2",
+  "@tarojs/plugin-platform-weapp": "4.3.2",
+  "@tarojs/react": "4.3.2",
+  "@tarojs/router": "4.3.2",
+  "@tarojs/runtime": "4.3.2",
+  "@tarojs/shared": "4.3.2",
+  "@tarojs/taro": "4.3.2",
+  "@tarojs/taro-loader": "4.3.2",
+  "@tarojs/webpack5-runner": "4.3.2",
+  "@types/react": "18.3.31",
+  "babel-preset-taro": "4.3.2",
+  postcss: "8.5.32",
+  react: "18.3.1",
+  "react-dom": "18.3.1",
+  "react-refresh": "0.14.2",
+  webpack: "5.91.0",
+};
+
+/** the version a kit's manifest gives a package: its line's, else the product's; undefined for one nothing pins */
+export function kitPin(line: Record<string, string>, name: string): string | undefined {
+  return line[name] ?? PRODUCT_PINS[name];
+}

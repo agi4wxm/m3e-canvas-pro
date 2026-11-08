@@ -1,19 +1,27 @@
 // bun run gen:versions        (bun run check:versions to only check)
 //
-// Writes lib/versions.generated.ts: the exact version of each package an exported project may name, read off
-// package.json and bun.lock. The export pins these (lib/exportProject.ts), so the editor carries a table of a few
-// dozen versions instead of the whole lockfile. A range in package.json is only what this repo accepts; the lockfile
-// says what it runs. lib/versions.test.ts fails when the table is behind either file.
+// Every version this repo writes by hand is in lib/exportPackages.ts (PRODUCT_PINS, EXPO_PINS, TARO_PINS), or is the
+// editor's own (package.json and bun.lock): a version bump is one edit there, then this script. It writes the rest:
 //
-// It also writes PRODUCT_VERSIONS, what a product (the monorepo export, lib/export) pins: the same versions, except the
-// packages this repo does not run, pinned by hand in lib/exportPackages.ts (PRODUCT_PINS) after checking the registry.
-//   bun scripts/gen-versions.ts --registry   checks each of those pins against the npm registry and names newer releases
+//   - lib/versions.generated.ts: the exact version of each package an exported project may name, read off package.json
+//     and bun.lock. The export pins these (lib/exportProject.ts), so the editor carries a table of a few dozen versions
+//     instead of the whole lockfile. A range in package.json is only what this repo accepts; the lockfile says what it
+//     runs. It also holds PRODUCT_VERSIONS, what a product (the monorepo export, lib/export) pins: the same versions,
+//     except the packages this repo does not run, pinned by hand (PRODUCT_PINS) after checking the registry.
+//   - the versions in rn/package.json and miniapp-kit/package.json, the kits the mobile app and the mini-program are built
+//     on: each package at its line's pin (EXPO_PINS, TARO_PINS), else at PRODUCT_PINS'. Which packages a kit names stays
+//     its manifest's to say; one that nothing pins fails.
+//
+// --check changes nothing and fails when any of them is behind, or when a kit's package-lock.json does not have what its
+// manifest names (run npm install in that kit after a bump). lib/versions.test.ts holds the table to package.json and
+// bun.lock too.
+//   bun scripts/gen-versions.ts --registry   checks each hand pin against the npm registry and names newer releases
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { EXPORT_ALWAYS, EXPORT_DEV, PRODUCT_PINS } from "../lib/exportPackages";
+import { EXPO_PINS, EXPORT_ALWAYS, EXPORT_DEV, PRODUCT_PINS, TARO_PINS, kitPin } from "../lib/exportPackages";
 
 type Manifest = { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
 
@@ -62,6 +70,50 @@ export function versionModule(table: Record<string, string>): string {
   ].join("\n");
 }
 
+/** the kits whose manifests take their versions from the pins: where each is, and its line */
+export const KITS = [
+  { dir: "rn", line: EXPO_PINS },
+  { dir: "miniapp-kit", line: TARO_PINS },
+] as const;
+
+type KitManifest = Manifest & Record<string, unknown>;
+
+/** A kit's manifest with every package at its pin, as written (two spaces, a newline at the end); the packages nothing
+ *  pins, which a pin has to be written for first. */
+export function kitManifest(text: string, line: Record<string, string>): { text: string; unpinned: string[] } {
+  const pkg = JSON.parse(text) as KitManifest;
+  const unpinned: string[] = [];
+  for (const field of ["dependencies", "devDependencies"] as const) {
+    const deps = pkg[field];
+    if (!deps) continue;
+    for (const name of Object.keys(deps)) {
+      const pin = kitPin(line, name);
+      if (pin) deps[name] = pin;
+      else unpinned.push(name);
+    }
+  }
+  return { text: `${JSON.stringify(pkg, null, 2)}\n`, unpinned };
+}
+
+/** where a kit's npm lockfile (version 3) disagrees with its manifest: what the root asks for, what is installed */
+export function lockProblems(manifest: string, lockText: string): string[] {
+  const pkg = JSON.parse(manifest) as Manifest;
+  const lock = JSON.parse(lockText) as { packages?: Record<string, { version?: string } & Manifest> };
+  const root = lock.packages?.[""] ?? {};
+  const out: string[] = [];
+  for (const field of ["dependencies", "devDependencies"] as const) {
+    const want = pkg[field] ?? {};
+    const has = root[field] ?? {};
+    for (const [name, version] of Object.entries(want)) {
+      if (has[name] !== version) out.push(`${name}: the lockfile's ${field} have ${has[name] ?? "nothing"}, the manifest ${version}`);
+      const installed = lock.packages?.[`node_modules/${name}`]?.version;
+      if (installed !== version) out.push(`${name}: the lockfile installs ${installed ?? "nothing"}, the manifest pins ${version}`);
+    }
+    for (const name of Object.keys(has)) if (!(name in want)) out.push(`${name}: in the lockfile's ${field}, not in the manifest`);
+  }
+  return out;
+}
+
 if (import.meta.main) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..");
   const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as Manifest;
@@ -71,7 +123,7 @@ if (import.meta.main) {
     /* each hand pin must exist; a newer release is only reported. Run from outside the repo: npm refuses to work in a
        project that names bun as its package manager */
     let missing = 0;
-    for (const [name, version] of Object.entries(PRODUCT_PINS)) {
+    for (const [name, version] of Object.entries({ ...EXPO_PINS, ...TARO_PINS, ...PRODUCT_PINS })) {
       const npm = (spec: string) => execFileSync("npm", ["view", spec, "version"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], cwd: tmpdir() }).trim().split("\n").pop() ?? "";
       const found = npm(`${name}@${version}`);
       const latest = npm(name);
@@ -80,14 +132,37 @@ if (import.meta.main) {
     }
     process.exit(missing ? 1 : 0);
   }
-  if (process.argv.includes("--check")) {
+  const check = process.argv.includes("--check");
+  let failed = false;
+  if (check) {
     if (readFileSync(out, "utf8") !== text) {
-      console.error("lib/versions.generated.ts is behind package.json or bun.lock: run bun run gen:versions");
-      process.exit(1);
-    }
-    console.log("lib/versions.generated.ts is up to date");
+      console.error("lib/versions.generated.ts is behind package.json, bun.lock or lib/exportPackages.ts: run bun run gen:versions");
+      failed = true;
+    } else console.log("lib/versions.generated.ts is up to date");
   } else {
     writeFileSync(out, text);
     console.log(`wrote lib/versions.generated.ts (${text.split("\n").filter((l) => l.startsWith("  ")).length} packages)`);
   }
+  for (const kit of KITS) {
+    const at = join(root, kit.dir, "package.json");
+    const was = readFileSync(at, "utf8");
+    const next = kitManifest(was, kit.line);
+    if (next.unpinned.length) {
+      console.error(`${kit.dir}/package.json names packages nothing pins (lib/exportPackages.ts): ${next.unpinned.join(", ")}`);
+      failed = true;
+    }
+    if (check && next.text !== was) {
+      console.error(`${kit.dir}/package.json is behind lib/exportPackages.ts: run bun run gen:versions (then npm install in ${kit.dir})`);
+      failed = true;
+    } else if (!check && next.text !== was) {
+      writeFileSync(at, next.text);
+      console.log(`wrote ${kit.dir}/package.json: run npm install in ${kit.dir} to bring its package-lock.json up`);
+    }
+    const lock = lockProblems(next.text, readFileSync(join(root, kit.dir, "package-lock.json"), "utf8"));
+    if (lock.length) {
+      console.error(`${kit.dir}/package-lock.json is behind its package.json (npm install in ${kit.dir}):\n  ${lock.join("\n  ")}`);
+      failed = true;
+    } else if (check) console.log(`${kit.dir}/package.json and its lockfile are at the pins`);
+  }
+  if (failed) process.exit(1);
 }

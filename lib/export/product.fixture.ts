@@ -7,7 +7,7 @@ import { proofDoc } from "../exportProject.fixture";
 import { fromAsyncApi, fromOpenApi, mergeApi } from "../api";
 import { fillMocks } from "../mocks/fill";
 import { placeholderFile } from "../mocks/files";
-import type { ApiEndpoint, ApiSpec, Doc } from "../tokens";
+import { FRAME_GAP, PHONE_W, makeItem, type ApiEndpoint, type ApiSpec, type Doc } from "../tokens";
 import { DocStore, counterIds, guessMeasurer, ops, savedDoc, stateOf } from "../core";
 import type { Lang } from "../i18n";
 
@@ -46,7 +46,14 @@ export const FIXTURE_OPENAPI: Record<string, unknown> = {
 
 export function productDoc(): { doc: Doc; widths: Record<string, number>; api: { openapi: Record<string, unknown>; types: string } } {
   const { doc, widths } = proofDoc();
-  return { doc, widths, api: { openapi: FIXTURE_OPENAPI, types: FIXTURE_TYPES } };
+  /* two parts the product draws itself (Item.slot, docs/平台能力.md 插槽), so that their slots go through the product's
+     whole install, typecheck, lint, Prettier, tests and builds: the counter's "Flip" button, which the kits draw with a
+     component of their own (its slot is handed that component's props), and a stat card on the welcome screen, which they
+     draw as its atoms (its slot is handed its size) */
+  const groups = doc.groups.map((g) => (g.items.some((it) => it.id === "flip") ? { ...g, items: g.items.map((it) => (it.id === "flip" ? { ...it, slot: "FlipButton" } : it)) } : g));
+  const stat = { ...makeItem("stat-card"), id: "slot-stat", slot: true as const };
+  groups.push({ id: "g-slot-stat", name: "Visits", x: 2 * (PHONE_W + FRAME_GAP) + 16, y: 600, axis: "x", items: [stat] });
+  return { doc: { ...doc, groups }, widths, api: { openapi: FIXTURE_OPENAPI, types: FIXTURE_TYPES } };
 }
 
 const spec = (name: string) => readFileSync(new URL(`../api/fixtures/${name}`, import.meta.url), "utf8");

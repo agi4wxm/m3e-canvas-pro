@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
 import { Snackbar } from "./composites/content";
-import { movesSoFar, useNav, type Nav } from "./runtime";
+import { movesSoFar, useNav, type BackOptions, type Nav } from "./runtime";
 
 /* What a running app remembers beside the screen on show, and what a tap does with it: the variables, the parts a tap
  * has shown or hidden, the overlays it has opened, the props a tap has set, what an input holds when a condition asks
@@ -47,7 +47,7 @@ export type Effect =
   | { do: "signOut" };
 
 /** where a tap goes after its effects: a screen by its key, "back", "link" (to `url`) or "none" */
-export type ActionBody = { to: string; params?: Record<string, string>; overlay?: boolean; url?: string; effects?: Effect[] };
+export type ActionBody = { to: string; params?: Record<string, string>; overlay?: boolean; url?: string; effects?: Effect[]; motion?: BackOptions["motion"] };
 export type Action = ActionBody & { when?: Condition; else?: ActionBody };
 /** what runs when a call or an invoke is answered: a body that may branch on the answer (docs/交互规则.md, 回答上的条件) */
 export type Answer = ActionBody & { when?: Condition; else?: ActionBody };
@@ -253,8 +253,10 @@ export function AppProvider({ vars = NO_VARS, hidden = NO_KEYS, triggers = NO_KE
     const run = (body: ActionBody | undefined, here: Here, _screen: ScreenParts, nav: Nav) => {
       if (!body) return;
       for (const e of body.effects ?? []) effect(e, here);
-      if (body.to === "back") nav.back();
-      else if (body.to === "link") {
+      if (body.to === "back") {
+        if (body.motion) nav.back({ motion: body.motion });
+        else nav.back();
+      } else if (body.to === "link") {
         if (body.url) nav.open(body.url);
       } else if (body.to && body.to !== "none") {
         const params = body.params && Object.keys(body.params).length ? Object.fromEntries(Object.entries(body.params).map(([k, x]) => [k, reader ? reader.ev(x, scopeOf(here)) : undefined])) : undefined;

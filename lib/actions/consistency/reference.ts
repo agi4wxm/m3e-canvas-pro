@@ -5,14 +5,15 @@
 import { endpointOf, formFields, paramsOf } from "../../bindings/contract";
 import { eventAction, eventsOf, payloadOf, slotAction } from "../../partContract";
 import { groupsInFrame, type Doc, type Frame, type Group, type Item } from "../../tokens";
-import type { CallArgs, Change, FormRef, Host, InvokeOutcome, Outcome, Tap } from "../host";
+import type { BackOptions, CallArgs, Change, FormRef, GoOptions, Host, InvokeOutcome, Outcome, Tap } from "../host";
 import type { FailureKind } from "../../capabilities/types";
 import type { VarValue } from "../model";
 import { run, startOf } from "../run";
 import { Backend, givenOf } from "./check";
-import type { Observed } from "./types";
+import type { Move, Observed } from "./types";
 
-type Entry = { id: string; params?: Record<string, unknown> };
+/** a screen on the stack, with the motion it came in with (going back undoes it) */
+type Entry = { id: string; params?: Record<string, unknown>; motion?: string };
 
 /** the words a part shows: its label, its text, a dialog's headline, an input's placeholder */
 export const wordsOf = (it: Item): string => {
@@ -33,6 +34,8 @@ export class ReferenceHost implements Host {
   fields: Record<string, VarValue> = {};
   snack: string | null = null;
   signedIn = false;
+  /** the last screen move */
+  move: Move | undefined;
   private epoch = 0;
   private count = 0;
   private sending = new Set<string>();
@@ -71,7 +74,7 @@ export class ReferenceHost implements Host {
         words.push(typeof set?.text === "string" ? set.text : typeof set?.label === "string" ? set.label : wordsOf(it));
         if (it.component === "dropdown-menu" && this.opened[it.id]) for (const row of ((it.props?.items as { label?: string }[] | undefined) ?? [])) words.push(row.label ?? "");
       }
-    return { vars: { ...this.vars }, words, toast: this.snack, screen: this.top().id, calls: this.backend.calls };
+    return { vars: { ...this.vars }, words, toast: this.snack, screen: this.top().id, calls: this.backend.calls, ...(this.move ? { move: this.move } : {}) };
   }
 
   /** the tap on the part with these words, on the overlay if one is up, else the screen on show; what it starts is
@@ -230,7 +233,7 @@ export class ReferenceHost implements Host {
     this.snack = text;
   }
 
-  go(to: string, o: { overlay?: boolean; params?: Record<string, unknown> }) {
+  go(to: string, o: Pick<GoOptions, "overlay" | "params" | "motion">) {
     const f = this.frame(to);
     if (!f) return;
     this.moved();
@@ -246,13 +249,19 @@ export class ReferenceHost implements Host {
       return;
     }
     this.overlay = null;
-    this.stack = [...this.stack, { id: to, ...(o.params ? { params: o.params } : {}) }];
+    const motion = o.motion?.kind;
+    this.move = { back: false, motion: motion ?? "none" };
+    this.stack = [...this.stack, { id: to, ...(o.params ? { params: o.params } : {}), ...(motion ? { motion } : {}) }];
   }
 
-  back() {
+  /** back: an overlay closes; else the screen goes as the back action's motion says, played backwards, or the way it came */
+  back(o?: BackOptions) {
     this.moved();
     if (this.overlay) this.overlay = null;
-    else if (this.stack.length > 1) this.stack = this.stack.slice(0, -1);
+    else if (this.stack.length > 1) {
+      this.move = { back: true, motion: o?.motion?.kind ?? this.top().motion ?? "none" };
+      this.stack = this.stack.slice(0, -1);
+    }
   }
 
   openLink() {}

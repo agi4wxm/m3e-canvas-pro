@@ -17,7 +17,7 @@ import { NATIVE, INPUT_PROPS, isNative, kitPropName } from "../../../miniapp-kit
 import { PARTS as KIT_PARTS } from "../../../miniapp-kit/src/kit/parts.generated";
 import { SET_ONLY, propValues, type AtomTaps, type PlainNode } from "../rn/data";
 import { Imports, NAME, andThen, draws, el, exprOf, handler, jsx, objOf, printHandler, same, svgMarkup, type Handler, type J } from "../ir/code";
-import { answers, setsProp, type DocFacts } from "../ir/facts";
+import { answers, backMotion, setsProp, type DocFacts } from "../ir/facts";
 import { OPENS_BY_PROP, atomsOf, iconNamesOf, keepsTrigger, linesOf, partNode, planScreens, selectsByProp, slotGiven, type Loose, type PartNode, type RunNode, type ScreenPlan } from "../ir/screen";
 
 /* The Taro code of a document: one screen component per screen, built from the mini-program kit (miniapp-kit/src/kit),
@@ -149,7 +149,9 @@ function cleanEffect(e: Effect, depth: number, names: Names): Record<string, unk
 
 function cleanBody(b: ActionBody, names: Names, depth = 0): Record<string, unknown> {
   const effects = (b.effects ?? []).map((e) => cleanEffect(e, depth, names)).filter((e): e is Record<string, unknown> => !!e);
-  return { to: names.screen(b.to), ...(b.url ? { url: b.url } : {}), ...(effects.length ? { effects } : {}), ...(b.overlay ? { overlay: true } : {}), ...(b.params ? { params: b.params } : {}) };
+  /* a back action's own motion, for the interpreter to hand the kit's navigator (Host.back) */
+  const motion = backMotion(b);
+  return { to: names.screen(b.to), ...(b.url ? { url: b.url } : {}), ...(effects.length ? { effects } : {}), ...(b.overlay ? { overlay: true } : {}), ...(b.params ? { params: b.params } : {}), ...(motion ? { motion } : {}) };
 }
 
 /** a call's or an invoke's then or catch: a body, with the branch the answer picks (docs/交互规则.md, 回答上的条件) */

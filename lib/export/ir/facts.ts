@@ -4,7 +4,8 @@
  * action body of the document, the phone app's and the mini-program's alike (docs/交互规则.md: a tap's else, the then
  * and catch of its calls and invokes, and the branch an answer picks, are actions too). */
 
-import type { Action, ActionBody, Condition, Doc, Group, Item } from "../../tokens";
+import { BACK_TARGET, type Action, type ActionBody, type Condition, type Doc, type Group, type Item } from "../../tokens";
+import { cleanMotion } from "../../prototype";
 import { partNames } from "../bindCode";
 
 /** the parts navigation bars stand for: their destinations are an app's tabs */
@@ -92,3 +93,7 @@ export const setsProp = (facts: DocFacts, part: string, prop: string) => !!facts
 
 /** whether an action (or its else) makes a call or an invoke, or submits: what its answer is told apart by is the part */
 export const answers = (a: Action) => [a, a.else].some((b) => (b?.effects ?? []).some((e) => e.do === "call" || e.do === "invoke" || e.do === "submit"));
+
+/** A back action's own motion, for each kit's interpreter to hand its navigator (`Host.back`, `Nav.back`): what the
+ *  platform's stack plays its way. None for any other action, and none for a motion that is no motion. */
+export const backMotion = (b: Pick<ActionBody, "to" | "motion">) => (b.to === BACK_TARGET ? cleanMotion(b.motion) : undefined);

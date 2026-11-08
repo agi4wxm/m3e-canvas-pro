@@ -25,7 +25,7 @@ export type Effect =
   | { do: "signOut" };
 
 /** where a tap goes once its effects have run: a screen's key, "back", "link", or "none" */
-export type ActionBody = { to: string; transition?: string; url?: string; effects?: Effect[]; overlay?: boolean; scrollTo?: string; params?: Record<string, string> };
+export type ActionBody = { to: string; transition?: string; url?: string; effects?: Effect[]; overlay?: boolean; scrollTo?: string; params?: Record<string, string>; motion?: { kind: string; dir?: string; easing?: string; ms?: number } };
 
 export type Action = ActionBody & { when?: Condition; else?: ActionBody };
 /** what runs when a call or an invoke is answered: a body that may branch on the answer (docs/交互规则.md, 回答上的条件) */

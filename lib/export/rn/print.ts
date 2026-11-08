@@ -17,7 +17,7 @@ import { NATIVE, isNative, kitPropName } from "../../../rn/src/kit/coverage";
 import { PARTS as KIT_PARTS } from "../../../rn/src/kit/parts.generated";
 import { SET_ONLY, propValues, type AtomTaps, type PlainNode } from "./data";
 import { Imports, NAME, Raw, el, exprOf, jsx, same, svgMarkup, when, type Fn, type J } from "../ir/code";
-import { answers, type DocFacts } from "../ir/facts";
+import { answers, backMotion, type DocFacts } from "../ir/facts";
 import { OPENS_BY_PROP, atomsOf, iconNamesOf, keepsTrigger, labelsOf, linesOf, planScreens, selectsByProp, slotGiven, type Loose, type PartNode, type RunNode, type ScreenPlan } from "../ir/screen";
 
 export { iconNamesOf };
@@ -243,6 +243,8 @@ class ScreenPrinter {
       ...(b.overlay && to !== "back" && to !== "link" && to !== "none" ? { overlay: true } : {}),
       ...(b.params && Object.keys(b.params).length && this.runtime ? { params: b.params } : {}),
       ...(effects.length ? { effects } : {}),
+      /* a back action's own motion, for the interpreter to hand the navigator (Host.back) */
+      ...(backMotion(b) ? { motion: backMotion(b) } : {}),
     };
   }
 
@@ -317,7 +319,11 @@ class ScreenPrinter {
 
   /** a plain move as an expression: back, out to an address, to a screen (over this one when it is an overlay) */
   call(a: Action): string | undefined {
-    if (a.to === BACK_TARGET) return "nav.back()";
+    if (a.to === BACK_TARGET) {
+      /* a back action's own motion goes to the navigator (Nav.back), which the platform's stack plays its way */
+      const motion = backMotion(a);
+      return motion ? `nav.back(${expr({ motion })})` : "nav.back()";
+    }
     if (a.to === LINK_TARGET) {
       const url = linkUrlOf(a);
       return url ? `nav.open(${str(url)})` : undefined;
