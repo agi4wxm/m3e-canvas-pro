@@ -509,6 +509,8 @@ class ScreenPrinter {
     }
     const prop = kitPropName(def.slug, key);
     const values = propValues(def, it.props);
+    /* set read-only (a product's stars), it takes nothing in: only a field or a binding makes it follow something */
+    if (values.readOnly === true && !it.field && it.bind?.[key] === undefined) return { props: [] };
     const labels = key === "selected" ? listLabels(def, it) : undefined;
     const form = it.field && at.form ? at.form : undefined;
     if (form) {
@@ -519,7 +521,7 @@ class ScreenPrinter {
         this.kit.add("optionIndex");
         out.push([prop, `optionIndex(${expr(labels)}, ${h}.value(${f}))`], ["onChange", `(i: number) => ${h}.set(${f}, ${expr(labels)}[i])`]);
       } else if (key === "checked") out.push([prop, `!!${h}.value(${f})`], ["onChange", `(v: boolean) => ${h}.set(${f}, v)`]);
-      else if (def.slug === "slider") out.push([prop, `Number(${h}.value(${f}) ?? ${expr(values.value ?? 0)})`], ["onChange", `(v: number) => ${h}.set(${f}, v)`]);
+      else if (def.input?.kind === "number") out.push([prop, `Number(${h}.value(${f}) ?? ${expr(values.value ?? 0)})`], ["onChange", `(v: number) => ${h}.set(${f}, v)`]);
       else if (def.slug === "file-upload") {
         this.kit.add("PickedFile");
         out.push([prop, `${h}.value(${f}) as PickedFile | PickedFile[] | undefined`], ["onChange", `(v?: PickedFile | PickedFile[]) => ${h}.set(${f}, v)`]);

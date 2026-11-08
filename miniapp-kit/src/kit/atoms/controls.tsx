@@ -595,11 +595,19 @@ export function Link(props: LinkProps) {
   );
 }
 
-export type RatingProps = PartBase & { value?: number; count?: number; readOnly?: boolean };
+export type RatingProps = PartBase & { value?: number; count?: number; readOnly?: boolean; onChange?: (value: number) => void };
 
+/** A score that follows `value`: a press shows at once and is handed out (`onChange`, which the screen's runtime keeps
+ *  for the form field or variable the stars fill), and whenever `value` itself changes the stars start over from it. */
 export function Rating(props: RatingProps) {
   const p = withDefaults<RatingProps>("rating", props);
-  const [value, setValue] = useState(Math.round(p.value ?? 4));
+  const given = Math.round(p.value ?? 4);
+  const [own, setOwn] = useState({ from: given, value: given });
+  const value = own.from === given ? own.value : given;
+  const setValue = (v: number) => {
+    setOwn({ from: given, value: v });
+    p.onChange?.(v);
+  };
   const count = clampInt(p.count ?? 5, 1, 10);
   return (
     <View {...tagOf(p.testID)} style={sx(ROW, { columnGap: 8, alignSelf: "flex-start" })}>
