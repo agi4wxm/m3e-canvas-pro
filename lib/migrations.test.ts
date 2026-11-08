@@ -22,9 +22,10 @@ import { CONVERGE_PARTS } from "./converge";
 import { BARE_VERSION, MIGRATIONS, PROJECT_VERSION, migrate, migrationProblems, versionOf, type Migration, type MigrationDoc } from "./migrations";
 import { isProject, loadDocument, loadStored, newerVersionOf, PROJECT_FORMAT } from "./project";
 import { serializeProject } from "./core/projectFile";
-import { motionOf, triggerOf } from "./prototype";
+import { triggerOf } from "./prototype";
+import { screenPoses } from "./screenMotion";
 import { setGlobalLang } from "./i18n";
-import type { Action, Doc } from "./tokens";
+import type { Action, ActionBody, Doc } from "./tokens";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -249,6 +250,9 @@ describe("the worked examples", () => {
 
 /* ---------- documents written by earlier versions ---------- */
 
+/** the poses the preview plays for a tap's move, forwards and back, eased and on springs (lib/screenMotion.ts) */
+const playedMoves = (body: ActionBody) => [false, true].flatMap((backwards) => [false, true].map((spring) => screenPoses({ transition: body.transition, motion: body.motion, backwards, spring })));
+
 /** What a document does in the preview, by the preview's own rules (lib/interact.ts): what shows at the start, and for
  *  every tap (a part's and each of its places') where it goes and how, and what its effects leave behind. */
 function behaviour(doc: Doc) {
@@ -264,7 +268,8 @@ function behaviour(doc: Doc) {
         const s1 = body ? applyEffects(s0, body.effects, doc, { it }) : s0;
         taps[`${it.id}/${slot}`] = {
           to: body?.to ?? null,
-          motion: body ? motionOf(body) : null,
+          /* what plays as the screen comes in and as it goes back, in either motion scheme */
+          moves: body ? JSON.stringify(playedMoves(body)) : null,
           trigger: triggerOf(a),
           overlay: !!body?.overlay,
           scrollTo: body?.scrollTo ?? null,
