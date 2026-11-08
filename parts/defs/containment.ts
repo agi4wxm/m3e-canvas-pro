@@ -567,8 +567,9 @@ export const containment: PartDef[] = [
     ],
     tree: (p) => {
       const split = Math.round(p.n("split"));
+      /* react-resizable-panels v4 reads a bare number as pixels: the split is a share of the group, so it says "%" */
       const panel = (text: string, size: number) =>
-        h("ResizablePanel", { defaultSize: size }, h("div", { className: "flex h-full items-center justify-center text-on-surface" }, text));
+        h("ResizablePanel", { defaultSize: `${size}%` }, h("div", { className: "flex h-full items-center justify-center text-on-surface" }, text));
       return h(
         "ResizablePanelGroup",
         {
