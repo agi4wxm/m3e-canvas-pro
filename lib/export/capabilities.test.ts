@@ -122,7 +122,9 @@ describe("the capabilities a product uses", () => {
   });
 
   it("run the invoke on every app", () => {
-    expect(text(p, "apps/web/src/generated/screens/CheckoutScreen.tsx")).toMatch(/void invoke\("payment\.pay", \{ orderId: \$\.ev\("'o1'"\) \}, \{ then: \(result\) =>/);
+    /* the web app's taps are data its runtime runs with lib/actions, which invokes through the runtime's registry */
+    expect(text(p, "apps/web/src/generated/screens/CheckoutScreen.tsx")).toMatch(/\{ do: "invoke", capability: "payment\.pay", args: \{ orderId: "'o1'" \}, then: \{/);
+    expect(text(p, "apps/web/src/generated/runtime.tsx")).toContain("invoke: (name, args) => runtime.invoke(name, args),");
     expect(text(p, "apps/mobile/src/generated/effects.ts")).toContain('case "invoke": {');
   });
 

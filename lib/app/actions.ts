@@ -3,7 +3,8 @@
  * form sent, an invoke of a platform capability, where the visitor is. What a host keeps of its own (its screens, its
  * variables, what is shown) stays the app's: `Host` in lib/actions says what that is. */
 
-import type { Outcome } from "../actions/host";
+import type { CallArgs, Outcome } from "../actions/host";
+import { display } from "../bindings/expr";
 import type { CallResult } from "./forms";
 
 export { BACK_TARGET, LINK_TARGET, MAX_CALL_DEPTH, STAY_TARGET, linkUrlOf, type Action, type ActionBody, type Answer, type Condition, type Effect, type Trigger, type VarType, type VarValue } from "../actions/model";
@@ -27,4 +28,23 @@ export function isFilled(v: unknown): boolean {
   if (typeof v === "number") return Number.isFinite(v) && v >= 0;
   if (Array.isArray(v)) return v.length > 0;
   return !!v && typeof v === "object";
+}
+
+/* What an exported screen's call reads off a tap's arguments (`CallArgs`: what the interpreter read of the design's
+   `args` and `body` at the call's step), as the contract places them: the same readings the screen's own scope makes
+   (`Bindings.path`, `.arg`, `.text`). */
+
+/** a path parameter: words, nothing as "" */
+export const pathArg = (v: unknown): string => (typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v) : "");
+
+/** a query parameter: words, a number or yes/no; anything else is left out */
+export const queryArg = (v: unknown): string | number | boolean | undefined => (typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? v : undefined);
+
+/** a header: the words a value shows */
+export const headerArg = (v: unknown): string => display(v);
+
+/** the body of a call: the whole body the tap gave, else its arguments that are no parameter of the operation */
+export function bodyOf(a: CallArgs, params: readonly string[]): unknown {
+  if (a.body !== undefined) return a.body;
+  return Object.fromEntries(Object.entries(a.args).filter(([k]) => !params.includes(k)));
 }

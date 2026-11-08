@@ -158,6 +158,194 @@ export function useScreenParams(): ScreenParams {
 `;
 }
 
+/** The types and tables the taps run over (lib/actions, the editor's own interpreter): what a tap names in the app
+ *  (a part, a variable) and how each is reached, or "" when no tap is printed. */
+function actsSource(spec: RuntimeSpec): string {
+  const a = spec.acts;
+  if (!a) return "";
+  const bd = spec.bound;
+  const reach = Object.entries(a.parts);
+  const tabs = Object.entries(a.tabs);
+  return `
+export type { Action }
+/** where a tap was made, as its screen says it: the part, the row of data it was drawn for, the form it is in */
+export type TapAt = { part?: string; item?: unknown; index?: number; form?: string }
+${when(
+  bd,
+  `/** What a screen gives the taps made on it: its scope as it was last drawn (its data, its params), the calls its taps
+ *  make through the client, its data sources, its forms (with what follows each one's answer), and the fields of its
+ *  forms a condition asks are filled in. The interpreter reads the variables, the session and the forms as they are at
+ *  each step. */
+export type ScreenActions = {
+  scope?: Scope
+  calls?: Record<string, { send: (a: CallArgs) => Promise<unknown>; status?: number }>
+  sources?: Record<string, SourceHandle>
+  forms?: Record<string, { handle: FormHandle; operationId: string; then?: Answer; catch?: Answer }>
+  filled?: Record<string, () => unknown>
+}
+`,
+)}
+/** each variable's type: what a tap writes keeps to it */
+const VAR_TYPES: Record<keyof Vars, VarType> = {${spec.vars.map((v) => ` ${keyOf(v.key)}: ${str(v.type)}`).join(",")}${spec.vars.length ? " " : ""}}
+/** the parts a tap shows, hides, opens or closes that do not simply stand alone: the run each shows and hides with, and
+ *  how an overlay stands (a dialog only while it is open, a menu keeps its trigger and only its popup opens) */
+const REACHES: Record<string, { shows?: PartId; overlay?: "stands" | "menu" } | undefined> = {${reach.map(([k, r]) => ` ${keyOf(k)}: ${literal(r)}`).join(",")}${reach.length ? " " : ""}}
+/** the bars whose chosen destination a tap sets, by the prop it sets */
+const TAB_PROPS: Record<string, string | undefined> = {${tabs.map(([k, p]) => ` ${keyOf(k)}: ${str(p)}`).join(",")}${tabs.length ? " " : ""}}
+${when(bd, `/** the operation that signs in: once it answers, the app goes back where it was sent to sign in from */\nconst LOGIN: string | undefined = ${bd?.login ? str(bd.login) : "undefined"}\n`)}${when(
+  !bd,
+  `
+/** what the taps ask of an API this prototype does not have: each is said once, in the console (and in the README) */
+const ASKED = new Set<string>()
+function unreached(what: string) {
+  if (ASKED.has(what)) return
+  ASKED.add(what)
+  console.warn(\`This prototype has no API: \${what} is not run. Export the product to run it.\`)
+}
+`,
+)}${when(
+    a.mocks,
+    `
+/** what the capabilities the taps invoke answer in this prototype: the mock library's answers, as in the editor's preview */
+const MOCK_CAPABILITIES = ${literal({ ...(a.mocks?.rules ? { capabilities: a.mocks.rules } : {}), ...(a.mocks?.locale ? { locale: a.mocks.locale } : {}) })}
+const CAPABILITY_SPEC: CapabilitySpec | undefined = ${a.mocks?.spec ? literal(a.mocks.spec) : "undefined"}
+`,
+  )}`;
+}
+
+/** the host the interpreter runs a tap over (lib/actions `Host`): the state as each step leaves it */
+function hostSource(spec: RuntimeSpec): string {
+  const a = spec.acts!;
+  const bd = spec.bound;
+  const p = spec.proto;
+  const modes = !!spec.modes?.collections.length;
+  const colorMode = !!spec.dark || !!spec.modes?.followsDark;
+  const varNames = !!Object.keys(spec.exprs?.vars ?? {}).length;
+  const dark = spec.dark ? `!!live.current.vars.${spec.dark}` : colorMode ? "darkNow.current" : "false";
+  const overlayGone = when(p?.overlay, "overlay: null, ");
+  const id = (t: string) => `${t} as PartId`;
+  const at = (rest: string) => (bd ? `screens.current[tap.screen as ScreenId]?.${rest}` : "undefined");
+  return `
+  /* The interpreter (lib/actions) runs what a tap does over the state as each of its steps leaves it, and an answer's
+     then and catch over the state as it is when the answer comes: it reads \`live\`, never what was last drawn */
+  const latest = useRef<App | null>(null)
+${when(bd, "  /** what each screen gives the taps made on it, as it was last drawn (useActions) */\n  const screens = useRef<Partial<Record<ScreenId, ScreenActions>>>({})\n")}${when(a.mocks, "  const answers = useRef<CapabilityHost>(capabilities ?? createMockCapabilities(MOCK_CAPABILITIES, CAPABILITY_SPEC))\n")}  const host = useMemo<Host>(() => {
+    const app = () => latest.current!
+    const top = () => live.current.stack[live.current.stack.length - 1].screen
+    const varsNow = (): Vars => ${modes ? `varsOn(live.current, top(), ${dark})` : "live.current.vars"}
+    const reach = (part: string) => REACHES[part]
+    const shows = (part: string) => (reach(part)?.shows ?? part) as PartId
+    return {
+      scope: (tap) => ({
+${when(bd, "        ...screens.current[tap.screen as ScreenId]?.scope,\n")}        vars: ${varNames ? "scopeVars(varsNow())" : "{}"},
+        params: tap.params ?? {},
+${
+  bd
+    ? `        auth: { signedIn: !!runtime.session.get().session || runtime.session.get().presumed, user: runtime.session.get().session?.user ?? null },
+        now: new Date(runtime.ctx().now ?? Date.now()).toISOString(),
+`
+    : "        now: new Date().toISOString(),\n"
+}        ...(tap.item !== undefined ? { item: tap.item, index: tap.index } : {}),
+${when(bd, `        ...(tap.form && ${at("forms?.[tap.form]")} ? { form: ${at("forms?.[tap.form]")}!.handle.controller.view() } : {}),\n`)}      }),
+      ctx: () => ${bd ? "runtime.ctx()" : '({ lang: document.documentElement.lang || "en", now: Date.now() })'},
+      variable: (name) => (Object.hasOwn(VAR_TYPES, name) ? { type: VAR_TYPES[name as keyof Vars], value: varsNow()[name as keyof Vars] } : undefined),
+      setVar: (name, value) => app().setVar(name as keyof Vars, value as never),
+      filled: (part) => {
+${when(bd, "        for (const s of Object.values(screens.current)) {\n          const read = s?.filled?.[part]\n          if (read) return isFilled(read())\n        }\n")}        return Object.hasOwn(VAR_TYPES, part) && hasValue(varsNow()[part as keyof Vars])
+      },
+      shown: (part) => (reach(part)?.overlay === "stands" ? !!live.current.opened[${id("part")}] : !live.current.hidden[shows(part)]),
+      setShown: (part, on) => {
+        if (reach(part)?.overlay === "stands") return on ? app().open(${id("part")}) : app().close(${id("part")})
+        return on ? app().show(shows(part)) : app().hide(shows(part))
+      },
+      setOpen: (part, on) => {
+        if (reach(part)?.overlay) return on ? app().open(${id("part")}) : app().close(${id("part")})
+        return on ? app().show(shows(part)) : app().hide(shows(part))
+      },
+      setProp: (part, prop, value) => (TAB_PROPS[part] === prop ? app().selectTab(${id("part")}, Number(value) || 0) : app().setProp(${id("part")}, prop, value)),
+      toast: (words) => app().snackbar(words),
+      go: (to, o) => {
+${when(p?.overlay, "        if (o.overlay) return app().openOverlay(to as ScreenId, o.transition, o.motion)\n")}        ${bd ? `app().navigate(to as ScreenId, o.params, o.transition${when(p, ", o.motion")})` : `app().go(to as ScreenId, o.transition${when(p, ", o.motion")})`}
+      },
+      back: () => app().back(),
+      openLink: (url) => app().openLink(url),
+      scrollTo: (${p?.scroll ? "part" : ""}) => ${p?.scroll ? `app().scrollTo(${id("part")})` : "{}"},
+${
+  bd
+    ? `      call: async (operation, args, tap) => {
+        const c = ${at("calls?.[operation]")}
+        if (!c) return { ok: false, status: 0, error: runtime.errorOf(undefined) }
+        return outcomeOf(await runtime.call(() => c.send(args), c.status !== undefined ? { status: c.status } : {}))
+      },
+      invoke: (name, args) => runtime.invoke(name, args),
+      optimistic: (source, change, tap) => {
+        const data = ${at("sources?.[source]")}
+        if (!data || tap.item === undefined) return undefined
+        return "remove" in change ? data.remove(tap.item) : data.patch(tap.item, change.patch as (row: Record<string, unknown>) => Record<string, unknown>)
+      },
+      refresh: (source, tap) => void ${at("sources?.[source]")}?.refresh(),
+      loadMore: (source, tap) => void ${at("sources?.[source]")}?.loadMore(),
+      form: (name, tap) => {
+        const f = name ? ${at("forms?.[name]")} : undefined
+        return f ? { ...f, id: name! } : undefined
+      },
+      submit: async (form, tap) => {
+        const f = ${at("forms?.[form.id]")}
+        return f ? formOutcomeOf(await f.handle.send()) : null
+      },
+      signOut: () => {
+        runtime.signOut()
+        /* a screen that needs a session does not stay on show without one */
+        if (SIGN_IN && NEEDS_SIGN_IN[top()] && top() !== SIGN_IN) setState((s) => ({ ...s, ${overlayGone}move: { transition: "fade", backwards: false }, stack: [...s.stack, { screen: SIGN_IN, transition: "fade" }] }))
+      },
+      afterSignIn: (operation) => operation === LOGIN && app().afterSignIn(),
+`
+    : `      /* a prototype has no API: what reaches for one is said, and goes no further */
+      call: (operation) => {
+        unreached(\`the call of \${operation}\`)
+        return new Promise<never>(() => {})
+      },
+      invoke: ${a.mocks ? "(name, args) => answers.current.invoke(name, args)" : '(name) => Promise.resolve({ ok: false, error: { type: "not-implemented", capability: name } })'},
+      optimistic: () => undefined,
+      refresh: (source) => unreached(\`loading \${source} again\`),
+      loadMore: (source) => unreached(\`loading more of \${source}\`),
+      form: () => {
+        unreached("sending a form")
+        return undefined
+      },
+      submit: () => Promise.resolve(null),
+      signOut: () => unreached("signing out"),
+      afterSignIn: () => false,
+`
+}      moves: () => moves.current,
+    }
+  }, [])
+  /** runs what a tap does, where it was made; \`{{current.field}}\` reads the row last tapped */
+  const act = useCallback((action: Action, tap: Tap) => void run(action, host, { ...tap, current: live.current.current }), [host])
+`;
+}
+
+/** the hook a screen runs its taps with */
+function useActionsSource(spec: RuntimeSpec): string {
+  const bd = spec.bound;
+  return `
+/** What the taps on a screen run on: \`act(action, at)\` runs one with the editor's own interpreter (lib/actions), where
+ *  it was made${bd ? ". The screen gives what is its own (`ScreenActions`)" : ""}. */
+export function useActions(screen: ScreenId${bd ? ", parts: ScreenActions = {}" : ""}): (action: Action, at?: TapAt) => void {
+  const app = useApp()
+${
+  bd
+    ? `  const params = useScreenParams()
+  app.screenActions(screen, parts)
+  const act = app.act
+  return useCallback((action: Action, at: TapAt = {}) => act(action, { screen, params, ...at }), [act, screen, params])`
+    : `  const act = app.act
+  return useCallback((action: Action, at: TapAt = {}) => act(action, { screen, ...at }), [act, screen])`
+}
+}
+`;
+}
+
 export function runtimeSource(spec: RuntimeSpec): string {
   /* what of the prototype the screens use: an animation, an overlay, a part scrolled to, the pointer, time */
   const p = spec.proto;
@@ -172,7 +360,10 @@ export function runtimeSource(spec: RuntimeSpec): string {
   const exprs = !!spec.exprs && !bd;
   /* the dark mode is read where the app follows it: a variable that drives it, or collections with a dark mode */
   const colorMode = !!spec.dark || !!spec.modes?.followsDark;
-  const react = ["createContext", "useContext", "useEffect", "useMemo", ...(p?.delay ? ["useRef"] : []), "useState", ...(bound ? ["type CSSProperties"] : []), "type MouseEvent", "type ReactNode"];
+  const acts = spec.acts;
+  /* with taps printed as data, what draws the state is behind \`live\`, which every change goes through first */
+  const setter = acts ? "setDrawn" : "setState";
+  const react = ["createContext", ...(acts ? ["useCallback"] : []), "useContext", "useEffect", "useMemo", ...(p?.delay || acts ? ["useRef"] : []), "useState", ...(bound ? ["type CSSProperties"] : []), "type MouseEvent", "type ReactNode"];
   const varNames = !!Object.keys(spec.exprs?.vars ?? {}).length;
   const firstFlow = flows[0];
   /* With more than one variable, `[name]` is read as any key; with one it is that variable's own, and a value of another
@@ -188,7 +379,7 @@ export function runtimeSource(spec: RuntimeSpec): string {
   return `// Generated by M3E Canvas. What the running app remembers: the screen on show and how it got
 // there, the variables, and what taps have shown, hidden, opened or changed.
 import { ${react.join(", ")} } from "react"
-${colorMode ? 'import { useColorMode } from "@/components/m3e/color-mode-provider"\n' : ""}${when(p, 'import type { Motion, Transition } from "@/lib/screenMotion"\n')}${when(exprs, 'import { holds as holdsExpr } from "@/lib/bindings/expr"\n')}${bd ? `import { screenParams, useRuntime, useSession, type ParamSpec } from ${str(bd.runtime)}\n` : ""}
+${colorMode ? 'import { useColorMode } from "@/components/m3e/color-mode-provider"\n' : ""}${when(p, 'import type { Motion, Transition } from "@/lib/screenMotion"\n')}${when(exprs, 'import { holds as holdsExpr } from "@/lib/bindings/expr"\n')}${when(acts && !bd, 'import type { Host, Tap } from "@/lib/actions/host"\nimport type { Action, VarType } from "@/lib/actions/model"\nimport { run } from "@/lib/actions/run"\n')}${when(acts?.mocks, 'import { createMockCapabilities } from "@/lib/capabilities/mock"\nimport type { CapabilityHost, CapabilitySpec } from "@/lib/capabilities/types"\n')}${when(bd, 'import { PartHostContext, browserCapability } from "@/components/widgets/host"\n')}${bd ? `import { ${acts ? "formOutcomeOf, isFilled, outcomeOf, run, " : ""}screenParams, useRuntime, useSession, ${acts ? "type Action, type Answer, type CallArgs, type FormHandle, type Host, type Scope, type SourceHandle, type Tap, type VarType, " : ""}type ParamSpec } from ${str(bd.runtime)}\n` : ""}
 export type ScreenId = ${union(spec.screens)}
 export type PartId = ${union(spec.parts)}
 export type Vars = {${spec.vars.map((v) => ` ${v.key}: ${TYPE_OF[v.type]}`).join(";")}${spec.vars.length ? " " : ""}}
@@ -239,7 +430,7 @@ ${when(modes, "  /** the variables a tap or an input has written: they keep that
   /** the row a list's part was last tapped on */
   current: Record<string, string>
 }
-${modesSource(spec)}${exprVarsSource(spec)}
+${modesSource(spec)}${exprVarsSource(spec)}${actsSource(spec)}
 const START: State = {
   stack: [{ screen: START_SCREEN, transition: "none" }],
   move: { transition: "none", backwards: false },
@@ -306,7 +497,9 @@ ${when(modes, "  /** the variables as a screen shows them, in its own modes */\n
   /** whether an input holds something: words, a tick, a choice */
   hasValue: (value: Value) => boolean
   asBool: (value: Value) => boolean
-}
+${when(acts, `  /** runs what a tap does with the editor's own interpreter (lib/actions), where it was made (\`useActions\`) */
+  act: (action: Action, tap: Tap) => void
+${when(bd, "  /** what a screen gives the taps made on it, as it is drawn now (`useActions`) */\n  screenActions: (screen: ScreenId, parts: ScreenActions) => void\n")}`)}}
 
 const AppContext = createContext<App | null>(null)
 ${when(
@@ -319,12 +512,12 @@ export const ScreenContext = createContext<{ screen: ScreenId; active: boolean${
 const asBool = (value: Value) => (typeof value === "string" ? value !== "" && value !== "false" && value !== "0" : !!value)
 const hasValue = (value: Value) => (typeof value === "string" ? value.trim() !== "" : typeof value === "boolean" ? value : value >= 0)
 ${when(modes, `\n/** the state with a variable written, and marked as written */\nconst wrote = (s: State, name: keyof Vars, value: Value): State => ({ ...s, vars: { ...s.vars, [${key}]: value }, written: { ...s.written, [name]: true } })\n`)}
-export function AppProvider({ children }: { children: ReactNode }) {
+export function AppProvider({ children${when(acts?.mocks, ", capabilities")} }: { children: ReactNode${when(acts?.mocks, "; capabilities?: CapabilityHost")} }) {
 ${
   spec.dark
     ? `  /* \`${spec.dark}\` is the app's dark mode: it starts at the mode on show, and the colors follow it */
   const colorMode = useColorMode()
-  const [state, setState] = useState<State>(() => ({ ...START, vars: { ...START.vars, ${spec.dark}: colorMode.resolvedMode === "dark" } }))
+  const [state, ${setter}] = useState<State>(() => ({ ...START, vars: { ...START.vars, ${spec.dark}: colorMode.resolvedMode === "dark" } }))
   const darkOn = state.vars.${spec.dark}
   useEffect(() => {
     if (darkOn !== (colorMode.resolvedMode === "dark")) colorMode.setMode(darkOn ? "dark" : "light")
@@ -333,11 +526,25 @@ ${
       ? `  /* the collections that follow the app's dark mode show their dark mode while it is dark */
   const colorMode = useColorMode()
   const darkOn = colorMode.resolvedMode === "dark"
-  const [state, setState] = useState(START)`
-      : "  const [state, setState] = useState(START)"
+  const [state, ${setter}] = useState(START)`
+      : `  const [state, ${setter}] = useState(START)`
 }
   const screen = state.stack[state.stack.length - 1].screen
 ${when(
+  acts,
+  `  /* A tap's steps each read the state as the step before left it (lib/actions), not as it was last drawn: every change
+     goes through \`live\` first and is drawn after. A change of the screen on show is a move of the visitor's, which an
+     answer that comes late compares with where its tap left them. */
+  const live = useRef(state)
+  const moves = useRef(0)
+  const setState = useCallback((next: State | ((s: State) => State)) => {
+    const was = live.current
+    live.current = typeof next === "function" ? next(was) : next
+    if (live.current.stack !== was.stack${when(p?.overlay, " || live.current.overlay !== was.overlay")}) moves.current++
+    setDrawn(live.current)
+  }, [])
+${when(colorMode && !spec.dark, "  const darkNow = useRef(darkOn)\n  useEffect(() => {\n    darkNow.current = darkOn\n  })\n")}`,
+)}${when(
   bd,
   `  const runtime = useRuntime()
   /* the screens read whether there is a session; a guard reads it as it is when a screen is opened */
@@ -356,6 +563,7 @@ ${when(
   )
 `,
 )}
+${acts ? hostSource(spec) : ""}
   /* every call goes through the state before it: effects of one tap run in order */
   const app = useMemo<App>(() => {
     const prop = ((part: PartId, name: string, start: Value) => state.props[part]?.[name] ?? start) as App["prop"]
@@ -408,12 +616,12 @@ ${when(p.overlay, "          if (s.overlay) return { ...s, overlay: null }\n")} 
         target?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "nearest", inline: "nearest" })
       },
 `,
-)}${when(firstFlow, `      startFlow: (flow) => setState((s) => ({ ...s, ${overlayGone}move: { transition: "fade", backwards: false }, stack: [{ screen: FLOWS[flow].screen, transition: "fade" }] })),\n`)}      /* only web pages leave the app: a link made from data (a row's words, a server's answer) could name a script */
+)}${when(firstFlow, `      startFlow: (flow) => setState((s) => ({ ...s, ${overlayGone}move: { transition: "fade", backwards: false }, stack: [{ screen: FLOWS[flow].screen, transition: "fade" }] })),\n`)}      /* only web pages leave the app: a link made from data (a row's words, a server's answer) could name a script${bd ? ". It opens through the platform's capabilities (`link.open`), which the app can change; with no adapter for it, the browser opens it" : ""} */
       openLink: (url) => {
         const raw = url.trim()
         try {
           const page = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : "https://" + raw)
-          if (page.protocol === "http:" || page.protocol === "https:") window.open(page.href, "_blank", "noopener,noreferrer")
+          if (page.protocol === "http:" || page.protocol === "https:") ${bd ? 'void runtime.invoke("link.open", { url: page.href }).then((out) => !out.ok && out.error.type === "not-implemented" && browserCapability("link.open", { url: page.href }))' : 'window.open(page.href, "_blank", "noopener,noreferrer")'}
         } catch {
           /* not a link at all */
         }
@@ -454,9 +662,9 @@ ${when(modes, "      varsOn: shownOn,\n")}${when(bound, `      varStyle: (on) =>
       pickRow: (row) => setState((s) => ({ ...s, current: row })),
       hasValue,
       asBool,
-    }
-  }, [state, screen${when(modes && !spec.dark && colorMode, ", darkOn")}${when(bd, ", runtime")}])
-
+${when(acts, `      act,\n${when(bd, "      screenActions: (on, parts) => {\n        screens.current[on] = parts\n      },\n")}`)}    }
+  }, [state, screen${when(modes && !spec.dark && colorMode, ", darkOn")}${when(bd, ", runtime")}${when(acts, ", act")}])
+${when(acts, "  latest.current = app\n")}
   const snack = state.snack
   useEffect(() => {
     if (!snack) return
@@ -464,7 +672,19 @@ ${when(modes, "      varsOn: shownOn,\n")}${when(bound, `      varStyle: (on) =>
     return () => window.clearTimeout(id)
   }, [snack])
 
-  return <AppContext.Provider value={app}>{children}</AppContext.Provider>
+${
+  bd
+    ? `  /* What a part asks of the platform for a control of its own (a copy button) goes through the app's capabilities too;
+     one the app has no adapter for is done the browser's way, as it always was */
+  const parts = useMemo(() => ({ invoke: (name: string, args: Record<string, unknown>) => runtime.invoke(name, args).then((out) => (!out.ok && out.error.type === "not-implemented" ? browserCapability(name, args) : out)) }), [runtime])
+
+  return (
+    <AppContext.Provider value={app}>
+      <PartHostContext.Provider value={parts}>{children}</PartHostContext.Provider>
+    </AppContext.Provider>
+  )`
+    : "  return <AppContext.Provider value={app}>{children}</AppContext.Provider>"
+}
 }
 
 export function useApp(): App {
@@ -472,7 +692,7 @@ export function useApp(): App {
 ${when(modes, "  const page = useContext(ScreenContext)\n")}  if (!app) throw new Error("useApp must be used inside <AppProvider>")
 ${modes ? "  /* a screen reads its variables in the modes it shows */\n  return page ? { ...app, vars: app.varsOn(page.screen) } : app" : "  return app"}
 }
-
+${acts ? useActionsSource(spec) : ""}
 /* a click reaches the part it landed on first; the container around that part must not take it too */
 const taken = new WeakSet<Event>()
 /** the buttons inside an overlay that dismiss it, whichever overlay it is */

@@ -47,7 +47,9 @@ beforeAll(async () => {
 
 describe("the prototype export", () => {
   /* The single-app export stays as it was, to the byte, beside the product. These digests were taken from the export
-     before the product existed; one that changes on purpose is written again here (last: the platform capabilities,
+     before the product existed; one that changes on purpose is written again here (last: the taps printed as the data they are, lib/actions'
+     Action, and run in src/runtime.tsx by the interpreter copied into src/lib/actions (docs/交互规则.md), which the
+     README names; before that the platform capabilities,
      docs/平台能力.md, beside the retired parts, the split view and the widgets' outlets: the shop flow pays through
      createOrder and payment.pay and shows the order's status, the checkout's body one column with its payment notices
      among its rows; checkout-bar, video-call, map and camera take their state as props, the map and the camera drawn by
@@ -70,11 +72,11 @@ describe("the prototype export", () => {
      icons asking again and the ripple under reduced motion; in parts, form fields keyed by their item and resizable
      sizes as percentages). */
   const DIGESTS: Record<string, [number, string]> = {
-    proof: [83, "e2ff344877174acc8f0e589982ebee10e7133a762d7132d0f04de35a085c9e0a"],
-    systems: [41, "992987b9634db0e617a98539279765cae5163f7caa5fe8ecdbc9aa5dc3ca56cb"],
-    reuse: [31, "bf3a590479d5cbc75c4c9fcd91fa094350452f6190f2690665cefe7aecff44aa"],
-    sweep: [93, "72606d0118218ffec85eb98ef83ff4364f01252b10723b5c862693a848aa8da0"],
-    parts: [140, "f51e43fefb97a4b7514e156127b081644ef8ccd904782826b0c55e6b1984e2a2"],
+    proof: [90, "eb7abc6f42cf338dfe8ea38fced3cb4157cd5e4cf8f473ae0277b69301c78245"],
+    systems: [47, "f80a35984abaefc15f14bdd288077d625b986c5295278bbf699cd30b1e4dd62c"],
+    reuse: [38, "fc63b4335aaad16e4ed342b163b74840e313987f710642e44474e4d91bb19821"],
+    sweep: [100, "0f8855e76ccb817c2e59efc36c41c09d7ec9ee16fb317f462966b980394fd1ca"],
+    parts: [140, "295c3c85b06eab798e6bb08867328a8cd975cd1ce8f55cb46c9beb2d442f19d3"],
   };
   const DOCS: Record<string, () => { doc: Doc; widths: Record<string, number> }> = { proof: proofDoc, systems: systemsDoc, reuse: reuseDoc, sweep: sweepDoc, parts: () => ({ doc: allPartsDoc(), widths: {} }) };
   it.each(Object.keys(DIGESTS))("is byte for byte what it was: %s", async (name) => {

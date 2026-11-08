@@ -40,13 +40,13 @@ const bool = (id: string, value: boolean) => ({ id, name: id, type: "bool" as co
 const op = (operationId: string, more: Partial<Design["api"] extends (infer O)[] | undefined ? O : never> = {}) => ({ operationId, path: `/${operationId}`, ...more });
 
 /* reasons the hosts share, with the report's sections */
-const WEB_PROTO_NO_API = "原型 Web 导出没有接口：调用、刷新、提交、退出登录整个丢掉，也不报告（报告 6.2、9.4）";
+const WEB_PROTO_NO_API = "原型 Web 导出没有接口：调用、刷新、提交、退出登录不发出，运行时在控制台说一次、导出的 README 里列出（要运行它们请导出完整产品；报告 6.2、9.4）";
 const RENDER_SCOPE = "接口参数读的是屏幕渲染时的作用域，看不到同一次点击里前面效果写入的值（报告 6.2：Web `printBindings.ts`、手机端 `mobile.ts`、小程序 `env.$`）";
 const NO_LATEST = "lib/app 的 Runtime.call 只在重新开始后丢弃回答，同一组件同一接口的旧回答照样运行（报告 7.2，整改计划第一批遗留）";
 const NAV_AFTER_MOVE = "回答到达时访客已经离开，lib/app 宿主仍执行 then/catch 里的跳转，把访客拽走（报告 7.1、7.2）";
 const EXPORTS_NO_OUTLETS = "导出还不运行组件的事件和槽位族的动作，只在差异报告里列出（`lib/export/boundary.ts`，第二批 B1）；表的运行器也还没有替它们发出事件、点某一项";
 const PREVIEW_BATCH = "预览先整批执行本地效果、再发出接口调用和能力调用，调用读到后面才写的值（报告 6.2：`Preview.tsx` runBody）";
-const WEB_PROTO_NO_CAPABILITIES = "原型 Web 导出没有能力层：能力调用整个丢掉（第三批只给产品的三端接上能力注册表；原型导出第四批改为打印 Action 数据，报告 6.2、9.4）";
+const WEB_PROTO_NO_RESTART = "原型 Web 导出不会重新开始：它没有模拟库的场景，也不换后端，表的“重新开始”在它上面不发生（能力由模拟库按预览的方式回答）";
 const ANSWER_BRANCH = "then / catch 上的条件以前被保存拒绝，这里还当作没有条件、总运行主体（交互规则“回答上的条件”，第四批放开）";
 const PREVIEW_DROPS ="预览在访客离开后整个丢弃 then/catch（第一批 W5 的规则），效果也不再运行，状态跟不上后端（报告 7.1）";
 
@@ -59,7 +59,7 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], vars: [num("qty", 1)], api: [op("create", { body: { qty: { title: "Qty", type: "number" } } })], parts: [btn("go", "Order five", stay(setVar("qty", 5), call("create", { args: { qty: "vars.qty" } })))] },
     steps: [{ tap: "Order five" }],
     expect: { vars: { qty: 5 }, calls: [{ op: "create", in: { qty: 5 } }] },
-    known: { webPrototype: WEB_PROTO_NO_API, webProduct: RENDER_SCOPE, rn: RENDER_SCOPE, miniapp: RENDER_SCOPE },
+    known: { webPrototype: WEB_PROTO_NO_API, rn: RENDER_SCOPE, miniapp: RENDER_SCOPE },
   },
   {
     id: "order-call-then-setvar",
@@ -78,8 +78,6 @@ export const ROWS: Row[] = [
     steps: [{ tap: "Count" }],
     expect: { vars: { n: 2, m: 20 } },
     known: {
-      webPrototype: "原型 Web 导出忽略“设为变量”的表达式，不报告（报告 6.2：`printBehaviour.ts` setVar）",
-      webProduct: "产品 Web 的“设为变量”表达式读屏幕渲染时的作用域（`$`），读不到同一次点击里前面效果写入的值（报告 6.2）",
       miniapp: "小程序的“设为变量”表达式读屏幕渲染时的作用域（`env.$`），读不到同一次点击里前面效果写入的值（报告 6.2）",
     },
   },
@@ -96,7 +94,6 @@ export const ROWS: Row[] = [
     expect: { screen: "next", toast: "Id p7" },
     known: {
       webPrototype: "原型 Web 导出没有屏幕参数（参数只属于绑定接口的产品）",
-      webProduct: "产品 Web 的跳转参数读屏幕渲染时的作用域，读不到同一次点击里写入的值（报告 6.3：跳转参数在所有效果之后读）",
       rn: "手机端：没有接口的设计不打印屏幕参数和跳转参数（`lib/export/rn/print.ts` 只在 `doc.api` 存在时打印绑定）",
       miniapp: "小程序的跳转参数读屏幕渲染时的作用域（`env.$`），读不到同一次点击里写入的值（报告 6.3）",
     },
@@ -164,7 +161,6 @@ export const ROWS: Row[] = [
     steps: [{ type: "Note", value: "hi" }, { tap: "Check note" }],
     expect: { vars: { r: "filled" } },
     known: {
-      webProduct: "表单里的输入框在产品 Web 里由表单保管，没有自己的变量，“已填写”永远不成立（报告 6.2：`printBehaviour.ts` inputVar）",
       rn: "手机端表单里的输入框由表单保管，“已填写”读的是套件自己的输入记录，读不到（`rn/src/kit/app.tsx` holds）",
       miniapp: "小程序表单里的输入框由表单保管，“已填写”读的是屏幕自己的输入记录，读不到（`screen.tsx` holdsOver）",
     },
@@ -274,7 +270,6 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], vars: [num("a", 2), num("b", 3), num("total", 0)], parts: [btn("go", "Add up", stay(setVar("total", 0, "vars.a + vars.b")))] },
     steps: [{ tap: "Add up" }],
     expect: { vars: { total: 5 } },
-    known: { webPrototype: "原型 Web 导出忽略“设为变量”的表达式，写入的是面板上的值，不报告（报告 6.2：`printBehaviour.ts` setVar）" },
   },
   {
     id: "setvar-coerce",
@@ -307,7 +302,6 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], vars: [words("who", "Ada")], parts: [btn("go", "Greet", stay(toast("Hello {{vars.who}}")))] },
     steps: [{ tap: "Greet" }],
     expect: { toast: "Hello Ada" },
-    known: { webPrototype: "原型 Web 导出的提示条不读 {{表达式}}，原样显示（只有产品 Web 读绑定）" },
   },
   {
     id: "setprop-text",
@@ -347,7 +341,7 @@ export const ROWS: Row[] = [
     answers: { pay: { status: 200, body: { state: "pending" } } },
     steps: [{ tap: "Pay now" }],
     expect: { vars: { state: "pending" } },
-    known: { preview: ANSWER_BRANCH, webPrototype: WEB_PROTO_NO_API, webProduct: ANSWER_BRANCH, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
+    known: { preview: ANSWER_BRANCH, webPrototype: WEB_PROTO_NO_API, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
   },
   {
     id: "call-catch-branch",
@@ -357,7 +351,7 @@ export const ROWS: Row[] = [
     answers: { claim: { status: 500, body: {} } },
     steps: [{ tap: "Claim it" }],
     expect: { toast: "Failed 500" },
-    known: { preview: ANSWER_BRANCH, webPrototype: WEB_PROTO_NO_API, webProduct: ANSWER_BRANCH, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
+    known: { preview: ANSWER_BRANCH, webPrototype: WEB_PROTO_NO_API, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
   },
   {
     id: "call-unauthorized-no-catch",
@@ -395,7 +389,7 @@ export const ROWS: Row[] = [
     hold: ["ping"],
     steps: [{ tap: "Ping later" }, { tap: "Bump n" }, { answer: "ping" }],
     expect: { vars: { n: 2, seen: 2 } },
-    known: { webPrototype: WEB_PROTO_NO_API, webProduct: RENDER_SCOPE, miniapp: RENDER_SCOPE },
+    known: { webPrototype: WEB_PROTO_NO_API, miniapp: RENDER_SCOPE },
   },
   {
     id: "call-nesting-limit",
@@ -418,7 +412,6 @@ export const ROWS: Row[] = [
     known: {
       preview: "预览嵌套到第 6 层（`Preview.tsx` depth > 6），比读文件的 4 层多（报告 6.2）",
       webPrototype: WEB_PROTO_NO_API,
-      webProduct: "产品 Web 不限层数（报告 6.2）",
       rn: "手机端打印到第 6 层（`rn/print.ts` depth > 6）（报告 6.2）",
     },
   },
@@ -442,7 +435,7 @@ export const ROWS: Row[] = [
     hold: ["pick"],
     steps: [{ tap: "Pick" }, { tap: "Pick" }, { answer: "pick", which: "newest", body: { n: 2 } }, { answer: "pick", body: { n: 1 } }],
     expect: { vars: { last: 2 } },
-    known: { webPrototype: WEB_PROTO_NO_API, webProduct: NO_LATEST, rn: NO_LATEST, miniapp: NO_LATEST },
+    known: { webPrototype: WEB_PROTO_NO_API, rn: NO_LATEST, miniapp: NO_LATEST },
   },
   {
     id: "late-moved-then",
@@ -457,7 +450,7 @@ export const ROWS: Row[] = [
     hold: ["save"],
     steps: [{ tap: "Save it" }, { tap: "Leave" }, { answer: "save" }],
     expect: { vars: { saved: true }, screen: "other" },
-    known: { preview: PREVIEW_DROPS, webPrototype: WEB_PROTO_NO_API, webProduct: NAV_AFTER_MOVE, rn: NAV_AFTER_MOVE, miniapp: NAV_AFTER_MOVE },
+    known: { preview: PREVIEW_DROPS, webPrototype: WEB_PROTO_NO_API, rn: NAV_AFTER_MOVE, miniapp: NAV_AFTER_MOVE },
   },
   {
     id: "late-moved-catch",
@@ -535,7 +528,6 @@ export const ROWS: Row[] = [
     known: {
       preview: "预览只在进入屏幕时检查登录，退出登录后仍停在需要登录的屏幕上（报告 6.2）",
       webPrototype: WEB_PROTO_NO_API,
-      webProduct: "产品 Web 只在进入屏幕时检查登录，退出登录后仍停在需要登录的屏幕上（报告 6.2）",
     },
   },
 
@@ -548,7 +540,6 @@ export const ROWS: Row[] = [
     capabilities: { "payment.pay": { result: { status: "submitted" } } },
     steps: [{ tap: "Pay" }],
     expect: { vars: { got: "submitted" }, invokes: [{ op: "payment.pay", in: { orderId: "o1", amount: 12.5 } }] },
-    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
   },
   {
     id: "invoke-then-branch",
@@ -558,7 +549,7 @@ export const ROWS: Row[] = [
     capabilities: { "scan.code": { result: { text: "", format: "qr" } } },
     steps: [{ tap: "Scan it" }],
     expect: { vars: { read: "nothing" } },
-    known: { preview: ANSWER_BRANCH, webPrototype: WEB_PROTO_NO_CAPABILITIES, webProduct: ANSWER_BRANCH, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
+    known: { preview: ANSWER_BRANCH, rn: ANSWER_BRANCH, miniapp: ANSWER_BRANCH },
   },
   {
     id: "invoke-catch-type",
@@ -568,7 +559,6 @@ export const ROWS: Row[] = [
     capabilities: { "payment.pay": { fail: "cancelled" } },
     steps: [{ tap: "Pay" }],
     expect: { vars: { why: "cancelled" }, toast: "Not paid: cancelled", invokes: [{ op: "payment.pay", in: { orderId: "o1" } }] },
-    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
   },
   {
     id: "invoke-not-implemented",
@@ -578,7 +568,6 @@ export const ROWS: Row[] = [
     capabilities: { "share.open": { fail: "not-implemented" } },
     steps: [{ tap: "Share" }],
     expect: { vars: { why: "not-implemented" } },
-    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
   },
   {
     id: "invoke-not-awaited",
@@ -588,7 +577,6 @@ export const ROWS: Row[] = [
     hold: ["scan.code"],
     steps: [{ tap: "Scan and go" }],
     expect: { vars: { done: true }, screen: "next", invokes: [{ op: "scan.code", in: {} }] },
-    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
   },
   {
     id: "invoke-args-at-step",
@@ -597,7 +585,7 @@ export const ROWS: Row[] = [
     design: { screens: [HOME], vars: [words("text", "")], parts: [btn("copy", "Copy", stay(setVar("text", "copied words"), invoke("clipboard.write", { args: { text: "vars.text" } }), setVar("text", "later")))] },
     steps: [{ tap: "Copy" }],
     expect: { vars: { text: "later" }, invokes: [{ op: "clipboard.write", in: { text: "copied words" } }] },
-    known: { preview: PREVIEW_BATCH, webPrototype: WEB_PROTO_NO_CAPABILITIES, webProduct: RENDER_SCOPE, rn: RENDER_SCOPE, miniapp: RENDER_SCOPE },
+    known: { preview: PREVIEW_BATCH, rn: RENDER_SCOPE, miniapp: RENDER_SCOPE },
   },
   {
     id: "invoke-in-call-then",
@@ -612,7 +600,7 @@ export const ROWS: Row[] = [
     answers: { createOrder: { status: 200, body: { id: "o42" } } },
     steps: [{ tap: "Place order" }],
     expect: { screen: "done", vars: { order: "o42" }, calls: [{ op: "createOrder", in: {} }], invokes: [{ op: "payment.pay", in: { orderId: "o42" } }] },
-    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
+    known: { webPrototype: WEB_PROTO_NO_API },
   },
   {
     id: "invoke-late-moved",
@@ -626,7 +614,7 @@ export const ROWS: Row[] = [
     hold: ["payment.pay"],
     steps: [{ tap: "Pay" }, { tap: "Elsewhere" }, { answer: "payment.pay", body: { status: "submitted" } }],
     expect: { vars: { got: "submitted" }, screen: "other" },
-    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES, webProduct: NAV_AFTER_MOVE, rn: NAV_AFTER_MOVE, miniapp: NAV_AFTER_MOVE },
+    known: { rn: NAV_AFTER_MOVE, miniapp: NAV_AFTER_MOVE },
   },
   {
     id: "invoke-late-restart",
@@ -636,7 +624,7 @@ export const ROWS: Row[] = [
     hold: ["payment.pay"],
     steps: [{ tap: "Pay" }, { restart: true }, { answer: "payment.pay", body: { status: "submitted" } }],
     expect: { vars: { got: "" } },
-    known: { webPrototype: WEB_PROTO_NO_CAPABILITIES },
+    known: { webPrototype: WEB_PROTO_NO_RESTART },
   },
 
   /* ---------- where a tap goes ---------- */

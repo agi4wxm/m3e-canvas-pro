@@ -9,7 +9,7 @@
  * repeats and its imports. Expressions reach code only as escaped strings (`str`), names only through `identifierOf`. */
 
 import type { ApiOperation } from "./export/api";
-import { answerShape, clientCallCode, fieldRule, fillCode, holdsCode, isApiEffect, listCode, pageSizeOf, paneState, paramPlaces, placeArgs, readCode, readOf, regionOptions } from "./export/bindCode";
+import { answerShape, clientCallCode, fieldRule, fillCode, holdsCode, listCode, pageSizeOf, paneState, paramPlaces, placeArgs, readCode, readOf, regionOptions } from "./export/bindCode";
 import { endpointOf, formFields, type FieldSpec } from "./bindings/contract";
 import { messagesShown } from "./bindings/view";
 import { hasTemplate, parseExpr, type Expr } from "./bindings/expr";
@@ -25,7 +25,8 @@ import { optionsOf } from "./partContract";
 import { identifierOf } from "./export/paths";
 import { literal } from "./export/code";
 import { commentText } from "./export/server/comments";
-import type { DataSource, Doc, Effect, FormBinding, Frame, Group, Item, Optimistic, VarType } from "./tokens";
+import type { DataSource, Doc, FormBinding, Frame, Group, Item } from "./tokens";
+import type { Answer } from "./actions/model";
 
 /** what the printer is told of the product: where the runtime is, the contract and its client's operations */
 export type BindPrintOptions = {
@@ -80,10 +81,6 @@ type ScreenBind = {
   types: Set<string>;
   /** it uses `$` (the screen's scope) */
   dollar: boolean;
-  /** it makes calls */
-  call: boolean;
-  /** it invokes a platform capability (useInvoke) */
-  invoke?: boolean;
   /** it reads its params */
   params: boolean;
   react: Set<string>;
@@ -93,9 +90,15 @@ type ScreenBind = {
   taken: Set<string>;
   /** the scopes' names taken */
   scopes: Set<string>;
+  /** the scopes of a repeat's rows: a tap in one says which row (`item`, `index`) */
+  rows: Set<string>;
+  /** the operations the screen's taps call, with the arguments they give each */
+  calls: Map<string, Set<string>>;
+  /** the fields of its forms a `{filled}` condition reads, by the key the condition names */
+  filled: Map<string, string>;
 };
 
-const RESERVED = new Set(["$", "scope", "params", "vars", "call", "invoke", "result", "api", "item", "index", "row", "response", "status", "error", "body", "init", "args", "query", "path", "page", "signal", "event", "value", "on", "go", "back", "navigate", "snackbar", "setVar", "signOut", "afterSignIn", "React", "Fragment"]);
+const RESERVED = new Set(["$", "act", "scope", "params", "vars", "call", "invoke", "result", "api", "item", "index", "row", "response", "status", "error", "body", "init", "args", "query", "path", "page", "signal", "event", "value", "on", "go", "back", "navigate", "snackbar", "setVar", "signOut", "afterSignIn", "React", "Fragment"]);
 
 const pascal = (s: string) => s[0].toUpperCase() + s.slice(1);
 const constName = (s: string) => s.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toUpperCase();
@@ -189,7 +192,7 @@ export class BoundPrint {
         const info = forms.get(f)!;
         if (!info.inputs.some((x) => x.field === it.field)) info.inputs.push({ field: it.field, start: startOf(it) });
       }
-    this.screen = { frame, component, sources, regions, forms, formOf, runtime: new Set(), api: false, platform: new Set(), types: new Set(), dollar: false, call: false, params: !!frame.params?.length, react: new Set(), app: new Set(), taken, scopes: new Set(["$", ...[...forms.values()].map((f) => f.scope)]) };
+    this.screen = { frame, component, sources, regions, forms, formOf, runtime: new Set(), api: false, platform: new Set(), types: new Set(), dollar: false, params: !!frame.params?.length, react: new Set(), app: new Set(), taken, scopes: new Set(["$", ...[...forms.values()].map((f) => f.scope)]), rows: new Set(), calls: new Map(), filled: new Map() };
     this.scope = "$";
     this.form = undefined;
   }
@@ -369,6 +372,7 @@ export class BoundPrint {
     this.s.runtime.add("keyOf");
     this.s.react.add("Fragment");
     const list = listCode(outer, data, limit);
+    this.s.rows.add(row);
     return { open: `{${gates.length ? `${gates.join(" && ")} && ` : ""}${list}.map((item, index) => {`, row: `const ${row} = ${outer}.with({ item, index })`, key: `<Fragment key={keyOf(item, index)}>`, close: row };
   }
 
@@ -403,6 +407,39 @@ export class BoundPrint {
     return clientCallCode("api", op, input.length ? `{ ${input.join(", ")} }` : undefined, initArg || undefined);
   }
 
+  /** The send of an operation a tap calls, through the client: what the interpreter read of the tap's arguments (`a`,
+   *  lib/actions `CallArgs`) placed as the contract places them, the rest the fields of the body unless the tap gave the
+   *  whole body. */
+  private sendCode(operationId: string, given: Set<string>): string | null {
+    const op = this.ops.get(operationId);
+    const e = endpointOf(this.o.api, operationId);
+    if (!op || !e) return null;
+    this.s.api = true;
+    const places = paramPlaces(this.o.api, e);
+    const named = [...given];
+    const read = (k: string) => `a.args${/^[A-Za-z_$][\w$]*$/.test(k) ? `.${k}` : `[${str(k)}]`}`;
+    const input: string[] = [];
+    if (op.params.length) {
+      this.s.runtime.add("pathArg");
+      input.push(`params: { ${op.params.map((p) => `${propName(p)}: pathArg(${read(p)})`).join(", ")} }`);
+    }
+    const query = named.filter((k) => places.get(k) === "query");
+    if (op.query && query.length) {
+      this.s.runtime.add("queryArg");
+      input.push(`query: { ${query.map((k) => `${propName(k)}: queryArg(${read(k)})`).join(", ")} }`);
+    }
+    if (op.body) {
+      this.s.runtime.add("bodyOf");
+      input.push(`body: bodyOf(a, ${str([...places.keys()])})${this.castTo(op.bodyType)}`);
+    }
+    const headers = named.filter((k) => places.get(k) === "header");
+    if (headers.length) this.s.runtime.add("headerArg");
+    const init = headers.length ? `{ headers: { ${headers.map((k) => `${propName(k)}: headerArg(${read(k)})`).join(", ")} } }` : undefined;
+    const call = clientCallCode("api", op, input.length ? `{ ${input.join(", ")} }` : undefined, init);
+    /* an operation that takes nothing reads nothing of the tap */
+    return `${/\ba[.[]|bodyOf\(a\b/.test(call) ? "(a)" : "()"} => ${call}`;
+  }
+
   /** the cast a value needs to be a client type: none to `unknown` or a record, else to the named type, imported */
   private castTo(t: string): string {
     if (!/^[A-Za-z_$][\w$]*$/.test(t) || t === "unknown") return "";
@@ -411,110 +448,33 @@ export class BoundPrint {
     return ` as ${t}`;
   }
 
-  /** The statement of an effect that reaches the bindings, or undefined for an effect that is not one of them.
-   *  `body` prints a then or catch body in the scope given. */
-  effect(e: Effect, body: (b: NonNullable<Extract<Effect, { do: "call" }>["then"]>, scope: string) => string[]): string | null | undefined {
-    if (e.do === "invoke") return this.invoke(e, body);
-    if (!isApiEffect(e)) return undefined;
-    switch (e.do) {
-      case "refresh":
-      case "loadMore": {
-        const v = this.sourceVar(e.source);
-        return v ? `void ${v}.${e.do === "refresh" ? "refresh" : "loadMore"}()` : null;
-      }
-      case "submit": {
-        const f = e.form ? this.s.forms.get(e.form) : this.form;
-        return f ? `void ${f.name}.submit()` : null;
-      }
-      case "signOut":
-        this.app("signOut");
-        return "signOut()";
-      case "call": {
-        const $ = this.use();
-        const call = this.clientCall(e.operationId, e.args ?? {}, e.body, $);
-        if (!call) return null;
-        this.s.call = true;
-        this.s.runtime.add("useCall");
-        const op = this.ops.get(e.operationId)!;
-        const opts: string[] = [];
-        const optimistic = e.optimistic && this.optimistic(e.optimistic, $);
-        if (optimistic) opts.push(`optimistic: ${optimistic}`);
-        if (e.then) {
-          const r = this.fresh("answer");
-          const lines = this.loginNav(e.operationId, body(e.then, r));
-          opts.push(`then: (response, status) => { ${uses(lines, r) ? `const ${r} = ${$}.with({ response, status }); ` : ""}${lines.join("; ")} }`);
-        } else if (e.operationId === this.o.api.auth?.login) {
-          this.app("afterSignIn");
-          opts.push("then: () => void afterSignIn()");
-        }
-        if (e.catch) {
-          const r = this.fresh("failure");
-          const lines = body(e.catch, r);
-          opts.push(`catch: (error, status) => { ${uses(lines, r) ? `const ${r} = ${$}.with({ error, status }); ` : ""}${lines.join("; ")} }`);
-        }
-        if (op.status !== 200) opts.push(`status: ${op.status}`);
-        return `void call(() => ${call}${opts.length ? `, { ${opts.join(", ")} }` : ""})`;
-      }
-      default:
-        return undefined;
-    }
+  /** Whether a tap can call an operation: the contract has it. The screen sends it then, with what the tap gives. */
+  callable(operationId: string, args: Record<string, string> | undefined): boolean {
+    if (!this.ops.has(operationId) || !endpointOf(this.o.api, operationId)) return false;
+    const given = this.s.calls.get(operationId) ?? new Set<string>();
+    for (const k of Object.keys(args ?? {})) given.add(k);
+    this.s.calls.set(operationId, given);
+    return true;
   }
 
-  /** An invoke of a platform capability through the runtime (lib/app `Runtime.invoke`): its arguments read at the tap,
-   *  `then` reading `result`, `catch` reading `error` (its `type`). */
-  private invoke(e: Extract<Effect, { do: "invoke" }>, body: (b: NonNullable<Extract<Effect, { do: "invoke" }>["then"]>, scope: string) => string[]): string {
-    const $ = this.use();
-    this.s.invoke = true;
-    this.s.runtime.add("useInvoke");
-    const args = Object.entries(e.args ?? {}).map(([k, x]) => `${propName(k)}: ${$}.ev(${str(x)})`);
-    const opts: string[] = [];
-    if (e.then) {
-      const r = this.fresh("done");
-      const lines = body(e.then, r);
-      opts.push(`then: (result) => { ${uses(lines, r) ? `const ${r} = ${$}.with({ result }); ` : ""}${lines.join("; ")} }`);
-    }
-    if (e.catch) {
-      const r = this.fresh("failure");
-      const lines = body(e.catch, r);
-      opts.push(`catch: (error) => { ${uses(lines, r) ? `const ${r} = ${$}.with({ error }); ` : ""}${lines.join("; ")} }`);
-    }
-    return `void invoke(${str(e.capability)}, { ${args.join(", ")} }${opts.length ? `, { ${opts.join(", ")} }` : ""})`;
+  /** the key of the form a submit sends: the one named, else the one the part is in */
+  formKey(id: string | undefined): string | undefined {
+    return (id ? this.s.forms.get(id) : this.form)?.name;
   }
 
-  /** a sign-in's then: back to where the app was sent from, if anywhere, else on as it says; its effects run either way */
-  loginNav(operationId: string, lines: string[]): string[] {
-    if (operationId !== this.o.api.auth?.login) return lines;
-    this.app("afterSignIn");
-    const nav = lines.filter((l) => NAV.test(l));
-    const rest = lines.filter((l) => !NAV.test(l));
-    return [...rest, nav.length ? `if (!afterSignIn()) { ${nav.join("; ")} }` : "void afterSignIn()"];
+  /** The key a `{filled}` condition on a field of a form of this screen reads it by: the form keeps what is typed in
+   *  it. Undefined for a part that is no field of one. */
+  filledField(groupId: string, it: Item, key: string): string | undefined {
+    const formId = this.screen ? this.s.formOf.get(groupId) : undefined;
+    const f = formId ? this.s.forms.get(formId) : undefined;
+    if (!f || !it.field) return undefined;
+    this.s.filled.set(key, `() => ${f.name}.value(${str(it.field)})`);
+    return key;
   }
 
-  /** what a call changes before it is answered: the tapped row taken out, or fields of it set */
-  private optimistic(o: Optimistic, $: string): string | null {
-    const v = this.sourceVar(o.source);
-    if (!v) return null;
-    if (o.remove) return `() => ${v}.remove(${$}.ev("item"))`;
-    const fields = Object.entries(o.patch ?? {});
-    if (!fields.length) return null;
-    return `() => ${v}.patch(${$}.ev("item"), (x) => ({ ${fields.map(([k, x]) => `${propName(k)}: ${$}.with({ item: x }).ev(${str(x)})`).join(", ")} }))`;
-  }
-
-  /** a variable set from an expression, as its type has it */
-  setVarValue(expr: string, type: VarType): string {
-    const $ = this.use();
-    return type === "number" ? `${$}.num(${str(expr)}, 0)` : type === "bool" ? `${$}.bool(${str(expr)})` : `${$}.text(${str(expr)})`;
-  }
-
-  /** words that may hold `{{expressions}}`, as code; null when they hold none */
-  words(text: string): string | null {
-    return hasTemplate(text) ? fillCode(this.use(), text) : null;
-  }
-
-  /** the params a tap gives the screen it opens, as code */
-  navParams(params: Record<string, string>): string {
-    const $ = this.use();
-    return `{ ${Object.entries(params).map(([k, x]) => `${propName(k)}: ${$}.ev(${str(x)})`).join(", ")} }`;
+  /** what a tap says of where it was made beyond its part, as code: the row of a repeat it is in, the form */
+  tapAt(): string[] {
+    return [...(this.s.rows.has(this.scope) ? ["item", "index"] : []), ...(this.form ? [`form: ${str(this.form.name)}`] : [])];
   }
 
   /* ---------- the screen's code ---------- */
@@ -535,14 +495,17 @@ export class BoundPrint {
     return !!this.screen?.sources.length;
   }
 
-  /** The lines that open the screen's function: its params, its data, its scope, its regions' states, its forms. `body`
-   *  prints a then or catch body in a scope. Called after the screen's parts are printed (they say what is used). */
-  head(body: (b: NonNullable<FormBinding["then"]>, scope: string) => string[], usesVars: boolean): { lines: string[]; app: Set<string> } {
+  /** The lines that open the screen's function: its params, its data, its scope, its regions' states, its forms, and
+   *  what its taps run on (`useActions`). `answer` puts a form's then or catch in the screen's table of actions and says
+   *  its name there; `acts` says, once the forms are printed, whether the screen has taps to run. Called after the
+   *  screen's parts are printed (they say what is used). */
+  head(answer: (b: Answer, name: string) => string, usesVars: boolean, screen: string, acts: () => { any: boolean; tapped: boolean }): { lines: string[]; app: Set<string> } {
     const s = this.s;
     const app = new Set<string>();
     const lines: string[] = [];
-    /* the forms first, so their handlers say what else they use */
+    /* the forms first, so what follows them says what else they use */
     const forms: string[] = [];
+    const refs: string[] = [];
     for (const f of s.forms.values()) {
       const op = this.ops.get(f.form.operationId)!;
       const rules = this.within(f.scope, f, () => {
@@ -555,15 +518,15 @@ export class BoundPrint {
         out.push(`send: (body, init) => ${send ? send.replace(/body: \{\}( as [\w$]+)?/, (_, cast?: string) => (cast ? `body: body${cast}` : "body")) : "Promise.resolve(body)"}`);
         if (extra.length) out.push(`extra: () => ({ ${extra.map(([k, x]) => `${str(k)}: ${f.scope}.ev(${str(x)})`).join(", ")} })`);
         if (op.status !== 200) out.push(`status: ${op.status}`);
-        const thenLines = f.form.then ? this.loginNav(f.form.operationId, body(f.form.then, "answer")) : f.form.operationId === this.o.api.auth?.login ? (this.app("afterSignIn"), ["void afterSignIn()"]) : [];
-        if (thenLines.length) out.push(`then: (${uses(thenLines, "answer") ? "response, status" : ""}) => {\n${uses(thenLines, "answer") ? `      const answer = ${f.scope}.with({ response, status })\n` : ""}${thenLines.map((l) => `      ${l}`).join("\n")}\n    }`);
-        const catchLines = f.form.catch ? body(f.form.catch, "failure") : [];
-        if (catchLines.length) out.push(`catch: (${uses(catchLines, "failure") ? "error, status" : ""}) => {\n${uses(catchLines, "failure") ? `      const failure = ${f.scope}.with({ error, status })\n` : ""}${catchLines.map((l) => `      ${l}`).join("\n")}\n    }`);
         return out;
       });
       s.runtime.add("useForm");
       forms.push(`const ${f.name} = useForm({\n${rules.map((r) => `    ${r},`).join("\n")}\n  })`, `const ${f.scope} = $.with({ form: ${f.name}.view })`);
       s.dollar = true;
+      /* what follows its answer is the design's, run by the interpreter as a call's then and catch are */
+      const then = f.form.then ? answer(f.form.then, `${f.name} then`) : undefined;
+      const fail = f.form.catch ? answer(f.form.catch, `${f.name} catch`) : undefined;
+      refs.push(`${f.name}: { handle: ${f.name}, operationId: ${str(f.form.operationId)}${then ? `, then: ${then}` : ""}${fail ? `, catch: ${fail}` : ""} }`);
     }
     if (s.dollar || s.sources.length) s.runtime.add("useBindings");
     /* the params are read where there is a scope to read them in */
@@ -592,9 +555,26 @@ export class BoundPrint {
       lines.push(`const ${r.name} = useRegion(${src.name}${o.length ? `, { ${o.join(", ")} }` : ""})`);
       s.runtime.add("useRegion");
     }
-    if (s.call) lines.push("const call = useCall()");
-    if (s.invoke) lines.push("const invoke = useInvoke()");
     lines.push(...forms);
+    const has = acts();
+    if (has.any) {
+      /* what the screen's taps run on: its scope as it was last drawn (the interpreter reads the variables, the session
+         and the forms as they are at each step), the calls they make, its data, its forms */
+      const parts: string[] = [];
+      if (s.dollar || s.sources.length) parts.push("scope: $.scope");
+      const calls = [...s.calls].flatMap(([op, given]) => {
+        const send = this.sendCode(op, given);
+        const status = this.ops.get(op)!.status;
+        return send ? [`      ${propName(op)}: { send: ${send}${status !== 200 ? `, status: ${status}` : ""} },`] : [];
+      });
+      if (calls.length) parts.push(`calls: {\n${calls.join("\n")}\n    }`);
+      if (s.sources.length) parts.push(`sources: { ${s.sources.map((x) => (propName(x.src.name) === x.name ? x.name : `${propName(x.src.name)}: ${x.name}`)).join(", ")} }`);
+      if (refs.length) parts.push(`forms: {\n${refs.map((r) => `      ${r},`).join("\n")}\n    }`);
+      if (s.filled.size) parts.push(`filled: { ${[...s.filled].map(([k, read]) => `${propName(k)}: ${read}`).join(", ")} }`);
+      /* a screen whose forms say what follows their answers, with no tap of its own, only hands them over */
+      lines.push(`${has.tapped ? "const act = " : ""}useActions(${str(screen)}${parts.length ? `, {\n${parts.map((x) => `    ${x},`).join("\n")}\n  }` : ""})`);
+      app.add("useActions");
+    }
     return { lines, app };
   }
 
@@ -686,12 +666,6 @@ export class BoundPrint {
   }
 }
 
-/** whether statements read a scope variable */
-const uses = (lines: string[], name: string) => {
-  const re = new RegExp(`(^|[^\\w$])${name.replace(/\$/g, "\\$")}\\.`);
-  return lines.some((l) => re.test(l));
-};
-
 /** the string literals an expression names: the values a choice bound to it can take */
 function literalsOf(expr: string): string[] {
   const p = parseExpr(expr);
@@ -720,9 +694,6 @@ function literalsOf(expr: string): string[] {
 
 /** a key of an object literal: bare when it is a plain name, else an escaped string */
 const propName = (k: string) => (/^[A-Za-z_$][\w$]*$/.test(k) ? k : str(k));
-
-/** a navigation statement of a body (what a sign-in's then gives way to) */
-const NAV = /^(go|navigate|back|openOverlay)\(/;
 
 /** whether a part's tap submits a form */
 const submits = (it: Item) => [it.action, ...Object.values(it.actions ?? {})].some((a) => a?.effects?.some((e) => e.do === "submit"));

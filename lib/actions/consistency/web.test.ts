@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Transport } from "../../api/transport";
 import type { CapabilityHost, FailureKind } from "../../capabilities/types";
@@ -69,7 +70,8 @@ async function printed(doc: Doc, product: boolean, runtime: () => Runtime) {
   /* the product prints every screen against its runtime, a design with no API too */
   const binds = product ? { runtime: "@/lib/app", api: doc.api ?? {}, operations: apiModelOf("Consistency", contractOf(doc, "Consistency")).operations } : undefined;
   const out = buildScreens(doc, {}, { live: true, ...(binds ? { binds } : {}) });
-  writeFileSync(join(dir, "runtime.tsx"), runtimeSource(out.runtime));
+  /* the widgets' host contract is parts/widgets/host.ts, which an export copies to src/components/widgets */
+  writeFileSync(join(dir, "runtime.tsx"), runtimeSource(out.runtime).replace('"@/components/widgets/host"', JSON.stringify(fileURLToPath(new URL("../../../parts/widgets/host.ts", import.meta.url)))));
   (globalThis as { __tableApi?: unknown }).__tableApi = clientOf(doc, runtime);
   writeFileSync(join(dir, "api.ts"), "export const api = (globalThis as { __tableApi?: never }).__tableApi as never\n");
   const at = (source: string) => (source === "@/runtime" ? "./runtime" : source === "@/api" ? "./api" : source);
@@ -141,7 +143,8 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
   };
   // eslint-disable-next-line no-new-func -- the printer's own auth configuration, read as the app reads it
   const auth = (doc.api ? new Function(`return ${authSource(doc.api)}`)() : undefined) as AuthConfig | undefined;
-  /* the product's registry of capabilities: each invoke reaches the row's back end, as an adapter would the platform */
+  /* the product's registry of capabilities (the prototype's in place of its mocks): each invoke reaches the row's back
+     end, as an adapter would the platform */
   const capabilities: CapabilityHost = {
     invoke: async (name, args) => {
       const a = await backend.invoke(name, args);
@@ -165,7 +168,7 @@ async function webOf(doc: Doc, backend: Backend, product: boolean): Promise<Driv
   /* the runtime's Pressable is drawn too: what starts as the pointer comes over a part, or some time after its screen */
   const own = new Set<unknown>([Mount, rt.AppProvider, RuntimeProvider, rt.Pressable, ...Object.values(screens)]);
   const draw = () => {
-    tree = tiny.render(tiny.react.createElement(RuntimeProvider as never, { runtime }, tiny.react.createElement(rt.AppProvider as never, {}, tiny.react.createElement(Mount, null))), (t) => own.has(t));
+    tree = tiny.render(tiny.react.createElement(RuntimeProvider as never, { runtime }, tiny.react.createElement(rt.AppProvider as never, (product ? {} : { capabilities }) as never, tiny.react.createElement(Mount, null))), (t) => own.has(t));
   };
   /** the pages drawn: the screen on show, then any overlay */
   const pages = (): unknown[] => {
