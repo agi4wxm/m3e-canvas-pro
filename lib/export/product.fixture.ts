@@ -7,7 +7,7 @@ import { proofDoc } from "../exportProject.fixture";
 import { fromAsyncApi, fromOpenApi, mergeApi } from "../api";
 import { fillMocks } from "../mocks/fill";
 import { placeholderFile } from "../mocks/files";
-import type { ApiSpec, Doc } from "../tokens";
+import type { ApiEndpoint, ApiSpec, Doc } from "../tokens";
 import { DocStore, counterIds, guessMeasurer, ops, savedDoc, stateOf } from "../core";
 import type { Lang } from "../i18n";
 
@@ -81,13 +81,30 @@ export const SHOP_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAY
 /** a scenario of the shop's mocks where the server turns a new product's name down, on its field */
 export const NAME_TAKEN = { id: "name-taken", name: "Name taken", ops: { createProduct: { status: 422, body: { type: "about:blank", title: "Unprocessable Content", status: 422, detail: "That name is taken.", errors: [{ pointer: "#/name", detail: "That name is taken" }] } } } };
 
-/** The shop bound to its own contract (lib/api/fixtures/shop.openapi.yaml), built only through operations the way the
- *  AI and MCP build one: a sign-in screen, a paged product list with pull to refresh and its loading, empty, error and
- *  forbidden designs, a product's detail by its id in the screen's params, a form that adds a product (it needs a
- *  session) checked by the schema and by the server, the orders (they need a session too) and a picture of a product
- *  uploaded from a form. scripts/check-product.ts exports it and drives the web app and the mobile app. */
+/** A file the shop answers with: an order's receipt as a PDF (the mocks give the "Receipt" of their library), so the
+ *  exported apps have a download whose bytes must arrive whole (scripts/check-product.ts reads it in the web app). */
+export const RECEIPT_DOWNLOAD: ApiEndpoint = {
+  operationId: "getOrderReceipt",
+  method: "get",
+  path: "/orders/{orderId}/receipt",
+  summary: "The receipt of an order, as a PDF",
+  tags: ["Orders"],
+  parameters: [{ name: "orderId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+  responses: { "200": { description: "The receipt", content: { "application/pdf": { schema: { type: "string", format: "binary" } } } } },
+};
+
+/** an order the receipt is asked for in the checks */
+export const RECEIPT_ORDER = "00000000-0000-4000-8000-0000000000aa";
+
+/** The shop bound to its own contract (lib/api/fixtures/shop.openapi.yaml, and an order's receipt to download beside
+ *  it), built only through operations the way the AI and MCP build one: a sign-in screen, a paged product list with
+ *  pull to refresh and its loading, empty, error and forbidden designs, a product's detail by its id in the screen's
+ *  params, a form that adds a product (it needs a session) checked by the schema and by the server, the orders (they
+ *  need a session too) and a picture of a product uploaded from a form. scripts/check-product.ts exports it and drives
+ *  the web app and the mobile app. */
 export function boundShopDoc(lang: Lang = "en"): { doc: Doc; widths: Record<string, number> } {
-  const api = shopApi();
+  const shop = shopApi();
+  const api: ApiSpec = { ...shop, endpoints: [...(shop.endpoints ?? []), RECEIPT_DOWNLOAD] };
   const mocks = shopMocks(api);
   const store = new DocStore(stateOf({ groups: [], frames: [], api, mocks: { ...mocks, auth: { ...mocks.auth, accept: [SHOP_SIGN_IN] }, scenarios: [...(mocks.scenarios ?? []), NAME_TAKEN] } }), { ids: counterIds("n"), measurer: guessMeasurer, lang: () => lang });
   store.transact("Build the shop", "mcp", (tx) => {
