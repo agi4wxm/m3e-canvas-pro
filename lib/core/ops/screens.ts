@@ -5,6 +5,7 @@ import { instantiate, templateBySlug } from "../../../parts/templates";
 import { metricsOf } from "../../styleLayout";
 import { carryFrame, lengthToHold, minFrameLength, stretchFrame, tidyFrame } from "../../tidy";
 import { actionToSibling, createVariant, familyOf, framesWithout } from "../../variants";
+import { mapNestedBodies } from "../../refs";
 import { loosenedCopies } from "../../flow";
 import { rekeyedAll } from "../../instances";
 import {
@@ -24,7 +25,9 @@ import {
   phoneSizeOf,
   PHONE_W,
   unionRect,
+  STAY_TARGET,
   type Action,
+  type ActionBody,
   type Frame,
   type FramePreset,
   type Group,
@@ -226,10 +229,21 @@ export const removeScreen = op<{ id: string }>({
       const swipe = Object.fromEntries(Object.entries(f.swipe).flatMap(([dir, to]) => (to !== id ? [[dir, to]] : sibling ? [[dir, sibling]] : [])));
       return { ...f, swipe: Object.keys(swipe).length ? swipe : undefined };
     });
-    const kept = (x: Action) => (sibling ? actionToSibling(x, id, sibling) : actionWithoutScreen(x, id));
+    /* what a call goes on to do when it answers goes there too, or stays (lib/refs.ts) */
+    const nested = (b: ActionBody): ActionBody => (b.to !== id ? b : sibling ? { ...b, to: sibling } : { ...b, to: STAY_TARGET, transition: "none" });
+    const kept = (x: Action) => {
+      const inner = mapNestedBodies(x, nested);
+      return sibling ? actionToSibling(inner, id, sibling) : actionWithoutScreen(inner, id);
+    };
+    /* and so does what a form does once it is sent */
+    const keptForm = (g: Group): Group => {
+      if (!g.form || (g.form.then?.to !== id && g.form.catch?.to !== id)) return g;
+      // eslint-disable-next-line unicorn/no-thenable -- an action body, never a function: nothing awaits it
+      return { ...g, form: { ...g.form, ...(g.form.then ? { then: nested(g.form.then) } : {}), ...(g.form.catch ? { catch: nested(g.form.catch) } : {}) } };
+    };
     /* what a part or a definition's part said about that screen */
     const withoutLinks = (g: Group): Group => ({
-      ...g,
+      ...keptForm(g),
       items: g.items.map((it) => {
         const next = { ...it };
         if (next.action) next.action = kept(next.action);

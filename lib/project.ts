@@ -12,6 +12,7 @@ import { COLOR_TOKENS, type ActionBody, Collection, ComponentDef, ComponentProp,
 import { cleanDataSources, cleanExpr, cleanExprMap, cleanForm, cleanRegion, cleanScreenParams } from "./bindings/clean";
 import { BARE_VERSION, PROJECT_VERSION, migrate, versionOf, type Migration } from "./migrations";
 import { fields, withUnknown } from "./keep";
+import { bindRule, conditionRule } from "./rules";
 
 /* A project file is the Doc as JSON, nothing more. Reading one back only checks
  * the shape the editor relies on. */
@@ -69,16 +70,13 @@ const isValue = (v: unknown): v is VarValue => typeof v === "string" || typeof v
 
 const CONDITION = fields("filled", "expr", "var", "op", "value");
 
+/** a condition as the one rule for conditions has it (lib/rules.ts), which operations hold it to as well */
 function cleanCondition(c: unknown): Condition | undefined {
-  if (!isRecord(c)) return undefined;
+  if (!isRecord(c) || conditionRule(c)) return undefined;
   const keep = (built: Condition) => withUnknown(c, built, CONDITION);
   if (typeof c.filled === "string") return keep({ filled: c.filled });
-  if (c.expr !== undefined) {
-    const expr = cleanExpr(c.expr);
-    return expr ? keep({ expr }) : undefined;
-  }
-  if (typeof c.var === "string" && (c.op === "eq" || c.op === "neq") && isValue(c.value)) return keep({ var: c.var, op: c.op, value: c.value });
-  return undefined;
+  if (c.expr !== undefined) return keep({ expr: c.expr as string });
+  return keep({ var: c.var as string, op: c.op as "eq" | "neq", value: c.value as VarValue });
 }
 
 /** how deep a call's `then` and `catch` may hold calls of their own */
@@ -186,7 +184,8 @@ const cleanActions = (map: unknown) => {
   }));
 };
 
-const cleanBind = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, id]) => typeof id === "string")) : undefined);
+/* a binding to a variable, or to an expression no longer than any other may be (lib/rules.ts) */
+const cleanBind = (map: unknown) => (isRecord(map) ? Object.fromEntries(Object.entries(map).filter(([, id]) => !bindRule(id))) : undefined);
 
 /** one variable at most is the dark mode: the first that says so */
 function onlyOneDark(vars: DocVar[]): DocVar[] {

@@ -3,7 +3,7 @@
  * for the author to see and fix (the preview reads it as nothing). */
 
 import { REGION_STATES, type ActionBody, type DataSource, type FormBinding, type RegionBinding, type ScreenParam } from "../tokens";
-import { EXPR_LIMITS } from "./expr";
+import { exprRule } from "../rules";
 import { fields, withUnknown } from "../keep";
 
 /* what each kind of binding has; anything else in one is kept as it came (lib/keep.ts) */
@@ -17,8 +17,8 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 /** a name a binding is called by: data.<name>, params.<name> */
 export const BINDING_NAME = /^[A-Za-z_$][A-Za-z0-9_$]{0,63}$/;
 
-/** an expression as the document keeps it: text no longer than an expression may be */
-export const cleanExpr = (v: unknown): string | undefined => (typeof v === "string" && v.trim() && v.length <= EXPR_LIMITS.length ? v : undefined);
+/** an expression as the document keeps it: text no longer than an expression may be (lib/rules.ts) */
+export const cleanExpr = (v: unknown): string | undefined => (exprRule(v) ? undefined : (v as string));
 
 /** names to expressions, at most 200 of them; empty is nothing */
 export function cleanExprMap(v: unknown): Record<string, string> | undefined {
