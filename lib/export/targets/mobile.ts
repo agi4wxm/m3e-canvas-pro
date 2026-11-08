@@ -189,7 +189,7 @@ export const runtime = createRuntime({
 `;
 
 const API = (scope: string) => `${GENERATED}
-import { createApi, type CallInit } from ${str(`${scope}/api`)}
+import { createApi, segment, type CallInit } from ${str(`${scope}/api`)}
 import { OPERATIONS } from "./contract"
 import { runtime } from "./runtime"
 
@@ -200,10 +200,12 @@ export const api = createApi(runtime.transport)
 export type CallInput = { params?: Record<string, unknown>; body?: unknown }
 
 /** Calls an operation of the contract by its id, as the design names it: its path filled in, the other parameters in its
- *  query or headers, the body as its media type wants it. A 2xx answer's body, or an ApiError. */
-export function call<T = unknown>(operationId: string, input: CallInput = {}, init: CallInit = {}): Promise<T> {
+ *  query or headers, the body as its media type wants it. A 2xx answer's body, or an ApiError. A path parameter is one
+ *  segment of the path, as the typed client keeps it (\`segment\`): one that is "." or ".." is refused, since it would
+ *  send the call, and the session's token, to another address of the API. */
+export async function call<T = unknown>(operationId: string, input: CallInput = {}, init: CallInit = {}): Promise<T> {
   const op = OPERATIONS[operationId]
-  if (!op) return Promise.reject(new Error(\`The contract has no operation \${operationId}\`))
+  if (!op) throw new Error(\`The contract has no operation \${operationId}\`)
   let path = op.path
   const query: Record<string, string | number | boolean> = {}
   const headers: Record<string, string> = { ...init.headers }
@@ -211,7 +213,7 @@ export function call<T = unknown>(operationId: string, input: CallInput = {}, in
     const at = op.params[name] ?? "query"
     if (v === undefined || v === null || v === "") continue
     const value = typeof v === "number" || typeof v === "boolean" ? v : typeof v === "string" ? v : JSON.stringify(v)
-    if (at === "path") path = path.split(\`{\${name}}\`).join(encodeURIComponent(String(value)))
+    if (at === "path") path = path.split(\`{\${name}}\`).join(segment(value))
     else if (at === "header") headers[name] = String(value)
     else query[name] = value
   }

@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { strFromU8, unzipSync } from "fflate";
 import { beforeAll, describe, expect, it } from "vitest";
 import { allPartsDoc } from "../codegen.fixture";
@@ -304,6 +308,28 @@ describe("the mobile app", () => {
     expect(photo).toContain('params: { productId: "params.productId" }');
     expect(text(shop, "apps/mobile/src/generated/screens/SignInScreen.tsx")).toContain("login: true");
     expect(text(shop, "apps/mobile/src/generated/contract.ts")).toContain('"media": "multipart/form-data"');
+  });
+
+  it("keeps a path parameter one segment of its path, as the typed client does: '.' and '..' are refused", async () => {
+    /* the printed modules run as they are: the app's api.ts over its contract.ts, with packages/api's client (its
+       segment()) and a runtime whose transport only remembers what it was asked */
+    const dir = mkdtempSync(join(tmpdir(), "m3e-mobile-api-"));
+    try {
+      writeFileSync(join(dir, "api.ts"), text(shop, "apps/mobile/src/generated/api.ts").replace('from "@shop/api"', 'from "./shopApi"'));
+      writeFileSync(join(dir, "contract.ts"), text(shop, "apps/mobile/src/generated/contract.ts"));
+      writeFileSync(join(dir, "client.ts"), text(shop, "packages/api/src/client.ts"));
+      writeFileSync(join(dir, "shopApi.ts"), 'export { segment } from "./client"\nexport type CallInit = object\nexport const createApi = (t: { request(r: unknown): unknown }) => ({ request: (r: unknown) => t.request(r) })\n');
+      writeFileSync(join(dir, "runtime.ts"), "export const asked: { path: string }[] = []\nexport const runtime = { transport: { request: async (r: { path: string }) => (asked.push(r), { status: 200, headers: {}, body: {} }) } }\n");
+      const { call } = (await import(pathToFileURL(join(dir, "api.ts")).href)) as { call: (op: string, input: { params: Record<string, unknown> }) => Promise<unknown> };
+      const { asked } = (await import(pathToFileURL(join(dir, "runtime.ts")).href)) as { asked: { path: string }[] };
+      for (const step of ["..", "."]) await expect(call("getProduct", { params: { productId: step } })).rejects.toThrow(TypeError);
+      expect(asked).toEqual([]);
+      await call("getProduct", { params: { productId: "../me" } });
+      await call("uploadProductImage", { params: { productId: "%2e%2e" } });
+      expect(asked.map((r) => r.path)).toEqual(["/products/..%2Fme", "/products/%252e%252e/images"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("writes a picture the document holds as a file the app bundles, and the screen draws that file", () => {

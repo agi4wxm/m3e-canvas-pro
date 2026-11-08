@@ -15,6 +15,7 @@ import { buildProduct } from "../product";
 import { boundShopDoc } from "../product.fixture";
 import { MINIAPP_KIT_DIR, MINIAPP_KIT_FILES, kitFileFor } from "./kitFiles";
 import { miniThemeOf, themeCss } from "./theme";
+import { callsModule } from "./app";
 
 /* The mini-program (lib/export/miniapp, lib/export/targets/miniapp.ts): the kit it copies is the kit's folder, its data
  * still says what the editor's registry says, its theme is a stylesheet a mini-program reads, and a document bound to
@@ -114,6 +115,16 @@ describe("the shop bound to its contract", () => {
     expect(runtime).toMatch(/if \(process\.env\.NODE_ENV !== "production" && process\.env\.TARO_APP_API_MOCKS !== "off"\) \{\n\s+const \{ startMocks \} = require\("\.\/mocks"\)/);
     expect(files["src/generated/mocks.ts"]).toContain("{ presumed: startsSignedIn(mock.scenario) }");
     expect(files["src/generated/calls.ts"]).toContain("export const api = createApi(runtime.transport);");
+  });
+
+  it("keeps a path parameter one segment of its path where it builds the path itself, as the typed client does", () => {
+    /* a body the typed client does not type (no schema): the call writes its path itself */
+    const openapi = { openapi: "3.1.0", info: { title: "T", version: "1" }, paths: { "/files/{name}": { put: { operationId: "putFile", parameters: [{ name: "name", in: "path", required: true, schema: { type: "string" } }], requestBody: { content: { "application/octet-stream": {} } }, responses: { "204": { description: "kept" } } } } } };
+    const op = { name: "putFile", operationId: "putFile", method: "PUT" as const, path: "/files/{name}", params: ["name"], query: false, body: false, bodyType: "unknown", responseType: "void", status: 204 };
+    const calls = callsModule({ openapi, asyncapi: null, types: "", operations: [op] }, { apiImport: "@t/api", kitImport: "../kit", runtimeFrom: "./runtime" });
+    expect(calls).toContain('import { createApi, segment } from "@t/api";');
+    expect(calls).toContain('path: "/files/" + segment(seg(a["name"]))');
+    expect(calls).not.toContain("encodeURIComponent");
   });
 
   it("comes out the same each time", async () => {
