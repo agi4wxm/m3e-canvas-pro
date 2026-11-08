@@ -115,6 +115,35 @@ describe("the canvas view of a part", () => {
     expect(header({ imagePos: "background", textAlign: "center" })).toBe("relative self-stretch");
   });
 
+  it("gives the controls of two fields or labels on one screen ids of their own, each label pointing at its own", () => {
+    for (const [slug, controls] of [
+      ["field", ["input", "textarea", "checkbox", "switch"]],
+      ["label", ["checkbox", "switch"]],
+    ] as const) {
+      const def = partBySlug(slug)!;
+      for (const control of controls) {
+        /* the screen as the preview and the exported page draw it: each part scoped by its item id */
+        const html = renderToStaticMarkup(createElement("div", null, renderNode(treeOf(def, { control }, undefined, "a1")), renderNode(treeOf(def, { control }, undefined, "b2"))));
+        /* base-ui gives the visible control an id of its own and the one given to the hidden input it labels */
+        const ids = [...html.matchAll(/\sid="((?:field|label)-control[^"]*)"/g)].map((m) => m[1]);
+        const fors = [...html.matchAll(/\sfor="([^"]+)"/g)].map((m) => m[1]);
+        expect(ids.length, `${slug} ${control}`).toBe(2);
+        expect(new Set(ids).size, `${slug} ${control}`).toBe(2);
+        expect(fors, `${slug} ${control}`).toEqual(ids);
+      }
+      /* drawn for no item (a palette tile), it keeps the name it always had */
+      expect(inlineNode(treeOf(def, { control: "checkbox" }))).toContain(`id="${slug}-control"`);
+    }
+  });
+
+  it("sizes a resizable's panels as shares of the group, not as pixels", () => {
+    const tree = treeOf(partBySlug("resizable")!, { split: 30 });
+    const sizes = (tree.children ?? []).flatMap((c) => (typeof c !== "string" && c.type === "ResizablePanel" ? [c.props?.defaultSize] : []));
+    /* react-resizable-panels v4 reads a bare number as pixels: 30 would be a 30px panel, and its double-click reset too */
+    expect(sizes).toEqual(["30%", "70%"]);
+    expect(inlineNode(tree)).toContain(`<ResizablePanel defaultSize="30%">`);
+  });
+
   it("puts a part that opens something in a box, and prints it closed", () => {
     const dialog = partBySlug("dialog")!;
     expect(viewOf(dialog).type).toBe("Contained");

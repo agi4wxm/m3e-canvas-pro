@@ -6,7 +6,7 @@ import { setGlobalLang } from "./i18n";
 import { counterIds, DocStore, guessMeasurer, ops, stateOf } from "./core";
 import { openProject, projectFile } from "./project";
 import { cleanMotion, cleanTrigger, flowStarts, motionOf, triggerOf, withMotion } from "./prototype";
-import { makeItem, transitionOf, type Doc, type Group } from "./tokens";
+import { makeItem, transitionOf, type Doc, type Group, type Transition } from "./tokens";
 
 beforeAll(() => setGlobalLang("en"));
 
@@ -55,6 +55,28 @@ describe("set_action and set_flow_start", () => {
     expect(() => s.run(ops.setAction, { id: "btn", action: { to: "b", motion: { kind: "zoom" } } as never }, ai)).toThrow(/motion/);
     expect(() => s.run(ops.setAction, { id: "btn", action: { to: "back", overlay: true } as never }, ai)).toThrow(/overlay/);
     expect(() => s.run(ops.setAction, { id: "btn", action: { to: "none", scrollTo: "gone" } as never }, ai)).toThrow(/scroll/);
+  });
+
+  it("changes the transition of a link that has a motion from the canvas picker, the motion following it", () => {
+    const s = store();
+    const pick = (transition: Transition) => s.run(ops.setLinkTransition, { links: ["btn|"], transition }, ai);
+    s.run(ops.setAction, { id: "btn", action: { to: "b", motion: { kind: "push", dir: "up", easing: "spring", ms: 400 } } as never }, ai);
+    /* the same kind of move from the side picked, its easing and duration kept; and the preview plays the motion */
+    pick("slideLeft");
+    expect(action(s)).toEqual({ to: "b", transition: "slideLeft", motion: { kind: "push", dir: "right", easing: "spring", ms: 400 } });
+    expect(transitionOf(action(s)!.motion!)).toBe("slideLeft");
+    pick("fade");
+    expect(action(s)).toEqual({ to: "b", transition: "fade", motion: { kind: "dissolve", easing: "spring", ms: 400 } });
+    pick("slideDown");
+    expect(action(s)).toEqual({ to: "b", transition: "slideDown", motion: { kind: "slide", dir: "down", easing: "spring", ms: 400 } });
+    pick("none");
+    expect(action(s)).toEqual({ to: "b", transition: "none", motion: { kind: "instant" } });
+    /* no motion plays an expand: the transition does */
+    pick("expand");
+    expect(action(s)).toEqual({ to: "b", transition: "expand" });
+    /* a link without a motion only changes its transition */
+    pick("slideUp");
+    expect(action(s)).toEqual({ to: "b", transition: "slideUp" });
   });
 
   it("starts a flow at a screen, and no longer", () => {
