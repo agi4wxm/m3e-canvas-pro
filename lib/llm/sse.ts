@@ -65,8 +65,9 @@ export class SseParser {
   }
 }
 
-/** the events of a response body; stopping early closes the connection */
-export async function* readSse(body: ReadableStream<Uint8Array>): AsyncGenerator<SseMessage> {
+/** the events of a response body; stopping early closes the connection. `onBytes` hears every piece that arrives,
+ *  a keep-alive line too (what a stream's idle timer listens to). */
+export async function* readSse(body: ReadableStream<Uint8Array>, onBytes?: () => void): AsyncGenerator<SseMessage> {
   const reader = body.getReader();
   const parser = new SseParser();
   let finished = false;
@@ -74,6 +75,7 @@ export async function* readSse(body: ReadableStream<Uint8Array>): AsyncGenerator
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
+      onBytes?.();
       yield* parser.push(value);
     }
     finished = true;
