@@ -20,20 +20,12 @@ import { darkVarOf } from "../../tokens";
 import { GENERATED, jsonCode, jsonFile, propKey, sortedObject, str } from "../code";
 import { kebab } from "../paths";
 import { boundaryDifferences } from "../boundary";
+import { EXPO_PINS, MOBILE_PACKAGES } from "../../exportPackages";
 import { generated, seeded, type ProductContext, type ProductFiles, type ProductTarget, type Workspace } from "../types";
 
 /** The Expo packages the app needs beyond the kit's (rn/package.json): the router and what it stands on, the secure
- *  store for the session's tokens, the pickers for uploads. Each the version Expo SDK 58's bundledNativeModules.json
- *  names (checked against the npm registry when written here). */
-export const MOBILE_PINS: Record<string, string> = {
-  "expo-constants": "58.0.15",
-  "expo-document-picker": "58.0.4",
-  "expo-image-picker": "58.0.10",
-  "expo-linking": "58.0.16",
-  "expo-router": "58.0.30",
-  "expo-secure-store": "58.0.2",
-  "react-native-screens": "4.30.1",
-};
+ *  store for the session's tokens, the pickers for uploads, at the Expo line's versions (lib/exportPackages.ts). */
+export const MOBILE_PINS: Record<string, string> = Object.fromEntries(MOBILE_PACKAGES.map((name) => [name, EXPO_PINS[name]]));
 
 /** what the app's tests run on, at the kit's versions (rn/package.json) */
 const TEST_DEV = ["@testing-library/react-native", "@types/jest", "jest", "jest-expo", "test-renderer"];

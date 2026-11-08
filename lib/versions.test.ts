@@ -1,9 +1,12 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
-import { versionModule, versionTable } from "../scripts/gen-versions";
+import { KITS, kitManifest, lockProblems, versionModule, versionTable } from "../scripts/gen-versions";
 import { allPartsDoc } from "./codegen.fixture";
-import { EXPORT_ALWAYS, EXPORT_DEV } from "./exportPackages";
+import { EXPO_PINS, EXPORT_ALWAYS, EXPORT_DEV, MOBILE_PACKAGES, PRODUCT_PINS, TARO_PINS } from "./exportPackages";
+import { MOBILE_PINS } from "./export/targets/mobile";
+import { miniappDependencies } from "./export/targets/miniapp";
+import { rnDependencies } from "./export/rn/app";
 import { proofDoc } from "./exportProject.fixture";
 import { buildProject, importsIn, type ProjectFiles } from "./exportProject";
 import { SOURCE_PATHS } from "./exportSources";
@@ -72,6 +75,36 @@ describe("the version table", () => {
 
   it("leaves the lockfile out of what the editor can read", () => {
     expect(SOURCE_PATHS).not.toContain("bun.lock");
+  });
+});
+
+describe("one place for every version written by hand (lib/exportPackages.ts)", () => {
+  it("writes the kits' manifests from it: each package at its line's pin, else at the product's", () => {
+    for (const kit of KITS) {
+      const text = readFileSync(new URL(`../${kit.dir}/package.json`, import.meta.url), "utf8");
+      const out = kitManifest(text, kit.line);
+      expect(out.unpinned, kit.dir).toEqual([]);
+      expect(out.text, `${kit.dir}/package.json is behind: bun run gen:versions`).toBe(text);
+    }
+    /* what the mobile app and the mini-program pin is what the kits are checked with */
+    expect(rnDependencies().devDependencies.typescript).toBe(PRODUCT_PINS.typescript);
+    expect(miniappDependencies().dependencies["@tarojs/taro"]).toBe(TARO_PINS["@tarojs/taro"]);
+    expect(MOBILE_PINS).toEqual(Object.fromEntries(MOBILE_PACKAGES.map((n) => [n, EXPO_PINS[n]])));
+  });
+
+  it("bumps a version with one edit: the manifest follows, and a lockfile that has not is told", () => {
+    const manifest = JSON.stringify({ name: "kit", dependencies: { expo: "1.0.0", typescript: "1.0.0" }, devDependencies: { left: "1.0.0" } }, null, 2) + "\n";
+    const out = kitManifest(manifest, { expo: "2.0.0" });
+    expect(JSON.parse(out.text).dependencies).toEqual({ expo: "2.0.0", typescript: PRODUCT_PINS.typescript });
+    expect(out.unpinned).toEqual(["left"]);
+    const lock = (expo: string) => JSON.stringify({ lockfileVersion: 3, packages: { "": { dependencies: { expo, typescript: PRODUCT_PINS.typescript } }, "node_modules/expo": { version: expo }, "node_modules/typescript": { version: PRODUCT_PINS.typescript } } });
+    const bumped = JSON.stringify({ name: "kit", dependencies: { expo: "2.0.0", typescript: PRODUCT_PINS.typescript } });
+    expect(lockProblems(bumped, lock("1.0.0"))).toEqual(["expo: the lockfile's dependencies have 1.0.0, the manifest 2.0.0", "expo: the lockfile installs 1.0.0, the manifest pins 2.0.0"]);
+    expect(lockProblems(bumped, lock("2.0.0"))).toEqual([]);
+  });
+
+  it("writes each package once per line: a line's pin is only where it differs from the product's", () => {
+    for (const line of [EXPO_PINS, TARO_PINS]) for (const [name, version] of Object.entries(line)) expect(PRODUCT_PINS[name] === version, name).toBe(false);
   });
 });
 
